@@ -39,7 +39,19 @@ foam.CLASS({
       javaType: 'foam.nanos.fs.Storage',
       javaFactory: `
 return new foam.nanos.fs.FallbackStorage(
-  new foam.nanos.fs.FileSystemStorage(System.getProperty("DOCUMENT_HOME")),
+  new foam.nanos.fs.FileSystemStorage(System.getProperty("DOCUMENT_HOME")) {
+    @Override
+    public OutputStream getOutputStream(String name) {
+      var path = getPath(name);
+      if ( path == null ) return null;
+
+      try {
+        return java.nio.file.Files.newOutputStream(path);
+      } catch (java.io.IOException e) {
+        return null;
+      }
+    }
+  },
   new foam.nanos.fs.ResourceStorage("documents")
 );`
     }

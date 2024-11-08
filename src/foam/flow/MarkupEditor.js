@@ -42,7 +42,7 @@ table-layout: fixed;
         attrs({ valign: 'top' }).
         addClass(this.myClass('left')).
         add(this.slot(function(preview) {
-          return preview ? preview.toE(this.__subSubContext__) : this.E();
+          return preview ? preview.toE(null, this.__subSubContext__) : this.E();
         })).
         end('td').
         start('td').

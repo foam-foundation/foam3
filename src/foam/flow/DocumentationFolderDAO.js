@@ -16,6 +16,7 @@ foam.CLASS({
   ],
 
   javaImports: [
+    'foam.flow.Document',
     'foam.nanos.fs.Storage',
     'java.nio.charset.StandardCharsets',
     'java.util.HashSet',
@@ -83,13 +84,16 @@ return sink;`
     },
     {
       name: 'verifyId',
-      args: [ { name: 'id', type: 'String' } ],
+      args: 'Object obj',
+      type: 'String',
       javaCode: `
 // Very conservative allowable characters to avoid any possible filename shennanigans.
 
+String id = obj instanceof Document ? (String) getPK((Document) obj) : (String) obj;
 if ( ! id.matches("^[a-zA-Z0-9_-]+$") ) {
   throw new RuntimeException("Invalid primary key, must use only alphanumeric characters, _ and -.");
 }
+return id;
 `
     },
     {
@@ -97,8 +101,7 @@ if ( ! id.matches("^[a-zA-Z0-9_-]+$") ) {
       javaCode: `
 Storage storage = getStorage();
 
-String id = (String)getPK(obj);
-verifyId(id);
+String id = verifyId(obj);
 
 OutputStream oStream = storage.getOutputStream(id + ".flow");
 
@@ -122,13 +125,13 @@ return obj;`
       name: 'find_',
       javaCode: `
 // TODO: Escape/sanitize file name
-verifyId((String)id);
+String idStr = verifyId(id);
 
 Storage storage = getStorage();
-String path = (String)id + ".flow";
+String path = idStr + ".flow";
 
 foam.flow.Document obj = new foam.flow.Document();
-obj.setId((String)id);
+obj.setId(idStr);
 
 // TODO: We could parse the markup on the server to get the embedded title.
 

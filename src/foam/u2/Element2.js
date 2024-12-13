@@ -487,6 +487,9 @@ foam.CLASS({
       }
     },
     {
+      name: 'cursor_',
+    },
+    {
       class: 'String',
       name: 'id'
     },
@@ -958,8 +961,29 @@ foam.CLASS({
       return attr && attr.value;
     },
 
-    function appendChild_(c) {
-      this.element_.appendChild(c);
+    function insertBefore(newNode, ref) {
+      newNode.parentNode = this;
+      let i = this.childNodes.findIndex(c => c == ref);
+      this.childNodes.splice(i, 0, newNode);
+      this.element_.insertBefore(newNode.element_, ref.element_);
+      newNode.load && newNode.load();
+    },
+
+    function insertChild_(c) {
+      if ( this.cursor_ ) {
+        this.insertBefore(c, this.cursor_.element);
+        this.cursor_.added(c);
+      } else {
+        this.appendChild(c)
+        this.childNodes.push(c);
+      }
+    },
+
+    function appendChild(c) {
+      c.parentNode = this;
+      this.childNodes.push(c);
+      this.element_.appendChild(c.element_);
+      c.load && c.load();
     },
 
     function removeChild(c) {
@@ -1223,7 +1247,51 @@ foam.CLASS({
         c = c.toE(null, this.__subSubContext__);
       }
       if ( foam.core.DynamicFunction.isInstance(c) ) {
-        this.addChild_(foam.u2.FunctionNode.create({fn: c, parentNode: this}, this), this);
+        // when adding a "dynamic function"
+        // actually add a marker element
+        // every time the dynamic function runs
+        // remove the previous contents
+        // and run the function so that
+        // the new contents is inserted where the marker is
+
+
+        // nested dynamic functions
+        // a dyamic fucntion might itself call anotehr dynamic function
+        // in which case, when we clean up our contents we should
+        // remove any contents that hte function generated
+
+        // this.addChild_(foam.u2.FunctionNode.create({fn: c, parentNode: this}, this), this);
+        // return;
+        let fn = c;
+        let ref = foam.u2.Text.create({ text: '' });
+        let prev = [];
+
+        ref.onDetach(fn);
+        ref.onDetach(() => {
+          prev.forEach(c => {
+            this.removeChild(c);
+          });
+        });
+        this.insertChild_(ref);
+
+        fn.self = this;
+        fn.pre = () => {
+          prev.forEach(c => {
+            this.removeChild(c);
+          });
+          prev = [];
+          this.cursor_ = {
+            element: ref,
+            added: (c) => {
+              prev.push(c);
+            }
+          };
+        };
+
+        fn.post = () => {
+          self.cursor_ = undefined;
+        };
+        //this.addChild_(foam.u2.FunctionNode.create({fn: c, parentNode: this}, this), this);
         return;
       }
       if ( foam.Function.isInstance(c) ) {
@@ -1245,17 +1313,11 @@ foam.CLASS({
         }
         */
       if ( this.isLiteral(c) ) {
-        c = foam.u2.Text.create({text: c});
-        this.childNodes.push(c);
-        c.parentNode = parentNode;
-        this.appendChild_(c.element_);
+        this.insertChild_(foam.u2.Text.create({text: c}));
       } else if ( c.then ) {
         this.addChild_(this.PromiseSlot.create({ promise: c }), parentNode);
       } else if ( c.element_ ) {
-        this.childNodes.push(c);
-        c.parentNode = parentNode;
-        this.appendChild_(c.element_);
-        c.load && c.load();
+        this.insertChild_(c);
       } else if ( foam.core.FObject.isInstance(c) ) {
         this.addChild_(this);
         this.addChild_(foam.u2.DetailView.create({data: c}, this), this);
@@ -1376,11 +1438,44 @@ foam.CLASS({
      * the DAO
      */
     function select(dao, f, update, opt_comparator) {
-      this.add(foam.u2.DAOSelectNode.create({
-        self: this,
-        dao: dao,
-        code: f
+      let ref = foam.u2.Text.create({ text: '' });
+      this.add(ref);
+
+      let currentBatch = 0;
+      let nodes = [];
+
+      let paint = async () => {
+        let batch = ++currentBatch;
+        let data = await dao.select();
+
+        if ( ref.isDetached() || batch !== currentBatch ) {
+          return;
+        }
+
+        nodes.forEach(n => this.removeChild(n));
+
+        this.cursor_ = {
+          element: ref,
+          added: (e) => {
+            nodes.push(e)
+          }
+        };
+
+        data.a.forEach(obj => {
+          f.call(this.startContext({ data: obj }), obj);
+          this.endContext();
+        });
+
+        this.cursor_ = undefined;
+      };
+
+      ref.onDetach(dao.listen({
+        put: paint,
+        remove: paint,
+        reset: paint,
       }));
+      paint();
+
       return this;
     },
 

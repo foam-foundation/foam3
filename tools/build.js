@@ -72,6 +72,7 @@ var
   DEBUG_SUSPEND             = false,
   DELETE_RUNTIME_JOURNALS   = false,
   DELETE_RUNTIME_LOGS       = false,
+// FOAM_BIN_VERSION,
   FOAM_REVISION,
   GEN_JAVA                  = true,
   HOST_NAME                 = 'localhost',
@@ -102,7 +103,7 @@ var PROJECT;
 // Short-form of PROJECT.version
 var VERSION;
 var TIMESTAMP;
-var TIMESTAMP_VERSION;
+var FOAM_BIN_VERSION;
 
 // Root POM tasks and exports
 var TASKS, EXPORTS;
@@ -117,7 +118,6 @@ globalThis.foam = {
     PROJECT = pom;
     TIMESTAMP = Date.now();
     VERSION = pom.version;
-    TIMESTAMP_VERSION = `${VERSION}-${TIMESTAMP}`;
     TASKS   = pom.tasks;
     JAVA_RELEASE = pom.java || JAVA_RELEASE;
     APP_NAME = PROJECT.name;
@@ -225,7 +225,7 @@ Manifest-Version: 1.0
 Main-Class: foam.nanos.boot.Boot
 Class-Path: ${jars}
 Implementation-Title: ${APP_NAME}
-Implementation-Version: ${TIMESTAMP_VERSION}
+Implementation-Version: ${FOAM_BIN_VERSION}
 Specification-Version: ${PROJECT_REVISION}
 Implementation-Timestamp: ${TIMESTAMP}
 ${APP_NAME}-Revision: ${PROJECT_REVISION}
@@ -379,12 +379,14 @@ task('Copy Java libraries from BUILD_DIR/lib to APP_HOME/lib.', [], function cop
 
 task("Call pmake with JS Maker to build 'foam-bin.js'.", [], function genJS() {
   execSync(`rm -f ${BUILD_DIR}/js/foam-bin-* >/dev/null 2>&1`);
+  // FOAM_BIN_VERSION undefined when running -XgenJS
+  if ( ! FOAM_BIN_VERSION ) FOAM_BIN_VERSION = VERSION;
   if ( STAGE_JS ) {
-    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${TIMESTAMP_VERSION} -pom=${pom()} -builddir=${BUILD_DIR} -stage=0`, { stdio: 'inherit' });
-    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${TIMESTAMP_VERSION} -pom=${pom()} -builddir=${BUILD_DIR} -stage=1`, { stdio: 'inherit' });
-    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${TIMESTAMP_VERSION} -pom=${pom()} -builddir=${BUILD_DIR} -stage=2`, { stdio: 'inherit' });
+    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${FOAM_BIN_VERSION} -pom=${pom()} -builddir=${BUILD_DIR} -stage=0`, { stdio: 'inherit' });
+    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${FOAM_BIN_VERSION} -pom=${pom()} -builddir=${BUILD_DIR} -stage=1`, { stdio: 'inherit' });
+    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${FOAM_BIN_VERSION} -pom=${pom()} -builddir=${BUILD_DIR} -stage=2`, { stdio: 'inherit' });
   } else {
-    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${TIMESTAMP_VERSION} -pom=${pom()} -builddir=${BUILD_DIR}`, { stdio: 'inherit' });
+    execSync(__dirname + `/pmake.js -flags=web,-java -makers=JS -version=${FOAM_BIN_VERSION} -pom=${pom()} -builddir=${BUILD_DIR}`, { stdio: 'inherit' });
   }
 });
 
@@ -398,7 +400,7 @@ task('Generate Java and JS packages.', [ 'genJava', 'genJS' ], function packageF
 
 
 task('Call pmake to generate & compile java, collect journals, call Maven and copy documents.', [], function genJava() {
-//   commandLine 'bash', './gen.sh', "${project.genJavaDir}", "${project.findProperty("pom")?:"pom" }"
+  //   commandLine 'bash', './gen.sh', "${project.genJavaDir}", "${project.findProperty("pom")?:"pom" }"
   var makers = VERBOSE ? 'Verbose,' : '';
   makers += GEN_JAVA ? 'Java,Maven,Javac' : 'Maven' ;
   makers += ',Journal,Doc';
@@ -621,8 +623,9 @@ buildEnv({
   APP_HOME:          () => APP_ROOT + '/' + APP_NAME,
   JOURNAL_HOME:      () => `${APP_HOME}/journals`,
   DOCUMENT_HOME:     () => `${APP_HOME}/documents`,
+// FOAM_BIN_VERSION never defined when set here
+//  FOAM_BIN_VERSION:  () => ( STAGE_JS ? `${VERSION}-${TIMESTAMP}` : `${VERSION}`),
   LOG_HOME:          () => `${APP_HOME}/logs`,
-
   JAR_LIB_DIR:       () => ( PACKAGE ? `${PROJECT_HOME}/${BUILD_DIR}` : APP_HOME ) + '/lib',
   JAR_NAME:          () => `${APP_NAME}-${VERSION}.jar`,
   JAR_OUT:           () => `${JAR_LIB_DIR}/${JAR_NAME}`,
@@ -640,6 +643,9 @@ buildEnv({
 
 
 task('Set environmental variables needed by Java.', [], function setenv() {
+  // Feel this should be in buildEnv
+  FOAM_BIN_VERSION = ( STAGE_JS ? `${VERSION}-${TIMESTAMP}` : `${VERSION}`);
+
   if ( TEST || BENCHMARK ) {
     rmdir(APP_HOME);
     JAVA_OPTS = '-enableassertions ' + JAVA_OPTS;

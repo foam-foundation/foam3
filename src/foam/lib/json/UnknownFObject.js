@@ -12,12 +12,46 @@ foam.CLASS({
 
   documentation: 'A FObject for unknown model',
 
+  javaImports: [
+    'foam.core.FObject',
+    'foam.lib.formatter.FObjectFormatter',
+    'foam.lib.formatter.JSONFObjectFormatter'
+  ],
+
   properties: [
     {
       class: 'String',
       name: 'json'
     }
   ],
+
+  javaCode: `
+    protected static final ThreadLocal<FObjectFormatter> formatter_ = new ThreadLocal<>() {
+      @Override
+      protected JSONFObjectFormatter initialValue() {
+        return new JSONFObjectFormatter()
+          .setOutputDefaultValues(false)
+          .setOutputReadableDates(false)
+          .setQuoteKeys(true)
+          .setOutputShortNames(true);
+      }
+
+      @Override
+      public FObjectFormatter get() {
+        FObjectFormatter formatter = super.get();
+        formatter.reset();
+        return formatter;
+      }
+    };
+
+    public static UnknownFObject cast(FObject obj) {
+      if ( obj == null ) return null;
+
+      FObjectFormatter formatter = formatter_.get();
+      String json = formatter.stringify(obj);
+      return new UnknownFObject(obj.getX(), json);
+    }
+  `,
 
   methods: [
     {

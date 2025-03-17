@@ -858,7 +858,7 @@ foam.CLASS({
       if ( hash ) hash = hash.substring(1);
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {
         await this.pushDefaultMenu();
-      } else if ( hash != this.currentMenu?.id || this.currentMenu.authenticate ) {
+      } else if ( hash != this.currentMenu?.id || this.currentMenu.authenticate || hash == 'sign-in' ) {
         this.routeUpdated()
       }
       this.initLayout.resolve();

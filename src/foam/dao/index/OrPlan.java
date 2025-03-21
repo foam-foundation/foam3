@@ -7,6 +7,7 @@ package foam.dao.index;
 import foam.dao.AbstractDAO;
 import foam.dao.Sink;
 import foam.mlang.order.Comparator;
+import foam.mlang.predicate.Or;
 import foam.mlang.predicate.Predicate;
 import java.util.List;
 import static foam.dao.AbstractDAO.decorateDedupSink_;
@@ -14,12 +15,12 @@ import static foam.dao.AbstractDAO.decorateSink;
 
 
 public class OrPlan implements SelectPlan {
-  protected Predicate        predicate_;
+  protected Predicate[]      predicates_;
   protected List<SelectPlan> planList_;
 
   public OrPlan(Predicate predicate, List planList) {
-    predicate_ = predicate;
-    planList_  = planList;
+    predicates_ = ((Or) predicate).getArgs();
+    planList_   = planList;
   }
 
   public long cost() {
@@ -29,12 +30,16 @@ public class OrPlan implements SelectPlan {
   }
 
   public void select(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    if ( planList_ == null || planList_.size() == 0 )
+    if ( planList_ == null || planList_.isEmpty() )
       return;
+
     sink = decorateSink(null, sink, skip, limit, order, null);
     sink = decorateDedupSink_(sink); // Comes second so that duplicates aren't counted for skip and limit
+
+    int i = 0;
     for ( SelectPlan plan : planList_ ) {
-      plan.select(state, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
+      Predicate p = i < predicates_.length ? predicates_[i++] : null;
+      plan.select(state, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, p);
     }
     sink.eof();
   }

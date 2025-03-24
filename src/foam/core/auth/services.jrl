@@ -378,6 +378,7 @@ p({
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("users")
+      .setDecorator(new foam.core.auth.UserPasswordHashingDAO(x, new foam.dao.NullDAO(x, foam.core.auth.User.getOwnClassInfo())))
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.User.REFERRAL_CODE });
   """
@@ -395,9 +396,8 @@ p({
       .setPermissioned(true)
       .setDecorator(
         new foam.dao.ValidatingDAO(x,
-          new foam.core.auth.UserPasswordHashingDAO(x,
-            new foam.core.auth.UserLifecycleStateDAO(x,
-            new foam.dao.NullDAO(x, foam.core.auth.User.getOwnClassInfo()))),
+          new foam.core.auth.UserLifecycleStateDAO(x,
+            new foam.dao.NullDAO(x, foam.core.auth.User.getOwnClassInfo())),
           new foam.core.auth.validators.UserGroupAndSpidValidator()
         )
       )
@@ -481,11 +481,10 @@ p({
       .setDecorator(
         new foam.core.auth.UserRegistrationSanitationDAO(x,
         new foam.core.auth.UserRegistrationDAO(x,
-        new foam.core.auth.UserPasswordHashingDAO(x,
         new foam.dao.ValidatingDAO(x,
           new foam.dao.NullDAO(x,foam.core.auth.User.getOwnClassInfo()),
           new foam.core.auth.validators.UserGroupAndSpidValidator()
-        )))))
+        ))))
       .setAuthorize(false)
       .setRuler(true)
       .setPm(true)

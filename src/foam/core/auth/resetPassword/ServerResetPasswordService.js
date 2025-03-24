@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
- foam.CLASS({
+foam.CLASS({
   package: 'foam.core.auth.resetPassword',
   name: 'ServerResetPasswordService',
   implements: [ 'foam.core.auth.resetPassword.ResetPasswordService' ],
@@ -19,6 +19,7 @@
     'foam.core.auth.Subject',
     'foam.core.auth.User',
     'foam.core.auth.UserNotFoundException',
+    'foam.core.auth.UserPasswordHashingDAO',
     'foam.core.logger.Logger',
     'foam.mlang.predicate.Predicate',
     'foam.util.SafetyUtil',
@@ -86,7 +87,7 @@
           User user = findUser(x, newPasswordObj.getEmail(), newPasswordObj.getUserName());
           user = (User) user.fclone();
           user.setDesiredPassword(desiredPassword);
-          ((DAO) x.get("userDAO")).put_(x, user);
+          ((DAO) x.get("localUserDAO")).put_(x, user);
         } else {
           throw new AuthorizationException("Email verification failed");
         }

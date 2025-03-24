@@ -117,18 +117,21 @@ foam.CLASS({
         Map<String, Object> map = getAddressMap_(typeMap, googleTypeMapping());
 
         // Region is fetched from dao because Google doesn't provide ISO codes
-        var regionProp = (String) Array.get(googleTypeMapping().get("regionId"), 0);
-        var regionShort = findType(typeMap, regionProp, true);
-        var regionLong = findType(typeMap, regionProp, false);
-        Region ourRegion = (Region) ((DAO) x.get("regionDAO")).find(map.get("countryId") + "-" + regionShort);
-        // Try to find by name if id cant be used
-        if ( ourRegion == null ) {
-          ourRegion = (Region) ((DAO) x.get("regionDAO"))
-            .where(MLang.EQ(Region.COUNTRY_ID, map.get("countryId")))
-            .find(MLang.OR(MLang.EQ(Region.ISO_CODE, regionShort), MLang.EQ(Region.NAME, regionLong)));
-        }
-        if ( ourRegion != null ) {
-          map.put("regionId", ourRegion.getId());
+        Array regionPropArray = (Array) googleTypeMapping().get("regionId");
+        if ( regionPropArray != null ) {
+          var regionProp = (String) Array.get(regionPropArray, 0);
+          var regionShort = findType(typeMap, regionProp, true);
+          var regionLong = findType(typeMap, regionProp, false);
+          Region ourRegion = (Region) ((DAO) x.get("regionDAO")).find(map.get("countryId") + "-" + regionShort);
+          // Try to find by name if id cant be used
+          if ( ourRegion == null ) {
+            ourRegion = (Region) ((DAO) x.get("regionDAO"))
+              .where(MLang.EQ(Region.COUNTRY_ID, map.get("countryId")))
+              .find(MLang.OR(MLang.EQ(Region.ISO_CODE, regionShort), MLang.EQ(Region.NAME, regionLong)));
+          }
+          if ( ourRegion != null ) {
+            map.put("regionId", ourRegion.getId());
+          }
         }
 
         return (Address) x.create(getOwnClassInfo().getObjClass(), (Map<String, Object>)map);
@@ -154,7 +157,6 @@ foam.CLASS({
           "sublocality_level_1", new Object[] {"sublocality_level_1"},
           "sublocality", new Object[] {"sublocality"},
           "city", new Object[] {"postal_town","locality","sublocality","sublocality_level_1","neighborhood","administrative_area_level_3"},
-          "regionId", new Object[] {"administrative_area_level_2"},
           "countryId", new Object[] {new Object[] {"country",true}},
           "postalCode", new Object[] {"postal_code"}
         });

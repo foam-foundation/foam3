@@ -16,6 +16,7 @@ foam.CLASS({
   properties: [
     {
       name: 'regionId',
+      visibility: 'HIDDEN',
       required: false
     }
   ]

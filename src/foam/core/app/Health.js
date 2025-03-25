@@ -23,7 +23,8 @@ foam.CLASS({
   ],
 
   tableColumns: [
-    'id',
+    'hostname',
+    'appName',
     'version',
     'address',
     'port',
@@ -34,14 +35,18 @@ foam.CLASS({
     'bootTime'
   ],
 
+  ids: ['hostname', 'appName'],
+
   properties: [
     {
-      name: 'id',
+      name: 'hostname',
       class: 'String',
+      shortName: 'h',
       visibility: 'RO',
     },
     {
-      name: 'name',
+      documentation: 'Application name',
+      name: 'appName',
       shortName: 'n',
       class: 'String',
       visibility: 'RO',
@@ -211,16 +216,15 @@ foam.CLASS({
 
     AppConfig appConfig = (AppConfig) x.get("appConfig");
     setMode(appConfig.getMode());
-    setName(appConfig.getName());
+    setAppName(appConfig.getName());
 
-    String id = System.getProperty("hostname", "localhost");
-    if ( "localhost".equals(id) ) {
-      id = System.getProperty("user.name");
+    String host = System.getProperty("hostname", "localhost");
+    if ( "localhost".equals(host) ) {
+      host = System.getProperty("user.name");
     }
-    if ( ! SafetyUtil.isEmpty(getName()) ) {
-      id += "-"+getName();
-    }
-    setId(id);
+    setHostname(host);
+
+    setId(new HealthId(getHostname(), getAppName()));
 
     StringBuilder sb = new StringBuilder();
     String version = this.getClass().getPackage().getImplementationVersion();
@@ -280,11 +284,13 @@ foam.CLASS({
       name: 'toSummary',
       type: 'String',
       code: function() {
-        return this.id + '/' + this.address;
+        return this.hostname + '-' + this.appName + '/' + this.address;
       },
       javaCode: `
       StringBuilder sb = new StringBuilder();
-      sb.append(getId());
+      sb.append(getHostname());
+      sb.append("-");
+      sb.append(getAppName());
       sb.append("/");
       sb.append(getAddress());
       return sb.toString();

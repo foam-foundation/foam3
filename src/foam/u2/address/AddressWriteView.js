@@ -302,7 +302,9 @@ foam.CLASS({
       // Address uses foam.pattern.Faceted pattern,
       // so the model has to be created to override existing model
       // Also this process should be repeated if the country changes
+      let oldData = this.data;
       this.data = this.Address.create(this.data);
+      oldData.detach();
       this.data$.dot('countryId').sub(foam.events.oneTime(this.initAddress));
     }
   ]

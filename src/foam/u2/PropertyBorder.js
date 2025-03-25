@@ -129,7 +129,7 @@ foam.CLASS({
 
           errorSlot.follow(slot);
         }
-        this.data$.sub(linkErrorSlot);
+        this.data.onDetach(this.data$.sub(linkErrorSlot));
         linkErrorSlot();
       } else {
         errorSlot = this.ConstantSlot.create({ value: null });

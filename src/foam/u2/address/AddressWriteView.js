@@ -14,6 +14,7 @@ foam.CLASS({
     'foam.mlang.Expressions'
   ],
 
+  mixins: [ 'foam.u2.layout.ContainerWidth' ],
   requires: [
     'foam.core.auth.Address',
     'foam.core.auth.Region',
@@ -37,9 +38,8 @@ foam.CLASS({
       gap: 12px;
     }
 
-    ^three-column {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+    ^third-line {
+      display: flex;
       grid-gap: 8px;
       align-items: start;
     }
@@ -240,6 +240,7 @@ foam.CLASS({
       var choices = this.data$.dot('countryId').map(function(countryId) {
         return self.regionDAO.where(self.EQ(self.Region.COUNTRY_ID, countryId || ''));
       });
+      var regionView$ = foam.lang.SimpleSlot.create({}, this);
 
       this
         .addClass(this.myClass())
@@ -258,28 +259,29 @@ foam.CLASS({
           }
         })
         .call(this.placeTopFields, [self])
-        .start(this.Grid).addClass(this.myClass('three-column'))
-          .start(this.GUnit, { columns: this.data.CITY.gridColumns })
-            .tag(this.data.CITY.__)
-          .end()
-          .start(this.GUnit, { columns: this.data.REGION_ID.gridColumns })
-            .tag(this.data.REGION_ID.__, { 
-              config: {
-                view: {
-                  class: 'foam.u2.view.ChoiceView',
-                  placeholder: this.PLACE_HOLDER,
-                  objToChoice: function(region) {
-                    return [region.id, region.name];
+        .start().addClass(this.myClass('third-line'))
+          .call(function() {
+            self.initContainer(this);
+          })
+          .style({ 'flex-direction': this.inlineSize$.map(v => v >= this.DisplayWidth.MD.minWidth ? 'row' : 'column') })
+          .tag(this.data.CITY.__)
+          .add(this.slot(function(data) {
+            return this.E().style({display: 'contents'})
+              .tag(data.REGION_ID.__, { 
+                config: {
+                  view: {
+                    class: 'foam.u2.view.ChoiceView',
+                    placeholder: self.PLACE_HOLDER,
+                    objToChoice: function(region) {
+                      return [region.id, region.name];
+                    },
+                    dao$: choices
                   },
-                  dao$: choices
-                },
-                label$: this.regionLabel$
-              }
-            })
-          .end()
-          .start(this.GUnit, { columns: this.data.POSTAL_CODE.gridColumns })
-            .tag(this.data.POSTAL_CODE.__, { config: { label$: this.postalCodeLabel$ }})
-          .end()
+                  label$: self.regionLabel$
+                }
+              }, regionView$)
+            }))
+          .tag(this.data.POSTAL_CODE.__, { config: { label$: this.postalCodeLabel$ }})
         .end();
     },
     function placeTopFields(self) {

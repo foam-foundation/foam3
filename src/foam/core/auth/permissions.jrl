@@ -2,5 +2,7 @@ p({class:"foam.core.auth.Permission",id:"user.action.delete",description:"Access
 p({class:"foam.core.auth.Permission",id:"user.action.disable",description:"Access to user action to disable a user"})
 p({class:"foam.core.auth.Permission",id:"user.action.activate",description:"Access to user action to activate a user"})
 p({class:"foam.core.auth.Permission",id:"lifecyclestate.deleted.user",description:"Access to retrieve deleted users from userDAO"})
+p({class:"foam.core.auth.Permission",id:"lifecyclestate.disabled.user",description:"Access to retrieve disabled users from userDAO"})
+p({class:"foam.core.auth.Permission",id:"lifecyclestate.rejected.user",description:"Access to retrieve rejected users from userDAO"})
 p({class:"foam.core.auth.Permission",id:"user.column.lifecycleState",description:"Access to view lifecyclestate in table views"})
 p({class:"foam.core.auth.Permission",id:"strategyreference.read.foam_core_auth_UserLifecycleTicket",description:"Access to create UserLifecycleTicket"})

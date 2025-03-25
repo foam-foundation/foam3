@@ -49,6 +49,11 @@ foam.CLASS({
       class: 'String',
       name: 'rejectPermission_',
       javaFactory: 'return "lifecyclestate.rejected." + getName();'
+    },
+    {
+      class: 'String',
+      name: 'disablePermission_',
+      javaFactory: 'return "lifecyclestate.disabled." + getName();'
     }
   ],
 
@@ -66,7 +71,8 @@ foam.CLASS({
 
         if (
             ( lifecycleAwareObj.getLifecycleState() == LifecycleState.DELETED && ! canReadDeleted(x) ) ||
-            ( lifecycleAwareObj.getLifecycleState() == LifecycleState.REJECTED && ! canReadRejected(x) )
+            ( lifecycleAwareObj.getLifecycleState() == LifecycleState.REJECTED && ! canReadRejected(x) ) ||
+            ( lifecycleAwareObj.getLifecycleState() == LifecycleState.DISABLED && ! canReadDisabled(x) )
           ) {
           return null;
         }
@@ -83,6 +89,7 @@ foam.CLASS({
 
         boolean userCanReadDeleted = canReadDeleted(x);
         boolean userCanReadRejected = canReadRejected(x);
+        boolean userCanReadDisabled = canReadDisabled(x);
 
         List<Predicate> predicateList = new ArrayList<>();
 
@@ -97,6 +104,11 @@ foam.CLASS({
         if ( ! userCanReadRejected ) {
           Predicate rejectedPredicate = MLang.EQ(getOf().getAxiomByName("lifecycleState"), LifecycleState.REJECTED);
           predicateList.add(rejectedPredicate);
+        }
+
+        if ( ! userCanReadDisabled ) {
+          Predicate disabledPredicate = MLang.EQ(getOf().getAxiomByName("lifecycleState"), LifecycleState.DISABLED);
+          predicateList.add(disabledPredicate);
         }
 
         Predicate[] predicateArray = predicateList.toArray(new Predicate[predicateList.size()]);
@@ -166,6 +178,15 @@ foam.CLASS({
       javaCode: `
         AuthService authService = (AuthService) x.get("auth");
         return authService.check(x, getRejectPermission_());
+      `
+    },
+    {
+      name: 'canReadDisabled',
+      type: 'Boolean',
+      args: 'Context x',
+      javaCode: `
+        AuthService authService = (AuthService) x.get("auth");
+        return authService.check(x, getDisablePermission_());
       `
     }
   ]

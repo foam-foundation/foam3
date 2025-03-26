@@ -574,8 +574,7 @@ foam.CLASS({
   messages: [
     { name: 'PHONE_NUMBER_REQUIRED', message: 'Required' },
     { name: 'INVALID_PHONE_NUMBER',  message: 'Valid phone number required' },
-    { name: 'INVALID_CHARACTER',     message: 'Phone Number can only contain numbers' },
-    { name: 'LEADING_ZERO_ERROR',    message: 'Phone number cannot start with 0' }
+    { name: 'INVALID_CHARACTER',     message: 'Phone Number can only contain numbers' }
   ],
 
   constants: [
@@ -583,11 +582,6 @@ foam.CLASS({
       name: 'ALPHA_CHAR_CHECK',
       factory: () => /^[\d+-]*$/,
       javaFactory: '  return "^[\\d+-]*$";'
-    },
-    {
-      name: 'LEADING_ZERO_CHECK',
-      factory: () => /^\+\d+-0/,
-      javaFactory: '  return "^\\\\+\\\\d+-0";'
     }
   ],
 
@@ -607,11 +601,6 @@ foam.CLASS({
             args: [ this.name ],
             query: 'thisValue !exists||thisValue ~' + this.PHONE_NUMBER_REGEX,
             errorString: this.INVALID_PHONE_NUMBER
-          },
-          {
-            args: [ this.name ],
-            query: 'thisValue !exists||!(thisValue ~' + this.LEADING_ZERO_CHECK + ')',
-            errorString: this.LEADING_ZERO_ERROR
           }
         ];
       }

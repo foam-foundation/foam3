@@ -185,6 +185,7 @@ foam.POM({
     { name: "foam/util/EmailTest",                                    flags: "js|java" },
     { name: "foam/util/PasswordTest",                                 flags: "js|java" },
     { name: "foam/util/SecurityUtilTest",                             flags: "js|java" },
+    { name: "foam/util/PhoneNumberUtil",                              flags: "js|java" },
     { name: "foam/util/async/Sequence",                               flags: "js" },
     { name: "foam/util/async/MetaContextAgent",                       flags: "js" },
     { name: "foam/util/async/SequenceInstaller",                      flags: "js" },

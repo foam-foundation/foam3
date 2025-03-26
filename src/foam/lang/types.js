@@ -819,6 +819,10 @@ foam.CLASS({
   name: 'PhoneNumber',
   extends: 'String',
   label: 'Phone number',
+  documentation: `
+    A phone number with a country code and local number separated by a hyphen.
+    Example: +44-01234567890
+  `,
   properties: [ [ 'displayWidth', 20 ] ]
 });
 

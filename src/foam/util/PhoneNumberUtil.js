@@ -15,7 +15,7 @@ foam.CLASS({
       name: 'internationalize',
       args: 'String phoneNumber',
       type: 'String',
-      documentation: `Converts a phone number from local format to international format.
+      documentation: `Converts a phone number to international format.
       Removes the leading '0' after the country code if present.
       Example: +44-01234567890 -> +441234567890
       If the phone number doesnt contain a hyphen, returns the original number unchanged.`,

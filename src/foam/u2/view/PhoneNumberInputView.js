@@ -22,10 +22,6 @@ foam.CLASS({
     'countryDAO'
   ],
 
-  implements: [
-    'foam.mlang.Expressions'
-  ],
-
   css: `
   ^ {
     display: flex;
@@ -44,7 +40,7 @@ foam.CLASS({
   properties: [
     {
       class: 'PhoneNumber',
-      name: 'data',
+      name: 'data'
     },
     {
       class: 'Reference',

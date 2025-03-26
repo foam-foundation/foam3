@@ -2352,7 +2352,7 @@ foam.CLASS({
       name: 'view',
       value: {
         class: 'foam.u2.view.StringView',
-        writeView: { class: 'foam.u2.TextField', type: 'tel' }
+        writeView: { class: 'foam.u2.view.PhoneNumberInputView' }
       }
     }
   ]

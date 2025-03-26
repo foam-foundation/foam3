@@ -505,7 +505,7 @@ foam.CLASS({
       javaPreSet: `
         if ( !foam.util.SafetyUtil.isEmpty(val) ) {
           val = val.replaceAll(" ", "");
-          val = val.replaceAll("[-()]", "");
+          val = val.replaceAll("[()]", "");
         }
       `
     },

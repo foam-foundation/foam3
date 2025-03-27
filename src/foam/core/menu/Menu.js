@@ -139,8 +139,15 @@
       class: 'Boolean',
       name: 'authenticate',
       value: true,
-      documentation: `By deafult, authenticate: false only bypasses the authentication check for logged out users,
-      logged in users still need to be granted permission to see unauthenticated menus`,
+      documentation: `
+        Lagacy! Use "authorizationStatus" property instead.
+
+        authenticate:true is equivalent to authorizationStatus:AUTHENTICATED and
+        authenticate:false is equivalent to authorizationStatus:PUBLIC.
+
+        AuthorizationStatus also has UNAUTHENTICATED enum that can be used.
+        See. AuthorizationStatus for details.
+      `,
       transient: true,
       hidden: true,
       javaPostSet: `
@@ -159,7 +166,8 @@
     {
       class: 'Enum',
       of: 'foam.core.menu.AuthorizationStatus',
-      name: 'authorizationStatus'
+      name: 'authorizationStatus',
+      documentation: 'See. AuthorizationStatus'
     }
   ],
 
@@ -231,17 +239,14 @@
     },
     {
       name: 'authorizeOnRead',
-      documentation: `
-        If a menu is unauthenticated, we allow read without checking permission only when the session is also unauthenticated.
-        If the session is authenticated, read permission will be checked as usual.
-        This allows us make certain unauthenticated menus accessible to unauthenticated sessions such as sign-in, and sign-up
-      `,
+      documentation: 'See. AuthorizationStatus',
       javaCode: `
-        // Authentication is only skipped for anonymous sessions, logged in users still require menu.read.<menu_id> permission
+        // Check menu.readPredicate
         if ( ! f(x) ) {
           throw ACCESS_DENIED;
         }
 
+        // Check user permission to access authenticated menu
         AuthService auth = (AuthService) x.get("auth");
         if ( getAuthorizationStatus() == AuthorizationStatus.AUTHENTICATED
           && ! auth.check(x, "menu.read." + getId())
@@ -249,6 +254,7 @@
           throw ACCESS_DENIED;
         }
 
+        // Check subject to access unauthenticated menu
         var subject = auth.getCurrentSubject(x);
         if ( getAuthorizationStatus() == AuthorizationStatus.UNAUTHENTICATED
           && subject != null && ! auth.isUserAnonymous(x, subject.getUser().getId())

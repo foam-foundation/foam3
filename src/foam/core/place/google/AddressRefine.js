@@ -117,7 +117,7 @@ foam.CLASS({
         Map<String, Object> map = getAddressMap_(typeMap, googleTypeMapping());
 
         // Region is fetched from dao because Google doesn't provide ISO codes
-        Array regionPropArray = (Array) googleTypeMapping().get("regionId");
+        Object[] regionPropArray = (Object[]) googleTypeMapping().get("regionId");
         if ( regionPropArray != null ) {
           var regionProp = (String) Array.get(regionPropArray, 0);
           var regionShort = findType(typeMap, regionProp, true);

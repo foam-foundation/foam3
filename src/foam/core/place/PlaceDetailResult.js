@@ -72,6 +72,8 @@ foam.CLASS({
         try {
           t = Class.forName("foam.core.auth." + (String) ((PlaceDetailAddressComponent) getTypeMap().get("country")).getShortName() + "Address");
         } catch (ClassNotFoundException e) {
+          // no-op
+        } catch (Exception e) {
           Loggers.logger(getX(), this).error("placeDetailResult", e);
         }
         try {

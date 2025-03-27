@@ -144,7 +144,8 @@ foam.CLASS({
                       .addParameter("fields", String.join(",", config.getPlaceDetailFields()))
                       .addParameter("key", config.getApiKey());
 
-          Loggers.logger(x, this).debug("placeDetail url", uri.toString());
+          // Debug log
+          // Loggers.logger(x, this).debug("placeDetail url", uri.toString());
           HttpGet request = new HttpGet(uri.toString());
 
           try (CloseableHttpClient httpClient = HttpClients.createDefault();

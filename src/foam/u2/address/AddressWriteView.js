@@ -26,7 +26,8 @@ foam.CLASS({
     'countryDAO',
     'regionDAO',
     'placeService?',
-    'translationService'
+    'translationService',
+    'ipGeolocationService?'
   ],
   exports: [
     'data.countryId as currentCountry'
@@ -220,6 +221,7 @@ foam.CLASS({
   methods: [
     function init() {
       this.initAddress();
+      this.setCountryCodeFromIP();
     },
     function render() {
       this.SUPER();
@@ -298,6 +300,19 @@ foam.CLASS({
     }
   ],
   listeners: [
+    {
+      name: 'setCountryCodeFromIP',
+      code: async function() {
+        if ( ! this.data || this.data.countryId || ! this.ipGeolocationService ) return;
+        let ip = this.ipGeolocationService.ipLocation;
+        if ( ! ip ) {
+          ip = await this.ipGeolocationService.getIPLocation();
+        }
+        if ( ip?.country && this.data && ! this.data.countryId ) {
+          this.data.countryId = ip.country;
+        }
+      }
+    },
     function initAddress() {
       // Address uses foam.pattern.Faceted pattern,
       // so the model has to be created to override existing model

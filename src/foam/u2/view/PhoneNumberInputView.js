@@ -19,7 +19,8 @@ foam.CLASS({
   ],
 
   imports: [
-    'countryDAO'
+    'countryDAO',
+    'ipGeolocationService?'
   ],
 
   css: `
@@ -75,8 +76,10 @@ foam.CLASS({
 
   methods: [
     function render() {
-      this.parsePhoneNumber();
-      
+      this.parsePhoneNumber().then(() => {
+        this.setCountryCodeFromIP();
+      });
+
       this
         .addClass(this.myClass())
         .startContext({data: this})
@@ -87,6 +90,19 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'setCountryCodeFromIP',
+      code: async function() {
+        if ( this.countryCode || ! this.ipGeolocationService ) return;
+        let ip = this.ipGeolocationService.ipLocation;
+        if ( ! ip ) {
+          ip = await this.ipGeolocationService.getIPLocation();
+        }
+        if ( ip?.country && ! this.countryCode ) {
+          this.countryCode = ip.country;
+        }
+      }
+    },
     {
       name: 'updatePhoneNumber',
       on: ['this.propertyChange.localPhoneNumber', 'this.propertyChange.countryObject'],
@@ -101,12 +117,13 @@ foam.CLASS({
       on: ['this.propertyChange.data'],
       code: async function() {
         this.deFeedback(async () => {
+          if ( ! this.data ) return;
           var parts = this.data.split('-');
           if ( parts.length === 2 ) {
             var countryCode = parts[0].substring(1); // Remove the '+' prefix
-            
-            this.countryCode = await this.countryDAO.find(this.EQ(this.Country.PHONE_CODE, countryCode)); 
-            this.localPhoneNumber = parts[1]; 
+
+            this.countryCode = await this.countryDAO.find(this.EQ(this.Country.PHONE_CODE, countryCode));
+            this.localPhoneNumber = parts[1];
           }
         });
       }

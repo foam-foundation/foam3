@@ -17,7 +17,22 @@ p({
 p({
   "class":"foam.core.boot.CSpec",
   "name":"ipGeolocationService",
+  serve: true,
+  lazyClient: false,
   "service":{
     "class":"foam.net.ipgeo.IPGeolocationService"
-  }
+  },
+  "boxClass":"foam.net.ipgeo.AbstractIPGeolocationServiceSkeleton",
+  "client":"""
+    {
+      "class": "foam.net.ipgeo.ClientIPGeolocationService",
+      "delegate": {
+        "class":"foam.box.SessionClientBox",
+        "delegate": {
+          "class":"foam.box.HTTPBox",
+          "url": "service/ipGeolocationService"
+        }
+      }
+    }
+  """
 })

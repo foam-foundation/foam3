@@ -280,6 +280,7 @@ foam.POM({
     { name: "session/SessionNotFoundException",                                           flags: "js|java" },
     { name: "menu/XRegistration",                                                         flags: "js|java" },
     { name: "menu/AbstractMenu",                                                          flags: "js|java" },
+    { name: "menu/AuthorizationStatus",                                                   flags: "js|java" },
     { name: "menu/DAOMenu",                                                               flags: "js" },
     { name: "menu/DAOMenu2",                                                              flags: "web" },
     { name: "menu/DocumentMenu",                                                          flags: "js" },

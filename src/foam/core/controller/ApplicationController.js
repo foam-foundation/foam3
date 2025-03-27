@@ -750,7 +750,7 @@ foam.CLASS({
       var defaultMenu = await this.findDefaultMenu(this.client.menuDAO);
       defaultMenu = defaultMenu != null ? defaultMenu : '';
       if ( defaultMenu ) {
-        if ( defaultMenu.authenticate ) {
+        if ( defaultMenu.authorizationStatus == 'AUTHENTICATED' ) {
           this.routeTo(defaultMenu.id);
         } else {
           let ret = await this.pushMenu(defaultMenu.id ?? '');
@@ -858,7 +858,7 @@ foam.CLASS({
       if ( hash ) hash = hash.substring(1);
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {
         await this.pushDefaultMenu();
-      } else if ( hash != this.currentMenu?.id || this.currentMenu.authenticate ) {
+      } else if ( hash != this.currentMenu?.id || this.currentMenu.authorizationStatus != 'PUBLIC' ) {
         this.routeUpdated()
       }
       this.initLayout.resolve();

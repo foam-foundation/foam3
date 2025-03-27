@@ -271,7 +271,7 @@ p({"class":"foam.core.menu.Menu","id":"reset","label":"Reset Password","handler"
 p({
   "class":"foam.core.menu.Menu",
   "id":"sign-in",
-  "authenticate":false,
+  "authorizationStatus":1,
   "label":"Sign In",
   "handler":{
     "class":"foam.core.menu.ViewMenu",
@@ -285,7 +285,7 @@ p({
 p({
   "class":"foam.core.menu.Menu",
   "id":"sign-up",
-  "authenticate":false,
+  "authorizationStatus":1,
   "label":"Sign Up",
   "handler":{
     "class":"foam.core.menu.ViewMenu",

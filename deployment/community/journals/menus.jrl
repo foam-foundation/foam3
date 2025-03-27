@@ -9,7 +9,7 @@ p({
 p({
   "class":"foam.core.menu.Menu",
   "id":"sign-in",
-  "authenticate":false,
+  "authorizationStatus":1,
   "label":"Sign In",
   "handler":{
     "class":"foam.core.menu.ViewMenu",

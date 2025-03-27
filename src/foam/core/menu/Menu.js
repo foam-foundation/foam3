@@ -140,7 +140,8 @@
       name: 'authenticate',
       value: true,
       documentation: `
-        Lagacy! Use "authorizationStatus" property instead.
+        IMPORTANT! "authenticate" property is now legacy and is being proxied to
+        "authorizationStatus" property on postSet to minimize menus.jrl migration.
 
         authenticate:true is equivalent to authorizationStatus:AUTHENTICATED and
         authenticate:false is equivalent to authorizationStatus:PUBLIC.

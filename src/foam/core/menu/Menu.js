@@ -150,6 +150,7 @@
       `,
       transient: true,
       hidden: true,
+      javaFactory: 'return true;',
       javaPostSet: `
         setAuthorizationStatus(val ? AuthorizationStatus.AUTHENTICATED : AuthorizationStatus.PUBLIC);
       `

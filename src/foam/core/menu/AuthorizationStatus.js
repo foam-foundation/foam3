@@ -21,10 +21,11 @@ foam.ENUM({
     | Unauthenticated | Yes                | Yes                | Default menu (redirect) |
     +-----------------+--------------------+--------------------+-------------------------+
 
-    Public menus are menus that are accessible by anybody. Eg. faq, toc, etc,.
+    Public menus are menus that are accessible by anybody.
+    Eg. faq, privacy-policy, forgot-password, etc.,.
 
-    Authenticated menus are application menus eg. dashboard, profile, etc.,
-    accessible only by logged-in users.
+    Authenticated menus are accessible only by logged-in users.
+    Eg. dashboard, update-profile, etc.,.
 
     Unauthenticated menus are usually "sign-in" and "sign-up" menus which are
     accessible only when users first landed on the app. But after successfully

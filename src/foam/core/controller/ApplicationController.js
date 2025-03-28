@@ -43,6 +43,7 @@ foam.CLASS({
     'foam.core.auth.Subject',
     'foam.core.crunch.CapabilityIntercept',
     'foam.core.crunch.CapabilityJunctionStatus',
+    'foam.core.menu.AuthorizationStatus',
     'foam.core.menu.VerticalMenu',
     'foam.core.notification.Notification',
     'foam.core.notification.ToastState',
@@ -750,7 +751,7 @@ foam.CLASS({
       var defaultMenu = await this.findDefaultMenu(this.client.menuDAO);
       defaultMenu = defaultMenu != null ? defaultMenu : '';
       if ( defaultMenu ) {
-        if ( defaultMenu.authorizationStatus == 'AUTHENTICATED' ) {
+        if ( defaultMenu.authorizationStatus === this.AuthorizationStatus.AUTHENTICATED ) {
           this.routeTo(defaultMenu.id);
         } else {
           let ret = await this.pushMenu(defaultMenu.id ?? '');
@@ -858,7 +859,7 @@ foam.CLASS({
       if ( hash ) hash = hash.substring(1);
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {
         await this.pushDefaultMenu();
-      } else if ( hash != this.currentMenu?.id || this.currentMenu.authorizationStatus != 'PUBLIC' ) {
+      } else if ( hash != this.currentMenu?.id || this.currentMenu.authorizationStatus !== this.AuthorizationStatus.PUBLIC ) {
         this.routeUpdated()
       }
       this.initLayout.resolve();

@@ -19,10 +19,10 @@ p({
   "name":"ipGeolocationService",
   serve: true,
   lazyClient: false,
-  "service":{
-    "class":"foam.net.ipgeo.IPGeolocationService"
-  },
-  "boxClass":"foam.net.ipgeo.AbstractIPGeolocationServiceSkeleton",
+  // service:{
+  //   "class":"your.application.IPGeolocationService"
+  // },
+  "boxClass":"foam.net.ipgeo.IPGeolocationServiceSkeleton",
   "client":"""
     {
       "class": "foam.net.ipgeo.ClientIPGeolocationService",

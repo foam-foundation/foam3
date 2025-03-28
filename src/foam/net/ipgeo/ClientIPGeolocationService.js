@@ -7,11 +7,18 @@
 foam.CLASS({
   package: 'foam.net.ipgeo',
   name: 'ClientIPGeolocationService',
-  extends: 'foam.net.ipgeo.ClientAbstractIPGeolocationService',
+  implements: [ 'foam.net.ipgeo.IPGeolocationService' ],
+
   requires: [
     'foam.lang.Latch'
   ],
+
   properties: [
+    {
+      class: 'Stub',
+      of: 'foam.net.ipgeo.IPGeolocationService',
+      name: 'delegate'
+    },
     {
       name: 'ipLocation',
       class: 'FObjectProperty',
@@ -21,7 +28,7 @@ foam.CLASS({
       name: 'initLatch',
       documentation: 'Latch to denote ip has been loaded and service is ready',
       factory: function() { return this.Latch.create(); }
-    },
+    }
   ],
 
   methods: [

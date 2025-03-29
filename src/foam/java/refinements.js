@@ -1442,12 +1442,15 @@ return new String[] {
             visibility: 'public',
             static: true,
             args: [ { name: 'ordinal', type: 'int' } ],
-            body: `
-switch (ordinal) {
-${this.VALUES.map(v => `\tcase ${v.ordinal}: return ${cls.name}.${v.name};`).join('\n')}
-  default: return null;
-}`
+            body: `return switch (ordinal) {
+${this.VALUES.map(v => `\tcase ${v.ordinal} -> ${cls.name}.${v.name};`).join('\n')}
+  default -> null;
+};`
           });
+
+          var nameLabel = function(v) {
+            return v.label === v.name ? `"${v.name}"` : `"${v.name}", "${v.label}"`;
+          };
 
           cls.method({
             name: 'forLabel',
@@ -1455,14 +1458,10 @@ ${this.VALUES.map(v => `\tcase ${v.ordinal}: return ${cls.name}.${v.name};`).joi
             visibility: 'public',
             static: true,
             args: [ { name: 'label', type: 'String' } ],
-            body: `
-switch (label) {
-${this.VALUES.map(v => `\tcase "${v.label}": return ${cls.name}.${v.name};`).join('\n')}
-  default: switch (label) {
-    ${this.VALUES.map(v => `\tcase "${v.name}": return ${cls.name}.${v.name};`).join('\n')}
-  }
-  return null;
-}`
+            body: `return switch (label) {
+${this.VALUES.map(v => `\tcase ${nameLabel(v)} -> ${cls.name}.${v.name};`).join('\n')}
+  default -> null;
+};`
           });
 
           return cls;

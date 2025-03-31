@@ -107,6 +107,7 @@ foam.CLASS({
       name: 'updatePhoneNumber',
       on: ['this.propertyChange.localPhoneNumber', 'this.propertyChange.countryObject'],
       code: function() {
+        if ( ! this.localPhoneNumber ) return;
         this.deFeedback(() => {
           this.data = '+' + this.countryObject.phoneCode + '-' + this.localPhoneNumber;
         });
@@ -124,6 +125,9 @@ foam.CLASS({
 
             this.countryCode = await this.countryDAO.find(this.EQ(this.Country.PHONE_CODE, countryCode));
             this.localPhoneNumber = parts[1];
+          } else if ( parts.length === 1 ) {
+            // Support for local phone numbers without a country code
+            this.localPhoneNumber = parts[0];
           }
         });
       }

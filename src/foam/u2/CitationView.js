@@ -26,7 +26,7 @@ foam.CLASS({
       color: $black;
     }
 
-    ^rw:hover {
+    ^rw:hover:not([disabled]) {
       background: $grey50;
       cursor: pointer;
     }

@@ -262,11 +262,11 @@ foam.CLASS({
       display: flex;
     }
 
-    ^ .disabled {
-      filter: grayscale(100%) opacity(60%);
+    ^container .disabled {
+      filter: grayscale(100%) opacity(70%);
     }
 
-    ^ .disabled:hover {
+    ^container .disabled:hover {
       cursor: default;
     }
 
@@ -554,6 +554,7 @@ foam.CLASS({
                     .select( section.choicesLimit ? section.filteredDAO$proxy.limit(section.choicesLimit) : section.filteredDAO$proxy, obj => {
                       return this.E()
                         .start(self.rowView, { data: obj })
+                          .attr('disabled', section.disabled)
                           .attr('role', 'option')
                           .enableClass('disabled', section.disabled)
                           .callIf(! section.disabled, function() {

@@ -30,6 +30,7 @@ foam.RELATIONSHIP({
   },
   targetProperty: {
     createVisibility: 'HIDDEN',
-    updateVisibility: 'RO'
+    updateVisibility: 'RO',
+    columnPermissionRequired: true
   }
 });

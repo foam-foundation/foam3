@@ -663,7 +663,7 @@ foam.CLASS({
       gridColumns: 6,
       value: foam.core.auth.LifecycleState.ACTIVE,
       writePermissionRequired: false,
-      help: 'Recommend using state change actions'
+      documentation: 'Recommend using state change actions'
     },
     {
       class: 'Reference',
@@ -802,6 +802,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'trackingId',
+      columnPermissionRequired: true,
       documentation: 'Unique id optionally used to track a user.'
     },
     {

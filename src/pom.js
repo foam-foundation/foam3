@@ -707,6 +707,7 @@ foam.POM({
     { name: "foam/u2/view/CardSelectWithRadioView",                   flags: "web" },
     { name: "foam/u2/view/NoBackStack",                               flags: "web" },
     { name: "foam/u2/view/ReadOnlyEnumView",                          flags: "web" },
+    { name: "foam/u2/view/EnumDescriptionROView",                     flags: "web" },
     { name: "foam/u2/view/ViewReferenceFObjectView",                  flags: "web" },
     { name: "foam/u2/EnumView",                                       flags: "web" },
     { name: "foam/u2/ClassView",                                      flags: "web" },

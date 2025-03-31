@@ -17,7 +17,6 @@ foam.CLASS({
       columnPermissionRequired: true,
       section: 'capabilityInformation',
       autoValidate: true,
-      columnPermissionRequired: true,
       externalTransient: true,
       createVisibility: 'HIDDEN',
       readVisibility: 'RO',
@@ -28,7 +27,6 @@ foam.CLASS({
       class: 'StringArray',
       columnPermissionRequired: true,
       section: 'capabilityInformation',
-      columnPermissionRequired: true,
       externalTransient: true,
       createVisibility: 'HIDDEN',
       readVisibility: 'RO',
@@ -38,6 +36,7 @@ foam.CLASS({
       name: 'isWizardIncomplete',
       class: 'Boolean',
       section: 'systemInformation',
+      columnPermissionRequired: true,
       transient: true,
       externalTransient: true,
       visibility: 'HIDDEN'

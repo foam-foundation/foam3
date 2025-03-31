@@ -80,7 +80,7 @@ foam.CLASS({
 
       // Conditionally, add permission check, (permSlot)
       if ( this.permissionRequired ) {
-        var permSlot = foam.lang.SimpleSlot.create({value: false});
+        var permSlot = foam.lang.SimpleSlot.create({value: false}, this);
         var update = function() {
           var data = data$.get();
           if ( data && data.__subContext__.auth ) {
@@ -96,67 +96,72 @@ foam.CLASS({
       }
 
       // Add check for at least one visible property (propVisSlot)
-      var data = data$.get();
- 
-      let props;
-      if ( this.hasOwnProperty('properties') ) {
-        props = this.properties.map(p => {
-          if ( foam.String.isInstance(p) ) return data.cls_.getAxiomByName(p);
-          // TODO: allow string only path props
-          if ( p.name ) {
-            if ( p.name.indexOf('.') != -1 ) {
-              let p2 = Object.assign({}, p);
-              delete p2.name;
-              return foam.layout.PathPropertyHolder.create({ name: p.name.split('.').pop(), value: p.name, config: p2 });
+      let atLeastOnePropertyOrActionAvailableSlot = foam.lang.SimpleSlot.create({ value: false }, this);
+      var updatePropAndActionSlot = function() {
+        let data = data$.get();
+        if ( ! data ) return;
+        let props;
+        if ( self.hasOwnProperty('properties') ) {
+          props = self.properties.map(p => {
+            if ( foam.String.isInstance(p) ) return data.cls_.getAxiomByName(p);
+            // TODO: allow string only path props
+            if ( p.name ) {
+              if ( p.name.indexOf('.') != -1 ) {
+                let p2 = Object.assign({}, p);
+                delete p2.name;
+                return foam.layout.PathPropertyHolder.create({ name: p.name.split('.').pop(), value: p.name, config: p2 });
+              }
+              return data.cls_.getAxiomByName(p.name).clone().copyFrom(p);
             }
-            return data.cls_.getAxiomByName(p.name).clone().copyFrom(p);
-          }
-        });
-      } else {
-        props = data.cls_.getAxiomsByClass(foam.lang.Property)
-          .filter(p => p.section === this.name);
-      }
-      var propVisSlot = foam.lang.ArraySlot.create({
-        slots: props.map(
-          p => p.createVisibilityFor(data$,
-            controllerMode$ ||
-            data.__subContext__.controllerMode$ ||
-            (data.__subContext__.ctrl && data.__subContext__.ctrl.controllerMode$) ||
-            foam.lang.ConstantSlot.create({value: foam.u2.ControllerMode.CREATE})
+          });
+        } else {
+          props = data.cls_.getAxiomsByClass(foam.lang.Property)
+            .filter(p => p.section === self.name);
+        }
+        let propVisSlot = foam.lang.ArraySlot.create({
+          slots: props.map(
+            p => p.createVisibilityFor(data$,
+              controllerMode$ ||
+              data.__subContext__.controllerMode$ ||
+              (data.__subContext__.ctrl && data.__subContext__.ctrl.controllerMode$) ||
+              foam.lang.ConstantSlot.create({value: foam.u2.ControllerMode.CREATE})
+            )
           )
-        )
-      }).map(arr => arr.some(m => {
-        return m != foam.u2.DisplayMode.HIDDEN;
-      }));
+        }).map(arr => arr.some(m => {
+          return m != foam.u2.DisplayMode.HIDDEN;
+        }));
 
-      let actions;
-      // add check for at least one available action as well (actionAvailSlot)
-      if ( this.hasOwnProperty('actions') ) {
-        actions = this.actions.map(a => {
-          return data.cls_.getAxiomByName(a);
-        });
-      } else {
-        actions = data.cls_.getAxiomsByClass(foam.lang.Action)
-          .filter(a => a.section === this.name);
-      }
+        let actions;
+        // add check for at least one available action as well (actionAvailSlot)
+        if ( self.hasOwnProperty('actions') ) {
+          actions = self.actions.map(a => {
+            return data.cls_.getAxiomByName(a);
+          });
+        } else {
+          actions = data.cls_.getAxiomsByClass(foam.lang.Action)
+            .filter(a => a.section === self.name);
+        }
 
-      var actionAvailSlot = foam.lang.ArraySlot.create({
-        slots: actions.map(
-          a => a.createIsAvailable$(data.__subContext__, data)
-        )
-      }).map(arr => arr.some(isAvailable => {
-        return isAvailable;
-      }));
-
-      var atLeastOnePropertyOrActionAvailableSlot = foam.lang.ArraySlot.create({
-        slots: [
-          propVisSlot,
-          actionAvailSlot
-        ]
-      }).map(arr => arr.some(isVisibleOrAvailable => {
-        return isVisibleOrAvailable;
-      }));
-
+        var actionAvailSlot = foam.lang.ArraySlot.create({
+          slots: actions.map(
+            a => a.createIsAvailable$(data.__subContext__, data)
+          )
+        }).map(arr => arr.some(isAvailable => {
+          return isAvailable;
+        }));
+        // console.log('actionAvailSlot', actionAvailSlot);
+        console.log('propVisSlot', propVisSlot);
+        atLeastOnePropertyOrActionAvailableSlot.follow(foam.lang.ArraySlot.create({
+          slots: [
+            propVisSlot,
+            actionAvailSlot
+          ]
+        }).map(arr => arr.some(isVisibleOrAvailable => {
+          return isVisibleOrAvailable;
+        })));
+      };
+      updatePropAndActionSlot();
+      data$.sub(updatePropAndActionSlot);
       availabilitySlots.push(atLeastOnePropertyOrActionAvailableSlot);
 
       var simpleSlot = foam.lang.SimpleSlot.create();

@@ -130,9 +130,11 @@ foam.CLASS({
     function render() {
       var self = this;
       self.SUPER();
-
+      if ( this.__subContext__.controllerMode$ ) {
+        this.controllerMode$.follow(this.__subContext__.controllerMode$);
+      }
       if ( this.section )
-        this.shown$ = this.section.createIsAvailableFor(self.data$, self.__subContext__.controllerMode$);
+        this.shown$ = this.section.createIsAvailableFor(self.data$, self.controllerMode$);
 
       self
         .addClass(self.myClass())
@@ -171,8 +173,8 @@ foam.CLASS({
               }
             })
             .add(this.slot(function(loadLatch) {
-              var view = this.E().start(self.Grid).addClass(self.myClass('grid'));
-
+              var view = this.E().start(self.Grid, {}).addClass(self.myClass('grid'));
+              let propVisArray = [];
               if ( loadLatch ) {
                 view.forEach(section.properties, function(p, index) {
                   var config = self.config && self.config[p.name];
@@ -193,9 +195,11 @@ foam.CLASS({
                       self.E();
                     }))
                   .end();
+                  propVisArray.push(shown$);
                 });
+                let propVisArray$ = foam.lang.ArraySlot.create({ slots: propVisArray }, this);
+                this.onDetach(propVisArray$.framed().sub(this.framed(function() { view.resizeChildren(); })));
               }
-
               return view;
             }))
             .start(self.Cols)

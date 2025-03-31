@@ -172,7 +172,8 @@ foam.CLASS({
     },
     {
       name: 'currentData_',
-      documentation: 'Active data property that stores current working data for the current view mode'
+      documentation: 'Active data property that stores current working data for the current view mode',
+      value: null
     },
     {
       class: 'Map',
@@ -184,17 +185,20 @@ foam.CLASS({
     function init() {
       // This is needed to ensure data is available for the viewTitle
       let self = this;
+      let loadLatch = foam.lang.Latch.create({}, this);
       this.SUPER();
       this.addCrumb();
-      this.loadData();
+      this.loadData(loadLatch);
       this.getActionsOverrides();
-      this.dynamic(function(controllerMode, data, workingData) {
-        if ( controllerMode == 'EDIT' ) {
-          self.currentData_ = workingData;
-        } else {
-          self.currentData_ = data;
-        }
-      });
+      loadLatch.promise.finally(() => {
+        this.dynamic(function(controllerMode, data, workingData) {
+          if ( controllerMode == 'EDIT' ) {
+            self.currentData_ = workingData;
+          } else {
+            self.currentData_ = data;
+          }
+        });
+      })
     },
 
     function render() {
@@ -256,6 +260,7 @@ foam.CLASS({
           .start(this.viewView, {
             data$: self.currentData_$
           })
+            .show(self.slot(function(cd, d) { return cd && d; }, self.currentData_$, self.data$).framed())
             .addClass(self.myClass('view-container'))
           .end()
         .end();
@@ -322,7 +327,7 @@ foam.CLASS({
       name: 'loadData',
       isIdled: true,
       delay: 100,
-      code: function() {
+      code: function(latch) {
         let self = this;
         let id   = this.data?.id ?? this.idOfRecord;
         self.config.unfilteredDAO.inX(self.__subContext__).find(id).then(d => {
@@ -334,6 +339,7 @@ foam.CLASS({
           self.data.setPrivate_('__context__', self.data.__context__.createSubContext({ controllerMode: this.controllerMode$ }));
           if ( this.controllerMode == 'EDIT' ) this.edit();
           this.populatePrimaryAction();
+          latch && latch.resolve();
         });
       }
     }

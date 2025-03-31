@@ -50,13 +50,12 @@ foam.CLASS({
       this.SUPER();
       this
         .addClass(this.myClass())
-        .add(this.slot(function(sections, data) {
-          if ( ! data ) return; 
+        .add(this.slot(function(sections) {
+          // if ( ! data ) return; 
           var grid = self.Grid.create()
             .forEach(sections, function(s) {
               // TODO: figure out why importing controllerMode breaks
               var slot = s.createIsAvailableFor(self.data$, self.__subContext__.controllerMode$).map(function(isAvailable) {
-
                 // NOTE: If we just return undefined here, then Element.slotE_
                 // will put a self.E('SPAN') here. That span will be a child of
                 // the Grid, which means the grid gap will apply to it, which

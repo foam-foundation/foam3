@@ -70,7 +70,7 @@ foam.CLASS({
             cols = this.containerWidth.cols;
             let propCols;
             if ( this.GUnit.isInstance(ret) ) {
-              propCols = (this.mode == 'RW' ? ret.rwColumns : ret.columns)[`${this.containerWidth.name.toLowerCase()}Columns`];
+              propCols = (this.__subContext__.controllerMode == 'EDIT' ? ret.rwColumns : ret.columns)[`${this.containerWidth.name.toLowerCase()}Columns`];
             }
             width = Math.min(propCols || cols, cols);
           }

@@ -64,6 +64,10 @@ foam.CLASS({
       }
     },
     {
+      name: 'countrySelectionVisibility',
+      value: 'RW'
+    },
+    {
       class: 'String',
       name: 'localPhoneNumber',
       view: { class: 'foam.u2.TextField', type: 'tel' }
@@ -79,11 +83,13 @@ foam.CLASS({
       this.parsePhoneNumber().then(() => {
         this.setCountryCodeFromIP();
       });
-
+      let countryMode$ = this.slot(function(countrySelectionVisibility, controllerMode) {
+        return controllerMode.restrictDisplayMode(countrySelectionVisibility);
+      }, this.countrySelectionVisibility$, this.controllerMode$);
       this
         .addClass(this.myClass())
         .startContext({data: this})
-          .add(this.COUNTRY_CODE)
+          .tag(this.COUNTRY_CODE, { mode$: countryMode$ })
           .add(this.LOCAL_PHONE_NUMBER)
         .endContext();
     }

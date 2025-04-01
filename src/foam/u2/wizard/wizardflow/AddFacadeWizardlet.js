@@ -165,6 +165,8 @@ foam.CLASS({
               view: (args, X) => {
                 // This actually links the data of this property to the data of the wizardlet it is based of
                 // This is really handy as it removes the need for extra LoaderInjectorSavers
+                // Rebind wizardlet context to the current view context
+                wi.__subSubContext__ = X.createSubContext({ data$: wi.data$ });
                 return wi.sections[0].createView();
               },
               ...(this.facadeModelOverrides[element] ?? {})

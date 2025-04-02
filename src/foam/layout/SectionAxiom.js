@@ -149,8 +149,7 @@ foam.CLASS({
         }).map(arr => arr.some(isAvailable => {
           return isAvailable;
         }));
-        // console.log('actionAvailSlot', actionAvailSlot);
-        console.log('propVisSlot', propVisSlot);
+
         atLeastOnePropertyOrActionAvailableSlot.follow(foam.lang.ArraySlot.create({
           slots: [
             propVisSlot,

@@ -36,6 +36,12 @@ foam.CLASS({
     ^wizardletTitle {
       text-align: center;
       margin-bottom: 2.4rem;
+      transition: all 150ms;
+    }
+    @media only screen and (min-width: /*%DISPLAYWIDTH.MD%*/ 768px) {
+      ^wizardletTitle {
+        font-size: 1.6rem;
+      }
     }
   `,
 
@@ -80,7 +86,7 @@ foam.CLASS({
         .add(this.slot(function (data$currentWizardlet) {
           return data$currentWizardlet.subTitle ?
             this.E().start()
-              .addClass(self.myClass('wizardletTitle'), 'p-md')
+              .addClass(self.myClass('wizardletTitle'), 'p')
               .tag(foam.u2.HTMLView.create({ nodeName: 'div', data:this.translationService.getTranslation(foam.locale, data$currentWizardlet.id + 'wizardlet.subTitle', data$currentWizardlet.subTitle) }))
             .end() : null
         }))

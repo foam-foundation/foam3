@@ -77,7 +77,7 @@ foam.CLASS({
       this.SUPER();
       this.updateSummary();
       this
-        .addClass('p-legal-light', this.myClass('row'))
+        .addClass('p', this.myClass('row'))
         .add(this.summary$);
     },
 

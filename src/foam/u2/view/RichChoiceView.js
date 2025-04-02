@@ -184,9 +184,8 @@ foam.CLASS({
     }
 
     ^heading {
-      border-bottom: 1px solid #f4f4f9;
-      color: #333;
-      padding: 6px 16px;
+      color: $grey700;
+      padding: 8px 4px;
     }
 
     ^selection-view {
@@ -290,6 +289,10 @@ foam.CLASS({
 
     ^moreChoices {
       padding: 8px 16px;
+    }
+    
+    ^section {
+      border-bottom: 1px solid #f4f4f9;
     }
   `,
 
@@ -546,8 +549,9 @@ foam.CLASS({
               return this.E().forEach(sections, function(section) {
                 section.refineInput_ = resp[index].value > section.choicesLimit;
                 this.addClass(self.myClass('setAbove'))
+                  .start().addClass(self.myClass('section'))
                   .start().hide(!! section.hideIfEmpty && resp[index].value <= 0 || ! section.heading)
-                    .addClass('p', 'bolder', self.myClass('heading'))
+                    .addClass('h600', self.myClass('heading'))
                     .translate(section.heading$)
                   .end()
                   .start()
@@ -571,7 +575,8 @@ foam.CLASS({
                       .addClass(self.myClass('moreChoices'))
                       .add(section.refineInput_$.map(v => v ? self.MORE_CHOICES : ''))
                     .end();
-                  });
+                  })
+                  .end();
                   index++;
               });
             });
@@ -749,6 +754,9 @@ foam.CLASS({
           padding-left: $inputHorizontalPadding;
           padding-right: $inputHorizontalPadding;
         }
+        ^customSelectView > div {
+          padding: 4px 8px;
+        }
       `,
       properties: [
         {
@@ -782,7 +790,7 @@ foam.CLASS({
 
           this.add(this.dynamic(function(fullObject) {
             if ( fullObject ) {
-              this.tag((self.rowView || self.CitationView), { data: fullObject });
+              this.addClass(self.myClass('customSelectView')).tag((self.rowView || self.CitationView), { data: fullObject });
             } else {
               this.start().addClass(self.myClass('paddingWrapper')).add(self.defaultSelectionPrompt).end();
             }

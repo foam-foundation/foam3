@@ -44,7 +44,7 @@ foam.CLASS({
         } : undefined
       })
         .tag(this.LoadingSpinner, { size: 56 });
-      this.ctrl.add(popup);
+      popup.open();
       this.onDetach(popup.close.bind(popup));
     }
   ]

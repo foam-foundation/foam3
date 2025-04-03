@@ -51,7 +51,7 @@ foam.CLASS({
       this.SUPER();
       this
         .addClass(this.myClass())
-        .add(this.slot(function(sections, data) {
+        .add(this.slot(function(sections) {
           return self.E()
             .addClass(this.myClass('slotElement'))
             .forEach(sections, function (section) {

@@ -72,13 +72,13 @@ foam.CLASS({
           })
         .endContext();
     },
-    function addActions() {
-      var actions = this.E().startContext({ data: this });
-      actions.tag(this.OK, { isDestructive: this.modalStyle == 'DESTRUCTIVE' });
-      if ( this.showCancel ) {
-        actions.tag(this.CANCEL);
+    function addActions(self) {
+      var actions = this.E().startContext({ data: self });
+      actions.tag(self.OK, { isDestructive: self.modalStyle == 'DESTRUCTIVE' });
+      if ( self.showCancel ) {
+        actions.tag(self.CANCEL);
       }
-      return actions.endContext();
+      this.add(actions.endContext());
     }
   ],
 

@@ -308,6 +308,8 @@ If empty then no permissions are required.`
         } catch (err) {
           running.set(false);
           throw err;
+        } finally {
+          data && data.pub && data.pub('action', self.name, self);
         }
       }
       // primitive types won't have a pub method

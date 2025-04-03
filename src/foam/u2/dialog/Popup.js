@@ -35,6 +35,8 @@ foam.CLASS({
     'as controlBorder'
   ],
 
+  requires: ['foam.lang.Latch'],
+
   css: `
     ^ {
       display: flex;
@@ -114,6 +116,11 @@ foam.CLASS({
       class: 'Boolean',
       name: 'showActions',
       value: true
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.lang.Latch',
+      name: 'closedLatch',
     }
   ],
 
@@ -121,6 +128,7 @@ foam.CLASS({
     function init() {
       this.SUPER();
       var content;
+      this.onDetach({ detach: () => { this.closedLatch?.resolve(); } })
 
       this.addClass()
         .enableClass(this.myClass('fullscreen'), this.fullscreen$)
@@ -144,6 +152,7 @@ foam.CLASS({
     },
 
     function open() {
+      this.closedLatch = this.Latch.create();
       this.write();
     }
   ],
@@ -160,11 +169,11 @@ foam.CLASS({
       keyboardShortcuts: [ 27 /* Escape */ ],
       code: function() {
         if ( this.onClose ) this.onClose();
-
+        this.closedLatch.resolve();
         // Delay removal by 32ms (two animation frames) so the action.closeModal
         // topic has a chance to be published
         this.hide();
-        this.setTimeout(() => this.remove(), 32);
+        this.setTimeout(() => {this.remove()}, 32);
       }
     }
   ]

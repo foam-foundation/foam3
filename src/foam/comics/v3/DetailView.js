@@ -92,7 +92,7 @@ foam.CLASS({
       name: 'data',
       postSet: function(o, n) {
         if ( n ) {
-          n.sub('action', this.loadData)
+          n.sub('action', this.loadData.bind(this, null))
         }
       }
     },
@@ -150,7 +150,12 @@ foam.CLASS({
         return id;
       }
     },
-    'actionArray', 'buttonGroup_',
+    { 
+      name: 'actionArray',
+      class: 'FObjectArray',
+      of: 'foam.lang.Action'
+    },
+    'buttonGroup_',
     {
       class: 'String',
       name: 'viewTitle',
@@ -190,6 +195,7 @@ foam.CLASS({
       this.addCrumb();
       this.loadData(loadLatch);
       this.getActionsOverrides();
+      this.onDetach(self.finished?.sub(this.loadData.bind(this, null)));
       loadLatch.promise.finally(() => {
         this.dynamic(function(controllerMode, data, workingData) {
           if ( controllerMode == 'EDIT' ) {
@@ -231,7 +237,7 @@ foam.CLASS({
               .tag(actionsOverrides.copy)
               .tag(actionsOverrides.delete)
             .endOverlay()
-            .callIf(currentData_, function() { self.populatePrimaryAction() })
+            .callIf(currentData_, function() { self.populatePrimaryAction(true) })
           .end()
         )
         self.onDetach(d);
@@ -291,36 +297,45 @@ foam.CLASS({
         this.actionsOverrides = actionsOverrides;
       }
     },
-
-    async function populatePrimaryAction() {
-      if ( ! this.currentData_ ) return;
-      let data = this.currentData_;
-      var self = this;
-      var allActions = this.of.getAxiomsByClass(foam.lang.Action).filter(v => ! foam.comics.v3.ComicsAction.isInstance(v));
-      var defaultAction = allActions.filter((a) => a.isDefault);
-      var acArray = [...defaultAction, ...allActions];
-      this.actionArray = allActions;
-      if ( acArray && acArray.length ) {
-        let res;
-        for ( let a of acArray ) {
-          var aSlot = a.createIsAvailable$(this.__subContext__, data);
-          let b = aSlot.get();
-          if ( aSlot.promise ) {
-            await aSlot.promise;
-            b = aSlot.get();
-          }
-          if (b) { res = a; break; }
+    {
+      name: 'populatePrimaryAction',
+      isFramed: true,
+      code: async function(rebuildArray) {
+        if ( ! this.currentData_ ) return;
+        let data = this.currentData_;
+        var self = this;
+        var allActions = this.of.getAxiomsByClass(foam.lang.Action).filter(v => ! foam.comics.v3.ComicsAction.isInstance(v));
+        var defaultAction = allActions.filter((a) => a.isDefault);
+        var acArray = [...defaultAction, ...allActions];
+        let oldActions = rebuildArray ? [] : this.actionArray || [];
+        if ( this.actionArray.length && ! rebuildArray ) {
+          this.actionArray = foam.Array.unique(this.actionArray.concat(allActions));
+        } else {
+          this.actionArray = allActions;
         }
-        this.primary = res;
-        this.actionArray = this.actionArray.filter(v => v !== res);
-      }
-      if ( this.buttonGroup_ ) {
-        this.buttonGroup_
-          .startOverlay()
-          .forEach(this.actionArray, function(v) {
-            this.addActionReference(v, self.currentData_$)
-          })
-          .endOverlay()
+        if ( acArray && acArray.length ) {
+          let res;
+          for ( let a of acArray ) {
+            var aSlot = a.createIsAvailable$(this.__subContext__, data);
+            let b = aSlot.get();
+            if ( aSlot.promise ) {
+              await aSlot.promise;
+              b = aSlot.get();
+            }
+            if (b) { res = a; break; }
+          }
+          this.primary = res;
+          this.actionArray = this.actionArray.filter(v => v !== res);
+        }
+        if ( this.buttonGroup_ ) {
+          let actionsToAdd = rebuildArray ? this.actionArray : foam.util.diff(oldActions ,this.actionArray).added || [];
+          this.buttonGroup_
+            .startOverlay()
+            .forEach(actionsToAdd, function(v) {
+              this.addActionReference(v, self.currentData_$)
+            })
+            .endOverlay()
+        }
       }
     },
     {

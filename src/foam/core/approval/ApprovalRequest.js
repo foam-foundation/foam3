@@ -43,8 +43,8 @@ foam.CLASS({
     'foam.core.approval.ApprovalStatus',
     'foam.core.approval.CustomViewReferenceApprovable',
     'foam.core.auth.LifecycleState',
-    'foam.u2.dialog.Popup',
-    'foam.u2.stack.StackBlock'
+    'foam.u2.PropertyModal',
+    'foam.u2.dialog.Popup'
   ],
 
   imports: [
@@ -745,26 +745,7 @@ foam.CLASS({
         var approvedApprovalRequest = this.clone();
         approvedApprovalRequest.status = this.ApprovalStatus.APPROVED;
         approvedApprovalRequest.canRetry = false;
-
-        this.approvalRequestDAO.put(approvedApprovalRequest).then(req => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          this.notify(this.SUCCESS_APPROVED_TITLE, this.SUCCESS_APPROVED, this.LogLevel.INFO, true);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, approvedApprovalRequest, 'APPROVED');
       }
     },
     {
@@ -777,10 +758,12 @@ foam.CLASS({
         return ! isTrackingRequest;
       },
       code: function(X) {
-        X.ctrl.add(this.Popup.create({ backgroundColor: 'transparent' }).tag({
+        let popup = this.Popup.create({ backgroundColor: 'transparent' }).tag({
           class: 'foam.u2.MemoModal',
           onExecute: this.approveWithMemoL.bind(this, X)
-        }));
+        });
+        popup.open();
+        return popup.closedLatch;
       }
     },
     {
@@ -791,11 +774,13 @@ foam.CLASS({
         return ! isTrackingRequest;
       },
       code: function(X) {
-        X.ctrl.add(this.Popup.create({ backgroundColor: 'transparent' }).tag({
+        let popup = this.Popup.create({ backgroundColor: 'transparent' }).tag({
           class: 'foam.u2.MemoModal',
           isMemoRequired: true,
           onExecute: this.addMemoL.bind(this, X)
-        }));
+        });
+        popup.open();
+        return popup.closedLatch;
       }
     },
     {
@@ -809,43 +794,17 @@ foam.CLASS({
       },
       code: async function(X) {
         const approvalRequest = this.clone();
-
-        this.approvalRequestDAO.put(approvalRequest).then(req => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          // Give some delay while approval request moves to the final state
-          // TODO: If the server job is done asynchronously, we can only give delay and expect it gets done before the delay is over. 
-          //       However, if the server side job takes longer than the delay (currently 1 second)
-          //       for approval request to move to the final state, notification will not work as expected. Please fix this
-          //       when one can come up with a better idea of handling the notification.
-          setTimeout(() => {
-            this.approvalRequestDAO.find(req.id).then(req => {
-              if ( req.status === this.ApprovalStatus.APPROVED ) {
-                this.notify(this.SUCCESS_APPROVED_TITLE, this.SUCCESS_APPROVED, this.LogLevel.INFO, true);
-              } else if ( req.status === this.ApprovalStatus.REJECTED ) {
-                this.notify(this.SUCCESS_REJECTED_TITLE, this.SUCCESS_REJECTED, this.LogLevel.INFO, true);
-              } else if ( req.status === this.ApprovalStatus.REQUESTED ) {
-                this.notify(this.FAILED_RETRY_TITLE, this.FAILED_RETRY, this.LogLevel.ERROR, true);
-              } else {
-                this.notify(this.RETRIED_TITLE, this.RETRIED, this.LogLevel.INFO, true);
-              }
-            });
-          }, 1000);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        let req = await this.updateApprovalRequest(X, approvalRequest);
+        if ( req.status === this.ApprovalStatus.APPROVED ) {
+          this.notify(this.SUCCESS_APPROVED_TITLE, this.SUCCESS_APPROVED, this.LogLevel.INFO, true);
+        } else if ( req.status === this.ApprovalStatus.REJECTED ) {
+          this.notify(this.SUCCESS_REJECTED_TITLE, this.SUCCESS_REJECTED, this.LogLevel.INFO, true);
+        } else if ( req.status === this.ApprovalStatus.REQUESTED ) {
+          this.notify(this.FAILED_RETRY_TITLE, this.FAILED_RETRY, this.LogLevel.ERROR, true);
+        } else {
+          this.notify(this.RETRIED_TITLE, this.RETRIED, this.LogLevel.INFO, true);
+        }
+        return req;
       }
     },
     {
@@ -857,11 +816,12 @@ foam.CLASS({
         return ! isTrackingRequest;
       },
       code: function(X) {
-        X.ctrl.add(this.Popup.create({ backgroundColor: 'transparent' }).tag({
+        let popup = this.Popup.create({ backgroundColor: 'transparent' }).tag({
           class: 'foam.u2.MemoModal',
           onExecute: this.rejectWithMemo.bind(this, X),
           isMemoRequired: true
-        }));
+        });
+        popup.open();
       }
     },
     {
@@ -876,27 +836,7 @@ foam.CLASS({
         var cancelledApprovalRequest = this.clone();
         cancelledApprovalRequest.status = this.ApprovalStatus.CANCELLED;
         cancelledApprovalRequest.retry = false;
-
-        X.approvalRequestDAO.put(cancelledApprovalRequest).then(o => {
-          X.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          X.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          X.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          X.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-
-          X.notify(this.SUCCESS_CANCELLED_TITLE, this.SUCCESS_CANCELLED, this.LogLevel.INFO, true);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          X.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, cancelledApprovalRequest, 'CANCELLED');
       }
     },
     {
@@ -986,27 +926,25 @@ foam.CLASS({
                 summaryData[p.name] = obj.propertiesToUpdate[p.name];
               });
             if ( obj.isUsingNestedJournal ) {
-              X.stack.push(self.StackBlock.create({
-                view: {
+              X.stack.push({
                   class: 'foam.u2.view.ViewReferenceFObjectView',
                   data: summaryData,
                   of: of
-                } }));
+              }, self);
               return;
             }
           } else {
             of = obj.of;
 
             // then here we created custom view to display these properties
-            X.stack.push(self.StackBlock.create({
-              view: {
+            X.stack.push({
                 class: 'foam.core.approval.PropertiesToUpdateView',
                 propObject: obj.propertiesToUpdate,
                 objId: obj.objId,
                 daoKey: obj.daoKey,
                 of: of,
                 title: 'Updated Properties and Changes'
-              } }));
+          }, self);
             return;
           }
         }
@@ -1026,8 +964,7 @@ foam.CLASS({
         "approval.assign.*"
       ],
       code: function(X) {
-        X.ctrl.tag({
-          class: "foam.u2.PropertyModal",
+        let popup = this.PropertyModal.create({
           property: this.ASSIGNED_TO.clone().copyFrom({ label: '' }),
           isModalRequired: true,
           data$: X.data$,
@@ -1035,6 +972,8 @@ foam.CLASS({
           title: this.ASSIGN_TITLE,
           onExecute: this.assignRequest.bind(this, X)
         });
+        popup.open();
+        return popup.closedLatch;
       }
     },
     {
@@ -1046,25 +985,7 @@ foam.CLASS({
       code: function(X) {
         var assignedApprovalRequest = this.clone();
         assignedApprovalRequest.assignedTo = X.subject.user.id;
-
-        this.approvalRequestDAO.put(assignedApprovalRequest).then(req => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          this.notify(this.SUCCESS_ASSIGNED_TITLE, this.SUCCESS_ASSIGNED, this.LogLevel.INFO, true);
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, assignedApprovalRequest, 'ASSIGNED');
       }
     },
     {
@@ -1076,30 +997,31 @@ foam.CLASS({
       code: function(X) {
         var unassignedApprovalRequest = this.clone();
         unassignedApprovalRequest.assignedTo = 0;
+        return this.updateApprovalRequest(X, unassignedApprovalRequest, 'UNASSIGNED');
+      }
+    }
+  ],
 
-        this.approvalRequestDAO.put(unassignedApprovalRequest).then(req => {
+  listeners: [
+    {
+      name: 'updateApprovalRequest',
+      code: function(X, approvalRequest, operationType) {
+        return this.approvalRequestDAO.put(approvalRequest).then(req => {
           this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
           this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
           this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
           this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
 
           this.finished.pub();
-          this.notify(this.SUCCESS_UNASSIGNED_TITLE, this.SUCCESS_UNASSIGNED, this.LogLevel.INFO, true);
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
+          X.detailView?.finished.pub();
+          if ( operationType )
+            this.notify(this[`SUCCESS_${operationType}_TITLE`], this[`SUCCESS_${operationType}`], this.LogLevel.INFO, true);
         }, e => {
           this.throwError.pub(e);
           this.notify(e.message, '', this.LogLevel.ERROR, true);
         });
       }
-    }
-  ],
-
-  listeners: [
+    },
     {
       name: 'approveWithMemoL',
       code: function(X, memo) {
@@ -1108,25 +1030,7 @@ foam.CLASS({
         approvedApprovalRequest.canRetry = false;
         approvedApprovalRequest.memo = this.appendMemoReverse(X, memo);
 
-        this.approvalRequestDAO.put(approvedApprovalRequest).then(req => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          this.notify(this.SUCCESS_APPROVED_TITLE, this.SUCCESS_APPROVED, this.LogLevel.INFO, true);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, approvedApprovalRequest, 'MEMO');
       }
     },
     {
@@ -1134,25 +1038,7 @@ foam.CLASS({
       code: function(X, memo) {
         var newMemoRequest = this.clone();
         newMemoRequest.memo = this.appendMemoReverse(X, memo);
-        this.approvalRequestDAO.put(newMemoRequest).then(req => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          this.notify(this.SUCCESS_MEMO_TITLE, this.SUCCESS_MEMO, this.LogLevel.INFO, true);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, newMemoRequest, 'MEMO');
       }
     },
     {
@@ -1162,52 +1048,14 @@ foam.CLASS({
         rejectedApprovalRequest.status = this.ApprovalStatus.REJECTED;
         rejectedApprovalRequest.canRetry = false;
         rejectedApprovalRequest.memo = this.appendMemoReverse(X, memo);
-
-        this.approvalRequestDAO.put(rejectedApprovalRequest).then(o => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          this.notify(this.SUCCESS_REJECTED_TITLE, this.SUCCESS_REJECTED, this.LogLevel.INFO, true);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, e => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, rejectedApprovalRequest, 'REJECTED');
       }
     },
     {
       name: 'assignRequest',
       code: function(X) {
         var assignedApprovalRequest = this.clone();
-
-        this.approvalRequestDAO.put(assignedApprovalRequest).then(_ => {
-          this.approvalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.RESET_CMD);
-          this.approvalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-          this.tableViewApprovalRequestDAO.cmd(foam.dao.DAO.PURGE_CMD);
-
-          this.finished.pub();
-          this.notify(this.SUCCESS_ASSIGNED_TITLE, this.SUCCESS_ASSIGNED, this.LogLevel.INFO, true);
-
-          if (
-            X.stack.top &&
-            ( X.currentMenu.id !== X.stack.top[2] )
-          ) {
-            X.stack.back();
-          }
-        }, (e) => {
-          this.throwError.pub(e);
-          this.notify(e.message, '', this.LogLevel.ERROR, true);
-        });
+        return this.updateApprovalRequest(X, assignedApprovalRequest, 'ASSIGNED');
       }
     }
   ]

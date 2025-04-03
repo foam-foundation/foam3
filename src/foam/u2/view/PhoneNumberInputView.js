@@ -113,8 +113,8 @@ foam.CLASS({
       name: 'updatePhoneNumber',
       on: ['this.propertyChange.localPhoneNumber', 'this.propertyChange.countryObject'],
       code: function() {
-        if ( ! this.localPhoneNumber ) return;
         this.deFeedback(() => {
+          if ( ! this.localPhoneNumber || ! this.countryObject ) return this.data = undefined;
           this.data = '+' + this.countryObject.phoneCode + '-' + this.localPhoneNumber;
         });
       }

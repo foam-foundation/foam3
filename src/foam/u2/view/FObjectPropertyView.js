@@ -12,14 +12,18 @@ foam.CLASS({
   documentation: 'A view for foam.lang.FObjectProperty properties.',
 
   requires: [
-    'foam.u2.CitationView',
     'foam.u2.detail.VerticalDetailView'
   ],
 
   properties: [
     {
       name: 'readView',
-      value: { class: 'foam.u2.detail.VerticalDetailView' }
+      factory: function() {
+        return {
+          class: 'foam.u2.view.FObjectView',
+          of: this.prop.of
+        }
+      }
     },
     {
       name: 'writeView',

@@ -33,6 +33,7 @@ foam.POM({
       'commons-net:commons-net:3.6',
       'jakarta.mail:jakarta.mail-api:2.1.2',
       'jakarta.activation:jakarta.activation-api:2.1.2',
+      'jakarta.servlet:jakarta.servlet-api:6.1.0',
       'javax.json:javax.json-api:1.1.4',
       'javax.ws.rs:javax.ws.rs-api:2.1.1',
       'jstl:jstl:1.2',

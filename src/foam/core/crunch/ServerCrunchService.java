@@ -764,4 +764,21 @@ public class ServerCrunchService
 
     return result;
   }
+
+  public UserCapabilityJunction resetJunctionData(X x, String junctionId) {
+    var dao = (DAO) x.get("userCapabilityJunctionDAO");
+    var ucj = (UserCapabilityJunction) dao.inX(x).find(junctionId);
+
+    if ( ucj != null && ucj.getData() != null ) {
+      var auth = (AuthService) x.get("auth");
+      if (auth.check(x, "usercapabilityjunction.action.reset")) {
+        ucj = (UserCapabilityJunction) ucj.fclone();
+
+        ucj.setData(null);
+        ucj.setStatus(ACTION_REQUIRED);
+        return (UserCapabilityJunction) dao.put(ucj);
+      }
+    }
+    return null;
+  }
 }

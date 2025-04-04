@@ -41,14 +41,19 @@ foam.CLASS({
     'java.util.Date'
   ],
 
+  topics: [ 'finished' ],
+
   imports: [
     'capabilityDAO',
+    'crunchService',
+    'notify',
     'subject',
     'userDAO'
   ],
 
   requires: [
-    'foam.core.crunch.AgentCapabilityJunction'
+    'foam.core.crunch.AgentCapabilityJunction',
+    'foam.log.LogLevel'
   ],
 
   tableColumns: [
@@ -63,7 +68,8 @@ foam.CLASS({
 
   messages: [
     { name: 'VIEW_TITLE_USER', message: 'Users' },
-    { name: 'VIEW_TITLE_CAP',  message: 'Capabilities' }
+    { name: 'VIEW_TITLE_CAP',  message: 'Capabilities' },
+    { name: 'RESET_SUCCESS',   message: 'Successfully reset the UCJ data' }
   ],
 
   sections: [
@@ -71,7 +77,7 @@ foam.CLASS({
       name: '_defaultSection', title: 'General Information'
     },
     { name: 'renewableSection' },
-    { 
+    {
       name: 'opsSection',
       title: 'Operations Data',
       properties: ['sourceId', 'targetId', 'status', 'data']
@@ -445,6 +451,25 @@ foam.CLASS({
       code: async function () {
         return (await this.targetId$find)?.name + ' for ' +
           (await this.sourceId$find)?.legalName;
+      }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'reset',
+      label: 'Reset UCJ Data',
+      availablePermissions: [ 'usercapabilityjunction.action.reset' ],
+      isAvailable: (data) => !! data,
+      confirmationRequired: () => true,
+      code: async function() {
+        const ret = await this.crunchService.resetJunctionData(null, this.id);
+        if ( ret ) {
+          this.copyFrom(ret);
+          this.data = null;
+          this.notify(this.RESET_SUCCESS, '', this.LogLevel.INFO, true);
+        }
+        this.finished.pub();
       }
     }
   ]

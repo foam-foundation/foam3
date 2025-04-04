@@ -45,6 +45,7 @@ p({"class":"foam.core.auth.Permission","id":"ucj.addPermission","description":"P
 p({"class":"foam.core.auth.Permission","id":"usercapabilityjunction.read.*","description":"used by backoffice agents - to view users/business ucj's. This grants bypass on ownership check for find or select on ucjDAO -other wise blocked in ucjDAO decorator"})
 p({"class":"foam.core.auth.Permission","id":"usercapabilityjunction.create","description":"Permission to create usercapabilityjunction"})
 p({"class":"foam.core.auth.Permission","id":"usercapabilityjunction.update.*","description":"Permission to update usercapabilityjunction"})
+p({"class":"foam.core.auth.Permission","id":"usercapabilityjunction.action.reset","description":"Permission to reset usercapabilityjunction data"})
 p({"class":"foam.core.auth.Permission","id":"menu.read.admin.googleApiCredentials","description":""})
 p({"class":"foam.core.auth.Permission","id":"data.import.googleSheets","description":""})
 p({"class":"foam.core.auth.Permission","id":"spid.default.theme","description":"Permits user defaulting to theme spid when calling serviceAwareDAOs if no spid is associated to them."})

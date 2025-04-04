@@ -467,6 +467,12 @@ foam.INTERFACE({
           type: 'String'
         }
       ]
+    },
+    {
+      name: 'resetJunctionData',
+      async: true,
+      type: 'UserCapabilityJunction',
+      args: 'Context x, String junctionId'
     }
   ]
 });

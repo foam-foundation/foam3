@@ -41,8 +41,6 @@ foam.CLASS({
     'java.util.Date'
   ],
 
-  topics: [ 'finished' ],
-
   imports: [
     'capabilityDAO',
     'crunchService',
@@ -462,14 +460,12 @@ foam.CLASS({
       availablePermissions: [ 'usercapabilityjunction.action.reset' ],
       isAvailable: (data) => !! data,
       confirmationRequired: () => true,
-      code: async function() {
+      code: async function(X) {
         const ret = await this.crunchService.resetJunctionData(null, this.id);
         if ( ret ) {
-          this.copyFrom(ret);
-          this.data = null;
           this.notify(this.RESET_SUCCESS, '', this.LogLevel.INFO, true);
+          X.detailView.finished.pub();
         }
-        this.finished.pub();
       }
     }
   ]

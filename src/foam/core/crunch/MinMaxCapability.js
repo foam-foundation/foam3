@@ -96,6 +96,7 @@ foam.CLASS({
         // Prepare to count statuses
         int numberGranted = 0;
         int numberPending = 0;
+        int numberActionRequired = 0;
 
         // Get list of prerequisite capability ids
         List<String> prereqCapabilityIds = crunchService.getPrereqs(x, getId(), ucj);
@@ -123,15 +124,28 @@ foam.CLASS({
             case APPROVED:
               numberPending++;
               break;
+            case ACTION_REQUIRED:
+              numberActionRequired++;
+              break;
           }
         }
 
+        // MinMaxCapability has ACTION_REQUIRED prereqs, return ACTION_REQUIRED
+        if ( numberActionRequired > 0 ) {
+          return CapabilityJunctionStatus.ACTION_REQUIRED;
+        }
+
+        // MinMaxCapability has enough GRANTED prereqs, return GRANTED
         if ( numberGranted >= getMin() ) {
           return CapabilityJunctionStatus.GRANTED;
         }
+
+        // MinMaxCapability has enough PENDING prereqs, return PENDING
         if ( numberGranted + numberPending >= getMin() ) {
           return CapabilityJunctionStatus.PENDING;
         }
+
+        // Otherwise, default to ACTION_REQUIRED
         return CapabilityJunctionStatus.ACTION_REQUIRED;
       `
     },

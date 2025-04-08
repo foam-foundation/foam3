@@ -107,14 +107,27 @@ foam.INTERFACE({
       int eventType = javax.xml.stream.XMLStreamConstants.END_ELEMENT;
       try {
         eventType = reader.next();
+
+        // Handle partial data read for values that span multiple getText calls
+        if ( eventType == javax.xml.stream.XMLStreamConstants.CHARACTERS ) {
+          StringBuilder text = new StringBuilder();
+          do {
+            text.append(reader.getText());
+            if ( reader.hasNext() ) {
+              eventType = reader.next();
+            } else {
+              break;
+            }
+          } while ( eventType == javax.xml.stream.XMLStreamConstants.CHARACTERS );
+          set(obj, fromString(text.toString()));
+
+        // Ignore empty. (eg. <foo></foo>)
+        } else if ( eventType != javax.xml.stream.XMLStreamConstants.END_ELEMENT ) {
+          set(obj, fromString(reader.getText()));
+        }
       } catch (javax.xml.stream.XMLStreamException ex) {
         foam.core.logger.Logger logger = (foam.core.logger.Logger) x.get("logger");
         logger.error("Premature end of XML file");
-      }
-
-      // Ignore empty. (eg. <foo></foo>)
-      if ( eventType != javax.xml.stream.XMLStreamConstants.END_ELEMENT ) {
-        set(obj, fromString(reader.getText()));
       }
     }`,
     'int comparePropertyToObject(Object key, Object o)',

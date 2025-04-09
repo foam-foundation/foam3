@@ -59,8 +59,7 @@ foam.CLASS({
     {
       name: 'hasBeenGranted',
       class: 'Boolean',
-      // networkTransient: true,
-      storageTransient: true,
+      writePermissionRequired: true,
       documentation: `Set automatically on the UCJ when it gets granted the first time, 
       useful for checking if the user ever had this UCJ granted such as during edit.`
     },

@@ -35,7 +35,8 @@ foam.CLASS({
     {
       name: 'selectedDataStable',
       documentation: 'A more stable array property for wizard updates',
-      class: 'StringArray'
+      class: 'StringArray',
+      hidden: true
     }
   ],
 

@@ -203,6 +203,17 @@ foam.CLASS({
       menuKeys: ['admin.capabilities']
     },
     {
+      name: 'data',
+      view: function(_, X) {
+        let slot = foam.lang.SimpleSlot.create({}, X);
+        X.data.targetId$find.then(v => { slot.set(v.of) });
+        return {
+          class: 'foam.u2.view.OptionalFObjectView',
+          of$: slot
+        };
+      }
+    },
+    {
       name: 'payload',
       class: 'FObjectProperty',
       of: 'foam.core.crunch.UserCapabilityJunction',
@@ -251,6 +262,18 @@ foam.CLASS({
       name: 'skipEditBehaviour',
       writePermissionRequired: true,
       storageTransient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'requestingReset',
+      documentation: `
+        Used for checks in UCJDAO rule stack, required since it is used to prevent UCJ from being automatically granted if the capability.of is null
+        NOTE: The permission to write this property is also used as a check on the resetUCJ action. Calling the action on the client 
+        with the correct permission will set this property on the crunchService so this property can be network transient.
+      `,
+      writePermissionRequired: true,
+      storageTransient: true,
+      networkTransient: true
     }
   ],
 
@@ -457,19 +480,18 @@ foam.CLASS({
 
   actions: [
     {
-      name: 'reset',
+      name: 'resetUCJ',
       label: 'Reset UCJ Data',
-      availablePermissions: [ 'usercapabilityjunction.action.reset' ],
-      isAvailable: (data) => !! data,
+      availablePermissions: [ 'usercapabilityjunction.rw.requestingReset' ],
+      isAvailable: function(status) { return status == 'GRANTED' || status == 'PENDING'; },
       confirmationRequired: () => true,
-      code: async function() {
+      code: async function(X) {
         const ret = await this.crunchService.resetJunctionData(null, this.id);
         if ( ret ) {
-          this.copyFrom(ret);
-          this.data = null;
           this.notify(this.RESET_SUCCESS, '', this.LogLevel.INFO, true);
         }
-        this.finished.pub();
+        X.detailView?.finished?.pub();
+        return ret;
       }
     }
   ]

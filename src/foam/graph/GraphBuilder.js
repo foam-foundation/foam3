@@ -109,7 +109,7 @@ foam.CLASS({
       junctionDaoKey,
       weightPropertyName,
       noRootAdd
-    ){
+    ) {
       // Add graph node (with no relations yet)
       if ( ! this.data[rootObject.id] ) {
         this.data[rootObject.id] = this.GraphNode.create({

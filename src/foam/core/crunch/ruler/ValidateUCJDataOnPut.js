@@ -41,7 +41,13 @@ foam.CLASS({
 
             try {
               boolean isRenewable = ucj.getIsRenewable(); // ucj either expired, in grace period, or in renewal period
-
+              // When requesting reset, just set the status to ACTION_REQUIRED and return
+              if ( ucj.getRequestingReset() ) {
+                ucj.setStatus(CapabilityJunctionStatus.ACTION_REQUIRED);
+                ucj.setData(null);
+                ucj.setRequestingReset(false);
+                return;
+              }
               // this should never happen since ucj data should be frozen on pending or approved
               // and data change is a predicate of this rule
               if ( ucj.getStatus() == CapabilityJunctionStatus.PENDING || ucj.getStatus() == CapabilityJunctionStatus.APPROVED )

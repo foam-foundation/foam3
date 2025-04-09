@@ -731,6 +731,7 @@ foam.POM({
     { name: "crunch/sandbox/CapabilityEditIntention",                                     flags: "js|java" },
     { name: "crunch/edit/NullEditBehaviour",                                              flags: "js|java" },
     { name: "crunch/edit/PermissiveEditBehaviour",                                        flags: "js|java" },
+    { name: "crunch/edit/PredicatedEditBehaviour",                                        flags: "js|java" },
     { name: "crunch/edit/ApprovalEditBehaviour",                                          flags: "js|java" },
     { name: "approval/ApprovalDAO",                                                       flags: "js|java" },
     { name: "approval/ApprovalStatus",                                                    flags: "js|java" },

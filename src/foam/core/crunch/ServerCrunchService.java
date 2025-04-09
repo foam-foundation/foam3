@@ -768,12 +768,16 @@ public class ServerCrunchService
   public UserCapabilityJunction resetJunctionData(X x, String junctionId) {
     var dao = (DAO) x.get("userCapabilityJunctionDAO");
     var ucj = (UserCapabilityJunction) dao.inX(x).find(junctionId);
+    if( ucj == null ) return null;
 
-    if ( ucj != null && ucj.getData() != null ) {
+    var capabilityDAO = (DAO) x.get("capabilityDAO");
+    Capability capability = (Capability) ucj.findTargetId(x);
+
+    if ( capability.getOf() == null || ucj.getData() != null ) {
       var auth = (AuthService) x.get("auth");
-      if (auth.check(x, "usercapabilityjunction.action.reset")) {
+      if (auth.check(x, "usercapabilityjunction.rw.requestingReset")) {
         ucj = (UserCapabilityJunction) ucj.fclone();
-
+        ucj.setRequestingReset(true);
         ucj.setData(null);
         ucj.setStatus(ACTION_REQUIRED);
         return (UserCapabilityJunction) dao.put(ucj);

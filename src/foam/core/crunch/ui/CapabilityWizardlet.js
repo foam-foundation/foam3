@@ -75,6 +75,8 @@ foam.CLASS({
     {
       name: 'saveOnAvailable',
       class: 'Boolean',
+      // TODO: Not sure why this defaults to true, this is never the behaviour we want
+      // Look into it and probably disable
       value: true
     },
     {

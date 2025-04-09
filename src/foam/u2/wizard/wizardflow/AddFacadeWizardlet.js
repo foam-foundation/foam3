@@ -30,7 +30,7 @@ foam.CLASS({
           let anyIncomplete = false ;
           Object.keys(this.wizardlets).forEach(v => {
             let w = this.wizardlets[v];
-            if (w.status == 'AVAILABLE' || w.status == 'ACTION_REQUIRED') anyIncomplete = true;
+            if (w.status != 'GRANTED' && w.status != 'PENDING' ) anyIncomplete = true;
           })
           if ( ! anyIncomplete ) this.status = 'GRANTED';
         },

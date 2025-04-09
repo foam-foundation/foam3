@@ -158,6 +158,9 @@ foam.CLASS({
   ],
 
   methods: [
+    function toString() {
+      return this.name;
+    },
     function installInClass(cls) {
       // RulePredicates are Java-only, so just record the class
       this.of = cls;

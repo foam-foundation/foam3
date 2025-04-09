@@ -50,7 +50,19 @@ foam.CLASS({
       name: 'status',
       class: 'Enum',
       of: 'foam.core.crunch.CapabilityJunctionStatus',
-      value: foam.core.crunch.CapabilityJunctionStatus.ACTION_REQUIRED
+      value: foam.core.crunch.CapabilityJunctionStatus.ACTION_REQUIRED,
+      javaPostSet: `
+        if ( ((CapabilityJunctionStatus) val) == CapabilityJunctionStatus.GRANTED )
+          setHasBeenGranted(true);
+      `
+    },
+    {
+      name: 'hasBeenGranted',
+      class: 'Boolean',
+      // networkTransient: true,
+      storageTransient: true,
+      documentation: `Set automatically on the UCJ when it gets granted the first time, 
+      useful for checking if the user ever had this UCJ granted such as during edit.`
     },
     {
       class: 'Boolean',

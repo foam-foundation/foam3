@@ -77,20 +77,28 @@ foam.CLASS({
       //         to create the final ordered list of wizardlets
       const wizardlets = [];
       const rootNode = this.capabilityGraph.roots[0];
-      const pushWizardlets = (entry) => {
+      const pushWizardlets = (entry, inPrerequisteAwareStack) => {
+        let currentPrerequisiteStack = inPrerequisteAwareStack
         if ( entry.beforeWizardlet ) wizardlets.push(entry.beforeWizardlet);
+        if ( this.isPrerequisiteAware(entry.beforeWizardlet) ) inPrerequisteAwareStack = true;
         for ( const subEntry of entry.betweenWizardlets ) {
-          pushWizardlets(subEntry);
+          pushWizardlets(subEntry, inPrerequisteAwareStack);
         }
+        inPrerequisteAwareStack = false;
         if ( entry.afterWizardlet ) wizardlets.push(entry.afterWizardlet);
         for ( let wizardlet of entry.wizardlets ) {
+          if ( currentPrerequisiteStack ) {
+            // Turn on to debug MinMax bugs
+            // console.log('Turning off saveOnAvailable on', wizardlet.id);
+            wizardlet.saveOnAvailable = false;
+          }
           if ( this.isLiftingAware(wizardlet) ) {
             wizardlet.handleLifting(entry.liftedWizardlets.map(
               entry => entry.primaryWizardlet));
           }
         }
       };
-      pushWizardlets(this.capabilityWizardletsMap[rootNode.id]);
+      pushWizardlets(this.capabilityWizardletsMap[rootNode.id], false);
       this.wizardlets = wizardlets;
     },
     function createWizardletsForCapability(current) {
@@ -140,6 +148,9 @@ foam.CLASS({
         this.isPrerequisiteAware(source.afterWizardlet);
       entry.parentControlled = parentControlsAvailability || entry.parentControlled;
       if ( ! entry.parentControlled ) {
+        // Temporarily disable saveOnAvailable to prevent saving when the graph is being set up
+        let oldSaveOnAvailable = entry.primaryWizardlet.saveOnAvailable;
+        entry.primaryWizardlet.saveOnAvailable = false;
         if ( ! entry.availabilitySlot ) {
           entry.availabilitySlot = source.primaryWizardlet.isAvailable$;
           entry.availabilityDetach = entry.primaryWizardlet.isAvailable$.follow(entry.availabilitySlot);
@@ -148,6 +159,7 @@ foam.CLASS({
           entry.availabilitySlot = entry.availabilitySlot.or(source.primaryWizardlet.isAvailable$)
           entry.availabilityDetach = entry.primaryWizardlet.isAvailable$.follow(entry.availabilitySlot);
         }
+        entry.primaryWizardlet.saveOnAvailable = oldSaveOnAvailable;
       }
     },
     function adaptWizardlet({ capability }, wizardlet) {

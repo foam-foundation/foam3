@@ -44,6 +44,9 @@ foam.CLASS({
         }
         if ( status != null ) {
           ucj.status = status;
+        } else if ( ucj.status == 'EXPIRED' ) {
+          // Assume that when the client submits a expired UCJ they are trying to update it
+          ucj.status = 'ACTION_REQUIRED';
         }
 
         ucj.lastUpdatedRealUser = this.subject.realUser.id;

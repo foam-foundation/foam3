@@ -244,9 +244,8 @@
       documentation: 'See. AuthorizationStatus',
       javaCode: `
         // Check menu.readPredicate
-        if ( ! f(x) ) {
+        if ( ! f(x) )
           throw ACCESS_DENIED;
-        }
 
         // Check user permission to access authenticated menu
         AuthService auth = (AuthService) x.get("auth");
@@ -256,12 +255,23 @@
           throw ACCESS_DENIED;
         }
 
-        // Check subject to access unauthenticated menu
-        var subject = auth.getCurrentSubject(x);
-        if ( getAuthorizationStatus() == AuthorizationStatus.UNAUTHENTICATED
-          && subject != null && ! auth.isUserAnonymous(x, subject.getUser().getId())
-        ) {
-          throw ACCESS_DENIED;
+        if ( getAuthorizationStatus() == AuthorizationStatus.UNAUTHENTICATED ) {
+          boolean flag;
+
+          try {
+            // Check subject to access unauthenticated menu
+            var subject = auth.getCurrentSubject(x);
+
+            flag = subject != null && ! auth.isUserAnonymous(x, subject.getUser().getId());
+          } catch (foam.core.auth.AuthenticationException e) {
+            // ???: Why does this happen?
+            // foam.core.auth.UserAndGroupAuthService.getCurrentSubject(UserAndGroupAuthService.java:369)
+            // e.printStackTrace();
+            return;
+          }
+
+          if ( flag )
+            throw ACCESS_DENIED;
         }
       `
     }

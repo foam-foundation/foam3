@@ -13,6 +13,7 @@ foam.CLASS({
     'foam.lang.X',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
+    'java.util.Arrays',
     'java.util.List',
     'static foam.mlang.MLang.*',
     'foam.core.auth.LifecycleState',
@@ -76,6 +77,13 @@ foam.CLASS({
         return foam.core.crunch.ui.CapabilityWizardlet.create({isVisible: false}, this);
       },
       includeInDigest: false
+    },
+    {
+      class: 'Boolean',
+      name: 'prereqStatusFromData',
+      documentation: `When set the status of the UCJ associated to this capability will be determined according to it's data.selectedData property.
+      As long as selected choices meet the min-max threshold, this UCJ will be granted. This is handy when trying to programatically add requirements to a hierarchy 
+      where the data can force this UCJ to be ActionRequired even with a min 0`
     }
   ],
 
@@ -96,14 +104,24 @@ foam.CLASS({
         // Prepare to count statuses
         int numberGranted = 0;
         int numberPending = 0;
-        int numberActionRequired = 0;
 
-        // Get list of prerequisite capability ids
-        List<String> prereqCapabilityIds = crunchService.getPrereqs(x, getId(), ucj);
+        var ucjData = (MinMaxCapabilityData) ucj.getData();
+        List<String> prereqCapabilityIds;
 
-        // this is under the assumption that minmaxCapabilities should always have prerequisites
-        // and that min is never less than 1
-        if ( prereqCapabilityIds == null || prereqCapabilityIds.size() == 0 ) return CapabilityJunctionStatus.ACTION_REQUIRED;
+        if ( (getPrereqStatusFromData() || getMin() == 0 ) && ucjData != null ) {
+          if ( ucjData.getSelectedData().length > 0 ) {
+            prereqCapabilityIds = Arrays.asList((String[]) ucjData.getSelectedData());
+          } else {
+            return CapabilityJunctionStatus.ACTION_REQUIRED;
+          }
+        } else {
+          // Get list of prerequisite capability ids
+          prereqCapabilityIds = crunchService.getPrereqs(x, getId(), ucj);
+  
+          // this is under the assumption that minmaxCapabilities should always have prerequisites
+          // and that min is never less than 1
+          if ( prereqCapabilityIds == null || prereqCapabilityIds.size() == 0 ) return CapabilityJunctionStatus.ACTION_REQUIRED;
+        }
 
         // Count junction statuses
         for ( String capId : prereqCapabilityIds ) {
@@ -124,24 +142,21 @@ foam.CLASS({
             case APPROVED:
               numberPending++;
               break;
-            case ACTION_REQUIRED:
-              numberActionRequired++;
-              break;
           }
         }
 
-        // MinMaxCapability has ACTION_REQUIRED prereqs, return ACTION_REQUIRED
-        if ( numberActionRequired > 0 ) {
-          return CapabilityJunctionStatus.ACTION_REQUIRED;
+        var min = getMin();
+        if ( getPrereqStatusFromData() || min == 0 ) {
+          min = ucjData.getSelectedData().length;
         }
 
         // MinMaxCapability has enough GRANTED prereqs, return GRANTED
-        if ( numberGranted >= getMin() ) {
+        if ( numberGranted >= min ) {
           return CapabilityJunctionStatus.GRANTED;
         }
 
         // MinMaxCapability has enough PENDING prereqs, return PENDING
-        if ( numberGranted + numberPending >= getMin() ) {
+        if ( numberGranted + numberPending >= min ) {
           return CapabilityJunctionStatus.PENDING;
         }
 

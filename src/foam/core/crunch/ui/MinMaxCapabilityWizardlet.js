@@ -302,8 +302,8 @@ foam.CLASS({
     function getPrerequisiteAvailabilitySlot(prereqWizardlet){
       var slot = foam.lang.SimpleSlot.create();
 
-      this.data.selectedData$.sub(
-        ()=> slot.set(this.isPrereqSelected(prereqWizardlet))
+      this.data$.dot('selectedData').sub(
+        ()=> slot.set(this.isPrereqSelected.bind(this, prereqWizardlet))
       );
 
       slot.set(this.isPrereqSelected(prereqWizardlet));

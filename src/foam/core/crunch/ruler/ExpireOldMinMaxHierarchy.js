@@ -42,7 +42,7 @@ foam.CLASS({
           @Override
           public void execute(X x) {
             Logger logger = (Logger) x.get("logger");
-            logger.debug("ExpireOldMinMaxHierarchy", "start!!!!!");
+            logger.debug("ExpireOldMinMaxHierarchy", "start");
             var ucj    = (UserCapabilityJunction) obj;
             var oldUCJ = (UserCapabilityJunction) oldObj;
 

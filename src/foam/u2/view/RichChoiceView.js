@@ -698,7 +698,10 @@ foam.CLASS({
             section.dao.where(
               this.EQ(this.of.getAxiomByName(this.idProperty), this.data)
             ).select().then(result => {
-              if ( result.array.length > 0 ) this.fullObject_ = result.array[0];
+              if ( result.array.length > 0 ) {
+                if ( section.disabled ) return this.clearSelection(); 
+                this.fullObject_ = result.array[0];
+              }
             }).catch( e => console.warn(e));
             return;
           }

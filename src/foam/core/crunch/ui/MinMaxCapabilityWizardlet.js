@@ -303,7 +303,7 @@ foam.CLASS({
       var slot = foam.lang.SimpleSlot.create();
 
       this.data$.dot('selectedData').sub(
-        ()=> slot.set(this.isPrereqSelected.bind(this, prereqWizardlet))
+        ()=> slot.set(this.isPrereqSelected(prereqWizardlet))
       );
 
       slot.set(this.isPrereqSelected(prereqWizardlet));

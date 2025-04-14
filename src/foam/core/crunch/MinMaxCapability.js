@@ -108,12 +108,8 @@ foam.CLASS({
         var ucjData = (MinMaxCapabilityData) ucj.getData();
         List<String> prereqCapabilityIds;
 
-        if ( (getPrereqStatusFromData() || getMin() == 0 ) && ucjData != null ) {
-          if ( ucjData.getSelectedData().length > 0 ) {
-            prereqCapabilityIds = Arrays.asList((String[]) ucjData.getSelectedData());
-          } else {
-            return CapabilityJunctionStatus.ACTION_REQUIRED;
-          }
+        if ( ( getPrereqStatusFromData() || getMin() == 0 ) && ( ucjData != null && ucjData.getSelectedData().length > 0 ) ) {
+          prereqCapabilityIds = Arrays.asList((String[]) ucjData.getSelectedData());
         } else {
           // Get list of prerequisite capability ids
           prereqCapabilityIds = crunchService.getPrereqs(x, getId(), ucj);
@@ -146,7 +142,7 @@ foam.CLASS({
         }
 
         var min = getMin();
-        if ( getPrereqStatusFromData() || min == 0 ) {
+        if ( ( getPrereqStatusFromData() || min == 0 ) && (ucjData != null && ucjData.getSelectedData().length > 0) ) {
           min = ucjData.getSelectedData().length;
         }
 

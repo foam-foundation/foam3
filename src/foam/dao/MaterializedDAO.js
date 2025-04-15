@@ -172,6 +172,16 @@ foam.CLASS({
       of: 'foam.dao.ReadConsistency',
       name: 'consistentRead',
       value: 'EVENTUAL'
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.logger.Logger',
+      name: 'logger',
+      transient: true,
+      javaCloneProperty: '//noop',
+      javaFactory: `
+        return Loggers.logger(getX(), this, getSourceDAO().getOf().getObjClass().getSimpleName());
+      `
     }
   ],
 
@@ -183,8 +193,7 @@ foam.CLASS({
       javaCode: `
         if ( getInitialized() ) return;
 
-        Logger logger = Loggers.logger(getX(), this, getSourceDAO().getOf().getObjClass().getSimpleName(), "start");
-        logger.info("initializing");
+        getLogger().info("Start initializing");
 
         setInitialized(true);
 
@@ -199,7 +208,7 @@ foam.CLASS({
         cmd.setIndex(new MaterializedDAOIndex(this));
         getSourceDAO().cmd(cmd);
         pm.log(getX());
-        logger.info("initialized");
+        getLogger().info("Initialized");
 
         String[] daoKeys = getObservedDAOs();
         if ( daoKeys.length != 0 ) {

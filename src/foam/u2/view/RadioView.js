@@ -87,7 +87,7 @@ foam.CLASS({
     function renderContent() {
       var self = this;
 
-      this.add(function(choices) {
+      this.add(this.slot(function(choices) {
         return choices.map(c => {
           var isChecked = self.slot(function (data) {
             return data == c[0];
@@ -122,7 +122,7 @@ foam.CLASS({
               .end()
             .end();
         })
-      })
+      }))
     },
 
     function updateMode_(mode) {

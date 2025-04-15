@@ -53,7 +53,7 @@ foam.CLASS({
   `,
 
   javaCode: `
-    protected boolean processingPutCmd_ = false;
+    protected boolean updatingData_ = false;
   `,
 
   properties: [
@@ -228,7 +228,7 @@ foam.CLASS({
       name: 'find_',
       javaCode: `
         maybeInit();
-        while ( processingPutCmd_ && getConsistentRead() == ReadConsistency.STRONG );
+        while ( updatingData_ && getConsistentRead() == ReadConsistency.STRONG );
         return getDelegate().find_(x, id);
       `
     },
@@ -236,7 +236,7 @@ foam.CLASS({
       name: 'select_',
       javaCode: `
         maybeInit();
-        while ( processingPutCmd_ && getConsistentRead() == ReadConsistency.STRONG );
+        while ( updatingData_ && getConsistentRead() == ReadConsistency.STRONG );
         return getDelegate().select_(x, sink, skip, limit, order, predicate);
       `
     },
@@ -303,27 +303,32 @@ foam.CLASS({
       name: 'process',
       args: 'Object[] cmd',
       javaCode: `
-        FObject  value;
-        if ( cmd[0] == PUT ) {
-          processingPutCmd_ = true;
-          value = (FObject) cmd[1];
+        try {
+          updatingData_ = true;
+          FObject  value;
+          if ( cmd[0] == PUT ) {
+            value = (FObject) cmd[1];
 
-          if ( getPredicate().f(value) ) {
-            var obj = adapt(value);
-            if ( obj != null )
-              getDelegate().put(obj);
-          }
-          processingPutCmd_ = false;
-        } else if ( cmd[0] == REMOVE ) {
-          value = (FObject) cmd[1];
+            if ( getPredicate().f(value) ) {
+              var obj = adapt(value);
+              if ( obj != null )
+                getDelegate().put(obj);
+            }
+          } else if ( cmd[0] == REMOVE ) {
+            value = (FObject) cmd[1];
 
-          if ( getPredicate().f(value) ) {
-            var obj = getAdapter().fastAdapt(value);
-            if ( obj != null )
-              getDelegate().remove(obj);
+            if ( getPredicate().f(value) ) {
+              var obj = getAdapter().fastAdapt(value);
+              if ( obj != null )
+                getDelegate().remove(obj);
+            }
+          } else /* removeAll */ {
+            getDelegate().removeAll();
           }
-        } else /* removeAll */ {
-          getDelegate().removeAll();
+        } catch ( Throwable t ) {
+          getLogger().warning("Failed to " + cmd[0], cmd[1], t);
+        } finally {
+          updatingData_ = false;
         }
       `
     },

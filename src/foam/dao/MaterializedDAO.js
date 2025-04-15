@@ -42,7 +42,7 @@ foam.CLASS({
     instead of handling immediately because the index updates happen under
     the MDAO writeLock_. Filtering and adapting objects can take a long time
     and we don't want to hold the lock while we're performing this work otherwise
-    we would block the source day to updates.
+    we would block the sourceDAO to updates.
 
     The queue property is used to communicate to the processing Thread.
     Object arrays of size 2 are used with the first element being the command,
@@ -50,6 +50,10 @@ foam.CLASS({
     processed in the case of PUT and REMOVE.
 
     REMOVE_ALL clear()'s the queue to avoid unnecessary work.
+  `,
+
+  javaCode: `
+    protected boolean processingPutCmd_ = false;
   `,
 
   properties: [
@@ -162,6 +166,12 @@ foam.CLASS({
       name: 'observedDAOs',
       documentation: 'A list of DAOs that will be listened to',
       javaFactory: 'return getAdapter().getObservedDAOs();'
+    },
+    {
+      class: 'Enum',
+      of: 'foam.dao.ReadConsistency',
+      name: 'consistentRead',
+      value: 'EVENTUAL'
     }
   ],
 
@@ -207,11 +217,19 @@ foam.CLASS({
     },
     {
       name: 'find_',
-      javaCode: 'maybeInit(); return getDelegate().find_(x, id);'
+      javaCode: `
+        maybeInit();
+        while ( processingPutCmd_ && getConsistentRead() == ReadConsistency.STRONG );
+        return getDelegate().find_(x, id);
+      `
     },
     {
       name: 'select_',
-      javaCode: 'maybeInit(); return getDelegate().select_(x, sink, skip, limit, order, predicate);'
+      javaCode: `
+        maybeInit();
+        while ( processingPutCmd_ && getConsistentRead() == ReadConsistency.STRONG );
+        return getDelegate().select_(x, sink, skip, limit, order, predicate);
+      `
     },
     {
       name: 'adapt',
@@ -278,6 +296,7 @@ foam.CLASS({
       javaCode: `
         FObject  value;
         if ( cmd[0] == PUT ) {
+          processingPutCmd_ = true;
           value = (FObject) cmd[1];
 
           if ( getPredicate().f(value) ) {
@@ -285,6 +304,7 @@ foam.CLASS({
             if ( obj != null )
               getDelegate().put(obj);
           }
+          processingPutCmd_ = false;
         } else if ( cmd[0] == REMOVE ) {
           value = (FObject) cmd[1];
 

@@ -10,7 +10,12 @@ foam.CLASS({
   name: 'FilePreview',
   extends: 'foam.u2.View',
 
-  documentation: 'iframe for file preview',
+  documentation: `iframe for file preview,
+  
+  When data passed is an array, selected is used as the index for the file to display. 
+  
+  When data is a file the file is displayed.
+  To show a complete file array wrap this view in an ArrayView`,
 
   css: `
   ^container{
@@ -95,25 +100,31 @@ foam.CLASS({
       div.style.display = 'none';
       p.style.visibility = 'hidden';
 
-      if ( this.selected == undefined || this.selected == this.data.length ) {
-        pos = this.data.length - 1;
+      let data;
+      if ( Array.isArray(this.data) ) {
+        if ( this.selected == undefined || this.selected == this.data.length ) {
+          pos = this.data.length - 1;
+        } else {
+          pos = this.selected;
+        }
+
+        data = this.data[pos];
+        if ( ! data ) {
+          return;
+        }
       } else {
-        pos = this.selected;
+        data = this.data;
       }
 
-      if ( ! this.data[pos] ) {
-        return;
-      }
-
-      let d = this.data[pos].data;
+      let d = data.data;
       // If file is stored as a dataString, actual file is already on client side. Otherwise, actual file can be retrieved from server from File.address
       if ( ! d ) {
-        url = this.data[pos].address;
+        url = data.address;
       } else {
         url = URL.createObjectURL(d.blob);
       }
 
-      if ( this.data[pos].mimeType === 'application/pdf' ) {
+      if ( data.mimeType === 'application/pdf' ) {
         var pdfframe = document.createElement('iframe');
         pdfframe.src = url;
         iFrame.appendChild(pdfframe);
@@ -121,8 +132,8 @@ foam.CLASS({
         iFrame.style.display = 'flex';
         iFrame.style.height = '100%';
         iFrame.style.width = '100%';
-      } else if ( this.data[pos].mimeType === 'plain/text' ) {
-        let t = await this.data[pos].getText();
+      } else if ( data.mimeType === 'plain/text' ) {
+        let t = await data.getText();
         let text = document.createTextNode(t);
         p.appendChild(text);
         p.style.visibility = 'visible';

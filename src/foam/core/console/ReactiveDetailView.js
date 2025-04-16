@@ -11,6 +11,8 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'Map',
+      generateJava: false,
       name: 'reactions_',
       searchable: false,
       hidden: true,

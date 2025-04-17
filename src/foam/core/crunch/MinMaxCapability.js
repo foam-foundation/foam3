@@ -108,7 +108,7 @@ foam.CLASS({
         var ucjData = (MinMaxCapabilityData) ucj.getData();
         List<String> prereqCapabilityIds;
 
-        if ( ( getPrereqStatusFromData() || getMin() == 0 ) && ( ucjData != null && ucjData.getSelectedData().length > 0 ) ) {
+        if ( ( getPrereqStatusFromData() || getMin() == 0 ) && ( ucjData != null && ucjData.getSelectedData() != null && ucjData.getSelectedData().length > 0 ) ) {
           prereqCapabilityIds = Arrays.asList((String[]) ucjData.getSelectedData());
         } else {
           // Get list of prerequisite capability ids

@@ -17,7 +17,8 @@ foam.CLASS({
       labelFormatter: function(data) {
         this.add(data.emailRequired_ ? 'Email or Username' : 'Username');
       },
-      trim: true
+      trim: true,
+      view: { class: 'foam.u2.TextField', type: 'email' }
     },
     {
       class: 'String',

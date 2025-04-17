@@ -122,7 +122,7 @@ foam.CLASS({
     function resolveAgent() {
       if ( this.wizardClosing ) return;
       this.wizardClosing = true;
-      this.wizardView.remove();
+      this.wizardView?.remove();
     }
   ]
 });

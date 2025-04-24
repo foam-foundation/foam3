@@ -38,12 +38,13 @@ foam.CLASS({
     async function execute() {
       var popup = this.Popup.create({
         closeable: false,
-        isStyled: false,
         onClose: this.pushLast ? () => {
           ctrl.__subContext__.pushMenu(ctrl.__subContext__.lastMenuLaunched);
         } : undefined
       })
-        .tag(this.LoadingSpinner, { size: 56 });
+        .start(foam.u2.borders.SpacingBorder, { padding: '2rem' })
+          .tag(this.LoadingSpinner, { size: 48 })
+        .end();
       popup.open();
       this.onDetach(popup.close.bind(popup));
     }

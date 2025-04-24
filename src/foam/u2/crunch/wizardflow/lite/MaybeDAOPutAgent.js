@@ -18,25 +18,37 @@ foam.CLASS({
   imports: [
     'intercept?',
     'submitted',
-    'capable?',
+    'capable? as importedCapable',
+  ],
+
+  exports: [
+    'capable'
+  ],
+
+  properties: [
+    {
+      name: 'capable',
+      factory: function() {
+        return this.importedCapable;
+      }
+    }
   ],
 
   methods: [
-    function execute() {
-      var p = Promise.resolve();
+    async function execute() {
       let daoKey = this.intercept?.daoKey || this.capable?.DAOKey;
       if ( daoKey && this.submitted ) {
-        p = p.then(() =>
-          this.__subContext__[daoKey].put(this.capable)
-          .then(returnCapable => {
-            if ( this.intercept )
-              this.intercept.returnCapable = returnCapable;
-          }).catch(e => {
-            console.error(e);
-          })
-        );
+        try {
+          let returnCapable = await this.__subContext__[daoKey].put(this.capable);
+          if ( this.intercept )
+            this.intercept.returnCapable = returnCapable;
+          if ( this.capable ) 
+            this.capable = returnCapable;
+        } catch (e) {
+          console.error(e);
+        }
       }
-      return p;
+      return;
     }
   ]
 });

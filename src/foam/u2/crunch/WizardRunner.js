@@ -79,20 +79,24 @@ foam.CLASS({
       let returnPromise = null;
       let promise$ = foam.lang.SimpleSlot.create({ value: false }, this);
 
-      if ( this.isInline ) {
-        if ( this.options.returnCompletionPromise ) {
-          returnPromise = new Promise(rslv => {
-            promise$.sub(v => {
-              if ( v ) rslv();
-            });
+      if ( this.options.returnCompletionPromise ) {
+        returnPromise = new Promise(rslv => {
+          promise$.sub(v => {
+            if ( v ) rslv(v);
           });
-        }
+        });
+      }
 
+      if ( this.isInline ) {
         this.controller = await this.crunchController.inlineWizardFromSequence(this.parentWizard, seq, ( returnPromise ? { onLastWizardletSaved: () => promise$.set(true) } : {}));
         return returnPromise ? returnPromise : null;
       }
 
-      this.controller = await seq.execute();
+      this.controller = await seq.execute().then((v) => {
+          promise$.set(true);
+          return v;
+      });
+      return returnPromise ? returnPromise : this.controller;
     },
     function launchNotInline_ () {
       const seq = this.sequenceFromWizardType_();

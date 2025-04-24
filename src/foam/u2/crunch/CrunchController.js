@@ -204,7 +204,7 @@ foam.CLASS({
           .remove('ReturnToLaunchPointAgent')
           .addBefore('LoadTopConfig',this.CheckGrantedAgent)
           .addBefore('RequirementsPreviewAgent',this.ShowPreexistingAgent)
-          .add(this.MaybeDAOPutAgent))
+          .addBefore('DetachSpinnerAgent', this.MaybeDAOPutAgent))
           ;
       }
     },
@@ -235,7 +235,7 @@ foam.CLASS({
           .remove('GrantedEditAgent')
           .remove('CapabilityStoreAgent')
           .addBefore('RequirementsPreviewAgent',this.ShowPreexistingAgent)
-          .add(this.MaybeDAOPutAgent)
+          .addBefore('DetachSpinnerAgent', this.MaybeDAOPutAgent)
           ;
       }
     },

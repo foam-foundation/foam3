@@ -315,13 +315,13 @@ foam.CLASS({
 
       promise.then(values => {
         function populateRows(args) {
-          if ( values.array[i] === undefined ) return;
+          if ( args.data === undefined ) return;
 
           var index = (page*self.pageSize_) + i + 1;
           if ( self.groupBy ) {
-            var group = self.groupBy.f(values.array[i]);
+            var group = self.groupBy.f(args.data);
             if ( ! foam.util.equals(group, self.currGroup_) || index == 1 ) {
-              e.tag(self.groupHeaderView, { ...args, groupLabel: group });
+              e.tag(self.groupHeaderView, { ...args, groupLabel: group, groupBy: self.groupBy });
             }
             self.currGroup_ = group;
           }
@@ -334,8 +334,7 @@ foam.CLASS({
 
         if ( foam.mlang.sink.Projection.isInstance( values ) ) {
           for ( var i = 0 ; i < values.projection.length ; i++ ) {
-            // TODO: replace obj with data
-            let args = { obj: values.array[i], projection: values.projection[i] };
+            let args = { data: values.array[i], projection: values.projection[i] };
             populateRows(args);
           }
         } else if ( foam.dao.Sink.isInstance( values ) && values.array ) {

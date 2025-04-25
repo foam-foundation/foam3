@@ -22,17 +22,17 @@ foam.CLASS({
   cssTokens: [
     {
       name: 'borderSize',
-      value: '1px solid $grey300'
+      value: '2px solid $grey200'
     },
     {
       name: 'boxShadowSize',
-      value: '0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1)'
+      value: 'none'
     }
   ],
 
   css: `
     ^ .foam-u2-borders-CardBorder {
-      border: $borderSize;
+      border: none;
       border-radius: 4px;
       box-sizing: border-box;
       box-shadow: $boxShadowSize;

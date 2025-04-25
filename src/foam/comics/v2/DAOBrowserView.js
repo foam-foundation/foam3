@@ -61,8 +61,7 @@ foam.CLASS({
     }
 
     ^query-bar {
-      padding: 12px 24px;
-      padding-top: 32px;
+      padding: 6px 8px;
     }
 
     ^buttons{
@@ -120,6 +119,11 @@ foam.CLASS({
       height: 34px;
       border-radius: 0 5px 5px 0;
       border: $borderSize;
+    }
+    @media only screen and (min-width:  /*%DISPLAYWIDTH.MD%*/ 768px) {
+      ^query-bar {
+        padding: 12px 16px;
+      }
     }
   `,
 

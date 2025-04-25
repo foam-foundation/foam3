@@ -33,7 +33,7 @@ foam.CLASS({
     ^wrapper > *:first-child {
       flex: 0 0 30%;
     }
-    @container outer (width < 768px) {
+    @container outer (width < 960px) {
       ^wrapper {
         flex-direction: column;
       }
@@ -44,7 +44,7 @@ foam.CLASS({
     }
   `,
 
-  messages: [{ name: 'TITLE', message: 'Available Rewards' }],
+  messages: [{ name: 'TITLE', message: 'Your Rewards' }],
 
   properties: [
     {

@@ -178,7 +178,7 @@ foam.CLASS({
       overflow-y: auto;
       box-sizing: border-box;
       width: 100%;
-      border-radius: 4px;
+      border-radius: $inputBorderRadius;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
       z-index: 1000;
       position: relative;
@@ -202,7 +202,7 @@ foam.CLASS({
       min-width: 120px;
 
       width: 100%;
-      border-radius: 4px;
+      border-radius: $inputBorderRadius;
       -webkit-appearance: none;
       cursor: pointer;
     }
@@ -755,6 +755,12 @@ foam.CLASS({
       ],
 
       css:`
+        ^ {
+          border-radius: $inputBorderRadius;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
         ^paddingWrapper {
           padding-left: $inputHorizontalPadding;
           padding-right: $inputHorizontalPadding;
@@ -787,13 +793,10 @@ foam.CLASS({
         function render() {
           let self = this;
           this.style({
-            'overflow': 'hidden',
-            'white-space': 'nowrap',
-            'text-overflow': 'ellipsis',
-            'border-radius': '4px'
+            
           });
 
-          this.add(this.dynamic(function(fullObject) {
+          this.addClass().add(this.dynamic(function(fullObject) {
             if ( fullObject ) {
               this.addClass(self.myClass('customSelectView')).tag((self.rowView || self.CitationView), { data: fullObject });
             } else {

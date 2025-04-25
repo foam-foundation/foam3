@@ -476,8 +476,8 @@ foam.CLASS({
             .tag(view.LazyScrollManager, {
                 data$: view.data$,
                 order$: view.order$,
-                rowView: { class: 'foam.u2.table.UnstyledTableRow', table: view },
-                groupHeaderView: { class: 'foam.u2.table.UnstyledTableGroup', table: view },
+                rowView: { class: 'foam.u2.table.UnstyledTableRow' },
+                groupHeaderView: { class: 'foam.u2.table.UnstyledTableGroup' },
                 rootElement: this.tableEl_,
                 ctx: view,
                 prepDAO: view.prepDAO,

@@ -19,7 +19,8 @@ foam.CLASS({
     'canBuildObjfromProj',
     'nestedPropsAndIndexes',
     'propertyNamesToQuery',
-    'props'
+    'props',
+    'table'
   ],
 
   messages: [
@@ -27,7 +28,6 @@ foam.CLASS({
   ],
 
   properties: [
-    'table',
     'projection',
   ],
 

@@ -31,7 +31,6 @@ foam.CLASS({
   ],
 
   properties: [
-    'table',
     'projection',
     // Added for scrollTableView support
     {

@@ -24,6 +24,7 @@ foam.CLASS({
     ^rw {
       padding: $padding;
       color: $black;
+      transition: all 0.2s ease;
     }
 
     ^rw:hover:not([disabled]) {

@@ -52,6 +52,7 @@ foam.CLASS({
     'foam.mlang.predicate.EndsWith',
     'foam.mlang.predicate.True',
     'foam.mlang.predicate.MQLExpr',
+    'foam.mlang.predicate.FScriptPredicate',
     'foam.mlang.sink.Count',
     'foam.mlang.sink.Explain',
     'foam.mlang.sink.GroupBy',
@@ -160,7 +161,10 @@ foam.CLASS({
 
     function INSTANCE_OF(cls) { return this.IsInstanceOf.create({ of: cls }); },
     function CLASS_OF(cls) { return this.IsClassOf.create({ of: cls }); },
+
     function MQL(mql) { return this.MQLExpr.create({query: mql}); },
+    function FSCRIPT(query) { return this.FScriptPredicate.create({query: query}); },
+
     function STRING_LENGTH(a) { return this._unary_("StringLength", a); },
     function IS_VALID(o) { return this.IsValid.create({arg1: o}); },
     function YEARS(p) { return foam.mlang.Years.create({arg1: p}); },

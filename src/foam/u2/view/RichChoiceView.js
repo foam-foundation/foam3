@@ -292,7 +292,7 @@ foam.CLASS({
       padding: 8px 16px;
     }
     
-    ^section {
+    ^section:not(:last-child) {
       border-bottom: 1px solid #f4f4f9;
     }
   `,
@@ -548,10 +548,11 @@ foam.CLASS({
             return Promise.all(promiseArray).then(resp => {
               var index = 0;
               return this.E().forEach(sections, function(section) {
+                if ( section.hideIfEmpty && resp[index].value <= 0 ) return;
                 section.refineInput_ = resp[index].value > section.choicesLimit;
                 this.addClass(self.myClass('setAbove'))
                   .start().addClass(self.myClass('section'))
-                  .start().hide(!! section.hideIfEmpty && resp[index].value <= 0 || ! section.heading)
+                  .start().hide(section.heading)
                     .addClass('h600', self.myClass('heading'))
                     .translate(section.heading$)
                   .end()

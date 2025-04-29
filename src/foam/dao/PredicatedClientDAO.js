@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google Inc. All Rights Reserved.
+ * Copyright 2025 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
@@ -11,7 +11,12 @@ foam.CLASS({
 
   documentation: `DAO that filters delegate selects using a predicate.
   Client side only, useful for filtering a DAO on the client side when server
-  decorators populate data on the fly since FilteredDAO filtering takes place in the MDAO.`,
+  decorators populate data on the fly since FilteredDAO filtering takes place in the MDAO.
+  
+  For example, an account model may have it's balance populated by a server decorator based on
+  previous transactions. In this case, the balance property is not populated in the MDAO and 
+  any balance filtering will not work. In this case, a PredicatedClientDAO can be used to filter the DAO
+  after the decorator has populated balance and returned the data to the client.`,
 
   properties: [
     {

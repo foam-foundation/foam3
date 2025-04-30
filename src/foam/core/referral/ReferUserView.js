@@ -17,7 +17,7 @@ foam.CLASS({
       justify-content: space-between;
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 2.4rem;
     }
     ^copy-box{
       background: $primary50;
@@ -47,15 +47,20 @@ foam.CLASS({
     ^header > .p,^item .p {
       color: $grey500;
     }
+    ^item-header {
+      padding-bottom: 1.6rem;
+    }
     ^item {
       display: flex;
       gap: 0.4rem;
       align-self: flex-start;
     }
+    ^item:not(:last-child) {
+      padding-bottom: 1.6rem;
+    }
     ^item > *:last-child {
       display: flex;
       flex-direction: column;
-      gap: 0.4rem;
     }
     ^item img {
       height: 16;

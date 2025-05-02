@@ -729,7 +729,12 @@ foam.CLASS({
     async function findDefaultMenu(dao) {
       var menu;
       var menuArray = this.theme?.defaultMenu.concat(this.theme?.unauthenticatedDefaultMenu);
-      if ( ! menuArray || ! menuArray.length ) return null;
+      menuArray = menuArray.filter( m => m != "" );
+      if ( ! menuArray || ! menuArray.length ) {
+        // Ensure a default - stops login screen from being visible after sign in
+        let list = (await dao.limit(1).select()).array;
+        return list.length == 1 ? list[0] : null;
+      }
       for ( menuId in menuArray ) {
         menu = await dao.find(menuArray[menuId]);
         if ( menu ) break;

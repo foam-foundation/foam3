@@ -30,6 +30,7 @@ foam.CLASS({
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.core.pm.PM',
+    'java.util.concurrent.TimeUnit',
     'foam.util.concurrent.AbstractAssembly',
     'foam.util.concurrent.AssemblyLine',
     'foam.util.concurrent.AsyncAssemblyLine'
@@ -267,8 +268,15 @@ foam.CLASS({
         foam.lang.XLocator.set(getX());
         while ( true ) {
           try {
-            process((Object[]) getQueue().take());
-          } catch (InterruptedException e) {}
+            Object[] ret = (Object[]) getQueue().poll(10, TimeUnit.SECONDS);
+            if ( ret != null ) {
+              process(ret);
+            }
+          } catch (InterruptedException e) {
+            //NOOP
+          } catch ( Throwable t ) {
+            Loggers.logger(getX(), this).error("MaterializedDAO fails to consume", t);
+          }
         }
       `
     },

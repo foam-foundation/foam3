@@ -102,8 +102,8 @@ foam.CLASS({
             let res = await latch;
             // retry signin
             if ( res )
-              await this.signin(x, data, wizardFlow);
-            return;
+              return await this.signin(x, data, wizardFlow);
+            return res;
           }
           this.notify(err.data, this.SIGNIN_ERR, this.LogLevel.ERROR, true);
         }
@@ -186,7 +186,7 @@ foam.CLASS({
             password: data.desiredPassword,
             usernameRequired: true
           });
-          await this.signin(x, signinModel, wizardFlow);
+          return await this.signin(x, signinModel, wizardFlow);
         } else {
           this.notify(err.data, this.SIGNUP_ERR, this.LogLevel.ERROR, true);
         }

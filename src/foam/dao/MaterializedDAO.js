@@ -275,7 +275,7 @@ foam.CLASS({
               process(ret);
             }
           } catch (InterruptedException e) {
-            // stopThread method can terminate current thread.
+            // stop method can terminate current thread.
             Loggers.logger(getX(), this).warning("MaterializedDAO consumer thread interrupted", "thread id", Thread.currentThread().getId(), "thread name", Thread.currentThread().getId());
             break;
           } catch ( Throwable t ) {

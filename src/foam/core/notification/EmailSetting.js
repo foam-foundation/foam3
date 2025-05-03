@@ -109,6 +109,7 @@ foam.CLASS({
           notification.getEmailArgs().put("body", notification.getBody());
         }
 
+        ((foam.core.om.OMLogger) x.get("OMLogger")).log("Notification:Email");
         try {
           if ( ! SafetyUtil.isEmpty(notification.getEmailName()) ) {
             Map args = notification.getEmailArgs();

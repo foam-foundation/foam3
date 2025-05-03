@@ -46,6 +46,7 @@ foam.CLASS({
               // Loggers.logger(x, this).debug("push suppressed, title or body empty");
               return;
             }
+            ((foam.core.om.OMLogger) x.get("OMLogger")).log("Notification:Push");
             try {
               pushService.sendPush(user, title, body);
             } catch (Throwable t) {

@@ -144,7 +144,7 @@ foam.CLASS({
             notification.setRead(true);
           }
         }
-
+        ((foam.core.om.OMLogger) x.get("OMLogger")).log("Notification:InApp");
         try {
           ((DAO) x.get("localNotificationDAO")).put(notification);
         } catch (Throwable t) {

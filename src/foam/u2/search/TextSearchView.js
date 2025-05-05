@@ -142,8 +142,8 @@ foam.CLASS({
   listeners: [
     {
       name: 'updateValue',
-      isMerged: true,
-      mergeDelay: 500,
+      isIdled: true,
+      delay: 300,
       code: function() {
         var value = this.searchData = this.view.data;
         if ( ! value ) {

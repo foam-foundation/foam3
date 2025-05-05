@@ -352,11 +352,12 @@ foam.CLASS({
                     .startContext({
                       dao: self.searchFilterDAO
                     })
-                      .callIf(self.config.searchMode === self.SearchMode.SIMPLE, function() {
+                    .call(function() {
+                      if (self.config.searchMode === self.SearchMode.NONE) return;
+                      if (self.config.searchMode === self.SearchMode.SIMPLE)
                         this.add(simpleSearch);
-                      })
-                      .callIf(self.config.searchMode === self.SearchMode.FULL, function() {
-                        this.add(filterView);
+                      else
+                      this.add(filterView);
                     })
                     .endContext()
                     .start(self.Cols)

@@ -278,7 +278,6 @@ foam.CLASS({
         .add(this.slot(function(filters) {
 
           var generalSearchField = foam.u2.ViewSpec.createView(self.TextSearchView, {
-            richSearch: true,
             of: self.dao.of.id,
             onKey: true,
             name: 'filterSearch',

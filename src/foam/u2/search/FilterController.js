@@ -218,7 +218,6 @@ foam.CLASS({
         if ( of.id ) of = of.id;
         return this.TextSearchView.create({
           of: of,
-          richSearch: true,
           keywordSearch: true
         });
       }

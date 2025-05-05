@@ -21,12 +21,17 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   requires: [
+    'foam.comics.SearchMode',
     'foam.parse.QueryParser',
     'foam.u2.tag.Input'
   ],
 
   implements: [
     'foam.mlang.Expressions'
+  ],
+
+  imports: [
+    'config?'
   ],
 
   messages: [
@@ -44,8 +49,12 @@ foam.CLASS({
       value: true
     },
     {
-      class: 'Boolean',
-      name: 'keywordSearch'
+      class: 'Enum',
+      of: 'foam.comics.SearchMode',
+      name: 'searchMode',
+      factory: function() {
+        return this.config?.searchMode ?? foam.comics.SearchMode.FULL;
+      }
     },
     {
       class: 'Boolean',
@@ -137,17 +146,29 @@ foam.CLASS({
       mergeDelay: 500,
       code: function() {
         var value = this.searchData = this.view.data;
-
-        this.predicate = ! value ?
-          this.True.create() :
-          this.richSearch ?
-            this.OR(
+        if ( ! value ) {
+          this.predicate = this.True.create();
+          return;
+        }
+        // TODO: dont think we ever use anything other than richSearch, maybe remove the boolean and only perform richSearch
+        if ( this.richSearch ) {
+          if ( this.searchMode === this.SearchMode.FULL ) {
+            this.predicate = this.OR(
               this.queryParser.parseString(value) || this.FALSE,
               this.KEYWORD(value)
-            ) :
-            this.checkStrictEquality ?
-              this.EQ(this.property, value) :
-              this.CONTAINS_IC(this.property, value);
+            );
+          } else if ( this.searchMode === this.SearchMode.MQL ) {
+            this.predicate = this.queryParser.parseString(value) || this.FALSE;
+          } else {
+            this.predicate = this.KEYWORD(value);
+          }
+        } else if ( this.checkStrictEquality) {
+          this.predicate = this.EQ(this.property, value);
+        } else if ( this.searchMode === this.SearchMode.SIMPLE ) {
+          this.predicate = this.CONTAINS_IC(this.property, value);
+        } else {
+          this.predicate = this.False.create();
+        }
       }
     }
   ]

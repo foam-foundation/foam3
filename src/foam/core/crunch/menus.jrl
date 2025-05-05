@@ -83,7 +83,8 @@ p({
     "class":"foam.core.menu.DAOMenu2",
     "config":{
       "class":"foam.comics.v2.DAOControllerConfig",
-      "daoKey":"userCapabilityJunctionDAO"
+      "daoKey":"userCapabilityJunctionDAO",
+      "searchMode":"MQL"
     }
   },
   "parent":"crunch"

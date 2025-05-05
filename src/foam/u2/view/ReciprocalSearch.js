@@ -192,7 +192,6 @@ foam.CLASS({
           e.onDetach(this.searchManager);
 
           var searchView = foam.u2.ViewSpec.createView(self.TextSearchView, {
-            richSearch: true,
             of: self.dao.of.id,
             onKey: true,
             viewSpec: {

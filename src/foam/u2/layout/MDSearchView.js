@@ -61,7 +61,6 @@ foam.CLASS({
       self.addClass()
       this.start().addClass('md-text', 'container-search')
         .start(self.TextSearchView, {
-             richSearch: true,
              of: this.dao.of.id,
              onKey: true,
              view: {

@@ -99,7 +99,6 @@ foam.CLASS({
       var self = this;
       this.addClass()
         .start(this.TextSearchView, {
-          richSearch: true,
           of: this.filterController.dao.of.id,
           onKey: true,
           viewSpec: {

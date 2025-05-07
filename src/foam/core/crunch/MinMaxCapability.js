@@ -142,7 +142,7 @@ foam.CLASS({
         }
 
         var min = getMin();
-        if ( ( getPrereqStatusFromData() || min == 0 ) && (ucjData != null && ucjData.getSelectedData().length > 0) ) {
+        if ( ( getPrereqStatusFromData() || min == 0 ) && (ucjData != null && ucjData.getSelectedData() != null && ucjData.getSelectedData().length > 0) ) {
           min = ucjData.getSelectedData().length;
         }
 

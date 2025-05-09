@@ -1035,7 +1035,7 @@ foam.CLASS({
       /**
        * Replaces the url to redirect to the new menu without cleared tails
        */
-      this.window.location.hash = link;
+      this.window.location.hash = link ?? '';
     },
     async function routeToDAO(dao, id) {
       // Check if current menu has object

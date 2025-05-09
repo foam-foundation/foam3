@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
   documentation: 'Border that adds a list of menus around child views',
 
-  imports: ['menuDAO', 'currentMenu'],
+  imports: ['menuDAO', 'currentMenu', 'routeTo'],
 
   requires: ['foam.core.u2.navigation.ApplicationLogoView'],
 
@@ -63,6 +63,9 @@ foam.CLASS({
         .addClass(this.myClass('header'))
         .start(this.ApplicationLogoView)
           .addClass(this.myClass('logo'))
+          .on('click', () => {
+            this.routeTo('');
+          })
         .end()
         .add(this.slot(function(menuArray_) {
           let el = this.E();

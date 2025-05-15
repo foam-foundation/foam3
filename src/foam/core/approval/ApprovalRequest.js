@@ -627,6 +627,14 @@ foam.CLASS({
       message: 'Memo Added'
     },
     {
+      name: 'SUCCESS_APPROVED_MEMO',
+      message: 'You have successfully added a memo'
+    },
+    {
+      name: 'SUCCESS_APPROVED_MEMO_TITLE',
+      message: 'Request approved with memo'
+    },
+    {
       name: 'SUCCESS_REJECTED',
       message: 'You have successfully rejected this request'
     },
@@ -1030,7 +1038,7 @@ foam.CLASS({
         approvedApprovalRequest.canRetry = false;
         approvedApprovalRequest.memo = this.appendMemoReverse(X, memo);
 
-        return this.updateApprovalRequest(X, approvedApprovalRequest, 'MEMO');
+        return this.updateApprovalRequest(X, approvedApprovalRequest, 'APPROVED_MEMO');
       }
     },
     {

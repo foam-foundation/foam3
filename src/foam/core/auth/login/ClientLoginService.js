@@ -73,6 +73,7 @@ foam.CLASS({
             await this.checkGeneralCapability();
             this.initLayout.resolve();
           }
+          return true;
         } catch (err) {
           let e = err && err.data ? err.data.exception : err;
           if ( this.DuplicateEmailException.isInstance(e) ) {
@@ -82,7 +83,7 @@ foam.CLASS({
                 loggedInInUser = await this.auth.login(x, data.username, data.password);
                 this.subject.user = loggedInInUser;
                 this.subject.realUser = loggedInInUser;
-                return;
+                return true;
               } catch ( err ) {
                 data.username = '';
               }

@@ -11,20 +11,47 @@ foam.CLASS({
 
   requires: [ 'foam.core.menu.SubMenuView' ],
 
-  mixins: ['foam.u2.Router'],
+  imports: ['currentMenu'],
+
+  classes: [
+    {
+      name: 'SubMenuRouterView',
+      extends: 'foam.u2.Controller',
+      mixins: ['foam.u2.Router'],
+
+      properties: [
+        'menu'
+      ],
+      methods: [
+        function init() {
+          this.SUPER();
+          let self = this;
+          this.addClass();
+          let routingFn = async function() {
+            if ( self.route ) {
+              let sub = (await self.menu.children.select()).array.find(v => v.id == self.menu.id + '/' + self.route)
+              return await sub?.launch();
+            }
+          }
+          this.onDetach(this.route$.sub(routingFn));
+          routingFn();
+        }
+      ]
+    }
+  ],
 
   methods: [
     function select() {
       /** NOP **/
     },
     async function launch(X, menu) {
-      // Force a memento update as the menus are cached and are not recreated so they are not subbed to memento like other attached objects
-      this.memento_.str = this.memento_.parent.tailStr;
-      this.memento_.propertyChange.pub('str', this.memento_.str$);
-      if ( this.route ) {
-        let sub = (await menu.children.select()).array.find(v => v.id == menu.id + '/' + this.route)
-        return await sub?.launch();
-      }
+      // Create a small controller that can route to the children of this submenu, When menu changes, remove the controller.
+      let self = this;
+      let controller = this.SubMenuRouterView.create({ menu: menu }, X);
+      controller.onDetach(this.currentMenu$.sub(function() {
+        if ( self.currentMenu.id != menu.id )
+          controller.remove();
+      }));
     }
   ]
 });

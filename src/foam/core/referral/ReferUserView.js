@@ -66,6 +66,11 @@ foam.CLASS({
       height: 16;
       align-self: center;
     }
+    ^item-text {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-right: 3.8rem;
+    }
     @container wrapper (width > 576px) {
       ^copy-box {
         width: fit-content;

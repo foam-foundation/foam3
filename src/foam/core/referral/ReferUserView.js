@@ -71,7 +71,7 @@ foam.CLASS({
       min-width: 0;
       padding-right: 3.8rem;
     }
-    @container wrapper (width > 576px) {
+    @container wrapper (width > 700px) {
       ^copy-box {
         width: fit-content;
       }

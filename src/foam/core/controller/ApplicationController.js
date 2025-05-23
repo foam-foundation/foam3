@@ -855,7 +855,7 @@ foam.CLASS({
       let check = await this.checkGeneralCapability();
       if ( ! check ) return;
       await this.fetchTheme();
-      var hash = this.window.location.hash;
+      var hash = this.route;
       if ( hash ) hash = hash.substring(1);
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {
         await this.pushDefaultMenu();

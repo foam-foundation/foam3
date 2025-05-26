@@ -64,7 +64,6 @@ foam.CLASS({
       });
     },
     function clickListener(args) {
-      console.log(args);
       let functionMap = this.returnFunctionMapping() ?? {};
       Object.keys(args).forEach((key) => {
         if ( functionMap[key] ) {
@@ -80,7 +79,6 @@ foam.CLASS({
     function returnFunctionMapping() {
       return {
         'launchRoute': function(val) {
-          console.log('Launching route:', val);
           this.__subContext__.routeTo(val);
         },
         'redirectUrl': function(val) {

@@ -158,6 +158,10 @@ foam.CLASS({
       createVisibility: function(showToast) {
         return showToast ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
+    },
+    {
+      __copyFrom__: 'foam.core.notification.Notification.EXTRA',
+      visibility: 'RW'
     }
   ],
 
@@ -186,6 +190,7 @@ foam.CLASS({
           users: this.users,
           emailArgs: this.emailArgs,
           severity: 'INFO',
+          extra: this.extra,
           transient: false,
           toastState: this.showToast ? 'REQUESTED' : 'NONE'
         });
@@ -210,6 +215,7 @@ foam.CLASS({
             this.groupId = undefined;
             this.users = undefined;
             this.emailArgs = undefined;
+            this.extra = undefined;
             this.ctrl.notify(this.NOTIFICATION_SENT, '', 'INFO', true);
           });
         } else if ( this.groupId ) {
@@ -225,6 +231,7 @@ foam.CLASS({
               this.groupId = undefined;
               this.users = undefined;
               this.emailArgs = undefined;
+              this.extra = undefined;
               this.ctrl.notify(this.NOTIFICATION_SENT, '', 'INFO', true);
             }, e => {
               this.ctrl.notify(this.NOTIFICATION_ERROR, e.message, 'ERROR', true);

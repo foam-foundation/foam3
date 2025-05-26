@@ -498,6 +498,7 @@ foam.POM({
     { name: "notification/push/PushRegistry",                                             flags: "js|java" },
     { name: "notification/push/PushRegistryService",                                      flags: "java" },
     { name: "notification/push/PushRegistryAgent",                                        flags: "js|java" },
+    { name: "notification/push/PushNotificationClickAgent",                               flags: "js" },
     { name: "notification/push/PushSetting",                                              flags: "js|java" },
     { name: "notification/sms/SMSMessage",                                                flags: "js|java" },
     { name: "notification/sms/SMSService",                                                flags: "js|java" },

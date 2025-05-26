@@ -24,7 +24,7 @@ foam.CLASS({
         var  userDAO = (foam.dao.DAO) getX().get("localUserDAO");
         var user    = (foam.core.auth.User) userDAO.find(id);
 
-        sendPush(user, title, body);
+        sendPush(user, title, body, extra);
 
         return true;
       `
@@ -40,13 +40,12 @@ foam.CLASS({
         var pushRegistrationDAO = user.getPushRegistrations(getX());
 
         var   subs = ((foam.dao.ArraySink) pushRegistrationDAO.select(new foam.dao.ArraySink())).getArray();
-        var msgMap = new java.util.HashMap<String, String>()
-          {
-              {
-                  put("title", title);
-                  put("body", body);
-              }
-          };
+        var msgMap = new java.util.HashMap();
+        msgMap.put("title", title);
+        msgMap.put("body", body);
+        if ( extra != null ) {
+          msgMap.putAll(extra);
+        }
 
         for ( Object obj : subs ) {
           PushRegistration sub = (PushRegistration) obj;
@@ -58,7 +57,7 @@ foam.CLASS({
     },
     {
       name: 'send',
-      args: 'PushRegistration sub, java.util.HashMap msgMap',
+      args: 'PushRegistration sub, java.util.Map msgMap',
       type: 'Void',
       javaCode: `
         if ( sub instanceof foam.core.notification.push.iOSNativePushRegistration ) {

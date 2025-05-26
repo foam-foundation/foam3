@@ -35,7 +35,7 @@ foam.CLASS({
         }
         return 'Notification' in this.window;
       }
-    },
+    }
   ],
 
   methods: [

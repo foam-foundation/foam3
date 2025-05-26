@@ -16,7 +16,7 @@ foam.CLASS({
   ],
 
   javaCode: `
-    public void send(iOSNativePushRegistration sub, HashMap msg) {
+    public void send(iOSNativePushRegistration sub, Map msg) {
       send(sub, msg, 0);
     }
   `,
@@ -41,7 +41,7 @@ foam.CLASS({
 
     'java.security.Security',
     'java.util.List',
-    'java.util.HashMap',
+    'java.util.Map',
     'java.io.IOException',
     'java.util.concurrent.ExecutionException',
 
@@ -97,7 +97,7 @@ foam.CLASS({
     },
     {
       name: 'send',
-      args: 'iOSNativePushRegistration sub, HashMap msg, int attempt',
+      args: 'iOSNativePushRegistration sub, Map msg, int attempt',
       type: 'Void',
       javaCode: `
           // Dont send notifications to subs that are in denied state
@@ -110,6 +110,13 @@ foam.CLASS({
           final ApnsPayloadBuilder payloadBuilder = new SimpleApnsPayloadBuilder();
           payloadBuilder.setAlertBody((String) msg.get("body"));
           payloadBuilder.setAlertTitle((String) msg.get("title"));
+
+          for ( var e : msg.entrySet() ) {
+            var entry = (java.util.Map.Entry)e;
+            if ( !((String)entry.getKey()).equals("body") && !((String)entry.getKey()).equals("title") ) {
+              payloadBuilder.addCustomProperty((String)entry.getKey(), entry.getValue());
+            }
+          }
           String payload = payloadBuilder.build();
           // Add a ttl for notifications on the payload
           String token = TokenUtil.sanitizeTokenString(sub.getEndpoint());

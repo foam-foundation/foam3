@@ -44,3 +44,21 @@ p({
     }
   """
 })
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"pushNotificationClickAgent",
+  "lazyClient":false,
+  "serve":true,
+  "authenticate":false,
+  "client":"{ \"class\": \"foam.core.notification.push.PushNotificationClickAgent\" }"
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"pushRegistryAgent",
+  "lazyClient":false,
+  "serve":true,
+  "authenticate":false,
+  "client":"{ \"class\": \"foam.core.notification.push.PushRegistryAgent\" }"
+})

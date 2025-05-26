@@ -95,7 +95,9 @@ try {
   notification.put("badge", "1");
   notification.put("sound", "default");
   body.put("notification", notification);
-
+  if ( extra != null ) {
+    body.put("data", extra);
+  }
   body.put("content_available", true);
   body.put("priority", "high");
   if ( data != null ) {

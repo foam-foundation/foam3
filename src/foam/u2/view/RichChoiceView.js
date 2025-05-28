@@ -552,7 +552,7 @@ foam.CLASS({
                 section.refineInput_ = resp[index].value > section.choicesLimit;
                 this.addClass(self.myClass('setAbove'))
                   .start().addClass(self.myClass('section'))
-                  .start().hide(section.heading)
+                  .start().hide(! section.heading)
                     .addClass('h600', self.myClass('heading'))
                     .translate(section.heading$)
                   .end()

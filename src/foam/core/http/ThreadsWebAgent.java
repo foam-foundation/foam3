@@ -53,14 +53,15 @@ public class ThreadsWebAgent
     Session            session     = x.get(Session.class);
     Thread[]           threadArray = threadSet.toArray(new Thread[threadSet.size()]);
     boolean            showAll     = "y".equals(req.getParameter("showAll"));
+    String             id          = req.getParameter("id");
 
     out.println("<HTML>");
     out.println("<HEAD><TITLE>Threads</TITLE></HEAD>\n");
     out.println("<BODY>");
     if ( showAll ) {
-     out.println("<a href=\"?showAll=n&sessionId=" + session.getId() + "\">Hide parked threads.</a>");
+      out.println("<a href=\"?" + showAllParam(false) + "sessionId=" + session.getId() + "\">Hide parked threads.</a>");
     } else {
-      out.println("<a href=\"?showAll=y&sessionId=" + session.getId() + "\">Show parked threads.</a>");
+      out.println("<a href=\"?" + showAllParam(true) + "sessionId=" + session.getId() + "\">Show parked threads.</a>");
     }
     out.println("<br><H1>Threads</H1>\n");
     out.println("<pre>");
@@ -75,7 +76,11 @@ public class ThreadsWebAgent
     out.println("<th>Last Method Call</th>");
     out.println("</tr>");
 
+    Thread selected = null;
     for ( Thread thread : threadArray ) {
+      Boolean isSelected = String.valueOf(thread.threadId()).equals(id);
+      if ( isSelected ) selected = thread;
+
       StackTraceElement[] elements   = thread.getStackTrace();
       String              methodName = null;
 
@@ -98,9 +103,11 @@ public class ThreadsWebAgent
         methodName = "Unscheduled";
       }
 
-      out.println("<tr>");
+      out.println(isSelected ? "<tr style=\"background-color:aliceblue\">" : "<tr>");
       out.println("<td>");
-      out.println("<a href=\"threads?id=" + thread.getId() + "&sessionId=" + session.getId() + "\">" + thread.toString() + "</a>");
+      if ( isSelected ) out.println("<b> &gt;&gt;");
+      out.println("<a href=\"threads?" + showAllParam(showAll) + "id=" + thread.getId() + "&sessionId=" + session.getId() + "\">" + thread.toString() + "</a>");
+      if ( isSelected ) out.println("</b>");
       out.println("</td>");
       out.println("<td>");
       out.println(thread.getState());
@@ -123,27 +130,25 @@ public class ThreadsWebAgent
     out.format("<br>");
     out.println(threadsInState.keySet().stream().map(key -> key + " : " + threadsInState.get(key)).collect(Collectors.joining(" ; ")));
 
-    String param = req.getParameter("id");
-    if ( ! SafetyUtil.isEmpty(param) ) {
+    if ( selected != null ) {
       out.println("<br><br><H2>Stack Trace</H2>\n");
+      out.println("<b>Thread: " + selected.getName() + "</b>\n");
 
-      for ( Thread thread : threadArray ) {
-        if ( param.equals(String.valueOf(thread.getId())) ) {
-          out.println("<b>Thread: " + thread.getName() + "</b>\n");
-          StackTraceElement[] elements = thread.getStackTrace();
+      StackTraceElement[] elements = selected.getStackTrace();
 
-          if ( elements.length > 0 ) {
-            for ( StackTraceElement element : elements ) {
-              out.println(element.toString());
-            }
-          } else {
-            out.println("This thread has not started, has started but not yet been scheduled to run, or has terminated.");
-          }
-          break;
+      if ( elements.length > 0 ) {
+        for ( StackTraceElement element : elements ) {
+          out.println(element.toString());
         }
+      } else {
+        out.println("This thread has not started, has started but not yet been scheduled to run, or has terminated.");
       }
     }
 
     out.println("</pre></BODY></HTML>");
+  }
+
+  protected String showAllParam(Boolean value) {
+    return value ? "showAll=y&" : "";
   }
 }

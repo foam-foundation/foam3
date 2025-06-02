@@ -23,7 +23,13 @@ foam.CLASS({
     },
     {
       name: 'choice',
-      view: function(_, X) { return { class: 'foam.core.console.PropertyChoiceView', of: X.data.of, optionalChoice: '*' } },
+      view: function(_, X) {
+        var ofSlot = X.data.slot(function(of) { return of; });
+        return foam.core.console.PropertyChoiceView.create({
+          of$: ofSlot,
+          optionalChoice: '*'
+        });
+      },
       preSet: function(o, n) {
         if ( n == '*' ) {
           this.data = '';

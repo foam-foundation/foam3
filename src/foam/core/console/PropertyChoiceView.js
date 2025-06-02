@@ -30,9 +30,12 @@ foam.CLASS({
     'optionalChoice',
     {
       name: 'choices',
-      factory: function(of) {
-        var choices = [ ];
-        if ( this.optionalChoice ) choices.push(this.optionalChoice);
+      factory: null,
+      expression: function(of) {
+        // why???
+        debugger
+        var choices = this.optionalChoice ? [ this.optionalChoice ] : [];
+        if ( ! of?.length ) return choices;
         this.of.getAxiomsByClass(foam.lang.Property).forEach(p => {
           if ( ! p.showInPropertyChoice ) return;
           if ( this.predicate && ! this.predicate(p) ) return;

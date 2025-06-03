@@ -440,7 +440,7 @@ foam.CLASS({
         return controllerMode == 'EDIT';
       },
       code: function() {
-        this.config.dao.put(this.workingData).then(o => {
+        return this.config.dao.put(this.workingData).then(o => {
           if ( ! this.data.equals(o) ) {
             this.data = o;
             this.finished.pub();

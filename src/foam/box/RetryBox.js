@@ -59,7 +59,8 @@ foam.CLASS({
   extends: 'foam.box.ProxyBox',
 
   requires: [
-    'foam.lang.Exception'
+    'foam.lang.Exception',
+    'foam.lang.ValidationException'
   ],
 
   properties: [
@@ -83,9 +84,11 @@ foam.CLASS({
       code: function send(msg) {
         if ( this.Exception.isInstance(msg.object) && ( this.maxAttempts == -1 || this.attempt < this.maxAttempts ) ) {
           // console.log('********************************************* ATTEMPT', this.attempt);
-          this.attempt++;
-          this.destination.send(this.message);
-          return;
+          if ( ! this.ValidationException.isInstance(msg.object.data.exception) ) {
+            this.attempt++;
+            this.destination.send(this.message);
+            return;
+          }
         }
 
         this.delegate && this.delegate.send(msg);

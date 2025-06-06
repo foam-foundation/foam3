@@ -22,6 +22,11 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.comics.v2.userfeedback.UserFeedback',
       name: 'userFeedback'
+    },
+    {
+      class: 'Enum',
+      of: 'foam.comics.v2.userfeedback.UserFeedbackAlertType',
+      name: 'alertType'
     }
   ]
 });

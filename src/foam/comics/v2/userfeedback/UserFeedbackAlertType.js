@@ -15,7 +15,7 @@ foam.ENUM({
   `,
 
   values: [
-    { name: 'ALERT',        label: 'Alert' },
-    { name: 'NOTIFICATION', label: 'Notification' }
+    { name: 'NOTIFICATION', label: 'Notification' },
+    { name: 'ALERT',        label: 'Alert' }
   ]
 });

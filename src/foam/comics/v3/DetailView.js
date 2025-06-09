@@ -18,13 +18,16 @@ foam.CLASS({
 
   requires: [
     'foam.log.LogLevel',
+    'foam.box.RPCErrorMessage',
+    'foam.comics.v2.userfeedback.UserFeedbackException',
+    'foam.u2.ActionReference',
+    'foam.u2.ControllerMode',
     'foam.u2.layout.Cols',
     'foam.u2.layout.Rows',
-    'foam.u2.ControllerMode',
+    'foam.u2.dialog.ConfirmationModal',
     'foam.u2.dialog.Popup',
     'foam.u2.stack.BreadcrumbView',
-    'foam.u2.stack.StackBlock',
-    'foam.u2.ActionReference',
+    'foam.u2.stack.StackBlock'
   ],
 
   imports: [
@@ -51,7 +54,8 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'UPDATED',   message: 'Updated' }
+    { name: 'UPDATED',   message: 'Updated' },
+    { name: 'ERROR_MSG',   message: 'Something went wrong' }
   ],
 
   classes: [
@@ -461,15 +465,31 @@ foam.CLASS({
           this.cancelEdit();
         }, e => {
           this.throwError.pub(e);
-
-          if ( e.exception && e.exception.userFeedback  ) {
-            var currentFeedback = e.exception.userFeedback;
+          if ( foam.box.RPCErrorMessage.isInstance(e) ) {
+            e = e.data
+          }
+          if ( this.UserFeedbackException.isInstance(e.exception)  ) {
+            e = e.exception;
+            var currentFeedback = e.userFeedback;
+            let fn = this.notify.bind(this);
+            if ( e.alertType.ordinal == 1 ) {
+              fn = () => {
+                this.ConfirmationModal.create({
+                  title: this.ERROR_MSG, 
+                  modalStyle: 'DESTRUCTIVE', 
+                  primaryAction: { name: 'okay', buttonStyle: 'TEXT', code: function(X) { X.closeDialog(); }},
+                  showCancel: false,
+                  closeable: false 
+                })
+                  .add(e.userFeedback.message)
+                  .open();
+              }
+            }
             while ( currentFeedback ) {
-              this.notify(currentFeedback.message, '', this.LogLevel.INFO, true);
+              fn(currentFeedback.message, '', this.LogLevel.ERROR, true);
 
               currentFeedback = currentFeedback.next;
             }
-            this.cancelEdit();
           } else {
             this.notify(e.message, '', this.LogLevel.ERROR, true);
           }

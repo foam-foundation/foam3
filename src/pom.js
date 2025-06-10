@@ -89,6 +89,7 @@ foam.POM({
     { name: "foam/lang/Validator",                                    flags: "js|java" },
     { name: "foam/lang/ValidationException",                          flags: "js|java" },
     { name: "foam/lang/ClientRuntimeException",                       flags: "js|java" },
+    { name: "foam/lang/NoRetryException",                             flags: "js|java" },
     { name: "foam/lang/OptionalBoolean",                              flags: "js|java" },
     { name: "foam/parse/ErrorReportingPStream",                       flags: "js" },
     { name: "foam/parse/TrapPStream",                                 flags: "js" },

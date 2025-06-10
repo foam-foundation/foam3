@@ -60,7 +60,7 @@ foam.CLASS({
 
   requires: [
     'foam.lang.Exception',
-    'foam.lang.ValidationException'
+    'foam.lang.NoRetryException'
   ],
 
   properties: [
@@ -84,10 +84,14 @@ foam.CLASS({
       code: function send(msg) {
         if ( this.Exception.isInstance(msg.object) && ( this.maxAttempts == -1 || this.attempt < this.maxAttempts ) ) {
           // console.log('********************************************* ATTEMPT', this.attempt);
-          if ( ! this.ValidationException.isInstance(msg.object.data.exception) ) {
+          var ex = msg.object.data.exception;
+
+          if ( ! this.NoRetryException.isInstance(ex) ) {
             this.attempt++;
             this.destination.send(this.message);
             return;
+          } else if ( ex.delegate ) {
+            msg.object.data.exception = ex.delegate;
           }
         }
 

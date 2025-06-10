@@ -6,7 +6,7 @@
 foam.CLASS({
   package: 'foam.lang',
   name: 'ValidationException',
-  extends: 'foam.lang.ClientRuntimeException',
+  extends: 'foam.lang.NoRetryException',
   javaGenerateConvenienceConstructor: false,
 
   properties: [

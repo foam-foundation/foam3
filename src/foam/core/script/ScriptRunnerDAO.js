@@ -61,11 +61,8 @@ foam.CLASS({
               }, logger);
 
               try {
-                DAO dao = (DAO) ScriptRunnerDAO.this.cmd_(x, DAO.LAST_CMD);
-                if ( dao != null ) {
-                  script.setThreadId(Thread.currentThread().threadId());
-                  dao.put_(x, script);
-                }
+                script.setThreadId(Thread.currentThread().threadId());
+                getDelegate().put_(x, script);
 
                 script.runScript(x);
                 script.setStatus(ScriptStatus.UNSCHEDULED);

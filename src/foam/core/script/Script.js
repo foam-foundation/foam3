@@ -25,10 +25,12 @@ foam.CLASS({
 
   imports: [
     'notificationDAO',
+    'sessionID',
     'setTimeout',
     'scriptDAO',
     'scriptEventDAO',
-    'subject'
+    'subject',
+    'window'
   ],
 
   exports: [
@@ -310,6 +312,13 @@ foam.CLASS({
       visibility: 'HIDDEN',
       documentation: 'Name of dao to store script run/event report. To set from inheritor just change property value',
       tableWidth: 120
+    },
+    {
+      class: 'Long',
+      name: 'threadId',
+      storageTransient: true,
+      visibility: 'HIDDEN',
+      documentation: 'Id of thread on which the script is running'
     }
   ],
 
@@ -590,6 +599,16 @@ foam.CLASS({
             }
           );
         }
+      }
+    },
+    {
+      name: 'inspect',
+      isAvailable: function(status, threadId) {
+        return status == this.ScriptStatus.RUNNING && threadId;
+      },
+      code: function() {
+        var url = this.window.location.origin + '/service/threads?id=' + this.threadId + '&sessionId=' + this.sessionID;
+        this.window.open(url, '_blank');
       }
     }
   ]

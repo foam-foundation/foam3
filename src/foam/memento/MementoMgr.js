@@ -54,6 +54,12 @@ foam.CLASS({
       this.memento$.sub(this.onMementoChange);
     },
 
+    function clear() {
+      this.stack = [];
+      this.redo  = [];
+      this.updateSizes();
+    },
+
     function updateSizes() {
       this.posFeedback_  = true;
       this.stackSize_    = this.stack.length;

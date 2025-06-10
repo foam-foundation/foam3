@@ -7,7 +7,7 @@ p({
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
-      .setAuthorize(false)
+      .setAuthorize(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("cmds")
       .setOf(foam.core.reflow.cmd.Command.getOwnClassInfo())

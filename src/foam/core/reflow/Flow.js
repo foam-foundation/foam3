@@ -62,7 +62,7 @@ foam.CLASS({
       class: 'String',
       name: 'notes',
       width: 80,
-      view: { class: 'foam.u2.tag.TextArea', rows: 6, cols: 78 }
+      view: { class: 'foam.u2.tag.TextArea', rows: 4, cols: 78 }
     },
     {
       class: 'Boolean',
@@ -124,7 +124,37 @@ foam.CLASS({
           this.feedback_ = false;
         }
       },
-      view: { class: 'foam.u2.tag.TextArea', rows: 6, cols: 78 }
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 78 }
+    },
+    {
+      class: 'FObjectProperty',
+      name: 'mementoMgr',
+      transient: true,
+      hidden: true,
+      factory: function() {
+        return foam.memento.MementoMgr.create({memento$: this.mementoStr$, position$: this.revision$});
+      }
+    },
+    {
+      class: 'Int',
+      name: 'version'
+    },
+    {
+      class: 'Int',
+      name: 'revision',
+      transient: true,
+      xxxview: {
+        class: 'foam.u2.view.DualView',
+        viewa: { class: 'foam.u2.IntView' },
+        viewb: { class: 'foam.u2.RangeView', onKey: true }
+      }
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      this.mementoMgr;
     }
   ],
 
@@ -139,9 +169,11 @@ foam.CLASS({
         // be created until just before you save, but updating it for every update
         // will make it easy to implement undo/redo in the future.
         this.MEMENTO.postSet.call(this, this.menento, this.memento);
+        this.version++;
+        this.mementoMgr.clear();
         this.flowDAO.put(this);
       },
-      isEnabled: function(name) { return name && name !== 'Unnamed'; },
+      isEnabled: function(name, revision) { return name && name !== 'Unnamed' && revision; },
       isAvailable: function() {
         // Enable in Reflow, but disable in DAOController (because DAOController already has save feature)
         return this.__context__.flow;

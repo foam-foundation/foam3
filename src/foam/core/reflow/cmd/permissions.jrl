@@ -1,0 +1,7 @@
+p({ "class": "foam.core.auth.Permission", "id": "command.read.cells" })
+p({ "class": "foam.core.auth.Permission", "id": "command.read.check" })
+p({ "class": "foam.core.auth.Permission", "id": "command.read.clock" })
+p({ "class": "foam.core.auth.Permission", "id": "command.read.fetch" })
+p({ "class": "foam.core.auth.Permission", "id": "command.read.script" })
+p({ "class": "foam.core.auth.Permission", "id": "command.read.services" })
+p({ "class": "foam.core.auth.Permission", "id": "command.read.upload" })

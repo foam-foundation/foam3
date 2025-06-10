@@ -5,72 +5,6 @@
  */
 foam.CLASS({
   package: 'foam.dao.store',
-  name: 'FileStored',
-  implements: [ 'foam.dao.store.Stored' ],
-
-  properties: [
-    {
-      name: 'store',
-      class: 'FObjectProperty',
-      of: 'foam.dao.store.FileStore'
-    },
-    {
-      name: 'pos',
-      class: 'Long'
-    },
-    {
-      name: 'len',
-      class: 'Int'
-    }
-  ]
-});
-
-foam.CLASS({
-  package: 'foam.dao.store',
-  name: 'Root',
-
-  documentation: `There is nothing to distinguish a \'Root\' Index from any other,
-so this model acts as a marker to denote where a \'Root\' Index is located.`,
-
-  constants: [
-    {
-      documentation: `Character seqeuence indicating the start of the
-special object which precedes a Root Index.  The characters are reversed
-as the finding logic reads the file into a buffer in inverse order.`,
-      name: 'ROOT_MARKER',
-      type: 'String',
-      value: "\"tooR.erots.oad.maof\":ssalc{(p"
-    }
-  ],
-
-  properties: [
-    {
-      name: 'pos',
-      class: 'Long'
-    },
-    {
-      name: 'len',
-      class: 'Int'
-    },
-    {
-      name: 'created',
-      class: 'DateTime',
-      javaFactory: `
-        return new java.util.Date();
-      `
-    }
-  ],
-
-  javaCode: `
-  public Root(long pos, int len) {
-    setPos(pos);
-    setLen(len);
-  }
-  `
-});
-
-foam.CLASS({
-  package: 'foam.dao.store',
   name: 'FileStore',
   implements: [ 'foam.dao.store.Store' ],
 
@@ -265,6 +199,71 @@ foam.CLASS({
         pm.log(x);
       }
       `
+    }
+  ],
+
+  classes: [
+    {
+      name: 'FileStored',
+      implements: [ 'foam.dao.store.Stored' ],
+
+      properties: [
+        {
+          name: 'store',
+          class: 'FObjectProperty',
+          of: 'foam.dao.store.FileStore'
+        },
+        {
+          name: 'pos',
+          class: 'Long'
+        },
+        {
+          name: 'len',
+          class: 'Int'
+        }
+      ]
+    },
+    {
+      name: 'Root',
+
+      documentation: `There is nothing to distinguish a \'Root\' Index from any other,
+so this model acts as a marker to denote where a \'Root\' Index is located.`,
+
+      constants: [
+        {
+          documentation: `Character seqeuence indicating the start of the
+special object which precedes a Root Index.  The characters are reversed
+as the finding logic reads the file into a buffer in inverse order.`,
+          name: 'ROOT_MARKER',
+          type: 'String',
+          value: "\"tooR.erots.oad.maof\":ssalc{(p"
+        }
+      ],
+
+      properties: [
+        {
+          name: 'pos',
+          class: 'Long'
+        },
+        {
+          name: 'len',
+          class: 'Int'
+        },
+        {
+          name: 'created',
+          class: 'DateTime',
+          javaFactory: `
+        return new java.util.Date();
+      `
+        }
+      ],
+
+      javaCode: `
+  public Root(long pos, int len) {
+    setPos(pos);
+    setLen(len);
+  }
+  `
     }
   ]
 });

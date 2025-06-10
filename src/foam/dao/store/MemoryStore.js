@@ -6,12 +6,6 @@
 
 foam.CLASS({
   package: 'foam.dao.store',
-  name: 'MemoryStored',
-  implements: [ 'foam.dao.store.Stored' ]
-});
-
-foam.CLASS({
-  package: 'foam.dao.store',
   name: 'MemoryStore',
   implements: [ 'foam.dao.store.Store' ],
 
@@ -31,5 +25,12 @@ foam.CLASS({
         return new MemoryStored(obj);
       `
     },
+  ],
+
+  classes: [
+    {
+      name: 'MemoryStored',
+      implements: [ 'foam.dao.store.Stored' ]
+    }
   ]
 });

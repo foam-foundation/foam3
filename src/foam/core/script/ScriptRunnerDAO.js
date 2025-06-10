@@ -61,7 +61,7 @@ foam.CLASS({
               }, logger);
 
               try {
-                script.setThreadId(Thread.currentThread().threadId());
+                script.setThreadId(Thread.currentThread().getId());
                 getDelegate().put_(x, script);
 
                 script.runScript(x);

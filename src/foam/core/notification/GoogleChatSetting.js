@@ -55,23 +55,6 @@ foam.CLASS({
         Map map = new HashMap();
 
         String URL = notification.getGoogleChatWebhook();
-        // Loggers.logger(x, this).debug("URL", URL);
-
-        if ( notification.getAlarm() != null ) {
-          StringBuilder threadKey = new StringBuilder();
-          threadKey.append(System.getProperty("CLUSTER_NAME", notification.getAlarm().getHostname()));
-          threadKey.append("-");
-          threadKey.append(notification.getAlarm().getName().replaceAll(" ", "_"));
-          if ( ! SafetyUtil.isEmpty(notification.getAlarm().getExternalId()) ) {
-            threadKey.append("-");
-            threadKey.append(notification.getAlarm().getExternalId());
-          }
-          Map thread = new HashMap();
-          thread.put("threadKey", threadKey.toString());
-          map.put("thread", thread);
-          URL += "&messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD";
-        }
-
         String message = notification.getGoogleChatMessage();
         if ( foam.util.SafetyUtil.isEmpty(message) ) {
           message = notification.getBody();

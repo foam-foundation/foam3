@@ -22,6 +22,10 @@ foam.POM({
     u3: true
   },
 
+  // projects: [
+  //   { name: "foam/dao/store/pom" }
+  // ],
+
   files: [
     { name: "foam/lang/lib",                                          flags: "js" },
     { name: "foam/lang/stdlib",                                       flags: "js" },
@@ -378,6 +382,10 @@ foam.POM({
     { name: "foam/dao/SequenceNumberDAOTest",                         flags: "js&test|java&test" },
     { name: "foam/dao/ContextualizingDAO",                            flags: "js|java" },
     { name: "foam/dao/VersionNoDAO",                                  flags: "js" },
+    { name: "foam/dao/store/Stored",                                  flags: 'js|java' },
+    { name: "foam/dao/store/Store",                                   flags: 'js|java' },
+    { name: "foam/dao/store/FileStore",                               flags: 'js|java' },
+    { name: "foam/dao/store/MemoryStore",                             flags: 'js|java' },
 //    { name: "foam/dao/sync/SyncRecord",                               flags: "js" },
 //    { name: "foam/dao/SyncDAO",                                       flags: "js" },
     { name: 'foam/util/development/ClientTestingReplayDAO',           flags: "js&test" },

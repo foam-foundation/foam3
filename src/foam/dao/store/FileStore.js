@@ -22,15 +22,7 @@ foam.CLASS({
       name: 'len',
       class: 'Int'
     }
-  ],
-
-  javaCode: `
-  public FileStored(FileStored stored, long pos, int len, foam.lang.FObject obj) {
-    setPos(pos);
-    setLen(len);
-    setObject(obj);
-  }
-  `
+  ]
 });
 
 foam.CLASS({
@@ -145,7 +137,7 @@ foam.CLASS({
       javaCode: `
         formatter_.reset();
         formatter_.setX(x);
-        formatter_.output(obj, getOf().getOwnClassInfo());
+        formatter_.output(obj, getOf());
         int charLen = formatter_.builder().length() + 4; // p(...)\n
         int len = charLen * 2;
         long pos = size_ + len;

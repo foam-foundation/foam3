@@ -39,7 +39,7 @@ special object which precedes a Root Index.  The characters are reversed
 as the finding logic reads the file into a buffer in inverse order.`,
       name: 'ROOT_MARKER',
       type: 'String',
-      value: "\"tooR.erots.oad.maof\":ssalc})p"
+      value: "\"tooR.erots.oad.maof\":ssalc{(p"
     }
   ],
 
@@ -77,6 +77,7 @@ foam.CLASS({
   documentation: ``,
 
   javaImports: [
+    'foam.core.fs.FileSystemStorage',
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.core.pm.PM',
@@ -87,11 +88,14 @@ foam.CLASS({
     'foam.lib.formatter.JSONFObjectFormatter',
     'foam.lib.json.JSONParser',
     'foam.util.SafetyUtil',
+    'java.io.File',
     'java.io.IOException',
     'java.io.RandomAccessFile',
     'java.nio.ByteBuffer',
     'java.nio.channels.FileChannel',
-    'java.nio.charset.StandardCharsets'
+    'java.nio.charset.CharsetDecoder',
+    'java.nio.charset.StandardCharsets',
+    'java.nio.file.Files'
   ],
 
   properties: [
@@ -118,8 +122,14 @@ foam.CLASS({
       setX(x);
       setFilename(filename);
       setOf(of);
-
-      channel_   = new RandomAccessFile(getFilename(), "rw").getChannel();
+      File file = x.get(FileSystemStorage.class).get(filename);
+      try {
+        Files.createFile(file.toPath());
+      } catch ( java.nio.file.FileAlreadyExistsException e ) {
+        // nop;
+      }
+      Loggers.logger(x, this).info("created", file.toPath());
+      channel_   = new RandomAccessFile(file.getPath(), "rw").getChannel();
       size_      = channel_.size();
       buffer_    = ByteBuffer.allocate(BUFFER_SIZE);
       formatter_ = new JSONFObjectFormatter(x);
@@ -138,10 +148,8 @@ foam.CLASS({
         formatter_.reset();
         formatter_.setX(x);
         formatter_.output(obj, getOf());
-        int charLen = formatter_.builder().length() + 4; // p(...)\n
-        int len = charLen * 2;
-        long pos = size_ + len;
-        store(x, new Root(pos, len));
+        int len = formatter_.builder().length() + 4; // p(...)\n
+        store(x, new Root(size_, len));
         setRoot(store(x, obj));
         return getRoot();
       `
@@ -171,13 +179,14 @@ foam.CLASS({
       `
     },
     {
+      documentation: 'Retrieve object at stored location. The passed stored updated with the retrieved object and returned.',
       name: 'load',
       args: 'Context x, foam.dao.store.Stored stored',
-      type: 'foam.lang.FObject',
+      type: 'foam.dao.store.Stored',
       javaCode: `
       PM pm = new PM("FileStore:load");
+      FileStored fs = (FileStored) stored;
       try {
-        FileStored fs = (FileStored) stored;
         PM pmBuffer = new PM("FileStore:load:buffer");
         // REVIEW: FileChannel does not support read(buffer, offset, len)
         // so directly allocating buffer on each call for now
@@ -194,16 +203,18 @@ foam.CLASS({
         PM pmDecode = new PM("FileStore:load:decode");
         buffer.flip();
         String decoded = StandardCharsets.UTF_8.newDecoder().decode(buffer).toString();
+        decoded = decoded.substring(2, decoded.length() - 2); // strip p(...)\n
         pmDecode.log(x);
         PM pmParse = new PM("FileStore:load:parse");
         parser_.setX(x);
         FObject obj = parser_.parseString(decoded, getOf().getObjClass());
         pmParse.log(x);
         pm.log(x);
-        return obj;
+        stored.setObject(obj);
+        return stored;
       } catch ( Throwable t ) {
         pm.error(x, t);
-        Loggers.logger(x, this).error(getFilename(), "load", t);
+        Loggers.logger(x, this).error(getFilename(), "load", fs.getPos(), fs.getLen(), t);
         throw new RuntimeException(t);
       }
       `
@@ -213,30 +224,31 @@ foam.CLASS({
       name: 'findRoot',
       args: 'Context x',
       javaCode: `
+
       char p = 'p';
-      String classMarker = ":ssalc})p";
+      String classMarker = ":ssalc{(p";
       StringBuffer sb = new StringBuffer();
-      ByteBuffer buffer = ByteBuffer.allocate(2);
+      ByteBuffer buffer = ByteBuffer.allocate(1);
+      CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
       PM pm = new PM("FileStore:findRoot");
       try {
-        for ( long pos = size_; pos >= 0; pos -= 2 ) {
+        if ( channel_.size() == 0 ) return;
+
+        for ( long pos = size_ - 1; pos >= 0; pos -= 1 ) {
           channel_.position(pos);
           buffer.clear();
           channel_.read(buffer);
           buffer.flip();
-          char c = buffer.getChar();
+          String c = decoder.decode(buffer).toString();
           sb.append(c);
-          if ( p == c ) {
+          if ( "p".equals(c) ) {
             if ( sb.toString().endsWith(Root.ROOT_MARKER) ) {
-              int len = sb.length() * 2;
+              int len = sb.length();
               FileStored stored = (FileStored) load(x, new FileStored(this, pos, len, null));
               Root root = (Root) stored.get();
               // load real root index
-              stored = new FileStored(this, root.getPos(), root.getLen(), null);
-              FObject index = load(x, stored);
-              stored.setObject(index);
-              setRoot(stored);
-              Loggers.logger(x, this).debug(getFilename(), "Root loaded", root);
+              stored = new FileStored(this, pos + len, root.getLen(), null);
+              setRoot(load(x, stored));
               return;
             }
             if ( sb.toString().endsWith(classMarker) ) {

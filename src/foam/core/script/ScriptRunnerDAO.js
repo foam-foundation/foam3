@@ -61,6 +61,12 @@ foam.CLASS({
               }, logger);
 
               try {
+                DAO dao = (DAO) ScriptRunnerDAO.this.cmd_(x, DAO.LAST_CMD);
+                if ( dao != null ) {
+                  script.setThreadId(Thread.currentThread().threadId());
+                  dao.put_(x, script);
+                }
+
                 script.runScript(x);
                 script.setStatus(ScriptStatus.UNSCHEDULED);
               } catch(Throwable t) {
@@ -69,6 +75,7 @@ foam.CLASS({
               } finally {
                 // re-put to the top of the dao stack rather than delegate
                 // to allow rules to run pre and post execution
+                script.clearThreadId();
                 ((DAO) x.get(script.getDaoKey())).put_(x, script);
               }
             }

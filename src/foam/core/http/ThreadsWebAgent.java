@@ -90,7 +90,7 @@ public class ThreadsWebAgent
         switch ( methodName ) {
           case "park":
             parkedThreads += 1;
-            if ( showAll ) { break; } else { continue; }
+            if ( showAll || isSelected ) { break; } else { continue; }
           case "sleep":
             sleepingThreads += 1;
             methodName = getMethodName(elements);

@@ -60,6 +60,15 @@ foam.CLASS({
       name: 'autoStart'
     },
     {
+      documentation: `When false, DAO will be not initialized (loaded) - ever.
+The system will only rely on sourceDAO updates triggering the copy adapter.
+Use this configuration when the MDAO is setup with FileStore to decrease
+system startup time.`,
+      class: 'Boolean',
+      name: 'initialize',
+      value: true
+    },
+    {
       class: 'Object',
       name: 'queue',
       javaType: 'java.util.concurrent.BlockingQueue',
@@ -182,6 +191,7 @@ foam.CLASS({
       javaType: 'void',
       synchronized: true,
       javaCode: `
+        if ( ! getInitialize() ) return;
         if ( getInitialized() ) return;
 
         Logger logger = Loggers.logger(getX(), this, getInstanceName());

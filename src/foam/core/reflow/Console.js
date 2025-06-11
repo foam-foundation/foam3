@@ -123,7 +123,7 @@ foam.CLASS({
           start('td').
             enableClass(self.myClass('error'), flowName.startsWith('error')).
             style({'paddingLeft': (4 + depth * 12) + 'px'}).
-            add(flowName).
+            add(flowName || 'Unnamed').
             callIf(data.flowParent, function() {
               this.start().addClass('close').startContext({ data: data }).tag(self.CLOSE).endContext().end();
             }).
@@ -414,9 +414,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'flowName',
-      preSet: function(o, n) {
-        return n || 'Unnamed';
-      },
+      required: true,
+      value: 'Unnamed',
       postSet: function(o, n) {
         if ( n !== 'Unnamed' )
           this.route = n;

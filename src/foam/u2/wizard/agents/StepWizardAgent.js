@@ -30,7 +30,7 @@ foam.CLASS({
     'wizardController?'
   ],
 
-  exports: ['wizardView'],
+  exports: ['wizardView', 'wizardLaunchMemento'],
 
   requires: [
     'foam.u2.dialog.Popup',
@@ -50,7 +50,8 @@ foam.CLASS({
       }
     },
     'wizardView',
-    'lastLastActiveWizard'
+    'lastLastActiveWizard',
+    'wizardLaunchMemento'
   ],
 
   methods: [
@@ -68,6 +69,12 @@ foam.CLASS({
         let closePromise = this.wizardController.onClose();
         if ( closePromise?.then )
           closePromise.then(() => {})
+      }));
+
+      this.wizardLaunchMemento = this.ctrl.route;
+      this.onDetach(this.ctrl.route$.sub(() => {
+        if ( this.ctrl.route == this.wizardLaunchMemento ) return;
+        this.resolveAgent();
       }));
 
       if ( (view?.class || view?.cls_?.id).endsWith('ScrollingStepWizardView') ) {

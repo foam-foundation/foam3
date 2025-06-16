@@ -13,7 +13,9 @@ foam.CLASS({
     'foam.core.reflow.SinkAgent'
   ],
 
-  imports: [ 'dao', 'agentDAO' ],
+  imports: [ 'agentDAO' ],
+
+  exports: [ 'dao' ],
 
   css: `
     ^ {
@@ -22,6 +24,7 @@ foam.CLASS({
   `,
 
   properties: [
+    { name: 'dao', factory: function() { return this.__context__.dao; } },
     {
       name: 'agentType',
       value: undefined
@@ -104,17 +107,23 @@ foam.CLASS({
     function choiceToClass(choice) {
       return this.cls_.package + '.' + choice + 'DAOAgent';
     },
+
     function render() {
       var self = this;
+
       if ( ! this.data ) { this.data = undefined; }
 
       this.
-        addClass().
-        startContext({data: this}).
-          add(this.CHOICE).
-        endContext().
-        add(' ', self.dynamic(function (data) {
-          if ( ! self.dao ) return;
+        addClass().add(' ').
+        add(self.dynamic(function (data, dao) {
+          if ( ! dao ) {
+            this.start('i').add('select data source');
+            return;
+          }
+          this.startContext({data: self}).
+            add(self.CHOICE).
+          endContext();
+
           if ( data instanceof Promise ) {
             data.then(d => d.addToE(this));
           } else {

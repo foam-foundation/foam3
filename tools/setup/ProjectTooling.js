@@ -6,7 +6,7 @@
 
 /**
    Support for creating new FOAM based projects.
-   usage: node tools/build.js -Tsetup/Project --appName:Recipe --package:com.foamdev.com --adminPassword:badpassword
+   usage: node tools/build.js -T+setup/Project --appName:Recipe --package:com.foamdev.com --adminPassword:badpassword
 */
 foam.POM({
   name: 'project',
@@ -184,13 +184,13 @@ foam.POM({
     usage: ['usage', 'Example usage', [], function() {
       this.log('Project creation examples:');
       this.warning('must be run from foam3/ directory)');
-      this.log('  node tools/build.js -Tsetup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword');
       this.log('      Generate a project matchin the FOAM-Recipes tutorial');
-      this.log('  node tools/build.js -Tsetup/Project --appName:Simple --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --appName:Simple --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a very simple model.');
-      this.log('  node tools/build.js -Tsetup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a more elaborate model demonstrating more FOAM features..');
-      this.log('  node tools/build.js -Tsetup/Project --createAdmin --appName:Example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --createAdmin --appName:Example --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate an admin user for existing projects which were previously relying on the, now removed, foam-admin user provided by the baseline FOAM repo.');
       this.log();
     }],

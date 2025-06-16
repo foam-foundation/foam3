@@ -741,6 +741,7 @@ foam.CLASS({
 
     function clone(opt_X) {
       return this.shallowClone(opt_X);
-    }
+    },
+    function toSummary() { return this.label; } 
   ]
 });

@@ -59,7 +59,7 @@ Git Clone
 # Application
 Create an example application
 
-    ./build.sh -Tsetup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword
+    ./build.sh -T+setup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword
 
 Build and Start Server
 

@@ -280,7 +280,7 @@ foam.CLASS({
     },
     {
       name: 'select',
-      view: function(_, X) { return foam.core.reflow.SinkView.create({sinksOnly: false, choice: 'Table'}, X.data); },
+      view: function(_, X) { return foam.core.reflow.SinkView.create({sinksOnly: false, choice: 'Table', dao: X.data.dao}, X); },
       section: 'output',
       label: '',
       factory: function() { return this.TableDAOAgent.create(); }

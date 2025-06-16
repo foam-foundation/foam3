@@ -619,6 +619,9 @@ foam.CLASS({
       var loaded = await this.flowDAO.find(flowName);
 
       if ( loaded ) {
+        // Don't save the 'load' command
+        this.currentBlock.del();
+
         this.selected = this.flow;
         this.flow.copyFrom(loaded);
       } else {

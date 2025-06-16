@@ -18,7 +18,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'cSpecDAO',
+    'AuthenticatedCSpecDAO as cSpecDAO',
     'flowDAO'
   ],
 

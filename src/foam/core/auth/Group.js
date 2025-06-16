@@ -188,7 +188,8 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
                     granted[0] = true;
                     d.detach();
                   }
-                } else if ( new AuthPermission(j.getTargetId()).implies(permission) ) {
+                } 
+                if ( new AuthPermission(j.getTargetId()).implies(permission) ) {
                   granted[0] = true;
                   d.detach();
                 }

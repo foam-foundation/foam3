@@ -34,7 +34,14 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
-      name: 'description'
+      name: 'description',
+      preSet: function(o, n) {
+        if ( n.endsWith('DAO') ) {
+          n = n.substring(0, n.length-3);
+        }
+
+        return n;
+      }
     },
     {
       class: 'String',
@@ -54,6 +61,7 @@ foam.CLASS({
       .end();
     }
   ],
+
   actions: [
     {
       name: 'addComponent',

@@ -94,6 +94,7 @@ foam.CLASS({
       value: function(alt, anyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
+//        var key = (str) => sug(literalIC(str), { text: str });
         var key = (str) => sug(seq1(1, repeat0(' '), literalIC(str), repeat0(' ')), { text: str });
 
         return {
@@ -599,6 +600,10 @@ foam.CLASS({
   methods: [
     function parseString(str, opt_name, opt_apply) {
       var query = this.grammar_.parseString(str, opt_name, opt_apply);
+      if ( query ) {
+        if ( query.partialEval ) query = query.partialEval();
+        console.log('*************query', query, query.toString());
+      }
       query = query && query.partialEval ? query.partialEval() : query;
       return query;
     }

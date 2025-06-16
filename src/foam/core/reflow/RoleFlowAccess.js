@@ -6,17 +6,42 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'UserFlowAccess',
+  name: 'RoleFlowAccess',
+  implements: [ 'foam.mlang.Expressions' ],
+
+  imports: [
+    'groupDAO'
+  ],
+
   requires: [
+    'foam.core.auth.Group',
     'foam.core.reflow.FlowAccess'
   ],
+
+  constants: {
+    ROLE_PREFIX: 'Role'
+  },
 
   properties: [
     {
       class: 'Reference',
-      of: 'foam.core.auth.User',
-      name: 'userId',
-      required: true
+      of: 'foam.core.auth.Group',
+      name: 'roleId',
+      required: true,
+      view: function(_, X) {
+        var self = X.data;
+        var rolesDAO = self.groupDAO.where(self.CONTAINS(self.Group.ID, self.ROLE_PREFIX));
+        return {
+          class: 'foam.u2.view.RichChoiceView',
+          search: true,
+          sections: [
+            {
+              heading: 'Roles',
+              dao: rolesDAO
+            }
+          ]
+        };
+      }
     },
     {
       class: 'Enum',
@@ -24,6 +49,7 @@ foam.CLASS({
       name: 'accessLevel',
       required: true,
       view: function(_, X) {
+        debugger
         return {
           class: 'foam.u2.view.RadioView',
           isHorizontal: true,

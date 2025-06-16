@@ -31,7 +31,7 @@ p({
       "cache":true
     }
   """,
-  documentation:"The authenticated version of cSpecDAO - for dig and docs."
+  documentation:"The authenticated version of cSpecDAO - for dig, reflow and docs. Users need the service.read.<serviceName> permission to see each service."
 })
 
 p({

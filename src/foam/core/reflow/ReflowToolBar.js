@@ -24,6 +24,7 @@ foam.CLASS({
       align-items: left;
       gap: 10px;
       align-items: center;
+      max-width: 320px;
     }
     ^holder {
       padding: 10px;
@@ -31,8 +32,7 @@ foam.CLASS({
       border-radius: 4px;
       border: 1px solid $grey200;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      z-index: 100;
-      max-width: 320px;
+      width: 100%;
     }
 
     ^button-group {

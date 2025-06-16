@@ -260,5 +260,15 @@ foam.CLASS({
       hidden: true,
       javaFactory: 'return 1L;'
     }
+  ],
+  methods: [
+    {
+      name: 'init',
+      code: function() {
+        let user = this.__subContext__.subject.user.id;
+        this.user = user;
+        this.SUPER();
+      }
+    }
   ]
 });

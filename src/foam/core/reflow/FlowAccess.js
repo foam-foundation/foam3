@@ -12,6 +12,6 @@ foam.ENUM({
     { name: 'PRIVATE',    label: 'Private' },
     { name: 'PUBLIC_RO',  label: 'Read Only' },
     { name: 'PUBLIC_RW',  label: 'Read Write' },
-    { name: 'SHARED',     label: 'Specified Users' }
+    { name: 'SHARED',     label: 'Share to users and roles' }
   ]
 });

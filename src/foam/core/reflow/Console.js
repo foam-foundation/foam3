@@ -220,7 +220,7 @@ foam.CLASS({
     },
     {
       name: 'confirmReset',
-      label: 'Confirm',
+      label: 'Yes, Confirm',
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       size: 'SMALL',
       isAvailable: function(showPrompts) {
@@ -246,7 +246,7 @@ foam.CLASS({
       },
       code: function() {
         let confirmationModal = this.ConfirmationModal.create({
-          title: `Are you sure you want to reset the view ?`,
+          title: `Unsaved changes will be lost, are you sure you want a New Reflow page?`,
           primaryAction: this.CONFIRM_RESET,
           showCancel: true,
           modalStyle: 'DESTRUCTIVE',
@@ -798,6 +798,7 @@ foam.CLASS({
       margin-bottom: 4px;
     }
     ^input-field {
+      position: relative;
       margin-block-end: 0;
       display: inline-flex;
       width: 100%;
@@ -826,10 +827,8 @@ foam.CLASS({
     ^ .foam-u2-ProgressView { width: 600px; }
     ^ .foam-core-reflow-ReflowToolBar {
       position: absolute;
-      left: 0;
+      left: 30%;
       bottom: 50;
-      width: 100%;
-      z-index: 100;
     }
   `,
 
@@ -934,7 +933,12 @@ foam.CLASS({
     'currentBlock',
     {
       name: 'selected',
-      postSet: function(o, n) { this.selectedValue = n ? n.value : null; },
+      postSet: function(o, n) { 
+        this.selectedValue = n ? n.value : null;
+        if (n && n.element_) {
+          n.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      },
       factory: function() { return this; }
     },
     {

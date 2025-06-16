@@ -76,7 +76,7 @@ foam.CLASS({
     },
     {
       name: 'password',
-      class: 'String',
+      class: 'Password',
       value: null
     },
     {

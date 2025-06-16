@@ -7,6 +7,16 @@
 foam.LIB({
   name: 'foam.core.reflow.lib',
 
+  /*
+    round(number), ex. round(this.amount)
+    abs(number), ex. round(this.amount)
+    diff(number1, number2), ex. diff(this.sum1, this.sum2)
+    fix(number, precision), ex. fix(this.amount, 3) or fix(this.amount)
+    currency(number, option precision which defaults to 2), ex. currency(this,amount, 3) or currency(this.amount)
+    lPad(string, len, option pad character which default to '0'), ex. lPad(this.cycle, 3)
+    lMask(string, len, option masking character which defaults to '*'), ex. lMask(this.arn, 5) or lMast(this.arn, 5, '#')
+    toLowerCase(string), ex. toLowerCase(this.name)
+  */
   methods: [
     {
       name: 'round',

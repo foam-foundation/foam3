@@ -359,7 +359,7 @@ function findSimilarOptions(options, o) {
   return similar;
 }
 
-function processToolingArgs(options, moreUsage) {
+function processToolingArgs(options) {
   const args = process.argv.slice(2);
   for ( var i = 0 ; i < args.length ; i++ ) {
     var arg = args[0];
@@ -391,7 +391,7 @@ function processToolingArgs(options, moreUsage) {
   }
 }
 
-function processBuildArgs(options, moreUsage) {
+function processBuildArgs(options, help) {
   const args = process.argv.slice(2);
   for ( var i = 0 ; i < args.length ; i++ ) {
     var arg = args[i];
@@ -402,15 +402,11 @@ function processBuildArgs(options, moreUsage) {
       for ( var k = 0; k < as.length; k++ ) {
         arg = as[k];
         var [opt, val] = arg.split(':');
-        if ( opt === 'help' ) {
-          options['help'].f(val);
+        let option = findOption(options, opt);
+        if ( option ) {
+          option.f.bind(this, val)();
         } else {
-          let option = findOption(options, opt);
-          if ( option ) {
-            option.f.bind(this, val)();
-          } else {
-            options['tasks'].f.bind(this, arg)();
-          }
+          options['tasks'].f.bind(this, arg)();
         }
       }
     } else if ( arg.startsWith('-') ) {
@@ -427,12 +423,13 @@ function processBuildArgs(options, moreUsage) {
             option.f.bind(this, null)();
           }
         } else {
-          let msg = 'Unknown argument "' + a + '"';
-          // output warning message after usage as the usage is so long
-          // the user will have to scroll pages up to see the issue.
-          options['help'].f(() => warning(msg));
+          help && help(a, 'Unknown argument:') ||
+            error('Unknown argument:', a);
         }
       }
+    } else {
+      help && help(arg, 'Unknown argument:') ||
+        error('Unknown argument:', a);
     }
   }
 }

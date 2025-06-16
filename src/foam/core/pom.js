@@ -145,7 +145,7 @@ foam.POM({
     { name: "benchmark/AuthorizerBenchmark",                                              flags: "js&test|java&test" },
     { name: "boot/CSpec",                                                                 flags: "js|java" },
     { name: "boot/CSpecAware",                                                            flags: "js|java" },
-    { name: "boot/CSpecCitationView",                                                     flags: "js" },
+    // { name: "boot/CSpecCitationView",                                                     flags: "js" },
     { name: "boot/DataManagement",                                                        flags: "web" },
     { name: "boot/DAOCSpecMenu",                                                          flags: "js|java" },
     { name: "session/GroupResetSessionRuleAction",                                        flags: "js|java" },

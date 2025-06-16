@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2015 Google Inc. All Rights Reserved.
+ * Copyright 2025 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,49 +17,60 @@
 
 foam.CLASS({
   package: 'foam.u2',
-  name: 'CheckBox',
-  extends: 'foam.u2.property.AbstractCheckBox',
+  name: 'Switch',
+  extends: 'foam.u2.CheckBox',
 
-  documentation: 'Checkbox View.',
+  documentation: 'Switch View.',
 
-  cssTokens: [
-    {
-      class: 'foam.u2.ColorToken',
-      name: 'checkboxColor',
-      value: '$backgroundBrand'
-    }
-  ],
-
+  inheritCSS: false,
   css: `
-    ^ {
+   ^ {
       -webkit-appearance: none;
       appearance: none;
-      border-radius: 2px;
+      position: relative;
+      border-radius: 25px;
       border: solid 1px $borderStrong;
-      height: 1.275em;
       margin: 7px 0;
       padding: 0px;
+      width: 40px;
+      height: 24px;
       transition: background-color 140ms, border-color 140ms;
-      width: 1.275em;
     }
     ^:disabled {
       border-color: $borderLight;
       background-color: $backgroundSecondary;
+    }
+    ^:before {
+      content: "";
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      top: 3px;
+      background-color: $textSecondary;
+      transition: .2s ease;
+      border-radius: 50%;
     }
     ^:checked {
       background-color: $checkboxColor;
       border-color: $checkboxColor;
       fill: white;
     }
+    ^:checked + ^ {
+      border: 1px solid $checkboxColor;
+      background-color: $checkboxColor;
+    }
     ^:checked:disabled {
       border-color: $checkboxColor$disabled;
       background-color: $checkboxColor$disabled;
       fill: white;
     }
-    ^:checked:after {
-      position:relative;
-      top: 1px;
-      content: url("/images/checkmark-white.svg");
+    ^:checked:before {
+      transform: translateX(15px);
+      background-color: $checkboxColor$foreground;
+    }
+    ^:checked:disabled:before {
+      background-color: $checkboxColor$disabled$foreground;
     }
     ^ input:focus + label::before {
       content: ''
@@ -74,37 +85,10 @@ foam.CLASS({
     ^desc {
       color: $textSecondary;
     }
+
+  ^slider:before {
+    
+  }
     `,
 
-  methods: [
-    function render() {
-      this.SUPER();
-
-      var self = this;
-      this
-        .setAttribute('type', 'checkbox')
-        .addClass(this.myClass())
-        .on('click', this.onClick);
-
-      if ( this.showLabel ) {
-        // TODO: remove with U2
-        (this.U3 ? this.parentNode : this).start('label')
-          .addClass(this.myClass('label'))
-          .addClass(this.myClass('noselect'))
-          .on('click', this.onClick)
-          .callIfElse(this.labelFormatter,
-            this.labelFormatter,
-            function() { this.add(self.label$); }
-          )
-        .end();
-      }
-    }
-  ],
-
-  listeners: [
-    function onClick() {
-      if ( this.getAttribute('disabled') ) return;
-      this.data = ! this.data;
-    }
-  ]
 });

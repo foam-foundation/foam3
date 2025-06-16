@@ -153,7 +153,7 @@ Using --flags:test will include all source and configuration flagged as 'test' t
 <h2>Project</h2>
 <p>Project tooling provides a task for creating a new FOAM based project, complete with an example Model and Test case.  The task will create the default directory layout along with required poms, and initial journal configuration for logging in and mananging the new Model.</p>
 <code>
-  node foam3/tools/build.js -Ttemplate/demo/Project --createProject --appName:Recipe --modelName:Recipe --package:com.foamdev.cook.recipe
+  ./build.sh -Tsetup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword
   # then build with
   ./build.sh deployment/demo/run.sh
   # login with demo user - username: demo, password: demopassword

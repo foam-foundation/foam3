@@ -117,7 +117,13 @@ public class RuleEngine extends ContextAwareSupport {
 
       // This should never happen.
       // It means there's a bug in a Rule agent and it should be fixed.
-      var message = "CRITICAL UNEXPECTED EXCEPTION EXECUTING RULE";
+      var message = "CRITICAL UNEXPECTED EXCEPTION EXECUTING RULE(S): \n";
+      for ( Rule rule : rules ) {
+        message += rule.getId();
+        message += " ";
+        message += rule.getName();
+        message += "\n";
+      }
 
       logger.error(message, e);
       // TODO: this breaks CI, enable when all test cases passing

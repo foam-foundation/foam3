@@ -67,11 +67,13 @@ exports.end = function() {
   // Determining app name is a special case.  Historically, this was
   // taken from the root pom.name, but this makes it difficult to
   // override in other configuration poms.
-  if ( ! envs['APP_NAME'] ||
-       ! envs['appName'] ||
-       ! envs['app-name'] ) {
-    this.verbose(`[Env] setting APP_NAME to root pom name: ${rootPOM.name}`);
-    envs['APP_NAME'] = rootPOM.name;
+  if ( rootPOM ) {
+    if ( ! envs['APP_NAME'] ||
+         ! envs['appName'] ||
+         ! envs['app-name'] ) {
+      this.verbose(`[Env] setting APP_NAME to root pom name: ${rootPOM.name}`);
+      envs['APP_NAME'] = rootPOM.name;
+    }
   }
 };
 

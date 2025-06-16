@@ -31,6 +31,7 @@ foam.CLASS({
       toJSON: function(v) {
         var m = {};
         for ( key in v ) { m[key] = v[key].toString(); }
+
         return m;
       }
     }
@@ -74,20 +75,56 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'PropertyBorder',
-  extends: 'foam.u2.DetailView.PropertyBorder',
+  extends: 'foam.u2.PropertyBorder',
 
   imports: [ 'scope' ],
 
   css: `
+    ^{
+      flex-direction: row;
+      align-items: center;
+      width: 100%;
+    }
+    ^ ^label {
+      width: 50%;
+    }
+    ^view: {
+      min-height: 0px;
+    }
+    ^view > div > span {
+      align-items: center;
+      gap: 5px;
+    }
+    ^select, ^select1, ^select2 {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px;
+      background-color: $grey100;
+      border-radius: 5px;
+      border: 1px solid $grey200;
+    }
     ^switch { color: #ccc; width: 12px !important; }
     ^switch.reactive {
       font-weight: 600;
-      color: red !important;
+      color: $primary500!important;
     }
     ^formulaInput input:focus {
-      outline: 1px solid red !important;
+      outline: 1px solid $primary500 !important;
     }
-    ^label { width: 10%; }
+    ^element-icon {
+      width: 14px;
+      height: 14px;
+    }
+    ^ .foam-core-reflow-SinkView {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 5px;
+    }
+    ^ .foam-core-reflow-SinkView > div > div {
+      width: 100%;
+    }
   `,
 
   properties: [
@@ -126,17 +163,31 @@ foam.CLASS({
         addClass(self.myClass('switch')).
         enableClass('reactive', self.reactive$).
         on('click', self.toggleMode).
-        add(' = ').
+        add(self.dynamic(function(reactive) {
+          if ( reactive ) {
+            this.start(foam.u2.tag.Image, {
+              glyph: 'functionSign',
+              embedSVG: true
+            }).addClass(self.myClass('element-icon')).end()
+          } else {
+            this.start(foam.u2.tag.Image, {
+              glyph: 'equalSign',
+              embedSVG: true
+            }).addClass(self.myClass('element-icon')).end()
+          }
+        })).
       end();
 
       this.add(
         self.dynamic(function(reactive) {
           if ( reactive ) {
-            this.start(self.FORMULA, {data$: self.formula$}).
-              addClass(self.myClass('formulaInput')).
-              on('blur', function() { self.reactive = !! self.formula; }).
-              focus().
-            end().add(self.data.slot(self.prop.name));
+            this.start().
+              start(self.FORMULA, {data$: self.formula$}).
+                addClass(self.myClass('formulaInput')).
+                on('blur', function() { self.reactive = !! self.formula; }).
+                focus().
+              end().add(self.data.slot(self.prop.name)).
+            end();
           } else {
             this.add(viewSlot);
           }
@@ -187,6 +238,38 @@ foam.CLASS({
   ],
 
   methods: [
+    function renderTitle(self) {
+      // NOP
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'ReactiveSectionedDetailView',
+  extends: 'foam.u2.detail.SectionedDetailView',
+
+  requires: [
+    'foam.core.reflow.ReactiveSectionView'
+  ],
+
+  css: `
+    ^card-container {
+      padding: 20px;
+      border-top: 1px solid $grey200;
+    }
+  `,
+
+  properties: [
+    [ 'showActions', true ],
+    [ 'expandPropertyViews', false ]
+  ],
+
+  methods: [
+    function render() {
+      this.sections.forEach(s => s.view = 'foam.core.reflow.ReactiveSectionView');
+      this.SUPER();
+    },
     function renderTitle(self) {
       // NOP
     }

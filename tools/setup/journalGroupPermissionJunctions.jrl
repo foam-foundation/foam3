@@ -14,9 +14,6 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:"password.read.*"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:"password.update.*"})
 
-// p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:"menu.read.{appName}Admin"})
-p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:"menu.read.{appName}.crunch.personalsettings"})
-
 // specific model
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:"service.{modelName}DAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"{appName}",targetId:"{modelName}.create"})

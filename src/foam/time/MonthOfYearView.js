@@ -16,6 +16,10 @@ foam.CLASS({
     ^flexer > div {
       width: fit-content !important;
     }
+    ^flexer {
+      display: flex;
+      flex-wrap: wrap;
+    }
   `,
 
   properties: [

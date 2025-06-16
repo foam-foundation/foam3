@@ -14,6 +14,8 @@ foam.CLASS({
 
   css: `
     ^flexer {
+      display: flex;
+      flex-wrap: wrap;
       width: 100%;
     }
   `,

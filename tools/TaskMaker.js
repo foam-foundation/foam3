@@ -28,7 +28,7 @@ exports.visitPOM = function(pom) {
 
 exports.end = function() {
   let count = Object.keys(tasks).length;
-  this.log(`[Task] Registered ${count} tasks`);
+  this.verbose(`[Task] Registered ${count} tasks`);
 };
 
 exports.tasks = tasks;

@@ -6,7 +6,7 @@
 
 /**
    Support for creating new FOAM based projects.
-   usage: node tools/build.js -T+setup/Project --appName:Recipe --package:com.foamdev.com --adminPassword:badpassword
+   usage: node tools/build.js -Tsetup/Project --appName:Recipe --package:com.foamdev.com --adminPassword:badpassword
 */
 foam.POM({
   name: 'project',
@@ -25,9 +25,10 @@ foam.POM({
       if ( arg && arg > 2 && arg < 1000) ADMIN_USER_ID = arg;
       else this.error(`Invalid adminUserId. Expecting value between in range [3..999]`);
     }],
+    appName: [ '', 'app-name', 'APP_NAME', "Name used to construct a unique project directory and deployment structure. Also used as default model name if an explicit model name is not provided.", '', args => APP_NAME = args ],
     appNameLow: ['', 'app-name-low', 'APP_NAME_LOW', 'Application name with first letter lowercase. Used for directory name, spid, packages, ...', function() { return APP_NAME && APP_NAME[0].toLowerCase() + APP_NAME.substring(1); }, arg => APP_NAME_LOW = arg],
     domain: ['', 'domain', 'DOMAIN', 'Inverse package name for email', function() { return PACKAGE.split('.').reverse().join('.'); /* for email*/ }, arg => DOMAIN = arg ],
-    group: ['', 'group', 'GROUP', 'Registration group of application theme.', function() { return APP_NAME_LOW }, arg => GROUP = arg],
+    group: ['', 'group', 'GROUP', 'Registration group of application theme.', function() { return APP_NAME_LOW; }, arg => GROUP = arg],
     journalDir: ['', 'journal_dir', 'JOURNAL_DIR', 'Location of generated journal files', function() { return `deployment/${APP_NAME_LOW}`; }, arg => JOURNAL_DIR = arg],
     package: ['', 'package', 'PACKAGE', 'Source code path - typically following Java package naming conventions which takes a FQDN inverts it and drops the sub-domain. Ex: www.foamdev.com -> com.foamdev.  This will become the source directory structure under src/. For the purposes of this Project creation the result would be src/com/foamdev/APP_NAME/', function() { return APP_NAME_LOW; }, arg => PACKAGE = arg ],
     projectDir: ['', 'project-dir', 'PROJECT_DIR', 'Path to root of project to prepare. Normally this is the parent of foam3/', function() {
@@ -41,9 +42,9 @@ foam.POM({
       return dir;
     }, arg => PROJECT_DIR = arg],
     packagePath: ['', 'package-path', 'PACKAGE_PATH', 'Package in path notation: . -> /', function() { return PACKAGE.replaceAll('.', '/');}, arg => PACKAGE_PATH = arg],
-    modelName: ['M', 'model-name', 'MODEL_NAME', 'If a model name is provided, the project creation processs will also setup a complete working application, with user, group, menu, permissions, and service journals based on the model name', function() { return  APP_NAME; }, arg => MODEL_NAME = arg ],
+    modelName: ['M', 'model-name', 'MODEL_NAME', 'If a model name is provided, the project creation processs will also setup a complete working application, with user, group, menu, permissions, and service journals based on the model name', function() { return APP_NAME; }, arg => MODEL_NAME = arg ],
     spid: ['', 'spid', 'SPID', 'Default spid', function() { return APP_NAME_LOW || 'foam';}, arg => SPID = arg],
-    type: ['', 'type', 'TYPE', '?? One of: simple, demo, recipe', 'simple', function(arg) {
+    type: ['', 'type', 'TYPE', 'Select a predefined project example. One of: simple, demo, recipe', 'simple', function(arg) {
       if (arg && (arg === 'simple' || arg === 'demo' || arg == 'recipe' )) TYPE = arg;
       else this.error(`Invalid type '${arg}', expecting one of [simple, demo, recipe]`);
     }],
@@ -56,11 +57,7 @@ foam.POM({
       this.execute('hashAdminPassword');
       this.execute('templateMerge', TEMPLATE_DIR, 'adminUser.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, 'users.jrl', true);
     }],
-    createProject: ['create-project', 'Create directories and creates root and src/ POMs for a new FOAM based project', [], function () {
-      if ( ! APP_NAME ) {
-        this.error(`[Project] option --appName required`);
-      }
-
+    createProject: ['create-project', 'Create directories and creates root and src/ POMs for a new FOAM based project', ['validate'], function () {
       var modelName = MODEL_NAME || APP_NAME;
       MODEL_NAME_CAP = modelName[0].toUpperCase() + modelName.substring(1);
       MODEL_NAME = modelName[0].toLowerCase() + modelName.substring(1);
@@ -187,18 +184,21 @@ foam.POM({
     usage: ['usage', 'Example usage', [], function() {
       this.log('Project creation examples:');
       this.warning('must be run from foam3/ directory)');
-      this.log('  node tools/build.js -T+setup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword');
+      this.log('  node tools/build.js -Tsetup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword');
       this.log('      Generate a project matchin the FOAM-Recipes tutorial');
-      this.log('  node tools/build.js -T+setup/Project --appName:Simple --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -Tsetup/Project --appName:Simple --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a very simple model.');
-      this.log('  node tools/build.js -T+setup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -Tsetup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a more elaborate model demonstrating more FOAM features..');
-      this.log('  node tools/build.js -T+setup/Project --createAdmin --appName:Example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -Tsetup/Project --createAdmin --appName:Example --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate an admin user for existing projects which were previously relying on the, now removed, foam-admin user provided by the baseline FOAM repo.');
       this.log();
     }],
 
     validate: ['validate', 'Validate tooling parameters before execution', [], function() {
+      if ( ! APP_NAME ) {
+        this.error(`[Project] option --appName required`);
+      }
       if ( ! ADMIN_PASSWORD ) {
         this.error(`[Project] option --adminPassword required.`);
       }

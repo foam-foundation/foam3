@@ -50,7 +50,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'filterSearch',
-      placeholder: 'Search...'
+      placeholder: 'Search...',
+      onKey: true
     },
     ['showDropdownIcon', false],
     ['themeIcon', 'settings'],

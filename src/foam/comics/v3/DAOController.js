@@ -81,7 +81,9 @@ foam.CLASS({
         var menuID = this.currentMenu ? this.currentMenu.id : config.of.id;
         return this.translationService.getTranslation(foam.locale, menuID + '.browseTitle', config.browseTitle);
       }
-    }
+    },
+    'sub_',
+    'emptyRouteParams_',
   ],
 
   methods: [
@@ -93,8 +95,15 @@ foam.CLASS({
       this.stack.setTitle(this.viewTitle$, this);
       var self = this;
       this.SUPER();
+      // DAOController uses a custom implementation of dynamic
+      // This is done as it needs to perform actions before it removes all children
+      // and adds new ones, such as storing the current memento for filters etc. 
       this.dynamic(function(route) {
-        self.removeAllChildren(); // TODO: not needed in U3
+        if ( self.sub_ && self.route ) {
+          self.sub_.detach();
+          self.sub_ = null;
+        }
+        self.removeAllChildren();
         self.addClass(self.myClass('content'));
         if ( route == 'create' ) {
           if ( this.config.createMenu ) {
@@ -124,11 +133,19 @@ foam.CLASS({
     function renderDAOView() {
       var self = this;
       this.stack.setTitle(this.viewTitle$, self);
+      let memento = this.emptyRouteParams_;
+      let l = function() {
+        if ( self.route ) return;
+        self.emptyRouteParams_ = self.memento_.usedStr;
+      }
+      this.sub_ = this.memento_$.dot('usedStr').sub(l);
+      l();
       self.tag({
         class: 'foam.comics.v3.DAOView',
         data$: self.data$,
         config$: self.config$
       });
+      this.memento_.str = memento;
     }
   ]
 });

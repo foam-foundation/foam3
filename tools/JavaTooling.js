@@ -300,11 +300,11 @@ foam.POM({
       // var proc = spawn(`java -cp ${CLASSPATH} foam.nanos.boot.Boot`);
       // writeToPidFile(proc.pid);
       // function writeToPidFile(pid) {
-      //   fs.writeFileSync(NANOS_PIDFILE, pid.toString());
+      //   fs.writeFileSync(CORE_PIDFILE, pid.toString());
       // }
       // function readFromPidFile() {
-      //   if ( fs.existsSync(NANOS_PIDFILE) )
-      //     return fs.readFileSync(NANOS_PIDFILE).toString().trim();
+      //   if ( fs.existsSync(CORE_PIDFILE) )
+      //     return fs.readFileSync(CORE_PIDFILE).toString().trim();
       // }
     }],
 

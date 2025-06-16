@@ -504,6 +504,8 @@ foam.CLASS({
         return controllerMode == 'EDIT';
       },
       code: function() {
+        // Reset working data to original data
+        this.workingData = this.data.clone(this);
         this.controllerMode = 'VIEW';
       }
     },

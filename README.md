@@ -29,39 +29,49 @@ While FOAM is written in JavaScript, it can be used to generate code
 for any language or platform, including Android Java and iOS Swift.
 
 # Development
-## Installing Dependencies
+## Dependencies
 
-FOAM has no runtime dependencies, but uses a number of third party tools for
-unit tests, code coverage, and linting.  You can install all required
-tools by doing the following.
+FOAM has no runtime dependencies, but does have build dependencies:
 
-* Install nodejs.
+* git
+* npm
+* nodejs (version >= 16)
+* maven
+* java (version >= 11)
 
-* Run `npm install` in the root of the FOAM repository, where
-  package.json is found.
+Once dependencies are installed, update FOAM's javascript dependencies:
+From the root of the FOAM repository, execute:
+`./build.sh --install`
+
+    sudo chown -R $USER /opt
 
 See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
-## Building Java
-
-**NOTE: default configuration is setup for Java 21** 
-
-If using a version less than 21, change the `java: 21` property in the root pom.js.
-
+## Building
 ### Build and run Java webserver
 
 `./build.sh [options]`
 
-* visit: http://localhost:8080/src/foam/core/controller/index.html
+* visit: http://localhost:8080/foam3/src/foam/demos/index.html
 
-#### common options:
+#### common build options:
 
-* **-h** - help - show all options
+* **-h** - help, show all options
 * **-c** - clean
 * **-d** - debug mode allowing connection by a remote debugger
-* **-j** - delete runtime journals
+* **-j** - delete runtime journals (use with caution)
 * **-Jpom1,pom2,...,pomN** - where pomN,... are found relative to the deployment folder. 
 * **-a** - build and deploy from a single Java jar file. 
+
+## Creating and running an example Application
+
+**NOTE: this will create a parent directory above foam3/**
+
+    ./build.sh -Tsetup/Project --createAdmin --appName:Example --package:com.foamdev --adminPassword:badpassword
+    cd ..
+    ./build.sh
+
+* visit: http:/localhost:8080 and login with admin / badpassword
 
 <!--
 ## Running Application Controller
@@ -76,7 +86,7 @@ To access, run the following in the parent directory of foam3:
 To build and deploy to a remote linux instance
 
 1. build: `./build.sh -ck[Jpom...]`
-1. deploy: `foam3/tools/bin/install_remote.sh -Hhostname`
+1. deploy: `./build.sh -TStandard,RemoteInstall,Java --user:foam user-id:3636 --remote-hostname:hostname`
 1. visit: http://hostname:8080
 
 ## Style Guide
@@ -85,10 +95,10 @@ All code should follow the [style guide.](doc/guides/StyleGuide.md)
 
 ## Testing
 To run all Java tests from the command-line, run:
-`./build.sh -ct`
+`./build.sh --java-tests`
 
 To run individual tests from the command-line, run:
-`./build.sh -cTtestName1,testName2,...testNameN`
+`./build.sh --java-tests:testName1,testName2,...testNameN`
 
 <!--
 * _npm test_ runs standard unit tests.

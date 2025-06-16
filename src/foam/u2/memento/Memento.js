@@ -49,7 +49,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'feedback_',
-      documentation: 'Set to try when "str" is being set to prevent feedback.'
+      documentation: 'Set to true when "str" is being set to prevent feedback.'
     },
     {
       name: 'parent',
@@ -110,7 +110,7 @@ foam.CLASS({
             var value = consumeBinding(p.shortName || p.name);
             // Remove the tail memento if the route changes to prevent retaining stale parameters.
             if ( ( p.name === 'route' || p.shortName === 'route' ) && this.obj[p.name] !== value && this.tail ) {
-              this.detachTail();
+              // this.detachTail();
             }
             // Even if value doesn't exist, then still set, to revert to default value
             value = value && decodeURIComponent(value);

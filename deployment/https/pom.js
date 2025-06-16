@@ -1,5 +1,6 @@
 foam.POM({
   name:'https',
+  help: 'Provide SSL Certificate and port configuration for HTTPS.',
   envs: {
     webPort: '8443'
   },
@@ -8,4 +9,4 @@ foam.POM({
     { source: 'foamdev.jks' },
     { source: 'foamdev.pkcs12' }
   ]
-})
+});

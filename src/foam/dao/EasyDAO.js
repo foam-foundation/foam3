@@ -206,9 +206,7 @@ foam.CLASS({
           );
         }
 
-        if ( getCluster() && getMdao() != null ) {
-          delegate = getClusterDelegate(delegate);
-        }
+        delegate = getClusterDelegate(delegate);
 
         if ( getSubdomainAware() ) {
           delegate = new foam.core.theme.SubdomainAwareDAO.Builder(getX())
@@ -726,13 +724,10 @@ foam.CLASS({
       }
     },
     {
-      // TODO: move refine in foam-medusa
+      // refined in foam-medusa
       documentation: 'Cluster this DAO',
       name: 'cluster',
-      class: 'Boolean',
-      javaFactory: `
-      return foam.util.SafetyUtil.equals("true", System.getProperty("CLUSTER", "false"));
-      `
+      class: 'Boolean'
     },
     {
       documentation: 'Store and forward this DAO',

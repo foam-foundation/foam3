@@ -55,6 +55,7 @@ foam.CLASS({
       of: 'foam.time.TimeZone',
       name: 'timeZone',
       order: 0,
+      gridColumns: 6,
       value: 'GMT'
     },
     {
@@ -64,6 +65,7 @@ foam.CLASS({
       min: 0,
       max: 59,
       order: 1,
+      gridColumns: 2,
       documentation: `Second of minute to execute the script.
            Ranges from 0 - 59.`
     },
@@ -74,6 +76,7 @@ foam.CLASS({
       min: -1,
       max: 59,
       order: 2,
+      gridColumns: 2,
       documentation: `Minute of hour to execute script.
           Ranges from 0 - 59.
           -1 acts as a flag to ignore minutes in getNextScheduledTime,
@@ -97,6 +100,7 @@ foam.CLASS({
       class: 'String',
       name: 'hours',
       order: 3,
+      gridColumns: 2,
       validationPredicates: [
         {
           args: ['hours'],

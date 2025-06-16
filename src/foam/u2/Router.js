@@ -49,8 +49,7 @@ foam.CLASS({
         return;
       }
       this.routingFeedback_ = true;
-      this.clearProperty('route'); this.route;
-      this.memento_.detachTail();
+      this.clearProperty('route');
       this.routingFeedback_ = false;
     },
     function routeChange() {

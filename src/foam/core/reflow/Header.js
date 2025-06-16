@@ -30,11 +30,20 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Header',
+  
+  sections: [
+    {
+      name: 'general',
+      title: 'General',
+      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+    },
+  ],
 
   properties: [
     {
       class: 'String',
       name: 'type',
+      section: 'general',
       value: 'h1',
       displayWidth: 10,
       view: { class: 'foam.u2.TextField', choices: [ 'H1', 'H2', 'H3', 'H4', 'B', 'I' ] }
@@ -42,17 +51,21 @@ foam.CLASS({
     {
       class: 'String',
       name: 'text',
+      section: 'general',
       onKey: true,
       displayWidth: 60
     },
     {
       class: 'Boolean',
       name: 'visible',
-      value: true
+      section: 'general',
+      value: true,
+      view: { class: 'foam.u2.Switch' }
     },
     {
       class: 'Color',
       name: 'color',
+      section: 'general',
       value: '#333'
     }
   ],

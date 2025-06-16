@@ -80,6 +80,7 @@ var depth   = 1;
 var running = {};
 var summary = [];
 let TOOLING_TASKS = {};
+let POM_HELP = {}; // additional help topics provided in build
 
 function task() {
   var name, gnuopt, desc = '', dep = [], f, pom = 'build';
@@ -138,7 +139,7 @@ function task() {
     fired = true;
     let tasks = TOOLING_TASKS[name];
     if ( ! tasks ) {
-      error(`Task not found: ${name}`);
+      outputHelp(name, 'Task not found:');
     }
     if ( NOP.split(',').includes(name) ) {
       warning(`Skipping Task :: ${name}`);
@@ -235,24 +236,7 @@ function execute(t, ...args) {
   if ( f ) {
     f.apply(Object.assign({}, EXPORTS), args);
   } else {
-    var extra = '';
-    if ( t.length > 1 ) {
-      let similar = findSimilarTasks(TOOLING_TASKS, t);
-      if ( similar.length > 0 ) {
-        extra += '\n  Possible Task matches: \n';
-      }
-      similar.forEach(task => {
-        extra += '    ' + task.name + ' ' + task.gnuopt + ' - ' + task.desc + '\n';
-      });
-      similar = findSimilarOptions(OPTIONS, t);
-      if ( similar.length > 0 ) {
-        extra += '\n  Possible Option matches: \n';
-      }
-      similar.forEach(option => {
-        extra += '    ' + option.name + ' ' + option.opt + ' ' + option.gnuopt + ' - ' + option.desc + '\n';
-      });
-    }
-    error('Task not found:', t, extra);
+    outputHelp(t, "Task not found:");
   }
 }
 
@@ -493,21 +477,7 @@ OPTIONS = addOptions({
   flags: ['f', 'flags', 'FLAGS', 'Flags passed to pmake. Explicitly set with --flags:test, for example.', '', arg => FLAGS = arg ],
   help: [ 'h', 'help', 'HELP', 'Print usage information for environment variables (envs), options, and tasks.  Narrow output with --help:tasks, for example. Or show help for a particular topic with --help:foo where foo is the name of an option or task.', '', arg => {
     HELP = true;
-    if ( ! arg ) {
-      moreUsage(arg);
-    } else if ( typeof arg === "string" ) {
-      if ( arg === 'envs' ||
-           arg === 'options' ||
-           arg === 'tasks' ) {
-        moreUsage(arg);
-      } else {
-        execute('topic', arg);
-      }
-    } else if ( arg instanceof Function ) {
-      moreUsage();
-      arg();
-    }
-    process.exit(0);
+    TOPIC_HELP = arg;
   }],
   hostname: ['', 'hostname', 'HOST_NAME', 'Hostname to set in JVM', () => os.hostname(), arg => HOST_NAME = org ],
   nop: ['', 'nop', 'NOP', 'List of task NOT to run. ex: --nop:genJS,genJava', '', arg => NOP = comma(NOP, arg) ],
@@ -523,61 +493,6 @@ OPTIONS = addOptions({
              TASKS = TASKS ? TASKS + TASK_SEPERATOR + t : t;
            } ],
   timestamp: ['', 'timestamp', 'TIMESTAMP', 'Date/time string to timestamp files', () => TIMESTAMP = new Date().toISOString().substring(0, 19).replaceAll('-','').replaceAll(':','').replaceAll('T',''), arg => TIMESTAMP = arg],
-  topic: [ 'H', 'topic-help', '', 'Help on a particular environment variable, option, or task', '', arg => {
-    HELP = true;
-    if ( arg.startsWith(':') ||
-         arg.startsWith('=') ) {
-      arg = arg.substring(1);
-    }
-    info(`Help for \'${arg}\'`);
-    var option = findOption(OPTIONS, arg);
-    if ( option ) {
-      let opts = option.opt ? '-'+option.opt+', ' : '';
-      opts += '--'+option.name;
-      if ( option.name !== option.gnuopt ) {
-        opts += ', --'+option.gnuopt;
-      }
-      var def = option.env && globalThis[option.env];
-      if ( ! def ) {
-        def = option.def ? option.def : '';
-        if ( def instanceof Function ) {
-          def = def();
-        }
-      }
-      let desc = option.desc;
-      log('(OPTION)', ''.padStart(0), opts+':', '\x1b[0;35m', def,'\x1b[0;0m', desc);
-    } else {
-      let t = findTask(TOOLING_TASKS, arg); // first will do
-      if ( t ) {
-        var msg = arg;
-        if ( arg !== t.name ) msg += ' '+t.name;
-        log('(TASK)', msg, t.desc);
-      } else {
-        let e = ENVS[arg];
-        if ( e ) {
-          log('(ENV)', arg,': ',e[0]);
-        } else {
-          var extra = '';
-          let similar = findSimilarTasks(TOOLING_TASKS, arg);
-          if ( similar.length > 0 ) {
-            extra += '\n  Possible Task matches: \n';
-          }
-          similar.forEach(task => {
-            extra += '    ' + task.name + ' ' + task.gnuopt + ' - ' + task.desc + '\n';
-          });
-          similar = findSimilarOptions(OPTIONS, arg);
-          if ( similar.length > 0 ) {
-            extra += '\n  Possible Option matches: \n';
-          }
-          similar.forEach(option => {
-            extra += '    ' + option.name + ' ' + option.opt + ' ' + option.gnuopt + ' - ' + option.desc + '\n';
-          });
-          error('Topic not found - ', arg, extra);
-        }
-      }
-    }
-    process.exit(0);
-  } ],
   verbose: ['', 'verbose', 'VERBOSE', 'Enable VerboseMaker to log additional info during build. ', false, function(arg) { VERBOSE = arg ? bool(arg) : true; }]
 
 }, OPTIONS);
@@ -585,11 +500,18 @@ OPTIONS = addOptions({
 // explicitly add journal to POM list, intented to be called
 // after pom() has setup the initial list
 function addJournal(name) {
-  let pom = name && `${PROJECT_HOME}/deployment/${name}/pom`;
-  if ( ! existsSync(pom + '.js') )
-    error('POM file not found ' + pom + '.js');
-  else
-    POMS = comma(POMS, pom);
+  let fn = name && `${PROJECT_HOME}/deployment/${name}/pom`;
+  if ( ! existsSync(fn + '.js') ) {
+    let fn2 = `${PROJECT_HOME}/foam3/deployment/${name}/pom`;
+    if ( ! existsSync(fn2 + '.js') ) {
+      error('POM not found ' + fn + '.js');
+      fn = null;
+    } else {
+      fn = fn2;
+    }
+  }
+  if ( fn )
+    POMS = comma(POMS, fn);
 }
 
 // build pom map and ensure the POMS list is viable
@@ -597,7 +519,7 @@ function pom() {
   var poms   = [];
   function addPom(fn) {
     if ( ! existsSync(fn + '.js') )
-      warning('File not found ' + fn + '.js');
+      warning('POM not found ' + fn + '.js');
     else
       poms.push(fn);
   };
@@ -626,9 +548,9 @@ function pom() {
       if ( ! c ) return;
       let fn = `${PROJECT_HOME}/deployment/${c}/pom`;
       if ( ! existsSync(fn + '.js') ) {
-        let fn2 = `foam3/deployment/${c}/pom`;
+        let fn2 = `${PROJECT_HOME}/foam3/deployment/${c}/pom`;
         if ( ! existsSync(fn2 + '.js') ) {
-          warning('File not found ' + fn + '.js');
+          error('POM not found ' + fn + '.js');
           fn = null;
         } else {
           fn = fn2;
@@ -640,6 +562,105 @@ function pom() {
 
   POMS = poms.join(',');
 }
+
+function outputHelp(arg, msg) {
+  var found = false;
+
+  pom();
+  execute('pomEnvs');
+
+  if ( ! msg ) {
+    if ( ! arg ||
+         ( arg === 'envs' ||
+           arg === 'options' ||
+           arg === 'tasks' ) ) {
+      found = true;
+      moreUsage(arg);
+    }
+
+    if ( ! found ) {
+      if ( arg.startsWith(':') ||
+           arg.startsWith('=') ) {
+        arg = arg.substring(1);
+      }
+      info(`Help for \'${arg}\'`);
+      var option = findOption(OPTIONS, arg);
+      if ( option ) {
+        found = true;
+        let opts = option.opt ? '-'+option.opt+', ' : '';
+        opts += '--'+option.name;
+        if ( option.name !== option.gnuopt ) {
+          opts += ', --'+option.gnuopt;
+        }
+        var def = option.env && globalThis[option.env];
+        if ( ! def ) {
+          def = option.def ? option.def : '';
+          if ( def instanceof Function ) {
+            def = def();
+          }
+        }
+        let desc = option.desc;
+        log('(OPTION)', ''.padStart(0), opts+':', '\x1b[0;35m', def,'\x1b[0;0m', desc);
+      }
+      if ( ! found ) {
+        let t = findTask(TOOLING_TASKS, arg); // first will do
+        if ( t ) {
+          found = true;
+          var m = arg;
+          if ( arg !== t.name ) m += ' '+t.name;
+          log('(TASK)', m, t.desc);
+        }
+      }
+      if ( ! found ) {
+        let e = ENVS[arg];
+        if ( e ) {
+          found = true;
+          log('(ENV)', arg,': ',e[0]);
+        }
+      }
+    }
+  }
+  if ( ! found ) {
+    var extra = '';
+    if ( arg && arg.length > 1 ) {
+      let similar = findSimilarTasks(TOOLING_TASKS, arg);
+      if ( similar.length > 0 ) {
+        extra += '\n  Possible Task matches: \n';
+      }
+      similar.forEach(task => {
+        extra += '    ' + task.name + ' ' + task.gnuopt + ' - ' + task.desc + '\n';
+      });
+      similar = findSimilarOptions(OPTIONS, arg);
+      if ( similar.length > 0 ) {
+        extra += '\n  Possible Option matches: \n';
+      }
+      similar.forEach(option => {
+        extra += '    ' + option.name + ' ' + option.opt + ' ' + option.gnuopt + ' - ' + option.desc + '\n';
+      });
+      var title = false;
+      Object.keys(POM_HELP).forEach(name => {
+        let pomHelp = POM_HELP[name];
+        pomHelp.forEach(h => {
+          if ( name.startsWith(arg) ||
+               pomHelp.help.indexOf(arg) ) {
+            if ( ! title ) {
+              title = true;
+              extra += '\n  Possible POM matches: \n';
+            }
+            extra += '    '+name+': '+h.help;
+            extra += '\n     '+h.path+ '\n';
+          }
+        });
+      });
+    }
+    if ( ! msg )
+      msg = 'Topic not found:';
+    error(msg, arg, extra);
+  }
+
+  process.exit(0);
+}
+
 
 // ############################
 // # Build tasks
@@ -690,7 +711,10 @@ task('tooling', 'Prepare build environment', [], function tooling() {
 });
 
 task('pom-envs', 'Capture POM arguments to environment values or options, and register POM tasks for later execution when the corresponding build tasks is executed.', [], function pomEnvs() {
-  let makers = pmake.bind(Object.assign({}, EXPORTS), `-makers=Env,Task -flags=${flag()} -pom=${POMS} -builddir=${BUILD_DIR} -envs=${POM_ENVS} -tasks=${TOOLING_TASKS} -options=${Object.assign({}, OPTIONS)}`)();
+  let makers = pmake.bind(Object.assign({}, EXPORTS), `-makers=Help,Env,Task -flags=${flag()} -pom=${POMS} -builddir=${BUILD_DIR} -envs=${POM_ENVS} -tasks=${TOOLING_TASKS} -options=${Object.assign({}, OPTIONS)}`)();
+  let helpMaker = makers.get('Help');
+  Object.assign(POM_HELP, helpMaker.topics);
+
   let envMaker = makers.get('Env');
   Object.keys(envMaker.envs).forEach(e => {
     let option = findOption(OPTIONS, e);
@@ -742,11 +766,14 @@ task('show-poms', 'Show POM structure.', [], function showPOMs() {
 task('get-env', 'Return value of arg. Called from installation scripts', ['pomEnvs'], function getEnv(arg) { console.log(`${arg}=${globalThis[arg]}`); });
 
 // Phase I - process tooling poms
-processToolingArgs.bind(Object.assign({}, EXPORTS), TOOLING_OPTIONS, moreUsage)();
+processToolingArgs.bind(Object.assign({}, EXPORTS), TOOLING_OPTIONS)();
 execute('tooling');
 
 // Phase II - process command line args,
-processBuildArgs.bind(Object.assign({}, EXPORTS), OPTIONS, moreUsage)();
+processBuildArgs.bind(Object.assign({}, EXPORTS), OPTIONS, outputHelp)();
+
+if ( HELP )
+  outputHelp(TOPIC_HELP);
 
 // build pom map for POM_TASKS, and ensure POMS list is viable
 pom();
@@ -757,9 +784,8 @@ pom();
 // execute('pomEnvs');
 
 // Phase III - execute build tasks
-if ( SHOW_ENVS ) {
+if ( SHOW_ENVS )
   moreUsage();
-}
 
 TASKS.split(TASK_SEPERATOR).forEach(t => {
   var s = t.split(':');

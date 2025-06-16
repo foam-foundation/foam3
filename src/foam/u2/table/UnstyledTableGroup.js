@@ -16,7 +16,6 @@ foam.CLASS({
   ],
 
   imports: [
-    'canBuildObjfromProj',
     'nestedPropsAndIndexes',
     'propertyNamesToQuery',
     'props',

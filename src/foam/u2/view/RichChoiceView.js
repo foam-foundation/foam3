@@ -535,7 +535,7 @@ foam.CLASS({
                   .tag(self.FILTER_.clone().copyFrom({ view: {
                     class: 'foam.u2.TextField',
                     placeholder: this.searchPlaceholder || 'Search... ',
-                    focused: true,
+                    autofocus: true,
                     onKey: true
                   } }), {}, self.inputField$)
                 .endContext()

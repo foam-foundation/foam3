@@ -39,7 +39,7 @@ foam.CLASS({
       name: 'position',
       postSet: function(_, n) {
         if ( this.posFeedback_ ) return;
-
+      
         while ( n < this.stackSize_ ) this.back();
         while ( n > this.stackSize_ ) this.forth();
       }
@@ -97,9 +97,10 @@ foam.CLASS({
   actions: [
     {
       name:  'back',
-      label: ' <-- ',
+      label: 'Undo',
       help:  'Go to previous view',
-
+      buttonStyle: 'TERTIARY',
+      themeIcon: 'undo',
       isEnabled: function(stackSize_) { return !! stackSize_; },
       code: function() {
         this.dumpState('preBack');
@@ -111,9 +112,10 @@ foam.CLASS({
     },
     {
       name:  'forth',
-      label: ' --> ',
+      label: 'Redo',
       help:  'Undo the previous back.',
-
+      buttonStyle: 'TERTIARY',
+      themeIcon: 'redo',
       isEnabled: function(redoSize_) { return !! redoSize_; },
       code: function() {
         this.dumpState('preForth');

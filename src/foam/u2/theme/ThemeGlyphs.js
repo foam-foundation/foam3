@@ -891,6 +891,90 @@ foam.CLASS({
           </svg>
         ` };
       }
+    },
+    {
+      name: 'grid',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	          <path fill="currentColor" d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h14q.825 0 1.413.588T21 5v14q0 .825-.587 1.413T19 21zm5-2v-6H5v6zm2 0h7v-6h-7zm-7-8h14V5H5z" />
+          </svg>
+        ` };
+      }
+    },
+    {
+      name: 'rectangle',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	          <path fill="currentColor" d="M2 20V4h20v16zm2-2h16V6H4zm0 0V6z" />
+          </svg>
+        ` };
+      }
+    },
+    {
+      name: 'equalSign',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M5.5 17q-.625 0-1.062-.437T4 15.5t.438-1.062T5.5 14h13q.625 0 1.063.438T20 15.5t-.437 1.063T18.5 17zm0-7q-.625 0-1.062-.437T4 8.5t.438-1.062T5.5 7h13q.625 0 1.063.438T20 8.5t-.437 1.063T18.5 10z"/></svg>
+        ` };
+      }
+    },
+    {
+      name: 'functionSign',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 24 24"><path fill="currentColor" d="M5.525 21Q4.4 21 3.7 20.4T3 18.8q0-.8.425-1.288t1.075-.487q.625 0 1.063.425T6 18.475q0 .125-.012.225t-.038.225q.125-.025.213-.138t.137-.312L7.85 10H6q-.425 0-.712-.287T5 9t.288-.712T6 8h2.225l.525-2.85q.175-.95.938-1.55T11.5 3q1.1 0 1.8.65t.7 1.625q0 .75-.425 1.238T12.5 7q-.625 0-1.062-.425T11 5.525q0-.125.013-.225t.037-.225q-.15.05-.225.15t-.125.3L10.275 8H14q.425 0 .712.288T15 9q0 .375-.238.65t-.587.325l1.325 1.5l1.325-1.5q-.35-.05-.587-.325T16 9q0-.425.288-.712T17 8h3q.425 0 .713.288T21 9t-.288.713T20 10h-.55l-2.625 3l2.625 3H20q.425 0 .713.288T21 17t-.288.713T20 18h-3q-.425 0-.712-.288T16 17q0-.375.238-.65t.587-.325L15.5 14.5l-1.325 1.525q.35.05.588.325T15 17q0 .425-.287.713T14 18h-3q-.425 0-.712-.288T10 17t.288-.712T11 16h.55l2.625-3l-2.625-3H9.9l-1.6 8.6q-.2 1.125-.925 1.763T5.525 21"/></svg>
+        ` };
+      }
+    },
+    {
+      name: 'undo',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return {
+          template: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	            <path fill="currentColor" d="M12.207 2.293a1 1 0 0 1 0 1.414L10.914 5H12.5c4.652 0 8.5 3.848 8.5 8.5S17.152 22 12.5 22S4 18.152 4 13.5a1 1 0 1 1 2 0c0 3.548 2.952 6.5 6.5 6.5s6.5-2.952 6.5-6.5S16.048 7 12.5 7h-1.586l1.293 1.293a1 1 0 0 1-1.414 1.414l-3-3a1 1 0 0 1 0-1.414l3-3a1 1 0 0 1 1.414 0" />
+            </svg>
+          `
+        };
+      }
+    },
+    {
+      name: 'redo',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return {
+          template: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	            <path fill="currentColor" d="M21 11c-.6 0-1 .4-1 1c0 2.9-1.5 5.5-4 6.9c-3.8 2.2-8.7.9-10.9-2.9S4.2 7.3 8 5.1c3.3-1.9 7.3-1.2 9.8 1.4h-2.4c-.6 0-1 .4-1 1s.4 1 1 1h4.5c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1s-1 .4-1 1v1.8C17 3 14.6 2 12 2C6.5 2 2 6.5 2 12s4.5 10 10 10s10-4.5 10-10c0-.6-.4-1-1-1" />
+            </svg>
+          `
+        };
+      }
+    },
+    {
+      name: 'rightChevron',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return {
+          template: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12.6 12L8.7 8.1q-.275-.275-.275-.7t.275-.7t.7-.275t.7.275l4.6 4.6q.15.15.213.325t.062.375t-.062.375t-.213.325l-4.6 4.6q-.275.275-.7.275t-.7-.275t-.275-.7t.275-.7z"/></svg>
+          `
+        };
+      }
     }
   ]
 });

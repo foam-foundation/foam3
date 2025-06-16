@@ -1,14 +1,20 @@
 # Installation
-## Linux / Chromebook
-Install java, nodejs and maven, if required. On Linux, you can do this with:
+## Linux / Chromebook / WSL
+Install git, java, maven, npm, nvm, and nodejs, if required. On Linux, you can do this with:
 
-    sudo apt-get install default-jdk
-    sudo apt-get install maven
-    sudo apt-get install nodejs
-    sudo apt-get install npm
+    sudo apt install git
+    sudo apt install openjdk-21-jdk
+    sudo apt install maven
+    sudo apt install npm
+
+    # steps for nodejs (requires version 16 or greater, ubuntu currently defaults to 12)
+    sudo apt install curl
+    curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+    source ~/.bashrc
+    nvm install --lts
 
 ## MacOS
-Install java, nodejs, brew, nvm and maven, if required.
+Install brew, git, java, maven, nvm, and nodejs, if required.
 
 Install Brew (with directions from [https://brew.sh/](https://brew.sh/)):
 
@@ -39,23 +45,30 @@ Install Maven
 
     brew install maven
 
+# Environment
+
+Setup /opt Directory
+
+    sudo chown -R $USER /opt
+
+# FOAM
 Git Clone
 
     git clone https://github.com/kgrgreer/foam3.git
 
-Setup /opt Directory
+# Application
+Create an example application
 
-    sudo mkdir /opt/foam-full
-    sudo mkdir /opt/foam-full/logs
-    sudo mkdir /opt/foam-full/journals
-    sudo chown -R $USER /opt/foam-full
-    sudo chown -R $USER /opt/foam-full/logs
-    sudo chown -R $USER /opt/foam-full/journals
+    ./build.sh -Tsetup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword
 
-Start Server
+Build and Start Server
 
+    cd ..
     ./build.sh
 
 Test Server
 
-connect to [http://localhost:8080/](http://localhost:8080/) and use user username and password: foam-admin / foam-admin
+connect to 
+
+    [http://localhost:8080/](http://localhost:8080/) 
+    with username and passwword: admin / badpassword

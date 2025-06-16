@@ -29,7 +29,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'auth',
+    'auth?',
     'notify',
     'routeTo',
     'ticketDAO?'

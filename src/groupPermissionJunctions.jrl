@@ -9,6 +9,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"serviceprovider.read.foam"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"auth.promptlogin"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"service.agentJunctionDAO"})
+p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"service.agentDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"service.fileTypeDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"service.groupDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"group.read.anonymous"})
@@ -20,6 +21,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:
 // basicUser
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.serviceProviderDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.userDAO"})
+p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.ticketDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.groupDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"group.read.basicUser"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.languageDAO"})

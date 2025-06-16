@@ -12,7 +12,7 @@ foam.CLASS({
   imports: [
     'notify',
     'routeTo',
-    'ticketDAO'
+    'ticketDAO?'
   ],
 
   requires: [
@@ -39,7 +39,7 @@ foam.CLASS({
       },
       code: function(X) {
         var self = this;
-        var ticket = this.ticketDAO.find(
+        this.ticketDAO?.find(
           this.AND(
             this.EQ(this.Ticket.TYPE, this.PIIReportTicket.name),
             this.EQ(this.Ticket.CREATED_FOR, this.id),

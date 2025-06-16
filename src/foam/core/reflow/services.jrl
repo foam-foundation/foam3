@@ -26,11 +26,29 @@ p({
   """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
-      .setAuthorize(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("flows")
       .setOf(foam.core.reflow.Flow.getOwnClassInfo())
       .build();
   """,
   "client":"""{"of":"foam.core.reflow.Flow"}"""
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "agentDAO",
+  "lazy":false,
+  "description": "Stores SinkVeiw Agents",
+  "serve":true,
+  "authenticate":false,
+  "serviceScript":`
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("agents")
+      .setOf(foam.core.reflow.SinkAgent.getOwnClassInfo())
+      .build();
+    `,
+  "client":"{\"of\":\"foam.core.reflow.SinkAgent\"}"
 })

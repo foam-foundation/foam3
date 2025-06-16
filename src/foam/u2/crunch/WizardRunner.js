@@ -18,6 +18,7 @@ foam.CLASS({
     'foam.u2.wizard.WizardType',
     'foam.u2.wizard.wizardflow.WizardFlow'
   ],
+  exports: [ 'as wizardRunner' ],
   properties: [
     {
       class: 'Enum',
@@ -47,7 +48,7 @@ foam.CLASS({
       name:'sequence',
       factory: function() {
         const IN_PROGRESS = this.crunchController.WizardStatus.IN_PROGRESS;
-        const seq = this.getSequence_(this.__context__, this.isInline);
+        const seq = this.getSequence_(this.__subContext__, this.isInline);
         return seq
       } 
     },
@@ -72,10 +73,14 @@ foam.CLASS({
   ],
   methods: [
     async function launch() {
-      x = this.__context__;
+      x = this.__subContext__;
 
       const seq = this.sequence;
 
+      if ( this.deduplicateWizard() ) {
+        this.sequence.endSequence();
+        throw new Error(`A UCJ is already in progress for this source: ${this.source}`);
+      }
       let returnPromise = null;
       let promise$ = foam.lang.SimpleSlot.create({ value: false }, this);
 
@@ -97,6 +102,14 @@ foam.CLASS({
           return v;
       });
       return returnPromise ? returnPromise : this.controller;
+    },
+    function deduplicateWizard() {
+      if ( this.crunchController.lastActiveWizard?.status == 'IN_PROGRESS' && 
+        foam.util.equals(this.crunchController.lastActiveWizard.__subContext__.wizardRunner?.source, this.source) &&
+        this.wizardType == 'UCJ'
+      ) {
+        return true;
+      }
     },
     function launchNotInline_ () {
       const seq = this.sequenceFromWizardType_();

@@ -39,7 +39,8 @@ foam.CLASS({
     }
   ],
   methods: [
-    async function install (...a) {
+    function equals(other) { return this.model_.id === other.model_.id; },
+    async function install(...a) {
       const SUPER = this.SUPER.bind(this);
       if ( ! this.initialized_ ) {
         if ( typeof this.sequence !== 'function' ) {

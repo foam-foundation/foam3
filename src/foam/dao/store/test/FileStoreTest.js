@@ -22,7 +22,13 @@ foam.CLASS({
       name: 'runTest',
       javaCode: `
       x = TestUtils.createTestContext(x, "test");
-      FileStore fs = new FileStore(x, "testfilestore", User.getOwnClassInfo());
+      FileStore fs = new FileStore.Builder(x)
+        .setFilename("testfilestore")
+        .setOf(User.getOwnClassInfo())
+         // set chunk size small so Root marker split between buffers.
+        .setChunkBufferSize(40)
+        .build();
+
       test ( fs.getRoot() == null, "Initial root null");
 
       User user1 = TestUtils.createTestUser("test");

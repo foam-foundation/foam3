@@ -6,7 +6,7 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'GridByView',
+  name: 'GroupByView',
   extends: 'foam.u2.View',
 
   documentation: 'Table View for GroupBy mLang.',

@@ -34,8 +34,7 @@ foam.CLASS({
   sections: [
     {
       name: 'general',
-      title: 'General',
-      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+      title: 'General'
     },
   ],
 

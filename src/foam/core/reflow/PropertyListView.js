@@ -10,7 +10,11 @@ foam.CLASS({
   extends: 'foam.u2.Controller',
 
   css: `
-    ^ { display: inline-flex; width: 100% }
+    ^ { 
+      display: inline-flex; 
+      width: 100%; 
+      gap: 5px; 
+    }
   `,
 
   properties: [

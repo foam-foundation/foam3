@@ -195,11 +195,14 @@ public class SessionServerBox
       if ( t instanceof NullPointerException) {
         logger.error(t);
       }
+      if ( t instanceof foam.core.auth.UserNotFoundException) {
+        sessionDAO.remove(session);
+      }
       msg.replyWithException(t);
       pm.error(x, t);
       AppConfig appConfig = (AppConfig) x.get("appConfig");
       if ( Mode.TEST == appConfig.getMode() )
-        throw t;
+        throw new RuntimeException(t);
     } finally {
       XLocator.set(null);
     }

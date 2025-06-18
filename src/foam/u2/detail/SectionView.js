@@ -25,13 +25,12 @@ foam.CLASS({
 
   css: `
 
-    ^section-title {
-      padding-bottom: 16px;
+    ^rows {
+      gap: 10px;
     }
 
     .subtitle {
       color: $textTertiary;
-      margin-bottom: 16px;
     }
 
     ^actionDiv {
@@ -143,7 +142,7 @@ foam.CLASS({
         })
         .add(self.slot(function(section, showTitle, section$title, section$subTitle, shown) {
           if ( ! section || ! shown ) return;
-          return self.Rows.create()
+          return self.Rows.create().addClass(self.myClass('rows'))
             .callIf(showTitle && section$title, function() {
               if ( foam.Function.isInstance(self.section.title) ) {
                 const slot$ = foam.lang.ExpressionSlot.create({
@@ -173,7 +172,8 @@ foam.CLASS({
               }
             })
             .add(this.slot(function(loadLatch) {
-              var view = this.E().start(self.Grid, {}).addClass(self.myClass('grid'));
+              if ( ! loadLatch || ! section.properties.length ) return;
+              var view = this.E().style({ display: 'contents' }).start(self.Grid, {}).addClass(self.myClass('grid'));
               let propVisArray = [];
               if ( loadLatch ) {
                 view.forEach(section.properties, function(p, index) {
@@ -204,9 +204,6 @@ foam.CLASS({
             }))
             .start(self.Cols)
               .addClass(self.myClass('actionDiv'))
-              .style({
-                'margin-top': section.actions.length ? '16px' : 'initial'
-              })
               .forEach(section.actions, function(a) {
                 this.add(a);
               })

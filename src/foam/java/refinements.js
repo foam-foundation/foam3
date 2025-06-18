@@ -1534,19 +1534,21 @@ foam.CLASS({
        var m = info.getMethod('cast');
        m.body = `
         try {
-          if ( o instanceof Number ) {
-            return new java.util.Date(((Number) o).longValue());
+          if ( o != null ) {
+            if ( o instanceof Number ) {
+              return new java.util.Date(((Number) o).longValue());
+            }
+            if ( o instanceof String ) {
+              o = (java.util.Date) fromString((String) o);
+            }
+            // convert the Date to be Noon time in GMT
+            var cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
+            cal.setTime((java.util.Date) o);
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
+            cal.set(java.util.Calendar.MINUTE, 0);
+            return cal.getTime();
           }
-          if ( o instanceof String ) {
-            o = (java.util.Date) fromString((String) o);
-          }
-          // convert the Date to be Noon time in GMT
-          var cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
-          cal.setTime((java.util.Date) o);
-          cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
-          cal.set(java.util.Calendar.MINUTE, 0);
-
-          return cal.getTime();
+          return (java.util.Date) o;
         } catch ( Throwable t ) {
           throw new RuntimeException(t);
         }`;

@@ -42,7 +42,7 @@ foam.CLASS({
           this.of.getAxiomsByClass(foam.lang.Property).forEach(p => {
             if ( ! p.showInPropertyChoice ) return;
             if ( this.predicate && ! this.predicate(p) ) return;
-            choices.push([p, p.name]);
+            choices.push([p, p.label]);
           });
         }
         if ( choices.length ) this.data = choices[0][0];

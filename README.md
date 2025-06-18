@@ -41,7 +41,8 @@ FOAM has no runtime dependencies, but does have build dependencies:
 
 Once dependencies are installed, update FOAM's javascript dependencies:
 From the root of the FOAM repository, execute:
-`./build.sh --install`
+
+    ./build.sh --install
 
     sudo chown -R $USER /opt
 
@@ -50,9 +51,14 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 ## Building
 ### Build and run Java webserver
 
-`./build.sh [options]`
+    ./build.sh -Jdemo
+
+* visit: http://localhost:8080
+
+`    ./build.sh`
 
 * visit: http://localhost:8080/foam3/src/foam/demos/index.html
+
 
 #### common build options:
 

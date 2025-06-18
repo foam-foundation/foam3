@@ -486,8 +486,11 @@ OPTIONS = addOptions({
   showEnvs: [ '', 'show-envs', 'SHOW_ENVS', 'Output environment variable values.', false, function(arg) { SHOW_ENVS = arg ? bool(arg) : true; }],
   tasks: [ 'X', 'tasks', 'TASKS', 'Register task for execution during the build phase. Comma seperated list of task names. Parameters to each demarcated with : symbol. Ex: -XcheckDeps:9. NOTE: only the first \'all\' task is processed.', 'all',
            arg => {
-             // cli will pass tasks as either --task1,task2 or -Xtask1,task2
-             let t = arg.replaceAll(',', TASK_SEPERATOR);
+             var t = arg;
+             // cli will pass tasks as --task1,task2 or -Xtask1,task2 or --task1:arg1,arg2
+             if ( ! arg.includes(':') ) {
+               t = arg.replaceAll(',', TASK_SEPERATOR);
+             }
              if ( TASKS === 'all' )
                TASKS = '';
              TASKS = TASKS ? TASKS + TASK_SEPERATOR + t : t;

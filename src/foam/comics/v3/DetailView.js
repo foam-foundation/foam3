@@ -351,7 +351,7 @@ foam.CLASS({
         let id   = this.data?.id ?? this.idOfRecord;
         self.config.unfilteredDAO.inX(self.__subContext__).find(id).then(d => {
           if ( ! d ) {
-            this.daoController.route = '';
+            this.daoController.routeToMe();
             return;
           }
           self.data = d;
@@ -539,7 +539,7 @@ foam.CLASS({
           dao: this.config.dao,
           onDelete: () => {
             this.finished.pub();
-            this.daoController.route = '';
+            this.daoController.routeToMe();
           },
           data: this.data
         }));

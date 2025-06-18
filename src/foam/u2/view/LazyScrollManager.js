@@ -340,17 +340,12 @@ foam.CLASS({
             
             // Show header if this is a new group (different from last rendered group)
             if ( ! foam.util.equals(group, self.currGroup_) ) {
-              // Create or reuse collapse state
-              if ( ! self.collapsedGroups[group] ) {
-                let isGroupCollapsed$ = foam.lang.SimpleSlot.create({value: false});
-                self.collapsedGroups[group] = isGroupCollapsed$;
-              }
+      
               
               e.tag(self.groupHeaderView,
                 { ...args,
                   groupLabel: group,
                   groupBy: self.groupBy,
-                  collapsed$: self.collapsedGroups[group]
               }
               );
               
@@ -359,7 +354,7 @@ foam.CLASS({
           }
 
           var isEven = (index + 1) % 2 !== 0 ;
-          var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven).hide(self.collapsedGroups[self.currGroup_] ?? false);
+          var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven);
           rowEl.el().then(a => {
             self.rowObserver.observe(a)
           });

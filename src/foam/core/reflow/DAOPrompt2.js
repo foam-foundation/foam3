@@ -83,28 +83,23 @@ foam.CLASS({
   sections: [
     {
       name: 'general',
-      title: 'General',
-      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+      title: 'General'
     },
     {
       name: 'output',
-      title: 'Output',
-      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+      title: 'Output'
     },
     {
       name: 'scroll',
-      title: 'Scroll',
-      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+      title: 'Scroll'
     },
     {
       name: 'filter',
-      title: 'Filter',
-      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+      title: 'Filter'
     },
     {
       name: 'actions',
-      title: 'Actions',
-      view: { class: 'foam.core.reflow.ReactiveSectionView' }
+      title: ''
     }
   ],
 
@@ -118,10 +113,9 @@ foam.CLASS({
     'foam.parse.QueryParser'
   ],
 
-  imports: [ 'currentBlock', 'eval_' ],
+  imports: [ 'block', 'eval_' ],
 
   exports: [
-    'block',
     'dao',
     'limitedDAO as sinkDAO',
     'filteredDAO as sinkUnlimitedDAO',
@@ -129,13 +123,6 @@ foam.CLASS({
   ],
 
   properties: [
-    {
-      name: 'block',
-      factory: function() { return this.currentBlock; },
-      hidden: true,
-      section: 'general',
-      transient: true
-    },
     {
       class: 'String',
       name: 'label',
@@ -151,7 +138,7 @@ foam.CLASS({
       class: 'Boolean',
       name: 'visible',
       section: 'general',
-      label: 'Visibility',
+      label: 'Visible',
       value: true,
       view: { class: 'foam.u2.Switch' }
     },
@@ -280,7 +267,12 @@ foam.CLASS({
     },
     {
       name: 'select',
-      view: function(_, X) { return foam.core.reflow.SinkView.create({sinksOnly: false, choice: 'Table', dao: X.data.dao}, X); },
+      view: function(_, X) {
+        return foam.core.reflow.SinkView.create({
+          sinksOnly: false,
+          choice: 'Table',
+          dao: X.data.dao}, X.data);
+      },
       section: 'output',
       label: '',
       factory: function() { return this.TableDAOAgent.create(); }

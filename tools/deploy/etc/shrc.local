@@ -27,6 +27,11 @@ if [ -f "${PROJECT_CONFIG}" ]; then
   . ${PROJECT_CONFIG} $1
 fi
 
+###### Timezone
+if [ -z "`echo "${JAVA_OPTS}" | grep "user.timezone"`" ]; then
+  JAVA_OPTS="${JAVA_OPTS} -Duser.timezone=GMT"
+fi
+
 # memory - heap
 if [ -z "`echo "${JAVA_OPTS}" | grep "Xms"`" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Xms2048m"

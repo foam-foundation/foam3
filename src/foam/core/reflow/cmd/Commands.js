@@ -19,7 +19,7 @@ foam.CLASS({
     'foam.core.auth.AuthorizationException'
   ],
 
-  imports: [ 'currentBlock', 'log', 'out', 'eval_' ],
+  imports: [ 'addValue', 'block', 'currentBlock', 'log', 'out', 'eval_' ],
 
   tableColumns: [ 'id', 'description' /*, 'execute_' */ ],
 
@@ -34,7 +34,7 @@ foam.CLASS({
   methods: [
     function execute(...args) {
       with ( this ) {
-        with ( { args: args, addValue: this.currentBlock.addValue.bind(this.currentBlock) } ) {
+        with ( { args: args, addValue: this.addValue.bind(this) } ) {
           try {
             eval(this.script);
           } catch (x) {
@@ -121,6 +121,8 @@ foam.CLASS({
         [ 'ESC',     'Toggle prompt display' ],
         [ 'Up',      'Previous from history' ],
         [ 'Down',    'Next from history' ],
+        [ 'Shift-Up',  'Select next command' ],
+        [ 'Shift-Down', 'Select previous command' ],
         [ 'CMD + k / CTRL + k',  'Clear console' ],
         [ 'CTRL + `', 'Focus input' ]
       ];
@@ -270,8 +272,8 @@ foam.CLASS({
 
       p.addToE(this.out);
       this.currentBlock.flowName = this.createFlowChildName(p.label.replaceAll(' ', '').toLowerCase());
-      this.currentBlock.obj      = p;
-      this.currentBlock.value    = p;
+      this.currentBlock.obj    = p;
+      this.currentBlock.value  = p;
     }
   ]
 });

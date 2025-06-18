@@ -146,7 +146,11 @@ foam.CLASS({
     {
       class: 'Reference',
       of: 'foam.core.auth.ServiceProvider',
-      name: 'spid'
+      name: 'spid',
+      label: 'Client',
+      readPermissionRequired: true,
+      writePermissionRequired: true
+      // todo make choice view section & placeholder say client
     },
     {
       class: 'Int',

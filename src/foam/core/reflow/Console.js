@@ -459,7 +459,7 @@ foam.CLASS({
 
   imports: [ 'data', 'showPrompts' ],
 
-  exports: [ 'addValue', 'log', 'out' ],
+  exports: [ 'addValue', 'log', 'out', 'as block' ],
 
   css: `
     ^ {
@@ -578,18 +578,20 @@ foam.CLASS({
 
   css: `
     ^ {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: max-content;
       height: 100%;
       min-height: 100vh;
     }
     ^flex-container {
       display: flex;
       flex-direction: row;
-      height: 90%;
+      overflow: auto;
     }
     ^header {
       padding: 10px;
+      height: fit-content;
+      max-height: 64px;
       background-color: $white;
       border-bottom: 1px solid $grey200;
     }
@@ -604,6 +606,7 @@ foam.CLASS({
       width: 100%;
       background-color: $grey100;
       overflow: auto;
+      flex: 1 1 50%;
     }
     ^m {
        border: 2px dashed $grey200;
@@ -623,54 +626,17 @@ foam.CLASS({
       height: 100%;
       z-index: 10;
     }
-    ^r .foam-core-reflow-PropertyListView {
-      gap: 5px;
-    }
-    ^r .foam-u2-borders-CardBorder {
-      padding: 0px;
-      border: none;
+
+    ^r .foam-core-reflow-SinkView, .foam-u2-view-IntView {
+      width: 100%;
     }
 
-    ^r .property-select,
-    ^r .property-format,
-    ^r .property-select1,
-    ^r .property-select2 {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-      width: 100%;
-    }
-    ^r .foam-core-reflow-SinkView {
-      width: 100%;
-    }
-    ^r .property-choice,
-    ^r .property-sink,
-    ^r .property-prop,
-    ^r .foam-u2-view-IntView {
-      width: 100%;
-    }
-    ^r .foam-core-reflow-SinkView > div {
-      width: 100%;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-    }
     ^ .foam-u2-RangeView-skip {
       width: 100%;
-      accent-color: $primary500;
     }
 
     ^menuClosed {
-     width: 4% !important;
-    }
-    ^r .foam-core-reflow-ReactiveSectionView-actionDiv {
-      gap: 10px;
-    }
-    .foam-u2-ActionView-run {
-      width: 100%;
-    }
-    ^r .foam-u2-detail-SectionView-actionDiv {
-      gap: 10px;
+     width: fit-content;
     }
 
     ^r .foam-u2-view-TitledArrayView-value-view-container {
@@ -709,7 +675,6 @@ foam.CLASS({
             .show(this.showLeft$)
           .end().
           start().addClass(this.myClass('middle-holder'))
-            .style({ flex: '1 1 0%' })
             .start('div', {}, this.middle$).addClass(this.myClass('m')).end()
           .end()
           // --- Resize handle ---
@@ -812,7 +777,6 @@ foam.CLASS({
       flex-direction: column;
       width: 100%;
       height: 100%;
-      margin-bottom: 4px;
     }
     ^input-field {
       position: relative;
@@ -981,6 +945,9 @@ foam.CLASS({
     },
 
     async function render() {
+      foam.u2.table.UnstyledTableView.SELECTED_COLUMN_NAMES.memorable = false;
+      foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
+
       let oldShowNav = this.showNav;
       this.showNav = false;
       this.onDetach(() => { this.showNav = oldShowNav;})
@@ -1132,11 +1099,15 @@ foam.CLASS({
     },
 
     function addHistory(cmd) {
-      if ( cmd.startsWith('history') || cmd.startsWith('help') ) return;
+      if ( cmd.startsWith('history') || cmd.startsWith('help') || cmd === 'save' ) return;
+
       // avoid adjacent duplicates
       if ( cmd == this.history_[this.history_.length-1] ) return;
+
       this.history_.push(cmd);
+
       while ( this.history_.length > this.historyLength ) this.history_.shift();
+
       this.window.localStorage[this.historyKey()] = foam.json.stringify(this.history_);
     },
 
@@ -1277,6 +1248,14 @@ foam.CLASS({
       flow.version++;
       flow.mementoMgr.clear();
       flow.flowDAO.put(this.value).then(ret => this.value.copyFrom(ret));
+    },
+
+    function setSelectedIndex(i) {
+      if ( i == -1 || i >= this.flowChildren.length ) {
+        this.selected = this;
+      } else {
+        this.selected = this.flowChildren[i];
+      }
     }
   ],
 
@@ -1349,6 +1328,22 @@ foam.CLASS({
         this.flowName = '';
       },
       keyboardShortcuts: [ 'meta-k', 'ctrl-k' ]
+    },
+    {
+      name: 'selectionUp',
+      keyboardShortcuts: [ 'shift-arrowup' ],
+      code: function() {
+        var i = this.flowChildren.findIndex(o => o === this.selected);
+        this.setSelectedIndex(i == -1 ? this.flowChildren.length-1 : i-1);
+      }
+    },
+    {
+      name: 'selectionDown',
+      keyboardShortcuts: [ 'shift-arrowdown' ],
+      code: function() {
+        var i = this.flowChildren.findIndex(o => o === this.selected);
+        this.setSelectedIndex(i+1);
+      }
     }
   ],
 

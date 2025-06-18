@@ -1304,6 +1304,8 @@ foam.CLASS({
       args: 'Context x, Object obj',
       type: 'Object',
       code: function cmd_(x, obj) {
+        if ( obj === 'serviceName?' ) return this.serviceName;
+
         return this.delegate.cmd_(x, obj);
       },
       javaCode: `

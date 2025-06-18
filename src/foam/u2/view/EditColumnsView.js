@@ -16,7 +16,8 @@ foam.CLASS({
   ],
 
   imports: [
-    'window'
+    'window',
+    'table?'
   ],
 
   css: `
@@ -69,9 +70,10 @@ foam.CLASS({
       name: 'selectColumnsExpanded',
       class: 'Boolean'
     },
-    'parentId',
     'columnConfigPropView',
-    'height'
+    'height',
+    'rightOffset',
+    'topOffset'
   ],
 
   methods: [
@@ -83,9 +85,9 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-      this.window.addEventListener('resize', this.resize);
-      this.resize();
-      this.onDetach(() => self.window.removeEventListener('resize', self.resize));
+      this.window.addEventListener('resize', this.updatePosition);
+      this.onDetach(() => self.window.removeEventListener('resize', self.updatePosition));
+      
       this.start()
       .addClass(this.myClass())
         .show(this.selectColumnsExpanded$)
@@ -93,7 +95,9 @@ foam.CLASS({
           .start({ class: 'foam.u2.view.ColumnConfigPropView', data: self.data }, { } ,this.columnConfigPropView$ )
             .addClass(this.myClass('container'))
             .style({
-              'max-height': this.height$
+              'max-height': this.height$,
+              'right': this.rightOffset$,
+              'top': this.topOffset$
             })
           .end()
       .on('click', this.closeDropDown.bind(this))
@@ -101,8 +105,20 @@ foam.CLASS({
     }
   ],
   listeners: [
-    function resize() {
+    function updatePosition() {
       this.height = this.window.innerHeight - 200 > 0 ? this.window.innerHeight - 200 + 'px' : this.window.innerHeight + 'px';
+
+      if ( this.table && this.table.tableEl_ ) {
+        var tableRect = this.table.tableEl_.getBoundingClientRect();
+        
+        // Position relative to table's right edge, offset by dropdown width
+        var dropdownWidth = 300; // Approximate width from CSS max-width
+        this.rightOffset = Math.max(10, this.window.innerWidth - tableRect.right - dropdownWidth) + 'px';
+        this.topOffset = (tableRect.top) + 'px';
+      } else {
+        this.rightOffset = '60px';
+        this.topOffset = '120px';
+      }
     }
   ],
   actions: [

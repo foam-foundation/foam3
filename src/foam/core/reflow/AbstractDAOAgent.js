@@ -379,6 +379,8 @@ foam.CLASS({
   name: 'GroupByDAOAgent',
   extends: 'foam.core.reflow.AbstractDAOAgent',
 
+  imports: [ 'block', 'eval_' ],
+
   properties: [
     {
       name: 'prop',
@@ -386,7 +388,7 @@ foam.CLASS({
        return { class: 'foam.core.reflow.PropertyChoiceView', of: X.data.of };
       }
     },
-    { name: 'sink', view: 'foam.core.reflow.SinkView' }
+    { name: 'sink', view: 'foam.core.reflow.SinkView', choice: 'COUNT' } // TODO: why doesn't choice work?
   ],
 
   methods: [
@@ -395,8 +397,29 @@ foam.CLASS({
     function addToE(e) {
       e.startContext({data: this}).
         start().
-          style({display: 'flex'}).
-          add(this.PROP, this.SINK);
+          style({paddingLeft: '12px', display: 'flex'}).
+          add(this.PROP).add(this.SINK).
+          start(this.BROWSE).style({alignSelf: 'self-end'});
+    }
+  ],
+
+  actions: [
+    {
+      name: 'browse',
+      // isEnabled: function(available) { return available; },
+      code: async function() {
+        var cls = this.block?.value?.value?.cls_;
+
+        var browse = () => this.eval_(`dao(${this.block.flowName}.value.asDAO(), '${this.block.flowName}GroupBy')`);
+
+        if ( foam.mlang.sink.GroupBy != cls ) {
+          await this.block.value.run();
+          // TODO: something better
+          setTimeout(browse, 200);
+        } else {
+          browse();
+        }
+      }
     }
   ]
 });
@@ -459,7 +482,7 @@ foam.CLASS({
       acc:   this.sink.createSink()
     }); },
     function addToE(e) {
-      e.startContext({data: this}).start().style({display: 'flex'}).add(this.PROP1, this.PROP2, this.SINK);
+      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.PROP1, this.PROP2, this.SINK);
     }
   ]
 });

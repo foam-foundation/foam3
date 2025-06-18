@@ -21,6 +21,12 @@ foam.CLASS({
     ^ {
       display: inline-flex;
     }
+    ^ > div {
+      width: 100%;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
   `,
 
   properties: [

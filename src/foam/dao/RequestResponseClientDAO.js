@@ -55,6 +55,13 @@ Suitable for usage against backends that don't support listen(), such as plain H
       if ( ! skip ) skip = 0;
       if ( ! limit ) limit = Number.MAX_SAFE_INTEGER;
 
+      // Sometimes its useful to be able to probe the DAO to see what queries will
+      // be supplied. The setPredicate() method can just throw an exception if it
+      // doesn't actually want to proceed with the query.
+      if ( sink.setPredicate ) {
+        sink.setPredicate(predicate);
+      }
+
       if ( ! this.Serializable.isInstance(sink) ) {
         var self = this;
 

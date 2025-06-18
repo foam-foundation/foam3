@@ -17,7 +17,8 @@ foam.CLASS({
     'ctrl',
     'currentMenu',
     'isIframe',
-    'pushDefaultMenu'
+    'pushDefaultMenu',
+    'wizardLaunchMemento'
   ],
 
   implements: [
@@ -29,7 +30,7 @@ foam.CLASS({
       if ( this.crunchController.lastActiveWizard?.status == foam.u2.wizard.WizardStatus.IN_PROGRESS )
         return;
       if ( this.isIframe() ) return;
-      if ( this.currentMenu.id === this.ctrl.route ) {
+      if ( this.wizardLaunchMemento === this.ctrl.route ) {
         if ( window.history.length > 1 ) {
           window.history.back();
         } else 

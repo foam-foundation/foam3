@@ -23,6 +23,7 @@ foam.POM({
   },
 
   options: {
+    benchmarks: ['', 'benchmarks', 'BENCHMARKS', 'Java benchmarks to execute', '', arg => BENCHMARKS = arg],
     bootScript: ['', 'boot-script', 'BOOT_SCRIPT', 'Boot executes a bootscript just after statup. This bootscript is how Test cases are run. TODO: elaborate.  bootScript:testRunnerScript','main', arg => BOOT_SCRIPT = arg ],
     buildOnly: [ 'o', 'build-only', 'BUILD_ONLY', "Only execute java generation and java compilation build steps, don't start CORE server.", false, function(arg) { BUILD_ONLY = arg ? this.bool(arg) : true; } ],
     debug: [ 'd', 'debug', 'DEBUG', 'Launch JVM with JDPA debugging enabled. Default port 8000.', false, function(arg) { DEBUG = arg ? this.bool(arg) : true; } ],
@@ -44,6 +45,8 @@ foam.POM({
     tar: [ 'k', 'tar', 'TAR', 'Package up a deployment tarball for remote application installation', false, function(arg) { TAR = arg ? this.bool(arg) : true; } ],
     tarball: ['', 'tarball', 'TARBALL', 'Tar file name', () => APP_NAME + '-deploy-' + VERSION + '.tar.gz', arg => TARBALL = arg],
     tarballPath: ['', 'tarball-path', 'TARBALL_PATH', 'Path to the tarball to upload. Defaults to the last tar built.', () => BUILD_DIR + '/package/' + TARBALL, arg => TARBALL_PATH = arg],
+    tests: ['', 'tests', 'TESTS', 'Java test cases to execute', '', arg => TESTS = arg],
+    timezone: ['', 'timezone', 'TIMEZONE', 'Set JVM user.timezone. NOTE: this only affects local deployment. In production the JVM will use the system timezone.', 'GMT', arg => TIMEZOME = arg],
     webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  WebSocketServer will use PORT+1', '8080', args => WEB_PORT = args ],
     version: ['', 'version', 'VERSION', 'Application version', '1.0.0', args => VERSION = args ]
   },
@@ -217,6 +220,7 @@ foam.POM({
 
     // TODO: not tested
     javaBenchmarks: ['java-benchmarks', 'Run all or specified benchmarks. ex: javaBenchmarks[:Benchmark1,Benchmark2]', [/*'stopCORE'*/], function(args) {
+      BENCHMARKS=args;
       APP_ROOT = '/tmp';
       FLAGS = this.comma(FLAGS, 'test');
       // this.addJournal('test'); ??
@@ -226,7 +230,7 @@ foam.POM({
       BOOT_SCRIPT = 'benchmarkRunnerScript';
 
       this.execute('buildJar');
-      this.execute('startCORETest', 'benchmark', args);
+      this.execute('startCORETest', 'benchmark');
     }],
 
     javacParameters: ['javac-parameters', 'Set parameters passed the Java compiler', [], function() {
@@ -242,6 +246,7 @@ foam.POM({
     }],
 
     javaTests: ['java-tests', 'Run all or specified test cases. ex: javaTests[:Test1,Test2]', [], function(args) {
+      TESTS=args;
       APP_ROOT='/tmp';
       FLAGS = this.comma(FLAGS, 'test');
       this.addJournal('test');
@@ -251,7 +256,7 @@ foam.POM({
       this.execute('cleanTest');
       BOOT_SCRIPT = 'testRunnerScript';
       this.execute('buildJar');
-      this.execute('startCORETest', 'test', args);
+      this.execute('startCORETest', 'test');
     }],
 
     showJavaManifest: ['show-java-manifest', 'Display generated Java Manifest file.', ['buildJavaManifest'], function() {
@@ -276,6 +281,7 @@ foam.POM({
     startCORE: ['start-core', 'Start CORE server (CLASSPATH).', ['setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs'], function() {
 
       JAVA_OPTS += ` -Dcore.webroot=${PROJECT_HOME}`;
+      JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
       if ( DEBUG )
         JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;
@@ -308,16 +314,18 @@ foam.POM({
       // }
     }],
 
-    startCORETest: ['start-core-test', 'Start CORE server (Test, Benchmarks).', ['deployJournals', 'deployDocuments', 'deployLib', 'buildJavaTestOpts'], function(mode, ...tests) {
+    startCORETest: ['start-core-test', 'Start CORE server (Test, Benchmarks).', ['deployJournals', 'deployDocuments', 'deployLib', 'buildJavaTestOpts'], function(mode) {
       MESSAGE = 'Running tests...';
+
+      JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
       if ( mode === 'benchmark' ) {
         MESSAGE = 'Running benchmarks...';
-        if ( String(tests) != '' )
-          JAVA_OPTS += ' -Dfoam.benchmarks=' + tests;
+        if ( BENCHMARKS )
+          JAVA_OPTS += ` -Dfoam.benchmarks=${BENCHMARKS}`;
       } else {
-        if ( String(tests) != '' )
-          JAVA_OPTS += ' -Dfoam.tests=' + tests;
+        if ( TESTS )
+          JAVA_OPTS += ` -Dfoam.tests=${TESTS}`;
       }
 
       this.showSummary();

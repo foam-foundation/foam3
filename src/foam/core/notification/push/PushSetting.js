@@ -41,6 +41,7 @@ foam.CLASS({
             PushService pushService = (PushService) x.get("pushService");
             String title = notification.getToastMessage();    // restricted to 30 chars
             String body  = notification.getToastSubMessage(); // restricted to 60 chars
+            var extra = notification.getExtra();
             if ( SafetyUtil.isEmpty(title) ||
                  SafetyUtil.isEmpty(body) ) {
               // Loggers.logger(x, this).debug("push suppressed, title or body empty");
@@ -48,7 +49,7 @@ foam.CLASS({
             }
             ((foam.core.om.OMLogger) x.get("OMLogger")).log("Notification:Push");
             try {
-              pushService.sendPush(user, title, body);
+              pushService.sendPush(user, title, body, extra);
             } catch (Throwable t) {
               Loggers.logger(x, this).error(t);
             }

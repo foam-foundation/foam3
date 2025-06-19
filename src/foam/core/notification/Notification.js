@@ -218,6 +218,12 @@ foam.CLASS({
       javaFactory: 'return new java.util.HashMap<String, Object>();'
     },
     {
+      class: 'Map',
+      name: 'extra',
+      documentation: `Arguments for abstract extra properties that can be added to the notification 
+      and consumed by various notificaition settings.`,
+    },
+    {
       name: 'emailName',
       class: 'Reference',
       of: 'foam.core.notification.email.EmailTemplate',

@@ -35,6 +35,10 @@ foam.INTERFACE({
         {
           type: 'String',
           name: 'body'
+        },
+        {
+          type: 'java.util.Map',
+          name: 'extra'
         }
       ]
     },
@@ -54,6 +58,10 @@ foam.INTERFACE({
         {
           type: 'String',
           name: 'body'
+        },
+        {
+          type: 'java.util.Map',
+          name: 'extra'
         }
       ]
     }

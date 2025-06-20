@@ -49,6 +49,7 @@ foam.CLASS({
               // TODO: fix JSON parsing should setup context corectly
               var select    = self.data.select.clone(self.data.__subContext__);
               await select.execute(this);
+              self.data.ready.resolve();
               self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
             })).
           end();
@@ -281,7 +282,15 @@ foam.CLASS({
     { class: 'String',     hidden: true,   name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
     { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } },
     { class: 'Int',        hidden: true,  name: 'version', hidden: true },
-    { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' }
+    { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
+    {
+      name: 'ready',
+      transient: true,
+      hidden: true,
+      factory: function() {
+        return foam.lang.Latch.create();
+      }
+    }
   ],
 
   methods: [
@@ -325,7 +334,7 @@ foam.CLASS({
 
     function describe() {
       this.eval_('describe ' + this.dao.of.id);
-    },
+    }
   ]
 });
 

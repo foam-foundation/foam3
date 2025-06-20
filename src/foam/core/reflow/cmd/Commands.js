@@ -29,6 +29,12 @@ foam.CLASS({
     { class: 'Code',    name: 'script' },
     { class: 'Boolean', name: 'linkable', value: true },
     { class: 'Boolean', name: 'permissionRequired' }
+    /*
+    {
+      name: 'ready',
+      documentation: 'Promise if command needs to delay loading of following commands until it is ready',
+      value: Promise.resolve()
+    }*/
   ],
 
   methods: [
@@ -272,7 +278,7 @@ foam.CLASS({
 
       p.addToE(this.out);
       this.currentBlock.flowName = this.createFlowChildName(p.label.replaceAll(' ', '').toLowerCase());
-      this.currentBlock.obj    = p;
+      this.currentBlock.obj    = p; // ???: Needed
       this.currentBlock.value  = p;
     }
   ]

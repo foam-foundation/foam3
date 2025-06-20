@@ -8,6 +8,7 @@ package foam.lang;
 
 import foam.lib.parse.ParserContextImpl;
 import foam.lib.parse.StringPStream;
+
 import javax.xml.stream.XMLStreamReader;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;

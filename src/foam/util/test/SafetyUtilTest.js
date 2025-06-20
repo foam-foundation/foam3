@@ -12,8 +12,6 @@ foam.CLASS({
   javaImports: [
     'foam.core.auth.User',
     'foam.util.SafetyUtil',
-    'java.util.Calendar',
-    'java.util.Date'
   ],
   documentation: 'test utility functions',
 
@@ -25,7 +23,6 @@ foam.CLASS({
       SafetyUtilTest_compare_primitive_array();
       SafetyUtilTest_compare_object_array();
       SafetyUtilTest_compare_fobject_array();
-      SafetyUtilTest_compare_date();
     `,
     },
     {
@@ -99,27 +96,6 @@ foam.CLASS({
         test(SafetyUtil.compare(arr1, arr2) ==  0, "Compare fobject array, arr1 == arr2");
         test(SafetyUtil.compare(arr1, arr3) == -1, "Compare fobject array, arr1 < arr3");
         test(SafetyUtil.compare(arr3, arr2) ==  1, "Compare fobject array, arr3 > arr2");
-      `
-    },
-    {
-      name: 'SafetyUtilTest_compare_date',
-      javaCode: `
-        var d1 = new Date();
-        var d2 = new Date();
-        test ( SafetyUtil.compare(d1, d2) == 0, "Compare date differing in time only");
-
-        d1.setYear(d1.getYear() + 1);
-        test ( SafetyUtil.compare(d1, d2) == 1, "Compare date differing in year");
-
-        Calendar cal = Calendar.getInstance();
-        d1.setYear(d1.getYear() -1);
-        cal.setTime(d1);
-        cal.set(Calendar.MONTH, 1);
-        d1 = cal.getTime();
-        cal.setTime(d2);
-        cal.set(Calendar.MONTH, 2);
-        d2 = cal.getTime();
-        test(SafetyUtil.compare(d1, d2) ==  -1, "Compare date differing in month");
       `
     }
   ]

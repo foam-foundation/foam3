@@ -85,7 +85,7 @@ foam.CLASS({
       code: function() {
         var cData = this.data;
 
-        this.config.dao.put(cData).then(o => {
+        return this.config.dao.put(cData).then(o => {
           this.data = o;
           this.finished.pub();
 

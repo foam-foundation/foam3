@@ -991,21 +991,27 @@ foam.CLASS({
           feedback_ = false;
         }
         });
-      this.value.memento$.sub(() => {
+      this.value.memento$.sub(async () => {
         if ( feedback_ ) return;
         feedback_ = true;
         try {
           var cs = this.value.memento;
           var currentBlockName = this.selected ? this.selected.flowName : this.flowName;
           this.clearFlow();
-          cs.forEach(c => {
+          for ( var i = 0 ; i < cs.length ; i++ ) {
+            var c = cs[i];
+
             this.eval_(c.cmd);
+
             // TODO: await
             this.currentBlock.flowName = c.flowName;
             if ( this.currentBlock.value && c.value ) {
               this.currentBlock.value.copyFrom(c.value);
             }
-          });
+            if ( this.currentBlock.value && this.currentBlock.value.ready ) {
+              await this.currentBlock.value.ready;
+            }
+          }
           this.selected = currentBlockName == this.flowName ? this : this.findFlowChildByName(currentBlockName);
         } finally {
           feedback_ = false;

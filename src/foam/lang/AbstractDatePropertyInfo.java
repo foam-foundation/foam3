@@ -33,8 +33,7 @@ public abstract class AbstractDatePropertyInfo
   };
 
   public int compareValues(java.lang.Object o1, java.lang.Object o2) {
-    // Remove time component of Date
-    return foam.util.SafetyUtil.compare(((Date) o1).getTime() / 100000, ((Date) o2).getTime() / 100000);
+    return foam.util.SafetyUtil.compare((Date) o1, (Date) o2);
   }
 
   public Object fromString(String value) {

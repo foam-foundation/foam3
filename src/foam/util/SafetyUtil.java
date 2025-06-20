@@ -101,6 +101,10 @@ public class SafetyUtil {
       return -1;
     }
 
+    if ( o1 instanceof java.util.Date && o2 instanceof java.util.Date ) {
+      return compare((java.util.Date) o1, (java.util.Date) o2);
+    }
+
     // Compare classes if the classes are different
     if ( o1.getClass() != o2.getClass() ) {
       compare(o1.getClass().getName(), o2.getClass().getName());
@@ -313,6 +317,18 @@ public class SafetyUtil {
 
   public static int compare(double o1, double o2) {
     return o1 == o2 ? 0 : o1 < o2 ? -1 : 1;
+  }
+
+  public static int compare(java.util.Date o1, java.util.Date o2) {
+    if ( o1 == null && o2 == null ) return 0;
+    if ( o1 == null ) return -1;
+    if ( o2 == null ) return 1;
+
+    // Zero out sub day milliseconds as FOAM Date comparisons should
+    // only be concerned with year month day.
+    long m1 = o1.getTime();
+    long m2 = o2.getTime();
+    return compare(m1 - (m1 % 86400000), m2 - (m2 % 86400000));
   }
 
   public static int hashCode(Object o1) {

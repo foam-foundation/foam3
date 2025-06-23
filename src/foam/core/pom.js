@@ -461,6 +461,8 @@ foam.POM({
     { name: "notification/SlackSetting",                                                  flags: "js|java" },
     { name: "notification/ToastNotificationDAO",                                          flags: "js|java" },
     { name: "notification/ToastState",                                                    flags: "js|java" },
+    { name: "notification/UserNotificationDAO",                                           flags: "js|java" },
+    { name: "notification/UserNotificationSink",                                          flags: "js|java" },
     { name: "notification/email/EmailConfig",                                             flags: "js|java" },
     { name: "notification/email/EmailFolderAgent",                                        flags: "js|java" },
     { name: "notification/email/EmailMessage",                                            flags: "js|java" },

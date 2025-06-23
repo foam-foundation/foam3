@@ -59,6 +59,20 @@ p({
 
 p({
   "class": "foam.core.boot.CSpec",
+  "name": "userNotificationDAO",
+  "serve": false,
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.notification.Notification.getOwnClassInfo())
+      .setDecorator(new foam.core.notification.UserNotificationDAO(x, new foam.dao.NullDAO(x, foam.core.notification.getOwnClassInfo())))
+      .setEnableInterfaceDecorators(false)
+      .setNullify(true)
+      .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
   "name": "myNotificationDAO",
   "lazy": false,
   "serve": true,

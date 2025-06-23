@@ -28,7 +28,7 @@ public class COREServiceRouter
 
   protected Map<String, foam.box.Box> serviceMap_ = new ConcurrentHashMap<>();
 
-  public void service(String serviceKey, foam.box.Message message) {
+  public void service(String serviceKey, foam.box.Envelope envelope) {
     PM            pm       = new PM(this.getClass(), serviceKey);
     Logger        logger   = (Logger)getX().get("logger");
 
@@ -42,7 +42,7 @@ public class COREServiceRouter
         return;
       }
 
-      box.send(message);
+      box.send(envelope);
     } catch (Throwable t) {
       logger.error(this.getClass(), "Error servicing request", t);
       t.printStackTrace();

@@ -97,7 +97,6 @@ foam.POM({"name":"sweeper","version":2,"files":[
 {"name":"../../../foam/dao/sync/SyncRecord","flags":"web"},
 {"name":"../../../foam/parse/QueryParser","flags":"web"},
 {"name":"../../../foam/net/web/WebSocket","flags":"web"},
-{"name":"../../../foam/net/web/WebSocketService","flags":"web"},
 {"name":"../../../foam/net/web/HTTPResponse","flags":"web"},
 {"name":"../../../foam/net/web/HTTPRequest","flags":"web"},
 {"name":"../../../foam/lang/StubMethod","flags":"web"},

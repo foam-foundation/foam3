@@ -21,13 +21,11 @@ foam.CLASS({
 
   requires: [
     'foam.net.web.WebSocket',
-    'foam.box.Message',
-    'foam.box.RawWebSocketBox'
+    'foam.box.RawWebSocketBox',
+    'foam.net.ConnectionFailedException'
   ],
 
   imports: [
-    'webSocketService',
-    'me',
     'window'
   ],
 
@@ -52,16 +50,15 @@ foam.CLASS({
         return ws.connect().then(function(ws) {
           ws.disconnected.sub(function(sub) {
             sub.detach();
-            this.delegate = undefined;
+            this.delegate = undefined;            
           }.bind(this));
-
-          this.webSocketService.addSocket(ws);
 
           return this.RawWebSocketBox.create({ socket: ws });
         }.bind(this), function(e) {
           // Failed to connect, clear the delegate so that the next send
           // will reconnect.
           this.delegate = undefined;
+          throw e;
         }.bind(this));
       }
     }
@@ -77,7 +74,7 @@ foam.CLASS({
         }
 
         return protocol + this.window.location.hostname +
-          ( this.window.location.port ? ':' + ( parseInt(this.window.location.port) + 1 ) : '' ) +
+          ( this.window.location.port ? ':' + (this.window.location.port) : '' ) +
           '/' + url;
       }
 
@@ -86,14 +83,11 @@ foam.CLASS({
 
     {
       name: 'send',
-      code: function send(msg) {
+      code: function send(envelope) {
         this.delegate.then(function(d) {
-          d.send(msg);
-        }, function(e) {
-          // Failed to connect.
-          if ( msg.attributes.replyBox ) msg.attributes.replyBox.send(foam.box.Message.create({
-            object: e
-          }));
+          d.send(envelope);
+        }.bind(this), function(e) {
+          envelope.replyBox?.send(foam.box.Envelope.create({ message: e }))
         });
       }
     }

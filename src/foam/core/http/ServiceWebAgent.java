@@ -131,18 +131,17 @@ public class ServiceWebAgent
         return;
       }
 
-      if ( ! ( result instanceof foam.box.Message ) ) {
+      if ( ! ( result instanceof foam.box.Envelope ) ) {
         resp.setStatus(resp.SC_BAD_REQUEST);
-        logger.error("Expected instance of foam.box.Message");
-        out.print("Expected instance of foam.box.Message");
+        logger.error("Expected instance of foam.box.Envelope");
+        out.print("Expected instance of foam.box.Envelope");
         out.flush();
         return;
       }
 
       str = null; // free memory
 
-      foam.box.Message msg = (foam.box.Message) result;
-      SessionServerBox.send(x, skeleton_, authenticate_, msg);
+      SessionServerBox.send(x, skeleton_, authenticate_, (foam.box.Envelope)result);
     } catch (java.io.IOException t) {
       throw new foam.lang.FOAMException(t.getMessage(), t);
     }

@@ -6,5 +6,5 @@
 foam.CLASS({
   package :'foam.net',
   name: 'ConnectionFailedException',
-  extends: 'foam.lang.FOAMException'
+  extends: 'foam.net.NetworkException'
 });

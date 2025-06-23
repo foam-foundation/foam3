@@ -14,60 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-foam.CLASS({
-  package: 'foam.dao',
-  name: 'ResetSink',
-  extends: 'foam.dao.ProxySink',
-
-  methods: [
-    {
-      name: 'put',
-      code: function(obj, sub) { this.reset(sub); },
-      javaCode: 'reset(sub);'
-    },
-    {
-      name: 'remove',
-      code: function(obj, sub) { this.reset(sub); },
-      javaCode: 'reset(sub);'
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.dao',
-  name: 'MergedResetSink',
-  extends: 'foam.dao.ResetSink',
-
-  methods: [
-    {
-      name: 'reset',
-      code: function(sub) { this.doReset(sub); },
-      javaCode: `doReset(sub);`
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'doReset',
-      isMerged: true,
-      mergeDelay: 200,
-      code: function(sub) {
-        this.delegate.reset(sub);
-      },
-      javaCode: `
-try {
-  getDelegate().reset(sub);
-} catch(Exception e) {
-  sub.detach();
-}
-`
-    }
-  ]
-});
-
-
+ 
 foam.CLASS({
   package: 'foam.dao',
   name: 'ClientDAO',
@@ -183,6 +130,7 @@ return sink
     {
       name: 'listen_',
       code: function listen_(x, sink, predicate) {
+        // todo: auto reconnect on timeout/disconnect
         if ( sink ) {
           // RemoteSink handles registering a Skeleton callback instead of trying
           // to send the Sink across the network.

@@ -50,11 +50,13 @@ public class SessionServerBox
     authenticate_ = authenticate;
   }
 
-  public void send(Message msg) {
-    send(getX(), getDelegate(), authenticate_, msg);
+  public void send(Envelope envelope) {
+    send(getX(), getDelegate(), authenticate_, envelope);
   }
 
-  public static void send(X x, Box delegate, boolean authenticate, Message msg) {
+  public static void send(X x, Box delegate, boolean authenticate, Envelope envelope) {
+    Object  message    = envelope.getMessage();
+    Box     replyBox   = envelope.getReplyBox();
     CSpec   spec       = x.get(CSpec.class);
     Logger  logger     = Loggers.logger(x, null, "SessionServerBox", spec.getName());
     DAO     sessionDAO = (DAO) x.get("localSessionDAO");
@@ -63,43 +65,13 @@ public class SessionServerBox
     PM      pm         = PM.create(x, "SessionServerBox", spec.getName());
 
     try {
-      HttpServletRequest req = x.get(HttpServletRequest.class);
-      if ( req != null ) {
-        String authorization = req.getHeader("Authorization");
-        if ( SafetyUtil.isEmpty(authorization) ) {
-          authorization = req.getHeader("authorization");
-        }
-        if ( ! SafetyUtil.isEmpty(authorization) ) {
-          StringTokenizer st = new StringTokenizer(authorization);
-          if ( st.hasMoreTokens() ) {
-            String authType = st.nextToken();
-            if ( HTTPAuthorizationType.BEARER.getName().equalsIgnoreCase(authType) ) {
-              if ( st.hasMoreTokens() ) {
-                sessionID = st.nextToken();
-              } else {
-                logger.warning("send", "Authorization: " + authType + " token not found.");
-                msg.replyWithException(new IllegalArgumentException("Authorization: "+authType+ " token not found."));
-                return;
-              }
-            } else {
-              logger.warning("send", "Authorization: " + authType + " not supported.");
-              msg.replyWithException(new IllegalArgumentException("Authorization: "+authType+ " not supported."));
-              return;
-            }
-            if ( SafetyUtil.isEmpty(sessionID) ) {
-              logger.warning("send", "Authorization: Bearer token not found.");
-              msg.replyWithException(new IllegalArgumentException("Authorization: Bearer token not found"));
-              return;
-            }
-          }
-        }
-      }
-      if ( sessionID == null ) {
-        sessionID = (String) msg.getAttributes().get("sessionId");
+      if ( sessionID == null && message instanceof SessionedMessage sessionedMessage) {
+        sessionID = sessionedMessage.getSessionId();
+        message = sessionedMessage.getMessage();
       }
 
       if ( sessionID == null && authenticate ) {
-        msg.replyWithException(new IllegalArgumentException("sessionId required for authenticated services"));
+        envelope.replyWithException(new IllegalArgumentException("sessionId required for authenticated services"));
         return;
       }
 
@@ -122,6 +94,8 @@ public class SessionServerBox
         session = (Session) sessionDAO.put(session);
       }
 
+      // TODO: This should probably just live in a box decorator
+      HttpServletRequest req = x.get(HttpServletRequest.class);
       if ( req != null ) {
         // if req == null it means that we're being accessed via webSockets
         try {
@@ -138,7 +112,7 @@ public class SessionServerBox
           // restricted IPs.
           if ( e.getMessage().equals("Restricted IP") ) {
             logger.warning(e.getMessage(), foam.net.IPSupport.instance().getRemoteIp(x));
-            msg.replyWithException(new AuthenticationException("Access denied"));
+            envelope.replyWithException(new AuthenticationException("Access denied"));
           } else {
             // If an existing session is reused with a different remote host then
             // delete the session and force a re-login.
@@ -151,7 +125,7 @@ public class SessionServerBox
             // surface for session hijacking. Session hijacking is still possible,
             // but only if the user is on the same remote host.
             logger.warning("Remote host for session ", sessionID, " changed from ", session.getRemoteHost(), " to ", foam.net.IPSupport.instance().getRemoteIp(x), ". Deleting session and forcing the user to sign in again.");
-            msg.replyWithException(new AuthenticationException("IP address changed. Your session was deleted to keep your account secure. Please sign in again to verify your identity."));
+            envelope.replyWithException(new AuthenticationException("IP address changed. Your session was deleted to keep your account secure. Please sign in again to verify your identity."));
           }
           return;
         }
@@ -160,7 +134,7 @@ public class SessionServerBox
       // If this service has been configured to require authentication, then
       // throw an error if there's no user in the context.
       if ( authenticate && session.getUserId() == 0 ) {
-        msg.replyWithException(new AuthenticationException());
+        envelope.replyWithException(new AuthenticationException());
         return;
       }
 
@@ -174,7 +148,6 @@ public class SessionServerBox
       // Make context available to thread-local XLocator
       XLocator.set(effectiveContext);
       session.setContext(effectiveContext);
-
       session.touch();
 
       try {
@@ -182,23 +155,22 @@ public class SessionServerBox
       } catch (AuthorizationException e) {
         Group group = (Group) effectiveContext.get("group");
         logger.warning("Missing permission", group != null ? group.getId() : "NO GROUP");
-        msg.replyWithException(e);
+        envelope.replyWithException(e);
         return;
       }
 
-      msg.getLocalAttributes().put("x", effectiveContext);
       pm.log(x);
-      delegate.send(msg);
+      delegate.send(new foam.box.Envelope(effectiveContext, message, replyBox));
     } catch (Throwable t) {
-      // t.printStackTrace(); // Uncomment to debug server-side exceptions
       logger.warning(t.getMessage());
+      // logger.warning(t.getMessage(), t); // Uncomment to debug server-side exceptions
       if ( t instanceof NullPointerException) {
         logger.error(t);
       }
       if ( t instanceof foam.core.auth.UserNotFoundException) {
         sessionDAO.remove(session);
       }
-      msg.replyWithException(t);
+      envelope.replyWithException(t);
       pm.error(x, t);
       AppConfig appConfig = (AppConfig) x.get("appConfig");
       if ( Mode.TEST == appConfig.getMode() )

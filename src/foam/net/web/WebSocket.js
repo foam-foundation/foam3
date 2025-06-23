@@ -27,6 +27,13 @@ foam.CLASS({
     {
       name: 'socket',
       transient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'isConnected',
+      getter: function() {
+        return this.socket.readyState !== this.socket.OPEN;
+      }
     }
   ],
 

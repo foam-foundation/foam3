@@ -140,7 +140,6 @@ foam.CLASS({
   extends: 'foam.u2.Controller',
 
   implements: [
-    'foam.box.Context',
     'foam.mlang.Expressions'
   ],
 

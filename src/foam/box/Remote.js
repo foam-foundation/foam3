@@ -43,14 +43,14 @@ foam.CLASS({
             throw new Error('Expected stub property to be named "delegate" for ' + cls.id);
           }
 
+          // Use a special ReplyBox that register a subBox and serializes to a return box when being sent
           var X = this.__subContext__;
-          var registry = X.registry;
-
-          var box = foam.box.SkeletonBox.create({ data: this }, X);
-          box = registry.register(null, null, box);
-
-          var obj = cls.create(null, X);
-          obj.delegate = box;
+          var obj = cls.create({
+            delegate: foam.box.ReplyBox2.create({
+              delegate: foam.box.SkeletonBox.create({ data: this }, X),
+              once: false
+            })
+          }, X);
 
           outputter.output(obj);
         }

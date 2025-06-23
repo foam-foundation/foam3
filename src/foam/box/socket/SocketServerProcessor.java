@@ -7,8 +7,7 @@
 package foam.box.socket;
 
 import foam.box.Box;
-import foam.box.ReplyBox;
-import foam.box.Message;
+import foam.box.Envelope;
 import foam.box.socket.SocketRouter;
 import foam.lang.ContextAgent;
 import foam.lang.ContextAware;
@@ -104,18 +103,18 @@ public class SocketServerProcessor
           byte[] bytes = readBytes(in_, length);
           String data = new String(bytes, 0, length, StandardCharsets.UTF_8);
           XLocator.set(getX());
-          Message msg = (Message) x.create(JSONParser.class).parseString(data);
-          if ( msg == null ) {
+          Envelope envelope = (Envelope) x.create(JSONParser.class).parseString(data);
+          if ( envelope == null ) {
             throw new IllegalArgumentException("Failed to parse. from: "+socket_.getRemoteSocketAddress()+", message: "+data);
           }
           pm.log(x);
 
           // NOTE: enable along with send and receive debug calls in SocketConnectionBox to monitor all messages.
-          // ReplyBox replyBox = (ReplyBox) msg.getAttributes().get("replyBox");
-          // String replyId = replyBox != null ? replyBox.getId() : "na";
-          // logger_.debug("receive", "replyBoxId", replyId, (String) msg.getAttributes().get("serviceKey"), data);
+          // SocketClientReplyBox replyBox = (SocketClientReplyBox) envelope.getReplyBox()
+          // String replyId = replyBox != null ? replyBox.getReplyBoxId() : "na";
+          // logger_.debug("receive", "replyBoxId", replyId, (String) ((foam.box.SubBoxMessage)envelope.getMessage()).getName());
 
-          socketRouter_.service(msg);
+          socketRouter_.service(envelope);
         } catch ( java.net.SocketTimeoutException e ) {
           continue;
         } catch ( java.io.IOException e ) {
@@ -134,8 +133,8 @@ public class SocketServerProcessor
             }
             foam.box.RPCErrorMessage error = new foam.box.RPCErrorMessage();
             error.setData(remote);
-            foam.box.Message reply = new foam.box.Message();
-            reply.setObject(error);
+            foam.box.Envelope reply = new foam.box.Envelope();
+            reply.setMessage(error);
 
             foam.lib.formatter.JSONFObjectFormatter formatter = new foam.lib.formatter.JSONFObjectFormatter();
             formatter.setX(x);

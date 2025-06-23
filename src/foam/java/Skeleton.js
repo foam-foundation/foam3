@@ -63,7 +63,7 @@ foam.CLASS({
         type: 'void',
         visibility: 'public',
         name: 'send',
-        args: [ { name: 'message', type: 'foam.box.Message' } ],
+        args: [ { name: 'envelope', type: 'foam.box.Envelope' } ],
         body: this.sendMethodCode()
       });
       /*
@@ -85,14 +85,15 @@ foam.CLASS({
     {
       name: 'sendMethodCode',
       template: `
-    if ( ! ( message.getObject() instanceof foam.box.RPCMessage) ) {
+    if ( ! ( envelope.getMessage() instanceof foam.box.RPCMessage) ) {
       // TODO return an error?
       return;
     }
 
     long                start    = System.currentTimeMillis();
-    foam.box.RPCMessage rpc      = (foam.box.RPCMessage) message.getObject();
-    foam.box.Box        replyBox = (foam.box.Box) message.getAttributes().get("replyBox");
+    foam.box.RPCMessage rpc      = (foam.box.RPCMessage) envelope.getMessage();
+    foam.lang.X         x        = envelope.getX();
+
     <%
     var methods = this.of.getOwnAxiomsByClass(foam.lang.Method);
     var anyHasReturn = methods.find(function(m) { return m.javaType && m.javaType !== 'void'; });
@@ -105,11 +106,11 @@ foam.CLASS({
     var m = methods[i];
     var hasReturn = m.javaType && m.javaType !== 'void';%>
         case "<%= m.name %>":
-          <% if ( hasReturn ) { %>result =<% } %> ((<%= this.of.id %>) (getDelegateFactory().create(getMessageX(message)))).<%= m.name %>(
+          <% if ( hasReturn ) { %>result =<% } %> ((<%= this.of.id %>) (getDelegateFactory().create(x))).<%= m.name %>(
           <%
     for ( var j = 0 ; j < m.args.length ; j++ ) {
       if ( m.args[j].type == 'Context' ) {
-        %>getMessageX(message)<%
+        %>x<%
       } else if ( foam.lang.AbstractEnum.isSubClass(this.__context__.maybeLookup(m.args[j].type)) ) {
         %>rpc.getArgs() != null && rpc.getArgs().length > <%= j %> ? (<%= m.args[j].javaType %>) rpc.getArgs()[<%= j %>] : null<%
       } else if ( m.args[j].javaType?.endsWith('[]') ) {
@@ -140,27 +141,24 @@ foam.CLASS({
           throw clientE;
         }
       }
-      foam.core.logger.Loggers.logger(getMessageX(message), this).warning(((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName(), rpc.getName(), "returning exception", t.toString()); //, t);
-      // NOTE: this is required for SocketClientReplyBox to find the socket that this request arrived on.  The localAttributes 'x' does not have access to the socket.
-      message.setX(getX());
-      message.replyWithException(t);
+      foam.core.logger.Loggers.logger(x, this).warning(((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName(), rpc.getName(), "returning exception", t.toString()); //, t);
+
+      envelope.replyWithException(t);
 
       return;
     }
 
-    if ( replyBox != null ) {
+    if ( envelope.getReplyBox() != null ) {
       foam.box.RPCReturnMessage reply = (foam.box.RPCReturnMessage)getX().create(foam.box.RPCReturnMessage.class);
 
       reply.setExecutionTime(System.currentTimeMillis() - start);
 
       <% if ( anyHasReturn ) { %>if ( result != null ) {
-        // foam.core.logger.Loggers.logger(getMessageX(message), this).debug(((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName(), rpc.getName(), result);
+        // foam.core.logger.Loggers.logger(x, this).debug(((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName(), rpc.getName(), result);
         reply.setData(result);
       }<% } %>
 
-      foam.box.Message message1 = getX().create(foam.box.Message.class);
-      message1.setObject(reply);
-      replyBox.send(message1);
+      envelope.getReplyBox().send(new foam.box.Envelope(reply, null));
     }`
     }
   ]

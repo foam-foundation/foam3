@@ -17,93 +17,6 @@
 
 foam.CLASS({
   package: 'foam.box',
-  name: 'BackoffBox',
-  extends: 'foam.box.ProxyBox',
-
-  imports: [
-    'setTimeout'
-  ],
-
-  properties: [
-    {
-      class: 'Int',
-      name: 'delay',
-      preSet: function(_, a) {
-        return a < this.maxDelay ? a : this.maxDelay;
-      },
-      value: 1
-    },
-    {
-      class: 'Int',
-      name: 'maxDelay',
-      value: 20000
-    }
-  ],
-
-  methods: [
-    function send(m) {
-      var self = this;
-      this.setTimeout(function() {
-        self.delegate.send(m);
-      }, this.delay);
-
-      this.delay *= 2;
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.box',
-  name: 'RetryReplyBox',
-  extends: 'foam.box.ProxyBox',
-
-  requires: [
-    'foam.lang.Exception',
-    'foam.lang.NoRetryException'
-  ],
-
-  properties: [
-    {
-      name: 'attempt',
-      value: 0
-    },
-    {
-      name: 'maxAttempts'
-    },
-    {
-      name: 'message'
-    },
-    {
-      name: 'destination'
-    }
-  ],
-  methods: [
-    {
-      name: 'send',
-      code: function send(msg) {
-        if ( this.Exception.isInstance(msg.object) && ( this.maxAttempts == -1 || this.attempt < this.maxAttempts ) ) {
-          // console.log('********************************************* ATTEMPT', this.attempt);
-          var ex = msg.object.data.exception;
-
-          if ( ! this.NoRetryException.isInstance(ex) ) {
-            this.attempt++;
-            this.destination.send(this.message);
-            return;
-          } else if ( ex.delegate ) {
-            msg.object.data.exception = ex.delegate;
-          }
-        }
-
-        this.delegate && this.delegate.send(msg);
-      }
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.box',
   name: 'RetryBox',
   extends: 'foam.box.ProxyBox',
 
@@ -118,32 +31,51 @@ foam.CLASS({
       name: 'maxAttempts',
       documentation: 'Set to -1 to infinitely retry.',
       value: 3
+    },
+    {
+      name: 'maxDelay',
+      value: 20000
     }
   ],
 
   methods: [
-    function send(msg) {
-      var replyBox = msg.attributes.replyBox;
+    function send(envelope) {
+      if ( ! envelope.replyBox ) {
+        this.delegate.send(envelope);
+        return;
+      }
+      
+      var delay = 100;
+      var maxDelay = this.maxDelay;
+      var maxAttempts = this.maxAttempts;
+      var attempt = 0;
+      var delegate = this.delegate;
+      var originalReplyBox = envelope.replyBox;
+      var retryReplyBox = {
+        send: function(replyEnvelope) {
+          // TODO: This should probably also check instanceof Error for local JS exceptions
+          if ( foam.lang.Exception.isInstance(replyEnvelope.message) &&
+               ( maxAttempts == -1 || ++attempt < maxAttempts ) ) {
 
-      if ( replyBox ) {
-        var clone = msg.cls_.create(msg);
-
-        replyBox.localBox = this.RetryReplyBox.create({
-          delegate:    replyBox.localBox,
-          maxAttempts: this.maxAttempts,
-          message:     clone,
-          destination: this.BackoffBox.create({
-            delegate: this.delegate
-          })
-        });
-
-        clone.attributes = {};
-        for ( var key in msg.attributes ) {
-          clone.attributes[key] = msg.attributes[key];
+            // retry original message after exponential backoff delay
+            setTimeout(function() {
+              delegate.send(envelope);
+            }, delay);
+            delay = Math.min(delay * 2, maxDelay);
+            return;
+          }
+          // not an error or we are out of retry attempts
+          originalReplyBox.send(replyEnvelope);
         }
       }
+      envelope = foam.box.Envelope.create({
+        message: envelope.message,
+        replyBox: retryReplyBox
+      });
 
-      this.delegate.send(msg);
-    }
+
+      this.delegate.send(envelope);
+    },
+    
   ]
 });

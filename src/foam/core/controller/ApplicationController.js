@@ -28,7 +28,6 @@ foam.CLASS({
   documentation: 'FOAM Application Controller.',
 
   implements: [
-    'foam.box.Context',
     'foam.mlang.Expressions'
   ],
 

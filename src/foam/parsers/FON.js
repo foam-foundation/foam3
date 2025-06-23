@@ -19,11 +19,13 @@ foam.CLASS({
   package: 'foam.parsers',
   name: 'FON',
   implements: [ 'foam.json.Parser' ],
+
   properties: [
     {
       name: 'creationContext'
     }
   ],
+
   methods: [
     function parseString(str) {
       return this.parseClassFromString(str, null);
@@ -36,6 +38,7 @@ foam.CLASS({
       return foam.json.parse(res, opt_cls, this.creationContext);
     }
   ],
+
   grammars: [
     {
       name: 'grammar',
@@ -95,6 +98,7 @@ foam.CLASS({
                        ']', sym('ws'))
         };
       },
+
       actions: [
         function obj(a) {
           var obj = {};

@@ -404,7 +404,6 @@ foam.CLASS({
 
   requires: [
     'foam.lang.PromiseSlot',
-    'foam.dao.MergedResetSink',
     'foam.u2.AttrSlot',
     'foam.u2.Entity',
     'foam.u2.RenderSink',

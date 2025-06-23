@@ -512,7 +512,6 @@ foam.CLASS({
       path: 'foam.u2.ViewSpec',
       flags: ['js']
     },
-    'foam.dao.MergedResetSink',
     'foam.u2.AttrSlot',
     'foam.u2.Entity',
     'foam.u2.RenderSink',

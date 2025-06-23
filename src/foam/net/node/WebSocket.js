@@ -65,7 +65,7 @@ foam.CLASS({
 
   methods: [
     function send(data) {
-      if ( foam.box.Message.isInstance(data) ) {
+      if ( foam.box.Envelope.isInstance(data) ) {
         data = this.outputter.stringify(data);
       }
 

@@ -37,7 +37,6 @@ foam.CLASS({
   requires: [ 'foam.json.Parser' ],
 
   imports: [
-    'creationContext',
     'info'
   ],
 
@@ -47,6 +46,9 @@ foam.CLASS({
       name: 'dao',
       transient: true,
       required: true
+    },
+    {
+      name: 'creationContext'
     },
     {
       class: 'FObjectProperty',

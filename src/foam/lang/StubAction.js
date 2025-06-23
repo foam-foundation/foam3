@@ -14,14 +14,12 @@ foam.CLASS({
   ],
 
   properties: [
-    'replyPolicyName',
     'boxPropName',
     {
       name: 'stubMethod',
       factory: function() {
         return this.StubMethod.create({
           name: this.name,
-          replyPolicyName: this.replyPolicyName,
           boxPropName: this.boxPropName
         });
       }

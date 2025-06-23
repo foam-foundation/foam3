@@ -34,7 +34,6 @@ foam.CLASS({
   ],
 
   imports: [
-    'creationContext? as creationContextFromCtx',
     'defaultEntityEncoding? as ctxDefaultEntityEncoding',
     'entityEncodings? as ctxEntityEncodings',
     'info',
@@ -102,7 +101,7 @@ foam.CLASS({
     {
       name: 'creationContext',
       factory: function() {
-        return this.creationContextFromCtx || this.__subContext__;
+        return this.__subContext__;
       }
     },
     {

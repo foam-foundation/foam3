@@ -82,13 +82,13 @@ NOTE: duplicated in SocketConnectionBox
 `,
       name: 'send',
       javaCode: `
-      X x = msg.getX();
+      X x = foam.lang.XLocator.get();
       DataOutputStream out = (DataOutputStream) x.get("socketOutputStream");
 
       try {
         foam.lib.formatter.FObjectFormatter formatter = formatter_.get();
         formatter.setX(x);
-        formatter.output(msg);
+        formatter.output(envelope);
         String message = formatter.builder().toString();
         byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
         synchronized( out ) {

@@ -7,7 +7,7 @@
 package foam.box.socket;
 
 import foam.box.Box;
-import foam.box.Message;
+import foam.box.Envelope;
 import foam.box.SessionServerBox;
 import foam.box.Skeleton;
 import foam.box.socket.SocketWebAgent;
@@ -73,10 +73,17 @@ public class SocketRouter
     x_ = x;
   }
 
-  public void service(Message msg)
+  public void service(Envelope envelope)
     throws IOException {
     PM pm = null;
-    String serviceKey = (String) msg.getAttributes().get("serviceKey");
+    String serviceKey = null;
+    Object message = envelope.getMessage();
+    
+    if ( envelope.getMessage() instanceof foam.box.SubBoxMessage subBoxMessage ) {
+      serviceKey = subBoxMessage.getName();
+      message = subBoxMessage.getMessage();
+    }
+    
     if ( ! serviceKey.equals("static") ) {
       pm = PM.create(getX(), this.getClass().getSimpleName(), serviceKey);
     }
@@ -100,7 +107,7 @@ public class SocketRouter
         throw new IOException("Service not found: "+serviceKey);
       }
       try {
-        SessionServerBox.send(requestContext, agent.getSkeletonBox(), agent.getAuthenticate(), msg);
+        SessionServerBox.send(requestContext, agent.getSkeletonBox(), agent.getAuthenticate(), new foam.box.Envelope(message, envelope.getReplyBox()));
       } catch (Exception e) {
         logger_.error("Error serving", serviceKey, e);
         if ( pm != null ) pm.error(getX(), e);

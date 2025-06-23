@@ -115,9 +115,6 @@ p({
 
 p({"class":"foam.core.boot.CSpec", "name":"httprouter",                         "serviceClass":"foam.core.http.NanoRouter"})
 
-p({"class":"foam.core.boot.CSpec", "name":"websockets",                       "lazy":false, "serviceClass":"foam.core.ws.NanoWebSocketServer"})
-
-
 p({
   "class":"foam.core.boot.CSpec",
   "name":"columnConfigToPropertyConverter",

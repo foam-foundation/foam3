@@ -44,7 +44,6 @@
     },
     {
       name: 'noEntriesMessage',
-      type: 'foam.box.Message'
     },
     {
       name: 'groupingsCount',

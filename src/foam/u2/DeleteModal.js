@@ -98,7 +98,7 @@ foam.CLASS({
       name: 'delete',
       label: 'Delete',
       code: function(X) {
-        this.dao.remove(this.data).then((o) => {
+        return this.dao.remove(this.data).then((o) => {
           if ( foam.comics.v2.userfeedback.UserFeedbackAware.isInstance(o) && o.userFeedback ){
             var currentFeedback = o.userFeedback;
             while ( currentFeedback ){
@@ -122,8 +122,9 @@ foam.CLASS({
           } else {
             this.notify(err.message || this.FAIL_MSG, '', this.LogLevel.ERROR, true);
           }
+        }).finally(() => {
+          X.closeDialog();
         });
-        X.closeDialog();
       }
     },
     {

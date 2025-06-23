@@ -4,64 +4,151 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// TODO:
+// MQL help
+// orderBy, property help
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DAOPromptView',
+  extends: 'foam.u2.View',
+
+  css: `
+  `,
+
+  methods: [
+    function render() {
+      var self = this;
+
+      // TODO: Temporary while detailview is hidden (or make into a Controller instead)
+      this.data.where$.sub(this.rerun);
+
+      this.
+        addClass().
+        add(this.data.dynamic(function(visible) {
+          if ( ! visible ) return;
+          this.start('h3').
+            add(self.data.label$).
+            end().
+            /*
+          start('span').
+            style({display: 'flex', gap: '10px', flexDirection: 'column'}).
+            start().
+              style({marginTop: '6px'}).
+              add('Query').
+            end().
+            tag({class: 'foam.u2.TextField'}, {data$: self.data.where$, placeholder: 'Type your query'}).
+            end().
+            */
+          br().
+            //          add(self.data.dao.of.id). // TODO: link to describe
+          start().
+            add(self.data.dynamic(async function(version, skip) {
+              var startTime = Date.now();
+              // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
+              // TODO: fix JSON parsing should setup context corectly
+              var select    = self.data.select.clone(self.data.__subContext__);
+              await select.execute(this);
+              self.data.readyLatch_.resolve();
+              self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
+            })).
+          end();
+        }));
+    }
+  ],
+
+  listeners: [
+    function copyToClipboard() {
+      var range = document.createRange();
+      range.selectNode(this.content.element_);
+      window.getSelection().empty();
+      window.getSelection().addRange(range);
+    },
+    {
+      name: 'rerun',
+      isMerged: true,
+      delay: 500,
+      code: function() {
+        console.log('rerun', this.data.where);
+        this.data.run();
+      }
+    }
+  ]
+});
+
+
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'DAOPrompt',
-  extends: 'foam.u2.Controller',
+
+  sections: [
+    {
+      name: 'general',
+      title: 'General'
+    },
+    {
+      name: 'output',
+      title: 'Output'
+    },
+    {
+      name: 'scroll',
+      title: 'Scroll'
+    },
+    {
+      name: 'filter',
+      title: 'Filter'
+    },
+    {
+      name: 'actions',
+      title: ''
+    }
+  ],
 
   implements: [
     'foam.mlang.Expressions'
   ],
 
   requires: [
-    'foam.parse.QueryParser',
-    'foam.u2.DetailView',
-    'foam.u2.Link',
-    'foam.u2.tag.CircleIndicator'
+    'foam.core.reflow.TableDAOAgent',
+    'foam.core.reflow.DAOPromptView',
+    'foam.parse.QueryParser'
   ],
 
-  imports: [ 'eval_', 'setTimeout', 'scrollToBottom' ],
+  imports: [ 'block', 'eval_' ],
 
   exports: [
-    'block',
     'dao',
-    'sinkDAO',
-    'sinkUnlimitedDAO'
+    'limitedDAO as sinkDAO',
+    'filteredDAO as sinkUnlimitedDAO',
+    'columns'
   ],
-
-  css: `
-    ^ .foam-u2-TextInputCSS {
-      width: auto;
-      height: 22px;
-    }
-    ^ .foam-u2-TextInputCSS,.foam-u2-TextArea {
-      height: auto;
-    }
-    ^ select[name="selectChoice"] {
-      width: 130px;
-    }
-    ^ .property-skip { display: inline-flex; }
-    ^helper-icon svg { fill: currentColor; }
-    ^helper-icon { vertical-align: sub; }
-    ^content:has(div) {
-      max-height: 700px;
-      overflow-y: auto;
-      display: flex;
-      border: 1px solid gray;
-    }
-  `,
 
   properties: [
     {
       class: 'String',
-      name: 'daoLabel',
+      name: 'label',
+      section: 'general',
+      label: 'Name',
+      onKey: true,
       factory: function() {
         return this.dao.of.model_.plural;
-      }
+      },
+      displayWidth: 60
+    },
+    {
+      class: 'Boolean',
+      name: 'visible',
+      section: 'general',
+      label: 'Visible',
+      value: true,
+      view: { class: 'foam.u2.Switch' }
     },
     {
       class: 'foam.dao.DAOProperty',
       name: 'dao',
+      section: 'general',
+      hidden: true,
+      transient: true,
       adapt: function(o, n, p) {
         let oldAdapt = foam.dao.DAOProperty.ADAPT;
         if ( foam.String.isInstance(n) ) {
@@ -76,187 +163,42 @@ foam.CLASS({
       }
     },
     {
-      name: 'sinkDAO'
-    },
-    {
-      name: 'sinkUnlimitedDAO'
-    },
-    {
-      class: 'Int',
-      name: 'skip',
-      displayWidth: 5,
-      view: function(_, X) {
-        return {
-          class: 'foam.u2.view.DualView',
-          viewa: { class: 'foam.u2.IntView' },
-          viewb: { class: 'foam.u2.RangeView', minValue: 0, maxValue: X.data.rowCount-1, onKey: true }
-        };
+      name: 'limitedDAO',
+      section: 'general',
+      hidden: true,
+      transient: true,
+      expression: function(skip, limit, filteredDAO) {
+        if ( limit ) filteredDAO = filteredDAO.limit(limit);
+        if ( skip  ) filteredDAO = filteredDAO.skip(skip);
+        return filteredDAO;
       }
     },
     {
-      class: 'Int',
-      name: 'limit',
-      value: 100,
-      placeholder: '',
-      size: 5
-    },
-    {
-      class: 'String',
-      name: 'where',
-      displayWidth: 55,
-      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
-    },
-    {
-      class: 'String',
-      name: 'order',
-      displayWidth: 60,
-      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
-    },
-    {
-      name: 'orderChoice',
-      view: function(_, X) {
-        return {
-          class: 'foam.core.reflow.PropertyOrderChoiceView',
-          of: X.data.dao.of,
-          allowEmptyChoice: true
-        };
-      },
-      postSet: function(o, n) {
-        if ( n == '--' ) return;
-        if ( this.order ) this.order += ',';
-        this.order += n;
-      }
-    },
-    {
-      name: 'propertyChoice',
-      view: function(_, X) {
-        var choices = [ '--' ];
-        X.data.dao.of.getAxiomsByClass(foam.lang.Property).forEach(p => {
-          if ( ! p.searchable && ( p.hidden || p.networkTransient ) ) return;
-          if ( foam.lang.Boolean.isInstance(p) ) {
-            choices.push('is:'  + p.name);
-            choices.push('-is:' + p.name);
-          } else {
-            choices.push(p.name);
-          }
-        });
-        return { class: 'foam.u2.view.ChoiceView', choices: choices };
-      },
-      preSet: function(o, n) {
-        if ( n == '--' ) return;
-        if ( this.where ) this.where += ' ';
-        this.where += n;
-        return n;
-      }
-    },
-    {
-      name: 'whereChoice',
-      view: function(_, X) {
-        var choices = [
-          'MQL',
-          'MLang',
-          'FScript'
-        ];
-        X.data.dao.of.getAxiomsByClass(foam.comics.v2.CannedQuery).forEach(q => {
-          choices.push([ q.predicate, q.label ]);
-        });
-        return { class: 'foam.u2.view.ChoiceView', choices: choices };
-      }
-    },
-    {
-      class: 'String',
-      name: 'columns',
-      view: function(_, X) {
-        return {
-          class: 'foam.core.reflow.PropertyListView',
-          of: X.data.dao.of
-        };
-      }
-    },
-    {
-      name: 'select',
-      view: { class: 'foam.core.reflow.SinkView', sinksOnly: false }
-    },
-    'content',
-    'rowCount',
-    { name: 'executionTime', value: '-' },
-    { class: 'Boolean', name: 'hasRun' },
-    'block'
-  ],
-
-  methods: [
-    async function render() {
-      this.SUPER();
-
-      this.block = this.__context__.currentBlock;
-
-      this.addClass();
-
-      // We await for the rowCount so we know how to size the slider for the limit
-      this.rowCount = (await this.dao.select(this.COUNT())).value;
-
-      this.
-        start(this.Link).add(this.daoLabel$, '.').on('click', this.describe).end().
-        start('div').style({'margin-top': '0', 'margin-left': '20px', 'margin-bottom': '6px', 'line-height': '26px'}).
-        add('skip(',    this.SKIP,  ').').br().
-        add('limit(',   this.LIMIT, ').').br().
-        add('where(').
-        start(this.WHERE_CHOICE).
-          style({'display': 'inline-flex'}).
-        end().
-        add(' ', this.WHERE, ' ').
-        start(this.PROPERTY_CHOICE).style({'display': 'inline-flex'}).end().
-        add('). ').
-        start(this.CircleIndicator, {glyph: 'helpIcon', icon: '/images/question-icon.svg', size:20}).addClass(this.myClass('helper-icon')).on('click', () => this.eval_('mqlhelp')).end().
-        br().
-        add('orderBy(', this.ORDER, ' ').start(this.ORDER_CHOICE).style({'display': 'inline-flex'}).end().add(').').br().
-        add('select(').add(this.SELECT, ')').br().
-        add('columns: ', this.COLUMNS).
-      end().
-      add(this.RUN, ' ', this.CLEAR).br().
-      start().
-        style({'padding-top': '10px'}).
-        // show(this.rowCount$.map(c=>c !== undefined)).
-        add('Count: ', this.rowCount$, ', Execution time: ', this.executionTime$).
-      end().br().
-      start('div').style({fontSize: 'smaller', textDecoration: 'underline'}).on('click', this.copyToClipboard).add('copy').end().
-      start('div', {}, this.content$).addClass(this.myClass('content')).style({fontSize: 'smaller'}).end();
-    }
-  ],
-
-  actions: [
-    {
-      name: 'run',
-      code: async function() {
-        if ( ! this.hasRun ) {
-          this.hasRun = true;
-          this.skip$.sub(this.onSkip);
-        }
-        var dao = this.dao;
-        if ( this.whereChoice && typeof this.whereChoice != 'string' ) {
-          dao = dao.where(this.whereChoice);
-        }
-
-        // Version which compiles on the Server
+      name: 'filteredDAO',
+      section: 'general',
+      hidden: true,
+      transient: true,
+      expression: function(dao, where, order) {
+        // Compiled on the Server
         // if ( this.where ) dao = dao.where(this.MQL(this.where));
 
         // Version which compiles on the Client
-        if ( this.where) {
-          var p = this.QueryParser.create({of: dao.of}).parseString(this.where);
+        if ( where ) {
+          var p = this.QueryParser.create({of: dao.of}).parseString(where);
           dao = dao.where(p);
           // TODO: display syntax error if didn't parse
         }
 
-        if ( this.skip  ) dao = dao.skip(this.skip);
-        if ( this.order ) {
+        if ( order ) {
           // TODO: Move this logic somewhere more reusable (to QueryParser maybe?)
           // QueryParser already knows how to find properties using either the name, shortName, or alias, case-insensitive
           // So just reuse it.
+          // TODO: Use PropertyNameParser instead
           var parser = this.QueryParser.create({of: dao.of});
-          var c = null; // created compartor
-          var s = '';   // created string
 
-          this.order.trim().split(',').reverse().forEach(n => {
+          var c = null; // created compartor
+          var s = '';
+          order.trim().split(',').reverse().forEach(n => {
             n = n.trim();
             var desc = n.startsWith('-');
             if ( desc ) n = n.substring(1);
@@ -269,47 +211,133 @@ foam.CLASS({
               c = c ? this.THEN_BY(prop, c) : prop;
             }
           });
-          this.order = s;
           if ( c ) dao = dao.orderBy(c);
         }
-        this.sinkUnlimitedDAO = dao;
-        if ( this.limit ) dao = dao.limit(this.limit);
-        this.sinkDAO = dao;
 
-        var agent     = this.select;
-        var out       = this.content.start().style({display: 'none'});
-        var startTime = Date.now();
-
-        await agent.execute(out);
-        this.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
-
-        this.setTimeout(() => {
-          this.previousOutput?.remove();
-          this.previousOutput = out;
-          out.style({display: 'block'});
-        }, 17)
+        return dao;
       }
     },
-    function clear() {
-      this.content.removeAllChildren();
+    {
+      class: 'Int',
+      name: 'skip',
+      label: 'Skip',
+      section: 'scroll',
+      view: function(_, X) {
+        return {
+          class: 'foam.u2.view.DualView',
+          viewa: { class: 'foam.u2.IntView' },
+          viewb: { class: 'foam.u2.RangeView', minValue: 0, maxValue$: X.data.rowCount$.map(c => c-1), onKey: true }
+        };
+      }
+    },
+    {
+      class: 'Int',
+      name: 'limit',
+      section: 'scroll',
+      value: 100,
+      placeholder: '',
+      displayWidth: 8
+    },
+    {
+      class: 'String',
+      name: 'where',
+      section: 'filter',
+      displayWidth: 60,
+      view: { class: 'foam.core.reflow.PredicateView' }
+//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
+    },
+    {
+      class: 'String',
+      name: 'order',
+      section: 'filter',
+      displayWidth: 60,
+      view: { class: 'foam.core.reflow.ComparatorView' }
+//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
+    },
+    {
+      class: 'String',
+      name: 'columns',
+      section: 'filter',
+      displayWidth: 60,
+      view: function(_, X) {
+        return {
+          class: 'foam.core.reflow.PropertyListView',
+          of: X.data.dao.of
+        };
+      }
+    },
+    {
+      name: 'select',
+      view: function(_, X) {
+        return foam.core.reflow.SinkView.create({
+          sinksOnly: false,
+          choice: 'Table',
+          dao: X.data.dao}, X.data);
+      },
+      section: 'output',
+      label: '',
+      factory: function() { return this.TableDAOAgent.create(); }
+    },
+    { class: 'Long',       hidden: true,    name: 'rowCount', visibility: 'RO' },
+    { class: 'String',     hidden: true,   name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
+    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } },
+    { class: 'Int',        hidden: true,  name: 'version', hidden: true },
+    { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
+    {
+      name: 'readyLatch_',
+      transient: true,
+      hidden: true,
+      factory: function() {
+        return foam.lang.Latch.create();
+      }
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+
+      this.where$.sub(this.maybeAutoRun);
+      this.order$.sub(this.maybeAutoRun);
+    },
+
+    async function addToE(e) {
+      this.rowCount = (await this.dao.select(this.COUNT())).value;
+
+      // TODO: name current block
+      e.tag(this.DAOPromptView, {data: this, label: this.label});
+//      e.tag(this.DAOPromptView.create({data: this, label: this.label}, this));
+    },
+
+    function onLoad() {
+      return this.readyLatch_;
+    }
+  ],
+
+  actions: [
+    {
+      name: 'run',
+      section: 'actions',
+      size: 'SMALL',
+      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
+      code: function() {
+        this.version++;
+      }
     }
   ],
 
   listeners: [
     {
-      name: 'onSkip',
+      name: 'maybeAutoRun',
       isMerged: true,
-      delay: 64,
-      code: function() { this.run(); }
+      delay: 200,
+      code: function maybeAutoRun() {
+        if ( this.autoRun ) this.run();
+      }
     },
+
     function describe() {
       this.eval_('describe ' + this.dao.of.id);
-    },
-    function copyToClipboard() {
-      var range = document.createRange();
-      range.selectNode(this.content.element_);
-      window.getSelection().empty();
-      window.getSelection().addRange(range);
     }
   ]
 });

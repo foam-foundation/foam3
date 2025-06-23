@@ -16,7 +16,6 @@ foam.CLASS({
 
   javaImports: [
     'foam.box.Box',
-    'foam.box.ReplyBox',
     'foam.lang.Agency',
     'foam.lang.ContextAgent',
     'foam.lang.X',

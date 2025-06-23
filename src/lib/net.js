@@ -12,8 +12,7 @@ foam.SCRIPT({
     'foam.net.web.HTTPRequest',
     'foam.net.web.HTTPRequestScript', // For BaseHTTPRequest
     'foam.net.web.HTTPResponse',
-    'foam.net.web.WebSocket',
-    'foam.net.web.WebSocketService',
+    'foam.net.web.WebSocket'
   ],
   code: function() {
     var pkg = 'foam.net.web';
@@ -21,8 +20,7 @@ foam.SCRIPT({
       'BaseHTTPRequest',
       'HTTPRequest',
       'HTTPResponse',
-      'WebSocket',
-      'WebSocketService'
+      'WebSocket'
     ];
 
     // TODO: This should be provided via a sort of "ContextFactory" or similar.

@@ -39,7 +39,7 @@ foam.CLASS({
       name: 'position',
       postSet: function(_, n) {
         if ( this.posFeedback_ ) return;
-      
+
         while ( n < this.stackSize_ ) this.back();
         while ( n > this.stackSize_ ) this.forth();
       }
@@ -131,7 +131,7 @@ foam.CLASS({
     function onMementoChange(_,__,___,memento$) {
       if ( this.ignore_ ) return;
 
-      // console.log('MementoMgr.onChange', oldValue, newValue);
+//      console.log('MementoMgr.onChange old: ', memento$.oldValue, 'new:',memento$.get());
       this.remember(memento$.oldValue);
       this.redo = [];
       this.updateSizes();

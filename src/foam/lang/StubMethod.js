@@ -10,25 +10,19 @@ foam.CLASS({
   extends: 'Method',
 
   properties: [
-    'replyPolicyName',
     'boxPropName',
     {
       name: 'code',
       factory: function() {
         var type              = this.type;
         var isContextOriented = this.args.length >= 1 && this.args[0].type == 'Context'
-        var replyPolicyName   = this.replyPolicyName;
         var boxPropName       = this.boxPropName;
         var name              = this.name;
 
         return function() {
-          var replyBox  = this.RPCReturnBox.create();
-          var ret       = replyBox.promise;
-          var replyBox  = this.OneTimeBox.create({delegate: replyBox});
-          var exportBox = this.registry.register(null, null, replyBox);
-
-          replyBox.onDetach(exportBox);
-
+          var rpcReturnBox  = this.RPCReturnBox.create();
+          var ret           = rpcReturnBox.promise;
+          
           // Automatically wrap RPCs that return a "PromisedAbc" or similar
           // TODO: Move this into RPCReturnBox ?
           var cls = this.__context__.maybeLookup(type);
@@ -44,17 +38,11 @@ foam.CLASS({
           // serializable and the server will assign its own notion of
           // what context the request should be handled in.
           if ( isContextOriented ) args[0] = null;
-
-          var msg = this.Message.create({
-            object: this.RPCMessage.create({
-              name: name,
-              args: args
-            })
-          });
-
-          msg.attributes.replyBox = exportBox;
-
-          this[boxPropName].send(msg);
+          
+          this[boxPropName].send(foam.box.Envelope.create({
+            message: this.RPCMessage.create({ name, args }),
+            replyBox: rpcReturnBox
+          }));
 
           return ret;
         };

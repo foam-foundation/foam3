@@ -18,13 +18,13 @@ public class SessionDAOSkeleton
   extends DAOSkeleton
 {
 
-  public void send(foam.box.Message message) {
-    if ( ! ( message.getObject() instanceof foam.box.RPCMessage) ) {
+  public void send(foam.box.Envelope envelope) {
+    if ( ! ( envelope.getMessage() instanceof foam.box.RPCMessage) ) {
       // TODO return an error?
       return;
     }
 
-    RPCMessage rpc = (RPCMessage) message.getObject();
+    RPCMessage rpc = (RPCMessage) envelope.getMessage();
     String     n   = rpc.getName();
 
          if ( "put".equals(n)       ) { rpc.setName("put_"); }
@@ -37,7 +37,7 @@ public class SessionDAOSkeleton
     else if ( "cmd".equals(n)       ) { rpc.setName("cmd_"); }
 
     if ( "put_".equals(n) ) {
-      DAO delegate = (DAO) getDelegateFactory().create(getMessageX(message));
+      DAO delegate = (DAO) getDelegateFactory().create(envelope.getX());
 
       synchronized ( this ) {
         FObject obj = (foam.lang.FObject)(rpc.getArgs() != null && rpc.getArgs().length > 1 ? rpc.getArgs()[1] : null);
@@ -52,7 +52,7 @@ public class SessionDAOSkeleton
       }
     }
 
-    super.send(message);
+    super.send(envelope);
   }
 
 }

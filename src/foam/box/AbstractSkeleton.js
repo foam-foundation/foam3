@@ -13,14 +13,6 @@ foam.CLASS({
 
   methods: [
     {
-      name: 'getMessageX',
-      documentation: 'Return context stored in message if present, otherwise getX().',
-      type: 'Context',
-      args: [ { name: 'msg', type: 'foam.box.Message' } ],
-      javaCode: `foam.lang.X x = (foam.lang.X) msg.getLocalAttributes().get("x");
-return x == null ? getX() : x;`
-    },
-    {
       name: 'tobyte',
       type: 'Byte',
       args: [ { type: 'Object', name: 'o' } ],

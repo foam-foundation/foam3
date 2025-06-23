@@ -36,10 +36,14 @@ foam.CLASS({
         of.getAxiomsByClass(foam.lang.Property).forEach(p => {
           if ( ! p.searchable && ( p.hidden || p.networkTransient ) ) return;
           if ( foam.lang.Boolean.isInstance(p) ) {
-            choices.push('is:'  + p.name);
-            choices.push('-is:' + p.name);
+            // insted of pushing 
+            // choices.push([p, 'is:'  + p.name]); 
+            // we're pushing `[ 'is:' + p.name, 'is:' + p.label]`
+            // reason provided in ComparatorView ~ same logic
+            choices.push([ 'is:' + p.name, 'is:' + p.label]);
+            choices.push([ '-is:' + p.name, '-is:' + p.label]);
           } else {
-            choices.push(p.name);
+            choices.push([p.name, p.label]);
           }
         });
         return { class: 'foam.u2.view.ChoiceView', choices: choices, type: 'search' };

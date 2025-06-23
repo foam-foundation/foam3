@@ -23,7 +23,6 @@ foam.CLASS({
 
   requires: [
     'foam.box.InvalidMessageException',
-    'foam.box.Message',
     'foam.box.RPCErrorMessage',
     'foam.box.RPCMessage',
     'foam.box.RPCReturnMessage'
@@ -40,52 +39,47 @@ foam.CLASS({
       name: 'call',
       args: [
         {
-          name: 'message',
-          type: 'foam.box.Message'
+          name: 'envelope',
+          type: 'foam.box.Envelope',
         },
       ],
-      code: function(message) {
+      code: function(envelope) {
         var p;
 
         try {
-          var method = this.data.cls_.getAxiomByName(message.object.name);
-          var args   = message.object.args.slice();
+          var message = envelope.message;
+          var replyBox = envelope.replyBox;
+          var method = this.data.cls_.getAxiomByName(message.name);
+          var args   = message.args.slice();
 
           // TODO: This is pretty hackish.  Context-Oriented methods should just be modeled.
           // TODO: at least check that the javaType is foam.lang.X
           if ( method && method.args && method.args[0] && method.args[0].name == 'x' ) {
-            var x = this.__context__.createSubContext({
-              message: message
-            });
-            args[0] = x;
+            args[0] = this.__subContext__;
           }
-          p = this.data[message.object.name].apply(this.data, args);
+          p = this.data[message.name].apply(this.data, args);
         } catch(e) {
-          message.attributes.replyBox && message.attributes.replyBox.send(this.Message.create({
-            object: this.RPCErrorMessage.create({ data: e.message })
-          }));
-
+          replyBox?.send(foam.box.Envelope.create({ message: this.RPCErrorMessage.create({ data: e.message })}));
           return;
         }
 
-        var replyBox = message.attributes.replyBox;
         var self     = this;
 
         if ( p instanceof Promise ) {
           p.then(
             function(data) {
-              replyBox.send(self.Message.create({
-                object: self.RPCReturnMessage.create({ data: data })
+              replyBox?.send(foam.box.Envelope.create({
+                message: self.RPCReturnMessage.create({ data: data })
               }));
             },
             function(error) {
-              message.attributes.replyBox && message.attributes.replyBox.send(self.Message.create({
-                object: self.RPCErrorMessage.create({ data: error && error.toString() })
+              replyBox?.send(foam.box.Envelope.create({
+                message: self.RPCErrorMessage.create({ data: error && error.toString() })
               }));
             });
         } else {
-          replyBox && replyBox.send(this.Message.create({
-            object: this.RPCReturnMessage.create({ data: p })
+          replyBox?.send(foam.box.Envelope.create({
+            message: this.RPCReturnMessage.create({ data: p })
           }));
         }
       },
@@ -122,14 +116,14 @@ do {
 
     {
       name: 'send',
-      code: function(message) {
-        if ( this.RPCMessage.isInstance(message.object) ) {
-          this.call(message);
+      code: function(envelope) {
+        if ( this.RPCMessage.isInstance(envelope.message) ) {
+          this.call(envelope);
           return;
         }
 
         throw this.InvalidMessageException.create({
-          messageType: message.cls_ && message.cls_.id
+          messageType: envelope.cls_ && envelope.cls_.id
         });
       },
       swiftCode: `

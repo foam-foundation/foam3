@@ -10,10 +10,6 @@ foam.CLASS({
   extends: 'Property',
 
   requires: [
-    'foam.box.Message',
-    'foam.box.RPCMessage',
-    'foam.box.RPCReturnBox',
-    'foam.box.ReplyBox',
     'foam.lang.StubMethod',
     'foam.lang.StubNotification',
   ],
@@ -21,19 +17,13 @@ foam.CLASS({
   properties: [
     'of',
     {
-      name: 'replyPolicyName',
-      expression: function(name) {
-        return name + 'ReplyPolicy'
-      }
-    },
-    {
       class: 'StringArray',
       name: 'methods',
       factory: function() { return null; }
     },
     {
       name: 'methods_',
-      expression: function(of, name, methods, replyPolicyName) {
+      expression: function(of, name, methods) {
         var cls = this.__context__.lookup(of);
 
         return (
@@ -50,7 +40,6 @@ foam.CLASS({
 
                 return foam.lang.StubMethod.create({
                   name: m.name,
-                  replyPolicyName: replyPolicyName,
                   boxPropName: name,
                   type: m.type,
                   javaType: m.javaType,
@@ -92,7 +81,7 @@ foam.CLASS({
     },
     {
       name: 'actions_',
-      expression: function(of, name, actions, replyPolicyName) {
+      expression: function(of, name, actions) {
         var cls = this.__context__.lookup(of);
 
         return (
@@ -102,7 +91,6 @@ foam.CLASS({
             return foam.lang.StubAction.create({
               name: m.name,
               isEnabled: m.isEnabled,
-              replyPolicyName: replyPolicyName,
               boxPropName: name
             });
           });
@@ -121,34 +109,22 @@ foam.CLASS({
       var model = this.__context__.lookup(this.of);
       var propName = this.name;
 
-      cls.installAxiom(foam.lang.Object.create({
-        name: this.replyPolicyName,
-        type: 'foam.box.BoxService',
-        hidden: true
-      }));
-
       cls.installAxioms(this.methods_);
       cls.installAxioms(this.notifications_);
       cls.installAxioms(this.actions_);
 
       cls.installAxioms([
         'foam.box.RPCReturnBox',
-        'foam.box.ReplyBox',
+        'foam.box.ReplyBox2',
         'foam.box.RPCMessage',
         'foam.box.OneTimeBox',
-        'foam.box.Message'
+        'foam.box.Envelope'
       ].map(function(s) {
         var path = s.split('.');
         return foam.lang.Requires.create({
           path: s,
           name: path[path.length - 1]
         });
-      }));
-
-      cls.installAxiom(foam.lang.Import.create({
-        key: 'registry',
-        name: 'registry',
-        type: 'foam.box.BoxRegistry',
       }));
     }
   ]
@@ -247,15 +223,8 @@ foam.CLASS({
         var boxPropName = this.boxPropName;
         var name        = this.name;
 
-        return function() {
-          var msg = this.Message.create({
-            object: this.RPCMessage.create({
-              name: name,
-              args: Array.from(arguments)
-            })
-          });
-
-          this[boxPropName].send(msg);
+        return function(...args) {
+          this[boxPropName].send(this.RPCMessage.create({ name, args }))
 
           return;
         };
@@ -273,15 +242,13 @@ foam.CLASS({
         var args = this.args;
         var boxPropName = foam.String.capitalize(this.boxPropName);
 
-        var code =
-`foam.box.Message message = getX().create(foam.box.Message.class);
+        var code = `
 foam.box.RPCMessage rpc = getX().create(foam.box.RPCMessage.class);
 rpc.setName("${name}");
 Object[] args = { ${ args.map( a => a.name ).join(',') } };
 rpc.setArgs(args);
 
-message.setObject(rpc);
-get${boxPropName}().send(message);
+get${boxPropName}().send(new foam.box.Envelope.Builder(null).setMessage(rpc).build());
 `;
         if ( this.javaType && this.javaType !== 'void' ) {
           code += `return null;`;

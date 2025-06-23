@@ -72,6 +72,11 @@ foam.CLASS({
       value: true
     },
     {
+      class: 'Boolean',
+      name: 'enableWebsockets',
+      value: true
+    },
+    {
       class: 'Int',
       name: 'port',
       javaFactory: `
@@ -241,6 +246,10 @@ foam.CLASS({
         org.eclipse.jetty.servlet.ServletContextHandler handler =
           new org.eclipse.jetty.servlet.ServletContextHandler();
 
+        if ( getEnableWebsockets() ) {
+          org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer.configure(handler, null);
+        }
+
         String root = System.getProperty("core.webroot");
         if ( root == null ) {
           root = this.getClass().getResource("/webroot/error.html").toExternalForm();
@@ -311,21 +320,23 @@ foam.CLASS({
         handler.setErrorHandler(errorHandler);
 
         // WebSocket
-        JettyWebSocketServletContainerInitializer.configure(
-          handler,
-          new Configurator() {
-            @Override
-            public void accept(ServletContext servletContext, JettyWebSocketServerContainer container) {
-              container.addMapping("/service/*",
-                new JettyWebSocketCreator() {
-                  public Object createWebSocket(JettyServerUpgradeRequest req, JettyServerUpgradeResponse resp) {
-                    return new foam.core.ws.NanoWebSocket(getX());
+        if ( getEnableWebsockets() ) {
+          JettyWebSocketServletContainerInitializer.configure(
+            handler,
+            new Configurator() {
+              @Override
+              public void accept(ServletContext servletContext, JettyWebSocketServerContainer container) {
+                container.addMapping("/service/*",
+                  new JettyWebSocketCreator() {
+                    public Object createWebSocket(JettyServerUpgradeRequest req, JettyServerUpgradeResponse resp) {
+                      return new foam.core.ws.NanoWebSocket(getX());
+                    }
                   }
-                }
-              );
+                );
+              }
             }
-          }
-        );
+          );
+        }
 
         addJettyShutdownHook(server);
 

@@ -32,7 +32,7 @@ have to complete the request.
 - `foam.core.crunch.box.CrunchClientReplyBox`
   handles an error response from the server
   iff it contains a CapabilityIntercept instance.
-- `foam.box.Message` contains the check that a throwable is a
+- `foam.box.Envelope` contains the check that a throwable is a
   RemoteException, which prevents the CrunchIntercept (which is one)
   from being double-wrapped.
 

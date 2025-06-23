@@ -18,8 +18,6 @@
 foam.CLASS({
   package: 'foam.box',
   name: 'SendFailedError',
-  extends: 'foam.box.Message',
-
   properties: [
     {
       name: 'original'

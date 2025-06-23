@@ -50,5 +50,12 @@ p({
       .setOf(foam.core.reflow.SinkAgent.getOwnClassInfo())
       .build();
     `,
-  "client":"{\"of\":\"foam.core.reflow.SinkAgent\"}"
+  "client":"""
+    {
+      "of":"foam.core.reflow.SinkAgent",
+      "cache":true,
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0
+    }
+  """
 })

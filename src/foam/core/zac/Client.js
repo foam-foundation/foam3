@@ -54,7 +54,6 @@ foam.CLASS({
   ],
 
   implements: [
-    'foam.box.Context',
     'foam.core.zac.MissingStuff'
   ],
 

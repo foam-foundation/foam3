@@ -22,8 +22,7 @@ foam.CLASS({
   implements: [ 'foam.box.Box' ],
 
   requires: [
-    'foam.box.RPCReturnMessage',
-    'foam.box.RPCErrorMessage'
+    'foam.box.RPCReturnMessage'
   ],
 
   properties: [
@@ -52,32 +51,36 @@ foam.CLASS({
     },
     {
       class: 'Object',
-      name: 'message',
-      type: 'foam.box.Message'
+      name: 'envelope',
+      type: 'foam.box.Envelope'
     }
   ],
 
   methods: [
     {
       name: 'send',
-      code: function send(msg) {
-        if ( this.RPCReturnMessage.isInstance(msg.object) ) {
-          this.resolve_(msg.object.data);
+      code: function send(envelope) {
+        var message = envelope.message;
+        
+        if ( this.RPCReturnMessage.isInstance(message) ) {
+          this.resolve_(message.data);
           return;
         }
-        if ( foam.lang.Exception.isInstance(msg.object) ) {
-          this.reject_(msg.object);
+        // TODO: This is kind of odd, if message is an RPCErrorMessage
+        // we surface that as the error rather than the inner RemoteException
+        if ( foam.lang.Exception.isInstance(message) ) {
+          this.reject_(message);
           return;
         }
-        if ( msg.object instanceof Error ) {
-          this.reject_(msg.object);
+        if ( message instanceof Error ) {
+          this.reject_(message);
           return;
         }
 
         this.__context__.warn('Invalid message to RPCReturnBox.');
       },
       javaCode: `
-setMessage(msg);
+setEnvelope(envelope);
 getSemaphore().release();
 `,
       swiftCode: `

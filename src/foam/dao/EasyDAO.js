@@ -34,7 +34,6 @@ foam.CLASS({
   `,
 
   requires: [
-    'foam.box.Context',
     'foam.box.HTTPBox',
     'foam.box.RetryBox',
     'foam.box.SessionClientBox',
@@ -712,7 +711,7 @@ foam.CLASS({
         if ( this.crunchBoxEnabled ) {
           box = this.CrunchClientBox.create({delegate: box});
         }
-
+        
         if ( this.retryBoxMaxAttempts != 0 ) {
           box = this.RetryBox.create({
             maxAttempts: this.retryBoxMaxAttempts,

@@ -7,7 +7,9 @@
 foam.CLASS({
   package: 'foam.box.socket',
   name: 'SocketClientReplyBox',
-  extends: 'foam.box.ReplyBox',
+  implements: [
+    'foam.box.Box'
+  ],
 
   documentation: `Provides for 'reply' socket box reuse via the SocketConnectionBoxManager.`,
 
@@ -40,22 +42,21 @@ foam.CLASS({
     {
       name: 'send',
       javaCode: `
-      X x = msg.getX();
+      X x = foam.lang.XLocator.get();
       Socket socket = (Socket) x.get("socket");
       if ( socket == null ) {
         x = getX();
         socket = (Socket) x.get("socket");
       }
       if ( socket != null ) {
-        msg.getAttributes().put(SocketConnectionBox.REPLY_BOX_ID, getReplyBoxId());
         Box box = ((SocketConnectionBoxManager) x.get("socketConnectionBoxManager")).getReplyBox(x, socket.getRemoteSocketAddress().toString());
-        box.send(msg);
+        box.send(new foam.box.Envelope.Builder(x).setMessage(new foam.box.SubBoxMessage(getReplyBoxId(), envelope.getMessage())).build());
       } else {
         foam.core.logger.Logger logger = (foam.core.logger.Logger) x.get("logger");
         if ( logger == null ) {
           logger = foam.core.logger.StdoutLogger.instance();
         }
-        logger.error(this.getClass().getSimpleName(), "send,Socket not found", "replyBoxId", getReplyBoxId(), "message abandoned", msg, new Exception("Socket not found."));
+        logger.error(this.getClass().getSimpleName(), "send,Socket not found", "replyBoxId", getReplyBoxId(), "message abandoned", envelope, new Exception("Socket not found."));
       }
       `
     }

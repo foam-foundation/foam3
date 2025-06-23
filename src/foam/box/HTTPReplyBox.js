@@ -68,7 +68,7 @@ try {
   foam.lib.formatter.FObjectFormatter formatter = formatter_.get();
 
   formatter.setX(getX());
-  formatter.output(msg);
+  formatter.output(envelope);
   formatter.setX(null); // avoid retaining reference to X
 
   StringBuilder builder = formatter.builder();

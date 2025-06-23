@@ -35,6 +35,7 @@ foam.POM({
     'commons-net:commons-net:3.6',
     'jakarta.mail:jakarta.mail-api:2.1.2',
     'jakarta.activation:jakarta.activation-api:2.1.2',
+    'jakarta.websocket:jakarta.websocket-api:2.0.0',
     'javax.json:javax.json-api:1.1.4',
     'jakarta.json:jakarta.json-api:2.1.3',
     'javax.ws.rs:javax.ws.rs-api:2.1.1',
@@ -64,7 +65,6 @@ foam.POM({
     'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.23',
     'org.eclipse.parsson:parsson:1.1.7',
     'org.glassfish:javax.json:1.1.4',
-    'org.java-websocket:Java-WebSocket:1.5.0',
     'org.jsoup:jsoup:1.15.1', // HTML Parser
     'org.jtwig:jtwig-core:5.87.0.RELEASE',
     'org.postgresql:postgresql:42.3.8',

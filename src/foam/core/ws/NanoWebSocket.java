@@ -6,7 +6,6 @@
 
 package foam.core.ws;
 
-import foam.box.Message;
 import foam.box.RawWebSocketBox;
 import foam.lang.ContextAwareSupport;
 import foam.lang.FObject;
@@ -21,6 +20,7 @@ import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import java.io.IOException;
@@ -63,16 +63,22 @@ public class NanoWebSocket
     getLogger().info("WebSocket session closed.");
   }
 
+  @OnWebSocketError
+  public void onWebSocketError(Throwable t) {
+    getLogger().error("Web socket error", t.getMessage());
+  }
+
   @OnWebSocketMessage
   public void onWebSocketMessage(String message) {
     try {
       if ( session_ != null && session_.isOpen() ) {
-        RemoteEndpoint remote     = session_.getRemote();
-        UpgradeRequest upgrade    = session_.getUpgradeRequest();
-        String         path       = upgrade.getRequestURI().getPath();
-        String         serviceKey = path.split("/")[2];
-        DAO            cSpecDAO   = (DAO) getX().get("cSpecDAO");
-        CSpec          spec       = (CSpec) cSpecDAO.find(serviceKey);
+        RemoteEndpoint          remote     = session_.getRemote();
+        UpgradeRequest          upgrade    = session_.getUpgradeRequest();
+        String                  path       = upgrade.getRequestURI().getPath();
+        String                  serviceKey = path.split("/")[2];
+        DAO                     cSpecDAO   = (DAO) getX().get("cSpecDAO");
+        CSpec                   spec       = (CSpec) cSpecDAO.find(serviceKey);
+        foam.util.UIDGenerator  uids       = new foam.util.AUIDGenerator(getX(), "websockets");
 
         if ( spec == null ) {
           getLogger().warning("Request for non-existent service.", serviceKey);
@@ -102,18 +108,16 @@ public class NanoWebSocket
           return;
         }
 
-        // check if instance of foam.box.Message
-        if ( ! ( request instanceof Message ) ) {
-          getLogger().warning("Request was not a box message.", message);
+        if ( ! ( request instanceof foam.box.Envelope ) ) {
+          getLogger().warning("Request was not a box envelope.", message);
           return;
         }
 
-        // put context into message
-        Message obj = (Message) request;
-        obj.getLocalAttributes().put("x", context);
-
+        // set context
+        foam.lang.XLocator.set(context);
+        
         // pass message to service via NanoRouter
-        getRouter().service(serviceKey, obj);
+        getRouter().service(serviceKey, (foam.box.Envelope)request);
       } else {
         getLogger().warning("WebSocket session not connected.");
       }

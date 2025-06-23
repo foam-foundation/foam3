@@ -9,7 +9,11 @@ foam.CLASS({
   name: 'AuthServiceClientBox',
   extends: 'foam.box.ProxyBox',
 
-  documentation: 'ClientBox which does not wrap replyBox in SessionReplyBox',
+  documentation: 'Like SessionClientBox but does decorate the replyBox',
+
+  requires: [
+    'foam.box.SessionedMessage'
+  ],
 
   imports: [ 'sessionID' ],
 
@@ -23,9 +27,14 @@ foam.CLASS({
   methods: [
     {
       name: 'send',
-      code: function send(msg) {
-        msg.attributes[this.SESSION_KEY] = this.sessionID;
-        this.delegate.send(msg);
+      code: function send(envelope) {
+        this.delegate.send(foam.box.Envelope.create({
+          message: this.SessionedMessage.create({
+            sessionId: this.sessionID,
+            message: envelope.message,
+          }),
+          replyBox: envelope.replyBox
+        }));
       }
     }
   ]

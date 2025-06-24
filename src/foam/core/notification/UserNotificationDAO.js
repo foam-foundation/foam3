@@ -13,13 +13,28 @@ foam.CLASS({
 NotificationExpansionDAO after the per-user Notification is created,
 allowing the RuleEngine to further configure the notification.`,
 
+  javaImports: [
+    'foam.core.auth.User',
+    'foam.lang.X',
+    'foam.dao.DAO'
+  ],
+
+  javaCode: `
+  public UserNotificationDAO(X x, DAO delegate) {
+    setX(x);
+    setDelegate(delegate);
+  }
+  `,
+
   methods: [
     {
       name: 'put_',
       javaCode: `
       Notification notification = (Notification) getDelegate().put_(x, obj);
-      User user = notification.findUser(x);
+      // User user = notification.findUser(x);
+      User user = (User) ((DAO) x.get("localUserDAO")).find_(x, notification.getUserId());
       user.doNotify(x, notification);
+      return notification;
       `
     }
   ]

@@ -13,6 +13,7 @@ foam.CLASS({
 with RulerDAO which can perform further per user setup before user.doNotify.`,
 
   javaImports: [
+    'foam.dao.DAO',
     'foam.core.auth.User'
   ],
 
@@ -23,17 +24,10 @@ with RulerDAO which can perform further per user setup before user.doNotify.`,
       of: 'foam.core.notification.Notification'
     },
     {
-      name: 'userNoficationDAO',
+      name: 'userNotificationDAO',
       class: 'foam.dao.DAOProperty'
     }
   ],
-
-  javaCode: `
-  public UserNotificationSink(Notification notification, DAO userNotificationDAO) {
-    setNotification(notification);
-    setUserNotificationDAO(userNotificationDAO)
-  }
-  `,
 
   methods: [
     {

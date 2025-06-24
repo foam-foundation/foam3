@@ -64,7 +64,7 @@ p({
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.notification.Notification.getOwnClassInfo())
-      .setDecorator(new foam.core.notification.UserNotificationDAO(x, new foam.dao.NullDAO(x, foam.core.notification.getOwnClassInfo())))
+      .setDecorator(new foam.core.notification.UserNotificationDAO(x, new foam.dao.NullDAO(x, foam.core.notification.Notification.getOwnClassInfo())))
       .setEnableInterfaceDecorators(false)
       .setNullify(true)
       .build();

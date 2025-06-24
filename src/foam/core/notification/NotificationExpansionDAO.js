@@ -59,7 +59,7 @@ foam.CLASS({
                 AND(
                   EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE),
                   HAS(User.GROUP)
-              )).select(new UserNotificationSink(notif, (DAO) x.get("userNotificatioNDAO")));
+              )).select(new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO")));
               pm.log(x);
             }
           }, "Notification Broadcast");
@@ -82,7 +82,7 @@ foam.CLASS({
               Sequence seq = new Sequence.Builder(x)
                 .setArgs(new Sink[] {
                   count,
-                  new UserNotificationSink(notif, (DAO), x.get("userNofificationDAO"))
+                  new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO"))
                 })
                 .build();
               userDAO.where(

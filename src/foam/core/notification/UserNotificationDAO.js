@@ -31,8 +31,7 @@ allowing the RuleEngine to further configure the notification.`,
       name: 'put_',
       javaCode: `
       Notification notification = (Notification) getDelegate().put_(x, obj);
-      // User user = notification.findUser(x);
-      User user = (User) ((DAO) x.get("localUserDAO")).find_(x, notification.getUserId());
+      User user = notification.findUserId(x);
       user.doNotify(x, notification);
       return notification;
       `

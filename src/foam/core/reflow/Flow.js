@@ -22,8 +22,9 @@ foam.CLASS({
     'foam.core.auth.AuthService',
     'foam.core.auth.Subject',
     'foam.core.auth.User',
+    'foam.dao.DAO',
     'foam.lang.X',
-    'foam.core.auth.AuthService',
+    'foam.util.SafetyUtil',
     'java.util.Arrays'
   ],
 
@@ -31,9 +32,10 @@ foam.CLASS({
     'foam.core.cron.CronSchedule',
   ],
 
-  imports: [ 'flowDAO' ],
-
-  ids: [ 'name' ],
+  imports: [
+    'flowDAO',
+    'subject'
+  ],
 /*
   axioms: [
     {
@@ -49,17 +51,60 @@ foam.CLASS({
   ],
     */
 
-  tableColumns: [ 'name', 'source', 'description', 'status', 'schedule', 'lastRun', /* 'isPublic', 'readOnly', */ 'reflow' ],
+  tableColumns: [ 'id', 'name', 'source', 'description', 'status', 'schedule', 'lastRun', /* 'isPublic', 'readOnly', */ 'reflow' ],
 
-  searchColumns: [ 'name', 'status', 'source', 'schedule' ],
+  searchColumns: [ 'id', 'name', 'status', 'source', 'schedule' ],
 
   constants: { ROLE_PERMISSION_PREFIX: '@' },
 
   properties: [
     {
       class: 'String',
+      name: 'id',
+      visibility: 'RO',
+      javaGetter: `
+        if ( ! idIsSet_ ) {
+          setId("");
+        }
+        return id_;
+      `,
+      javaSetter: `
+        // set the id as "name-userName"
+        if ( idIsSet_ && ! SafetyUtil.isEmpty(id_) ) return;
+        if ( ! SafetyUtil.isEmpty(val) ) {
+          id_ = val;
+          idIsSet_ = true;
+          return;
+        }
+        var x = foam.lang.XLocator.get();
+        var userDAO = (DAO) x.get("userDAO");
+        User createdByUser = createdByIsSet_ ? (User) userDAO.find(getCreatedBy()) : null;
+        User subjectUser = ((Subject) x.get("subject")).getUser();
+        Flow old = (Flow) ((DAO) x.get("flowDAO")).find(id_);
+
+        // if name changed then use subjectUser, otherwise use original createdBy user if it exists
+        var userName = "";
+        if ( old != null && name_ != old.name_ )
+          userName = SafetyUtil.isEmpty(subjectUser.getUserName()) ? subjectUser.getEmail() : subjectUser.getUserName();
+        else
+          userName = createdByUser == null ? 
+            ( SafetyUtil.isEmpty(subjectUser.getUserName()) ? subjectUser.getEmail() : subjectUser.getUserName() ) :
+            ( SafetyUtil.isEmpty(createdByUser.getUserName()) ? createdByUser.getEmail() : createdByUser.getUserName() );
+
+        id_ = name_ + "-" + userName;
+        idIsSet_ = true;
+      `
+    },
+    {
+      class: 'String',
       name: 'name',
       onKey: true
+    },
+    {
+      name: 'displayName_',
+      expression: function(createdBy, name, id) {
+        return ( createdBy == this.subject.user.id )? name : id;
+      }
     },
     {
       class: 'String',

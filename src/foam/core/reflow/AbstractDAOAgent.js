@@ -278,26 +278,24 @@ foam.CLASS({
       this.columns$ = this.block.value.columns$;
       this.block.value.value = this;
 
-      e.add(this.dynamic(function(columns) {
-        var config = {
-          data: self.unlimitedDAO,
-          config: self.DAOControllerConfig.create({
-            dao: self.unlimitedDAO,
-            disableSelection: false
-          })
-        };
+      var config = {
+        data: self.unlimitedDAO,
+        config: self.DAOControllerConfig.create({
+          dao: self.unlimitedDAO,
+          disableSelection: false
+        })
+      };
 
-        if ( columns.length ) {
-          config.selectedColumnNames = columns;
-        } else {
-          // reset columns
-          localStorage.removeItem(self.dao.of.id);
-        }
+      if ( self.columns.length && self.columns != '*' ) {
+        config.selectedColumnNames = self.columns;
+      } else {
+        // reset columns
+        localStorage.removeItem(self.dao.of.id);
+      }
 
-        this.startContext({click: self.click}).
+      e.startContext({click: self.click}).
           start(self.TableView, config).
-            style({height: '600px'});
-      }));
+          style({height: '600px'});
     }
   ],
 

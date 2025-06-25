@@ -289,6 +289,9 @@ foam.CLASS({
 
         if ( columns.length ) {
           config.selectedColumnNames = columns;
+        } else {
+          // reset columns
+          localStorage.removeItem(self.dao.of.id);
         }
 
         this.startContext({click: self.click}).

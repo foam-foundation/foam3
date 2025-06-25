@@ -6,3 +6,7 @@ p({
   class: "foam.core.notification.test.EmailNotificationTest",
   id: "EmailNotificationTest"
 })
+p({
+  class: "foam.core.notification.test.UserNotificationDAOTest",
+  id: "UserNotificationDAOTest"
+})

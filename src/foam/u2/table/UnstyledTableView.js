@@ -134,7 +134,7 @@ foam.CLASS({
         return ls || columns;
       },
       adapt: function(_,n) {
-        return foam.Array.isInstance(n) ? n : n.split(',');
+        return foam.Array.isInstance(n) ? n : [...new Set(n.split(','))];
       }
     },
     {

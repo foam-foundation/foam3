@@ -49,7 +49,7 @@ foam.CLASS({
                 return arr;
               }
 
-              return arr.concat([[sr.strategy, sr.strategy.name]]);
+              return arr.concat([[sr.strategy, sr.label || sr.strategy.name]]);
             }, [[null, 'Select...']])
             .filter(x => x);
         });

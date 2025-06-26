@@ -34,6 +34,12 @@ foam.CLASS({
   ],
   properties: [
     {
+      class: 'Class',
+      name: 'notificationType',
+      factory: function() { return this.BroadcastNotification; },
+      visibility: 'HIDDEN'
+    },
+    {
       __copyFrom__: 'foam.core.notification.Notification.GROUP_ID',
       label: 'Send To Group',
       validateObj: function(groupId, users) {
@@ -168,6 +174,33 @@ foam.CLASS({
   methods: [
     function toSummary() {
       return this.NOTIFICAITON_SUMMARY;
+    },
+    function buildNotificationArgs() {
+      return {
+        template: this.template,
+        body: this.body,
+        toastMessage: this.toastMessage,
+        toastSubMessage: this.toastSubMessage,
+        groupId: this.groupId,
+        users: this.users,
+        emailArgs: this.emailArgs,
+        severity: 'INFO',
+        extra: this.extra,
+        transient: false,
+        toastState: this.showToast ? 'REQUESTED' : 'NONE'
+      };
+    },
+    function clearNotification() {
+      this.notificationTemplate = undefined;
+      this.template = undefined;
+      this.body = undefined;
+      this.toastMessage = undefined;
+      this.toastSubMessage = undefined;
+      this.showToast = undefined;
+      this.groupId = undefined;
+      this.users = undefined;
+      this.emailArgs = undefined;
+      this.extra = undefined;
     }
   ],
 
@@ -181,19 +214,7 @@ foam.CLASS({
       },
       code: function() {
         var self = this;
-        var notif = this.BroadcastNotification.create({
-          template: this.template,
-          body: this.body,
-          toastMessage: this.toastMessage,
-          toastSubMessage: this.toastSubMessage,
-          groupId: this.groupId,
-          users: this.users,
-          emailArgs: this.emailArgs,
-          severity: 'INFO',
-          extra: this.extra,
-          transient: false,
-          toastState: this.showToast ? 'REQUESTED' : 'NONE'
-        });
+        var notif = this.notificationType.create(this.buildNotificationArgs()) ;
         if ( this.users && this.users.length > 0 ) {
           this.broadcastNotificationDAO.put(notif).then(obj => {
             this.users.forEach((uid) => {
@@ -206,32 +227,14 @@ foam.CLASS({
               });
             });
             // Reset all props
-            this.notificationTemplate = undefined;
-            this.template = undefined;
-            this.body = undefined;
-            this.toastMessage = undefined;
-            this.toastSubMessage = undefined;
-            this.showToast = undefined;
-            this.groupId = undefined;
-            this.users = undefined;
-            this.emailArgs = undefined;
-            this.extra = undefined;
+            this.clearNotification();
             this.ctrl.notify(this.NOTIFICATION_SENT, '', 'INFO', true);
           });
         } else if ( this.groupId ) {
           this.broadcastNotificationDAO.put(notif).then(obj => {
             this.notificationDAO.put(notif).then(() => {
               // Reset all props
-              this.notificationTemplate = undefined;
-              this.template = undefined;
-              this.body = undefined;
-              this.toastMessage = undefined;
-              this.toastSubMessage = undefined;
-              this.showToast = undefined;
-              this.groupId = undefined;
-              this.users = undefined;
-              this.emailArgs = undefined;
-              this.extra = undefined;
+              this.clearNotification();
               this.ctrl.notify(this.NOTIFICATION_SENT, '', 'INFO', true);
             }, e => {
               this.ctrl.notify(this.NOTIFICATION_ERROR, e.message, 'ERROR', true);

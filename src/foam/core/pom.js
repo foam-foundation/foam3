@@ -521,7 +521,7 @@ foam.POM({
     { name: "theme/customisation/ThemeImageUploadView",                                   flags: "web" },
     { name: "notification/broadcast/BroadcastNotification",                               flags: "js|java" },
     { name: "notification/broadcast/SendNotificationView",                                flags: "web" },
-    { name: "notification/broadcast/BroadcastNotificationFacade",                         flags: "web" },
+    { name: "notification/broadcast/BroadcastNotificationFacade",                         flags: "web|js|java" },
     { name: "notification/broadcast/BroadcastNotificationNotificationCitationView",       flags: "web" },
     { name: "ndiff/NDiff",                                                                flags: "js|java" },
     { name: "ndiff/NDiffDAO",                                                             flags: "js|java" },

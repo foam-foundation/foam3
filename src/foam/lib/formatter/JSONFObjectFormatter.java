@@ -313,7 +313,8 @@ public class JSONFObjectFormatter
     } else if ( value instanceof List ) {
       output((List) value);
     } else {
-      foam.core.logger.StdoutLogger.instance().error(this.getClass().getSimpleName() + ".output, Unexpected value type", value.getClass().getName(), value, new java.lang.Exception("stacktrace"));
+      String s = builder().toString();
+      foam.core.logger.StdoutLogger.instance().error(this.getClass().getSimpleName() + ".output, Unexpected value type:", value.getClass().getName(), "value:", value, "builder:", s.substring(0, Math.min(400, s.length())),"...",s.substring(Math.max(0, s.length() - 500)));
       append("null");
     }
   }

@@ -33,7 +33,7 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'PropertyChoiceView',
+  name: 'PropertyChoiceView_',
   extends: 'foam.u2.view.RichChoiceView',
 
   properties: [
@@ -71,7 +71,7 @@ foam.CLASS({
             dao: foam.dao.ArrayDAO.create({ array: [] })
           }
         ];
-        
+
         let arr = this.of.getAxiomsByClass(foam.lang.Property)
           .filter(p => p.showInPropertyChoice)
           .filter(p => ! this.predicate || this.predicate(p));
@@ -91,4 +91,34 @@ foam.CLASS({
       this.clearProperty('sections');
     }
   ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'PropertyChoiceView',
+  extends: 'foam.u2.View',
+
+  requires: [ 'foam.core.reflow.PropertyChoiceView_' ],
+
+  properties: [
+    'of',
+    'propName'
+  ],
+
+  methods: [
+    function render() {
+      this.SUPER();
+
+      var self = this;
+
+      this.onDetach(this.data$.relateTo(
+        this.propName$,
+        function propToName(p) { return p ? p.name : ''; },
+        function nameToProp(n) { return n ? self.of.getAxiomByName(n) : ''; }
+      ));
+      this.start(this.PropertyChoiceView_, {of: this.of, data$: this.propName$});
+    }
+  ]
+
 });

@@ -21,6 +21,9 @@ foam.CLASS({
   imports: [
     'notificationDAO'
   ],
+  implements: [
+    'foam.mlang.Expressions'
+  ],
 
   // Make an abstract SummaryView with this CSS and props for title and primary action,
   // everything else can be populated by the parent view, maybe a border??
@@ -38,6 +41,24 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'notificationType',
+      class: 'Class',
+      factory: function() {
+        return 'foam.core.notification.broadcast.BroadcastNotificationFacade';
+      },
+      view: {
+        class: 'foam.u2.view.StrategizerChoiceView',
+        desiredModelId: 'foam.core.notification.broadcast.BroadcastNotificationFacade'
+      },
+      postSet: function(_, n) {
+        if ( n && n.id ) {
+          this.data = n.create({}, this);
+        }
+      }
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.notification.broadcast.BroadcastNotificationFacade',
       name: 'data',
       factory: function() {
         return this.BroadcastNotificationFacade.create();
@@ -55,6 +76,9 @@ foam.CLASS({
           .add('Send Notifications')
           .addClass('h100')
         .end()
+        .startContext({ data: this })
+          .tag(this.NOTIFICATION_TYPE.__)
+        .endContext()
         .start(this.CardBorder)
           .addClass(this.myClass('sectionWrapper'))
           .tag(this.VerticalDetailView, { data$: this.data$ })

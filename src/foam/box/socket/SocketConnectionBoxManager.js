@@ -61,7 +61,9 @@ foam.CLASS({
       name: 'boxes',
       javaFactory: `
         return java.util.Collections.synchronizedMap(new java.util.HashMap());
-      `
+      `,
+      transient: true,
+      visibility: 'HIDDEN'
     },
     {
       name: 'logger',

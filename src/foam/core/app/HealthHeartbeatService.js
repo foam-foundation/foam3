@@ -74,7 +74,9 @@ foam.CLASS({
     },
     {
       name: 'timer',
-      class: 'Object'
+      class: 'Object',
+      transient: true,
+      visibility: 'HIDDEN'
     },
     {
       name: 'formatter',
@@ -88,7 +90,9 @@ foam.CLASS({
       formatter.setOutputShortNames(true);
       formatter.setPropertyPredicate(new foam.lib.ClusterPropertyPredicate());
       return formatter;
-      `
+      `,
+      transient: true,
+      visibility: 'HIDDEN'
     }
   ],
 

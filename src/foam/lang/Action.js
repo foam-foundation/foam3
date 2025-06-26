@@ -231,7 +231,7 @@ If empty then no permissions are required.`
           slot
         ],
         code: function(a, b) {
-          return a && b;
+          return !! ( a && b );
         }
       });
     },

@@ -1,0 +1,171 @@
+## FOAM Services - PlaceService Example
+
+FOAM services implement business logic and coordinate between DAOs. This example shows the complete service architecture using foam.core.place.PlaceService.
+
+**Source Files:**
+- Interface: [PlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/PlaceService.js)
+- Registration: [services.jrl](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/services.jrl)
+- Client: [ClientPlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
+- Implementation: [GooglePlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/google/GooglePlaceService.js)
+
+## 1. Service Interface Definition
+**File:** [PlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/PlaceService.js)
+
+Defines the contract that all implementations must follow:
+--
+foam.INTERFACE({
+  package: 'foam.core.place',
+  name: 'PlaceService',
+
+  skeleton: true,  // Generates server-side skeleton class automatically
+
+  methods: [
+    {
+      name: 'placeAutocomplete',
+      async: true,  // Method returns Promise
+      args: 'Context x, String input, String preferCountry',
+      type: 'foam.core.place.PlaceAutocompleteResp',  // Return type
+    },
+    {
+      name: 'placeDetail',
+      async: true,
+      args: 'Context x, String placeId',
+      type: 'foam.core.place.PlaceDetailResp',
+    }
+  ]
+});
+
+log('PlaceService interface defined');
+
+**Key Components:**
+- `package` - Namespace for the service
+- `name` - Service interface name
+- `skeleton: true` - Auto-generates PlaceServiceSkeleton class for server
+- `methods` - Service operations with signatures and return types
+- `async: true` - Enables Promise-based calls
+- `args` - Method parameters (Context x is always first)
+- `type` - Return type specification
+
+## 2. Service Registration
+**File:** [services.jrl](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/services.jrl)
+
+Configures the service for client-server communication:
+--
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "placeService",
+  "authenticate": true,  // Requires authentication
+  "serve": true,         // Expose as server endpoint
+  "boxClass": "foam.core.place.PlaceServiceSkeleton",  // Auto-generated skeleton
+  "serviceClass": "foam.core.place.google.GooglePlaceService",  // Java implementation
+  "client": {
+    "class": "foam.core.place.ClientPlaceService",  // Client-side proxy
+    "delegate": {
+      "class": "foam.box.HTTPBox",  // HTTP transport
+      "url": "service/placeService"  // Service URL endpoint
+    }
+  }
+});
+
+log('PlaceService registration configured');
+
+**Key Components:**
+- `CSpec` - Service configuration specification
+- `name` - Service identifier for dependency injection
+- `authenticate` - Security requirement
+- `serve` - Makes service available over network
+- `boxClass` - Server-side message handler (auto-generated)
+- `serviceClass` - Concrete implementation class
+- `client` - Client-side configuration
+- `HTTPBox` - HTTP transport mechanism
+
+## 3. Client Implementation
+**File:** [ClientPlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
+
+Creates a client-side proxy that automatically forwards method calls to the server:
+--
+foam.CLASS({
+  package: 'foam.core.place',
+  name: 'ClientPlaceService',
+  
+  implements: ['foam.core.place.PlaceService'],  // Must implement the service interface
+  
+  properties: [
+    {
+      class: 'Stub',  // Special property class that creates method proxies
+      of: 'foam.core.place.PlaceService',  // Interface to proxy
+      name: 'delegate'  // Will be set to HTTPBox from registration
+    }
+  ]
+});
+
+log('ClientPlaceService proxy defined');
+
+**How Client Implementation Works:**
+- `implements` - Ensures this class has all interface methods (placeAutocomplete, placeDetail)
+- `Stub` - Automatically generates proxy methods that forward calls to `delegate`
+- When you call `clientService.placeAutocomplete(...)`, the Stub property:
+  1. Serializes the method call and arguments
+  2. Sends HTTP request via the `delegate` (HTTPBox)
+  3. Deserializes the response and returns it
+- `delegate` - Set from registration config, points to HTTPBox with service URL
+
+## 4. Service Usage
+**Example Usage:** (Not a specific file - shows how to use in any application class)
+
+How to use the service in application code:
+--
+foam.CLASS({
+  package: 'foam.demo',
+  name: 'PlaceDemo',
+  
+  imports: [
+    'placeService?'  // Import service (? makes it optional)
+  ],
+  
+  methods: [
+    {
+      name: 'searchPlaces',
+      code: async function(query) {
+        if (!this.placeService) {
+          console.log('Place service not available');
+          return;
+        }
+        
+        try {
+          // Call service method
+          var result = await this.placeService.placeAutocomplete(
+            this.__subContext__, 
+            query, 
+            'US'
+          );
+          
+          console.log('Found places:', result.places);
+          return result;
+          
+        } catch (error) {
+          console.error('Place search failed:', error);
+        }
+      }
+    }
+  ]
+});
+
+log('Service usage example defined');
+
+**Key Components:**
+- `imports` - Dependency injection declarations
+- `?` - Optional dependency (won't fail if missing)
+- `async/await` - Promise-based method calls
+- `this.__subContext__` - Current context for service calls
+- Error handling for network/service failures
+
+## Summary
+
+FOAM services provide:
+- **Type Safety** - Interface contracts ensure consistency
+- **Network Transparency** - Local/remote calls work identically  
+- **Auto-generation** - Skeleton classes created automatically
+- **Dependency Injection** - Services injected via imports
+- **Authentication** - Built-in security integration
+- **Transport Abstraction** - HTTP, WebSocket, etc. supported

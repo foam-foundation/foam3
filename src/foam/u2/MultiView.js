@@ -64,7 +64,7 @@ foam.CLASS({
             return this.
               start().
                 addClass(self.myClass('container')).
-                start(self.prop ? self.prop.createElFromSpec_(v, {}, self.__context__) : v, { data$: self.data$ }).
+                start(self.prop ? self.prop.createElFromSpec_(v, {}, self.__context__) : v, { data$: self.data$ }, undefined, true).
                   call(function() {
                     self.prop && this.fromProperty && this.fromProperty(self.prop);
                   }).

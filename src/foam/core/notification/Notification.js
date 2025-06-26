@@ -93,8 +93,7 @@ foam.CLASS({
       class: 'Long',
       name: 'id',
       createVisibility: 'RW',
-      updateVisibility: 'RO',
-      updatePermissionRequired: true
+      updateVisibility: 'RO'
     },
     {
       class: 'String',
@@ -221,7 +220,7 @@ foam.CLASS({
     {
       class: 'Map',
       name: 'extra',
-      documentation: `Arguments for abstract extra properties that can be added to the notification 
+      documentation: `Arguments for abstract extra properties that can be added to the notification
       and consumed by various notificaition settings.`,
     },
     {

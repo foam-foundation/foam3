@@ -527,8 +527,7 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'FObjectArray',
-      of: 'foam.lang.ValidationPredicate',
+      class: 'ValidationPredicateArray',
       name: 'internalValidationPredicates',
       factory: function() {
         var a = [];
@@ -585,8 +584,7 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'FObjectArray',
-      of: 'foam.lang.ValidationPredicate',
+      class: 'ValidationPredicateArray',
       name: 'internalValidationPredicates',
       factory: function() {
         return [
@@ -614,8 +612,7 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'FObjectArray',
-      of: 'foam.lang.ValidationPredicate',
+      class: 'ValidationPredicateArray',
       name: 'internalValidationPredicates',
       // TODO: Not required for JS, so maybe just make work for Java.
       factory: function() {
@@ -644,8 +641,7 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'FObjectArray',
-      of: 'foam.lang.ValidationPredicate',
+      class: 'ValidationPredicateArray',
       name: 'internalValidationPredicates',
       factory: function() {
         var urlRegex = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
@@ -673,8 +669,7 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'FObjectArray',
-      of: 'foam.lang.ValidationPredicate',
+      class: 'ValidationPredicateArray',
       name: 'internalValidationPredicates',
       factory: function() {
         var websiteRegex = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9]\.[^\s]{2,})/;

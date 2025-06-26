@@ -31,6 +31,14 @@ foam.CLASS({
       {
         command: 'CTRL + `',
         description: 'Focus Input'
+      },
+      {
+        command: 'Shift-Up',
+        description: 'Select next command'
+      },
+      {
+        command: 'Shift-Down',
+        description: 'Select previous command'
       }
     ]
   },

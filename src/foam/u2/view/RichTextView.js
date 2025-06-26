@@ -70,6 +70,8 @@ foam.CLASS({
     ^ButtonToolbar {
       display: flex;
       gap: 8px;
+      width: 100%;
+      flex-wrap: wrap;
     }
     ^ButtonToolbar > button + button {
       margin-left: 0 !important;

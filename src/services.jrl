@@ -8,7 +8,9 @@ p({
   """
     {
       "of":"foam.core.boot.CSpec",
-      "cache":true
+      "cache":true,
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0
      }
   """
 })
@@ -28,7 +30,9 @@ p({
   "client":"""
     {
       "of":"foam.core.boot.CSpec",
-      "cache":true
+      "cache":true,
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0
     }
   """,
   documentation:"The authenticated version of cSpecDAO - for dig, reflow and docs. Users need the service.read.<serviceName> permission to see each service."

@@ -55,7 +55,7 @@ foam.CLASS({
 
   messages: [
     { name: 'UPDATED',   message: 'Updated' },
-    { name: 'ERROR_MSG',   message: 'Something went wrong' }
+    { name: 'ERROR_MSG', message: 'Something went wrong' }
   ],
 
   classes: [
@@ -82,6 +82,9 @@ foam.CLASS({
   ],
 
   css: `
+    ^buttonGroup {
+      justify-content: flex-end;
+    }
   `,
 
   properties: [
@@ -154,7 +157,7 @@ foam.CLASS({
         return id;
       }
     },
-    { 
+    {
       name: 'actionArray',
       class: 'FObjectArray',
       of: 'foam.lang.Action'
@@ -223,7 +226,7 @@ foam.CLASS({
               // overrides: { size: 'SMALL' },
               overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
             }, this.buttonGroup_$)
-            .addClass(this.myClass('buttonGroup'))
+            .addClass(self.myClass('buttonGroup'))
             .add(self.slot(function(primary) {
               if ( ! primary ) return;
               return this.E()
@@ -457,7 +460,7 @@ foam.CLASS({
               }
             } else {
               var menuId = this.currentMenu ? this.currentMenu.id : this.of.id;
-              var title = this.translationService.getTranslation(foam.locale, menuId + '.browseTitle', this.config.browseTitle);
+              var title  = this.translationService.getTranslation(foam.locale, menuId + '.browseTitle', this.config.browseTitle);
 
               this.notify(title + " " + this.UPDATED, '', this.LogLevel.INFO, true);
             }
@@ -475,11 +478,11 @@ foam.CLASS({
             if ( e.alertType.ordinal == 1 ) {
               fn = () => {
                 this.ConfirmationModal.create({
-                  title: this.ERROR_MSG, 
-                  modalStyle: 'DESTRUCTIVE', 
+                  title: this.ERROR_MSG,
+                  modalStyle: 'DESTRUCTIVE',
                   primaryAction: { name: 'okay', buttonStyle: 'TEXT', code: function(X) { X.closeDialog(); }},
                   showCancel: false,
-                  closeable: false 
+                  closeable: false
                 })
                   .add(e.userFeedback.message)
                   .open();

@@ -24,7 +24,6 @@ foam.CLASS({
       align-items: center;
       flex-wrap: wrap;
       flex: 2 0 fit-content;
-      justify-content: flex-end;
     }
     ^vertical {
       flex-direction: column;

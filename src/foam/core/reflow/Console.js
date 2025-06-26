@@ -214,6 +214,13 @@ foam.CLASS({
       },
       code: function() {
         this.data.showPrompts = false;
+        this.data.eval_('clear');
+        var flow = this.data.value;
+
+        flow.name     = '';
+        this.mementoMgr.clear();
+        flow.version  = undefined;
+        flow.revision = undefined;
       }
     },
     {
@@ -511,7 +518,12 @@ foam.CLASS({
       }
     },
     [ 'togglerPosition', 'left' ],
-    [ 'expanded', true ]
+    [ 'expanded', true ],
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'configViewSpec',
+      documentation: `Passed on to the ReactiveSectionedDetailView as config, see AbstractSectionedDetailView to learn more about configuring detail views`
+    }
   ],
 
   methods: [
@@ -646,6 +658,18 @@ foam.CLASS({
       padding: 10px;
       border-radius: 4px;
     }
+    ^r .foam-u2-PropertyBorder-select {
+      padding: 5px;
+      background-color: $grey200;
+      border-radius: 4px;
+      gap: 10px;
+    }
+    ^r .foam-core-reflow-PropertyListView {
+      justify-content: space-between;
+    }
+    ^r .foam-u2-detail-SectionView-actionDiv {
+      gap: 10px;
+    }
   `,
 
   properties: [
@@ -779,6 +803,9 @@ foam.CLASS({
       flex-direction: column;
       width: 100%;
       height: 100%;
+      position: relative;
+      align-items: center;
+      justify-content: center;
     }
     ^input-field {
       position: relative;
@@ -794,10 +821,10 @@ foam.CLASS({
       background: $backgroundSecondary;
     }
     ^output {
-      text-align: left;
-//      align-content: flex-end;
       flex: 1;
       overflow: auto;
+      text-align: left;
+      width: 100%
     }
     ^ .property-input {
       border: none !important;
@@ -806,13 +833,8 @@ foam.CLASS({
       min-width: 220px;
     }
     .foam-core-reflow-Layout-l { overflow-y: auto; }
-    .foam-core-reflow-Layout-r .foam-core-reflow-PropertyBorder-richText .foam-core-reflow-PropertyBorder-propHolder { margin-left: -85px; }
     ^ .foam-u2-ProgressView { width: 600px; }
-    ^ .foam-core-reflow-ReflowToolBar {
-      position: absolute;
-      left: 30%;
-      bottom: 50;
-    }
+
   `,
 
   properties: [
@@ -1006,12 +1028,16 @@ foam.CLASS({
       layout.showLeft$  = this.showPrompts$;
       layout.showRight$ = this.showPrompts$;
       layout.showHeader = true;
-      var flowableTree = this.FlowableTree.create({data: this, selected$: this.selected$});
-      layout.isMenuOpen$ = flowableTree.isMenuOpen$;
-      layout.left.tag(flowableTree);
+      layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
       layout.middle.call(this.renderSelf, [this]);
-      layout.right.add(this.dynamic(function(selectedValue) {
-        this.tag(self.ReactiveSectionedDetailView, {data: selectedValue, showActions: true, showHeader: true});
+      layout.right.add(this.dynamic(function(selectedValue, selected$configViewSpec) {
+        this.tag(self.ReactiveSectionedDetailView, {
+          of: selectedValue?.cls_.id ?? '',
+          ...(selected$configViewSpec || {}),
+          data: selectedValue,
+          showActions: true,
+          showHeader: true
+        });
       }));
 
       layout.header.add(this.dynamic(function(showPrompts) {

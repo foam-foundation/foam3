@@ -24,7 +24,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'translationService'
+    'translationService?'
   ],
 
   javaImports: [
@@ -687,7 +687,7 @@ foam.CLASS({
       class: 'String',
       name: 'postalCodeLabel',
       expression: function(countryId) {
-        let translatedPostalCodeLabel = this.translationService.getTranslation(foam.locale, `${countryId.toLowerCase()}.postalCode.label`);
+        let translatedPostalCodeLabel = this.translationService ? this.translationService.getTranslation(foam.locale, `${countryId.toLowerCase()}.postalCode.label`) : 'Postal Code';
         return translatedPostalCodeLabel ? translatedPostalCodeLabel : this.translationService.getTranslation(foam.locale, 'postalCode.label', 'Postal Code');
       },
       hidden: true

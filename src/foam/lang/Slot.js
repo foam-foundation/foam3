@@ -432,7 +432,7 @@ foam.CLASS({
     {
       name: 'output',
       expression: function (a, b) {
-        return a && b;
+        return !! ( a && b );
       }
     }
   ]

@@ -30,11 +30,11 @@ var replyBox = {
     console.log("got reply", envelope.message);
   }
 };
-</code>
 
 box.send(foam.box.Envelope.create({
   message: "hello",
-  replyBox: { send
+  replyBox: replyBox
+}));
 </code>
 
 <h1>How are Boxes used in FOAM</h1>
@@ -51,4 +51,4 @@ dao.put(some.Object.create({ ... }))
 
 <h1>When not to use Boxes</h1>
 
-<p>Boxes are not an all encompassing network abstraction.  If you are talking to existing APIs like a REST based API from some third party, you would not use HTTPBox.  You would continue to use fetch() or whatever http client library you would traditionally use.  Boxes are meant to be used by all communicating parties, most transport boxes expect specific wire level protocols.<p>
+<p>Boxes are not an all encompassing network abstraction.  If you are talking to existing APIs like a REST based API from some third party, you would not use HTTPBox.  You would continue to use fetch() or whatever http client library you would traditionally use.  Boxes are meant to be used by all communicating parties, most transport boxes expect specific wire level protocols.</p>

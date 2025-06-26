@@ -18,6 +18,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'code',
+      reactive: false,
       view: { class: 'foam.u2.tag.TextArea', rows: 12 },
       displayWidth: 60
     },
@@ -25,6 +26,7 @@ foam.CLASS({
       class: 'String',
       name: 'output',
       transient: true,
+      reactive: false,
       view: { class: 'foam.u2.tag.TextArea', rows: 8 },
       displayWidth: 60
     }

@@ -141,7 +141,6 @@ foam.CLASS({
       name: 'scrollToIndex',
       postSet: function () { this.safeScroll(); }
     },
-    'currGroup_',
     'rowObserver',
     {
       name: 'rootElement',
@@ -212,6 +211,12 @@ foam.CLASS({
     {
       class: 'Map',
       name: 'collapsedGroups',
+      factory: function() { return {}; }
+    },
+    {
+      class: 'Map',
+      name: 'groupFirstPage_',
+      documentation: 'Tracks the first page where each group appears to ensure headers show only once',
       factory: function() { return {}; }
     },
   ],
@@ -312,6 +317,8 @@ foam.CLASS({
       delete this.renderedPages_[page];
     },
 
+
+
     function getPage(dao, page) {
       var self       = this;
       var proxy      = this.ProxyDAO.create({ delegate: dao });
@@ -335,22 +342,33 @@ foam.CLASS({
 
           var index = (page*self.pageSize_) + i + 1;
           var group = null;
+          var showHeader = false;
+          
           if ( self.groupBy ) {
             group = self.groupBy.f(args.data);
+            var groupKey = foam.json.stringify(group);
             
-            // Show header if this is a new group (different from last rendered group)
-            if ( ! foam.util.equals(group, self.currGroup_) ) {
-      
-              
+            // Track if this is the first time we've seen this group
+            if ( self.groupFirstPage_[groupKey] === undefined ) {
+              self.groupFirstPage_[groupKey] = page;
+            }
+            
+            // Show header only if this is the first page where this group appears
+            // and it's different from the previous group in this page
+            if ( page === self.groupFirstPage_[groupKey] ) {
+              showHeader = ! foam.util.equals(group, previousGroup);
+            }
+            
+            if ( showHeader ) {
               e.tag(self.groupHeaderView,
                 { ...args,
                   groupLabel: group,
                   groupBy: self.groupBy,
               }
               );
-              
-              self.currGroup_ = group;
             }
+            
+            previousGroup = group;
           }
 
           var isEven = (index + 1) % 2 !== 0 ;
@@ -359,6 +377,8 @@ foam.CLASS({
             self.rowObserver.observe(a)
           });
         };
+
+        var previousGroup = null;
 
         if ( foam.mlang.sink.Projection.isInstance( values ) ) {
           for ( var i = 0 ; i < values.projection.length ; i++ ) {
@@ -374,7 +394,7 @@ foam.CLASS({
 
         var isSet = false;
         if ( self.renderedPages_[page] ) {
-          console.warn('Trying to overwrite a loaded page without clearning....Clearing page');
+          console.warn('Trying to overwrite a loaded page without clearing....Clearing page');
           this.clearPage(page)
         }
 
@@ -445,13 +465,14 @@ foam.CLASS({
       name: 'refresh',
       isFramed: true,
       code: function() {
-        this.currGroup_ = undefined;
         this.rowObserver?.disconnect();
         // Don't clear loadingPages_ here since they are being
         // loaded and will have latest data anyway
         Object.keys(this.renderedPages_).forEach(i => {
           this.clearPage(i, true);
         });
+        // Clear group first page tracking
+        this.groupFirstPage_ = {};
         if ( ! this.isInit ) {
           this.currentTopPage_ = 0;
           this.topRow = 0;

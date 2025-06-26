@@ -491,7 +491,7 @@ foam.CLASS({
         return this.myClass(styleClass_);
       }));
 
-      this.addClass(this.myClass(this.size.label.toLowerCase()));
+      this.addClass(this.slot(function(size) { return this.myClass(size.label.toLowerCase()) }));
       this.enableClass(this.myClass('iconOnly'), ! (this.contents || this.label));
       this.enableClass(this.myClass('iconAfter'), this.isIconAfter$);
       this.enableClass('destructive', this.isDestructive$);
@@ -504,24 +504,27 @@ foam.CLASS({
     async function addContent() {
       /** Add text or icon to button. **/
       var self = this;
-      if ( ( this.themeIcon && this.theme ) ) {
-        this
-          .start({ class: 'foam.u2.tag.Image', glyph: this.themeIcon, role: 'presentation' })
-            .addClass(this.myClass('SVGIcon'))
-          .end();
-      } else if ( this.icon ) {
-        this
-          .start({ class: 'foam.u2.tag.Image', data: this.icon, role: 'presentation', embedSVG: true })
-            .addClass(this.myClass('SVGIcon'), this.myClass('imgSVGIcon'))
-          .end();
-      } else if ( this.iconFontName ) {
-        this.nodeName = 'i';
-        this.addClass(this.action.name);
-        this.addClass(this.iconFontClass); // required by font package
-        this.attr(role, 'presentation')
-        this.style({ 'font-family': this.iconFontFamily });
-        this.add(this.iconFontName);
-      }
+      this.add(this.dynamic(function(themeIcon, icon) {
+        if ( ( themeIcon && self.theme ) ) {
+          this
+            .start({ class: 'foam.u2.tag.Image', glyph: themeIcon, role: 'presentation' })
+              .addClass(self.myClass('SVGIcon'))
+            .end();
+        } else if ( icon ) {
+          this
+            .start({ class: 'foam.u2.tag.Image', data: icon, role: 'presentation', embedSVG: true })
+              .addClass(self.myClass('SVGIcon'), self.myClass('imgSVGIcon'))
+            .end();
+        // TODO: Maybe deprecate, not really used
+        } else if ( self.iconFontName ) {
+          this.nodeName = 'i';
+          this.addClass(self.action.name);
+          this.addClass(self.iconFontClass); // required by font package
+          this.attr(role, 'presentation')
+          this.style({ 'font-family': self.iconFontFamily });
+          this.add(self.iconFontName);
+        }
+      }))
       this.add(this.slot(function(label) {
         let e = this.E().show(!! label).style({ display: 'contents' });
         if ( foam.String.isInstance(this.label)  ) {

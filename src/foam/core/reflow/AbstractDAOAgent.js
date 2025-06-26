@@ -121,8 +121,8 @@ foam.CLASS({
       return s;
     }
   ]
+});
 
-})
 
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -275,7 +275,9 @@ foam.CLASS({
     function execute(e) {
       var self = this;
 
-      this.columns$ = this.block.value.columns$;
+      this.columns$.follow(this.block.value.columns$.map(
+        c => c.trim().split(',').map(c => c.trim()).filter(c => c)
+      ));
       this.block.value.value = this;
 
       e.add(this.dynamic(function(columns) {
@@ -388,7 +390,7 @@ foam.CLASS({
        return { class: 'foam.core.reflow.PropertyChoiceView', of: X.data.of };
       }
     },
-    { name: 'sink', view: 'foam.core.reflow.SinkView', choice: 'COUNT' } // TODO: why doesn't choice work?
+    { name: 'sink', view: { class: 'foam.core.reflow.SinkView', choice: 'Count' } }
   ],
 
   methods: [
@@ -399,7 +401,7 @@ foam.CLASS({
       // TODO: figure out why BROWSE doesn't work after reloading
       e.startContext({data: this}).
         start().
-          style({paddingLeft: '12px', display: 'flex'}).
+          style({paddingLeft: '12px'}).
           add(this.PROP, this.SINK).callIf(this.block, function() { this.add(self.BROWSE); });
     }
   ],
@@ -526,7 +528,7 @@ foam.CLASS({
     function addToE(e) {
       e.startContext({data: this}).
         start().
-          style({display: 'flex'}).
+          style({display: 'flex', paddingLeft: '8px'}).
           add(this.ORIENTATION, this.SINKS);
     }
   ]

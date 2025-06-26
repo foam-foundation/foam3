@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'BreadcrumbView',
   extends: 'foam.u2.View',
 
-  imports: [ 'breadcrumbs', 'stack' ],
+  imports: [ 'breadcrumbs', 'stack?' ],
 
   requires: [
     'foam.lang.Action',

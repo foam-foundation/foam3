@@ -274,6 +274,7 @@ foam.CLASS({
           choice: 'Table',
           dao: X.data.dao}, X.data);
       },
+      reactive: false,
       section: 'output',
       label: '',
       factory: function() { return this.TableDAOAgent.create(); }
@@ -336,7 +337,7 @@ foam.CLASS({
       }
     },
 
-    function describe() {
+    function describeModel() {
       this.eval_('describe ' + this.dao.of.id);
     }
   ]

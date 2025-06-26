@@ -17,6 +17,29 @@
 
 foam.CLASS({
   package: 'foam.u2',
+  name: 'ActionEnumRefinement',
+  refines: 'foam.lang.Action',
+
+  properties: [
+    {
+      class:'Enum',
+      of: 'foam.u2.ButtonStyle',
+      name: 'buttonStyle',
+      generateJava: false,
+      value: 'SECONDARY'
+    },
+    {
+      class:'Enum',
+      of: 'foam.u2.ButtonSize',
+      name: 'size',
+      generateJava: false,
+      value: 'MEDIUM'
+    }
+  ]
+})
+
+foam.CLASS({
+  package: 'foam.u2',
   name: 'ActionView',
   extends: 'foam.u2.tag.Button',
 

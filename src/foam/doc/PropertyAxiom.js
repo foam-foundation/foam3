@@ -13,7 +13,7 @@ foam.CLASS({
     'foam.doc.AxiomLink',
   ],
 
-  tableColumns: ['type', 'name'],
+  tableColumns: ['type', 'label', 'name'],
 
   properties: [
     {
@@ -29,6 +29,14 @@ foam.CLASS({
             addClass('foam-doc-AxiomTableView-documentation').
             add(o.axiom.documentation).
           end()
+      }
+    },
+    {
+      class: 'String',
+      name: 'label',
+      expression: function(axiom) { return axiom.label },
+      tableCellFormatter: function(v) {
+        this.start('code').add(v).end();
       }
     },
     {

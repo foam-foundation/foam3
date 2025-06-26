@@ -52,8 +52,7 @@ foam.CLASS({
       name: 'tabs',
       value: [
         { name: 'collections', label: 'Collections' },
-        { name : 'flows', label: 'Flows' },
-        { name: 'url', label: 'URL'}
+        { name : 'flows', label: 'Flows' }
       ]
     },
     {

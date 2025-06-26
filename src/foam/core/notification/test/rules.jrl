@@ -1,0 +1,20 @@
+p({
+  "class":"foam.core.ruler.Rule",
+  "id":"foam-core-notification-test-UserNotificationDAOTest",
+  "name":"UserNotificationDAOTest",
+  "documentation":"Test setting properties on per user notifications via the UserNotificationDAO",
+  "daoKey":"userNotificationDAO",
+  "ruleGroup":"Notifications",
+  "operation":0,
+  "after":false,
+  "predicate": {
+    "class": "foam.core.ruler.predicate.FScriptRulePredicate",
+    "query": 'n.userId > 0'
+  },
+  "action":{
+    "class":"foam.core.notification.test.UserNotificationDAOTestRuleAction"
+  },
+  "enabled":true,
+  "saveHistory":false,
+  "lifecycleState":1
+})

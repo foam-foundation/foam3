@@ -53,3 +53,7 @@ this.auth.login("marc4@marc.com", "marc123").then(function(response) {
   console.log(response);
 }
 ```
+
+## Service Example
+
+- **Example**: [foam3/src/foam/demos/examples/services.fbe](../../src/foam/demos/examples/services.fbe)

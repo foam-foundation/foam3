@@ -9,6 +9,7 @@ foam.CLASS({
   package: 'foam.u2',
   name: 'Accordion',
   extends: 'foam.u2.Controller',
+
   requires: [
     'foam.u2.ActionView'
   ],
@@ -58,9 +59,6 @@ foam.CLASS({
   properties: [
     {
       name: 'title',
-      factory: function() {
-        return this.E();
-      },
       documentation: `
         Title of the accordion, you can pass foam.u2.Element objects as well for more flexibility.
 
@@ -79,9 +77,6 @@ foam.CLASS({
     },
     {
       name: 'rightSection',
-      factory: function() {
-        return this.E();
-      },
       documentation: `
         Right section content. Can be a list of actions, a counter, ...etc
 
@@ -135,17 +130,13 @@ foam.CLASS({
           .start('div')
             .addClass(self.myClass('title-section'))
             .callIf(self.togglerPosition === 'left', this.addToggle, [self])
-            .add(function(title) {
-              this.start(title)
-                .addClass(self.myClass('title'))
-                .addClass('p-bold');
-            })
+            .start('div', {}, this.title$)
+              .addClass(self.myClass('title'))
+              .addClass('p-bold')
+            .end()
           .end()
-          .start()
+          .start('div', {}, this.rightSection$)
             .addClass(self.myClass('right-section'))
-            .add(function(rightSection) {
-              this.tag(rightSection);
-            })
             .callIf(self.togglerPosition === 'right', this.addToggle, [self])
           .end()
         .end()

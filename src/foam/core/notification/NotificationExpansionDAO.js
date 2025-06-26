@@ -55,23 +55,11 @@ foam.CLASS({
             @Override
             public void execute(X x) {
               PM pm = PM.create(x, "Notification:broadcast");
-              Notification notification = (Notification) notif.fclone();
-              Notification.ID.clear(notification);
-              Notification.GROUP_ID.clear(notification);
-              Notification.TEMPLATE.clear(notification);
-              notification.setBroadcasted(false);
               userDAO.where(
                 AND(
                   EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE),
                   HAS(User.GROUP)
-              )).select(new AbstractSink() {
-                @Override
-                public void put(Object o, Detachable d) {
-                  User user = (User) o;
-                  // TODO: submit via agency
-                  user.doNotify(x, notification);
-                }
-              });
+              )).select(new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO")));
               pm.log(x);
             }
           }, "Notification Broadcast");
@@ -90,23 +78,11 @@ foam.CLASS({
             @Override
             public void execute(X x) {
               PM pm = PM.create(x, "Notification:group");
-              Notification notification = (Notification) notif.fclone();
-              Notification.ID.clear(notification);
-              Notification.GROUP_ID.clear(notification);
-              Notification.TEMPLATE.clear(notification);
-              notification.setBroadcasted(false);
               Count count = new Count();
               Sequence seq = new Sequence.Builder(x)
                 .setArgs(new Sink[] {
                   count,
-                  new AbstractSink() {
-                    @Override
-                    public void put(Object o, Detachable d) {
-                      User user = (User) o;
-                      // TODO: submit via agency
-                      user.doNotify(x, notification);
-                    }
-                  }
+                  new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO"))
                 })
                 .build();
               userDAO.where(

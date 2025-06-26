@@ -81,12 +81,10 @@ foam.CLASS({
 
   css: `
     ^{
-      flex-direction: row;
-      align-items: center;
       width: 100%;
     }
     ^ ^label {
-      width: 25%;
+      width: 50%;
     }
     ^view: {
       min-height: 0px;
@@ -158,6 +156,7 @@ foam.CLASS({
       x.register(foam.u2.PropertyBorder, 'foam.u2.PropertyBorder');
       this.__context__ = x;
     },
+
     function render() {
       this.data$.sub(this.onDataChange);
       this.onDataChange();
@@ -183,9 +182,8 @@ foam.CLASS({
             }).addClass(self.myClass('element-icon')).end()
           }
         })).
-      end();
-
-      this.add(
+      end().
+      add(
         self.dynamic(function(reactive) {
           if ( reactive ) {
             this.start().
@@ -251,14 +249,46 @@ foam.CLASS({
   ]
 });
 
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'PropertyRefinement',
+  refines: 'Property',
+
+  properties: [
+    {
+      class: 'Boolean',
+      name: 'reactive',
+      value: true
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'FObjectPropertyRefinement',
+  refines: 'FObjectProperty',
+  properties: [ [ 'reactive', false ] ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'FObjectArrayRefinement',
+  refines: 'FObjectArray',
+  properties: [ [ 'reactive', false ] ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'ReactiveSectionedDetailView',
   extends: 'foam.u2.detail.VerticalDetailView',
 
   requires: [
-    'foam.core.reflow.PropertyBorder'
+    'foam.u2.PropertyBorder',
+    'foam.core.reflow.PropertyBorder as ReactivePropertyBorder',
   ],
+
 
   css: `
     ^ {
@@ -278,8 +308,20 @@ foam.CLASS({
 
   methods: [
     function init() {
-      const x = this.__context__.createSubContext();
-      x.register(this.PropertyBorder, 'foam.u2.PropertyBorder');
+      const self = this;
+      const x    = this.__context__.createSubContext();
+      const PropertyBorder = this.PropertyBorder;
+      const ReactivePropertyBorder = this.ReactivePropertyBorder;
+
+      // If a property has reactive: false then use the regular PropertyBorder, otherwise use a ReactivePropertyBorder
+      var cls = {
+        package: 'foam.u2',
+        id: 'foam.u2.PropertyBorder',
+        create: function(args, x) {
+          return (args.prop.reactive && args.prop.visibility != foam.u2.DisplayMode.RO ? ReactivePropertyBorder : PropertyBorder).create(args, x);
+        }
+      };
+      x.register(cls, 'foam.u2.PropertyBorder');
       this.__context__ = x;
       this.SUPER();
     }

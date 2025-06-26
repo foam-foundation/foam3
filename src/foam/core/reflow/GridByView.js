@@ -11,85 +11,75 @@ foam.CLASS({
 
   documentation: 'Table View for GridBy mLang.',
 
+  cssTokens: [
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'highlightRowCol',
+      value: '$backgroundBrandTertiary'
+    },
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'highlightCell',
+      value: '$backgroundBrand'
+    }
+  ],
+
   css: `
     /* Base table styling */
     ^table {
       border-collapse: collapse;
       border-spacing: 0;
-      border: 1px solid $grey300;
-      width: 100%;
+      border: 1px solid $borderStrong;
     }
 
     /* Row styling */
     ^tr {
-      border-bottom: 1px solid $grey300;
       transition: background-color 0.2s ease;
-    }
-
-    ^tr:hover {
-      background-color: $primary50;
-    }
-
-    ^tr:last-child {
-      border-bottom: none;
     }
 
     /* Header row */
     ^tr:first-child {
-      background-color: $grey200;
+      background-color: $backgroundDefault;
     }
 
     /* Cell styling - both TH and TD */
     ^th, ^td {
       padding: .8rem 1rem;
       transition: background-color 0.15s ease;
+      border: 1px solid $borderDefault;
     }
 
     /* Header cells */
     ^th {
-      background-color: $grey200;
+      background-color: $backgroundDefault;
       font-weight: bold;
       text-align: left;
       text-wrap-mode: nowrap;
     }
-
-    /* Data cells */
-    ^td {
-      border: none;
-    }
-
-    /* First column-cells styling */
-    ^tr > ^th:first-child {
-      border-right: 1px solid $grey300;
-    }
-
-    /* First row cells */
-    ^tr:first-child > ^th {
-      border-right: 1px solid $grey300;
-    }
-
-    ^tr:first-child > ^th:last-child {
-      border-right: none;
-    }
-
-    /* Hover effects */
-    ^th:hover, ^td:hover {
-      background-color: $primary200;
-      z-index: 1;
-    }
-
-    ^td:hover {
+      
+    ^ td:hover {
       font-weight: 600;
+      background: $highlightCell;
+      color: $highlightCell$foreground;
+    }
+    
+    ^highlighted-col {
+      background: $highlightRowCol;
+      color: $highlightRowCol$foreground;
     }
 
-    ^tr > ^th:first-child:hover {
-      background-color: $primary200;
+    /* Row highlighting */
+    ^highlighted-row, ^highlighted-row > th, ^highlighted-row > td {
+      background: $highlightRowCol;
+      color: $highlightRowCol$foreground;
     }
   `,
 
   properties: [
     { name: 'x' },
-    { name: 'y' }
+    { name: 'y' },
+    { name: 'currentHoverCol' },
+    { name: 'currentHoverRow' }
   ],
 
   methods: [
@@ -105,25 +95,38 @@ foam.CLASS({
         start('tr').addClass(this.myClass('tr')).
           start('th').addClass(this.myClass('th')).end().
           forEach(cols, function(c) {
-            this.start('th').
-              addClass(this.myClass('th')).
-              add(c.toString()).
-              on('click', () => { self.x = c; self.y = undefined; });
+            this.start('th')
+              .addClass(this.myClass('th'))
+              .add(c.toString())
+              .on('click', () => { self.x = c; self.y = undefined; })
+              .on('mouseover', () => self.currentHoverCol = c)
+              .on('mouseleave', function() { self.currentHoverCol = undefined; self.currentHoverRow = undefined; })
+              .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol) => currentHoverCol === c));
           }).
         end().
         forEach(data.rows.sortedKeys(), function(r) {
           var row = data.rows.groups[r];
-          this.start('tr').addClass(self.myClass('tr')).on('click', () => self.y = r).
-            start('th').
-              on('click', () => { self.y = r; self.x = undefined; }).
-              addClass(self.myClass('th')).
-              add(r).
-            end().
+          this.start('tr')
+            .addClass(self.myClass('tr'))
+            .on('click', () => self.y = r)
+            .on('mouseover', () => self.currentHoverRow = r)
+            .on('mouseleave', () => self.currentHoverRow = undefined)
+            .enableClass(self.myClass('highlighted-row'), self.slot((currentHoverRow) => currentHoverRow === r))
+            .start('th')
+              .on('click', () => { self.y = r; self.x = undefined; })
+              .on('mouseover', () => self.currentHoverRow = r)
+              .addClass(self.myClass('th'))
+              .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverRow) => currentHoverRow === r))
+              .add(r)
+            .end().
             forEach(cols, function(c) {
-              this.start('td').
-                on('click', (e) => { self.x = c; self.y = r; e.stopPropagation(); }).
-                addClass(self.myClass('td')).
-                add(row.groups[c] || '');
+              this.start('td')
+                .on('click', (e) => { self.x = c; self.y = r; e.stopPropagation(); })
+                .on('mouseover', function() { self.currentHoverCol = c; self.currentHoverRow = r; })
+                .on('mouseleave', function() { self.currentHoverCol = undefined; self.currentHoverRow = undefined; })
+                .addClass(self.myClass('td'))
+                .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol, currentHoverRow) => currentHoverCol === c || currentHoverRow === r))
+                .add(row.groups[c] || '');
             }).
             end();
         });

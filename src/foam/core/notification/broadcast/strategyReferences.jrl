@@ -1,0 +1,7 @@
+p({
+  "class":"foam.strategy.StrategyReference",
+  "id":"foam.core.notification.broadcast.BroadcastNotificationFacade",
+  "desiredModelId":"foam.core.notification.broadcast.BroadcastNotificationFacade",
+  "strategy":"foam.core.notification.broadcast.BroadcastNotificationFacade",
+  "label": "Broadcast Notification"
+})

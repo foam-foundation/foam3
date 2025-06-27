@@ -27,6 +27,15 @@ foam.INTERFACE({
       javaCode: `
         return (IPGeolocationInfo) ((DAO) x.get("ipGeolocationInfoDAO")).find(IPSupport.instance().getRemoteIp(x));
       `
-    }
+    },
+    {
+        name: 'resolveLocationString',
+        async: true,
+        args: 'Context x, String ipStr',
+        type: 'IPGeolocationInfo',
+        javaCode: `
+          return (IPGeolocationInfo) ((DAO) x.get("ipGeolocationInfoDAO")).find(ipStr);
+        `
+      }
   ]
 });

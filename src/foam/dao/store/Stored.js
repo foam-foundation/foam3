@@ -11,7 +11,8 @@ foam.INTERFACE({
   properties: [
     {
       name: 'object',
-      class: 'FObjectProperty'
+      class: 'FObjectProperty',
+      storageTransient: true
     }
   ],
 

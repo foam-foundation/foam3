@@ -107,6 +107,17 @@ public class MDAO
     index_ = new AltIndex(new TreeIndex((Indexer) this.of_.getAxiomByName("id"), true));
   }
 
+  public MDAO(foam.lang.X x, ClassInfo of, String filename) {
+    setOf(of);
+    try {
+      foam.dao.index.TreeStoreIndex tsi = new foam.dao.index.TreeStoreIndex(x, of, filename, new TreeIndex((foam.lang.Indexer) of.getAxiomByName("id"), ValueIndex.instance(), true));
+      setState(new Object[] {tsi.getState()});
+      index_ = new AltIndex(tsi);
+    } catch (java.io.IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public void addIndex(Index index) {
     synchronized ( writeLock_ ) {
       setState(index_.addIndex(state_, index));

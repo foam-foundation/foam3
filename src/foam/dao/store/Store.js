@@ -19,12 +19,12 @@ foam.INTERFACE({
   methods: [
     {
       name: 'storeRoot',
-      args: 'Context x, foam.lang.FObject obj',
+      args: 'foam.lang.FObject obj',
       type: 'Stored'
     },
     {
       name: 'store',
-      args: 'Context x, foam.lang.FObject obj',
+      args: 'foam.lang.FObject obj',
       type: 'Stored'
     }
   ]

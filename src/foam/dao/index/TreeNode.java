@@ -19,9 +19,12 @@ import static foam.dao.AbstractDAO.decorateSink;
 /** AATree implementation. See: https://en.wikipedia.org/wiki/AA_tree **/
 public class TreeNode {
   protected Object   key;
+  protected Object getKey() { return key; }
   protected Object   value;
   protected long     size;
+  protected long getSize() { return size; }
   protected byte     level;
+  protected byte getLevel() { return level; }
   protected TreeNode left;
   protected TreeNode right;
 

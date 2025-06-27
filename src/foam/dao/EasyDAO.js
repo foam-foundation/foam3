@@ -166,7 +166,11 @@ foam.CLASS({
             delegate = new foam.dao.NullDAO(getX(), getOf());
           } else {
             if ( getMdao() == null ) {
-              setMdao(new foam.dao.MDAO(getOf()));
+              if ( getJournalType() == JournalType.STORE ) {
+                setMdao(new foam.dao.MDAO(getX(), getOf(), getJournalName()));
+              } else {
+                setMdao(new foam.dao.MDAO(getOf()));
+              }
             }
             delegate = getMdao();
             if ( getFixedSize() != null ) {
@@ -711,7 +715,7 @@ foam.CLASS({
         if ( this.crunchBoxEnabled ) {
           box = this.CrunchClientBox.create({delegate: box});
         }
-        
+
         if ( this.retryBoxMaxAttempts != 0 ) {
           box = this.RetryBox.create({
             maxAttempts: this.retryBoxMaxAttempts,
@@ -890,7 +894,11 @@ foam.CLASS({
        }
 
        if ( getInnerDAO() == null && getMdao() == null && ! getNullify() ) {
-         setMdao(new foam.dao.MDAO(getOf()));
+         if ( getJournalType() == JournalType.STORE ) {
+           setMdao(new foam.dao.MDAO(getX(), getOf(), getJournalName()));
+         } else {
+           setMdao(new foam.dao.MDAO(getOf()));
+         }
        }
      `
     },

@@ -34,5 +34,9 @@ foam.ENUM({
       name: 'SHARED_JOURNAL',
       label: 'Shared journal'
     },
+    {
+      name: 'STORE',
+      label: 'File Store'
+    }
   ]
 });

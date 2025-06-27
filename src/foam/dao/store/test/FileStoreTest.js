@@ -33,19 +33,19 @@ foam.CLASS({
 
       User user1 = TestUtils.createTestUser("test");
       user1 = (User) ((DAO) x.get("userDAO")).put(user1);
-      Stored root = fs.storeRoot(x, user1);
+      Stored root = fs.storeRoot(user1);
       test ( fs.getRoot() != null, "Memory Root found");
       if ( fs.getRoot() != null ) {
         User u = (User) fs.getRoot().get();
         test ( u.getId() == user1.getId(), "Memory User match");
       }
       try {
-        fs.findRoot(x);
+        fs.findRoot();
         test ( true, "findRoot passed");
       } catch (Throwable t) {
         test ( false, "findRoot failed. "+t.getMessage());
       }
-      root = fs.load(x, fs.getRoot());
+      root = fs.load(fs.getRoot());
       test ( root != null, "File Root found");
       if ( root != null ) {
         User u = (User) root.get();

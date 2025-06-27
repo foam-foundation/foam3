@@ -15,7 +15,7 @@ foam.CLASS({
     {
       name: 'storeRoot',
       javaCode: `
-        setRoot(store(x, obj));
+        setRoot(store(obj));
         return getRoot();
       `
     },

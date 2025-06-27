@@ -34,12 +34,12 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'filename',
-      class: 'String'
-    },
-    {
       name: 'of',
       class: 'Class'
+    },
+    {
+      name: 'filename',
+      class: 'String'
     },
     {
       documentation: `Size of ByteBuffers used during findRoot and load
@@ -61,19 +61,20 @@ buffers.`,
     protected JSONParser             parser_;
     final protected CharsetDecoder   decoder_ = StandardCharsets.UTF_8.newDecoder();
     static final protected byte[]    PREFIX = "p(".getBytes(StandardCharsets.UTF_8);
-    static final protected byte[]    POSTFIX = ")".getBytes(StandardCharsets.UTF_8);
+    static final protected byte[]    POSTFIX = ")\\n".getBytes(StandardCharsets.UTF_8);
 
-    public FileStore(X x, String filename, ClassInfo of)
+    public FileStore(X x, ClassInfo of, String filename)
       throws IOException {
       setX(x);
-      setFilename(filename);
       setOf(of);
+      setFilename(filename);
 
-      initialize(x);
+      initialize();
     }
 
-    protected void initialize(X x)
+    protected void initialize()
       throws IOException {
+      X x = getX();
       File file = x.get(FileSystemStorage.class).get(getFilename());
       try {
         Files.createFile(file.toPath());
@@ -90,7 +91,7 @@ buffers.`,
       buffer_    = ByteBuffer.allocate(getChunkBufferSize());
 
       if ( channel_.size() > 0 ) {
-        findRoot(x);
+        findRoot();
       }
     }
   `,
@@ -101,7 +102,7 @@ buffers.`,
       name: 'init_',
       javaCode: `
       try {
-        initialize(getX());
+        initialize();
       } catch (java.io.IOException e) {
         throw new RuntimeException(e);
       }
@@ -113,18 +114,20 @@ in the Root marker object, then when later we find the root on a restart,
 we have both the start offset and length to load it.`,
       name: 'storeRoot',
       javaCode: `
+        X x = getX();
         formatter_.reset();
         formatter_.setX(x);
         formatter_.output(obj, getOf());
         int len = formatter_.builder().length() + PREFIX.length + POSTFIX.length; // p(...)
-        store(x, new Root(size_, len));
-        setRoot(store(x, obj));
+        store(new Root(size_, len));
+        setRoot(store(obj));
         return getRoot();
       `
     },
     {
       name: 'store',
       javaCode: `
+      X x = getX();
       PM pm = new PM("FileStore:store");
       try {
         formatter_.reset();
@@ -149,9 +152,12 @@ we have both the start offset and length to load it.`,
       documentation: `Retrieve object at stored location. The passed
 stored updated with the retrieved object and returned.`,
       name: 'load',
-      args: 'Context x, foam.dao.store.Stored stored',
+      args: 'foam.dao.store.Stored stored',
       type: 'foam.dao.store.Stored',
       javaCode: `
+      if ( stored == null ) return null;
+
+      X x = getX();
       PM pm = new PM("FileStore:load");
       FileStored fs = (FileStored) stored;
       try {
@@ -189,10 +195,20 @@ stored updated with the retrieved object and returned.`,
     {
       documentation: 'Find last root. Start at end of file and work backwards.',
       name: 'findRoot',
-      args: 'Context x',
       javaCode: `
+      X x = getX();
       PM pm = new PM("FileStore:findRoot");
+
+      // Read two 'chunks' to handle the Root stradling a read block
+      // Write the first chunk to the second half of buffer
+      // and the second chunk position alligned with the end of
+      // of the first half of the buffer.
+      // Then find Root and calculate the position in the buffer and
+      // translate to a real file offset so the real Root object can
+      // be read.
+
       int chunkBufferSize = getChunkBufferSize();
+      int offset = chunkBufferSize;
       ByteBuffer chunkBuffer = ByteBuffer.allocate(chunkBufferSize);
       ByteBuffer buffer = ByteBuffer.allocate(2 * chunkBufferSize);
       try {
@@ -216,11 +232,12 @@ stored updated with the retrieved object and returned.`,
             }
             chunkStart = Math.max(0, chunkStart - chunkBufferSize);
             chunkBuffer.clear();
-            bytesRead = channel_.read(chunkBuffer, chunkStart);
+            bytesRead += channel_.read(chunkBuffer, chunkStart);
             chunkBuffer.position(0);
 
             // when less than a full buffer, align with start of second half
             int pos = chunkBufferSize - desiredBytes;
+            offset = pos;
             buffer.position(pos);
             buffer.put(chunkBuffer.array(), 0, desiredBytes); // write to first half
             buffer.position(pos);
@@ -229,18 +246,20 @@ stored updated with the retrieved object and returned.`,
           buffer.limit(buffer.capacity()); // make entire buffer available for reading
           String s = decoder_.decode(buffer).toString();
 
-          int index = s.indexOf(Root.ROOT_MARKER_START);
+          int index = s.lastIndexOf(Root.ROOT_MARKER_START);
+
           if ( index >= 0 ) {
-            String marker = s.substring(index, Math.min(100, s.length()));
+            String marker = s.substring(index, Math.min(index + 100, s.length()));
             int end = marker.indexOf(Root.ROOT_MARKER_END);
             if ( end > 0 ) {
-              int len = end + Root.ROOT_MARKER_END.length();
-              long pos = chunkStart;
-              FileStored stored = (FileStored) load(x, new FileStored(this, pos, len, null));
+              int len = end + Root.ROOT_MARKER_END.length() + 1;
+
+              long pos = chunkStart + (index - offset);
+              FileStored stored = (FileStored) load(new FileStored(this, pos, len, null));
               Root root = (Root) stored.get();
               // load real root index
               stored = new FileStored(this, pos + len, root.getLen(), null);
-              setRoot(load(x, stored));
+              setRoot(load(stored));
               return;
             }
           }

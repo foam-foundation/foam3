@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
- foam.CLASS({
+foam.CLASS({
   package: 'foam.lang',
   name: 'Currency',
   extends: 'foam.lang.Unit',
@@ -34,7 +34,13 @@
       buildJavaClass: function(cls) {
         cls.extras.push(`
           public String format(X x, long amount) {
-            return format(x, amount, false);
+            if ( ! foam.util.SafetyUtil.isEmpty(getSymbol()) ) {
+              // Show only symbol 
+              return format(x, amount, true, false);
+            } else {
+              // Show only ID
+              return format(x, amount, false, true);
+            }
           }
         `);
       }
@@ -167,10 +173,12 @@
         var beforeDecimal = amount.substring(0, amount.length - this.precision);
         var formatted = isNegative ? '-' : '';
 
-        if ( ! hideId && this.leftOrRight === 'right' ) {
+        var internalHideId = hideId ?? this.symbol !== '' ? true : false;
+        if ( ! internalHideId && this.leftOrRight === 'right' ) {
           formatted += this.id;
           formatted += ' ';
         }
+
         if ( ! hideSymbol && this.leftOrRight === 'left' ) {
           formatted += this.symbol;
           if ( this.showSpace ) formatted += ' ';
@@ -194,7 +202,7 @@
           if ( this.showSpace ) formatted += ' ';
           formatted += this.symbol;
         }
-        if ( ! hideId && this.leftOrRight === 'left' ) {
+        if ( ! internalHideId && this.leftOrRight === 'left' ) {
           formatted += ' ';
           formatted += this.id;
         }
@@ -213,7 +221,12 @@
         {
           class: 'Boolean',
           name: 'hideId',
-          documentation: 'If true, will not add symbol or ID to formatted currency'
+          documentation: 'If true, will not add ID to formatted currency'
+        },
+        {
+          class: 'Boolean',
+          name: 'hideSymbol',
+          documentation: 'If true, will not add symbol to formatted currency'
         }
       ],
       type: 'String',
@@ -227,11 +240,15 @@
         String beforeDecimal = amountStr.substring(0, amountStr.length() - this.getPrecision());
         String formatted = isNegative ? "-" : "";
 
-        if ( ! hideId && SafetyUtil.equals(this.getLeftOrRight(), "left") ) {
+        if ( ! hideSymbol && SafetyUtil.equals(this.getLeftOrRight(), "left") ) {
           formatted += this.getSymbol();
           if ( this.getShowSpace() ) {
             formatted += " ";
           }
+        }
+
+        if ( ! hideId && SafetyUtil.equals(this.getLeftOrRight(), "right") ) {
+          formatted = formatted + this.getId();
         }
 
         String delimiter = getDelimiter();
@@ -256,12 +273,16 @@
           formatted += amountStr.substring(amountStr.length() - getPrecision());
         }
 
-        if ( ! hideId && SafetyUtil.equals(getLeftOrRight(), "right") ) {
+        if ( ! hideId && SafetyUtil.equals(getLeftOrRight(), "left") ) {
           if ( getShowSpace() ) {
             formatted += " ";
           }
+          formatted += getId();
+        }
+        if ( ! hideSymbol && SafetyUtil.equals(getLeftOrRight(), "right") ) {
           formatted += getSymbol();
         }
+
         return formatted;
       `
     },

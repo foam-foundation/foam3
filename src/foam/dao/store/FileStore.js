@@ -87,6 +87,9 @@ buffers.`,
       formatter_ = new JSONFObjectFormatter(x);
       formatter_.setPropertyPredicate(new StoragePropertyPredicate());
       formatter_.setOutputShortNames(true);
+      formatter_.setOutputClassNames(false);
+//      formatter_.setOutputDefaultClassNames(false);
+//      formatter_.setOutputReadableDates(true); // not working
       parser_    = new JSONParser(x);
       buffer_    = ByteBuffer.allocate(getChunkBufferSize());
 
@@ -232,7 +235,7 @@ stored updated with the retrieved object and returned.`,
             }
             chunkStart = Math.max(0, chunkStart - chunkBufferSize);
             chunkBuffer.clear();
-            bytesRead += channel_.read(chunkBuffer, chunkStart);
+            bytesRead = channel_.read(chunkBuffer, chunkStart);
             chunkBuffer.position(0);
 
             // when less than a full buffer, align with start of second half
@@ -297,11 +300,13 @@ stored updated with the retrieved object and returned.`,
         },
         {
           name: 'pos',
-          class: 'Long'
+          class: 'Long',
+          shortName: 'p'
         },
         {
           name: 'len',
-          class: 'Int'
+          class: 'Int',
+          shortName: 'l'
         }
       ]
     },
@@ -327,18 +332,18 @@ so this model acts as a marker to denote where a \'Root\' Index is located.`,
       properties: [
         {
           name: 'pos',
-          class: 'Long'
+          class: 'Long',
+          shortName: 'p'
         },
         {
           name: 'len',
-          class: 'Int'
+          class: 'Int',
+          shortName: 'l'
         },
         {
           name: 'created',
           class: 'DateTime',
-          javaFactory: `
-        return new java.util.Date();
-      `
+          shortName: 'c'
         }
       ],
 
@@ -346,6 +351,7 @@ so this model acts as a marker to denote where a \'Root\' Index is located.`,
   public Root(long pos, int len) {
     setPos(pos);
     setLen(len);
+    setCreated(new java.util.Date());
   }
   `
     }

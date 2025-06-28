@@ -9,6 +9,7 @@ import foam.lang.FObject;
 import foam.lang.Indexer;
 import foam.dao.AbstractDAO;
 import foam.dao.Sink;
+import foam.dao.store.Stored;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.Predicate;
 import foam.mlang.predicate.True;
@@ -28,6 +29,13 @@ public class TreeNode {
   protected TreeNode left;
   protected TreeNode right;
 
+  protected Stored   stored;
+  protected Stored getStored() { return stored; }
+  protected void setStored(Stored stored) { this.stored = stored; }
+  protected boolean  loaded;
+  protected boolean getLoaded() { return loaded; };
+  protected void setLoaded(boolean loaded) { this.loaded = loaded; }
+
   protected final static TreeNode NULL_NODE = new TreeNode(null, null, 0, (byte) 0, null, null);
 
   public TreeNode(Object key, Object value) {
@@ -44,6 +52,17 @@ public class TreeNode {
     this.right = right;
   }
 
+  public TreeNode(Object key, Object value, long size, byte level, TreeNode left, TreeNode right, Stored stored, boolean loaded) {
+    this.key   = key;
+    this.value = value;
+    this.size  = size;
+    this.level = level;
+    this.left  = left;
+    this.right = right;
+    this.stored = stored;
+    this.loaded = loaded;
+  }
+
   public TreeNode cloneNode() {
     return new TreeNode(
       key,
@@ -51,7 +70,9 @@ public class TreeNode {
       size,
       level,
       left,
-      right);
+      right,
+      stored,
+      loaded);
   }
 
   TreeNode maybeClone(TreeNode s) {

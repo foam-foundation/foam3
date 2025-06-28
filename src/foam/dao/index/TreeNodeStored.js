@@ -12,15 +12,18 @@ foam.CLASS({
   properties: [
     {
       name: 'key',
-      class: 'Object'
+      class: 'Object',
+      shortName: 'k'
     },
     {
       name: 'size',
-      class: 'Long'
+      class: 'Long',
+      shortName: 's'
     },
     {
       name: 'level',
-      class: 'Int'
+      class: 'Int',
+      shortName: 'l'
     },
     {
       name: 'value',

@@ -386,6 +386,7 @@ foam.POM({
     { name: "foam/dao/index/TreeNodeStored",                          flags: 'js|java' },
     { name: "foam/dao/store/test/FileStoreTest",                      flags: 'js&test|java&test' },
     { name: "foam/dao/store/test/FileStoreIndexTest",                 flags: 'js&test|java&test' },
+    { name: "foam/dao/store/test/FileStorePerfTest",                  flags: 'js&test|java&test' },
 //    { name: "foam/dao/sync/SyncRecord",                               flags: "js" },
 //    { name: "foam/dao/SyncDAO",                                       flags: "js" },
     { name: 'foam/util/development/ClientTestingReplayDAO',           flags: "js&test" },

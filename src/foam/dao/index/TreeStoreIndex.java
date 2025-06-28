@@ -10,7 +10,10 @@ import foam.dao.store.FileStore;
 import foam.dao.store.Stored;
 import foam.lang.ClassInfo;
 import foam.lang.FObject;
+import foam.lang.PropertyInfo;
 import foam.lang.X;
+import foam.lib.StoragePropertyPredicate;
+import foam.lib.formatter.JSONFObjectFormatter;
 import java.util.HashSet;
 import java.util.Stack;
 import java.util.Set;
@@ -31,7 +34,9 @@ public class TreeStoreIndex
   protected Stack          left_  = new Stack();
   protected Stack<Stored>  tmp_   = new Stack();
   protected Set<Object>    right_ = new HashSet();
-  protected TreeNodeStored tns_   = new TreeNodeStored();
+
+  // formatter used to calculate if store is required.
+  protected JSONFObjectFormatter formatter_;
 
   public TreeStoreIndex(X x, ClassInfo of, String filename, Index delegate)
     throws java.io.IOException {
@@ -45,29 +50,30 @@ public class TreeStoreIndex
   }
 
   public FObject find(Object state, Object key) {
-    maybeInit();
-    if ( state == null || state.equals(TreeNode.getNullNode()) ) {
-      state = state_;
-    }
+    // See notes above regarding initial state
+    // maybeInit();
+    // if ( state == null || state.equals(TreeNode.getNullNode()) ) {
+    //   state = state_;
+    // }
     return getDelegate().find(state, key);
   }
 
   public Object put(Object state, FObject value) {
-    maybeInit();
-    if ( state == null || state.equals(TreeNode.getNullNode()) ) {
-      state = state_;
+    // See notes above regarding initial state
+    // maybeInit();
+    // if ( state == null || state.equals(TreeNode.getNullNode()) ) {
+    //   state = state_;
+    // }
+    Object key = ((PropertyInfo) store_.getOf().getAxiomByName("id")).get(value);
+    FObject old = getDelegate().find(state, key);
+    TreeNode root = (TreeNode) getDelegate().put(state, value);
+    if ( old == null ||
+         formatter_.maybeOutputDelta(old, value, null, null)) {
+      left_.clear();
+      store(pushLeft(left_, root), key);
     }
-    TreeNode node = (TreeNode) getDelegate().put(state, value);
-
-    left_.clear();
-    left_ = pushLeft(left_, node);
-    if ( left_.size() > 0 ) {
-      store(left_);
-    } else {
-      store(node, null, null, true);
-    }
-    state_ = node;
-    return node;
+    state_ = root;
+    return root;
   }
 
   // TODO: remove, removeAll
@@ -85,17 +91,16 @@ public class TreeStoreIndex
   // At leaf store and push result back on stack.
   // On traveral up, at node where 'right' has already been pushed,
   // store that node with it's children set to their stored references.
-  protected Stored store(Stack left) {
+  protected void store(Stack left, Object key) {
     tmp_.clear();
     right_.clear();
 
-    TreeNode n = null;
     while( left.size() > 0 ) {
       Object o = left.pop();
       if ( o instanceof Stored ) {
         tmp_.push((Stored) o);
       } else {
-        n = (TreeNode) o;
+        TreeNode n = (TreeNode) o;
         if ( n.getRight() != null &&
              ! right_.contains(n.getKey()) ) {
           right_.add(n.getKey()); // only push once
@@ -104,33 +109,43 @@ public class TreeStoreIndex
         } else {
           Stored r = tmp_.size() > 0 ? tmp_.pop() : null;
           Stored l = tmp_.size() > 0 ? tmp_.pop() : null;
-          left.push(store(n, l, r, left.size() == 0));
+          left.push(store(n, l, r, n.getKey().equals(key), left.size() == 0));
         }
       }
     }
-    Stored r = tmp_.size() > 0 ? tmp_.pop() : null;
-    Stored l = tmp_.size() > 0 ? tmp_.pop() : null;
-    return store( left.size() > 0 ? (TreeNode) left.pop() : n, l, r, left.size() == 0);
   }
 
-  protected Stored store(TreeNode node, Stored left, Stored right, boolean root) {
-    TreeNodeStored tns = tns_;
+  protected Stored store(TreeNode node, Stored left, Stored right, boolean updateValue, boolean root) {
+    TreeNodeStored tns = (TreeNodeStored) node.getStored();
+    if ( tns == null ) {
+      tns = new TreeNodeStored();
+    }
     tns.setKey(node.getKey());
     tns.setSize(node.getSize());
     tns.setLevel(node.getLevel());
-    tns.setValue(store_.store((FObject) node.getValue()));
     tns.setLeft(left);
     tns.setRight(right);
-    if ( root ) {
-      return store_.storeRoot(tns);
-    } else {
-      return store_.store(tns);
+
+    if ( updateValue ||
+         tns.getValue() == null ) {
+      tns.setValue(store_.store((FObject) node.getValue()));
     }
+    Stored stored = null;
+    if ( root ) {
+      stored = store_.storeRoot(tns);
+    } else {
+      stored = store_.store(tns);
+    }
+    node.setStored((Stored) stored.get());
+    return stored;
   }
 
   // Recreate the Tree
+  // TODO: on startup load to level or some time restraint. 
   public TreeNode load(Stored stored) {
-    if ( stored == null ) return null;
+    if ( stored == null )
+      return null;
+
     TreeNodeStored tns = (TreeNodeStored) stored.get();
     TreeNode node = new TreeNode(
                                  tns.getKey(),
@@ -140,10 +155,20 @@ public class TreeStoreIndex
                                  load(store_.load(tns.getLeft())),
                                  load(store_.load(tns.getRight()))
                                  );
+    node.setStored(tns);
+    node.setLoaded(true);  // true when left,right have been attemped.
+    // not yet used, could possibly be calculated from tns - ! loaded if tns.left != null && left == null
+
     return node;
   }
 
   public synchronized void maybeInit() {
+    if ( formatter_ == null ) {
+      formatter_ = new JSONFObjectFormatter(store_.getX());
+      formatter_.setPropertyPredicate(new StoragePropertyPredicate());
+      formatter_.setOutputShortNames(true);
+    }
+
     if ( ! loaded_ ) {
       loaded_ = true;
       state_ = load(store_.getRoot());

@@ -67,7 +67,7 @@ foam.CLASS({
         ).then(
           function(max) {
             var v = foam.Number.isInstance(max.value) ? ( max.value + 1 ) : 1;
-            self.value_ = v > startingValue ? v : startingValue
+            self.value_ = v > startingValue ? v : startingValue;
           }
         );
       }
@@ -147,21 +147,14 @@ foam.CLASS({
     }
   ],
 
-  axioms: [
-    {
-      buildJavaClass: function(cls) {
-        cls.extras.push(`
-          public SequenceNumberDAO(foam.dao.DAO delegate) {
-            this(1, delegate);
-          }
+  javaCode: `
+  public SequenceNumberDAO(foam.dao.DAO delegate) {
+    this(1, delegate);
+  }
 
-          public SequenceNumberDAO(long value, foam.dao.DAO delegate) {
-            System.err.println("Direct constructor use is deprecated. Use Builder instead. SequenceNumberDAO");
-            setStartingValue(value);
-            setDelegate(delegate);
-          }
-        `);
-      }
-    }
-  ]
+  public SequenceNumberDAO(long value, foam.dao.DAO delegate) {
+    setStartingValue(value);
+    setDelegate(delegate);
+  }
+  `
 });

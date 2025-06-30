@@ -605,6 +605,7 @@ foam.POM({
     { name: "foam/u2/view/FObjectArrayView",                          flags: "web" },
     { name: "foam/u2/view/FObjectArrayElementView",                   flags: "web" },
     { name: "foam/u2/view/ChoiceView",                                flags: "web" },
+    { name: "foam/u2/view/CustomizableChoiceView",                    flags: "web" },
     { name: "foam/u2/view/UnstyledChooseNView",                       flags: "web" },
     { name: "foam/u2/view/ChooseNView",                               flags: "web" },
     { name: "foam/u2/view/ChoiceWithOtherView",                       flags: "web" },

@@ -30,6 +30,7 @@ foam.CLASS({
     function render() {
       this.addClass(this.myClass());
       this.start('table').
+        attr('cellpadding', '8').
         start('tr').
           start('th').attrs({width: '250px'}).add('Class').end().
           start('th').add('Name').end().

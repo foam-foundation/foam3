@@ -222,11 +222,17 @@ foam.CLASS({
       `
     },
     {
+      name: 'maybeReload',
+      type: 'Void',
+      javaCode: `
+      reload();
+      `
+    },
+    {
       name: 'execute',
       javaCode: `
       try {
         while ( true ) {
-          reload();
           EmailServiceConfig config = findId(getX());
           if ( ! config.getEnabled() ) break;
 
@@ -239,6 +245,9 @@ foam.CLASS({
               .getArray();
 
           if ( emailMessages.size() == 0 ) break;
+
+          // Reload only if there are email messages to send.
+          maybeReload();
 
           long second = 1000L;
           long limit = config.getRateLimit();

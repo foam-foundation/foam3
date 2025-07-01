@@ -4,9 +4,18 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+foam.INTERFACE({
+  package: 'foam.lang',
+  name: 'Holder',
+  documentation: 'Marker interface for all Holder classes.'
+});
+
+
 foam.CLASS({
   package: 'foam.lang',
   name: 'IntHolder',
+
+  implements: [ 'foam.lang.Holder' ],
 
   properties: [
     {
@@ -21,6 +30,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'FloatHolder',
 
+  implements: [ 'foam.lang.Holder' ],
+
   properties: [
     {
       class: 'Float',
@@ -33,6 +44,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'StringHolder',
+
+  implements: [ 'foam.lang.Holder' ],
 
   properties: [
     {
@@ -59,6 +72,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'BooleanHolder',
 
+  implements: [ 'foam.lang.Holder' ],
+
   properties: [
     {
       name: 'value',
@@ -71,6 +86,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'DateTimeHolder',
+
+  implements: [ 'foam.lang.Holder' ],
 
   properties: [
     {
@@ -85,6 +102,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'DateHolder',
 
+  implements: [ 'foam.lang.Holder' ],
+
   properties: [
     {
       name: 'value',
@@ -98,6 +117,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'RequiredBooleanHolder',
   extends: 'foam.lang.BooleanHolder',
+
+  implements: [ 'foam.lang.Holder' ],
 
   messages: [
     { name: 'WRONG_VALUE', message: 'Wrong value' }
@@ -122,6 +143,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'MapHolder',
 
+  implements: [ 'foam.lang.Holder' ],
+
   properties: [
     {
       name: 'value',
@@ -134,6 +157,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'RawMapHolder',
+
+  implements: [ 'foam.lang.Holder' ],
 
   documentation: 'Map items are stored as raw json objects without being parsed to fobjects.',
 
@@ -154,6 +179,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'StringArrayHolder',
 
+  implements: [ 'foam.lang.Holder' ],
+
   properties: [
     {
       class: 'StringArray',
@@ -167,6 +194,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'IntegerArrayHolder',
 
+  implements: [ 'foam.lang.Holder' ],
+
   properties: [
     {
       class: 'IntegerArray',
@@ -179,6 +208,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'AnyHolder',
+
+  implements: [ 'foam.lang.Holder' ],
 
   properties: [
     'value'

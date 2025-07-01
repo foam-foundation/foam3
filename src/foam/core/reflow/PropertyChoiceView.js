@@ -23,9 +23,48 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'PropertyCitationView',
   extends: 'foam.u2.CitationView',
+  
+  documentation: 'Citation view for properties showing label and name in a vertical stacked layout',
+  
+  css: `
+    ^row {
+      display: flex;
+      overflow-x: hidden;
+      width: 100%;
+      flex-direction: column;
+      gap: 2px;
+      border-bottom: 1px solid $borderXLight;
+    }
+    
+    ^row:last-child {
+      border-bottom: none;
+    }
+    
+    ^label {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+    
+    ^name {
+      font-family: monospace;
+      font-size: 12px;
+      color: $textSecondary;
+      line-height: 1.2;
+    }
+  `,
+  
   methods: [
-    function render() {   // to be used later for complex views
-      this.add(this.data.label);
+    function getSummary(data) {
+      // Override to prevent default summary behavior
+      return '';
+    },
+    function render() {
+      this.SUPER();
+      // Clear the default summary content and add our custom layout
+      this
+        .start('div').addClass(this.myClass('label')).add(this.data.label || this.data.name).end()
+        .start('div').addClass(this.myClass('name')).add(this.data.name).end();
     }
   ]
 });
@@ -38,7 +77,7 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'of',
+      name: 'forCls',
       postSet: function(_, value) {
         this.rebuildSections();
       }
@@ -65,21 +104,20 @@ foam.CLASS({
     {
       name: 'sections',
       factory: function() {
-        if ( ! this.of ) return [
+        if ( ! this.forCls ) return [
           {
             heading: 'Properties',
-            dao: foam.dao.ArrayDAO.create({ array: [] })
+            dao: foam.dao.ArrayDAO.create({ of: foam.lang.Property, array: [] })
           }
         ];
-
-        let arr = this.of.getAxiomsByClass(foam.lang.Property)
+        let arr = this.forCls.getAxiomsByClass(foam.lang.Property)
           .filter(p => p.showInPropertyChoice)
           .filter(p => ! this.predicate || this.predicate(p));
 
         return [
           {
             heading: 'Properties',
-            dao: foam.dao.ArrayDAO.create({ array: arr })
+            dao: foam.dao.ArrayDAO.create({ of: foam.lang.Property, array: arr })
           }
         ];
       }
@@ -102,7 +140,7 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.PropertyChoiceView_' ],
 
   properties: [
-    'of',
+    'forCls',
     'propName'
   ],
 
@@ -112,12 +150,13 @@ foam.CLASS({
 
       var self = this;
 
-      this.onDetach(this.data$.relateTo(
+      this.data$.relateTo(
         this.propName$,
         function propToName(p) { return p ? p.name : ''; },
-        function nameToProp(n) { return n ? self.of.getAxiomByName(n) : ''; }
-      ));
-      this.start(this.PropertyChoiceView_, {of: this.of, data$: this.propName$});
+        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n) : ''; }
+      );
+
+      this.start(this.PropertyChoiceView_, {forCls: this.forCls, data$: this.propName$});
     }
   ]
 

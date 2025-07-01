@@ -22,6 +22,7 @@ foam.CLASS({
   flags: ['js', 'swift'],
 
   requires: [
+    'foam.net.NetworkException',
     'foam.box.InvalidMessageException',
     'foam.box.RPCErrorMessage',
     'foam.box.RPCMessage',
@@ -119,6 +120,14 @@ do {
       code: function(envelope) {
         if ( this.RPCMessage.isInstance(envelope.message) ) {
           this.call(envelope);
+          return;
+        }
+
+        if ( this.NetworkException.isInstance(envelope.message) ) {
+          // todo: is detach right? or should we just pub a special message
+          // the idea here is that if the object has been released/lost on the remote side
+          // we can clean up here.
+          this.data.detach();
           return;
         }
 

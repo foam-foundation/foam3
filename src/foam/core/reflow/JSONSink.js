@@ -9,14 +9,23 @@ foam.CLASS({
   name: 'JSONSink',
   extends: 'foam.dao.ArraySink',
 
+  properties: [
+    {
+      name: 'json',
+      transient: true,
+      expression: function(array) {
+        return foam.json.Outputter.create({
+          pretty: true,
+          strict: true,
+          propertyPredicate: function(o, p) { return ! p.networkTransient; }
+        }).stringify(array);
+      }
+    }
+  ],
+
   methods: [
     function addToE(e) {
-      var json = foam.json.Outputter.create({
-        pretty: true,
-        strict: true,
-        propertyPredicate: function(o, p) { return ! p.networkTransient; }
-      });
-      e.start('pre').add(json.stringify(this.array));
+      e.start('pre').add(this.json);
     }
   ]
 });

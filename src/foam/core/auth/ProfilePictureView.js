@@ -1,253 +1,308 @@
 /**
  * @license
- * Copyright 2018 The FOAM Authors. All Rights Reserved.
+ * Copyright 2025 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
 foam.CLASS({
   package: 'foam.core.auth',
   name: 'ProfilePictureView',
-  extends: 'foam.u2.Element',
+  extends: 'foam.u2.View',
+
+  documentation: `
+    A U2 view for displaying and managing a profile picture,
+    supporting click-to-upload, drag-and-drop, and clear functionality.
+  `,
 
   requires: [
-    'foam.blob.BlobBlob',
-    'foam.log.LogLevel',
+    'foam.blob.Blob',
     'foam.core.fs.File',
-    'foam.u2.tag.Input'
-  ],
-
-  imports: [
-    'subject',
-    'blobService',
-    'notify'
-  ],
-
-  exports: [
-    'as data',
+    'foam.blob.BlobBlob',
+    'foam.u2.tag.Image'
   ],
 
   css: `
-    ^ .attachment-input {
-      width: 0.1px;
-      height: 0.1px;
-      opacity: 0;
-      overflow: hidden;
-      position: absolute;
-      z-index: -1;
-    }
-    ^ .attachment-btn {
-      margin: 10px 0;
-    }
-    ^ .shopperImage {
-      width: 80px;
-      height: 80px;
-      display: inline-block;
-      border: solid 1px #a4b3b8;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    ^ .uploadButtonContainer {
-      height: 80px;
-      display: inline-block;
-      vertical-align: text-bottom;
-      margin-left: 40px;
-    }
-    ^ .removeButtonContainer {
-      display: inline-block;
-      vertical-align: text-bottom;
-      margin-left: 20px;
-      vertical-align: top;
-      margin-top: 5px;
-    }
-    ^ .foam-u2-ActionView-uploadImage {
-      width: 136px;
-      height: 40px;
-      background: transparent;
-      border: solid 1px #59a5d5;
-      color: #59a5d5;
-      margin: 0;
-      outline: none;
-    }
-    ^ .uploadDescContainer{
+    ^ {
       position: relative;
-      left: 26%;
-      bottom: 24%;
-    }
-    ^ .uploadDescription {
-      margin-top: 9px;
-      color: $textBrand;
-    }
-    ^ .uploadRestriction {
-      margin-top: 9px;
-      color: $textDefault;
-    }
-    ^ .box-for-drag-drop {
-      border: dashed 4px $borderXLight;
-      background:white;
-      height: 100px;
-      padding: 10px 10px;
+      width: 150px;
+      height: 150px;
+      border: 2px dashed #ccc;
+      border-radius: 50%;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      box-sizing: border-box; /* Include padding and border in the element's total width and height */
+      transition: border-color 0.3s ease, background-color 0.3s ease;
     }
 
-    ^ .boxless-for-drag-drop {
-      border: solid 4px white;
-      background:white;
-      height: 100px;
-      padding: 10px 10px;
+    ^RW:hover {
+      border-color: #999;
+    }
+
+    /* Style for the actual image displayed inside the circular container */
+    ^actual-image {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%; /* Ensure the inner image is also circular */
+      object-fit: cover; /* Cover the container while maintaining aspect ratio */
+      z-index: 1; /* Position below overlay but above the base background */
+    }
+
+    /* Styles for the background when no specific image is set (e.g., placeholder) */
+    ^no-image {
+      background-size: 50%; /* Make placeholder smaller, if it's a background image */
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: cover;
+      /* placeholderImage will be set directly in render() if data is null */
+    }
+
+    ^overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.4);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      font-size: 0.9em;
+      text-align: center;
+      border-radius: 50%;
+      pointer-events: none; /* Allow clicks to pass through to the main element if overlay is transparent */
+      z-index: 2; /* Position above the image */
+    }
+
+    ^RW:hover ^overlay {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    ^drag-over {
+      border-color: #666;
+      background-color: #e0e0e0;
+    }
+
+    ^clear-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(255, 255, 255, 0.7);
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.3s ease, background-color 0.2s ease, color 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    ^RW:hover ^clear-btn {
+      opacity: 1;
+    }
+    ^RW ^clear-btn:hover {
+      background: white;
+      color: #000;
     }
   `,
 
   properties: [
     {
-      class: 'String',
-      name: 'placeholderImage'
+      class: 'FObjectProperty',
+      of: 'foam.core.fs.File',
+      name: 'data',
+      documentation: 'The Blob representing the selected image file.'
     },
     {
-      class: 'foam.core.fs.FileProperty',
-      name: 'ProfilePictureImage'
+      class: 'String',
+      name: 'placeholderImage',
+      documentation: 'URL for the image to display when no data is set.'
+    },
+    {
+      class: 'String',
+      name: 'accept',
+      value: 'image/*',
+      documentation: 'Accepted file types for upload.'
     },
     {
       class: 'Boolean',
-      name: 'dragActive',
+      name: 'isDragging',
+      documentation: 'True if a drag operation is currently over the component.',
       value: false
     },
-    [ 'uploadHidden', false ],
-    [ 'boxHidden', false ],
-    [ 'attachmentInputValue', null ]
-  ],
-
-  messages: [
-    { name: 'UploadImageLabel', message: 'Choose File' },
-    { name: 'RemoveImageLabel', message: 'Remove File' },
-    { name: 'UploadDesc', message: 'Or drag and drop an image here' },
-    { name: 'UploadRestrict', message: '* jpg, jpeg, or png only, 2MB maximum, 100*100 72dpi recommended' },
-    { name: 'FileError', message: 'File required' },
-    { name: 'FileTypeError', message: 'Wrong file format' },
-    { name: 'ErrorMessage', message: 'Please upload an image less than 2MB' }
+    {
+      name: 'fileInput_',
+      documentation: 'Reference to the hidden file input element.'
+    }
   ],
 
   methods: [
     function render() {
+      this.SUPER();
       var self = this;
+
       this
-        .addClass(this.myClass())
-        .start('div').addClass((this.boxHidden)?'boxless-for-drag-drop' :this.dragActive$.map(function(drag) {
-          return drag ? 'box-for-drag-drop' : 'boxless-for-drag-drop';
-        }))
-          .add(this.slot(function(ProfilePictureImage) {
-            return this.E('img').addClass('shopperImage')
-            .attrs({
-              src: this.ProfilePictureImage$.map(function(ProfilePictureImage) {
-                if ( ProfilePictureImage && ProfilePictureImage.data ) {
-                  var blob = ProfilePictureImage.data;
-                  if ( self.BlobBlob.isInstance(blob) )
-                    return URL.createObjectURL(blob.blob);
+        .addClass() // Adds the base class `ProfilePictureView`
+        .addClass(this.mode$.map(m => this.myClass(m.name)))
+        .on('dragenter', this.onDragEnter)
+        .on('dragleave', this.onDragLeave)
+        .on('dragover',  this.onDragOver) // Essential to allow 'drop' event to fire
+        .on('drop',      this.onDrop)
+        .enableClass(this.myClass('no-image'), this.data$.map(d => !d))
+        .style({
+          'background-image': this.data$.map(d => !!d ? 'none' : `url(${this.placeholderImage})`)
+        })
+        .enableClass(this.myClass('drag-over'), this.isDragging$) // Add class for drag feedback
 
-                  var url = '/service/httpFileService/' + ProfilePictureImage.id;
-                  return url;
-                }
+        // Hidden file input for click-to-upload
+        .start('input', null, this.fileInput_$)
+        .attrs({
+          type: 'file',
+          accept: this.accept
+        })
+        .style({ display: 'none' })
+        .on('change', this.onFileSelected) // Listener for file selection
+        .end()
 
-                return self.placeholderImage;
-              })
-            });
-          }, this.ProfilePictureImage$))
-          .on('dragstart', this.onDragStart)
-          .on('dragenter', this.onDragEnter)
-          .on('dragover', this.onDragOver)
-          .on('drop', this.onDrop)
-          .start().addClass('uploadButtonContainer').hide(this.uploadHidden)
-            .start(this.Input, { data$: this.attachmentInputValue$ })
-              .addClass('attachment-input')
-              .attrs({
-                type: 'file',
-                accept: 'image/jpg,image/gif,image/jpeg,image/bmp,image/png'
-              })
-              .on('change', this.onChange)
-            .end()
-            .start().addClass('attachment-btn').addClass('white-blue-button').addClass('btn')
-              .add(this.UploadImageLabel)
-              .on('click', this.onAddAttachmentClicked)
-            .end()
-          .end()
-          .start().addClass('removeButtonContainer').show( !(this.uploadHidden) && this.ProfilePictureImage$.map(function (ProfilePictureImage) {
-              return ProfilePictureImage;
-            }))
-            .start().addClass('attachment-btn').addClass('grey-button').addClass('btn')
-              .add(this.RemoveImageLabel)
-              .on('click', this.onRemoveClicked)
-            .end()
-          .end()
-          .start().addClass('uploadDescContainer').hide(this.uploadHidden)
-            .start().add(this.UploadDesc).addClass('p-light', 'uploadDescription').end()
-            .start().add(this.UploadRestrict).addClass('p-xs', 'uploadRestriction').end()
-          .end()
-        .end();
+        // Main image display using foam.u2.tag.Image
+        .start(this.Image, {
+          data$: this.slot(function(data$data, data$address) {
+            return data$address || data$data
+          })
+        })
+          .addClass(this.myClass('actual-image'))
+          .attrs({ alt: 'Profile Picture' })
+          .show(this.data$.map(d => !!d))
+        .end()
+
+        // Overlay for click-to-upload and drag-and-drop interactions
+        .start('div')
+          .addClass(this.myClass('overlay'))
+          .enableClass(this.myClass('overlay-dragging', this.isDragging$))
+          .add('Click or Drag & Drop')
+          .br()
+          .add('to upload image')
+          .on('click',     this.onClickOverlay)
+        .end()
+
+        // Clear button
+        .start('button')
+          .addClass(this.myClass('clear-btn'))
+          .add('×') // Unicode multiplication sign for 'X'
+          .on('click', () => { this.clearImage() })
+          .show(this.data$.map(d => !!d)) // Only show if an image is set
+        .end()
+      ;
+    },
+    function setData_(file) {
+      this.data = this.File.create({
+        filesize: file.size,
+        mimeType: file.type,
+        filename: file.name,
+        data: this.BlobBlob.create({ blob: file })
+      }, this);
     }
   ],
 
   listeners: [
-    function onAddAttachmentClicked(e) {
-      this.document.querySelector('.attachment-input').click();
+    function onClickOverlay(e) {
+      // Programmatically click the hidden file input element
+      if ( this.mode == foam.u2.DisplayMode.RO) {
+        return
+      }
+      e.stopPropagation();
+      this.fileInput_.element_.click();
     },
 
-    function onRemoveClicked(e) {
-      this.dragActive = false;
-      this.ProfilePictureImage= null;
-      this.attachmentInputValue = null;
+    function onFileSelected(e) {
+      if ( this.mode == foam.u2.DisplayMode.RO) {
+        return
+      }
+
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (file.type.startsWith('image/')) {
+          this.setData_(file);
+        } else {
+          console.warn('Selected file is not an image:', file.type);
+        }
+      }
+      // Reset the input value to allow selecting the same file again immediately
+      e.target.files = null;
+    },
+
+    function onDragEnter(e) {
+      if ( this.mode == foam.u2.DisplayMode.RO) {
+        return
+      }
+
+      e.preventDefault(); // Important: allows 'drop' event
+      this.isDragging = true;
+    },
+
+    function onDragLeave(e) {
+      if ( this.mode == foam.u2.DisplayMode.RO) {
+        return
+      }
+
+      e.preventDefault();
+      this.isDragging = false;
     },
 
     function onDragOver(e) {
-      this.dragActive = true;
-      e.preventDefault();
+      if ( this.mode == foam.u2.DisplayMode.RO) {
+        return
+      }
+
+      e.preventDefault(); // Important: allows 'drop' event
+      // No change to isDragging here; dragenter/dragleave manage this state
     },
 
     function onDrop(e) {
+      if ( this.mode == foam.u2.DisplayMode.RO) {
+        return
+      }
+
       e.preventDefault();
-      this.dragActive = false;
-      if ( this.uploadHidden ) return;
-
-      var inputFile;
-      if ( e.dataTransfer.items ) {
-        inputFile = e.dataTransfer.items[0]
-        if ( inputFile.kind === 'file' ) {
-          var file = inputFile.getAsFile();
-          if ( this.isImageType(file) )
-            this.addFile(file);
-          else
-            this.notify(this.FileTypeError, '', this.LogLevel.ERROR, true);
+      this.isDragging = false;
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (file.type.startsWith('image/')) {
+          this.setData_(file);
+        } else {
+          console.warn('Dropped file is not an image:', file.type);
         }
-      } else if ( e.dataTransfer.files ) {
-        var file = e.dataTransfer.files[0];
-        if ( this.isImageType(file) )
-          this.addFile(file);
-        else
-          this.notify(this.FileTypeError, '', this.LogLevel.ERROR, true);
       }
-    },
+    }
+  ],
 
-    function isImageType(file) {
-      return file.type === "image/jpg" || file.type === "image/jpeg" || file.type === "image/png";
-    },
-
-    function onChange(e) {
-      this.dragActive = false;
-      var file = e.target.files[0];
-      this.addFile(file);
-    },
-
-    function addFile(file) {
-      if ( file.size > ( 2 * 1024 * 1024 ) ) {
-        this.notify(this.ErrorMessage, '', this.LogLevel.ERROR, true);
-        return;
+  actions: [
+    {
+      name: 'clearImage',
+      label: 'Clear',
+      code: function() {
+        this.data = undefined;
+      },
+      isEnabled: function(data, mode) {
+        return mode == foam.u2.DisplayMode.RW && !! data
       }
-      this.ProfilePictureImage= this.File.create({
-        owner: this.subject.user.id,
-        filename: file.name,
-        filesize: file.size,
-        mimeType: file.type,
-        data: this.BlobBlob.create({
-          blob: file
-        })
-      });
     }
   ]
 });

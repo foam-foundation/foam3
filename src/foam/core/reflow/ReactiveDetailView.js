@@ -28,6 +28,9 @@ foam.CLASS({
         }
         return rs;
       },
+      isDefaultValue: function(v) {
+        return Object.keys(v).length == 0;
+      },
       toJSON: function(v) {
         var m = {};
         for ( key in v ) { m[key] = v[key].toString(); }

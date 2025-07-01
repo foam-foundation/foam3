@@ -179,6 +179,7 @@ foam.POM({
     { name: "foam/json2/Deserializer",                                flags: "swift" },
     { name: "foam/java/Util",                                         flags: "js|java" },
     { name: "foam/lang/Fluent",                                       flags: "js" },
+    { name: "foam/util/util",                                          flags: "js" },
     { name: "foam/util/Base64",                                       flags: "js" },
     { name: "foam/util/FObjectSpec",                                  flags: "js" },
     { name: "foam/util/FluentSpec",                                   flags: "js|java" },
@@ -470,6 +471,7 @@ foam.POM({
     { name: "foam/box/SubBoxMessage",                                 flags: "js|java" },
     { name: "foam/box/TimeoutBox",                                    flags: "js" },
     { name: "foam/box/RetryBox",                                      flags: "js" },
+    { name: "foam/box/KeepAliveBox",                                  flags: "js|java" },
     { name: "foam/box/SubBox",                                        flags: "js|java" },
     { name: "foam/box/RPCReturnMessage",                              flags: "js|java" },
     { name: "foam/box/RPCErrorMessage",                               flags: "js|java" },
@@ -487,7 +489,6 @@ foam.POM({
     { name: "foam/dao/NotificationClientDAO",                         flags: "js|java" },
     { name: "foam/dao/PollingClientDAO",                              flags: "js" },
     { name: "foam/dao/PurgeRecordCmd",                                flags: "js|java" },
-    { name: "foam/dao/StreamingClientDAO",                            flags: "js" },
     { name: "foam/dao/RequestResponseClientDAO",                      flags: "js" },
     { name: "foam/box/InvalidMessageException",                       flags: "js" },
     { name: "foam/box/SkeletonBox",                                   flags: "js" },
@@ -1136,7 +1137,9 @@ foam.POM({
     { name: "foam/css/TokenUtils",                                    flags: "web" },
     { name: "foam/demos/u2/AllViews",                                 flags: "web" },
     { name: "foam/lib/json/StringToStringArrayParserTest",            flags: "js&test|java&test" },
-    { name: "foam/lib/json/RawMapParserTest",                         flags: "js&test|java&test" }
+    { name: "foam/lib/json/RawMapParserTest",                         flags: "js&test|java&test" },
+    { name: "foam/audio/Speak",                                       flags: "web" },
+    { name: "foam/audio/Beep",                                        flags: "web" }
   ],
 
   javaFiles: [

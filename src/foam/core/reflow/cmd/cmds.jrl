@@ -21,8 +21,41 @@ p({
   "description": "Insert a Clock",
   "script": """
     var clock = foam.demos.clock.Clock.create({x:110, y:110}, this);
-    this.out.add(clock);
-    this.currentBlock.value = clock;
+    this.addValue(clock);
+//    this.out.add(clock);
+//    this.currentBlock.value = clock;
+   """,
+   permissionRequired: true
+})
+
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "testresults",
+  "description": "Insert an Test Results Summary",
+  "script": """
+    var results = foam.core.reflow.float.TestResults.create({}, this);
+    this.currentBlock.value = results;
+    this.currentBlock.flowName = 'testResults';
+    this.out.tag(foam.core.reflow.float.TestResultsView, {data: results});
+   """,
+   permissionRequired: true
+})
+
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "test",
+  "description": "Insert an Expectation Test",
+  "script": """
+//    if ( ! this.__context__.scope.testResults ) {
+//      this.eval_('testresults');
+//    }
+
+    var test = foam.core.reflow.float.Test.create({received: args[0], description: args[1] || ''}, this);
+    test.accept();
+    this.__context__.scope.testResults.report(test);
+    this.currentBlock.value = test;
+    this.out.tag(foam.core.reflow.float.TestView, {data: test});
+//    this.addValue(test);
    """,
    permissionRequired: true
 })
@@ -86,7 +119,7 @@ p({
   "id": "script",
   "description": "Create a Script",
   "script": """
-    addValue(foam.core.reflow.Script.create({}, this));
+    addValue(foam.core.reflow.Script.create({}, this), true);
   """
 })
 p({

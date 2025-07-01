@@ -9,7 +9,17 @@ foam.CLASS({
   name: 'XMLSink',
   extends: 'foam.dao.ArraySink',
 
+  properties: [
+    {
+      name: 'xml',
+      transient: true,
+      expression: function(array) {
+        return foam.xml.Pretty.stringify(array);
+      }
+    }
+  ],
+
   methods: [
-    function addToE(e) { e.start('pre').add(foam.xml.Pretty.stringify(this.array)); }
+    function addToE(e) { e.start('pre').add(this.xml); }
   ]
 });

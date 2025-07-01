@@ -36,14 +36,14 @@ foam.CLASS({
         of.getAxiomsByClass(foam.lang.Property).forEach(p => {
           if ( ! p.searchable && ( p.hidden || p.networkTransient ) ) return;
           if ( foam.lang.Boolean.isInstance(p) ) {
-            // insted of pushing 
-            // choices.push([p, 'is:'  + p.name]); 
+            // insted of pushing
+            // choices.push([p, 'is:'  + p.name]);
             // we're pushing `[ 'is:' + p.name, 'is:' + p.label]`
             // reason provided in ComparatorView ~ same logic
-            choices.push([ 'is:' + p.name, 'is:' + p.label]);
-            choices.push([ '-is:' + p.name, '-is:' + p.label]);
+            choices.push([ 'is:' + p.name, 'is:' + p.name]);
+            choices.push([ '-is:' + p.name, '-is:' + p.name]);
           } else {
-            choices.push([p.name, p.label]);
+            choices.push([p.name, p.name]);
           }
         });
         return { class: 'foam.u2.view.ChoiceView', choices: choices, type: 'search' };
@@ -64,7 +64,7 @@ foam.CLASS({
           style({display: 'flex'}).
           tag(this.TextField, {data$: this.data$, size: 40, type: 'search'}).
           startContext({data: this}).add(this.CHOICES).endContext()
-          // Commented for now until we find better way 
+          // Commented for now until we find better way
           // start(this.CircleIndicator, {glyph: 'helpIcon', size: 60}).
           //   addClass(this.myClass('helper-icon')).
           //   on('click', this.mqlHelp).

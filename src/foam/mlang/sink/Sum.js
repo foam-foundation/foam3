@@ -35,7 +35,8 @@ foam.CLASS({
     function addToE(e) { e.add(this.value); },
 
     function toProperties() {
-      return [ { class: 'Double', name: 'sum_' + this.arg1.name, label: `SUM(${this.arg1.name})` } ];
+      var name = 'sum_' + this.arg1.name;
+      return [ { class: 'Double', name: name , label: name /* `SUM(${this.arg1.name})`*/ } ];
     },
 
     function setPropertyValues(o, sink, ps) {

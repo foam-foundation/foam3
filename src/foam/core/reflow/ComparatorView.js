@@ -28,11 +28,11 @@ foam.CLASS({
         var choices = [ '--' ];
         of.getAxiomsByClass(foam.lang.Property).forEach(p => {
           if ( p.hidden || p.networkTransient ) return;
-          // instead of pushing [p, p.label] into choices, 
+          // instead of pushing [p, p.label] into choices,
           // we're pushing `[ '-' + p.name, '-' + p.label]` because what gets shown in gui is '-id vs id',
           // '-' sign, it's being used to denote ordering, so pushing `[p, '-' + p.label]` does not preserve that behavior
-          choices.push([p.name, p.label]);    
-          choices.push(['-' + p.name, '-' + p.label]);
+          choices.push([p.name, p.name]);
+          choices.push(['-' + p.name, '-' + p.name]);
         });
         return { class: 'foam.u2.view.ChoiceView', choices: choices };
       },

@@ -9,10 +9,18 @@ foam.CLASS({
   name: 'Script',
 
   imports: [
-    'eval_',
-    'data',
+    'data as block',
     'scope'
   ],
+
+  documentation: `
+    In scripts, 'this' is bound to the containing block, so you can do things like:
+      this.tag(foam.demos.clock.Clock.create({x:400,y:400}));
+
+    As a result, log() will log to the Script output,
+    but this.log() will log to the block, ie. in the FLOW document itself.
+
+  `,
 
   properties: [
     {
@@ -40,15 +48,11 @@ foam.CLASS({
 
   actions: [
     function run() {
-      this.eval_(this.code);
-      /*
       with ( this.scope ) {
         with ( { log: this.log.bind(this) } ) {
-          this.log('>', this.code);
-          this.log(eval('(function() {' + this.code + '})').call(this.data));
+          this.log(eval('(function() {' + this.code + '})').call(this.block));
         }
-        }
-        */
+      }
     },
 
     function clearOutput() {

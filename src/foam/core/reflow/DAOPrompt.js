@@ -25,11 +25,10 @@ foam.CLASS({
 
       this.
         addClass().
-        add(this.data.dynamic(function(visible) {
-          if ( ! visible ) return;
-          this.start('h3').
-            add(self.data.label$).
-            end().
+        show(this.data.visible$).
+        start('h3').
+          add(self.data.label$).
+        end().
             /*
           start('span').
             style({display: 'flex', gap: '10px', flexDirection: 'column'}).
@@ -40,20 +39,18 @@ foam.CLASS({
             tag({class: 'foam.u2.TextField'}, {data$: self.data.where$, placeholder: 'Type your query'}).
             end().
             */
-          br().
-            //          add(self.data.dao.of.id). // TODO: link to describe
-          start().
-            add(self.data.dynamic(async function(version, skip) {
-              var startTime = Date.now();
-              // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
-              // TODO: fix JSON parsing should setup context corectly
-              var select    = self.data.select.clone(self.data.__subContext__);
-              await select.execute(this);
-              self.data.readyLatch_.resolve();
-              self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
-            })).
-          end();
-        }));
+        br().
+        start().
+          add(self.data.dynamic(async function(version, skip) {
+            var startTime = Date.now();
+            // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
+            // TODO: fix JSON parsing should setup context corectly
+            var select    = self.data.select.clone(self.data.__subContext__);
+            await select.execute(this);
+            self.data.readyLatch_.resolve();
+            self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
+          })).
+        end();
     }
   ],
 
@@ -168,6 +165,7 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(skip, limit, filteredDAO) {
+        if ( ! filteredDAO ) return null;
         if ( limit ) filteredDAO = filteredDAO.limit(limit);
         if ( skip  ) filteredDAO = filteredDAO.skip(skip);
         return filteredDAO;
@@ -179,6 +177,7 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(dao, where, order) {
+        if ( ! dao ) return null;
         // Compiled on the Server
         // if ( this.where ) dao = dao.where(this.MQL(this.where));
 
@@ -262,7 +261,7 @@ foam.CLASS({
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertyListView',
-          of: X.data.dao.of
+          forCls: X.data.dao.of
         };
       }
     },
@@ -273,6 +272,14 @@ foam.CLASS({
           sinksOnly: false,
           choice: 'Table',
           dao: X.data.dao}, X.data);
+visible      },
+      preSet: function(o, n) {
+        // Temporary fix to recontextualize the object after load.
+        // TODO: remove once JSON parsing/loading is fixed
+        if ( n && n.__context__ != this.__subContext__ ) {
+          return n.clone(this.__subContext__);
+        }
+        return n;
       },
       reactive: false,
       section: 'output',
@@ -324,6 +331,28 @@ foam.CLASS({
       code: function() {
         this.version++;
       }
+    },
+    {
+      name: 'describeModel',
+      availablePermissions: [ 'command.read.describe' ],
+      code: function() {
+        this.eval_('describe ' + this.dao.of.id);
+      }
+    },
+    {
+      name: 'testOutput',
+      // TODO:
+//      isEnabled: function(value) { return this.value; },
+      availablePermissions: [ 'command.read.test' ],
+      code: async function() {
+        // Run run() before testing to ensure output is correct.
+        this.readyLatch_ = undefined;
+        this.run();
+        await this.readyLatch_;
+
+        var name = this.block.flowName;
+        this.eval_(`test(${name}.value,'Test output of ${name}')`);
+      }
     }
   ],
 
@@ -335,10 +364,6 @@ foam.CLASS({
       code: function maybeAutoRun() {
         if ( this.autoRun ) this.run();
       }
-    },
-
-    function describeModel() {
-      this.eval_('describe ' + this.dao.of.id);
     }
   ]
 });

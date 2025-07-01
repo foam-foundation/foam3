@@ -86,7 +86,7 @@ public class FileService
       resp.setStatus(HttpServletResponse.SC_OK);
       resp.setContentType(file.getMimeType());
       resp.setHeader("Content-Length", Long.toString(size, 10));
-      resp.setHeader("Cache-Control", "public");
+      resp.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
       // output data to response
       os = resp.getOutputStream();

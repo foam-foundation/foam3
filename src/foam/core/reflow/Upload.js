@@ -33,7 +33,7 @@ foam.CLASS({
     {
       name: 'handler',
       view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyChoiceView', of: X.data.of };
+        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
       }
     },
     {

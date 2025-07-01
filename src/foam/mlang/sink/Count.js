@@ -42,7 +42,7 @@ foam.CLASS({
     function addToE(e) { e.add(this.value); },
 
     function toProperties() {
-      return [ { class: 'Long', name: 'count' } ]
+      return [ { class: 'Long', name: 'count', label: 'count' } ]
     },
     function setPropertyValues(o, sink, ps) {
       ps[0].set(o, sink.value);

@@ -43,6 +43,7 @@ foam.POM({
     { name: 'UploadAgent',             flags: 'js|java' },
     { name: 'ViewSink',                flags: 'js|java' },
     { name: 'XHR',                     flags: 'js' },
+    { name: 'float/Test',              flags: 'js' },
     { name: 'XMLSink',                 flags: 'js|java' },
     { name: 'cmd/Commands',            flags: 'js|java' },
     { name: 'ColumnParser',            flags: 'js' },

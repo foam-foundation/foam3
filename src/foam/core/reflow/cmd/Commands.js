@@ -4,8 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// TODO: replace uses of outputLink with Link
-
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
   name: 'Command',
@@ -19,6 +17,7 @@ foam.CLASS({
     'foam.core.auth.AuthorizationException'
   ],
 
+  // TODO: I think currentBlock is no longer needed. Test and remove if it isn't.
   imports: [ 'addValue?', 'block?', 'currentBlock?', 'log?', 'out?', 'eval_?' ],
 
   tableColumns: [ 'id', 'description' /*, 'execute_' */ ],
@@ -323,7 +322,7 @@ foam.CLASS({
           this.CONTAINS_IC(this.CSpec.KEYWORDS, opt_nameQuery)
         ));
       this.out.tag('br');
-      this.out.start('table').attr('width', '100%').
+      this.out.start('table').attr('width', '100%').attr('cellpadding', '4').
         select(dao, function(n) {
           var sdao  = self.__context__[n.name];
           var of    = sdao.of;
@@ -343,6 +342,13 @@ foam.CLASS({
           var desFn = () => self.eval_('describe(' + of.id + ')');
 
           this.start('tr').
+            start('td').attr('align', 'left').
+              start(self.Link).add('add').on('click', addFn).end().
+            end().
+            start('td').attr('align', 'left').
+              show(self.uploadAvailable).
+              start(self.Link).add('upload').on('click', uplFn).end().
+            end().
             start('th').attr('align', 'left').
               start(self.Link).add(shortName).on('click', daoFn).end().
             end().
@@ -358,16 +364,10 @@ foam.CLASS({
                 textOverflow: 'ellipsis'
               }).
               add(n.description).
-            end().
-            start('td').attr('align', 'left').
-              start(self.Link).add('add').on('click', addFn).end().
-            end().
-            start('td').attr('align', 'left').
-              show(self.uploadAvailable).
-              start(self.Link).add('upload').on('click', uplFn).end().
             end()
             ;
         }).
+        end().
         start('b').add(count, ' selected').end();
     }
   ]
@@ -463,11 +463,11 @@ foam.CLASS({
     function execute(q) {
       if ( q ) q = q.toLowerCase();
       var self = this;
-      this.out.start('table').select(this.flowDAO, function(f) {
+      this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
         if ( q != undefined && (f.id + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
         this.start('tr').
           start('td').start(self.Link).add(f.name).on('click', () => self.eval_('load("' + f.name + '")')).end().end().
-          start('td').add(f.status).end().
+          start('td').call(function() { f.STATUS.tableCellFormatter.f.call(this, f.status); }).end().
           start('td').add(f.description).end().
         end();
       });
@@ -620,7 +620,7 @@ foam.CLASS({
   name: 'Save',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [  'currentBlock', 'flow', 'flowDAO', 'save' ],
+  imports: [  'flow', 'flowDAO', 'save' ],
 
   properties: [
     [ 'description', 'Save the current flow to a specified name' ]

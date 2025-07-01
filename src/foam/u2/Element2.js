@@ -302,16 +302,12 @@ foam.CLASS({
         var self = this;
         return this.dynamic(function(data_) {
           data_.forEach(d => {
-            this.startContext({ data: d });
-
-            var e = this.code.call(this.startContext({ data: d }), d);
+            var e = this.code.call(this, d);
             if ( e ) {
               // TODO: remove after port from U2 to U3
               console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
               this.tag(e);
             }
-
-            this.endContext()
           })
         });
       }

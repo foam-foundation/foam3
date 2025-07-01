@@ -59,7 +59,7 @@ foam.CLASS({
             file.setMimeType(fileType.toSummary());
           } else {
             throw new foam.lang.FOAMException(
-              SafetyUtil.isEmpty(fileExtention) ? "Can not find file extention from file: " + file.getFilename() : "File type not supported: " + fileExtention
+              SafetyUtil.isEmpty(fileExtention) ? "Can not find file extension from file: " + file.getFilename() : "File type not supported: " + fileExtention
             );
           }
         }

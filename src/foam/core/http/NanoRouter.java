@@ -6,6 +6,7 @@
 
 package foam.core.http;
 
+import foam.box.Box;
 import foam.box.Skeleton;
 import foam.lang.*;
 import foam.dao.AbstractSink;
@@ -158,7 +159,7 @@ public class NanoRouter
 
         skeleton.setDelegateFactory(getX().getFactory(getX(), spec.getName()));
 
-        WebAgent agent = getAgent(skeleton, spec);
+        WebAgent agent = getAgent(new foam.box.KeepAliveServerBox((Box)skeleton), spec);
 
         logger.debug(this.getClass().getSimpleName(), "createWebAgent.serve", spec.getName(), "service");
 
@@ -203,7 +204,7 @@ public class NanoRouter
     return null;
   }
 
-  protected WebAgent getAgent(Skeleton skeleton, CSpec spec) {
+  protected WebAgent getAgent(Box skeleton, CSpec spec) {
     return new ServiceWebAgent(skeleton, spec.getAuthenticate());
   }
 

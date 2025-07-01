@@ -5,6 +5,8 @@
  */
 
 
+// TODO: Temporarily hide 'type' Property until it can be handled properly.
+// Is currently used for String queries not as objects.
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Prompt',
@@ -28,6 +30,7 @@ foam.CLASS({
       class: 'String',
       name: 'type',
       value: 'String',
+      hidden: true,
       reactive: false,
       postSet: function() { this.value = undefined; this.value; },
       view: { class: 'foam.u2.view.RadioView', choices: [
@@ -35,15 +38,19 @@ foam.CLASS({
         [ 'Long',   '##' ],
         [ 'Double', '##.##' ],
         [ 'Boolean', 'Y/N' ],
-        [ 'Date', 'YYYY/MM/DD' ],
-        [ 'DateTime', 'YYY/MM/DD HH:MM:SS' ],
+//        [ 'Date', 'YYYY/MM/DD' ],
+//        [ 'DateTime', 'YYY/MM/DD HH:MM:SS' ],
         [ 'EMail', 'username@email.com' ],
         'Color'
       ] }
     },
     {
       name: 'defaultValue',
-      postSet: function(o, n) { if ( ! this.value ) this.value = n; }
+      postSet: function(o, n) {
+        if ( ! this.value )
+//          this.value = foam.lang[this.type].ADAPT.value(null, this.defaultValue);
+          this.value = n;
+      }
     },
     {
       name: 'value',

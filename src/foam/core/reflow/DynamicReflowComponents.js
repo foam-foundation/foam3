@@ -52,9 +52,6 @@ foam.CLASS({
       const commandsSink = await this.commandDAO.select();
       this.commands = commandsSink.array;
 
-      console.log('commands', this.commands);
-
-
       this.addClass()
         .start().addClass(this.myClass('container'))
           .tag(this.FILTER_SEARCH, { data$: this.filterSearch$ })
@@ -65,6 +62,7 @@ foam.CLASS({
             );
             this.start().addClass(self.myClass('command-list'))
               .forEach(filtered, function(command) {
+                if ( ! command.linkable ) return;
                 this.start(self.CommandItemView, { data: self.data, command: command.id, description: command.description });
               })
           }))

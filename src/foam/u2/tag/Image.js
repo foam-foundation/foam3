@@ -15,6 +15,26 @@
  * limitations under the License.
  */
 
+foam.LIB({
+  name: 'foam.Blob',
+  methods: [
+    function acquireUrl(blob) {
+      blob.count_ = (blob.count_ || 0) + 1;
+      if ( blob.count_ == 1 ) {
+        blob.url_ = URL.createObjectURL(blob);
+      }
+      return blob.url_
+    },
+    function releaseUrl(blob) {
+      blob.count_ = blob.count_ - 1;
+      if ( blob.count_ == 0 ) {
+        URL.revokeObjectURL(blob.url_);
+      }
+    }
+  ]
+});
+
+
 foam.CLASS({
   package: 'foam.u2.tag',
   name: 'Image',
@@ -22,7 +42,9 @@ foam.CLASS({
 
   requires: [
     'foam.net.HTTPRequest',
-    'foam.u2.HTMLView'
+    'foam.u2.HTMLView',
+    'foam.blob.Blob',
+    'foam.blob.BlobBlob'
   ],
 
   css: `
@@ -56,6 +78,10 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'embedSVG'
+    },
+    {
+      class: 'Boolean',
+      name: 'sync'
     }
   ],
 
@@ -99,8 +125,21 @@ foam.CLASS({
 
           if ( ! data ) return null;
 
+          var src = data;
+
+          /// TODO: A better polymorphic way of doing this
+          if ( self.BlobBlob.isInstance(src) ) {
+            var url = foam.Blob.acquireUrl(src.blob);
+            this.onDetach(() => {
+              foam.Blob.releaseUrl(src.blob);
+            })
+            src = url;
+          } else if ( self.Blob.isInstance(data) ) {
+            src = self.__context__.blobService.urlFor(data);
+          }
+          
           this.start('img')
-            .attrs({ src: data, role: self.role })
+            .attrs({ src: src, role: self.role })
             .style({
               height:  displayHeight,
               width:   displayWidth,

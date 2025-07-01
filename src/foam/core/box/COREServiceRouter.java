@@ -82,7 +82,7 @@ public class COREServiceRouter
 
       foam.lang.X x = getX().put(CSpec.class, spec);
 
-      result = new foam.box.SessionServerBox(x, result, spec.getAuthenticate());
+      result = new foam.box.SessionServerBox(x, new foam.box.KeepAliveServerBox((foam.box.Box)result), spec.getAuthenticate());
 
       return result;
     } catch (ClassNotFoundException ex) {

@@ -1,0 +1,9 @@
+p({
+  class:"foam.core.boot.CSpec",
+  name:"microsoftGraphEmailAgent",
+  lazy: false,
+  service:{
+    class:"foam.core.notification.email.ms.MicrosoftGraphEmailAgent",
+    id: 'msGraph'
+  }
+})

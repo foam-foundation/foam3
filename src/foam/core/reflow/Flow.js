@@ -69,12 +69,24 @@ foam.CLASS({
     {
       class: 'String',
       name: 'status',
+      tableCellFormatter: function(value, obj) {
+        if ( value.startsWith('PASSED') ) {
+          this.style({color: 'green'});
+        } else if ( value.startsWith('FAILED') ) {
+          this.style({color: 'red'});
+        }
+        this.add(value);
+      },
       width: 20
     },
     {
       class: 'String',
       name: 'source',
       width: 30
+    },
+    {
+      class: 'StringArray',
+      name: 'keywords'
     },
     {
       class: 'String',

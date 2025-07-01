@@ -263,6 +263,7 @@ stored updated with the retrieved object and returned.`,
               // load real root index
               stored = new FileStored(this, pos + len, root.getLen(), null);
               setRoot(load(stored));
+              // setRoot(stored);
               return;
             }
           }
@@ -291,7 +292,10 @@ stored updated with the retrieved object and returned.`,
 
       properties: [
         {
-          // REVIEW: this property may not be necessary
+          name: 'object',
+          javaPostSet: 'setLoaded(true);'
+        },
+        {
           name: 'store',
           class: 'FObjectProperty',
           of: 'foam.dao.store.FileStore',
@@ -307,6 +311,38 @@ stored updated with the retrieved object and returned.`,
           name: 'len',
           class: 'Int',
           shortName: 'l'
+        },
+        {
+          name: 'loaded',
+          class: 'Boolean',
+          transient: true
+        }
+      ],
+
+      javaCode: `
+      public FileStored(foam.dao.store.FileStore store, long pos, int len) {
+        setStore(store);
+        setPos(pos);
+        setLen(len);
+      }
+      public FileStored(foam.dao.store.FileStore store, long pos, int len, FObject obj) {
+        setStore(store);
+        setPos(pos);
+        setLen(len);
+        setObject(obj);
+      }
+      `,
+
+      methods: [
+        {
+          name: 'get',
+          javaCode: `
+          if ( ! getLoaded() ) {
+            getStore().load(this);
+            setLoaded(true);
+          }
+          return getObject();
+          `
         }
       ]
     },

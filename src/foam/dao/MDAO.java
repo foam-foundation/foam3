@@ -207,7 +207,9 @@ public class MDAO
       o = getPrimaryKey().get(o);
     }
 
-    return objOut((FObject) index_.find(state, o));
+    Object ob = index_.find(state, o);
+    return objOut((FObject) ob);
+    // return objOut((FObject) index_.find(state, o));
 //    return objOut((FObject) index_.planFind(state, o).find(state, o));
   }
 

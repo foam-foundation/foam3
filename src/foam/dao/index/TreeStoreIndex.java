@@ -6,16 +6,22 @@
 
 package foam.dao.index;
 
+import foam.core.logger.Logger;
+import foam.core.logger.Loggers;
 import foam.dao.store.FileStore;
 import foam.dao.store.Stored;
 import foam.lang.ClassInfo;
 import foam.lang.FObject;
+import foam.lang.Indexer;
 import foam.lang.PropertyInfo;
 import foam.lang.X;
 import foam.lib.StoragePropertyPredicate;
 import foam.lib.formatter.JSONFObjectFormatter;
+import foam.util.SafetyUtil;
+import java.util.Deque;
 import java.util.HashSet;
-import java.util.Stack;
+import java.util.Iterator;
+import java.util.ArrayDeque;
 import java.util.Set;
 
 /**
@@ -25,15 +31,11 @@ public class TreeStoreIndex
   extends ProxyIndex {
 
   protected FileStore      store_;
-  protected Boolean        loaded_ = false;
-  protected Object         state_  = null;
+  protected Boolean        loaded_  = false;
+  protected Object         state_   = null;
   public Object getState() {
     return state_;
   }
-  // Local variables cleared and reused on each tree update
-  protected Stack          left_  = new Stack();
-  protected Stack<Stored>  tmp_   = new Stack();
-  protected Set<Object>    right_ = new HashSet();
 
   // formatter used to calculate if store is required.
   protected JSONFObjectFormatter formatter_;
@@ -43,34 +45,16 @@ public class TreeStoreIndex
     super(delegate);
     store_ = new FileStore(x, of, filename);
 
-    // REVIEW: - how to delay this until first find, put?
-    // Presently needs to be called so that state can be set in
-    // parent AltIndex when MDAO is created.
-    maybeInit();
-  }
-
-  public FObject find(Object state, Object key) {
-    // See notes above regarding initial state
-    // maybeInit();
-    // if ( state == null || state.equals(TreeNode.getNullNode()) ) {
-    //   state = state_;
-    // }
-    return getDelegate().find(state, key);
+    init();
   }
 
   public Object put(Object state, FObject value) {
-    // See notes above regarding initial state
-    // maybeInit();
-    // if ( state == null || state.equals(TreeNode.getNullNode()) ) {
-    //   state = state_;
-    // }
     Object key = ((PropertyInfo) store_.getOf().getAxiomByName("id")).get(value);
     FObject old = getDelegate().find(state, key);
     TreeNode root = (TreeNode) getDelegate().put(state, value);
     if ( old == null ||
          formatter_.maybeOutputDelta(old, value, null, null)) {
-      left_.clear();
-      store(pushLeft(left_, root), key);
+      store(root, key);
     }
     state_ = root;
     return root;
@@ -78,44 +62,59 @@ public class TreeStoreIndex
 
   // TODO: remove, removeAll
 
-  protected Stack pushLeft(Stack s, TreeNode node) {
+  protected Deque pushLeft(Deque s, TreeNode node) {
     TreeNode current = node;
     while ( current != null ) {
-      s.push(current);
+      s.addFirst(current);
       current = current.getLeft();
     }
     return s;
   }
 
-  // Depth-first traversal
-  // At leaf store and push result back on stack.
+  // Post-order traversal
+  // On 'store' push result back on stack.
   // On traveral up, at node where 'right' has already been pushed,
   // store that node with it's children set to their stored references.
-  protected void store(Stack left, Object key) {
-    tmp_.clear();
-    right_.clear();
-
-    while( left.size() > 0 ) {
-      Object o = left.pop();
+  protected void store(TreeNode node, Object key) {
+    Logger logger = Loggers.logger(store_.getX(), this);
+    // logger.info("store,root", node.getKey(), key, node.getLeft()!=null?node.getLeft().getKey():"", node.getRight()!=null?node.getRight().getKey():"");
+    
+    Deque<Stored> stored = new ArrayDeque();
+    Set<Object>   right  = new HashSet();
+    Deque stack = pushLeft(new ArrayDeque(), node);
+    
+    while( stack.size() > 0 ) {
+      // output("stack", stack);
+      Object o = stack.pop();
       if ( o instanceof Stored ) {
-        tmp_.push((Stored) o);
+        stored.addFirst((Stored)o);
       } else {
-        TreeNode n = (TreeNode) o;
-        if ( n.getRight() != null &&
-             ! right_.contains(n.getKey()) ) {
-          right_.add(n.getKey()); // only push once
-          left.push(n);
-          left = pushLeft(left, n.getRight());
+        node = (TreeNode) o;
+        if ( node.getRight() != null &&
+             ! right.contains(node.getKey()) ) {
+          right.add(node.getKey()); // only push once
+          stack.addFirst(node);
+          while ( stored.size() > 0 ) {
+            stack.addFirst(stored.pop());
+          }
+          stack = pushLeft(stack, node.getRight());
         } else {
-          Stored r = tmp_.size() > 0 ? tmp_.pop() : null;
-          Stored l = tmp_.size() > 0 ? tmp_.pop() : null;
-          left.push(store(n, l, r, n.getKey().equals(key), left.size() == 0));
+          Stored l = stored.size() > 0 ? stored.removeFirst() : null;
+          Object lk = (l != null ? ((TreeNodeStored)l.get()).getKey() : null);
+          Stored r = stored.size() > 0 ? stored.removeFirst() : null;
+          Object rk = (r != null ? ((TreeNodeStored)r.get()).getKey() : null);
+          if ( SafetyUtil.compare(lk, rk) > 0 ) {
+            Stored t = l; l = r; r = t;
+          }
+          stack.addFirst(store(node, l, r, node.getKey().equals(key), stack.size() == 0));
         }
       }
     }
   }
 
   protected Stored store(TreeNode node, Stored left, Stored right, boolean updateValue, boolean root) {
+    // Loggers.logger(store_.getX(), this).info("storing", node.getKey(), left!=null?((TreeNodeStored)left.get()).getKey():"", right!=null?((TreeNodeStored) right.get()).getKey():"", updateValue, root);
+    
     TreeNodeStored tns = (TreeNodeStored) node.getStored();
     if ( tns == null ) {
       tns = new TreeNodeStored();
@@ -136,33 +135,34 @@ public class TreeStoreIndex
     } else {
       stored = store_.store(tns);
     }
-    node.setStored((Stored) stored.get());
+    node.setStored((TreeNodeStored) stored.get());
     return stored;
   }
 
   // Recreate the Tree
-  // TODO: on startup load to level or some time restraint. 
-  public TreeNode load(Stored stored) {
+  public TreeNode bulkLoad(Stored stored) {
     if ( stored == null )
       return null;
 
     TreeNodeStored tns = (TreeNodeStored) stored.get();
+    tns.setLeftLoaded(true);
+    tns.setRightLoaded(true);
     TreeNode node = new TreeNode(
                                  tns.getKey(),
                                  store_.load(tns.getValue()).get(),
                                  tns.getSize(),
                                  (byte) tns.getLevel(),
-                                 load(store_.load(tns.getLeft())),
-                                 load(store_.load(tns.getRight()))
+                                 bulkLoad(store_.load(tns.getLeft())),
+                                 bulkLoad(store_.load(tns.getRight())),
+                                 tns
                                  );
-    node.setStored(tns);
-    node.setLoaded(true);  // true when left,right have been attemped.
-    // not yet used, could possibly be calculated from tns - ! loaded if tns.left != null && left == null
-
+    tns.setValue(null);
+    tns.setLeft(null);
+    tns.setRight(null);
     return node;
   }
 
-  public synchronized void maybeInit() {
+  public void init() {
     if ( formatter_ == null ) {
       formatter_ = new JSONFObjectFormatter(store_.getX());
       formatter_.setPropertyPredicate(new StoragePropertyPredicate());
@@ -171,7 +171,29 @@ public class TreeStoreIndex
 
     if ( ! loaded_ ) {
       loaded_ = true;
-      state_ = load(store_.getRoot());
+      state_ = bulkLoad(store_.getRoot());
+      // TODO: on startup load to level or some time restraint.
+      // bulkLoad(.., level)
     }
+  }
+
+  // dump stack for debugging
+  protected void output(String name, Deque s) {
+    StringBuilder sb = new StringBuilder();
+    Iterator iter = s.iterator();
+    while ( iter.hasNext() ) {
+      Object o = iter.next();
+      if ( o instanceof TreeNode ) {
+        sb.append(((TreeNode) o).getKey());
+        sb.append(",");
+      } else {
+        Stored stored = (Stored) o;
+        Object obj = stored.get();
+        sb.append(((TreeNodeStored)obj).getKey());
+        sb.append("S");
+        sb.append(",");
+      }
+    }
+    Loggers.logger(store_.getX(), this).info(name, sb.toString());
   }
 }

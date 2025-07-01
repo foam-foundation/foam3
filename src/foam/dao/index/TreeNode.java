@@ -29,12 +29,9 @@ public class TreeNode {
   protected TreeNode left;
   protected TreeNode right;
 
-  protected Stored   stored;
-  protected Stored getStored() { return stored; }
-  protected void setStored(Stored stored) { this.stored = stored; }
-  protected boolean  loaded;
-  protected boolean getLoaded() { return loaded; };
-  protected void setLoaded(boolean loaded) { this.loaded = loaded; }
+  protected TreeNodeStored stored;
+  protected TreeNodeStored getStored() { return stored; }
+  protected void setStored(TreeNodeStored stored) { this.stored = stored; }
 
   protected final static TreeNode NULL_NODE = new TreeNode(null, null, 0, (byte) 0, null, null);
 
@@ -52,7 +49,7 @@ public class TreeNode {
     this.right = right;
   }
 
-  public TreeNode(Object key, Object value, long size, byte level, TreeNode left, TreeNode right, Stored stored, boolean loaded) {
+  public TreeNode(Object key, Object value, long size, byte level, TreeNode left, TreeNode right, TreeNodeStored stored) {
     this.key   = key;
     this.value = value;
     this.size  = size;
@@ -60,7 +57,6 @@ public class TreeNode {
     this.left  = left;
     this.right = right;
     this.stored = stored;
-    this.loaded = loaded;
   }
 
   public TreeNode cloneNode() {
@@ -71,8 +67,7 @@ public class TreeNode {
       level,
       left,
       right,
-      stored,
-      loaded);
+      stored);
   }
 
   TreeNode maybeClone(TreeNode s) {
@@ -86,7 +81,7 @@ public class TreeNode {
   // A Tree is Singular if contains only one node.
   // Singular Trees can be better planned/searched using sub-indices.
   public boolean isSingular() {
-    return left == null && right == null;
+    return getLeft() == null && getRight() == null;
   }
 
   public Object bulkLoad(Index tail, Indexer indexer, int start, int end, FObject[] a) {
@@ -96,7 +91,7 @@ public class TreeNode {
     TreeNode tree = this.putKeyValue(this, indexer, indexer.f(a[m]), a[m], tail);
     tree.left  = (TreeNode) this.bulkLoad(tail, indexer, start, m-1, a);
     tree.right = (TreeNode) this.bulkLoad(tail, indexer, m+1, end, a);
-    tree.size  = this.size(tree.left) + this.size(tree.right);
+    tree.size  = this.size(tree.getLeft()) + this.size(tree.getRight());
 
     return tree;
   }
@@ -114,13 +109,13 @@ public class TreeNode {
       state.size += tail.size(state.value);
     } else {
       if ( r < 0 ) {
-        if ( state.left != null ) {
+        if ( state.getLeft() != null ) {
           state.size -= state.left.size;
         }
         state.left = this.putKeyValue(state.left, indexer, key, value, tail);
         state.size += state.left.size;
       } else {
-        if ( state.right != null ) {
+        if ( state.getRight() != null ) {
           state.size -= state.right.size;
         }
         state.right = this.putKeyValue(state.right, indexer, key, value, tail);
@@ -133,11 +128,11 @@ public class TreeNode {
 
   public TreeNode skew(TreeNode node, Index tail) {
     /** 'node' should be a new (cloned) TreeNode, not a reused one. **/
-    if ( node != null && node.left != null && node.left.level == node.level ) {
+    if ( node != null && node.getLeft() != null && node.left.level == node.level ) {
       // Swap the pointers of horizontal left links.
       TreeNode l = maybeClone(node.left);
 
-      node.left = l.right;
+      node.left = l.getRight();
       l.right   = node;
       updateSize(node, tail);
       updateSize(l, tail);
@@ -148,7 +143,7 @@ public class TreeNode {
   }
 
   public TreeNode split(TreeNode node, Index tail) {
-    if ( node != null && node.right != null && node.right.right != null &&
+    if ( node != null && node.getRight() != null && node.right.getRight() != null &&
         node.level == node.right.right.level ) {
       // Swap the pointers of horizontal left links.
       TreeNode r = maybeClone(node.right);
@@ -241,7 +236,7 @@ public class TreeNode {
   }
 
   private TreeNode predecessor(TreeNode node) {
-    if ( node.left == null ) return node;
+    if ( node.getLeft() == null ) return node;
 
     node = node.left;
     while ( node.right != null ) {
@@ -251,7 +246,7 @@ public class TreeNode {
   }
 
   private TreeNode successor(TreeNode node) {
-    if ( node.right == null ) return node;
+    if ( node.getRight() == null ) return node;
     node = node.right;
     while ( node.left != null ) {
       node = node.left;
@@ -262,8 +257,8 @@ public class TreeNode {
   private TreeNode decreaseLevel(TreeNode node) {
     /** 'node' should be a new (cloned) TreeNode, not a reused one. **/
     byte expectedLevel = (byte) (1 + Math.min(
-      node.left  != null ? node.left.level  : 0 ,
-      node.right != null ? node.right.level : 0));
+      node.getLeft()  != null ? node.left.level  : 0 ,
+      node.getRight() != null ? node.right.level : 0));
 
     if ( expectedLevel < node.level ) {
       node.level = expectedLevel;
@@ -277,7 +272,7 @@ public class TreeNode {
   }
 
   private TreeNode updateSize(TreeNode node, Index tail) {
-    node.size = size(node.left) + size(node.right) + tail.size(node.value);
+    node.size = size(node.getLeft()) + size(node.getRight()) + tail.size(node.value);
     return node;
   }
 
@@ -294,14 +289,20 @@ public class TreeNode {
       long size = s.value instanceof TreeNode ? ( (TreeNode) s.value ).size : 1;
       return new TreeNode(s.key, s.value, size, (byte) 0, null, null);
     }
-    return r > 0 ? get(s.right, key, indexer) : get(s.left, key, indexer);
+    return r > 0 ? get(s.getRight(), key, indexer) : get(s.getLeft(), key, indexer);
   }
 
   protected TreeNode getLeft() {
+    if ( left == null && getStored() != null && ! getStored().getLeftLoaded() )
+      getStored().loadLeft();
+
     return left;
   }
 
   protected TreeNode getRight() {
+    if ( right == null && getStored() != null && ! getStored().getRightLoaded() )
+      getStored().loadRight();
+
     return right;
   }
 
@@ -318,12 +319,12 @@ public class TreeNode {
 
     int r = indexer.comparePropertyToValue(key, s.key);
     if ( r < 0 ) {
-      TreeNode l = gt(s.left, key, indexer);
+      TreeNode l = gt(s.getLeft(), key, indexer);
       long newSize = size(s) - size(s.left) + size(l);
       return new TreeNode(s.key, s.value, newSize, s.level, l, s.right);
     }
 
-    if ( r > 0 ) return gt(s.right, key, indexer);
+    if ( r > 0 ) return gt(s.getRight(), key, indexer);
 
     return s.right;
   }
@@ -333,14 +334,14 @@ public class TreeNode {
 
     int r = indexer.comparePropertyToValue(key, s.key);
     if ( r < 0 ) {
-      TreeNode l = gte(s.left, key, indexer);
+      TreeNode l = gte(s.getLeft(), key, indexer);
       long newSize = size(s) - size(s.left) + size(l);
       return new TreeNode(s.key, s.value, newSize, s.level, l, s.right);
     }
 
-    if ( r > 0 ) return gte(s.right, key, indexer);
+    if ( r > 0 ) return gte(s.getRight(), key, indexer);
 
-    return new TreeNode(s.key, s.value, size(s) - size(s.left),
+    return new TreeNode(s.key, s.value, size(s) - size(s.getLeft()),
       s.level, null, s.right);
   }
 
@@ -349,14 +350,14 @@ public class TreeNode {
 
     int r = indexer.comparePropertyToValue(key, s.key);
     if ( r > 0 ) {
-      TreeNode right = lt(s.right, key, indexer);
+      TreeNode right = lt(s.getRight(), key, indexer);
       long newSize = size(s) - size(s.right) + size(right);
       return new TreeNode(s.key, s.value, newSize, s.level, s.left, right);
     }
 
-    if ( r < 0 ) return lt(s.left, key, indexer);
+    if ( r < 0 ) return lt(s.getLeft(), key, indexer);
 
-    return s.left;
+    return s.getLeft();
   }
 
   public TreeNode lte(TreeNode s, Object key, Indexer indexer) {
@@ -364,13 +365,13 @@ public class TreeNode {
 
     int r = indexer.comparePropertyToValue(key, s.key);
     if ( r > 0 ) {
-      TreeNode right = lte(s.right, key, indexer);
+      TreeNode right = lte(s.getRight(), key, indexer);
       long newSize = size(s) - size(s.right) + size(right);
       return new TreeNode(s.key, s.value, newSize,
         s.level, s.left, right);
     }
 
-    if ( r < 0 ) return lte(s.left, key, indexer);
+    if ( r < 0 ) return lte(s.getLeft(), key, indexer);
 
     return new TreeNode(s.key, s.value, size(s) - size(s.right), s.level, s.left, null);
   }

@@ -1,3 +1,2 @@
-p({"class":"foam.dao.store.test.FileStoreTest", "id":"FileStoreTest"})
 p({"class":"foam.dao.store.test.FileStoreIndexTest", "id":"FileStoreIndexTest"})
 p({"class":"foam.dao.store.test.StoreTestModelPerfTest", "id":"StoreTestModelPerfTest", "enabled":false})

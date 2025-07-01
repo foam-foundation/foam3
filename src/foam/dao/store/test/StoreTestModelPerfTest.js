@@ -26,19 +26,27 @@ foam.CLASS({
     'java.util.List'
   ],
 
+  javaCode: `
+  int num = 2000;
+  `,
   methods: [
+    {
+      name: 'setup',
+      args: 'Context x',
+      javaCode: `
+      num = 2000;
+      `
+    },
     {
       name: 'runTest',
       javaCode: `
-      int num = 2000;
-
+      setup(x);
       Logger logger = Loggers.logger(x, this);
       DAO dao =  getDAO(x);
       PM pm = new PM("StoreTestModelPerfTest-create");
       for ( long i = 1; i <= num; i++ ) {
         StoreTestModel stm = new StoreTestModel();
         String s = String.valueOf(i);
-        // stm.setId(i);
         stm.setName(s);
         stm.setData(s);
         stm.setStorageTransientData(s);

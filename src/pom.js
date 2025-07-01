@@ -384,7 +384,6 @@ foam.POM({
     { name: "foam/dao/store/Store",                                   flags: 'js|java' },
     { name: "foam/dao/store/Stored",                                  flags: 'js|java' },
     { name: "foam/dao/index/TreeNodeStored",                          flags: 'js|java' },
-    { name: "foam/dao/store/test/FileStoreTest",                      flags: 'js&test|java&test' },
     { name: "foam/dao/store/test/FileStoreIndexTest",                 flags: 'js&test|java&test' },
     { name: "foam/dao/store/test/StoreTestModel",                     flags: 'js&test|java&test' },
     { name: "foam/dao/store/test/StoreTestModelPerfTest",             flags: 'js&test|java&test' },

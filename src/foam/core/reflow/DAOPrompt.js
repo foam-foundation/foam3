@@ -44,7 +44,7 @@ foam.CLASS({
           add(self.data.dynamic(async function(version, skip) {
             var startTime = Date.now();
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
-            // TODO: fix JSON parsing should setup context corectly
+            // TODO: fix JSON parsing should setup context correctly
             var select    = self.data.select.clone(self.data.__subContext__);
             await select.execute(this);
             self.data.readyLatch_.resolve();

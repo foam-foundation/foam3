@@ -64,14 +64,24 @@ foam.CLASS({
       class: 'Int',
       name: 'total',
       reactive: false,
+      // Not transient, is stored so we know if any tests are missing
       visibility: 'RO'
     },
     {
       name: 'dao',
       hidden: true,
       transient: true,
+      preSet: function(o, n) {
+        // TODO: needed because Console does a copyFrom() which will lose data
+        // Remove when no longer needed
+        return o || n;
+      },
       factory: function() {
-        return this.EasyDAO.create({seqNo: true, daoType: 'MDAO', of: foam.core.reflow.float.Test});
+        return this.EasyDAO.create({
+          seqNo: true,
+          daoType: 'MDAO',
+          of: foam.core.reflow.float.Test
+        });
       }
     },
     {
@@ -179,22 +189,29 @@ foam.CLASS({
         end().
         start().
           style({marginLeft: '20px', marginBottom: '20px', fontSize: 'larger'}).
-          start('div').
+
+          select(this.data.dao, function(t) {
+            this.startContext({data: t}).add(t.id, ' ').start(t.STATUS).style({display: 'inline-block', width: '70px'}).end().add(' ', t.description).br();
+          }).
+
+          br().
+
+          start().
             show(this.data.passed$).
             style({color: 'green'}).
-            add('Passed: ', this.data.passed$).
+            add('PASSED: ', this.data.passed$).
           end().
-          start('div').
+          start().
             show(this.data.failed$).
             style({color: 'red'}).
-            add('Failed: ',   this.data.failed$).
+            add('FAILED: ',   this.data.failed$).
           end().
-          start('div').
+          start().
             show(this.data.missing$).
             style({color: 'red'}).
-            add('Missing: ',  this.data.missing$).
+            add('MISSING: ',  this.data.missing$).
           end().
-          start('b').add('Total: ', this.data.total$);
+          start('b').add('TOTAL: ', this.data.total$);
     }
   ]
 });

@@ -645,7 +645,7 @@ function outputHelp(arg, msg) {
         let pomHelp = POM_HELP[name];
         pomHelp.forEach(h => {
           if ( name.startsWith(arg) ||
-               pomHelp.help.indexOf(arg) ) {
+               pomHelp.help && pomHelp.help.indexOf(arg) ) {
             if ( ! title ) {
               title = true;
               extra += '\n  Possible POM matches: \n';

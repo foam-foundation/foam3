@@ -426,19 +426,12 @@ foam.CLASS({
     {
       name: 'browse',
       isAvailable: function(nestedGroupBy) { return ! nestedGroupBy; },
-      code: function() {
+      code: async function() {
         var block = this.block || this.__context__.currentBlock; // ??? Why needed?
         var cls   = block?.value?.value?.cls_;
 
-        var browse = () => this.eval_(`dao(${block.flowName}.value.asDAO(), '${block.flowName}GroupBy')`);
-
-        if ( block && foam.mlang.sink.GroupBy != cls ) {
-          block.value.run();
-          // TODO: something better
-          setTimeout(browse, 200);
-        } else {
-          browse();
-        }
+        await block.value.waitForRun();
+        this.eval_(`dao(${block.flowName}.value.asDAO(), '${block.flowName}GroupBy')`);
       }
     }
   ]
@@ -463,6 +456,7 @@ foam.CLASS({
   ],
 
   methods: [
+    function value(s) { return this.sink.value(s.sink); },
     function createSink() { return this.DuplicateSink.create({expr: this.prop, sink: this.sink.createSink()}); },
     function addToE(e) {
       e.startContext({data: this}).start().style({display: 'flex'}).add(this.PROP, this.SINK);

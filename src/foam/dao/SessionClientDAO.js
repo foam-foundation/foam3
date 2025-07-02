@@ -65,7 +65,7 @@ c.select().then(function(a1) {
 
         var box = this.HTTPBox.create({
           authorizationType: this.HTTPAuthorizationType.BEARER,
-          url: 'service/'+this.serviceName
+          url: 'service/' + this.serviceName
         }, x);
 
         this.delegate = this.ClientDAO.create({

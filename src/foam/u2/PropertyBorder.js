@@ -255,12 +255,9 @@ foam.CLASS({
         show(visibilitySlot).
         add(labelSlot).
         add(supportingLabelSlot).
+        call(this.layoutView, [self, prop, viewSlot]).
         start().
           addClass(this.myClass('propHolder')).
-          start('span').
-            addClass(this.myClass('propHolderInner')).
-            call(this.layoutView, [self, prop, viewSlot]).
-          end().
           callIf(prop.help, function() {
             this.start().addClass(self.myClass('helper-icon'))
               .start('', { tooltip: prop.help.length < 60 ? prop.help : self.LEARN_MORE })

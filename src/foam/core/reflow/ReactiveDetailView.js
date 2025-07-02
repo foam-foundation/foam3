@@ -85,9 +85,14 @@ foam.CLASS({
   css: `
     ^{
       width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 8px;
     }
     ^ ^label {
-      width: 50%;
+      color: $black;
+      width: 90%;
     }
     ^view: {
       min-height: 0px;
@@ -294,14 +299,22 @@ foam.CLASS({
 
 
   css: `
-    ^ {
-      padding: 20px;
-    }
     ^ > div > .foam-u2-layout-Rows {
       gap: 10px;
     }
     ^ .foam-u2-detail-SectionView-actionDiv {
       flex-direction: column;
+    }
+    ^ .foam-u2-detail-SectionView-section-title {
+      padding-inline: 24px;
+      padding-block: 16px;
+      font-size: 16px;
+    }
+    ^ .foam-u2-detail-SectionView-general {
+      border-bottom: 1px solid $grey200;
+    }
+    ^ .foam-u2-detail-SectionView-grid {
+      padding-inline: 24px;
     }
   `,
 

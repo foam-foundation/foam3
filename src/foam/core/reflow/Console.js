@@ -10,11 +10,9 @@
 
 // Features:
 //  - put current user in Context, use in Signature
-//  - load/save Flows
 //  ? how are Commands different than flows?
-
-
 // ???: Would it be better to have compose rather than mixing Flowable?
+
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Flowable',
@@ -664,6 +662,9 @@ foam.CLASS({
       border-radius: 4px;
       gap: 10px;
     }
+    ^r .foam-u2-PropertyBorder-view {
+      width: 100%;
+    }
     ^r .foam-core-reflow-PropertyListView {
       justify-content: space-between;
     }
@@ -773,6 +774,7 @@ foam.CLASS({
 
   imports: [
     'commandDAO',
+    'flowDAO',
     'params',
     'scope?',
     'setTimeout',
@@ -964,6 +966,36 @@ foam.CLASS({
   ],
 
   methods: [
+    async function includeFlow(name) {
+      if ( ! name ) return;
+      var flow = await this.flowDAO.find(name);
+
+      if ( flow ) {
+        this.includeScript(flow.script);
+      }
+    },
+
+    async function includeScript(script) {
+      if ( ! script ) return;
+
+      var cs = foam.json.parseString(script, this.__subContext__);
+
+      for ( var i = 0 ; i < cs.length ; i++ ) {
+        var c = cs[i];
+
+        this.eval_(c.cmd);
+
+        this.currentBlock.flowName = c.flowName;
+
+        if ( this.currentBlock.value && c.value ) {
+          if ( c.value.clone ) c.value = c.value.clone(this.__subContext__);
+          this.currentBlock.value.copyFrom(c.value);
+        }
+
+        await this.currentBlock.value?.onLoad?.();
+      }
+    },
+
     function clearFlow() {
       this.removeAllFlowChildren();
 
@@ -1393,27 +1425,11 @@ foam.CLASS({
         if ( this.feedback_ ) return;
         this.feedback_ = true;
         try {
-          var script = this.value.script;
-
-          var cs = script ? foam.json.parseString(script, this.__subContext__) : [];
+          this.clearFlow();
           var currentBlockName = this.selected ? this.selected.flowName : this.flowName;
 
-          this.clearFlow();
-
-          for ( var i = 0 ; i < cs.length ; i++ ) {
-            var c = cs[i];
-
-            this.eval_(c.cmd);
-
-            this.currentBlock.flowName = c.flowName;
-
-            if ( this.currentBlock.value && c.value ) {
-              if ( c.value.clone ) c.value = c.value.clone(this.__subContext__);
-              this.currentBlock.value.copyFrom(c.value);
-            }
-
-            await this.currentBlock.value?.onLoad?.();
-          }
+          var script = this.value.script;
+          this.includeScript(script);
 
           this.selected = currentBlockName == this.flowName ? this : this.findFlowChildByName(currentBlockName) || this;
         } finally {
@@ -1435,8 +1451,3 @@ foam.CLASS({
     }
   ]
 });
-
-/* TODO:
-   modes: Doc, Prompt/Console, Calc
-   Input
-*/

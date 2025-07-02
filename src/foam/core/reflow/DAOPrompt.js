@@ -319,6 +319,12 @@ visible      },
 
     function onLoad() {
       return this.readyLatch_;
+    },
+
+    function waitForRun() {
+      this.readyLatch_ = undefined;
+      this.run();
+      return this.readyLatch_;
     }
   ],
 

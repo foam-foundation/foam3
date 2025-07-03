@@ -231,3 +231,14 @@ p({
   "serviceClass":"foam.core.notification.email.POP3EmailService",
   "client":"{ \"class\":\"foam.core.notification.email.ClientPOP3EmailService\", \"delegate\": { \"class\":\"foam.box.HTTPBox\", \"url\":\"service/pop3\" } }"
 })
+
+p({
+  class: "foam.core.boot.CSpec",
+  name: "smtpAgentThrottle",
+  description: "Throttle SMTP Send",
+  serviceScript: """
+    return new foam.core.pool.Throttle.Builder(x)
+      .setRate(14.0F) // 14 tps
+      .build();
+  """
+})

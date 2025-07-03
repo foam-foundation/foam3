@@ -43,7 +43,7 @@ foam.CLASS({
       name: 'runTest',
       javaCode: `
       // install mock service
-      MockSMTPAgent agent = (MockSMTPAgent) x.get("smtpAgent");
+      final MockSMTPAgent agent = (MockSMTPAgent) x.get("smtpAgent");
 
       x = x.put("emailMessageDAO", new foam.dao.MDAO(EmailMessage.getOwnClassInfo()));
       // keep date order to test delivery order
@@ -65,7 +65,7 @@ foam.CLASS({
         dates.add(d);
         msg.setCreated(d);
         try {
-          Thread.currentThread().sleep(1000L);
+          Thread.currentThread().sleep(100L);
         } catch (InterruptedException e) {
           // nop
         }
@@ -79,19 +79,30 @@ foam.CLASS({
       ((DAO) x.get("emailServiceConfigDAO")).put(config);
 
       // test only x messages processed in 1s.
-      long rate = config.getRateLimit();
+      double rate = 1.0; // see smtpAgent Throttle
 
       long startTime = System.currentTimeMillis();
-      agent.execute(x);
-
+      Agency agency = (Agency) x.get("threadPool");
+      agency.submit(x, new ContextAgent() {
+        public void execute(X x) {
+          agent.execute(x);
+        }
+      }, "MockSMTPAgent");
+      try {
+        Thread.currentThread().sleep(2000L);
+      } catch (InterruptedException e) {
+        // nop
+      }
       List<EmailMessage> sent = ((ArraySink) emailMessageDAO.where(
         EQ(EmailMessage.STATUS, Status.SENT)
       )
       .orderBy(EmailMessage.SENT_DATE)
       .select(new ArraySink())).getArray();
 
-      int c = sent.size();
-      test ( c <= rate, "Sufficient sent "+c+" <= "+rate);
+      long endTime = System.currentTimeMillis();
+      long seconds = (endTime - startTime) / 1000;
+      double tps = sent.size() / (seconds * 1.0);
+      test ( tps > 0.0 && tps <= rate, "sent: "+sent.size()+"/"+seconds+", tps: "+tps+" <= "+rate+"/s");
 
       // test order
       boolean passed = true;

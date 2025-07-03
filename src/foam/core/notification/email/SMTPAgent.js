@@ -82,6 +82,11 @@ foam.CLASS({
       of: 'foam.core.er.EventRecord'
     },
     {
+      name: 'throttler',
+      class: 'String',
+      value: 'smtpAgentThrottle'
+    },
+    {
       name: 'lastConfig',
       class: 'FObjectProperty',
       of: 'foam.core.notification.email.EmailServiceConfig',
@@ -249,25 +254,9 @@ foam.CLASS({
           // Reload only if there are email messages to send.
           maybeReload();
 
-          long second = 1000L;
-          long limit = config.getRateLimit();
-
-          long endTime = System.currentTimeMillis() + second;
-          long count = 1;
           for ( EmailMessage emailMessage : emailMessages ) {
+            throttle(x);
             emailMessageDAO.put(send(x, emailMessage));
-            count++;
-            if ( limit > 0 &&
-                 count > limit ) {
-              // super simple rate limiting.
-              long remaining = endTime - System.currentTimeMillis();
-              if ( remaining > 0 ) {
-                sleep(remaining);
-                return;
-              }
-              count = 1;
-              endTime = System.currentTimeMillis() + second;
-            }
             config = findId(getX());
             if ( ! config.getEnabled() ) break;
           }
@@ -454,6 +443,14 @@ foam.CLASS({
           logger.error("send failed", e.getMessage());
         }
         return emailMessage;
+      `
+    },
+    {
+      name: 'throttle',
+      args: 'X x',
+      javaCode: `
+        var t = (foam.core.pool.Throttle) x.get(getThrottler());
+        if ( t != null ) t.throttle();
       `
     }
   ]

@@ -7,15 +7,12 @@
 foam.CLASS({
   package: 'foam.core.notification.email.ms',
   name: 'EmailServiceConfig',
-
-  refines: 'foam.core.notification.email.EmailServiceConfig',
+  extends: 'foam.core.notification.email.EmailServiceConfig',
 
   properties: [
     {
       name: 'password',
       label: 'Password / Client Secret',
-      class: 'Password',
-      value: null
     },
     {
       name: 'clientId',

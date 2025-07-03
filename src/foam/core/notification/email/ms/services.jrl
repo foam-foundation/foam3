@@ -7,3 +7,13 @@ p({
     id: 'msGraph'
   }
 })
+p({
+  class: "foam.core.boot.CSpec",
+  name: "microsoftGraphEmailAgentThrottle",
+  description: "Throttle Microsoft Email Send",
+  serviceScript: """
+    return new foam.core.pool.Throttle.Builder(x)
+      .setRate(4.0F) // 4 tps
+      .build();
+  """
+})

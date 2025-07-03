@@ -95,13 +95,6 @@ foam.CLASS({
       value: 'smtp'
     },
     {
-      documentation: 'Relevant to send - Provider imposed rateLimit (per second), at which point they will throttle or block completely for some time window',
-      name: 'rateLimit',
-      class: 'Long',
-      units: 's',
-      value: 14 // default for smtp.gmail.com
-    },
-    {
       name: 'predicate',
       class: 'foam.mlang.predicate.PredicateProperty',
       factory: function () {

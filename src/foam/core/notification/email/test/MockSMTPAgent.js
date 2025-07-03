@@ -19,6 +19,14 @@ foam.CLASS({
     'jakarta.mail.Transport' // satisfy javagen/compilation
   ],
 
+  properties: [
+    {
+      name: 'throttler',
+      class: 'String',
+      value: 'mockSmtpAgentThrottle'
+    }
+  ],
+
   methods: [
     {
       name: 'start',

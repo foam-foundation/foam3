@@ -50,6 +50,16 @@ p({
     id: "test"
   }
 })
+p({
+  class: "foam.core.boot.CSpec",
+  name: "mockSmtpAgentThrottle",
+  description: "Throttle SMTP Send",
+  serviceScript: """
+    return new foam.core.pool.Throttle.Builder(x)
+      .setRate(1.0F) // 1 tps
+      .build();
+  """
+})
 
 p({
   class: "foam.core.boot.CSpec",

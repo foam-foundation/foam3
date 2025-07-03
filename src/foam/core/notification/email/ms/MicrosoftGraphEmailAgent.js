@@ -23,7 +23,7 @@ foam.CLASS({
 
     'foam.core.notification.email.Status',
     'foam.core.notification.email.EmailMessage',
-    'foam.core.notification.email.EmailServiceConfig',
+    'foam.core.notification.email.ms.EmailServiceConfig',
 
     'java.util.Collections',
     'foam.lang.ContextAgentTimerTask',
@@ -88,24 +88,42 @@ foam.CLASS({
     {
       name: 'id',
       class: 'Reference',
-      of: 'foam.core.notification.email.EmailServiceConfig',
+      of: 'foam.core.notification.email.ms.EmailServiceConfig',
       targetDAOKey: 'emailServiceConfigDAO',
       value: 'msGraph'
     },
     {
+      name: 'throttler',
+      class: 'String',
+      value: 'microsoftGraphEmailAgentThrottle'
+    },
+    {
       name: 'credential',
       class: 'Object',
-      javaType: 'com.azure.identity.ClientSecretCredential'
+      javaType: 'com.azure.identity.ClientSecretCredential',
+      visibility: 'HIDDEN',
+      transient: true
     },
     {
       name: 'accessToken',
       class: 'Object',
-      javaType: 'com.azure.core.credential.AccessToken'
+      javaType: 'com.azure.core.credential.AccessToken',
+      visibility: 'HIDDEN',
+      transient: true
     },
     {
       name: 'service',
       class: 'Object',
-      javaType: 'microsoft.exchange.webservices.data.core.ExchangeService'
+      javaType: 'microsoft.exchange.webservices.data.core.ExchangeService',
+      visibility: 'HIDDEN',
+      transient: true
+    },
+    {
+      name: 'lastConfig',
+      class: 'FObjectProperty',
+      of: 'foam.core.notification.email.ms.EmailServiceConfig',
+      visibility: 'HIDDEN',
+      transient: true
     }
   ],
 

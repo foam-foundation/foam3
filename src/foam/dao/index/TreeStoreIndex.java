@@ -78,13 +78,13 @@ public class TreeStoreIndex
   protected void store(TreeNode node, Object key) {
     Logger logger = Loggers.logger(store_.getX(), this);
     // logger.info("store,root", node.getKey(), key, node.getLeft()!=null?node.getLeft().getKey():"", node.getRight()!=null?node.getRight().getKey():"");
-    
+
     Deque<Stored> stored = new ArrayDeque();
     Set<Object>   right  = new HashSet();
     Deque stack = pushLeft(new ArrayDeque(), node);
-    
+
     while( stack.size() > 0 ) {
-      // output("stack", stack);
+      // printStack("stack", stack);
       Object o = stack.pop();
       if ( o instanceof Stored ) {
         stored.addFirst((Stored)o);
@@ -114,7 +114,7 @@ public class TreeStoreIndex
 
   protected Stored store(TreeNode node, Stored left, Stored right, boolean updateValue, boolean root) {
     // Loggers.logger(store_.getX(), this).info("storing", node.getKey(), left!=null?((TreeNodeStored)left.get()).getKey():"", right!=null?((TreeNodeStored) right.get()).getKey():"", updateValue, root);
-    
+
     TreeNodeStored tns = (TreeNodeStored) node.getStored();
     if ( tns == null ) {
       tns = new TreeNodeStored();
@@ -140,11 +140,15 @@ public class TreeStoreIndex
   }
 
   // Recreate the Tree
-  public TreeNode bulkLoad(Stored stored) {
+  public TreeNode bulkLoad(Stored stored, int currentDepth, int maxDepth, foam.dao.store.FileStore store) {
     if ( stored == null )
       return null;
 
     TreeNodeStored tns = (TreeNodeStored) stored.get();
+    tns.setStore(store);
+    if ( maxDepth > 0 && currentDepth > maxDepth )
+      return null;
+
     tns.setLeftLoaded(true);
     tns.setRightLoaded(true);
     TreeNode node = new TreeNode(
@@ -152,8 +156,8 @@ public class TreeStoreIndex
                                  store_.load(tns.getValue()).get(),
                                  tns.getSize(),
                                  (byte) tns.getLevel(),
-                                 bulkLoad(store_.load(tns.getLeft())),
-                                 bulkLoad(store_.load(tns.getRight())),
+                                 bulkLoad(store_.load(tns.getLeft()), currentDepth + 1, maxDepth, store),
+                                 bulkLoad(store_.load(tns.getRight()), currentDepth + 1, maxDepth, store),
                                  tns
                                  );
     tns.setValue(null);
@@ -171,14 +175,14 @@ public class TreeStoreIndex
 
     if ( ! loaded_ ) {
       loaded_ = true;
-      state_ = bulkLoad(store_.getRoot());
+      state_ = bulkLoad(store_.getRoot(), 0, 0, store_);
+      // state_ = bulkLoad(store_.getRoot(), 0, 2, store_);
       // TODO: on startup load to level or some time restraint.
-      // bulkLoad(.., level)
     }
   }
 
   // dump stack for debugging
-  protected void output(String name, Deque s) {
+  protected void printStack(String name, Deque s) {
     StringBuilder sb = new StringBuilder();
     Iterator iter = s.iterator();
     while ( iter.hasNext() ) {

@@ -24,6 +24,7 @@ foam.CLASS({
     'foam.lang.Detachable',
     'foam.lang.FObject',
     'foam.dao.index.AddIndexCommand',
+    'static foam.mlang.MLang.COUNT',
     'foam.mlang.sink.Count',
     'foam.mlang.predicate.Predicate',
     'foam.mlang.predicate.True',
@@ -59,15 +60,15 @@ foam.CLASS({
       class: 'Boolean',
       name: 'autoStart'
     },
-    {
-      documentation: `When false, DAO will be not initialized (loaded) - ever.
-The system will only rely on sourceDAO updates triggering the copy adapter.
-Use this configuration when the MDAO is setup with FileStore to decrease
-system startup time.`,
-      class: 'Boolean',
-      name: 'initialize',
-      value: true
-    },
+//     {
+//       documentation: `When false, DAO will be not initialized (loaded) - ever.
+// The system will only rely on sourceDAO updates triggering the copy adapter.
+// Use this configuration when the MDAO is setup with FileStore to decrease
+// system startup time.`,
+//       class: 'Boolean',
+//       name: 'initialize',
+//       value: true
+//     },
     {
       class: 'Object',
       name: 'queue',
@@ -164,7 +165,7 @@ system startup time.`,
           val = new foam.dao.PMDAO.Builder(getX()).setCSpec(getCSpec()).setDelegate(val).build();
         */
       `,
-      javaFactory: 'return new foam.dao.MDAO(getOf());'
+      javaFactory: 'return new foam.dao.MDAO(getX(), getOf(), ("materialized-" + getSourceDAO().getOf().getObjClass().getSimpleName() + "-" + getOf().getObjClass().getSimpleName()).toLowerCase());'
     },
     {
       class: 'Array',
@@ -191,8 +192,13 @@ system startup time.`,
       javaType: 'void',
       synchronized: true,
       javaCode: `
-        if ( ! getInitialize() ) return;
-        if ( getInitialized() ) return;
+        if ( getInitialized() )
+          return;
+
+        if ( ((Count) getDelegate().select(COUNT())).getValue() > 0 ) {
+          setInitialized(true);
+          return;
+        }
 
         Logger logger = Loggers.logger(getX(), this, getInstanceName());
         logger.info("initializing");

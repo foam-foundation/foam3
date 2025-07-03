@@ -293,14 +293,14 @@ public class TreeNode {
   }
 
   protected TreeNode getLeft() {
-    if ( left == null && getStored() != null && ! getStored().getLeftLoaded() )
+    if ( left == null && getStored() != null && getStored().getLeft() != null && ! getStored().getLeftLoaded() )
       getStored().loadLeft();
 
     return left;
   }
 
   protected TreeNode getRight() {
-    if ( right == null && getStored() != null && ! getStored().getRightLoaded() )
+    if ( right == null && getStored() != null && getStored().getRight() != null && ! getStored().getRightLoaded() )
       getStored().loadRight();
 
     return right;

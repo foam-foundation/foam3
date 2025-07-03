@@ -150,7 +150,7 @@ foam.CLASS({
       });
       var supportingLabelSlot = this.slot(function(prop$supportingLabel) {
         let el = this.E().addClass(this.myClass('supportingLabel'), this.myClass('supportingLabel' + '-' + prop.name), 'p-legal');
-        return prop$supportingLabel ? el.add(prop$supportingLabel) : this.E().style({ display: 'contents' }) 
+        return prop$supportingLabel ? el.add(prop$supportingLabel) : this.E().style({ display: 'contents' })
       });
 
       var viewSlot = prop.view$.map(v => {
@@ -255,9 +255,12 @@ foam.CLASS({
         show(visibilitySlot).
         add(labelSlot).
         add(supportingLabelSlot).
-        call(this.layoutView, [self, prop, viewSlot]).
         start().
           addClass(this.myClass('propHolder')).
+          start('span').
+            addClass(this.myClass('propHolderInner')).
+            call(this.layoutView, [self, prop, viewSlot]).
+          end().
           callIf(prop.help, function() {
             this.start().addClass(self.myClass('helper-icon'))
               .start('', { tooltip: prop.help.length < 60 ? prop.help : self.LEARN_MORE })

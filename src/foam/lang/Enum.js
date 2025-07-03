@@ -442,7 +442,11 @@ foam.CLASS({
     {
       name: 'toJSON',
       value: function(value) { return value.ordinal; }
-    }
+    },
+    [
+      'isDefaultValue',
+      function(v) { return false }
+    ],
   ]
 });
 

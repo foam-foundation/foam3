@@ -37,6 +37,7 @@ foam.POM({
     { name: 'DynamicReflowHelp',       flags: 'js' },
     { name: 'Script',                  flags: 'js' },
     { name: 'Signature',               flags: 'js' },
+    { name: 'Trigger',                 flags: 'js' },
     { name: 'SinkView',                flags: 'js' },
     { name: 'CopyFromBorder',          flags: 'js' },
     { name: 'Upload',                  flags: 'js' },

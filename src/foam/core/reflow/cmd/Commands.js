@@ -869,3 +869,26 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'Trigger',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  properties: [
+    [ 'description', 'Execute a script when a condition becomes true' ]
+  ],
+
+  methods: [
+    function execute(condition, script) {
+      var triggerComponent = foam.core.reflow.Trigger.create({
+        condition: condition,
+        script: script
+      }, this);
+
+      this.currentBlock.value = triggerComponent;
+      this.out.add(triggerComponent);
+    }
+  ]
+});

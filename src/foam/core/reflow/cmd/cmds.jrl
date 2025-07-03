@@ -146,3 +146,8 @@ p({
   "id": "input",
   "description": "Take Input from user or from URL parameter."
 })
+p({
+  "class":"foam.core.reflow.cmd.Trigger",
+  "id": "trigger",
+  "description": "Execute a script when a condition becomes true"
+})

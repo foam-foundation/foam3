@@ -79,11 +79,10 @@ foam.CLASS({
             public void execute(X x) {
               PM pm = PM.create(x, "Notification:group");
               Count count = new Count();
+              UserNotificationSink userNotificationSink = new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO"));
+              userNotificationSink.setX(x);
               Sequence seq = new Sequence.Builder(x)
-                .setArgs(new Sink[] {
-                  count,
-                  new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO"))
-                })
+                .setArgs(new Sink[] { count, userNotificationSink })
                 .build();
               userDAO.where(
                 AND(

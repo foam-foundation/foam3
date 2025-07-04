@@ -42,6 +42,7 @@ foam.CLASS({
     {
       __copyFrom__: 'foam.core.notification.Notification.GROUP_ID',
       label: 'Send To Group',
+      order: 100,
       validateObj: function(groupId, users) {
         if ( ! groupId && ! ( users && users.length ) ) {
           return this.GROUP_OR_USERS_REQUIRED;
@@ -55,15 +56,21 @@ foam.CLASS({
       }
     },
     {
+      __copyFrom__: 'net.nanopay.fx.notification.RateBroadcastNotification.PREDICATE',
+      createVisibility: 'HIDDEN',
+      order: 150
+    },
+    {
       class: 'Array',
       name: 'users',
       label: 'Send to Users',
+      order: 200,
       view: function(_, X) {
         var userDAOSlot = X.data.slot(groupId => {
           if ( groupId ) {
-            return X.userDAO.where(X.data.EQ(X.data.User.GROUP, groupId));
+            return X.userDAO.where(X.data.AND(X.data.EQ(X.data.User.GROUP, groupId), X.data.CLASS_OF(X.data.User)));
           } else {
-            return X.userDAO.where(X.data.EQ(X.data.User.SPID, X.subject.user.spid));
+            return X.userDAO.where(X.data.AND(X.data.EQ(X.data.User.SPID, X.subject.user.spid), X.data.CLASS_OF(X.data.User)));
           }
         });
         return {
@@ -76,7 +83,8 @@ foam.CLASS({
             sections: [
               {
                 heading: 'Users',
-                dao$: userDAOSlot
+                dao$: userDAOSlot,
+                choicesLimit: 100
               }
             ]
           }
@@ -92,6 +100,7 @@ foam.CLASS({
       class: 'Reference',
       name: 'notificationTemplate',
       of: 'foam.core.notification.Notification',
+      order: 300,
       view: function(_, X) {
         var dao = X.notificationTemplateDAO;
         return {
@@ -126,6 +135,7 @@ foam.CLASS({
     {
       __copyFrom__: 'foam.core.notification.Notification.BODY',
       label: 'Notification Body',
+      order: 400,
       view: { class: 'foam.u2.view.RichTextView' },
       validateObj: function(body, notificationTemplate, toastMessage) {
         if ( ( ! body || ! body.length || ! body.trim() ) &&
@@ -139,16 +149,19 @@ foam.CLASS({
       __copyFrom__: 'foam.core.notification.Notification.EMAIL_ARGS',
       label: "Email Template Args",
       visibility: 'RW',
+      order: 500
     },
     {
       class: 'Boolean',
       name: 'showToast',
       label: 'Show Toast (Push)',
+      order: 600,
       postSet: function(_, n) { if ( ! n ) this.toastMessage = ''; }
     },
     {
       __copyFrom__: 'foam.core.notification.Notification.TOAST_MESSAGE',
       onKey: true,
+      order: 700,
       createVisibility: function(showToast) {
         return showToast ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
@@ -161,12 +174,15 @@ foam.CLASS({
     {
       __copyFrom__: 'foam.core.notification.Notification.TOAST_SUB_MESSAGE',
       onKey: true,
+      order: 800,
       createVisibility: function(showToast) {
         return showToast ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
       __copyFrom__: 'foam.core.notification.Notification.EXTRA',
+      label: 'Extra Meta Data',
+      order: 900,
       visibility: 'RW'
     }
   ],
@@ -187,7 +203,8 @@ foam.CLASS({
         severity: 'INFO',
         extra: this.extra,
         transient: false,
-        toastState: this.showToast ? 'REQUESTED' : 'NONE'
+        toastState: this.showToast ? 'REQUESTED' : 'NONE',
+        predicate: this.predicate
       };
     },
     function clearNotification() {
@@ -201,6 +218,7 @@ foam.CLASS({
       this.users = undefined;
       this.emailArgs = undefined;
       this.extra = undefined;
+      this.predicate = undefined;
     }
   ],
 

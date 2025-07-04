@@ -83,7 +83,7 @@ foam.CLASS({
           .addClass(this.myClass('sectionWrapper'))
           .tag(this.VerticalDetailView, { data$: this.data$ })
           .start().add('Preview').addClass('p-semiBold').end()
-          .start(this.NotificationRowView, { data$: this.data$, of: this.BroadcastNotification.id })
+          .start(this.NotificationRowView, { data$: this.data$, of: this.data?.cls_?.id })
             .addClass(this.myClass('button'))
           .end()
         .end()

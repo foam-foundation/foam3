@@ -5,5 +5,9 @@
  */
 
 foam.POM({
-    name: 'foam-demo'
+    name: 'foam-demo',
+
+    files: [
+      { name: 'src/foamdev/demo/zac/HelloWorld', flags: "web" }
+    ]
 });

@@ -211,6 +211,17 @@ foam.CLASS({
       menuKeys: ['admin.groups']
     },
     {
+      class: 'foam.mlang.predicate.PredicateProperty',
+      name: 'predicate',
+      documentation: 'When set, this predicate is used to filter users the notification is sent to.',
+      factory: function() {
+        return foam.mlang.predicate.True.create();
+      },
+      javaFactory: `
+        return foam.mlang.MLang.TRUE;
+      `
+    },
+    {
       class: 'Map',
       name: 'emailArgs',
       visibility: 'HIDDEN',

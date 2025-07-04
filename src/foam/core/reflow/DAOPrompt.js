@@ -346,15 +346,13 @@ visible      },
       }
     },
     {
-      name: 'testOutput',
+      name: 'createTest',
       // TODO:
 //      isEnabled: function(value) { return this.value; },
       availablePermissions: [ 'command.read.test' ],
       code: async function() {
         // Run run() before testing to ensure output is correct.
-        this.readyLatch_ = undefined;
-        this.run();
-        await this.readyLatch_;
+        await this.waitForRun();
 
         var name = this.block.flowName;
         this.eval_(`test(${name}.value,'Test output of ${name}')`);

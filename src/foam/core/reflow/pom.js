@@ -48,6 +48,8 @@ foam.POM({
     { name: 'cmd/Commands',            flags: 'js|java' },
     { name: 'ColumnParser',            flags: 'js' },
     { name: 'Prompt',                  flags: 'js' },
-    { name: 'lib',                     flags: 'js' }
+    { name: 'lib',                     flags: 'js' },
+    { name: 'ToolbarControl',          flags: 'js|java' },
+    { name: 'control/HelpControl',     flags: 'js' }
   ]
 });

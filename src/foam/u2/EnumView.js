@@ -69,7 +69,7 @@ foam.CLASS({
         var values = [];
         if ( this.of ) {
             var hash = {};
-            for ( var i = 0; i < array.length; i+=1 ) {
+            for ( var i = 0 ; i < array.length ; i+=1 ) {
               hash[array[i]] = i;
             }
             this.of.VALUES.map(v => {

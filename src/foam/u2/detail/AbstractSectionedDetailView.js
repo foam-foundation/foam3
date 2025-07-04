@@ -131,7 +131,8 @@ foam.CLASS({
         if ( ! useSections.length ) {
           var unusedProperties = of.getAxiomsByClass(this.Property)
               .filter((p) => ! usedAxioms[p.name])
-              .filter((p) => ! p.hidden);
+              .filter((p) => ! p.hidden)
+              .sort((a, b) => a.order - b.order);
           var unusedActions = of.getAxiomsByClass(this.Action)
               .filter((a) => ! usedAxioms[a.name]);
 

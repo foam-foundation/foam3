@@ -7,7 +7,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 6, "label":"GroupBy",    "value":
 p({"class":"foam.core.reflow.SinkAgent", "id": 7, "label":"Cells",      "value":"Cells",      "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 8, "label":"Citation",   "value":"Citation",   "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 9, "label":"Controller", "value":"Controller", "sink":false, "type":"structure", permissionRequired: true})
-p({"class":"foam.core.reflow.SinkAgent", "id": 16, "label":"Pie",       "value":"Pie",        "sink":true,  "type":"structure"})
+p({"class":"foam.core.reflow.SinkAgent", "id": 16,  "label":"Pie",       "value":"Pie",        "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 17, "label":"Row",       "value":"Row",        "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 18, "label":"Column",    "value":"Column",     "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 19, "label":"Script",    "value":"Script",     "sink":true,  "type":"structure", permissionRequired: true})

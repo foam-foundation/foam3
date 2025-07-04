@@ -20,7 +20,8 @@ foam.CLASS({
     'foam.u2.layout.Cols',
     'foam.u2.layout.Grid',
     'foam.u2.layout.GUnit',
-    'foam.u2.layout.Rows'
+    'foam.u2.layout.Rows',
+    'foam.u2.tag.Button'
   ],
 
   css: `
@@ -38,6 +39,14 @@ foam.CLASS({
     }
     ^grid {
       grid-gap: 16px 12px;
+    }
+    ^collapsable-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    ^collapse-btn {
+      color: $black!important;
     }
   `,
 
@@ -122,6 +131,11 @@ foam.CLASS({
           this.loadLatch = this.selected;
       },
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'collapsed',
+      value: true
     }
   ],
 
@@ -154,7 +168,15 @@ foam.CLASS({
                   this.start().add(slot$.value.toUpperCase()).addClass('h600', self.myClass('section-title')).end();
                 }
               } else {
-                this.start().add(section.title.toUpperCase()).addClass('h600', self.myClass('section-title')).end();
+                this.start().addClass('h600', self.myClass('section-title')).enableClass(self.myClass('collapsable-title'), section.collapsable$)
+                  .add(section.title.toUpperCase())
+                  .callIf(section.collapsable, function() {
+                    this.start(self.Button, { size: 'SMALL', buttonStyle: 'TEXT', themeIcon: 'plus' }).addClass(self.myClass('collapse-btn'))
+                      .on('click', function() { self.collapsed = !self.collapsed })
+                    .end();
+                  })
+                  
+                .end();
               }
             })
             .callIf(section$subTitle, function() {
@@ -171,7 +193,8 @@ foam.CLASS({
                 this.start().addClass('p', 'subtitle').add(section.subTitle).end();
               }
             })
-            .add(this.slot(function(loadLatch) {
+            .add(this.slot(function(loadLatch, collapsed) {
+              if ( collapsed && section.collapsable ) return;
               if ( ! loadLatch || ! section.properties.length ) return;
               var view = this.E().style({ display: 'contents' }).start(self.Grid, {}).addClass(self.myClass('grid'));
               let propVisArray = [];

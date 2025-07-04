@@ -1,0 +1,1 @@
+p({"class":"foam.core.reflow.ToolbarControl", "id": 'help', order: 0, view: 'foam.core.reflow.control.HelpControl'})

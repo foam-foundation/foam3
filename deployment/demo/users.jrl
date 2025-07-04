@@ -1,0 +1,17 @@
+// password: admin
+p({
+  "class":"foam.core.auth.User",
+  "id":42,
+  "spid":"foam",
+  "lifecycleState":1,
+  "group":"system",
+  "firstName":"admin",
+  "middleName":"",
+  "lastName":"admin",
+  "email":"admin@foamdev.com",
+  "userName":"admin",
+  "birthday":"1982-07-07T23:12:00.0Z",
+  "password":"jsBl9sn5SY0=:8oH84sPuZ2M+DVIdryPPZveTpKWPbHqIYRw1MYVi/DdTlnpV0p73cZE7FsQ35w9k/k9ymPt0UwQAoMnHKmJ9DA==",
+  "emailVerified":true,
+  "loginEnabled":true
+})

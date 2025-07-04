@@ -461,7 +461,10 @@ foam.CLASS({
       this.rows = a.length-1;
 
       try {
-        var props  = this.parseColumns(a[0]);
+        // Use existing mappings if available, otherwise parse from CSV headers
+        var props = this.mappings && this.mappings.length > 0 ? 
+          this.mappings : 
+          this.parseColumns(a[0]);
         var parser = this.CSVParser.create({});
         var agent;
 

@@ -778,6 +778,7 @@ foam.CLASS({
     'params',
     'scope?',
     'setTimeout',
+    'toolbarControlDAO',
     'window',
     'showNav'
   ],
@@ -828,7 +829,7 @@ foam.CLASS({
       text-align: left;
       width: 100%
     }
-    ^ .property-input {
+    ^input-field .property-input {
       border: none !important;
     }
     ^ .foam-u2-view-ValueView {
@@ -836,6 +837,14 @@ foam.CLASS({
     }
     .foam-core-reflow-Layout-l { overflow-y: auto; }
     ^ .foam-u2-ProgressView { width: 600px; }
+
+    ^rightBar-title {
+      padding-inline: 24px;
+      padding-block: 16px;
+      border-bottom: 1px solid $grey200;
+      font-size: 16px;
+      font-weight: bold;
+    }
 
   `,
 
@@ -941,6 +950,7 @@ foam.CLASS({
     {
       name: 'selected',
       postSet: function(o, n) {
+        if ( o === n ) return;
         this.selectedValue = n ? n.value : null;
         if (n && n.element_) {
           n.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1063,7 +1073,10 @@ foam.CLASS({
       layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
       layout.middle.call(this.renderSelf, [this]);
       layout.right.add(this.dynamic(function(selectedValue, selected$configViewSpec) {
-        this.tag(self.ReactiveSectionedDetailView, {
+        this.start().addClass(self.myClass('rightBar-title'))
+          .add('Flow Properties')
+        .end()
+        .tag(self.ReactiveSectionedDetailView, {
           of: selectedValue?.cls_.id ?? '',
           ...(selected$configViewSpec || {}),
           data: selectedValue,
@@ -1078,8 +1091,13 @@ foam.CLASS({
 
       this.flowName$ = this.value.name$;
 
-
       if ( this.route ) this.ROUTE.postSet.call(this, '', this.route);
+    },
+
+    function renderToolbar(self) {
+      this.select(self.toolbarControlDAO, function(c) {
+        this.tag({class: c.view});
+      });
     },
 
     function renderSelf(self) {
@@ -1091,8 +1109,8 @@ foam.CLASS({
             show(self.showInput$).
             addClass(self.myClass('input-field')).
             start('b').style({ display: 'flex', 'white-space': 'pre'}).
-              start(self.Link).add('help').on('click',    () => self.eval_('help'),    this).end()./*add(', ').
-              start(self.Link).add('history').on('click', () => self.eval_('history'), this).end().*/add(' >').
+              call(self.renderToolbar, [self]).
+              add(' >').
             end().
             start(self.INPUT, null, self.input_$).
               addClass(self.myClass('input')).

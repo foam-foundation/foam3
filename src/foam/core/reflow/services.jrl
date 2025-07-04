@@ -37,8 +37,7 @@ p({
 p({
   "class": "foam.core.boot.CSpec",
   "name": "agentDAO",
-  "lazy":false,
-  "description": "Stores SinkVeiw Agents",
+  "description": "Stores Reflow SinkView Agents",
   "serve":true,
   "authenticate":false,
   "serviceScript":`
@@ -53,6 +52,32 @@ p({
   "client":"""
     {
       "of":"foam.core.reflow.SinkAgent",
+      "cache":true,
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0
+    }
+  """
+})
+
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "toolbarControlDAO",
+  "description": "Stores Reflow Toolbar Controls",
+  "serve":true,
+  "authenticate":false,
+  "serviceScript":`
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("controls")
+      .setOf(foam.core.reflow.ToolbarControl.getOwnClassInfo())
+      .build();
+    `,
+  "client":"""
+    {
+      "of":"foam.core.reflow.ToolbarControl",
       "cache":true,
       "ttlSelectPurgeTime": 0,
       "ttlPurgeTime": 0

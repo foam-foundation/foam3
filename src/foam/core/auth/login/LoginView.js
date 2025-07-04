@@ -299,9 +299,15 @@ foam.CLASS({
       name: 'signInAction',
       label: 'Sign in',
       buttonStyle: 'PRIMARY',
+      /*
+        This is disabled because the browser is suggesting values, but doesn't actually enter them until
+        you click the button, so we think the fields are empty and disable the login button.
+        The only solution (I know of) is to just remove this validation.
+
       isEnabled: function(data, data$errors_) {
         return data && ! data$errors_;
       },
+      */
       code: function(X) {
         this.clientLoginService.signin(X, this.data);
       }

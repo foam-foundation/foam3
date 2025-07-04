@@ -111,6 +111,10 @@ foam.CLASS({
       class: 'String',
       name: 'fromClass',
       documentation: 'The class name to which the section belongs to.'
+    },
+    {
+      class: 'Boolean',
+      name: 'collapsable'
     }
   ],
 
@@ -136,6 +140,7 @@ foam.CLASS({
       // If a isnt already a section axiom, make it one
       if ( ! this.SectionAxiom.isInstance(a) ) {
         a = this.SectionAxiom.create(a);
+        
       }
       this.copyFrom(a);
       this.copyFrom({

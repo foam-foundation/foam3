@@ -10,6 +10,7 @@ foam.CLASS({
 
   imports: [
     'data as block',
+    'eval_',
     'scope'
   ],
 
@@ -27,7 +28,7 @@ foam.CLASS({
       class: 'String',
       name: 'code',
       reactive: false,
-      view: { class: 'foam.u2.tag.TextArea', rows: 12 },
+      view: { class: 'foam.u2.tag.TextArea', rows: 16 },
       displayWidth: 60
     },
     {
@@ -57,6 +58,15 @@ foam.CLASS({
 
     function clearOutput() {
       this.output = '';
+    },
+
+    {
+      name: 'createTest',
+      availablePermissions: [ 'command.read.test' ],
+      code: async function() {
+        var name = this.block.flowName;
+        this.eval_(`test(${name}.output, 'Test script output for ${name}')`);
+      }
     }
   ]
 });

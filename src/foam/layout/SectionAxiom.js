@@ -27,6 +27,10 @@ foam.CLASS({
       name: 'navTitle'
     },
     {
+      class: 'Boolean',
+      name: 'collapsable'
+    },
+    {
       name: 'properties'
     },
     {

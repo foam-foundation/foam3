@@ -146,3 +146,8 @@ p({
   "id": "input",
   "description": "Take Input from user or from URL parameter."
 })
+p({
+  "class":"foam.core.reflow.cmd.If",
+  "id": "if",
+  "description": "Conditional execution - if (condition) { ifBlock } else { elseBlock }"
+})

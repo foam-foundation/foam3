@@ -869,3 +869,25 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'If',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  properties: [
+    [ 'description', 'Conditional execution - if (condition) { ifBlock } else { elseBlock }' ]
+  ],
+
+  methods: [
+    function execute(condition) {
+      var ifComponent = foam.core.reflow.If.create({
+        condition: condition
+      }, this);
+
+      this.currentBlock.value = ifComponent;
+      this.out.add(ifComponent);
+    }
+  ]
+});

@@ -21,6 +21,7 @@ foam.POM({
     { name: 'GridBy',                  flags: 'js|java' },
     { name: 'GridByView',              flags: 'js' },
     { name: 'Header',                  flags: 'js' },
+    { name: 'If',                      flags: 'js' },
     { name: 'JSONSink',                flags: 'js|java' },
     { name: 'SinkAgent',               flags: 'js|java' },
     { name: 'CommandItemView',         flags: 'js' },

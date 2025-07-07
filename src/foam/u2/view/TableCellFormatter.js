@@ -246,19 +246,7 @@ foam.CLASS({
           return;
         }
         var self = this;
-        this.add(foam.lang.ExpressionSlot.create({
-          args: [obj.slot(unitProp.name), obj.slot(axiom.name)],
-          code: (unitId, propValue) => {
-            // TODO: Replace currencyDAO with unitDAO
-            return foam.lang.PromiseSlot.create({
-              promise: obj.__context__.currencyDAO.find(unitId).then((unit) => {
-                var formatted = unit ? unit.format(propValue) : propValue;
-                self.tooltip = formatted;
-                return formatted;
-              })
-            });
-          }
-        }));
+        this.startContext({objData: obj}).tag(foam.u2.view.ValueView, {prop: axiom, data: value}).endContext();
       }
     },
     ['projectionSafe', false]

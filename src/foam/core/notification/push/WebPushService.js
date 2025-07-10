@@ -23,7 +23,17 @@ foam.CLASS({
     'java.util.Map',
     'foam.util.SafetyUtil',
     'nl.martijndwars.webpush.Notification',
-    'org.bouncycastle.jce.provider.BouncyCastleProvider'
+    'org.bouncycastle.jce.provider.BouncyCastleProvider',
+    'java.time.Duration'
+  ],
+
+  constants: [
+    {
+      type: 'int',
+      name: 'TTL_IN_HOURS',
+      documentation: 'Time to live for the notification in hours',
+      value: 12
+    }
   ],
 
   properties: [
@@ -84,11 +94,14 @@ foam.CLASS({
             .toString();
 
           var a = (nl.martijndwars.webpush.PushService) getPushService();
+          Duration ttl = Duration.ofHours(TTL_IN_HOURS);
+          long ttlValue = ttl.getSeconds();
           Notification n = new Notification(
             sub.getEndpoint(),
             sub.getKey(),
             sub.getAuth(),
-            msg
+            msg,
+            ttlValue
           );
 
           a.sendAsync(n);

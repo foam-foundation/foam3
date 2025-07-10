@@ -178,6 +178,11 @@ foam.CLASS({
     {
       name: 'THEME_OVERRIDE_REGEXP',
       factory: function() { return new RegExp(/\/\*\$(.*)\*\/[^;!]*/, 'g'); }
+    },
+    {
+      name: 'NOTIFICATION_TOAST_TTL',
+      documentation: 'Time to live for toast notifications in hours.',
+      value: 12
     }
   ],
 
@@ -826,7 +831,9 @@ foam.CLASS({
     },
 
     function displayToastMessage(sub, on, put, obj) {
-      if ( obj.toastState == this.ToastState.REQUESTED ) {
+      let toastExpiration = new Date();
+      toastExpiration.setHours(toastExpiration.getHours() + this.NOTIFICATION_TOAST_TTL);
+      if ( obj.toastState == this.ToastState.REQUESTED && obj.created < toastExpiration ) {
         this.add(this.NotificationMessage.create({
           message: obj.toastMessage,
           type: obj.severity,

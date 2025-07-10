@@ -27,6 +27,12 @@ foam.CLASS({
       name: 'MAX_RETRY_ATTEMPTS',
       documentation: 'Number of times service will try to deliver a notification if an exception is thrown',
       value: 3
+    },
+    {
+      type: 'int',
+      name: 'TTL_IN_HOURS',
+      documentation: 'Time to live for the notification in hours',
+      value: 12
     }
   ],
 
@@ -124,7 +130,7 @@ foam.CLASS({
           // TTL for notification delivery, after this time apns will stop trying to deliver this notification
           // Currently hardcoded to 7 days
           Instant instant = Instant.now();
-          instant = instant.plus(7, ChronoUnit.DAYS);
+          instant = instant.plus(TTL_IN_HOURS, ChronoUnit.HOURS);
           SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(token, cred.getAppBundleId(), payload, instant);
 
          try {

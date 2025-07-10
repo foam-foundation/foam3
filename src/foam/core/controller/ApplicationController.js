@@ -831,16 +831,17 @@ foam.CLASS({
     },
 
     function displayToastMessage(sub, on, put, obj) {
-      let toastExpiration = new Date();
-      toastExpiration.setHours(toastExpiration.getHours() + this.NOTIFICATION_TOAST_TTL);
-      if ( obj.toastState == this.ToastState.REQUESTED && obj.created < toastExpiration ) {
-        this.add(this.NotificationMessage.create({
-          message: obj.toastMessage,
-          type: obj.severity,
-          description: obj.toastSubMessage,
-          icon: obj.icon
-        }));
-        // only update and save non-transient messages
+      if ( obj.toastState == this.ToastState.REQUESTED ) {
+        let toastExpiration = new Date();
+        toastExpiration.setHours(toastExpiration.getHours() + this.NOTIFICATION_TOAST_TTL);
+        if ( obj.created < toastExpiration ) {
+          this.add(this.NotificationMessage.create({
+            message: obj.toastMessage,
+            type: obj.severity,
+            description: obj.toastSubMessage,
+            icon: obj.icon
+          }));
+        }
         if ( ! obj.transient ) {
           var clonedNotification = obj.clone();
           clonedNotification.toastState = this.ToastState.DISPLAYED;

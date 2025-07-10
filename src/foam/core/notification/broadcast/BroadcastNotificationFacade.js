@@ -70,7 +70,7 @@ foam.CLASS({
           if ( groupId ) {
             return X.userDAO.where(X.data.AND(X.data.EQ(X.data.User.GROUP, groupId), X.data.CLASS_OF(X.data.User)));
           } else {
-            return X.userDAO.where(X.data.AND(X.data.EQ(X.data.User.SPID, X.subject.user.spid), X.data.CLASS_OF(X.data.User)));
+            return X.userDAO.where(X.data.CLASS_OF(X.data.User));
           }
         });
         return {

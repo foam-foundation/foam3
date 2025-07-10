@@ -22,6 +22,7 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.X',
     'foam.dao.AbstractSink',
+    'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.ProxyDAO',
     'foam.dao.Sink',
@@ -46,8 +47,8 @@ foam.CLASS({
         DAO userDAO = (DAO) x.get("localUserDAO");
         Notification notif = (Notification) obj;
 
-        if (getDelegate().find_(x, notif.getId()) != null)
-          return getDelegate().put_(x, notif);
+        if (getDelegate().find(notif.getId()) != null)
+          return getDelegate().put(notif);
 
         if ( notif.getBroadcasted() ) {
           Agency agency = (Agency) x.get("threadPool");

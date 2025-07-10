@@ -95,12 +95,13 @@ foam.CLASS({
 
           var a = (nl.martijndwars.webpush.PushService) getPushService();
           Duration ttl = Duration.ofHours(TTL_IN_HOURS);
-          long ttlValue = ttl.getSeconds();
+          int ttlValue = (int) ttl.getSeconds();
+          byte[] byteArray = msg.getBytes(); 
           Notification n = new Notification(
             sub.getEndpoint(),
             sub.getKey(),
             sub.getAuth(),
-            msg,
+            byteArray,
             ttlValue
           );
 

@@ -11,7 +11,7 @@ import java.util.List;
 /** Provides runtime information about a Class. **/
 // KGR: Why is this mutable?
 public interface ClassInfo
-  extends java.lang.Comparable
+  extends Comparable
 {
   String      getId();
   ClassInfo   setId(String id);
@@ -22,7 +22,17 @@ public interface ClassInfo
   ClassInfo   addAxiom(Axiom a);
 
   boolean     isInstance(Object o);
+  // TODO: should return FObject
   Object      newInstance() throws IllegalAccessException, InstantiationException;
+
+  boolean     isAssignableFrom(Class cls);
+
+  default
+  boolean     isAssignableTo(Class cls) { return cls.isAssignableFrom(getObjClass()); }
+
+  String      getName();
+
+  String      getSimpleName();
 
   ClassInfo   setObjClass(Class cls);
   Class       getObjClass();

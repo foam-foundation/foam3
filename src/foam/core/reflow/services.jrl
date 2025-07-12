@@ -29,6 +29,7 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("flows")
       .setOf(foam.core.reflow.Flow.getOwnClassInfo())
+      .setRuler(true)
       .build();
   """,
   "client":"""{"of":"foam.core.reflow.Flow"}"""

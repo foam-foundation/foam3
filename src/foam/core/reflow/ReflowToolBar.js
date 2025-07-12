@@ -22,7 +22,7 @@ foam.CLASS({
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
-      bottom: 50px;
+      bottom: 64px;
       z-index: 20;
     }
     ^island-holder {

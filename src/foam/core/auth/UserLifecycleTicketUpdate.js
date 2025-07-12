@@ -55,7 +55,7 @@ foam.CLASS({
       type: 'String',
       javaCode: `
       StringBuilder sb = new StringBuilder();
-      sb.append(getOf().getObjClass().getSimpleName());
+      sb.append(getOf().getSimpleName());
       sb.append(":");
       sb.append(getObjectId());
       return sb.toString();

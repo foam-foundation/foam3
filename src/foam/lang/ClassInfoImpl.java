@@ -12,14 +12,14 @@ import foam.util.SafetyUtil;
 public class ClassInfoImpl
   implements ClassInfo
 {
-  private List      axioms;
-  private String    id;
-  private HashMap   axiomsByName_            = new HashMap();
-  private HashMap   axiomsByNameOrShortName_ = null;
-  private ClassInfo parent_                  = null;
-  private List      allAxioms_               = null;
-  private HashMap   axiomMap_                = new HashMap();
-  private Class     class_;
+  protected List      axioms;
+  protected String    id;
+  protected HashMap   axiomsByName_            = new HashMap();
+  protected HashMap   axiomsByNameOrShortName_ = null;
+  protected ClassInfo parent_                  = null;
+  protected List      allAxioms_               = null;
+  protected HashMap   axiomMap_                = new HashMap();
+  protected Class     class_;
 
   public ClassInfoImpl() {
     axioms = new ArrayList();
@@ -42,6 +42,12 @@ public class ClassInfoImpl
     return getId().compareTo(((ClassInfo)obj).getId());
   }
 
+  public boolean isAssignableFrom(Class cls) { return getObjClass().isAssignableFrom(cls); }
+
+  public String getName() { return getObjClass().getName(); }
+
+  public String getSimpleName() { return getObjClass().getSimpleName(); }
+
   public Class getObjClass() {
     return class_;
   }
@@ -60,7 +66,7 @@ public class ClassInfoImpl
         c = getObjClass().getSuperclass();
         m = c.getMethod("getOwnClassInfo");
 
-        parent_ = (ClassInfo)m.invoke(null);
+        parent_ = (ClassInfo) m.invoke(null);
       } catch (NoSuchMethodException e) {
         parent_ = new EmptyClassInfo();
       } catch (java.lang.Exception e) {

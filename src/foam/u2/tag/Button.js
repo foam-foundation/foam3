@@ -331,6 +331,10 @@ foam.CLASS({
       max-height: inherit;
     }
 
+    ^iconOnly^small {
+      padding: 4px;
+    }
+
     ^link^small,
     ^link^medium,
     ^link^large {

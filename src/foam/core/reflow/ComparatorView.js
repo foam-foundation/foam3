@@ -18,6 +18,11 @@ foam.CLASS({
   ],
 
   css: `
+    ^ {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
   `,
 
   properties: [
@@ -34,7 +39,7 @@ foam.CLASS({
           choices.push([p.name, p.name]);
           choices.push(['-' + p.name, '-' + p.name]);
         });
-        return { class: 'foam.u2.view.ChoiceView', choices: choices };
+        return { class: 'foam.u2.view.ChoiceIconView', choices: choices, themeIcon: 'plus' };
       },
       preSet: function(o, n) {
         if ( n == '--' ) return;
@@ -48,10 +53,9 @@ foam.CLASS({
   methods: [
     function render() {
       this.
-        start('span').
-          style({display: 'flex'}).
-          tag(this.TextField, {data$: this.data$, size: 40, type: 'search'}).
-          startContext({data: this}).add(this.CHOICES).endContext();
+        addClass().
+        tag(this.TextField, {data$: this.data$, size: 40, type: 'search'}).
+        startContext({data: this}).add(this.CHOICES).endContext();
     }
   ],
 

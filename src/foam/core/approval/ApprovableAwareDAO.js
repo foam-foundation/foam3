@@ -65,7 +65,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'serviceName',
-      javaFactory: `return foam.util.StringUtil.daoize(getOf().getObjClass().getSimpleName());`
+      javaFactory: `return foam.util.StringUtil.daoize(getOf().getSimpleName());`
     }
   ],
 
@@ -153,7 +153,7 @@ foam.CLASS({
         Logger logger = (Logger) x.get("logger");
         DAO requestingDAO = (DAO) x.get(getDaoKey());
 
-        String modelName = requestingDAO.getOf().getObjClass().getSimpleName();
+        String modelName = requestingDAO.getOf().getSimpleName();
         UserQueryService userQueryService = (UserQueryService) x.get("userQueryService");
         List<Long> approverIds = userQueryService.getAllApprovers(x, modelName);
 

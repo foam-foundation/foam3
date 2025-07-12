@@ -157,7 +157,7 @@ foam.CLASS({
                   .setPropertiesToUpdate(propertiesToApprove).build());
 
                 String capName = t(x, capability.getId() + ".name", capability.getName());
-                String objName = t(x, obj.getClass().getName() + ".name", obj.getClassInfo().getObjClass().getSimpleName());
+                String objName = t(x, obj.getClass().getName() + ".name", obj.getClassInfo().getSimpleName());
 
                 ApprovalRequest approvalRequest = new ApprovalRequest.Builder(getX())
                   .setDaoKey("approvableDAO")

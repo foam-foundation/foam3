@@ -6,7 +6,7 @@
 
 /**
    Support for creating new FOAM based projects.
-   usage: node tools/build.js -T+setup/Project --appName:Recipe --package:com.foamdev.com --adminPassword:badpassword
+   usage: node tools/build.js -T+setup/Project --appName:MyApp --package:com.foamdev --adminPassword:badpassword
 */
 foam.POM({
   name: 'project',
@@ -44,9 +44,9 @@ foam.POM({
     packagePath: ['', 'package-path', 'PACKAGE_PATH', 'Package in path notation: . -> /', function() { return PACKAGE.replaceAll('.', '/');}, arg => PACKAGE_PATH = arg],
     modelName: ['M', 'model-name', 'MODEL_NAME', 'If a model name is provided, the project creation processs will also setup a complete working application, with user, group, menu, permissions, and service journals based on the model name', function() { return APP_NAME; }, arg => MODEL_NAME = arg ],
     spid: ['', 'spid', 'SPID', 'Default spid', function() { return APP_NAME_LOW || 'foam';}, arg => SPID = arg],
-    type: ['', 'type', 'TYPE', 'Select a predefined project example. One of: simple, demo, recipe', 'simple', function(arg) {
-      if (arg && (arg === 'simple' || arg === 'demo' || arg == 'recipe' )) TYPE = arg;
-      else this.error(`Invalid type '${arg}', expecting one of [simple, demo, recipe]`);
+    type: ['', 'type', 'TYPE', 'Select a predefined project example. One of: simple, demo', 'simple', function(arg) {
+      if (arg && (arg === 'simple' || arg === 'demo')) TYPE = arg;
+      else this.error(`Invalid type '${arg}', expecting one of [simple, demo]`);
     }],
     templateDir: ['', 'template-dir', 'TEMPLATE_DIR', 'Location of template files', function() { return __dirname;}, arg => TEMPLATE_DIR = arg]
   },
@@ -97,12 +97,6 @@ foam.POM({
         templateMerge(TEMPLATE_DIR, 'demoModel.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, `${MODEL_NAME_CAP}.js`);
         templateMerge(TEMPLATE_DIR, 'demoModelCategory.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, `${MODEL_NAME_CAP}Category.js`);
         templateMerge(TEMPLATE_DIR, 'demoModelPOM.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, 'pom.js');
-        templateMerge(TEMPLATE_DIR, 'journalServices.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `services.jrl`);
-      } else if ( TYPE === 'recipe' || APP_NAME_LOW === 'recipe' ) {
-        // See FOAM-Recipe Tutorial
-        templateMerge(TEMPLATE_DIR, 'recipeModel.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, `Recipe.js`);
-        templateMerge(TEMPLATE_DIR, 'recipeModelCategory.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, `RecipeCategory.js`);
-        templateMerge(TEMPLATE_DIR, 'recipeModelPOM.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, 'pom.js');
         templateMerge(TEMPLATE_DIR, 'journalServices.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `services.jrl`);
       } else {
         templateMerge(TEMPLATE_DIR, 'simpleModel.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}`, `${MODEL_NAME_CAP}.js`);
@@ -184,8 +178,6 @@ foam.POM({
     usage: ['usage', 'Example usage', [], function() {
       this.log('Project creation examples:');
       this.warning('must be run from foam3/ directory)');
-      this.log('  node tools/build.js -T+setup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword');
-      this.log('      Generate a project matchin the FOAM-Recipes tutorial');
       this.log('  node tools/build.js -T+setup/Project --appName:Simple --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a very simple model.');
       this.log('  node tools/build.js -T+setup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword');

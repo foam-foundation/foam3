@@ -51,6 +51,12 @@ public class EmptyClassInfo
     return null;
   }
 
+  public boolean isAssignableFrom(Class cls) { return false; }
+
+  public String getName() { return ""; }
+
+  public String getSimpleName() { return ""; }
+
   public Class getObjClass() {
     return null;
   }

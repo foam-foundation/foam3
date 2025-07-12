@@ -387,7 +387,7 @@ public class JSONFObjectFormatter
     }
 
     ClassInfo newInfo  = newFObject.getClassInfo();
-    String    of       = newInfo.getObjClass().getSimpleName().toLowerCase();
+    String    of       = newInfo.getSimpleName().toLowerCase();
     List      axioms   = getProperties(parentProp, newInfo);
     int       size     = axioms.size();
     int       ids      = 0;

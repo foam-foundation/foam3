@@ -43,13 +43,13 @@ foam.CLASS({
       this.SUPER();
       this
         .addClass(this.myClass())
-        .add(this.slot(function(of, sections) {
-          return self.E()
+        .add(this.dynamic(function(of, sections) {
+          this
             .start(self.Rows)
               .forEach(sections, function(s) {
                 var slot = s.createIsAvailableFor(self.data$, self.__subContext__.controllerMode$).map(function(isAvailable) {
                   if ( ! isAvailable ) return self.E().style({ display: 'none' });
-                  return self.E().enableClass(self.myClass('centered'), self.centered$).start(s.view, {
+                  return self.E().style({ display: 'contents' }).enableClass(self.myClass('centered'), self.centered$).start(s.view, {
                     data$: self.data$,
                     of$: self.of$,
                     section: s,

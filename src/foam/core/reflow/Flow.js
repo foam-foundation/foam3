@@ -114,6 +114,7 @@ foam.CLASS({
       class: 'String',
       section: 'general',
       name: 'notes',
+      section: 'general',
       width: 80,
       view: { class: 'foam.u2.tag.TextArea', rows: 3, cols: 78 }
     },
@@ -178,6 +179,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'script',
+      label: '',
+      columnLabel:'Script',
       section: 'scriptSection',
       reactive: false,
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
@@ -185,19 +188,26 @@ foam.CLASS({
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
     },
     {
+      class: 'DateTime',
+      name: 'lastRun',
+      section: 'scheduleSection',
+      readPermissionRequired: true,
+      factory: function() { return new Date(); },
+      documentation: 'Timestamp of the last execution of this flow. Works with this.schedule.'
+    },
+    {
+      class: 'DateTime',
+      name: 'nextRun',
+      section: 'scheduleSection',
+      visibility: 'RO'
+    },
+    {
       name: 'schedule',
       section: 'scheduleSection',
       class: 'FObjectProperty',
       of: 'foam.core.cron.CronSchedule',
+      section: 'scheduleSection',
       documentation: 'Schedule to run this flow.'
-    },
-    {
-      class: 'DateTime',
-      name: 'lastRun',
-      section: 'general',
-      label: 'Last Run',
-      readPermissionRequired: true,
-      documentation: 'Timestamp of the last execution of this flow. Works with this.schedule.'
     }
   ],
 

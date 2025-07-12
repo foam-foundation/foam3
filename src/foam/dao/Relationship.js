@@ -648,7 +648,7 @@ return junction`
       label: 'Remove',
       code: function(x) {
         var self = this;
-        var dao = self.dao;
+        var dao = x[self.targetDAOKey];
 
         var controller = foam.comics.DAOController.create({
           createEnabled: false,
@@ -668,8 +668,7 @@ return junction`
         });
 
         x.stack.push(this.StackBlock.create({
-          view: { class: 'foam.comics.DAOControllerView', data: controller }
-        }));
+          view: { class: 'foam.comics.DAOControllerView', data: controller }, parent: x }));
       }
     }
   ]

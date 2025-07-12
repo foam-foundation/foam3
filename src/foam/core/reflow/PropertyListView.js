@@ -38,9 +38,11 @@ foam.CLASS({
       preSet: function(o, n) {
         if ( n == '*' ) {
           this.data = this.data || '';
-        } else {
+        } else if ( n ) {
           if ( this.data ) this.data += ',';
           this.data += n;
+          // Schedule clearing the choice after the current execution
+          this.clearChoice();
         }
         return n;
       }
@@ -55,6 +57,16 @@ foam.CLASS({
       this.add(function(forCls) {
         this.tag(self.DATA, { type: 'search' }).add(' ', self.CHOICE);
       });
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'clearChoice',
+      isFramed: true,
+      code: function() {
+        this.choice = undefined;
+      }
     }
   ]
 });

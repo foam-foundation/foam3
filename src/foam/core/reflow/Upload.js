@@ -11,44 +11,7 @@ foam.CLASS({
   name: 'DAOHolder',
 
   properties: [
-    { name: 'preview', hidden: true }
-  ]
-});
-
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
-  name: 'Mapping',
-
-  constants: {
-    UNKNOWN: { name: '--', set: function() {}, cls_: { name: '--' } }
-  },
-
-  properties: [
-    {
-      class: 'String',
-      name: 'id'
-    },
-    {
-      name: 'handler',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
-      }
-    },
-    {
-      name: 'of',
-      hidden: true
-    }
-  ],
-
-  methods: [
-    function process(obj, value) {
-      if ( foam.String.isInstance(value) ) value = value.trim();
-      if ( value !== '' ) {
-        this.handler.set(obj, value);
-      }
-    }
+    { class: 'foam.dao.DAOProperty', name: 'preview', hidden: true }
   ]
 });
 
@@ -91,10 +54,20 @@ foam.CLASS({
   ]
 });
 
-
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Upload',
+
+  implements: [ 'foam.mlang.Expressions' ],
+
+  documentation: `
+    Data upload component supporting file drag & drop or manual text input.
+    Handles CSV, JSON, XML formats with auto-detection, column mapping,
+    and bulk import to DAOs. Provides preview and progress tracking.
+
+    When files are uploaded, their content is processed and moved to input.
+    When input is manually cleared, uploadedFiles is cleared.
+  `,
 
   requires: [
     'foam.dao.MDAO',
@@ -102,12 +75,75 @@ foam.CLASS({
     'foam.core.reflow.ColumnParser',
     'foam.core.reflow.DAOHolder',
     'foam.core.reflow.Mapping',
-    'foam.core.reflow.UploadAgent'
+    'foam.core.reflow.UploadAgent',
+    'foam.parse.QueryParser',
+    'foam.core.fs.fileDropZone.FileDropZone',
+    'foam.core.fs.File'
   ],
 
   imports: [ 'currentBlock?', 'eval_?', 'setTimeout' ],
+  
+  exports: [
+    'dao',
+    'data as objData'  // PredicateView expects objData with dao property
+  ],
+
+  constants: {
+    SUPPORTED_FORMATS: {
+      'text/csv': 'CSV',
+      'application/json': 'JSON',
+      'text/xml': 'XML',
+      'text/plain': 'TXT'
+    }
+  },
 
   properties: [
+    {
+      class: 'FObjectArray',
+      of: 'foam.lang.FObject',
+      name: 'uploadedFiles',
+      factory: function() { return []; },
+      postSet: function(_, n) {
+        if ( n && n.length > 0 ) {
+          // Clear any existing text input since we're switching to file mode
+          // The file content will be processed and displayed in the text area
+          this.input = '';
+          this.processUploadedFiles();
+        }
+      },
+      view: function(_, X) {
+        return {
+          class: 'foam.core.fs.fileDropZone.FileDropZone',
+          files$: X.data.uploadedFiles$,
+          supportedFormats: X.data.SUPPORTED_FORMATS,
+          isMultipleFiles: false,
+          title: 'Drag and drop a file here or click to browse',
+          onFilesChanged: X.data.onFilesChanged.bind(X.data)
+        };
+      },
+      visibility: function(input) {
+        return ( ! input || input.trim() === '' ) ?
+          foam.u2.DisplayMode.RW :
+          foam.u2.DisplayMode.HIDDEN;
+      }
+    },
+    {
+      class: 'String',
+      name: 'input',
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 100 },
+      postSet: function(_, n) {
+        if ( n && n.trim() !== '' ) {
+          // Clear uploaded files when user manually enters/edits text
+          // Since the file content is now represented as text, we no longer need the file reference
+          this.uploadedFiles = [];
+        }
+      },
+      visibility: function(uploadedFiles) {
+        return ( ! uploadedFiles || uploadedFiles.length === 0 ) ?
+          foam.u2.DisplayMode.RW :
+          foam.u2.DisplayMode.HIDDEN;
+      }
+    },
     {
       class: 'String',
       name: 'daoKey',
@@ -188,11 +224,7 @@ foam.CLASS({
       name: 'rows',
       visibility: 'RO'
     },
-    {
-      class: 'String',
-      name: 'input',
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 100 }
-    },
+
     {
       class: 'FObjectArray',
       of: 'foam.core.reflow.Mapping',
@@ -237,10 +269,55 @@ foam.CLASS({
       class: 'Boolean',
       name: 'bulkUpload',
       value: true
+    },
+    {
+      class: 'String',
+      name: 'where',
+      label: 'Filter',
+      view: { class: 'foam.core.reflow.PredicateView' },
+      help: 'Filter data. Applied to both preview and upload.'
+    },
+    {
+      class: 'Int',
+      name: 'matchedRows',
+      visibility: function(where) {
+        return where ? foam.u2.DisplayMode.RO : foam.u2.DisplayMode.HIDDEN;
+      },
+      value: 0
+    },
+    {
+      class: 'String',
+      name: 'filterStatus',
+      visibility: function(where) {
+        return where ? foam.u2.DisplayMode.RO : foam.u2.DisplayMode.HIDDEN;
+      },
+      expression: function(rows, where, matchedRows) {
+        if ( ! where ) return '';
+        return matchedRows + ' rows match filter (of ' + rows + ' total)';
+      }
     }
   ],
 
   methods: [
+    function onFilesChanged(files) {
+      var foamFiles = [];
+      for ( var i = 0 ; i < files.length ; i++ ) {
+        var file = files[i];
+        if ( file.cls_ && file.cls_.id === 'foam.core.fs.File' ) {
+          foamFiles.push(file);
+        } else {
+          var foamFile = this.File.create({
+            filename: file.name || `File ${i+1}`,
+            filesize: file.size || 0,
+            mimeType: file.type || 'text/plain',
+            data: { blob: file }
+          });
+          foamFiles.push(foamFile);
+        }
+      }
+      this.uploadedFiles = foamFiles;
+    },
+
     function init() {
       this.SUPER();
 
@@ -248,6 +325,17 @@ foam.CLASS({
         this.block        = this.currentBlock;
         this.block.upload = this;
         this.block.value  = this.DAOHolder.create({preview: this.data});
+      }
+      
+    },
+
+    function parseFilter() {
+      if ( ! this.where ) return null;
+      try {
+        return this.QueryParser.create({of: this.dao.of}).parseString(this.where);
+      } catch (e) {
+        console.warn('Invalid filter expression:', this.where, e);
+        return null;
       }
     },
 
@@ -261,7 +349,7 @@ foam.CLASS({
         }
 
         var prop = this.columnParser.parseString(c);
-        mappings.push(this.Mapping.create({id: c, handler: prop || this.Mapping.UNKNOWN, of: this.of}));
+        mappings.push(this.Mapping.create({id: c, handler: prop, of: this.of}));
         if ( ! prop ) {
           this.output += '<span style="color:red">Unknown property: ' + c + '</span><br>';
         }
@@ -273,36 +361,102 @@ foam.CLASS({
       return this.mappings;
     },
 
+    async function processUploadedFiles() {
+      if ( ! this.uploadedFiles || this.uploadedFiles.length === 0 ) {
+        return;
+      }
+
+      try {
+        var firstFile = this.uploadedFiles[0];
+        var content = await this.readFileContent(firstFile);
+        this.input = content;
+
+        this.format = this.SUPPORTED_FORMATS[firstFile.mimeType] || 'AUTO';
+      } catch (e) {
+        console.error('Error processing uploaded files:', e);
+        this.output += '<span style="color:red">Error reading uploaded file: ' + e.message + '</span><br>';
+      }
+    },
+
+    function readFileContent(file) {
+      return new Promise((resolve, reject) => {
+        try {
+          var actualFile = file.data ? file.data.blob : file;
+
+          if ( ! actualFile ) {
+            reject('No file data available');
+            return;
+          }
+
+          var reader = new FileReader();
+
+          reader.onload = function(e) {
+            resolve(e.target.result);
+          };
+
+          reader.onerror = function() {
+            reject('Error reading file');
+          };
+
+          reader.readAsText(actualFile);
+        } catch (e) {
+          console.error('Error accessing file:', e);
+          reject('Error accessing file: ' + e.message);
+        }
+      });
+    },
+
     async function process(real) {
       var self  = this;
       var latch = foam.lang.Latch.create();
       await this.data.removeAll();
       this.processing = 0;
+      this.matchedRows = 0;
       this.clear();
       console.time('upload');
-      var i = 1;
+      var totalRows = 0;
       var agent;
+      var filter = self.parseFilter();
 
       var sink = this.bulkUpload ? {
         put: async function(o) {
-          self.processing = Math.max(self.processing, i);
-          self.progress   = self.rows ? Math.max(self.progress, Math.floor(100 * i / self.rows)) : 0;
+          totalRows++;
+          self.processing = totalRows;
+          self.progress   = self.rows ? Math.max(self.progress, Math.floor(100 * totalRows / self.rows)) : 0;
 
           if ( o.errors_ ) {
-            //            self.output += '<span style="color:red">' + o.errors_ + ', row: ' + i + '<br>' + row + '</span>';
+            //            self.output += '<span style="color:red">' + o.errors_ + ', row: ' + totalRows + '<br>' + row + '</span>';
             self.output += '<span style="color:red">' + o.errors_.map(e => e[0].name + ' ' + e[1]).join(', ') + '</span><br>';
           }
 
+          // Apply filter for both preview and real uploads
+          if ( filter ) {
+            try {
+              var matches = await filter.f(o);
+              if ( ! matches ) {
+                return; // Skip this object
+              }
+            } catch (e) {
+              console.warn('Filter error:', e);
+              // If filter fails, include the object
+            }
+          }
+
+          // Object passed filter or no filter exists
+          self.matchedRows++;
+
           if ( ! real ) {
-            if ( foam.lang.Long.isInstance(o.ID) && ! o.id ) o.id = i;
-            self.data.put(o);
+            // Preview mode: just store in data
+            if ( foam.lang.Long.isInstance(o.ID) && ! o.id ) o.id = self.matchedRows;
+            await self.data.put(o);
           } else {
+            // Real upload mode: send to DAO
             if ( ! agent ) agent = self.UploadAgent.create();
             agent.data.push(o);
-            if ( i && i % 1000 === 0 ) {
+            if ( self.matchedRows && self.matchedRows % 1000 === 0 ) {
               var oldAgent = agent;
               agent = undefined;
-              if ( i && i % 10000 === 0 ) {
+              if ( self.matchedRows % 10000 === 0 ) {
                 await self.dao.cmd(oldAgent);
               } else {
                 self.dao.cmd(oldAgent);
@@ -311,7 +465,6 @@ foam.CLASS({
               await new Promise(r => self.setTimeout(r, 0));
             }
           }
-          i++;
         },
         eof: async function() {
           if ( agent ) await self.dao.cmd(agent);
@@ -321,9 +474,11 @@ foam.CLASS({
 
           if ( ! real ) {
             var block = self.block;
+            // Data is already filtered during put operations
             self.eval_(`dao(${block.flowName}.preview, '${block.flowName}.preview')`);
             var block2 = self.currentBlock;
             block2.flowName = block.flowName + 'data';
+            block2.obj.dao = self.data;
             block2.obj.limit = 10;
             setTimeout(() => {
               // Needed because it is the SinkView which creates the 'select' object
@@ -352,15 +507,21 @@ foam.CLASS({
         }
       }
 
-      if ( this.format === 'DAO' ) {
-        this.processDAO(sink);
-      } else if ( this.format === 'CSV' ) {
-        this.processCSV(sink);
-      } else if ( this.format === 'XML' ) {
-        this.processXML(sink);
-      } else if ( this.format === 'JSON' ) {
-        // TODO:
-        // this.processJSON(sink);
+      // Process based on format
+      switch ( this.format ) {
+        case 'DAO':
+          this.processDAO(sink);
+          break;
+        case 'CSV':
+          this.processCSV(sink);
+          break;
+        case 'XML':
+          this.processXML(sink);
+          break;
+        case 'JSON':
+          // TODO:
+          // this.processJSON(sink);
+          break;
       }
 
       return latch;
@@ -374,14 +535,14 @@ foam.CLASS({
           var prop = this.columnParser.parseString(tag + attr);
           this.mappings_[key] = this.Mapping.create({
             id: key,
-            handler: prop || this.Mapping.UNKNOWN,
+            handler: prop,
             of: this.of
           });
         } else {
           var prop = this.columnParser.parseString(tag);
           this.mappings_[key] = this.Mapping.create({
             id: key,
-            handler: prop || this.Mapping.UNKNOWN,
+            handler: prop,
             of: this.of
           });
         }
@@ -393,7 +554,6 @@ foam.CLASS({
     function objectifyXML(doc) {
       var obj      = this.of.create();
       var children = doc.children;
-      var nodes    = {};
 
       for ( var i = 0 ; i < children.length ; i++ ) {
         // fetch property based on xml tag name since they may not be in order
@@ -430,7 +590,6 @@ foam.CLASS({
       var doc      = parser.parseFromString(this.input, 'text/xml');
       var root     = doc.firstChild;
       var children = root.children;
-      var cls      = this.of;
 
       this.rows = 0;
 
@@ -453,7 +612,6 @@ foam.CLASS({
     },
 
     async function processCSV(sink) {
-      var ids = {};
       var a   = this.input.split('\n');
 
       if ( ! a ) { this.rows = 0; return; }
@@ -462,8 +620,8 @@ foam.CLASS({
 
       try {
         // Use existing mappings if available, otherwise parse from CSV headers
-        var props = this.mappings && this.mappings.length > 0 ? 
-          this.mappings : 
+        var props = this.mappings && this.mappings.length > 0 ?
+          this.mappings :
           this.parseColumns(a[0]);
         var parser = this.CSVParser.create({});
         var agent;
@@ -502,13 +660,25 @@ foam.CLASS({
     },
     {
       name: 'upload',
-      code: function() { this.process(true); }
+      code: function() { this.process(true); },
+      isEnabled: function(data, where, matchedRows) {
+        // Enable upload if we have data and (no filter OR matches exist)
+        return data && (!where || matchedRows > 0);
+      }
     },
     {
       name: 'clear',
       code: function() {
         this.output   = '';
         this.progress = 0;
+      }
+    },
+    {
+      name: 'clearFilter',
+      label: 'Clear Filter',
+      isAvailable: function(where) { return !!where; },
+      code: function() {
+        this.where = '';
       }
     },
     {

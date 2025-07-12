@@ -58,25 +58,23 @@ public class FObjectParser
           PStream originalPS = ps;
 
           try {
-            PStream ps1 = ps.apply(delegate, x);
+            PStream   ps1 = ps.apply(delegate, x);
+            Class     c   = null;
+            ClassInfo ci  = null;
+            X         ctx = (X) x.get("X");
 
-            Class c = null;
             if ( ps1 != null ) {
               var className = ps1.value().toString();
-              try {
-                c = Class.forName(className);
-              } catch (ClassNotFoundException t) {
-                // Maybe it's an inner-class, which replace the last . with a $ in Java
 
+               ci = ctx.getClassInfo(className);
+
+              if ( ci == null ) {
                 try {
-                  int i = className.lastIndexOf('.');
-                  if ( i != -1 ) {
-                    StringBuilder sb = new StringBuilder(className);
-                    sb.setCharAt(i, '$');
-                    className = sb.toString();
-                    c = Class.forName(className);
-                  }
-                } catch (ClassNotFoundException t2) { /* NOP */ }
+                  c = Class.forName(className);
+                } catch (ClassNotFoundException t) {
+                }
+              } else {
+                c = ci.getObjClass();
               }
             } else {
               c = defaultClass;
@@ -85,23 +83,28 @@ public class FObjectParser
             ParserContext subx = x.sub();
             Parser        subParser;
 
-            if ( c == null ) {
+            if ( c == null && ci == null ) {
               if ( ps1 == null ) return null;
 
               // If the class doesn't exist, try creating an object using the class name
-              Object obj = ((X) x.get("X")).create(ps1.value().toString());
+              Object obj = ctx.create(ps1.value().toString());
               subx.set("obj", obj);
-              subParser = ModelParserFactory.getInstance(obj.getClass());
+              subParser = ModelParserFactory.getInstance(SimpleFacetManager.getClassInfo(obj.getClass()));
             } else {
               if ( c == foam.lang.FObject.class ) return null;
 
-              if ( c.isEnum() ) {
+              if ( c != null && c.isEnum() ) {
                 subx.set("enum", c);
                 subParser = EnumParserFactory.getInstance(c);
               } else {
-                Object obj = ((X) x.get("X")).create(c);
+                FObject obj = ci == null ? (FObject) ctx.create(c) : (FObject) ci.newInstance() ;
+                obj.setX(ctx);
+
                 subx.set("obj", obj);
-                subParser = ModelParserFactory.getInstance(obj.getClass());
+                if ( ci == null )
+                  ci = SimpleFacetManager.getClassInfo(obj.getClass());
+
+                subParser = ModelParserFactory.getInstance(ci);
               }
             }
 
@@ -119,6 +122,7 @@ public class FObjectParser
             }
             return null;
           } catch (Throwable t) {
+            // t.printStackTrace();
             x.set("error", t);
             throw new RuntimeException(t);
           }

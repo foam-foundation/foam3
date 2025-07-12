@@ -24,6 +24,11 @@ foam.CLASS({
       name: 'id'
     },
     {
+      class: 'String',
+      name: 'toolbar',
+      value: 'Standard'
+    },
+    {
       class: 'Int',
       name: 'order',
       documentation: 'Used to order in toolbar.',

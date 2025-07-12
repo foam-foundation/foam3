@@ -248,7 +248,7 @@ foam.CLASS({
         }
 
         if ( ! hideId && SafetyUtil.equals(this.getLeftOrRight(), "right") ) {
-          formatted = formatted + this.getId();
+          formatted = formatted + " " + this.getId();
         }
 
         String delimiter = getDelimiter();
@@ -274,12 +274,12 @@ foam.CLASS({
         }
 
         if ( ! hideId && SafetyUtil.equals(getLeftOrRight(), "left") ) {
+          formatted += " " + getId();
+        }
+        if ( ! hideSymbol && SafetyUtil.equals(getLeftOrRight(), "right") ) {
           if ( getShowSpace() ) {
             formatted += " ";
           }
-          formatted += getId();
-        }
-        if ( ! hideSymbol && SafetyUtil.equals(getLeftOrRight(), "right") ) {
           formatted += getSymbol();
         }
 

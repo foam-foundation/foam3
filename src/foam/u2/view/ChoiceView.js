@@ -374,3 +374,87 @@ foam.CLASS({
     }
   ],
 });
+
+
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'ChoiceIconView',
+  extends: 'foam.u2.view.ChoiceView',
+
+  documentation: `
+    A ChoiceView that renders as an icon button instead of a traditional select dropdown.
+  `,
+
+  css: `
+    ^ {
+      position: relative;
+      display: inline-block;
+    }
+
+    ^ .foam-u2-tag-Select {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
+  `,
+
+  properties: [
+    {
+      class: 'GlyphProperty',
+      name: 'themeIcon',
+      value: 'plus',
+      documentation: 'The glyph to display in the icon button'
+    }
+  ],
+
+  actions: [
+    {
+      name: 'iconButton',
+      label: '',
+      isAvailable: function() { return true; },
+      code: function() {
+        // This action does nothing - it's just for the button UI
+        // The actual functionality comes from the overlaid select element
+      }
+    }
+  ],
+
+  methods: [
+    function renderContent() {
+      var self = this;
+      
+      this.addClass();
+      
+      // Use FOAM's action button with proper data context
+      this.tag(this.ICON_BUTTON, {
+        data: this,
+        themeIcon$: this.themeIcon$
+      });
+      
+      // Add the invisible select on top
+      this.add(this.dynamic(function(mode) {
+        if ( mode !== foam.u2.DisplayMode.RO ) {
+          this.start(self.selectSpec, {
+            data$:            self.index$,
+            label$:           self.label$,
+            alwaysFloatLabel: self.alwaysFloatLabel,
+            choices$:         self.choices$,
+            placeholder$:     self.placeholder$,
+            mode$:            self.mode$,
+            size$:            self.size$,
+            header$:          self.header$,
+            disabledData$:    self.disabledData$
+          })
+            .attrs({name: self.name})
+            .enableClass('selection-made', self.index$.map((index) => index !== -1))
+          .end();
+        }
+      }, this.mode$));
+    }
+  ]
+});

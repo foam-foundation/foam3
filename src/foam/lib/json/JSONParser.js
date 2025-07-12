@@ -21,7 +21,7 @@ foam.CLASS({
   ],
 
   javaCode: `
-    protected Parser         parser  = ExprParser.instance();
+    protected Parser        parser   = ExprParser.instance();
     protected StringPStream stringps = new StringPStream();
 
     public FObject parseString(String data, Class defaultClass) {

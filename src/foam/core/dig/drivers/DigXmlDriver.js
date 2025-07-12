@@ -43,7 +43,7 @@ foam.CLASS({
       javaCode: `
       StringReader reader = new StringReader(data);
       XMLSupport xmlSupport = new XMLSupport();
-      
+
       XMLInputFactory factory = XMLInputFactory.newInstance();
       factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
 
@@ -64,7 +64,7 @@ foam.CLASS({
       HttpServletResponse resp = x.get(HttpServletResponse.class);
       PrintWriter out = x.get(PrintWriter.class);
       ClassInfo cInfo = dao.getOf();
-      
+
       if ( fobjects == null || fobjects.size() == 0 ) {
         resp.setContentType("text/html");
         out.println("[]");
@@ -76,7 +76,7 @@ foam.CLASS({
       foam.lib.xml.Outputter outputterXml = new foam.lib.xml.Outputter(OutputterMode.NETWORK);
       outputterXml.output(fobjects.toArray());
 
-      String simpleName = cInfo.getObjClass().getSimpleName().toString();
+      String simpleName = cInfo.getSimpleName();
       String output = "<" + simpleName + "s>"+ outputterXml.toString() + "</" + simpleName + "s>";
 
       // Output the formatted data

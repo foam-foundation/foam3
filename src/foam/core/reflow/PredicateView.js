@@ -10,7 +10,6 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   requires: [
-    'foam.u2.tag.CircleIndicator',
     'foam.u2.TextField'
   ],
 
@@ -21,7 +20,9 @@ foam.CLASS({
 
   css: `
     ^ {
-      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     ^helper-icon svg { fill: currentColor; }
     ^helper-icon { vertical-align: sub; padding: 6px; }
@@ -46,7 +47,7 @@ foam.CLASS({
             choices.push([p.name, p.name]);
           }
         });
-        return { class: 'foam.u2.view.ChoiceView', choices: choices, type: 'search' };
+        return { class: 'foam.u2.view.ChoiceIconView', choices: choices, type: 'search', themeIcon: 'plus' };
       },
       preSet: function(o, n) {
         if ( n == '--' ) return;
@@ -57,18 +58,13 @@ foam.CLASS({
     }
   ],
 
+  // Glyphs can be found at `foam3/src/foam/u2/theme/ThemeGlyphs.js`
   methods: [
     function render() {
       this.
-        start('span').
-          style({display: 'flex'}).
-          tag(this.TextField, {data$: this.data$, size: 40, type: 'search'}).
-          startContext({data: this}).add(this.CHOICES).endContext()
-          // Commented for now until we find better way
-          // start(this.CircleIndicator, {glyph: 'helpIcon', size: 60}).
-          //   addClass(this.myClass('helper-icon')).
-          //   on('click', this.mqlHelp).
-          // end();
+        addClass().
+        tag(this.TextField, {data$: this.data$, size: 40, type: 'search'}).
+        startContext({data: this}).add(this.CHOICES).endContext();
     }
   ],
 
@@ -76,6 +72,6 @@ foam.CLASS({
     function mqlHelp() {
       this.eval_('helpMQL', true);
     }
-  ],
+  ]
 
 });

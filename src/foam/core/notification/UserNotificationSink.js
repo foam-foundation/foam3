@@ -46,7 +46,8 @@ with RulerDAO which can perform further per user setup before user.doNotify.`,
       var x = (X) getX();
       try {
         x = x.put("notification", notification);
-        if ( notification.getPredicate() != null && ! notification.getPredicate().f(x) ) {
+        notification.setX(x);
+        if ( notification.getPredicate() != null && ! notification.getPredicate().f(notification) ) {
           return; // Predicate is false, skip this user
         }
       } catch (Exception e) {

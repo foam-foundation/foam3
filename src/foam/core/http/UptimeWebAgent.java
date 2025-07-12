@@ -16,10 +16,10 @@ public class UptimeWebAgent
 {
   @Override
   public void execute(X x) {
-    PrintWriter         out      = x.get(PrintWriter.class);
-    HttpServletResponse response = x.get(HttpServletResponse.class);
-    Long              startTime = (Long) x.get(Boot.BOOT_TIME);
-    long                gap      = System.currentTimeMillis()-startTime;
+    PrintWriter         out       = x.get(PrintWriter.class);
+    HttpServletResponse response  = x.get(HttpServletResponse.class);
+    Long                startTime = (Long) x.get(Boot.BOOT_TIME);
+    long                gap       = System.currentTimeMillis()-startTime;
 
     response.setContentType("text/plain");
 

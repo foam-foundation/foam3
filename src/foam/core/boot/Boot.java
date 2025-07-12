@@ -37,7 +37,7 @@ public class Boot {
   protected DAO                       serviceDAO_;
   protected X                         root_      = new MutableX();
   protected Map<String, CSpecFactory> factories_ = new HashMap<>();
-  protected static Map<String,String>       ARGS = new HashMap<>();
+  protected static Map<String,String> ARGS       = new HashMap<>();
 
   public Boot() {
     XLocator.set(root_);
@@ -263,7 +263,7 @@ public class Boot {
       }
       return args.split(",");
     } catch (Throwable t ) {
-      System.err.println("Failed to acquire 'Args' from manifest. "+t.getMessage());
+      System.err.println("Failed to acquire 'Args' from manifest. " + t.getMessage());
       return new String[0];
     }
   }
@@ -273,11 +273,10 @@ public class Boot {
   {
     System.out.println("Starting CORE Server");
     if ( args != null && args.length > 0 ) {
-      System.out.println("with: "+java.util.Arrays.toString(args));
+      System.out.println("with: " + java.util.Arrays.toString(args));
     }
 
-    if ( args == null ||
-         args.length == 0 ) {
+    if ( args == null || args.length == 0 ) {
       args = getManifestArgs();
     }
 
@@ -287,8 +286,8 @@ public class Boot {
         arg = arg.substring(2);
 
       String[] kv = null;
-      String k = arg;
-      String v = null;
+      String   k  = arg;
+      String   v  = null;
 
       if ( arg.contains(":")) {
         kv = arg.split(":");

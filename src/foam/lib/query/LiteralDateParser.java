@@ -15,6 +15,7 @@ import foam.lib.parse.ParserContext;
 import foam.lib.parse.ProxyParser;
 import foam.lib.parse.Seq;
 
+//YYYY-MM-DDTHH:MM:SS
 //YYYY-MM-DDTHH:MM
 //YYYY-MM-DDTHH
 //YYYY-MM-DD
@@ -27,6 +28,24 @@ public class LiteralDateParser
   public LiteralDateParser() {
     super(
         new Alt(
+
+          //YYYY-MM-DDTHH:MM:SS
+          new Seq(
+            IntParser.instance(),
+            new Alt(
+              Literal.create("-"),
+              Literal.create("/")),
+            IntParser.instance(),
+            new Alt(
+              Literal.create("-"),
+              Literal.create("/")),
+            IntParser.instance(),
+            Literal.create("T"),
+            IntParser.instance(),
+            Literal.create(":"),
+            IntParser.instance(),
+            Literal.create(":"),
+            IntParser.instance()),
 
             //YYYY-MM-DDTHH:MM
             new Seq(
@@ -98,12 +117,12 @@ public class LiteralDateParser
     Object[] result = (Object[]) ps.value();
 
     c.set(
-      result.length >  1 ? (Integer) result[0]     : 0,
-      result.length >  3 ? (Integer) result[2] - 1 : 0,
-      result.length >  5 ? (Integer) result[4]     : 0,
-      result.length >  7 ? (Integer) result[6]     : 0,
-      result.length >  9 ? (Integer) result[8]     : 0,
-      result.length > 11 ? (Integer) result[10]    : 0);
+      result.length >=  1 ? (Integer) result[0]     : 0,
+      result.length >=  3 ? (Integer) result[2] - 1 : 0,
+      result.length >=  5 ? (Integer) result[4]     : 0,
+      result.length >=  7 ? (Integer) result[6]     : 0,
+      result.length >=  9 ? (Integer) result[8]     : 0,
+      result.length >= 11 ? (Integer) result[10]    : 0);
 
     return ps.setValue(c.getTime());
   }

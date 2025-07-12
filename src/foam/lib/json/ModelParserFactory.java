@@ -16,24 +16,17 @@ import java.util.Iterator;
 import java.util.List;
 
 public class ModelParserFactory {
-  protected final static ConcurrentHashMap<Class, Parser> parsers_ = new ConcurrentHashMap<Class, Parser>();
+  protected final static ConcurrentHashMap<ClassInfo, Parser> parsers_ = new ConcurrentHashMap<ClassInfo, Parser>();
   protected final static Parser COMMENTS = CommentParser.create();
   protected final static Parser OPTIONAL_COMMENTS = new Optional(COMMENTS);
 
-  public static Parser getInstance(Class c) {
+  public static Parser getInstance(ClassInfo ci) {
     // Sync is required to avoid building one parser per AssemblyLine thread.
-    synchronized ( c ) {
-      if ( parsers_.containsKey(c) ) return parsers_.get(c);
-      ClassInfo info = null;
+    synchronized ( ci ) {
+      if ( parsers_.containsKey(ci) ) return parsers_.get(ci);
 
-      try {
-        info = (ClassInfo) c.getMethod("getOwnClassInfo").invoke(null);
-      } catch(NoSuchMethodException|IllegalAccessException|InvocationTargetException e) {
-        throw new RuntimeException("Failed to build parser ", e);
-      }
-
-      Parser parser = buildInstance_(info);
-      parsers_.put(c, parser);
+      Parser parser = buildInstance_(ci);
+      parsers_.put(ci, parser);
       return parser;
     }
   }

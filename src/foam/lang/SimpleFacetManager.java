@@ -9,10 +9,16 @@ package foam.lang;
 import foam.core.logger.Logger;
 import java.util.Collections;
 import java.util.Map;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Method;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 public class SimpleFacetManager
   implements FacetManager
 {
+  public SimpleFacetManager() {
+  }
 
   public Object getInstanceOf(Object value, Class type, X x) {
     return create(type, x);
@@ -95,9 +101,9 @@ public class SimpleFacetManager
       Object obj;
       try {
         Object f = x.get(clsName + "_Factory");
+        // System.err.println("********************************************** CREATED " + clsName);
         obj = ((XArgsFactory<?>) f).getInstance(args, x);
       } catch (NullPointerException e) {
-        e.printStackTrace();
         ((Logger) x.get("logger")).error(this.getClass().getSimpleName(), "Unable to create " + clsName);
         throw e;
       }
@@ -113,5 +119,52 @@ public class SimpleFacetManager
     } catch (Throwable e) {
       throw new RuntimeException(e);
     }
+  }
+
+  protected final ConcurrentHashMap<String, ClassInfo> classInfos_ = new ConcurrentHashMap<String, ClassInfo>();
+
+  public static ClassInfo getClassInfo(Class cls) {
+    if ( cls == null ) return null;
+
+    try {
+      Method method = cls.getMethod("getOwnClassInfo");
+
+      return (ClassInfo) method.invoke(null);
+    } catch (Throwable t) {
+      return null;
+    }
+  }
+
+  public ClassInfo getClassInfo(String clsName, X x) {
+    ClassInfo ci = classInfos_.get(clsName);
+
+    // TODO: cache negative matches?
+    if ( ci == null ) {
+      try {
+        Class cls = null;
+
+        try {
+          cls = Class.forName(clsName);
+        } catch (ClassNotFoundException e) {
+          // Maybe it's an inner-class, which replace the last . with a $ in Java
+
+          int i = clsName.lastIndexOf('.');
+          if ( i != -1 ) {
+            StringBuilder sb = new StringBuilder(clsName);
+            sb.setCharAt(i, '$');
+            clsName = sb.toString();
+            cls = Class.forName(clsName);
+          }
+        }
+
+        if ( cls != null ) return getClassInfo(cls);
+      } catch (Throwable t) {
+        return null;
+      }
+
+      classInfos_.put(clsName, ci);
+    }
+
+    return ci;
   }
 }

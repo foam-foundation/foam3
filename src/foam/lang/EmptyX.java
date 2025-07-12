@@ -67,6 +67,10 @@ abstract class AbstractX
     return ((FacetManager) get("facetManager")).create(clsName, args, this);
   }
 
+  public ClassInfo getClassInfo(String clsName) {
+    return ((FacetManager) get("facetManager")).getClassInfo(clsName, this);
+  }
+
   public X cd(String path) {
     return cd(this, path);
   }

@@ -34,6 +34,11 @@ foam.CLASS({
       name: 'goNextOnGranted',
       documentation: 'When set to true, wizard will automatically move to the next wizardlet as soon as this is granted'
     },
+    {
+      class: 'Boolean',
+      name: 'skipOnGranted',
+      documentation: 'When set to true, wizard will skip this wizardlet if the server indicates that the capability is already granted.'
+    },
     // Properties for WizardSection interface
     {
       name: 'of',
@@ -116,9 +121,13 @@ foam.CLASS({
     }
   ],
   methods: [
-    async function willRender() {
+    async function willRender(controller) {
       if ( this.saveOnCurrent ) {
         await this.save();
+      }
+      if ( this.skipOnGranted && this.status === this.CapabilityJunctionStatus.GRANTED ) {
+        this.isVisible = false;
+        controller.wizardController?.goNext();
       }
     },
     async function save(options) {

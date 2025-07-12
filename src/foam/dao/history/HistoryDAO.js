@@ -97,7 +97,7 @@ foam.CLASS({
       javaCode: `
         var updates = new ArrayList<PropertyUpdate>();
         var info = newValue.getClassInfo();
-        var of = info.getObjClass().getSimpleName().toLowerCase();
+        var of = info.getSimpleName().toLowerCase();
         var props = info.getAxiomsByClass(PropertyInfo.class);
 
         for ( var prop : props ) {

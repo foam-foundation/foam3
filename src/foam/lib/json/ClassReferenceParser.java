@@ -7,6 +7,7 @@
 package foam.lib.json;
 
 import foam.lang.ClassInfo;
+import foam.lang.XLocator;
 import foam.lib.parse.*;
 
 public class ClassReferenceParser
@@ -61,14 +62,14 @@ public class ClassReferenceParser
     //
     // And when parsing "java.lang.Object", returns null
     // because java.lang.Object is not a modelled class.
-    try {
-      Class cls = Class.forName(classId);
-      ClassInfo info = (ClassInfo) cls.getMethod("getOwnClassInfo") .invoke(null);
+    ClassInfo info = XLocator.get().getClassInfo(classId);
+
+    if ( info != null )
       return ps.setValue(info);
-    } catch ( Throwable t ) {
-      System.err.println(classId + " is not a modelled class.");
-      x.set("error", t);
-      throw new RuntimeException(t);
-    }
+
+    String msg = classId + " is not a modelled class.";
+    System.err.println(msg);
+    x.set("error", msg);
+    throw new RuntimeException(msg);
   }
 }

@@ -153,11 +153,11 @@ Using --flags:test will include all source and configuration flagged as 'test' t
 <h2>Project</h2>
 <p>Project tooling provides a task for creating a new FOAM based project, complete with an example Model and Test case.  The task will create the default directory layout along with required poms, and initial journal configuration for logging in and mananging the new Model.</p>
 <code>
-  ./build.sh -Tsetup/Project --appName:Recipe --package:com.foamdev.cook --adminPassword:badpassword
+  ./build.sh -T+setup/Project --type:simple --appName:MyApp --modelName:MyModel --package:com.foamdev --adminPassword:badpassword
   # then build with
   ./build.sh deployment/demo/run.sh
   # login with demo user - username: demo, password: demopassword
-  # or admin user - username: foam-admin, password: foam-admin
+  # or admin user - username: admin, password: badpassword
   #
   # Run the test case with
   ./build.sh --java-tests:RecipeTest

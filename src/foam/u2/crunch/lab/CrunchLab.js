@@ -72,6 +72,8 @@ foam.CLASS({
       class: 'Reference',
       name: 'crunchUser',
       label: 'User',
+      shortName: 'u',
+      memorable: true,
       of: 'foam.core.auth.User',
       help: `User reference used to populate UCJ data on capability graph.
           This user references the sourceId/owner of a user capability junction.`,
@@ -96,6 +98,7 @@ foam.CLASS({
     {
       class: 'Reference',
       name: 'effectiveUser',
+      memorable: true,
       of: 'foam.core.auth.User',
       help: `User reference used to further filter capabilities listed for rootCapability.
           This user references the effectiveUser of a capabilityJunction.`,
@@ -159,7 +162,8 @@ foam.CLASS({
       class: 'Reference',
       name: 'rootCapability',
       of: 'foam.core.crunch.Capability',
-      memorable: 'true',
+      shortName: 'rc',
+      memorable: true,
       help: `Root capability reference used to populate graph.
           Graph renders prerequisites downward of the selected capabilty.`,
       view: function(_, X) {
@@ -181,14 +185,6 @@ foam.CLASS({
           ]
         };
       },
-      postSet: function(_, n) {
-        if ( this.memento ) {
-          if ( n )
-            this.currentMemento_ = foam.core.controller.Memento.create({value: n});
-          else
-            this.currentMemento_ = null;
-        }
-      },
       menuKeys: ['admin.capabilities']
     },
     {
@@ -205,7 +201,6 @@ foam.CLASS({
     },
     { class: 'Boolean', name: 'sideVisible' },
     { class: 'foam.u2.ViewSpec', name: 'sideView' },
-    'currentMemento_',
     {
       class: 'foam.dao.DAOProperty',
       name: 'sequenceReferenceDAO',
@@ -224,10 +219,6 @@ foam.CLASS({
 
   methods: [
     function render() {
-      if ( this.memento) {
-        this.currentMemento_$ = this.memento.tail$;
-      }
-
       this
         .addClass(this.myClass())
         .start(this.SideViewBorder, {
@@ -238,13 +229,14 @@ foam.CLASS({
           .start(this.Tabs)
             .start(this.Tab, {
               label: this.ALL_TAB,
-              selected: true,
+              selected: ! this.crunchUser
             })
               .tag(this.ROOT_CAPABILITY.__, { data: this })
               .start().style({ display: 'block' }).add(this.getGraphSlot()).end()
             .end()
             .start(this.Tab, {
               label: this.UCJ_TAB,
+              selected: !! this.crunchUser
             })
               .startContext({ data: this })
                 .tag(this.ROOT_CAPABILITY.__)
@@ -258,7 +250,6 @@ foam.CLASS({
         .end()
         ;
 
-      this.mementoChange();
     },
     function getGraphSlot(replaceWithUCJ) {
       var self = this;
@@ -355,10 +346,6 @@ foam.CLASS({
   ],
 
   listeners: [
-    function mementoChange() {
-      var m = this.currentMemento_;
-      if ( m && this.rootCapability != m.head ) this.rootCapability = m.head;
-    },
     function capabilityClicked(capability) {
       this.sideView = {
         ...this.capabilityExperimentView,
@@ -375,3 +362,22 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.u2.crunch.lab',
+  name: 'UserCrunchRefine',
+  refines: 'foam.core.auth.User',
+
+  actions: [
+    {
+      name: 'openCrunchLab',
+      availablePermissions: ['menu.read.crunch.crunchlab'],
+      code: async function(X) {
+        let menu = await X.menuDAO?.find('crunch.crunchlab');
+        if ( ! menu ) X.notify('Crunch Lab not found', '', 'ERROR');
+        let group = await this.group$find;
+        X.routeTo(`${menu.id}?rc=${group.generalCapability}&u=${this.id}`)
+      }
+    }
+  ]
+})

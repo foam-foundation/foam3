@@ -141,7 +141,7 @@ foam.CLASS({
       class: 'String',
       name: 'permissionPrefix',
       javaFactory: `
-      return getSourceDAO().getOf().getObjClass().getSimpleName().toLowerCase();
+      return getSourceDAO().getOf().getSimpleName().toLowerCase();
      `
     },
     {
@@ -182,7 +182,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'instanceName',
-      javaFactory: 'return "MaterializedDAO-" + getSourceDAO().getOf().getObjClass().getSimpleName() + "-" + getDelegate().getOf().getObjClass().getSimpleName();'
+      javaFactory: 'return "MaterializedDAO-" + getSourceDAO().getOf().getSimpleName() + "-" + getDelegate().getOf().getSimpleName();'
     }
   ],
 
@@ -208,7 +208,7 @@ foam.CLASS({
         startThread();
 
         // Could take a long time
-        PM pm = new PM("MaterializedDAO", "initializing", getSourceDAO().getOf().getObjClass().getSimpleName());
+        PM pm = new PM("MaterializedDAO", "initializing", getSourceDAO().getOf().getSimpleName());
         AddIndexCommand cmd = new AddIndexCommand();
         cmd.setIndex(new MaterializedDAOIndex(this));
         getSourceDAO().cmd(cmd);

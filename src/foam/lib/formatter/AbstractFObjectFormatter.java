@@ -86,7 +86,7 @@ public abstract class AbstractFObjectFormatter
   }
 
   protected synchronized List getProperties(PropertyInfo parentProp, ClassInfo info) {
-    String of = info.getObjClass().getName();
+    String of = info.getName();
 
     if ( ! propertyMap_.containsKey(of) ) {
       List<PropertyInfo> filteredAxioms = new ArrayList<>();

@@ -145,7 +145,7 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
 
     dataSource_ = jp.getDataSource();
 
-    tableName_ = of.getObjClass().getSimpleName().toLowerCase();
+    tableName_ = of.getSimpleName().toLowerCase();
 
     buildPropertyList(of);
 

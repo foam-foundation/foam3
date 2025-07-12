@@ -22,7 +22,7 @@ foam.CLASS({
           foam.typescript.model.TypeScriptProperty tsProperty =
               new foam.typescript.model.TypeScriptProperty.Builder(getX())
               .setName(prop.getName())
-              .setType(mapToTypeScriptType(prop.getClassInfo().getObjClass().getSimpleName()))
+              .setType(mapToTypeScriptType(prop.getClassInfo().getSimpleName()))
               .build();
           tsClass.getProperties().add(tsProperty);
         }
@@ -38,7 +38,7 @@ foam.CLASS({
             foam.typescript.model.TypeScriptParameter tsParam =
                 new foam.typescript.model.TypeScriptParameter.Builder(getX())
                 .setName(arg.getName())
-                .setType(mapToTypeScriptType(arg.getClassInfo().getObjClass().getSimpleName()))
+                .setType(mapToTypeScriptType(arg.getClassInfo().getSimpleName()))
                 .build();
             tsMethod.getParameters().add(tsParam);
           }

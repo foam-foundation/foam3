@@ -44,6 +44,7 @@ public interface X {
   public <T> T create(Class<T> type, Map<String, Object> args);
   public Object create(String clsName);
   public Object create(String clsName, Map<String, Object> args);
+  public ClassInfo getClassInfo(String clsName);
 
   // cd methods
   X cd(String path);

@@ -321,7 +321,7 @@ public class Outputter
   }
 
   protected synchronized List getProperties(ClassInfo info) {
-    String of = info.getObjClass().getSimpleName();
+    String of = info.getSimpleName();
 
     // ???: Why is this needed? Is it needed?
     if ( propertyMap_.containsKey(of) && propertyMap_.get(of).isEmpty() ) {

@@ -113,7 +113,7 @@ public abstract class AbstractPropertyInfo
     // requires a read permission here.
     if ( this.getReadPermissionRequired() ) {
       AuthService auth       = (AuthService) x.get("auth");
-      String simpleName      = this.getClassInfo().getObjClass().getSimpleName();
+      String simpleName      = this.getClassInfo().getSimpleName();
       String simpleNameLower = simpleName.toLowerCase();
       String nameLower       = this.getName().toLowerCase();
 

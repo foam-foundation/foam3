@@ -487,9 +487,10 @@ foam.CLASS({
       type: 'foam.core.auth.Authorizer',
       name: 'authorizer',
       javaFactory: `
-      if ( foam.core.auth.Authorizable.class.isAssignableFrom(getOf().getObjClass()) ) {
+      if ( getOf().isAssignableTo(foam.core.auth.Authorizable.class) ) {
         return new foam.core.auth.AuthorizableAuthorizer(getPermissionPrefix());
       }
+
       return new foam.core.auth.StandardAuthorizer(getPermissionPrefix());
       `
     },
@@ -500,7 +501,7 @@ foam.CLASS({
         return this.of.name.toLowerCase();
       },
       javaFactory: `
-      return getOf().getObjClass().getSimpleName().toLowerCase();
+      return getOf().getSimpleName().toLowerCase();
      `
     },
     {
@@ -774,7 +775,7 @@ foam.CLASS({
       documentation: 'Decorate with a ServiceProviderAwareDAO',
       name: 'serviceProviderAware',
       class: 'Boolean',
-      javaFactory: 'return foam.core.auth.ServiceProviderAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getOf().isAssignableTo(foam.core.auth.ServiceProviderAware.class);'
     },
     {
       name: 'subdomainAware',
@@ -783,32 +784,32 @@ foam.CLASS({
     {
       name: 'lifecycleAware',
       class: 'Boolean',
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.auth.LifecycleAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.LifecycleAware.class);'
     },
     {
       name: 'createdAware',
       class: 'Boolean',
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.auth.CreatedAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.CreatedAware.class);'
     },
     {
       name: 'createdByAware',
       class: 'Boolean',
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.auth.CreatedByAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.CreatedByAware.class);'
     },
     {
       name: 'lastModifiedAware',
       class: 'Boolean',
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.auth.LastModifiedAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.LastModifiedAware.class);'
     },
     {
       name: 'lastModifiedByAware',
       class: 'Boolean',
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.auth.LastModifiedByAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.LastModifiedByAware.class);'
     },
     {
       name: 'capable',
       class: 'Boolean',
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.crunch.lite.Capable.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.crunch.lite.Capable.class);'
     },
     {
       name: 'allowActionRequiredPuts',
@@ -839,7 +840,7 @@ foam.CLASS({
         (ie. ApprovableAwareDAO) completely and since ApprovableAware interface implements
         LifecycleAware the lifecycleState property on the object will not be changed to ACTIVE.
       `,
-      javaFactory: 'return getEnableInterfaceDecorators() && foam.core.approval.ApprovableAware.class.isAssignableFrom(getOf().getObjClass());'
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.approval.ApprovableAware.class);'
     },
     {
       name: 'approvableAwareEnabled',

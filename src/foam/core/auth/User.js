@@ -1009,7 +1009,7 @@ foam.CLASS({
           .select(new ArraySink()))
           .getArray();
         for ( NotificationSetting setting : settingDefaults ) {
-          if ( setting.getEnabled() ) {
+          if ( setting.getEnabled() || setting.getClass() == NotificationSetting.class ) {
             settingsMap.put(setting.getClassInfo().getId(), setting);
           } else {
             // use disabled to opt-out
@@ -1021,7 +1021,7 @@ foam.CLASS({
         List<NotificationSetting> settings = ((ArraySink) getNotificationSettings(x)
           .select(new ArraySink())).getArray();
         for ( NotificationSetting setting : settings ) {
-          if ( setting.getEnabled() ) {
+          if ( setting.getEnabled() || setting.getClass() == NotificationSetting.class ) {
             settingsMap.put(setting.getClassInfo().getId(), setting);
           } else {
             // use disabled to opt-out

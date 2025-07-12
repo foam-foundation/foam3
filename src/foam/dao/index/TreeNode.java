@@ -20,18 +20,18 @@ import static foam.dao.AbstractDAO.decorateSink;
 /** AATree implementation. See: https://en.wikipedia.org/wiki/AA_tree **/
 public class TreeNode {
   protected Object   key;
-  protected Object getKey() { return key; }
+  protected Object   getKey() { return key; }
   protected Object   value;
   protected long     size;
-  protected long getSize() { return size; }
+  protected long     getSize() { return size; }
   protected byte     level;
-  protected byte getLevel() { return level; }
+  protected byte     getLevel() { return level; }
   protected TreeNode left;
   protected TreeNode right;
 
-  protected TreeNodeStored stored;
-  protected TreeNodeStored getStored() { return stored; }
-  protected void setStored(TreeNodeStored stored) { this.stored = stored; }
+  protected StoredTreeNode stored;
+  protected StoredTreeNode getStored() { return stored; }
+  protected void setStored(StoredTreeNode stored) { this.stored = stored; }
 
   protected final static TreeNode NULL_NODE = new TreeNode(null, null, 0, (byte) 0, null, null);
 
@@ -49,7 +49,7 @@ public class TreeNode {
     this.right = right;
   }
 
-  public TreeNode(Object key, Object value, long size, byte level, TreeNode left, TreeNode right, TreeNodeStored stored) {
+  public TreeNode(Object key, Object value, long size, byte level, TreeNode left, TreeNode right, StoredTreeNode stored) {
     this.key   = key;
     this.value = value;
     this.size  = size;
@@ -297,7 +297,6 @@ public class TreeNode {
   }
 
   protected TreeNode getLeft() {
-    // if ( left == null && getStored() != null && getStored().getLeft() != null && ! getStored().getLeftLoaded() )
     if ( left == null && getStored() != null && getStored().getLeft() != null )
       left = getStored().loadLeft();
 
@@ -309,7 +308,6 @@ public class TreeNode {
   }
 
   protected TreeNode getRight() {
-    // if ( right == null && getStored() != null && getStored().getRight() != null && ! getStored().getRightLoaded() )
     if ( right == null && getStored() != null && getStored().getRight() != null )
       right = getStored().loadRight();
 

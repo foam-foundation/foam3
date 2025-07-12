@@ -100,9 +100,9 @@ public class TreeStoreIndex
           stack = pushLeft(stack, node.getRight());
         } else {
           Stored l = stored.size() > 0 ? stored.removeFirst() : null;
-          Object lk = (l != null ? ((TreeNodeStored)l.get()).getKey() : null);
+          Object lk = (l != null ? ((StoredTreeNode)l.get()).getKey() : null);
           Stored r = stored.size() > 0 ? stored.removeFirst() : null;
-          Object rk = (r != null ? ((TreeNodeStored)r.get()).getKey() : null);
+          Object rk = (r != null ? ((StoredTreeNode)r.get()).getKey() : null);
           if ( SafetyUtil.compare(lk, rk) > 0 ) {
             Stored t = l; l = r; r = t;
           }
@@ -113,29 +113,29 @@ public class TreeStoreIndex
   }
 
   protected Stored store(TreeNode node, Stored left, Stored right, boolean updateValue, boolean root) {
-    // Loggers.logger(store_.getX(), this).info("storing", node.getKey(), left!=null?((TreeNodeStored)left.get()).getKey():"", right!=null?((TreeNodeStored) right.get()).getKey():"", updateValue, root);
+    // Loggers.logger(store_.getX(), this).info("storing", node.getKey(), left!=null?((StoredTreeNode)left.get()).getKey():"", right!=null?((StoredTreeNode) right.get()).getKey():"", updateValue, root);
 
-    TreeNodeStored tns = (TreeNodeStored) node.getStored();
-    if ( tns == null ) {
-      tns = new TreeNodeStored();
+    StoredTreeNode stn = (StoredTreeNode) node.getStored();
+    if ( stn == null ) {
+      stn = new StoredTreeNode();
     }
-    tns.setKey(node.getKey());
-    tns.setSize(node.getSize());
-    tns.setLevel(node.getLevel());
-    tns.setLeft(left);
-    tns.setRight(right);
+    stn.setKey(node.getKey());
+    stn.setSize(node.getSize());
+    stn.setLevel(node.getLevel());
+    stn.setLeft(left);
+    stn.setRight(right);
 
     if ( updateValue ||
-         tns.getValue() == null ) {
-      tns.setValue(store_.store((FObject) node.getValue()));
+         stn.getValue() == null ) {
+      stn.setValue(store_.store((FObject) node.getValue()));
     }
     Stored stored = null;
     if ( root ) {
-      stored = store_.storeRoot(tns);
+      stored = store_.storeRoot(stn);
     } else {
-      stored = store_.store(tns);
+      stored = store_.store(stn);
     }
-    node.setStored((TreeNodeStored) stored.get());
+    node.setStored((StoredTreeNode) stored.get());
     return stored;
   }
 
@@ -144,20 +144,20 @@ public class TreeStoreIndex
     if ( stored == null )
       return null;
 
-    TreeNode node = TreeNodeStored.Load(store, stored);
+    TreeNode node = StoredTreeNode.Load(store, stored);
 
     if ( maxDepth > 0 && currentDepth >= maxDepth )
       return node;
 
-    TreeNodeStored tns = (TreeNodeStored) node.getStored();
+    StoredTreeNode stn = (StoredTreeNode) node.getStored();
 
-    TreeNode left = bulkLoad(store, tns.getLeft(), currentDepth + 1, maxDepth);
+    TreeNode left = bulkLoad(store, stn.getLeft(), currentDepth + 1, maxDepth);
     node.setLeft(left);
-    tns.setLeft(null);
+    stn.setLeft(null);
 
-    TreeNode right = bulkLoad(store, tns.getRight(), currentDepth + 1, maxDepth);
+    TreeNode right = bulkLoad(store, stn.getRight(), currentDepth + 1, maxDepth);
     node.setRight(right);
-    tns.setRight(null);
+    stn.setRight(null);
 
     node.setStored(null);
     return node;
@@ -190,7 +190,7 @@ public class TreeStoreIndex
       } else {
         Stored stored = (Stored) o;
         Object obj = stored.get();
-        sb.append(((TreeNodeStored)obj).getKey());
+        sb.append(((StoredTreeNode)obj).getKey());
         sb.append("S");
         sb.append(",");
       }

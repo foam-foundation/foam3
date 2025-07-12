@@ -6,10 +6,11 @@
 
 foam.CLASS({
   package: 'foam.dao.index',
-  name: 'TreeNodeStored',
+  name: 'StoredTreeNode',
   implements: [ 'foam.dao.store.Stored' ],
 
   javaImports: [
+    'foam.dao.store.FileStore',
     'foam.dao.store.Stored'
   ],
 
@@ -59,7 +60,7 @@ foam.CLASS({
       name: 'loadLeft',
       javaType: 'TreeNode',
       javaCode: `
-      TreeNode node = TreeNodeStored.Load(getStore(), getLeft());
+      TreeNode node = StoredTreeNode.Load(getStore(), getLeft());
       setLeft(null);
       return node;
       `
@@ -68,14 +69,14 @@ foam.CLASS({
       name: 'loadRight',
       javaType: 'TreeNode',
       javaCode: `
-      TreeNode node = TreeNodeStored.Load(getStore(), getRight());
+      TreeNode node = StoredTreeNode.Load(getStore(), getRight());
       setRight(null);
       return node;
       `
     }
   ],
   javaCode: `
-  public static TreeNode Load(foam.dao.store.FileStore store, Stored stored) {
+  public static TreeNode Load(FileStore store, Stored stored) {
     if ( store == null )
       return null;
 
@@ -84,18 +85,18 @@ foam.CLASS({
       return null;
     }
 
-    TreeNodeStored tns = (TreeNodeStored) stored.get();
-    tns.setStore(store);
+    StoredTreeNode stn = (StoredTreeNode) stored.get();
+    stn.setStore(store);
     TreeNode node = new TreeNode(
-                                 tns.getKey(),
-                                 store.load(tns.getValue()).get(),
-                                 tns.getSize(),
-                                 (byte) tns.getLevel(),
+                                 stn.getKey(),
+                                 store.load(stn.getValue()).get(),
+                                 stn.getSize(),
+                                 (byte) stn.getLevel(),
                                  null,
                                  null,
-                                 tns
+                                 stn
                                  );
-    tns.setValue(null);
+    stn.setValue(null);
     return node;
   }
   `

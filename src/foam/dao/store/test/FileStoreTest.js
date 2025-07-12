@@ -6,7 +6,7 @@
 
 foam.CLASS({
   package: 'foam.dao.store.test',
-  name: 'FileStoreIndexTest',
+  name: 'FileStoreTest',
   extends: 'foam.dao.store.test.StoreTestModelPerfTest',
 
   methods: [
@@ -14,7 +14,7 @@ foam.CLASS({
       name: 'setup',
       args: 'Context x',
       javaCode: `
-      num = 10;
+      num = 100;
       `
     }
   ]

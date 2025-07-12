@@ -164,8 +164,7 @@ foam.CLASS({
         if ( getPm() )
           val = new foam.dao.PMDAO.Builder(getX()).setCSpec(getCSpec()).setDelegate(val).build();
         */
-      `,
-      javaFactory: 'return new foam.dao.MDAO(getX(), getOf(), ("materialized-" + getSourceDAO().getOf().getObjClass().getSimpleName() + "-" + getOf().getObjClass().getSimpleName()).toLowerCase());'
+      `
     },
     {
       class: 'Array',
@@ -195,12 +194,15 @@ foam.CLASS({
         if ( getInitialized() )
           return;
 
-        if ( ((Count) getDelegate().select(COUNT())).getValue() > 0 ) {
+        Logger logger = Loggers.logger(getX(), this, getInstanceName());
+
+        Count count = (Count) getDelegate().select(COUNT());
+        logger.info("maybeInit, count", count.getValue());
+        if ( count.getValue() > 0 ) {
           setInitialized(true);
           return;
         }
 
-        Logger logger = Loggers.logger(getX(), this, getInstanceName());
         logger.info("initializing");
 
         setInitialized(true);

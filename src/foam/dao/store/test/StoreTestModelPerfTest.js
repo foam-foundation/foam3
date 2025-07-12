@@ -44,6 +44,7 @@ foam.CLASS({
       Logger logger = Loggers.logger(x, this);
       DAO dao =  getDAO(x);
       PM pm = new PM("StoreTestModelPerfTest-create");
+      List<Long> stms = new ArrayList(); // ids to explicitly test for on reload
       for ( long i = 1; i <= num; i++ ) {
         StoreTestModel stm = new StoreTestModel();
         String s = String.valueOf(i);
@@ -54,6 +55,9 @@ foam.CLASS({
 
         if ( i % 1000 == 0 ) {
           logger.info("created", i, "of", num);
+        }
+        if ( i < 11 || i % 100 == 0 ) {
+          stms.add(stm.getId());
         }
         // var result = (StoreTestModel) dao.find(stm.getId());
         // if ( result == null ) {
@@ -97,6 +101,24 @@ foam.CLASS({
       }
 
       test ( pass == count.getValue(), "counts match "+pass+"=="+count.getValue());
+      if ( pass != count.getValue() ) {
+        StoreTestModel st = new StoreTestModel();
+        String s = String.valueOf(num+1);
+        st.setId(num+1);
+        st.setName(s);
+        st.setData(s);
+        st.setStorageTransientData(s);
+        st = (StoreTestModel) dao.put(st);
+        stms.add(st.getId());
+        logger.info("extra", st.getId());
+
+        for ( Long id : stms ) {
+          var result = (StoreTestModel) dao.find(id);
+          if ( result == null ) {
+            test (false, "F find by id "+id);
+          }
+        }
+      }
       `
     },
     {
@@ -109,9 +131,9 @@ foam.CLASS({
       .setSeqNo(true)
       .setJournalType(foam.dao.JournalType.STORE)
       .setJournalName("storetestmodels")
-      .build()
-      .addPropertyIndex(new foam.lang.Indexer[] { foam.dao.store.test.StoreTestModel.ID })
-      .addPropertyIndex(new foam.lang.Indexer[] { foam.dao.store.test.StoreTestModel.NAME });
+      .build();
+      // .addPropertyIndex(new foam.lang.Indexer[] { foam.dao.store.test.StoreTestModel.ID })
+      // .addPropertyIndex(new foam.lang.Indexer[] { foam.dao.store.test.StoreTestModel.NAME });
       `
     }
   ]

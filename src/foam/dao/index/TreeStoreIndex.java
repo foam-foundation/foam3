@@ -140,29 +140,26 @@ public class TreeStoreIndex
   }
 
   // Recreate the Tree
-  public TreeNode bulkLoad(Stored stored, int currentDepth, int maxDepth, foam.dao.store.FileStore store) {
+  public TreeNode bulkLoad(FileStore store, Stored stored, int currentDepth, int maxDepth) {
     if ( stored == null )
       return null;
 
-    TreeNodeStored tns = (TreeNodeStored) stored.get();
-    tns.setStore(store);
-    if ( maxDepth > 0 && currentDepth > maxDepth )
-      return null;
+    TreeNode node = TreeNodeStored.Load(store, stored);
 
-    tns.setLeftLoaded(true);
-    tns.setRightLoaded(true);
-    TreeNode node = new TreeNode(
-                                 tns.getKey(),
-                                 store_.load(tns.getValue()).get(),
-                                 tns.getSize(),
-                                 (byte) tns.getLevel(),
-                                 bulkLoad(store_.load(tns.getLeft()), currentDepth + 1, maxDepth, store),
-                                 bulkLoad(store_.load(tns.getRight()), currentDepth + 1, maxDepth, store),
-                                 tns
-                                 );
-    tns.setValue(null);
+    if ( maxDepth > 0 && currentDepth >= maxDepth )
+      return node;
+
+    TreeNodeStored tns = (TreeNodeStored) node.getStored();
+
+    TreeNode left = bulkLoad(store, tns.getLeft(), currentDepth + 1, maxDepth);
+    node.setLeft(left);
     tns.setLeft(null);
+
+    TreeNode right = bulkLoad(store, tns.getRight(), currentDepth + 1, maxDepth);
+    node.setRight(right);
     tns.setRight(null);
+
+    node.setStored(null);
     return node;
   }
 
@@ -175,9 +172,9 @@ public class TreeStoreIndex
 
     if ( ! loaded_ ) {
       loaded_ = true;
-      state_ = bulkLoad(store_.getRoot(), 0, 0, store_);
-      // state_ = bulkLoad(store_.getRoot(), 0, 2, store_);
-      // TODO: on startup load to level or some time restraint.
+      // state_ = bulkLoad(store_, store_.getRoot(), 0, 0);
+      state_ = bulkLoad(store_, store_.getRoot(), 0, 1);
+      // TODO: load strategy - time, depth, ... 
     }
   }
 

@@ -96,7 +96,8 @@ foam.CLASS({
           }
         }});
       } catch (InterruptedException e) {
-      }`
+      }
+      return null;`
     },
     {
       name: 'schedule',

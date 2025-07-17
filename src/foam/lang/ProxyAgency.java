@@ -1,5 +1,7 @@
 package foam.lang;
 
+import java.util.concurrent.Future;
+
 public class ProxyAgency implements Agency {
   public Agency delegate_;
 
@@ -8,8 +10,8 @@ public class ProxyAgency implements Agency {
   }
 
   @Override
-  public void submit(X x, ContextAgent agent, String description) {
-    delegate_.submit(x, agent, description);
+  public Future<?> submit(X x, ContextAgent agent, String description) {
+    return delegate_.submit(x, agent, description);
   }
 
   @Override

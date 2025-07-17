@@ -11,7 +11,7 @@ foam.INTERFACE({
   methods: [
     {
       name: 'submit',
-      type: 'Void',
+      type: 'java.util.concurrent.Future<?>',
       args: 'Context x, foam.lang.ContextAgent agent, String description'
     },
     {

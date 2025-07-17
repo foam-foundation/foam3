@@ -6,12 +6,15 @@
 
 package foam.lang;
 
+import java.util.concurrent.Future;
+
 /**
  * AsyncAgency is passed to async rule.action
  * for immediate execution of agent.
  */
 public class DirectAgency extends AbstractAgency {
-  public void submit(X x, ContextAgent agent, String description) {
+  public Future<?> submit(X x, ContextAgent agent, String description) {
     agent.execute(x);
+    return null;
   }
 }

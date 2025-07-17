@@ -45,7 +45,9 @@ foam.CLASS({
   methods: [
     {
       name: 'submit',
-      javaCode: '/* noop */'
+      javaCode: `/* noop */
+        return null;
+      `
     },
     {
       name: 'schedule',

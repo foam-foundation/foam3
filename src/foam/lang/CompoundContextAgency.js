@@ -57,7 +57,10 @@ if ( e != null ) e.maybeThrow();`
         { name: 'agent', type: 'ContextAgent' },
         { name: 'description', type: 'String' }
       ],
-      javaCode: `getAgents().add(new ContextAgentRunnable(x, agent, description));`
+      javaCode: `
+        getAgents().add(new ContextAgentRunnable(x, agent, description));
+        return null;
+      `
     },
     {
       name: 'toString',

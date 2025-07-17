@@ -220,7 +220,7 @@ foam.CLASS({
       ],
       javaCode: `
     incrQueued(1);
-    getPool().submit(new ContextAgentRunnable(x, agent, description));
+    return getPool().submit(new ContextAgentRunnable(x, agent, description));
      `
     },
     {

@@ -1232,7 +1232,7 @@ foam.CLASS({
             .start({
               class: 'foam.u2.view.ChoiceView',
               data$: self.promptMode$,
-              choices: ['Standard', 'Advanced'] // TODO: get dynamic from toolbarDAO to create later and witch toolbar to FObject
+              choices: ['Standard', 'Advanced'] // TODO: get dynamic from toolbarDAO to create later and switch toolbar to FObject 
             })
               .addClass(self.myClass('prompt-mode-choice'))
             .end().

@@ -139,6 +139,23 @@ foam.CLASS({
           Date now = new Date();
           DAO cronJobDAO = (DAO) x.get(getCronJobDAO());
           cronJobDAO.where(
+            MLang.AND(
+              MLang.EQ(Cron.STATUS, ScriptStatus.RUNNING),
+              MLang.GT(Cron.THREAD_TIMEOUT, 0)
+            )
+          ).select(new AbstractSink() {
+            @Override
+            public void put(Object obj, Detachable sub) {
+              Cron cron = (Cron) ((FObject) obj).fclone();
+              long elapsed = System.currentTimeMillis() - cron.getThreadStartTime();
+              if ( elapsed > cron.getThreadTimeout() ) {
+                cron.setStatus(ScriptStatus.TIMEOUT);
+                cronJobDAO.put_(x, cron);
+              }
+            }
+          });
+
+          cronJobDAO.where(
                          MLang.AND(
                                    MLang.LTE(Cron.SCHEDULED_TIME, now),
                                    MLang.EQ(Cron.ENABLED, true),

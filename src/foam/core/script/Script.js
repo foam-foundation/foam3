@@ -319,6 +319,28 @@ foam.CLASS({
       storageTransient: true,
       visibility: 'HIDDEN',
       documentation: 'Id of thread on which the script is running'
+    },
+    {
+      class: 'Object',
+      name: 'threadExecution',
+      javaType: 'java.util.concurrent.Future<?>',
+      transient: true,
+      visibility: 'HIDDEN',
+      documentation: 'Object representing thread execution of the script. Used in ScriptRunnerDAO for halting the script on threadTimeout.',
+      javaCloneProperty: 'set(dest, get(source));'
+    },
+    {
+      class: 'Long',
+      name: 'threadStartTime',
+      transient: true,
+      visibility: 'HIDDEN',
+      documentation: 'Start time of thread execution of the running script'
+    },
+    {
+      class: 'Int',
+      name: 'threadTimeout',
+      units: 'ms',
+      documentation: 'Timeout to halt thread that is running the script'
     }
   ],
 
@@ -428,7 +450,14 @@ foam.CLASS({
           }
           pm.log(x);
        } catch (Throwable t) {
-          thrown = new RuntimeException(t);
+          var wasInterrupted = t instanceof InterruptedException;
+          var cause = t;
+          while ( ! wasInterrupted && cause != null ) {
+            cause = cause.getCause();
+            wasInterrupted = cause instanceof InterruptedException;
+          }
+
+          thrown = new RuntimeException(wasInterrupted ? cause : t);
           pm.error(x, t);
           ps.println();
           t.printStackTrace(ps);

@@ -12,9 +12,11 @@ foam.CLASS({
   javaImports: [
     'foam.lang.*',
     'foam.dao.*',
+    'foam.core.er.EventRecord',
     'foam.core.logger.Logger',
     'foam.core.logger.PrefixLogger',
-    'foam.core.logger.StdoutLogger'
+    'foam.core.logger.StdoutLogger',
+    'foam.log.LogLevel'
   ],
 
   javaCode: `
@@ -22,6 +24,14 @@ foam.CLASS({
       setDelegate(delegate);
     }
   `,
+
+  properties: [
+    {
+      class: 'String',
+      name: 'agencyName',
+      value: 'threadPool'
+    }
+  ],
 
   methods: [
     {
@@ -38,6 +48,9 @@ foam.CLASS({
             script = (Script) getDelegate().put_(x, script);
           }
         } else {
+          if ( script.getStatus() == ScriptStatus.TIMEOUT && script.getThreadExecution() != null ) {
+            script.getThreadExecution().cancel(true);
+          }
           script = (Script) getDelegate().put_(x, script);
         }
         return script;
@@ -48,7 +61,8 @@ foam.CLASS({
       type: 'foam.core.script.Script',
       args: 'Context x, foam.core.script.Script script',
       javaCode: `
-          ((Agency) x.get("threadPool")).submit(x, new ContextAgent() {
+        script.setThreadExecution(
+          ((Agency) x.get(getAgencyName())).submit(x, new ContextAgent() {
             @Override
             public void execute(X x) {
               x = x.put(Script.class, script);
@@ -62,21 +76,31 @@ foam.CLASS({
 
               try {
                 script.setThreadId(Thread.currentThread().threadId());
+                script.setThreadStartTime(System.currentTimeMillis());
                 getDelegate().put_(x, script);
 
                 script.runScript(x);
                 script.setStatus(ScriptStatus.UNSCHEDULED);
+
+                // thread interrupted successfully without error, log event record
+                if ( Thread.currentThread().isInterrupted() ) {
+                  String message = "thread interrupted, time=[" + script.getThreadStartTime() + ", " + System.currentTimeMillis() + ")";
+                  ((DAO) x.get("eventRecordDAO")).put(new EventRecord(x, "ScriptRunnerDAO", script.getId(), null, null, message, LogLevel.WARN, null));
+                }
               } catch(Throwable t) {
                 script.setStatus(ScriptStatus.ERROR);
                 logger.error("agency", script.getId(), t);
               } finally {
                 // re-put to the top of the dao stack rather than delegate
                 // to allow rules to run pre and post execution
+                script.clearThreadExecution();
                 script.clearThreadId();
+                script.clearThreadStartTime();
                 ((DAO) x.get(script.getDaoKey())).put_(x, script);
               }
             }
-          }, "Run script: " + script.getId());
+          }, "Run script: " + script.getId())
+        );
         return script;
       `
     }

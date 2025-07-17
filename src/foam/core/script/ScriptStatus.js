@@ -35,6 +35,13 @@ foam.ENUM({
       ordinal: 3,
       color: '$destructive500',
       background: '$destructive50'
+    },
+    {
+      name: 'TIMEOUT',
+      label: 'Timeout',
+      ordinal: 4,
+      color: '$warn700',
+      background: '$warn500'
     }
   ]
 });

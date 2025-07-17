@@ -100,7 +100,7 @@ foam.CLASS({
       label: '',
       help:  'Go to previous view',
       buttonStyle: 'BLACK',
-      themeIcon: 'redo',
+      themeIcon: 'undo',
       isEnabled: function(stackSize_) { return !! stackSize_; },
       code: function() {
         this.dumpState('preBack');
@@ -115,7 +115,7 @@ foam.CLASS({
       label: '',
       help:  'Undo the previous back.',
       buttonStyle: 'BLACK',
-      themeIcon: 'undo',
+      themeIcon: 'redo',
       isEnabled: function(redoSize_) { return !! redoSize_; },
       code: function() {
         this.dumpState('preForth');

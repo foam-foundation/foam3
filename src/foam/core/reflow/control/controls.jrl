@@ -1,4 +1,1 @@
-p({"class":"foam.core.reflow.ToolbarControl", "id": 'help', toolbar: 'Standard', order: 0, view: 'foam.core.reflow.control.HelpControl'})
-p({"class":"foam.core.reflow.ToolbarControl", "id": 'collections', toolbar: 'Advanced', order: 0, view: 'foam.core.reflow.control.CollectionsControl'})
-p({"class":"foam.core.reflow.ToolbarControl", "id": 'flows', toolbar: 'Advanced', order: 1, view: 'foam.core.reflow.control.FlowsControl'})
-p({"class":"foam.core.reflow.ToolbarControl", "id": 'components', toolbar: 'Advanced', order: 2, view: 'foam.core.reflow.control.ComponentsControl'})
+p({"class":"foam.core.reflow.ToolbarControl", "id": 'help', order: 0, view: 'foam.core.reflow.control.HelpControl'})

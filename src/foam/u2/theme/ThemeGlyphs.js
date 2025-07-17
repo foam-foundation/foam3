@@ -1007,16 +1007,6 @@ foam.CLASS({
           `
         }
       }
-    },
-    {
-      name: 'flow',
-      class: 'GlyphProperty',
-      of: 'foam.lang.Glyph',
-      factory: () => {
-        return { template: `
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 20 20"><path fill="currentColor" d="M5 2.75A2 2 0 0 1 6.854 4h6.896a3.25 3.25 0 0 1 0 6.5h-7.5a1.75 1.75 0 1 0 0 3.5h6.897a2 2 0 1 1 0 1.5H6.25a3.25 3.25 0 0 1 0-6.5h7.5a1.75 1.75 0 1 0 0-3.5H6.854A2 2 0 1 1 5 2.75"/></svg>
-        ` };
-      }
     }
   ]
 });

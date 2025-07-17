@@ -52,9 +52,6 @@ foam.POM({
     { name: 'lib',                     flags: 'js' },
     { name: 'Mapping',                 flags: 'js|java' },
     { name: 'ToolbarControl',          flags: 'js|java' },
-    { name: 'control/HelpControl',     flags: 'js' },
-    { name: 'control/CollectionsControl', flags: 'js' },
-    { name: 'control/FlowsControl', flags: 'js' },
-    { name: 'control/ComponentsControl', flags: 'js' }
+    { name: 'control/HelpControl',     flags: 'js' }
   ]
 });

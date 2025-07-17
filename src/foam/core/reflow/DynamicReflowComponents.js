@@ -32,12 +32,6 @@ foam.CLASS({
       overflow-y: auto;
       padding-top: 10px;
     }
-    ^header {
-      font-size: 14px;
-      font-weight: 600;
-      border-bottom: 1px solid $grey200;
-      padding-bottom: 5px;
-    }
   `,
 
   properties: [
@@ -60,9 +54,6 @@ foam.CLASS({
 
       this.addClass()
         .start().addClass(this.myClass('container'))
-          .start().addClass(this.myClass('header'))
-            .add('Components')
-          .end()
           .tag(this.FILTER_SEARCH, { data$: this.filterSearch$ })
           .add(this.dynamic(function(filterSearch, commands) {
             var search = (filterSearch || '').toLowerCase();

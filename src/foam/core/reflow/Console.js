@@ -531,7 +531,7 @@ foam.CLASS({
       padding: 4px;
     }
     ^:not(^hidePrompts) {
-      border-bottom: 1px solid $borderLight;
+      border-top: 1px solid #999;
       padding: 8px 16px;
     }
     ^output {
@@ -846,7 +846,6 @@ foam.ENUM({
 });
 
 
-
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Console',
@@ -859,7 +858,6 @@ foam.CLASS({
     'foam.core.reflow.ReactiveSectionedDetailView',
     'foam.core.reflow.RightSidebarOutputView',
     'foam.core.reflow.ReflowToolBar',
-    'foam.core.reflow.ToolbarControl',
     'foam.core.reflow.Block',
     'foam.core.reflow.Flow',
     'foam.core.reflow.FlowMode',
@@ -916,16 +914,20 @@ foam.CLASS({
       width: 100%;
       align-items: center;
       position: sticky;
-      justify-content: space-between;
       bottom: 0;
-      padding: 10px 16px;
-      border-top: 1px solid $borderLight;
+      padding: 10px 8px;
+    }
+    ^input-field, ^input-field ^input {
+      background: $backgroundSecondary;
     }
     ^output {
       flex: 1;
       overflow: auto;
       text-align: left;
       width: 100%
+    }
+    ^input-field .property-input {
+      border: none !important;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;
@@ -941,12 +943,7 @@ foam.CLASS({
       flex-direction: column;
 
     }
-    ^input-field-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 80%;
-    }
+
 
   `,
 
@@ -995,11 +992,6 @@ foam.CLASS({
       name: 'flowMode',
       factory: function() { return this.FlowMode.EDIT; },
       memorable: true
-    },
-    {
-      class: 'String',
-      name: 'promptMode',
-      value: 'Standard'
     },
     {
       name: 'showPrompts',
@@ -1206,14 +1198,9 @@ foam.CLASS({
     },
 
     function renderToolbar(self) {
-      self.toolbarControlDAO.where(self.EQ(self.ToolbarControl.TOOLBAR, self.promptMode))
-        .select().then(result => {
-          result.array
-            .sort((a, b) => (a.order || 0) - (b.order || 0))
-            .forEach(c => {
-              this.tag({class: c.view, data: self});
-            });
-        });
+      this.select(self.toolbarControlDAO, function(c) {
+        this.tag({class: c.view});
+      });
     },
 
     function renderSelf(self) {
@@ -1224,19 +1211,17 @@ foam.CLASS({
           start('span').
             show(self.showInput$).
             addClass(self.myClass('input-field')).
-            add(self.dynamic(function(promptMode) {
-              return this.start().addClass(self.myClass('input-field-container')).
-                        call(self.renderToolbar, [self]).
-                      end()
-            }))
-            .start({
-              class: 'foam.u2.view.ChoiceView',
-              data$: self.promptMode$,
-              choices: ['Standard', 'Advanced'] // TODO: get dynamic from toolbarDAO to create later and switch toolbar to FObject 
-            })
-              .addClass(self.myClass('prompt-mode-choice'))
-            .end().
+            start('b').style({ display: 'flex', 'white-space': 'pre'}).
+              call(self.renderToolbar, [self]).
+              add(' >').
+            end().
+            start(self.INPUT, null, self.input_$).
+              addClass(self.myClass('input')).
+              on('keyup', e => { if ( e.key == 'Enter' || e.keyCode == 13 ) self.onInput(); }).
+            end().
+//            tag(self.ON_INPUT).
           end().
+          start(self.ReflowToolBar, { data: self }).show(self.showPrompts$).end().
         end();
 
 

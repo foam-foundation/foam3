@@ -96,8 +96,13 @@ foam.CLASS({
                 script.clearThreadExecution();
                 script.clearThreadId();
                 script.clearThreadStartTime();
-                // TODO: reload script, the script might be updated before the script finishes running
-                ((DAO) x.get(script.getDaoKey())).put_(x, script);
+
+                // honor script enabled flag if it was updated before runScript() finished
+                DAO dao = (DAO) x.get(script.getDaoKey());
+                Script current = (Script) dao.find(script.getId());
+                script.setEnabled(current.getEnabled());
+
+                dao.put_(x, script);
               }
             }
           }, "Run script: " + script.getId())

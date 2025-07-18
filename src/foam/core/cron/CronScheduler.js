@@ -149,7 +149,7 @@ foam.CLASS({
               Cron cron = (Cron) ((FObject) obj).fclone();
               long elapsed = System.currentTimeMillis() - cron.getThreadStartTime();
               if ( elapsed > cron.getThreadTimeout() ) {
-                cron.setStatus(ScriptStatus.TIMEOUT);
+                cron.setStatus(ScriptStatus.INTERRUPTED);
                 cronJobDAO.put_(x, cron);
               }
             }

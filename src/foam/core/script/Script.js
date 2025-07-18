@@ -111,6 +111,7 @@ foam.CLASS({
     { name: 'EXECUTION_INVOKED', message: 'execution invoked' },
     { name: 'EXECUTION_FAILED', message: 'execution failed' },
     { name: 'EXECUTION_COMPLETED', message: 'execution completed' },
+    { name: 'EXECUTION_INTERRUPTED', message: 'execution interrupted' },
     { name: 'ENABLED_YES', message: 'Y' },
     { name: 'ENABLED_NO', message: 'N' },
     { name: 'PRIORITY_LOW', message: 'Low' },
@@ -638,6 +639,31 @@ foam.CLASS({
       code: function() {
         var url = this.window.location.origin + '/service/threads?id=' + this.threadId + '&sessionId=' + this.sessionID;
         this.window.open(url, '_blank');
+      }
+    },
+    {
+      name: 'interrupt',
+      confirmationRequired: function() {
+        return true;
+      },
+      isAvailable: function(status, threadId) {
+        return status == this.ScriptStatus.RUNNING && threadId;
+      },
+      code: async function() {
+        var self = this;
+
+        this.status = this.ScriptStatus.INTERRUPTED;
+        return this.__context__[this.daoKey].put(this).then(function(script) {
+          var notification = self.Notification.create({});
+          notification.userId = self.subject && self.subject.realUser ?
+            self.subject.realUser.id : self.user.id;
+
+          notification.toastMessage = `"${self.id}" ${self.EXECUTION_INTERRUPTED}`;
+          notification.severity = foam.log.LogLevel.WARN;
+          notification.toastState = self.ToastState.REQUESTED;
+          notification.transient = true;
+          self.__subContext__.myNotificationDAO.put(notification);
+        });
       }
     }
   ]

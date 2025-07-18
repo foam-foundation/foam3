@@ -37,8 +37,8 @@ foam.ENUM({
       background: '$destructive50'
     },
     {
-      name: 'TIMEOUT',
-      label: 'Timeout',
+      name: 'INTERRUPTED',
+      label: 'Interrupted',
       ordinal: 4,
       color: '$warn700',
       background: '$warn500'

@@ -48,7 +48,7 @@ foam.CLASS({
             script = (Script) getDelegate().put_(x, script);
           }
         } else {
-          if ( script.getStatus() == ScriptStatus.TIMEOUT && script.getThreadExecution() != null ) {
+          if ( script.getStatus() == ScriptStatus.INTERRUPTED && script.getThreadExecution() != null ) {
             script.getThreadExecution().cancel(true);
           }
           script = (Script) getDelegate().put_(x, script);
@@ -96,6 +96,7 @@ foam.CLASS({
                 script.clearThreadExecution();
                 script.clearThreadId();
                 script.clearThreadStartTime();
+                // TODO: reload script, the script might be updated before the script finishes running
                 ((DAO) x.get(script.getDaoKey())).put_(x, script);
               }
             }

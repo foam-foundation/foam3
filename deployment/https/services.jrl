@@ -90,7 +90,7 @@ p({
         "CONTENT_SECURITY_POLICY": """
           default-src 'self' data: chrome-extension-resource:;
           connect-src 'self' http://localhost:*/service/ https://fonts.googleapis.com/css2 https://www.google.com/pagead;
-          frame-src 'self' data: blob: filesystem:
+          frame-src 'self' data: blob: filesystem:;
           frame-ancestors 'self';
           font-src 'self' https://fonts.gstatic.com data: chrome-extension-resource:;
           img-src 'self' data: blob: filesystem: https://play.google.com;

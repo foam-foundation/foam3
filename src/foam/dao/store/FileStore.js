@@ -178,7 +178,8 @@ stored updated with the retrieved object and returned.`,
         pmRead.log(x);
         PM pmDecode = new PM("FileStore:load:decode");
         buffer.flip();
-        String decoded = decoder_.decode(buffer).toString();
+        // String decoded = decoder_.decode(buffer).toString(); // decoder_.decode takes 2 to 3 times longer than new String(buffer.array. decode handles all encoding cased.  String(buffer is sufficient for current needs.
+        String decoded = new String(buffer.array(), StandardCharsets.UTF_8);
         decoded = decoded.substring(PREFIX.length, fs.getLen() - POSTFIX.length); // strip p(...)\n
         pmDecode.log(x);
         PM pmParse = new PM("FileStore:load:parse");

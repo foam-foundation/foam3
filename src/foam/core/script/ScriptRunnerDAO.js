@@ -101,8 +101,10 @@ foam.CLASS({
                 DAO dao = (DAO) x.get(script.getDaoKey());
                 Script current = (Script) dao.find(script.getId());
                 script.setEnabled(current.getEnabled());
-
                 dao.put_(x, script);
+
+                // cleanup thread interrupted flag so it can be reused eg. by threadPool
+                Thread.interrupted();
               }
             }
           }, "Run script: " + script.getId())

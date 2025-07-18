@@ -336,12 +336,6 @@ foam.CLASS({
       transient: true,
       visibility: 'HIDDEN',
       documentation: 'Start time of thread execution of the running script'
-    },
-    {
-      class: 'Int',
-      name: 'threadTimeout',
-      units: 'ms',
-      documentation: 'Timeout to halt thread that is running the script'
     }
   ],
 

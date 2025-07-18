@@ -98,6 +98,12 @@ foam.CLASS({
       value: true
     },
     {
+      class: 'Int',
+      name: 'threadTimeout',
+      units: 'ms',
+      documentation: 'Timeout to halt thread that is running the script'
+    },
+    {
       name: 'schedule',
       class: 'FObjectProperty',
       of: 'foam.core.cron.Schedule',

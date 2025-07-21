@@ -6,27 +6,44 @@
 
 package foam.lang;
 
-import foam.core.logger.Loggers;
-import foam.core.pm.PM;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class VirtualThreadAgency extends AbstractAgency {
-  protected final ExecutorService executor_;
+  protected final String prefix_;
+  protected ExecutorService executor_;
 
   public VirtualThreadAgency() {
     this("virtual-thread");
   }
 
   public VirtualThreadAgency(String prefix) {
-    executor_ = Executors.newThreadPerTaskExecutor(
-      Thread.ofVirtual().name(prefix, 0).factory()
+    prefix_ = prefix;
+    executor_ = newExecutor();
+  }
+
+  protected ExecutorService newExecutor() {
+    return Executors.newThreadPerTaskExecutor(
+      Thread.ofVirtual().name(prefix_, 0).factory()
     );
   }
 
   public Future<?> submit(X x, ContextAgent agent, String description) {
     return executor_.submit(new ContextAgentRunnable(x, agent, description));
+  }
+
+  /**
+   * Restart virtual thread executor.
+   * @param forceTermination - if true shut down the executor now then re-initiate a new instance
+   *                         , otherwise wait to terminate all tasks before shutting down and re-initiating the executor.
+   */
+  public void restart(boolean forceTermination) {
+    if ( forceTermination ) {
+      executor_.shutdownNow();
+    } else {
+      executor_.close();
+    }
+    executor_ = newExecutor();
   }
 }

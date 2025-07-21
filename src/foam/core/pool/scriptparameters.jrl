@@ -1,0 +1,10 @@
+p({
+  class: "foam.core.script.ScriptParameter",
+  id: "force-restart-thread-agency-executor",
+  name: "force-restart-thread-agency-executor",
+  date: 1753130000000,
+  parameters: {
+    "THREAD_AGENCY": "threadPool"
+  },
+  enabled:true
+})

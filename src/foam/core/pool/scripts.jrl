@@ -1,0 +1,19 @@
+p({
+  class:"foam.core.script.Script",
+  id:"force-restart-thread-agency-executor",
+  code:"""
+threadAgency = scriptParameter.parameters.get("THREAD_AGENCY");
+
+if ( foam.util.SafetyUtil.isEmpty(threadAgency) ) {
+  return;
+}
+
+agency = x.get(threadAgency);
+try {
+  agency.restart(true);
+  print("done, restarted " + threadAgency);
+} catch ( Throwable e ) {
+  print("failed, error message: " + String.valueOf(e.getMessage()));
+}
+  """
+})

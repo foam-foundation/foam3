@@ -57,6 +57,11 @@ public class ThreadsWebAgent
 
     out.println("<HTML>");
     out.println("<HEAD><TITLE>Threads</TITLE></HEAD>\n");
+    out.println("<STYLE>");
+    out.println("  tr:hover {");
+    out.println("    background-color: #f2f2f2;");
+    out.println("  }");
+    out.println("</STYLE>");
     out.println("<BODY>");
     if ( showAll ) {
       out.println("<a href=\"?" + showAllParam(false) + "sessionId=" + session.getId() + "\">Hide parked threads.</a>");
@@ -73,6 +78,7 @@ public class ThreadsWebAgent
     out.println("<tr>");
     out.println("<th style=\"text-align: left\">Thread Name</th>");
     out.println("<th style=\"text-align: left\">State</th>");
+    out.println("<th style=\"text-align: left\">Virtual</th>");
     out.println("<th>Last Method Call</th>");
     out.println("</tr>");
 
@@ -117,6 +123,9 @@ public class ThreadsWebAgent
       } else {
         threadsInState.put(thread.getState(), Integer.valueOf(count.intValue() + 1));
       }
+      out.println("</td>");
+      out.println("<td>");
+      out.println(thread.isVirtual() ? "TRUE" : "FALSE");
       out.println("</td>");
       out.println("<td>");
       out.println(methodName);

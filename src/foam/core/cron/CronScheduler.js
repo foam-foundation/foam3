@@ -197,7 +197,12 @@ foam.CLASS({
           delay = Math.min(getCronDelay(), delay);
           delay = Math.max(500, delay);
         }
-        Thread.sleep(delay);
+
+        try {
+          Thread.sleep(delay);
+        } catch ( InterruptedException e ) {
+          // noop, do not kill cron scheduler since we now support cron timeout via interrupt
+        }
       }
     } catch (Throwable t) {
       logger.error(t.getMessage(), t);

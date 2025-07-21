@@ -109,30 +109,7 @@ foam.CLASS({
       javaCode: `
     Loggers.logger(getX(), this).info(getPrefix(), "start");
     threadGroup_ = new ThreadGroup(Thread.currentThread().getThreadGroup(), getPrefix());
-    pool_ = new ThreadPoolExecutor(
-      getNumberOfThreads(),
-      getNumberOfThreads(),
-      10,
-      TimeUnit.SECONDS,
-      new LinkedBlockingQueue<Runnable>(),
-      new ThreadFactory() {
-        final AtomicInteger threadNumber = new AtomicInteger(1);
-
-        public Thread newThread(Runnable runnable) {
-          Thread thread = new Thread(
-            threadGroup_,
-            runnable,
-            getPrefix() + "-" + threadNumber.getAndIncrement(),
-            0
-            );
-          // Thread does not block server from shut down.
-          thread.setDaemon(true);
-          thread.setPriority(Thread.NORM_PRIORITY);
-          return thread;
-        }
-      }
-    );
-    pool_.allowCoreThreadTimeOut(true);
+    initThreadPool();
     scheduleReporting();
     `
     },
@@ -282,6 +259,51 @@ foam.CLASS({
       javaCode: `
       Loggers.logger(x, this).info(getPrefix(), "available", getNumberOfThreads(), "queued", getQueued(), "waiting", getWaiting(), "executing", getExecuting(), "executed", getExecuted());
       scheduleReporting();
+      `
+    },
+    {
+      name: 'initThreadPool',
+      type: 'Void',
+      visibility: 'protected',
+      javaCode: `
+        pool_ = new ThreadPoolExecutor(
+          getNumberOfThreads(),
+          getNumberOfThreads(),
+          10,
+          TimeUnit.SECONDS,
+          new LinkedBlockingQueue<Runnable>(),
+          new ThreadFactory() {
+            final AtomicInteger threadNumber = new AtomicInteger(1);
+
+            public Thread newThread(Runnable runnable) {
+              Thread thread = new Thread(
+                threadGroup_,
+                runnable,
+                getPrefix() + "-" + threadNumber.getAndIncrement(),
+                0
+                );
+              // Thread does not block server from shut down.
+              thread.setDaemon(true);
+              thread.setPriority(Thread.NORM_PRIORITY);
+              return thread;
+            }
+          }
+        );
+        pool_.allowCoreThreadTimeOut(true);
+
+      `
+    },
+    {
+      name: 'restart',
+      type: 'Void',
+      args: 'Boolean forceTermination',
+      javaCode: `
+        if ( forceTermination ) {
+          getPool().shutdownNow();
+        } else {
+          getPool().close();
+        }
+        initThreadPool();
       `
     }
   ]

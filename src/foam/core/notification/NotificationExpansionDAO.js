@@ -39,6 +39,13 @@ foam.CLASS({
     'static foam.mlang.MLang.*'
   ],
 
+  constants: [
+    {
+      name: 'NOTIFICATION_AGENCY',
+      value: 'notificationAgency'
+    }
+  ],
+
   methods: [
     {
       name: 'put_',
@@ -51,7 +58,7 @@ foam.CLASS({
           return getDelegate().put(notif);
 
         if ( notif.getBroadcasted() ) {
-          Agency agency = (Agency) x.get("threadPool");
+          Agency agency = (Agency) x.get(NOTIFICATION_AGENCY);
           agency.submit(x, new ContextAgent() {
             @Override
             public void execute(X x) {
@@ -74,7 +81,7 @@ foam.CLASS({
             logger.debug("Notification group disabled", notif.getGroupId(), notif);
             return obj;
           }
-          Agency agency = (Agency) x.get("threadPool");
+          Agency agency = (Agency) x.get(NOTIFICATION_AGENCY);
           agency.submit(x, new ContextAgent() {
             @Override
             public void execute(X x) {

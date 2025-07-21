@@ -23,6 +23,11 @@ foam.CLASS({
     public ScriptRunnerDAO(DAO delegate) {
       setDelegate(delegate);
     }
+
+    public ScriptRunnerDAO(DAO delegate, String agencyName) {
+      setDelegate(delegate);
+      setAgencyName(agencyName);
+    }
   `,
 
   properties: [

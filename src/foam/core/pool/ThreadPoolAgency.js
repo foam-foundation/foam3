@@ -114,9 +114,27 @@ foam.CLASS({
     `
     },
     {
+      name: 'stop',
+      javaCode: `
+        getPool().shutdownNow();
+        synchronized ( queuedLock_ ) {
+          clearQueued();
+        }
+        synchronized ( executedLock_ ) {
+          clearExecuted();
+        }
+        synchronized ( executingLock_ ) {
+          clearExecuting();
+        }
+      `
+    },
+    {
       name: 'reload',
       javaCode: `
+      stop();
       Loggers.logger(getX(), this).info(getPrefix(), "reload");
+      threadGroup_ = new ThreadGroup(Thread.currentThread().getThreadGroup(), getPrefix());
+      initThreadPool();
       scheduleReporting();
       `
     },
@@ -291,19 +309,6 @@ foam.CLASS({
         );
         pool_.allowCoreThreadTimeOut(true);
 
-      `
-    },
-    {
-      name: 'restart',
-      type: 'Void',
-      args: 'Boolean forceTermination',
-      javaCode: `
-        if ( forceTermination ) {
-          getPool().shutdownNow();
-        } else {
-          getPool().close();
-        }
-        initThreadPool();
       `
     }
   ]

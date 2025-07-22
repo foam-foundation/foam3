@@ -1,0 +1,10 @@
+p({
+  class: "foam.core.script.ScriptParameter",
+  id: "service-reloader",
+  name: "service-reloader",
+  date: 1753200000000,
+  parameters: {
+    "SERVICE_NAME": "scriptRunner"
+  },
+  enabled:true
+})

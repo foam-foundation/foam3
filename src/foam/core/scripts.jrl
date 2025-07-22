@@ -1,0 +1,26 @@
+p({
+  class:"foam.core.script.Script",
+  id:"service-reloader",
+  code:"""import foam.core.COREService;
+serviceName = scriptParameter.parameters.get("SERVICE_NAME");
+
+service = x.get(serviceName);
+
+if ( service == null ) {
+  print(serviceName + " not found.");
+  return;
+}
+
+if ( ! ( service instanceof COREService ) ) {
+  print(serviceName + " is not COREService.");
+  return;
+}
+
+try {
+  ((COREService) service).reload();
+  print(serviceName + " reloaded.");
+} catch ( Throwable e ) {
+  print("failed to reload " + serviceName + ", error message: " + String.valueOf(e.getMessage()));
+}
+  """
+})

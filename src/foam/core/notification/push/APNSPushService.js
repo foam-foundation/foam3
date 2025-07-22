@@ -154,7 +154,7 @@ foam.CLASS({
                         pushNotificationResponse.getTokenInvalidationTimestamp());
 
                     // If notification is rejected with invalidation timestamp, change it's status
-                    sub.setLastKnownState("DENIED");
+                    ((iOSNativePushRegistration) sub.fclone()).setLastKnownState("DENIED");
                     ((DAO) getX().get("pushRegistrationDAO")).put(sub);
                 }
             }

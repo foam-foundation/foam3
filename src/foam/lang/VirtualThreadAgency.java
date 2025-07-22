@@ -9,15 +9,14 @@ package foam.lang;
 import foam.core.logger.Loggers;
 import foam.core.pm.PM;
 
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class VirtualThreadAgency extends AbstractAgency {
-  public static Set<Thread> RUNNING = new HashSet<>();
-
   protected final String prefix_;
   protected ExecutorService executor_;
 
@@ -28,6 +27,11 @@ public class VirtualThreadAgency extends AbstractAgency {
   public VirtualThreadAgency(String prefix) {
     prefix_ = prefix;
     executor_ = newExecutor();
+  }
+
+  protected static Set<Thread> RUNNING_ = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  public static Set<Thread> getRunningThreads() {
+    return Collections.unmodifiableSet(RUNNING_);
   }
 
   protected ExecutorService newExecutor() {
@@ -76,12 +80,12 @@ public class VirtualThreadAgency extends AbstractAgency {
 
       try {
         XLocator.set(x_);
-        RUNNING.add(Thread.currentThread());
+        RUNNING_.add(Thread.currentThread());
         agent_.execute(x_);
       } catch (Throwable t) {
         Loggers.logger(x_, this).error(agent_.getClass().getSimpleName(), description_, t.getMessage(), t);
       } finally {
-        RUNNING.remove(Thread.currentThread());
+        RUNNING_.remove(Thread.currentThread());
         XLocator.set(oldX);
         pm.log(x_);
       }

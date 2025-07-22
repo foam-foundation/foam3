@@ -54,7 +54,7 @@ public class ThreadsWebAgent
     String             id          = req.getParameter("id");
 
     Set<Thread>  platformThreadSet = Thread.getAllStackTraces().keySet();
-    Set<Thread>   virtualThreadSet = VirtualThreadAgency.RUNNING;
+    Set<Thread>   virtualThreadSet = VirtualThreadAgency.getRunningThreads();
     Thread[]           threadArray = new Thread[platformThreadSet.size() + virtualThreadSet.size() ];
     int i = 0;
     for ( Thread t : platformThreadSet ) threadArray[i++] = t;

@@ -6,9 +6,11 @@
 
 package foam.lang;
 
+import foam.core.COREService;
 import foam.core.logger.Loggers;
 import foam.core.pm.PM;
 
+import java.lang.Exception;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,46 +18,64 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class VirtualThreadAgency extends AbstractAgency {
+public class VirtualThreadAgency extends AbstractAgency implements COREService {
   protected final String prefix_;
+  protected final boolean forceTerminationOnStop_;
   protected ExecutorService executor_;
-
-  public VirtualThreadAgency() {
-    this("virtual-thread");
-  }
-
-  public VirtualThreadAgency(String prefix) {
-    prefix_ = prefix;
-    executor_ = newExecutor();
-  }
 
   protected static Set<Thread> RUNNING_ = Collections.newSetFromMap(new ConcurrentHashMap<>());
   public static Set<Thread> getRunningThreads() {
     return Collections.unmodifiableSet(RUNNING_);
   }
 
-  protected ExecutorService newExecutor() {
-    return Executors.newThreadPerTaskExecutor(
+  public VirtualThreadAgency() {
+    this("virtual-thread", true);
+  }
+
+  public VirtualThreadAgency(String prefix) {
+    this(prefix, true);
+  }
+
+  public VirtualThreadAgency(String prefix, boolean forceTerminationOnStop) {
+    prefix_ = prefix;
+    forceTerminationOnStop_ = forceTerminationOnStop;
+  }
+
+  protected void initThreadExecutor() {
+    executor_ = Executors.newThreadPerTaskExecutor(
       Thread.ofVirtual().name(prefix_, 0).factory()
     );
   }
 
-  public Future<?> submit(X x, ContextAgent agent, String description) {
-    return executor_.submit(new ContextAgentRunnable(x, agent, description));
+  @Override
+  public void start() throws Exception {
+    initThreadExecutor();
   }
 
   /**
-   * Restart virtual thread executor.
-   * @param forceTermination - if true shut down the executor now then re-initiate a new instance
-   *                         , otherwise wait to terminate all tasks before shutting down and re-initiating the executor.
+   * Stop virtual thread executor.
+   * <p>
+   * If 'forceTerminationOnStop_' flag is set to true then shut down the executor now and kill all existing tasks,
+   * otherwise wait to terminate all tasks before shutting down the executor.
+   * </p>
    */
-  public void restart(boolean forceTermination) {
-    if ( forceTermination ) {
+  @Override
+  public void stop() {
+    if ( forceTerminationOnStop_ ) {
       executor_.shutdownNow();
     } else {
       executor_.close();
     }
-    executor_ = newExecutor();
+  }
+
+  @Override
+  public void reload() {
+    stop();
+    initThreadExecutor();
+  }
+
+  public Future<?> submit(X x, ContextAgent agent, String description) {
+    return executor_.submit(new ContextAgentRunnable(x, agent, description));
   }
 
   protected class ContextAgentRunnable implements Runnable {

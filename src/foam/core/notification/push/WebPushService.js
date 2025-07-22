@@ -14,10 +14,15 @@ foam.CLASS({
   package: 'foam.core.notification.push',
   name: 'WebPushService',
 
+  implements: [
+    'foam.core.COREService'
+  ],
+
   javaImports: [
     'java.security.Security',
     'foam.dao.*',
     'foam.dao.ArraySink',
+    'foam.core.logger.Loggers',
     'foam.core.auth.*',
     'java.util.List',
     'java.util.Map',
@@ -55,25 +60,30 @@ foam.CLASS({
     },
     {
       class: 'Object',
-      of: 'nl.martijndwars.webpush.PushService',
+      javaType: 'nl.martijndwars.webpush.PushService',
       name: 'pushService',
       transient: true,
       javaFactory: `
-      // TODO: rebuild if settings change
-      try {
-        if ( Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null ) {
-          Security.addProvider(new BouncyCastleProvider());
-        }
-        return new nl.martijndwars.webpush.PushService(getPublicKey(), getPrivateKey(), "mailto:" + getSupportEmail() );
-      } catch (Throwable t) {
-        t.printStackTrace();
-        return null;
-      }
+       return buildPushService();
       `
     }
   ],
 
   methods: [
+    {
+      name: 'buildPushService',
+      type: 'nl.martijndwars.webpush.PushService',
+      javaCode: `
+        try {
+          if ( Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null ) {
+            Security.addProvider(new BouncyCastleProvider());
+          }
+          return new nl.martijndwars.webpush.PushService(getPublicKey(), getPrivateKey(), "mailto:" + getSupportEmail() );
+        } catch (Throwable t) {
+          throw new RuntimeException(t);
+        }
+      `
+    },
     {
       name: 'send',
       args: 'PushRegistration sub, Map msgMap',
@@ -93,7 +103,7 @@ foam.CLASS({
             .build()
             .toString();
 
-          var a = (nl.martijndwars.webpush.PushService) getPushService();
+          var a = getPushService();
           Duration ttl = Duration.ofHours(TTL_IN_HOURS);
           int ttlValue = (int) ttl.getSeconds();
           byte[] byteArray = msg.getBytes(); 
@@ -108,8 +118,15 @@ foam.CLASS({
           a.sendAsync(n);
         } catch (Throwable t) {
           //TODO: add alarm
-          t.printStackTrace();
+          Loggers.logger(getX(), this).error("WebPushService", t);
         }
+      `
+    },
+    {
+      name: 'reload',
+      javaCode: `
+        setPushService(buildPushService());
+        Loggers.logger(getX(), this).info("WebPushService", "pushService reloaded.");
       `
     }
   ]

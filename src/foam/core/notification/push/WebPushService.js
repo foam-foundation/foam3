@@ -27,6 +27,7 @@ foam.CLASS({
     'java.util.List',
     'java.util.Map',
     'foam.util.SafetyUtil',
+    'java.util.concurrent.TimeUnit',
     'nl.martijndwars.webpush.Notification',
     'org.bouncycastle.jce.provider.BouncyCastleProvider',
     'java.time.Duration'
@@ -66,6 +67,12 @@ foam.CLASS({
       javaFactory: `
        return buildPushService();
       `
+    },
+    {
+      class: 'Long',
+      name: 'readTimeout',
+      documentation: '20 seconds',
+      value: 20000
     }
   ],
 
@@ -103,7 +110,7 @@ foam.CLASS({
             .build()
             .toString();
 
-          var a = getPushService();
+          var pushService = getPushService();
           Duration ttl = Duration.ofHours(TTL_IN_HOURS);
           int ttlValue = (int) ttl.getSeconds();
           byte[] byteArray = msg.getBytes(); 
@@ -115,7 +122,8 @@ foam.CLASS({
             ttlValue
           );
 
-          a.sendAsync(n);
+          var future = pushService.sendAsync(n);
+          future.get(getReadTimeout(), TimeUnit.MILLISECONDS);
         } catch (Throwable t) {
           //TODO: add alarm
           Loggers.logger(getX(), this).error("WebPushService", t);

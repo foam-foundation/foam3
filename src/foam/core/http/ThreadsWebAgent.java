@@ -6,16 +6,16 @@
 
 package foam.core.http;
 
-import foam.lang.*;
 import foam.core.session.Session;
-import foam.util.SafetyUtil;
+import foam.lang.VirtualThreadAgency;
+import foam.lang.X;
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.io.PrintWriter;
-import java.lang.StackTraceElement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import jakarta.servlet.http.HttpServletRequest;
 
 /** Display thread information. **/
 public class ThreadsWebAgent
@@ -49,11 +49,16 @@ public class ThreadsWebAgent
   public void execute(X x) {
     PrintWriter        out         = x.get(PrintWriter.class);
     HttpServletRequest req         = x.get(HttpServletRequest.class);
-    Set<Thread>        threadSet   = Thread.getAllStackTraces().keySet();
     Session            session     = x.get(Session.class);
-    Thread[]           threadArray = threadSet.toArray(new Thread[threadSet.size()]);
     boolean            showAll     = "y".equals(req.getParameter("showAll"));
     String             id          = req.getParameter("id");
+
+    Set<Thread>  platformThreadSet = Thread.getAllStackTraces().keySet();
+    Set<Thread>   virtualThreadSet = VirtualThreadAgency.RUNNING;
+    Thread[]           threadArray = new Thread[platformThreadSet.size() + virtualThreadSet.size() ];
+    int i = 0;
+    for ( Thread t : platformThreadSet ) threadArray[i++] = t;
+    for ( Thread t : virtualThreadSet  ) threadArray[i++] = t;
 
     out.println("<HTML>");
     out.println("<HEAD><TITLE>Threads</TITLE></HEAD>\n");
@@ -84,6 +89,8 @@ public class ThreadsWebAgent
 
     Thread selected = null;
     for ( Thread thread : threadArray ) {
+      if ( ! thread.isAlive() ) continue;
+
       Boolean isSelected = String.valueOf(thread.threadId()).equals(id);
       if ( isSelected ) selected = thread;
 

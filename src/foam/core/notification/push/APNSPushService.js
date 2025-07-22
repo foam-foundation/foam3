@@ -35,18 +35,6 @@ foam.CLASS({
       documentation: 'Time to live for the notification in hours',
       value: 12
     },
-    {
-      type: 'Long',
-      name: 'CONNECTION_TIMEOUT',
-      documentation: '8 seconds',
-      value: 8000
-    },
-    {
-      type: 'Long',
-      name: 'READ_TIMEOUT',
-      documentation: '20 seconds',
-      value: 20000
-    }
   ],
 
   javaImports: [
@@ -91,6 +79,18 @@ foam.CLASS({
       class: 'String',
       name: 'apnsCredentialId',
       documentation: 'credential id to find for host and key data'
+    },
+    {
+      class: 'Long',
+      name: 'connectionTimeout',
+      documentation: '8 seconds',
+      value: 8000
+    },
+    {
+      class: 'Long',
+      name: 'readTimeout',
+      documentation: '20 seconds',
+      value: 20000
     }
   ],
 
@@ -105,7 +105,7 @@ foam.CLASS({
 
         var credential = getCredentials(getX());
         return new ApnsClientBuilder()
-          .setConnectionTimeout(ofMillis(CONNECTION_TIMEOUT))
+          .setConnectionTimeout(ofMillis(getConnectionTimeout()))
           .setApnsServer(credential.getHost())
           .setClientCredentials(
             new java.io.ByteArrayInputStream(
@@ -156,7 +156,7 @@ foam.CLASS({
             final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture = getApnsClient().sendNotification(pushNotification);
 
             // getting the response from APNs
-            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse = sendNotificationFuture.get(READ_TIMEOUT, TimeUnit.MILLISECONDS);
+            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse = sendNotificationFuture.get(getReadTimeout(), TimeUnit.MILLISECONDS);
             if (pushNotificationResponse.isAccepted()) {
               Loggers.logger(getX(), this).info("APNSPushService", "Push notification accepted by APNs gateway." + pushNotificationResponse.getApnsId());
             } else {

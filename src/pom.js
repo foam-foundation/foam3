@@ -111,6 +111,7 @@ foam.POM({
     { name: "foam/lang/Freezable",                                    flags: "js|java" },
     { name: "foam/lang/Detachable",                                   flags: "js|java" },
     { name: "foam/lang/ContextAgent",                                 flags: "js|java" },
+    { name: "foam/lang/TimeoutContextAgent",                          flags: "js|java" },
     { name: "foam/lang/CompoundContextAgency",                        flags: "js|java" },
     { name: "foam/lang/Validatable",                                  flags: "js|java" },
     { name: "foam/lang/AxiomCloner",                                  flags: "js" },

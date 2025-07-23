@@ -12,7 +12,7 @@ foam.CLASS({
 
   javaImports: [
     'foam.lang.Agency',
-    'foam.lang.ContextAgent',
+    'foam.lang.TimeoutContextAgent',
     'foam.lang.FObject',
     'foam.lang.X',
     'foam.lang.XLocator',
@@ -27,6 +27,12 @@ foam.CLASS({
       class: 'String',
       name: 'threadPoolName',
       value: 'pushNotificationThreadPool'
+    },
+    {
+      class: 'Long',
+      name: 'timeout',
+      value: 120000,
+      units: 'ms'
     }
   ],
 
@@ -35,7 +41,7 @@ foam.CLASS({
       name: 'sendNotification',
       javaCode: `
         Agency agency = (Agency) x.get(getThreadPoolName());
-        agency.submit(x, new ContextAgent() {
+        agency.submit(x, new TimeoutContextAgent(getTimeout()) {
           public void execute(X x) {
             x = XLocator.get();
             PushService pushService = (PushService) x.get("pushService");
@@ -53,6 +59,10 @@ foam.CLASS({
             } catch (Throwable t) {
               Loggers.logger(x, this).error(t);
             }
+          }
+
+          public void onTimeout() {
+            Loggers.logger(x, "PushService").warning("onTimeout", notification);
           }
         }, "PushService");
       `

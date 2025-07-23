@@ -38,7 +38,7 @@ public class TimeoutAgency extends ProxyAgency {
     var result = getDelegate().submit(x, agent, description);
     getExecutor().schedule(() -> {
       if ( ! result.isDone() ) {
-        if ( agent instanceof TimeoutContextAgent ta ) ta.onTimeout();
+        if ( agent instanceof TimeoutAgent ta ) ta.onTimeout();
         result.cancel(true);
       }
     }, getTimeout(agent), TimeUnit.MILLISECONDS);
@@ -46,7 +46,7 @@ public class TimeoutAgency extends ProxyAgency {
   }
 
   protected long getTimeout(ContextAgent agent) {
-    if ( agent instanceof TimeoutContextAgent ta && ta.getTimeout() > 0 )
+    if ( agent instanceof TimeoutAgent ta && ta.getTimeout() > 0 )
       return ta.getTimeout();
     else
       return timeout_;

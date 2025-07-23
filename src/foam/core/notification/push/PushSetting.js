@@ -12,7 +12,7 @@ foam.CLASS({
 
   javaImports: [
     'foam.lang.Agency',
-    'foam.lang.TimeoutContextAgent',
+    'foam.lang.TimeoutAgent',
     'foam.lang.FObject',
     'foam.lang.X',
     'foam.lang.XLocator',
@@ -41,7 +41,7 @@ foam.CLASS({
       name: 'sendNotification',
       javaCode: `
         Agency agency = (Agency) x.get(getThreadPoolName());
-        agency.submit(x, new TimeoutContextAgent(getTimeout()) {
+        agency.submit(x, new TimeoutAgent(getTimeout()) {
           public void execute(X x) {
             x = XLocator.get();
             PushService pushService = (PushService) x.get("pushService");

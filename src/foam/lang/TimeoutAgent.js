@@ -6,7 +6,7 @@
 
 foam.CLASS({
   package: 'foam.lang',
-  name: 'TimeoutContextAgent',
+  name: 'TimeoutAgent',
   implements: [ 'foam.lang.ContextAgent' ],
 
   properties: [

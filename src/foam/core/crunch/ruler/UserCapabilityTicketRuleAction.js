@@ -18,6 +18,7 @@ foam.CLASS({
     'foam.lang.X',
     'foam.dao.DAO',
     'foam.core.auth.User',
+    'foam.core.auth.Subject',
     'foam.core.crunch.CapabilityJunctionStatus',
     'foam.core.crunch.UserCapabilityTicket',
     'foam.core.crunch.CrunchService'
@@ -36,7 +37,8 @@ foam.CLASS({
 
             for ( var id : ticket.getCreatedForUsers() ) {
               User user = (User) dao.find(id);
-              crunchService.updateJunctionFor(x, ticket.getCapability(), null, CapabilityJunctionStatus.GRANTED, user, user);
+              Subject sub = new Subject(user);
+              crunchService.updateUserJunction(x, sub, ticket.getCapability(), null, CapabilityJunctionStatus.GRANTED);
             }
 
             ticket.setStatus("CLOSED");

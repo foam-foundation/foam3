@@ -58,7 +58,6 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.capabilityDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.userCapabilityJunctionDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.crunchService"})
-p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.crunchService.*"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"capability.read.*"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.capabilityCategoryDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"capabilitycategory.read.*"})

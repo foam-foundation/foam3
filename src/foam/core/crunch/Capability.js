@@ -465,7 +465,7 @@ foam.CLASS({
         CapabilityJunctionStatus status = ucj.getStatus();
 
         if ( prereq.getStatus() == CapabilityJunctionStatus.AVAILABLE && getAutoGrantPrereqs() )
-          prereq = ((CrunchService) x.get("crunchService")).updateUserJunction(x, subject, prereq.getTargetId(), null, null);
+          prereq = ((CrunchService) x.get("crunchService")).updateJunctionFor(x, prereq.getTargetId(), null, null, subject.getUser(), subject.getRealUser());
 
         boolean reviewRequired = getReviewRequired();
         CapabilityJunctionStatus prereqStatus = prereq.getStatus();

@@ -466,6 +466,8 @@ public class ServerCrunchService
     return this.updateUserJunction(x, (Subject) x.get("subject"), capabilityId, data, status);
   }
 
+  // Update UCJ without switching to user context
+  // Useful for granting grantMode: MANUAL capabilities
   public UserCapabilityJunction updateUserJunction(
     X x, Subject subject, String capabilityId, FObject data,
     CapabilityJunctionStatus status
@@ -478,10 +480,6 @@ public class ServerCrunchService
     }
     if ( status != null ) {
       ucj.setStatus(status);
-    }
-    AuthService auth = (AuthService) x.get("auth");
-    if ( auth.check(x, "service.crunchService.updateUserContext") ) {
-      x = Auth.sudo(x, subject.getUser(), subject.getRealUser());
     }
     DAO userCapabilityJunctionDAO = (DAO) x.get("userCapabilityJunctionDAO");
     return (UserCapabilityJunction) userCapabilityJunctionDAO.inX(x).put(ucj);

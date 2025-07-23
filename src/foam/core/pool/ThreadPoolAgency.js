@@ -108,7 +108,6 @@ foam.CLASS({
       name: 'start',
       javaCode: `
     Loggers.logger(getX(), this).info(getPrefix(), "start");
-    threadGroup_ = new ThreadGroup(Thread.currentThread().getThreadGroup(), getPrefix());
     initThreadPool();
     scheduleReporting();
     `
@@ -133,7 +132,6 @@ foam.CLASS({
       javaCode: `
       stop();
       Loggers.logger(getX(), this).info(getPrefix(), "reload");
-      threadGroup_ = new ThreadGroup(Thread.currentThread().getThreadGroup(), getPrefix());
       initThreadPool();
       scheduleReporting();
       `
@@ -284,6 +282,7 @@ foam.CLASS({
       type: 'Void',
       visibility: 'protected',
       javaCode: `
+        threadGroup_ = new ThreadGroup(Thread.currentThread().getThreadGroup(), getPrefix());
         pool_ = new ThreadPoolExecutor(
           getNumberOfThreads(),
           getNumberOfThreads(),

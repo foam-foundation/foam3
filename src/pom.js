@@ -74,6 +74,7 @@ foam.POM({
     { name: "foam/lang/CoreTypesValidationTest",                      flags: "js|java" },
     { name: "foam/pattern/Singleton",                                 flags: "js" },
     { name: "foam/pattern/Multiton",                                  flags: "js" },
+    { name: "foam/lang/TimeoutAgency",                                flags: "java" },
     { name: "foam/lang/VirtualThreadAgency",                          flags: "java" },
     { name: "foam/lang/Enum",                                         flags: "js" },
     { name: "foam/lang/JSON",                                         flags: "js" },

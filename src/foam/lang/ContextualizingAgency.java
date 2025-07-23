@@ -17,7 +17,7 @@ public class ContextualizingAgency
   X userX_, systemX_;
 
   public ContextualizingAgency(Agency delegate, X userX, X systemX) {
-    super(delegate);
+    setDelegate(delegate);
     userX_   = userX;
     systemX_ = systemX;
   }

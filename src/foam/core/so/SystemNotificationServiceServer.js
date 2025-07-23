@@ -30,6 +30,7 @@ foam.CLASS({
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.DESC',
     'static foam.mlang.MLang.EQ',
+    'foam.core.auth.AuthService',
     'foam.core.pm.PM',
     'foam.core.theme.Theme',
     'foam.util.SafetyUtil',
@@ -74,6 +75,18 @@ foam.CLASS({
                       match = true;
                       break;
                     }
+                  }
+                }
+                if ( ! match ) continue;
+              }
+              if ( snt.getPermissions() != null &&
+                   snt.getPermissions().length > 0 ) {
+                boolean match = false;
+                AuthService auth = (AuthService) x.get("auth");
+                for ( String perm : snt.getPermissions() ) {
+                  if ( auth.check(x, perm) ) {
+                    match = true;
+                    break;
                   }
                 }
                 if ( ! match ) continue;

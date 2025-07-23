@@ -3,6 +3,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"test",targetId:"serv
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"test",targetId:"referralcode.create"})
 // PostMethodTest
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"test",targetId:"menu.read.gateway"})
+p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"test",targetId:"so.testpermission"})
 
 p({ class: "foam.core.auth.GroupPermissionJunction", sourceId: "test-api", targetId: "service.crunchService.updateUserContext"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"test-api",targetId:"service.run.dig"})

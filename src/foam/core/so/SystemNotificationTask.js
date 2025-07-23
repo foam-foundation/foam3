@@ -41,6 +41,16 @@ foam.CLASS({
         daoKey: 'themeDAO',
         allowDuplicates: false
       }
+    },
+    {
+      documentation: 'Optionally filter display to particular users via permissions',
+      class: 'StringArray',
+      name: 'permissions',
+      // view: {
+      //   class: 'foam.u2.view.ReferenceArrayView',
+      //   daoKey: 'permissionDAO',
+      //   allowDuplicates: false
+      // }
     }
   ],
 

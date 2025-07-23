@@ -62,3 +62,19 @@ p({
   "authenticate":false,
   "client":"{ \"class\": \"foam.core.notification.push.PushRegistryAgent\" }"
 })
+
+p({
+  class: "foam.core.boot.CSpec",
+  name: "pushNotificationThreadPool",
+  lazy: false,
+  serve: false,
+  serviceScript: """
+    return new foam.lang.TimeoutAgency(
+      new new foam.core.pool.ThreadPoolAgency.Builder(x)
+        .setPrefix("push-notification")
+        .setNumberOfThreads(8)
+        .build()
+      , 120000
+    );
+  """
+})

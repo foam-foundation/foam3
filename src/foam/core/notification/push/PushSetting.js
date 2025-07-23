@@ -26,7 +26,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'threadPoolName',
-      value: 'threadPool'
+      value: 'pushNotificationThreadPool'
     }
   ],
 

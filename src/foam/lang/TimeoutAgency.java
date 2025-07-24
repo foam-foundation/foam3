@@ -35,20 +35,23 @@ public class TimeoutAgency extends ProxyAgency {
 
   @Override
   public Future<?> submit(X x, ContextAgent agent, String description) {
-    var result = getDelegate().submit(x, agent, description);
+    TimeoutAgent ta = decorateAgent(agent);
+
+    var result = getDelegate().submit(x, ta, description);
     getExecutor().schedule(() -> {
       if ( ! result.isDone() ) {
-        if ( agent instanceof TimeoutAgent ta ) ta.onTimeout();
+        ta.onTimeout();
         result.cancel(true);
       }
-    }, getTimeout(agent), TimeUnit.MILLISECONDS);
+    }, ta.getTimeout(), TimeUnit.MILLISECONDS);
     return result;
   }
 
-  protected long getTimeout(ContextAgent agent) {
-    if ( agent instanceof TimeoutAgent ta && ta.getTimeout() > 0 )
-      return ta.getTimeout();
-    else
-      return timeout_;
+  protected TimeoutAgent decorateAgent(ContextAgent agent) {
+    if ( agent instanceof TimeoutAgent ta ) {
+      if ( ! ta.isPropertySet("timeout") ) ta.setTimeout(timeout_);
+      return ta;
+    }
+    return new TimeoutAgent(timeout_, agent);
   }
 }

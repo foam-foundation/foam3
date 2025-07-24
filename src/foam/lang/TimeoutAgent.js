@@ -14,13 +14,18 @@ foam.CLASS({
       class: 'Long',
       name: 'timeout',
       units: 'ms'
+    },
+    {
+      class: 'Object',
+      javaType: 'foam.lang.ContextAgent',
+      name: 'delegate'
     }
   ],
 
   methods: [
     {
       name: 'execute',
-      javaCode: 'throw new RuntimeException("Not implemented");'
+      javaCode: 'getDelegate().execute(x);'
     },
     {
       name: 'onTimeout',

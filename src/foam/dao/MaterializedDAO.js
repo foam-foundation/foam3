@@ -24,6 +24,7 @@ foam.CLASS({
     'foam.lang.Detachable',
     'foam.lang.FObject',
     'foam.dao.index.AddIndexCommand',
+    'static foam.mlang.MLang.COUNT',
     'foam.mlang.sink.Count',
     'foam.mlang.predicate.Predicate',
     'foam.mlang.predicate.True',
@@ -169,6 +170,11 @@ foam.CLASS({
       name: 'thread',
       javaType: 'Thread'
     },
+    {
+      class: 'String',
+      name: 'instanceName',
+      javaFactory: 'return "MaterializedDAO-" + getSourceDAO().getOf().getObjClass().getSimpleName() + "-" + getDelegate().getOf().getObjClass().getSimpleName();'
+    }
   ],
 
   methods: [
@@ -177,9 +183,10 @@ foam.CLASS({
       javaType: 'void',
       synchronized: true,
       javaCode: `
-        if ( getInitialized() ) return;
+        if ( getInitialized() )
+          return;
 
-        Logger logger = Loggers.logger(getX(), this, getSourceDAO().getOf().getObjClass().getSimpleName(), "start");
+        Logger logger = Loggers.logger(getX(), this, getInstanceName());
         logger.info("initializing");
 
         setInitialized(true);
@@ -188,9 +195,18 @@ foam.CLASS({
 
         // Could take a long time
         PM pm = new PM("MaterializedDAO", "initializing", getSourceDAO().getOf().getObjClass().getSimpleName());
+
         AddIndexCommand cmd = new AddIndexCommand();
+        Count count = (Count) getDelegate().select(COUNT());
+        logger.info("maybeInit, count", count.getValue());
+        if ( count.getValue() > 0 ) {
+          // If delegate is already populated then skip bulkloading
+          // on index creation.
+          cmd.setStore(true);
+        }
         cmd.setIndex(new MaterializedDAOIndex(this));
         getSourceDAO().cmd(cmd);
+
         pm.log(getX());
         logger.info("initialized");
 
@@ -237,7 +253,6 @@ foam.CLASS({
         return this;
       `
     },
-
     {
       name: 'indexRemove',
       type: 'Object',
@@ -276,10 +291,10 @@ foam.CLASS({
             }
           } catch (InterruptedException e) {
             // stop method can terminate current thread.
-            Loggers.logger(getX(), this).warning("MaterializedDAO consumer thread interrupted", "thread id", Thread.currentThread().getId(), "thread name", Thread.currentThread().getId());
+            Loggers.logger(getX(), this).warning("run,interrupted", Thread.currentThread().getId());
             break;
           } catch ( Throwable t ) {
-            Loggers.logger(getX(), this).error("MaterializedDAO fails to consume", "thread id", Thread.currentThread().getId(), "thread name", Thread.currentThread().getId(), t);
+            Loggers.logger(getX(), this).error("run,failed to consume", Thread.currentThread().getId());
           }
         }
       `
@@ -312,13 +327,16 @@ foam.CLASS({
     },
     {
       name: 'start',
-      javaCode: 'if ( getAutoStart() ) maybeInit();'
+      javaCode: `
+        if ( getAutoStart() )
+          maybeInit();
+      `
     },
     {
       name: 'startThread',
       javaCode: `
         Thread t = new Thread(this);
-        t.setName("MaterializedDAO Processor: " + getDelegate());
+        t.setName(getInstanceName());
         t.setDaemon(true);
         t.start();
         setThread(t);

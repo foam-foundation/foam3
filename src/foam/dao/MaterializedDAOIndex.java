@@ -23,7 +23,7 @@ public class MaterializedDAOIndex
   }
 
   public Object put(Object state, FObject value) {
-    foam.core.logger.StdoutLogger.instance().info("MaterializedDAOIndex.put",value);
+    // foam.core.logger.StdoutLogger.instance().info("MaterializedDAOIndex.put",value);
     try {
       return dao_.indexPut(state, value);
     } catch (Throwable t) {

@@ -70,7 +70,7 @@ p({
   serve: false,
   serviceScript: """
     return new foam.lang.TimeoutAgency(
-      new new foam.core.pool.ThreadPoolAgency.Builder(x)
+      new foam.core.pool.ThreadPoolAgency.Builder(x)
         .setPrefix("push-notification")
         .setNumberOfThreads(8)
         .build()

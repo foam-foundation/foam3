@@ -17,9 +17,12 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.X',
     'foam.lang.XLocator',
+    'foam.core.er.EventRecord',
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.core.notification.push.PushService',
+    'foam.dao.DAO',
+    'foam.log.LogLevel',
     'foam.util.SafetyUtil'
   ],
 
@@ -41,14 +44,15 @@ foam.CLASS({
     {
       name: 'sendNotification',
       javaCode: `
+        String title = notification.getToastMessage();    // restricted to 30 chars
+        String body  = notification.getToastSubMessage(); // restricted to 60 chars
+        var extra = notification.getExtra();
+
         Agency agency = (Agency) x.get(getThreadPoolName());
-        agency.submit(x, new TimeoutAgent(getTimeout(), new ContextAgent() {
+        ContextAgent agent = new ContextAgent() {
           public void execute(X x) {
             x = XLocator.get();
             PushService pushService = (PushService) x.get("pushService");
-            String title = notification.getToastMessage();    // restricted to 30 chars
-            String body  = notification.getToastSubMessage(); // restricted to 60 chars
-            var extra = notification.getExtra();
             if ( SafetyUtil.isEmpty(title) ||
                  SafetyUtil.isEmpty(body) ) {
               // Loggers.logger(x, this).debug("push suppressed, title or body empty");
@@ -61,7 +65,14 @@ foam.CLASS({
               Loggers.logger(x, this).error(t);
             }
           }
-        }), "PushService");
+        };
+
+        agency.submit(x, new TimeoutAgent(getTimeout(), agent) {
+          public void onTimeout() {
+            String message = "timeout notification user:" + notification.getUserId() + ", title:" + title + ", body:" + body + ", extra:" + String.valueOf(extra);
+            ((DAO) x.get("eventRecordDAO")).put(new EventRecord(x, "PushSetting", "sendNotification", null, null, message, LogLevel.WARN, null));
+          }
+        }, "PushService");
       `
     }
   ]

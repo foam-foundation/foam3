@@ -14,6 +14,10 @@ foam.CLASS({
       name: 'unique'
     },
     {
+      class: 'Boolean',
+      name: 'store'
+    },
+    {
       class: 'FObjectArray',
       of: 'foam.lang.Indexer',
       name: 'indexers'

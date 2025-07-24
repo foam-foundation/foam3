@@ -57,6 +57,12 @@ public class AltIndex
     return sa;
   }
 
+  // Add Index which skips bulkload
+  public Object addStoreIndex(Object state, Index i) {
+    delegates_.add(i);
+    return state;
+  }
+
   protected Object[] cloneState(Object state) {
     Object[] s2 = new Object[delegates_.size()];
 

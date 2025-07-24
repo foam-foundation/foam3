@@ -113,6 +113,13 @@ public class MDAO
     }
   }
 
+  // Add Index which skips bulkload
+  public void addStoreIndex(Index index) {
+    synchronized ( writeLock_ ) {
+      setState(index_.addStoreIndex(state_, index));
+    }
+  }
+
   /** Add an Index which is for a unique value. Use addIndex() if the index is not unique. **/
   public void addUniqueIndex(Indexer... props) {
     Index idx = ValueIndex.instance();
@@ -277,7 +284,9 @@ public class MDAO
     }
     if ( cmd instanceof AddIndexCommand ) {
       AddIndexCommand indexCmd = (AddIndexCommand) cmd;
-      if ( indexCmd.getIndex() != null ) {
+      if ( indexCmd.getStore() ) {
+        addStoreIndex((Index) indexCmd.getIndex());
+      } else if ( indexCmd.getIndex() != null ) {
          addIndex((Index) indexCmd.getIndex());
       } else {
         if ( indexCmd.getUnique() ) {

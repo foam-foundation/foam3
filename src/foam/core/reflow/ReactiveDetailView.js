@@ -390,6 +390,7 @@ foam.CLASS({
     ^ .foam-core-reflow-CollapsedByDefaultSectionView-actionDiv {
       display: flex;
       flex-direction: column;
+      gap: 10px;
     }
     ^ .foam-core-reflow-CollapsedByDefaultSectionView {
       border-bottom: 1px solid $borderLight;

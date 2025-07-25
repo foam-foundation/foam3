@@ -395,6 +395,10 @@ foam.CLASS({
       border-bottom: 1px solid $borderLight;
       padding: 8px 16px;
     }
+    ^ .property-schedule .foam-u2-detail-VerticalDetailView {
+      border: 1px solid $borderLight;
+      border-radius: 4px;
+    }
   `,
 
   properties: [

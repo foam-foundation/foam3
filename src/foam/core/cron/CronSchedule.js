@@ -158,7 +158,13 @@ foam.CLASS({
       name: 'monthsOfYear',
       order: 4,
       javaPreSet: 'if ( val != null ) { Arrays.sort(val); }',
-      view: { class: 'foam.time.MonthOfYearView' },
+      view: function(_, X) {
+        return {
+          class: 'foam.u2.view.MultiChoiceDropdown',
+          choices: foam.time.MonthOfYear.VALUES.map(v => [v, v.shortName]),
+          label: 'Months Of Year'
+        }
+      },
       documentation: 'Months to execute script',
     },
     {
@@ -207,7 +213,13 @@ foam.CLASS({
       name: 'daysOfWeek',
       order: 6,
       javaPreSet: 'if ( val != null ) { Arrays.sort(val); }',
-      view: { class: 'foam.u2.view.DayOfWeekView' },
+      view: function(_, X) {
+        return {
+          class: 'foam.u2.view.MultiChoiceDropdown',
+          choices: foam.time.DayOfWeek.VALUES.map(v => [v, v.shortName]),
+          label: 'Days Of Week'
+        }
+      },  
       visibility: function(daysOfMonth) {
         if ( daysOfMonth.length > 0 )
           return foam.u2.DisplayMode.HIDDEN;
@@ -234,7 +246,14 @@ foam.CLASS({
       name: 'daysOfMonth',
       order: 6,
       javaPreSet: 'if ( val != null ) { Arrays.sort(val); }',
-      view: { class: 'foam.u2.view.DayOfMonthView' },
+      view: function(_, X) {
+        var days = Array.from({length: 31}, (_, i) => i + 1);
+        return {
+          class: 'foam.u2.view.MultiChoiceDropdown',
+          choices: days,
+          label: 'Days Of Month'
+        }
+      }, 
       visibility: function(daysOfWeek, daysOfMonth, weekOfMonth) {
         if ( weekOfMonth > 0 || ( daysOfWeek.length > 0 && daysOfMonth.length == 0 ) )
           return foam.u2.DisplayMode.HIDDEN;

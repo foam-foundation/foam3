@@ -578,7 +578,7 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'rightWidth',
-      value: 300
+      value: 400
     },
     {
       class: 'Int',

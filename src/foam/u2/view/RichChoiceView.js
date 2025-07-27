@@ -863,3 +863,213 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'RichChoiceIconView',
+  extends: 'foam.u2.view.RichChoiceView',
+
+  documentation: `
+    A RichChoiceView that renders as an icon button instead of a traditional dropdown.
+    Similar to ChoiceIconView but for rich choice dropdowns.
+  `,
+
+  css: `
+    ^ {
+      position: relative;
+      display: inline-block;
+    }
+
+    ^icon-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    ^.property-choice {
+      width: 100%;
+      max-width: fit-content;
+      overflow-x: hidden;
+    }
+
+    ^selection-view {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      cursor: pointer;
+      z-index: 2;
+      border: none !important;
+      background: transparent !important;
+    }
+
+    ^selection-view:hover,
+    ^selection-view:focus {
+      border: none !important;
+      background: transparent !important;
+    }
+  `,
+
+  properties: [
+    {
+      class: 'GlyphProperty',
+      name: 'themeIcon',
+      value: 'plus',
+      documentation: 'The glyph to display in the icon button'
+    }
+  ],
+
+  actions: [
+    {
+      name: 'iconButton',
+      label: '',
+      isAvailable: function() { return true; },
+      code: function() {
+        // This action does nothing - it's just for the button UI
+        // The actual functionality comes from the overlaid selection view
+      }
+    }
+  ],
+
+  methods: [
+    function render() {
+      var self = this;
+
+      if ( ! Array.isArray(this.sections) || this.sections.length === 0 ) {
+        throw new Error(`You must provide an array of sections. See documentation on the 'sections' property in RichTextView.js.`);
+      }
+
+      // Set up data binding and dropdown
+      this.onDetach(this.data$.sub(this.onDataUpdate));
+      this.onDataUpdate();
+
+      this.onDetach(() => this.dropdown_.remove());
+      this.attrs({
+        name: self.prop$.map(v => v?.name),
+        'data-value': self.data$,
+        'role': 'combobox',
+        'aria-controls': 'listbox',
+        'aria-haspopup': 'listbox',
+        'aria-expanded': self.isOpen_$.map(v => v ? 'true' : 'false')
+      });
+      self.isOpen_$.follow(this.dropdown_.opened$);
+      self.dropdown_.add(self.slot(function(hasBeenOpenedYet_) {
+        if ( ! hasBeenOpenedYet_ ) return this.E();
+        return this.E()
+          .addClass(self.myClass('container'))
+          .add(self.search$.map(searchEnabled => {
+            if ( ! searchEnabled ) return null;
+            return this.E()
+              .start()
+                .start('img')
+                  .attrs({ src: '/images/ic-search.svg' })
+                .end()
+                .startContext({ data: self })
+                  .addClass(self.myClass('search'))
+                  .tag(self.FILTER_.clone().copyFrom({ view: {
+                    class: 'foam.u2.TextField',
+                    placeholder: this.searchPlaceholder || 'Search... ',
+                    autofocus: true,
+                    onKey: true
+                  } }), {}, self.inputField$)
+                .endContext()
+              .end();
+          }))
+          .add(self.slot(function(sections) {
+            var promiseArray = [];
+            sections.forEach(function(section) {
+              promiseArray.push(section.dao.select(self.COUNT()));
+            });
+            return Promise.all(promiseArray).then(resp => {
+              var index = 0;
+              return this.E().forEach(sections, function(section) {
+                if ( section.hideIfEmpty && resp[index].value <= 0 ) return;
+                section.refineInput_ = resp[index].value > section.choicesLimit;
+                this.addClass(self.myClass('setAbove'))
+                  .start().addClass(self.myClass('section'))
+                  .start().hide(! section.heading)
+                    .addClass('h600', self.myClass('heading'))
+                    .translate(section.heading$)
+                  .end()
+                  .start()
+                    .select( section.choicesLimit ? section.filteredDAO$proxy.limit(section.choicesLimit) : section.filteredDAO$proxy, function(obj) {
+                      let addRow = function() {
+                        this.start(self.rowView, { data: obj })
+                          .attr('disabled', section.disabled)
+                          .attr('role', 'option')
+                          .enableClass('disabled', section.disabled)
+                          .callIf(! section.disabled, function() {
+                            this.on('click', () => {
+                              self.onSelect(obj);
+                              self.dropdown_.close();
+                            });
+                          })
+                        .end();
+                      }
+                      if ( this.U3 ) {
+                        this.call(addRow);
+                      } else {
+                        return this.E().call(addRow);
+                      }
+                    }, false, self.comparator)
+                  .end()
+                  .callIf(section.choicesLimit, function() {
+                    this.start()
+                      .addClass(self.myClass('moreChoices'))
+                      .add(section.refineInput_$.map(v => v ? self.MORE_CHOICES : ''))
+                    .end();
+                  })
+                  .end();
+                  index++;
+              });
+            });
+          }))
+          .add(this.slot(self.addAction));
+      }));
+
+      // Render the icon button with invisible overlay
+      this
+        .addClass(this.myClass())
+        .add(this.slot(function(mode) {
+          if ( mode !== foam.u2.DisplayMode.RO && mode !== foam.u2.DisplayMode.HIDDEN ) {
+            if ( self.ctrl ) {
+              self.ctrl.add(this.dropdown_);
+            } else {
+              this.dropdown_.write();
+            }
+            return self.E()
+              .addClass(this.myClass('icon-wrapper'))
+              .tag(self.ICON_BUTTON, {
+                data: self,
+                themeIcon$: self.themeIcon$
+              })
+              .start('', {}, this.selectionEl_$)
+                .addClass(this.myClass('selection-view'))
+                .enableClass('disabled', this.mode$.map((mode) => mode === foam.u2.DisplayMode.DISABLED))
+                .on('click', function(e) {
+                  var x = e.clientX || this.getBoundingClientRect().x;
+                  var y = e.clientY || this.getBoundingClientRect().y;
+                  if ( self.mode === foam.u2.DisplayMode.RW ) {
+                    self.dropdown_.parentEl = self.selectionEl_.el_();
+                    self.dropdown_.open(x, y);
+                    if ( self.inputField ) self.inputField.focused = true;
+                  }
+                  e.preventDefault();
+                  e.stopPropagation();
+                })
+              .end();
+          } else {
+            return self.E()
+              .addClass(this.myClass())
+              .tag(self.ICON_BUTTON, {
+                data: self,
+                themeIcon$: self.themeIcon$,
+                mode$: self.mode$
+              });
+          }
+        }));
+    }
+  ]
+});

@@ -54,8 +54,8 @@ foam.CLASS({
     function render() {
       this.
         addClass().
-        tag(this.TextField, {data$: this.data$, size: 40, type: 'search'}).
-        startContext({data: this}).add(this.CHOICES).endContext();
+        startContext({data: this}).add(this.CHOICES).endContext().
+        tag(this.TextField, {data$: this.data$, size: 40, type: 'search'});
     }
   ],
 

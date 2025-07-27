@@ -901,6 +901,7 @@ foam.CLASS({
       left: 0;
       cursor: pointer;
       z-index: 2;
+      min-width: 250px;
       border: none !important;
       background: transparent !important;
     }

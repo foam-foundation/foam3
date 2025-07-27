@@ -55,7 +55,7 @@ foam.CLASS({
       this.SUPER();
       this.addClass();
       this.add(function(forCls) {
-        this.tag(self.DATA, { type: 'search' }).add(' ', self.CHOICE);
+        this.add(' ', self.CHOICE).tag(self.DATA, { type: 'search' });
       });
     }
   ],

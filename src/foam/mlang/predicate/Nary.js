@@ -27,7 +27,7 @@ foam.CLASS({
       name: 'toString',
       code: function() {
         return foam.String.constantize(this.cls_.name) + '(' +
-          this.args.map(a => a.toString()) + ')';
+          this.args.map(a => a?.toString()) + ')';
       },
       javaCode: `
         StringBuilder sb = new StringBuilder();

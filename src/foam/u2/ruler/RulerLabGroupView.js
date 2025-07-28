@@ -8,23 +8,29 @@ foam.CLASS({
   package: 'foam.u2.ruler',
   name: 'RulerLabGroupView',
   extends: 'foam.u2.View',
+  implements: ['foam.mlang.Expressions'],
 
   css: `
+    ^ {
+      --color: $primary400;
+    }
     ^heading {
-      background-color: rgb(47, 61, 143);
+      background-color: var(--color);
       padding: 0 0.8rem;
       color: #FFF;
     }
 
     ^border {
-      border: 0.2rem solid rgb(47, 61, 143);
+      border: 0.2rem solid  var(--color);
       padding: 0.8rem;
     }
   
-    ^list {
-      display: flex;
-      flex-direction: column;
+    ^list.foam-u2-DAOList{
+      height: auto;
       gap: 0.8rem;
+    }
+    ^list.foam-u2-DAOList > .foam-u2-DAOList-wrapper {
+      overscroll-behaviour-y: auto;
     }
   `,
 
@@ -44,13 +50,19 @@ foam.CLASS({
       expression: function (dao, data) {
         return dao.where(this.EQ(this.Rule.RULE_GROUP, this.data));
       }
-    }
+    },
+    { name: 'shouldShow', class: 'Boolean' },
+    'color'
   ],
 
   methods: [
     function render () {
+      if (this.color )
+        this.el().then(el => el?.style.setProperty('--color', this.color ))
+      this.computeShow();
       this
         .addClass()
+        .show(this.shouldShow$)
         .start()
           .addClass('h500', this.myClass('heading'))
           .add(this.data$.dot('id'))
@@ -66,6 +78,15 @@ foam.CLASS({
             .addClass(this.myClass('list'))
           .end()
         .end()
+    }
+  ],
+  listeners: [
+    {
+      name: 'computeShow',
+      on: ['this.propertyChange.groupFilterRuleDAO'],
+      code: function() {
+        this.groupFilterRuleDAO.select(this.COUNT()).then(v => this.shouldShow = !! v.value);
+      }
     }
   ]
 });

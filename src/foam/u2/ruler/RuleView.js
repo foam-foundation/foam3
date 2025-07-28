@@ -32,7 +32,7 @@ foam.CLASS({
 
   methods: [
     function render () {
-      console.log('predicate', this.data.predicate.toString(), this.data.predicate)
+      console.log('predicate', this.data?.predicate?.toString(), this.data?.predicate)
       this
         .on('click', () => {
           if ( ! this.openInSideView ) return;

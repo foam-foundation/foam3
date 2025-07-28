@@ -142,7 +142,7 @@ foam.CLASS({
       this.
         addClass().
         startContext({data: this}).add(this.CHOICES).endContext().
-        tag(this.TextField, {data$: this.data$, size: 40, type: 'search'});
+        tag(this.TextField, {data$: this.data$, size: 40});
     }
   ],
 

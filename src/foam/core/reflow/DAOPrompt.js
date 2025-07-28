@@ -265,7 +265,6 @@ foam.CLASS({
       section: 'filter',
       displayWidth: 60,
       view: { class: 'foam.core.reflow.PredicateView' }
-//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
     {
       class: 'String',
@@ -273,7 +272,6 @@ foam.CLASS({
       section: 'filter',
       displayWidth: 60,
       view: { class: 'foam.core.reflow.ComparatorView' }
-//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
     {
       class: 'String',

@@ -13,8 +13,13 @@ foam.CLASS({
     ^ {
       display: inline-flex;
       width: 100%;
-      gap: 5px;
+      gap: $inputHorizontalPadding;
+      align-items: center;
     }
+    ^ .property-data {
+      width: 100%;
+    }
+
     ^ .property-choice {
       width: 100%;
       overflow-x: hidden;

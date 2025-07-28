@@ -151,7 +151,8 @@
           self.inputFocused = true;
       }));
 
-      this.onDetach(this.onload.sub(this.loaded));
+      // Initialize loaded listener after render
+      this.loaded();
       this
       .addClass()
       .start(this.TextField, {

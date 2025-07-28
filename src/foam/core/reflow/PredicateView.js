@@ -6,11 +6,45 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
+  name: 'PredicateOption',
+  
+  documentation: 'Model for predicate dropdown options',
+  
+  properties: [
+    {
+      class: 'String',
+      name: 'id',
+      factory: function() { return this.value; }
+    },
+    {
+      class: 'String',
+      name: 'value',
+      documentation: 'The actual string value to insert (e.g., "is:active", "name")'
+    },
+    {
+      class: 'String',
+      name: 'label',
+      documentation: 'Display label for the option'
+    },
+
+    {
+      name: 'property',
+      documentation: 'Optional reference to the property object'
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
   name: 'PredicateView',
   extends: 'foam.u2.View',
 
   requires: [
-    'foam.u2.TextField'
+    'foam.u2.TextField',
+    'foam.u2.view.RichChoiceIconView',
+    'foam.core.reflow.PredicateOption',
+    'foam.core.reflow.PropertyOptionCitationView'
   ],
 
   imports: [
@@ -26,31 +60,75 @@ foam.CLASS({
     }
     ^helper-icon svg { fill: currentColor; }
     ^helper-icon { vertical-align: sub; padding: 6px; }
+    ^ .foam-u2-TextField {
+      z-index: 10;
+    }
   `,
 
   properties: [
     {
       name: 'choices',
       view: function(_, X) {
+        var PredicateOption = foam.core.reflow.PredicateOption;
         var of = X.objData.dao.of;
-        var choices = [ '--' ];
+        var options = [];
+        
+        // Add separator option
+        options.push(PredicateOption.create({
+          value: '--',
+          label: '-- Choose Property --'
+        }));
+        
+        // Process properties
         of.getAxiomsByClass(foam.lang.Property).forEach(p => {
           if ( ! p.searchable && ( p.hidden || p.networkTransient ) ) return;
+          
           if ( foam.lang.Boolean.isInstance(p) ) {
-            // insted of pushing
-            // choices.push([p, 'is:'  + p.name]);
-            // we're pushing `[ 'is:' + p.name, 'is:' + p.label]`
-            // reason provided in ComparatorView ~ same logic
-            choices.push([ 'is:' + p.name, 'is:' + p.name]);
-            choices.push([ '-is:' + p.name, '-is:' + p.name]);
+            // Boolean predicates
+            options.push(PredicateOption.create({
+              value: 'is:' + p.name,
+              label: 'is: ' + (p.label || p.name),
+              property: p
+            }));
+            options.push(PredicateOption.create({
+              value: '-is:' + p.name,
+              label: 'isNot: ' + (p.label || p.name),
+              property: p
+            }));
           } else {
-            choices.push([p.name, p.name]);
+            // Other property types
+            options.push(PredicateOption.create({
+              value: p.name,
+              label: p.label || p.name,
+              property: p
+            }));
           }
         });
-        return { class: 'foam.u2.view.ChoiceIconView', choices: choices, type: 'search', themeIcon: 'plus' };
+        
+        // Create DAO from options
+        var dao = foam.dao.ArrayDAO.create({
+          of: PredicateOption,
+          array: options
+        });
+        
+        return {
+          class: 'foam.u2.view.RichChoiceIconView',
+          themeIcon: 'plus',
+          search: true,
+          searchPlaceholder: 'Search properties...',
+          idProperty: 'value',
+          rowView: { class: 'foam.core.reflow.PropertyOptionCitationView' },
+          sections: [
+            {
+              heading: 'Properties',
+              dao: dao,
+              searchBy: [ PredicateOption.LABEL, PredicateOption.VALUE ]
+            }
+          ]
+        };
       },
       preSet: function(o, n) {
-        if ( n == '--' ) return;
+        if ( n == '--' || ! n ) return;
         if ( this.objData.where ) this.objData.where += ' ';
         this.objData.where += n;
         return '--';

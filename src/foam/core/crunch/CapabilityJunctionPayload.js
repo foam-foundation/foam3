@@ -50,11 +50,7 @@ foam.CLASS({
       name: 'status',
       class: 'Enum',
       of: 'foam.core.crunch.CapabilityJunctionStatus',
-      value: foam.core.crunch.CapabilityJunctionStatus.ACTION_REQUIRED,
-      javaPostSet: `
-        if ( ((CapabilityJunctionStatus) val) == CapabilityJunctionStatus.GRANTED )
-          setHasBeenGranted(true);
-      `
+      value: foam.core.crunch.CapabilityJunctionStatus.ACTION_REQUIRED
     },
     {
       name: 'hasBeenGranted',

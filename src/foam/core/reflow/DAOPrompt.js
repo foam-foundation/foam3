@@ -330,8 +330,8 @@ visible      },
       label: '',
       factory: function() { return this.TableDAOAgent.create(); }
     },
-    { class: 'Long',       hidden: true,    name: 'rowCount', visibility: 'RO' },
-    { class: 'String',     hidden: true,   name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
+    { class: 'Long',       hidden: true,  name: 'rowCount', visibility: 'RO' },
+    { class: 'String',     hidden: true,  name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
     { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } },
     { class: 'Int',        hidden: true,  name: 'version', hidden: true },
     { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
@@ -375,7 +375,8 @@ visible      },
     },
 
     async function addToE(e) {
-      this.rowCount = (await this.dao.select(this.COUNT())).value;
+      this.onDetach(this.dao.listen(this.updateRowCount));
+      this.updateRowCount_();
 
       // TODO: name current block
       e.tag(this.DAOPromptView, {data: this, label: this.label});
@@ -390,6 +391,10 @@ visible      },
       this.readyLatch_ = undefined;
       this.run();
       return this.readyLatch_;
+    },
+
+    async function updateRowCount_() {
+      this.rowCount = (await this.dao.select(this.COUNT())).value;
     }
   ],
 
@@ -428,6 +433,11 @@ visible      },
   ],
 
   listeners: [
+    {
+      name: 'updateRowCount',
+      isFramed: true,
+      code: function() { this.updateRowCount_(); this.run(); }
+    },
     {
       name: 'maybeAutoRun',
       isMerged: true,

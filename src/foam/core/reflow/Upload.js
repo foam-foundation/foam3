@@ -54,27 +54,22 @@ foam.CLASS({
           var targetModel = mapping.of;
           var prop = targetModel && targetModel.getAxiomByName(mapping.property);
           
+
           this.
+            startContext({ data: mapping }).
             start('tr').
               start('td').add(mapping.property).end().
               start('td').
-                start(foam.u2.DetailView, {
-                  data: mapping,
-                  showActions: false,
-                  showHeader: false,
-                  properties: ['type']
-                }).end().
+                add(mapping.TYPE.__).
               end().
               start('td').
-                start(foam.u2.DetailView, {
-                  data: mapping,
-                  showActions: false,
-                  showHeader: false,
-                  properties: ['constantValue', 'fieldName', 'dynamicExpression']
-                }).end().
+                add(mapping.CONSTANT_VALUE.__).
+                add(mapping.FIELD_NAME.__).
+                add(mapping.DYNAMIC_EXPRESSION.__).
               end().
               start('td').add(prop ? (prop.required || false) : false).end().
-            end();
+            end()
+            .endContext();
         });
       }));
     }

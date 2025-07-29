@@ -6,7 +6,7 @@
 foam.CLASS({
     package: 'foam.u2.view',
     name: 'MultiChoiceDropdown',
-    extends: 'foam.u2.View',
+    extends: 'foam.u2.Controller',
     // extends: 'foam.u2.view.MultiChoiceView',
   
     requires: [
@@ -104,7 +104,8 @@ foam.CLASS({
       {
         class: 'String',
         name: 'label'
-      }
+      },
+      'data'
     ],
     methods: [
       function init() {
@@ -127,21 +128,18 @@ foam.CLASS({
         this.addClass()
         .start()
           .addClass(this.myClass('container'))
-            .startContext({ data: this })
-              .start(this.TOGGLE_OPEN).addClass(this.myClass('toggle-container'))
-                .add(this.dynamic(function(data) {
-                    console.log('data', data);
-                  var label = data.length > 0 ? data.map(v => v.shortName ?? v.toString()).join(' - ') : self.label;
-                  this.start().addClass(self.myClass('toggle-content'))
-                    .start('span').addClass(self.myClass('selected-label')).attr('title', label).add(label).end()
-                    .start(foam.u2.tag.Image, {
-                      glyph: 'dropdown',
-                      embedSVG: true
-                    }).addClass(self.myClass('chevron')).end()
-                  .end()
-                }))
-              .end()
-            .endContext()
+            .start(this.TOGGLE_OPEN).addClass(this.myClass('toggle-container'))
+              .add(this.dynamic(function(data) {
+                var label = data.length > 0 ? data.map(v => v.shortName ?? v.toString()).join(' - ') : self.label;
+                this.start().addClass(self.myClass('toggle-content'))
+                  .start('span').addClass(self.myClass('selected-label')).attr('title', label).add(label).end()
+                  .start(foam.u2.tag.Image, {
+                    glyph: 'dropdown',
+                    embedSVG: true
+                  }).addClass(self.myClass('chevron')).end()
+                .end()
+              }))
+            .end()
             .start()
               .add(this.dynamic(function(isOpen) {
                 if (isOpen) {

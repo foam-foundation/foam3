@@ -292,6 +292,7 @@ foam.CLASS({
   methods: [
     function execute(daoKey) {
       if ( foam.String.isInstance(daoKey) && this.scope[daoKey] ) daoKey = this.scope[daoKey];
+      else if ( foam.String.isInstance(daoKey) && this.scope[daoKey + 'DAO'] ) daoKey = this.scope[daoKey + 'DAO'];
       var value = foam.dao.DAO.isInstance(daoKey) ? this.DAOCreate.create({dao: daoKey}) : this.DAOCreate.create({daoKey: daoKey});
       // this.currentBlock.value = foam.core.reflow.cmd.DAOCreateSave.create({daoCreate: value});
       this.out.tag(value);

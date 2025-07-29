@@ -155,6 +155,9 @@ foam.CLASS({
           if ( this.scope[n] ) {
             this.daoKey = n;
             n = this.scope[n];
+          } else if ( this.scope[n + 'DAO'] ) {
+            this.daoKey = n + 'DAO';
+            n = this.scope[n + 'DAO'];
           } else if ( this.__context__[n + 'DAO'] ) {
             n =  n + 'DAO';
           } else if ( n.endsWith('s') ) {

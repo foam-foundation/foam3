@@ -4,7 +4,6 @@ p({
   code:"""
 /**
  * Configuration (via scriptParameter):
- * dryRun: true | false
  * daos: 'userDAO,accountDAO'
  */
 

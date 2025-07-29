@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.dao.compaction',
   name: 'Compaction',
   documentation: `Compaction dumps an MDAO out to a new journal file, in a effort to reduce replay time.  Each DAO operation on the same object generates an entry  containing just the change on the object.  In time there are multiple entries for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple entry to just one, and reducing replay time.
+Used in conjuction with a custom compaction sink, the compaction process can facilitate archiving with only recent or active objects written to the new journal.
 `,
 
   ids: ['cSpec'],

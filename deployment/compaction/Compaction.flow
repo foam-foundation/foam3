@@ -2,7 +2,9 @@
 <h1>Compaction</h1>
 <h2>Overview</h2>
 
-Compaction dumps a DAO out to new journal file, in a effort to reduce replay time.  Each DAO operation on the same object generates a journal entry containing just the change on the object.  In time there are many entries for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple entries to just one.
+<p>Compaction dumps a DAO out to new journal file, in a effort to reduce replay time.  Each DAO operation on the same object generates a journal entry containing just the change on the object.  In time there are many entries for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple entries to just one.</p>
+<p>Used in conjuction with a custom compaction sink, the compaction process can facilitate archiving with only recent or active objects written to the new journal.</p>
+
 
 <h2>Considerations</h2>
 <ul>

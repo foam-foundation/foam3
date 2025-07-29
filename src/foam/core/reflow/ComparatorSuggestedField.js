@@ -19,47 +19,19 @@ foam.CLASS({
   ],
 
   methods: [
-    /**
-     * Parse comma-separated segments
-     */
-    function parseSegments(str) {
-      return str ? str.split(',') : [];
-    },
-
-    /**
-     * Join segments with commas
-     */
-    function joinSegments(segments) {
-      return segments.join(',');
-    },
-
-    /**
-     * Check if comma was just typed
-     */
-    function shouldTriggerSuggestions(oldStr, newStr) {
-      return newStr && newStr.endsWith(',') && ! oldStr.endsWith(',');
-    },
-
-    /**
-     * Create sort options for a property (ascending and descending)
-     */
     function createPropertyOptions(property) {
-      var label = property.label || property.name;
+      var label = property.label;
       
       return [
         // Ascending option
         this.PropertyOption.create({
-          value: property.name,
-          label: this.SORT_ASC_SYMBOL + ' ' + label,
-          direction: 'ASC',
-          property: property
+          id: property.name,
+          label: this.SORT_ASC_SYMBOL + ' ' + label
         }),
         // Descending option
         this.PropertyOption.create({
-          value: '-' + property.name,
+          id: '-' + property.name,
           label: this.SORT_DESC_SYMBOL + ' ' + label,
-          direction: 'DESC',
-          property: property
         })
       ];
     }

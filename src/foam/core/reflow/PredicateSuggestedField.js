@@ -11,70 +11,62 @@ foam.CLASS({
 
   documentation: 'SuggestedTextField for property filter selection',
 
+
+  constants: [
+    {
+      name: 'PREDICATE_IS_PREFIX',
+      value: 'is:'
+    },
+    {
+      name: 'PREDICATE_IS_NOT_PREFIX',
+      value: '-is:'
+    }
+  ],
+
   properties: [
     {
       name: 'placeholder',
       value: 'Type property name to add filter'
+    },
+    {
+      name: 'delimitter',
+      value: ` `
     }
   ],
 
   methods: [
     /**
-     * Parse space-separated segments
-     */
-    function parseSegments(str) {
-      return str ? str.split(/\s+/) : [];
-    },
-
-    /**
-     * Join segments with spaces
-     */
-    function joinSegments(segments) {
-      return segments.join(' ');
-    },
-
-    /**
-     * Check if space was just typed
-     */
-    function shouldTriggerSuggestions(oldStr, newStr) {
-      return newStr && newStr.endsWith(' ') && ! oldStr.endsWith(' ');
-    },
-
-    /**
      * Override property filtering for predicates
      */
     function isPropertySelectable(property) {
-      if ( ! property.searchable && ( property.hidden || property.networkTransient ) ) return false;
-      return true;
+      if ( ! property.searchable ) return false;
+      return this.SUPER(property)
     },
 
     /**
      * Create predicate options for a property
      */
     function createPropertyOptions(property) {
-      var label = property.label || property.name;
+      var label = property.label;
       var options = [];
       
       if ( foam.lang.Boolean.isInstance(property) ) {
         // Boolean properties work as standalone predicates with is: prefix
         options.push(this.PropertyOption.create({
-          value: this.PREDICATE_IS_PREFIX + property.name,
+          id: this.PREDICATE_IS_PREFIX + property.name,
           label: 'is: ' + label,
-          property: property
         }));
         
         options.push(this.PropertyOption.create({
-          value: this.PREDICATE_IS_NOT_PREFIX + property.name,
+          id: this.PREDICATE_IS_NOT_PREFIX + property.name,
           label: 'isNot: ' + label,
-          property: property
         }));
-      } else if ( property.searchable !== false ) {
+      } else {
         // For other searchable properties, add them with a colon suffix
         // so users can type the value after selection
         options.push(this.PropertyOption.create({
-          value: property.name + ':',
+          id: property.name + ':',
           label: label + ':',
-          property: property
         }));
       }
       

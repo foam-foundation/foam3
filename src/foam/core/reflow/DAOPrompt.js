@@ -271,7 +271,7 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
-      view: { class: 'foam.core.reflow.PredicateView' }
+      view: { class: 'foam.core.reflow.PredicateSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
     {
@@ -279,7 +279,7 @@ foam.CLASS({
       name: 'order',
       section: 'filter',
       displayWidth: 60,
-      view: { class: 'foam.core.reflow.ComparatorView' }
+      view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
     {
@@ -289,8 +289,7 @@ foam.CLASS({
       displayWidth: 60,
       view: function(_, X) {
         return {
-          class: 'foam.core.reflow.PropertyListView',
-          forCls: X.data.dao.of
+          class: 'foam.core.reflow.PropertySuggestedField'
         };
       },
       postSet: function(_, n) {

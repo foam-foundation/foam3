@@ -50,6 +50,7 @@ public class ModelParserFactory {
   protected final static Parser SKIP              = new Repeat0(new Alt(new Seq0(Literal.create("//"),new Until(NewlineParser.create())), new WS()));
 
   public static Parser getInstance(ClassInfo ci) {
+    if ( parsers_.containsKey(ci) ) return parsers_.get(ci);
     // Sync is required to avoid building one parser per AssemblyLine thread.
     synchronized ( ci ) {
       if ( parsers_.containsKey(ci) ) return parsers_.get(ci);

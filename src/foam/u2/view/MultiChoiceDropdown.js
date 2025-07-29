@@ -14,23 +14,14 @@ foam.CLASS({
     ],
   
     css: `
-      ^ .foam-u2-view-MultiChoiceView-flexer > div {
-        width: fit-content !important;
-      }
       ^ .foam-u2-view-MultiChoiceView-flexer {
         display: flex;
         flex-wrap: wrap;
-        width: 100%;
         gap: 0.5rem;
       }
       ^ .foam-u2-view-MultiChoiceView-flexer > * {
-        flex: 1 0 16.666%; /* 6 columns: 100/6 */
-        min-width: 0;
-        box-sizing: border-box;
-        text-align: center;
         padding: 4px 0;
       }
-    
       ^container {
         position: relative;
         display: flex;

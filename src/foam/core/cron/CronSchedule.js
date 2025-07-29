@@ -161,6 +161,7 @@ foam.CLASS({
       view: function(_, X) {
         return {
           class: 'foam.u2.view.MultiChoiceDropdown',
+          numberColumns: 4,
           choices: foam.time.MonthOfYear.VALUES.map(v => [v, v.shortName]),
           label: 'Months Of Year'
         }
@@ -217,6 +218,7 @@ foam.CLASS({
         return {
           class: 'foam.u2.view.MultiChoiceDropdown',
           choices: foam.time.DayOfWeek.VALUES.map(v => [v, v.shortName]),
+          numberColumns: 3,
           label: 'Days Of Week'
         }
       },  
@@ -250,6 +252,7 @@ foam.CLASS({
         var days = Array.from({length: 31}, (_, i) => i + 1);
         return {
           class: 'foam.u2.view.MultiChoiceDropdown',
+          numberColumns: 4,
           choices: days,
           label: 'Days Of Month'
         }

@@ -305,6 +305,10 @@ foam.CLASS({
                   isDisabled$: isDisabledSlot,
                   of: cls
                 })
+                  .style({
+                    'flex': `1 1 ${100 / self.numberColumns}%`,
+                    'box-sizing': 'border-box'
+                  })
                   .call(function() {
                     self.onDetach(this.clicked.sub(() => {
                       let indexDataToAdd = self.getIndexOfChoice(self.data, valueSimpSlot.get());

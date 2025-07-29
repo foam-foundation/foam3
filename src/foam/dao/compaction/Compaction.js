@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.dao.compaction',
   name: 'Compaction',
-  documentation: `Compaction dumps the current system out to new ledger files, in a effort to reduce replay time.  Each DAO operation on the same object generates a unique MedusaEntry containing just the change on the object.  In time there are multiple MedusaEntry's for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple MedusaEntry's to just one.
+  documentation: `Compaction dumps an MDAO out to a new journal file, in a effort to reduce replay time.  Each DAO operation on the same object generates an entry  containing just the change on the object.  In time there are multiple entries for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple entry to just one, and reducing replay time.
 `,
 
   ids: ['cSpec'],

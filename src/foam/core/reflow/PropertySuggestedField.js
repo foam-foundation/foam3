@@ -21,6 +21,11 @@ foam.CLASS({
       name: 'label',
       documentation: 'Display label for the option'
     }
+  ],
+  methods: [
+    function toSummary() {
+      return this.label;
+    }
   ]
 });
 
@@ -78,10 +83,6 @@ foam.CLASS({
         this.filteredValues = [];
         return Promise.resolve();
       }
-    },
-    {
-      name: 'rowView',
-      value: { class: 'foam.core.reflow.PropertyOptionCitationView' }
     },
     {
       name: 'autocompleter',

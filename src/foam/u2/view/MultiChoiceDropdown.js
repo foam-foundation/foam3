@@ -114,10 +114,6 @@ foam.CLASS({
         window.addEventListener('mousedown', this.boundHandleClickOutside);
       },
 
-      function destroy() {
-        window.removeEventListener('mousedown', this.boundHandleClickOutside);
-      },
-
       function handleClickOutside(e) {
         const islandHolder = document?.querySelector(`.${this.myClass('collapsible')}`);      if (islandHolder && !islandHolder.contains(e.target)) {
             this.isOpen = false;

@@ -16,10 +16,13 @@ foam.CLASS({
 });
 
 
+
+
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'MappingsView',
   extends: 'foam.u2.Controller',
+
 
   properties: [ 'data' ],
 
@@ -27,6 +30,9 @@ foam.CLASS({
     ^ { overflow-x: auto; }
     ^ .foam-u2-tag-Select { height: 20px; }
     ^ td { padding: 2px 10px; }
+    ^ .foam-u2-DetailView { padding: 0; }
+    ^ .foam-u2-DetailView table { margin: 0; }
+    ^ .foam-u2-DetailView td { padding: 0; }
   `,
 
   methods: [
@@ -36,21 +42,41 @@ foam.CLASS({
       this.addClass().
       start('table').start('tr').
         start('th').add('Property').end().
-        start('th').add('Handler').end().
         start('th').add('Type').end().
+        start('th').add('Value').end().
         start('th').add('Required').end().
       end().
-      add(function(data) {
-        this.forEach(data, function(d) {
+      add(this.dynamic(function(data) {
+        if ( ! data || data.length === 0 ) return;
+        
+        this.forEach(data, function(mapping) {
+          // Get the property info from the target model
+          var targetModel = mapping.of;
+          var prop = targetModel && targetModel.getAxiomByName(mapping.property);
+          
           this.
-            startContext({data: d}).
             start('tr').
-              start('td').add(d.id).end().
-              start('td').add(d.HANDLER).end().
-              start('td').add(d.handler$.map(h => h.cls_.name)).end().
-              start('td').add(d.handler$.map(h => h.required)).end();
+              start('td').add(mapping.property).end().
+              start('td').
+                start(foam.u2.DetailView, {
+                  data: mapping,
+                  showActions: false,
+                  showHeader: false,
+                  properties: ['type']
+                }).end().
+              end().
+              start('td').
+                start(foam.u2.DetailView, {
+                  data: mapping,
+                  showActions: false,
+                  showHeader: false,
+                  properties: ['constantValue', 'fieldName', 'dynamicExpression']
+                }).end().
+              end().
+              start('td').add(prop ? (prop.required || false) : false).end().
+            end();
         });
-      });
+      }));
     }
   ]
 });
@@ -167,7 +193,13 @@ foam.CLASS({
       class: 'String',
       name: 'format',
       value: 'AUTO',
-      view: { class: 'foam.u2.view.ChoiceView', choices: [ 'AUTO', 'DAO', 'CSV', 'JSON', 'XML' ] }
+      view: { class: 'foam.u2.view.ChoiceView', choices: [ 'AUTO', 'DAO', 'CSV', 'JSON', 'XML' ] },
+      postSet: function(o, n) {
+        // Clear cached headers when format changes to ensure mappings regenerate
+        if ( o !== n ) {
+          this.fileHeaders = [];
+        }
+      }
     },
     {
       class: 'String',
@@ -230,8 +262,18 @@ foam.CLASS({
       class: 'FObjectArray',
       of: 'foam.core.reflow.Mapping',
       name: 'mappings',
-      view: 'foam.core.reflow.MappingsView',
-      factory: function() { return []; }
+      view: function(_, X) {
+        return { 
+          class: 'foam.core.reflow.MappingsView', 
+          of: X.data.of
+        };
+      },
+      factory: function() { return []; },
+      visibility: function(fileHeaders) {
+        return fileHeaders && fileHeaders.length > 0 ? 
+          foam.u2.DisplayMode.RW : 
+          foam.u2.DisplayMode.HIDDEN;
+      }
     },
     {
       class: 'String',
@@ -303,6 +345,18 @@ foam.CLASS({
       documentation: 'Callback function to adapt objects before uploading. Called with (object).',
       value: function() { },
       hidden: true
+    },
+    {
+      name: 'fileHeaders',
+      hidden: true,
+      documentation: 'File headers from processed data (CSV columns, XML tags/attributes, DAO properties)',
+      postSet: function(o, n) {
+        // Only auto-generate mappings if no mappings are explicitly set
+        // This prevents overwriting explicitly set mappings from FileUploadConfig
+        if ( this.of && n && JSON.stringify(o) !== JSON.stringify(n) && (!this.mappings || this.mappings.length === 0) ) {
+          this.generateMappings(n);
+        }
+      }
     }
   ],
 
@@ -352,12 +406,17 @@ foam.CLASS({
       var mappings = [];
 
       s.trim().split(',').forEach(c => {
+        var originalC = c;
         if ( c.indexOf(' ') != -1 ) {
           c = c.split(' ').map((n, i) => { n = n.toLowerCase(); if ( i ) n = foam.String.capitalize(n); return n; }).join('');
         }
 
         var prop = this.columnParser.parseString(c);
-        mappings.push(this.Mapping.create({id: c, handler: prop, of: this.of}));
+        var propertyObj = prop || { name: c };
+        mappings.push(this.createFieldMapping(propertyObj, {
+          id: originalC,
+          fieldName: originalC
+        }));
         if ( ! prop ) {
           this.output += '<span style="color:red">Unknown property: ' + c + '</span><br>';
         }
@@ -367,6 +426,97 @@ foam.CLASS({
       this.lastColumns = s;
 
       return this.mappings;
+    },
+
+    function generateMappings(fileHeaders) {
+      if ( ! this.of ) return;
+      
+      // Clean up file headers
+      var cleanHeaders = fileHeaders && fileHeaders.length > 0 ? 
+        fileHeaders.filter(h => h && h.trim()) : [];
+      
+      // Get all properties for the target model
+      var props = this.of.getAxiomsByClass(foam.lang.Property)
+        .filter(p => p.showInPropertyChoice)
+        .sort(foam.lang.Property.NAME.compare);
+      
+      // Create mappings for all properties with file headers
+      var mappings = [];
+      props.forEach(prop => {
+        mappings.push(this.createFieldMapping(prop, {
+          fileHeaders: cleanHeaders
+        }));
+      });
+      
+      this.mappings = mappings;
+    },
+
+    function findMatchingHeader(headers, prop) {
+      if ( ! headers || headers.length === 0 ) return null;
+      
+      // Try to match each header against the target property using ColumnParser
+      for ( var i = 0; i < headers.length; i++ ) {
+        var header = headers[i];
+        try {
+          var parsedProp = this.columnParser.parseString(header);
+          if ( parsedProp && parsedProp.name === prop.name ) {
+            return header;
+          }
+        } catch (e) {
+          // Continue to next header if parsing fails
+        }
+      }
+      
+      return null;
+    },
+
+    function createFieldMapping(property, options) {
+      options = options || {};
+      
+      var mapping = this.Mapping.create({
+        id: options.id || property.name,
+        property: property.name,
+        type: foam.core.reflow.MappingType.FIELD,
+        of: this.of,
+        fileHeaders: options.fileHeaders || []
+      });
+      
+      // Auto-set fieldName if not provided and fileHeaders are available
+      if ( ! options.fieldName && options.fileHeaders ) {
+        var matchingHeader = this.findMatchingHeader(options.fileHeaders, property);
+        if ( matchingHeader ) {
+          mapping.fieldName = matchingHeader;
+        }
+      } else if ( options.fieldName ) {
+        mapping.fieldName = options.fieldName;
+      }
+      
+      return mapping;
+    },
+
+    function processAllMappings(obj, rowData) {
+      if ( ! this.mappings || this.mappings.length === 0 ) return;
+      
+      this.mappings.forEach(mapping => {
+        try {
+          mapping.process(obj, undefined, rowData);
+        } catch (x) {
+          // Handle dynamic expression errors gracefully
+          var errorMsg = `error: ${mapping.property}': ${x.message}, stack: ${x.stack}`;
+          console.error(errorMsg, {
+            mapping: mapping,
+            expression: mapping.dynamicExpression,
+            rowData: rowData
+          });
+          
+          // Add error to output for user visibility
+          this.output += `<span style="color:red">${errorMsg}</span><br>`;
+          
+          // Set errors on the object for tracking
+          if ( ! obj.errors_ ) obj.errors_ = [];
+          obj.errors_.push([mapping, errorMsg]);
+        }
+      });
     },
 
     async function processUploadedFiles() {
@@ -547,84 +697,122 @@ foam.CLASS({
           // this.processJSON(sink);
           break;
       }
+      
+      // Set file headers for non-CSV formats (empty headers)
+      if ( this.format !== 'CSV' && ( ! this.mappings || this.mappings.length === 0 ) ) {
+        this.fileHeaders = [];
+      }
 
       return latch;
     },
 
-    function getXMLMapping(tag, attr) {
-      var key = attr ? tag + '.' + attr : tag;
-
-      if ( ! this.mappings_[key] ) {
-        if ( attr ) {
-          var prop = this.columnParser.parseString(tag + attr);
-          this.mappings_[key] = this.Mapping.create({
-            id: key,
-            handler: prop,
-            of: this.of
-          });
-        } else {
-          var prop = this.columnParser.parseString(tag);
-          this.mappings_[key] = this.Mapping.create({
-            id: key,
-            handler: prop,
-            of: this.of
-          });
+    function collectXMLHeaders(node, xmlHeaders) {
+      var children = node.children;
+      
+      // Collect tag names and attributes from this node
+      for ( var i = 0 ; i < children.length ; i++ ) {
+        var child = children[i];
+        var attrs = child.getAttributeNames();
+        
+        // Add tag name as header
+        if ( child.firstChild ) {
+          xmlHeaders.add(child.tagName);
+        }
+        
+        // Add tag.attribute as headers
+        for ( var j = 0 ; j < attrs.length ; j++ ) {
+          var attrName = attrs[j];
+          xmlHeaders.add(child.tagName + '.' + attrName);
         }
       }
-
-      return this.mappings_[key];
     },
 
     function objectifyXML(doc) {
       var obj      = this.of.create();
       var children = doc.children;
+      var rowData  = {}; // Create rowData object for XML attributes/elements
 
+      // Collect all XML data into rowData
       for ( var i = 0 ; i < children.length ; i++ ) {
-        // fetch property based on xml tag name since they may not be in order
         var node  = children[i];
         var attrs = node.getAttributeNames();
 
         if ( node.firstChild ) {
-          var value = node.firstChild.nodeValue;
-          this.getXMLMapping(node.tagName).process(obj, value);
+          rowData[node.tagName] = node.firstChild.nodeValue;
         }
         for ( var j = 0 ; j < attrs.length ; j++ ) {
           var attrName = attrs[j];
-          var value    = node.getAttribute(attrName);
-          this.getXMLMapping(node.tagName, attrName).process(obj, value);
+          rowData[node.tagName + '.' + attrName] = node.getAttribute(attrName);
         }
       }
+
+      // Process ALL mappings using universal method
+      this.processAllMappings(obj, rowData);
 
       return obj;
     },
 
     async function processDAO(sink) {
       var a = (await this.sourceDAO.select()).array;
+      
+      // Collect headers from first object if available
+      var daoHeaders = [];
+      if ( a.length > 0 ) {
+        var firstObj = a[0];
+        for ( var prop in firstObj.instance_ ) {
+          if ( firstObj.hasOwnProperty(prop) ) {
+            daoHeaders.push(prop);
+          }
+        }
+      }
+      
+      // Set file headers - this will trigger mapping generation if headers changed
+      this.fileHeaders = daoHeaders;
+      
+      // Process all objects
       for ( var i = 0 ; i < a.length ; i++ ) {
-        await sink.put(a[i]);
+        var sourceObj = a[i];
+        var targetObj = this.of.create();
+        
+        // Create rowData from source object properties
+        var rowData = {};
+        for ( var prop in sourceObj.instance_ ) {
+          if ( sourceObj.hasOwnProperty(prop) ) {
+            rowData[prop] = sourceObj[prop];
+          }
+        }
+        
+        // Process ALL mappings using universal method
+        this.processAllMappings(targetObj, rowData);
+        
+        await sink.put(targetObj);
       }
       sink.eof();
     },
 
     async function processXML(sink) {
-      this.mappings_ = {};
-      this.mappings.forEach(m => this.mappings_[m.id] = m);
-
       var parser   = new DOMParser();
       var doc      = parser.parseFromString(this.input, 'text/xml');
       var root     = doc.firstChild;
       var children = root.children;
 
       this.rows = 0;
+      var xmlHeaders = new Set();
 
-      // Just count matched rows so that this.rows is set
+      // First pass: collect all XML headers and count rows
       for ( var i = 0 ; i < children.length ; i++ ) {
         var node = children[i];
         if ( this.tagName && node.tagName !== this.tagName ) continue;
         this.rows++;
+        
+        // Collect headers from this node
+        this.collectXMLHeaders(node, xmlHeaders);
       }
 
-      // Process matched rows
+      // Set file headers - this will trigger mapping generation if headers changed
+      this.fileHeaders = Array.from(xmlHeaders);
+
+      // Second pass: process matched rows using generated mappings
       for ( var i = 0 ; i < children.length ; i++ ) {
         var node = children[i];
         if ( this.tagName && node.tagName !== this.tagName ) continue;
@@ -632,7 +820,6 @@ foam.CLASS({
       }
 
       sink.eof();
-      this.mappings = Object.values(this.mappings_);
     },
 
     async function processCSV(sink) {
@@ -643,10 +830,15 @@ foam.CLASS({
       this.rows = a.length-1;
 
       try {
-        // Use existing mappings if available, otherwise parse from CSV headers
-        var props = this.mappings && this.mappings.length > 0 ?
-          this.mappings :
-          this.parseColumns(a[0]);
+        // Parse CSV headers using existing CSVParser
+        var parser = this.CSVParser.create({});
+        var parsedHeaders = parser.parseString(a[0], this.delimiter);
+        var fileHeaders = parsedHeaders.map(h => h.value);
+        
+        // Set file headers - this will trigger mapping generation if headers changed
+        this.fileHeaders = fileHeaders;
+        
+        // Use CSV parser
         var parser = this.CSVParser.create({});
         var agent;
 
@@ -658,9 +850,17 @@ foam.CLASS({
           if ( ! row ) continue;
           var obj = this.of.create();
           var csv = parser.parseString(row, this.delimiter);
-          for ( var j = 0 ; j < csv.length && j < props.length ; j++ ) {
-            props[j].process(obj, csv[j].value);
-          }
+          
+          // Convert CSV array to a rowData object using file headers
+          var rowData = {};
+          csv.forEach((cell, index) => {
+            if ( index < fileHeaders.length ) {
+              rowData[fileHeaders[index]] = cell.value;
+            }
+          });
+          
+          // Process ALL mappings using universal method
+          this.processAllMappings(obj, rowData);
           await sink.put(obj);
           /*
           if ( ids[obj.id] ) {

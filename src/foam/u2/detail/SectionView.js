@@ -168,7 +168,7 @@ foam.CLASS({
                   .add(section.title)
                   .callIf(section.collapsable, function() {
                     this.startContext({ data: self })
-                      .start(self.COLLAPSE).addClass(this.myClass('collapse')).end()
+                      .start(self.COLLAPSE, { themeIcon$: self.collapsed$.map(c => c ? 'plus' : 'minus') }).addClass(this.myClass('collapse')).end()
                     .endContext();
                   })
                 .end();
@@ -240,7 +240,6 @@ foam.CLASS({
       label: '',
       size: 'SMALL',
       buttonStyle: 'TERTIARY',
-      themeIcon: 'plus',
       code: function() {
         this.collapsed = ! this.collapsed;
       }

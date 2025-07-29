@@ -178,6 +178,8 @@ foam.CLASS({
 
     { name: 'textOnDestructive', value: '$white' },
 
+    
+
     // BORDER COLOR
     { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$black400' } } },
     { name: 'borderLight', value: '$grey200', variants: { dark: { value: '$black300' } } },

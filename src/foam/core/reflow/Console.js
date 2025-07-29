@@ -85,7 +85,8 @@ foam.CLASS({
   requires: [
     'foam.u2.dialog.ConfirmationModal',
     'foam.log.LogLevel',
-    'foam.u2.view.OverlayActionListView'
+    'foam.u2.view.OverlayActionListView',
+    'foam.core.reflow.FlowMode',
   ],
 
   imports: [
@@ -187,10 +188,13 @@ foam.CLASS({
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
+                themeIcon: 'dropdown',
+                isIconAfter: true,
+                showDropdownIcon: false,
                 horizontal: false
               })
               .start('span').addClass(this.myClass('separator')).end()
-              .tag(this.FULL_SCREEN)
+              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c.name == 'CONSOLE' ? 'fullScreen' : 'minimize') })
             .endContext()
             // callIf(this.data.showPrompts$, function() {
             //   this.start().addClass(self.myClass('save-text'))
@@ -317,28 +321,12 @@ foam.CLASS({
     {
       name: 'fullScreen',
       label: '',
-      themeIcon: 'fullScreen',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       code: function() {
-        let doc = window.document;
-        let elem = doc.documentElement;
-
-        if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
-          if (elem.requestFullscreen) {
-            elem.requestFullscreen();
-          } else if (elem.webkitRequestFullscreen) { /* Safari */
-            elem.webkitRequestFullscreen();
-          } else if (elem.msRequestFullscreen) { /* IE11 */
-            elem.msRequestFullscreen();
-          }
+        if (this.data.flowMode.name == 'CONSOLE') {
+          this.data.flowMode = this.FlowMode.PRESENTATION;
         } else {
-          if (doc.exitFullscreen) {
-            doc.exitFullscreen();
-          } else if (doc.webkitExitFullscreen) { /* Safari */
-            doc.webkitExitFullscreen();
-          } else if (doc.msExitFullscreen) { /* IE11 */
-            doc.msExitFullscreen();
-          }
+          this.data.flowMode = this.FlowMode.CONSOLE;
         }
       }
     }

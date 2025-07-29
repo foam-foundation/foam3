@@ -88,10 +88,6 @@ foam.CLASS({
       flex-direction: row;
       flex-wrap: wrap;
       justify-content: flex-start;
-      gap: 8px;
-    }
-    ^ ^label {
-      color: $textDefault;
     }
     ^view: {
       min-height: 0px;
@@ -109,7 +105,7 @@ foam.CLASS({
       border-radius: 5px;
       border: 1px solid $borderLight;
     }
-    ^switch { color: $textSecondary;  }
+    ^switch { color: $textTertiary;  }
     ^propHolder.reactive > div{
       color: $textBrand!important;
     }
@@ -131,7 +127,7 @@ foam.CLASS({
     }
     ^labelHolder {
       border-radius: 4px;
-      padding-block: 5px;
+      padding-block: 2px;
       cursor: pointer;
       width: 100%;
       display: flex;
@@ -141,7 +137,7 @@ foam.CLASS({
     }
     ^labelHolder:hover {
       padding-inline: 5px;
-      background-color: $backgroundTertiary;
+      background-color: $backgroundSecondary;
     }
     ^layoutView {
       width: 100%;

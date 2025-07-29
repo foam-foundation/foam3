@@ -58,7 +58,23 @@ foam.CLASS({
     },
     {
       name: 'createdFor',
-      gridColumns: '12'
+      gridColumns: '12',
+      view: function(_, X) {
+        return {
+          class: 'foam.u2.view.RichChoiceView',
+          search: true,
+          sections: [
+            {
+              heading: 'Users',
+              dao: X.userDAO,
+              choicesLimit: 20
+            }
+          ],
+          objToChoice: function(user) {
+            return [user.id, user.legalName];
+          }
+        };
+      }
     },
     {
       name: 'state',

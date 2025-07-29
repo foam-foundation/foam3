@@ -280,6 +280,12 @@ foam.CLASS({
         return this.of ? this.of.model_.label : '';
       }
     },
+    {
+      class: 'Boolean',
+      name: 'showHeader',
+      value: true,
+      documentation: 'Whether to show the title header'
+    },
     ['nodeName', 'DIV']
   ],
 
@@ -310,7 +316,7 @@ foam.CLASS({
     },
 
     function renderTitle(self) {
-      this.callIf(self.title, function() {
+      this.callIf(self.title && self.showHeader, function() {
         this.start('tr').start('td').attrs({colspan: 2}).addClass(self.myClass('title')).add(self.title$).end().end();
       });
     },

@@ -311,8 +311,8 @@ foam.CLASS({
               label: { class: 'foam.u2.view.TreeViewRow.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL',
-              themeIcon: self.level === 1 ? self.data.themeIcon : '',
-              icon: self.level === 1 ? self.data.icon : ''
+              themeIcon: self.data.themeIcon || '',
+              icon: self.data.icon || ''
             }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).

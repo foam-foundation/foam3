@@ -385,6 +385,7 @@ foam.CLASS({
     }
     ^ .foam-core-reflow-CollapsedByDefaultSectionView-actionDiv {
       display: flex;
+      gap: 4px;
       flex-direction: column;
       gap: 10px;
     }

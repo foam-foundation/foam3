@@ -6,6 +6,8 @@ foam.POM({
     { name: "GrantAppStoreCapabilityRuleAction",
       flags: "js|java" },
     { name: "ExpireOldMinMaxHierarchy",
+      flags: "js|java" },
+    { name: "UpdateJunctionRuleAction",
       flags: "js|java" }
   ]
 })

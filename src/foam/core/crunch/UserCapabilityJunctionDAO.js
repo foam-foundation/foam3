@@ -16,6 +16,7 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.core.alarming.Alarm',
     'foam.core.alarming.AlarmReason',
+    'foam.core.crunch.CapabilityJunctionStatus',
     'foam.core.auth.*',
     'static foam.mlang.MLang.*'
   ],
@@ -143,6 +144,9 @@ foam.CLASS({
           ((DAO) x.get("alarmDAO")).put(alarm);
           throw new RuntimeException(alarm.getNote());
         }
+
+        if ( ucj.getStatus() == CapabilityJunctionStatus.GRANTED )
+          ucj.setHasBeenGranted(true);
 
         return super.put_(x, obj);
       `

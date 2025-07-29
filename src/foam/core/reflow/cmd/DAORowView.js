@@ -14,12 +14,6 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-tag-Button svg {
-      color: $black!important;
-    }
-    ^name-btn {
-      color: $black!important;
-    }
     ^desc-cell {
       min-width: 300px;
     }
@@ -37,11 +31,11 @@ foam.CLASS({
       this.addClass();
       this.start('tr').
         start('td').attr('align', 'left').
-          start(this.Button, { buttonStyle: 'TEXT', themeIcon: 'plus', size: 'SMALL' }).on('click', this.addFn).end().
+          start(this.Button, { buttonStyle: 'BLACK', themeIcon: 'plus', size: 'SMALL' }).on('click', this.addFn).end().
         end().
         start('td').attr('align', 'left').
           show(this.uploadAvailable).
-          start(this.Button, { buttonStyle: 'TEXT', themeIcon: 'upload', size: 'SMALL' }).on('click', this.uplFn).end().
+          start(this.Button, { buttonStyle: 'BLACK', themeIcon: 'upload', size: 'SMALL' }).on('click', this.uplFn).end().
           end().
         start('th').addClass(this.myClass('desc-cell')).attr('align', 'left').
         start(this.Button, { buttonStyle: 'LINK', size: 'SMALL'}).addClass(this.myClass('name-btn')).add(this.shortName).on('click', this.daoFn).end().

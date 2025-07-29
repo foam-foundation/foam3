@@ -128,7 +128,7 @@ foam.CLASS({
       });
       this.flowDAO.put(flow).then(() => {
         if ( this.openOnCreate )
-          this.__context__.routeTo('flow/' + this.name + '?flowMode=view');
+          this.__context__.routeTo('flow/' + this.name + '?flowMode=PRESENTATION');
       });
       return ''; // prevents redirect
     }

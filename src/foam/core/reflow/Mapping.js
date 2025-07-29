@@ -30,7 +30,7 @@ foam.CLASS({
     function process(obj, value) {
       if ( foam.String.isInstance(value) ) value = value.trim();
       if ( value !== '' && this.handler && this.handler.name ) {
-        obj[this.handler.name] = value;
+        obj[this.handler.name] = this.handler.fromCSV(value);
       } else {
         console.warn('Mapping.process: No handler defined for', this.id, 'with value', value);
       }

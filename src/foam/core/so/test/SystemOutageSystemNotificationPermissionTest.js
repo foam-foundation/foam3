@@ -12,10 +12,18 @@ foam.CLASS({
   documentation: '',
 
   javaImports: [
+    'foam.core.auth.User',
     'foam.core.so.*',
     'foam.dao.DAO',
     'foam.lang.X',
     'foam.util.Auth'
+  ],
+
+  properties: [
+    {
+      class: 'Long',
+      name: 'userId'
+    }
   ],
 
   methods: [
@@ -23,6 +31,8 @@ foam.CLASS({
       name: 'setup',
       args: 'X x',
       javaCode: `
+      ((DAO) x.get("systemOutageTaskDAO")).removeAll();
+      ((DAO) x.get("systemOutageDAO")).removeAll();
       `
     },
     {
@@ -50,14 +60,13 @@ foam.CLASS({
       SystemNotification[] notes = service.getSystemNotifications(x, null);
       test ( notes.length == 1, "SystemNotification (admin) found");
 
-      X userX = Auth.sudo(x, 82777842); // api-test
+      X userX = Auth.sudo(x, 82777842L); // api-test
       notes = service.getSystemNotifications(userX, null);
       test ( notes.length == 0, "SystemNotification (test-api) not found");
 
-      userX = Auth.sudo(x, 185426801L); // test
+      userX = Auth.sudo(x, 112256012L); // so-test
       notes = service.getSystemNotifications(userX, null);
-      test ( notes.length == 1, "SystemNotification (test) found");
-
+      test ( notes.length == 1, "SystemNotification (test) found "+notes.length);
     } finally {
       teardown(x);
     }

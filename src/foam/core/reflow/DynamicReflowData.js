@@ -39,7 +39,7 @@ foam.CLASS({
     ^header {
       font-size: 14px;
       font-weight: 600;
-      border-bottom: 1px solid $grey200;
+      border-bottom: 1px solid $borderLight;
       padding-bottom: 5px;
     }
   `,

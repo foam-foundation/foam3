@@ -5,6 +5,11 @@ p({
 })
 p({
   class:"foam.core.auth.Group",
+  id:"so-test",
+  description:"so-test"
+})
+p({
+  class:"foam.core.auth.Group",
   id:"test-api",
   description:"test api/dig acess"
 })

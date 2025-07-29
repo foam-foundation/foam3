@@ -53,7 +53,7 @@ foam.CLASS({
     }
     ^header {
       padding: 10px;
-      border-bottom: 1px solid $grey200;
+      border-bottom: 1px solid $borderLight;
       font-size: 14px;
       font-weight: bold;
     }
@@ -67,7 +67,7 @@ foam.CLASS({
       cursor: pointer;
     }
     ^command-container:hover {
-      background-color: $grey50;
+      background-color: $backgroundSecondary;
     }
   `,
 

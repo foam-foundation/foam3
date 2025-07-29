@@ -568,6 +568,14 @@ foam.CLASS({
       value: true
     },
     {
+      documentation: `Enable NDiff in JDAO. Enable per DAO with this property or globally via JVM Parameter 'UseNDiff'`,
+      class: 'Boolean',
+      name: 'ndiff',
+      javaFactory: `
+      return System.getProperty("UseNdiff", null) != null;
+      `
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.dao.Journal',
       generateJava: false,
@@ -923,6 +931,7 @@ foam.CLASS({
             jdao.setFilename(getJournalName());
             jdao.setCluster(getCluster() && !getSAF());
             jdao.setWaitReplay(getWaitReplay());
+            jdao.setNdiff(getNdiff());
             // Setting of delegate must be last as it triggers replay
             jdao.setDelegate(delegate);
             delegate = jdao;

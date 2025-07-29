@@ -7,31 +7,21 @@
 foam.CLASS({
   package: 'foam.core.menu',
   name: 'FlowMenu',
-  extends: 'foam.core.menu.AbstractMenu',
+  extends: 'foam.core.menu.LinkMenu',
 
-  documentation: 'A menu item which contains a flow.',
-
-  requires: [
-    'foam.core.reflow.FlowMode'
-  ],
+  documentation: 'A menu item which routes to a flow page.',
 
   properties: [
     {
       class: 'Reference',
       of: 'foam.core.reflow.Flow',
       name: 'flow',
+    },
+    {
+      name: 'link',
+      expression: function(flow) {
+        return '#flow/' + flow + '?flowMode=PRESENTATION';
+      }
     }
-  ],
-
-  methods: [
-    function createView(X) { 
-      var view = {
-        class: 'foam.core.reflow.Console',
-        flowName: this.flow,
-        flowMode: this.FlowMode.RO
-      };
-
-      return view;
-     }
   ]
 });

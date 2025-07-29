@@ -23,6 +23,8 @@ foam.CLASS({
       name: 'setup',
       args: 'X x',
       javaCode: `
+      ((DAO) x.get("systemOutageTaskDAO")).removeAll();
+      ((DAO) x.get("systemOutageDAO")).removeAll();
       `
     },
     {
@@ -49,7 +51,7 @@ foam.CLASS({
 
       SystemNotification[] notes = service.getSystemNotifications(x, null);
 
-      test ( notes == null || notes.length == 0, "SystemNotification (x) not found");
+      test ( notes == null || notes.length == 0, "SystemNotification (x) not found " +(notes != null ? notes.length : "null"));
 
       X y = x.put("theme", new Theme.Builder(x).setId("foam").build());
       notes = service.getSystemNotifications(y, null);
@@ -63,7 +65,7 @@ foam.CLASS({
       so.getTasks(x).put(task);
 
       notes = service.getSystemNotifications(y, "test");
-      test ( notes.length == 1 && notes[0].getKey().equals("test"), "SystemNotification (key) found");
+      test ( notes.length == 1 && notes[0].getKey().equals("test"), "SystemNotification (key) found "+notes.length);
     } finally {
       teardown(x);
     }

@@ -330,6 +330,10 @@ foam.CLASS({
       this.out.start('table').attr('width', '100%').
         select(dao, function(n) {
           var sdao = self.__context__[n.name] || self.scope[n.name];
+          if ( ! sdao ) {
+            console.error('Uknown DAO:', n.name);
+            return;
+          }
           var of   = sdao.of;
 
           if ( ! of ) {

@@ -41,6 +41,9 @@ foam.CLASS({
       overflow-x: hidden;
       overflow-y: auto;
     }
+    ^content {
+      overflow: auto;
+    }
   `,
   
   properties: [
@@ -58,14 +61,17 @@ foam.CLASS({
     {
       class: 'FObjectProperty',
       name: 'sideData'
-    }
+    },
+    'futureContent'
   ],
 
   methods: [
     function init() {
       const self = this;
       this
-        .start('div', null, this.content$)
+        .addClass()
+        .start('div', null, this.futureContent$)
+          .addClass(this.myClass('content'))
         .end()
         .start()
           .addClass(this.myClass('side'))
@@ -82,6 +88,7 @@ foam.CLASS({
           }))
         .end()
         ;
+      this.content = this.futureContent;
     }
   ],
 

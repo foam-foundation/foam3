@@ -88,6 +88,11 @@ In this current implementation setDelegate must be called last.`,
       value: false
     },
     {
+      documentation: `Enable NDiff in JDAO. Enable per DAO with this property or globally via JVM Parameter 'UseNDiff', see EasyDAO.ndiff`,
+      class: 'Boolean',
+      name: 'ndiff'
+    },
+    {
       name: 'delegate',
       class: 'foam.dao.DAOProperty',
       javaFactory: 'return new MDAO(getOf());',
@@ -133,7 +138,8 @@ In this current implementation setDelegate must be called last.`,
 
             String cSpecName = getFilename();
 
-            if ( nspec != null ) {
+            if ( nspec != null &&
+                 getNdiff() ) {
               cSpecName = nspec.getName();
               journals = new Journal[] {
                 // replays the repo journal

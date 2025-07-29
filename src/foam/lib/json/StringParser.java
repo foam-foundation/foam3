@@ -37,10 +37,10 @@ public class StringParser
   };
 
   final static Parser delimiterParser = new Alt(
-    Literal.create("\"\"\""),
-    Literal.create("\""),
-    Literal.create("'"),
-    Literal.create("`")
+    new Literal("\"\"\"", Literal.create("\"\"\"")),
+    new Literal("\"",     Literal.create("\"")),
+    new Literal("'",      Literal.create("'")),
+    new Literal("`",      Literal.create("`"))
   );
 
   final static char ESCAPE = '\\';
@@ -61,7 +61,7 @@ public class StringParser
     ps = ps.apply(delimiterParser, x);
     if ( ps == null ) return null;
 
-    Parser        delimiter = Literal.create((String) ps.value());
+    Parser        delimiter = (Parser) ps.value();
     StringBuilder sb        = builder__.get();
     PStream       result;
     boolean       escaping  = false;

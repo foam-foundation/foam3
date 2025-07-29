@@ -140,8 +140,8 @@ to run the unit tests.
 - [Services](doc/guides/Services.md)
 
 ## Cheatsheets
-- [Short Form](https://docs.google.com/document/d/1IUH4jveNk5eidFiXr-m76mYOAdPMA5TngF-wgN4zFvM/edit?usp=sharing)
-- [Long Form](https://docs.google.com/document/d/1XnxtQ_B6D1SWo2FSh8UkWq1euElBLONBVBCo6cPueL4/edit?usp=sharing)
+- [Short Form](https://docs.google.com/document/d/1SWgtXtEjdiz12FimPKcTY0dsJ06hxGtCViZXn98PoyY/edit?usp=sharing)
+- [Long Form](https://docs.google.com/document/d/1nCyHhlZGupNMBf5YW043CNCh-7fKDNO9H4LYIQVyj8Y/edit?usp=sharing)
 
 ## Tutorials
 <!--

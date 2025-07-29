@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'RulerLab',
   extends: 'foam.u2.Controller',
   implements: [ 'foam.mlang.Expressions' ],
-
+  mixins: ['foam.u2.memento.Memorable'],
   imports: [
     'cSpecDAO',
     'ruleDAO',
@@ -35,7 +35,8 @@ foam.CLASS({
 
   css: `
     ^ {
-      padding: 32px;
+      padding: 16px;
+      height: 100%;
     }
     ^list {
       display: flex;
@@ -56,6 +57,7 @@ foam.CLASS({
       class: 'Reference',
       name: 'daoKey',
       of: 'foam.core.boot.CSpec',
+      memorable: true,
       view: function (_, X) {
         const self = X.data;
         return {
@@ -100,6 +102,7 @@ foam.CLASS({
 
   methods: [
     function render () {
+      let self = this;
       this.onDetach(this.daoKeyRuleDAO$.sub(async () => {
         this.updateGroupList(this.daoKeyRuleDAO$.get());
       }));
@@ -111,15 +114,32 @@ foam.CLASS({
           sideView$: this.sideView$
         })
           .tag(this.DAO_KEY.__, { data: this })
-          .start(this.DAOList, {
-            data$: this.daoKeyRuleGroupDAO$,
-            rowView: {
-              class: 'foam.u2.ruler.RulerLabGroupView',
-              dao$: this.daoKeyRuleDAO$
-            }
-          })
-            .addClass(this.myClass('list'))
-          .end()
+          .add(this.slot(function(daoKeyRuleGroupDAO) {
+            let e = this.E().style({ display: 'contents' })
+            e.select(daoKeyRuleGroupDAO, obj => {
+              return this.E().style({ display: 'contents' })
+                .tag({
+                  class: 'foam.u2.ruler.RulerLabGroupView',
+                  dao$: self.daoKeyRuleDAO$.map(dao => dao?.where(self.EQ(self.Rule.AFTER, false))),
+                  data: obj
+                })
+            })
+            return e;
+          }))
+          .start().addClass('h100').add('------PUT HERE--------').end()
+          .add(this.slot(function(daoKeyRuleGroupDAO) {
+            let e = this.E().style({ display: 'contents' })
+            e.select(daoKeyRuleGroupDAO, obj => {
+              return this.E().style({ display: 'contents' })
+                .tag({
+                  class: 'foam.u2.ruler.RulerLabGroupView',
+                  dao$: self.daoKeyRuleDAO$.map(dao => dao?.where(self.EQ(self.Rule.AFTER, true))),
+                  data: obj,
+                  color: foam.CSS.returnTokenValue('$success600',this.cls_, this.__context__)
+                })
+            })
+            return e;
+          }))
         .end()
     }
   ],

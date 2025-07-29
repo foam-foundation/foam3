@@ -212,6 +212,7 @@ foam.CLASS({
         .addClass(this.myClass('input'))
         .addClass(this.instanceClass('input'))
         .attrs({
+          id: 'file-upload-' + this.$UID,
           type: 'file',
           accept: this.getSupportedTypes(),
           multiple: this.isMultipleFiles ? 'multiple' : false
@@ -235,7 +236,7 @@ foam.CLASS({
               })
                 .enableClass(this.myClass('link'), self.hasFiles$)
                 .attrs({
-                  for: 'file-upload'
+                  for: 'file-upload-' + self.$UID
                 })
               .end();
             }))
@@ -348,7 +349,7 @@ foam.CLASS({
       if ( this.selected === files.length )
               this.selected = files.length - 1;
       this.files = files;
-      this.document.querySelector('.' + this.instanceClass(`input`)).value = null;
+      this.document.getElementById('file-upload-' + this.$UID).value = null;
       this.onFilesChanged(this.files);
     },
 
@@ -409,7 +410,7 @@ foam.CLASS({
       var files = e.target.files;
       this.addFiles(files);
       // Remove all temporary files in the element.target.files
-      this.document.querySelector('.' + this.instanceClass(`input`)).value = null;
+      this.document.getElementById('file-upload-' + this.$UID).value = null;
       this.onFilesChanged(this.files);
     },
 
@@ -428,7 +429,7 @@ foam.CLASS({
         if ( this.controllerMode === this.controllerMode.VIEW ) {
           return;
         }
-        this.document.querySelector('.' + this.instanceClass(`input`)).click();
+        this.document.getElementById('file-upload-' + this.$UID).click();
       }
     }
   ]

@@ -32,7 +32,7 @@ PStreams have the following interface:
 
     get Char    head  - The first character in the stream at the current position.
 
-    get PStream tail  - A PStream for the next position in the input steam.
+    get PStream tail  - A PStream for the next position in the input stream.
 
     get Object  value - 'Value' associated with this PStream.
 
@@ -96,7 +96,7 @@ log(P.literal('def').parse(ps).toString());
 Before continuing, let's write a helper function testP() to make demonstrating parser examples easier.
 
 The testP() function uses the U2 GUI library to create a table of input output pairs.
-For more informantion on the U2 library, please view the U2 examples. For our purpose though,
+For more information on the U2 library, please view the U2 examples. For our purpose though,
 you can treat this function as a blackbox that takes a parser and an array of strings to parse as input
 and displays the results in a table
 --
@@ -248,7 +248,7 @@ In one of the previous examples, when we demonstrated the sequence parser seq(),
  in the parsed value of [ 'r', '2' ], an array. However, we often
 want the result of our parsers to be string values, not the arrays of characters or
 substrings that were parsed by the individual parsers that comprised the sequence parser.
-To facilate this, we use a very simple combinator parser called str() that decorates a single parser.
+To facilitate this, we use a very simple combinator parser called str() that decorates a single parser.
 Instead of changing that delegate parser's behaviour, it just
 changes its resulting value so that if it returns an array, it converts it into a single
 string value with the array values concatenated.
@@ -261,7 +261,7 @@ testP(P.str(p), [ 'r2', 'd2', '3p', 'xy' ]);
 <pre>
 The String parser shown above takes an array of parsed string values an concatenates them
 into a single string return value. However, it is often the case that this isn't actually
-what you want. Consider two cases where using str() is undesireable:
+what you want. Consider two cases where using str() is undesirable:
 1. Sometimes you have multiple levels of string arrays and you would need to insert a str()
 at each level.
 2. You want to preserve input that has been lost, like the delimiters in a repeat().
@@ -287,7 +287,7 @@ const input = [ 'abc', 'abc def', 'abc   def   xyz' ];
 // returns an array of words
 testP(sentence, input);
 
-// returns a single sstring of the words concatenated, without spaces
+// returns a single string of the words concatenated, without spaces
 testP(P.str(sentence), input);
 
 // preserves the original input
@@ -302,7 +302,7 @@ testP(P.substring(sentence), input);
 The next most common parse combinator after the sequence parser, is the alt() parser.
 It's job is to take multiple delgate parsers, just like seq(), but to succeed if any of them
 succeed. It tries parsing with each composed parser in turn, and returns the result of the
-first one that suceeds.
+first one that succeeds.
 --
 testP(P.alt(P.literal('A'), P.literal('B')), [ 'A', 'B', 'C' ]);
 
@@ -379,8 +379,8 @@ to have a delimiter, pass 'undefined' as its value.
 
 The below example checks passwords to ensure that they're at least five characters long.
 Notice that the repeat() parser still continues until it fails, hence for the last sample
-it repeated six times, meaning that the specified repeat parametar is the miniumum number
-of repetations not the absolute limit.
+it repeated six times, meaning that the specified repeat parameter is the miniumum number
+of repetitions not the absolute limit.
 --
 testP(
   P.str(P.repeat(P.alt(P.range('a','z'), P.range('A', 'Z'), P.range('0', '9'), P.anyChar('!@#$%^&*')), undefined, 5)),
@@ -400,7 +400,7 @@ Notice that in the previous string parser example, our result value was an array
 the first and last elements were the quote '"' characters, and the second element
 was the actual string value we wanted. We would like the output value to ignore the
 surrounding syntax and just return us the one inner value that we're interested in.
-This is common enough to warrant it's own parse combinator. Seq1 behaves just like the reqular
+This is common enough to warrant it's own parse combinator. Seq1 behaves just like the regular
 seq() parser except instead of returning an array of values parsed by the delegates, it only
 returns the return value of one parser, the index of which you specify as the first argument.
 By using seq1(1, ...) instead of seq(...) we tell the parser to ignore the quote parsers and
@@ -525,7 +525,7 @@ testP(booleanParser1, [ 'true', 'false' ]);
 var booleanParser2 = P.alt(P.literal('true', true), P.literal('false', false));
 testP(booleanParser2, [ 'true', 'false' ]);
 
-// Now we get actualy true and false values rather than "true" and "false".
+// Now we get actual true and false values rather than "true" and "false".
 
 ## Grammars: Parenthesis Matching
 <pre>
@@ -744,7 +744,7 @@ Usually parsers consume the entire input, but they can also be used like regexes
 one or multiple instances in a larger input. Calling .match() on a Grammar will find the first
 instance in the input text, whereas matchAll() will return an array of all matches.
 
-The following example uses the previous PhoneNumberParser to extra one or more phone numbers
+The following example uses the previous PhoneNumberParser to extract one or more phone numbers
 from an input text.
 </pre>
 --
@@ -778,7 +778,7 @@ choose between implementations if we wanted to support JS or Java style
 numbers.
 
 To illustrate <b>inheritance</b>, we first create a generic ExpressionParser, and then we inherit from
-it to create an ExperssionInterpreter. Grammars can be large and complex, and represent
+it to create an ExpressionInterpreter. Grammars can be large and complex, and represent
 a sizeable investment of effort, so you might want to use the same grammar for multiple
 purposes. For example, our ExpressionParser might be used for an expression linter, pretty-printer,
 interpreter (as we've done), JS compiler (compile to JS syntax), Java compiler, etc.
@@ -966,7 +966,7 @@ explained why the input could not be parsed. We do this with the ErrorReportingP
 Recall that PStream is an interface, but notice that the StringPStream is the
 only implementation that we've seen so far. The ErrorReportingPStream is a PStream
 decorator that wraps another PStream (probably a StringPStream in JS) and figures
-out where a parse error occured and provides an error message explaining where the
+out where a parse error occurred and provides an error message explaining where the
 parse failed and what was expected.
 </pre>
 --
@@ -979,8 +979,7 @@ var sps = P.stringPStream('1+2*(1+2'); // Missing closing ')'
 log('StringPStream:', p.parse(sps));
 
 var erps = foam.parse.ErrorReportingPStream.create({
-  delegate: sps,
-  report: function(erps, parser, obj) { console.log('report', erps.pos, parser.toString()); }
+  delegate: P.stringPStream('1+2*(1+2')
 });
 
 var res = p.parse(erps, p);

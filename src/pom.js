@@ -1285,6 +1285,8 @@ foam.POM({
     { name: "foam/lib/parse/NotChar" },
     { name: "foam/lib/parse/ParserContext" },
     { name: "foam/lib/parse/Alt" },
+    { name: "foam/lib/parse/PrefixAlt" },
+    { name: "foam/lib/parse/EmptyPrefixAlt" },
     { name: "foam/lib/parse/Optional" },
     { name: "foam/lib/parse/Seq" },
     { name: "foam/lib/parse/Repeat" },

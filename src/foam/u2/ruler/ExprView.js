@@ -140,7 +140,7 @@ foam.CLASS({
                 .end();
             })
             .tag(this.ExprView, {
-              of: arg.cls_,
+              of: arg?.cls_,
               data: arg
             })
         })

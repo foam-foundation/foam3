@@ -76,8 +76,8 @@ public class StringPStream
     return str.get().subSequence(pos, end.pos()).toString();
   }
 
-  public PStream apply(Parser ps, ParserContext x) {
-    return ps.parse(this, x);
+  public PStream apply(Parser p, ParserContext x) {
+    return p.parse(this, x);
   }
 
   public int pos() {

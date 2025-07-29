@@ -91,7 +91,7 @@ foam.CLASS({
       gap: 8px;
     }
     ^ ^label {
-      color: $black;
+      color: $textDefault;
     }
     ^view: {
       min-height: 0px;
@@ -105,16 +105,16 @@ foam.CLASS({
       align-items: flex-start;
       gap: 10px;
       padding: 10px;
-      background-color: $grey100;
+      background-color: $backgroundTertiary;
       border-radius: 5px;
-      border: 1px solid $grey200;
+      border: 1px solid $borderLight;
     }
-    ^switch { color: $grey600;  }
+    ^switch { color: $textSecondary;  }
     ^propHolder.reactive > div{
-      color: $primary500!important;
+      color: $textBrand!important;
     }
     ^formulaInput input:focus {
-      outline: 1px solid $primary500!important;
+      outline: 1px solid $backgroundBrand!important;
     }
     ^element-icon {
       width: 14px;
@@ -141,7 +141,7 @@ foam.CLASS({
     }
     ^labelHolder:hover {
       padding-inline: 5px;
-      background-color: $grey100;
+      background-color: $backgroundTertiary;
     }
     ^layoutView {
       width: 100%;

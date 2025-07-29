@@ -18,4 +18,6 @@ public class BooleanParser
   private BooleanParser() {
     super(new Alt(new Literal("true", true), new Literal("false", false)));
   }
+
+  public String toString() { return "Boolean"; }
 }

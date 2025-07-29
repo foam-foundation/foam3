@@ -64,7 +64,7 @@ foam.CLASS({
       gap: 10px;
     }
     ^element-row-icon {
-      color: $primary500;
+      color: $textBrand;
     }
     td^moveTarget {
       background: rgba(0,0,0,0);

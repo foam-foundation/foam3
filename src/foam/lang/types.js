@@ -358,8 +358,11 @@ foam.CLASS({
         return typeof v === 'number' ? v : v ? parseFloat(v) : 0.0 ;
       }
     ],
-    [ 'type', 'Float' ]
-  ]
+    [ 'type', 'Float' ],
+    [ 'fromString', function floatFromString(str) {
+      return parseFloat(str);
+    }]
+  ],
 });
 
 

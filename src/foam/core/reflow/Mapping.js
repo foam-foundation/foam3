@@ -159,10 +159,8 @@ foam.CLASS({
       var result;
       try {
         with ( foam.core.reflow.lib ) {
-          with ( this.scope ) {
-            with ( rowData ) {
-              result = eval(expression);
-            }
+          with ( rowData ) {
+            result = eval(expression);
           }
         }
       } catch (x) {

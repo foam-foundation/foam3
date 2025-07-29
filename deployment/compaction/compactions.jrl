@@ -1,0 +1,171 @@
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "bootstrap"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "alarmDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localAlarmDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localAnalyticEventDAO",
+  loadable: true
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "analyticEventDAO",
+  loadable: true
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "benchmarkResultDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localBenchmarkResultDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "capabilityPayloadDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "capabilityPayloadRecordDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "cronJobEventDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec:  "localCronJobEventDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "CSPViolationsDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "counterDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localEmailMessageDAO",
+  loadable: true
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "emailMessageDAO",
+  loadable: true
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "eventRecordDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localEventRecordDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "monitorReportDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localNotificationDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "notificationDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "omNameDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "bareOmNameDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "ruleHistoryDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "scriptEventDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localScriptEventDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localSessionDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "sessionDAO",
+  loadable: false
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localTicketDAO",
+  compactible: true,
+  sink: {
+    class: "foam.core.ticket.TicketCompactionSink",
+    predicate: {
+      class: "foam.mlang.predicate.FScriptPredicate",
+      query: 'status != "CLOSED"'
+    }
+  }
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localTicketCommentDAO",
+  compactible: true,
+  sink: {
+    class: "foam.core.ticket.TicketCommentCompactionSink",
+    predicate: {
+      class: "foam.mlang.predicate.FScriptPredicate",
+      query: 'status != "CLOSED"'
+    }
+  }
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localTicketHistoryDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "ticketHistoryDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "localTicketCommentHistoryDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "ticketCommentHistoryDAO"
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "userCapabilityJunctionHistoryDAO"
+})

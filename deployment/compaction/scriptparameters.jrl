@@ -1,0 +1,7 @@
+p({
+  class:"foam.core.script.ScriptParameter",
+  id:"DAOCompaction",
+  name:"DAOCompaction",
+  parameters:{"daos":"userDAO"},
+  enabled:false
+})

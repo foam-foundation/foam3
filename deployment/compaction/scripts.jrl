@@ -1,0 +1,59 @@
+p({
+  class:"foam.core.script.Script",
+  id:"DAOCompaction",
+  code:"""
+/**
+ * Configuration (via scriptParameter):
+ * dryRun: true | false
+ * daos: 'userDAO,accountDAO'
+ */
+
+import foam.dao.compaction.*;
+import foam.dao.DAO;
+import foam.dao.ProxyDAO;
+
+String[] daos = null;
+sp = scriptParameter;
+if ( sp != null ) {
+  p = sp.getParameters();
+  if ( p != null ) {
+    if ( p.get("daos") != null ) {
+      daos = String.valueOf(p.get("daos").toString()).split(",");
+    }
+  }
+}
+if ( daos == null || daos.length == 0 ) {
+    print("No dao(s) specified");
+    return;
+}
+for ( n : daos ) {
+    d = x.get(n);
+    if ( n == null ) {
+        print("ERROR: DAO not found: "+n);
+        break;
+    }
+    if ( ! ( d instanceof DAO ) ) {
+        print("ERROR: Not DAO: "+n);
+        break;
+    }
+
+    try {
+        c = new CompactionDAO(x, n);
+        print("INFO: Compacting: "+n);
+        c.execute(x);
+        print("INFO: Compaction complete: "+n+", System OK");
+    } catch (IllegalStateException e) {
+        print(e.getMessage());
+        print("WARNING: Compaction aborted: "+n+", System OK");
+        break;
+    } catch (Throwable t) {
+        print(t.getMessage());
+        print("ERROR: Compaction failed: "+n+", System state unknown. Intervention required.");
+        break;
+    }
+}
+
+print("DONE");
+""",
+  lastModified:1753810864645
+})

@@ -1,0 +1,57 @@
+<title>DAO Compaction</title>
+<h1>Compaction</h1>
+<h2>Overview</h2>
+
+Compaction dumps a DAO out to new journal file, in a effort to reduce replay time.  Each DAO operation on the same object generates a journal entry containing just the change on the object.  In time there are many entries for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple entries to just one.
+
+<h2>Considerations</h2>
+<ul>
+  <li>Compaction can be run concurrently with live traffic, but it is recommended to run compaction at a low traffic period.  Also, compaction can fail requiring system halt and manual intervention, so a Maintenance Window should be scheduled</li>
+  <li>Compaction filters out many archive or history operations. See deployment/compaction/compactions.jrl</li>
+</ul>
+
+<h2>Invocation</h2>
+Compaction is controlled by script <b>DAOCompaction</b> and scriptParameter <b>DAOCompaction</b>.
+
+<p>Once script execution reports completion, check:</p>
+<ol>
+<li>ScriptEvents for an 'OK' message.</li>
+<li>EventRecords for a compaction summary.  Open the reponse message to see the statistics.</li>
+</ol>
+
+<p>Compaction is accomplished by running the script <b>DAOCompaction</b>.</p>
+<h2>Compaction, Major steps in the process</h2>
+<ol>
+<li>Start blocking DAO operations</li>
+<li>Roll the journal.  journal becomes journal.1 on the first invocation. Next will rename journal to journal.2</li>
+<li>Unblock DAO operations. At this point live traffic is processed during compaction.</li>
+<li>Start compating.</li>
+<li>End</li>
+</ol>
+
+<h2>Rollback</h2>
+Should compaction fail for any reason, a rollback is required.
+When compaction fails the system should be considered invalid. Live traffic must be halted immediately.  Any operations which occured during compaction will be lost on rollback.
+
+<p>To rollback:</p>
+<ol>
+<li>halt the system</li>
+<li>undo the rolled journal.  Discard the unnumbered journal file and remove the number postfix from the highest number journal.  journal.1 -> journal</li>
+<li>start the system</li>
+</ol>
+
+
+<h2>Controlling Compaction via the Compaction model</h2>
+<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="properties" of="foam.dao.compaction.Compaction" />
+
+<h3>compactable</h3>
+By default a DAO is compactable, meaning it's entries will be reduced. If compaction is disabled (false), then the DAO's entries will be discarded - they will not be compacted into a new journal.
+<h3>reducible</h3>
+By default a DAO is reducible, meaning multiple CRUD operations are reduced to one. If <i>reducible</i> is false, then all entries are transfered the new ledger.
+<h3>compactLifecycleDeleted</h3>
+LifecycleAware objects which are deleted/removed are set to state DELETED, an r() journal entry is not created.  This option allows to compact DELETED entries.
+<h3>clearable</h3>
+Not used outside of Medusa.
+<h3>sink</h3>
+Custom sinks can be registered for per entry control during compaction.
+See localTicketCommentDAO for an example of inline sink Predicate controlling Ticket Comment compaction based on Ticket Status.

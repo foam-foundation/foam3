@@ -605,7 +605,6 @@ foam.POM({
     { name: "foam/u2/view/ReferenceArrayView",                        flags: "web" },
     { name: "foam/u2/view/DraftDetailView",                           flags: "web" },
     { name: "foam/u2/view/TitledArrayView",                           flags: "web" },
-    { name: "foam/u2/view/RichTitledArrayView",                       flags: "web" },
     { name: "foam/u2/view/FObjectArrayView",                          flags: "web" },
     { name: "foam/u2/view/FObjectArrayElementView",                   flags: "web" },
     { name: "foam/u2/view/ChoiceView",                                flags: "web" },

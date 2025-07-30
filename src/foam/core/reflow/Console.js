@@ -532,11 +532,6 @@ foam.CLASS({
      transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
     }
 
-    ^r .foam-u2-view-TitledArrayView-value-view-container {
-      border: 1px solid $borderLight;
-      padding: 10px;
-      border-radius: 4px;
-    }
     ^r .foam-u2-PropertyBorder-select {
       padding: 5px;
       background-color: $backgroundTertiary;

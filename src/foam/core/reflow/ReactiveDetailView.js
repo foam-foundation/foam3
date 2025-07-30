@@ -365,6 +365,16 @@ foam.CLASS({
   name: 'CollapsedByDefaultSectionView',
   extends: 'foam.u2.detail.SectionView',
 
+  css:`
+    ^actionDiv {
+      display: flex;
+      flex-direction: column;
+    }
+    ^:not(:last-child) {
+      border-bottom: 1px solid $borderLight;
+    }
+  `,
+
   properties: [ [ 'collapsed', true ] ]
 });
 
@@ -380,6 +390,9 @@ foam.CLASS({
   ],
 
   css: `
+    ^ {
+      padding: 8px 16px;
+    }
     ^ > div > .foam-u2-layout-Rows {
       gap: 10px;
     }

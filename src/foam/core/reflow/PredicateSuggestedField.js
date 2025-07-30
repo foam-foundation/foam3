@@ -54,19 +54,19 @@ foam.CLASS({
         // Boolean properties work as standalone predicates with is: prefix
         options.push(this.PropertyOption.create({
           id: this.PREDICATE_IS_PREFIX + property.name,
-          label: 'is: ' + label,
+          label: 'is: ' + label
         }));
         
         options.push(this.PropertyOption.create({
           id: this.PREDICATE_IS_NOT_PREFIX + property.name,
-          label: 'isNot: ' + label,
+          label: 'isNot: ' + label
         }));
       } else {
         // For other searchable properties, add them with a colon suffix
         // so users can type the value after selection
         options.push(this.PropertyOption.create({
           id: property.name + ':',
-          label: label + ':',
+          label: label
         }));
       }
       

@@ -29,6 +29,7 @@ foam.POM({
     { name: 'ModelDAO',                flags: 'js' },
     { name: 'PropertyChoiceView',      flags: 'js' },
     { name: 'PropertySuggestedField',  flags: 'js' },
+    { name: 'PropertyOptionCitationView',   flags: 'js' },
     { name: 'ComparatorSuggestedField', flags: 'js' },
     { name: 'PredicateSuggestedField', flags: 'js' },
     { name: 'PropertyListView',        flags: 'js' },

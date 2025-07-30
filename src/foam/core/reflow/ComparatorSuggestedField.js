@@ -31,7 +31,7 @@ foam.CLASS({
         // Descending option
         this.PropertyOption.create({
           id: '-' + property.name,
-          label: this.SORT_DESC_SYMBOL + ' ' + label,
+          label: this.SORT_DESC_SYMBOL + ' ' + label
         })
       ];
     }

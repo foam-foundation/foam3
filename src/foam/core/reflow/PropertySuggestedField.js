@@ -36,6 +36,12 @@ foam.CLASS({
 
   documentation: 'Base class for property-based suggested text fields',
 
+  css: `
+  ^suggestions {
+    gap: 0px; // 8px gap from Parent class gets add to padding giving unbalanced spacing on top+bottom. This fixes that.
+  }
+  `,
+
   constants: [
     {
       name: 'SORT_ASC_SYMBOL',
@@ -101,9 +107,13 @@ foam.CLASS({
               return self.TRUE;
             }
             
-            // Search in both label and value fields for the last segment
+            // Search in label, id and value fields for the last segment 
+            // Search with "id", lets end-user search(type) for "Amount", now Label shows at top, 
+            // without this top item was "Bill Amount (billAmtValue)" above "Amount(txnAmtValue)"
+            // for end-user, "Amount" label should be at top, if he searches(types) "Amount"
             return self.OR(
               self.CONTAINS_IC(foam.core.reflow.PropertyOption.LABEL, lastSegment),
+              self.CONTAINS_IC(foam.core.reflow.PropertyOption.ID, lastSegment),
               self.CONTAINS_IC(foam.core.reflow.PropertyOption.VALUE, lastSegment)
             );
           }
@@ -117,6 +127,10 @@ foam.CLASS({
     {
       name: 'delimitter',
       value: ','
+    },
+    {
+      name: 'rowView',
+      value: { class: 'foam.core.reflow.PropertyOptionCitationView' }
     }
   ],
 

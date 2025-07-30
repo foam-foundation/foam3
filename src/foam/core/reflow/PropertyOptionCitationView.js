@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'PropertyOptionCitationView',
-  extends: 'foam.u2.View',
+  extends: 'foam.u2.CitationView',
 
   documentation: 'Custom row view for PropertyOption that displays symbol, label, and property name',
 

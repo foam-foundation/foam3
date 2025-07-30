@@ -13,6 +13,7 @@ foam.CLASS({
   documentation: 'Sink which behaves like the SQL group-by command.',
 
   requires: [
+    'foam.dao.SequenceNumberDAO',
     'foam.mlang.sink.GroupByView',
     'foam.mlang.sink.Sequence'
   ],
@@ -204,8 +205,9 @@ if ( getGroupLimit() == getGroups().size() && sub != null ) sub.detach();
       const model = {
         package: 'foam.tmp',
         name: 'GroupBy' + foam.next$UID(),
-        ids: [ this.arg1.name ],
+        ids: [ 'row' ],
         properties: [
+          { class: 'Long', name: 'row' },
           { class: 'String', name: this.arg1.name, label: this.arg1.label }
         ]
       };
@@ -225,8 +227,9 @@ if ( getGroupLimit() == getGroups().size() && sub != null ) sub.detach();
       // So that tableColumns aren't remembered from a previous run
       delete localStorage[cls.id];
 
-      var props  = model.properties.map(p => cls.getAxiomByName(p.name));
+      var props  = model.properties.slice(1).map(p => cls.getAxiomByName(p.name));
       var dao    = foam.dao.MDAO.create({of: cls});
+      dao = this.SequenceNumberDAO.create({delegate: dao, property: 'row'});
 
       var o = cls.create({});
 
@@ -236,7 +239,7 @@ if ( getGroupLimit() == getGroups().size() && sub != null ) sub.detach();
     },
 
     function toProperties() {
-      return this.genModel().properties;
+      return this.genModel().properties.slice(1);
     },
 
     function processGroupValue(dao, proto, props) {

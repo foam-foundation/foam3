@@ -32,6 +32,7 @@ foam.POM({
     { name: "LastModifiedAwareMixin",                                 flags: "js" },
     { name: "LastModifiedByAwareMixin",                               flags: "js" },
     { name: "LastModifiedByAgentNameAware",                           flags: "js|java" },
+    { name: "LoginAttempt",                                           flags: "js|java" },
     { name: "ServiceProvider",                                        flags: "js|java" },
     { name: "ServiceProviderAware",                                   flags: "js|java" },
     { name: "ServiceProviderAwareDAO",                                flags: "js|java" },

@@ -37,6 +37,12 @@ foam.CLASS({
           }
           String ip = foam.net.IPSupport.instance().getRemoteIp(x);
           foam.core.logger.StdoutLogger.instance().warning("Failed login", identifier, ip, message);
+
+          LoginAttempt attempt = new LoginAttempt();
+          attempt.setIdentifier(identifier);
+          attempt.setIpAddress(ip);
+          attempt.setFailureMessage(message);
+          ((foam.dao.DAO) getX().get("loginAttemptDAO")).put_(getX(), attempt);
         }
         throw e;
       }

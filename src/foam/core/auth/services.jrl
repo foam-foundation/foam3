@@ -502,3 +502,30 @@ p({
     }
   """
 })
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "loginAttemptDAO",
+  "serve": true,
+  "description": "Keep track of login attempts made by users.",
+  "serviceScript":
+  """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.auth.LoginAttempt.getOwnClassInfo())
+      .setFuid(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("loginattempts")
+      .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
+        .setComparator(foam.mlang.MLang.DESC(foam.core.auth.LoginAttempt.CREATED))
+        .setSize(10000)
+        .build())
+      .setOrder(new foam.mlang.order.Comparator[] { new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.auth.LoginAttempt.CREATED).build() })
+      .build()
+      .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.auth.LoginAttempt.CREATED});
+  """,
+  "client": """
+    {
+      "of": "foam.core.auth.LoginAttempt"
+    }
+  """
+})

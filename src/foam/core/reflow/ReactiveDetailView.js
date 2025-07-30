@@ -369,9 +369,10 @@ foam.CLASS({
     ^actionDiv {
       display: flex;
       flex-direction: column;
+      gap: 8px;
     }
-    ^:not(:last-child) {
-      border-bottom: 1px solid $borderLight;
+    ^ {
+      padding: 8px 0;
     }
   `,
 
@@ -393,8 +394,8 @@ foam.CLASS({
     ^ {
       padding: 8px 16px;
     }
-    ^ > div > .foam-u2-layout-Rows {
-      gap: 10px;
+    ^ > .foam-u2-layout-Rows > div:not(:last-child) > * {
+      border-bottom: 1px solid $borderLight;
     }
     ^ .foam-core-reflow-CollapsedByDefaultSectionView-actionDiv {
       display: flex;

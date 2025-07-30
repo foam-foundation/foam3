@@ -800,7 +800,6 @@ foam.CLASS({
         if ( n !== this.flowName ) {
           this.clearFlow();
           if ( n ) {
-            await this.eval_('preLoad');
             await this.eval_(`load("${n}")`);
             this.flowName = n;
             this.selected = this.currentBlock;
@@ -1003,7 +1002,7 @@ foam.CLASS({
       // Doesn't work for some reason. Gets detached when new flow loaded
       // Replaced with postSet
       // this.selectedValue$.follow(this.selected$.dot('value'));
-
+    
       // Add commands to localScope
       var cmds = await this.commandDAO.select();
 
@@ -1052,6 +1051,7 @@ foam.CLASS({
       this.flowName$ = this.value.name$;
 
       if ( this.route ) this.ROUTE.postSet.call(this, '', this.route);
+      await this.eval_('preLoad');
     },
 
     function renderToolbar(self) {

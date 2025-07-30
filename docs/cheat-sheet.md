@@ -99,6 +99,25 @@ Example factory vs expression:
 }}
 ```
 
+### **Expression Behavior**
+
+Expressions have special caching behavior for performance:
+```javascript
+{
+  class: 'String',
+  name: 'computedValue',
+  expression: function(inputA, inputB) {
+    return inputA + inputB;
+  }
+}
+
+// Important: Once an expression is set to a value, it stops recalculating
+obj.computedValue = 'manual value'; // Expression stops being reactive
+
+// To re-enable reactive behavior, reset to undefined
+obj.computedValue = undefined; // Expression becomes reactive again
+```
+
 ### **Dynamic Get and/or Set**
 
 **Caveat**: Custom getters and setters are very low-level.  
@@ -226,6 +245,48 @@ interface DAO {
   **DAO orderBy(...comparators)** /\* Construct decorated DAO that stores objects in order described by comparators. \*/  
 }  
 functions as sinks; function called back on put.
+
+# Reactivity
+
+FOAM3 automatically updates UI when data changes using these patterns:
+
+## **Listen to Changes**
+```javascript
+this.property$.sub(function(subscription, propertyName, oldValue, newValue) {
+  // Do something when property changes
+});
+```
+
+## **Display Properties**
+```javascript
+// Show property value (updates automatically)
+this.start('span').add(this.prop$).end()
+```
+
+## **Computed Values**
+```javascript
+// Returns computed value that updates when dependencies change
+this.dynamic(function(prop1, prop2) {
+  return prop1 + ' ' + prop2;
+});
+```
+
+## **Dynamic Views**
+```javascript
+// Auto-binds to data properties
+this.add(function(firstName, lastName) {
+  return this.start('div').add(`Name: ${firstName} ${lastName}`).end();
+});
+
+// For object properties, use this.dynamic() directly
+this.start('div')
+  .add(this.dynamic(function(myProp, otherProp) {
+    return `Values: ${myProp} ${otherProp}`;
+  }))
+.end();
+```
+
+**Note:** `this.add(function(){})` auto-binds to `data` properties. For the object itself, use `this.dynamic()` directly.
 
 # Context and Dependency Injection
 

@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'PropertyOptionCitationView',
   extends: 'foam.u2.CitationView',
 
-  documentation: 'Custom row view for PropertyOption that displays symbol, label, and property name',
+  documentation: 'Custom row view for PropertyOption that displays label, and property name',
 
   css: `
     ^ {
@@ -40,19 +40,12 @@ foam.CLASS({
         .add(this.slot(function(data) {
           if ( ! data ) return this.E();
           
-          var symbol = '';
           var label = data.label || '';
           var propertyName = data.id || '';
           
           return this.E()
             .start('div')
               .addClass(self.myClass('label'))
-              .callIf(symbol, function() {
-                this.start('span')
-                  .addClass(self.myClass('symbol'))
-                  .add(symbol)
-                .end();
-              })
               .add(label)
             .end()
             .start('div')

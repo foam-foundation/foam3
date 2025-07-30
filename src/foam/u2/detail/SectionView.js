@@ -37,7 +37,7 @@ foam.CLASS({
     ^actionDiv {
       justify-content: end;
     }
-    ^grid {
+    ^grid.foam-u2-layout-Grid {
       grid-gap: 16px 12px;
     }
     ^collapsable-title {

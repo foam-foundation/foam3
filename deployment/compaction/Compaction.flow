@@ -4,7 +4,7 @@
 
 <p>Compaction dumps a DAO out to new journal file, in a effort to reduce replay time.  Each DAO operation on the same object generates a journal entry containing just the change on the object.  In time there are many entries for the same object.  Compaction writes out each object in entirety once, thus reducing the multiple entries to just one.</p>
 <p>Used in conjuction with a custom compaction sink, the compaction process can facilitate archiving with only recent or active objects written to the new journal.</p>
-
+<p>Following on the idea of archiving, the <b>select</b> for compaction is performed on the DAO returned from the context using CSpecname. If the DAO stack contains a FixedSizedDAO then only those records retained by the FixedSizedDAO will be compacted into the new journal.</p>
 
 <h2>Considerations</h2>
 <ul>

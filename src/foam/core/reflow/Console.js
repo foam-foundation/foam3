@@ -320,6 +320,7 @@ foam.CLASS({
     },
     {
       name: 'fullScreen',
+      toolTip: 'Toggle Presentation Mode / ESC',
       label: '',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       code: function() {
@@ -651,7 +652,7 @@ foam.CLASS({
         if ( sidebarName == 'leftWidth' ) {
           w = this.oldWidth_ + w;
         } else {
-          w = this.oldWidth_ - w; 
+          w = this.oldWidth_ - w;
         }
         if ( w > this.MIN_SIDEBAR_WIDTH_FALLBACK ) {
           this[sidebarName] = w;

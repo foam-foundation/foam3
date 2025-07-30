@@ -40,6 +40,7 @@ p({
       .setOf(foam.core.script.ScriptEvent.getOwnClassInfo())
       .setMdao(mdao)
       .setGuid(true)
+      .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("scriptEvent"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("scriptEvents")
       .setWriteOnly(true)
@@ -64,6 +65,7 @@ p({
       .setOf(foam.core.script.ScriptParameter.getOwnClassInfo())
       .setGuid(true)
       .setPm(true)
+      .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("scriptParameter"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("scriptparameters")
       .setOrder(new foam.mlang.order.Comparator[] {

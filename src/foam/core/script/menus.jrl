@@ -22,7 +22,10 @@ p({
     "class":"foam.core.menu.DAOMenu2",
     "config":{
       "class":"foam.comics.v2.DAOControllerConfig",
-      "daoKey":"scriptEventDAO"
+      "daoKey":"scriptEventDAO",
+      "createPredicate":{"class":"foam.mlang.predicate.False"},
+      "editPredicate":{"class":"foam.mlang.predicate.False"},
+      "deletePredicate":{"class":"foam.mlang.predicate.False"}
     }
   },
   "parent":"admin"
@@ -37,7 +40,8 @@ p({
     "class":"foam.core.menu.DAOMenu2",
     "config":{
       "class":"foam.comics.v2.DAOControllerConfig",
-      "daoKey":"scriptParameterDAO"
+      "daoKey":"scriptParameterDAO",
+      "deletePredicate":{"class":"foam.mlang.predicate.False"}
     }
   },
   "parent":"admin"

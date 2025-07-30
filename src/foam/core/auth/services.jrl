@@ -30,6 +30,9 @@ p({
     auth = new foam.core.auth.SystemAuthService.Builder(x)
       .setDelegate(auth)
       .build();
+    auth = new foam.core.auth.FailedLoginAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
     return auth;
   """,
   "client":"""

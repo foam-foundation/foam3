@@ -16,12 +16,8 @@ foam.CLASS({
       border-bottom: 1px solid $borderXLight;
     }
     
-    
     ^:last-child {
       border-bottom: none;
-    }
-    ^symbol {
-      font-size: 14px;
     }
     
     ^propertyName {

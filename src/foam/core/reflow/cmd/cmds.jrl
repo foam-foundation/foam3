@@ -79,7 +79,7 @@ p({
   "script": """
     var scope = this.__context__.scope;
     if ( foam.String.isInstance(args[0]) && scope[args[0]] ) args[0] = scope[args[0]];
-    else if ( foam.String.isInstance(args[0]) && scope[args[0 + 'DAO']] ) args[0] = scope[args[0] + 'DAO'];
+    else if ( foam.String.isInstance(args[0]) && scope[args[0] + 'DAO'] ) args[0] = scope[args[0] + 'DAO'];
     if ( foam.dao.DAO.isInstance(args[0]) ) {
       this.out.add(foam.core.reflow.Upload.create({dao: args[0]}, this));
     } else {

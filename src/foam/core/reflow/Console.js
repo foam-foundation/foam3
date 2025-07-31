@@ -90,8 +90,9 @@ foam.CLASS({
   ],
 
   imports: [
-    'stack',
-    'notify'
+    'mementoMgr',
+    'notify',
+    'stack'
   ],
 
   messages: [
@@ -997,7 +998,7 @@ foam.CLASS({
       // Doesn't work for some reason. Gets detached when new flow loaded
       // Replaced with postSet
       // this.selectedValue$.follow(this.selected$.dot('value'));
-    
+
       // Add commands to localScope
       var cmds = await this.commandDAO.select();
 

@@ -76,6 +76,7 @@ p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "upload",
   "description": "Upload Data",
+  linkable: false,
   "script": """
     var scope = this.__context__.scope;
     if ( foam.String.isInstance(args[0]) && scope[args[0]] ) args[0] = scope[args[0]];

@@ -348,7 +348,7 @@ foam.CLASS({
       postSet: function(o, n) {
         // Only auto-generate mappings if no mappings are explicitly set
         // This prevents overwriting explicitly set mappings from FileUploadConfig
-        if ( this.of && n && JSON.stringify(o) !== JSON.stringify(n) && (!this.mappings || this.mappings.length === 0) ) {
+        if ( this.of && n  ) {
           this.generateMappings(n);
         }
       }
@@ -425,7 +425,6 @@ foam.CLASS({
 
     function generateMappings(fileHeaders) {
       if ( ! this.of ) return;
-      
       // Clean up file headers
       var cleanHeaders = fileHeaders && fileHeaders.length > 0 ? 
         fileHeaders.filter(h => h && h.trim()) : [];
@@ -829,7 +828,6 @@ foam.CLASS({
         var parser = this.CSVParser.create({});
         var parsedHeaders = parser.parseString(a[0], this.delimiter);
         var fileHeaders = parsedHeaders.map(h => h.value);
-        
         // Set file headers - this will trigger mapping generation if headers changed
         this.fileHeaders = fileHeaders;
         

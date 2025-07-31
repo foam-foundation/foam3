@@ -16,6 +16,8 @@ foam.CLASS({
   css: `
   `,
 
+  properties: [ { class: 'Long', name: 'version' } ],
+
   methods: [
     function render() {
       var self = this;
@@ -23,25 +25,18 @@ foam.CLASS({
       // TODO: Temporary while detailview is hidden (or make into a Controller instead)
       this.data.where$.sub(this.rerun);
 
+      this.data.skip$.sub(this.onUpdate);
+      this.data.version$.sub(this.onUpdate);
+
       this.
         addClass().
         show(this.data.visible$).
         start('h3').
           add(self.data.label$).
         end().
-            /*
-          start('span').
-            style({display: 'flex', gap: '10px', flexDirection: 'column'}).
-            start().
-              style({marginTop: '6px'}).
-              add('Query').
-            end().
-            tag({class: 'foam.u2.TextField'}, {data$: self.data.where$, placeholder: 'Type your query'}).
-            end().
-            */
         br().
         start().
-          add(self.data.dynamic(async function(version, skip) {
+          add(self.dynamic(async function(version) {
             var startTime = Date.now();
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
             // TODO: fix JSON parsing should setup context correctly
@@ -55,6 +50,15 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'onUpdate',
+      isIdled: true,
+      delay: 150,
+      code: function() {
+        // Used to avoid excessive number of updates, especially on slower connections
+        this.version++;
+      }
+    },
     function copyToClipboard() {
       var range = document.createRange();
       range.selectNode(this.content.element_);

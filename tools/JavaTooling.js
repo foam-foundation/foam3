@@ -46,6 +46,7 @@ foam.POM({
     tarball: ['', 'tarball', 'TARBALL', 'Tar file name', () => APP_NAME + '-deploy-' + VERSION + '.tar.gz', arg => TARBALL = arg],
     tarballPath: ['', 'tarball-path', 'TARBALL_PATH', 'Path to the tarball to upload. Defaults to the last tar built.', () => BUILD_DIR + '/package/' + TARBALL, arg => TARBALL_PATH = arg],
     tests: ['', 'tests', 'TESTS', 'Java test cases to execute', '', arg => TESTS = arg],
+    testArgs: ['', 'test-args', 'TEST_ARGS', 'Arguments passed to test cases or benchmarks via JVM parameter -Dfoam.test.args. Example: --test-args:"identifier1=x,identifier2=y" (quoted list of comma seperated, key=value, pairs)', '', arg => TEST_ARGS = arg],
     timezone: ['', 'timezone', 'TIMEZONE', 'Set JVM user.timezone. NOTE: this only affects local deployment. In production the JVM will use the system timezone.', 'GMT', arg => TIMEZOME = arg],
     webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  WebSocketServer will use PORT+1', '8080', args => WEB_PORT = args ],
     version: ['', 'version', 'VERSION', 'Application version', '1.0.0', args => VERSION = args ]
@@ -155,7 +156,7 @@ foam.POM({
     }],
 
     cleanTest: ['clean-test', 'Remove entire test deployment for next run', [], function() {
-      this.rmdir(APP_HOME);
+      this.emptyDir(APP_HOME);
     }],
 
     deleteRuntimeJournals: ['delete-runtime-journals', 'Delete runtime journals.', [], function() {
@@ -221,7 +222,7 @@ foam.POM({
     // TODO: not tested
     javaBenchmarks: ['java-benchmarks', 'Run all or specified benchmarks. ex: javaBenchmarks[:Benchmark1,Benchmark2]', [/*'stopCORE'*/], function(args) {
       BENCHMARKS=args;
-      APP_ROOT = '/tmp';
+      APP_ROOT = ! APP_ROOT || APP_ROOT == '/opt' ? '/tmp' : APP_ROOT;
       FLAGS = this.comma(FLAGS, 'test');
       // this.addJournal('test'); ??
       this.execute('pomEnvs');
@@ -247,7 +248,7 @@ foam.POM({
 
     javaTests: ['java-tests', 'Run all or specified test cases. ex: javaTests[:Test1,Test2]', [], function(args) {
       TESTS=args;
-      APP_ROOT='/tmp';
+      APP_ROOT = ! APP_ROOT || APP_ROOT == '/opt' ? '/tmp' : APP_ROOT;
       FLAGS = this.comma(FLAGS, 'test');
       this.addJournal('test');
       this.addJournal('../foam3/deployment/test');
@@ -323,9 +324,13 @@ foam.POM({
         MESSAGE = 'Running benchmarks...';
         if ( BENCHMARKS )
           JAVA_OPTS += ` -Dfoam.benchmarks=${BENCHMARKS}`;
+        if ( TEST_ARGS )
+          JAVA_OPTS += ` -Dfoam.test.args=${TEST_ARGS}`;
       } else {
         if ( TESTS )
           JAVA_OPTS += ` -Dfoam.tests=${TESTS}`;
+        if ( TEST_ARGS )
+          JAVA_OPTS += ` -Dfoam.test.args=${TEST_ARGS}`;
       }
 
       this.showSummary();

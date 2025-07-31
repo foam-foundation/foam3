@@ -20,7 +20,6 @@ function addJournalOutput(j, o) {
 
 exports.init = function() {
   X.journaldir = X.journaldir || (X.builddir + '/journals');
-  this.ensureDir(X.journaldir);
   this.emptyDir(X.journaldir);
 
   flags.loadFiles = true;

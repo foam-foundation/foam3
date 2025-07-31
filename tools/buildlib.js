@@ -166,16 +166,29 @@ function addOptions(options, existing = {}) {
   return existing;
 }
 
+
 function emptyDir(dir) {
-  rmdir(dir);
+  emptyDir_(dir);
   ensureDir(dir);
+}
+// If symbolic link, remove directory contents,
+// else remove and recreate directory.
+function emptyDir_(dir) {
+  if ( ! fs_.existsSync(dir) ) return;
+  if ( fs_.lstatSync(dir).isSymbolicLink() ) {
+    fs_.readdirSync(dir).forEach(f => {
+      emptyDir_(path_.join(dir, f));
+    });
+  } else if ( fs_.lstatSync(dir).isDirectory() ) {
+    fs_.rmSync(dir, {recursive: true, force: true});
+  } else {
+    fs_.rmSync(dir);
+  }
 }
 
 
 function rmdir(dir) {
-  if ( fs_.existsSync(dir) && fs_.lstatSync(dir).isDirectory() ) {
-    fs_.rmSync(dir, {recursive: true, force: true});
-  }
+  emptyDir(dir);
 }
 
 

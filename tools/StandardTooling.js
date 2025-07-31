@@ -33,6 +33,10 @@ foam.POM({
       }
     }],
 
+    exit: [ 'exit', 'Terminate the build. Example --buildJar,exit', [], function(args) {
+      process.exit(args ? 1 : 0);
+    }],
+
     usage: ['usage', 'Build usage examples', [], function() {
       console.log('CLI examples:');
       console.log('  ./build.sh -c');

@@ -141,6 +141,10 @@ foam.CLASS({
       background: $backgroundTertiary;
       margin: 0 8px;
     }
+
+    ^name::placeholder {
+      font-style: italic;
+    }
   `,
 
   properties: [
@@ -166,10 +170,11 @@ foam.CLASS({
             .start('span').addClass(this.myClass('title'))
               .start({
                 class: 'foam.u2.TextField',
-                data$: this.data.flowName$,
-                placeholder: 'Reflow',
+                data$: this.data.value.name$,
+                placeholder: 'Unnamed',
                 onKey: true
               })
+                .addClass(this.myClass('name'))
               .end()
             .end()
             .start().add(fullVersion).end()
@@ -262,9 +267,8 @@ foam.CLASS({
         return showPrompts;
       },
       code: function() {
-        if ( this.data.flowName && this.data.flowName !== '' ) {
-          this.data.eval_(`save ${this.data.flowName}`);
-//          this.data.showPrompts = false;
+        if ( this.data.value.name ) {
+          this.data.eval_(`save ${this.data.value.name}`);
         } else {
           // Using error message instead of disabling the save button to provide users feedback on why it’s not working.
           this.notify(this.PROVIDE_NAME, '', this.LogLevel.ERROR, true);
@@ -793,11 +797,11 @@ foam.CLASS({
       memorable: true,
       postSet: async function(o, n) {
         if ( ! this.out ) return;
-        if ( n !== this.flowName ) {
+        if ( n !== this.value.name ) {
           this.clearFlow();
           if ( n ) {
             await this.eval_(`load("${n}")`);
-            this.flowName = n;
+            this.value.name = n;
             this.selected = this.currentBlock;
           }
         }
@@ -806,19 +810,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'flowName',
-      onKey: true,
-      postSet: function(o, n) {
-        this.route = n;
-      }
-    },
-    {
-      name: 'treeRowRenderer',
-      value: function(e) {
-        if ( this.flowName )
-          e.add(this.flowName);
-        else
-          e.start('i').add('Unnamed');
-      }
+      value: 'flow'
     },
     {
       class: 'String',
@@ -989,8 +981,11 @@ foam.CLASS({
         this.showNav = true;
       });
 
-      this.flowName$.sub(() => this.refreshFlowScope());
+      this.value.name$.sub(() => this.route = this.value.name);
+
+      // Does this ever happen?
       this.value$.sub(() => this.refreshFlowScope());
+
       this.flowErrors_$.follow(this.value.errors_$);
 
       globalThis.shell = this; // for debugging
@@ -1043,8 +1038,6 @@ foam.CLASS({
       layout.header.add(this.dynamic(function(showPrompts) {
         this.tag(self.ReflowHeader, {data: self, showPrompts: showPrompts, resetFlow: self.clearFlow});
       }));
-
-      this.flowName$ = this.value.name$;
 
       if ( this.route ) this.ROUTE.postSet.call(this, '', this.route);
       await this.eval_('preLoad');
@@ -1144,9 +1137,7 @@ foam.CLASS({
         if ( s.hasOwnProperty(x) )
           delete s[x];
 
-      // Add binding for this
-      // TODO: make constant
-      s[this.flowName] = this.value;
+      s.flow = this.value;
 
       // Add shortname bindings for DAO children
       this.flowChildren.forEach(c => {

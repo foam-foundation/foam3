@@ -48,12 +48,12 @@ foam.CLASS({
       end().
       add(this.dynamic(function(data) {
         if ( ! data || data.length === 0 ) return;
-        
+
         this.forEach(data, function(mapping) {
           // Get the property info from the target model
           var targetModel = mapping.of;
           var prop = targetModel && targetModel.getAxiomByName(mapping.property);
-          
+
 
           this.
             startContext({ data: mapping }).
@@ -104,7 +104,7 @@ foam.CLASS({
   ],
 
   imports: [ 'currentBlock?', 'eval_?', 'setTimeout' ],
-  
+
   exports: [
     'dao',
     'data as objData'  // PredicateView expects objData with dao property
@@ -258,15 +258,15 @@ foam.CLASS({
       of: 'foam.core.reflow.Mapping',
       name: 'mappings',
       view: function(_, X) {
-        return { 
-          class: 'foam.core.reflow.MappingsView', 
+        return {
+          class: 'foam.core.reflow.MappingsView',
           of: X.data.of
         };
       },
       factory: function() { return []; },
       visibility: function(fileHeaders) {
-        return fileHeaders && fileHeaders.length > 0 ? 
-          foam.u2.DisplayMode.RW : 
+        return fileHeaders && fileHeaders.length > 0 ?
+          foam.u2.DisplayMode.RW :
           foam.u2.DisplayMode.HIDDEN;
       }
     },
@@ -348,7 +348,7 @@ foam.CLASS({
       postSet: function(o, n) {
         // Only auto-generate mappings if no mappings are explicitly set
         // This prevents overwriting explicitly set mappings from FileUploadConfig
-        if ( this.of && n  ) {
+        if ( this.of && n && JSON.stringify(o) !== JSON.stringify(n) && (!this.mappings || this.mappings.length === 0) ) {
           this.generateMappings(n);
         }
       }
@@ -383,7 +383,7 @@ foam.CLASS({
         this.block.upload = this;
         this.block.value  = this.DAOHolder.create({preview: this.data});
       }
-      
+
     },
 
     function parseFilter() {
@@ -425,15 +425,16 @@ foam.CLASS({
 
     function generateMappings(fileHeaders) {
       if ( ! this.of ) return;
+
       // Clean up file headers
-      var cleanHeaders = fileHeaders && fileHeaders.length > 0 ? 
+      var cleanHeaders = fileHeaders && fileHeaders.length > 0 ?
         fileHeaders.filter(h => h && h.trim()) : [];
-      
+
       // Get all properties for the target model
       var props = this.of.getAxiomsByClass(foam.lang.Property)
         .filter(p => p.showInPropertyChoice)
         .sort(foam.lang.Property.NAME.compare);
-      
+
       // Create mappings for all properties with file headers
       var mappings = [];
       props.forEach(prop => {
@@ -441,13 +442,13 @@ foam.CLASS({
           fileHeaders: cleanHeaders
         }));
       });
-      
+
       this.mappings = mappings;
     },
 
     function findMatchingHeader(headers, prop) {
       if ( ! headers || headers.length === 0 ) return null;
-      
+
       // Try to match each header against the target property using ColumnParser
       for ( var i = 0; i < headers.length; i++ ) {
         var header = headers[i];
@@ -460,13 +461,13 @@ foam.CLASS({
           // Continue to next header if parsing fails
         }
       }
-      
+
       return null;
     },
 
     function createFieldMapping(property, options) {
       options = options || {};
-      
+
       var mapping = this.Mapping.create({
         id: options.id || property.name,
         property: property.name,
@@ -474,7 +475,7 @@ foam.CLASS({
         of: this.of,
         fileHeaders: options.fileHeaders || []
       });
-      
+
       // Auto-set fieldName if not provided and fileHeaders are available
       if ( ! options.fieldName && options.fileHeaders ) {
         var matchingHeader = this.findMatchingHeader(options.fileHeaders, property);
@@ -484,13 +485,13 @@ foam.CLASS({
       } else if ( options.fieldName ) {
         mapping.fieldName = options.fieldName;
       }
-      
+
       return mapping;
     },
 
     function processAllMappings(obj, rowData) {
       if ( ! this.mappings || this.mappings.length === 0 ) return;
-      
+
       this.mappings.forEach(mapping => {
         try {
           mapping.process(obj, undefined, rowData);
@@ -502,10 +503,10 @@ foam.CLASS({
             expression: mapping.dynamicExpression,
             rowData: rowData
           });
-          
+
           // Add error to output for user visibility
           this.output += `<span style="color:red">${errorMsg}</span><br>`;
-          
+
           // Set errors on the object for tracking
           if ( ! obj.errors_ ) obj.errors_ = [];
           obj.errors_.push([mapping, errorMsg]);
@@ -578,8 +579,8 @@ foam.CLASS({
           } catch (e) {
             console.warn('Object adaptation callback failed:', e);
           }
-          
-          
+
+
           totalRows++;
           self.processing = totalRows;
           self.progress   = self.rows ? Math.max(self.progress, Math.floor(100 * totalRows / self.rows)) : 0;
@@ -645,7 +646,7 @@ foam.CLASS({
                 block2.obj.run();
               }, 100);
             }
-            
+
             latch.resolve('eof');
           } catch (e) {
             console.error('Upload eof error:', e);
@@ -691,7 +692,7 @@ foam.CLASS({
           // this.processJSON(sink);
           break;
       }
-      
+
       // Set file headers for non-CSV formats (empty headers)
       if ( this.format !== 'CSV' && ( ! this.mappings || this.mappings.length === 0 ) ) {
         this.fileHeaders = [];
@@ -702,17 +703,17 @@ foam.CLASS({
 
     function collectXMLHeaders(node, xmlHeaders) {
       var children = node.children;
-      
+
       // Collect tag names and attributes from this node
       for ( var i = 0 ; i < children.length ; i++ ) {
         var child = children[i];
         var attrs = child.getAttributeNames();
-        
+
         // Add tag name as header
         if ( child.firstChild ) {
           xmlHeaders.add(child.tagName);
         }
-        
+
         // Add tag.attribute as headers
         for ( var j = 0 ; j < attrs.length ; j++ ) {
           var attrName = attrs[j];
@@ -748,7 +749,7 @@ foam.CLASS({
 
     async function processDAO(sink) {
       var a = (await this.sourceDAO.select()).array;
-      
+
       // Collect headers from first object if available
       var daoHeaders = [];
       if ( a.length > 0 ) {
@@ -759,15 +760,15 @@ foam.CLASS({
           }
         }
       }
-      
+
       // Set file headers - this will trigger mapping generation if headers changed
       this.fileHeaders = daoHeaders;
-      
+
       // Process all objects
       for ( var i = 0 ; i < a.length ; i++ ) {
         var sourceObj = a[i];
         var targetObj = this.of.create();
-        
+
         // Create rowData from source object properties
         var rowData = {};
         for ( var prop in sourceObj.instance_ ) {
@@ -775,10 +776,10 @@ foam.CLASS({
             rowData[prop] = sourceObj[prop];
           }
         }
-        
+
         // Process ALL mappings using universal method
         this.processAllMappings(targetObj, rowData);
-        
+
         await sink.put(targetObj);
       }
       sink.eof();
@@ -798,7 +799,7 @@ foam.CLASS({
         var node = children[i];
         if ( this.tagName && node.tagName !== this.tagName ) continue;
         this.rows++;
-        
+
         // Collect headers from this node
         this.collectXMLHeaders(node, xmlHeaders);
       }
@@ -828,9 +829,10 @@ foam.CLASS({
         var parser = this.CSVParser.create({});
         var parsedHeaders = parser.parseString(a[0], this.delimiter);
         var fileHeaders = parsedHeaders.map(h => h.value);
+
         // Set file headers - this will trigger mapping generation if headers changed
         this.fileHeaders = fileHeaders;
-        
+
         // Use CSV parser
         var parser = this.CSVParser.create({});
         var agent;
@@ -843,7 +845,7 @@ foam.CLASS({
           if ( ! row ) continue;
           var obj = this.of.create();
           var csv = parser.parseString(row, this.delimiter);
-          
+
           // Convert CSV array to a rowData object using file headers
           var rowData = {};
           csv.forEach((cell, index) => {
@@ -851,7 +853,7 @@ foam.CLASS({
               rowData[fileHeaders[index]] = cell.value;
             }
           });
-          
+
           // Process ALL mappings using universal method
           this.processAllMappings(obj, rowData);
           await sink.put(obj);

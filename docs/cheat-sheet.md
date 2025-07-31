@@ -1,55 +1,92 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [FOAM3 Cheat Sheet (long form)](#foam3-cheat-sheet-long-form)
+- [Models](#models)
+  - [**Properties**](#properties)
+    - [**Defaults**](#defaults)
+    - [**Expression Behavior**](#expression-behavior)
+    - [**Dynamic Get and/or Set**](#dynamic-get-andor-set)
+    - [**Property Types (FOAM3 Current)**](#property-types-foam3-current)
+      - [**Numeric Types:**](#numeric-types)
+      - [**String Types:**](#string-types)
+      - [**Date/Time Types:**](#datetime-types)
+      - [**Object Types:**](#object-types)
+      - [**Collection Types:**](#collection-types)
+  - [**Methods**](#methods)
+  - [**Listeners**](#listeners)
+  - [**Actions**](#actions)
+- [DAOs](#daos)
+- [Reactivity](#reactivity)
+  - [**Listen to Changes**](#listen-to-changes)
+  - [**Display Properties**](#display-properties)
+  - [**Computed Values**](#computed-values)
+  - [**Dynamic Views**](#dynamic-views)
+- [Context and Dependency Injection](#context-and-dependency-injection)
+  - [**Context and Subcontext**](#context-and-subcontext)
+  - [**Imports and Exports**](#imports-and-exports)
+  - [**Context and Object Creation**](#context-and-object-creation)
+  - [**Context Patterns**](#context-patterns)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # FOAM3 Cheat Sheet (long form)
 
 # Models
 
 Model/class definition:  
+```javascript
 foam.CLASS({  
   package: 'com.google.project',  
   name: 'MyModel',  
   extendsModel: 'com.google.project.MyBaseModel',  
-  implements: \[  
+  implements: [  
     'com.google.project.MyFirstTrait',  
     'com.google.project.MyFirstSecondTrait'  
-  \],  
-  requires: \[  
+  ],  
+  requires: [  
     'foam.ui.DetailView',  
     'com.google.project.MyOtherModel'  
-  \],  
-  imports: \['myOtherModelExportedProperty'\],  
-  exports: \['myModelExportedProperty'\],  
+  ],  
+  imports: ['myOtherModelExportedProperty'],  
+  exports: ['myModelExportedProperty'],  
   constants: {  
      CONSTANT1: value,  
      ...  
   },  
-  topics: \[  
-  \],  
-  axioms: \[  
-  \],  
-  properties: \[  
+  topics: [  
+  ],  
+  axioms: [  
+  ],  
+  properties: [  
     …  
-  \],  
-  methods: \[  
+  ],  
+  methods: [  
     …  
-  \],  
-  templates: \[  
+  ],  
+  templates: [  
     …  
-  \],  
-  actions: \[  
+  ],  
+  actions: [  
     …  
-  \],  
-  listeners: \[  
+  ],  
+  listeners: [  
     …  
-  \]  
+  ]  
 });
+```
 
 ## **Properties**
 
 Properties are data members on instances.  
 Name only; properties collection:  
-properties: \[  
+```javascript
+properties: [  
   'myPropertyName',  
   …  
-\],  
+],  
+```
 Property with class-based typing (FOAM3 current):  
 ```javascript
 {  
@@ -176,39 +213,44 @@ Properties can be extended by creating new classes that extend the base Property
 
 Methods are member functions on instances.  
 Name and implementation only; methods collection:  
+```javascript
 methods: {  
   addAndMultiply: function(x, y, z) { return (x \+ y) \* z; },  
   …  
 }  
 Additional information; methods collection:  
-methods: \[  
+methods: [  
   {  
     name: 'addAndMultiply',  
     documentation: 'First add first two parameters, then multiply by the third.',  
     code: function(x, y, z) { return (x \+ y) \* z; },  
   },  
   …  
-\]
+]
+```
 
 ## **Listeners**
 
 Listeners are member functions pre-bound to instances. Use them as callback functions that will be passed around in the system, but expect to run with the correct “this” value.  
 Name and implementation only; methods collection:  
 Listeners collection:  
-listeners: \[  
+```javascript
+listeners: [  
   {  
     name: 'onClick',  
     documentation: 'Respond to DOM click events on this HTML view.',  
     code: function(event) { … },  
   },  
   …  
-\]
+]
+```
 
 ## **Actions**
 
 Actions are user-initiated actions that can be performed on instances.  
 Actions collection:  
-actions: \[  
+```javascript
+actions: [  
   {  
     name: 'play',  
     label: 'Play Video',  
@@ -218,12 +260,14 @@ actions: \[
     code: function() { … },  
   },  
   …  
-\]  
+]  
+```
 **Caveat**: Action implementations are called the “action”, not the “code” (as in methods and listeners).
 
 # DAOs
 
 Data Access Objects (DAOs) are an interface for data storage. Sinks are interfaces for receiving objects.  
+```javascript
 interface Sink {  
    optional void put(obj) /\* Called back when data is sent to the sink. \*/  
    optional void remove(obj) /\* Called back when data is removed from the sink. \*/  
@@ -244,6 +288,8 @@ interface DAO {
   **DAO skip(count)** /\* Construct decorated DAO that skips the first count objects. \*/  
   **DAO orderBy(...comparators)** /\* Construct decorated DAO that stores objects in order described by comparators. \*/  
 }  
+
+```
 functions as sinks; function called back on put.
 
 # Reactivity
@@ -297,7 +343,7 @@ Every FOAM object has two context variables:
 **`__subContext__`** - Created only if object has `exports`; contains main context + exported services.
 
 Context variables:
-```
+```javascript
 // Object with no exports
 var obj = SomeClass.create({}, mainContext);
 console.log(obj.__context__);    // mainContext
@@ -315,7 +361,7 @@ console.log(service.__subContext__); // mainContext + exports (userDAO, notifica
 ```
 
 Context inheritance:
-```
+```javascript
 // Child inherits parent's __subContext__ as its __context__
 var child = ChildView.create({}, service.__subContext__);
 console.log(child.__context__); // mainContext + parent's exports
@@ -327,7 +373,7 @@ console.log(child.__context__); // mainContext + parent's exports
 **exports** - Make properties/services available to child objects in context.
 
 Context dependency injection:
-```
+```javascript
 foam.CLASS({
   name: 'UserService',
   imports: [
@@ -347,7 +393,7 @@ foam.CLASS({
 Always use `requires` + `this.ClassName.create()` for proper context inheritance.
 
 Context-aware object creation:
-```
+```javascript
 foam.CLASS({
   requires: ['foam.u2.DetailView', 'com.project.MyModel'],
   methods: [
@@ -361,7 +407,7 @@ foam.CLASS({
 ```
 
 Direct instantiation (loses context):
-```
+```javascript
 foam.CLASS({
   methods: [
     function render() {
@@ -376,7 +422,7 @@ foam.CLASS({
 ## **Context Patterns**
 
 View with context injection:
-```
+```javascript
 foam.CLASS({
   name: 'UserView',
   extends: 'foam.u2.View',
@@ -396,7 +442,7 @@ foam.CLASS({
 ```
 
 Service with dependency injection:
-```  
+```javascript
 foam.CLASS({
   name: 'DataService',
   imports: ['userDAO', 'orderDAO', 'logger?'],

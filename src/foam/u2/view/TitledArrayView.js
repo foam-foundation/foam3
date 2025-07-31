@@ -153,7 +153,7 @@ foam.CLASS({
             .tag(this.ADD_ROW, {
             size: 'SMALL',
             buttonStyle: 'SECONDARY',
-            label: 'Add New'
+            label: 'Add'
             })
           .endContext()
         .end();

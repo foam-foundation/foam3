@@ -10,18 +10,11 @@ foam.CLASS({
     // extends: 'foam.u2.view.MultiChoiceView',
   
     requires: [
-      'foam.u2.view.MultiChoiceView'
+      'foam.u2.view.MultiChoiceView',
+      'foam.u2.md.OverlayDropdown'
     ],
   
     css: `
-      ^ .foam-u2-view-MultiChoiceView-flexer {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      ^ .foam-u2-view-MultiChoiceView-flexer > * {
-        padding: 4px 0;
-      }
       ^container {
         position: relative;
         display: flex;
@@ -51,18 +44,6 @@ foam.CLASS({
         white-space: nowrap;
         margin-right: 8px;
       }
-      ^collapsible {
-        background-color: $backgroundDefault;
-        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
-        padding: 8px;
-        border: 1px solid $borderLight;
-        border-radius: 4px;
-        position: absolute;
-        top: 100%;
-        z-index: 1000;
-        width: 100%;
-        max-width: 100%;
-      }
     `,
   
     properties: [
@@ -81,11 +62,7 @@ foam.CLASS({
       },
       {
         name: 'numberColumns',
-        value: 12
-      },
-      {
-        class: 'Boolean',
-        name: 'isOpen'
+        value: 4
       },
       {
         class: 'Array',
@@ -96,22 +73,46 @@ foam.CLASS({
         class: 'String',
         name: 'label'
       },
+      {
+        class: 'FObjectProperty',
+        of: 'foam.u2.Element',
+        name: 'dropdown_',
+        factory: function() {
+          return this.OverlayDropdown.create({
+            closeOnLeave: true,
+            lockToParentWidth: true,
+          });
+        }
+      },
+      {
+        class: 'Boolean',
+        name: 'isOpen_',
+        documentation: `
+          An internal property used to determine whether the options list is
+          visible or not.
+        `
+      },
       'data'
     ],
     methods: [
-      function init() {
-        this.SUPER();
-        this.boundHandleClickOutside = this.handleClickOutside.bind(this);
-        window.addEventListener('mousedown', this.boundHandleClickOutside);
-      },
 
-      function handleClickOutside(e) {
-        const islandHolder = document?.querySelector(`.${this.myClass('collapsible')}`);      if (islandHolder && !islandHolder.contains(e.target)) {
-            this.isOpen = false;
-        }
-      },
       function render() {
         var self = this;
+        
+        this.isOpen_$.follow(this.dropdown_.opened$);
+        this.dropdown_.add(this.dynamic(function() {
+          this.start()
+            .tag(self.MultiChoiceView, {
+              choices: self.choices,
+              choiceView: self.choiceView,
+              maxSelected: self.maxSelected,
+              showMinMaxHelper: self.showMinMaxHelper,
+              numberColumns: self.numberColumns,
+              data$: self.data$
+            })
+          .end()
+        }))
+
         this.addClass()
         .start()
           .addClass(this.myClass('container'))
@@ -127,23 +128,8 @@ foam.CLASS({
                 .end()
               }))
             .end()
-            .start()
-              .add(this.dynamic(function(isOpen) {
-                if (isOpen) {
-                  this.start()
-                    .addClass(self.myClass('collapsible'))
-                    .tag(self.MultiChoiceView, {
-                      choices: self.choices,
-                      choiceView: self.choiceView,
-                      maxSelected: self.maxSelected,
-                      showMinMaxHelper: self.showMinMaxHelper,
-                      numberColumns: self.numberColumns,
-                      data$: self.data$
-                    })
-                  .end()
-                }
-              }))
-            .end()
+            .add(this.dropdown_)
+          
         .end()
       }
     ],
@@ -151,8 +137,14 @@ foam.CLASS({
       {
         name: 'toggleOpen',
         label: '',
-        code: function() {
-          this.isOpen = !this.isOpen;
+        code: function(_, e) {
+          if (this.isOpen_) {
+            this.dropdown_.close();
+          } else {
+
+            this.dropdown_.parentEl = this.el_();
+            this.dropdown_.open();
+          }
         }
       }
     ]

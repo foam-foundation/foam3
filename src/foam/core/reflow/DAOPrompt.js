@@ -41,7 +41,7 @@ foam.CLASS({
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
             // TODO: fix JSON parsing should setup context correctly
             var select    = self.data.select.clone(self.data.__subContext__);
-            await select.execute(this.start());
+            await select.execute(this);
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
           })).
@@ -400,7 +400,7 @@ visible      },
     },
 
     async function updateRowCount_() {
-      this.rowCount = (await this.dao.select(this.COUNT())).value;
+      this.rowCount = (await this.filteredDAO.select(this.COUNT())).value;
     }
   ],
 

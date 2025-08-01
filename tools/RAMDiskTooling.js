@@ -10,7 +10,7 @@ foam.POM({
   options: {
     ramDiskBlockSizeDarwin: ['', 'ram-disk-block-size-darwin', 'RAM_DISK_BLOCK_SIZE_DARWIN', 'RAM Disk block size in bytes', '512', arg => RAM_DISK_BLOCK_SIZE_DARWIN = arg],
     ramDiskName: ['', 'ram-disk-name', 'RAM_DISK_NAME', 'Name of ram disk to use as build directory', 'buildRAMDisk', arg => RAM_DISK_NAME = arg],
-    ramDiskSize: ['', 'ram-disk-size', 'RAM_DISK_SIZE', 'Size of ram disk in MegaBytes to use as build directory', '1000', arg => RAM_DISK_SIZE = arg]
+    ramDiskSize: ['', 'ram-disk-size', 'RAM_DISK_SIZE', 'Size of ram disk in MegaBytes to use as build directory', '500', arg => RAM_DISK_SIZE = arg]
   },
   tasks: {
     ramDisk: ['ram-disk', 'Create RAM Disk and symbolic link to build directory. Optionaly provide size in bytes. --ramDisk:400', [], function(arg) {

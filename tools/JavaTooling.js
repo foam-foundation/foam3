@@ -227,7 +227,7 @@ foam.POM({
       // this.addJournal('test'); ??
       this.execute('pomEnvs');
       if ( CLEAN ) this.execute('clean');
-      this.execute(cleanTest);
+      this.execute('cleanTest');
       BOOT_SCRIPT = 'benchmarkRunnerScript';
 
       this.execute('buildJar');
@@ -371,7 +371,7 @@ foam.POM({
     }],
 
     usage: ['usage', 'Build usage examples', [], function() {
-      this.log('Running Java application server:');
+      this.log('\nRunning Java application server:');
       this.log('NOTE: All builds will still start a Java web server (CORE), unless directed otherwise.');
       this.log('  ./build.sh -aJhttps -EJAVA_OPTS:\"-Xms4g -Xmx8g\"');
       this.log('    Start CORE with additional memory, launch from JAR, start HTTPS web server, set JVM max and min memory.');
@@ -383,7 +383,7 @@ foam.POM({
       this.log('    Build into a unique path \'demo\', launch from JAR, start HTTPS web server on port \'8300\'.');
       this.log('  ./build.sh -EAPP_NAME:demo,WEB_PORT:8300,JAR:true,JOURNALS:https');
       this.log('    Build into a unique path \'demo\', launch from JAR, start HTTPS web server on port \'8300\'.');
-      this.log('Running Java Test Cases:');
+      this.log('\nRunning Java Test Cases:');
       this.log('  ./build.sh --java-tests');
       this.log('    Run all Java test cases.');
       this.log('  ./build.sh --java-tests:SequenceNumberDAO,MapDAOTest');

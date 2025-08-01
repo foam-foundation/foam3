@@ -188,7 +188,9 @@ function emptyDir_(dir) {
 
 
 function rmdir(dir) {
-  emptyDir(dir);
+  if ( fs_.existsSync(dir) && fs_.lstatSync(dir).isDirectory() ) {
+    fs_.rmSync(dir, {recursive: true, force: true});
+  }
 }
 
 

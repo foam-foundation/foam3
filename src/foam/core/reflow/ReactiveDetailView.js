@@ -411,6 +411,9 @@ foam.CLASS({
       border: 1px solid $borderLight;
       border-radius: 4px;
     }
+    ^ > .foam-u2-layout-Rows > div:not(:last-child) > * {
+      border-bottom: 1px solid $borderLight;
+    }
   `,
 
   properties: [

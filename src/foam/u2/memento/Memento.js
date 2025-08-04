@@ -411,6 +411,17 @@ foam.CLASS({
       this.memento_;
       // Copy args again cause context was needed for mementos
       this.SUPER(args);
-    }
+    },
+    function clone(opt_X) {
+      /** Create a shallow copy of this object. **/
+      var m = {};
+      for ( var key in this.instance_ ) {
+        if ( this.instance_[key] === undefined ) continue; // Skip previously cleared keys.
+
+        var value = this.instance_[key];
+        m[key] = value;
+      }
+      return this.cls_.create(m, opt_X || this.__context__);
+    },
   ]
 });

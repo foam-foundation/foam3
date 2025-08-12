@@ -88,6 +88,11 @@ foam.CLASS({
       title: 'General'
     },
     {
+      name: 'dateRange',
+      title: 'Include Date Range',
+      collapsable: true
+    },
+    {
       name: 'output',
       title: 'Output',
       collapsable: false
@@ -348,7 +353,46 @@ visible      },
       factory: function() {
         return foam.lang.Latch.create();
       }
-    }
+    },
+    {
+      class: 'DateTime',
+      name: 'startDate',
+      section: 'dateRange',
+      onKey: false,
+      postSet: function(_, n) {
+        this.updateDateCollectionWhere();
+      }
+    },
+    {
+      class: 'DateTime',
+      name: 'endDate',
+      onKey: false,
+      section: 'dateRange',
+      postSet: function(_, n) {
+        this.updateDateCollectionWhere();
+      }
+    },
+    {
+      class: 'String',
+      name: 'dateCollectionValue',
+      section: 'dateRange',
+      onKey: false,
+      displayWidth: 60,
+      view: function(_, X) {
+        return {
+          class: 'foam.core.reflow.PropertySuggestedField'
+        };
+      },
+      postSet: function(_, n) {
+        this.updateDateCollectionWhere();
+      }
+    },
+    {
+      class: 'String',
+      name: 'workingDateWhere',
+      hidden: true,
+      transient: true
+    },
   ],
 
   methods: [
@@ -369,6 +413,29 @@ visible      },
         }) :
         defaultCols;
         this.columnStorage[this.dao.of.id] = JSON.stringify(cols);
+    },
+    {
+      name: 'updateDateCollectionWhere',
+      code: function() {
+        this.where = this.where
+          .replaceAll(this.workingDateWhere, '')
+          .replace(/\s{2,}/g, ' ').trim();
+        this.workingDateWhere = '';
+        if ( ( this.startDate || this.endDate ) && this.dateCollectionValue ) {
+          var propSplit = this.dateCollectionValue.split(',');
+          for ( let prop of propSplit ) {
+            let bottomQ = this.startDate ? `${prop}>=${this.formatLocalYYYYMMDDHHMM(this.startDate)}` : '';
+            let topQ = this.endDate ? `${prop}<=${this.formatLocalYYYYMMDDHHMM(this.endDate)}` : '';
+            this.workingDateWhere += `${bottomQ} ${topQ}`
+          }
+          if ( this.where ) this.where = `${this.where} ${this.workingDateWhere}`;
+          else this.where = this.workingDateWhere;
+        }
+      }
+    },
+    function formatLocalYYYYMMDDHHMM(d = new Date()) {
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     },
 
     function init() {

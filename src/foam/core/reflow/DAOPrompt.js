@@ -91,6 +91,11 @@ foam.CLASS({
       name: 'dateRange',
       title: 'Helper Date Range',
       collapsable: true,
+      isAvailable: function(dao) {
+        let a = dao?.of?.model_?.implements
+          .filter( m => m.instance_.path == 'foam.lang.Datable');
+        return !! a && a.length > 0;
+      },
       help: 'Helper Fields to set common date Range. Note, you can leave either Start Date or End Date empty but not both.'
     },
     {

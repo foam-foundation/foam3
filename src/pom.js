@@ -72,6 +72,7 @@ foam.POM({
     { name: "foam/lang/MultiMethod",                                  flags: "js" },
     { name: "foam/lang/debug",                                        flags: "debug" },
     { name: "foam/lang/CoreTypesValidationTest",                      flags: "js&test|java&test" },
+    { name: "foam/lang/Datable",                                      flags: "js|java" },
     { name: "foam/pattern/Singleton",                                 flags: "js" },
     { name: "foam/pattern/Multiton",                                  flags: "js" },
     { name: "foam/lang/Enum",                                         flags: "js" },

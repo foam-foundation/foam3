@@ -89,8 +89,9 @@ foam.CLASS({
     },
     {
       name: 'dateRange',
-      title: 'Include Date Range',
-      collapsable: true
+      title: 'Helper Date Range',
+      collapsable: true,
+      help: 'Helper Fields to set common date Range. Note, you can leave either Start Date or End Date empty but not both.'
     },
     {
       name: 'output',
@@ -276,8 +277,17 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
-      view: { class: 'foam.core.reflow.PredicateSuggestedField' }
-//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
+      view: { class: 'foam.core.reflow.PredicateSuggestedField' },
+      postSet: function(o, n) {
+        // If this.where manually adjusted to change the date - remove the date range query
+        if ( n && this.workingDateWhere && ! n.includes(this.workingDateWhere) ) {
+          // order in which these get cleared matters.
+          this.workingDateWhere = '';
+          this.dateCollectionValue = '';
+          this.startDate = undefined;
+          this.endDate = undefined;
+        }
+      }
     },
     {
       class: 'String',
@@ -376,7 +386,7 @@ visible      },
       class: 'String',
       name: 'dateCollectionValue',
       section: 'dateRange',
-      onKey: false,
+      onKey: false, // unfortunetly doesn't work
       displayWidth: 60,
       view: function(_, X) {
         return {
@@ -424,6 +434,7 @@ visible      },
         if ( ( this.startDate || this.endDate ) && this.dateCollectionValue ) {
           var propSplit = this.dateCollectionValue.split(',');
           for ( let prop of propSplit ) {
+            if ( ! this.dao?.of?.getAxiomByName(prop) ) continue;
             let bottomQ = this.startDate ? `${prop}>=${this.formatLocalYYYYMMDDHHMM(this.startDate)}` : '';
             let topQ = this.endDate ? `${prop}<=${this.formatLocalYYYYMMDDHHMM(this.endDate)}` : '';
             this.workingDateWhere += `${bottomQ} ${topQ}`

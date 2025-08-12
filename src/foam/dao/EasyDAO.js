@@ -188,6 +188,13 @@ foam.CLASS({
             setProperty(getSeqPropertyName()).
             setStartingValue(getSeqStartingValue()).
             build();
+        } else if ( getPartitionedSeqNo() ) {
+          delegate = new foam.dao.PartitionedSequenceNumberDAO.Builder(getX()).
+            setDelegate(delegate).
+            setPrefix(getSeqNoPrefix()).
+            setProperty(getSeqPropertyName()).
+            setStartingValue(getSeqStartingValue()).
+            build();
         }
 
         if ( getGuid() ) {
@@ -397,9 +404,20 @@ foam.CLASS({
       name: 'pipelinePm'
     },
     {
-      documentation: 'Have EasyDAO use a sequence number to index items. Note that .seqNo, .guid and .fuid features are mutually exclusive.',
+      documentation: 'Have EasyDAO use a sequence number to index items. Note that .seqNo, .partitionedSeqNo, .guid and .fuid features are mutually exclusive.',
       class: 'Boolean',
       name: 'seqNo'
+    },
+    {
+      documentation: 'Have EasyDAO use a partitioned sequence number to index items. Note that .seqNo, .partitionedSeqNo, .guid and .fuid features are mutually exclusive.',
+      class: 'Boolean',
+      name: 'partitionedSeqNo'
+    },
+    {
+      documentation: 'String prefix for partitioned seqNo',
+      class: 'String',
+      name: 'seqNoPrefix',
+      value: 'abc-'
     },
     {
       class: 'Long',
@@ -407,13 +425,13 @@ foam.CLASS({
       value: 1
     },
     {
-      documentation: 'Have EasyDAO generate guids to index items. Note that .seqNo, .guid and .fuid features are mutually exclusive',
+      documentation: 'Have EasyDAO generate guids to index items. Note that .seqNo, .partitionedSeqNo, .guid and .fuid features are mutually exclusive',
       class: 'Boolean',
       name: 'guid',
       label: 'GUID'
     },
     {
-      documentation: 'Have EasyDAO generate fuids to index items. Note that .seqNo, .guid and .fuid features are mutually exclusive',
+      documentation: 'Have EasyDAO generate fuids to index items. Note that .seqNo, .partitionedSeqNo, .guid and .fuid features are mutually exclusive',
       class: 'Boolean',
       name: 'fuid',
       label: 'FUID'

@@ -128,12 +128,10 @@ foam.CLASS({
         synchronized ( this ) {
           Object value = getProperty_().get(obj);
           try {
-            Number number = (Number) getProperty_().get(obj);
-            long id = number.longValue();
+            long id = getObjId(obj);
 
             if ( id == 0 ) {
-              getProperty_().set(obj, getValue_());
-              setValue_(getValue_() + 1);
+              setObjId(obj, getValue_());
             } else if ( id >= getValue_() ) {
               setValue_(id + 1);
             }
@@ -143,6 +141,24 @@ foam.CLASS({
           }
         }
         return getDelegate().put_(x, obj);
+      `
+    },
+    {
+      name: 'getObjId',
+      args: 'Object obj',
+      type: 'Long',
+      javaCode: `
+        Number number = (Number) getProperty_().get(obj);
+        return number.longValue();
+      `
+    },
+    {
+      name: 'setObjId',
+      args: 'Object obj, Long val',
+      type: 'Void',
+      javaCode: `
+        getProperty_().set(obj, val);
+        setValue_(val + 1);
       `
     }
   ],

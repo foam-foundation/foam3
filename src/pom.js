@@ -380,6 +380,7 @@ foam.POM({
     { name: "foam/dao/LRUDAOManager",                                 flags: "js" },
     { name: "foam/dao/QueryCachingDAO",                               flags: "js|java" },
     { name: "foam/dao/SequenceNumberDAO",                             flags: "js|java" },
+    { name: "foam/dao/PartitionedSequenceNumberDAO",                  flags: "js|java" },
     { name: "foam/dao/SequenceNumberDAOTest",                         flags: "js&test|java&test" },
     { name: "foam/dao/ContextualizingDAO",                            flags: "js|java" },
     { name: "foam/dao/VersionNoDAO",                                  flags: "js" },

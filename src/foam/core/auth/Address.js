@@ -53,7 +53,8 @@ foam.CLASS({
         Street Number, Street Name, Suite Number. For an unstructured address field,
         use address1 and/or address2.
       `,
-      hidden: true
+      hidden: true,
+      comparePropertyValues: function() { return 0; }
     },
     {
       class: 'String',

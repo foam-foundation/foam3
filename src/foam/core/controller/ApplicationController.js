@@ -83,6 +83,7 @@ foam.CLASS({
     'currentMenu',
     'defaultUserLanguage',
     'displayWidth',
+    'fetchSubject',
     'group',
     'initLayout',
     'initSubject',

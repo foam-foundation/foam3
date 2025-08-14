@@ -61,7 +61,7 @@ foam.CLASS({
       class: 'String',
       name: 'viewTitle',
       expression: function (showTitle, data$currentWizardlet) {
-        return showTitle && data$currentWizardlet.showTitle ? this.translationService.getTranslation(foam.locale, data$currentWizardlet.id + 'wizardlet.title', data$currentWizardlet.title) : '';
+        return showTitle && data$currentWizardlet.showTitle ? this.translationService.getTranslation(foam.locale, data$currentWizardlet.id + 'wizardlet.title', data$currentWizardlet.title$) : '';
       }
     }
   ],

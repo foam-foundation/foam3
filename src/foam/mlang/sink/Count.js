@@ -57,7 +57,7 @@ if (other instanceof foam.mlang.sink.Count) {
     function valueOf() { return this.value; },
 
     function toProperties() {
-      return [ { class: 'Long', name: 'count', label: 'count' } ]
+      return [ { class: 'Long', name: 'count', label: 'Count' } ]
     },
     function setPropertyValues(o, sink, ps) {
       ps[0].set(o, sink.value);

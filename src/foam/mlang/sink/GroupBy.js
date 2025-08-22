@@ -244,13 +244,17 @@ for (Object key : getGroups().keySet()) {
     },
 
     function genModel() {
+      // Get name and label from the expression, with fallbacks
+      var exprName = this.arg1.name || this.arg1.delegate.name || 'group';
+      var exprLabel = this.arg1.label || foam.String.labelize(this.arg1.delegate.name) || 'Group';
+      
       const model = {
         package: 'foam.tmp',
         name: 'GroupBy' + foam.next$UID(),
         ids: [ 'row' ],
         properties: [
           { class: 'Long', name: 'row' },
-          { class: 'String', name: this.arg1.name, label: this.arg1.label }
+          { class: 'String', name: exprName, label: exprLabel }
         ]
       };
 

@@ -362,7 +362,7 @@ foam.CLASS({
           delegate = new foam.core.om.DAOOMLogger.Builder(getX()).setCSpec(getCSpec()).setDelegate(delegate).build();
 
         if ( getPm() )
-          delegate = new foam.dao.PMDAO.Builder(getX()).setCSpec(getCSpec()).setDelegate(delegate).build();
+          delegate = new foam.dao.PMDAO.Builder(getX()).setName(getName()).setDelegate(delegate).build();
 
         for ( Indexer i : indexes ) {
           AddIndexCommand cmd = new AddIndexCommand();
@@ -744,10 +744,10 @@ foam.CLASS({
       class: 'Boolean'
     },
     {
+      class: 'Boolean',
+      name: 'saf',
       // refined in foam-saf
       documentation: 'Store and forward this DAO',
-      name: 'saf',
-      class: 'Boolean',
       value: false
     },
     {

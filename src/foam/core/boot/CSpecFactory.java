@@ -75,14 +75,17 @@ public class CSpecFactory
 
     try {
       logger.info("Creating Service", spec_.getName());
+      BootProgress.UPDATE(spec_.getName(), "Creating");
       var service = spec_.createService(nx.put(CSpec.class, spec_).put("logger", logger), null);
       if (service == null) {
         throw new RuntimeException("createService returned null");
       }
       setCoreService(service);
       logger.info("Created Service", spec_.getName());
+      BootProgress.UPDATE(spec_.getName(), "Created");
     } catch (Throwable t) {
       logger.error("Error Creating Service", spec_.getName(), t);
+      BootProgress.UPDATE(spec_.getName(), "ERROR - "+t.getMessage());
     } finally {
       pm.log(nx);
       creatingThread_ = null;
@@ -112,6 +115,7 @@ public class CSpecFactory
         }
         if ( ns instanceof COREService )  {
           logger.info("Starting Service", spec_.getName(), ns.getClass().getName());
+          BootProgress.UPDATE(spec_.getName(), "STARTING");
           ((COREService) ns).start();
         }
         if ( ns instanceof ProxyDAO ) {
@@ -123,8 +127,10 @@ public class CSpecFactory
         }
       }
       logger.info("Initialized Service", spec_.getName(), ns_ != null ? ns_.getClass().getSimpleName() : "null");
+      BootProgress.UPDATE(spec_.getName(), "Initialized");
     } catch (Throwable t) {
       logger.error("Error Initializing Service", spec_.getName(), t);
+      BootProgress.UPDATE(spec_.getName(), "ERROR - " + t.getMessage());
     }
   }
 

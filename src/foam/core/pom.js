@@ -573,6 +573,7 @@ foam.POM({
     { name: "boot/ByServiceProviderFactory" },
     { name: "boot/CSpecFactory" },
     { name: "boot/Boot" },
+    { name: "boot/BootProgress" },
     { name: "notification/ResendNotificationService" },
     { name: "notification/email/POP3EmailService" },
     { name: "notification/email/EmailTemplateSupport" },

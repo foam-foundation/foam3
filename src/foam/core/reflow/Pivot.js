@@ -123,7 +123,6 @@ foam.CLASS({
     {
       name: 'put',
       code: function put(obj, sub) {
-        debugger
         this.cols && this.cols.put(obj);
         this.rows && this.rows.put(obj);
       },

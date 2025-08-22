@@ -935,7 +935,7 @@ foam.CLASS({
   
   requires: [
     'foam.mlang.sink.Count',
-    'foam.u2.Label'
+    'foam.u2.tag.Image'
   ],
   
   imports: [
@@ -967,7 +967,9 @@ foam.CLASS({
       help: 'Color for the metric value',
       value: '$primary500'
     },
-    { name: 'unit' },
+    { name: 'prefix' },
+    { name: 'postfix' },
+    { name: 'iconSize', value: '2rem' },
     { name: 'decimalPlaces', value: 0 },
     // Label font controls
     {
@@ -1017,7 +1019,7 @@ foam.CLASS({
     { name: 'countSink_', hidden: true },
     {
       name: 'metric_',
-      expression: function(metricSink_, countSink_, label, icon, iconColor, alignment, showCount, countSuffix, valueColor, unit, decimalPlaces, labelFontSize, labelFontWeight, labelColor, countFontSize, countFontWeight, countColor) {
+      expression: function(metricSink_, countSink_, label, icon, iconColor, alignment, showCount, countSuffix, valueColor, prefix, postfix, iconSize, decimalPlaces, labelFontSize, labelFontWeight, labelColor, countFontSize, countFontWeight, countColor) {
         var value = metricSink_ ? metricSink_.value : 0;
         var count = countSink_ ? countSink_.value : null;
         
@@ -1034,10 +1036,14 @@ foam.CLASS({
           }
         }
         
-        // Add unit if specified
-        if ( unit ) {
-          value = unit.startsWith(' ') || unit.endsWith(' ') ? 
-                  value + unit : value + ' ' + unit;
+        // Add prefix and postfix if specified
+        if ( prefix ) {
+          value = prefix.startsWith(' ') || prefix.endsWith(' ') ? 
+                  prefix + value : prefix + ' ' + value;
+        }
+        if ( postfix ) {
+          value = postfix.startsWith(' ') || postfix.endsWith(' ') ? 
+                  value + postfix : value + ' ' + postfix;
         }
         
         var displayLabel = label || 
@@ -1053,6 +1059,7 @@ foam.CLASS({
           showCount: showCount,
           countSuffix: countSuffix,
           valueColor: valueColor,
+          iconSize: iconSize,
           labelFontSize: labelFontSize,
           labelFontWeight: labelFontWeight,
           labelColor: labelColor,
@@ -1161,37 +1168,40 @@ foam.CLASS({
           });
         
         // Icon display (if provided)
+
         if ( self.icon ) {
           var iconContainer = container.start('div')
             .style({
-              fontSize: '2rem',
-              marginBottom: '12px'
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             });
-          
-          // TODO: Icon color override is not working properly yet
-          // The CSS approach to override SVG fill needs to be fixed
-          /*
-          if ( self.iconColor ) {
-            var colorValue = foam.CSS.returnTokenValue(self.iconColor, self.cls_, self.__context__) || self.iconColor;
-            iconContainer.style({
-              '& svg': {
-                fill: colorValue
-              }
-            });
-          }
-          */
           
           // Check if icon is a theme glyph
           if ( self.theme && self.theme.glyphs && self.theme.glyphs[self.icon] ) {
-            iconContainer.add(self.Label.create({
-              themeIcon: self.icon,
-              showLabel: false
-            }));
+            iconContainer
+              .start(self.Image, {
+                glyph: self.theme.glyphs[self.icon], 
+                role: 'presentation' 
+              })
+              .style({
+                width: metric.iconSize || '2rem',
+                height: metric.iconSize || '2rem'
+              })
+              .end();
           } else {
-            iconContainer.add(self.Label.create({
-              icon: self.icon,
-              showLabel: false
-            }));
+            iconContainer
+              .start(self.Image, {
+                data: self.icon, 
+                embedSVG: true,
+                role: 'presentation' 
+              })
+              .style({
+                width: metric.iconSize || '2rem',
+                height: metric.iconSize || '2rem'
+              })
+              .end();
           }
           
           iconContainer.end();

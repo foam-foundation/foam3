@@ -583,13 +583,13 @@ foam.CLASS({
     {
       name: 'prop1',
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
+       return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
     {
       name: 'prop2',
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
+       return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
     { name: 'sink', view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' } }

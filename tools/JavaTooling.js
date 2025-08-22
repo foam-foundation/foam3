@@ -37,7 +37,7 @@ foam.POM({
     jar: [ 'a', 'jar', 'JAR', 'Run/launch from Java jar file.', false, function(arg) { JAR = arg ? this.bool(arg) : true; } ],
     javaManifestVendor: ['', 'java-manifest-vendor', 'JAVA_MANIFEST_VENDOR', 'Java Manifest Vendor', () => APP_NAME ? `${APP_NAME}` : 'APP_NAME', args => JAVA_MANIFEST_VENDOR = args ],
     javaManifestVendorId: ['', 'java-manifiest-vendor-id', 'JAVA_MANIFEST_VENDOR_ID', 'Java Manifest Vendor ID', '', args => JAVA_MANIFEST_VENDOR_ID = args ],
-    javaOpts: ['', 'java-opts', 'JAVA_OPTS', 'Additional JVM options','', arg => JAVA_OPTS = arg ],
+    javaOpts: ['', 'java-opts', 'JAVA_OPTS', 'Additional JVM options. Use to set System properties such as -EJAVA_OPTS:\" -Dboot.progress=true -Xmx12g\".','', arg => JAVA_OPTS = arg ],
     logLevel: ['L', 'log-level', 'LOG_LEVEL', 'Set JVM Log level for TEST cases. Defaults to ERROR. example: --log-level:INFO',null, arg => LOG_LEVEL = arg.toUpperCase() ],
     javaMainClass: ['', 'java-main-class', 'JAVA_MAIN_CLASS', 'Java \'main\' class', 'foam.core.boot.Boot', arg => JAVA_MAIN_CLASS = arg ],
     javaMainArgs: ['', 'java-main-args', 'JAVA_MAIN_ARGS', 'Comma separated key[:value] arguments passed to the Java \'main\' class', '', function(arg) { JAVA_MAIN_ARGS = this.comma(JAVA_MAIN_ARGS, arg); } ],

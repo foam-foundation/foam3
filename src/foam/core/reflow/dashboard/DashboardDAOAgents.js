@@ -58,7 +58,8 @@ foam.CLASS({
       class: 'Boolean',
       name: 'responsive',
       label: 'Responsive',
-      value: true
+      value: true,
+      visibility: 'HIDDEN'
     },
     {
       class: 'Boolean',
@@ -70,16 +71,21 @@ foam.CLASS({
       class: 'Int',
       name: 'height',
       label: 'Chart Height (px)',
+      supportingLabel: 'Max height the chart will expand to',
       value: 300,
       view: {
-        class: 'foam.u2.RangeView',
-        minValue: 100,
-        maxValue: 800,
-        step: 10,
-        onKey: true
-      },
-      visibility: function(responsive) {
-        return !responsive ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        class: 'foam.u2.MultiView',
+        horizontal: false,
+        views: [
+          {
+            class: 'foam.u2.RangeView',
+            minValue: 100,
+            maxValue: 800,
+            step: 10,
+            onKey: true
+          },
+          { class: 'foam.u2.view.IntView', onKey: true } 
+        ]
       }
     },
     {

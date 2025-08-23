@@ -32,15 +32,20 @@ foam.CLASS({
     function createSink() { return this.ArraySink.create(); },
     async function execute(e) {
       var sink = this.createSink();
+      let self = this;
       return this.dao.select(sink).then(s => {
         if ( this.block.value && this.block.value.VALUE ) {
           this.block.value.value = this.value(s);
         } else {
           this.block.value = this.value(s);
         }
-        e.startContext({dao: this.dao});
-          this.addSinkToE(e, s);
-        e.endContext();
+        e.startContext({dao: this.dao})
+          .start()
+            .call(function() {
+              self.addSinkToE(this, s);
+            })
+          .end()
+        .endContext();
       });
     },
     function addSinkToE(e, s) {

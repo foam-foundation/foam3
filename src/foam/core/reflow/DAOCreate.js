@@ -69,7 +69,9 @@ foam.CLASS({
       }
     },
     function reset() {
-      this.data.copyFrom(this.of.create());
+      this.of.getAxiomsByClass(foam.lang.Property).forEach(p => {
+        this.data.clearProperty(p.name);
+      });
     }
   ]
 });

@@ -35,7 +35,6 @@ foam.CLASS({
           add(self.data.label$).
         end().
         br().
-        start().
           add(self.dynamic(async function(version) {
             var startTime = Date.now();
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
@@ -44,8 +43,7 @@ foam.CLASS({
             await select.execute(this);
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
-          })).
-        end();
+          }));
     }
   ],
 

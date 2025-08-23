@@ -50,7 +50,7 @@ public class BootProgress {
         });
     if ( incomplete.get() == 0 ) {
       if ( errors.get() > 0 ) {
-        logger.warning("Boot COMPLETE, with errors", errors.get());
+        logger.warning("Boot IDLE, with errors", errors.get());
         SERVICES.entrySet().stream()
           .forEach(e -> {
               if ( e.getValue().startsWith("ERROR") ) {
@@ -58,8 +58,8 @@ public class BootProgress {
               }
             }); 
       } else {
-        // NOTE: complete at the moment, another factory may be invoked later.
-        logger.info("Boot COMPLETE");
+        // NOTE: idle at the moment, another factory may be invoked later.
+        logger.info("Boot IDLE");
       }
     } else {
       logger.info("Boot summary - in progress", incomplete.get(), "errors", errors.get());

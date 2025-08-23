@@ -37,7 +37,8 @@ public class BootProgress {
       .sorted((e1, e2)->e1.getKey().compareTo(e2.getKey()))
       .forEach(e -> {
           if ( ! "Initialized".equals(e.getValue()) &&
-               ! "Created".equals(e.getValue()) ) {
+               ! "Created".equals(e.getValue()) &&
+               ! "Replayed".equals(e.getValue()) ) {
             incomplete.getAndIncrement();
             if ( e.getValue().startsWith("ERROR") ) {
               errors.getAndIncrement();

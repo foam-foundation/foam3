@@ -58,7 +58,7 @@ foam.CLASS({
         AtomicInteger failCount = new AtomicInteger();
 
         getLogger().info("Replay starting", getFilename());
-
+        foam.core.boot.BootProgress.UPDATE(getFilename(), "Replaying");
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
@@ -132,6 +132,7 @@ foam.CLASS({
           } else {
             getLogger().warning("Replay complete", getFilename(), "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
           }
+          foam.core.boot.BootProgress.UPDATE(getFilename(), "Replayed");
         }
       `
     }

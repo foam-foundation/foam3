@@ -133,6 +133,12 @@
       name: 'error',
       documentation: 'When populated and autocompleter is done loading, displays the error'
     },
+    {
+      class: 'Boolean',
+      name: 'triggerOnProgrammaticChange',
+      value: true,
+      documentation: 'Whether to show suggestions when data changes programmatically. Default true preserves backward compatibility.'
+    },
     'inputFocused'
   ],
 
@@ -147,7 +153,7 @@
         this.autocompleter.partial$ = this.data$;
 
       this.onDetach(this.data$.sub(function() {
-        if ( self.data )
+        if ( self.data && self.triggerOnProgrammaticChange )
           self.inputFocused = true;
       }));
 
@@ -186,8 +192,11 @@
               // using mousedown not click since mousedown is fired before blur is fired so we can intercept rowClick
               // otherwise when using click the blur gets fired first and the row listener is never called
                 let fn = self.onRowSelect ? self.onRowSelect(obj) : self.onSelect.call(self, obj);
-                fn?.then(() => {
-                  self.inputFocused = false;
+                fn?.then((shouldCloseSuggestions) => {
+                  // Only close suggestions if onSelect doesn't return false
+                  if ( shouldCloseSuggestions !== false ) {
+                    self.inputFocused = false;
+                  }
                 });
 
                 e.preventDefault();

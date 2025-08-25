@@ -71,6 +71,21 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'triggerOnProgrammaticChange',
+      value: false,
+      documentation: 'Disable showing suggestions on programmatic data changes for multi-field selection'
+    },
+    {
+      name: 'data',
+      postSet: function(oldValue, newValue) {
+        if ( this.shouldTriggerSuggestions(oldValue, newValue) ) {
+          if ( this.autocompleter ) {
+            this.autocompleter.onUpdate();
+          }
+        }
+      }
+    },
+    {
       name: 'placeholder',
       value: 'Type property name'
     },
@@ -88,7 +103,7 @@ foam.CLASS({
 
         // Clear suggestions after selection
         this.filteredValues = [];
-        return Promise.resolve();
+        return Promise.resolve(false);
       }
     },
     {
@@ -135,23 +150,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function init() {
-      this.SUPER();
-
-      // Watch for delimitter typing to show suggestions
-      var self = this;
-      this.onDetach(this.data$.sub(function(_, __, oldValue, newValue) {
-        if ( self.shouldTriggerSuggestions(oldValue, newValue.get()) ) {
-          if ( self.autocompleter ) {
-            self.autocompleter.onUpdate();
-          }
-        }
-        // else {                                   // TODO: intentionally commented out, this was to fix issue where a pop-up is always active
-        //   self.inputFocused = false;             // But adding this line of code, disables the narrowed down search options which pop-up as user types
-        // }
-      }));
-    },
-
     function parseSegments(str) {
       return str?.split(this.delimitter) ?? [];
     },
@@ -166,7 +164,27 @@ foam.CLASS({
     },
 
     function shouldTriggerSuggestions(oldStr, newStr) {
-      return newStr && newStr?.endsWith(this.delimitter) && ! oldStr?.endsWith(this.delimitter);
+      // Must be focused (inputFocused will be false for programmatic changes now)
+      if ( ! this.inputFocused ) {
+        return false;
+      }
+      
+      if ( newStr?.endsWith(this.delimitter) ) {
+        // Check if old already had delimiter to prevent double triggers
+        if ( oldStr?.endsWith(this.delimitter) ) {
+          return false;
+        }
+        
+        // Check for multiple segments added at once (likely programmatic)
+        var oldSegments = this.parseSegments(oldStr || '').filter(s => s.trim()).length;
+        var newSegments = this.parseSegments(newStr || '').filter(s => s.trim()).length;
+        if ( newSegments - oldSegments > 1 ) {
+          return false;
+        }
+        return true;
+      }
+      
+      return false;
     },
 
     function isPropertySelectable(property, context) {

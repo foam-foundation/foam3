@@ -53,10 +53,15 @@ foam.CLASS({
         var self = this;
         var f;
 
-        with ( this.__context__.scope ) {
-          f = eval('(function() { return ' + formula + '})');
+        if ( typeof formula === 'function' ) {
+          f = formula;
+        } else {
+          var formulaStr = String(formula);
+          with ( this.__context__.scope ) {
+            f = eval('(function() { return ' + formulaStr + '})');
+          }
+          f.toString = function() { return formulaStr; };
         }
-        f.toString = function() { return formula; };
 
         var detached = false;
         self.onDetach(function() { detached = true; });

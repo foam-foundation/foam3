@@ -7,6 +7,8 @@
 foam.CLASS({
   package: 'foam.parse',
   name: 'ErrorReportingPStream',
+  implements: ['foam.parse.JSPStream'],
+  documentation: 'PStream decorator to report parsing errors. Used for debugging parsers.',
 
   properties: [
     {

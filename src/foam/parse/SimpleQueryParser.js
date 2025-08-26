@@ -574,11 +574,8 @@ foam.CLASS({
 
   methods: [
     function parseString(str, opt_name, opt_apply) {
-      var query = this.grammar_.parseString(str, opt_name, opt_apply);
-      if ( query ) {
-        if ( query.partialEval ) query = query.partialEval();
-        console.log('*************query', query, query.toString());
-      }
+      let query = this.grammar_.parseString(str, opt_name, opt_apply);
+      // if we can simplify the query, do so now (something AND FALSE -> FALSE)
       query = query && query.partialEval ? query.partialEval() : query;
       return query;
     }

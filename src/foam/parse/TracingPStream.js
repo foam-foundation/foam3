@@ -7,6 +7,7 @@
 foam.CLASS({
   package: 'foam.parse',
   name: 'TracingPStream',
+  implements: ['foam.parse.JSPStream'],
 
   documentation: 'PStream decorator to add tracing. Used for debugging parsers.',
 

@@ -7,6 +7,7 @@
 foam.CLASS({
   package: 'foam.parse',
   name: 'StringPStream',
+  implements: ['foam.parse.JSPStream'],
 
   documentation: "Doesn't take arguments in create(). Must call setString() to initialize.",
 

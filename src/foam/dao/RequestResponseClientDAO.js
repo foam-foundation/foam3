@@ -133,7 +133,9 @@ Suitable for usage against backends that don't support listen(), such as plain H
           return superMethod(x, obj);
         }
         
-        var result = obj.normalizeObj();
+        if (obj && obj.normalizeObj && typeof obj.normalizeObj === 'function') {
+          var result = obj.normalizeObj();
+        }
         
         // Handle both promise and non-promise returns
         if ( result && typeof result.then === 'function' ) {

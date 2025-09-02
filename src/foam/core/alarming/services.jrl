@@ -68,6 +68,7 @@ p({
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.alarming.Alarm.getOwnClassInfo())
+      .setPm(false)
       .setInnerDAO(x.get("localAlarmDAO"))
       .setDecorator(new foam.core.alarming.AddAlarmNameDAO.Builder(x)
         .setDelegate(new foam.core.alarming.AlarmLoggingDAO.Builder(x)
@@ -87,6 +88,7 @@ p({
   "serve":true,
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.alarming.OMName.getOwnClassInfo())
       .setCluster(false)
       .build();
@@ -100,6 +102,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.alarming.CandlestickAlarm.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)

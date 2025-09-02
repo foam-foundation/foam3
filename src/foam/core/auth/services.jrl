@@ -69,6 +69,7 @@ p({
   "description": "DAO responsible for storing agent authentication permission information.",
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName(\"agentJunctions\")
       .setOf(foam.core.auth.UserUserJunction.getOwnClassInfo())
@@ -105,6 +106,7 @@ p({
   "serviceScript":
   """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.auth.Country.getOwnClassInfo())
       .setName("countries")
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("country"))
@@ -136,6 +138,7 @@ p({
   "serve":true,
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.auth.Credential.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
@@ -152,6 +155,7 @@ p({
   "serve":false,
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.auth.Credential.getOwnClassInfo())
       .setInnerDAO(x.get("credentialDAO"))
       .build();
@@ -210,6 +214,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.auth.GroupPermissionJunction.getOwnClassInfo())
       .setAuthorize(false)
       .setInnerDAO((foam.dao.DAO) x.get("localGroupPermissionJunctionDAO"))
@@ -300,6 +305,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.auth.Permission.getOwnClassInfo())
       .setInnerDAO((foam.dao.DAO) x.get("localPermissionDAO"))
       .build();
@@ -511,6 +517,7 @@ p({
   "serviceScript":
   """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.auth.LoginAttempt.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)

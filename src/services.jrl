@@ -303,6 +303,7 @@ p({
   """
   return new foam.dao.EasyDAO.Builder(x)
     .setOf(foam.flow.Document.getOwnClassInfo())
+    .setPm(false)
     .setAuthorize(false)
     .setInnerDAO(new foam.flow.DocumentationFolderDAO.Builder(x).build())
     .build();
@@ -317,6 +318,7 @@ p({
   """
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.flow.Document.getOwnClassInfo())
+      .setPm(false)
       .setPermissionPrefix("flow")
       .setInnerDAO(x.get("localDocumentDAO"))
       .build();
@@ -370,6 +372,7 @@ p({
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.lang.Currency.getOwnClassInfo())
       .setName("currency")
+      .setPm(false)
       .setInnerDAO(x.get("localCurrencyDAO"))
       .build();
   """,
@@ -412,6 +415,7 @@ p({
       .setOf(foam.core.google.api.auth.GoogleApiCredentials.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("googleCredentials")
+      .setPm(false)
       .build();
   """,
   "client":
@@ -491,6 +495,7 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("reportTemplates")
       .setAuthorize(true)
+      .setPm(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("reporttemplate"))
       .build();
   """,
@@ -551,6 +556,7 @@ p({
   "serve":true,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("addressconfig"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("addressConfig")
@@ -572,6 +578,7 @@ p({
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setFuid(true)
+      .setPm(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("approvalRequestClassifications")
       .setOf(foam.core.approval.ApprovalRequestClassification.getOwnClassInfo())

@@ -25,6 +25,7 @@ p({
   "serviceScript":
   """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("filetype"))
       .setGuid(true)
       .setOf(foam.core.fs.FileType.getOwnClassInfo())
@@ -102,6 +103,7 @@ p({
     nulldao = new foam.dao.NullDAO.Builder(x).setOf(foam.core.fs.FSFile.getOwnClassInfo()).build();
     fsdao = new foam.core.fs.FSFileDAO.Builder(x).setDelegate(nulldao).build();
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.fs.FSFile.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("fsFiles")
@@ -124,6 +126,7 @@ p({
     nulldao = new foam.dao.NullDAO.Builder(x).setOf(foam.core.fs.FSFileContent.getOwnClassInfo()).build();
     dao = new foam.core.fs.FSFileContentDAO.Builder(x).setDelegate(nulldao).build();
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.fs.FSFileContent.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("fsFileContents")

@@ -3,6 +3,7 @@ p({
   "name":"localSessionDAO",
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.session.Session.getOwnClassInfo())
       .setGuid(true)
       .setJournalName("sessions")
@@ -48,6 +49,7 @@ p({
   "serviceScript":"""
     import foam.dao.DAO;
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setDecorator(new foam.core.session.LocalSettingSessionDAO(x, new foam.dao.NullDAO(x, foam.core.session.LocalSetting.getOwnClassInfo())))
       .setAuthorize(true)
       .setOf(foam.core.session.LocalSetting.getOwnClassInfo())

@@ -4,6 +4,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.dao.history.HistoryRecord.getOwnClassInfo())
       .setSeqNo(true)
       .setSeqPropertyName("seqNo")
@@ -58,6 +59,7 @@ p({
   "serve": true,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.ticket.Ticket.getOwnClassInfo())
       .setAuthorize(true)
       .setEnableInterfaceDecorators(false)
@@ -104,6 +106,7 @@ p({
   "serve": true,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.ticket.TicketStatus.getOwnClassInfo())
       .setAuthorize(true)
       .setEnableInterfaceDecorators(false)
@@ -119,6 +122,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.dao.history.HistoryRecord.getOwnClassInfo())
       .setSeqNo(true)
       .setSeqPropertyName("seqNo")
@@ -163,6 +167,7 @@ p({
   "serve": true,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.ticket.TicketComment.getOwnClassInfo())
       .setAuthorize(true)
       .setEnableInterfaceDecorators(false)

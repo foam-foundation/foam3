@@ -15,6 +15,7 @@ p({
   "serve": true,
   "serviceScript": """
     dao = new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setEnableInterfaceDecorators(false)
       .setServiceProviderAware(true)
       .setOf(foam.core.ruler.Rule.getOwnClassInfo())

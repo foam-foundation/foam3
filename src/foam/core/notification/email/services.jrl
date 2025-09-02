@@ -26,6 +26,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailTemplate.getOwnClassInfo())
       .setInnerDAO((foam.dao.DAO) x.get("localEmailTemplateDAO"))
       .setRuler(false)
@@ -41,6 +42,7 @@ p({
   "lazy":false,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setAuthorize(false)
       .setFuid(true)
@@ -64,6 +66,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setInnerDAO((foam.dao.DAO) x.get("localEmailMessageDAO"))
       .setRuler(false)
@@ -80,6 +83,7 @@ p({
   "name":"localEmailMessageReceivedDAO",
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
@@ -101,6 +105,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setInnerDAO((foam.dao.DAO) x.get("localEmailMessageReceivedDAO"))
       .setRuler(false)
@@ -118,6 +123,7 @@ p({
   "name":"localEmailMessageProcessedDAO",
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
@@ -138,6 +144,7 @@ p({
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setInnerDAO((foam.dao.DAO) x.get("localEmailMessageProcessedDAO"))
       .setRuler(false)
@@ -179,6 +186,7 @@ p({
   "authenticate":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailConfig.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("emailConfig")
@@ -193,6 +201,7 @@ p({
   serve:true,
   serviceScript:"""
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.notification.email.EmailServiceConfig.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("emailServiceConfig")

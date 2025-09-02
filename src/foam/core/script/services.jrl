@@ -37,6 +37,7 @@ p({
     mdao.addIndex(new foam.lang.PropertyInfo[] {foam.core.script.ScriptEvent.OWNER});
     mdao.addIndex(new foam.lang.PropertyInfo[] {foam.core.script.ScriptEvent.LAST_RUN});
     return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
       .setOf(foam.core.script.ScriptEvent.getOwnClassInfo())
       .setMdao(mdao)
       .setGuid(true)

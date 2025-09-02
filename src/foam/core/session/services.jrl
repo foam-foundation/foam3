@@ -1,13 +1,37 @@
 p({
   "class":"foam.core.boot.CSpec",
+  "name":"addPersistentSessionsOnStart",
+  "lazy":false,
+  "serviceScript":"""
+    return new foam.core.session.AddPersistentSessionsOnStart();
+  """
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"persistentSessionDAO",
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
+      .setOf(foam.core.session.Session.getOwnClassInfo())
+      .setGuid(true)
+      .setJournalName("persistentSessions")
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setSaf(true)
+      .setAuthorize(false)
+      .setDecorator(new foam.dao.ValidatingDAO(x, new foam.dao.NullDAO(x, foam.core.session.Session.getOwnClassInfo())))
+      .build();
+  """
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
   "name":"localSessionDAO",
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
       .setOf(foam.core.session.Session.getOwnClassInfo())
       .setGuid(true)
-      .setJournalName("sessions")
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setSaf(true)
       .setAuthorize(false)
       .setDecorator(new foam.dao.ValidatingDAO(x, new foam.dao.NullDAO(x, foam.core.session.Session.getOwnClassInfo())))

@@ -148,6 +148,7 @@ foam.POM({
     { name: "session/SessionService",                                                     flags: "js|java" },
     { name: "session/SessionNotFoundException",                                           flags: "js|java" },
     { name: "session/SimpleSessionService",                                               flags: "js|java" },
+    { name: "session/AddPersistentSessionsOnStart",                                       flags: "js|java" },
     { name: "menu/XRegistration",                                                         flags: "js|java" },
     { name: "menu/AbstractMenu",                                                          flags: "js|java" },
     { name: "menu/AuthorizationStatus",                                                   flags: "js|java" },

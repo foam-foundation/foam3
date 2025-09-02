@@ -615,7 +615,8 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'pm'
+      name: 'pm',
+      value: true
     },
     {
       class: 'Boolean',

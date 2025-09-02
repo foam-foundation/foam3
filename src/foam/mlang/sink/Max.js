@@ -33,9 +33,24 @@ foam.CLASS({
           value = arg1.f(obj);
         }
       `,
-      javaCode: `if ( getValue() == null || ((Comparable)getArg1().f(obj)).compareTo(getValue()) > 0 ) {
-            setValue(getArg1().f(obj));
-          }`
+      javaCode: `
+Object newValue = getArg1().f(obj);
+
+// If we don't have a current maximum, use the new value
+if ( getValue() == null ) {
+  setValue(newValue);
+  return;
+}
+
+// If new value is null, keep current maximum
+if ( newValue == null ) {
+  return;
+}
+
+// Both values are non-null, compare them
+if ( ((Comparable)newValue).compareTo(getValue()) > 0 ) {
+  setValue(newValue);
+}`
     },
     {
       name: 'reduce',

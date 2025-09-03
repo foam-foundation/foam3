@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 foam.CLASS({
   package: 'foam.core.so',
   name: 'SystemNotificationPredicate',
@@ -16,6 +22,14 @@ foam.CLASS({
     {
       class: 'String',
       name: 'key'
+    }
+  ],
+  methods: [
+    {
+      name:'f',
+      javaCode: `
+        return true; // Cannot be evaluated in Java
+      `
     }
   ]
 });

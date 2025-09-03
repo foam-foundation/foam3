@@ -27,6 +27,9 @@ foam.CLASS({
   methods: [
     {
       name:'f',
+      code: function(obj) {
+        return this.fn(obj);
+      },
       javaCode: `
         return true; // Cannot be evaluated in Java
       `

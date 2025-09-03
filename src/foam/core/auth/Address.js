@@ -759,7 +759,7 @@ foam.CLASS({
           rtn += this.streetName;
         } else {
           rtn += this.address1;
-          rtn += ' ';
+          rtn += ', ';
           rtn += this.address2;
         }
         return rtn.trim();

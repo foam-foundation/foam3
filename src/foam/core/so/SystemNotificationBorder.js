@@ -25,6 +25,9 @@ foam.CLASS({
       flex-direction: column;
       gap: 1rem;
     }
+    ^fill {
+      width: 100%;
+    }
     ^close-icon {
       position: absolute;
       right: 0.5em;
@@ -47,19 +50,29 @@ foam.CLASS({
       class: 'FObjectArray',
       of: 'foam.core.so.SystemNotification',
       name: 'systemNotifications'
+    },
+    {
+      class: 'Boolean',
+      name: 'notificationBeforeContent'
+    },
+    {
+      class: 'Boolean',
+      name: 'fillContainer'
     }
   ],
   methods: [
-    async function init() {
-      this.systemNotifications = await this.systemNotificationService.getSystemNotifications(null, this.key);
-    },
-
-    function render() {
+    function init() {
+      this.systemNotificationService.getSystemNotifications(null, this.key).then(notifications => {
+        this.systemNotifications = notifications;
+      });
       var self = this;
       this.addClass()
-      .start('', {}, this.content$).style({ display: 'contents' }).end()
-      .add(this.dynamic(function(systemNotifications) {
-        if ( ! systemNotifications.length ) return;
+      .enableClass(this.myClass('fill'), this.fillContainer$)
+      .callIf(! this.notificationBeforeContent, function() {
+        self.buildContent(this);
+      })
+      .add(this.slot(function(systemNotifications) {
+        let e = this.E().style({ display: 'contents' });
         systemNotifications.forEach(sn => {
           if ( ! sn.dismissed ) {
             this.start(self.InlineNotificationMessage, { type: sn.severity.name })
@@ -75,8 +88,14 @@ foam.CLASS({
               .end();
           }
         });
-      }));
-      this.content = this.futureContent_;
+        return e;
+      }))
+      .callIf(this.notificationBeforeContent, function() {
+        self.buildContent(this);
+      });
+    },
+    function buildContent(e) {
+      e.start('', {}, this.content$).style({ display: 'contents' }).end();
     }
   ],
 

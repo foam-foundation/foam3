@@ -21,7 +21,13 @@ foam.CLASS({
   ],
 
   methods: [
-    function f(o) { return this.fn(o); },
+    {
+      name: 'f',
+      code: function(o) { return this.fn(o); },
+      javaCode: `
+        return true; // TODO: breaks sometimes in java, needs proper implementation
+      `
+    },
     function toString() {
       return 'FUNC(' + fn.toString() + ')';
     }

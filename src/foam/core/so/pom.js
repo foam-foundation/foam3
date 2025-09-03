@@ -22,6 +22,7 @@ foam.POM({
     { name: "SystemNotification",                                     flags: "java|js" },
     { name: "SystemNotificationBorder",                               flags: "web" },
     { name: "SystemNotificationService",                              flags: "js|java" },
+    { name: "SystemNotificationPredicate",                            flags: "js|java" },
     { name: "SystemNotificationServiceClient",                        flags: "js" },
     { name: "SystemNotificationServiceServer",                        flags: "js|java" },
     { name: "SystemNotificationTask",                                 flags: "java|js" },

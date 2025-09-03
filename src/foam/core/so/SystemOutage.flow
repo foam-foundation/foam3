@@ -2,7 +2,11 @@
 <p>SytemOutage is intended to model the actions taken when a system wide event has occured, or is occuring, such as maintenance event, or third party end-point failing. </p>
 
 <h2>SystemNotification</h2>
-<p>A SytemOutage with a <b>task</b> of type <b>SystemNotification</b> will display the <b>SystemNotification.message</b> via a <b>SystemNotificationBorder</b>. </p>
+<p>A SytemOutage with a <b>task</b> of type <b>SystemNotificationTask</b> will display the <b>SystemNotification.message</b> via a <b>SystemNotificationBorder</b>. </p>
+<p> SystemNotificationTasks can be filtered by theme/permission/CIDR Blocks. This filtering is done by the <b>SystemNotificationServiceServer</b>.</p>
+
+<h2>SystemNotificationPredicate</h2>
+<p>SystemNotificationPredicate is a JS only predicate that can be used to check if there are any active SystemOutages with a SystemNotificationTask that matches the key.</p>
 
 <h2>EventRecord Integration</h2>
 <p>If an EventRecord has a <b>SystemOutage</b> reference, then the <b>EventRecord</b> will <b>activate</b> and <b>deactivate</b> the <b>SystemOutage</b> as the <b>EventRecord</b> transitions from severity <b>INFO</b> to/from <b>WARN</b> or <b>ERROR</b>.</p>

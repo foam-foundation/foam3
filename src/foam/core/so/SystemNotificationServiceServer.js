@@ -63,6 +63,9 @@ foam.CLASS({
           .select(new ArraySink()))
           .getArray();
         List<SystemNotification> notifications = new ArrayList();
+        // If no remote IP, return empty array.
+        String remoteIp = foam.net.IPSupport.instance().getRemoteIp(x);
+        if ( remoteIp == null ) return notifications.toArray(new SystemNotification[0]);
         for ( SystemOutage outage : outages ) {
           Theme theme = (Theme) x.get("theme");
           List<SystemOutageTask> tasks = (List) ((ArraySink) outage.getTasks(getX()).select(new ArraySink())).getArray();
@@ -99,10 +102,6 @@ foam.CLASS({
                    snt.getCidrWhiteList().length > 0 ) {
                 boolean match = false;
                 foam.net.CIDR[] cidrs = snt.getCidrWhiteList();
-
-                String remoteIp = foam.net.IPSupport.instance().getRemoteIp(x);
-                ((foam.core.logger.Logger) x.get("logger")).warning(this.getClass().getSimpleName(), "getSystemNotifications", remoteIp);
-                if ( remoteIp == null ) continue;
 
                 for ( foam.net.CIDR cidr : cidrs ) {
                   try {

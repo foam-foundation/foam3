@@ -56,7 +56,7 @@ foam.CLASS({
       font-size: $body-sm;
       font-weight: $font-bold;
     }
-    ^value-view-container.opened {
+    ^value-view-container.opened.collapsable {
       border-color: $primary500;
     }
   `,
@@ -134,6 +134,7 @@ foam.CLASS({
                 .startContext({ data: row })
                   .start()
                     .addClass(self.myClass('value-view-container'))
+                    .enableClass('collapsable', self.collapseBehaviour$.map(v => v != 'NONE'))
                     .enableClass('opened', row.collapsed$, true)
                     .start(self.Cols)
                       .addClass(self.myClass('header-row'))

@@ -15,7 +15,7 @@ foam.CLASS({
   ],
 
   css:`
-    ^centered {
+    ^centered > * {
       align-self: center;
     }
   `,

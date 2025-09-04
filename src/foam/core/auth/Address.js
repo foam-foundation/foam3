@@ -758,9 +758,7 @@ foam.CLASS({
           rtn += ' ';
           rtn += this.streetName;
         } else {
-          rtn += this.address1;
-          rtn += ', ';
-          rtn += this.address2;
+          rtn += [this.address1, this.address2].join(', ');
         }
         return rtn.trim();
       },

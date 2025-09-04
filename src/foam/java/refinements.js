@@ -2639,6 +2639,8 @@ foam.CLASS({
   methods: [
 
     function buildJavaClass(cls) {
+      if ( ! this.javaSupport ) return;
+
     var result = this.TemplateUtil.create().compileJava(this.template, this.name, this.args || []);
       var args = [{ type: 'java.lang.StringBuilder', name: 'builder' }];
       args.push()

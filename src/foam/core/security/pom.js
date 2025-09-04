@@ -6,10 +6,11 @@
 
 foam.POM({
   name: "security",
+  projects: [
+    { name: "test/pom",                            flats: "test"}
+  ],
   files: [
-    { name: "KeyStoreManager",
-      flags: "js|java" },
-    { name: "StorageKeyStoreManager",
-      flags: "js|java" }
+    { name: "KeyStoreManager",                     flags: "js|java" },
+    { name: "StorageKeyStoreManager",              flags: "js|java" }
   ]
 });

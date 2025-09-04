@@ -66,6 +66,7 @@ foam.CLASS({
          name.equals("tools") ||
          name.equals("build") ||
          name.equals("node_modules") ||
+         name.startsWith("iso") ||
          name.startsWith(".") ) {
       logger.info("skip", path.toString());
       return FileVisitResult.SKIP_SUBTREE;
@@ -80,7 +81,8 @@ foam.CLASS({
     if ( ! path.toString().endsWith(".js") )
       return FileVisitResult.CONTINUE;
 
-    logger.info("processing", path.toString());
+    String relativePath = path.toString().substring(projectHome.length()+1);
+    logger.info("processing", relativePath);
 
     try (BufferedReader br = new BufferedReader(new FileReader(path.toFile()))) {
       String line;
@@ -124,11 +126,11 @@ foam.CLASS({
             }
           }
 
-          test ( false, path.toString()+":"+lineNum+" - "+line);
+          test ( false, relativePath+":"+lineNum+" - "+line);
         }
       }
     } catch (IOException e) {
-      test ( false, "Error processing file "+path.toString() + " " + e.getMessage());
+      test ( false, "Error processing file "+relativePath + " " + e.getMessage());
     }
     return FileVisitResult.CONTINUE;
   }

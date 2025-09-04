@@ -51,7 +51,7 @@ if (other instanceof foam.mlang.sink.Sum) {
 
     function toProperties() {
       var name = 'sum_' + this.arg1.name;
-      return [ { class: 'Double', name: name , label: foam.String.labelize(name) } ];
+      return [ { class: 'Double', name: name , label: 'SUM(' + foam.String.labelize(name) + ')' } ];
     },
 
     function valueOf() { return this.value; },

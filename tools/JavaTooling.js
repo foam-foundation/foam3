@@ -138,6 +138,7 @@ foam.POM({
       JAVA_OPTS += ' -enableassertions';
       JAVA_OPTS += ' -Dresource.journals.dir=journals';
       JAVA_OPTS += ' -DRES_JAR_HOME=' + JAR_OUT;
+      JAVA_OPTS += ` -Dproject.home=${PROJECT_HOME}`;
 
       if ( DEBUG )
         JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;

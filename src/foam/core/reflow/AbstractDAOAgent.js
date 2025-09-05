@@ -844,7 +844,6 @@ foam.CLASS({
   name: 'DownloadView',
   extends: 'foam.u2.Controller',
 
-  // TODO: support columns=
   // TODO: detect local DAOs and disable
 
   imports: [ 'block', 'sessionID', 'window' ],
@@ -863,13 +862,16 @@ foam.CLASS({
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
-          debugger;
           var mql = p.toMQL();
           url = url + '&q=' + encodeURIComponent(mql);
           throw "just probing";
         };
         await dao.select(sink);
       } catch (x) {
+      }
+
+      if ( this.block.value.columns ) {
+        url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
       }
 
       var addFormat = (label, extension, format) => {

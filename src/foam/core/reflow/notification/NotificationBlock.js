@@ -113,15 +113,6 @@ foam.CLASS({
     {
       name: 'severity',
       section: 'content',
-      view: {
-        class: 'foam.u2.view.ChoiceView',
-        choices: [
-          ['INFO', 'Information'],
-          ['WARN', 'Warning'], 
-          ['ERROR', 'Error'],
-          ['DEBUG', 'Debug']
-        ]
-      }
     },
     {
       name: 'broadcasted',
@@ -208,19 +199,9 @@ foam.CLASS({
   ],
 
   methods: [
-    function init() {
-      this.SUPER();
-      // Custom initialization
-    },
-
-    async function onLoad() {
-      // Initialize any needed data
-      return Promise.resolve();
-    },
-
     function evaluateCondition() {
       try {
-        if (!this.condition || this.condition.trim() === '') {
+        if ( ! this.condition || this.condition.trim() === '' ) {
           return true; // Default to true if no condition
         }
 
@@ -231,8 +212,8 @@ foam.CLASS({
         if (conditionStr === 'false') return false;
         
         // Evaluate as expression with foam.core.reflow.lib and localScope context
-        with (foam.core.reflow.lib) {
-          with (this.localScope) {
+        with ( foam.core.reflow.lib ) {
+          with ( this.localScope ) {
             return eval(conditionStr);
           }
         }
@@ -246,11 +227,11 @@ foam.CLASS({
     function validateNotification() {
       var errors = [];
       
-      if (!this.body || this.body.trim().length === 0) {
+      if ( ! this.body || this.body.trim().length === 0) {
         errors.push('Notification body is required');
       }
-      
-      if (!this.broadcasted && !this.userId && !this.groupId) {
+
+      if ( ! this.broadcasted && ! this.userId && ! this.groupId ) {
         errors.push('Must specify either a user, group, or broadcast to all');
       }
       
@@ -260,7 +241,7 @@ foam.CLASS({
     async function createNotification() {
       try {
         // Check condition first
-        if (!this.evaluateCondition()) {
+        if ( ! this.evaluateCondition() ) {
           this.blockStatus = 'Condition not met - notification not created';
           this.notify && this.notify('Condition not met, notification was not created', '', this.LogLevel.INFO, true);
           return;
@@ -268,7 +249,7 @@ foam.CLASS({
 
         // Validate before creating
         var validationErrors = this.validateNotification();
-        if (validationErrors.length > 0) {
+        if ( validationErrors.length > 0 ) {
           this.blockStatus = 'Validation Failed: ' + validationErrors.join(', ');
           this.notify && this.notify('Validation failed: ' + validationErrors.join(', '), '', this.LogLevel.ERROR, true);
           return;

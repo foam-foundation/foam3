@@ -1,0 +1,13 @@
+p({
+  "class": "foam.core.reflow.cmd.Command",
+  "id": "notification",
+  "description": "Create Notification",
+  "script": `
+    // Create notification block instance
+    var block = foam.core.reflow.notification.NotificationBlock.create({}, this);
+    
+    // Set as current block value and assign flow name
+    this.currentBlock.value = block;
+  `,
+  permissionRequired: true
+})

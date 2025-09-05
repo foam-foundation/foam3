@@ -608,9 +608,6 @@ foam.CLASS({
     {
       name: 'onClick',
       code: function(e) {
-        if ( e.srcElement.nodeName == 'INPUT' ) return;
-        e.stopImmediatePropagation();
-        e.preventDefault();
         this.selected = this;
       }
     }

@@ -325,21 +325,6 @@ foam.CLASS({
         this.condition = 'true';
         this.blockStatus = 'Draft';
       }
-    },
-    {
-      name: 'testCondition',
-      label: 'Test Condition',
-      documentation: 'Test the execution condition',
-      buttonStyle: 'TERTIARY',
-      code: function() {
-        var result = this.evaluateCondition();
-        this.notify && this.notify(
-          `Condition "${this.condition}" evaluates to: ${result}`,
-          '',
-          this.LogLevel.INFO,
-          true
-        );
-      }
     }
   ]
 });

@@ -40,6 +40,14 @@ return ( s1 instanceof String && ((String) s1).toUpperCase().contains(s2) );`
       name: 'createStatement',
       type: 'String',
       javaCode: `return " '" + getArg1().createStatement() + "' ilike '%" + getArg2().createStatement() + "%' ";`
+    },
+
+    function toMQL() {
+      var arg2 = this.arg2ToMQL();
+      if ( ! arg2 )
+        return null;
+      return this.arg1.name + ':' + arg2;
     }
+
   ]
 });

@@ -95,6 +95,7 @@ foam.CLASS({
     function addToE(e) {
       e.tag(this.GridByView, {data: this, x$: this.x$, y$: this.y$});
     },
+
     function toString() {
       return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc})`;
     }

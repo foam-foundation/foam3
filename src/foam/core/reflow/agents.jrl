@@ -25,3 +25,4 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 25, "label":"Stacked Bar Chart", 
 p({"class":"foam.core.reflow.SinkAgent", "id": 26, "label":"Pie Chart", "value":"foam.core.reflow.dashboard.DashboardPieChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 27, "label":"Line Chart", "value":"foam.core.reflow.dashboard.DashboardLineChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 28, "label":"Metric", "value":"foam.core.reflow.dashboard.DashboardMetricDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
+p({"class":"foam.core.reflow.SinkAgent", "id": 30, "label":"Download", "value":"foam.core.reflow.DownloadDAOAgent", "sink":false, "type":"format", permissionRequired: true})

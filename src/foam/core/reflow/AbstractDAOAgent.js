@@ -39,7 +39,9 @@ foam.CLASS({
         } else {
           this.block.value = this.value(s);
         }
-        e.startContext({dao: this.dao})
+//        s = s.clone({columnStorage: sink.__context__.columnStorage});
+
+        e.startContext({dao: this.dao/*, columnStorage: sink.__context__.columnStorage*/})
           .start()
             .call(function() {
               self.addSinkToE(this, s);
@@ -750,7 +752,7 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.ViewSink' ],
 
   methods: [
-    function createSink() { return this.ViewSink.create(); },
+    function createSink() { return this.ViewSink.create(); }
   ]
 });
 
@@ -832,6 +834,56 @@ foam.CLASS({
         var agent = cls.create({}, this);
         e.start('h2').add(a.label).end().start().call(function () { agent.execute(this); });
       });
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DownloadView',
+  extends: 'foam.u2.Controller',
+
+  imports: [ 'block', 'sessionID', 'window' ],
+
+  methods: [
+    function render() {
+      var location = this.window.location.origin;
+      var daoKey   = this.block.value.dao.cmd('serviceName?').substring(8);
+      var url = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}`;
+
+      var addFormat = (label, extension, format) => {
+        this.start('a').
+          attrs({
+            href: url + '&format=' + format,
+            rel: 'noopener noreferrer',
+            download: daoKey + extension,
+            target: '_blank'
+          }).
+          add(label);
+        return this;
+      };
+
+      this.add('Download As: ');
+      addFormat('CSV',    '.csv',  'csv'  ).add(', ');
+      addFormat('JSON',   '.json', 'json' ).add(', ');
+      addFormat('JSON/J', '.jrl',  'jsonj').add(', ');
+      addFormat('XML',    '.xml',  'xml'  );
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DownloadDAOAgent',
+  extends: 'foam.core.reflow.AbstractDAOAgent',
+
+  requires: [ 'foam.core.reflow.DownloadView' ],
+
+  methods: [
+    function execute(e) {
+      e.tag(this.DownloadView);
     }
   ]
 });

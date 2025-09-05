@@ -283,29 +283,6 @@ foam.CLASS({
       code: async function() {
         await this.createNotification();
       }
-    },
-    {
-      name: 'clear',
-      label: 'Clear Block',
-      documentation: 'Clear notification block fields',
-      buttonStyle: 'SECONDARY',
-      code: function() {
-        // Clear inherited properties
-        this.body = '';
-        this.toastMessage = '';
-        this.toastSubMessage = '';
-        this.notificationType = 'General';
-        this.severity = this.LogLevel.INFO;
-        this.broadcasted = false;
-        this.userId = null;
-        this.groupId = null;
-        this.icon = '';
-        this.template = '';
-        this.emailName = null;
-        // Clear custom properties
-        this.condition = 'true';
-        this.blockStatus = 'Draft';
-      }
     }
   ]
 });

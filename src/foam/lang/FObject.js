@@ -615,6 +615,8 @@ foam.CLASS({
     },
 
     function pub(a1, a2, a3, a4, a5, a6, a7, a8) {
+      if ( ! this.hasOwnPrivate_('listeners') ) return 0;
+
       /**
        * Publish a message to all matching sub()'ed listeners.
        *
@@ -658,10 +660,6 @@ foam.CLASS({
 
     function pub_(args) {
       /** Internal publish method, called by pub(). */
-
-      // No listeners, so return.
-      if ( ! this.hasOwnPrivate_('listeners') ) return 0;
-
       var listeners = this.listeners_();
 
       // Notify all global listeners.

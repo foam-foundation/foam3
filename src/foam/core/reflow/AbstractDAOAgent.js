@@ -619,7 +619,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'PivotDAOAgent',
-  extends: 'foam.core.reflow.AbstractDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
 
   requires: [ 'foam.core.reflow.Pivot' ],
 

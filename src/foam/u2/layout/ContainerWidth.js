@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.u2.layout',
   name: 'ContainerWidth',
   documentation: 'Intended to be used with ResizeObserver',
-  
+
   requires: ['foam.u2.layout.DisplayWidth'],
 
   properties: [

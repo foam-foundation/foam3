@@ -28,7 +28,7 @@ foam.CLASS({
       name: 'city',
       validationPredicates: [
         {
-          query: 'city~/\\D/',
+          query: 'city~/^\\D*$/',
           errorMessage: 'CITY_CONTAINS_NUMBER'
         }
       ]

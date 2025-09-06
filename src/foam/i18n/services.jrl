@@ -2,11 +2,10 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"xliffTranslationDAO",
   "serve":true,
-  "authNotes":"Unauthorized as provides translation per authentication",
   "serviceScript":
   """
     return new foam.dao.EasyDAO.Builder(x)
-      .setAuthorize(false)
+      .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("xlifftranslation"))
       .setJournalName("xliffTranslations")
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setOf(foam.i18n.XLIFFTranslationValue.getOwnClassInfo())

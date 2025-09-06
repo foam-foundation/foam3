@@ -7,7 +7,7 @@
 foam.POM({
   name: "security",
   projects: [
-    { name: "test/pom",                            flats: "test"}
+    { name: "test/pom",                            flags: "test"}
   ],
   files: [
     { name: "KeyStoreManager",                     flags: "js|java" },

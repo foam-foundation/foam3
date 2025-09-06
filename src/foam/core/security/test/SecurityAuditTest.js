@@ -131,7 +131,6 @@ foam.CLASS({
     {
       name: 'isDAO',
       args: 'X x, DAO dao, String name',
-      // args: 'X x, DIG dao, String name',
       type: 'Boolean',
       javaCode: `
         try {

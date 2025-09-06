@@ -40,7 +40,7 @@ foam.CLASS({
             CapabilityJunctionPayload payload = (CapabilityJunctionPayload) obj;
             if ( old != null && old.getStatus() == payload.getStatus() ) return;
 
-            var payloadDAO = (DAO) getX().get("capablePayloadDAO");
+            var payloadDAO = (DAO) getX().get("capabilityPayloadDAO");
 
             var crunchService = (CrunchService) x.get("crunchService");
             var depIds = crunchService.getDependentIds(XLocator.get(), payload.getCapability());

@@ -41,7 +41,7 @@ foam.CLASS({
       agency.submit(getX(), new ContextAwareAgent() {
         @Override
         public void execute(X x) {
-          var payloadDAO = (DAO) getX().get("capablePayloadDAO");
+          var payloadDAO = (DAO) getX().get("capabilityPayloadDAO");
 
           CapabilityJunctionPayload payload = (CapabilityJunctionPayload) obj;
 

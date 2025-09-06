@@ -21,7 +21,8 @@ foam.CLASS({
     {
       name: 'regionId',
       visibility: 'HIDDEN',
-      required: false
+      required: false,
+      javaValidateObj: null
     },
     {
       name: 'city',

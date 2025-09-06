@@ -19,6 +19,7 @@ p({
   "name":"pm1MinuteDAO",
   "lazy":true,
   "serve":true,
+  "authNotes":"Analytic Candlestick unauthenticated to capture events pre authentication",
   "serviceScript":"return new foam.dao.MDAO(foam.core.analytics.Candlestick.getOwnClassInfo());",
   "client":"{\"of\":\"foam.core.analytics.Candlestick\"}"
 })
@@ -104,6 +105,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"pmInfoDAO",
   "serve":true,
+  "authNotes":"Readonly wrapper on pmLogger",
   "serviceScript":`
     return x.get("pmLogger").asDAO().orderBy(foam.mlang.MLang.DESC(foam.core.pm.PMInfo.TOTAL_TIME));
   `,

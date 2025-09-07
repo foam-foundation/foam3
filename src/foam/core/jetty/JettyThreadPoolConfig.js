@@ -25,8 +25,7 @@ foam.CLASS({
     },
     {
       name: 'enableVirtualThreads',
-      class: 'Boolean',
-      value: true
+      class: 'Boolean'
     }
   ]
 });

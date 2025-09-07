@@ -12,11 +12,16 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'DAOPromptView',
   extends: 'foam.u2.View',
-
+  requires: [
+    'foam.u2.LoadingSpinner',
+  ],
   css: `
   `,
 
-  properties: [ { class: 'Long', name: 'version' } ],
+  properties: [
+    { class: 'Long', name: 'version' },
+    { class: 'Boolean', name: 'loading' }
+  ],
 
   methods: [
     function render() {
@@ -34,13 +39,16 @@ foam.CLASS({
           show(this.data.labelVisible$).
           add(self.data.label$).
         end().
+        start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
         br().
           add(self.dynamic(async function(version) {
             var startTime = Date.now();
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
             // TODO: fix JSON parsing should setup context correctly
             var select    = self.data.select.clone(self.data.__subContext__);
+            self.loading = true;
             await select.execute(this);
+            self.loading = false;
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
           }));

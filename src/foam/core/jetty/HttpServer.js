@@ -220,7 +220,7 @@ foam.CLASS({
         threadPool.setMaxThreads(jettyThreadPoolConfig.getMaxThreads());
         threadPool.setMinThreads(jettyThreadPoolConfig.getMinThreads());
         threadPool.setIdleTimeout(jettyThreadPoolConfig.getIdleTimeout());
-        if ( ! jettyThreadPoolConfig.getEnableVirtualThreads() ) {
+        if ( jettyThreadPoolConfig.getEnableVirtualThreads() ) {
           // https://jetty.org/docs/jetty/12/programming-guide/arch/threads.html#thread-pool-virtual-threads
           // Simple, unlimited, virtual thread Executor.
           threadPool.setVirtualThreadsExecutor(Executors.newVirtualThreadPerTaskExecutor());

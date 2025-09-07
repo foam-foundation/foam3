@@ -33,14 +33,17 @@ foam.CLASS({
     'source',
     'passed',
     'failed',
-    'run'
+    'run',
+    'notes',
+    'status'
   ],
 
   searchColumns: [
     'id',
     'description',
     'source',
-    'language'
+    'language',
+    'status'
   ],
 
   documentation: `
@@ -57,6 +60,7 @@ foam.CLASS({
       name: 'source',
       tableWidth: 300,
       transient: true,
+      visibility: 'RO',
       factory: function() { return this.cls_.id === 'foam.core.test.Test' ? this.language : this.cls_.id; },
       javaFactory: 'return getClass().toString();'
     },
@@ -294,17 +298,19 @@ foam.CLASS({
             this.passed = 0;
             this.failed = 0;
             this.output = '';
+            this.notes = '';
             var log = function() {
               this.output += Array.from(arguments).join('') + '\n';
             }.bind(this);
             var test = (condition, message) => {
               if ( condition ) {
                 this.passed += 1;
+                this.output += 'SUCCESS: '+message+'\n';
               } else {
                 this.failed += 1;
+                this.output += 'FAILURE: '+message+'\n';
+                this.notes = this.output;
               }
-              this.output += ( condition ? 'SUCCESS: ' : 'FAILURE: ' ) +
-                message + '\n';
             };
             var expect = (value, expectedValue, message) => {
               if ( foam.util.equals(value, expectedValue) ) {
@@ -313,14 +319,18 @@ foam.CLASS({
               } else {
                 this.failed += 1;
                 this.output += 'FAILURE: '+message+' (expected "'+expectedValue+'", actual result: "'+value+'")\n';
+                this.notes = this.output;
               }
             };
 
-            var updateStats = () => {
+            var updateStats = (err) => {
               var endTime  = Date.now();
               var duration = endTime - startTime; // Unit: milliseconds
               this.lastRun = new Date();
               this.lastDuration = duration;
+              if ( err ) {
+                this.notes += err + '\n';
+              }
             };
 
             with ( { log: log, print: log, x: this.__context__, expect: expect, test: test } ) {
@@ -334,13 +344,13 @@ foam.CLASS({
                 updateStats();
                 resolve();
               }, (err) => {
-                updateStats();
+                updateStats(err);
                 this.failed += 1;
                 reject(err);
               });
             }
           } catch (err) {
-            updateStats();
+            updateStats(err);
             this.failed += 1;
             reject(err);
           }

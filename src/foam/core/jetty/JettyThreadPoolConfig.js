@@ -22,6 +22,11 @@ foam.CLASS({
       name: 'idleTimeout',
       class: 'Int',
       value: 60000
+    },
+    {
+      name: 'enableVirtualThreads',
+      class: 'Boolean',
+      value: true
     }
   ]
 });

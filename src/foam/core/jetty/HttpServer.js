@@ -39,6 +39,7 @@ foam.CLASS({
     'java.util.Map',
     'java.util.Map.Entry',
     'java.util.Set',
+    'java.util.concurrent.Executors',
     'jakarta.servlet.Servlet',
     'jakarta.servlet.ServletContext',
     'org.apache.commons.io.IOUtils',
@@ -54,15 +55,16 @@ foam.CLASS({
     'org.eclipse.jetty.server.handler.gzip.GzipHandler',
     'org.eclipse.jetty.server.handler.StatisticsHandler',
     'org.eclipse.jetty.servlet.ServletHolder',
+    'org.eclipse.jetty.util.component.Container',
+    'org.eclipse.jetty.util.ssl.SslContextFactory',
+    'org.eclipse.jetty.util.thread.QueuedThreadPool',
+    'org.eclipse.jetty.util.thread.ThreadPool',
     'org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse',
     'org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest',
     'org.eclipse.jetty.websocket.server.JettyWebSocketCreator',
     'org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer',
     'org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer.Configurator',
     'org.eclipse.jetty.websocket.server.JettyWebSocketServerContainer',
-    'org.eclipse.jetty.util.component.Container',
-    'org.eclipse.jetty.util.ssl.SslContextFactory',
-    'org.eclipse.jetty.util.thread.QueuedThreadPool'
   ],
 
   properties: [
@@ -218,6 +220,11 @@ foam.CLASS({
         threadPool.setMaxThreads(jettyThreadPoolConfig.getMaxThreads());
         threadPool.setMinThreads(jettyThreadPoolConfig.getMinThreads());
         threadPool.setIdleTimeout(jettyThreadPoolConfig.getIdleTimeout());
+        if ( ! jettyThreadPoolConfig.getEnableVirtualThreads() ) {
+          // https://jetty.org/docs/jetty/12/programming-guide/arch/threads.html#thread-pool-virtual-threads
+          // Simple, unlimited, virtual thread Executor.
+          threadPool.setVirtualThreadsExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        }
 
         ConnectionStatistics stats = new ConnectionStatistics();
         org.eclipse.jetty.server.Server server =
@@ -225,7 +232,7 @@ foam.CLASS({
 
         if ( getEnableHttp() ) {
           getLogger().info("Starting,HTTP,port", port);
-          
+
           // Play nice behind reverse proxies
           // Respect X-Forwarded-For and X-Forwarded-Proto
           HttpConfiguration config = new HttpConfiguration();

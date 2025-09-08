@@ -776,7 +776,7 @@ foam.CLASS({
             { name: 'icon' },
             { name: 'themeIcon' },
             { name: 'toolTip' },
-            // These need more work to be integrated here, they need proper data setting, we would probably want to switch to ActionReferneces for this
+            // These need more work to be integrated here, they need proper data setting, we would probably want to switch to ActionReferences for this
             // { name: 'isEnabled' },
             // { name: 'isAvailable' }
           ]
@@ -810,7 +810,7 @@ foam.CLASS({
           name: 'name',
           factory: function() { return 'flowButton_' + foam.next$UID(); }
         },
-        ['label', 'Button']
+        ['label', 'Button','toolTip'],
       ],
       methods: [
         function toE(args, X) {
@@ -828,7 +828,6 @@ foam.CLASS({
           if ( X.data$ && ! ( args && ( args.data || args.data$ ) ) ) {
             view.data$ = X.data$;
           }
-
           return view;
         }
       ]

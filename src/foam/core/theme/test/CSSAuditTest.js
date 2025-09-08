@@ -104,8 +104,6 @@ foam.CLASS({
           String value = matcher.group(2);
           if ( "color".equals(property) ) {
             if ( value.contains("currentColor") ||
-                 value.contains("current-color") ||
-                 value.contains("important") ||
                  value.contains("inherit") ||
                  value.contains("none") ||
                  value.contains("transparent") ||
@@ -121,6 +119,11 @@ foam.CLASS({
             }
           } else if ( "font".equals(property) ) {
             if ( value.contains("inherit") ) {
+              logger.info("ignoring", property, value);
+              continue;
+            }
+            if ( value.contains(".") ) {
+              // enum
               logger.info("ignoring", property, value);
               continue;
             }

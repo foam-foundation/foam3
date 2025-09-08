@@ -34,7 +34,6 @@ foam.CLASS({
     'passed',
     'failed',
     'run',
-    'notes',
     'status'
   ],
 

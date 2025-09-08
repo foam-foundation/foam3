@@ -810,7 +810,7 @@ foam.CLASS({
           name: 'name',
           factory: function() { return 'flowButton_' + foam.next$UID(); }
         },
-        ['label', 'Button','toolTip'],
+        ['label', 'Button'],
       ],
       methods: [
         function toE(args, X) {

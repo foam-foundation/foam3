@@ -775,6 +775,7 @@ foam.CLASS({
             { name: 'size' },
             { name: 'icon' },
             { name: 'themeIcon' },
+            { name: 'toolTip' },
             // These need more work to be integrated here, they need proper data setting, we would probably want to switch to ActionReferneces for this
             // { name: 'isEnabled' },
             // { name: 'isAvailable' }
@@ -820,7 +821,8 @@ foam.CLASS({
             buttonStyle$: this.buttonStyle$,
             size$: this.size$,
             icon$: this.icon$,
-            themeIcon$: this.themeIcon$
+            themeIcon$: this.themeIcon$,
+            toolTip$: this.toolTip$
           }, this, X);
 
           if ( X.data$ && ! ( args && ( args.data || args.data$ ) ) ) {

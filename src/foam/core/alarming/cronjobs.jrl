@@ -112,3 +112,25 @@ p({
     print("done");
   """
 })
+
+
+p({
+  class: "foam.core.cron.Cron",
+  id: "diskSpaceMonitoringCron",
+  schedule: {
+    "class":"foam.core.cron.IntervalSchedule",
+    "duration":{
+      "class":"foam.core.cron.TimeHMS",
+      "minute": 60
+    }
+  },
+  scheduledTime: "2025-06-02T14:00:00.000Z",
+  enabled: true,
+  description: "Hourly cron for monitoring disk space",
+  code:
+  """
+    cron = new foam.core.alarming.DiskSpaceMonitoringCron.Builder(x).build();
+    cron.execute(x);
+    print("Done");
+  """
+})

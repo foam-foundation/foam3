@@ -134,7 +134,7 @@ foam.CLASS({
       var startTime = Date.now();
 
       dao.select({
-        put: function(t) {
+        put: async function(t) {
           try {
             self.status = 'Testing: ' + t.id;
 
@@ -146,7 +146,7 @@ foam.CLASS({
             // correct results.
 
             t.runScript();
-            t.copyFrom(dao.put(t));
+            t.copyFrom(await dao.put(t));
 
             self.passed += t.passed;
             self.failed += t.failed;

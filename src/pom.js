@@ -95,6 +95,7 @@ foam.POM({
     { name: "foam/parse/TrapPStream",                                 flags: "js" },
     { name: "foam/parse/InvalidPStream",                              flags: "js" },
     { name: "foam/parse/parse",                                       flags: "js" },
+    { name: "foam/parse/JSPStream",                                   flags: "js" },
 //    { name: "foam/parse/TracingPStream",                              flags: "js" },
     { name: "foam/parse/json/String",                                 flags: "js" },
     { name: "foam/parse/json/Parsers",                                flags: "js" },

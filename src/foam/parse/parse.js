@@ -109,17 +109,12 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'AbstractParser',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
   abstract: true,
 
+  requires:[ 'foam.parse.StringPStream' ],
+
   methods: [
-    function parseString(str) {
-      const ps = this.StringPStream.create({str: str});
-
-      var result = this.ps.apply(start, this);
-      return result && result.value;
-    },
-
     function match(str) {
       var ps = this.StringPStream.create();
       ps.setString(str);
@@ -199,7 +194,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'ParserDecorator',
-  implements: ['foam.parse.Parser'],
+  implements: ['foam.parse.JSParser'],
   abstract: true,
 
   properties: [
@@ -219,7 +214,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Literal',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Matches a literal with the parse stream (case sensitive)',
 
@@ -255,7 +250,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'LiteralIC',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Matches a literal with the parse stream (case insensitive)',
 
@@ -298,7 +293,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'EOF',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Matches the literal EOF of the input stream, useful if you want to force your grammar to only succeed if it consumes the entire input.',
 
@@ -320,7 +315,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Alternate',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Attempts to match one of the parser properties to the parse stream.',
 
@@ -359,7 +354,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Sequence',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Parses the parser properties sequentially.',
 
@@ -457,7 +452,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Sequence0',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Parses the parser properties sequentially, without returning value',
 
@@ -493,7 +488,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Sequence1',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Parses the parser properties sequentially, returning the n(th) property value parsed.',
 
@@ -559,7 +554,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'AnyChar',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: `Matches any char within the parse stream.
     Often used under the else clause of the 'not' parser
@@ -580,7 +575,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'NotChars',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: `Matches against all but the chars specified
     in the argument string.`,
@@ -613,7 +608,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Chars',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: `Matches against any of the chars specified
     in the argument string.`,
@@ -646,7 +641,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Range',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: "Matches against a range of chars specified with from/to. Ex. range('0', '9') for digits",
 
@@ -944,7 +939,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Symbol',
-  implements: 'foam.parse.Parser',
+  implements: ['foam.parse.JSParser'],
 
   documentation: 'Parses based on the parser property named.',
 

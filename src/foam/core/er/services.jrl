@@ -11,6 +11,7 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("eventRecords")
       .setWaitReplay(false)
+      .setSyncReplay(true)
       .setPm(true)
       .setDecorator(
         new foam.core.er.EventRecordResponseDAO.Builder(x).setDelegate(

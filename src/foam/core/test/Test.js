@@ -298,19 +298,18 @@ foam.CLASS({
             this.passed = 0;
             this.failed = 0;
             this.output = '';
-            this.notes = '';
             var log = function() {
               this.output += Array.from(arguments).join('') + '\n';
             }.bind(this);
             var test = (condition, message) => {
               if ( condition ) {
                 this.passed += 1;
-                this.output += 'SUCCESS: '+message+'\n';
               } else {
                 this.failed += 1;
-                this.output += 'FAILURE: '+message+'\n';
-                this.notes = this.output;
               }
+              this.output += ( condition ? 'SUCCESS: ' : 'FAILURE: ' ) +
+                message + '\n';
+
             };
             var expect = (value, expectedValue, message) => {
               if ( foam.util.equals(value, expectedValue) ) {
@@ -319,7 +318,6 @@ foam.CLASS({
               } else {
                 this.failed += 1;
                 this.output += 'FAILURE: '+message+' (expected "'+expectedValue+'", actual result: "'+value+'")\n';
-                this.notes = this.output;
               }
             };
 
@@ -329,7 +327,7 @@ foam.CLASS({
               this.lastRun = new Date();
               this.lastDuration = duration;
               if ( err ) {
-                this.notes += err + '\n';
+                this.output += err + '\n';
               }
             };
 

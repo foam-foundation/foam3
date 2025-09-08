@@ -58,7 +58,6 @@ foam.CLASS({
       class: 'Boolean',
       name: 'maintainAspectRatio',
       label: 'Maintain Aspect Ratio',
-      value: true
     },
     {
       class: 'Int',

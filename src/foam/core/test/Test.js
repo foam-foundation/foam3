@@ -86,7 +86,7 @@ foam.CLASS({
       view: { class: 'foam.u2.tag.TextArea', rows: 20 },
       factory: function() {
         var s = '';
-        if ( this.runTest != foam.core.test.Test.prototype.runTest ) {
+        if ( this.runTest && this.runTest != foam.core.test.Test.prototype.runTest ) {
           s += 'Javascript: ' + this.runTest.toString();
         }
         if ( this.cls_.getAxiomByName('runTest').javaCode ) {

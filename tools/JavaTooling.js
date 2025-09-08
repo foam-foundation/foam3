@@ -475,8 +475,8 @@ foam.POM({
       this.log('    Run all client side (Javascript) test cases and leave foam test app running after tests have completed executing. Also show the browser GUI to monitor test activity.');
       this.log('  ./build.sh --run-tests:CIDRTest,ClientAddressUtilAddressParsingTest');
       this.log('    This example is a mix of one server side test and one client side test');
-      this.log('  ./build.sh --flags:test');
-      this.log('    A build which includes Test DAOs and client test casses suitable for development');
+      this.log('  ./build.sh -Jtest,demo --flags:test');
+      this.log('    A build for developing/creating client side test cases.  Final tests should be copied back from runtime journals to repository journals.');
     }],
 
     versions: ['versions', 'Show version information.', ['getProjectRevision', 'getFOAMRevision'], function() {

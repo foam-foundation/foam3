@@ -140,7 +140,8 @@ p({
   "lazy": false,
   "serve": false,
   "serviceScript": `
-    return new foam.lang.VirtualThreadAgency();
+    return new foam.core.pool.ThreadPoolAgency.Builder(x)
+      .build();
   `
 })
 

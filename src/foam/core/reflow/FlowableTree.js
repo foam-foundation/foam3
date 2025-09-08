@@ -36,18 +36,6 @@ foam.CLASS({
       padding: 4px;
     }
 
-    ^loading-spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid $borderLight;
-      border-top: 2px solid $textBrand;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-left: auto;
-      margin-right: 8px;
-      display: inline-block;
-    }
-
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -179,13 +167,10 @@ foam.CLASS({
                 data.treeRowRenderer(this);
               }).
             end().
-            // Loading spinner
-            callIf(data?.value?.loading$, function() {
-              this.start().
-                show(data.value.loading$).
-                addClass(self.myClass('loading-spinner')).
-              end();
-            }).
+            add(data?.dynamic(function(value$loading) {
+              if ( value$loading )
+                this.start(foam.u2.LoadingSpinner, { size: '1.6rem' });
+            })).
             callIf(data.flowParent, function() {
               this.start().
                 addClass('close').

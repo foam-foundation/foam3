@@ -68,7 +68,19 @@ foam.CLASS({
       value: function(alt, anyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
-//        var operator = (str) => sug(literalIC(str), { text: str });
+/*
+
+Enum expr:
+  key=value                           key exactly matches "value"
+  key!=value                          key is not equal value
+  key IN (value1,value2,...)          key exactly matches any of the listed values 
+  key NOT IN (value1,value2,...)
+
+
+Boolean expr:
+  key IS TRUE
+  key IS FALSE
+*/
         var operator = (str) => sug(seq1(1, sym('ws'), literalIC(str), sym('ws')), { text: str });
 
         return {
@@ -78,7 +90,7 @@ foam.CLASS({
 
           or: repeat(
               sym('and'),
-              sug(seq1(1, sym('ws'), alt(literalIC(' OR '), literal(' | ')), sym('ws')), {text: 'OR'}), 
+              sug(seq1(1, sym('ws'), alt(literalIC('OR'), literal('|')), sym('ws')), {text: 'OR'}), 
             1),
 
           and: repeat(
@@ -99,7 +111,8 @@ foam.CLASS({
 
           numbers: repeat(sym('number'), ',', 1),
 
-          number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), sym('ws')),
+          // TODO replace '.' with an internationalized decimal point
+          number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), optional('.'), repeat(range('0', '9')), sym('ws')),
 
           ws: repeat0(' ')
 

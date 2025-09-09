@@ -14,7 +14,7 @@ foam.CLASS({
     methods: [
         function runTest(x) {
             // debugger;
-/*
+
             // Number symbol tests
             x.test(this.isValidSymbol('number', "1",     "1"), "The number 1");
             x.test(this.isValidSymbol('numbers', "1, 2, 3", "1,2,3"), "The numbers 1, 2, 3");
@@ -31,12 +31,9 @@ foam.CLASS({
             x.test(this.isValid("id IN (6,7,8)", "IN(foam.core.auth.User.id, [6, 7, 8])"), "The id exactly matches any of the listed values");
             x.test(this.isValid('id NOT IN(6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'The id does not exactly match any of the listed values');
 
-            */
-
             // Number combined properties tests
             x.test(this.isValid("id=6 AND id<9", "AND(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))"), "The id equal to the value and less than another value");
             x.test(this.isValid("id=6 OR id<9", 'OR(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))'), "The id equal to the value or less than another value");
-                   
 
         },
         function buildPredicate(query) {

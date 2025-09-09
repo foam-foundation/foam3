@@ -47,7 +47,7 @@ foam.CLASS({
           if ( script.canRun(x) ) {
             script.setStatus(ScriptStatus.RUNNING);
             script = (Script) getDelegate().put_(x, script);
-            runScript(x, (Script) script.fclone());
+            script = runScript(x, (Script) script.fclone());
           } else {
             script.setStatus(ScriptStatus.UNSCHEDULED);
             script = (Script) getDelegate().put_(x, script);
@@ -66,8 +66,15 @@ foam.CLASS({
       type: 'foam.core.script.Script',
       args: 'Context x, foam.core.script.Script script',
       javaCode: `
+        Agency agency = getAgency(x, script);
+        if ( agency == null ) {
+          script.setStatus(ScriptStatus.ERROR);
+          script.setOutput("Agency not found: " + script.getAgencyName() + ", please check script.agencyName or remove it to use " + getAgencyName() + " instead.");
+          return (Script) getDelegate().put_(x, script);
+        }
+
         script.setThreadExecution(
-          ((Agency) x.get(getAgencyName())).submit(x, new ContextAgent() {
+          agency.submit(x, new ContextAgent() {
             @Override
             public void execute(X x) {
               x = x.put(Script.class, script);
@@ -115,6 +122,18 @@ foam.CLASS({
           }, "Run script: " + script.getId())
         );
         return script;
+      `
+    },
+    {
+      name: 'getAgency',
+      type: 'Agency',
+      args: 'Context x, foam.core.script.Script script',
+      javaCode: `
+        String agencyName = script.getAgencyName();
+        if ( foam.util.SafetyUtil.isEmpty(agencyName) ) {
+          agencyName = getAgencyName();
+        }
+        return (Agency) x.get(agencyName);
       `
     }
   ]

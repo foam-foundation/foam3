@@ -490,15 +490,9 @@ foam.CLASS({
           if ( p.internalValidateObj ) validators.push([p, p.internalValidateObj]);
         });
 
-        // validators.forEach(v => args.add(v[1]));
-
-        // args = args.size ? [...args] : undefined;
-
         obj.cls_.private_.validators__    = validators;
-        // obj.cls_.private_.validatorArgs__ = args;
       } else {
         validators = obj.cls_.private_.validators__;
-        // args       = obj.cls_.private_.validatorArgs__;
       }
 
       // Upgrade validator functions to slots

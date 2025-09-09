@@ -67,7 +67,7 @@ foam.CLASS({
       synchronized: true,
       javaCode: `
          setIsCompleted(true);
-         notify();
+         notifyAll();
       `
     },
     {

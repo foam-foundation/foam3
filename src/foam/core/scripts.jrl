@@ -1,6 +1,7 @@
 p({
   class:"foam.core.script.Script",
   id:"service-reloader",
+  agencyName:"serviceReloaderAgency",
   code:"""import foam.core.COREService;
 serviceName = scriptParameter.parameters.get("SERVICE_NAME");
 

@@ -1,0 +1,12 @@
+p({
+  class: "foam.core.boot.CSpec",
+  name: "serviceReloaderAgency",
+  lazy: false,
+  serve: false,
+  serviceScript: """
+    new foam.core.pool.ThreadPoolAgency.Builder(x)
+      .setPrefix("script-reloader")
+      .setNumberOfThreads(1)
+      .build()
+  """
+})

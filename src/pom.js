@@ -103,6 +103,7 @@ foam.POM({
     { name: "foam/i18n/Messages",                                     flags: "js" },
     { name: "foam/i18n/MessageTemplateParser",                        flags: "js" },
     { name: "foam/lang/Validation",                                   flags: "js" },
+    { name: "foam/lang/DateValidation",                               flags: "java" },
     { name: "foam/lang/Action",                                       flags: "js|java" },
     { name: "foam/lang/Static",                                       flags: "js" },
     { name: "foam/lang/Reaction",                                     flags: "js" },

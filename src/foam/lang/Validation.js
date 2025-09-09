@@ -481,7 +481,7 @@ foam.CLASS({
 
       // Cache validators and args in the obj's cls_ because they can be reused for
       // all instances of the same class.
-      if ( ! obj.cls_.validators__ ) {
+      if ( ! obj.cls_.private_.validators__ ) {
         validators = []; // [ property, errorSlot ] pairs
         args = new Set();
 
@@ -499,13 +499,13 @@ foam.CLASS({
         }
         validators.forEach(v => getArgs(v[1]).forEach(a => args.add(a)));
 
-        args = args.size ? [...args] : undefined;
+        args = args.size ? [...args] : [];
 
-        obj.cls_.validators__    = validators;
-        obj.cls_.validatorArgs__ = args;
+        obj.cls_.private_.validators__    = validators;
+        obj.cls_.private_.validatorArgs__ = args;
       } else {
-        validators = obj.cls_.validators__;
-        args       = obj.cls_.validatorArgs__;
+        validators = obj.cls_.private_.validators__;
+        args       = obj.cls_.private_.validatorArgs__;
       }
 
       // Upgrade validator functions to slots

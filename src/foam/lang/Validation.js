@@ -486,8 +486,8 @@ foam.CLASS({
         args = new Set();
 
         obj.cls_.getAxiomsByClass(foam.lang.Property).forEach(p => {
-          if ( p.validateObj         ) validators.push([p, obj.slot(p.validateObj)]);
-          if ( p.internalValidateObj ) validators.push([p, obj.slot(p.internalValidateObj)]);
+          if ( p.validateObj         ) validators.push([p, p.validateObj]);
+          if ( p.internalValidateObj ) validators.push([p, p.internalValidateObj]);
         });
 
         obj.cls_.private_.validators__    = validators;

@@ -210,6 +210,9 @@ foam.CLASS({
             alt(sym('literal date'), sym('number'))),
 
           'literal date': alt(
+            // YYYY-MM-DDTHH:MM:SS.mmmZ
+            seq(sym('number'), '-', sym('number'), '-', sym('number'), 'T',
+                sym('number'), ':', sym('number'),  ':', sym('number'),  '.', sym('number'), 'Z'),
             // YYYY-MM-DDTHH:MM
             seq(sym('number'), '-', sym('number'), '-', sym('number'), 'T',
                 sym('number'), ':', sym('number')),
@@ -539,7 +542,7 @@ foam.CLASS({
             // adjusted like that.
             start = new Date(2000, 0, 1);
             end   = new Date(2000, 0, 1);
-            var ops = [ 'FullYear', 'Month', 'Date', 'Hours', 'Minutes', 'Seconds' ];
+            var ops = [ 'FullYear', 'Month', 'Date', 'Hours', 'Minutes', 'Seconds', 'Milliseconds' ];
             var defaults = [ 0, 1, 1, 0, 0, 0 ];
             for ( var i = 0 ; i < ops.length ; i++ ) {
               var x = i * 2 > v.length ? defaults[i] : v[i * 2];
@@ -555,7 +558,7 @@ foam.CLASS({
             // start and end are currently clones of each other. We bump the last
             // portion of the date and set it in end.
             var last = Math.floor(v.length / 2);
-            var op = 'UTC' + ops[last];
+            var op = 'UTC' + (ops[last] || ops[ops.length-1]);
             end['set' + op](end['get' + op]() + 1);
 
             return [ start, end ];

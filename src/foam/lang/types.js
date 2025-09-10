@@ -196,7 +196,8 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function (_, d) {
-        if ( typeof d === 'number' ) d = new Date(d);
+        if ( typeof d === 'number' )
+          d = new Date(d);
         if ( typeof d === 'string' ) {
           var ret = new Date(d);
 
@@ -214,13 +215,15 @@ foam.CLASS({
 
           d = ret;
         }
-        if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE ) return d;
+        if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE )
+          return d;
         if ( foam.Date.isInstance(d) ) {
-          // Convert the Date to Noon time in GMT
-          const DAY = 1000*60*60*24;
-          // Add many days to time so not to break for negative times before EPOCH of 1970
-          var timeOfDay = (d.getTime() + 100000 * DAY) % DAY;
-          return new Date(d.getTime() - timeOfDay + 12 * 60 * 60000);
+          // Convert to Noon UTC
+          return new Date(Date.UTC(
+            d.getFullYear(),
+            d.getMonth(),
+            d.getDate(),
+            12));
         }
         return d;
       }

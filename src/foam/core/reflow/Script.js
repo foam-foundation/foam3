@@ -28,7 +28,13 @@ foam.CLASS({
       class: 'String',
       name: 'code',
       reactive: false,
-      view: { class: 'foam.u2.tag.TextArea', rows: 16 },
+      view: {
+        class: 'foam.u2.view.ObjAltView',
+        views: [
+          [ {class: 'foam.u2.view.CodeView', config: { width: '100%', mode: 'JAVASCRIPT', showGutter: false }}, 'Code'],
+          [ {class: 'foam.u2.tag.TextArea', rows: 16 }, 'Plain Text']
+        ]
+      },
       displayWidth: 60
     },
     {

@@ -14,12 +14,12 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'Int',
+      // class: 'Int',
       name: 'height',
       value: 600
     },
     {
-      class: 'Int',
+      // class: 'Int',
       name: 'width',
       value: 1000
     },
@@ -46,6 +46,11 @@ foam.CLASS({
       expression: function(controllerMode) {
         return controllerMode === foam.u2.ControllerMode.VIEW;
       }
+    },
+     {
+      class: 'Boolean',
+      name: 'showGutter',
+      value: true
     }
   ]
 });

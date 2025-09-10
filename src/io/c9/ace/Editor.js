@@ -74,8 +74,8 @@ foam.CLASS({
           })
           .start('div', null, this.container$)
             .style({
-              height: this.config$.dot('height').map(h => h + 'px'),
-              width:  this.config$.dot('width').map(h => h + 'px')
+              height: this.config$.dot('height').map(h => foam.Number.isInstance(h) ? h + 'px' : h),
+              width:  this.config$.dot('width').map(h =>foam.Number.isInstance(h) ? h + 'px' : h)
             })
           .end()
           .start('span')
@@ -114,6 +114,7 @@ foam.CLASS({
       self.editor.session.on('change', self.editorToData);
       self.updateEditor();
       self.dataToEditor();
+      self.editor.resize();
     },
     {
       name: 'editorToData',
@@ -137,6 +138,7 @@ foam.CLASS({
       if ( ! this.editor ) return;
       this.editor.setTheme(this.config.theme.path);
       this.editor.setReadOnly(this.config.isReadOnly);
+      this.editor.renderer.setShowGutter(this.config.showGutter);
       this.editor.resize();
       this.editor.session.setMode(this.config.mode.path);
       this.editor.setKeyboardHandler(this.config.keyBinding.path);

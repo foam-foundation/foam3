@@ -481,7 +481,7 @@ foam.CLASS({
 
       // Cache validators and args in the obj's cls_ because they can be reused for
       // all instances of the same class.
-      if ( ! obj.cls_.validators__ ) {
+      if ( ! obj.cls_.private_.validators__ ) {
         validators = []; // [ property, errorSlot ] pairs
         args = new Set();
 

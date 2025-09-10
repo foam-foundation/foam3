@@ -1657,7 +1657,9 @@ foam.CLASS({
       // Without wrapping in a PropertyBorder
       name: '__',
       transient: true,
-      factory: function() { return { __proto__: this, toE: this.toPropertyView }; }
+      getter: function() {
+        return { __proto__: this, toE: this.toPropertyView };
+      }
     },
     {
       class: 'Boolean',

@@ -26,7 +26,7 @@ foam.CLASS({
       this.SUPER();
       this.start().
         addClass(this.myClass()).
-        add(this.data$.map(d => d ? d.toLocaleString(foam.locale, this.options) : foam.u2.DateTimeView.DATE_FORMAT)).
+        add(this.data$.map(d => d ? new Date(d).toLocaleString(foam.locale, this.options) : foam.u2.DateTimeView.DATE_FORMAT)).
       end();
     }
   ]

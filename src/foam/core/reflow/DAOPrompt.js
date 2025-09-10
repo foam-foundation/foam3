@@ -372,7 +372,7 @@ foam.CLASS({
           sinksOnly: false,
           choice: 'foam.core.reflow.TableDAOAgent',
           dao: X.data.dao}, X.data);
-visible      },
+      },
       preSet: function(o, n) {
         // Temporary fix to recontextualize the object after load.
         // TODO: remove once JSON parsing/loading is fixed

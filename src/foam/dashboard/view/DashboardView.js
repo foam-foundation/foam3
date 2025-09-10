@@ -133,12 +133,15 @@ foam.CLASS({
       this
       .addClass(this.myClass())
       .enableClass(this.myClass('main'), this.main)
-      .start()
-        .show(this.dashboardTitle$)
-        .enableClass('h500', this.dashboardTitle$)
-        .style({ height: '2em' })
-        .add(this.dashboardTitle$)
-      .end()
+      .add(this.dynamic(function(dashboardTitle) {
+        if ( ! dashboardTitle ) return;
+        this
+          .start()
+            .enableClass('h500', this.dashboardTitle$)
+            .style({ height: '2em' })
+            .add(dashboardTitle)
+          .end();
+      }))
       .tag(widgetContainer);
       await this.initWidgets(widgetContainer);
       this.updateCols();

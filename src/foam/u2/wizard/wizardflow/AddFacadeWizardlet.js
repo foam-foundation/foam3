@@ -238,7 +238,7 @@ foam.CLASS({
         name: 'goNext',
         label: 'Next',
         invisible: this.capabilityIds
-      }});
+      }}, facadeWizardlet.__subContext__);
       if ( altAction.canSkipData ) {
         altAction.isEnabled = function(isLoading_) { return !isLoading_ };
       }

@@ -41,7 +41,7 @@ foam.CLASS({
         if ( wizardController.currentWizardlet.useAltFlowWAO ) wizardController.currentWizardlet.isInAltFlow = true;
         action.alternateFlow.execute((wizardController.data || wizardController).__subContext__);
         // only call handleNext when the action is being called as a result of the current wizardlet
-        if ( ! X.wizardlet || wizardController.currentWizardlet == X.wizardlet.capability.id )
+        if ( ! X.wizardlet || wizardController.currentWizardlet.id == action.__subContext__.wizardlet.id )
         return action.alternateFlow.handleNext(wizardController);
       }
     },

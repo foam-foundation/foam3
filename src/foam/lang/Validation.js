@@ -476,8 +476,8 @@ foam.CLASS({
       return slot;
     },
 
-    function createErrorSlot_(obj) {
-      var validators, args;
+     function createErrorSlot_(obj) {
+      var validators, args = new Set();
 
       // Cache validators and args in the obj's cls_ because they can be reused for
       // all instances of the same class.
@@ -490,14 +490,22 @@ foam.CLASS({
           if ( p.internalValidateObj ) validators.push([p, obj.slot(p.internalValidateObj)]);
         });
 
-        validators.forEach(v => args.add(v[1]));
+        obj.cls_.private_.validators__    = validators;
+      } else {
+        validators = obj.cls_.private_.validators__;
+      }
 
-        args = args.size ? [...args] : undefined;
+      // Upgrade validator functions to slots
+      validators = validators.map(v => {
+        let a = obj.slot(v[1]);
+        args.add(a);
+        return [v[0], a];
+      });
 
-        obj.cls_.validators__    = validators;
-        obj.cls_.validatorArgs__ = args;
-        obj.cls_.validateObj__   = function () {
-          var ret;
+      args = args.size ? [...args] : undefined;
+
+      function validateObj() {
+        var ret;
 
           validators.forEach(v => {
             var prop = v[0];
@@ -505,22 +513,12 @@ foam.CLASS({
             if ( err ) (ret || (ret = [])).push([prop, err]);
           });
 
-          return ret;
-        };
-        /*
-        if ( ! validators.length ) {
-          console.log('VALIDATORS',obj.cls_.id, validators.length);
-          debugger;
-        }
-        */
-      } else {
-        validators = obj.cls_.validators__;
-        args       = obj.cls_.validatorArgs__;
+        return ret;
       }
 
       return foam.lang.ExpressionSlot.create({
         obj:  obj,
-        code: obj.cls_.validateObj__,
+        code: validateObj,
         args: args
       });
     }

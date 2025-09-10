@@ -739,8 +739,8 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.Prompt' ],
 
   methods: [
-    function execute(prompt) {
-      var p = this.Prompt.create();
+    function execute(prompt, type) {
+      var p = this.Prompt.create({ type: type });
 
       if ( prompt ) p.label = prompt;
 

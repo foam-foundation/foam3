@@ -161,6 +161,12 @@ foam.CLASS({
       class: 'String',
       name: 'formula',
       displayWidth: 50,
+      view: {
+        class: 'foam.u2.tag.TextArea',
+        rows: 1,
+        cols: undefined,
+        wrap: 'hard'
+      },
       factory: function() {
         return this.data && this.data.reactions_[this.prop.name];
       },

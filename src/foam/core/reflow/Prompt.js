@@ -80,13 +80,18 @@ foam.CLASS({
     {
       name: 'value',
       transient: true,
+      visibility: 'RO',
+      view: function(_, X) {
+        return X.data.prop.view || { class: 'foam.u2.view.ValueView' };
+      },
       factory: function() {
         if ( this.params && this.params[this.urlParameter] != undefined ) {
           return this.params[this.urlParameter];
         }
         return this.defaultValue;
       }
-    }
+    },
+    'prop'
   ],
 
   methods: [
@@ -101,7 +106,7 @@ foam.CLASS({
     function addToE(e) {
       var self = this;
       e.add(this.dynamic(function(type) {
-        var prop = foam.lang[type].create({name: 'value' });
+        var prop = self.prop = foam.lang[type].create({name: 'value' });
         let traceId = 'el-' + foam.next$UID();
         prop.view = {...(self.view || prop.view), id: traceId};
         this.startContext({data: self})

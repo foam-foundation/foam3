@@ -91,7 +91,10 @@ foam.CLASS({
         return this.defaultValue;
       }
     },
-    'prop'
+    {
+      name: 'prop',
+      transient: true
+    }
   ],
 
   methods: [

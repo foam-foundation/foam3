@@ -92,6 +92,11 @@ foam.CLASS({
   ],
 
   css: `
+    ^dropdownContainer > dropdown {
+      display: flex;
+      gap: 4px;
+      flex-direction: column;
+    }
     ^disabled button {
       color: $buttonSecondaryColor$disabled$foreground;
     }
@@ -225,7 +230,7 @@ foam.CLASS({
       var self = this;
       this.overlayInitialized_ = true;
       var spinner = this.E().style({ padding: '1em' }).tag(self.LoadingSpinner, { size: 24 });
-      this.overlay_.add(spinner);
+      this.overlay_.add(spinner).addClass(self.myClass('dropdownContainer'));
       // Add the overlay to the controller so if the table is inside a container
       // with `overflow: hidden` then this overlay won't be cut off.
       this.ctrl.add(this.overlay_);
@@ -247,16 +252,16 @@ foam.CLASS({
       self.obj?.data?.sub('action', function() {
         self.overlay_.close();
       });
-      view$ = this.slot(function(availabilities_) {
-        var el = this.E().startContext({ data: self.obj, dropdown: self.overlay_ });
+      view$ = this.dynamic(function(availabilities_) {
+        this.startContext({ data: self.obj, dropdown: self.overlay_ });
         if ( availabilities_ === false ) {
-          el.addClass('p', self.myClass('disabled')).add(this.NO_AVAILABLE);
+          this.addClass('p', self.myClass('disabled')).add(this.NO_AVAILABLE);
           spinner.remove();
         } else if ( availabilities_ === null ) {
           // this may happen when availability slots are pending promise checks
-          return '';
+          this.add('');
         } else {
-          el.forEach(self.data, function(action, index) {
+          this.forEach(self.data, function(action, index) {
             this
               .start()
                 .addClass(self.myClass('button-container'))
@@ -266,13 +271,16 @@ foam.CLASS({
                   this.tag(action, { buttonStyle: 'UNSTYLED' })
                 })
                 .attrs({ tabindex: -1 })
-                .attrs({ disabled: self.isEnabled(action) })
+                .attrs({ disabled: self.isEnabled(action).not() })
               .end();
-          })
+          });
           spinner.remove();
+          var actionElArray_ = this.childNodes;
+          self.firstEl_ = actionElArray_[0].childNodes[0];
+          self.lastEl_ = actionElArray_[actionElArray_.length - 1].childNodes[0];
+          (self.firstEl_ && ! self.isMouseClick) && self.firstEl_.focus();
         }
-        el.endContext();
-        return el;
+        this.endContext();
       });
       this.overlay_.add(view$);
       this.overlay_.open(x, y);
@@ -280,13 +288,9 @@ foam.CLASS({
       // Moves focus to the modal when it is open and keeps it in the modal till it is closed
 
       this.overlay_.on('keydown', this.onKeyDown);
-      var actionElArray_ = this.overlay_.dropdownE_.childNodes;
-      this.firstEl_ = actionElArray_[0].childNodes[0];
-      this.lastEl_ = actionElArray_[actionElArray_.length - 1].childNodes[0];
-      (this.firstEl_ && ! this.isMouseClick) && this.firstEl_.focus();
     },
 
-    async function isEnabled(action) {
+    function isEnabled(action) {
       /*
        * checks if action is enabled
        */
@@ -329,7 +333,7 @@ foam.CLASS({
         })
       }
     },
-    function click(evt) {
+    async function click(evt) {
       this.SUPER(evt);
       this.overlay_.parentEl = this.el_();
       this.isMouseClick = !! evt.detail;
@@ -337,7 +341,7 @@ foam.CLASS({
       var y = evt.clientY || this.getBoundingClientRect().y;
       // if ( this.disabled_ ) return;
       if ( ! this.overlayInitialized_ ) {
-        this.initializeOverlay(x, y);
+        await this.initializeOverlay(x, y);
       } else {
         this.overlay_.open(x, y);
       }

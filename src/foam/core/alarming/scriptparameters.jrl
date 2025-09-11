@@ -1,0 +1,10 @@
+p({
+  class: "foam.core.script.ScriptParameter",
+  id: "diskSpaceMonitoringCron",
+  name: "diskSpaceMonitoringCron",
+  parameters: {
+    "THRESHOLD_PERCENT": 90,
+    "PATH":"/"
+  },
+  enabled:true
+});

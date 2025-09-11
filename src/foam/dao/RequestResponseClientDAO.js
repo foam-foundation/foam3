@@ -114,14 +114,14 @@ Suitable for usage against backends that don't support listen(), such as plain H
       code: function cmd_(x, obj) {
         var self = this;
         var superMethod = this.SUPER.bind(this);
-        
+
         function processCmd() {
           /** Force the DAO to publish a 'reset' notification. **/
           if ( foam.dao.DAO.RESET_CMD === obj ) {
             self.on.reset.pub();
             return true;
           }
-       
+
 //        ctrl.__subContext__.cSpecDAO.select(ns => { if ( ns.name.indexOf('DAO') == -1 ) return; try { var count = ctrl.__subContext__[ns.name].cmd(foam.dao.DAO.COUNT_LISTENERS_CMD); if ( count ) console.log(ns.name, count); } catch(x) {}});
           if ( foam.dao.DAO.COUNT_LISTENERS_CMD === obj ) {
             // pub() returns the number of listeners

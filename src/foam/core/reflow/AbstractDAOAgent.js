@@ -39,7 +39,9 @@ foam.CLASS({
         } else {
           this.block.value = this.value(s);
         }
-        e.startContext({dao: this.dao})
+//        s = s.clone({columnStorage: sink.__context__.columnStorage});
+
+        e.startContext({dao: this.dao/*, columnStorage: sink.__context__.columnStorage*/})
           .start()
             .call(function() {
               self.addSinkToE(this, s);
@@ -51,7 +53,7 @@ foam.CLASS({
     function addSinkToE(e, s) {
       e.add(s);
     },
-    function addToE() {},
+    function addToE() {}
   ]
 });
 
@@ -150,7 +152,7 @@ foam.CLASS({
       value: '// var o is the current object\nlog(o.id);\n',
       view: { class: 'foam.u2.tag.TextArea', rows: 6 },
       displayWidth: 60
-    },
+    }
   ],
 
   methods: [
@@ -427,6 +429,12 @@ foam.CLASS({
       }
     },
     {
+      class: 'String',
+      name: 'generatedRowLabel', 
+      label: 'Generated Row Label',
+      documentation: 'Label for the generated row property in the model created by genModel().'
+    },
+    {
       class: 'Int',
       name: 'topN',
       label: 'Top N',
@@ -504,12 +512,13 @@ foam.CLASS({
           topN: this.topN,
           sortOrder: this.sortOrder,
           othersLabel: this.othersLabel,
-          includeOthers: this.includeOthers
+          includeOthers: this.includeOthers,
+          generatedRowLabel: this.generatedRowLabel
         });
       }
 
       // Fall back to regular GroupBy
-      var groupBySink = this.GROUP_BY(expr, innerSink);
+      var groupBySink = this.GROUP_BY(expr, innerSink, undefined, this.generatedRowLabel);
 
       // Apply legacy group limit if specified
       if ( this.groupLimit > 0 ) {
@@ -526,6 +535,7 @@ foam.CLASS({
           style({paddingLeft: '12px'}).
         add(this.PROP).
           add(this.SINK).
+          add(this.GENERATED_ROW_LABEL.__).
           add(this.TOP_N.__).
           add(this.SORT_ORDER.__).
           add(this.INCLUDE_OTHERS.__).
@@ -750,7 +760,7 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.ViewSink' ],
 
   methods: [
-    function createSink() { return this.ViewSink.create(); },
+    function createSink() { return this.ViewSink.create(); }
   ]
 });
 
@@ -832,6 +842,78 @@ foam.CLASS({
         var agent = cls.create({}, this);
         e.start('h2').add(a.label).end().start().call(function () { agent.execute(this); });
       });
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DownloadView',
+  extends: 'foam.u2.Controller',
+
+  // TODO: detect local DAOs and disable
+
+  imports: [ 'block', 'sessionID', 'window' ],
+
+  methods: [
+    async function render() {
+      var location = this.window.location.origin;
+      var dao      = this.block.value.filteredDAO;
+      var daoKey   = dao.cmd('serviceName?').substring(8);
+      var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}`;
+
+      // We can't just use the DAOPrompt.where because if the DAO is decorated with
+      // something like ProgramAwareDAO, then the query added there won't appear.
+      // So instead we probe th DAO to find out the actual full query being used.
+
+      try {
+        var sink = foam.dao.ArraySink.create();
+        sink.setPredicate = function(p) {
+          var mql = p.toMQL();
+          url = url + '&q=' + encodeURIComponent(mql);
+          throw "just probing";
+        };
+        await dao.select(sink);
+      } catch (x) {
+      }
+
+      if ( this.block.value.columns ) {
+        url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
+      }
+
+      var addFormat = (label, extension, format) => {
+        this.start('a').
+          attrs({
+            href: url + '&format=' + format,
+            rel: 'noopener noreferrer',
+            download: daoKey + extension,
+            target: '_blank'
+          }).
+          add(label);
+        return this;
+      };
+
+      this.add('Download As: ');
+      addFormat('CSV',    '.csv',  'csv'  ).add(', ');
+      addFormat('JSON',   '.json', 'json' ).add(', ');
+      addFormat('JSON/J', '.jrl',  'jsonj').add(', ');
+      addFormat('XML',    '.xml',  'xml'  );
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DownloadDAOAgent',
+  extends: 'foam.core.reflow.AbstractDAOAgent',
+
+  requires: [ 'foam.core.reflow.DownloadView' ],
+
+  methods: [
+    function execute(e) {
+      e.tag(this.DownloadView);
     }
   ]
 });

@@ -667,7 +667,7 @@ Below is a very simple example which only adds one semantic action to our Gramma
 In this case it adds an action to the 'number' symbol so that numbers are converted
 to actual JS numbers, rather than being left as Strings.
 
-Semantic Actions are defined by creating a method named <SymbolName>Action. So in this
+Semantic Actions are defined by creating a method named &lt;SymbolName&gt;Action. So in this
 example, the 'numberAction' method is applied to results parsed by the 'number' parser.
 </pre>
 --
@@ -704,7 +704,7 @@ testP(p, [ '1', '1.1', '1.1b', '3.14159-26b' ]);
 
 ## Email Address Parser
 The following parser uses two semantic actions to parse email addresses which can be
-either simple like "john@email.com" or labelled like "John Doe <john@email.com>".
+either simple like "john@email.com" or labelled like "John Doe &lt;john@email.com&gt;".
 --
 foam.CLASS({
   name: 'EmailAddressParser',

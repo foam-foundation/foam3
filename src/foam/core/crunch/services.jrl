@@ -304,7 +304,6 @@ p({
   serve: true,
   serviceScript: `
     return new foam.dao.EasyDAO.Builder(x)
-      .setAuthorize(false)
       .setGuid(true)
       .setOf(foam.core.crunch.connection.CapabilityPayloadRecord.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)

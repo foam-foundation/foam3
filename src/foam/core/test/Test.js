@@ -33,14 +33,16 @@ foam.CLASS({
     'source',
     'passed',
     'failed',
-    'run'
+    'run',
+    'status'
   ],
 
   searchColumns: [
     'id',
     'description',
     'source',
-    'language'
+    'language',
+    'status'
   ],
 
   documentation: `
@@ -57,6 +59,7 @@ foam.CLASS({
       name: 'source',
       tableWidth: 300,
       transient: true,
+      visibility: 'RO',
       factory: function() { return this.cls_.id === 'foam.core.test.Test' ? this.language : this.cls_.id; },
       javaFactory: 'return getClass().toString();'
     },
@@ -82,7 +85,7 @@ foam.CLASS({
       view: { class: 'foam.u2.tag.TextArea', rows: 20 },
       factory: function() {
         var s = '';
-        if ( this.runTest != foam.core.test.Test.prototype.runTest ) {
+        if ( this.runTest && this.runTest != foam.core.test.Test.prototype.runTest ) {
           s += 'Javascript: ' + this.runTest.toString();
         }
         if ( this.cls_.getAxiomByName('runTest').javaCode ) {
@@ -305,6 +308,7 @@ foam.CLASS({
               }
               this.output += ( condition ? 'SUCCESS: ' : 'FAILURE: ' ) +
                 message + '\n';
+
             };
             var expect = (value, expectedValue, message) => {
               if ( foam.util.equals(value, expectedValue) ) {
@@ -316,11 +320,14 @@ foam.CLASS({
               }
             };
 
-            var updateStats = () => {
+            var updateStats = (err) => {
               var endTime  = Date.now();
               var duration = endTime - startTime; // Unit: milliseconds
               this.lastRun = new Date();
               this.lastDuration = duration;
+              if ( err ) {
+                this.output += err + '\n';
+              }
             };
 
             with ( { log: log, print: log, x: this.__context__, expect: expect, test: test } ) {
@@ -334,13 +341,13 @@ foam.CLASS({
                 updateStats();
                 resolve();
               }, (err) => {
-                updateStats();
+                updateStats(err);
                 this.failed += 1;
                 reject(err);
               });
             }
           } catch (err) {
-            updateStats();
+            updateStats(err);
             this.failed += 1;
             reject(err);
           }

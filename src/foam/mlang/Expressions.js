@@ -130,7 +130,7 @@ foam.CLASS({
     function CONSTANT(v) { return this.Constant.create({ value: v }); },
 
     function UNIQUE(expr, sink) { return this.Unique.create({ expr: expr, delegate: sink }); },
-    function GROUP_BY(expr, opt_sinkProto, opt_limit) { return this.GroupBy.create({ arg1: expr, arg2: opt_sinkProto || this.COUNT(), groupLimit: opt_limit || -1 }); },
+    function GROUP_BY(expr, opt_sinkProto, opt_limit, opt_generatedRowLabel) { return this.GroupBy.create({ arg1: expr, arg2: opt_sinkProto || this.COUNT(), groupLimit: opt_limit || -1, generatedRowLabel: opt_generatedRowLabel }); },
     function PLOT() { return this._nary_('Plot', arguments); },
     function MAP(expr, sink) { return this.Map.create({ arg1: expr, delegate: sink }); },
     function EXPLAIN(sink) { return this.Explain.create({ delegate: sink }); },

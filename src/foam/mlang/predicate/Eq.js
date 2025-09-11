@@ -64,6 +64,7 @@ return FOAM_utils.equals(v1, v2)
 
       return equals(myConst, otherConst) ? this.SUPER(other) : this.FALSE;
     },
+
     function toMQL() {
       var arg2 = this.arg2ToMQL();
       if ( ! arg2 )

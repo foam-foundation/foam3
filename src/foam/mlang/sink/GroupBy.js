@@ -79,6 +79,12 @@ foam.CLASS({
     },
     {
       name: 'selection', hidden: true
+    },
+    {
+      class: 'String',
+      name: 'generatedRowLabel', 
+      label: 'Generated Row Label',
+      documentation: 'Label for the generated row property in the model created by genModel().'
     }
   ],
 
@@ -260,6 +266,10 @@ for (Object key : getGroups().keySet()) {
 
       model.plural = model.name;
       var props = this.arg2.toProperties ? this.arg2.toProperties() : this.arg2.VALUE ? [ this.arg2.VALUE ] : [];
+      /// override the label of the prop based on user they define
+      if (this.generatedRowLabel && props.length > 0) {
+        props[0].label = this.generatedRowLabel;
+      }
       model.properties.push.apply(model.properties, props);
 
       return model;

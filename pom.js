@@ -55,14 +55,14 @@ foam.POM({
     'org.eclipse.angus:angus-activation:2.0.2',
     'org.eclipse.angus:angus-mail:2.0.3',
     'org.eclipse.angus:imap:2.0.3',
-    'org.eclipse.jetty:jetty-proxy:11.0.23',
-    'org.eclipse.jetty:jetty-alpn-java-server:11.0.23',
-    'org.eclipse.jetty:jetty-http:11.0.23',
-    'org.eclipse.jetty:jetty-jmx:11.0.23', // for source build
-    'org.eclipse.jetty:jetty-util:11.0.23',
-    'org.eclipse.jetty:jetty-util-ajax:11.0.23', // for source build
-    'org.eclipse.jetty.http2:http2-server:11.0.23',
-    'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.23',
+    'org.eclipse.jetty:jetty-proxy:11.0.26',
+    'org.eclipse.jetty:jetty-alpn-java-server:11.0.26',
+    'org.eclipse.jetty:jetty-http:11.0.26',
+    'org.eclipse.jetty:jetty-jmx:11.0.26', // for source build
+    'org.eclipse.jetty:jetty-util:11.0.26',
+    'org.eclipse.jetty:jetty-util-ajax:11.0.26', // for source build
+    'org.eclipse.jetty.http2:http2-server:11.0.26',
+    'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.26',
     'org.eclipse.parsson:parsson:1.1.7',
     'org.glassfish:javax.json:1.1.4',
     'org.jsoup:jsoup:1.15.1', // HTML Parser

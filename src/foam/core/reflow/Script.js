@@ -60,10 +60,11 @@ foam.CLASS({
 
   actions: [
     function run() {
+      let self = this;
       with ( this.scope ) {
         with ( { log: this.log.bind(this) } ) {
-          var ret = eval('(async function() {' + this.code + '})').call(this.block);
-          this.log(ret);
+          var ret = eval('(async function() {' + self.code + '})').call(self.block);
+          ret.then(v => this.log(v), v => this.log(v));
           return ret;
         }
       }

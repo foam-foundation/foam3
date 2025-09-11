@@ -30,8 +30,8 @@ foam.CLASS({
         if ( prereqCapIds == null || prereqCapIds.size() == 0 ) return GRANTED;
 
         boolean isPending = false;
-        boolean isRejected = false;
 
+        DAO capablePayloadDAO = (DAO) x.get("capablePayloadDAO");
         for ( String capId : prereqCapIds ) {
           CapabilityJunctionPayload prereqPayload = (CapabilityJunctionPayload)
             capablePayloadDAO.find(capId);

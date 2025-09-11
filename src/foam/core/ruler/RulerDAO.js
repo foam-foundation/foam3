@@ -244,8 +244,8 @@ return locked;
     {
       name: 'updateRules',
       args: 'Context x',
-      javaCode: `DAO localRuleDAO = new foam.dao.ProxyDAO(x, getDaoKey().equals("localRuleDAO") ? this : (DAO) x.get("localRuleDAO")
-).where( EQ(Rule.DAO_KEY, getDaoKey()) );
+      javaCode: `DAO localRuleDAO = getDaoKey().equals("localRuleDAO") ? this : (DAO) x.get("localRuleDAO");
+localRuleDAO = localRuleDAO.where(EQ(Rule.DAO_KEY, getDaoKey()));
 
 localRuleDAO.listen(
   new UpdateRulesListSink.Builder(getX())
@@ -254,16 +254,10 @@ localRuleDAO.listen(
   , null
 );
 
-localRuleDAO = localRuleDAO.where(
-  EQ(Rule.ENABLED, true)
-).orderBy(new Desc(Rule.PRIORITY));
-localRuleDAO.select(new AbstractSink(new ReadOnlyDAOContext(getX())) {
-      @Override
-      public void put(Object obj, Detachable sub) {
-        Rule rule = (Rule) obj;
-        rule.setX(getX());
-      }
-    });
+localRuleDAO = localRuleDAO.where(EQ(Rule.ENABLED, true)).orderBy(new Desc(Rule.PRIORITY));
+// Set rule context to readonly dao context
+localRuleDAO.select(new AbstractSink(new ReadOnlyDAOContext(getX())));
+
 addRuleList(localRuleDAO, getCreateBefore());
 addRuleList(localRuleDAO, getUpdateBefore());
 addRuleList(localRuleDAO, getRemoveBefore());

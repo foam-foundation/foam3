@@ -16,6 +16,7 @@ foam.CLASS({
   javaImports: [
     'foam.core.crunch.CapabilityJunctionPayload',
     'foam.core.crunch.CrunchService',
+    'foam.dao.DAO',
     'static foam.core.crunch.CapabilityJunctionStatus.*'
   ],
 
@@ -48,6 +49,7 @@ foam.CLASS({
         int numberPending = 0;
         int numberRejected = 0;
 
+        DAO capablePayloadDAO = (DAO) x.get("capablePayloadDAO");
         for ( String capId : prereqCapIds ) {
           CapabilityJunctionPayload prereqPayload = (CapabilityJunctionPayload)
             capablePayloadDAO.find(capId);

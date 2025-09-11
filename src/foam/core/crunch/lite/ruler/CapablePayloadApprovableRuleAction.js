@@ -68,7 +68,7 @@ foam.CLASS({
                 capablePayloadToUpdate.setHasSafeStatus(true);
 
                 // first update the object's capable payloads
-                capablePayloadDAO.inX(x).put(capablePayloadToUpdate);
+                capablePayloadDAO.put(capablePayloadToUpdate);
 
                 // then reput the actual capable object into it's dao
                 dao.put(objectToReput);

@@ -16,6 +16,7 @@ foam.CLASS({
     'foam.core.crunch.CapabilityJunctionStatus',
     'foam.core.crunch.lite.Capable',
     'foam.core.pm.PM',
+    'foam.dao.AbstractSink',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.ProxySink',
@@ -72,7 +73,7 @@ foam.CLASS({
             @Override
             public void put(Object obj, foam.lang.Detachable sub) {
               Capable capable = (Capable) obj;
-                capable = populatePayloads(x, capable);
+              capable = populatePayloads(x, capable);
 
               super.put(capable, sub);
             }
@@ -93,16 +94,15 @@ foam.CLASS({
       ],
       type: 'Capable',
       javaCode:`
-        PM pm = PM.create(x, "CapableDAO:populatePayloads");
-        DAO capablePayloadDAO = capable.getCapablePayloadDAO(x);
-        CapabilityJunctionPayload[] payloads = (CapabilityJunctionPayload[]) ((List) ((ArraySink) capablePayloadDAO.select(new ArraySink())).getArray()).toArray(new CapabilityJunctionPayload[0]);
-        if ( payloads.length > 0 ) {
-          if ( ((FObject) capable).isFrozen() ) {
-            capable = (Capable) ((FObject) capable).fclone();
-          }
-          capable.setCapablePayloads(payloads);
+        if ( capable.getCapablePayloads() != null && capable.getCapablePayloads().length > 0 ) {
+          PM pm = PM.create(x, "CapableDAO:populatePayloads");
+          DAO capablePayloadDAO = capable.getCapablePayloadDAO(x);
+
+          // capablePayloadDAO operates directly on capablePayloads array and populate all ReferencePayloadData.
+          // No need to copy select output back to capable.capablePayloads.
+          capablePayloadDAO.select(new AbstractSink());
+          pm.log(x);
         }
-        pm.log(x);
         return capable;
       `
     },
@@ -172,14 +172,14 @@ foam.CLASS({
         List<CapabilityJunctionPayload> capablePayloads = new ArrayList<CapabilityJunctionPayload>(Arrays.asList(toPutCapablePayloadArray));
 
         for ( CapabilityJunctionPayload currentPayload : capablePayloads ){
-          toUpdateCapablePayloadDAO.inX(x).put(currentPayload);
+          toUpdateCapablePayloadDAO.put(currentPayload);
         }
 
         // include old payloads when checking requirement status
-        CapabilityJunctionPayload[] payloads = (CapabilityJunctionPayload[]) ((List) ((ArraySink) toUpdateCapablePayloadDAO.inX(getX()).select(new ArraySink())).getArray()).toArray(new CapabilityJunctionPayload[0]);
+        CapabilityJunctionPayload[] payloads = (CapabilityJunctionPayload[]) ((List) ((ArraySink) toUpdateCapablePayloadDAO.select(new ArraySink())).getArray()).toArray(new CapabilityJunctionPayload[0]);
         toPutCapableObj.setCapablePayloads(payloads);
 
-        if ( 
+        if (
           ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.GRANTED) &&
           ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.PENDING) &&
           ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.REJECTED) &&

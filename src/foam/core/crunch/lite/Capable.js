@@ -171,8 +171,11 @@ foam.INTERFACE({
             { name: 'x', type: 'X' },
           ],
           body: `
-            var capablePayloadDAO = new foam.core.ruler.RulerDAO(x, new CapableAdapterDAO(x, this), "capablePayloadDAO");
-            return new ProxyDAO(x, capablePayloadDAO);
+            var capablePayloadDAO = new ProxyDAO(x);
+            x = x.put("capablePayloadDAO", capablePayloadDAO);
+
+            capablePayloadDAO.setDelegate(new foam.core.ruler.RulerDAO(x, new CapableAdapterDAO(x, this), "capablePayloadDAO"));
+            return capablePayloadDAO;
           `
         }));
       }

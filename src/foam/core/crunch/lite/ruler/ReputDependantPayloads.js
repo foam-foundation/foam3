@@ -14,19 +14,11 @@ foam.CLASS({
 
   javaImports: [
     'foam.lang.ContextAwareAgent',
-    'foam.lang.FObject',
     'foam.lang.X',
     'foam.lang.XLocator',
-    'foam.dao.ArraySink',
     'foam.dao.DAO',
-    'foam.core.crunch.Capability',
     'foam.core.crunch.CrunchService',
-    'foam.core.crunch.CapabilityJunctionPayload',
-    'foam.core.crunch.lite.Capable',
-    'foam.core.crunch.lite.CapableAdapterDAO',
-    'java.util.Arrays',
-    'java.util.List',
-    'static foam.core.crunch.CapabilityJunctionStatus.*'
+    'foam.core.crunch.CapabilityJunctionPayload'
   ],
 
   methods: [
@@ -36,8 +28,10 @@ foam.CLASS({
         agency.submit(x, new ContextAwareAgent() {
           @Override
           public void execute(X x) {
-            CapabilityJunctionPayload old = (CapabilityJunctionPayload) x.get("OLD");
+            CapabilityJunctionPayload old = (CapabilityJunctionPayload) oldObj;
             CapabilityJunctionPayload payload = (CapabilityJunctionPayload) obj;
+
+            // Do not reput unless payload status changes
             if ( old != null && old.getStatus() == payload.getStatus() ) return;
 
             var payloadDAO = (DAO) getX().get("capablePayloadDAO");
@@ -45,11 +39,13 @@ foam.CLASS({
             var crunchService = (CrunchService) x.get("crunchService");
             var depIds = crunchService.getDependentIds(XLocator.get(), payload.getCapability());
 
-            ((ArraySink) payloadDAO.select(new ArraySink())).getArray().stream()
-              .filter(cp -> Arrays.stream(depIds).anyMatch(((CapabilityJunctionPayload) cp).getCapability()::equals))
-              .forEach(cp -> {
-                payloadDAO.inX(x).put((CapabilityJunctionPayload) cp);
-              });
+            // Reput dependent payloads to refresh their statuses. See SetCapablePayloadStatusOnPut.
+            for ( var capId : depIds ) {
+              var dep = (CapabilityJunctionPayload) payloadDAO.find(capId);
+              if ( dep != null ) {
+                payloadDAO.put(dep);
+              }
+            }
           }
         }, "Reput dependent payloads");
       `,

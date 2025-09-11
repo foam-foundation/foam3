@@ -25,20 +25,7 @@ foam.INTERFACE({
     {
       name: 'getCapableChainedStatus',
       type: 'CapabilityJunctionStatus',
-      args: [
-        {
-          name: 'x',
-          type: 'Context'
-        },
-        {
-          name: 'capablePayloadDAO',
-          type: 'DAO'
-        },
-        {
-          name: 'payload',
-          type: 'CapabilityJunctionPayload'
-        }
-      ],
+      args: 'Context x'
     }
   ]
 });

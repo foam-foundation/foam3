@@ -9,7 +9,6 @@ p({
       .setDecorator(new foam.core.ndiff.NDiffRuntimeDAO(x))
       .setCluster(false)
       .setRuler(false)
-      .setAuthorize(false)
       .build();
     return dao;
   """,

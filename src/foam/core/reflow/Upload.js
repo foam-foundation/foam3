@@ -167,6 +167,7 @@ foam.CLASS({
           files$: X.data.uploadedFiles$,
           supportedFormats: X.data.SUPPORTED_FORMATS,
           isMultipleFiles: false,
+          maxSize: 50,
           title: 'Drag and drop a file here or click to browse',
           onFilesChanged: X.data.onFilesChanged.bind(X.data)
         };
@@ -698,13 +699,15 @@ foam.CLASS({
 
           if ( ! real ) {
             // Preview mode: just store in data
-            if ( foam.lang.Long.isInstance(o.ID) && ! o.id ) o.id = self.matchedRows;
+            if ( foam.lang.Long.isInstance(o.ID) && ! o.id ) o.id = matchedRows;
+            
+
             await self.data.put(o);
           } else {
             // Real upload mode
             if ( Object.keys(self.validationErrorMap).length > 0 ) {
               // Validation errors exist - store in preview data for review, don't upload
-              if ( foam.lang.Long.isInstance(o.ID) && ! o.id ) o.id = self.matchedRows;
+              if ( foam.lang.Long.isInstance(o.ID) && ! o.id ) o.id = matchedRows;
               await self.data.put(o);
             } else {
               // No validation errors - proceed with actual upload

@@ -37,10 +37,9 @@ foam.CLASS({
       javaFactory: 'return new foam.core.cron.TimeHMS();'
     },
     {
+      //TODO(jlhughes): split start into startDate and startTime
       class: 'DateTime',
-      name: 'start',
-      factory: function() { return new Date(); },
-      javaFactory: 'return new Date();'
+      name: 'start'
     }
   ],
 
@@ -48,35 +47,24 @@ foam.CLASS({
     {
       name: 'getNextScheduledTime',
       type: 'DateTime',
-      args: [
-        {
-          name: 'x',
-          type: 'X'
-        },
-        {
-          name: 'from',
-          type: 'java.util.Date'
-        }
-      ],
+      args: 'X x, java.util.Date from',
       javaCode:
 `
-Calendar now = Calendar.getInstance();
-now.setTime(from);
-
-Calendar start = Calendar.getInstance();
-start.setTime(getStart());
-if ( now.getTimeInMillis() < start.getTimeInMillis() ) {
-  return start.getTime();
+if ( getStart() != null &&
+     getStart().getTime() > from.getTime() ) {
+  return getStart();
 }
-
 Calendar next = Calendar.getInstance();
-next.setTime(getStart());
-while ( next.getTimeInMillis() < now.getTimeInMillis() ) {
+next.setTime(from);
+if ( getDuration().getHour() == 0 &&
+     getDuration().getMinute() == 0 &&
+     getDuration().getSecond() == 0 ) {
+  next.roll(Calendar.DATE, true);
+} else {
   next.add(Calendar.HOUR_OF_DAY, getDuration().getHour());
   next.add(Calendar.MINUTE,      getDuration().getMinute());
   next.add(Calendar.SECOND,      getDuration().getSecond());
 }
-
 return next.getTime();
 `
     },

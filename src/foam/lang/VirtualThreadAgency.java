@@ -29,7 +29,7 @@ public class VirtualThreadAgency extends AbstractAgency implements COREService {
   }
 
   public VirtualThreadAgency() {
-    this("virtual-thread", true);
+    this("vt-", true);
   }
 
   public VirtualThreadAgency(String prefix) {

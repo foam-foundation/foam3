@@ -12,11 +12,16 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'DAOPromptView',
   extends: 'foam.u2.View',
-
+  requires: [
+    'foam.u2.LoadingSpinner',
+  ],
   css: `
   `,
 
-  properties: [ { class: 'Long', name: 'version' } ],
+  properties: [
+    { class: 'Long', name: 'version' },
+    { class: 'Boolean', name: 'loading' }
+  ],
 
   methods: [
     function render() {
@@ -30,18 +35,20 @@ foam.CLASS({
 
       this.
         addClass().
-        show(this.data.visible$).
         start('h3').
           show(this.data.labelVisible$).
           add(self.data.label$).
         end().
+        start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
         br().
           add(self.dynamic(async function(version) {
             var startTime = Date.now();
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.
             // TODO: fix JSON parsing should setup context correctly
             var select    = self.data.select.clone(self.data.__subContext__);
+            self.loading = true;
             await select.execute(this);
+            self.loading = false;
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
           }));
@@ -139,23 +146,6 @@ foam.CLASS({
       },
       displayWidth: 60
     },
-    // since the label is calculated by the expression when we try to hide it by making it empty that gets rendered
-    {
-      class: 'Boolean',
-      name: 'labelVisible',
-      section: 'general',
-      label: 'Show Name',
-      value: true,
-      view: { class: 'foam.u2.Switch' }
-    },
-    {
-      class: 'Boolean',
-      name: 'visible',
-      section: 'general',
-      label: 'Visible',
-      value: true,
-      view: { class: 'foam.u2.Switch' }
-    },
     {
       class: 'foam.dao.DAOProperty',
       name: 'dao',
@@ -173,11 +163,11 @@ foam.CLASS({
             // Start at the root scope
             var current = this.scope;
             var i = 0;
-            
+
             // Traverse down the object hierarchy following each part
             while ( i < parts.length && current ) {
               var part = parts[i];
-              
+
               // Check if this part ends with '()' - it's a method call
               if ( part.endsWith('()') ) {
                 // Remove the '()' to get the method name
@@ -194,7 +184,7 @@ foam.CLASS({
               }
               i++;
             }
-            
+
             // If we successfully resolved the dotted path, use it
             if ( current ) {
               this.daoKey = n;
@@ -398,7 +388,6 @@ visible      },
     },
     { class: 'Long',       hidden: true,  name: 'rowCount', visibility: 'RO', transient: true },
     { class: 'String',     hidden: true,  name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
-    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } },
     { class: 'Int',        hidden: true,  name: 'version', transient: true },
     { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
     {
@@ -408,7 +397,17 @@ visible      },
       factory: function() {
         return foam.lang.Latch.create();
       }
-    }
+    },
+    // since the label is calculated by the expression when we try to hide it by making it empty that gets rendered
+    {
+      class: 'Boolean',
+      name: 'labelVisible',
+      section: 'general',
+      label: 'Show Name',
+      value: true,
+      view: { class: 'foam.u2.Switch' }
+    },
+    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
   ],
 
   methods: [

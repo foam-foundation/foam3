@@ -419,8 +419,12 @@ function processBuildArgs(options, help) {
   const args = process.argv.slice(2);
   for ( var i = 0 ; i < args.length ; i++ ) {
     var arg = args[i];
-    if ( arg.startsWith('--') ) {
-      arg = arg.substring(2);
+    if ( arg.startsWith('--') ||
+         ! arg.startsWith('--') &&
+         ! arg.startsWith('-') ) {
+      if ( arg.startsWith('--') ) {
+        arg = arg.substring(2);
+      }
       // support --task1,task, --task:arg1,arg2
       let as = arg.includes(':') ? arg.split() : arg.split(',');
       for ( var k = 0; k < as.length; k++ ) {

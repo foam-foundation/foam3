@@ -507,11 +507,11 @@ foam.CLASS({
       function validateObj() {
         var ret;
 
-          validators.forEach(v => {
-            var prop = v[0];
-            var err  = v[1].get();
-            if ( err ) (ret || (ret = [])).push([prop, err]);
-          });
+        validators.forEach(v => {
+          var prop = v[0];
+          var err  = v[1].get();
+          if ( err ) (ret || (ret = [])).push([prop, err]);
+        });
 
         return ret;
       }
@@ -617,33 +617,6 @@ foam.CLASS({
             args: [ this.name ],
             query: 'thisValue !exists||thisValue ~' + this.PHONE_NUMBER_REGEX,
             errorString: this.INVALID_PHONE_NUMBER
-          }
-        ];
-      }
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.lang',
-  name: 'DatePropertyValidationRefinement',
-  refines: 'foam.lang.Date',
-
-  // Is only needed for Java to restrict Dates to JS's range
-  flags: 'java',
-
-  properties: [
-    {
-      class: 'ValidationPredicateArray',
-      name: 'internalValidationPredicates',
-      factory: function() {
-        debugger;
-        return [
-          {
-            args: [ this.name ],
-            query: 'thisValue !exists||thisValue<=maxDate&&thisValue>=minDate',
-            errorString: 'Invalid date value'
           }
         ];
       }

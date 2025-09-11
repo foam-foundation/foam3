@@ -42,6 +42,10 @@ foam.CLASS({
     {
       name: 'login',
       javaCode:`
+        if ( foam.util.SafetyUtil.isEmpty(identifier) ) {
+          throw new AuthenticationException();
+        }
+
         User user = (User) ((DAO) getLocalUserDAO())
           .find(
             AND(

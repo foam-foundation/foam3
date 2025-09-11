@@ -199,32 +199,44 @@ foam.CLASS({
         if ( typeof d === 'number' )
           d = new Date(d);
         if ( typeof d === 'string' ) {
-          var ret = new Date(d);
+          var match = d.match(/^(\d{4})[-\/]?(\d{2})[-\/]?(\d{2})$/);
 
-          if ( isNaN(ret.getTime()) ) {
-            if ( d.length >= 8 ) {
-              ret = new Date(d.substring(0,4) + '-' + d.substring(4,6) + '-' + d.substring(6,8));
-            }
-
-            if ( isNaN(ret.getTime()) ) {
-              ret = foam.Date.MAX_DATE;
-              console.warn("Invalid date: " + d + "; assuming " + ret.toISOString() + ".");
-              return ret;
+          if ( match ) {
+            // Parse yyyy-mm-dd, yyyy/mm/dd, or yyyymmdd formats
+            // T00:00:00 is required to force local timezone interpretation
+            // Without it, new Date("2024-03-15") is parsed as UTC midnight
+            // which displays as previous day in negative UTC offset timezones
+            d = new Date(match[1] + '-' + match[2] + '-' + match[3] + 'T00:00:00');
+          } else {
+            // Parse mm/dd/yyyy
+            match = d.match(/^(\d{2})[-\/]?(\d{2})[-\/]?(\d{4})$/);
+            if ( match ) {
+              //           yyyy             mm               dd
+              d = new Date(match[3] + '-' + match[1] + '-' + match[2] + 'T00:00:00');
+            } else {
+              // Fallback to default Date constructor
+              d = new Date(d);
             }
           }
-
-          d = ret;
         }
+
         if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE )
           return d;
+
         if ( foam.Date.isInstance(d) ) {
           // Convert to Noon UTC
-          return new Date(Date.UTC(
+          d = new Date(Date.UTC(
             d.getFullYear(),
             d.getMonth(),
             d.getDate(),
             12));
         }
+
+        if ( isNaN(d.getTime()) ) {
+          console.warn("Invalid date: " + d + "; assuming " + foam.Date.MAX_DATE.toISOString() + ".");
+          d = foam.Date.MAX_DATE;
+        }
+
         return d;
       }
     },

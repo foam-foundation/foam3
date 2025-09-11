@@ -21,13 +21,14 @@ foam.CLASS({
     {
       name: 'regionId',
       visibility: 'HIDDEN',
-      required: false
+      required: false,
+      javaValidateObj: null
     },
     {
       name: 'city',
       validationPredicates: [
         {
-          query: 'city~/\\D/',
+          query: 'city~/^\\D*$/',
           errorMessage: 'CITY_CONTAINS_NUMBER'
         }
       ]

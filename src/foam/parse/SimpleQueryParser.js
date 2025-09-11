@@ -68,20 +68,11 @@ foam.CLASS({
       value: function(alt, anyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
-/*
+         // TODO remove extra ws handling, should be only before or after, decide based on what works better for the suggestions
 
-Enum expr:
-  key=value                           key exactly matches "value"
-  key!=value                          key is not equal value
-  key IN (value1,value2,...)          key exactly matches any of the listed values 
-  key NOT IN (value1,value2,...)
-
-
-Boolean expr:
-  key IS TRUE
-  key IS FALSE
-*/
+        // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         var operator = (str) => sug(seq1(1, sym('ws'), literalIC(str), sym('ws')), { text: str });
+        this.operator = operator;
 
         return {
           START: seq1(0, sym('query') /*, repeat0(' '), eof()*/),
@@ -98,14 +89,16 @@ Boolean expr:
               sug(seq1(1, sym('ws'), alt(literalIC('AND'), literal('&')), sym('ws')), {text: 'AND'}), 
             1),
 
+          ws: repeat0(' '),
+
           compareNumber: alt(seq(operator('>='), sym('number')),
-                              seq(operator('>'), sym('number')),
-                              seq(operator('<='), sym('number')),
-                              seq(operator('<'), sym('number')),
-                              seq(operator('!='), sym('number')),
-                              seq(operator('='), sym('number')),
-                              seq(operator('IN'), sym('numberArray')),
-                              seq(operator('NOT IN'), sym('numberArray'))),
+                             seq(operator('>'), sym('number')),
+                             seq(operator('<='), sym('number')),
+                             seq(operator('<'), sym('number')),
+                             seq(operator('!='), sym('number')),
+                             seq(operator('='), sym('number')),
+                             seq(operator('IN'), sym('numberArray')),
+                             seq(operator('NOT IN'), sym('numberArray'))),
 
           numberArray: seq1(1, '(', sym('numbers'), ')'),
 
@@ -113,9 +106,11 @@ Boolean expr:
 
           // TODO replace '.' with an internationalized decimal point
           number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), optional('.'), repeat(range('0', '9')), sym('ws')),
+          
+          compareBoolean: alt(seq1(1, sym('ws'), seq(operator('IS TRUE'))),
+                              seq1(1, sym('ws'), seq(operator('IS FALSE')))),
 
-          ws: repeat0(' ')
-
+                              
         };
       }
     },
@@ -127,6 +122,7 @@ Boolean expr:
         let cls    = this.of;
         let propPredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
+        let operator = this.operator;
 
         for ( var i = 0 ; i < props.length ; i++ ) {
 
@@ -134,9 +130,24 @@ Boolean expr:
 
           if ( ! prop.searchable ) continue;
 
-          if (! foam.lang.Int.isInstance(prop)) continue;
+          if (foam.lang.Int.isInstance(prop) || foam.lang.Float.isInstance(prop)) {
+            propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), sym('compareNumber')));    
+          } else if (foam.lang.Boolean.isInstance(prop)) {
+            propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), sym('compareBoolean')));    
+          } else if ( foam.lang.Enum.isInstance(prop) ) {
 
-          propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), sym('compareNumber')));       
+           let enumValue = alt.apply(null, prop.of.VALUES.map(v => sug(seq1(1, sym('ws'),literalIC(v.name, v), sym('ws')), { text: v.name })));
+           let enumArray = seq1(2, sym('ws'), '(', repeat(enumValue, ',', 1), ')', sym('ws'));
+           //let compareEnum = seq(seq1(1, sym('ws'), operator('='), sym('ws')),literalIC('ACTIVE'));
+       
+           let compareEnum = alt(seq(operator('='), enumValue),
+                                 seq(operator('!='), enumValue),
+                                 seq(operator('IN'), enumArray),
+                                 seq(operator('NOT IN'), enumArray));
+    
+            propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), compareEnum));
+          }
+
         } 
         // return the properties grammar map
         return {propPredicates: alt.apply(null, propPredicates)};       
@@ -181,10 +192,6 @@ Boolean expr:
             let operation = compareNumber[0];
             let value    = compareNumber[1];
 
-            /*
-              operator IN (value1,value2,...)          operator exactly matches any of the listed values 
-              operator NOT IN (value1,value2,...)
-            */
 
             switch (operation) {
               case '=': 
@@ -203,6 +210,10 @@ Boolean expr:
                 return self.In.create({arg1: prop, arg2: value});
               case 'NOT IN':
                 return self.Not.create({arg1: self.In.create({arg1: prop, arg2: value})});
+              case 'IS TRUE':
+                return self.Eq.create({ arg1: prop, arg2: true});
+              case 'IS FALSE':
+                return self.Eq.create({ arg1: prop, arg2: false});  
             }
 
           },

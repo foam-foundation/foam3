@@ -27,14 +27,13 @@ foam.CLASS({
   ^ {
     display: flex;
     width: 100%;
+    gap: 0.4rem;
+    align-items: center;
   }
   
   ^country {
-    /* ToDo: Add border-right: none; */
-  }
-  
-  ^phone {
-    /* ToDo: Add border-left: none; */
+    height: 100%;
+    display; flex;
   }
   `,
 
@@ -52,6 +51,10 @@ foam.CLASS({
         return {
           class: 'foam.u2.view.RichChoiceReferenceView',
           rowView: { class: 'foam.u2.PhoneCountryCodeCitationView' },
+          selectionView: {
+            class: 'foam.u2.view.RichChoiceView.DefaultSelectionView',
+            citationView: { class: 'foam.u2.PhoneCountryCodeCitationView', showFullName: false }
+          },
           fullObject_$: X.data$.dot('countryObject'),
           comparator: null,
           sections: [
@@ -89,7 +92,9 @@ foam.CLASS({
       this
         .addClass(this.myClass())
         .startContext({data: this})
-          .tag(this.COUNTRY_CODE, { mode$: countryMode$ })
+          .start(this.COUNTRY_CODE, { mode$: countryMode$ })
+            .addClass(this.myClass('country'))
+          .end()
           .add(this.LOCAL_PHONE_NUMBER)
         .endContext();
     }

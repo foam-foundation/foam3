@@ -5,13 +5,21 @@
  */
 
 foam.CLASS({
-   package: 'foam.u2',
-   name: 'PhoneCountryCodeCitationView',
-   extends: 'foam.u2.CitationView',
+  package: 'foam.u2',
+  name: 'PhoneCountryCodeCitationView',
+  extends: 'foam.u2.CitationView',
+
+  properties: [
+    {
+      class: 'Boolean',
+      name: 'showFullName',
+      value: true
+    }
+  ],
    
    methods: [
-      function getSummary(data) {
-         return data.emoji + ' ' + data.name + ' +' + data.phoneCode;
-      }
-   ]
+    function getSummary(data) {
+      return data.emoji + ' ' + (this.showFullName ? (data.name + ' ') : '') + '+' + data.phoneCode;
+    }
+  ]
 });

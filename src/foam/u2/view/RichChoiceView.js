@@ -804,6 +804,11 @@ foam.CLASS({
           class: 'Boolean',
           name: 'addPadding',
           value: true
+        },
+        {
+          class: 'foam.u2.ViewSpec',
+          name: 'citationView',
+          factory: function() { return this.rowView || this.CitationView; }
         }
       ],
 
@@ -816,7 +821,7 @@ foam.CLASS({
               this.startContext({ controllerMode: 'VIEW' }).start()
                 .addClass(self.myClass('customSelectView'))
                 .enableClass(self.myClass('ro'), self.addPadding$.not())
-                .tag((self.rowView || self.CitationView), { data: fullObject })
+                .tag(self.citationView, { data: fullObject })
               .end().endContext();
             } else {
               this.start().addClass(self.myClass('paddingWrapper')).add(self.defaultSelectionPrompt).end();

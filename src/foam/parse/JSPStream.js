@@ -63,16 +63,12 @@ foam.INTERFACE({
       documentation: 'Applies the given parser to this stream.',
       args: [
         {
-          name: 'ps',
-          type: 'foam.parse.Parser'
+          name: 'p',
+          type: 'foam.parse.JSParser'
         },
         {
           name: 'grammar',
           type :'foam.parse.Grammar'
-        },
-        {
-          name: 'start',
-          type: 'String'
         }
       ]
     }

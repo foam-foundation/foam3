@@ -733,16 +733,12 @@ foam.CLASS({
       javaCode: `
         StringBuilder sb = new StringBuilder();
         sb.append(getShortAddress());
-        sb.append(", ");
-        sb.append(this.getCity());
-        sb.append(", ");
-        sb.append(getRegionId());
-        sb.append(", ");
-        sb.append(getCountryId());
-        sb.append(", ");
-        sb.append(getPostalCode());
-        String rtn = sb.toString();
-        return rtn.equals(", , , , ") ? "" : rtn;
+        if ( ! SafetyUtil.isEmpty(getCity())        ) sb.append(", ").append(this.getCity());
+        if ( ! SafetyUtil.isEmpty(getRegionId())    ) sb.append(", ").append(this.getRegionId());
+        if ( ! SafetyUtil.isEmpty(getCountryId())   ) sb.append(", ").append(this.getCountryId());
+        if ( ! SafetyUtil.isEmpty(getPostalCode())  ) sb.append(", ").append(this.getPostalCode());
+        String rtn = sb.toString().trim();
+        return rtn.startsWith(", ") ? rtn.substring(2) : rtn;
       `
     },
     {
@@ -764,7 +760,7 @@ foam.CLASS({
       javaCode: `
       StringBuilder sb = new StringBuilder();
       if ( getStructured() ) {
-        if ( getSuite() != null && ! getSuite().equals("") ) {
+        if ( ! SafetyUtil.isEmpty(getSuite()) ) {
           sb.append(getSuite());
           sb.append("-");
         }
@@ -773,8 +769,8 @@ foam.CLASS({
         sb.append(getStreetName());
       } else {
         sb.append(getAddress1());
-        sb.append(" ");
-        sb.append(getAddress2());
+        if ( ! SafetyUtil.isEmpty(getAddress2()) )
+          sb.append(", ").append(this.getAddress2());
       }
       return sb.toString().trim();
       `

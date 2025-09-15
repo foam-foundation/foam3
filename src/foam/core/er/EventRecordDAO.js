@@ -32,7 +32,7 @@ foam.CLASS({
         switch ( er.getSeverity().getOrdinal() ) {
           case 0:
             if ( er.getException() != null ) {
-              logger.debug(summary, (Exception) er.getException());
+              logger.debug(summary, (Throwable) er.getException());
             } else {
               logger.debug(summary);
             }
@@ -40,7 +40,7 @@ foam.CLASS({
 
           case 1:
             if ( er.getException() != null ) {
-              logger.info(summary, (Exception) er.getException());
+              logger.info(summary, (Throwable) er.getException());
             } else {
               logger.info(summary);
             }
@@ -48,7 +48,7 @@ foam.CLASS({
 
           case 2:
             if ( er.getException() != null ) {
-              logger.warning(summary, (Exception) er.getException());
+              logger.warning(summary, (Throwable) er.getException());
             } else {
               logger.warning(summary);
             }
@@ -56,7 +56,7 @@ foam.CLASS({
 
           case 3:
             if ( er.getException() != null ) {
-              logger.error(summary, (Exception) er.getException());
+              logger.error(summary, (Throwable) er.getException());
             } else {
               logger.error(summary);
             }

@@ -185,6 +185,28 @@ foam.CLASS({
         out.println("<link href=\\"https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap\\" rel=\\"preload\\" as=\\"style\\" crossorigin=\\"anonymous\\">");
         out.println("<link href=\\"https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap\\" rel=\\"stylesheet\\" crossorigin=\\"anonymous\\">");
       }
+
+      // Loading screen styles
+      out.println("<style>");
+      out.println("#loading-container {");
+      out.println("  background: black;");
+      out.println("  color: white;");
+      out.println("  text-align: center;");
+      out.println("  height: 100%;");
+      out.println("  display: flex;");
+      out.println("  vertical-align: middle;");
+      out.println("  width: 100%;");
+      out.println("  flex-direction: column;");
+      out.println("  justify-content: center;");
+      out.println("  align-items: center;");
+      out.println("}");
+      out.println("#loading-logo {");
+      out.println("  max-width: 400px;");
+      out.println("}");
+      out.println("#loading-text {");
+      out.println("  font-family: system-ui, sans-serif;");
+      out.println("}");
+      out.println("</style>");
       `
     },
     {
@@ -251,11 +273,11 @@ foam.CLASS({
         out.print(theme.getAppName());
         out.println("\\" bootservices=\\"" + getBootservices() + "\\">");
 
-        out.print("<div style=\\" background: black; color:white;text-align:center;height:100%;display: flex;vertical-align:middle;width: 100%;flex-direction: column;justify-content: center;align-items: center; \\">");
-        out.print("<img style=\\" max-width: 400px; \\" src=\\"");
+        out.print("<div id=\\"loading-container\\">");
+        out.print("<img id=\\"loading-logo\\" src=\\"");
         out.print(theme.getLargeLogo());
         out.println("\\"></img>");
-        out.print("<h3 style=\\"font-family: system-ui, sans-serif; \\">Loading....</h3>");
+        out.print("<h3 id=\\"loading-text\\">Loading....</h3>");
         out.println("</div>");
         out.println("</foam>");
 

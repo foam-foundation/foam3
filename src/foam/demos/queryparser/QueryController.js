@@ -31,9 +31,9 @@ foam.CLASS({
       factory: function() { return {}; }
     },
     {
-      name: 'apply', // TODO: a better name
+      name: 'apply', 
       factory: function() {
-        var auto = this;
+        let self = this;
 
         function maybeAdd(p, ss) {
           try {
@@ -49,24 +49,27 @@ foam.CLASS({
           } catch(x) {}
         }
 
-        return function(p, obj) {
-          // 'this' is the PStream, TODO: pass ps as first param
+        // return the function that will be passed to parseString
+        // p is the parser
+        // grammar with all the symbols
+        return function(p, grammar) {
+          // 'this' is the JSPStream
           if ( p == foam.parse.EOF.create() ) return;
-          if ( this.pos > auto.query.length ) return;
+          if ( this.pos > self.query.length ) return;
 
-          if ( this.pos > auto.maxPos ) {
-            auto.previousSuggestions = auto.suggestions;
-            auto.suggestions = {};
-            auto.maxPos = this.pos;
+          if ( this.pos > self.maxPos ) {
+            self.previousSuggestions = self.suggestions;
+            self.suggestions = {};
+            self.maxPos = this.pos;
           }
 
-          if ( this.pos == auto.maxPos ) {
-            maybeAdd(p, auto.suggestions);
-          } else if ( this.pos == auto.maxPos-1 ) {
-            maybeAdd(p, auto.previousSuggestions);
+          if ( this.pos == self.maxPos ) {
+            maybeAdd(p, self.suggestions);
+          } else if ( this.pos == self.maxPos-1 ) {
+            maybeAdd(p, self.previousSuggestions);
           }
 
-          return p.parse(this, obj);
+          return p.parse(this, grammar);
         }
       }
     }

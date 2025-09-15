@@ -64,11 +64,6 @@ foam.INTERFACE({
           // optional
           name: 'grammar', 
           type: 'foam.parse.Grammar'
-        },
-        {
-          // optional, used only by Grammar
-          name: 'start',
-          type: 'String'
         }
       ]
     }

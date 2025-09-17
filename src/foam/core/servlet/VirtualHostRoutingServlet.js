@@ -181,33 +181,35 @@ foam.CLASS({
       }
       // default fonts
       if ( headConfig == null || ! headConfig.containsKey("customFonts") || customFontsFailed ) {
-        out.println("<link rel=\\"preconnect\\" href=\\"https://fonts.gstatic.com/\\">");
-        out.println("<link href=\\"https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap\\" rel=\\"preload\\" as=\\"style\\" crossorigin=\\"anonymous\\">");
-        out.println("<link href=\\"https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap\\" rel=\\"stylesheet\\" crossorigin=\\"anonymous\\">");
+        out.println("""
+          <link rel="preconnect" href="https://fonts.gstatic.com/">
+          <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap" rel="preload" as="style" crossorigin="anonymous">
+          <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">""");
       }
 
       // Loading screen styles
-      out.println("<style>");
-      out.println("#loading-container {");
-      out.println("  background: black;");
-      out.println("  color: white;");
-      out.println("  text-align: center;");
-      out.println("  height: 100%;");
-      out.println("  display: flex;");
-      out.println("  vertical-align: middle;");
-      out.println("  width: 100%;");
-      out.println("  flex-direction: column;");
-      out.println("  justify-content: center;");
-      out.println("  align-items: center;");
-      out.println("}");
-      out.println("#loading-logo {");
-      out.println("  max-width: 400px;");
-      out.println("}");
-      out.println("#loading-text {");
-      out.println("  font-family: system-ui, sans-serif;");
-      out.println("}");
-      out.println("</style>");
-      `
+      out.println("""
+        <style>
+        #loading-container {
+          background: black;
+          color: white;
+          text-align: center;
+          height: 100%;
+          display: flex;
+          vertical-align: middle;
+          width: 100%;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+        }
+        #loading-logo {
+          max-width: 400px;
+        }
+        #loading-text {
+          font-family: system-ui, sans-serif;
+        }
+        </style>""");
+      `,
     },
     {
       name: 'service',

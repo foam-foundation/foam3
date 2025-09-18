@@ -28,6 +28,11 @@ foam.CLASS({
     ['', 'propertyChange.data', 'dataToEditor']
   ],
 
+  css:`
+    ^ .ace_scroller {
+      overscroll-behavior: contain;
+    }  `, 
+
   properties: [
     {
       class: 'Boolean',

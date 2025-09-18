@@ -64,7 +64,7 @@ foam.CLASS({
       with ( this.scope ) {
         with ( { log: this.log.bind(this) } ) {
           var ret = eval('(async function() {' + self.code + '})').call(self.block);
-          ret.then(v => this.log(v), v => this.log(v));
+          ret.then(v => this.log(v), v => this.log(v)).catch(e => this.log(e.stack));
           return ret;
         }
       }

@@ -979,79 +979,173 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardMetricSink',
   extends: 'foam.dao.AbstractSink',
-  implements: [
-    'foam.lang.Serializable'
-  ],
+  implements: ['foam.lang.Serializable'],
   
-  requires: [
-    'foam.u2.tag.Image'
+  requires: ['foam.u2.tag.Image'],
+
+  imports: ['theme'],
+
+  exports: ['lastEncounteredObj_ as objData'],
+
+  sections: [
+    {
+      name: 'metricConfig',
+      title: 'Metric Configuration',
+      order: 1,
+      collapsable: true,
+      properties: ['operation', 'prop', 'label', 'prefix', 'postfix', 'decimalPlaces', 'convertToLocalString']
+    },
+    {
+      name: 'display',
+      title: 'Display Options',
+      order: 2,
+      collapsable: true,
+      // iconColor is hidden for now until implementation is fixed
+      properties: ['icon', 'iconSize', 'alignment', 'showCount', 'countSuffix', 'valueColor']
+    },
+    {
+      name: 'labelFont',
+      title: 'Label Font Options',
+      order: 3,
+      collapsable: true,
+      properties: ['labelFontSize', 'labelFontWeight', 'labelColor']
+    },
+    {
+      name: 'countFont',
+      title: 'Count Font Options',
+      order: 4,
+      collapsable: true,
+      properties: ['countFontSize', 'countFontWeight', 'countColor']
+    }
   ],
 
-
-  imports: [
-    'theme'
-  ],
-  
   properties: [
-    { name: 'operation' },
-    { name: 'prop' },
+    { 
+      class: 'Enum',
+      of: 'foam.core.reflow.dashboard.MetricOperation',
+      name: 'operation',
+      value: 'COUNT'
+    },
+    { 
+      class: 'FObjectProperty',
+      of: 'foam.lang.Property',
+      name: 'prop',
+      label: 'Property',
+      view: function(_, X) {
+        return { 
+          class: 'foam.core.reflow.PropertyChoiceView', 
+          forCls: X.dao ? X.dao.of : X.of
+        };
+      },
+      visibility: function(operation) {
+        // FOAM makes this reactive automatically when operation changes
+        return operation && operation.name !== 'COUNT' ? 
+          foam.u2.DisplayMode.RW : 
+          foam.u2.DisplayMode.HIDDEN;
+      }
+    },
     {
       class: 'foam.mlang.SinkProperty',
       name: 'sink',
-      javaFactory: 'return foam.mlang.MLang.COUNT();',
-      factory: function() { return foam.mlang.sink.Count.create(); }
+      externalTransient: true,
+      hidden: true,
+      factory: function() { return this.operation.createSink(this.prop); },
+      javaFactory: 'return foam.mlang.MLang.COUNT();'
     },
     {
       class: 'foam.mlang.SinkProperty',
       name: 'countSink',
+      externalTransient: true,
+      hidden: true,
       javaFactory: 'return foam.mlang.MLang.COUNT();',
       factory: function() { return foam.mlang.sink.Count.create(); }
     },
-    { name: 'label', value: 'Metric' },
-    { name: 'icon' },
     {
-      class: 'Color',
+      class: 'String',
+      name: 'label',
+      label: 'Display Label',
+      expression: function(sink) {
+        return this.sink?.label ?? 'Metric';
+      }
+    },
+    {
+      class: 'String',
+      name: 'icon',
+      help: 'Theme icon name to display above the metric value (e.g., "chart", "users", "dollar")'
+    },
+    {
+      class: 'String',
       name: 'iconColor',
-      label: 'Icon Color',
       help: 'Color for the icon (CSS color or token)',
+      view: 'foam.u2.view.TokenColorEditView',
       value: '$primary500',
+      view: 'foam.u2.view.ColorEditView',
       // TODO: Hidden for now as CSS override for SVG fill is not working properly
       // Need to fix the implementation to properly apply color to icons
       hidden: true
     },
-    { name: 'alignment' },
-    { name: 'showCount', value: true },
-    { name: 'countSuffix', value: 'records' },
+    {
+      class: 'Enum',
+      name: 'alignment',
+      of: 'foam.core.reflow.dashboard.MetricAlignment',
+      value: 'CENTER'
+    },
+    { class: 'Boolean', name: 'showCount', value: true },
+    {
+      class: 'String',
+      name: 'countSuffix',
+      value: 'records',
+      help: 'Text to display after the count number',
+      visibility: function(showCount) {
+        return showCount ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
+    },
     {
       class: 'Color',
       name: 'valueColor',
-      label: 'Value Color',
       help: 'Color for the metric value',
       value: '$primary500'
     },
-    { name: 'prefix' },
-    { name: 'postfix' },
-    { name: 'iconSize', value: '2rem' },
-    { name: 'decimalPlaces', value: 0 },
+    {
+      class: 'String',
+      name: 'prefix',
+      help: 'Text to display before value (e.g., $, €, #)'
+    },
+    {
+      class: 'String',
+      name: 'postfix',
+      help: 'Text to display after value (e.g., %, ms, USD)'
+    },
+    {
+      class: 'String',
+      name: 'iconSize',
+      help: 'Size of the icon (CSS size value like "2rem", "24px")',
+      value: '2rem'
+    },
+    { class:'Int', name: 'decimalPlaces', min: 0 },
+    { class: 'Boolean',
+      name: 'convertToLocalString',
+      value: true,
+      visibility: function(decimalPlaces) {
+        return decimalPlaces === 0 ? 'RW' : 'HIDDEN'; 
+      } 
+    },
     // Label font controls
     {
       class: 'String',
       name: 'labelFontSize',
-      label: 'Label Font Size',
       help: 'Font size for the display label (e.g., "1rem", "14px")',
       value: '0.875rem'
     },
     {
       class: 'String',
       name: 'labelFontWeight',
-      label: 'Label Font Weight',
       help: 'Font weight for the display label (e.g., "normal", "bold", "500")',
       value: 'medium'
     },
     {
       class: 'Color',
       name: 'labelColor',
-      label: 'Label Color',
       help: 'Color for the display label (CSS color or token)',
       value: '$textSecondary'
     },
@@ -1059,40 +1153,38 @@ foam.CLASS({
     {
       class: 'String',
       name: 'countFontSize',
-      label: 'Count Font Size',
       help: 'Font size for the count text (e.g., "0.75rem", "12px")',
       value: '0.75rem'
     },
     {
       class: 'String',
       name: 'countFontWeight',
-      label: 'Count Font Weight',
       help: 'Font weight for the count text (e.g., "normal", "bold")',
       value: 'normal'
     },
     {
       class: 'Color',
       name: 'countColor',
-      label: 'Count Color',
       help: 'Color for the count text (CSS color or token)',
       value: '$textSecondary'
     },
     {
       name: 'metric_',
-      expression: function(sink, countSink, label, icon, iconColor, alignment, showCount, countSuffix, valueColor, prefix, postfix, iconSize, decimalPlaces, labelFontSize, labelFontWeight, labelColor, countFontSize, countFontWeight, countColor) {
+      hidden: true,
+      expression: function(sink, countSink, showCount, decimalPlaces, convertToLocalString, postfix, prefix) {
         var value = this.getComputedValue();
         var count = countSink ? countSink.value : null;
         
         // Format value with decimal places
         if ( typeof value === 'number' ) {
           value = value.toFixed(decimalPlaces);
-          if ( decimalPlaces === 0 ) {
-            value = parseInt(value).toLocaleString();
-          } else {
+          if ( decimalPlaces !== 0 ) {
             value = parseFloat(value).toLocaleString(undefined, {
               minimumFractionDigits: decimalPlaces,
               maximumFractionDigits: decimalPlaces
             });
+          } else if ( convertToLocalString ) {
+            value = parseInt(value).toLocaleString();
           }
         }
         
@@ -1106,39 +1198,24 @@ foam.CLASS({
                   value + postfix : value + ' ' + postfix;
         }
         
-        var displayLabel = label || 
-                          (this.sink && this.sink.label ? this.sink.label : 'Metric');
-        
         return {
-          label: displayLabel,
           value: value,
-          count: count,
-          icon: icon,
-          iconColor: iconColor,
-          alignment: alignment,
-          showCount: showCount,
-          countSuffix: countSuffix,
-          valueColor: valueColor,
-          iconSize: iconSize,
-          labelFontSize: labelFontSize,
-          labelFontWeight: labelFontWeight,
-          labelColor: labelColor,
-          countFontSize: countFontSize,
-          countFontWeight: countFontWeight,
-          countColor: countColor
+          count: count
         };
       }
+    },
+    {
+      name: 'lastEncounteredObj_',
+      transient: true,
+      hidden: true
     }
   ],
   
   methods: [
     function init() {
       this.SUPER();
-      
-      // Set sink based on operation
-      if ( this.operation ) {
-        this.sink = this.operation.createSink(this.prop);
-      }
+      if ( ! this.sink )
+        this.updateSink();
     },
     
     {
@@ -1146,10 +1223,11 @@ foam.CLASS({
       code: function put(obj, sub) { 
         this.sink.put(obj, sub);
         this.countSink.put(obj, sub);
+        this.lastEncounteredObj_ = obj;
       },
       javaCode: `
-getSink().put(obj, sub);
-getCountSink().put(obj, sub);
+        getSink().put(obj, sub);
+        getCountSink().put(obj, sub);
       `
     },
     
@@ -1159,172 +1237,114 @@ getCountSink().put(obj, sub);
     
     function toE(_, x) {
       var self = this;
-      return x.E().add(this.dynamic(function(metric_) {
-        var metric = metric_;
-        var container = foam.u2.Element.create();
-        
-        
-        // Label
-        container.start('div')
-          .style({
-            fontSize: metric.labelFontSize || '0.875rem',
-            color: metric.labelColor,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            fontWeight: metric.labelFontWeight || 'medium',
-            marginBottom: '8px'
-          })
-          .add(metric.label)
-        .end();
-        
-        // Value
-        container.start('div')
-          .style({
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            color: metric.valueColor,
-            lineHeight: '1'
-          })
-          .add(metric.value)
-        .end();
-        
-        // Count - show how many records were processed
-        if ( metric.showCount && metric.count !== null ) {
-          container.start('div')
-            .style({
-              fontSize: metric.countFontSize || '0.75rem',
-              marginTop: '8px',
-              color: metric.countColor,
-              fontWeight: metric.countFontWeight || 'normal'
-            })
-            .add(metric.count.toLocaleString() + (metric.countSuffix ? ' ' + metric.countSuffix : ''))
-          .end();
-        }
-        
-        this.add(container);
-      }));
+      let e = x.E();
+      this.addToE(e);
+      return e;
     },
     
     function addToE(e) {
       var self = this;
-      e.add(this.dynamic(function(metric_) {
-        var metric = metric_;
-        // Determine alignment style
-        var alignmentStyle = 'center';
-        var textAlign = 'center';
-        if ( self.alignment && self.alignment.name === 'LEFT' ) {
-          alignmentStyle = 'flex-start';
-          textAlign = 'left';
-        } else if ( self.alignment && self.alignment.name === 'RIGHT' ) {
-          alignmentStyle = 'flex-end';
-          textAlign = 'right';
-        }
-        
-        var container = foam.u2.Element.create();
-        
-        // Container with alignment
-        container = container.start('div')
+      e.style({
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: self.alignment$.map(function(alignment) { return alignment.alignmentStyle }),
+        textAlign: self.alignment$.map(function(alignment) { return alignment.textAlign }),
+        width: '100%'
+      });
+      if ( self.icon ) {
+        e.start('div')
           .style({
+            marginBottom: '12px',
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: alignmentStyle,
-            textAlign: textAlign,
-            width: '100%'
-          });
-        
-        // Icon display (if provided)
-
-        if ( self.icon ) {
-          var iconContainer = container.start('div')
-            .style({
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            });
-          
-          // Check if icon is a theme glyph
-          if ( self.theme && self.theme.glyphs && self.theme.glyphs[self.icon] ) {
-            iconContainer
-              .start(self.Image, {
-                glyph: self.theme.glyphs[self.icon], 
-                role: 'presentation' 
-              })
-              .style({
-                width: metric.iconSize || '2rem',
-                height: metric.iconSize || '2rem'
-              })
-              .end();
-          } else {
-            iconContainer
-              .start(self.Image, {
-                data: self.icon, 
-                embedSVG: true,
-                role: 'presentation' 
-              })
-              .style({
-                width: metric.iconSize || '2rem',
-                height: metric.iconSize || '2rem'
-              })
-              .end();
-          }
-          
-          iconContainer.end();
-        }
-        
-        // Label
-        container.start('div')
+            alignItems: 'center',
+            justifyContent: 'center'
+          })
+          .start(self.Image, {
+            role: 'presentation',
+            ...(
+              self.theme && self.theme.glyphs && self.theme.glyphs[self.icon] ? 
+              { glyph: self.theme.glyphs[self.icon] } : 
+              { data: self.icon, embedSVG: true }
+            )
+          })
           .style({
-            fontSize: metric.labelFontSize || '0.875rem',
-            color: metric.labelColor,
+            width: this.iconSize$,
+            height: this.iconSize$
+          })
+          .end()
+        .end();
+      }
+      e.start('div')
+          .style({
+            fontSize: this.labelFontSize$,
+            color: this.labelColor$,
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            fontWeight: metric.labelFontWeight || 'medium',
+            fontWeight: this.labelFontWeight$,
             marginBottom: '8px'
           })
-          .add(metric.label)
-        .end();
-        
+          .add(this.label$)
+      .end();
+      e.add(this.dynamic(function(metric_) {
+        var metric = metric_;
         // Value
-        container.start('div')
+        this.start('div')
           .style({
             fontSize: '3rem',
             fontWeight: 'bold',
-            color: metric.valueColor,
+            color: self.valueColor$,
             lineHeight: '1'
           })
-          .add(metric.value)
+          .callIfElse(foam.lang.Property.isInstance(self.sink.arg1) && self.lastEncounteredObj_, function() {
+            this.startContext({ controllerMode: 'VIEW', objData: self.lastEncounteredObj_}).tag(self.sink.arg1, {data: metric.value }).endContext();
+          }, function() {
+            this.add(metric.value)
+          })
         .end();
-        
+
         // Count - show how many records were processed
-        if ( metric.showCount && metric.count !== null ) {
-          container.start('div')
+        if ( self.showCount && metric.count !== null ) {
+          this.start('div')
             .style({
-              fontSize: metric.countFontSize || '0.75rem',
+              fontSize: self.countFontSize$,
               marginTop: '8px',
-              color: metric.countColor,
-              fontWeight: metric.countFontWeight || 'normal'
+              color: self.countColor$,
+              fontWeight: self.countFontWeight$
             })
-            .add(metric.count.toLocaleString() + (metric.countSuffix ? ' ' + metric.countSuffix : ''))
+            .add(self.countSuffix$.map(v => metric.count.toLocaleString() + (v ? ' ' + v : '')))
           .end();
         }
-        
-        container.end();
-        this.add(container);
-        return container;
       }));
     },
-    
+
     function eof() {
       // No action needed for simple sink
     },
-    
+
     function reset(sub) {
       if ( this.sink && this.sink.reset ) {
         this.sink.reset(sub);
       }
       if ( this.countSink && this.countSink.reset ) {
         this.countSink.reset(sub);
+      }
+    },
+    function toString() {
+      return 'DashboardMetricSink(' + this.sink.toString() + ')';
+    }
+  ],
+  listeners: [
+    {
+      name: 'updateSink',
+      isFramed: true,
+      on: ['this.propertyChange.operation', 'this.propertyChange.prop'],
+      code: function() {
+        let sink =  this.operation ? this.operation.createSink(this.prop) : foam.mlang.MLang.COUNT();
+        if ( this.sink.cls_ !== sink.cls_ ) {
+          this.sink = sink;
+        } else {
+          this.sink.copyFrom(sink);
+        }
       }
     }
   ]

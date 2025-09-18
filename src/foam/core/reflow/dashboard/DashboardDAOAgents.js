@@ -1055,278 +1055,43 @@ foam.CLASS({
   name: 'DashboardMetricDAOAgent',
   extends: 'foam.core.reflow.AbstractSinkDAOAgent',
 
+  exports: ['of'],
+
   requires: [
     'foam.core.reflow.dashboard.DashboardMetricSink',
     'foam.core.reflow.dashboard.MetricOperation',
     'foam.core.reflow.ReactiveSectionedDetailView'
   ],
-
-  sections: [
-    {
-      name: 'metricConfig',
-      title: 'Metric Configuration',
-      order: 1,
-      collapsable: true,
-      properties: ['operation', 'prop', 'label', 'prefix', 'postfix', 'decimalPlaces']
-    },
-    {
-      name: 'display',
-      title: 'Display Options',
-      order: 2,
-      collapsable: true,
-      // iconColor is hidden for now until implementation is fixed
-      properties: ['icon', 'iconSize', 'alignment', 'showCount', 'countSuffix', 'valueColor']
-    },
-    {
-      name: 'labelFont',
-      title: 'Label Font Options',
-      order: 3,
-      collapsable: true,
-      properties: ['labelFontSize', 'labelFontWeight', 'labelColor']
-    },
-    {
-      name: 'countFont',
-      title: 'Count Font Options',
-      order: 4,
-      collapsable: true,
-      properties: ['countFontSize', 'countFontWeight', 'countColor']
-    }
-  ],
-
   properties: [
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.MetricOperation',
-      name: 'operation',
-      label: 'Operation',
-      value: 'COUNT'
-    },
-    {
-      name: 'prop',
-      label: 'Property',
-      view: function(_, X) {
-        return { 
-          class: 'foam.core.reflow.PropertyChoiceView', 
-          forCls: X.data.dao ? X.data.dao.of : X.data.of
-        };
-      },
-      visibility: function(operation) {
-        // FOAM makes this reactive automatically when operation changes
-        return operation && operation.name !== 'COUNT' ? 
-          foam.u2.DisplayMode.RW : 
-          foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    {
-      class: 'String',
-      name: 'label',
-      label: 'Display Label',
-      value: 'Metric'
-    },
-    {
-      class: 'String',
-      name: 'icon',
-      label: 'Icon',
-      help: 'Theme icon name to display above the metric value (e.g., "chart", "users", "dollar")'
-    },
-    {
-      class: 'String',
-      name: 'iconColor',
-      label: 'Icon Color',
-      help: 'Color for the icon (CSS color or token)',
-      view: 'foam.u2.view.TokenColorEditView',
-      value: '$primary500',
-      view: 'foam.u2.view.ColorEditView',
-      // TODO: Hidden for now as CSS override for SVG fill is not working properly
-      // Need to fix the implementation to properly apply color to icons
+    { 
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardMetricSink',
+      name:'sink',
       hidden: true
-    },
-    // Label font controls
-    {
-      class: 'String',
-      name: 'labelFontSize',
-      label: 'Label Font Size',
-      help: 'Font size for the display label (e.g., "1rem", "14px")',
-      value: '0.875rem',
-      section: 'labelFont'
-    },
-    {
-      class: 'String',
-      name: 'labelFontWeight',
-      label: 'Label Font Weight',
-      help: 'Font weight for the display label (e.g., "normal", "bold", "500")',
-      value: 'medium',
-      section: 'labelFont'
-    },
-    {
-      class: 'String',
-      name: 'labelColor',
-      label: 'Label Color',
-      help: 'Color for the display label (CSS color or token)',
-      section: 'labelFont',
-      value: '$textSecondary',
-      view: 'foam.u2.view.ColorEditView'
-    },
-    // Count font controls
-    {
-      class: 'String',
-      name: 'countFontSize',
-      label: 'Count Font Size',
-      help: 'Font size for the count text (e.g., "0.75rem", "12px")',
-      value: '0.75rem',
-      section: 'countFont'
-    },
-    {
-      class: 'String',
-      name: 'countFontWeight',
-      label: 'Count Font Weight',
-      help: 'Font weight for the count text (e.g., "normal", "bold")',
-      value: 'normal',
-      section: 'countFont'
-    },
-    {
-      class: 'String',
-      name: 'countColor',
-      label: 'Count Color',
-      help: 'Color for the count text (CSS color or token)',
-      section: 'countFont',
-      value: '$textSecondary',
-      view: 'foam.u2.view.ColorEditView'
-    },
-    {
-      class: 'Enum',
-      name: 'alignment',
-      label: 'Alignment',
-      of: 'foam.core.reflow.dashboard.MetricAlignment',
-      value: 'CENTER'
-    },
-    {
-      class: 'Boolean',
-      name: 'showCount',
-      label: 'Show Record Count',
-      value: true,
-      help: 'Display how many records were used in the calculation'
-    },
-    {
-      class: 'String',
-      name: 'countSuffix',
-      label: 'Count Suffix',
-      value: 'records',
-      help: 'Text to display after the count number',
-      visibility: function(showCount) {
-        return showCount ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    {
-      class: 'String',
-      name: 'valueColor',
-      label: 'Value Color',
-      help: 'Color for the metric value (CSS color or token)',
-      value: '$primary500',
-      view: 'foam.u2.view.ColorEditView'
-    },
-    {
-      class: 'String',
-      name: 'prefix',
-      label: 'Prefix',
-      help: 'Text to display before value (e.g., $, €, #)'
-    },
-    {
-      class: 'String',
-      name: 'postfix',
-      label: 'Postfix',
-      help: 'Text to display after value (e.g., %, ms, USD)'
-    },
-    {
-      class: 'String',
-      name: 'iconSize',
-      label: 'Icon Size',
-      help: 'Size of the icon (CSS size value like "2rem", "24px")',
-      value: '2rem'
-    },
-    {
-      class: 'Int',
-      name: 'decimalPlaces',
-      label: 'Decimal Places',
-      value: 0,
-      help: 'Number of decimal places to show'
     }
   ],
 
   methods: [
     function createSink() {
-      return this.DashboardMetricSink.create({
-        operation: this.operation,
-        prop: this.prop,
-        label: this.label,
-        icon: this.icon,
-        iconColor: this.iconColor,
-        alignment: this.alignment,
-        showCount: this.showCount,
-        countSuffix: this.countSuffix,
-        valueColor: this.valueColor,
-        prefix: this.prefix,
-        postfix: this.postfix,
-        iconSize: this.iconSize,
-        decimalPlaces: this.decimalPlaces
-      });
+      if ( this.sink ) {
+        this.sink.reset();
+        return this.sink;
+      }
+      // Create new sink based on current configuration
+      return this.sink = this.DashboardMetricSink.create({});
     },
-    
-
     function addSinkToE(e, s) {
-      var self = this;
-      // Add the sink once
-      e.add(s);
-      
-      // Then update its properties reactively
-      this.onDetach(this.dynamic(function(label, icon, iconColor, alignment, showCount, countSuffix, valueColor, prefix, postfix, iconSize, decimalPlaces) { 
-        s.label = label;
-        s.icon = icon;
-        s.iconColor = iconColor;
-        s.alignment = alignment;
-        s.showCount = showCount;
-        s.countSuffix = countSuffix;
-        s.valueColor = valueColor;
-        s.prefix = prefix;
-        s.postfix = postfix;
-        s.iconSize = iconSize;
-        s.decimalPlaces = decimalPlaces;
-        
-        // Force metric to update/redraw
-        if ( s.updateMetric ) s.updateMetric();
-       }));
+      this.sink = this.sink.copyFrom(s);
+      e.add(this.sink);
     },
     function addToE(e) {
-      e.startContext({data: this})
+      if ( ! this.sink ) this.createSink();
+      e.startContext({data: this.sink$})
         .tag(this.ReactiveSectionedDetailView, {
-          data: this,
+          data$: this.sink$,
           showTitle: true
         })
       .endContext();
-    },
-    
-    function clone(subContext) {
-      var clone = this.SUPER(subContext);
-      clone.operation$ = this.operation$;
-      clone.prop$ = this.prop$;
-      clone.label$ = this.label$;
-      clone.icon$ = this.icon$;
-      clone.iconColor$ = this.iconColor$;
-      clone.alignment$ = this.alignment$;
-      clone.showCount$ = this.showCount$;
-      clone.countSuffix$ = this.countSuffix$;
-      clone.valueColor$ = this.valueColor$;
-      clone.prefix$ = this.prefix$;
-      clone.postfix$ = this.postfix$;
-      clone.iconSize$ = this.iconSize$;
-      clone.decimalPlaces$ = this.decimalPlaces$;
-      clone.labelFontSize$ = this.labelFontSize$;
-      clone.labelFontWeight$ = this.labelFontWeight$;
-      clone.labelColor$ = this.labelColor$;
-      clone.countFontSize$ = this.countFontSize$;
-      clone.countFontWeight$ = this.countFontWeight$;
-      clone.countColor$ = this.countColor$;
-      return clone;
     }
   ]
 });

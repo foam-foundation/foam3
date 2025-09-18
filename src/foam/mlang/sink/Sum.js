@@ -44,6 +44,11 @@ if (other instanceof foam.mlang.sink.Sum) {
 }
       `
     },
+    {
+      name: 'reset',
+      code: function() { this.value = 0; },
+      swiftCode: 'value = 0'
+    },
 
     function toSummary() { return this.value; },
 

@@ -80,6 +80,11 @@ if (other instanceof foam.mlang.sink.Max) {
 }
       `
     },
+    {
+      name: 'reset',
+      code: function() { this.value = 0; },
+      swiftCode: 'value = 0'
+    },
     function toSummary() { return this.value; },
     function valueOf() { return this.value; },
     function addToE(e) { e.add(this.value); }

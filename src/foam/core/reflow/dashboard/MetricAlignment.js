@@ -9,19 +9,36 @@ foam.ENUM({
   name: 'MetricAlignment',
   
   documentation: 'Alignment options for metric display',
+
+  properties: [
+    {
+      class: 'String',
+      name: 'alignmentStyle'
+    },
+    {
+      class: 'String',
+      name: 'textAlign'
+    }
+  ],
   
   values: [
     {
       name: 'LEFT',
-      label: 'Left'
+      label: 'Left',
+      alignmentStyle: 'flex-start',
+      textAlign: 'left'
     },
     {
       name: 'CENTER', 
-      label: 'Center'
+      label: 'Center',
+      alignmentStyle: 'center',
+      textAlign: 'center'
     },
     {
       name: 'RIGHT',
-      label: 'Right'
+      label: 'Right',
+      alignmentStyle: 'flex-end',
+      textAlign: 'right'
     }
   ]
 });

@@ -316,6 +316,20 @@ p({
 
 p({
   "class":"foam.core.menu.Menu",
+  "id":"flows",
+  "label":"Flows",
+  "handler":{
+    "class":"foam.core.menu.DAOMenu2",
+    "config":{
+      "class":"foam.comics.v2.DAOControllerConfig",
+      "daoKey":"flowDAO"
+    }
+  },
+  "parent":"admin"
+})
+
+p({
+  "class":"foam.core.menu.Menu",
   "id":"agents",
   "label":"Agents",
   "handler":{

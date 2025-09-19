@@ -86,3 +86,28 @@ p({
     }
   """
 })
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "libDAO",
+  "description": "Stores Reflow Scripts",
+  "serve":true,
+  "authenticate":false,
+  "serviceScript":`
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("libs")
+      .setOf(foam.core.reflow.Script.getOwnClassInfo())
+      .build();
+    `,
+  "client":"""
+    {
+      "of":"foam.core.reflow.Script",
+      "cache":true,
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0
+    }
+  """
+})

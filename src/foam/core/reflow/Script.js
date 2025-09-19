@@ -25,6 +25,19 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'Long',
+      name: 'id',
+      visibility: 'RO'
+    },
+    {
+      class: 'String',
+      name: 'scriptName'
+    },
+    {
+      class: 'String',
+      name: 'description'
+    },
+    {
       class: 'String',
       name: 'code',
       reactive: false,

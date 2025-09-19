@@ -333,6 +333,45 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
+  name: 'Scripts',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  requires: [ 'foam.core.reflow.Script', 'foam.core.reflow.cmd.DAORowView' ],
+
+  imports: [ 'libDAO', 'scope' ],
+
+  properties: [
+    [ 'description', 'Display available scripts' ]
+  ],
+
+  methods: [
+    function execute(opt_nameQuery) {
+      var self = this;
+      var dao  = this.libDAO;
+      var count = foam.lang.SimpleSlot.create({value: 0});
+      if ( opt_nameQuery ) dao = dao.where(
+        this.OR(
+          this.CONTAINS_IC(this.Script.SCRIPT_NAME, opt_nameQuery),
+        ));
+      this.out.tag('br');
+      this.out.start('table').attr('width', '100%').
+        select(dao, function(n) {
+          count.value++;
+
+          this.start('tr').
+            start('td').attr('align', 'left').add(n.scriptName).end().
+            start('td').attr('align', 'left').add(n.description).end().
+            start('td').attr('align', 'left').start(foam.u2.Link).add('Run').on('click', () => n.run()).end().
+          end();
+        }).
+        end().
+        start('b').add(count, ' selected').end();
+    }
+  ]
+})
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
   name: 'DAOS',
   extends: 'foam.core.reflow.cmd.Command',
 

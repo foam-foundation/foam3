@@ -1213,11 +1213,11 @@ foam.CLASS({
   ],
   
   methods: [
-    function init() {
-      this.SUPER();
-      if ( ! this.sink )
-        this.updateSink();
-    },
+    // function init() {
+    //   this.SUPER();
+    //   if ( ! this.sink )
+    //     this.updateSink();
+    // },
     
     {
       name: 'put',

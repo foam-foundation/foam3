@@ -83,7 +83,6 @@ foam.CLASS({
       justify-content: space-between;
       align-items: center;
       padding-bottom: 16px;
-      border-bottom: 1px solid $borderLight;
     }
     ^title {
       font-weight: $font-bold;

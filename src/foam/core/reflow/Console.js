@@ -256,35 +256,26 @@ foam.CLASS({
       }
     },
     {
-      name: 'confirmCancel',
-      label: 'Yes, Confirm',
-      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
-      size: 'SMALL',
-      code: function() {
-        this.mementoMgr.undoAll();
-      }
-    },
-    {
       name: 'cancel',
-      label: 'Cancel Changes',
+      label: 'Undo Changes',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'close',
       isEnabled: function(data$value$revision) {
         return data$value$revision;
       },
-      code: function() {
-        let confirmationModal = this.ConfirmationModal.create({
-          title: `Are you sure you want to cancel changes?`,
-          primaryAction: this.CONFIRM_CANCEL,
-          showCancel: true,
+      confirmationView: function(X, data) {
+        return data.ConfirmationModal.create({
+          primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
+          data: data,
           modalStyle: 'DESTRUCTIVE',
+          title: 'Undo Changes',
           maxWidth: '35vw',
-          closeable: false,
-          description: 'This will remove all unsaved changes made to the document.',
-          data: this
-        });
-        this.add(confirmationModal);
+          closeable: false
+        }).add('This will remove all unsaved changes made to the document.')
+      },
+      code: function() {
+        this.mementoMgr.undoAll();
       }
     },
     {
@@ -308,45 +299,21 @@ foam.CLASS({
       }
     },
     {
-      name: 'confirmReset',
-      label: 'Yes, Confirm',
-      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
-      size: 'SMALL',
-      code: function() {
-        this.data.eval_('clear');
-        var flow = this.data.value;
-
-        flow.name     = '';
-        this.mementoMgr.clear();
-        flow.version  = undefined;
-        flow.revision = undefined;
-      }
-    },
-    {
       name: 'clear',
       label: 'Clear Document',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
-      code: function() {
-        let confirmationModal = this.ConfirmationModal.create({
-          title: `Are you sure you want to delete this document's content?`,
-          primaryAction: this.CONFIRM_CLEAR,
-          showCancel: true,
+      confirmationView: function(X, data) {
+        return data.ConfirmationModal.create({
+          primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
+          data: data,
           modalStyle: 'DESTRUCTIVE',
+          title: 'Clear Document',
           maxWidth: '35vw',
-          closeable: false,
-          description: 'This will remove all content from the document.',
-          data: this
-        });
-        this.add(confirmationModal);
-      }
-    },
-    {
-      name: 'confirmClear',
-      label: 'Clear flow',
-      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
-      size: 'SMALL',
+          closeable: false
+        }).add('This will remove all content from the document.')
+      },
       code: function() {
         this.data.eval_('clear');
       }
@@ -360,17 +327,23 @@ foam.CLASS({
       isAvailable: function(showPrompts) {
         return showPrompts;
       },
-      code: function() {
-        let confirmationModal = this.ConfirmationModal.create({
-          title: `Unsaved changes will be lost, are you sure you want a New Reflow page?`,
-          primaryAction: this.CONFIRM_RESET,
-          showCancel: true,
+      confirmationView: function(X, data) {
+        return data.ConfirmationModal.create({
+          primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
+          data: data,
           modalStyle: 'DESTRUCTIVE',
+          title: 'Start a New Flow',
           maxWidth: '35vw',
-          closeable: false,
-          data: this
-        });
-        this.add(confirmationModal);
+          closeable: false
+        }).add('Unsaved changes will be lost. Are you sure you want to start a new Flow?');
+      },
+      code: function() {
+        this.data.eval_('clear');
+        var flow = this.data.value;
+        flow.name     = '';
+        this.mementoMgr.clear();
+        flow.version  = undefined;
+        flow.revision = undefined;
       }
     },
     {

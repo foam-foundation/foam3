@@ -225,7 +225,7 @@ foam.CLASS({
   name: 'Clear',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'clearFlow as clear' ],
+  imports: [ 'clearFlow as clear', 'block' ],
 
   properties: [
     [ 'description', 'Clear console output' ]
@@ -233,6 +233,7 @@ foam.CLASS({
 
   methods: [
     function execute() {
+      this.block?.del();
       this.clear();
     }
   ]

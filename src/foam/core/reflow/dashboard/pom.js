@@ -1,7 +1,7 @@
 foam.POM({
   name: 'dashboard',
   files: [
-    { name: 'MetricOperation',         flags: 'js' },
+    { name: 'MetricOperation',         flags: 'js|java' },
     { name: 'MetricAlignment',         flags: 'js|java' },
 
     { name: 'LegendPosition',          flags: 'js|java' },

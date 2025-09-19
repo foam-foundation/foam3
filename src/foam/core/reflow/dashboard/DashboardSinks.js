@@ -1029,6 +1029,7 @@ foam.CLASS({
     { 
       class: 'FObjectProperty',
       of: 'foam.lang.Property',
+      generateJava: false,
       name: 'prop',
       label: 'Property',
       view: function(_, X) {

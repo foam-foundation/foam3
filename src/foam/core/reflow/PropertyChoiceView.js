@@ -161,6 +161,10 @@ foam.CLASS({
       factory: function() {
         return foam.mlang.predicate.True.create();
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'allowClearingSelection'
     }
   ],
 
@@ -173,14 +177,15 @@ foam.CLASS({
       this.data$.relateTo(
         this.propName$,
         function propToName(p) { return p ? p.name : ''; },
-        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n) : ''; }
+        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n) : null; }
       );
 
       this.start(this.PropertyChoiceView_, {
         forCls: this.forCls,
         data$: this.propName$,
         predicate: this.predicate,
-        choosePlaceholder: this.placeholder
+        choosePlaceholder: this.placeholder,
+        allowClearingSelection: this.allowClearingSelection
       });
     }
   ]

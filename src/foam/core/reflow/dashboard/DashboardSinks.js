@@ -1252,40 +1252,60 @@ foam.CLASS({
         textAlign: self.alignment$.map(function(alignment) { return alignment.textAlign }),
         width: '100%'
       });
-      if ( self.icon ) {
-        e.start('div')
-          .style({
-            marginBottom: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          })
-          .start(self.Image, {
-            role: 'presentation',
-            ...(
-              self.theme && self.theme.glyphs && self.theme.glyphs[self.icon] ? 
-              { glyph: self.theme.glyphs[self.icon] } : 
-              { data: self.icon, embedSVG: true }
-            )
-          })
-          .style({
-            width: this.iconSize$,
-            height: this.iconSize$
-          })
-          .end()
-        .end();
-      }
-      e.start('div')
-          .style({
-            fontSize: this.labelFontSize$,
-            color: this.labelColor$,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            fontWeight: this.labelFontWeight$,
-            marginBottom: '8px'
-          })
-          .add(this.label$)
-      .end();
+      e.add(this.dynamic(function(metric_) {
+        console.log('Rendering metric with icon, metric:', metric_);
+        var metric = metric_;
+        // Use user icon first, fallback to metric icon
+        var iconToUse = self.icon || (metric && metric.icon);
+        var iconTitle = (metric && metric.iconTitle) || '';
+
+        if ( iconToUse ) {
+          this.start('div')
+            .style({
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            })
+            .start(self.Image, {
+              role: 'presentation',
+              ...(
+                self.theme && self.theme.glyphs && self.theme.glyphs[iconToUse] ?
+                { glyph: self.theme.glyphs[iconToUse] } :
+                { data: iconToUse, embedSVG: true }
+              )
+            })
+            .style({
+              width: self.iconSize$,
+              height: self.iconSize$,
+              color: self.iconColor$ || (metric && metric.iconColor)
+            })
+            .callIf(iconTitle, function() {
+              this.setAttribute('title', iconTitle);
+            })
+            .end()
+          .end();
+        }
+      }));
+      e.add(this.dynamic(function(metric_, label) {
+        var metric = metric_;
+        // Use user label first, fallback to metric label
+        var labelToUse = label || (metric && metric.label);
+
+        if ( labelToUse ) {
+          this.start('div')
+            .style({
+              fontSize: self.labelFontSize$,
+              color: self.labelColor$,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              fontWeight: self.labelFontWeight$,
+              marginBottom: '8px'
+            })
+            .add(labelToUse)
+          .end();
+        }
+      }));
       e.add(this.dynamic(function(metric_) {
         var metric = metric_;
         // Value
@@ -1293,7 +1313,7 @@ foam.CLASS({
           .style({
             fontSize: '3rem',
             fontWeight: 'bold',
-            color: self.valueColor$,
+            color: self.valueColor$ || (metric && metric.valueColor),
             lineHeight: '1'
           })
           .callIfElse(foam.lang.Property.isInstance(self.sink.arg1) && self.lastEncounteredObj_, function() {

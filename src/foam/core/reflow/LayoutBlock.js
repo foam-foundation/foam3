@@ -76,6 +76,9 @@ foam.CLASS({
       padding: 0;
       overflow: hidden;
     }
+    ^content {
+      padding: 0;
+    }
   `,
   properties: [
     {

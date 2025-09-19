@@ -40,7 +40,6 @@ foam.CLASS({
           add(self.data.label$).
         end().
         start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
-        br().
           add(self.dynamic(async function(version) {
             var startTime = Date.now();
             // Clone is needed in case the select was loaded from a DAO and doesnt' have correct context.

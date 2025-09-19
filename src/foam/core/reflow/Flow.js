@@ -52,6 +52,8 @@ foam.CLASS({
 
   constants: { ROLE_PERMISSION_PREFIX: '@' },
 
+  topics: [ 'loadComplete' ],
+
   sections: [
     {
       name: 'general',
@@ -60,7 +62,8 @@ foam.CLASS({
     {
       name: 'scriptSection',
       title: 'Script',
-      collapsable: true
+      collapsable: true,
+      properties: [ 'preLoadScript', 'script', 'postLoadScript' ]
     }
   ],
 
@@ -178,9 +181,24 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'preLoadScript',
+      section: 'scriptSection',
+      documentation: 'Script to be run before the main script, typically used to set up classes or environment variables needed by the main script.',
+      reactive: false,
+      preSet: function(o, n) { return n.trim(); },
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+    },
+    {
+      class: 'String',
+      name: 'postLoadScript',
+      section: 'scriptSection',
+      reactive: false,
+      preSet: function(o, n) { return n.trim(); },
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+    },
+    {
+      class: 'String',
       name: 'script',
-      label: '',
-      columnLabel:'Script',
       section: 'scriptSection',
       reactive: false,
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state

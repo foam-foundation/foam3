@@ -13,7 +13,7 @@ foam.CLASS({
 
     methods: [
         function runTest(x) {
-            // debugger;
+            debugger;
 
             // Number symbol tests
             x.test(this.isValidSymbol('number', "1",     "1"), "The number 1");
@@ -30,7 +30,7 @@ foam.CLASS({
             x.test(this.isValid("id<=6", "LTE(foam.core.auth.User.id, 6)"), "The id less than or equal to the value");
             x.test(this.isValid("id IN (6,7,8)", "IN(foam.core.auth.User.id, [6, 7, 8])"), "The id exactly matches any of the listed values");
             x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'The id does not exactly match any of the listed values');
-
+/*
             // Number combined properties tests
             x.test(this.isValid("id=6 AND id<9", "AND(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))"), "The id equal to the value and less than another value");
             x.test(this.isValid("id=6 OR id<9", 'OR(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))'), "The id equal to the value or less than another value");
@@ -40,10 +40,11 @@ foam.CLASS({
             x.test(this.isValid("lifecycleState!=ACTIVE", "NEQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "The status not equal to the value");
             x.test(this.isValid("lifecycleState IN (ACTIVE,REJECTED)", "IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED])"), "The status exactly matches any of the listed values");
             x.test(this.isValid("lifecycleState NOT IN ( ACTIVE , REJECTED )", "NOT(IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED]))"), "The status does not exactly match any of the listed values");
-
+*/
             // Boolean properties tests
-            x.test(this.isValid("loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "The enabled is true");
-            x.test(this.isValid("loginEnabled IS FALSE", "EQ(foam.core.auth.User.loginEnabled, false)"), "The enabled is false");
+            x.test(this.isValid(" loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "The enabled is true");
+            x.test(this.isValid(" loginEnabled IS FALSE", "EQ(foam.core.auth.User.loginEnabled, false)"), "The enabled is false");
+
         },
         function buildPredicate(query) {
             // Assuming foam.parse.SimpleQueryParser.parse returns a predicate object

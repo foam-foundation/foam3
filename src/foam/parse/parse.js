@@ -219,6 +219,7 @@ foam.CLASS({
       final: true
     },
     {
+      // optional substitute return value
       name: 'value',
       final: true
     }

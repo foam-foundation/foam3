@@ -54,8 +54,13 @@ foam.CLASS({
         // grammar with all the symbols
         return function(p, grammar) {
           // 'this' is the JSPStream
-          if ( p == foam.parse.EOF.create() ) return;
-          if ( this.pos > self.query.length ) return;
+          // if ( p == foam.parse.EOF.create() ) return;
+          // if ( this.pos > self.query.length ) return;
+
+          console.log('ps str: ', this.str);
+
+          //console.log('parsing: ', this.pos, this.toString());
+          console.log('parser: ', p.cls_.id, p.toString());
 
           if ( this.pos > self.maxPos ) {
             self.previousSuggestions = self.suggestions;
@@ -68,6 +73,9 @@ foam.CLASS({
           } else if ( this.pos == self.maxPos-1 ) {
             maybeAdd(p, self.previousSuggestions);
           }
+
+          console.log('maxPos: ', self.maxPos, 'ps.pos: ', this.pos, 'query: ', self.query);
+          console.log('suggestions: ', Object.keys(self.suggestions).length, Object.keys(self.suggestions).toString());
 
           return p.parse(this, grammar);
         }
@@ -96,6 +104,7 @@ foam.CLASS({
       e.add(this.dynamic(function(query) {
         var suggestions = self.suggestions;
         var keys        = Object.keys(suggestions);
+        console.log('unfiltered suggestions: ', keys.toString());
         var error       = query.substring(self.maxPos);
 //        suggestions = {...suggestions, ...self.previousSuggestions};
         var ss          = keys.sort().filter(k => k.toLowerCase().startsWith(error.toLowerCase()));
@@ -157,7 +166,7 @@ foam.CLASS({
       expression: function(query) {
         console.log(`****** parsing: "${query}"`);
         this.autoCompleter.reset();
-        var ps = this.parser.parseString(query + ' ', undefined, this.autoCompleter.apply);
+        let ps = this.parser.parseString( (!query) ? ' ': query, undefined, this.autoCompleter.apply);
         console.log('autocomplete: ', this.autoCompleter.toString());
 //        this.suggestion = this.autoCompleter.suggestForInput(this.query);
         return ps || null;

@@ -71,22 +71,27 @@ foam.CLASS({
          // TODO remove extra ws handling, should be only before or after, decide based on what works better for the suggestions
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
-        var operator = (str) => sug(seq1(1, sym('ws'), literalIC(str), sym('ws')), { text: str });
+        let operator = (str) => {
+          return alt(
+            seq(' ', seq1(1, sym('ws'), sug(literalIC(str), {text: str}))),
+            seq1(1, sym('ws'), literalIC(str))
+          );
+        }
         this.operator = operator;
 
         return {
-          START: seq1(0, sym('query') /*, repeat0(' '), eof()*/),
+          START: seq1(0, sym('query') /*, sym('ws'), eof()*/),
 
           query: sym('or'),
 
           or: repeat(
               sym('and'),
-              sug(seq1(1, sym('ws'), alt(literalIC('OR'), literal('|')), sym('ws')), {text: 'OR'}), 
+              seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('OR'), literal('|')), {text: 'OR'}))), 
             1),
 
           and: repeat(
               sym('propPredicates'),
-              sug(seq1(1, sym('ws'), alt(literalIC('AND'), literal('&')), sym('ws')), {text: 'AND'}), 
+              seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {text: 'AND'}))), 
             1),
 
           ws: repeat0(' '),
@@ -100,15 +105,15 @@ foam.CLASS({
                              seq(operator('IN'), sym('numberArray')),
                              seq(operator('NOT IN'), sym('numberArray'))),
 
-          numberArray: seq1(1, '(', sym('numbers'), ')'),
+          numberArray: seq1(2, sym('ws'), '(', sym('numbers'), ')'),
 
           numbers: repeat(sym('number'), ',', 1),
 
-          // TODO replace '.' with an internationalized decimal point
-          number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), optional('.'), repeat(range('0', '9')), sym('ws')),
+          // TODO replace '.' with an internationalized decimal point, add negative number support
+          number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), optional('.'), repeat(range('0', '9'))),
           
-          compareBoolean: alt(seq1(1, sym('ws'), seq(operator('IS TRUE'))),
-                              seq1(1, sym('ws'), seq(operator('IS FALSE')))),
+          compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'), {text: 'IS TRUE'}))),
+                              seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE'})))),
 
                               
         };
@@ -123,6 +128,12 @@ foam.CLASS({
         let propPredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
+        let property = (prop) => {
+            return alt(
+              seq(' ', seq1(1, sym('ws'), sug(literal(prop.name, prop), {text: prop.name}))),
+              seq1(1, sym('ws'), literal(prop.name, prop))
+          );        
+        }
 
         for ( var i = 0 ; i < props.length ; i++ ) {
 
@@ -131,10 +142,12 @@ foam.CLASS({
           if ( ! prop.searchable ) continue;
 
           if (foam.lang.Int.isInstance(prop) || foam.lang.Float.isInstance(prop)) {
-            propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), sym('compareNumber')));    
-          } else if (foam.lang.Boolean.isInstance(prop)) {
-            propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), sym('compareBoolean')));    
-          } else if ( foam.lang.Enum.isInstance(prop) ) {
+            propPredicates.push(seq(property(prop), sym('compareNumber')));     
+          } else if (foam.lang.Boolean.isInstance(prop)) { 
+            propPredicates.push(seq(property(prop), sym('compareBoolean')));    
+          } 
+          /*
+          else if ( foam.lang.Enum.isInstance(prop) ) {
 
            let enumValue = alt.apply(null, prop.of.VALUES.map(v => sug(seq1(1, sym('ws'),literalIC(v.name, v), sym('ws')), { text: v.name })));
            let enumArray = seq1(2, sym('ws'), '(', repeat(enumValue, ',', 1), ')', sym('ws'));
@@ -147,6 +160,7 @@ foam.CLASS({
     
             propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), compareEnum));
           }
+            */
 
         } 
         // return the properties grammar map
@@ -184,16 +198,25 @@ foam.CLASS({
             return parseInt(v);
           },
 
+          compareBoolean: function(v) {
+            return {operator: 'IS',
+                    value: v[1].toLowerCase().endsWith('true') ? true : false // redundant but clearer
+            }
+          },  
+
+          compareNumber: function(v) {
+            return {
+              operator: foam.Array.isInstance(v[0])? v[0][1] : v[0],
+              value: v[1]
+            };
+          },
     
           propPredicates: function(v){
-            // propPredicates.push(seq(sug(literalIC(p.name),{text: p.name}), sym('compareNumber'))); 
-            let prop   = v[0];
-            let compareNumber = v[1];
-            let operation = compareNumber[0];
-            let value    = compareNumber[1];
+            let prop   = foam.Array.isInstance(v[0])? v[0][1] : v[0];
+            let operator = v[1].operator;
+            let value    = v[1].value;
 
-
-            switch (operation) {
+            switch (operator) {
               case '=': 
                 return self.Eq.create({ arg1: prop, arg2: value});
               case '!=':
@@ -210,10 +233,9 @@ foam.CLASS({
                 return self.In.create({arg1: prop, arg2: value});
               case 'NOT IN':
                 return self.Not.create({arg1: self.In.create({arg1: prop, arg2: value})});
-              case 'IS TRUE':
-                return self.Eq.create({ arg1: prop, arg2: true});
-              case 'IS FALSE':
-                return self.Eq.create({ arg1: prop, arg2: false});  
+              case 'IS':
+                return self.Eq.create({ arg1: prop, arg2: value});
+       
             }
 
           },

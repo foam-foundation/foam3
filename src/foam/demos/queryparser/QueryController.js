@@ -129,7 +129,7 @@ foam.CLASS({
           this.start('div').
             style({margin: '6px'}).
             add(s).
-            on('click', function() { self.query = self.query.substring(0, self.maxPos) + s; }).
+            on('click', function() { self.query = self.query.substring(0, self.maxPos) + s;}).
           end();
         });
       }));
@@ -153,7 +153,12 @@ foam.CLASS({
     {
       class: 'String',
       name: 'query',
-      onKey: true
+      onKey: true,
+      view: function(_, X) {
+          let view = foam.u2.TextField.create();
+          X.data.query$.sub(()=>view.focus());
+          return view;
+      }  
     },
     {
       name: 'parser',

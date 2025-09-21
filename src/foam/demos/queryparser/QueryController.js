@@ -107,8 +107,9 @@ foam.CLASS({
         console.log('unfiltered suggestions: ', keys.toString());
         var error       = query.substring(self.maxPos);
 //        suggestions = {...suggestions, ...self.previousSuggestions};
-        var ss  = keys.sort().filter(k => k.toLowerCase().startsWith(error.toLowerCase()));
-        if ( ! ss.length ) ss = keys.sort().filter(k => containsIC(k, error));
+        //var ss  = keys.sort().filter(k => k.toLowerCase().startsWith(error.toLowerCase()));
+        //if ( ! ss.length ) ss = keys.sort().filter(k => containsIC(k, error));
+        var ss = keys.sort();
         if ( ss.length == 0 ) {
           console.log('previous: ', self.previousSuggestions);
           keys = Object.keys(self.previousSuggestions);

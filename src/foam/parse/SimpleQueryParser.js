@@ -90,11 +90,20 @@ foam.CLASS({
             1),
 
           and: repeat(
-              sym('propPredicates'),
+              sym('expr'),
               seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {text: 'AND'}))), 
             1),
 
           ws: repeat0(' '),
+
+          expr: alt(
+            sym('paren'),
+            sym('propPredicates'),
+          ),
+
+       // paren: seq('(', sym('ws'), sym('query'), sym('ws'), ')'),
+
+          paren: seq1(1, '(', sym('query'), sym('ws'), ')'),
 
           compareNumber: alt(seq(operator('>='), sym('number')),
                              seq(operator('>'), sym('number')),
@@ -226,13 +235,13 @@ foam.CLASS({
 
           compareNumber: function(v) {
             return {
-              operator: foam.Array.isInstance(v[0])? v[0][1] : v[0],
+              operator: v[0],
               value: v[1]
             };
           },
     
           propPredicates: function(v){
-            let prop   = foam.Array.isInstance(v[0])? v[0][1] : v[0];
+            let prop   = v[0];
             let operator = v[1].operator;
             let value    = v[1].value;
 

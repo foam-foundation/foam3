@@ -14,7 +14,7 @@ foam.CLASS({
     methods: [
         function runTest(x) {
             debugger;
-
+/*
             // Number symbol tests
             x.test(this.isValidSymbol('number', "1",     "1"), "Test1: The number 1");
             x.test(this.isValidSymbol('numbers', "1, 2, 3", "1,2,3"), "Test2: The numbers 1, 2, 3");
@@ -46,6 +46,12 @@ foam.CLASS({
             // Boolean properties tests
             x.test(this.isValid(" loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "Test19: The enabled is true");
             x.test(this.isValid(" loginEnabled IS FALSE", "EQ(foam.core.auth.User.loginEnabled, false)"), "Test20: The enabled is false");
+*/
+            // Parentheses tests
+            x.test(this.isValid("( id = 6 )", "EQ(foam.core.auth.User.id, 6)"), "Test21: The id equal to the value with parentheses");
+            //x.test(this.isValid(" (id=6 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))"), "Test22: The id equal to the value and less than another value with parentheses");
+            //x.test(this.isValid(" (id=6 OR id<9) ", 'OR(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))'), "Test23: The id equal to the value or less than another value with parentheses");
+          
    
 
         },

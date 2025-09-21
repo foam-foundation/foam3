@@ -989,7 +989,8 @@ foam.CLASS({
     'foam.parse.Symbol',
     'foam.parse.Until',
     'foam.parse.Until0',
-    'foam.parse.Join'
+    'foam.parse.Join',
+    'foam.parse.ParserWithAction'
   ],
 
   axioms: [ foam.pattern.Singleton.create() ],
@@ -1000,6 +1001,13 @@ foam.CLASS({
       var ps = this.StringPStream.create();
       ps.setString(s);
       return ps;
+    },
+
+    function action(p, f) {
+      return this.ParserWithAction.create({
+        p: p,
+        action: f
+      });
     },
 
     function seq() {

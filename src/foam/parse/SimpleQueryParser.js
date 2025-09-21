@@ -73,7 +73,7 @@ foam.CLASS({
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
           return alt(
-            seq(' ', seq1(1, sym('ws'), sug(literalIC(str), {text: str}))),
+            seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str})),
             seq1(1, sym('ws'), literalIC(str))
           );
         }
@@ -121,7 +121,7 @@ foam.CLASS({
     },
     {
       name: 'propertiesGrammar_',
-      value: function(alt, anyChar, eof, join, literal, literalIC, not, notChars, optional, range,
+      value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) { 
 
         let cls    = this.of;
@@ -130,7 +130,7 @@ foam.CLASS({
         let operator = this.operator;
         let property = (prop) => {
             return alt(
-              seq(' ', seq1(1, sym('ws'), sug(literal(prop.name, prop), {text: prop.name}))),
+              seq1(2, ' ', sym('ws'), sug(literal(prop.name, prop), {text: prop.name})),
               seq1(1, sym('ws'), literal(prop.name, prop))
           );        
         }
@@ -142,25 +142,45 @@ foam.CLASS({
           if ( ! prop.searchable ) continue;
 
           if (foam.lang.Int.isInstance(prop) || foam.lang.Float.isInstance(prop)) {
+
             propPredicates.push(seq(property(prop), sym('compareNumber')));     
           } else if (foam.lang.Boolean.isInstance(prop)) { 
+
             propPredicates.push(seq(property(prop), sym('compareBoolean')));    
           } 
-          /*
           else if ( foam.lang.Enum.isInstance(prop) ) {
 
-           let enumValue = alt.apply(null, prop.of.VALUES.map(v => sug(seq1(1, sym('ws'),literalIC(v.name, v), sym('ws')), { text: v.name })));
-           let enumArray = seq1(2, sym('ws'), '(', repeat(enumValue, ',', 1), ')', sym('ws'));
-           //let compareEnum = seq(seq1(1, sym('ws'), operator('='), sym('ws')),literalIC('ACTIVE'));
-       
-           let compareEnum = alt(seq(operator('='), enumValue),
-                                 seq(operator('!='), enumValue),
-                                 seq(operator('IN'), enumArray),
-                                 seq(operator('NOT IN'), enumArray));
+            let value = (v) => {
+              return alt(
+                seq1(2, ' ', sym('ws'), sug(literal(v), {text: v})),
+                seq1(1, sym('ws'), literal(v))
+              );
+            }
+            let values = (v) => {
+              return alt(
+                sug(seq1(1, sym('ws'), literal(v), sym('ws')), {text: v}),
+                seq1(2, ' ', sym('ws'), sug(literal(v), {text: v}), sym('ws'))
+              );
+            }
     
-            propPredicates.push(seq(sug(literalIC(prop.name, prop),{text: prop.name}), compareEnum));
+            let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
+            let enumValues = alt.apply(null, prop.of.VALUES.map(v => values(v.name)));
+            let enumArray  = seq1(2, sym('ws'), '(', repeat(enumValues, ',', 1), sym('ws'),')');
+       
+            let compareEnum = action(
+                                    alt(seq(operator('='), enumValue),
+                                        seq(operator('!='), enumValue),
+                                        seq(operator('IN'), enumArray),
+                                        seq(operator('NOT IN'), enumArray)), 
+                                    function(v) {
+                                        return {
+                                          operator: v[0],
+                                          value: v[1]
+                                        };
+                                    });
+    
+            propPredicates.push(seq(property(prop), compareEnum));
           }
-            */
 
         } 
         // return the properties grammar map

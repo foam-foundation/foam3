@@ -57,10 +57,10 @@ foam.CLASS({
           // if ( p == foam.parse.EOF.create() ) return;
           // if ( this.pos > self.query.length ) return;
 
-          console.log('ps str: ', this.str);
+          //console.log('ps str: ', this.str);
 
           //console.log('parsing: ', this.pos, this.toString());
-          console.log('parser: ', p.cls_.id, p.toString());
+          //console.log('parser: ', p.cls_.id, p.toString());
 
           if ( this.pos > self.maxPos ) {
             self.previousSuggestions = self.suggestions;
@@ -74,7 +74,7 @@ foam.CLASS({
             maybeAdd(p, self.previousSuggestions);
           }
 
-          console.log('maxPos: ', self.maxPos, 'ps.pos: ', this.pos, 'query: ', self.query);
+          //console.log('maxPos: ', self.maxPos, 'ps.pos: ', this.pos, 'query: ', self.query);
           console.log('suggestions: ', Object.keys(self.suggestions).length, Object.keys(self.suggestions).toString());
 
           return p.parse(this, grammar);
@@ -107,8 +107,8 @@ foam.CLASS({
         console.log('unfiltered suggestions: ', keys.toString());
         var error       = query.substring(self.maxPos);
 //        suggestions = {...suggestions, ...self.previousSuggestions};
-        var ss          = keys.sort().filter(k => k.toLowerCase().startsWith(error.toLowerCase()));
-                        if ( ! ss.length )        ss          = keys.sort().filter(k => containsIC(k, error));
+        var ss  = keys.sort().filter(k => k.toLowerCase().startsWith(error.toLowerCase()));
+        if ( ! ss.length ) ss = keys.sort().filter(k => containsIC(k, error));
         if ( ss.length == 0 ) {
           console.log('previous: ', self.previousSuggestions);
           keys = Object.keys(self.previousSuggestions);
@@ -166,7 +166,7 @@ foam.CLASS({
       expression: function(query) {
         console.log(`****** parsing: "${query}"`);
         this.autoCompleter.reset();
-        let ps = this.parser.parseString( (!query) ? ' ': query, undefined, this.autoCompleter.apply);
+        let ps = this.parser.parseString( (!query) ? ' ': query + String.fromCharCode(26), undefined, this.autoCompleter.apply);
         console.log('autocomplete: ', this.autoCompleter.toString());
 //        this.suggestion = this.autoCompleter.suggestForInput(this.query);
         return ps || null;

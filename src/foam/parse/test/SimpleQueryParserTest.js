@@ -42,7 +42,7 @@ foam.CLASS({
             x.test(this.isValid("lifecycleState!=ACTIVE", "NEQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "Test16: The status not equal to the value");
             x.test(this.isValid("lifecycleState IN (ACTIVE,REJECTED)", "IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED])"), "Test17: The status exactly matches any of the listed values");
 
-            x.test(this.isValid("lifecycleState NOT IN ( ACTIVE , REJECTED )", "NOT(IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED]))"), "Test18: The status does not exactly match any of the listed values");
+            x.test(this.isValid("lifecycleState NOT IN ( ACTIVE, REJECTED )", "NOT(IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED]))"), "Test18: The status does not exactly match any of the listed values");
 
             // Boolean properties tests
             x.test(this.isValid(" loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "Test19: The enabled is true");

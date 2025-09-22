@@ -154,22 +154,9 @@ foam.CLASS({
           } 
           else if ( foam.lang.Enum.isInstance(prop) ) {
 
-            let value = (v) => {
-              return alt(
-                seq1(2, ' ', sym('ws'), sug(literal(v), {text: v})),
-                seq1(1, sym('ws'), literal(v))
-              );
-            }
-            let values = (v) => {
-              return alt(
-                sug(seq1(1, sym('ws'), literal(v), sym('ws')), {text: v}),
-                seq1(2, ' ', sym('ws'), sug(literal(v), {text: v}), sym('ws'))
-              );
-            }
-    
+            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: ' ' + v})); 
             let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
-            let enumValues = alt.apply(null, prop.of.VALUES.map(v => values(v.name)));
-            let enumArray  = seq1(2, sym('ws'), '(', repeat(enumValues, ',', 1), sym('ws'),')');
+            let enumArray  = seq1(2, sym('ws'), '(', repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
        
             let compareEnum = action(
                                     alt(seq(operator('='), enumValue),

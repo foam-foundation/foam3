@@ -14,9 +14,10 @@ foam.CLASS({
     methods: [
         function runTest(x) {
             debugger;
-/*
+
             // Number symbol tests
-            x.test(this.isValidSymbol('number', "1",     "1"), "Test1: The number 1");
+            x.test(this.isValidSymbol('number', "11",     "11"), "Test1: The number 11");
+
             x.test(this.isValidSymbol('numbers', "1, 2, 3", "1,2,3"), "Test2: The numbers 1, 2, 3");
             x.test(this.isValidSymbol('numberArray', "(1)",     "1"), "Test3: The number array (1)");
             x.test(this.isValidSymbol('numberArray', "(1,2, 3)", "1,2,3"), "Test4: The number array (1,2,3)");
@@ -32,8 +33,8 @@ foam.CLASS({
             x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Test12: The id does not exactly match any of the listed values');
 
             // Number combined properties tests
-            x.test(this.isValid("id=6 AND id<9", "AND(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))"), "Test13: The id equal to the value and less than another value");
-            x.test(this.isValid("id=6 OR id<9", 'OR(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))'), "Test14: The id equal to the value or less than another value");
+            x.test(this.isValid("id=16 AND id<9", "AND(EQ(foam.core.auth.User.id, 16),LT(foam.core.auth.User.id, 9))"), "Test13: The id equal to the value and less than another value");
+            x.test(this.isValid("id=18 OR id<9", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 9))'), "Test14: The id equal to the value or less than another value");
 
             // Enum properties tests
             x.test(this.isValid("lifecycleState= ACTIVE", "EQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "Test15: The status equal to the value");
@@ -46,13 +47,13 @@ foam.CLASS({
             // Boolean properties tests
             x.test(this.isValid(" loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "Test19: The enabled is true");
             x.test(this.isValid(" loginEnabled IS FALSE", "EQ(foam.core.auth.User.loginEnabled, false)"), "Test20: The enabled is false");
-*/
+
             // Parentheses tests
             x.test(this.isValid("( id = 6 )", "EQ(foam.core.auth.User.id, 6)"), "Test21: The id equal to the value with parentheses");
-            //x.test(this.isValid(" (id=6 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))"), "Test22: The id equal to the value and less than another value with parentheses");
-            //x.test(this.isValid(" (id=6 OR id<9) ", 'OR(EQ(foam.core.auth.User.id, 6),LT(foam.core.auth.User.id, 9))'), "Test23: The id equal to the value or less than another value with parentheses");
+            x.test(this.isValid(" (id=17 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 17),LT(foam.core.auth.User.id, 9))"), "Test22: The id equal to the value and less than another value with parentheses");
+            x.test(this.isValid(" (id=18 OR id<10) ", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 10))'), "Test23: The id equal to the value or less than another value with parentheses");
           
-   
+
 
         },
         function buildPredicate(query) {

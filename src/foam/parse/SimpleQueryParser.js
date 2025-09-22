@@ -94,16 +94,16 @@ foam.CLASS({
               seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {text: 'AND'}))), 
             1),
 
-          ws: repeat0(' '),
-
           expr: alt(
             sym('paren'),
-            sym('propPredicates'),
-          ),
+            sym('propPredicates')
+          ),  
 
-       // paren: seq('(', sym('ws'), sym('query'), sym('ws'), ')'),
+          // opening bracket consumed by propPredicates
+          paren: seq1(3, sym('ws'), '(', sym('ws'), sym('query'), sym('ws'), ')'),
 
-          paren: seq1(1, '(', sym('query'), sym('ws'), ')'),
+          ws: repeat0(' '),
+
 
           compareNumber: alt(seq(operator('>='), sym('number')),
                              seq(operator('>'), sym('number')),
@@ -137,13 +137,8 @@ foam.CLASS({
         let propPredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
-        let property = (prop) => {
-            return alt(
-              seq1(2, ' ', sym('ws'), sug(literal(prop.name, prop), {text: prop.name})),
-              seq1(1, sym('ws'), literal(prop.name, prop))
-          );        
-        }
-
+        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: ' ' + prop.name})); 
+  
         for ( var i = 0 ; i < props.length ; i++ ) {
 
           let prop = props[i];
@@ -223,8 +218,8 @@ foam.CLASS({
           },  
 
           number: function(v) {
-            console.log("number: " + v);
-            return parseInt(v);
+            console.log('number:' + v.toString() + ' ' + v.join(''))
+            return parseInt(v.join(''));
           },
 
           compareBoolean: function(v) {

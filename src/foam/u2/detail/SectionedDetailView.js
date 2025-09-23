@@ -25,9 +25,6 @@ foam.CLASS({
       gap: 8px;
       flex-direction: column;
     }
-    ^ .inner-card {
-      height: 100%;
-    }
   `,
 
   properties: [
@@ -54,6 +51,8 @@ foam.CLASS({
           // if ( ! data ) return; 
           var grid = self.Grid.create()
             .forEach(sections, function(s) {
+              var gUnit = self.GUnit.create({ columns: s.gridColumns })
+                .addClass(self.myClass('card-container'));
               // TODO: figure out why importing controllerMode breaks
               var slot = s.createIsAvailableFor(self.data$, self.__subContext__.controllerMode$).map(function(isAvailable) {
                 // NOTE: If we just return undefined here, then Element.slotE_
@@ -73,15 +72,13 @@ foam.CLASS({
                 }) :
                 s.title$;
 
-                return self.GUnit.create({ columns: s.gridColumns })
-                  .addClass(self.myClass('card-container'))
+                return self.E()
                   .start()
                     .addClass('h600')
                     .add(title$)
                     .show(title$.and(self.showTitle$))
                   .end()
                   .start(self.borders[s.name] || self.CardBorder)
-                    .addClass('inner-card')
                     .tag(s.view, {
                       data$: self.data$,
                       of$: self.of$,
@@ -90,7 +87,9 @@ foam.CLASS({
                     })
                   .end();
               });
-              this.add(slot);
+            
+              gUnit.add(slot);
+              this.add(gUnit);
 
               // NOTE: We need to trigger `resizeChildren` manually because when
               // the slot changes and the view updates, it doesn't trigger the

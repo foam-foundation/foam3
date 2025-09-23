@@ -72,8 +72,9 @@ foam.CLASS({
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
+          let sugStr = str.toLowerCase().endsWith('in') ? str + ' (' : str;
           return alt(
-            seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str})),
+            seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: sugStr})),
             seq1(1, sym('ws'), literalIC(str))
           );
         }

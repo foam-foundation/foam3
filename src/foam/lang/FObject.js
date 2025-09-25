@@ -775,6 +775,7 @@ foam.CLASS({
       }
 
       if ( foam.Array.isInstance(obj) ) {
+        if ( obj.length == 0 ) console.log('******************** zero arg slot, TODO: return a ConstantSlot');
         return this.onDetach(foam.lang.ExpressionSlot.create({
           obj: this,
           args: obj[0].map(this.slot.bind(this)),
@@ -1069,6 +1070,74 @@ foam.CLASS({
       // Behaves just like Slot.dot().  Makes it easy for creating sub-slots
       // without worrying if you're holding an FObject or a slot.
       return this[name + '$'];
+    },
+
+    function deepSub(listener, opt_props) {
+      var cleanup = foam.lang.FObject.create();
+      var visited = new Map();
+
+      function updateSub_(o, n, path) {
+        // console.log('*** Update', path);
+
+        // TODO: cleanup old listeners
+        if ( foam.lang.FObject.isInstance(o) ) {
+          var sub = visited.get(o);
+          if ( sub ) sub.detach();
+          visited.delete(o);
+        } else if ( foam.Array.isInstance(o) ) {
+          for ( let i = 0 ; i < o.length ; i++ ) {
+            updateSub_(o[i], null, path);
+          }
+        }
+
+        if ( foam.lang.FObject.isInstance(n) ) {
+          visit_(n, path);
+        } else if ( foam.Array.isInstance(n) ) {
+          for ( let i = 0 ; i < n.length ; i++ ) {
+            let e = n[i];
+            visit_(e, [...path, i]);
+          }
+        }
+      }
+
+      function listener_() {
+        // console.log('*** Change', arguments);
+        var oldValue = arguments[arguments.length-1].oldValue;
+        var newValue = arguments[arguments.length-1].get();
+
+        updateSub_(oldValue, newValue, [arguments[2]]);
+        listener.apply(null, arguments);
+      }
+
+      function visit_(o, path, opt_props) {
+        if ( ! o || ! o.cls_ || foam.lang.Property.isInstance(o) || visited.has(o) ) return;
+
+        var props = opt_props || o.cls_.getAxiomsByClass(foam.lang.Property);
+
+        if ( opt_props ) {
+          for ( let prop of props ) {
+            var value = prop.get(o);
+            visited.set(o, o.propertyChange.sub(prop.name, listener_));
+            updateSub_(null, value, [...path, prop.name]);
+          }
+        } else {
+          var sub = foam.lang.FObject.create();
+
+          for ( let prop of props ) {
+            if ( ! prop.transient ) {
+              // if ( o.hasOwnProperty(prop.name) ) {
+                var value = prop.get(o);
+                updateSub_(null, value, [...path, prop.name]);
+              // }
+              sub.onDetach(o.propertyChange.sub(prop.name, listener_));
+            }
+          }
+          visited.set(o, sub);
+        }
+      }
+
+      visit_(this, [], opt_props);
+      return cleanup; // Return detachable subscription
     }
   ]
 });

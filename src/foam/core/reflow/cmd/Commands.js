@@ -225,7 +225,7 @@ foam.CLASS({
   name: 'Clear',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'clearFlow as clear' ],
+  imports: [ 'clearFlow as clear', 'block' ],
 
   properties: [
     [ 'description', 'Clear console output' ]
@@ -233,6 +233,7 @@ foam.CLASS({
 
   methods: [
     function execute() {
+      this.block?.del();
       this.clear();
     }
   ]
@@ -661,10 +662,10 @@ foam.CLASS({
       if ( loaded ) {
         // Don't save the 'load' command
         this.block.del();
-
+        this.maybeCallScript(loaded.preLoadScript);
+        this.flow.loadComplete.sub(() => this.maybeCallScript(loaded.postLoadScript));
         this.selected = this.flow;
         this.flow.copyFrom(loaded);
-
         // HACK: after loading a flow the revision is set to 2 for some unknown
         // reason. This resets it back to 0.
         // TODO: find out why it is 2 and remove this code.
@@ -675,6 +676,11 @@ foam.CLASS({
           }
         });
       }
+    },
+    async function maybeCallScript(s) {
+        if ( s ) {
+          await eval('(async function() {' + s + '})').call(this)
+        }
     }
   ]
 });

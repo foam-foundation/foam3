@@ -26,7 +26,8 @@ In this current implementation setDelegate must be called last.`,
     'foam.dao.ReadOnlyF3FileJournal',
     'foam.dao.WriteOnlyF3FileJournal',
     'foam.core.boot.CSpec',
-    'foam.core.ndiff.NDiffJournal'
+    'foam.core.ndiff.NDiffJournal',
+    'foam.util.SafetyUtil'
   ],
 
   javaCode: `
@@ -92,10 +93,25 @@ In this current implementation setDelegate must be called last.`,
       name: 'ndiff'
     },
     {
+      class: 'String',
+      name: 'version',
+      javaFactory: `
+        version_ = foam.core.app.AppConfig.class.getPackage().getImplementationVersion();
+        if ( ! SafetyUtil.isEmpty(version_) )
+          return version_;
+        return "";
+      `
+    },
+    {
+      class: 'Boolean',
+      name: 'writeVersionOnFirstPut'
+    },
+    {
       name: 'delegate',
       javaFactory: 'return new MDAO(getOf());',
       javaPostSet: `
             var delegate = val;
+            var currentVersion = getVersion();
 
             // Runtime Journal
             X runtimeStorageX = getX().put(foam.core.fs.Storage.class, getX().get(foam.core.fs.FileSystemStorage.class));
@@ -170,16 +186,30 @@ In this current implementation setDelegate must be called last.`,
               // the incoming object for safety, but isn't needed here.
               try { ((MDAO) delegate).setSafeMode(false); } catch (Throwable t) {}
               try {
+                F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
                 jnl.replay(getX(), delegate);
+                if ( runtimeJrl != null ) {
+                  String lastVersion = runtimeJrl.getLastReplayVersion();
+                  if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
+                    setWriteVersionOnFirstPut(true);
+                  }
+                }
               } finally {
                 try { ((MDAO) delegate).setSafeMode(true); } catch (Throwable t) {}
               }
             } else {
               final String name = getFilename();
+              F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
               Agency agency = (Agency) getX().get("threadPool");
               agency.submit(getX(), new ContextAgent() {
                 public void execute(X x) {
                   jnl.replay(getX(), delegate);
+                  if ( runtimeJrl != null ) {
+                    String lastVersion = runtimeJrl.getLastReplayVersion();
+                    if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
+                      runtimeJrl.writeVersion(x, currentVersion);
+                    }
+                  }
                 }
               }, this.getClass().getSimpleName()+"-replay");
             }
@@ -191,6 +221,10 @@ In this current implementation setDelegate must be called last.`,
     {
       name: 'put_',
       javaCode: `
+        if ( getWriteVersionOnFirstPut() ) {
+          ((F3FileJournal) getJournal()).writeVersion(getX(), getVersion());
+          setWriteVersionOnFirstPut(false);
+        }
         return getJournal().put(x, "", getDelegate(), obj);
       `
     },
@@ -212,6 +246,24 @@ In this current implementation setDelegate must be called last.`,
       Object result = getJournal().cmd(x, obj);
       if ( result != null ) return result;
       return getDelegate().cmd_(x, obj);
+      `
+    },
+    {
+      documentation: 'compare versions, disregard build timestamp',
+      name: 'isCurrentVersionNewer',
+      args: 'String last, String current',
+      type: 'Boolean',
+      javaCode: `
+        if ( SafetyUtil.isEmpty(current) ) return false;
+        String[] lastArr = last.split("-")[0].split("\\\\.");
+        String[] currentArr = current.split("-")[0].split("\\\\.");
+        for ( int i = 0; i < Math.max(lastArr.length, currentArr.length); i++ ) {
+          int last_i = i < lastArr.length ? Integer.parseInt(lastArr[i]) : 0;
+          int current_i = i < currentArr.length ? Integer.parseInt(currentArr[i]) : 0;
+          if ( last_i == current_i ) continue;
+          return current_i > last_i;
+        }
+        return false;
       `
     }
   ]

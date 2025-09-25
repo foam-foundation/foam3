@@ -53,7 +53,8 @@ foam.POM({
 
   tasks: {
     all: ['all', 'Run all tasks to create a new project', ['validate', 'createProject']],
-    createAdmin: ['create-admin', 'Create an admin user in an existing application. This tooling took over creating the admin in new projects and the default FOAM admin user was removed.', ['validate'], function() {
+    createAdmin: ['create-admin', 'Create an admin user in an existing application. This tooling took over creating the admin in new projects and the default FOAM admin user was removed.', ['validate'], function(arg) {
+      if ( arg ) ADMIN_PASSWORD=arg;
       this.execute('hashAdminPassword');
       this.execute('templateMerge', TEMPLATE_DIR, 'adminUser.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, 'users.jrl', true);
     }],
@@ -178,11 +179,13 @@ foam.POM({
     usage: ['usage', 'Example usage', [], function() {
       this.log('Project creation examples:');
       this.warning('must be run from foam3/ directory)');
-      this.log('  node tools/build.js -T+setup/Project --appName:Simple --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -TStandard,setup/Project --appName:simple --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a very simple model.');
-      this.log('  node tools/build.js -T+setup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -TStandard,setup/Project --type:demo --appName:example --package:com.foamdev --adminPassword:badpassword');
       this.log('      Generate a project with a more elaborate model demonstrating more FOAM features..');
-      this.log('  node tools/build.js -T+setup/Project --createAdmin --appName:Example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -TStandard,setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword');
+      this.log('      Generate a project named "example" based on the "simple" model.');
+      this.log('  node tools/build.js -TStandard,setup/Project --appName:example --package:com.foamdev --createAdmin:badpassword');
       this.log('      Generate an admin user for existing projects which were previously relying on the, now removed, foam-admin user provided by the baseline FOAM repo.');
       this.log();
     }],

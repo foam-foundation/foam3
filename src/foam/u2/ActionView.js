@@ -187,8 +187,10 @@ foam.CLASS({
           if ( ! modal ) {
             this.action && this.action.maybeCall(this.__subContext__, this.data);
           } else if ( foam.u2.Element.isInstance(modal) ) {
+            this.data?.pub('action', this.action.name, this);
             this.ctrl.add(modal);
           } else {
+            this.data?.pub('action', this.action.name, this);
             (async () => {
               this.ctrl.add(this.ConfirmationModal.create({
                 primaryAction: this.action,

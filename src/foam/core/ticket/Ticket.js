@@ -600,7 +600,7 @@ foam.CLASS({
         Subject subject = (Subject) x.get("subject");
         User user = subject.getRealUser();
 
-        if ( user.getId() != this.getCreatedBy() && user.getId() != this.getAssignedTo() && ! auth.check(x, "ticket.read." + this.getId()) ) {
+        if ( user.getId() != this.getCreatedBy() && user.getId() != this.getCreatedFor() && user.getId() != this.getAssignedTo() && ! auth.check(x, "ticket.read." + this.getId()) ) {
           throw new AuthorizationException("You don't have permission to read this ticket.");
         }
       `

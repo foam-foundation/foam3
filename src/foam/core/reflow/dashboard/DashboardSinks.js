@@ -1000,8 +1000,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 2,
       collapsable: true,
-      // iconColor is hidden for now until implementation is fixed
-      properties: ['icon', 'iconSize', 'alignment', 'showCount', 'countSuffix', 'valueColor']
+      properties: ['icon', 'iconColor', 'iconSize', 'alignment', 'showCount', 'countSuffix', 'valueColor']
     },
     {
       name: 'labelFont',
@@ -1080,10 +1079,7 @@ foam.CLASS({
       help: 'Color for the icon (CSS color or token)',
       view: 'foam.u2.view.TokenColorEditView',
       value: '$primary500',
-      view: 'foam.u2.view.ColorEditView',
-      // TODO: Hidden for now as CSS override for SVG fill is not working properly
-      // Need to fix the implementation to properly apply color to icons
-      hidden: true
+      view: 'foam.u2.view.ColorEditView'
     },
     {
       class: 'Enum',
@@ -1213,12 +1209,6 @@ foam.CLASS({
   ],
   
   methods: [
-    function init() {
-      this.SUPER();
-      if ( ! this.sink )
-        this.updateSink();
-    },
-    
     {
       name: 'put',
       code: function put(obj, sub) { 
@@ -1270,7 +1260,8 @@ foam.CLASS({
           })
           .style({
             width: this.iconSize$,
-            height: this.iconSize$
+            height: this.iconSize$,
+            color: this.iconColor$
           })
           .end()
         .end();

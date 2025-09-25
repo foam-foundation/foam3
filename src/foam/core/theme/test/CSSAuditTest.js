@@ -62,6 +62,7 @@ https://web-toolbox.dev/en/tools/color-converter - hsla
       list.add("/node_modules");
       list.add("/tools");
       list.add("/webroot");
+      list.add("src/foam/core/servlet"); // VirtualHostRoutingServlet
 
       // TODO: Lower priority
       list.add("src/foam/support");

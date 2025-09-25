@@ -93,6 +93,7 @@ foam.CLASS({
     },
     {
       name: 'prop',
+      hidden: true,
       transient: true
     }
   ],

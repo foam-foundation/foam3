@@ -100,7 +100,7 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 - **Pattern:** `<modelname.toLowerCase()>.section.<sectionName>`
 - **Example:** `foam.core.cron.schedulable.section.history`
 - **Implementer:** Unknown/undocumented
-- **Status:** Implementation location not identified
+- **Note:** Sections are not permissioned by default. To enable permission include: `permissionRequired: true` in the section.
 
 ### 7. Table Column Visibility
 - **Pattern:** `<model>.column.<property>`

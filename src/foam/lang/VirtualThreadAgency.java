@@ -18,6 +18,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+/**
+   NOTE: Use with caution before Java 25.
+   sychronized()  and pre nio2 logic can experience poor performance
+   and potential deadlock
+*/
 public class VirtualThreadAgency extends AbstractAgency implements COREService {
   protected final String prefix_;
   protected final boolean forceTerminationOnStop_;

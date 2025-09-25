@@ -91,9 +91,9 @@ foam.CLASS({
       code: function() {
         var newItem = this.defaultNewItem;
         if ( this.FObject.isInstance(newItem) ) {
-          newItem = newItem.clone();
+          newItem = newItem.clone(this.__context__);
         }
-        this.data[this.data.length] = newItem;
+        this.data = [ ...this.data, newItem ];
         this.updateData();
       }
     }
@@ -120,7 +120,9 @@ foam.CLASS({
           postSet: function(_, n) {
             if ( this.data[this.index] === n ) return;
             this.data[this.index] = n;
-            this.updateDataWithoutFeedback();
+            var data = [...this.data];
+            data[this.index] = n;
+            this.data = data;
           }
         }
       ],
@@ -131,8 +133,7 @@ foam.CLASS({
             return enableRemoving && mode === foam.u2.DisplayMode.RW;
           },
           code: function() {
-            this.data.splice(this.index, 1);
-            this.updateData();
+            this.data = this.data.toSpliced(this.index, 1);
           }
         }
       ]
@@ -179,6 +180,7 @@ foam.CLASS({
               .addClass('p')
               .forEach(data || [], function(e, i) {
                 var row = self.Row.create({ index: i, value: e });
+                e && e.sub(self.updateDataWithoutFeedback);
                 this
                   .startContext({ data: row })
                     .start(self.Cols)
@@ -223,10 +225,14 @@ foam.CLASS({
     },
     {
       name: 'updateDataWithoutFeedback',
+      isFramed: true,
       code: function() {
         this.feedback_ = true;
-        this.updateData();
-        this.feedback_ = false;
+        try {
+          this.updateData();
+        } finally {
+          this.feedback_ = false;
+        }
       }
     }
   ]

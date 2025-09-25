@@ -22,6 +22,7 @@ foam.CLASS({
     'foam.lib.json.JSONParser',
     'foam.lib.parse.*',
     'foam.lib.StoragePropertyPredicate',
+    'foam.core.app.AppConfig',
     'foam.core.auth.LastModifiedByAware',
     'foam.core.auth.Subject',
     'foam.core.auth.User',
@@ -212,6 +213,22 @@ try {
   ],
 
   methods: [
+    {
+      name: 'writeVersion',
+      type: 'Void',
+      args: 'Context x, String version',
+      javaCode: `
+        try {
+          var writer = getWriter();
+          String entry = String.format("v({\\"version\\":\\"%s\\"})", version);
+          writer.write(entry);
+          writer.newLine();
+          writer.flush();
+        } catch (java.io.IOException e) {
+          Loggers.logger(x, this).error("Failed to write to journal file: ", getFilename(), " for version ", version );
+        }
+      `
+    },
     {
       name: 'put',
       type: 'FObject',

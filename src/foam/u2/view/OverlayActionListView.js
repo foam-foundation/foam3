@@ -104,7 +104,7 @@ foam.CLASS({
     ^button-container button {
       border: 1px solid transparent;
       background-color: $backgroundDefault;
-      justify-content: space-between;
+      justify-content: flex-start;
       text-align: left;
       white-space: nowrap;
       width: fill-available;

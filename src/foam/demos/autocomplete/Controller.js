@@ -140,6 +140,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'query',
+      width: 120,
       onKey: true
     },
     {
@@ -154,7 +155,7 @@ foam.CLASS({
       expression: function(query) {
         console.log(`****** parsing: "${query}"`);
         this.autoCompleter.reset();
-        var ps = this.parser.parseString(query + ' ', undefined, this.autoCompleter.apply);
+        var ps = this.parser.parseString(query + String.fromCharCode(26) /* EOF */, undefined, this.autoCompleter.apply);
         console.log('autocomplete: ', this.autoCompleter.toString());
 //        this.suggestion = this.autoCompleter.suggestForInput(this.query);
         return ps || null;

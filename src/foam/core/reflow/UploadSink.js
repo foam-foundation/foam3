@@ -117,6 +117,12 @@ foam.CLASS({
   ],
   
   methods: [
+    function isLongId(o) {
+      // Check if ID property is Long type and no id alias exists, or
+      // check the target property for custom id aliases (ids: ['differentName']) that are Long type
+      return foam.lang.Long && foam.lang.Long.isInstance(o.ID) && ! o.id || ( ! o.id && foam.lang.Long.isInstance(o.ID.targetProperty));
+    },
+
     function updateStatus() {
       // processing is incremented in put() method
       // progress should be calculated based on processing vs totalRows
@@ -172,7 +178,7 @@ foam.CLASS({
       
       if ( ! this.isRealUpload ) {
         // Preview mode: just store in preview DAO
-        if ( foam.lang.Long && foam.lang.Long.isInstance(o.ID) && ! o.id ) {
+        if ( this.isLongId(o) ) {
           o.id = this.matchedRows;
         }
         if ( this.previewDAO ) {
@@ -182,7 +188,7 @@ foam.CLASS({
         // Real upload mode
         if ( Object.keys(this.validationErrorMap).length > 0 ) {
           // Validation errors exist - store in preview for review, don't upload
-          if ( foam.lang.Long && foam.lang.Long.isInstance(o.ID) && ! o.id ) {
+          if ( this.isLongId(o) ) {
             o.id = this.matchedRows;
           }
           if ( this.previewDAO ) {

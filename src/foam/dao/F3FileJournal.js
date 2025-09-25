@@ -22,7 +22,8 @@ foam.CLASS({
     'foam.util.SafetyUtil',
     'java.io.BufferedReader',
     'java.time.Duration',
-    'java.util.concurrent.atomic.AtomicInteger'
+    'java.util.concurrent.atomic.AtomicInteger',
+    'org.json.JSONObject'
   ],
 
   properties: [
@@ -44,6 +45,11 @@ foam.CLASS({
       documentation: 'Report of unsuccessfully processed lines during last replay',
       class: 'Int',
       name: 'failCount'
+    },
+    {
+      class: 'String',
+      name: 'lastReplayVersion',
+      documentation: 'Last recorded version in journal file used by jdao after replay to check against current version'
     }
   ],
 
@@ -56,6 +62,8 @@ foam.CLASS({
         // count number of entries successfully read
         AtomicInteger passCount = new AtomicInteger();
         AtomicInteger failCount = new AtomicInteger();
+
+        String lastVersion = "";
 
         getLogger().info("Replay starting", getFilename());
 
@@ -86,6 +94,13 @@ foam.CLASS({
             try {
               final char operation = entry.charAt(0);
               final String strEntry = entry.subSequence(2, length - 1).toString();
+
+              if ( operation == 'v' ) {
+                JSONObject obj = new JSONObject(strEntry);
+                lastVersion = (String) obj.get("version");
+                continue;
+              }
+
               assemblyLine.enqueue(new foam.util.concurrent.AbstractAssembly() {
                 FObject obj;
 
@@ -123,6 +138,7 @@ foam.CLASS({
         } catch ( Throwable t) {
           getLogger().error("Failed to read journal", dao.getOf().getId(), getFilename(), t);
         } finally {
+          setLastReplayVersion(lastVersion);
           setPassCount(passCount.get());
           setFailCount(failCount.get());
           assemblyLine.shutdown();

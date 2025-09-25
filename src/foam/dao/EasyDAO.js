@@ -147,6 +147,7 @@ foam.CLASS({
       /** This is set automatically when you create an EasyDAO.
         @private */
       name: 'delegate',
+      factory: function() { return this.delegateFactory(); },
       javaFactory: `
         List<PropertyInfo> indexes = new ArrayList();
 
@@ -773,6 +774,11 @@ foam.CLASS({
       name: 'index'
     },
     {
+      class: 'String',
+      name: 'clientIndices',
+      documentation: 'A list of indices to be added to the client-side MDAO. As a ; delimited list of , delimited list of properties. Ex. firstName,lastName;region,country;postalCode'
+    },
+    {
       name: 'testData',
       generateJava: false
     },
@@ -886,16 +892,15 @@ foam.CLASS({
       name: 'init_',
       javaCode: `
        if ( of_ == null ) {
+         // TODO: replace logger instantiation once javaFactory issue above is fixed
+         Logger logger = (Logger) getX().get("logger");
+         if ( logger == null ) {
+           logger = foam.core.logger.StdoutLogger.instance();
+         }
 
-        // TODO: replace logger instantiation once javaFactory issue above is fixed
-        Logger logger = (Logger) getX().get("logger");
-        if ( logger == null ) {
-          logger = foam.core.logger.StdoutLogger.instance();
-        }
-
-        logger = new PrefixLogger(new Object[] {
-          this.getClass().getSimpleName()
-        }, logger);
+         logger = new PrefixLogger(new Object[] {
+           this.getClass().getSimpleName()
+         }, logger);
 
          if ( logger != null ) {
            logger.error("EasyDAO", getName(), "'of' not set.", new Exception("of not set"));
@@ -981,7 +986,7 @@ foam.CLASS({
         return innerDAO;
       `
     },
-    function init() {
+    function delegateFactory() {
       /**
         <p>On initialization, the EasyDAO creates an appropriate chain of
         internal EasyDAO instances based on the EasyDAO
@@ -1045,7 +1050,6 @@ foam.CLASS({
                 comparator: foam.compare.toCompare(this.order)
               });
             }
-
             // Full cache
             dao = this.CachingDAO.create({
               cache: cache,
@@ -1073,6 +1077,21 @@ foam.CLASS({
           }
         }
       }
+
+      if ( this.mdao ) {
+        // Add client indices
+        if ( this.clientIndices.trim() ) this.clientIndices.split(';').forEach(indexStr => {
+          if ( ! indexStr.trim() ) return;
+          var indexProps = indexStr.trim().split(',').map(i => this.of.getAxiomByName(i.trim()));
+          console.log("************* Adding index: " + indexStr);
+          try {
+            this.mdao.addPropertyIndex.apply(this.mdao, indexProps);
+          } catch (x) {
+            console.error(`Invalid index for ${this.of.id} '${this.clientIndices}' '${indexStr}'.`);
+          }
+        });
+      }
+
 
       if ( this.queryCache ) {
         //* Query cache ****
@@ -1203,7 +1222,7 @@ foam.CLASS({
         });
       }
 
-      this.delegate = dao;
+      return dao;
     },
 
     /** Only relevant if cache is true or if daoType

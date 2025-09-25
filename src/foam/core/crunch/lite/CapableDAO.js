@@ -54,14 +54,12 @@ foam.CLASS({
     {
       name: 'find_',
       javaCode: `
-        Capable capable = (Capable) getDelegate().find_(x, id);
-        if ( capable == null ) {
-          return null;
+        FObject obj = getDelegate().find_(x, id);
+
+        if ( obj instanceof Capable capable ) {
+          populatePayloads(x, capable);
         }
-
-        capable = populatePayloads(x, capable);
-
-        return (FObject) capable;
+        return obj;
       `
     },
     {
@@ -72,10 +70,10 @@ foam.CLASS({
           ProxySink refinedSink = new ProxySink(x, sink) {
             @Override
             public void put(Object obj, foam.lang.Detachable sub) {
-              Capable capable = (Capable) obj;
-              capable = populatePayloads(x, capable);
-
-              super.put(capable, sub);
+              if ( obj instanceof Capable capable ) {
+                populatePayloads(x, capable);
+              }
+              super.put(obj, sub);
             }
           };
           if ( limit == foam.dao.AbstractDAO.MAX_SAFE_INTEGER ) {
@@ -88,11 +86,7 @@ foam.CLASS({
     },
     {
       name: 'populatePayloads',
-      args: [
-        { name: 'x', javaType: 'foam.lang.X' },
-        { name: 'capable', javaType: 'Capable' }
-      ],
-      type: 'Capable',
+      args: 'Context x, Capable capable',
       javaCode:`
         if ( capable.getCapablePayloads() != null && capable.getCapablePayloads().length > 0 ) {
           PM pm = PM.create(x, "CapableDAO:populatePayloads");
@@ -103,92 +97,92 @@ foam.CLASS({
           capablePayloadDAO.select(new AbstractSink());
           pm.log(x);
         }
-        return capable;
       `
     },
     {
       name: 'put_',
       javaCode: `
-        FObject currentObjectInDao = getDelegate().find_(x, obj);
-        Capable toPutCapableObj =  (Capable) obj;
-        DAO toUpdateCapablePayloadDAO;
+        if ( obj instanceof Capable toPutCapableObj ) {
+          FObject currentObjectInDao = getDelegate().find_(x, obj);
+          DAO toUpdateCapablePayloadDAO;
 
-        CapabilityJunctionPayload[] toPutCapablePayloadArray =
-          (CapabilityJunctionPayload[]) toPutCapableObj.getCapablePayloads();
+          CapabilityJunctionPayload[] toPutCapablePayloadArray =
+            (CapabilityJunctionPayload[]) toPutCapableObj.getCapablePayloads();
 
-        // For both create and update,
-        // we need to handle the cleaning of data if it is from the client
-        // and we also need to populate the CapablePayload.daoKey and
-        // CapablePayload.objId fields since they don't get filled out by client
-        if ( currentObjectInDao == null ) {
-          toUpdateCapablePayloadDAO = toPutCapableObj.getCapablePayloadDAO(getX());
-          for (int i = 0; i < toPutCapablePayloadArray.length; i++){
+          // For both create and update,
+          // we need to handle the cleaning of data if it is from the client
+          // and we also need to populate the CapablePayload.daoKey and
+          // CapablePayload.objId fields since they don't get filled out by client
+          if ( currentObjectInDao == null ) {
+            toUpdateCapablePayloadDAO = toPutCapableObj.getCapablePayloadDAO(getX());
+            for (int i = 0; i < toPutCapablePayloadArray.length; i++){
 
-            toPutCapableObj.setDAOKey(getDaoKey());
+              toPutCapableObj.setDAOKey(getDaoKey());
 
-            CapabilityJunctionPayload currentCapablePayload = toPutCapablePayloadArray[i];
+              CapabilityJunctionPayload currentCapablePayload = toPutCapablePayloadArray[i];
 
-            if ( ! currentCapablePayload.getHasSafeStatus() ){
-              currentCapablePayload.setStatus(getDefaultStatus());
+              if ( ! currentCapablePayload.getHasSafeStatus() ){
+                currentCapablePayload.setStatus(getDefaultStatus());
+              }
+            }
+          } else {
+            Capable storedCapableObj = (Capable) currentObjectInDao.fclone();
+
+            toPutCapableObj.setDAOKey(storedCapableObj.getDAOKey());
+
+            // should always be sync'd with whatever is on the backend
+            if (
+              SafetyUtil.isEmpty(String.valueOf(storedCapableObj.getDAOKey()))
+            ) {
+              toPutCapableObj.setDAOKey(getDaoKey());
+            }
+
+            toUpdateCapablePayloadDAO = storedCapableObj.getCapablePayloadDAO(getX());
+
+            for ( int i = 0; i < toPutCapablePayloadArray.length; i++ ){
+              CapabilityJunctionPayload toPutCapablePayload =
+                (CapabilityJunctionPayload) toPutCapablePayloadArray[i];
+
+              if ( ! toPutCapablePayload.getHasSafeStatus() ){
+
+                DAO capabilityDAO = (DAO) x.get("capabilityDAO");
+                Capability capability = (Capability) capabilityDAO.find(toPutCapablePayload.getCapability());
+
+                if ( capability == null ) {
+                  throw new RuntimeException("capability not found: " +
+                    toPutCapablePayload.getCapability());
+                }
+
+                CapabilityJunctionPayload storedCapablePayload = (CapabilityJunctionPayload) toUpdateCapablePayloadDAO.find(capability.getId());
+
+                if ( storedCapablePayload != null ){
+                  toPutCapablePayload.setStatus(storedCapablePayload.getStatus());
+                }
+              }
             }
           }
-        } else {
-          Capable storedCapableObj = (Capable) currentObjectInDao.fclone();
 
-          toPutCapableObj.setDAOKey(storedCapableObj.getDAOKey());
+          List<CapabilityJunctionPayload> capablePayloads = new ArrayList<CapabilityJunctionPayload>(Arrays.asList(toPutCapablePayloadArray));
 
-          // should always be sync'd with whatever is on the backend
+          for ( CapabilityJunctionPayload currentPayload : capablePayloads ){
+            toUpdateCapablePayloadDAO.put(currentPayload);
+          }
+
+          // include old payloads when checking requirement status
+          CapabilityJunctionPayload[] payloads = (CapabilityJunctionPayload[]) ((List) ((ArraySink) toUpdateCapablePayloadDAO.select(new ArraySink())).getArray()).toArray(new CapabilityJunctionPayload[0]);
+          toPutCapableObj.setCapablePayloads(payloads);
+
           if (
-            SafetyUtil.isEmpty(String.valueOf(storedCapableObj.getDAOKey()))
+            ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.GRANTED) &&
+            ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.PENDING) &&
+            ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.REJECTED) &&
+            ! getAllowActionRequiredPuts()
           ) {
-            toPutCapableObj.setDAOKey(getDaoKey());
+            CapabilityIntercept cre = new CapabilityIntercept();
+            cre.setDaoKey(getDaoKey());
+            cre.addCapable(toPutCapableObj);
+            throw cre;
           }
-
-          toUpdateCapablePayloadDAO = storedCapableObj.getCapablePayloadDAO(getX());
-
-          for ( int i = 0; i < toPutCapablePayloadArray.length; i++ ){
-            CapabilityJunctionPayload toPutCapablePayload =
-              (CapabilityJunctionPayload) toPutCapablePayloadArray[i];
-
-            if ( ! toPutCapablePayload.getHasSafeStatus() ){
-
-              DAO capabilityDAO = (DAO) x.get("capabilityDAO");
-              Capability capability = (Capability) capabilityDAO.find(toPutCapablePayload.getCapability());
-
-              if ( capability == null ) {
-                throw new RuntimeException("capability not found: " +
-                  toPutCapablePayload.getCapability());
-              }
-
-              CapabilityJunctionPayload storedCapablePayload = (CapabilityJunctionPayload) toUpdateCapablePayloadDAO.find(capability.getId());
-
-              if ( storedCapablePayload != null ){
-                toPutCapablePayload.setStatus(storedCapablePayload.getStatus());
-              }
-            }
-          }
-        }
-
-        List<CapabilityJunctionPayload> capablePayloads = new ArrayList<CapabilityJunctionPayload>(Arrays.asList(toPutCapablePayloadArray));
-
-        for ( CapabilityJunctionPayload currentPayload : capablePayloads ){
-          toUpdateCapablePayloadDAO.put(currentPayload);
-        }
-
-        // include old payloads when checking requirement status
-        CapabilityJunctionPayload[] payloads = (CapabilityJunctionPayload[]) ((List) ((ArraySink) toUpdateCapablePayloadDAO.select(new ArraySink())).getArray()).toArray(new CapabilityJunctionPayload[0]);
-        toPutCapableObj.setCapablePayloads(payloads);
-
-        if (
-          ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.GRANTED) &&
-          ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.PENDING) &&
-          ! toPutCapableObj.checkRequirementsStatusNoThrow(x, toPutCapableObj.getCapabilityIds(), CapabilityJunctionStatus.REJECTED) &&
-          ! getAllowActionRequiredPuts()
-        ) {
-          CapabilityIntercept cre = new CapabilityIntercept();
-          cre.setDaoKey(getDaoKey());
-          cre.addCapable(toPutCapableObj);
-          throw cre;
         }
 
         return super.put_(x, obj);

@@ -35,6 +35,7 @@ foam.CLASS({
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100%;
     }
     ^ .foam-u2-borders-CardBorder {
       min-height: auto;

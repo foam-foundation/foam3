@@ -135,7 +135,8 @@ public class Outputter
 
   public String escapeMultiline(String s) {
     s = s.replace("\\", "\\\\");
-    s = escapeControlCharacters(s);
+    // Not needed for multi-line strings
+    //    s = escapeControlCharacters(s);
     return s;
   }
 
@@ -143,7 +144,7 @@ public class Outputter
     int lastStart = 0;
     String escapedString = "";
     char c;
-    for ( int i = 0; i < s.length(); i++ ) {
+    for ( int i = 0 ; i < s.length() ; i++ ) {
       c = s.charAt(i);
       if ( c >= ' ' ) continue;
       // Character to hex

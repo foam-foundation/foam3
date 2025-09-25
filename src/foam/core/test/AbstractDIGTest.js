@@ -10,7 +10,11 @@ foam.CLASS({
   abstract: true,
   extends: 'foam.core.test.Test',
 
-  documentation: 'Base class for tests using DIG',
+  documentation: `Base class for tests using DIG.
+See doc/guids/APITesting.md
+Additionally, this test harness configures a DUG Loopback DAO to capture
+outbound DUG requests so test cases can test if the calls are initiated.
+`,
 
   javaImports: [
     'foam.lang.Detachable',
@@ -86,6 +90,7 @@ foam.CLASS({
       `
     },
     {
+      documentation: 'Return most recent DUG request',
       name: 'getDUGContent',
       args: 'X x',
       type: 'FObject',
@@ -116,6 +121,7 @@ foam.CLASS({
       `
     },
     {
+      documenation: 'Helper method to simplify finding a UCJ',
       name: 'findUCJ',
       args: 'Context x, long sourceId, String targetId',
       type: 'foam.core.crunch.UserCapabilityJunction',
@@ -126,6 +132,6 @@ foam.CLASS({
           EQ(UserCapabilityJunction.TARGET_ID, targetId)
         ));
       `
-    },
+    }
   ]
 })

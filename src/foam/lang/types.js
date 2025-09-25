@@ -1319,3 +1319,44 @@ foam.CLASS({
     [ 'value', '' ]
   ]
 });
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'CurrencyCode',
+  extends: 'Reference',
+  implements: [ 'foam.mlang.Expressions' ],
+
+  properties: [
+    {
+      class: 'Class',
+      name: 'of',
+      value: 'foam.lang.Currency'
+    },
+    [ 'type', 'String' ],
+    {
+      class: 'String',
+      name: 'targetDAOKey',
+      value: 'currencyDAO'
+    },
+    {
+      name: 'adapt',
+      value: function(_, n) {
+        if ( foam.lang.Currency.isInstance(n) ) return n.id;
+        return n;
+      }
+    },
+    {
+      name: 'postSet',
+      value: function(_, n, prop) {
+        var self = this;
+        if ( typeof n === 'string' && Number.isNaN(Number(n)) ) return;
+        x.currencyDAO.find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(n)))
+          .then(ret => {
+            if ( ret ) {
+              self[prop.name] = ret.id;
+            }
+          });
+      }
+    }
+  ]
+})

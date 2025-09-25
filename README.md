@@ -37,7 +37,7 @@ FOAM has no runtime dependencies, but does have build dependencies:
 * npm
 * nodejs (version >= 16)
 * maven
-* java (version >= 11)
+* java (version >= 21)
 
 Once dependencies are installed, update FOAM's javascript dependencies:
 From the root of the FOAM repository, execute:
@@ -73,7 +73,7 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
 **NOTE: this will create a parent directory above foam3/**
 
-    ./build.sh -T+setup/Project --appName:Example --package:com.foamdev --adminPassword:badpassword
+    ./build.sh -TStandard,setup/Project --appName:Example --package:com.foamdev --adminPassword:badpassword
     cd ..
     ./build.sh
 
@@ -130,14 +130,19 @@ to run the unit tests.
 - [Turtle Graphics](https://www.youtube.com/watch?v=4wO_RrftJTE)
 
 ## Guides
+- [Build](doc/guides/Build.md)
 - [Contexts](doc/guides/Context.md)
 - [DAOs](doc/guides/Dao.md)
 - [DAO Examples](doc/guides/DaoExamples.md)
+- [Deployment](doc/guides/Deployment.md)
 - [Easy DAO](doc/guides/EasyDao.md)
 - [Enums](doc/guides/Enum.md)
+- [Permissions](doc/guides/Permissions.md)
 - [Project Object Models (POMs)](doc/guides/POM.md)
 - [Porting](doc/guides/Porting.md)
 - [Services](doc/guides/Services.md)
+- [Security/Authentication](doc/guides/Security.md)
+- [Tessting API](doc/guides/APITesting.md)
 
 ## Cheatsheets
 - [Short Form](https://docs.google.com/document/d/1SWgtXtEjdiz12FimPKcTY0dsJ06hxGtCViZXn98PoyY/edit?usp=sharing)

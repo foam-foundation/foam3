@@ -106,7 +106,12 @@ foam.CLASS({
       border: 1px solid $borderLight;
     }
     ^switch { color: $textTertiary;  }
-    ^propHolder.reactive > div{
+    ^switch:hover {
+      padding-inline: 5px;
+      border-radius: 2px;
+      background-color: $backgroundSecondary;
+    }
+    ^switch.reactive {
       color: $textBrand!important;
     }
     ^formulaInput input:focus {
@@ -134,10 +139,6 @@ foam.CLASS({
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
-    }
-    ^labelHolder:hover {
-      padding-inline: 5px;
-      background-color: $backgroundSecondary;
     }
     ^layoutView {
       width: 100%;
@@ -201,11 +202,10 @@ foam.CLASS({
         show(visibilitySlot).
         start().
           addClass(this.myClass('propHolder')).addClass(this.myClass('labelHolder')).
-          enableClass('reactive', this.reactive$).
-          on('click', this.toggleMode).
           add(labelSlot).
-          start().
+          start().on('click', this.toggleMode).
             addClass(this.myClass('switch')).
+            enableClass('reactive', this.reactive$).
             add(this.dynamic(function(reactive) {
               if ( reactive ) {
                 this.start().

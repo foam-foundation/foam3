@@ -814,7 +814,6 @@ foam.CLASS({
         this.rows = a.length;
 
         for ( var i = 0 ; i < a.length ; i++ ) {
-          if ( ! agent ) agent = this.UploadAgent.create();
           var csv = a[i];
           var obj = this.of.create(null, this);
 
@@ -841,6 +840,7 @@ foam.CLASS({
 
         sink.eof();
       } catch (x) {
+        console.error('Error processing uploaded files:', x);
         this.output += '<span style="color:red">ERROR: ' + x + '</span>';
       }
     }

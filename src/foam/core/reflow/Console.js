@@ -257,35 +257,26 @@ foam.CLASS({
       }
     },
     {
-      name: 'confirmCancel',
-      label: 'Yes, Confirm',
-      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
-      size: 'SMALL',
-      code: function() {
-        this.mementoMgr.undoAll();
-      }
-    },
-    {
       name: 'cancel',
-      label: 'Cancel Changes',
+      label: 'Undo Changes',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'close',
       isEnabled: function(data$value$revision) {
         return data$value$revision;
       },
-      code: function() {
-        let confirmationModal = this.ConfirmationModal.create({
-          title: `Are you sure you want to cancel changes?`,
-          primaryAction: this.CONFIRM_CANCEL,
-          showCancel: true,
+      confirmationView: function(X, data) {
+        return data.ConfirmationModal.create({
+          primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
+          data: data,
           modalStyle: 'DESTRUCTIVE',
+          title: 'Undo Changes',
           maxWidth: '35vw',
-          closeable: false,
-          description: 'This will remove all unsaved changes made to the document.',
-          data: this
-        });
-        this.add(confirmationModal);
+          closeable: false
+        }).add('This will remove all unsaved changes made to the document.')
+      },
+      code: function() {
+        this.mementoMgr.undoAll();
       }
     },
     {
@@ -309,45 +300,21 @@ foam.CLASS({
       }
     },
     {
-      name: 'confirmReset',
-      label: 'Yes, Confirm',
-      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
-      size: 'SMALL',
-      code: function() {
-        this.data.eval_('clear');
-        var flow = this.data.value;
-
-        flow.name     = '';
-        this.mementoMgr.clear();
-        flow.version  = undefined;
-        flow.revision = undefined;
-      }
-    },
-    {
       name: 'clear',
       label: 'Clear Document',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
-      code: function() {
-        let confirmationModal = this.ConfirmationModal.create({
-          title: `Are you sure you want to delete this document's content?`,
-          primaryAction: this.CONFIRM_CLEAR,
-          showCancel: true,
+      confirmationView: function(X, data) {
+        return data.ConfirmationModal.create({
+          primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
+          data: data,
           modalStyle: 'DESTRUCTIVE',
+          title: 'Clear Document',
           maxWidth: '35vw',
-          closeable: false,
-          description: 'This will remove all content from the document.',
-          data: this
-        });
-        this.add(confirmationModal);
-      }
-    },
-    {
-      name: 'confirmClear',
-      label: 'Clear flow',
-      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
-      size: 'SMALL',
+          closeable: false
+        }).add('This will remove all content from the document.')
+      },
       code: function() {
         this.data.eval_('clear');
       }
@@ -361,17 +328,23 @@ foam.CLASS({
       isAvailable: function(showPrompts) {
         return showPrompts;
       },
-      code: function() {
-        let confirmationModal = this.ConfirmationModal.create({
-          title: `Unsaved changes will be lost, are you sure you want a New Reflow page?`,
-          primaryAction: this.CONFIRM_RESET,
-          showCancel: true,
+      confirmationView: function(X, data) {
+        return data.ConfirmationModal.create({
+          primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
+          data: data,
           modalStyle: 'DESTRUCTIVE',
+          title: 'Start a New Flow',
           maxWidth: '35vw',
-          closeable: false,
-          data: this
-        });
-        this.add(confirmationModal);
+          closeable: false
+        }).add('Unsaved changes will be lost. Are you sure you want to start a new Flow?');
+      },
+      code: function() {
+        this.data.eval_('clear');
+        var flow = this.data.value;
+        flow.name     = '';
+        this.mementoMgr.clear();
+        flow.version  = undefined;
+        flow.revision = undefined;
       }
     },
     {
@@ -439,9 +412,6 @@ foam.CLASS({
     }
     ^.expanded > ^toolbar {
       padding: 0 0 0.8rem 16px;
-    }
-    ^toolbar {
-      padding: 16px;
     }
     ^content:has(> .foam-u2-Element-hidden) {
       display: none;
@@ -545,6 +515,7 @@ foam.CLASS({
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
       self.borderEl_.add(this.out);
     },
+
     function render() {
       this.on('click', this.onClick);
       this.addClass('block');
@@ -567,12 +538,14 @@ foam.CLASS({
     function removeFlowChild_(c) {
       c.remove();
     },
+
     function log(...args) {
       if ( args.length == 0 ) return;
       if ( this.seen ) this.out.tag('br');
       this.seen = true;
       this.out.add(args.join(' '));
     },
+
     function outputJSON(json) {
       json.outputFObject_(this, this.cls_, [ this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER_CLASS, this.BORDER ]);
     }
@@ -616,6 +589,8 @@ foam.CLASS({
       name: 'onClick',
       code: function(e) {
         this.selected = this;
+        e.preventDefault();
+        e.stopPropagation();
       }
     }
   ]
@@ -719,7 +694,7 @@ foam.CLASS({
     {
       type: 'Int',
       name: 'MIN_SIDEBAR_WIDTH_FALLBACK',
-      value: 200
+      value: 280
     }
   ],
 
@@ -735,7 +710,7 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'rightWidth',
-      value: 300
+      value: 360
     },
     {
       class: 'Int',
@@ -1058,8 +1033,8 @@ foam.CLASS({
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
-      script :
-      foam.json.parseString(script, ctx);
+        script :
+        foam.json.parseString(script, ctx);
 
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
@@ -1074,7 +1049,7 @@ foam.CLASS({
         this.currentBlock.copyFrom(args);
 
         if ( this.currentBlock.value && c.value ) {
-          if ( c.value.clone ) c.value = c.value.clone(ctx);
+          // if ( c.value.clone ) c.value = c.value.clone(ctx);
           this.currentBlock.value.copyFrom(c.value);
         }
 
@@ -1138,7 +1113,7 @@ foam.CLASS({
 
       this.value.script$.sub(this.onScriptChange);
 
-      this.flowChildren$.sub(this.onFlowChildrenChange);
+      this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
 
       var layout = this.start(this.Layout);
 
@@ -1390,7 +1365,6 @@ foam.CLASS({
       console.log('inserting', i);
       children.splice(i, 0, child);
       this.flowChildren = children;
-      this.onFlowChildrenChange();
       this.generateScript();
     },
 
@@ -1427,6 +1401,7 @@ foam.CLASS({
       });
 
       this.value.script = json.stringify(this.flowChildren);
+      // console.log('******************** script', this.value.script);
     },
 
     function maybeRegenScript() {
@@ -1545,6 +1520,7 @@ foam.CLASS({
           this.selected = ( currentBlockName == this.flowName ) ?
             this :
             ( this.findFlowChildByName(currentBlockName) || this );
+          this.value.loadComplete.pub();
         } finally {
           this.feedback_ = false;
         }
@@ -1553,42 +1529,9 @@ foam.CLASS({
     {
       name: 'onFlowChildrenChange',
       isMerged: true,
-      delay: 250,
+      delay: 500,
       code: function() {
-// if ( this.feedback_ ) return;
-        if ( this.flowChildrenSub_ ) this.flowChildrenSub_.detach();
-        this.flowChildrenSub_ = foam.lang.FObject.create();
-        let subFn = c => {
-          var prev;
-          if ( c.value ) {
-            if ( c.value.sub )
-              this.flowChildrenSub_.onDetach(c.value.sub(this.onFlowChildChange));
-
-            // TODO: this is a little hackish, it would be better if DAOPrompt tracked
-            // that itself and updated its own hidden revision property
-            if ( foam.core.reflow.DAOPrompt.isInstance(c.value) ) {
-              this.flowChildrenSub_.onDetach(c.value.select$.sub(() => {
-                prev?.detach();
-                this.flowChildrenSub_.onDetach(c.value.select.sub(this.onFlowChildChange));
-              }));
-            }
-          }
-          c.flowChildren?.forEach(subFn);
-          this.flowChildrenSub_.onDetach(c.flowChildren$.sub(this.onFlowChildrenChange));
-          this.flowChildrenSub_.onDetach(c.flowUpdated.sub(this.onFlowChildChange));
-        };
-        this.flowChildren.forEach(subFn);
-
         this.maybeRegenScript();
-      }
-    },
-    {
-      name: 'onFlowChildChange',
-      isIdled: true,
-      delay: 2000,
-      code: function() {
-// if ( this.feedback_ ) return;
-       this.maybeRegenScript();
       }
     }
   ]

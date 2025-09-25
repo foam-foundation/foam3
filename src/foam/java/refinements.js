@@ -2122,12 +2122,36 @@ foam.CLASS({
   methods: [
     function buildJavaClass(cls) {
       this.SUPER(cls);
+      var capitalizedName = foam.String.capitalize(this.name);
+
+      cls.field({
+        name: `cached${capitalizedName}_`,
+        visibility: 'private',
+        type: `java.lang.ref.SoftReference<${this.of.id}>`
+      });
+
       cls.method({
         name: `find${foam.String.capitalize(this.name)}`,
         visibility: 'public',
         type: this.of.id,
         args: [ { name: 'x', type: 'foam.lang.X' } ],
-        body: `return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${foam.String.capitalize(this.name)}());`
+        body: `
+          synchronized(this) {
+            if ( this.cached${capitalizedName}_ != null && this.cached${capitalizedName}_.get() != null ) {
+              var referent = this.cached${capitalizedName}_.get();
+              var refPropVal = get${capitalizedName}();
+
+              if ( foam.util.SafetyUtil.equals(referent.getProperty("${this.referencedProperty.name}"), refPropVal) )
+                return this.cached${capitalizedName}_.get();
+            }
+
+            var res = (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${capitalizedName}());
+            if ( res != null )
+              this.cached${capitalizedName}_ = new java.lang.ref.SoftReference<${this.of.id}>(res);
+
+            return res;
+          }
+        `
       });
     }
   ]
@@ -2699,6 +2723,32 @@ foam.CLASS({
           code: code
         }));
       }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'CurrencyCodeJavaRefinement',
+  refines: 'foam.lang.CurrencyCode',
+  extends: 'foam.lang.Reference',
+  flags: [ 'java' ],
+
+  properties: [
+    {
+      name: 'javaAdapt',
+      value: `
+        try {
+          var numericCode = Long.parseLong(val);
+          var curr = (foam.lang.Currency) ((foam.dao.DAO) getX().get("currencyDAO"))
+            .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, val));
+          if ( curr != null )
+            val = curr.getId();
+          else
+            foam.core.logger.Loggers.logger(getX(), this).error("Cannot adapt CurrencyCode numeric value", val);
+        } catch (NumberFormatException e) { /* assume string id */ }
+      `
     }
   ]
 });

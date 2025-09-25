@@ -66,12 +66,29 @@ public class FObjectParser
             if ( ps1 != null ) {
               var className = ps1.value().toString();
 
-               ci = ctx.getClassInfo(className);
+              ci = ctx.getClassInfo(className);
 
               if ( ci == null ) {
                 try {
                   c = Class.forName(className);
                 } catch (ClassNotFoundException t) {
+                }
+              } else if ( ci.getObjClass() != null && ! ci.getObjClass().getName().equals(className) ) {
+                // getOwnClassInfo() on an explicit java class which extends
+                // a modelled class will resolve to the modelled class,
+                // causing json parsing of class: explicit-java-class to fail.
+                try {
+                  c = Class.forName(className);
+                  if ( c != c.getMethod("getOwnClassInfo").getDeclaringClass() ) {
+                    ClassInfo nuci = new foam.lang.ClassInfoImpl();
+                    for ( Axiom a : (java.util.List<Axiom>) ci.getAxioms() ) {
+                      nuci.addAxiom(a);
+                    }
+                    nuci.setId(c.getName());
+                    nuci.setObjClass(c);
+                    ci = nuci;
+                  }
+                } catch (java.lang.Exception e) {
                 }
               } else {
                 c = ci.getObjClass();

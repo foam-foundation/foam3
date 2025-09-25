@@ -340,6 +340,8 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.Script', 'foam.core.reflow.cmd.DAORowView' ],
 
   imports: [ 'libDAO', 'scope' ],
+  
+
 
   properties: [
     [ 'description', 'Display available scripts' ]
@@ -362,7 +364,7 @@ foam.CLASS({
           this.start('tr').
             start('td').attr('align', 'left').add(n.scriptName).end().
             start('td').attr('align', 'left').add(n.description).end().
-            start('td').attr('align', 'left').start(foam.u2.Link).add('Run').on('click', () => n.run()).end().
+            start('td').attr('align', 'left').start(foam.u2.Link).add('Run').on('click', function() { n.run(); }).end().
           end();
         }).
         end().
@@ -426,6 +428,84 @@ foam.CLASS({
         }).
         end().
         start('b').add(count, ' selected').end();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'RunScript',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  mixins: [ 'foam.mlang.Expressions' ],
+
+  imports: [ 'libDAO', 'notify?' ],
+
+  properties: [
+    { name: 'id', value: 'runScript' },
+    [ 'description', 'Run a saved script by name: runScript <scriptName>' ]
+  ],
+
+  methods: [
+    async function execute(scriptName) {
+      if ( ! scriptName ) {
+        this.notify && this.notify('Usage: runScript <scriptName>');
+        this.out && this.out.add('Usage: runScript <scriptName>');
+        return;
+      }
+
+      let script = null;
+      try {
+        // Try exact match on scriptName field
+        const result = await this.libDAO
+          .where(this.EQ(foam.core.reflow.Script.SCRIPT_NAME, scriptName))
+          .limit(1)
+          .select();
+        script = result && result.array && result.array[0];
+      } catch (e) {}
+
+      if ( ! script ) {
+        try {
+          // Fallback: try DAO find by id
+          script = await this.libDAO.find(scriptName);
+        } catch (e) {}
+      }
+
+      if ( ! script ) {
+        const msg = `Script "${scriptName}" not found`;
+        (this.notify && this.notify(msg)) || (this.out && this.out.add(msg));
+        return;
+      }
+
+      try {
+        await script.run();
+        this.notify && this.notify(`Script "${script.scriptName || scriptName}" executed successfully`);
+      } catch (e) {
+        const errMsg = `Script "${scriptName}" failed: ${e && e.message ? e.message : e}`;
+        (this.notify && this.notify(errMsg)) || (this.out && this.out.add(errMsg));
+      }
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'HelpScript',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  properties: [
+    { name: 'id', value: 'helpScript' },
+    [ 'description', 'Display usage for scripts-related commands' ]
+  ],
+
+  methods: [
+    function execute() {
+      this.out
+        .start('div')
+          .start('h3').add('Script Commands').end()
+          .start('p').add('scripts: Display available scripts').end()
+          .start('p').add('runScript <scriptName>: Run a saved script by name').end()
+        .end();
     }
   ]
 });

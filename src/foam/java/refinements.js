@@ -2123,6 +2123,7 @@ foam.CLASS({
     function buildJavaClass(cls) {
       this.SUPER(cls);
       var capitalizedName = foam.String.capitalize(this.name);
+      var constantizedRefName = foam.String.constantize(this.referencedProperty.name);
 
       if ( this.cache ) {
         cls.field({
@@ -2133,6 +2134,7 @@ foam.CLASS({
       }
 
       var body = this.cache ? `
+          var referencedDAO = (foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}");
           synchronized(this) {
             if ( this.cached${capitalizedName}_ != null && this.cached${capitalizedName}_.get() != null ) {
               var referent = this.cached${capitalizedName}_.get();
@@ -2142,15 +2144,26 @@ foam.CLASS({
                 return this.cached${capitalizedName}_.get();
             }
 
-            var res = (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${capitalizedName}());
-            if ( res != null )
+            var res = (${this.of.id}) referencedDAO.find_(x, (Object) get${capitalizedName}());
+            if ( res != null ) {
               this.cached${capitalizedName}_ = new java.lang.ref.SoftReference<${this.of.id}>(res);
+              referencedDAO
+                .where(foam.mlang.MLang.EQ(${this.of.id}.${constantizedRefName}, get${capitalizedName}()))
+                .listen(new foam.dao.AbstractSink() {
+                  @Override
+                  public void put(Object obj, foam.lang.Detachable sub) {
+                    if ( cached${capitalizedName}_ != null ) cached${capitalizedName}_.clear();
+                  }
+                  @Override
+                  public void remove(Object obj, foam.lang.Detachable sub) {
+                    if ( cached${capitalizedName}_ != null ) cached${capitalizedName}_.clear();
+                  }
+                }, null);
+            }
 
             return res;
           }
-        ` : `
-          return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}"))
-            .find_(x, (Object) get${foam.String.capitalize(this.name)}());`
+        ` : `return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${foam.String.capitalize(this.name)}());`
 
       cls.method({
         name: `find${foam.String.capitalize(this.name)}`,

@@ -1148,6 +1148,11 @@ foam.CLASS({
         return ret;
         // return ( of && of.ID.value ) || null;
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'cache',
+      value: true
     }
   ],
 

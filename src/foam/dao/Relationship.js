@@ -287,7 +287,8 @@ foam.CLASS({
           name: this.inverseName,
           of: this.sourceModel,
           targetDAOKey: this.sourceDAOKey,
-          unauthorizedTargetDAOKey: this.unauthorizedSourceDAOKey
+          unauthorizedTargetDAOKey: this.unauthorizedSourceDAOKey,
+          cache: false
         }).copyFrom(this.targetProperty);
       } else if ( this.cardinality === '*:*' ) {
         this.initJunction(x);
@@ -339,12 +340,14 @@ foam.CLASS({
             name: 'sourceId',
             shortName: 's',
             of: this.sourceModel,
+            cache: false
           },
           {
             class: 'Reference',
             name: 'targetId',
             shortName: 't',
-            of: this.targetModel
+            of: this.targetModel,
+            cache: false
           }
         ]
       });

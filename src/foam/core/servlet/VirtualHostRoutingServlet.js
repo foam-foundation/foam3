@@ -190,9 +190,12 @@ foam.CLASS({
       // Loading screen styles
       out.println("""
         <style>
+        body {
+          margin: 0;
+        }
         #loading-container {
-          background: black;
-          color: white;
+          background: white;
+          color: black;
           text-align: center;
           height: 100%;
           display: flex;
@@ -207,6 +210,12 @@ foam.CLASS({
         }
         #loading-text {
           font-family: system-ui, sans-serif;
+        }
+        @media (prefers-color-scheme: dark) {
+          .allowVariants#loading-container {
+            background: black;
+            color: white;
+          }
         }
         </style>""");
       `,
@@ -246,6 +255,8 @@ foam.CLASS({
           theme = new Theme(x);
         }
 
+        Boolean useVariants = theme.getUseVariants();
+
         response.setContentType("text/html; charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
 
@@ -275,7 +286,12 @@ foam.CLASS({
         out.print(theme.getAppName());
         out.println("\\" bootservices=\\"" + getBootservices() + "\\">");
 
-        out.print("<div id=\\"loading-container\\">");
+        out.print("<div id=\\"loading-container\\"");
+        if ( useVariants ) {
+          out.print("class=\\"allowVariants\\"");
+        }
+        out.println(" >");
+
         out.print("<img id=\\"loading-logo\\" src=\\"");
         out.print(theme.getLargeLogo());
         out.println("\\"></img>");

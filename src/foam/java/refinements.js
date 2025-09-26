@@ -2131,32 +2131,46 @@ foam.CLASS({
           visibility: 'private',
           type: `java.lang.ref.SoftReference<${this.of.id}>`
         });
+        cls.field({
+          name: `${capitalizedName}CachedFor_`,
+          visibility: 'private',
+          type: 'Long'
+        });
       }
 
       var body = this.cache ? `
           var referencedDAO = (foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}");
           synchronized(this) {
+            var user = ((foam.core.auth.Subject) x.get("subject")).getUser();
             if ( this.cached${capitalizedName}_ != null && this.cached${capitalizedName}_.get() != null ) {
               var referent = this.cached${capitalizedName}_.get();
               var refPropVal = get${capitalizedName}();
 
-              if ( foam.util.SafetyUtil.equals(referent.getProperty("${this.referencedProperty.name}"), refPropVal) )
+              if ( user.getId() == ${capitalizedName}CachedFor_ && 
+                foam.util.SafetyUtil.equals(referent.getProperty("${this.referencedProperty.name}"), refPropVal) )
                 return this.cached${capitalizedName}_.get();
             }
 
             var res = (${this.of.id}) referencedDAO.find_(x, (Object) get${capitalizedName}());
             if ( res != null ) {
               this.cached${capitalizedName}_ = new java.lang.ref.SoftReference<${this.of.id}>(res);
+              this.${capitalizedName}CachedFor_ = user.getId();
               referencedDAO
                 .where(foam.mlang.MLang.EQ(${this.of.id}.${constantizedRefName}, get${capitalizedName}()))
                 .listen(new foam.dao.AbstractSink() {
                   @Override
                   public void put(Object obj, foam.lang.Detachable sub) {
-                    if ( cached${capitalizedName}_ != null ) cached${capitalizedName}_.clear();
+                    if ( cached${capitalizedName}_ != null ) {
+                      cached${capitalizedName}_.clear();
+                      ${capitalizedName}CachedFor_ = 0L;
+                    }
                   }
                   @Override
                   public void remove(Object obj, foam.lang.Detachable sub) {
-                    if ( cached${capitalizedName}_ != null ) cached${capitalizedName}_.clear();
+                    if ( cached${capitalizedName}_ != null ) {
+                      cached${capitalizedName}_.clear();
+                      ${capitalizedName}CachedFor_ = 0L;
+                    }
                   }
                 }, null);
             }

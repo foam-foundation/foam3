@@ -2141,7 +2141,8 @@ foam.CLASS({
       var body = this.cache ? `
           var referencedDAO = (foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}");
           synchronized(this) {
-            var user = ((foam.core.auth.Subject) x.get("subject")).getUser();
+            var subject = (foam.core.auth.Subject) x.get("subject");
+            var user = subject == null ? null : subject.getUser();
             if ( this.cached${capitalizedName}_ != null && this.cached${capitalizedName}_.get() != null ) {
               var referent = this.cached${capitalizedName}_.get();
               var refPropVal = get${capitalizedName}();
@@ -2152,7 +2153,7 @@ foam.CLASS({
             }
 
             var res = (${this.of.id}) referencedDAO.find_(x, (Object) get${capitalizedName}());
-            if ( res != null ) {
+            if ( res != null && user != null ) {
               this.cached${capitalizedName}_ = new java.lang.ref.SoftReference<${this.of.id}>(res);
               this.${capitalizedName}CachedFor_ = user.getId();
               referencedDAO

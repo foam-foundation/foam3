@@ -8,7 +8,7 @@ foam.CLASS({
       Before 'query' is changed, the reset() method is called
       The query is parsed and apply() is passed to parseString() so the AutoCompleter
         can be informed of the parsing process.
-      During the parseString(), apply() builds up the maps 'suggestions' and 'previousSuggestions'
+      During the parseString(), apply() builds up the maps 'suggestions' 
         which are used to make suggestions.
       The render() method re-renders after query has changed to show updated suggestions.
       If the user clicks on a suggestion, it's output is appended to the query.
@@ -22,9 +22,6 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'maxPos'
-    },
-    {
-      name: 'previousSuggestions'
     },
     {
       name: 'suggestions',
@@ -54,28 +51,15 @@ foam.CLASS({
         // grammar with all the symbols
         return function(p, grammar) {
           // 'this' is the JSPStream
-          // if ( p == foam.parse.EOF.create() ) return;
-          // if ( this.pos > self.query.length ) return;
-
-          //console.log('ps str: ', this.str);
-
-          //console.log('parsing: ', this.pos, this.toString());
-          //console.log('parser: ', p.cls_.id, p.toString());
-
+          
           if ( this.pos > self.maxPos ) {
-            self.previousSuggestions = self.suggestions;
             self.suggestions = {};
             self.maxPos = this.pos;
           }
 
           if ( this.pos == self.maxPos ) {
             maybeAdd(p, self.suggestions);
-          } else if ( this.pos == self.maxPos-1 ) {
-            maybeAdd(p, self.previousSuggestions);
-          }
-
-          //console.log('maxPos: ', self.maxPos, 'ps.pos: ', this.pos, 'query: ', self.query);
-          console.log('suggestions: ', Object.keys(self.suggestions).length, Object.keys(self.suggestions).toString());
+          } 
 
           return p.parse(this, grammar);
         }
@@ -86,7 +70,6 @@ foam.CLASS({
   methods: [
     function reset() {
       this.maxPos              = 0;
-      this.previousSuggestions = {};
       this.suggestions         = {};
     },
     function suggestForInput(str) {
@@ -102,29 +85,14 @@ foam.CLASS({
       }
       var self = this;
       e.add(this.dynamic(function(query) {
-        var suggestions = self.suggestions;
-        var keys        = Object.keys(suggestions);
-        console.log('unfiltered suggestions: ', keys.toString());
-        var error       = query.substring(self.maxPos);
-//        suggestions = {...suggestions, ...self.previousSuggestions};
-        //var ss  = keys.sort().filter(k => k.toLowerCase().startsWith(error.toLowerCase()));
-        //if ( ! ss.length ) ss = keys.sort().filter(k => containsIC(k, error));
-        var ss = keys.sort();
-        if ( ss.length == 0 ) {
-          console.log('previous: ', self.previousSuggestions);
-          keys = Object.keys(self.previousSuggestions);
-          ss   = keys.sort().filter(k => query.toLowerCase().endsWith(k.toLowerCase()));
-          console.log('filtered: ', ss);
-          if ( ss.length == 1 ) {
-            self.query = query.substring(0, query.length-ss[0].length) + ss[0];
-            return;
-          }
-        }
+        let suggestions = self.suggestions;
+        let keys        = Object.keys(suggestions);
+        let delta       = query.substring(self.maxPos);
+        let ss          = keys.sort();
+
+        if (delta) ss = ss.filter(k => containsIC(k, delta));
         if ( ! ss.length ) return;
-        if ( ss.length == 1 && self.maxPos + ss[0].length == query.length ) {
-          self.query = self.query.substring(0, self.maxPos) + ss[0];
-          return;
-        }
+        
         this.start().style({width: '400px', maxHeight: '500px', border: '1px solid gray', overflowY: 'auto'}).forEach(ss, function(s) {
           this.start('div').
             style({margin: '6px'}).
@@ -170,11 +138,8 @@ foam.CLASS({
     {
       name: 'predicate',
       expression: function(query) {
-        console.log(`****** parsing: "${query}"`);
         this.autoCompleter.reset();
         let ps = this.parser.parseString( (!query) ? ' ': query + String.fromCharCode(26), undefined, this.autoCompleter.apply);
-        console.log('autocomplete: ', this.autoCompleter.toString());
-//        this.suggestion = this.autoCompleter.suggestForInput(this.query);
         return ps || null;
       }
     },
@@ -196,7 +161,6 @@ foam.CLASS({
       this.add(this.QUERY.__);
       this.autoCompleter.addToE(this);
       this.br().add(this.RESULT.__);
-//      this.add(this.SUGGESTION.__);
     }
   ]
 

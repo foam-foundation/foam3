@@ -206,7 +206,6 @@ foam.CLASS({
           },  
 
           number: function(v) {
-            console.log('number:' + v.toString() + ' ' + v.join(''))
             return parseInt(v.join(''));
           },
 

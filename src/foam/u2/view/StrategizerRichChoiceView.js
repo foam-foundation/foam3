@@ -15,6 +15,11 @@ foam.CLASS({
     'strategizer'
   ],
 
+  requires: [
+    'foam.mlang.LabeledValue',
+    'foam.dao.ArrayDAO'
+  ],
+
   properties: [
     {
       class: 'String',
@@ -34,7 +39,7 @@ foam.CLASS({
       factory: function() {
         return [
           {
-            dao: foam.dao.ArrayDAO.create({
+            dao: this.ArrayDAO.create({
               of: "foam.mlang.LabeledValue"
             }),
             searchBy: [
@@ -64,7 +69,7 @@ foam.CLASS({
             console.warn('Invalid strategy reference: ' + sr.id);
             return arr;
           }
-          let value = foam.mlang.LabeledValue.create(
+          let value = self.LabeledValue.create(
           {
             label: sr.label || sr.strategy.name,
             id: sr.strategy
@@ -72,7 +77,7 @@ foam.CLASS({
           return arr.concat(value);
         }, [])
         .filter(x => x);
-      self.sections[0].dao = await foam.dao.ArrayDAO.create({
+      self.sections[0].dao = await self.ArrayDAO.create({
         of: 'foam.mlang.LabeledValue',
         array: choices
       });

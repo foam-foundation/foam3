@@ -17,7 +17,14 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
-      name: 'query'
+      name: 'query',
+      postSet: function() { 
+        // this.reset(); 
+      }
+    },
+    {
+      class: 'String',
+      name: 'normalizedQuery'
     },
     {
       class: 'Int',
@@ -51,6 +58,8 @@ foam.CLASS({
         // grammar with all the symbols
         return function(p, grammar) {
           // 'this' is the JSPStream
+
+           console.log('parsing: ' + self.query + ' length ' + self.query.length );
           
           if ( this.pos > self.maxPos ) {
             self.suggestions = {};
@@ -61,7 +70,18 @@ foam.CLASS({
             maybeAdd(p, self.suggestions);
           } 
 
-          return p.parse(this, grammar);
+          let result = p.parse(this, grammar);
+
+
+          if ( result && p.suggest ) {
+            let s = p.suggest();
+            console.log('suggestion for ' + this.substring(result) + '->' + s.text + ' at ' + this.pos);
+            let prevQuery = self.query.substring(0, this.pos);
+            self.normalizedQuery = prevQuery + s.text + self.query.substring(this.substring(result).length+this.pos) ;
+            console.log('normalized query ' + self.normalizedQuery);
+          }
+
+          return result;
         }
       }
     }
@@ -71,6 +91,7 @@ foam.CLASS({
     function reset() {
       this.maxPos              = 0;
       this.suggestions         = {};
+      this.normalizedQuery     = '';
     },
     function suggestForInput(str) {
       var error = str.substring(this.maxPos);
@@ -84,9 +105,8 @@ foam.CLASS({
         return str.toLowerCase().indexOf(sub.toLowerCase()) != -1;
       }
       var self = this;
-      e.add(this.dynamic(function(query) {
-        let suggestions = self.suggestions;
-        let keys        = Object.keys(suggestions);
+      e.add(this.dynamic(function(query) {; // re-render when query changes
+        let keys        = Object.keys(self.suggestions);
         let delta       = query.substring(self.maxPos);
         let ss          = keys.sort();
 
@@ -97,7 +117,7 @@ foam.CLASS({
           this.start('div').
             style({margin: '6px'}).
             add(s).
-            on('click', function() { self.query = self.query.substring(0, self.maxPos) + s;}).
+            on('click', function() { self.query = (self.query.substring(0, self.maxPos).trim() + ' ' + s).trimStart();}).  
           end();
         });
       }));
@@ -116,7 +136,14 @@ foam.CLASS({
   properties: [
     {
       name: 'autoCompleter',
-      factory: function() { return this.QueryComplete.create({query$: this.query$}); }
+      factory: function() {
+        return this.QueryComplete.create({query$: this.query$});
+        /*
+        let qc = this.QueryComplete.create({});
+          this.query$.follow(qc.query$);
+        return qc
+        */
+      }
     },
     {
       class: 'String',
@@ -138,8 +165,14 @@ foam.CLASS({
     {
       name: 'predicate',
       expression: function(query) {
+        //this.autoCompleter.query = query;
         this.autoCompleter.reset();
-        let ps = this.parser.parseString( (!query) ? ' ': query + String.fromCharCode(26), undefined, this.autoCompleter.apply);
+        console.log('parsing query: ' + query + ' length ' + query.length );
+        let ps = this.parser.parseString( /*(!query) ? ' ': */query + String.fromCharCode(26), undefined, this.autoCompleter.apply);
+        /*
+        if (this.autoCompleter.normalizedQuery && this.autoCompleter.normalizedQuery !== this.query.substring(0, this.autoCompleter.normalizedQuery.length))
+          this.query = this.autoCompleter.normalizedQuery;
+        */
         return ps || null;
       }
     },
@@ -158,7 +191,7 @@ foam.CLASS({
 
   methods: [
     function render() {
-      this.add(this.QUERY.__);
+      this.add(this.QUERY.__); // adds label and validation, access control
       this.autoCompleter.addToE(this);
       this.br().add(this.RESULT.__);
     }

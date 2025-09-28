@@ -72,9 +72,9 @@ foam.CLASS({
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
-          let sugStr = str.toLowerCase().endsWith('in') ? str + ' (' : str;
+          //let sugStr = str.toLowerCase().endsWith('in') ? str + ' (' : str;
           return alt(
-            seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: sugStr})),
+            seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str})),
             seq1(1, sym('ws'), literalIC(str))
           );
         }
@@ -138,7 +138,7 @@ foam.CLASS({
         let propPredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
-        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: ' ' + prop.name})); 
+        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name})); 
   
         for ( var i = 0 ; i < props.length ; i++ ) {
 
@@ -155,9 +155,9 @@ foam.CLASS({
           } 
           else if ( foam.lang.Enum.isInstance(prop) ) {
 
-            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: ' ' + v})); 
+            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: v})); 
             let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
-            let enumArray  = seq1(2, sym('ws'), '(', repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
+            let enumArray  = seq1(2, sym('ws'), sug('(',{text:'('}), repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
        
             let compareEnum = action(
                                     alt(seq(operator('='), enumValue),

@@ -17,14 +17,18 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
-      name: 'query',
+      name: 'autoQuery',
       postSet: function() { 
-        // this.reset(); 
+        this.reset(); 
       }
     },
     {
       class: 'String',
       name: 'normalizedQuery'
+    },
+    { 
+      class: 'Boolean',
+      name: 'normalize'
     },
     {
       class: 'Int',
@@ -59,7 +63,7 @@ foam.CLASS({
         return function(p, grammar) {
           // 'this' is the JSPStream
 
-           console.log('parsing: ' + self.query + ' length ' + self.query.length );
+           //console.log('parsing: ' + self.autoQuery + ' length ' + self.autoQuery.length );
           
           if ( this.pos > self.maxPos ) {
             self.suggestions = {};
@@ -73,12 +77,14 @@ foam.CLASS({
           let result = p.parse(this, grammar);
 
 
-          if ( result && p.suggest ) {
+          if ( self.normalize && result && p.suggest ) {
             let s = p.suggest();
-            console.log('suggestion for ' + this.substring(result) + '->' + s.text + ' at ' + this.pos);
-            let prevQuery = self.query.substring(0, this.pos);
-            self.normalizedQuery = prevQuery + s.text + self.query.substring(this.substring(result).length+this.pos) ;
-            console.log('normalized query ' + self.normalizedQuery);
+            //console.log('suggestion for ' + this.substring(result) + '->' + s.text + ' at ' + this.pos);
+            let prevQuery = self.autoQuery.substring(0, this.pos);
+            self.normalizedQuery = prevQuery + s.text + self.autoQuery.substring(this.substring(result).length+this.pos) ;
+            console.log('--- normalized query ---: ' + self.normalizedQuery + ' length ' + self.normalizedQuery.length);
+            self.autoQuery = self.normalizedQuery;
+
           }
 
           return result;
@@ -93,10 +99,6 @@ foam.CLASS({
       this.suggestions         = {};
       this.normalizedQuery     = '';
     },
-    function suggestForInput(str) {
-      var error = str.substring(this.maxPos);
-      return Object.keys(this.suggestions).filter(k => k.startsWith(error)).join(' | ');
-    },
     function toString() {
       return Object.keys(this.suggestions).join(' | ');
     },
@@ -105,9 +107,9 @@ foam.CLASS({
         return str.toLowerCase().indexOf(sub.toLowerCase()) != -1;
       }
       var self = this;
-      e.add(this.dynamic(function(query) {; // re-render when query changes
+      e.add(this.dynamic(function(autoQuery) {; // re-render when query changes
         let keys        = Object.keys(self.suggestions);
-        let delta       = query.substring(self.maxPos);
+        let delta       = autoQuery.substring(self.maxPos);
         let ss          = keys.sort();
 
         if (delta) ss = ss.filter(k => containsIC(k, delta));
@@ -117,7 +119,7 @@ foam.CLASS({
           this.start('div').
             style({margin: '6px'}).
             add(s).
-            on('click', function() { self.query = (self.query.substring(0, self.maxPos).trim() + ' ' + s).trimStart();}).  
+            on('click', function() { self.autoQuery = ( self.autoQuery.substring(0, self.maxPos).trim() + ' ' + s ).trimStart();}).  
           end();
         });
       }));
@@ -137,12 +139,12 @@ foam.CLASS({
     {
       name: 'autoCompleter',
       factory: function() {
-        return this.QueryComplete.create({query$: this.query$});
-        /*
-        let qc = this.QueryComplete.create({});
-          this.query$.follow(qc.query$);
+        //return this.QueryComplete.create({query$: this.query$});
+
+        let qc = this.QueryComplete.create({normalize: true});
+          this.query$.follow(qc.autoQuery$);
         return qc
-        */
+
       }
     },
     {
@@ -165,10 +167,10 @@ foam.CLASS({
     {
       name: 'predicate',
       expression: function(query) {
-        //this.autoCompleter.query = query;
-        this.autoCompleter.reset();
-        console.log('parsing query: ' + query + ' length ' + query.length );
-        let ps = this.parser.parseString( /*(!query) ? ' ': */query + String.fromCharCode(26), undefined, this.autoCompleter.apply);
+        this.autoCompleter.autoQuery = query;
+        //this.autoCompleter.reset();
+        console.log('*** parsing query ***: ' + query + ' length ' + query.length );
+        let ps = this.parser.parseString( query + String.fromCharCode(26), undefined, this.autoCompleter.apply);
         /*
         if (this.autoCompleter.normalizedQuery && this.autoCompleter.normalizedQuery !== this.query.substring(0, this.autoCompleter.normalizedQuery.length))
           this.query = this.autoCompleter.normalizedQuery;

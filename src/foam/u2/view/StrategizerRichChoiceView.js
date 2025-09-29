@@ -17,7 +17,7 @@ foam.CLASS({
 
   requires: [
     'foam.mlang.LabeledValue',
-    'foam.dao.ArrayDAO'
+    'foam.dao.MDAO'
   ],
 
   properties: [
@@ -39,7 +39,7 @@ foam.CLASS({
       factory: function() {
         return [
           {
-            dao: this.ArrayDAO.create({
+            dao: this.MDAO.create({
               of: "foam.mlang.LabeledValue"
             }),
             searchBy: [
@@ -77,10 +77,11 @@ foam.CLASS({
           return arr.concat(value);
         }, [])
         .filter(x => x);
-      self.sections[0].dao = await self.ArrayDAO.create({
+      self.sections[0].dao = await self.MDAO.create({
         of: 'foam.mlang.LabeledValue',
-        array: choices
-      });
+      }, self);
+      choices.map(s => self.sections[0].dao.put(s));
+
       self.propertyChange.pub('sections', self.sections$);
       self.onDataUpdate();
     }

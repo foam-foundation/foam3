@@ -14,11 +14,17 @@ import foam.mlang.predicate.Predicate;
 import java.io.IOException;
 
 public interface Index {
-  // Add or update an object
+  // Add an object
   public Object put(Object state, FObject value);
 
   // Remove an object
   public Object remove(Object state, FObject value);
+
+  // Update an object
+  default Object update(Object state, FObject oldValue, FObject value) {
+    remove(state, oldValue);
+    return put(state, value);
+  }
 
   // Remove all objects
   public Object removeAll();

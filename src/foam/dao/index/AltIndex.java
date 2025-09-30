@@ -104,6 +104,19 @@ public class AltIndex
     return s;
   }
 
+  public Object update(Object state, FObject oldValue, FObject value) {
+    Object[] s = cloneState(state);
+
+    for ( int i = 0 ; i < delegates_.size() ; i++ )
+      try {
+        s[i] = delegates_.get(i).update(s[i], oldValue, value);
+      } catch (Throwable t) {
+        t.printStackTrace();
+      }
+
+    return s;
+  }
+
   public Object removeAll() {
     Object[] s = cloneState(null);
 

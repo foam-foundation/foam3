@@ -37,6 +37,10 @@ public class MaterializedDAOIndex
     return dao_.indexRemove(state, value);
   }
 
+  public Object update(Object state, FObject oldValue, FObject value) {
+    return dao_.indexPut(state, value);
+  }
+
   // Remove all objects
   public Object removeAll() {
     return dao_.indexRemoveAll();

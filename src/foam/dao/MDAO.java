@@ -172,11 +172,11 @@ public class MDAO
       FObject oldValue = find_(x, obj);
       Object  state    = getState();
 
-      if ( oldValue != null ) {
-        state = index_.remove(state, oldValue);
+      if ( oldValue == null ) {
+        setState(index_.put(state, obj));
+      } else {
+        setState(index_.update(state, oldValue, obj));
       }
-
-      setState(index_.put(state, obj));
     }
 
     onPut(obj);

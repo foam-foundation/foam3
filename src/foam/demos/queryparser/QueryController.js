@@ -46,9 +46,9 @@ foam.CLASS({
         function maybeAdd(p, ss) {
           try {
             if ( p.suggest ) {
-              var s = p.suggest();
+              let s = p.suggest();
               if ( s ) {
-                var label = s.text;
+                let label = s.text;
                 if ( ! ss[label] ) {
                   ss[label] = s;
                 }
@@ -118,7 +118,7 @@ foam.CLASS({
         this.start().style({width: '400px', maxHeight: '500px', border: '1px solid gray', overflowY: 'auto'}).forEach(ss, function(s) {
           this.start('div').
             style({margin: '6px'}).
-            add(s).
+            add(self.suggestions[s].label).
             on('click', function() { self.autoQuery = ( self.autoQuery.substring(0, self.maxPos).trim() + ' ' + s ).trimStart();}).  
           end();
         });

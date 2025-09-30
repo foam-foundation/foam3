@@ -75,7 +75,17 @@ foam.CLASS({
   name: 'Suggestion',
 
   properties: [
-    { name: 'text' }
+    { name: 'text' ,
+      class: 'String' 
+    },
+    { name: 'label',
+      class: 'String',      
+      documentation: 'Label to display in the UI. If not set, text will be used.',
+      expression: function(text) { return text; }
+    },
+    { name: 'view',
+      class: 'foam.u2.ViewSpec'
+    }
   ]
 });
 

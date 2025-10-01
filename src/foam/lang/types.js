@@ -171,7 +171,6 @@ foam.CLASS({
   ]
 });
 
-
 foam.CLASS({
   package: 'foam.lang',
   name: 'Date',
@@ -181,6 +180,18 @@ foam.CLASS({
   label: 'Date',
 
   properties: [
+    {
+      name: 'formatsOrder',
+      documentation: ` a list of regex that maps to three capture groups: year, month, day`,
+      value: [
+        // YYYY-MM-DD or YYYY/MM/DD format (e.g., "2024-03-15" or "2024/03/15")
+        // Capture groups: (1) year, (2) month, (3) day
+        { regex: /^(\d{4})[-\/](\d{2})[-\/](\d{2})$/, groups: ['year', 'month', 'day'] },
+        // MM/DD/YYYY or MM-DD-YYYY format (e.g., "03/15/2024" or "03-15-2024")
+        // Capture groups: (1) month, (2) day, (3) year
+        { regex: /^(\d{2})[-\/](\d{2})[-\/](\d{4})$/, groups: ['month', 'day', 'year'] }
+      ]
+    },
     {
       name: 'toJSON',
       value: function toJSON(value, outputter) {
@@ -195,31 +206,38 @@ foam.CLASS({
     },
     {
       name: 'adapt',
-      value: function (_, d) {
+      value: function (_, d, prop) {
         if ( d === undefined || d === null ) return d;
         var originalDate = d;
         if ( typeof d === 'number' )
           d = new Date(d);
 
         if ( typeof d === 'string' ) {
-          var match = d.match(/^(\d{4})[-\/]?(\d{2})[-\/]?(\d{2})$/);
-
-          if ( match ) {
-            // Parse yyyy-mm-dd, yyyy/mm/dd, or yyyymmdd formats
-            // T00:00:00 is required to force local timezone interpretation
-            // Without it, new Date("2024-03-15") is parsed as UTC midnight
-            // which displays as previous day in negative UTC offset timezones
-            d = new Date(match[1] + '-' + match[2] + '-' + match[3] + 'T00:00:00');
-          } else {
-            // Parse mm/dd/yyyy
-            match = d.match(/^(\d{2})[-\/]?(\d{2})[-\/]?(\d{4})$/);
+          // Try each format in formatsOrder until one matches
+          for ( var i = 0 ; i < prop.formatsOrder.length ; i++ ) {
+            var format = prop.formatsOrder[i];
+            var match = d.match(format.regex);
             if ( match ) {
-              //           yyyy             mm               dd
-              d = new Date(match[3] + '-' + match[1] + '-' + match[2] + 'T00:00:00');
-            } else {
-              // Fallback to default Date constructor
-              d = new Date(d);
+              var year, month, day;
+              // Map captured groups based on the format's group definition
+              // For example, if groups = ['month', 'day', 'year'], then:
+              //   match[1] = month, match[2] = day, match[3] = year
+              for ( var j = 0 ; j < format.groups.length ; j++ ) {
+                if ( format.groups[j] === 'year' ) year = match[j + 1];
+                else if ( format.groups[j] === 'month' ) month = match[j + 1];
+                else if ( format.groups[j] === 'day' ) day = match[j + 1];
+              }
+              // Construct date as YYYY-MM-DD with T00:00:00 for local timezone
+              // T00:00:00 is required to force local timezone interpretation
+              // Without it, new Date("2024-03-15") is parsed as UTC midnight
+              // which displays as previous day in negative UTC offset timezones
+              d = new Date(year + '-' + month + '-' + day + 'T00:00:00');
+              break;
             }
+          }
+          // Fallback to default Date constructor if no format matched
+          if ( typeof d === 'string' ) {
+            d = new Date(d);
           }
         }
 

@@ -138,7 +138,7 @@ foam.CLASS({
         let propPredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
-        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name})); 
+        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name, label: prop.label})); 
   
         for ( var i = 0 ; i < props.length ; i++ ) {
 

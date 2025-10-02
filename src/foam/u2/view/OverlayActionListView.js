@@ -101,6 +101,10 @@ foam.CLASS({
       color: $buttonSecondaryColor$disabled$foreground;
     }
 
+    ^button-container {
+      display: contents;
+    }
+
     ^button-container button {
       border: 1px solid transparent;
       background-color: $backgroundDefault;

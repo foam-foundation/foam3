@@ -77,6 +77,9 @@ foam.CLASS({
       name: 'pageSize',
       // Used to prevent extra large datasets being requested as it caused chrome to crash
       max: 10000,
+      // value is set to 10000 for now so we can bring back the collapse tablegroupings
+      // feature while sidestepping issues with lazy loading
+      // TODO: move pagination to server
       value: 10000,
       documentation: 'The number of items in each "page". There are three pages.'
     },

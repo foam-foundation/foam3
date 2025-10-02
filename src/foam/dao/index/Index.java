@@ -22,7 +22,7 @@ public interface Index {
 
   // Update an object
   default Object update(Object state, FObject oldValue, FObject value) {
-    remove(state, oldValue);
+    state = remove(state, oldValue);
     return put(state, value);
   }
 

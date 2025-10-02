@@ -441,9 +441,10 @@ foam.CLASS({
             var cap = (Capability) capabilityDAO.find(capId);
             if ( cap == null || cap.getLifecycleState() != foam.core.auth.LifecycleState.ACTIVE ) continue;
 
-            UserCapabilityJunction prereqUcj = crunchService.getJunctionForSubject(x, capId, ucj.getSubject(x));
+            var subject = ucj.getSubject(x);
+            UserCapabilityJunction prereqUcj = crunchService.getJunctionForSubject(x, capId, subject);
 
-            prereqChainedStatus = getPrereqChainedStatus(x, ucj, prereqUcj, (Subject)x.get("subject"));
+            prereqChainedStatus = getPrereqChainedStatus(x, ucj, prereqUcj, subject);
             if ( prereqChainedStatus == CapabilityJunctionStatus.ACTION_REQUIRED ) return CapabilityJunctionStatus.ACTION_REQUIRED;
             if ( prereqChainedStatus != CapabilityJunctionStatus.GRANTED ) allGranted = false;
           }
@@ -453,19 +454,14 @@ foam.CLASS({
     },
     {
       name: 'getPrereqChainedStatus',
-      args: [
-        { name: 'x',       javaType: 'foam.lang.X' },
-        { name: 'ucj',     javaType: 'foam.core.crunch.UserCapabilityJunction' },
-        { name: 'prereq',  javaType: 'foam.core.crunch.UserCapabilityJunction' },
-        { name: 'subject', javaType: 'foam.core.auth.Subject' }
-      ],
-      static: true,
-      javaType: 'foam.core.crunch.CapabilityJunctionStatus',
+      args: 'Context x, UserCapabilityJunction ucj, UserCapabilityJunction prereq, Subject subject',
+      type: 'foam.core.crunch.CapabilityJunctionStatus',
       javaCode: `
         CapabilityJunctionStatus status = ucj.getStatus();
 
-        if ( prereq.getStatus() == CapabilityJunctionStatus.AVAILABLE && getAutoGrantPrereqs() )
-          prereq = ((CrunchService) x.get("crunchService")).updateJunctionFor(x, prereq.getTargetId(), null, null, subject.getUser(), subject.getRealUser());
+        if ( prereq.getStatus() == CapabilityJunctionStatus.AVAILABLE && getAutoGrantPrereqs() ) {
+          prereq = ((CrunchService) x.get("crunchService")).updateUserJunction(x, subject, prereq.getTargetId(), null, null);
+        }
 
         boolean reviewRequired = getReviewRequired();
         CapabilityJunctionStatus prereqStatus = prereq.getStatus();

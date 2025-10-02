@@ -294,7 +294,7 @@ foam.CLASS({
             Loggers.logger(getX(), this).warning("run,interrupted", Thread.currentThread().getId());
             break;
           } catch ( Throwable t ) {
-            Loggers.logger(getX(), this).error("run,failed to consume", Thread.currentThread().getId());
+            Loggers.logger(getX(), this).error("run,failed to consume", Thread.currentThread().getId(), t);
           }
         }
       `

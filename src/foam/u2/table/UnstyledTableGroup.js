@@ -79,7 +79,11 @@ foam.CLASS({
         .startContext({data: self})
           .start(self.EXPAND)
             .addClass(self.table.myClass('expand-icon'))
-            .enableClass(self.table.myClass('collapsed'), self.collapsed$)
+            .callIfElse(self.table.config.allowGroupCollapse, function() {
+              this.enableClass(self.table.myClass('collapsed'), self.collapsed$);
+            }, function() {
+              this.style({ visibility: 'hidden' });
+            })
           .end()
         .endContext()
         .start('span')

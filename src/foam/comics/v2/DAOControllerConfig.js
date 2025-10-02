@@ -393,6 +393,10 @@ foam.CLASS({
       name: 'redirectMenu',
       getter: function() { return this.createMenu; },
       setter: function(v) { this.createMenu = v; }
+    },
+    {
+      class: 'Boolean',
+      name: 'allowGroupCollapse'
     }
   ]
 });

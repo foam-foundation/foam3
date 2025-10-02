@@ -80,7 +80,7 @@ foam.CLASS({
       // value is set to 10000 for now so we can bring back the collapse tablegroupings
       // feature while sidestepping issues with lazy loading
       // TODO: move pagination to server
-      value: 10000,
+      value: 50,
       documentation: 'The number of items in each "page". There are three pages.'
     },
     {
@@ -223,6 +223,10 @@ foam.CLASS({
       documentation: 'Tracks the first page where each group appears to ensure headers show only once',
       factory: function() { return {}; }
     },
+    {
+      class: 'Boolean',
+      name: 'allowGroupCollapse'
+    }
   ],
 
   methods: [
@@ -235,6 +239,12 @@ foam.CLASS({
       this.id = 'id' + this.$UID;
       this.updateCount();
       this.dataLoading = false;
+
+      if ( this.allowGroupCollapse ) {
+        this.pageSize_ = 10000;
+      }
+
+      this.updateCount();
     },
 
     async function render() {
@@ -365,17 +375,18 @@ foam.CLASS({
             }
 
             if ( showHeader ) {
-              if ( ! self.collapsedGroups[group] ) {
-                let isGroupCollapsed$ = foam.lang.SimpleSlot.create({value: false});
-                self.collapsedGroups[group] = isGroupCollapsed$;
-              }
-              e.tag(self.groupHeaderView,
-                { ...args,
-                  groupLabel: group,
-                  groupBy: self.groupBy,
-                  collapsed$: self.collapsedGroups[group]
+              var spec = { ...args,
+                groupLabel: group,
+                groupBy: self.groupBy
+              };
+              if ( self.allowGroupCollapse ) {
+                if ( ! self.collapsedGroups[group] ) {
+                  let isGroupCollapsed$ = foam.lang.SimpleSlot.create({value: false});
+                  self.collapsedGroups[group] = isGroupCollapsed$;
+                  spec['collapsed$'] = isGroupCollapsed$;
                 }
-              );
+              }
+              e.tag(self.groupHeaderView, spec);
             }
 
             previousGroup = group;
@@ -383,7 +394,7 @@ foam.CLASS({
 
           var isEven = (index + 1) % 2 !== 0 ;
           var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven)
-            .hide(self.collapsedGroups[group] || false)
+            .hide(self.allowGroupCollapse && self.collapsedGroups[group] || false)
           rowEl.el().then(a => {
             self.rowObserver.observe(a)
           });

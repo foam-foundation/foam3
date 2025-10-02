@@ -460,7 +460,8 @@ foam.CLASS({
                 ctx: view,
                 prepDAO: view.prepDAO,
                 groupBy$: view.groupBy$,
-                offsetTop: view.tableHeadHeight
+                offsetTop: view.tableHeadHeight,
+                allowGroupCollapse: view.config.allowGroupCollapse
             }, view.scrollEl_$)
           .end()
         .end().end()

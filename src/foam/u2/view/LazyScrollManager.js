@@ -68,7 +68,7 @@ foam.CLASS({
       type: 'Int',
       name: 'pageSize_',
       // Used to prevent extra large datasets being requested as it caused chrome to crash
-      max: 1000,
+      max: 10000,
       factory: function() { return this.pageSize; },
       documentation: 'The number of items in each "page". There are three pages.'
     },
@@ -76,8 +76,8 @@ foam.CLASS({
       type: 'Int',
       name: 'pageSize',
       // Used to prevent extra large datasets being requested as it caused chrome to crash
-      max: 1000,
-      value: 50,
+      max: 10000,
+      value: 10000,
       documentation: 'The number of items in each "page". There are three pages.'
     },
     {
@@ -362,10 +362,15 @@ foam.CLASS({
             }
 
             if ( showHeader ) {
+              if ( ! self.collapsedGroups[group] ) {
+                let isGroupCollapsed$ = foam.lang.SimpleSlot.create({value: false});
+                self.collapsedGroups[group] = isGroupCollapsed$;
+              }
               e.tag(self.groupHeaderView,
                 { ...args,
                   groupLabel: group,
                   groupBy: self.groupBy,
+                  collapsed$: self.collapsedGroups[group]
                 }
               );
             }
@@ -374,7 +379,8 @@ foam.CLASS({
           }
 
           var isEven = (index + 1) % 2 !== 0 ;
-          var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven);
+          var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven)
+            .hide(self.collapsedGroups[group] || false)
           rowEl.el().then(a => {
             self.rowObserver.observe(a)
           });

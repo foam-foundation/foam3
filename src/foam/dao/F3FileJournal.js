@@ -65,11 +65,23 @@ foam.CLASS({
         AssemblyLine assemblyLine =
           new foam.util.concurrent.SyncAssemblyLine();
 
+        // NOTE: explicit resource management rather than try(resource)
+        // to ensure reader is only closed after the assembly is complete.
         BufferedReader reader = null;
         try {
           reader = getReader();
           if ( reader == null )
             return;
+
+          // FIXME: a delay before first read seems to address the random
+          // ClosedChannelException when replaying small journal files.
+          try {
+            Thread.currentThread().sleep(100);
+          } catch (InterruptedException e) {
+            // nop
+          }
+          if ( ! reader.ready() )
+              getLogger().warning("Reader not ready", getFilename());
 
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
@@ -133,9 +145,10 @@ foam.CLASS({
           }
           if ( reader != null ) {
             try {
+              getLogger().info("Closing reader", getFilename());
               reader.close();
             } catch (java.io.IOException e) {
-              getLogger().warning("Error closing reader, ignoring", e.getMessage());
+              getLogger().warning("Error closing reader, ignoring", getFilename(), e.getMessage());
             }
           }
         }

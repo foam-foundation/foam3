@@ -174,23 +174,8 @@ try {
     getLogger().warning("File not found", "for reading", getFilename());
     return null;
   }
-  InputStreamReader isr = new InputStreamReader(is);
-  int retry = 0;
-  while ( ! isr.ready() && retry < 3 ) {
-    getLogger().warning("File not ready for reading (",retry, ")", getFilename());
-    // isr = new InputStreamReader(is);
-    retry += 1;
-    try {
-      Thread.currentThread().sleep(100);
-    } catch ( InterruptedException e ) {
-      break;
-    }
-  }
-  if ( ! isr.ready() ) {
-    throw new RuntimeException("File not ready for reading "+getFilename());
-  }
   // Setting a larger buffer size increases performance by 10-15%
-  return new BufferedReader(isr, 1024 * 1024 * 2);
+  return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 2);
 } catch ( Throwable t ) {
   getLogger().error("Failed to initialize reader", getFilename(), t);
   throw new RuntimeException(t);
@@ -408,6 +393,20 @@ try {
       args: [ 'BufferedReader reader' ],
       javaCode: `
         try {
+          int retry = 0;
+          while ( ! reader.ready() ) {
+            getLogger().warning("File not ready ("+retry+")", getFilename());
+            try {
+              Thread.currentThread().sleep(100);
+            } catch (InterruptedException e) {
+              break;
+            }
+            retry += 1;
+            if ( retry > 3 ) {
+              break;
+            }
+          }
+
           String line = reader.readLine();
           if ( line == null ) return null;
           if ( ! line.equals("p({") && ! line.equals("r({") ) return line;

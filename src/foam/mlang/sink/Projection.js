@@ -17,7 +17,9 @@ foam.CLASS({
     'foam.mlang.Expr',
     'java.util.Arrays',
     'java.util.ArrayList',
+    'java.util.concurrent.ConcurrentHashMap',
     'java.util.List',
+    'java.util.Map',
     'java.util.StringJoiner'
   ],
 
@@ -159,8 +161,22 @@ foam.CLASS({
         } else {
           a[CLS_OR_OBJ_INDEX] = ((FObject) obj).getClassInfo();
         }
-        for ( int i = 0 ; i < getExprs().length ; i++ )
-          a[i+this.PROJECTION_VALUES_OFFSET] = getExprs()[i] != null ? getExprs()[i].f(obj) : null;
+        var oldX = ((FObject) obj).getX();
+        synchronized ( this ) {
+          for ( int i = 0 ; i < getExprs().length ; i++ ) {
+            if ( getExprs()[i] instanceof foam.core.column.NestedPropertiesExpression &&
+                ((FObject) obj).getX().get("projectionReferenceCache") == null ) {
+              // put a map into the object context for caching reference lookups
+              // key = referentClass+referentId
+              // storing fobject directly instead of softreference since this will presumably only last a second anyways
+              Map<String, FObject> referenceCache = new ConcurrentHashMap<>();
+              var x = ((FObject) obj).getX().put("projectionReferenceCache", referenceCache);
+              ((FObject) obj).setX(x);
+            }
+            a[i+this.PROJECTION_VALUES_OFFSET] = getExprs()[i] != null ? getExprs()[i].f(obj) : null;
+          }
+        }
+        ((FObject) obj).setX(oldX);
 
         getProjectionWithClass().add(a);
       `

@@ -65,10 +65,12 @@ foam.CLASS({
         AssemblyLine assemblyLine =
           new foam.util.concurrent.SyncAssemblyLine();
 
-        try ( BufferedReader reader = getReader() ) {
-          if ( reader == null ) {
+        BufferedReader reader = null;
+        try {
+          reader = getReader();
+          if ( reader == null )
             return;
-          }
+
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
             if ( length == 0 ) continue;
@@ -128,6 +130,13 @@ foam.CLASS({
             getLogger().info("Replay complete", getFilename(), "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
           } else {
             getLogger().warning("Replay complete", getFilename(), "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
+          }
+          if ( reader != null ) {
+            try {
+              reader.close();
+            } catch (java.io.IOException e) {
+              getLogger().warning("Error closing reader, ignoring", e.getMessage());
+            }
           }
         }
       `

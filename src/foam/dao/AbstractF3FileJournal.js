@@ -393,20 +393,6 @@ try {
       args: [ 'BufferedReader reader' ],
       javaCode: `
         try {
-          int retry = 0;
-          while ( ! reader.ready() ) {
-            getLogger().warning("File not ready ("+retry+")", getFilename());
-            try {
-              Thread.currentThread().sleep(100);
-            } catch (InterruptedException e) {
-              break;
-            }
-            retry += 1;
-            if ( retry > 3 ) {
-              break;
-            }
-          }
-
           String line = reader.readLine();
           if ( line == null ) return null;
           if ( ! line.equals("p({") && ! line.equals("r({") ) return line;

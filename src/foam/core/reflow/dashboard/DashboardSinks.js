@@ -1292,6 +1292,9 @@ foam.CLASS({
     
     function addToE(e) {
       var self = this;
+      this.metric_= undefined;
+      this.metric_;
+      this.sink.pub('propertyChange');
       e.style({
         display: 'flex',
         flexDirection: 'column',

@@ -1066,7 +1066,14 @@ foam.CLASS({
   ],
 
   properties: [
-    { 
+    {
+      class: 'Int',
+      name: 'version',
+      value: 0,
+      transient: true,
+      hidden: true
+    },
+    {
       class: 'Enum',
       of: 'foam.core.reflow.dashboard.MetricOperation',
       name: 'operation',
@@ -1209,7 +1216,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'countOnClick',
-      reactive: true,
       visibility: function(showCount) {
         return showCount ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
@@ -1225,7 +1231,7 @@ foam.CLASS({
       name: 'metric_',
       hidden: true,
       transient: true,
-      expression: function(sink, countSink, showCount, countOnClick, decimalPlaces, convertToLocalString, postfix, prefix) {
+      expression: function(sink, countSink, showCount, countOnClick, decimalPlaces, convertToLocalString, postfix, prefix, version) {
         var value = this.getComputedValue();
         var count = countSink ? countSink.value : null;
         
@@ -1292,6 +1298,7 @@ foam.CLASS({
     
     function addToE(e) {
       var self = this;
+      this.version++;
       e.style({
         display: 'flex',
         flexDirection: 'column',

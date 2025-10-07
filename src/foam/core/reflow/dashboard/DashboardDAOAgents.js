@@ -50,10 +50,18 @@ foam.CLASS({
   documentation: 'Mixin for common chart display options',
   
   requires: [
-    'foam.core.reflow.dashboard.LegendPosition'
+    'foam.core.reflow.dashboard.LegendPosition',
+    'foam.core.reflow.dashboard.MetricAlignment'
   ],
   
   properties: [
+    {
+      class: 'Enum',
+      of: 'foam.core.reflow.dashboard.MetricAlignment',
+      name: 'alignment',
+      label: 'Horizontal Alignment',
+      value: 'CENTER'
+    },
     {
       class: 'Boolean',
       name: 'maintainAspectRatio',
@@ -208,7 +216,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 4,
       collapsable: true,
-      properties: [ 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
       name: 'colors',
@@ -310,7 +318,8 @@ foam.CLASS({
         showTooltips: this.showTooltips,
         showTooltipSum: this.showTooltipSum,
         animate: this.animate,
-        animationDuration: this.animationDuration
+        animationDuration: this.animationDuration,
+        alignment: this.alignment
       });
       
       return sink;
@@ -324,7 +333,7 @@ foam.CLASS({
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, horizontal, barThickness, xAxisLabel, yAxisLabel, showGridLines, 
                                   maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration) { 
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
         s.colors = colors;
         s.horizontal = horizontal;
         s.barThickness = barThickness;
@@ -339,6 +348,7 @@ foam.CLASS({
         s.showTooltipSum = showTooltipSum;
         s.animate = animate;
         s.animationDuration = animationDuration;
+        s.alignment = alignment;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -356,6 +366,7 @@ foam.CLASS({
     
     function clone(subContext) {
       var clone = this.SUPER(subContext);
+      clone.alignment$ = this.alignment$;
       clone.colors$ = this.colors$;
       clone.horizontal$ = this.horizontal$;
       clone.barThickness$ = this.barThickness$;
@@ -416,7 +427,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 4,
       collapsable: true,
-      properties: [ 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
       name: 'colors',
@@ -507,7 +518,8 @@ foam.CLASS({
         showTooltips: this.showTooltips,
         showTooltipSum: this.showTooltipSum,
         animate: this.animate,
-        animationDuration: this.animationDuration
+        animationDuration: this.animationDuration,
+        alignment: this.alignment
       });
     },
     
@@ -519,7 +531,7 @@ foam.CLASS({
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, horizontal, xAxisLabel, yAxisLabel, showGridLines,
                                   maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration) { 
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
         s.colors = colors;
         s.horizontal = horizontal;
         s.xAxisLabel = xAxisLabel;
@@ -533,6 +545,7 @@ foam.CLASS({
         s.showTooltipSum = showTooltipSum;
         s.animate = animate;
         s.animationDuration = animationDuration;
+        s.alignment = alignment;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -550,6 +563,7 @@ foam.CLASS({
     
     function clone(subContext) {
       var clone = this.SUPER(subContext);
+      clone.alignment$ = this.alignment$;
       clone.colors$ = this.colors$;
       clone.horizontal$ = this.horizontal$;
       clone.xAxisLabel$ = this.xAxisLabel$;
@@ -602,7 +616,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 3,
       collapsable: true,
-      properties: [ 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
       name: 'colors',
@@ -695,7 +709,8 @@ foam.CLASS({
         showTooltips: this.showTooltips,
         showTooltipSum: this.showTooltipSum,
         animate: this.animate,
-        animationDuration: this.animationDuration
+        animationDuration: this.animationDuration,
+        alignment: this.alignment
       });
 
       return sink;
@@ -708,7 +723,7 @@ foam.CLASS({
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(cutoutPercentage, rotation, colors, showPercentages, clockwise,
                                   maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration) { 
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
         s.cutoutPercentage = cutoutPercentage;
         s.rotation = rotation;
         s.colors = colors;
@@ -722,6 +737,7 @@ foam.CLASS({
         s.showTooltipSum = showTooltipSum;
         s.animate = animate;
         s.animationDuration = animationDuration;
+        s.alignment = alignment;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -737,6 +753,7 @@ foam.CLASS({
     },
     function clone(subContext) {
       var clone = this.SUPER(subContext);
+      clone.alignment$ = this.alignment$;
       clone.cutoutPercentage$ = this.cutoutPercentage$;
       clone.rotation$ = this.rotation$;
       clone.colors$ = this.colors$;
@@ -802,7 +819,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 4,
       collapsable: true,
-      properties: [ 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
       name: 'colors',
@@ -952,7 +969,8 @@ foam.CLASS({
           showTooltips: this.showTooltips,
           showTooltipSum: this.showTooltipSum,
           animate: this.animate,
-          animationDuration: this.animationDuration
+          animationDuration: this.animationDuration,
+          alignment: this.alignment
         });
       } else {
         // Single-line chart: Use GroupBy-based sink
@@ -976,7 +994,8 @@ foam.CLASS({
           showTooltips: this.showTooltips,
           showTooltipSum: this.showTooltipSum,
           animate: this.animate,
-          animationDuration: this.animationDuration
+          animationDuration: this.animationDuration,
+          alignment: this.alignment
         });
       }
     },
@@ -993,7 +1012,7 @@ foam.CLASS({
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, xAxisLabel, yAxisLabel, fill, tension, stepped, showPoints, pointRadius, showGridLines,
                                   maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration) { 
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
         s.colors = colors;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
@@ -1011,6 +1030,7 @@ foam.CLASS({
         s.showTooltipSum = showTooltipSum;
         s.animate = animate;
         s.animationDuration = animationDuration;
+        s.alignment = alignment;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -1019,15 +1039,25 @@ foam.CLASS({
     
     function addToE(e) {
       e.startContext({data: this})
-        .tag(this.ReactiveSectionedDetailView, {
-          data: this,
-          showTitle: true
-        })
+        .start('div')
+          .style({
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+            textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+          })
+          .tag(this.ReactiveSectionedDetailView, {
+            data: this,
+            showTitle: true
+          })
+        .end()
       .endContext();
     },
     
     function clone(subContext) {
       var clone = this.SUPER(subContext);
+      clone.alignment$ = this.alignment$;
       clone.colors$ = this.colors$;
       clone.xAxisLabel$ = this.xAxisLabel$;
       clone.yAxisLabel$ = this.yAxisLabel$;

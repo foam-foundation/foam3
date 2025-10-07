@@ -146,7 +146,7 @@ foam.CLASS({
     {
       name: 'getObjId',
       args: 'Object obj',
-      type: 'Long',
+      type: 'long',
       javaCode: `
         Number number = (Number) getProperty_().get(obj);
         return number.longValue();
@@ -154,7 +154,7 @@ foam.CLASS({
     },
     {
       name: 'setObjId',
-      args: 'Object obj, Long val',
+      args: 'Object obj, long val',
       type: 'Void',
       javaCode: `
         getProperty_().set(obj, val);

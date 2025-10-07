@@ -47,6 +47,7 @@ This will also keep the foam application running for inspection from the GUI.
     'static foam.mlang.MLang.EQ',
     'static foam.mlang.MLang.IN',
     'static foam.mlang.MLang.OR',
+    'static foam.mlang.MLang.NOT',
     'foam.util.SafetyUtil',
     'java.util.*',
   ],
@@ -125,6 +126,14 @@ This will also keep the foam application running for inspection from the GUI.
       name: 'path',
       class: 'String',
       value: 'admin.tests' // menu with TestBorder
+    },
+    {
+      name: 'includeTestIds',
+      class: 'List'
+    },
+    {
+      name: 'excludeTestIds',
+      class: 'List'
     }
   ],
 
@@ -140,7 +149,8 @@ This will also keep the foam application running for inspection from the GUI.
       DAO testRunDAO = (DAO) x.get("testRunDAO");
       String side = System.getProperty(SYSTEM_TEST_SIDE);
       String filter = System.getProperty(SYSTEM_TESTS);
-      int filtered = SafetyUtil.isEmpty(filter) ? 0 : filter.split(",").length;
+      includeExcludeTestIds(x, filter);
+      // int filtered = SafetyUtil.isEmpty(filter) ? 0 : filter.split(",").length;
       String suites = System.getProperty(SYSTEM_TEST_SUITES);
       boolean exit = ! Boolean.valueOf(System.getProperty(SYSTEM_TEST_HEADED, "false"));
       int totalTests = 0;
@@ -204,9 +214,10 @@ This will also keep the foam application running for inspection from the GUI.
       }
       System.out.println("");
 
-      if ( filtered > 0 && filtered != totalTests ) {
+      if ( getIncludeTestIds().size() > 0 &&
+           getIncludeTestIds().size() != totalTests ) {
         Map<String, String> m = new HashMap();
-        for ( String id : filter.split(",") ) {
+        for ( String id : (List<String>) getIncludeTestIds() ) {
           m.put(id, BOTH_SIDE);
         }
         if ( clientTests != null ) {
@@ -250,6 +261,24 @@ This will also keep the foam application running for inspection from the GUI.
 
       if ( exit )
         System.exit(exitCode);
+      `
+    },
+    {
+      name: 'includeExcludeTestIds',
+      args: 'X x, String ids',
+      javaCode: `
+      List<String> includeTestIds = new ArrayList<String>();
+      List<String> excludeTestIds = new ArrayList<String>();
+      if ( ! SafetyUtil.isEmpty(ids) ) {
+        for ( String id : ids.split(",") ) {
+          if ( id.startsWith("-") )
+            excludeTestIds.add(id.substring(1));
+          else
+            includeTestIds.add(id);
+        }
+      }
+      setIncludeTestIds(includeTestIds);
+      setExcludeTestIds(excludeTestIds);
       `
     },
     {
@@ -325,10 +354,13 @@ This will also keep the foam application running for inspection from the GUI.
           testDAO = testDAO.where(IN(Test.TEST_SUITE, Arrays.asList(testSuites.split(","))));
         }
 
-        String tests = System.getProperty(SYSTEM_TESTS);
-        if ( ! SafetyUtil.isEmpty(tests) ) {
-          testRun.setFilter(tests);
-          testDAO = testDAO.where(IN(Test.ID, Arrays.asList(tests.split(","))));
+        if ( getIncludeTestIds().size() > 0 ) {
+          testRun.setFilter(String.join(",", ((List<String>)getIncludeTestIds())));
+          testDAO = testDAO.where(IN(Test.ID, (List<String>)getIncludeTestIds()));
+        }
+        if ( getExcludeTestIds().size() > 0 ) {
+          testRun.setFilter(String.join(",-", ((List<String>)getExcludeTestIds())));
+          testDAO = testDAO.where(NOT(IN(Test.ID, (List<String>)getExcludeTestIds())));
         }
 
         return (List) ((ArraySink) testDAO.select(new ArraySink())).getArray();
@@ -342,7 +374,6 @@ This will also keep the foam application running for inspection from the GUI.
         int passed = 0;
         int failed = 0;
         List<Test> failedTests = new ArrayList();
-
         for ( Test test : (List<Test>)tests ) {
           test = (Test) test.fclone();
 
@@ -403,10 +434,13 @@ This will also keep the foam application running for inspection from the GUI.
           testDAO = testDAO.where(IN(Test.TEST_SUITE, Arrays.asList(testSuites.split(","))));
         }
 
-        String tests = System.getProperty(SYSTEM_TESTS);
-        if ( ! SafetyUtil.isEmpty(tests) ) {
-          testRun.setFilter(tests);
-          testDAO = testDAO.where(IN(Test.ID, Arrays.asList(tests.split(","))));
+        if ( getIncludeTestIds().size() > 0 ) {
+          testRun.setFilter(String.join(",", ((List<String>)getIncludeTestIds())));
+          testDAO = testDAO.where(IN(Test.ID, (List<String>)getIncludeTestIds()));
+        }
+        if ( getExcludeTestIds().size() > 0 ) {
+          testRun.setFilter(String.join(",-", ((List<String>)getExcludeTestIds())));
+          testDAO = testDAO.where(NOT(IN(Test.ID, (List<String>)getExcludeTestIds())));
         }
 
         return (List) ((ArraySink) testDAO.select(new ArraySink())).getArray();

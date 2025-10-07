@@ -12,7 +12,6 @@ foam.POM({
   ],
 
   setFlags: {
-    u3: true
   },
 
   copy: [

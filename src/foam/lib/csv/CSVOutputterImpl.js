@@ -14,6 +14,7 @@ foam.CLASS({
 
   javaImports: [
     'foam.lang.*',
+    'foam.mlang.Expr',
     'java.util.List',
     'java.util.Date',
     'java.text.*'
@@ -47,6 +48,20 @@ foam.CLASS({
           .filter(propI -> ! propI.getNetworkTransient())
           .map(propI -> propI.getName())
           .toArray(String[]::new);
+      `
+    },
+    {
+      class: 'Array',
+      type: 'foam.mlang.Expr[]',
+      name: 'exprs',
+      javaFactory: `
+        Expr[] exprs = new Expr[getProps().length];
+
+        for ( var i = 0 ; i < getProps().length ; i++ ) {
+          exprs[i] = (Expr) getOf().getAxiomByName(getProps()[i]);
+        }
+
+        return exprs;
       `
     },
     {
@@ -196,9 +211,10 @@ foam.CLASS({
       javaCode: `
         if ( getOf() == null ) setOf(obj.getClassInfo());
         if ( getIsFirstRow() ) outputHeader(x);
-        for ( String name : getProps() ) {
-          Object p = getOf().getAxiomByName(name);
-          if ( p != null && p instanceof PropertyInfo ) ((PropertyInfo)p).toCSV(x, obj, this);
+        for ( Expr expr : getExprs() ) {
+          if ( expr != null && expr instanceof PropertyInfo ) {
+            ((PropertyInfo) expr).toCSV(x, obj, this);
+          }
         }
         newLine_();
       `
@@ -208,7 +224,7 @@ foam.CLASS({
       code: function() {
         this.csv = '';
         this.isFirstColumn = undefined;
-        this.isFirstRow = undefined;
+        this.isFirstRow    = undefined;
       },
       javaCode: `
         getSb().setLength(0);

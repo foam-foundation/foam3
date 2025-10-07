@@ -119,7 +119,8 @@ p({
       "of": "foam.core.auth.Country",
       "cache": true,
       "ttlSelectPurgeTime": 0,
-      "ttlPurgeTime": 0
+      "ttlPurgeTime": 0,
+      "clientIndices": "isoNumeric"
     }
   """,
   "authNotes": "The \"authenticate\" flag is explicitly set to false because we want to be able to use the countryDAO to populate a dropdown in the sign up form. The DAO is decorated with an AuthorizationDAO decorator with \"authorizeOnRead\" set to false so that anyone can read from countryDAO but only those with permission can write to or remove from it."
@@ -333,7 +334,15 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Region.ISO_CODE })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Region.ALTERNATIVE_NAMES });
   """,
-  "client": "{\"of\":\"foam.core.auth.Region\"}",
+  "client": """
+  {
+    "of":"foam.core.auth.Region",
+    "cache": true,
+    "ttlSelectPurgeTime": 0,
+    "ttlPurgeTime": 0,
+    "clientIndices": "countryId"
+  }
+  """,
   "documentation": "A DAO which contains information about regions in countries. A region is a province or a state, for example.",
   "authNotes": "The \"authenticate\" flag is explicitly set to false because we want to be able to use the regionDAO to populate a dropdown in the sign up form. The DAO is decorated with an AuthenticatedDAO decorator with \"authorizeOnRead\" set to false so that anyone can read from regionDAO but only those with permission can write to or remove from it."
 })

@@ -156,10 +156,10 @@ foam.CLASS({
   `,
 
   messages: [
-    { name: 'LINK_ADVANCED', message: 'Advanced filters' },
-    { name: 'LINK_SIMPLE', message: 'Switch to simple filters' },
+    { name: 'LINK_ADVANCED',        message: 'Advanced filters' },
+    { name: 'LINK_SIMPLE',          message: 'Switch to simple filters' },
     { name: 'MESSAGE_ADVANCEDMODE', message: 'Advanced filters are currently being used.' },
-    { name: 'LABEL_FILTER', message: 'Filters' }
+    { name: 'LABEL_FILTER',         message: 'Filters' }
   ],
 
   properties: [
@@ -280,7 +280,7 @@ foam.CLASS({
             })
           .endContext()
         .end()
-        
+
       .end();
 
       this.addClass(self.myClass())
@@ -349,7 +349,7 @@ foam.CLASS({
       var split = of.split('.');
       var modelName = split[split.length - 1].toLowerCase();
 
-      var permissionedProperties = [];
+      var permissionedProperties   = [];
       var unpermissionedProperties = [];
 
       var classProperties = foam.lookup(of).getAxiomsByClass(foam.lang.Property);
@@ -363,7 +363,7 @@ foam.CLASS({
         await this.auth.check(ctrl.__subContext__, modelName + '.rw.' + p) ||
         await this.auth.check(ctrl.__subContext__, modelName + '.ro.' + p)
       ));
-      var grantedProperties =  permissionedProperties.filter((_v, index) => perms[index]);
+      var grantedProperties   = permissionedProperties.filter((_v, index) => perms[index]);
       var unorderedProperties = grantedProperties.concat(unpermissionedProperties);
       return properties.filter(v => unorderedProperties.includes(v));
     },

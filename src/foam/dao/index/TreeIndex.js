@@ -397,7 +397,7 @@ foam.CLASS({
         //        console.log('**************** COUNT SHORT-CIRCUIT ****************', count, this.toString());
         // console.log('TreeIndex.plan: count = ' + count + ', limit = ' + limit);
         /// if limit is undefined or zero, we should get the count
-        if (limit && limit > 0) {
+        if ( limit && limit > 0 ) {
           count = Math.min(count, limit);
         }
         return m.CountPlan.create({ count: count });
@@ -579,7 +579,7 @@ foam.CLASS({
           return 'scan(key=' + prop.name + ', cost=' + this.cost +
               ', sorting=' + ( sortRequired ? order.toString() : 'none' ) +
               ', reverseScan=' + reverseSort +
-              (predicate && predicate.toSQL ? ', predicate: ' + predicate.toSQL() : '') +
+              (predicate && predicate.toMQL ? ', predicate: ' + predicate.toMQL() : '') +
               ')';
         }
       });

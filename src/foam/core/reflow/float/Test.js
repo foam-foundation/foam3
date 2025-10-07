@@ -71,11 +71,6 @@ foam.CLASS({
       name: 'dao',
       hidden: true,
       transient: true,
-      preSet: function(o, n) {
-        // TODO: needed because Console does a copyFrom() which will lose data
-        // Remove when no longer needed
-        return o || n;
-      },
       factory: function() {
         return this.EasyDAO.create({
           seqNo: true,

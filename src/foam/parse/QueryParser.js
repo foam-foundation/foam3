@@ -166,6 +166,7 @@ foam.CLASS({
             sym('me'),
             sym('date'),
             sym('string'),
+            sym('float'),
             sym('number')
           ),
 
@@ -240,7 +241,9 @@ foam.CLASS({
           char: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'), '-', '^',
             '_', '@', '%', '.'),
 
-          number: repeat(range('0', '9'), null, 1)
+          number: repeat(range('0', '9'), null, 1),
+
+          float: str(seq(optional('-'), str(sym('number')), '.', str(sym('number'))))
         };
       }
     },
@@ -306,8 +309,7 @@ foam.CLASS({
         // If a Date-valued field is set to a single number, it expands into a
         // range spanning that whole year.
         var maybeConvertYearToDateRange = function(prop, num) {
-          var isDateField = foam.lang.Date.isInstance(prop) ||
-            foam.lang.Date.isInstance(prop);
+          var isDateField = foam.lang.Date.isInstance(prop);
           var isDateRange = Array.isArray(num) && num[0] instanceof Date;
 
           if ( isDateField && ! isDateRange ) {
@@ -350,6 +352,10 @@ foam.CLASS({
 
           number: function(v) {
             return parseInt(compactToString(v));
+          },
+
+          float: function(v) {
+            return parseFloat(v);
           },
 
           me: function() {
@@ -425,7 +431,7 @@ foam.CLASS({
 
             // v[2], the values, is an array, which might have an 'and', 'or' or
             // 'negated' property on it. The default is 'or'. The partial
-            // evaluator for expressions can simplify the resulting Mlang further.
+            // evaluator for expressions can simplify the resulting MLang further.
             var prop   = v[0];
             var values = v[2];
             // Int is actually the parent of Float and Long, so this captures all
@@ -543,22 +549,31 @@ foam.CLASS({
             start = new Date(2000, 0, 1);
             end   = new Date(2000, 0, 1);
             var ops = [ 'FullYear', 'Month', 'Date', 'Hours', 'Minutes', 'Seconds', 'Milliseconds' ];
-            var defaults = [ 0, 1, 1, 0, 0, 0 ];
+            var defaults = [ 0, 1, 1, 0, 0, 0, 0 ]; // Fixed: Added 7th element for milliseconds
+
             for ( var i = 0 ; i < ops.length ; i++ ) {
-              var x = i * 2 > v.length ? defaults[i] : v[i * 2];
+              var x = i * 2 >= v.length ? defaults[i] : v[i * 2]; // Fixed: >= instead of >
+              // Handle undefined values by using defaults (fixed array bounds bug)
+              if ( x === undefined ) x = defaults[i];
               // Adjust for months being 0-based.
               var val = x - (i === 1 ? 1 : 0);
-              start['setUTC' + ops[i]](val);
-              end['setUTC' + ops[i]](val);
+              // IMPORTANT: Use local timezone methods (set*) NOT UTC methods (setUTC*)
+              // This ensures date queries match the user's local date boundaries.
+              // Using UTC caused queries like "2025/03/18" to match "2025/03/17" data
+              // because UTC midnight was converted to previous day in negative timezones.
+              start['set' + ops[i]](val);
+              end['set' + ops[i]](val);
             }
 
-            start.setUTCMilliseconds(0);
-            end.setUTCMilliseconds(0);
+            start.setMilliseconds(0);
+            end.setMilliseconds(0);
 
             // start and end are currently clones of each other. We bump the last
             // portion of the date and set it in end.
             var last = Math.floor(v.length / 2);
-            var op = 'UTC' + (ops[last] || ops[ops.length-1]);
+            var op = ops[last] || ops[ops.length-1];
+            // IMPORTANT: Use local timezone method (no 'UTC' prefix)
+            // This creates proper local date boundaries for queries
             end['set' + op](end['get' + op]() + 1);
 
             return [ start, end ];

@@ -57,7 +57,7 @@ foam.CLASS({
         both the StrategyReferences where the desiredModelId matches and the
         target is not set and the StrategyReferences where the desiredModelId
         matches and the target is set and matches the one provided by the user.
-        
+
         For example, imagine a strategy for the 'Outputter' interface that
         outputs transactions in ISO20022 format, which is only applicable to
         transactions. If the user queried the Strategizer for 'Outputter'

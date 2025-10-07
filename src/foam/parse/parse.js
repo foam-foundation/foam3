@@ -914,7 +914,7 @@ foam.CLASS({
 
   methods: [
     function parse(ps, grammar) {
-      var p = grammar.getSymbol(this.name);
+      var p = this.parser || ( this.parser = grammar.getSymbol(this.name) );
       if ( ! p ) {
         console.error('No symbol found for', this.name);
         return undefined;

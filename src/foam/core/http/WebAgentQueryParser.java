@@ -59,6 +59,9 @@ public class WebAgentQueryParser {
       }
 
       Predicate pred = (Predicate) ps.value();
+      // logger.debug(this.getClass().getSimpleName(), "pred pre", q, pred.getClass(), pred.toString());
+      pred = pred.partialEval();
+
       logger.debug(this.getClass().getSimpleName(), "pred", pred.getClass(), pred.toString());
       return pred;
     }

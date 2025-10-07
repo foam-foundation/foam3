@@ -367,9 +367,9 @@ foam.CLASS({
       code: function() {
         this.isOverLimit = false;
         this.isLoading = true;
-        this.dao.select(this.GROUP_BY(this.property, null, 101)).then((results) => {
+        this.dao.select(this.GROUP_BY(this.property, null, 21)).then((results) => {
           this.daoContents = results; // gets contents from the source dao
-          if ( Object.keys(results.groups).length > 100 ) this.isOverLimit = true;
+          if ( Object.keys(results.groups).length > 20 ) this.isOverLimit = true;
           this.isLoading = false;
         });
       }

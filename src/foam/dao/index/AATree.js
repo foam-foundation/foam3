@@ -41,7 +41,6 @@ foam.CLASS({
   ],
 
   methods: [
-
     /**
        Clone is only needed if a select() is active in the tree at the
        same time we are updating it.

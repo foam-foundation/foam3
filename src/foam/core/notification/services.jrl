@@ -104,6 +104,7 @@ p({
       },
       "ttlPurgeTime": 0,
       "ttlSelectPurgeTime": 0,
+      "refreshSessionTimer": false,
       "decorators": [
         {
           "class":"foam.core.notification.ToastNotificationDAO"

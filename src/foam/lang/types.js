@@ -1121,9 +1121,16 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function(oldValue, newValue, prop) {
-        return (prop || this).of.isInstance(newValue) ?
-          newValue.id :
-          newValue ;
+        let of = (prop || this).of;
+        if ( of.isInstance(newValue) ) return newValue.id;
+        if ( foam.lang.MultiPartID.isInstance(of.ID) ) return newValue;
+        if ( ! of.ID ) {
+          return newValue;
+        }
+        if ( of.ID.adapt ) {
+          return of.ID.adapt.call(this, oldValue, newValue, of.ID);
+        }
+        return newValue;
       }
     },
     {

@@ -134,9 +134,22 @@ foam.CLASS({
       if ( ! this.delimiter )
         this.delimiter = delimiter;
 
+      // Preprocess: Remove empty lines but keep lines with only delimiters
+      var lines = str.split(/\r\n|\r|\n/);
+      var nonEmptyLines = [];
+      for ( var i = 0; i < lines.length; i++ ) {
+        var line = lines[i];
+        // Keep lines that have content or contain delimiters (even if fields are empty)
+        if ( line.length > 0 ) {
+          nonEmptyLines.push(line);
+        }
+      }
+      str = nonEmptyLines.join('\n');
+
       const ps = foam.parse.StringPStream.create({str: str});
       const p  = this.stringParser.getSymParser('file');
       var result = p.parse(ps);
+
       return result && result.value;
     },
 

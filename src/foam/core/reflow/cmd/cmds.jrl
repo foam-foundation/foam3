@@ -23,7 +23,7 @@ p({
   "id": "clock",
   "description": "Insert a Clock",
   "script": """
-    var clock = foam.demos.clock.Clock.create({x:110, y:110}, this);
+    var clock = foam.core.reflow.Clock.create({x:110, y:110}, this);
     this.addValue(clock);
 //    this.out.add(clock);
 //    this.currentBlock.value = clock;
@@ -107,7 +107,7 @@ p({
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
-  "id": "fetch",
+  "id": "fetchFile",
   "description": "Fetch a file from a URL",
   "script": """
     addValue(foam.core.reflow.XHR.create({url: args[0]}, this));

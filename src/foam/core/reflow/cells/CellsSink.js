@@ -5,11 +5,11 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.reflow',
+  package: 'foam.core.reflow.cells',
   name: 'CellsSink',
   extends: 'foam.dao.ArraySink',
 
-  requires: [ 'foam.demos.sevenguis.Cells' ],
+  requires: [ 'foam.core.reflow.cells.Cells' ],
 
   methods: [
     function addToE(e) {

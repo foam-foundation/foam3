@@ -490,7 +490,7 @@ foam.LIB({
       var as = [];
       for ( var i in { ...foam.USED, ...foam.UNUSED } ) {
         try {
-          m = foam.maybeLookup(i);
+          let m = foam.maybeLookup(i);
           if ( m ) {
             m.getAxiomsByClass(cls).forEach(a => {
               if ( ! opt_f || opt_f(a, m, i) ) {
@@ -527,8 +527,8 @@ foam.LIB({
       var errors             = {};
       var unusedFiles        = {};
       var partiallyUsedFiles = {};
-      var unusedModels = Object.keys(foam.UNUSED);
-      var usedModels   = Object.keys(foam.USED);
+      var unusedModels       = Object.keys(foam.UNUSED);
+      var usedModels         = Object.keys(foam.USED);
 
       unusedModels.forEach(m => {
         try {
@@ -550,7 +550,7 @@ foam.LIB({
 //            console.log('USED',s );
             if ( unusedFiles[s] ) {
               delete unusedFiles[s];
-              partiallyUsed[s] = true;
+              partiallyUsedFiles[s] = true;
             }
           }
         } catch (x) {

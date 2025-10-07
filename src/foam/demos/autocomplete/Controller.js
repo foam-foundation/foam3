@@ -178,7 +178,7 @@ foam.CLASS({
     function render() {
       this.add(this.QUERY.__);
       this.autoCompleter.addToE(this);
-      this.br().add(this.RESULT.__);
+      this.br().add(this.result$);
 //      this.add(this.SUGGESTION.__);
     }
   ]

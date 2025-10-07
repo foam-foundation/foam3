@@ -164,7 +164,7 @@ foam.CLASS({
       }
 
       return Promise.resolve(this.findSync_(
-          this.of.isInstance(objOrKey) ? objOrKey.id : objOrKey));
+        this.of.isInstance(objOrKey) ? objOrKey.id : objOrKey));
     },
 
     /** internal, synchronous version of find, does not throw */
@@ -212,6 +212,7 @@ foam.CLASS({
     function select_(x, sink, skip, limit, order, predicate) {
       sink = this.prepareSink_(sink);
       var plan;
+
       // TODO: Copy this logic to MDAO.java
       if ( this.Explain.isInstance(sink) ) {
         plan = this.index.plan(sink.arg1, skip, limit, order, predicate, this.index);
@@ -227,6 +228,7 @@ foam.CLASS({
         plan = this.planForOr(sink, skip, limit, order, predicate);
       }
 
+//      console.log('*********************** PLAN: ', this.of.id_, predicate?.toString(), plan?.toString());
       var promise = [Promise.resolve()];
       plan.execute(promise, sink, skip, limit, order, predicate);
       return promise[0].then(

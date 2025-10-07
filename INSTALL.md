@@ -59,16 +59,18 @@ Git Clone
 # Application
 Create an example application
 
-    ./build.sh -T+setup/Project --type:demo --appName:Example --package:com.foamdev --adminPassword:badpassword
+    ./build.sh -TStandard,setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword
 
 Build and Start Server
 
     cd ..
-    ./build.sh
+    ./build.sh deployment/demo/run.sh
 
-Test Server
+Connect to Server
 
-connect to 
+  [http://localhost:8080/](http://localhost:8080/) 
 
-    [http://localhost:8080/](http://localhost:8080/) 
-    with username and passwword: admin / badpassword
+Login to Server
+
+  - demo user - username: demo, password: demopassword
+  - admin user - username: admin, password: badpassword

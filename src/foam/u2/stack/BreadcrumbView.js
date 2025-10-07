@@ -64,7 +64,6 @@ foam.CLASS({
       var self = this;
       this.breadcrumbs?.dynamic(function(pos, stack$pos, current) {
         if ( ! self.stack ) return;
-        self.removeAllChildren(); // Remove in U3
         self.actionArray = [];
         let endPos = pos
         if ( self.stack?.pos != self.breadcrumbs?.current?.view.__subContext__.stackPos ) {

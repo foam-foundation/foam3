@@ -17,7 +17,7 @@ foam.CLASS({
 
   documentation: `
     In scripts, 'this' is bound to the containing block, so you can do things like:
-      this.tag(foam.demos.clock.Clock.create({x:400,y:400}));
+      this.tag(foam.core.reflow.Clock.create({x:400,y:400}));
 
     As a result, log() will log to the Script output,
     but this.log() will log to the block, ie. in the FLOW document itself.

@@ -27,7 +27,7 @@ foam.CLASS({
     'foam.dao.AbstractDAO',
     'foam.log.LogLevel'
   ],
-  
+
   messages: [
     {
       name: 'SUCCESS_ENABLED',
@@ -56,8 +56,7 @@ foam.CLASS({
     },
     {
       name: 'enabled',
-      class: 'Boolean',
-      value: false
+      class: 'Boolean'
     },
     {
       name: 'host',
@@ -149,7 +148,7 @@ foam.CLASS({
       value: 60000
     }
   ],
-  
+
   actions: [
     {
       name: 'disable',

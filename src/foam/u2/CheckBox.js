@@ -87,8 +87,7 @@ foam.CLASS({
         .on('click', this.onClick);
 
       if ( this.showLabel ) {
-        // TODO: remove with U2
-        (this.U3 ? this.parentNode : this).start('label')
+        this.parentNode.start('label')
           .addClass(this.myClass('label'))
           .addClass(this.myClass('noselect'))
           .on('click', this.onClick)

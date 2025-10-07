@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'FlowableTree',
   extends: 'foam.u2.View',
 
-  imports: [ 'moveFlowChild', 'moveFlowChildAfter' ],
+  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild' ],
 
   css: `
     ^ {
@@ -82,6 +82,27 @@ foam.CLASS({
     ^activeTarget {
       background: $blue100!important;
     }
+    ^context-menu {
+      position: fixed;
+      background: $backgroundDefault;
+      border: 1px solid $borderLight;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      padding: 4px 0;
+      min-width: 120px;
+    }
+    ^context-menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    ^context-menu-item:hover {
+      background: $backgroundSecondary;
+    }
   `,
 
   properties: [
@@ -90,7 +111,9 @@ foam.CLASS({
       class: 'Boolean',
       name: 'isMenuOpen',
       value: true
-    }
+    },
+    'contextMenuData',
+    'contextMenuVisible'
   ],
 
   methods: [
@@ -127,7 +150,33 @@ foam.CLASS({
         } else {
           self.renderClosed(this);
         }
-      }))
+      }));
+
+      // Add context menu
+      this.add(this.dynamic(function(contextMenuVisible, contextMenuData) {
+        if ( contextMenuVisible && contextMenuData ) {
+          this.start('div')
+            .addClass(self.myClass('context-menu'))
+            .style({
+              left: contextMenuData.x + 'px',
+              top: contextMenuData.y + 'px'
+            })
+            .start('div')
+              .addClass(self.myClass('context-menu-item'))
+              .on('click', () => {
+                self.copyChild(contextMenuData.item.flowName);
+                self.contextMenuVisible = false;
+              })
+              .add('Duplicate')
+            .end()
+          .end();
+        }
+      }));
+
+      // Hide context menu on click outside
+      this.document.addEventListener('click', () => {
+        this.contextMenuVisible = false;
+      });
     },
 
     function branch(self, data, depth) {
@@ -136,6 +185,7 @@ foam.CLASS({
         start('tr').
           on('click',    () => self.selected = data).
           on('dblclick', () => data.expanded = ! data.expanded).
+          on('contextmenu', (e) => self.onContextMenu(e, data)).
           attrs({draggable: 'true'}).
           call(function() {
             this.
@@ -262,6 +312,18 @@ foam.CLASS({
       console.log('move', src, '->', row.flowName);
 
       this.moveFlowChildAfter(src, row);
+    },
+
+    function onContextMenu(e, data) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      this.contextMenuData = {
+        x: e.clientX,
+        y: e.clientY,
+        item: data
+      };
+      this.contextMenuVisible = true;
     }
   ],
 

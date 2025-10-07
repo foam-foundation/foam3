@@ -48,7 +48,7 @@ foam.CLASS({
       var nestedPropertyValues    = this.columnHandler.filterNestedPropertyValues(this.projection, this.nestedPropsAndIndexes[1]);
       var nestedPropertiesObjsMap = this.columnHandler.groupRelatedObjects(this.table.of, this.nestedPropsAndIndexes[0], nestedPropertyValues);
       this.addClass(this.table.myClass('tr')).
-      on('mouseover', () => self.hoverSelection = obj).
+        on('mouseover', () => self.hoverSelection = obj).
       call(this.insertClick, [obj]). // TODO: why the bind(), call should apply to this anyway?
       enableClass(this.table.myClass('clickable'), ! this.config?.disableSelection).
       addClass(this.table.myClass('row')).
@@ -89,7 +89,7 @@ foam.CLASS({
         if ( ! self.table ) return;
         self.table.updateValues = ! self.table.updateValues;
       });
-      self
+      if ( Object.keys(actions).length ) self
         .start('')
           .addClass(this.table.myClass('td'))
           .on('dblClick', e => {

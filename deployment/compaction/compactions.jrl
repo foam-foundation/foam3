@@ -24,6 +24,30 @@ p({
 })
 p({
   class: "foam.dao.compaction.Compaction",
+  cSpec: "approvalRequestDAO",
+  compactible: true,
+  sink: {
+    class: "foam.core.approval.ApprovalRequestCompactionSink",
+    predicate: {
+      class: "foam.mlang.predicate.FScriptPredicate",
+      query: 'status == foam.core.approval.ApprovalStatus.REQUESTED'
+    }
+  }
+})
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "approvableDAO",
+  compactible: true,
+  sink: {
+    class: "foam.core.approval.ApprovalRequestCompactionSink",
+    predicate: {
+      class: "foam.mlang.predicate.FScriptPredicate",
+      query: 'status == foam.core.approval.ApprovalStatus.REQUESTED'
+    }
+  }
+})
+p({
+  class: "foam.dao.compaction.Compaction",
   cSpec: "benchmarkResultDAO",
   loadable: false
 })

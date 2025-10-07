@@ -117,13 +117,13 @@ var pmake = function(...args) {
       self.verbose('[pmake] visitPOM', v.name, pom);
       v.visitPOM && v.visitPOM.bind(self, pom)();
     });
+    SUPER(pom);
     if ( ! seen[foam.cwd] ) {
       self.verbose('[pmake] procesDir', pom.path );
       processDir.bind(self, pom, foam.cwd, false, makers)();
       seen[foam.cwd] = true;
     }
 
-    SUPER(pom);
     makers.forEach(v => v.endVisitPOM && v.endVisitPOM(pom));
   }.bind(self);
 

@@ -238,7 +238,7 @@ foam.CLASS({
           self.subMenus    = val.array;
         });
       }
-      
+
       this.onDetach(this.data[self.relationship.forwardName].listen({ put: cb }));
       cb();
 
@@ -517,20 +517,16 @@ foam.CLASS({
             onClickAddOn: self.onClickAddOn,
             level:        1
           };
-          if ( this.U3 ) {
-            this.tag({
-              class:        foam.u2.view.TreeViewRow,
-              data:         obj,
-              relationship: self.relationship,
-              expanded:     self.startExpanded,
-              formatter:    self.formatter,
-              query:        self.query,
-              onClickAddOn: self.onClickAddOn,
-              level:        1
-            });
-          } else {
-            return this.E().tag(t);
-          }
+          this.tag({
+            class:        foam.u2.view.TreeViewRow,
+            data:         obj,
+            relationship: self.relationship,
+            expanded:     self.startExpanded,
+            formatter:    self.formatter,
+            query:        self.query,
+            onClickAddOn: self.onClickAddOn,
+            level:        1
+          });
         });
     },
 

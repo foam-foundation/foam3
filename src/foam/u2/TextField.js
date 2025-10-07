@@ -75,16 +75,12 @@ foam.CLASS({
       if ( this.units ) {
         var parent = this.parentNode;
         var self   = this;
+        var span   = parent.start('span').style({display: 'inline-block', position: 'relative', 'font-weight': '300'}).add(self.units, ' ');
+        var e      = span.el_();
+        var w      = Math.ceil(e.getBoundingClientRect().width);
 
-        // TODO: remove then() when fully switched to U3
-        this.el().then(e => {
-          var span = parent.start('span').style({display: 'inline-block', position: 'relative', 'font-weight': '300'}).add(self.units, ' ');
-          span.el().then(e => {
-            var w = Math.ceil(e.getBoundingClientRect().width);
-            span.style({left: '-' + (4) + 'px'});
-            self.style({'padding-right': (w+6) + 'px', 'margin-right': (-w) + 'px'});
-          });
-        });
+        span.style({left: '-' + (4) + 'px'});
+        self.style({'padding-right': (w+6) + 'px', 'margin-right': (-w) + 'px'});
       }
     }
   ]

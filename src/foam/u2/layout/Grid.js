@@ -60,8 +60,6 @@ foam.CLASS({
       on: ['this.propertyChange.containerWidth', 'this.propertyChange.mode'],
       isFramed: true,
       code: function() {
-        if ( ! this.U3 )
-          if ( this.state == this.OUTPUT ) return;
         let oldShown = this.shown;
         this.shown = false;
         this.children.forEach(ret => {

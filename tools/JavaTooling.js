@@ -22,6 +22,7 @@ foam.POM({
     JOURNAL_OUT:       ['Build journals directory',() => `${PROJECT_HOME}/${BUILD_DIR}/journals`],
     LOG_HOME:          ['Application logs directory',() => APP_NAME ? `${APP_HOME}/logs`: 'APP_HOME/logs'],
     SAF_HOME:          ['Application sf (store and forward) directory',() => `${APP_HOME}/saf`],
+    WEBROOT:           ['Webroot for non-jar builds, defaults to PROJECT_HOME', () => PROJECT_HOME],
   },
 
   options: {
@@ -30,7 +31,7 @@ foam.POM({
     bootScriptAux: ['', 'boot-script-aux', 'BOOT_SCRIPT_AUX', 'Additional boot script to execute after the main bootScript. This bootscript is how Test cases are run. TODO: elaborate.  bootScriptAux:testRunnerScript','', arg => BOOT_SCRIPT_AUX = arg ],
     buildOnly: [ 'o', 'build-only', 'BUILD_ONLY', "Only execute java generation and java compilation build steps, don't start CORE server.", false, function(arg) { BUILD_ONLY = arg ? this.bool(arg) : true; } ],
     debug: [ 'd', 'debug', 'DEBUG', 'Launch JVM with JDPA debugging enabled. Default port 8000.', false, function(arg) { DEBUG = arg ? this.bool(arg) : true; } ],
-    debugPort: [ 'D', 'debug-port', 'DEBUG_PORT', 'Port JVM will listen on for debuggers (JDPA) connections.',8000, args => DEBUG_PORT = args],
+    debugPort: [ 'D', 'debug-port', 'DEBUG_PORT', 'Port JVM will listen on for debuggers (JDPA) connections.',8000, function(arg) { DEBUG_PORT = arg; DEBUG = true; }],
     deleteRuntimeJournals: [ 'j', 'delete-runtime-journals', 'DELETE_RUNTIME_JOURNALS', 'Delete runtime journals.', false, function(arg) { DELETE_RUNTIME_JOURNALS = arg ? this.bool(arg) : true; } ],
     javacParameters: ['', 'javac-parameters', 'JAVAC_PARAMETERS', 'Parameters passed to Java Compiler','-proc:none', arg => JAVAC_PARAMETERS = arg ],
     javaRelease: ['', 'java-release', 'JAVA_RELEASE', 'Java target version. Can also be set in root pom. ex: java: \'11\'', '21', args => JAVA_RELEASE = args],
@@ -262,6 +263,10 @@ foam.POM({
       if ( ! JAVAC_PARAMETERS.includes('--release') ) {
         JAVAC_PARAMETERS += ' --release '+JAVA_RELEASE;
       }
+      if ( Number(JAVA_RELEASE) >= 25 ) {
+        // javax.security.auth.AuthPermission
+        JAVAC_PARAMETERS += ' -Xlint:-deprecation -Xlint:-removal';
+      }
     }],
 
     clientTests: ['client-tests', 'Run all or specified client side test cases. ex: clientTests[:Test1,Test2]', [], function(args) {
@@ -318,7 +323,7 @@ foam.POM({
         JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
       }
       JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
-      JAVA_OPTS += ` -Dcore.webroot=${PROJECT_HOME}`;
+      JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
       JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
       if ( DEBUG )
@@ -338,7 +343,7 @@ foam.POM({
         JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
       }
       JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
-      JAVA_OPTS += ` -Dcore.webroot=${PROJECT_HOME}`;
+      JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
       JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
       if ( DEBUG )
@@ -467,8 +472,10 @@ foam.POM({
       this.log('\nRunning Java Test Cases:');
       this.log('  ./build.sh --run-tests');
       this.log('    Run all test cases.');
-      this.log('  ./build.sh --server-tests:SequenceNumberDAO,MapDAOTest');
+      this.log('  ./build.sh --server-tests:SequenceNumberDAOTest,MapDAOTest');
       this.log('    Run specified server side (Java) test cases.');
+      this.log('  ./build.sh --server-tests:-SequenceNumberDAOTest,-MapDAOTest');
+      this.log('    Exclude specified server side (Java) test cases.');
       this.log('  ./build.sh --client-tests');
       this.log('    Run all client side (Javascript) test cases.');
       this.log('  ./build.sh --client-tests --test-headed');

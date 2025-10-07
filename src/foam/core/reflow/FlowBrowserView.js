@@ -252,6 +252,10 @@ foam.CLASS({
   ],
 
   methods: [
+    function render() {
+      this.editColumns = true;
+      this.SUPER();
+    },
     function setConfigPredicates() {
       this.SUPER();
       this.config.editPredicate =   foam.mlang.predicate.True.create();

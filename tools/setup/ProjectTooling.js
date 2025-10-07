@@ -6,7 +6,7 @@
 
 /**
    Support for creating new FOAM based projects.
-   usage: node tools/build.js -T+setup/Project --appName:MyApp --package:com.foamdev --adminPassword:badpassword
+   usage: node tools/build.js -T+setup/Project --appName:myApp --package:com.foamdev --adminPassword:badpassword  --genJava,createProject
 */
 foam.POM({
   name: 'project',
@@ -15,7 +15,8 @@ foam.POM({
   envs: {
     ADMIN_PASSWORD_HASH: ['Hashed admin password'],
     APP_NAME_CAP: ['Application name capitalized'],
-    MODEL_NAME_CAP: ['Model name capitalized'],
+    JOURNAL_DIR: ['Location of deployment specific journal files common to all deployments of this application.', () => JOURNAL_DIR = 'journals'],
+    MODEL_NAME_CAP: ['Model name capitalized']
   },
 
   options: {
@@ -29,7 +30,6 @@ foam.POM({
     appNameLow: ['', 'app-name-low', 'APP_NAME_LOW', 'Application name with first letter lowercase. Used for directory name, spid, packages, ...', function() { return APP_NAME && APP_NAME[0].toLowerCase() + APP_NAME.substring(1); }, arg => APP_NAME_LOW = arg],
     domain: ['', 'domain', 'DOMAIN', 'Inverse package name for email', function() { return PACKAGE.split('.').reverse().join('.'); /* for email*/ }, arg => DOMAIN = arg ],
     group: ['', 'group', 'GROUP', 'Registration group of application theme.', function() { return APP_NAME_LOW; }, arg => GROUP = arg],
-    journalDir: ['', 'journal_dir', 'JOURNAL_DIR', 'Location of generated journal files', function() { return `deployment/${APP_NAME_LOW}`; }, arg => JOURNAL_DIR = arg],
     package: ['', 'package', 'PACKAGE', 'Source code path - typically following Java package naming conventions which takes a FQDN inverts it and drops the sub-domain. Ex: www.foamdev.com -> com.foamdev.  This will become the source directory structure under src/. For the purposes of this Project creation the result would be src/com/foamdev/APP_NAME/', function() { return APP_NAME_LOW; }, arg => PACKAGE = arg ],
     projectDir: ['', 'project-dir', 'PROJECT_DIR', 'Path to root of project to prepare. Normally this is the parent of foam3/', function() {
       var dir = process.cwd();
@@ -74,7 +74,6 @@ foam.POM({
 
       // base setup
       templateMerge(TEMPLATE_DIR, 'rootPOM.js', `${PROJECT_DIR}`, 'pom.js');
-      templateMerge(TEMPLATE_DIR, 'deploymentAppPOM.js', `${PROJECT_DIR}/deployment/${APP_NAME_LOW}`, 'pom.js');
       templateMerge(TEMPLATE_DIR, 'journalPOM.js', `${PROJECT_DIR}/${JOURNAL_DIR}`, 'pom.js');
       templateMerge(TEMPLATE_DIR, 'journalGroups.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `groups.jrl`);
       templateMerge(TEMPLATE_DIR, 'journalGroupPermissionJunctions.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `groupPermissionJunctions.jrl`);
@@ -179,13 +178,13 @@ foam.POM({
     usage: ['usage', 'Example usage', [], function() {
       this.log('Project creation examples:');
       this.warning('must be run from foam3/ directory)');
-      this.log('  node tools/build.js -TStandard,setup/Project --appName:simple --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --appName:simple --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
       this.log('      Generate a project with a very simple model.');
-      this.log('  node tools/build.js -TStandard,setup/Project --type:demo --appName:example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --type:demo --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
       this.log('      Generate a project with a more elaborate model demonstrating more FOAM features..');
-      this.log('  node tools/build.js -TStandard,setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
       this.log('      Generate a project named "example" based on the "simple" model.');
-      this.log('  node tools/build.js -TStandard,setup/Project --appName:example --package:com.foamdev --createAdmin:badpassword');
+      this.log('  node tools/build.js -T+setup/Project --appName:example --package:com.foamdev --createAdmin:badpassword --genJava,createProject');
       this.log('      Generate an admin user for existing projects which were previously relying on the, now removed, foam-admin user provided by the baseline FOAM repo.');
       this.log();
     }],

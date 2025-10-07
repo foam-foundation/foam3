@@ -201,9 +201,6 @@ foam.CLASS({
       width: 100%;
       color: $textTertiary;
     }
-    ^u2 ^supportingLabel,^u2 ^label {
-      display: contents;
-    }
     ^errorText {
       display: flex;
       align-items: center;
@@ -249,7 +246,6 @@ foam.CLASS({
       var self = this;
 
       this.
-        enableClass(this.myClass('u2'), ! this.U3).
         addClass().
         show(visibilitySlot).
         add(labelSlot).

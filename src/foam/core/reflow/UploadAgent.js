@@ -63,13 +63,11 @@ foam.CLASS({
 
               return fObjectArray;
             } else {
-              System.err.println("Failed to parse decompressed data or array is empty.");
-              return new foam.lang.FObject[0];
+              throw new RuntimeException("Failed to parse decompressed data or array is empty.");
             }
           } catch ( Exception e ) {
-            // Log error and return empty array
-            System.err.println("Failed to decompress data: " + e.getMessage());
-            return new foam.lang.FObject[0];
+            // Re-throw parsing errors instead of returning empty array
+            throw new RuntimeException(e.getMessage(), e);
           }
         }
         return new foam.lang.FObject[0];

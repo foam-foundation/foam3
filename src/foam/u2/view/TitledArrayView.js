@@ -119,9 +119,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function rowKey(e, i) {
-      return ( e && (e.id || e.name) ) || i;
-    },
     function render() {
       var self = this;
       this.onDetach(this.data$.sub(() => { if ( ! this.feedback_ ) this.data2_ = this.data; }));
@@ -134,10 +131,11 @@ foam.CLASS({
           var data = data2_;
           this
             .forEach(data || [], function(e, i) {
-              var key = self.rowKey(e, i);
+              var key = i;
               var initialCollapsed = self.collapseState.hasOwnProperty(key)
                 ? !! self.collapseState[key]
                 : (self.collapseBehaviour == 'START_COLLAPSED');
+
               var row = self.CollapsableRow.create({ index: i, value: e, collapsed: initialCollapsed });
               var summaryType = self.title || row.value.toSummary ? row.value$.map(v => v.toSummary()) : 'default';
               var label = row.value$.dot('label').map(label => label || self.of.model_.label)

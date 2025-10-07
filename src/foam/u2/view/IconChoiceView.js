@@ -96,7 +96,7 @@ foam.CLASS({
       this.removeAllChildren();
 
       this.choices.forEach(c => {
-        var id = 'u' + c.$UID; // TODO: the 'u' + is for U2 compatibility, remove when all moved to U3
+        var id = c.$UID;
         self.start().
           addClass(self.myClass('item')).
           start('input', {id: id}).

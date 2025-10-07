@@ -512,7 +512,7 @@ foam.CLASS({
       this.onDetach(() => this.dropdown_.remove());
       this.attrs({
         name: self.prop$.map(v => v?.name),
-        'data-value': self.data$,
+        'data-value': self.data$.map(v => { return v ? (foam.util.isPrimitive(v) ? v : v.toString?.() ?? v) : undefined;}),
         'role': 'combobox',
         'aria-controls': 'listbox',
         'aria-haspopup': 'listbox',
@@ -572,11 +572,7 @@ foam.CLASS({
                           })
                         .end();
                       }
-                      if ( this.U3 ) {
-                        this.call(addRow);
-                      } else {
-                        return this.E().call(addRow);
-                      }
+                      this.call(addRow);
                     }, false, self.comparator)
                   .end()
                   .callIf(section.choicesLimit, function() {

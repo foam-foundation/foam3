@@ -28,12 +28,32 @@ foam.ENUM({
 });
 
 
+foam.ENUM({
+  package: 'foam.core.reflow',
+  name: 'DateFormat',
+
+  values: [
+    {
+      name: 'STANDARD',
+      label: 'Standard',
+      documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy'
+    },
+    {
+      name: 'DDMMYYYY',
+      label: 'dd/mm/yyyy',
+      documentation: 'Day-Month-Year format (dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy)'
+    }
+  ]
+});
+
+
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Mapping',
 
   requires: [
-    'foam.core.reflow.MappingType'
+    'foam.core.reflow.MappingType',
+    'foam.core.reflow.DateFormat'
   ],
 
   imports: [ 'scope?' ],
@@ -108,6 +128,22 @@ foam.CLASS({
       hidden: true,
       transient: true,
       factory: function() { return []; }
+    },
+    {
+      class: 'Enum',
+      of: 'foam.core.reflow.DateFormat',
+      name: 'dateFormat',
+      label: '',
+      value: 'STANDARD',
+      help: 'Standard formats support: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy. Select dd/mm/yyyy if your dates are in Day-Month-Year format.',
+      documentation: 'Date format for this field (only applies to Date/DateTime properties)',
+      visibility: function(type, prop) {
+        // Only show for Date/DateTime properties that use FIELD or CONSTANT mapping
+        if ( type === foam.core.reflow.MappingType.DYNAMIC ) return foam.u2.DisplayMode.HIDDEN;
+        if ( ! prop ) return foam.u2.DisplayMode.HIDDEN;
+        var isDateProp = foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop);
+        return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
     }
   ],
 
@@ -144,9 +180,60 @@ foam.CLASS({
         value = value.trim();
       }
 
+      // Preprocess date formats if this is a date field
       if ( value !== '' && value != null && value !== undefined ) {
+        if ( this.prop && (foam.lang.Date.isInstance(this.prop) || foam.lang.DateTime.isInstance(this.prop)) ) {
+          value = this.preprocessDateFormat(value);
+        }
         this.prop.set(obj, this.prop.fromCSV(value));
       }
+    },
+
+    function preprocessDateFormat(value) {
+      /**
+       * Convert date strings from DD/MM/YYYY format to supported formats.
+       * Standard formats already supported by foam.lang.Date adapt:
+       *   - yyyy-mm-dd, yyyy/mm/dd, yyyymmdd
+       *   - mm/dd/yyyy, mm-dd-yyyy, mmddyyyy
+       *
+       * Convert when dateFormat is DDMMYYYY:
+       *   - dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy -> yyyy-mm-dd
+       */
+      if ( ! value || typeof value !== 'string' ) return value;
+
+      var dateStr = value.trim();
+      if ( ! dateStr ) return value;
+
+      // Only convert if explicitly set to DDMMYYYY format
+      if ( this.dateFormat === this.DateFormat.DDMMYYYY ) {
+        return this.convertDDMMYYYY(dateStr);
+      }
+
+      // Otherwise return as-is for standard format handling
+      return value;
+    },
+
+    function convertDDMMYYYY(dateStr) {
+      /**
+       * Convert DD/MM/YYYY, DD-MM-YYYY, or DDMMYYYY to yyyy-mm-dd format
+       */
+      // Try delimited format: dd/mm/yyyy or dd-mm-yyyy
+      var match = dateStr.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+      if ( match ) {
+        var day = match[1].padStart(2, '0');
+        var month = match[2].padStart(2, '0');
+        var year = match[3];
+        return year + '-' + month + '-' + day;
+      }
+
+      // Try compact format: ddmmyyyy
+      match = dateStr.match(/^(\d{2})(\d{2})(\d{4})$/);
+      if ( match ) {
+        return match[3] + '-' + match[2] + '-' + match[1]; // yyyy-mm-dd
+      }
+
+      // Couldn't parse, return as-is and let foam.lang.Date.adapt handle it
+      return dateStr;
     },
 
     function evaluateExpression(expression, rowData) {

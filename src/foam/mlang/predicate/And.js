@@ -256,11 +256,8 @@ return this;`
     function toMQL() {
       var mqlStringsArr = [];
       for ( var a in this.args ) {
-        if ( ! this.args[a].toMQL )
-          throw new Error('Predicate\'s argument does not support toMQL');
-        var mql = this.args[a].toMQL();
-        if ( mql )
-          mqlStringsArr.push(mql);
+        var mql = this.args[a].toMQL ? this.args[a].toMQL() : '<UNKNOWN MQL>';
+        mqlStringsArr.push(mql);
       }
       return mqlStringsArr.join(' AND ');
     }

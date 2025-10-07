@@ -157,7 +157,7 @@ return getGroupKeys();`
         } else {
           this.putInGroup_(sub, key, obj);
         }
-        if ( this.groupLimit == this.groups.size ) sub.detach();
+        if ( this.groupLimit !== -1 && this.groups.size >= this.groupLimit ) sub.detach();
       },
       javaCode:
 `Object arg1 = getArg1().f(obj);
@@ -174,7 +174,7 @@ if ( getGroupLimit() != -1 ) {
   System.err.println("************************************* " + getGroupLimit() + " " + getGroups().size() + " " + sub);
   Thread.dumpStack();
 }*/
-if ( getGroupLimit() == getGroups().size() && sub != null ) sub.detach();
+if ( getGroupLimit() != -1 && getGroups().size() >= getGroupLimit() && sub != null ) sub.detach();
 `
     },
 

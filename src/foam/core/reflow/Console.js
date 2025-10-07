@@ -11,6 +11,7 @@
 // Features:
 //  ? how are Commands different than flows?
 // ???: Would it be better to have compose rather than mixing Flowable?
+// TODO: user-select: none; to avoid cut&paste when not appropriate
 
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -93,6 +94,7 @@ foam.CLASS({
       this.removeFlowChild_ && this.flowChildren.forEach(c => this.removeFlowChild_(c));
       this.flowChildren = [];
     }
+
   ]
 });
 
@@ -180,7 +182,8 @@ foam.CLASS({
       });
 
       this.addClass()
-        .start().addClass(this.myClass('header-container'))
+        .start()
+          .addClass(this.myClass('header-container'))
           .start().addClass(this.myClass('navigator'))
             .tag(this.HOME)
             .start(foam.u2.tag.Image, {
@@ -401,7 +404,9 @@ foam.CLASS({
       border: none;
       height: 20px;
     }
-    ^.block:hover:not(:has(.block:hover)) { background: $backgroundSecondary; }
+    div.foam-core-reflow-Console-CONSOLE ^.block:hover:not(:has(.block:hover)) {
+      background: $backgroundSecondary; }
+    }
     ^ .foam-u2-ReadWriteView { padding-right: 8px; }
     ^content {
       overflow-x: auto;
@@ -589,7 +594,6 @@ foam.CLASS({
       name: 'onClick',
       code: function(e) {
         this.selected = this;
-        e.preventDefault();
         e.stopPropagation();
       }
     }
@@ -844,27 +848,35 @@ foam.CLASS({
     'showNav'
   ],
 
+  constants: [
+    {
+      type: 'String',
+      name: 'AUTOSAVED_SCRIPT_PREFIX',
+      value: 'foam.reflow.autosavedscript'
+    }
+  ],
+
   exports: [
     'addToScope',
     'clearFlow',
+    'copyChild',
     'createFlowChildName',
     'currentBlock',
     'eval_',
     'flowChildren',
-    'scope',
-    'localScope',
     'history_',
+    'localScope',
     'log',
     'mementoMgr',
     'moveFlowChild',
     'moveFlowChildAfter',
     'out',
     'save',
+    'scope',
     'scrollToBottom',
     'selected',
     'showPrompts',
-    'value as flow',
-    'block'
+    'value as flow'
   ],
 
   css: `
@@ -1020,6 +1032,39 @@ foam.CLASS({
   ],
 
   methods: [
+    function getAutosaveKey(scriptName) {
+      // Include script name in the key to prevent tabs from overwriting each other
+      // Handle unnamed scripts with a separate key
+      scriptName = scriptName || this.value.name || '_unnamed';
+      return this.AUTOSAVED_SCRIPT_PREFIX + ':' + scriptName;
+    },
+
+    function clearAutosave(scriptName) {
+      this.window.localStorage.removeItem(this.getAutosaveKey(scriptName));
+    },
+
+    function loadAutosaveData(scriptName) {
+      var key = this.getAutosaveKey(scriptName);
+      var dataStr = this.window.localStorage[key];
+      if ( ! dataStr ) return null;
+
+      try {
+        return JSON.parse(dataStr);
+      } catch (e) {
+        this.clearAutosave(scriptName);
+        return null;
+      }
+    },
+
+    async function copyChild(childName) {
+      // Make a copy of a flow child
+      var c = this.findFlowChildByName(childName);
+      if ( c ) {
+        await this.eval_(c.cmd);
+        this.currentBlock.value.copyFrom(c.value);
+      }
+    },
+
     async function includeFlow(name) {
       if ( ! name ) return;
       var flow = await this.flowDAO.find(name);
@@ -1079,12 +1124,16 @@ foam.CLASS({
       foam.u2.table.UnstyledTableView.SELECTED_COLUMN_NAMES.memorable = false;
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
+      // Add the Mode as a CSS Class so we can adjust stying based on the mode
+      this.addClass(this.flowMode$.map(m => this.myClass(m.toString())));
+
       let oldShowNav = this.showNav;
       this.showNav = false;
       this.onDetach(() => { this.showNav = oldShowNav;});
       this.SUPER();
 
       var self = this;
+      this.value.name$.sub(this.onScriptNameChange);
       this.value.name$.sub(() => this.route = this.value.name);
 
       // Does this ever happen?
@@ -1129,7 +1178,14 @@ foam.CLASS({
       }));
 
       await this.eval_('preLoad', null, true);
-      if ( this.route ) this.ROUTE.postSet.call(this, '', this.route);
+
+      if ( this.route ) {
+        await this.ROUTE.postSet.call(this, '', this.route);
+      }
+
+      // Check for autosaved script AFTER route is loaded and name is set
+      // Use setTimeout to ensure everything is fully initialized
+      this.setTimeout(() => this.checkForAutosavedScript(this.route), 100);
     },
 
     function renderSelf(self) {
@@ -1174,9 +1230,7 @@ foam.CLASS({
     },
 
     function scrollToBottom() {
-      if ( this.U3 ) {
-        this.out.element_.scrollTop = this.out.element_.scrollHeight;
-      }
+      this.out.element_.scrollTop = this.out.element_.scrollHeight;
     },
 
     function addHistory(cmd) {
@@ -1202,7 +1256,6 @@ foam.CLASS({
 
       s.flow = this.value;
       let addBindings = (flow) => {
-        if ( ! flow.flowChildren.length ) return;
         flow.flowChildren.forEach(c => {
           // Add shortname bindings for DAO children
           if ( c.value && c.flowName.endsWith('DAO') ) {
@@ -1212,11 +1265,11 @@ foam.CLASS({
           if ( c.value ) {
             s[c.flowName] = foam.lang.Holder.isInstance(c.value) ? c.value.value : c.value || c.value;
           }
-          this.Flowable.isInstance(c) && addBindings(c);
+          s[c.flowName + '$block'] = c;
+          if ( this.Flowable.isInstance(c) ) addBindings(c);
         });
       };
       addBindings(this);
-      this.flowScope = s;
     },
 
     async function eval_(cmd, opt_ignoreSelect, ignoreHistory, flowParent) {
@@ -1379,7 +1432,13 @@ foam.CLASS({
       this.generateScript();
       flow.version++;
       this.mementoMgr.clear();
-      return flow.flowDAO.put(this.value).then(ret => this.value.copyFrom(ret));
+
+      // Clear autosave after successful save since changes are now persisted
+      return flow.flowDAO.put(this.value).then(ret => {
+        this.value.copyFrom(ret);
+        this.clearAutosave();
+        return ret;
+      });
     },
 
     function setSelectedIndex(i) {
@@ -1411,6 +1470,46 @@ foam.CLASS({
         this.generateScript();
       } finally {
         this.feedback_ = false;
+      }
+    },
+
+    async function checkForAutosavedScript(scriptName) {
+      // Don't retrieve autosave for unnamed flows
+      if ( ! scriptName ) return;
+
+      var autosaveData = this.loadAutosaveData(scriptName);
+      if ( ! autosaveData || ! autosaveData.script ) return;
+
+      // Check if autosave differs from current script
+      if ( autosaveData.script === this.value.script ) {
+        // Autosave matches current - no need to prompt
+        return;
+      }
+
+      // Check if we have a saved version in the database
+      var savedFlow = null;
+      if ( this.value.name ) {
+        try {
+          savedFlow = await this.flowDAO.find(this.value.name);
+        } catch (e) {
+          // Flow doesn't exist in database yet
+        }
+      }
+
+      // If autosave matches the saved version, no need to prompt
+      if ( savedFlow && autosaveData.script === savedFlow.script ) {
+        this.clearAutosave();
+        return;
+      }
+
+      // Autosave is different from both current and saved - prompt user
+      var shouldLoad = this.window.confirm('There are unsaved changes. Do you want to load them? Click OK to load, Cancel to discard.');
+      if ( shouldLoad ) {
+        this.value.script = autosaveData.script;
+        // Clear autosave after loading to prevent double prompt from onScriptNameChange
+        this.clearAutosave(scriptName);
+      } else {
+        this.clearAutosave(scriptName);
       }
     }
   ],
@@ -1488,6 +1587,41 @@ foam.CLASS({
 
   listeners: [
     {
+      name: 'onScriptNameChange',
+      isMerged: true,
+      delay: 500,
+      code: function(_, __, ___, evt) {
+        // evt contains: { instance_, obj, prop, oldValue }
+        var oldValue = evt.oldValue;
+        var newValue = this.value.name;
+
+        // When script name changes, check if there's existing autosave for new name
+        if ( oldValue === newValue ) return;
+
+        // Check if the new name has existing autosave data that differs from current
+        var existingData = this.loadAutosaveData(newValue);
+
+        if ( existingData && existingData.script !== this.value.script ) {
+          // There's already autosaved data for the new name that differs from current
+          var shouldLoad = this.window.confirm(
+            'The script name "' + newValue + '" already has different unsaved changes. ' +
+            'Click OK to load those changes, or Cancel to keep your current changes and overwrite.'
+          );
+
+          if ( shouldLoad ) {
+            // Load the existing autosave data for the new name
+            this.value.script = existingData.script;
+          }
+          // else: Keep current changes - autosave will naturally update with current script
+        }
+
+        // Clean up old autosave entries (from intermediate typing states)
+        if ( oldValue ) {
+          this.clearAutosave(oldValue);
+        }
+      }
+    },
+    {
       name: 'onInput',
       code: function() {
         var input = this.input;
@@ -1532,6 +1666,29 @@ foam.CLASS({
       delay: 500,
       code: function() {
         this.maybeRegenScript();
+        this.saveScriptToLocalStorage();
+      }
+    },
+    {
+      name: 'saveScriptToLocalStorage',
+      isMerged: true,
+      delay: 500,
+      code: function() {
+        if ( ! this.value || ! this.value.script ) return;
+
+        // Don't save unnamed flows to local storage
+        if ( ! this.value.name ) return;
+
+        // Only autosave if there are unsaved changes (revision > 0)
+        if ( this.value.revision > 0 ) {
+          var autosaveData = {
+            script: this.value.script
+          };
+          this.window.localStorage[this.getAutosaveKey()] = JSON.stringify(autosaveData);
+        } else {
+          // No unsaved changes - clear autosave
+          this.clearAutosave();
+        }
       }
     }
   ]

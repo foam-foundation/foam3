@@ -24,23 +24,24 @@ foam.CLASS({
     function render() {
       var self = this;
 
-      this.
-        addClass().
-        show(this.data.visible$).
-        start('h3').
-          add(self.data.label$).
-        end().
-        br().
-        start().
-          show(self.data.showSearch$).
-          add(self.data.filterView$).
-        end().
-        start().
-          addClass(self.myClass('filters-container')).
-          tag(self.data.filterView$.map(function(fv) {
+      this
+        .addClass()
+        .show(this.data.visible$)
+        .start('h3')
+          .show(this.data.labelVisible$)
+          .add(self.data.label$)
+        .end()
+        .br()
+        .start()
+          .show(self.data.showSearch$)
+          .add(self.data.filterView$)
+        .end()
+        .start()
+          .addClass(self.myClass('filters-container'))
+          .tag(self.data.filterView$.map(function(fv) {
             return fv ? fv.filtersContainer$ : null;
-          })).
-        end();
+          }))
+        .end();
     }
   ]
 });
@@ -57,7 +58,7 @@ foam.CLASS({
     'foam.mlang.predicate.True'
   ],
 
-  imports: [ 'block', 'scope' ],
+  imports: [ 'block', 'scope', 'eval_' ],
 
   exports: [ 'dao', 'filteredDAO', 'searchColumns' ],
 
@@ -68,6 +69,14 @@ foam.CLASS({
       factory: function() {
         return this.dao ? this.dao.of.model_.plural + ' Filter' : 'DAO Filter';
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'labelVisible',
+      section: 'general',
+      label: 'Show Name',
+      value: true,
+      view: { class: 'foam.u2.Switch' }
     },
     {
       class: 'Boolean',
@@ -118,6 +127,7 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(dao, predicate) {
+        console.log('********************', predicate.toString());
         if ( ! dao ) return null;
         return predicate ? dao.where(predicate) : dao;
       }
@@ -139,12 +149,12 @@ foam.CLASS({
         }, this.__subContext__.createSubContext({
           controllerMode: foam.u2.ControllerMode.EDIT
         }));
-        
+
         // Store reference to filtersContainer
         if ( fv.filtersContainer$ ) {
           this.filtersContainer = fv.filtersContainer$;
         }
-        
+
         return fv;
       }
     },
@@ -164,6 +174,18 @@ foam.CLASS({
   methods: [
     async function addToE(e) {
       e.tag(this.DAOFilterPromptView, {data: this, label: this.label});
+    }
+  ],
+
+  actions: [
+    {
+      name: 'viewFilteredDAO',
+      label: 'View Filtered Data',
+      documentation: 'View the filtered data based on current filter criteria',
+      buttonStyle: 'PRIMARY',
+      code: function() {
+        this.eval_(`dao("${this.block.flowName}.filteredDAO")`);
+      }
     }
   ]
 });

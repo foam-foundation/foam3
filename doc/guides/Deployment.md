@@ -47,6 +47,8 @@ These properties can be overridden after first deployment by adding them to:
 Or per deployment with
 
     ./build.sh -EJAVA_OPTS:"-Xms4g -Xmx8g"
+    or
+    ./build.sh --system-property:Xms4g,Xmx8g
 
 ## JVM Other Defaults and Tuning
 
@@ -60,5 +62,4 @@ To override add to
 
 ## Relevant Documentation
 
-- HTTPS - #flowdoc/HTTPS - 
 - Health - #flowdoc/Health - production monitoring and LB integration

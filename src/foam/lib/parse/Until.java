@@ -13,6 +13,7 @@ public class Until
   protected Parser until_;
 
   public Until(Parser until) {
+    // TODO: Make faster, and also add a UntilStr which builds a string directly
     until_ = new Seq1(0,
       new Repeat(new Not(until, AnyChar.instance())),
       until

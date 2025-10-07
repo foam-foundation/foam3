@@ -58,6 +58,7 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
     {
       name: 'chart_',
       transient: true,
@@ -207,7 +208,17 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) { 
-      e.style({ 'min-height': this.height$, height: this.height$ }).add(this.chart_$);
+      e
+        .style({
+          width: '100%',
+          display: 'flex',
+          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+        })
+        .start('div')
+          .style({ 'min-height': this.height$, height: this.height$ })
+          .add(this.chart_$)
+        .end();
     }
   ]
 });
@@ -257,6 +268,7 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
     {
       name: 'chart_',
       transient: true,
@@ -401,7 +413,17 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) { 
-      e.style({ 'min-height': this.height$, height: this.height$ }).add(this.chart_$);
+      e
+        .style({
+          width: '100%',
+          display: 'flex',
+          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+        })
+        .start('div')
+          .style({ 'min-height': this.height$, height: this.height$ })
+          .add(this.chart_$)
+        .end();
     }
   ]
 });
@@ -442,6 +464,7 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
     {
       name: 'chart_',
       transient: true,
@@ -633,7 +656,17 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) { 
-      e.style({ 'min-height': this.height$, height: this.height$ }).add(this.chart_$);
+      e
+        .style({
+          width: '100%',
+          display: 'flex',
+          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+        })
+        .start('div')
+          .style({ 'min-height': this.height$, height: this.height$ })
+          .add(this.chart_$)
+        .end();
     }
   ]
 });
@@ -673,7 +706,8 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltips', value: true },
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer (for multiple lines)' },
     { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 }
+    { class: 'Int', name: 'animationDuration', value: 1000 },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' }
   ],
   
   methods: [
@@ -751,7 +785,17 @@ foam.CLASS({
     },
     
     function addToE(e) { 
-      e.style({ 'min-height': this.height$, height: this.height$ }).add(this.chart_$);
+      e
+        .style({
+          width: '100%',
+          display: 'flex',
+          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+        })
+        .start('div')
+          .style({ 'min-height': this.height$, height: this.height$ })
+          .add(this.chart_$)
+        .end();
     }
   ]
 });
@@ -983,7 +1027,10 @@ foam.CLASS({
   
   requires: ['foam.u2.tag.Image'],
 
-  imports: ['theme'],
+  imports: [
+    'theme',
+    'scope?'
+  ],
 
   exports: ['lastEncounteredObj_ as objData'],
 
@@ -991,16 +1038,23 @@ foam.CLASS({
     {
       name: 'metricConfig',
       title: 'Metric Configuration',
-      order: 1,
+      order: 0,
       collapsable: true,
       properties: ['operation', 'prop', 'label', 'prefix', 'postfix', 'decimalPlaces', 'convertToLocalString']
+    },
+    {
+      name: 'countConfig',
+      title: 'Count Configuration',
+      order: 1,
+      collapsable: true,
+      properties: ['showCount', 'countOnClick', 'countSuffix', 'countColor', 'countFontSize', 'countFontWeight']
     },
     {
       name: 'display',
       title: 'Display Options',
       order: 2,
       collapsable: true,
-      properties: ['icon', 'iconColor', 'iconSize', 'alignment', 'showCount', 'countSuffix', 'valueColor']
+      properties: ['icon', 'iconColor', 'iconSize', 'alignment', 'valueColor']
     },
     {
       name: 'labelFont',
@@ -1008,13 +1062,6 @@ foam.CLASS({
       order: 3,
       collapsable: true,
       properties: ['labelFontSize', 'labelFontWeight', 'labelColor']
-    },
-    {
-      name: 'countFont',
-      title: 'Count Font Options',
-      order: 4,
-      collapsable: true,
-      properties: ['countFontSize', 'countFontWeight', 'countColor']
     }
   ],
 
@@ -1077,9 +1124,8 @@ foam.CLASS({
       class: 'String',
       name: 'iconColor',
       help: 'Color for the icon (CSS color or token)',
-      view: 'foam.u2.view.TokenColorEditView',
-      value: '$primary500',
-      view: 'foam.u2.view.ColorEditView'
+      view: 'foam.u2.view.ColorEditView',
+      value: '$primary500'
     },
     {
       class: 'Enum',
@@ -1098,9 +1144,10 @@ foam.CLASS({
       }
     },
     {
-      class: 'Color',
+      class: 'String',
       name: 'valueColor',
       help: 'Color for the metric value',
+      view: 'foam.u2.view.ColorEditView',
       value: '$primary500'
     },
     {
@@ -1141,9 +1188,10 @@ foam.CLASS({
       value: 'medium'
     },
     {
-      class: 'Color',
+      class: 'String',
       name: 'labelColor',
       help: 'Color for the display label (CSS color or token)',
+      view: 'foam.u2.view.ColorEditView',
       value: '$textSecondary'
     },
     // Count font controls
@@ -1160,15 +1208,27 @@ foam.CLASS({
       value: 'normal'
     },
     {
-      class: 'Color',
+      class: 'String',
+      name: 'countOnClick',
+      label: 'OnClick Script',
+      reactive: true,
+      visibility: function(showCount) {
+        return showCount ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      help: 'Script to execute when the count is clicked'
+    },
+    {
+      class: 'String',
       name: 'countColor',
       help: 'Color for the count text (CSS color or token)',
+      view: 'foam.u2.view.ColorEditView',
       value: '$textSecondary'
     },
     {
       name: 'metric_',
       hidden: true,
-      expression: function(sink, countSink, showCount, decimalPlaces, convertToLocalString, postfix, prefix) {
+      transient: true,
+      expression: function(sink, countSink, showCount, countOnClick, decimalPlaces, convertToLocalString, postfix, prefix) {
         var value = this.getComputedValue();
         var count = countSink ? countSink.value : null;
         
@@ -1222,6 +1282,10 @@ foam.CLASS({
       `
     },
     
+    function getColorFromToken(token) {
+      return foam.CSS.returnTokenValue(token, this.cls_, this.__context__);
+    },
+    
     function getComputedValue() {
       return this.sink && this.sink.value !== undefined ? this.sink.value : 0;
     },
@@ -1235,6 +1299,9 @@ foam.CLASS({
     
     function addToE(e) {
       var self = this;
+      /// force re-evaluation of metric_ on render
+      this.propertyChange.pub('sink', this.sink$)
+
       e.style({
         display: 'flex',
         flexDirection: 'column',
@@ -1261,7 +1328,7 @@ foam.CLASS({
           .style({
             width: this.iconSize$,
             height: this.iconSize$,
-            color: this.iconColor$
+            color: this.iconColor$.map(v => self.getColorFromToken(v))
           })
           .end()
         .end();
@@ -1269,7 +1336,7 @@ foam.CLASS({
       e.start('div')
           .style({
             fontSize: this.labelFontSize$,
-            color: this.labelColor$,
+            color: this.labelColor$.map(v => self.getColorFromToken(v)),
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             fontWeight: this.labelFontWeight$,
@@ -1284,7 +1351,7 @@ foam.CLASS({
           .style({
             fontSize: '3rem',
             fontWeight: 'bold',
-            color: self.valueColor$,
+            color: self.valueColor$.map(v => self.getColorFromToken(v)),
             lineHeight: '1'
           })
           .callIfElse(foam.lang.Property.isInstance(self.sink.arg1) && self.lastEncounteredObj_, function() {
@@ -1296,21 +1363,22 @@ foam.CLASS({
 
         // Count - show how many records were processed
         if ( self.showCount && metric.count !== null ) {
-          this.start('div')
-            .style({
-              fontSize: self.countFontSize$,
-              marginTop: '8px',
-              color: self.countColor$,
-              fontWeight: self.countFontWeight$
-            })
-            .add(self.countSuffix$.map(v => metric.count.toLocaleString() + (v ? ' ' + v : '')))
-          .end();
+            this.start('a')
+              .style({
+                fontSize: self.countFontSize$,
+                marginTop: '8px',
+                color: self.countColor$.map(v => self.getColorFromToken(v)),
+                fontWeight: self.countFontWeight$
+              })
+              .callIf(self.countOnClick, function() {
+                this
+                  .on('click', self.onCountClick)
+                  .style({ textDecoration: 'underline' })
+               })
+              .add(self.countSuffix$.map(v => metric.count.toLocaleString() + (v ? ' ' + v : '')))
+            .end();
         }
       }));
-    },
-
-    function eof() {
-      // No action needed for simple sink
     },
 
     function reset(sub) {
@@ -1323,6 +1391,9 @@ foam.CLASS({
     },
     function toString() {
       return 'DashboardMetricSink(' + this.sink.toString() + ')';
+    },
+    async function onLoad() {
+      this.updateSink();
     }
   ],
   listeners: [
@@ -1338,7 +1409,17 @@ foam.CLASS({
           this.sink.copyFrom(sink);
         }
       }
-    }
+    },
+    {
+      name: 'onCountClick',
+      isFramed: true,
+      code: function() {
+        with ( this.scope ) {
+          var result = eval('(async function() { ' + this.countOnClick + ' })').call(this);
+          return result;
+        }
+      }
+    },
   ]
 });
 

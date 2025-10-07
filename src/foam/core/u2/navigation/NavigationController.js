@@ -127,7 +127,8 @@ foam.CLASS({
     },
     {
       name: 'navCtx_'
-    }
+    },
+    ['layoutResolved_', false]
   ],
   methods: [
     function render() {
@@ -143,16 +144,16 @@ foam.CLASS({
       this.initLayout.then(() => {
         this.__subSubContext__ = ctrl.__subContext__;
         self.setNavCtx_();
+        self.layoutResolved_ = true;
       });
       this.maybeCloseNav();
 
       this.setNavCtx_();
 
       this.addClass()
-        .add(this.slot( async function(loginSuccess, topNav) {
+        .add(this.slot( async function(layoutResolved_, topNav) {
           let e = self.E().addClass(this.myClass('header'));
-          if ( ! loginSuccess || ! topNav || foam.flags.topNav == false ) return e;
-          await this.initLayout;
+          if ( ! layoutResolved_ || ! topNav || foam.flags.topNav == false ) return e;
           var topView = foam.u2.ViewSpec.createView(topNav, {}, self, self.navCtx_);
           this.headerSlot_$.set(topView);
           var resize = new ResizeObserver (this.adjustTopBarHeight);
@@ -167,10 +168,9 @@ foam.CLASS({
             .add(topView)
             .show(this.showNav$);
         }))
-        .add(this.slot( async function(loginSuccess, sideNav, showNav) {
+        .add(this.slot( async function(layoutResolved_, sideNav, showNav) {
           let e = self.E().addClass(this.myClass('sideNav'));
-          if ( ! loginSuccess || ! sideNav || ! showNav ) return e;
-          await this.initLayout;
+          if ( ! layoutResolved_ || ! sideNav || ! showNav ) return e;
           var sideView = foam.u2.ViewSpec.createView(sideNav, {}, self, self.navCtx_);
           return e
             // .tag(sideNav)

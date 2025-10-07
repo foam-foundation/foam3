@@ -36,5 +36,14 @@ foam.CLASS({
     {
       name: 'value'
     }
+  ],
+
+  methods: [
+    {
+      name: 'toSummary',
+      code: function() {
+        return this.label;
+      }
+    }
   ]
 });

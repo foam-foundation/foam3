@@ -67,7 +67,7 @@ foam.CLASS({
         return y;
       `,
       factory: function() {
-        if ( this.yFinc == null ) return null;
+        if ( this.yFunc == null ) return null;
         var x = this.acc;
         if ( this.xFunc ) {
           for ( var i = this.xFunc.length - 1; i >= 0; i-- ) {

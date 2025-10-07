@@ -32,11 +32,6 @@ foam.CLASS({
       name: 'dao'
     },
     {
-      documentation: 'Default journal replay is asynchronous. Some models with business logic that reference self can cause deadlock when parsed out of order.  If journal processing hangs, set syncReplay to true to replay synchronously.',
-      class: 'Boolean',
-      name: 'syncReplay'
-    },
-    {
       documentation: 'Report of successfully processed lines during last replay',
       class: 'Int',
       name: 'passCount'
@@ -70,11 +65,7 @@ foam.CLASS({
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
-        AssemblyLine assemblyLine =
-          ( getSyncReplay() ||
-            x.get("threadPool") == null ) ?
-          new foam.util.concurrent.SyncAssemblyLine() :
-          new foam.util.concurrent.AsyncAssemblyLine(x, "replay");
+        AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
 
         try ( BufferedReader reader = getReader() ) {
           if ( reader == null ) {

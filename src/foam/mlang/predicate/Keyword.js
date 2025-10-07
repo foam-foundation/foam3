@@ -71,10 +71,9 @@ foam.CLASS({
 
         arg = arg.toLowerCase();
 
-
         var s = '';
         const props = obj.cls_.getAxiomsByClass(foam.lang.Property);
-        for ( let i = 0; i < props.length; i++ ) {
+        for ( let i = 0 ; i < props.length ; i++ ) {
           try {
             const prop = props[i];
             if ( this.FObjectProperty.isInstance(prop) ) {

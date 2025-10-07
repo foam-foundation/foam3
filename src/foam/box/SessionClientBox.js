@@ -47,6 +47,11 @@ foam.CLASS({
       class: 'String',
       name: 'sessionID',
       factory: function() { return this.jsSessionID; }
+    },
+    {
+      class: 'Boolean',
+      name: 'refreshSessionTimer',
+      value: true
     }
   ],
 
@@ -59,7 +64,8 @@ foam.CLASS({
           replyBox: this.SessionReplyBox.create({
             envelope,
             clientBox: this,
-            delegate: envelope.replyBox
+            delegate: envelope.replyBox,
+            refreshSessionTimer: this.refreshSessionTimer
           })
         }));
       },

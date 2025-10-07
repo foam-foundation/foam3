@@ -60,7 +60,7 @@ foam.CLASS({
       }
 
       @media (prefers-color-scheme: dark) {
-        input {
+        .allowVariants input {
           color-scheme: dark;
         }
       }
@@ -75,6 +75,7 @@ foam.CLASS({
       this.SUPER();
       this.CSS.maybeInstallInDocument(this.__context__, {id: 'foam.u2.TextInputCSS'});
       this.addClass('foam-u2-TextInputCSS');
+      this.enableClass('allowVariants', this.__context__.theme$.dot('allowVariants'));
     }
   ]
 });

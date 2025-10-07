@@ -35,7 +35,7 @@ foam.CLASS({
         cls.extras.push(`
           public String format(X x, long amount) {
             if ( ! foam.util.SafetyUtil.isEmpty(getSymbol()) ) {
-              // Show only symbol 
+              // Show only symbol
               return format(x, amount, true, false);
             } else {
               // Show only ID

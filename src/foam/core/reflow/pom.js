@@ -6,12 +6,11 @@ foam.POM({
   ],
   files: [
     { name: '../../u2/mlang/Table',    flags: 'js|java' },
-    { name: '../../u2/mlang/Pie',    flags: 'js|java' },
+    { name: '../../u2/mlang/Pie',      flags: 'js|java' },
     { name: 'AbstractDAOAgent',        flags: 'js' },
-    { name: 'CellsSink',               flags: 'js|java' },
     { name: 'Check',                   flags: 'js' },
     { name: 'CitationSink',            flags: 'js|java' },
-    { name: 'FlowableTree',            flags: 'js' },
+    { name: 'Clock',                   flags: 'js' },
     { name: 'Console',                 flags: 'js' },
     { name: 'ConsoleZACClient',        flags: 'js' },
     { name: 'DAOCreate',               flags: 'js' },
@@ -21,6 +20,7 @@ foam.POM({
     { name: 'DocumentReadWriteView',   flags: 'js' },
     { name: 'DuplicateSink',           flags: 'js|java' },
     { name: 'EditSink',                flags: 'js|java' },
+    { name: 'FlowableTree',            flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'RoleFlowAccess',          flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
@@ -73,6 +73,9 @@ foam.POM({
     { name: 'control/FlowsControl',     flags: 'js' },
     { name: 'control/ComponentsControl', flags: 'js' },
     { name: 'FlowBrowserView',         flags: 'js' },
-    { name: 'FilteredDAOAgent',        flags: 'js' }
+    { name: 'FilteredDAOAgent',        flags: 'js' },
+    { name: 'cells/Cells',             flags: 'js' },
+    { name: 'cells/CellsDAOAgent',     flags: 'js' },
+    { name: 'cells/CellsSink',         flags: 'js|java' }
   ]
 });

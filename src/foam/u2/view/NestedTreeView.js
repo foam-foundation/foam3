@@ -15,7 +15,7 @@ foam.CLASS({
       name: 'LabelView',
       extends: 'foam.u2.view.TreeViewRow.LabelView',
       css: `
-   
+
         ^select-level {
           justify-content: flex-start;
           gap: 8px;
@@ -68,7 +68,7 @@ foam.CLASS({
         .end();
         return;
       }
-        
+
       // Regular menu item rendering
       this.
         addClass(this.myClass()).
@@ -168,11 +168,7 @@ foam.CLASS({
               onClickAddOn: this.continueNesting || ! currentRoot ? self.onClickAddOn1 : self.onClickAddOn,
               level:        1
             }
-            if ( this.U3 ) {
-              this.tag(t);
-            } else {
-              return this.E().tag(t);
-            }
+            this.tag(t);
           });
         }));
     }

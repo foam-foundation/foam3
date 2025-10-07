@@ -260,7 +260,7 @@ foam.CLASS({
       }
 
       this.onDAOUpdate();
-      ! this.U3 && this.renderU2Content ? this.renderU2Content() : this.renderContent();
+      this.renderContent();
       this.dao$proxy.on.sub(this.onDAOUpdate);
     },
     function renderContent() {
@@ -452,15 +452,15 @@ foam.CLASS({
   methods: [
     function renderContent() {
       var self = this;
-      
+
       this.addClass();
-      
+
       // Use FOAM's action button with proper data context
       this.tag(this.ICON_BUTTON, {
         data: this,
         themeIcon$: this.themeIcon$
       });
-      
+
       // Add the invisible select on top
       this.add(this.dynamic(function(mode) {
         if ( mode !== foam.u2.DisplayMode.RO ) {

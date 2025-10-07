@@ -24,7 +24,7 @@ foam.CLASS({
       name: 'criterias',
       documentation: `Map containing all criterias
       Criterias are a set of predicates applied at a time to a dao
-      The idea is to eventually let users save these to make custom "filter views" 
+      The idea is to eventually let users save these to make custom "filter views"
       For now filter controller only uses one criteria.
       `,
       factory: function() {
@@ -155,7 +155,7 @@ foam.CLASS({
                     if ( criteria.memorable[key] )
                       temp[key] = criteria.predicates[key];
                    })
-                  return this.and(temp); 
+                  return this.and(temp);
                 })
       }).partialEval();
 
@@ -247,7 +247,7 @@ foam.CLASS({
         this.clearCriteria(key, remove);
       });
       this.mementoPredicate = undefined;
-      this.finalPredicate = undefined;
+      this.finalPredicate   = undefined;
       // Readd blank 1st criteria
       if ( remove ) this.addCriteria();
       this.activeFilterCount = 0;

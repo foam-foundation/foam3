@@ -25,8 +25,11 @@ p({
       {
         "class":"foam.core.place.ClientPlaceService",
         "delegate": {
-          "class": "foam.box.HTTPBox",
-          "url": "service/placeService"
+          "class":"foam.box.SessionClientBox",
+          "delegate": {
+            "class": "foam.box.HTTPBox",
+            "url": "service/placeService"
+          }
         }
       }
   """

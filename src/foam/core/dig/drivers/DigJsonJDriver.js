@@ -41,9 +41,9 @@ foam.CLASS({
       String dataJson    = "[";
       String dataJsonJ[] = data.split("\\r?\\n");
 
-      for (String i:dataJsonJ){
+      for ( String i:dataJsonJ ) {
         i = i.trim();
-        if (i.startsWith("p(")) {
+        if ( i.startsWith("p(") ) {
           dataJson += i.substring(2, i.length()-1) + ',';
         }
       }

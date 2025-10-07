@@ -1,7 +1,4 @@
 foam.POM({
   name: 'demo',
-  description: 'Journal configuration specific to example or demonstration deployment',
-  projects: [
-    { name: '../{app}/pom' }
-  ]
+  description: 'Journal configuration specific to demonstration deployment'
 });

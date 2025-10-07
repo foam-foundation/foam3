@@ -66,11 +66,7 @@ foam.CLASS({
     },
 
     function open() {
-      if ( this.U3 ) {
-        this.document.body.append(this.element_);
-      } else {
-        this.document.body.insertAdjacentHTML('beforeend', this.outerHTML);
-      }
+      this.document.body.append(this.element_);
       this.load();
     },
 

@@ -66,6 +66,7 @@ foam.CLASS({
         start('th').add('Property').end().
         start('th').add('Type').end().
         start('th').add('Value').end().
+        start('th').add('Date Format').end().
         start('th').add('Required').end().
       end().
       add(this.dynamic(function(data) {
@@ -75,6 +76,7 @@ foam.CLASS({
           // Get the property info from the target model
           var targetModel = mapping.of;
           var prop = targetModel && targetModel.getAxiomByName(mapping.property);
+          var isDateProp = prop && (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop));
 
           this.
             startContext({ data: mapping }).
@@ -87,6 +89,11 @@ foam.CLASS({
                 add(mapping.CONSTANT_VALUE.__).
                 add(mapping.FIELD_NAME.__).
                 add(mapping.DYNAMIC_EXPRESSION.__).
+              end().
+              start('td').
+                callIf(isDateProp, function() {
+                  this.add(mapping.DATE_FORMAT.__);
+                }).
               end().
               start('td').add(prop ? (prop.required || false) : false).end().
             end()

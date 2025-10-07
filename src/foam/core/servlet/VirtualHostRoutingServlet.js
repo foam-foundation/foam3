@@ -68,6 +68,11 @@ foam.CLASS({
     {
       class: 'Map',
       name: 'headerParameters'
+    },
+    {
+      class: 'String',
+      name: 'cspNonce',
+      documentation: 'Content Security Policy nonce value for inline styles and scripts. Must match the nonce in CSP headers. When null, no nonce is applied.'
     }
   ],
 
@@ -188,11 +193,20 @@ foam.CLASS({
       }
 
       // Loading screen styles
+      String nonce = getCspNonce();
+      if ( ! SafetyUtil.isEmpty(nonce) ) {
+        out.println("<meta name=\\"csp-nonce\\" content=\\"" + nonce + "\\">");
+        out.println("<style nonce=\\"" + nonce + "\\">");
+      } else {
+        out.println("<style>");
+      }
       out.println("""
-        <style>
+        body {
+          margin: 0;
+        }
         #loading-container {
-          background: black;
-          color: white;
+          background: white;
+          color: black;
           text-align: center;
           height: 100%;
           display: flex;
@@ -207,6 +221,12 @@ foam.CLASS({
         }
         #loading-text {
           font-family: system-ui, sans-serif;
+        }
+        @media (prefers-color-scheme: dark) {
+          .allowVariants#loading-container {
+            background: black;
+            color: white;
+          }
         }
         </style>""");
       `,
@@ -246,6 +266,8 @@ foam.CLASS({
           theme = new Theme(x);
         }
 
+        Boolean useVariants = theme.getUseVariants();
+
         response.setContentType("text/html; charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
 
@@ -275,7 +297,12 @@ foam.CLASS({
         out.print(theme.getAppName());
         out.println("\\" bootservices=\\"" + getBootservices() + "\\">");
 
-        out.print("<div id=\\"loading-container\\">");
+        out.print("<div id=\\"loading-container\\"");
+        if ( useVariants ) {
+          out.print("class=\\"allowVariants\\"");
+        }
+        out.println(" >");
+
         out.print("<img id=\\"loading-logo\\" src=\\"");
         out.print(theme.getLargeLogo());
         out.println("\\"></img>");

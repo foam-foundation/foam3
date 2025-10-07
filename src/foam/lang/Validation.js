@@ -360,10 +360,11 @@ foam.CLASS({
       name: 'internalValidateObj',
       expression: function(name, label, autoValidate) {
         if ( autoValidate ) {
+          var self = this;
           return [
             [`${name}$errors`],
             function(errs) {
-              return errs ? `${this.PLEASE_ENTER_VALID} ${(label || name).toLowerCase()}` : null;
+              return errs ? `${self.PLEASE_ENTER_VALID} ${(label || name).toLowerCase()}` : null;
             }
           ];
         }

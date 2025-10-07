@@ -61,7 +61,7 @@ foam.CLASS({
       class: 'Class',
       javaInfoType: 'foam.lang.AbstractObjectPropertyInfo',
       javaType: 'foam.lang.ClassInfo',
-      name: 'of',
+      name: 'of'
     },
     {
       javaType: 'foam.lang.PropertyInfo',
@@ -72,7 +72,7 @@ foam.CLASS({
       swiftExpression: 'return of.axiom(byName: "id") as! PropertyInfo',
       javaFactory: `
 return getOf() == null ? null : (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
-      `,
+      `
     }
   ],
 
@@ -132,7 +132,7 @@ return OrderedDAO_create([
       `,
       javaCode: `
 return new OrderedDAO(this.getX(), comparator, this);
-      `,
+      `
     },
 
     {
@@ -155,7 +155,7 @@ return SkipDAO_create([
       `,
       javaCode: `
 return new SkipDAO(this.getX(), count, this);
-      `,
+      `
     },
 
     {
@@ -178,7 +178,7 @@ return LimitedDAO_create([
       `,
       javaCode: `
 return new LimitedDAO(this.getX(), count, this);
-      `,
+      `
     },
 
     {
@@ -224,7 +224,7 @@ return new LimitedDAO(this.getX(), count, this);
       },
       javaCode: `
 throw new UnsupportedOperationException();
-      `,
+      `
     },
 
     {
@@ -241,7 +241,7 @@ throw new UnsupportedOperationException();
         return this.listen_(this.__context__, sink, undefined);
       },
       swiftCode: 'return try listen_(__context__, sink)',
-      javaCode: 'this.listen_(this.getX(), sink, predicate);',
+      javaCode: 'this.listen_(this.getX(), sink, predicate);'
     },
 
     /**
@@ -306,7 +306,7 @@ listeners_.add(new DAOListener(sink, listeners_));
         {
           name: 'predicate',
           type: 'foam.mlang.predicate.Predicate',
-        },
+        }
       ],
       code: function decorateListener_(sink, predicate) {
         if ( predicate ) {
@@ -331,7 +331,7 @@ if ( predicate != null ) {
 }
 
 return sink;
-      `,
+      `
     },
 
     /**
@@ -600,7 +600,7 @@ this.select_(x, new RemoveSink(x, this), skip, limit, order, predicate);
         {
           name: 'predicate',
           type: 'foam.mlang.predicate.Predicate'
-        },
+        }
       ],
       javaCode: `
 if ( ( limit > 0 ) && ( limit < AbstractDAO.MAX_SAFE_INTEGER ) ) {
@@ -617,8 +617,16 @@ if ( order != null ) {
     innerSink = ((ProxySink) innerSink).getDelegate();
   }
 
-  if ( ! ( innerSink instanceof foam.mlang.sink.Count ) ) {
+  if ( ! (
+    innerSink instanceof foam.mlang.sink.Count ||
+    innerSink instanceof foam.mlang.sink.Sum   ||
+    innerSink instanceof foam.mlang.sink.Min   ||
+    innerSink instanceof foam.mlang.sink.Max   ||
+    innerSink instanceof foam.mlang.sink.Average
+  ) ) {
     sink = new OrderedSink(order, null, sink);
+  } else {
+//    System.err.println("***************************************** SKIPPING ORDER SINK " + sink.getClass());
   }
 }
 
@@ -645,7 +653,7 @@ protected class DAOListener implements foam.lang.Detachable {
   protected java.util.Collection listeners;
 
   public DAOListener(Sink sink, java.util.Collection listeners) {
-    this.sink = sink;
+    this.sink      = sink;
     this.listeners = listeners;
   }
 

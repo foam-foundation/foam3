@@ -1,3 +1,4 @@
 foam.POM({
-  name:'journals'
+  name:'journals',
+  description: 'Journal configuration common to all deployments'
 });

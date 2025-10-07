@@ -1037,3 +1037,43 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'LimitDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [ 'foam.mlang.sink.Limit' ],
+
+  properties: [
+    {
+      class: 'Int',
+      name: 'limit',
+      label: 'Limit',
+      value: 1,
+      view: { class: 'foam.u2.IntView', min: 1, max: 1000 }
+    },
+    {
+      name: 'sink',
+      view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' }
+    }
+  ],
+
+  methods: [
+    function value(s) { return this.sink ? this.sink.value(s) : s; },
+    function createSink() {
+      return this.Limit.create({
+        limit: this.limit,
+        delegate: this.sink ? this.sink.createSink() : this.COUNT()
+      });
+    },
+    function addToE(e) {
+      e.startContext({data: this}).
+        start().
+        style({display: 'flex'}).
+        add(this.LIMIT.__).
+        add(this.SINK);
+    }
+  ]
+});

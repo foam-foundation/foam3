@@ -76,6 +76,7 @@ foam.POM({
     { name: "sink/Reducible",                       flags: "js|java" },
     { name: "sink/TopNGroupBy",                     flags: "js|java" },
     { name: "sink/LabeledSink",                     flags: "js|java" },
+    { name: "sink/Limit",                           flags: "js|java" },
     { name: "sink/FilteredSink",                    flags: "js|java" },
     { name: "sink/Max",                             flags: "js|java" },
     { name: "sink/Min",                             flags: "js|java" },

@@ -4,3 +4,5 @@ p({"class":"foam.util.SecurityUtilTest","id":"security util tests","description"
 p({"class":"foam.util.test.UIDUniquenessTest","id":"UIDUniquenessTest","description":"UID uniqueness tests"})
 p({"class":"foam.util.test.UIDGeneratorTest","id":"UIDGeneratorTest","description":"UID generator tests"})
 p({"class":"foam.util.test.SafetyUtilTest","id":"SafetyUtilTest","description":"SafetyUtil tests"})
+p({"class":"foam.util.test.DateUtilTest","id":"DateUtilTest","description":"DateUtil Java tests"})
+p({"class":"foam.util.test.DateUtilJSTest","id":"DateUtilJSTest","description":"DateUtil JavaScript tests"})

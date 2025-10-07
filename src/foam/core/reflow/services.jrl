@@ -89,7 +89,7 @@ p({
 
 p({
   "class": "foam.core.boot.CSpec",
-  "name": "libDAO",
+  "name": "reflowLibDAO",
   "description": "Stores Reflow Scripts",
   "serve":true,
   "authenticate":false,

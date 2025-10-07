@@ -339,7 +339,7 @@ foam.CLASS({
 
   requires: [ 'foam.core.reflow.Script', 'foam.core.reflow.cmd.DAORowView' ],
 
-  imports: [ 'libDAO', 'scope' ],
+  imports: [ 'reflowLibDAO', 'scope' ],
   
 
 
@@ -350,7 +350,7 @@ foam.CLASS({
   methods: [
     function execute(opt_nameQuery) {
       var self = this;
-      var dao  = this.libDAO;
+      var dao  = this.reflowLibDAO;
       var count = foam.lang.SimpleSlot.create({value: 0});
       if ( opt_nameQuery ) dao = dao.where(
         this.OR(
@@ -439,7 +439,7 @@ foam.CLASS({
 
   mixins: [ 'foam.mlang.Expressions' ],
 
-  imports: [ 'libDAO', 'notify?' ],
+  imports: [ 'reflowLibDAO', 'notify?' ],
 
   properties: [
     { name: 'id', value: 'runScript' },
@@ -457,7 +457,7 @@ foam.CLASS({
       let script = null;
       try {
         // Try exact match on scriptName field
-        const result = await this.libDAO
+        const result = await this.reflowLibDAO
           .where(this.EQ(foam.core.reflow.Script.SCRIPT_NAME, scriptName))
           .limit(1)
           .select();
@@ -467,7 +467,7 @@ foam.CLASS({
       if ( ! script ) {
         try {
           // Fallback: try DAO find by id
-          script = await this.libDAO.find(scriptName);
+          script = await this.reflowLibDAO.find(scriptName);
         } catch (e) {}
       }
 

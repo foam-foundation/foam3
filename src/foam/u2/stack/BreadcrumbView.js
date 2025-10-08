@@ -64,6 +64,7 @@ foam.CLASS({
       var self = this;
       this.breadcrumbs?.dynamic(function(pos, stack$pos, current) {
         if ( ! self.stack ) return;
+        self.removeAllChildren(); // Needed because the below dynamic() code is broken and adds to self rather than this
         self.actionArray = [];
         let endPos = pos
         if ( self.stack?.pos != self.breadcrumbs?.current?.view.__subContext__.stackPos ) {

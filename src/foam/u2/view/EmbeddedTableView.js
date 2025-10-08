@@ -87,6 +87,19 @@ foam.CLASS({
         var daoCount = (await data.select()).array;
         return Math.max(daoCount.length - rowsToDisplay, 0);
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'multiSelectEnabled',
+      documentation: 'Set to true to support selecting multiple table rows.'
+    },
+    {
+      class: 'Map',
+      name: 'selectedObjects',
+      documentation: `
+        The objects selected by the user when multi-select support is enabled.
+        It's a map where the key is the object id and the value is the object.
+      `
     }
   ],
 
@@ -113,7 +126,8 @@ foam.CLASS({
             .start(this.TableView, {
               data$: this.slot(function(rowsToDisplay) {return data.limit(rowsToDisplay)}),
               // editColumnsEnabled: false,
-              multiSelectEnabled: false,
+              multiSelectEnabled: self.multiSelectEnabled,
+              selectedObjects$: self.selectedObjects$,
               showPagination: false
             })
               .addClass(this.myClass())

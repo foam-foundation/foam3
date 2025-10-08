@@ -555,13 +555,6 @@ function pom() {
     warning('Added /pom');
   }
 
-  // Special support for /journals.  Users are expecting it to behave
-  // like a default deployment directory; loading after the project
-  // poms and before the deployment poms.
-  // CAVEAT: This logic only supports /journals on the root project.
-  if ( existsSync(`${PROJECT_HOME}/journals/pom.js`) ) {
-    addPom(`${PROJECT_HOME}/journals/pom`);
-  }
   if ( globalThis['JOURNALS'] ) {
     JOURNALS.split(',').forEach(c => {
       if ( ! c ) return;

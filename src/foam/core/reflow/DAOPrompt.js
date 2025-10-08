@@ -217,6 +217,26 @@ foam.CLASS({
     },
     {
       class: 'foam.dao.DAOProperty',
+      name: 'valueDAO',
+      hidden: true,
+      transient: true,
+      documentation: "Used to create a dynamic ProxyDAO for GroupBy's Browse action.",
+      factory: function() {
+        if ( ! this.block ) return;
+
+        let proxy = this.ProxyDAO.create();
+        let l = () => {
+          if ( this.value && this.value.asDAO ) proxy.delegate = this.value.asDAO();
+        };
+
+        this.value$.sub(l);
+        l();
+
+        return proxy;
+      }
+    },
+    {
+      class: 'foam.dao.DAOProperty',
       name: 'limitedDAO_',
       section: 'general',
       hidden: true,
@@ -240,7 +260,8 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(dao, where, order) {
-        if ( ! dao ) return null;
+        if ( ! dao || ! this.dao.of ) return null;
+
         // Compiled on the Server
         // if ( this.where ) dao = dao.where(this.MQL(this.where));
 
@@ -451,6 +472,8 @@ foam.CLASS({
     function init() {
       this.SUPER();
 
+      if ( ! this.dao || ! this.dao.of ) return;
+
       if ( ! this.columns ) {
         this.columns = this.getColumnNamesFromStorage(localStorage.getItem(this.dao.of.id));
       }
@@ -479,6 +502,7 @@ foam.CLASS({
       var old = this.columnStorage;
       this.SUPER(o);
       this.columnStorage = old;
+      this.valueDAO = undefined;
     },
 
     function waitForRun() {

@@ -201,6 +201,10 @@ If empty then no permissions are required.`
       documentation: 'If this value appears in the mementoHead on ActionView render, the action is executed',
       generateJava: false,
       value: ''
+    },
+    {
+      class: 'Boolean',
+      name: 'multiSelect'
     }
   ],
 

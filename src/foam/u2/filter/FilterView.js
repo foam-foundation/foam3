@@ -292,7 +292,6 @@ foam.CLASS({
             searchData$: self.searchData$
           }, self, self.__subContext__);
 
-
           var labelSlot = foam.lang.ExpressionSlot.create({ args: [self.filterController.activeFilterCount$],
             code: function(x) { return x > 0 ? `${self.LABEL_FILTER} (${x})` : self.LABEL_FILTER; }});
 

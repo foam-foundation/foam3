@@ -22,6 +22,7 @@ foam.POM({
     JOURNAL_OUT:       ['Build journals directory',() => `${PROJECT_HOME}/${BUILD_DIR}/journals`],
     LOG_HOME:          ['Application logs directory',() => APP_NAME ? `${APP_HOME}/logs`: 'APP_HOME/logs'],
     SAF_HOME:          ['Application sf (store and forward) directory',() => `${APP_HOME}/saf`],
+    WEBROOT:           ['Webroot for non-jar builds, defaults to PROJECT_HOME', () => PROJECT_HOME],
   },
 
   options: {
@@ -322,7 +323,7 @@ foam.POM({
         JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
       }
       JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
-      JAVA_OPTS += ` -Dcore.webroot=${PROJECT_HOME}`;
+      JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
       JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
       if ( DEBUG )
@@ -342,7 +343,7 @@ foam.POM({
         JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
       }
       JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
-      JAVA_OPTS += ` -Dcore.webroot=${PROJECT_HOME}`;
+      JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
       JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
       if ( DEBUG )

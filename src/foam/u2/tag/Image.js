@@ -113,8 +113,6 @@ foam.CLASS({
 
           if ( self.embedSVG && data?.endsWith('svg') ) {
             self.requestWithCache(data).then(data => {
-              if ( ! self.U3 && self.state == self.OUTPUT ) return;
-
               this.start(self.HTMLView, { data: data })
                 .attrs({ role: self.role })
               .end();
@@ -137,7 +135,7 @@ foam.CLASS({
           } else if ( self.Blob.isInstance(data) ) {
             src = self.__context__.blobService.urlFor(data);
           }
-          
+
           this.start('img')
             .attrs({ src: src, role: self.role })
             .style({

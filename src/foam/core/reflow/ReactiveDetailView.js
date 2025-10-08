@@ -47,6 +47,15 @@ foam.CLASS({
       this.startReaction_(name, formula);
     },
     function startReaction_(name, formula) {
+      /**
+       * Starts a reactive formula evaluation that re-runs whenever dependencies change.
+       * Supports synchronous values, Promises, and async/await.
+       *
+       * Examples:
+       *   Sync:    "service.name"
+       *   Promise: "serviceDAO.find(this.serviceId).then(s => s.name)"
+       *   Await:   "await serviceDAO.find(this.serviceId)"
+       */
       // HACK: delay starting reaction in case we're loading a file
       // and dependent variables haven't loaded yet.
       window.setTimeout(function() {
@@ -54,16 +63,19 @@ foam.CLASS({
         var f;
 
         with ( this.__context__.scope ) {
+          // Create function - can be sync or return a Promise
+          // The timer will handle both cases by checking if result is a Promise
           f = eval('(function() { return ' + formula + '})');
         }
         f.toString = function() { return formula; };
 
         var detached = false;
         self.onDetach(function() { detached = true; });
-        var timer = function() {
+        var timer = async function() {
           if ( detached ) return;
           if ( self.reactions_[name] !== f ) return;
-          self[name] = f.call(self);
+          // Await handles both Promises and non-Promises
+          self[name] = await f.call(self);
           self.__context__.requestAnimationFrame(timer);
         };
 

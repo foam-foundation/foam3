@@ -2081,7 +2081,7 @@ foam.CLASS({
       name: 'view',
       value: {
         class: 'foam.u2.view.ModeAltView',
-        writeView: { class: 'foam.u2.view.StringView' },
+        writeView: { class: 'foam.u2.view.StringView', onKey: false },
         readView:  { class: 'foam.u2.view.ReadReferenceView' }
       }
     }

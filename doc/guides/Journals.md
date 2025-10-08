@@ -1,3 +1,5 @@
+# FOAM Journals 
+
 ## What are FOAM Journals?
 
 FOAM journals are append-only log files that record all data changes (creates, updates, deletes) to provide durable persistence and enable data recovery [2](#0-1) . They implement the `Journal` interface which defines three core operations: `put()` for recording object creation/updates, `remove()` for recording deletions, and `replay()` for reconstructing state from the journal [3](#0-2) .
@@ -22,17 +24,42 @@ The build system includes a `JournalMaker` that concatenates `.jrl` journal file
 
 ### 3. **Deployment Structure**
 Journals are organized in a standard directory structure<cite />:
-- **Source journals**: `deployment/*/` - Contains initial data and configuration
+- **Source journals**: `src/*/` - Contains feature specific configuration and default data. 
+- **Application journals**: `journals/` - Contains configuration and initial data common to all application deployments.  Supercedes Source journals.
+- **Deployment journals**: `deployment/*/` - Contains configuration and initial data specific to a deployment scenario.  Supercedes Application journals.
 - **Build journals**: `build/journals/` - Concatenated journals from build process
 - **Runtime journals**: `${APP_HOME}/journals/` - Active journals written during application runtime [7](#0-6)
 
 ### 4. **Compaction**
-Over time, journals accumulate multiple entries for the same object. The `Compaction` system reduces replay time by writing out each object once in its entirety, eliminating redundant delta entries [9](#0-8) .
+Over time, journals accumulate multiple entries for the same object. The [Compaction]./Compaction.md) system reduces replay time by writing out each object once in its entirety, eliminating redundant delta entries [9](#0-8) .
 
 ## Notes
 
 Journals are typically used with `JDAO` (Journaled DAO) which wraps another DAO and automatically journals all operations [10](#0-9) . The `-j` build flag deletes runtime journals<cite />. Journal files can be manually edited to seed initial data or fix issues, as they're just text files with a simple format<cite />.
 
+## Journal Concatenation
+
+The build concatenates same named journal files with extension `.jrl`, into a single journal file with the same name and extension `.0`.  **replay** processes the `.0` files during application startup, before processing the runtime journals.
+
+For example, building with `-Jhttps` will process the following `services.jrl` files, concatenating them into `build/journals/services.0`, in the following order:
+
+1. src/foam/core/jetty/services.jrl
+2. src/services.jrl
+3. deployment/https/services.jrl
+
+## Feature Flags and Conditional Complilation
+
+The [Build](./Build.md) determines source and journals to process based on the POMs it has been instructed to process. By default this is the project root `pom.js` file. Additional POMs can be specified with `-P` and `-J`.  The build reads these POMs and then traverses child POMs listed in `projects`.  The build only processes diretories which contain a POM file or child directories without a POM of a parent with a POM.
+
+Using this behaviour, feature inclusion can be conditionally controlled.
+
+[Compaction](./Compaction.md) is a working example.
+
+Source files exist at `src/foam/dao/compaction`.  This directory has a POM file but it is not referenced by another POM in the foam source tree, so it is not, by default, included in a FOAM build.
+
+Deployment `deployment/compaction/` has a POM file which references the `src/foam/dao/compaction/pom.js` file.
+
+If we build with `-Jcompaction` then journal configuration under `deployment/compaction/` and the source under `src/foam/dao/compaction/` will be included. 
 
 ### Citations
 

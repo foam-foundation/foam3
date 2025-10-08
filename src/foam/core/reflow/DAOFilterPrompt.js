@@ -24,23 +24,24 @@ foam.CLASS({
     function render() {
       var self = this;
 
-      this.
-        addClass().
-        show(this.data.visible$).
-        start('h3').
-          add(self.data.label$).
-        end().
-        br().
-        start().
-          show(self.data.showSearch$).
-          add(self.data.filterView$).
-        end().
-        start().
-          addClass(self.myClass('filters-container')).
-          tag(self.data.filterView$.map(function(fv) {
+      this
+        .addClass()
+        .show(this.data.visible$)
+        .start('h3')
+          .show(this.data.labelVisible$)
+          .add(self.data.label$)
+        .end()
+        .br()
+        .start()
+          .show(self.data.showSearch$)
+          .add(self.data.filterView$)
+        .end()
+        .start()
+          .addClass(self.myClass('filters-container'))
+          .tag(self.data.filterView$.map(function(fv) {
             return fv ? fv.filtersContainer$ : null;
-          })).
-        end();
+          }))
+        .end();
     }
   ]
 });
@@ -71,6 +72,14 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'labelVisible',
+      section: 'general',
+      label: 'Show Name',
+      value: true,
+      view: { class: 'foam.u2.Switch' }
+    },
+    {
+      class: 'Boolean',
       name: 'visible',
       value: true
     },
@@ -78,6 +87,10 @@ foam.CLASS({
       class: 'Boolean',
       name: 'showSearch',
       value: true
+    },
+    {
+      class: 'String',
+      name: 'query'
     },
     {
       name: 'filtersContainer',
@@ -135,10 +148,13 @@ foam.CLASS({
         if ( ! dao ) return null;
         var fv = this.FilterView.create({
           dao: dao,
+          searchMode: foam.comics.SearchMode.SIMPLE,
           data$: this.predicate$,
+          searchData$: this.query$,
           isOpen: ! showSearch  // When search is hidden, filters should be open
         }, this.__subContext__.createSubContext({
-          controllerMode: foam.u2.ControllerMode.EDIT
+          controllerMode: foam.u2.ControllerMode.EDIT,
+          config: { searchMode: foam.comics.SearchMode.MQL }
         }));
 
         // Store reference to filtersContainer
@@ -163,7 +179,7 @@ foam.CLASS({
   ],
 
   methods: [
-    async function addToE(e) {
+    function addToE(e) {
       e.tag(this.DAOFilterPromptView, {data: this, label: this.label});
     }
   ],

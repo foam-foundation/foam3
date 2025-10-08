@@ -61,6 +61,7 @@ foam.CLASS({
       margin: 0
     }
     ^top-bar {
+      width: 100%;
       display: flex;
       flex-direction: row;
       justify-content: space-between;
@@ -72,6 +73,7 @@ foam.CLASS({
       padding-bottom: 12px;
     }
     ^button-span {
+      width: 100%;
       display: flex;
       flex-direction: row;
       justify-content: flex-end;
@@ -104,6 +106,7 @@ foam.CLASS({
       var self = this;
       this.currentMemento_ = this.memento;
 
+      var multiSelectActions = this.data.data.of.getAxiomsByClass(foam.lang.Action)?.filter(a => a.multiSelect);
       this.data.createEnabled = true;
       this.data.selectEnabled = false;
       this.data.editEnabled   = false;
@@ -118,6 +121,11 @@ foam.CLASS({
 
       this
         .start().addClass(this.myClass())
+          .start('span')
+            .addClass(this.myClass('button-span'))
+            .show(this.mode$.map(function(m) { return m == foam.u2.DisplayMode.RW; }))
+            .add(multiSelectActions)
+          .end()
           .start().addClass(this.myClass('top-bar'))
             .start().style({ 'min-width' : '70%' })
               .add(filterView)
@@ -132,7 +140,7 @@ foam.CLASS({
           .start()
             .tag(self.summaryView, {
               data$: self.data.filteredDAO$,
-              multiSelectEnabled: self.data.relationship,
+              multiSelectEnabled: multiSelectActions?.length > 0,
               selectedObjects$: self.data.selectedObjects$
             })
           .end()
@@ -144,7 +152,6 @@ foam.CLASS({
     {
       name: 'onCreate',
       on: [
-        'data.action',
         'data.create'
       ],
       code: function() {

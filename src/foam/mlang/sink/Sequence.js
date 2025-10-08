@@ -24,6 +24,21 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'setX',
+      args: 'foam.lang.X x',
+      javaCode: `
+        super.setX(x);
+        // Propagate context to child sinks
+        if ( getArgs() != null ) {
+          for ( int i = 0; i < getArgs().length; i++ ) {
+            if ( getArgs()[i] instanceof foam.lang.FObject ) {
+              ((foam.lang.FObject)getArgs()[i]).setX(x);
+            }
+          }
+        }
+      `
+    },
+    {
       name: 'put',
       code: function(obj, s) {
         this.args.forEach(function(a) {

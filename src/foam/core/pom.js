@@ -91,7 +91,6 @@ foam.POM({
     { name: "fs/TempFileDAO",                                                             flags: "js|java" },
     { name: "fs/TextSaveView",                                                            flags: "web" },
     { name: "controller/Memento",                                                         flags: "js" },
-    { name: "controller/MementoMixin",                                                    flags: "js" },
     { name: "controller/ApplicationController",                                           flags: "js" },
     { name: "alarming/AddAlarmNameDAO",                                                   flags: "js|java" },
     { name: "alarming/Alarm",                                                             flags: "js|java" },

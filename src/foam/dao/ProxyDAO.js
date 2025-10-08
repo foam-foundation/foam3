@@ -67,6 +67,7 @@ if let oldValue = oldValue as? foam_dao_AbstractDAO {
         }, context);
 
         listener.onDetach(this.sub('propertyChange', 'delegate', listener.update));
+        // This seems wrong but now things break without it.
         listener.update();
 
         return listener;

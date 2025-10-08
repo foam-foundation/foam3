@@ -74,7 +74,6 @@ foam.POM({
 
       // base setup
       templateMerge(TEMPLATE_DIR, 'rootPOM.js', `${PROJECT_DIR}`, 'pom.js');
-      templateMerge(TEMPLATE_DIR, 'deploymentAppPOM.js', `${PROJECT_DIR}/deployment/${APP_NAME_LOW}`, 'pom.js');
       templateMerge(TEMPLATE_DIR, 'journalPOM.js', `${PROJECT_DIR}/${JOURNAL_DIR}`, 'pom.js');
       templateMerge(TEMPLATE_DIR, 'journalGroups.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `groups.jrl`);
       templateMerge(TEMPLATE_DIR, 'journalGroupPermissionJunctions.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `groupPermissionJunctions.jrl`);

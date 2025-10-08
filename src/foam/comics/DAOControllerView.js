@@ -16,6 +16,7 @@ foam.CLASS({
     'foam.core.controller.Memento',
     'foam.core.u2.navigation.IFrameTopNavigation',
     'foam.u2.dialog.Popup',
+    'foam.u2.dialog.StyledModal',
     'foam.u2.table.TableView'
   ],
 
@@ -245,8 +246,6 @@ foam.CLASS({
     {
       name: 'onCreate',
       on: [
-        //obj.topic
-        'data.action',
         'data.create'
       ],
       code: function() {
@@ -282,10 +281,10 @@ foam.CLASS({
         'data.export'
       ],
       code: function(dao) {
-        this.add(this.Popup.create().tag({
+        this.StyledModal.create({ title: 'Export', maxWidth: '90vw'}, this.__subContext__).tag({
           class: 'foam.u2.ExportModal',
           exportData: dao.src.filteredDAO
-        }));
+        }).open();
       }
     }
   ]

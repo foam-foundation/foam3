@@ -204,6 +204,14 @@ foam.CLASS({
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+    },
+    {
+      class: 'Boolean',
+      name: 'disableAutoSave',
+      section: 'general',
+      label: 'Disable Auto-Save',
+      documentation: 'When enabled, disables automatic local storage saving and version checks for this flow',
+      value: false
     }
   ],
 

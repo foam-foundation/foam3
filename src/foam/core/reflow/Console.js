@@ -1478,6 +1478,9 @@ foam.CLASS({
       // Don't retrieve autosave for unnamed flows
       if ( ! scriptName ) return false;
 
+      // Skip autosave checks if disabled
+      if ( this.value.disableAutoSave ) return false;
+
       var autosaveData = this.loadAutosaveData(scriptName);
       if ( ! autosaveData || ! autosaveData.script ) return false;
 
@@ -1489,9 +1492,9 @@ foam.CLASS({
 
       // Check if we have a saved version in the database
       var savedFlow = null;
-      if ( this.value.name ) {
+      if ( scriptName ) {
         try {
-          savedFlow = await this.flowDAO.find(this.value.name);
+          savedFlow = await this.flowDAO.find(scriptName);
         } catch (e) {
           // Flow doesn't exist in database yet
         }
@@ -1714,6 +1717,9 @@ foam.CLASS({
 
         // Don't save unnamed flows to local storage
         if ( ! this.value.name ) return;
+
+        // Skip autosave if disabled
+        if ( this.value.disableAutoSave ) return;
 
         // Only autosave if there are unsaved changes (revision > 0)
         if ( this.value.revision > 0 ) {

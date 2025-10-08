@@ -609,7 +609,7 @@ foam.CLASS({
   name: 'Load',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'flow', 'flowDAO', 'mementoMgr', 'selected' ],
+  imports: [ 'flow', 'flowDAO', 'mementoMgr', 'selected', 'scope' ],
 
   properties: [
     [ 'description', 'Load a specified flow' ]
@@ -639,9 +639,11 @@ foam.CLASS({
       }
     },
     async function maybeCallScript(s) {
-        if ( s ) {
+      if ( s ) {
+        with ( this.scope ) {
           await eval('(async function() {' + s + '})').call(this)
         }
+      }
     }
   ]
 });

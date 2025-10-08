@@ -101,9 +101,9 @@ foam.CLASS({
               [ foam.mlang.expr.DateToYYYYMMDDExpr,    'YYYY/MM/DD'   ],
               [ foam.mlang.expr.DateToYYYYMMExpr,      'YYYY/MM'      ],
               [ foam.mlang.expr.DateToYYYYExpr,        'YYYY'         ],
-              [ foam.mlang.expr.DateToWeekExpr,        'Week (YYYY-W##)' ],
-              [ foam.mlang.expr.DateToQuarterExpr,     'Quarter (YYYY-Q#)' ],
-              [ foam.mlang.expr.DateToDayOfYearExpr,   'Day of Year (YYYY-###)' ]
+              [ foam.mlang.expr.DateToWeekExpr,        'Week (YYYY-WWW)' ],
+              [ foam.mlang.expr.DateToQuarterExpr,     'Quarter (YYYY-QQ)' ],
+              [ foam.mlang.expr.DateToDayOfYearExpr,   'Day of Year (YYYY-DDD)' ]
             ]
           }
         ];

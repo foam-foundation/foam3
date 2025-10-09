@@ -229,12 +229,13 @@ foam.CLASS({
           this.updateCount();
         }
       })));
-      this.id = 'id' + this.$UID;
       this.updateCount();
       this.dataLoading = false;
     },
 
     async function render() {
+      this.appendTo.id = 'id' + this.$UID;
+
       var self = this;
       var resize = new ResizeObserver (this.checkPageSize_);
       let root = await this.rootElement.el()
@@ -287,11 +288,11 @@ foam.CLASS({
       this.scrollToIndex = undefined;
     },
 
-    function safeScroll(){
+    function safeScroll() {
       if ( ! this.scrollToIndex ) return;
       var page = Math.floor(this.scrollToIndex/this.pageSize_);
       if ( this.renderedPages_[page] ) {
-        var el = document.querySelector(`#${this.id} [data-idx='${this.scrollToIndex}']`);
+        var el = document.querySelector(`#${this.appendTo.id} [data-idx='${this.scrollToIndex}']`);
         if ( ! el ) return;
         try {
           if ( el.dataset['owner'] != this.$UID ) debugger; } catch (t) { debugger; }

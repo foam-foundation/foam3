@@ -52,7 +52,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'comment',
-      label: '',
+      columnPermissionRequired: true,
       view: {
         class: 'foam.u2.tag.TextArea', rows: 5, cols: 144
       },

@@ -296,6 +296,8 @@ foam.CLASS({
 
   imports: [ 'columnStorage' ],
 
+  exports: [ 'columnStorage' ],
+
   properties: [
     {
       class: 'StringArray',
@@ -356,7 +358,7 @@ foam.CLASS({
       }
 
 
-      e.startContext({click: self.click}).
+      e.startContext({click: self.click, columnStorage: self.columnStorage}).
         callIf(config.multiSelectEnabled, function() {
           this.startContext({data: self})
             .start()

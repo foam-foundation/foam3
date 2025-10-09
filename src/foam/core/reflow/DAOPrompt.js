@@ -367,7 +367,7 @@ foam.CLASS({
           class: 'foam.core.reflow.PropertySuggestedField'
         };
       },
-      postSet: function(_, n) {
+      postSet: function(o, n) {
         // ???: KGR: I think this isn't needed because daoPrompt.columns is used to store columns, not the actual column storage
 //        this.updateColumnStorage(n);
       }
@@ -381,18 +381,28 @@ foam.CLASS({
         var self = this;
         return Object.create({
           getItem: function(k) {
-            return this[k] || null;
+            // Try in-memory first, then fall back to localStorage
+            if ( this[k] ) return this[k];
+            var fromLS = localStorage.getItem(k);
+            if ( fromLS ) this[k] = fromLS; // Cache it
+            return fromLS;
           },
           setItem: function(k, v) {
             this[k] = v;
-            // save column updates from tableview
+            // Persist to localStorage so it survives page reloads
+            localStorage.setItem(k, v);
+            // Update the columns property to reflect the change
             self.columns = self.getColumnNamesFromStorage(v);
           },
           removeItem: function(k) {
             delete this[k];
+            localStorage.removeItem(k);
           },
           clear: function()  {
-            for ( const k in this ) delete this[k];
+            for ( const k in this ) {
+              delete this[k];
+              localStorage.removeItem(k);
+            }
           },
           toString: function() {
             return 'DAOPromptColumnStorage(' + JSON.stringify(this) + ')'
@@ -499,9 +509,14 @@ foam.CLASS({
       // This is very hackish. On reload the DAOPrompt is created from the command
       // but then we do a copyFrom() the DAOPrompt stored in the script and then
       // the columnStorage gets swapped.
-      var old = this.columnStorage;
+      var oldColumnStorage = this.columnStorage;
+      var oldColumns = this.columns; // Preserve columns loaded from localStorage
       this.SUPER(o);
-      this.columnStorage = old;
+      this.columnStorage = oldColumnStorage;
+      // Restore the columns loaded from localStorage (don't overwrite with saved script value)
+      if ( oldColumns ) {
+        this.columns = oldColumns;
+      }
       this.valueDAO = undefined;
     },
 

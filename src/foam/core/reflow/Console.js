@@ -1111,7 +1111,9 @@ foam.CLASS({
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
       }
-
+      if ( ! parent ){
+        await this.eval_('postLoad', null, true);
+      }
     },
 
     function clearFlow() {

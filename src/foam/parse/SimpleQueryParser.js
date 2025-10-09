@@ -72,13 +72,18 @@ foam.CLASS({
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
-          //let sugStr = str.toLowerCase().endsWith('in') ? str + ' (' : str;
           return alt(
             seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str})),
-            seq1(1, sym('ws'), literalIC(str))
+            literalIC(str) // allow the option without leading spaces, it is still valid, even though it won't suggest
           );
         }
         this.operator = operator;
+        let operatorIn = (str) => {
+          return (
+            seq1(2, ' ', sym('ws'), sug(seq1(0, literalIC(str), sym('ws'), '('), {text: str + ' (', label: str }))
+          );
+        }
+        this.operatorIn = operatorIn;
 
         return {
           START: seq1(0, sym('query') /*, sym('ws'), eof()*/),
@@ -97,7 +102,8 @@ foam.CLASS({
 
           expr: alt(
             sym('paren'),
-            sym('propPredicates')
+            sym('propPredicates'),
+            sym('datePredicates')
           ),  
 
           // opening bracket consumed by propPredicates
@@ -112,10 +118,10 @@ foam.CLASS({
                              seq(operator('<'), sym('number')),
                              seq(operator('!='), sym('number')),
                              seq(operator('='), sym('number')),
-                             seq(operator('IN'), sym('numberArray')),
-                             seq(operator('NOT IN'), sym('numberArray'))),
+                             seq(operatorIn('IN'), sym('numberArray')),
+                             seq(operatorIn('NOT IN'), sym('numberArray'))),
 
-          numberArray: seq1(2, sym('ws'), '(', sym('numbers'), ')'),
+          numberArray: seq1(1, sym('ws'), sym('numbers'), ')'),
 
           numbers: repeat(sym('number'), ',', 1),
 
@@ -125,7 +131,55 @@ foam.CLASS({
           compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'), {text: 'IS TRUE'}))),
                               seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE'})))),
 
-                              
+          //dateRange: seq1(1, sym('ws'), sym('date'), ',', sym('date'), ')'),
+
+          digits: repeat(range('0', '9'), null, 1),
+
+          date: seq1(1, sym('ws'),
+            alt(
+              sym('literal date'),
+              sym('relative date')
+            )
+          ),
+
+          'literal date': alt(
+            // YYYY-MM-DDTHH:MM:SS.mmmZ
+            seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
+            // YYYY-MM-DDTHH:MM
+            seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+                sym('digits'), ':', sym('digits')),
+            // YYYY-MM-DDTHH
+            seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+                sym('digits')),
+            // YYYY-MM-DD
+            seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
+            // YYYY-MM
+            seq(sym('digits'), '-', sym('digits')),
+            // YY/MM/DD
+            seq(sym('digits'), '/', sym('digits'), '/', sym('digits'))
+          ),
+
+          // TODAY[±n]
+          'relative date': seq(
+            sug(literalIC('TODAY'), {text: 'TODAY', label: 'TODAY[+/-n]'}),
+            optional(seq(anyChar("+-"), sym('digits')))
+          ),
+
+          dates: repeat(sym('date'), ',', 2),
+
+          'range date': seq1(1, sym('ws'), sym('dates'), sym('ws'), ')'),
+
+          compareDate: alt(seq(operator('>='), sym('date')),
+                    seq(operator('>'), sym('date')),
+                    seq(operator('<='), sym('date')),
+                    seq(operator('<'), sym('date')),
+                    seq(operator('!='), sym('date')),
+                    seq(operator('='), sym('date')),
+                    seq(operatorIn('IN RANGE'), sym('range date')),
+                    seq(operatorIn('NOT IN RANGE'), sym('range date')),
+                    seq(operator('IS EMPTY')),
+                    seq(operator('IS NOT EMPTY'))),        
         };
       }
     },
@@ -136,8 +190,10 @@ foam.CLASS({
 
         let cls    = this.of;
         let propPredicates = [];
+        let datePredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
+        let operatorIn = this.operatorIn;
         let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name, label: prop.label})); 
   
         for ( var i = 0 ; i < props.length ; i++ ) {
@@ -157,13 +213,13 @@ foam.CLASS({
 
             let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: v})); 
             let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
-            let enumArray  = seq1(2, sym('ws'), sug('(',{text:'('}), repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
+            let enumArray  = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
        
             let compareEnum = action(
                                     alt(seq(operator('='), enumValue),
                                         seq(operator('!='), enumValue),
-                                        seq(operator('IN'), enumArray),
-                                        seq(operator('NOT IN'), enumArray)), 
+                                        seq(operatorIn('IN'), enumArray),
+                                        seq(operatorIn('NOT IN'), enumArray)), 
                                     function(v) {
                                         return {
                                           operator: v[0],
@@ -173,10 +229,12 @@ foam.CLASS({
     
             propPredicates.push(seq(property(prop), compareEnum));
           }
-
+          else if (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop)) {
+            datePredicates.push(seq(property(prop), sym('compareDate'))); 
+          }
         } 
         // return the properties grammar map
-        return {propPredicates: alt.apply(null, propPredicates)};       
+        return {propPredicates: alt.apply(null, propPredicates), datePredicates: alt.apply(null, datePredicates)};       
       }
     },  
     {
@@ -189,7 +247,8 @@ foam.CLASS({
 
         let grammar = {
           __proto__: base,
-          propPredicates: properties.propPredicates
+          propPredicates: properties.propPredicates,
+          datePredicates: properties.datePredicates
         };
 
         let self = this;
@@ -209,6 +268,10 @@ foam.CLASS({
             return parseInt(v.join(''));
           },
 
+          digits: function(v) {
+            return parseInt(v.join(''));
+          },
+
           compareBoolean: function(v) {
             return {operator: 'IS',
                     value: v[1].toLowerCase().endsWith('true') ? true : false // redundant but clearer
@@ -221,8 +284,55 @@ foam.CLASS({
               value: v[1]
             };
           },
+
+          compareDate: function(v) {
+            return {
+              operator: v[0],
+              value: {start: v[1][0], end: v[1][1]} // date range
+            };
+          },
+
+          date: function(v) {
+            return v; // Pass through the already parsed date
+          },
+
+          // All dates are actually treated as ranges. These are arrays of Date
+          // objects: [start, end]. The start is inclusive and the end exclusive.
+          // Using these objects, both ranges (date:2014, date:2014-05..2014-06)
+          // and open-ended ranges (date > 2014-01-01) can be computed higher up.
+          // Date formats:
+          // YYYY-MM-DDTHH:MM, YYYY-MM-DDTHH, YYYY-MM-DD, YYYY-MM, YY/MM/DD, YYYY
+          'literal date': function(v) {
+        
+            let values = v.filter((x, i) => i % 2 === 0); // remove separators
+            if (values[0] < 100) values[0] = values[0] + 2000; // convert 2-digit year to 4-digit
+            if (values[1]) values[1] = values[1] - 1; // month is zero-based
+            let start = new Date(Date.UTC.apply(null, values));
+            values[values.length - 1]++; // bump last value for end of range
+            let end  = new Date(Date.UTC.apply(null, values))
+            return [ start, end ];
+          },
+
+          'relative date': function(v) {
+            // We turn this into a Date range around the current date
+            let d = new Date();
+            let year  = d.getFullYear();
+            let month = d.getMonth();
+            let date  = d.getDate(); // day of the month
+
+            // if there is an offset, apply it
+            if ( v[1] ) {
+              let s = v[1][0] === '+' ? 1 : -1;
+              date += (v[1][1]) * s;
+            }
+            return actions['literal date']([ year, '-', month + 1, '-', date ]);
+          },
+
+          'range date': function(v) {
+            return [ v[0][0], v[1][1] ]; // [start of first, end of second]
+          },
     
-          propPredicates: function(v){
+          propPredicates: function(v) {
             let prop   = v[0];
             let operator = v[1].operator;
             let value    = v[1].value;
@@ -246,11 +356,44 @@ foam.CLASS({
                 return self.Not.create({arg1: self.In.create({arg1: prop, arg2: value})});
               case 'IS':
                 return self.Eq.create({ arg1: prop, arg2: value});
-       
+        
             }
+          },   
+          datePredicates: function(v) {
 
-          },
-         
+            let prop   = v[0];
+            let operator = v[1].operator;
+            let value    = v[1].value;
+  
+            switch (operator) {
+              case '=': 
+              case 'IN RANGE':
+                return self.And.create({
+                  args: [
+                    self.Gte.create({ arg1: prop, arg2: value.start }),
+                    self.Lt.create({ arg1: prop, arg2: value.end })]
+                  });
+              case '!=':
+              case 'NOT IN RANGE':  
+                return self.And.create({
+                  args: [
+                    self.Gte.create({ arg1: prop, arg2: value.end }),
+                    self.Lt.create({ arg1: prop, arg2: value.start })]
+                  });
+              case '>=':  
+                return self.Gte.create({arg1: prop, arg2: value.start});
+              case '>':
+                return self.Gt.create({arg1: prop, arg2: value.end});
+              case '<=':
+                return self.Lte.create({arg1: prop, arg2: value.end});
+              case '<':
+                return self.Lt.create({arg1: prop, arg2: value.start});
+              case 'IS EMPTY':
+                return self.Not.create({arg1: self.Has.create({ arg1: prop })});
+              case 'IS NOT EMPTY':
+                return self.Has.create({ arg1: prop });
+            }
+          },   
         };
 
         let g = this.Grammar.create({

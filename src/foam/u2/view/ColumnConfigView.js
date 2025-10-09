@@ -836,11 +836,11 @@ foam.CLASS({
     {
       name: 'isPropertySelected',
       class: 'Boolean',
-      factory: function() {
-        var thisPropName = this.columnHandler.checkIfArrayAndReturnPropertyNameForRootProperty(this.rootProperty);
-        return typeof this.selectedColumns.find(s => {
+      expression: function(selectedColumns, rootProperty, level) {
+        var thisPropName = this.columnHandler.checkIfArrayAndReturnPropertyNameForRootProperty(rootProperty);
+        return typeof selectedColumns.find(s => {
           var propName = foam.String.isInstance(s) ? s.split('.') : s.name;
-          return foam.Array.isInstance(propName) ? ( this.level < propName.length && propName[this.level] === thisPropName ) : thisPropName === propName;
+          return foam.Array.isInstance(propName) ? ( level < propName.length && propName[level] === thisPropName ) : thisPropName === propName;
         }) !== 'undefined';
       }
     },

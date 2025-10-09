@@ -368,8 +368,13 @@ foam.CLASS({
         };
       },
       postSet: function(o, n) {
-        // ???: KGR: I think this isn't needed because daoPrompt.columns is used to store columns, not the actual column storage
-//        this.updateColumnStorage(n);
+        // Sync columns to columnStorage so table can see the changes
+        if ( this.dao && this.dao.of && n ) {
+          this.syncingColumns_ = true;
+          var cols = n.split(',').map(c => c.trim()).filter(c => c).map(c => [c, undefined]);
+          this.columnStorage.setItem(this.dao.of.id, JSON.stringify(cols));
+          this.syncingColumns_ = false;
+        }
       }
     },
     {
@@ -378,18 +383,29 @@ foam.CLASS({
       hidden: true,
       section: 'filter',
       factory: function() {
+        var self = this;
         return Object.create({
           getItem: function(k) {
-            return localStorage.getItem(k);
+            return this[k] || null;
           },
           setItem: function(k, v) {
-            localStorage.setItem(k, v);
+            this[k] = v;
+            // Sync back to columns for persistence (unless we're syncing from columns)
+            if ( ! self.syncingColumns_ ) {
+              var newColumns = self.getColumnNamesFromStorage(v);
+              // Normalize both values for comparison (ignore trailing commas/spaces)
+              var normalizedCurrent = self.columns?.split(',').map(c => c.trim()).filter(c => c).join(',');
+              var normalizedNew = newColumns?.split(',').map(c => c.trim()).filter(c => c).join(',');
+              if ( normalizedCurrent !== normalizedNew ) {
+                self.columns = newColumns;
+              }
+            }
           },
           removeItem: function(k) {
-            localStorage.removeItem(k);
+            delete this[k];
           },
           clear: function()  {
-            // No-op: can't safely clear all localStorage
+            for ( const k in this ) delete this[k];
           },
           toString: function() {
             return 'DAOPromptColumnStorage(' + JSON.stringify(this) + ')';
@@ -439,7 +455,8 @@ foam.CLASS({
       value: true,
       view: { class: 'foam.u2.Switch' }
     },
-    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
+    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } },
+    { class: 'Boolean',    name: 'syncingColumns_', transient: true, hidden: true }
   ],
 
   methods: [
@@ -471,8 +488,10 @@ foam.CLASS({
 
       if ( ! this.dao || ! this.dao.of ) return;
 
-      if ( ! this.columns ) {
-        this.columns = this.getColumnNamesFromStorage(localStorage.getItem(this.dao.of.id));
+      // Initialize columnStorage from columns property if it exists
+      if ( this.columns ) {
+        var cols = this.columns.split(',').map(c => c.trim()).filter(c => c).map(c => [c, undefined]);
+        this.columnStorage.setItem(this.dao.of.id, JSON.stringify(cols));
       }
       this.where$.sub(this.maybeAutoRun);
       this.order$.sub(this.maybeAutoRun);
@@ -497,12 +516,12 @@ foam.CLASS({
       // but then we do a copyFrom() the DAOPrompt stored in the script and then
       // the columnStorage gets swapped.
       var oldColumnStorage = this.columnStorage;
-      var oldColumns = this.columns; // Preserve columns loaded from localStorage
       this.SUPER(o);
       this.columnStorage = oldColumnStorage;
-      // Restore the columns loaded from localStorage (don't overwrite with saved script value)
-      if ( oldColumns ) {
-        this.columns = oldColumns;
+      // Sync columnStorage with columns property after copyFrom
+      if ( this.columns ) {
+        var cols = this.columns.split(',').map(c => c.trim()).filter(c => c).map(c => [c, undefined]);
+        this.columnStorage.setItem(this.dao.of.id, JSON.stringify(cols));
       }
       this.valueDAO = undefined;
     },

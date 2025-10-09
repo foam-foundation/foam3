@@ -1077,8 +1077,6 @@ foam.CLASS({
       if ( flow ) {
         await this.includeScript(flow.script);
       }
-
-      await this.eval_('postLoad', null, true);
     },
 
     async function includeScript(script, parent, skipParse) {

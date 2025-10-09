@@ -378,34 +378,21 @@ foam.CLASS({
       hidden: true,
       section: 'filter',
       factory: function() {
-        var self = this;
         return Object.create({
           getItem: function(k) {
-            // Try in-memory first, then fall back to localStorage
-            if ( this[k] ) return this[k];
-            var fromLS = localStorage.getItem(k);
-            if ( fromLS ) this[k] = fromLS; // Cache it
-            return fromLS;
+            return localStorage.getItem(k);
           },
           setItem: function(k, v) {
-            this[k] = v;
-            // Persist to localStorage so it survives page reloads
             localStorage.setItem(k, v);
-            // Update the columns property to reflect the change
-            self.columns = self.getColumnNamesFromStorage(v);
           },
           removeItem: function(k) {
-            delete this[k];
             localStorage.removeItem(k);
           },
           clear: function()  {
-            for ( const k in this ) {
-              delete this[k];
-              localStorage.removeItem(k);
-            }
+            // No-op: can't safely clear all localStorage
           },
           toString: function() {
-            return 'DAOPromptColumnStorage(' + JSON.stringify(this) + ')'
+            return 'DAOPromptColumnStorage(' + JSON.stringify(this) + ')';
           }
         });
       }

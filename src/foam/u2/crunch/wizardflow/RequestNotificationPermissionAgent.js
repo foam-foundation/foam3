@@ -147,6 +147,9 @@ foam.CLASS({
     async function execute(x) {
       // If the wizard didnt complete, return
       if ( this.wizardController && this.wizardController.status != 'COMPLETED' ) return;
+
+      if ( await x.checkGeneralCapability(true) ) return;
+
       // If this agent ever needs to enable or disable this behaviour for the user it should start using a capability to render this view, but for now, this is per device so it doesnt
       let currentState = await this.pushRegistryAgent.currentState.promise;
       let systemCheck = currentState != 'DEFAULT' || ! this.pushRegistryAgent.supportsNotifications;

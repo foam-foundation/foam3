@@ -131,18 +131,6 @@ foam.CLASS({
           border-radius: $inputBorderRadius;
           background: $backgroundSecondary;
         }
-        ^expand-icon.foam-u2-ActionView-expand {
-          transition: 0.1s ease;
-          transform: rotate(90deg);
-          padding: 4px;
-        }
-        ^expand-icon.foam-u2-ActionView-small svg {
-          width: 1.4rem;
-          height: 1.4rem;
-        }
-        ^expand-icon^collapsed {
-          transform: rotate(0deg);
-        }
       `,
 
       properties: [
@@ -150,10 +138,6 @@ foam.CLASS({
         {
           class: 'String',
           name: 'groupLabel'
-        },
-        {
-          class: 'Boolean',
-          name: 'collapsed'
         }
       ],
 
@@ -161,26 +145,8 @@ foam.CLASS({
         function render() {
           this
             .addClass(this.myClass(), 'h600')
-            .startContext({data: this})
-              .start(this.EXPAND)
-                .addClass(this.myClass('expand-icon'))
-                .enableClass(this.myClass('collapsed'), this.collapsed$)
-              .end()
-            .endContext()
             .add(this.groupLabel)
-          .end()
-        }
-      ],
-      actions: [
-        {
-          name: 'expand',
-          label: '',
-          size: 'SMALL',
-          themeIcon: 'next',
-          buttonStyle: 'TERTIARY',
-          code: function() {
-            this.collapsed = ! this.collapsed;
-          }
+          .end();
         }
       ]
     }

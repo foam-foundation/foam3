@@ -48,18 +48,19 @@ foam.CLASS({
     scroll-behavior: smooth;
   }
   ^wrapper [data-page] > [data-idx] {
-    padding: 4px 2px;
+    padding: 4px 8px;
+  }
+  ^wrapper [data-page] {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   ^wrapper groupHeader {
-    margin: 8px 0;
     width: 100%;
     display: flex;
     gap: 8px;
     align-items: center;
     justify-content: flex-start;
-  }
-  ^wrapper groupHeader:first-of-type {
-    margin-top: 0px;
   }
   ^nav{
     align-items: center;

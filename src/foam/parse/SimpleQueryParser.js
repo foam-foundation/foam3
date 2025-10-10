@@ -288,7 +288,7 @@ foam.CLASS({
           compareDate: function(v) {
             return {
               operator: v[0],
-              value: {start: v[1][0], end: v[1][1]} // date range
+              value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, expect for EMPTY operators
             };
           },
 

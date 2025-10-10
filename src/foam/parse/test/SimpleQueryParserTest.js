@@ -26,59 +26,74 @@ foam.CLASS({
                     date += inc;
                     return testDate([year, month, date]);
              };
-/*
+
             // Date format tests
-            x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Test ISO date YYYY-MM-DD');
-            x.test(this.isValidSymbol('date', '25/01/01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Test short date YY/MM/DD');
-            x.test(this.isValidSymbol('date', 'TODAY', [testToday(0), testToday(1)].toString()), 'Test TODAY');
-            x.test(this.isValidSymbol('date', 'TODAY+5', [testToday(5), testToday(6)].toString()), 'Test TODAY+5');
-            x.test(this.isValidSymbol('date', 'TODAY-2', [testToday(-2), testToday(-1)].toString()), 'Test TODAY-2');
-*/
+            x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Date Test1: ISO date YYYY-MM-DD');
+            x.test(this.isValidSymbol('date', '25/01/01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Date Test2: short date YY/MM/DD');
+            x.test(this.isValidSymbol('date', 'TODAY', [testToday(0), testToday(1)].toString()), 'Date Test3: TODAY');
+            x.test(this.isValidSymbol('date', 'TODAY+5', [testToday(5), testToday(6)].toString()), 'Date Test4: TODAY+5');
+            x.test(this.isValidSymbol('date', 'TODAY-2', [testToday(-2), testToday(-1)].toString()), 'Date Test5: TODAY-2');
+
             // Date comparison tests
             x.test(this.isValid('created=2025-01-01', 
                     'AND(GTE(foam.core.auth.User.created, ' + testDate([2025, 0, 1]).toString() +  '),LT(foam.core.auth.User.created, ' + testDate([2025, 0, 2]).toString() + '))'), 
-                    'Test date equality');
+                    'Date Test6: Date equality');
             x.test(this.isValid('created = 2025-05-31', 
                     'AND(GTE(foam.core.auth.User.created, ' + testDate([2025, 4, 31]).toString() +  '),LT(foam.core.auth.User.created, ' + testDate([2025, 5, 1]).toString() + '))'), 
-                    'Test date equality');
+                    'Date Test7: Date equality without spaces');
             x.test(this.isValid('lastModified > TODAY-7', 
                     'GT(foam.core.auth.User.lastModified, ' + testToday(-6).toString() + ')'), 
-                    'Test relative date comparison');
+                    'Date Test8: Relative date comparison less than');
+            x.test(this.isValid('passwordExpiry <= TODAY+30', 
+                    'LTE(foam.core.auth.User.passwordExpiry, ' + testToday(+31).toString() + ')'), 
+                    'Date Test9: Relative date comparison grater than or equal');             
+             x.test(this.isValid('birthday IN RANGE (2025-03-31, 2025-04-30)', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
+                    'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 2, 31, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 4, 1, 12]).toString() + '))'), 
+                    'Date Test10: Date in range');
+            x.test(this.isValid('birthday NOT IN RANGE (2025-03-31, 2025-04-30)', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
+                    'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 4, 1, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 2, 31, 12]).toString() + '))'), 
+                    'Date Test11: Date not in range');
+            x.test(this.isValid('lastLogin IS EMPTY', 
+                    'NOT(HAS(foam.core.auth.User.lastLogin))'), 
+                    'Date Test12: Date is empty');
+            x.test(this.isValid('lastLogin IS NOT EMPTY', 
+                    'HAS(foam.core.auth.User.lastLogin)'), 
+                    'Date Test13: Date is not empty');
 
             // Number symbol tests
-            x.test(this.isValidSymbol('number', "11",     "11"), "Test1: The number is 11");
-            x.test(this.isValidSymbol('numbers', "1, 2, 3", "1,2,3"), "Test2: The numbers 1, 2, 3");
-            x.test(this.isValidSymbol('numberArray', "1)",     "1"), "Test3: The number array (1)");  
-            x.test(this.isValidSymbol('numberArray', "1,2, 3)", "1,2,3"), "Test4: The number array (1,2,3)");
+            x.test(this.isValidSymbol('number', "11",     "11"), "Number Test1: The number is 11");
+            x.test(this.isValidSymbol('numbers', "1, 2, 3", "1,2,3"), "Number Test2: The numbers 1, 2, 3");
+            x.test(this.isValidSymbol('numberArray', "1)",     "1"), "Number Test3: The number array (1)");  
+            x.test(this.isValidSymbol('numberArray', "1,2, 3)", "1,2,3"), "Number Test4: The number array (1,2,3)");
 
             // Number properties tests
-            x.test(this.isValid("id = 6", "EQ(foam.core.auth.User.id, 6)"), "Test5: The id equal to the value");
-            x.test(this.isValid("id!=6", "NEQ(foam.core.auth.User.id, 6)"), "Test6: The id not equal to the value");
-            x.test(this.isValid("id>6", "GT(foam.core.auth.User.id, 6)"), "Test7: The id greater than the value");
-            x.test(this.isValid("id>=6", "GTE(foam.core.auth.User.id, 6)"), "Test8: The id greater than or equal to the value");
-            x.test(this.isValid("id<6", "LT(foam.core.auth.User.id, 6)"), "Test9: The id less than the value");
-            x.test(this.isValid("id<=6", "LTE(foam.core.auth.User.id, 6)"), "test10: The id less than or equal to the value");
-            x.test(this.isValid("id IN (6,7,8)", "IN(foam.core.auth.User.id, [6, 7, 8])"), "Test11: The id exactly matches any of the listed values");
-            x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Test12: The id does not exactly match any of the listed values');
+            x.test(this.isValid("id = 6", "EQ(foam.core.auth.User.id, 6)"), "Number Test5: The id equal to the value");
+            x.test(this.isValid("id!=6", "NEQ(foam.core.auth.User.id, 6)"), "Number Test6: The id not equal to the value");
+            x.test(this.isValid("id>6", "GT(foam.core.auth.User.id, 6)"), "Number Test7: The id greater than the value");
+            x.test(this.isValid("id>=6", "GTE(foam.core.auth.User.id, 6)"), "Number Test8: The id greater than or equal to the value");
+            x.test(this.isValid("id<6", "LT(foam.core.auth.User.id, 6)"), "Number Test9: The id less than the value");
+            x.test(this.isValid("id<=6", "LTE(foam.core.auth.User.id, 6)"), "Number Test10: The id less than or equal to the value");
+            x.test(this.isValid("id IN (6,7,8)", "IN(foam.core.auth.User.id, [6, 7, 8])"), "Number Test11: The id exactly matches any of the listed values");
+            x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Number Test12: The id does not exactly match any of the listed values');
 
             // Number combined properties tests
-            x.test(this.isValid("id=16 AND id<9", "AND(EQ(foam.core.auth.User.id, 16),LT(foam.core.auth.User.id, 9))"), "Test13: The id equal to the value and less than another value");
-            x.test(this.isValid("id=18 OR id<9", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 9))'), "Test14: The id equal to the value or less than another value");
+            x.test(this.isValid("id=16 AND id<9", "AND(EQ(foam.core.auth.User.id, 16),LT(foam.core.auth.User.id, 9))"), "Number Test13: The id equal to the value and less than another value");
+            x.test(this.isValid("id=18 OR id<9", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 9))'), "Number Test14: The id equal to the value or less than another value");
 
             // Enum properties tests
-            x.test(this.isValid("lifecycleState= ACTIVE", "EQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "Test15: The status equal to the value");
-            x.test(this.isValid("lifecycleState!=ACTIVE", "NEQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "Test16: The status not equal to the value");
-            x.test(this.isValid("lifecycleState IN (ACTIVE,REJECTED)", "IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED])"), "Test17: The status exactly matches any of the listed values");
-            x.test(this.isValid("lifecycleState NOT IN ( ACTIVE, REJECTED )", "NOT(IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED]))"), "Test18: The status does not exactly match any of the listed values");
+            x.test(this.isValid("lifecycleState= ACTIVE", "EQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "Enum Test1: The status equal to the value");
+            x.test(this.isValid("lifecycleState!=ACTIVE", "NEQ(foam.core.auth.User.lifecycleState, ACTIVE)"), "Enum Test2: The status not equal to the value");
+            x.test(this.isValid("lifecycleState IN (ACTIVE,REJECTED)", "IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED])"), "Enum Test3: The status exactly matches any of the listed values");
+            x.test(this.isValid("lifecycleState NOT IN ( ACTIVE, REJECTED )", "NOT(IN(foam.core.auth.User.lifecycleState, [ACTIVE, REJECTED]))"), "Enum Test4: The status does not exactly match any of the listed values");
 
             // Boolean properties tests
-            x.test(this.isValid(" loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "Test19: The enabled is true");
-            x.test(this.isValid(" loginEnabled IS FALSE", "EQ(foam.core.auth.User.loginEnabled, false)"), "Test20: The enabled is false");
+            x.test(this.isValid(" loginEnabled IS TRUE", "EQ(foam.core.auth.User.loginEnabled, true)"), "Boolean Test1: The enabled is true");
+            x.test(this.isValid(" loginEnabled IS FALSE", "EQ(foam.core.auth.User.loginEnabled, false)"), "Boolean Test2: The enabled is false");
 
             // Parentheses tests
             x.test(this.isValid("( id = 6 )", "EQ(foam.core.auth.User.id, 6)"), "Test21: The id equal to the value with parentheses");
-            x.test(this.isValid(" (id=17 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 17),LT(foam.core.auth.User.id, 9))"), "Test22: The id equal to the value and less than another value with parentheses");
-            x.test(this.isValid(" (id=18 OR id<10) ", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 10))'), "Test23: The id equal to the value or less than another value with parentheses");
+            x.test(this.isValid(" (id=17 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 17),LT(foam.core.auth.User.id, 9))"), "Parentheses Test1: The id equal to the value and less than another value with parentheses");
+            x.test(this.isValid(" (id=18 OR id<10) ", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 10))'), "Parentheses Test2: The id equal to the value or less than another value with parentheses");
   
 
 

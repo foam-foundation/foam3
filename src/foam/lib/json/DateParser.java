@@ -33,6 +33,15 @@ public class DateParser
     }
   };
 
+  // Helper method to convert Object[] (from Repeat parser) to char[]
+  private static char[] toCharArray(Object[] objArray) {
+    char[] chars = new char[objArray.length];
+    for ( int i = 0; i < objArray.length; i++ ) {
+      chars[i] = (Character) objArray[i];
+    }
+    return chars;
+  }
+
   public DateParser() {
     super(new Alt(
       NullParser.instance(),
@@ -75,7 +84,18 @@ public class DateParser
           new Seq1(1, Literal.create("."),
           new Repeat(new Chars("0123456789"), null, 3, 3))
         )),
-        new Seq( // YYYY-MM-DD HH:MM:SS || YYYY-MM-DD HH:MM:SS.III
+      // YYYYMMDD HHMMSS (compact format - no delimiters, space between date and time)
+      new Seq(
+        new Repeat(new Chars("0123456789"), null, 4, 4), // 0 - year (4 digits as chars)
+        new Repeat(new Chars("0123456789"), null, 2, 2), // 1 - month (2 digits as chars)
+        new Repeat(new Chars("0123456789"), null, 2, 2), // 2 - day (2 digits as chars)
+        Literal.create(" "),  // 3
+        new Repeat(new Chars("0123456789"), null, 2, 2), // 4 - hr (2 digits as chars)
+        new Repeat(new Chars("0123456789"), null, 2, 2), // 5 - min (2 digits as chars)
+        new Repeat(new Chars("0123456789"), null, 2, 2)  // 6 - sec (2 digits as chars)
+      ),
+      // YYYY-MM-DD (date only)
+      new Seq(
         IntParser.instance(), // 0 - year
         new Alt(  // 1
           Literal.create("-"),
@@ -110,7 +130,29 @@ public class DateParser
     Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     c.clear();
     Object[] milli = null;
+
+    // Check if this is compact format (YYYYMMDD HHMMSS) - result[0] will be char array
+    if ( result.length == 7 && result[0] instanceof Object[] ) {
+      // Compact format: convert char arrays to integers
+      String yearStr = new String(toCharArray((Object[]) result[0]));
+      String monthStr = new String(toCharArray((Object[]) result[1]));
+      String dayStr = new String(toCharArray((Object[]) result[2]));
+      String hourStr = new String(toCharArray((Object[]) result[4]));
+      String minStr = new String(toCharArray((Object[]) result[5]));
+      String secStr = new String(toCharArray((Object[]) result[6]));
+
+      c.set(
+        Integer.parseInt(yearStr),
+        Integer.parseInt(monthStr) - 1, // Java calendar uses zero-indexed months
+        Integer.parseInt(dayStr),
+        Integer.parseInt(hourStr),
+        Integer.parseInt(minStr),
+        Integer.parseInt(secStr));
+      return ps.setValue(c.getTime());
+    }
+
     try {
+      // Format with colons: YYYY-MM-DD HH:MM:SS
       c.set(
         (Integer) result[1],
         (Integer) result[3] - 1, // Java calendar uses zero-indexed months
@@ -121,6 +163,7 @@ public class DateParser
       if ( result[12] == null ) return ps.setValue(c.getTime());
       milli = (Object[]) result[12];
     } catch (Exception e ) {
+      // Date only: YYYY-MM-DD
       c.set(
         (Integer) result[0],
         (Integer) result[2] - 1, // Java calendar uses zero-indexed months

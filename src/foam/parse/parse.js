@@ -62,7 +62,7 @@ foam.INTERFACE({
         },
         {
           // optional
-          name: 'grammar', 
+          name: 'grammar',
           type: 'foam.parse.Grammar'
         }
       ]
@@ -76,12 +76,16 @@ foam.CLASS({
 
   properties: [
     { name: 'text' ,
-      class: 'String' 
+      class: 'String'
     },
     { name: 'label',
-      class: 'String',      
+      class: 'String',
       documentation: 'Label to display in the UI. If not set, text will be used.',
       expression: function(text) { return text; }
+    },
+    { name: 'tooltip',
+      class: 'String',
+      documentation: 'Label to display in the UI as a tooltip, but doesn\'t actually make a concrete text suggestion.'
     },
     { name: 'view',
       class: 'foam.u2.ViewSpec'

@@ -8,7 +8,7 @@ foam.CLASS({
       Before 'query' is changed, the reset() method is called
       The query is parsed and apply() is passed to parseString() so the AutoCompleter
         can be informed of the parsing process.
-      During the parseString(), apply() builds up the maps 'suggestions' 
+      During the parseString(), apply() builds up the maps 'suggestions'
         which are used to make suggestions.
       The render() method re-renders after query has changed to show updated suggestions.
       If the user clicks on a suggestion, it's output is appended to the query.
@@ -18,15 +18,15 @@ foam.CLASS({
     {
       class: 'String',
       name: 'autoQuery',
-      postSet: function() { 
-        this.reset(); 
+      postSet: function() {
+        this.reset();
       }
     },
     {
       class: 'String',
       name: 'normalizedQuery'
     },
-    { 
+    {
       class: 'Boolean',
       name: 'normalize'
     },
@@ -39,7 +39,7 @@ foam.CLASS({
       factory: function() { return {}; }
     },
     {
-      name: 'apply', 
+      name: 'apply',
       factory: function() {
         let self = this;
 
@@ -48,7 +48,7 @@ foam.CLASS({
             if ( p.suggest ) {
               let s = p.suggest();
               if ( s ) {
-                let label = s.text;
+                let label = s.tooltip || s.text;
                 if ( ! ss[label] ) {
                   ss[label] = s;
                 }
@@ -64,7 +64,7 @@ foam.CLASS({
           // 'this' is the JSPStream
 
            //console.log('parsing: ' + self.autoQuery + ' length ' + self.autoQuery.length );
-          
+
           if ( this.pos > self.maxPos ) {
             self.suggestions = {};
             self.maxPos = this.pos;
@@ -72,13 +72,14 @@ foam.CLASS({
 
           if ( this.pos == self.maxPos ) {
             maybeAdd(p, self.suggestions);
-          } 
+          }
 
           let result = p.parse(this, grammar);
 
 
           if ( self.normalize && result && p.suggest ) {
             let s = p.suggest();
+            if ( ! s.text ) return result;
             //console.log('suggestion for ' + this.substring(result) + '->' + s.text + ' at ' + this.pos);
             let prevQuery = self.autoQuery.substring(0, this.pos);
             self.normalizedQuery = prevQuery + s.text + self.autoQuery.substring(this.substring(result).length+this.pos) ;
@@ -108,18 +109,29 @@ foam.CLASS({
       }
       var self = this;
       e.add(this.dynamic(function(autoQuery) {; // re-render when query changes
-        let keys        = Object.keys(self.suggestions);
-        let delta       = autoQuery.substring(self.maxPos);
-        let ss          = keys.sort();
+        let keys   = Object.keys(self.suggestions);
+        let delta  = autoQuery.substring(self.maxPos);
+        let ss     = keys.sort();
 
-        if (delta) ss = ss.filter(k => containsIC(k, delta));
+        if ( delta ) ss = ss.filter(k => containsIC(k, delta));
         if ( ! ss.length ) return;
-        
+
         this.start().style({width: '400px', maxHeight: '500px', border: '1px solid gray', overflowY: 'auto'}).forEach(ss, function(s) {
+          let sug = self.suggestions[s];
+
           this.start('div').
             style({margin: '6px'}).
+            callIfElse(sug.tooltip, function() {
+              this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(sug.tooltip);
+            }, function() {
+              this.on(
+                'click',
+                function() {
+                  self.autoQuery = ( self.autoQuery.substring(0, self.maxPos).trim() + ' ' + s ).trimStart();
+                }).
+                style({cursor: 'pointer'});
+            }).
             add(self.suggestions[s].label).
-            on('click', function() { self.autoQuery = ( self.autoQuery.substring(0, self.maxPos).trim() + ' ' + s ).trimStart();}).  
           end();
         });
       }));
@@ -152,10 +164,10 @@ foam.CLASS({
       name: 'query',
       onKey: true,
       view: function(_, X) {
-          let view = foam.u2.TextField.create();
-          X.data.query$.sub(()=>view.focus());
-          return view;
-      }  
+        let view = foam.u2.TextField.create();
+        X.data.query$.sub(()=>view.focus());
+        return view;
+      }
     },
     {
       name: 'parser',

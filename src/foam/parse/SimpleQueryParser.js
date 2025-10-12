@@ -92,19 +92,19 @@ foam.CLASS({
 
           or: repeat(
               sym('and'),
-              seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('OR'), literal('|')), {text: 'OR'}))), 
+              seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('OR'), literal('|')), {text: 'OR'}))),
             1),
 
           and: repeat(
               sym('expr'),
-              seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {text: 'AND'}))), 
+              seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {text: 'AND'}))),
             1),
 
           expr: alt(
             sym('paren'),
             sym('propPredicates'),
             sym('datePredicates')
-          ),  
+          ),
 
           // opening bracket consumed by propPredicates
           paren: seq1(3, sym('ws'), '(', sym('ws'), sym('query'), sym('ws'), ')'),
@@ -127,7 +127,7 @@ foam.CLASS({
 
           // TODO replace '.' with an internationalized decimal point, add negative number support
           number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), optional('.'), repeat(range('0', '9'))),
-          
+
           compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'), {text: 'IS TRUE'}))),
                               seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE'})))),
 
@@ -146,26 +146,26 @@ foam.CLASS({
             // YYYY-MM-DDTHH:MM:SS.mmmZ
             sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
-                {text: 'YYYY-MM-DDTHH:MM:SS.mmmZ', label: 'ISO date YYYY-MM-DDTHH:MM:SS.mmmZ'}),
+                {tooltip: 'YYYY-MM-DDTHH:MM:SS.mmmZ'}),
             // YYYY-MM-DDTHH:MM
             sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'))
-                , {text: 'YYYY-MM-DDTHH:MM', label: 'ISO date YYYY-MM-DDTHH:MM'}),
+                , {tooltip: 'YYYY-MM-DDTHH:MM'}),
             // YYYY-MM-DDTHH
             sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
                 sym('digits'))
-                , {text: 'YYYY-MM-DDTHH', label: 'ISO date YYYY-MM-DDTHH'}),
+                , {tooltip: 'YYYY-MM-DDTHH'}),
             // YYYY-MM-DD
             sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
-                {text: 'YYYY-MM-DD', label: 'ISO date YYYY-MM-DD'}),
+                {tooltip: 'YYYY-MM-DD'}),
             // YYYY-MM
             sug(seq(sym('digits'), '-', sym('digits')),
-                {text: 'YYYY-MM', label: 'ISO date YYYY-MM'}),
+                {tooltip: 'YYYY-MM'}),
             // YY/MM/DD
             sug(seq(sym('digits'), '/', sym('digits'), '/', sym('digits')),
-                {text: 'YY/MM/DD', label: 'Short date YY/MM/DD'}),
+                {tooltip: 'YY/MM/DD'}),
             // YYYY or YY
-            sug(seq(sym('digits')), {text: 'YYYY', label: 'Year YYYY'}),  
+            sug(seq(sym('digits')), {tooltip: 'YYYY'}),
           ),
 
           // TODAY[±n]
@@ -187,14 +187,14 @@ foam.CLASS({
                     seq(operatorIn('IN RANGE'), sym('range date')),
                     seq(operatorIn('NOT IN RANGE'), sym('range date')),
                     seq(operator('IS EMPTY')),
-                    seq(operator('IS NOT EMPTY'))),        
+                    seq(operator('IS NOT EMPTY'))),
         };
       }
     },
     {
       name: 'propertiesGrammar_',
       value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
-        repeat, repeat0, seq, seq1, str, sug, sym, until) { 
+        repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
         let cls    = this.of;
         let propPredicates = [];
@@ -202,8 +202,8 @@ foam.CLASS({
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
         let operatorIn = this.operatorIn;
-        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name, label: prop.label})); 
-  
+        let property = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name, label: prop.label}));
+
         for ( var i = 0 ; i < props.length ; i++ ) {
 
           let prop = props[i];
@@ -212,46 +212,46 @@ foam.CLASS({
 
           if (foam.lang.Int.isInstance(prop) || foam.lang.Float.isInstance(prop)) {
 
-            propPredicates.push(seq(property(prop), sym('compareNumber')));     
-          } else if (foam.lang.Boolean.isInstance(prop)) { 
+            propPredicates.push(seq(property(prop), sym('compareNumber')));
+          } else if (foam.lang.Boolean.isInstance(prop)) {
 
-            propPredicates.push(seq(property(prop), sym('compareBoolean')));    
-          } 
+            propPredicates.push(seq(property(prop), sym('compareBoolean')));
+          }
           else if ( foam.lang.Enum.isInstance(prop) ) {
 
-            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: v})); 
+            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: v}));
             let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
             let enumArray  = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
-       
+
             let compareEnum = action(
                                     alt(seq(operator('='), enumValue),
                                         seq(operator('!='), enumValue),
                                         seq(operatorIn('IN'), enumArray),
-                                        seq(operatorIn('NOT IN'), enumArray)), 
+                                        seq(operatorIn('NOT IN'), enumArray)),
                                     function(v) {
                                         return {
                                           operator: v[0],
                                           value: v[1]
                                         };
                                     });
-    
+
             propPredicates.push(seq(property(prop), compareEnum));
           }
           else if (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop)) {
-            datePredicates.push(seq(property(prop), sym('compareDate'))); 
+            datePredicates.push(seq(property(prop), sym('compareDate')));
           }
-        } 
+        }
         // return the properties grammar map
-        return {propPredicates: alt.apply(null, propPredicates), datePredicates: alt.apply(null, datePredicates)};       
+        return {propPredicates: alt.apply(null, propPredicates), datePredicates: alt.apply(null, datePredicates)};
       }
-    },  
+    },
     {
       name: 'grammar_',
       factory: function() {
-       
+
 
         let base = foam.Function.withArgs(this.baseGrammar_, this.Parsers.create(), this);
-        let properties = foam.Function.withArgs(this.propertiesGrammar_, this.Parsers.create(), this); 
+        let properties = foam.Function.withArgs(this.propertiesGrammar_, this.Parsers.create(), this);
 
         let grammar = {
           __proto__: base,
@@ -270,7 +270,7 @@ foam.CLASS({
 
           and: function(v) {
             return self.And.create({ args: v });
-          },  
+          },
 
           number: function(v) {
             return parseInt(v.join(''));
@@ -284,7 +284,7 @@ foam.CLASS({
             return {operator: 'IS',
                     value: v[1].toLowerCase().endsWith('true') ? true : false // redundant but clearer
             }
-          },  
+          },
 
           compareNumber: function(v) {
             return {
@@ -311,7 +311,7 @@ foam.CLASS({
           // Date formats:
           // YYYY-MM-DDTHH:MM, YYYY-MM-DDTHH, YYYY-MM-DD, YYYY-MM, YY/MM/DD, YYYY
           'literal date': function(v) {
-        
+
             let values = v.filter((x, i) => i % 2 === 0); // remove separators
             if (values[0] < 100) values[0] = values[0] + 2000; // convert 2-digit year to 4-digit
             if (values[1]) values[1] = values[1] - 1; // month is zero-based
@@ -339,18 +339,18 @@ foam.CLASS({
           'range date': function(v) {
             return [ v[0][0], v[1][1] ]; // [start of first, end of second]
           },
-    
+
           propPredicates: function(v) {
             let prop   = v[0];
             let operator = v[1].operator;
             let value    = v[1].value;
 
             switch (operator) {
-              case '=': 
+              case '=':
                 return self.Eq.create({ arg1: prop, arg2: value});
               case '!=':
                 return self.Neq.create({arg1: prop, arg2: value});
-              case '>=':  
+              case '>=':
                 return self.Gte.create({arg1: prop, arg2: value});
               case '>':
                 return self.Gt.create({arg1: prop, arg2: value});
@@ -364,17 +364,17 @@ foam.CLASS({
                 return self.Not.create({arg1: self.In.create({arg1: prop, arg2: value})});
               case 'IS':
                 return self.Eq.create({ arg1: prop, arg2: value});
-        
+
             }
-          },   
+          },
           datePredicates: function(v) {
 
             let prop   = v[0];
             let operator = v[1].operator;
             let value    = v[1].value;
-  
+
             switch (operator) {
-              case '=': 
+              case '=':
               case 'IN RANGE':
                 return self.And.create({
                   args: [
@@ -382,13 +382,13 @@ foam.CLASS({
                     self.Lt.create({ arg1: prop, arg2: value.end })]
                   });
               case '!=':
-              case 'NOT IN RANGE':  
+              case 'NOT IN RANGE':
                 return self.And.create({
                   args: [
                     self.Gte.create({ arg1: prop, arg2: value.end }),
                     self.Lt.create({ arg1: prop, arg2: value.start })]
                   });
-              case '>=':  
+              case '>=':
                 return self.Gte.create({arg1: prop, arg2: value.start});
               case '>':
                 return self.Gt.create({arg1: prop, arg2: value.end});
@@ -401,7 +401,7 @@ foam.CLASS({
               case 'IS NOT EMPTY':
                 return self.Has.create({ arg1: prop });
             }
-          },   
+          },
         };
 
         let g = this.Grammar.create({
@@ -423,6 +423,3 @@ foam.CLASS({
     }
   ]
 });
-
-
-

@@ -148,13 +148,11 @@ foam.CLASS({
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
                 {tooltip: 'YYYY-MM-DDTHH:MM:SS.mmmZ'}),
             // YYYY-MM-DDTHH:MM
-            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
-                sym('digits'), ':', sym('digits'))
-                , {tooltip: 'YYYY-MM-DDTHH:MM'}),
+            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T', sym('digits'), ':', sym('digits')),
+                {tooltip: 'YYYY-MM-DDTHH:MM'}),
             // YYYY-MM-DDTHH
-            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
-                sym('digits'))
-                , {tooltip: 'YYYY-MM-DDTHH'}),
+            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T', sym('digits')),
+                {tooltip: 'YYYY-MM-DDTHH'}),
             // YYYY-MM-DD
             sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
                 {tooltip: 'YYYY-MM-DD'}),

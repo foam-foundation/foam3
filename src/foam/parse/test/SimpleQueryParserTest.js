@@ -29,7 +29,7 @@ foam.CLASS({
 
             // Date format tests
             x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Date Test1: ISO date YYYY-MM-DD');
-            x.test(this.isValidSymbol('date', '25/01/01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Date Test2: short date YY/MM/DD');
+            x.test(this.isValidSymbol('date', '25/10/01', [testDate([2025, 9, 1]), testDate([2025, 9, 2])].toString()), 'Date Test2: short date YY/MM/DD');
             x.test(this.isValidSymbol('date', 'TODAY', [testToday(0), testToday(1)].toString()), 'Date Test3: TODAY');
             x.test(this.isValidSymbol('date', 'TODAY+5', [testToday(5), testToday(6)].toString()), 'Date Test4: TODAY+5');
             x.test(this.isValidSymbol('date', 'TODAY-2', [testToday(-2), testToday(-1)].toString()), 'Date Test5: TODAY-2');
@@ -59,6 +59,15 @@ foam.CLASS({
             x.test(this.isValid('lastLogin IS NOT EMPTY', 
                     'HAS(foam.core.auth.User.lastLogin)'), 
                     'Date Test13: Date is not empty');
+
+            // Combined date tests
+            x.test(this.isValid('birthday IN RANGE (2025-03-31, 2025-04-30) AND lastLogin IS EMPTY', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
+                    'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 2, 31, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 4, 1, 12]).toString() + '),NOT(HAS(foam.core.auth.User.lastLogin)))'), 
+                    'Date Test14: Date AND query');        
+            x.test(this.isValid('birthday NOT IN RANGE (2025-03-31, 2025-04-30) OR lastLogin IS NOT EMPTY', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
+                    'OR(AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 4, 1, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 2, 31, 12]).toString() + ')),HAS(foam.core.auth.User.lastLogin))'), 
+                    'Date Test14: Date OR query');
+
 
             // Number symbol tests
             x.test(this.isValidSymbol('number', "11",     "11"), "Number Test1: The number is 11");

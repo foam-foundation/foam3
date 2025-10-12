@@ -144,20 +144,28 @@ foam.CLASS({
 
           'literal date': alt(
             // YYYY-MM-DDTHH:MM:SS.mmmZ
-            seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
+                {text: 'YYYY-MM-DDTHH:MM:SS.mmmZ', label: 'ISO date YYYY-MM-DDTHH:MM:SS.mmmZ'}),
             // YYYY-MM-DDTHH:MM
-            seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
-                sym('digits'), ':', sym('digits')),
+            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'))
+                , {text: 'YYYY-MM-DDTHH:MM', label: 'ISO date YYYY-MM-DDTHH:MM'}),
             // YYYY-MM-DDTHH
-            seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
-                sym('digits')),
+            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+                sym('digits'))
+                , {text: 'YYYY-MM-DDTHH', label: 'ISO date YYYY-MM-DDTHH'}),
             // YYYY-MM-DD
-            seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
+            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
+                {text: 'YYYY-MM-DD', label: 'ISO date YYYY-MM-DD'}),
             // YYYY-MM
-            seq(sym('digits'), '-', sym('digits')),
+            sug(seq(sym('digits'), '-', sym('digits')),
+                {text: 'YYYY-MM', label: 'ISO date YYYY-MM'}),
             // YY/MM/DD
-            seq(sym('digits'), '/', sym('digits'), '/', sym('digits'))
+            sug(seq(sym('digits'), '/', sym('digits'), '/', sym('digits')),
+                {text: 'YY/MM/DD', label: 'Short date YY/MM/DD'}),
+            // YYYY or YY
+            sug(seq(sym('digits')), {text: 'YYYY', label: 'Year YYYY'}),  
           ),
 
           // TODAY[±n]

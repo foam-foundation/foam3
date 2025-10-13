@@ -142,27 +142,25 @@ foam.CLASS({
             )
           ),
 
+          // IMPORTANT: order matters, put more complex first
           'literal date': alt(
-            // YYYY-MM-DDTHH:MM:SS.mmmZ
-            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T',
+            // YYYY-MM-DDTHH:MM:SS.mmmZ (or YY)
+            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
-                {tooltip: 'YYYY-MM-DDTHH:MM:SS.mmmZ'}),
-            // YYYY-MM-DDTHH:MM
-            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T', sym('digits'), ':', sym('digits')),
-                {tooltip: 'YYYY-MM-DDTHH:MM'}),
-            // YYYY-MM-DDTHH
-            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits'), 'T', sym('digits')),
-                {tooltip: 'YYYY-MM-DDTHH'}),
-            // YYYY-MM-DD
-            sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
-                {tooltip: 'YYYY-MM-DD'}),
-            // YYYY-MM
-            sug(seq(sym('digits'), '-', sym('digits')),
-                {tooltip: 'YYYY-MM'}),
-            // YY/MM/DD
-            sug(seq(sym('digits'), '/', sym('digits'), '/', sym('digits')),
-                {tooltip: 'YY/MM/DD'}),
-            // YYYY or YY
+                {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmmZ'}),
+            // YYYY-MM-DDTHH:MM (or YY)
+            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T', sym('digits'), ':', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH:MM'}),
+            // YYYY-MM-DDTHH (or YY)
+            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH'}),
+            // YYYY-MM-DD (or YY)
+            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits')),
+                {tooltip: 'YYYY/MM/DD'}),
+            // YYYY-MM (or YY)
+            sug(seq(sym('digits'), anyChar('-/'), sym('digits')),
+                {tooltip: 'YYYY/MM'}),
+            // YYYY (or YY)
             sug(seq(sym('digits')), {tooltip: 'YYYY'}),
           ),
 

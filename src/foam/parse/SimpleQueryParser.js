@@ -111,7 +111,6 @@ foam.CLASS({
 
           ws: repeat0(' '),
 
-
           compareNumber: alt(seq(operator('>='), sym('number')),
                              seq(operator('>'), sym('number')),
                              seq(operator('<='), sym('number')),
@@ -125,15 +124,13 @@ foam.CLASS({
 
           numbers: repeat(sym('number'), ',', 1),
 
+          digits: repeat(range('0', '9'), null, 1),
+
           // TODO replace '.' with an internationalized decimal point, add negative number support
-          number: seq1(1, sym('ws'), repeat(range('0', '9'), null, 1), optional('.'), repeat(range('0', '9'))),
+          number: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits')))),
 
           compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'), {text: 'IS TRUE'}))),
                               seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE'})))),
-
-          //dateRange: seq1(1, sym('ws'), sym('date'), ',', sym('date'), ')'),
-
-          digits: repeat(range('0', '9'), null, 1),
 
           date: seq1(1, sym('ws'),
             alt(
@@ -184,6 +181,10 @@ foam.CLASS({
                     seq(operatorIn('NOT IN RANGE'), sym('range date')),
                     seq(operator('IS EMPTY')),
                     seq(operator('IS NOT EMPTY'))),
+
+          // TODO replace '.' with an internationalized decimal point, or have the input preprocessed            
+          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), '.', sym('digits')))),
+
         };
       }
     },
@@ -269,7 +270,7 @@ foam.CLASS({
           },
 
           number: function(v) {
-            return parseInt(v.join(''));
+            return parseInt(v.trim());
           },
 
           digits: function(v) {

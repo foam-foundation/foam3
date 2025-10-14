@@ -70,20 +70,22 @@ foam.CLASS({
 
 
             // Number symbol tests
-            x.test(this.isValidSymbol('number', "11",     "11"), "Number Test1: The number is 11");
+            x.test(this.isValidSymbol('number', "11", "11"), "Number Test1: The number is 11");
             x.test(this.isValidSymbol('numbers', "1, 2, 3", "1,2,3"), "Number Test2: The numbers 1, 2, 3");
-            x.test(this.isValidSymbol('numberArray', "1)",     "1"), "Number Test3: The number array (1)");  
-            x.test(this.isValidSymbol('numberArray', "1,2, 3)", "1,2,3"), "Number Test4: The number array (1,2,3)");
+            x.test(this.isValidSymbol('number', "-113", "-113"), "Number Test3: The negative number is -113");
+            x.test(this.isValidSymbol('numbers', "1, -2, 33", "1,-2,33"), "Number Test4: The mixed numbers 1, -2, 33");
+            x.test(this.isValidSymbol('numberArray', "1)", "1"), "Number Test5: The number array (1)");  
+            x.test(this.isValidSymbol('numberArray', "1,2, 3)", "1,2,3"), "Number Test6: The number array (1,2,3)");
 
             // Number properties tests
-            x.test(this.isValid("id = 6", "EQ(foam.core.auth.User.id, 6)"), "Number Test5: The id equal to the value");
-            x.test(this.isValid("id!=6", "NEQ(foam.core.auth.User.id, 6)"), "Number Test6: The id not equal to the value");
-            x.test(this.isValid("id>6", "GT(foam.core.auth.User.id, 6)"), "Number Test7: The id greater than the value");
-            x.test(this.isValid("id>=6", "GTE(foam.core.auth.User.id, 6)"), "Number Test8: The id greater than or equal to the value");
-            x.test(this.isValid("id<6", "LT(foam.core.auth.User.id, 6)"), "Number Test9: The id less than the value");
-            x.test(this.isValid("id<=6", "LTE(foam.core.auth.User.id, 6)"), "Number Test10: The id less than or equal to the value");
-            x.test(this.isValid("id IN (6,7,8)", "IN(foam.core.auth.User.id, [6, 7, 8])"), "Number Test11: The id exactly matches any of the listed values");
-            x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Number Test12: The id does not exactly match any of the listed values');
+            x.test(this.isValid("id = 6", "EQ(foam.core.auth.User.id, 6)"), "Number Test7: The id equal to the value");
+            x.test(this.isValid("id!=6", "NEQ(foam.core.auth.User.id, 6)"), "Number Test8: The id not equal to the value");
+            x.test(this.isValid("id>6", "GT(foam.core.auth.User.id, 6)"), "Number Test9: The id greater than the value");
+            x.test(this.isValid("id>=6", "GTE(foam.core.auth.User.id, 6)"), "Number Test10: The id greater than or equal to the value");
+            x.test(this.isValid("id<6", "LT(foam.core.auth.User.id, 6)"), "Number Test11: The id less than the value");
+            x.test(this.isValid("id<=6", "LTE(foam.core.auth.User.id, 6)"), "Number Test12: The id less than or equal to the value");
+            x.test(this.isValid("id IN (6,7,8)", "IN(foam.core.auth.User.id, [6, 7, 8])"), "Number Test13: The id exactly matches any of the listed values");
+            x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Number Test14: The id does not exactly match any of the listed values');
 
             // Number combined properties tests
             x.test(this.isValid("id=16 AND id<9", "AND(EQ(foam.core.auth.User.id, 16),LT(foam.core.auth.User.id, 9))"), "Number Test13: The id equal to the value and less than another value");

@@ -23,7 +23,6 @@ foam.CLASS({
 
   imports: [
     'userDAO',
-    'notify',
     'sessionDAO'
   ],
 
@@ -234,6 +233,7 @@ foam.CLASS({
         return id && status !== 'CLOSED';
       },
       isEnabled: async function(id) {
+        // check if has a comment
         var comments = (await this.ticketCommentDAO
           .where(this.EQ(this.TicketComment.TICKET, this.id))
           .limit(1)
@@ -241,16 +241,6 @@ foam.CLASS({
         return !! (comments && comments[0]?.comment);
       },
       code: async function(X) {
-        // check if has a comment
-        var comments = (await this.ticketCommentDAO
-          .where(this.EQ(this.TicketComment.TICKET, this.id))
-          .limit(1)
-          .select()).array;
-        if ( ! comments || ! comments[0]?.comment ) {
-          this.notify(this.COMMENT_REQUIRED, '', this.LogLevel.ERROR, true);
-          return;
-        }
-
         var ticket = this.clone();
         ticket.status = "CLOSED";
 

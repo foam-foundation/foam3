@@ -240,7 +240,7 @@ foam.CLASS({
           .select()).array;
         return !! (comments && comments[0]?.comment);
       },
-      code: async function(X) {
+      code: function(X) {
         var ticket = this.clone();
         ticket.status = "CLOSED";
 

@@ -29,7 +29,8 @@ foam.CLASS({
 
   requires: [
     'foam.core.auth.User',
-    'foam.core.session.Session'
+    'foam.core.session.Session',
+    'foam.core.ticket.TicketComment'
   ],
 
   messages: [
@@ -232,10 +233,17 @@ foam.CLASS({
       isAvailable: function(status, id) {
         return id && status !== 'CLOSED';
       },
+      isEnabled: async function(id) {
+        var comments = (await this.ticketCommentDAO
+          .where(this.EQ(this.TicketComment.TICKET, this.id))
+          .limit(1)
+          .select()).array;
+        return !! (comments && comments[0]?.comment);
+      },
       code: async function(X) {
         // check if has a comment
-        var comments = (await X.ticketCommentDAO
-          .where(this.EQ(foam.core.ticket.TicketComment.TICKET, this.id))
+        var comments = (await this.ticketCommentDAO
+          .where(this.EQ(this.TicketComment.TICKET, this.id))
           .limit(1)
           .select()).array;
         if ( ! comments || ! comments[0]?.comment ) {

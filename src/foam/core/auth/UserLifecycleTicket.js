@@ -32,10 +32,6 @@ foam.CLASS({
     'foam.core.ticket.TicketComment'
   ],
 
-  messages: [
-    { name: 'COMMENT_REQUIRED', message: 'Comment required.' }
-  ],
-
   properties: [
     {
       name: 'status',

@@ -13,6 +13,7 @@ foam.CLASS({
   implements: [
     'foam.core.auth.CreatedAware',
     'foam.core.auth.CreatedByAware',
+    'foam.core.auth.EnabledAware',
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
     'foam.core.auth.LastModifiedByAgentNameAware'
@@ -586,6 +587,15 @@ foam.CLASS({
       class: 'Boolean',
       name: 'canRetry',
       hidden: true
+    },
+    {
+      class: 'Boolean',
+      name: 'enabled',
+      value: true,
+      section: 'approvalRequestInformation',
+      order: 130,
+      gridColumns: 6,
+      visibility: 'RO'
     }
   ],
 
@@ -744,7 +754,8 @@ foam.CLASS({
     {
       name: 'approve',
       section: 'approvalRequestInformation',
-      isAvailable: function(isTrackingRequest, status, subject, assignedTo) {
+      isAvailable: function(enabled, isTrackingRequest, status, subject, assignedTo) {
+        if ( ! enabled ) return false;
         if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         if ( assignedTo !== 0 && subject.realUser.id !== assignedTo ) return false;
         return ! isTrackingRequest;
@@ -760,7 +771,8 @@ foam.CLASS({
       name: 'approveWithMemo',
       tableWidth: 175,
       section: 'approvalRequestInformation',
-      isAvailable: function(isTrackingRequest, status, subject, assignedTo) {
+      isAvailable: function(enabled, isTrackingRequest, status, subject, assignedTo) {
+        if ( ! enabled ) return false;
         if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         if ( assignedTo !== 0 && subject.realUser.id !== assignedTo ) return false;
         return ! isTrackingRequest;
@@ -777,7 +789,8 @@ foam.CLASS({
     {
       name: 'addMemo',
       section: 'approvalRequestInformation',
-      isAvailable: function(isTrackingRequest, status) {
+      isAvailable: function(enabled, isTrackingRequest, status) {
+        if ( ! enabled ) return false;
         if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         return ! isTrackingRequest;
       },
@@ -794,7 +807,8 @@ foam.CLASS({
     {
       name: 'retry',
       section: 'approvalRequestInformation',
-      isAvailable: async function(isTrackingRequest, status, subject, assignedTo, canRetry) {
+      isAvailable: async function(enabled, isTrackingRequest, status, subject, assignedTo, canRetry) {
+        if ( ! enabled ) return false;
         if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         if ( assignedTo !== 0 && subject.realUser.id !== assignedTo ) return false;
 
@@ -818,7 +832,8 @@ foam.CLASS({
     {
       name: 'reject',
       section: 'approvalRequestInformation',
-      isAvailable: function(isTrackingRequest, status, subject, assignedTo) {
+      isAvailable: function(enabled, isTrackingRequest, status, subject, assignedTo) {
+        if ( ! enabled ) return false;
         if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         if ( assignedTo !== 0 && subject.realUser.id !== assignedTo ) return false;
         return ! isTrackingRequest;
@@ -835,7 +850,8 @@ foam.CLASS({
     {
       name: 'cancel',
       section: 'approvalRequestInformation',
-      isAvailable: function(isTrackingRequest, status, subject, assignedTo) {
+      isAvailable: function(enabled, isTrackingRequest, status, subject, assignedTo) {
+        if ( ! enabled ) return false;
         if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         if ( assignedTo !== 0 && subject.realUser.id !== assignedTo ) return false;
         return isTrackingRequest;
@@ -965,7 +981,8 @@ foam.CLASS({
     {
       name: 'assign',
       section: 'approvalRequestInformation',
-      isAvailable: function(status){
+      isAvailable: function(enabled, status){
+        if ( ! enabled ) return false;
         return status === this.ApprovalStatus.REQUESTED;
       },
       availablePermissions: [
@@ -987,7 +1004,8 @@ foam.CLASS({
     {
       name: 'assignToMe',
       section: 'approvalRequestInformation',
-      isAvailable: function(subject, assignedTo, status){
+      isAvailable: function(enabled, subject, assignedTo, status){
+        if ( ! enabled ) return false;
         return (subject.user.id !== assignedTo) && (status === this.ApprovalStatus.REQUESTED);
       },
       code: function(X) {
@@ -999,7 +1017,8 @@ foam.CLASS({
     {
       name: 'unassignMe',
       section: 'approvalRequestInformation',
-      isAvailable: function(subject, assignedTo, status){
+      isAvailable: function(enabled, subject, assignedTo, status){
+        if ( ! enabled ) return false;
         return (subject.user.id === assignedTo) && (status === this.ApprovalStatus.REQUESTED);
       },
       code: function(X) {

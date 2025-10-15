@@ -24,6 +24,8 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.Sink',
     'static foam.mlang.MLang.*',
+    'foam.core.approval.ApprovalRequest',
+    'foam.core.approval.ApprovalStatus',
     'foam.core.session.Session',
     'foam.core.crunch.UserCapabilityJunction',
     'foam.core.logger.Logger',
@@ -143,7 +145,7 @@ foam.CLASS({
       updateReferralCodes(x, user, state);
       updatePushRegistrations(x, user, state);
       updateDocuments(x, user, state);
-      // TODO: updateApprovalRequests(x, user, state);
+      updateApprovalRequests(x, user, state);
       `
     },
     {
@@ -212,5 +214,17 @@ foam.CLASS({
         new UserLifecycleTicketSink(x, state, "pushRegistrationDAO"));
       `
     },
+    {
+      name: 'updateApprovalRequests',
+      args: 'X x, User user, LifecycleState state',
+      javaCode: `
+      ((DAO) x.get("approvalRequestDAO")).where(
+        AND(
+          EQ(ApprovalRequest.CREATED_FOR, user.getId()),
+          EQ(ApprovalRequest.STATUS, ApprovalStatus.REQUESTED)
+        ))
+      .select(new UserLifecycleTicketSink(x, state, "approvalRequestDAO"));
+      `
+    }
   ]
 });

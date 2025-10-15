@@ -23,12 +23,17 @@ foam.CLASS({
 
   imports: [
     'userDAO',
+    'notify',
     'sessionDAO'
   ],
 
   requires: [
     'foam.core.auth.User',
     'foam.core.session.Session'
+  ],
+
+  messages: [
+    { name: 'COMMENT_REQUIRED', message: 'Comment required.' }
   ],
 
   properties: [
@@ -54,6 +59,7 @@ foam.CLASS({
     },
     {
       name: 'comment',
+      section: 'infoSection',
       order: 6
     },
     {
@@ -226,7 +232,17 @@ foam.CLASS({
       isAvailable: function(status, id) {
         return id && status !== 'CLOSED';
       },
-      code: function(X) {
+      code: async function(X) {
+        // check if has a comment
+        var comments = (await X.ticketCommentDAO
+          .where(this.EQ(foam.core.ticket.TicketComment.TICKET, this.id))
+          .limit(1)
+          .select()).array;
+        if ( ! comments || ! comments[0]?.comment ) {
+          this.notify(this.COMMENT_REQUIRED, '', this.LogLevel.ERROR, true);
+          return;
+        }
+
         var ticket = this.clone();
         ticket.status = "CLOSED";
 

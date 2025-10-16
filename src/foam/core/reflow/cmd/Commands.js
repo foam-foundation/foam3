@@ -354,7 +354,7 @@ foam.CLASS({
       var count = foam.lang.SimpleSlot.create({value: 0});
       if ( opt_nameQuery ) dao = dao.where(
         this.OR(
-          this.CONTAINS_IC(this.Script.SCRIPT_NAME, opt_nameQuery),
+          this.CONTAINS_IC(foam.core.reflow.Script.SCRIPT_NAME, opt_nameQuery),
         ));
       this.out.tag('br');
       this.out.start('table').attr('width', '100%').
@@ -457,11 +457,7 @@ foam.CLASS({
       let script = null;
       try {
         // Try exact match on scriptName field
-        const result = await this.reflowLibDAO
-          .where(this.EQ(foam.core.reflow.Script.SCRIPT_NAME, scriptName))
-          .limit(1)
-          .select();
-        script = result && result.array && result.array[0];
+        script = await this.reflowLibDAO.find(this.EQ(foam.core.reflow.Script.SCRIPT_NAME, scriptName));
       } catch (e) {}
 
       if ( ! script ) {

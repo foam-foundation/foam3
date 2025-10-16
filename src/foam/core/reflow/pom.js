@@ -50,6 +50,7 @@ foam.POM({
     { name: 'DynamicReflowComponents', flags: 'js' },
     { name: 'DynamicReflowHelp',       flags: 'js' },
     { name: 'Script',                  flags: 'js|java' },
+    { name: 'LibraryScript',           flags: 'js|java' },
     { name: 'Signature',               flags: 'js' },
     { name: 'SinkView',                flags: 'js' },
     { name: 'CopyFromBorder',          flags: 'js' },

@@ -76,6 +76,16 @@ foam.CLASS({
         DateServiceTest_dateToLocalDate_2Params();
         DateServiceTest_dateToLocalDateTime_1Param();
         DateServiceTest_dateToLocalDateTime_2Params();
+        DateServiceTest_parseDateTimeString_ISO8601_Full();
+        DateServiceTest_parseDateTimeString_ISO8601_Short();
+        DateServiceTest_parseDateTimeString_ISO8601_Milliseconds();
+        DateServiceTest_parseDateTimeString_US_Format_Full();
+        DateServiceTest_parseDateTimeString_US_Format_Short();
+        DateServiceTest_parseDateTimeString_Compact_Format();
+        DateServiceTest_parseDateTimeString_Invalid_Time();
+        DateServiceTest_parseDateTimeString_Time_Boundaries();
+        DateServiceTest_parseDateTimeString_UnsupportedFormat();
+        DateServiceTest_parseDateTimeString_Empty();
       `
     },
     {
@@ -689,6 +699,215 @@ foam.CLASS({
           test(cal.get(Calendar.MONTH) == 2, "adapt(\\"" + format + "\\") - month is March (2)");
           test(cal.get(Calendar.DAY_OF_MONTH) == 15, "adapt(\\"" + format + "\\") - day is 15");
           test(cal.get(Calendar.HOUR_OF_DAY) == 12, "adapt(\\"" + format + "\\") - normalized to noon GMT");
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_ISO8601_Full',
+      javaCode: `
+        try {
+          // Test YYYY-MM-DDTHH:MM:SS
+          Date date1 = getDateService().parseDateTimeString(getX(), "2024-03-15T14:30:45");
+          Calendar cal1 = Calendar.getInstance();
+          cal1.setTime(date1);
+          test(cal1.get(Calendar.YEAR) == 2024, "ISO8601 full - year is 2024");
+          test(cal1.get(Calendar.MONTH) == 2, "ISO8601 full - month is March (2)");
+          test(cal1.get(Calendar.DAY_OF_MONTH) == 15, "ISO8601 full - day is 15");
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "ISO8601 full - hour is 14");
+          test(cal1.get(Calendar.MINUTE) == 30, "ISO8601 full - minute is 30");
+          test(cal1.get(Calendar.SECOND) == 45, "ISO8601 full - second is 45");
+
+          // Test YYYY-MM-DD HH:MM:SS (space separator)
+          Date date2 = getDateService().parseDateTimeString(getX(), "2024-03-15 14:30:45");
+          Calendar cal2 = Calendar.getInstance();
+          cal2.setTime(date2);
+          test(cal2.get(Calendar.YEAR) == 2024, "ISO8601 space - year is 2024");
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "ISO8601 space - hour is 14");
+          test(cal2.get(Calendar.MINUTE) == 30, "ISO8601 space - minute is 30");
+          test(cal2.get(Calendar.SECOND) == 45, "ISO8601 space - second is 45");
+        } catch ( Exception e ) {
+          test(false, "ISO8601 full format should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_ISO8601_Short',
+      javaCode: `
+        try {
+          // Test YYYY-MM-DDTHH:MM
+          Date date1 = getDateService().parseDateTimeString(getX(), "2024-03-15T14:30");
+          Calendar cal1 = Calendar.getInstance();
+          cal1.setTime(date1);
+          test(cal1.get(Calendar.YEAR) == 2024, "ISO8601 short - year is 2024");
+          test(cal1.get(Calendar.MONTH) == 2, "ISO8601 short - month is March (2)");
+          test(cal1.get(Calendar.DAY_OF_MONTH) == 15, "ISO8601 short - day is 15");
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "ISO8601 short - hour is 14");
+          test(cal1.get(Calendar.MINUTE) == 30, "ISO8601 short - minute is 30");
+          test(cal1.get(Calendar.SECOND) == 0, "ISO8601 short - second defaults to 0");
+
+          // Test YYYY-MM-DD HH:MM (space separator)
+          Date date2 = getDateService().parseDateTimeString(getX(), "2024-03-15 14:30");
+          Calendar cal2 = Calendar.getInstance();
+          cal2.setTime(date2);
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "ISO8601 short space - hour is 14");
+          test(cal2.get(Calendar.MINUTE) == 30, "ISO8601 short space - minute is 30");
+          test(cal2.get(Calendar.SECOND) == 0, "ISO8601 short space - second defaults to 0");
+        } catch ( Exception e ) {
+          test(false, "ISO8601 short format should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_ISO8601_Milliseconds',
+      javaCode: `
+        try {
+          // Test YYYY-MM-DDTHH:MM:SS.sss
+          Date date = getDateService().parseDateTimeString(getX(), "2024-03-15T14:30:45.123");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          test(cal.get(Calendar.YEAR) == 2024, "ISO8601 with ms - year is 2024");
+          test(cal.get(Calendar.MONTH) == 2, "ISO8601 with ms - month is March (2)");
+          test(cal.get(Calendar.DAY_OF_MONTH) == 15, "ISO8601 with ms - day is 15");
+          test(cal.get(Calendar.HOUR_OF_DAY) == 14, "ISO8601 with ms - hour is 14");
+          test(cal.get(Calendar.MINUTE) == 30, "ISO8601 with ms - minute is 30");
+          test(cal.get(Calendar.SECOND) == 45, "ISO8601 with ms - second is 45");
+          test(cal.get(Calendar.MILLISECOND) == 123, "ISO8601 with ms - millisecond is 123");
+        } catch ( Exception e ) {
+          test(false, "ISO8601 with milliseconds should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_US_Format_Full',
+      javaCode: `
+        try {
+          // Test MM/DD/YYYY HH:MM:SS
+          Date date = getDateService().parseDateTimeString(getX(), "03/15/2024 14:30:45");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          test(cal.get(Calendar.YEAR) == 2024, "US format full - year is 2024");
+          test(cal.get(Calendar.MONTH) == 2, "US format full - month is March (2)");
+          test(cal.get(Calendar.DAY_OF_MONTH) == 15, "US format full - day is 15");
+          test(cal.get(Calendar.HOUR_OF_DAY) == 14, "US format full - hour is 14");
+          test(cal.get(Calendar.MINUTE) == 30, "US format full - minute is 30");
+          test(cal.get(Calendar.SECOND) == 45, "US format full - second is 45");
+        } catch ( Exception e ) {
+          test(false, "US format full should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_US_Format_Short',
+      javaCode: `
+        try {
+          // Test MM/DD/YYYY HH:MM
+          Date date = getDateService().parseDateTimeString(getX(), "03/15/2024 14:30");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          test(cal.get(Calendar.YEAR) == 2024, "US format short - year is 2024");
+          test(cal.get(Calendar.MONTH) == 2, "US format short - month is March (2)");
+          test(cal.get(Calendar.DAY_OF_MONTH) == 15, "US format short - day is 15");
+          test(cal.get(Calendar.HOUR_OF_DAY) == 14, "US format short - hour is 14");
+          test(cal.get(Calendar.MINUTE) == 30, "US format short - minute is 30");
+          test(cal.get(Calendar.SECOND) == 0, "US format short - second defaults to 0");
+        } catch ( Exception e ) {
+          test(false, "US format short should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_Compact_Format',
+      javaCode: `
+        try {
+          // Test YYYYMMDDHHMMSS
+          Date date = getDateService().parseDateTimeString(getX(), "20240315143045");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          test(cal.get(Calendar.YEAR) == 2024, "Compact format - year is 2024");
+          test(cal.get(Calendar.MONTH) == 2, "Compact format - month is March (2)");
+          test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Compact format - day is 15");
+          test(cal.get(Calendar.HOUR_OF_DAY) == 14, "Compact format - hour is 14");
+          test(cal.get(Calendar.MINUTE) == 30, "Compact format - minute is 30");
+          test(cal.get(Calendar.SECOND) == 45, "Compact format - second is 45");
+        } catch ( Exception e ) {
+          test(false, "Compact format should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_Invalid_Time',
+      javaCode: `
+        try {
+          getDateService().parseDateTimeString(getX(), "2024-03-15T25:00:00");
+          test(false, "Invalid hour (25) should throw exception");
+        } catch ( RuntimeException e ) {
+          test(e.getMessage().contains("Cannot parse invalid datetime"), "Invalid hour throws correct error");
+        }
+
+        try {
+          getDateService().parseDateTimeString(getX(), "2024-03-15T14:60:00");
+          test(false, "Invalid minute (60) should throw exception");
+        } catch ( RuntimeException e ) {
+          test(e.getMessage().contains("Cannot parse invalid datetime"), "Invalid minute throws correct error");
+        }
+
+        try {
+          getDateService().parseDateTimeString(getX(), "2024-03-15T14:30:60");
+          test(false, "Invalid second (60) should throw exception");
+        } catch ( RuntimeException e ) {
+          test(e.getMessage().contains("Cannot parse invalid datetime"), "Invalid second throws correct error");
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_Time_Boundaries',
+      javaCode: `
+        try {
+          // Test midnight
+          Date midnight = getDateService().parseDateTimeString(getX(), "2024-03-15T00:00:00");
+          Calendar cal1 = Calendar.getInstance();
+          cal1.setTime(midnight);
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 0, "Midnight - hour is 0");
+          test(cal1.get(Calendar.MINUTE) == 0, "Midnight - minute is 0");
+          test(cal1.get(Calendar.SECOND) == 0, "Midnight - second is 0");
+
+          // Test end of day
+          Date endOfDay = getDateService().parseDateTimeString(getX(), "2024-03-15T23:59:59");
+          Calendar cal2 = Calendar.getInstance();
+          cal2.setTime(endOfDay);
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 23, "End of day - hour is 23");
+          test(cal2.get(Calendar.MINUTE) == 59, "End of day - minute is 59");
+          test(cal2.get(Calendar.SECOND) == 59, "End of day - second is 59");
+
+          // Test noon
+          Date noon = getDateService().parseDateTimeString(getX(), "2024-03-15T12:00:00");
+          Calendar cal3 = Calendar.getInstance();
+          cal3.setTime(noon);
+          test(cal3.get(Calendar.HOUR_OF_DAY) == 12, "Noon - hour is 12");
+        } catch ( Exception e ) {
+          test(false, "Time boundaries should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_UnsupportedFormat',
+      javaCode: `
+        try {
+          getDateService().parseDateTimeString(getX(), "March 15, 2024 2:30 PM");
+          test(false, "Unsupported datetime format should throw exception");
+        } catch ( RuntimeException e ) {
+          test(e.getMessage().contains("Unsupported DateTime format"), "Unsupported format throws correct error");
+        }
+      `
+    },
+    {
+      name: 'DateServiceTest_parseDateTimeString_Empty',
+      javaCode: `
+        try {
+          getDateService().parseDateTimeString(getX(), "");
+          test(false, "Empty string should throw exception");
+        } catch ( RuntimeException e ) {
+          test(e.getMessage().contains("Unsupported DateTime format"), "Empty string throws error");
         }
       `
     }

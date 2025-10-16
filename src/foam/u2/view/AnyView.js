@@ -19,6 +19,10 @@ foam.CLASS({
     'foam.u2.view.MapView'
   ],
 
+  imports: [
+    'dateService?'
+  ],
+
   css: `
     ^ select { margin-right: 8px; padding-right: 24px; }
   `,
@@ -124,9 +128,21 @@ foam.CLASS({
             label: 'Date',
             type: foam.Date,
             view: foam.u2.DateTimeView,
-            toType: function(o) {
-              if ( foam.Date.isInstance(o ) ) return o;
-              return new Date(Date.parse(o) || Date.now());
+            toType: async function(o) {
+              if ( foam.Date.isInstance(o) ) return o;
+              // Use DateService if available
+              var self = this;
+              if ( self.dateService ) {
+                try {
+                  return await self.dateService.adapt(self.__context__, o);
+                } catch (e) {
+                  console.error('DateService adaptation failed:', e);
+                  return new Date();
+                }
+              } else {
+                console.error('DateService not available');
+                return new Date();
+              }
             }
           })
         ];

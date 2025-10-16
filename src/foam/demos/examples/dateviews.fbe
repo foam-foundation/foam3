@@ -1,0 +1,850 @@
+## Date and DateTime Views
+Complete guide to Date/DateTime views with DateService integration
+--
+
+## Basic Date Input
+Simple date input field
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'Date',
+      name: 'birthDate',
+      label: 'Birth Date'
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## Basic DateTime Input
+Simple datetime input field
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'DateTime',
+      name: 'appointmentTime',
+      label: 'Appointment Time'
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## Date with Default Value
+Date field with factory that sets default to today
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'Date',
+      name: 'createdDate',
+      label: 'Created Date',
+      factory: function() { return new Date(); }
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## DateTime with Default Value
+DateTime field with factory that sets default to now
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'DateTime',
+      name: 'lastModified',
+      label: 'Last Modified',
+      factory: function() { return new Date(); }
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## Date Display Modes
+Date fields in different display modes
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'Date',
+      name: 'editableDate',
+      label: 'Editable (RW)',
+      value: new Date(),
+      visibility: 'RW'
+    },
+    {
+      class: 'Date',
+      name: 'readOnlyDate',
+      label: 'Read Only',
+      value: new Date(),
+      visibility: 'RO'
+    },
+    {
+      class: 'Date',
+      name: 'disabledDate',
+      label: 'Disabled',
+      value: new Date(),
+      visibility: 'DISABLED'
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## DateTime Display Modes
+DateTime fields in different display modes
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'DateTime',
+      name: 'editableDateTime',
+      label: 'Editable (RW)',
+      value: new Date(),
+      visibility: 'RW'
+    },
+    {
+      class: 'DateTime',
+      name: 'readOnlyDateTime',
+      label: 'Read Only',
+      value: new Date(),
+      visibility: 'RO'
+    },
+    {
+      class: 'DateTime',
+      name: 'disabledDateTime',
+      label: 'Disabled',
+      value: new Date(),
+      visibility: 'DISABLED'
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## Linked Date Views
+Multiple date inputs linked to the same property - type in any field to update all
+--
+foam.CLASS({
+  name: 'LinkedDateExample',
+  extends: 'foam.u2.Controller',
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'sharedDate',
+      label: 'Shared Date',
+      value: new Date('2024-03-15')
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        start('h4').add('All inputs below share the same date property').end().
+        start('p').add('Type in any field and watch all fields update!').end().
+        br().
+
+        start('div').style({padding: '10px', background: '#f0f0f0', margin: '5px 0'}).
+          start('label').add('Date View 1: ').end().
+          tag(foam.u2.view.DateView, {data$: this.sharedDate$}).
+        end().
+
+        start('div').style({padding: '10px', background: '#f5f5f5', margin: '5px 0'}).
+          start('label').add('Date View 2: ').end().
+          tag(foam.u2.view.DateView, {data$: this.sharedDate$}).
+        end().
+
+        start('div').style({padding: '10px', background: '#f0f0f0', margin: '5px 0'}).
+          start('label').add('Date View 3: ').end().
+          tag(foam.u2.view.DateView, {data$: this.sharedDate$}).
+        end().
+
+        br().
+        start('div').style({padding: '10px', background: '#e8f4f8', border: '1px solid #b3d9e6'}).
+          start('strong').add('Current Value: ').end().
+          add(this.sharedDate$.map(d => d ? d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }) : 'No date selected')).
+        end().
+      end();
+    }
+  ]
+});
+
+add(LinkedDateExample.create());
+
+## Linked DateTime Views
+Multiple datetime inputs linked to the same property - type in any field to update all
+--
+foam.CLASS({
+  name: 'LinkedDateTimeExample',
+  extends: 'foam.u2.Controller',
+
+  properties: [
+    {
+      class: 'DateTime',
+      name: 'sharedDateTime',
+      label: 'Shared DateTime',
+      value: new Date()
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        start('h4').add('All inputs below share the same datetime property').end().
+        start('p').add('Type in any field and watch all fields update!').end().
+        br().
+
+        start('div').style({padding: '10px', background: '#f0f0f0', margin: '5px 0'}).
+          start('label').add('DateTime View 1: ').end().
+          tag(foam.u2.view.DateTimeView, {data$: this.sharedDateTime$}).
+        end().
+
+        start('div').style({padding: '10px', background: '#f5f5f5', margin: '5px 0'}).
+          start('label').add('DateTime View 2: ').end().
+          tag(foam.u2.view.DateTimeView, {data$: this.sharedDateTime$}).
+        end().
+
+        start('div').style({padding: '10px', background: '#f0f0f0', margin: '5px 0'}).
+          start('label').add('DateTime View 3: ').end().
+          tag(foam.u2.view.DateTimeView, {data$: this.sharedDateTime$}).
+        end().
+
+        br().
+        start('div').style({padding: '10px', background: '#e8f4f8', border: '1px solid #b3d9e6'}).
+          start('strong').add('Current Value: ').end().
+          add(this.sharedDateTime$.map(d => d ? d.toLocaleString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }) : 'No datetime selected')).
+        end().
+      end();
+    }
+  ]
+});
+
+add(LinkedDateTimeExample.create());
+
+## MultiView for Dates
+Multiple views of the same date property
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'Date',
+      name: 'eventDate',
+      label: 'Event Date',
+      value: new Date(),
+      view: {
+        class: 'foam.u2.MultiView',
+        views: [
+          { class: 'foam.u2.view.DateView', onKey: false },
+          { class: 'foam.u2.view.DateView', onKey: true },
+          { class: 'foam.u2.view.DateView', mode: foam.u2.DisplayMode.RO }
+        ]
+      }
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## MultiView for DateTimes
+Multiple views of the same datetime property
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'DateTime',
+      name: 'timestamp',
+      label: 'Timestamp',
+      value: new Date(),
+      view: {
+        class: 'foam.u2.MultiView',
+        views: [
+          { class: 'foam.u2.view.DateTimeView', onKey: false },
+          { class: 'foam.u2.view.DateTimeView', onKey: true },
+          { class: 'foam.u2.view.DateTimeView', mode: foam.u2.DisplayMode.RO }
+        ]
+      }
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## Date Range
+Start and end date fields
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'Date',
+      name: 'startDate',
+      label: 'Start Date',
+      value: new Date()
+    },
+    {
+      class: 'Date',
+      name: 'endDate',
+      label: 'End Date',
+      factory: function() {
+        var date = new Date();
+        date.setDate(date.getDate() + 7);
+        return date;
+      }
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## DateTime Range
+Start and end datetime fields
+--
+foam.CLASS({
+  name: 'Example',
+  properties: [
+    {
+      class: 'DateTime',
+      name: 'startTime',
+      label: 'Start Time',
+      value: new Date()
+    },
+    {
+      class: 'DateTime',
+      name: 'endTime',
+      label: 'End Time',
+      factory: function() {
+        var date = new Date();
+        date.setHours(date.getHours() + 2);
+        return date;
+      }
+    }
+  ]
+});
+
+add(foam.u2.DetailView.create({data: Example.create()}));
+
+## DateService Integration Test
+Test DateService parsing with various formats
+--
+foam.CLASS({
+  name: 'DateServiceTest',
+  extends: 'foam.u2.Controller',
+  imports: ['dateService?'],
+
+  properties: [
+    {
+      class: 'String',
+      name: 'testInput',
+      label: 'Test Date String',
+      value: '2024-03-15'
+    },
+    {
+      class: 'String',
+      name: 'results',
+      label: 'Parse Results',
+      view: { class: 'foam.u2.tag.TextArea', rows: 15, cols: 80 }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'testParse',
+      label: 'Test DateService Parsing',
+      code: async function() {
+        if ( ! this.dateService ) {
+          this.results = 'ERROR: DateService not available in context';
+          return;
+        }
+
+        var formats = [
+          '2024-03-15',    // YYYY-MM-DD
+          '2024/03/15',    // YYYY/MM/DD
+          '20240315',      // YYYYMMDD
+          '03-15-2024',    // MM-DD-YYYY
+          '03/15/2024',    // MM/DD/YYYY
+          '03152024',      // MMDDYYYY
+          '24-03-15',      // YY-MM-DD
+          '24/03/15',      // YY/MM/DD
+          '240315'         // YYMMDD
+        ];
+
+        var output = 'DateService Format Testing\n';
+        output += '=' .repeat(60) + '\n\n';
+
+        for ( var i = 0; i < formats.length; i++ ) {
+          var format = formats[i];
+          try {
+            var date = await this.dateService.parseDateString(this.__context__, format);
+            output += '✓ ' + format.padEnd(15) + ' → ' + date.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            }) + '\n';
+          } catch (e) {
+            output += '✗ ' + format.padEnd(15) + ' → ERROR: ' + e.message + '\n';
+          }
+        }
+
+        output += '\n' + '='.repeat(60) + '\n';
+        output += 'Custom Input Test: ' + this.testInput + '\n';
+
+        try {
+          var customDate = await this.dateService.parseDateString(this.__context__, this.testInput);
+          output += '✓ Parsed: ' + customDate.toLocaleDateString() + '\n';
+          output += '  ISO: ' + customDate.toISOString() + '\n';
+        } catch (e) {
+          output += '✗ ERROR: ' + e.message + '\n';
+        }
+
+        this.results = output;
+      }
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        add(this.TEST_INPUT).br().
+        add(this.TEST_PARSE).br().br().
+        add(this.RESULTS).
+      end();
+    }
+  ]
+});
+
+add(DateServiceTest.create());
+
+## Date Comparison
+Compare two dates
+--
+foam.CLASS({
+  name: 'DateCompare',
+  extends: 'foam.u2.Controller',
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'firstDate',
+      label: 'First Date',
+      value: new Date('2024-01-01')
+    },
+    {
+      class: 'Date',
+      name: 'secondDate',
+      label: 'Second Date',
+      value: new Date('2024-12-31')
+    },
+    {
+      class: 'String',
+      name: 'comparisonResult',
+      label: 'Result',
+      view: { class: 'foam.u2.tag.TextArea', rows: 8, cols: 60 }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'compare',
+      label: 'Compare Dates',
+      code: function() {
+        if ( ! this.firstDate || ! this.secondDate ) {
+          this.comparisonResult = 'Please select both dates';
+          return;
+        }
+
+        var diff = this.firstDate.getTime() - this.secondDate.getTime();
+        var daysDiff = Math.floor(Math.abs(diff) / (1000 * 60 * 60 * 24));
+
+        var result = 'Date Comparison\n';
+        result += '='.repeat(50) + '\n\n';
+        result += 'First Date:  ' + this.firstDate.toLocaleDateString() + '\n';
+        result += 'Second Date: ' + this.secondDate.toLocaleDateString() + '\n\n';
+        result += 'Difference:  ' + daysDiff + ' days\n\n';
+
+        if ( diff > 0 ) {
+          result += 'First date is ' + daysDiff + ' days AFTER second date';
+        } else if ( diff < 0 ) {
+          result += 'First date is ' + daysDiff + ' days BEFORE second date';
+        } else {
+          result += 'Both dates are the SAME';
+        }
+
+        this.comparisonResult = result;
+      }
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        add(this.FIRST_DATE).br().
+        add(this.SECOND_DATE).br().br().
+        add(this.COMPARE).br().br().
+        add(this.COMPARISON_RESULT).
+      end();
+    }
+  ]
+});
+
+add(DateCompare.create());
+
+## Date Manipulation
+Manipulate dates with action buttons
+--
+foam.CLASS({
+  name: 'DateManipulation',
+  extends: 'foam.u2.Controller',
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'selectedDate',
+      label: 'Selected Date',
+      value: new Date()
+    }
+  ],
+
+  actions: [
+    {
+      name: 'setToday',
+      label: 'Today',
+      code: function() {
+        this.selectedDate = new Date();
+      }
+    },
+    {
+      name: 'setYesterday',
+      label: 'Yesterday',
+      code: function() {
+        var d = new Date();
+        d.setDate(d.getDate() - 1);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'setTomorrow',
+      label: 'Tomorrow',
+      code: function() {
+        var d = new Date();
+        d.setDate(d.getDate() + 1);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'addWeek',
+      label: '+ 1 Week',
+      code: function() {
+        var d = new Date(this.selectedDate);
+        d.setDate(d.getDate() + 7);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'subtractWeek',
+      label: '- 1 Week',
+      code: function() {
+        var d = new Date(this.selectedDate);
+        d.setDate(d.getDate() - 7);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'addMonth',
+      label: '+ 1 Month',
+      code: function() {
+        var d = new Date(this.selectedDate);
+        d.setMonth(d.getMonth() + 1);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'subtractMonth',
+      label: '- 1 Month',
+      code: function() {
+        var d = new Date(this.selectedDate);
+        d.setMonth(d.getMonth() - 1);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'addYear',
+      label: '+ 1 Year',
+      code: function() {
+        var d = new Date(this.selectedDate);
+        d.setFullYear(d.getFullYear() + 1);
+        this.selectedDate = d;
+      }
+    },
+    {
+      name: 'subtractYear',
+      label: '- 1 Year',
+      code: function() {
+        var d = new Date(this.selectedDate);
+        d.setFullYear(d.getFullYear() - 1);
+        this.selectedDate = d;
+      }
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        add(this.SELECTED_DATE).br().br().
+        add(this.SET_TODAY).
+        add(this.SET_YESTERDAY).
+        add(this.SET_TOMORROW).br().
+        add(this.SUBTRACT_WEEK).
+        add(this.ADD_WEEK).br().
+        add(this.SUBTRACT_MONTH).
+        add(this.ADD_MONTH).br().
+        add(this.SUBTRACT_YEAR).
+        add(this.ADD_YEAR).
+      end();
+    }
+  ]
+});
+
+add(DateManipulation.create());
+
+## Date Validation
+Date validation with min/max constraints
+--
+foam.CLASS({
+  name: 'DateValidation',
+  extends: 'foam.u2.Controller',
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'startDate',
+      label: 'Start Date (must be >= Jan 1, 2024)',
+      value: new Date('2024-01-01'),
+      validationPredicates: [
+        {
+          args: ['startDate'],
+          predicateFactory: function(e) {
+            return e.GTE(
+              foam.mlang.ExpressionsSingleton.create().DOT(this, 'startDate'),
+              new Date('2024-01-01')
+            );
+          },
+          errorString: 'Start date must be on or after January 1, 2024'
+        }
+      ]
+    },
+    {
+      class: 'Date',
+      name: 'endDate',
+      label: 'End Date (must be after start date)',
+      validationPredicates: [
+        {
+          args: ['endDate', 'startDate'],
+          predicateFactory: function(e) {
+            var self = this;
+            return e.GT(
+              foam.mlang.ExpressionsSingleton.create().DOT(this, 'endDate'),
+              this.startDate$
+            );
+          },
+          errorString: 'End date must be after start date'
+        }
+      ]
+    },
+    {
+      class: 'String',
+      name: 'validationStatus',
+      label: 'Validation Status',
+      expression: function(errors_) {
+        if ( ! errors_ || errors_.length === 0 ) {
+          return '✓ Valid - all constraints satisfied';
+        }
+        return '✗ Invalid - ' + errors_.length + ' error(s): ' +
+               errors_.map(e => e.message).join(', ');
+      },
+      view: { class: 'foam.u2.tag.TextArea', rows: 3, cols: 60 }
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        add(this.START_DATE).br().
+        add(this.END_DATE).br().br().
+        add(this.VALIDATION_STATUS).
+      end();
+    }
+  ]
+});
+
+add(DateValidation.create());
+
+## Complete Date Example
+All features in one example
+--
+foam.CLASS({
+  name: 'CompleteExample',
+  extends: 'foam.u2.Controller',
+
+  imports: ['dateService?'],
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'simpleDate',
+      label: 'Simple Date'
+    },
+    {
+      class: 'DateTime',
+      name: 'simpleDateTime',
+      label: 'Simple DateTime'
+    },
+    {
+      class: 'Date',
+      name: 'dateWithDefault',
+      label: 'Date with Default',
+      factory: function() { return new Date(); }
+    },
+    {
+      class: 'Date',
+      name: 'readOnlyDate',
+      label: 'Read Only Date',
+      value: new Date(),
+      visibility: 'RO'
+    },
+    {
+      class: 'String',
+      name: 'info',
+      label: 'Information',
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 80 },
+      expression: function(simpleDate, simpleDateTime, dateWithDefault) {
+        var info = 'Date Information\n';
+        info += '='.repeat(60) + '\n\n';
+
+        info += 'DateService: ' + (this.dateService ? 'Available ✓' : 'Not Available ✗') + '\n\n';
+
+        if ( simpleDate ) {
+          info += 'Simple Date:\n';
+          info += '  Local: ' + simpleDate.toLocaleDateString() + '\n';
+          info += '  ISO: ' + simpleDate.toISOString() + '\n';
+          info += '  Time: ' + simpleDate.getTime() + '\n\n';
+        }
+
+        if ( simpleDateTime ) {
+          info += 'Simple DateTime:\n';
+          info += '  Local: ' + simpleDateTime.toLocaleString() + '\n';
+          info += '  ISO: ' + simpleDateTime.toISOString() + '\n';
+          info += '  Time: ' + simpleDateTime.getTime() + '\n\n';
+        }
+
+        if ( dateWithDefault ) {
+          info += 'Date with Default:\n';
+          info += '  Value: ' + dateWithDefault.toLocaleDateString() + '\n';
+        }
+
+        return info;
+      }
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.addClass().start().
+        start('h3').add('Complete Date/DateTime Example').end().
+        add(this.SIMPLE_DATE).br().
+        add(this.SIMPLE_DATE_TIME).br().
+        add(this.DATE_WITH_DEFAULT).br().
+        add(this.READ_ONLY_DATE).br().br().
+        add(this.INFO).
+      end();
+    }
+  ]
+});
+
+add(CompleteExample.create());
+
+## DateService Status
+Check DateService availability and capabilities
+--
+foam.CLASS({
+  name: 'DateServiceStatus',
+  extends: 'foam.u2.Controller',
+  imports: ['dateService?'],
+
+  methods: [
+    function render() {
+      var self = this;
+      this.addClass().start().
+        start('h3').add('DateService Status').end().
+
+        callIf(! this.dateService, function() {
+          this.start('div').
+            style({'color': 'red', 'padding': '10px', 'background': '#fee'}).
+            add('✗ DateService is NOT available in context').
+          end();
+        }).
+
+        callIf(this.dateService, function() {
+          this.
+            start('div').
+              style({'color': 'green', 'padding': '10px', 'background': '#efe'}).
+              add('✓ DateService is available').
+            end().
+            start('ul').
+              start('li').add('Class: ' + self.dateService.cls_.name).end().
+              start('li').
+                add('MAX_DATE: ').
+                add(self.dateService.MAX_DATE ?
+                  self.dateService.MAX_DATE.toISOString() :
+                  'undefined').
+              end().
+              start('li').
+                add('Supported Formats:').
+                start('ul').
+                  start('li').add('YYYY-MM-DD, YYYY/MM/DD').end().
+                  start('li').add('YYYYMMDD (year 1900-2999)').end().
+                  start('li').add('MM-DD-YYYY, MM/DD/YYYY').end().
+                  start('li').add('MMDDYYYY').end().
+                  start('li').add('YY-MM-DD, YY/MM/DD').end().
+                  start('li').add('YYMMDD').end().
+                end().
+              end().
+              start('li').
+                add('Available Methods: ').
+                add(Object.getOwnPropertyNames(Object.getPrototypeOf(self.dateService))
+                  .filter(name => typeof self.dateService[name] === 'function' && name !== 'constructor')
+                  .join(', ')).
+              end().
+            end();
+        }).
+      end();
+    }
+  ]
+});
+
+add(DateServiceStatus.create());

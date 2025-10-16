@@ -43,6 +43,17 @@ foam.CLASS({
       await this.testAdapt_WhitespaceString(x);
       await this.testAdapt_AllFormats(x);
       await this.testFORMATS_ORDER(x);
+      await this.testParseDateTimeString_ISO8601_Full(x);
+      await this.testParseDateTimeString_ISO8601_Short(x);
+      await this.testParseDateTimeString_ISO8601_Milliseconds(x);
+      await this.testParseDateTimeString_US_Format_Full(x);
+      await this.testParseDateTimeString_US_Format_Short(x);
+      await this.testParseDateTimeString_Compact_Format(x);
+      await this.testParseDateTimeString_Invalid_Time(x);
+      await this.testParseDateTimeString_Time_Boundaries(x);
+      await this.testParseDateTimeString_UnsupportedFormat(x);
+      await this.testParseDateTimeString_Empty(x);
+      await this.testDATETIME_FORMATS_ORDER(x);
     },
 
     async function testParseDateString_YYYYMMDD(x) {
@@ -398,6 +409,166 @@ foam.CLASS({
         x.test(hasYear, `Format ${index} has year or year2 group`);
         x.test(format.groups.includes('month'), `Format ${index} has month group`);
         x.test(format.groups.includes('day'), `Format ${index} has day group`);
+      });
+    },
+
+    async function testParseDateTimeString_ISO8601_Full(x) {
+      // Test YYYY-MM-DDTHH:MM:SS
+      var date1 = await this.dateService.parseDateTimeString(x, '2024-03-15T14:30:45');
+      x.test(date1.getFullYear() === 2024, 'ISO8601 full - year is 2024');
+      x.test(date1.getMonth() === 2, 'ISO8601 full - month is March (2)');
+      x.test(date1.getDate() === 15, 'ISO8601 full - day is 15');
+      x.test(date1.getHours() === 14, 'ISO8601 full - hour is 14');
+      x.test(date1.getMinutes() === 30, 'ISO8601 full - minute is 30');
+      x.test(date1.getSeconds() === 45, 'ISO8601 full - second is 45');
+
+      // Test YYYY-MM-DD HH:MM:SS (space separator)
+      var date2 = await this.dateService.parseDateTimeString(x, '2024-03-15 14:30:45');
+      x.test(date2.getFullYear() === 2024, 'ISO8601 space - year is 2024');
+      x.test(date2.getHours() === 14, 'ISO8601 space - hour is 14');
+      x.test(date2.getMinutes() === 30, 'ISO8601 space - minute is 30');
+      x.test(date2.getSeconds() === 45, 'ISO8601 space - second is 45');
+    },
+
+    async function testParseDateTimeString_ISO8601_Short(x) {
+      // Test YYYY-MM-DDTHH:MM
+      var date1 = await this.dateService.parseDateTimeString(x, '2024-03-15T14:30');
+      x.test(date1.getFullYear() === 2024, 'ISO8601 short - year is 2024');
+      x.test(date1.getMonth() === 2, 'ISO8601 short - month is March (2)');
+      x.test(date1.getDate() === 15, 'ISO8601 short - day is 15');
+      x.test(date1.getHours() === 14, 'ISO8601 short - hour is 14');
+      x.test(date1.getMinutes() === 30, 'ISO8601 short - minute is 30');
+      x.test(date1.getSeconds() === 0, 'ISO8601 short - second defaults to 0');
+
+      // Test YYYY-MM-DD HH:MM (space separator)
+      var date2 = await this.dateService.parseDateTimeString(x, '2024-03-15 14:30');
+      x.test(date2.getHours() === 14, 'ISO8601 short space - hour is 14');
+      x.test(date2.getMinutes() === 30, 'ISO8601 short space - minute is 30');
+      x.test(date2.getSeconds() === 0, 'ISO8601 short space - second defaults to 0');
+    },
+
+    async function testParseDateTimeString_ISO8601_Milliseconds(x) {
+      // Test YYYY-MM-DDTHH:MM:SS.sss
+      var date = await this.dateService.parseDateTimeString(x, '2024-03-15T14:30:45.123');
+      x.test(date.getFullYear() === 2024, 'ISO8601 with ms - year is 2024');
+      x.test(date.getMonth() === 2, 'ISO8601 with ms - month is March (2)');
+      x.test(date.getDate() === 15, 'ISO8601 with ms - day is 15');
+      x.test(date.getHours() === 14, 'ISO8601 with ms - hour is 14');
+      x.test(date.getMinutes() === 30, 'ISO8601 with ms - minute is 30');
+      x.test(date.getSeconds() === 45, 'ISO8601 with ms - second is 45');
+      x.test(date.getMilliseconds() === 123, 'ISO8601 with ms - millisecond is 123');
+    },
+
+    async function testParseDateTimeString_US_Format_Full(x) {
+      // Test MM/DD/YYYY HH:MM:SS
+      var date = await this.dateService.parseDateTimeString(x, '03/15/2024 14:30:45');
+      x.test(date.getFullYear() === 2024, 'US format full - year is 2024');
+      x.test(date.getMonth() === 2, 'US format full - month is March (2)');
+      x.test(date.getDate() === 15, 'US format full - day is 15');
+      x.test(date.getHours() === 14, 'US format full - hour is 14');
+      x.test(date.getMinutes() === 30, 'US format full - minute is 30');
+      x.test(date.getSeconds() === 45, 'US format full - second is 45');
+    },
+
+    async function testParseDateTimeString_US_Format_Short(x) {
+      // Test MM/DD/YYYY HH:MM
+      var date = await this.dateService.parseDateTimeString(x, '03/15/2024 14:30');
+      x.test(date.getFullYear() === 2024, 'US format short - year is 2024');
+      x.test(date.getMonth() === 2, 'US format short - month is March (2)');
+      x.test(date.getDate() === 15, 'US format short - day is 15');
+      x.test(date.getHours() === 14, 'US format short - hour is 14');
+      x.test(date.getMinutes() === 30, 'US format short - minute is 30');
+      x.test(date.getSeconds() === 0, 'US format short - second defaults to 0');
+    },
+
+    async function testParseDateTimeString_Compact_Format(x) {
+      // Test YYYYMMDDHHMMSS
+      var date = await this.dateService.parseDateTimeString(x, '20240315143045');
+      x.test(date.getFullYear() === 2024, 'Compact format - year is 2024');
+      x.test(date.getMonth() === 2, 'Compact format - month is March (2)');
+      x.test(date.getDate() === 15, 'Compact format - day is 15');
+      x.test(date.getHours() === 14, 'Compact format - hour is 14');
+      x.test(date.getMinutes() === 30, 'Compact format - minute is 30');
+      x.test(date.getSeconds() === 45, 'Compact format - second is 45');
+    },
+
+    async function testParseDateTimeString_Invalid_Time(x) {
+      try {
+        await this.dateService.parseDateTimeString(x, '2024-03-15T25:00:00');
+        x.test(false, 'Invalid hour (25) should throw exception');
+      } catch ( e ) {
+        x.test(e.message.includes('Cannot parse invalid datetime'), 'Invalid hour throws correct error');
+      }
+
+      try {
+        await this.dateService.parseDateTimeString(x, '2024-03-15T14:60:00');
+        x.test(false, 'Invalid minute (60) should throw exception');
+      } catch ( e ) {
+        x.test(e.message.includes('Cannot parse invalid datetime'), 'Invalid minute throws correct error');
+      }
+
+      try {
+        await this.dateService.parseDateTimeString(x, '2024-03-15T14:30:60');
+        x.test(false, 'Invalid second (60) should throw exception');
+      } catch ( e ) {
+        x.test(e.message.includes('Cannot parse invalid datetime'), 'Invalid second throws correct error');
+      }
+    },
+
+    async function testParseDateTimeString_Time_Boundaries(x) {
+      // Test midnight
+      var midnight = await this.dateService.parseDateTimeString(x, '2024-03-15T00:00:00');
+      x.test(midnight.getHours() === 0, 'Midnight - hour is 0');
+      x.test(midnight.getMinutes() === 0, 'Midnight - minute is 0');
+      x.test(midnight.getSeconds() === 0, 'Midnight - second is 0');
+
+      // Test end of day
+      var endOfDay = await this.dateService.parseDateTimeString(x, '2024-03-15T23:59:59');
+      x.test(endOfDay.getHours() === 23, 'End of day - hour is 23');
+      x.test(endOfDay.getMinutes() === 59, 'End of day - minute is 59');
+      x.test(endOfDay.getSeconds() === 59, 'End of day - second is 59');
+
+      // Test noon
+      var noon = await this.dateService.parseDateTimeString(x, '2024-03-15T12:00:00');
+      x.test(noon.getHours() === 12, 'Noon - hour is 12');
+    },
+
+    async function testParseDateTimeString_UnsupportedFormat(x) {
+      try {
+        await this.dateService.parseDateTimeString(x, 'March 15, 2024 2:30 PM');
+        x.test(false, 'Unsupported datetime format should throw exception');
+      } catch ( e ) {
+        x.test(e.message.includes('Unsupported DateTime format'), 'Unsupported format throws correct error');
+      }
+    },
+
+    async function testParseDateTimeString_Empty(x) {
+      try {
+        await this.dateService.parseDateTimeString(x, '');
+        x.test(false, 'Empty string should throw exception');
+      } catch ( e ) {
+        x.test(e.message.includes('Unsupported DateTime format'), 'Empty string throws error');
+      }
+    },
+
+    async function testDATETIME_FORMATS_ORDER(x) {
+      var formats = this.dateService.DATETIME_FORMATS_ORDER;
+      x.test(Array.isArray(formats), 'DATETIME_FORMATS_ORDER is an array');
+      x.test(formats.length === 5, 'DATETIME_FORMATS_ORDER has 5 format patterns');
+
+      // Verify each format has regex and groups
+      formats.forEach(function(format, index) {
+        x.test(format.regex instanceof RegExp, `DateTime Format ${index} has regex property`);
+        x.test(Array.isArray(format.groups), `DateTime Format ${index} has groups array`);
+      });
+
+      // Test that all formats have required datetime groups
+      formats.forEach(function(format, index) {
+        x.test(format.groups.includes('year'), `DateTime Format ${index} has year group`);
+        x.test(format.groups.includes('month'), `DateTime Format ${index} has month group`);
+        x.test(format.groups.includes('day'), `DateTime Format ${index} has day group`);
+        x.test(format.groups.includes('hour'), `DateTime Format ${index} has hour group`);
+        x.test(format.groups.includes('minute'), `DateTime Format ${index} has minute group`);
       });
     }
   ]

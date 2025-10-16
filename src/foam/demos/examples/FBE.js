@@ -338,7 +338,7 @@ foam.CLASS({
   ],
 
   constants: {
-    MODULES: 'views,u2all,u2,faq,validation,examples,dao,parsers,cssTokens,services'
+    MODULES: 'views,u2all,u2,faq,validation,examples,dao,parsers,cssTokens,services,dateviews'
   },
 
   properties: [

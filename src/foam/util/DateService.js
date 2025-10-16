@@ -119,6 +119,13 @@ foam.INTERFACE({
       args: 'Context x',
       type: 'Date',
       documentation: 'Returns the maximum date value'
+    },
+    {
+      name: 'parseDateTimeString',
+      async: true,
+      args: 'Context x, String d',
+      type: 'Date',
+      documentation: 'Parses datetime strings with time components in formats: YYYY-MM-DDTHH:MM:SS, YYYY-MM-DD HH:MM:SS, MM/DD/YYYY HH:MM:SS, YYYYMMDDHHMMSS'
     }
   ]
 });

@@ -72,15 +72,186 @@ foam.CLASS({
           { regex: /^(\d{2})(\d{2})(\d{2})(?!\d).*/, groups: ['year2', 'month', 'day'] }
         ];
       }
+    },
+    {
+      name: 'DATETIME_FORMATS_ORDER',
+      documentation: 'List of regex patterns for datetime strings with time components',
+      factory: function() {
+        return [
+          // ISO 8601: YYYY-MM-DDTHH:MM:SS.sss or YYYY-MM-DD HH:MM:SS.sss
+          // Capture groups: (1) year, (2) month, (3) day, (4) hour, (5) minute, (6) second, (7) millisecond (optional)
+          {
+            regex: /^(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?.*/,
+            groups: ['year', 'month', 'day', 'hour', 'minute', 'second', 'millisecond']
+          },
+
+          // ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
+          // Capture groups: (1) year, (2) month, (3) day, (4) hour, (5) minute
+          {
+            regex: /^(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2}).*/,
+            groups: ['year', 'month', 'day', 'hour', 'minute']
+          },
+
+          // US format with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
+          // Capture groups: (1) month, (2) day, (3) year, (4) hour, (5) minute, (6) second
+          {
+            regex: /^(\d{2})[-/](\d{2})[-/](\d{4}) (\d{2}):(\d{2}):(\d{2}).*/,
+            groups: ['month', 'day', 'year', 'hour', 'minute', 'second']
+          },
+
+          // US format with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
+          // Capture groups: (1) month, (2) day, (3) year, (4) hour, (5) minute
+          {
+            regex: /^(\d{2})[-/](\d{2})[-/](\d{4}) (\d{2}):(\d{2}).*/,
+            groups: ['month', 'day', 'year', 'hour', 'minute']
+          },
+
+          // Compact format: YYYYMMDDHHMMSS
+          // Capture groups: (1) year, (2) month, (3) day, (4) hour, (5) minute, (6) second
+          {
+            regex: /^(1[9]\d{2}|2\d{3})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2}).*/,
+            groups: ['year', 'month', 'day', 'hour', 'minute', 'second']
+          }
+        ];
+      }
     }
   ],
 
   methods: [
     {
+      name: 'parseDateTimeString',
+      args: 'Context x, String d',
+      type: 'Date',
+      documentation: 'Parses datetime strings with time components. Supports ISO 8601, US formats with time, and compact formats.',
+      code: function(x, d) {
+        // Try each datetime format first
+        for ( var i = 0; i < this.DATETIME_FORMATS_ORDER.length; i++ ) {
+          var format = this.DATETIME_FORMATS_ORDER[i];
+          var match = d.match(format.regex);
+
+          if ( match ) {
+            var year, month, day, hour = 0, minute = 0, second = 0, millisecond = 0;
+
+            // Map captured groups based on the format's group definition
+            for ( var j = 0; j < format.groups.length; j++ ) {
+              var value = match[j + 1];
+              if ( ! value ) continue; // Skip optional groups
+
+              switch ( format.groups[j] ) {
+                case 'year':
+                  year = parseInt(value);
+                  break;
+                case 'year2':
+                  // 2-digit year: < 50 = 2000s, >= 50 = 1900s
+                  year = parseInt(value);
+                  year = year < 50 ? 2000 + year : 1900 + year;
+                  break;
+                case 'month':
+                  month = parseInt(value) - 1; // JavaScript months are 0-indexed
+                  break;
+                case 'day':
+                  day = parseInt(value);
+                  break;
+                case 'hour':
+                  hour = parseInt(value);
+                  break;
+                case 'minute':
+                  minute = parseInt(value);
+                  break;
+                case 'second':
+                  second = parseInt(value);
+                  break;
+                case 'millisecond':
+                  millisecond = parseInt(value);
+                  break;
+              }
+            }
+
+            // Validate the datetime is valid
+            var date = new Date(year, month, day, hour, minute, second, millisecond);
+            if ( date.getFullYear() === year &&
+                 date.getMonth() === month &&
+                 date.getDate() === day &&
+                 date.getHours() === hour &&
+                 date.getMinutes() === minute &&
+                 date.getSeconds() === second ) {
+              return date;
+            }
+            throw new Error('Cannot parse invalid datetime: ' + d);
+          }
+        }
+
+        throw new Error('Unsupported DateTime format: ' + d);
+      },
+      javaCode: `
+        /*
+         Supported datetime formats (checked in order):
+         1. ISO 8601: YYYY-MM-DDTHH:MM:SS.sss or YYYY-MM-DD HH:MM:SS.sss
+         2. ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
+         3. US with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
+         4. US with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
+         5. Compact: YYYYMMDDHHMMSS
+        */
+        SimpleDateFormat format;
+        Date date;
+        try {
+          // ISO 8601: YYYY-MM-DDTHH:MM:SS.SSS or YYYY-MM-DD HH:MM:SS.SSS
+          if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{3})?.*") ) {
+            String normalized = d.replaceAll("[T ]", " ").replaceAll("\\\\.(\\\\d{3}).*", ".$1");
+            int spaceIndex = normalized.indexOf(' ');
+            int dotIndex = normalized.indexOf('.');
+
+            if ( dotIndex > 0 ) {
+              format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+              format.setLenient(false);
+              date = format.parse(normalized.substring(0, Math.min(23, normalized.length())));
+            } else {
+              format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+              format.setLenient(false);
+              date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
+            }
+          }
+          // ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
+          else if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}.*") ) {
+            String normalized = d.replaceAll("[T ]", " ");
+            format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+            format.setLenient(false);
+            date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
+          }
+          // US format with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
+          else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}:\\\\d{2}.*") ) {
+            String normalized = d.replaceAll("[-/]", " ").replaceAll(":", " ");
+            format = new SimpleDateFormat("MM dd yyyy HH mm ss");
+            format.setLenient(false);
+            date = format.parse(normalized.substring(0, Math.min(20, normalized.length())));
+          }
+          // US format with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
+          else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}.*") ) {
+            String normalized = d.replaceAll("[-/]", " ").replaceAll(":", " ");
+            format = new SimpleDateFormat("MM dd yyyy HH mm");
+            format.setLenient(false);
+            date = format.parse(normalized.substring(0, Math.min(17, normalized.length())));
+          }
+          // Compact: YYYYMMDDHHMMSS
+          else if ( d.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}.*") ) {
+            format = new SimpleDateFormat("yyyyMMddHHmmss");
+            format.setLenient(false);
+            date = format.parse(d.substring(0, 14));
+          }
+          else {
+            throw new RuntimeException("Unsupported DateTime format: " + d);
+          }
+        } catch ( ParseException e ) {
+          throw new RuntimeException("Cannot parse invalid datetime: " + d);
+        }
+        return date;
+      `
+    },
+    {
       name: 'parseDateString',
       args: 'Context x, String d',
       type: 'Date',
-      documentation: 'Parses date strings in formats: YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD, YYYY-MM-DD, MM-DD-YYYY, YY-MM-DD',
+      documentation: 'Parses date strings in formats: YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD, YYYY-MM-DD, MM-DD-YYYY, YY-MM-DD. For datetime strings with time components, use parseDateTimeString().',
       code: function(x, d) {
         // Try each format in FORMATS_ORDER until one matches
         for ( var i = 0; i < this.FORMATS_ORDER.length; i++ ) {

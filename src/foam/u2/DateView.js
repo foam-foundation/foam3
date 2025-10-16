@@ -17,6 +17,10 @@ foam.CLASS({
 
   mixins: [ 'foam.u2.TextInputCSS' ],
 
+  imports: [
+    'dateService?'
+  ],
+
   css: `
     ^:read-only:not(:disabled) { border: none; background: rgba(0,0,0,0); margin-left: -8px; }
     ^ { height: $inputHeight; min-width: 130px; }
@@ -68,13 +72,19 @@ foam.CLASS({
         }
       }
 
-      function updateData() {
+      async function updateData() {
         var value = slot.get();
 
         var date;
         if ( value ) {
-          date = foam.lang.Date.ADAPT.value.call(null, null, value);
-          if ( isNaN(date) ) date = undefined;
+          // Use DateService exclusively - no fallbacks
+          if ( self.dateService ) {
+            date = await self.dateService.adapt(self.__context__, value);
+            if ( isNaN(date) ) date = undefined;
+          } else {
+            console.error('DateService not available');
+            date = undefined;
+          }
         } else {
           date = null;
         }

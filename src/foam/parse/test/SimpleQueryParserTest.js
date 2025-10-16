@@ -24,7 +24,7 @@ foam.CLASS({
                     let month = d.getMonth();
                     let date  = d.getDate(); 
                     date += inc;
-                    return testDate([year, month, date]);
+                    return testDate([year, month, date, 12]);
              };
 
             // String symbol tests
@@ -54,29 +54,27 @@ foam.CLASS({
             x.test(this.isValidSymbol('float', "113", "113.000", true), "Float Test3: The negative number is 113.000");
             x.test(this.isValidSymbol('float', "-1130", "-1130.000", true), "Float Test4: The negative number is -1130.000");
 
-/*
             // Date format tests
-            x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Date Test1: ISO date YYYY-MM-DD');
-            x.test(this.isValidSymbol('date', '25/10/01', [testDate([2025, 9, 1]), testDate([2025, 9, 2])].toString()), 'Date Test2: short date YY/MM/DD');
+            x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1, 12]), testDate([2025, 0, 2, 12])].toString()), 'Date Test1: ISO date YYYY-MM-DD');
+            x.test(this.isValidSymbol('date', '25/10/01', [testDate([2025, 9, 1, 12]), testDate([2025, 9, 2, 12])].toString()), 'Date Test2: short date YY/MM/DD');
             x.test(this.isValidSymbol('date', 'TODAY', [testToday(0), testToday(1)].toString()), 'Date Test3: TODAY');
             x.test(this.isValidSymbol('date', 'TODAY+5', [testToday(5), testToday(6)].toString()), 'Date Test4: TODAY+5');
             x.test(this.isValidSymbol('date', 'TODAY-2', [testToday(-2), testToday(-1)].toString()), 'Date Test5: TODAY-2');
 
             // Date comparison tests
             x.test(this.isValid('created=2025-01-01', 
-                    'AND(GTE(foam.core.auth.User.created, ' + testDate([2025, 0, 1]).toString() +  '),LT(foam.core.auth.User.created, ' + testDate([2025, 0, 2]).toString() + '))'), 
+                    'AND(GTE(foam.core.auth.User.created, ' + testDate([2025, 0, 1, 12]).toString() +  '),LT(foam.core.auth.User.created, ' + testDate([2025, 0, 2, 12]).toString() + '))'), 
                     'Date Test6: Date equality');
             x.test(this.isValid('created = 2025-05-31', 
-                    'AND(GTE(foam.core.auth.User.created, ' + testDate([2025, 4, 31]).toString() +  '),LT(foam.core.auth.User.created, ' + testDate([2025, 5, 1]).toString() + '))'), 
+                    'AND(GTE(foam.core.auth.User.created, ' + testDate([2025, 4, 31, 12]).toString() +  '),LT(foam.core.auth.User.created, ' + testDate([2025, 5, 1, 12]).toString() + '))'), 
                     'Date Test7: Date equality without spaces');
             x.test(this.isValid('lastModified > TODAY-7', 
                     'GT(foam.core.auth.User.lastModified, ' + testToday(-6).toString() + ')'), 
                     'Date Test8: Relative date comparison less than');
             x.test(this.isValid('passwordExpiry <= TODAY+30', 
                     'LTE(foam.core.auth.User.passwordExpiry, ' + testToday(+31).toString() + ')'), 
-                    'Date Test9: Relative date comparison grater than or equal');  
-                    */       
-             x.test(this.isValid('birthday IN RANGE (2025-03-31, 2025-04-30)', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
+                    'Date Test9: Relative date comparison grater than or equal');       
+             x.test(this.isValid('birthday IN RANGE (2025-03-31, 2025-04-30)', 
                     'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 2, 31, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 4, 1, 12]).toString() + '))'), 
                     'Date Test10: Date in range');
             x.test(this.isValid('birthday NOT IN RANGE (2025-03-31, 2025-04-30)', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon

@@ -372,12 +372,16 @@ foam.CLASS({
           // Date formats:
           // YYYY-MM-DDTHH:MM, YYYY-MM-DDTHH, YYYY-MM-DD, YYYY-MM, YY/MM/DD, YYYY
           'literal date': function(v) {
-
+            let defaults = [0, 1, 1, 12, 0, 0, 0]; // default values for missing date parts
             let values = v.filter((x, i) => i % 2 === 0); // remove separators
             if (values[0] < 100) values[0] = values[0] + 2000; // convert 2-digit year to 4-digit
             if (values[1]) values[1] = values[1] - 1; // month is zero-based
+            let i = values.length;
+            while (values.length < 4) {
+              values.push(defaults[values.length]);
+            }
             let start = new Date(Date.UTC.apply(null, values));
-            values[values.length - 1]++; // bump last value for end of range
+            values[i - 1]++; // bump last value for end of range
             let end  = new Date(Date.UTC.apply(null, values))
             return [ start, end ];
           },
@@ -394,7 +398,7 @@ foam.CLASS({
               let s = v[1][0] === '+' ? 1 : -1;
               date += (v[1][1]) * s;
             }
-            return actions['literal date']([ year, '-', month + 1, '-', date ]);
+            return actions['literal date']([ year, '-', month + 1, '-', date]);
           },
 
           'range date': function(v) {

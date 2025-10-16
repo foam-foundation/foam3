@@ -103,13 +103,31 @@ foam.CLASS({
           expr: alt(
             sym('paren'),
             sym('propPredicates'),
-            sym('datePredicates')
+            sym('rangePropPredicates')
           ),
 
           // opening bracket consumed by propPredicates
           paren: seq1(3, sym('ws'), '(', sym('ws'), sym('query'), sym('ws'), ')'),
 
           ws: repeat0(' '),
+
+          floats: repeat(sym('float'), ',', 2),
+
+          'range float': seq1(1, sym('ws'), sym('floats'), sym('ws'), ')'),      
+          
+          digits: str(repeat(range('0', '9'), null, 1)),
+
+          // TODO replace '.' with an internationalized decimal point, or have the input preprocessed            
+          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), optional(str(seq('.', optional(sym('digits')))))))),
+
+          compareFloat: alt(seq(operator('>='), sym('float')),
+                    seq(operator('>'), sym('float')),
+                    seq(operator('<='), sym('float')),
+                    seq(operator('<'), sym('float')),
+                    seq(operator('!='), sym('float')),
+                    seq(operator('='), sym('float')),
+                    seq(operatorIn('IN RANGE'), sym('range float')),
+                    seq(operatorIn('NOT IN RANGE'), sym('range float'))),
 
           compareNumber: alt(seq(operator('>='), sym('number')),
                              seq(operator('>'), sym('number')),
@@ -120,14 +138,11 @@ foam.CLASS({
                              seq(operatorIn('IN'), sym('numberArray')),
                              seq(operatorIn('NOT IN'), sym('numberArray'))),
 
-          numberArray: seq1(1, sym('ws'), sym('numbers'), ')'),
+          numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
 
           numbers: repeat(sym('number'), ',', 1),
 
-          digits: repeat(range('0', '9'), null, 1),
-
-          // TODO replace '.' with an internationalized decimal point, add negative number support
-          number: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits')))),
+          number: seq1(1, sym('ws'), seq(optional('-'), sym('digits'))),
 
           compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'), {text: 'IS TRUE'}))),
                               seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE'})))),
@@ -182,9 +197,36 @@ foam.CLASS({
                     seq(operator('IS EMPTY')),
                     seq(operator('IS NOT EMPTY'))),
 
-          // TODO replace '.' with an internationalized decimal point, or have the input preprocessed            
-          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), '.', sym('digits')))),
+          
+          string: seq1(1, sym('ws'), alt(sym('word'), sym('quoted string'))),
 
+          'quoted string': str(seq1(1, '"',
+            repeat(alt(literal('\\"', '"'), notChars('"'))),
+            '"')),
+
+          word: str(repeat(sym('char'), null, 1)),
+
+          char: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'), '-', '^',
+            '_', '@', '%', '.'),
+
+          stringArray: seq1(1, sym('ws'), sym('strings'), sym('ws'), ')'),
+
+          strings: repeat(sym('string'), ',', 1),  
+
+          compareString: alt(seq(operator('>='), sym('string')),
+                    seq(operator('>'), sym('string')),
+                    seq(operator('>='), sym('string')),
+                    seq(operator('<='), sym('string')),
+                    seq(operator('<'), sym('string')),
+                    seq(operator('!='), sym('string')),
+                    seq(operator('='), sym('string')),
+                    seq(operator(':'), sym('string')),
+                    seq(operator('~'), sym('string')),
+                    seq(operator('CONTAINS'), sym('string')),
+                    seq(operatorIn('IN'), sym('stringArray')),
+                    seq(operatorIn('NOT IN'), sym('stringArray')),
+                    seq(operator('IS EMPTY')),
+                    seq(operator('IS NOT EMPTY'))),         
         };
       }
     },
@@ -195,7 +237,7 @@ foam.CLASS({
 
         let cls    = this.of;
         let propPredicates = [];
-        let datePredicates = [];
+        let rangePropPredicates = [];
         let props = cls.getAxiomsByClass(foam.lang.Property);
         let operator = this.operator;
         let operatorIn = this.operatorIn;
@@ -207,7 +249,7 @@ foam.CLASS({
 
           if ( ! prop.searchable ) continue;
 
-          if (foam.lang.Int.isInstance(prop) || foam.lang.Float.isInstance(prop)) {
+          if (foam.lang.Int.isInstance(prop)) {
 
             propPredicates.push(seq(property(prop), sym('compareNumber')));
           } else if (foam.lang.Boolean.isInstance(prop)) {
@@ -235,11 +277,18 @@ foam.CLASS({
             propPredicates.push(seq(property(prop), compareEnum));
           }
           else if (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop)) {
-            datePredicates.push(seq(property(prop), sym('compareDate')));
+            rangePropPredicates.push(seq(property(prop), sym('compareDate')));
+          }
+          else if (foam.lang.Float.isInstance(prop)) {
+
+            propPredicates.push(seq(property(prop), sym('compareFloat')));
+          }
+          else if (foam.lang.String.isInstance(prop)) {
+            propPredicates.push(seq(property(prop), sym('compareString')));
           }
         }
         // return the properties grammar map
-        return {propPredicates: alt.apply(null, propPredicates), datePredicates: alt.apply(null, datePredicates)};
+        return {propPredicates: alt.apply(null, propPredicates), rangePropPredicates: alt.apply(null, rangePropPredicates)};
       }
     },
     {
@@ -253,7 +302,7 @@ foam.CLASS({
         let grammar = {
           __proto__: base,
           propPredicates: properties.propPredicates,
-          datePredicates: properties.datePredicates
+          rangePropPredicates: properties.rangePropPredicates
         };
 
         let self = this;
@@ -269,12 +318,20 @@ foam.CLASS({
             return self.And.create({ args: v });
           },
 
-          number: function(v) {
+          digits: function(v) {
             return parseInt(v.trim());
           },
 
-          digits: function(v) {
-            return parseInt(v.join(''));
+          number: function(v) {
+            return v[0] ? v[1] * -1 : v[1];
+          },
+
+          float: function(v) {
+            let start = end = parseFloat(v.trim());
+            // account for float's precision inconsistencies
+            start -= Number.EPSILON;
+            end += Number.EPSILON;
+            return [ start, end ];
           },
 
           compareBoolean: function(v) {
@@ -299,6 +356,13 @@ foam.CLASS({
 
           date: function(v) {
             return v; // Pass through the already parsed date
+          },
+
+          compareString: function(v) {    
+            return {
+              operator: v[0],
+              value: v[1]
+            };
           },
 
           // All dates are actually treated as ranges. These are arrays of Date
@@ -337,6 +401,10 @@ foam.CLASS({
             return [ v[0][0], v[1][1] ]; // [start of first, end of second]
           },
 
+          'range float': function(v) {
+            return [ v[0][0], v[1][1] ]; // [start of first, end of second]
+          },
+      
           propPredicates: function(v) {
             let prop   = v[0];
             let operator = v[1].operator;
@@ -361,10 +429,18 @@ foam.CLASS({
                 return self.Not.create({arg1: self.In.create({arg1: prop, arg2: value})});
               case 'IS':
                 return self.Eq.create({ arg1: prop, arg2: value});
+              case 'CONTAINS':
+              case ':':
+              case '~':
+                return self.ContainsIC.create({ arg1: prop, arg2: value });    
+              case 'IS EMPTY':
+                return self.Not.create({arg1: self.Has.create({ arg1: prop })});
+              case 'IS NOT EMPTY':
+                return self.Has.create({ arg1: prop });
 
             }
           },
-          datePredicates: function(v) {
+          rangePropPredicates: function(v) {
 
             let prop   = v[0];
             let operator = v[1].operator;

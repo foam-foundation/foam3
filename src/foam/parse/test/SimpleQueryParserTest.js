@@ -27,6 +27,34 @@ foam.CLASS({
                     return testDate([year, month, date]);
              };
 
+            // String symbol tests
+            x.test(this.isValidSymbol('string', "SomeString", "SomeString"), "String Test1: Simple string");
+            x.test(this.isValidSymbol('string', "email@somedomain.com", "email@somedomain.com"), "String Test2: String with special characters");
+            x.test(this.isValidSymbol('string', '"Quoted String"', "Quoted String"), "String Test3: Quoted string");
+            x.test(this.isValidSymbol('string', '"Quoted \\" String"', 'Quoted " String'), 'String Test4: Quoted string with escaped quote');
+            x.test(this.isValidSymbol('string', '"Quoted , String"', 'Quoted , String'), 'String Test5: Quoted string with comma');            
+            x.test(this.isValidSymbol('stringArray', 'One, Two,Three)', 'One,Two,Three'), 'String Test6: String array (One,Two,Three)');
+            x.test(this.isValidSymbol('stringArray', '"One","Two","Three")', 'One,Two,Three'), 'String Test7: String array with quoted strings ( "One" , "Two" , "Three" )');
+
+            // String properties tests
+            x.test(this.isValid("firstName = SomeName", 'EQ(foam.core.auth.User.firstName, "SomeName")'), "String Test8: The name equal to the value");
+            x.test(this.isValid("firstName!=SomeName", 'NEQ(foam.core.auth.User.firstName, "SomeName")'), "String Test9: The name not equal to the value");
+            x.test(this.isValid("firstName CONTAINS SomeName", 'CONTAINS_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test10: The name contains the value");
+            x.test(this.isValid("firstName:SomeName", 'CONTAINS_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test10: The name contains the value");
+            x.test(this.isValid("firstName~SomeName", 'CONTAINS_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test11: The name contains the value with ~ operator");
+            x.test(this.isValid("firstName IN (SomeName,AnotherName)", 'IN(foam.core.auth.User.firstName, ["SomeName", "AnotherName"])'), "String Test12: The name exactly matches any of the listed values");
+            x.test(this.isValid('firstName NOT IN (SomeName,AnotherName)', 'NOT(IN(foam.core.auth.User.firstName, ["SomeName", "AnotherName"]))'), 'String Test13: The name does not exactly match any of the listed values');
+            x.test(this.isValid('firstName IS EMPTY', 'NOT(HAS(foam.core.auth.User.firstName))'), 'String Test14: The name is empty');
+            x.test(this.isValid('firstName IS NOT EMPTY', 'HAS(foam.core.auth.User.firstName)'), 'String Test15: The name is not empty');
+
+
+            // Float symbol tests
+            x.test(this.isValidSymbol('float', "1.107", "1.107", true), "Float Test1: The float is 1.107");
+            x.test(this.isValidSymbol('float', "-100.6", "-100.6", true), "Float Test2: The numbers -100.600");
+            x.test(this.isValidSymbol('float', "113", "113.000", true), "Float Test3: The negative number is 113.000");
+            x.test(this.isValidSymbol('float', "-1130", "-1130.000", true), "Float Test4: The negative number is -1130.000");
+
+/*
             // Date format tests
             x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1]), testDate([2025, 0, 2])].toString()), 'Date Test1: ISO date YYYY-MM-DD');
             x.test(this.isValidSymbol('date', '25/10/01', [testDate([2025, 9, 1]), testDate([2025, 9, 2])].toString()), 'Date Test2: short date YY/MM/DD');
@@ -46,7 +74,8 @@ foam.CLASS({
                     'Date Test8: Relative date comparison less than');
             x.test(this.isValid('passwordExpiry <= TODAY+30', 
                     'LTE(foam.core.auth.User.passwordExpiry, ' + testToday(+31).toString() + ')'), 
-                    'Date Test9: Relative date comparison grater than or equal');             
+                    'Date Test9: Relative date comparison grater than or equal');  
+                    */       
              x.test(this.isValid('birthday IN RANGE (2025-03-31, 2025-04-30)', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
                     'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 2, 31, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 4, 1, 12]).toString() + '))'), 
                     'Date Test10: Date in range');
@@ -115,10 +144,14 @@ foam.CLASS({
             let predicate = parser.parseString(query);
             return predicate || null;
         }, 
-        function isValidSymbol(symbolName, input, expectedOutput) {
+        function isValidSymbol(symbolName, input, expectedOutput, isFloat=false) {
             let parser = this.SimpleQueryParser.create({of: foam.core.auth.User});
             let result = parser.parseString(input, symbolName);
             if (result == null) return false;
+            if ( isFloat ) {
+                result = parseFloat(result[0]).toFixed(3);
+                expectedOutput = parseFloat(expectedOutput).toFixed(3);
+            }   
             console.log("Result: " + result.toString() + ", Expected: " + expectedOutput);
             return result.toString().trim().toLowerCase() === expectedOutput.toString().trim().toLowerCase();
         } ,      

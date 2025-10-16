@@ -32,6 +32,10 @@ foam.CLASS({
     'foam.core.ticket.TicketComment'
   ],
 
+  messages: [
+    { name: 'COMMENT_REQUIRED', message: 'Comment required.' }
+  ],
+
   properties: [
     {
       name: 'status',
@@ -228,15 +232,12 @@ foam.CLASS({
       isAvailable: function(status, id) {
         return id && status !== 'CLOSED';
       },
-      isEnabled: async function(id) {
-        // check if has a comment
-        var comments = (await this.ticketCommentDAO
-          .where(this.EQ(this.TicketComment.TICKET, this.id))
-          .limit(1)
-          .select()).array;
-        return !! (comments && comments[0]?.comment);
-      },
       code: function(X) {
+        if ( ! this.comment ) {
+          this.notify(this.COMMENT_REQUIRED, '', this.LogLevel.ERROR, true);
+          return;
+        }
+
         var ticket = this.clone();
         ticket.status = "CLOSED";
 
@@ -250,6 +251,11 @@ foam.CLASS({
           this.notify(e.message, '', this.LogLevel.ERROR, true);
         });
       }
+    },
+    {
+      class: 'foam.comics.v3.ComicsAction',
+      name: 'save',
+      isAvailable: () => false
     }
   ]
 });

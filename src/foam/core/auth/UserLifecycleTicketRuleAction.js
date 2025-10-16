@@ -30,6 +30,8 @@ foam.CLASS({
     'foam.core.logger.Loggers',
     'foam.core.logger.PrefixLogger',
     'foam.core.ticket.Ticket',
+    'foam.core.ticket.TicketComment',
+    'foam.util.SafetyUtil',
     'java.util.ArrayList',
     'java.util.List'
   ],
@@ -49,6 +51,14 @@ foam.CLASS({
             User user = (User) dao.find(ticket.getCreatedFor());
             LifecycleState old = user.getLifecycleState();
             LifecycleState nu = ticket.getRequestedLifecycleState();
+
+            // Save ticket comment
+            if ( ! SafetyUtil.isEmpty(ticket.getComment()) ) {
+              var ticketComment = new TicketComment();
+              ticketComment.setComment(ticket.getComment());
+              ticketComment.setTicket(ticket.getId());
+              ((DAO) x.get("ticketCommentDAO")).put_(x, ticketComment);
+            }
 
             // Previous updated list is stored in current for this run,
             // and saved back to updated if the run was aborted.

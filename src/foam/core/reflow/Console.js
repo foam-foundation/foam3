@@ -212,7 +212,7 @@ foam.CLASS({
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: [this.PRESENTATION_ONLY, this.RESET, this.CANCEL, this.CLEAR],
+                data: [this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -364,20 +364,6 @@ foam.CLASS({
         } else if (this.data.flowMode.name == 'PRESENTATION') {
           this.data.flowMode = this.FlowMode.CONSOLE;
         }
-      }
-    },
-    {
-      name: 'presentationOnly',
-      label: 'Presentation Only',
-      toolTip: 'Enter Presentation-Only Mode (no editing, no auto-save)',
-      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
-      themeIcon: 'lock',
-      size: 'SMALL',
-      isAvailable: function(showPrompts) {
-        return showPrompts;
-      },
-      code: function() {
-        this.data.flowMode = this.FlowMode.PRESENTATION_ONLY;
       }
     }
   ]
@@ -994,12 +980,6 @@ foam.CLASS({
 //      memorable: true // use flowMode
     },
     {
-      class: 'Boolean',
-      name: 'isPresentationOnly',
-      value: false,
-      documentation: 'When true, prevents switching to edit mode and disables auto-save'
-    },
-    {
       class: 'StringArray',
       name: 'history_',
       factory: function() {
@@ -1499,8 +1479,8 @@ foam.CLASS({
     },
 
     async function checkForAutosavedScript(scriptName) {
-      // Don't retrieve autosave for unnamed flows
-      if ( ! scriptName ) return false;
+      // Don't retrieve autosave for unnamed flows or in PRESENTATION_ONLY mode
+      if ( ! scriptName || this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return false;
 
       var autosaveData = this.loadAutosaveData(scriptName);
       if ( ! autosaveData || ! autosaveData.script ) return false;

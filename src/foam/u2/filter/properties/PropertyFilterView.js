@@ -44,8 +44,13 @@ foam.CLASS({
       cursor: pointer;
     }
 
-    ^container-property-active, ^container-property-filtering {
+    ^container-property-filtering {
       background-color: $backgroundBrandTertiary;
+      border: 1px solid $borderBrand;
+    }
+
+    ^container-property-filtering  ^label-property {
+      color: $textBrand;
     }
 
     ^label-property {
@@ -64,6 +69,14 @@ foam.CLASS({
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
       border: solid 1px $borderLight;
       background-color: $backgroundDefault;
+    }
+    ^container-filter-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-bottom: 1px solid $borderLight;
     }
   `,
 
@@ -159,16 +172,30 @@ foam.CLASS({
           .enableClass(this.myClass('container-property-active'), this.active$)
           .enableClass(this.myClass('container-property-filtering'), this.activeFilterCheck_$.not())
           .on('click', this.switchActive)
-          .start('p').addClass('p-label-lg', this.myClass('label-property'))
-            .add(`${this.property.label}: `)
+        .start('p').addClass('p-label-lg', this.myClass('label-property'))
+          .add(`${this.property.label}: `)
+          .start('span')
+            .enableClass(this.myClass('placeholder-text'), this.activeFilterCheck_$)
             .add(this.labelFiltering$)
           .end()
+        .end()
+        .start()
+          .addClass(this.myClass('dropdown-icon'))
           .start({ class: 'foam.u2.tag.Image', data$: this.iconPath$}).end()
+        .end()
         .end();
 
       this.overlay_
-        .start('div', null, this.container_$)
+        .start('div')
           .addClass(this.myClass('container-filter'))
+          .start('div')
+            .addClass(this.myClass('container-filter-header'))
+            .startContext({ data: this })
+              .tag(this.CLEAR_FILTER, { isDestructive: true })
+            .endContext()
+          .end()
+          .start('div', null, this.container_$)
+          .end()
         .end();
 
       this.isInit = true;
@@ -252,6 +279,20 @@ foam.CLASS({
           this.labelFiltering = this.LABEL_PROPERTY_ALL;
           this.activeFilterCheck_ = ! this.activeFilterCheck_;
         }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'clearFilter',
+      label: 'Clear',
+      buttonStyle: 'PRIMARY',
+      size: 'SMALL',
+      code: function() {
+        this.filterController.clear(this.view_ || this.property.name, this.criteria, false);
+        this.labelFiltering = this.LABEL_PROPERTY_ALL;
+        this.activeFilterCheck_ = true;
+      }
     }
   ]
 });

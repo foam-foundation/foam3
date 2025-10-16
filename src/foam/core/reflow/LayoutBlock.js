@@ -55,7 +55,6 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'LayoutBlock',
   extends: 'foam.core.reflow.Block',
-  // Allows nesting layouts
   mixins: ['foam.u2.layouts.LayoutChild', 'foam.core.reflow.LayoutUtils'],
 
 
@@ -95,8 +94,45 @@ foam.CLASS({
         return this.cmdHolder;
       }
     },
-    { name: 'border', hidden: true },
-    { name: 'borderClass', hidden: true },
+    {
+      class: 'Class',
+      name: 'borderClass',
+      label: 'Border Type',
+      factory: function() { return foam.u2.borders.NullBorder; },
+      view: function(_,X) {
+        return {
+          class: 'foam.u2.view.ChoiceView',
+          choices: [
+            [foam.u2.borders.NullBorder, 'None'],
+            [foam.u2.borders.CardBorder, 'Card'],
+            [foam.u2.borders.BackgroundCard, 'Background'],
+            [foam.u2.borders.SpacingBorder, 'Padding'],
+            [foam.dashboard.view.CardWrapper, 'Card with Title']
+          ]
+        };
+      }
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'border',
+      label: 'Border Properties',
+      factory: function() { return {}; },
+      preSet: function(_, n) {
+        if ( n && n.class ) delete n.class;
+        return n;
+      },
+      view: function (_, X) {
+        return {
+          class: 'foam.u2.view.ViewConfiguratorView',
+          data_$: X.data$.dot('borderEl_'),
+          allowClassChange: false
+        };
+      }
+    },
+    {
+      name: 'borderEl_',
+      hidden: true
+    },
     {
       name: 'childType',
       factory: function() {
@@ -105,6 +141,10 @@ foam.CLASS({
     }
   ],
   methods: [
+    function init() {
+      this.SUPER();
+      this.content.tag(this.borderClass, { ...(this.border || {}) }, this.borderEl_$);
+    },
     function render() {
       let self = this;
       this.SUPER();
@@ -112,7 +152,8 @@ foam.CLASS({
       this.
         addClass(self.myClass()).
         tag(this.ReflowToolBar);
-      this.content.tag(this.Layout, {}, this.cmdHolder$);
+
+      this.borderEl_.tag(this.Layout, {}, this.cmdHolder$);
       let sub = () => {
         this.addValue(this.cmdHolder, true);
       };
@@ -126,6 +167,21 @@ foam.CLASS({
     }
   ],
   listeners: [
+    {
+      name: 'replaceBorder',
+      isFramed: true,
+      on: ['this.propertyChange.borderClass'],
+      code: function() {
+        let el = this.borderClass.create({ ...(this.border || {}) }, this);
+        if ( this.borderEl_ ) {
+          el.replaceElement_(this.borderEl_);
+        } else {
+          this.content.add(el);
+        }
+        this.borderEl_ = el;
+        this.borderEl_.tag(this.Layout, {}, this.cmdHolder$);
+      }
+    },
     {
       name: 'onInput',
       code: function() {

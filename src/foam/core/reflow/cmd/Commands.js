@@ -785,6 +785,7 @@ foam.CLASS({
             { name: 'icon' },
             { name: 'themeIcon' },
             { name: 'toolTip' },
+            { name: 'shown' }
             // These need more work to be integrated here, they need proper data setting, we would probably want to switch to ActionReferences for this
             // { name: 'isEnabled' },
             // { name: 'isAvailable' }
@@ -792,6 +793,11 @@ foam.CLASS({
         }
       ],
       properties: [
+        {
+          class: 'Boolean',
+          name: 'shown',
+          value: true
+        },
         {
           class: 'String',
           name: 'script',
@@ -823,7 +829,7 @@ foam.CLASS({
       ],
       methods: [
         function toE(args, X) {
-          var view = foam.u2.ViewSpec.createView(this.view, {
+          var innerView = foam.u2.ViewSpec.createView(this.view, {
             ...(args || {}),
             action: this,
             label$: this.label$,
@@ -835,9 +841,14 @@ foam.CLASS({
           }, this, X);
 
           if ( X.data$ && ! ( args && ( args.data || args.data$ ) ) ) {
-            view.data$ = X.data$;
+            innerView.data$ = X.data$;
           }
-          return view;
+
+          // Wrap with container to control visibility via 'shown'
+          var container = foam.u2.Element.create({}, this);
+          container.show(this.shown$);
+          container.add(innerView);
+          return container;
         }
       ]
     }
@@ -855,7 +866,7 @@ foam.CLASS({
       });
       this.currentBlock.value = action;
       this.currentBlock.configViewSpec = {
-        useSections: ['config']
+        useSections: ['config', 'general', 'borderSettings']
       }
       this.out.tag(action);
     }

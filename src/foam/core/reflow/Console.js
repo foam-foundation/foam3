@@ -94,7 +94,6 @@ foam.CLASS({
       this.removeFlowChild_ && this.flowChildren.forEach(c => this.removeFlowChild_(c));
       this.flowChildren = [];
     }
-
   ]
 });
 
@@ -835,7 +834,8 @@ foam.CLASS({
     'foam.core.reflow.Layout',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
-    'foam.u2.Link'
+    'foam.u2.Link',
+    'foam.u2.dialog.ConfirmationModal'
   ],
 
   imports: [
@@ -927,7 +927,12 @@ foam.CLASS({
         if ( n !== this.value.name ) {
           this.clearFlow();
           if ( n ) {
-            await this.eval_(`load("${n}")`);
+            // Check for autosaved script before loading
+            var autosaveLoaded = await this.checkForAutosavedScript(n);
+            // Only load from database if autosave wasn't loaded
+            if ( ! autosaveLoaded ) {
+              await this.eval_(`load("${n}")`);
+            }
             this.value.name = n;
             this.selected = this.currentBlock;
           }
@@ -1072,6 +1077,8 @@ foam.CLASS({
       if ( flow ) {
         await this.includeScript(flow.script);
       }
+
+      await this.eval_('postLoad', null, true);
     },
 
     async function includeScript(script, parent, skipParse) {
@@ -1105,8 +1112,6 @@ foam.CLASS({
         }
       }
 
-      // Call postLoad after all blocks have executed
-      await this.eval_('postLoad', null, true);
     },
 
     function clearFlow() {
@@ -1182,10 +1187,6 @@ foam.CLASS({
       if ( this.route ) {
         await this.ROUTE.postSet.call(this, '', this.route);
       }
-
-      // Check for autosaved script AFTER route is loaded and name is set
-      // Use setTimeout to ensure everything is fully initialized
-      this.setTimeout(() => this.checkForAutosavedScript(this.route), 100);
     },
 
     function renderSelf(self) {
@@ -1475,22 +1476,22 @@ foam.CLASS({
 
     async function checkForAutosavedScript(scriptName) {
       // Don't retrieve autosave for unnamed flows
-      if ( ! scriptName ) return;
+      if ( ! scriptName ) return false;
 
       var autosaveData = this.loadAutosaveData(scriptName);
-      if ( ! autosaveData || ! autosaveData.script ) return;
+      if ( ! autosaveData || ! autosaveData.script ) return false;
 
       // Check if autosave differs from current script
       if ( autosaveData.script === this.value.script ) {
         // Autosave matches current - no need to prompt
-        return;
+        return false;
       }
 
       // Check if we have a saved version in the database
       var savedFlow = null;
-      if ( this.value.name ) {
+      if ( scriptName ) {
         try {
-          savedFlow = await this.flowDAO.find(this.value.name);
+          savedFlow = await this.flowDAO.find(scriptName);
         } catch (e) {
           // Flow doesn't exist in database yet
         }
@@ -1499,18 +1500,39 @@ foam.CLASS({
       // If autosave matches the saved version, no need to prompt
       if ( savedFlow && autosaveData.script === savedFlow.script ) {
         this.clearAutosave();
-        return;
+        return false;
       }
 
       // Autosave is different from both current and saved - prompt user
-      var shouldLoad = this.window.confirm('There are unsaved changes. Do you want to load them? Click OK to load, Cancel to discard.');
-      if ( shouldLoad ) {
-        this.value.script = autosaveData.script;
-        // Clear autosave after loading to prevent double prompt from onScriptNameChange
-        this.clearAutosave(scriptName);
-      } else {
-        this.clearAutosave(scriptName);
-      }
+      var self = this;
+      return new Promise((resolve) => {
+        var modal = self.ConfirmationModal.create({
+          title: 'Unsaved Changes Detected',
+          modalStyle: 'WARN',
+          maxWidth: '35vw',
+          closeable: false,
+          primaryAction: foam.lang.Action.create({
+            name: 'load',
+            label: 'Load Changes',
+            code: function() {
+              self.value.script = autosaveData.script;
+              self.clearAutosave(scriptName);
+              resolve(true);  // Return true - autosave was loaded
+            }
+          }),
+          secondaryAction: foam.lang.Action.create({
+            name: 'discard',
+            label: 'Discard',
+            code: function() {
+              self.clearAutosave(scriptName);
+              resolve(false);  // Return false - autosave was discarded
+            }
+          })
+        });
+
+        modal.add('There are unsaved changes. Do you want to load them?');
+        self.add(modal);
+      });
     }
   ],
 
@@ -1603,16 +1625,30 @@ foam.CLASS({
 
         if ( existingData && existingData.script !== this.value.script ) {
           // There's already autosaved data for the new name that differs from current
-          var shouldLoad = this.window.confirm(
-            'The script name "' + newValue + '" already has different unsaved changes. ' +
-            'Click OK to load those changes, or Cancel to keep your current changes and overwrite.'
-          );
+          var self = this;
+          var modal = this.ConfirmationModal.create({
+            title: 'Existing Unsaved Changes',
+            modalStyle: 'WARN',
+            maxWidth: '35vw',
+            closeable: false,
+            primaryAction: foam.lang.Action.create({
+              name: 'load',
+              label: 'Load Changes',
+              code: function() {
+                self.value.script = existingData.script;
+              }
+            }),
+            secondaryAction: foam.lang.Action.create({
+              name: 'overwrite',
+              label: 'Keep Current',
+              code: function() {
+                // Keep current changes - autosave will naturally update with current script
+              }
+            })
+          });
 
-          if ( shouldLoad ) {
-            // Load the existing autosave data for the new name
-            this.value.script = existingData.script;
-          }
-          // else: Keep current changes - autosave will naturally update with current script
+          modal.add('The script name "' + newValue + '" already has different unsaved changes. Load those changes, or keep your current changes?');
+          this.add(modal);
         }
 
         // Clean up old autosave entries (from intermediate typing states)
@@ -1672,7 +1708,7 @@ foam.CLASS({
     {
       name: 'saveScriptToLocalStorage',
       isMerged: true,
-      delay: 500,
+      delay: 250,
       code: function() {
         if ( ! this.value || ! this.value.script ) return;
 

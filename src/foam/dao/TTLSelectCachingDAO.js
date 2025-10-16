@@ -95,7 +95,13 @@ foam.CLASS({
 
       return new Promise(function (resolve, reject) {
         self.delegate.select_(x, sink, skip, limit, order, predicate).then(s => {
-          self.cache[key] = s;
+          // Clone before storing to prevent cache corruption from mutations.
+          // Since objects are passed by reference in JavaScript, storing 's' directly
+          // would cache the same object returned to the caller. Any mutations to the
+          // returned sink (e.g., modifying array contents, changing properties) would
+          // corrupt the cached copy, causing incorrect results on subsequent cache hits.
+          var sinkToCache = s.clone ? s.clone() : s;
+          self.cache[key] = sinkToCache;
           // console.log('************************ TTL CACHING:', key);
           // TODO: check if cache is > maxCacheSize and remove oldest entry if it is
           self.purgeCache();

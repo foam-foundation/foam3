@@ -397,7 +397,6 @@ globalThis['ENVS'] = ENVS;
 // Configure build variables
 buildEnv(ENVS);
 
-// Export functions for Tooling and Build POM tasks
 EXPORTS = Object.assign(EXPORTS, {
   adaptOrCreateArgs,
   addJournal,
@@ -484,6 +483,8 @@ OPTIONS = addOptions({
           }
         ],
   flags: ['f', 'flags', 'FLAGS', 'Flags passed to pmake. Explicitly set with --flags:test, for example.', '', arg => FLAGS = arg ],
+  foamDir: ['', 'foam-dir', 'FOAM_DIR', 'For a FOAM application, the FOAM repository is installed under foam3/, relative to application. To simplify build logic, FOAM itself relies on a soft link foam3 pointing to itself ../foam3.', () => join(__dirname, '..'), arg => FOAM_DIR = arg ],
+  foamToolsDir: ['', 'foam3-tools-dir', 'FOAM_TOOLS_DIR', 'FOAM tools directory. Defaults to where build.js is found.', () => __dirname, arg => FOAM_TOOLS_DIR = arg ],
   help: [ 'h', 'help', 'HELP', 'Print usage information for environment variables (envs), options, and tasks.  Narrow output with --help:tasks, for example. Or show help for a particular topic with --help:foo where foo is the name of an option or task.', '', arg => {
     HELP = true;
     TOPIC_HELP = arg;
@@ -511,17 +512,28 @@ OPTIONS = addOptions({
 
 // explicitly add journal to POM list, intented to be called
 // after pom() has setup the initial list
-function addJournal(name) {
-  let fn = name && `${PROJECT_HOME}/deployment/${name}/pom`;
-  if ( ! existsSync(fn + '.js') ) {
-    let fn2 = `${PROJECT_HOME}/foam3/deployment/${name}/pom`;
-    if ( ! existsSync(fn2 + '.js') ) {
-      error('POM not found ' + fn + '.js');
-      fn = null;
-    } else {
-      fn = fn2;
+function addJournal(name, where) {
+  let fn = null;
+
+  // Explicit source selection when provided
+  if ( where === 'foam3' ) {
+    fn = `${FOAM_DIR}/deployment/${name}/pom`;
+  } else if ( where === 'project' ) {
+    fn = `${PROJECT_HOME}/deployment/${name}/pom`;
+  } else {
+    // Default behaviour: prefer project, then fall back to foam3
+    fn = name && `${PROJECT_HOME}/deployment/${name}/pom`;
+    if ( ! existsSync(fn + '.js') ) {
+      let fn2 = `${FOAM_DIR}/deployment/${name}/pom`;
+      if ( ! existsSync(fn2 + '.js') ) {
+        error('POM not found ' + fn + '.js');
+        fn = null;
+      } else {
+        fn = fn2;
+      }
     }
   }
+
   if ( fn )
     POMS = comma(POMS, fn);
 }
@@ -697,6 +709,15 @@ task('tooling', 'Prepare build environment', [], function tooling() {
     } else {
       // TODO: look in other directories
       // **/tools/
+    }
+    // Last option: look under PROJECT_HOME/tools for shared project-level tooling
+    if ( ! found ) {
+      let fn3 = join(PROJECT_HOME, `tools/${name}Tooling`);
+      fn = fn3;
+      if ( existsSync(fn + '.js') ) {
+        tps = comma(tps, fn);
+        found = true;
+      }
     }
     if ( ! found ) {
       error(`[build] tooling ${name} not found in ${fn1} or ${fn2}`);

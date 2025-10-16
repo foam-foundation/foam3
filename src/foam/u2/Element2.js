@@ -2081,7 +2081,7 @@ foam.CLASS({
       name: 'view',
       value: {
         class: 'foam.u2.view.ModeAltView',
-        writeView: { class: 'foam.u2.view.StringView' },
+        writeView: { class: 'foam.u2.view.StringView', onKey: false },
         readView:  { class: 'foam.u2.view.ReadReferenceView' }
       }
     }
@@ -2260,6 +2260,7 @@ foam.CLASS({
       class: 'Enum',
       of: 'foam.u2.DisplayMode',
       name: 'mode',
+      hidden: true,
       attribute: true,
       postSet: function(_, mode) { this.updateMode_(mode); },
       expression: function(controllerMode) {

@@ -151,7 +151,8 @@ foam.POM({
       this.ensureDir(this.join(BUILD_DIR, 'package'));
       // Notice that the argument to the second -C is relative to the directory from the first -C, since -C
       this.log(`buildTar TARBALL_PATH:${TARBALL_PATH}`);
-      this.execSync(`tar -a -cf ${TARBALL_PATH} -C ./foam3/tools/deploy bin etc -C${require('path').resolve(BUILD_DIR)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
+      this.execSync(`tar -a -cf ${TARBALL_PATH} -C ${toolsDeploy} bin etc -C${require('path').resolve(BUILD_DIR)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
     clean: ['clean', 'Remove generated files', ['cleanJava'], function() {
@@ -174,6 +175,7 @@ foam.POM({
       this.info('Runtime journals deleted.');
       this.emptyDir(JOURNAL_HOME);
       this.emptyDir(SAF_HOME);
+      this.emptyDir(DOCUMENT_HOME);
     }],
 
     genImages: ['gen-images', 'Prepare images from inclusion in jar.', [], function() {
@@ -196,9 +198,9 @@ foam.POM({
 
     deployBin: ['deploy-bin', 'Copy bash files to deployment', [], function() {
       this.ensureDir(this.join(APP_HOME, 'bin'));
-      this.copyDir('./foam3/tools/deploy/bin', this.join(APP_HOME, 'bin'));
+      this.copyDir(this.join(FOAM_TOOLS_DIR, 'deploy', 'bin'), this.join(APP_HOME, 'bin'));
       this.ensureDir(this.join(APP_HOME, 'etc'));
-      this.copyDir('./foam3/tools/deploy/etc', this.join(APP_HOME, 'etc'));
+      this.copyDir(this.join(FOAM_TOOLS_DIR, 'deploy', 'etc'), this.join(APP_HOME, 'etc'));
     }],
 
     deployDocuments: ['deploy-documents', 'Deploy documents from DOCUMENT_OUT to DOCUMENT_HOME.', ['setupDirs'], function() {
@@ -447,13 +449,14 @@ foam.POM({
       }
     }],
 
-    testSetup: ['test-setup', 'Common Prepare to run test cases.  Include test journals from foam3/deployment/test and project deployment/test. Set test flag, appName, appRoot.', [], function() {
+    testSetup: ['test-setup', 'Common Prepare to run test cases.  Include test journals from foam3/deployment/test, foam3/deployment/demo and project deployment/test. Set test flag, appName, appRoot.', [], function() {
       APP_NAME = 'test';
       APP_ROOT = ! APP_ROOT || APP_ROOT == '/opt' ? '/tmp' : APP_ROOT;
       FLAGS = this.comma(FLAGS, 'test');
-      this.addJournal('../foam3/deployment/test');
-      this.addJournal('../foam3/deployment/demo');
-      this.addJournal('test');
+      // Load foam3 defaults first, then project-specific overrides
+      this.addJournal('test', 'foam3');
+      this.addJournal('demo', 'foam3');
+      this.addJournal('test', 'project');
     }],
 
     usage: ['usage', 'Build usage examples', [], function() {

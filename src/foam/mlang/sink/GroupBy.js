@@ -129,6 +129,7 @@ return getGroupKeys();`
 `foam.dao.Sink group = (foam.dao.Sink) getGroups().get(key);
  if ( group == null ) {
    group = (foam.dao.Sink) (((foam.lang.FObject)getArg2()).fclone());
+   ((foam.lang.FObject)group).setX(getX());
    getGroups().put(key, group);
    clearGroupKeys();
  }
@@ -245,8 +246,20 @@ for (Object key : getGroups().keySet()) {
 
     function genModel() {
       // Get name and label from the expression, with fallbacks
-      var exprName = this.arg1.name || this.arg1.delegate.name || 'group';
-      var exprLabel = this.arg1.label || foam.String.labelize(this.arg1.delegate.name) || 'Group';
+      var exprName = this.arg1.name || this.arg1.delegate?.name || 'group';
+      var exprLabel = this.arg1.label || foam.String.labelize(this.arg1.delegate?.name) || 'Group';
+
+      // Determine property class by traversing expressions to find underlying property
+      var exprClass = 'String';
+      var expr = this.arg1;
+      while ( expr ) {
+        if ( foam.lang.Property.isInstance(expr) ) {
+          exprClass = expr.cls_?.id || 'String';
+          break;
+        }
+        // Try delegate, then arg1, then stop
+        expr = expr.delegate || expr.arg1;
+      }
 
       const model = {
         package: 'foam.tmp',
@@ -254,7 +267,7 @@ for (Object key : getGroups().keySet()) {
         ids: [ 'row' ],
         properties: [
           { class: 'Long', name: 'row' },
-          { class: 'String', name: exprName, label: exprLabel }
+          { class: exprClass, name: exprName, label: exprLabel }
         ]
       };
 

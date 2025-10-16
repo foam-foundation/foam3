@@ -310,37 +310,6 @@ p({"class":"foam.core.boot.CSpec","name":"appConfigService",                   "
 
 p({
   "class":"foam.core.boot.CSpec",
-  "name":"localDocumentDAO",
-  "serve": false,
-  "serviceScript":
-  """
-  return new foam.dao.EasyDAO.Builder(x)
-    .setOf(foam.flow.Document.getOwnClassInfo())
-    .setPm(false)
-    .setAuthorize(false)
-    .setInnerDAO(new foam.flow.DocumentationFolderDAO.Builder(x).build())
-    .build();
-  """
-})
-
-p({
-  "class": "foam.core.boot.CSpec",
-  "name": "documentDAO",
-  "serve": true,
-  "serviceScript":
-  """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.flow.Document.getOwnClassInfo())
-      .setPm(false)
-      .setPermissionPrefix("flow")
-      .setInnerDAO(x.get("localDocumentDAO"))
-      .build();
-  """,
-  "client": "{\"of\":\"foam.flow.Document\"\}"
-})
-
-p({
-  "class":"foam.core.boot.CSpec",
   "name":"addressParser",
   "lazy":false,
   "serve":false,

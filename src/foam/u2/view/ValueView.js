@@ -33,8 +33,10 @@ foam.CLASS({
     function render() {
       this.SUPER();
       this.addClass();
+
       var self = this;
       var prop = this.prop;
+
       if ( prop && prop.unitPropValueToString ) {
         var unitPropSlot = self.__subContext__.objData?.slot(prop.unitPropName);
         this.add(

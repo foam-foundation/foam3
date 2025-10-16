@@ -11,7 +11,7 @@ foam.CLASS({
   css: `
     .foam-flow-Document {
       background-color: $backgroundDefault;
-      // color: $textTertiary;
+      color: $textDefault;
       max-width: 1000px;
       margin: auto;
       padding: 20px;
@@ -30,10 +30,18 @@ foam.CLASS({
       margin-bottom: 10px;
       margin-top: 10px;
     }
+    .foam-flow-Document pre {
+      background-color: $backgroundTertiary;
+      color: $textDefault;
+      padding: 5px;
+      border-radius: 6px;
+    }
     .foam-flow-Document .code {
-      background-color: $backgroundInverse;
-      color: $textOnInverse;
-      padding: 20px;
+      background-color: $backgroundTertiary;
+      color: $textDefault;
+      padding: 3px 4px;
+      font-size: 85%;
+      border-radius: 6px;
     }
     .foam-flow-Document a {
       color: $blue200;
@@ -49,6 +57,11 @@ foam.CLASS({
     {
       class: 'String',
       name: 'title'
+    },
+    {
+      class: 'String',
+      name: 'type',
+      value: 'flow'
     },
     {
       class: 'String',
@@ -385,13 +398,23 @@ foam.CLASS({
         },
 
         'code': function(code) {
-          return function(x) {
-            this.
-              start('pre').
-                addClass('code').
-                add(code).
-              end();
-          };
+          if ( ( code.match(/\n/) || [] ).length > 0 ) {
+            return function(x) {
+              this.
+                start('pre').
+                  addClass('code').
+                  add(code).
+                end();
+            };
+          } else {
+            return function(x) {
+              this.
+                start('code').
+                  addClass('code').
+                  add(code).
+                end();
+            };
+          }
         },
 
         'foam': function(attributes) {
@@ -403,7 +426,7 @@ foam.CLASS({
             var promise = Promise.all([
               viewName  ? x.classloader.load(viewName)  : Promise.resolve(),
               className ? x.classloader.load(className) : Promise.resolve(),
-            ])
+            ]);
 
             var self = this;
             this.add(promise.then(function(o) {

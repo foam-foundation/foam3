@@ -16,6 +16,7 @@ public class LongParser
   public static Parser instance() { return instance__; }
 
   // TODO: make private
+  // TODO: support numbers like 1e+24 which could be provided by JS
   public LongParser() {
   }
 

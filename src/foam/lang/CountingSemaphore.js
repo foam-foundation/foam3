@@ -52,37 +52,33 @@ foam.CLASS({
       name: 'queue_',
       factory: function() { return []; }
     },
-    {
-      name: 'drainLatch_'
-    }
+    'drainLatch_'
   ],
 
   methods: [
-    function decr() {
-      this.count_--;
-      if ( this.drainLatch_ && this.count_ === 0 ) {
-        this.drainLatch_.resolve();
-      }
-      var latch = this.queue_.shift();
-      if ( latch ) return latch.resolve();
-    },
-
-    function then(resolve) {
+    function then(block) {
       if ( this.count_++ < this.limit ) {
-        resolve().then(this.decr.bind(this));
-        return Promise.resolve();
+        return block().then(this.decr);
       }
 
       var latch = this.Latch.create();
       this.queue_.push(latch);
-      return latch.then(resolve).then(this.decr.bind(this))
+      return latch.then(block).then(this.decr);
     },
 
-    async function drain() {
-      // Waits until all blocked tasks complete, can only be called once
-      this.drainLatch_ = this.Latch.create();
-      if ( this.count_ === 0 ) this.drainLatch_.resolve();
-      return this.drainLatch_;
+    function drain() {
+      if ( this.count_ == 0 ) return Promise.resolve();
+      return this.drainLatch_ = this.Latch.create();
+    }
+  ],
+
+  listeners: [
+    function decr() {
+      this.count_--;
+      var latch = this.queue_.shift();
+      if ( latch ) latch.resolve();
+      if ( this.drainLatch_ && this.count_ == 0 ) this.drainLatch_.resolve();
+      return Promise.resolve();
     }
   ]
 });

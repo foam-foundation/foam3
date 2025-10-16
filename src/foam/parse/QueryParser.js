@@ -226,6 +226,7 @@ foam.CLASS({
             seq(sym('number'), '-', sym('number')),
             // YY/MM/DD
             seq(sym('number'), '/', sym('number'), '/', sym('number'))
+            // TODO: add support for YY or YYYY
           ),
 
           'relative date': seq(key('today'), optional(seq('-', sym('number')))),
@@ -620,7 +621,7 @@ foam.CLASS({
       var query = this.grammar_.parseString(str, opt_name, opt_apply);
       if ( query ) {
         if ( query.partialEval ) query = query.partialEval();
-        console.log('*************query', query, query.toString());
+        // console.log('*************query', query, query.toString());
       }
       query = query && query.partialEval ? query.partialEval() : query;
       return query;

@@ -61,6 +61,7 @@ foam.CLASS({
       class: 'Reference',
       of: 'foam.core.ruler.RuleGroup',
       name: 'ruleGroup',
+      value: 'default',
       documentation: 'The name of the ruleGroup associated with the rule.',
       writePermissionRequired: true
     }

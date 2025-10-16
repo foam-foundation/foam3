@@ -465,7 +465,11 @@ public class QueryParser
         new Alt(Literal.create("-"), Literal.create("/")),
         grammar.sym("NUMBER")
       )
-      //YYYY: NOT SUPPORTED
+      // KGR: Is disabled because it conflicts with the Number parser.
+      // Solution is to switch to the new NQL parser which handles differently
+      // typed properties as different grammar rules to avoid the conflict.
+      // Also, YY/MM/DD is supported in JS but not here.
+      // YYYY: NOT SUPPORTED
 //      new Seq(
 //        grammar.sym("NUMBER"))
     ));

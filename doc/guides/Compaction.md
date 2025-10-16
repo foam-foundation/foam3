@@ -47,7 +47,7 @@ Compaction model properties:
 - compactable :: By default a DAO is compactable, meaning it's entries will be reduced. If compaction is disabled (false), then the DAO's entries will be discarded - they will not be compacted into a new journal.
 - reducible :: By default a DAO is reducible, meaning multiple CRUD operations are reduced to one. If *reducible* is false, then all entries are transfered the new ledger.
 - compactLifecycleDeleted :: LifecycleAware objects which are deleted/removed are set to state DELETED, an r() journal entry is not created.  This option allows to compact DELETED entries.
-- clearable :: Not used outside of [[https://github.com/kgrgreer/foam-medusa][Medusa]].
+- clearable :: Not used outside of [Medusa](https://github.com/kgrgreer/foam-medusa).
 - **sink** :: Custom sinks can be registered for per entry control during compaction.
 See localTicketCommentDAO for an example of inline sink Predicate controlling Ticket Comment compaction based on Ticket Status.
     see `deployment/compaction/compactions.jrl` ticketDAO for an example. 

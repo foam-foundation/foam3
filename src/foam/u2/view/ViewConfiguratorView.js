@@ -134,10 +134,11 @@ foam.CLASS({
         }));
     }
   ],
+
   listeners: [
     {
       name: 'updateElement',
-      on: ['this.propertyChange.viewClass'],
+      on: [ 'this.propertyChange.viewClass' ],
       isFramed: true,
       code: function() {
         if ( ! this.allowClassChange || this.viewClass == this.data_?.cls_.id || ! this.data_ ) return;
@@ -159,7 +160,7 @@ foam.CLASS({
     {
       name: 'initSlots',
       isFramed: true,
-      on: ['this.propertyChange.data_'],
+      on: [ 'this.propertyChange.data_' ],
       code: function () {
         if ( ! this.data_ ) return;
         let recursionSlot = this.FObjectRecursionSlot.create({

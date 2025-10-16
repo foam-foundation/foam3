@@ -45,8 +45,200 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.dashboard',
+  name: 'TimeSeriesGapFillingMixin',
+
+  documentation: `
+    Mixin providing time series period range display functionality for dashboard charts.
+
+    When periodCount > 0 and the grouping property is a date transformation expression:
+    1. Filters DAO to only fetch data within the period range (server-side optimization)
+    2. Client-side gap filling adds zero values for missing periods
+
+    The date range is calculated as: [today - (periodCount - 1) * period_unit, today]
+    Example: periodCount=12 for months → [11 months ago, today] = 12 total months
+  `,
+
+  properties: [
+    {
+      class: 'Int',
+      name: 'periodCount',
+      label: 'Period Count',
+      section: 'dataConfig',
+      value: 0,
+      help: 'Number of periods to display from today backwards (e.g., 12 for last 12 months). Set to 0 to show only existing data.'
+      // Note: visibility function must be defined in each agent that uses this mixin,
+      // since different agents have different property names (prop vs prop2 vs xProp)
+    }
+  ],
+
+  methods: [
+    // Note: Subclasses must implement getDatePropertyForFiltering() to return the appropriate date property
+    // Bar charts: return this.prop
+    // Stacked bar charts: return this.prop2 (X-axis)
+    // Line charts: return this.xProp
+
+    function getPeriodCalculators_() {
+      // Configuration map for period calculations by date expression type
+      // Note: This was originally a property with factory/value, but both approaches
+      // were returning empty strings instead of the array, so using a method instead
+      return [
+        {
+          // Weekly periods
+          exprClassNames: ['foam.mlang.expr.DateToWeekExpr'],
+          calculate: function(periodCount) {
+            var minDate = new Date();
+            var maxDate = new Date();
+            // Subtract (periodCount - 1) weeks, set to start of week (Monday)
+            minDate.setDate(minDate.getDate() - ((periodCount - 1) * 7));
+            var dayOfWeek = minDate.getDay();
+            var daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+            minDate.setDate(minDate.getDate() - daysToMonday);
+            minDate.setHours(0, 0, 0, 0);
+            // maxDate: end of current week (Sunday)
+            var currentDayOfWeek = maxDate.getDay();
+            var daysToSunday = (currentDayOfWeek === 0 ? 0 : 7 - currentDayOfWeek);
+            maxDate.setDate(maxDate.getDate() + daysToSunday);
+            maxDate.setHours(23, 59, 59, 999);
+            return { minDate: minDate, maxDate: maxDate };
+          }
+        },
+        {
+          // Quarterly periods
+          exprClassNames: ['foam.mlang.expr.DateToQuarterExpr'],
+          calculate: function(periodCount) {
+            var minDate = new Date();
+            var maxDate = new Date();
+            // Subtract (periodCount - 1) quarters, set to start of quarter
+            minDate.setMonth(minDate.getMonth() - ((periodCount - 1) * 3));
+            var quarter = Math.floor(minDate.getMonth() / 3);
+            minDate.setMonth(quarter * 3, 1);
+            minDate.setHours(0, 0, 0, 0);
+            // maxDate: end of current quarter
+            var currentQuarter = Math.floor(maxDate.getMonth() / 3);
+            maxDate.setMonth((currentQuarter + 1) * 3, 0);
+            maxDate.setHours(23, 59, 59, 999);
+            return { minDate: minDate, maxDate: maxDate };
+          }
+        },
+        {
+          // Monthly periods
+          exprClassNames: ['foam.mlang.expr.DateToYYYYMMExpr'],
+          calculate: function(periodCount) {
+            var minDate = new Date();
+            var maxDate = new Date();
+            // Subtract (periodCount - 1) months, set to start of month
+            minDate.setMonth(minDate.getMonth() - (periodCount - 1), 1);
+            minDate.setHours(0, 0, 0, 0);
+            // maxDate: end of current month
+            maxDate.setMonth(maxDate.getMonth() + 1, 0);
+            maxDate.setHours(23, 59, 59, 999);
+            return { minDate: minDate, maxDate: maxDate };
+          }
+        },
+        {
+          // Yearly periods
+          exprClassNames: ['foam.mlang.expr.DateToYYYYExpr'],
+          calculate: function(periodCount) {
+            var minDate = new Date();
+            var maxDate = new Date();
+            // Subtract (periodCount - 1) years, set to start of year
+            minDate.setFullYear(minDate.getFullYear() - (periodCount - 1), 0, 1);
+            minDate.setHours(0, 0, 0, 0);
+            // maxDate: end of current year
+            maxDate.setFullYear(maxDate.getFullYear(), 11, 31);
+            maxDate.setHours(23, 59, 59, 999);
+            return { minDate: minDate, maxDate: maxDate };
+          }
+        },
+        {
+          // Daily periods (handles both YYYYMMDD and DayOfYear)
+          exprClassNames: ['foam.mlang.expr.DateToYYYYMMDDExpr', 'foam.mlang.expr.DateToDayOfYearExpr'],
+          calculate: function(periodCount) {
+            var minDate = new Date();
+            var maxDate = new Date();
+            // Subtract (periodCount - 1) days, set to start of day
+            minDate.setDate(minDate.getDate() - (periodCount - 1));
+            minDate.setHours(0, 0, 0, 0);
+            // maxDate: end of current day
+            maxDate.setHours(23, 59, 59, 999);
+            return { minDate: minDate, maxDate: maxDate };
+          }
+        }
+      ];
+    },
+
+    function getPeriodCalculator_(dateProp) {
+      // Find matching calculator from configuration
+      var calculators = this.getPeriodCalculators_();
+      for ( var i = 0; i < calculators.length; i++ ) {
+        var config = calculators[i];
+
+        for ( var j = 0; j < config.exprClassNames.length; j++ ) {
+          var exprClass = foam.lookup(config.exprClassNames[j]);
+          if ( exprClass && exprClass.isInstance(dateProp) ) {
+            return config.calculate;
+          }
+        }
+      }
+      return null;
+    },
+
+    function applyDateRangeFilter() {
+      // Apply date range filter to DAO before query runs
+
+      // Verify that subclass implements getDatePropertyForFiltering()
+      if ( ! this.getDatePropertyForFiltering ) {
+        throw new Error('[TimeSeriesGapFillingMixin] ' + this.cls_.id + ' must implement getDatePropertyForFiltering() method to use periodCount feature');
+      }
+
+      var dateProp = this.getDatePropertyForFiltering();
+
+      console.log('[applyDateRangeFilter] dateProp:', dateProp, 'periodCount:', this.periodCount, 'class:', this.cls_.id);
+
+      // Apply date range filter if:
+      // 1. periodCount > 0 (feature enabled)
+      // 2. Property exists and has a date delegate
+      if ( this.periodCount > 0 && dateProp && dateProp.delegate &&
+           (foam.lang.Date.isInstance(dateProp.delegate) || foam.lang.DateTime.isInstance(dateProp.delegate)) ) {
+
+        // Calculate date range: [minDate, maxDate]
+        // We subtract (periodCount - 1) because we want periodCount TOTAL periods including current period
+        // Example: periodCount=12 means current month + 11 previous months = 12 total
+        var calculator = this.getPeriodCalculator_(dateProp);
+        if ( ! calculator ) {
+          console.warn('[TimeSeriesGapFillingMixin] No period calculator found for date type:', dateProp.cls_.id);
+          return;
+        }
+
+        var range = calculator(this.periodCount);
+        var minDate = range.minDate;
+        var maxDate = range.maxDate;
+
+        // Filter DAO to only fetch records within [minDate, maxDate]
+        // This improves performance by reducing data transfer from server
+        console.log('[TimeSeriesGapFillingMixin] Applying date range filter:', {
+          property: dateProp.delegate.name,
+          periodCount: this.periodCount,
+          minDate: minDate.toISOString(),
+          maxDate: maxDate.toISOString(),
+          transformationType: dateProp.cls_.id
+        });
+
+        this.dao = this.dao.where(
+          this.AND(
+            this.GTE(dateProp.delegate, minDate),
+            this.LTE(dateProp.delegate, maxDate)
+          )
+        );
+      }
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
   name: 'ChartDisplayMixin',
-  
+
   documentation: 'Mixin for common chart display options',
   
   requires: [
@@ -181,6 +373,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.GroupByDAOAgent',
   mixins: [
     'foam.core.reflow.dashboard.ColorMappingMixin',
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin',
     'foam.core.reflow.dashboard.ChartDisplayMixin'
   ],
 
@@ -195,7 +388,7 @@ foam.CLASS({
       title: 'Data Configuration',
       order: 1,
       collapsable: true,
-      properties: ['prop', 'sink', 'topN', 'includeOthers', 'sortOrder', 'othersLabel']
+      properties: ['prop', 'sink', 'topN', 'periodCount', 'includeOthers', 'sortOrder', 'othersLabel']
     },
     {
       name: 'barChart',
@@ -237,6 +430,27 @@ foam.CLASS({
       }
     },
     // Inherited from GroupByDAOAgent: prop, sink, groupLimit, sortOrder, includeOthers, othersLabel
+    // Inherited from TimeSeriesGapFillingMixin: periodCount (visibility defined below)
+    // Override topN visibility to hide when prop is a date (mutually exclusive with periodCount)
+    {
+      name: 'topN',
+      visibility: function(prop) {
+        // Hide topN when property is a date/time (use periodCount instead)
+        var isDateProp = prop && prop.delegate &&
+          (foam.lang.Date.isInstance(prop.delegate) || foam.lang.DateTime.isInstance(prop.delegate));
+        return isDateProp ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW;
+      }
+    },
+    // Define visibility for periodCount (from mixin)
+    {
+      name: 'periodCount',
+      visibility: function(prop) {
+        // Only show for date/time properties
+        var isDateProp = prop && prop.delegate &&
+          (foam.lang.Date.isInstance(prop.delegate) || foam.lang.DateTime.isInstance(prop.delegate));
+        return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
+    },
     // From mixins: colors, chart display options
     {
       class: 'Enum',
@@ -245,13 +459,13 @@ foam.CLASS({
       label: 'Time Unit',
       value: 'DAY',
       section: 'barChart',
-      
+
       help: 'Time unit for X-axis when using date/time properties',
       visibility: function(prop) {
         /// hidden for now (its not working due to our new propertyexprview returning values as strings instead of dates)
         return foam.u2.DisplayMode.HIDDEN;
-        // return prop && (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop)) ? 
-        //   foam.u2.DisplayMode.RW : 
+        // return prop && (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop)) ?
+        //   foam.u2.DisplayMode.RW :
         //   foam.u2.DisplayMode.HIDDEN;
       }
     },
@@ -291,11 +505,19 @@ foam.CLASS({
   ],
 
   methods: [
+    function getDatePropertyForFiltering() {
+      // For bar charts, the date property is 'prop'
+      return this.prop;
+    },
+
     function createSink() {
+      // Apply date range filter if periodCount is enabled
+      this.applyDateRangeFilter();
+
       // Create sink with GroupBy configuration inherited from parent
       // Use the sink from parent GroupByDAOAgent if provided, otherwise COUNT
       var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
-      
+
       var sink = this.DashboardBarSink.create({
         arg1: this.prop,
         arg2: valueSink,
@@ -311,6 +533,7 @@ foam.CLASS({
         xAxisLabel: this.xAxisLabel,
         yAxisLabel: this.yAxisLabel,
         showGridLines: this.showGridLines,
+        periodCount: this.periodCount,
         maintainAspectRatio: this.maintainAspectRatio,
         height: this.height,
         showLegend: this.showLegend,
@@ -321,7 +544,7 @@ foam.CLASS({
         animationDuration: this.animationDuration,
         alignment: this.alignment
       });
-      
+
       return sink;
     },
     
@@ -329,17 +552,18 @@ foam.CLASS({
       var self = this;
       // Add the sink once
       e.add(s);
-      
+
       // Then update its properties reactively
-      this.onDetach(this.dynamic(function(colors, horizontal, barThickness, xAxisLabel, yAxisLabel, showGridLines, 
-                                  maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
+      this.onDetach(this.dynamic(function(colors, horizontal, barThickness, xAxisLabel, yAxisLabel, showGridLines,
+                                  periodCount, maintainAspectRatio, height, showLegend, legendPosition,
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) {
         s.colors = colors;
         s.horizontal = horizontal;
         s.barThickness = barThickness;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
         s.showGridLines = showGridLines;
+        s.periodCount = periodCount;
         s.maintainAspectRatio = maintainAspectRatio;
         s.height = height;
         s.showLegend = showLegend;
@@ -349,7 +573,7 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
-        
+
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
        }));
@@ -373,6 +597,7 @@ foam.CLASS({
       clone.xAxisLabel$ = this.xAxisLabel$;
       clone.yAxisLabel$ = this.yAxisLabel$;
       clone.showGridLines$ = this.showGridLines$;
+      clone.periodCount$ = this.periodCount$;
       clone.maintainAspectRatio$ = this.maintainAspectRatio$;
       clone.height$ = this.height$;
       clone.showLegend$ = this.showLegend$;
@@ -392,6 +617,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.GridByDAOAgent',
   mixins: [
     'foam.core.reflow.dashboard.ColorMappingMixin',
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin',
     'foam.core.reflow.dashboard.ChartDisplayMixin'
   ],
 
@@ -406,7 +632,7 @@ foam.CLASS({
       title: 'Data Configuration',
       order: 1,
       collapsable: true,
-      properties: ['prop2', 'prop1', 'sink', 'timeUnit']
+      properties: ['prop2', 'prop1', 'sink', 'periodCount', 'timeUnit']
     },
     {
       name: 'stackedBarChart',
@@ -456,6 +682,17 @@ foam.CLASS({
       }
     },
     // Inherited from GridByDAOAgent: prop1 (yFunc), prop2 (xFunc), sink
+    // Inherited from TimeSeriesGapFillingMixin: periodCount
+    // Override periodCount visibility to check prop2 (X-axis) instead of prop
+    {
+      name: 'periodCount',
+      visibility: function(prop2) {
+        // For stacked charts, check prop2 (X-axis) for date properties
+        var isDateProp = prop2 && prop2.delegate &&
+          (foam.lang.Date.isInstance(prop2.delegate) || foam.lang.DateTime.isInstance(prop2.delegate));
+        return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
+    },
     // From mixins: colors, chart display options
     {
       class: 'Enum',
@@ -466,9 +703,9 @@ foam.CLASS({
       help: 'Time unit for X-axis when using date/time properties',
       visibility: function(prop2) {
         /// hidden for now (its not working due to our new propertyexprview returning values as strings instead of dates)
-        return foam.u2.DisplayMode.HIDDEN;  
-        // return prop2 && (foam.lang.Date.isInstance(prop2) || foam.lang.DateTime.isInstance(prop2)) ? 
-        //   foam.u2.DisplayMode.RW : 
+        return foam.u2.DisplayMode.HIDDEN;
+        // return prop2 && (foam.lang.Date.isInstance(prop2) || foam.lang.DateTime.isInstance(prop2)) ?
+        //   foam.u2.DisplayMode.RW :
         //   foam.u2.DisplayMode.HIDDEN;
       }
     },
@@ -497,10 +734,18 @@ foam.CLASS({
   ],
 
   methods: [
+    function getDatePropertyForFiltering() {
+      // For stacked bar charts, the date property is 'prop2' (X-axis)
+      return this.prop2;
+    },
+
     function createSink() {
+      // Apply date range filter if periodCount is enabled
+      this.applyDateRangeFilter();
+
       // Use the sink from parent GridByDAOAgent if provided, otherwise COUNT
       var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
-      
+
       return this.DashboardStackedBarSink.create({
         yFunc: this.prop1,
         xFunc: this.prop2,
@@ -511,6 +756,7 @@ foam.CLASS({
         xAxisLabel: this.xAxisLabel,
         yAxisLabel: this.yAxisLabel,
         showGridLines: this.showGridLines,
+        periodCount: this.periodCount,
         maintainAspectRatio: this.maintainAspectRatio,
         height: this.height,
         showLegend: this.showLegend,
@@ -530,13 +776,14 @@ foam.CLASS({
       
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, horizontal, xAxisLabel, yAxisLabel, showGridLines,
-                                  maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
+                                  periodCount, maintainAspectRatio, height, showLegend, legendPosition,
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) {
         s.colors = colors;
         s.horizontal = horizontal;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
         s.showGridLines = showGridLines;
+        s.periodCount = periodCount;
         s.maintainAspectRatio = maintainAspectRatio;
         s.height = height;
         s.showLegend = showLegend;
@@ -546,7 +793,7 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
-        
+
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
        }));
@@ -569,6 +816,7 @@ foam.CLASS({
       clone.xAxisLabel$ = this.xAxisLabel$;
       clone.yAxisLabel$ = this.yAxisLabel$;
       clone.showGridLines$ = this.showGridLines$;
+      clone.periodCount$ = this.periodCount$;
       clone.maintainAspectRatio$ = this.maintainAspectRatio$;
       clone.height$ = this.height$;
       clone.showLegend$ = this.showLegend$;
@@ -782,7 +1030,8 @@ foam.CLASS({
   extends: 'foam.core.reflow.AbstractSinkDAOAgent',
   mixins: [
     'foam.core.reflow.dashboard.ColorMappingMixin',
-    'foam.core.reflow.dashboard.ChartDisplayMixin'
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin'
   ],
 
   requires: [
@@ -805,7 +1054,7 @@ foam.CLASS({
       title: 'Line Chart Settings',
       order: 2,
       collapsable: true,
-      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines']
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'periodCount']
     },
     {
       name: 'axisLabels',
@@ -868,6 +1117,17 @@ foam.CLASS({
       view: { class: 'foam.core.reflow.SinkView', choice:  'foam.core.reflow.CountDAOAgent' },
       help: 'How to aggregate values when multiple records have the same X-value',
 
+    },
+    // Inherited from TimeSeriesGapFillingMixin: periodCount (visibility defined below)
+    // Define visibility for periodCount (from mixin)
+    {
+      name: 'periodCount',
+      visibility: function(xProp) {
+        // Only show for date/time properties on X-axis
+        var isDateProp = xProp && xProp.delegate &&
+          (foam.lang.Date.isInstance(xProp.delegate) || foam.lang.DateTime.isInstance(xProp.delegate));
+        return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
     },
     {
       class: 'Enum',
@@ -937,11 +1197,19 @@ foam.CLASS({
   ],
 
   methods: [
+    function getDatePropertyForFiltering() {
+      // For line charts, the date property is 'xProp'
+      return this.xProp;
+    },
+
     function createSink() {
+      // Apply date range filter if periodCount is enabled
+      this.applyDateRangeFilter();
+
       if ( ! this.xProp ) {
         return this.ArraySink.create();
       }
-      
+
       // Use the aggregationSink if provided, otherwise COUNT (like StackedBar does)
       var valueSink = this.aggregationSink ? this.aggregationSink.createSink() : this.COUNT();
       
@@ -950,7 +1218,7 @@ foam.CLASS({
         // Multi-line chart: Use GridBy-based sink
         return this.DashboardMultiLineSink.create({
           xFunc: this.xProp,        // x-axis grouping
-          yFunc: this.groupBy,      // line grouping  
+          yFunc: this.groupBy,      // line grouping
           acc: valueSink,          // aggregation sink (defaulted to COUNT)
           timeUnit: this.timeUnit,
           colors: this.colors,
@@ -963,14 +1231,15 @@ foam.CLASS({
           pointRadius: this.pointRadius,
           showGridLines: this.showGridLines,
           maintainAspectRatio: this.maintainAspectRatio,
-          height: this.height,    
+          height: this.height,
           showLegend: this.showLegend,
           legendPosition: this.legendPosition,
           showTooltips: this.showTooltips,
           showTooltipSum: this.showTooltipSum,
           animate: this.animate,
           animationDuration: this.animationDuration,
-          alignment: this.alignment
+          alignment: this.alignment,
+          periodCount: this.periodCount
         });
       } else {
         // Single-line chart: Use GroupBy-based sink
@@ -995,11 +1264,12 @@ foam.CLASS({
           showTooltipSum: this.showTooltipSum,
           animate: this.animate,
           animationDuration: this.animationDuration,
-          alignment: this.alignment
+          alignment: this.alignment,
+          periodCount: this.periodCount
         });
       }
     },
-    
+
     function value(s) {
       return s;
     },
@@ -1011,8 +1281,9 @@ foam.CLASS({
       
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, xAxisLabel, yAxisLabel, fill, tension, stepped, showPoints, pointRadius, showGridLines,
-                                  maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
+                                  maintainAspectRatio, height, showLegend, legendPosition,
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment,
+                                  periodCount) {
         s.colors = colors;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
@@ -1031,6 +1302,7 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
+        s.periodCount = periodCount;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -1067,6 +1339,7 @@ foam.CLASS({
       clone.showPoints$ = this.showPoints$;
       clone.pointRadius$ = this.pointRadius$;
       clone.showGridLines$ = this.showGridLines$;
+      clone.periodCount$ = this.periodCount$;
       clone.maintainAspectRatio$ = this.maintainAspectRatio$;
       clone.height$ = this.height$;
       clone.showLegend$ = this.showLegend$;

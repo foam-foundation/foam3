@@ -299,7 +299,10 @@ foam.CLASS({
   properties: [
     {
       class: 'StringArray',
-      name: 'columns'
+      name: 'columns',
+      postSet: function(o, n) {
+        this.columnStorage.setItem('key', n);
+      }
     },
     {
       name: 'selection', hidden: true
@@ -348,13 +351,28 @@ foam.CLASS({
         config.selectedColumnNames$ = this.columns$;
       }
 
-      if ( this.of.MULTI_SELECT ) {
+      var multiSelectActions = this.of.getAxiomsByClass(foam.lang.Action)?.filter(a => a.multiSelect)
+
+      if ( multiSelectActions?.length ) {
         config.multiSelectEnabled = true;
         config.selectedObjects$ = this.selectedObjects$;
       }
 
 
       e.startContext({click: self.click}).
+        callIf(config.multiSelectEnabled, function() {
+          this.startContext({data: self})
+            .start()
+              .show(self.selectedObjects$.map(o => Object.keys(o).length > 0 ))
+              .style({
+                'display':'flex',
+                'justify-content':'flex-end',
+                'padding':'12px 0'
+              })
+              .add(multiSelectActions)
+            .end()
+          .endContext();
+        }).
         start(self.TableView, config).
           style({height: '600px'});
 
@@ -588,7 +606,7 @@ foam.CLASS({
         var cls   = block?.value?.value?.cls_;
 
         await block.value.waitForRun();
-        this.eval_(`dao(${block.flowName}.value.asDAO(), '${block.flowName}GroupBy')`);
+        this.eval_(`dao(${block.flowName}.valueDAO, '${block.flowName}GroupBy')`);
       }
     }
   ]

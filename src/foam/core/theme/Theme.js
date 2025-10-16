@@ -139,6 +139,20 @@ foam.CLASS({
       writePermissionRequired: true
     },
     {
+      class: 'String',
+      name: 'appController',
+      section: 'applicationSection',
+      documentation: 'Fully qualified FOAM class name for the application controller (e.g., kaos.ZAC).',
+      writePermissionRequired: true
+    },
+    {
+      class: 'String',
+      name: 'bootservices',
+      section: 'applicationSection',
+      documentation: 'Comma-separated boot services to instantiate (e.g., cookbookZACClient).',
+      writePermissionRequired: true
+    },
+    {
       class: 'StringArray',
       name: 'domains',
       factory: function() {

@@ -31,7 +31,7 @@ Journals are organized in a standard directory structure<cite />:
 - **Runtime journals**: `${APP_HOME}/journals/` - Active journals written during application runtime [7](#0-6)
 
 ### 4. **Compaction**
-Over time, journals accumulate multiple entries for the same object. The [[Compaction.md][Compaction]] system reduces replay time by writing out each object once in its entirety, eliminating redundant delta entries [9](#0-8) .
+Over time, journals accumulate multiple entries for the same object. The [Compaction](./Compaction.md) system reduces replay time by writing out each object once in its entirety, eliminating redundant delta entries [9](#0-8) .
 
 ## Notes
 
@@ -49,11 +49,11 @@ For example, building with `-Jhttps` will process the following `services.jrl` f
 
 ## Feature Flags and Conditional Complilation
 
-The [[Build.md][Build]] determines source and journals to process based on the POMs it has been instructed to process. By default this is the project root `pom.js` file. Additional POMs can be specified with `-P` and `-J`.  The build reads these POMs and then traverses child POMs listed in `projects`.  The build only processes diretories which contain a POM file or child directories without a POM of a parent with a POM.
+The [Build](./Build.md) determines source and journals to process based on the POMs it has been instructed to process. By default this is the project root `pom.js` file. Additional POMs can be specified with `-P` and `-J`.  The build reads these POMs and then traverses child POMs listed in `projects`.  The build only processes diretories which contain a POM file or child directories without a POM of a parent with a POM.
 
 Using this behaviour, feature inclusion can be conditionally controlled.
 
-[[Compaction.md][Compaction]] is a working example.
+[Compaction](./Compaction.md) is a working example.
 
 Source files exist at `src/foam/dao/compaction`.  This directory has a POM file but it is not referenced by another POM in the foam source tree, so it is not, by default, included in a FOAM build.
 

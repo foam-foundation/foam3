@@ -26,7 +26,6 @@ foam.CLASS({
     ^ {
       position: relative;
       height: 100%;
-      height: -webkit-fill-available;
     }
     ^center {
       height: 100%;

@@ -93,7 +93,7 @@ foam.CLASS({
 
         // Test 2: current time is between the two schedules
         now_est5edt = ZonedDateTime.of(2024, 3, 16, 13, 0, 0, 0, zone_est5edt).toLocalDateTime();
-        next_est5edt = dateService.dateToLocalDateTime(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_est5edt, zone_est5edt)));
+        next_est5edt = dateService.dateToLocalDateTimeWithZone(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_est5edt, zone_est5edt)), zone_est5edt);
         expected_est5edt = ZonedDateTime.of(2024, 3, 16, 14, 0, 0, 0, zone_est5edt).toLocalDateTime();
 
         test(next_est5edt.equals(expected_est5edt),

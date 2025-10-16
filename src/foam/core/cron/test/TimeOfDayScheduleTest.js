@@ -109,7 +109,7 @@ foam.CLASS({
         // 5:00 PM in UTC == 1:00 PM in EDT == 12:00 PM in EST
         LocalDateTime now_utc = ZonedDateTime.of(2024, 3, 16, 17, 0, 0, 0, systemZone).toLocalDateTime();
 
-        LocalDateTime next_est5edt = dateService.dateToLocalDateTime(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)));
+        LocalDateTime next_est5edt = dateService.dateToLocalDateTimeWithZone(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)), customZone);
 
         LocalDateTime expected_est5edt = ZonedDateTime.of(2024, 3, 16, 13, 2, 3, 0, customZone).toLocalDateTime();
 
@@ -131,7 +131,7 @@ foam.CLASS({
         // midnight in UTC == 20:00 PM in EDT (-1 day) == 19:00 PM in EST (-1 day)
         now_utc = ZonedDateTime.of(2025, 1, 1, 0, 0, 0, 0, systemZone).toLocalDateTime();
 
-        next_est5edt = dateService.dateToLocalDateTime(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)));
+        next_est5edt = dateService.dateToLocalDateTimeWithZone(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)), customZone);
 
         expected_est5edt = ZonedDateTime.of(2024, 12, 31, 23, 0, 0, 0, customZone).toLocalDateTime();
 
@@ -165,9 +165,9 @@ foam.CLASS({
         // 7:00 PM in UTC == 3:00 PM in EDT == 2:00 pm in EST
         LocalDateTime now_utc = ZonedDateTime.of(2024, 3, 16, 19, 0, 0, 0, systemZone).toLocalDateTime();
 
-        LocalDateTime next_est5edt = dateService.dateToLocalDateTime(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)));
+        LocalDateTime next_est5edt = dateService.dateToLocalDateTimeWithZone(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)), customZone);
 
-        LocalDateTime expected_est5edt = ZonedDateTime.of(2024, 3, 17, 13, 2, 3, 0, systemZone).toLocalDateTime();
+        LocalDateTime expected_est5edt = ZonedDateTime.of(2024, 3, 17, 13, 2, 3, 0, customZone).toLocalDateTime();
 
         test(next_est5edt.equals(expected_est5edt),
           "testAfterScheduledDifferentTimezones - Expected: " + expected_est5edt + ", Received: " + next_est5edt);
@@ -187,7 +187,7 @@ foam.CLASS({
         // 3:30 AM in UTC == 11:30 PM in EDT (-1 day) == 10:30 PM in EST (-1 day)
         now_utc = ZonedDateTime.of(2025, 1, 1, 3, 30, 0, 0, systemZone).toLocalDateTime();
 
-        next_est5edt = dateService.dateToLocalDateTime(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)));
+        next_est5edt = dateService.dateToLocalDateTimeWithZone(x, testTOD.getNextScheduledTime(x, dateService.localDateTimeToDateWithZone(x, now_utc, systemZone)), customZone);
 
         expected_est5edt = ZonedDateTime.of(2025, 1, 1, 22, 0, 0, 0, customZone).toLocalDateTime();
 

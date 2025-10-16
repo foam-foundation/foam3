@@ -580,3 +580,19 @@ foam.CLASS({
     }
   ]
 });
+
+// Auto-register DateService in the global context
+foam.SCRIPT({
+  package: 'foam.util',
+  name: 'DateServiceScript',
+  requires: [
+    'foam.util.DateServiceImpl'
+  ],
+  code: function() {
+    // Only add to context if not already present
+    if ( ! foam.__context__.dateService ) {
+      var dateService = foam.util.DateServiceImpl.create();
+      foam.__context__ = foam.__context__.createSubContext({ dateService: dateService });
+    }
+  }
+});

@@ -20,6 +20,10 @@ foam.CLASS({
     'foam.core.crunch.Renewable'
   ],
 
+  javaImports: [
+    'foam.util.DateService'
+  ],
+
   requires: ['foam.core.crunch.Capability'],
   messages: [
     { name: 'UPLOAD_REQUEST_MSG', message: 'Provide' },

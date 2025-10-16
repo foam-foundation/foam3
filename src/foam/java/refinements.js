@@ -1533,7 +1533,8 @@ foam.CLASS({
        var info = this.SUPER(cls);
        var m = info.getMethod('cast');
        m.body = `
-        return foam.util.DateUtil.adapt(o);
+        foam.util.DateService service = (foam.util.DateService) foam.lang.XLocator.get().get("dateService");
+        return service.adapt(foam.lang.XLocator.get(), o);
        `;
 
        return info;

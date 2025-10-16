@@ -22,7 +22,7 @@ foam.INTERFACE({
     'foam.core.logger.Loggers',
     'foam.time.TimeZone',
     'foam.util.SafetyUtil',
-    'static foam.util.DateUtil.getTimeZoneId',
+    'foam.util.DateService',
     'java.time.*',
     'java.time.temporal.*',
     'java.util.Date'
@@ -192,7 +192,8 @@ foam.INTERFACE({
         return from;
       }
 
-      var zone = getTimeZoneId(x, getTimeZone());
+      DateService dateService = (DateService) x.get("dateService");
+      var zone = dateService.getTimeZoneId(x, getTimeZone());
 
       LocalDateTime last = null;
       if ( from == null ) {
@@ -238,7 +239,8 @@ foam.INTERFACE({
       if ( this instanceof UserCapabilityJunction &&
            ((UserCapabilityJunction) this).getStatus() != CapabilityJunctionStatus.GRANTED ) return false;
 
-      var zone = getTimeZoneId(x, getTimeZone());
+      DateService dateService = (DateService) x.get("dateService");
+      var zone = dateService.getTimeZoneId(x, getTimeZone());
       Date now = Date.from(LocalDateTime.now(zone).atZone(zone).toInstant());
        Date renewable = calculateDate(x, getExpiry(), -1 * getRenewalPeriod(), getRenewalPeriodTimeUnit());
       // r <= n <= e
@@ -257,7 +259,8 @@ foam.INTERFACE({
       if ( this instanceof UserCapabilityJunction &&
            ((UserCapabilityJunction) this).getStatus() != CapabilityJunctionStatus.GRANTED ) return false;
 
-      var zone = getTimeZoneId(x, getTimeZone());
+      DateService dateService = (DateService) x.get("dateService");
+      var zone = dateService.getTimeZoneId(x, getTimeZone());
       Date now = Date.from(LocalDateTime.now(zone).atZone(zone).toInstant());
       if ( now.before(getExpiry())) {
         Date renewable = calculateDate(x, getExpiry(), -1 * getRenewalPeriod(), getRenewalPeriodTimeUnit());
@@ -279,7 +282,8 @@ foam.INTERFACE({
            ((UserCapabilityJunction) this).getStatus() != CapabilityJunctionStatus.GRANTED ) return false;
 
       Date grace = calculateDate(x, getExpiry(), getGracePeriod(), getGracePeriodTimeUnit());
-      var zone = getTimeZoneId(x, getTimeZone());
+      DateService dateService = (DateService) x.get("dateService");
+      var zone = dateService.getTimeZoneId(x, getTimeZone());
       Date now = Date.from(LocalDateTime.now(zone).atZone(zone).toInstant());
       // e <= n <= g
       return ! now.before(getExpiry()) &&
@@ -324,7 +328,8 @@ foam.INTERFACE({
       javaCode: `
       if ( ! getIsRenewable() ) return 0L;
 
-      var zone = getTimeZoneId(x, getTimeZone());
+      DateService dateService = (DateService) x.get("dateService");
+      var zone = dateService.getTimeZoneId(x, getTimeZone());
       Date now = Date.from(LocalDateTime.now(zone).atZone(zone).toInstant());
       if ( ! now.after(getExpiry()) ) {
         return getExpiry().getTime() - now.getTime();

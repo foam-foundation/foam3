@@ -21,7 +21,7 @@ foam.CLASS({
     'static foam.mlang.MLang.*',
     'foam.mlang.predicate.Predicate',
     'foam.mlang.predicate.True',
-    'static foam.util.DateUtil.getTimeZoneId',
+    'foam.util.DateService',
     'java.text.SimpleDateFormat',
     'java.time.*',
     'java.util.*',
@@ -318,7 +318,8 @@ foam.CLASS({
     }
 
     protected Date toDate(LocalDateTime t) {
-      return Date.from(t.atZone(getTimeZoneId(getX(), TIME_ZONE)).toInstant());
+      DateService service = (DateService) getX().get("dateService");
+      return Date.from(t.atZone(service.getTimeZoneId(getX(), TIME_ZONE)).toInstant());
     }
 
     public <T> List<T> fetch() {
@@ -410,7 +411,8 @@ foam.CLASS({
     }
 
     public Date lastDay(int dayJump) {
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.HOUR_OF_DAY, 24);
       calendar.set(Calendar.MINUTE, 0);
       calendar.set(Calendar.SECOND, 0);
@@ -429,7 +431,8 @@ foam.CLASS({
 
     public List<Date> startOfLastNHour(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.MINUTE, 0);
       calendar.set(Calendar.SECOND, 0);
 
@@ -442,7 +445,8 @@ foam.CLASS({
 
     public List<Date> endOfLastNHour(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.MINUTE, 0);
       calendar.set(Calendar.SECOND, 0);
       calendar.add(Calendar.HOUR_OF_DAY, 1);
@@ -456,7 +460,8 @@ foam.CLASS({
 
     public List<Date> startOfLastNDay(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.HOUR_OF_DAY, 0);
       calendar.set(Calendar.MINUTE, 0);
       calendar.set(Calendar.SECOND, 0);
@@ -470,7 +475,8 @@ foam.CLASS({
 
     public List<Date> endOfLastNDay(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.HOUR_OF_DAY, 24);
       calendar.set(Calendar.MINUTE, 0);
       calendar.set(Calendar.SECOND, 0);
@@ -492,7 +498,8 @@ foam.CLASS({
 
     public List<Date> startOfLastNWeek(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.DAY_OF_WEEK, 1);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
       calendar.set(Calendar.MINUTE, 0);
@@ -507,7 +514,8 @@ foam.CLASS({
 
     public List<Date> endOfLastNWeek(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.DAY_OF_WEEK, 0);
       calendar.set(Calendar.HOUR_OF_DAY, 24);
       calendar.set(Calendar.MINUTE, 0);
@@ -530,7 +538,8 @@ foam.CLASS({
 
     public List<Date> startOfLastNMonth(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
       calendar.set(Calendar.MINUTE, 0);
@@ -545,7 +554,8 @@ foam.CLASS({
 
     public List<Date> endOfLastNMonth(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(getX(), TIME_ZONE)));
+      DateService service = (DateService) getX().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(getX(), TIME_ZONE)));
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
       calendar.set(Calendar.MINUTE, 0);
@@ -561,7 +571,8 @@ foam.CLASS({
 
     public static List<Date> startOfLastNYear(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+      DateService service = (DateService) XLocator.get().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
       calendar.set(Calendar.MONTH, 0);
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -577,7 +588,8 @@ foam.CLASS({
 
     public static List<Date> endOfLastNYear(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+      DateService service = (DateService) XLocator.get().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
       calendar.set(Calendar.MONTH, 0);
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -594,7 +606,8 @@ foam.CLASS({
 
     public static List<Date> startOfLastNQuarter(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+      DateService service = (DateService) XLocator.get().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH)/3 * 3);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -610,7 +623,8 @@ foam.CLASS({
 
     public static List<Date> endOfLastNQuarter(int n) {
       var ret = new ArrayList(n);
-      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+      DateService service = (DateService) XLocator.get().get("dateService");
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
       calendar.set(Calendar.DAY_OF_MONTH, 1);
       calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH)/3 * 3 + 2);
       calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -628,7 +642,8 @@ foam.CLASS({
       @Override
       protected SimpleDateFormat initialValue() {
         SimpleDateFormat df = new SimpleDateFormat("HH:mm");
-        df.setTimeZone(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+        DateService service = (DateService) XLocator.get().get("dateService");
+        df.setTimeZone(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
         return df;
       }
     };
@@ -637,7 +652,8 @@ foam.CLASS({
       @Override
       protected SimpleDateFormat initialValue() {
         SimpleDateFormat df = new SimpleDateFormat("MMM/dd");
-        df.setTimeZone(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+        DateService service = (DateService) XLocator.get().get("dateService");
+        df.setTimeZone(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
         return df;
       }
     };
@@ -646,7 +662,8 @@ foam.CLASS({
       @Override
       protected SimpleDateFormat initialValue() {
         SimpleDateFormat df = new SimpleDateFormat("YY-MMM");
-        df.setTimeZone(TimeZone.getTimeZone(getTimeZoneId(XLocator.get(), TIME_ZONE)));
+        DateService service = (DateService) XLocator.get().get("dateService");
+        df.setTimeZone(TimeZone.getTimeZone(service.getTimeZoneId(XLocator.get(), TIME_ZONE)));
         return df;
       }
     };

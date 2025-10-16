@@ -21,8 +21,8 @@ foam.CLASS({
 
   javaImports: [
     'foam.lang.X',
-    'java.time.*',
-    'static foam.util.DateUtil.*',
+    'foam.util.DateService',
+    'java.time.*'
   ],
 
   properties: [
@@ -57,17 +57,18 @@ foam.CLASS({
         }
       ],
       javaCode: `
-        ZoneId zone = getTimeZoneId(x, getTimeZone());
-        LocalDateTime now = dateToLocalDateTime(from, zone);
+        DateService dateService = (DateService) x.get("dateService");
+        ZoneId zone = dateService.getTimeZoneId(x, getTimeZone());
+        LocalDateTime now = dateService.dateToLocalDateTimeWithZone(x, from, zone);
         LocalDateTime nextTOD = ZonedDateTime.of(now.getYear(), now.getMonthValue(), now.getDayOfMonth(),
           getTime().getHour(), getTime().getMinute(), getTime().getSecond(), 0, zone).toLocalDateTime();
-        
+
         // Increment the date if time now is after scheduled time of day
         if ( now.isAfter(nextTOD) ) {
           nextTOD = nextTOD.plusDays(1);
         }
 
-        return localDateTimeToDate(nextTOD, zone);
+        return dateService.localDateTimeToDateWithZone(x, nextTOD, zone);
       `
     },
     {

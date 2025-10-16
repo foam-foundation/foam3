@@ -36,6 +36,7 @@ foam.CLASS({
     'foam.core.logger.Logger',
     'foam.core.auth.Subject',
     'foam.core.auth.User',
+    'foam.util.DateService',
     'static foam.core.crunch.AssociatedEntity.*',
     'java.time.*',
     'java.util.Date'

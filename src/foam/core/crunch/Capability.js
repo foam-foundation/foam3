@@ -29,6 +29,7 @@ foam.CLASS({
     'foam.core.crunch.edit.EditBehaviour',
     'foam.core.crunch.edit.NullEditBehaviour',
     'foam.core.logger.Logger',
+    'foam.util.DateService',
     'java.time.*',
     'java.util.Date',
     'java.util.List',

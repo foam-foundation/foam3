@@ -28,7 +28,7 @@ foam.CLASS({
     'foam.core.logger.Loggers',
     'foam.time.TimeZone',
     'foam.util.SafetyUtil',
-    'static foam.util.DateUtil.getTimeZoneId',
+    'foam.util.DateService',
     'java.time.*',
     'java.time.temporal.*',
     'java.util.Arrays',
@@ -257,7 +257,8 @@ foam.CLASS({
       args: 'X x, java.util.Date from',
       type: 'Date',
       javaCode: `
-      var zone = getTimeZoneId(x, getTimeZone());
+      DateService dateService = (DateService) x.get("dateService");
+      var zone = dateService.getTimeZoneId(x, getTimeZone());
 
       LocalDateTime last = null;
       if ( from == null ) {

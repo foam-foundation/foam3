@@ -160,6 +160,14 @@ foam.CLASS({
             sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
                 {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmmZ'}),
+            // YYYY-MM-DDTHH:MM:SS.mmm (or YY)    
+                sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmm'}),
+            // YYYY-MM-DDTHH:MM:SS (or YY)
+            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'),  ':', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH:MM:SS'}),
             // YYYY-MM-DDTHH:MM (or YY)
             sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T', sym('digits'), ':', sym('digits')),
                 {tooltip: 'YYYY/MM/DDTHH:MM'}),
@@ -374,12 +382,12 @@ foam.CLASS({
           'literal date': function(v) {
             let defaults = [0, 1, 1, 12, 0, 0, 0]; // default values for missing date parts
             let values = v.filter((x, i) => i % 2 === 0); // remove separators
-            if (values[0] < 100) values[0] = values[0] + 2000; // convert 2-digit year to 4-digit
-            if (values[1]) values[1] = values[1] - 1; // month is zero-based
             let i = values.length;
             while (values.length < 4) {
               values.push(defaults[values.length]);
             }
+            values[0] = values[0] < 100 ? values[0] + 2000 : values[0], // convert 2-digit year to 4-digit
+            values[1] -= 1; // month is zero-based
             let start = new Date(Date.UTC.apply(null, values));
             values[i - 1]++; // bump last value for end of range
             let end  = new Date(Date.UTC.apply(null, values))

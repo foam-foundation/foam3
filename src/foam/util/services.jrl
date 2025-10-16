@@ -1,0 +1,10 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "dateService",
+  "lazy": false,
+  "serve": true,
+  "authenticate": false,
+  "boxClass": "foam.util.DateServiceSkeleton",
+  "serviceClass": "foam.util.DateServiceImpl",
+  "client": "{\"class\":\"foam.util.DateServiceImpl\"}"
+})

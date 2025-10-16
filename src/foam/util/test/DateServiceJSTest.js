@@ -6,10 +6,14 @@
 
 foam.CLASS({
   package: 'foam.util.test',
-  name: 'DateUtilJSTest',
+  name: 'DateServiceJSTest',
   extends: 'foam.core.test.JSTest',
 
-  documentation: 'JavaScript tests for DateUtil utility functions',
+  documentation: 'JavaScript tests for DateService service',
+
+  imports: [
+    'dateService'
+  ],
 
   methods: [
     async function runTest(x) {
@@ -42,7 +46,7 @@ foam.CLASS({
     },
 
     async function testParseDateString_YYYYMMDD(x) {
-      var date = foam.util.DateUtil.parseDateString('20240315');
+      var date = await this.dateService.parseDateString(x, '20240315');
       x.test(date.getFullYear() === 2024, 'YYYYMMDD format - year is 2024');
       x.test(date.getMonth() === 2, 'YYYYMMDD format - month is March (2)');
       x.test(date.getDate() === 15, 'YYYYMMDD format - day is 15');
@@ -50,20 +54,20 @@ foam.CLASS({
 
     async function testParseDateString_YYYY_MM_DD(x) {
       // Test with slash separator
-      var date1 = foam.util.DateUtil.parseDateString('2024/03/15');
+      var date1 = await this.dateService.parseDateString(x, '2024/03/15');
       x.test(date1.getFullYear() === 2024, 'YYYY/MM/DD format - year is 2024');
       x.test(date1.getMonth() === 2, 'YYYY/MM/DD format - month is March (2)');
       x.test(date1.getDate() === 15, 'YYYY/MM/DD format - day is 15');
 
       // Test with dash separator
-      var date2 = foam.util.DateUtil.parseDateString('2024-03-15');
+      var date2 = await this.dateService.parseDateString(x, '2024-03-15');
       x.test(date2.getFullYear() === 2024, 'YYYY-MM-DD format - year is 2024');
       x.test(date2.getMonth() === 2, 'YYYY-MM-DD format - month is March (2)');
       x.test(date2.getDate() === 15, 'YYYY-MM-DD format - day is 15');
     },
 
     async function testParseDateString_MMDDYYYY(x) {
-      var date = foam.util.DateUtil.parseDateString('03152024');
+      var date = await this.dateService.parseDateString(x, '03152024');
       x.test(date.getFullYear() === 2024, 'MMDDYYYY format - year is 2024');
       x.test(date.getMonth() === 2, 'MMDDYYYY format - month is March (2)');
       x.test(date.getDate() === 15, 'MMDDYYYY format - day is 15');
@@ -71,13 +75,13 @@ foam.CLASS({
 
     async function testParseDateString_MM_DD_YYYY(x) {
       // Test with slash separator
-      var date1 = foam.util.DateUtil.parseDateString('03/15/2024');
+      var date1 = await this.dateService.parseDateString(x, '03/15/2024');
       x.test(date1.getFullYear() === 2024, 'MM/DD/YYYY format - year is 2024');
       x.test(date1.getMonth() === 2, 'MM/DD/YYYY format - month is March (2)');
       x.test(date1.getDate() === 15, 'MM/DD/YYYY format - day is 15');
 
       // Test with dash separator
-      var date2 = foam.util.DateUtil.parseDateString('03-15-2024');
+      var date2 = await this.dateService.parseDateString(x, '03-15-2024');
       x.test(date2.getFullYear() === 2024, 'MM-DD-YYYY format - year is 2024');
       x.test(date2.getMonth() === 2, 'MM-DD-YYYY format - month is March (2)');
       x.test(date2.getDate() === 15, 'MM-DD-YYYY format - day is 15');
@@ -85,13 +89,13 @@ foam.CLASS({
 
     async function testParseDateString_YYMMDD(x) {
       // Test 2-digit year < 50 (assumes 2000s)
-      var date1 = foam.util.DateUtil.parseDateString('240315');
+      var date1 = await this.dateService.parseDateString(x, '240315');
       x.test(date1.getFullYear() === 2024, 'YYMMDD format (YY=24) - year is 2024');
       x.test(date1.getMonth() === 2, 'YYMMDD format (YY=24) - month is March (2)');
       x.test(date1.getDate() === 15, 'YYMMDD format (YY=24) - day is 15');
 
       // Test 2-digit year >= 50 (assumes 1900s)
-      var date2 = foam.util.DateUtil.parseDateString('850315');
+      var date2 = await this.dateService.parseDateString(x, '850315');
       x.test(date2.getFullYear() === 1985, 'YYMMDD format (YY=85) - year is 1985');
       x.test(date2.getMonth() === 2, 'YYMMDD format (YY=85) - month is March (2)');
       x.test(date2.getDate() === 15, 'YYMMDD format (YY=85) - day is 15');
@@ -99,18 +103,18 @@ foam.CLASS({
 
     async function testParseDateString_YY_MM_DD(x) {
       // Test with slash separator
-      var date1 = foam.util.DateUtil.parseDateString('24/03/15');
+      var date1 = await this.dateService.parseDateString(x, '24/03/15');
       x.test(date1.getFullYear() === 2024, 'YY/MM/DD format - year is 2024');
 
       // Test with dash separator
-      var date2 = foam.util.DateUtil.parseDateString('85-03-15');
+      var date2 = await this.dateService.parseDateString(x, '85-03-15');
       x.test(date2.getFullYear() === 1985, 'YY-MM-DD format - year is 1985');
     },
 
     async function testParseDateString_InvalidDate(x) {
       try {
         // Test invalid date like February 30th
-        foam.util.DateUtil.parseDateString('2024-02-30');
+        await this.dateService.parseDateString(x, '2024-02-30');
         x.test(false, 'Invalid date (Feb 30) should throw exception');
       } catch ( e ) {
         x.test(e.message.includes('Cannot parse invalid date'), 'Invalid date throws correct error message');
@@ -119,7 +123,7 @@ foam.CLASS({
 
     async function testParseDateString_UnsupportedFormat(x) {
       try {
-        foam.util.DateUtil.parseDateString('March 15, 2024');
+        await this.dateService.parseDateString(x, 'March 15, 2024');
         x.test(false, 'Unsupported format should throw exception');
       } catch ( e ) {
         x.test(e.message.includes('Unsupported Date format'), 'Unsupported format throws correct error message');
@@ -128,7 +132,7 @@ foam.CLASS({
 
     async function testAdapt_Number(x) {
       var timestamp = 1710489600000; // March 15, 2024 12:00:00 GMT
-      var date = foam.util.DateUtil.adapt(timestamp);
+      var date = await this.dateService.adapt(x, timestamp);
 
       x.test(date.getUTCFullYear() === 2024, 'adapt(Number) - year is 2024');
       x.test(date.getUTCMonth() === 2, 'adapt(Number) - month is March (2)');
@@ -139,7 +143,7 @@ foam.CLASS({
     },
 
     async function testAdapt_String(x) {
-      var date = foam.util.DateUtil.adapt('2024-03-15');
+      var date = await this.dateService.adapt(x, '2024-03-15');
 
       x.test(date.getUTCFullYear() === 2024, 'adapt(String) - year is 2024');
       x.test(date.getUTCMonth() === 2, 'adapt(String) - month is March (2)');
@@ -149,7 +153,7 @@ foam.CLASS({
 
     async function testAdapt_Date(x) {
       var inputDate = new Date(2024, 2, 15, 8, 30, 45); // March 15, 2024 08:30:45 local
-      var adaptedDate = foam.util.DateUtil.adapt(inputDate);
+      var adaptedDate = await this.dateService.adapt(x, inputDate);
 
       x.test(adaptedDate.getUTCFullYear() === 2024, 'adapt(Date) - year is 2024');
       x.test(adaptedDate.getUTCMonth() === 2, 'adapt(Date) - month is March (2)');
@@ -160,18 +164,18 @@ foam.CLASS({
     },
 
     async function testAdapt_Null(x) {
-      var date = foam.util.DateUtil.adapt(null);
+      var date = await this.dateService.adapt(x, null);
       x.test(date === null, 'adapt(null) returns null');
     },
 
     async function testAdapt_InvalidString(x) {
-      var date = foam.util.DateUtil.adapt('invalid date string');
-      x.test(date === foam.util.DateUtil.MAX_DATE, 'adapt(invalid string) returns MAX_DATE');
+      var date = await this.dateService.adapt(x, 'invalid date string');
+      x.test(date === await this.dateService.getMaxDate(x), 'adapt(invalid string) returns MAX_DATE');
     },
 
     async function testParseDateString_LeapYear(x) {
       // Test valid leap year date
-      var date1 = foam.util.DateUtil.parseDateString('2024-02-29');
+      var date1 = await this.dateService.parseDateString(x, '2024-02-29');
       x.test(date1.getFullYear() === 2024, 'Leap year - Feb 29, 2024 is valid');
       x.test(date1.getMonth() === 1, 'Leap year - month is February (1)');
       x.test(date1.getDate() === 29, 'Leap year - day is 29');
@@ -180,7 +184,7 @@ foam.CLASS({
     async function testParseDateString_NonLeapYear(x) {
       try {
         // Test invalid Feb 29 in non-leap year
-        foam.util.DateUtil.parseDateString('2023-02-29');
+        await this.dateService.parseDateString(x, '2023-02-29');
         x.test(false, 'Non-leap year - Feb 29, 2023 should throw exception');
       } catch ( e ) {
         x.test(e.message.includes('Cannot parse invalid date'), 'Non-leap year Feb 29 throws error');
@@ -189,12 +193,12 @@ foam.CLASS({
 
     async function testParseDateString_TrailingText(x) {
       // Test dates with trailing text (regex allows .* at end)
-      var date1 = foam.util.DateUtil.parseDateString('2024-03-15 extra text here');
+      var date1 = await this.dateService.parseDateString(x, '2024-03-15 extra text here');
       x.test(date1.getFullYear() === 2024, 'Trailing text - year is 2024');
       x.test(date1.getMonth() === 2, 'Trailing text - month is March (2)');
       x.test(date1.getDate() === 15, 'Trailing text - day is 15');
 
-      var date2 = foam.util.DateUtil.parseDateString('20240315T12:00:00');
+      var date2 = await this.dateService.parseDateString(x, '20240315T12:00:00');
       x.test(date2.getFullYear() === 2024, 'Trailing ISO time - year is 2024');
       x.test(date2.getMonth() === 2, 'Trailing ISO time - month is March (2)');
       x.test(date2.getDate() === 15, 'Trailing ISO time - day is 15');
@@ -202,21 +206,21 @@ foam.CLASS({
 
     async function testParseDateString_MonthBoundaries(x) {
       // Test last day of various months
-      var jan31 = foam.util.DateUtil.parseDateString('2024-01-31');
+      var jan31 = await this.dateService.parseDateString(x, '2024-01-31');
       x.test(jan31.getDate() === 31, 'Jan has 31 days');
 
-      var apr30 = foam.util.DateUtil.parseDateString('2024-04-30');
+      var apr30 = await this.dateService.parseDateString(x, '2024-04-30');
       x.test(apr30.getDate() === 30, 'Apr has 30 days');
 
       try {
-        foam.util.DateUtil.parseDateString('2024-04-31');
+        await this.dateService.parseDateString(x, '2024-04-31');
         x.test(false, 'Apr 31 should throw exception');
       } catch ( e ) {
         x.test(true, 'Apr 31 is invalid');
       }
 
       try {
-        foam.util.DateUtil.parseDateString('2024-02-31');
+        await this.dateService.parseDateString(x, '2024-02-31');
         x.test(false, 'Feb 31 should throw exception');
       } catch ( e ) {
         x.test(true, 'Feb 31 is invalid');
@@ -225,16 +229,16 @@ foam.CLASS({
 
     async function testParseDateString_YearBoundaries(x) {
       // Test minimum 4-digit year (1000)
-      var date1 = foam.util.DateUtil.parseDateString('1000-01-01');
+      var date1 = await this.dateService.parseDateString(x, '1000-01-01');
       x.test(date1.getFullYear() === 1000, 'Year 1000 is valid');
 
       // Test maximum reasonable 4-digit year
-      var date2 = foam.util.DateUtil.parseDateString('9999-12-31');
+      var date2 = await this.dateService.parseDateString(x, '9999-12-31');
       x.test(date2.getFullYear() === 9999, 'Year 9999 is valid');
 
       // Test year starting with 0 doesn't match YYYYMMDD pattern
       // '01012024' should match MMDDYYYY not YYYYMMDD
-      var date3 = foam.util.DateUtil.parseDateString('01012024');
+      var date3 = await this.dateService.parseDateString(x, '01012024');
       x.test(date3.getFullYear() === 2024, 'Year starting with 0 - parsed as MMDDYYYY');
       x.test(date3.getMonth() === 0, 'Year starting with 0 - month is January (0)');
       x.test(date3.getDate() === 1, 'Year starting with 0 - day is 1');
@@ -243,25 +247,25 @@ foam.CLASS({
     async function testParseDateString_FormatAmbiguity(x) {
       // Test that format priority is correct for ambiguous 8-digit strings
       // '20240315' should be YYYYMMDD (year starts with 1-9)
-      var date1 = foam.util.DateUtil.parseDateString('20240315');
+      var date1 = await this.dateService.parseDateString(x, '20240315');
       x.test(date1.getFullYear() === 2024, 'Ambiguous 8-digit - 20240315 is YYYYMMDD');
       x.test(date1.getMonth() === 2, 'Ambiguous 8-digit - month is March (2)');
       x.test(date1.getDate() === 15, 'Ambiguous 8-digit - day is 15');
 
       // '03152024' should be MMDDYYYY (doesn't match YYYYMMDD pattern)
-      var date2 = foam.util.DateUtil.parseDateString('03152024');
+      var date2 = await this.dateService.parseDateString(x, '03152024');
       x.test(date2.getFullYear() === 2024, 'Ambiguous 8-digit - 03152024 is MMDDYYYY');
       x.test(date2.getMonth() === 2, 'Ambiguous 8-digit - month is March (2)');
       x.test(date2.getDate() === 15, 'Ambiguous 8-digit - day is 15');
 
       // '10012024' should be MMDDYYYY
-      var date3 = foam.util.DateUtil.parseDateString('10012024');
+      var date3 = await this.dateService.parseDateString(x, '10012024');
       x.test(date3.getFullYear() === 2024, 'Ambiguous 8-digit - 10012024 is MMDDYYYY');
       x.test(date3.getMonth() === 9, 'Ambiguous 8-digit - month is October (9)');
       x.test(date3.getDate() === 1, 'Ambiguous 8-digit - day is 1');
 
       // '01102024' should be MMDDYYYY
-      var date4 = foam.util.DateUtil.parseDateString('01102024');
+      var date4 = await this.dateService.parseDateString(x, '01102024');
       x.test(date4.getFullYear() === 2024, 'Ambiguous 8-digit - 01102024 is MMDDYYYY');
       x.test(date4.getMonth() === 0, 'Ambiguous 8-digit - month is January (0)');
       x.test(date4.getDate() === 10, 'Ambiguous 8-digit - day is 10');
@@ -269,17 +273,17 @@ foam.CLASS({
 
     async function testParseDateString_TwoDigitYearBoundary(x) {
       // Test 2-digit year < 50 becomes 2000s
-      var date1 = foam.util.DateUtil.parseDateString('49-12-31');
+      var date1 = await this.dateService.parseDateString(x, '49-12-31');
       x.test(date1.getFullYear() === 2049, '2-digit year 49 becomes 2049');
 
-      var date2 = foam.util.DateUtil.parseDateString('00-01-01');
+      var date2 = await this.dateService.parseDateString(x, '00-01-01');
       x.test(date2.getFullYear() === 2000, '2-digit year 00 becomes 2000');
 
       // Test 2-digit year >= 50 becomes 1900s
-      var date3 = foam.util.DateUtil.parseDateString('50-01-01');
+      var date3 = await this.dateService.parseDateString(x, '50-01-01');
       x.test(date3.getFullYear() === 1950, '2-digit year 50 becomes 1950');
 
-      var date4 = foam.util.DateUtil.parseDateString('99-12-31');
+      var date4 = await this.dateService.parseDateString(x, '99-12-31');
       x.test(date4.getFullYear() === 1999, '2-digit year 99 becomes 1999');
     },
 
@@ -298,14 +302,15 @@ foam.CLASS({
         '12345678901'      // too many digits
       ];
 
-      unsupportedFormats.forEach(function(format) {
+      for ( var i = 0; i < unsupportedFormats.length; i++ ) {
+        var format = unsupportedFormats[i];
         try {
-          foam.util.DateUtil.parseDateString(format);
+          await this.dateService.parseDateString(x, format);
           x.test(false, `Unsupported format "${format}" should throw exception`);
         } catch ( e ) {
           x.test(e.message.includes('Unsupported Date format'), `Format "${format}" throws "Unsupported Date format"`);
         }
-      });
+      }
 
       // Test formats that match a pattern but have invalid date values
       var invalidDates = [
@@ -315,26 +320,27 @@ foam.CLASS({
         '01-00-2024'       // day=00 (invalid)
       ];
 
-      invalidDates.forEach(function(format) {
+      for ( var i = 0; i < invalidDates.length; i++ ) {
+        var format = invalidDates[i];
         try {
-          foam.util.DateUtil.parseDateString(format);
+          await this.dateService.parseDateString(x, format);
           x.test(false, `Invalid date "${format}" should throw exception`);
         } catch ( e ) {
           x.test(e.message.includes('Cannot parse invalid date'), `Date "${format}" throws "Cannot parse invalid date"`);
         }
-      });
+      }
     },
 
     async function testParseDateString_EmptyAndWhitespace(x) {
       try {
-        foam.util.DateUtil.parseDateString('');
+        await this.dateService.parseDateString(x, '');
         x.test(false, 'Empty string should throw exception');
       } catch ( e ) {
         x.test(e.message.includes('Unsupported Date format'), 'Empty string throws error');
       }
 
       try {
-        foam.util.DateUtil.parseDateString('   ');
+        await this.dateService.parseDateString(x, '   ');
         x.test(false, 'Whitespace string should throw exception');
       } catch ( e ) {
         x.test(e.message.includes('Unsupported Date format'), 'Whitespace throws error');
@@ -342,13 +348,13 @@ foam.CLASS({
     },
 
     async function testAdapt_EmptyString(x) {
-      var date = foam.util.DateUtil.adapt('');
-      x.test(date === foam.util.DateUtil.MAX_DATE, 'adapt(empty string) returns MAX_DATE');
+      var date = await this.dateService.adapt(x, '');
+      x.test(date === await this.dateService.getMaxDate(x), 'adapt(empty string) returns MAX_DATE');
     },
 
     async function testAdapt_WhitespaceString(x) {
-      var date = foam.util.DateUtil.adapt('   ');
-      x.test(date === foam.util.DateUtil.MAX_DATE, 'adapt(whitespace) returns MAX_DATE');
+      var date = await this.dateService.adapt(x, '   ');
+      x.test(date === await this.dateService.getMaxDate(x), 'adapt(whitespace) returns MAX_DATE');
     },
 
     async function testAdapt_AllFormats(x) {
@@ -365,17 +371,18 @@ foam.CLASS({
         '240315'
       ];
 
-      formats.forEach(function(format) {
-        var date = foam.util.DateUtil.adapt(format);
+      for ( var i = 0; i < formats.length; i++ ) {
+        var format = formats[i];
+        var date = await this.dateService.adapt(x, format);
         x.test(date.getUTCFullYear() === 2024, `adapt("${format}") - year is 2024`);
         x.test(date.getUTCMonth() === 2, `adapt("${format}") - month is March (2)`);
         x.test(date.getUTCDate() === 15, `adapt("${format}") - day is 15`);
         x.test(date.getUTCHours() === 12, `adapt("${format}") - normalized to noon GMT`);
-      });
+      }
     },
 
     async function testFORMATS_ORDER(x) {
-      var formats = foam.util.DateUtil.FORMATS_ORDER;
+      var formats = this.dateService.FORMATS_ORDER;
       x.test(Array.isArray(formats), 'FORMATS_ORDER is an array');
       x.test(formats.length === 6, 'FORMATS_ORDER has 6 format patterns');
 

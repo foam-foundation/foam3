@@ -13,7 +13,7 @@ foam.CLASS({
 
     methods: [
         function runTest(x) {
-            debugger;
+            //debugger;
 
              let testDate = (d) => {
                 return new Date(Date.UTC.apply(null, d));

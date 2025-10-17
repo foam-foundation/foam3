@@ -9,7 +9,9 @@ foam.CLASS({
   name: 'SimpleQueryParser',
 
   documentation:
-      'Create a query strings to MLangs parser for a particular class.',
+      'NQL parser that generates FOAM MLang predicates. Supports AND, OR, grouping, and property-specific predicates based on \
+      the properties of the specified "of" class. The parser is meant to be used in search bars and similar simple query inputs. \
+      It supports auto-completion via the QueryComplete class.',
 
   axioms: [
     // Reuse parsers if created for same 'of' class.
@@ -56,19 +58,16 @@ foam.CLASS({
      */
     {
       class: 'String',
-      name: 'me'
+      name: 'me' //TODO: Implement 'me' support.
     },
     {
       class: 'Boolean',
       name: 'allowShortNames',
-      value: true
+      value: false // TODO: Implement short names support.
     },
     {
       name: 'baseGrammar_',
-      value: function(alt, anyChar, eof, join, literal, literalIC, not, notChars, optional, range,
-        repeat, repeat0, seq, seq1, str, sug, sym, until) {
-
-         // TODO remove extra ws handling, should be only before or after, decide based on what works better for the suggestions
+      value: function(alt, anyChar, literal, literalIC, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
@@ -314,8 +313,6 @@ foam.CLASS({
         };
 
         let self = this;
-
-        // TODO: Fix me to just build the object directly. ???
         let actions = {
 
           or: function(v) {

@@ -103,12 +103,10 @@ foam.CLASS({
     },
 
     function removeAllFlowChildren() {
-      if ( this.removeFlowChild_ ) {
-        this.flowChildren.forEach(c => this.removeFlowChild_(c));
-      } else {
-        // Fallback: detach children directly
-        this.flowChildren.forEach(c => this.detachFlowChild(c));
-      }
+        this.flowChildren.forEach(c => {
+          this.removeFlowChild_(c);
+          this.detachFlowChild(c);
+        });
       this.flowChildren = [];
     }
   ]

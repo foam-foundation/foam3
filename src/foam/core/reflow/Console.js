@@ -555,7 +555,6 @@ foam.CLASS({
     },
 
     function removeFlowChild_(c) {
-      this.detachFlowChild(c);
       c.remove();
     },
 

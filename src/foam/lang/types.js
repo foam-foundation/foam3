@@ -301,6 +301,42 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.lang',
+  name: 'DateTimeUTC',
+  extends: 'foam.lang.DateTime',
+
+  documentation: `
+    A DateTime property type that formats dates in UTC timezone instead of the user's local timezone.
+    The adapt method uses foam.util.DateUtil for parsing, and the format method displays the date in UTC.
+  `,
+
+  requires: [
+    'foam.util.DateUtil'
+  ],
+
+  properties: [
+    [ 'type', 'DateTimeUTC' ],
+    [ 'javaType', 'java.util.Date' ],
+    {
+      name: 'adapt',
+      value: function (_, d) {
+        // Use DateUtil.adaptDateTime with forceUTC=true to ensure all string inputs
+        // are parsed as UTC. Numbers and Date objects are always preserved exactly.
+        return foam.util.DateUtil.adaptDateTime(d, true);
+      }
+    },
+    {
+      name: 'format',
+      value: function(val, timeFirst = false) {
+        // Use DateUtil.format with UTC timezone for consistent UTC formatting
+        return foam.util.DateUtil.format(val, arguments.length > 1 ? timeFirst : null, 'UTC');
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.lang',
   name: 'Time',
   extends: 'String',
 

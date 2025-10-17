@@ -66,6 +66,7 @@ foam.POM({
     { name: "foam/lang/Exception",                                    flags: "js|java" },
     { name: "foam/lang/FOAMException",                                flags: "js|java" },
     { name: "foam/lang/FOAMExceptionTest",                            flags: "js&test|java&test" },
+    { name: "foam/lang/test/DateTimeUTCTest",                         flags: "js&test|java&test" },
     { name: "foam/lang/Window",                                       flags: "js" },
     { name: "foam/lang/ContextMultipleInheritence",                   flags: "js" },
     { name: "foam/lang/Argument",                                     flags: "js|java" },

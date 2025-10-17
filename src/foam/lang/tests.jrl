@@ -2,3 +2,4 @@ p({"class":"foam.lang.FObjectTest","id":"FObjectTest","description":"Test FObjec
 p({"class":"foam.lang.CoreTypesValidationTest","id":"CoreTypesValidationTest"})
 p({"class":"foam.java.ParseTemplateTest","id":"Test_java_template_output"})
 p({"class":"foam.lang.FOAMExceptionTest","id":"FOAMExceptionTest"})
+p({"class":"foam.lang.test.DateTimeUTCTest","id":"DateTimeUTCTest","description":"Test DateTimeUTC property type"})

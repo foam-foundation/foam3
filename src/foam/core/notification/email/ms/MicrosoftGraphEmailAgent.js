@@ -141,7 +141,8 @@ foam.CLASS({
         String emailFrom = config.getUsername();
 
         if (clientId == null || tenantId == null || clientSecret == null || emailFrom == null) {
-          throw new IllegalArgumentException("Missing required email service configuration.");
+          logger.error("Missing required email service configuration.");
+          return null;
         }
 
         ClientSecretCredential credential = new ClientSecretCredentialBuilder()

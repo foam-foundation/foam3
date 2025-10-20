@@ -1090,8 +1090,6 @@ foam.CLASS({
       if ( flow ) {
         await this.includeScript(flow.script);
       }
-
-      await this.eval_('postLoad', null, true);
     },
 
     async function includeScript(script, parent, skipParse) {
@@ -1124,7 +1122,9 @@ foam.CLASS({
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
       }
-
+      if ( ! parent ){
+        await this.eval_('postLoad', null, true);
+      }
     },
 
     function clearFlow() {

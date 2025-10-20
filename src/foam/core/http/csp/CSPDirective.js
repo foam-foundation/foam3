@@ -8,13 +8,9 @@ foam.CLASS({
   package: 'foam.core.http.csp',
   name: 'CSPDirective',
 
-  documentation: `
-TODO: booleans for self, data:, blob:, ... ?
-
-Overriding:
-- disable id
-- use same key
-`,
+  documentation: `Individual Content Security Policy Directive used
+by CSPFilter to build a domain specific policy.
+See CSPFilter.js for more documenation.`,
 
   implements: [
     'foam.core.auth.EnabledAware'

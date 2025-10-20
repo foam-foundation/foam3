@@ -32,7 +32,7 @@ directive will only apply to that domain.
 
 If any CSPDirective is updated at runtime, all policies will be rebuilt.
 
-CSPDirectives can now be co-located with thier respective code use.
+CSPDirectives can now be package scoped with their respective code use.
 See io/c9/ace/ Editor.js and cspdirectives.jrl
 `,
 

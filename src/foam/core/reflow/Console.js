@@ -222,7 +222,7 @@ foam.CLASS({
                 horizontal: false
               })
               .start('span').addClass(this.myClass('separator')).end()
-              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c.name == 'CONSOLE' ? 'fullScreen' : 'minimize') })
+              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c == self.FlowMode.CONSOLE ? 'fullScreen' : 'minimize') })
             .endContext()
             // callIf(this.data.showPrompts$, function() {
             //   this.start().addClass(self.myClass('save-text'))
@@ -356,12 +356,12 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       isAvailable: function(data$flowMode) {
         // Hide toggle button in PRESENTATION_ONLY mode
-        return data$flowMode.name != 'PRESENTATION_ONLY';
+        return data$flowMode != this.FlowMode.PRESENTATION_ONLY;
       },
       code: function() {
-        if (this.data.flowMode.name == 'CONSOLE') {
+        if (this.data.flowMode == this.FlowMode.CONSOLE) {
           this.data.flowMode = this.FlowMode.PRESENTATION;
-        } else if (this.data.flowMode.name == 'PRESENTATION') {
+        } else if (this.data.flowMode == this.FlowMode.PRESENTATION) {
           this.data.flowMode = this.FlowMode.CONSOLE;
         }
       }

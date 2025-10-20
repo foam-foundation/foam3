@@ -510,6 +510,7 @@ foam.POM({
     { name: "http/csp/CSPFilter",                                                         flags: "java" },
     { name: "http/csp/CSPReportWebAgent",                                                 flags: "java" },
     { name: "http/csp/CSPViolation",                                                      flags: "js|java" },
+    { name: "http/csp/test/CSPDirectiveTest",                                             flags: "js&test|java&test" },
     { name: "actioncommand/ActionCommand",                            flags: "js|java" },
     { name: "pool/AbstractFixedThreadPool",                           flags: "js|java" },
     { name: "om/OMLogger",                                            flags: "js|java" },

@@ -9,6 +9,8 @@ foam.CLASS({
   name: 'CSPFilter',
 
   documentation: `Content-Security-Policy servlet filter.
+See https://content-security-policy.com/
+
 The filter builds a policy for each domain encountered from CSPDirective
 entries.
 
@@ -102,13 +104,7 @@ which provide CONTENT_SECURITY_POLICY as init parameters of CSPFilter.`,
         setInitParameterCSP(config.getInitParameter(CONTENT_SECURITY_POLICY));
 
         X x = (X) config.getServletContext().getAttribute("X");
-        DAO cspDirectiveDAO = (DAO) x.get("cspDirectiveDAO");
-        cspDirectiveDAO.listen(new AbstractSink() {
-          @Override
-          public void put(Object obj, Detachable sub) {
-            getCache().clear();
-          }
-        }, null);
+        initDAOListeners(x);
       `
     },
     {
@@ -128,6 +124,20 @@ which provide CONTENT_SECURITY_POLICY as init parameters of CSPFilter.`,
     {
       name: 'destroy',
       javaCode: '// noop'
+    },
+    {
+      name: 'initDAOListeners',
+      args: 'X x',
+      javaCode: `
+        DAO cspDirectiveDAO = (DAO) x.get("cspDirectiveDAO");
+        cspDirectiveDAO.listen(new AbstractSink() {
+          @Override
+          public void put(Object obj, Detachable sub) {
+            Loggers.logger(x, this).info("flush cache");
+            getCache().clear();
+          }
+        }, null);
+      `
     },
     {
       name: 'getPolicy',

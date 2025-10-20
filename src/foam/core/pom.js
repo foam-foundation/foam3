@@ -506,7 +506,7 @@ foam.POM({
     { name: "ndiff/NDiffDAO",                                                             flags: "js|java" },
     { name: "ndiff/NDiffJournal",                                                         flags: "js|java" },
     { name: "ndiff/NDiffRuntimeDAO",                                                      flags: "js|java" },
-    { name: "http/csp/CSP",                                                               flags: "js|java" },
+    { name: "http/csp/CSPDirective",                                                      flags: "js|java" },
     { name: "http/csp/CSPFilter",                                                         flags: "java" },
     { name: "http/csp/CSPReportWebAgent",                                                 flags: "java" },
     { name: "http/csp/CSPViolation",                                                      flags: "js|java" },

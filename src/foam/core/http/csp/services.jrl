@@ -7,18 +7,20 @@ p({
 
 p({
   class: "foam.core.boot.CSpec",
-  name: "cspDAO",
-  description: "DAO containing Content Security Policies",
+  name: "cspDirectiveDAO",
+  description: "DAO containing Content Security Policy Directives",
   serve: true,
   serviceScript: """
     return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.http.csp.CSP.getOwnClassInfo())
+      .setOf(foam.core.http.csp.CSPDirective.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("csps")
-      .build();
+      .setJournalName("cspdirectives")
+      .build()
+      .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.http.csp.CSPDirective.ENABLED, foam.core.http.csp.CSPDirective.DOMAIN})
+      .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.http.csp.CSPDirective.DOMAIN});
     """,
-  client: "{\"of\":\"foam.core.http.csp.CSP\"}",
+  client: "{\"of\":\"foam.core.http.csp.CSPDirective\"}",
 })
 
 p({

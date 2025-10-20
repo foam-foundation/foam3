@@ -41,13 +41,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'subdomain'
-    },
-    {
-      name: 'contentSecurityPolicy',
-      class: 'Reference',
-      of: 'foam.core.http.csp.CSP',
-      targetDAOKey: 'cspDAO',
-      value: 'default'
     }
   ]
 });

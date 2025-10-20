@@ -9,32 +9,56 @@ foam.CLASS({
   name: 'CSPFilter',
 
   documentation: `Content-Security-Policy servlet filter.
-Attempts to find a 'domain' specific policy via ThemeDomain.
-NOTE: A http CSpec CONTENT_SECURITY_POLICY supersedes all for backward compatibility.
-By default the system will use the 'default' CSP. To override,
-either override the 'default' CSP in an application level csps.jrl,
-or add a new CSP and set it's 'id' in ThemeDomain.contentSecurityPolicy.
-To completely disable CSP:
-- globally: Create an application level CSP (csps.jrl) for id 'default' with an empty policy.
-- per domain: Create an application level ThemeDomain (themeDomains.jrl) with 'none' as the contentSecurityPolicy value.
+The filter builds a policy for each domain encountered from CSPDirective
+entries.
+
+Each CSP Directive ID is a triple of 'name', 'key', 'domain'.
+
+FOAM provides production ready directives.
+An application can append, disable, or override any directive, and add
+additional directives.
+
+To disable a directive, set enabled:false at an application level
+cspdirectives.jrl.
+
+To append to a directive, create an entry with the same name, but unique
+key. FOAM itself uses 'foam', so the application name is a good choice.
+
+To override a directive, create an entry with the same name and key
+with the new value.
+
+If the domain property is set to other than '*' (wildcard), then the
+directive will only apply to that domain.
+
+If any CSPDirective is updated at runtime, all policies will be rebuilt.
+
+CSPDirectives can now be co-located with thier respective code use.
+See io/c9/ace/ Editor.js and cspdirectives.jrl
 `,
 
   javaImplements: [ 'jakarta.servlet.Filter' ],
 
   javaImports: [
     'foam.core.theme.ThemeDomain',
+    'foam.core.logger.Loggers',
     'foam.dao.AbstractSink',
+    'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.lang.Detachable',
     'foam.lang.X',
     'foam.lang.XLocator',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
+    'static foam.mlang.MLang.GROUP_BY',
+    'static foam.mlang.MLang.OR',
+    'foam.mlang.sink.GroupBy',
     'foam.mlang.predicate.Predicate',
     'foam.util.SafetyUtil',
     'jakarta.servlet.*',
     'jakarta.servlet.http.HttpServletResponse',
     'java.util.concurrent.ConcurrentHashMap',
+    'java.util.HashMap',
+    'java.util.List',
     'java.util.Map'
   ],
 
@@ -44,12 +68,6 @@ To completely disable CSP:
       name: 'CONTENT_SECURITY_POLICY',
       type: 'String',
       value: 'CONTENT_SECURITY_POLICY'
-    },
-    {
-      documentation: 'Sytem provided CSP when none explicitly configured by the application',
-      name: 'DEFAULT',
-      type: 'String',
-      value: 'defualt'
     },
     {
       documentation: 'Cache key when no policy found.',
@@ -84,16 +102,8 @@ which provide CONTENT_SECURITY_POLICY as init parameters of CSPFilter.`,
         setInitParameterCSP(config.getInitParameter(CONTENT_SECURITY_POLICY));
 
         X x = (X) config.getServletContext().getAttribute("X");
-        DAO themeDomainDAO = (DAO) x.get("themeDomainDAO");
-        themeDomainDAO.listen(new AbstractSink() {
-          @Override
-          public void put(Object obj, Detachable sub) {
-            getCache().clear();
-          }
-        }, null);
-
-        DAO cspDAO = (DAO) x.get("cspDAO");
-        cspDAO.listen(new AbstractSink() {
+        DAO cspDirectiveDAO = (DAO) x.get("cspDirectiveDAO");
+        cspDirectiveDAO.listen(new AbstractSink() {
           @Override
           public void put(Object obj, Detachable sub) {
             getCache().clear();
@@ -125,35 +135,63 @@ which provide CONTENT_SECURITY_POLICY as init parameters of CSPFilter.`,
       type: 'String',
       javaCode: `
         String policy = (String) getCache().get(domain);
-        if ( SafetyUtil.isEmpty(policy) ) {
-          policy = getInitParameterCSP();
-        }
-        if ( SafetyUtil.isEmpty(policy) ) {
-          // Default to the 'default' policy so no additional configuration
-          // is required to get a secure system.
+        if ( ! SafetyUtil.isEmpty(policy) )
+          return policy;
 
-          String name = DEFAULT;
-          DAO themeDomainDAO = (DAO) x.get("themeDomainDAO");
-          if ( themeDomainDAO != null ) {
-            ThemeDomain themeDomain = (ThemeDomain) themeDomainDAO.find(domain);
-            if ( themeDomain != null ) {
-              name = themeDomain.getContentSecurityPolicy();
-            }
-          }
-          DAO cspDAO = (DAO) x.get("cspDAO");
-          CSP csp = (CSP) cspDAO.find(name);
-          if ( csp != null &&
-               ! SafetyUtil.isEmpty(csp.getPolicy()) ) {
-            foam.core.logger.StdoutLogger.instance().info("CSPFilter,doFilter,found domain policy for", domain);
-            policy = csp.getPolicy();
-            policy = policy.replaceAll("\\n", "");
-          } else {
+        policy = getInitParameterCSP();
+        if ( ! SafetyUtil.isEmpty(policy) ) {
+          getCache().put(domain, policy);
+          return policy;
+        }
+
+        synchronized ( domain.intern() ) {
+          policy = (String) getCache().get(domain);
+          if ( ! SafetyUtil.isEmpty(policy) )
+            return policy;
+
+          policy = buildPolicy(x, domain);
+          if ( SafetyUtil.isEmpty(policy) ) {
             policy = NONE;
           }
-
           getCache().put(domain, policy);
         }
         return policy;
+      `
+    },
+    {
+      name: 'buildPolicy',
+      args: 'X x, String domain',
+      type: 'String',
+      javaCode: `
+      DAO dao = (DAO) x.get("cspDirectiveDAO");
+      GroupBy groups = (GroupBy) dao
+        .where(
+          AND(
+            EQ(CSPDirective.ENABLED, true),
+            OR (
+              EQ(CSPDirective.DOMAIN, domain),
+              EQ(CSPDirective.DOMAIN, CSPDirective.WILDCARD)
+            )
+          )
+        )
+        .select(GROUP_BY(CSPDirective.NAME, new ArraySink(x)));
+
+      StringBuilder sb = new StringBuilder();
+      for ( String name : ((Map<String, CSPDirective>)groups.getGroups()).keySet() ) {
+        sb.append(name);
+        for ( CSPDirective directive : (List<CSPDirective>) ((ArraySink) groups.getGroups().get(name)).getArray() ) {
+          sb.append(" ");
+          sb.append(directive.getValue());
+          if ( ! SafetyUtil.isEmpty(directive.getHash()) ) {
+            sb.append(" ");
+            sb.append(directive.getHash());
+          }
+        }
+        sb.append("; ");
+      }
+
+      Loggers.logger(x, this).info("policy", domain, sb.toString().replaceAll(";", ";\\n"));
+      return sb.toString();
       `
     }
   ]

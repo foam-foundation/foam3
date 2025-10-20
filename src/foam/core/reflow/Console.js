@@ -1105,6 +1105,7 @@ foam.CLASS({
         var c = cs[i];
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
+
         let args = { ...c };
         if ( args.value )
           delete args.value;
@@ -1119,6 +1120,9 @@ foam.CLASS({
         }
 
         await this.currentBlock.value?.onLoad?.();
+
+        // CRITICAL: Refresh scope after value is fully set to ensure next command can access it
+        this.refreshFlowScope();
 
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);

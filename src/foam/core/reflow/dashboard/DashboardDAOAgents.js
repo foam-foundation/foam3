@@ -1398,3 +1398,121 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCalendarChartDAOAgent',
+  extends: 'foam.core.reflow.GroupByDAOAgent',
+  mixins: [
+    'foam.core.reflow.dashboard.ColorMappingMixin',
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin',
+    'foam.core.reflow.dashboard.ChartDisplayMixin'
+  ],
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardCalendarSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  sections: [
+    {
+      name: 'dataConfig',
+      title: 'Data Configuration',
+      order: 1,
+      collapsable: true,
+      properties: ['prop', 'categoryProp', 'sink', 'periodCount']
+    },
+    {
+      name: 'display',
+      title: 'Display Options',
+      order: 2,
+      collapsable: true,
+      properties: [ 'alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'colors']
+    }
+  ],
+
+  properties: [
+    {
+      name: 'prop',
+      label: 'Date Property',
+      view: function(_, X) {
+        return {
+          class: 'foam.core.reflow.PropertyExprView',
+          forCls: X.data.dao.of
+        };
+      }
+    },
+    {
+      name: 'categoryProp',
+      label: 'Category Property',
+      view: function(_, X) {
+        return {
+          class: 'foam.core.reflow.PropertyChoiceView',
+          forCls: X.data.dao.of
+        };
+      }
+    },
+    {
+      name: 'sink',
+      view: {
+        class: 'foam.core.reflow.SinkView',
+        choice: 'foam.core.reflow.CountDAOAgent',
+        disabledTypes: [ 'structure', 'format', 'chart' ]
+      }
+    },
+    {
+      name: 'periodCount',
+      label: 'Periods',
+      value: 30,
+      help: 'How many days to show from today'
+    }
+  ],
+
+  methods: [
+    function getDatePropertyForFiltering() {
+      return this.prop;
+    },
+    function createSink() {
+      this.applyDateRangeFilter && this.applyDateRangeFilter();
+      var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
+      return this.DashboardCalendarSink.create({
+        dateProp: this.prop,
+        categoryProp: this.categoryProp,
+        valueSink: valueSink,
+        colors: this.colors,
+        showLegend: this.showLegend,
+        legendPosition: this.legendPosition,
+        maintainAspectRatio: this.maintainAspectRatio,
+        height: this.height,
+        alignment: this.alignment,
+        animate: this.animate,
+        animationDuration: this.animationDuration,
+        periodCount: this.periodCount
+      });
+    },
+    function addSinkToE(e, s) {
+      var self = this;
+      e.add(s);
+      // Live binding like other charts
+      this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
+        s.colors = colors;
+        s.showLegend = showLegend;
+        s.legendPosition = legendPosition;
+        s.maintainAspectRatio = maintainAspectRatio;
+        s.height = height;
+        s.alignment = alignment;
+        s.animate = animate;
+        s.animationDuration = animationDuration;
+        if ( s.updateChart ) s.updateChart();
+      }));
+    },
+    function addToE(e) {
+      e.startContext({data: this})
+        .tag(this.ReactiveSectionedDetailView, {
+          data: this,
+          showTitle: true
+        })
+      .endContext();
+    }
+  ]
+});

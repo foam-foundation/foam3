@@ -29,3 +29,4 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 28, "label":"Metric", "value":"fo
 p({"class":"foam.core.reflow.SinkAgent", "id": 30, "label":"Download", "value":"foam.core.reflow.DownloadDAOAgent", "sink":false, "type":"format", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 31, "label":"Labeled",   "value":"foam.core.reflow.LabeledDAOAgent",      "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 32, "label":"Filtered",  "value":"foam.core.reflow.FilteredDAOAgent",     "sink":true,  "type":"structure"})
+p({"class":"foam.core.reflow.SinkAgent", "id": 40, "label":"Calendar Chart", "value":"foam.core.reflow.dashboard.DashboardCalendarChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})

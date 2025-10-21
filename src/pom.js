@@ -927,6 +927,7 @@ foam.POM({
     { name: "org/chartjs/Line",                                       flags: "web" },
     { name: "org/chartjs/Line2",                                      flags: "web" },
     { name: "org/chartjs/Bar2",                                       flags: "web" },
+    { name: "org/chartjs/CalendarDAOChartView",                       flags: "web" },
     { name: "org/chartjs/StackedBar2",                                flags: "web" },
     { name: "org/chartjs/Pie2",                                       flags: "web" },
     { name: "org/chartjs/Donut2",                                     flags: "web" },

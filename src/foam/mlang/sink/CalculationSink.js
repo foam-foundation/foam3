@@ -185,33 +185,44 @@ foam.CLASS({
       code: function(obj) {
         if ( ! this.operations || this.operations.length === 0 ) return 0;
 
-        // Start with the first operand value
-        var result = this.getOperandValue_(this.operations[0].operand, obj);
+        // Get all values first
+        var values = this.operations.map(function(op) {
+          return this.getOperandValue_(op.operand, obj);
+        }.bind(this));
 
-        // Apply each operation: operations[i-1].operation is applied to operations[i].value
-        // Pattern: value0 op0 value1 op1 value2
-        for ( var i = 1; i < this.operations.length; i++ ) {
-          var operandValue = this.getOperandValue_(this.operations[i].operand, obj);
-          var operation = this.operations[i - 1].operation; // Use PREVIOUS item's operation!
+        // Get all operations (operations[i-1].operation applies to values[i])
+        var ops = this.operations.slice(0, -1).map(function(op) {
+          return op.operation;
+        });
 
-          switch ( operation ) {
-            case foam.mlang.sink.OperationType.ADD:
-              result += operandValue;
-              break;
-            case foam.mlang.sink.OperationType.SUBTRACT:
-              result -= operandValue;
-              break;
-            case foam.mlang.sink.OperationType.MULTIPLY:
-              result *= operandValue;
-              break;
-            case foam.mlang.sink.OperationType.DIVIDE:
-              if ( operandValue !== 0 ) {
-                result /= operandValue;
-              } else {
-                console.warn('Division by zero in CalculationSink');
-                return 0;
-              }
-              break;
+        // First pass: Handle MULTIPLY and DIVIDE (higher precedence)
+        var i = 0;
+        while ( i < ops.length ) {
+          if ( ops[i] === foam.mlang.sink.OperationType.MULTIPLY ) {
+            values[i] = values[i] * values[i + 1];
+            values.splice(i + 1, 1);
+            ops.splice(i, 1);
+          } else if ( ops[i] === foam.mlang.sink.OperationType.DIVIDE ) {
+            if ( values[i + 1] !== 0 ) {
+              values[i] = values[i] / values[i + 1];
+              values.splice(i + 1, 1);
+              ops.splice(i, 1);
+            } else {
+              console.warn('Division by zero in CalculationSink');
+              return 0;
+            }
+          } else {
+            i++;
+          }
+        }
+
+        // Second pass: Handle ADD and SUBTRACT (lower precedence)
+        var result = values[0];
+        for ( var j = 0; j < ops.length; j++ ) {
+          if ( ops[j] === foam.mlang.sink.OperationType.ADD ) {
+            result += values[j + 1];
+          } else if ( ops[j] === foam.mlang.sink.OperationType.SUBTRACT ) {
+            result -= values[j + 1];
           }
         }
 
@@ -220,30 +231,46 @@ foam.CLASS({
       javaCode: `
         if ( getOperations() == null || getOperations().length == 0 ) return 0.0;
 
-        double result = getOperandValue_(getOperations()[0].getOperand(), obj);
+        // Get all values first
+        java.util.List<Double> values = new java.util.ArrayList<>();
+        for ( int i = 0; i < getOperations().length; i++ ) {
+          values.add(getOperandValue_(getOperations()[i].getOperand(), obj));
+        }
 
-        for ( int i = 1; i < getOperations().length; i++ ) {
-          double operandValue = getOperandValue_(getOperations()[i].getOperand(), obj);
-          foam.mlang.sink.OperationType operation = getOperations()[i - 1].getOperation(); // Use PREVIOUS item's operation!
+        // Get all operations
+        java.util.List<foam.mlang.sink.OperationType> ops = new java.util.ArrayList<>();
+        for ( int i = 0; i < getOperations().length - 1; i++ ) {
+          ops.add(getOperations()[i].getOperation());
+        }
 
-          switch ( operation ) {
-            case ADD:
-              result += operandValue;
-              break;
-            case SUBTRACT:
-              result -= operandValue;
-              break;
-            case MULTIPLY:
-              result *= operandValue;
-              break;
-            case DIVIDE:
-              if ( operandValue != 0 ) {
-                result /= operandValue;
-              } else {
-                System.err.println("Division by zero in CalculationSink");
-                return 0.0;
-              }
-              break;
+        // First pass: Handle MULTIPLY and DIVIDE
+        int i = 0;
+        while ( i < ops.size() ) {
+          if ( ops.get(i) == foam.mlang.sink.OperationType.MULTIPLY ) {
+            values.set(i, values.get(i) * values.get(i + 1));
+            values.remove(i + 1);
+            ops.remove(i);
+          } else if ( ops.get(i) == foam.mlang.sink.OperationType.DIVIDE ) {
+            if ( values.get(i + 1) != 0 ) {
+              values.set(i, values.get(i) / values.get(i + 1));
+              values.remove(i + 1);
+              ops.remove(i);
+            } else {
+              System.err.println("Division by zero in CalculationSink");
+              return 0.0;
+            }
+          } else {
+            i++;
+          }
+        }
+
+        // Second pass: Handle ADD and SUBTRACT
+        double result = values.get(0);
+        for ( int j = 0; j < ops.size(); j++ ) {
+          if ( ops.get(j) == foam.mlang.sink.OperationType.ADD ) {
+            result += values.get(j + 1);
+          } else if ( ops.get(j) == foam.mlang.sink.OperationType.SUBTRACT ) {
+            result -= values.get(j + 1);
           }
         }
 

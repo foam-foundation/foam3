@@ -101,8 +101,13 @@ foam.CLASS({
       justify-self: center;
       align-self: center;
     }
-    ^collapsed-header {
-      padding: 0.2rem;
+    ^collapsed-header-col {
+      padding: 0.8rem 0.2rem;
+      font-weight: 400!important;
+    }
+    ^collapsed-header-row {
+      padding: 0.2rem 1rem;
+      font-weight: 400!important;
     }
     ^collapsed-cell {
       border: 0px solid $borderDefault;
@@ -144,7 +149,7 @@ foam.CLASS({
               .on('mouseover', () => self.currentHoverCol = c)
               .on('mouseleave', function() { self.currentHoverCol = undefined; self.currentHoverRow = undefined; })
               .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol) => currentHoverCol === c))
-              .enableClass(self.myClass('collapsed-header'), self.slot(collapsedKeys => collapsedKeys[colKey]))
+              .enableClass(self.myClass('collapsed-header-col'), self.slot(collapsedKeys => collapsedKeys[colKey]))
               .start()
                 .addClass(self.myClass('header-grid'), self.myClass('header-grid-col'))
                 .start()
@@ -153,7 +158,7 @@ foam.CLASS({
                   .add(self.slot(collapsedKeys => collapsedKeys[colKey] ? '▿' : '▵'))
                 .end()
                 .start()
-                  .add(self.slot(collapsedKeys => collapsedKeys[colKey] ? '...' : c.toString()))
+                  .add(c.toString())
                 .end()
               .end()
             .end();
@@ -172,7 +177,7 @@ foam.CLASS({
               .on('mouseover', () => self.currentHoverRow = r)
               .addClass(self.myClass('th'))
               .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverRow) => currentHoverRow === r))
-              .enableClass(self.myClass('collapsed-header'), self.slot(collapsedKeys => collapsedKeys[rowKey]))
+              .enableClass(self.myClass('collapsed-header-row'), self.slot(collapsedKeys => collapsedKeys[rowKey]))
               .start()
                 .addClass(self.myClass('header-grid'), self.myClass('header-grid-row'))
                 .start()
@@ -181,7 +186,7 @@ foam.CLASS({
                   .add(self.slot(collapsedKeys => collapsedKeys[rowKey] ? '▹' : '◃'))
                 .end()
                 .start()
-                  .add(self.slot(collapsedKeys => collapsedKeys[rowKey] ? '' : r))
+                  .add(r)
                 .end()
               .end()
             .end().

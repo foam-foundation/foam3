@@ -63,6 +63,9 @@ foam.CLASS({
         DateUtilTest_parseDateTime_US_Format();
         DateUtilTest_parseDateTime_Compact();
         DateUtilTest_parseDateTime_InvalidFormats();
+        DateUtilTest_parseDateTime_ForceUTC_True();
+        DateUtilTest_parseDateTime_ForceUTC_False();
+        DateUtilTest_parseDateTime_ForceUTC_BackwardCompatibility();
         DateUtilTest_adaptDateTime_DateOnlyString();
         DateUtilTest_adaptDateTime_DateTimeString();
         DateUtilTest_adaptDateTime_Number();
@@ -180,7 +183,11 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_YYMMDD',
       javaCode: `
         try {
-          // Test 2-digit year < 50 (assumes 2000s)
+          // Test 2-digit year using sliding window (50 years back, 50 years forward from current year)
+          Calendar currentCal = Calendar.getInstance();
+          int currentYear = currentCal.get(Calendar.YEAR);
+
+          // Test with year 24 (should be 2024 if current year is between 1974-2074)
           Date date1 = DateUtil.parseDateString("240315");
           Calendar cal1 = Calendar.getInstance();
           cal1.setTime(date1);
@@ -191,12 +198,20 @@ foam.CLASS({
           int actualDay1 = cal1.get(Calendar.DAY_OF_MONTH);
           test(actualDay1 == 15, "YYMMDD format (YY=24) - day is 15 (expected 15, got " + actualDay1 + ")");
 
-          // Test 2-digit year >= 50 (assumes 1900s)
+          // Test with year 85 - sliding window interpretation
           Date date2 = DateUtil.parseDateString("850315");
           Calendar cal2 = Calendar.getInstance();
           cal2.setTime(date2);
           int actualYear2 = cal2.get(Calendar.YEAR);
-          test(actualYear2 == 1985, "YYMMDD format (YY=85) - year is 1985 (expected 1985, got " + actualYear2 + ")");
+
+          // Calculate expected year for 85 using sliding window
+          int currentCentury = (currentYear / 100) * 100;
+          int expectedYear85 = currentCentury + 85;
+          if ( expectedYear85 > currentYear + 50 ) {
+            expectedYear85 = currentCentury - 100 + 85;
+          }
+
+          test(actualYear2 == expectedYear85, "YYMMDD format (YY=85) - year is " + expectedYear85 + " (expected " + expectedYear85 + ", got " + actualYear2 + ")");
           int actualMonth2 = cal2.get(Calendar.MONTH);
           test(actualMonth2 == 2, "YYMMDD format (YY=85) - month is March (2) (expected 2, got " + actualMonth2 + ")");
           int actualDay2 = cal2.get(Calendar.DAY_OF_MONTH);
@@ -210,6 +225,9 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_YY_MM_DD',
       javaCode: `
         try {
+          Calendar currentCal = Calendar.getInstance();
+          int currentYear = currentCal.get(Calendar.YEAR);
+
           // Test with slash separator
           Date date1 = DateUtil.parseDateString("24/03/15");
           Calendar cal1 = Calendar.getInstance();
@@ -217,12 +235,19 @@ foam.CLASS({
           int actualYear1 = cal1.get(Calendar.YEAR);
           test(actualYear1 == 2024, "YY/MM/DD format - year is 2024 (expected 2024, got " + actualYear1 + ")");
 
-          // Test with dash separator
+          // Test with dash separator - sliding window interpretation
           Date date2 = DateUtil.parseDateString("85-03-15");
           Calendar cal2 = Calendar.getInstance();
           cal2.setTime(date2);
           int actualYear2 = cal2.get(Calendar.YEAR);
-          test(actualYear2 == 1985, "YY-MM-DD format - year is 1985 (expected 1985, got " + actualYear2 + ")");
+
+          int currentCentury = (currentYear / 100) * 100;
+          int expectedYear85 = currentCentury + 85;
+          if ( expectedYear85 > currentYear + 50 ) {
+            expectedYear85 = currentCentury - 100 + 85;
+          }
+
+          test(actualYear2 == expectedYear85, "YY-MM-DD format - year is " + expectedYear85 + " (expected " + expectedYear85 + ", got " + actualYear2 + ")");
         } catch ( Exception e ) {
           test(false, "YY/MM/DD or YY-MM-DD format should not throw exception: " + e.getMessage());
         }
@@ -664,31 +689,54 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_TwoDigitYearBoundary',
       javaCode: `
         try {
-          // Test 2-digit year < 50 becomes 2000s
+          // Test 2-digit year using sliding window (50 years back, 50 years forward)
+          Calendar currentCal = Calendar.getInstance();
+          int currentYear = currentCal.get(Calendar.YEAR);
+          int currentCentury = (currentYear / 100) * 100;
+
+          // Test year 49
           Date date1 = DateUtil.parseDateString("49-12-31");
           Calendar cal1 = Calendar.getInstance();
           cal1.setTime(date1);
           int actualYear1 = cal1.get(Calendar.YEAR);
-          test(actualYear1 == 2049, "2-digit year 49 becomes 2049 (expected 2049, got " + actualYear1 + ")");
+          int expected1 = currentCentury + 49;
+          if ( expected1 > currentYear + 50 ) {
+            expected1 = currentCentury - 100 + 49;
+          }
+          test(actualYear1 == expected1, "2-digit year 49 becomes " + expected1 + " (expected " + expected1 + ", got " + actualYear1 + ")");
 
+          // Test year 00
           Date date2 = DateUtil.parseDateString("00-01-01");
           Calendar cal2 = Calendar.getInstance();
           cal2.setTime(date2);
           int actualYear2 = cal2.get(Calendar.YEAR);
-          test(actualYear2 == 2000, "2-digit year 00 becomes 2000 (expected 2000, got " + actualYear2 + ")");
+          int expected2 = currentCentury + 0;
+          if ( expected2 > currentYear + 50 ) {
+            expected2 = currentCentury - 100 + 0;
+          }
+          test(actualYear2 == expected2, "2-digit year 00 becomes " + expected2 + " (expected " + expected2 + ", got " + actualYear2 + ")");
 
-          // Test 2-digit year >= 50 becomes 1900s
+          // Test year 50
           Date date3 = DateUtil.parseDateString("50-01-01");
           Calendar cal3 = Calendar.getInstance();
           cal3.setTime(date3);
           int actualYear3 = cal3.get(Calendar.YEAR);
-          test(actualYear3 == 1950, "2-digit year 50 becomes 1950 (expected 1950, got " + actualYear3 + ")");
+          int expected3 = currentCentury + 50;
+          if ( expected3 > currentYear + 50 ) {
+            expected3 = currentCentury - 100 + 50;
+          }
+          test(actualYear3 == expected3, "2-digit year 50 becomes " + expected3 + " (expected " + expected3 + ", got " + actualYear3 + ")");
 
+          // Test year 99
           Date date4 = DateUtil.parseDateString("99-12-31");
           Calendar cal4 = Calendar.getInstance();
           cal4.setTime(date4);
           int actualYear4 = cal4.get(Calendar.YEAR);
-          test(actualYear4 == 1999, "2-digit year 99 becomes 1999 (expected 1999, got " + actualYear4 + ")");
+          int expected4 = currentCentury + 99;
+          if ( expected4 > currentYear + 50 ) {
+            expected4 = currentCentury - 100 + 99;
+          }
+          test(actualYear4 == expected4, "2-digit year 99 becomes " + expected4 + " (expected " + expected4 + ", got " + actualYear4 + ")");
         } catch ( Exception e ) {
           test(false, "2-digit year boundary tests should not throw exception: " + e.getMessage());
         }
@@ -929,6 +977,102 @@ foam.CLASS({
           test(false, "Unsupported format should throw exception");
         } catch ( RuntimeException e ) {
           test(e.getMessage().contains("Unsupported DateTime format"), "Unsupported format throws error");
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTime_ForceUTC_True',
+      javaCode: `
+        try {
+          // Test parseDateTime with forceUTC=true parses as UTC
+          Date dt = DateUtil.parseDateTime("2024-03-15T14:30:45", true);
+
+          // Verify it's parsed as UTC
+          Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal.setTime(dt);
+          int year = cal.get(Calendar.YEAR);
+          test(year == 2024, "forceUTC=true - year is 2024 (expected 2024, got " + year + ")");
+          int month = cal.get(Calendar.MONTH);
+          test(month == 2, "forceUTC=true - month is March (2) (expected 2, got " + month + ")");
+          int day = cal.get(Calendar.DAY_OF_MONTH);
+          test(day == 15, "forceUTC=true - day is 15 (expected 15, got " + day + ")");
+          int hour = cal.get(Calendar.HOUR_OF_DAY);
+          test(hour == 14, "forceUTC=true - hour is 14 (expected 14, got " + hour + ")");
+          int minute = cal.get(Calendar.MINUTE);
+          test(minute == 30, "forceUTC=true - minute is 30 (expected 30, got " + minute + ")");
+          int second = cal.get(Calendar.SECOND);
+          test(second == 45, "forceUTC=true - second is 45 (expected 45, got " + second + ")");
+
+          // Test with US format
+          Date dt2 = DateUtil.parseDateTime("03/15/2024 14:30:45", true);
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+          int hour2 = cal2.get(Calendar.HOUR_OF_DAY);
+          test(hour2 == 14, "forceUTC=true with US format - hour is 14 (expected 14, got " + hour2 + ")");
+        } catch ( Exception e ) {
+          test(false, "forceUTC=true tests should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTime_ForceUTC_False',
+      javaCode: `
+        try {
+          // Test parseDateTime with forceUTC=false parses as local time
+          Date dt = DateUtil.parseDateTime("2024-03-15T14:30:45", false);
+
+          // Verify it's parsed as local time
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(dt);
+          int year = cal.get(Calendar.YEAR);
+          test(year == 2024, "forceUTC=false - year is 2024 (expected 2024, got " + year + ")");
+          int month = cal.get(Calendar.MONTH);
+          test(month == 2, "forceUTC=false - month is March (2) (expected 2, got " + month + ")");
+          int day = cal.get(Calendar.DAY_OF_MONTH);
+          test(day == 15, "forceUTC=false - day is 15 (expected 15, got " + day + ")");
+          int hour = cal.get(Calendar.HOUR_OF_DAY);
+          test(hour == 14, "forceUTC=false - hour is 14 local time (expected 14, got " + hour + ")");
+          int minute = cal.get(Calendar.MINUTE);
+          test(minute == 30, "forceUTC=false - minute is 30 (expected 30, got " + minute + ")");
+          int second = cal.get(Calendar.SECOND);
+          test(second == 45, "forceUTC=false - second is 45 (expected 45, got " + second + ")");
+
+          // Compare with forceUTC=true - they should differ if not in UTC timezone
+          Date dtUTC = DateUtil.parseDateTime("2024-03-15T14:30:45", true);
+          TimeZone localTz = TimeZone.getDefault();
+          int offsetMs = localTz.getOffset(dt.getTime());
+
+          // If we're not in UTC timezone, the timestamps should differ
+          if ( offsetMs != 0 ) {
+            test(dt.getTime() != dtUTC.getTime(), "Local and UTC parsing should differ when not in UTC timezone (local: " + dt.getTime() + ", UTC: " + dtUTC.getTime() + ")");
+          } else {
+            test(dt.getTime() == dtUTC.getTime(), "Local and UTC parsing should be same in UTC timezone");
+          }
+        } catch ( Exception e ) {
+          test(false, "forceUTC=false tests should not throw exception: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTime_ForceUTC_BackwardCompatibility',
+      javaCode: `
+        try {
+          // Test that calling parseDateTime without second parameter defaults to forceUTC=false (local time)
+          Date dt1 = DateUtil.parseDateTime("2024-03-15T14:30:45");
+          Date dt2 = DateUtil.parseDateTime("2024-03-15T14:30:45", false);
+
+          // Both should parse as local time and produce same timestamp
+          long time1 = dt1.getTime();
+          long time2 = dt2.getTime();
+          test(time1 == time2, "No parameter should default to forceUTC=false (expected " + time1 + ", got " + time2 + ")");
+
+          // Verify local time components are correct
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(dt1);
+          int hour = cal.get(Calendar.HOUR_OF_DAY);
+          test(hour == 14, "Backward compatibility - hour is 14 local time (expected 14, got " + hour + ")");
+        } catch ( Exception e ) {
+          test(false, "Backward compatibility tests should not throw exception: " + e.getMessage());
         }
       `
     },

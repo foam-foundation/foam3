@@ -160,8 +160,8 @@ foam.CLASS({
     {
       name: 'testParseDateTime',
       code: function(x) {
-        // Test parseDateTime with various datetime formats
-        var dt1 = foam.util.DateUtil.parseDateTime("2024-03-15 15:30:45");
+        // Test parseDateTime with UTC parsing (forceUTC=true) - since we're checking UTC components
+        var dt1 = foam.util.DateUtil.parseDateTime("2024-03-15 15:30:45", true);
         x.test( dt1 != null, "Should parse YYYY-MM-DD HH:MM:SS format" );
         var hours1 = dt1.getUTCHours();
         x.test( hours1 === 15, `Hour should be 15 (expected 15, got ${hours1})` );
@@ -170,10 +170,10 @@ foam.CLASS({
         var seconds1 = dt1.getUTCSeconds();
         x.test( seconds1 === 45, `Seconds should be 45 (expected 45, got ${seconds1})` );
 
-        var dt2 = foam.util.DateUtil.parseDateTime("03/15/2024 15:30:45");
+        var dt2 = foam.util.DateUtil.parseDateTime("03/15/2024 15:30:45", true);
         x.test( dt2 != null, "Should parse MM/DD/YYYY HH:MM:SS format" );
 
-        var dt3 = foam.util.DateUtil.parseDateTime("2024-03-15T15:30:45");
+        var dt3 = foam.util.DateUtil.parseDateTime("2024-03-15T15:30:45", true);
         x.test( dt3 != null, "Should parse ISO format with T separator" );
 
         // Verify they represent the same datetime

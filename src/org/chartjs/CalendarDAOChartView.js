@@ -4,10 +4,10 @@ foam.CLASS({
   extends: 'foam.u2.Element',
   documentation: 'Dashboard calendar-table, fully props-driven and tokenized, like Pie/Bar.',
   css: `
-    ^table        { border-collapse: collapse; border: 1px solid $borderLight; width:100%; max-width:100%; }
-    ^th           { border: 1px solid $borderLight; min-width: 100px; padding: 10px; background: $backgroundSectionHeader; }
+    ^table        { border-collapse: collapse; border: 1px solid $borderLight; width:100%; max-width:100%; table-layout: fixed; }
+    ^th           { border: 1px solid $borderLight; padding: 10px; background: $backgroundSectionHeader; }
     ^td           { border: 1px solid $borderLight; padding: 10px; max-width: 320px; background: $backgroundTableBody; vertical-align: top; min-height: 40px; }
-    ^cellStack    { display: flex; flex-direction: column; flex-wrap: wrap; gap: 4px; }
+    ^cellStack    { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px; align-items: flex-start; }
     ^block        { padding: 5px; border-radius: 5px; font-weight: bold; min-width: 30px; color: $textDefault; background: $backgroundTertiary; }
     ^legend       { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
     ^legendEntry  { display: inline-flex; align-items: center; gap: 4px; }
@@ -81,15 +81,17 @@ foam.CLASS({
                   .start('th').addClass(self.myClass('th')).add(mo).end()
                   .forEach(years, function(y){
                     var vals = (dateCatMap[mo] && dateCatMap[mo][y]) ? dateCatMap[mo][y] : [];
-                    this.start('td').addClass(self.myClass('td')).addClass(self.myClass('cellStack'))
-                      .callIf(vals.length > 0, function(){
-                        this.forEach(vals, function(val, idx){
-                          var color = resolvedColors[idx] || '#b3cde0';
-                          this.start().addClass(self.myClass('block')).style({ background: color })
-                            .add(val > 0 ? val.toLocaleString() : (val === 0 ? '0' : ''))
-                          .end();
-                        });
-                      })
+                    this.start('td').addClass(self.myClass('td'))
+                      .start('div').addClass(self.myClass('cellStack'))
+                        .callIf(vals.length > 0, function(){
+                          this.forEach(vals, function(val, idx){
+                            var color = resolvedColors[idx] || '#b3cde0';
+                            this.start().addClass(self.myClass('block')).style({ background: color })
+                              .add(val > 0 ? val.toLocaleString() : (val === 0 ? '0' : ''))
+                            .end();
+                          });
+                        })
+                      .end()
                     .end();
                   })
                 .end();

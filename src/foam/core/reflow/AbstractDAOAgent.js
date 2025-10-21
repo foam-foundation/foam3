@@ -1072,7 +1072,7 @@ foam.CLASS({
     },
     {
       class: 'Enum',
-      of: 'foam.mlang.sink.OperationType',
+      of: 'foam.mlang.sink.ArithmeticOperation',
       name: 'operation',
       value: 'ADD',
       label: 'Op'

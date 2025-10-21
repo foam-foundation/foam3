@@ -115,20 +115,6 @@ foam.CLASS({
       `
     },
     {
-      name: 'eof',
-      code: function() {
-        if ( ! this.evaluateAtRowLevel ) {
-          // Evaluate expression once using accumulated sink values
-          this.value = this.evaluateExpression_(null);
-        }
-      },
-      javaCode: `
-        if ( ! getEvaluateAtRowLevel() ) {
-          setValue(evaluateExpression_(null));
-        }
-      `
-    },
-    {
       name: 'remove',
       code: function(obj, s) {
         if ( this.evaluateAtRowLevel ) {
@@ -153,6 +139,20 @@ foam.CLASS({
               }
             }
           }
+        }
+      `
+    },
+    {
+      name: 'eof',
+      code: function() {
+        if ( ! this.evaluateAtRowLevel ) {
+          // Evaluate expression once using accumulated sink values
+          this.value = this.evaluateExpression_(null);
+        }
+      },
+      javaCode: `
+        if ( ! getEvaluateAtRowLevel() ) {
+          setValue(evaluateExpression_(null));
         }
       `
     },
@@ -198,11 +198,11 @@ foam.CLASS({
         // First pass: Handle MULTIPLY and DIVIDE (higher precedence)
         var i = 0;
         while ( i < ops.length ) {
-          if ( ops[i] === foam.mlang.sink.OperationType.MULTIPLY ) {
+          if ( ops[i] === foam.mlang.sink.ArithmeticOperation.MULTIPLY ) {
             values[i] = values[i] * values[i + 1];
             values.splice(i + 1, 1);
             ops.splice(i, 1);
-          } else if ( ops[i] === foam.mlang.sink.OperationType.DIVIDE ) {
+          } else if ( ops[i] === foam.mlang.sink.ArithmeticOperation.DIVIDE ) {
             if ( values[i + 1] !== 0 ) {
               values[i] = values[i] / values[i + 1];
               values.splice(i + 1, 1);
@@ -219,9 +219,9 @@ foam.CLASS({
         // Second pass: Handle ADD and SUBTRACT (lower precedence)
         var result = values[0];
         for ( var j = 0; j < ops.length; j++ ) {
-          if ( ops[j] === foam.mlang.sink.OperationType.ADD ) {
+          if ( ops[j] === foam.mlang.sink.ArithmeticOperation.ADD ) {
             result += values[j + 1];
-          } else if ( ops[j] === foam.mlang.sink.OperationType.SUBTRACT ) {
+          } else if ( ops[j] === foam.mlang.sink.ArithmeticOperation.SUBTRACT ) {
             result -= values[j + 1];
           }
         }
@@ -238,7 +238,7 @@ foam.CLASS({
         }
 
         // Get all operations
-        java.util.List<foam.mlang.sink.OperationType> ops = new java.util.ArrayList<>();
+        java.util.List<foam.mlang.sink.ArithmeticOperation> ops = new java.util.ArrayList<>();
         for ( int i = 0; i < getOperations().length - 1; i++ ) {
           ops.add(getOperations()[i].getOperation());
         }
@@ -246,11 +246,11 @@ foam.CLASS({
         // First pass: Handle MULTIPLY and DIVIDE
         int i = 0;
         while ( i < ops.size() ) {
-          if ( ops.get(i) == foam.mlang.sink.OperationType.MULTIPLY ) {
+          if ( ops.get(i) == foam.mlang.sink.ArithmeticOperation.MULTIPLY ) {
             values.set(i, values.get(i) * values.get(i + 1));
             values.remove(i + 1);
             ops.remove(i);
-          } else if ( ops.get(i) == foam.mlang.sink.OperationType.DIVIDE ) {
+          } else if ( ops.get(i) == foam.mlang.sink.ArithmeticOperation.DIVIDE ) {
             if ( values.get(i + 1) != 0 ) {
               values.set(i, values.get(i) / values.get(i + 1));
               values.remove(i + 1);
@@ -267,9 +267,9 @@ foam.CLASS({
         // Second pass: Handle ADD and SUBTRACT
         double result = values.get(0);
         for ( int j = 0; j < ops.size(); j++ ) {
-          if ( ops.get(j) == foam.mlang.sink.OperationType.ADD ) {
+          if ( ops.get(j) == foam.mlang.sink.ArithmeticOperation.ADD ) {
             result += values.get(j + 1);
-          } else if ( ops.get(j) == foam.mlang.sink.OperationType.SUBTRACT ) {
+          } else if ( ops.get(j) == foam.mlang.sink.ArithmeticOperation.SUBTRACT ) {
             result -= values.get(j + 1);
           }
         }
@@ -487,7 +487,7 @@ foam.CLASS({
     },
     {
       class: 'Enum',
-      of: 'foam.mlang.sink.OperationType',
+      of: 'foam.mlang.sink.ArithmeticOperation',
       name: 'operation',
       value: 'ADD',
       documentation: 'The operation to apply with this operand'
@@ -498,9 +498,9 @@ foam.CLASS({
 
 foam.ENUM({
   package: 'foam.mlang.sink',
-  name: 'OperationType',
+  name: 'ArithmeticOperation',
 
-  documentation: 'Mathematical operations supported by CalculationSink',
+  documentation: 'Arithmetic operations supported by CalculationSink',
 
   values: [
     { name: 'ADD',      label: '+', ordinal: 0 },

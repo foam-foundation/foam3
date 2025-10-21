@@ -1102,7 +1102,7 @@ foam.CLASS({
             }
             t.requestedLifecycleState = this.LifecycleState.DELETED;
             self.ticketDAO.put(t).then(function(t) {
-              self.routeTo(self.ticketMenu+"/"+t.id);
+              self.routeTo(self.ticketMenu+"/"+t.id + "?mode=EDIT");
             });
           } else {
             var ticket = self.UserLifecycleTicket.create({
@@ -1112,7 +1112,7 @@ foam.CLASS({
               requestedLifecycleState: self.LifecycleState.DELETED
             });
             self.ticketDAO.put(ticket).then(function(t) {
-              self.routeTo(self.ticketMenu+"/"+t.id);
+              self.routeTo(self.ticketMenu+"/"+t.id + "?mode=EDIT");
             });
           }
         }, e => {
@@ -1151,7 +1151,7 @@ foam.CLASS({
               t.status = "OPEN";
             }
             self.ticketDAO.put(t).then(function(t) {
-              self.routeTo(self.ticketMenu+"/"+t.id);
+              self.routeTo(self.ticketMenu+"/"+t.id + "?mode=EDIT");
             });
           } else {
             var ticket = self.UserLifecycleTicket.create({
@@ -1161,7 +1161,7 @@ foam.CLASS({
               requestedLifecycleState: self.LifecycleState.DISABLED
             });
             self.ticketDAO.put(ticket).then(function(t) {
-              self.routeTo(self.ticketMenu+"/"+t.id);
+              self.routeTo(self.ticketMenu+"/"+t.id + "?mode=EDIT");
             });
           }
         }, e => {
@@ -1204,7 +1204,7 @@ foam.CLASS({
               t.title = "Re-activate user";
             }
             self.ticketDAO.put(t).then(function(t) {
-              self.routeTo(self.ticketMenu+"/"+t.id);
+              self.routeTo(self.ticketMenu+"/"+t.id + "?mode=EDIT");
             });
           } else {
             var ticket = self.UserLifecycleTicket.create({
@@ -1216,7 +1216,7 @@ foam.CLASS({
               revertRelationships: false
             });
             self.ticketDAO.put(ticket).then(function(t) {
-              self.routeTo(self.ticketMenu+"/"+t.id);
+              self.routeTo(self.ticketMenu+"/"+t.id + "?mode=EDIT");
             });
           }
         }, e => {

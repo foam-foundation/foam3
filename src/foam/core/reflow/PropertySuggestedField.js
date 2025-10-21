@@ -22,6 +22,7 @@ foam.CLASS({
       documentation: 'Display label for the option'
     }
   ],
+
   methods: [
     function toSummary() {
       return this.label;

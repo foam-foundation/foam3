@@ -39,9 +39,12 @@ foam.CLASS({
         } else {
           this.block.value = this.value(s);
         }
-        // s = s.clone({columnStorage: sink.__context__.columnStorage});
 
-        e.startContext({dao: this.dao/*, columnStorage: sink.__context__.columnStorage*/})
+        // This is needed in case the Sink traveled across the network but needs values
+        // (like 'block') from the current context.
+        s = s.clone(this.__subContext__);
+
+        e.startContext({dao: this.dao})
           .start()
             .call(function() {
               self.addSinkToE(this, s);
@@ -180,7 +183,6 @@ foam.CLASS({
           with ( { o: o, log: this.__context__.log } ) {
             eval(this.code);
           }
-//          console.log(i);
         }
       });
     },
@@ -299,10 +301,7 @@ foam.CLASS({
   properties: [
     {
       class: 'StringArray',
-      name: 'columns',
-      postSet: function(o, n) {
-        this.columnStorage.setItem('key', n);
-      }
+      name: 'columns'
     },
     {
       name: 'selection', hidden: true
@@ -358,8 +357,7 @@ foam.CLASS({
         config.selectedObjects$ = this.selectedObjects$;
       }
 
-
-      e.startContext({click: self.click}).
+      e.startContext({click: self.click, columnStorage: this.columnStorage}).
         callIf(config.multiSelectEnabled, function() {
           this.startContext({data: self})
             .start()
@@ -372,7 +370,7 @@ foam.CLASS({
               .add(multiSelectActions)
             .end()
           .endContext();
-        }).
+          }).
         start(self.TableView, config).
           style({height: '600px'});
 

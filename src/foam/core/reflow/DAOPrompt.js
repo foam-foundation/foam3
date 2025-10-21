@@ -366,10 +366,6 @@ foam.CLASS({
         return {
           class: 'foam.core.reflow.PropertySuggestedField'
         };
-      },
-      postSet: function(_, n) {
-        // ???: KGR: I think this isn't needed because daoPrompt.columns is used to store columns, not the actual column storage
-//        this.updateColumnStorage(n);
       }
     },
     {
@@ -385,8 +381,11 @@ foam.CLASS({
           },
           setItem: function(k, v) {
             this[k] = v;
+
             // save column updates from tableview
-            self.columns = v;
+            let cols = self.getColumnNamesFromStorage(v);
+            if ( self.columns != cols && self.columns != cols + ',' )
+              self.columns = cols;
           },
           removeItem: function(k) {
             delete this[k];

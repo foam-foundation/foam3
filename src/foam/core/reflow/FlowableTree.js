@@ -71,16 +71,21 @@ foam.CLASS({
     ^element-row-icon {
       color: $textBrand;
     }
-    td^moveTarget {
-      background: $backgroundDefault;
-      border: none!important;
+    ^ table td^moveTarget {
+      background: transparent;
+      border: none;
       width: 100%;
       height: 8px;
-      padding: 0!important;
-      margin: 0!important;
+      padding: 0;
+      margin: 0;
     }
-    ^activeTarget {
-      background: $blue100!important;
+    ^ table td^activeTarget {
+      background: $backgroundBrandTertiary;
+    }
+    ^dragTarget {
+      transform: translate(0, 0);
+      opacity: 0.95;
+      background: $backgroundDefault;
     }
     ^context-menu {
       position: fixed;
@@ -186,16 +191,16 @@ foam.CLASS({
           on('click',    () => self.selected = data).
           on('dblclick', () => data.expanded = ! data.expanded).
           on('contextmenu', (e) => self.onContextMenu(e, data)).
-          attrs({draggable: 'true'}).
-          call(function() {
-            this.
-            on('dragstart', self.onDragStart.bind(self, data))
-/*            on('dragenter', self.onDragOver.bind(self, data, this)).
-            on('dragleave', self.onDragLeave.bind(self, this))*/;
-              // on('dragover',  self.onDragOver.bind(self, data, this)).
-            // on('drop',      self.onDrop.bind(self, data)).
-          }).
           start('td').
+            attrs({draggable: 'true'}).
+            call(function() {
+              this.
+              on('dragstart', self.onDragStart.bind(self, data, this)).
+              on('dragenter', self.onDragOver.bind(self, data, this)).
+              on('dragleave', self.onDragLeave.bind(self, this)).
+                on('dragover',  self.onDragOver.bind(self, data, this)).
+              on('drop',      self.onDrop.bind(self, data, this));
+            }).
             addClass(self.myClass('element-row')).
             style({'marginLeft': (depth * 12) + 'px'}).
             enableClass(self.myClass('selected'), self.selected$.map(s => s === data)).
@@ -250,10 +255,10 @@ foam.CLASS({
       }))
     },
 
-    function onDragStart(row, e) {
-      console.log('onDragStart', e);
+    function onDragStart(row, el, e) {
       e.dataTransfer.setData('application/x-foam-obj-id', row.flowName);
       console.log('onDragStart', e, row.flowName);
+      el.addClass(this.myClass('dragTarget'));
       e.stopPropagation();
     },
 
@@ -287,7 +292,7 @@ foam.CLASS({
 
       var src = e.dataTransfer.getData('application/x-foam-obj-id');
 
-      if ( src === row.flowName ) return;
+      if ( src === row.flowName || row.flowParent.flowName === src ) return;
 
       e.preventDefault();
       e.stopPropagation();

@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.core.theme',
   name: 'ThemeDomain',
 
-  documentation: 'mapping of domain to Theme. Note: is managed by the ThemeDomainDAO',
+  documentation: 'mapping of domain to Theme.',
 
   tableColumns: [
     'id',

@@ -24,7 +24,7 @@ foam.CLASS({
       return {
         class: "foam.core.reflow.Console",
         route: this.flow,
-        flowMode: "PRESENTATION"
+        flowMode: "PRESENTATION_ONLY"
       };
     }
   ]

@@ -40,15 +40,16 @@ foam.CLASS({
     /* Cell styling - both TH and TD */
     ^th, ^td {
       text-align: center;
-      padding: .8rem 1rem;
       transition: background-color 0.15s ease;
       border: 1px solid $borderDefault;
       cursor: pointer;
     }
+    ^td {
+      padding: .8rem 1rem;
+    }
 
     /* Header cells */
     ^th {
-      padding: 0.3rem 0.4rem;
       justify-items: anchor-center;
       align-items: anchor-center;
       background-color: $backgroundDefault;
@@ -60,6 +61,7 @@ foam.CLASS({
       width: max-content;
       height: max-content;
       justify-items: center;
+      padding: .8rem 1rem;
     }
     ^th > div > div {
       display: flex;
@@ -93,6 +95,14 @@ foam.CLASS({
     }
     ^collapse-symbol {
       font-family: monospace;
+    }
+    ^collapsed-header-col {
+      padding: 0.8rem 0.2rem!important;
+      font-weight: 400!important;
+    }
+    ^collapsed-header-row {
+      padding: 0.2rem 1rem!important;
+      font-weight: 400!important;
     }
   `,
 
@@ -355,6 +365,7 @@ foam.CLASS({
       var key = mouseOverKeyCol ? `col:${mouseOverKeyCol}` : `row:${mouseOverKeyRow}`;
       el.on('click', () => this.toggleCollapseKey(key));
       el.start()
+        .enableClass(isCol ? this.myClass('collapsed-header-col') : this.myClass('collapsed-header-row'), this.slot(collapsedKeys => collapsedKeys[key]))
         .style({ 'grid-template-rows': isCol ? '20% 80%' : '1fr', 'grid-template-columns': isCol ? '1fr' : '20% 80%' })
         .start()
           .style({ 'padding': isCol ? '0 0 2px 0' : '0 2px 0 0', 'width': 'max-content', 'height': 'max-content'})
@@ -366,7 +377,7 @@ foam.CLASS({
           }))
         .end()
         .start()
-          .add(this.slot(collapsedKeys => collapsedKeys[key] ? '...' : val))
+          .add(val)
         .end()
       .end();
     }

@@ -69,7 +69,8 @@ foam.CLASS({
       height: max-content;
     }
     ^collapsed-header {
-      padding: 0.2rem;
+      padding: 0.2rem 1rem;
+      font-weight: 400!important;
     }
     ^collapsed-cell {
       border: 0px solid $borderDefault;
@@ -118,7 +119,7 @@ foam.CLASS({
                   .add(self.slot(collapsedKeys => collapsedKeys[key] ? '▹' : '◃'))
                 .end()
                 .start()
-                  .add(self.slot(collapsedKeys => collapsedKeys[key] ? '...' : key))
+                  .add(key)
                 .end()
               .end()
             .end().

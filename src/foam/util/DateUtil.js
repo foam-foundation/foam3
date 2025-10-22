@@ -485,15 +485,6 @@ foam.CLASS({
           // Default forceUTC to false for backward compatibility
           if ( forceUTC === undefined || forceUTC === null ) forceUTC = false;
 
-          // Numbers (timestamps) - always preserve exact time
-          if ( typeof o === 'number' ) {
-            return new Date(o);
-          }
-
-          // Date objects - always preserve as-is
-          if ( o instanceof Date ) {
-            return o;
-          }
 
           // Strings - handle based on forceUTC flag
           if ( typeof o === 'string' ) {

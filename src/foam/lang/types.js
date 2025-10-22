@@ -319,6 +319,15 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function (_, d) {
+        // Numbers (timestamps) - always preserve exact time
+        if ( typeof d === 'number' ) {
+          return new Date(d);
+        }
+
+        // Date objects - always preserve as-is
+        if ( d instanceof Date ) {
+          return d;
+        }
         // Use DateUtil.adaptDateTime with forceUTC=true to ensure all string inputs
         // are parsed as UTC. Numbers and Date objects are always preserved exactly.
         return foam.util.DateUtil.adaptDateTime(d, true);

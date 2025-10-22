@@ -60,6 +60,7 @@ foam.CLASS({
       await this.testFormat_TimeLast(x);
       await this.testFormat_UTC(x);
       await this.testFormat_NullUndefined(x);
+      await this.testFormat_LocalTimeWithTimezone(x);
       await this.testParseDateTimeUTC_DateTimeString(x);
       await this.testParseDateTimeUTC_DateOnlyString(x);
       await this.testParseDateTimeUTC_USFormatString(x);
@@ -909,15 +910,64 @@ foam.CLASS({
 
     async function testFormat_UTC(x) {
       // Test formatting in UTC timezone
+      // Date: March 15, 2024 15:30:45 UTC
       var date = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
-      var formattedUTC = foam.util.DateUtil.format(date, null, 'UTC');
 
-      x.test(formattedUTC.length > 0, 'format(date, null, UTC) returns non-empty string');
-      x.test(formattedUTC.indexOf('2024') > -1, 'UTC format contains year');
+      // Save original locale
+      var originalLocale = foam.locale;
 
-      // Test with time in UTC
-      var formattedWithTime = foam.util.DateUtil.format(date, false, 'UTC');
-      x.test(formattedWithTime.indexOf('15:30:45') > -1, 'UTC format with time contains correct time');
+      try {
+        // Override locale to 'en-US' for consistent testing
+        foam.locale = 'en-US';
+
+        // Test 1: Date only in UTC
+        var formattedUTC = foam.util.DateUtil.format(date, null, 'UTC');
+        x.test(formattedUTC.length > 0, 'format(date, null, UTC) returns non-empty string');
+        x.test(formattedUTC.indexOf('2024') > -1, 'UTC format contains year 2024');
+        x.test(formattedUTC.indexOf('Mar') > -1 || formattedUTC.indexOf('03') > -1, 'UTC format contains month');
+        x.test(formattedUTC.indexOf('15') > -1, 'UTC format contains day 15');
+        console.log('Format UTC date-only:', formattedUTC);
+
+        // Test 2: Date with time in UTC (time last)
+        var formattedWithTimeLast = foam.util.DateUtil.format(date, false, 'UTC');
+        x.test(formattedWithTimeLast.indexOf('15:30:45') > -1, 'UTC format with time last contains correct time 15:30:45');
+        x.test(formattedWithTimeLast.indexOf('2024') > -1, 'UTC format with time contains year');
+        console.log('Format UTC time-last:', formattedWithTimeLast);
+
+        // Test 3: Time first in UTC
+        var formattedTimeFirst = foam.util.DateUtil.format(date, true, 'UTC');
+        x.test(formattedTimeFirst.indexOf('15:30:45') > -1, 'UTC format with time first contains correct time 15:30:45');
+        x.test(formattedTimeFirst.indexOf('2024') > -1, 'UTC format time-first contains year');
+        x.test(formattedTimeFirst.indexOf('15:30:45') < formattedTimeFirst.indexOf('2024'), 'Time appears before date when timeFirst=true');
+        console.log('Format UTC time-first:', formattedTimeFirst);
+
+        // Test 4: Different timezone - America/New_York (EDT = UTC-4 in March)
+        // 15:30:45 UTC = 11:30:45 EDT
+        var formattedEDT = foam.util.DateUtil.format(date, false, 'America/New_York');
+        x.test(formattedEDT.indexOf('11:30:45') > -1, 'America/New_York format shows correct time (11:30:45 EDT)');
+        console.log('Format EDT:', formattedEDT);
+
+        // Test 5: Different timezone - Asia/Tokyo (JST = UTC+9)
+        // 15:30:45 UTC = 00:30:45 JST (next day)
+        var formattedJST = foam.util.DateUtil.format(date, false, 'Asia/Tokyo');
+        x.test(formattedJST.indexOf('00:30:45') > -1 || formattedJST.indexOf('0:30:45') > -1, 'Asia/Tokyo format shows correct time (00:30:45 JST)');
+        x.test(formattedJST.indexOf('16') > -1, 'Asia/Tokyo format shows next day (16)');
+        console.log('Format JST:', formattedJST);
+
+        // Test 6: Europe/London (GMT in winter, BST in summer - March 15 is GMT before DST)
+        var formattedLondon = foam.util.DateUtil.format(date, false, 'Europe/London');
+        x.test(formattedLondon.indexOf('15:30:45') > -1, 'Europe/London format shows correct time (15:30:45 GMT)');
+        console.log('Format London:', formattedLondon);
+
+        // Test 7: Invalid timezone should fallback to ISO string
+        var formattedInvalid = foam.util.DateUtil.format(date, false, 'Invalid/Timezone');
+        x.test(formattedInvalid.length > 0, 'Invalid timezone returns fallback string');
+        console.log('Format with invalid timezone:', formattedInvalid);
+
+      } finally {
+        // Restore original locale
+        foam.locale = originalLocale;
+      }
     },
 
     async function testFormat_NullUndefined(x) {
@@ -932,6 +982,81 @@ foam.CLASS({
       var timestamp = 1710511845000;
       var formatted3 = foam.util.DateUtil.format(timestamp);
       x.test(formatted3.length > 0, 'format(timestamp) returns non-empty string');
+
+      // Test with invalid Date (NaN)
+      var invalidDate = new Date('invalid');
+      var formatted4 = foam.util.DateUtil.format(invalidDate);
+      x.test(formatted4 === '', 'format(invalid Date) returns empty string');
+    },
+
+    async function testFormat_LocalTimeWithTimezone(x) {
+      // Test formatting when date is created in local time (not UTC)
+      // This ensures timezone conversion works regardless of how Date was created
+
+      // Save original locale
+      var originalLocale = foam.locale;
+
+      try {
+        foam.locale = 'en-US';
+
+        // Create date in LOCAL time: March 15, 2024 15:30:45 in system timezone
+        // Note: new Date(year, month, day, hour, min, sec) uses LOCAL time
+        var localDate = new Date(2024, 2, 15, 15, 30, 45);
+
+        console.log('Local date created:', localDate.toString());
+        console.log('Local date in UTC:', localDate.toUTCString());
+        console.log('System timezone offset:', localDate.getTimezoneOffset(), 'minutes');
+
+        // Test 1: Format in UTC - should convert from local to UTC
+        var formattedUTC = foam.util.DateUtil.format(localDate, false, 'UTC');
+        console.log('Format local date as UTC:', formattedUTC);
+
+        // Extract UTC time from the date
+        var utcHours = localDate.getUTCHours();
+        var utcMinutes = localDate.getUTCMinutes();
+        var utcSeconds = localDate.getUTCSeconds();
+        var utcTimeStr = (utcHours < 10 ? '0' : '') + utcHours + ':' +
+                        (utcMinutes < 10 ? '0' : '') + utcMinutes + ':' +
+                        (utcSeconds < 10 ? '0' : '') + utcSeconds;
+
+        x.test(formattedUTC.indexOf(utcTimeStr) > -1,
+          'Format local date as UTC shows correct UTC time (' + utcTimeStr + ')');
+
+        // Test 2: Format in different timezone - should convert from local to that timezone
+        var formattedJST = foam.util.DateUtil.format(localDate, false, 'Asia/Tokyo');
+        console.log('Format local date as JST:', formattedJST);
+        x.test(formattedJST.length > 0, 'Format local date as JST returns non-empty string');
+
+        // Test 3: Format without timezone - should use local system timezone
+        var formattedLocal = foam.util.DateUtil.format(localDate, false);
+        console.log('Format local date (system timezone):', formattedLocal);
+        x.test(formattedLocal.indexOf('15:30:45') > -1,
+          'Format local date without timezone shows local time (15:30:45)');
+
+        // Test 4: Create date at midnight local time and format in different timezone
+        var midnightLocal = new Date(2024, 2, 15, 0, 0, 0);
+        var formattedMidnightUTC = foam.util.DateUtil.format(midnightLocal, false, 'UTC');
+        console.log('Midnight local as UTC:', formattedMidnightUTC);
+
+        var utcMidnightHours = midnightLocal.getUTCHours();
+        var expectedMidnightTime = (utcMidnightHours < 10 ? '0' : '') + utcMidnightHours + ':00:00';
+        x.test(formattedMidnightUTC.indexOf(expectedMidnightTime) > -1,
+          'Midnight local converted to UTC shows correct time (' + expectedMidnightTime + ')');
+
+        // Test 5: Verify timezone parameter overrides local time
+        // Same date formatted in different timezones should show different times
+        var formattedNY = foam.util.DateUtil.format(localDate, false, 'America/New_York');
+        var formattedTokyo = foam.util.DateUtil.format(localDate, false, 'Asia/Tokyo');
+        console.log('Same date in NY:', formattedNY);
+        console.log('Same date in Tokyo:', formattedTokyo);
+
+        // NY and Tokyo are 13-14 hours apart, so times should be very different
+        x.test(formattedNY !== formattedTokyo,
+          'Same date formatted in different timezones shows different results');
+
+      } finally {
+        foam.locale = originalLocale;
+      }
     },
 
     async function testParseDateTimeUTC_DateTimeString(x) {

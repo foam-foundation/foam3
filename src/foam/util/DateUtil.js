@@ -445,35 +445,42 @@ foam.CLASS({
       type: 'String',
       documentation: 'Formats a date in the specified timezone (or system default if not provided). timeFirst can be null/undefined (date only), true (time then date), or false (date then time)',
       code: function(date, timeFirst, timezone) {
-        if ( date === undefined ) return '';
+        if ( date === undefined || date === null ) return '';
         if ( typeof date === 'number' ) date = new Date(date);
-        if ( ! ( date instanceof Date ) ) return '';
+        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) return '';
 
         // Use provided timezone or default to system timezone
+        // Empty string or falsy values default to undefined (system timezone)
         var tz = timezone || undefined; // undefined means system default
 
-        // Format date in specified timezone
-        var formattedDate = date.toLocaleDateString(foam.locale, {
-          year: 'numeric',
-          month: 'short',
-          day: '2-digit',
-          timeZone: tz
-        });
+        try {
+          // Format date in specified timezone
+          var formattedDate = date.toLocaleDateString(foam.locale, {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            timeZone: tz
+          });
 
-        if ( timeFirst === undefined || timeFirst === null ) return formattedDate;
+          if ( timeFirst === undefined || timeFirst === null ) return formattedDate;
 
-        // Format time in specified timezone
-        var formattedTime = date.toLocaleTimeString(foam.locale, {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          timeZone: tz
-        });
+          // Format time in specified timezone
+          var formattedTime = date.toLocaleTimeString(foam.locale, {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZone: tz
+          });
 
-        return ( timeFirst ? formattedTime + ' ' : '' )
-             + formattedDate
-             + ( ! timeFirst ? ' ' + formattedTime : '' );
+          return ( timeFirst ? formattedTime + ' ' : '' )
+               + formattedDate
+               + ( ! timeFirst ? ' ' + formattedTime : '' );
+        } catch (e) {
+          // Invalid timezone or formatting error - fallback to ISO string
+          console.warn('DateUtil.format error:', e.message, 'timezone:', timezone);
+          return date.toISOString();
+        }
       },
       javaCode: `
         // Format date in specified timezone

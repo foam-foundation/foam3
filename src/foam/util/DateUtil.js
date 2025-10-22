@@ -10,7 +10,12 @@ foam.CLASS({
 
   documentation: `
     Contains old DateUtil.java methods as well as new methods for adapting dates and parsing date strings.
+    Uses DateParser for all JavaScript date parsing.
   `,
+
+  requires: [
+    'foam.parse.DateParser'
+  ],
 
   javaImports: [
     'foam.lang.X',
@@ -29,6 +34,16 @@ foam.CLASS({
 
   messages: [
     { name: 'INVALID_FORMAT', message: 'Invalid format.' }
+  ],
+
+  properties: [
+    {
+      name: 'parser_',
+      documentation: 'Shared DateParser instance for all date parsing operations',
+      factory: function() {
+        return this.DateParser.create();
+      }
+    }
   ],
 
   constants: [
@@ -118,240 +133,55 @@ foam.CLASS({
   static: [
     {
       name: 'parseDateTime',
-      args: 'String d, boolean forceUTC',
+      args: 'String d, String opt_name',
       type: 'Date',
-      documentation: 'Parses datetime strings with time components. When forceUTC=false (default), parses as local time. When forceUTC=true, parses as UTC. DateTimeUTC type passes true. Supports ISO 8601, US formats with time, and compact formats.',
-      code: function(d, forceUTC) {
-        // Default forceUTC to false for backward compatibility (local time was the original default)
-        if ( forceUTC === undefined || forceUTC === null ) forceUTC = false;
-
-        // Try each datetime format first
-        for ( var i = 0; i < foam.util.DateUtil.DATETIME_FORMATS_ORDER.length; i++ ) {
-          var format = foam.util.DateUtil.DATETIME_FORMATS_ORDER[i];
-          var match = d.match(format.regex);
-
-          if ( match ) {
-            var year, month, day, hour = 0, minute = 0, second = 0, millisecond = 0;
-
-            // Map captured groups based on the format's group definition
-            for ( var j = 0; j < format.groups.length; j++ ) {
-              var value = match[j + 1];
-              if ( ! value ) continue; // Skip optional groups
-
-              switch ( format.groups[j] ) {
-                case 'year':
-                  year = parseInt(value);
-                  break;
-                case 'year2':
-                  // 2-digit year: sliding window approach
-                  // Use 100-year window centered on current year
-                  var twoDigitYear = parseInt(value);
-                  var currentYear = new Date().getUTCFullYear();
-                  var currentCentury = Math.floor(currentYear / 100) * 100;
-                  var pivotYear = currentYear - 50;
-                  var pivotCentury = Math.floor(pivotYear / 100) * 100;
-
-                  // Try current century first
-                  year = currentCentury + twoDigitYear;
-
-                  // If year is more than 50 years in the future, use previous century
-                  if ( year > currentYear + 50 ) {
-                    year = pivotCentury + twoDigitYear;
-                  }
-                  break;
-                case 'month':
-                  month = parseInt(value) - 1; // JavaScript months are 0-indexed
-                  break;
-                case 'day':
-                  day = parseInt(value);
-                  break;
-                case 'hour':
-                  hour = parseInt(value);
-                  break;
-                case 'minute':
-                  minute = parseInt(value);
-                  break;
-                case 'second':
-                  second = parseInt(value);
-                  break;
-                case 'millisecond':
-                  millisecond = parseInt(value);
-                  break;
-              }
-            }
-
-            // Create date - use UTC if forceUTC is true, otherwise use local time
-            var date;
-            if ( forceUTC ) {
-              date = new Date(Date.UTC(year, month, day, hour, minute, second, millisecond));
-            } else {
-              date = new Date(year, month, day, hour, minute, second, millisecond);
-            }
-
-            // Validate the datetime components
-            var validateYear, validateMonth, validateDay, validateHour, validateMinute, validateSecond;
-            if ( forceUTC ) {
-              validateYear = date.getUTCFullYear();
-              validateMonth = date.getUTCMonth();
-              validateDay = date.getUTCDate();
-              validateHour = date.getUTCHours();
-              validateMinute = date.getUTCMinutes();
-              validateSecond = date.getUTCSeconds();
-            } else {
-              validateYear = date.getFullYear();
-              validateMonth = date.getMonth();
-              validateDay = date.getDate();
-              validateHour = date.getHours();
-              validateMinute = date.getMinutes();
-              validateSecond = date.getSeconds();
-            }
-
-            if ( validateYear === year &&
-                 validateMonth === month &&
-                 validateDay === day &&
-                 validateHour === hour &&
-                 validateMinute === minute &&
-                 validateSecond === second ) {
-              return date;
-            }
-            throw new Error('Cannot parse invalid datetime: ' + d);
-          }
-        }
-
-        throw new Error('Unsupported DateTime format: ' + d);
+      documentation: 'Parses datetime strings using DateParser in local time. Optional opt_name to specify format.',
+      code: function(d, opt_name) {
+        var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+        return parser.parseDateTime(d, opt_name);
       },
       javaCode: `
-        /*
-         Supported datetime formats (checked in order):
-         1. ISO 8601: YYYY-MM-DDTHH:MM:SS.sss or YYYY-MM-DD HH:MM:SS.sss
-         2. ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
-         3. US with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
-         4. US with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
-         5. Compact: YYYYMMDDHHMMSS
-
-         When forceUTC=false (default), parses as local time. When forceUTC=true, parses as UTC.
-         DateTimeUTC type passes true to force UTC parsing.
-        */
-
-        // Determine timezone to use based on forceUTC flag
-        String timeZoneId = forceUTC ? "GMT" : java.util.TimeZone.getDefault().getID();
-
-        SimpleDateFormat format;
-        Date date;
+        // TODO: When migrating to Java grammar-based parsing, replace this with DateParser.parseDateTime()
+        // Parses datetime string in local timezone
         try {
-          // ISO 8601: YYYY-MM-DDTHH:MM:SS.SSS or YYYY-MM-DD HH:MM:SS.SSS
-          if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{3})?.*") ) {
-            String normalized = d.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
-            int dotIndex = normalized.indexOf('.');
-
-            if ( dotIndex > 0 ) {
-              format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-              format.setLenient(false);
-              format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-              date = format.parse(normalized.substring(0, Math.min(23, normalized.length())));
-            } else {
-              format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-              format.setLenient(false);
-              format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-              date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
-            }
-          }
-          // ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
-          else if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}.*") ) {
-            String normalized = d.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
-            format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-            date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
-          }
-          // US format with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
-          else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}:\\\\d{2}.*") ) {
-            String normalized = d.replaceAll("/", "-");
-            format = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-            date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
-          }
-          // US format with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
-          else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}.*") ) {
-            String normalized = d.replaceAll("/", "-");
-            format = new SimpleDateFormat("MM-dd-yyyy HH:mm");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-            date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
-          }
-          // Compact: YYYYMMDDHHMMSS
-          else if ( d.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}.*") ) {
-            format = new SimpleDateFormat("yyyyMMddHHmmss");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-            date = format.parse(d.substring(0, 14));
-          }
-          else {
-            throw new RuntimeException("Unsupported DateTime format: " + d);
-          }
+          return parseDateTimeWithTimezone(d, java.util.TimeZone.getDefault().getID());
         } catch ( ParseException e ) {
           throw new RuntimeException("Cannot parse invalid datetime: " + d);
         }
-        return date;
+      `
+    },
+    {
+      name: 'parseDateTimeUTC',
+      args: 'String d, String opt_name',
+      type: 'Date',
+      documentation: 'Parses datetime strings using DateParser in UTC time. Optional opt_name to specify format.',
+      code: function(d, opt_name) {
+        var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+        return parser.parseDateTimeUTC(d, opt_name);
+      },
+      javaCode: `
+        // TODO: When migrating to Java grammar-based parsing, replace this with DateParser.parseDateTimeUTC()
+        // Parses datetime string in UTC timezone
+        try {
+          return parseDateTimeWithTimezone(d, "GMT");
+        } catch ( ParseException e ) {
+          throw new RuntimeException("Cannot parse invalid datetime: " + d);
+        }
       `
     },
     {
       name: 'parseDateString',
-      args: 'String d',
+      args: 'String d, String opt_name',
       type: 'Date',
-      documentation: 'Parses date strings in formats: YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD, YYYY-MM-DD, MM-DD-YYYY, YY-MM-DD',
-      code: function(d) {
-        // Try each format in FORMATS_ORDER until one matches
-        for ( var i = 0; i < foam.util.DateUtil.FORMATS_ORDER.length; i++ ) {
-          var format = foam.util.DateUtil.FORMATS_ORDER[i];
-          var match = d.match(format.regex);
-
-          if ( match ) {
-            var year, month, day;
-
-            // Map captured groups based on the format's group definition
-            // For example, if groups = ['month', 'day', 'year'], then:
-            //   match[1] = month, match[2] = day, match[3] = year
-            for ( var j = 0; j < format.groups.length; j++ ) {
-              if ( format.groups[j] === 'year' ) {
-                year = parseInt(match[j + 1]);
-              } else if ( format.groups[j] === 'year2' ) {
-                // 2-digit year: sliding window approach
-                // Use 100-year window centered on current year
-                var twoDigitYear = parseInt(match[j + 1]);
-                var currentYear = new Date().getUTCFullYear();
-                var currentCentury = Math.floor(currentYear / 100) * 100;
-                var pivotYear = currentYear - 50;
-                var pivotCentury = Math.floor(pivotYear / 100) * 100;
-
-                // Try current century first
-                year = currentCentury + twoDigitYear;
-
-                // If year is more than 50 years in the future, use previous century
-                if ( year > currentYear + 50 ) {
-                  year = pivotCentury + twoDigitYear;
-                }
-              } else if ( format.groups[j] === 'month' ) {
-                month = parseInt(match[j + 1]) - 1; // JavaScript months are 0-indexed
-              } else if ( format.groups[j] === 'day' ) {
-                day = parseInt(match[j + 1]);
-              }
-            }
-
-            // Validate the date is valid
-            var date = new Date(year, month, day);
-            if ( date.getFullYear() === year && date.getMonth() === month && date.getDate() === day ) {
-              return date;
-            }
-            throw new Error('Cannot parse invalid date: ' + d);
-          }
-        }
-
-        throw new Error('Unsupported Date format: ' + d);
+      documentation: 'Parses date strings using DateParser. Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats. Optional opt_name to specify format (e.g., "ddmmyyyy").',
+      code: function(d, opt_name) {
+        var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+        return parser.parseDateString(d, opt_name);
       },
       javaCode: `
         /*
+         TODO: When migrating to Java grammar-based parsing, replace this with DateParser.parseDateString()
+
          Supported formats (checked in order):
          1. YYYY/MM/DD, YYYY-MM-DD (with separators)
          2. YYYYMMDD (no separators, year 1900-2999)
@@ -420,134 +250,24 @@ foam.CLASS({
       name: 'adapt',
       args: 'Object o',
       type: 'Date',
-      documentation: 'Adapts various types to Date, normalizing to noon GMT',
+      documentation: 'Adapts various input types to Date. Delegates to parseDateString for backward compatibility.',
       code: function(o) {
-        try {
-          if ( o != null ) {
-            var date;
-            if ( typeof o === 'number' ) {
-              date = new Date(o);
-            } else if ( typeof o === 'string' ) {
-              date = foam.util.DateUtil.parseDateString(o);
-            } else if ( o instanceof Date ) {
-              date = o;
-            } else {
-              date = new Date(o);
-            }
-            // Convert the Date to be noon in GMT
-            var utcYear = date.getUTCFullYear();
-            var utcMonth = date.getUTCMonth();
-            var utcDate = date.getUTCDate();
-            return new Date(Date.UTC(utcYear, utcMonth, utcDate, 12, 0, 0, 0));
-          }
-          return o;
-        } catch ( t ) {
-          console.error('Cannot adapt date:', o, '; assuming MAX_DATE');
-          return foam.util.DateUtil.MAX_DATE;
+        if ( ! o ) return null;
+        if ( o instanceof Date ) return o;
+        if ( typeof o === 'string' ) {
+          var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+          return parser.parseDateString(o);
         }
+        if ( typeof o === 'number' ) return new Date(o);
+        return null;
       },
       javaCode: `
-        // Adapts various types to Date, normalizing to noon GMT
-        try {
-          if ( o != null ) {
-            Date date;
-            if ( o instanceof Number ) {
-              date = new java.util.Date(((Number) o).longValue());
-            } else if ( o instanceof String ) {
-              date = parseDateString((String) o);
-            } else {
-              date = (java.util.Date) o;
-            }
-            // convert the Date to be noon in GMT
-            var cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
-            cal.setTime(date);
-            cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
-            cal.set(java.util.Calendar.MINUTE, 0);
-            cal.set(java.util.Calendar.SECOND, 0);
-            return cal.getTime();
-          }
-          return (java.util.Date) o;
-        } catch ( Throwable t ) {
-          System.err.println("Cannot adapt date:" + o + "; assuming " + MAX_DATE.toString());
-          return MAX_DATE;
-        }
-      `
-    },
-    {
-      name: 'adaptDateTime',
-      args: 'Object o, Boolean forceUTC',
-      type: 'Date',
-      documentation: 'Adapts various types to DateTime. When forceUTC=true, parses strings as UTC. Timestamps and Date objects always preserve their time.',
-      code: function(o, forceUTC) {
-        try {
-          if ( o === undefined || o === null ) return o;
-
-          // Default forceUTC to false for backward compatibility
-          if ( forceUTC === undefined || forceUTC === null ) forceUTC = false;
-
-
-          // Strings - handle based on forceUTC flag
-          if ( typeof o === 'string' ) {
-            // Try parsing as datetime first (with time component)
-            try {
-              return foam.util.DateUtil.parseDateTime(o, forceUTC);
-            } catch ( e ) {
-              // If no time component, parse as date-only and set default time
-              var date = foam.util.DateUtil.parseDateString(o);
-              var defaultHour = forceUTC ? 0 : 12; // midnight UTC if forceUTC, noon GMT otherwise
-              return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), defaultHour, 0, 0, 0));
-            }
-          }
-
-          // Fallback - try to convert to Date and preserve time
-          return new Date(o);
-        } catch ( t ) {
-          console.error('Cannot adapt datetime:', o, '; assuming MAX_DATE');
-          return foam.util.DateUtil.MAX_DATE;
-        }
-      },
-      javaCode: `
-        // Adapts various types to DateTime. When forceUTC=true, parses strings as UTC. Timestamps and Date objects always preserve their time.
-        try {
-          if ( o == null ) return null;
-
-          // Handle numbers (timestamps) - always preserve time
-          if ( o instanceof Number ) {
-            return new java.util.Date(((Number) o).longValue());
-          }
-
-          // Handle Date objects - always preserve time as-is
-          if ( o instanceof java.util.Date ) {
-            return (java.util.Date) o;
-          }
-
-          // Handle strings - behavior based on forceUTC flag
-          if ( o instanceof String ) {
-            String str = (String) o;
-
-            // Try parsing as datetime first (with time component)
-            try {
-              return parseDateTime(str, forceUTC);
-            } catch ( RuntimeException e ) {
-              // If parseDateTime fails, parse as date-only and set default time
-              Date date = parseDateString(str);
-              int defaultHour = forceUTC ? 0 : 12; // midnight UTC if forceUTC, noon GMT otherwise
-              var cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
-              cal.setTime(date);
-              cal.set(java.util.Calendar.HOUR_OF_DAY, defaultHour);
-              cal.set(java.util.Calendar.MINUTE, 0);
-              cal.set(java.util.Calendar.SECOND, 0);
-              cal.set(java.util.Calendar.MILLISECOND, 0);
-              return cal.getTime();
-            }
-          }
-
-          // Fallback - try to convert to Date and preserve time
-          return new java.util.Date();
-        } catch ( Throwable t ) {
-          System.err.println("Cannot adapt datetime:" + o + "; assuming " + MAX_DATE.toString());
-          return MAX_DATE;
-        }
+        // Backward compatibility adapter method
+        if ( o == null ) return null;
+        if ( o instanceof Date ) return (Date) o;
+        if ( o instanceof String ) return parseDateString((String) o, null);
+        if ( o instanceof Number ) return new Date(((Number) o).longValue());
+        return null;
       `
     },
     {
@@ -729,7 +449,69 @@ foam.CLASS({
 
   javaCode: `
     /*
-     * Java method overloads (2-parameter versions)
+     * Generic Java datetime parsing helper used by both parseDateTime and parseDateTimeUTC
+     */
+    private static Date parseDateTimeWithTimezone(String d, String timeZoneId) throws ParseException {
+      SimpleDateFormat format;
+      Date date;
+
+      // ISO 8601: YYYY-MM-DDTHH:MM:SS.SSS or YYYY-MM-DD HH:MM:SS.SSS
+      if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{3})?.*") ) {
+        String normalized = d.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
+        int dotIndex = normalized.indexOf('.');
+
+        if ( dotIndex > 0 ) {
+          format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+          format.setLenient(false);
+          format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+          date = format.parse(normalized.substring(0, Math.min(23, normalized.length())));
+        } else {
+          format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+          format.setLenient(false);
+          format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+          date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
+        }
+      }
+      // ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
+      else if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}.*") ) {
+        String normalized = d.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
+        format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        format.setLenient(false);
+        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
+      }
+      // US format with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
+      else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}:\\\\d{2}.*") ) {
+        String normalized = d.replaceAll("/", "-");
+        format = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss");
+        format.setLenient(false);
+        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
+      }
+      // US format with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
+      else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}.*") ) {
+        String normalized = d.replaceAll("/", "-");
+        format = new SimpleDateFormat("MM-dd-yyyy HH:mm");
+        format.setLenient(false);
+        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
+      }
+      // Compact: YYYYMMDDHHMMSS
+      else if ( d.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}.*") ) {
+        format = new SimpleDateFormat("yyyyMMddHHmmss");
+        format.setLenient(false);
+        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        date = format.parse(d.substring(0, 14));
+      }
+      else {
+        throw new RuntimeException("Unsupported DateTime format: " + d);
+      }
+
+      return date;
+    }
+
+    /*
+     * Java method overloads
      *
      * FOAM's static array doesn't support method overloading - you cannot define
      * two methods with the same name but different parameters. JavaScript doesn't
@@ -743,14 +525,18 @@ foam.CLASS({
      */
 
     // Java method overload for parseDateTime (1-parameter version for backward compatibility)
-    // Defaults to false (local time) to maintain backward compatibility with original implementation
     public static Date parseDateTime(String d) {
-      return parseDateTime(d, false);
+      return parseDateTime(d, null);
     }
 
-    // Java method overload for adaptDateTime (1-parameter version for backward compatibility)
-    public static Date adaptDateTime(Object o) {
-      return adaptDateTime(o, false);
+    // Java method overload for parseDateTimeUTC (1-parameter version for backward compatibility)
+    public static Date parseDateTimeUTC(String d) {
+      return parseDateTimeUTC(d, null);
+    }
+
+    // Java method overload for parseDateString (1-parameter version for backward compatibility)
+    public static Date parseDateString(String d) {
+      return parseDateString(d, null);
     }
 
     // Java method overloads (2-parameter versions)

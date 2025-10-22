@@ -42,7 +42,7 @@ foam.CLASS({
   name: 'DateTimeUTCTest',
   extends: 'foam.core.test.JSTest',
 
-  documentation: 'Tests for the DateTimeUTC property type',
+  documentation: 'Tests for DateTimeUTC property adapt behavior',
 
   requires: [
     'foam.lang.test.DateTimeTestModel'
@@ -52,411 +52,440 @@ foam.CLASS({
     {
       name: 'runTest',
       code: async function(x) {
-        this.testAdaptFromString(x);
-        this.testAdaptFromNumber(x);
-        this.testAdaptFromDate(x);
-        this.testAdaptFromVariousFormats(x);
-        this.testParseDateTime(x);
-        this.testFormatDate(x);
-        this.testFormatDateTime(x);
-        this.testModelProperties(x);
-        this.testDateNormalization(x);
+        this.testAdaptStringDates(x);
+        this.testAdaptStringDateTimes(x);
+        this.testAdaptNumbers(x);
+        this.testAdaptDateObjects(x);
+        this.testAdaptNullUndefined(x);
+        this.testTimePreservation(x);
         this.testEdgeCases(x);
-        this.testUTCTimePreservation(x);
-        this.testTimezoneConversions(x);
-        this.testDateTimeUTCNoTimeLoss(x);
+        this.testTimezoneZ(x);
+        this.testTimezonePositiveOffset(x);
+        this.testTimezoneNegativeOffset(x);
+        this.testTimezoneVariousOffsets(x);
+        this.testTimezoneDateBoundaries(x);
       }
     },
+
     {
-      name: 'testAdaptFromString',
+      name: 'testAdaptStringDates',
       code: function(x) {
-        // Test adapting from various string formats
-        var d1 = foam.util.DateUtil.adapt("2024-03-15");
-        x.test( d1 != null, "Should adapt from YYYY-MM-DD string format" );
+        // Test DateTimeUTC property adapting string dates (date-only, no time)
+        var model = this.DateTimeTestModel.create();
 
-        var d2 = foam.util.DateUtil.adapt("03/15/2024");
-        x.test( d2 != null, "Should adapt from MM/DD/YYYY string format" );
-
-        var d3 = foam.util.DateUtil.adapt("20240315");
-        x.test( d3 != null, "Should adapt from YYYYMMDD string format" );
-
-        // Verify all represent the same date
-        x.test(
-          d1.getUTCFullYear() === d2.getUTCFullYear() &&
-          d1.getUTCMonth() === d2.getUTCMonth() &&
-          d1.getUTCDate() === d2.getUTCDate(),
-          "YYYY-MM-DD and MM/DD/YYYY should represent the same date"
-        );
-
-        x.test(
-          d1.getUTCFullYear() === d3.getUTCFullYear() &&
-          d1.getUTCMonth() === d3.getUTCMonth() &&
-          d1.getUTCDate() === d3.getUTCDate(),
-          "YYYY-MM-DD and YYYYMMDD should represent the same date"
-        );
-      }
-    },
-    {
-      name: 'testAdaptFromNumber',
-      code: function(x) {
-        // Test adapting from timestamp (milliseconds since epoch)
-        var timestamp = 1710489600000; // 2024-03-15 00:00:00 UTC
-        var d = foam.util.DateUtil.adapt(timestamp);
-        x.test( d != null, "Should adapt from number timestamp" );
-        // adapt() normalizes to noon, so timestamp will be different
-        var year = d.getUTCFullYear();
-        x.test( year === 2024, `Year should be 2024 (expected 2024, got ${year})` );
-        var month = d.getUTCMonth();
-        x.test( month === 2, `Month should be March (2) (expected 2, got ${month})` );
-        var date = d.getUTCDate();
-        x.test( date === 15, `Day should be 15 (expected 15, got ${date})` );
-        var hours = d.getUTCHours();
-        x.test( hours === 12, `Hour normalized to 12 (noon) (expected 12, got ${hours})` );
-      }
-    },
-    {
-      name: 'testAdaptFromDate',
-      code: function(x) {
-        // Test adapting from Date object
-        var original = new Date();
-        var adapted = foam.util.DateUtil.adapt(original);
-        x.test( adapted != null, "Should adapt from Date object" );
-
-        // Verify the date is normalized to noon GMT
-        var hours = adapted.getUTCHours();
-        x.test( hours === 12, `Adapted date should be normalized to noon GMT (expected 12, got ${hours})` );
-        var minutes = adapted.getUTCMinutes();
-        x.test( minutes === 0, `Minutes should be 0 (expected 0, got ${minutes})` );
-        var seconds = adapted.getUTCSeconds();
-        x.test( seconds === 0, `Seconds should be 0 (expected 0, got ${seconds})` );
-      }
-    },
-    {
-      name: 'testAdaptFromVariousFormats',
-      code: function(x) {
-        // Test all supported date formats
-        var formats = [
-          "2024-03-15",      // YYYY-MM-DD with dash
-          "2024/03/15",      // YYYY/MM/DD with slash
-          "20240315",        // YYYYMMDD no separator
-          "03-15-2024",      // MM-DD-YYYY with dash
-          "03/15/2024",      // MM/DD/YYYY with slash
-          "03152024",        // MMDDYYYY no separator
-          "24-03-15",        // YY-MM-DD with dash
-          "24/03/15",        // YY/MM/DD with slash
-          "240315"           // YYMMDD no separator
+        var stringDates = [
+          { input: "2024-03-15", year: 2024, month: 2, day: 15, desc: "YYYY-MM-DD" },
+          { input: "2024/03/15", year: 2024, month: 2, day: 15, desc: "YYYY/MM/DD" },
+          { input: "20240315", year: 2024, month: 2, day: 15, desc: "YYYYMMDD" },
+          { input: "03-15-2024", year: 2024, month: 2, day: 15, desc: "MM-DD-YYYY" },
+          { input: "03/15/2024", year: 2024, month: 2, day: 15, desc: "MM/DD/YYYY" },
+          { input: "03152024", year: 2024, month: 2, day: 15, desc: "MMDDYYYY" }
         ];
 
-        formats.forEach(function(format) {
-          try {
-            var d = foam.util.DateUtil.adapt(format);
-            x.test( d != null, "Should adapt from format: " + format );
-          } catch (e) {
-            x.test( false, "Failed to adapt from format: " + format + " - " + e.message );
-          }
+        stringDates.forEach(function(testCase) {
+          model.utcDateTime = testCase.input;
+          x.test( model.utcDateTime != null, testCase.desc + ": Should adapt " + testCase.input );
+          x.test( model.utcDateTime.getUTCFullYear() === testCase.year,
+                  testCase.desc + ": Year should be " + testCase.year );
+          x.test( model.utcDateTime.getUTCMonth() === testCase.month,
+                  testCase.desc + ": Month should be " + testCase.month );
+          x.test( model.utcDateTime.getUTCDate() === testCase.day,
+                  testCase.desc + ": Day should be " + testCase.day );
+          // Date-only strings should set time to midnight
+          x.test( model.utcDateTime.getUTCHours() === 0,
+                  testCase.desc + ": Hours should be 0 (midnight)" );
+          x.test( model.utcDateTime.getUTCMinutes() === 0,
+                  testCase.desc + ": Minutes should be 0" );
+          x.test( model.utcDateTime.getUTCSeconds() === 0,
+                  testCase.desc + ": Seconds should be 0" );
         });
       }
     },
+
     {
-      name: 'testParseDateTime',
+      name: 'testAdaptStringDateTimes',
       code: function(x) {
-        // Test parseDateTime with UTC parsing (forceUTC=true) - since we're checking UTC components
-        var dt1 = foam.util.DateUtil.parseDateTime("2024-03-15 15:30:45", true);
-        x.test( dt1 != null, "Should parse YYYY-MM-DD HH:MM:SS format" );
-        var hours1 = dt1.getUTCHours();
-        x.test( hours1 === 15, `Hour should be 15 (expected 15, got ${hours1})` );
-        var minutes1 = dt1.getUTCMinutes();
-        x.test( minutes1 === 30, `Minutes should be 30 (expected 30, got ${minutes1})` );
-        var seconds1 = dt1.getUTCSeconds();
-        x.test( seconds1 === 45, `Seconds should be 45 (expected 45, got ${seconds1})` );
+        // Test DateTimeUTC property adapting string datetimes (with time components)
+        var model = this.DateTimeTestModel.create();
 
-        var dt2 = foam.util.DateUtil.parseDateTime("03/15/2024 15:30:45", true);
-        x.test( dt2 != null, "Should parse MM/DD/YYYY HH:MM:SS format" );
-
-        var dt3 = foam.util.DateUtil.parseDateTime("2024-03-15T15:30:45", true);
-        x.test( dt3 != null, "Should parse ISO format with T separator" );
-
-        // Verify they represent the same datetime
-        var time1 = dt1.getTime();
-        var time3 = dt3.getTime();
-        x.test( time1 === time3, `Different formats should parse to same datetime (expected ${time1}, got ${time3})` );
-      }
-    },
-    {
-      name: 'testFormatDate',
-      code: function(x) {
-        // Create a specific date: March 15, 2024 at 15:30:45 GMT
-        var testDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45, 0)); // March is month 2 (0-indexed)
-
-        // Note: format method formats in UTC
-        // This test validates the date was created correctly
-        var year = testDate.getUTCFullYear();
-        x.test( year === 2024, `Year should be 2024 (expected 2024, got ${year})` );
-        var month = testDate.getUTCMonth();
-        x.test( month === 2, `Month should be March (2) (expected 2, got ${month})` );
-        var date = testDate.getUTCDate();
-        x.test( date === 15, `Day should be 15 (expected 15, got ${date})` );
-        var hours = testDate.getUTCHours();
-        x.test( hours === 15, `Hour should be 15 (expected 15, got ${hours})` );
-        var minutes = testDate.getUTCMinutes();
-        x.test( minutes === 30, `Minute should be 30 (expected 30, got ${minutes})` );
-        var seconds = testDate.getUTCSeconds();
-        x.test( seconds === 45, `Second should be 45 (expected 45, got ${seconds})` );
-      }
-    },
-    {
-      name: 'testFormatDateTime',
-      code: function(x) {
-        // Create a specific datetime
-        var testDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45, 0));
-
-        // Verify time components
-        var hours = testDate.getUTCHours();
-        x.test( hours === 15, `Hour should be 15 (expected 15, got ${hours})` );
-        var minutes = testDate.getUTCMinutes();
-        x.test( minutes === 30, `Minute should be 30 (expected 30, got ${minutes})` );
-        var seconds = testDate.getUTCSeconds();
-        x.test( seconds === 45, `Second should be 45 (expected 45, got ${seconds})` );
-
-        // Test that we can read back the components correctly
-        var year = testDate.getUTCFullYear();
-        x.test( year === 2024, `Verify year is 2024 (expected 2024, got ${year})` );
-        var month = testDate.getUTCMonth();
-        x.test( month === 2, `Verify month is March (2) (expected 2, got ${month})` );
-      }
-    },
-    {
-      name: 'testModelProperties',
-      code: function(x) {
-        // Create test model instance
-        var model = this.DateTimeTestModel.create({
-          id: 1,
-          eventName: "Test Event"
-        });
-
-        // Test setting values on both property types
-        var testDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45, 0));
-
-        model.regularDateTime = testDate;
-        model.utcDateTime = testDate;
-        model.regularDate = testDate;
-
-        // Verify values are set correctly
-        x.test( model.regularDateTime != null, "Regular DateTime should be set" );
-        x.test( model.utcDateTime != null, "UTC DateTime should be set" );
-        x.test( model.regularDate != null, "Regular Date should be set" );
-
-        // Verify they represent the same underlying timestamp
-        var regularTime = model.regularDateTime.getTime();
-        var expectedTime = testDate.getTime();
-        x.test( regularTime === expectedTime,
-                `Regular DateTime should have same timestamp (expected ${expectedTime}, got ${regularTime})` );
-        var utcTime = model.utcDateTime.getTime();
-        x.test( utcTime === expectedTime,
-                `UTC DateTime should have same timestamp (expected ${expectedTime}, got ${utcTime})` );
-      }
-    },
-    {
-      name: 'testDateNormalization',
-      code: function(x) {
-        // Test that DateUtil.adapt normalizes dates to noon GMT
-        var dateStrings = [
-          "2024-03-15",
-          "03/15/2024",
-          "20240315"
+        var stringDateTimes = [
+          { input: "2024-03-15T15:30:45", year: 2024, month: 2, day: 15, hour: 15, minute: 30, second: 45, desc: "ISO format" },
+          { input: "2024-03-15 15:30:45", year: 2024, month: 2, day: 15, hour: 15, minute: 30, second: 45, desc: "Space separator" },
+          { input: "03/15/2024 14:20:10", year: 2024, month: 2, day: 15, hour: 14, minute: 20, second: 10, desc: "MM/DD/YYYY HH:MM:SS" },
+          { input: "2024-03-15T08:00:00", year: 2024, month: 2, day: 15, hour: 8, minute: 0, second: 0, desc: "Morning time" }
         ];
 
-        dateStrings.forEach(function(dateStr) {
-          var adapted = foam.util.DateUtil.adapt(dateStr);
-
-          var hours = adapted.getUTCHours();
-          x.test( hours === 12,
-                  dateStr + ` should be normalized to hour 12 (noon) (expected 12, got ${hours})` );
-          var minutes = adapted.getUTCMinutes();
-          x.test( minutes === 0,
-                  dateStr + ` should have minute 0 (expected 0, got ${minutes})` );
-          var seconds = adapted.getUTCSeconds();
-          x.test( seconds === 0,
-                  dateStr + ` should have second 0 (expected 0, got ${seconds})` );
-          var millis = adapted.getUTCMilliseconds();
-          x.test( millis === 0,
-                  dateStr + ` should have millisecond 0 (expected 0, got ${millis})` );
+        stringDateTimes.forEach(function(testCase) {
+          model.utcDateTime = testCase.input;
+          x.test( model.utcDateTime != null, testCase.desc + ": Should adapt " + testCase.input );
+          x.test( model.utcDateTime.getUTCFullYear() === testCase.year,
+                  testCase.desc + ": Year should be " + testCase.year );
+          x.test( model.utcDateTime.getUTCMonth() === testCase.month,
+                  testCase.desc + ": Month should be " + testCase.month );
+          x.test( model.utcDateTime.getUTCDate() === testCase.day,
+                  testCase.desc + ": Day should be " + testCase.day );
+          x.test( model.utcDateTime.getUTCHours() === testCase.hour,
+                  testCase.desc + ": Hour should be " + testCase.hour );
+          x.test( model.utcDateTime.getUTCMinutes() === testCase.minute,
+                  testCase.desc + ": Minute should be " + testCase.minute );
+          x.test( model.utcDateTime.getUTCSeconds() === testCase.second,
+                  testCase.desc + ": Second should be " + testCase.second );
         });
       }
     },
+
+    {
+      name: 'testAdaptNumbers',
+      code: function(x) {
+        // Test DateTimeUTC property adapting number timestamps
+        var model = this.DateTimeTestModel.create();
+
+        var timestamps = [
+          { input: 1710489600000, year: 2024, month: 2, day: 15, hour: 0, minute: 0, second: 0, desc: "Timestamp 2024-03-15 00:00:00 UTC" },
+          { input: 1710511800000, year: 2024, month: 2, day: 15, hour: 6, minute: 10, second: 0, desc: "Timestamp 2024-03-15 06:10:00 UTC" },
+          { input: 1710555045000, year: 2024, month: 2, day: 15, hour: 18, minute: 10, second: 45, desc: "Timestamp 2024-03-15 18:10:45 UTC" }
+        ];
+
+        timestamps.forEach(function(testCase) {
+          model.utcDateTime = testCase.input;
+          x.test( model.utcDateTime != null, testCase.desc + ": Should adapt timestamp" );
+          x.test( model.utcDateTime.getTime() === testCase.input,
+                  testCase.desc + ": Timestamp should be preserved exactly" );
+          x.test( model.utcDateTime.getUTCFullYear() === testCase.year,
+                  testCase.desc + ": Year should be " + testCase.year );
+          x.test( model.utcDateTime.getUTCMonth() === testCase.month,
+                  testCase.desc + ": Month should be " + testCase.month );
+          x.test( model.utcDateTime.getUTCDate() === testCase.day,
+                  testCase.desc + ": Day should be " + testCase.day );
+          x.test( model.utcDateTime.getUTCHours() === testCase.hour,
+                  testCase.desc + ": Hour should be " + testCase.hour );
+          x.test( model.utcDateTime.getUTCMinutes() === testCase.minute,
+                  testCase.desc + ": Minute should be " + testCase.minute );
+          x.test( model.utcDateTime.getUTCSeconds() === testCase.second,
+                  testCase.desc + ": Second should be " + testCase.second );
+        });
+      }
+    },
+
+    {
+      name: 'testAdaptDateObjects',
+      code: function(x) {
+        // Test DateTimeUTC property adapting Date objects
+        var model = this.DateTimeTestModel.create();
+
+        var dateObjects = [
+          { date: new Date(Date.UTC(2024, 2, 15, 0, 0, 0, 0)), year: 2024, month: 2, day: 15, hour: 0, minute: 0, second: 0, desc: "Midnight UTC" },
+          { date: new Date(Date.UTC(2024, 2, 15, 14, 30, 45, 0)), year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45, desc: "Afternoon UTC" },
+          { date: new Date(Date.UTC(2024, 2, 15, 23, 59, 59, 0)), year: 2024, month: 2, day: 15, hour: 23, minute: 59, second: 59, desc: "End of day UTC" }
+        ];
+
+        dateObjects.forEach(function(testCase) {
+          var originalTimestamp = testCase.date.getTime();
+          model.utcDateTime = testCase.date;
+
+          x.test( model.utcDateTime != null, testCase.desc + ": Should adapt Date object" );
+          x.test( model.utcDateTime.getTime() === originalTimestamp,
+                  testCase.desc + ": Timestamp should be preserved exactly" );
+          x.test( model.utcDateTime.getUTCFullYear() === testCase.year,
+                  testCase.desc + ": Year should be " + testCase.year );
+          x.test( model.utcDateTime.getUTCMonth() === testCase.month,
+                  testCase.desc + ": Month should be " + testCase.month );
+          x.test( model.utcDateTime.getUTCDate() === testCase.day,
+                  testCase.desc + ": Day should be " + testCase.day );
+          x.test( model.utcDateTime.getUTCHours() === testCase.hour,
+                  testCase.desc + ": Hour should be " + testCase.hour );
+          x.test( model.utcDateTime.getUTCMinutes() === testCase.minute,
+                  testCase.desc + ": Minute should be " + testCase.minute );
+          x.test( model.utcDateTime.getUTCSeconds() === testCase.second,
+                  testCase.desc + ": Second should be " + testCase.second );
+        });
+      }
+    },
+
+    {
+      name: 'testAdaptNullUndefined',
+      code: function(x) {
+        // Test DateTimeUTC property handling null/undefined
+        var model = this.DateTimeTestModel.create();
+
+        // Test null
+        model.utcDateTime = null;
+        x.test( model.utcDateTime == null, "Null input should result in null" );
+
+        // Test undefined
+        model.utcDateTime = undefined;
+        x.test( model.utcDateTime == null, "Undefined input should result in null" );
+
+        // Verify we can still set a valid value after null/undefined
+        model.utcDateTime = "2024-03-15";
+        x.test( model.utcDateTime != null, "Should be able to set value after null" );
+        x.test( model.utcDateTime.getUTCFullYear() === 2024, "Value should be correct after null" );
+      }
+    },
+
+    {
+      name: 'testTimePreservation',
+      code: function(x) {
+        // Test that DateTimeUTC preserves time components (doesn't normalize to noon)
+        var model = this.DateTimeTestModel.create();
+
+        // Test various times throughout the day
+        var times = [
+          { input: "2024-03-15T00:00:00", hour: 0, minute: 0, second: 0, desc: "Midnight" },
+          { input: "2024-03-15T06:30:15", hour: 6, minute: 30, second: 15, desc: "Morning" },
+          { input: "2024-03-15T12:00:00", hour: 12, minute: 0, second: 0, desc: "Noon" },
+          { input: "2024-03-15T18:45:30", hour: 18, minute: 45, second: 30, desc: "Evening" },
+          { input: "2024-03-15T23:59:59", hour: 23, minute: 59, second: 59, desc: "End of day" }
+        ];
+
+        times.forEach(function(testCase) {
+          model.utcDateTime = testCase.input;
+          x.test( model.utcDateTime.getUTCHours() === testCase.hour,
+                  testCase.desc + ": Hour should be preserved as " + testCase.hour );
+          x.test( model.utcDateTime.getUTCMinutes() === testCase.minute,
+                  testCase.desc + ": Minute should be preserved as " + testCase.minute );
+          x.test( model.utcDateTime.getUTCSeconds() === testCase.second,
+                  testCase.desc + ": Second should be preserved as " + testCase.second );
+        });
+      }
+    },
+
     {
       name: 'testEdgeCases',
       code: function(x) {
-        // Test edge cases
+        // Test edge cases and boundary conditions
+        var model = this.DateTimeTestModel.create();
 
-        // Leap year
-        var leapYear = foam.util.DateUtil.adapt("2024-02-29");
-        x.test( leapYear != null, "Should handle leap year date" );
-        var leapMonth = leapYear.getUTCMonth();
-        x.test( leapMonth === 1, `Leap year month should be February (1) (expected 1, got ${leapMonth})` );
-        var leapDate = leapYear.getUTCDate();
-        x.test( leapDate === 29, `Leap year day should be 29 (expected 29, got ${leapDate})` );
+        // Leap year date
+        model.utcDateTime = "2024-02-29";
+        x.test( model.utcDateTime != null, "Should handle leap year date" );
+        x.test( model.utcDateTime.getUTCMonth() === 1, "Leap year: Month should be February (1)" );
+        x.test( model.utcDateTime.getUTCDate() === 29, "Leap year: Day should be 29" );
 
         // Year boundaries
-        var yearEnd = foam.util.DateUtil.adapt("2024-12-31");
-        x.test( yearEnd != null, "Should handle year end date" );
+        model.utcDateTime = "2024-01-01";
+        x.test( model.utcDateTime != null, "Should handle year start" );
+        x.test( model.utcDateTime.getUTCMonth() === 0, "Year start: Month should be 0" );
+        x.test( model.utcDateTime.getUTCDate() === 1, "Year start: Day should be 1" );
 
-        var yearStart = foam.util.DateUtil.adapt("2024-01-01");
-        x.test( yearStart != null, "Should handle year start date" );
+        model.utcDateTime = "2024-12-31";
+        x.test( model.utcDateTime != null, "Should handle year end" );
+        x.test( model.utcDateTime.getUTCMonth() === 11, "Year end: Month should be 11" );
+        x.test( model.utcDateTime.getUTCDate() === 31, "Year end: Day should be 31" );
 
-        // Two-digit year pivot (years < 50 should be 2000s, >= 50 should be 1900s)
-        var year25 = foam.util.DateUtil.adapt("25/03/15");
-        var fullYear25 = year25.getUTCFullYear();
-        x.test( fullYear25 === 2025, `Year 25 should be interpreted as 2025 (expected 2025, got ${fullYear25})` );
+        // Two-digit year pivot (< 50 = 2000s, >= 50 = 1900s)
+        model.utcDateTime = "25/03/15";
+        x.test( model.utcDateTime.getUTCFullYear() === 2025, "Year 25 should be 2025" );
 
-        var year99 = foam.util.DateUtil.adapt("99/03/15");
-        var fullYear99 = year99.getUTCFullYear();
-        x.test( fullYear99 === 1999, `Year 99 should be interpreted as 1999 (expected 1999, got ${fullYear99})` );
+        model.utcDateTime = "99/03/15";
+        x.test( model.utcDateTime.getUTCFullYear() === 1999, "Year 99 should be 1999" );
 
-        // Test null handling
-        var nullDate = foam.util.DateUtil.adapt(null);
-        x.test( nullDate == null, "Null input should return null" );
+        // Month boundaries
+        model.utcDateTime = "2024-04-30"; // 30-day month
+        x.test( model.utcDateTime.getUTCDate() === 30, "Should handle 30-day month" );
+
+        model.utcDateTime = "2024-07-31"; // 31-day month
+        x.test( model.utcDateTime.getUTCDate() === 31, "Should handle 31-day month" );
+
+        // Time boundaries
+        model.utcDateTime = "2024-03-15T00:00:00";
+        x.test( model.utcDateTime.getUTCHours() === 0, "Should handle midnight hour" );
+
+        model.utcDateTime = "2024-03-15T23:59:59";
+        x.test( model.utcDateTime.getUTCHours() === 23, "Should handle last hour of day" );
+        x.test( model.utcDateTime.getUTCMinutes() === 59, "Should handle last minute" );
+        x.test( model.utcDateTime.getUTCSeconds() === 59, "Should handle last second" );
       }
     },
+
     {
-      name: 'testUTCTimePreservation',
+      name: 'testTimezoneZ',
       code: function(x) {
-        // Test that UTC times are preserved without conversion
+        // Test "Z" timezone indicator (UTC/Zulu time)
+        var model = this.DateTimeTestModel.create();
 
-        // Create a specific UTC time: 2024-03-15 14:30:00 UTC
-        var utcTime = new Date(Date.UTC(2024, 2, 15, 14, 30, 0, 0));
-        var originalTimestamp = utcTime.getTime();
+        var testCases = [
+          { input: "2024-03-15T15:30:45Z", year: 2024, month: 2, day: 15, hour: 15, minute: 30, second: 45 },
+          { input: "2024-03-15T00:00:00Z", year: 2024, month: 2, day: 15, hour: 0, minute: 0, second: 0 },
+          { input: "2024-03-15T23:59:59Z", year: 2024, month: 2, day: 15, hour: 23, minute: 59, second: 59 },
+          { input: "2024-01-01T12:00:00Z", year: 2024, month: 0, day: 1, hour: 12, minute: 0, second: 0 },
+          { input: "2024-12-31T18:30:00Z", year: 2024, month: 11, day: 31, hour: 18, minute: 30, second: 0 }
+        ];
 
-        // Adapt using adaptDateTime (used by DateTimeUTC)
-        var adapted = foam.util.DateUtil.adaptDateTime(utcTime);
+        testCases.forEach(function(tc) {
+          model.utcDateTime = tc.input;
+          var year = model.utcDateTime.getUTCFullYear();
+          var month = model.utcDateTime.getUTCMonth();
+          var day = model.utcDateTime.getUTCDate();
+          var hour = model.utcDateTime.getUTCHours();
+          var minute = model.utcDateTime.getUTCMinutes();
+          var second = model.utcDateTime.getUTCSeconds();
 
-        // Verify timestamp is preserved exactly
-        var adaptedTime = adapted.getTime();
-        x.test( adaptedTime === originalTimestamp,
-                `adaptDateTime should preserve UTC timestamp exactly (expected ${originalTimestamp}, got ${adaptedTime})` );
-
-        // Verify all time components are preserved
-        var year = adapted.getUTCFullYear();
-        x.test( year === 2024, `Year preserved (expected 2024, got ${year})` );
-        var month = adapted.getUTCMonth();
-        x.test( month === 2, `Month preserved (expected 2, got ${month})` );
-        var date = adapted.getUTCDate();
-        x.test( date === 15, `Date preserved (expected 15, got ${date})` );
-        var hours = adapted.getUTCHours();
-        x.test( hours === 14, `Hour preserved (14:30 UTC) (expected 14, got ${hours})` );
-        var minutes = adapted.getUTCMinutes();
-        x.test( minutes === 30, `Minutes preserved (expected 30, got ${minutes})` );
-        var seconds = adapted.getUTCSeconds();
-        x.test( seconds === 0, `Seconds preserved (expected 0, got ${seconds})` );
-
-        // Test with a timestamp number
-        var timestamp = 1710511800000; // 2024-03-15 14:30:00 UTC
-        var fromTimestamp = foam.util.DateUtil.adaptDateTime(timestamp);
-        var timestampTime = fromTimestamp.getTime();
-        x.test( timestampTime === timestamp,
-                `Timestamp number should be preserved (expected ${timestamp}, got ${timestampTime})` );
-        var timestampHours = fromTimestamp.getUTCHours();
-        x.test( timestampHours === 14,
-                `Hour from timestamp preserved (expected 14, got ${timestampHours})` );
-      }
-    },
-    {
-      name: 'testTimezoneConversions',
-      code: function(x) {
-        // Test that format method correctly handles different timezones
-
-        // Create a UTC time: 2024-03-15 20:00:00 UTC
-        var utcTime = new Date(Date.UTC(2024, 2, 15, 20, 0, 0, 0));
-
-        // Format in UTC (should show 20:00:00)
-        var utcFormatted = foam.util.DateUtil.format(utcTime, true, 'UTC');
-        x.test( utcFormatted.includes('20:00:00'),
-                "UTC format should show 20:00:00" );
-
-        // Format in different timezone (America/New_York is UTC-5 in March, so 20:00 UTC = 15:00 EST)
-        // Note: This depends on browser/system timezone support
-        var nyFormatted = foam.util.DateUtil.format(utcTime, true, 'America/New_York');
-        x.test( nyFormatted != null && nyFormatted.length > 0,
-                "Should format in America/New_York timezone" );
-
-        // Format in another timezone (Asia/Tokyo is UTC+9, so 20:00 UTC = 05:00 JST next day)
-        var tokyoFormatted = foam.util.DateUtil.format(utcTime, true, 'Asia/Tokyo');
-        x.test( tokyoFormatted != null && tokyoFormatted.length > 0,
-                "Should format in Asia/Tokyo timezone" );
-
-        // Verify that the same timestamp formats differently in different timezones
-        x.test( utcFormatted !== nyFormatted || utcFormatted !== tokyoFormatted,
-                "Same timestamp should format differently in different timezones" );
-      }
-    },
-    {
-      name: 'testDateTimeUTCNoTimeLoss',
-      code: function(x) {
-        // Test that DateTimeUTC property doesn't lose time information
-
-        var model = this.DateTimeTestModel.create({
-          id: 1,
-          eventName: "Time Preservation Test"
+          x.test( year === tc.year, tc.input + ": Year should be " + tc.year + " (got " + year + ")" );
+          x.test( month === tc.month, tc.input + ": Month should be " + tc.month + " (got " + month + ")" );
+          x.test( day === tc.day, tc.input + ": Day should be " + tc.day + " (got " + day + ")" );
+          x.test( hour === tc.hour, tc.input + ": Hour should be " + tc.hour + " (got " + hour + ")" );
+          x.test( minute === tc.minute, tc.input + ": Minute should be " + tc.minute + " (got " + minute + ")" );
+          x.test( second === tc.second, tc.input + ": Second should be " + tc.second + " (got " + second + ")" );
         });
+      }
+    },
 
-        // Test 1: Set with a specific UTC datetime string
-        var datetimeString = "2024-03-15 14:30:45";
-        model.utcDateTime = datetimeString;
+    {
+      name: 'testTimezonePositiveOffset',
+      code: function(x) {
+        // Test positive timezone offsets (e.g., +05:30, +08:00)
+        var model = this.DateTimeTestModel.create();
 
-        x.test( model.utcDateTime != null, "Should parse datetime string" );
-        var hours1 = model.utcDateTime.getUTCHours();
-        x.test( hours1 === 14,
-                `Hour should be preserved from datetime string (14) (expected 14, got ${hours1})` );
-        var minutes1 = model.utcDateTime.getUTCMinutes();
-        x.test( minutes1 === 30,
-                `Minutes should be preserved from datetime string (30) (expected 30, got ${minutes1})` );
-        var seconds1 = model.utcDateTime.getUTCSeconds();
-        x.test( seconds1 === 45,
-                `Seconds should be preserved from datetime string (45) (expected 45, got ${seconds1})` );
+        var testCases = [
+          // 2024-03-15T15:30:45+05:30 -> 2024-03-15 10:00:45 UTC
+          { input: "2024-03-15T15:30:45+05:30", year: 2024, month: 2, day: 15, hour: 10, minute: 0, second: 45 },
+          // 2024-03-15T08:00:00+08:00 -> 2024-03-15 00:00:00 UTC
+          { input: "2024-03-15T08:00:00+08:00", year: 2024, month: 2, day: 15, hour: 0, minute: 0, second: 0 },
+          // 2024-03-15T14:30:00+01:00 -> 2024-03-15 13:30:00 UTC
+          { input: "2024-03-15T14:30:00+01:00", year: 2024, month: 2, day: 15, hour: 13, minute: 30, second: 0 },
+          // 2024-03-15T23:00:00+02:00 -> 2024-03-15 21:00:00 UTC
+          { input: "2024-03-15T23:00:00+02:00", year: 2024, month: 2, day: 15, hour: 21, minute: 0, second: 0 }
+        ];
 
-        // Test 2: Set with a Date object
-        var dateObj = new Date(Date.UTC(2024, 2, 15, 16, 45, 30, 0));
-        var originalTimestamp = dateObj.getTime();
-        model.utcDateTime = dateObj;
+        testCases.forEach(function(tc) {
+          model.utcDateTime = tc.input;
+          var year = model.utcDateTime.getUTCFullYear();
+          var month = model.utcDateTime.getUTCMonth();
+          var day = model.utcDateTime.getUTCDate();
+          var hour = model.utcDateTime.getUTCHours();
+          var minute = model.utcDateTime.getUTCMinutes();
+          var second = model.utcDateTime.getUTCSeconds();
 
-        var time2 = model.utcDateTime.getTime();
-        x.test( time2 === originalTimestamp,
-                `Timestamp should be preserved when setting Date object (expected ${originalTimestamp}, got ${time2})` );
-        var hours2 = model.utcDateTime.getUTCHours();
-        x.test( hours2 === 16,
-                `Hour should be preserved from Date object (16) (expected 16, got ${hours2})` );
-        var minutes2 = model.utcDateTime.getUTCMinutes();
-        x.test( minutes2 === 45,
-                `Minutes should be preserved from Date object (45) (expected 45, got ${minutes2})` );
+          x.test( year === tc.year, tc.input + ": Year should be " + tc.year + " (got " + year + ")" );
+          x.test( month === tc.month, tc.input + ": Month should be " + tc.month + " (got " + month + ")" );
+          x.test( day === tc.day, tc.input + ": Day should be " + tc.day + " (got " + day + ")" );
+          x.test( hour === tc.hour, tc.input + ": Hour should be " + tc.hour + " (got " + hour + ")" );
+          x.test( minute === tc.minute, tc.input + ": Minute should be " + tc.minute + " (got " + minute + ")" );
+          x.test( second === tc.second, tc.input + ": Second should be " + tc.second + " (got " + second + ")" );
+        });
+      }
+    },
 
-        // Test 3: Set with a timestamp number
-        var timestamp = 1710519930000; // 2024-03-15 16:25:30 UTC
-        model.utcDateTime = timestamp;
+    {
+      name: 'testTimezoneNegativeOffset',
+      code: function(x) {
+        // Test negative timezone offsets (e.g., -08:00, -05:00)
+        var model = this.DateTimeTestModel.create();
 
-        var time3 = model.utcDateTime.getTime();
-        x.test( time3 === timestamp,
-                `Timestamp number should be preserved exactly (expected ${timestamp}, got ${time3})` );
-        var hours3 = model.utcDateTime.getUTCHours();
-        x.test( hours3 === 16,
-                `Hour from timestamp should be 16 (expected 16, got ${hours3})` );
-        var minutes3 = model.utcDateTime.getUTCMinutes();
-        x.test( minutes3 === 25,
-                `Minutes from timestamp should be 25 (expected 25, got ${minutes3})` );
-        var seconds3 = model.utcDateTime.getUTCSeconds();
-        x.test( seconds3 === 30,
-                `Seconds from timestamp should be 30 (expected 30, got ${seconds3})` );
+        var testCases = [
+          // 2024-03-15T15:30:45-08:00 -> 2024-03-15 23:30:45 UTC
+          { input: "2024-03-15T15:30:45-08:00", year: 2024, month: 2, day: 15, hour: 23, minute: 30, second: 45 },
+          // 2024-03-15T10:00:00-05:00 -> 2024-03-15 15:00:00 UTC
+          { input: "2024-03-15T10:00:00-05:00", year: 2024, month: 2, day: 15, hour: 15, minute: 0, second: 0 },
+          // 2024-03-15T14:30:00-03:00 -> 2024-03-15 17:30:00 UTC
+          { input: "2024-03-15T14:30:00-03:00", year: 2024, month: 2, day: 15, hour: 17, minute: 30, second: 0 },
+          // 2024-03-15T08:00:00-07:00 -> 2024-03-15 15:00:00 UTC
+          { input: "2024-03-15T08:00:00-07:00", year: 2024, month: 2, day: 15, hour: 15, minute: 0, second: 0 }
+        ];
 
-        // Test 4: Verify date-only string sets time to zero
-        model.utcDateTime = "2024-03-15";
-        var hours4 = model.utcDateTime.getUTCHours();
-        x.test( hours4 === 0,
-                `Date-only string should set hour to 0 (midnight) (expected 0, got ${hours4})` );
-        var minutes4 = model.utcDateTime.getUTCMinutes();
-        x.test( minutes4 === 0,
-                `Date-only string should set minutes to 0 (expected 0, got ${minutes4})` );
-        var seconds4 = model.utcDateTime.getUTCSeconds();
-        x.test( seconds4 === 0,
-                `Date-only string should set seconds to 0 (expected 0, got ${seconds4})` );
+        testCases.forEach(function(tc) {
+          model.utcDateTime = tc.input;
+          var year = model.utcDateTime.getUTCFullYear();
+          var month = model.utcDateTime.getUTCMonth();
+          var day = model.utcDateTime.getUTCDate();
+          var hour = model.utcDateTime.getUTCHours();
+          var minute = model.utcDateTime.getUTCMinutes();
+          var second = model.utcDateTime.getUTCSeconds();
+
+          x.test( year === tc.year, tc.input + ": Year should be " + tc.year + " (got " + year + ")" );
+          x.test( month === tc.month, tc.input + ": Month should be " + tc.month + " (got " + month + ")" );
+          x.test( day === tc.day, tc.input + ": Day should be " + tc.day + " (got " + day + ")" );
+          x.test( hour === tc.hour, tc.input + ": Hour should be " + tc.hour + " (got " + hour + ")" );
+          x.test( minute === tc.minute, tc.input + ": Minute should be " + tc.minute + " (got " + minute + ")" );
+          x.test( second === tc.second, tc.input + ": Second should be " + tc.second + " (got " + second + ")" );
+        });
+      }
+    },
+
+    {
+      name: 'testTimezoneVariousOffsets',
+      code: function(x) {
+        // Test multiple timezone offsets including edge cases
+        var model = this.DateTimeTestModel.create();
+
+        var testCases = [
+          // +00:00 (same as Z)
+          { input: "2024-03-15T15:30:45+00:00", year: 2024, month: 2, day: 15, hour: 15, minute: 30, second: 45 },
+          // +01:00 (CET)
+          { input: "2024-03-15T15:30:45+01:00", year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+          // +12:00 (New Zealand)
+          { input: "2024-03-15T15:30:45+12:00", year: 2024, month: 2, day: 15, hour: 3, minute: 30, second: 45 },
+          // -05:00 (EST)
+          { input: "2024-03-15T15:30:45-05:00", year: 2024, month: 2, day: 15, hour: 20, minute: 30, second: 45 },
+          // -11:00 (Pacific/Samoa)
+          { input: "2024-03-15T15:30:45-11:00", year: 2024, month: 2, day: 16, hour: 2, minute: 30, second: 45 },
+          // +09:30 (Australia/Adelaide)
+          { input: "2024-03-15T15:30:45+09:30", year: 2024, month: 2, day: 15, hour: 6, minute: 0, second: 45 },
+          // -03:30 (Newfoundland)
+          { input: "2024-03-15T15:30:45-03:30", year: 2024, month: 2, day: 15, hour: 19, minute: 0, second: 45 }
+        ];
+
+        testCases.forEach(function(tc) {
+          model.utcDateTime = tc.input;
+          var year = model.utcDateTime.getUTCFullYear();
+          var month = model.utcDateTime.getUTCMonth();
+          var day = model.utcDateTime.getUTCDate();
+          var hour = model.utcDateTime.getUTCHours();
+          var minute = model.utcDateTime.getUTCMinutes();
+          var second = model.utcDateTime.getUTCSeconds();
+
+          x.test( year === tc.year, tc.input + ": Year should be " + tc.year + " (got " + year + ")" );
+          x.test( month === tc.month, tc.input + ": Month should be " + tc.month + " (got " + month + ")" );
+          x.test( day === tc.day, tc.input + ": Day should be " + tc.day + " (got " + day + ")" );
+          x.test( hour === tc.hour, tc.input + ": Hour should be " + tc.hour + " (got " + hour + ")" );
+          x.test( minute === tc.minute, tc.input + ": Minute should be " + tc.minute + " (got " + minute + ")" );
+          x.test( second === tc.second, tc.input + ": Second should be " + tc.second + " (got " + second + ")" );
+        });
+      }
+    },
+
+    {
+      name: 'testTimezoneDateBoundaries',
+      code: function(x) {
+        // Test timezone offsets that cross date boundaries
+        var model = this.DateTimeTestModel.create();
+
+        var testCases = [
+          // Early morning with negative offset - stays same day
+          { input: "2024-03-15T01:30:45-08:00", year: 2024, month: 2, day: 15, hour: 9, minute: 30, second: 45 },
+          // Late night with positive offset - goes to previous day
+          { input: "2024-03-15T23:30:45+05:30", year: 2024, month: 2, day: 15, hour: 18, minute: 0, second: 45 },
+          // Midnight with positive offset - goes to previous day
+          { input: "2024-03-15T00:30:00+08:00", year: 2024, month: 2, day: 14, hour: 16, minute: 30, second: 0 },
+          // Late evening with negative offset - goes to next day
+          { input: "2024-03-15T22:00:00-03:00", year: 2024, month: 2, day: 16, hour: 1, minute: 0, second: 0 },
+          // End of month boundary
+          { input: "2024-03-31T23:30:00+05:00", year: 2024, month: 2, day: 31, hour: 18, minute: 30, second: 0 },
+          // Month boundary crossing (March to April)
+          { input: "2024-03-31T23:30:00-02:00", year: 2024, month: 3, day: 1, hour: 1, minute: 30, second: 0 },
+          // Year boundary crossing (Dec 31 to Jan 1)
+          { input: "2024-12-31T23:30:00-02:00", year: 2025, month: 0, day: 1, hour: 1, minute: 30, second: 0 },
+          // Year boundary crossing (Jan 1 to Dec 31)
+          { input: "2024-01-01T00:30:00+02:00", year: 2023, month: 11, day: 31, hour: 22, minute: 30, second: 0 }
+        ];
+
+        testCases.forEach(function(tc) {
+          model.utcDateTime = tc.input;
+          var year = model.utcDateTime.getUTCFullYear();
+          var month = model.utcDateTime.getUTCMonth();
+          var day = model.utcDateTime.getUTCDate();
+          var hour = model.utcDateTime.getUTCHours();
+          var minute = model.utcDateTime.getUTCMinutes();
+          var second = model.utcDateTime.getUTCSeconds();
+
+          x.test( year === tc.year, tc.input + ": Year should be " + tc.year + " (got " + year + ")" );
+          x.test( month === tc.month, tc.input + ": Month should be " + tc.month + " (got " + month + ")" );
+          x.test( day === tc.day, tc.input + ": Day should be " + tc.day + " (got " + day + ")" );
+          x.test( hour === tc.hour, tc.input + ": Hour should be " + tc.hour + " (got " + hour + ")" );
+          x.test( minute === tc.minute, tc.input + ": Minute should be " + tc.minute + " (got " + minute + ")" );
+          x.test( second === tc.second, tc.input + ": Second should be " + tc.second + " (got " + second + ")" );
+        });
       }
     }
   ]

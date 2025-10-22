@@ -59,28 +59,23 @@ foam.CLASS({
         DateUtilTest_dateToLocalDate_2Params();
         DateUtilTest_dateToLocalDateTime_1Param();
         DateUtilTest_dateToLocalDateTime_2Params();
-        DateUtilTest_parseDateTime_ISO8601();
-        DateUtilTest_parseDateTime_US_Format();
-        DateUtilTest_parseDateTime_Compact();
+        DateUtilTest_parseDateTimeUTC_ISO8601();
+        DateUtilTest_parseDateTimeUTC_ISO8601WithSpace();
+        DateUtilTest_parseDateTimeUTC_WithMilliseconds();
+        DateUtilTest_parseDateTimeUTC_USFormat();
+        DateUtilTest_parseDateTimeUTC_Compact();
+        DateUtilTest_parseDateTime_LocalTime_ISO8601();
+        DateUtilTest_parseDateTime_LocalTime_USFormat();
+        DateUtilTest_parseDateTime_LocalTime_Compact();
         DateUtilTest_parseDateTime_InvalidFormats();
-        DateUtilTest_parseDateTime_ForceUTC_True();
-        DateUtilTest_parseDateTime_ForceUTC_False();
-        DateUtilTest_parseDateTime_ForceUTC_BackwardCompatibility();
-        DateUtilTest_adaptDateTime_DateOnlyString();
-        DateUtilTest_adaptDateTime_DateTimeString();
-        DateUtilTest_adaptDateTime_Number();
-        DateUtilTest_adaptDateTime_Date();
-        DateUtilTest_adaptDateTime_Null();
         DateUtilTest_format_DateOnly();
         DateUtilTest_format_WithTime();
         DateUtilTest_format_UTC();
-        DateUtilTest_UTCTimePreservation();
-        DateUtilTest_TimezoneFormatting();
-        DateUtilTest_adaptDateTime_UTC_Flag_DateTimeString();
-        DateUtilTest_adaptDateTime_UTC_Flag_DateOnlyString();
-        DateUtilTest_adaptDateTime_UTC_Flag_USFormatString();
-        DateUtilTest_adaptDateTime_UTC_Flag_NumbersAndDates();
-        DateUtilTest_adaptDateTime_BackwardCompatibility();
+        DateUtilTest_parseDateTimeUTC_WithTimezoneZ();
+        DateUtilTest_parseDateTimeUTC_WithPositiveOffset();
+        DateUtilTest_parseDateTimeUTC_WithNegativeOffset();
+        DateUtilTest_parseDateTimeUTC_TimezoneFormats();
+        DateUtilTest_parseDateTime_WithTimezone();
       `
     },
     {
@@ -849,107 +844,110 @@ foam.CLASS({
       `
     },
     {
-      name: 'DateUtilTest_parseDateTime_ISO8601',
+      name: 'DateUtilTest_parseDateTimeUTC_ISO8601',
       javaCode: `
-        try {
-          // Test ISO 8601 with T separator
-          Date dt1 = DateUtil.parseDateTime("2024-03-15T15:30:45");
-          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal1.setTime(dt1);
-          int actualYear1 = cal1.get(Calendar.YEAR);
-          test(actualYear1 == 2024, "ISO 8601 T - year is 2024 (expected 2024, got " + actualYear1 + ")");
-          int actualMonth1 = cal1.get(Calendar.MONTH);
-          test(actualMonth1 == 2, "ISO 8601 T - month is March (2) (expected 2, got " + actualMonth1 + ")");
-          int actualDay1 = cal1.get(Calendar.DAY_OF_MONTH);
-          test(actualDay1 == 15, "ISO 8601 T - day is 15 (expected 15, got " + actualDay1 + ")");
-          int actualHour1 = cal1.get(Calendar.HOUR_OF_DAY);
-          test(actualHour1 == 15, "ISO 8601 T - hour is 15 (expected 15, got " + actualHour1 + ")");
-          int actualMinute1 = cal1.get(Calendar.MINUTE);
-          test(actualMinute1 == 30, "ISO 8601 T - minute is 30 (expected 30, got " + actualMinute1 + ")");
-          int actualSecond1 = cal1.get(Calendar.SECOND);
-          test(actualSecond1 == 45, "ISO 8601 T - second is 45 (expected 45, got " + actualSecond1 + ")");
-
-          // Test ISO 8601 with space separator
-          Date dt2 = DateUtil.parseDateTime("2024-03-15 15:30:45");
-          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal2.setTime(dt2);
-          int actualHour2 = cal2.get(Calendar.HOUR_OF_DAY);
-          test(actualHour2 == 15, "ISO 8601 space - hour is 15 (expected 15, got " + actualHour2 + ")");
-          int actualMinute2 = cal2.get(Calendar.MINUTE);
-          test(actualMinute2 == 30, "ISO 8601 space - minute is 30 (expected 30, got " + actualMinute2 + ")");
-
-          // Test with milliseconds
-          Date dt3 = DateUtil.parseDateTime("2024-03-15T15:30:45.123");
-          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal3.setTime(dt3);
-          int actualHour3 = cal3.get(Calendar.HOUR_OF_DAY);
-          test(actualHour3 == 15, "With milliseconds - hour is 15 (expected 15, got " + actualHour3 + ")");
-          int actualMillis3 = cal3.get(Calendar.MILLISECOND);
-          test(actualMillis3 == 123, "With milliseconds - millisecond is 123 (expected 123, got " + actualMillis3 + ")");
-        } catch ( Exception e ) {
-          test(false, "ISO 8601 format should not throw exception: " + e.getMessage());
-        }
+        Date dt = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Day is 15");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 UTC");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
+        test(cal.get(Calendar.SECOND) == 45, "Second is 45");
       `
     },
     {
-      name: 'DateUtilTest_parseDateTime_US_Format',
+      name: 'DateUtilTest_parseDateTimeUTC_ISO8601WithSpace',
       javaCode: `
-        try {
-          // Test MM/DD/YYYY HH:MM:SS
-          Date dt1 = DateUtil.parseDateTime("03/15/2024 15:30:45");
-          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal1.setTime(dt1);
-          int actualYear1 = cal1.get(Calendar.YEAR);
-          test(actualYear1 == 2024, "US format full - year is 2024 (expected 2024, got " + actualYear1 + ")");
-          int actualMonth1 = cal1.get(Calendar.MONTH);
-          test(actualMonth1 == 2, "US format full - month is March (2) (expected 2, got " + actualMonth1 + ")");
-          int actualDay1 = cal1.get(Calendar.DAY_OF_MONTH);
-          test(actualDay1 == 15, "US format full - day is 15 (expected 15, got " + actualDay1 + ")");
-          int actualHour1 = cal1.get(Calendar.HOUR_OF_DAY);
-          test(actualHour1 == 15, "US format full - hour is 15 (expected 15, got " + actualHour1 + ")");
-          int actualMinute1 = cal1.get(Calendar.MINUTE);
-          test(actualMinute1 == 30, "US format full - minute is 30 (expected 30, got " + actualMinute1 + ")");
-          int actualSecond1 = cal1.get(Calendar.SECOND);
-          test(actualSecond1 == 45, "US format full - second is 45 (expected 45, got " + actualSecond1 + ")");
-
-          // Test MM/DD/YYYY HH:MM (no seconds)
-          Date dt2 = DateUtil.parseDateTime("03/15/2024 15:30");
-          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal2.setTime(dt2);
-          int actualHour2 = cal2.get(Calendar.HOUR_OF_DAY);
-          test(actualHour2 == 15, "US format short - hour is 15 (expected 15, got " + actualHour2 + ")");
-          int actualMinute2 = cal2.get(Calendar.MINUTE);
-          test(actualMinute2 == 30, "US format short - minute is 30 (expected 30, got " + actualMinute2 + ")");
-          int actualSecond2 = cal2.get(Calendar.SECOND);
-          test(actualSecond2 == 0, "US format short - second is 0 (expected 0, got " + actualSecond2 + ")");
-        } catch ( Exception e ) {
-          test(false, "US format should not throw exception: " + e.getMessage());
-        }
+        Date dt = DateUtil.parseDateTimeUTC("2024-03-15 15:30:45");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 UTC");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
       `
     },
     {
-      name: 'DateUtilTest_parseDateTime_Compact',
+      name: 'DateUtilTest_parseDateTimeUTC_WithMilliseconds',
       javaCode: `
-        try {
-          // Test YYYYMMDDHHMMSS format
-          Date dt = DateUtil.parseDateTime("20240315153045");
-          Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal.setTime(dt);
-          int actualYear = cal.get(Calendar.YEAR);
-          test(actualYear == 2024, "Compact format - year is 2024 (expected 2024, got " + actualYear + ")");
-          int actualMonth = cal.get(Calendar.MONTH);
-          test(actualMonth == 2, "Compact format - month is March (2) (expected 2, got " + actualMonth + ")");
-          int actualDay = cal.get(Calendar.DAY_OF_MONTH);
-          test(actualDay == 15, "Compact format - day is 15 (expected 15, got " + actualDay + ")");
-          int actualHour = cal.get(Calendar.HOUR_OF_DAY);
-          test(actualHour == 15, "Compact format - hour is 15 (expected 15, got " + actualHour + ")");
-          int actualMinute = cal.get(Calendar.MINUTE);
-          test(actualMinute == 30, "Compact format - minute is 30 (expected 30, got " + actualMinute + ")");
-          int actualSecond = cal.get(Calendar.SECOND);
-          test(actualSecond == 45, "Compact format - second is 45 (expected 45, got " + actualSecond + ")");
-        } catch ( Exception e ) {
-          test(false, "Compact format should not throw exception: " + e.getMessage());
-        }
+        Date dt = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45.123");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 UTC");
+        test(cal.get(Calendar.MILLISECOND) == 123, "Millisecond is 123");
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_USFormat',
+      javaCode: `
+        Date dt = DateUtil.parseDateTimeUTC("03/15/2024 15:30:45");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Day is 15");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 UTC");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
+        test(cal.get(Calendar.SECOND) == 45, "Second is 45");
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_Compact',
+      javaCode: `
+        Date dt = DateUtil.parseDateTimeUTC("20240315153045");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Day is 15");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 UTC");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
+        test(cal.get(Calendar.SECOND) == 45, "Second is 45");
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTime_LocalTime_ISO8601',
+      javaCode: `
+        Date dt = DateUtil.parseDateTime("2024-03-15T15:30:45");
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Day is 15");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 local time");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
+        test(cal.get(Calendar.SECOND) == 45, "Second is 45");
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTime_LocalTime_USFormat',
+      javaCode: `
+        Date dt = DateUtil.parseDateTime("03/15/2024 15:30:45");
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Day is 15");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 local time");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
+        test(cal.get(Calendar.SECOND) == 45, "Second is 45");
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTime_LocalTime_Compact',
+      javaCode: `
+        Date dt = DateUtil.parseDateTime("20240315153045");
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(dt);
+        test(cal.get(Calendar.YEAR) == 2024, "Year is 2024");
+        test(cal.get(Calendar.MONTH) == 2, "Month is March (2)");
+        test(cal.get(Calendar.DAY_OF_MONTH) == 15, "Day is 15");
+        test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Hour is 15 local time");
+        test(cal.get(Calendar.MINUTE) == 30, "Minute is 30");
+        test(cal.get(Calendar.SECOND) == 45, "Second is 45");
       `
     },
     {
@@ -978,196 +976,6 @@ foam.CLASS({
         } catch ( RuntimeException e ) {
           test(e.getMessage().contains("Unsupported DateTime format"), "Unsupported format throws error");
         }
-      `
-    },
-    {
-      name: 'DateUtilTest_parseDateTime_ForceUTC_True',
-      javaCode: `
-        try {
-          // Test parseDateTime with forceUTC=true parses as UTC
-          Date dt = DateUtil.parseDateTime("2024-03-15T14:30:45", true);
-
-          // Verify it's parsed as UTC
-          Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal.setTime(dt);
-          int year = cal.get(Calendar.YEAR);
-          test(year == 2024, "forceUTC=true - year is 2024 (expected 2024, got " + year + ")");
-          int month = cal.get(Calendar.MONTH);
-          test(month == 2, "forceUTC=true - month is March (2) (expected 2, got " + month + ")");
-          int day = cal.get(Calendar.DAY_OF_MONTH);
-          test(day == 15, "forceUTC=true - day is 15 (expected 15, got " + day + ")");
-          int hour = cal.get(Calendar.HOUR_OF_DAY);
-          test(hour == 14, "forceUTC=true - hour is 14 (expected 14, got " + hour + ")");
-          int minute = cal.get(Calendar.MINUTE);
-          test(minute == 30, "forceUTC=true - minute is 30 (expected 30, got " + minute + ")");
-          int second = cal.get(Calendar.SECOND);
-          test(second == 45, "forceUTC=true - second is 45 (expected 45, got " + second + ")");
-
-          // Test with US format
-          Date dt2 = DateUtil.parseDateTime("03/15/2024 14:30:45", true);
-          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-          cal2.setTime(dt2);
-          int hour2 = cal2.get(Calendar.HOUR_OF_DAY);
-          test(hour2 == 14, "forceUTC=true with US format - hour is 14 (expected 14, got " + hour2 + ")");
-        } catch ( Exception e ) {
-          test(false, "forceUTC=true tests should not throw exception: " + e.getMessage());
-        }
-      `
-    },
-    {
-      name: 'DateUtilTest_parseDateTime_ForceUTC_False',
-      javaCode: `
-        try {
-          // Test parseDateTime with forceUTC=false parses as local time
-          Date dt = DateUtil.parseDateTime("2024-03-15T14:30:45", false);
-
-          // Verify it's parsed as local time
-          Calendar cal = Calendar.getInstance();
-          cal.setTime(dt);
-          int year = cal.get(Calendar.YEAR);
-          test(year == 2024, "forceUTC=false - year is 2024 (expected 2024, got " + year + ")");
-          int month = cal.get(Calendar.MONTH);
-          test(month == 2, "forceUTC=false - month is March (2) (expected 2, got " + month + ")");
-          int day = cal.get(Calendar.DAY_OF_MONTH);
-          test(day == 15, "forceUTC=false - day is 15 (expected 15, got " + day + ")");
-          int hour = cal.get(Calendar.HOUR_OF_DAY);
-          test(hour == 14, "forceUTC=false - hour is 14 local time (expected 14, got " + hour + ")");
-          int minute = cal.get(Calendar.MINUTE);
-          test(minute == 30, "forceUTC=false - minute is 30 (expected 30, got " + minute + ")");
-          int second = cal.get(Calendar.SECOND);
-          test(second == 45, "forceUTC=false - second is 45 (expected 45, got " + second + ")");
-
-          // Compare with forceUTC=true - they should differ if not in UTC timezone
-          Date dtUTC = DateUtil.parseDateTime("2024-03-15T14:30:45", true);
-          TimeZone localTz = TimeZone.getDefault();
-          int offsetMs = localTz.getOffset(dt.getTime());
-
-          // If we're not in UTC timezone, the timestamps should differ
-          if ( offsetMs != 0 ) {
-            test(dt.getTime() != dtUTC.getTime(), "Local and UTC parsing should differ when not in UTC timezone (local: " + dt.getTime() + ", UTC: " + dtUTC.getTime() + ")");
-          } else {
-            test(dt.getTime() == dtUTC.getTime(), "Local and UTC parsing should be same in UTC timezone");
-          }
-        } catch ( Exception e ) {
-          test(false, "forceUTC=false tests should not throw exception: " + e.getMessage());
-        }
-      `
-    },
-    {
-      name: 'DateUtilTest_parseDateTime_ForceUTC_BackwardCompatibility',
-      javaCode: `
-        try {
-          // Test that calling parseDateTime without second parameter defaults to forceUTC=false (local time)
-          Date dt1 = DateUtil.parseDateTime("2024-03-15T14:30:45");
-          Date dt2 = DateUtil.parseDateTime("2024-03-15T14:30:45", false);
-
-          // Both should parse as local time and produce same timestamp
-          long time1 = dt1.getTime();
-          long time2 = dt2.getTime();
-          test(time1 == time2, "No parameter should default to forceUTC=false (expected " + time1 + ", got " + time2 + ")");
-
-          // Verify local time components are correct
-          Calendar cal = Calendar.getInstance();
-          cal.setTime(dt1);
-          int hour = cal.get(Calendar.HOUR_OF_DAY);
-          test(hour == 14, "Backward compatibility - hour is 14 local time (expected 14, got " + hour + ")");
-        } catch ( Exception e ) {
-          test(false, "Backward compatibility tests should not throw exception: " + e.getMessage());
-        }
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_DateOnlyString',
-      javaCode: `
-        // Test date-only strings default to noon GMT (backward compatibility with Date.adapt)
-        Date dt = DateUtil.adaptDateTime("2024-03-15");
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        cal.setTime(dt);
-
-        int actualYear = cal.get(Calendar.YEAR);
-        test(actualYear == 2024, "adaptDateTime(date string) - year is 2024 (expected 2024, got " + actualYear + ")");
-        int actualMonth = cal.get(Calendar.MONTH);
-        test(actualMonth == 2, "adaptDateTime(date string) - month is March (2) (expected 2, got " + actualMonth + ")");
-        int actualDay = cal.get(Calendar.DAY_OF_MONTH);
-        test(actualDay == 15, "adaptDateTime(date string) - day is 15 (expected 15, got " + actualDay + ")");
-        int actualHour = cal.get(Calendar.HOUR_OF_DAY);
-        test(actualHour == 12, "adaptDateTime(date string) - hour is 12 (noon GMT default) (expected 12, got " + actualHour + ")");
-        int actualMinute = cal.get(Calendar.MINUTE);
-        test(actualMinute == 0, "adaptDateTime(date string) - minute is 0 (expected 0, got " + actualMinute + ")");
-        int actualSecond = cal.get(Calendar.SECOND);
-        test(actualSecond == 0, "adaptDateTime(date string) - second is 0 (expected 0, got " + actualSecond + ")");
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_DateTimeString',
-      javaCode: `
-        // Test datetime strings preserve time
-        Date dt = DateUtil.adaptDateTime("2024-03-15T15:30:45");
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        cal.setTime(dt);
-
-        int actualYear = cal.get(Calendar.YEAR);
-        test(actualYear == 2024, "adaptDateTime(datetime string) - year is 2024 (expected 2024, got " + actualYear + ")");
-        int actualMonth = cal.get(Calendar.MONTH);
-        test(actualMonth == 2, "adaptDateTime(datetime string) - month is March (2) (expected 2, got " + actualMonth + ")");
-        int actualDay = cal.get(Calendar.DAY_OF_MONTH);
-        test(actualDay == 15, "adaptDateTime(datetime string) - day is 15 (expected 15, got " + actualDay + ")");
-        int actualHour = cal.get(Calendar.HOUR_OF_DAY);
-        test(actualHour == 15, "adaptDateTime(datetime string) - hour is 15 (expected 15, got " + actualHour + ")");
-        int actualMinute = cal.get(Calendar.MINUTE);
-        test(actualMinute == 30, "adaptDateTime(datetime string) - minute is 30 (expected 30, got " + actualMinute + ")");
-        int actualSecond = cal.get(Calendar.SECOND);
-        test(actualSecond == 45, "adaptDateTime(datetime string) - second is 45 (expected 45, got " + actualSecond + ")");
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_Number',
-      javaCode: `
-        // Test timestamp adaptation
-        long timestamp = 1710511845000L; // 2024-03-15 14:10:45 GMT
-        Date dt = DateUtil.adaptDateTime(timestamp);
-        long actualTimestamp = dt.getTime();
-        test(actualTimestamp == timestamp, "adaptDateTime(number) - timestamp preserved (expected " + timestamp + ", got " + actualTimestamp + ")");
-
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        cal.setTime(dt);
-        int actualHour = cal.get(Calendar.HOUR_OF_DAY);
-        test(actualHour == 14, "adaptDateTime(number) - hour preserved (expected 14, got " + actualHour + ")");
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_Date',
-      javaCode: `
-        // Test Date object adaptation - should preserve time
-        Calendar inputCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        inputCal.set(2024, 2, 15, 15, 30, 45);
-        inputCal.set(Calendar.MILLISECOND, 0);
-        Date inputDate = inputCal.getTime();
-
-        Date dt = DateUtil.adaptDateTime(inputDate);
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        cal.setTime(dt);
-
-        int actualYear = cal.get(Calendar.YEAR);
-        test(actualYear == 2024, "adaptDateTime(Date) - year is 2024 (expected 2024, got " + actualYear + ")");
-        int actualMonth = cal.get(Calendar.MONTH);
-        test(actualMonth == 2, "adaptDateTime(Date) - month is March (2) (expected 2, got " + actualMonth + ")");
-        int actualDay = cal.get(Calendar.DAY_OF_MONTH);
-        test(actualDay == 15, "adaptDateTime(Date) - day is 15 (expected 15, got " + actualDay + ")");
-        int actualHour = cal.get(Calendar.HOUR_OF_DAY);
-        test(actualHour == 15, "adaptDateTime(Date) - hour preserved as 15 (expected 15, got " + actualHour + ")");
-        int actualMinute = cal.get(Calendar.MINUTE);
-        test(actualMinute == 30, "adaptDateTime(Date) - minute preserved as 30 (expected 30, got " + actualMinute + ")");
-        int actualSecond = cal.get(Calendar.SECOND);
-        test(actualSecond == 45, "adaptDateTime(Date) - second preserved as 45 (expected 45, got " + actualSecond + ")");
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_Null',
-      javaCode: `
-        // Test null handling
-        Date dt = DateUtil.adaptDateTime(null);
-        test(dt == null, "adaptDateTime(null) returns null");
       `
     },
     {
@@ -1215,315 +1023,175 @@ foam.CLASS({
       `
     },
     {
-      name: 'DateUtilTest_UTCTimePreservation',
+      name: 'DateUtilTest_parseDateTimeUTC_WithTimezoneZ',
       javaCode: `
-        // Test that UTC times are preserved without conversion
+        try {
+          Date dt = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45Z");
+          Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal.setTime(dt);
 
-        // Create a specific UTC time: 2024-03-15 14:30:00 GMT
-        Calendar utcCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        utcCal.set(2024, 2, 15, 14, 30, 0);
-        utcCal.set(Calendar.MILLISECOND, 0);
-        Date utcTime = utcCal.getTime();
-        long originalTimestamp = utcTime.getTime();
+          int year = cal.get(Calendar.YEAR);
+          test(year == 2024, "Year is 2024 (got " + year + ")");
 
-        // Adapt using adaptDateTime (used by DateTimeUTC)
-        Date adapted = DateUtil.adaptDateTime(utcTime);
+          int month = cal.get(Calendar.MONTH);
+          test(month == 2, "Month is March (2) (got " + month + ")");
 
-        // Verify timestamp is preserved exactly
-        long adaptedTimestamp = adapted.getTime();
-        test(adaptedTimestamp == originalTimestamp,
-             "adaptDateTime should preserve UTC timestamp exactly (expected " + originalTimestamp + ", got " + adaptedTimestamp + ")");
+          int day = cal.get(Calendar.DAY_OF_MONTH);
+          test(day == 15, "Day is 15 (got " + day + ")");
 
-        // Verify all time components are preserved
-        Calendar adaptedCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        adaptedCal.setTime(adapted);
-        int year = adaptedCal.get(Calendar.YEAR);
-        int month = adaptedCal.get(Calendar.MONTH);
-        int day = adaptedCal.get(Calendar.DAY_OF_MONTH);
-        int hour = adaptedCal.get(Calendar.HOUR_OF_DAY);
-        int minute = adaptedCal.get(Calendar.MINUTE);
-        int second = adaptedCal.get(Calendar.SECOND);
-        test(year == 2024, "Year preserved (expected 2024, got " + year + ")");
-        test(month == 2, "Month preserved (expected 2, got " + month + ")");
-        test(day == 15, "Date preserved (expected 15, got " + day + ")");
-        test(hour == 14, "Hour preserved (expected 14, got " + hour + ")");
-        test(minute == 30, "Minutes preserved (expected 30, got " + minute + ")");
-        test(second == 0, "Seconds preserved (expected 0, got " + second + ")");
+          int hour = cal.get(Calendar.HOUR_OF_DAY);
+          test(hour == 15, "Hour is 15 UTC (got " + hour + ")");
 
-        // Test with a timestamp number
-        long timestamp = 1710511800000L; // 2024-03-15 14:10:00 UTC
-        Date fromTimestamp = DateUtil.adaptDateTime(timestamp);
-        long actualTimestamp = fromTimestamp.getTime();
-        test(actualTimestamp == timestamp, "Timestamp number should be preserved (expected " + timestamp + ", got " + actualTimestamp + ")");
+          int minute = cal.get(Calendar.MINUTE);
+          test(minute == 30, "Minute is 30 (got " + minute + ")");
 
-        Calendar fromTimestampCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        fromTimestampCal.setTime(fromTimestamp);
-        int actualHour = fromTimestampCal.get(Calendar.HOUR_OF_DAY);
-        test(actualHour == 14, "Hour from timestamp preserved (expected 14, got " + actualHour + ")");
+          int second = cal.get(Calendar.SECOND);
+          test(second == 45, "Second is 45 (got " + second + ")");
+        } catch ( Exception e ) {
+          test(false, "Should parse Z timezone: " + e.getMessage());
+        }
       `
     },
     {
-      name: 'DateUtilTest_TimezoneFormatting',
+      name: 'DateUtilTest_parseDateTimeUTC_WithPositiveOffset',
       javaCode: `
-        // Test that format method correctly handles different timezones
+        try {
+          // Test: "2024-03-15T15:30:45+05:30"
+          // Expected UTC: 10:00:45 (15:30:45 - 5:30)
+          Date dt = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45+05:30");
+          Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal.setTime(dt);
 
-        // Create a UTC time: 2024-03-15 20:00:00 GMT
-        Calendar utcCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        utcCal.set(2024, 2, 15, 20, 0, 0);
-        utcCal.set(Calendar.MILLISECOND, 0);
-        Date utcTime = utcCal.getTime();
+          int year = cal.get(Calendar.YEAR);
+          test(year == 2024, "Year is 2024 (got " + year + ")");
 
-        // Format in UTC (should show 20:00:00)
-        String utcFormatted = DateUtil.format(utcTime, true, "UTC");
-        test(utcFormatted.contains("20:00:00"), "UTC format should show 20:00:00, got: " + utcFormatted);
+          int month = cal.get(Calendar.MONTH);
+          test(month == 2, "Month is March (2) (got " + month + ")");
 
-        // Format in different timezone (America/New_York is UTC-4 in March due to DST, so 20:00 UTC = 16:00 EDT)
-        String nyFormatted = DateUtil.format(utcTime, true, "America/New_York");
-        test(nyFormatted != null && nyFormatted.length() > 0,
-             "Should format in America/New_York timezone");
-        test(nyFormatted.contains("16:00:00"),
-             "America/New_York should show 16:00:00 (UTC-4 due to DST), got: " + nyFormatted);
+          int day = cal.get(Calendar.DAY_OF_MONTH);
+          test(day == 15, "Day is 15 (got " + day + ")");
 
-        // Format in another timezone (Asia/Tokyo is UTC+9, so 20:00 UTC = 05:00 JST next day)
-        String tokyoFormatted = DateUtil.format(utcTime, true, "Asia/Tokyo");
-        test(tokyoFormatted != null && tokyoFormatted.length() > 0,
-             "Should format in Asia/Tokyo timezone");
-        test(tokyoFormatted.contains("05:00:00"),
-             "Asia/Tokyo should show 05:00:00 (UTC+9), got: " + tokyoFormatted);
+          int hour = cal.get(Calendar.HOUR_OF_DAY);
+          test(hour == 10, "Hour is 10 UTC (15:30 - 5:30) (got " + hour + ")");
 
-        // Verify that the same timestamp formats differently in different timezones
-        test(!utcFormatted.equals(nyFormatted),
-             "UTC and New York formats should differ");
-        test(!utcFormatted.equals(tokyoFormatted),
-             "UTC and Tokyo formats should differ");
+          int minute = cal.get(Calendar.MINUTE);
+          test(minute == 0, "Minute is 0 (got " + minute + ")");
 
-        // Test date-only format is consistent across timezones
-        String utcDateOnly = DateUtil.format(utcTime, null, "UTC");
-        test(utcDateOnly.contains("2024"), "Date-only format should contain year");
+          int second = cal.get(Calendar.SECOND);
+          test(second == 45, "Second is 45 (got " + second + ")");
+        } catch ( Exception e ) {
+          test(false, "Should parse positive offset: " + e.getMessage());
+        }
       `
     },
     {
-      name: 'DateUtilTest_adaptDateTime_UTC_Flag_DateTimeString',
+      name: 'DateUtilTest_parseDateTimeUTC_WithNegativeOffset',
       javaCode: `
-        // Test parsing ISO 8601 datetime strings with forceUTC=true and false
+        try {
+          // Test: "2024-03-15T15:30:45-08:00"
+          // Expected UTC: 23:30:45 (15:30:45 + 8:00)
+          Date dt = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45-08:00");
+          Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal.setTime(dt);
 
-        // Test with forceUTC=true
-        Date dtUTC = DateUtil.adaptDateTime("2024-03-15T14:30:45", true);
-        Calendar calUTC = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calUTC.setTime(dtUTC);
-        int hourUTC = calUTC.get(Calendar.HOUR_OF_DAY);
-        test(hourUTC == 14, "UTC flag=true with ISO datetime, hour should be 14 (expected 14, got " + hourUTC + ")");
-        int minuteUTC = calUTC.get(Calendar.MINUTE);
-        test(minuteUTC == 30, "UTC flag=true with ISO datetime, minute should be 30 (expected 30, got " + minuteUTC + ")");
-        int secondUTC = calUTC.get(Calendar.SECOND);
-        test(secondUTC == 45, "UTC flag=true with ISO datetime, second should be 45 (expected 45, got " + secondUTC + ")");
+          int year = cal.get(Calendar.YEAR);
+          test(year == 2024, "Year is 2024 (got " + year + ")");
 
-        // Test with forceUTC=false
-        Date dtDefault = DateUtil.adaptDateTime("2024-03-15T14:30:45", false);
-        Calendar calDefault = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calDefault.setTime(dtDefault);
-        int hourDefault = calDefault.get(Calendar.HOUR_OF_DAY);
-        test(hourDefault == 14, "UTC flag=false with ISO datetime, hour should be 14 (expected 14, got " + hourDefault + ")");
-        int minuteDefault = calDefault.get(Calendar.MINUTE);
-        test(minuteDefault == 30, "UTC flag=false with ISO datetime, minute should be 30 (expected 30, got " + minuteDefault + ")");
-        int secondDefault = calDefault.get(Calendar.SECOND);
-        test(secondDefault == 45, "UTC flag=false with ISO datetime, second should be 45 (expected 45, got " + secondDefault + ")");
+          int month = cal.get(Calendar.MONTH);
+          test(month == 2, "Month is March (2) (got " + month + ")");
 
-        // Verify timestamps are equal (ISO format should always parse as GMT regardless of flag)
-        long timeUTC = dtUTC.getTime();
-        long timeDefault = dtDefault.getTime();
-        test(timeUTC == timeDefault, "ISO format should parse same regardless of flag (expected " + timeUTC + ", got " + timeDefault + ")");
+          int day = cal.get(Calendar.DAY_OF_MONTH);
+          test(day == 15, "Day is 15 (got " + day + ")");
 
-        // Test with space separator
-        Date dtSpace = DateUtil.adaptDateTime("2024-03-15 14:30:45", true);
-        Calendar calSpace = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calSpace.setTime(dtSpace);
-        int hourSpace = calSpace.get(Calendar.HOUR_OF_DAY);
-        test(hourSpace == 14, "UTC flag=true with space separator, hour should be 14 (expected 14, got " + hourSpace + ")");
+          int hour = cal.get(Calendar.HOUR_OF_DAY);
+          test(hour == 23, "Hour is 23 UTC (15:30 + 8:00) (got " + hour + ")");
+
+          int minute = cal.get(Calendar.MINUTE);
+          test(minute == 30, "Minute is 30 (got " + minute + ")");
+
+          int second = cal.get(Calendar.SECOND);
+          test(second == 45, "Second is 45 (got " + second + ")");
+        } catch ( Exception e ) {
+          test(false, "Should parse negative offset: " + e.getMessage());
+        }
       `
     },
     {
-      name: 'DateUtilTest_adaptDateTime_UTC_Flag_DateOnlyString',
+      name: 'DateUtilTest_parseDateTimeUTC_TimezoneFormats',
       javaCode: `
-        // Test parsing date-only strings with forceUTC=true and false
+        try {
+          // Test various timezone offset formats
 
-        // Test with forceUTC=true → should set to midnight UTC
-        Date dtUTC = DateUtil.adaptDateTime("2024-03-15", true);
-        Calendar calUTC = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calUTC.setTime(dtUTC);
-        int yearUTC = calUTC.get(Calendar.YEAR);
-        test(yearUTC == 2024, "UTC flag=true with date-only, year should be 2024 (expected 2024, got " + yearUTC + ")");
-        int monthUTC = calUTC.get(Calendar.MONTH);
-        test(monthUTC == 2, "UTC flag=true with date-only, month should be March/2 (expected 2, got " + monthUTC + ")");
-        int dayUTC = calUTC.get(Calendar.DAY_OF_MONTH);
-        test(dayUTC == 15, "UTC flag=true with date-only, day should be 15 (expected 15, got " + dayUTC + ")");
-        int hourUTC = calUTC.get(Calendar.HOUR_OF_DAY);
-        test(hourUTC == 0, "UTC flag=true with date-only, hour should be 0 (midnight UTC) (expected 0, got " + hourUTC + ")");
-        int minuteUTC = calUTC.get(Calendar.MINUTE);
-        test(minuteUTC == 0, "UTC flag=true with date-only, minute should be 0 (expected 0, got " + minuteUTC + ")");
-        int secondUTC = calUTC.get(Calendar.SECOND);
-        test(secondUTC == 0, "UTC flag=true with date-only, second should be 0 (expected 0, got " + secondUTC + ")");
+          // Format: +HHMM (no colon)
+          Date dt1 = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45+0530");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(dt1);
+          int hour1 = cal1.get(Calendar.HOUR_OF_DAY);
+          test(hour1 == 10, "Format +HHMM: Hour is 10 UTC (got " + hour1 + ")");
 
-        // Test with forceUTC=false → should use noon local time behavior
-        Date dtDefault = DateUtil.adaptDateTime("2024-03-15", false);
-        Calendar calDefault = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calDefault.setTime(dtDefault);
-        int yearDefault = calDefault.get(Calendar.YEAR);
-        test(yearDefault == 2024, "UTC flag=false with date-only, year should be 2024 (expected 2024, got " + yearDefault + ")");
-        int monthDefault = calDefault.get(Calendar.MONTH);
-        test(monthDefault == 2, "UTC flag=false with date-only, month should be March/2 (expected 2, got " + monthDefault + ")");
-        int dayDefault = calDefault.get(Calendar.DAY_OF_MONTH);
-        test(dayDefault == 15, "UTC flag=false with date-only, day should be 15 (expected 15, got " + dayDefault + ")");
-        int hourDefault = calDefault.get(Calendar.HOUR_OF_DAY);
-        test(hourDefault == 12, "UTC flag=false with date-only, hour should be 12 (noon GMT default) (expected 12, got " + hourDefault + ")");
+          // Format: +HH:MM (with colon) - already tested above, but verify again
+          Date dt2 = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45+05:30");
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+          int hour2 = cal2.get(Calendar.HOUR_OF_DAY);
+          test(hour2 == 10, "Format +HH:MM: Hour is 10 UTC (got " + hour2 + ")");
 
-        // Verify timestamps differ (midnight UTC vs noon GMT)
-        long timeUTC = dtUTC.getTime();
-        long timeDefault = dtDefault.getTime();
-        long diff = timeDefault - timeUTC;
-        long expectedDiff = 12 * 60 * 60 * 1000L; // 12 hours in milliseconds
-        test(diff == expectedDiff, "Timestamps should differ by 12 hours (expected " + expectedDiff + ", got " + diff + ")");
+          // Format: -HHMM (no colon)
+          Date dt3 = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45-0800");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(dt3);
+          int hour3 = cal3.get(Calendar.HOUR_OF_DAY);
+          test(hour3 == 23, "Format -HHMM: Hour is 23 UTC (got " + hour3 + ")");
+
+          // Format: -HH:MM (with colon)
+          Date dt4 = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45-08:00");
+          Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal4.setTime(dt4);
+          int hour4 = cal4.get(Calendar.HOUR_OF_DAY);
+          test(hour4 == 23, "Format -HH:MM: Hour is 23 UTC (got " + hour4 + ")");
+
+          // Format: Z (UTC)
+          Date dt5 = DateUtil.parseDateTimeUTC("2024-03-15T15:30:45Z");
+          Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal5.setTime(dt5);
+          int hour5 = cal5.get(Calendar.HOUR_OF_DAY);
+          test(hour5 == 15, "Format Z: Hour is 15 UTC (got " + hour5 + ")");
+
+        } catch ( Exception e ) {
+          test(false, "Should parse all timezone formats: " + e.getMessage());
+        }
       `
     },
     {
-      name: 'DateUtilTest_adaptDateTime_UTC_Flag_USFormatString',
+      name: 'DateUtilTest_parseDateTime_WithTimezone',
       javaCode: `
-        // Test parsing US format strings with forceUTC=true and false
+        try {
+          // Test that parseDateTime also handles timezones by converting to UTC
+          // parseDateTime should interpret the timezone and convert to UTC
 
-        // Test US format with time: MM/DD/YYYY HH:MM:SS
-        Date dtUTC1 = DateUtil.adaptDateTime("03/15/2024 14:30:45", true);
-        Calendar calUTC1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calUTC1.setTime(dtUTC1);
-        int hourUTC1 = calUTC1.get(Calendar.HOUR_OF_DAY);
-        test(hourUTC1 == 14, "UTC flag=true with US datetime, hour should be 14 (expected 14, got " + hourUTC1 + ")");
-        int minuteUTC1 = calUTC1.get(Calendar.MINUTE);
-        test(minuteUTC1 == 30, "UTC flag=true with US datetime, minute should be 30 (expected 30, got " + minuteUTC1 + ")");
+          Date dt1 = DateUtil.parseDateTime("2024-03-15T15:30:45Z");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(dt1);
+          int hour1 = cal1.get(Calendar.HOUR_OF_DAY);
+          test(hour1 == 15, "parseDateTime with Z: Hour is 15 UTC (got " + hour1 + ")");
 
-        Date dtDefault1 = DateUtil.adaptDateTime("03/15/2024 14:30:45", false);
-        Calendar calDefault1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calDefault1.setTime(dtDefault1);
-        int hourDefault1 = calDefault1.get(Calendar.HOUR_OF_DAY);
-        test(hourDefault1 == 14, "UTC flag=false with US datetime, hour should be 14 (expected 14, got " + hourDefault1 + ")");
+          // With positive offset: local time 15:30 +05:30 = 10:00 UTC
+          Date dt2 = DateUtil.parseDateTime("2024-03-15T15:30:45+05:30");
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+          int hour2 = cal2.get(Calendar.HOUR_OF_DAY);
+          test(hour2 == 10, "parseDateTime with +05:30: Hour is 10 UTC (got " + hour2 + ")");
 
-        // Verify timestamps are equal (should both parse as GMT)
-        long timeUTC1 = dtUTC1.getTime();
-        long timeDefault1 = dtDefault1.getTime();
-        test(timeUTC1 == timeDefault1, "US datetime format should parse same regardless of flag (expected " + timeUTC1 + ", got " + timeDefault1 + ")");
+          // With negative offset: local time 15:30 -08:00 = 23:30 UTC
+          Date dt3 = DateUtil.parseDateTime("2024-03-15T15:30:45-08:00");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(dt3);
+          int hour3 = cal3.get(Calendar.HOUR_OF_DAY);
+          test(hour3 == 23, "parseDateTime with -08:00: Hour is 23 UTC (got " + hour3 + ")");
 
-        // Test US format with date only: MM/DD/YYYY
-        Date dtUTC2 = DateUtil.adaptDateTime("03/15/2024", true);
-        Calendar calUTC2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calUTC2.setTime(dtUTC2);
-        int hourUTC2 = calUTC2.get(Calendar.HOUR_OF_DAY);
-        test(hourUTC2 == 0, "UTC flag=true with US date-only, hour should be 0 (midnight UTC) (expected 0, got " + hourUTC2 + ")");
-
-        Date dtDefault2 = DateUtil.adaptDateTime("03/15/2024", false);
-        Calendar calDefault2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calDefault2.setTime(dtDefault2);
-        int hourDefault2 = calDefault2.get(Calendar.HOUR_OF_DAY);
-        test(hourDefault2 == 12, "UTC flag=false with US date-only, hour should be 12 (noon GMT) (expected 12, got " + hourDefault2 + ")");
-
-        // Verify date-only formats differ by 12 hours
-        long timeUTC2 = dtUTC2.getTime();
-        long timeDefault2 = dtDefault2.getTime();
-        long diff2 = timeDefault2 - timeUTC2;
-        long expectedDiff2 = 12 * 60 * 60 * 1000L;
-        test(diff2 == expectedDiff2, "US date-only should differ by 12 hours (expected " + expectedDiff2 + ", got " + diff2 + ")");
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_UTC_Flag_NumbersAndDates',
-      javaCode: `
-        // Test that UTC flag does NOT affect numbers and Date objects (always preserved exactly)
-
-        // Test with timestamp number
-        long timestamp = 1710511845000L; // 2024-03-15 14:10:45 GMT
-
-        Date dtUTCNum = DateUtil.adaptDateTime(timestamp, true);
-        long actualUTCNum = dtUTCNum.getTime();
-        test(actualUTCNum == timestamp, "UTC flag=true with number, timestamp should be preserved exactly (expected " + timestamp + ", got " + actualUTCNum + ")");
-
-        Date dtDefaultNum = DateUtil.adaptDateTime(timestamp, false);
-        long actualDefaultNum = dtDefaultNum.getTime();
-        test(actualDefaultNum == timestamp, "UTC flag=false with number, timestamp should be preserved exactly (expected " + timestamp + ", got " + actualDefaultNum + ")");
-
-        // Verify both are equal
-        test(actualUTCNum == actualDefaultNum, "Timestamp numbers should be identical regardless of flag (expected " + actualUTCNum + ", got " + actualDefaultNum + ")");
-
-        // Test with Date object
-        Calendar inputCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        inputCal.set(2024, 2, 15, 15, 30, 45);
-        inputCal.set(Calendar.MILLISECOND, 0);
-        Date inputDate = inputCal.getTime();
-        long inputTimestamp = inputDate.getTime();
-
-        Date dtUTCDate = DateUtil.adaptDateTime(inputDate, true);
-        long actualUTCDate = dtUTCDate.getTime();
-        test(actualUTCDate == inputTimestamp, "UTC flag=true with Date object, timestamp should be preserved exactly (expected " + inputTimestamp + ", got " + actualUTCDate + ")");
-
-        Date dtDefaultDate = DateUtil.adaptDateTime(inputDate, false);
-        long actualDefaultDate = dtDefaultDate.getTime();
-        test(actualDefaultDate == inputTimestamp, "UTC flag=false with Date object, timestamp should be preserved exactly (expected " + inputTimestamp + ", got " + actualDefaultDate + ")");
-
-        // Verify both are equal
-        test(actualUTCDate == actualDefaultDate, "Date objects should be identical regardless of flag (expected " + actualUTCDate + ", got " + actualDefaultDate + ")");
-
-        // Verify hour component is preserved in Date objects
-        Calendar calUTCDate = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        calUTCDate.setTime(dtUTCDate);
-        int hourUTCDate = calUTCDate.get(Calendar.HOUR_OF_DAY);
-        test(hourUTCDate == 15, "Date object with UTC flag, hour should be preserved as 15 (expected 15, got " + hourUTCDate + ")");
-      `
-    },
-    {
-      name: 'DateUtilTest_adaptDateTime_BackwardCompatibility',
-      javaCode: `
-        // Test that calling adaptDateTime without second parameter works (backward compatibility)
-
-        // Test with date-only string (should use default behavior: noon GMT)
-        Date dt1 = DateUtil.adaptDateTime("2024-03-15");
-        Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        cal1.setTime(dt1);
-        int year1 = cal1.get(Calendar.YEAR);
-        test(year1 == 2024, "adaptDateTime(string) without flag, year should be 2024 (expected 2024, got " + year1 + ")");
-        int hour1 = cal1.get(Calendar.HOUR_OF_DAY);
-        test(hour1 == 12, "adaptDateTime(string) without flag, hour should be 12 (noon GMT default) (expected 12, got " + hour1 + ")");
-
-        // Test with datetime string (should preserve time)
-        Date dt2 = DateUtil.adaptDateTime("2024-03-15T14:30:45");
-        Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        cal2.setTime(dt2);
-        int hour2 = cal2.get(Calendar.HOUR_OF_DAY);
-        test(hour2 == 14, "adaptDateTime(datetime string) without flag, hour should be 14 (expected 14, got " + hour2 + ")");
-        int minute2 = cal2.get(Calendar.MINUTE);
-        test(minute2 == 30, "adaptDateTime(datetime string) without flag, minute should be 30 (expected 30, got " + minute2 + ")");
-
-        // Test with timestamp number (should preserve exactly)
-        long timestamp = 1710511845000L;
-        Date dt3 = DateUtil.adaptDateTime(timestamp);
-        long actual3 = dt3.getTime();
-        test(actual3 == timestamp, "adaptDateTime(number) without flag, timestamp should be preserved (expected " + timestamp + ", got " + actual3 + ")");
-
-        // Test with Date object (should preserve exactly)
-        Calendar inputCal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        inputCal.set(2024, 2, 15, 15, 30, 45);
-        inputCal.set(Calendar.MILLISECOND, 0);
-        Date inputDate = inputCal.getTime();
-        Date dt4 = DateUtil.adaptDateTime(inputDate);
-        long actual4 = dt4.getTime();
-        long expected4 = inputDate.getTime();
-        test(actual4 == expected4, "adaptDateTime(Date) without flag, timestamp should be preserved (expected " + expected4 + ", got " + actual4 + ")");
-
-        // Test with null
-        Date dt5 = DateUtil.adaptDateTime(null);
-        test(dt5 == null, "adaptDateTime(null) without flag should return null");
-
-        // Verify backward compatibility: 1-param call should behave identically to 2-param call with false
-        Date dt6a = DateUtil.adaptDateTime("2024-03-15");
-        Date dt6b = DateUtil.adaptDateTime("2024-03-15", false);
-        long time6a = dt6a.getTime();
-        long time6b = dt6b.getTime();
-        test(time6a == time6b, "adaptDateTime(string) should equal adaptDateTime(string, false) (expected " + time6a + ", got " + time6b + ")");
+        } catch ( Exception e ) {
+          test(false, "parseDateTime should handle timezones: " + e.getMessage());
+        }
       `
     }
   ]

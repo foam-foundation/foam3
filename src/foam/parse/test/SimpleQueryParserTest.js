@@ -119,17 +119,22 @@ foam.CLASS({
             x.test(this.isValid('lastLogin IS EMPTY', 
                     'NOT(HAS(foam.core.auth.User.lastLogin))'), 
                     'Date Test17: Date is empty');
-            x.test(this.isValid('lastLogin IS NOT EMPTY', 
-                    'HAS(foam.core.auth.User.lastLogin)'), 
+            x.test(this.isValid('lastLogin IS NOT EMPTY',
+                    'HAS(foam.core.auth.User.lastLogin)'),
                     'Date Test18: Date is not empty');
+
+            // Invalid date format tests - should NOT parse dates with dots or commas as separators
+            x.test(!this.isValidSymbol('date', '2025.01.15', null), 'Date Test19: Date with dots (2025.01.15) should NOT parse');
+            x.test(!this.isValidSymbol('date', '2025,01,15', null), 'Date Test20: Date with commas (2025,01,15) should NOT parse');
+            x.test(!this.isValidSymbol('date', '25.01.15', null), 'Date Test21: Short date with dots (25.01.15) should NOT parse');
 
             // Combined date tests
             x.test(this.isValid('birthday IN RANGE (2025-03-31, 2025-04-30) AND lastLogin IS EMPTY', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
-                    'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 2, 31, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 4, 1, 12]).toString() + '),NOT(HAS(foam.core.auth.User.lastLogin)))'), 
-                    'Date Test19: Date AND query');        
+                    'AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 2, 31, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 4, 1, 12]).toString() + '),NOT(HAS(foam.core.auth.User.lastLogin)))'),
+                    'Date Test22: Date AND query');
             x.test(this.isValid('birthday NOT IN RANGE (2025-03-31, 2025-04-30) OR lastLogin IS NOT EMPTY', // note +12 hours, birthdate is a Date, not a DateTime, hence it is set to noon
-                    'OR(AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 4, 1, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 2, 31, 12]).toString() + ')),HAS(foam.core.auth.User.lastLogin))'), 
-                    'Date Test20: Date OR query');
+                    'OR(AND(GTE(foam.core.auth.User.birthday, ' + testDate([2025, 4, 1, 12]).toString() + '),LT(foam.core.auth.User.birthday, ' +  testDate([2025, 2, 31, 12]).toString() + ')),HAS(foam.core.auth.User.lastLogin))'),
+                    'Date Test23: Date OR query');
 
 
             // Number symbol tests
@@ -181,11 +186,15 @@ foam.CLASS({
         function isValidSymbol(symbolName, input, expectedOutput, isFloat=false) {
             let parser = this.SimpleQueryParser.create({of: foam.core.auth.User});
             let result = parser.parseString(input, symbolName);
+            // If expectedOutput is null, we're testing that parsing should fail
+            if (expectedOutput == null) {
+                return result == null;
+            }
             if (result == null) return false;
             if ( isFloat ) {
                 result = parseFloat(result[0]).toFixed(3);
                 expectedOutput = parseFloat(expectedOutput).toFixed(3);
-            }   
+            }
             console.log("Result: " + result.toString() + ", Expected: " + expectedOutput);
             return result.toString().trim().toLowerCase() === expectedOutput.toString().trim().toLowerCase();
         } ,      

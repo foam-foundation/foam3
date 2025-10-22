@@ -64,7 +64,7 @@ foam.CLASS({
     },
     {
       name: 'baseGrammar_',
-      value: function(alt, anyChar, literal, literalIC, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
+      value: function(alt, anyChar, chars, literal, literalIC, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
@@ -155,28 +155,28 @@ foam.CLASS({
           // IMPORTANT: order matters, put more complex first
           'literal date': alt(
             // YYYY-MM-DDTHH:MM:SS.mmmZ (or YY)
-            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
                 {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmmZ'}),
             // YYYY-MM-DDTHH:MM:SS.mmm (or YY)
-                sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
+                sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits')),
                 {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmm'}),
             // YYYY-MM-DDTHH:MM:SS (or YY)
-            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T',
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
                 sym('digits'), ':', sym('digits'),  ':', sym('digits')),
                 {tooltip: 'YYYY/MM/DDTHH:MM:SS'}),
             // YYYY-MM-DDTHH:MM (or YY)
-            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T', sym('digits'), ':', sym('digits')),
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T', sym('digits'), ':', sym('digits')),
                 {tooltip: 'YYYY/MM/DDTHH:MM'}),
             // YYYY-MM-DDTHH (or YY)
-            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits'), 'T', sym('digits')),
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T', sym('digits')),
                 {tooltip: 'YYYY/MM/DDTHH'}),
             // YYYY-MM-DD (or YY)
-            sug(seq(sym('digits'), anyChar('-/'), sym('digits'), anyChar('-/'), sym('digits')),
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits')),
                 {tooltip: 'YYYY/MM/DD'}),
             // YYYY-MM (or YY)
-            sug(seq(sym('digits'), anyChar('-/'), sym('digits')),
+            sug(seq(sym('digits'), chars('-/'), sym('digits')),
                 {tooltip: 'YYYY/MM'}),
             // YYYY (or YY)
             sug(seq(sym('digits')), {tooltip: 'YYYY'}),
@@ -185,7 +185,7 @@ foam.CLASS({
           // TODAY[±n]
           'relative date': seq(
             sug(literalIC('TODAY'), {text: 'TODAY', label: 'TODAY[+/-n]'}),
-            optional(seq(anyChar("+-"), sym('digits')))
+            optional(seq(chars("+-"), sym('digits')))
           ),
 
           dates: repeat(sym('date'), ',', 2),

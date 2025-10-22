@@ -1186,7 +1186,7 @@ foam.CLASS({
     },
 
     function any() {
-      return this.AnyChar.create();g
+      return this.AnyChar.create();
     }
   ]
 });

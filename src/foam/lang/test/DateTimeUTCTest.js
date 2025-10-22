@@ -141,9 +141,9 @@ foam.CLASS({
         var model = this.DateTimeTestModel.create();
 
         var timestamps = [
-          { input: 1710489600000, year: 2024, month: 2, day: 15, hour: 0, minute: 0, second: 0, desc: "Timestamp 2024-03-15 00:00:00 UTC" },
-          { input: 1710511800000, year: 2024, month: 2, day: 15, hour: 6, minute: 10, second: 0, desc: "Timestamp 2024-03-15 06:10:00 UTC" },
-          { input: 1710555045000, year: 2024, month: 2, day: 15, hour: 18, minute: 10, second: 45, desc: "Timestamp 2024-03-15 18:10:45 UTC" }
+          { input: 1710460800000, year: 2024, month: 2, day: 15, hour: 0, minute: 0, second: 0, desc: "Timestamp 2024-03-15 00:00:00 UTC" },
+          { input: 1710483000000, year: 2024, month: 2, day: 15, hour: 6, minute: 10, second: 0, desc: "Timestamp 2024-03-15 06:10:00 UTC" },
+          { input: 1710526245000, year: 2024, month: 2, day: 15, hour: 18, minute: 10, second: 45, desc: "Timestamp 2024-03-15 18:10:45 UTC" }
         ];
 
         timestamps.forEach(function(testCase) {

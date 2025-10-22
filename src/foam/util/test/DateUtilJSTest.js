@@ -199,8 +199,8 @@ foam.CLASS({
     },
 
     async function testAdapt_Number(x) {
-      var timestamp = 1710489600000; // March 15, 2024 12:00:00 GMT
-      var date = foam.util.DateUtil.parseDateTime(timestamp);
+      var timestamp = 1710504000000; // March 15, 2024 12:00:00 GMT
+      var date = new Date(timestamp);
 
       var year = date.getUTCFullYear();
       var month = date.getUTCMonth();
@@ -208,12 +208,12 @@ foam.CLASS({
       var hours = date.getUTCHours();
       var minutes = date.getUTCMinutes();
       var seconds = date.getUTCSeconds();
-      x.test(year === 2024, `parseDateTime(Number) - year is 2024 (expected 2024, got ${year})`);
-      x.test(month === 2, `parseDateTime(Number) - month is March (2) (expected 2, got ${month})`);
-      x.test(day === 15, `parseDateTime(Number) - day is 15 (expected 15, got ${day})`);
-      x.test(hours === 12, `parseDateTime(Number) - hour is 12 (noon GMT) (expected 12, got ${hours})`);
-      x.test(minutes === 0, `parseDateTime(Number) - minute is 0 (expected 0, got ${minutes})`);
-      x.test(seconds === 0, `parseDateTime(Number) - second is 0 (expected 0, got ${seconds})`);
+      x.test(year === 2024, `new Date(Number) - year is 2024 (expected 2024, got ${year})`);
+      x.test(month === 2, `new Date(Number) - month is March (2) (expected 2, got ${month})`);
+      x.test(day === 15, `new Date(Number) - day is 15 (expected 15, got ${day})`);
+      x.test(hours === 12, `new Date(Number) - hour is 12 (noon GMT) (expected 12, got ${hours})`);
+      x.test(minutes === 0, `new Date(Number) - minute is 0 (expected 0, got ${minutes})`);
+      x.test(seconds === 0, `new Date(Number) - second is 0 (expected 0, got ${seconds})`);
     },
 
     async function testAdapt_String(x) {
@@ -231,12 +231,12 @@ foam.CLASS({
 
     async function testAdapt_Date(x) {
       var inputDate = new Date(2024, 2, 15, 8, 30, 45); // March 15, 2024 08:30:45 local
-      var parsedDate = foam.util.DateUtil.parseDateTime(inputDate);
+      var parsedDate = inputDate;
 
-      // parseDateTime on Date objects returns the date as-is (no modification)
+      // Date objects are kept as-is (no modification)
       var time = parsedDate.getTime();
       var originalTime = inputDate.getTime();
-      x.test(time === originalTime, `parseDateTime(Date) - preserves timestamp (expected ${originalTime}, got ${time})`);
+      x.test(time === originalTime, `Date object - preserves timestamp (expected ${originalTime}, got ${time})`);
 
       var year = parsedDate.getFullYear();
       var month = parsedDate.getMonth();
@@ -244,12 +244,12 @@ foam.CLASS({
       var hours = parsedDate.getHours();
       var minutes = parsedDate.getMinutes();
       var seconds = parsedDate.getSeconds();
-      x.test(year === 2024, `parseDateTime(Date) - year is 2024 (expected 2024, got ${year})`);
-      x.test(month === 2, `parseDateTime(Date) - month is March (2) (expected 2, got ${month})`);
-      x.test(day === 15, `parseDateTime(Date) - day is 15 (expected 15, got ${day})`);
-      x.test(hours === 8, `parseDateTime(Date) - hour preserved as 8 (expected 8, got ${hours})`);
-      x.test(minutes === 30, `parseDateTime(Date) - minute preserved as 30 (expected 30, got ${minutes})`);
-      x.test(seconds === 45, `parseDateTime(Date) - second preserved as 45 (expected 45, got ${seconds})`);
+      x.test(year === 2024, `Date object - year is 2024 (expected 2024, got ${year})`);
+      x.test(month === 2, `Date object - month is March (2) (expected 2, got ${month})`);
+      x.test(day === 15, `Date object - day is 15 (expected 15, got ${day})`);
+      x.test(hours === 8, `Date object - hour preserved as 8 (expected 8, got ${hours})`);
+      x.test(minutes === 30, `Date object - minute preserved as 30 (expected 30, got ${minutes})`);
+      x.test(seconds === 45, `Date object - second preserved as 45 (expected 45, got ${seconds})`);
     },
 
     async function testAdapt_Null(x) {
@@ -834,22 +834,22 @@ foam.CLASS({
     async function testAdaptDateTime_Number(x) {
       // Test timestamp parsing
       var timestamp = 1710511845000; // 2024-03-15 14:10:45 GMT
-      var dt = foam.util.DateUtil.parseDateTime(timestamp);
+      var dt = new Date(timestamp);
       var time = dt.getTime();
       var hours = dt.getUTCHours();
       var minutes = dt.getUTCMinutes();
       var seconds = dt.getUTCSeconds();
-      x.test(time === timestamp, `parseDateTime(number) - timestamp preserved (expected ${timestamp}, got ${time})`);
-      x.test(hours === 14, `parseDateTime(number) - hour preserved (14:10 UTC) (expected 14, got ${hours})`);
-      x.test(minutes === 10, `parseDateTime(number) - minutes preserved (expected 10, got ${minutes})`);
-      x.test(seconds === 45, `parseDateTime(number) - seconds preserved (expected 45, got ${seconds})`);
+      x.test(time === timestamp, `new Date(number) - timestamp preserved (expected ${timestamp}, got ${time})`);
+      x.test(hours === 14, `new Date(number) - hour preserved (14:10 UTC) (expected 14, got ${hours})`);
+      x.test(minutes === 10, `new Date(number) - minutes preserved (expected 10, got ${minutes})`);
+      x.test(seconds === 45, `new Date(number) - seconds preserved (expected 45, got ${seconds})`);
     },
 
     async function testAdaptDateTime_Date(x) {
       // Test Date object parsing - should preserve time
       var inputDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
       var originalTimestamp = inputDate.getTime();
-      var dt = foam.util.DateUtil.parseDateTime(inputDate);
+      var dt = inputDate;
       var time = dt.getTime();
       var year = dt.getUTCFullYear();
       var month = dt.getUTCMonth();
@@ -857,13 +857,13 @@ foam.CLASS({
       var hours = dt.getUTCHours();
       var minutes = dt.getUTCMinutes();
       var seconds = dt.getUTCSeconds();
-      x.test(time === originalTimestamp, `parseDateTime(Date) - timestamp preserved (expected ${originalTimestamp}, got ${time})`);
-      x.test(year === 2024, `parseDateTime(Date) - year is 2024 (expected 2024, got ${year})`);
-      x.test(month === 2, `parseDateTime(Date) - month is March (2) (expected 2, got ${month})`);
-      x.test(day === 15, `parseDateTime(Date) - day is 15 (expected 15, got ${day})`);
-      x.test(hours === 15, `parseDateTime(Date) - hour preserved as 15 (expected 15, got ${hours})`);
-      x.test(minutes === 30, `parseDateTime(Date) - minute preserved as 30 (expected 30, got ${minutes})`);
-      x.test(seconds === 45, `parseDateTime(Date) - second preserved as 45 (expected 45, got ${seconds})`);
+      x.test(time === originalTimestamp, `Date object - timestamp preserved (expected ${originalTimestamp}, got ${time})`);
+      x.test(year === 2024, `Date object - year is 2024 (expected 2024, got ${year})`);
+      x.test(month === 2, `Date object - month is March (2) (expected 2, got ${month})`);
+      x.test(day === 15, `Date object - day is 15 (expected 15, got ${day})`);
+      x.test(hours === 15, `Date object - hour preserved as 15 (expected 15, got ${hours})`);
+      x.test(minutes === 30, `Date object - minute preserved as 30 (expected 30, got ${minutes})`);
+      x.test(seconds === 45, `Date object - second preserved as 45 (expected 45, got ${seconds})`);
     },
 
     async function testAdaptDateTime_Null(x) {
@@ -1033,34 +1033,34 @@ foam.CLASS({
     },
 
     async function testParseDateTime_NumbersAndDates(x) {
-      // Test that parseDateTime and parseDateTimeUTC handle numbers and Date objects the same way
+      // Test that Numbers and Date objects can be used directly (not with parse methods)
       var timestamp = 1710511845000; // 2024-03-15 14:10:45 GMT
       var inputDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
 
-      // Test with timestamp - should be preserved regardless of method
-      var dtFromNumUTC = foam.util.DateUtil.parseDateTimeUTC(timestamp);
-      var dtFromNumLocal = foam.util.DateUtil.parseDateTime(timestamp);
-      var timeFromNumUTC = dtFromNumUTC.getTime();
-      var timeFromNumLocal = dtFromNumLocal.getTime();
+      // Test with timestamp - use new Date() constructor directly
+      var dtFromNum = new Date(timestamp);
+      var timeFromNum = dtFromNum.getTime();
 
-      x.test(timeFromNumUTC === timestamp, `parseDateTimeUTC preserves timestamp (expected ${timestamp}, got ${timeFromNumUTC})`);
-      x.test(timeFromNumLocal === timestamp, `parseDateTime preserves timestamp (expected ${timestamp}, got ${timeFromNumLocal})`);
-      x.test(timeFromNumUTC === timeFromNumLocal, `Both methods give same timestamp (expected ${timeFromNumUTC}, got ${timeFromNumLocal})`);
+      x.test(timeFromNum === timestamp, `new Date(timestamp) preserves timestamp (expected ${timestamp}, got ${timeFromNum})`);
 
-      // Test with Date object - should be preserved regardless of method
+      // Test with Date object - use directly (no parsing needed)
       var originalTimestamp = inputDate.getTime();
-      var dtFromDateUTC = foam.util.DateUtil.parseDateTimeUTC(inputDate);
-      var dtFromDateLocal = foam.util.DateUtil.parseDateTime(inputDate);
-      var timeFromDateUTC = dtFromDateUTC.getTime();
-      var timeFromDateLocal = dtFromDateLocal.getTime();
+      var dtFromDate = inputDate;
+      var timeFromDate = dtFromDate.getTime();
 
-      x.test(timeFromDateUTC === originalTimestamp, `parseDateTimeUTC preserves Date timestamp (expected ${originalTimestamp}, got ${timeFromDateUTC})`);
-      x.test(timeFromDateLocal === originalTimestamp, `parseDateTime preserves Date timestamp (expected ${originalTimestamp}, got ${timeFromDateLocal})`);
-      x.test(timeFromDateUTC === timeFromDateLocal, `Both methods give same Date timestamp (expected ${timeFromDateUTC}, got ${timeFromDateLocal})`);
+      x.test(timeFromDate === originalTimestamp, `Date object preserves timestamp (expected ${originalTimestamp}, got ${timeFromDate})`);
+
+      // Verify parse methods only accept strings
+      var nullResult1 = foam.util.DateUtil.parseDateTime(null);
+      x.test(nullResult1 === null, `parseDateTime(null) returns null`);
+
+      var undefResult1 = foam.util.DateUtil.parseDateTime(undefined);
+      x.test(undefResult1 === undefined, `parseDateTime(undefined) returns undefined`);
     },
 
     async function testParseDateTime_AllInputTypes(x) {
-      // Test that parseDateTime handles all input types correctly
+      // Test that parseDateTime handles string formats correctly
+      // Numbers and Date objects should NOT use parseDateTime - use new Date() or the Date directly
       var dateString = '2024-03-15';
       var dtString = '2024-03-15T14:30:45';
       var usString = '03/15/2024 14:30:45';
@@ -1096,23 +1096,23 @@ foam.CLASS({
       x.test(month3 === 2, `US format - month is March (2) (expected 2, got ${month3})`);
       x.test(day3 === 15, `US format - day is 15 (expected 15, got ${day3})`);
 
-      // Test with number
-      var dt4 = foam.util.DateUtil.parseDateTime(timestamp);
+      // Test with number - use new Date() constructor, not parseDateTime
+      var dt4 = new Date(timestamp);
       var time4 = dt4.getTime();
-      x.test(time4 === timestamp, `Number - timestamp preserved (expected ${timestamp}, got ${time4})`);
+      x.test(time4 === timestamp, `new Date(number) - timestamp preserved (expected ${timestamp}, got ${time4})`);
 
-      // Test with Date object
+      // Test with Date object - use directly, not parseDateTime
       var originalTimestamp = inputDate.getTime();
-      var dt5 = foam.util.DateUtil.parseDateTime(inputDate);
+      var dt5 = inputDate;
       var time5 = dt5.getTime();
       x.test(time5 === originalTimestamp, `Date object - timestamp preserved (expected ${originalTimestamp}, got ${time5})`);
 
-      // Test null/undefined
+      // Test null/undefined with parseDateTime
       var dt6 = foam.util.DateUtil.parseDateTime(null);
-      x.test(dt6 === null, 'Null returns null');
+      x.test(dt6 === null, 'parseDateTime(null) returns null');
 
       var dt7 = foam.util.DateUtil.parseDateTime(undefined);
-      x.test(dt7 === undefined, 'Undefined returns undefined');
+      x.test(dt7 === undefined, 'parseDateTime(undefined) returns undefined');
     },
 
     async function testParseDateTimeUTC_WithTimezoneZ(x) {

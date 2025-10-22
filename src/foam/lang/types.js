@@ -328,9 +328,9 @@ foam.CLASS({
         if ( d instanceof Date ) {
           return d;
         }
-        // Use DateUtil.adaptDateTime with forceUTC=true to ensure all string inputs
+        // Use DateUtil.parseDateTimeUTC to ensure all string inputs
         // are parsed as UTC. Numbers and Date objects are always preserved exactly.
-        return foam.util.DateUtil.adaptDateTime(d, true);
+        return foam.util.DateUtil.parseDateTimeUTC(d);
       }
     },
     {

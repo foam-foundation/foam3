@@ -137,6 +137,14 @@ foam.CLASS({
       type: 'Date',
       documentation: 'Parses datetime strings using DateParser in local time. Optional opt_name to specify format.',
       code: function(d, opt_name) {
+        // Handle null/undefined
+        if ( d === null || d === undefined ) return d;
+
+        // Only accept strings - convert to string if needed
+        if ( typeof d !== 'string' ) {
+          d = String(d);
+        }
+
         var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
         return parser.parseDateTime(d, opt_name);
       },
@@ -156,6 +164,14 @@ foam.CLASS({
       type: 'Date',
       documentation: 'Parses datetime strings using DateParser in UTC time. Optional opt_name to specify format.',
       code: function(d, opt_name) {
+        // Handle null/undefined
+        if ( d === null || d === undefined ) return d;
+
+        // Only accept strings - convert to string if needed
+        if ( typeof d !== 'string' ) {
+          d = String(d);
+        }
+
         var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
         return parser.parseDateTimeUTC(d, opt_name);
       },
@@ -175,6 +191,14 @@ foam.CLASS({
       type: 'Date',
       documentation: 'Parses date strings using DateParser. Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats. Optional opt_name to specify format (e.g., "ddmmyyyy").',
       code: function(d, opt_name) {
+        // Handle null/undefined
+        if ( d === null || d === undefined ) return d;
+
+        // Only accept strings - convert to string if needed
+        if ( typeof d !== 'string' ) {
+          d = String(d);
+        }
+
         var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
         return parser.parseDateString(d, opt_name);
       },
@@ -197,30 +221,35 @@ foam.CLASS({
           if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}(?!\\\\d).*") ) {
             format = new SimpleDateFormat("yyyyMMdd");
             format.setLenient(false);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
             date = format.parse(d.replaceAll("[-/]", "").substring(0, 8));
           }
           // YYYYMMDD (no separators, year must be 1900-2999)
           else if ( d.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}(?!\\\\d).*") ) {
             format = new SimpleDateFormat("yyyyMMdd");
             format.setLenient(false);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
             date = format.parse(d.substring(0, 8));
           }
           // MM/DD/YYYY or MM-DD-YYYY (with separators)
           else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4}(?!\\\\d).*") ) {
             format = new SimpleDateFormat("MMddyyyy");
             format.setLenient(false);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
             date = format.parse(d.replaceAll("[-/]", "").substring(0, 8));
           }
           // MMDDYYYY (no separators)
           else if ( d.matches("^\\\\d{8}(?!\\\\d).*") ) {
             format = new SimpleDateFormat("MMddyyyy");
             format.setLenient(false);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
             date = format.parse(d.substring(0, 8));
           }
           // YY/MM/DD or YY-MM-DD (with separators)
           else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{2}(?!\\\\d).*") ) {
             format = new SimpleDateFormat("yyMMdd");
             format.setLenient(false);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
             // Sliding window: 100-year window centered on current year (50 years back, 50 years forward)
             java.util.Calendar cal = java.util.Calendar.getInstance();
             cal.add(java.util.Calendar.YEAR, -50);
@@ -231,6 +260,7 @@ foam.CLASS({
           else if ( d.matches("^\\\\d{6}(?!\\\\d).*") ) {
             format = new SimpleDateFormat("yyMMdd");
             format.setLenient(false);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
             // Sliding window: 100-year window centered on current year (50 years back, 50 years forward)
             java.util.Calendar cal = java.util.Calendar.getInstance();
             cal.add(java.util.Calendar.YEAR, -50);
@@ -240,6 +270,15 @@ foam.CLASS({
           else {
             throw new RuntimeException("Unsupported Date format: " + d);
           }
+
+          // Normalize to noon GMT (12:00:00)
+          java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
+          cal.setTime(date);
+          cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
+          cal.set(java.util.Calendar.MINUTE, 0);
+          cal.set(java.util.Calendar.SECOND, 0);
+          cal.set(java.util.Calendar.MILLISECOND, 0);
+          date = cal.getTime();
         } catch ( ParseException e ) {
           throw new RuntimeException("Cannot parse invalid date: " + d);
         }
@@ -264,8 +303,28 @@ foam.CLASS({
       javaCode: `
         // Backward compatibility adapter method
         if ( o == null ) return null;
-        if ( o instanceof Date ) return (Date) o;
-        if ( o instanceof String ) return parseDateString((String) o, null);
+
+        if ( o instanceof Date ) {
+          // Normalize Date to noon GMT
+          Date inputDate = (Date) o;
+          java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
+          cal.setTime(inputDate);
+          cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
+          cal.set(java.util.Calendar.MINUTE, 0);
+          cal.set(java.util.Calendar.SECOND, 0);
+          cal.set(java.util.Calendar.MILLISECOND, 0);
+          return cal.getTime();
+        }
+
+        if ( o instanceof String ) {
+          try {
+            return parseDateString((String) o, null);
+          } catch ( RuntimeException e ) {
+            // Return MAX_DATE for invalid strings instead of throwing exception
+            return MAX_DATE;
+          }
+        }
+
         if ( o instanceof Number ) return new Date(((Number) o).longValue());
         return null;
       `
@@ -455,53 +514,77 @@ foam.CLASS({
       SimpleDateFormat format;
       Date date;
 
+      // Check for ISO 8601 timezone suffix (Z, +HH:MM, -HH:MM, +HHMM, -HHMM)
+      // If present, use it instead of the provided timeZoneId
+      String actualTimeZone = timeZoneId;
+      String dateTimePart = d;
+
+      // Check for Z (UTC) suffix
+      if ( d.matches(".*[0-9]Z$") ) {
+        actualTimeZone = "GMT";
+        dateTimePart = d.substring(0, d.length() - 1);
+      }
+      // Check for +HH:MM or -HH:MM format
+      else if ( d.matches(".*[+-]\\\\d{2}:\\\\d{2}$") ) {
+        String offset = d.substring(d.length() - 6);
+        actualTimeZone = "GMT" + offset;
+        dateTimePart = d.substring(0, d.length() - 6);
+      }
+      // Check for +HHMM or -HHMM format (no colon)
+      else if ( d.matches(".*[+-]\\\\d{4}$") ) {
+        String offset = d.substring(d.length() - 5);
+        // Convert +HHMM to +HH:MM
+        actualTimeZone = "GMT" + offset.substring(0, 3) + ":" + offset.substring(3);
+        dateTimePart = d.substring(0, d.length() - 5);
+      }
+
       // ISO 8601: YYYY-MM-DDTHH:MM:SS.SSS or YYYY-MM-DD HH:MM:SS.SSS
-      if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{3})?.*") ) {
-        String normalized = d.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
+      if ( dateTimePart.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{3})?$") ) {
+        String normalized = dateTimePart.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
         int dotIndex = normalized.indexOf('.');
 
         if ( dotIndex > 0 ) {
           format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
           format.setLenient(false);
-          format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+          format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
           date = format.parse(normalized.substring(0, Math.min(23, normalized.length())));
         } else {
           format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
           format.setLenient(false);
-          format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+          format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
           date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
         }
       }
       // ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
-      else if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}.*") ) {
-        String normalized = d.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
+      else if ( dateTimePart.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}$") ) {
+        String normalized = dateTimePart.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
         format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
         format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
         date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
       }
       // US format with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
-      else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}:\\\\d{2}.*") ) {
-        String normalized = d.replaceAll("/", "-");
+      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}:\\\\d{2}$") ) {
+        String normalized = dateTimePart.replaceAll("/", "-");
         format = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss");
         format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
         date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
       }
       // US format with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
-      else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}.*") ) {
-        String normalized = d.replaceAll("/", "-");
+      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}$") ) {
+        String normalized = dateTimePart.replaceAll("/", "-");
         format = new SimpleDateFormat("MM-dd-yyyy HH:mm");
         format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
+        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
         date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
       }
       // Compact: YYYYMMDDHHMMSS
-      else if ( d.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}.*") ) {
+      else if ( dateTimePart.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}$") ) {
         format = new SimpleDateFormat("yyyyMMddHHmmss");
         format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(timeZoneId));
-        date = format.parse(d.substring(0, 14));
+        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
+        date = format.parse(dateTimePart.substring(0, 14));
       }
       else {
         throw new RuntimeException("Unsupported DateTime format: " + d);

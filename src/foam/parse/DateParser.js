@@ -8,6 +8,8 @@ foam.CLASS({
   package: 'foam.parse',
   name: 'DateParser',
 
+  extends: 'foam.parse.AbstractParser',
+  
   documentation: `
     Comprehensive date and datetime parser that handles all formats from DateUtil.js.
     Uses FOAM parser framework with alt() to support all date/datetime formats in a single parser.
@@ -27,7 +29,7 @@ foam.CLASS({
   properties: [
     {
       name: 'baseGrammar_',
-      value: function(alt, anyChar, optional, range, repeat, seq, str, sym) {
+      value: function(alt, anyChar, chars, optional, range, repeat, seq, str, sym) {
         return {
           START: sym('dateOrDatetime'),
 
@@ -51,19 +53,19 @@ foam.CLASS({
             'Z',
             // +HH:MM format
             seq(
-              anyChar('+-'),
+              chars('+-'),
               repeat(range('0', '9'), null, 2),
               ':',
               repeat(range('0', '9'), null, 2)
             ),
             // +HHMM format (no colon)
             seq(
-              anyChar('+-'),
+              chars('+-'),
               repeat(range('0', '9'), null, 4)
             ),
             // +HH format (hours only)
             seq(
-              anyChar('+-'),
+              chars('+-'),
               repeat(range('0', '9'), null, 2)
             )
           ),
@@ -73,25 +75,25 @@ foam.CLASS({
           'yyyymmdd-sep': alt(
             // With milliseconds and timezone
             seq(
-              sym('year4'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('day2'),
-              anyChar('T '), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('millisecond3'),
+              sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+              chars('T '), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('millisecond3'),
               optional(sym('timezone'))
             ),
             // With seconds and timezone
             seq(
-              sym('year4'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('day2'),
-              anyChar('T '), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+              chars('T '), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
-              sym('year4'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('day2'),
-              anyChar('T '), sym('hour2'), ':', sym('minute2'),
+              sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+              chars('T '), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
             seq(
-              sym('year4'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('day2')
+              sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2')
             )
           ),
 
@@ -116,19 +118,19 @@ foam.CLASS({
           'mmddyyyy-sep': alt(
             // With seconds and timezone
             seq(
-              sym('month2'), anyChar('-/'), sym('day2'), anyChar('-/'), sym('year4'),
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
               ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
-              sym('month2'), anyChar('-/'), sym('day2'), anyChar('-/'), sym('year4'),
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
               ' ', sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
             seq(
-              sym('month2'), anyChar('-/'), sym('day2'), anyChar('-/'), sym('year4')
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4')
             )
           ),
 
@@ -145,7 +147,7 @@ foam.CLASS({
           // YYMMDD with separators
           // YY-MM-DD, YY/MM/DD
           'yymmdd-sep': seq(
-            sym('year2'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('day2')
+            sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2')
           ),
 
           // YYMMDD compact: 6 digits
@@ -163,19 +165,19 @@ foam.CLASS({
           'ddmmyyyy-sep': alt(
             // With seconds and timezone
             seq(
-              sym('day2'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('year4'),
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
               ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
-              sym('day2'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('year4'),
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
               ' ', sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
             seq(
-              sym('day2'), anyChar('-/'), sym('month2'), anyChar('-/'), sym('year4')
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4')
             )
           ),
 
@@ -543,10 +545,43 @@ foam.CLASS({
       name: 'parseDateTime',
       documentation: 'Parse a datetime string using local time - uses time if present, otherwise sets to noon. If timezone is present, converts to UTC. Returns MAX_DATE for invalid dates.',
       code: function(str, opt_name) {
-        let result = this.grammar_.parseString(str, opt_name || 'START');
+        // Trim input to remove leading/trailing whitespace
+        str = str ? str.trim() : str;
+
+        // Use parse() instead of parseString() to get position information
+        this.grammar_.ps.setString(str);
+        let start = this.grammar_.getSymbol(opt_name || 'START');
+        let parseResult = this.grammar_.ps.apply(start, this.grammar_);
+
+        if ( ! parseResult ) {
+          // Unparseable format - return MAX_DATE
+          return this.validateDate(new Date(NaN), str);
+        }
+
+        // Check if entire string was consumed
+        if ( parseResult.pos < str.length ) {
+          // Partial parse - remaining characters indicate invalid format
+          console.warn('DateParser: Partial parse detected. Input:', str, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
+          return this.validateDate(new Date(NaN), str);
+        }
+
+        let result = parseResult.value;
 
         if ( ! result ) {
           // Unparseable format - return MAX_DATE
+          return this.validateDate(new Date(NaN), str);
+        }
+
+        // Validate time components if present
+        // Note: Grammar already enforces valid ranges (hour2: 00-23, minute2/second2: 00-59)
+        // but we keep these checks as a safety measure
+        if ( result.hour !== undefined && (result.hour < 0 || result.hour > 23) ) {
+          return this.validateDate(new Date(NaN), str);
+        }
+        if ( result.minute !== undefined && (result.minute < 0 || result.minute > 59) ) {
+          return this.validateDate(new Date(NaN), str);
+        }
+        if ( result.second !== undefined && (result.second < 0 || result.second > 59) ) {
           return this.validateDate(new Date(NaN), str);
         }
 
@@ -588,10 +623,43 @@ foam.CLASS({
       name: 'parseDateTimeUTC',
       documentation: 'Parse a datetime string using UTC time - uses time if present, otherwise sets to midnight. If timezone is present, converts to UTC. Returns MAX_DATE for invalid dates.',
       code: function(str, opt_name) {
-        let result = this.grammar_.parseString(str, opt_name || 'START');
+        // Trim input to remove leading/trailing whitespace
+        str = str ? str.trim() : str;
+
+        // Use parse() instead of parseString() to get position information
+        this.grammar_.ps.setString(str);
+        let start = this.grammar_.getSymbol(opt_name || 'START');
+        let parseResult = this.grammar_.ps.apply(start, this.grammar_);
+
+        if ( ! parseResult ) {
+          // Unparseable format - return MAX_DATE
+          return this.validateDateUTC(new Date(NaN), str);
+        }
+
+        // Check if entire string was consumed
+        if ( parseResult.pos < str.length ) {
+          // Partial parse - remaining characters indicate invalid format
+          console.warn('DateParser: Partial parse detected for UTC. Input:', str, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
+          return this.validateDateUTC(new Date(NaN), str);
+        }
+
+        let result = parseResult.value;
 
         if ( ! result ) {
           // Unparseable format - return MAX_DATE
+          return this.validateDateUTC(new Date(NaN), str);
+        }
+
+        // Validate time components if present
+        // Note: Grammar already enforces valid ranges (hour2: 00-23, minute2/second2: 00-59)
+        // but we keep these checks as a safety measure
+        if ( result.hour !== undefined && (result.hour < 0 || result.hour > 23) ) {
+          return this.validateDateUTC(new Date(NaN), str);
+        }
+        if ( result.minute !== undefined && (result.minute < 0 || result.minute > 59) ) {
+          return this.validateDateUTC(new Date(NaN), str);
+        }
+        if ( result.second !== undefined && (result.second < 0 || result.second > 59) ) {
           return this.validateDateUTC(new Date(NaN), str);
         }
 

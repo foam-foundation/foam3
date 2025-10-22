@@ -278,10 +278,11 @@ foam.CLASS({
     {
       name: 'DateUtilTest_adapt_Number',
       javaCode: `
-        long timestamp = 1710489600000L; // March 15, 2024 12:00:00 GMT
+        long timestamp = 1710504000000L; // March 15, 2024 12:00:00 GMT
         Date date = DateUtil.adapt(timestamp);
 
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeZone(TimeZone.getTimeZone("GMT"));
         cal.setTime(date);
 
         int actualYear = cal.get(Calendar.YEAR);

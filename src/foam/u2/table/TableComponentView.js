@@ -70,7 +70,7 @@ foam.CLASS({
     },
     async function filterUnpermitted(arr) {
       const results = await Promise.all(arr.map( async p =>
-        ( p.hidden || ! p.label )? false :
+        p.hidden ? false :
         (! this.auth) ? true : ! p.columnPermissionRequired ||
         await this.auth.check(ctrl.__subContext__, `${this.of.name.toLowerCase()}.column.${p.name}`)));
       return arr.filter((_v, index) => results[index]);

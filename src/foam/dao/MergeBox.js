@@ -19,6 +19,7 @@ foam.CLASS({
   package: 'foam.dao',
   name: 'MergeBox',
   extends: 'foam.box.ProxyBox',
+
   properties: [
     {
       class: 'Int',
@@ -35,16 +36,18 @@ foam.CLASS({
       transient: true
     }
   ],
+
   methods: [
     function send(m) {
       if ( ! this.timeout ) {
       }
     }
   ],
+
   listeners: [
     function doSend() {
-      var queue = this.queue;
-      this.queue = undefined;
+      var queue    = this.queue;
+      this.queue   = undefined;
       this.timeout = undefined;
     }
   ]

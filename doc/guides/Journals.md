@@ -31,7 +31,7 @@ Journals are organized in a standard directory structure<cite />:
 - **Runtime journals**: `${APP_HOME}/journals/` - Active journals written during application runtime [7](#0-6)
 
 ### 4. **Compaction**
-Over time, journals accumulate multiple entries for the same object. The [Compaction]./Compaction.md) system reduces replay time by writing out each object once in its entirety, eliminating redundant delta entries [9](#0-8) .
+Over time, journals accumulate multiple entries for the same object. The [Compaction](./Compaction.md) system reduces replay time by writing out each object once in its entirety, eliminating redundant delta entries [9](#0-8) .
 
 ## Notes
 

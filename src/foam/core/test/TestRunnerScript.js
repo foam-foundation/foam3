@@ -49,7 +49,9 @@ This will also keep the foam application running for inspection from the GUI.
     'static foam.mlang.MLang.OR',
     'static foam.mlang.MLang.NOT',
     'foam.util.SafetyUtil',
-    'java.util.*',
+    'java.time.Duration',
+    'java.time.temporal.ChronoUnit',
+    'java.util.*'
   ],
 
   constants: [
@@ -464,18 +466,26 @@ This will also keep the foam application running for inspection from the GUI.
 
       BrowserAgent agent = new BrowserAgent(x, getPath(), params) {
         public void waitTerminate(X x) {
-          logger.info("BrowserAgent,terminate");
-          while ( true ) {
+          logger.info("BrowserAgent,terminate,wait");
+          long timeout = Duration.of(getTimeout(), ChronoUnit.SECONDS).toMillis();
+          long startTime = System.currentTimeMillis();
+          long processTime = 0L;
+          while ( processTime <= timeout ) {
             try {
               TestRun tr = (TestRun) dao.find(id);
-              if ( tr.getCompleted() )
-                break;
+              if ( tr.getCompleted() ) {
+                logger.info("BrowserAgent,terminate,exit");
+                return;
+              }
+              logger.info("BrowserAgent,terminate,wait,5s,timeout in",Duration.of(processTime - timeout, ChronoUnit.MILLIS));
               Thread.currentThread().sleep(5000);
             } catch (InterruptedException e) {
-              break;
+              logger.warning("BrowserAgent,terminate,exit,interrupted");
+              return;
             }
+            processTime = System.currentTimeMillis() - startTime;
           }
-          logger.info("BrowserAgent,terminate,exit");
+          logger.warning("BrowserAgent,terminate,exit,timeout");
         }
       };
       agent.setHeadless( ! Boolean.getBoolean(SYSTEM_TEST_HEADED) );

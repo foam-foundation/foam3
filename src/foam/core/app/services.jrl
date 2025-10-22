@@ -60,6 +60,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "healthHeartbeatService",
   "lazy": false,
+  "enabled": false,
   "service": {
     class: "foam.core.app.HealthHeartbeatService",
     multicastAddress: "230.22.41.0",
@@ -71,6 +72,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "healthHeartbeatMonitor",
   "lazy": false,
+  "enabled": false,
   "service": {
     class: "foam.core.app.HealthHeartbeatMonitor",
   }

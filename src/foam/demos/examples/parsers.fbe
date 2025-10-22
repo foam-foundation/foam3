@@ -972,7 +972,7 @@ parse failed and what was expected.
 --
 // TODO: The JS ErrorReportingPStream isn't as useful as the Java version and should be improved
 // TODO: finish this example
-
+/* unfinished class, breaking the page, temporarily commenting out
 var p   = ExpressionParser.create();
 var sps = P.stringPStream('1+2*(1+2'); // Missing closing ')'
 
@@ -985,3 +985,4 @@ var erps = foam.parse.ErrorReportingPStream.create({
 var res = p.parse(erps, p);
 log('ErrorReportingPStream:', res);
 log(erps);
+*/

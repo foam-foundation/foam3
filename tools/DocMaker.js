@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-exports.description = 'copies .flow files into /build/documents';
+exports.description = 'copies .flow and .md files into /build/documents';
 
 const fs_                                 = require('fs');
 
@@ -17,7 +17,9 @@ exports.init = function() {
 
 
 exports.visitFile = function(pom, f, fn) {
-  if ( f.name.endsWith('.flow') ) {
+  if ( ( f.name.endsWith('.flow') ||
+         f.name.endsWith('.md') ) &&
+       ! f.name.startsWith('README') ) {
     if ( ! this.isExcluded(pom, fn) ) {
       this.verbose('\t\tdocument source:', fn);
 
@@ -32,5 +34,5 @@ exports.visitFile = function(pom, f, fn) {
 
 
 exports.end = function() {
-  this.log(`[Doc Maker] Copied ${documentFiles.length} flow document files to ${X.documentdir}.`);
+  this.log(`[Doc Maker] Copied ${documentFiles.length} flow|md document files to ${X.documentdir}.`);
 }

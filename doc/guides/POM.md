@@ -1,4 +1,4 @@
-## POM - Project Object Model
+# POM - Project Object Model
 
 ## Purpose
 
@@ -16,10 +16,10 @@ of .java source files.
 ### name
 
 ### vendorId
-Optional property which is used as the Maven <groupId> when generating a Maven POM. If not specified, then the name: property is used instead.
+Optional property which is used as the Maven `groupId` when generating a Maven POM. If not specified, then the name: property is used instead.
 
 ### version
-Optional property which is used as the Maven <version> when generating a Maven POM. Is also used as part of the filename when creating foam-bin JS files.
+Optional property which is used as the Maven `version` when generating a Maven POM. Is also used as part of the filename when creating foam-bin JS files.
 
 ### licenses
 Specify license(s) to be included in the packaged JS binaries.
@@ -116,12 +116,12 @@ defaultFlags: {
 ```
 
 When not running from a packaged foam-bin (ie. not including -u in your build command line)
-then you can specify flags on either the command-line or in the <script> tag that loads foam.js.
+then you can specify flags on either the command-line or in the `script` tag that loads foam.js.
 
 Allow flags to be set in loading script tag"
-Ex.: <script language="javascript" src="../../../foam.js" flags="u3,-debug"></script>
+Ex.: `<script language="javascript" src="../../../foam.js" flags="u3,-debug"></script>`
 
-In the URL flags can be set by assiging them to either 'true' or 'false' as URL parameters:
+In the URL flags can be set by assiging them to either **true** or **false** as URL parameters:
 ```
 http://somewhere.com/index.html?u3=true&debug=false
 ```
@@ -131,12 +131,12 @@ Flags can be specified to PMake with the -flags parameter. Ex.:
 ./tools/pmake.js -flags=web,java ...
 ```
 
-Different build.sh targets alter the flags to include or exclude things like 'java', which is needed
+Different build.sh targets alter the flags to include or exclude things like `java`, which is needed
 when generating java source but not when generating the foam-bin.
 
 The pmake command-line is parsed by processArgs() in processArgs.js. It sets flag values in both globalThis.flags
-and foam.flags and reuses the flags for both Maker-dependent values like 'verbose' and 'loadFiles' as well as for
-the traditional POM flags like 'java' and 'web'. Developers should be aware of the potential for naming conflicts.
+and foam.flags and reuses the flags for both Maker-dependent values like `verbose` and `loadFiles` as well as for
+the traditional POM flags like `java` and `web`. Developers should be aware of the potential for naming conflicts.
 
 #### predicate
 
@@ -172,32 +172,32 @@ the component that uses it is created.
 ```javascript
 foam.POM({
   name: "acmeapp",
-  vendorId: 'com.acme",
+  vendorId: "com.acme",
   version: '3.1.1',
   licenses: `
     [2023] Acme Corporation
     All Rights Reserved.
   `,
   tasks: [
-    // call before `versions' task
+    // call before `versions` task
     function before_versions() {
       console.log('---------- before versions');
     },
 
-    // overwrite `versions' task
+    // overwrite `versions` task
     function versions() {
-      // call `myVersions' task
+      // call `myVersions` task
       myVersion();
     },
 
-    // call after `versions' task
+    // call after `versions` task
     function after_versions(build) {
       console.log('---------- after versions');
     },
 
     // define new task
     function myVersion() {
-      // access to `JAR_OUT' env variable
+      // access to `JAR_OUT` env variable
       console.log('---------- my versions', JAR_OUT);
     }
   ],
@@ -214,19 +214,19 @@ foam.POM({
   },
   projects: [
     { name: 'acme/src/somepackage/pom' },
-    { name: 'acme/src/someotherpackage/pom' },
+    { name: 'acme/src/someotherpackage/pom' }
   ],
   files: [
     { name: "acme.app.Foo",  flags: "js" },
     { name: "acme.app.Bar",  flags: "js|java" },
-    { name: "acme.app.Demo", flags: "demo&ava" },
+    { name: "acme.app.Demo", flags: "demo&ava" }
   ],
   javaDependencies: [
     'commons-net:commons-net:3.6',
     'xerces:xercesImpl:2.12.0'
   ],
   JSLibs: [
-    'https://cdn.somecompany.com/link/v2/stable/lib.js',
+    { name: 'https://cdn.somecompany.com/link/v2/stable/lib.js' },
     { name: 'https://acme.com/link/v3/stable/lib.js', defer: true },
     { name: 'https://somewhere.com/v4/stable/lib.js', async: true }
   ]

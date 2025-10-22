@@ -226,6 +226,7 @@ foam.CLASS({
             seq(sym('number'), '-', sym('number')),
             // YY/MM/DD
             seq(sym('number'), '/', sym('number'), '/', sym('number'))
+            // TODO: add support for YY or YYYY
           ),
 
           'relative date': seq(key('today'), optional(seq('-', sym('number')))),
@@ -549,7 +550,7 @@ foam.CLASS({
             start = new Date(2000, 0, 1);
             end   = new Date(2000, 0, 1);
             var ops = [ 'FullYear', 'Month', 'Date', 'Hours', 'Minutes', 'Seconds', 'Milliseconds' ];
-            var defaults = [ 0, 1, 1, 0, 0, 0, 0 ]; // Fixed: Added 7th element for milliseconds
+            var defaults = [ 0, 1, 1, 12, 0, 0, 0 ]; // Fixed: Added 7th element for milliseconds
 
             for ( var i = 0 ; i < ops.length ; i++ ) {
               var x = i * 2 >= v.length ? defaults[i] : v[i * 2]; // Fixed: >= instead of >
@@ -620,7 +621,7 @@ foam.CLASS({
       var query = this.grammar_.parseString(str, opt_name, opt_apply);
       if ( query ) {
         if ( query.partialEval ) query = query.partialEval();
-        console.log('*************query', query, query.toString());
+        // console.log('*************query', query, query.toString());
       }
       query = query && query.partialEval ? query.partialEval() : query;
       return query;

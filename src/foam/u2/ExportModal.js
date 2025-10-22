@@ -18,6 +18,7 @@ foam.CLASS({
   ],
 
   requires: [
+    'foam.u2.LoadingSpinner',
     'foam.u2.layout.Cols',
     'foam.u2.layout.Rows'
   ],
@@ -124,7 +125,11 @@ foam.CLASS({
       class: 'Boolean',
       name: 'isOpenAvailable'
     },
-    'exportDriver'
+    'exportDriver',
+    {
+      class: 'Boolean',
+      name: 'loading'
+    }
   ],
 
   methods: [
@@ -191,7 +196,8 @@ foam.CLASS({
                 })
               )
             .end()
-            .start(this.Cols).style({ 'justify-content': 'flex-end', 'gap': '10px' })
+            .start().show(this.loading$).tag(this.LoadingSpinner, {size: '32px'} ).end()
+            .start(this.Cols).hide(this.loading$).style({ 'justify-content': 'flex-end', 'gap': '10px' })
               .start(this.DOWNLOAD).end()
               .start(this.CONVERT).end()
               .start(this.OPEN).end()
@@ -239,8 +245,10 @@ foam.CLASS({
         return isDownloadAvailable;
       },
       code: async function download() {
+        this.loading = true;
         if ( ! this.exportData && ! this.exportObj ) {
-          console.log('Neither exportData nor exportObj exist');
+          console.log('Neither exportData nor exportObj exist'); // TODO: Make this a proper error message in the UI
+          this.loading = false;
           return;
         }
 
@@ -261,6 +269,7 @@ foam.CLASS({
             var blob = new Blob([result], { type: this.exportDriverReg.mimeType });
             href = URL.createObjectURL(blob);
           } else {
+            this.loading = false;
             throw new Error('Data type for export not specified');
           }
           link.setAttribute('href', href);
@@ -275,6 +284,8 @@ foam.CLASS({
 
         if ( this.exportAllColumns )
           this.filteredTableColumns = filteredColumnsCopy;
+        
+        this.loading = false;
       }
     },
     {

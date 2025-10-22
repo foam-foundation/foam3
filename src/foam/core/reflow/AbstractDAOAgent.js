@@ -39,9 +39,12 @@ foam.CLASS({
         } else {
           this.block.value = this.value(s);
         }
-        // s = s.clone({columnStorage: sink.__context__.columnStorage});
 
-        e.startContext({dao: this.dao/*, columnStorage: sink.__context__.columnStorage*/})
+        // This is needed in case the Sink traveled across the network but needs values
+        // (like 'block') from the current context.
+        s = s.clone(this.__subContext__);
+
+        e.startContext({dao: this.dao})
           .start()
             .call(function() {
               self.addSinkToE(this, s);
@@ -180,7 +183,6 @@ foam.CLASS({
           with ( { o: o, log: this.__context__.log } ) {
             eval(this.code);
           }
-//          console.log(i);
         }
       });
     },
@@ -348,13 +350,27 @@ foam.CLASS({
         config.selectedColumnNames$ = this.columns$;
       }
 
-      if ( this.of.MULTI_SELECT ) {
+      var multiSelectActions = this.of.getAxiomsByClass(foam.lang.Action)?.filter(a => a.multiSelect)
+
+      if ( multiSelectActions?.length ) {
         config.multiSelectEnabled = true;
         config.selectedObjects$ = this.selectedObjects$;
       }
 
-
-      e.startContext({click: self.click}).
+      e.startContext({click: self.click, columnStorage: this.columnStorage}).
+        callIf(config.multiSelectEnabled, function() {
+          this.startContext({data: self})
+            .start()
+              .show(self.selectedObjects$.map(o => Object.keys(o).length > 0 ))
+              .style({
+                'display':'flex',
+                'justify-content':'flex-end',
+                'padding':'12px 0'
+              })
+              .add(multiSelectActions)
+            .end()
+          .endContext();
+          }).
         start(self.TableView, config).
           style({height: '600px'});
 
@@ -588,7 +604,7 @@ foam.CLASS({
         var cls   = block?.value?.value?.cls_;
 
         await block.value.waitForRun();
-        this.eval_(`dao(${block.flowName}.value.asDAO(), '${block.flowName}GroupBy')`);
+        this.eval_(`dao(${block.flowName}.valueDAO, '${block.flowName}GroupBy')`);
       }
     }
   ]
@@ -834,6 +850,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.core.reflow',

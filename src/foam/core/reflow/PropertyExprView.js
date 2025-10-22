@@ -94,13 +94,16 @@ foam.CLASS({
             classNames: ['foam.lang.DateTime', 'foam.lang.Date'],
             label: 'Date Format',
             choices: [
-              [ null,                               '--'         ],
-              [ foam.mlang.expr.DateToHHExpr,       'HH'         ],
-              [ foam.mlang.expr.DateToHHMMExpr,     'HH:MM'      ],
-              [ foam.mlang.expr.DateToHHMMSSExpr,   'HH:MM:SS'   ],
-              [ foam.mlang.expr.DateToYYYYMMDDExpr, 'YYYY/MM/DD' ],
-              [ foam.mlang.expr.DateToYYYYMMExpr,   'YYYY/MM'    ],
-              [ foam.mlang.expr.DateToYYYYExpr,     'YYYY'       ]
+              [ null,                                  '--'           ],
+              [ foam.mlang.expr.DateToHHExpr,          'HH'           ],
+              [ foam.mlang.expr.DateToHHMMExpr,        'HH:MM'        ],
+              [ foam.mlang.expr.DateToHHMMSSExpr,      'HH:MM:SS'     ],
+              [ foam.mlang.expr.DateToYYYYMMDDExpr,    'YYYY/MM/DD'   ],
+              [ foam.mlang.expr.DateToYYYYMMExpr,      'YYYY/MM'      ],
+              [ foam.mlang.expr.DateToYYYYExpr,        'YYYY'         ],
+              [ foam.mlang.expr.DateToWeekExpr,        'Week (YYYY-WWW)' ],
+              [ foam.mlang.expr.DateToQuarterExpr,     'Quarter (YYYY-QQ)' ],
+              [ foam.mlang.expr.DateToDayOfYearExpr,   'Day of Year (YYYY-DDD)' ]
             ]
           }
         ];

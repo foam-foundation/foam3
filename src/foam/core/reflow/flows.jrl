@@ -12,7 +12,7 @@ p({
 "script":
 """[
 	{
-		
+
 		"flowName": "users1",
 		"cmd": "dao user",
 		"value": {
@@ -25,12 +25,12 @@ p({
 		"borderClass": "foam.u2.borders.NullBorder",
 		"border": {
 			"cssClasses": [
-				
+
 			]
 		}
 	},
 	{
-		
+
 		"flowName": "accounts1",
 		"cmd": "dao account",
 		"value": {
@@ -46,9 +46,11 @@ p({
 		"borderClass": "foam.u2.borders.NullBorder",
 		"border": {
 			"cssClasses": [
-				
+
 			]
 		}
 	}
 ]"""
 })
+
+p({class:"foam.core.reflow.Flow",name:"Example DynamicX3",createdByAgent:59707642,spid:"paytic",version:4,script:"[\n\t{\n\t\t\n\t\t\"flowName\": \"regionsfilter1\",\n\t\t\"cmd\": \"daofilter regionDAO\",\n\t\t\"value\": {\n\t\t\t\"class\": \"foam.core.reflow.DAOFilterPrompt\",\n\t\t\t\"label\": \"Regions Filter\",\n\t\t\t\"filtersContainer\": {\n\t\t\t\t\"class\": \"foam.lang.internal.PropertySlot\"\n\t\t\t},\n\t\t\t\"predicate\": {\n\t\t\t\t\"class\": \"foam.mlang.predicate.True\"\n\t\t\t}\n\t\t},\n\t\t\"borderClass\": \"foam.u2.borders.NullBorder\",\n\t\t\"border\": {\n\t\t\t\"cssClasses\": [\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t},\n\t{\n\t\t\n\t\t\"flowName\": \"regions1\",\n\t\t\"cmd\": \"dao(\\\"regionsfilter1.filteredDAO\\\")\",\n\t\t\"value\": {\n\t\t\t\"class\": \"foam.core.reflow.DAOPrompt\",\n\t\t\t\"columns\": \"code,isoCode,name\",\n\t\t\t\"select\": {\n\t\t\t\t\"class\": \"foam.core.reflow.GroupByDAOAgent\",\n\t\t\t\t\"prop\": {\n\t\t\t\t\t\"class\": \"__Property__\",\n\t\t\t\t\t\"forClass_\": \"foam.core.auth.Region\",\n\t\t\t\t\t\"name\": \"countryId\"\n\t\t\t\t},\n\t\t\t\t\"sink\": {\n\t\t\t\t\t\"class\": \"foam.core.reflow.CountDAOAgent\"\n\t\t\t\t},\n\t\t\t\t\"groupLimit\": -1,\n\t\t\t\t\"browseEnabled\": true\n\t\t\t}\n\t\t},\n\t\t\"borderClass\": \"foam.u2.borders.NullBorder\",\n\t\t\"border\": {\n\t\t\t\"cssClasses\": [\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t},\n\t{\n\t\t\n\t\t\"flowName\": \"regions1groupby1\",\n\t\t\"cmd\": \"dao(regions1.valueDAO, 'regions1GroupBy')\",\n\t\t\"value\": {\n\t\t\t\"class\": \"foam.core.reflow.DAOPrompt\",\n\t\t\t\"label\": \"regions1GroupBy\",\n\t\t\t\"select\": {\n\t\t\t\t\"class\": \"foam.core.reflow.TableDAOAgent\",\n\t\t\t\t\"columns\": [\n\t\t\t\t\t\n\t\t\t\t]\n\t\t\t}\n\t\t},\n\t\t\"borderClass\": \"foam.u2.borders.NullBorder\",\n\t\t\"border\": {\n\t\t\t\"cssClasses\": [\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t},\n\t{\n\t\t\n\t\t\"flowName\": \"transform1\",\n\t\t\"cmd\": \"transform(\\\"regions1groupby1.filteredDAO\\\")\",\n\t\t\"value\": {\n\t\t\t\"class\": \"com.paytic.flow.transform.Transform\",\n\t\t\t\"daoKey\": \"regions1groupby1.filteredDAO\",\n\t\t\t\"calculations\": [\n\t\t\t\t{\n\t\t\t\t\t\n\t\t\t\t\t\"name\": \"test\",\n\t\t\t\t\t\"expression\": \"'test'\"\n\t\t\t\t}\n\t\t\t]\n\t\t},\n\t\t\"borderClass\": \"foam.u2.borders.NullBorder\",\n\t\t\"border\": {\n\t\t\t\"cssClasses\": [\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t},\n\t{\n\t\t\n\t\t\"flowName\": \"transform1data11\",\n\t\t\"cmd\": \"dao(transform1.data, 'transform1data1')\",\n\t\t\"value\": {\n\t\t\t\"class\": \"foam.core.reflow.DAOPrompt\",\n\t\t\t\"label\": \"transform1data1\",\n\t\t\t\"select\": {\n\t\t\t\t\"class\": \"foam.core.reflow.TableDAOAgent\",\n\t\t\t\t\"columns\": [\n\t\t\t\t\t\n\t\t\t\t]\n\t\t\t}\n\t\t},\n\t\t\"borderClass\": \"foam.u2.borders.NullBorder\",\n\t\t\"border\": {\n\t\t\t\"cssClasses\": [\n\t\t\t\t\n\t\t\t]\n\t\t}\n\t}\n]",created:1759941222532,createdBy:59707642,lastModified:1759941222532,lastModifiedBy:59707642,lastRun:1759935923629})

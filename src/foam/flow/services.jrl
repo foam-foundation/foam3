@@ -1,0 +1,27 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"localDocumentDAO",
+  "serve": false,
+  "serviceScript":
+  """
+  return new foam.dao.EasyDAO.Builder(x)
+    .setOf(foam.flow.Document.getOwnClassInfo())
+    .setAuthorize(false)
+    .setDecorator(new foam.flow.DocumentationFolderDAO(x))
+    .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "documentDAO",
+  "serve": true,
+  "serviceScript":
+  """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.flow.Document.getOwnClassInfo())
+      .setInnerDAO(x.get("localDocumentDAO"))
+      .build();
+  """,
+  "client": "{\"of\":\"foam.flow.Document\"\}"
+})

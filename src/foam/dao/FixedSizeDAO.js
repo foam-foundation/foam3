@@ -30,7 +30,8 @@ foam.CLASS({
     {
       class: 'FObjectProperty',
       of: 'foam.mlang.predicate.Predicate',
-      name: 'predicate'
+      name: 'predicate',
+      javaFactory: 'return foam.mlang.MLang.TRUE;'
     },
     {
       class: 'Int',
@@ -48,8 +49,14 @@ foam.CLASS({
       name: 'put_',
       javaCode: `
         obj = getDelegate().put_(x, obj);
+
+        // Short-circuit return to avoid unneeded count and removeAll walks
+        if ( ! getPredicate().f(obj) ) return obj;
+
         Count count = new Count();
         count = (Count) this.getDelegate().select(count);
+
+        // Trim data e.g, on MDAO, to fit the FixedSizeDAO
         if ( count.getValue() > getSize() + getSize() * getPurgePercent() / 100 ) {
           DAO delegate = this.getDelegate()
             .where(getPredicate())

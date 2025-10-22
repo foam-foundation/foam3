@@ -21,7 +21,7 @@ foam.POM({
     // groupId: ['', 'group-id', 'GROUP_ID', 'Group Id of User when creating new User', '3626', arg => GROUP_ID = arg],
     installOpts: ['', 'install-opts', 'INSTALL_OPTS', 'Options passed to the install script.', '', arg => INSTALL_OPTS = arg],
     remoteHostname: ['', 'remote-hostname', 'REMOTE_HOSTNAME', 'Hostname of remote instance to deploy to.', '', arg => REMOTE_HOSTNAME =arg ],
-    remoteInstallScriptLinux: ['', 'remote-install-script-linux', 'REMOTE_INSTALL_SCRIPT_LINUX', 'Path of intall script which is piped to the remote host and then executed to perform the actual remote installation', './foam3/tools/deploy/bin/install.sh', arg => REMOTE_INSTALL_SCRIPT_LINUX = arg],
+    remoteInstallScriptLinux: ['', 'remote-install-script-linux', 'REMOTE_INSTALL_SCRIPT_LINUX', 'Path of intall script which is piped to the remote host and then executed to perform the actual remote installation', () => `${FOAM_TOOLS_DIR}/deploy/bin/install.sh`, arg => REMOTE_INSTALL_SCRIPT_LINUX = arg],
     remoteInstallScript: ['', 'remote-install-script', 'REMOTE_INSTALL_SCRIPT', 'Platform specific intall script which is piped to the remote host and then executed to perform the actual remote installation.', function() {
       if ( REMOTE_PLATFORM === 'linux' )
         REMOTE_INSTALL_SCRIPT = REMOTE_INSTALL_SCRIPT_LINUX;

@@ -1,3 +1,4 @@
 p({"class":"foam.parse.test.QueryParserUserTest","id":"QueryParserUserTest"})
 p({"class":"foam.parse.test.QueryParserJSTest","id":"QueryParserJSTest"})
 p({"class":"foam.parse.test.FScriptParserTest","id":"FScriptParserTest"})
+p({"class":"foam.parse.test.SimpleQueryParserTest","id":"SimpleQueryParserTest"})

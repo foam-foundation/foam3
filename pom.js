@@ -29,6 +29,7 @@ foam.POM({
     'com.google.oauth-client:google-oauth-client-jetty:1.22.0 -org.mortbay.jetty',
     'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10',
     'com.twilio.sdk:twilio:7.50.1',
+    'com.vladsch.flexmark:flexmark-all:0.64.8',
     'commons-codec:commons-codec:1.18.0',
     'commons-io:commons-io:2.13.0',
     'commons-lang:commons-lang:2.6',

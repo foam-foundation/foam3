@@ -867,7 +867,7 @@ foam.CLASS({
     },
 
     // TODO: simplify in NP-8928
-    async function checkGeneralCapability() {
+    async function checkGeneralCapability(skipWizard = false) {
       var groupDAO = this.__subContext__.groupDAO;
       if ( ! this.subject.realUser || ! groupDAO ) return false;
       var group = await groupDAO.find(this.subject.realUser.group);
@@ -880,6 +880,7 @@ foam.CLASS({
         return true;
       }
 
+      if ( skipWizard ) return false;
       const wizardRunner = this.WizardRunner.create({
         wizardType: this.WizardType.UCJ,
         source: group.wizardFlow || group.generalCapability,

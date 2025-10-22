@@ -90,6 +90,7 @@ var pmake = function(...args) {
           if ( f.name.endsWith('build') || f.name.endsWith('build2') ) return;
           if ( f.name.indexOf('android') != -1 ) return;
           if ( f.name.indexOf('examples') != -1 ) return;
+          if ( f.name.indexOf('node_modules') != -1 ) return;
           if ( f.name.endsWith('test') && ! flags.test ) return;
           if ( f.name.endsWith('tests') && ! flags.test ) return;
           if ( ! this.isExcluded(pom, fn) ) processDir.bind(this, pom, fn, true)();

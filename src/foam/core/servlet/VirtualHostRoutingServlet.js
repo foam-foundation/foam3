@@ -293,9 +293,11 @@ foam.CLASS({
 
         out.println("<!-- Instantiate FOAM Application Controller -->");
         out.println("<!-- App Color Scheme, Logo, & Web App Name -->");
-        out.print("<foam\\nclass=\\""+ getController() +"\\"\\nid=\\"ctrl\\"\\nwebApp=\\"");
+        String controller = ! foam.util.SafetyUtil.isEmpty(theme.getAppController()) ? theme.getAppController() : getController();
+        String boot = ! foam.util.SafetyUtil.isEmpty(theme.getBootservices()) ? theme.getBootservices() : getBootservices();
+        out.print("<foam\\nclass=\\""+ controller +"\\"\\nid=\\"ctrl\\"\\nwebApp=\\"");
         out.print(theme.getAppName());
-        out.println("\\" bootservices=\\"" + getBootservices() + "\\">");
+        out.println("\\" bootservices=\\"" + boot + "\\">");
 
         out.print("<div id=\\"loading-container\\"");
         if ( useVariants ) {

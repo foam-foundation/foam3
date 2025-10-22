@@ -28,7 +28,12 @@ foam.CLASS({
 
   requires: [
     'foam.core.auth.User',
-    'foam.core.session.Session'
+    'foam.core.session.Session',
+    'foam.core.ticket.TicketComment'
+  ],
+
+  messages: [
+    { name: 'COMMENT_REQUIRED', message: 'Comment required.' }
   ],
 
   properties: [
@@ -54,6 +59,7 @@ foam.CLASS({
     },
     {
       name: 'comment',
+      section: 'infoSection',
       order: 6
     },
     {
@@ -227,6 +233,11 @@ foam.CLASS({
         return id && status !== 'CLOSED';
       },
       code: function(X) {
+        if ( ! this.comment ) {
+          this.notify(this.COMMENT_REQUIRED, '', this.LogLevel.ERROR, true);
+          return;
+        }
+
         var ticket = this.clone();
         ticket.status = "CLOSED";
 
@@ -240,6 +251,11 @@ foam.CLASS({
           this.notify(e.message, '', this.LogLevel.ERROR, true);
         });
       }
+    },
+    {
+      class: 'foam.comics.v3.ComicsAction',
+      name: 'save',
+      isAvailable: () => false
     }
   ]
 });

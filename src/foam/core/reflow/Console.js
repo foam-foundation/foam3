@@ -63,16 +63,25 @@ foam.CLASS({
     },
 
     function findFlowChildByName(n) {
-      return this.flowChildren.find(c => {
-        if ( c.flowName === n || (c.flowChildren?.length && c.findFlowChildByName(n)) )
-          return true;
-      });
+      let findEl = inputArr => {
+        if ( ! inputArr?.length ) return;
+        for ( v of inputArr ) {
+          if ( ! v ) continue;
+          if ( v.flowName === n ) {
+            return v;
+          }
+          let ret = findEl(v.flowChildren);
+          if ( ret ) return ret;
+        }
+      };
+      return findEl(this.flowChildren);
     },
 
     function addFlowChild(f) {
       if ( f.deleted_ ) return;
-      this.flowChildren$push(f);
+      f.flowParent = this;
       this.addFlowChild_ && this.addFlowChild_(f);
+      this.flowChildren$push(f);
     },
 
     function removeFlowChild(f) {
@@ -94,7 +103,6 @@ foam.CLASS({
       this.removeFlowChild_ && this.flowChildren.forEach(c => this.removeFlowChild_(c));
       this.flowChildren = [];
     }
-
   ]
 });
 
@@ -223,7 +231,7 @@ foam.CLASS({
                 horizontal: false
               })
               .start('span').addClass(this.myClass('separator')).end()
-              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c.name == 'CONSOLE' ? 'fullScreen' : 'minimize') })
+              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c == self.FlowMode.CONSOLE ? 'fullScreen' : 'minimize') })
             .endContext()
             // callIf(this.data.showPrompts$, function() {
             //   this.start().addClass(self.myClass('save-text'))
@@ -355,10 +363,14 @@ foam.CLASS({
       toolTip: 'Toggle Presentation Mode / ESC',
       label: '',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      isAvailable: function(data$flowMode) {
+        // Hide toggle button in PRESENTATION_ONLY mode
+        return data$flowMode != this.FlowMode.PRESENTATION_ONLY;
+      },
       code: function() {
-        if (this.data.flowMode.name == 'CONSOLE') {
+        if (this.data.flowMode == this.FlowMode.CONSOLE) {
           this.data.flowMode = this.FlowMode.PRESENTATION;
-        } else {
+        } else if (this.data.flowMode == this.FlowMode.PRESENTATION) {
           this.data.flowMode = this.FlowMode.CONSOLE;
         }
       }
@@ -809,7 +821,7 @@ foam.CLASS({
 foam.ENUM({
   package: 'foam.core.reflow',
   name: 'FlowMode',
-  values: [ 'CONSOLE', 'PRESENTATION' ]
+  values: [ 'CONSOLE', 'PRESENTATION', 'PRESENTATION_ONLY' ]
 });
 
 
@@ -835,7 +847,8 @@ foam.CLASS({
     'foam.core.reflow.Layout',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
-    'foam.u2.Link'
+    'foam.u2.Link',
+    'foam.u2.dialog.ConfirmationModal'
   ],
 
   imports: [
@@ -927,7 +940,12 @@ foam.CLASS({
         if ( n !== this.value.name ) {
           this.clearFlow();
           if ( n ) {
-            await this.eval_(`load("${n}")`);
+            // Check for autosaved script before loading
+            var autosaveLoaded = await this.checkForAutosavedScript(n);
+            // Only load from database if autosave wasn't loaded
+            if ( ! autosaveLoaded ) {
+              await this.eval_(`load("${n}")`);
+            }
             this.value.name = n;
             this.selected = this.currentBlock;
           }
@@ -1072,6 +1090,8 @@ foam.CLASS({
       if ( flow ) {
         await this.includeScript(flow.script);
       }
+
+      await this.eval_('postLoad', null, true);
     },
 
     async function includeScript(script, parent, skipParse) {
@@ -1085,6 +1105,7 @@ foam.CLASS({
         var c = cs[i];
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
+
         let args = { ...c };
         if ( args.value )
           delete args.value;
@@ -1100,13 +1121,14 @@ foam.CLASS({
 
         await this.currentBlock.value?.onLoad?.();
 
+        // CRITICAL: Refresh scope after value is fully set to ensure next command can access it
+        this.refreshFlowScope();
+
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
       }
 
-      // Call postLoad after all blocks have executed
-      await this.eval_('postLoad', null, true);
     },
 
     function clearFlow() {
@@ -1168,7 +1190,7 @@ foam.CLASS({
 
       layout.showLeft$  = this.showPrompts$;
       layout.showRight$ = this.showPrompts$;
-      layout.showHeader = true;
+      layout.showHeader$ = this.flowMode$.map(m => m != this.FlowMode.PRESENTATION_ONLY);
       layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
       layout.middle.call(this.renderSelf, [this]);
       layout.right.tag(this.ReflowConfigView, { data$: this.selected$});
@@ -1182,10 +1204,6 @@ foam.CLASS({
       if ( this.route ) {
         await this.ROUTE.postSet.call(this, '', this.route);
       }
-
-      // Check for autosaved script AFTER route is loaded and name is set
-      // Use setTimeout to ensure everything is fully initialized
-      this.setTimeout(() => this.checkForAutosavedScript(this.route), 100);
     },
 
     function renderSelf(self) {
@@ -1393,31 +1411,39 @@ foam.CLASS({
     function moveFlowChild(childName, parent) {
       // TODO: prevent cycles
       console.log('moveFlowChild', childName, parent.flowName);
-      // TODO: findFlowChildByName needs to work recursively
       var child = this.findFlowChildByName(childName);
       child.flowParent.removeFlowChild(child);
-      parent.addFlowChild(child);
+      // Can not use addFlowChild here as the child is detached in the above remove call, this casues cascade of issues when adding a detached child
+      // Better to just push into parent flow children manually and rebuild the script, the script rebuild will build all children in correct context
+      // parent.addFlowChild(child);
+      parent.flowChildren.push(child);
+      this.generateScript();
     },
 
     function moveFlowChildAfter(childName, target) {
-      var children = [...this.flowChildren];
-
-      var findPos = n => {
-        for ( var i = 0 ; i < children.length ; i++ ) {
-          if ( children[i] === n ) return i+1;
+      var findPos = (n, arr) => {
+        for ( var i = 0 ; i < arr.length ; i++ ) {
+          if ( arr[i] === n ) return i+1;
         }
         return 0;
       };
       console.log('moveFlowChildAfter', childName, target.flowName);
 
-      var child = this.findFlowChildByName(childName);
-      var i = findPos(child);
+      let child = this.findFlowChildByName(childName);
+      let targetFlow = target === this ? this : target.flowParent;
+      if ( child == targetFlow ) return;
+      // Remove from old position
       console.log('removing', i);
-      children.splice(i-1, 1);
-      i = findPos(target);
+      child.flowParent.removeFlowChild(child);
+
+      // Can not use addFlowChild here as the child is detached in the above remove call, this casues cascade of issues when adding a detached child
+      // Better to just push into parent flow children manually and rebuild the script, the script rebuild will build all children in correct context
+      let children = [...targetFlow.flowChildren];
+      i = findPos(target, children);
       console.log('inserting', i);
       children.splice(i, 0, child);
-      this.flowChildren = children;
+
+      targetFlow.flowChildren = children;
       this.generateScript();
     },
 
@@ -1474,23 +1500,23 @@ foam.CLASS({
     },
 
     async function checkForAutosavedScript(scriptName) {
-      // Don't retrieve autosave for unnamed flows
-      if ( ! scriptName ) return;
+      // Don't retrieve autosave for unnamed flows or in PRESENTATION_ONLY mode
+      if ( ! scriptName || this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return false;
 
       var autosaveData = this.loadAutosaveData(scriptName);
-      if ( ! autosaveData || ! autosaveData.script ) return;
+      if ( ! autosaveData || ! autosaveData.script ) return false;
 
       // Check if autosave differs from current script
       if ( autosaveData.script === this.value.script ) {
         // Autosave matches current - no need to prompt
-        return;
+        return false;
       }
 
       // Check if we have a saved version in the database
       var savedFlow = null;
-      if ( this.value.name ) {
+      if ( scriptName ) {
         try {
-          savedFlow = await this.flowDAO.find(this.value.name);
+          savedFlow = await this.flowDAO.find(scriptName);
         } catch (e) {
           // Flow doesn't exist in database yet
         }
@@ -1499,18 +1525,39 @@ foam.CLASS({
       // If autosave matches the saved version, no need to prompt
       if ( savedFlow && autosaveData.script === savedFlow.script ) {
         this.clearAutosave();
-        return;
+        return false;
       }
 
       // Autosave is different from both current and saved - prompt user
-      var shouldLoad = this.window.confirm('There are unsaved changes. Do you want to load them? Click OK to load, Cancel to discard.');
-      if ( shouldLoad ) {
-        this.value.script = autosaveData.script;
-        // Clear autosave after loading to prevent double prompt from onScriptNameChange
-        this.clearAutosave(scriptName);
-      } else {
-        this.clearAutosave(scriptName);
-      }
+      var self = this;
+      return new Promise((resolve) => {
+        var modal = self.ConfirmationModal.create({
+          title: 'Unsaved Changes Detected',
+          modalStyle: 'WARN',
+          maxWidth: '35vw',
+          closeable: false,
+          primaryAction: foam.lang.Action.create({
+            name: 'load',
+            label: 'Load Changes',
+            code: function() {
+              self.value.script = autosaveData.script;
+              self.clearAutosave(scriptName);
+              resolve(true);  // Return true - autosave was loaded
+            }
+          }),
+          secondaryAction: foam.lang.Action.create({
+            name: 'discard',
+            label: 'Discard',
+            code: function() {
+              self.clearAutosave(scriptName);
+              resolve(false);  // Return false - autosave was discarded
+            }
+          })
+        });
+
+        modal.add('There are unsaved changes. Do you want to load them?');
+        self.add(modal);
+      });
     }
   ],
 
@@ -1532,6 +1579,9 @@ foam.CLASS({
       name: 'toggleMode',
       // You can do this.showPrompts = true|false; from flow scripts
       code: function() {
+        // Don't allow toggling out of PRESENTATION_ONLY mode
+        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+
         this.flowMode = this.flowMode == this.FlowMode.CONSOLE ?
           this.FlowMode.PRESENTATION :
           this.FlowMode.CONSOLE ;
@@ -1603,16 +1653,30 @@ foam.CLASS({
 
         if ( existingData && existingData.script !== this.value.script ) {
           // There's already autosaved data for the new name that differs from current
-          var shouldLoad = this.window.confirm(
-            'The script name "' + newValue + '" already has different unsaved changes. ' +
-            'Click OK to load those changes, or Cancel to keep your current changes and overwrite.'
-          );
+          var self = this;
+          var modal = this.ConfirmationModal.create({
+            title: 'Existing Unsaved Changes',
+            modalStyle: 'WARN',
+            maxWidth: '35vw',
+            closeable: false,
+            primaryAction: foam.lang.Action.create({
+              name: 'load',
+              label: 'Load Changes',
+              code: function() {
+                self.value.script = existingData.script;
+              }
+            }),
+            secondaryAction: foam.lang.Action.create({
+              name: 'overwrite',
+              label: 'Keep Current',
+              code: function() {
+                // Keep current changes - autosave will naturally update with current script
+              }
+            })
+          });
 
-          if ( shouldLoad ) {
-            // Load the existing autosave data for the new name
-            this.value.script = existingData.script;
-          }
-          // else: Keep current changes - autosave will naturally update with current script
+          modal.add('The script name "' + newValue + '" already has different unsaved changes. Load those changes, or keep your current changes?');
+          this.add(modal);
         }
 
         // Clean up old autosave entries (from intermediate typing states)
@@ -1672,8 +1736,11 @@ foam.CLASS({
     {
       name: 'saveScriptToLocalStorage',
       isMerged: true,
-      delay: 500,
+      delay: 250,
       code: function() {
+        // Don't auto-save in PRESENTATION_ONLY mode
+        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+
         if ( ! this.value || ! this.value.script ) return;
 
         // Don't save unnamed flows to local storage

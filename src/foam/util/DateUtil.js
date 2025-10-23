@@ -593,6 +593,32 @@ foam.CLASS({
         format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
         date = format.parse(dateTimePart.substring(0, 14));
       }
+      // 2-digit year format with time and seconds: YY-MM-DD HH:MM:SS or YY/MM/DD HH:MM:SS
+      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{2} \\\\d{2}:\\\\d{2}:\\\\d{2}$") ) {
+        String normalized = dateTimePart.replaceAll("/", "-");
+        // Parse with 4-digit year format to get full control over year conversion
+        format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        format.setLenient(false);
+        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
+        // Extract 2-digit year and convert: 00-49 → 2000-2049, 50-99 → 1950-1999
+        int yy = Integer.parseInt(normalized.substring(0, 2));
+        int yyyy = yy < 50 ? 2000 + yy : 1900 + yy;
+        String fullDate = yyyy + normalized.substring(2);
+        date = format.parse(fullDate);
+      }
+      // 2-digit year format with time (no seconds): YY-MM-DD HH:MM or YY/MM/DD HH:MM
+      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{2} \\\\d{2}:\\\\d{2}$") ) {
+        String normalized = dateTimePart.replaceAll("/", "-");
+        // Parse with 4-digit year format to get full control over year conversion
+        format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        format.setLenient(false);
+        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
+        // Extract 2-digit year and convert: 00-49 → 2000-2049, 50-99 → 1950-1999
+        int yy = Integer.parseInt(normalized.substring(0, 2));
+        int yyyy = yy < 50 ? 2000 + yy : 1900 + yy;
+        String fullDate = yyyy + normalized.substring(2);
+        date = format.parse(fullDate);
+      }
       else {
         throw new RuntimeException("Unsupported DateTime format: " + d);
       }

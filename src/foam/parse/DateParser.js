@@ -138,16 +138,31 @@ foam.CLASS({
           'mmddyyyy-compact': str(repeat(range('0', '9'), null, 8)),
 
           // YYMMDD - tries all variants (compact, separated)
-          // Covers: YYMMDD, YY-MM-DD, YY/MM/DD
+          // Covers: YYMMDD, YY-MM-DD, YY/MM/DD with optional time
           yymmdd: alt(
             sym('yymmdd-compact'),
             sym('yymmdd-sep')
           ),
 
-          // YYMMDD with separators
-          // YY-MM-DD, YY/MM/DD
-          'yymmdd-sep': seq(
-            sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2')
+          // YYMMDD with separators and optional time
+          // YY-MM-DD, YY/MM/DD, YY-MM-DD HH:MM, YY-MM-DD HH:MM:SS with optional timezone
+          'yymmdd-sep': alt(
+            // With seconds and timezone
+            seq(
+              sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              optional(sym('timezone'))
+            ),
+            // With minutes and timezone
+            seq(
+              sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+              ' ', sym('hour2'), ':', sym('minute2'),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            seq(
+              sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2')
+            )
           ),
 
           // YYMMDD compact: 6 digits
@@ -293,15 +308,33 @@ foam.CLASS({
             };
           },
 
-          // YYMMDD with separators: YY-MM-DD, YY/MM/DD
-          // v = [YY, sep, MM, sep, DD]
+          // YYMMDD with separators: YY-MM-DD, YY/MM/DD with optional time and timezone
+          // v = [YY, sep, MM, sep, DD] or [YY, sep, MM, sep, DD, space, HH, :, MM, :, SS, timezone]
           'yymmdd-sep': function(v) {
             let twoDigitYear = parseInt(v[0]);
-            return {
+            let result = {
               year: self.convertTwoDigitYear(twoDigitYear),
               month: parseInt(v[2]) - 1,
               day: parseInt(v[4])
             };
+
+            // Check if time components are present
+            if ( v.length > 5 && v[6] !== undefined ) {
+              result.hour = parseInt(v[6]);
+              result.minute = parseInt(v[8]);
+
+              // Check if seconds are present (v[10] exists and is not timezone)
+              if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Check for timezone (last element if present)
+              if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[v.length - 1]);
+              } else if ( v[v.length - 1] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
           },
 
           // YYMMDD compact: 6 digits "250115"
@@ -471,22 +504,16 @@ foam.CLASS({
 
     {
       name: 'convertTwoDigitYear',
-      documentation: 'Converts 2-digit year using sliding window (50 years back, 50 years forward)',
+      documentation: 'Converts 2-digit year using fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999',
       code: function(twoDigitYear) {
-        let currentYear = new Date().getUTCFullYear();
-        let currentCentury = Math.floor(currentYear / 100) * 100;
-        let pivotYear = currentYear - 50;
-        let pivotCentury = Math.floor(pivotYear / 100) * 100;
-
-        // Try current century first
-        let year = currentCentury + twoDigitYear;
-
-        // If year is more than 50 years in the future, use previous century
-        if ( year > currentYear + 50 ) {
-          year = pivotCentury + twoDigitYear;
+        // Fixed pivot at 50:
+        // Years 00-49 map to 2000-2049
+        // Years 50-99 map to 1950-1999
+        if ( twoDigitYear < 50 ) {
+          return 2000 + twoDigitYear;
+        } else {
+          return 1900 + twoDigitYear;
         }
-
-        return year;
       }
     },
 

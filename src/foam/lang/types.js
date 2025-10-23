@@ -318,25 +318,42 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function (_, d) {
+        console.log('[DateTimeUTC.adapt] Called with:', d, 'type:', typeof d);
+
+        // Handle null/undefined
+        if ( d === null || d === undefined || d === '' ) {
+          console.log('[DateTimeUTC.adapt] Null/undefined/empty value');
+          return null;
+        }
+
         // Numbers (timestamps) - always preserve exact time
         if ( typeof d === 'number' ) {
+          console.log('[DateTimeUTC.adapt] Processing as number/timestamp');
           return new Date(d);
         }
 
         // Date objects - always preserve as-is
         if ( d instanceof Date ) {
+          console.log('[DateTimeUTC.adapt] Processing as Date object');
           return d;
         }
+
         // Use DateUtil.parseDateTimeUTC to ensure all string inputs
         // are parsed as UTC. Numbers and Date objects are always preserved exactly.
-        return foam.util.DateUtil.parseDateTimeUTC(d);
+        console.log('[DateTimeUTC.adapt] Processing as string via DateUtil.parseDateTimeUTC');
+        var result = foam.util.DateUtil.parseDateTimeUTC(d);
+        console.log('[DateTimeUTC.adapt] Result:', result);
+        return result;
       }
     },
     {
       name: 'format',
       value: function(val, timeFirst = false) {
         // Use DateUtil.format with UTC timezone for consistent UTC formatting
-        return foam.util.DateUtil.format(val, arguments.length > 1 ? timeFirst : null, 'UTC');
+        console.log('[DateTimeUTC.format] Called with:', val, 'timeFirst:', timeFirst);
+        var result = foam.util.DateUtil.format(val, arguments.length > 1 ? timeFirst : null, 'UTC');
+        console.log('[DateTimeUTC.format] Result:', result);
+        return result;
       }
     }
   ]

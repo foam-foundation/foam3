@@ -429,6 +429,33 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.u2.view',
+  name: 'DateTimeUTCTableCellFormatterRefinement',
+  refines: 'foam.lang.DateTimeUTC',
+
+  properties: [
+    {
+      class: 'foam.u2.view.TableCellFormatter',
+      name: 'tableCellFormatter',
+      value: function(date) {
+        if ( date ) {
+          // Format as UTC with time last (false) to match DateTime format
+          var formattedDate = foam.util.DateUtil.format(date, false, 'UTC');
+          this.add(formattedDate);
+          this.tooltip = formattedDate;
+        }
+      }
+    },
+    {
+      class: 'Int',
+      name: 'tableWidth',
+      value: 130
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2.view',
   name: 'DurationTableCellFormatterRefinement',
   refines: 'foam.lang.Duration',
   imports: [

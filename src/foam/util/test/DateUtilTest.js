@@ -76,6 +76,11 @@ foam.CLASS({
         DateUtilTest_parseDateTimeUTC_WithNegativeOffset();
         DateUtilTest_parseDateTimeUTC_TimezoneFormats();
         DateUtilTest_parseDateTime_WithTimezone();
+        DateUtilTest_parseDateTimeUTC_TwoDigitYearWithTime_Dash();
+        DateUtilTest_parseDateTimeUTC_TwoDigitYearWithTime_Slash();
+        DateUtilTest_parseDateTimeUTC_TwoDigitYear_SlidingWindow();
+        DateUtilTest_parseDateTimeUTC_TwoDigitYear_EdgeCases();
+        DateUtilTest_parseDateTimeUTC_TimeComponentPreservation();
       `
     },
     {
@@ -1232,6 +1237,301 @@ foam.CLASS({
 
         } catch ( Exception e ) {
           test(false, "parseDateTime should handle timezones: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_TwoDigitYearWithTime_Dash',
+      javaCode: `
+        try {
+          // Test 2-digit year with time (dash separator)
+          // Format: YY-MM-DD HH:MM:SS
+
+          // Test 1: 24-03-15 14:30:45 → March 15, 2024 14:30:45 UTC
+          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(dt1);
+
+          test(cal1.get(Calendar.YEAR) == 2024, "YY-MM-DD HH:MM:SS (24) - Year is 2024");
+          test(cal1.get(Calendar.MONTH) == 2, "YY-MM-DD HH:MM:SS - Month is March (2)");
+          test(cal1.get(Calendar.DAY_OF_MONTH) == 15, "YY-MM-DD HH:MM:SS - Day is 15");
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "YY-MM-DD HH:MM:SS - Hour is 14 UTC");
+          test(cal1.get(Calendar.MINUTE) == 30, "YY-MM-DD HH:MM:SS - Minute is 30");
+          test(cal1.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS - Second is 45");
+
+          // Test 2: 99-03-15 14:30:45 → March 15, 1999 14:30:45 UTC (using sliding window)
+          Date dt2 = DateUtil.parseDateTimeUTC("99-03-15 14:30:45");
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+
+          // Calculate expected year using sliding window
+          Calendar currentCal = Calendar.getInstance();
+          int currentYear = currentCal.get(Calendar.YEAR);
+          int currentCentury = (currentYear / 100) * 100;
+          int expectedYear99 = currentCentury + 99;
+          if ( expectedYear99 > currentYear + 50 ) {
+            expectedYear99 = currentCentury - 100 + 99;
+          }
+
+          test(cal2.get(Calendar.YEAR) == expectedYear99, "YY-MM-DD HH:MM:SS (99) - Year is " + expectedYear99);
+          test(cal2.get(Calendar.MONTH) == 2, "YY-MM-DD HH:MM:SS (99) - Month is March (2)");
+          test(cal2.get(Calendar.DAY_OF_MONTH) == 15, "YY-MM-DD HH:MM:SS (99) - Day is 15");
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "YY-MM-DD HH:MM:SS (99) - Hour is 14 UTC");
+          test(cal2.get(Calendar.MINUTE) == 30, "YY-MM-DD HH:MM:SS (99) - Minute is 30");
+          test(cal2.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS (99) - Second is 45");
+
+          // Test 3: Without seconds - 24-03-15 14:30 → March 15, 2024 14:30:00 UTC
+          Date dt3 = DateUtil.parseDateTimeUTC("24-03-15 14:30");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(dt3);
+
+          test(cal3.get(Calendar.YEAR) == 2024, "YY-MM-DD HH:MM (no seconds) - Year is 2024");
+          test(cal3.get(Calendar.HOUR_OF_DAY) == 14, "YY-MM-DD HH:MM - Hour is 14 UTC");
+          test(cal3.get(Calendar.MINUTE) == 30, "YY-MM-DD HH:MM - Minute is 30");
+          test(cal3.get(Calendar.SECOND) == 0, "YY-MM-DD HH:MM - Second defaults to 0");
+
+        } catch ( Exception e ) {
+          test(false, "Should parse 2-digit year with time (dash): " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_TwoDigitYearWithTime_Slash',
+      javaCode: `
+        try {
+          // Test 2-digit year with time (slash separator)
+          // Format: YY/MM/DD HH:MM:SS
+
+          // Test 1: 24/03/15 08:15:30 → March 15, 2024 08:15:30 UTC
+          Date dt1 = DateUtil.parseDateTimeUTC("24/03/15 08:15:30");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(dt1);
+
+          test(cal1.get(Calendar.YEAR) == 2024, "YY/MM/DD HH:MM:SS (24) - Year is 2024");
+          test(cal1.get(Calendar.MONTH) == 2, "YY/MM/DD HH:MM:SS - Month is March (2)");
+          test(cal1.get(Calendar.DAY_OF_MONTH) == 15, "YY/MM/DD HH:MM:SS - Day is 15");
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 8, "YY/MM/DD HH:MM:SS - Hour is 8 UTC");
+          test(cal1.get(Calendar.MINUTE) == 15, "YY/MM/DD HH:MM:SS - Minute is 15");
+          test(cal1.get(Calendar.SECOND) == 30, "YY/MM/DD HH:MM:SS - Second is 30");
+
+          // Test 2: Without seconds - 24/03/15 08:15 → March 15, 2024 08:15:00 UTC
+          Date dt2 = DateUtil.parseDateTimeUTC("24/03/15 08:15");
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+
+          test(cal2.get(Calendar.YEAR) == 2024, "YY/MM/DD HH:MM (no seconds) - Year is 2024");
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 8, "YY/MM/DD HH:MM - Hour is 8 UTC");
+          test(cal2.get(Calendar.MINUTE) == 15, "YY/MM/DD HH:MM - Minute is 15");
+          test(cal2.get(Calendar.SECOND) == 0, "YY/MM/DD HH:MM - Second defaults to 0");
+
+          // Test 3: With timezone Z - 24/03/15 08:15:30Z → March 15, 2024 08:15:30 UTC
+          Date dt3 = DateUtil.parseDateTimeUTC("24/03/15 08:15:30Z");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(dt3);
+
+          test(cal3.get(Calendar.YEAR) == 2024, "YY/MM/DD HH:MM:SSZ - Year is 2024");
+          test(cal3.get(Calendar.HOUR_OF_DAY) == 8, "YY/MM/DD HH:MM:SSZ - Hour is 8 UTC");
+          test(cal3.get(Calendar.MINUTE) == 15, "YY/MM/DD HH:MM:SSZ - Minute is 15");
+          test(cal3.get(Calendar.SECOND) == 30, "YY/MM/DD HH:MM:SSZ - Second is 30");
+
+        } catch ( Exception e ) {
+          test(false, "Should parse 2-digit year with time (slash): " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_TwoDigitYear_SlidingWindow',
+      javaCode: `
+        try {
+          // Test 2-digit year sliding window behavior with time
+          // Years 00-49 should map to 2000-2049
+          // Years 50-99 should map to 1950-1999
+
+          Calendar currentCal = Calendar.getInstance();
+          int currentYear = currentCal.get(Calendar.YEAR);
+          int currentCentury = (currentYear / 100) * 100;
+
+          // Test boundary at 00
+          Date dt00 = DateUtil.parseDateTimeUTC("00-01-01 12:00:00");
+          Calendar cal00 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal00.setTime(dt00);
+          int expected00 = currentCentury;
+          if ( expected00 > currentYear + 50 ) {
+            expected00 = currentCentury - 100;
+          }
+          test(cal00.get(Calendar.YEAR) == expected00, "YY=00 with time maps to " + expected00 + " (got " + cal00.get(Calendar.YEAR) + ")");
+          test(cal00.get(Calendar.HOUR_OF_DAY) == 12, "YY=00 - Hour is 12");
+
+          // Test boundary at 25 (should be in 2000s range)
+          Date dt25 = DateUtil.parseDateTimeUTC("25-06-15 15:30:45");
+          Calendar cal25 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal25.setTime(dt25);
+          int expected25 = currentCentury + 25;
+          if ( expected25 > currentYear + 50 ) {
+            expected25 = currentCentury - 100 + 25;
+          }
+          test(cal25.get(Calendar.YEAR) == expected25, "YY=25 with time maps to " + expected25 + " (got " + cal25.get(Calendar.YEAR) + ")");
+          test(cal25.get(Calendar.HOUR_OF_DAY) == 15, "YY=25 - Hour is 15");
+          test(cal25.get(Calendar.MINUTE) == 30, "YY=25 - Minute is 30");
+
+          // Test boundary at 49 (last year in 2000s range) - fixed pivot at 50
+          Date dt49 = DateUtil.parseDateTimeUTC("49-12-31 23:59:59");
+          Calendar cal49 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal49.setTime(dt49);
+          // Fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999
+          int expected49 = 2049;
+          test(cal49.get(Calendar.YEAR) == expected49, "YY=49 with time maps to " + expected49 + " (got " + cal49.get(Calendar.YEAR) + ")");
+          test(cal49.get(Calendar.HOUR_OF_DAY) == 23, "YY=49 - Hour is 23");
+          test(cal49.get(Calendar.SECOND) == 59, "YY=49 - Second is 59");
+
+          // Test boundary at 50 (first year in 1900s range) - fixed pivot at 50
+          Date dt50 = DateUtil.parseDateTimeUTC("50-01-01 00:00:00");
+          Calendar cal50 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal50.setTime(dt50);
+          // Fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999
+          int expected50 = 1950;
+          test(cal50.get(Calendar.YEAR) == expected50, "YY=50 with time maps to " + expected50 + " (got " + cal50.get(Calendar.YEAR) + ")");
+          test(cal50.get(Calendar.HOUR_OF_DAY) == 0, "YY=50 - Hour is 0");
+
+          // Test at 75 (should be in 1900s range) - fixed pivot at 50
+          Date dt75 = DateUtil.parseDateTimeUTC("75-06-15 18:45:30");
+          Calendar cal75 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal75.setTime(dt75);
+          // Fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999
+          int expected75 = 1975;
+          test(cal75.get(Calendar.YEAR) == expected75, "YY=75 with time maps to " + expected75 + " (got " + cal75.get(Calendar.YEAR) + ")");
+          test(cal75.get(Calendar.HOUR_OF_DAY) == 18, "YY=75 - Hour is 18");
+
+        } catch ( Exception e ) {
+          test(false, "Should handle 2-digit year sliding window with time: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_TwoDigitYear_EdgeCases',
+      javaCode: `
+        try {
+          // Test edge cases for 2-digit year with time and timezone
+
+          // Test 1: With timezone Z
+          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45Z");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(dt1);
+
+          test(cal1.get(Calendar.YEAR) == 2024, "YY-MM-DD HH:MM:SSZ - Year is 2024");
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "YY-MM-DD HH:MM:SSZ - Hour is 14 UTC");
+          test(cal1.get(Calendar.MINUTE) == 30, "YY-MM-DD HH:MM:SSZ - Minute is 30");
+
+          // Test 2: With positive timezone offset +05:30
+          // 24-03-15 14:30:45+05:30 → March 15, 2024 09:00:45 UTC
+          Date dt2 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+05:30");
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+
+          test(cal2.get(Calendar.YEAR) == 2024, "YY-MM-DD HH:MM:SS+05:30 - Year is 2024");
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 9, "YY-MM-DD HH:MM:SS+05:30 - Hour is 9 UTC (14:30 - 5:30)");
+          test(cal2.get(Calendar.MINUTE) == 0, "YY-MM-DD HH:MM:SS+05:30 - Minute is 0");
+          test(cal2.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS+05:30 - Second is 45");
+
+          // Test 3: With negative timezone offset -08:00
+          // 24-03-15 14:30:45-08:00 → March 15, 2024 22:30:45 UTC
+          Date dt3 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45-08:00");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(dt3);
+
+          test(cal3.get(Calendar.YEAR) == 2024, "YY-MM-DD HH:MM:SS-08:00 - Year is 2024");
+          test(cal3.get(Calendar.HOUR_OF_DAY) == 22, "YY-MM-DD HH:MM:SS-08:00 - Hour is 22 UTC (14:30 + 8:00)");
+          test(cal3.get(Calendar.MINUTE) == 30, "YY-MM-DD HH:MM:SS-08:00 - Minute is 30");
+          test(cal3.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS-08:00 - Second is 45");
+
+          // Test 4: Timezone offset without colon +0530
+          Date dt4 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+0530");
+          Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal4.setTime(dt4);
+
+          test(cal4.get(Calendar.YEAR) == 2024, "YY-MM-DD HH:MM:SS+0530 - Year is 2024");
+          test(cal4.get(Calendar.HOUR_OF_DAY) == 9, "YY-MM-DD HH:MM:SS+0530 - Hour is 9 UTC");
+
+          // Test 5: With slash separator and timezone
+          Date dt5 = DateUtil.parseDateTimeUTC("24/03/15 14:30:45+05:30");
+          Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal5.setTime(dt5);
+
+          test(cal5.get(Calendar.YEAR) == 2024, "YY/MM/DD HH:MM:SS+05:30 - Year is 2024");
+          test(cal5.get(Calendar.HOUR_OF_DAY) == 9, "YY/MM/DD HH:MM:SS+05:30 - Hour is 9 UTC");
+
+          // Test 6: Leap year with 2-digit year - 24-02-29 14:30:45
+          Date dt6 = DateUtil.parseDateTimeUTC("24-02-29 14:30:45");
+          Calendar cal6 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal6.setTime(dt6);
+
+          test(cal6.get(Calendar.YEAR) == 2024, "YY-MM-DD leap year - Year is 2024");
+          test(cal6.get(Calendar.MONTH) == 1, "YY-MM-DD leap year - Month is February (1)");
+          test(cal6.get(Calendar.DAY_OF_MONTH) == 29, "YY-MM-DD leap year - Day is 29");
+          test(cal6.get(Calendar.HOUR_OF_DAY) == 14, "YY-MM-DD leap year - Hour is 14");
+
+        } catch ( Exception e ) {
+          test(false, "Should handle 2-digit year edge cases: " + e.getMessage());
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_parseDateTimeUTC_TimeComponentPreservation',
+      javaCode: `
+        try {
+          // Test that time components are preserved correctly across different formats
+
+          // Test 1: Midnight
+          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 00:00:00");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(dt1);
+          test(cal1.get(Calendar.HOUR_OF_DAY) == 0, "Midnight - Hour is 0");
+          test(cal1.get(Calendar.MINUTE) == 0, "Midnight - Minute is 0");
+          test(cal1.get(Calendar.SECOND) == 0, "Midnight - Second is 0");
+
+          // Test 2: Noon
+          Date dt2 = DateUtil.parseDateTimeUTC("24/03/15 12:00:00");
+          Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal2.setTime(dt2);
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 12, "Noon - Hour is 12");
+          test(cal2.get(Calendar.MINUTE) == 0, "Noon - Minute is 0");
+          test(cal2.get(Calendar.SECOND) == 0, "Noon - Second is 0");
+
+          // Test 3: End of day
+          Date dt3 = DateUtil.parseDateTimeUTC("24-12-31 23:59:59");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(dt3);
+          test(cal3.get(Calendar.HOUR_OF_DAY) == 23, "End of day - Hour is 23");
+          test(cal3.get(Calendar.MINUTE) == 59, "End of day - Minute is 59");
+          test(cal3.get(Calendar.SECOND) == 59, "End of day - Second is 59");
+
+          // Test 4: Single-digit hours/minutes/seconds (should fail or require leading zeros)
+          // The format requires HH:MM:SS (2 digits each)
+          // This test verifies that the parser is strict about digit counts
+
+          // Test 5: Time preservation across timezone conversion
+          // Local time 14:30:45+05:30 → UTC 09:00:45
+          Date dt5 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+05:30");
+          Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal5.setTime(dt5);
+
+          // Verify the timezone conversion was correct
+          test(cal5.get(Calendar.HOUR_OF_DAY) == 9, "Timezone conversion - Hour is 9 UTC");
+          test(cal5.get(Calendar.MINUTE) == 0, "Timezone conversion - Minute is 0");
+          test(cal5.get(Calendar.SECOND) == 45, "Timezone conversion - Second is 45 (preserved)");
+
+          // Test 6: Date rollover due to timezone
+          // 2024-03-15 23:30:00-08:00 → 2024-03-16 07:30:00 UTC (next day)
+          Date dt6 = DateUtil.parseDateTimeUTC("24-03-15 23:30:00-08:00");
+          Calendar cal6 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal6.setTime(dt6);
+
+          test(cal6.get(Calendar.DAY_OF_MONTH) == 16, "Timezone date rollover - Day is 16 (rolled to next day)");
+          test(cal6.get(Calendar.HOUR_OF_DAY) == 7, "Timezone date rollover - Hour is 7 UTC");
+          test(cal6.get(Calendar.MINUTE) == 30, "Timezone date rollover - Minute is 30");
+
+        } catch ( Exception e ) {
+          test(false, "Should preserve time components correctly: " + e.getMessage());
         }
       `
     }

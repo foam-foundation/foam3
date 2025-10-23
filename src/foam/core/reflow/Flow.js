@@ -72,7 +72,7 @@ foam.CLASS({
       class: 'String',
       name: 'name',
       section: 'general',
-      onKey: true
+      onKey: false
     },
     {
       class: 'String',

@@ -372,13 +372,13 @@ foam.CLASS({
       type: 'String',
       documentation: 'Formats a date/datetime using locale default format in the specified timezone (or system default if not provided)',
       code: function(date, timezone) {
-        if ( date === undefined || date === null ) {
-          return '';
-        }
-        if ( typeof date === 'number' ) date = new Date(date);
-        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) {
-          return '';
-        }
+        // if ( date === undefined || date === null ) {
+        //   return '';
+        // }
+        // if ( typeof date === 'number' ) date = new Date(date);
+        // if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) {
+        //   return '';
+        // }
 
         // Use provided timezone or default to system timezone
         // Empty string or falsy values default to undefined (system timezone)

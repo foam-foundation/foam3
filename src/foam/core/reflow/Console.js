@@ -947,7 +947,6 @@ foam.CLASS({
         if ( n !== this.value.name ) {
           this.clearFlow();
           if ( n ) {
-            console.log('Loading flow:', n,'flowmode', this.flowMode );
             // Check for autosaved script before loading
             var autosaveLoaded = await this.checkForAutosavedScript(n);
             // Only load from database if autosave wasn't loaded

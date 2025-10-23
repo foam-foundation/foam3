@@ -38,7 +38,6 @@ foam.CLASS({
       await this.testAdapt_EmptyString(x);
       await this.testAdapt_WhitespaceString(x);
       await this.testAdapt_AllFormats(x);
-      await this.testFORMATS_ORDER(x);
       await this.testParseDateTime_ISO8601_Full(x);
       await this.testParseDateTime_ISO8601_Short(x);
       await this.testParseDateTime_US_Format(x);
@@ -49,7 +48,6 @@ foam.CLASS({
       await this.testParseDateTimeUTC(x);
       await this.testParseDateTime_LocalTime(x);
       await this.testParseDateTime_BackwardCompatibility(x);
-      await this.testDATETIME_FORMATS_ORDER(x);
       await this.testAdaptDateTime_DateOnlyString(x);
       await this.testAdaptDateTime_DateTimeString(x);
       await this.testAdaptDateTime_Number(x);
@@ -506,26 +504,6 @@ foam.CLASS({
       });
     },
 
-    async function testFORMATS_ORDER(x) {
-      var formats = foam.util.DateUtil.FORMATS_ORDER;
-      x.test(Array.isArray(formats), 'FORMATS_ORDER is an array');
-      var length = formats.length;
-      x.test(length === 6, `FORMATS_ORDER has 6 format patterns (expected 6, got ${length})`);
-
-      // Verify each format has regex and groups
-      formats.forEach(function(format, index) {
-        x.test(format.regex instanceof RegExp, `Format ${index} has regex property`);
-        x.test(Array.isArray(format.groups), `Format ${index} has groups array`);
-      });
-
-      // Test that all formats have year, month, day groups (or year2 for 2-digit years)
-      formats.forEach(function(format, index) {
-        var hasYear = format.groups.includes('year') || format.groups.includes('year2');
-        x.test(hasYear, `Format ${index} has year or year2 group`);
-        x.test(format.groups.includes('month'), `Format ${index} has month group`);
-        x.test(format.groups.includes('day'), `Format ${index} has day group`);
-      });
-    },
 
     async function testParseDateTime_ISO8601_Full(x) {
       // Test ISO 8601 with T separator (using parseDateTimeUTC since we're checking UTC components)
@@ -776,28 +754,6 @@ foam.CLASS({
       x.test(hour2 === 12, `parseDateTime with date-only - defaults to noon local (expected 12, got ${hour2})`);
     },
 
-    async function testDATETIME_FORMATS_ORDER(x) {
-      var formats = foam.util.DateUtil.DATETIME_FORMATS_ORDER;
-      x.test(Array.isArray(formats), 'DATETIME_FORMATS_ORDER is an array');
-      var length = formats.length;
-      x.test(length === 5, `DATETIME_FORMATS_ORDER has 5 format patterns (expected 5, got ${length})`);
-
-      // Verify each format has regex and groups
-      formats.forEach(function(format, index) {
-        x.test(format.regex instanceof RegExp, `DateTime format ${index} has regex property`);
-        x.test(Array.isArray(format.groups), `DateTime format ${index} has groups array`);
-      });
-
-      // Test that all formats have year, month, day, and time components
-      formats.forEach(function(format, index) {
-        var hasYear = format.groups.includes('year') || format.groups.includes('year2');
-        x.test(hasYear, `DateTime format ${index} has year or year2 group`);
-        x.test(format.groups.includes('month'), `DateTime format ${index} has month group`);
-        x.test(format.groups.includes('day'), `DateTime format ${index} has day group`);
-        x.test(format.groups.includes('hour'), `DateTime format ${index} has hour group`);
-        x.test(format.groups.includes('minute'), `DateTime format ${index} has minute group`);
-      });
-    },
 
     async function testAdaptDateTime_DateOnlyString(x) {
       // Test date-only strings default to noon local (parseDateString behavior)

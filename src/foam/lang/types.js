@@ -349,9 +349,9 @@ foam.CLASS({
     {
       name: 'format',
       value: function(val, timeFirst = false) {
-        // Use DateUtil.format with UTC timezone for consistent UTC formatting
+        // Use DateUtil.formatWithTimeControl with timeFirst parameter and UTC timezone
         console.log('[DateTimeUTC.format] Called with:', val, 'timeFirst:', timeFirst);
-        var result = foam.util.DateUtil.format(val, arguments.length > 1 ? timeFirst : null, 'UTC');
+        var result = foam.util.DateUtil.formatWithTimeControl(val, timeFirst, 'UTC');
         console.log('[DateTimeUTC.format] Result:', result);
         return result;
       }

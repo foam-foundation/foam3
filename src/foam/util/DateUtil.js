@@ -441,6 +441,44 @@ foam.CLASS({
     },
     {
       name: 'format',
+      args: 'java.util.Date date, String timezone',
+      type: 'String',
+      documentation: 'Formats a date/datetime using locale default format in the specified timezone (or system default if not provided)',
+      code: function(date, timezone) {
+        if ( date === undefined || date === null ) return '';
+        if ( typeof date === 'number' ) date = new Date(date);
+        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) return '';
+
+        // Use provided timezone or default to system timezone
+        // Empty string or falsy values default to undefined (system timezone)
+        var tz = timezone || undefined; // undefined means system default
+
+        try {
+          // Use toLocaleString for natural locale formatting (includes both date and time)
+          return date.toLocaleString(foam.locale, {
+            timeZone: tz
+          });
+        } catch (e) {
+          // Invalid timezone or formatting error - return empty string
+          console.warn('DateUtil.format error:', e.message, 'timezone:', timezone);
+          return '';
+        }
+      },
+      javaCode: `
+        // Format date in specified timezone using locale default format
+        if ( date == null ) return "";
+
+        // Use provided timezone or default to system timezone
+        String tz = timezone != null ? timezone : java.util.TimeZone.getDefault().getID();
+
+        // Use standard locale datetime format (medium style for both date and time)
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss");
+        format.setTimeZone(java.util.TimeZone.getTimeZone(tz));
+        return format.format(date);
+      `
+    },
+    {
+      name: 'formatWithTimeControl',
       args: 'java.util.Date date, Object timeFirst, String timezone',
       type: 'String',
       documentation: 'Formats a date in the specified timezone (or system default if not provided). timeFirst can be null/undefined (date only), true (time then date), or false (date then time)',
@@ -477,9 +515,9 @@ foam.CLASS({
                + formattedDate
                + ( ! timeFirst ? ' ' + formattedTime : '' );
         } catch (e) {
-          // Invalid timezone or formatting error - fallback to ISO string
-          console.warn('DateUtil.format error:', e.message, 'timezone:', timezone);
-          return date.toISOString();
+          // Invalid timezone or formatting error - return empty string
+          console.warn('DateUtil.formatWithTimeControl error:', e.message, 'timezone:', timezone);
+          return '';
         }
       },
       javaCode: `
@@ -653,6 +691,16 @@ foam.CLASS({
     // Java method overload for parseDateString (1-parameter version for backward compatibility)
     public static Date parseDateString(String d) {
       return parseDateString(d, null);
+    }
+
+    // Java method overload for format (1-parameter version for backward compatibility)
+    public static String format(Date date) {
+      return format(date, (String) null);
+    }
+
+    // Java method overload for formatWithTimeControl (2-parameter versions for backward compatibility)
+    public static String formatWithTimeControl(Date date, Object timeFirst) {
+      return formatWithTimeControl(date, timeFirst, null);
     }
 
     // Java method overloads (2-parameter versions)

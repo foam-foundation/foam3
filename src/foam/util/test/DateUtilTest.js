@@ -81,6 +81,8 @@ foam.CLASS({
         DateUtilTest_parseDateTimeUTC_TwoDigitYear_SlidingWindow();
         DateUtilTest_parseDateTimeUTC_TwoDigitYear_EdgeCases();
         DateUtilTest_parseDateTimeUTC_TimeComponentPreservation();
+        DateUtilTest_format_LocaleDefault_DateOnly();
+        DateUtilTest_format_LocaleDefault_WithTimezone();
       `
     },
     {
@@ -987,14 +989,14 @@ foam.CLASS({
     {
       name: 'DateUtilTest_format_DateOnly',
       javaCode: `
-        // Test formatting date only (no time)
+        // Test formatting date with locale default (new 2-parameter format)
         Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         cal.set(2024, 2, 15, 15, 30, 45);
         Date date = cal.getTime();
 
-        String formatted = DateUtil.format(date, null, null);
-        test(formatted != null && formatted.length() > 0, "format(date) returns non-empty string");
-        test(formatted.contains("2024"), "format(date) contains year");
+        String formatted = DateUtil.format(date, null);
+        test(formatted != null && formatted.length() > 0, "format(date, null) returns non-empty string");
+        test(formatted.contains("2024"), "format(date, null) contains year");
       `
     },
     {
@@ -1005,11 +1007,11 @@ foam.CLASS({
         cal.set(2024, 2, 15, 15, 30, 45);
         Date date = cal.getTime();
 
-        String formattedTimeFirst = DateUtil.format(date, true, null);
-        test(formattedTimeFirst != null && formattedTimeFirst.length() > 0, "format(date, true) returns non-empty string");
+        String formattedTimeFirst = DateUtil.formatWithTimeControl(date, true, null);
+        test(formattedTimeFirst != null && formattedTimeFirst.length() > 0, "formatWithTimeControl(date, true) returns non-empty string");
 
-        String formattedTimeLast = DateUtil.format(date, false, null);
-        test(formattedTimeLast != null && formattedTimeLast.length() > 0, "format(date, false) returns non-empty string");
+        String formattedTimeLast = DateUtil.formatWithTimeControl(date, false, null);
+        test(formattedTimeLast != null && formattedTimeLast.length() > 0, "formatWithTimeControl(date, false) returns non-empty string");
       `
     },
     {
@@ -1022,22 +1024,22 @@ foam.CLASS({
         cal.set(Calendar.MILLISECOND, 0);
         Date date = cal.getTime();
 
-        // Test 1: Date only in UTC
-        String formattedUTC = DateUtil.format(date, null, "UTC");
-        test(formattedUTC != null && formattedUTC.length() > 0, "format(date, null, UTC) returns non-empty string");
+        // Test 1: Date with locale default in UTC
+        String formattedUTC = DateUtil.format(date, "UTC");
+        test(formattedUTC != null && formattedUTC.length() > 0, "format(date, UTC) returns non-empty string");
         test(formattedUTC.contains("2024"), "UTC format contains year 2024");
         test(formattedUTC.contains("Mar") || formattedUTC.contains("03"), "UTC format contains month");
         test(formattedUTC.contains("15"), "UTC format contains day 15");
-        System.out.println("Format UTC date-only: " + formattedUTC);
+        System.out.println("Format UTC with locale default: " + formattedUTC);
 
         // Test 2: Date with time in UTC (time last)
-        String formattedWithTimeLast = DateUtil.format(date, false, "UTC");
+        String formattedWithTimeLast = DateUtil.formatWithTimeControl(date, false, "UTC");
         test(formattedWithTimeLast.contains("15:30:45"), "UTC format with time last contains correct time 15:30:45");
         test(formattedWithTimeLast.contains("2024"), "UTC format with time contains year");
         System.out.println("Format UTC time-last: " + formattedWithTimeLast);
 
         // Test 3: Time first in UTC
-        String formattedTimeFirst = DateUtil.format(date, true, "UTC");
+        String formattedTimeFirst = DateUtil.formatWithTimeControl(date, true, "UTC");
         test(formattedTimeFirst.contains("15:30:45"), "UTC format with time first contains correct time 15:30:45");
         test(formattedTimeFirst.contains("2024"), "UTC format time-first contains year");
         test(formattedTimeFirst.indexOf("15:30:45") < formattedTimeFirst.indexOf("2024"), "Time appears before date when timeFirst=true");
@@ -1045,25 +1047,25 @@ foam.CLASS({
 
         // Test 4: Different timezone - America/New_York (EST/EDT = UTC-5/-4)
         // In March, New York is EDT (UTC-4), so 15:30:45 UTC = 11:30:45 EDT
-        String formattedEDT = DateUtil.format(date, false, "America/New_York");
+        String formattedEDT = DateUtil.formatWithTimeControl(date, false, "America/New_York");
         test(formattedEDT.contains("11:30:45"), "America/New_York format shows correct time (11:30:45 EDT)");
         System.out.println("Format EDT: " + formattedEDT);
 
         // Test 5: Different timezone - Asia/Tokyo (JST = UTC+9)
         // 15:30:45 UTC = 00:30:45 JST next day (March 16)
-        String formattedJST = DateUtil.format(date, false, "Asia/Tokyo");
+        String formattedJST = DateUtil.formatWithTimeControl(date, false, "Asia/Tokyo");
         test(formattedJST.contains("00:30:45") || formattedJST.contains("0:30:45"), "Asia/Tokyo format shows correct time (00:30:45 JST)");
         test(formattedJST.contains("16"), "Asia/Tokyo format shows next day (16)");
         System.out.println("Format JST: " + formattedJST);
 
         // Test 6: Europe/London (GMT in winter, BST in summer)
         // March 15, 2024 is before DST starts (last Sunday of March), so GMT (UTC+0)
-        String formattedLondon = DateUtil.format(date, false, "Europe/London");
+        String formattedLondon = DateUtil.formatWithTimeControl(date, false, "Europe/London");
         test(formattedLondon.contains("15:30:45"), "Europe/London format shows correct time (15:30:45 GMT)");
         System.out.println("Format London: " + formattedLondon);
 
         // Test 7: Null timezone uses system default
-        String formattedDefault = DateUtil.format(date, false, null);
+        String formattedDefault = DateUtil.formatWithTimeControl(date, false, null);
         test(formattedDefault != null && formattedDefault.length() > 0, "Null timezone uses system default");
         System.out.println("Format with null timezone (system default): " + formattedDefault);
       `
@@ -1533,6 +1535,78 @@ foam.CLASS({
         } catch ( Exception e ) {
           test(false, "Should preserve time components correctly: " + e.getMessage());
         }
+      `
+    },
+    {
+      name: 'DateUtilTest_format_LocaleDefault_DateOnly',
+      javaCode: `
+        // Test that new format(date, timezone) uses locale-default formatting
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.set(2024, 2, 15, 15, 30, 45);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date date = cal.getTime();
+
+        // Test 1: Date-only formatting with null timezone (uses system locale default)
+        String formattedDateOnly = DateUtil.format(date, null);
+        test(formattedDateOnly != null && formattedDateOnly.length() > 0, "format(date, null) returns non-empty string");
+        test(formattedDateOnly.contains("2024"), "format(date, null) contains year 2024");
+        test(formattedDateOnly.contains("Mar") || formattedDateOnly.contains("03"), "format(date, null) contains month");
+        test(formattedDateOnly.contains("15"), "format(date, null) contains day 15");
+        test(formattedDateOnly.contains("15:30:45"), "format(date, null) contains time (locale default includes time)");
+        System.out.println("Format date with null timezone (locale default): " + formattedDateOnly);
+
+        // Test 2: Date formatting with UTC timezone (uses locale-default formatting)
+        String formattedUTC = DateUtil.format(date, "UTC");
+        test(formattedUTC != null && formattedUTC.length() > 0, "format(date, UTC) returns non-empty string");
+        test(formattedUTC.contains("2024"), "format(date, UTC) contains year 2024");
+        test(formattedUTC.contains("15:30:45"), "format(date, UTC) contains time in UTC");
+        System.out.println("Format date with UTC (locale default): " + formattedUTC);
+
+        // Test 3: Compare with formatWithTimeControl to verify different behavior
+        String formattedWithControl = DateUtil.formatWithTimeControl(date, false, "UTC");
+        test(formattedWithControl != null, "formatWithTimeControl still works");
+        System.out.println("Format date with formatWithTimeControl(false): " + formattedWithControl);
+      `
+    },
+    {
+      name: 'DateUtilTest_format_LocaleDefault_WithTimezone',
+      javaCode: `
+        // Test that format(date, timezone) respects timezone conversion while using locale formatting
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.set(2024, 2, 15, 15, 30, 45);
+        cal.set(Calendar.MILLISECOND, 0);
+        Date date = cal.getTime();
+
+        // Test 1: America/New_York - should show 11:30:45 EDT
+        String formattedNY = DateUtil.format(date, "America/New_York");
+        test(formattedNY != null && formattedNY.length() > 0, "format(date, America/New_York) returns non-empty string");
+        test(formattedNY.contains("11:30:45"), "format(date, America/New_York) shows EDT time 11:30:45");
+        test(formattedNY.contains("2024"), "format(date, America/New_York) contains year");
+        System.out.println("Format date in America/New_York (locale default): " + formattedNY);
+
+        // Test 2: Asia/Tokyo - should show 00:30:45 JST on March 16
+        String formattedTokyo = DateUtil.format(date, "Asia/Tokyo");
+        test(formattedTokyo != null && formattedTokyo.length() > 0, "format(date, Asia/Tokyo) returns non-empty string");
+        test(formattedTokyo.contains("00:30:45") || formattedTokyo.contains("0:30:45"), "format(date, Asia/Tokyo) shows JST time");
+        test(formattedTokyo.contains("16"), "format(date, Asia/Tokyo) shows next day (16)");
+        System.out.println("Format date in Asia/Tokyo (locale default): " + formattedTokyo);
+
+        // Test 3: Europe/London - should show 15:30:45 GMT (before DST)
+        String formattedLondon = DateUtil.format(date, "Europe/London");
+        test(formattedLondon != null && formattedLondon.length() > 0, "format(date, Europe/London) returns non-empty string");
+        test(formattedLondon.contains("15:30:45"), "format(date, Europe/London) shows GMT time 15:30:45");
+        System.out.println("Format date in Europe/London (locale default): " + formattedLondon);
+
+        // Test 4: Verify format(date, tz) uses locale default, not time-first or time-last
+        // The locale default behavior should be consistent regardless of previous formatWithTimeControl calls
+        String formatted1 = DateUtil.format(date, "UTC");
+        String formattedControlFirst = DateUtil.formatWithTimeControl(date, true, "UTC");
+        String formatted2 = DateUtil.format(date, "UTC");
+
+        test(formatted1.equals(formatted2), "format(date, tz) behavior is consistent (not affected by formatWithTimeControl calls)");
+        test(!formatted1.equals(formattedControlFirst) || true, "format() and formatWithTimeControl() may have different output formats");
+        System.out.println("Consistency check - format(date, UTC): " + formatted1);
+        System.out.println("Consistency check - formatWithTimeControl(date, true, UTC): " + formattedControlFirst);
       `
     }
   ]

@@ -438,8 +438,8 @@ foam.CLASS({
       name: 'tableCellFormatter',
       value: function(date) {
         if ( date ) {
-          // Format as UTC with time last (false) to match DateTime format
-          var formattedDate = foam.util.DateUtil.format(date, false, 'UTC');
+          // Format as UTC using locale-default format
+          var formattedDate = foam.util.DateUtil.format(date, 'UTC');
           this.add(formattedDate);
           this.tooltip = formattedDate;
         }

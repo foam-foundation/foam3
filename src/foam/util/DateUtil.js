@@ -445,9 +445,13 @@ foam.CLASS({
       type: 'String',
       documentation: 'Formats a date/datetime using locale default format in the specified timezone (or system default if not provided)',
       code: function(date, timezone) {
-        if ( date === undefined || date === null ) return '';
+        if ( date === undefined || date === null ) {
+          return '';
+        }
         if ( typeof date === 'number' ) date = new Date(date);
-        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) return '';
+        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) {
+          return '';
+        }
 
         // Use provided timezone or default to system timezone
         // Empty string or falsy values default to undefined (system timezone)
@@ -455,12 +459,12 @@ foam.CLASS({
 
         try {
           // Use toLocaleString for natural locale formatting (includes both date and time)
-          return date.toLocaleString(foam.locale, {
-            timeZone: tz
-          });
+          var options = { timeZone: tz };
+          var result = date.toLocaleString(foam.locale, options);
+          return result;
         } catch (e) {
           // Invalid timezone or formatting error - return empty string
-          console.warn('DateUtil.format error:', e.message, 'timezone:', timezone);
+          console.warn('[DateUtil.format] Error:', e.message, 'timezone:', timezone);
           return '';
         }
       },
@@ -483,9 +487,13 @@ foam.CLASS({
       type: 'String',
       documentation: 'Formats a date in the specified timezone (or system default if not provided). timeFirst can be null/undefined (date only), true (time then date), or false (date then time)',
       code: function(date, timeFirst, timezone) {
-        if ( date === undefined || date === null ) return '';
+        if ( date === undefined || date === null ) {
+          return '';
+        }
         if ( typeof date === 'number' ) date = new Date(date);
-        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) return '';
+        if ( ! ( date instanceof Date ) || isNaN(date.getTime()) ) {
+          return '';
+        }
 
         // Use provided timezone or default to system timezone
         // Empty string or falsy values default to undefined (system timezone)
@@ -493,30 +501,35 @@ foam.CLASS({
 
         try {
           // Format date in specified timezone
-          var formattedDate = date.toLocaleDateString(foam.locale, {
+          var dateOptions = {
             year: 'numeric',
             month: 'short',
             day: '2-digit',
             timeZone: tz
-          });
+          };
+          var formattedDate = date.toLocaleDateString(foam.locale, dateOptions);
 
-          if ( timeFirst === undefined || timeFirst === null ) return formattedDate;
+          if ( timeFirst === undefined || timeFirst === null ) {
+            return formattedDate;
+          }
 
           // Format time in specified timezone
-          var formattedTime = date.toLocaleTimeString(foam.locale, {
+          var timeOptions = {
             hour12: false,
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
             timeZone: tz
-          });
+          };
+          var formattedTime = date.toLocaleTimeString(foam.locale, timeOptions);
 
-          return ( timeFirst ? formattedTime + ' ' : '' )
+          var result = ( timeFirst ? formattedTime + ' ' : '' )
                + formattedDate
                + ( ! timeFirst ? ' ' + formattedTime : '' );
+          return result;
         } catch (e) {
           // Invalid timezone or formatting error - return empty string
-          console.warn('DateUtil.formatWithTimeControl error:', e.message, 'timezone:', timezone);
+          console.warn('[DateUtil.formatWithTimeControl] Error:', e.message, 'timezone:', timezone);
           return '';
         }
       },

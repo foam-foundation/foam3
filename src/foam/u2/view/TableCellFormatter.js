@@ -411,7 +411,7 @@ foam.CLASS({
       value: function(date) {
         // allow the browser to deal with this since we are technically using the user's preference
         if ( date ) {
-          // toLocaleString includes date and time
+          // toLocaleString includes date and time (uses local timezone)
           var formattedDate = date.toLocaleString(foam.locale);
           this.add(formattedDate);
           this.tooltip = formattedDate;

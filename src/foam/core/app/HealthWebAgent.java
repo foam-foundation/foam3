@@ -52,6 +52,7 @@ public class HealthWebAgent
       formatter.setOutputClassNames(false);
       formatter.setOutputDefaultClassNames(false);
       formatter.setMultiLine(true);
+      formatter.setQuoteKeys(true);
       formatter.setPropertyPredicate(
         new foam.lib.AndPropertyPredicate(x,
         new foam.lib.PropertyPredicate[] {

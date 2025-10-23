@@ -99,7 +99,7 @@ foam.CLASS({
         if ( logger == null ) {
           logger = StdoutLogger.instance();
         }
-        return new PrefixLogger(new Object[] { "[JDAO]", getFilename() }, logger);
+        return new PrefixLogger(new Object[] { "Journal", getFilename() }, logger);
       `
     },
     {

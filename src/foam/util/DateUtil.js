@@ -73,17 +73,11 @@ foam.CLASS({
           } else if ( o instanceof String ) {
             date = parseDateString((String) o);
           } else {
-            date = (java.util.Date) o;  
+            date = (java.util.Date) o;
           }
-          // convert the Date to be noon in GMT
-          var cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
-          cal.setTime(date);
-          cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
-          cal.set(java.util.Calendar.MINUTE, 0);
-          cal.set(java.util.Calendar.SECOND, 0);
-          return cal.getTime();
+          return date;
         }
-        return (java.util.Date) o;
+        return null;
       } catch ( Throwable t ) {
         System.err.println("Cannot adapt date:" + o + "; assuming " + MAX_DATE.toString());
         return MAX_DATE;

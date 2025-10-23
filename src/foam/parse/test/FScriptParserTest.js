@@ -275,28 +275,25 @@ foam.CLASS({
     sps.setString("DAYS(birthday) == 365");
     test(((Predicate) parser.parse(sps, px).value()).f(user), "DAYS(now - 365d)==365");
 
+    // Use created for HOURS and MINUTES as need a DateTime property
     var hour = Date.from(LocalDateTime.now().minusDays(2).atZone(ZoneId.systemDefault()).toInstant());
-    user.setBirthday(hour);
-
-    sps.setString("HOURS(birthday) == 48");
+    user.setCreated(hour);
+    sps.setString("HOURS(created) == 48");
     test(((Predicate) parser.parse(sps, px).value()).f(user), "HOURS(now - 2d)==48");
 
     hour = Date.from(LocalDateTime.now().minusDays(2).plusMinutes(30).atZone(ZoneId.systemDefault()).toInstant());
-    user.setBirthday(hour);
-
-    sps.setString("HOURS(birthday) == 47");
+    user.setCreated(hour);
+    sps.setString("HOURS(created) == 47");
     test(((Predicate) parser.parse(sps, px).value()).f(user), "HOURS(now - 2d + 30m)==47");
 
     var minute = Date.from(LocalDateTime.now().minusHours(2).atZone(ZoneId.systemDefault()).toInstant());
-    user.setBirthday(minute);
-
-    sps.setString("MINUTES(birthday) == 120");
+    user.setCreated(minute);
+    sps.setString("MINUTES(created) == 120");
     test(((Predicate) parser.parse(sps, px).value()).f(user), "MINUTES(now - 2h)==120");
 
     minute = Date.from(LocalDateTime.now().minusHours(2).plusSeconds(30).atZone(ZoneId.systemDefault()).toInstant());
-    user.setBirthday(minute);
-
-    sps.setString("MINUTES(birthday) == 119");
+    user.setCreated(minute);
+    sps.setString("MINUTES(created) == 119");
     test(((Predicate) parser.parse(sps, px).value()).f(user), "MINUTES(now - 2h + 30s)==119");
 
     sps.setString("emailVerified==false");

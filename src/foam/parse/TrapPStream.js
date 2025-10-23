@@ -7,6 +7,8 @@
 foam.CLASS({
   package: 'foam.parse',
   name: 'TrapPStream',
+  implements: ['foam.parse.JSPStream'],
+  documentation: 'PStream decorator to trap parsing. Used for testing parsers.',
 
   properties: [
     {

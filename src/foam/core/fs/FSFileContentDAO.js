@@ -15,7 +15,7 @@ foam.CLASS({
       On find, given a reference to a FSFile, return corresponding FSFileContent with matching reference.
       If no entry is found, try to create a new FSFileContent entry by which stores the file content in a string.
     `,
-  
+
     javaImports: [
       'foam.core.logger.Loggers',
       'foam.dao.DAO',
@@ -25,7 +25,7 @@ foam.CLASS({
       'java.nio.file.Path',
       'java.nio.file.Paths'
     ],
-  
+
     methods: [
       {
         name: 'find_',
@@ -38,7 +38,6 @@ foam.CLASS({
             Loggers.logger(x, this).error("Error getting content: ", (String) file.getId(), "file is a directory");
             return null;
           }
-
 
           FSFileContent fsContent = new FSFileContent.Builder(x).setFileName((String) id).build();
           Path path = Paths.get(file.getId());

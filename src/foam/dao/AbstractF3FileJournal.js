@@ -119,7 +119,55 @@ foam.CLASS({
       p.setX(x);
       return p;
     }
+
+    final static public char OP_CREATE  = 'c';
+    final static public char OP_PUT     = 'p';
+    final static public char OP_REMOVE  = 'r';
+    final static public char OP_VERSION = 'v';
   `,
+
+  constants: [
+    {
+      name: 'MODIFIED_BY',
+      type: 'String',
+      value: '// Modified by '
+    },
+    {
+      name: 'OPEN_CREATE',
+      type: 'String',
+      value: 'c({'
+    },
+    {
+      name: 'OPEN_PUT',
+      type: 'String',
+      value: 'p({'
+    },
+    {
+      name: 'OPEN_REMOVE',
+      type: 'String',
+      value: 'r({'
+    },
+    {
+      name: 'OPEN_VERSION',
+      type: 'String',
+      value: 'v({'
+    },
+    {
+      name: 'CLOSE',
+      type: 'String',
+      value: '})'
+    },
+    {
+      name: 'OP_OPEN',
+      type: 'String',
+      value: '('
+    },
+    {
+      name: 'OP_CLOSE',
+      type: 'String',
+      value: ')'
+    }
+  ],
 
   properties: [
     {
@@ -143,7 +191,7 @@ foam.CLASS({
         if ( logger == null ) {
           logger = StdoutLogger.instance();
         }
-        return new PrefixLogger(new Object[] { "[JDAO]" }, logger);
+        return new PrefixLogger(new Object[] { "Journal", getFilename() }, logger);
       `,
       javaCloneProperty: '//noop'
     },
@@ -172,13 +220,13 @@ foam.CLASS({
 try {
   InputStream is = getX().get(Storage.class).getInputStream(getFilename());
   if ( is == null ) {
-    getLogger().warning("File not found", "for reading", getFilename());
+    getLogger().warning("File not found", "for reading");
     return null;
   }
   // Setting a larger buffer size increases performance by 10-15%
   return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 2);
 } catch ( Throwable t ) {
-  getLogger().error("Failed to initialize reader", getFilename(), t);
+  getLogger().error("Failed to initialize reader", t);
   throw new RuntimeException(t);
 }
       `
@@ -192,12 +240,12 @@ try {
 try {
   OutputStream os = getX().get(FileSystemStorage.class).getOutputStream(getFilename());
   if ( os == null ) {
-    getLogger().warning("File not found", "for writing", getFilename());
+    getLogger().warning("File not found", "for writing");
     return null;
   }
   return new BufferedWriter(new OutputStreamWriter(os));
 } catch ( Throwable t ) {
-  getLogger().error("Failed to initialize writer", getFilename(), t);
+  getLogger().error("Failed to initialize writer", t);
   throw new RuntimeException(t);
 }
       `
@@ -220,12 +268,12 @@ try {
       javaCode: `
         try {
           var writer = getWriter();
-          String entry = String.format("v({\\"version\\":\\"%s\\"})", version);
+          String entry = String.format("%s\\"version\\":\\"%s\\"%s", OPEN_VERSION, version, CLOSE);
           writer.write(entry);
           writer.newLine();
           writer.flush();
         } catch (java.io.IOException e) {
-          Loggers.logger(x, this).error("Failed to write to journal file: ", getFilename(), " for version ", version );
+          getLogger().error("Failed to write version", version);
         }
       `
     },
@@ -258,7 +306,7 @@ try {
                 fmt.output(obj, of);
               }
             } catch (Throwable t) {
-              getLogger().error("Failed to format put", getFilename(), of.getId(), "id", id, t);
+              getLogger().error("Failed to format put", of.getId(), "id", id, t);
               fmt.reset();
             }
           }
@@ -270,12 +318,13 @@ try {
               writeComment_(x, obj);
               writePut_(
                 x,
+                old == null,
                 fmt.builder(),
                 getMultiLineOutput() ? "\\n" : "",
                 SafetyUtil.isEmpty(prefix) ? "" : prefix + ".");
               if ( isLast ) getWriter().flush();
             } catch (Throwable t) {
-              getLogger().error("Failed to write put", getFilename(), of.getId(), "id", id, t);
+              getLogger().error("Failed to write put", of.getId(), "id", id, t);
             } finally {
               fmt.reset();
             }
@@ -287,17 +336,19 @@ try {
     },
     {
       name: 'writePut_',
-      javaThrows: [
-        'java.io.IOException'
-      ],
-      args: [ 'Context x', 'CharSequence record', 'String c', 'String prefix' ],
+      javaThrows: [ 'java.io.IOException' ],
+      args: 'Context x, Boolean create, CharSequence record, String c, String prefix',
       javaCode: `
-      PM pm = PM.create(x, "FileJournal", "write");
+      PM pm = PM.create(x, "FileJournal:write");
       BufferedWriter writer = getWriter();
       writer.write(prefix);
-      writer.write("p(");
+      if ( create )
+        writer.write(OP_CREATE);
+      else
+        writer.write(OP_PUT);
+      writer.write(OP_OPEN);
       writer.append(record);
-      writer.write(')');
+      writer.write(OP_CLOSE);
       writer.write(c);
       writer.newLine();
       pm.log(x);
@@ -329,7 +380,7 @@ try {
             toWrite.setProperty("id", obj.getProperty("id"));
             fmt.output(toWrite, dao.getOf());
           } catch (Throwable t) {
-            getLogger().error("Failed to write remove", getFilename(), dao.getOf().getId(), "id", id, t);
+            getLogger().error("Failed to write remove", dao.getOf().getId(), "id", id, t);
           }
         }
 
@@ -342,7 +393,7 @@ try {
 
             if ( isLast ) getWriter().flush();
           } catch (Throwable t) {
-            getLogger().error("Failed to write remove", getFilename(), dao.getOf().getId(), "id", id, t);
+            getLogger().error("Failed to write remove", dao.getOf().getId(), "id", id, t);
           }
         }
       });
@@ -359,9 +410,10 @@ try {
       javaCode: `
       write_(sb.get()
         .append(prefix)
-        .append("r(")
+        .append(OP_REMOVE)
+        .append(OP_OPEN)
         .append(record)
-        .append(")"));
+        .append(OP_CLOSE));
       getWriter().newLine();
       `
     },
@@ -387,6 +439,7 @@ try {
         User user = ((Subject) x.get("subject")).getUser();
         if ( user == null || user.getId() <= 1 ) return;
         if ( obj instanceof LastModifiedByAware && ((LastModifiedByAware) obj).getLastModifiedBy() != 0L ) return;
+
         long now    = System.currentTimeMillis();
         long userId = user.getId();
         if ( now == getLastTimestamp() && userId == getLastUser() ) return;
@@ -412,13 +465,13 @@ try {
         try {
           String line = reader.readLine();
           if ( line == null ) return null;
-          if ( ! line.equals("p({") && ! line.equals("r({") ) return line;
+          if ( ! line.equals(OPEN_PUT) && ! line.equals(OPEN_CREATE) && ! line.equals(OPEN_REMOVE) ) return line;
           stringBuilder.setLength(0);
           stringBuilder.append(line);
-          while( ! line.equals("})") ) {
+          while( ! line.equals(CLOSE) ) {
             if ( (line = reader.readLine()) == null ) break;
-            if ( line.equals("p({") ) {
-              getLogger().error("Entry is not properly closed: " + stringBuilder.toString());
+            if ( line.equals(OPEN_PUT) || line.equals(OPEN_CREATE) || line.equals(OPEN_REMOVE) ) {
+              getLogger().error("Entry is not properly closed", stringBuilder.toString());
             }
             stringBuilder.append("\\n");
             stringBuilder.append(line);
@@ -495,7 +548,7 @@ try {
           }
         }
       } catch(ClassCastException e) {
-        String msg = "******************* UNEXPECTED CCE " + oldFObject + " " + diffFObject + " " + prop.getName()+ " "+ getFilename();
+        String msg = "******************* UNEXPECTED CCE " + oldFObject + " " + diffFObject + " " + prop.getName();
         getLogger().error(msg);
         System.err.println(msg);
         throw e;

@@ -49,7 +49,8 @@ foam.CLASS({
             sections: [
               {
                 heading: 'Users',
-                dao$: userDAOSlot
+                dao$: userDAOSlot,
+                choicesLimit: 50
               }
             ]
           }

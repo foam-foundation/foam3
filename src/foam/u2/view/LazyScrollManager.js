@@ -294,8 +294,6 @@ foam.CLASS({
       if ( this.renderedPages_[page] ) {
         var el = document.querySelector(`#${this.appendTo.id} [data-idx='${this.scrollToIndex}']`);
         if ( ! el ) return;
-        try {
-          if ( el.dataset['owner'] != this.$UID ) debugger; } catch (t) { debugger; }
         this.scrollView(el.offsetTop);
       } else {
         if ( page == 0 && this.currentTopPage_ != 0 ) {

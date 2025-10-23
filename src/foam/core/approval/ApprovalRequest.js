@@ -778,7 +778,6 @@ foam.CLASS({
       name: 'addMemo',
       section: 'approvalRequestInformation',
       isAvailable: function(isTrackingRequest, status) {
-        if ( status !== this.ApprovalStatus.REQUESTED ) return false;
         return ! isTrackingRequest;
       },
       code: function(X) {

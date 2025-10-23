@@ -58,12 +58,12 @@ foam.CLASS({
   methods: [
     function then(block) {
       if ( this.count_++ < this.limit ) {
-        return block().then(this.decr);
+        return block().then(this.decr).catch(this.decr);
       }
 
       var latch = this.Latch.create();
       this.queue_.push(latch);
-      return latch.then(block).then(this.decr);
+      return latch.then(block).then(this.decr).catch(this.decr);
     },
 
     function drain() {

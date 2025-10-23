@@ -23,7 +23,7 @@ foam.CLASS({
   /*
   // Add to sub-classes:
   methods: [
-    function runTest() {
+    function runTest(x) {
       // insert tests here
     }
   ]

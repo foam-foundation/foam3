@@ -10,7 +10,7 @@ import foam.lib.parse.*;
 
 /**
  * The class parse the CSV normal string base on the CSV string rule
- * The string can not contain '"', '\r', '\n' and ','
+ * The string can not contain '"', '\r', '\n' and the delimiter character
  * eg:
  *  abc123    : legal
  *  ab"e123   : illegal
@@ -20,13 +20,25 @@ import foam.lib.parse.*;
 public class CSVNormalStringParser implements Parser {
 
   private static Parser newlineParser = new CSVNewlineParser();
-  public CSVNormalStringParser() {
+  private char delimiter_;
 
+  public CSVNormalStringParser() {
+    this(',');
+  }
+
+  public CSVNormalStringParser(char delimiter) {
+    this.delimiter_ = delimiter;
   }
 
   public PStream parse(PStream ps, ParserContext x) {
     if ( ps == null ) {
       return null;
+    }
+
+    // Check if delimiter is set in context, use it if available
+    char activeDelimiter = delimiter_;
+    if ( x != null && x.get("csvDelimiter") != null ) {
+      activeDelimiter = (Character) x.get("csvDelimiter");
     }
 
     char head;
@@ -47,17 +59,14 @@ public class CSVNormalStringParser implements Parser {
           return null;
         }
       }
-      if ( head == ',' ) {
+      if ( head == activeDelimiter ) {
         break;
       }
       sb.append(head);
       ps = ps.tail();
     }
 
-    if ( ! ps.valid() && sb.toString().equals("") ) {
-      return null;
-    }
-
+    // Empty fields are valid in CSV (e.g., consecutive commas: ,,)
     return ps.setValue(sb.toString());
   }
 

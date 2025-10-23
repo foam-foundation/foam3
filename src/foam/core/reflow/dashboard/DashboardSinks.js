@@ -408,34 +408,29 @@ foam.CLASS({
           .add(this.chart_$)
         .end();
 
-      // Delay ContainerWidth initialization until after the frame completes
-      // This is critical when charts are inside collapsed/expanded blocks because:
-      // 1. ContainerWidth.updateWidth is isFramed (batched to next frame)
-      // 2. We need to wait for the correct width BEFORE chart renders
-      // 3. Double requestAnimationFrame ensures we get the width after the framed update
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var cw = self.ContainerWidth.create();
-          cw.initContainer(e);
-          self.onDetach(cw.inlineSize$.sub(function() {
-            self.width = cw.inlineSize;
-          }));
-          if ( cw.inlineSize ) self.width = cw.inlineSize;
-        });
-      });
+      // ContainerWidth uses ResizeObserver for efficient size tracking
+      var cw = this.ContainerWidth.create();
+      cw.initContainer(e);
+
+      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      // This prevents chart_ expression recalculation with zero/invalid widths
+      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
+        return inlineSize > 0 ? inlineSize : self.width;
+      }));
     }
   ],
 
   listeners: [
     {
       name: 'onWidthChange',
-      isFramed: true,
+      isMerged: 150,
       on: ['this.propertyChange.width'],
       code: function() {
-        // Handles width changes after initial render (e.g., window resize, panel resize)
-        // isFramed batches rapid changes to prevent flickering
-        if ( this.chart_ && this.chart_.chart && this.width > 0 ) {
-          this.chart_.chart.resize(this.width, this.chart_.chart.canvas.height);
+        // Handles width changes by recreating the chart entirely
+        // isMerged debounces rapid changes (e.g., window resize, panel resize)
+        if ( this.width > 0 ) {
+          // Clear the chart_ expression to force recalculation with new width
+          this.clearProperty('chart_');
         }
       }
     }
@@ -639,34 +634,28 @@ foam.CLASS({
           .add(this.chart_$)
         .end();
 
-      // Delay ContainerWidth initialization until after the frame completes
-      // This is critical when charts are inside collapsed/expanded blocks because:
-      // 1. ContainerWidth.updateWidth is isFramed (batched to next frame)
-      // 2. We need to wait for the correct width BEFORE chart renders
-      // 3. Double requestAnimationFrame ensures we get the width after the framed update
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var cw = self.ContainerWidth.create();
-          cw.initContainer(e);
-          self.onDetach(cw.inlineSize$.sub(function() {
-            self.width = cw.inlineSize;
-          }));
-          if ( cw.inlineSize ) self.width = cw.inlineSize;
-        });
-      });
+      // ContainerWidth uses ResizeObserver for efficient size tracking
+      var cw = this.ContainerWidth.create();
+      cw.initContainer(e);
+
+      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
+        return inlineSize > 0 ? inlineSize : self.width;
+      }));
     }
   ],
 
   listeners: [
     {
       name: 'onWidthChange',
-      isFramed: true,
+      isMerged: 150,
       on: ['this.propertyChange.width'],
       code: function() {
-        // Handles width changes after initial render (e.g., window resize, panel resize)
-        // isFramed batches rapid changes to prevent flickering
-        if ( this.chart_ && this.chart_.chart && this.width > 0 ) {
-          this.chart_.chart.resize(this.width, this.chart_.chart.canvas.height);
+        // Handles width changes by recreating the chart entirely
+        // isMerged debounces rapid changes (e.g., window resize, panel resize)
+        if ( this.width > 0 ) {
+          // Clear the chart_ expression to force recalculation with new width
+          this.clearProperty('chart_');
         }
       }
     }
@@ -694,10 +683,10 @@ foam.CLASS({
       class: 'StringArray',
       name: 'colors',
     },
-    { 
+    {
       class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit', 
-      name: 'timeUnit' 
+      of: 'foam.core.reflow.dashboard.TimeUnit',
+      name: 'timeUnit'
     },
     { class: 'Boolean', name: 'horizontal', value: false },
     { class: 'String', name: 'xAxisLabel' },
@@ -934,34 +923,28 @@ foam.CLASS({
           .add(this.chart_$)
         .end();
 
-      // Delay ContainerWidth initialization until after the frame completes
-      // This is critical when charts are inside collapsed/expanded blocks because:
-      // 1. ContainerWidth.updateWidth is isFramed (batched to next frame)
-      // 2. We need to wait for the correct width BEFORE chart renders
-      // 3. Double requestAnimationFrame ensures we get the width after the framed update
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var cw = self.ContainerWidth.create();
-          cw.initContainer(e);
-          self.onDetach(cw.inlineSize$.sub(function() {
-            self.width = cw.inlineSize;
-          }));
-          if ( cw.inlineSize ) self.width = cw.inlineSize;
-        });
-      });
+      // ContainerWidth uses ResizeObserver for efficient size tracking
+      var cw = this.ContainerWidth.create();
+      cw.initContainer(e);
+
+      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
+        return inlineSize > 0 ? inlineSize : self.width;
+      }));
     }
   ],
 
   listeners: [
     {
       name: 'onWidthChange',
-      isFramed: true,
+      isMerged: 150,
       on: ['this.propertyChange.width'],
       code: function() {
-        // Handles width changes after initial render (e.g., window resize, panel resize)
-        // isFramed batches rapid changes to prevent flickering
-        if ( this.chart_ && this.chart_.chart && this.width > 0 ) {
-          this.chart_.chart.resize(this.width, this.chart_.chart.canvas.height);
+        // Handles width changes by recreating the chart entirely
+        // isMerged debounces rapid changes (e.g., window resize, panel resize)
+        if ( this.width > 0 ) {
+          // Clear the chart_ expression to force recalculation with new width
+          this.clearProperty('chart_');
         }
       }
     }
@@ -979,10 +962,10 @@ foam.CLASS({
   
   properties: [
     // Chart rendering properties
-    { 
+    {
       class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit', 
-      name: 'timeUnit' 
+      of: 'foam.core.reflow.dashboard.TimeUnit',
+      name: 'timeUnit'
     },
     { class: 'StringArray', name: 'colors' },
     { class: 'StringArray', name: 'borderColors', help: 'Border colors for line elements. If not specified, colors will be used.' },
@@ -1097,34 +1080,28 @@ foam.CLASS({
           .add(this.chart_$)
         .end();
 
-      // Delay ContainerWidth initialization until after the frame completes
-      // This is critical when charts are inside collapsed/expanded blocks because:
-      // 1. ContainerWidth.updateWidth is isFramed (batched to next frame)
-      // 2. We need to wait for the correct width BEFORE chart renders
-      // 3. Double requestAnimationFrame ensures we get the width after the framed update
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var cw = self.ContainerWidth.create();
-          cw.initContainer(e);
-          self.onDetach(cw.inlineSize$.sub(function() {
-            self.width = cw.inlineSize;
-          }));
-          if ( cw.inlineSize ) self.width = cw.inlineSize;
-        });
-      });
+      // ContainerWidth uses ResizeObserver for efficient size tracking
+      var cw = this.ContainerWidth.create();
+      cw.initContainer(e);
+
+      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
+        return inlineSize > 0 ? inlineSize : self.width;
+      }));
     }
   ],
 
   listeners: [
     {
       name: 'onWidthChange',
-      isFramed: true,
+      isMerged: 150,
       on: ['this.propertyChange.width'],
       code: function() {
-        // Handles width changes after initial render (e.g., window resize, panel resize)
-        // isFramed batches rapid changes to prevent flickering
-        if ( this.chart_ && this.chart_.chart && this.width > 0 ) {
-          this.chart_.chart.resize(this.width, this.chart_.chart.canvas.height);
+        // Handles width changes by recreating the chart entirely
+        // isMerged debounces rapid changes (e.g., window resize, panel resize)
+        if ( this.width > 0 ) {
+          // Clear the chart_ expression to force recalculation with new width
+          this.clearProperty('chart_');
         }
       }
     }
@@ -1258,34 +1235,28 @@ foam.CLASS({
           .add(this.chart_$)
         .end();
 
-      // Delay ContainerWidth initialization until after the frame completes
-      // This is critical when charts are inside collapsed/expanded blocks because:
-      // 1. ContainerWidth.updateWidth is isFramed (batched to next frame)
-      // 2. We need to wait for the correct width BEFORE chart renders
-      // 3. Double requestAnimationFrame ensures we get the width after the framed update
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var cw = self.ContainerWidth.create();
-          cw.initContainer(e);
-          self.onDetach(cw.inlineSize$.sub(function() {
-            self.width = cw.inlineSize;
-          }));
-          if ( cw.inlineSize ) self.width = cw.inlineSize;
-        });
-      });
+      // ContainerWidth uses ResizeObserver for efficient size tracking
+      var cw = this.ContainerWidth.create();
+      cw.initContainer(e);
+
+      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
+        return inlineSize > 0 ? inlineSize : self.width;
+      }));
     }
   ],
 
   listeners: [
     {
       name: 'onWidthChange',
-      isFramed: true,
+      isMerged: 150,
       on: ['this.propertyChange.width'],
       code: function() {
-        // Handles width changes after initial render (e.g., window resize, panel resize)
-        // isFramed batches rapid changes to prevent flickering
-        if ( this.chart_ && this.chart_.chart && this.width > 0 ) {
-          this.chart_.chart.resize(this.width, this.chart_.chart.canvas.height);
+        // Handles width changes by recreating the chart entirely
+        // isMerged debounces rapid changes (e.g., window resize, panel resize)
+        if ( this.width > 0 ) {
+          // Clear the chart_ expression to force recalculation with new width
+          this.clearProperty('chart_');
         }
       }
     }
@@ -1440,34 +1411,28 @@ foam.CLASS({
           .add(this.chart_$)
         .end();
 
-      // Delay ContainerWidth initialization until after the frame completes
-      // This is critical when charts are inside collapsed/expanded blocks because:
-      // 1. ContainerWidth.updateWidth is isFramed (batched to next frame)
-      // 2. We need to wait for the correct width BEFORE chart renders
-      // 3. Double requestAnimationFrame ensures we get the width after the framed update
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var cw = self.ContainerWidth.create();
-          cw.initContainer(e);
-          self.onDetach(cw.inlineSize$.sub(function() {
-            self.width = cw.inlineSize;
-          }));
-          if ( cw.inlineSize ) self.width = cw.inlineSize;
-        });
-      });
+      // ContainerWidth uses ResizeObserver for efficient size tracking
+      var cw = this.ContainerWidth.create();
+      cw.initContainer(e);
+
+      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
+        return inlineSize > 0 ? inlineSize : self.width;
+      }));
     }
   ],
 
   listeners: [
     {
       name: 'onWidthChange',
-      isFramed: true,
+      isMerged: 150,
       on: ['this.propertyChange.width'],
       code: function() {
-        // Handles width changes after initial render (e.g., window resize, panel resize)
-        // isFramed batches rapid changes to prevent flickering
-        if ( this.chart_ && this.chart_.chart && this.width > 0 ) {
-          this.chart_.chart.resize(this.width, this.chart_.chart.canvas.height);
+        // Handles width changes by recreating the chart entirely
+        // isMerged debounces rapid changes (e.g., window resize, panel resize)
+        if ( this.width > 0 ) {
+          // Clear the chart_ expression to force recalculation with new width
+          this.clearProperty('chart_');
         }
       }
     }
@@ -1878,6 +1843,91 @@ foam.CLASS({
         }
       }
     },
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCalendarSink',
+  extends: 'foam.dao.AbstractSink',
+  documentation: 'Calendar sink with fully live dashboard properties (match Pie/Bar).',
+  requires: [
+    'foam.u2.layout.ContainerWidth',
+    'org.chartjs.CalendarDAOChartView'
+  ],
+  properties: [
+    { name: 'dateProp', label: 'Date Property' },
+    { name: 'categoryProp', label: 'Category Property' },
+    { name: 'valueSink', documentation: 'Aggregator sink.' },
+    { class: 'Int', name: 'periodCount', label: 'Periods', value: 12 },
+    { name: 'map_', hidden: true, factory: function() { return {}; } },
+    // Dashboard-style display properties
+    { class: 'StringArray', name: 'colors', documentation: 'Dashboard chart colors' },
+    { class: 'Boolean', name: 'showLegend', value: true },
+    { class: 'Enum', name: 'legendPosition', of: 'foam.core.reflow.dashboard.LegendPosition', value: 'TOP' },
+    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
+    { class: 'Int', name: 'height', value: 300 },
+    { class: 'Enum', name: 'alignment', of: 'foam.core.reflow.dashboard.MetricAlignment', value: 'CENTER' },
+    { class: 'Boolean', name: 'animate', value: true },
+    { class: 'Int', name: 'animationDuration', value: 1000 },
+    {
+      name: 'chart_',
+      transient: true,
+      factory: function() {
+        // Only create once, then drive via property slots
+        return this.CalendarDAOChartView.create({});
+      }
+    }
+  ],
+  methods: [
+    function put(obj) {
+      let d = this.dateProp.f(obj);
+      let c = this.categoryProp ? this.categoryProp.f(obj) : 'default';
+      if (!d || !c) return;
+      let key = new Date(d).toISOString().slice(0, 10);
+      if (!this.map_[key]) this.map_[key] = {};
+      let v = 1;
+      if (this.valueSink && this.valueSink.put) {
+        this.valueSink.reset && this.valueSink.reset();
+        this.valueSink.put(obj);
+        v = this.valueSink.value !== undefined ? this.valueSink.value : 1;
+      }
+      this.map_[key][c] = (this.map_[key][c] || 0) + v;
+    },
+    function toE(_, x) { return x.E().add(this.chart_$); },
+    function addToE(e) {
+      var self = this;
+      // Prepare labels/categories/values live from map_
+      function updateChartData() {
+        const allCatsSet = new Set();
+        Object.values(self.map_).forEach(row => Object.keys(row).forEach(k => allCatsSet.add(k)));
+        const categories = Array.from(allCatsSet).sort();
+        const allDates = Object.keys(self.map_).sort();
+        self.chart_.categories = categories;
+        self.chart_.labels = allDates;
+        self.chart_.values = allDates.map(date => categories.map(cat => (self.map_[date] && self.map_[date][cat]) ? self.map_[date][cat] : 0));
+      }
+      // Initial chart creation
+      updateChartData();
+      e.add(this.chart_$);
+      // Live slot binding like Pie/Bar
+      console.log('colors', this.colors$);
+      this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
+        var c = self.chart_;
+        if (!c) return;
+        c.colors = colors;
+        c.showLegend = showLegend;
+        c.legendPosition = legendPosition;
+        c.maintainAspectRatio = maintainAspectRatio;
+        c.height = height;
+        c.alignment = alignment;
+        c.animate = animate;
+        c.animationDuration = animationDuration;
+        // Also update chart data in-case of data changes
+        updateChartData();
+        c.invalidate && c.invalidate();
+      }, this.colors$, this.showLegend$, this.legendPosition$, this.maintainAspectRatio$, this.height$, this.alignment$, this.animate$, this.animationDuration$));
+    }
   ]
 });
 

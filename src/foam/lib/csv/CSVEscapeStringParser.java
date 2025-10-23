@@ -11,7 +11,7 @@ import foam.lib.parse.*;
 /**
  * The class parse the CSV special case string base on the CSV rule.
  * The whole string should be included inside the double quotation marks.
- * The string can contain '"', '\r', '\n', and ','.
+ * The string can contain '"', '\r', '\n', and the delimiter character.
  * The " inside the string should be replaced by ""
  * eg:
  *    "foo123" -> foo123            : legal
@@ -22,14 +22,26 @@ import foam.lib.parse.*;
 public class CSVEscapeStringParser implements Parser {
   public final static char ESCAPE = '"';
   private static Parser newlineParser = new CSVNewlineParser();
+  private char delimiter_;
 
   public CSVEscapeStringParser() {
+    this(',');
+  }
+
+  public CSVEscapeStringParser(char delimiter) {
+    this.delimiter_ = delimiter;
   }
 
   public PStream parse(PStream ps, ParserContext x) {
-    if ( ps == null ) return null;
+    if ( ps == null || ! ps.valid() ) return null;
     char head = ps.head();
     if ( head != ESCAPE ) return null;
+
+    // Check if delimiter is set in context, use it if available
+    char activeDelimiter = delimiter_;
+    if ( x != null && x.get("csvDelimiter") != null ) {
+      activeDelimiter = (Character) x.get("csvDelimiter");
+    }
 
     int delimCount = 0;
     StringBuilder sb = builders.get();
@@ -44,7 +56,7 @@ public class CSVEscapeStringParser implements Parser {
         } else if ( delimCount == 0 ) {
           delimCount = 1;
         }
-      } else if (head == ',') {
+      } else if (head == activeDelimiter) {
         if ( delimCount == 1 ) {
           break;
         } else {

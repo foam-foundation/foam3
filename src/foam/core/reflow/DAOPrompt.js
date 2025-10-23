@@ -117,6 +117,7 @@ foam.CLASS({
     'foam.dao.ProxyDAO',
     'foam.core.reflow.TableDAOAgent',
     'foam.core.reflow.DAOPromptView',
+    'foam.parse.SimpleQueryParser',
     'foam.parse.QueryParser'
   ],
 
@@ -259,7 +260,7 @@ foam.CLASS({
       section: 'general',
       hidden: true,
       transient: true,
-      expression: function(dao, where, order) {
+      expression: function(dao, where, aql, order) {
         if ( ! dao || ! this.dao.of ) return null;
 
         // Compiled on the Server
@@ -269,6 +270,14 @@ foam.CLASS({
         if ( where ) {
           var p = this.QueryParser.create({of: dao.of}).parseString(where);
           dao = dao.where(p);
+          // TODO: display syntax error if didn't parse
+        }
+
+        if ( aql ) {
+          var p = this.SimpleQueryParser.create({of: dao.of}).parseString(aql);
+          if ( p ) {
+            dao = dao.where(p);
+          }
           // TODO: display syntax error if didn't parse
         }
 
@@ -346,8 +355,31 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
+      visibility: function(where, enableAQL_) { return ( where || ! enableAQL_ ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN; },
       view: { class: 'foam.core.reflow.PredicateSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
+    },
+    {
+      class: 'Boolean',
+      name: 'enableAQL_',
+      transient: true,
+      hidden: true,
+      documentation: 'Temporary flag to determine if AQL is available.'
+    },
+    {
+      class: 'String',
+      name: 'aql',
+      label: 'Where (Auto-Complete)',
+      section: 'filter',
+      displayWidth: 60,
+      visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN; },
+      view: function(_, X) {
+        var data = X.data;
+        return {
+          class: 'foam.parse.auto.SearchView',
+          parser: data.SimpleQueryParser.create({of: data.dao.of})
+        };
+      }
     },
     {
       class: 'String',
@@ -355,7 +387,6 @@ foam.CLASS({
       section: 'filter',
       displayWidth: 60,
       view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
-//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
     {
       class: 'String',
@@ -366,10 +397,6 @@ foam.CLASS({
         return {
           class: 'foam.core.reflow.PropertySuggestedField'
         };
-      },
-      postSet: function(_, n) {
-        // ???: KGR: I think this isn't needed because daoPrompt.columns is used to store columns, not the actual column storage
-//        this.updateColumnStorage(n);
       }
     },
     {
@@ -385,8 +412,11 @@ foam.CLASS({
           },
           setItem: function(k, v) {
             this[k] = v;
+
             // save column updates from tableview
-            self.columns = v;
+            let cols = self.getColumnNamesFromStorage(v);
+            if ( self.columns != cols && self.columns != cols + ',' )
+              self.columns = cols;
           },
           removeItem: function(k) {
             delete this[k];
@@ -471,6 +501,10 @@ foam.CLASS({
 
     function init() {
       this.SUPER();
+
+      x.auth.check(x, 'reflow.aql').then(enabled => {
+        this.enableAQL_ = enabled;
+      });
 
       if ( ! this.dao || ! this.dao.of ) return;
 

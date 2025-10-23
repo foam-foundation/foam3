@@ -52,17 +52,20 @@ return FOAM_utils.equals(v1, v2)
         return this.SUPER(other);
 
       // Require same expr.
-      var myExpr    = myArg1IsConst ? myArg2 : myArg1;
+      var myExpr    = myArg1IsConst    ? myArg2    : myArg1;
       var otherExpr = otherArg1IsConst ? otherArg2 : otherArg1;
-      var equals    = foam.util.equals;
-
-      if ( ! equals(myExpr, otherExpr) ) return this.SUPER(other);
 
       // Reduce to FALSE when consts are not equal.
       var myConst    = myArg1IsConst    ? myArg1    : myArg2;
       var otherConst = otherArg1IsConst ? otherArg1 : otherArg2;
 
-      return equals(myConst, otherConst) ? this.SUPER(other) : this.FALSE;
+      var equals     = foam.util.equals;
+      debugger;
+      if ( equals(myConst, otherConst) ) {
+        return equals(myExpr, otherExpr) ? this : this.FALSE ;
+      }
+
+      return this.SUPER(other);
     },
 
     function toMQL() {

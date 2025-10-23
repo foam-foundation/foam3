@@ -11,3 +11,7 @@ p({
   class:"foam.dao.test.OrDAOTest",
   id:"OrDAOTest"
 })
+p({
+  class:"foam.dao.test.F3FileJournalTest",
+  id:"F3FileJournalTest"
+})

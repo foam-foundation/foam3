@@ -1025,10 +1025,19 @@ foam.CLASS({
     },
     'currentBlock',
     {
+      class: 'Boolean',
+      name: 'isLoading_',
+      hidden: true,
+      transient: true,
+      value: false
+    },
+    {
       name: 'selected',
       postSet: function(o, n) {
         if ( o === n ) return;
-        if (n && n.element_) {
+        // Block scroll during loading to prevent jumping while content is being built
+        if ( this.isLoading_ ) return;
+        if ( n && n.element_ ) {
           n.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       },
@@ -1707,6 +1716,7 @@ foam.CLASS({
       code: async function() {
         if ( this.feedback_ ) return;
         this.feedback_ = true;
+        this.isLoading_ = true;
         try {
           var currentBlockName = (this.selected || this).flowName;
 
@@ -1721,6 +1731,7 @@ foam.CLASS({
           this.value.loadComplete.pub();
         } finally {
           this.feedback_ = false;
+          this.isLoading_ = false;
         }
       }
     },

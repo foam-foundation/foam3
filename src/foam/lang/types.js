@@ -315,7 +315,6 @@ foam.CLASS({
 
   properties: [
     [ 'type', 'DateTimeUTC' ],
-    [ 'javaType', 'java.util.Date' ],
     {
       name: 'adapt',
       value: function (_, d) {

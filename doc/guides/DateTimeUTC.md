@@ -4,7 +4,9 @@
 
 `DateTimeUTC` is a FOAM3 property type that handles date-time values with consistent UTC timezone treatment. It ensures all datetime values are stored, parsed, and displayed in UTC, eliminating timezone ambiguity across users and servers.
 
-**Location**: `foam3/src/foam/lang/types.js:302-335`
+**Location**: `foam3/src/foam/lang/types.js:302-343`
+**Extends**: `foam.lang.DateTime` (types.js:305)
+**Java Type**: `java.util.Date` (defined in refinement at `foam3/src/foam/java/refinements.js:1518-1551`)
 **Related Utilities**:
 - `foam3/src/foam/util/DateUtil.js` - Main utility class with parsing and formatting methods
 - `foam3/src/foam/parse/DateParser.js` - Grammar-based parser supporting multiple date/datetime formats

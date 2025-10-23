@@ -72,7 +72,6 @@ foam.CLASS({
       class: 'String',
       name: 'name',
       section: 'general',
-      onKey: false
     },
     {
       class: 'String',

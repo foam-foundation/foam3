@@ -28,7 +28,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'flowName',
-      onKey: false
     },
     {
       class: 'Array',

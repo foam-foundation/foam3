@@ -597,8 +597,9 @@ foam.CLASS({
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
         let el = this.borderClass.create({...(this.border || {})}, this);
+        this.borderEl_.parentNode.add(el);
         this.out.moveTo(el);
-        el.replaceElement_(this.borderEl_);
+        this.borderEl_.remove();
         this.borderEl_ = el;
       }
     },

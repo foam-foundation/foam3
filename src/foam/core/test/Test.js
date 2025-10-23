@@ -31,6 +31,7 @@ foam.CLASS({
     'id',
     'enabled',
     'source',
+    'language',
     'passed',
     'failed',
     'run',
@@ -371,16 +372,21 @@ foam.CLASS({
         setFailed(0);
         try {
           if ( l == foam.core.script.Language.BEANSHELL ) {
-            Interpreter shell = (Interpreter) createInterpreter(x, null);
-            setOutput("");
-            shell.setOut(ps);
+            if ( ! foam.util.SafetyUtil.isEmpty(getCode()) ) {
+              Interpreter shell = (Interpreter) createInterpreter(x, null);
+              setOutput("");
+              shell.setOut(ps);
 
-            shell.eval("test(boolean exp, String message) { if ( exp ) { currentScript.setPassed(currentScript.getPassed()+1); } else { currentScript.setFailed(currentScript.getFailed()+1); } print((exp ? \\"SUCCESS: \\" : \\"FAILURE: \\")+message);}");
-            shell.eval("pass(String message) { test(true, message);}");
-            shell.eval("fail(String message) { test(false, message);}");
-            shell.eval("expect(Object value, Object expectedValue, String message) { currentScript.expect(value, expectedValue, message); }");
+              shell.eval("test(boolean exp, String message) { if ( exp ) { currentScript.setPassed(currentScript.getPassed()+1); } else { currentScript.setFailed(currentScript.getFailed()+1); } print((exp ? \\"SUCCESS: \\" : \\"FAILURE: \\")+message);}");
+              shell.eval("pass(String message) { test(true, message);}");
+              shell.eval("fail(String message) { test(false, message);}");
+              shell.eval("expect(Object value, Object expectedValue, String message) { currentScript.expect(value, expectedValue, message); }");
 
-            shell.eval(getCode());
+              shell.eval(getCode());
+            } else {
+              // .js or .java tests which extend foam.core.test.Test
+              runTest(x);
+            }
           } else if ( l == foam.core.script.Language.JSHELL ) {
             String print = null;
             JShell jShell = (JShell) createInterpreter(x, ps);
@@ -389,7 +395,6 @@ foam.CLASS({
           } else {
             throw new RuntimeException("Script language not supported");
           }
-          runTest(x);
           setStatus(ScriptStatus.UNSCHEDULED);
         } catch (Throwable t) {
           setStatus(ScriptStatus.ERROR);

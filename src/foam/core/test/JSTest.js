@@ -16,6 +16,7 @@ foam.CLASS({
     {
       name: 'language',
       factory: function() { return foam.core.script.Language.JS; },
+      javaFactory: 'return foam.core.script.Language.JS;',
       visibility: foam.u2.DisplayMode.RO
     }
   ]

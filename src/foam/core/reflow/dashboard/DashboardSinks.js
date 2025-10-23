@@ -228,7 +228,11 @@ foam.CLASS({
       transient: true,
       expression: function(groups, colors, timeUnit, horizontal, barThickness, datasetLabel, xAxisLabel, yAxisLabel,
                           showGridLines, responsive, maintainAspectRatio, showLegend,
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, periodCount) {
+                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, periodCount, width) {
+        // Don't create chart until we have a valid width
+        if ( ! width || width <= 0 ) {
+          return null;
+        }
 
         var labels = [];
         var data = [];
@@ -480,15 +484,20 @@ foam.CLASS({
       name: 'chart_',
       transient: true,
       expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
-                          responsive, maintainAspectRatio, showLegend, 
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration) {
+                          responsive, maintainAspectRatio, showLegend,
+                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width) {
+        // Don't create chart until we have a valid width
+        if ( ! width || width <= 0 ) {
+          return null;
+        }
+
         var labels = [];
         var data = [];
         var backgroundColors = [];
-        
+
         // If topN > 0, use groupKeys to preserve backend order (JavaScript reorders numeric keys)
         // Otherwise, use sortedKeys() for proper sorting
-        var sortedKeys = this.topN > 0 ? (this.groupKeys || Object.keys(groups)) : 
+        var sortedKeys = this.topN > 0 ? (this.groupKeys || Object.keys(groups)) :
                         (this.sortedKeys ? this.sortedKeys() : Object.keys(groups));
         
         var index = 0;
@@ -710,10 +719,15 @@ foam.CLASS({
       expression: function(cols, rows, colors, timeUnit, horizontal, xAxisLabel, yAxisLabel,
                           showGridLines, responsive, maintainAspectRatio,
                           showLegend, legendPosition, showTooltips, showTooltipSum, animate, animationDuration,
-                          periodCount) {
+                          periodCount, width) {
+        // Don't create chart until we have a valid width
+        if ( ! width || width <= 0 ) {
+          return null;
+        }
+
         var colGroups = cols && cols.groups ? cols.groups : {};
         var rowGroups = rows && rows.groups ? rows.groups : {};
-        
+
         var labels = [];
         var datasets = [];
         
@@ -1136,9 +1150,14 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount) {
+                        periodCount, width) {
 
       if ( !arg1 || !arg2 ) return null;
+
+      // Don't create chart until we have a valid width
+      if ( ! width || width <= 0 ) {
+        return null;
+      }
 
       var data = [];
       var sortedKeys = this.sortedKeys ? this.sortedKeys() : Object.keys(groups);
@@ -1296,9 +1315,14 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount) {
+                        periodCount, width) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
+
+      // Don't create chart until we have a valid width
+      if ( ! width || width <= 0 ) {
+        return null;
+      }
 
       var datasets = [];
       var colorIndex = 0;

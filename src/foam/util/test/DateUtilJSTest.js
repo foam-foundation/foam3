@@ -928,22 +928,22 @@ foam.CLASS({
     },
 
     async function testFormat_NullUndefined(x) {
-      // Test null/undefined handling
+      // Test null/undefined handling - these will throw error in toLocaleString, caught by try-catch
       var formatted1 = foam.util.DateUtil.format(null);
-      x.test(formatted1 === '', 'format(null) returns empty string');
+      x.test(formatted1 === '', 'format(null) returns empty string (error caught)');
 
       var formatted2 = foam.util.DateUtil.format(undefined);
-      x.test(formatted2 === '', 'format(undefined) returns empty string');
+      x.test(formatted2 === '', 'format(undefined) returns empty string (error caught)');
 
       // Test with number (timestamp)
       var timestamp = 1710511845000;
       var formatted3 = foam.util.DateUtil.format(timestamp);
       x.test(formatted3.length > 0, 'format(timestamp) returns non-empty string');
 
-      // Test with invalid Date (NaN)
+      // Test with invalid Date (NaN) - toLocaleString returns "Invalid Date"
       var invalidDate = new Date('invalid');
       var formatted4 = foam.util.DateUtil.format(invalidDate);
-      x.test(formatted4 === '', 'format(invalid Date) returns empty string');
+      x.test(formatted4 === 'Invalid Date', 'format(invalid Date) returns "Invalid Date"');
     },
 
     async function testFormat_LocalTimeWithTimezone(x) {

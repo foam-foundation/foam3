@@ -74,43 +74,50 @@ foam.CLASS({
       javaCode:
       `
     if ( this.arg1_ instanceof Not )
-      return ( (Not) arg1_ ).arg1_.partialEval();
+      return ((Not) arg1_).arg1_.partialEval();
+
     if ( arg1_.getClass().equals(Eq.class) ) {
       return new Neq.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Neq.class) ) {
       return new Eq.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Gt.class) ) {
       return new Lte.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Gte.class) ) {
       return new Lt.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Lt.class) ) {
       return new Gte.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Lte.class) ) {
       return new Gt.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
 //    Not predicate = (Not) this.fclone();
     Not predicate = this;
     if ( predicate.arg1_.getClass().equals(And.class) ) {
@@ -127,7 +134,8 @@ foam.CLASS({
       }
       return new And.Builder(null).setArgs((( (Or) predicate.getArg1() ).args_)).build().partialEval();
     }
-return this;`
+
+    return this;`
     },
     {
       name: 'createStatement',
@@ -144,7 +152,6 @@ return this;`
         getArg1().authorize(x);
       `
     }
-
 
     /*
       TODO: this isn't ported to FOAM2/FOAM3 yet.

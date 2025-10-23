@@ -98,12 +98,16 @@ foam.CLASS({
 
           expr: alt(
             sym('paren'),
+            sym('negate'),
             sym('propPredicates'),
             sym('rangePropPredicates')
           ),
 
           // opening parentheses consumed by propPredicates
           paren: seq1(3, sym('ws'), '(', sym('ws'), sym('query'), sym('ws'), ')'),
+
+          //negate: seq1(1, sym('ws'), sug(seq1(0, 'NOT', sym('ws'), '('), {text: 'NOT (', label: 'NOT'}), sym('query'), sym('ws'), ')'),
+          negate: seq1(3, sym('ws'), sug(literalIC('NOT'), {text: 'NOT'}), sym('ws'), sym('expr')),
 
           ws: repeat0(' '),
 
@@ -220,21 +224,19 @@ foam.CLASS({
 
           strings: repeat(sym('string'), ',', 1),
 
-          compareString: alt(
-            seq(operator('>='), sym('string')),
-            seq(operator('>'), sym('string')),
-            seq(operator('>='), sym('string')),
-            seq(operator('<='), sym('string')),
-            seq(operator('<'), sym('string')),
-            seq(operator('!='), sym('string')),
-            seq(operator('='), sym('string')),
-            seq(operator(':'), sym('string')),
-            seq(operator('~'), sym('string')),
-            seq(operator('CONTAINS'), sym('string')),
-            seq(operatorIn('IN'), sym('stringArray')),
-            seq(operatorIn('NOT IN'), sym('stringArray')),
-            seq(operator('IS EMPTY')),
-            seq(operator('IS NOT EMPTY'))),
+          compareString: alt(seq(operator('>='), sym('string')),
+                    seq(operator('>'), sym('string')),
+                    seq(operator('<='), sym('string')),
+                    seq(operator('<'), sym('string')),
+                    seq(operator('!='), sym('string')),
+                    seq(operator('='), sym('string')),
+                    seq(operator(':'), sym('string')),
+                    seq(operator('~'), sym('string')),
+                    seq(operator('CONTAINS'), sym('string')),
+                    seq(operatorIn('IN'), sym('stringArray')),
+                    seq(operatorIn('NOT IN'), sym('stringArray')),
+                    seq(operator('IS EMPTY')),
+                    seq(operator('IS NOT EMPTY'))),         
         };
       }
     },
@@ -326,6 +328,10 @@ foam.CLASS({
 
           and: function(v) {
             return self.And.create({ args: v });
+          },
+
+          negate: function(v) {
+            return self.Not.create({ arg1: v });
           },
 
           digits: function(v) {

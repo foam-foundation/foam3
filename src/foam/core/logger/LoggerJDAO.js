@@ -28,7 +28,7 @@ foam.CLASS({
         .setFilename(filename)
         .setCreateFile(true)
         .setDao(getDelegate())
-        .setLogger(new foam.core.logger.PrefixLogger(new Object[] { "[JDAO]", filename }, foam.core.logger.StdoutLogger.instance()))
+        .setLogger(new foam.core.logger.PrefixLogger(new Object[] { "LoggerJDAO", filename }, foam.core.logger.StdoutLogger.instance()))
         .build());
     }
   `,

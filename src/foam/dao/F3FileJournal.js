@@ -60,7 +60,7 @@ foam.CLASS({
 
         String lastVersion = "";
 
-        getLogger().info("Replay starting", getFilename());
+        getLogger().info("Replay starting");
 
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
@@ -78,7 +78,7 @@ foam.CLASS({
             if ( length < 3 ) {
               // Don't bother reporting lines with just spaces
               if ( entry.toString().trim().length() != 0 ) {
-                System.err.println("Malformed jrl entry " + getFilename() + " : " + entry);
+                getLogger().warning("Malformed journal entry", entry);
               }
               continue;
             }
@@ -86,7 +86,7 @@ foam.CLASS({
               final char operation = entry.charAt(0);
               final String strEntry = entry.subSequence(2, length - 1).toString();
 
-              if ( operation == 'v' ) {
+              if ( operation == OP_VERSION ) {
                 JSONObject obj = new JSONObject(strEntry);
                 lastVersion = (String) obj.get("version");
                 continue;
@@ -101,24 +101,28 @@ foam.CLASS({
 
                 public void endJob(boolean isLast) {
                   if ( obj == null ) {
-                    getLogger().error("Parse error in the jrl file " + getFilename(), getParsingErrorMessage(strEntry), "entry Object is: ", strEntry);
+                    getLogger().error("Parse error in the journal", getParsingErrorMessage(strEntry), "entry Object is: ", strEntry);
                     failCount.incrementAndGet();
                     return;
                   }
                   switch ( operation ) {
-                    case 'p':
+                    case OP_CREATE:
+                      dao.put(obj);
+                      break;
+
+                    case OP_PUT:
                       foam.lang.FObject old = dao.find(obj.getProperty("id"));
                       dao.put(old != null ? mergeFObject(old.fclone(), obj) : obj);
                       break;
 
-                    case 'r':
+                    case OP_REMOVE:
                       dao.remove(obj);
                       break;
                   }
                   long pass = passCount.incrementAndGet();
                   // Provide some feedback on long running replays
                   if ( pass % 10000 == 0 ) {
-                    getLogger().info("Replay progress", getFilename(), "processed", pass, "in", Duration.ofMillis(pm.getTime()));
+                    getLogger().info("Replay progress", "processed", pass, "in", Duration.ofMillis(pm.getTime()));
                   }
                 }
               });
@@ -127,7 +131,7 @@ foam.CLASS({
             }
           }
         } catch ( Throwable t) {
-          getLogger().error("Failed to read journal", dao.getOf().getId(), getFilename(), t);
+          getLogger().error("Failed to read journal", dao.getOf().getId(), t);
         } finally {
           setLastReplayVersion(lastVersion);
           setPassCount(passCount.get());
@@ -135,9 +139,9 @@ foam.CLASS({
           assemblyLine.shutdown();
           pm.log(x);
           if ( getFailCount() == 0 ) {
-            getLogger().info("Replay complete", getFilename(), "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
+            getLogger().info("Replay complete", "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
           } else {
-            getLogger().warning("Replay complete", getFilename(), "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
+            getLogger().warning("Replay complete", "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
           }
         }
       `

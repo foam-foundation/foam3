@@ -42,8 +42,8 @@ foam.CLASS({
     },
 
     function reduce_(args, shortCircuit, methodName) {
-      for ( var i = 0; i < args.length - 1; i++ ) {
-        for ( var j = i + 1; j < args.length; j++ ) {
+      for ( var i = 0 ; i < args.length - 1 ; i++ ) {
+        for ( var j = i + 1 ; j < args.length ; j++ ) {
           if ( args[i][methodName] ) {
             var newArg = args[i][methodName](args[j]);
             if ( newArg ) {

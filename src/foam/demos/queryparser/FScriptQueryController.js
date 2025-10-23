@@ -6,7 +6,7 @@
 
 foam.CLASS({
   package: 'foam.demos.queryparser',
-  name: 'QueryController',
+  name: 'FScriptQueryController',
   extends: 'foam.u2.Controller',
 
   requires: [
@@ -37,7 +37,8 @@ foam.CLASS({
     {
       name: 'parser',
       factory: function() {
-        return this.SimpleQueryParser.create({of: foam.core.auth.User});
+        return foam.parse.FScriptParser.create({of: foam.core.auth.User});
+//        return this.SimpleQueryParser.create({of: foam.core.auth.User});
 //        return this.QueryParser.create({of: foam.util.Timer});
       }
     },

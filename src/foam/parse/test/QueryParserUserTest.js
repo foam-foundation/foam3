@@ -92,13 +92,11 @@ foam.CLASS({
       user.setMiddleName("senorita");
       user.setLastName("alice");
       user.setBirthday(new Date(2323223232L)); // Tue Jan 27 21:20:23 GMT 1970
-
-      Date earlierDate = new Date(2322603000L); // Tue Jan 27 21:10:03 GMT 1970
-      Date laterDate = new Date(2323803000L);   // Tue Jan 27 21:30:03 GMT 1970
+      // should convert to noon
+      Date noon = new Date(2289600000L);
 
       // test user's birthday is between two timestamps
-      test(evaluate("birthday<" + dateFormat_.get().format(laterDate), user), user.getBirthday() + " < "+laterDate.toString());
-      test(evaluate("birthday>" + dateFormat_.get().format(earlierDate), user), user.getBirthday() + " > "+earlierDate.toString());
+      test(evaluate("birthday=" + dateFormat_.get().format(noon), user), user.getBirthday() + " = "+noon.toString());
       `
     },
     {

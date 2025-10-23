@@ -45,10 +45,7 @@ foam.CLASS({
           this.arg1 = this.arg1.partialEval();
         }
         if ( this.Not.isInstance(this.arg1) ) {
-          this.arg1 = this.arg1.partialEval();
-          if ( ! this.arg2 ) {
-            return this.arg1;
-          }
+          return this.arg1.arg1;
         } else if ( this.Eq.isInstance(this.arg1) ) {
           return this.Neq.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.Neq.isInstance(this.arg1)) {
@@ -63,14 +60,14 @@ foam.CLASS({
           return this.Gt.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.And.isInstance(this.arg1)) {
           for ( var i = 0; i < this.arg1.args.length; i++ ) {
-            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] });
+            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] }).partialEval();
           }
-          return this.Or.create({args: this.arg1.args[i]});
+          return this.Or.create({args: this.arg1.args});
         } else if (this.Or.isInstance(this.arg1)) {
           for ( var i = 0; i < this.arg1.args.length; i++ ) {
-            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] });
+            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] }).partialEval();
           }
-          return this.And.create({args: this.arg1.args[i]});
+          return this.And.create({args: this.arg1.args});
         }
         return this;
       },

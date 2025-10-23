@@ -1489,7 +1489,8 @@ foam.CLASS({
   properties: [
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
-    ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE']
+    ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
+    ['javaAdapt',       '']
   ],
 
   methods: [
@@ -1510,7 +1511,7 @@ foam.CLASS({
         }`;
 
       return info;
-  }
+    }
   ]
 });
 
@@ -1562,15 +1563,22 @@ foam.CLASS({
   properties: [
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
-    ['sqlType',         'DATE']
+    ['sqlType',         'DATE'],
+    ['javaAdapt',
+     `
+      // convert the Date to be noon in GMT
+      val = val != null ? new java.util.Date(val.getTime() / 86400000l * 86400000l + 43200000l) : null;
+     `
+    ]
   ],
 
    methods: [
      function createJavaPropertyInfo_(cls) {
        var info = this.SUPER(cls);
+       // TODO: cast isn't called on setter
        var m = info.getMethod('cast');
        m.body = `
-        return foam.util.DateUtil.adapt(o);
+         return foam.util.DateUtil.adapt(o);
        `;
 
        return info;

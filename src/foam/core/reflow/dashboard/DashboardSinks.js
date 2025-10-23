@@ -1846,3 +1846,88 @@ foam.CLASS({
   ]
 });
 
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCalendarSink',
+  extends: 'foam.dao.AbstractSink',
+  documentation: 'Calendar sink with fully live dashboard properties (match Pie/Bar).',
+  requires: [
+    'foam.u2.layout.ContainerWidth',
+    'org.chartjs.CalendarDAOChartView'
+  ],
+  properties: [
+    { name: 'dateProp', label: 'Date Property' },
+    { name: 'categoryProp', label: 'Category Property' },
+    { name: 'valueSink', documentation: 'Aggregator sink.' },
+    { class: 'Int', name: 'periodCount', label: 'Periods', value: 12 },
+    { name: 'map_', hidden: true, factory: function() { return {}; } },
+    // Dashboard-style display properties
+    { class: 'StringArray', name: 'colors', documentation: 'Dashboard chart colors' },
+    { class: 'Boolean', name: 'showLegend', value: true },
+    { class: 'Enum', name: 'legendPosition', of: 'foam.core.reflow.dashboard.LegendPosition', value: 'TOP' },
+    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
+    { class: 'Int', name: 'height', value: 300 },
+    { class: 'Enum', name: 'alignment', of: 'foam.core.reflow.dashboard.MetricAlignment', value: 'CENTER' },
+    { class: 'Boolean', name: 'animate', value: true },
+    { class: 'Int', name: 'animationDuration', value: 1000 },
+    {
+      name: 'chart_',
+      transient: true,
+      factory: function() {
+        // Only create once, then drive via property slots
+        return this.CalendarDAOChartView.create({});
+      }
+    }
+  ],
+  methods: [
+    function put(obj) {
+      let d = this.dateProp.f(obj);
+      let c = this.categoryProp ? this.categoryProp.f(obj) : 'default';
+      if (!d || !c) return;
+      let key = new Date(d).toISOString().slice(0, 10);
+      if (!this.map_[key]) this.map_[key] = {};
+      let v = 1;
+      if (this.valueSink && this.valueSink.put) {
+        this.valueSink.reset && this.valueSink.reset();
+        this.valueSink.put(obj);
+        v = this.valueSink.value !== undefined ? this.valueSink.value : 1;
+      }
+      this.map_[key][c] = (this.map_[key][c] || 0) + v;
+    },
+    function toE(_, x) { return x.E().add(this.chart_$); },
+    function addToE(e) {
+      var self = this;
+      // Prepare labels/categories/values live from map_
+      function updateChartData() {
+        const allCatsSet = new Set();
+        Object.values(self.map_).forEach(row => Object.keys(row).forEach(k => allCatsSet.add(k)));
+        const categories = Array.from(allCatsSet).sort();
+        const allDates = Object.keys(self.map_).sort();
+        self.chart_.categories = categories;
+        self.chart_.labels = allDates;
+        self.chart_.values = allDates.map(date => categories.map(cat => (self.map_[date] && self.map_[date][cat]) ? self.map_[date][cat] : 0));
+      }
+      // Initial chart creation
+      updateChartData();
+      e.add(this.chart_$);
+      // Live slot binding like Pie/Bar
+      console.log('colors', this.colors$);
+      this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
+        var c = self.chart_;
+        if (!c) return;
+        c.colors = colors;
+        c.showLegend = showLegend;
+        c.legendPosition = legendPosition;
+        c.maintainAspectRatio = maintainAspectRatio;
+        c.height = height;
+        c.alignment = alignment;
+        c.animate = animate;
+        c.animationDuration = animationDuration;
+        // Also update chart data in-case of data changes
+        updateChartData();
+        c.invalidate && c.invalidate();
+      }, this.colors$, this.showLegend$, this.legendPosition$, this.maintainAspectRatio$, this.height$, this.alignment$, this.animate$, this.animationDuration$));
+    }
+  ]
+});
+

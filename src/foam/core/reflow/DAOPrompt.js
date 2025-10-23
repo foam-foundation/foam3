@@ -83,6 +83,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'DAOPrompt',
 
+  mixins: [ 'foam.core.reflow.DAOResolverMixin' ],
+
   sections: [
     {
       name: 'general',
@@ -134,13 +136,20 @@ foam.CLASS({
     {
       class: 'String',
       name: 'label',
-      section: 'general',
       label: 'Name',
+      section: 'general',
       onKey: true,
       expression: function(dao) {
         return dao.of.model_.plural;
       },
       displayWidth: 60
+    },
+    {
+      class: 'String',
+      name: 'daoKey',
+      section: 'general',
+      hidden: true,
+      transient: true
     },
     {
       class: 'foam.dao.DAOProperty',
@@ -149,72 +158,22 @@ foam.CLASS({
       hidden: true,
       transient: true,
       adapt: function(o, n, p) {
-        let oldAdapt = foam.dao.DAOProperty.ADAPT;
-        if ( foam.String.isInstance(n) ) {
-          // Handle dotted keys by traversing down the scope hierarchy
-          // e.g., "daoCommand.data1.dao" or "flow.subflow.property"
-          if ( n.includes('.') ) {
-            // Split the key into parts at each dot
-            var parts = n.split('.');
-            // Start at the root scope
-            var current = this.scope;
-            var i = 0;
-
-            // Traverse down the object hierarchy following each part
-            while ( i < parts.length && current ) {
-              var part = parts[i];
-
-              // Check if this part ends with '()' - it's a method call
-              if ( part.endsWith('()') ) {
-                // Remove the '()' to get the method name
-                var methodName = part.substring(0, part.length - 2);
-                // Get the method and call it with current as 'this'
-                var method = current[methodName];
-                if ( typeof method === 'function' ) {
-                  current = method.call(current);
-                } else {
-                  current = null;
-                }
-              } else {
-                current = current[part];
-              }
-              i++;
-            }
-
-            // If we successfully resolved the dotted path, use it
-            if ( current ) {
-              this.daoKey = n;
-              n = current;
-            } else {
-              console.error('Could not resolve dotted DAO path:', n);
-              return null;
-            }
-          } else {
-            if ( n.endsWith('s') ) {
-              // Try plural+DAO first (preserves exact name), then fallback to singular+DAO
-              if ( this.scope[n + 'DAO'] ) {
-                this.daoKey = n + 'DAO';
-                n = this.scope[n + 'DAO'];
-              } else if ( this.__context__[n + 'DAO'] ) {
-                this.daoKey = n + 'DAO';
-                n = n + 'DAO';
-              } else {
-                this.daoKey = n;
-                n = n.substring(0, n.length-1) + 'DAO';
-              }
-            } else if ( this.__context__[n + 'DAO'] ) {
-              n = n + 'DAO';
-            } else if ( this.scope[n + 'DAO'] ) {
-              this.daoKey = n + 'DAO';
-              n = this.scope[n + 'DAO'];
-            } else if ( this.scope[n] ) {
-              this.daoKey = n;
-              n = this.scope[n];
-            }
-          }
-        }
-        return oldAdapt.value.call(this, o, n, p);
+        return this.adaptDAOProperty(o, n, p);
+      },
+      expression: function(daoKey) {
+        return this.resolveDAOFromKey(daoKey);
       }
+    },
+    {
+      class: 'String',
+      name: 'label',
+      section: 'general',
+      label: 'Name',
+      onKey: true,
+      expression: function(dao) {
+        return dao.of.model_.plural;
+      },
+      displayWidth: 60
     },
     {
       class: 'foam.dao.DAOProperty',

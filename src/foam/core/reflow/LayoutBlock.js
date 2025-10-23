@@ -95,45 +95,6 @@ foam.CLASS({
       }
     },
     {
-      class: 'Class',
-      name: 'borderClass',
-      label: 'Border Type',
-      factory: function() { return foam.u2.borders.NullBorder; },
-      view: function(_,X) {
-        return {
-          class: 'foam.u2.view.ChoiceView',
-          choices: [
-            [foam.u2.borders.NullBorder, 'None'],
-            [foam.u2.borders.CardBorder, 'Card'],
-            [foam.u2.borders.BackgroundCard, 'Background'],
-            [foam.u2.borders.SpacingBorder, 'Padding'],
-            [foam.dashboard.view.CardWrapper, 'Card with Title']
-          ]
-        };
-      }
-    },
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'border',
-      label: 'Border Properties',
-      factory: function() { return {}; },
-      preSet: function(_, n) {
-        if ( n && n.class ) delete n.class;
-        return n;
-      },
-      view: function (_, X) {
-        return {
-          class: 'foam.u2.view.ViewConfiguratorView',
-          data_$: X.data$.dot('borderEl_'),
-          allowClassChange: false
-        };
-      }
-    },
-    {
-      name: 'borderEl_',
-      hidden: true
-    },
-    {
       name: 'childType',
       factory: function() {
         return this.LayoutNode;
@@ -179,7 +140,11 @@ foam.CLASS({
           this.content.add(el);
         }
         this.borderEl_ = el;
-        this.borderEl_.tag(this.Layout, {}, this.cmdHolder$);
+        if ( this.cmdHolder ) {
+          this.borderEl_.add(this.cmdHolder);
+        } else {
+          this.borderEl_.tag(this.Layout, {}, this.cmdHolder$);
+        }
       }
     },
     {

@@ -785,7 +785,6 @@ foam.CLASS({
             { name: 'icon' },
             { name: 'themeIcon' },
             { name: 'toolTip' },
-            { name: 'shown' }
             // These need more work to be integrated here, they need proper data setting, we would probably want to switch to ActionReferences for this
             // { name: 'isEnabled' },
             // { name: 'isAvailable' }
@@ -793,11 +792,6 @@ foam.CLASS({
         }
       ],
       properties: [
-        {
-          class: 'Boolean',
-          name: 'shown',
-          value: true
-        },
         {
           class: 'String',
           name: 'script',

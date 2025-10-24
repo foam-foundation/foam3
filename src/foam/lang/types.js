@@ -314,7 +314,6 @@ foam.CLASS({
   ],
 
   properties: [
-    [ 'type', 'DateTimeUTC' ],
     {
       name: 'adapt',
       value: function (_, d) {

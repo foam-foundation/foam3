@@ -1516,41 +1516,6 @@ foam.CLASS({
 });
 
 
-foam.CLASS({
-  package: 'foam.java',
-  name: 'DateTimeUTCJavaRefinement',
-  refines: 'foam.lang.DateTimeUTC',
-  // flags: ['java'],
-  mixins: [ 'foam.java.JavaCompareImplementor' ],
-
-  properties: [
-    ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
-    ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
-    ['javaType',        'java.util.Date'],
-    ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE']
-  ],
-
-  methods: [
-    function createJavaPropertyInfo_(cls) {
-      var info = this.SUPER(cls);
-      var m = info.getMethod('cast');
-      m.body = `
-        try {
-          if ( o instanceof Number ) {
-            return new java.util.Date(((Number) o).longValue());
-          }
-          if ( o instanceof String ) {
-            return (java.util.Date) fromString((String) o);
-          }
-          return (java.util.Date) o;
-        } catch ( Throwable t ) {
-          throw new RuntimeException(t);
-        }`;
-
-      return info;
-    }
-  ]
-});
 
 
 foam.CLASS({

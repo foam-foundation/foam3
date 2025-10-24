@@ -1,41 +1,8 @@
 /**
  * @license
- * Copyright 2025 PayTic. All Rights Reserved.
+ * Copyright 2025 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
  */
-
-// Define test model before the test class
-foam.CLASS({
-  package: 'foam.lang.test',
-  name: 'DateTimeTestModel',
-
-  documentation: 'Test model with both DateTime and DateTimeUTC properties for comparison',
-
-  properties: [
-    {
-      class: 'Long',
-      name: 'id'
-    },
-    {
-      class: 'DateTime',
-      name: 'regularDateTime',
-      documentation: 'Standard DateTime property - formats in local timezone'
-    },
-    {
-      class: 'DateTimeUTC',
-      name: 'utcDateTime',
-      documentation: 'DateTimeUTC property - formats in UTC timezone'
-    },
-    {
-      class: 'Date',
-      name: 'regularDate',
-      documentation: 'Standard Date property'
-    },
-    {
-      class: 'String',
-      name: 'eventName'
-    }
-  ]
-});
 
 foam.CLASS({
   package: 'foam.lang.test',
@@ -46,6 +13,10 @@ foam.CLASS({
 
   requires: [
     'foam.lang.test.DateTimeTestModel'
+  ],
+
+  imports: [
+    'dateTimeTestDAO?'
   ],
 
   methods: [
@@ -64,6 +35,8 @@ foam.CLASS({
         this.testTimezoneNegativeOffset(x);
         this.testTimezoneVariousOffsets(x);
         this.testTimezoneDateBoundaries(x);
+        await this.testDAOPutAndFind(x);
+        await this.testDAOQuery(x);
       }
     },
 
@@ -485,6 +458,90 @@ foam.CLASS({
           x.test( hour === tc.hour, tc.input + ": Hour should be " + tc.hour + " (got " + hour + ")" );
           x.test( minute === tc.minute, tc.input + ": Minute should be " + tc.minute + " (got " + minute + ")" );
           x.test( second === tc.second, tc.input + ": Second should be " + tc.second + " (got " + second + ")" );
+        });
+      }
+    },
+
+    {
+      name: 'testDAOPutAndFind',
+      code: async function(x) {
+        // Test DAO operations - putting and retrieving objects with DateTimeUTC properties
+        if ( ! this.dateTimeTestDAO ) {
+          console.log("Skipping DAO tests - dateTimeTestDAO not available");
+          return;
+        }
+
+        // Clear DAO first to ensure clean state
+        await this.dateTimeTestDAO.removeAll();
+
+        var model = this.DateTimeTestModel.create({
+          id: 1,
+          eventName: "Test Event 1",
+          utcDateTime: "2024-03-15T15:30:45Z",
+          regularDateTime: "2024-03-15T15:30:45"
+        });
+
+        // Put into DAO
+        await this.dateTimeTestDAO.put(model);
+
+        // Find from DAO
+        var found = await this.dateTimeTestDAO.find(1);
+
+        x.test( found != null, "DAO: Should find saved object" );
+        x.test( found.eventName === "Test Event 1", "DAO: Event name should match" );
+        x.test( found.utcDateTime != null, "DAO: UTC DateTime should not be null" );
+        x.test( found.utcDateTime.getUTCFullYear() === 2024, "DAO: UTC Year should be 2024" );
+        x.test( found.utcDateTime.getUTCMonth() === 2, "DAO: UTC Month should be 2 (March)" );
+        x.test( found.utcDateTime.getUTCDate() === 15, "DAO: UTC Day should be 15" );
+        x.test( found.utcDateTime.getUTCHours() === 15, "DAO: UTC Hour should be 15" );
+        x.test( found.utcDateTime.getUTCMinutes() === 30, "DAO: UTC Minute should be 30" );
+        x.test( found.utcDateTime.getUTCSeconds() === 45, "DAO: UTC Second should be 45" );
+
+        // Test that timestamp is preserved exactly
+        x.test( found.utcDateTime.getTime() === model.utcDateTime.getTime(),
+                "DAO: Timestamp should be preserved exactly after DAO round-trip" );
+      }
+    },
+
+    {
+      name: 'testDAOQuery',
+      code: async function(x) {
+        // Test querying DAO with DateTimeUTC properties
+        if ( ! this.dateTimeTestDAO ) {
+          console.log("Skipping DAO query tests - dateTimeTestDAO not available");
+          return;
+        }
+
+        // Clear DAO first
+        await this.dateTimeTestDAO.removeAll();
+
+        // Add test data with various dates
+        var testData = [
+          { id: 10, eventName: "Event A", utcDateTime: "2024-03-15T10:00:00Z" },
+          { id: 11, eventName: "Event B", utcDateTime: "2024-03-15T15:30:45Z" },
+          { id: 12, eventName: "Event C", utcDateTime: "2024-03-16T08:00:00Z" },
+          { id: 13, eventName: "Event D", utcDateTime: "2024-03-14T12:00:00Z" }
+        ];
+
+        for ( var i = 0; i < testData.length; i++ ) {
+          await this.dateTimeTestDAO.put(this.DateTimeTestModel.create(testData[i]));
+        }
+
+        // Query all
+        var all = await this.dateTimeTestDAO.select();
+        x.test( all.array.length === 4, "DAO Query: Should have 4 items" );
+
+        // Query by date using timestamp comparison
+        var targetDate = new Date("2024-03-15T15:30:45Z");
+        var found = await this.dateTimeTestDAO.find(11);
+        x.test( found != null, "DAO Query: Should find event by ID" );
+        x.test( found.utcDateTime.getTime() === targetDate.getTime(),
+                "DAO Query: DateTime should match target timestamp" );
+
+        // Verify all items have valid DateTimeUTC properties
+        all.array.forEach(function(item) {
+          x.test( item.utcDateTime != null, "DAO Query: All items should have utcDateTime" );
+          x.test( item.utcDateTime instanceof Date, "DAO Query: utcDateTime should be Date instance" );
         });
       }
     }

@@ -68,7 +68,7 @@ foam.CLASS({
         if ( d === null || d === undefined ) return d;
 
         // Only accept strings - convert to string if needed
-        if ( typeof d !== 'string' ) {
+        if ( ! foam.String.isInstance(d) ) {
           d = String(d);
         }
 
@@ -95,7 +95,7 @@ foam.CLASS({
         if ( d === null || d === undefined ) return d;
 
         // Only accept strings - convert to string if needed
-        if ( typeof d !== 'string' ) {
+        if ( ! foam.String.isInstance(d) ) {
           d = String(d);
         }
 
@@ -122,7 +122,7 @@ foam.CLASS({
         if ( d === null || d === undefined ) return d;
 
         // Only accept strings - convert to string if needed
-        if ( typeof d !== 'string' ) {
+        if ( ! foam.String.isInstance(d) ) {
           d = String(d);
         }
 
@@ -220,7 +220,7 @@ foam.CLASS({
       code: function(o) {
         if ( ! o ) return null;
         if ( o instanceof Date ) return o;
-        if ( typeof o === 'string' ) {
+        if ( foam.String.isInstance(o) ) {
           var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
           return parser.parseDateString(o);
         }

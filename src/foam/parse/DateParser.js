@@ -511,9 +511,8 @@ foam.CLASS({
         // Years 50-99 map to 1950-1999
         if ( twoDigitYear < 50 ) {
           return 2000 + twoDigitYear;
-        } else {
-          return 1900 + twoDigitYear;
         }
+        return 1900 + twoDigitYear;
       }
     },
 

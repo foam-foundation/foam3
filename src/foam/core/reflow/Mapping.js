@@ -209,7 +209,7 @@ foam.CLASS({
       // Set property value using fromCSV, passing format hint for date fields
       if ( value !== '' && value != null && value !== undefined ) {
         // Check DateTimeUTC BEFORE DateTime since DateTimeUTC extends DateTime
-        if ( this.prop && (foam.lang.Date.isInstance(this.prop) || foam.lang.DateTimeUTC.isInstance(this.prop) || foam.lang.DateTime.isInstance(this.prop)) ) {
+        if ( this.prop && foam.lang.Date.isInstance(this.prop) ) {
           // For date/datetime properties, pass format to fromCSV
           var formatName = this.formatToParserName();
           this.prop.set(obj, this.prop.fromCSV(value, formatName));

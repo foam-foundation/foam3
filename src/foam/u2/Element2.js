@@ -231,6 +231,8 @@ foam.CLASS({
       if ( this.parentNode )
         this.parentNode.childNodes = this.parentNode.childNodes.filter(v => v !== this);
       this.parentNode = e;
+      // This is extremely important as otherwise the wrapper might detach with old parents
+      this.clearPrivate_('listeners');
       for ( let el = this.element_.nextSibling;
         el != this.endElement_; el = el.nextSibling ) {
         this.nodesToMove_.push(el);

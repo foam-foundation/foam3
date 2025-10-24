@@ -61,9 +61,9 @@ foam.CLASS({
     {
       name: 'outputFObjects',
       javaCode: `
-      HttpServletResponse resp = x.get(HttpServletResponse.class);
-      PrintWriter out = x.get(PrintWriter.class);
-      ClassInfo cInfo = dao.getOf();
+      HttpServletResponse resp  = x.get(HttpServletResponse.class);
+      PrintWriter         out   = x.get(PrintWriter.class);
+      ClassInfo           cInfo = dao.getOf();
 
       if ( fobjects == null || fobjects.size() == 0 ) {
         resp.setContentType("text/html");
@@ -77,7 +77,8 @@ foam.CLASS({
       outputterXml.output(fobjects.toArray());
 
       String simpleName = cInfo.getSimpleName();
-      String output = "<" + simpleName + "s>"+ outputterXml.toString() + "</" + simpleName + "s>";
+      // String header  = "<?xml version=\\"1.0\\" encoding=\\"ISO-8859-1\\"?>;
+      String output     = "<" + simpleName + "s>"+ outputterXml.toString() + "</" + simpleName + "s>";
 
       // Output the formatted data
       out.println(output);

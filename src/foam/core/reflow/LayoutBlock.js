@@ -55,7 +55,6 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'LayoutBlock',
   extends: 'foam.core.reflow.Block',
-  // Allows nesting layouts
   mixins: ['foam.u2.layouts.LayoutChild', 'foam.core.reflow.LayoutUtils'],
 
 
@@ -90,13 +89,8 @@ foam.CLASS({
       hidden: true
     },
     {
-      name: 'out',
-      getter: function() {
-        return this.cmdHolder;
-      }
+      name: 'out'
     },
-    { name: 'border', hidden: true },
-    { name: 'borderClass', hidden: true },
     {
       name: 'childType',
       factory: function() {
@@ -112,12 +106,20 @@ foam.CLASS({
       this.
         addClass(self.myClass()).
         tag(this.ReflowToolBar);
-      this.content.tag(this.Layout, {}, this.cmdHolder$);
+      if ( ! this.cmdHolder ) {
+        this.out.tag(this.Layout, {}, this.cmdHolder$);
+      } else {
+        this.out.add(this.cmdHolder);
+      }
       let sub = () => {
         this.addValue(this.cmdHolder, true);
       };
       this.cmdHolder$.sub(sub);
       sub();
+    },
+    function addFlowChild_(c) {
+      this.addToScope(c);
+      this.cmdHolder.add(c);
     },
     function eval_(...args){
       if ( ! args[3] || args[3] == this.flowParent )

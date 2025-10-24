@@ -356,6 +356,14 @@ foam.CLASS({
         return {
           class: 'foam.core.reflow.PropertySuggestedField'
         };
+      },
+      validateObj: function(columns) {
+        var a = columns.trim().split(',').map(c => c.trim());
+
+        for ( let i = 0 ; i < a.length ; i++ ) {
+          let p = this.dao.of.getAxiomByName(a[i]);
+          if ( ! p ) return 'Unknown Property: ' + a[i];
+        }
       }
     },
     {

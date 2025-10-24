@@ -697,6 +697,11 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'minimum'
+    },
+    {
+      class: 'Int',
+      name: 'maximum',
+      value: Number.MAX_SAFE_INTEGER
     }
   ],
 
@@ -706,7 +711,7 @@ foam.CLASS({
       var p     = this.p;
       var delim = this.delimiter;
 
-      while ( ps.valid ) {
+      while ( ps.valid && ret.length < this.maximum ) {
         var res;
 
         if ( delim && ret.length != 0 ) {
@@ -857,7 +862,7 @@ foam.CLASS({
       var delim = this.delimiter;
       var i = 0;
 
-      while ( ps ) {
+      while ( ps && i < this.maximum ) {
         last = ps;
         ps = ps.apply(p, obj);
         if ( ps ) i++;
@@ -1030,26 +1035,27 @@ foam.CLASS({
       });
     },
 
-    function rep(p, delim, min) {
+    function rep(p, delim, min, max = Number.MAX_SAFE_INTEGER) {
       return this.Repeat.create({
-        p: p,
-        minimum: min || 0,
+        p:         p,
+        minimum:   min || 0,
+        maximum:   max,
         delimiter: delim
       });
     },
 
-    function repeat(p, delim, min) { return this.rep(p, delim, min); },
+    function repeat(p, delim, min, max) { return this.rep(p, delim, min, max); },
 
-
-    function rep0(p, delim, min) {
+    function rep0(p, delim, min, max = Number.MAX_SAFE_INTEGER) {
       return this.Repeat0.create({
         p: p,
         minimum: min || 0,
+        maximum: max,
         delimiter: delim
       });
     },
 
-    function repeat0(p, delim, min) { return this.rep0(p, delim, min); },
+    function repeat0(p, delim, min, max) { return this.rep0(p, delim, min, max); },
 
     function simpleAlt() {
       return this.Alternate.create({

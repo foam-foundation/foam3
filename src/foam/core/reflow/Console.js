@@ -79,8 +79,8 @@ foam.CLASS({
     function addFlowChild(f) {
       if ( f.deleted_ ) return;
       f.flowParent = this;
-      this.addFlowChild_ && this.addFlowChild_(f);
       this.flowChildren$push(f);
+      this.addFlowChild_ && this.addFlowChild_(f);
     },
 
     function removeFlowChild(f) {
@@ -596,8 +596,9 @@ foam.CLASS({
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
         let el = this.borderClass.create({...(this.border || {})}, this);
+        this.borderEl_.parentNode.add(el);
         this.out.moveTo(el);
-        el.replaceElement_(this.borderEl_);
+        this.borderEl_.remove();
         this.borderEl_ = el;
       }
     },
@@ -658,7 +659,7 @@ foam.CLASS({
     }
     ^r {
       overflow-y: auto;
-      width: 30%;
+      width: 40%;
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
@@ -725,7 +726,7 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'rightWidth',
-      value: 360
+      value: 550
     },
     {
       class: 'Int',
@@ -1131,10 +1132,7 @@ foam.CLASS({
         }
 
         await this.currentBlock.value?.onLoad?.();
-
-        // CRITICAL: Refresh scope after value is fully set to ensure next command can access it
-        this.refreshFlowScope();
-
+        
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }

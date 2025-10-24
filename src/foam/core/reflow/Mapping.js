@@ -218,7 +218,6 @@ foam.CLASS({
         }
       }
     },
-
     function evaluateExpression(expression, rowData) {
       /**
        * Safely evaluate a JavaScript expression within the context of rowData.

@@ -153,6 +153,27 @@ foam.CLASS({
   ],
 
   methods: [
+    function formatToParserName() {
+      /**
+       * Maps DateFormat enum to DateParser grammar symbol name.
+       * This is used when calling DateUtil parsing methods with format hints.
+       *
+       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm')
+       */
+      if ( ! this.dateFormat ) return 'START';
+
+      // Map enum values to parser symbol names
+      switch ( this.dateFormat.name ) {
+        case 'DDMMYYYY':
+          return 'ddmmyyyy';
+        case 'YYYYDDMM':
+          return 'yyyyddmm';
+        case 'STANDARD':
+        default:
+          return 'START';
+      }
+    },
+
     function process(obj, value, rowData) {
       if ( ! this.property ) return;
 
@@ -185,12 +206,15 @@ foam.CLASS({
         value = value.trim();
       }
 
-      // Preprocess date formats if this is a date field
+      // Set property value using fromCSV, passing format hint for date fields
       if ( value !== '' && value != null && value !== undefined ) {
         if ( this.prop && (foam.lang.Date.isInstance(this.prop) || foam.lang.DateTime.isInstance(this.prop)) ) {
-          value = this.preprocessDateFormat(value);
+          // For date/datetime properties, pass format to fromCSV
+          var formatName = this.formatToParserName();
+          this.prop.set(obj, this.prop.fromCSV(value, formatName));
+        } else {
+          this.prop.set(obj, this.prop.fromCSV(value));
         }
-        this.prop.set(obj, this.prop.fromCSV(value));
       }
     },
 

@@ -20,6 +20,7 @@ foam.CLASS({
       this.testMMDDYYYYFormats(x);
       this.testYYMMDDFormats(x);
       this.testDDMMYYYYFormats(x);
+      this.testYYYYDDMMFormats(x);
       this.testDateTimeFormats(x);
       this.testParseDateString(x);
       this.testParseDateTime(x);
@@ -204,6 +205,119 @@ foam.CLASS({
           x.test(pass, `DDMMYYYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`);
         } catch (e) {
           x.test(false, `DDMMYYYY-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+    },
+
+    function testYYYYDDMMFormats(x) {
+      let parser = this.DateParser.create();
+
+      // Test YYYYDDMM with separators - requires opt_name='yyyyddmm'
+      let yyyyddmmSep = [
+        { input: '2025/15/01', year: 2025, month: 0, day: 15 },
+        { input: '2025-15-01', year: 2025, month: 0, day: 15 },
+        { input: '2024/31/12', year: 2024, month: 11, day: 31 },
+        { input: '2000/29/02', year: 2000, month: 1, day: 29 }
+      ];
+
+      yyyyddmmSep.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'yyyyddmm');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `YYYYDDMM-Sep Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`);
+        } catch (e) {
+          x.test(false, `YYYYDDMM-Sep Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test YYYYDDMM compact - requires opt_name='yyyyddmm'
+      let yyyyddmmCompact = [
+        { input: '20251501', year: 2025, month: 0, day: 15 },
+        { input: '20243112', year: 2024, month: 11, day: 31 },
+        { input: '20002902', year: 2000, month: 1, day: 29 }
+      ];
+
+      yyyyddmmCompact.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'yyyyddmm');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `YYYYDDMM-Compact Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`);
+        } catch (e) {
+          x.test(false, `YYYYDDMM-Compact Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test YYYYDDMM with time - requires opt_name='yyyyddmm'
+      let yyyyddmmTime = [
+        { input: '2025/15/01 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '2025-15-01 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 }
+      ];
+
+      yyyyddmmTime.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateTime(testCase.input, 'yyyyddmm');
+          let pass = result &&
+                     result.getFullYear() === testCase.year &&
+                     result.getMonth() === testCase.month &&
+                     result.getDate() === testCase.day &&
+                     result.getHours() === testCase.hour &&
+                     result.getMinutes() === testCase.minute &&
+                     result.getSeconds() === testCase.second;
+          x.test(pass, `YYYYDDMM-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`);
+        } catch (e) {
+          x.test(false, `YYYYDDMM-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test YYDDMM (2-digit year) with separators - requires opt_name='yyyyddmm'
+      let yyddmmSep = [
+        { input: '25/15/01', year: 2025, month: 0, day: 15 },
+        { input: '24-31-12', year: 2024, month: 11, day: 31 },
+        { input: '00/29/02', year: 2000, month: 1, day: 29 },
+        { input: '99/15/01', year: 1999, month: 0, day: 15 }
+      ];
+
+      yyddmmSep.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'yyyyddmm');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `YYDDMM-Sep Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`);
+        } catch (e) {
+          x.test(false, `YYDDMM-Sep Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test YYDDMM compact (6 digits) - requires opt_name='yyyyddmm'
+      let yyddmmCompact = [
+        { input: '251501', year: 2025, month: 0, day: 15 },
+        { input: '243112', year: 2024, month: 11, day: 31 },
+        { input: '002902', year: 2000, month: 1, day: 29 },
+        { input: '991501', year: 1999, month: 0, day: 15 }
+      ];
+
+      yyddmmCompact.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'yyyyddmm');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `YYDDMM-Compact Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`);
+        } catch (e) {
+          x.test(false, `YYDDMM-Compact Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
       });
     },

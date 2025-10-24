@@ -26,6 +26,10 @@ foam.CLASS({
     'foam.parse.Parsers'
   ],
 
+  constants: {
+    INVALID_DATE: new Date(NaN)
+  },
+
   properties: [
     {
       name: 'baseGrammar_',
@@ -524,7 +528,7 @@ foam.CLASS({
 
         if ( ! result ) {
           // Unparseable format - return MAX_DATE
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
 
         // Determine if this is a datetime or date-only result based on presence of time components
@@ -557,7 +561,7 @@ foam.CLASS({
 
         if ( ! result ) {
           // Unparseable format - return MAX_DATE
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
 
         // Always return date at noon local time, ignoring time even if present
@@ -581,34 +585,34 @@ foam.CLASS({
 
         if ( ! parseResult ) {
           // Unparseable format - return MAX_DATE
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
 
         // Check if entire string was consumed
         if ( parseResult.pos < str.length ) {
           // Partial parse - remaining characters indicate invalid format
           console.warn('DateParser: Partial parse detected. Input:', str, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
 
         let result = parseResult.value;
 
         if ( ! result ) {
           // Unparseable format - return MAX_DATE
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
 
         // Validate time components if present
         // Note: Grammar already enforces valid ranges (hour2: 00-23, minute2/second2: 00-59)
         // but we keep these checks as a safety measure
         if ( result.hour !== undefined && (result.hour < 0 || result.hour > 23) ) {
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
         if ( result.minute !== undefined && (result.minute < 0 || result.minute > 59) ) {
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
         if ( result.second !== undefined && (result.second < 0 || result.second > 59) ) {
-          return this.validateDate(new Date(NaN), str);
+          return this.validateDate(this.INVALID_DATE, str);
         }
 
         let ret;
@@ -659,34 +663,34 @@ foam.CLASS({
 
         if ( ! parseResult ) {
           // Unparseable format - return MAX_DATE
-          return this.validateDateUTC(new Date(NaN), str);
+          return this.validateDateUTC(this.INVALID_DATE, str);
         }
 
         // Check if entire string was consumed
         if ( parseResult.pos < str.length ) {
           // Partial parse - remaining characters indicate invalid format
           console.warn('DateParser: Partial parse detected for UTC. Input:', str, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
-          return this.validateDateUTC(new Date(NaN), str);
+          return this.validateDateUTC(this.INVALID_DATE, str);
         }
 
         let result = parseResult.value;
 
         if ( ! result ) {
           // Unparseable format - return MAX_DATE
-          return this.validateDateUTC(new Date(NaN), str);
+          return this.validateDateUTC(this.INVALID_DATE, str);
         }
 
         // Validate time components if present
         // Note: Grammar already enforces valid ranges (hour2: 00-23, minute2/second2: 00-59)
         // but we keep these checks as a safety measure
         if ( result.hour !== undefined && (result.hour < 0 || result.hour > 23) ) {
-          return this.validateDateUTC(new Date(NaN), str);
+          return this.validateDateUTC(this.INVALID_DATE, str);
         }
         if ( result.minute !== undefined && (result.minute < 0 || result.minute > 59) ) {
-          return this.validateDateUTC(new Date(NaN), str);
+          return this.validateDateUTC(this.INVALID_DATE, str);
         }
         if ( result.second !== undefined && (result.second < 0 || result.second > 59) ) {
-          return this.validateDateUTC(new Date(NaN), str);
+          return this.validateDateUTC(this.INVALID_DATE, str);
         }
 
         let ret;

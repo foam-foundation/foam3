@@ -478,7 +478,8 @@ foam.CLASS({
           id: 1,
           eventName: "Test Event 1",
           utcDateTime: "2024-03-15T15:30:45Z",
-          regularDateTime: "2024-03-15T15:30:45"
+          regularDateTime: "2024-03-15T15:30:45",
+          regularDate: "2024-03-15"
         });
 
         // Put into DAO
@@ -489,6 +490,8 @@ foam.CLASS({
 
         x.test( found != null, "DAO: Should find saved object" );
         x.test( found.eventName === "Test Event 1", "DAO: Event name should match" );
+
+        // Test DateTimeUTC property
         x.test( found.utcDateTime != null, "DAO: UTC DateTime should not be null" );
         x.test( found.utcDateTime.getUTCFullYear() === 2024, "DAO: UTC Year should be 2024" );
         x.test( found.utcDateTime.getUTCMonth() === 2, "DAO: UTC Month should be 2 (March)" );
@@ -497,9 +500,18 @@ foam.CLASS({
         x.test( found.utcDateTime.getUTCMinutes() === 30, "DAO: UTC Minute should be 30" );
         x.test( found.utcDateTime.getUTCSeconds() === 45, "DAO: UTC Second should be 45" );
 
-        // Test that timestamp is preserved exactly
+        // Test regular DateTime property
+        x.test( found.regularDateTime != null, "DAO: Regular DateTime should not be null" );
+
+        // Test regular Date property
+        x.test( found.regularDate != null, "DAO: Regular Date should not be null" );
+        x.test( found.regularDate.getUTCFullYear() === 2024, "DAO: Regular Date year should be 2024" );
+        x.test( found.regularDate.getUTCMonth() === 2, "DAO: Regular Date month should be 2 (March)" );
+        x.test( found.regularDate.getUTCDate() === 15, "DAO: Regular Date day should be 15" );
+
+        // Test that timestamp is preserved exactly for DateTimeUTC
         x.test( found.utcDateTime.getTime() === model.utcDateTime.getTime(),
-                "DAO: Timestamp should be preserved exactly after DAO round-trip" );
+                "DAO: UTC DateTime timestamp should be preserved exactly after DAO round-trip" );
       }
     },
 
@@ -515,12 +527,36 @@ foam.CLASS({
         // Clear DAO first
         await this.dateTimeTestDAO.removeAll();
 
-        // Add test data with various dates
+        // Add test data with various dates - populate all date fields
         var testData = [
-          { id: 10, eventName: "Event A", utcDateTime: "2024-03-15T10:00:00Z" },
-          { id: 11, eventName: "Event B", utcDateTime: "2024-03-15T15:30:45Z" },
-          { id: 12, eventName: "Event C", utcDateTime: "2024-03-16T08:00:00Z" },
-          { id: 13, eventName: "Event D", utcDateTime: "2024-03-14T12:00:00Z" }
+          {
+            id: 10,
+            eventName: "Event A",
+            utcDateTime: "2024-03-15T10:00:00Z",
+            regularDateTime: "2024-03-15T10:00:00",
+            regularDate: "2024-03-15"
+          },
+          {
+            id: 11,
+            eventName: "Event B",
+            utcDateTime: "2024-03-15T15:30:45Z",
+            regularDateTime: "2024-03-15T15:30:45",
+            regularDate: "2024-03-15"
+          },
+          {
+            id: 12,
+            eventName: "Event C",
+            utcDateTime: "2024-03-16T08:00:00Z",
+            regularDateTime: "2024-03-16T08:00:00",
+            regularDate: "2024-03-16"
+          },
+          {
+            id: 13,
+            eventName: "Event D",
+            utcDateTime: "2024-03-14T12:00:00Z",
+            regularDateTime: "2024-03-14T12:00:00",
+            regularDate: "2024-03-14"
+          }
         ];
 
         for ( var i = 0; i < testData.length; i++ ) {
@@ -538,10 +574,14 @@ foam.CLASS({
         x.test( found.utcDateTime.getTime() === targetDate.getTime(),
                 "DAO Query: DateTime should match target timestamp" );
 
-        // Verify all items have valid DateTimeUTC properties
+        // Verify all items have valid date properties
         all.array.forEach(function(item) {
           x.test( item.utcDateTime != null, "DAO Query: All items should have utcDateTime" );
           x.test( item.utcDateTime instanceof Date, "DAO Query: utcDateTime should be Date instance" );
+          x.test( item.regularDateTime != null, "DAO Query: All items should have regularDateTime" );
+          x.test( item.regularDateTime instanceof Date, "DAO Query: regularDateTime should be Date instance" );
+          x.test( item.regularDate != null, "DAO Query: All items should have regularDate" );
+          x.test( item.regularDate instanceof Date, "DAO Query: regularDate should be Date instance" );
         });
       }
     }

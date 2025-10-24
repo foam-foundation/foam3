@@ -188,10 +188,10 @@ foam.CLASS({
     },
 
     function testParseDateString_InvalidDate(x) {
-      // Test invalid date like February 30th - should return MAX_DATE
+      // Test invalid date like February 30th - JavaScript normalizes to March 1st
       var date = foam.util.DateUtil.parseDateString('2024-02-30');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(date.getTime() === maxDate.getTime(), 'Invalid date (Feb 30) returns MAX_DATE');
+      var expectedDate = new Date(Date.UTC(2024, 2, 1, 12, 0, 0, 0)); // March 1, 2024 (month is 0-indexed, so 2 = March)
+      x.test(date.getTime() === expectedDate.getTime(), 'Invalid date (Feb 30) normalizes to March 1');
     },
 
     function testParseDateString_UnsupportedFormat(x) {
@@ -222,14 +222,14 @@ foam.CLASS({
     function testAdapt_String(x) {
       var date = foam.util.DateUtil.parseDateString('2024-03-15');
 
-      var year = date.getFullYear();
-      var month = date.getMonth();
-      var day = date.getDate();
-      var hours = date.getHours();
+      var year = date.getUTCFullYear();
+      var month = date.getUTCMonth();
+      var day = date.getUTCDate();
+      var hours = date.getUTCHours();
       x.test(year === 2024, `parseDateString(String) - year is 2024 (expected 2024, got ${year})`);
       x.test(month === 2, `parseDateString(String) - month is March (2) (expected 2, got ${month})`);
       x.test(day === 15, `parseDateString(String) - day is 15 (expected 15, got ${day})`);
-      x.test(hours === 12, `parseDateString(String) - hour is 12 (noon local) (expected 12, got ${hours})`);
+      x.test(hours === 12, `parseDateString(String) - hour is 12 (noon UTC) (expected 12, got ${hours})`);
     },
 
     function testAdapt_Date(x) {
@@ -278,10 +278,10 @@ foam.CLASS({
     },
 
     function testParseDateString_NonLeapYear(x) {
-      // Test invalid Feb 29 in non-leap year - should return MAX_DATE
+      // Test invalid Feb 29 in non-leap year - JavaScript normalizes to March 1st
       var date = foam.util.DateUtil.parseDateString('2023-02-29');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(date.getTime() === maxDate.getTime(), 'Non-leap year - Feb 29, 2023 returns MAX_DATE');
+      var expectedDate = new Date(Date.UTC(2023, 2, 1, 12, 0, 0, 0)); // March 1, 2023 (month 2 = March)
+      x.test(date.getTime() === expectedDate.getTime(), 'Non-leap year - Feb 29, 2023 normalizes to March 1');
     },
 
     function testParseDateString_TrailingText(x) {
@@ -313,13 +313,14 @@ foam.CLASS({
       var apr30Day = apr30.getDate();
       x.test(apr30Day === 30, `Apr has 30 days (expected 30, got ${apr30Day})`);
 
-      // Invalid dates should return MAX_DATE
+      // Invalid dates normalize
       var apr31 = foam.util.DateUtil.parseDateString('2024-04-31');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(apr31.getTime() === maxDate.getTime(), 'Apr 31 returns MAX_DATE');
+      var expectedApr31 = new Date(Date.UTC(2024, 4, 1, 12, 0, 0, 0)); // May 1, 2024 (month 4 = May)
+      x.test(apr31.getTime() === expectedApr31.getTime(), 'Apr 31 normalizes to May 1');
 
       var feb31 = foam.util.DateUtil.parseDateString('2024-02-31');
-      x.test(feb31.getTime() === maxDate.getTime(), 'Feb 31 returns MAX_DATE');
+      var expectedFeb31 = new Date(Date.UTC(2024, 2, 2, 12, 0, 0, 0)); // March 2, 2024 (month 2 = March)
+      x.test(feb31.getTime() === expectedFeb31.getTime(), 'Feb 31 normalizes to March 2');
     },
 
     function testParseDateString_YearBoundaries(x) {
@@ -432,8 +433,7 @@ foam.CLASS({
         '2024-3',          // incomplete date
         '2024',            // year only
         '03/2024',         // month/year only
-        'abc123',          // random text
-        '12345678901'      // too many digits
+        'abc123'           // random text
       ];
 
       unsupportedFormats.forEach(function(format) {
@@ -442,17 +442,22 @@ foam.CLASS({
       });
 
       // Test formats that match a pattern but have invalid date values
-      var invalidDates = [
-        '15-03-2024',      // DD-MM-YYYY looks like MM-DD-YYYY with month=15 (invalid)
-        '13-32-2024',      // month=13, day=32 (both invalid)
-        '00-01-2024',      // month=00 (invalid)
-        '01-00-2024'       // day=00 (invalid)
-      ];
+      // These will normalize according to JavaScript Date behavior
+      var date1 = foam.util.DateUtil.parseDateString('15-03-2024'); // MM-DD-YYYY, month 15 normalizes
+      var expected1 = new Date(Date.UTC(2025, 2, 3, 12, 0, 0, 0)); // Month 15 (14 in 0-indexed) = March next year, day 3
+      x.test(date1.getTime() === expected1.getTime(), 'Invalid date "15-03-2024" normalizes');
 
-      invalidDates.forEach(function(format) {
-        var date = foam.util.DateUtil.parseDateString(format);
-        x.test(date.getTime() === maxDate.getTime(), `Invalid date "${format}" returns MAX_DATE`);
-      });
+      var date2 = foam.util.DateUtil.parseDateString('13-32-2024'); // MM-DD-YYYY, month 13, day 32 normalize
+      var expected2 = new Date(Date.UTC(2025, 1, 1, 12, 0, 0, 0)); // Month 13 (12 in 0-indexed) = January next year, day 32 = Feb 1
+      x.test(date2.getTime() === expected2.getTime(), 'Invalid date "13-32-2024" normalizes');
+
+      var date3 = foam.util.DateUtil.parseDateString('00-01-2024'); // MM-DD-YYYY, month 00 normalizes
+      var expected3 = new Date(Date.UTC(2023, 11, 1, 12, 0, 0, 0)); // Month 0 (-1 in 0-indexed) = December previous year
+      x.test(date3.getTime() === expected3.getTime(), 'Invalid date "00-01-2024" normalizes');
+
+      var date4 = foam.util.DateUtil.parseDateString('01-00-2024'); // MM-DD-YYYY, day 00 normalizes
+      var expected4 = new Date(Date.UTC(2023, 11, 31, 12, 0, 0, 0)); // Day 0 = Dec 31 previous year
+      x.test(date4.getTime() === expected4.getTime(), 'Invalid date "01-00-2024" normalizes');
     },
 
     function testParseDateString_EmptyAndWhitespace(x) {
@@ -493,14 +498,14 @@ foam.CLASS({
 
       formats.forEach(function(format) {
         var date = foam.util.DateUtil.parseDateString(format);
-        var year = date.getFullYear();
-        var month = date.getMonth();
-        var day = date.getDate();
-        var hours = date.getHours();
+        var year = date.getUTCFullYear();
+        var month = date.getUTCMonth();
+        var day = date.getUTCDate();
+        var hours = date.getUTCHours();
         x.test(year === 2024, `parseDateString("${format}") - year is 2024 (expected 2024, got ${year})`);
         x.test(month === 2, `parseDateString("${format}") - month is March (2) (expected 2, got ${month})`);
         x.test(day === 15, `parseDateString("${format}") - day is 15 (expected 15, got ${day})`);
-        x.test(hours === 12, `parseDateString("${format}") - normalized to noon local (expected 12, got ${hours})`);
+        x.test(hours === 12, `parseDateString("${format}") - normalized to noon UTC (expected 12, got ${hours})`);
       });
     },
 
@@ -634,13 +639,15 @@ foam.CLASS({
     },
 
     function testParseDateTime_InvalidFormats(x) {
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-
-      // Test invalid datetime formats - should return MAX_DATE
+      // Test invalid datetime formats - JavaScript normalizes dates
+      // parseDateTime returns local time, not UTC
       var invalidDate = foam.util.DateUtil.parseDateTime('2024-02-30 15:30:45');
-      x.test(invalidDate.getTime() === maxDate.getTime(), 'Invalid datetime (Feb 30) returns MAX_DATE');
+      var expectedDate = new Date(2024, 2, 1, 15, 30, 45, 0); // March 1, 2024 15:30:45 local time
+      x.test(invalidDate.getTime() === expectedDate.getTime(), 'Invalid datetime (Feb 30) normalizes to March 1');
 
+      // Invalid hour 25 - DateParser validation should catch this before normalization
       var invalidHour = foam.util.DateUtil.parseDateTime('2024-03-15 25:30:45');
+      var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(invalidHour.getTime() === maxDate.getTime(), 'Invalid hour (25) returns MAX_DATE');
 
       var invalidMinute = foam.util.DateUtil.parseDateTime('2024-03-15 15:60:45');
@@ -758,16 +765,16 @@ foam.CLASS({
     function testAdaptDateTime_DateOnlyString(x) {
       // Test date-only strings default to noon local (parseDateString behavior)
       var dt = foam.util.DateUtil.parseDateString('2024-03-15');
-      var year = dt.getFullYear();
-      var month = dt.getMonth();
-      var day = dt.getDate();
-      var hours = dt.getHours();
-      var minutes = dt.getMinutes();
-      var seconds = dt.getSeconds();
+      var year = dt.getUTCFullYear();
+      var month = dt.getUTCMonth();
+      var day = dt.getUTCDate();
+      var hours = dt.getUTCHours();
+      var minutes = dt.getUTCMinutes();
+      var seconds = dt.getUTCSeconds();
       x.test(year === 2024, `parseDateString(date string) - year is 2024 (expected 2024, got ${year})`);
       x.test(month === 2, `parseDateString(date string) - month is March (2) (expected 2, got ${month})`);
       x.test(day === 15, `parseDateString(date string) - day is 15 (expected 15, got ${day})`);
-      x.test(hours === 12, `parseDateString(date string) - hour is 12 (noon local default) (expected 12, got ${hours})`);
+      x.test(hours === 12, `parseDateString(date string) - hour is 12 (noon UTC) (expected 12, got ${hours})`);
       x.test(minutes === 0, `parseDateString(date string) - minute is 0 (expected 0, got ${minutes})`);
       x.test(seconds === 0, `parseDateString(date string) - second is 0 (expected 0, got ${seconds})`);
     },

@@ -33,6 +33,7 @@ foam.CLASS({
       this.testTimezoneFormatVariations(x);
       this.testTimezoneDateBoundaries(x);
       this.testYYMMDDSepTimeFormat(x);
+      this.testWithAndWithoutZ(x);
     },
 
     function testYYYYMMDDFormats(x) {
@@ -395,7 +396,7 @@ foam.CLASS({
     function testParseDateString(x) {
       let parser = this.DateParser.create();
 
-      // parseDateString should ignore time and return date at noon local time
+      // parseDateString should ignore time and return date at noon UTC time
       let testCases = [
         { input: '2025-01-15', year: 2025, month: 0, day: 15 },
         { input: '2025-01-15T14:30:45', year: 2025, month: 0, day: 15 }, // Should ignore time
@@ -407,13 +408,13 @@ foam.CLASS({
         try {
           let result = parser.parseDateString(testCase.input);
           let pass = result &&
-                     result.getFullYear() === testCase.year &&
-                     result.getMonth() === testCase.month &&
-                     result.getDate() === testCase.day &&
-                     result.getHours() === 12 && // Should be noon local time
-                     result.getMinutes() === 0 &&
-                     result.getSeconds() === 0;
-          x.test(pass, `parseDateString Test${i + 1}: ${testCase.input} (ignores time, returns noon local)`);
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12 && // Should be noon UTC time
+                     result.getUTCMinutes() === 0 &&
+                     result.getUTCSeconds() === 0;
+          x.test(pass, `parseDateString Test${i + 1}: ${testCase.input} (ignores time, returns noon UTC)`);
         } catch (e) {
           x.test(false, `parseDateString Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
@@ -732,6 +733,140 @@ foam.CLASS({
           this.testDateTime(parser.parseDateTime(tc.input), tc.year, tc.month, tc.day, tc.hour, tc.minute, tc.second),
           `YYMMDD-Sep-Timezone Test${i + 1}: ${tc.input}`
         );
+      });
+    },
+
+    function testWithAndWithoutZ(x) {
+      let parser = this.DateParser.create();
+
+      // Test parseDateTime with and without Z suffix
+      // Without Z: should parse as local time
+      // With Z: should parse as UTC and convert to local time
+      let dateTimeCases = [
+        {
+          withoutZ: '2025-01-15T14:30:00',
+          withZ: '2025-01-15T14:30:00Z',
+          desc: 'Basic ISO format'
+        },
+        {
+          withoutZ: '2025-02-20T09:15:45',
+          withZ: '2025-02-20T09:15:45Z',
+          desc: 'Morning time'
+        },
+        {
+          withoutZ: '2025-03-25T23:59:59',
+          withZ: '2025-03-25T23:59:59Z',
+          desc: 'End of day'
+        },
+        {
+          withoutZ: '2025-04-01T00:00:00',
+          withZ: '2025-04-01T00:00:00Z',
+          desc: 'Midnight'
+        },
+        {
+          withoutZ: '2025-05-10T12:00:00',
+          withZ: '2025-05-10T12:00:00Z',
+          desc: 'Noon'
+        }
+      ];
+
+      dateTimeCases.forEach((tc, i) => {
+        try {
+          // Parse without Z - should be local time
+          let resultNoZ = parser.parseDateTime(tc.withoutZ);
+
+          // Parse with Z - should be UTC, converted to local
+          let resultWithZ = parser.parseDateTime(tc.withZ);
+
+          // Without Z: the time should be interpreted as local time
+          // Example: 2025-01-15T14:30:00 means 14:30 in local timezone
+          let expectedYear = parseInt(tc.withoutZ.substring(0, 4));
+          let expectedMonth = parseInt(tc.withoutZ.substring(5, 7)) - 1;
+          let expectedDay = parseInt(tc.withoutZ.substring(8, 10));
+          let expectedHour = parseInt(tc.withoutZ.substring(11, 13));
+          let expectedMinute = parseInt(tc.withoutZ.substring(14, 16));
+          let expectedSecond = parseInt(tc.withoutZ.substring(17, 19));
+
+          let passNoZ = resultNoZ &&
+                        resultNoZ.getFullYear() === expectedYear &&
+                        resultNoZ.getMonth() === expectedMonth &&
+                        resultNoZ.getDate() === expectedDay &&
+                        resultNoZ.getHours() === expectedHour &&
+                        resultNoZ.getMinutes() === expectedMinute &&
+                        resultNoZ.getSeconds() === expectedSecond;
+
+          // With Z: the time is in UTC, so when converted to local it will differ
+          // Example: 2025-01-15T14:30:00Z means 14:30 UTC, which is different in local time
+          let passWithZ = resultWithZ &&
+                          resultWithZ.getFullYear() === expectedYear;
+
+          x.test(passNoZ, `DateTime without Z Test${i + 1}: ${tc.withoutZ} - ${tc.desc} (local time)`);
+          x.test(passWithZ, `DateTime with Z Test${i + 1}: ${tc.withZ} - ${tc.desc} (UTC converted to local)`);
+
+        } catch (e) {
+          x.test(false, `DateTime Z comparison Test${i + 1}: ${tc.desc} - ${e.message}`);
+        }
+      });
+
+      // Test parseDateTimeUTC with and without Z suffix
+      // Without Z: should parse as UTC time (no conversion)
+      // With Z: should parse as UTC time (no conversion)
+      let dateTimeUTCCases = [
+        {
+          withoutZ: '2025-01-15T14:30:00',
+          withZ: '2025-01-15T14:30:00Z',
+          expectedHour: 14,
+          expectedMinute: 30,
+          expectedSecond: 0,
+          desc: 'Basic ISO format'
+        },
+        {
+          withoutZ: '2025-02-20T09:15:45',
+          withZ: '2025-02-20T09:15:45Z',
+          expectedHour: 9,
+          expectedMinute: 15,
+          expectedSecond: 45,
+          desc: 'Morning time'
+        },
+        {
+          withoutZ: '2025-12-31T23:59:59',
+          withZ: '2025-12-31T23:59:59Z',
+          expectedHour: 23,
+          expectedMinute: 59,
+          expectedSecond: 59,
+          desc: 'Year end'
+        }
+      ];
+
+      dateTimeUTCCases.forEach((tc, i) => {
+        try {
+          // Parse without Z - should be UTC time (no Z means treat as UTC)
+          let resultNoZ = parser.parseDateTimeUTC(tc.withoutZ);
+
+          // Parse with Z - should be UTC time
+          let resultWithZ = parser.parseDateTimeUTC(tc.withZ);
+
+          // Both should produce the same UTC time
+          let passNoZ = resultNoZ &&
+                        resultNoZ.getUTCHours() === tc.expectedHour &&
+                        resultNoZ.getUTCMinutes() === tc.expectedMinute &&
+                        resultNoZ.getUTCSeconds() === tc.expectedSecond;
+
+          let passWithZ = resultWithZ &&
+                          resultWithZ.getUTCHours() === tc.expectedHour &&
+                          resultWithZ.getUTCMinutes() === tc.expectedMinute &&
+                          resultWithZ.getUTCSeconds() === tc.expectedSecond;
+
+          x.test(passNoZ, `DateTimeUTC without Z Test${i + 1}: ${tc.withoutZ} - ${tc.desc} (UTC)`);
+          x.test(passWithZ, `DateTimeUTC with Z Test${i + 1}: ${tc.withZ} - ${tc.desc} (UTC)`);
+
+          // Both should produce identical results
+          let identical = resultNoZ.getTime() === resultWithZ.getTime();
+          x.test(identical, `DateTimeUTC Z comparison Test${i + 1}: ${tc.desc} - both should be identical`);
+
+        } catch (e) {
+          x.test(false, `DateTimeUTC Z comparison Test${i + 1}: ${tc.desc} - ${e.message}`);
+        }
       });
     },
 

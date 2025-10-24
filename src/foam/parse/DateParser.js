@@ -715,10 +715,10 @@ foam.CLASS({
             result.year,
             result.month,
             result.day,
-            result.hour || 0,
-            result.minute || 0,
-            result.second || 0,
-            result.millisecond || 0
+            result.hour !== undefined ? result.hour : 0,
+            result.minute !== undefined ? result.minute : 0,
+            result.second !== undefined ? result.second : 0,
+            result.millisecond !== undefined ? result.millisecond : 0
           );
         } else {
           // Date-only format - use noon GMT (matches DateUtil behavior)
@@ -740,8 +740,8 @@ foam.CLASS({
           return this.validateDate(this.INVALID_DATE, str);
         }
 
-        // Always return date at noon local time, ignoring time even if present
-        let ret = new Date(result.year, result.month, result.day, 12, 0, 0, 0);
+        // Always return date at noon UTC, ignoring time even if present
+        let ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
 
         return this.validateDate(ret, str);
       }
@@ -815,10 +815,10 @@ foam.CLASS({
             result.year,
             result.month,
             result.day,
-            result.hour || 12,
-            result.minute || 0,
-            result.second || 0,
-            result.millisecond || 0
+            result.hour !== undefined ? result.hour : 12,
+            result.minute !== undefined ? result.minute : 0,
+            result.second !== undefined ? result.second : 0,
+            result.millisecond !== undefined ? result.millisecond : 0
           );
           return this.validateDate(ret, str);
         }

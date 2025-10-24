@@ -1,0 +1,15 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "dateTimeTestDAO",
+  "serve": true,
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.lang.test.DateTimeTestModel.getOwnClassInfo())
+      .setGuid(true)
+      .setPm(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("dateTimeTests")
+      .build();
+  """,
+  "client": "{\"of\":\"foam.lang.test.DateTimeTestModel\"}"
+})

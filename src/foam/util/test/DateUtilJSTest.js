@@ -12,70 +12,70 @@ foam.CLASS({
   documentation: 'JavaScript tests for DateUtil utility functions',
 
   methods: [
-    async function runTest(x) {
-      await this.testParseDateString_YYYYMMDD(x);
-      await this.testParseDateString_YYYY_MM_DD(x);
-      await this.testParseDateString_MMDDYYYY(x);
-      await this.testParseDateString_MM_DD_YYYY(x);
-      await this.testParseDateString_YYMMDD(x);
-      await this.testParseDateString_YY_MM_DD(x);
-      await this.testParseDateString_InvalidDate(x);
-      await this.testParseDateString_UnsupportedFormat(x);
-      await this.testParseDateString_LeapYear(x);
-      await this.testParseDateString_NonLeapYear(x);
-      await this.testParseDateString_TrailingText(x);
-      await this.testParseDateString_MonthBoundaries(x);
-      await this.testParseDateString_YearBoundaries(x);
-      await this.testParseDateString_FormatAmbiguity(x);
-      await this.testParseDateString_TwoDigitYearBoundary(x);
-      await this.testParseDateString_InvalidFormats(x);
-      await this.testParseDateString_EmptyAndWhitespace(x);
-      await this.testAdapt_Number(x);
-      await this.testAdapt_String(x);
-      await this.testAdapt_Date(x);
-      await this.testAdapt_Null(x);
-      await this.testAdapt_InvalidString(x);
-      await this.testAdapt_EmptyString(x);
-      await this.testAdapt_WhitespaceString(x);
-      await this.testAdapt_AllFormats(x);
-      await this.testParseDateTime_ISO8601_Full(x);
-      await this.testParseDateTime_ISO8601_Short(x);
-      await this.testParseDateTime_US_Format(x);
-      await this.testParseDateTime_Compact(x);
-      await this.testParseDateTime_WithMilliseconds(x);
-      await this.testParseDateTime_InvalidFormats(x);
-      await this.testParseDateTime_PreservesTime(x);
-      await this.testParseDateTimeUTC(x);
-      await this.testParseDateTime_LocalTime(x);
-      await this.testParseDateTime_BackwardCompatibility(x);
-      await this.testAdaptDateTime_DateOnlyString(x);
-      await this.testAdaptDateTime_DateTimeString(x);
-      await this.testAdaptDateTime_Number(x);
-      await this.testAdaptDateTime_Date(x);
-      await this.testAdaptDateTime_Null(x);
-      await this.testFormat_DateOnly(x);
-      await this.testFormat_TimeFirst(x);
-      await this.testFormat_TimeLast(x);
-      await this.testFormat_UTC(x);
-      await this.testFormat_NullUndefined(x);
-      await this.testFormat_LocalTimeWithTimezone(x);
-      await this.testParseDateTimeUTC_DateTimeString(x);
-      await this.testParseDateTimeUTC_DateOnlyString(x);
-      await this.testParseDateTimeUTC_USFormatString(x);
-      await this.testParseDateTime_NumbersAndDates(x);
-      await this.testParseDateTime_AllInputTypes(x);
-      await this.testParseDateTimeUTC_WithTimezoneZ(x);
-      await this.testParseDateTimeUTC_WithTimezoneOffset(x);
-      await this.testParseDateTime_WithTimezone(x);
-      await this.testTimezoneFormatVariations(x);
-      await this.testTimezoneDateBoundaries(x);
-      await this.testParseDateTimeUTC_TwoDigitYearWithTime(x);
-      await this.testParseDateTimeUTC_TwoDigitYearWithTimeNoSeconds(x);
-      await this.testParseDateTimeUTC_TwoDigitYearSlidingWindow(x);
-      await this.testParseDateTimeUTC_TwoDigitYearUTCBehavior(x);
+    function runTest(x) {
+      this.testParseDateString_YYYYMMDD(x);
+      this.testParseDateString_YYYY_MM_DD(x);
+      this.testParseDateString_MMDDYYYY(x);
+      this.testParseDateString_MM_DD_YYYY(x);
+      this.testParseDateString_YYMMDD(x);
+      this.testParseDateString_YY_MM_DD(x);
+      this.testParseDateString_InvalidDate(x);
+      this.testParseDateString_UnsupportedFormat(x);
+      this.testParseDateString_LeapYear(x);
+      this.testParseDateString_NonLeapYear(x);
+      this.testParseDateString_TrailingText(x);
+      this.testParseDateString_MonthBoundaries(x);
+      this.testParseDateString_YearBoundaries(x);
+      this.testParseDateString_FormatAmbiguity(x);
+      this.testParseDateString_TwoDigitYearBoundary(x);
+      this.testParseDateString_InvalidFormats(x);
+      this.testParseDateString_EmptyAndWhitespace(x);
+      this.testAdapt_Number(x);
+      this.testAdapt_String(x);
+      this.testAdapt_Date(x);
+      this.testAdapt_Null(x);
+      this.testAdapt_InvalidString(x);
+      this.testAdapt_EmptyString(x);
+      this.testAdapt_WhitespaceString(x);
+      this.testAdapt_AllFormats(x);
+      this.testParseDateTime_ISO8601_Full(x);
+      this.testParseDateTime_ISO8601_Short(x);
+      this.testParseDateTime_US_Format(x);
+      this.testParseDateTime_Compact(x);
+      this.testParseDateTime_WithMilliseconds(x);
+      this.testParseDateTime_InvalidFormats(x);
+      this.testParseDateTime_PreservesTime(x);
+      this.testParseDateTimeUTC(x);
+      this.testParseDateTime_LocalTime(x);
+      this.testParseDateTime_BackwardCompatibility(x);
+      this.testAdaptDateTime_DateOnlyString(x);
+      this.testAdaptDateTime_DateTimeString(x);
+      this.testAdaptDateTime_Number(x);
+      this.testAdaptDateTime_Date(x);
+      this.testAdaptDateTime_Null(x);
+      this.testFormat_DateOnly(x);
+      this.testFormat_TimeFirst(x);
+      this.testFormat_TimeLast(x);
+      this.testFormat_UTC(x);
+      this.testFormat_NullUndefined(x);
+      this.testFormat_LocalTimeWithTimezone(x);
+      this.testParseDateTimeUTC_DateTimeString(x);
+      this.testParseDateTimeUTC_DateOnlyString(x);
+      this.testParseDateTimeUTC_USFormatString(x);
+      this.testParseDateTime_NumbersAndDates(x);
+      this.testParseDateTime_AllInputTypes(x);
+      this.testParseDateTimeUTC_WithTimezoneZ(x);
+      this.testParseDateTimeUTC_WithTimezoneOffset(x);
+      this.testParseDateTime_WithTimezone(x);
+      this.testTimezoneFormatVariations(x);
+      this.testTimezoneDateBoundaries(x);
+      this.testParseDateTimeUTC_TwoDigitYearWithTime(x);
+      this.testParseDateTimeUTC_TwoDigitYearWithTimeNoSeconds(x);
+      this.testParseDateTimeUTC_TwoDigitYearSlidingWindow(x);
+      this.testParseDateTimeUTC_TwoDigitYearUTCBehavior(x);
     },
 
-    async function testParseDateString_YYYYMMDD(x) {
+    function testParseDateString_YYYYMMDD(x) {
       var date = foam.util.DateUtil.parseDateString('20240315');
       var year = date.getFullYear();
       var month = date.getMonth();
@@ -85,7 +85,7 @@ foam.CLASS({
       x.test(day === 15, `YYYYMMDD format - day is 15 (expected 15, got ${day})`);
     },
 
-    async function testParseDateString_YYYY_MM_DD(x) {
+    function testParseDateString_YYYY_MM_DD(x) {
       // Test with slash separator
       var date1 = foam.util.DateUtil.parseDateString('2024/03/15');
       var year1 = date1.getFullYear();
@@ -105,7 +105,7 @@ foam.CLASS({
       x.test(day2 === 15, `YYYY-MM-DD format - day is 15 (expected 15, got ${day2})`);
     },
 
-    async function testParseDateString_MMDDYYYY(x) {
+    function testParseDateString_MMDDYYYY(x) {
       var date = foam.util.DateUtil.parseDateString('03152024');
       var year = date.getFullYear();
       var month = date.getMonth();
@@ -115,7 +115,7 @@ foam.CLASS({
       x.test(day === 15, `MMDDYYYY format - day is 15 (expected 15, got ${day})`);
     },
 
-    async function testParseDateString_MM_DD_YYYY(x) {
+    function testParseDateString_MM_DD_YYYY(x) {
       // Test with slash separator
       var date1 = foam.util.DateUtil.parseDateString('03/15/2024');
       var year1 = date1.getFullYear();
@@ -135,7 +135,7 @@ foam.CLASS({
       x.test(day2 === 15, `MM-DD-YYYY format - day is 15 (expected 15, got ${day2})`);
     },
 
-    async function testParseDateString_YYMMDD(x) {
+    function testParseDateString_YYMMDD(x) {
       // Test 2-digit year using sliding window (50 years back, 50 years forward from current year)
       var currentYear = new Date().getUTCFullYear();
 
@@ -166,7 +166,7 @@ foam.CLASS({
       x.test(day2 === 15, `YYMMDD format (YY=85) - day is 15 (expected 15, got ${day2})`);
     },
 
-    async function testParseDateString_YY_MM_DD(x) {
+    function testParseDateString_YY_MM_DD(x) {
       var currentYear = new Date().getUTCFullYear();
 
       // Test with slash separator
@@ -187,21 +187,21 @@ foam.CLASS({
       x.test(year2 === expectedYear85, `YY-MM-DD format - year is ${expectedYear85} (expected ${expectedYear85}, got ${year2})`);
     },
 
-    async function testParseDateString_InvalidDate(x) {
+    function testParseDateString_InvalidDate(x) {
       // Test invalid date like February 30th - should return MAX_DATE
       var date = foam.util.DateUtil.parseDateString('2024-02-30');
       var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(date.getTime() === maxDate.getTime(), 'Invalid date (Feb 30) returns MAX_DATE');
     },
 
-    async function testParseDateString_UnsupportedFormat(x) {
+    function testParseDateString_UnsupportedFormat(x) {
       // Unsupported format should return MAX_DATE
       var date = foam.util.DateUtil.parseDateString('March 15, 2024');
       var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(date.getTime() === maxDate.getTime(), 'Unsupported format returns MAX_DATE');
     },
 
-    async function testAdapt_Number(x) {
+    function testAdapt_Number(x) {
       var timestamp = 1710504000000; // March 15, 2024 12:00:00 GMT
       var date = new Date(timestamp);
 
@@ -219,7 +219,7 @@ foam.CLASS({
       x.test(seconds === 0, `new Date(Number) - second is 0 (expected 0, got ${seconds})`);
     },
 
-    async function testAdapt_String(x) {
+    function testAdapt_String(x) {
       var date = foam.util.DateUtil.parseDateString('2024-03-15');
 
       var year = date.getFullYear();
@@ -232,7 +232,7 @@ foam.CLASS({
       x.test(hours === 12, `parseDateString(String) - hour is 12 (noon local) (expected 12, got ${hours})`);
     },
 
-    async function testAdapt_Date(x) {
+    function testAdapt_Date(x) {
       var inputDate = new Date(2024, 2, 15, 8, 30, 45); // March 15, 2024 08:30:45 local
       var parsedDate = inputDate;
 
@@ -255,18 +255,18 @@ foam.CLASS({
       x.test(seconds === 45, `Date object - second preserved as 45 (expected 45, got ${seconds})`);
     },
 
-    async function testAdapt_Null(x) {
+    function testAdapt_Null(x) {
       var date = foam.util.DateUtil.parseDateTime(null);
       x.test(date === null, 'parseDateTime(null) returns null');
     },
 
-    async function testAdapt_InvalidString(x) {
+    function testAdapt_InvalidString(x) {
       var date = foam.util.DateUtil.parseDateString('invalid date string');
       var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(date.getTime() === maxDate.getTime(), 'parseDateString(invalid string) returns MAX_DATE');
     },
 
-    async function testParseDateString_LeapYear(x) {
+    function testParseDateString_LeapYear(x) {
       // Test valid leap year date
       var date1 = foam.util.DateUtil.parseDateString('2024-02-29');
       var year = date1.getFullYear();
@@ -277,14 +277,14 @@ foam.CLASS({
       x.test(day === 29, `Leap year - day is 29 (expected 29, got ${day})`);
     },
 
-    async function testParseDateString_NonLeapYear(x) {
+    function testParseDateString_NonLeapYear(x) {
       // Test invalid Feb 29 in non-leap year - should return MAX_DATE
       var date = foam.util.DateUtil.parseDateString('2023-02-29');
       var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(date.getTime() === maxDate.getTime(), 'Non-leap year - Feb 29, 2023 returns MAX_DATE');
     },
 
-    async function testParseDateString_TrailingText(x) {
+    function testParseDateString_TrailingText(x) {
       // Test dates with trailing text (regex allows .* at end)
       var date1 = foam.util.DateUtil.parseDateString('2024-03-15 extra text here');
       var year1 = date1.getFullYear();
@@ -303,7 +303,7 @@ foam.CLASS({
       x.test(day2 === 15, `Trailing ISO time - day is 15 (expected 15, got ${day2})`);
     },
 
-    async function testParseDateString_MonthBoundaries(x) {
+    function testParseDateString_MonthBoundaries(x) {
       // Test last day of various months
       var jan31 = foam.util.DateUtil.parseDateString('2024-01-31');
       var jan31Day = jan31.getDate();
@@ -322,7 +322,7 @@ foam.CLASS({
       x.test(feb31.getTime() === maxDate.getTime(), 'Feb 31 returns MAX_DATE');
     },
 
-    async function testParseDateString_YearBoundaries(x) {
+    function testParseDateString_YearBoundaries(x) {
       // Test minimum 4-digit year (1000)
       var date1 = foam.util.DateUtil.parseDateString('1000-01-01');
       var year1 = date1.getFullYear();
@@ -344,7 +344,7 @@ foam.CLASS({
       x.test(day3 === 1, `Year starting with 0 - day is 1 (expected 1, got ${day3})`);
     },
 
-    async function testParseDateString_FormatAmbiguity(x) {
+    function testParseDateString_FormatAmbiguity(x) {
       // Test that format priority is correct for ambiguous 8-digit strings
       // '20240315' should be YYYYMMDD (year starts with 1-9)
       var date1 = foam.util.DateUtil.parseDateString('20240315');
@@ -383,7 +383,7 @@ foam.CLASS({
       x.test(day4 === 10, `Ambiguous 8-digit - day is 10 (expected 10, got ${day4})`);
     },
 
-    async function testParseDateString_TwoDigitYearBoundary(x) {
+    function testParseDateString_TwoDigitYearBoundary(x) {
       // Test 2-digit year using sliding window (50 years back, 50 years forward)
       var currentYear = new Date().getUTCFullYear();
       var currentCentury = Math.floor(currentYear / 100) * 100;
@@ -419,7 +419,7 @@ foam.CLASS({
       x.test(year4 === expected4, `2-digit year 99 becomes ${expected4} (expected ${expected4}, got ${year4})`);
     },
 
-    async function testParseDateString_InvalidFormats(x) {
+    function testParseDateString_InvalidFormats(x) {
       var maxDate = foam.util.DateUtil.MAX_DATE;
 
       // Test various invalid formats (don't match any pattern)
@@ -455,7 +455,7 @@ foam.CLASS({
       });
     },
 
-    async function testParseDateString_EmptyAndWhitespace(x) {
+    function testParseDateString_EmptyAndWhitespace(x) {
       var maxDate = foam.util.DateUtil.MAX_DATE;
 
       var emptyDate = foam.util.DateUtil.parseDateString('');
@@ -465,19 +465,19 @@ foam.CLASS({
       x.test(wsDate.getTime() === maxDate.getTime(), 'Whitespace returns MAX_DATE');
     },
 
-    async function testAdapt_EmptyString(x) {
+    function testAdapt_EmptyString(x) {
       var date = foam.util.DateUtil.parseDateString('');
       var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(date.getTime() === maxDate.getTime(), 'parseDateString(empty string) returns MAX_DATE');
     },
 
-    async function testAdapt_WhitespaceString(x) {
+    function testAdapt_WhitespaceString(x) {
       var date = foam.util.DateUtil.parseDateString('   ');
       var maxDate = foam.util.DateUtil.MAX_DATE;
       x.test(date.getTime() === maxDate.getTime(), 'parseDateString(whitespace) returns MAX_DATE');
     },
 
-    async function testAdapt_AllFormats(x) {
+    function testAdapt_AllFormats(x) {
       // Test parseDateString() works with all supported formats
       var formats = [
         '2024-03-15',
@@ -505,7 +505,7 @@ foam.CLASS({
     },
 
 
-    async function testParseDateTime_ISO8601_Full(x) {
+    function testParseDateTime_ISO8601_Full(x) {
       // Test ISO 8601 with T separator (using parseDateTimeUTC since we're checking UTC components)
       var dt1 = foam.util.DateUtil.parseDateTimeUTC('2024-03-15T15:30:45');
       var year1 = dt1.getUTCFullYear();
@@ -538,7 +538,7 @@ foam.CLASS({
       x.test(hours3 === 15, `ISO 8601 slash - hour is 15 (expected 15, got ${hours3})`);
     },
 
-    async function testParseDateTime_ISO8601_Short(x) {
+    function testParseDateTime_ISO8601_Short(x) {
       // Test ISO 8601 short format (no seconds)
       var dt1 = foam.util.DateUtil.parseDateTimeUTC('2024-03-15T15:30');
       var year1 = dt1.getUTCFullYear();
@@ -562,7 +562,7 @@ foam.CLASS({
       x.test(minutes2 === 30, `ISO 8601 short space - minute is 30 (expected 30, got ${minutes2})`);
     },
 
-    async function testParseDateTime_US_Format(x) {
+    function testParseDateTime_US_Format(x) {
       // Test MM/DD/YYYY HH:MM:SS
       var dt1 = foam.util.DateUtil.parseDateTimeUTC('03/15/2024 15:30:45');
       var year1 = dt1.getUTCFullYear();
@@ -597,7 +597,7 @@ foam.CLASS({
       x.test(seconds3 === 0, `US format short - second is 0 (expected 0, got ${seconds3})`);
     },
 
-    async function testParseDateTime_Compact(x) {
+    function testParseDateTime_Compact(x) {
       // Test YYYYMMDDHHMMSS format
       var dt = foam.util.DateUtil.parseDateTimeUTC('20240315153045');
       var year = dt.getUTCFullYear();
@@ -614,7 +614,7 @@ foam.CLASS({
       x.test(seconds === 45, `Compact format - second is 45 (expected 45, got ${seconds})`);
     },
 
-    async function testParseDateTime_WithMilliseconds(x) {
+    function testParseDateTime_WithMilliseconds(x) {
       // Test ISO 8601 with milliseconds
       var dt = foam.util.DateUtil.parseDateTimeUTC('2024-03-15T15:30:45.123');
       var year = dt.getUTCFullYear();
@@ -633,7 +633,7 @@ foam.CLASS({
       x.test(milliseconds === 123, `With milliseconds - millisecond is 123 (expected 123, got ${milliseconds})`);
     },
 
-    async function testParseDateTime_InvalidFormats(x) {
+    function testParseDateTime_InvalidFormats(x) {
       var maxDate = foam.util.DateUtil.MAX_DATE;
 
       // Test invalid datetime formats - should return MAX_DATE
@@ -650,7 +650,7 @@ foam.CLASS({
       x.test(unsupportedFormat.getTime() === maxDate.getTime(), 'Unsupported format returns MAX_DATE');
     },
 
-    async function testParseDateTime_PreservesTime(x) {
+    function testParseDateTime_PreservesTime(x) {
       // Test that parseDateTimeUTC preserves exact time in UTC
       var dt1 = foam.util.DateUtil.parseDateTimeUTC('2024-03-15T08:30:15');
       var dt2 = foam.util.DateUtil.parseDateTimeUTC('2024-03-15T20:45:30');
@@ -673,7 +673,7 @@ foam.CLASS({
       x.test(dt1.getTime() !== dt2.getTime(), 'Different times have different timestamps');
     },
 
-    async function testParseDateTimeUTC(x) {
+    function testParseDateTimeUTC(x) {
       // Test parseDateTimeUTC parses as UTC
       var dt = foam.util.DateUtil.parseDateTimeUTC('2024-03-15T14:30:45');
 
@@ -698,7 +698,7 @@ foam.CLASS({
       x.test(hour2 === 14, `parseDateTimeUTC with US format - hour is 14 (expected 14, got ${hour2})`);
     },
 
-    async function testParseDateTime_LocalTime(x) {
+    function testParseDateTime_LocalTime(x) {
       // Test parseDateTime parses as local time
       var dt = foam.util.DateUtil.parseDateTime('2024-03-15T14:30:45');
 
@@ -729,7 +729,7 @@ foam.CLASS({
       }
     },
 
-    async function testParseDateTime_BackwardCompatibility(x) {
+    function testParseDateTime_BackwardCompatibility(x) {
       // Test that parseDateTime always parses as local time (no second parameter needed)
       var dt1 = foam.util.DateUtil.parseDateTime('2024-03-15T14:30:45');
 
@@ -755,7 +755,7 @@ foam.CLASS({
     },
 
 
-    async function testAdaptDateTime_DateOnlyString(x) {
+    function testAdaptDateTime_DateOnlyString(x) {
       // Test date-only strings default to noon local (parseDateString behavior)
       var dt = foam.util.DateUtil.parseDateString('2024-03-15');
       var year = dt.getFullYear();
@@ -772,7 +772,7 @@ foam.CLASS({
       x.test(seconds === 0, `parseDateString(date string) - second is 0 (expected 0, got ${seconds})`);
     },
 
-    async function testAdaptDateTime_DateTimeString(x) {
+    function testAdaptDateTime_DateTimeString(x) {
       // Test datetime strings preserve time (parseDateTime uses local time parsing)
       var dt = foam.util.DateUtil.parseDateTime('2024-03-15T15:30:45');
       var year = dt.getFullYear();
@@ -789,7 +789,7 @@ foam.CLASS({
       x.test(seconds === 45, `parseDateTime(datetime string) - second is 45 (expected 45, got ${seconds})`);
     },
 
-    async function testAdaptDateTime_Number(x) {
+    function testAdaptDateTime_Number(x) {
       // Test timestamp parsing
       var timestamp = 1710511845000; // 2024-03-15 14:10:45 GMT
       var dt = new Date(timestamp);
@@ -803,7 +803,7 @@ foam.CLASS({
       x.test(seconds === 45, `new Date(number) - seconds preserved (expected 45, got ${seconds})`);
     },
 
-    async function testAdaptDateTime_Date(x) {
+    function testAdaptDateTime_Date(x) {
       // Test Date object parsing - should preserve time
       var inputDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
       var originalTimestamp = inputDate.getTime();
@@ -824,7 +824,7 @@ foam.CLASS({
       x.test(seconds === 45, `Date object - second preserved as 45 (expected 45, got ${seconds})`);
     },
 
-    async function testAdaptDateTime_Null(x) {
+    function testAdaptDateTime_Null(x) {
       // Test null/undefined handling
       var dt1 = foam.util.DateUtil.parseDateTime(null);
       x.test(dt1 === null, 'parseDateTime(null) returns null');
@@ -833,7 +833,7 @@ foam.CLASS({
       x.test(dt2 === undefined, 'parseDateTime(undefined) returns undefined');
     },
 
-    async function testFormat_DateOnly(x) {
+    function testFormat_DateOnly(x) {
       // Test formatting date only (no time)
       var date = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
       var formatted = foam.util.DateUtil.format(date);
@@ -843,7 +843,7 @@ foam.CLASS({
       x.test(formatted.indexOf('15') > -1, 'format(date) contains day');
     },
 
-    async function testFormat_TimeFirst(x) {
+    function testFormat_TimeFirst(x) {
       // Test formatting with time first
       var date = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
       var formatted = foam.util.DateUtil.formatWithTimeControl(date, true);
@@ -854,7 +854,7 @@ foam.CLASS({
       x.test(timePattern.test(formatted), 'formatWithTimeControl(date, true) starts with time (HH:MM:SS)');
     },
 
-    async function testFormat_TimeLast(x) {
+    function testFormat_TimeLast(x) {
       // Test formatting with time last
       var date = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
       var formatted = foam.util.DateUtil.formatWithTimeControl(date, false);
@@ -865,7 +865,7 @@ foam.CLASS({
       x.test(timePattern.test(formatted), 'formatWithTimeControl(date, false) ends with time (HH:MM:SS)');
     },
 
-    async function testFormat_UTC(x) {
+    function testFormat_UTC(x) {
       // Test formatting in UTC timezone
       // Date: March 15, 2024 15:30:45 UTC
       var date = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
@@ -927,7 +927,7 @@ foam.CLASS({
       }
     },
 
-    async function testFormat_NullUndefined(x) {
+    function testFormat_NullUndefined(x) {
       // Test null/undefined handling - these will throw error in toLocaleString, caught by try-catch
       var formatted1 = foam.util.DateUtil.format(null);
       x.test(formatted1 === '', 'format(null) returns empty string (error caught)');
@@ -946,7 +946,7 @@ foam.CLASS({
       x.test(formatted4 === 'Invalid Date', 'format(invalid Date) returns "Invalid Date"');
     },
 
-    async function testFormat_LocalTimeWithTimezone(x) {
+    function testFormat_LocalTimeWithTimezone(x) {
       // Test formatting when date is created in local time (not UTC)
       // This ensures timezone conversion works regardless of how Date was created
 
@@ -1016,7 +1016,7 @@ foam.CLASS({
       }
     },
 
-    async function testFormat_LocaleDefault(x) {
+    function testFormat_LocaleDefault(x) {
       // Test new format() method that uses locale-default formatting
       // This test verifies that format(date) and format(date, timezone)
       // use locale-specific date/time formatting based on foam.locale
@@ -1076,7 +1076,7 @@ foam.CLASS({
       }
     },
 
-    async function testFormat_LocaleDefaultWithTimezone(x) {
+    function testFormat_LocaleDefaultWithTimezone(x) {
       // Test that format(date, timezone) properly combines locale formatting with timezone conversion
 
       var date = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
@@ -1124,7 +1124,7 @@ foam.CLASS({
       }
     },
 
-    async function testParseDateTimeUTC_DateTimeString(x) {
+    function testParseDateTimeUTC_DateTimeString(x) {
       // Test parsing ISO 8601 datetime strings with parseDateTimeUTC vs parseDateTime
       var dtString = '2024-03-15T14:30:45';
 
@@ -1152,7 +1152,7 @@ foam.CLASS({
       }
     },
 
-    async function testParseDateTimeUTC_DateOnlyString(x) {
+    function testParseDateTimeUTC_DateOnlyString(x) {
       // Test parsing date-only strings with parseDateTimeUTC vs parseDateTime
       var dateString = '2024-03-15';
 
@@ -1187,7 +1187,7 @@ foam.CLASS({
       x.test(dayLocal === 15, `parseDateTime day is 15 (expected 15, got ${dayLocal})`);
     },
 
-    async function testParseDateTimeUTC_USFormatString(x) {
+    function testParseDateTimeUTC_USFormatString(x) {
       // Test parsing US format datetime strings with parseDateTimeUTC vs parseDateTime
       var usString = '03/15/2024 14:30:45';
 
@@ -1222,7 +1222,7 @@ foam.CLASS({
       x.test(dayLocal === 15, `parseDateTime day is 15 (expected 15, got ${dayLocal})`);
     },
 
-    async function testParseDateTime_NumbersAndDates(x) {
+    function testParseDateTime_NumbersAndDates(x) {
       // Test that Numbers and Date objects can be used directly (not with parse methods)
       var timestamp = 1710511845000; // 2024-03-15 14:10:45 GMT
       var inputDate = new Date(Date.UTC(2024, 2, 15, 15, 30, 45));
@@ -1248,7 +1248,7 @@ foam.CLASS({
       x.test(undefResult1 === undefined, `parseDateTime(undefined) returns undefined`);
     },
 
-    async function testParseDateTime_AllInputTypes(x) {
+    function testParseDateTime_AllInputTypes(x) {
       // Test that parseDateTime handles string formats correctly
       // Numbers and Date objects should NOT use parseDateTime - use new Date() or the Date directly
       var dateString = '2024-03-15';
@@ -1305,7 +1305,7 @@ foam.CLASS({
       x.test(dt7 === undefined, 'parseDateTime(undefined) returns undefined');
     },
 
-    async function testParseDateTimeUTC_WithTimezoneZ(x) {
+    function testParseDateTimeUTC_WithTimezoneZ(x) {
       // Test parseDateTimeUTC with "Z" timezone indicator
       var testCases = [
         { input: '2024-03-15T15:30:45Z', year: 2024, month: 2, day: 15, hour: 15, minute: 30, second: 45 },
@@ -1332,7 +1332,7 @@ foam.CLASS({
       });
     },
 
-    async function testParseDateTimeUTC_WithTimezoneOffset(x) {
+    function testParseDateTimeUTC_WithTimezoneOffset(x) {
       // Test parseDateTimeUTC with various timezone offsets
       // When parsing with offset, the time should be converted to UTC
       var testCases = [
@@ -1368,7 +1368,7 @@ foam.CLASS({
       });
     },
 
-    async function testParseDateTime_WithTimezone(x) {
+    function testParseDateTime_WithTimezone(x) {
       // Test parseDateTime with timezone - should convert to UTC regardless of method
       // When a timezone is present, both parseDateTime and parseDateTimeUTC should behave the same
       var testInput = '2024-03-15T15:30:45+05:30';
@@ -1399,7 +1399,7 @@ foam.CLASS({
       x.test(hourUTC === 10, `Hour should be 10 UTC (got ${hourUTC})`);
     },
 
-    async function testTimezoneFormatVariations(x) {
+    function testTimezoneFormatVariations(x) {
       // Test various timezone format variations
       var testCases = [
         // With colon
@@ -1430,7 +1430,7 @@ foam.CLASS({
       });
     },
 
-    async function testTimezoneDateBoundaries(x) {
+    function testTimezoneDateBoundaries(x) {
       // Test timezone conversions that cross date boundaries
       var testCases = [
         // Crossing to previous day
@@ -1480,7 +1480,7 @@ foam.CLASS({
       });
     },
 
-    async function testParseDateTimeUTC_TwoDigitYearWithTime(x) {
+    function testParseDateTimeUTC_TwoDigitYearWithTime(x) {
       // Test 2-digit year formats with time and separator (YY-MM-DD HH:MM:SS)
       // Format: YY-MM-DD HH:MM:SS or YY/MM/DD HH:MM:SS
 
@@ -1543,7 +1543,7 @@ foam.CLASS({
       x.test(second5 === 59, `YY-MM-DD end of day - second is 59 (got ${second5})`);
     },
 
-    async function testParseDateTimeUTC_TwoDigitYearWithTimeNoSeconds(x) {
+    function testParseDateTimeUTC_TwoDigitYearWithTimeNoSeconds(x) {
       // Test 2-digit year formats with time but no seconds (YY-MM-DD HH:MM)
       // Seconds should default to 0 when not provided
 
@@ -1589,7 +1589,7 @@ foam.CLASS({
       x.test(second3 === 0, `YY-MM-DD HH:MM (99) - second defaults to 0 (got ${second3})`);
     },
 
-    async function testParseDateTimeUTC_TwoDigitYearSlidingWindow(x) {
+    function testParseDateTimeUTC_TwoDigitYearSlidingWindow(x) {
       // Test 2-digit year interpretation with sliding window
       // Years 00-49 should map to 2000-2049
       // Years 50-99 should map to 1950-1999
@@ -1634,7 +1634,7 @@ foam.CLASS({
       x.test(year8 === 1950, `2-digit year 50 should be 1950 (got ${year8})`);
     },
 
-    async function testParseDateTimeUTC_TwoDigitYearUTCBehavior(x) {
+    function testParseDateTimeUTC_TwoDigitYearUTCBehavior(x) {
       // Test that 2-digit year formats with timezone correctly convert to UTC
 
       // Test with Z timezone indicator

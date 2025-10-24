@@ -550,6 +550,10 @@ foam.CLASS({
       value: 'String',
       documentation: 'The FOAM sub-type of this property.'
     },
+    [
+      'isDefaultValue',
+      function(v) { return ! v || ! v.length; }
+    ],
     [ 'type', 'String[]' ],
     [
       'factory',

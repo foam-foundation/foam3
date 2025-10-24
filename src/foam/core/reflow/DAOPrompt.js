@@ -31,10 +31,6 @@ foam.CLASS({
 
       this.
         addClass().
-        start('h3').
-          show(this.data.labelVisible$).
-          add(self.data.label$).
-        end().
         start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
           add(self.dynamic(async function(data, version) {
             if ( ! data ) { debugger; return; }
@@ -139,6 +135,7 @@ foam.CLASS({
       label: 'Name',
       section: 'general',
       onKey: true,
+      hidden: true,
       expression: function(dao) {
         return dao.of.model_.plural;
       },
@@ -430,15 +427,6 @@ foam.CLASS({
         return foam.lang.Latch.create();
       }
     },
-    // since the label is calculated by the expression when we try to hide it by making it empty that gets rendered
-    {
-      class: 'Boolean',
-      name: 'labelVisible',
-      section: 'general',
-      label: 'Show Name',
-      value: true,
-      view: { class: 'foam.u2.Switch' }
-    },
     { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
   ],
 
@@ -469,6 +457,11 @@ foam.CLASS({
     function init() {
       this.SUPER();
 
+      if ( ! this.block.borderClass ) {
+        this.block.borderClass = foam.u2.borders.TitleBorder;
+        this.block.border['title'] = this.label;
+      }
+
       x.auth.check(x, 'reflow.aql').then(enabled => {
         this.enableAQL_ = enabled;
       });
@@ -486,9 +479,7 @@ foam.CLASS({
       this.onDetach(this.dao.listen(this.updateRowCount));
       this.updateRowCount_();
 
-      // TODO: name current block
-      e.tag(this.DAOPromptView, {data: this, label: this.label});
-//      e.tag(this.DAOPromptView.create({data: this, label: this.label}, this));
+      e.tag(this.DAOPromptView, {data: this });
     },
 
     function onLoad() {

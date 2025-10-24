@@ -468,11 +468,13 @@ foam.CLASS({
       name: 'out',
       hidden: true
     },
+    // TODO: allow adding multiple nested borders,
+    // Needs something that resembles array view
+    // But when converted to viewSpec it nests all array elements
     {
       class: 'Class',
       name: 'borderClass',
       label: 'Border Type',
-      factory: function() { return foam.u2.borders.NullBorder; },
       view: function(_,X) {
         // TODO: replace with strategizer
         // TODO: add a new card with title border that uses the foam.u2.borders.CardBorder
@@ -484,6 +486,7 @@ foam.CLASS({
             [foam.u2.borders.CardBorder, 'Card'],
             [foam.u2.borders.BackgroundCard, 'Background'],
             [foam.u2.borders.SpacingBorder, 'Padding'],
+            [foam.u2.borders.TitleBorder, 'Titled'],
             [foam.dashboard.view.CardWrapper, 'Card with Title']
           ]
         };
@@ -539,7 +542,7 @@ foam.CLASS({
       this.title.add(this.flowName$);
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
-    },
+          },
 
     function addValue(o, skipOutput) {
       if ( ! skipOutput ) this.out.add(o);
@@ -1363,7 +1366,6 @@ foam.CLASS({
 
         // Name the block if it hasn't already been named
         if ( ! block.flowName ) block.flowName = this.createFlowChildName('a');
-
         if ( typeof r === 'function' ) {
           if ( ! block.flowName.startsWith(cmd) )
             block.flowName = this.createFlowChildName(cmd);
@@ -1373,9 +1375,6 @@ foam.CLASS({
           r = await r;
         }
       }}}
-
-      // Re-set block in case the command changed currentBlock
-      // block = this.currentBlock;
 
       flowParent.addFlowChild(block);
 

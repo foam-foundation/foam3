@@ -444,11 +444,6 @@ foam.CLASS({
           this.tooltip = formattedDate;
         }
       }
-    },
-    {
-      class: 'Int',
-      name: 'tableWidth',
-      value: 130
     }
   ]
 });

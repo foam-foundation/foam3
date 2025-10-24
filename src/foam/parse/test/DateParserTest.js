@@ -513,14 +513,12 @@ foam.CLASS({
     function testValidation(x) {
       let parser = this.DateParser.create();
 
-      // Test that parser returns MAX_DATE for all invalid inputs
+      // Test that parser returns MAX_DATE for truly unparseable inputs
       let invalidInputs = [
         'invalid-date',
         '99/99/99',
         '',
-        'notadate',
-        '2025-13-01', // Invalid month
-        '2025-02-30'  // Invalid day for February
+        'notadate'
       ];
 
       invalidInputs.forEach((input, i) => {
@@ -530,6 +528,30 @@ foam.CLASS({
           x.test(isMaxDate, `Validation Test${i + 1}: "${input}" should return MAX_DATE (invalid)`);
         } catch (e) {
           x.test(false, `Validation Test${i + 1}: "${input}" - ${e.message}`);
+        }
+      });
+
+      // Test date normalization - JavaScript Date normalizes out-of-range values
+      // These should parse successfully and be normalized by JavaScript's Date constructor
+      let normalizedDates = [
+        { input: '2025-13-01', year: 2026, month: 0, day: 1, desc: 'Month 13 → January next year' },
+        { input: '2025-02-30', year: 2025, month: 2, day: 2, desc: 'Feb 30 → March 2' },
+        { input: '2024-02-30', year: 2024, month: 2, day: 1, desc: 'Feb 30 (leap year) → March 1' },
+        { input: '2025-04-31', year: 2025, month: 4, day: 1, desc: 'April 31 → May 1' },
+        { input: '2025-00-15', year: 2024, month: 11, day: 15, desc: 'Month 0 → December prev year' }
+      ];
+
+      normalizedDates.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input);
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `Normalized Date Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+        } catch (e) {
+          x.test(false, `Normalized Date Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
       });
     },

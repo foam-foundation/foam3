@@ -194,7 +194,7 @@ foam.CLASS({
 
       ddmmyyyyTime.forEach((testCase, i) => {
         try {
-          let result = parser.parseString(testCase.input, 'ddmmyyyy');
+          let result = parser.parseDateTime(testCase.input, 'ddmmyyyy');
           let pass = result &&
                      result.getFullYear() === testCase.year &&
                      result.getMonth() === testCase.month &&
@@ -205,6 +205,49 @@ foam.CLASS({
           x.test(pass, `DDMMYYYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`);
         } catch (e) {
           x.test(false, `DDMMYYYY-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test DDMMYY (2-digit year) with separators - requires opt_name='ddmmyyyy'
+      let ddmmyySep = [
+        { input: '15/01/25', year: 2025, month: 0, day: 15 },
+        { input: '31/12/24', year: 2024, month: 11, day: 31 },
+        { input: '29/02/00', year: 2000, month: 1, day: 29 }
+      ];
+
+      ddmmyySep.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'ddmmyyyy');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `DDMMYY-Sep Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`);
+        } catch (e) {
+          x.test(false, `DDMMYY-Sep Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test DDMMYY with time - requires opt_name='ddmmyyyy'
+      let ddmmyyTime = [
+        { input: '24/09/25 10:34:26', year: 2025, month: 8, day: 24, hour: 10, minute: 34, second: 26 },
+        { input: '15-01-25 14:30', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      ddmmyyTime.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateTime(testCase.input, 'ddmmyyyy');
+          let pass = result &&
+                     result.getFullYear() === testCase.year &&
+                     result.getMonth() === testCase.month &&
+                     result.getDate() === testCase.day &&
+                     result.getHours() === testCase.hour &&
+                     result.getMinutes() === testCase.minute &&
+                     result.getSeconds() === testCase.second;
+          x.test(pass, `DDMMYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`);
+        } catch (e) {
+          x.test(false, `DDMMYY-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
       });
     },

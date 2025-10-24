@@ -169,10 +169,12 @@ foam.CLASS({
           'yymmdd-compact': str(repeat(range('0', '9'), null, 6)),
 
           // DDMMYYYY - NOT in main dateOrDatetime, accessible via opt_name only
-          // Covers: DD-MM-YYYY, DD/MM/YYYY, DDMMYYYY with optional time
+          // Covers: DD-MM-YYYY, DD/MM/YYYY, DDMMYYYY, DD-MM-YY, DD/MM/YY, DDMMYY with optional time
           ddmmyyyy: alt(
+            sym('ddmmyyyy-sep'),
+            sym('ddmmyy-sep'),
             sym('ddmmyyyy-compact'),
-            sym('ddmmyyyy-sep')
+            sym('ddmmyy-compact')
           ),
 
           // DDMMYYYY with separators and optional time
@@ -198,6 +200,30 @@ foam.CLASS({
 
           // DDMMYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern)
           'ddmmyyyy-compact': str(repeat(range('0', '9'), null, 8)),
+
+          // DDMMYY with separators and optional time (2-digit year)
+          // DD-MM-YY, DD/MM/YY, DD-MM-YY HH:MM, DD-MM-YY HH:MM:SS
+          'ddmmyy-sep': alt(
+            // With seconds and timezone
+            seq(
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
+              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              optional(sym('timezone'))
+            ),
+            // With minutes and timezone
+            seq(
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
+              ' ', sym('hour2'), ':', sym('minute2'),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            seq(
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2')
+            )
+          ),
+
+          // DDMMYY compact: 6 digits
+          'ddmmyy-compact': str(repeat(range('0', '9'), null, 6)),
 
           // YYYYDDMM - NOT in main dateOrDatetime, accessible via opt_name only
           // Covers: YYYY-DD-MM, YYYY/DD/MM, YYYYDDMM, YY-DD-MM, YY/DD/MM, YYDDMM with optional time
@@ -441,6 +467,44 @@ foam.CLASS({
           'ddmmyyyy-compact': function(v) {
             return {
               year: parseInt(v.substring(4, 8)),
+              month: parseInt(v.substring(2, 4)) - 1,
+              day: parseInt(v.substring(0, 2))
+            };
+          },
+
+          // DDMMYY with separators: DD-MM-YY, DD/MM/YY with optional time
+          // v = [DD, sep, MM, sep, YY] or [DD, sep, MM, sep, YY, space, HH, :, MM, :, SS, timezone]
+          'ddmmyy-sep': function(v) {
+            let twoDigitYear = parseInt(v[4]);
+            let result = {
+              year: self.convertTwoDigitYear(twoDigitYear),
+              month: parseInt(v[2]) - 1,
+              day: parseInt(v[0])
+            };
+
+            // Check if time components exist
+            if ( v.length > 5 && v[6] !== undefined ) {
+              result.hour = parseInt(v[6]);
+              if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
+              if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Check for timezone (last element if present)
+              if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[v.length - 1]);
+              } else if ( v[v.length - 1] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
+          },
+
+          // DDMMYY compact: 6 digits "150125"
+          // v = "150125"
+          'ddmmyy-compact': function(v) {
+            let twoDigitYear = parseInt(v.substring(4, 6));
+            return {
+              year: self.convertTwoDigitYear(twoDigitYear),
               month: parseInt(v.substring(2, 4)) - 1,
               day: parseInt(v.substring(0, 2))
             };

@@ -453,7 +453,7 @@ foam.CLASS({
     {
       name: 'validateDate',
       documentation: 'Validates a date object (local time) and returns MAX_DATE for invalid dates',
-      code: function(date, str, expectedYear, expectedMonth, expectedDay) {
+      code: function(date, str) {
         // Check if date is NaN
         if ( isNaN(date.getTime()) ) {
           date = foam.Date.MAX_DATE;
@@ -461,19 +461,7 @@ foam.CLASS({
           return date;
         }
 
-        // If we have expected values, verify the date wasn't normalized by JS Date constructor
-        if ( expectedYear !== undefined && expectedMonth !== undefined && expectedDay !== undefined ) {
-          let actualYear = date.getFullYear();
-          let actualMonth = date.getMonth();
-          let actualDay = date.getDate();
-
-          if ( actualYear !== expectedYear || actualMonth !== expectedMonth || actualDay !== expectedDay ) {
-            // Date was normalized (e.g., 2025-13-01 became 2026-01-01)
-            date = foam.Date.MAX_DATE;
-            console.warn("Invalid date: " + str + "; assuming " + date.toISOString() + ".");
-          }
-        }
-
+        // Allow JavaScript's native date normalization (e.g., 2025-13-01 → 2026-01-01)
         return date;
       }
     },
@@ -481,7 +469,7 @@ foam.CLASS({
     {
       name: 'validateDateUTC',
       documentation: 'Validates a date object (UTC time) and returns MAX_DATE for invalid dates',
-      code: function(date, str, expectedYear, expectedMonth, expectedDay) {
+      code: function(date, str) {
         // Check if date is NaN
         if ( isNaN(date.getTime()) ) {
           date = foam.Date.MAX_DATE;
@@ -489,19 +477,7 @@ foam.CLASS({
           return date;
         }
 
-        // If we have expected values, verify the date wasn't normalized by JS Date constructor
-        if ( expectedYear !== undefined && expectedMonth !== undefined && expectedDay !== undefined ) {
-          let actualYear = date.getUTCFullYear();
-          let actualMonth = date.getUTCMonth();
-          let actualDay = date.getUTCDate();
-
-          if ( actualYear !== expectedYear || actualMonth !== expectedMonth || actualDay !== expectedDay ) {
-            // Date was normalized (e.g., 2025-13-01 became 2026-01-01)
-            date = foam.Date.MAX_DATE;
-            console.warn("Invalid date: " + str + "; assuming " + date.toISOString() + ".");
-          }
-        }
-
+        // Allow JavaScript's native date normalization (e.g., 2025-13-01 → 2026-01-01)
         return date;
       }
     },
@@ -549,7 +525,7 @@ foam.CLASS({
           ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
         }
 
-        return this.validateDate(ret, str, result.year, result.month, result.day);
+        return this.validateDate(ret, str);
       }
     },
 
@@ -567,7 +543,7 @@ foam.CLASS({
         // Always return date at noon local time, ignoring time even if present
         let ret = new Date(result.year, result.month, result.day, 12, 0, 0, 0);
 
-        return this.validateDate(ret, str, result.year, result.month, result.day);
+        return this.validateDate(ret, str);
       }
     },
 
@@ -644,7 +620,7 @@ foam.CLASS({
             result.second || 0,
             result.millisecond || 0
           );
-          return this.validateDate(ret, str, result.year, result.month, result.day);
+          return this.validateDate(ret, str);
         }
       }
     },
@@ -722,7 +698,7 @@ foam.CLASS({
             result.second !== undefined ? result.second : 0,
             result.millisecond !== undefined ? result.millisecond : 0
           ));
-          return this.validateDateUTC(ret, str, result.year, result.month, result.day);
+          return this.validateDateUTC(ret, str);
         }
       }
     }

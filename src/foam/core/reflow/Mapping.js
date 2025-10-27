@@ -94,7 +94,7 @@ foam.CLASS({
   css: `
     ^ {
       padding: 8px 12px;
-      color: /*%TEXTDEFAULT%*/ #1e1f21;
+      color: $textDefault;
       font-size: 14px;
     }
   `,
@@ -127,13 +127,13 @@ foam.CLASS({
 
     ^label {
       font-weight: 500;
-      color: /*%TEXTDEFAULT%*/ #1e1f21;
+      color: $textDefault;
       font-size: 14px;
     }
 
     ^documentation {
       font-size: 12px;
-      color: /*%TEXTSECONDARY%*/ #5e6061;
+      color: $textSecondary;
       line-height: 1.4;
     }
   `,

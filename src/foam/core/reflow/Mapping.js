@@ -86,10 +86,37 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
+  name: 'DateFormatSelectionView',
+  extends: 'foam.u2.CitationView',
+
+  documentation: 'Shows only the label when selected (collapsed state)',
+
+  css: `
+    ^ {
+      padding: 8px 12px;
+      color: /*%TEXTDEFAULT%*/ #1e1f21;
+      font-size: 14px;
+    }
+  `,
+
+  methods: [
+    function render() {
+      if ( ! this.data ) return this;
+
+      return this
+        .addClass(this.myClass())
+        .add(this.data.label);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
   name: 'DateFormatCitationView',
   extends: 'foam.u2.CitationView',
 
-  documentation: 'Shows date format label with supported formats below it',
+  documentation: 'Shows date format label with supported formats below it (dropdown state)',
 
   css: `
     ^ {
@@ -231,6 +258,7 @@ foam.CLASS({
 
         return {
           class: 'foam.u2.view.RichChoiceView',
+          selectionView: { class: 'foam.core.reflow.DateFormatSelectionView' },
           rowView: { class: 'foam.core.reflow.DateFormatCitationView' },
           idProperty: 'id',
           sections: [

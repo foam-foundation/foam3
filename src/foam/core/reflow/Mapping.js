@@ -36,17 +36,95 @@ foam.ENUM({
     {
       name: 'STANDARD',
       label: 'Standard',
-      documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN'
+      documentation: 'yyyy-mm-dd, mm/dd/yyyy, yyyymmdd + month names: 31-JAN-2025, 202531JAN'
     },
     {
       name: 'DDMMYYYY',
       label: 'dd/mm/yyyy',
-      documentation: 'Day-Month-Year format for NUMERIC dates: dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy (month names work automatically in STANDARD)'
+      documentation: 'Numeric only: dd-mm-yyyy, ddmmyyyy, dd-mm-yy, ddmmyy'
     },
     {
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
-      documentation: 'Year-Day-Month format for NUMERIC dates: yyyy/dd/mm, yyyy-dd-mm, yyyyddmm, yy/dd/mm, yy-dd-mm, yyddmm (month names work automatically in STANDARD)'
+      documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
+    }
+  ],
+
+  methods: [
+    function toSummary() {
+      return this.label;
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DateFormatOption',
+
+  documentation: 'Wrapper object for DateFormat enum values to use with RichChoiceView',
+
+  properties: [
+    {
+      class: 'String',
+      name: 'id',
+      documentation: 'The enum value name (e.g., STANDARD, DDMMYYYY)'
+    },
+    {
+      class: 'String',
+      name: 'label',
+      documentation: 'Display label (e.g., "Standard", "dd/mm/yyyy")'
+    },
+    {
+      class: 'String',
+      name: 'documentation',
+      documentation: 'Full documentation with supported formats'
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'DateFormatCitationView',
+  extends: 'foam.u2.CitationView',
+
+  documentation: 'Shows date format label with supported formats below it',
+
+  css: `
+    ^ {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    ^label {
+      font-weight: 500;
+      color: /*%TEXTDEFAULT%*/ #1e1f21;
+      font-size: 14px;
+    }
+
+    ^documentation {
+      font-size: 12px;
+      color: /*%TEXTSECONDARY%*/ #5e6061;
+      line-height: 1.4;
+    }
+  `,
+
+  methods: [
+    function render() {
+      if ( ! this.data ) return this;
+
+      return this
+        .addClass(this.myClass())
+        .start('div')
+          .addClass(this.myClass('label'))
+          .add(this.data.label)
+        .end()
+        .start('div')
+          .addClass(this.myClass('documentation'))
+          .add(this.data.documentation)
+        .end();
     }
   ]
 });
@@ -140,8 +218,31 @@ foam.CLASS({
       name: 'dateFormat',
       label: '',
       value: 'STANDARD',
-      help: 'Standard format supports most common date formats (yyyy-mm-dd, mm/dd/yyyy, etc.). If your dates don\'t parse correctly, select a different format option.',
       documentation: 'Date format for this field (only applies to Date/DateTime properties)',
+      view: function(_, X) {
+        // Create wrapper objects for each enum value
+        var dateFormatOptions = foam.core.reflow.DateFormat.VALUES.map(function(enumValue) {
+          return foam.core.reflow.DateFormatOption.create({
+            id: enumValue.name,
+            label: enumValue.label,
+            documentation: enumValue.documentation
+          });
+        });
+
+        return {
+          class: 'foam.u2.view.RichChoiceView',
+          rowView: { class: 'foam.core.reflow.DateFormatCitationView' },
+          idProperty: 'id',
+          sections: [
+            {
+              dao: foam.dao.ArrayDAO.create({
+                of: foam.core.reflow.DateFormatOption,
+                array: dateFormatOptions
+              })
+            }
+          ]
+        };
+      },
       visibility: function(type, prop) {
         // Only show for Date/DateTime properties that use FIELD or CONSTANT mapping
         if ( type === foam.core.reflow.MappingType.DYNAMIC ) return foam.u2.DisplayMode.HIDDEN;

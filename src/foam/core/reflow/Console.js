@@ -1650,7 +1650,7 @@ foam.CLASS({
     {
       name: 'onScriptNameChange',
       isMerged: true,
-      delay: 500,
+      delay: 100,
       code: function(_, __, ___, evt) {
         // evt contains: { instance_, obj, prop, oldValue }
         var oldValue = evt.oldValue;

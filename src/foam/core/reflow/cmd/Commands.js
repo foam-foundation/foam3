@@ -936,3 +936,92 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'IncludeFlowWrapped',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  imports: [ 'flowDAO', 'includeScript', 'currentBlock' ],
+
+  properties: [
+    [ 'description', 'Include a flow wrapped in a container block' ]
+  ],
+
+  methods: [
+    async function execute(flowName, wrapperName) {
+      console.log('🔵 [IncludeFlowWrapped] Starting execute with:', { flowName, wrapperName });
+      console.log('🔵 [IncludeFlowWrapped] currentBlock:', this.currentBlock);
+
+      if ( ! flowName ) {
+        console.warn('Flow name is required');
+        return;
+      }
+
+      console.log('🔵 [IncludeFlowWrapped] Looking up flow:', flowName);
+      var flow = await this.flowDAO.find(flowName);
+      console.log('🔵 [IncludeFlowWrapped] Found flow:', flow);
+
+      if ( ! flow ) {
+        console.warn(`Flow "${flowName}" not found`);
+        return;
+      }
+
+      // Set wrapper block name
+      wrapperName = wrapperName || flowName + '_wrapper';
+      console.log('🔵 [IncludeFlowWrapped] Wrapper name:', wrapperName);
+
+      // Check if a wrapper with this name already exists
+      var parent = this.currentBlock.flowParent;
+      console.log('🔵 [IncludeFlowWrapped] Parent:', parent);
+
+      if ( parent && parent.findFlowChildByName ) {
+        var existingWrapper = parent.findFlowChildByName(wrapperName);
+        console.log('🔵 [IncludeFlowWrapped] Existing wrapper found:', existingWrapper);
+
+        if ( existingWrapper && existingWrapper !== this.currentBlock ) {
+          // Remove old wrapper and its children
+          parent.removeFlowChild(existingWrapper);
+          console.log('✅ [IncludeFlowWrapped] Removed existing wrapper:', wrapperName);
+        }
+      }
+
+      // Set the current block's name
+      console.log('🔵 [IncludeFlowWrapped] Setting block name to:', wrapperName);
+      this.currentBlock.flowName = wrapperName;
+      console.log('🔵 [IncludeFlowWrapped] Block name after set:', this.currentBlock.flowName);
+
+      // Clear any existing children of this block (in case of rerun)
+      console.log('🔵 [IncludeFlowWrapped] Clearing existing children');
+      this.currentBlock.removeAllFlowChildren();
+      console.log('🔵 [IncludeFlowWrapped] Children count after clear:', this.currentBlock.flowChildren?.length);
+
+      // Include the flow script as children of this block
+      if ( flow.script ) {
+        console.log('🔵 [IncludeFlowWrapped] Including script, length:', flow.script?.length);
+        console.log('🔵 [IncludeFlowWrapped] includeScript function:', this.includeScript);
+        console.log('🔵 [IncludeFlowWrapped] Calling includeScript with parent:', this.currentBlock);
+        console.log('🔵 [IncludeFlowWrapped] Parent flowChildren before:', this.currentBlock.flowChildren);
+
+        try {
+          await this.includeScript(flow.script, this.currentBlock);
+          console.log('✅ [IncludeFlowWrapped] Script included successfully');
+        } catch (e) {
+          console.error('❌ [IncludeFlowWrapped] Error including script:', e);
+          console.log('🔵 [IncludeFlowWrapped] Continuing despite error...');
+          // Don't throw - continue to show what WAS added
+        }
+
+        console.log('🔵 [IncludeFlowWrapped] Parent flowChildren after:', this.currentBlock.flowChildren);
+        console.log('✅ [IncludeFlowWrapped] Children count:', this.currentBlock.flowChildren?.length);
+      } else {
+        console.warn('⚠️ [IncludeFlowWrapped] No script found in flow');
+      }
+
+      console.log('✅ [IncludeFlowWrapped] Execute complete. Returning currentBlock:', this.currentBlock);
+      console.log('✅ [IncludeFlowWrapped] Final children:', this.currentBlock.flowChildren);
+      return this.currentBlock;
+    }
+  ]
+});

@@ -77,9 +77,11 @@ foam.CLASS({
     },
 
     function addFlowChild(f) {
+      console.log('🟡 [addFlowChild] Adding child to:', this.flowName || 'root', 'child:', f.flowName);
       if ( f.deleted_ ) return;
       f.flowParent = this;
       this.flowChildren$push(f);
+      console.log('🟡 [addFlowChild] Children count after push:', this.flowChildren?.length);
       this.addFlowChild_ && this.addFlowChild_(f);
     },
 
@@ -884,6 +886,7 @@ foam.CLASS({
     'eval_',
     'flowChildren',
     'history_',
+    'includeScript',
     'localScope',
     'log',
     'mementoMgr',
@@ -1107,16 +1110,30 @@ foam.CLASS({
     },
 
     async function includeScript(script, parent, skipParse) {
+      console.log('🟢 [includeScript] Called with:', { scriptLength: script?.length, parent: parent?.flowName, skipParse });
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
         script :
         foam.json.parseString(script, ctx);
 
+      console.log('🟢 [includeScript] Parsed commands count:', cs?.length);
+      console.log('🟢 [includeScript] Parent before loop:', parent?.flowName, 'children:', parent?.flowChildren?.length);
+
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
+        console.log(`🟢 [includeScript] Processing command ${i+1}/${cs.length}:`, c.cmd);
 
-        await ctx.eval_(c.cmd, undefined, undefined, parent);
+        try {
+          await ctx.eval_(c.cmd, undefined, undefined, parent);
+          console.log(`✅ [includeScript] Command ${i+1} executed successfully`);
+        } catch (e) {
+          console.error(`❌ [includeScript] Error executing command ${i+1}:`, e);
+          // Continue with next command
+        }
+
+        console.log('🟢 [includeScript] currentBlock after eval:', this.currentBlock?.flowName);
+        console.log('🟢 [includeScript] Parent children after eval:', parent?.flowChildren?.length);
 
         let args = { ...c };
         if ( args.value )
@@ -1131,12 +1148,21 @@ foam.CLASS({
           this.currentBlock.value.copyFrom(c.value);
         }
 
-        await this.currentBlock.value?.onLoad?.();
-        
+        try {
+          await this.currentBlock.value?.onLoad?.();
+          console.log(`✅ [includeScript] Command ${i+1} onLoad completed`);
+        } catch (e) {
+          console.error(`❌ [includeScript] Error in onLoad for command ${i+1}:`, e);
+        }
+
         if ( c.flowChildren ) {
+          console.log(`🟢 [includeScript] Command ${i+1} has ${c.flowChildren.length} children, recursing...`);
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
       }
+
+      console.log('🟢 [includeScript] Completed. Final parent children count:', parent?.flowChildren?.length);
+
       if ( ! parent ){
         await this.eval_('postLoad', null, true);
       }

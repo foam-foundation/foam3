@@ -160,3 +160,9 @@ p({
   "class":"foam.core.reflow.cmd.Info",
   "id": "info"
 })
+p({
+  "class":"foam.core.reflow.cmd.IncludeFlowWrapped",
+  "id": "includeFlowWrapped",
+  "description": "Include a flow wrapped in a container block",
+  linkable: false
+})

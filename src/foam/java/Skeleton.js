@@ -141,7 +141,18 @@ foam.CLASS({
           throw clientE;
         }
       }
-      foam.core.logger.Loggers.logger(x, this).warning(((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName(), rpc.getName(), "returning exception", t.toString()); //, t);
+      // Safely get service name - handle both CSpecFactory and raw XFactory delegates
+      String serviceName = "unknown";
+      try {
+        if ( getDelegateFactory() instanceof foam.core.boot.CSpecFactory ) {
+          serviceName = ((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName();
+        } else if ( getDelegateFactory() != null ) {
+          serviceName = getDelegateFactory().toString();
+        }
+      } catch (Throwable nameEx) {
+        // Ignore errors getting service name - we're already in error handling
+      }
+      foam.core.logger.Loggers.logger(x, this).warning(serviceName, rpc.getName(), "returning exception", t.toString()); //, t);
 
       envelope.replyWithException(t);
 

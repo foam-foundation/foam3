@@ -48,11 +48,24 @@ foam.CLASS({
 
             // Deserialize the decompressed data back to FObject array
             String decompressedJson = new String(baos.toByteArray(), "UTF-8");
+            foam.core.logger.Logger logger = foam.core.logger.Loggers.logger(getX(), this);
+            logger.debug("UploadAgent", "decompressed", "length", decompressedJson.length());
+
             foam.lib.json.JSONParser parser = new foam.lib.json.JSONParser();
             parser.setX(getX());
-            Object[] arrayResult = parser.parseStringForArray(decompressedJson, null);
+
+            Object[] arrayResult = null;
+            try {
+              // Use the new method that throws exceptions instead of returning null
+              arrayResult = parser.parseStringForArrayWithException(decompressedJson, null);
+              logger.debug("UploadAgent", "Successfully parsed array", "count", arrayResult.length);
+            } catch (Exception parseEx) {
+              logger.error("UploadAgent", "JSON parsing failed", parseEx.getMessage());
+              throw parseEx;
+            }
 
             if ( arrayResult != null && arrayResult.length > 0 ) {
+              logger.debug("UploadAgent", "parsed array", "count", arrayResult.length);
               // Convert Object[] to foam.lang.FObject[] since each object is an FObject
               foam.lang.FObject[] fObjectArray = new foam.lang.FObject[arrayResult.length];
               for ( int i = 0; i < arrayResult.length; i++ ) {
@@ -63,10 +76,15 @@ foam.CLASS({
 
               return fObjectArray;
             } else {
-              throw new RuntimeException("Failed to parse decompressed data or array is empty.");
+              String preview = decompressedJson.length() > 500 ?
+                decompressedJson.substring(0, 500) + "..." : decompressedJson;
+              logger.error("UploadAgent", "Failed to parse",
+                "arrayResult", arrayResult != null ? arrayResult.length : "null",
+                "jsonPreview", preview);
+              throw new RuntimeException("Failed to parse decompressed data or array is empty. JSON length: " + decompressedJson.length());
             }
           } catch ( Exception e ) {
-            // Re-throw parsing errors instead of returning empty array
+            // Re-throw parsing errors - message already has context from inner exception
             throw new RuntimeException(e.getMessage(), e);
           }
         }

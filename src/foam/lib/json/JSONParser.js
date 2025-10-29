@@ -51,6 +51,29 @@ foam.CLASS({
         return null;
       }
     }
+
+    public Object[] parseStringForArrayWithException(String data, Class defaultClass) throws Exception {
+      StringPStream ps = new StringPStream();
+      ps.setString(data);
+      ParserContext x = new ParserContextImpl();
+      x.set("X", getX());
+
+      try {
+        ps = (StringPStream) ps.apply(FObjectArrayParser.create(defaultClass), x);
+        if ( ps == null ) {
+          throw new RuntimeException("Parser returned null - failed to parse JSON array");
+        }
+        Object[] result = (Object[]) ps.value();
+        if ( result == null ) {
+          throw new RuntimeException("Parser value is null - failed to extract array from parse result");
+        }
+        return result;
+      } catch ( Throwable t ) {
+        // Re-throw with more context but don't log here - let caller handle it
+        String preview = data != null && data.length() > 200 ? data.substring(0, 200) + "..." : data;
+        throw new Exception("JSON parsing failed: " + t.getMessage() + " | JSON preview: " + preview, t);
+      }
+    }
  `,
 
   methods: [

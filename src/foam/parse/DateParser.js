@@ -65,6 +65,9 @@ foam.CLASS({
             sym('yyyymmdd-sep')
           ),
 
+          // Datetime separator: T or space
+          'datetime-sep': chars('T '),
+
           // Timezone format: Z or +/-HH:MM or +/-HHMM
           timezone: alt(
             'Z',
@@ -93,19 +96,19 @@ foam.CLASS({
             // With milliseconds and timezone
             seq(
               sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
-              chars('T '), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('millisecond3'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('millisecond3'),
               optional(sym('timezone'))
             ),
             // With seconds and timezone
             seq(
               sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
-              chars('T '), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
-              chars('T '), sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -114,8 +117,18 @@ foam.CLASS({
             )
           ),
 
-          // YYYYMMDD compact: 8 digits (year 1900-2999)
-          'yyyymmdd-compact': str(seq(sym('year4_1900_2999'), sym('month2'), sym('day2'))),
+          // YYYYMMDD compact: 8 digits (year 1900-2999) with optional space-separated time
+          'yyyymmdd-compact': alt(
+            // With space and time
+            seq(
+              str(seq(sym('year4_1900_2999'), sym('month2'), sym('day2'))),
+              sym('datetime-sep'),
+              sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            str(seq(sym('year4_1900_2999'), sym('month2'), sym('day2')))
+          ),
 
           // YYYYMMDDHHMMSS compact: 14 digits
           'yyyymmddhhmmss-compact': seq(
@@ -136,13 +149,13 @@ foam.CLASS({
             // With seconds and timezone
             seq(
               sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
-              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
-              ' ', sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -151,8 +164,18 @@ foam.CLASS({
             )
           ),
 
-          // MMDDYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern)
-          'mmddyyyy-compact': str(repeat(range('0', '9'), null, 8, 8)),
+          // MMDDYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern) with optional space-separated time
+          'mmddyyyy-compact': alt(
+            // With space and time
+            seq(
+              str(repeat(range('0', '9'), null, 8, 8)),
+              sym('datetime-sep'),
+              sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            str(repeat(range('0', '9'), null, 8, 8))
+          ),
 
           // YYMMDD - tries all variants (compact, separated)
           // Covers: YYMMDD, YY-MM-DD, YY/MM/DD with optional time
@@ -167,13 +190,13 @@ foam.CLASS({
             // With seconds and timezone
             seq(
               sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
-              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
-              ' ', sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -197,17 +220,18 @@ foam.CLASS({
 
           // DDMMYYYY with separators and optional time
           // DD-MM-YYYY, DD/MM/YYYY, DD-MM-YYYY HH:MM, DD-MM-YYYY HH:MM:SS
+          // DD-MM-YYYYTHH:MM:SS+TZ (with T separator and timezone)
           'ddmmyyyy-sep': alt(
             // With seconds and timezone
             seq(
               sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
-              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
-              ' ', sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -216,22 +240,33 @@ foam.CLASS({
             )
           ),
 
-          // DDMMYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern)
-          'ddmmyyyy-compact': str(repeat(range('0', '9'), null, 8, 8)),
+          // DDMMYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern) with optional space-separated time
+          'ddmmyyyy-compact': alt(
+            // With space and time
+            seq(
+              str(repeat(range('0', '9'), null, 8, 8)),
+              sym('datetime-sep'),
+              sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            str(repeat(range('0', '9'), null, 8, 8))
+          ),
 
           // DDMMYY with separators and optional time (2-digit year)
           // DD-MM-YY, DD/MM/YY, DD-MM-YY HH:MM, DD-MM-YY HH:MM:SS
+          // DD-MM-YYTHH:MM:SS+TZ (with T separator and timezone)
           'ddmmyy-sep': alt(
             // With seconds and timezone
             seq(
               sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
-              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
-              ' ', sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -254,17 +289,18 @@ foam.CLASS({
 
           // YYYYDDMM with separators and optional time
           // YYYY-DD-MM, YYYY/DD/MM, YYYY-DD-MM HH:MM, YYYY-DD-MM HH:MM:SS
+          // YYYY-DD-MMTHH:MM:SS+TZ (with T separator and timezone)
           'yyyyddmm-sep': alt(
             // With seconds and timezone
             seq(
               sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
-              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
-              ' ', sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -273,8 +309,18 @@ foam.CLASS({
             )
           ),
 
-          // YYYYDDMM compact: 8 digits
-          'yyyyddmm-compact': str(repeat(range('0', '9'), null, 8, 8)),
+          // YYYYDDMM compact: 8 digits with optional space-separated time
+          'yyyyddmm-compact': alt(
+            // With space and time
+            seq(
+              str(repeat(range('0', '9'), null, 8, 8)),
+              sym('datetime-sep'),
+              sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            str(repeat(range('0', '9'), null, 8, 8))
+          ),
 
           // YYDDMM - 2-digit year, day, month (6 digits)
           yyddmm: alt(
@@ -284,17 +330,18 @@ foam.CLASS({
 
           // YYDDMM with separators and optional time
           // YY-DD-MM, YY/DD/MM, YY-DD-MM HH:MM, YY-DD-MM HH:MM:SS
+          // YY-DD-MMTHH:MM:SS+TZ (with T separator and timezone)
           'yyddmm-sep': alt(
             // With seconds and timezone
             seq(
               sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
-              ' ', sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
               optional(sym('timezone'))
             ),
             // With minutes and timezone
             seq(
               sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
-              ' ', sym('hour2'), ':', sym('minute2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
               optional(sym('timezone'))
             ),
             // Date only
@@ -390,14 +437,36 @@ foam.CLASS({
             return result;
           },
 
-          // YYYYMMDD compact: 8 digits "20250115"
-          // v = "20250115"
+          // YYYYMMDD compact: 8 digits "20250115" or "20250115 14:30" or "20250115 14:30:45"
+          // v = "20250115" OR v = ["20250115", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
           'yyyymmdd-compact': function(v) {
-            return {
-              year: parseInt(v.substring(0, 4)),
-              month: parseInt(v.substring(4, 6)) - 1,
-              day: parseInt(v.substring(6, 8))
+            let dateStr = typeof v === 'string' ? v : v[0];
+            let result = {
+              year: parseInt(dateStr.substring(0, 4)),
+              month: parseInt(dateStr.substring(4, 6)) - 1,
+              day: parseInt(dateStr.substring(6, 8))
             };
+
+            // Check if time is present (array format)
+            if ( Array.isArray(v) && v.length > 2 ) {
+              result.hour = parseInt(v[2]);
+              result.minute = parseInt(v[4]);
+
+              // Check for seconds (v[5] is optional array [: SS])
+              if ( v[5] && Array.isArray(v[5]) ) {
+                result.second = parseInt(v[5][1]);
+              }
+
+              // Check for timezone (last element if present)
+              let lastIdx = v.length - 1;
+              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[lastIdx]);
+              } else if ( v[lastIdx] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
           },
 
           // YYYYMMDDHHMMSS compact: 14 digits with time
@@ -439,14 +508,36 @@ foam.CLASS({
             return result;
           },
 
-          // MMDDYYYY compact: 8 digits "01152025"
-          // v = "01152025"
+          // MMDDYYYY compact: 8 digits "01152025" or "01152025 14:30" or "01152025 14:30:45"
+          // v = "01152025" OR v = ["01152025", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
           'mmddyyyy-compact': function(v) {
-            return {
-              year: parseInt(v.substring(4, 8)),
-              month: parseInt(v.substring(0, 2)) - 1,
-              day: parseInt(v.substring(2, 4))
+            let dateStr = typeof v === 'string' ? v : v[0];
+            let result = {
+              year: parseInt(dateStr.substring(4, 8)),
+              month: parseInt(dateStr.substring(0, 2)) - 1,
+              day: parseInt(dateStr.substring(2, 4))
             };
+
+            // Check if time is present (array format)
+            if ( Array.isArray(v) && v.length > 2 ) {
+              result.hour = parseInt(v[2]);
+              result.minute = parseInt(v[4]);
+
+              // Check for seconds (v[5] is optional array [: SS])
+              if ( v[5] && Array.isArray(v[5]) ) {
+                result.second = parseInt(v[5][1]);
+              }
+
+              // Check for timezone (last element if present)
+              let lastIdx = v.length - 1;
+              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[lastIdx]);
+              } else if ( v[lastIdx] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
           },
 
           // YYMMDD with separators: YY-MM-DD, YY/MM/DD with optional time and timezone
@@ -515,14 +606,36 @@ foam.CLASS({
             return result;
           },
 
-          // DDMMYYYY compact: 8 digits "15012025"
-          // v = "15012025"
+          // DDMMYYYY compact: 8 digits "15012025" or "15012025 14:30" or "15012025 14:30:45"
+          // v = "15012025" OR v = ["15012025", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
           'ddmmyyyy-compact': function(v) {
-            return {
-              year: parseInt(v.substring(4, 8)),
-              month: parseInt(v.substring(2, 4)) - 1,
-              day: parseInt(v.substring(0, 2))
+            let dateStr = typeof v === 'string' ? v : v[0];
+            let result = {
+              year: parseInt(dateStr.substring(4, 8)),
+              month: parseInt(dateStr.substring(2, 4)) - 1,
+              day: parseInt(dateStr.substring(0, 2))
             };
+
+            // Check if time is present (array format)
+            if ( Array.isArray(v) && v.length > 2 ) {
+              result.hour = parseInt(v[2]);
+              result.minute = parseInt(v[4]);
+
+              // Check for seconds (v[5] is optional array [: SS])
+              if ( v[5] && Array.isArray(v[5]) ) {
+                result.second = parseInt(v[5][1]);
+              }
+
+              // Check for timezone (last element if present)
+              let lastIdx = v.length - 1;
+              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[lastIdx]);
+              } else if ( v[lastIdx] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
           },
 
           // DDMMYY with separators: DD-MM-YY, DD/MM/YY with optional time
@@ -589,14 +702,36 @@ foam.CLASS({
             return result;
           },
 
-          // YYYYDDMM compact: 8 digits "20251501"
-          // v = "20251501"
+          // YYYYDDMM compact: 8 digits "20251501" or "20251501 14:30" or "20251501 14:30:45"
+          // v = "20251501" OR v = ["20251501", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
           'yyyyddmm-compact': function(v) {
-            return {
-              year: parseInt(v.substring(0, 4)),
-              month: parseInt(v.substring(6, 8)) - 1,
-              day: parseInt(v.substring(4, 6))
+            let dateStr = typeof v === 'string' ? v : v[0];
+            let result = {
+              year: parseInt(dateStr.substring(0, 4)),
+              month: parseInt(dateStr.substring(6, 8)) - 1,
+              day: parseInt(dateStr.substring(4, 6))
             };
+
+            // Check if time is present (array format)
+            if ( Array.isArray(v) && v.length > 2 ) {
+              result.hour = parseInt(v[2]);
+              result.minute = parseInt(v[4]);
+
+              // Check for seconds (v[5] is optional array [: SS])
+              if ( v[5] && Array.isArray(v[5]) ) {
+                result.second = parseInt(v[5][1]);
+              }
+
+              // Check for timezone (last element if present)
+              let lastIdx = v.length - 1;
+              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[lastIdx]);
+              } else if ( v[lastIdx] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
           },
 
           // YYDDMM with separators: YY-DD-MM, YY/DD/MM with optional time
@@ -871,7 +1006,7 @@ foam.CLASS({
         // Check if entire string was consumed
         if ( parseResult.pos < str.length ) {
           // Partial parse - remaining characters indicate invalid format
-          console.warn('DateParser: Partial parse detected. Input:', str, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
+          console.warn('DateParser: Partial parse detected. Input:', str,'opt_name:', opt_name, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
           return this.validateDate(this.INVALID_DATE, str);
         }
 
@@ -949,7 +1084,7 @@ foam.CLASS({
         // Check if entire string was consumed
         if ( parseResult.pos < str.length ) {
           // Partial parse - remaining characters indicate invalid format
-          console.warn('DateParser: Partial parse detected for UTC. Input:', str, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
+          console.warn('DateParser: Partial parse detected for UTC. Input:', str, 'opt_name:', opt_name, 'Consumed up to position:', parseResult.pos, 'Remaining:', str.substring(parseResult.pos));
           return this.validateDateUTC(this.INVALID_DATE, str);
         }
 

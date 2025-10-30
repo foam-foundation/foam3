@@ -462,9 +462,9 @@ foam.CLASS({
         this.block.border['title'] = this.label;
       }
 
-      x.auth.check(x, 'reflow.aql').then(enabled => {
-        this.enableAQL_ = enabled;
-      });
+//       x.auth.check(x, 'reflow.aql').then(enabled => {
+//         this.enableAQL_ = enabled;
+//       });
 
       if ( ! this.dao || ! this.dao.of ) return;
 

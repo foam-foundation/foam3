@@ -383,8 +383,8 @@ it repeated six times, meaning that the specified repeat parameter is the minium
 of repetitions not the absolute limit.
 --
 testP(
-  P.str(P.repeat(P.alt(P.range('a','z'), P.range('A', 'Z'), P.range('0', '9'), P.anyChar('!@#$%^&*')), undefined, 5)),
-  [ 's', 's@', 's@c', 's@C&', 's@C&t', 's@C&t1' ]
+  P.str(P.repeat(P.alt(P.range('a','z'), P.range('A', 'Z'), P.range('0', '9'), P.anyChar('!@#$%^&*')), undefined, 5, 7)),
+  [ 's', 's@', 's@c', 's@C&', 's@C&t', 's@C&t1', 's@C&t123456' ]
 );
 
 ## Not Parser

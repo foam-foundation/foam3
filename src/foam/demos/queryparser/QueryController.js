@@ -38,7 +38,8 @@ foam.CLASS({
       name: 'parser',
       factory: function() {
         return this.SimpleQueryParser.create({of: foam.core.auth.User});
-//        return this.QueryParser.create({of: foam.util.Timer});
+        //return this.SimpleQueryParser.create({of: foam.core.analytics.Candlestick});
+        //return this.QueryParser.create({of: foam.util.Timer});
       }
     },
     {

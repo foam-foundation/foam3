@@ -1516,6 +1516,8 @@ foam.CLASS({
 });
 
 
+
+
 foam.CLASS({
   package: 'foam.java',
   name: 'DateJavaRefinement',

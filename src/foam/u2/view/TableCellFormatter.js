@@ -411,7 +411,7 @@ foam.CLASS({
       value: function(date) {
         // allow the browser to deal with this since we are technically using the user's preference
         if ( date ) {
-          // toLocaleString includes date and time
+          // toLocaleString includes date and time (uses local timezone)
           var formattedDate = date.toLocaleString(foam.locale);
           this.add(formattedDate);
           this.tooltip = formattedDate;
@@ -422,6 +422,28 @@ foam.CLASS({
       class: 'Int',
       name: 'tableWidth',
       value: 130
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'DateTimeUTCTableCellFormatterRefinement',
+  refines: 'foam.lang.DateTimeUTC',
+
+  properties: [
+    {
+      class: 'foam.u2.view.TableCellFormatter',
+      name: 'tableCellFormatter',
+      value: function(date) {
+        if ( date ) {
+          // Format as UTC using locale-default format
+          var formattedDate = foam.util.DateUtil.format(date, 'UTC');
+          this.add(formattedDate);
+          this.tooltip = formattedDate;
+        }
+      }
     }
   ]
 });

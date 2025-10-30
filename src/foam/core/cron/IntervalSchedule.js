@@ -59,7 +59,7 @@ next.setTime(from);
 if ( getDuration().getHour() == 0 &&
      getDuration().getMinute() == 0 &&
      getDuration().getSecond() == 0 ) {
-  next.roll(Calendar.DATE, true);
+  next.add(Calendar.DATE, 1);
 } else {
   next.add(Calendar.HOUR_OF_DAY, getDuration().getHour());
   next.add(Calendar.MINUTE,      getDuration().getMinute());

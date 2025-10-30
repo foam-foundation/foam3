@@ -1,4 +1,5 @@
 p({"class":"foam.parse.test.QueryParserUserTest","id":"QueryParserUserTest"})
-p({"class":"foam.parse.test.QueryParserJSTest","id":"QueryParserJSTest"})
+p({"class":"foam.parse.test.QueryParserJSTest","id":"QueryParserJSTest"}, language: 'JS')
 p({"class":"foam.parse.test.FScriptParserTest","id":"FScriptParserTest"})
-p({"class":"foam.parse.test.SimpleQueryParserTest","id":"SimpleQueryParserTest"})
+p({"class":"foam.parse.test.SimpleQueryParserTest","id":"SimpleQueryParserTest"}, language: 'JS')
+p({"class":"foam.parse.test.DateParserTest","id":"DateParserTest"}, language: 'JS')

@@ -6,7 +6,97 @@
 
 foam.CLASS({
   package: 'foam.parse.auto',
+  name: 'DateSuggester',
+  extends: 'foam.u2.View',
+
+  imports: [ 'suggestText' ],
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'date',
+      onKey: true
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.startContext({data: this}).add(this.DATE);
+      this.date$.sub(() => {
+        this.suggestText(this.date.toISOString().substring(0,10) + ' ');
+      });
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse.auto',
+  name: 'SuggestionView',
+  extends: 'foam.u2.View',
+
+  imports: [ 'suggestText' ],
+
+  css: `
+    ^ {
+      color: $textDefault;
+    }
+    ^label {
+      font-style: normal;
+      font-weight: $font-medium;
+      line-height: 1.71;
+      margin: 0;
+    }
+
+    ^property { color: $green400; }
+    ^operator { color: $red400; }
+    ^value    { color: $blue400; }
+  `,
+
+  methods: [
+    function render() {
+      let self = this;
+      let data = this.data;
+
+      this.
+        addClass().
+        start().
+          addClass(this.myClass('label')).
+          callIfElse(data.tooltip,
+            function() {
+              this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(data.tooltip).end();
+            },
+            function() {
+              this.
+                style({cursor: 'pointer'}).
+                on('click', () => self.suggestText(data.text)).
+                add(data.label || data.text);
+            }
+          ).
+          callIf(data.category,
+            function() {
+              this.start('i').addClass(self.myClass(data.category)).style({float: 'right', fontSize: 'smaller'}).add(data.category).end();
+            }
+          ).
+        end();
+
+      if ( data.label !== data.text ) {
+        this.start().
+          add(data.text).
+        end();
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse.auto',
   name: 'AutoCompleter',
+
+  requires: [ 'foam.parse.auto.SuggestionView' ],
+
+  exports: [ 'suggestText' ],
 
   documentation: `
     Usage:
@@ -24,8 +114,9 @@ foam.CLASS({
     {
       class: 'String',
       name: 'autoQuery',
-      postSet: function() {
-        this.reset();
+      postSet: function(o, n) {
+        console.log('************* autoQueryUpdate', o,n);
+        // this.reset();
       }
     },
     {
@@ -40,9 +131,11 @@ foam.CLASS({
       class: 'Int',
       name: 'maxPos'
     },
+    'prevSuggestions',
     {
       name: 'suggestions',
-      factory: function() { return {}; }
+      factory: function() { return {}; },
+      postSet: function(o, n) { this.prevSuggestions = o;}
     },
     {
       name: 'apply',
@@ -90,7 +183,7 @@ foam.CLASS({
             let prevQuery = self.autoQuery.substring(0, this.pos);
             self.normalizedQuery = prevQuery + s.text + self.autoQuery.substring(this.substring(result).length+this.pos) ;
             //console.log('--- normalized query ---: ' + self.normalizedQuery + ' length ' + self.normalizedQuery.length);
-            self.autoQuery = self.normalizedQuery;
+            if ( self.autoQuery !== self.normalizedQuery ) self.autoQuery = self.normalizedQuery;
 
           }
 
@@ -102,13 +195,20 @@ foam.CLASS({
 
   methods: [
     function reset() {
-      this.maxPos              = 0;
-      this.suggestions         = {};
-      this.normalizedQuery     = '';
+      console.log('reset');
+      this.maxPos          = 0;
+      this.suggestions     = {};
+      this.normalizedQuery = '';
     },
 
     function toString() {
       return Object.keys(this.suggestions).join(' | ');
+    },
+
+    function suggestText(txt) {
+      let str = this.autoQuery.substring(0, this.maxPos).trim();
+      if ( ! str.endsWith('.') ) str += ' ';
+      this.autoQuery = ( str + txt ).trimStart();
     },
 
     function addToE(e) {
@@ -118,29 +218,29 @@ foam.CLASS({
       var self = this;
       e.add(this.dynamic(function(autoQuery) {; // re-render when query changes
         let keys  = Object.keys(self.suggestions);
+        // if ( keys.length == 0 ) { keys = Object.keys(self.prevSuggestions); self.suggestions = self.prevSuggestions; }
         let delta = autoQuery.substring(self.maxPos);
-        let ss    = keys.sort();
+        let ss    = keys.sort(function(k1, k2) {
+          var o1 = self.suggestions[k1];
+          var o2 = self.suggestions[k2];
+
+          let c = foam.util.compare(o1.category, o2.category);
+          if ( c ) return c;
+          return foam.util.compare(o1.label || o1.text, o2.label || o2.text);
+        });
 
         if ( delta ) ss = ss.filter(k => containsIC(k, delta));
         if ( ! ss.length ) return;
 
-        this.start().style({width: '250px', maxHeight: '500px', border: '1px solid gray', overflowY: 'auto'}).forEach(ss, function(s) {
+        this.start().style({width: '240px', maxHeight: '500px', border: '1px solid gray', overflowY: 'auto'}).forEach(ss, function(s, i, a) {
           let sug = self.suggestions[s];
 
           this.start('div').
-            style({margin: '6px'}).
-            callIfElse(sug.tooltip, function() {
-              this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(sug.tooltip);
-            }, function() {
-              this.on(
-                'click',
-                function() {
-                  self.autoQuery = ( self.autoQuery.substring(0, self.maxPos).trim() + ' ' + s ).trimStart();
-                }).
-                style({cursor: 'pointer'});
-            }).
-            add(self.suggestions[s].label).
-          end();
+            style({margin: '6px', fontSize: '0.7em'}).
+            tag(sug.view || self.SuggestionView, {data: sug, suggestText: self.suggestText.bind(self)});
+
+          if ( i != a.length-1 )
+            this.start('hr').style({marginBottom: '-6px'});
         });
       }));
     }

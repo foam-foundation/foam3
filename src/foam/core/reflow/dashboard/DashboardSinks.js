@@ -1877,7 +1877,7 @@ foam.CLASS({
               .callIf(self.countOnClick, function() {
                 this
                   .on('click', self.onCountClick)
-                  .style({ textDecoration: 'underline' })
+                  .style({ textDecoration: 'underline', cursor: 'pointer' })
                })
               .add(self.countSuffix$.map(v => metric.count.toLocaleString() + (v ? ' ' + v : '')))
             .end();

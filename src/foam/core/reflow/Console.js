@@ -1172,7 +1172,6 @@ foam.CLASS({
       if ( ! parent ) {
         this.totalBlocks_ = this.countBlocks(cs);
         this.loadingProgress_ = 0;
-        console.log('🔄 Starting flow load - Total blocks:', this.totalBlocks_);
       }
 
       for ( var i = 0 ; i < cs.length ; i++ ) {
@@ -1181,8 +1180,6 @@ foam.CLASS({
         // Update progress counter for all blocks (including nested)
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
-        console.log('📊 Progress:', this.loadingProgress_, '/', this.totalBlocks_,
-                    '=', this.loadingPercentage_ + '%');
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
 

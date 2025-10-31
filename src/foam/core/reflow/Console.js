@@ -912,15 +912,48 @@ foam.CLASS({
       flex: 1;
       overflow: auto;
       text-align: left;
-      width: 100%
+      width: 100%;
+      position: relative;
+      min-height: 400px;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;
     }
-    ^ .foam-u2-ProgressView { width: 600px; }
     ^error {
       background: $backgroundDestructiveTertiary!important;
       color: $textDestructive;
+    }
+    ^loading-indicator {
+      position: absolute;
+      top: 200px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 32px;
+      background: $backgroundDefault;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      width: 400px;
+      max-width: 90%;
+      justify-content: center;
+    }
+    ^loading-indicator .foam-u2-ProgressView {
+      width: 100%;
+    }
+    ^loading-text {
+      color: $textDefault;
+      font-size: 16px;
+      font-weight: 500;
+      text-align: center;
+    }
+    ^loading-progress {
+      color: $textSecondary;
+      font-size: 14px;
+      text-align: center;
     }
   `,
 
@@ -1037,6 +1070,28 @@ foam.CLASS({
       transient: true
     },
     {
+      class: 'Int',
+      name: 'loadingProgress_',
+      hidden: true,
+      transient: true,
+      value: 0
+    },
+    {
+      class: 'Int',
+      name: 'totalBlocks_',
+      hidden: true,
+      transient: true,
+      value: 0
+    },
+    {
+      class: 'Int',
+      name: 'loadingPercentage_',
+      hidden: true,
+      transient: true,
+      value: 0,
+      documentation: 'Progress percentage (0-100) for the loading indicator'
+    },
+    {
       name: 'selected',
       postSet: function(o, n) {
         if ( o === n ) return;
@@ -1113,8 +1168,21 @@ foam.CLASS({
         script :
         foam.json.parseString(script, ctx);
 
+      // Count total blocks for progress tracking (only at top level)
+      if ( ! parent ) {
+        this.totalBlocks_ = this.countBlocks(cs);
+        this.loadingProgress_ = 0;
+        console.log('🔄 Starting flow load - Total blocks:', this.totalBlocks_);
+      }
+
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
+
+        // Update progress counter for all blocks (including nested)
+        this.loadingProgress_++;
+        this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
+        console.log('📊 Progress:', this.loadingProgress_, '/', this.totalBlocks_,
+                    '=', this.loadingPercentage_ + '%');
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
 
@@ -1132,7 +1200,7 @@ foam.CLASS({
         }
 
         await this.currentBlock.value?.onLoad?.();
-        
+
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
@@ -1140,6 +1208,17 @@ foam.CLASS({
       if ( ! parent ){
         await this.eval_('postLoad', null, true);
       }
+    },
+
+    function countBlocks(blocks) {
+      if ( ! blocks || ! blocks.length ) return 0;
+      var count = blocks.length;
+      blocks.forEach(b => {
+        if ( b.flowChildren ) {
+          count += this.countBlocks(b.flowChildren);
+        }
+      });
+      return count;
     },
 
     function clearFlow() {
@@ -1223,6 +1302,25 @@ foam.CLASS({
         start('div', null, self.out$)
           .addClass(self.myClass('output')).
         end().
+        // Add loading indicator overlay
+        start()
+          .addClass(self.myClass('loading-indicator'))
+          .show(self.isLoading_$)
+          .start().addClass(self.myClass('loading-text'))
+            .add('Loading Flow...')
+          .end()
+          .start().addClass(self.myClass('loading-progress'))
+            .add(self.loadingProgress_$.map(function(progress) {
+              if ( self.totalBlocks_ > 0 ) {
+                return `Loading block ${progress} of ${self.totalBlocks_}`;
+              }
+              return 'Preparing flow...';
+            }))
+          .end()
+          .tag(foam.u2.ProgressView, {
+            data$: self.loadingPercentage_$
+          })
+        .end().
         tag(self.ReflowToolBar);
 
         // These observers might cause scroll issues later when queries in the console can be edited
@@ -1735,6 +1833,10 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+          // Reset progress counters
+          this.loadingProgress_ = 0;
+          this.totalBlocks_ = 0;
+          this.loadingPercentage_ = 0;
         }
       }
     },

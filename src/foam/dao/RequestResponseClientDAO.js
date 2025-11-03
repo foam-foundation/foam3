@@ -29,6 +29,7 @@ Suitable for usage against backends that don't support listen(), such as plain H
 
   methods: [
     function put_(x, obj) {
+      obj.normalizeObj();
       var self = this;
       return this.SUPER(null, obj).then(function(obj) {
         self.on.put.pub(obj);
@@ -131,17 +132,16 @@ Suitable for usage against backends that don't support listen(), such as plain H
           }
           return superMethod(x, obj);
         }
-
-        if ( obj && obj.normalizeObj && typeof obj.normalizeObj === 'function' ) {
+        if (obj && obj.normalizeObj && typeof obj.normalizeObj === 'function') {
           var result = obj.normalizeObj();
-          // Handle both promise and non-promise returns
-          if ( result && typeof result.then === 'function' ) {
-            return result.then(function() {
-              return processCmd();
-            });
-          }
         }
-        return processCmd();
+
+        // Handle both promise and non-promise returns
+        if ( result && typeof result.then === 'function' ) {
+          return result.then(processCmd);
+        } else {
+          return processCmd();
+        }
       }
     }
   ]

@@ -199,10 +199,18 @@ foam.CLASS({
       }
     },
 
-    async function normalizeObj() {
-      console.log('*** UploadAgent.normalizeObj ENTRY ***', 'hasData:', !!this.data, 'dataLength:', this.data ? this.data.length : 0);
-      this.compressed = await this.compressData(this.data);
-      console.log('UploadAgent.normalizeObj DONE', 'hasCompressed:', !!this.compressed, 'compressedLength:', this.compressed ? this.compressed.length : 0);
+    {
+      name: 'normalizeObj',
+      code: function() {
+        console.log('*** UploadAgent.normalizeObj ENTRY ***', 'hasData:', !!this.data, 'dataLength:', this.data ? this.data.length : 0);
+        var self = this;
+        return this.compressData(this.data).then(function(compressed) {
+          console.log('UploadAgent.normalizeObj - compression done', 'compressed:', !!compressed, 'length:', compressed ? compressed.length : 0);
+          self.compressed = compressed;
+          console.log('UploadAgent.normalizeObj DONE', 'compressedProperty:', !!self.compressed);
+          return self;
+        });
+      }
     }
   ],
 

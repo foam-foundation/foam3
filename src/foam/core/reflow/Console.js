@@ -629,6 +629,7 @@ foam.CLASS({
       display: flex;
       flex-direction: row;
       overflow: auto;
+      height: 90vh;
     }
     ^header {
       padding: 5px 24px;
@@ -914,7 +915,6 @@ foam.CLASS({
       text-align: left;
       width: 100%;
       position: relative;
-      min-height: 400px;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;

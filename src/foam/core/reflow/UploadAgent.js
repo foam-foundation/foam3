@@ -128,13 +128,13 @@ foam.CLASS({
   javaCode: `
     /**
      * Gets detailed parsing error message using ErrorReportingPStream
-     * Same approach as ServiceWebAgent.getParsingError()
+     * Uses FObjectArrayParser for JSON array parsing errors
      * @param x the context
      * @param buffer the JSON string that failed to parse
      * @return detailed error message
      */
     protected String getParsingError(foam.lang.X x, String buffer) {
-      Parser        parser = ExprParser.instance();
+      Parser        parser = foam.lib.json.FObjectArrayParser.create(null);
       PStream       ps     = new StringPStream();
       ParserContext psx    = new ParserContextImpl();
 

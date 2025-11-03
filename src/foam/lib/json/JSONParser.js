@@ -12,21 +12,6 @@ foam.CLASS({
   // the first key, to avoid having to build an intermediate object
   // to hold all the args while we parse
 
-  properties: [
-    {
-      class: 'Boolean',
-      name: 'throwExceptions',
-      value: false,
-      documentation: 'If true, parsing errors will be thrown instead of returning null. Allows caller to handle errors explicitly.'
-    },
-    {
-      class: 'Boolean',
-      name: 'throwOnNull',
-      value: false,
-      documentation: 'If true, null parser results will throw an exception instead of returning null. Only takes effect when throwExceptions is true.'
-    }
-  ],
-
   javaImports: [
     'foam.lang.FObject',
     'foam.lib.parse.Parser',
@@ -39,7 +24,7 @@ foam.CLASS({
     protected Parser        parser   = ExprParser.instance();
     protected StringPStream stringps = new StringPStream();
 
-    public FObject parseString(String data, Class defaultClass) throws Exception {
+    public FObject parseString(String data, Class defaultClass) {
       StringPStream ps = stringps;
 
       ps.setString(data);
@@ -47,32 +32,13 @@ foam.CLASS({
       x.set("X", getX());
       try {
         ps = (StringPStream) ps.apply(defaultClass == null ? parser : ExprParser.create(defaultClass), x);
-
-        // Check for null parser result if throwOnNull is enabled
-        if ( getThrowOnNull() && ps == null ) {
-          throw new RuntimeException("Parser returned null - failed to parse JSON");
-        }
-
-        FObject result = ps == null ? null : (FObject) ps.value();
-
-        // Check for null value if throwOnNull is enabled
-        if ( getThrowOnNull() && result == null ) {
-          throw new RuntimeException("Parser value is null - failed to extract object from parse result");
-        }
-
-        return result;
+        return ps == null ? null : (FObject) ps.value();
       } catch ( Throwable t ) {
-        // If throwExceptions is enabled, re-throw with context
-        if ( getThrowExceptions() ) {
-          String preview = data != null && data.length() > 200 ? data.substring(0, 200) + "..." : data;
-          throw new Exception("JSON parsing failed: " + t.getMessage() + " | JSON preview: " + preview, t);
-        }
-        // Default behavior: return null
         return null;
       }
     }
 
-    public Object[] parseStringForArray(String data, Class defaultClass) throws Exception {
+    public Object[] parseStringForArray(String data, Class defaultClass) {
       StringPStream ps = stringps;
       ps.setString(data);
       ParserContext x = new ParserContextImpl();
@@ -80,27 +46,8 @@ foam.CLASS({
 
       try {
         ps = (StringPStream) ps.apply(FObjectArrayParser.create(defaultClass), x);
-
-        // Check for null parser result if throwOnNull is enabled
-        if ( getThrowOnNull() && ps == null ) {
-          throw new RuntimeException("Parser returned null - failed to parse JSON array");
-        }
-
-        Object[] result = ps == null ? null : (Object[]) ps.value();
-
-        // Check for null value if throwOnNull is enabled
-        if ( getThrowOnNull() && result == null ) {
-          throw new RuntimeException("Parser value is null - failed to extract array from parse result");
-        }
-
-        return result;
+        return ps == null ? null : (Object[]) ps.value();
       } catch ( Throwable t ) {
-        // If throwExceptions is enabled, re-throw with context
-        if ( getThrowExceptions() ) {
-          String preview = data != null && data.length() > 200 ? data.substring(0, 200) + "..." : data;
-          throw new Exception("JSON parsing failed: " + t.getMessage() + " | JSON preview: " + preview, t);
-        }
-        // Default behavior: return null
         return null;
       }
     }

@@ -53,11 +53,14 @@ foam.CLASS({
 
             foam.lib.json.JSONParser parser = new foam.lib.json.JSONParser();
             parser.setX(getX());
+            // Enable exception throwing for explicit error handling
+            parser.setThrowExceptions(true);
+            parser.setThrowOnNull(true);
 
             Object[] arrayResult = null;
             try {
-              // Use the new method that throws exceptions instead of returning null
-              arrayResult = parser.parseStringForArrayWithException(decompressedJson, null);
+              // parseStringForArray will now throw exceptions based on the properties set above
+              arrayResult = parser.parseStringForArray(decompressedJson, null);
               logger.debug("UploadAgent", "Successfully parsed array", "count", arrayResult.length);
             } catch (Exception parseEx) {
               logger.error("UploadAgent", "JSON parsing failed", parseEx.getMessage());

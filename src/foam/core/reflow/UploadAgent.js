@@ -77,27 +77,17 @@ foam.CLASS({
               throw new RuntimeException("Failed to parse decompressed JSON: " + message);
             }
 
-            if ( arrayResult.length > 0 ) {
-              // Convert Object[] to foam.lang.FObject[] since each object is an FObject
-              foam.lang.FObject[] fObjectArray = new foam.lang.FObject[arrayResult.length];
-              for ( int i = 0; i < arrayResult.length; i++ ) {
-                if ( arrayResult[i] instanceof foam.lang.FObject ) {
-                  fObjectArray[i] = (foam.lang.FObject) arrayResult[i];
-                } else {
-                  logger.warning("UploadAgent", "Array element is not FObject", "index", i,
-                    "type", arrayResult[i] != null ? arrayResult[i].getClass().getName() : "null");
-                }
+            // Convert Object[] to foam.lang.FObject[] since each object is an FObject
+            foam.lang.FObject[] fObjectArray = new foam.lang.FObject[arrayResult.length];
+            for ( int i = 0; i < arrayResult.length; i++ ) {
+              if ( arrayResult[i] instanceof foam.lang.FObject ) {
+                fObjectArray[i] = (foam.lang.FObject) arrayResult[i];
+              } else {
+                logger.warning("UploadAgent", "Array element is not FObject", "index", i,
+                  "type", arrayResult[i] != null ? arrayResult[i].getClass().getName() : "null");
               }
-              return fObjectArray;
-            } else {
-              // Empty array
-              String preview = decompressedJson.length() > 500 ?
-                decompressedJson.substring(0, 500) + "..." : decompressedJson;
-              logger.error("UploadAgent", "Empty array returned", "jsonLength", decompressedJson.length(),
-                "jsonPreview", preview);
-              throw new RuntimeException("Parser returned empty array. JSON length: " + decompressedJson.length() +
-                ", Preview: " + preview);
             }
+            return fObjectArray;
           } catch ( Exception e ) {
             throw new RuntimeException("UploadAgent exception: " + e.getMessage(), e);
           }

@@ -29,9 +29,6 @@ Suitable for usage against backends that don't support listen(), such as plain H
 
   methods: [
     function put_(x, obj) {
-      console.log('RequestResponseClientDAO.put_ called', 'objType:', obj.cls_.name, 'hasNormalizeObj:', typeof obj.normalizeObj === 'function');
-      var normalizeResult = obj.normalizeObj();
-      console.log('RequestResponseClientDAO.put_ - normalizeObj returned', 'isPromise:', normalizeResult && typeof normalizeResult.then === 'function');
       var self = this;
       return this.SUPER(null, obj).then(function(obj) {
         self.on.put.pub(obj);
@@ -134,25 +131,17 @@ Suitable for usage against backends that don't support listen(), such as plain H
           }
           return superMethod(x, obj);
         }
-        if (obj && obj.normalizeObj && typeof obj.normalizeObj === 'function') {
-          console.log('RequestResponseClientDAO.cmd_ - calling normalizeObj', 'objType:', obj.cls_ ? obj.cls_.name : typeof obj);
-          var result = obj.normalizeObj();
-          console.log('RequestResponseClientDAO.cmd_ - normalizeObj returned', 'isPromise:', result && typeof result.then === 'function');
-        } else {
-          console.log('RequestResponseClientDAO.cmd_ - no normalizeObj', 'hasObj:', !!obj, 'hasMethod:', obj ? typeof obj.normalizeObj === 'function' : false);
-        }
 
-        // Handle both promise and non-promise returns
-        if ( result && typeof result.then === 'function' ) {
-          console.log('RequestResponseClientDAO.cmd_ - waiting for promise');
-          return result.then(function() {
-            console.log('RequestResponseClientDAO.cmd_ - promise resolved, calling processCmd');
-            return processCmd();
-          });
-        } else {
-          console.log('RequestResponseClientDAO.cmd_ - calling processCmd immediately');
-          return processCmd();
+        if ( obj && obj.normalizeObj && typeof obj.normalizeObj === 'function' ) {
+          var result = obj.normalizeObj();
+          // Handle both promise and non-promise returns
+          if ( result && typeof result.then === 'function' ) {
+            return result.then(function() {
+              return processCmd();
+            });
+          }
         }
+        return processCmd();
       }
     }
   ]

@@ -71,7 +71,7 @@ foam.CLASS({
               // Parsing threw an exception - get detailed error like ServiceWebAgent
               try {
                 String detailedError = getParsingError(getX(), decompressedJson);
-                logger.error("UploadAgent", "JSON parsing exception", "error", detailedError);
+                logger.error("UploadAgent", "JSON parsing exception", detailedError);
               } catch (RuntimeException r) {
                 logger.error("UploadAgent", "JSON parsing exception", "error", t.getMessage(), t);
               }

@@ -31,10 +31,6 @@ foam.CLASS({
 
       this.
         addClass().
-        start('h3').
-          show(this.data.labelVisible$).
-          add(self.data.label$).
-        end().
         start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
           add(self.dynamic(async function(data, version) {
             if ( ! data ) { debugger; return; }
@@ -87,10 +83,6 @@ foam.CLASS({
 
   sections: [
     {
-      name: 'general',
-      title: 'General'
-    },
-    {
       name: 'output',
       title: 'Output',
       collapsable: false
@@ -139,6 +131,7 @@ foam.CLASS({
       label: 'Name',
       section: 'general',
       onKey: true,
+      hidden: true,
       expression: function(dao) {
         return dao.of.model_.plural;
       },
@@ -344,6 +337,7 @@ foam.CLASS({
       class: 'String',
       name: 'order',
       section: 'filter',
+      onKey: true,
       displayWidth: 60,
       view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
     },
@@ -352,17 +346,25 @@ foam.CLASS({
       name: 'columns',
       section: 'filter',
       displayWidth: 60,
+      onKey: false,
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertySuggestedField'
         };
       },
-      validateObj: function(columns) {
-        var a = columns.trim().split(',').map(c => c.trim());
+      xxxvalidateObj: function(columns) {
+        let a = columns.trim().split(',').map(c => c.trim());
 
         for ( let i = 0 ; i < a.length ; i++ ) {
-          let p = this.dao.of.getAxiomByName(a[i]);
-          if ( ! p ) return 'Unknown Property: ' + a[i];
+          let of = this.dao.of;
+          let names = a[i].split('.');
+          for ( let j = 0 ; j < names.length ; j++ ) {
+            let name = names[j];
+            if ( ! of ) return 'Inner Property on Non Object: ' + name;
+            let p = of.getAxiomByName(name);
+            if ( ! p ) return 'Unknown Property: ' + name;
+            of = p.of;
+          }
         }
       }
     },
@@ -430,16 +432,7 @@ foam.CLASS({
         return foam.lang.Latch.create();
       }
     },
-    // since the label is calculated by the expression when we try to hide it by making it empty that gets rendered
-    {
-      class: 'Boolean',
-      name: 'labelVisible',
-      section: 'general',
-      label: 'Show Name',
-      value: true,
-      view: { class: 'foam.u2.Switch' }
-    },
-    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
+    { class: 'Boolean',    section: 'actions',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
   ],
 
   methods: [
@@ -469,6 +462,11 @@ foam.CLASS({
     function init() {
       this.SUPER();
 
+      if ( ! this.block.borderClass ) {
+        this.block.borderClass = foam.u2.borders.TitleBorder;
+        this.block.border['title'] = this.label;
+      }
+
       x.auth.check(x, 'reflow.aql').then(enabled => {
         this.enableAQL_ = enabled;
       });
@@ -486,9 +484,7 @@ foam.CLASS({
       this.onDetach(this.dao.listen(this.updateRowCount));
       this.updateRowCount_();
 
-      // TODO: name current block
-      e.tag(this.DAOPromptView, {data: this, label: this.label});
-//      e.tag(this.DAOPromptView.create({data: this, label: this.label}, this));
+      e.tag(this.DAOPromptView, {data: this });
     },
 
     function onLoad() {

@@ -10,6 +10,13 @@ foam.CLASS({
   extends: 'foam.lang.FOAMException',
   javaGenerateConvenienceConstructor: false,
 
+  properties: [
+    {
+      name: 'retryable',
+      value: false
+    }
+  ],
+
   javaCode: `
     public RetryLimitReachedException(String message) {
       super(message);

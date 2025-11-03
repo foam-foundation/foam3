@@ -555,7 +555,7 @@ foam.CLASS({
         a.push(
           {
             args: [ this.name ],
-            query: 'thisValue==""||thisValue~/\\S+@\\S+\\.\\S+/',
+            query: 'thisValue==""||thisValue~/^\\S+@\\S+\\.\\S+$/',
             errorString: this.VALID_EMAIL_REQUIRED
           }
         );

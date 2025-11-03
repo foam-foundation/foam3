@@ -335,7 +335,7 @@ foam.CLASS({
       view: function(_, X) {
         var data = X.data;
         return {
-          class: 'foam.parse.auto.SearchView',
+          class: 'foam.parse.auto.SmartView',
           parser: data.SimpleQueryParser.create({of: data.dao.of})
         };
       }
@@ -469,9 +469,9 @@ foam.CLASS({
     function init() {
       this.SUPER();
 
-//      x.auth.check(x, 'reflow.aql').then(enabled => {
-//        this.enableAQL_ = enabled;
-//      });
+      x.auth.check(x, 'reflow.aql').then(enabled => {
+        this.enableAQL_ = enabled;
+      });
 
       if ( ! this.dao || ! this.dao.of ) return;
 

@@ -31,6 +31,7 @@ foam.CLASS({
         wrapper.setMessage(t.getMessage());
         if ( t instanceof foam.lang.FOAMException ) {
           wrapper.setException((foam.lang.Exception) t);
+          wrapper.setRetryable(((foam.lang.FOAMException) t).getRetryable());
         }
         RPCErrorMessage reply = new RPCErrorMessage();
         reply.setData(wrapper);

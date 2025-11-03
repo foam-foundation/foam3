@@ -119,6 +119,12 @@ foam.CLASS({
       value: false,
       hidden: true,
       externalTransient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'retryable',
+      documentation: "Indicates whether the request that generated this error might succeed if retried.",
+      value: true
     }
   ],
 

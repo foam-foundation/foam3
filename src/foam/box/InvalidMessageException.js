@@ -22,6 +22,10 @@ foam.CLASS({
   extends: 'foam.lang.FOAMException',
 
   properties: [
-    'messageType'
+    'messageType',
+    {
+      name: 'retryable',
+      value: false
+    }
   ]
 });

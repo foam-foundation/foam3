@@ -181,6 +181,9 @@ foam.CLASS({
     ^iconContainer {
       margin-left: auto;
     }
+    @media print {
+      ^ { display: none !important; }
+    }
   `,
 
   methods: [

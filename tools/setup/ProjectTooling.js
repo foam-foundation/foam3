@@ -182,10 +182,12 @@ foam.POM({
       this.log('      Generate a project with a very simple model.');
       this.log('  node tools/build.js -T+setup/Project --type:demo --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
       this.log('      Generate a project with a more elaborate model demonstrating more FOAM features..');
-      this.log('  node tools/build.js -T+setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
-      this.log('      Generate a project named "example" based on the "simple" model.');
+      this.log('  node tools/build.js -T+setup/Project --appName:Examples --moduleName:Example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
+      this.log('      Generate a project named "Examples" based on the "simple" model which will be named "Example".');
       this.log('  node tools/build.js -T+setup/Project --appName:example --package:com.foamdev --createAdmin:badpassword --genJava,createProject');
       this.log('      Generate an admin user for existing projects which were previously relying on the, now removed, foam-admin user provided by the baseline FOAM repo.');
+      this.log('  node tools/build.js -T+setup/Project --appName:Recipes --moduleName:Recipe --package:com.foamdev --createAdmin:demopassword --genJava,createProject');
+      this.log('      See https://github.com/VesnaSUG/FOAM-Recipes/blob/main/foam-tutorial.md');
       this.log();
     }],
 

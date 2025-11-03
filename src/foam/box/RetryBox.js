@@ -22,7 +22,9 @@ foam.CLASS({
 
   requires: [
     'foam.box.BackoffBox',
-    'foam.box.RetryReplyBox'
+    'foam.box.RetryReplyBox',
+    'foam.box.RPCErrorMessage',
+    'foam.box.RemoteException'
   ],
 
   properties: [
@@ -51,11 +53,24 @@ foam.CLASS({
       var attempt = 0;
       var delegate = this.delegate;
       var originalReplyBox = envelope.replyBox;
+      var self = this;
       var retryReplyBox = {
         send: function(replyEnvelope) {
           // TODO: This should probably also check instanceof Error for local JS exceptions
-          if ( foam.lang.Exception.isInstance(replyEnvelope.message) &&
-               ( maxAttempts == -1 || ++attempt < maxAttempts ) ) {
+
+          // Determine if the reply is an error and whether it should be retried
+          var msg = replyEnvelope.message;
+          var isError = foam.lang.Exception.isInstance(msg);
+          var retryable = true;
+          if ( self.RPCErrorMessage.isInstance(msg) ) {
+            var data = msg.data;
+            if ( self.RemoteException.isInstance(data) ) {
+              // Honor remote indication when present
+              retryable = data.isRetryable !== false;
+            }
+          }
+
+          if ( isError && retryable && ( maxAttempts == -1 || ++attempt < maxAttempts ) ) {
 
             // retry original message after exponential backoff delay
             setTimeout(function() {

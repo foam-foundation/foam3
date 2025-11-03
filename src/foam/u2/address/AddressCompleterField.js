@@ -31,6 +31,7 @@ foam.CLASS({
       value: 0
     }
   ],
+
   listeners: [
     {
       name: 'onUpdate',

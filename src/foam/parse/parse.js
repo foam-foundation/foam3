@@ -1078,6 +1078,11 @@ foam.CLASS({
       });
     },
 
+    function nop() {
+      // A parser which always fails
+      return this.alt();
+    },
+
     function sym(name) {
       return this.Symbol.create({ name: name });
     },
@@ -1305,14 +1310,16 @@ foam.CLASS({
     function parseString(str, opt_name, opt_apply) {
       opt_name = opt_name || 'START';
 
-      this.ps.apply = opt_apply;
-      this.ps.setString(str);
+      let ps = this.StringPStream.create();
+      ps.apply = opt_apply;
+      ps.setString(str);
+
       var start = this.getSymbol(opt_name);
       foam.assert(start, 'No symbol found for', opt_name);
 
       this.lastStart = start;
 
-      var result = this.ps.apply(start, this);
+      var result = ps.apply(start, this);
       return result && result.value;
     },
 

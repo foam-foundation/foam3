@@ -64,7 +64,7 @@ foam.CLASS({
     },
     {
       name: 'baseGrammar_',
-      value: function(alt, anyChar, chars, literal, literalIC, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
+      value: function(alt, anyChar, chars, literal, literalIC, nop, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
 
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
@@ -82,6 +82,9 @@ foam.CLASS({
         this.operatorIn = operatorIn;
 
         return {
+          //
+          // General grammar
+          //
           START: seq1(0, sym('query') /*, sym('ws'), eof()*/),
 
           query: sym('or'),
@@ -111,15 +114,9 @@ foam.CLASS({
 
           ws: repeat0(' '),
 
-          floats: repeat(sym('float'), ',', 2),
-
-          'range float': seq1(1, sym('ws'), sym('floats'), sym('ws'), ')'),
-
-          digits: str(repeat(range('0', '9'), null, 1)),
-
-          // TODO replace '.' with an internationalized decimal point, or have the input preprocessed
-          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), optional(str(seq('.', optional(sym('digits')))))))),
-
+          //
+          // Property-specific predicates grammar
+          //
           compareFloat: alt(
             seq(operator('>='), sym('float')),
             seq(operator('>'), sym('float')),
@@ -140,63 +137,6 @@ foam.CLASS({
             seq(operatorIn('IN'), sym('numberArray')),
             seq(operatorIn('NOT IN'), sym('numberArray'))),
 
-          numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
-
-          numbers: repeat(sym('number'), ',', 1),
-
-          number: seq1(1, sym('ws'), seq(optional('-'), sym('digits'))),
-
-          compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'),  {text: 'IS TRUE', category: 'operator'}))),
-                              seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE', category: 'operator'})))),
-
-          date: seq1(1, sym('ws'),
-            alt(
-              sym('literal date'),
-              sym('relative date')
-            )
-          ),
-
-          // IMPORTANT: order matters, put more complex first
-          'literal date': alt(
-            // YYYY-MM-DDTHH:MM:SS.mmmZ (or YY)
-            sug(alt(), {view: 'foam.parse.auto.DateSuggester'}),
-            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
-                sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
-                {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmmZ', category: 'value'}),
-            // YYYY-MM-DDTHH:MM:SS.mmm (or YY)
-                sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
-                sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits')),
-                {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmm', category: 'value'}),
-            // YYYY-MM-DDTHH:MM:SS (or YY)
-            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
-                sym('digits'), ':', sym('digits'),  ':', sym('digits')),
-                {tooltip: 'YYYY/MM/DDTHH:MM:SS', category: 'value'}),
-            // YYYY-MM-DDTHH:MM (or YY)
-            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T', sym('digits'), ':', sym('digits')),
-                {tooltip: 'YYYY/MM/DDTHH:MM', category: 'value'}),
-            // YYYY-MM-DDTHH (or YY)
-            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T', sym('digits')),
-                {tooltip: 'YYYY/MM/DDTHH', category: 'value'}),
-            // YYYY-MM-DD (or YY)
-            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits')),
-                {tooltip: 'YYYY/MM/DD', category: 'value'}),
-            // YYYY-MM (or YY)
-            sug(seq(sym('digits'), chars('-/'), sym('digits')),
-                {tooltip: 'YYYY/MM', category: 'value'}),
-            // YYYY (or YY)
-            sug(seq(sym('digits')), {tooltip: 'YYYY', category: 'value'}),
-          ),
-
-          // TODAY[±n]
-          'relative date': seq(
-            sug(literalIC('TODAY'), {text: 'TODAY', label: 'TODAY[+/-n]', category: 'value'}),
-            optional(seq(chars("+-"), sym('digits')))
-          ),
-
-          dates: repeat(sym('date'), ',', 2),
-
-          'range date': seq1(1, sym('ws'), sym('dates'), sym('ws'), ')'),
-
           compareDate: alt(
             seq(operator('>='), sym('date')),
             seq(operator('>'), sym('date')),
@@ -209,21 +149,17 @@ foam.CLASS({
             seq(operator('IS EMPTY')),
             seq(operator('IS NOT EMPTY'))),
 
-
-          string: seq1(1, sym('ws'), alt(sym('word'), sym('quoted string'))),
-
-          'quoted string': str(seq1(1, '"',
-            repeat(alt(literal('\\"', '"'), notChars('"'))),
-            '"')),
-
-          word: str(repeat(sym('char'), null, 1)),
-
-          char: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'), '-', '^',
-            '_', '@', '%', '.'),
-
-          stringArray: seq1(1, sym('ws'), sym('strings'), sym('ws'), ')'),
-
-          strings: repeat(sym('string'), ',', 1),
+          compareDatetime: alt(
+            seq(operator('>='), sym('datetime')),
+            seq(operator('>'), sym('datetime')),
+            seq(operator('<='), sym('datetime')),
+            seq(operator('<'), sym('datetime')),
+            seq(operator('!='), sym('datetime')),
+            seq(operator('='), sym('datetime')),
+            seq(operatorIn('IN RANGE'), sym('range datetime')),
+            seq(operatorIn('NOT IN RANGE'), sym('range datetime')),
+            seq(operator('IS EMPTY')),
+            seq(operator('IS NOT EMPTY'))),
 
           compareString: alt(seq(operator('>='), sym('string')),
             seq(operator('>'), sym('string')),
@@ -245,7 +181,109 @@ foam.CLASS({
             seq(operator('!='), sym('string')),
             seq(operatorIn('IN'), sym('stringArray')),
             seq(operatorIn('NOT IN'), sym('stringArray'))
-          )
+          ),
+
+          //
+          // Primitive symbols
+          //
+          floats: repeat(sym('float'), ',', 2),
+
+          'range float': seq1(1, sym('ws'), sym('floats'), sym('ws'), ')'),
+
+          digits: str(repeat(range('0', '9'), null, 1)),
+
+          // TODO replace '.' with an internationalized decimal point, or have the input preprocessed
+          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), optional(str(seq('.', optional(sym('digits')))))))),
+
+          numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
+
+          numbers: repeat(sym('number'), ',', 1),
+
+          number: seq1(1, sym('ws'), seq(optional('-'), sym('digits'))),
+
+          compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'),  {text: 'IS TRUE', category: 'operator'}))),
+                              seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE', category: 'operator'})))),
+
+          date: seq1(1, sym('ws'),
+            alt(
+              sug(nop(), {view: 'foam.parse.auto.DateSuggester'}), // delegate to DateSuggester for suggestions
+              sym('literal date'),
+              sym('relative date')
+            )
+          ),
+
+          datetime: seq1(1, sym('ws'),
+            alt(
+              // to do: replace with DateTimeSuggester when implemented
+              sug(nop(), {view: 'foam.parse.auto.DateTimeSuggester'}), // delegate to DateSuggester for suggestions
+              sym('literal datetime'),
+              sym('literal date'),
+              sym('relative date')
+            )
+          ),
+
+          // IMPORTANT: order matters, put more complex first
+          'literal datetime': alt(
+            // YYYY-MM-DDTHH:MM:SS.mmmZ (or YY)
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits'), 'Z'),
+                {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmmZ', category: 'format'}),
+            // YYYY-MM-DDTHH:MM:SS.mmm (or YY)
+                sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'),  ':', sym('digits'),  '.', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH:MM:SS.mmm', category: 'format'}),
+            // YYYY-MM-DDTHH:MM:SS (or YY)
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T',
+                sym('digits'), ':', sym('digits'),  ':', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH:MM:SS', category: 'format'}),
+            // YYYY-MM-DDTHH:MM (or YY)
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T', sym('digits'), ':', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH:MM', category: 'format'}),
+            // YYYY-MM-DDTHH (or YY)
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits'), 'T', sym('digits')),
+                {tooltip: 'YYYY/MM/DDTHH', category: 'format'}),
+          ),
+
+          'literal date': alt(
+            // YYYY-MM-DD (or YY)
+            sug(seq(sym('digits'), chars('-/'), sym('digits'), chars('-/'), sym('digits')),
+                {tooltip: 'YYYY/MM/DD', category: 'format'}),
+            // YYYY-MM (or YY)
+            sug(seq(sym('digits'), chars('-/'), sym('digits')),
+                {tooltip: 'YYYY/MM', category: 'format'}),
+            // YYYY (or YY)
+            sug(seq(sym('digits')), {tooltip: 'YYYY', category: 'format'}),
+          ),
+
+          // TODAY[±n]
+          'relative date': seq(
+            sug(literalIC('TODAY'), {text: 'TODAY', label: 'TODAY[+/-n]', category: 'value'}),
+            optional(seq(chars("+-"), sym('digits')))
+          ),
+
+          dates: repeat(sym('date'), ',', 2),
+
+          'range date': seq1(1, sym('ws'), sym('dates'), sym('ws'), ')'),
+
+          datetimes: repeat(sym('datetime'), ',', 2),
+
+          'range datetime': seq1(1, sym('ws'), sym('datetimes'), sym('ws'), ')'),
+
+          string: seq1(1, sym('ws'), alt(sym('word'), sym('quoted string'))),
+
+          'quoted string': str(seq1(1, '"',
+            repeat(alt(literal('\\"', '"'), notChars('"'))),
+            '"')),
+
+          word: str(repeat(sym('char'), null, 1)),
+
+          char: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'), '-', '^',
+            '_', '@', '%', '.'),
+
+          stringArray: seq1(1, sym('ws'), sym('strings'), sym('ws'), ')'),
+
+          strings: repeat(sym('string'), ',', 1)
+
         };
 
       }
@@ -320,7 +358,10 @@ foam.CLASS({
 
             propPredicates.push(seq(propertyParser, compareEnum));
           }
-          else if ( foam.lang.Date.isInstance(type)) { // all date-like properties
+          else if ( foam.lang.DateTime.isInstance(type)) { // DateTime and DateTimeUTC, must be before Date check
+            rangePropPredicates.push(seq(propertyParser, sym('compareDatetime')));
+          }
+          else if ( foam.lang.Date.isInstance(type)) { // a
             rangePropPredicates.push(seq(propertyParser, sym('compareDate')));
           }
           else if ( foam.lang.String.isInstance(type) ) {
@@ -357,6 +398,38 @@ foam.CLASS({
           rangePropPredicates: properties.rangePropPredicates
         };
         let self       = this;
+        // All dates are actually treated as ranges. These are arrays of Date
+        // objects: [start, end]. The start is inclusive and the end exclusive.
+        // Using these objects, both ranges (date:2014, date:2014-05..2014-06)
+        // and open-ended ranges (date > 2014-01-01) can be computed higher up.
+        function literalDatetime(defaults, v) {
+            let values = v.filter((x, i) => i % 2 === 0); // remove separators
+            let i = values.length;
+            while (values.length < 4) {
+              values.push(defaults[values.length]);
+            }
+            values[0] = values[0] < 100 ? values[0] + 2000 : values[0], // convert 2-digit year to 4-digit
+            values[1] -= 1; // month is zero-based
+            let start = new Date(Date.UTC.apply(null, values));
+            values[i - 1]++; // bump last given value for end of range
+            let end  = new Date(Date.UTC.apply(null, values))
+            return [ start, end ];
+        }
+        function simpleOpValue(v) {
+          return {
+              operator: v[0],
+              value: v[1]
+            };
+        }
+        function dateOpValue(v) {
+          return {
+              operator: v[0],
+              value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, except for EMPTY operators
+            };
+        }
+        function rangeValue(v) {
+          return [ v[0][0], v[1][1] ]; // [start of first, end of second]
+        }
         let actions    = {
           or: function(v) {
             return self.Or.create({ args: v });
@@ -393,17 +466,15 @@ foam.CLASS({
           },
 
           compareNumber: function(v) {
-            return {
-              operator: v[0],
-              value: v[1]
-            };
+            return simpleOpValue(v);
           },
 
           compareDate: function(v) {
-            return {
-              operator: v[0],
-              value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, except for EMPTY operators
-            };
+            return dateOpValue(v);
+          },
+
+          compareDatetime: function(v) {
+            return dateOpValue(v);
           },
 
           compareFloat: function(v) {
@@ -414,40 +485,21 @@ foam.CLASS({
           },
 
           compareString: function(v) {
-            return {
-              operator: v[0],
-              value: v[1]
-            };
+            return simpleOpValue(v);
           },
 
           compareStringArray: function(v) {
-            return {
-              operator: v[0],
-              value: v[1]
-            };
+            return simpleOpValue(v);
           },
 
           date: function(v) {
-            return v; // Pass through the already parsed date
+             // default values for missing date parts since we want the dates to default to noon UTC
+            return literalDatetime([0, 1, 1, 12], v);
           },
 
-          // All dates are actually treated as ranges. These are arrays of Date
-          // objects: [start, end]. The start is inclusive and the end exclusive.
-          // Using these objects, both ranges (date:2014, date:2014-05..2014-06)
-          // and open-ended ranges (date > 2014-01-01) can be computed higher up.
-          'literal date': function(v) {
-            let defaults = [0, 1, 1, 12]; // default values for missing date parts since we want the dates to default to noon UTC
-            let values = v.filter((x, i) => i % 2 === 0); // remove separators
-            let i = values.length;
-            while (values.length < 4) {
-              values.push(defaults[values.length]);
-            }
-            values[0] = values[0] < 100 ? values[0] + 2000 : values[0], // convert 2-digit year to 4-digit
-            values[1] -= 1; // month is zero-based
-            let start = new Date(Date.UTC.apply(null, values));
-            values[i - 1]++; // bump last given value for end of range
-            let end  = new Date(Date.UTC.apply(null, values))
-            return [ start, end ];
+          datetime: function(v) {
+            //  // default values for missing date parts, here we want the time to default to midnight UTC
+            return literalDatetime([0, 1, 1, 0], v);
           },
 
           'relative date': function(v) {
@@ -462,15 +514,19 @@ foam.CLASS({
               let s = v[1][0] === '+' ? 1 : -1;
               date += (v[1][1]) * s;
             }
-            return actions['literal date']([ year, '-', month + 1, '-', date]);
+            return [ year, '-', month + 1, '-', date ];
           },
 
           'range date': function(v) {
-            return [ v[0][0], v[1][1] ]; // [start of first, end of second]
+            return rangeValue(v);
+          },
+
+          'range datetime': function(v) {
+            return rangeValue(v);
           },
 
           'range float': function(v) {
-            return [ v[0][0], v[1][1] ]; // [start of first, end of second]
+            return rangeValue(v);
           },
 
           propPredicates: function(v) {

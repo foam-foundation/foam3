@@ -35,6 +35,8 @@ foam.CLASS({
       this.testTimezoneDateBoundaries(x);
       this.testYYMMDDSepTimeFormat(x);
       this.testWithAndWithoutZ(x);
+      this.testInvalidLeapYearDates(x);
+      this.testAllParseMethodsExample(x);
     },
 
     function testYYYYMMDDFormats(x) {
@@ -72,6 +74,39 @@ foam.CLASS({
           `YYYYMMDD-Compact Test${i + 1}: ${testCase.input}`
         );
       });
+
+      // Test YYYYMMDD compact with space-separated time
+      let yyyymmddCompactTime = [
+        { input: '20250115 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '20250115 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 },
+        { input: '20241231T23:59:59', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '19990101T00:00:00', year: 1999, month: 0, day: 1, hour: 0, minute: 0, second: 0 }
+      ];
+
+      yyyymmddCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `YYYYMMDD-Compact-Time Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYYYMMDD compact with T separator and timezone - use parseDateTimeUTC for UTC results
+      let yyyymmddCompactTimeUTC = [
+        { input: '20250118T09:15:30+05:00', year: 2025, month: 0, day: 18, hour: 4, minute: 15, second: 30 },
+        { input: '20250119T22:45:15-05:00', year: 2025, month: 0, day: 20, hour: 3, minute: 45, second: 15 },
+        { input: '20250315T14:30:00Z', year: 2025, month: 2, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      yyyymmddCompactTimeUTC.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `YYYYMMDD-Compact-Time-TZ Test${i + 1}: ${testCase.input} (UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
     },
 
     function testMMDDYYYYFormats(x) {
@@ -106,6 +141,39 @@ foam.CLASS({
           this.testParseDate(parser, testCase.input, testCase.year, testCase.month, testCase.day),
           `MMDDYYYY-Compact Test${i + 1}: ${testCase.input}`
         );
+      });
+
+      // Test MMDDYYYY compact with space-separated time
+      let mmddyyyyCompactTime = [
+        { input: '01152025 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '01152025 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 },
+        { input: '12312024T23:59:59', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '02292000T00:00:00', year: 2000, month: 1, day: 29, hour: 0, minute: 0, second: 0 }
+      ];
+
+      mmddyyyyCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `MMDDYYYY-Compact-Time Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test MMDDYYYY compact with T separator and timezone - use parseDateTimeUTC for UTC results
+      let mmddyyyyCompactTimeUTC = [
+        { input: '01182025T09:15:30+05:00', year: 2025, month: 0, day: 18, hour: 4, minute: 15, second: 30 },
+        { input: '01192025T22:45:15-05:00', year: 2025, month: 0, day: 20, hour: 3, minute: 45, second: 15 },
+        { input: '03152025T14:30:00Z', year: 2025, month: 2, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      mmddyyyyCompactTimeUTC.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `MMDDYYYY-Compact-Time-TZ Test${i + 1}: ${testCase.input} (UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
       });
     },
 
@@ -188,26 +256,70 @@ foam.CLASS({
         }
       });
 
+      // Test DDMMYYYY compact with space-separated time - requires opt_name='ddmmyyyy'
+      let ddmmyyyyCompactTime = [
+        { input: '17012025 14:30:45', year: 2025, month: 0, day: 17, hour: 14, minute: 30, second: 45 },
+        { input: '17012025 09:15', year: 2025, month: 0, day: 17, hour: 9, minute: 15, second: 0 },
+        { input: '31122024T23:59:59', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '29022000T00:00:00', year: 2000, month: 1, day: 29, hour: 0, minute: 0, second: 0 }
+      ];
+
+      ddmmyyyyCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let testName = `DDMMYYYY-Compact-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test DDMMYYYY compact with T separator and timezone - use parseDateTimeUTC for UTC results
+      let ddmmyyyyCompactTimeUTC = [
+        { input: '18012025T09:15:30+05:00', year: 2025, month: 0, day: 18, hour: 4, minute: 15, second: 30 },
+        { input: '19012025T22:45:15-05:00', year: 2025, month: 0, day: 20, hour: 3, minute: 45, second: 15 },
+        { input: '15032025T14:30:00Z', year: 2025, month: 2, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      ddmmyyyyCompactTimeUTC.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let testName = `DDMMYYYY-Compact-Time-TZ Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy', UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
       // Test DDMMYYYY with time - requires opt_name='ddmmyyyy'
       let ddmmyyyyTime = [
         { input: '15/01/2025 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '15-01-2025 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 }
+        { input: '15-01-2025 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 },
+        { input: '31-12-1999T23:59:59', year: 1999, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '01/01/2000T00:00:00', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 }
       ];
 
       ddmmyyyyTime.forEach((testCase, i) => {
-        try {
-          let result = parser.parseDateTime(testCase.input, 'ddmmyyyy');
-          let pass = result &&
-                     result.getFullYear() === testCase.year &&
-                     result.getMonth() === testCase.month &&
-                     result.getDate() === testCase.day &&
-                     result.getHours() === testCase.hour &&
-                     result.getMinutes() === testCase.minute &&
-                     result.getSeconds() === testCase.second;
-          x.test(pass, `DDMMYYYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`);
-        } catch (e) {
-          x.test(false, `DDMMYYYY-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let testName = `DDMMYYYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
         }
+        x.test(result.pass, testName);
+      });
+
+      // Test DDMMYYYY with T separator and timezone - use parseDateTimeUTC for UTC results
+      let ddmmyyyyTimeUTC = [
+        { input: '18/01/2025T09:15:30+05:00', year: 2025, month: 0, day: 18, hour: 4, minute: 15, second: 30 },
+        { input: '19-01-2025T22:45:15-05:00', year: 2025, month: 0, day: 20, hour: 3, minute: 45, second: 15 },
+        { input: '15/03/2025T14:30:00Z', year: 2025, month: 2, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      ddmmyyyyTimeUTC.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let testName = `DDMMYYYY-Time-TZ Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy', UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
       });
 
       // Test DDMMYY (2-digit year) with separators - requires opt_name='ddmmyyyy'
@@ -238,19 +350,12 @@ foam.CLASS({
       ];
 
       ddmmyyTime.forEach((testCase, i) => {
-        try {
-          let result = parser.parseDateTime(testCase.input, 'ddmmyyyy');
-          let pass = result &&
-                     result.getFullYear() === testCase.year &&
-                     result.getMonth() === testCase.month &&
-                     result.getDate() === testCase.day &&
-                     result.getHours() === testCase.hour &&
-                     result.getMinutes() === testCase.minute &&
-                     result.getSeconds() === testCase.second;
-          x.test(pass, `DDMMYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`);
-        } catch (e) {
-          x.test(false, `DDMMYY-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let testName = `DDMMYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
         }
+        x.test(result.pass, testName);
       });
     },
 
@@ -300,26 +405,69 @@ foam.CLASS({
         }
       });
 
+      // Test YYYYDDMM compact with space-separated time - requires opt_name='yyyyddmm'
+      let yyyyddmmCompactTime = [
+        { input: '20251701 14:30:45', year: 2025, month: 0, day: 17, hour: 14, minute: 30, second: 45 },
+        { input: '20251701 09:15', year: 2025, month: 0, day: 17, hour: 9, minute: 15, second: 0 },
+        { input: '20243112T23:59:59', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '20000102T00:00:00', year: 2000, month: 1, day: 1, hour: 0, minute: 0, second: 0 }
+      ];
+
+      yyyyddmmCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let testName = `YYYYDDMM-Compact-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYYYDDMM compact with T separator and timezone - use parseDateTimeUTC for UTC results
+      let yyyyddmmCompactTimeUTC = [
+        { input: '20251803T09:15:30+05:00', year: 2025, month: 2, day: 18, hour: 4, minute: 15, second: 30 },
+        { input: '20251903T22:45:15-05:00', year: 2025, month: 2, day: 20, hour: 3, minute: 45, second: 15 },
+        { input: '20251503T14:30:00Z', year: 2025, month: 2, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      yyyyddmmCompactTimeUTC.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let testName = `YYYYDDMM-Compact-Time-TZ Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm', UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
       // Test YYYYDDMM with time - requires opt_name='yyyyddmm'
       let yyyyddmmTime = [
         { input: '2025/15/01 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '2025-15-01 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 }
+        { input: '2025-15-01 09:15', year: 2025, month: 0, day: 15, hour: 9, minute: 15, second: 0 },
+        { input: '2025/31/12T23:59:59', year: 2025, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '1999-31-12T23:59:59', year: 1999, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '2000-01-01T00:00:00', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 }
       ];
 
       yyyyddmmTime.forEach((testCase, i) => {
-        try {
-          let result = parser.parseDateTime(testCase.input, 'yyyyddmm');
-          let pass = result &&
-                     result.getFullYear() === testCase.year &&
-                     result.getMonth() === testCase.month &&
-                     result.getDate() === testCase.day &&
-                     result.getHours() === testCase.hour &&
-                     result.getMinutes() === testCase.minute &&
-                     result.getSeconds() === testCase.second;
-          x.test(pass, `YYYYDDMM-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`);
-        } catch (e) {
-          x.test(false, `YYYYDDMM-Time Test${i + 1}: ${testCase.input} - ${e.message}`);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let testName = `YYYYDDMM-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
         }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYYYDDMM with T separator and timezone - use parseDateTimeUTC for UTC results
+      let yyyyddmmTimeUTC = [
+        { input: '2025/15/03T14:30:00Z', year: 2025, month: 2, day: 15, hour: 14, minute: 30, second: 0 }
+      ];
+
+      yyyyddmmTimeUTC.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let testName = `YYYYDDMM-Time-TZ Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm', UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
       });
 
       // Test YYDDMM (2-digit year) with separators - requires opt_name='yyyyddmm'
@@ -979,16 +1127,92 @@ foam.CLASS({
       });
     },
 
+    function testInvalidLeapYearDates(x) {
+      let parser = this.DateParser.create();
+
+      // Test invalid leap year dates - should return MAX_DATE or normalized date
+      let testCases = [
+        { input: '29/02/2025 12:00', format: 'ddmmyyyy', desc: 'Feb 29 in non-leap year 2025 (DD/MM/YYYY)' },
+        { input: '2025/29/02 12:00', format: 'yyyyddmm', desc: 'Feb 29 in non-leap year 2025 (YYYY/DD/MM)' }
+      ];
+
+      testCases.forEach((tc, i) => {
+        try {
+          let result = parser.parseDateTime(tc.input, tc.format);
+
+          // Should either be MAX_DATE (invalid) or normalized to March 1, 2025
+          let isMaxDate = result && result.getTime() === foam.Date.MAX_DATE.getTime();
+          let isNormalized = result &&
+                             result.getFullYear() === 2025 &&
+                             result.getMonth() === 2 && // March
+                             result.getDate() === 1;
+
+          let pass = isMaxDate || isNormalized;
+          x.test(pass, `Invalid Leap Year Test${i + 1}: ${tc.input} - ${tc.desc}`);
+        } catch (e) {
+          x.test(false, `Invalid Leap Year Test${i + 1}: ${tc.input} - ${e.message}`);
+        }
+      });
+    },
+
+    function testAllParseMethodsExample(x) {
+      let parser = this.DateParser.create();
+
+      // Example: Test date with timezone - all three methods should handle it
+      let testCases = [
+        {
+          input: '18/01/2025T09:15:30+05:00',
+          format: 'ddmmyyyy',
+          expected: {
+            dateOnly: { year: 2025, month: 0, day: 18 },  // parseString ignores time
+            local: { year: 2025, month: 0, day: 18, hour: 0, minute: 15, second: 30 },  // Local time after TZ conversion
+            utc: { year: 2025, month: 0, day: 18, hour: 4, minute: 15, second: 30 }  // UTC time
+          }
+        },
+        {
+          input: '2025-01-15',
+          format: null,
+          expected: {
+            dateOnly: { year: 2025, month: 0, day: 15 },
+            local: { year: 2025, month: 0, day: 15, hour: 12, minute: 0, second: 0 },  // Defaults to noon
+            utc: { year: 2025, month: 0, day: 15, hour: 0, minute: 0, second: 0 }  // Midnight UTC
+          }
+        }
+      ];
+
+      testCases.forEach((tc, i) => {
+        let results = this.testAllParseMethods(parser, tc.input, tc.expected, tc.format);
+
+        // Test each method's result
+        results.forEach((result) => {
+          let testName = `All-Methods Test${i + 1}: ${tc.input} [${result.method}]`;
+          if ( ! result.pass && result.message ) {
+            testName += ` - ${result.message}`;
+          }
+          x.test(result.pass, testName);
+        });
+      });
+    },
+
     // Helper functions
     function testParseDate(parser, dateStr, expectedYear, expectedMonth, expectedDay) {
       try {
         let result = parser.parseString(dateStr);
-        if ( ! result ) return false;
+        if ( ! result ) {
+          console.error(`Parse failed for ${dateStr}: returned null`);
+          return false;
+        }
 
-        return result.getUTCFullYear() === expectedYear &&
-               result.getUTCMonth() === expectedMonth &&
-               result.getUTCDate() === expectedDay &&
-               result.getUTCHours() === 12; // Date-only formats should be noon GMT
+        let pass = result.getUTCFullYear() === expectedYear &&
+                   result.getUTCMonth() === expectedMonth &&
+                   result.getUTCDate() === expectedDay &&
+                   result.getUTCHours() === 12;
+
+        if ( ! pass ) {
+          console.error(`Parse mismatch for ${dateStr}:\n  Expected: ${expectedYear}-${expectedMonth + 1}-${expectedDay} 12:00 UTC\n  Got: ${result.getUTCFullYear()}-${result.getUTCMonth() + 1}-${result.getUTCDate()} ${result.getUTCHours()}:${result.getUTCMinutes()} UTC`);
+        }
+
+        return pass;
       } catch (e) {
         console.error(`Parse error for ${dateStr}:`, e);
         return false;
@@ -999,24 +1223,261 @@ foam.CLASS({
                          expectedHour, expectedMinute, expectedSecond, expectedMs) {
       try {
         let result = parser.parseString(dateStr);
-        if ( ! result ) return false;
+        if ( ! result ) {
+          console.error(`Parse failed for ${dateStr}: returned null`);
+          return false;
+        }
 
         expectedHour = expectedHour || 0;
         expectedMinute = expectedMinute || 0;
         expectedSecond = expectedSecond || 0;
         expectedMs = expectedMs || 0;
 
-        return result.getFullYear() === expectedYear &&
-               result.getMonth() === expectedMonth &&
-               result.getDate() === expectedDay &&
-               result.getHours() === expectedHour &&
-               result.getMinutes() === expectedMinute &&
-               result.getSeconds() === expectedSecond &&
-               result.getMilliseconds() === expectedMs;
+        let pass = result.getFullYear() === expectedYear &&
+                   result.getMonth() === expectedMonth &&
+                   result.getDate() === expectedDay &&
+                   result.getHours() === expectedHour &&
+                   result.getMinutes() === expectedMinute &&
+                   result.getSeconds() === expectedSecond &&
+                   result.getMilliseconds() === expectedMs;
+
+        if ( ! pass ) {
+          console.error(`Parse mismatch for ${dateStr}:\n  Expected: ${expectedYear}-${expectedMonth + 1}-${expectedDay} ${expectedHour}:${expectedMinute}:${expectedSecond}.${expectedMs}\n  Got: ${result.getFullYear()}-${result.getMonth() + 1}-${result.getDate()} ${result.getHours()}:${result.getMinutes()}:${result.getSeconds()}.${result.getMilliseconds()}`);
+        }
+
+        return pass;
       } catch (e) {
         console.error(`Parse datetime error for ${dateStr}:`, e);
         return false;
       }
+    },
+
+    function testParseDTWithDetails(parser, dateStr, expectedYear, expectedMonth, expectedDay,
+                         expectedHour, expectedMinute, expectedSecond, opt_name) {
+      try {
+        let result = parser.parseDateTime(dateStr, opt_name);
+        if ( ! result ) {
+          let msg = `Parse failed: returned null`;
+          console.error(`${msg} for ${dateStr}`);
+          return { pass: false, message: msg };
+        }
+
+        // Check if result is MAX_DATE (invalid date)
+        let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
+        if ( isMaxDate ) {
+          let msg = `Parse returned MAX_DATE (invalid) - format didn't match or was partially parsed`;
+          console.error(`${msg} for ${dateStr} with opt_name=${opt_name}`);
+          return { pass: false, message: msg };
+        }
+
+        expectedHour = expectedHour || 0;
+        expectedMinute = expectedMinute || 0;
+        expectedSecond = expectedSecond || 0;
+
+        let pass = result.getFullYear() === expectedYear &&
+                   result.getMonth() === expectedMonth &&
+                   result.getDate() === expectedDay &&
+                   result.getHours() === expectedHour &&
+                   result.getMinutes() === expectedMinute &&
+                   result.getSeconds() === expectedSecond;
+
+        if ( ! pass ) {
+          let expected = `${expectedYear}-${String(expectedMonth + 1).padStart(2, '0')}-${String(expectedDay).padStart(2, '0')} ${String(expectedHour).padStart(2, '0')}:${String(expectedMinute).padStart(2, '0')}:${String(expectedSecond).padStart(2, '0')}`;
+          let got = `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')} ${String(result.getHours()).padStart(2, '0')}:${String(result.getMinutes()).padStart(2, '0')}:${String(result.getSeconds()).padStart(2, '0')}`;
+          let msg = `Expected: ${expected}, Got: ${got}`;
+          console.error(`Parse mismatch for ${dateStr} (opt_name=${opt_name}): ${msg}`);
+          return { pass: false, message: msg };
+        }
+
+        return { pass: true, message: null };
+      } catch (e) {
+        let msg = `Exception: ${e.message}`;
+        console.error(`Parse datetime error for ${dateStr}: ${msg}`, e);
+        return { pass: false, message: msg };
+      }
+    },
+
+    function testParseDTUTCWithDetails(parser, dateStr, expectedYear, expectedMonth, expectedDay,
+                         expectedHour, expectedMinute, expectedSecond, opt_name) {
+      try {
+        let result = parser.parseDateTimeUTC(dateStr, opt_name);
+        if ( ! result ) {
+          let msg = `Parse failed: returned null`;
+          console.error(`${msg} for ${dateStr}`);
+          return { pass: false, message: msg };
+        }
+
+        // Check if result is MAX_DATE (invalid date)
+        let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
+        if ( isMaxDate ) {
+          let msg = `Parse returned MAX_DATE (invalid) - format didn't match or was partially parsed`;
+          console.error(`${msg} for ${dateStr} with opt_name=${opt_name}`);
+          return { pass: false, message: msg };
+        }
+
+        expectedHour = expectedHour || 0;
+        expectedMinute = expectedMinute || 0;
+        expectedSecond = expectedSecond || 0;
+
+        let pass = result.getUTCFullYear() === expectedYear &&
+                   result.getUTCMonth() === expectedMonth &&
+                   result.getUTCDate() === expectedDay &&
+                   result.getUTCHours() === expectedHour &&
+                   result.getUTCMinutes() === expectedMinute &&
+                   result.getUTCSeconds() === expectedSecond;
+
+        if ( ! pass ) {
+          let expected = `${expectedYear}-${String(expectedMonth + 1).padStart(2, '0')}-${String(expectedDay).padStart(2, '0')} ${String(expectedHour).padStart(2, '0')}:${String(expectedMinute).padStart(2, '0')}:${String(expectedSecond).padStart(2, '0')} UTC`;
+          let got = `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')} ${String(result.getUTCHours()).padStart(2, '0')}:${String(result.getUTCMinutes()).padStart(2, '0')}:${String(result.getUTCSeconds()).padStart(2, '0')} UTC`;
+          let msg = `Expected: ${expected}, Got: ${got}`;
+          console.error(`Parse mismatch for ${dateStr} (opt_name=${opt_name}): ${msg}`);
+          return { pass: false, message: msg };
+        }
+
+        return { pass: true, message: null };
+      } catch (e) {
+        let msg = `Exception: ${e.message}`;
+        console.error(`Parse datetime error for ${dateStr}: ${msg}`, e);
+        return { pass: false, message: msg };
+      }
+    },
+
+    /**
+     * Tests all three parse methods: parseDateString (date), parseDateTime (local), parseDateTimeUTC (UTC)
+     * Returns array of 3 results: [dateResult, dateTimeResult, dateTimeUTCResult]
+     * Each result is { pass: boolean, message: string, method: string }
+     */
+    function testAllParseMethods(parser, dateStr, expected, opt_name) {
+      let results = [];
+
+      // Test 1: parseDateString (date-only, ignores time, returns noon UTC)
+      try {
+        let result = parser.parseDateString(dateStr, opt_name);
+        if ( ! result ) {
+          results.push({
+            pass: false,
+            message: `parseDateString returned null`,
+            method: 'parseDateString'
+          });
+        } else {
+          let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
+          if ( isMaxDate ) {
+            results.push({
+              pass: false,
+              message: `parseDateString returned MAX_DATE (invalid)`,
+              method: 'parseDateString'
+            });
+          } else if ( expected.dateOnly ) {
+            let pass = result.getUTCFullYear() === expected.dateOnly.year &&
+                       result.getUTCMonth() === expected.dateOnly.month &&
+                       result.getUTCDate() === expected.dateOnly.day &&
+                       result.getUTCHours() === 12;
+            if ( pass ) {
+              results.push({ pass: true, message: null, method: 'parseDateString' });
+            } else {
+              let exp = `${expected.dateOnly.year}-${String(expected.dateOnly.month + 1).padStart(2, '0')}-${String(expected.dateOnly.day).padStart(2, '0')} 12:00 UTC`;
+              let got = `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')} ${String(result.getUTCHours()).padStart(2, '0')}:${String(result.getUTCMinutes()).padStart(2, '0')} UTC`;
+              results.push({
+                pass: false,
+                message: `parseDateString expected ${exp}, got ${got}`,
+                method: 'parseDateString'
+              });
+            }
+          } else {
+            results.push({ pass: true, message: 'parseDateString succeeded (no dateOnly expectations)', method: 'parseDateString' });
+          }
+        }
+      } catch (e) {
+        results.push({ pass: false, message: `parseDateString exception: ${e.message}`, method: 'parseDateString' });
+      }
+
+      // Test 2: parseDateTime (local time)
+      try {
+        let result = parser.parseDateTime(dateStr, opt_name);
+        if ( ! result ) {
+          results.push({
+            pass: false,
+            message: `parseDateTime returned null`,
+            method: 'parseDateTime'
+          });
+        } else {
+          let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
+          if ( isMaxDate ) {
+            results.push({
+              pass: false,
+              message: `parseDateTime returned MAX_DATE (invalid)`,
+              method: 'parseDateTime'
+            });
+          } else if ( expected.local ) {
+            let pass = result.getFullYear() === expected.local.year &&
+                       result.getMonth() === expected.local.month &&
+                       result.getDate() === expected.local.day &&
+                       result.getHours() === (expected.local.hour || 0) &&
+                       result.getMinutes() === (expected.local.minute || 0) &&
+                       result.getSeconds() === (expected.local.second || 0);
+            if ( pass ) {
+              results.push({ pass: true, message: null, method: 'parseDateTime' });
+            } else {
+              let exp = `${expected.local.year}-${String(expected.local.month + 1).padStart(2, '0')}-${String(expected.local.day).padStart(2, '0')} ${String(expected.local.hour || 0).padStart(2, '0')}:${String(expected.local.minute || 0).padStart(2, '0')}:${String(expected.local.second || 0).padStart(2, '0')}`;
+              let got = `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')} ${String(result.getHours()).padStart(2, '0')}:${String(result.getMinutes()).padStart(2, '0')}:${String(result.getSeconds()).padStart(2, '0')}`;
+              results.push({
+                pass: false,
+                message: `parseDateTime expected ${exp}, got ${got}`,
+                method: 'parseDateTime'
+              });
+            }
+          } else {
+            results.push({ pass: true, message: 'parseDateTime succeeded (no local expectations)', method: 'parseDateTime' });
+          }
+        }
+      } catch (e) {
+        results.push({ pass: false, message: `parseDateTime exception: ${e.message}`, method: 'parseDateTime' });
+      }
+
+      // Test 3: parseDateTimeUTC (UTC time)
+      try {
+        let result = parser.parseDateTimeUTC(dateStr, opt_name);
+        if ( ! result ) {
+          results.push({
+            pass: false,
+            message: `parseDateTimeUTC returned null`,
+            method: 'parseDateTimeUTC'
+          });
+        } else {
+          let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
+          if ( isMaxDate ) {
+            results.push({
+              pass: false,
+              message: `parseDateTimeUTC returned MAX_DATE (invalid)`,
+              method: 'parseDateTimeUTC'
+            });
+          } else if ( expected.utc ) {
+            let pass = result.getUTCFullYear() === expected.utc.year &&
+                       result.getUTCMonth() === expected.utc.month &&
+                       result.getUTCDate() === expected.utc.day &&
+                       result.getUTCHours() === (expected.utc.hour || 0) &&
+                       result.getUTCMinutes() === (expected.utc.minute || 0) &&
+                       result.getUTCSeconds() === (expected.utc.second || 0);
+            if ( pass ) {
+              results.push({ pass: true, message: null, method: 'parseDateTimeUTC' });
+            } else {
+              let exp = `${expected.utc.year}-${String(expected.utc.month + 1).padStart(2, '0')}-${String(expected.utc.day).padStart(2, '0')} ${String(expected.utc.hour || 0).padStart(2, '0')}:${String(expected.utc.minute || 0).padStart(2, '0')}:${String(expected.utc.second || 0).padStart(2, '0')} UTC`;
+              let got = `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')} ${String(result.getUTCHours()).padStart(2, '0')}:${String(result.getUTCMinutes()).padStart(2, '0')}:${String(result.getUTCSeconds()).padStart(2, '0')} UTC`;
+              results.push({
+                pass: false,
+                message: `parseDateTimeUTC expected ${exp}, got ${got}`,
+                method: 'parseDateTimeUTC'
+              });
+            }
+          } else {
+            results.push({ pass: true, message: 'parseDateTimeUTC succeeded (no UTC expectations)', method: 'parseDateTimeUTC' });
+          }
+        }
+      } catch (e) {
+        results.push({ pass: false, message: `parseDateTimeUTC exception: ${e.message}`, method: 'parseDateTimeUTC' });
+      }
+
+      return results;
     },
 
     function testParseYear(parser, dateStr, expectedYear) {

@@ -656,9 +656,16 @@ foam.CLASS({
       properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
+      name: 'interactivity',
+      title: 'Interactivity',
+      order: 5,
+      collapsable: true,
+      properties: ['onClickScript']
+    },
+    {
       name: 'colors',
       title: 'Color Configuration',
-      order: 5,
+      order: 6,
       collapsable: true,
       properties: ['colors']
     }
@@ -730,6 +737,13 @@ foam.CLASS({
       name: 'showGridLines',
       label: 'Show Grid Lines',
       value: true
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      section: 'interactivity',
+      help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
     }
   ],
 
@@ -756,6 +770,7 @@ foam.CLASS({
         xAxisLabel: this.xAxisLabel,
         yAxisLabel: this.yAxisLabel,
         showGridLines: this.showGridLines,
+        onClickScript: this.onClickScript,
         periodCount: this.periodCount,
         maintainAspectRatio: this.maintainAspectRatio,
         height: this.height,
@@ -777,7 +792,7 @@ foam.CLASS({
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, horizontal, xAxisLabel, yAxisLabel, showGridLines,
                                   periodCount, maintainAspectRatio, height, showLegend, legendPosition,
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) {
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment, onClickScript) {
         s.colors = colors;
         s.horizontal = horizontal;
         s.xAxisLabel = xAxisLabel;
@@ -793,6 +808,7 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
+        s.onClickScript = onClickScript;
 
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();

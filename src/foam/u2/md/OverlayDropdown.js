@@ -66,6 +66,9 @@ foam.CLASS({
     ^parents {
       z-index: 1000 !important;
     }
+    @media print {
+      ^ { display: none !important; }
+    }
   `,
 
   properties: [

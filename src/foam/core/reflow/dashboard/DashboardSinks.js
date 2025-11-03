@@ -693,6 +693,12 @@ foam.CLASS({
       name: 'colors',
     },
     {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
+    },
+    {
       class: 'Enum',
       of: 'foam.core.reflow.dashboard.TimeUnit',
       name: 'timeUnit'
@@ -882,6 +888,57 @@ foam.CLASS({
             }
           }
         };
+
+        // Attach click handler if provided
+        if ( this.onClickScript ) {
+          try {
+            // Evaluate to a function if the user provided a function expression
+            var __rf_clickHandler = (function(script) {
+              try {
+                return eval(script);
+              } catch (e) {
+                console.warn('Invalid onClickScript for DashboardStackedBarSink:', e);
+                return null;
+              }
+            })(this.onClickScript);
+
+            if ( typeof __rf_clickHandler === 'function' ) {
+              chartJSOptions.onClick = function(evt, activeEls, chart) {
+                try {
+                  // Prefer provided active elements, fallback to nearest
+                  var elements = activeEls && activeEls.length ? activeEls : chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+                  if ( ! elements || ! elements.length ) return;
+                  var el = elements[0];
+                  var di = el.datasetIndex;
+                  var i  = el.index;
+                  var datasets = chart.data && chart.data.datasets ? chart.data.datasets : [];
+                  var labels   = chart.data && chart.data.labels ? chart.data.labels : [];
+                  var yVal     = datasets[di] && datasets[di].data ? datasets[di].data[i] : undefined;
+                  if ( yVal && typeof yVal === 'object' && yVal !== null && 'y' in yVal ) yVal = yVal.y;
+                  var xVal     = labels[i];
+                  var stackVal = datasets[di] ? datasets[di].label : undefined;
+
+                  // Compute canvas-relative (x,y) and absolute page (absX, absY)
+                  var nativeEvt = evt && (evt.native || evt);
+                  var clientX = nativeEvt && nativeEvt.clientX;
+                  var clientY = nativeEvt && nativeEvt.clientY;
+                  var pageX   = nativeEvt && (nativeEvt.pageX !== undefined ? nativeEvt.pageX : (clientX != null ? clientX + window.scrollX : undefined));
+                  var pageY   = nativeEvt && (nativeEvt.pageY !== undefined ? nativeEvt.pageY : (clientY != null ? clientY + window.scrollY : undefined));
+                  var canvas  = chart && chart.canvas;
+                  var rect    = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+                  var scaleX  = rect && rect.width  ? (canvas.width  / rect.width)  : 1;
+                  var scaleY  = rect && rect.height ? (canvas.height / rect.height) : 1;
+                  var x       = (clientX != null && rect) ? (clientX - rect.left) * scaleX : undefined;
+                  var y       = (clientY != null && rect) ? (clientY - rect.top)  * scaleY : undefined;
+
+                  __rf_clickHandler(yVal, xVal, stackVal, x, y, pageX, pageY);
+                } catch (e) {
+                  console.warn('Error executing onClickScript:', e);
+                }
+              };
+            }
+          } catch (_) { /* ignore */ }
+        }
         
         // Configure time scale if dealing with date/time properties
         // Check if xFunc is a date/time property
@@ -1820,7 +1877,7 @@ foam.CLASS({
               .callIf(self.countOnClick, function() {
                 this
                   .on('click', self.onCountClick)
-                  .style({ textDecoration: 'underline' })
+                  .style({ textDecoration: 'underline', cursor: 'pointer' })
                })
               .add(self.countSuffix$.map(v => metric.count.toLocaleString() + (v ? ' ' + v : '')))
             .end();

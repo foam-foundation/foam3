@@ -18,5 +18,11 @@
 foam.CLASS({
   package: 'foam.dao',
   name: 'ExternalException',
-  extends: 'foam.lang.FOAMException'
+  extends: 'foam.lang.FOAMException',
+  properties: [
+    {
+      name: 'retryable',
+      value: false
+    }
+  ]
 });

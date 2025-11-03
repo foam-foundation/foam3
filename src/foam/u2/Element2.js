@@ -729,7 +729,7 @@ foam.CLASS({
     // from state
 
     function replaceElement_(el) {
-      el.parentNode.replaceChild(this, el);
+      el.parentNode.replaceChild(this.element_, el);
     },
 
     // TODO: for backward compatibility with U2, remove when all code ported
@@ -873,8 +873,8 @@ foam.CLASS({
         // and keypress events.
         target.tabIndex = target.tabIndex || 1;
 
-        target.on('keydown',  this.onKeyboardShortcut, true);
-        target.on('keypress', this.onKeyboardShortcut, true);
+        target.on('keydown',  this.onKeyboardShortcut);
+        target.on('keypress', this.onKeyboardShortcut);
       }
     },
 

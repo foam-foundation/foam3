@@ -157,6 +157,7 @@ public class NanoRouter
         // TODO: create using Context, which should do this automatically
         if ( skeleton instanceof ContextAware ) ((ContextAware) skeleton).setX(getX());
 
+        skeleton.setServiceName(spec.getName());
         skeleton.setDelegateFactory(getX().getFactory(getX(), spec.getName()));
 
         WebAgent agent = getAgent(new foam.box.KeepAliveServerBox((Box) skeleton), spec);

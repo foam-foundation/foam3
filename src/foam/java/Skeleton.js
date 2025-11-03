@@ -66,7 +66,7 @@ foam.CLASS({
         args: [ { name: 'envelope', type: 'foam.box.Envelope' } ],
         body: this.sendMethodCode()
       });
-      /*
+/*
 
       cls.method({
         type: 'void',
@@ -141,7 +141,7 @@ foam.CLASS({
           throw clientE;
         }
       }
-      foam.core.logger.Loggers.logger(x, this).warning(((foam.core.boot.CSpecFactory)getDelegateFactory()).getCSpecName(), rpc.getName(), "returning exception", t.toString()); //, t);
+      foam.core.logger.Loggers.logger(x, this).warning(getServiceName(), rpc.getName(), "returning exception", t.toString()); //, t);
 
       envelope.replyWithException(t);
 

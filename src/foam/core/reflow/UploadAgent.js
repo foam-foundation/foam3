@@ -64,25 +64,17 @@ foam.CLASS({
             parser.setX(getX());
 
             // Parse the JSON - returns null on error (doesn't throw by default)
-            Object[] arrayResult = null;
+            Object[] arrayResult;
             try {
               arrayResult = parser.parseStringForArray(decompressedJson, null);
             } catch (RuntimeException t) {
-              // Parsing threw an exception - get detailed error like ServiceWebAgent
-              try {
-                String detailedError = getParsingError(getX(), decompressedJson);
-                logger.error("UploadAgent", "JSON parsing exception", detailedError);
-              } catch (RuntimeException r) {
-                logger.error("UploadAgent", "JSON parsing exception", "error", t.getMessage(), t);
-              }
-              throw new RuntimeException("Failed to parse decompressed JSON: " + t.getMessage(), t);
+              String message = getParsingError(getX(), decompressedJson);
+              throw new RuntimeException("Failed to parse decompressed JSON: " + message, t);
             }
 
             if ( arrayResult == null ) {
-              // Parsing returned null - get detailed error like ServiceWebAgent does
-              String detailedError = getParsingError(getX(), decompressedJson);
-              logger.error("UploadAgent", "JSON parsing returned null", "error", detailedError);
-              throw new RuntimeException("Failed to parse decompressed JSON (parser returned null): " + detailedError);
+              String message = getParsingError(getX(), decompressedJson);
+              throw new RuntimeException("Failed to parse decompressed JSON: " + message);
             }
 
             if ( arrayResult.length > 0 ) {
@@ -107,7 +99,6 @@ foam.CLASS({
                 ", Preview: " + preview);
             }
           } catch ( Exception e ) {
-            logger.error("UploadAgent", "Exception during decompression/parsing", "error", e.getMessage(), e);
             throw new RuntimeException("UploadAgent exception: " + e.getMessage(), e);
           }
         }

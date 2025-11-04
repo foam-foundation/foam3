@@ -446,7 +446,7 @@ foam.CLASS({
     {
       name: 'borderSettings',
       order: 200,
-      properties: ['borderClass', 'border']
+      properties: ['borderClass', 'border', 'borderClass2', 'border2']
     }
   ],
 
@@ -482,12 +482,12 @@ foam.CLASS({
         return {
           class: 'foam.u2.view.ChoiceView',
           choices: [
-            [foam.u2.borders.NullBorder, 'None'],
+            [foam.u2.borders.NullBorder,      'None'],
             [foam.core.reflow.CustomStyleBorder, 'Custom'],
-            [foam.u2.borders.CardBorder, 'Card'],
-            [foam.u2.borders.BackgroundCard, 'Background'],
-            [foam.u2.borders.SpacingBorder, 'Padding'],
-            [foam.u2.borders.TitleBorder, 'Titled'],
+            [foam.u2.borders.CardBorder,      'Card'],
+            [foam.u2.borders.BackgroundCard,  'Background'],
+            [foam.u2.borders.SpacingBorder,   'Padding'],
+            [foam.u2.borders.TitleBorder,     'Titled'],
             [foam.dashboard.view.CardWrapper, 'Card with Title']
           ]
         };
@@ -514,7 +514,53 @@ foam.CLASS({
       }
     },
     {
+      class: 'Class',
+      name: 'borderClass2',
+      label: 'Inner Border Type',
+      view: function(_,X) {
+        // TODO: replace with strategizer
+        // TODO: add a new card with title border that uses the foam.u2.borders.CardBorder
+        // rather than foam.dashboard.view.Card
+        return {
+          class: 'foam.u2.view.ChoiceView',
+          choices: [
+            [foam.u2.borders.NullBorder,      'None'],
+            [foam.core.reflow.CustomStyleBorder, 'Custom'],
+            [foam.u2.borders.CardBorder,      'Card'],
+            [foam.u2.borders.BackgroundCard,  'Background'],
+            [foam.u2.borders.SpacingBorder,   'Padding'],
+            [foam.u2.borders.TitleBorder,     'Titled'],
+            [foam.dashboard.view.CardWrapper, 'Card with Title']
+          ]
+        };
+      }
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'border2',
+      label: 'Inner Border Properties',
+      factory: function() { return {}; },
+      preSet: function(_, n) {
+        // Dont save the class so that the ViewSpec doesnt convert to a view
+        // The fromJSON should handle this but the scripts dont store the class
+        // so parsing ignores all the fromJSON
+        if ( n.class ) delete n.class;
+        return n;
+      },
+      view: function (_, X) {
+        return {
+          class: 'foam.u2.view.ViewConfiguratorView',
+          data_$: X.data$.dot('borderEl2_'),
+          allowClassChange: false
+        };
+      }
+    },
+    {
       name: 'borderEl_',
+      hidden: true
+    },
+    {
+      name: 'borderEl2_',
       hidden: true
     },
     { name: 'togglerPosition', value: 'right', hidden: true },
@@ -531,9 +577,10 @@ foam.CLASS({
     function init() {
       let self = this;
       this.SUPER();
-      this.content.tag(this.borderClass, { ...this.border }, self.borderEl_$);
+      this.content.tag(this.borderClass,  { ...this.border  }, self.borderEl_$).
+        tag(this.borderClass2, { ...this.border2 }, self.borderEl2_$);
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
-      self.borderEl_.add(this.out);
+      self.borderEl2_.add(this.out);
     },
 
     function render() {
@@ -543,7 +590,7 @@ foam.CLASS({
       this.title.add(this.flowName$);
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
-          },
+    },
 
     function addValue(o, skipOutput) {
       if ( ! skipOutput ) this.out.add(o);
@@ -567,7 +614,7 @@ foam.CLASS({
     },
 
     function outputJSON(json) {
-      json.outputFObject_(this, this.cls_, [ this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER_CLASS, this.BORDER ]);
+      json.outputFObject_(this, this.cls_, [ this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER_CLASS, this.BORDER, this.BORDER_CLASS2, this.BORDER2 ]);
     }
   ],
 
@@ -588,7 +635,7 @@ foam.CLASS({
   listeners: [
     {
       name: 'pubUpdate',
-      on: ['this.propertyChange.borderClass', 'this.propertyChange.border'],
+      on: ['this.propertyChange.borderClass', 'this.propertyChange.border','this.propertyChange.borderClass2', 'this.propertyChange.border2'],
       code: function() {
         this.flowUpdated.pub();
       }
@@ -604,6 +651,19 @@ foam.CLASS({
         this.out.moveTo(el);
         this.borderEl_.remove();
         this.borderEl_ = el;
+      }
+    },
+    {
+      name: 'replaceBorder2',
+      isFramed: true,
+      on: ['this.propertyChange.borderClass2'],
+      code: function() {
+        if ( ! this.WrapperNode.isInstance(this.out) ) return;
+        let el = this.borderClass2.create({...(this.border2 || {})}, this);
+        this.borderEl2_.parentNode.add(el);
+        this.out.moveTo(el);
+        this.borderEl2_.remove();
+        this.borderEl2_ = el;
       }
     },
     {

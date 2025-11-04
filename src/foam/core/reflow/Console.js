@@ -577,10 +577,17 @@ foam.CLASS({
     function init() {
       let self = this;
       this.SUPER();
-      this.content.tag(this.borderClass,  { ...this.border  }, self.borderEl_$).
-        tag(this.borderClass2, { ...this.border2 }, self.borderEl2_$);
-      this.out = this.WrapperNode.create({ parentNode: this.content }, this);
-      self.borderEl2_.add(this.out);
+      // Build outer border
+      this.content.tag(this.borderClass, { ...this.border }, self.borderEl_$);
+      // Optionally build and nest inner border inside outer border's content
+      if ( this.borderClass2 ) {
+        this.borderEl_.tag(this.borderClass2, { ...this.border2 }, self.borderEl2_$);
+      } else {
+        this.borderEl2_ = null;
+      }
+      // Create output container under the innermost border/content
+      this.out = this.WrapperNode.create({ parentNode: this.borderEl_ }, this);
+      if ( this.borderEl2_ ) this.borderEl2_.add(this.out); else this.borderEl_.add(this.out);
     },
 
     function render() {
@@ -646,11 +653,15 @@ foam.CLASS({
       on: ['this.propertyChange.borderClass'],
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
-        let el = this.borderClass.create({...(this.border || {})}, this);
-        this.borderEl_.parentNode.add(el);
-        this.out.moveTo(el);
-        this.borderEl_.remove();
-        this.borderEl_ = el;
+        var newOuter = this.borderClass.create({ ...(this.border || {}) }, this);
+        this.content.add(newOuter);
+        if ( this.borderEl2_ ) {
+          this.borderEl2_.moveTo(newOuter);
+        } else if ( this.out ) {
+          this.out.moveTo(newOuter);
+        }
+        if ( this.borderEl_ ) this.borderEl_.remove();
+        this.borderEl_ = newOuter;
       }
     },
     {
@@ -659,11 +670,11 @@ foam.CLASS({
       on: ['this.propertyChange.borderClass2'],
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
-        let el = this.borderClass2.create({...(this.border2 || {})}, this);
-        this.borderEl2_.parentNode.add(el);
-        this.out.moveTo(el);
-        this.borderEl2_.remove();
-        this.borderEl2_ = el;
+        var newInner = this.borderClass2.create({ ...(this.border2 || {}) }, this);
+        if ( this.borderEl_ ) this.borderEl_.add(newInner); else this.content.add(newInner);
+        if ( this.out ) this.out.moveTo(newInner);
+        if ( this.borderEl_ && this.borderEl2_ ) this.borderEl2_.remove();
+        this.borderEl2_ = newInner;
       }
     },
     {

@@ -383,7 +383,7 @@ foam.CLASS({
   name: 'Block',
   extends: 'foam.u2.Accordion',
 
-  requires: ['foam.u2.WrapperNode'],
+  requires: ['foam.u2.WrapperNode', 'foam.core.reflow.CustomStyleBorder'],
 
   implements: [ 'foam.core.reflow.Flowable' ],
 
@@ -483,6 +483,7 @@ foam.CLASS({
           class: 'foam.u2.view.ChoiceView',
           choices: [
             [foam.u2.borders.NullBorder, 'None'],
+            [foam.core.reflow.CustomStyleBorder, 'Custom'],
             [foam.u2.borders.CardBorder, 'Card'],
             [foam.u2.borders.BackgroundCard, 'Background'],
             [foam.u2.borders.SpacingBorder, 'Padding'],

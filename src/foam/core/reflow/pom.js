@@ -37,6 +37,7 @@ foam.POM({
     { name: 'ReflowToolBar',           flags: 'js' },
     { name: 'ReflowConfigView',        flags: 'web' },
     { name: 'LayoutBlock',             flags: 'web' },
+    { name: 'CustomStyleBorder',        flags: 'web' },
     { name: 'ModelDAO',                flags: 'js' },
     { name: 'PropertyChoiceView',      flags: 'js' },
     { name: 'PropertyExprView',        flags: 'js' },

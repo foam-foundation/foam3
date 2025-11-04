@@ -51,6 +51,8 @@ foam.CLASS({
           // DD-MMM-YYYY, DD/MMM/YYYY, DDMMMYYYY, YYYY-DD-MMM, YYYY/DD/MMM, YYYYDDMMM
           // NOTE: yyyyddmmm-compact must come BEFORE ddmmmyyyy-compact to match correctly
           'date-monthname': alt(
+            // Support: MMM dd yyyy (e.g., Jan 02 2025)
+            sym('mmmddyyyy-space'),
             sym('ddmmmyyyy-sep'),
             sym('yyyyddmmm-sep'),
             sym('yyyyddmmm-compact'),  // Try this before ddmmmyyyy-compact
@@ -371,6 +373,11 @@ foam.CLASS({
           // DDMMMYYYY compact: DDMMMYYYY (no separators, like 31JAN2025)
           'ddmmmyyyy-compact': seq(
             sym('day2'), sym('month3alpha'), sym('year4')
+          ),
+
+          // MMM dd yyyy with spaces: "Jan 02 2025"
+          'mmmddyyyy-space': seq(
+            sym('month3alpha'), ' ', sym('day2'), ' ', sym('year4')
           ),
 
           // Component parsers
@@ -789,6 +796,16 @@ foam.CLASS({
               year: parseInt(v[2]),
               month: self.parseMonthName(v[1]),
               day: parseInt(v[0])
+            };
+          },
+
+          // MMM dd yyyy with spaces: "Jan 02 2025"
+          // v = [MMM, ' ', DD, ' ', YYYY]
+          'mmmddyyyy-space': function(v) {
+            return {
+              year: parseInt(v[4]),
+              month: self.parseMonthName(v[0]),
+              day: parseInt(v[2])
             };
           },
 

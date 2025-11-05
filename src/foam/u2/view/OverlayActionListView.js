@@ -75,8 +75,8 @@ foam.CLASS({
       class: 'String',
       name: 'id',
       documentation: `Id for the obj the actions use as data, must be provided if dao is provided.`,
-      factory: function() {
-        return this.obj?.id;
+      expression: function(obj) {
+        return obj?.id;
       }
     },
     {
@@ -256,6 +256,7 @@ foam.CLASS({
       this.overlay_.open(x, y);
 
       if ( ! this.obj && this.dao ) {
+        foam.assert(this.id, 'Id must be provided when obj needs to be fetched in OverlayActionListView');
         this.obj = await this.dao.inX(this.__context__).find(this.id);
       }
 

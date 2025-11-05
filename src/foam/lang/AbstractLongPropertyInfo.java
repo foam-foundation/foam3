@@ -60,6 +60,7 @@ public abstract class AbstractLongPropertyInfo
   }
 
   public long cast(Object o) {
+    if ( o == null ) return 0L;
     long l = ( o instanceof String ) ? Long.valueOf((String) o) : (long) o;
     return ( o instanceof Number ) ? ((Number) o).longValue() : l;
   }

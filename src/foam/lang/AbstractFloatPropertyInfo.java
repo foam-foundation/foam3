@@ -60,6 +60,7 @@ public abstract class AbstractFloatPropertyInfo
   }
 
   public float cast(Object o) {
+    if ( o == null ) return 0.0f;
     float f = ( o instanceof String ) ? Float.parseFloat((String) o) : (float)o;
     return ( o instanceof Number ) ? ((Number)o).floatValue() : f;
   }

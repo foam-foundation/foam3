@@ -60,6 +60,7 @@ public abstract class AbstractIntPropertyInfo
   }
 
   public int cast(Object o) {
+    if ( o == null ) return 0;
     if ( o instanceof String ) return Integer.valueOf((String) o);
     return ((Number) o).intValue();
   }

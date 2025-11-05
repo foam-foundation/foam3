@@ -19,6 +19,30 @@ foam.LIB({
   */
   methods: [
     {
+      name: 'year',
+      code: function (date) {
+        if ( ! date ) return -1;
+        /* Return the year of a date or -1 if the date is null. */
+        return date.getYear() + 1900;
+      }
+    },
+    {
+      name: 'month',
+      code: function (date) {
+        if ( ! date ) return -1;
+        /* Return the month of a date or -1 if the date is null. */
+        return date.getMonth() + 1;
+      }
+    },
+    {
+      name: 'day',
+      code: function (date) {
+        if ( ! date ) return -1;
+        /* Return the day of month of a date or -1 if the date is null. */
+        return date.getDate();
+      }
+    },
+    {
       name: 'round',
       code: function (n) {
         /* Round a number to the nearest integer. */

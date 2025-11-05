@@ -367,9 +367,9 @@ foam.CLASS({
         return data$flowMode != this.FlowMode.PRESENTATION_ONLY;
       },
       code: function() {
-        if (this.data.flowMode == this.FlowMode.CONSOLE) {
+        if ( this.data.flowMode == this.FlowMode.CONSOLE ) {
           this.data.flowMode = this.FlowMode.PRESENTATION;
-        } else if (this.data.flowMode == this.FlowMode.PRESENTATION) {
+        } else if ( this.data.flowMode == this.FlowMode.PRESENTATION ) {
           this.data.flowMode = this.FlowMode.CONSOLE;
         }
       }
@@ -468,11 +468,13 @@ foam.CLASS({
       name: 'out',
       hidden: true
     },
+    // TODO: allow adding multiple nested borders,
+    // Needs something that resembles array view
+    // But when converted to viewSpec it nests all array elements
     {
       class: 'Class',
       name: 'borderClass',
       label: 'Border Type',
-      factory: function() { return foam.u2.borders.NullBorder; },
       view: function(_,X) {
         // TODO: replace with strategizer
         // TODO: add a new card with title border that uses the foam.u2.borders.CardBorder
@@ -484,6 +486,7 @@ foam.CLASS({
             [foam.u2.borders.CardBorder, 'Card'],
             [foam.u2.borders.BackgroundCard, 'Background'],
             [foam.u2.borders.SpacingBorder, 'Padding'],
+            [foam.u2.borders.TitleBorder, 'Titled'],
             [foam.dashboard.view.CardWrapper, 'Card with Title']
           ]
         };
@@ -539,7 +542,7 @@ foam.CLASS({
       this.title.add(this.flowName$);
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
-    },
+          },
 
     function addValue(o, skipOutput) {
       if ( ! skipOutput ) this.out.add(o);
@@ -912,15 +915,48 @@ foam.CLASS({
       flex: 1;
       overflow: auto;
       text-align: left;
-      width: 100%
+      width: 100%;
+      position: relative;
+      min-height: 400px;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;
     }
-    ^ .foam-u2-ProgressView { width: 600px; }
     ^error {
       background: $backgroundDestructiveTertiary!important;
       color: $textDestructive;
+    }
+    ^loading-indicator {
+      position: absolute;
+      top: 200px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 32px;
+      background: $backgroundDefault;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      width: 400px;
+      max-width: 90%;
+      justify-content: center;
+    }
+    ^loading-indicator .foam-u2-ProgressView {
+      width: 100%;
+    }
+    ^loading-text {
+      color: $textDefault;
+      font-size: 16px;
+      font-weight: $font-medium;
+      text-align: center;
+    }
+    ^loading-progress {
+      color: $textSecondary;
+      font-size: 14px;
+      text-align: center;
     }
   `,
 
@@ -1037,6 +1073,28 @@ foam.CLASS({
       transient: true
     },
     {
+      class: 'Int',
+      name: 'loadingProgress_',
+      hidden: true,
+      transient: true,
+      value: 0
+    },
+    {
+      class: 'Int',
+      name: 'totalBlocks_',
+      hidden: true,
+      transient: true,
+      value: 0
+    },
+    {
+      class: 'Int',
+      name: 'loadingPercentage_',
+      hidden: true,
+      transient: true,
+      value: 0,
+      documentation: 'Progress percentage (0-100) for the loading indicator'
+    },
+    {
       name: 'selected',
       postSet: function(o, n) {
         if ( o === n ) return;
@@ -1113,8 +1171,18 @@ foam.CLASS({
         script :
         foam.json.parseString(script, ctx);
 
+      // Count total blocks for progress tracking (only at top level)
+      if ( ! parent ) {
+        this.totalBlocks_ = this.countBlocks(cs);
+        this.loadingProgress_ = 0;
+      }
+
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
+
+        // Update progress counter for all blocks (including nested)
+        this.loadingProgress_++;
+        this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
 
@@ -1132,7 +1200,7 @@ foam.CLASS({
         }
 
         await this.currentBlock.value?.onLoad?.();
-        
+
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
@@ -1140,6 +1208,17 @@ foam.CLASS({
       if ( ! parent ){
         await this.eval_('postLoad', null, true);
       }
+    },
+
+    function countBlocks(blocks) {
+      if ( ! blocks || ! blocks.length ) return 0;
+      var count = blocks.length;
+      blocks.forEach(b => {
+        if ( b.flowChildren ) {
+          count += this.countBlocks(b.flowChildren);
+        }
+      });
+      return count;
     },
 
     function clearFlow() {
@@ -1223,6 +1302,25 @@ foam.CLASS({
         start('div', null, self.out$)
           .addClass(self.myClass('output')).
         end().
+        // Add loading indicator overlay
+        start()
+          .addClass(self.myClass('loading-indicator'))
+          .show(self.isLoading_$)
+          .start().addClass(self.myClass('loading-text'))
+            .add('Loading Flow...')
+          .end()
+          .start().addClass(self.myClass('loading-progress'))
+            .add(self.loadingProgress_$.map(function(progress) {
+              if ( self.totalBlocks_ > 0 ) {
+                return `Loading block ${progress} of ${self.totalBlocks_}`;
+              }
+              return 'Preparing flow...';
+            }))
+          .end()
+          .tag(foam.u2.ProgressView, {
+            data$: self.loadingPercentage_$
+          })
+        .end().
         tag(self.ReflowToolBar);
 
         // These observers might cause scroll issues later when queries in the console can be edited
@@ -1363,7 +1461,6 @@ foam.CLASS({
 
         // Name the block if it hasn't already been named
         if ( ! block.flowName ) block.flowName = this.createFlowChildName('a');
-
         if ( typeof r === 'function' ) {
           if ( ! block.flowName.startsWith(cmd) )
             block.flowName = this.createFlowChildName(cmd);
@@ -1373,9 +1470,6 @@ foam.CLASS({
           r = await r;
         }
       }}}
-
-      // Re-set block in case the command changed currentBlock
-      // block = this.currentBlock;
 
       flowParent.addFlowChild(block);
 
@@ -1578,7 +1672,7 @@ foam.CLASS({
       isAvailable: function(flowMode, input_) {
         return this.flowMode == this.FlowMode.CONSOLE && input_.element_ === document.activeElement;
       },
-      code: function() { this.help(); },
+      code: function() { this.eval_('help'); },
       keyboardShortcuts: [ 'f1' ]
     },
     {
@@ -1596,6 +1690,15 @@ foam.CLASS({
         this.flowMode = this.flowMode == this.FlowMode.CONSOLE ?
           this.FlowMode.PRESENTATION :
           this.FlowMode.CONSOLE ;
+
+        // After toggleMode is executed the app may no longer have focus so thee
+        // keyboard shortcut won't work. Set focus to something so if you user presses escape again
+        // they can toggle back.
+        setTimeout(() => {
+          var focusable = this.el_().querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          var firstFocusable = focusable[1];
+          firstFocusable.focus();
+        }, 16);
       },
       keyboardShortcuts: [ 'escape' ]
     },
@@ -1649,8 +1752,6 @@ foam.CLASS({
   listeners: [
     {
       name: 'onScriptNameChange',
-      isMerged: true,
-      delay: 500,
       code: function(_, __, ___, evt) {
         // evt contains: { instance_, obj, prop, oldValue }
         var oldValue = evt.oldValue;
@@ -1735,6 +1836,10 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+          // Reset progress counters
+          this.loadingProgress_ = 0;
+          this.totalBlocks_ = 0;
+          this.loadingPercentage_ = 0;
         }
       }
     },

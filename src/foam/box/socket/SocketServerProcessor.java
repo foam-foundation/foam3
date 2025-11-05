@@ -131,6 +131,7 @@ public class SocketServerProcessor
             remote.setMessage(t.getMessage());
             if ( t instanceof foam.lang.FOAMException ) {
               remote.setException((foam.lang.FOAMException) t);
+              remote.setRetryable(((foam.lang.FOAMException) t).getRetryable());
             }
             foam.box.RPCErrorMessage error = new foam.box.RPCErrorMessage();
             error.setData(remote);

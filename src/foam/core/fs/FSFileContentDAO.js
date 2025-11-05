@@ -34,6 +34,10 @@ foam.CLASS({
           if ( ret != null ) return ret;
 
           FSFile file = (FSFile) ((DAO) x.get("FSFileDAO")).find((String) id);
+          if ( file == null ) {
+            Loggers.logger(x, this).error("Error getting content: FSFile not found for id: ", (String) id);
+            return null;
+          }
           if ( file.getIsDirectory() ) {
             Loggers.logger(x, this).error("Error getting content: ", (String) file.getId(), "file is a directory");
             return null;

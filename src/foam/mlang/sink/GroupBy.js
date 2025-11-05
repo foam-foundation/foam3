@@ -246,7 +246,7 @@ for (Object key : getGroups().keySet()) {
 
     function genModel() {
       // Get name and label from the expression, with fallbacks
-      var exprName = this.arg1.name || this.arg1.delegate?.name || 'group';
+      var exprName  = this.arg1.name || this.arg1.delegate?.name || 'group';
       var exprLabel = this.arg1.label || foam.String.labelize(this.arg1.delegate?.name) || 'Group';
 
       // Determine property class by traversing expressions to find underlying property
@@ -270,6 +270,9 @@ for (Object key : getGroups().keySet()) {
           { class: exprClass, name: exprName, label: exprLabel }
         ]
       };
+
+      // Required in the Property is an Enum or similar type which requires the value of the 'of' field to be complete
+      if ( this.arg1.of ) model.properties[1].of = this.arg1.of;
 
       model.plural = model.name;
       var props = this.arg2.toProperties ? this.arg2.toProperties() : this.arg2.VALUE ? [ this.arg2.VALUE ] : [];

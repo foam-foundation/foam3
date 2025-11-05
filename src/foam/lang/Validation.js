@@ -555,7 +555,7 @@ foam.CLASS({
         a.push(
           {
             args: [ this.name ],
-            query: 'thisValue==""||thisValue~/\\S+@\\S+\\.\\S+/',
+            query: 'thisValue==""||thisValue~/^\\S+@\\S+\\.\\S+$/',
             errorString: this.VALID_EMAIL_REQUIRED
           }
         );
@@ -598,8 +598,8 @@ foam.CLASS({
   constants: [
     {
       name: 'ALPHA_CHAR_CHECK',
-      factory: () => /^[\d+-]*$/,
-      javaFactory: '  return "^[\\d+-]*$";'
+      factory: () => /^\+?\d+(?:-\d+)?$/,
+      javaFactory: '  return "^\\+?\\d+(?:-\\d+)?$";'
     }
   ],
 

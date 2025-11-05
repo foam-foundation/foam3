@@ -89,6 +89,9 @@ foam.CLASS({
     ^expand {
       flex: 1;
     }
+    @media print {
+      ^ { display: none !important; }
+    }
   `,
   properties: [
     {

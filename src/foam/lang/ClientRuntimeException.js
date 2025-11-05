@@ -16,6 +16,10 @@ foam.CLASS({
     {
       name: 'isClientException',
       value: true
+    },
+    {
+      name: 'retryable',
+      value: false
     }
   ],
 

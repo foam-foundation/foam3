@@ -1,4 +1,4 @@
-p({
+\p({
   "class": "foam.core.boot.CSpec",
   "name": "keyStoreManager",
   "lazy": false,
@@ -42,7 +42,7 @@ p({
       "servletObject": {
         "class": "foam.core.servlet.VirtualHostRoutingServlet",
         "headerParameters": {
-          "Cache-Control": "public,max-age=3600,immutable"
+          "Cache-Control": "no-cache"
         }
       },
       "pathSpec": "/welcome"

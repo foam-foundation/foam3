@@ -64,6 +64,13 @@ foam.CLASS({
       name: 'selectionPredicate',
       documentation: 'Predicate for selecting the default choice when not able to infer from data'
     }
+    ,
+    {
+      class: 'Boolean',
+      name: 'autoSelect',
+      value: true,
+      documentation: 'When true, auto-select the first choice'
+    }
   ],
 
   methods: [
@@ -133,9 +140,14 @@ foam.CLASS({
                 .end();
               });
 
-              // No default selection, select the first choice
-              if ( selection === undefined ) selection = choices[0];
-              self.data = foam.Array.isInstance(selection) ? selection[0] : selection;
+              if ( selection === undefined ) {
+                if ( self.autoSelect ) {
+                  selection = choices[0];
+                  self.data = foam.Array.isInstance(selection) ? selection[0] : selection;
+                }
+              } else {
+                self.data = foam.Array.isInstance(selection) ? selection[0] : selection;
+              }
             })
           )
         .end();

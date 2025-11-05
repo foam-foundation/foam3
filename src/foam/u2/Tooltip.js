@@ -42,7 +42,7 @@ foam.CLASS({
     },
 
     async function setTooltip(evt) {
-      var el            = await this.target.el();
+      var el            = await this.target.el_();
       this.tooltipStore = this.TooltipView.create({ data: this.text });
       var domRect       = el.getBoundingClientRect();
       this.screenWidth  = this.window.innerWidth;
@@ -95,7 +95,7 @@ foam.CLASS({
         return;
       }
 
-      var el = await this.target.el();
+      var el = await this.target.el_();
 
       this.target.on('mouseover',  this.onMouseOver);
       this.target.on('mousedown',  this.close);

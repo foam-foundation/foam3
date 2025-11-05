@@ -151,7 +151,7 @@ foam.CLASS({
       name: 'onResize',
       isFramed: true,
       code: async function() {
-        var el = await this.el();
+        var el = await this.el_();
 
         // Determine the height of the table's space.
         var height = el.getBoundingClientRect().height;

@@ -216,8 +216,8 @@ foam.CLASS({
       var e = this.delegate_.children[index];
       // TODO(braden): This sucks and needs fixing.
       if ( ! e ) return;
-      delegateE = await this.delegate_.el();
-      childrenE = await e.el();
+      delegateE = await this.delegate_.el_();
+      childrenE = await e.el_();
       delegateE.scrollTop = childrenE.offsetTop - this.vMargin;
     }
   ]

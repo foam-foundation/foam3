@@ -113,7 +113,7 @@ foam.CLASS({
     // whenever the number of edges (top and bottom) visible in the scrollable
     // area changes.
     async function addObserver () {
-      const root = await this.el();
+      const root = await this.el_();
       const options = {
         root,
         rootMargin: '0px 0px 0px',
@@ -123,10 +123,10 @@ foam.CLASS({
       const observer = new IntersectionObserver(this.onScrollUpdate, options);
 
       (async () => {
-        observer.observe(await this.topEdge_.el());
+        observer.observe(await this.topEdge_.el_());
       })();
       (async () => {
-        observer.observe(await this.botEdge_.el());
+        observer.observe(await this.botEdge_.el_());
       })();
     }
   ],

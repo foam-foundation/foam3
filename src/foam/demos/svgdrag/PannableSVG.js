@@ -61,7 +61,7 @@ foam.CLASS({
     async function initializeControls() {
       const self = this;
       const svg = this.svg;
-      const viewContainer = await self.viewContainer.el();
+      const viewContainer = await self.viewContainer.el_();
       svg.on('pointerdown', function (evt) {
         self.drag = { x: evt.offsetX, y: evt.offsetY };
       })

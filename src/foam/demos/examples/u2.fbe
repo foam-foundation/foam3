@@ -383,7 +383,7 @@ Sometimes it is necessary to access the real underlying DOM node.
 --
 // U2 or U3
 var a = start('b');
-a.el().then(el => el.innerHTML = 'foobar');
+a.el_().then(el => el.innerHTML = 'foobar');
 
 start().br().end();
 

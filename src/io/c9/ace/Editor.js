@@ -99,7 +99,7 @@ foam.CLASS({
           }))
         .end();
 
-      this.container.el().then(e => {
+      this.container.el_().then(e => {
         self.renderEditor();
       });
     },

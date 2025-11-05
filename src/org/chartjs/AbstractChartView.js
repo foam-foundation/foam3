@@ -40,7 +40,7 @@ foam.CLASS({
   methods: [
     async function init() {
       if ( ! this.parentEl_ ) return null;
-      var el = await this.parentEl_.el();
+      var el = await this.parentEl_.el_();
       this.chart_ = this.ChartCView.create({
         config$: this.config$,
         height: el.clientHeight,

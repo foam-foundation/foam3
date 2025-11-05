@@ -131,7 +131,7 @@ foam.CLASS({
         var minTopPosition = null;
         // Find the closest visible section to the top
         for ( let hash in wizardPositionElements ) {
-          let el = await wizardPositionElements[hash].section.el();
+          let el = await wizardPositionElements[hash].section.el_();
           let pos = wizardPositionElements[hash].position;
           if ( ! el ) {
             delete wizardPositionElements[hash];
@@ -226,13 +226,13 @@ foam.CLASS({
             .addClass(this.myClass('rightside'))
             .call(function () {
               self.onDetach(async function() {
-                  self.scrollOffsetElement = await self.el();
+                  self.scrollOffsetElement = await self.el_();
               });
             })
             .start()
               .call(function () {
                 self.onDetach(async function() {
-                    self.mainScrollElement = await self.el();
+                    self.mainScrollElement = await self.el_();
                     self.scrollWizardPosition$.get();
                 });
               })

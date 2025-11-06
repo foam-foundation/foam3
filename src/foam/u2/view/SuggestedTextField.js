@@ -67,6 +67,11 @@
       name: 'daoKey'
     },
     {
+      class: 'Boolean',
+      name: 'onKey',
+      value: true
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.u2.Autocompleter',
       name: 'autocompleter',
@@ -157,7 +162,7 @@
       .addClass()
       .start(this.TextField, {
         data$: this.data$,
-        onKey: true,
+        onKey: this.onKey,
         placeholder$: this.placeholder$,
         autocomplete: false
       })
@@ -196,8 +201,12 @@
         })
         .add(this.refineInput$.map(v => v ? self.MORE_SUGGESTIONS : this.E().style({ display: 'contents' })));
     },
-    function fromProperty(prop) {
-      this.prop = prop;
+    function fromProperty(p) {
+      this.prop = p;
+
+      if ( ! this.hasOwnProperty('onKey') ) {
+        this.onKey = p.hasOwnProperty('onKey') ? p.onKey : p.validateObj || p.internalValidateObj;
+      }
     }
   ],
 

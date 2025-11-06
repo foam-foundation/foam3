@@ -154,7 +154,7 @@ foam.CLASS({
       position: absolute;
       padding: 6px;
       padding-top: 0;
-      position: absolute;
+      position: fixed;
       z-index: 1000;
     }
   `,

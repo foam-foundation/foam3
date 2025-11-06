@@ -92,6 +92,24 @@ foam.CLASS({
         x.test(result.pass, testName);
       });
 
+      // Test YYYYMMDD compact with space-separated compact time (HHMMSS - no colons)
+      let yyyymmddCompactTimeNoColons = [
+        { input: '20251030 153000', year: 2025, month: 9, day: 30, hour: 15, minute: 30, second: 0 },
+        { input: '20250115 143045', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '20241231 235959', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '19990101 000000', year: 1999, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
+        { input: '20000229 120000', year: 2000, month: 1, day: 29, hour: 12, minute: 0, second: 0 }
+      ];
+
+      yyyymmddCompactTimeNoColons.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `YYYYMMDD-Compact-Time-NoColons Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
       // Test YYYYMMDD compact with T separator and timezone - use parseDateTimeUTC for UTC results
       let yyyymmddCompactTimeUTC = [
         { input: '20250118T09:15:30+05:00', year: 2025, month: 0, day: 18, hour: 4, minute: 15, second: 30 },
@@ -154,6 +172,24 @@ foam.CLASS({
       mmddyyyyCompactTime.forEach((testCase, i) => {
         let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
         let testName = `MMDDYYYY-Compact-Time Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test MMDDYYYY compact with space-separated compact time (HHMMSS - no colons)
+      let mmddyyyyCompactTimeNoColons = [
+        { input: '10302025 153000', year: 2025, month: 9, day: 30, hour: 15, minute: 30, second: 0 },
+        { input: '01152025 143045', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '12312024 235959', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '01012000 000000', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
+        { input: '02292000 120000', year: 2000, month: 1, day: 29, hour: 12, minute: 0, second: 0 }
+      ];
+
+      mmddyyyyCompactTimeNoColons.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `MMDDYYYY-Compact-Time-NoColons Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }
@@ -267,6 +303,24 @@ foam.CLASS({
       ddmmyyyyCompactTime.forEach((testCase, i) => {
         let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
         let testName = `DDMMYYYY-Compact-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test DDMMYYYY compact with space-separated compact time (HHMMSS - no colons)
+      let ddmmyyyyCompactTimeNoColons = [
+        { input: '30102025 153000', year: 2025, month: 9, day: 30, hour: 15, minute: 30, second: 0 },
+        { input: '15012025 143045', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '31122024 235959', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '01012000 000000', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
+        { input: '29022000 120000', year: 2000, month: 1, day: 29, hour: 12, minute: 0, second: 0 }
+      ];
+
+      ddmmyyyyCompactTimeNoColons.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let testName = `DDMMYYYY-Compact-Time-NoColons Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }
@@ -416,6 +470,24 @@ foam.CLASS({
       yyyyddmmCompactTime.forEach((testCase, i) => {
         let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
         let testName = `YYYYDDMM-Compact-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYYYDDMM compact with space-separated compact time (HHMMSS - no colons)
+      let yyyyddmmCompactTimeNoColons = [
+        { input: '20253010 153000', year: 2025, month: 9, day: 30, hour: 15, minute: 30, second: 0 },
+        { input: '20251501 143045', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '20243112 235959', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '20000101 000000', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
+        { input: '20002902 120000', year: 2000, month: 1, day: 29, hour: 12, minute: 0, second: 0 }
+      ];
+
+      yyyyddmmCompactTimeNoColons.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let testName = `YYYYDDMM-Compact-Time-NoColons Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }

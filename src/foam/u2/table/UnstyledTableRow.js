@@ -102,7 +102,7 @@ foam.CLASS({
           .tag(this.OverlayActionListView, {
             data: Object.values(actions),
             lazy: true,
-            obj: obj,
+            id: obj.id,
             dao: self.actionDAO,
             showDropdownIcon: false,
             buttonStyle: 'TERTIARY',

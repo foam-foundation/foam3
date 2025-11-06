@@ -22,7 +22,7 @@ foam.CLASS({
     'foam.mlang.Constant',
     'foam.mlang.predicate.And',
     'foam.mlang.predicate.ContainsIC',
-    'foam.mlang.predicate.DotF',
+    'foam.mlang.expr.Dot',
     'foam.mlang.predicate.Eq',
     'foam.mlang.predicate.Neq',
     'foam.mlang.predicate.Gt',
@@ -299,12 +299,12 @@ foam.CLASS({
         let props               = cls.getAxiomsByClass(foam.lang.Property);
         let operator            = this.operator;
         let operatorIn          = this.operatorIn;
-        let property            = (prop) => seq1(1, sym('ws'),  sug(literal(prop.name, prop), {text: prop.name, label: prop.label, category: 'property'}));
+        let property            = (prop) => seq1(1, sym('ws'), sug(literal(prop.name, prop), {text: prop.name, label: prop.label, category: 'property'}));
 
 
         let innerProperty = (prop, innerProp) => {
           // require the user to type the dot before offering innerProp suggestions
-          let expr = foam.mlang.predicate.DotF.create({arg1: prop, arg2: innerProp});
+          let expr = foam.mlang.expr.Dot.create({arg1: prop, arg2: innerProp});
           return seq1(2,
             sym('ws'),
             sug(seq1(0, literal(prop.name), '.'), {text: prop.name + '.', label: prop.label, category: 'property'}),
@@ -454,8 +454,9 @@ foam.CLASS({
           float: function(v) {
             let start = end = parseFloat(v.trim());
             // account for float's precision inconsistencies
-            start -= Number.EPSILON;
-            end += Number.EPSILON;
+            let EPSILON = 0.0000000001; // the built in Number.EPSILON is too small to be useful here
+            start -= EPSILON;
+            end += EPSILON;
             return [ start, end ];
           },
 

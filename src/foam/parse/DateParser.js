@@ -51,6 +51,8 @@ foam.CLASS({
           // DD-MMM-YYYY, DD/MMM/YYYY, DDMMMYYYY, YYYY-DD-MMM, YYYY/DD/MMM, YYYYDDMMM
           // NOTE: yyyyddmmm-compact must come BEFORE ddmmmyyyy-compact to match correctly
           'date-monthname': alt(
+            // Support: MMM dd yyyy (e.g., Jan 02 2025)
+            sym('mmmddyyyy-space'),
             sym('ddmmmyyyy-sep'),
             sym('yyyyddmmm-sep'),
             sym('yyyyddmmm-compact'),  // Try this before ddmmmyyyy-compact
@@ -119,7 +121,13 @@ foam.CLASS({
 
           // YYYYMMDD compact: 8 digits (year 1900-2999) with optional space-separated time
           'yyyymmdd-compact': alt(
-            // With space and time
+            // With space and compact time (HHMMSS - no colons)
+            seq(
+              str(seq(sym('year4_1900_2999'), sym('month2'), sym('day2'))),
+              sym('datetime-sep'),
+              sym('hour2'), sym('minute2'), sym('second2')
+            ),
+            // With space and time with colons
             seq(
               str(seq(sym('year4_1900_2999'), sym('month2'), sym('day2'))),
               sym('datetime-sep'),
@@ -166,7 +174,13 @@ foam.CLASS({
 
           // MMDDYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern) with optional space-separated time
           'mmddyyyy-compact': alt(
-            // With space and time
+            // With space and compact time (HHMMSS - no colons)
+            seq(
+              str(repeat(range('0', '9'), null, 8, 8)),
+              sym('datetime-sep'),
+              sym('hour2'), sym('minute2'), sym('second2')
+            ),
+            // With space and time with colons
             seq(
               str(repeat(range('0', '9'), null, 8, 8)),
               sym('datetime-sep'),
@@ -242,7 +256,13 @@ foam.CLASS({
 
           // DDMMYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern) with optional space-separated time
           'ddmmyyyy-compact': alt(
-            // With space and time
+            // With space and compact time (HHMMSS - no colons)
+            seq(
+              str(repeat(range('0', '9'), null, 8, 8)),
+              sym('datetime-sep'),
+              sym('hour2'), sym('minute2'), sym('second2')
+            ),
+            // With space and time with colons
             seq(
               str(repeat(range('0', '9'), null, 8, 8)),
               sym('datetime-sep'),
@@ -311,7 +331,13 @@ foam.CLASS({
 
           // YYYYDDMM compact: 8 digits with optional space-separated time
           'yyyyddmm-compact': alt(
-            // With space and time
+            // With space and compact time (HHMMSS - no colons)
+            seq(
+              str(repeat(range('0', '9'), null, 8, 8)),
+              sym('datetime-sep'),
+              sym('hour2'), sym('minute2'), sym('second2')
+            ),
+            // With space and time with colons
             seq(
               str(repeat(range('0', '9'), null, 8, 8)),
               sym('datetime-sep'),
@@ -371,6 +397,11 @@ foam.CLASS({
           // DDMMMYYYY compact: DDMMMYYYY (no separators, like 31JAN2025)
           'ddmmmyyyy-compact': seq(
             sym('day2'), sym('month3alpha'), sym('year4')
+          ),
+
+          // MMM dd yyyy with spaces: "Jan 02 2025"
+          'mmmddyyyy-space': seq(
+            sym('month3alpha'), ' ', sym('day2'), ' ', sym('year4')
           ),
 
           // Component parsers
@@ -437,8 +468,8 @@ foam.CLASS({
             return result;
           },
 
-          // YYYYMMDD compact: 8 digits "20250115" or "20250115 14:30" or "20250115 14:30:45"
-          // v = "20250115" OR v = ["20250115", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
+          // YYYYMMDD compact: 8 digits "20250115" or "20250115 143045" or "20250115 14:30" or "20250115 14:30:45"
+          // v = "20250115" OR v = ["20250115", sep, HH, MM, SS] (compact time) OR v = ["20250115", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
           'yyyymmdd-compact': function(v) {
             let dateStr = typeof v === 'string' ? v : v[0];
             let result = {
@@ -449,20 +480,30 @@ foam.CLASS({
 
             // Check if time is present (array format)
             if ( Array.isArray(v) && v.length > 2 ) {
-              result.hour = parseInt(v[2]);
-              result.minute = parseInt(v[4]);
+              // Check if this is compact time format (HHMMSS - no colons)
+              // v = ["20250115", sep, HH, MM, SS] where v[3] is a 2-digit string (not ':')
+              if ( v[3] && v[3] !== ':' ) {
+                // Compact time format: HHMMSS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[3]);
+                result.second = parseInt(v[4]);
+              } else {
+                // Time with colons format: HH:MM or HH:MM:SS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[4]);
 
-              // Check for seconds (v[5] is optional array [: SS])
-              if ( v[5] && Array.isArray(v[5]) ) {
-                result.second = parseInt(v[5][1]);
-              }
+                // Check for seconds (v[5] is optional array [: SS])
+                if ( v[5] && Array.isArray(v[5]) ) {
+                  result.second = parseInt(v[5][1]);
+                }
 
-              // Check for timezone (last element if present)
-              let lastIdx = v.length - 1;
-              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
-                result.timezone = self.flattenTimezone(v[lastIdx]);
-              } else if ( v[lastIdx] === 'Z' ) {
-                result.timezone = 'Z';
+                // Check for timezone (last element if present)
+                let lastIdx = v.length - 1;
+                if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                  result.timezone = self.flattenTimezone(v[lastIdx]);
+                } else if ( v[lastIdx] === 'Z' ) {
+                  result.timezone = 'Z';
+                }
               }
             }
 
@@ -508,8 +549,8 @@ foam.CLASS({
             return result;
           },
 
-          // MMDDYYYY compact: 8 digits "01152025" or "01152025 14:30" or "01152025 14:30:45"
-          // v = "01152025" OR v = ["01152025", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
+          // MMDDYYYY compact: 8 digits "01152025" or "01152025 143045" or "01152025 14:30" or "01152025 14:30:45"
+          // v = "01152025" OR v = ["01152025", sep, HH, MM, SS] (compact time) OR v = ["01152025", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
           'mmddyyyy-compact': function(v) {
             let dateStr = typeof v === 'string' ? v : v[0];
             let result = {
@@ -520,20 +561,29 @@ foam.CLASS({
 
             // Check if time is present (array format)
             if ( Array.isArray(v) && v.length > 2 ) {
-              result.hour = parseInt(v[2]);
-              result.minute = parseInt(v[4]);
+              // Check if this is compact time format (HHMMSS - no colons)
+              if ( v[3] && v[3] !== ':' ) {
+                // Compact time format: HHMMSS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[3]);
+                result.second = parseInt(v[4]);
+              } else {
+                // Time with colons format: HH:MM or HH:MM:SS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[4]);
 
-              // Check for seconds (v[5] is optional array [: SS])
-              if ( v[5] && Array.isArray(v[5]) ) {
-                result.second = parseInt(v[5][1]);
-              }
+                // Check for seconds (v[5] is optional array [: SS])
+                if ( v[5] && Array.isArray(v[5]) ) {
+                  result.second = parseInt(v[5][1]);
+                }
 
-              // Check for timezone (last element if present)
-              let lastIdx = v.length - 1;
-              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
-                result.timezone = self.flattenTimezone(v[lastIdx]);
-              } else if ( v[lastIdx] === 'Z' ) {
-                result.timezone = 'Z';
+                // Check for timezone (last element if present)
+                let lastIdx = v.length - 1;
+                if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                  result.timezone = self.flattenTimezone(v[lastIdx]);
+                } else if ( v[lastIdx] === 'Z' ) {
+                  result.timezone = 'Z';
+                }
               }
             }
 
@@ -606,8 +656,8 @@ foam.CLASS({
             return result;
           },
 
-          // DDMMYYYY compact: 8 digits "15012025" or "15012025 14:30" or "15012025 14:30:45"
-          // v = "15012025" OR v = ["15012025", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
+          // DDMMYYYY compact: 8 digits "15012025" or "15012025 143045" or "15012025 14:30" or "15012025 14:30:45"
+          // v = "15012025" OR v = ["15012025", sep, HH, MM, SS] (compact time) OR v = ["15012025", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
           'ddmmyyyy-compact': function(v) {
             let dateStr = typeof v === 'string' ? v : v[0];
             let result = {
@@ -618,20 +668,29 @@ foam.CLASS({
 
             // Check if time is present (array format)
             if ( Array.isArray(v) && v.length > 2 ) {
-              result.hour = parseInt(v[2]);
-              result.minute = parseInt(v[4]);
+              // Check if this is compact time format (HHMMSS - no colons)
+              if ( v[3] && v[3] !== ':' ) {
+                // Compact time format: HHMMSS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[3]);
+                result.second = parseInt(v[4]);
+              } else {
+                // Time with colons format: HH:MM or HH:MM:SS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[4]);
 
-              // Check for seconds (v[5] is optional array [: SS])
-              if ( v[5] && Array.isArray(v[5]) ) {
-                result.second = parseInt(v[5][1]);
-              }
+                // Check for seconds (v[5] is optional array [: SS])
+                if ( v[5] && Array.isArray(v[5]) ) {
+                  result.second = parseInt(v[5][1]);
+                }
 
-              // Check for timezone (last element if present)
-              let lastIdx = v.length - 1;
-              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
-                result.timezone = self.flattenTimezone(v[lastIdx]);
-              } else if ( v[lastIdx] === 'Z' ) {
-                result.timezone = 'Z';
+                // Check for timezone (last element if present)
+                let lastIdx = v.length - 1;
+                if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                  result.timezone = self.flattenTimezone(v[lastIdx]);
+                } else if ( v[lastIdx] === 'Z' ) {
+                  result.timezone = 'Z';
+                }
               }
             }
 
@@ -702,8 +761,8 @@ foam.CLASS({
             return result;
           },
 
-          // YYYYDDMM compact: 8 digits "20251501" or "20251501 14:30" or "20251501 14:30:45"
-          // v = "20251501" OR v = ["20251501", sep, HH, :, MM, optional([:, SS]), optional(timezone)]
+          // YYYYDDMM compact: 8 digits "20251501" or "20251501 143045" or "20251501 14:30" or "20251501 14:30:45"
+          // v = "20251501" OR v = ["20251501", sep, HH, MM, SS] (compact time) OR v = ["20251501", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
           'yyyyddmm-compact': function(v) {
             let dateStr = typeof v === 'string' ? v : v[0];
             let result = {
@@ -714,20 +773,29 @@ foam.CLASS({
 
             // Check if time is present (array format)
             if ( Array.isArray(v) && v.length > 2 ) {
-              result.hour = parseInt(v[2]);
-              result.minute = parseInt(v[4]);
+              // Check if this is compact time format (HHMMSS - no colons)
+              if ( v[3] && v[3] !== ':' ) {
+                // Compact time format: HHMMSS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[3]);
+                result.second = parseInt(v[4]);
+              } else {
+                // Time with colons format: HH:MM or HH:MM:SS
+                result.hour = parseInt(v[2]);
+                result.minute = parseInt(v[4]);
 
-              // Check for seconds (v[5] is optional array [: SS])
-              if ( v[5] && Array.isArray(v[5]) ) {
-                result.second = parseInt(v[5][1]);
-              }
+                // Check for seconds (v[5] is optional array [: SS])
+                if ( v[5] && Array.isArray(v[5]) ) {
+                  result.second = parseInt(v[5][1]);
+                }
 
-              // Check for timezone (last element if present)
-              let lastIdx = v.length - 1;
-              if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
-                result.timezone = self.flattenTimezone(v[lastIdx]);
-              } else if ( v[lastIdx] === 'Z' ) {
-                result.timezone = 'Z';
+                // Check for timezone (last element if present)
+                let lastIdx = v.length - 1;
+                if ( v[lastIdx] !== undefined && typeof v[lastIdx] !== 'string' ) {
+                  result.timezone = self.flattenTimezone(v[lastIdx]);
+                } else if ( v[lastIdx] === 'Z' ) {
+                  result.timezone = 'Z';
+                }
               }
             }
 
@@ -789,6 +857,16 @@ foam.CLASS({
               year: parseInt(v[2]),
               month: self.parseMonthName(v[1]),
               day: parseInt(v[0])
+            };
+          },
+
+          // MMM dd yyyy with spaces: "Jan 02 2025"
+          // v = [MMM, ' ', DD, ' ', YYYY]
+          'mmmddyyyy-space': function(v) {
+            return {
+              year: parseInt(v[4]),
+              month: self.parseMonthName(v[0]),
+              day: parseInt(v[2])
             };
           },
 

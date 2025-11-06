@@ -43,7 +43,7 @@ foam.CLASS({
   listeners: [
     {
       name: 'pubUpdate',
-      on: ['border', 'borderClass', 'border2', 'borderClass2', 'gridColumns', 'flexContainerType', 'flexValue'].map(v => `this.propertyChange.${v}`),
+      on: ['border', 'borderClass', 'gridColumns', 'flexContainerType', 'flexValue'].map(v => `this.propertyChange.${v}`),
       code: function() {
         this.flowUpdated.pub();
       }

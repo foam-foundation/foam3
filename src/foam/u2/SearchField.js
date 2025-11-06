@@ -10,7 +10,7 @@
   extends: 'foam.u2.TextField',
 
   cssTokens: [
-    ['searchRoundness', '$inputBorderRadius']
+    [ 'searchRoundness', '$inputBorderRadius' ]
   ],
 
   css: `

@@ -60,7 +60,7 @@ foam.CLASS({
     }
 
     ^query-bar {
-      padding: 6px 8px;
+      padding: 6px 8px 6px 0;
     }
 
     ^buttons{
@@ -114,7 +114,7 @@ foam.CLASS({
     }
     @media only screen and (min-width:  /*%DISPLAYWIDTH.MD%*/ 768px) {
       ^query-bar {
-        padding: 12px 16px;
+        padding: 6px 8px 6px 0;
       }
     }
   `,

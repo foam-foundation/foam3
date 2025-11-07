@@ -5,10 +5,13 @@
 package foam.dao.index;
 
 import foam.lang.FObject;
+import foam.lang.Detachable;
 import foam.lang.Indexer;
 import foam.dao.AbstractDAO;
 import foam.dao.Sink;
 import foam.mlang.Expr;
+import foam.mlang.Constant;
+import foam.mlang.ArrayConstant;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.*;
 import foam.mlang.sink.Count;
@@ -94,6 +97,76 @@ public class TreeIndex
       if ( predicate.getClass().equals(Lte.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
         state = ( (TreeNode) state ).lte((TreeNode) state, expr.getArg2().f(expr), indexer_);
         return new Object[] {state, null};
+      }
+
+      if ( predicate.getClass().equals(In.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
+        var inPredicate = (In) predicate;
+        var arg2 = inPredicate.getArg2();
+
+        if ( arg2 instanceof Constant ) {
+          /**
+           * We can directly find key from tree.
+           * eg: MLang.IN(FObject.ID, "foo")
+           */
+          state = ((TreeNode) state).get((TreeNode) state, arg2.f(inPredicate), indexer_);
+          return new Object[] {state, null};
+        } else if ( arg2 instanceof ArrayConstant ) {
+          Object[] key = ((ArrayConstant) arg2).getValue();
+
+          if ( key == null || key.length == 0 ) {
+            /**
+             * Return nothing.
+             * eg: MLang.IN(FObject.ID, new Object[] {})
+             */
+            return new Object[] {null, null};
+          } else if ( key.length == 1 ) {
+            // eg: MLang.IN(FObject.ID, new Object[] {"foo"})
+            state = ((TreeNode) state).get((TreeNode) state, key[0], indexer_);
+            return new Object[] {state, null};
+          } else {
+            var treeRoot = (TreeNode) state;
+            long treeLevel = (long) treeRoot.level;
+            long treeheight = treeLevel; // treelevel is roughly equal to tree height.
+            long totalEdge = 2 << treeheight; // roughly estimation of total path. 
+            long averageEdge =  treeheight / 2; // roughly estimation of average edge jump required to search a key.
+
+            double estimateCardinality = (double) totalEdge / (double) treeRoot.size;
+
+            if ( averageEdge*key.length < totalEdge && estimateCardinality > 0.25) {
+              System.out.println("BBBBB average edge: " + averageEdge + ", total edge: " + totalEdge + ", estimateCardinality: " + estimateCardinality + ", tree level: " + treeLevel + ", tree height: " + treeheight);
+              /**
+               * precondition: edge jump is less than total edge and high cardinality.
+               * why need high cardinality?
+               *  The below will copy match data to a new tree. 
+               *  If the tail index contains many data, this optimization is not worth to do.
+               *  Note: if the tree node can provide a method that put key and tail, 
+               *          then we can simply put tail into new tree, without copy over all data in the index.
+               */
+              var sink = this.new TreeNodeSink();
+              for ( int i = 0 ; i < key.length ; i++ ) {
+                var node = treeRoot.get(treeRoot, key[i], indexer_);
+                if ( node != null ) {
+                  node.select(node, sink, 0, Long.MAX_VALUE, null, null, tail_, false);
+                }
+              }
+              return new Object[] {sink.getState(), null}; 
+            } else {
+              /**
+               * We can still trim the tree before full table scan.
+               */
+              Object minKey = key[0];
+              Object maxKey = key[0];
+              for ( int i = 1 ; i < key.length ; i++ ) {
+                minKey = indexer_.comparePropertyToValue(minKey, key[i]) > 0 ? key[i] : minKey;
+                maxKey = indexer_.comparePropertyToValue(maxKey, key[i]) < 0 ? key[i] : minKey;
+              }
+
+              state = ((TreeNode) state).lte((TreeNode) state, maxKey, indexer_);
+              state = ((TreeNode) state).gte((TreeNode) state, minKey, indexer_);
+              return new Object[] {state, null}; 
+            }
+          }
+        }
       }
     } else if ( predicate instanceof And ) {
       int length = ((And) predicate).getArgs().length;
@@ -219,5 +292,28 @@ public class TreeIndex
 
   public String toString() {
     return "TreeIndex(" + indexer_ + "," + tail_ + ")";
+  }
+
+  private class TreeNodeSink implements Sink {
+    TreeNode state_;
+
+    TreeNodeSink() {
+      state_ = TreeNode.getNullNode();
+    }
+
+    TreeNodeSink(TreeNode state) {
+      state_ = state;
+    }
+
+    TreeNode getState() {
+      return state_;
+    }
+    
+    public void put(Object obj, Detachable sub) {
+      state_ = state_.putKeyValue(state_, indexer_, returnKeyForValue((FObject) obj), (FObject) obj, tail_);
+    }
+    public void remove(Object obj, Detachable sub) {}
+    public void eof() {}
+    public void reset(Detachable sub) {}
   }
 }

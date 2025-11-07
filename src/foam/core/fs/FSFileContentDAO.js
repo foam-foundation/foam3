@@ -25,7 +25,13 @@ foam.CLASS({
       'java.nio.file.Path',
       'java.nio.file.Paths'
     ],
-
+    properties: [
+      {
+        class: 'String',
+        name: 'fileDaoName',
+        value: 'FSFileDAO'
+      }
+    ],
     methods: [
       {
         name: 'find_',
@@ -33,7 +39,7 @@ foam.CLASS({
           var ret = getDelegate().find(id);
           if ( ret != null ) return ret;
 
-          FSFile file = (FSFile) ((DAO) x.get("FSFileDAO")).find((String) id);
+          FSFile file = (FSFile) ((DAO) x.get(getFileDaoName())).find((String) id);
           if ( file == null ) {
             Loggers.logger(x, this).error("Error getting content: FSFile not found for id: ", (String) id);
             return null;

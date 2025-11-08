@@ -164,7 +164,7 @@ public class TreeIndex
 
               state = ((TreeNode) state).lte((TreeNode) state, maxKey, indexer_);
               state = ((TreeNode) state).gte((TreeNode) state, minKey, indexer_);
-              return new Object[] {state, null}; 
+              return new Object[] {state, predicate}; 
             }
           }
         }

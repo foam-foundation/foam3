@@ -132,8 +132,9 @@ public class TreeIndex
 
             double estimateCardinality = (double) totalEdge / (double) treeRoot.size;
 
-            if ( averageEdge*key.length < totalEdge && estimateCardinality > 0.25) {
-              System.out.println("BBBBB average edge: " + averageEdge + ", total edge: " + totalEdge + ", estimateCardinality: " + estimateCardinality + ", tree level: " + treeLevel + ", tree height: " + treeheight);
+            System.out.println("BBBBB average edge: " + averageEdge + ", require jump: " + averageEdge*key.length + ", total edge: " + totalEdge + ", estimateCardinality: " + estimateCardinality + ", tree level: " + treeLevel + ", tree height: " + treeheight);
+
+            if ( averageEdge*key.length < totalEdge>>2 && estimateCardinality > 0.25 ) {
               /**
                * precondition: edge jump is less than total edge and high cardinality.
                * why need high cardinality?

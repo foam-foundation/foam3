@@ -71,7 +71,7 @@ foam.CLASS({
       view: { class: 'foam.u2.Switch', size: 'SMALL' },
       postSet: function(old, nu) {
         if ( old && ! nu ) {
-          this.oldValue_ = this.data$.dot(this.prop.name).get();
+          this.oldValue_ = this.data$?.dot(this.prop.name).get();
           this.data$.dot(this.prop.name).set(null);
         } else if ( nu && this.oldValue_ ) {
           this.data$.dot(this.prop.name).set(this.oldValue_);
@@ -153,7 +153,7 @@ foam.CLASS({
         errorSlot = this.ConstantSlot.create({ value: null });
       }
 
-      this.optionalPropertyState$.follow(this.data$.dot(prop.name));
+
       var modeSlot = this.prop.createVisibilityFor(
         this.data$,
         this.controllerMode$);
@@ -181,6 +181,20 @@ foam.CLASS({
 
         return this.E().addClass(self.myClass('view')).add(e).enableClass('error', errorSlot.and(colorSlot));
       });
+
+      this.optionalPropertyState$.follow(this.data$.dot(prop.name).map(v =>  {
+        // If viewSlot elemet has focus, do not toggle optional state to prevent focus loss
+        let viewEl = viewSlot.get()?.el_();
+        if ( document.activeElement && viewEl?.contains(document.activeElement) ) {
+          let setValue = () => {
+            this.optionalPropertyState = v;
+          };
+          viewEl.removeEventListener('focusout', setValue);
+          viewEl.addEventListener('focusout', setValue, { once: true });
+          return this.optionalPropertyState;
+        }
+        return v;
+      }));
 
       this.layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot);
     }

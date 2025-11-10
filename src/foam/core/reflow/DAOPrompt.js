@@ -31,10 +31,6 @@ foam.CLASS({
 
       this.
         addClass().
-        start('h3').
-          show(this.data.labelVisible$).
-          add(self.data.label$).
-        end().
         start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
           add(self.dynamic(async function(data, version) {
             if ( ! data ) { debugger; return; }
@@ -134,6 +130,7 @@ foam.CLASS({
       name: 'label',
       label: 'Name',
       section: 'general',
+      hidden: true,
       onKey: true,
       expression: function(dao) {
         return dao.of.model_.plural;
@@ -159,17 +156,6 @@ foam.CLASS({
       expression: function(daoKey) {
         return this.resolveDAOFromKey(daoKey);
       }
-    },
-    {
-      class: 'String',
-      name: 'label',
-      section: 'general',
-      label: 'Name',
-      onKey: true,
-      expression: function(dao) {
-        return dao.of.model_.plural;
-      },
-      displayWidth: 60
     },
     {
       class: 'foam.dao.DAOProperty',
@@ -434,15 +420,6 @@ foam.CLASS({
       factory: function() {
         return foam.lang.Latch.create();
       }
-    },
-    // since the label is calculated by the expression when we try to hide it by making it empty that gets rendered
-    {
-      class: 'Boolean',
-      name: 'labelVisible',
-      section: 'general',
-      label: 'Show Name',
-      value: true,
-      view: { class: 'foam.u2.Switch' }
     },
     { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
   ],

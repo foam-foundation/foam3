@@ -154,6 +154,10 @@
   ],
 
   methods: [
+    function detach() {
+      this.overlay_.remove();
+      this.SUPER();
+    },
     function render() {
       var self = this;
       this.SUPER();
@@ -182,9 +186,9 @@
           this.inputFocused = true;
         })
       .end()
-      ctrl.add(self.overlay_);
+      self.overlay_.write();
       self.overlay_.add(this.slot(this.populate));
-      self.onDetach(() => self.overlay_.remove());
+      // self.onDetach(() => self.overlay_.remove());
     },
     function populate(filteredValues, data, inputFocused, suggestOnFocus, loading, error) {
       const self = this;

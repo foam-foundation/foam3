@@ -944,6 +944,13 @@ foam.CLASS({
       max-width: 90%;
       justify-content: center;
     }
+    ^loading-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
     ^loading-indicator .foam-u2-ProgressView {
       width: 100%;
     }
@@ -1071,6 +1078,13 @@ foam.CLASS({
       name: 'isLoading_',
       hidden: true,
       transient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'isLoadingMinimized_',
+      hidden: true,
+      transient: true,
+      value: false
     },
     {
       class: 'Int',
@@ -1303,24 +1317,34 @@ foam.CLASS({
           .addClass(self.myClass('output')).
         end().
         // Add loading indicator overlay
-        start()
-          .addClass(self.myClass('loading-indicator'))
-          .show(self.isLoading_$)
-          .start().addClass(self.myClass('loading-text'))
-            .add('Loading Flow...')
-          .end()
-          .start().addClass(self.myClass('loading-progress'))
-            .add(self.loadingProgress_$.map(function(progress) {
-              if ( self.totalBlocks_ > 0 ) {
-                return `Loading block ${progress} of ${self.totalBlocks_}`;
-              }
-              return 'Preparing flow...';
-            }))
-          .end()
-          .tag(foam.u2.ProgressView, {
-            data$: self.loadingPercentage_$
-          })
-        .end().
+        add(self.dynamic(function(isLoading_, isLoadingMinimized_) {
+          if ( isLoading_ && ! isLoadingMinimized_ ) {
+            this.start()
+              .addClass(self.myClass('loading-indicator'))
+              .start().addClass(self.myClass('loading-header'))
+                .start().addClass(self.myClass('loading-text'))
+                  .add('Loading Flow...')
+                .end()
+                .start(foam.u2.tag.Button, {
+                  buttonStyle: 'TEXT',
+                  size: 'SMALL',
+                  themeIcon: 'minus'
+                }).on('click', function() {
+                  self.isLoadingMinimized_ = true;
+                }).end()
+              .end()
+              .start().addClass(self.myClass('loading-progress'))
+                .add(self.loadingProgress_$.map(function(progress) {
+                  if ( self.totalBlocks_ > 0 ) {
+                    return `Loading block ${progress} of ${self.totalBlocks_}`;
+                  }
+                  return 'Preparing flow...';
+                }))
+              .end()
+              .tag(foam.u2.ProgressView, { data$: self.loadingPercentage_$ })
+            .end();
+          }
+        }, self.isLoading_$, self.isLoadingMinimized_$)).
         tag(self.ReflowToolBar);
 
         // These observers might cause scroll issues later when queries in the console can be edited

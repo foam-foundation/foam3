@@ -184,6 +184,7 @@
         .call(callFromProperty)
         .on('focus', () => {
           this.inputFocused = true;
+          this.onFocused();
         })
       .end()
       self.overlay_.write();
@@ -208,9 +209,11 @@
                 if ( fn?.then ) {
                   fn?.then(() => {
                     self.inputFocused = false;
+                    self.onFocused();
                   });
                 } else {
                   self.inputFocused = false;
+                  self.onFocused();
                 }
 
                 e.preventDefault();
@@ -232,7 +235,8 @@
     {
       name: 'onFocused',
       isFramed: true,
-      on: ['this.propertyChange.inputFocused'],
+      // Idk why this keeps detaching itself when on: is used
+      // on: ['this.propertyChange.inputFocused'],
       code: function() {
         if ( this.inputFocused ) {
           if ( ! this.textField_ ) return;

@@ -64,6 +64,7 @@ foam.CLASS({
     {
       name: 'optionalPropertyState',
       class: 'Boolean',
+      value: true,
       documentation: `
         Tracks the state of the optional toggle if this property is optional.
         True means the property is defined, false means it is undefined.
@@ -182,19 +183,21 @@ foam.CLASS({
         return this.E().addClass(self.myClass('view')).add(e).enableClass('error', errorSlot.and(colorSlot));
       });
 
-      this.optionalPropertyState$.follow(this.data$.dot(prop.name).map(v =>  {
-        // If viewSlot elemet has focus, do not toggle optional state to prevent focus loss
-        let viewEl = viewSlot.get()?.el_();
-        if ( document.activeElement && viewEl?.contains(document.activeElement) ) {
-          let setValue = () => {
-            this.optionalPropertyState = v;
-          };
-          viewEl.removeEventListener('focusout', setValue);
-          viewEl.addEventListener('focusout', setValue, { once: true });
-          return this.optionalPropertyState;
-        }
-        return v;
-      }));
+      if ( prop.optionalBorder ) {
+        this.optionalPropertyState$.follow(this.data$.dot(prop.name).map(v =>  {
+          // If viewSlot elemet has focus, do not toggle optional state to prevent focus loss
+          let viewEl = viewSlot.get()?.el_();
+          if ( document.activeElement && viewEl?.contains(document.activeElement) ) {
+            let setValue = () => {
+              this.optionalPropertyState = v;
+            };
+            viewEl.removeEventListener('focusout', setValue);
+            viewEl.addEventListener('focusout', setValue, { once: true });
+            return this.optionalPropertyState;
+          }
+          return v;
+        }));
+      }
 
       this.layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot);
     }

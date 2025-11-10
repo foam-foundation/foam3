@@ -386,6 +386,10 @@ foam.CLASS({
 
   requires: ['foam.u2.WrapperNode'],
 
+  mixins: [ 'foam.u2.StyleConfigurator' ],
+
+  implements: [ 'foam.core.reflow.Flowable' ],
+
   imports: [ 'data', 'showPrompts', 'addToScope', 'selected' ],
 
   exports: [ 'addValue', 'log', 'out', 'as block' ],
@@ -423,7 +427,6 @@ foam.CLASS({
       width: 100%;
       height: fit-content;
       overflow-y: hidden;
-      padding: 16px;
     }
     ^.expanded > ^toolbar {
       padding: 0 0 0.8rem 16px;
@@ -440,12 +443,12 @@ foam.CLASS({
     {
       name: 'general',
       order: 100,
-      properties: ['flowName', 'cmd']
+      properties: ['flowName', 'cmd', 'shown']
     },
     {
-      name: 'borderSettings',
+      name: 'titleSettings',
       order: 200,
-      properties: ['borderClass', 'border']
+      properties: ['border']
     }
   ],
 
@@ -478,28 +481,34 @@ foam.CLASS({
     {
       class: 'Class',
       name: 'borderClass',
+      hidden: true,
       label: 'Border Type',
-      view: function(_,X) {
-        // TODO: replace with strategizer
-        // TODO: add a new card with title border that uses the foam.u2.borders.CardBorder
-        // rather than foam.dashboard.view.Card
-        return {
-          class: 'foam.u2.view.ChoiceView',
-          choices: [
-            [foam.u2.borders.NullBorder, 'None'],
-            [foam.u2.borders.CardBorder, 'Card'],
-            [foam.u2.borders.BackgroundCard, 'Background'],
-            [foam.u2.borders.SpacingBorder, 'Padding'],
-            [foam.u2.borders.TitleBorder, 'Titled'],
-            [foam.dashboard.view.CardWrapper, 'Card with Title']
-          ]
-        };
-      }
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
     },
     {
       class: 'foam.u2.ViewSpec',
       name: 'border',
       label: 'Border Properties',
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
+      label: '',
+      initObject: function(obj) {
+        // Legacy support 
+        if ( obj.borderClass !== foam.u2.borders.TitleBorder ) {
+          switch ( obj.borderClass ) {
+            case foam.u2.borders.CardBorder:
+              obj.border_st = 'solid 1px $borderDefault';
+              obj.padding_st = '16px';
+              break;
+            case foam.u2.borders.BackgroundCard:
+              obj.backgroundColor_st = obj.border.backgroundColor || '$backgroundSecondary';
+              obj.padding_st = obj.border.padding || '16px';
+              break;
+            case foam.u2.borders.SpacingBorder:
+              obj.padding_st = '16px';
+              break;
+          }
+        }
+      },
       factory: function() { return {}; },
       preSet: function(_, n) {
         // Dont save the class so that the ViewSpec doesn't convert to a view
@@ -531,10 +540,17 @@ foam.CLASS({
   ],
 
   methods: [
+    function setTitle(title) {
+      if ( this.borderEl_ ) {
+        this.borderEl_.title = title;
+      } else {
+        this.border.title = title;
+      }
+    },
     function init() {
       let self = this;
       this.SUPER();
-      this.content.tag(this.borderClass, { ...this.border }, self.borderEl_$);
+      this.content.tag(foam.u2.borders.TitleBorder, { ...this.border }, self.borderEl_$);
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
       self.borderEl_.add(this.out);
     },
@@ -546,6 +562,9 @@ foam.CLASS({
       this.title.add(this.flowName$);
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
+      this.initCSSProps(this.content);
+      if ( ! this.padding_st )
+        this.padding_st = '16px';
     },
 
     function addValue(o, skipOutput) {
@@ -570,7 +589,10 @@ foam.CLASS({
     },
 
     function outputJSON(json) {
-      json.outputFObject_(this, this.cls_, [ this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER_CLASS, this.BORDER, this.SHOWN ]);
+      json.outputFObject_(this, this.cls_, [ 
+        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER,
+        this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
+      ]);
     }
   ],
 
@@ -599,10 +621,9 @@ foam.CLASS({
     {
       name: 'replaceBorder',
       isFramed: true,
-      on: ['this.propertyChange.borderClass'],
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
-        let el = this.borderClass.create({...(this.border || {})}, this);
+        let el = foam.u2.borders.TitleBorder.create({...(this.border || {})}, this);
         this.borderEl_.parentNode.add(el);
         this.out.moveTo(el);
         this.borderEl_.remove();

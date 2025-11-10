@@ -593,6 +593,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'shown',
+      hidden: true,
       value: true,
       postSet: function(o, n) {
         if ( o === n ) return;

@@ -20,17 +20,22 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'title',
+      class: 'String',
+      reactive: false,
+      optionalBorder: true
+    },
+    {
       class: 'String',
       name: 'titleStyle',
       value: 'h300',
+      visibility: function(title) {
+        return title ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
       view: {
         class: 'foam.u2.TextField',
         choices:  [ 'h100', 'h200', 'h300', 'h400', 'h500', 'h600', 'h700', 'p-semiBold', 'p-bold' ]
       }
-    },
-    {
-      name: 'title',
-      class: 'String'
     },
     {
       name: 'oldTitleStyle_',
@@ -43,6 +48,7 @@ foam.CLASS({
       let self = this;
       this.SUPER();
       this.start()
+        .show(this.title$)
         .add(this.title$)
         .addClass(this.myClass('baseTitle'))
         .call(function() {

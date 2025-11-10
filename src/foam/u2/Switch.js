@@ -30,10 +30,8 @@ foam.CLASS({
       position: relative;
       border-radius: 25px;
       border: solid 1px $borderStrong;
-      margin: 7px 0;
+      margin: 0;
       padding: 0px;
-      width: 40px;
-      height: 24px;
       transition: background-color 140ms, border-color 140ms;
     }
     ^:disabled {
@@ -43,10 +41,6 @@ foam.CLASS({
     ^:before {
       content: "";
       position: absolute;
-      height: 16px;
-      width: 16px;
-      left: 3px;
-      top: 3px;
       background-color: $textSecondary;
       transition: .2s ease;
       border-radius: 50%;
@@ -85,10 +79,52 @@ foam.CLASS({
     ^desc {
       color: $textSecondary;
     }
-
-  ^slider:before {
-    
-  }
-    `,
-
+    ^medium { 
+      width: 40px;
+      height: 24px;
+    }
+    ^medium:before {
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      top: 3px;
+    }
+    ^small { 
+      width: 32px;
+      height: 14px;
+    }
+    ^small:before {
+      height: 10px;
+      width: 10px;
+      left: 1px;
+      top: 1px;
+    }
+    ^small:checked:before {
+      transform: translateX(18px);
+    }
+  `,
+  properties: [
+    {
+      class: 'Enum',
+      of: 'foam.u2.SwitchSize',
+      name: 'size',
+      value: 'MEDIUM'
+    }
+  ],
+  methods: [
+    function render() {
+      this.SUPER();
+       this.addClass(this.slot(function(size) { return this.myClass(size.label.toLowerCase()) }));
+    }
+  ]
 });
+
+foam.ENUM({
+  package: 'foam.u2',
+  name: 'SwitchSize',
+  values: [
+    { name: 'SMALL', label: 'Small' },
+    { name: 'MEDIUM', label: 'Medium' },
+    { name: 'LARGE', label: 'Large' }
+  ]
+})

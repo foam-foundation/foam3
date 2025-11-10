@@ -474,6 +474,10 @@ foam.CLASS({
     function init() {
       this.SUPER();
 
+      if ( ! this.block?.border?.title ) {
+        this.block?.setTitle(this.label);
+      }
+
       x.auth.check(x, 'reflow.aql').then(enabled => {
         this.enableAQL_ = enabled;
       });

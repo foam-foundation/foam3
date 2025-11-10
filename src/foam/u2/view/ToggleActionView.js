@@ -18,6 +18,10 @@ foam.CLASS({
       fill: currentColor;
       border-color: $borderBrand;
     }
+    ^active^tertiary, ^active^tertiary svg, ^active^text, ^active^text svg {
+      background-color: transparent;
+      border-color: transparent;
+    }
   `,
   properties: [
     {

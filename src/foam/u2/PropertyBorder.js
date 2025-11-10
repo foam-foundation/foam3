@@ -60,7 +60,25 @@ foam.CLASS({
           INVALID: config$: someLabelSlot$.map(v => { return {label: v} }) --> Will not update prop label
       `
     },
-    [ 'helpEnabled', false ]
+    [ 'helpEnabled', false ],
+    {
+      name: 'optionalPropertyState',
+      class: 'Boolean',
+      documentation: `
+        Tracks the state of the optional toggle if this property is optional.
+        True means the property is defined, false means it is undefined.
+      `,
+      view: { class: 'foam.u2.Switch', size: 'SMALL' },
+      postSet: function(old, nu) {
+        if ( old && ! nu ) {
+          this.oldValue_ = this.data$.dot(this.prop.name).get();
+          this.data$.dot(this.prop.name).set(null);
+        } else if ( nu && this.oldValue_ ) {
+          this.data$.dot(this.prop.name).set(this.oldValue_);
+        }
+      }
+    },
+    'oldValue_'
   ],
 
   methods: [
@@ -135,6 +153,7 @@ foam.CLASS({
         errorSlot = this.ConstantSlot.create({ value: null });
       }
 
+      this.optionalPropertyState$.follow(this.data$.dot(prop.name));
       var modeSlot = this.prop.createVisibilityFor(
         this.data$,
         this.controllerMode$);
@@ -239,6 +258,14 @@ foam.CLASS({
     ^helper-icon svg {
       fill: currentColor;
     }
+    ^labelHolder {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+    }
   `,
 
   methods: [
@@ -248,11 +275,25 @@ foam.CLASS({
       this.
         addClass().
         show(visibilitySlot).
-        add(labelSlot).
-        add(supportingLabelSlot).
+        start().
+          addClass(this.myClass('labelHolder')).
+          start().
+          add(labelSlot).
+          add(supportingLabelSlot).
+          end().
+          callIf(prop.optionalBorder, function() {
+            this.start().
+              startContext({ data: self }).
+              addClass(self.myClass('optionalHolder')).
+              add(self.OPTIONAL_PROPERTY_STATE).
+              endContext().
+            end();
+          }).
+        end().
         start().
           addClass(this.myClass('propHolder')).
           start('span').
+            show(self.optionalPropertyState$).
             addClass(this.myClass('propHolderInner')).
             call(this.layoutView, [self, prop, viewSlot]).
           end().
@@ -301,3 +342,21 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.u2.',
+  name: 'PropertyBorderPropertyRefinement',
+  refines: 'foam.lang.Property',
+
+  properties: [
+    {
+      name: 'optionalBorder',
+      class: 'Boolean',
+      documentation: `
+        If true, the PropertyBorder will treat this property as optional.
+        This is useful for properties that are not required to be set, shows a toggle next to the label by default.
+      `,
+      value: false
+    }
+  ]
+})

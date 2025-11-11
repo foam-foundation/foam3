@@ -340,7 +340,6 @@ foam.POM({
     { name: "foam/dao/index/Index",                                   flags: "js" },
     { name: "foam/dao/index/ProxyIndex",                              flags: "js" },
     { name: "foam/dao/index/AltIndex",                                flags: "js" },
-    { name: "foam/dao/index/AltIndexTest",                            flags: "java&test" },
     { name: "foam/dao/index/ValueIndex",                              flags: "js" },
     { name: "foam/dao/index/AATree",                                  flags: "js" },
     { name: "foam/dao/index/TreeIndex",                               flags: "js" },

@@ -104,6 +104,7 @@ public class TreeIndex
         var arg2 = inPredicate.getArg2();
 
         if ( arg2 instanceof Constant ) {
+          //FIXME: constant can be a list.
           /**
            * We can directly find key from tree.
            * eg: MLang.IN(FObject.ID, "foo")

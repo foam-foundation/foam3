@@ -10,7 +10,9 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   javaImports: [
-
+    'foam.core.test.TestObject',
+    'foam.lang.Indexer',
+    'static foam.mlang.MLang.*',
   ],
 
   methods: [
@@ -18,13 +20,25 @@ foam.CLASS({
       name: 'runTest',
       javaCode: `
         System.out.println("###### TreeIndex");
+        testINPredicateWithPrimaryIndex(x);
       `
     },
     {
-      name: 'testINPredicate',
+      name: 'testINPredicateWithPrimaryIndex',
       args: 'Context x',
       javaCode: `
-      
+        var idIndex = new TreeIndex((Indexer) TestObject.getOwnClassInfo().getAxiomByName("id"), true);
+        Object state = null;
+
+        for ( long i = 0 ; i < 1000 ; i++ ) {
+          state = idIndex.put(state, new TestObject(i, ""+i/4));
+        }
+
+        var plan = idIndex.planSelect(state, null, 0, Long.MAX_VALUE, null, IN(TestObject.ID, new Long[]{1L}));
+
+        System.out.println(plan.cost());
+
+        System.out.println("AAAA: " + idIndex.size(state) + ", level: " + ((TreeNode) state).level);
       `
     }
   ]

@@ -1,1 +1,9 @@
 p({"class":"foam.dao.index.PersistedIndexTest","id":"PersistedIndex test","description":"tests the persisted index feature"})
+p({
+  class:"foam.dao.index.AltIndexTest",
+  id:"AltIndexTest"
+})
+p({
+  class:"foam.dao.index.TreeIndexTest",
+  id:"TreeIndexTest"
+})

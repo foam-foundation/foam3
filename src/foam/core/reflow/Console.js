@@ -1325,13 +1325,7 @@ foam.CLASS({
                 .start().addClass(self.myClass('loading-text'))
                   .add('Loading Flow...')
                 .end()
-                .start(foam.u2.tag.Button, {
-                  buttonStyle: 'TEXT',
-                  size: 'SMALL',
-                  themeIcon: 'minus'
-                }).on('click', function() {
-                  self.isLoadingMinimized_ = true;
-                }).end()
+                .tag(self.MINIMIZE_LOADING)
               .end()
               .start().addClass(self.myClass('loading-progress'))
                 .add(self.loadingProgress_$.map(function(progress) {
@@ -1725,6 +1719,16 @@ foam.CLASS({
         }, 16);
       },
       keyboardShortcuts: [ 'escape' ]
+    },
+    {
+      name: 'minimizeLoading',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'minus',
+      label: '',
+      code: function() {
+        this.isLoadingMinimized_ = true;
+      }
     },
     {
       name: 'stepUpHistory',

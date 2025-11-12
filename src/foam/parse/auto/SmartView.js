@@ -137,7 +137,8 @@ foam.CLASS({
   requires: [
     'foam.parse.SimpleQueryParser',
     'foam.parse.auto.SuggestionView',
-    'foam.u2.TextField'
+    'foam.u2.TextField',
+    'foam.u2.md.OverlayDropdown'
   ],
 
   imports: [
@@ -146,17 +147,22 @@ foam.CLASS({
 
   css: `
     ^suggestions {
-      background: $backgroundDefault;
-      border-radius: $inputBorderRadius;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 4px;
       overflow-y: auto;
-      position: absolute;
-      padding: 6px;
-      padding-top: 0;
-      position: fixed;
       z-index: 1000;
     }
+    ^suggestions > :not(^suggestionSeparator) {
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+    ^suggestions > :not(^suggestionSeparator):hover {
+      background-color: $backgroundBrandTertiary;
+      cursor: pointer;
+    }
+    ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
   `,
 
   properties: [
@@ -185,6 +191,19 @@ foam.CLASS({
       documentation: 'Current suggestions as a map of string keys to Suggestion objects.'
     },
     'field',
+    {
+      class: 'FObjectProperty',
+      of: 'foam.u2.Element',
+      name: 'overlay_',
+      factory: function() {
+        return this.OverlayDropdown.create({
+          closeOnLeave: false,
+          // styled: false,
+          parentEdgePadding: '4',
+          lockToParentWidth: true
+        });
+      }
+    },
     {
       name: 'apply',
       factory: function() {
@@ -236,6 +255,10 @@ foam.CLASS({
   ],
 
   methods: [
+    function detach() {
+      this.overlay_.remove();
+      this.SUPER();
+    },
     function render() {
       let self = this;
 
@@ -261,15 +284,18 @@ foam.CLASS({
             this.attrSlot(null, 'input').linkFrom(self.preview$);
           }).
         on('keydown', this.onKeyPress, true).
-        end().
-        start().
-          addClass(this.myClass('suggestions')).
-          add(this.dynamic(function (suggestions) {
-            self.populateSuggestions(this, suggestions);
-          })).
         end();
 
       this.field.on('focus', this.onPreviewChange);
+      self.overlay_.parentEl = this.field.el_();
+      self.add(self.overlay_);
+      self.overlay_
+        .start()
+          .addClass(this.myClass('suggestions'))
+          .add(this.dynamic(function (suggestions) {
+            self.populateSuggestions(this, suggestions);
+          }))
+        .end();
     },
 
     function containsIC(str, sub) {
@@ -297,62 +323,18 @@ foam.CLASS({
 
       let parent = e.parentNode;
 
-      if ( ! ss.length ) { parent.show(false); return; }
-      parent.show(true);
+      if ( ! ss.length ) { self.overlay_.close(); return; }
+      self.overlay_.open();
 
-      e.start().
-        forEach(ss, function(s, i, a) {
+      e.forEach(ss, function(s, i, a) {
+          if ( i !== 0 ) this.start().addClass(self.myClass('suggestionSeparator')).end();
           let sug = self.suggestions[s];
-
-          this.start('div').
-            style({margin: '6px'}).
-            tag(sug.view || self.SuggestionView, {
-              data: sug,
-              suggestText: self.suggestText.bind(self)
-            });
-
-          if ( i != a.length-1 )
-            this.start('hr').style({marginBottom: '-6px'});
+          this.tag(sug.view || self.SuggestionView, {
+            data: sug,
+            suggestText: self.suggestText.bind(self)
+          });
         });
-
-
-      setTimeout(() => self.setPosition(parent), 0);
    },
-
-    function setPosition(e) {
-      let screenWidth  = this.window.innerWidth;
-      let domRect      = this.parentNode.el_().getBoundingClientRect();
-      let screenHeight = this.window.innerHeight;
-      let scrollY      = this.window.scrollY;
-      let rectT        = this.field.el_().getBoundingClientRect();
-      // var parentCheck  = this.parentEdgePadding > -1;
-
-//      console.log('screenWidth:',screenWidth,'domRect:',domRect,'screenHeight:',screenHeight,'scrollY:',scrollY,'parentCheck:',parentCheck);
-      if ( domRect.top - scrollY < screenHeight / 2 ) {
-        e.style({maxHeight: (screenHeight-domRect.y-domRect.height-20) + 'px'});
-      } else {
-        e.style({maxHeight: (domRect.y-20-scrollY) + 'px'});
-        let rect = e.el_().getBoundingClientRect();
-        let rectT = this.field.el_().getBoundingClientRect();
-        e.style({top: (domRect.y - rect.height - 10)+ 'px'});
-      }
-
-      e.style({width: rectT.width});
-
-      // TODO: shift left if too close to the right edge
-      /*
-      if ( domRect.left > 3 * (screenWidth / 4) ) {
-        this.left = 'auto';
-        this.right = parentCheck ? screenWidth - domRect.right : screenWidth - this.x + 10;
-      } else if (domRect.left < 75) {
-        this.left = parentCheck ? domRect.left : this.x + 10;
-        this.right = 'auto';
-      } else {
-        this.left = parentCheck ? domRect.left : this.x - 75;
-        this.right = 'auto';
-        }
-      */
-    },
 
     function reset() {
       this.maxPos          = 0;

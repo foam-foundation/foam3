@@ -68,23 +68,16 @@ foam.CLASS({
     function render() {
       var self = this;
       this.start().addClass(this.myClass('promptHolder'))
-        // .add(this.dynamic(function(opened) {
-        //   if (opened) {
-        //     this.start().addClass(self.myClass('expanded-island'), self.myClass('holder'))
-        //       .start(self.spec, { data: self.data })
-        //       .end();
-        //   }
-        // }))
         .start()
-        .tag(this.ToggleActionView, {
-          data: this,
-          action: this.COMPONENTS,
-          label$: self.buttonLabel$,
-          buttonStyle: 'SECONDARY',
-          themeIcon$: self.buttonIcon$,
-          actionState$: self.opened$
-        })
-        .end()
+          .tag(this.ToggleActionView, {
+            data: this,
+            action: this.COMPONENTS,
+            label$: self.buttonLabel$,
+            buttonStyle: 'SECONDARY',
+            themeIcon$: self.buttonIcon$,
+            actionState$: self.opened$
+          })
+          .end()
         .end();
     }
   ],

@@ -624,7 +624,7 @@ foam.CLASS({
   css: `
     ^ {
       display: grid;
-      grid-template-rows: max-content;
+      grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: 100vh;
     }
@@ -632,7 +632,9 @@ foam.CLASS({
       display: flex;
       flex-direction: row;
       overflow: auto;
-      height: 90vh;
+      grid-row: 2;
+      height: 100%;
+      min-height: 0;
     }
     ^header {
       padding: 5px 24px;

@@ -231,7 +231,8 @@ foam.CLASS({
           return result;
         }
       }
-    }
+    },
+    'prop'
   ],
 
   methods: [
@@ -240,6 +241,10 @@ foam.CLASS({
 
       // Recalculate suggestions when the preview text changes
       this.preview$.sub(this.onPreviewChange);
+
+      if ( this.prop?.onKey ) {
+        this.data$.linkFrom(this.preview$);
+      }
 
       this.SUPER();
       this
@@ -251,6 +256,7 @@ foam.CLASS({
         }, this.field$).
           on('blur', this.onBlur).
           call(function() {
+            self.prop && this.fromProperty?.(self.prop);
             // The 'preview' Property is always bound like its onKey mode
             this.attrSlot(null, 'input').linkFrom(self.preview$);
           }).
@@ -356,9 +362,14 @@ foam.CLASS({
 
     function suggestText(txt) {
       let str = this.preview.substring(0, this.maxPos).trim();
+      // This causes issues when suggesting units like 'px' after numbers
       if ( ! str.endsWith('.') ) str += ' ';
       this.preview = ( str + txt ).trimStart();
       this.field.focus();
+    },
+    function fromProperty(prop) {
+      this.SUPER(prop);
+      this.prop = prop;
     }
   ],
 
@@ -396,6 +407,11 @@ foam.CLASS({
         // Close the selections list when the user leaves the field (and descendents)
         if ( ! this.element_.parentNode.contains(document.activeElement) ) {
           this.reset();
+          // Fire a manaual change event since this will not have fired if the user
+          // never changed the text field value and only used the completer.
+          let el = this.field.el_();
+          let event = new Event('change', { bubbles: true });
+          el.dispatchEvent(event);
         }
       }
     },

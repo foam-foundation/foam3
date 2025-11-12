@@ -51,7 +51,7 @@ foam.CLASS({
       }
     },
     { name: 'data', hidden: true },
-    { name: 'obj', hidden: true },
+    { name: 'obj',  hidden: true },
     { name: 'mode', hidden: true },
     ['aspectRatio', 'auto']
   ],

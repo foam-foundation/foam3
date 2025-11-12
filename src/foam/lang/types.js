@@ -294,6 +294,12 @@ foam.CLASS({
       value: function(val, timeFirst = false) {
         return foam.Date.formatDate(val, timeFirst);
       }
+    },
+    {
+      name: 'formatLocale',
+      value: function(val) {
+        return foam.util.DateUtil.format(val);
+      }
     }
   ]
 });
@@ -344,6 +350,12 @@ foam.CLASS({
         // Use DateUtil.formatWithTimeControl with timeFirst parameter and UTC timezone
         var result = foam.util.DateUtil.formatWithTimeControl(val, timeFirst, 'UTC');
         return result;
+      }
+    },
+    {
+      name: 'formatLocale',
+      value: function(val) {
+        return foam.util.DateUtil.format(val, 'UTC');
       }
     }
   ]
@@ -601,6 +613,10 @@ foam.CLASS({
       value: 'String',
       documentation: 'The FOAM sub-type of this property.'
     },
+    [
+      'isDefaultValue',
+      function(v) { return ! v || ! v.length; }
+    ],
     [ 'type', 'String[]' ],
     [
       'factory',

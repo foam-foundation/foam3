@@ -66,7 +66,19 @@ foam.CLASS({
       class: 'Boolean',
       name: 'overlayInitialized_'
     },
-    'dao',
+    {
+      name: 'dao',
+      documentation: `Optional DAO to re-fetch the object from before passing it to actions.
+       Useful when creating action lists for incomplete objects like projections.`
+    },
+    {
+      class: 'String',
+      name: 'id',
+      documentation: `Id for the obj the actions use as data, must be provided if dao is provided.`,
+      expression: function(obj) {
+        return obj?.id;
+      }
+    },
     {
       class: 'Boolean',
       name: 'showDropdownIcon',
@@ -244,7 +256,8 @@ foam.CLASS({
       this.overlay_.open(x, y);
 
       if ( ! this.obj && this.dao ) {
-        this.obj = await this.dao.inX(this.__context__).find(this.obj.id);
+        foam.assert(this.id, 'Id must be provided when obj needs to be fetched in OverlayActionListView');
+        this.obj = await this.dao.inX(this.__context__).find(this.id);
       }
 
       self.availabilities_$.follow(self.createAvailabilitySlotArray())

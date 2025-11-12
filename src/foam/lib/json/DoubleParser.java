@@ -17,11 +17,11 @@ public class DoubleParser
 
 
   public PStream parse(PStream ps, ParserContext x) {
-    StringBuilder n = new StringBuilder();
-    boolean decimalFound = false;
-    boolean exponentFound = false;
-    boolean negativeExponent = false;
-    char previousChar;
+    StringBuilder n                = new StringBuilder();
+    boolean       decimalFound     = false;
+    boolean       exponentFound    = false;
+    boolean       negativeExponent = false;
+    char          previousChar;
 
     if ( ! ps.valid() ) return null;
 

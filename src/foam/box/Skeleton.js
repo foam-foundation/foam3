@@ -21,6 +21,13 @@ foam.INTERFACE({
   implements: [ 'foam.box.Box' ],
   documentation: 'Skeleton marker interface.',
 
+  properties: [
+    {
+      class: 'String',
+      name: 'serviceName'
+    }
+  ],
+
   methods: [
     {
       name: 'setDelegateFactory',

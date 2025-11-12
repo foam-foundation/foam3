@@ -16,7 +16,10 @@ foam.CLASS({
       gap: 1rem;
     }
     ^filters-container {
-      padding: 12px;
+      padding: 0;
+    }
+    ^filters-container .foam-u2-filter-FilterView-container-drawer-open {
+      padding: 10px 0 0;
     }
   `,
 
@@ -31,7 +34,6 @@ foam.CLASS({
           .show(this.data.labelVisible$)
           .add(self.data.label$)
         .end()
-        .br()
         .start()
           .show(self.data.showSearch$)
           .add(self.data.filterView$)

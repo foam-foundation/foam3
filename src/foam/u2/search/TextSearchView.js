@@ -22,7 +22,7 @@ foam.CLASS({
 
   requires: [
     'foam.comics.SearchMode',
-    'foam.parse.QueryParser',
+    'foam.parse.SimpleQueryParser',
     'foam.u2.tag.Input'
   ],
 
@@ -68,23 +68,18 @@ foam.CLASS({
     {
       name: 'queryParser',
       factory: function() {
-        return this.QueryParser.create({ of: this.of });
+        return this.SimpleQueryParser.create({ of: this.of });
       }
     },
     {
       class: 'Int',
       name: 'width',
-      value: 60
+      value: 80
     },
     'property',
     {
       name: 'predicate',
       factory: function() { return this.TRUE; }
-    },
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'viewSpec',
-      value: { class: 'foam.u2.SearchField' }
     },
     {
       name: 'view'
@@ -113,9 +108,17 @@ foam.CLASS({
 
   methods: [
     function render() {
+      this.__subContext__.register(foam.u2.SearchField, 'foam.u2.TextField');
+
+      let viewSpec = {
+        class: 'foam.parse.auto.SmartView',
+        parser: this.queryParser
+      };
+//      value: { class: 'foam.u2.SearchField' }
+
       this
         .addClass(this.myClass())
-        .start(this.viewSpec, {
+        .start(viewSpec, {
           alwaysFloatLabel: true,
           label$: this.label$,
           ariaLabel$: this.label$,

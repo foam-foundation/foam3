@@ -87,10 +87,6 @@ foam.CLASS({
 
   sections: [
     {
-      name: 'general',
-      title: 'General'
-    },
-    {
       name: 'output',
       title: 'Output',
       collapsable: false
@@ -344,6 +340,7 @@ foam.CLASS({
       class: 'String',
       name: 'order',
       section: 'filter',
+      onKey: true,
       displayWidth: 60,
       view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
     },
@@ -352,17 +349,25 @@ foam.CLASS({
       name: 'columns',
       section: 'filter',
       displayWidth: 60,
+      onKey: false,
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertySuggestedField'
         };
       },
-      validateObj: function(columns) {
-        var a = columns.trim().split(',').map(c => c.trim());
+      xxxvalidateObj: function(columns) {
+        let a = columns.trim().split(',').map(c => c.trim());
 
         for ( let i = 0 ; i < a.length ; i++ ) {
-          let p = this.dao.of.getAxiomByName(a[i]);
-          if ( ! p ) return 'Unknown Property: ' + a[i];
+          let of = this.dao.of;
+          let names = a[i].split('.');
+          for ( let j = 0 ; j < names.length ; j++ ) {
+            let name = names[j];
+            if ( ! of ) return 'Inner Property on Non Object: ' + name;
+            let p = of.getAxiomByName(name);
+            if ( ! p ) return 'Unknown Property: ' + name;
+            of = p.of;
+          }
         }
       }
     },

@@ -117,20 +117,30 @@ foam.CLASS({
       for ( var i = 0 ; i < this.args.length ; i++ ) {
         var arg      = sink.args[i];
         var argProps = arg.toProperties ? arg.toProperties() : [{ name: 'value' }];
+        var propsForArg = [];
 
+        // Collect the properties that belong to this arg
         if ( argProps && Array.isArray(argProps) ) {
-          // Each arg might contribute multiple properties
           for ( var j = 0 ; j < argProps.length ; j++ ) {
             if ( propIndex < ps.length ) {
-              ps[propIndex].set(o, arg.value);
+              propsForArg.push(ps[propIndex]);
               propIndex++;
             }
           }
         } else {
-          // Single property from this arg
           if ( propIndex < ps.length ) {
-            ps[propIndex].set(o, arg.value);
+            propsForArg.push(ps[propIndex]);
             propIndex++;
+          }
+        }
+
+        // Delegate to child's setPropertyValues if it has one
+        if ( arg.setPropertyValues ) {
+          arg.setPropertyValues(o, sink.args[i], propsForArg);
+        } else {
+          // Otherwise, set values the normal way
+          for ( var k = 0 ; k < propsForArg.length ; k++ ) {
+            propsForArg[k].set(o, arg.value);
           }
         }
       }

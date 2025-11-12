@@ -981,7 +981,9 @@ foam.CLASS({
         console.error('No symbol found for', this.name);
         return undefined;
       }
-      return ps.apply(p, grammar);
+      const ret = ps.apply(p, grammar);
+      // console.log(this.toString(), ret?.result);
+      return ret;
     },
 
     function toString() { return 'sym("' + this.name + '")'; }
@@ -1042,6 +1044,11 @@ foam.CLASS({
       return this.Sequence.create({
         args: Array.from(arguments)
       });
+    },
+
+    function cut(n) {
+      // TODO: make a Cut parser which does the same but more efficiently
+      return this.str(this.repeat(this.anyChar(), null, n, n));
     },
 
     function rep(p, delim, min, max = Number.MAX_SAFE_INTEGER) {

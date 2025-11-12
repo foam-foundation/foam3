@@ -72,7 +72,7 @@ foam.CLASS({
           .style({ width:'100%', height:(height||300)+'px', position:'relative', overflowX:'auto', display:'flex', flexDirection:'column', alignItems: (alignment ? alignment.alignmentStyle : 'center') })
           .start('table').addClass(self.myClass('table'))
             .start('thead').start('tr')
-              .start('th').addClass(self.myClass('th')).add('') .end()
+              .start('th').addClass(self.myClass('th')).add('Year') .end()
               .forEach(years, function(y){ this.start('th').addClass(self.myClass('th')).add(y).end(); })
             .end().end()
             .start('tbody')

@@ -34,6 +34,13 @@ foam.CLASS({
       name: 'tokenURL',
       documentation: 'URL to fetch JWTs from using authorization code'
     },
+    {
+      class: 'StringArray',
+      name: 'domains',
+      documentation: 'List of hostnames that should offer this OAuth provider.',
+      factory: function() { return []; },
+      javaFactory: 'return new String[] {};'
+    },
   ],
   methods: [
     {

@@ -150,13 +150,26 @@ foam.CLASS({
       var screenHeight = this.window.innerHeight;
       var scrollY      = this.window.scrollY;
       var parentCheck  = this.parentEdgePadding > -1;
+      var el = this.dropdownE_.el_?.();
+      var contentHeight = el.scrollHeight || el.offsetHeight || 0;
+      let availableHeight;
       if ( domRect.top - scrollY < screenHeight / 2 ) {
         this.top = parentCheck ? domRect.bottom + this.parentEdgePadding : this.y; 
         this.bottom = 'auto';
+        availableHeight = screenHeight - this.top;
       } else {
         this.top = 'auto'; 
         this.bottom = parentCheck ? 
           screenHeight - domRect.top + this.parentEdgePadding : screenHeight - this.y;
+        availableHeight = screenHeight - this.bottom;
+      }
+      if ( contentHeight > availableHeight ) {
+        availableHeight = Math.max(0, availableHeight - 8);
+        el.style.maxHeight = availableHeight + 'px';
+        el.style.overflowY = 'auto';
+      } else {
+        el.style.maxHeight = '';
+        el.style.overflowY = '';
       }
       if ( domRect.left > 3 * (screenWidth / 4) ) {
         this.left = 'auto';

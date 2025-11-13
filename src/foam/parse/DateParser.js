@@ -95,10 +95,10 @@ foam.CLASS({
           // YYYYMMDD with separators and optional time
           // YYYY-MM-DD, YYYY/MM/DD, YYYY-MM-DDTHH:MM, YYYY-MM-DDTHH:MM:SS, YYYY-MM-DDTHH:MM:SS.sss
           'yyyymmdd-sep': alt(
-            // With milliseconds and timezone
+            // With fractional seconds (milliseconds/microseconds) and timezone
             seq(
               sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
-              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('millisecond3'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
               optional(sym('timezone'))
             ),
             // With seconds and timezone
@@ -154,6 +154,12 @@ foam.CLASS({
           // MMDDYYYY with separators and optional time
           // MM-DD-YYYY, MM/DD/YYYY, MM-DD-YYYY HH:MM, MM-DD-YYYY HH:MM:SS
           'mmddyyyy-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
             // With seconds and timezone
             seq(
               sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
@@ -201,6 +207,12 @@ foam.CLASS({
           // YYMMDD with separators and optional time
           // YY-MM-DD, YY/MM/DD, YY-MM-DD HH:MM, YY-MM-DD HH:MM:SS with optional timezone
           'yymmdd-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
             // With seconds and timezone
             seq(
               sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
@@ -236,6 +248,12 @@ foam.CLASS({
           // DD-MM-YYYY, DD/MM/YYYY, DD-MM-YYYY HH:MM, DD-MM-YYYY HH:MM:SS
           // DD-MM-YYYYTHH:MM:SS+TZ (with T separator and timezone)
           'ddmmyyyy-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
             // With seconds and timezone
             seq(
               sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
@@ -277,6 +295,12 @@ foam.CLASS({
           // DD-MM-YY, DD/MM/YY, DD-MM-YY HH:MM, DD-MM-YY HH:MM:SS
           // DD-MM-YYTHH:MM:SS+TZ (with T separator and timezone)
           'ddmmyy-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
             // With seconds and timezone
             seq(
               sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
@@ -311,6 +335,12 @@ foam.CLASS({
           // YYYY-DD-MM, YYYY/DD/MM, YYYY-DD-MM HH:MM, YYYY-DD-MM HH:MM:SS
           // YYYY-DD-MMTHH:MM:SS+TZ (with T separator and timezone)
           'yyyyddmm-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
             // With seconds and timezone
             seq(
               sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
@@ -358,6 +388,12 @@ foam.CLASS({
           // YY-DD-MM, YY/DD/MM, YY-DD-MM HH:MM, YY-DD-MM HH:MM:SS
           // YY-DD-MMTHH:MM:SS+TZ (with T separator and timezone)
           'yyddmm-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
             // With seconds and timezone
             seq(
               sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
@@ -430,7 +466,7 @@ foam.CLASS({
           hour2: str(seq(range('0', '2'), range('0', '9'))),
           minute2: str(seq(range('0', '5'), range('0', '9'))),
           second2: str(seq(range('0', '5'), range('0', '9'))),
-          millisecond3: str(repeat(range('0', '9'), null, 3, 3))
+          fractionalSeconds: str(repeat(range('0', '9'), null, 1, 6))  // 1-6 digits for milliseconds or microseconds
         };
       }
     },
@@ -442,7 +478,7 @@ foam.CLASS({
 
         let actions = {
           // YYYYMMDD with separators: YYYY-MM-DD, YYYY/MM/DD with optional time
-          // v = [YYYY, sep, MM, sep, DD] or [YYYY, sep, MM, sep, DD, T/space, HH, :, MM, :, SS, ., ms, timezone]
+          // v = [YYYY, sep, MM, sep, DD] or [YYYY, sep, MM, sep, DD, T/space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'yyyymmdd-sep': function(v) {
             let result = {
               year: parseInt(v[0]),
@@ -455,7 +491,17 @@ foam.CLASS({
               result.hour = parseInt(v[6]);
               if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
-              if ( v[12] !== undefined ) result.millisecond = parseInt(v[12]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                // If less than 3 digits, pad with zeros; if more than 3, truncate to milliseconds
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
@@ -524,7 +570,7 @@ foam.CLASS({
           },
 
           // MMDDYYYY with separators: MM-DD-YYYY, MM/DD/YYYY with optional time
-          // v = [MM, sep, DD, sep, YYYY] or [MM, sep, DD, sep, YYYY, space, HH, :, MM, :, SS, timezone]
+          // v = [MM, sep, DD, sep, YYYY] or [MM, sep, DD, sep, YYYY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'mmddyyyy-sep': function(v) {
             let result = {
               year: parseInt(v[4]),
@@ -537,6 +583,16 @@ foam.CLASS({
               result.hour = parseInt(v[6]);
               if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
@@ -591,7 +647,7 @@ foam.CLASS({
           },
 
           // YYMMDD with separators: YY-MM-DD, YY/MM/DD with optional time and timezone
-          // v = [YY, sep, MM, sep, DD] or [YY, sep, MM, sep, DD, space, HH, :, MM, :, SS, timezone]
+          // v = [YY, sep, MM, sep, DD] or [YY, sep, MM, sep, DD, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'yymmdd-sep': function(v) {
             let twoDigitYear = parseInt(v[0]);
             let result = {
@@ -607,6 +663,16 @@ foam.CLASS({
 
               // Check if seconds are present (v[10] exists and is not timezone)
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
@@ -631,7 +697,7 @@ foam.CLASS({
           },
 
           // DDMMYYYY with separators: DD-MM-YYYY, DD/MM/YYYY with optional time
-          // v = [DD, sep, MM, sep, YYYY] or [DD, sep, MM, sep, YYYY, space, HH, :, MM, :, SS, timezone]
+          // v = [DD, sep, MM, sep, YYYY] or [DD, sep, MM, sep, YYYY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'ddmmyyyy-sep': function(v) {
             let result = {
               year: parseInt(v[4]),
@@ -644,6 +710,16 @@ foam.CLASS({
               result.hour = parseInt(v[6]);
               if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
@@ -698,7 +774,7 @@ foam.CLASS({
           },
 
           // DDMMYY with separators: DD-MM-YY, DD/MM/YY with optional time
-          // v = [DD, sep, MM, sep, YY] or [DD, sep, MM, sep, YY, space, HH, :, MM, :, SS, timezone]
+          // v = [DD, sep, MM, sep, YY] or [DD, sep, MM, sep, YY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'ddmmyy-sep': function(v) {
             let twoDigitYear = parseInt(v[4]);
             let result = {
@@ -712,6 +788,16 @@ foam.CLASS({
               result.hour = parseInt(v[6]);
               if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
@@ -736,7 +822,7 @@ foam.CLASS({
           },
 
           // YYYYDDMM with separators: YYYY-DD-MM, YYYY/DD/MM with optional time
-          // v = [YYYY, sep, DD, sep, MM] or [YYYY, sep, DD, sep, MM, space, HH, :, MM, :, SS, timezone]
+          // v = [YYYY, sep, DD, sep, MM] or [YYYY, sep, DD, sep, MM, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'yyyyddmm-sep': function(v) {
             let result = {
               year: parseInt(v[0]),
@@ -749,6 +835,16 @@ foam.CLASS({
               result.hour = parseInt(v[6]);
               if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
@@ -803,7 +899,7 @@ foam.CLASS({
           },
 
           // YYDDMM with separators: YY-DD-MM, YY/DD/MM with optional time
-          // v = [YY, sep, DD, sep, MM] or [YY, sep, DD, sep, MM, space, HH, :, MM, :, SS, timezone]
+          // v = [YY, sep, DD, sep, MM] or [YY, sep, DD, sep, MM, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'yyddmm-sep': function(v) {
             let twoDigitYear = parseInt(v[0]);
             let result = {
@@ -817,6 +913,16 @@ foam.CLASS({
               result.hour = parseInt(v[6]);
               if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
               if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
 
               // Check for timezone (last element if present)
               if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {

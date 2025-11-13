@@ -23,6 +23,7 @@ foam.CLASS({
       this.testYYYYDDMMFormats(x);
       this.testDDMMMYYYYFormats(x);
       this.testDateTimeFormats(x);
+      this.testFractionalSeconds(x);
       this.testParseDateString(x);
       this.testParseDateTime(x);
       this.testParseDateTimeUTC(x);
@@ -84,7 +85,7 @@ foam.CLASS({
       ];
 
       yyyymmddCompactTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0);
         let testName = `YYYYMMDD-Compact-Time Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -102,7 +103,7 @@ foam.CLASS({
       ];
 
       yyyymmddCompactTimeNoColons.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0);
         let testName = `YYYYMMDD-Compact-Time-NoColons Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -120,6 +121,25 @@ foam.CLASS({
       yyyymmddCompactTimeUTC.forEach((testCase, i) => {
         let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
         let testName = `YYYYMMDD-Compact-Time-TZ Test${i + 1}: ${testCase.input} (UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYYYMMDD with fractional seconds (milliseconds and microseconds)
+      let yyyymmddFractional = [
+        { input: '2025-03-27 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '2025-03-27T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '2025-01-15 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '2025-01-15T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
+        { input: '2025-01-15 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
+        { input: '2025/01/15T14:30:45.999999', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 999 }
+      ];
+
+      yyyymmddFractional.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, testCase.millisecond);
+        let testName = `YYYYMMDD-Fractional Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }
@@ -170,7 +190,7 @@ foam.CLASS({
       ];
 
       mmddyyyyCompactTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0);
         let testName = `MMDDYYYY-Compact-Time Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -188,7 +208,7 @@ foam.CLASS({
       ];
 
       mmddyyyyCompactTimeNoColons.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0);
         let testName = `MMDDYYYY-Compact-Time-NoColons Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -206,6 +226,25 @@ foam.CLASS({
       mmddyyyyCompactTimeUTC.forEach((testCase, i) => {
         let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
         let testName = `MMDDYYYY-Compact-Time-TZ Test${i + 1}: ${testCase.input} (UTC)`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test MMDDYYYY with fractional seconds (milliseconds and microseconds)
+      let mmddyyyyFractional = [
+        { input: '03-27-2025 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '03-27-2025T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '01-15-2025 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '01/15/2025T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
+        { input: '01-15-2025 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
+        { input: '01/15/2025T14:30:45.999999', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 999 }
+      ];
+
+      mmddyyyyFractional.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, testCase.millisecond);
+        let testName = `MMDDYYYY-Fractional Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }
@@ -243,6 +282,24 @@ foam.CLASS({
           this.testParseDate(parser, testCase.input, testCase.year, testCase.month, testCase.day),
           `YYMMDD-Compact Test${i + 1}: ${testCase.input}`
         );
+      });
+
+      // Test YYMMDD with fractional seconds (milliseconds and microseconds)
+      let yymmddFractional = [
+        { input: '25-03-27 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '25-03-27T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '25-01-15 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '25/01/15T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
+        { input: '25-01-15 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 }
+      ];
+
+      yymmddFractional.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, testCase.millisecond);
+        let testName = `YYMMDD-Fractional Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
       });
     },
 
@@ -301,7 +358,7 @@ foam.CLASS({
       ];
 
       ddmmyyyyCompactTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'ddmmyyyy');
         let testName = `DDMMYYYY-Compact-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -319,7 +376,7 @@ foam.CLASS({
       ];
 
       ddmmyyyyCompactTimeNoColons.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'ddmmyyyy');
         let testName = `DDMMYYYY-Compact-Time-NoColons Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -352,7 +409,7 @@ foam.CLASS({
       ];
 
       ddmmyyyyTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'ddmmyyyy');
         let testName = `DDMMYYYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -404,12 +461,42 @@ foam.CLASS({
       ];
 
       ddmmyyTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'ddmmyyyy');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'ddmmyyyy');
         let testName = `DDMMYY-Time Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }
         x.test(result.pass, testName);
+      });
+
+      // Test DDMMYYYY with fractional seconds (milliseconds and microseconds)
+      let ddmmyyyyFractional = [
+        { input: '27-03-2025 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'ddmmyyyy' },
+        { input: '27-03-2025T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'ddmmyyyy' },
+        { input: '15-01-2025 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100, opt_name: 'ddmmyyyy' },
+        { input: '15/01/2025T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120, opt_name: 'ddmmyyyy' },
+        { input: '15-01-2025 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'ddmmyyyy' },
+        // Test DDMMYY format with fractional seconds too
+        { input: '27-03-25 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'ddmmyyyy' },
+        { input: '15-01-25T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'ddmmyyyy' }
+      ];
+
+      ddmmyyyyFractional.forEach((testCase, i) => {
+        let result = parser.parseDateTime(testCase.input, testCase.opt_name);
+        let pass = result &&
+                   result.getFullYear() === testCase.year &&
+                   result.getMonth() === testCase.month &&
+                   result.getDate() === testCase.day &&
+                   result.getHours() === testCase.hour &&
+                   result.getMinutes() === testCase.minute &&
+                   result.getSeconds() === testCase.second &&
+                   result.getMilliseconds() === testCase.millisecond;
+
+        let testName = `DDMMYYYY-Fractional Test${i + 1}: ${testCase.input}`;
+        if ( ! pass && result ) {
+          testName += ` - Expected ms:${testCase.millisecond}, Got ms:${result.getMilliseconds()}`;
+        }
+        x.test(pass, testName);
       });
     },
 
@@ -468,7 +555,7 @@ foam.CLASS({
       ];
 
       yyyyddmmCompactTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'yyyyddmm');
         let testName = `YYYYDDMM-Compact-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -486,7 +573,7 @@ foam.CLASS({
       ];
 
       yyyyddmmCompactTimeNoColons.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'yyyyddmm');
         let testName = `YYYYDDMM-Compact-Time-NoColons Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -520,7 +607,7 @@ foam.CLASS({
       ];
 
       yyyyddmmTime.forEach((testCase, i) => {
-        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 'yyyyddmm');
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'yyyyddmm');
         let testName = `YYYYDDMM-Time Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
@@ -584,6 +671,36 @@ foam.CLASS({
         } catch (e) {
           x.test(false, `YYDDMM-Compact Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
+      });
+
+      // Test YYYYDDMM with fractional seconds (milliseconds and microseconds)
+      let yyyyddmmFractional = [
+        { input: '2025-27-03 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'yyyyddmm' },
+        { input: '2025-27-03T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'yyyyddmm' },
+        { input: '2025-15-01 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100, opt_name: 'yyyyddmm' },
+        { input: '2025/15/01T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120, opt_name: 'yyyyddmm' },
+        { input: '2025-15-01 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'yyyyddmm' },
+        // Test YYDDMM format with fractional seconds too
+        { input: '25-27-03 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'yyddmm' },
+        { input: '25-15-01T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'yyddmm' }
+      ];
+
+      yyyyddmmFractional.forEach((testCase, i) => {
+        let result = parser.parseDateTime(testCase.input, testCase.opt_name);
+        let pass = result &&
+                   result.getFullYear() === testCase.year &&
+                   result.getMonth() === testCase.month &&
+                   result.getDate() === testCase.day &&
+                   result.getHours() === testCase.hour &&
+                   result.getMinutes() === testCase.minute &&
+                   result.getSeconds() === testCase.second &&
+                   result.getMilliseconds() === testCase.millisecond;
+
+        let testName = `YYYYDDMM-Fractional Test${i + 1}: ${testCase.input}`;
+        if ( ! pass && result ) {
+          testName += ` - Expected ms:${testCase.millisecond}, Got ms:${result.getMilliseconds()}`;
+        }
+        x.test(pass, testName);
       });
     },
 
@@ -719,6 +836,68 @@ foam.CLASS({
           ),
           `DateTime Test${i + 1}: ${testCase.input}`
         );
+      });
+    },
+
+    function testFractionalSeconds(x) {
+      let parser = this.DateParser.create();
+
+      // Test fractional seconds with 1-6 digits (milliseconds and microseconds)
+      // All formats should normalize to milliseconds (first 3 digits)
+      let fractionalTests = [
+        // YYYY-MM-DD format with microseconds
+        { input: '2025-03-27 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '2025-03-27T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '2025-01-15T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
+        { input: '2025-01-15 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '2025-01-15 14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
+        { input: '2025-01-15 14:30:45.999999', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 999 },
+
+        // MM-DD-YYYY format with fractional seconds
+        { input: '03-27-2025 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '01-15-2025T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
+
+        // YY-MM-DD format with fractional seconds
+        { input: '25-03-27 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '25-01-15T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
+
+        // DD-MM-YYYY format with fractional seconds
+        { input: '27-03-2025 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'ddmmyyyy' },
+        { input: '15-01-2025T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'ddmmyyyy' },
+
+        // DD-MM-YY format with fractional seconds
+        { input: '27-03-25 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'ddmmyyyy' },
+        { input: '15-01-25T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'ddmmyyyy' },
+
+        // YYYY-DD-MM format with fractional seconds
+        { input: '2025-27-03 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'yyyyddmm' },
+        { input: '2025-15-01T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'yyyyddmm' },
+
+        // YY-DD-MM format with fractional seconds
+        { input: '25-27-03 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'yyddmm' },
+        { input: '25-15-01T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123, opt_name: 'yyddmm' }
+      ];
+
+      fractionalTests.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateTime(testCase.input, testCase.opt_name);
+          let pass = result &&
+                     result.getFullYear() === testCase.year &&
+                     result.getMonth() === testCase.month &&
+                     result.getDate() === testCase.day &&
+                     result.getHours() === testCase.hour &&
+                     result.getMinutes() === testCase.minute &&
+                     result.getSeconds() === testCase.second &&
+                     result.getMilliseconds() === testCase.millisecond;
+
+          let testName = `Fractional Seconds Test${i + 1}: ${testCase.input}`;
+          if ( ! pass ) {
+            testName += ` - Expected ms:${testCase.millisecond}, Got ms:${result ? result.getMilliseconds() : 'N/A'}`;
+          }
+          x.test(pass, testName);
+        } catch (e) {
+          x.test(false, `Fractional Seconds Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
       });
     },
 
@@ -1325,8 +1504,10 @@ foam.CLASS({
     },
 
     function testParseDTWithDetails(parser, dateStr, expectedYear, expectedMonth, expectedDay,
-                         expectedHour, expectedMinute, expectedSecond, opt_name) {
+                         expectedHour, expectedMinute, expectedSecond, expectedMs, opt_name) {
       try {
+        expectedMs = expectedMs || 0;
+
         let result = parser.parseDateTime(dateStr, opt_name);
         if ( ! result ) {
           let msg = `Parse failed: returned null`;
@@ -1338,7 +1519,7 @@ foam.CLASS({
         let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
         if ( isMaxDate ) {
           let msg = `Parse returned MAX_DATE (invalid) - format didn't match or was partially parsed`;
-          console.error(`${msg} for ${dateStr} with opt_name=${opt_name}`);
+          console.error(`${msg} for ${dateStr} with opt_name=${actualOptName}`);
           return { pass: false, message: msg };
         }
 
@@ -1351,13 +1532,14 @@ foam.CLASS({
                    result.getDate() === expectedDay &&
                    result.getHours() === expectedHour &&
                    result.getMinutes() === expectedMinute &&
-                   result.getSeconds() === expectedSecond;
+                   result.getSeconds() === expectedSecond &&
+                   result.getMilliseconds() === expectedMs;
 
         if ( ! pass ) {
-          let expected = `${expectedYear}-${String(expectedMonth + 1).padStart(2, '0')}-${String(expectedDay).padStart(2, '0')} ${String(expectedHour).padStart(2, '0')}:${String(expectedMinute).padStart(2, '0')}:${String(expectedSecond).padStart(2, '0')}`;
-          let got = `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')} ${String(result.getHours()).padStart(2, '0')}:${String(result.getMinutes()).padStart(2, '0')}:${String(result.getSeconds()).padStart(2, '0')}`;
+          let expected = `${expectedYear}-${String(expectedMonth + 1).padStart(2, '0')}-${String(expectedDay).padStart(2, '0')} ${String(expectedHour).padStart(2, '0')}:${String(expectedMinute).padStart(2, '0')}:${String(expectedSecond).padStart(2, '0')}.${String(expectedMs).padStart(3, '0')}`;
+          let got = `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')} ${String(result.getHours()).padStart(2, '0')}:${String(result.getMinutes()).padStart(2, '0')}:${String(result.getSeconds()).padStart(2, '0')}.${String(result.getMilliseconds()).padStart(3, '0')}`;
           let msg = `Expected: ${expected}, Got: ${got}`;
-          console.error(`Parse mismatch for ${dateStr} (opt_name=${opt_name}): ${msg}`);
+          console.error(`Parse mismatch for ${dateStr} (opt_name=${actualOptName}): ${msg}`);
           return { pass: false, message: msg };
         }
 

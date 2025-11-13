@@ -625,6 +625,10 @@ foam.CLASS({
   name: 'Layout',
   extends: 'foam.u2.Element',
 
+  imports: [
+    'window'
+  ],
+
   css: `
     ^ {
       display: grid;
@@ -736,12 +740,24 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'rightWidth',
-      value: 550
+      factory: function() {
+        var saved = this.window.localStorage['foam.reflow.layout.rightWidth'];
+        return saved ? parseInt(saved) : 550;
+      },
+      postSet: function(_, n) {
+        this.window.localStorage['foam.reflow.layout.rightWidth'] = n;
+      }
     },
     {
       class: 'Int',
       name: 'leftWidth',
-      value: 300
+      factory: function() {
+        var saved = this.window.localStorage['foam.reflow.layout.leftWidth'];
+        return saved ? parseInt(saved) : 300;
+      },
+      postSet: function(_, n) {
+        this.window.localStorage['foam.reflow.layout.leftWidth'] = n;
+      }
     },
     'oldX_', 'oldWidth_'
   ],

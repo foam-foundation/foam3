@@ -170,8 +170,8 @@ foam.CLASS({
             }
           });
 
-          cSpecsPromise.then(p => {
-            foam.dao.ArrayDAO.create({array: p.array.concat(self.extraServices)})
+          await cSpecsPromise.then(async p => {
+            await foam.dao.ArrayDAO.create({array: p.array.concat(self.extraServices)})
               .select({
                 put: function(spec) {
                   if ( spec.client ) {
@@ -233,6 +233,7 @@ foam.CLASS({
                     // console.timeEnd('clientBuild');
                     // Preload menuDAO, remove when we have pre-cached daos from the server
                     client.menuDAO.select();
+
                     resolve(client);
                   });
                 }

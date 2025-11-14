@@ -400,7 +400,7 @@ foam.CLASS({
     },
 
     function suggestText(txt, sug) {
-      let str = this.preview.substring(0, this.maxPos).trim();
+      let str = this.preview.substring(0, this.maxPos);
       // This causes issues when suggesting units like 'px' after numbers
       if ( sug.prependSpaceOnSelect ) str += ' ';
       this.preview = ( str + txt ).trimStart();

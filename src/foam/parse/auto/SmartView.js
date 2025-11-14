@@ -170,7 +170,11 @@ foam.CLASS({
     {
       class: 'String',
       name: 'preview',
-      documentation: 'The input text bound onKey so that autoSuggest works even when onKey is false.'
+      documentation: 'The input text bound onKey so that autoSuggest works even when onKey is false.',
+      factory: function() {
+        // Factory to data so initial value is preserved
+        return this.data;
+      }
     },
     {
       name: 'parser'
@@ -266,7 +270,7 @@ foam.CLASS({
       this.preview$.sub(this.onPreviewChange);
 
       if ( this.prop?.onKey ) {
-        this.data$.linkFrom(this.preview$);
+        this.preview$.linkFrom(this.data$);
       }
 
       this.SUPER();

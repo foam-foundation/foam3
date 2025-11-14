@@ -69,7 +69,9 @@ foam.CLASS({
 
   methods: [
     function render() {
-      this.startContext({data: this}).tag(this.COLOR);
+      this.startContext({data: this})
+      .start().addClass('p-semiBold').add(this.data.label).end()
+      .tag(this.COLOR);
       this.color$.sub(() => {
         this.suggestText(this.color);
       });
@@ -384,7 +386,9 @@ foam.CLASS({
           let sug = self.suggestions[s];
           this.tag(sug.view || self.SuggestionView, {
             data: sug,
-            suggestText: self.suggestText.bind(self)
+            suggestText: (text) => {
+              self.suggestText.call(self, text, sug);
+            }
           });
         });
    },
@@ -395,10 +399,10 @@ foam.CLASS({
       this.normalizedQuery = '';
     },
 
-    function suggestText(txt) {
+    function suggestText(txt, sug) {
       let str = this.preview.substring(0, this.maxPos).trim();
       // This causes issues when suggesting units like 'px' after numbers
-      if ( ! str.endsWith('.') ) str += ' ';
+      if ( sug.prependSpaceOnSelect ) str += ' ';
       this.preview = ( str + txt ).trimStart();
       this.field.focus();
     },

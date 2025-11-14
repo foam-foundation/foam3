@@ -45,7 +45,12 @@ foam.CLASS({
     {
       name: 'baseGrammar_',
       value: function(alt, anyChar, not, opt, range, repeat, repeat0, seq, seq1, str, sug, sym) {
-        sugl = v => sug(v, { text: v});
+        // Override sug to add prepend overrides
+        let oldSug = sug;
+        sug = (v, opt) => { return oldSug(v, { prependSpaceOnSelect: false, ...opt}) };
+        // Add a literal sug
+        let sugl = v => sug(v, { text: v});
+
         return {
           START: sym('css'),
           ws: repeat0(' '),
@@ -205,8 +210,9 @@ foam.CLASS({
           ),
           colorPropertyValue: alt(
             sug(sym('hexValue'), { view: 'foam.parse.auto.ColorSuggester', label: 'Hex Color' }),
-            sug(sym('rbgValue'), { view: 'foam.parse.auto.ColorSuggester', label: 'RGB Color' }),
-            sug(sym('hslValue'), { view: 'foam.parse.auto.ColorSuggester', label: 'HSL Color' }),
+            // Only one is required
+            // sug(sym('rbgValue'), { view: 'foam.parse.auto.ColorSuggester', text: 'RGB Color' }),
+            // sug(sym('hslValue'), { view: 'foam.parse.auto.ColorSuggester', text: 'HSL Color' }),
             sug(sym('tokenValue'), { text: '$', label: 'CSS Token' }),
             sug('transparent', { text: 'transparent' })
           )
@@ -220,7 +226,7 @@ foam.CLASS({
           // Only loading base, maybe add tokens from all classes
           let tokenProps = [];
           let allTokens  = foam.u2.CSSTokens.getAxiomsByClass(foam.u2.CSSToken);
-          let token      = (token) => sug(literal(token.name, token), { text: token.name, view: { class: 'foam.parse.auto.CSSTokenSuggester', token: token } });
+          let token      = (token) => sug(literal(token.name, token), { text: token.name, view: { class: 'foam.parse.auto.CSSTokenSuggester', token: token }, prependSpaceOnSelect: false });
           allTokens.forEach(v => {
             tokenProps.push(token(v));
           })

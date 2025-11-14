@@ -98,6 +98,12 @@ foam.CLASS({
     },
     { name: 'view',
       class: 'foam.u2.ViewSpec'
+    },
+    {
+      class: 'Boolean',
+      name: 'prependSpaceOnSelect',
+      documentation: 'Adds a whitespace before appending suggestion.',
+      value: true
     }
   ]
 });

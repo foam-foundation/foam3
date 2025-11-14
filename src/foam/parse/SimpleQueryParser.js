@@ -306,7 +306,7 @@ foam.CLASS({
           return seq1(2,
             sym('ws'),
             sug(seq1(0, literal(prop.name), '.'), {text: prop.name + '.', label: prop.label, category: 'property'}),
-            sug(literal(innerProp.name, expr), {text: innerProp.name, label: innerProp.label, category: 'property'})
+            sug(literal(innerProp.name, expr), {text: innerProp.name, label: innerProp.label, category: 'property', prependSpaceOnSelect: false })
           );
         };
 

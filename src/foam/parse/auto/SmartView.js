@@ -262,11 +262,23 @@ foam.CLASS({
     function render() {
       let self = this;
 
+      // Initialize preview from data when rendering
+      if ( ! this.preview && this.data ) {
+        this.preview = this.data;
+      }
+
       // Recalculate suggestions when the preview text changes
       this.preview$.sub(this.onPreviewChange);
 
       if ( this.prop?.onKey ) {
         this.data$.linkFrom(this.preview$);
+      } else {
+        // For non-onKey mode, keep preview in sync with data
+        this.data$.sub(() => {
+          if ( this.data !== this.preview ) {
+            this.preview = this.data || '';
+          }
+        });
       }
 
       this.SUPER();

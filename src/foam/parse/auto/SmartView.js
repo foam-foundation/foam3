@@ -270,7 +270,7 @@ foam.CLASS({
       this.preview$.sub(this.onPreviewChange);
 
       if ( this.prop?.onKey ) {
-        this.preview$.linkFrom(this.data$);
+        this.data$.linkFrom(this.preview$);
       }
 
       this.SUPER();

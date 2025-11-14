@@ -35,8 +35,14 @@ foam.CLASS({
       name: 'background_st',
       label: 'Background',
       optionalBorder: true,
-      view: {
-        class: 'foam.u2.OptionalCSSTokenView'
+      onKey: true,
+      view: function(_, X) {
+        var data = X.data;
+        let p = foam.u2.parse.CSSParser.create({});
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: p.grammar_.getSymParser('colorPropertyValue')
+        };
       },
       reactive: false
     },
@@ -45,6 +51,15 @@ foam.CLASS({
       name: 'border_st',
       label: 'Border',
       optionalBorder: true,
+      onKey: true,
+      view: function(_, X) {
+        var data = X.data;
+        let p = foam.u2.parse.CSSParser.create({});
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: p.grammar_.getSymParser('borderValue')
+        };
+      },
       reactive: false
     },
     {

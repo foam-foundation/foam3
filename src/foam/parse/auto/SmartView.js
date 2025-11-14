@@ -53,6 +53,55 @@ foam.CLASS({
   ]
 });
 
+foam.CLASS({
+  package: 'foam.parse.auto',
+  name: 'ColorSuggester',
+  extends: 'foam.u2.View',
+
+  properties: [
+    'suggestText',
+    {
+      class: 'Color',
+      name: 'color',
+      view: 'foam.u2.view.ColorPicker'
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.startContext({data: this}).tag(this.COLOR);
+      this.color$.sub(() => {
+        this.suggestText(this.color);
+      });
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.parse.auto',
+  name: 'CSSTokenSuggester',
+  extends: 'foam.u2.View',
+
+  properties: [
+    'suggestText',
+    {
+      class: 'FObjectProperty',
+      of: 'foam.u2.CSSToken',
+      name: 'token'
+    }
+  ],
+
+  methods: [
+    function render() {
+      this
+        .startContext({ controllerMode: 'VIEW' })
+        .on('click', () => {
+          this.suggestText(this.token.name);
+        })
+        .tag(foam.u2.CitationView, { data: this.token });
+    }
+  ]
+});
 
 foam.CLASS({
   package: 'foam.parse.auto',

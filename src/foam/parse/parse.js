@@ -1359,6 +1359,7 @@ foam.CLASS({
       // Let's you access individual symbol parsers as stand-alone parsers
       return {
         parse: ps => ps.apply(this.getSymbol(name), this),
+        parseString: (str, __,opt_apply) => this.parseString(str, name, opt_apply),
         toString: () => name
       };
     },

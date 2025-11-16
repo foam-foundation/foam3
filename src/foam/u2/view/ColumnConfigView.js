@@ -929,15 +929,8 @@ foam.CLASS({
     },
     function returnSubColumnSelectConfig(subProperties, level, expanded, ignoreExpanded ) {
       var arr = [];
-      if ( ! this.of || ! this.of.getAxiomByName || subProperties.length === 0 || ( ! ignoreExpanded && ! expanded ) )
+      if ( ! this.of || ! this.of.getAxiomByName || subProperties.length === 0 )
           return arr;
-      var l = level + 1;
-      var r = this.of.getAxiomByName(this.rootProperty[0]);
-      if ( ! r )
-        return arr;
-
-      var selectedSubProperties = [];
-      var otherSubProperties = [];
 
       var thisRootPropName = this.columnHandler.checkIfArrayAndReturnPropertyNameForRootProperty(this.rootProperty);
       //find selectedColumn for the root property
@@ -946,6 +939,17 @@ foam.CLASS({
         return ( ! foam.String.isInstance(c) && this.level === 0 && thisSelectedColumn === thisRootPropName ) ||
         ( foam.String.isInstance(c) && c.split('.').length >= this.level && c.split('.')[this.level] === this.rootProperty[0] );
       });
+      // Don't empty config if there are selected properties
+      if ( selectedColumn.length < 2 && ( ! ignoreExpanded && ! expanded ) )
+        return arr;
+
+      var l = level + 1;
+      var r = this.of.getAxiomByName(this.rootProperty[0]);
+      if ( ! r )
+        return arr;
+
+      var selectedSubProperties = [];
+      var otherSubProperties = [];
 
       if ( selectedColumn.find(c => foam.String.isInstance(c) && c.split('.').length == ( this.level + 1 )) ) {
         selectedSubProperties.push(['', 'To Summary']);

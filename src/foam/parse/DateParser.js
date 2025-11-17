@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'DateParser',
 
   extends: 'foam.parse.AbstractParser',
-  
+
   documentation: `
     Comprehensive date and datetime parser that handles all formats from DateUtil.js.
     Uses FOAM parser framework with alt() to support all date/datetime formats in a single parser.
@@ -19,7 +19,12 @@ foam.CLASS({
       var parser = foam.parse.DateParser.create();
       var date = parser.parseString('2025-01-15');
       var datetime = parser.parseString('2025-01-15T14:30:45');
+
+      // Or use the static convenience method to get a symbol parser:
+      var dateParser = foam.parse.DateParser.getSymParser('ddmmyyyy-sep');
   `,
+
+  axioms: [ foam.pattern.Singleton.create() ],
 
   requires: [
     'foam.parse.Grammar',
@@ -29,6 +34,18 @@ foam.CLASS({
   constants: {
     INVALID_DATE: new Date(NaN)
   },
+
+  static: [
+    {
+      name: 'getSymParser',
+      args: 'String symbolName',
+      type: 'foam.parse.Parser',
+      documentation: 'Static convenience method to get a symbol parser from the DateParser grammar. Example: foam.parse.DateParser.getSymParser("ddmmyyyy-sep")',
+      code: function(symbolName) {
+        return foam.parse.DateParser.create().grammar_.getSymParser(symbolName);
+      }
+    }
+  ],
 
   properties: [
     {

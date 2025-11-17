@@ -44,6 +44,30 @@ foam.CLASS({
       code: function(symbolName) {
         return foam.parse.DateParser.create().grammar_.getSymParser(symbolName);
       }
+    },
+    {
+      name: 'getRawSymbol',
+      args: 'String symbolName',
+      documentation: 'Get a self-contained parser for the given symbol that can be used in other grammars. Returns a parser function that works standalone. Example: foam.parse.DateParser.getRawSymbol("ddmmyyyy-sep")',
+      code: function(symbolName) {
+        var instance = foam.parse.DateParser.create();
+        // Get the base grammar with all symbols
+        var baseGrammar = foam.Function.withArgs(instance.baseGrammar_, instance.Parsers.create(), instance);
+
+        // Return a parser that can resolve symbols from the base grammar
+        return {
+          parse: function(ps, grammar) {
+            // Create a temporary grammar context with all DateParser symbols
+            var tempGrammar = {
+              getSymbol: function(name) {
+                return baseGrammar[name];
+              }
+            };
+            // Parse using the symbol with access to all related symbols
+            return ps.apply(baseGrammar[symbolName], tempGrammar);
+          }
+        };
+      }
     }
   ],
 

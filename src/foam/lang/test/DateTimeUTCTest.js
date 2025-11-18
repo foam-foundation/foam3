@@ -247,10 +247,10 @@ foam.CLASS({
         x.test( model.utcDateTime.getUTCDate() === 31, "Year end: Day should be 31" );
 
         // Two-digit year pivot (< 50 = 2000s, >= 50 = 1900s)
-        model.utcDateTime = "25/03/15";
+        model.utcDateTime = "03/15/25";
         x.test( model.utcDateTime.getUTCFullYear() === 2025, "Year 25 should be 2025" );
 
-        model.utcDateTime = "99/03/15";
+        model.utcDateTime = "03/15/99";
         x.test( model.utcDateTime.getUTCFullYear() === 1999, "Year 99 should be 1999" );
 
         // Month boundaries

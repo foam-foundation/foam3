@@ -44,7 +44,7 @@ foam.CLASS({
             sym('date-monthname'),  // All month name formats (with or without separators)
             sym('yyyymmdd'),
             sym('mmddyyyy'),
-            sym('yymmdd')
+            sym('mmddyy')
           ),
 
           // Date with month names - ALL completely unambiguous (contain letters!)
@@ -233,6 +233,44 @@ foam.CLASS({
 
           // YYMMDD compact: 6 digits
           'yymmdd-compact': str(repeat(range('0', '9'), null, 6, 6)),
+
+          // MMDDYY - tries all variants (compact, separated)
+          // Covers: MMDDYY, MM-DD-YY, MM/DD/YY with optional time
+          mmddyy: alt(
+            sym('mmddyy-compact'),
+            sym('mmddyy-sep')
+          ),
+
+          // MMDDYY with separators and optional time (2-digit year)
+          // MM-DD-YY, MM/DD/YY, MM-DD-YY HH:MM, MM-DD-YY HH:MM:SS
+          // MM-DD-YYTHH:MM:SS+TZ (with T separator and timezone)
+          'mmddyy-sep': alt(
+            // With fractional seconds and timezone
+            seq(
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
+              optional(sym('timezone'))
+            ),
+            // With seconds and timezone
+            seq(
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
+              optional(sym('timezone'))
+            ),
+            // With minutes and timezone
+            seq(
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2'),
+              sym('datetime-sep'), sym('hour2'), ':', sym('minute2'),
+              optional(sym('timezone'))
+            ),
+            // Date only
+            seq(
+              sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2')
+            )
+          ),
+
+          // MMDDYY compact: 6 digits
+          'mmddyy-compact': str(repeat(range('0', '9'), null, 6, 6)),
 
           // DDMMYYYY - NOT in main dateOrDatetime, accessible via opt_name only
           // Covers: DD-MM-YYYY, DD/MM/YYYY, DDMMYYYY, DD-MM-YY, DD/MM/YY, DDMMYY with optional time
@@ -696,6 +734,54 @@ foam.CLASS({
             };
           },
 
+          // MMDDYY with separators: MM-DD-YY, MM/DD/YY with optional time
+          // v = [MM, sep, DD, sep, YY] or [MM, sep, DD, sep, YY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
+          'mmddyy-sep': function(v) {
+            let twoDigitYear = parseInt(v[4]);
+            let result = {
+              year: self.convertTwoDigitYear(twoDigitYear),
+              month: parseInt(v[0]) - 1,
+              day: parseInt(v[2])
+            };
+
+            // Check if time components exist
+            if ( v.length > 5 && v[6] !== undefined ) {
+              result.hour = parseInt(v[6]);
+              if ( v[8] !== undefined ) result.minute = parseInt(v[8]);
+              if ( v[10] !== undefined ) result.second = parseInt(v[10]);
+
+              // Handle fractional seconds (1-6 digits) - normalize to milliseconds (3 digits)
+              if ( v[12] !== undefined ) {
+                let fracStr = v[12];
+                if ( fracStr.length <= 3 ) {
+                  result.millisecond = parseInt(fracStr.padEnd(3, '0'));
+                } else {
+                  result.millisecond = parseInt(fracStr.substring(0, 3));
+                }
+              }
+
+              // Check for timezone (last element if present)
+              if ( v[v.length - 1] !== undefined && typeof v[v.length - 1] !== 'string' ) {
+                result.timezone = self.flattenTimezone(v[v.length - 1]);
+              } else if ( v[v.length - 1] === 'Z' ) {
+                result.timezone = 'Z';
+              }
+            }
+
+            return result;
+          },
+
+          // MMDDYY compact: 6 digits "011525"
+          // v = "011525"
+          'mmddyy-compact': function(v) {
+            let twoDigitYear = parseInt(v.substring(4, 6));
+            return {
+              year: self.convertTwoDigitYear(twoDigitYear),
+              month: parseInt(v.substring(0, 2)) - 1,
+              day: parseInt(v.substring(2, 4))
+            };
+          },
+
           // DDMMYYYY with separators: DD-MM-YYYY, DD/MM/YYYY with optional time
           // v = [DD, sep, MM, sep, YYYY] or [DD, sep, MM, sep, YYYY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
           'ddmmyyyy-sep': function(v) {
@@ -1123,6 +1209,11 @@ foam.CLASS({
       name: 'parseString',
       documentation: 'Parse a date/datetime string and return a Date object. Auto-detects format and handles time if present. Returns MAX_DATE for invalid dates.',
       code: function(str, opt_name) {
+        // Handle null, undefined, or empty string
+        if ( ! str || str.trim() === '' ) {
+          return this.validateDate(this.INVALID_DATE, str);
+        }
+
         let result = this.grammar_.parseString(str, opt_name || 'START');
 
         if ( ! result ) {
@@ -1156,6 +1247,11 @@ foam.CLASS({
       name: 'parseDateString',
       documentation: 'Parse a date string - ignores any time component and returns date at noon local time. Returns MAX_DATE for invalid dates.',
       code: function(str, opt_name) {
+        // Handle null, undefined, or empty string
+        if ( ! str || str.trim() === '' ) {
+          return this.validateDate(this.INVALID_DATE, str);
+        }
+
         let result = this.grammar_.parseString(str, opt_name || 'START');
 
         if ( ! result ) {
@@ -1174,8 +1270,13 @@ foam.CLASS({
       name: 'parseDateTime',
       documentation: 'Parse a datetime string using local time - uses time if present, otherwise sets to noon. If timezone is present, converts to UTC. Returns MAX_DATE for invalid dates.',
       code: function(str, opt_name) {
+        // Handle null, undefined, or empty string
+        if ( ! str || str.trim() === '' ) {
+          return this.validateDate(this.INVALID_DATE, str);
+        }
+
         // Trim input to remove leading/trailing whitespace
-        str = str ? str.trim() : str;
+        str = str.trim();
 
         // Use parse() instead of parseString() to get position information
         this.grammar_.ps.setString(str);
@@ -1252,8 +1353,13 @@ foam.CLASS({
       name: 'parseDateTimeUTC',
       documentation: 'Parse a datetime string using UTC time - uses time if present, otherwise sets to midnight. If timezone is present, converts to UTC. Returns MAX_DATE for invalid dates.',
       code: function(str, opt_name) {
+        // Handle null, undefined, or empty string
+        if ( ! str || str.trim() === '' ) {
+          return this.validateDateUTC(this.INVALID_DATE, str);
+        }
+
         // Trim input to remove leading/trailing whitespace
-        str = str ? str.trim() : str;
+        str = str.trim();
 
         // Use parse() instead of parseString() to get position information
         this.grammar_.ps.setString(str);

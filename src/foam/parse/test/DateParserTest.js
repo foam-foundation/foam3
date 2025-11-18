@@ -18,7 +18,7 @@ foam.CLASS({
     function runTest(x) {
       this.testYYYYMMDDFormats(x);
       this.testMMDDYYYYFormats(x);
-      this.testYYMMDDFormats(x);
+      this.testMMDDYYFormats(x);
       this.testDDMMYYYYFormats(x);
       this.testYYYYDDMMFormats(x);
       this.testDDMMMYYYYFormats(x);
@@ -34,7 +34,7 @@ foam.CLASS({
       this.testTimezoneNegativeOffset(x);
       this.testTimezoneFormatVariations(x);
       this.testTimezoneDateBoundaries(x);
-      this.testYYMMDDSepTimeFormat(x);
+      this.testMMDDYYSepTimeFormat(x);
       this.testWithAndWithoutZ(x);
       this.testInvalidLeapYearDates(x);
       this.testAllParseMethodsExample(x);
@@ -252,50 +252,50 @@ foam.CLASS({
       });
     },
 
-    function testYYMMDDFormats(x) {
+    function testMMDDYYFormats(x) {
       let parser = this.DateParser.create();
 
-      // YYMMDD formats (with separators)
-      let yymmddSep = [
-        { input: '25/01/15', year: 2025, month: 0, day: 15 },
-        { input: '25-01-15', year: 2025, month: 0, day: 15 },
-        { input: '00/02/29', year: 2000, month: 1, day: 29 }
+      // MMDDYY formats (with separators)
+      let mmddyySep = [
+        { input: '01/15/25', year: 2025, month: 0, day: 15 },
+        { input: '01-15-25', year: 2025, month: 0, day: 15 },
+        { input: '02/29/00', year: 2000, month: 1, day: 29 }
       ];
 
-      // Test YYMMDD with separators
-      yymmddSep.forEach((testCase, i) => {
+      // Test MMDDYY with separators
+      mmddyySep.forEach((testCase, i) => {
         x.test(
           this.testParseDate(parser, testCase.input, testCase.year, testCase.month, testCase.day),
-          `YYMMDD-Sep Test${i + 1}: ${testCase.input}`
+          `MMDDYY-Sep Test${i + 1}: ${testCase.input}`
         );
       });
 
-      // YYMMDD compact (6 digits)
-      let yymmddCompact = [
-        { input: '250115', year: 2025, month: 0, day: 15 },
-        { input: '000229', year: 2000, month: 1, day: 29 }
+      // MMDDYY compact (6 digits)
+      let mmddyyCompact = [
+        { input: '011525', year: 2025, month: 0, day: 15 },
+        { input: '022900', year: 2000, month: 1, day: 29 }
       ];
 
-      // Test YYMMDD compact
-      yymmddCompact.forEach((testCase, i) => {
+      // Test MMDDYY compact
+      mmddyyCompact.forEach((testCase, i) => {
         x.test(
           this.testParseDate(parser, testCase.input, testCase.year, testCase.month, testCase.day),
-          `YYMMDD-Compact Test${i + 1}: ${testCase.input}`
+          `MMDDYY-Compact Test${i + 1}: ${testCase.input}`
         );
       });
 
-      // Test YYMMDD with fractional seconds (milliseconds and microseconds)
-      let yymmddFractional = [
-        { input: '25-03-27 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
-        { input: '25-03-27T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
-        { input: '25-01-15 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
-        { input: '25/01/15T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
-        { input: '25-01-15 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 }
+      // Test MMDDYY with fractional seconds (milliseconds and microseconds)
+      let mmddyyFractional = [
+        { input: '03-27-25 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '03-27-25T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '01-15-25 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '01/15/25T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
+        { input: '01-15-25 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 }
       ];
 
-      yymmddFractional.forEach((testCase, i) => {
+      mmddyyFractional.forEach((testCase, i) => {
         let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, testCase.millisecond);
-        let testName = `YYMMDD-Fractional Test${i + 1}: ${testCase.input}`;
+        let testName = `MMDDYY-Fractional Test${i + 1}: ${testCase.input}`;
         if ( ! result.pass && result.message ) {
           testName += ` - ${result.message}`;
         }
@@ -857,9 +857,9 @@ foam.CLASS({
         { input: '03-27-2025 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
         { input: '01-15-2025T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
 
-        // YY-MM-DD format with fractional seconds
-        { input: '25-03-27 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
-        { input: '25-01-15T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
+        // MM-DD-YY format with fractional seconds
+        { input: '03-27-25 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
+        { input: '01-15-25T14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
 
         // DD-MM-YYYY format with fractional seconds
         { input: '27-03-2025 10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467, opt_name: 'ddmmyyyy' },
@@ -1169,77 +1169,77 @@ foam.CLASS({
       });
     },
 
-    function testYYMMDDSepTimeFormat(x) {
+    function testMMDDYYSepTimeFormat(x) {
       let parser = this.DateParser.create();
 
-      // Test YYMMDD with separators and time (YY-MM-DD HH:MM:SS)
+      // Test MMDDYY with separators and time (MM-DD-YY HH:MM:SS)
       let testCases = [
         // Basic formats with dash separator
-        { input: '24-03-15 14:30:45', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '25-01-15 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '03-15-24 14:30:45', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '01-15-25 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
 
         // Slash separator
-        { input: '24/03/15 14:30:45', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '25/01/15 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '03/15/24 14:30:45', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '01/15/25 14:30:45', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
 
         // Year >= 50 should be 1900s
-        { input: '99-03-15 14:30:45', year: 1999, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '50-06-30 12:00:00', year: 1950, month: 5, day: 30, hour: 12, minute: 0, second: 0 },
-        { input: '75-12-25 23:59:59', year: 1975, month: 11, day: 25, hour: 23, minute: 59, second: 59 },
+        { input: '03-15-99 14:30:45', year: 1999, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '06-30-50 12:00:00', year: 1950, month: 5, day: 30, hour: 12, minute: 0, second: 0 },
+        { input: '12-25-75 23:59:59', year: 1975, month: 11, day: 25, hour: 23, minute: 59, second: 59 },
 
         // Year < 50 should be 2000s
-        { input: '49-03-15 14:30:45', year: 2049, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '00-01-01 00:00:00', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
-        { input: '25-12-31 23:59:59', year: 2025, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '03-15-49 14:30:45', year: 2049, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '01-01-00 00:00:00', year: 2000, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
+        { input: '12-31-25 23:59:59', year: 2025, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
 
         // Without seconds (HH:MM only)
-        { input: '24-03-15 14:30', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 0 },
-        { input: '25/01/15 09:45', year: 2025, month: 0, day: 15, hour: 9, minute: 45, second: 0 },
+        { input: '03-15-24 14:30', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 0 },
+        { input: '01/15/25 09:45', year: 2025, month: 0, day: 15, hour: 9, minute: 45, second: 0 },
 
         // Edge cases
-        { input: '24-02-29 12:00:00', year: 2024, month: 1, day: 29, hour: 12, minute: 0, second: 0 }, // Leap year
-        { input: '25-02-28 12:00:00', year: 2025, month: 1, day: 28, hour: 12, minute: 0, second: 0 }, // Non-leap Feb
-        { input: '24-01-01 00:00:00', year: 2024, month: 0, day: 1, hour: 0, minute: 0, second: 0 },   // Midnight
-        { input: '24-12-31 23:59:59', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 } // End of day
+        { input: '02-29-24 12:00:00', year: 2024, month: 1, day: 29, hour: 12, minute: 0, second: 0 }, // Leap year
+        { input: '02-28-25 12:00:00', year: 2025, month: 1, day: 28, hour: 12, minute: 0, second: 0 }, // Non-leap Feb
+        { input: '01-01-24 00:00:00', year: 2024, month: 0, day: 1, hour: 0, minute: 0, second: 0 },   // Midnight
+        { input: '12-31-24 23:59:59', year: 2024, month: 11, day: 31, hour: 23, minute: 59, second: 59 } // End of day
       ];
 
       testCases.forEach((tc, i) => {
         x.test(
           this.testParseDT(parser, tc.input, tc.year, tc.month, tc.day, tc.hour, tc.minute, tc.second),
-          `YYMMDD-Sep-Time Test${i + 1}: ${tc.input}`
+          `MMDDYY-Sep-Time Test${i + 1}: ${tc.input}`
         );
       });
 
       // Test with timezone indicators
       let timezoneCases = [
-        { input: '24-03-15 14:30:45Z', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '25-01-15 14:30:45Z', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
-        { input: '24/03/15 14:30:45Z', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '03-15-24 14:30:45Z', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '01-15-25 14:30:45Z', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45 },
+        { input: '03/15/24 14:30:45Z', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 45 },
 
         // Positive timezone offsets
-        { input: '24-03-15 14:30:45+05:30', year: 2024, month: 2, day: 15, hour: 9, minute: 0, second: 45 },
-        { input: '25-01-15 14:30:45+01:00', year: 2025, month: 0, day: 15, hour: 13, minute: 30, second: 45 },
-        { input: '24/03/15 14:30:45+09:00', year: 2024, month: 2, day: 15, hour: 5, minute: 30, second: 45 },
+        { input: '03-15-24 14:30:45+05:30', year: 2024, month: 2, day: 15, hour: 9, minute: 0, second: 45 },
+        { input: '01-15-25 14:30:45+01:00', year: 2025, month: 0, day: 15, hour: 13, minute: 30, second: 45 },
+        { input: '03/15/24 14:30:45+09:00', year: 2024, month: 2, day: 15, hour: 5, minute: 30, second: 45 },
 
         // Negative timezone offsets
-        { input: '24-03-15 14:30:45-08:00', year: 2024, month: 2, day: 15, hour: 22, minute: 30, second: 45 },
-        { input: '25-01-15 14:30:45-05:00', year: 2025, month: 0, day: 15, hour: 19, minute: 30, second: 45 },
-        { input: '24/03/15 14:30:45-07:00', year: 2024, month: 2, day: 15, hour: 21, minute: 30, second: 45 },
+        { input: '03-15-24 14:30:45-08:00', year: 2024, month: 2, day: 15, hour: 22, minute: 30, second: 45 },
+        { input: '01-15-25 14:30:45-05:00', year: 2025, month: 0, day: 15, hour: 19, minute: 30, second: 45 },
+        { input: '03/15/24 14:30:45-07:00', year: 2024, month: 2, day: 15, hour: 21, minute: 30, second: 45 },
 
         // With minutes only + timezone
-        { input: '24-03-15 14:30+05:30', year: 2024, month: 2, day: 15, hour: 9, minute: 0, second: 0 },
-        { input: '25-01-15 14:30-08:00', year: 2025, month: 0, day: 15, hour: 22, minute: 30, second: 0 },
-        { input: '24/03/15 14:30Z', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 0 },
+        { input: '03-15-24 14:30+05:30', year: 2024, month: 2, day: 15, hour: 9, minute: 0, second: 0 },
+        { input: '01-15-25 14:30-08:00', year: 2025, month: 0, day: 15, hour: 22, minute: 30, second: 0 },
+        { input: '03/15/24 14:30Z', year: 2024, month: 2, day: 15, hour: 14, minute: 30, second: 0 },
 
         // Compact timezone format (+HHMM)
-        { input: '24-03-15 14:30:45+0530', year: 2024, month: 2, day: 15, hour: 9, minute: 0, second: 45 },
-        { input: '25-01-15 14:30:45-0800', year: 2025, month: 0, day: 15, hour: 22, minute: 30, second: 45 }
+        { input: '03-15-24 14:30:45+0530', year: 2024, month: 2, day: 15, hour: 9, minute: 0, second: 45 },
+        { input: '01-15-25 14:30:45-0800', year: 2025, month: 0, day: 15, hour: 22, minute: 30, second: 45 }
       ];
 
       timezoneCases.forEach((tc, i) => {
         x.test(
           this.testDateTime(parser.parseDateTime(tc.input), tc.year, tc.month, tc.day, tc.hour, tc.minute, tc.second),
-          `YYMMDD-Sep-Timezone Test${i + 1}: ${tc.input}`
+          `MMDDYY-Sep-Timezone Test${i + 1}: ${tc.input}`
         );
       });
     },

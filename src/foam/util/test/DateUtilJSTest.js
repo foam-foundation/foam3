@@ -17,8 +17,8 @@ foam.CLASS({
       this.testParseDateString_YYYY_MM_DD(x);
       this.testParseDateString_MMDDYYYY(x);
       this.testParseDateString_MM_DD_YYYY(x);
-      this.testParseDateString_YYMMDD(x);
-      this.testParseDateString_YY_MM_DD(x);
+      this.testParseDateString_MMDDYY(x);
+      this.testParseDateString_MM_DD_YY(x);
       this.testParseDateString_DDMMMYYYY(x);
       this.testParseDateString_InvalidDate(x);
       this.testParseDateString_UnsupportedFormat(x);
@@ -136,56 +136,39 @@ foam.CLASS({
       x.test(day2 === 15, `MM-DD-YYYY format - day is 15 (expected 15, got ${day2})`);
     },
 
-    function testParseDateString_YYMMDD(x) {
-      // Test 2-digit year using sliding window (50 years back, 50 years forward from current year)
-      var currentYear = new Date().getUTCFullYear();
+    function testParseDateString_MMDDYY(x) {
+      // Test 2-digit year using fixed pivot (years 00-49 → 2000-2049, 50-99 → 1950-1999)
 
-      // Test with year 24 (should be 2024 if current year is between 1974-2074)
-      var date1 = foam.util.DateUtil.parseDateString('240315');
+      // Test with year 24 (should be 2024 using fixed pivot)
+      var date1 = foam.util.DateUtil.parseDateString('031524');
       var year1 = date1.getFullYear();
       var month1 = date1.getMonth();
       var day1 = date1.getDate();
-      x.test(year1 === 2024, `YYMMDD format (YY=24) - year is 2024 (expected 2024, got ${year1})`);
-      x.test(month1 === 2, `YYMMDD format (YY=24) - month is March (2) (expected 2, got ${month1})`);
-      x.test(day1 === 15, `YYMMDD format (YY=24) - day is 15 (expected 15, got ${day1})`);
+      x.test(year1 === 2024, `MMDDYY format (YY=24) - year is 2024 (expected 2024, got ${year1})`);
+      x.test(month1 === 2, `MMDDYY format (YY=24) - month is March (2) (expected 2, got ${month1})`);
+      x.test(day1 === 15, `MMDDYY format (YY=24) - day is 15 (expected 15, got ${day1})`);
 
-      // Test with year 85 - sliding window interpretation
-      var date2 = foam.util.DateUtil.parseDateString('850315');
+      // Test with year 85 - fixed pivot interpretation (should be 1985)
+      var date2 = foam.util.DateUtil.parseDateString('031585');
       var year2 = date2.getFullYear();
       var month2 = date2.getMonth();
       var day2 = date2.getDate();
 
-      // Calculate expected year for 85 using sliding window
-      var currentCentury = Math.floor(currentYear / 100) * 100;
-      var expectedYear85 = currentCentury + 85;
-      if ( expectedYear85 > currentYear + 50 ) {
-        expectedYear85 = currentCentury - 100 + 85;
-      }
-
-      x.test(year2 === expectedYear85, `YYMMDD format (YY=85) - year is ${expectedYear85} (expected ${expectedYear85}, got ${year2})`);
-      x.test(month2 === 2, `YYMMDD format (YY=85) - month is March (2) (expected 2, got ${month2})`);
-      x.test(day2 === 15, `YYMMDD format (YY=85) - day is 15 (expected 15, got ${day2})`);
+      x.test(year2 === 1985, `MMDDYY format (YY=85) - year is 1985 (expected 1985, got ${year2})`);
+      x.test(month2 === 2, `MMDDYY format (YY=85) - month is March (2) (expected 2, got ${month2})`);
+      x.test(day2 === 15, `MMDDYY format (YY=85) - day is 15 (expected 15, got ${day2})`);
     },
 
-    function testParseDateString_YY_MM_DD(x) {
-      var currentYear = new Date().getUTCFullYear();
-
+    function testParseDateString_MM_DD_YY(x) {
       // Test with slash separator
-      var date1 = foam.util.DateUtil.parseDateString('24/03/15');
+      var date1 = foam.util.DateUtil.parseDateString('03/15/24');
       var year1 = date1.getFullYear();
-      x.test(year1 === 2024, `YY/MM/DD format - year is 2024 (expected 2024, got ${year1})`);
+      x.test(year1 === 2024, `MM/DD/YY format - year is 2024 (expected 2024, got ${year1})`);
 
-      // Test with dash separator - sliding window interpretation
-      var date2 = foam.util.DateUtil.parseDateString('85-03-15');
+      // Test with dash separator - fixed pivot interpretation (85 should be 1985)
+      var date2 = foam.util.DateUtil.parseDateString('03-15-85');
       var year2 = date2.getFullYear();
-
-      var currentCentury = Math.floor(currentYear / 100) * 100;
-      var expectedYear85 = currentCentury + 85;
-      if ( expectedYear85 > currentYear + 50 ) {
-        expectedYear85 = currentCentury - 100 + 85;
-      }
-
-      x.test(year2 === expectedYear85, `YY-MM-DD format - year is ${expectedYear85} (expected ${expectedYear85}, got ${year2})`);
+      x.test(year2 === 1985, `MM-DD-YY format - year is 1985 (expected 1985, got ${year2})`);
     },
 
     function testParseDateString_DDMMMYYYY(x) {
@@ -451,36 +434,32 @@ foam.CLASS({
     },
 
     function testParseDateString_TwoDigitYearBoundary(x) {
-      // Test 2-digit year using sliding window (50 years back, 50 years forward)
-      var currentYear = new Date().getUTCFullYear();
-      var currentCentury = Math.floor(currentYear / 100) * 100;
-
-      // Helper function to calculate expected year with fixed pivot at 50
+      // Test 2-digit year using fixed pivot at 50
       // 00-49 → 2000-2049, 50-99 → 1950-1999
       var calculateExpectedYear = function(twoDigitYear) {
         return twoDigitYear < 50 ? 2000 + twoDigitYear : 1900 + twoDigitYear;
       };
 
       // Test year 49
-      var date1 = foam.util.DateUtil.parseDateString('49-12-31');
+      var date1 = foam.util.DateUtil.parseDateString('12-31-49');
       var year1 = date1.getFullYear();
       var expected1 = calculateExpectedYear(49);
       x.test(year1 === expected1, `2-digit year 49 becomes ${expected1} (expected ${expected1}, got ${year1})`);
 
       // Test year 00
-      var date2 = foam.util.DateUtil.parseDateString('00-01-01');
+      var date2 = foam.util.DateUtil.parseDateString('01-01-00');
       var year2 = date2.getFullYear();
       var expected2 = calculateExpectedYear(0);
       x.test(year2 === expected2, `2-digit year 00 becomes ${expected2} (expected ${expected2}, got ${year2})`);
 
       // Test year 50
-      var date3 = foam.util.DateUtil.parseDateString('50-01-01');
+      var date3 = foam.util.DateUtil.parseDateString('01-01-50');
       var year3 = date3.getFullYear();
       var expected3 = calculateExpectedYear(50);
       x.test(year3 === expected3, `2-digit year 50 becomes ${expected3} (expected ${expected3}, got ${year3})`);
 
       // Test year 99
-      var date4 = foam.util.DateUtil.parseDateString('99-12-31');
+      var date4 = foam.util.DateUtil.parseDateString('12-31-99');
       var year4 = date4.getFullYear();
       var expected4 = calculateExpectedYear(99);
       x.test(year4 === expected4, `2-digit year 99 becomes ${expected4} (expected ${expected4}, got ${year4})`);
@@ -557,9 +536,9 @@ foam.CLASS({
         '03-15-2024',
         '03/15/2024',
         '03152024',
-        '24-03-15',
-        '24/03/15',
-        '240315'
+        '03-15-24',
+        '03/15/24',
+        '031524'
       ];
 
       formats.forEach(function(format) {
@@ -1554,155 +1533,155 @@ foam.CLASS({
     },
 
     function testParseDateTimeUTC_TwoDigitYearWithTime(x) {
-      // Test 2-digit year formats with time and separator (YY-MM-DD HH:MM:SS)
-      // Format: YY-MM-DD HH:MM:SS or YY/MM/DD HH:MM:SS
+      // Test 2-digit year formats with time and separator (MM-DD-YY HH:MM:SS)
+      // Format: MM-DD-YY HH:MM:SS or MM/DD/YY HH:MM:SS
 
       // Test with dash separator - year 24 should be 2024
-      var dt1 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 14:30:45');
+      var dt1 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 14:30:45');
       var year1 = dt1.getUTCFullYear();
       var month1 = dt1.getUTCMonth();
       var day1 = dt1.getUTCDate();
       var hour1 = dt1.getUTCHours();
       var minute1 = dt1.getUTCMinutes();
       var second1 = dt1.getUTCSeconds();
-      x.test(year1 === 2024, `YY-MM-DD HH:MM:SS (24) - year is 2024 (got ${year1})`);
-      x.test(month1 === 2, `YY-MM-DD HH:MM:SS - month is March (2) (got ${month1})`);
-      x.test(day1 === 15, `YY-MM-DD HH:MM:SS - day is 15 (got ${day1})`);
-      x.test(hour1 === 14, `YY-MM-DD HH:MM:SS - hour is 14 UTC (got ${hour1})`);
-      x.test(minute1 === 30, `YY-MM-DD HH:MM:SS - minute is 30 (got ${minute1})`);
-      x.test(second1 === 45, `YY-MM-DD HH:MM:SS - second is 45 (got ${second1})`);
+      x.test(year1 === 2024, `MM-DD-YY HH:MM:SS (24) - year is 2024 (got ${year1})`);
+      x.test(month1 === 2, `MM-DD-YY HH:MM:SS - month is March (2) (got ${month1})`);
+      x.test(day1 === 15, `MM-DD-YY HH:MM:SS - day is 15 (got ${day1})`);
+      x.test(hour1 === 14, `MM-DD-YY HH:MM:SS - hour is 14 UTC (got ${hour1})`);
+      x.test(minute1 === 30, `MM-DD-YY HH:MM:SS - minute is 30 (got ${minute1})`);
+      x.test(second1 === 45, `MM-DD-YY HH:MM:SS - second is 45 (got ${second1})`);
 
-      // Test with year 99 - should be 1999 (based on sliding window)
-      var dt2 = foam.util.DateUtil.parseDateTimeUTC('99-03-15 14:30:45');
+      // Test with year 99 - should be 1999 (based on fixed pivot)
+      var dt2 = foam.util.DateUtil.parseDateTimeUTC('03-15-99 14:30:45');
       var year2 = dt2.getUTCFullYear();
       var hour2 = dt2.getUTCHours();
       var minute2 = dt2.getUTCMinutes();
       var second2 = dt2.getUTCSeconds();
-      x.test(year2 === 1999, `YY-MM-DD HH:MM:SS (99) - year is 1999 (got ${year2})`);
-      x.test(hour2 === 14, `YY-MM-DD HH:MM:SS (99) - hour is 14 UTC (got ${hour2})`);
-      x.test(minute2 === 30, `YY-MM-DD HH:MM:SS (99) - minute is 30 (got ${minute2})`);
-      x.test(second2 === 45, `YY-MM-DD HH:MM:SS (99) - second is 45 (got ${second2})`);
+      x.test(year2 === 1999, `MM-DD-YY HH:MM:SS (99) - year is 1999 (got ${year2})`);
+      x.test(hour2 === 14, `MM-DD-YY HH:MM:SS (99) - hour is 14 UTC (got ${hour2})`);
+      x.test(minute2 === 30, `MM-DD-YY HH:MM:SS (99) - minute is 30 (got ${minute2})`);
+      x.test(second2 === 45, `MM-DD-YY HH:MM:SS (99) - second is 45 (got ${second2})`);
 
       // Test with slash separator
-      var dt3 = foam.util.DateUtil.parseDateTimeUTC('24/03/15 08:15:30');
+      var dt3 = foam.util.DateUtil.parseDateTimeUTC('03/15/24 08:15:30');
       var year3 = dt3.getUTCFullYear();
       var month3 = dt3.getUTCMonth();
       var day3 = dt3.getUTCDate();
       var hour3 = dt3.getUTCHours();
       var minute3 = dt3.getUTCMinutes();
       var second3 = dt3.getUTCSeconds();
-      x.test(year3 === 2024, `YY/MM/DD HH:MM:SS - year is 2024 (got ${year3})`);
-      x.test(month3 === 2, `YY/MM/DD HH:MM:SS - month is March (2) (got ${month3})`);
-      x.test(day3 === 15, `YY/MM/DD HH:MM:SS - day is 15 (got ${day3})`);
-      x.test(hour3 === 8, `YY/MM/DD HH:MM:SS - hour is 8 UTC (got ${hour3})`);
-      x.test(minute3 === 15, `YY/MM/DD HH:MM:SS - minute is 15 (got ${minute3})`);
-      x.test(second3 === 30, `YY/MM/DD HH:MM:SS - second is 30 (got ${second3})`);
+      x.test(year3 === 2024, `MM/DD/YY HH:MM:SS - year is 2024 (got ${year3})`);
+      x.test(month3 === 2, `MM/DD/YY HH:MM:SS - month is March (2) (got ${month3})`);
+      x.test(day3 === 15, `MM/DD/YY HH:MM:SS - day is 15 (got ${day3})`);
+      x.test(hour3 === 8, `MM/DD/YY HH:MM:SS - hour is 8 UTC (got ${hour3})`);
+      x.test(minute3 === 15, `MM/DD/YY HH:MM:SS - minute is 15 (got ${minute3})`);
+      x.test(second3 === 30, `MM/DD/YY HH:MM:SS - second is 30 (got ${second3})`);
 
       // Test with different times to verify time preservation
-      var dt4 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 00:00:00');
+      var dt4 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 00:00:00');
       var hour4 = dt4.getUTCHours();
       var minute4 = dt4.getUTCMinutes();
       var second4 = dt4.getUTCSeconds();
-      x.test(hour4 === 0, `YY-MM-DD midnight - hour is 0 UTC (got ${hour4})`);
-      x.test(minute4 === 0, `YY-MM-DD midnight - minute is 0 (got ${minute4})`);
-      x.test(second4 === 0, `YY-MM-DD midnight - second is 0 (got ${second4})`);
+      x.test(hour4 === 0, `MM-DD-YY midnight - hour is 0 UTC (got ${hour4})`);
+      x.test(minute4 === 0, `MM-DD-YY midnight - minute is 0 (got ${minute4})`);
+      x.test(second4 === 0, `MM-DD-YY midnight - second is 0 (got ${second4})`);
 
-      var dt5 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 23:59:59');
+      var dt5 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 23:59:59');
       var hour5 = dt5.getUTCHours();
       var minute5 = dt5.getUTCMinutes();
       var second5 = dt5.getUTCSeconds();
-      x.test(hour5 === 23, `YY-MM-DD end of day - hour is 23 UTC (got ${hour5})`);
-      x.test(minute5 === 59, `YY-MM-DD end of day - minute is 59 (got ${minute5})`);
+      x.test(hour5 === 23, `MM-DD-YY end of day - hour is 23 UTC (got ${hour5})`);
+      x.test(minute5 === 59, `MM-DD-YY end of day - minute is 59 (got ${minute5})`);
       x.test(second5 === 59, `YY-MM-DD end of day - second is 59 (got ${second5})`);
     },
 
     function testParseDateTimeUTC_TwoDigitYearWithTimeNoSeconds(x) {
-      // Test 2-digit year formats with time but no seconds (YY-MM-DD HH:MM)
+      // Test 2-digit year formats with time but no seconds (MM-DD-YY HH:MM)
       // Seconds should default to 0 when not provided
 
       // Test with dash separator
-      var dt1 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 14:30');
+      var dt1 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 14:30');
       var year1 = dt1.getUTCFullYear();
       var month1 = dt1.getUTCMonth();
       var day1 = dt1.getUTCDate();
       var hour1 = dt1.getUTCHours();
       var minute1 = dt1.getUTCMinutes();
       var second1 = dt1.getUTCSeconds();
-      x.test(year1 === 2024, `YY-MM-DD HH:MM (24) - year is 2024 (got ${year1})`);
-      x.test(month1 === 2, `YY-MM-DD HH:MM - month is March (2) (got ${month1})`);
-      x.test(day1 === 15, `YY-MM-DD HH:MM - day is 15 (got ${day1})`);
-      x.test(hour1 === 14, `YY-MM-DD HH:MM - hour is 14 UTC (got ${hour1})`);
-      x.test(minute1 === 30, `YY-MM-DD HH:MM - minute is 30 (got ${minute1})`);
-      x.test(second1 === 0, `YY-MM-DD HH:MM - second defaults to 0 (got ${second1})`);
+      x.test(year1 === 2024, `MM-DD-YY HH:MM (24) - year is 2024 (got ${year1})`);
+      x.test(month1 === 2, `MM-DD-YY HH:MM - month is March (2) (got ${month1})`);
+      x.test(day1 === 15, `MM-DD-YY HH:MM - day is 15 (got ${day1})`);
+      x.test(hour1 === 14, `MM-DD-YY HH:MM - hour is 14 UTC (got ${hour1})`);
+      x.test(minute1 === 30, `MM-DD-YY HH:MM - minute is 30 (got ${minute1})`);
+      x.test(second1 === 0, `MM-DD-YY HH:MM - second defaults to 0 (got ${second1})`);
 
       // Test with slash separator
-      var dt2 = foam.util.DateUtil.parseDateTimeUTC('24/03/15 08:15');
+      var dt2 = foam.util.DateUtil.parseDateTimeUTC('03/15/24 08:15');
       var year2 = dt2.getUTCFullYear();
       var hour2 = dt2.getUTCHours();
       var minute2 = dt2.getUTCMinutes();
       var second2 = dt2.getUTCSeconds();
-      x.test(year2 === 2024, `YY/MM/DD HH:MM - year is 2024 (got ${year2})`);
-      x.test(hour2 === 8, `YY/MM/DD HH:MM - hour is 8 UTC (got ${hour2})`);
-      x.test(minute2 === 15, `YY/MM/DD HH:MM - minute is 15 (got ${minute2})`);
-      x.test(second2 === 0, `YY/MM/DD HH:MM - second defaults to 0 (got ${second2})`);
+      x.test(year2 === 2024, `MM/DD/YY HH:MM - year is 2024 (got ${year2})`);
+      x.test(hour2 === 8, `MM/DD/YY HH:MM - hour is 8 UTC (got ${hour2})`);
+      x.test(minute2 === 15, `MM/DD/YY HH:MM - minute is 15 (got ${minute2})`);
+      x.test(second2 === 0, `MM/DD/YY HH:MM - second defaults to 0 (got ${second2})`);
 
       // Test with year 99
-      var dt3 = foam.util.DateUtil.parseDateTimeUTC('99-12-31 23:45');
+      var dt3 = foam.util.DateUtil.parseDateTimeUTC('12-31-99 23:45');
       var year3 = dt3.getUTCFullYear();
       var month3 = dt3.getUTCMonth();
       var day3 = dt3.getUTCDate();
       var hour3 = dt3.getUTCHours();
       var minute3 = dt3.getUTCMinutes();
       var second3 = dt3.getUTCSeconds();
-      x.test(year3 === 1999, `YY-MM-DD HH:MM (99) - year is 1999 (got ${year3})`);
-      x.test(month3 === 11, `YY-MM-DD HH:MM (99) - month is December (11) (got ${month3})`);
-      x.test(day3 === 31, `YY-MM-DD HH:MM (99) - day is 31 (got ${day3})`);
-      x.test(hour3 === 23, `YY-MM-DD HH:MM (99) - hour is 23 UTC (got ${hour3})`);
-      x.test(minute3 === 45, `YY-MM-DD HH:MM (99) - minute is 45 (got ${minute3})`);
-      x.test(second3 === 0, `YY-MM-DD HH:MM (99) - second defaults to 0 (got ${second3})`);
+      x.test(year3 === 1999, `MM-DD-YY HH:MM (99) - year is 1999 (got ${year3})`);
+      x.test(month3 === 11, `MM-DD-YY HH:MM (99) - month is December (11) (got ${month3})`);
+      x.test(day3 === 31, `MM-DD-YY HH:MM (99) - day is 31 (got ${day3})`);
+      x.test(hour3 === 23, `MM-DD-YY HH:MM (99) - hour is 23 UTC (got ${hour3})`);
+      x.test(minute3 === 45, `MM-DD-YY HH:MM (99) - minute is 45 (got ${minute3})`);
+      x.test(second3 === 0, `MM-DD-YY HH:MM (99) - second defaults to 0 (got ${second3})`);
     },
 
     function testParseDateTimeUTC_TwoDigitYearSlidingWindow(x) {
-      // Test 2-digit year interpretation with sliding window
+      // Test 2-digit year interpretation with fixed pivot
       // Years 00-49 should map to 2000-2049
       // Years 50-99 should map to 1950-1999
 
       // Test year 00 (should be 2000)
-      var dt1 = foam.util.DateUtil.parseDateTimeUTC('00-01-01 12:00:00');
+      var dt1 = foam.util.DateUtil.parseDateTimeUTC('01-01-00 12:00:00');
       var year1 = dt1.getUTCFullYear();
       x.test(year1 === 2000, `2-digit year 00 should be 2000 (got ${year1})`);
 
       // Test year 25 (should be 2025)
-      var dt2 = foam.util.DateUtil.parseDateTimeUTC('25-06-15 12:00:00');
+      var dt2 = foam.util.DateUtil.parseDateTimeUTC('06-15-25 12:00:00');
       var year2 = dt2.getUTCFullYear();
       x.test(year2 === 2025, `2-digit year 25 should be 2025 (got ${year2})`);
 
       // Test year 49 (should be 2049)
-      var dt3 = foam.util.DateUtil.parseDateTimeUTC('49-12-31 12:00:00');
+      var dt3 = foam.util.DateUtil.parseDateTimeUTC('12-31-49 12:00:00');
       var year3 = dt3.getUTCFullYear();
       x.test(year3 === 2049, `2-digit year 49 should be 2049 (got ${year3})`);
 
       // Test year 50 (should be 1950)
-      var dt4 = foam.util.DateUtil.parseDateTimeUTC('50-01-01 12:00:00');
+      var dt4 = foam.util.DateUtil.parseDateTimeUTC('01-01-50 12:00:00');
       var year4 = dt4.getUTCFullYear();
       x.test(year4 === 1950, `2-digit year 50 should be 1950 (got ${year4})`);
 
       // Test year 75 (should be 1975)
-      var dt5 = foam.util.DateUtil.parseDateTimeUTC('75-06-15 12:00:00');
+      var dt5 = foam.util.DateUtil.parseDateTimeUTC('06-15-75 12:00:00');
       var year5 = dt5.getUTCFullYear();
       x.test(year5 === 1975, `2-digit year 75 should be 1975 (got ${year5})`);
 
       // Test year 99 (should be 1999)
-      var dt6 = foam.util.DateUtil.parseDateTimeUTC('99-12-31 12:00:00');
+      var dt6 = foam.util.DateUtil.parseDateTimeUTC('12-31-99 12:00:00');
       var year6 = dt6.getUTCFullYear();
       x.test(year6 === 1999, `2-digit year 99 should be 1999 (got ${year6})`);
 
       // Test separated format with different years (compact time format removed)
-      var dt7 = foam.util.DateUtil.parseDateTimeUTC('00-01-01 12:00:00');
+      var dt7 = foam.util.DateUtil.parseDateTimeUTC('01-01-00 12:00:00');
       var year7 = dt7.getUTCFullYear();
       x.test(year7 === 2000, `2-digit year 00 should be 2000 (got ${year7})`);
 
-      var dt8 = foam.util.DateUtil.parseDateTimeUTC('50-01-01 12:00:00');
+      var dt8 = foam.util.DateUtil.parseDateTimeUTC('01-01-50 12:00:00');
       var year8 = dt8.getUTCFullYear();
       x.test(year8 === 1950, `2-digit year 50 should be 1950 (got ${year8})`);
     },
@@ -1711,68 +1690,68 @@ foam.CLASS({
       // Test that 2-digit year formats with timezone correctly convert to UTC
 
       // Test with Z timezone indicator
-      var dt1 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 14:30:45Z');
+      var dt1 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 14:30:45Z');
       var year1 = dt1.getUTCFullYear();
       var hour1 = dt1.getUTCHours();
       var minute1 = dt1.getUTCMinutes();
       var second1 = dt1.getUTCSeconds();
-      x.test(year1 === 2024, `YY-MM-DD HH:MM:SSZ - year is 2024 (got ${year1})`);
-      x.test(hour1 === 14, `YY-MM-DD HH:MM:SSZ - stays at 14:30:45 UTC (got ${hour1}:${minute1}:${second1})`);
-      x.test(minute1 === 30, `YY-MM-DD HH:MM:SSZ - minute is 30 (got ${minute1})`);
-      x.test(second1 === 45, `YY-MM-DD HH:MM:SSZ - second is 45 (got ${second1})`);
+      x.test(year1 === 2024, `MM-DD-YY HH:MM:SSZ - year is 2024 (got ${year1})`);
+      x.test(hour1 === 14, `MM-DD-YY HH:MM:SSZ - stays at 14:30:45 UTC (got ${hour1}:${minute1}:${second1})`);
+      x.test(minute1 === 30, `MM-DD-YY HH:MM:SSZ - minute is 30 (got ${minute1})`);
+      x.test(second1 === 45, `MM-DD-YY HH:MM:SSZ - second is 45 (got ${second1})`);
 
       // Test with positive timezone offset (subtract from time to get UTC)
-      // 24-03-15 14:30:45+05:30 should become 09:00:45 UTC
-      var dt2 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 14:30:45+05:30');
+      // 03-15-24 14:30:45+05:30 should become 09:00:45 UTC
+      var dt2 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 14:30:45+05:30');
       var year2 = dt2.getUTCFullYear();
       var month2 = dt2.getUTCMonth();
       var day2 = dt2.getUTCDate();
       var hour2 = dt2.getUTCHours();
       var minute2 = dt2.getUTCMinutes();
       var second2 = dt2.getUTCSeconds();
-      x.test(year2 === 2024, `YY-MM-DD HH:MM:SS+05:30 - year is 2024 (got ${year2})`);
-      x.test(month2 === 2, `YY-MM-DD HH:MM:SS+05:30 - month is March (2) (got ${month2})`);
-      x.test(day2 === 15, `YY-MM-DD HH:MM:SS+05:30 - day is 15 (got ${day2})`);
-      x.test(hour2 === 9, `YY-MM-DD HH:MM:SS+05:30 - converted to 09:00:45 UTC (got ${hour2})`);
-      x.test(minute2 === 0, `YY-MM-DD HH:MM:SS+05:30 - minute is 0 (got ${minute2})`);
-      x.test(second2 === 45, `YY-MM-DD HH:MM:SS+05:30 - second is 45 (got ${second2})`);
+      x.test(year2 === 2024, `MM-DD-YY HH:MM:SS+05:30 - year is 2024 (got ${year2})`);
+      x.test(month2 === 2, `MM-DD-YY HH:MM:SS+05:30 - month is March (2) (got ${month2})`);
+      x.test(day2 === 15, `MM-DD-YY HH:MM:SS+05:30 - day is 15 (got ${day2})`);
+      x.test(hour2 === 9, `MM-DD-YY HH:MM:SS+05:30 - converted to 09:00:45 UTC (got ${hour2})`);
+      x.test(minute2 === 0, `MM-DD-YY HH:MM:SS+05:30 - minute is 0 (got ${minute2})`);
+      x.test(second2 === 45, `MM-DD-YY HH:MM:SS+05:30 - second is 45 (got ${second2})`);
 
       // Test with negative timezone offset (add to time to get UTC)
-      // 24-03-15 14:30:45-08:00 should become 22:30:45 UTC
-      var dt3 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 14:30:45-08:00');
+      // 03-15-24 14:30:45-08:00 should become 22:30:45 UTC
+      var dt3 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 14:30:45-08:00');
       var year3 = dt3.getUTCFullYear();
       var month3 = dt3.getUTCMonth();
       var day3 = dt3.getUTCDate();
       var hour3 = dt3.getUTCHours();
       var minute3 = dt3.getUTCMinutes();
       var second3 = dt3.getUTCSeconds();
-      x.test(year3 === 2024, `YY-MM-DD HH:MM:SS-08:00 - year is 2024 (got ${year3})`);
-      x.test(month3 === 2, `YY-MM-DD HH:MM:SS-08:00 - month is March (2) (got ${month3})`);
-      x.test(day3 === 15, `YY-MM-DD HH:MM:SS-08:00 - day is 15 (got ${day3})`);
-      x.test(hour3 === 22, `YY-MM-DD HH:MM:SS-08:00 - converted to 22:30:45 UTC (got ${hour3})`);
-      x.test(minute3 === 30, `YY-MM-DD HH:MM:SS-08:00 - minute is 30 (got ${minute3})`);
-      x.test(second3 === 45, `YY-MM-DD HH:MM:SS-08:00 - second is 45 (got ${second3})`);
+      x.test(year3 === 2024, `MM-DD-YY HH:MM:SS-08:00 - year is 2024 (got ${year3})`);
+      x.test(month3 === 2, `MM-DD-YY HH:MM:SS-08:00 - month is March (2) (got ${month3})`);
+      x.test(day3 === 15, `MM-DD-YY HH:MM:SS-08:00 - day is 15 (got ${day3})`);
+      x.test(hour3 === 22, `MM-DD-YY HH:MM:SS-08:00 - converted to 22:30:45 UTC (got ${hour3})`);
+      x.test(minute3 === 30, `MM-DD-YY HH:MM:SS-08:00 - minute is 30 (got ${minute3})`);
+      x.test(second3 === 45, `MM-DD-YY HH:MM:SS-08:00 - second is 45 (got ${second3})`);
 
       // Test with slash separator and timezone
-      var dt4 = foam.util.DateUtil.parseDateTimeUTC('24/03/15 14:30:45+01:00');
+      var dt4 = foam.util.DateUtil.parseDateTimeUTC('03/15/24 14:30:45+01:00');
       var year4 = dt4.getUTCFullYear();
       var hour4 = dt4.getUTCHours();
       var minute4 = dt4.getUTCMinutes();
-      x.test(year4 === 2024, `YY/MM/DD HH:MM:SS+01:00 - year is 2024 (got ${year4})`);
-      x.test(hour4 === 13, `YY/MM/DD HH:MM:SS+01:00 - converted to 13:30:45 UTC (got ${hour4})`);
-      x.test(minute4 === 30, `YY/MM/DD HH:MM:SS+01:00 - minute is 30 (got ${minute4})`);
+      x.test(year4 === 2024, `MM/DD/YY HH:MM:SS+01:00 - year is 2024 (got ${year4})`);
+      x.test(hour4 === 13, `MM/DD/YY HH:MM:SS+01:00 - converted to 13:30:45 UTC (got ${hour4})`);
+      x.test(minute4 === 30, `MM/DD/YY HH:MM:SS+01:00 - minute is 30 (got ${minute4})`);
 
       // Test date boundary crossing with timezone
-      // 24-03-15 01:30:45-05:00 should become 06:30:45 UTC (same day)
-      var dt5 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 01:30:45-05:00');
+      // 03-15-24 01:30:45-05:00 should become 06:30:45 UTC (same day)
+      var dt5 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 01:30:45-05:00');
       var day5 = dt5.getUTCDate();
       var hour5 = dt5.getUTCHours();
       x.test(day5 === 15, `Date boundary - day stays 15 (got ${day5})`);
       x.test(hour5 === 6, `Date boundary - hour is 6 UTC (got ${hour5})`);
 
       // Test date boundary crossing - previous day
-      // 24-03-15 01:30:45+05:00 should become 2024-03-14 20:30:45 UTC
-      var dt6 = foam.util.DateUtil.parseDateTimeUTC('24-03-15 01:30:45+05:00');
+      // 03-15-24 01:30:45+05:00 should become 2024-03-14 20:30:45 UTC
+      var dt6 = foam.util.DateUtil.parseDateTimeUTC('03-15-24 01:30:45+05:00');
       var day6 = dt6.getUTCDate();
       var hour6 = dt6.getUTCHours();
       x.test(day6 === 14, `Date boundary crossing - day is 14 (got ${day6})`);

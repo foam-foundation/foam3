@@ -229,6 +229,9 @@ foam.CLASS({
       confirmationRequired: function() {
         return true;
       },
+      isEnabled: function(comment) {
+        return comment;
+      },
       isAvailable: function(status, id) {
         return id && status !== 'CLOSED';
       },

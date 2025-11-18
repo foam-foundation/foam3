@@ -343,7 +343,7 @@ foam.CLASS({
 
       this.field.on('focus', this.onPreviewChange);
       self.overlay_.parentEl = this.field.el_();
-      self.add(self.overlay_);
+      self.overlay_.write();
       self.overlay_
         .start()
           .addClass(this.myClass('suggestions'))

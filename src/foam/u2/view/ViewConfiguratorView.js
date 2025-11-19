@@ -174,9 +174,12 @@ foam.CLASS({
       name: 'updateViewSpec',
       isFramed: true,
       code: function() {
-        let c = this.VIEW_SPEC_OUTPUTTER.objectify(this.data_);
-        if ( ! foam.Object.equals(this.data, c) )
-          this.data = c;
+        let compareObj = this.VIEW_SPEC_OUTPUTTER.objectify(this.data_);
+        if ( ! this.allowClassChange && compareObj.class ) {
+          delete compareObj.class;
+        }
+        if ( ! foam.Object.equals(this.data, compareObj) )
+          this.data = compareObj;
       }
     }
   ]

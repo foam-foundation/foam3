@@ -475,40 +475,12 @@ foam.CLASS({
       name: 'shown',
       hidden: false
     },
-    // TODO: allow adding multiple nested borders,
-    // Needs something that resembles array view
-    // But when converted to viewSpec it nests all array elements
-    {
-      class: 'Class',
-      name: 'borderClass',
-      hidden: true,
-      label: 'Border Type',
-      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
-    },
     {
       class: 'foam.u2.ViewSpec',
       name: 'border',
       label: 'Border Properties',
       documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
       label: '',
-      initObject: function(obj) {
-        // Legacy support 
-        if ( obj.borderClass !== foam.u2.borders.TitleBorder ) {
-          switch ( obj.borderClass ) {
-            case foam.u2.borders.CardBorder:
-              obj.border_st = 'solid 1px $borderDefault';
-              obj.padding_st = '16px';
-              break;
-            case foam.u2.borders.BackgroundCard:
-              obj.backgroundColor_st = obj.border.backgroundColor || '$backgroundSecondary';
-              obj.padding_st = obj.border.padding || '16px';
-              break;
-            case foam.u2.borders.SpacingBorder:
-              obj.padding_st = '16px';
-              break;
-          }
-        }
-      },
       factory: function() { return {}; },
       preSet: function(_, n) {
         // Dont save the class so that the ViewSpec doesn't convert to a view
@@ -524,6 +496,13 @@ foam.CLASS({
           allowClassChange: false
         };
       }
+    },
+    {
+      class: 'Class',
+      name: 'borderClass',
+      hidden: true,
+      label: 'Border Type',
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
     },
     {
       name: 'borderEl_',
@@ -553,9 +532,10 @@ foam.CLASS({
       this.content.tag(foam.u2.borders.TitleBorder, { ...this.border }, self.borderEl_$);
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
       self.borderEl_.add(this.out);
-      // Since border's properties will be copied over after in include script, set it here
+      // Since border's properties will be copied over after in includeScript, set it here
       this.onDetach(this.border$.sub(() => {
         this.borderEl_.copyFrom(this.border);
+        this.maybeMigrate();
       }));
     },
 
@@ -615,6 +595,26 @@ foam.CLASS({
   ],
 
   listeners: [
+    function maybeMigrate() {
+      // Legacy support 
+      if ( this.borderClass && this.borderClass !== foam.u2.borders.TitleBorder ) {
+        switch ( this.borderClass ) {
+          case foam.u2.borders.CardBorder:
+            this.border_st = 'solid 1px $borderDefault';
+            this.padding_st = '16px';
+            break;
+          case foam.u2.borders.BackgroundCard:
+            this.background_st = this.border.backgroundColor || '$backgroundSecondary';
+            this.padding_st = this.border.padding || '2.4rem';
+            break;
+          case foam.u2.borders.SpacingBorder:
+            this.padding_st = this.border.padding || '1rem';
+            break;
+        }
+        // After migration clear the borderClass so it is never run again on this block;
+        this.borderClass = null;
+      }
+    },
     {
       name: 'pubUpdate',
       on: ['this.propertyChange.borderClass', 'this.propertyChange.border'],

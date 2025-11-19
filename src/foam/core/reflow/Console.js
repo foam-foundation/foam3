@@ -553,6 +553,10 @@ foam.CLASS({
       this.content.tag(foam.u2.borders.TitleBorder, { ...this.border }, self.borderEl_$);
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
       self.borderEl_.add(this.out);
+      // Since border's properties will be copied over after in include script, set it here
+      this.onDetach(this.border$.sub(() => {
+        this.borderEl_.copyFrom(this.border);
+      }));
     },
 
     function render() {

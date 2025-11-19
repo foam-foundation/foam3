@@ -9,12 +9,11 @@ foam.CLASS({
   name: 'DAOPromptView',
   extends: 'foam.u2.View',
 
+  imports: ['block'],
+
   requires: [
     'foam.u2.LoadingSpinner',
   ],
-
-  css: `
-  `,
 
   properties: [
     { class: 'Long',    name: 'version' },
@@ -24,6 +23,15 @@ foam.CLASS({
   methods: [
     function render() {
       var self = this;
+
+      if ( this.block?.borderEl_?.title$ ) {
+        this.data.label$.relateTo(this.block?.borderEl_?.title$, function(label) {
+          self.block?.setTitle(label);
+          return label;
+        }, function(title) {
+          return title;
+        })
+      }
 
       this.data.where$.sub(this.rerun);
       this.data.skip$.sub(this.onUpdate);
@@ -450,10 +458,6 @@ foam.CLASS({
 
     function init() {
       this.SUPER();
-
-      if ( ! this.block?.border?.title ) {
-        this.block?.setTitle(this.label);
-      }
 
       x.auth.check(x, 'reflow.aql').then(enabled => {
         this.enableAQL_ = enabled;

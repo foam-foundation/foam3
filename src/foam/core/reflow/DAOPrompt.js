@@ -25,7 +25,7 @@ foam.CLASS({
       var self = this;
 
       if ( this.block?.borderEl_?.title$ ) {
-        this.data.label$.relateTo(this.block?.borderEl_?.title$, function(label) {
+        this.block?.borderEl_?.title$.relateFrom(this.data.label$, function(label) {
           self.block?.setTitle(label);
           return label;
         }, function(title) {

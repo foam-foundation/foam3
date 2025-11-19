@@ -85,20 +85,20 @@ public class OAuthWebAgent implements WebAgent {
 
             var userX = session.getContext();
 
-	    var oAuthCredentialsDAO = (foam.dao.DAO) x.get("oAuthCredentialDAO");
+            var oAuthCredentialsDAO = (foam.dao.DAO)x.get("oAuthCredentialDAO");
             var existingCredential = oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId()));
-	    var credential = new foam.core.oauth.OAuthCredential();
-	    if (existingCredential != null) {
-	      credential.copyFrom(existingCredential);
-	    }
-	    credential.setUser(user.getId());
-	    credential.setProvider(provider.getId());
-	    credential.setAccessToken(accessToken);
-	    if ( refreshToken != null ) {
-	      credential.setRefreshToken(refreshToken);
-	    }
-	    credential.setScopes(scopes);
-	    
+            var credential = new foam.core.oauth.OAuthCredential();
+            if (existingCredential != null) {
+                credential.copyFrom(existingCredential);
+            }
+            credential.setUser(user.getId());
+            credential.setProvider(provider.getId());
+            credential.setAccessToken(accessToken);
+            if (refreshToken != null) {
+                credential.setRefreshToken(refreshToken);
+            }
+            credential.setScopes(scopes);
+
             oAuthCredentialsDAO.put(credential);
 
             handleOAuthCredential(x, userX, credential);

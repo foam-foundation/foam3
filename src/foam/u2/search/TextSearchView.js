@@ -124,7 +124,7 @@ foam.CLASS({
           ariaLabel$: this.label$,
           onKey: this.onKey,
           mode$: this.mode$,
-          placeholder$: this.searchMode$.map(s => s == 'MQL' ? 'MQL Search...' : 'Search...')
+          placeholder$: this.searchMode$.map(s => s == this.SearchMode.MQL ? 'Query Search...' : 'Search...')
         }, this.view$)
           .attrs({ name: this.name$ })
         .end();

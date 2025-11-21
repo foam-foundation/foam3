@@ -53,6 +53,12 @@ foam.CLASS({
     },
     function clearTimeout(id) {
       globalThis.clearTimeout(id);
+    },
+    function addEventListener() {
+      // Stub for Node.js environment - no-op
+    },
+    function removeEventListener() {
+      // Stub for Node.js environment - no-op
     }
   ]
 });
@@ -73,5 +79,7 @@ foam.SCRIPT({
     globalThis.location = foam.__context__.location;
     globalThis.requestAnimationFrame = nw.requestAnimationFrame.bind(nw);
     globalThis.cancelAnimationFrame  = nw.cancelAnimationFrame.bind(nw);
+    globalThis.addEventListener = nw.addEventListener.bind(nw);
+    globalThis.removeEventListener = nw.removeEventListener.bind(nw);
   }
 });

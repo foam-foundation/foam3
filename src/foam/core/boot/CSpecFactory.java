@@ -238,6 +238,10 @@ public class CSpecFactory
       logger = StdoutLogger.instance();
     }
     Object ns = ns_;
+    // Don't attempt shutdown on services that haven't been initialized yet
+    if ( ns == null ) {
+      return;
+    }
     try {
       while ( ns != null ) {
         if ( ns instanceof COREService )  {
@@ -246,7 +250,13 @@ public class CSpecFactory
           logger.info("Stopped Service", spec_.getName(), ns.getClass().getName());
         }
         if ( ns instanceof ProxyDAO ) {
-          ns = ((ProxyDAO) ns).getDelegate();
+          // Get delegate without triggering lazy initialization
+          DAO delegate = ((ProxyDAO) ns).getDelegate();
+          // If delegate is null, the DAO hasn't been initialized - skip it
+          if ( delegate == null ) {
+            break;
+          }
+          ns = delegate;
         } else if ( ns instanceof ProxyAuthService ) {
           ns = ((ProxyAuthService) ns).getDelegate();
         } else {

@@ -72,6 +72,12 @@ foam.CLASS({
             return;
           }
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
+            // Check for thread interruption to allow graceful shutdown
+            if ( Thread.currentThread().isInterrupted() ) {
+              getLogger().info("Replay interrupted, processed", passCount.get(), "entries");
+              break;
+            }
+
             int length = entry.length();
             if ( length == 0 ) continue;
             if ( COMMENT.matcher(entry).matches() ) continue;
@@ -123,6 +129,11 @@ foam.CLASS({
                   // Provide some feedback on long running replays
                   if ( pass % 10000 == 0 ) {
                     getLogger().info("Replay progress", "processed", pass, "in", Duration.ofMillis(pm.getTime()));
+                    // Check for interruption periodically during long replays
+                    if ( Thread.currentThread().isInterrupted() ) {
+                      getLogger().info("Replay interrupted during progress check");
+                      return;
+                    }
                   }
                 }
               });

@@ -105,6 +105,11 @@ In this current implementation setDelegate must be called last.`,
       name: 'delegate',
       javaFactory: 'return new MDAO(getOf());',
       javaPostSet: `
+            // If thread is interrupted (shutdown in progress), do not initialize or replay
+            if ( Thread.currentThread().isInterrupted() ) {
+              return;
+            }
+
             var delegate = val;
             var currentVersion = getVersion();
 

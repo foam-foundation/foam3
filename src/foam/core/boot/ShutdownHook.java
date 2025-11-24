@@ -41,6 +41,10 @@ public class ShutdownHook
     X x = x_;
     Logger logger = Loggers.logger(x_);
     logger.info("Shutdownhook,shutdown requested");
+
+    // Interrupt this thread so JDAO.setDelegate() can detect we're in shutdown
+    Thread.currentThread().interrupt();
+
     AppConfig appConfig = (AppConfig) x.get("appConfig");
 
     // Generate a thrump dump

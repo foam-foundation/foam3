@@ -246,21 +246,6 @@ public class CSpecFactory
           logger.info("Stopped Service", spec_.getName(), ns.getClass().getName());
         }
         if ( ns instanceof ProxyDAO ) {
-          // Skip traversal if delegate hasn't been initialized yet
-          // This prevents lazy initialization (including journal replay) during shutdown
-          try {
-            java.lang.reflect.Field delegateField = ns.getClass().getDeclaredField("delegateIsSet_");
-            delegateField.setAccessible(true);
-            boolean isSet = delegateField.getBoolean(ns);
-            if ( ! isSet ) {
-              logger.debug("Skipping uninitialized DAO delegate during shutdown", spec_.getName());
-              break;
-            }
-          } catch (NoSuchFieldException e) {
-            // Field doesn't exist, continue normally
-          } catch (IllegalAccessException e) {
-            logger.warning("Could not check delegate initialization status", spec_.getName());
-          }
           ns = ((ProxyDAO) ns).getDelegate();
         } else if ( ns instanceof ProxyAuthService ) {
           ns = ((ProxyAuthService) ns).getDelegate();

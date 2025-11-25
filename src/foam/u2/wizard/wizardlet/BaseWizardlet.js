@@ -260,6 +260,7 @@ foam.CLASS({
     {
       class: 'foam.util.FObjectSpec',
       name: 'exceptionAgent',
+      transient: true,
       documentation: `
         Wizardlet's exception handler. This is an FObjectSpec so that it may
         be created in the correct subcontext at the time when it is needed.
@@ -331,6 +332,7 @@ foam.CLASS({
     {
       name: '__subSubContext__',
       documentation: 'Current subContext to use when creating view.',
+      transient: true,
       factory: function() { return this.__subContext__; }
     },
     {

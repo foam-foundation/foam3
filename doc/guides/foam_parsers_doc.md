@@ -46,6 +46,16 @@
     - [matchAll(input)](#matchallinput)
     - [getSymParser(symbolName)](#getsymparsersymbolname)
     - [stringPStream(str)](#stringpstreamstr)
+  - [Auto-Complete Suggestions](#auto-complete-suggestions)
+    - [Suggestion Class](#suggestion-class)
+    - [Creating Suggestions with sug()](#creating-suggestions-with-sug)
+    - [Suggestion Categories](#suggestion-categories)
+    - [Example: Query Parser with Suggestions](#example-query-parser-with-suggestions)
+    - [Custom Suggester Views](#custom-suggester-views)
+    - [SmartView - The Suggestion UI](#smartview---the-suggestion-ui)
+    - [How Suggestion Collection Works](#how-suggestion-collection-works)
+    - [Building Dynamic Property Suggestions](#building-dynamic-property-suggestions)
+    - [Nested Property Suggestions](#nested-property-suggestions)
   - [Best Practices](#best-practices)
   - [Complete Example: Email Address Parser](#complete-example-email-address-parser)
   - [Live Examples](#live-examples)
@@ -639,6 +649,261 @@ var ps = P.stringPStream('abc');
 
 ---
 
+## Auto-Complete Suggestions
+
+FOAM parsers support auto-complete suggestions through the `Suggest` parser decorator and `SmartView` UI component. This enables intelligent autocomplete for search bars, query builders, and other text inputs.
+
+### Suggestion Class
+
+The `foam.parse.Suggestion` class represents a single suggestion:
+
+```javascript
+foam.CLASS({
+  package: 'foam.parse',
+  name: 'Suggestion',
+  properties: [
+    { class: 'String', name: 'text' },       // Text to insert on selection
+    { class: 'String', name: 'label' },      // Display label (defaults to text)
+    { class: 'String', name: 'tooltip' },    // Hint text (doesn't insert anything)
+    { class: 'String', name: 'category' },   // For styling: property, operator, value, format
+    { name: 'view', class: 'foam.u2.ViewSpec' }, // Custom suggester view
+    { class: 'Boolean', name: 'prependSpaceOnSelect', value: true }
+  ]
+});
+```
+
+### Creating Suggestions with sug()
+
+Use the `sug(parser, suggestionSpec)` combinator to attach suggestions to parsers:
+
+```javascript
+var P = foam.parse.Parsers.create();
+
+// Basic text suggestion
+sug(literal('AND'), {text: 'AND', category: 'operator'})
+
+// Suggestion with different label and text
+sug(literal('>='), {text: '>=', label: 'Greater or Equal', category: 'operator'})
+
+// Tooltip-only suggestion (shows hint, doesn't auto-complete)
+sug(seq(sym('digits'), '-', sym('digits'), '-', sym('digits')),
+    {tooltip: 'YYYY/MM/DD', category: 'format'})
+
+// Suggestion with custom view
+sug(nop(), {view: 'foam.parse.auto.DateSuggester'})
+```
+
+### Suggestion Categories
+
+Categories control styling in the suggestion dropdown:
+
+| Category | Color | Use Case |
+|----------|-------|----------|
+| `property` | Green | Field/property names |
+| `operator` | Orange | Operators like AND, OR, =, > |
+| `value` | Blue | Enumeration values, keywords |
+| `format` | Gray | Format hints (tooltips only) |
+
+### Example: Query Parser with Suggestions
+
+```javascript
+foam.CLASS({
+  name: 'SearchQueryParser',
+  extends: 'foam.parse.Grammar',
+
+  methods: [
+    function grammar(alt, sym, seq, seq1, literal, literalIC, sug) {
+      // Helper for operators with suggestions
+      let operator = (str) => alt(
+        seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str, category: 'operator'})),
+        literalIC(str)
+      );
+
+      return {
+        START: sym('query'),
+
+        query: sym('or'),
+
+        // OR with suggestion
+        or: repeat(sym('and'),
+          seq(' ', seq1(1, sym('ws'),
+            sug(alt(literalIC('OR'), literal('|')), {text: 'OR', category: 'operator'})
+          ))
+        ),
+
+        // AND with suggestion
+        and: repeat(sym('expr'),
+          seq(' ', seq1(1, sym('ws'),
+            sug(alt(literalIC('AND'), literal('&')), {text: 'AND', category: 'operator'})
+          ))
+        ),
+
+        // Property with suggestion
+        prop: seq1(1, sym('ws'),
+          sug(literal('status'), {text: 'status', label: 'Status', category: 'property'})
+        ),
+
+        // Enum values with suggestions
+        statusValue: alt(
+          sug(literal('ACTIVE'), {text: 'ACTIVE', category: 'value'}),
+          sug(literal('INACTIVE'), {text: 'INACTIVE', category: 'value'})
+        ),
+
+        ws: repeat0(' ')
+      };
+    }
+  ]
+});
+```
+
+### Custom Suggester Views
+
+For complex input like dates or colors, create custom suggester views:
+
+```javascript
+foam.CLASS({
+  package: 'foam.parse.auto',
+  name: 'DateSuggester',
+  extends: 'foam.u2.View',
+
+  properties: [
+    'suggestText',  // Function to call when suggestion is selected
+    { class: 'Date', name: 'date', onKey: true }
+  ],
+
+  methods: [
+    function render() {
+      this.startContext({data: this}).add(this.DATE);
+      this.date$.sub(() => {
+        // Call suggestText with the formatted date
+        this.suggestText(this.date.toISOString().substring(0,10) + ' ');
+      });
+    }
+  ]
+});
+```
+
+Use in grammar:
+```javascript
+date: seq1(1, sym('ws'),
+  alt(
+    sug(nop(), {view: 'foam.parse.auto.DateSuggester'}), // Show date picker
+    sym('literal date'),
+    sym('relative date')
+  )
+)
+```
+
+### SmartView - The Suggestion UI
+
+`foam.parse.auto.SmartView` is a TextField that provides autocomplete:
+
+```javascript
+foam.CLASS({
+  name: 'SearchBar',
+  extends: 'foam.u2.View',
+
+  requires: ['foam.parse.auto.SmartView'],
+
+  methods: [
+    function render() {
+      this.tag(this.SmartView, {
+        parser: MyQueryParser.create({of: MyModel}),
+        data$: this.query$
+      });
+    }
+  ]
+});
+```
+
+### How Suggestion Collection Works
+
+1. SmartView parses input with a custom `apply` callback
+2. Tracks the furthest parse position (`maxPos`)
+3. Collects suggestions only at the furthest position
+4. As user types, filters suggestions to those matching partial input
+5. Tab key auto-completes when single match exists
+
+```javascript
+// Internal mechanism in SmartView.apply:
+return function(p, grammar) {
+  // Reset suggestions when reaching new furthest position
+  if ( this.pos > self.maxPos ) {
+    self.suggestions = {};
+    self.maxPos = this.pos;
+  }
+
+  // Collect suggestion at furthest position
+  if ( this.pos == self.maxPos && p.suggest ) {
+    let s = p.suggest();
+    if ( s ) self.suggestions[s.label || s.tooltip] = s;
+  }
+
+  return p.parse(this, grammar);
+}
+```
+
+### Building Dynamic Property Suggestions
+
+For query parsers that work with FOAM models, dynamically generate property suggestions:
+
+```javascript
+// In propertiesGrammar_
+let props = cls.getAxiomsByClass(foam.lang.Property);
+let propPredicates = [];
+
+for ( let prop of props ) {
+  if ( ! prop.searchable ) continue;
+
+  // Create parser with suggestion for each property
+  let propParser = seq1(1, sym('ws'),
+    sug(literal(prop.name, prop), {
+      text: prop.name,
+      label: prop.label,
+      category: 'property'
+    })
+  );
+
+  // Add appropriate comparison based on property type
+  if ( foam.lang.String.isInstance(prop) ) {
+    propPredicates.push(seq(propParser, sym('compareString')));
+  } else if ( foam.lang.Int.isInstance(prop) ) {
+    propPredicates.push(seq(propParser, sym('compareNumber')));
+  }
+  // ... handle other types
+}
+
+return { propPredicates: alt.apply(null, propPredicates) };
+```
+
+### Nested Property Suggestions
+
+For FObjectProperty types, support dot notation:
+
+```javascript
+let innerProperty = (prop, innerProp) => {
+  let expr = foam.mlang.expr.Dot.create({arg1: prop, arg2: innerProp});
+  return seq1(2,
+    sym('ws'),
+    // First part: "address."
+    sug(seq1(0, literal(prop.name), '.'), {
+      text: prop.name + '.',
+      label: prop.label,
+      category: 'property'
+    }),
+    // Second part: "city" (no space before)
+    sug(literal(innerProp.name, expr), {
+      text: innerProp.name,
+      label: innerProp.label,
+      category: 'property',
+      prependSpaceOnSelect: false
+    })
+  );
+};
+```
+
+---
+
 ## Best Practices
 
 1. **Start Simple**: Test individual parsers before combining them
@@ -648,6 +913,9 @@ var ps = P.stringPStream('abc');
 5. **Leverage Composition and Inheritance**: Reuse parser components across projects
 6. **Add Semantic Actions**: Transform parsed data into useful structures early
 7. **Use `substring()` to Preserve Input**: When you need the exact input text rather than transformed values
+8. **Use Suggestions for UX**: Add `sug()` wrappers to improve discoverability in search/query interfaces
+9. **Categorize Suggestions**: Use consistent categories (property, operator, value, format) for styling
+10. **Custom Suggesters for Complex Input**: Create custom views for dates, colors, and other complex types
 
 ---
 

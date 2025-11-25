@@ -26,7 +26,7 @@
 
         public PStream parse(PStream ps, ParserContext x) {
           ps = ps.apply(delegate, x);
-          if ( ps == null) return null;
+          if ( ps == null ) return null;
           return ps.setValue("{" + ps.value() + "}");
         }
       });

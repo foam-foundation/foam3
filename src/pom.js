@@ -1162,7 +1162,8 @@ foam.POM({
     { name: "foam/lib/json/StringToStringArrayParserTest",            flags: "js&test|java&test" },
     { name: "foam/lib/json/RawMapParserTest",                         flags: "js&test|java&test" },
     { name: "foam/audio/Speak",                                       flags: "web" },
-    { name: "foam/audio/Beep",                                        flags: "web" }
+    { name: "foam/audio/Beep",                                        flags: "web" },
+    { name: "foam/lib/json/UnknownFObjectParserTest",                 flags: "js|java" }
   ],
 
   javaFiles: [

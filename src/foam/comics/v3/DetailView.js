@@ -358,7 +358,7 @@ foam.CLASS({
             return;
           }
           self.data = d;
-          self.data.setPrivate_('__context__', self.data.__context__.createSubContext({ controllerMode: this.controllerMode$ }));
+          self.data.setPrivate_('__context__', self.data.__context__.createSubContext({ controllerMode: this.controllerMode$, detailView: this }));
           if ( this.controllerMode == 'EDIT' ) this.edit();
           this.populatePrimaryAction();
           latch && latch.resolve();

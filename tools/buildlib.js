@@ -463,36 +463,12 @@ function processBuildArgs(options, help) {
   }
 }
 
-function confirmSync(message) {
-  /**
-   * Synchronously prompt user for confirmation (y/n).
-   * Returns true if user confirms, false otherwise.
-   * Exits process if user does not confirm.
-   */
-  const rl = readline_.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  return new Promise((resolve) => {
-    rl.question(`\x1b[0;33m${message} (y/N): \x1b[0;0m`, (answer) => {
-      rl.close();
-      const confirmed = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
-      if ( ! confirmed ) {
-        console.log('\x1b[0;31mOperation cancelled by user.\x1b[0;0m');
-        process.exit(0);
-      }
-      resolve(confirmed);
-    });
-  });
-}
 
 exports.adaptOrCreateArgs     = adaptOrCreateArgs;
 exports.addOptions            = addOptions;
 exports.bool                  = bool;
 exports.buildEnv              = buildEnv;
 exports.comma                 = comma;
-exports.confirmSync           = confirmSync;
 exports.copyDir               = copyDir;
 exports.copyFile              = copyFile;
 exports.emptyDir              = emptyDir;

@@ -131,7 +131,7 @@ Suitable for usage against backends that don't support listen(), such as plain H
           if ( foam.dao.DAO.PURGE_CMD === obj ) {
             return obj;
           }
-          return superMethod.call(this, x, obj);
+          return superMethod.call(self, x, obj);
         }
         if (obj && obj.normalizeObj && typeof obj.normalizeObj === 'function') {
           var result = obj.normalizeObj();

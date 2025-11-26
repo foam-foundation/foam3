@@ -44,6 +44,7 @@ foam.CLASS({
   imports: [
     'capabilityDAO',
     'crunchService',
+    'detailView?',
     'notify',
     'subject',
     'userDAO'
@@ -483,12 +484,12 @@ foam.CLASS({
       availablePermissions: [ 'usercapabilityjunction.rw.requestingReset' ],
       isAvailable: function(status) { return status == 'GRANTED' || status == 'PENDING'; },
       confirmationRequired: () => true,
-      code: async function(X) {
+      code: async function() {
         const ret = await this.crunchService.resetJunctionData(null, this.id);
         if ( ret ) {
           this.notify(this.RESET_SUCCESS, '', this.LogLevel.INFO, true);
         }
-        X.detailView?.finished?.pub();
+        this.detailView?.finished.pub();
         return ret;
       }
     }

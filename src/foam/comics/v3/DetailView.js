@@ -271,7 +271,7 @@ foam.CLASS({
       self
         .start(this.config.viewBorder)
           .start(this.viewView, {
-            data$: self.currentData_$
+            data$: self.data$
           })
             .show(self.slot(function(cd, d) { return cd && d; }, self.currentData_$, self.data$).framed())
             .addClass(self.myClass('view-container'))

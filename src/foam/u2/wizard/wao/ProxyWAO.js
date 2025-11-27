@@ -17,10 +17,10 @@ foam.CLASS({
       adapt: function(_, n) {
         if ( n ) {
           if ( typeof n === 'string' ) {
-            var cls = foam.lookup(n);
+            var cls = foam.maybeLookup(n);
             return cls?.create() || n;
           } if ( typeof n === 'object' && n.class ) {
-            var cls = foam.lookup(n.class);
+            var cls = foam.maybeLookup(n.class);
             return cls?.create(n, this) || n;
           }
         }

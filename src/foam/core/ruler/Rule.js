@@ -173,7 +173,10 @@ foam.CLASS({
       of: 'foam.core.ruler.RuleAction',
       name: 'action',
       documentation: 'The action to be executed if predicates returns true for passed object.',
-      javaCloneProperty: 'set(dest, get(source));' // NOTE: without this, many test cases fail with permission issues.
+      javaCloneProperty: 'set(dest, get(source));', // NOTE: without this, many test cases fail with permission issues.
+      normalize: function(value) {
+        return value?.normalizeObj().then(() => value);
+      }
     },
     {
       name: 'enabled',
@@ -338,18 +341,6 @@ foam.CLASS({
   ],
 
   methods: [
-    {
-      name: 'normalizeObj',
-      code: async function() {
-        // Call parent normalizeObj first
-        await this.SUPER();
-
-        // Propagate normalizeObj to the action if it has one
-        if ( this.action && typeof this.action.normalizeObj === 'function' ) {
-          await this.action.normalizeObj();
-        }
-      }
-    },
     {
       name: 'ruleF',
       javaCode: `

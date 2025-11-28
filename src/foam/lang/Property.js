@@ -251,6 +251,18 @@ foam.CLASS({
       function(v) { return ! this.comparePropertyValues(this.value, v); }
     ],
 
+    [
+      /**
+       * Check if the given object has the default value for this property.
+       * Used by normalizeObj to skip normalization for properties with default values.
+       */
+      'hasDefaultValue',
+      function(obj) {
+        // Guard for bootstrap when obj may not have hasDefaultValue method yet
+        return obj.hasDefaultValue ? obj.hasDefaultValue(this.name) : true;
+      }
+    ],
+
     {
       /** Makes Properties useful as map functions. */
       name: 'f',

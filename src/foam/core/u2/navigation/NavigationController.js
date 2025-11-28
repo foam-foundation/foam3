@@ -215,9 +215,7 @@ foam.CLASS({
     function adjustTopBarHeight() {
       if ( ! this.headerSlot_ ) return;
       let root = this.document.documentElement;
-      this.headerSlot_.el_().then(el => {
-        root?.style.setProperty('--topbar-height', el.offsetHeight + 'px' );
-      })
+      root?.style.setProperty('--topbar-height', el.offsetHeight + 'px' );
     }
   ]
 });

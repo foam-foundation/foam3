@@ -339,6 +339,18 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'normalizeObj',
+      code: async function() {
+        // Call parent normalizeObj first
+        await this.SUPER();
+
+        // Propagate normalizeObj to the action if it has one
+        if ( this.action && typeof this.action.normalizeObj === 'function' ) {
+          await this.action.normalizeObj();
+        }
+      }
+    },
+    {
       name: 'ruleF',
       javaCode: `
         ((OMLogger) x.get("OMLogger")).log("Rule", (SafetyUtil.isEmpty(getName()) ? getId() : getName()));

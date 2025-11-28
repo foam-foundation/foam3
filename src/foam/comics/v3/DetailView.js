@@ -202,7 +202,7 @@ foam.CLASS({
       this.addCrumb();
       this.loadData(loadLatch);
       this.getActionsOverrides();
-      this.onDetach(self.finished?.sub(this.loadData.bind(this, null)));
+      this.onDetach(this.finished.sub(this.loadData.bind(this, null)));
       loadLatch.promise.finally(() => {
         this.dynamic(function(controllerMode, data, workingData) {
           if ( controllerMode == 'EDIT' ) {
@@ -271,7 +271,7 @@ foam.CLASS({
       self
         .start(this.config.viewBorder)
           .start(this.viewView, {
-            data$: self.data$
+            data$: self.currentData_$
           })
             .show(self.slot(function(cd, d) { return cd && d; }, self.currentData_$, self.data$).framed())
             .addClass(self.myClass('view-container'))
@@ -359,6 +359,7 @@ foam.CLASS({
           }
           self.data = d;
           self.data.setPrivate_('__context__', self.data.__context__.createSubContext({ controllerMode: this.controllerMode$, detailView: this }));
+          self.currentData_ = self.data;
           if ( this.controllerMode == 'EDIT' ) this.edit();
           this.populatePrimaryAction();
           latch && latch.resolve();

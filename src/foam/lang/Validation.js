@@ -153,7 +153,12 @@ foam.CLASS({
     {
       class: 'ValidationPredicateArray',
       name: 'validationPredicates',
-      documentation: 'Developer supplied validationPredicates.'
+      documentation: 'Developer supplied validationPredicates.',
+      postSet: function(o, n) {
+        if ( o != n ) {
+          this.clearProperty('internalValidateObj');
+        }
+      }
     },
     {
       class: 'ValidationPredicateArray',

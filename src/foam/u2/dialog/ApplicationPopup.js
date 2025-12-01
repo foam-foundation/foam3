@@ -366,7 +366,8 @@ foam.CLASS({
               }))
             .end()
           .end()
-          .add(this.slot(function(progressView) {
+          .add(this.slot(function(progressView, progressMax) {
+            if ( ! progressMax ) return;
             return this.E()
               .addClass(self.myClass('progressBar'))
               .tag(progressView, {

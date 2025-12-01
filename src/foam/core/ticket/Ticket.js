@@ -473,6 +473,7 @@ foam.CLASS({
       storageTransient: true,
       section: 'infoSection',
       readVisibility: 'HIDDEN',
+      view: 'foam.u2.tag.TextArea',
       validationPredicates: [
         {
           args: ['id', 'comment', 'externalComment'],
@@ -622,7 +623,7 @@ foam.CLASS({
 
         // The assignee of the ticket can update
         Ticket oldTicket = (Ticket) ((DAO) x.get("localTicketDAO")).find(this.getId());
-        if ( user.getId() == this.getAssignedTo() || user.getId() == oldTicket.getAssignedTo() ) return;
+        if ( user.getId() == oldTicket.getAssignedTo() ) return;
 
         // Group with update permission can update
         if ( auth.check(x, "ticket.update." + this.getId()) ) return;
@@ -637,6 +638,7 @@ foam.CLASS({
       ],
       javaThrows: ['AuthorizationException'],
       javaCode: `
+      // Is this wrong?? No checkGlobalRemove occurs before this method is called.
         // The checkGlobalRemove has checked the permission for deleting the ticket already.
       `
     }

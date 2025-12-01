@@ -105,6 +105,12 @@ foam.CLASS({
       background: $backgroundBrandTertiary;
       border: 2px dashed $borderBrand;
     }
+    ^fileCards {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
   `,
 
   messages: [

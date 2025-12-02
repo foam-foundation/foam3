@@ -381,7 +381,7 @@ foam.CLASS({
       name: 'of',
       documentation: 'The model stored in the DAO. Used internally.',
       expression: function(sections) {
-        return sections[0].dao.of;
+        return sections[0]?.dao?.of;
       }
     },
     {
@@ -434,6 +434,7 @@ foam.CLASS({
       name: 'choosePlaceholder',
       documentation: 'Replaces choose from placeholder with passed in string.',
       expression: function(of) {
+        if ( ! of ) return '';
         var plural = of.model_.plural.toLowerCase();
         return this.CHOOSE_FROM + ' ' + plural + '...';
       }
@@ -689,8 +690,8 @@ foam.CLASS({
     function fromProperty(property) {
       this.SUPER(property);
       this.prop = property;
-      if ( ! this.choosePlaceholder && prop.placeholder ) {
-        this.choosePlaceholder = prop.placeholder;
+      if ( ! this.choosePlaceholder && property.placeholder ) {
+        this.choosePlaceholder = property.placeholder;
       }
     }
   ],

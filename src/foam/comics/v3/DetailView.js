@@ -39,7 +39,8 @@ foam.CLASS({
     'setControllerMode?',
     'stack?',
     'controlBorder',
-    'daoController'
+    'daoController',
+    'applyComicsActionOverride'
   ],
 
   exports: [
@@ -286,21 +287,10 @@ foam.CLASS({
       on: ['this.propertyChange.of'],
       code: function() {
         let actionsOverrides = {};
-        let comicsActions = this.of.getAxiomsByClass(foam.comics.v3.ComicsAction);
-        if ( comicsActions.length ) {
-          comicsActions?.forEach(v => {actionsOverrides[v.name] = v});
-        }
         ['edit', 'delete', 'copy', 'save'].forEach(v => {
-          let defaultAction = this[v.toUpperCase()];
-          if ( ! actionsOverrides[v] ) {
-            actionsOverrides[v] = defaultAction;
-            return;
-          }
-          let newAction = defaultAction.clone(self).copyFrom(actionsOverrides[v]);
-          if ( actionsOverrides[v].hasOwnProperty('code') )
-            newAction.overrideCodeData$ = this.currentData_$;
-          actionsOverrides[v] = newAction;
-        })
+          let defaultAction = this[v.toUpperCase()] || this.daoController[v.toUpperCase()];
+          actionsOverrides[v] = this.applyComicsActionOverride(defaultAction, this.currentData_$, this);
+        });
         this.actionsOverrides = actionsOverrides;
       }
     },
@@ -510,42 +500,6 @@ foam.CLASS({
         // Reset working data to original data
         this.workingData = this.data.clone(this);
         this.controllerMode = 'VIEW';
-      }
-    },
-    {
-      class: 'foam.comics.v3.ComicsAction',
-      name: 'delete',
-      size: 'SMALL',
-      internalIsEnabled: function(config, data) {
-        if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
-          try {
-            let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.REMOVE, data);
-
-            return this.auth?.check(null, permissionString);
-          } catch(e) {
-            return false;
-          }
-        }
-        return true;
-      },
-      internalIsAvailable: function(config, controllerMode, data) {
-        if ( controllerMode == 'EDIT' ) return false;
-        try {
-          return config.deletePredicate.f(data);
-        } catch(e) {
-          return false;
-        }
-      },
-      code: function() {
-        this.add(this.Popup.create({ backgroundColor: 'transparent' }).tag({
-          class: 'foam.u2.DeleteModal',
-          dao: this.config.dao,
-          onDelete: () => {
-            this.finished.pub();
-            this.daoController.routeToMe();
-          },
-          data: this.data
-        }));
       }
     }
   ]

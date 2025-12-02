@@ -28,7 +28,8 @@ foam.CLASS({
   exports: [
     'as daoController',
     'config',
-    'click'
+    'click',
+    'applyComicsActionOverride'
   ],
   requires: [
     'foam.comics.v2.DAOBrowserView',
@@ -146,6 +147,56 @@ foam.CLASS({
         config$: self.config$
       });
       this.memento_.str = memento;
+    },
+    // Utility method for underlying classes like TableView and DetailView
+    function applyComicsActionOverride(action, data$, self) {
+      let of = data$.get()?.cls_ || this.__subContext__.config.of;
+      let overrideAction = of.getAxiomByName(action.name);
+      if ( ! overrideAction || ! foam.comics.v3.ComicsAction.isInstance(overrideAction) ) return action;
+      let newAction = action.clone(self.__subContext__.createSubContext({ data: self })).copyFrom(overrideAction);
+      if ( overrideAction.hasOwnProperty('code') )
+        newAction.overrideCodeData$ = data$;
+      return newAction;
+    }
+  ],
+  actions: [
+    // Delete action is on the DAOView rather than comics/v3/DetailView just so that the
+    // TableView and DetailView can share implementation
+    {
+      class: 'foam.comics.v3.ComicsAction',
+      name: 'delete',
+      size: 'SMALL',
+      internalIsEnabled: function(config, data) {
+        if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
+          try {
+            let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.REMOVE, data);
+
+            return this.auth?.check(null, permissionString);
+          } catch(e) {
+            return false;
+          }
+        }
+        return true;
+      },
+      internalIsAvailable: function(config, controllerMode, data) {
+        if ( controllerMode == 'EDIT' ) return false;
+        try {
+          return config.deletePredicate.f(data);
+        } catch(e) {
+          return false;
+        }
+      },
+      code: function() {
+        this.add(this.Popup.create({ backgroundColor: 'transparent' }).tag({
+          class: 'foam.u2.DeleteModal',
+          dao: this.config.dao,
+          onDelete: () => {
+            this.finished.pub();
+            this.daoController.routeToMe();
+          },
+          data: this.data
+        }));
+      }
     }
   ]
 });

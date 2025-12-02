@@ -83,7 +83,7 @@ foam.CLASS({
       }
 
       // Object actions
-      var actions = this.table.getActionsForRow(obj);
+      var actions = this.table.getActionsForRow(self.data$);
       // When an action is taken, update the table
       obj?.sub('action', function() {
         if ( ! self.table ) return;

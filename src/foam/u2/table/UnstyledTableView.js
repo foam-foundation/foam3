@@ -497,12 +497,22 @@ foam.CLASS({
     },
     {
       name: 'getActionsForRow',
-      code: function(obj) {
+      code: function(obj$) {
         var actions = {};
+        let obj = obj$.get();
         var actionsMerger = action => { actions[action.name] = action; };
         if ( obj?.cls_ ) {
-          // Model actions
-          obj.cls_.getAxiomsByClass(foam.lang.Action).forEach(actionsMerger);
+          // Add Model actions
+          obj.cls_.getAxiomsByClass(foam.lang.Action).forEach(a => {
+            if ( foam.comics.v3.ComicsAction.isInstance(a) ) return;
+            actionsMerger(a);
+          });
+          // Add a delete action for each row
+          if ( this.__context__.daoController ) {
+            let defaultAction = this.__context__.daoController.DELETE;
+            let deleteAction = this.__context__.applyComicsActionOverride(defaultAction, obj$, this);
+            actions['delete'] = foam.u2.ActionReference.create({ action: deleteAction, data: this }, this);
+          }
         } else {
           console.error('FObject is missing cls_', obj);
         }

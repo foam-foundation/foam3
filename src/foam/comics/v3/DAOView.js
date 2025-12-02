@@ -145,6 +145,6 @@ foam.CLASS({
       code: async function(x) {
         this.config.pub('select');
       }
-    },
-  ],
+    }
+  ]
 });

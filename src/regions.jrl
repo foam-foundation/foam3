@@ -1067,6 +1067,20 @@ p({class:"foam.core.auth.Region",code:"MY-14","isoCode":"14",name:"Wilayah Perse
 p({class:"foam.core.auth.Region",code:"MY-15","isoCode":"15",name:"Wilayah Persekutuan Labuan",countryId:"MY"})
 p({class:"foam.core.auth.Region",code:"MY-16","isoCode":"16",name:"Wilayah Persekutuan Putrajaya",countryId:"MY"})
 
+// Morocco
+p({class:"foam.core.auth.Region",code:"MA-01",isoCode:"01",name:"Tangier-Tetouan-Al Hoceima",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-02",isoCode:"02",name:"Oriental",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-03",isoCode:"03",name:"Fes-Meknes",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-04",isoCode:"04",name:"Rabat-Sale-Kenitra",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-05",isoCode:"05",name:"Beni Mellal-Khenifra",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-06",isoCode:"06",name:"Casablanca-Settat",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-07",isoCode:"07",name:"Marrakech-Safi",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-08",isoCode:"08",name:"Draa-Tafilalet",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-09",isoCode:"09",name:"Souss-Massa",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-10",isoCode:"10",name:"Guelmim-Oued Noun",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-11",isoCode:"11",name:"Laayoune-Sakia El Hamra",countryId:"MA"})
+p({class:"foam.core.auth.Region",code:"MA-12",isoCode:"12",name:"Dakhla-Oued Ed-Dahab",countryId:"MA"})
+
 // Trinidad and Tobago
 p({class:"foam.core.auth.Region",code:"TT-CTT","isoCode":"CTT",name:"Couva-Tabaquite-Talparo",countryId:"TT"})
 p({class:"foam.core.auth.Region",code:"TT-DMN","isoCode":"DMN",name:"Diego Martin",countryId:"TT"})

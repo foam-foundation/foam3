@@ -89,28 +89,29 @@ foam.CLASS({
 
         // YYYYMMDD with separators and optional time
         // YYYY-MM-DD, YYYY/MM/DD, YYYY-MM-DDTHH:MM, YYYY-MM-DDTHH:MM:SS, YYYY-MM-DDTHH:MM:SS.sss
+        // Supports single-digit months and days (e.g., 2025-1-5)
         yyyymmddsep: alt(
           // With fractional seconds (milliseconds/microseconds) and timezone
           seq(
-            sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+            sym('year4'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+            sym('year4'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+            sym('year4'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('year4'), chars('-/'), sym('month2'), chars('-/'), sym('day2')
+            sym('year4'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible')
           )
         ),
 
@@ -202,28 +203,29 @@ foam.CLASS({
 
         // YYMMDD with separators and optional time
         // YY-MM-DD, YY/MM/DD, YY-MM-DD HH:MM, YY-MM-DD HH:MM:SS with optional timezone
+        // Supports single-digit months and days (e.g., 25-1-5)
         yymmddsep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+            sym('year2'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+            sym('year2'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2'),
+            sym('year2'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('year2'), chars('-/'), sym('month2'), chars('-/'), sym('day2')
+            sym('year2'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('dayFlexible')
           )
         ),
 
@@ -281,28 +283,29 @@ foam.CLASS({
         // DDMMYYYY with separators and optional time
         // DD-MM-YYYY, DD/MM/YYYY, DD-MM-YYYY HH:MM, DD-MM-YYYY HH:MM:SS
         // DD-MM-YYYYTHH:MM:SS+TZ (with T separator and timezone)
+        // Supports single-digit days and months (e.g., 5-1-2025)
         ddmmyyyysep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year4'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year4'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4'),
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year4'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year4')
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year4')
           )
         ),
 
@@ -328,28 +331,29 @@ foam.CLASS({
         // DDMMYY with separators and optional time (2-digit year)
         // DD-MM-YY, DD/MM/YY, DD-MM-YY HH:MM, DD-MM-YY HH:MM:SS
         // DD-MM-YYTHH:MM:SS+TZ (with T separator and timezone)
+        // Supports single-digit days and months (e.g., 5-1-25)
         ddmmyysep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year2'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year2'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2'),
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year2'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('day2'), chars('-/'), sym('month2'), chars('-/'), sym('year2')
+            sym('dayFlexible'), chars('-/'), sym('monthFlexible'), chars('-/'), sym('year2')
           )
         ),
 
@@ -368,28 +372,29 @@ foam.CLASS({
         // YYYYDDMM with separators and optional time
         // YYYY-DD-MM, YYYY/DD/MM, YYYY-DD-MM HH:MM, YYYY-DD-MM HH:MM:SS
         // YYYY-DD-MMTHH:MM:SS+TZ (with T separator and timezone)
+        // Supports single-digit days and months (e.g., 2025-5-1)
         yyyyddmmsep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+            sym('year4'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+            sym('year4'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+            sym('year4'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month2')
+            sym('year4'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible')
           )
         ),
 
@@ -421,28 +426,29 @@ foam.CLASS({
         // YYDDMM with separators and optional time
         // YY-DD-MM, YY/DD/MM, YY-DD-MM HH:MM, YY-DD-MM HH:MM:SS
         // YY-DD-MMTHH:MM:SS+TZ (with T separator and timezone)
+        // Supports single-digit days and months (e.g., 25-5-1)
         yyddmmsep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+            sym('year2'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+            sym('year2'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2'),
+            sym('year2'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('year2'), chars('-/'), sym('day2'), chars('-/'), sym('month2')
+            sym('year2'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('monthFlexible')
           )
         ),
 
@@ -450,8 +456,9 @@ foam.CLASS({
         yyddmmcompact: str(repeat(range('0', '9'), null, 6, 6)),
 
         // YYYYDDMMM with separators: YYYY-DD-MMM, YYYY/DD/MMM
+        // Supports single-digit days (e.g., 2025-5-JAN)
         yyyyddmmmsep: seq(
-          sym('year4'), chars('-/'), sym('day2'), chars('-/'), sym('month3alpha')
+          sym('year4'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('month3alpha')
         ),
 
         // YYYYDDMMM compact: YYYYDDMMM (no separators, like 202531JAN)
@@ -460,8 +467,9 @@ foam.CLASS({
         ),
 
         // DDMMMYYYY with separators: DD-MMM-YYYY, DD/MMM/YYYY
+        // Supports single-digit days (e.g., 5-JAN-2025)
         ddmmmyyyysep: seq(
-          sym('day2'), chars('-/'), sym('month3alpha'), chars('-/'), sym('year4')
+          sym('dayFlexible'), chars('-/'), sym('month3alpha'), chars('-/'), sym('year4')
         ),
 
         // DDMMMYYYY compact: DDMMMYYYY (no separators, like 31JAN2025)
@@ -469,14 +477,16 @@ foam.CLASS({
           sym('day2'), sym('month3alpha'), sym('year4')
         ),
 
-        // MMM dd yyyy with spaces: "Jan 02 2025"
+        // MMM dd yyyy with spaces: "Jan 02 2025" or "Jan 2 2025"
+        // Supports single-digit days
         mmmddyyyyspace: seq(
-          sym('month3alpha'), ' ', sym('day2'), ' ', sym('year4')
+          sym('month3alpha'), ' ', sym('dayFlexible'), ' ', sym('year4')
         ),
 
-        // DD MMM YYYY with spaces: "15 JAN 2025"
+        // DD MMM YYYY with spaces: "15 JAN 2025" or "5 JAN 2025"
+        // Supports single-digit days
         ddmmmyyyyspace: seq(
-          sym('day2'), ' ', sym('month3alpha'), ' ', sym('year4')
+          sym('dayFlexible'), ' ', sym('month3alpha'), ' ', sym('year4')
         ),
 
         // Component parsers
@@ -486,23 +496,23 @@ foam.CLASS({
           seq('2', range('0', '9'), range('0', '9'), range('0', '9'))
         )),
         year2: str(seq(range('0', '9'), range('0', '9'))),
-        month2: str(seq(range('0', '1'), range('0', '9'))),
-        
-        //TODO: Add support for single-digit dates in other formats.
+        month2: str(seq(range('0', '1'), range('0', '9'))),  // Used in compact formats (without separators)
 
-        // New flexible parsers to support single digits (e.g. 7/2/2025)
-        // Month: 1-9, 01-09, 10-12
+        // Flexible parsers to support single digits (e.g. 7/2/2025) in formats with separators
+        // Allows slightly out-of-range values for JavaScript Date normalization:
+        // - Month 0 → December of previous year, Month 13 → January of next year
+        // - Day 0 → last day of previous month, Day 32 → normalized to next month
+        // But rejects obviously invalid values like 99
         monthFlexible: alt(
-          str(seq('1', range('0', '2'))),      // 10, 11, 12
-          str(seq('0', range('1', '9'))),      // 01-09
-          range('1', '9')                       // 1-9 (single digit, already a string)
+          str(seq('1', range('0', '9'))),      // 10-19 (allows 13 for normalization)
+          str(seq('0', range('0', '9'))),      // 00-09
+          range('0', '9')                       // 0-9 (single digit)
         ),
-        // Day: 1-9, 01-09, 10-31
+        // Day: 0-39 range to allow normalization (e.g., Feb 30 → Mar 2)
         dayFlexible: alt(
-          str(seq('3', range('0', '1'))),      // 30, 31
-          str(seq(range('1', '2'), range('0', '9'))), // 10-29
-          str(seq('0', range('1', '9'))),      // 01-09
-          range('1', '9')                       // 1-9 (single digit, already a string)
+          str(seq('3', range('0', '9'))),      // 30-39
+          str(seq(range('0', '2'), range('0', '9'))), // 00-29
+          range('0', '9')                       // 0-9 (single digit)
         ),
 
         month3alpha: alt(
@@ -519,7 +529,7 @@ foam.CLASS({
           literalIC('NOV'),
           literalIC('DEC')
         ),
-        day2: str(seq(range('0', '3'), range('0', '9'))),
+        day2: str(seq(range('0', '3'), range('0', '9'))),  // Used in compact formats (without separators)
         hour2: str(seq(range('0', '2'), range('0', '9'))),
         minute2: str(seq(range('0', '5'), range('0', '9'))),
         second2: str(seq(range('0', '5'), range('0', '9'))),

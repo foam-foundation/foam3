@@ -153,6 +153,9 @@ foam.CLASS({
       // MMDDYYYY formats (with separators)
       let mmddyyyySep = [
         { input: '01/15/2025', year: 2025, month: 0, day: 15 },
+        { input: '1/5/2025', year: 2025, month: 0, day: 5 },
+        { input: '12-12-2025', year: 2025, month: 11, day: 12 },
+        { input: '2/28/2025', year: 2025, month: 1, day: 28 },
         { input: '01-15-2025', year: 2025, month: 0, day: 15 },
         { input: '12/31/2024', year: 2024, month: 11, day: 31 },
         { input: '02/29/2000', year: 2000, month: 1, day: 29 }
@@ -237,6 +240,8 @@ foam.CLASS({
         { input: '03-27-2025 10:34:14.467', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
         { input: '03-27-2025T10:34:14.467000', year: 2025, month: 2, day: 27, hour: 10, minute: 34, second: 14, millisecond: 467 },
         { input: '01-15-2025 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '1/15/2025 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
+        { input: '1/5/2025 14:30:45.1', year: 2025, month: 0, day: 5, hour: 14, minute: 30, second: 45, millisecond: 100 },
         { input: '01/15/2025T14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
         { input: '01-15-2025 14:30:45.123456', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
         { input: '01/15/2025T14:30:45.999999', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 999 }

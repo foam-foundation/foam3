@@ -148,28 +148,29 @@ foam.CLASS({
 
         // MMDDYYYY with separators and optional time
         // MM-DD-YYYY, MM/DD/YYYY, MM-DD-YYYY HH:MM, MM-DD-YYYY HH:MM:SS
+        // Fix: Changed month2/day2 to monthFlexible/dayFlexible to support 7/2/2025
         mmddyyyysep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year4'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year4'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4'),
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year4'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year4')
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year4')
           )
         ),
 
@@ -238,29 +239,29 @@ foam.CLASS({
 
         // MMDDYY with separators and optional time (2-digit year)
         // MM-DD-YY, MM/DD/YY, MM-DD-YY HH:MM, MM-DD-YY HH:MM:SS
-        // MM-DD-YYTHH:MM:SS+TZ (with T separator and timezone)
+        // Fix: Changed month2/day2 to monthFlexible/dayFlexible to support 7/2/25
         mmddyysep: alt(
           // With fractional seconds and timezone
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2'),
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year2'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'), '.', sym('fractionalSeconds'),
             optional(sym('timezone'))
           ),
           // With seconds and timezone
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2'),
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year2'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'), ':', sym('second2'),
             optional(sym('timezone'))
           ),
           // With minutes and timezone
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2'),
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year2'),
             sym('datetimesep'), sym('hour2'), ':', sym('minute2'),
             optional(sym('timezone'))
           ),
           // Date only
           seq(
-            sym('month2'), chars('-/'), sym('day2'), chars('-/'), sym('year2')
+            sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year2')
           )
         ),
 
@@ -486,6 +487,24 @@ foam.CLASS({
         )),
         year2: str(seq(range('0', '9'), range('0', '9'))),
         month2: str(seq(range('0', '1'), range('0', '9'))),
+        
+        //TODO: Add support for single-digit dates in other formats.
+
+        // New flexible parsers to support single digits (e.g. 7/2/2025)
+        // Month: 1-9, 01-09, 10-12
+        monthFlexible: alt(
+          str(seq('1', range('0', '2'))),      // 10, 11, 12
+          str(seq('0', range('1', '9'))),      // 01-09
+          range('1', '9')                       // 1-9 (single digit, already a string)
+        ),
+        // Day: 1-9, 01-09, 10-31
+        dayFlexible: alt(
+          str(seq('3', range('0', '1'))),      // 30, 31
+          str(seq(range('1', '2'), range('0', '9'))), // 10-29
+          str(seq('0', range('1', '9'))),      // 01-09
+          range('1', '9')                       // 1-9 (single digit, already a string)
+        ),
+
         month3alpha: alt(
           literalIC('JAN'),
           literalIC('FEB'),

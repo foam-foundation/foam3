@@ -65,8 +65,9 @@ if (other instanceof foam.mlang.sink.Average) {
     },
     {
       name: 'reset',
-      code: function() { this.value = 0; },
-      swiftCode: 'value = 0'
+      code: function() { this.value = 0; this.count = 0; },
+      javaCode: 'setValue(0); setCount(0);',
+      swiftCode: 'value = 0; count = 0'
     },
     function toSummary() { return this.value; },
     function valueOf() { return this.value; },

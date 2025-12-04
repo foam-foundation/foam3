@@ -1,5 +1,84 @@
 # FOAM Permissions
 
+## Permission System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PERMISSION CHECK FLOW                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────┐
+  │   User   │ ─────────────────────────┐
+  └────┬─────┘                          │
+       │ belongs to                     │ owns (CRUNCH)
+       ▼                                ▼
+  ┌──────────┐                   ┌─────────────────┐
+  │  Group   │                   │   Capability    │
+  └────┬─────┘                   │  (can expire)   │
+       │ has many                └────────┬────────┘
+       ▼                                  │ grants
+  ┌───────────────────┐                   │
+  │ GroupPermission   │                   │
+  │    Junction       │                   │
+  └────────┬──────────┘                   │
+           │ links to                     │
+           ▼                              ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                         Permission                               │
+  │  ┌─────────────────────────────────────────────────────────┐    │
+  │  │  Permission String Patterns:                             │    │
+  │  │                                                          │    │
+  │  │  • *                        → Global (do anything)       │    │
+  │  │  • service.<name>           → Service access             │    │
+  │  │  • <model>.read.<id>        → Read object                │    │
+  │  │  • <model>.create           → Create object              │    │
+  │  │  • <model>.update.<id>      → Update object              │    │
+  │  │  • <model>.remove.<id>      → Delete object              │    │
+  │  │  • <model>.ro.<property>    → Read property              │    │
+  │  │  • <model>.rw.<property>    → Write property             │    │
+  │  │  • <model>.column.<prop>    → View table column          │    │
+  │  │  • @<RoleName>              → Inherit Role's permissions │    │
+  │  └─────────────────────────────────────────────────────────┘    │
+  └─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AUTH SERVICE DECORATOR CHAIN                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Request → PMAuthService → CachingAuthService → CapabilityAuthService      │
+│               │                    │                      │                 │
+│               ▼                    ▼                      ▼                 │
+│          (monitoring)         (caching)            (CRUNCH check)           │
+│                                                          │                  │
+│             EnabledCheckAuthService ← PasswordExpiryAuthService             │
+│                      │                        │                             │
+│                      ▼                        ▼                             │
+│              (user enabled?)          (password expired?)                   │
+│                                                                             │
+│                    TwoFactorAuthService → UserAndGroupAuthService           │
+│                            │                        │                       │
+│                            ▼                        ▼                       │
+│                      (2FA check)           (Group permissions)              │
+│                                                     │                       │
+│                                                     ▼                       │
+│                                              ✓ GRANTED / ✗ DENIED           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ROLE INHERITANCE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌───────────────┐      @OpsRole       ┌───────────────┐                   │
+│   │  AdminGroup   │ ──────────────────► │   OpsRole     │ (Role Group)      │
+│   │               │      inherits       │  (no users)   │                   │
+│   │ permissions:  │                     │ permissions:  │                   │
+│   │  - user.*     │                     │  - report.*   │                   │
+│   │  - @OpsRole   │◄────────────────────│  - audit.*    │                   │
+│   └───────────────┘   gets all perms    └───────────────┘                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Overview
 
 Permissions in FOAM represent access to system resources and follow Java's hierarchical naming convention. [1](#1-0)  The system uses wildcard matching where an asterisk can appear by itself or at the end of a name preceded by a dot to signify wildcard matches.

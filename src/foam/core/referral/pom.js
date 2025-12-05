@@ -9,6 +9,8 @@ foam.POM({
     { name: "CreateReferralCodeRuleAction",                           flags: "js|java" },
     { name: "ReferUserView",                                          flags: "web" },
     { name: "ReferralBorder",                                         flags: "web" },
-    { name: "Relationships",                                          flags: "js|java" }
+    { name: "Relationships",                                          flags: "js|java" },
+    { name: "ServerUserReferralCodeService",                          flags: "js|java" },
+    { name: "UserReferralCodeService",                                flags: "js|java" }
   ]
 });

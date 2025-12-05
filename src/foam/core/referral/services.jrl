@@ -20,3 +20,27 @@ p({
   }
   """
 })
+
+p({
+  class:"foam.core.boot.CSpec",
+  name:"generateUserReferralCode",
+  serve:true,
+  authenticate:true,
+  service:{
+    class:"foam.core.referral.ServerUserReferralCodeService"
+  },
+  boxClass:"foam.core.referral.UserReferralCodeServiceSkeleton",
+  client:
+    """
+      {
+        "class": "foam.core.referral.ClientUserReferralCodeService",
+        "delegate": {
+          "class": "foam.box.SessionClientBox",
+          "delegate": {
+            "class": "foam.box.HTTPBox",
+            "url": "service/generateUserReferralCode"
+          }
+        }
+      }
+    """
+})

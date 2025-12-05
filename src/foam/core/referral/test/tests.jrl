@@ -1,1 +1,2 @@
 p({class: "foam.core.referral.test.ReferralCodeTest", id: "ReferralCodeTest"})
+p({class: "foam.core.referral.test.ReferralCodeGenerationTest", id: "ReferralCodeGenerationTest"})

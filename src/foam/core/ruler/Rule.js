@@ -23,10 +23,14 @@ foam.CLASS({
   ],
 
   imports: [
+    'notify',
+    'ruleRefreshService',
     'userDAO?'
   ],
 
   requires: [
+    'foam.core.dao.Operation',
+    'foam.log.LogLevel',
     'foam.mlang.predicate.True'
   ],
 
@@ -532,6 +536,55 @@ foam.CLASS({
         appropriate user for which the permission is checked.
       `,
       javaCode: 'return null;'
+    }
+  ],
+
+  actions: [
+    {
+      name: 'refreshDAO',
+      label: 'Refresh DAO',
+      toolTip: 'Re-process all records in the target DAO by re-putting them to trigger onCreate rules',
+      icon: 'images/refresh-icon.svg',
+      availablePermissions: ['rule.refreshDAO'],
+      confirmationRequired: function() {
+        return true;
+      },
+      isAvailable: function(id, daoKey) {
+        return id && daoKey;
+      },
+      code: async function(X) {
+        try {
+          var ruleId = this.id;
+
+          if ( ! ruleId ) {
+            this.notify('Cannot refresh: Rule ID is not set', '', this.LogLevel.ERROR);
+            return;
+          }
+
+          this.notify('Starting DAO refresh for ' + this.daoKey + '...', '', this.LogLevel.INFO);
+
+          var result = await this.ruleRefreshService.refreshDAO(ruleId);
+
+          var message = 'DAO refresh completed: ' + result.processedCount + ' processed, ' + result.updatedCount + ' updated';
+          if ( result.failedCount > 0 ) {
+            message += ', ' + result.failedCount + ' failed';
+          }
+          message += ' (' + (result.duration / 1000).toFixed(1) + 's)';
+
+          this.notify(
+            message,
+            '',
+            result.failedCount > 0 ? this.LogLevel.WARN : this.LogLevel.INFO
+          );
+        } catch (e) {
+          this.notify(
+            'DAO refresh failed: ' + e.message,
+            '',
+            this.LogLevel.ERROR
+          );
+          throw e;
+        }
+      }
     }
   ],
 

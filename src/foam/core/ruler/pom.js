@@ -5,6 +5,8 @@ foam.POM({
   ],
   files: [
     { name: "Rule",                                                    flags: "js|java" },
+    { name: "RuleRefreshResult",                                       flags: "js|java" },
+    { name: "RuleRefreshService",                                      flags: "js|java" },
     { name: "RuleGroup",                                               flags: "js|java" },
     { name: "Ruled",                                                   flags: "js|java" },
     { name: "FindRuledCommand",                                        flags: "js|java" },
@@ -49,6 +51,7 @@ foam.POM({
   javaFiles: [
     { name: "RuleEngine" },
     { name: "RetryManager" },
+    { name: "SimpleRuleRefreshService" },
     { name: "cron/RenewRuleHistoryCron" },
     { name: "test/DummyErroneousPredicate",                            flags: "test" },
     { name: "test/RulerDAOTest",                                       flags: "test" }

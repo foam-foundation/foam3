@@ -85,6 +85,28 @@ p({
   """
 })
 p({
+  "class": "foam.core.boot.CSpec",
+  "name": "ruleRefreshService",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "boxClass": "foam.core.ruler.RuleRefreshServiceSkeleton",
+  "serviceScript": "return new foam.core.ruler.SimpleRuleRefreshService(x);",
+  "client": """
+    {
+      "class": "foam.core.ruler.ClientRuleRefreshService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/ruleRefreshService"
+        }
+      }
+    }
+  """
+})
+
+p({
   "class":"foam.core.boot.CSpec",
   "name":"ruleHistoryDAO",
   "serve":true,

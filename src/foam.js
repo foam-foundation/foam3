@@ -50,23 +50,26 @@
       foam.setupFlags();
 
       // set flags by url parameters
-      var urlParams = new URLSearchParams(window.location.search);
-      for ( var pair of urlParams.entries() ) {
-        globalThis.foam.flags[pair[0]]    = (pair[1] == 'true');
-        // Prevents from being overritten in POM's, URL takes precedence
-        globalThis.foam.setFlags[pair[0]] = true;
+      if ( typeof window !== 'undefined' ) {
+        var urlParams = new URLSearchParams(window.location.search);
+        for ( var pair of urlParams.entries() ) {
+          globalThis.foam.flags[pair[0]]    = (pair[1] == 'true');
+          // Prevents from being overritten in POM's, URL takes precedence
+          globalThis.foam.setFlags[pair[0]] = true;
+        }
       }
+      if ( typeof document !== 'undefined' ) {
+        var src  = document.currentScript && document.currentScript.src;
+        var path = src && new URL(src).pathname || '';
 
-      var src  = document.currentScript && document.currentScript.src;
-      var path = src && new URL(src).pathname || '';
+        [path, globalThis.FOAM_BIN] = /^\/foam-bin(.)*\.js$/.test(path)
+          ? ['/', path]
+          : [path.substring(0, path.lastIndexOf('/foam.js') + 1)];
 
-      [path, globalThis.FOAM_BIN] = /^\/foam-bin(.)*\.js$/.test(path)
-        ? ['/', path]
-        : [path.substring(0, path.lastIndexOf('/foam.js') + 1)];
+        if ( ! globalThis.FOAM_ROOT ) globalThis.FOAM_ROOT = path;
 
-      if ( ! globalThis.FOAM_ROOT ) globalThis.FOAM_ROOT = path;
-
-      foam.cwd = path;
+        foam.cwd = path;
+      }
       foam.main();
     },
     main: function() {
@@ -218,7 +221,7 @@
     POM: function(pom) {
       var FILES = foam.CUR_FILES = [];
       foam.FILES.push(FILES);
-      if ( globalThis.document ) {
+      if ( globalThis.document && typeof document !== 'undefined' ) {
         var src  = document.currentScript.src;
         var i    = src.lastIndexOf('/');
         foam.cwd = src.substring(0, i+1);

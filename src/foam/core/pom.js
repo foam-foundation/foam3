@@ -31,6 +31,7 @@ foam.POM({
     { name: "ruler/pom" },
     { name: "crunch/pom" }, // NOTE: must follow ruler - direct reference to RULE_PREDICATE
     { name: "notification/email/ms/pom" },
+    { name: "script/javet/pom" },
     { name: "security/pom" },
     { name: "so/pom" },
     { name: "test/pom",                                flags: "test" },
@@ -362,7 +363,8 @@ foam.POM({
     { name: "notification/test/UserNotificationDAOTestRuleAction",                        flags: "js&test|java&test" },
     { name: "demo/DemoObject",                                                            flags: "js|java" },
     { name: "demo/Demo",                                                                  flags: "js" },
-    { name: "demo/relationship/test/RelationshipTest",                                    flags: "js&test|java&test" },
+    { name: "demo/relationship/test/RelationshipTest",
+    flags: "js&test|java&test" },
     { name: "http/BroadcastWebAgent",                                                     flags: "js|java" },
     { name: "http/Command",                                                               flags: "js|java" },
     { name: "http/DefaultHttpParameters",                                                 flags: "js|java" },

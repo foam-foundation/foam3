@@ -13,6 +13,7 @@ foam.ENUM({
   values: [
     { name: 'JS',        label: 'Javascript (Client)' },
     { name: 'BEANSHELL', label: 'BeanShell (Server)'  },
-    { name: 'JSHELL'   , label: 'JShell (Server)'     }
+    { name: 'JSHELL'   , label: 'JShell (Server)'     },
+    { name: 'NODESHELL', label: 'NodeShell (Server)'  }
   ]
 });

@@ -78,6 +78,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.core.pm.PM',
+    'foam.core.script.javet.JavetShell',
 
     'java.io.BufferedReader',
     'java.io.ByteArrayOutputStream',
@@ -431,6 +432,12 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
             logger.error(this.getClass().getSimpleName(), "createInterpreter", getId(), e);
           }
           return shell;
+        } else if ( l == foam.core.script.Language.NODESHELL ) {
+          JavetShell shell = (JavetShell) x.get("javetShell");
+          shell.setId(getId());
+          shell.setPrintStream(ps);
+          // shell.setScriptParameter(sp);
+          return shell;
         } else {
           throw new RuntimeException("Script language not supported");
         }
@@ -476,8 +483,12 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
             shell.setOut(ps);
             shell.eval(getCode());
           } else if ( l == foam.core.script.Language.JSHELL ) {
-            JShell jShell = (JShell) createInterpreter(x,ps);
+            JShell jShell = (JShell) createInterpreter(x, ps);
             new JShellExecutor().execute(x, jShell, getCode(), true);
+          } else if ( l == foam.core.script.Language.NODESHELL ) {
+            JavetShell shell = (JavetShell) createInterpreter(x, ps);
+            shell.setCode(getCode());
+            shell.execute(x);
           } else {
             throw new RuntimeException("Script language not supported");
           }
@@ -644,7 +655,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
         var self = this;
         this.output = '';
         this.status = this.ScriptStatus.SCHEDULED;
-        if ( this.language == this.Language.BEANSHELL || this.language == this.Language.JSHELL ) {
+        if ( this.language != this.Language.JS ) {
           var notification = self.Notification.create();
           notification.userId = self.subject && self.subject.realUser ?
             self.subject.realUser.id : self.user.id;

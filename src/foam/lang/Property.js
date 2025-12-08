@@ -671,7 +671,8 @@ foam.CLASS({
           }
         }
         var ret = e.apply(this, args);
-        if ( ret === undefined ) this.__context__.warn('Expression returned undefined: ', e, this.name);
+        // if ( ret === undefined ) this.__context__.warn('Expression returned undefined: ', e, this.name);
+        if ( ret === undefined ) console.warn('Expression returned undefined: ', e, this.name);
         return ret;
       };
     },
@@ -699,7 +700,8 @@ foam.CLASS({
       if ( child.cls_ !== foam.lang.Property && child.cls_ !== this.cls_ )
       {
         if ( this.cls_ !== foam.lang.Property ) {
-          this.__context__.warn('Unsupported change of property type from', this.cls_.id, 'to', child.cls_.id, 'property name', this.name,'in model',child.sourceCls_.id);
+          // this.__context__.warn('Unsupported change of property type from', this.cls_.id, 'to', child.cls_.id, 'property name', this.name,'in model',child.sourceCls_.id);
+          console.warn('Unsupported change of property type from', this.cls_.id, 'to', child.cls_.id, 'property name', this.name,'in model',child.sourceCls_.id);
         }
 
         return child;

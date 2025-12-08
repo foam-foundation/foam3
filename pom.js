@@ -23,6 +23,13 @@ foam.POM({
   ],
   javaDependencies: [
     'com.authy:authy-java:1.1.0',
+    'com.caoccao.javet:javet:5.0.2',
+    'com.caoccao.javet:javet-node-linux-arm64:5.0.2',
+    'com.caoccao.javet:javet-node-linux-x86_64:5.0.2',
+    'com.caoccao.javet:javet-node-macos-arm64:5.0.2',
+    'com.caoccao.javet:javet-node-macos-x86_64:5.0.2',
+    'com.caoccao.javet:javet-node-windows-x86_64:5.0.2',
+    'com.caoccao.javet:javenode:0.8.0',
     'com.google.api-client:google-api-client:1.22.0',
     'com.google.apis:google-api-services-drive:v3-rev72-1.22.0',
     'com.google.apis:google-api-services-sheets:v4-rev567-1.22.0',

@@ -15,6 +15,7 @@ foam.CLASS({
   javaImports: [
     'com.caoccao.javet.enums.JSRuntimeType',
     'com.caoccao.javet.exceptions.JavetException',
+    'com.caoccao.javet.interop.V8Host',
     'com.caoccao.javet.interop.V8Runtime',
     'com.caoccao.javet.interop.options.NodeRuntimeOptions',
     'com.caoccao.javet.interop.engine.IJavetEngine',
@@ -35,6 +36,7 @@ foam.CLASS({
     'java.io.ByteArrayInputStream',
     'java.io.File',
     'java.io.InputStream',
+    'java.io.IOException',
     'java.nio.charset.StandardCharsets'
   ],
 
@@ -65,8 +67,14 @@ foam.CLASS({
       javaCode: `
       maybeInit();
       try {
-        return new JavetShell(x, iJavetEngine_.getV8Runtime());
-      } catch (JavetException e) {
+        // TODO: Understand scope/isolation in a V8Runtime. Until then
+        // use a new Runtime for each request.
+        // return new JavetShell(x, iJavetEngine_.getV8Runtime());
+
+        V8Runtime v8Runtime = V8Host.getInstance(JSRuntimeType.Node).createV8Runtime();
+        load(getX(), v8Runtime);
+        return new JavetShell(x, v8Runtime);
+      } catch (JavetException | IOException e) {
         throw new RuntimeException("JavetShellFactory.create", e);
       }
       `
@@ -81,12 +89,12 @@ foam.CLASS({
       try {
         NodeRuntimeOptions.V8_FLAGS.setUseStrict(false);
 
-        iJavetEnginePool_ = new JavetEnginePool();
-        iJavetEnginePool_.getConfig().setJSRuntimeType(JSRuntimeType.Node);
-        iJavetEngine_ = iJavetEnginePool_.getEngine();
+        // iJavetEnginePool_ = new JavetEnginePool();
+        // iJavetEnginePool_.getConfig().setJSRuntimeType(JSRuntimeType.Node);
+        // iJavetEngine_ = iJavetEnginePool_.getEngine();
 
-        // load foam
-        load(getX());
+        // // load foam
+        // load(getX(), iJavetEngine_.getV8Runtime());
 
         setInitialized(true);
       } catch (Throwable t) {
@@ -118,7 +126,7 @@ foam.CLASS({
     },
     {
       name: 'load',
-      args: 'X x',
+      args: 'X x, V8Runtime v8Runtime',
       javaThrows: ['JavetException', 'java.io.IOException' ],
       javaCode: `
       Logger logger = Loggers.logger(x, this, "load");
@@ -131,7 +139,6 @@ foam.CLASS({
                              "build/js/"+name); // build with -agw)
         if (file.exists() && file.canRead()) {
           logger.debug("FOAM Loading (file)", name);
-          V8Runtime v8Runtime = iJavetEngine_.getV8Runtime();
           v8Runtime.getExecutor(file).executeVoid();
           logger.debug("FOAM Loaded", name);
         } else {
@@ -141,7 +148,6 @@ foam.CLASS({
         String path = "../webroot/"+name;
         InputStream is = new ByteArrayInputStream(storage.getBytes(path));
         logger.debug("FOAM Loading (resource)", name);
-        V8Runtime v8Runtime = iJavetEngine_.getV8Runtime();
         v8Runtime.getExecutor(new String(is.readAllBytes(), StandardCharsets.UTF_8)).executeVoid();
         logger.debug("FOAM Loaded", name);
       }

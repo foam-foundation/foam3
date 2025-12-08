@@ -195,8 +195,10 @@ NodeJS environment.`,
       args: 'X x',
       javaThrows: ['JavetException' ],
       javaCode: `
+      V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       if ( javetConsoleInterceptor_ != null )
-        javetConsoleInterceptor_.unregister(new IV8ValueObject[] {((V8Runtime)getV8Runtime()).getGlobalObject()});
+        javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
+      v8Runtime.close();
       `
     },
     {

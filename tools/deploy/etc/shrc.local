@@ -41,6 +41,9 @@ if [ -z "`echo "${JAVA_OPTS}" | grep "Xmx"`" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Xmx4096m"
 fi
 
+# Allow calling out to javet for node process
+JAVA_OPTS="${JAVA_OPTS} --enable-native-access=ALL-UNNAMED"
+
 # memory - stack
 #if [ -z "`echo "${JAVA_OPTS}" | grep "Xss"`" ]; then
 #  JAVA_OPTS="${JAVA_OPTS} -Xss1m"

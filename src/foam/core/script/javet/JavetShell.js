@@ -46,7 +46,9 @@ NodeJS environment.`,
 
     'java.io.File',
     'java.io.IOException',
-    'java.io.PrintStream'
+    'java.io.PrintStream',
+    'java.util.Arrays',
+    'java.util.stream.Collectors'
   ],
 
   javaCode: `
@@ -86,7 +88,6 @@ NodeJS environment.`,
       class: 'String'
     },
     {
-      // NOT YET USED.
       name: 'printStream',
       class: 'Object',
       transient: true,
@@ -100,7 +101,6 @@ NodeJS environment.`,
     }
   ],
 
-  // add x (clientBuilder), out, scriptParameter
   methods: [
     {
       name: 'execute',
@@ -108,7 +108,6 @@ NodeJS environment.`,
       javaCode: `
       try {
         setup(x);
-        // TODO: inject out - boas, scriptParameter
         if ( SafetyUtil.isEmpty(getFilename()) ) {
           executeString(x, """
 (async function() {
@@ -167,21 +166,42 @@ NodeJS environment.`,
         }
       };
 
-      // TODO: setup/use PrintStream
-      //      String.join(",", Arrays.asList(v8Values));
       JavetStandardConsoleInterceptor javetConsoleInterceptor_ =
       new JavetStandardConsoleInterceptor(v8Runtime) {
         public void consoleDebug(V8Value... v8Values) {
-          logger.debug((Object[])v8Values);
+          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
+          logger.debug(msg);
+          PrintStream ps = (PrintStream) getPrintStream();
+          if ( ps != null ) {
+            ps.print("DEBUG: ");
+            ps.println(msg);
+          }
         }
         public void consoleInfo(V8Value... v8Values) {
-          logger.info((Object[])v8Values);
+          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
+          logger.info(msg);
+          PrintStream ps = (PrintStream) getPrintStream();
+          if ( ps != null ) {
+            ps.println(msg);
+          }
         }
         public void consoleWarn(V8Value... v8Values) {
-          logger.warning((Object[])v8Values);
+          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
+          logger.warning(msg);
+          PrintStream ps = (PrintStream) getPrintStream();
+          if ( ps != null ) {
+            ps.print("WARNING: ");
+            ps.println(msg);
+          }
         }
         public void consoleError(V8Value... v8Values) {
-          logger.error((Object[])v8Values);
+          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
+          logger.error(msg);
+          PrintStream ps = (PrintStream) getPrintStream();
+          if ( ps != null ) {
+            ps.print("ERROR: ");
+            ps.println(msg);
+          }
         }
       };
       // Register the Javet console to V8 global object - why?

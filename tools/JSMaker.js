@@ -155,8 +155,12 @@ exports.end = function() {
   code = code.replaceAll(/^\s*/gm, '');
 
   function fn(s) {
-    var stage = ( s === undefined || s == '0' ) ? '' : '-' + s;
-    return version ? `foam-bin-${version}${stage}` : `foam-bin{$stage}`;
+    if ( foam.flags.node ) {
+      return `foam-bin-node`;
+    } else {
+      var stage = ( s === undefined || s == '0' ) ? '' : '-' + s;
+      return version ? `foam-bin-${version}${stage}` : `foam-bin{$stage}`;
+    }
   }
 
   // We record that we've loaded stage1 in localstorage so that we can be safe

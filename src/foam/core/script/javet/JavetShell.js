@@ -11,12 +11,6 @@ foam.CLASS({
   documentation: `A script agent which executes FOAM javascript in a
 NodeJS environment.`,
 /*
-  Implementation
-  to be used by flow and scripts
-  JavetShell - create via JavetShellFactory
-  for flow, set user - default to admin (42)
-  set code
-  execute(x)
   // FUTURE WORK:
   // ClientBuilder support to optionally:
   // - not load menus
@@ -38,6 +32,7 @@ NodeJS environment.`,
 
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
+    'foam.core.pm.PM',
     'foam.core.session.Session',
     'foam.dao.DAO',
     'foam.lang.X',
@@ -106,8 +101,10 @@ NodeJS environment.`,
       name: 'execute',
       args: 'X x',
       javaCode: `
+      PM pm = null;
       try {
         setup(x);
+        pm = new PM("JavetShell", "execute");
         if ( SafetyUtil.isEmpty(getFilename()) ) {
           executeString(x, """
 (async function() {
@@ -121,7 +118,9 @@ NodeJS environment.`,
         } else {
           executeFile(x, getFilename());
         }
+        if ( pm != null ) pm.log(x);
       } catch (Throwable t) {
+        if ( pm != null ) pm.error(x);
         throw new RuntimeException(t);
       } finally {
         try {
@@ -146,6 +145,7 @@ NodeJS environment.`,
       };
       v8Runtime.setPromiseRejectCallback(rejectCallback_);
 
+      // TODO: consider actual event handling - other than just logging
       promiseListener_ = new IV8ValuePromise.IListener() {
         // @Override
         public void onCatch(V8Value v8Value) {
@@ -156,7 +156,7 @@ NodeJS environment.`,
         // @Override
         public void onFulfilled(V8Value v8Value) {
           // Handle the fulfillment.
-          logger.info("callback,onFufilled", v8Value);
+          // logger.info("callback,onFufilled", v8Value);
         }
 
         // @Override
@@ -171,11 +171,11 @@ NodeJS environment.`,
         public void consoleDebug(V8Value... v8Values) {
           String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
           logger.debug(msg);
-          PrintStream ps = (PrintStream) getPrintStream();
-          if ( ps != null ) {
-            ps.print("DEBUG: ");
-            ps.println(msg);
-          }
+          // PrintStream ps = (PrintStream) getPrintStream();
+          // if ( ps != null ) {
+          //   ps.print("DEBUG: ");
+          //   ps.println(msg);
+          // }
         }
         public void consoleInfo(V8Value... v8Values) {
           String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
@@ -188,20 +188,20 @@ NodeJS environment.`,
         public void consoleWarn(V8Value... v8Values) {
           String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
           logger.warning(msg);
-          PrintStream ps = (PrintStream) getPrintStream();
-          if ( ps != null ) {
-            ps.print("WARNING: ");
-            ps.println(msg);
-          }
+          // PrintStream ps = (PrintStream) getPrintStream();
+          // if ( ps != null ) {
+          //   ps.print("WARNING: ");
+          //   ps.println(msg);
+          // }
         }
         public void consoleError(V8Value... v8Values) {
           String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
           logger.error(msg);
-          PrintStream ps = (PrintStream) getPrintStream();
-          if ( ps != null ) {
-            ps.print("ERROR: ");
-            ps.println(msg);
-          }
+          // PrintStream ps = (PrintStream) getPrintStream();
+          // if ( ps != null ) {
+          //   ps.print("ERROR: ");
+          //   ps.println(msg);
+          // }
         }
       };
       // Register the Javet console to V8 global object - why?
@@ -222,25 +222,37 @@ NodeJS environment.`,
       `
     },
     {
+      // TODO/FIXME: investigate really long loading times - 12s.
+      // Current PM'ing suggest it is javet/client side.
       name: 'loadClientBuilder',
       args: 'X x',
       javaThrows: [ 'JavetException' ],
       javaCode: `
-      Logger logger = Loggers.logger(x, this, "clientBuilder");
-      Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
-      if ( session == null ) {
-        throw new RuntimeException("Session not found for user "+getUser());
-      }
-      logger.debug("initializing with session", session.getId());
-      executeString(x, """
+      PM pm = new PM("JavetShell", "loadClientBuilder");
+      try {
+        Logger logger = Loggers.logger(x, this, "clientBuilder");
+        Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
+        if ( session == null ) {
+          throw new RuntimeException("Session not found for user "+getUser());
+        }
+        logger.debug("initializing with session", session.getId());
+        executeString(x, """
+console.debug('Launching with');
+foam.flags.node = true;
+Object.keys(foam.flags).forEach(k =>{
+  console.debug('foam.flags', k, foam.flags[k]);
+});
 const cb = foam.core.client.ClientBuilder.create({sessionID: '%s'});
 cb.promise.then(async client => {
   globalThis.x = client;
 }, err => {
   console.error(err);
 });
-      """.formatted(session.getId()));
-      logger.debug("initialized");
+        """.formatted(session.getId()));
+        logger.debug("initialized");
+      } finally {
+        pm.log(x);
+      }
       `
     },
     {

@@ -30,6 +30,7 @@ foam.CLASS({
     'foam.core.fs.Storage',
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
+    'foam.core.pm.PM',
     'foam.lang.X',
     'foam.util.SafetyUtil',
 
@@ -66,15 +67,18 @@ foam.CLASS({
       type: 'JavetShell',
       javaCode: `
       maybeInit();
+      PM pm = new PM("JavetShellFactory", "create");
       try {
         // TODO: Understand scope/isolation in a V8Runtime. Until then
         // use a new Runtime for each request.
         // return new JavetShell(x, iJavetEngine_.getV8Runtime());
 
         V8Runtime v8Runtime = V8Host.getInstance(JSRuntimeType.Node).createV8Runtime();
-        load(getX(), v8Runtime);
+        load(x, v8Runtime);
+        pm.log(x);
         return new JavetShell(x, v8Runtime);
       } catch (JavetException | IOException e) {
+        pm.error(x);
         throw new RuntimeException("JavetShellFactory.create", e);
       }
       `
@@ -86,6 +90,7 @@ foam.CLASS({
       if ( getInitialized() )
         return;
 
+      PM pm = new PM("JavatShellFactory","maybeInit");
       try {
         NodeRuntimeOptions.V8_FLAGS.setUseStrict(false);
 
@@ -97,7 +102,9 @@ foam.CLASS({
         // load(getX(), iJavetEngine_.getV8Runtime());
 
         setInitialized(true);
+        pm.log(getX());
       } catch (Throwable t) {
+        pm.error(getX());
         Loggers.logger(getX(), this).error("Failed initialization", t.getMessage());
         throw new RuntimeException(t);
       } 
@@ -129,27 +136,32 @@ foam.CLASS({
       args: 'X x, V8Runtime v8Runtime',
       javaThrows: ['JavetException', 'java.io.IOException' ],
       javaCode: `
-      Logger logger = Loggers.logger(x, this, "load");
-      String name = getFoamBinNodeFile();
-      Storage storage = (Storage) x.get(Storage.class);
-      if ( storage instanceof FileSystemStorage ) {
-        logger.debug("WORKING_DIRECTORY", JavetOSUtils.WORKING_DIRECTORY);
-        File file = new File(
-                             JavetOSUtils.WORKING_DIRECTORY,
-                             "build/js/"+name); // build with -agw)
-        if (file.exists() && file.canRead()) {
-          logger.debug("FOAM Loading (file)", name);
-          v8Runtime.getExecutor(file).executeVoid();
-          logger.debug("FOAM Loaded", name);
+      PM pm = new PM("JavetShellFactory","load");
+      try {
+        Logger logger = Loggers.logger(x, this, "load");
+        String name = getFoamBinNodeFile();
+        Storage storage = (Storage) x.get(Storage.class);
+        if ( storage instanceof FileSystemStorage ) {
+          logger.debug("WORKING_DIRECTORY", JavetOSUtils.WORKING_DIRECTORY);
+          File file = new File(
+                               JavetOSUtils.WORKING_DIRECTORY,
+                               "build/js/"+name); // build with -agw)
+          if (file.exists() && file.canRead()) {
+            logger.debug("FOAM Loading (file)", name);
+            v8Runtime.getExecutor(file).executeVoid();
+            logger.debug("FOAM Loaded", name);
+          } else {
+            throw new java.io.IOException("File not found: "+file.getAbsolutePath());
+          }
         } else {
-          throw new java.io.IOException("File not found: "+file.getAbsolutePath());
+          String path = "../webroot/"+name;
+          InputStream is = new ByteArrayInputStream(storage.getBytes(path));
+          logger.debug("FOAM Loading (resource)", name);
+          v8Runtime.getExecutor(new String(is.readAllBytes(), StandardCharsets.UTF_8)).executeVoid();
+          logger.debug("FOAM Loaded", name);
         }
-      } else {
-        String path = "../webroot/"+name;
-        InputStream is = new ByteArrayInputStream(storage.getBytes(path));
-        logger.debug("FOAM Loading (resource)", name);
-        v8Runtime.getExecutor(new String(is.readAllBytes(), StandardCharsets.UTF_8)).executeVoid();
-        logger.debug("FOAM Loaded", name);
+      } finally {
+        pm.log(x);
       }
       `
     }

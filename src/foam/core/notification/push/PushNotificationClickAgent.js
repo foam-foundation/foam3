@@ -33,7 +33,8 @@ foam.CLASS({
 
   methods: [
     function init() {
-      if ( typeof this.window === 'undefined' )
+      // Support running foam-bin outside of browser
+      if ( foam.flags.node )
         return;
 
       // This agent runs in two phases:

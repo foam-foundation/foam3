@@ -21,6 +21,7 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
     Use: (presently)
 
     Use through Script:
+    See example: 'NodeShellTest'
     Create a script with language NODESHELL with FOAM javascript:
 
     x.countryDAO.select(function(c) {

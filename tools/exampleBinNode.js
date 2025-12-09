@@ -2,8 +2,7 @@
 
 // Example script which shows how to use FOAM with ClientBuilder from NodeJS
 
-const SESSION_ID = '4e0b6400-494e-454f-b780-0320bf1b99d2';
-//const SESSION_ID = '1983691b-bcf1-4619-9b5b-8303e71254c0localhost:8080';
+const SESSION_ID = '1983691b-bcf1-4619-9b5b-8303e71254c0localhost:8080';
 
 const fs = require('node:fs');
 

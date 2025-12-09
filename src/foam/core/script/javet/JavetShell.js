@@ -10,12 +10,36 @@ foam.CLASS({
 
   documentation: `A script agent which executes FOAM javascript in a
 NodeJS environment.`,
-/*
-  // FUTURE WORK:
-  // ClientBuilder support to optionally:
-  // - not load menus
-  // - bypass HTTPBox - hit router.
-*/
+  /*
+    TODO: move to real doc
+
+    Use: (presently)
+
+    Use through Script:
+    Create a script with language NODESHELL with FOAM javascript:
+
+    x.countryDAO.select(function(c) {
+      console.info('Country (1)', c.toSummary());
+    });
+
+    s = await x.countryDAO.select();
+    s.array.forEach(c => {
+      console.info('Country (2)', c.toSummary());
+    });
+
+    Direct JavaShell:
+    JavetShell shell = (JavetShell) x.get("javetShell");
+    shell.setCode(...);
+    shell.execute(x);
+
+    Other
+    JavetShell provides for specifying the user whose session will be used to initialize the ClientBuilder. Defaults to 'admin'.
+
+    FUTURE WORK:
+    client initialization of ClientBuilder is slow. Consider just
+    loading cspecs and menus daos directly.
+  */
+
   javaImports: [
     'com.caoccao.javet.enums.JavetPromiseRejectEvent',
     'com.caoccao.javet.exceptions.JavetException',
@@ -129,6 +153,7 @@ NodeJS environment.`,
           Loggers.logger(x, this).debug("Failed teardown", t);
         }
       }
+    'foam.lang.X',
       `
     },
     {

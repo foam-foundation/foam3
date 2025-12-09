@@ -9,8 +9,13 @@ foam.CLASS({
   implements: [ 'foam.lang.ContextAgent' ],
 
   documentation: `A script agent which executes FOAM javascript in a
-NodeJS environment.`,
-  /*
+NodeJS environment provided by Javet.
+See:
+https://docs.google.com/presentation/d/1lQ8xIHuywuE0ydqm2w6xq8OeQZO_WeTLYXW9bNflQb8/edit?pli=1&slide=id.p#slide=id.p
+https://github.com/caoccao/Javet
+https://www.caoccao.com/Javet/index.html
+https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
+
     TODO: move to real doc
 
     Use: (presently)
@@ -38,7 +43,7 @@ NodeJS environment.`,
     FUTURE WORK:
     client initialization of ClientBuilder is slow. Consider just
     loading cspecs and menus daos directly.
-  */
+   `,
 
   javaImports: [
     'com.caoccao.javet.enums.JavetPromiseRejectEvent',
@@ -153,7 +158,6 @@ NodeJS environment.`,
           Loggers.logger(x, this).debug("Failed teardown", t);
         }
       }
-    'foam.lang.X',
       `
     },
     {

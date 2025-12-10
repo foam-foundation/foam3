@@ -740,6 +740,13 @@ foam.CLASS({
       writePermissionRequired: true
     },
     {
+      class: 'String',
+      name: 'supportUrl',
+      documentation: 'External URL for the support link displayed in the header.',
+      section: 'applicationSection',
+      writePermissionRequired: true
+    },
+    {
       class: 'foam.lang.FObjectProperty',
       of:'foam.core.app.SupportConfig',
       name: 'supportConfig',

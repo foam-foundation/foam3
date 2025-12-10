@@ -67,6 +67,25 @@ foam.CLASS({
       left: 50%;
       transform: translateX(-50%);
     }
+    ^support {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      margin-right: 8px;
+      color: $textDefault;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    ^support:hover {
+      background-color: $grey50;
+      text-decoration: none;
+    }
+    ^support:visited {
+      color: $textDefault;
+    }
 
     @media (min-width: /*%DISPLAYWIDTH.MD%*/ 768px) {
       ^components-container {
@@ -134,6 +153,9 @@ foam.CLASS({
                 buttonStyle: 'UNSTYLED'
               }).show(notifications).end();
             }))
+            .callIf(self.theme && self.theme.supportUrl, function() {
+              this.tag(self.SUPPORT)
+            })
             .tag({ class: 'foam.core.auth.LanguageChoiceView' })
             .tag({ class: 'foam.core.u2.navigation.UserInfoNavigationView' });
           } else {
@@ -151,6 +173,19 @@ foam.CLASS({
       ariaLabel: 'Open/Close Menu',
       code: function() {
         this.isMenuOpen = ! this.isMenuOpen;
+      }
+    },
+    {
+      name: 'support',
+      label: 'Support',
+      buttonStyle: 'SECONDARY',
+      size: 'SMALL',
+      icon: 'images/flag.svg',
+      code: function(X) {
+        var theme = X.theme;
+        if ( theme && theme.supportUrl ) {
+          window.open(theme.supportUrl, '_blank', 'noopener,noreferrer');
+        }
       }
     }
   ]

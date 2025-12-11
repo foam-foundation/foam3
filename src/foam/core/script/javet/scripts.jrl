@@ -4,12 +4,12 @@ c({
   language: 3,
   code: """
 console.info('select 1');
-x.countryDAO.select(function(c) {
+client.countryDAO.select(function(c) {
     console.info('Country (1)', c.toSummary());
 });
 
 console.info('select 2');
-s = await x.countryDAO.select();
+s = await client.countryDAO.select();
 s.array.forEach(c => {
    console.info('Country (2)', c.toSummary());
 });

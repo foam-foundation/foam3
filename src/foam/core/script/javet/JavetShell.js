@@ -24,11 +24,11 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
     See example: 'NodeShellTest'
     Create a script with language NODESHELL with FOAM javascript:
 
-    x.countryDAO.select(function(c) {
+    client.countryDAO.select(function(c) {
       console.info('Country (1)', c.toSummary());
     });
 
-    s = await x.countryDAO.select();
+    s = await client.countryDAO.select();
     s.array.forEach(c => {
       console.info('Country (2)', c.toSummary());
     });
@@ -274,7 +274,7 @@ Object.keys(foam.flags).forEach(k =>{
 });
 const cb = foam.core.client.ClientBuilder.create({sessionID: '%s'});
 cb.promise.then(async client => {
-  globalThis.x = client;
+  globalThis.client = client;
 }, err => {
   console.error(err);
 });

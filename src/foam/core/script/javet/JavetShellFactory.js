@@ -21,9 +21,6 @@ foam.CLASS({
     'com.caoccao.javet.interop.engine.IJavetEngine',
     'com.caoccao.javet.interop.engine.IJavetEnginePool',
     'com.caoccao.javet.interop.engine.JavetEnginePool',
-    'com.caoccao.javet.interop.callback.IJavetPromiseRejectCallback',
-    'com.caoccao.javet.interop.callback.JavetPromiseRejectCallback',
-    'com.caoccao.javet.enums.JavetPromiseRejectEvent',
     'com.caoccao.javet.utils.JavetOSUtils',
 
     'foam.core.fs.FileSystemStorage',

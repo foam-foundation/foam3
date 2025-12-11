@@ -48,16 +48,19 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
 
   javaImports: [
     'com.caoccao.javet.enums.JavetPromiseRejectEvent',
+    'com.caoccao.javet.enums.V8AwaitMode',
     'com.caoccao.javet.exceptions.JavetException',
     'com.caoccao.javet.interception.logging.JavetStandardConsoleInterceptor',
     'com.caoccao.javet.interop.V8Runtime',
     'com.caoccao.javet.interop.callback.IJavetPromiseRejectCallback',
     'com.caoccao.javet.interop.callback.JavetPromiseRejectCallback',
+    'com.caoccao.javet.interop.callback.JavetBuiltInModuleResolver',
     'com.caoccao.javet.utils.JavetOSUtils',
     'com.caoccao.javet.values.V8Value',
     'com.caoccao.javet.values.reference.IV8ValueObject',
     'com.caoccao.javet.values.reference.IV8ValuePromise',
     'com.caoccao.javet.values.reference.V8ValueError',
+    'com.caoccao.javet.values.reference.V8ValueObject',
     'com.caoccao.javet.values.reference.V8ValuePromise',
 
     'foam.core.logger.Logger',
@@ -80,6 +83,7 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
   IJavetPromiseRejectCallback rejectCallback_ = null;
   IV8ValuePromise.IListener promiseListener_ = null;
   JavetStandardConsoleInterceptor javetConsoleInterceptor_ = null;
+  V8ValueObject v8ValueObject_ = null;
 
   public JavetShell(X x, V8Runtime v8Runtime) {
     setX(x);
@@ -144,7 +148,7 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
         }
         logger.debug("initializing with session", session.getId());
           executeString(x, """
-// FIXME: this is a hack until I understand javet/node context/isolation setup
+// FIXME: hack until javet/node context/isolation understood.
 var c = typeof cb !== 'undefined' ? cb : null;
 if ( ! c || c.sessionID !== session.getId() ) {
   console.debug('create new ClientBuilder');
@@ -186,71 +190,45 @@ c.promise.then(async client => {
       final Logger logger = Loggers.logger(x, this);
       PrintStream ps = (PrintStream) getPrintStream();
 
-      rejectCallback_ = (event, promise, value) -> {
-        logger.debug("PromiseRejectCallback event", event, "promise", promise, "value", value);
-      };
-      v8Runtime.setPromiseRejectCallback(rejectCallback_);
-
-      // TODO: consider actual event handling - other than just logging
       promiseListener_ = new IV8ValuePromise.IListener() {
-        // @Override
         public void onCatch(V8Value v8Value) {
           // assertTrue(v8Value instanceof V8ValueError);
           // Handle the error.
-          logger.error("callback,onCatch", v8Value);
+          logger.error("listener,onCatch", v8Value);
         }
-        // @Override
         public void onFulfilled(V8Value v8Value) {
           // Handle the fulfillment.
-          // logger.info("callback,onFufilled", v8Value);
+          logger.debug("listener,onFufilled", v8Value);
+          // TODO: how to inform the v8Runtime to stop waiting?
         }
-
-        // @Override
         public void onRejected(V8Value v8Value) {
           // Handle the rejection.
-          logger.warning("callback,onRejected", v8Value);
+          logger.warning("listener,onRejected", v8Value);
         }
       };
 
       JavetStandardConsoleInterceptor javetConsoleInterceptor_ =
       new JavetStandardConsoleInterceptor(v8Runtime) {
         public void consoleDebug(V8Value... v8Values) {
-          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
-          logger.debug(msg);
-          // PrintStream ps = (PrintStream) getPrintStream();
-          // if ( ps != null ) {
-          //   ps.print("DEBUG: ");
-          //   ps.println(msg);
-          // }
+          logger.debug((Object[])v8Values);
         }
         public void consoleInfo(V8Value... v8Values) {
           String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
           logger.info(msg);
           PrintStream ps = (PrintStream) getPrintStream();
-          if ( ps != null ) {
+          if ( ps != null )
             ps.println(msg);
-          }
         }
         public void consoleWarn(V8Value... v8Values) {
-          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
-          logger.warning(msg);
-          // PrintStream ps = (PrintStream) getPrintStream();
-          // if ( ps != null ) {
-          //   ps.print("WARNING: ");
-          //   ps.println(msg);
-          // }
+          logger.warning((Object[])v8Values);
         }
         public void consoleError(V8Value... v8Values) {
-          String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
-          logger.error(msg);
-          // PrintStream ps = (PrintStream) getPrintStream();
-          // if ( ps != null ) {
-          //   ps.print("ERROR: ");
-          //   ps.println(msg);
-          // }
+          logger.error((Object[])v8Values);
         }
       };
-      // Register the Javet console to V8 global object - why?
+      // Register the Javet console to V8 global object - why? - doesn't work otherwise - but not sure why. If a v8Runtime.createV8ValueObject() is used, System.out is useded, meaning this registration didn't work.
+      // v8ValueObject_ = v8Runtime.createV8ValueObject();
+      // javetConsoleInterceptor_.register(new IV8ValueObject[] {v8ValueObject_});
       javetConsoleInterceptor_.register(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
       `
     },
@@ -262,6 +240,8 @@ c.promise.then(async client => {
       V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       if ( javetConsoleInterceptor_ != null )
         javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
+        // javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8ValueObject_});
+
       v8Runtime.close();
       `
     },
@@ -296,6 +276,7 @@ c.promise.then(async client => {
       logger.debug("loading");
       V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(file).execute();
       logger.debug("loaded");
+      // TODO: understand how to have the listener tell the runtime to resolve.
       v8ValuePromise.register(promiseListener_);
       logger.debug("waiting");
       v8Runtime.await();

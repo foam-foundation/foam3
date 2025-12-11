@@ -69,7 +69,7 @@ foam.CLASS({
         Tracks the state of the optional toggle if this property is optional.
         True means the property is defined, false means it is undefined.
       `,
-      view: { class: 'foam.u2.Switch', size: 'SMALL' },
+      view: { class: 'foam.u2.Switch', switchSize: 'SMALL' },
       postSet: function(old, nu) {
         if ( old && ! nu ) {
           this.oldValue_ = this.data$?.dot(this.prop.name).get();

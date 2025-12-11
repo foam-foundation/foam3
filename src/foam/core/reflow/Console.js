@@ -1506,10 +1506,10 @@ foam.CLASS({
           if ( ! block.flowName ) {
             // For commands like 'cells(2,3)' pickout 'cells' as the block name
             var m = cmd.match(/^\s*([a-zA-Z][a-zA-Z0-9_\$]*)\(/);
-            if ( m ) block.flowName = m[1];
+            block.flowName = m ? m[1] : 'a';
+            // Make sure we aren't duplicating an existing name;
+            block.flowName = this.createFlowChildName(block.flowName);
           }
-          // Make sure we aren't duplicating an existing name;
-          block.flowName = this.createFlowChildName(block.flowName || 'a');
         } catch (x) {
           var i = cmd.indexOf(' ');
           if ( i != -1 ) {

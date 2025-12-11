@@ -9,7 +9,8 @@ foam.CLASS({
   name: 'ReferralCode',
 
   implements: [
-    'foam.core.auth.Authorizable'
+    'foam.core.auth.Authorizable',
+    'foam.core.auth.EnabledAware'
   ],
 
   javaImports: [
@@ -74,7 +75,20 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'customReferralCode'
+      name: 'code',
+      documentation: 'Actual referral code for the user'
+    },
+    {
+      // deprecated
+      class: 'String',
+      name: 'customReferralCode',
+      transient: true,
+      hidden: true,
+      javaSetter: `
+        if ( ! codeIsSet_ ) {
+          setCode(val);
+        }
+      `
     },
     {
       class: 'Reference',

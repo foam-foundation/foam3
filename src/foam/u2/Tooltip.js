@@ -131,8 +131,9 @@ foam.CLASS({
     function render(data) {
       this.SUPER();
       this
-      .add(this.data)
-      .addClass()
+        .show(this.data$)
+        .add(this.data)
+        .addClass()
     }
   ]
 });

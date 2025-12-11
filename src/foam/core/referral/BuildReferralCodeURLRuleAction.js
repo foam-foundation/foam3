@@ -26,11 +26,13 @@ foam.CLASS({
       agency.submit(x, new ContextAgent() {
         @Override
         public void execute(X x) {
-          DAO referralCodeDAO = (DAO) ruler.getX().get("referralCodeDAO");
+          ReferralCodeGeneratorService service = (ReferralCodeGeneratorService) x.get("referralCodeGenerationService");
           ReferralCode referralCode = (ReferralCode) obj;
           if ( SafetyUtil.isEmpty(referralCode.getId()) ) return;
-          String code = SafetyUtil.isEmpty(referralCode.getCustomReferralCode()) ? referralCode.getId() : referralCode.getCustomReferralCode();
-          referralCode.setUrl(referralCode.getWebsite() + "/?" + referralCode.getQuery() + "=" + code + "#" + referralCode.getMenu());
+          if ( SafetyUtil.isEmpty(referralCode.getCode()) ) {
+            referralCode.setCode(service.getCode(referralCode.getReferrer()));
+          }
+          referralCode.setUrl(referralCode.getWebsite() + "/?" + referralCode.getQuery() + "=" + referralCode.getCode() + "#" + referralCode.getMenu());
         }
       }, "BuildReferralCodeUrl");
       `

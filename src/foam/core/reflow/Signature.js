@@ -40,6 +40,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Signature',
 
+  imports: [ 'auth?' ],
+
   properties: [
     {
       class: 'String',
@@ -73,9 +75,19 @@ foam.CLASS({
     {
       class: 'String',
       name: 'permission',
+      trim: true,
+      postSet: function(o, n) {
+        this.checkPermission();
+      },
       visibility: function(signed) {
         return signed ? foam.u2.DisplayMode.RO : foam.u2.DisplayMode.RW;
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'permissionGranted',
+      hidden: true,
+      value: true
     }
   ],
 
@@ -85,10 +97,28 @@ foam.CLASS({
     }
   ],
 
+  listeners: [
+    {
+      name: 'checkPermission',
+      isIdled: true,
+      delay: 250,
+      code: async function() {
+        let p = this.permission;
+
+        if ( ! p || ! this.auth ) {
+          this.permissionGranted = true;
+        } else {
+          this.permissionGranted = false;
+          this.permissionGranted = await this.auth.check(null, this.permission);
+        }
+      }
+    }
+  ],
+
   actions: [
     {
       name: 'sign',
-      isAvailable: function(signed, prerequisite) { return ! signed && ! prerequisite; },
+      isAvailable: function(signed, prerequisite, permissionGranted) { return ! signed && ! prerequisite && permissionGranted; },
       code: function() {
         this.signor    = 'Kevin Greer';
         this.timestamp = new Date();

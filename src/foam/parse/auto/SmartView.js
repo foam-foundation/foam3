@@ -133,6 +133,10 @@ foam.CLASS({
     ^operator { color: $orange400; }
     ^value    { color: $blue400; }
     ^format   { color: $grey400; }
+
+    ^calculation { color: $orange400; }
+    ^chart    { color: $blue400; }
+    ^structure { color: $green400; }
   `,
 
   properties: [
@@ -218,10 +222,15 @@ foam.CLASS({
       cursor: pointer;
     }
     ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
+    ^error { border: 1px solid red !important; }
   `,
 
   properties: [
     [ 'type', 'search' ],
+    {
+      class: 'String',
+      name: 'error'
+    },
     {
       class: 'String',
       name: 'preview',
@@ -324,6 +333,9 @@ foam.CLASS({
       // Recalculate suggestions when the preview text changes
       this.preview$.sub(this.onPreviewChange);
 
+      // Recalculate error when the data text changes
+      this.data$.sub(this.onDataChange);
+
       if ( this.prop?.onKey ) {
         this.data$.linkFrom(this.preview$);
       }
@@ -334,16 +346,23 @@ foam.CLASS({
         .start(this.TextField, {
           data$: this.data$,
           autocomplete: false,
-          autocorrect: false
+          autocorrect: false,
+          tooltip$: this.error$
         }, this.field$).
+          enableClass(this.myClass('error'), this.error$).
           on('blur', this.onBlur).
           call(function() {
             self.prop && this.fromProperty?.(self.prop);
             // The 'preview' Property is always bound like its onKey mode
             this.attrSlot(null, 'input').linkFrom(self.preview$);
           }).
-        on('keydown', this.onKeyPress, true).
-        end();
+          on('keydown', this.onKeyPress, true).
+        end();/*
+        start().style({color: 'red'}).
+          show(this.error$).
+          start('span').add('Error: ').end().
+          add(this.error$).
+        end();*/
 
       // Search fields have a 'x' icon on the right which clears the field, but for
       // some reason if onPreviewChange runs too quickly then this doesn't work for
@@ -463,14 +482,39 @@ foam.CLASS({
       name: 'onPreviewChange',
       isFramed: true,
       code: function() {
+        this.error = '';
+
         // Parse the preview text with our 'apply' callback so we can rebuild
         // the suggestions map.
         this.reset();
 
-        var ps = this.parser.parseString(
-          this.preview + String.fromCharCode(26) /* EOF */,
-          undefined,
-          this.apply);
+        let str = this.preview + String.fromCharCode(26) /* EOF */;
+        let ps  = foam.parse.StringPStream.create({str: str, apply: this.apply});
+
+        ps = this.parser.parse(ps);
+      }
+    },
+    {
+      name: 'onDataChange',
+      isFramed: true,
+      code: function() {
+        if ( ! this.data ) { this.error = ''; return; }
+
+        let maxPos = 0;
+        let apply  = function(p, grammar) {
+          maxPos = Math.max(maxPos, this.pos);
+          return p.parse(this, grammar);
+        };
+        let str    = this.data + String.fromCharCode(26) /* EOF */;
+        let ps     = foam.parse.StringPStream.create({str: str, apply: apply});
+
+        ps = this.parser.parse(ps);
+
+        if ( ps == null || maxPos < this.data.length ) {
+          this.error = 'Error at: ' + (maxPos == this.data.length ? '<end of input>' : this.data.substring(maxPos));
+        } else {
+          this.error = '';
+        }
       }
     }
   ]

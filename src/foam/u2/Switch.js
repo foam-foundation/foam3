@@ -23,6 +23,7 @@ foam.CLASS({
   documentation: 'Switch View.',
 
   inheritCSS: false,
+
   css: `
    ^ {
       -webkit-appearance: none;
@@ -79,7 +80,7 @@ foam.CLASS({
     ^desc {
       color: $textSecondary;
     }
-    ^medium { 
+    ^medium {
       width: 40px;
       height: 24px;
     }
@@ -89,7 +90,7 @@ foam.CLASS({
       left: 3px;
       top: 3px;
     }
-    ^small { 
+    ^small {
       width: 32px;
       height: 14px;
     }
@@ -103,28 +104,32 @@ foam.CLASS({
       transform: translateX(18px);
     }
   `,
+
   properties: [
     {
       class: 'Enum',
       of: 'foam.u2.SwitchSize',
-      name: 'size',
+      name: 'switchSize',
       value: 'MEDIUM'
     }
   ],
+
   methods: [
     function render() {
       this.SUPER();
-       this.addClass(this.slot(function(size) { return this.myClass(size.label.toLowerCase()) }));
+       this.addClass(this.slot(function(switchSize) { return this.myClass(switchSize.label.toLowerCase()) }));
     }
   ]
 });
 
+
 foam.ENUM({
   package: 'foam.u2',
   name: 'SwitchSize',
+
   values: [
-    { name: 'SMALL', label: 'Small' },
+    { name: 'SMALL',  label: 'Small'  },
     { name: 'MEDIUM', label: 'Medium' },
-    { name: 'LARGE', label: 'Large' }
+    { name: 'LARGE',  label: 'Large'  }
   ]
 })

@@ -70,6 +70,7 @@ foam.INTERFACE({
   ]
 });
 
+
 foam.CLASS({
   package: 'foam.parse',
   name: 'Suggestion',
@@ -185,6 +186,11 @@ foam.CLASS({
       }
 
       return a;
+    },
+
+    function parseString(str, _, opt_apply) {
+      var result = this.parse(this.StringPStream.create({apply: opt_apply, str: str}));
+      return result && result.value;
     }
   ]
 });
@@ -352,7 +358,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Alternate',
-  implements: ['foam.parse.JSParser'],
+  extends: 'foam.parse.AbstractParser',
+//  implements: ['foam.parse.JSParser'],
 
   documentation: 'Attempts to match one of the parser properties to the parse stream.',
 
@@ -1015,7 +1022,8 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'debug'
+      name: 'debug',
+//      value: true
     }
   ],
 

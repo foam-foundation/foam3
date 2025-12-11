@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'DAOPromptView',
   extends: 'foam.u2.View',
 
-  imports: ['block'],
+  imports: [ 'block' ],
 
   requires: [
     'foam.u2.LoadingSpinner',
@@ -40,26 +40,25 @@ foam.CLASS({
 
       this.
         addClass().
-        start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
-          add(self.dynamic(async function(data, version) {
-            if ( ! data ) { debugger; return; }
-            var startTime = Date.now();
-            var select    = self.data.select;
-            self.data.select = select;
-            self.loading = true;
-            try {
-              await self.data.select.execute(this);
-              self.data.readyLatch_.resolve();
-              self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
-            } catch (error) {
-              console.error('DAOPrompt execution error:', error);
-              self.data.readyLatch_.reject(error);
-              self.data.hasError = true;
-              this.tag(self.ErrorView, { error: error });
-            } finally {
-              self.loading = false;
-            }
-          }));
+        tag(self.LoadingSpinner, {size: '32px', isHidden$: self.loading$.not()} ).
+        add(self.dynamic(async function(data, version) {
+          var startTime = Date.now();
+          var select    = self.data.select;
+          self.data.select = select;
+          self.loading = true;
+          try {
+            await self.data.select.execute(this);
+            self.data.readyLatch_.resolve();
+            self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
+          } catch (error) {
+            console.error('DAOPrompt execution error:', error);
+            self.data.readyLatch_.reject(error);
+            self.data.hasError = true;
+            this.tag(self.ErrorView, { error: error });
+          } finally {
+            self.loading = false;
+          }
+        }));
     }
   ],
 
@@ -261,7 +260,6 @@ foam.CLASS({
           if ( p ) {
             dao = dao.where(p);
           }
-          // TODO: display syntax error if didn't parse
         }
 
         if ( order ) {
@@ -353,7 +351,8 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
-      visibility: function(where, enableAQL_) { return ( where || ! enableAQL_ ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN; },
+      postSet: function(o, n) { if ( n ) this.enableAQL_ = false; },
+      visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW; },
       view: { class: 'foam.core.reflow.PredicateSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
@@ -362,6 +361,7 @@ foam.CLASS({
       name: 'enableAQL_',
       transient: true,
       hidden: true,
+      value: true,
       documentation: 'Temporary flag to determine if AQL is available.'
     },
     {
@@ -472,11 +472,6 @@ foam.CLASS({
 
     function init() {
       this.SUPER();
-
-      // TODO: remove when passed early access period
-      x.auth.check(x, 'reflow.aql').then(enabled => {
-        this.enableAQL_ = enabled;
-      });
 
       if ( ! this.dao || ! this.dao.of ) return;
 

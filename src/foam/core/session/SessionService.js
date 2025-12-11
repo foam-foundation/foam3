@@ -9,6 +9,7 @@ foam.INTERFACE({
   name: 'SessionService',
 
   skeleton: true,
+  client: true,
 
   documentation: `
     A service that can be used to create sessions for users. The idea behind

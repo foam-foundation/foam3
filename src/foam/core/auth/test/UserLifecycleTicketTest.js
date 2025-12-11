@@ -19,14 +19,16 @@ foam.CLASS({
 `,
 
   javaImports: [
-    'foam.lang.X',
-    'foam.dao.ArraySink',
-    'foam.dao.DAO',
-    'foam.dao.MDAO',
-    'static foam.mlang.MLang.*',
     'foam.core.auth.*',
     'foam.core.crunch.*',
     'foam.core.logger.Loggers',
+    'foam.core.ticket.Ticket',
+    'foam.dao.ArraySink',
+    'foam.dao.DAO',
+    'foam.dao.MDAO',
+    'foam.lang.X',
+    'static foam.mlang.MLang.*',
+    'foam.mlang.sink.Count',
     'foam.test.TestUtils',
     'foam.util.Auth',
     'java.util.List'
@@ -60,6 +62,7 @@ foam.CLASS({
     user.setGroup("test");
     user.setEmail(user.getUserName()+"@foamdev.com");
     user.setEmailVerified(true);
+    user.setLoginEnabled(true); // delete rule looking for this.
     user = (User) userDAO.put(user);
 
     X userX = Auth.sudo(x, user);
@@ -133,9 +136,24 @@ foam.CLASS({
     // 1. LifecycleAwareDAO which will map remove to put lifecycleState DELETED
     // 2. which in turn triggers UserLifecycleDeletedRuleAction to create ticket
     // and delete associated data.
+    Count beforeCount = (Count) ticketDAO.select(COUNT());
     ((DAO) x.get("userDAO")).remove(user);
     user = (User) ((DAO) x.get("userDAO")).find(user.getId());
     test ( user == null || user.getLifecycleState() == LifecycleState.DELETED, "user deleted: " + (user != null ? user.getLifecycleState().toString() : "null"));
+
+    try {
+      Thread.currentThread().sleep(500);
+    } catch (InterruptedException e) {
+      // nop
+    }
+
+    Count afterCount = (Count) ticketDAO.select(COUNT());
+    test ( ((Long)afterCount.getValue()) - ((Long)beforeCount.getValue()) == 1, "Auto generated ticket created" );
+    UserLifecycleTicket triggerTicket = (UserLifecycleTicket) ticketDAO.find(AND(EQ(Ticket.CREATED_FOR, user.getId()), EQ(Ticket.TYPE, "UserLifecycleTicket")));
+    test ( triggerTicket != null && ticket.getId() != triggerTicket.getId(), "Found auto generated ticket");
+    if ( triggerTicket != null ) {
+      test ( triggerTicket.getStatus().equals("CLOSED"), "Auto generated Ticket CLOSED "+ triggerTicket.getStatus() + " " + triggerTicket.getMessage());
+    }
 
     userCapabilityJunctions = (List<UserCapabilityJunction>) ((ArraySink) userCapabilityJunctionDAO
         .where(EQ(UserCapabilityJunction.SOURCE_ID, user.getId()))

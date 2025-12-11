@@ -618,6 +618,9 @@ foam.CLASS({
   ],
 
   methods: [
+    function parse(ps, grammar) {
+      return this.grammar_.parse(ps);
+    },
     function parseString(str, opt_name, opt_apply) {
       let query = this.grammar_.parseString(str, opt_name, opt_apply);
       // if we can simplify the query, do so now (something AND FALSE -> FALSE)

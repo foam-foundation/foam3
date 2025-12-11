@@ -56,7 +56,7 @@ foam.CLASS({
           DAO referralCodeDAO = (DAO) x.get("referralCodeDAO");
           ReferralCode referralCode = (ReferralCode) referralCodeDAO.find(OR(
             EQ(ReferralCode.ID, user.getReferralCode()),
-            EQ(ReferralCode.CUSTOM_REFERRAL_CODE, user.getReferralCode())
+            EQ(ReferralCode.CODE, user.getReferralCode())
           ));
           if ( referralCode != null ) {
             nu.setReferralCode(referralCode.getId());

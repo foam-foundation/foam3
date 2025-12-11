@@ -37,7 +37,21 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "sessionService",
   "serve": true,
-  "serviceClass": "foam.core.session.SimpleSessionService"
+  "boxClass": "foam.core.session.SessionServiceSkeleton",
+  "serviceClass": "foam.core.session.SimpleSessionService",
+  "client":
+    """
+      {
+        "class": "foam.core.session.ClientSessionService",
+        "delegate": {
+          "class": "foam.box.SessionClientBox",
+          "delegate": {
+            "class": "foam.box.HTTPBox",
+            "url": "service/sessionService"
+          }
+        }
+      }
+    """
 })
 
 p({

@@ -67,18 +67,9 @@ foam.CLASS({
       type: 'JavetShell',
       javaCode: `
       maybeInit();
-      PM pm = new PM("JavetShellFactory", "create");
       try {
-        // TODO: Understand scope/isolation in a V8Runtime. Until then
-        // use a new Runtime for each request.
-        // return new JavetShell(x, iJavetEngine_.getV8Runtime());
-
-        V8Runtime v8Runtime = V8Host.getInstance(JSRuntimeType.Node).createV8Runtime();
-        load(x, v8Runtime);
-        pm.log(x);
-        return new JavetShell(x, v8Runtime);
-      } catch (JavetException | IOException e) {
-        pm.error(x);
+        return new JavetShell(x, iJavetEngine_.getV8Runtime());
+      } catch (JavetException e) {
         throw new RuntimeException("JavetShellFactory.create", e);
       }
       `
@@ -94,12 +85,12 @@ foam.CLASS({
       try {
         NodeRuntimeOptions.V8_FLAGS.setUseStrict(false);
 
-        // iJavetEnginePool_ = new JavetEnginePool();
-        // iJavetEnginePool_.getConfig().setJSRuntimeType(JSRuntimeType.Node);
-        // iJavetEngine_ = iJavetEnginePool_.getEngine();
+        iJavetEnginePool_ = new JavetEnginePool();
+        iJavetEnginePool_.getConfig().setJSRuntimeType(JSRuntimeType.Node);
+        iJavetEngine_ = iJavetEnginePool_.getEngine();
 
-        // // load foam
-        // load(getX(), iJavetEngine_.getV8Runtime());
+        // load foam
+        load(getX(), iJavetEngine_.getV8Runtime());
 
         setInitialized(true);
         pm.log(getX());
@@ -150,6 +141,10 @@ foam.CLASS({
             logger.debug("FOAM Loading (file)", name);
             v8Runtime.getExecutor(file).executeVoid();
             logger.debug("FOAM Loaded", name);
+
+             logger.debug("FOAM Flags setting", name);
+            v8Runtime.getExecutor("foam.flags.node=true;").executeVoid();
+            logger.debug("FOAM Flags set", name);
           } else {
             throw new java.io.IOException("File not found: "+file.getAbsolutePath());
           }
@@ -160,6 +155,9 @@ foam.CLASS({
           v8Runtime.getExecutor(new String(is.readAllBytes(), StandardCharsets.UTF_8)).executeVoid();
           logger.debug("FOAM Loaded", name);
         }
+        logger.debug("FOAM initializing");
+        v8Runtime.getExecutor("foam.flags.node = true;").executeVoid();
+        logger.debug("FOAM initialized");
       } finally {
         pm.log(x);
       }

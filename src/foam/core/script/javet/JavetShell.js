@@ -136,15 +136,31 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
         setup(x);
         pm = new PM("JavetShell", "execute");
         if ( SafetyUtil.isEmpty(getFilename()) ) {
+
+        Logger logger = Loggers.logger(x, this, "clientBuilder");
+        Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
+        if ( session == null ) {
+          throw new RuntimeException("Session not found for user "+getUser());
+        }
+        logger.debug("initializing with session", session.getId());
           executeString(x, """
-(async function() {
-  try {
-    %s
-  } catch (e) {
-    console.error('%s', e);
-  }
-}());
-""".formatted(getCode(), getId()));
+// FIXME: this is a hack until I understand javet/node context/isolation setup
+var c = typeof cb !== 'undefined' ? cb : null;
+if ( ! c || c.sessionID !== session.getId() ) {
+  console.debug('create new ClientBuilder');
+  c = foam.core.client.ClientBuilder.create({sessionID: '%s'});
+} else {
+  console.debug('re-use new ClientBuilder');
+}
+c.promise.then(async client => {
+  let x = client.__subContext__;
+  let MLang = foam.mlang.Expressions.create();
+
+  %s
+}, err => {
+  console.error('%s', err);
+});
+        """.formatted(session.getId(), getCode(), getId()));
         } else {
           executeFile(x, getFilename());
         }
@@ -236,8 +252,6 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
       };
       // Register the Javet console to V8 global object - why?
       javetConsoleInterceptor_.register(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
-
-      loadClientBuilder(x);
       `
     },
     {
@@ -249,40 +263,6 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
       if ( javetConsoleInterceptor_ != null )
         javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
       v8Runtime.close();
-      `
-    },
-    {
-      // TODO/FIXME: investigate really long loading times - 12s.
-      // Current PM'ing suggest it is javet/client side.
-      name: 'loadClientBuilder',
-      args: 'X x',
-      javaThrows: [ 'JavetException' ],
-      javaCode: `
-      PM pm = new PM("JavetShell", "loadClientBuilder");
-      try {
-        Logger logger = Loggers.logger(x, this, "clientBuilder");
-        Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
-        if ( session == null ) {
-          throw new RuntimeException("Session not found for user "+getUser());
-        }
-        logger.debug("initializing with session", session.getId());
-        executeString(x, """
-console.debug('Launching with');
-foam.flags.node = true;
-Object.keys(foam.flags).forEach(k =>{
-  console.debug('foam.flags', k, foam.flags[k]);
-});
-const cb = foam.core.client.ClientBuilder.create({sessionID: '%s'});
-cb.promise.then(async client => {
-  globalThis.client = client;
-}, err => {
-  console.error(err);
-});
-        """.formatted(session.getId()));
-        logger.debug("initialized");
-      } finally {
-        pm.log(x);
-      }
       `
     },
     {

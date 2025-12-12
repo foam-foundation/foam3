@@ -24,13 +24,18 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
     See example: 'NodeShellTest'
     Create a script with language NODESHELL with FOAM javascript:
 
-    client.countryDAO.select(function(c) {
-      console.info('Country (1)', c.toSummary());
-    });
+    // ScriptParameters access
+    console.info('ps.getParameter(a)', ps.getParameter('a'));
+    console.info('ps.get(a)', ps.get('a')); // short form of getParameter
+    console.info('ps.getDate()', ps.getDate());
 
-    s = await client.countryDAO.select();
-    s.array.forEach(c => {
-      console.info('Country (2)', c.toSummary());
+    // MLang
+    let c = (await x.countryDAO.select(MLang.COUNT())).value;
+    console.info('Country count', c);
+
+    // DAO
+    x.countryDAO.select(function(c) {
+        console.info('Country', c.toSummary());
     });
 
     Direct JavaShell:
@@ -40,23 +45,22 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
 
     Other
     JavetShell provides for specifying the user whose session will be used to initialize the ClientBuilder. Defaults to 'admin'.
-
-    FUTURE WORK:
-    client initialization of ClientBuilder is slow. Consider just
-    loading cspecs and menus daos directly.
    `,
 
   javaImports: [
+    'com.caoccao.javet.annotations.V8Function',
     'com.caoccao.javet.enums.JavetPromiseRejectEvent',
     'com.caoccao.javet.enums.V8AwaitMode',
     'com.caoccao.javet.exceptions.JavetException',
     'com.caoccao.javet.interception.logging.JavetStandardConsoleInterceptor',
+    'com.caoccao.javet.interfaces.IJavetAnonymous',
     'com.caoccao.javet.interop.V8Runtime',
     'com.caoccao.javet.interop.callback.IJavetPromiseRejectCallback',
     'com.caoccao.javet.interop.callback.JavetPromiseRejectCallback',
     'com.caoccao.javet.interop.callback.JavetBuiltInModuleResolver',
     'com.caoccao.javet.utils.JavetOSUtils',
     'com.caoccao.javet.values.V8Value',
+    'com.caoccao.javet.values.primitive.V8ValueZonedDateTime',
     'com.caoccao.javet.values.reference.IV8ValueObject',
     'com.caoccao.javet.values.reference.IV8ValuePromise',
     'com.caoccao.javet.values.reference.V8ValueError',
@@ -66,16 +70,22 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.core.pm.PM',
+    'foam.core.script.ScriptParameter',
     'foam.core.session.Session',
     'foam.dao.DAO',
     'foam.lang.X',
+    'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
+    'static foam.util.DateUtil.getTimeZoneId',
     'foam.util.SafetyUtil',
 
     'java.io.File',
     'java.io.IOException',
     'java.io.PrintStream',
     'java.util.Arrays',
+    'java.util.Date',
+    'java.util.HashMap',
+    'java.util.Map',
     'java.util.stream.Collectors'
   ],
 
@@ -83,11 +93,17 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
   IJavetPromiseRejectCallback rejectCallback_ = null;
   IV8ValuePromise.IListener promiseListener_ = null;
   JavetStandardConsoleInterceptor javetConsoleInterceptor_ = null;
-  V8ValueObject v8ValueObject_ = null;
 
   public JavetShell(X x, V8Runtime v8Runtime) {
     setX(x);
     setV8Runtime(v8Runtime);
+  }
+
+  public static JavetShell create(X x, String code) {
+    JavetShell shell = (JavetShell) x.get("javetShell");
+    shell.setX(x);
+    shell.setCode(code);
+    return shell;
   }
   `,
 
@@ -117,6 +133,11 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
       class: 'String'
     },
     {
+      name: 'parameters',
+      class: 'Map',
+      javaFactory: 'return new java.util.HashMap();',
+    },
+    {
       name: 'printStream',
       class: 'Object',
       transient: true,
@@ -139,15 +160,60 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
       try {
         setup(x);
         pm = new PM("JavetShell", "execute");
-        if ( SafetyUtil.isEmpty(getFilename()) ) {
+        Logger logger = Loggers.logger(x, this, "execute");
+        V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
+        try ( V8ValueObject v8ValueObject = v8Runtime.createV8ValueObject() ) {
+          v8Runtime.getGlobalObject().set("ps", v8ValueObject);
+          ScriptParameter sp = (ScriptParameter) ((DAO) x.get("scriptParameterDAO"))
+            .find(AND(
+              EQ(ScriptParameter.ENABLED, true),
+              EQ(ScriptParameter.NAME, getId())
+            ));
+          v8ValueObject.bind(new IJavetAnonymous() {
+            @V8Function(name = "getParameters")
+            public Map<String, Object> getParameters() {
+              if ( sp != null )
+                return sp.getParameters();
+              return null;
+            }
 
-        Logger logger = Loggers.logger(x, this, "clientBuilder");
-        Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
-        if ( session == null ) {
-          throw new RuntimeException("Session not found for user "+getUser());
-        }
-        logger.debug("initializing with session", session.getId());
-          executeString(x, """
+            @V8Function(name = "getDate")
+            public V8ValueZonedDateTime getDate() {
+              if ( sp != null && sp.getDate() != null ) {
+                try {
+                  java.time.ZonedDateTime z = sp.getDate().toInstant().atZone(getTimeZoneId(x, null));
+                  logger.debug("getDate", z);
+                  return new V8ValueZonedDateTime(v8Runtime, sp.getDate().toInstant().atZone(getTimeZoneId(x, null)));
+                } catch (JavetException e) {
+                  logger.error("(Anonymous) ScriptParameter.getDate", e);
+                }
+              }
+              return null;
+            }
+
+            @V8Function(name = "getParameter")
+            public Object getParameter(String key) {
+              if ( sp != null )
+                return sp.getParameters().get(key);
+              return null;
+            }
+
+            @V8Function(name = "get")
+            public Object get(String key) {
+              if ( sp != null )
+                return sp.getParameters().get(key);
+              return null;
+            }
+          });
+
+          if ( SafetyUtil.isEmpty(getFilename()) ) {
+            Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
+            if ( session == null ) {
+              throw new RuntimeException("Session not found for user "+getUser());
+            }
+            logger.debug("initializing with session", session.getId());
+
+            executeString(x, v8Runtime, """
 // FIXME: hack until javet/node context/isolation understood.
 var c = typeof cb !== 'undefined' ? cb : null;
 if ( ! c || c.sessionID !== session.getId() ) {
@@ -164,9 +230,11 @@ c.promise.then(async client => {
 }, err => {
   console.error('%s', err);
 });
-        """.formatted(session.getId(), getCode(), getId()));
-        } else {
-          executeFile(x, getFilename());
+            """.formatted(session.getId(), getCode(), getId()));
+          } else {
+            executeFile(x, v8Runtime, getFilename());
+          }
+          v8Runtime.getGlobalObject().delete("ps");
         }
         if ( pm != null ) pm.log(x);
       } catch (Throwable t) {
@@ -192,7 +260,6 @@ c.promise.then(async client => {
 
       promiseListener_ = new IV8ValuePromise.IListener() {
         public void onCatch(V8Value v8Value) {
-          // assertTrue(v8Value instanceof V8ValueError);
           // Handle the error.
           logger.error("listener,onCatch", v8Value);
         }
@@ -226,9 +293,6 @@ c.promise.then(async client => {
           logger.error((Object[])v8Values);
         }
       };
-      // Register the Javet console to V8 global object - why? - doesn't work otherwise - but not sure why. If a v8Runtime.createV8ValueObject() is used, System.out is useded, meaning this registration didn't work.
-      // v8ValueObject_ = v8Runtime.createV8ValueObject();
-      // javetConsoleInterceptor_.register(new IV8ValueObject[] {v8ValueObject_});
       javetConsoleInterceptor_.register(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
       `
     },
@@ -240,31 +304,32 @@ c.promise.then(async client => {
       V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       if ( javetConsoleInterceptor_ != null )
         javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
-        // javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8ValueObject_});
-
       v8Runtime.close();
       `
     },
     {
       name: 'executeString',
-      args: 'X x, String string',
+      args: 'X x, V8Runtime v8Runtime, String string',
       javaThrows: [ 'JavetException' ],
       javaCode: `
       Logger logger = Loggers.logger(x, this, "executeString");
       logger.debug("string", string);
-      V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
+      // V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       logger.debug("executing");
-      V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(string).execute();
-      logger.debug("executed");
-      v8ValuePromise.register(promiseListener_);
-      logger.debug("waiting");
-      v8Runtime.await();
-      logger.debug("complete");
+      try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(string).execute() ) {
+        v8ValuePromise.register(promiseListener_);
+        logger.debug("waiting");
+        // TODO: have the promiseListener_ affect this await.
+        // see https://github.com/caoccao/Javet/blob/main/src/test/java/com/caoccao/javet/values/reference/TestV8ValuePromise.java
+        // Not clear from example how to stop the await.
+        v8Runtime.await();
+        logger.debug("complete");
+      }
       `
     },
     {
       name: 'executeFile',
-      args: 'X x, String filename',
+      args: 'X x, V8Runtime v8Runtime, String filename',
       javaThrows: ['JavetException', 'IOException'],
       javaCode: `
       File file = new File(JavetOSUtils.WORKING_DIRECTORY, filename);
@@ -272,15 +337,14 @@ c.promise.then(async client => {
         throw new java.io.IOException("File not found: "+file.getAbsolutePath());
       }
       Logger logger = Loggers.logger(x, this, "executeFile", filename);
-      V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
+      // V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       logger.debug("loading");
-      V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(file).execute();
-      logger.debug("loaded");
-      // TODO: understand how to have the listener tell the runtime to resolve.
-      v8ValuePromise.register(promiseListener_);
-      logger.debug("waiting");
-      v8Runtime.await();
-      logger.debug("complete");
+      try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(file).execute() ) {
+        v8ValuePromise.register(promiseListener_);
+        logger.debug("waiting");
+        v8Runtime.await();
+        logger.debug("complete");
+      }
       `
     }
   ]

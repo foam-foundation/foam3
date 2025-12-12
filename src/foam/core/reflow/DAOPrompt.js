@@ -351,7 +351,7 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
-      postSet: function(o, n) { if ( n ) this.enableAQL_ = false; },
+      postSet: function(o, n) { this.enableAQL_ = ! n; },
       visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW; },
       view: { class: 'foam.core.reflow.PredicateSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field

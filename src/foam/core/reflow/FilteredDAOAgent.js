@@ -23,7 +23,7 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
-      postSet: function(o, n) { if ( n ) this.enableAQL_ = false; },
+      postSet: function(o, n) { this.enableAQL_ = ! n; },
       visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW; },
       view: { class: 'foam.core.reflow.PredicateSuggestedField' },
       documentation: 'Predicate expression to filter objects before putting them in the sink'
@@ -64,16 +64,20 @@ foam.CLASS({
 
     function createSink() {
       var predicate = null;
-      if ( this.where ) {
-        try {
-          predicate = this.QueryParser.create({of: this.of}).parseString(this.where);
-        } catch (x) {
-          console.warn('FilteredDAOAgent: Failed to parse predicate:', this.where, x);
+      if ( this.enableAQL_ ) {
+        if ( this.aql ) {
+          predicate = this.SimpleQueryParser.create({of: this.of}).parseString(this.aql);
+        }
+      } else {
+        if ( this.where ) {
+          try {
+            predicate = this.QueryParser.create({of: this.of}).parseString(this.where);
+          } catch (x) {
+            console.warn('FilteredDAOAgent: Failed to parse predicate:', this.where, x);
+          }
         }
       }
-      if ( this.aql ) {
-        predicate = this.SimpleQueryParser.create({of: this.of}).parseString(this.aql);
-      }
+
       if ( predicate ) {
         dao = dao.where(predicate);
       }

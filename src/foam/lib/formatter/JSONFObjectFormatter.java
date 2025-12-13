@@ -356,7 +356,7 @@ public class JSONFObjectFormatter
     output(timestamper_.get().createTimestamp(time));
   }
 
-  protected boolean maybeOutputProperty(FObject fo, PropertyInfo prop, boolean includeComma) {
+  protected boolean maybeOutputProperty(FObject fo, PropertyInfo prop) {
     if ( ! outputDefaultValues_ ) {
       if ( ! prop.isSet(fo) ) return false;
 
@@ -371,7 +371,7 @@ public class JSONFObjectFormatter
       return false;
     }
 
-    if ( includeComma ) append(COMMA);
+    maybeAppendComma();
     if ( multiLineOutput_ ) addInnerNewline();
     outputProperty(fo, prop);
     return true;
@@ -386,38 +386,36 @@ public class JSONFObjectFormatter
       return true;
     }
 
-    ClassInfo newInfo  = newFObject.getClassInfo();
-    String    of       = newInfo.getSimpleName().toLowerCase();
-    List      axioms   = getProperties(parentProp, newInfo);
-    int       size     = axioms.size();
-    int       ids      = 0;
-    int       delta    = 0;
-    int       optional = 0;
-    int       len      = builder().length(); // Safe pos in case we want to undo
+    ClassInfo newInfo     = newFObject.getClassInfo();
+    String    of          = newInfo.getSimpleName().toLowerCase();
+    List      axioms      = getProperties(parentProp, newInfo);
+    int       size        = axioms.size();
+    int       ids         = 0;
+    int       delta       = 0;
+    int       optional    = 0;
+    int       len         = builder().length(); // Safe pos in case we want to undo
 
     outputFObjectPropertyHeader(parentProp);
 
     append('{');
     addInnerNewline();
+
     if ( outputClassNames_ && ( outputDefaultClassNames_ || newInfo != defaultClass ) ) {
       outputKey("class");
       append(':');
       output(newInfo.getId());
-      if ( size > 0 )
-        append(COMMA);
     }
 
-    boolean outputComma = false;
     for ( int i = 0 ; i < size ; i++ ) {
       PropertyInfo prop = (PropertyInfo) axioms.get(i);
+
       if ( prop.includeInID() || compare(prop, oldFObject, newFObject) != 0 ) {
         if ( parentProp == null && prop.includeInID() ) {
           // IDs only relevant on root objects
-          if ( outputComma ) append(COMMA);
+          maybeAppendComma();
           addInnerNewline();
           outputProperty(newFObject, prop);
           ids += 1;
-          outputComma = true;
         } else {
           if ( calculateDeltaForNestedFObjects_ &&
                prop.get(newFObject) != null && prop.get(oldFObject) != null &&
@@ -427,17 +425,15 @@ public class JSONFObjectFormatter
               if ( optionalPredicate_.propertyPredicateCheck(getX(), of, prop) ) {
                 optional += 1;
               }
-              outputComma = true;
             }
           } else {
-            if ( outputComma ) append(COMMA);
+            maybeAppendComma();
             addInnerNewline();
             outputProperty(newFObject, prop);
             delta += 1;
             if ( optionalPredicate_.propertyPredicateCheck(getX(), of, prop) ) {
               optional += 1;
             }
-            outputComma = true;
           }
         }
       }
@@ -498,11 +494,10 @@ public class JSONFObjectFormatter
       return;
     }
 
-    int       len   = builder().length(); // Safe pos in case we want to undo
-    int       props = 0;
-    ClassInfo info  = o.getClassInfo();
-
-    boolean outputClass = outputClassNames_ && ( outputDefaultClassNames_ || info != defaultClass );
+    int       len         = builder().length(); // Safe pos in case we want to undo
+    int       props       = 0;
+    ClassInfo info        = o.getClassInfo();
+    boolean   outputClass = outputClassNames_ && ( outputDefaultClassNames_ || info != defaultClass );
 
     append('{');
     addInnerNewline();
@@ -511,14 +506,13 @@ public class JSONFObjectFormatter
       append(':');
       output(info.getId());
     }
-    boolean outputComma = outputClass;
 
     List axioms = getProperties(parentProp, info);
     int  size   = axioms.size();
     for ( int i = 0 ; i < size ; i++ ) {
-      PropertyInfo prop = (PropertyInfo) axioms.get(i);
-      outputComma = maybeOutputProperty(o, prop, outputComma) || outputComma;
-      if ( outputComma ) props++;
+      PropertyInfo prop       = (PropertyInfo) axioms.get(i);
+      boolean      outputProp = maybeOutputProperty(o, prop);
+      if ( outputProp ) props++;
     }
 
     if ( props > 0 || outputDefaultClassNames_ ) {

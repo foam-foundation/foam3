@@ -23,6 +23,10 @@ foam.CLASS({
     'foam.parse.StringPStream'
   ],
 
+  axioms: [
+    foam.pattern.Singleton.create()
+  ],
+
   properties: [
     {
       class: 'Class',
@@ -240,7 +244,7 @@ foam.CLASS({
           //     return foam.u2.CSSToken.create({ name: v, value: map[v] });
           //   })
           // }
-      } 
+      }
     },
     {
       name: 'grammar_',
@@ -255,7 +259,7 @@ foam.CLASS({
         let g = this.Grammar.create({
           symbols: grammar
         });
-        
+
         // let actions    = {
         //   'colorPropertyValue': function (a) {
         //   }

@@ -134,7 +134,7 @@ foam.CLASS({
     'foam.parse.QueryParser'
   ],
 
-  imports: [ 'block', 'eval_', 'scope' ],
+  imports: [ 'block?', 'eval_', 'scope' ],
 
   exports: [
     'dao',

@@ -55,6 +55,7 @@ foam.CLASS({
       name: 'allowClassChange',
       value: true
     },
+    /*
     {
       name: 'clsDAO',
       hidden: true,
@@ -66,9 +67,12 @@ foam.CLASS({
         return a;
       }
     },
+      */
     {
       name: 'viewClass',
       section: 'viewSection',
+      /** Too Expensive becuase clsDAO is build for each instance. **/
+      /*
       view: function(_,X) {
         return {
           class: 'foam.u2.view.RichChoiceView',
@@ -81,7 +85,8 @@ foam.CLASS({
             }
           ]
         };
-      },
+        },
+      */
       expression: function(data_) {
         return data_?.cls_.id ?? '';
       }

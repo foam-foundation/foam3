@@ -20,12 +20,6 @@ foam.CLASS({
   name: 'Foam',
   extends: 'foam.u2.View',
 
-  requires: [
-  ],
-
-  css: `
-  `,
-
   properties: [
     {
       class: 'String',
@@ -64,9 +58,6 @@ foam.CLASS({
 foam.SCRIPT({
   package: 'foam.u2.tag',
   name: 'FoamTagScript',
-  requires: [
-    'foam.u2.tag.Foam'
-  ],
   code: function() {
     foam.__context__.registerElement(foam.u2.tag.Foam);
   }

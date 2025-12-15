@@ -36,6 +36,7 @@ This will also keep the foam application running for inspection from the GUI.
     'foam.core.logger.Loggers',
     'foam.core.logger.PrefixLogger',
     'foam.core.script.Language',
+    'foam.core.script.javet.JavetShell',
     'foam.core.test.Test',
     'foam.core.test.TestRun',
     'foam.dao.DAO',
@@ -453,6 +454,31 @@ This will also keep the foam application running for inspection from the GUI.
     },
     {
       name: 'runClientSideTests',
+      args: 'X x, List tests, TestRun testRun',
+      type: 'TestRun',
+      javaCode: `
+      if ( Boolean.getBoolean(SYSTEM_TEST_HEADED) )
+        return runClientSideTestsHeaded(x, tests, testRun);
+
+      var shell = (JavetShell) x.get("javetShell");
+      shell.setCode("""
+foam.core.test.JSTestRunner.create({
+  testRunId: '%s',
+  testSuites: '%s',
+  testIds: '%s'
+},x).execute(x);
+        """.formatted(
+              testRun.getId(),
+              System.getProperty(SYSTEM_TEST_SUITES, ""),
+              System.getProperty(SYSTEM_TESTS, "")
+            ));
+      shell.setUser(105307497L); // test admin
+      shell.execute(x);
+      return (TestRun) ((DAO) x.get("testRunDAO")).find(testRun.getId());
+      `
+    },
+    {
+      name: 'runClientSideTestsHeaded',
       args: 'X x, List tests, TestRun testRun',
       type: 'TestRun',
       javaCode: `

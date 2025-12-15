@@ -22,7 +22,7 @@ u.lastName  = 'Greer';
 console.log(foam.json.stringify(u));
 
 // Build the FOAM Client so we have access to all DAOs and services
-const cb = foam.core.client.ClientBuilder.create({sessionID: SESSION_ID});
+let cb = foam.core.client.ClientBuilder.create({sessionID: SESSION_ID});
 cb.promise.then(async client => {
   let x = client.__subContext__;
   try {

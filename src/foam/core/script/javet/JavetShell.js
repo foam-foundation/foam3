@@ -8,6 +8,9 @@ foam.CLASS({
   name: 'JavetShell',
   implements: [ 'foam.lang.ContextAgent' ],
 
+  javaGenerateConvenienceConstructor: false,
+  javaGenerateDefaultConstructor: false,
+
   documentation: `A script agent which executes FOAM javascript in a
 NodeJS environment provided by Javet.
 See:
@@ -105,6 +108,10 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
     shell.setCode(code);
     return shell;
   }
+
+  // Force creation via Factory
+  protected JavetShell() {};
+  protected JavetShell(X x) {};
   `,
 
   properties: [
@@ -225,8 +232,11 @@ if ( ! c || c.sessionID !== session.getId() ) {
 c.promise.then(async client => {
   let x = client.__subContext__;
   let MLang = foam.mlang.Expressions.create();
-
-  %s
+  this.loginSuccess = true;
+  async function code() {
+    %s
+  };
+  await code.call(x);
 }, err => {
   console.error('%s', err);
 });
@@ -239,6 +249,7 @@ c.promise.then(async client => {
         if ( pm != null ) pm.log(x);
       } catch (Throwable t) {
         if ( pm != null ) pm.error(x);
+        Loggers.logger(x, this).error(getCode(), t);
         throw new RuntimeException(t);
       } finally {
         try {

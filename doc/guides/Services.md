@@ -3,7 +3,7 @@
 ### Server
 1. Create foam.Interface for Service
 
-Eg: https://github.com/foam-framework/foam3/blob/master/src/foam/core/auth/AuthService.js
+Eg: https://github.com/kgrgreer/foam3/blob/895599566d2a127043026671819149f77f92304f/src/foam/core/auth/AuthService.js
 
 If your method returns a value to the client, make sure to include
 "async: true" so that the client gets the return value.

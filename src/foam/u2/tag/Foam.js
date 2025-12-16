@@ -44,7 +44,7 @@ foam.CLASS({
       var self = this;
       var cls = foam.maybeLookup(this.class);
       if ( cls ) {
-        var o = cls.create(this.attributes);
+        var o = cls.create(this.attributes, this);
         this.tag(o);
       } else {
         this.add('UNKNOWN CLASS:', this.class);

@@ -1340,7 +1340,7 @@ foam.CLASS({
       //   update this.value.script
 
       this.value.script$.sub(this.onScriptChange);
-
+      this.onScriptChange();
       var layout = this.start(this.Layout);
 
       layout.showLeft$   = this.showPrompts$;

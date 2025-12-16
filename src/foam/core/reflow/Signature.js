@@ -40,7 +40,7 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Signature',
 
-  imports: [ 'auth?' ],
+  imports: [ 'auth?', 'subject' ],
 
   properties: [
     {
@@ -120,7 +120,7 @@ foam.CLASS({
       name: 'sign',
       isAvailable: function(signed, prerequisite, permissionGranted) { return ! signed && ! prerequisite && permissionGranted; },
       code: function() {
-        this.signor    = 'Kevin Greer';
+        this.signor    = this.subject.realUser.toSummary();
         this.timestamp = new Date();
         this.signed    = true;
       }

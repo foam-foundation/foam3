@@ -140,7 +140,8 @@ foam.CLASS({
     'dao',
     'limitedDAO as sinkDAO',
     'filteredDAO as sinkUnlimitedDAO',
-    'columnStorage'
+    'columnStorage',
+    'columns as flowColumns'
   ],
 
   properties: [

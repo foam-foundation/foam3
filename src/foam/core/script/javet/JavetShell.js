@@ -249,8 +249,7 @@ c.promise.then(async client => {
         if ( pm != null ) pm.log(x);
       } catch (Throwable t) {
         if ( pm != null ) pm.error(x);
-        Loggers.logger(x, this).error(getCode(), t);
-        throw new RuntimeException(t);
+        Loggers.logger(x, this).error("Failed executiong", getId(), getCode(), t);
       } finally {
         try {
           teardown(x);
@@ -325,7 +324,6 @@ c.promise.then(async client => {
       javaCode: `
       Logger logger = Loggers.logger(x, this, "executeString");
       logger.debug("string", string);
-      // V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       logger.debug("executing");
       try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(string).execute() ) {
         v8ValuePromise.register(promiseListener_);
@@ -348,7 +346,6 @@ c.promise.then(async client => {
         throw new java.io.IOException("File not found: "+file.getAbsolutePath());
       }
       Logger logger = Loggers.logger(x, this, "executeFile", filename);
-      // V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       logger.debug("loading");
       try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(file).execute() ) {
         v8ValuePromise.register(promiseListener_);

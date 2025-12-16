@@ -86,8 +86,7 @@ foam.CLASS({
         iJavetEnginePool_.getConfig().setJSRuntimeType(JSRuntimeType.Node);
         iJavetEngine_ = iJavetEnginePool_.getEngine();
 
-        // load foam
-        load(getX(), iJavetEngine_.getV8Runtime());
+        loadFOAM(getX(), iJavetEngine_.getV8Runtime());
 
         setInitialized(true);
         pm.log(getX());
@@ -120,7 +119,7 @@ foam.CLASS({
       `
     },
     {
-      name: 'load',
+      name: 'loadFOAM',
       args: 'X x, V8Runtime v8Runtime',
       javaThrows: ['JavetException', 'java.io.IOException' ],
       javaCode: `

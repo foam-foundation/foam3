@@ -461,6 +461,7 @@ This will also keep the foam application running for inspection from the GUI.
         return runClientSideTestsHeaded(x, tests, testRun);
 
       var shell = (JavetShell) x.get("javetShell");
+      shell.setAllowEval(true); // allow JS Test to eval modelCode
       shell.setCode("""
 foam.core.test.JSTestRunner.create({
   testRunId: '%s',

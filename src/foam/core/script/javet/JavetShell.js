@@ -155,6 +155,11 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
       class: 'Object',
       transient: true,
       hidden: true
+    },
+    {
+      documentation: 'Enable code eval in v8Runtime, required by JS Test cases which use modelCode',
+      name: 'allowEval',
+      class: 'Boolean'
     }
   ],
 
@@ -164,11 +169,11 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
       args: 'X x',
       javaCode: `
       PM pm = null;
+      V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       try {
-        setup(x);
+        setup(x, v8Runtime);
         pm = new PM("JavetShell", "execute");
         Logger logger = Loggers.logger(x, this, "execute");
-        V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
         try ( V8ValueObject v8ValueObject = v8Runtime.createV8ValueObject() ) {
           v8Runtime.getGlobalObject().set("ps", v8ValueObject);
           ScriptParameter sp = (ScriptParameter) ((DAO) x.get("scriptParameterDAO"))
@@ -252,7 +257,7 @@ c.promise.then(async client => {
         Loggers.logger(x, this).error("Failed executiong", getId(), getCode(), t);
       } finally {
         try {
-          teardown(x);
+          teardown(x, v8Runtime);
         } catch (Throwable t) {
           Loggers.logger(x, this).debug("Failed teardown", t);
         }
@@ -261,10 +266,9 @@ c.promise.then(async client => {
     },
     {
       name: 'setup',
-      args: 'X x',
+      args: 'X x, V8Runtime v8Runtime',
       javaThrows: [ 'JavetException' ],
       javaCode: `
-      V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       final Logger logger = Loggers.logger(x, this);
       PrintStream ps = (PrintStream) getPrintStream();
 
@@ -304,16 +308,20 @@ c.promise.then(async client => {
         }
       };
       javetConsoleInterceptor_.register(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
+
+      v8Runtime.allowEval(getAllowEval());
       `
     },
     {
       name: 'teardown',
-      args: 'X x',
+      args: 'X x, V8Runtime v8Runtime',
       javaThrows: ['JavetException' ],
       javaCode: `
-      V8Runtime v8Runtime = (V8Runtime) getV8Runtime();
       if ( javetConsoleInterceptor_ != null )
         javetConsoleInterceptor_.unregister(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
+      if ( getAllowEval() )
+        v8Runtime.allowEval(false);
+
       v8Runtime.close();
       `
     },

@@ -328,6 +328,107 @@ var comment = P.seq0('/*', P.until0('*/'));
 // Efficiently skips comment content
 ```
 
+### cut(parser)
+
+Memory optimization parser that **destroys the input PStream after a successful parse**. This allows the JavaScript garbage collector to reclaim memory, enabling parsing of very large files that would otherwise cause heap exhaustion.
+
+```javascript
+var parser = P.cut(P.seq('a', 'b', 'c'));
+// After successful parse, input PStream memory is released
+```
+
+**Why cut() is needed:**
+
+FOAM's PStream is immutable - each `tail` operation creates a new PStream object. For large files (millions of characters), this creates millions of intermediate objects that can exhaust heap memory. Without `cut()`, a 60MB file might require 7+ GB of heap memory (116x the file size). With `cut()`, the same file needs only ~400MB (6x the file size).
+
+**Memory usage comparison:**
+
+| Approach | Memory Ratio | 60MB File Needs |
+|----------|--------------|-----------------|
+| Without cut | ~116x | 7+ GB |
+| With cut | ~6x | ~400 MB |
+
+**Important usage pattern:**
+
+`cut()` must be used carefully because it destroys the input PStream. The recommended pattern combines `repeat0` (which doesn't collect values) with `cut()` and semantic actions to collect results:
+
+```javascript
+foam.CLASS({
+  name: 'LargeFileParser',
+  extends: 'foam.parse.Grammar',
+
+  properties: [
+    {
+      name: 'records_',
+      factory: function() { return []; }
+    }
+  ],
+
+  methods: [
+    function grammar(alt, cut, eof, not, repeat0, seq, seq0, sym) {
+      return {
+        // Pattern: repeat0 + not(eof()) + cut(alt(...))
+        START: repeat0(not(eof(), sym('line'))),
+
+        // cut() wraps the entire line alternatives
+        line: cut(alt(
+          sym('header'),
+          sym('dataLine'),
+          sym('ignored')
+        )),
+
+        // Each rule must consume its own terminator (newline)
+        header: seq0(sym('headerContent'), sym('nl')),
+        ignored: seq0(sym('ignoredContent'), sym('nl')),
+        dataLine: seq(sym('field1'), ',', sym('field2'), sym('nl')),
+
+        nl: alt('\r\n', '\n', '\r')
+      };
+    },
+
+    // Use actions to collect results instead of returning from START
+    function dataLineAction(v) {
+      this.records_.push({
+        field1: v[0],
+        field2: v[2]
+      });
+      return null; // Don't return value - stored in records_
+    },
+
+    function STARTAction(v) {
+      return this.records_;
+    },
+
+    function parseString(str) {
+      this.records_ = []; // Reset for fresh parse
+      this.SUPER(str);
+      return this.records_;
+    }
+  ]
+});
+```
+
+**Key rules for using cut():**
+
+1. **Use `repeat0` instead of `repeat`** - `repeat0` doesn't collect values, avoiding memory buildup
+2. **Wrap the main `alt` with `cut()`** - not individual rules inside
+3. **Use actions to collect results** - push to a property array instead of returning values
+4. **Each rule must consume its own terminator** - include newline in each line rule
+5. **Reset the results array in `parseString()`** - ensures fresh parse each time
+
+**When to use cut():**
+
+- Parsing files larger than 10MB
+- Processing files with hundreds of thousands of lines
+- When you encounter "JavaScript heap out of memory" errors
+- When memory usage is critical
+
+**When NOT to use cut():**
+
+- Small files (<10MB) - overhead not worth it
+- When you need backtracking after a match
+- Simple parsers that don't process large amounts of data
+
 ---
 
 ## Value Transformation Parsers

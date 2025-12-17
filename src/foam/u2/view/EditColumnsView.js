@@ -117,7 +117,7 @@ foam.CLASS({
         .show(this.selectColumnsExpanded$)
         .addClass(this.myClass('drop-down-bg'))
         .add(this.dynamic(function(refreshIdx) {
-          return this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
+          this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
               .addClass(self.myClass('container'))
               .style({
                 'max-height': self.height$,

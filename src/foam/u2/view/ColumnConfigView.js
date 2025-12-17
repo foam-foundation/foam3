@@ -283,11 +283,14 @@ foam.CLASS({
       var data = this.data;
       var arr = [];
       var notSelectedColumns = [];
-      //selectedColumnNames misleading name cause it may contain objects
-      data.selectedColumnNames = data.selectedColumnNames.map(c =>
+      var colnames = data.selectedColumnNames.map(c =>
       {
-        return this.columnHandler.propertyNamesForColumnArray(c);
+        return this.columnHandler.propertyNamesForColumnArray(c)
       });
+
+      if ( ! foam.Array.equals(colnames, data.selectedColumnNames) )
+        data.selectedColumnNames = colnames;
+
       var tableColumns = this.data.columns;
       tableColumns = tableColumns.filter( c => data.allColumns.includes(this.columnHandler.propertyNamesForColumnArray(c))).map(c => this.columnHandler.propertyNamesForColumnArray(c));
       //to keep record of columns that are selected

@@ -574,8 +574,6 @@ foam.CLASS({
     },
     {
       name: 'applyFlowColumns',
-      isMerged: true,
-      mergeDelay: 0,
       code: function() {
         if ( ! this.flowColumns ) return;
         var cols = this.flowColumns.split(',').map(s => s.trim()).filter(s => s.length > 0);

@@ -93,7 +93,9 @@ foam.CLASS({
     function init() {
       this.SUPER();
       if ( this.data?.selectedColumnNames$ ) {
-        this.onDetach(this.data.selectedColumnNames$.sub(this.refresh));
+        this.onDetach(this.data.selectedColumnNames$.sub(() => {
+          this.refresh();
+        }));
       }
       this.onDetach(this.selectColumnsExpanded$.sub(() => {
         if ( this.selectColumnsExpanded ) this.refresh();
@@ -114,9 +116,8 @@ foam.CLASS({
       .addClass(this.myClass())
         .show(this.selectColumnsExpanded$)
         .addClass(this.myClass('drop-down-bg'))
-        .add(this.slot(function(refreshIdx) {
-          return this.E()
-            .start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
+        .add(this.dynamic(function(refreshIdx) {
+          return this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
               .addClass(self.myClass('container'))
               .style({
                 'max-height': self.height$,

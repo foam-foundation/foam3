@@ -348,27 +348,24 @@ FOAM's PStream is immutable - each `tail` operation creates a new PStream object
 | Without cut | ~116x | 7+ GB |
 | With cut | ~6x | ~400 MB |
 
-**Important usage pattern:**
+**Important usage patterns:**
 
-`cut()` must be used carefully because it destroys the input PStream. The recommended pattern combines `repeat0` (which doesn't collect values) with `cut()` and semantic actions to collect results:
+`cut()` must be used carefully because it destroys the input PStream. There are two valid approaches for collecting results when using `cut()`:
+
+**Approach 1: Using `repeat` with actions that return values**
+
+Actions return values directly, and `repeat()` collects them into an array:
 
 ```javascript
 foam.CLASS({
   name: 'LargeFileParser',
   extends: 'foam.parse.Grammar',
 
-  properties: [
-    {
-      name: 'records_',
-      factory: function() { return []; }
-    }
-  ],
-
   methods: [
-    function grammar(alt, cut, eof, not, repeat0, seq, seq0, sym) {
+    function grammar(alt, cut, eof, not, repeat, seq, seq0, sym) {
       return {
-        // Pattern: repeat0 + not(eof()) + cut(alt(...))
-        START: repeat0(not(eof(), sym('line'))),
+        // repeat() collects values returned by actions
+        START: repeat(not(eof(), sym('line'))),
 
         // cut() wraps the entire line alternatives
         line: cut(alt(
@@ -386,13 +383,64 @@ foam.CLASS({
       };
     },
 
-    // Use actions to collect results instead of returning from START
+    // Action returns the record - repeat() collects these
+    function dataLineAction(v) {
+      return {
+        field1: v[0],
+        field2: v[2]
+      };
+    },
+
+    // Header and ignored lines return null (filtered out or kept as null)
+    function headerAction(v) { return null; },
+    function ignoredAction(v) { return null; }
+  ]
+});
+```
+
+**Approach 2: Using `repeat0` with external collection**
+
+When you don't need `repeat()` to collect values, use `repeat0()` and push to an external array:
+
+```javascript
+foam.CLASS({
+  name: 'LargeFileParser',
+  extends: 'foam.parse.Grammar',
+
+  properties: [
+    {
+      name: 'records_',
+      factory: function() { return []; }
+    }
+  ],
+
+  methods: [
+    function grammar(alt, cut, eof, not, repeat0, seq, seq0, sym) {
+      return {
+        // repeat0() doesn't collect values
+        START: repeat0(not(eof(), sym('line'))),
+
+        line: cut(alt(
+          sym('header'),
+          sym('dataLine'),
+          sym('ignored')
+        )),
+
+        header: seq0(sym('headerContent'), sym('nl')),
+        ignored: seq0(sym('ignoredContent'), sym('nl')),
+        dataLine: seq(sym('field1'), ',', sym('field2'), sym('nl')),
+
+        nl: alt('\r\n', '\n', '\r')
+      };
+    },
+
+    // Action pushes to external array
     function dataLineAction(v) {
       this.records_.push({
         field1: v[0],
         field2: v[2]
       });
-      return null; // Don't return value - stored in records_
+      return null;
     },
 
     function STARTAction(v) {
@@ -410,11 +458,9 @@ foam.CLASS({
 
 **Key rules for using cut():**
 
-1. **Use `repeat0` instead of `repeat`** - `repeat0` doesn't collect values, avoiding memory buildup
-2. **Wrap the main `alt` with `cut()`** - not individual rules inside
-3. **Use actions to collect results** - push to a property array instead of returning values
-4. **Each rule must consume its own terminator** - include newline in each line rule
-5. **Reset the results array in `parseString()`** - ensures fresh parse each time
+1. **Wrap the main `alt` with `cut()`** - not individual rules inside
+2. **Each rule must consume its own terminator** - include newline in each line rule
+3. **Choose `repeat` vs `repeat0` based on your needs** - use `repeat()` to collect action return values, use `repeat0()` when you don't need results collected
 
 **When to use cut():**
 

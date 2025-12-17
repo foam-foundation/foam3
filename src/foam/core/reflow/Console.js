@@ -1340,17 +1340,30 @@ foam.CLASS({
       //   update this.value.script
 
       this.value.script$.sub(this.onScriptChange);
-
-      this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
-
+      this.onScriptChange();
       var layout = this.start(this.Layout);
 
-      layout.showLeft$  = this.showPrompts$;
-      layout.showRight$ = this.showPrompts$;
+      layout.showLeft$   = this.showPrompts$;
+      layout.showRight$  = this.showPrompts$;
       layout.showHeader$ = this.flowMode$.map(m => m != this.FlowMode.PRESENTATION_ONLY);
-      layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
       layout.middle.call(this.renderSelf, [this]);
-      layout.right.tag(this.ReflowConfigView, { data$: this.selected$});
+
+      let setupEditMode = () => {
+        this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
+        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
+        layout.right.tag(this.ReflowConfigView, { data$: this.selected$});
+      };
+
+      if ( this.showPrompts ) {
+        setupEditMode();
+      } else {
+        let sub = this.showPrompts$.sub(() => {
+          if ( this.showPrompts ) {
+            sub.detach();
+            setupEditMode();
+          }
+        });
+      }
 
       layout.header.add(this.dynamic(function(showPrompts) {
         this.tag(self.ReflowHeader, {data: self, showPrompts: showPrompts, resetFlow: self.clearFlow});

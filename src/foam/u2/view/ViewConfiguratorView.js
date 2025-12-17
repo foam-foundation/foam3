@@ -21,9 +21,7 @@ foam.CLASS({
     'foam.u2.Tab'
   ],
 
-  exports: [ 'clsDAO' ],
-
-  TODO: "reactions_ dont currently work when set on view properties",
+  // TODO: "reactions_ dont currently work when set on view properties",
 
   constants: {
     ViewSpecOutputter: foam.json.Outputter.create({
@@ -56,32 +54,8 @@ foam.CLASS({
       value: true
     },
     {
-      name: 'clsDAO',
-      hidden: true,
-      factory: function() {
-        let a = foam.dao.MDAO.create({ of: foam.mlang.LabeledValue }, this);
-        [...Object.keys(foam.USED), ...Object.keys(foam.UNUSED)].map(v => {
-          a.put(foam.mlang.LabeledValue.create({ label: v }), this);
-        });
-        return a;
-      }
-    },
-    {
       name: 'viewClass',
       section: 'viewSection',
-      view: function(_,X) {
-        return {
-          class: 'foam.u2.view.RichChoiceView',
-          of: foam.mlang.LabeledValue,
-          search: true,
-          sections: [
-            {
-              heading: 'Classes',
-              dao: X.clsDAO
-            }
-          ]
-        };
-      },
       expression: function(data_) {
         return data_?.cls_.id ?? '';
       }

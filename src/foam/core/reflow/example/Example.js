@@ -129,8 +129,8 @@ foam.CLASS({
 
         globalThis.scope = scope;
 
-        with ( scope ) {
-          with ( this.globalScope ) {
+        with ( this.globalScope ) {
+          with ( scope ) {
             try {
               eval(self.code);
               // if ( self.dom.children.length ) self.showOutput = true;

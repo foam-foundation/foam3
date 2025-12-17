@@ -260,6 +260,28 @@ foam.CLASS({
 
   documentation: 'Matches a literal with the parse stream (case sensitive)',
 
+  axioms: [
+    {
+      // Lots of identical Literal parsers are created so cache instances
+      installInClass: function(cls) {
+        let map = {};
+        let oldCreate = cls.create;
+        cls.create = function(args) {
+          if ( args && args.s && ! args.value ) {
+            let key = args.s;
+
+            if ( ! map[key] ) {
+              map[key] = oldCreate.apply(this, arguments);
+            }
+            return map[key];
+          }
+
+          return oldCreate.apply(this, arguments);
+        };
+      }
+    }
+  ],
+
   properties: [
     {
       name: 's',

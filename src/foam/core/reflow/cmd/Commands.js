@@ -933,7 +933,7 @@ foam.CLASS({
       this.block.flowParent.addFlowChild(b);
       this.block.del();
       this.currentBlock = b;
-      console.log(this.block, this.currentBlock, b);
+//      console.log(this.block, this.currentBlock, b);
     }
   ]
 });

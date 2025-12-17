@@ -114,7 +114,6 @@ foam.CLASS({
         class: 'foam.parse.auto.SmartView',
         parser: this.queryParser
       };
-//      value: { class: 'foam.u2.SearchField' }
 
       this
         .addClass(this.myClass())
@@ -147,14 +146,14 @@ foam.CLASS({
       isIdled: true,
       delay: 500,
       code: function() {
-        var value = this.searchData = this.view.data;
+        var value = this.searchData = this.view.data.trim();
         if ( ! value ) {
           this.predicate = this.True.create();
           return;
         }
         // TODO: dont think we ever use anything other than richSearch, maybe remove the boolean and only perform richSearch
         if ( this.richSearch ) {
-          var mql = value.indexOf(':') != -1 && this.queryParser.parseString(value);
+          var mql = this.queryParser.parseString(value);
           if ( this.searchMode === this.SearchMode.MQL || mql ) {
             this.predicate = mql || this.FALSE;
           } else {

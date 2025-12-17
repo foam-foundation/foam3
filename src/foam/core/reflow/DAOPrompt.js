@@ -40,26 +40,25 @@ foam.CLASS({
 
       this.
         addClass().
-        start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
-          add(self.dynamic(async function(data, version) {
-            if ( ! data ) { debugger; return; }
-            var startTime = Date.now();
-            var select    = self.data.select;
-            self.data.select = select;
-            self.loading = true;
-            try {
-              await self.data.select.execute(this);
-              self.data.readyLatch_.resolve();
-              self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
-            } catch (error) {
-              console.error('DAOPrompt execution error:', error);
-              self.data.readyLatch_.reject(error);
-              self.data.hasError = true;
-              this.tag(self.ErrorView, { error: error });
-            } finally {
-              self.loading = false;
-            }
-          }));
+        tag(self.LoadingSpinner, {size: '32px', isHidden$: self.loading$.not()} ).
+        add(self.dynamic(async function(data, version) {
+          var startTime = Date.now();
+          var select    = self.data.select;
+          self.data.select = select;
+          self.loading = true;
+          try {
+            await self.data.select.execute(this);
+            self.data.readyLatch_.resolve();
+            self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
+          } catch (error) {
+            console.error('DAOPrompt execution error:', error);
+            self.data.readyLatch_.reject(error);
+            self.data.hasError = true;
+            this.tag(self.ErrorView, { error: error });
+          } finally {
+            self.loading = false;
+          }
+        }));
     }
   ],
 
@@ -135,7 +134,7 @@ foam.CLASS({
     'foam.parse.QueryParser'
   ],
 
-  imports: [ 'block', 'eval_', 'scope' ],
+  imports: [ 'block?', 'eval_', 'scope' ],
 
   exports: [
     'dao',
@@ -352,7 +351,7 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
-      postSet: function(o, n) { if ( n ) this.enableAQL_ = false; },
+      postSet: function(o, n) { this.enableAQL_ = ! n; },
       visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW; },
       view: { class: 'foam.core.reflow.PredicateSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
@@ -485,7 +484,7 @@ foam.CLASS({
     },
 
     async function addToE(e) {
-      this.onDetach(this.dao.listen(this.updateRowCount));
+      this.onDetach(this.filteredDAO.listen(this.updateRowCount));
       this.updateRowCount_();
 
       // TODO: name current block
@@ -556,12 +555,12 @@ foam.CLASS({
     {
       name: 'updateRowCount',
       isFramed: true,
-      code: function() { this.updateRowCount_(); this.run(); }
+      code: function() { this.updateRowCount_(); }
     },
     {
       name: 'maybeAutoRun',
       isMerged: true,
-      delay: 200,
+      delay: 250,
       code: function maybeAutoRun() {
         if ( this.autoRun ) this.run();
       }

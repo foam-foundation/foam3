@@ -20,12 +20,6 @@ foam.CLASS({
   name: 'Foam',
   extends: 'foam.u2.View',
 
-  requires: [
-  ],
-
-  css: `
-  `,
-
   properties: [
     {
       class: 'String',
@@ -50,7 +44,7 @@ foam.CLASS({
       var self = this;
       var cls = foam.maybeLookup(this.class);
       if ( cls ) {
-        var o = cls.create(this.attributes);
+        var o = cls.create(this.attributes, this);
         this.tag(o);
       } else {
         this.add('UNKNOWN CLASS:', this.class);
@@ -64,9 +58,6 @@ foam.CLASS({
 foam.SCRIPT({
   package: 'foam.u2.tag',
   name: 'FoamTagScript',
-  requires: [
-    'foam.u2.tag.Foam'
-  ],
   code: function() {
     foam.__context__.registerElement(foam.u2.tag.Foam);
   }

@@ -153,7 +153,7 @@ foam.CLASS({
                 buttonStyle: 'UNSTYLED'
               }).show(notifications).end();
             }))
-            .callIf(self.theme && self.theme.supportUrl, function() {
+            .callIf(self.theme && self.theme.supportConfig && self.theme.supportConfig.supportLink, function() {
               this.tag(self.SUPPORT)
             })
             .tag({ class: 'foam.core.auth.LanguageChoiceView' })
@@ -183,8 +183,8 @@ foam.CLASS({
       icon: 'images/flag.svg',
       code: function(X) {
         var theme = X.theme;
-        if ( theme && theme.supportUrl ) {
-          window.open(theme.supportUrl, '_blank', 'noopener,noreferrer');
+        if ( theme && theme.supportConfig && theme.supportConfig.supportLink ) {
+          window.open(theme.supportConfig.supportLink, '_blank', 'noopener,noreferrer');
         }
       }
     }

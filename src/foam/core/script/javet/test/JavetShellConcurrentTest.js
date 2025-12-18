@@ -97,6 +97,7 @@ for ( let i = 0; i < %s; i++ ) {
 
               JavetShell shell = (JavetShell) x.get("javetShell");
               shell.setPrintStream(ps);
+              shell.setUser(105307497L); // test admin
               shell.setCode(code.formatted(id, loops));
               logger.info("shell.execute", id, shell.getCode());
               shell.execute(x);

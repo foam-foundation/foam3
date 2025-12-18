@@ -13,6 +13,7 @@ foam.CLASS({
 
   documentation: `A script agent which executes FOAM javascript in a
 NodeJS environment provided by Javet.
+
 See:
 https://docs.google.com/presentation/d/1lQ8xIHuywuE0ydqm2w6xq8OeQZO_WeTLYXW9bNflQb8/edit?pli=1&slide=id.p#slide=id.p
 https://github.com/caoccao/Javet
@@ -38,7 +39,7 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
 
     // DAO
     x.countryDAO.select(function(c) {
-        console.info('Country', c.toSummary());
+      console.info('Country', c.toSummary());
     });
 
     Direct JavaShell:
@@ -48,6 +49,12 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
 
     Other
     JavetShell provides for specifying the user whose session will be used to initialize the ClientBuilder. Defaults to 'admin'.
+
+    Notes/Considirations
+    Each thread which uses Javet will incure a resource and memory impact
+    of creating a JavetEngine and loading foam-bin.
+    If using JavetShell outside of a NODESHELL script, call the JavetShellFactory
+    from within the execute of the 'javetThreadPool' agency.
    `,
 
   javaImports: [
@@ -89,11 +96,12 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
     'java.util.Date',
     'java.util.HashMap',
     'java.util.Map',
+    'java.util.concurrent.atomic.AtomicBoolean',
     'java.util.stream.Collectors'
   ],
 
   javaCode: `
-  IJavetPromiseRejectCallback rejectCallback_ = null;
+  IJavetPromiseRejectCallback promiseCallback_ = null;
   IV8ValuePromise.IListener promiseListener_ = null;
   JavetStandardConsoleInterceptor javetConsoleInterceptor_ = null;
 
@@ -217,7 +225,6 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
               return null;
             }
           });
-
           if ( SafetyUtil.isEmpty(getFilename()) ) {
             Session session = (Session) ((DAO) x.get("sessionDAO")).find(EQ(Session.USER_ID, getUser()));
             if ( session == null ) {
@@ -226,18 +233,10 @@ https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
             logger.debug("initializing with session", session.getId());
 
             executeString(x, v8Runtime, """
-// FIXME: hack until javet/node context/isolation understood.
-var c = typeof cb !== 'undefined' ? cb : null;
-if ( ! c || c.sessionID !== session.getId() ) {
-  console.debug('create new ClientBuilder');
-  c = foam.core.client.ClientBuilder.create({sessionID: '%s'});
-} else {
-  console.debug('re-use new ClientBuilder');
-}
-c.promise.then(async client => {
+foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async client => {
   let x = client.__subContext__;
   let MLang = foam.mlang.Expressions.create();
-  this.loginSuccess = true;
+  // this.loginSuccess = true;
   async function code() {
     %s
   };
@@ -249,7 +248,6 @@ c.promise.then(async client => {
           } else {
             executeFile(x, v8Runtime, getFilename());
           }
-          v8Runtime.getGlobalObject().delete("ps");
         }
         if ( pm != null ) pm.log(x);
       } catch (Throwable t) {
@@ -257,6 +255,7 @@ c.promise.then(async client => {
         Loggers.logger(x, this).error("Failed executiong", getId(), getCode(), t);
       } finally {
         try {
+          v8Runtime.getGlobalObject().delete("ps");
           teardown(x, v8Runtime);
         } catch (Throwable t) {
           Loggers.logger(x, this).debug("Failed teardown", t);
@@ -270,7 +269,20 @@ c.promise.then(async client => {
       javaThrows: [ 'JavetException' ],
       javaCode: `
       final Logger logger = Loggers.logger(x, this);
+      final Logger log = logger;
       PrintStream ps = (PrintStream) getPrintStream();
+
+      // Another attempt at exiting await early - no affect
+      promiseCallback_ = new JavetPromiseRejectCallback(v8Runtime.getLogger()) {
+        public void callback(JavetPromiseRejectEvent event, V8ValuePromise promise, V8Value value) {
+          log.info("JavetPromiseRejectCallback", event, promise, value);
+          try {
+            promise.resolve(value);
+          } catch (JavetException e) {
+            log.error(e);
+          }
+        }
+      };
 
       promiseListener_ = new IV8ValuePromise.IListener() {
         public void onCatch(V8Value v8Value) {
@@ -278,12 +290,16 @@ c.promise.then(async client => {
           logger.error("listener,onCatch", v8Value);
         }
         public void onFulfilled(V8Value v8Value) {
-          // Handle the fulfillment.
           logger.debug("listener,onFufilled", v8Value);
           // TODO: how to inform the v8Runtime to stop waiting?
+          // Following had no effect.
+          // try {
+          //   v8ValuePromise_.resolve(v8Value);
+          // } catch (JavetException e) {
+          //   logger.error("onFulfillment.resolve", v8Value, e);
+          // }
         }
         public void onRejected(V8Value v8Value) {
-          // Handle the rejection.
           logger.warning("listener,onRejected", v8Value);
         }
       };
@@ -297,8 +313,9 @@ c.promise.then(async client => {
           String msg = Arrays.asList(v8Values).stream().map(V8Value::toString).collect(Collectors.joining(", "));
           logger.info(msg);
           PrintStream ps = (PrintStream) getPrintStream();
-          if ( ps != null )
+          if ( ps != null ) {
             ps.println(msg);
+          }
         }
         public void consoleWarn(V8Value... v8Values) {
           logger.warning((Object[])v8Values);
@@ -322,6 +339,7 @@ c.promise.then(async client => {
       if ( getAllowEval() )
         v8Runtime.allowEval(false);
 
+      v8Runtime.lowMemoryNotification();
       v8Runtime.close();
       `
     },
@@ -330,17 +348,21 @@ c.promise.then(async client => {
       args: 'X x, V8Runtime v8Runtime, String string',
       javaThrows: [ 'JavetException' ],
       javaCode: `
-      Logger logger = Loggers.logger(x, this, "executeString");
+      final Logger logger = Loggers.logger(x, this, "executeString");
       logger.debug("string", string);
       logger.debug("executing");
+      // v8Runtime.setPromiseRejectCallback(promiseCallback_);
       try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(string).execute() ) {
         v8ValuePromise.register(promiseListener_);
         logger.debug("waiting");
+        v8Runtime.await();
+        logger.debug("complete");
+
         // TODO: have the promiseListener_ affect this await.
         // see https://github.com/caoccao/Javet/blob/main/src/test/java/com/caoccao/javet/values/reference/TestV8ValuePromise.java
         // Not clear from example how to stop the await.
-        v8Runtime.await();
-        logger.debug("complete");
+        // See comments in promiseListener_
+        // and Guard timeout in JavetShellFactory
       }
       `
     },
@@ -353,7 +375,7 @@ c.promise.then(async client => {
       if ( ! file.exists() || ! file.canRead() ) {
         throw new java.io.IOException("File not found: "+file.getAbsolutePath());
       }
-      Logger logger = Loggers.logger(x, this, "executeFile", filename);
+      final Logger logger = Loggers.logger(x, this, "executeFile", filename);
       logger.debug("loading");
       try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(file).execute() ) {
         v8ValuePromise.register(promiseListener_);

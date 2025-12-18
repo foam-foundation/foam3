@@ -6,3 +6,16 @@ p({
     class: "foam.core.script.javet.JavetShellFactory"
   }
 })
+
+p({
+  class: "foam.core.boot.CSpec",
+  name: "javetThreadPool",
+  serve: false,
+  serviceScript: `
+    return new foam.core.pool.ThreadPoolAgency.Builder(x)
+      .setPrefix("javet")
+      // .setThreadsPerCore(1)
+      .setNumberOfThreads(4)
+      .build();
+  `
+})

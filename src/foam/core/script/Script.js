@@ -79,6 +79,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
     'foam.core.logger.Loggers',
     'foam.core.pm.PM',
     'foam.core.script.javet.JavetShell',
+    'foam.lang.Agency',
 
     'java.io.BufferedReader',
     'java.io.ByteArrayOutputStream',
@@ -436,7 +437,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           JavetShell shell = (JavetShell) x.get("javetShell");
           shell.setId(getId());
           shell.setPrintStream(ps);
-          // shell.setScriptParameter(sp);
+          // NOTE: ScriptParameters set in JavetShell itself.
           return shell;
         } else {
           throw new RuntimeException("Script language not supported");
@@ -488,7 +489,8 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           } else if ( l == foam.core.script.Language.NODESHELL ) {
             JavetShell shell = (JavetShell) createInterpreter(x, ps);
             shell.setCode(getCode());
-            shell.execute(x);
+            Agency agency = (Agency) x.get("javetThreadPool");
+            agency.submit(x, shell, getId()).get();
           } else {
             throw new RuntimeException("Script language not supported");
           }

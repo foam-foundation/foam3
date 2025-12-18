@@ -24,8 +24,7 @@ Test results are also captured in the TestRun DAO - but since the test
 are normally run from the build, the TestRun DAO is destroyed on each
 run.
 
-To run headed rather than headless, run tests with the following.
-This will also keep the foam application running for inspection from the GUI.
+Client test are run via a nodejs process.  To run via a browser:
 ./build.sh --client-tests --test-headed
 `,
 
@@ -97,21 +96,25 @@ This will also keep the foam application running for inspection from the GUI.
       value: 'both'
     },
     {
+      documentation: `Comma seperated list of test case ids.  Prepend an id with '-' to exclude`,
       name: 'SYSTEM_TESTS',
       type: 'String',
       value: 'foam.tests'
     },
     {
+      documentation: 'Comma seperated list of test suites',
       name: 'SYSTEM_TEST_SUITES',
       type: 'String',
       value: 'foam.test.suites'
     },
     {
+      documentation: 'Generally controlled internally, indicates if just client or server tests are being run',
       name: 'SYSTEM_TEST_SIDE',
       type: 'String',
       value: 'foam.test.side'
     },
     {
+      documentation: 'The default is JavetShell. From the build use --head-headed to force use of BrowserAgent in headed state',
       name: 'SYSTEM_TEST_HEADED',
       type: 'String',
       value: 'foam.test.headed'

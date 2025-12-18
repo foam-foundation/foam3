@@ -7,6 +7,10 @@
 foam.POM({
   name: "javet",
 
+  projects: [
+    { name: "test/pom",                              flags: "test" },
+  ],
+
   files: [
     { name: "JavetShell",                            flags: "js|java"},
     { name: "JavetShellFactory",                     flags: "js|java"}

@@ -1,6 +1,6 @@
 # FOAM3 Debugging: `count_` and `foam.USED`
 
-This document explains two important debugging mechanisms in FOAM3 for tracking class usage and object instantiation.
+This document explains two important debugging mechanisms in FOAM3 for tracking class usage and object instantiation in JS.
 
 ## `count_` - Instance Creation Counter
 

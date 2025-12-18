@@ -24,6 +24,7 @@ See JavetShell.md for more info.
     'com.caoccao.javet.exceptions.JavetException',
     'com.caoccao.javet.interception.logging.JavetStandardConsoleInterceptor',
     'com.caoccao.javet.interfaces.IJavetAnonymous',
+    'com.caoccao.javet.interop.NodeRuntime',
     'com.caoccao.javet.interop.V8Runtime',
     'com.caoccao.javet.interop.callback.IJavetPromiseRejectCallback',
     'com.caoccao.javet.interop.callback.JavetPromiseRejectCallback',
@@ -52,6 +53,7 @@ See JavetShell.md for more info.
     'java.io.File',
     'java.io.IOException',
     'java.io.PrintStream',
+    'java.nio.charset.StandardCharsets',
     'java.util.Arrays',
     'java.util.Date',
     'java.util.HashMap',
@@ -64,6 +66,7 @@ See JavetShell.md for more info.
   IJavetPromiseRejectCallback promiseCallback_ = null;
   IV8ValuePromise.IListener promiseListener_ = null;
   JavetStandardConsoleInterceptor javetConsoleInterceptor_ = null;
+  volatile boolean stopping_ = false;
 
   public JavetShell(X x, V8Runtime v8Runtime) {
     setX(x);
@@ -201,8 +204,20 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
     %s
   };
   await code.call(x);
+  console.info('JavetShell: code complete, calling signalDone()');
+  if ( typeof signalDone === 'function' ) {
+    signalDone();
+  } else {
+    console.error('JavetShell: signalDone is not defined!');
+  }
 }, err => {
   console.error('%s', err);
+  console.info('JavetShell: error path, calling signalDone()');
+  if ( typeof signalDone === 'function' ) {
+    signalDone();
+  } else {
+    console.error('JavetShell: signalDone is not defined!');
+  }
 });
             """.formatted(session.getId(), getCode(), getId()));
           } else {
@@ -232,7 +247,6 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       final Logger log = logger;
       PrintStream ps = (PrintStream) getPrintStream();
 
-      // DEVELOPER NOTE: Another attempt at exiting await early - no affect
       promiseCallback_ = new JavetPromiseRejectCallback(v8Runtime.getLogger()) {
         public void callback(JavetPromiseRejectEvent event, V8ValuePromise promise, V8Value value) {
           log.info("JavetPromiseRejectCallback", event, promise, value);
@@ -251,13 +265,6 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         }
         public void onFulfilled(V8Value v8Value) {
           logger.debug("listener,onFufilled", v8Value);
-          // DEVELOPER NOTE: how to inform the v8Runtime to stop waiting?
-          // Following had no effect.
-          // try {
-          //   v8ValuePromise_.resolve(v8Value);
-          // } catch (JavetException e) {
-          //   logger.error("onFulfillment.resolve", v8Value, e);
-          // }
         }
         public void onRejected(V8Value v8Value) {
           logger.warning("listener,onRejected", v8Value);
@@ -287,6 +294,33 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       javetConsoleInterceptor_.register(new IV8ValueObject[] {v8Runtime.getGlobalObject()});
 
       v8Runtime.allowEval(getAllowEval());
+
+      // Expose signalDone() function to JavaScript so scripts can signal completion
+      // This calls setStopping(true) which causes await(RunOnce) to return false
+      logger.debug("v8Runtime class", v8Runtime.getClass().getName());
+      if ( v8Runtime instanceof NodeRuntime ) {
+        logger.debug("Binding signalDone() to NodeRuntime");
+        NodeRuntime nodeRuntime = (NodeRuntime) v8Runtime;
+        v8Runtime.getGlobalObject().bind(new IJavetAnonymous() {
+          @V8Function(name = "signalDone")
+          public void signalDone() {
+            logger.debug("signalDone called - setting stop flag");
+            // Set flag to break out of await loop (single-threaded pattern)
+            stopping_ = true;
+            // Also tell Node.js to stop scheduling new tasks
+            nodeRuntime.setStopping(true);
+          }
+        });
+      } else {
+        // For non-Node V8Runtime, signalDone is a no-op (event loop drains naturally)
+        logger.debug("v8Runtime is V8Runtime (not Node), signalDone will be no-op");
+        v8Runtime.getGlobalObject().bind(new IJavetAnonymous() {
+          @V8Function(name = "signalDone")
+          public void signalDone() {
+            logger.debug("signalDone called (V8Runtime) - no-op");
+          }
+        });
+      }
       `
     },
     {
@@ -299,6 +333,15 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       if ( getAllowEval() )
         v8Runtime.allowEval(false);
 
+      // Proper shutdown sequence for NodeRuntime:
+      // 1. terminateExecution() - stops any running synchronous code
+      // 2. setStopping(true) - signals event loop to stop
+      // 3. lowMemoryNotification() - cleanup
+      // 4. close() - release resources
+      v8Runtime.terminateExecution();
+      if ( v8Runtime instanceof NodeRuntime ) {
+        ((NodeRuntime) v8Runtime).setStopping(true);
+      }
       v8Runtime.lowMemoryNotification();
       v8Runtime.close();
       `
@@ -311,18 +354,18 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       final Logger logger = Loggers.logger(x, this, "executeString");
       logger.debug("string", string);
       logger.debug("executing");
+      stopping_ = false; // Reset flag for this execution
       // v8Runtime.setPromiseRejectCallback(promiseCallback_);
       try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(string).execute() ) {
         v8ValuePromise.register(promiseListener_);
         logger.debug("waiting");
-        v8Runtime.await();
-        logger.debug("complete");
 
-        // DEVELOPER NOTE: have the promiseListener_ affect this await.
-        // see https://github.com/caoccao/Javet/blob/main/src/test/java/com/caoccao/javet/values/reference/TestV8ValuePromise.java
-        // Not clear from example how to stop the await.
-        // See comments in promiseListener_
-        // and Guard timeout in JavetShellFactory
+        // Use RunOnce mode with flag check - signalDone() sets stopping_=true
+        // This is the single-threaded pattern: flag breaks the loop immediately
+        while ( ! stopping_ && v8Runtime.await(V8AwaitMode.RunOnce) ) {
+          // continue processing events until signalDone() or no more tasks
+        }
+        logger.debug("complete", stopping_ ? "signalDone called" : "event loop drained");
       }
       `
     },
@@ -337,11 +380,34 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       }
       final Logger logger = Loggers.logger(x, this, "executeFile", filename);
       logger.debug("loading");
-      try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(file).execute() ) {
+
+      // Read file content and wrap with signalDone() auto-append
+      String fileContent = new String(java.nio.file.Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+      String wrappedCode = """
+(async () => {
+  try {
+    %s
+  } finally {
+    console.info('JavetShell: file execution complete, calling signalDone()');
+    if ( typeof signalDone === 'function' ) {
+      signalDone();
+    } else {
+      console.error('JavetShell: signalDone is not defined!');
+    }
+  }
+})();
+      """.formatted(fileContent);
+
+      stopping_ = false; // Reset flag for this execution
+      try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(wrappedCode).execute() ) {
         v8ValuePromise.register(promiseListener_);
         logger.debug("waiting");
-        v8Runtime.await();
-        logger.debug("complete");
+
+        // Use RunOnce mode with flag check - signalDone() sets stopping_=true
+        while ( ! stopping_ && v8Runtime.await(V8AwaitMode.RunOnce) ) {
+          // continue processing events until signalDone() or no more tasks
+        }
+        logger.debug("complete", stopping_ ? "signalDone called" : "event loop drained");
       }
       `
     }

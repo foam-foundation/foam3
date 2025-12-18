@@ -4,9 +4,11 @@ The Javet system allows the server to run FOAM client code in a Node.js process.
 
 **NOTE**: first build will require --cleanAll,all as this PR pulls in new Java libraries.
 
-### Outstanding
+### Signal Done
 
-- After script execution the executor waits until timeout - approximately 10 seconds. See `DEVELOPER NOTE`s in `JavetShell.js` and `JavetShellFactory.js`. 
+The shell automatically calls `signalDone()` after the user code completes, which stops the Node.js event loop immediately. This avoids the ~10 second timeout that would otherwise occur waiting for the event loop to drain.
+
+Both inline code (`setCode()`) and file-based scripts (`setFilename()`) auto-append `signalDone()` - no manual intervention needed. 
 
 ## Use
 

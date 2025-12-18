@@ -1662,6 +1662,7 @@ foam.CLASS({
       // Without wrapping in a PropertyBorder
       name: '__',
       transient: true,
+      compare: function() { return 0; },
       getter: function() {
         return { __proto__: this, toE: this.toPropertyView };
       }

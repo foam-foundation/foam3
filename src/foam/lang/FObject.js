@@ -871,13 +871,9 @@ foam.CLASS({
 
       // FUTURE: check 'id' first
       // FUTURE: order properties
-      // Exclude transient properties from comparison - they are runtime-only
-      // and can cause infinite recursion (e.g., the __ property from Element2.js
-      // returns a self-referential object that loops: String -> __ -> String -> ...)
       var ps = this.cls_.getAxiomsByClass(foam.lang.Property).filter(p => {
         return ! foam.dao.DAOProperty.isInstance(p)
           && ! foam.dao.ManyToManyRelationshipProperty.isInstance(p)
-          && ! p.transient
           && ! p.expression;
       });
       for ( var i = 0 ; i < ps.length ; i++ ) {

@@ -20,6 +20,11 @@ foam.CLASS({
       var datetime = parser.parseString('2025-01-15T14:30:45');
   `,
 
+  // Singleton pattern - reuse the same parser instance to avoid rebuilding grammar
+  axioms: [
+    foam.pattern.Singleton.create()
+  ],
+
   constants: {
     INVALID_DATE: new Date(NaN)
   },

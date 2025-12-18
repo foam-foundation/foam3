@@ -14,47 +14,7 @@ foam.CLASS({
   documentation: `A script agent which executes FOAM javascript in a
 NodeJS environment provided by Javet.
 
-See:
-https://docs.google.com/presentation/d/1lQ8xIHuywuE0ydqm2w6xq8OeQZO_WeTLYXW9bNflQb8/edit?pli=1&slide=id.p#slide=id.p
-https://github.com/caoccao/Javet
-https://www.caoccao.com/Javet/index.html
-https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
-
-    TODO: move to real doc
-
-    Use: (presently)
-
-    Use through Script:
-    See example: 'NodeShellTest'
-    Create a script with language NODESHELL with FOAM javascript:
-
-    // ScriptParameters access
-    console.info('ps.getParameter(a)', ps.getParameter('a'));
-    console.info('ps.get(a)', ps.get('a')); // short form of getParameter
-    console.info('ps.getDate()', ps.getDate());
-
-    // MLang
-    let c = (await x.countryDAO.select(MLang.COUNT())).value;
-    console.info('Country count', c);
-
-    // DAO
-    x.countryDAO.select(function(c) {
-      console.info('Country', c.toSummary());
-    });
-
-    Direct JavaShell:
-    JavetShell shell = (JavetShell) x.get("javetShell");
-    shell.setCode(...);
-    shell.execute(x);
-
-    Other
-    JavetShell provides for specifying the user whose session will be used to initialize the ClientBuilder. Defaults to 'admin'.
-
-    Notes/Considirations
-    Each thread which uses Javet will incure a resource and memory impact
-    of creating a JavetEngine and loading foam-bin.
-    If using JavetShell outside of a NODESHELL script, call the JavetShellFactory
-    from within the execute of the 'javetThreadPool' agency.
+See JavetShell.md for more info.
    `,
 
   javaImports: [
@@ -272,7 +232,7 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       final Logger log = logger;
       PrintStream ps = (PrintStream) getPrintStream();
 
-      // Another attempt at exiting await early - no affect
+      // DEVELOPER NOTE: Another attempt at exiting await early - no affect
       promiseCallback_ = new JavetPromiseRejectCallback(v8Runtime.getLogger()) {
         public void callback(JavetPromiseRejectEvent event, V8ValuePromise promise, V8Value value) {
           log.info("JavetPromiseRejectCallback", event, promise, value);
@@ -291,7 +251,7 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         }
         public void onFulfilled(V8Value v8Value) {
           logger.debug("listener,onFufilled", v8Value);
-          // TODO: how to inform the v8Runtime to stop waiting?
+          // DEVELOPER NOTE: how to inform the v8Runtime to stop waiting?
           // Following had no effect.
           // try {
           //   v8ValuePromise_.resolve(v8Value);
@@ -358,7 +318,7 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         v8Runtime.await();
         logger.debug("complete");
 
-        // TODO: have the promiseListener_ affect this await.
+        // DEVELOPER NOTE: have the promiseListener_ affect this await.
         // see https://github.com/caoccao/Javet/blob/main/src/test/java/com/caoccao/javet/values/reference/TestV8ValuePromise.java
         // Not clear from example how to stop the await.
         // See comments in promiseListener_

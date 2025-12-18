@@ -13,11 +13,7 @@ A JavetEngine is allocated from the Pool for each calling Thread,
 and FOAM is loaded once into each engine.
 The V8Runtime are similar to JDBC connections from a connection pool.
 
-See:
-https://docs.google.com/presentation/d/1lQ8xIHuywuE0ydqm2w6xq8OeQZO_WeTLYXW9bNflQb8/edit?pli=1&slide=id.p#slide=id.p
-https://github.com/caoccao/Javet
-https://www.caoccao.com/Javet/index.html
-https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html
+See JavetShell.md for more info.
 `,
 
   javaImplements: [

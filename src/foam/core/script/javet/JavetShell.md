@@ -12,11 +12,11 @@ The Javet system allows the server to run FOAM client code in a Node.js process.
 
 ### Test Case
 
-`./build.sh client-test:JavetShellConcurrentTest`
+`./build.sh server-test:JavetShellConcurrentTest`
 
 ### Manual Testing
 
-`./build.sh` -a -Jdemo
+`./build.sh -aJdemo,test --flags:test`
 
 then execute:
 

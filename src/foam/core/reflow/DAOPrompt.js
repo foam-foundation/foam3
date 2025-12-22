@@ -485,13 +485,17 @@ foam.CLASS({
     },
 
     async function addToE(e) {
-      this.onDetach(this.dao.listen(this.rerun));
       this.onDetach(this.filteredDAO.listen(this.updateRowCount));
       this.updateRowCount_();
 
       // TODO: name current block
       e.tag(this.DAOPromptView, {data: this, label: this.label});
 //      e.tag(this.DAOPromptView.create({data: this, label: this.label}, this));
+
+      // Wait for initial execution to complete before enabling live DAO updates
+      // This prevents double execution on load (dynamic() handles initial render)
+      await this.readyLatch_;
+      this.onDetach(this.dao.listen(this.rerun));
     },
 
     function onLoad() {

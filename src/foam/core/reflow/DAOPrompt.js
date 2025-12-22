@@ -434,6 +434,7 @@ foam.CLASS({
     { class: 'Long',       hidden: true,  name: 'rowCount', visibility: 'RO', transient: true },
     { class: 'String',     hidden: true,  name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
     { class: 'Int',        hidden: true,  name: 'version', transient: true },
+    { class: 'Boolean',    hidden: true,  name: 'skipInitialReset_', transient: true },
     { class: 'Boolean',    hidden: true,  name: 'hasError', value: false, transient: true },
     { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
     {
@@ -484,18 +485,16 @@ foam.CLASS({
       this.order$.sub(this.maybeAutoRun);
     },
 
-    async function addToE(e) {
+    function addToE(e) {
+      // Skip the initial reset from ProxyDAO.listen_() to prevent double execution
+      this.skipInitialReset_ = true;
+      this.onDetach(this.dao.listen(this.rerun));
       this.onDetach(this.filteredDAO.listen(this.updateRowCount));
       this.updateRowCount_();
 
       // TODO: name current block
       e.tag(this.DAOPromptView, {data: this, label: this.label});
 //      e.tag(this.DAOPromptView.create({data: this, label: this.label}, this));
-
-      // Wait for initial execution to complete before enabling live DAO updates
-      // This prevents double execution on load (dynamic() handles initial render)
-      await this.readyLatch_;
-      this.onDetach(this.dao.listen(this.rerun));
     },
 
     function onLoad() {
@@ -508,8 +507,10 @@ foam.CLASS({
       // but then we do a copyFrom() the DAOPrompt stored in the script and then
       // the columnStorage gets swapped.
       var old = this.columnStorage;
+      var oldLatch = this.readyLatch_;  // Preserve latch so addToE's await still works
       this.SUPER(o);
       this.columnStorage = old;
+      this.readyLatch_ = oldLatch;
       this.valueDAO = undefined;
     },
 
@@ -568,6 +569,11 @@ foam.CLASS({
       isMerged: true,
       delay: 100,
       code: function() {
+        // Skip the initial reset from ProxyDAO.listen_() - not a real data change
+        if ( this.skipInitialReset_ ) {
+          this.skipInitialReset_ = false;
+          return;
+        }
         this.run();
       }
     },

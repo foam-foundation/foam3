@@ -327,7 +327,7 @@ return sink
       `,
       javaCode: `
 if ( predicate != null ) {
-  sink = new PredicatedSink(predicate, sink);
+  sink = new PredicatedListener(predicate, sink);
 }
 
 return sink;

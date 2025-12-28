@@ -11,10 +11,13 @@ foam.POM({
     CORE_PIDFILE:      ['JVM process ID file', () => `${APP_HOME}/core.pid`],
     DOCUMENT_HOME:     ['Appplication documents directory',() => APP_NAME ? `${APP_HOME}/documents`: 'APP_HOME/documents'],
     DOCUMENT_OUT:      ['Build documents directory',() => `${PROJECT_HOME}/${BUILD_DIR}/documents`],
-    JAR_INCLUDES:      ['Additional directories to include Java jar',''],
+    JAR_INCLUDES:      ['Directories to include in binary JAR (compiled .class files)',''],
+    JAR_RES_INCLUDES:  ['Directories to include in resources JAR (journals, documents, images, webroot)',''],
     JAR_LIB_DIR:       ['Deployment lib directory',() => ( TAR ? `${PROJECT_HOME}/${BUILD_DIR}` : (APP_NAME ? APP_HOME : 'APP_HOME')) + '/lib'],
-    JAR_NAME:          ['Java jar name',() => APP_NAME ? `${APP_NAME}-${VERSION}.jar` : 'APP_NAME-VERSION.jar' ],
-    JAR_OUT:           ['Java jar path and name',() => `${JAR_LIB_DIR}/${JAR_NAME}`],
+    JAR_NAME:          ['Binary JAR name (contains compiled .class files)',() => APP_NAME ? `${APP_NAME}-${VERSION}.jar` : 'APP_NAME-VERSION.jar' ],
+    JAR_RES_NAME:      ['Resources JAR name (contains journals, documents, images, webroot)',() => APP_NAME ? `${APP_NAME}-resources-${VERSION}.jar` : 'APP_NAME-resources-VERSION.jar' ],
+    JAR_OUT:           ['Binary JAR full path',() => `${JAR_LIB_DIR}/${JAR_NAME}`],
+    JAR_RES_OUT:       ['Resources JAR full path',() => `${JAR_LIB_DIR}/${JAR_RES_NAME}`],
     JAVA:              ['Java executable', ''],
     JAVA_MANIFEST:     ['Generated JAVA_MANIFEST', ''],
     JAVA_TOOL_OPTIONS: ['Internal configuration for JVM with the JAVA_OPTS',() => JAVA_OPTS],
@@ -96,9 +99,17 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build Java JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'versions', 'copy', 'genImages', 'genJavaManifest', 'jarFOAM' ], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} webroot `;
+    buildJar: ['build-jar', 'Build binary and resources JAR files.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'versions', 'copy', 'genImages', 'genJavaManifest', 'jarFOAM' ], function() {
+      // Webroot goes into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} webroot `;
+
+      // Build binary JAR (compiled .class files only)
+      this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+
+      // Build resources JAR (journals, documents, images, webroot)
+      this.info(`Building resources JAR: ${JAR_RES_NAME}`);
+      this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
     buildJavaMainArgs: ['build-java-main-args', 'Collection all options which should be passed to Java main', [], function() {
@@ -143,7 +154,8 @@ foam.POM({
 
       JAVA_OPTS += ' -enableassertions';
       JAVA_OPTS += ' -Dresource.journals.dir=journals';
-      JAVA_OPTS += ' -DRES_JAR_HOME=' + JAR_OUT;
+      // Point RES_JAR_HOME to the resources JAR for ResourceStorage
+      JAVA_OPTS += ' -DRES_JAR_HOME=' + JAR_RES_OUT;
       JAVA_OPTS += ` -Dproject.home=${PROJECT_HOME}`;
 
       if ( DEBUG )
@@ -152,12 +164,44 @@ foam.POM({
         JAVA_OPTS += ` -${SYSTEM_PROPERTY.split(',').join(' -')}`;
     }],
 
-    buildTar: ['build-tar', 'Package files into a TAR archive', [()=>TAR=true, 'buildJar'], function() {
+    buildTar: ['build-tar', 'Package files into a TAR archive (both binary and resources JARs)', [()=>TAR=true, 'buildJar'], function() {
       this.ensureDir(this.join(BUILD_DIR, 'package'));
-      // Notice that the argument to the second -C is relative to the directory from the first -C, since -C
-      this.log(`buildTar TARBALL_PATH:${TARBALL_PATH}`);
+      this.info(`Building full tarball with binary and resources JARs: ${TARBALL}`);
       const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
+      // Packages bin/, etc/, and lib/ (containing both binary and resources JARs)
       this.execSync(`tar -a -cf ${TARBALL_PATH} -C ${toolsDeploy} bin etc -C${require('path').resolve(BUILD_DIR)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+    }],
+
+    buildBinaryTar: ['build-binary-tar', 'Package binary JAR only into a TAR archive (for Docker base image)', [()=>TAR=true, 'buildJar'], function() {
+      this.ensureDir(this.join(BUILD_DIR, 'package'));
+      const binaryTarball = APP_NAME + '-binary-' + VERSION + '.tar.gz';
+      const binaryTarballPath = BUILD_DIR + '/package/' + binaryTarball;
+      this.info(`Building binary-only tarball: ${binaryTarball}`);
+      const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
+      // Create a staging area with lib/ structure containing only binary JAR and dependencies
+      const stagingDir = this.join(BUILD_DIR, 'staging-binary');
+      const stagingLibDir = this.join(stagingDir, 'lib');
+      this.ensureDir(stagingLibDir);
+      // Copy binary JAR and all dependency JARs (but not the resources JAR)
+      this.execSync(`find ${BUILD_DIR}/lib -name "*.jar" ! -name "*-resources-*.jar" -exec cp {} ${stagingLibDir}/ \\;`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      // Package with lib/ directory structure for compatibility
+      this.execSync(`tar -a -cf ${binaryTarballPath} -C ${toolsDeploy} bin etc -C${require('path').resolve(stagingDir)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.info(`Binary tarball created: ${binaryTarballPath}`);
+    }],
+
+    buildResourcesTar: ['build-resources-tar', 'Package resources JAR only into a TAR archive (customer-specific)', [()=>TAR=true, 'buildJar'], function() {
+      this.ensureDir(this.join(BUILD_DIR, 'package'));
+      const resourcesTarball = APP_NAME + '-resources-' + VERSION + '.tar.gz';
+      const resourcesTarballPath = BUILD_DIR + '/package/' + resourcesTarball;
+      this.info(`Building resources-only tarball: ${resourcesTarball}`);
+      // Create a staging area with lib/ structure containing only resources JAR
+      const stagingDir = this.join(BUILD_DIR, 'staging-resources');
+      const stagingLibDir = this.join(stagingDir, 'lib');
+      this.ensureDir(stagingLibDir);
+      this.execSync(`cp ${BUILD_DIR}/lib/${JAR_RES_NAME} ${stagingLibDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      // Package with lib/ directory structure for compatibility
+      this.execSync(`tar -a -cf ${resourcesTarballPath} -C${require('path').resolve(stagingDir)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.info(`Resources tarball created: ${resourcesTarballPath}`);
     }],
 
     clean: ['clean', 'Remove generated files', ['cleanJava'], function() {
@@ -243,15 +287,18 @@ foam.POM({
       }
     }],
 
-    genImages: ['gen-images', 'Prepare images from inclusion in jar.', [], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} images `;
+    genImages: ['gen-images', 'Prepare images for inclusion in resources jar.', [], function() {
+      // Images go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} images `;
 
       this.pmake.bind(this, `-makers=Image -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR}`)();
     }],
 
     genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters'], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} journals `;
-      JAR_INCLUDES += ` -C ${BUILD_DIR} documents `;
+      // Resources (journals, documents) go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} documents `;
+      // Compiled classes go into the binary JAR
       JAR_INCLUDES += ` -C ${BUILD_DIR}/classes .`;
 
       var makers = VERBOSE ? 'Verbose,' : '';
@@ -452,10 +499,12 @@ foam.POM({
       JAVA_OPTS += ` -Dresource.journals.dir=journals`;
       JAVA_OPTS += ` -DLOG_HOME=${LOG_HOME}`;
 
-      // this.info(`Starting CORE ${APP_NAME}`);
+      // Binary and resources JARs
+      var BIN_JAR = `${APP_HOME}/lib/${APP_NAME}-${VERSION}.jar`;
+      var RES_JAR = `${APP_HOME}/lib/${APP_NAME}-resources-${VERSION}.jar`;
+      var CLASSPATH = `${BIN_JAR}:${RES_JAR}:${APP_HOME}/lib/*`;
 
-      var JAR=`${APP_HOME}/lib/${APP_NAME}-${VERSION}.jar`;
-      var proc = this.spawn(JAVA, ['-server', '-jar', `${JAR}`], { shell: '/bin/bash', env: {JAVA_TOOL_OPTIONS: JAVA_OPTS, RES_JAR_HOME: JAR }, stdio: 'inherit'});
+      var proc = this.spawn(JAVA, ['-server', '-cp', CLASSPATH, JAVA_MAIN_CLASS], { shell: '/bin/bash', env: {JAVA_TOOL_OPTIONS: JAVA_OPTS, RES_JAR_HOME: RES_JAR }, stdio: 'inherit'});
       this.writeFileSync(CORE_PIDFILE, proc.pid.toString());
     }],
 
@@ -483,8 +532,11 @@ foam.POM({
 
       this.info(MESSAGE);
 
+      // Build classpath with binary and resources JARs
+      var CLASSPATH = `${JAR_OUT}:${JAR_RES_OUT}:${BUILD_DIR}/lib/*`;
+
       try {
-        this.execSync(`java -jar ${JAR_OUT}`, { stdio: 'inherit' });
+        this.execSync(`java -cp "${CLASSPATH}" ${JAVA_MAIN_CLASS}`, { stdio: 'inherit' });
       } catch ( e ) {
         if ( mode !== 'test' )
           throw e;
@@ -547,6 +599,17 @@ foam.POM({
       this.log('    Build, backup runtime journals to journals_scenario1 before deleting, without confirmation.');
       this.log('  ./build.sh -jSscenario1');
       this.log('    Build, backup runtime journals to journals_scenario1 before deleting, without confirmation.');
+      this.log('\nPackaging for Deployment:');
+      this.log('  ./build.sh --build-tar');
+      this.log('    Build full deployment tarball containing both binary and resources JARs.');
+      this.log('  ./build.sh --build-binary-tar');
+      this.log('    Build binary-only tarball (for Docker base image). Contains compiled classes and dependencies.');
+      this.log('  ./build.sh --build-resources-tar');
+      this.log('    Build resources-only tarball (customer-specific). Contains journals, documents, images, webroot.');
+      this.log('  Docker workflow example:');
+      this.log('    1. ./build.sh --build-binary-tar    # Build base image with binary JAR');
+      this.log('    2. ./build.sh --build-resources-tar # Build customer-specific resources');
+      this.log('    3. Overlay resources tarball into container at runtime');
       this.log('\nRunning Java Test Cases:');
       this.log('  ./build.sh --run-tests');
       this.log('    Run all test cases.');

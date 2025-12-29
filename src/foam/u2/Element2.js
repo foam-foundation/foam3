@@ -769,7 +769,7 @@ foam.CLASS({
       if ( this.extraStyle ) this.style(this.extraStyle);
     },
 
-    function mutationObserver(fn, config = { attributes: true, childList: true, characterData: true }) {
+    function mutationObserver(fn, config = { attributes: true, childList: true, characterData: true, subtree: true }) {
       var observer = new MutationObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());

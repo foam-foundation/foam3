@@ -959,6 +959,19 @@ foam.CLASS({
   ]
 });
 
+foam.CLASS({
+  package: 'foam.parse',
+  name: 'DebugParser',
+  extends: 'foam.parse.ParserDecorator',
+
+  methods: [
+    function parse(ps, obj) {
+      debugger;
+      return ps.apply(this.p, obj);
+    }
+  ]
+});
+
 
 foam.CLASS({
   package: 'foam.parse',
@@ -999,6 +1012,7 @@ foam.CLASS({
     'foam.parse.Alternate',
     'foam.parse.AnyChar',
     'foam.parse.Chars',
+    'foam.parse.DebugParser',
     'foam.parse.Literal',
     'foam.parse.LiteralIC',
     'foam.parse.EOF',
@@ -1038,6 +1052,12 @@ foam.CLASS({
         p: p,
         action: f
       });
+    },
+
+    function debug(p) {
+      return this.DebugParser.create({
+        p: p
+      })
     },
 
     function seq() {
@@ -1277,15 +1297,6 @@ foam.CLASS({
         return m;
       }
     },
-    {
-      name: 'ps',
-      factory: function() {
-        return this.StringPStream.create();
-      }
-    },
-    {
-      name: 'lastStart'
-    }
   ],
 
   methods: [
@@ -1319,8 +1330,6 @@ foam.CLASS({
       var start = this.getSymbol(opt_name);
       foam.assert(start, 'No symbol found for', opt_name);
 
-      this.lastStart = start;
-
       var result = ps.apply(start, this);
       return result && result.value;
     },
@@ -1332,10 +1341,17 @@ foam.CLASS({
       return ps.apply(start, this);
     },
 
-    function getLastError() {
+    function getLastError(str, opt_name, opt_apply) {
+      opt_name = opt_name || 'START';
+      var start = this.getSymbol(opt_name);
+
       var errorPs = foam.parse.ErrorReportingPStream.create();
 
-      errorPs.delegate = this.ps;
+      var ps = this.StringPStream.create();
+      ps.apply = opt_apply;
+      ps.setString(str);
+
+      errorPs.delegate = ps;
 
       var lastError;
       function report(ps, p, obj) {
@@ -1347,11 +1363,9 @@ foam.CLASS({
 
       errorPs.report = report;
 
-      var result = errorPs.apply(this.lastStart, this);
+      errorPs.apply(start, this);
 
-      if ( ! lastError ) return "No error.";
-
-//      return "Error at", lastError[0].pos, lastError[0].getIntroString());
+      if ( ! lastError ) return;
 
       // Determine valid characters
       var validChars = [];
@@ -1365,7 +1379,7 @@ foam.CLASS({
         trap.delegate = ps;
         try {
           trap.apply(lastError[1], lastError[2]);
-        } catch(e) {
+        } catch ( e ) {
           if ( e === "trap" )
             validChars.push(str);
           else

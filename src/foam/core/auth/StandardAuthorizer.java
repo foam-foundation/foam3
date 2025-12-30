@@ -19,6 +19,8 @@ public class StandardAuthorizer
   // Standard authorizer to be used for authorization on object not implementing the authorizable interface
   // Performs authorization by checking permission generated from permissionPrefix passed in
 
+  protected static final boolean DEBUG = Boolean.getBoolean("foam.core.auth.debug");
+
   protected final String permissionPrefix_;
   protected final String createPermission_;
   protected final String globalReadPermission_;
@@ -44,7 +46,10 @@ public class StandardAuthorizer
 
     if ( ! authService.check(x, p) ) {
       // Too slow for such a common operation, only enable when debugging.
-      //      ((foam.core.logger.Logger) x.get("logger")).debug("StandardAuthorizer", "Permission denied.", p);
+      if ( DEBUG ) {
+        ((foam.core.logger.Logger) x.get("logger"))
+          .debug("StandardAuthorizer", "Permission denied.", p);
+      }
       throw new AuthorizationException();
     }
   }

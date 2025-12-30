@@ -861,7 +861,8 @@ foam.CLASS({
       // if ( this.of ) count += this.initKeyMap_(keyMap, this.of);
       if ( keyMap ) {
         this.keyMap_ = keyMap;
-        var target = this.parentNode || this;
+        // TODO Checking a concrete type like FunctionNode here seems wrong.
+        var target = (this.parentNode && !foam.u2.FunctionNode.isInstance(this.parentNode)) ? this.parentNode : this;
 
         // Ensure that target is focusable, and therefore will capture keydown
         // and keypress events.

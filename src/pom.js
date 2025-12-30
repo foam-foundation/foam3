@@ -288,6 +288,7 @@ foam.POM({
     { name: "foam/dao/ResetListener",                                 flags: "js|java" },
     { name: "foam/dao/DAOSlot",                                       flags: "js|java" },
     { name: "foam/dao/PredicatedSink",                                flags: "js|java" },
+    { name: "foam/dao/PredicatedListener",                                flags: "js|java" },
     { name: "foam/dao/PredicatedClientDAO",                             flags: "js" },
     { name: "foam/dao/LimitedSink",                                   flags: "js|java" },
     { name: "foam/dao/SkipSink",                                      flags: "js|java" },

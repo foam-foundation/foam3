@@ -177,16 +177,34 @@ public class OAuthWebAgent implements WebAgent {
 
         foam.core.auth.User user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
 
-        if ( user == null && state.getBoolean("sign_up", false) ) {
-            // TODO: Should this be the session context?
-            user = new foam.core.auth.User.Builder(x)
-                    .setUserName(state.getString("sign_up_username"))
-                    .setEmail(email)
-                    .setEmailVerified(true)
-                    .build();
+        if ( user == null ) {
+            String givenName = bodyObject.containsKey("given_name") ? bodyObject.getString("given_name") : null;
+            String familyName = bodyObject.containsKey("family_name") ? bodyObject.getString("family_name") : null;
+            String userName = state.getString("sign_up_username");
+            if ( userNmae == null ) {
+                userName = email;
+            }
 
-            foam.dao.DAO userRegistrationDAO = (foam.dao.DAO)(x.get("userRegistrationDAO"));
-            userRegistrationDAO.put(user);
+            // always default the username to the verified email address
+            foam.core.auth.User.Builder builder = new foam.core.auth.User.Builder(x)
+                    .setUserName(userName)
+                    .setEmail(email)
+                    .setEmailVerified(true);
+
+            if ( ! SafetyUtil.isEmpty(givenName) ) {
+                builder.setFirstName(givenName);
+            }
+
+            if ( ! SafetyUtil.isEmpty(familyName) ) {
+                builder.setLastName(familyName);
+            }
+
+            foam.dao.DAO userRegistrationDAO = (foam.dao.DAO) x.get("userRegistrationDAO");
+            if ( userRegistrationDAO == null ) {
+                throw new RuntimeException("user registration DAO not available");
+            }
+
+            userRegistrationDAO.inX(x).put(builder.build());
 
             user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
         }

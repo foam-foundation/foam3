@@ -180,10 +180,7 @@ public class OAuthWebAgent implements WebAgent {
         if ( user == null ) {
             String givenName = bodyObject.containsKey("given_name") ? bodyObject.getString("given_name") : null;
             String familyName = bodyObject.containsKey("family_name") ? bodyObject.getString("family_name") : null;
-            String userName = state.getString("sign_up_username");
-            if ( userNmae == null ) {
-                userName = email;
-            }
+            String userName = state.containsKey("sign_up_username") ? state.getString("sign_up_username") : email;
 
             // always default the username to the verified email address
             foam.core.auth.User.Builder builder = new foam.core.auth.User.Builder(x)

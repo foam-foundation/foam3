@@ -6,9 +6,7 @@
 package foam.lib.json;
 
 import foam.lib.parse.*;
-import foam.lang.X;
 
-// TODO: Fix, doesn't parse {key:"}"}, use proper JSON parser
 public class UnknownFObjectParser
   implements Parser
 {

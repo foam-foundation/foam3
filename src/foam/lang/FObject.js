@@ -804,12 +804,14 @@ foam.CLASS({
       return slot;
     },
 
-    function normalizeObj() {
+    async function normalizeObj() {
       /** Normalize all properties that provide a normalize function. **/
-      this.cls_.getAxiomsByClass(foam.lang.Property).forEach(p => {
+      let a = this.cls_.getAxiomsByClass(foam.lang.Property);
+      for ( let i = 0 ; i < a.length ; i++ ) {
+        let p = a[i];
         if ( p.normalize && ! p.hasDefaultValue(this) )
-          p.set(this, p.normalize(p.get(this), p));
-      });
+          p.set(this, await p.normalize(p.get(this), p));
+      }
     },
 
     /************************************************
@@ -924,9 +926,9 @@ foam.CLASS({
 
       var ps = this.cls_.getAxiomsByClass(foam.lang.Property);
       for ( var i = 0 ; i < ps.length ; i++ ) {
-        var prop = this[ps[i].name];
+        var prop = ps[i];
         if ( prop.includeInHash ) {
-          hash = ((hash << 5) - hash) + foam.util.hashCode(prop);
+          hash = ((hash << 5) - hash) + foam.util.hashCode(this[prop.name]);
           hash &= hash; // forces 'hash' back to a 32-bit int
         }
       }

@@ -177,7 +177,7 @@ Option **--flags:test** will include all source and configuration flagged as `te
 
 - **Project** tooling provides tasks for creating a new FOAM based project, complete with an example Model and Test case.  The task will create the default directory layout along with required poms, and initial journal configuration for logging in and mananging the new Model.
     ```
-  ./build.sh -T+setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject
+  ./build.sh -T+setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword
   # then build with
   ./build.sh deployment/demo/run.sh
   # login with demo user - username: demo, password: demopassword
@@ -194,7 +194,7 @@ Option **--flags:test** will include all source and configuration flagged as `te
   ./build.sh -ckJhttps
 
   # deploy to remote host
-  ./build.sh -TStandard,RemoteInstall,Java --user:foam user-id:3636 --backup:false --remote-hostname:moosehead
+  ./build.sh -TStandard,Java,RemoteInstall --user:foam user-id:3636 --backup:false --remote-hostname:moosehead
     ```
 - **ESLint** Linting support
     - see `eslint.md`

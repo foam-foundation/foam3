@@ -70,6 +70,7 @@ foam.INTERFACE({
   ]
 });
 
+
 foam.CLASS({
   package: 'foam.parse',
   name: 'Suggestion',
@@ -98,6 +99,24 @@ foam.CLASS({
     },
     { name: 'view',
       class: 'foam.u2.ViewSpec'
+    },
+    {
+      class: 'Boolean',
+      name: 'prependSpaceOnSelect',
+      documentation: 'Adds a whitespace before appending suggestion.',
+      value: true
+    }
+  ],
+
+  methods: [
+    function matches(str) {
+      /** Return true iff this suggestions matches the partially typed str input. **/
+
+      function containsIC(str, sub) {
+        return str.length != sub.length && str.toLowerCase().indexOf(sub.toLowerCase()) != -1;
+      }
+
+      return containsIC(this.text, str) || containsIC(this.label, str);
     }
   ]
 });
@@ -167,6 +186,11 @@ foam.CLASS({
       }
 
       return a;
+    },
+
+    function parseString(str, _, opt_apply) {
+      var result = this.parse(this.StringPStream.create({apply: opt_apply, str: str}));
+      return result && result.value;
     }
   ]
 });
@@ -235,6 +259,28 @@ foam.CLASS({
   implements: ['foam.parse.JSParser'],
 
   documentation: 'Matches a literal with the parse stream (case sensitive)',
+
+  axioms: [
+    {
+      // Lots of identical Literal parsers are created so cache instances
+      installInClass: function(cls) {
+        let map = {};
+        let oldCreate = cls.create;
+        cls.create = function(args) {
+          if ( args && args.s && ! args.value ) {
+            let key = args.s;
+
+            if ( ! map[key] ) {
+              map[key] = oldCreate.apply(this, arguments);
+            }
+            return map[key];
+          }
+
+          return oldCreate.apply(this, arguments);
+        };
+      }
+    }
+  ],
 
   properties: [
     {
@@ -334,7 +380,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'Alternate',
-  implements: ['foam.parse.JSParser'],
+  extends: 'foam.parse.AbstractParser',
+//  implements: ['foam.parse.JSParser'],
 
   documentation: 'Attempts to match one of the parser properties to the parse stream.',
 
@@ -428,6 +475,61 @@ foam.CLASS({
     },
     function toString() {
       return 'suggest(' + this.SUPER() + ')';
+    }
+  ]
+});
+
+
+/**
+ * Parser decorator that attaches a message to a parser.
+ * When the wrapped parser succeeds, the message can be collected
+ * via the apply callback (similar to foam.parse.Suggest for suggestions).
+ *
+ * The message is untyped - can be string, object, array, etc.
+ *
+ * Usage in grammar:
+ *   emptyFile: msg(eof(), 'File is empty')
+ *   warning: msg(sym('old'), { warning: 'Deprecated format' })
+ */
+foam.CLASS({
+  package: 'foam.parse',
+  name: 'Msg',
+  extends: 'foam.parse.ParserDecorator',
+
+  documentation: `
+    Parser decorator that attaches a message to a parser.
+    When the wrapped parser matches successfully, the message
+    is available via the msg() method.
+
+    The message property is untyped - it can store any value
+    (string, object, array, etc.). The consuming code is responsible
+    for interpreting the message format.
+
+    Usage in grammar:
+      emptyFile: msg(eof(), 'File is empty')
+      warning: msg(sym('old'), { warning: 'Deprecated format' })
+  `,
+
+  properties: [
+    {
+      name: 'message',
+      documentation: 'Message to attach - can be any value (string, object, etc.)'
+    }
+  ],
+
+  methods: [
+    function parse(ps, obj) {
+      // Delegate to wrapped parser
+      return ps.apply(this.p, obj);
+    },
+
+    function msg() {
+      // Return the message config (called by apply callback when parse succeeds)
+      return this.message;
+    },
+
+    function toString() {
+      return 'msg(' + this.SUPER() + ')';
     }
   ]
 });
@@ -679,8 +781,8 @@ foam.CLASS({
     function parse(ps) {
       if ( ! ps.head ) return undefined;
       return ( this.from <= ps.head && ps.head <= this.to ) ?
-          ps.tail.setValue(ps.head) :
-          undefined;
+        ps.tail.setValue(ps.head) :
+        undefined;
     },
 
     function toString() {
@@ -932,6 +1034,27 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.parse',
+  name: 'Peek',
+  extends: 'foam.parse.ParserDecorator',
+
+  documentation: "A parser which peeks ahead and succeeds if the delgate parses, but doesn't consume the input.",
+
+  methods: [
+    function parse(ps, obj) {
+      return ps.apply(this.p, obj) ?
+        ps   :
+        null ;
+    },
+
+    function toString() {
+      return 'peek(' + this.SUPER() + ')';
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse',
   name: 'ParserWithAction',
   extends: 'foam.parse.ParserDecorator',
 
@@ -978,12 +1101,19 @@ foam.CLASS({
   name: 'Symbol',
   implements: ['foam.parse.JSParser'],
 
+  constants: { DEPTH: [0] },
+
   documentation: 'Parses based on the parser property named.',
 
   properties: [
     {
       name: 'name',
       final: true
+    },
+    {
+      class: 'Boolean',
+      name: 'debug',
+//      value: true
     }
   ],
 
@@ -994,8 +1124,21 @@ foam.CLASS({
         console.error('No symbol found for', this.name);
         return undefined;
       }
+      if ( this.debug ) {
+        try {
+          console.log(' '.repeat(this.DEPTH[0]) + 'Call: ' + this.toString());
+        } catch(x) {
+        }
+        this.DEPTH[0]++;
+      }
       const ret = ps.apply(p, grammar);
-      // console.log(this.toString(), ret?.result);
+      if ( this.debug ) {
+        this.DEPTH[0]--;
+        try {
+          console.log(' '.repeat(this.DEPTH[0]) + 'Return: ' + this.toString() + ' =', ret ? ret.value : 'NO PARSE', ps.str[0].substring(ps.pos, ps.pos+20));
+        } catch(x) {
+        }
+      }
       return ret;
     },
 
@@ -1016,9 +1159,11 @@ foam.CLASS({
     'foam.parse.Literal',
     'foam.parse.LiteralIC',
     'foam.parse.EOF',
+    'foam.parse.Msg',
     'foam.parse.Not',
     'foam.parse.NotChars',
     'foam.parse.Optional',
+    'foam.parse.Peek',
     'foam.parse.Plus',
     'foam.parse.Range',
     'foam.parse.Repeat',
@@ -1060,10 +1205,32 @@ foam.CLASS({
       })
     },
 
+    function cut(p) {
+      // A parser decorator which destroys the input PStream if the delegate
+      // succeeds. This is used so that memory can be freed, thus making parsing
+      // long strings possible. The name comes from:
+      // https://en.wikipedia.org/wiki/Cut_(logic_programming)
+      return {
+        parse: function(ps, obj) {
+          var ret = p.parse(ps, obj);
+          if ( ret ) {
+            // TODO: there should be a detach() method on the PStream interface
+            ps.instance_ = ps.apply = ps.str = ps.pos = undefined;
+          }
+          return ret;
+        }
+      };
+    },
+
     function seq() {
       return this.Sequence.create({
         args: Array.from(arguments)
       });
+    },
+
+    function nChars(n) {
+      // TODO: make a fixed size parser which does the same but more efficiently
+      return this.str(this.repeat(this.anyChar(), null, n, n));
     },
 
     function rep(p, delim, min, max = Number.MAX_SAFE_INTEGER) {
@@ -1129,6 +1296,22 @@ foam.CLASS({
       });
     },
 
+    /**
+     * Create a parser that attaches a message.
+     * Message is collected when the parser succeeds (via apply callback).
+     *
+     * @param {Parser} p - The parser to wrap
+     * @param {*} m - Message to attach (can be any value - string, object, etc.)
+     * @returns {Msg} Parser decorator with message
+     *
+     * Usage in grammar:
+     *   msg(eof(), 'File is empty')
+     *   msg(sym('old'), { warning: 'Deprecated format' })
+     */
+    function msg(p, m) {
+      return this.Msg.create({ p: p, message: m });
+    },
+
     function until(p) {
       return this.Until.create({
         p: p
@@ -1192,6 +1375,12 @@ foam.CLASS({
       });
     },
 
+    function peek(p) {
+      return this.Peek.create({
+        p: p
+      });
+    },
+
     function opt(p, opt_default) {
       return this.Optional.create({
         p: p,
@@ -1237,6 +1426,8 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'PSymbol',
+
+  documentation: 'Symbol definition, stored in Grammary.symbols array.',
 
   properties: ['name', 'parser']
 });
@@ -1316,6 +1507,7 @@ foam.CLASS({
       // Let's you access individual symbol parsers as stand-alone parsers
       return {
         parse: ps => ps.apply(this.getSymbol(name), this),
+        parseString: (str, __,opt_apply) => this.parseString(str, name, opt_apply),
         toString: () => name
       };
     },
@@ -1323,14 +1515,10 @@ foam.CLASS({
     function parseString(str, opt_name, opt_apply) {
       opt_name = opt_name || 'START';
 
-      let ps = this.StringPStream.create();
-      ps.apply = opt_apply;
-      ps.setString(str);
-
       var start = this.getSymbol(opt_name);
       foam.assert(start, 'No symbol found for', opt_name);
 
-      var result = ps.apply(start, this);
+      var result = start.parse(this.StringPStream.create({apply: opt_apply, str: str}), this);
       return result && result.value;
     },
 
@@ -1347,9 +1535,7 @@ foam.CLASS({
 
       var errorPs = foam.parse.ErrorReportingPStream.create();
 
-      var ps = this.StringPStream.create();
-      ps.apply = opt_apply;
-      ps.setString(str);
+      var ps = this.StringPStream.create({apply: opt_apply, str: str});
 
       errorPs.delegate = ps;
 

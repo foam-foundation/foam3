@@ -33,21 +33,18 @@ foam.CLASS({
       Currency cur = new Currency(x);
       cur.setId("CA1");
       cur.setNumericCode(1L);
-      cur.setCountry("CA");
       cur.setSymbol("1");
       dao.put(cur);
 
       cur = new Currency(x);
       cur.setId("CA2");
       cur.setNumericCode(2L);
-      cur.setCountry("CA");
       cur.setSymbol("2");
       dao.put(cur);
 
       cur = new Currency(x);
       cur.setId("CA3");
       cur.setNumericCode(3L);
-      cur.setCountry("CA");
       cur.setSymbol("3");
       dao.put(cur);
 

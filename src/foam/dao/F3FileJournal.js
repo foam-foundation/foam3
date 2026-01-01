@@ -123,6 +123,10 @@ foam.CLASS({
                   // Provide some feedback on long running replays
                   if ( pass % 10000 == 0 ) {
                     getLogger().info("Replay progress", "processed", pass, "in", Duration.ofMillis(pm.getTime()));
+                    if ( Thread.currentThread().isInterrupted() ) {
+                      getLogger().info("Replay interrupted");
+                      return;
+                    }
                   }
                 }
               });

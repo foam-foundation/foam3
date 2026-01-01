@@ -50,6 +50,7 @@ foam.CLASS({
     'columnStorage',
     'config? as importedConfig',
     'filteredTableColumns?',
+    'flowColumns?',
     'stack?',
     'selection? as importSelection'
   ],
@@ -311,6 +312,7 @@ foam.CLASS({
       name: 'showPagination',
       value: true
     },
+    'lastAppliedColumns_',
     'tableEl_',
     'scrollEl_',
     ['tableHeadHeight', 52]
@@ -340,7 +342,16 @@ foam.CLASS({
     function groupByCol(column) {
       this.groupBy = column;
     },
+
     function updateColumns() {
+      // prevent redundant refreshes
+      var columns = (this.selectedColumnNames || [])
+        .map(c => foam.String.isInstance(c) ? c : c.name)
+        .join(',');
+
+      if ( columns === this.lastAppliedColumns_ ) return;
+      this.lastAppliedColumns_ = columns;
+
       this.updateColumnStorage();
 
       this.isColumnChanged = ! this.isColumnChanged;
@@ -360,6 +371,10 @@ foam.CLASS({
       this.selectedColumnNames$.sub(this.updateColumns_);
       this.isColumnChanged$.sub(this.updateColumns_);
       this.updateColumns_();
+      if ( this.flowColumns$ ) {
+        this.onDetach(this.flowColumns$.sub(this.applyFlowColumns));
+        this.applyFlowColumns();
+      }
 
       this.onDetach(this.colWidthUpdated$.sub(this.updateColumnStorage));
       if ( view.editColumnsEnabled )
@@ -527,12 +542,16 @@ foam.CLASS({
       isMerged: true,
       mergeDelay: 500,
       code: function() {
-        this.columnStorage.removeItem(this.of.id);
-        this.columnStorage.setItem(this.of.id, JSON.stringify(this.selectedColumnNames.map(c => {
+        var key = this.of.id;
+        var val = JSON.stringify(this.selectedColumnNames.map(c => {
           var name = foam.String.isInstance(c) ? c : c.name;
           var size = this.selectedColumnsWidth[name] == undefined ? undefined : this.selectedColumnsWidth[name];
           return [name, size];
-        })));
+        }));
+        // stop redundant rewrite
+        var curr = this.columnStorage.getItem(key);
+        if ( curr === val ) return;
+        this.columnStorage.setItem(key, val);
       }
     },
     {
@@ -547,7 +566,20 @@ foam.CLASS({
             c :
             [c, null]
         ))
-        .then(columns => this.columns_ = columns );
+        .then(columns => {
+          if ( foam.util.equals(this.columns_, columns) ) return;
+          this.columns_ = columns;
+        });
+      }
+    },
+    {
+      name: 'applyFlowColumns',
+      code: function() {
+        if ( ! this.flowColumns ) return;
+        var cols = this.flowColumns.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        if ( foam.util.equals(cols, this.selectedColumnNames) ) return;
+        this.selectedColumnNames = cols;
+        this.updateColumns();
       }
     }
   ]

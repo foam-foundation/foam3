@@ -12,7 +12,10 @@ foam.CLASS({
     'foam.mlang.Expressions'
   ],
 
-  requires: [ 'foam.dao.ArraySink' ],
+  requires: [
+    'foam.dao.ArraySink',
+    'foam.core.reflow.ErrorView'
+  ],
 
   imports: [ 'block', 'dao as referenceDAO', 'sinkDAO as dao', 'sinkUnlimitedDAO as unlimitedDAO' ],
 
@@ -51,6 +54,10 @@ foam.CLASS({
             })
           .end()
         .endContext();
+      }).catch(error => {
+        console.error('AbstractDAOAgent execution error:', error);
+        e.tag(self.ErrorView, { error: error });
+        // Don't re-throw the error to allow other blocks to continue loading
       });
     },
     function addSinkToE(e, s) {
@@ -494,7 +501,12 @@ foam.CLASS({
       value: 0,
       help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".',
       visibility: function(sink) {
-        return sink && this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        if ( ! sink ) return foam.u2.DisplayMode.HIDDEN;
+        try {
+          return this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        } catch (e) {
+          return foam.u2.DisplayMode.HIDDEN;
+        }
       }
     },
     {
@@ -504,7 +516,12 @@ foam.CLASS({
       value: true,
       help: 'Include "Others" group for remaining items when using Top N',
       visibility: function(topN, sink) {
-        return topN > 0 && sink && this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        if ( topN <= 0 || ! sink ) return foam.u2.DisplayMode.HIDDEN;
+        try {
+          return this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        } catch (e) {
+          return foam.u2.DisplayMode.HIDDEN;
+        }
       }
     },
     {
@@ -515,7 +532,12 @@ foam.CLASS({
       value: 'DESC',
       help: 'Sort order for value-based limiting',
       visibility: function(topN, sink) {
-        return topN > 0 && sink && this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        if ( topN <= 0 || ! sink ) return foam.u2.DisplayMode.HIDDEN;
+        try {
+          return this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        } catch (e) {
+          return foam.u2.DisplayMode.HIDDEN;
+        }
       }
     },
     {
@@ -525,7 +547,12 @@ foam.CLASS({
       value: 'Others',
       help: 'Label for the aggregated "Others" category',
       visibility: function(topN, sink) {
-        return topN > 0 && sink && this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        if ( topN <= 0 || ! sink ) return foam.u2.DisplayMode.HIDDEN;
+        try {
+          return this.TopNGroupBy.isSupported(sink.createSink()) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        } catch (e) {
+          return foam.u2.DisplayMode.HIDDEN;
+        }
       }
     },
     {

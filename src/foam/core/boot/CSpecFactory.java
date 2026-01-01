@@ -246,7 +246,12 @@ public class CSpecFactory
           logger.info("Stopped Service", spec_.getName(), ns.getClass().getName());
         }
         if ( ns instanceof ProxyDAO ) {
-          ns = ((ProxyDAO) ns).getDelegate();
+          if ( ProxyDAO.DELEGATE.isSet(ns) ) {
+            ns = ((ProxyDAO) ns).getDelegate();
+          } else {
+            logger.debug("Shutdown ignore never started service", spec_.getName(), ns.getClass().getName());
+            ns = null;
+          }
         } else if ( ns instanceof ProxyAuthService ) {
           ns = ((ProxyAuthService) ns).getDelegate();
         } else {

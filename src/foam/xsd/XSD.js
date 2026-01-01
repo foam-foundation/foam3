@@ -12,10 +12,10 @@ foam.CLASS({
     TYPES: {
       'xs:boolean'      : 'foam.lang.Boolean',
       'xs:date'         : 'foam.lang.Date',
-      'xs:dateTime'     : 'foam.lang.Date',
+      'xs:dateTime'     : 'foam.lang.DateTimeUTC',
       'xs:decimal'      : 'foam.lang.Double',
       'xs:string'       : 'foam.lang.String',
-      'xs:time'         : 'foam.lang.Date',
+      'xs:time'         : 'foam.lang.DateTimeUTC',
       'xs:base64Binary' : 'foam.lang.String',
       'xs:int'          : 'foam.lang.Int',
       'xs:long'         : 'foam.lang.Long',

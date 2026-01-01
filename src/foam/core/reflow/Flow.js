@@ -62,7 +62,7 @@ foam.CLASS({
       name: 'scriptSection',
       title: 'Script',
       collapsable: true,
-      permissionRequired: true, // requires flow.section.scriptSection to access
+      permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
       properties: [ 'preLoadScript', 'script', 'postLoadScript' ]
     }
   ],

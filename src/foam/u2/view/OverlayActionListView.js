@@ -275,7 +275,7 @@ foam.CLASS({
       view$ = this.dynamic(function(availabilities_) {
         this.startContext({ data: self.obj, dropdown: self.overlay_ });
         if ( availabilities_ === false ) {
-          this.addClass('p', self.myClass('disabled')).add(this.NO_AVAILABLE);
+          this.start().addClass('p', self.myClass('disabled')).add(self.NO_AVAILABLE).end();
           spinner.remove();
         } else if ( availabilities_ === null ) {
           // this may happen when availability slots are pending promise checks

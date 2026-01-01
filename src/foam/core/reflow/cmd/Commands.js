@@ -255,10 +255,11 @@ foam.CLASS({
 
   methods: [
     function execute(dao, opt_label) {
-      var p = this.DAOPrompt.create({dao: dao, label: opt_label});
+      let p     = this.DAOPrompt.create({dao: dao, label: opt_label});
+      let label = p.dao.of.model_.plural;
 
       p.addToE(this.out);
-      this.currentBlock.flowName = this.createFlowChildName(p.label.replaceAll(' ', '').toLowerCase());
+      this.currentBlock.flowName = opt_label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());
       this.currentBlock.obj    = p; // ???: Needed
       this.currentBlock.value  = p;
     }
@@ -351,9 +352,9 @@ foam.CLASS({
     function execute(opt_nameQuery) {
       var self = this;
       this.commandDAO.find('upload').then( r => this.uploadAvailable = !! r );
-      var dao  = this.cSpecDAO.where(this.CSpec.SERVED_DAOS);
+      var dao  = this.cSpecDAO?.where(this.CSpec.SERVED_DAOS);
       var count = foam.lang.SimpleSlot.create({value: 0});
-      if ( opt_nameQuery ) dao = dao.where(
+      if ( opt_nameQuery ) dao = dao?.where(
         this.OR(
           this.CONTAINS_IC(this.CSpec.NAME,     opt_nameQuery),
           this.CONTAINS_IC(this.CSpec.KEYWORDS, opt_nameQuery)
@@ -672,8 +673,8 @@ foam.CLASS({
       }).catch(err => {
         this.notify('Error saving flow: ' + err.message);
       });
-      
-      
+
+
     }
   ]
 });
@@ -697,8 +698,8 @@ foam.CLASS({
   methods: [
     function execute(opt_nameQuery) {
       var self = this;
-      var dao  = this.cSpecDAO.where(this.CSpec.SERVED_SERVICES);
-      if ( opt_nameQuery ) dao = dao.where(
+      var dao  = this.cSpecDAO?.where(this.CSpec.SERVED_SERVICES);
+      if ( opt_nameQuery ) dao = dao?.where(
         this.OR(
           this.CONTAINS_IC(this.CSpec.NAME,     opt_nameQuery),
           this.CONTAINS_IC(this.CSpec.KEYWORDS, opt_nameQuery)
@@ -932,7 +933,7 @@ foam.CLASS({
       this.block.flowParent.addFlowChild(b);
       this.block.del();
       this.currentBlock = b;
-      console.log(this.block, this.currentBlock, b);
+//      console.log(this.block, this.currentBlock, b);
     }
   ]
 });

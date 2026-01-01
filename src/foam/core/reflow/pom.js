@@ -2,7 +2,8 @@ foam.POM({
   name: 'console',
   projects: [
     { name: 'dashboard/pom' },
-    { name: "pivottest/pom" }
+    { name: "pivottest/pom" },
+    { name: "example/pom" }
   ],
   files: [
     { name: '../../u2/mlang/Table',    flags: 'js|java' },
@@ -18,9 +19,11 @@ foam.POM({
     { name: 'DAOFilterPrompt',         flags: 'js' },
     { name: 'DAOPrompt',               flags: 'js' },
     { name: 'Doc',                     flags: 'js' },
+    { name: 'Markdown',                flags: 'js' },
     { name: 'DocumentReadWriteView',   flags: 'js' },
     { name: 'DuplicateSink',           flags: 'js|java' },
     { name: 'EditSink',                flags: 'js|java' },
+    { name: 'ErrorView',               flags: 'js' },
     { name: 'FlowableTree',            flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'RoleFlowAccess',          flags: 'js|java' },
@@ -68,6 +71,7 @@ foam.POM({
     { name: 'Prompt',                  flags: 'js' },
     { name: 'lib',                     flags: 'js' },
     { name: 'Mapping',                 flags: 'js|java' },
+    { name: 'DateFormatCitationView',  flags: 'js' },
     { name: 'FromCsvRefines',          flags: 'js' },
     { name: 'ToolbarControl',          flags: 'js|java' },
     { name: 'control/HelpControl',     flags: 'js' },

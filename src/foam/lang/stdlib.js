@@ -547,8 +547,8 @@ foam.LIB({
     {
       name: 'constantize',
       code: foam.Function.memoize1(function(/* String */ str) {
-        // switches from from camelCase to CAMEL_CASE
-        return str.replace(/([a-z])([^0-9a-z_])/g, '$1_$2').replace(/\s/g,'').toUpperCase();
+        // convert from from fooBar to FOO_BAR,
+        return str.replace(/-/g, '_').replace(/([a-z])([^0-9a-z_])/g, '$1_$2').replace(/\s/g,'').toUpperCase();
       })
     },
     {

@@ -152,7 +152,7 @@ public class JSONFObjectFormatter
     append('[');
     for ( int i = 0 ; i < array.length ; i++ ) {
       output(array[i]);
-      if ( i < array.length - 1 ) append(',');
+      if ( i < array.length - 1 ) append(COMMA);
     }
     append(']');
   }
@@ -164,7 +164,7 @@ public class JSONFObjectFormatter
     if ( array != null ) {
       for ( int i = 0 ; i < array.length ; i++ ) {
         output(array[i]);
-        if ( i < array.length - 1 ) append(',');
+        if ( i < array.length - 1 ) append(COMMA);
       }
     }
     append(']');
@@ -185,7 +185,7 @@ public class JSONFObjectFormatter
       output(key == null ? "" : key.toString());
       append(':');
       output(value);
-      if ( keys.hasNext() ) append(',');
+      if ( keys.hasNext() ) append(COMMA);
     }
     append('}');
   }
@@ -197,7 +197,7 @@ public class JSONFObjectFormatter
     Iterator iter = list.iterator();
     while ( iter.hasNext() ) {
       output(iter.next());
-      if ( iter.hasNext() ) append(',');
+      if ( iter.hasNext() ) append(COMMA);
     }
     append(']');
   }
@@ -209,7 +209,7 @@ public class JSONFObjectFormatter
       p.formatJSON(this, o);
     } catch (Throwable t) {
       System.err.println("***************************************************** error outputting " + getPropertyName(p));
-      System.err.println("" + p.get(o));
+      // System.err.println("" + p.get(o));
       t.printStackTrace();
     }
   }
@@ -217,7 +217,7 @@ public class JSONFObjectFormatter
 
   protected void outputFObjectPropertyHeader(PropertyInfo prop) {
     if ( prop == null ) return;
-    append(',');
+    append(COMMA);
     addInnerNewline();
     outputKey(getPropertyName(prop));
     append(':');
@@ -237,7 +237,7 @@ public class JSONFObjectFormatter
       return maybeOutputDelta(((FObject) prop.get(oldFObject)), ((FObject) prop.get(newFObject)), prop, null);
     }
 
-    append(',');
+    maybeAppendComma();
     addInnerNewline();
     outputProperty(newFObject, prop);
     return true;
@@ -268,7 +268,7 @@ public class JSONFObjectFormatter
     outputKey("class");
     append(':');
     output(value.getClass().getName());
-    append(',');
+    append(COMMA);
     outputKey("ordinal");
     append(':');
     outputNumber(value.getOrdinal());
@@ -356,7 +356,7 @@ public class JSONFObjectFormatter
     output(timestamper_.get().createTimestamp(time));
   }
 
-  protected boolean maybeOutputProperty(FObject fo, PropertyInfo prop, boolean includeComma) {
+  protected boolean maybeOutputProperty(FObject fo, PropertyInfo prop) {
     if ( ! outputDefaultValues_ ) {
       if ( ! prop.isSet(fo) ) return false;
 
@@ -371,7 +371,7 @@ public class JSONFObjectFormatter
       return false;
     }
 
-    if ( includeComma ) append(',');
+    maybeAppendComma();
     if ( multiLineOutput_ ) addInnerNewline();
     outputProperty(fo, prop);
     return true;
@@ -386,19 +386,20 @@ public class JSONFObjectFormatter
       return true;
     }
 
-    ClassInfo newInfo  = newFObject.getClassInfo();
-    String    of       = newInfo.getSimpleName().toLowerCase();
-    List      axioms   = getProperties(parentProp, newInfo);
-    int       size     = axioms.size();
-    int       ids      = 0;
-    int       delta    = 0;
-    int       optional = 0;
-    int       len      = builder().length(); // Safe pos in case we want to undo
+    ClassInfo newInfo     = newFObject.getClassInfo();
+    String    of          = newInfo.getSimpleName().toLowerCase();
+    List      axioms      = getProperties(parentProp, newInfo);
+    int       size        = axioms.size();
+    int       ids         = 0;
+    int       delta       = 0;
+    int       optional    = 0;
+    int       len         = builder().length(); // Safe pos in case we want to undo
 
     outputFObjectPropertyHeader(parentProp);
 
     append('{');
     addInnerNewline();
+
     if ( outputClassNames_ && ( outputDefaultClassNames_ || newInfo != defaultClass ) ) {
       outputKey("class");
       append(':');
@@ -407,10 +408,11 @@ public class JSONFObjectFormatter
 
     for ( int i = 0 ; i < size ; i++ ) {
       PropertyInfo prop = (PropertyInfo) axioms.get(i);
+
       if ( prop.includeInID() || compare(prop, oldFObject, newFObject) != 0 ) {
         if ( parentProp == null && prop.includeInID() ) {
           // IDs only relevant on root objects
-          append(',');
+          maybeAppendComma();
           addInnerNewline();
           outputProperty(newFObject, prop);
           ids += 1;
@@ -425,7 +427,7 @@ public class JSONFObjectFormatter
               }
             }
           } else {
-            append(',');
+            maybeAppendComma();
             addInnerNewline();
             outputProperty(newFObject, prop);
             delta += 1;
@@ -446,7 +448,7 @@ public class JSONFObjectFormatter
 
     // Return false when either no delta or the delta are from ids and storage
     // optional properties
-    builder().setLength(len);
+    setLength(len);
     return false;
   }
 
@@ -468,7 +470,7 @@ public class JSONFObjectFormatter
     append('[');
     for ( int i = 0 ; i < arr.length ; i++ ) {
       output(arr[i], defaultClass, parentProp);
-      if ( i < arr.length - 1 ) append(',');
+      if ( i < arr.length - 1 ) append(COMMA);
     }
     append(']');
   }
@@ -492,11 +494,10 @@ public class JSONFObjectFormatter
       return;
     }
 
-    int       len   = builder().length(); // Safe pos in case we want to undo
-    int       props = 0;
-    ClassInfo info  = o.getClassInfo();
-
-    boolean outputClass = outputClassNames_ || ( outputDefaultClassNames_ && info != defaultClass );
+    int       len         = builder().length(); // Safe pos in case we want to undo
+    int       props       = 0;
+    ClassInfo info        = o.getClassInfo();
+    boolean   outputClass = outputClassNames_ && ( outputDefaultClassNames_ || info != defaultClass );
 
     append('{');
     addInnerNewline();
@@ -505,14 +506,13 @@ public class JSONFObjectFormatter
       append(':');
       output(info.getId());
     }
-    boolean outputComma = outputClass;
 
     List axioms = getProperties(parentProp, info);
     int  size   = axioms.size();
     for ( int i = 0 ; i < size ; i++ ) {
-      PropertyInfo prop = (PropertyInfo) axioms.get(i);
-      outputComma = maybeOutputProperty(o, prop, outputComma) || outputComma;
-      if ( outputComma ) props++;
+      PropertyInfo prop       = (PropertyInfo) axioms.get(i);
+      boolean      outputProp = maybeOutputProperty(o, prop);
+      if ( outputProp ) props++;
     }
 
     if ( props > 0 || outputDefaultClassNames_ ) {
@@ -520,7 +520,7 @@ public class JSONFObjectFormatter
       append('}');
     } else {
       // skip outputting just class:
-      builder().setLength(len);
+      setLength(len);
     }
   }
 
@@ -529,11 +529,11 @@ public class JSONFObjectFormatter
     outputKey("class");
     append(':');
     output("__Property__");
-    append(',');
+    append(COMMA);
     outputKey("forClass_");
     append(':');
     output(prop.getClassInfo().getId());
-    append(',');
+    append(COMMA);
     outputKey("name");
     append(':');
     output(prop.getName());

@@ -74,6 +74,12 @@ p({
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
+  "id": "markdown",
+  "description": "Insert Markdown Document",
+  "script": "addValue(foam.core.reflow.Markdown.create({markdown: args.join(' ')}, this));"
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
   "id": "upload",
   "description": "Upload Data",
   linkable: false,

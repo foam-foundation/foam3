@@ -19,7 +19,9 @@ import java.util.*;
 /**
  * Abstract class for implementing JDBC-based DAOs.
  */
-public abstract class AbstractJDBCDAO extends AbstractDAO {
+public abstract class AbstractJDBCDAO
+  extends AbstractDAO
+{
 
   /** Holds the relevant properties (column names) of the table */
   protected List<PropertyInfo> properties_;
@@ -43,6 +45,7 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
   protected String tableName_;
 
   /** Holds a reference to the connection pool ( .getConnection() ) */
+  // TODO: Why is this static? Remove 'static' and retest.
   protected static DataSource dataSource_;
 
   protected IndexedPreparedStatement findStmt;
@@ -58,11 +61,11 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
       if ( findStmt == null ) {
         c = dataSource_.getConnection();
         StringBuilder builder = threadLocalBuilder_.get()
-                .append("select * from ")
-                .append(tableName_)
-                .append(" where ")
-                .append(getPrimaryKey().createStatement())
-                .append(" = ?");
+          .append("select * from ")
+          .append(tableName_)
+          .append(" where ")
+          .append(getPrimaryKey().createStatement())
+          .append(" = ?");
 
         findStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
       }
@@ -101,11 +104,11 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
       if ( removeStmt == null ) {
         c = dataSource_.getConnection();
         StringBuilder builder = threadLocalBuilder_.get()
-                .append("delete from ")
-                .append(tableName_)
-                .append(" where ")
-                .append(getPrimaryKey().createStatement())
-                .append(" = ?");
+          .append("delete from ")
+          .append(tableName_)
+          .append(" where ")
+          .append(getPrimaryKey().createStatement())
+          .append(" = ?");
 
         removeStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
       }
@@ -291,7 +294,6 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
         builder.append(',');
       }
     }
-
   }
 
   /**
@@ -299,9 +301,9 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
    * @param of ClassInfo
    */
   public boolean maybeCreateTable(X x, ClassInfo of) {
-    Connection c = null;
-    IndexedPreparedStatement stmt = null;
-    ResultSet resultSet = null;
+    Connection               c         = null;
+    IndexedPreparedStatement stmt      = null;
+    ResultSet                resultSet = null;
 
     try {
       c = dataSource_.getConnection();
@@ -313,13 +315,13 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
       }
 
       StringBuilder builder = threadLocalBuilder_.get()
-              .append("CREATE TABLE ")
-              .append(tableName_)
-              .append('(')
-              .append(getPrimaryKey().createStatement())
-              .append(' ')
-              .append(getPrimaryKey().getSQLType())
-              .append(" primary key,");
+        .append("CREATE TABLE ")
+        .append(tableName_)
+        .append('(')
+        .append(getPrimaryKey().createStatement())
+        .append(' ')
+        .append(getPrimaryKey().getSQLType())
+        .append(" primary key,");
 
       Iterator i = properties_.iterator();
       while ( i.hasNext() ) {
@@ -330,8 +332,8 @@ public abstract class AbstractJDBCDAO extends AbstractDAO {
           continue;
 
         builder.append(prop.createStatement())
-                .append(' ')
-                .append(prop.getSQLType()); // TODO: is getSQLType guaranteed to return something?
+          .append(' ')
+          .append(prop.getSQLType()); // TODO: is getSQLType guaranteed to return something?
 
         if ( i.hasNext() ) {
           builder.append(',');

@@ -15,12 +15,11 @@ foam.CLASS({
 
   imports: [
     'auth?',
-    'ctrl',
-    'group',
+    'ctrl?',
+    'group?',
     'loginSuccess?',
     'requestLogin?',
-    'sessionTimer',
-    'subject',
+    'sessionTimer?',
     'window'
   ],
 
@@ -55,7 +54,7 @@ foam.CLASS({
           this.RPCErrorMessage.isInstance(envelope.message) &&
           envelope.message.data.id === 'foam.core.auth.AuthenticationException'
         ) {
-          if (!this.auth$) {
+          if ( ! this.auth$ ) {
             return;
           }
           // If the user is already logged in when this happens, then we know
@@ -79,7 +78,7 @@ foam.CLASS({
           });
         } else {
           // fetch the soft session limit from group, and then start the timer
-          if ( this.refreshSessionTimer && this.group && this.group.id !== '' && this.group.softSessionLimit !== 0 ) {
+          if ( this.group && this.sessionTimer && this.refreshSessionTimer && this.group && this.group.id !== '' && this.group.softSessionLimit !== 0 ) {
             this.sessionTimer.startTimer(this.group.softSessionLimit);
           }
 

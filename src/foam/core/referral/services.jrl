@@ -1,4 +1,3 @@
-
 p({
   "class": "foam.core.boot.CSpec",
   "name": "referralCodeDAO",
@@ -19,4 +18,15 @@ p({
     "of": "foam.core.referral.ReferralCode"
   }
   """
+})
+
+p({
+  class:"foam.core.boot.CSpec",
+  name:"referralCodeGenerationService",
+  serve:false,
+  lazy:false,
+  authenticate:false,
+  service:{
+    class:"foam.core.referral.IdReferralCodeGenerationService"
+  }
 })

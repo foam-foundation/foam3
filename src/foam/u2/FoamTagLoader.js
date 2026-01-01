@@ -66,11 +66,6 @@ foam.CLASS({
       view.replaceElement_(el);
       view.load();
 
-      /*
-      el.outerHTML = view.outerHTML;
-      view.load();
-      */
-
       // Store view in global variable if named. Useful for testing.
       if ( id ) globalThis[id] = view;
     },

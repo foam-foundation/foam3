@@ -30,6 +30,7 @@ foam.POM({
     { name: "action/ChangePropertyAction",                             flags: "js|java" },
     { name: "action/DAOPutRuleAction",                                 flags: "js|java" },
     { name: "action/SendNotification",                                 flags: "js|java" },
+    { name: "action/JShellRuleAction",                                 flags: "js|java" },
     { name: "predicate/PropertyChangePredicate",                       flags: "js|java" },
     { name: "predicate/PropertyEQProperty",                            flags: "js|java" },
     { name: "predicate/PropertyHasValue",                              flags: "js|java" },

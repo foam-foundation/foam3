@@ -106,12 +106,12 @@ foam.CLASS({
       };
     },
 
-    function expandCSS(cls, text, ctx) {
+    function expandCSS(cls, text, ctx, baseID) {
       if ( this.expands_ ) {
         /* Performs expansion of the ^ shorthand on the CSS. */
         // TODO(braden): Parse and validate the CSS.
         // TODO(braden): Add the automatic prefixing once we have the parser.
-        var base = '.' + foam.String.cssClassize(cls.id);
+        var base = '.' + (baseID || foam.String.cssClassize(cls.id));
         text = text.replace(/\^(.)/g, function(match, next) {
           var c = next.charCodeAt(0);
           // Check if the next character is an uppercase or lowercase letter,

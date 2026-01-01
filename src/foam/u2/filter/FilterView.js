@@ -183,6 +183,7 @@ foam.CLASS({
     },
     {
       name: 'generalSearchField',
+      transient: true,
       postSet: function(o, n) {
         this.filterController.add(n, n.name, 0, false);
       }
@@ -289,7 +290,7 @@ foam.CLASS({
             of: self.dao.of.id,
             onKey: true,
             name: 'filterSearch',
-            searchData$: self.searchData$
+            data$: self.searchData$
           }, self, self.__subContext__);
 
           var labelSlot = foam.lang.ExpressionSlot.create({ args: [self.filterController.activeFilterCount$],

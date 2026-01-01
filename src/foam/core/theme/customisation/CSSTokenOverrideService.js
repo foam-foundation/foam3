@@ -48,8 +48,9 @@ foam.CLASS({
   methods: [
     function init() {
       // TODO: Add responsive theme based token caching, TBD when
+      this.tokenOverrideDAO.on.sub(this.reload);
       this.loadTokenCache().then(() => {
-        this.onDetach(this.tokenOverrideDAO.on.sub(this.maybeReload));
+        this.onDetach(this.tokenOverrideDAO.on.sub(this.reload));
       });
     },
 
@@ -59,7 +60,7 @@ foam.CLASS({
       this.initLatch.then(() => {
         this.cached_ = true;
         this.cacheUpdated.pub();
-      })
+      });
       return this.tokenOverrideDAO
         .where(
           this.AND(
@@ -91,6 +92,13 @@ foam.CLASS({
       isMerged: true,
       code: function() {
         if ( this.theme.id == this.currentCache ) return;
+        return this.reload();
+      }
+    },
+    {
+      name: 'reload',
+      isMerged: true,
+      code: function() {
         this.initLatch = this.Latch.create();
         this.clearProperty('tokenCache');
         this.clearProperty('cached_');

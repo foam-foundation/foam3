@@ -24,7 +24,6 @@ foam.CLASS({
   tableColumns: [
     'name',
     'id',
-    'country',
     'symbol',
     'emoji'
   ],
@@ -35,7 +34,7 @@ foam.CLASS({
         cls.extras.push(`
           public String format(X x, long amount) {
             if ( ! foam.util.SafetyUtil.isEmpty(getSymbol()) ) {
-              // Show only symbol
+              // Show only symbol 
               return format(x, amount, true, false);
             } else {
               // Show only ID
@@ -54,14 +53,6 @@ foam.CLASS({
       name: 'numericCode',
       shortName: 'nc',
       documentation: 'The numeric code associated with a type of currency.',
-      required: true
-    },
-    {
-      class: 'Reference',
-      of: 'foam.core.auth.Country',
-      documentation: `The name of the country associated with the currency.
-        This should be set by the child class.`,
-      name: 'country',
       required: true
     },
     {

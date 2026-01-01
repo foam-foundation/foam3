@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.naons.crunch',
+  package: 'foam.core.crunch',
   name: 'CapabilityRefinement',
   refines: 'foam.core.crunch.Capability',
 

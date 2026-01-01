@@ -15,3 +15,11 @@ p({
   class:"foam.dao.test.F3FileJournalTest",
   id:"F3FileJournalTest"
 })
+p({
+  class:"foam.dao.test.JournalDefaultClassNameTest",
+  id:"JournalDefaultClassNameTest"
+})
+p({
+  class:"foam.dao.test.MDAOCountTest",
+  id:"MDAOCountTest"
+})

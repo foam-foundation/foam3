@@ -310,7 +310,6 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("currencies")
       .build()
-      .addPropertyIndex(new foam.lang.Indexer[] {foam.lang.Currency.COUNTRY})
       .addPropertyIndex(new foam.lang.Indexer[] {foam.lang.Unit.ID});
   """
 })

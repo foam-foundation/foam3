@@ -84,8 +84,8 @@ foam.POM({
     }],
     usage: ['usage', 'Examples', [], function() {
       this.log('Remote installation examples:');
-      this.log('  ./build.sh -TStandard,RemoteInstall,Java -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead');
-      this.log('  ./build.sh -TStandard,RemoteInstall,Java -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead');
+      this.log('  ./build.sh -TStandard,Java,RemoteInstall -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead');
+      this.log('  ./build.sh -TStandard,Java,RemoteInstall -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead');
       this.log('    Deploy with SSL/HTTPS support');
     }],
     validate: ['validate', 'Verify required information is available before proceeding with main build tasks', ['pomEnvs'], function() {

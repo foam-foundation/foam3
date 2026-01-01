@@ -75,6 +75,7 @@ foam.CLASS({
         logger.error("DAO not found", getDaoKey(), update, "not updated");
         return;
       }
+    try {
       if ( obj instanceof LifecycleAware ) {
         LifecycleAware aware = ((LifecycleAware) obj);
         LifecycleState requestedState = getLifecycleState();
@@ -132,6 +133,10 @@ foam.CLASS({
         logger.debug(update);
         ticket.getUpdated().add(update);
       }
+    } catch (Throwable t) {
+      logger.error(t);
+      ticket.setException(t);
+    }
       `
     },
     {

@@ -18,7 +18,7 @@ foam.CLASS({
     ^ {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      height: 100vh;
     }
     ^header {
       display: flex;
@@ -31,6 +31,7 @@ foam.CLASS({
     ^body {
       flex: 1;
       height: 100%;
+      overflow: auto;
     }
     @media only screen and (min-width: /*%DISPLAYWIDTH.LG%*/ 960px) {
       ^logo svg {

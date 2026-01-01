@@ -120,8 +120,9 @@ foam.CLASS({
   ],
 
   methods: [
-    function execute(promise, sink /*, skip, limit, order, predicate*/) {
-      sink.value += this.count;
+    function execute(promise, sink, skip /*, limit, order, predicate*/) {
+      var count = this.count - ( skip || 0 );
+      sink.value = count > 0 ? count : 0;
     },
 
     function toString() {
@@ -216,20 +217,20 @@ foam.CLASS({
       foam.assert(( ! this.predicates ) || ( this.predicates.size == this.subPlans.size ), "MergePlan.predicates, when specified, must match the number of subplans." );
 
       // quick linked list
-      var NodeProto = { next: null, data: null };
+      var NodeProto    = { next: null, data: null };
 
-      var head = Object.create(NodeProto);
+      var head         = Object.create(NodeProto);
       // TODO: track list size, cut off if above skip+limit
 
-      var sp = this.subPlans;
-      var predicates = this.predicates;
-      var subLimit = ( limit ? limit + ( skip ? skip : 0 ) : undefined );
-      var promises = []; // track any async subplans
+      var sp           = this.subPlans;
+      var predicates   = this.predicates;
+      var subLimit     = ( limit ? limit + ( skip ? skip : 0 ) : undefined );
+      var promises     = []; // track any async subplans
       var dedupCompare = ( this.of ) ? this.of.ID.compare.bind(this.of.ID) : foam.util.compare;
-      var compare = order.compare.bind(order);
+      var compare      = order.compare.bind(order);
 
       // Each plan inserts into the list
-      for ( var i = 0 ; i < sp.length ; ++i) {
+      for ( var i = 0 ; i < sp.length ; i++ ) {
         var insertPlanSink;
         (function() { // capture new insertAfter for each sink
           // set new insert position to head.
@@ -250,8 +251,7 @@ foam.CLASS({
               }
 
               // Skip past items that are less than our new item
-              while ( insertAfter.next &&
-                      compare(o, insertAfter.next.data) > 0 ) {
+              while ( insertAfter.next && compare(o, insertAfter.next.data) > 0 ) {
                  insertAfter = insertAfter.next;
               }
 
@@ -384,7 +384,6 @@ foam.CLASS({
       }
 
       return sink;
-    },
-
+    }
   ]
 });

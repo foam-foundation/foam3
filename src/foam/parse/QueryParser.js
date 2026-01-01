@@ -131,7 +131,7 @@ foam.CLASS({
             seq(key('NOT '), sym('expr'))
           ),
 
-          id: sym('number'),
+          id: sym('string'),
 
           has: seq(key('HAS:'), sym('fieldname')),
 

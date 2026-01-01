@@ -103,13 +103,21 @@ if [[ ${JAVA_OPTS} != *"CLUSTER"* ]]; then
     fi
 fi
 
-JAR=$(ls ${APP_HOME}/lib/${APP_NAME}-${VERSION}.jar | awk '{print $1}')
+# Binary JAR contains compiled .class files
+BIN_JAR=$(ls ${APP_HOME}/lib/${APP_NAME}-${VERSION}.jar 2>/dev/null | awk '{print $1}')
+# Resources JAR contains journals, documents, images, webroot
+RES_JAR=$(ls ${APP_HOME}/lib/${APP_NAME}-resources-${VERSION}.jar 2>/dev/null | awk '{print $1}')
 
-export RES_JAR_HOME="${JAR}"
+# Set RES_JAR_HOME to point to the resources JAR for ResourceStorage
+JAVA_OPTS="${JAVA_OPTS} -DRES_JAR_HOME=${RES_JAR}"
 
 export JAVA_TOOL_OPTIONS="${JAVA_OPTS}"
 echo ${JAVA_OPTS} > ${APP_HOME}/logs/opts.txt
-#echo JAVA_OPTS=${JAVA_OPTS}
-java -server -jar "${JAR}"
+
+# Get main class from the manifest
+MAIN_CLASS=$(unzip -p "${BIN_JAR}" META-INF/MANIFEST.MF | grep "Main-Class:" | awk '{print $2}' | tr -d '\r')
+
+# Launch using classpath with both JARs and library dependencies
+java -server -cp "${BIN_JAR}:${RES_JAR}:${APP_HOME}/lib/*" ${MAIN_CLASS}
 
 exit 0

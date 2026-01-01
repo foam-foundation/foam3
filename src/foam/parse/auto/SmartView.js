@@ -56,6 +56,60 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.parse.auto',
+  name: 'ColorSuggester',
+  extends: 'foam.u2.View',
+
+  properties: [
+    'suggestText',
+    {
+      class: 'Color',
+      name: 'color',
+      view: 'foam.u2.view.ColorPicker'
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.startContext({data: this})
+      .start().addClass('p-semiBold').add(this.data.label).end()
+      .tag(this.COLOR);
+      this.color$.sub(() => {
+        this.suggestText(this.color);
+      });
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse.auto',
+  name: 'CSSTokenSuggester',
+  extends: 'foam.u2.View',
+
+  properties: [
+    'suggestText',
+    {
+      class: 'FObjectProperty',
+      of: 'foam.u2.CSSToken',
+      name: 'token'
+    }
+  ],
+
+  methods: [
+    function render() {
+      this
+        .startContext({ controllerMode: 'VIEW' })
+        .on('click', () => {
+          this.suggestText(this.token.name);
+        })
+        .tag(foam.u2.CitationView, { data: this.token });
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse.auto',
   name: 'SuggestionView',
   extends: 'foam.u2.View',
 
@@ -79,6 +133,10 @@ foam.CLASS({
     ^operator { color: $orange400; }
     ^value    { color: $blue400; }
     ^format   { color: $grey400; }
+
+    ^calculation { color: $orange400; }
+    ^chart    { color: $blue400; }
+    ^structure { color: $green400; }
   `,
 
   properties: [
@@ -123,6 +181,8 @@ foam.CLASS({
 });
 
 
+// TODO: Would be better if the input field was replaced by a contenteditable=true <div> so that errors
+// could be displayed in-line in real-time
 foam.CLASS({
   package: 'foam.parse.auto',
   name: 'SmartView', // TODO: rename GrammarView or SyntaxView
@@ -137,34 +197,50 @@ foam.CLASS({
   requires: [
     'foam.parse.SimpleQueryParser',
     'foam.parse.auto.SuggestionView',
-    'foam.u2.TextField'
+    'foam.u2.TextField',
+    'foam.u2.md.OverlayDropdown'
   ],
 
   imports: [
+    'setTimeout',
     'window'
   ],
 
   css: `
     ^suggestions {
-      background: $backgroundDefault;
-      border-radius: $inputBorderRadius;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 4px;
       overflow-y: auto;
-      position: absolute;
-      padding: 6px;
-      padding-top: 0;
-      position: fixed;
       z-index: 1000;
     }
+    ^suggestions > :not(^suggestionSeparator) {
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+    ^suggestions > :not(^suggestionSeparator):hover {
+      background-color: $backgroundBrandTertiary;
+      cursor: pointer;
+    }
+    ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
+    ^error { border: 1px solid red !important; }
   `,
 
   properties: [
     [ 'type', 'search' ],
     {
       class: 'String',
+      name: 'error'
+    },
+    {
+      class: 'String',
       name: 'preview',
-      documentation: 'The input text bound onKey so that autoSuggest works even when onKey is false.'
+      documentation: 'The input text bound onKey so that autoSuggest works even when onKey is false.',
+      factory: function() {
+        // Factory to data so initial value is preserved
+        return this.data;
+      }
     },
     {
       name: 'parser'
@@ -172,6 +248,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'normalize',
+      value: true,
       documentation: 'If true the input will be normalized to preferred syntax where options exist.'
     },
     {
@@ -186,7 +263,21 @@ foam.CLASS({
     },
     'field',
     {
+      class: 'FObjectProperty',
+      of: 'foam.u2.Element',
+      name: 'overlay_',
+      factory: function() {
+        return this.OverlayDropdown.create({
+          closeOnLeave: false,
+          // styled: false,
+          parentEdgePadding: '4',
+          lockToParentWidth: true
+        });
+      }
+    },
+    {
       name: 'apply',
+      documentation: 'Parser callback to be used to track parsing and make suggestions.',
       factory: function() {
         let self = this;
 
@@ -224,50 +315,72 @@ foam.CLASS({
             let s = p.suggest();
             if ( ! s.text ) return result;
             let prevQuery = self.preview.substring(0, this.pos);
-            self.normalizedQuery = prevQuery + s.text + self.preview.substring(this.substring(result).length+this.pos) ;
+            self.normalizedQuery = prevQuery + s.text + self.preview.substring(this.substring(result).length+this.pos);
             if ( self.preview !== self.normalizedQuery ) self.preview = self.normalizedQuery;
           }
 
           return result;
         }
       }
-    }
+    },
+    'prop'
   ],
 
   methods: [
+    function detach() {
+      this.overlay_.remove();
+      this.SUPER();
+    },
     function render() {
       let self = this;
 
       // Recalculate suggestions when the preview text changes
       this.preview$.sub(this.onPreviewChange);
 
+      // Recalculate error when the data text changes
+      this.data$.sub(this.onDataChange);
+
+      if ( this.prop?.onKey ) {
+        this.data$.linkFrom(this.preview$);
+      }
+
       this.SUPER();
       this
         .addClass()
         .start(this.TextField, {
-          data$: this.data$,
+          data$:        this.data$,
           autocomplete: false,
-          autocorrect: false
+          autocorrect:  false,
+          tooltip$:     this.error$
         }, this.field$).
+          enableClass(this.myClass('error'), this.error$).
           on('blur', this.onBlur).
           call(function() {
+            self.prop && this.fromProperty?.(self.prop);
             // The 'preview' Property is always bound like its onKey mode
             this.attrSlot(null, 'input').linkFrom(self.preview$);
           }).
-        on('keydown', this.onKeyPress, true).
-        end().
-        start().
-          addClass(this.myClass('suggestions')).
-          add(this.dynamic(function (suggestions) {
+          on('keydown', this.onKeyPress, true).
+        end();/*
+        start().style({color: 'red'}).
+          show(this.error$).
+          start('span').add('Error: ').end().
+          add(this.error$).
+        end();*/
+
+      // Search fields have a 'x' icon on the right which clears the field, but for
+      // some reason if onPreviewChange runs too quickly then this doesn't work for
+      // some unknown reason.
+      this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      self.overlay_.parentEl = this.field.el_();
+      self.overlay_.write();
+      self.overlay_
+        .start()
+          .addClass(this.myClass('suggestions'))
+          .add(this.dynamic(function (suggestions) {
             self.populateSuggestions(this, suggestions);
-          })).
-        end();
-
-      this.field.on('focus', this.onPreviewChange);
-    },
-
-    function containsIC(str, sub) {
-      return str.length != sub.length && str.toLowerCase().indexOf(sub.toLowerCase()) != -1;
+          }))
+        .end();
     },
 
     function populateSuggestions(e, suggestions) {
@@ -283,70 +396,28 @@ foam.CLASS({
       }
 
       let preview = self.preview;
-      let keys    = Object.keys(suggestions);
       let delta   = preview.substring(self.maxPos);
+      let keys    = Object.keys(suggestions);
       let ss      = keys.sort(compare); // Sort by section then (label or text)
 
-      if ( delta ) ss = ss.filter(k => this.containsIC(k, delta));
+      if ( delta ) ss = ss.filter(k => suggestions[k].matches(delta));
 
       let parent = e.parentNode;
 
-      if ( ! ss.length ) { parent.show(false); return; }
-      parent.show(true);
+      if ( ! ss.length ) { self.overlay_.close(); return; }
+      self.overlay_.open();
 
-      e.start().
-        forEach(ss, function(s, i, a) {
-          let sug = self.suggestions[s];
-
-          this.start('div').
-            style({margin: '6px'}).
-            tag(sug.view || self.SuggestionView, {
-              data: sug,
-              suggestText: self.suggestText.bind(self)
-            });
-
-          if ( i != a.length-1 )
-            this.start('hr').style({marginBottom: '-6px'});
+      e.forEach(ss, function(s, i, a) {
+        if ( i !== 0 ) this.start().addClass(self.myClass('suggestionSeparator')).end();
+        let sug = self.suggestions[s];
+        this.tag(sug.view || self.SuggestionView, {
+          data: sug,
+          suggestText: (text) => {
+            self.suggestText.call(self, text, sug);
+          }
         });
-
-
-      setTimeout(() => self.setPosition(parent), 0);
+      });
    },
-
-    function setPosition(e) {
-      let screenWidth  = this.window.innerWidth;
-      let domRect      = this.parentNode.el_().getBoundingClientRect();
-      let screenHeight = this.window.innerHeight;
-      let scrollY      = this.window.scrollY;
-      let rectT        = this.field.el_().getBoundingClientRect();
-      // var parentCheck  = this.parentEdgePadding > -1;
-
-//      console.log('screenWidth:',screenWidth,'domRect:',domRect,'screenHeight:',screenHeight,'scrollY:',scrollY,'parentCheck:',parentCheck);
-      if ( domRect.top - scrollY < screenHeight / 2 ) {
-        e.style({maxHeight: (screenHeight-domRect.y-domRect.height-20) + 'px'});
-      } else {
-        e.style({maxHeight: (domRect.y-20-scrollY) + 'px'});
-        let rect = e.el_().getBoundingClientRect();
-        let rectT = this.field.el_().getBoundingClientRect();
-        e.style({top: (domRect.y - rect.height - 10)+ 'px'});
-      }
-
-      e.style({width: rectT.width});
-
-      // TODO: shift left if too close to the right edge
-      /*
-      if ( domRect.left > 3 * (screenWidth / 4) ) {
-        this.left = 'auto';
-        this.right = parentCheck ? screenWidth - domRect.right : screenWidth - this.x + 10;
-      } else if (domRect.left < 75) {
-        this.left = parentCheck ? domRect.left : this.x + 10;
-        this.right = 'auto';
-      } else {
-        this.left = parentCheck ? domRect.left : this.x - 75;
-        this.right = 'auto';
-        }
-      */
-    },
 
     function reset() {
       this.maxPos          = 0;
@@ -354,11 +425,17 @@ foam.CLASS({
       this.normalizedQuery = '';
     },
 
-    function suggestText(txt) {
-      let str = this.preview.substring(0, this.maxPos).trim();
-      if ( ! str.endsWith('.') ) str += ' ';
+    function suggestText(txt, sug) {
+      let str = this.preview.substring(0, this.maxPos);
+      // This causes issues when suggesting units like 'px' after numbers
+      if ( sug.prependSpaceOnSelect ) str = str.trim() + ' ';
       this.preview = ( str + txt ).trimStart();
       this.field.focus();
+    },
+
+    function fromProperty(prop) {
+      this.SUPER(prop);
+      this.prop = prop;
     }
   ],
 
@@ -377,7 +454,7 @@ foam.CLASS({
         let keys  = Object.keys(this.suggestions);
         let delta = this.preview.substring(this.maxPos);
 
-        if ( delta ) keys = keys.filter(k => this.containsIC(k, delta));
+        if ( delta ) keys = keys.filter(k => this.suggestions[k].matches(delta));
 
         if ( keys.length == 1 ) {
           this.preview = this.preview.substring(0, this.maxPos) + keys[0];
@@ -393,9 +470,16 @@ foam.CLASS({
       isMerged: true,
       delay: 250,
       code: function() {
+        let overlay = this?.overlay_;
         // Close the selections list when the user leaves the field (and descendents)
-        if ( ! this.element_.parentNode.contains(document.activeElement) ) {
+        if ( ! this.element_.parentNode.contains(document.activeElement) && ! ( overlay && overlay.el_().contains(document.activeElement) ) ) {
           this.reset();
+          // Fire a manual change event since this will not have fired if the user
+          // never changed the text field value and only used the completer.
+          let el = this.field.el_();
+          let event = new Event('change', { bubbles: true });
+          el.dispatchEvent(event);
+          // this.onDataChange();
         }
       }
     },
@@ -403,16 +487,39 @@ foam.CLASS({
       name: 'onPreviewChange',
       isFramed: true,
       code: function() {
-        // Parse the preview text with our 'apply' callback so we can rebuilud
+        this.error = '';
+
+        // Parse the preview text with our 'apply' callback so we can rebuild
         // the suggestions map.
         this.reset();
 
-        var ps = this.parser.parseString(
-          this.preview + String.fromCharCode(26) /* EOF */,
-          undefined,
-          this.apply);
+        let str = this.preview + String.fromCharCode(26) /* EOF */;
+        let ps  = foam.parse.StringPStream.create({str: str, apply: this.apply});
 
-        return ps || null;
+        ps = this.parser.parse(ps);
+      }
+    },
+    {
+      name: 'onDataChange',
+      isFramed: true,
+      code: function() {
+        if ( ! this.data ) { this.error = ''; return; }
+
+        let maxPos = 0;
+        let apply  = function(p, grammar) {
+          maxPos = Math.max(maxPos, this.pos);
+          return p.parse(this, grammar);
+        };
+        let str    = this.data + String.fromCharCode(26) /* EOF */;
+        let ps     = foam.parse.StringPStream.create({str: str, apply: apply});
+
+        ps = this.parser.parse(ps);
+
+        if ( ps == null || maxPos < this.data.length ) {
+          this.error = 'Error at: ' + (maxPos == this.data.length ? '<end of input>' : this.data.substring(maxPos));
+        } else {
+          this.error = '';
+        }
       }
     }
   ]

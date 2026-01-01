@@ -17,7 +17,7 @@ foam.CLASS({
       of: 'foam.json.Outputter',
       name: 'outputter',
       factory: function() { return foam.json.PrettyStrict; },
-      hidden:true
+      hidden: true
     }
   ],
 

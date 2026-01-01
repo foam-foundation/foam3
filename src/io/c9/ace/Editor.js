@@ -123,6 +123,7 @@ foam.CLASS({
       self.editor.session.on('change', self.editorToData);
       self.updateEditor();
       self.dataToEditor();
+      self.editor.setAnimatedScroll(false);
       self.editor.resize();
     },
     {

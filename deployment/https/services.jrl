@@ -1,4 +1,4 @@
-\p({
+p({
   "class": "foam.core.boot.CSpec",
   "name": "keyStoreManager",
   "lazy": false,

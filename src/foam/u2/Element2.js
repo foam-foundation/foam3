@@ -463,6 +463,8 @@ foam.CLASS({
     'translationService?'
   ],
 
+  // TODO: this is relatively expensive for how little it is used
+  // Try to find a cheaper way.
   exports: [
     'namespace'
   ],
@@ -587,6 +589,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'shown',
+      hidden: true,
       value: true,
       postSet: function(o, n) {
         if ( o === n ) return;
@@ -1656,6 +1659,7 @@ foam.CLASS({
       // Without wrapping in a PropertyBorder
       name: '__',
       transient: true,
+      compare: function() { return 0; },
       getter: function() {
         return { __proto__: this, toE: this.toPropertyView };
       }

@@ -87,18 +87,25 @@ foam.CLASS({
     {
       name: 'initMaxSeqNo',
       javaCode: `
-        if ( ! initMaxSeqNo_.getAndSet(true) ) {
-          Logger logger = Loggers.logger(getX(), this);
-          logger.info(getSalt(), "max", "find");
-          getDao().select(new AbstractSink() {
-            @Override
-            public void put(Object obj, Detachable sub) {
-              var id = (long) getPropertyInfo().get(obj);
-              maybeUpdateSeqNo(id);
-            }
-          });
-          Loggers.logger(getX(), this).info(getSalt(), "max", "found", seqNo_.get());
+      if ( ! initMaxSeqNo_.get() ) {
+        synchronized ( initMaxSeqNo_ ) {
+          if ( ! initMaxSeqNo_.get() ) {
+            Logger logger = Loggers.logger(getX(), this);
+            logger.info(getSalt(), "max", "find");
+            getDao().select(new AbstractSink() {
+              @Override
+              public void put(Object obj, Detachable sub) {
+                var id = (long) getPropertyInfo().get(obj);
+                maybeUpdateSeqNo(id);
+              }
+              public void eof() {
+                initMaxSeqNo_.getAndSet(true);
+              }
+            });
+            Loggers.logger(getX(), this).info(getSalt(), "max", "found", seqNo_.get());
+          }
         }
+      }
       `
     },
     {

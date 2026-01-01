@@ -182,24 +182,6 @@ foam.CLASS({
 
     { name: 'link', value: '$blue200' },
 
-    { name: 'font-extra-light', value: '200' }, /* also 100 */
-    { name: 'font-light', value: '300' },
-    { name: 'font-normal', value: 'normal' }, /* 400 */
-    { name: 'font-regular', value: '500' },
-    { name: 'font-medium', value: '600' },
-    { name: 'font-semi-bold', value: '700' },
-    { name: 'font-bold', value: '800' },
-    { name: 'font-extra-bold', value: '900' },
-  
-    { name: 'header-xl', value: '3.5rem' },
-    { name: 'header-lg', value: '3rem' },
-    { name: 'header-md', value: '2.4rem' },
-    { name: 'header-sm', value: '2rem' },
-    { name: 'header-xs', value: '1.6rem' },
-    { name: 'header-xxs', value: '1.4rem' },
-    { name: 'header-xxxs', value: '1.2rem' },
-
-
     // BORDER COLOR
     { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$black400' } } },
     { name: 'borderLight', value: '$grey200', variants: { dark: { value: '$black300' } } },
@@ -209,8 +191,10 @@ foam.CLASS({
     { name: 'borderBrandXLight', value: '$primary50', variants: { dark: { value: '$primary700' } } },
     { name: 'borderBrandLight', value: '$primary100', variants: { dark: { value: '$primary400' } } },
     { name: 'borderBrand', value: '$primary400', variants: { dark: { value: '$primary200' } } },
-    { name: 'borderBrandStrong', value: '$primary700', variants: { dark: { value: '$primary100' } } },
-
+    { name: 'borderBrandStrong', value: '$primary700', variants: { dark: { value: '$primary100' } } }
+  ].map(v => { v.class = 'foam.u2.ColorToken'; return v; }) // Add corresponding ColorToken classes for each token
+    // Concat additional tokens that are not ColorTokens
+  .concat([
     // GENERAL STYLE TOKENS
     { name: 'inputHeight', value: '34px' },
     { name: 'inputHorizontalPadding', value: '8px' },
@@ -218,7 +202,37 @@ foam.CLASS({
     { name: 'inputBorderRadius', value: '4px' },
 
     // FONT
-    { name: 'font1', value: `'Source Sans Pro', sans-serif` }
-  ].map(v => { v.variantKey = 'color'; return v; })
+    { name: 'font1', value: `'Source Sans Pro', sans-serif` },
+    { name: 'font-extra-light', value: '200' }, /* also 100 */
+    { name: 'font-light', value: '300' },
+    { name: 'font-normal', value: 'normal' }, /* 400 */
+    { name: 'font-regular', value: '500' },
+    { name: 'font-medium', value: '600' },
+    { name: 'font-semi-bold', value: '700' },
+    { name: 'font-bold', value: '800' },
+    { name: 'font-extra-bold', value: '900' },
 
+    { name: 'header-xl', value: '3.5rem' },
+    { name: 'header-lg', value: '3rem' },
+    { name: 'header-md', value: '2.4rem' },
+    { name: 'header-sm', value: '2rem' },
+    { name: 'header-xs', value: '1.6rem' },
+    { name: 'header-xxs', value: '1.4rem' },
+    { name: 'header-xxxs', value: '1.2rem' }
+  ]),
+
+  javaCode: `
+  public static CSSToken get(foam.lang.X x, String name) {
+    String cnst = foam.util.StringUtil.constantize(name);
+    try {
+      java.lang.reflect.Field field = CSSTokens.getOwnClassInfo().getObjClass().getDeclaredField(cnst);
+      return (CSSToken) field.get(null);
+    } catch ( NoSuchFieldException e ) {
+      foam.core.logger.StdoutLogger.instance().error("CSSTokens, Token not found", name, cnst);
+    } catch ( IllegalAccessException e ) {
+      foam.core.logger.StdoutLogger.instance().error("CSSTokens", e);
+    }
+    return null;
+  }
+  `
 });

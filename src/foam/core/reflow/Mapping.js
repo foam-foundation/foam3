@@ -36,7 +36,7 @@ foam.ENUM({
     {
       name: 'STANDARD',
       label: 'Standard',
-      documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN, Jan 02 2025'
+      documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, mm/dd/yy, mm-dd-yy, mmddyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN, Jan 02 2025'
     },
     {
       name: 'DDMMYYYY',
@@ -46,10 +46,25 @@ foam.ENUM({
     {
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
-      documentation: 'Year-Day-Month format for NUMERIC dates: yyyy/dd/mm, yyyy-dd-mm, yyyyddmm, yy/dd/mm, yy-dd-mm, yyddmm (month names work automatically in STANDARD)'
+      documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
+    }
+  ],
+
+  properties: [
+    {
+      // Add an 'id' property that returns the ordinal for DAO compatibility
+      name: 'id',
+      getter: function() { return this.ordinal; }
+    }
+  ],
+
+  methods: [
+    function toSummary() {
+      return this.label;
     }
   ]
 });
+
 
 
 foam.CLASS({
@@ -142,6 +157,9 @@ foam.CLASS({
       value: 'STANDARD',
       help: 'Standard format supports most common date formats (yyyy-mm-dd, mm/dd/yyyy, etc.). If your dates don\'t parse correctly, select a different format option.',
       documentation: 'Date format for this field (only applies to Date/DateTime properties)',
+      view: {
+        class: 'foam.core.reflow.DateFormatRichChoiceView'
+      },
       visibility: function(type, prop) {
         // Only show for Date/DateTime properties that use FIELD or CONSTANT mapping
         if ( type === foam.core.reflow.MappingType.DYNAMIC ) return foam.u2.DisplayMode.HIDDEN;

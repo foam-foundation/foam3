@@ -20,7 +20,7 @@ p({
       })
       .build();
   """,
-  "client": "{\"of\":\"foam.core.test.Test\"}"
+  "client": "{\"of\":\"foam.core.test.Test\", \"ttlPurgeTime\": 0, \"ttlSelectPurgeTime\": 0}"
 })
 
 p({

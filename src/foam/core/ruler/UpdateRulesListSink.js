@@ -51,12 +51,14 @@ foam.CLASS({
               List<Rule> rules = ((ArraySink) groupBy.getGroups().get(ruleGroup)).getArray();
               Rule foundRule = Rule.findById(rules, rule.getId());
               if ( foundRule != null ) {
-                rules.remove(foundRule);
-                if ( rule.getEnabled() ) {
+              rules.remove(foundRule);
+                // Only re-add if enabled AND not deleted (lifecycleState check handles soft-delete via remove_)
+                if ( rule.getEnabled() && rule.getLifecycleState() != foam.core.auth.LifecycleState.DELETED ) {
                   rules.add(foundRule.updateRule(rule));
                 }
               } else {
-                if ( rule.getEnabled() ) {
+                // Only add new rule if enabled AND not deleted
+                if ( rule.getEnabled() && rule.getLifecycleState() != foam.core.auth.LifecycleState.DELETED ) {
                   rules.add(rule);
                 }
               }

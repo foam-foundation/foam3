@@ -294,8 +294,8 @@ foam.CLASS({
       label: 'Save',
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       size: 'SMALL',
-      isEnabled: function(data$flowErrors_) {
-        return ! data$flowErrors_;
+      isEnabled: function(data$flowErrors_, data$isLoading_) {
+        return ! data$flowErrors_ && ! data$isLoading_;
       },
       isAvailable: function(showPrompts) {
         return showPrompts;
@@ -382,8 +382,11 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Block',
   extends: 'foam.u2.Accordion',
+  implements: [ 'foam.core.reflow.Flowable' ],
 
   requires: ['foam.u2.WrapperNode'],
+
+  mixins: [ 'foam.u2.StyleConfigurator' ],
 
   implements: [ 'foam.core.reflow.Flowable' ],
 
@@ -424,7 +427,6 @@ foam.CLASS({
       width: 100%;
       height: fit-content;
       overflow-y: hidden;
-      padding: 16px;
     }
     ^.expanded > ^toolbar {
       padding: 0 0 0.8rem 16px;
@@ -441,12 +443,12 @@ foam.CLASS({
     {
       name: 'general',
       order: 100,
-      properties: ['flowName', 'cmd']
+      properties: ['flowName', 'cmd', 'shown']
     },
     {
-      name: 'borderSettings',
+      name: 'titleSettings',
       order: 200,
-      properties: ['borderClass', 'border']
+      properties: ['border']
     }
   ],
 
@@ -468,37 +470,20 @@ foam.CLASS({
       name: 'out',
       hidden: true
     },
-    // TODO: allow adding multiple nested borders,
-    // Needs something that resembles array view
-    // But when converted to viewSpec it nests all array elements
     {
-      class: 'Class',
-      name: 'borderClass',
-      label: 'Border Type',
-      view: function(_,X) {
-        // TODO: replace with strategizer
-        // TODO: add a new card with title border that uses the foam.u2.borders.CardBorder
-        // rather than foam.dashboard.view.Card
-        return {
-          class: 'foam.u2.view.ChoiceView',
-          choices: [
-            [foam.u2.borders.NullBorder, 'None'],
-            [foam.u2.borders.CardBorder, 'Card'],
-            [foam.u2.borders.BackgroundCard, 'Background'],
-            [foam.u2.borders.SpacingBorder, 'Padding'],
-            [foam.u2.borders.TitleBorder, 'Titled'],
-            [foam.dashboard.view.CardWrapper, 'Card with Title']
-          ]
-        };
-      }
+      class: 'Boolean',
+      name: 'shown',
+      hidden: false
     },
     {
       class: 'foam.u2.ViewSpec',
       name: 'border',
       label: 'Border Properties',
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
+      label: '',
       factory: function() { return {}; },
       preSet: function(_, n) {
-        // Dont save the class so that the ViewSpec doesnt convert to a view
+        // Dont save the class so that the ViewSpec doesn't convert to a view
         // The fromJSON should handle this but the scripts dont store the class
         // so parsing ignores all the fromJSON
         if ( n.class ) delete n.class;
@@ -511,6 +496,13 @@ foam.CLASS({
           allowClassChange: false
         };
       }
+    },
+    {
+      class: 'Class',
+      name: 'borderClass',
+      hidden: true,
+      label: 'Border Type',
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
     },
     {
       name: 'borderEl_',
@@ -527,12 +519,24 @@ foam.CLASS({
   ],
 
   methods: [
+    function setTitle(title) {
+      if ( this.borderEl_ ) {
+        this.borderEl_.title = title;
+      } else {
+        this.border.title = title;
+      }
+    },
     function init() {
       let self = this;
       this.SUPER();
-      this.content.tag(this.borderClass, { ...this.border }, self.borderEl_$);
+      this.content.tag(foam.u2.borders.TitleBorder, { ...this.border }, self.borderEl_$);
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
       self.borderEl_.add(this.out);
+      // Since border's properties will be copied over after in includeScript, set it here
+      this.onDetach(this.border$.sub(() => {
+        this.borderEl_.copyFrom(this.border);
+        this.maybeMigrate();
+      }));
     },
 
     function render() {
@@ -542,6 +546,9 @@ foam.CLASS({
       this.title.add(this.flowName$);
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
+      this.initCSSProps(this.content);
+      if ( ! this.padding_st )
+        this.padding_st = '16px';
     },
 
     function addValue(o, skipOutput) {
@@ -566,7 +573,10 @@ foam.CLASS({
     },
 
     function outputJSON(json) {
-      json.outputFObject_(this, this.cls_, [ this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER_CLASS, this.BORDER ]);
+      json.outputFObject_(this, this.cls_, [
+        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER,
+        this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
+      ]);
     }
   ],
 
@@ -585,6 +595,26 @@ foam.CLASS({
   ],
 
   listeners: [
+    function maybeMigrate() {
+      // Legacy support
+      if ( this.borderClass && this.borderClass !== foam.u2.borders.TitleBorder ) {
+        switch ( this.borderClass ) {
+          case foam.u2.borders.CardBorder:
+            this.border_st = 'solid 1px $borderDefault';
+            this.padding_st = '16px';
+            break;
+          case foam.u2.borders.BackgroundCard:
+            this.background_st = this.border.backgroundColor || '$backgroundSecondary';
+            this.padding_st = this.border.padding || '2.4rem';
+            break;
+          case foam.u2.borders.SpacingBorder:
+            this.padding_st = this.border.padding || '1rem';
+            break;
+        }
+        // After migration clear the borderClass so it is never run again on this block;
+        this.borderClass = null;
+      }
+    },
     {
       name: 'pubUpdate',
       on: ['this.propertyChange.borderClass', 'this.propertyChange.border'],
@@ -595,10 +625,9 @@ foam.CLASS({
     {
       name: 'replaceBorder',
       isFramed: true,
-      on: ['this.propertyChange.borderClass'],
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
-        let el = this.borderClass.create({...(this.border || {})}, this);
+        let el = foam.u2.borders.TitleBorder.create({...(this.border || {})}, this);
         this.borderEl_.parentNode.add(el);
         this.out.moveTo(el);
         this.borderEl_.remove();
@@ -621,10 +650,14 @@ foam.CLASS({
   name: 'Layout',
   extends: 'foam.u2.Element',
 
+  imports: [
+    'window'
+  ],
+
   css: `
     ^ {
       display: grid;
-      grid-template-rows: max-content;
+      grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: 100vh;
     }
@@ -632,6 +665,9 @@ foam.CLASS({
       display: flex;
       flex-direction: row;
       overflow: auto;
+      grid-row: 2;
+      height: 100%;
+      min-height: 0;
     }
     ^header {
       padding: 5px 24px;
@@ -729,12 +765,24 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'rightWidth',
-      value: 550
+      factory: function() {
+        var saved = this.window.localStorage['foam.reflow.layout.rightWidth'];
+        return saved ? parseInt(saved) : 550;
+      },
+      postSet: function(_, n) {
+        this.window.localStorage['foam.reflow.layout.rightWidth'] = n;
+      }
     },
     {
       class: 'Int',
       name: 'leftWidth',
-      value: 300
+      factory: function() {
+        var saved = this.window.localStorage['foam.reflow.layout.leftWidth'];
+        return saved ? parseInt(saved) : 300;
+      },
+      postSet: function(_, n) {
+        this.window.localStorage['foam.reflow.layout.leftWidth'] = n;
+      }
     },
     'oldX_', 'oldWidth_'
   ],
@@ -917,7 +965,6 @@ foam.CLASS({
       text-align: left;
       width: 100%;
       position: relative;
-      min-height: 400px;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;
@@ -943,6 +990,13 @@ foam.CLASS({
       width: 400px;
       max-width: 90%;
       justify-content: center;
+    }
+    ^loading-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
     ^loading-indicator .foam-u2-ProgressView {
       width: 100%;
@@ -1073,6 +1127,13 @@ foam.CLASS({
       transient: true
     },
     {
+      class: 'Boolean',
+      name: 'isLoadingMinimized_',
+      hidden: true,
+      transient: true,
+      value: false
+    },
+    {
       class: 'Int',
       name: 'loadingProgress_',
       hidden: true,
@@ -1199,7 +1260,13 @@ foam.CLASS({
           this.currentBlock.value.copyFrom(c.value);
         }
 
-        await this.currentBlock.value?.onLoad?.();
+        // Wrap onLoad in try-catch to prevent errors in one block from stopping other blocks
+        try {
+          await this.currentBlock.value?.onLoad?.();
+        } catch (error) {
+          console.error('Error loading block:', this.currentBlock.flowName, error);
+          // Continue processing other blocks even if this one failed
+        }
 
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
@@ -1273,17 +1340,30 @@ foam.CLASS({
       //   update this.value.script
 
       this.value.script$.sub(this.onScriptChange);
-
-      this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
-
+      this.onScriptChange();
       var layout = this.start(this.Layout);
 
-      layout.showLeft$  = this.showPrompts$;
-      layout.showRight$ = this.showPrompts$;
+      layout.showLeft$   = this.showPrompts$;
+      layout.showRight$  = this.showPrompts$;
       layout.showHeader$ = this.flowMode$.map(m => m != this.FlowMode.PRESENTATION_ONLY);
-      layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
       layout.middle.call(this.renderSelf, [this]);
-      layout.right.tag(this.ReflowConfigView, { data$: this.selected$});
+
+      let setupEditMode = () => {
+        this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
+        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
+        layout.right.tag(this.ReflowConfigView, { data$: this.selected$});
+      };
+
+      if ( this.showPrompts ) {
+        setupEditMode();
+      } else {
+        let sub = this.showPrompts$.sub(() => {
+          if ( this.showPrompts ) {
+            sub.detach();
+            setupEditMode();
+          }
+        });
+      }
 
       layout.header.add(this.dynamic(function(showPrompts) {
         this.tag(self.ReflowHeader, {data: self, showPrompts: showPrompts, resetFlow: self.clearFlow});
@@ -1303,24 +1383,28 @@ foam.CLASS({
           .addClass(self.myClass('output')).
         end().
         // Add loading indicator overlay
-        start()
-          .addClass(self.myClass('loading-indicator'))
-          .show(self.isLoading_$)
-          .start().addClass(self.myClass('loading-text'))
-            .add('Loading Flow...')
-          .end()
-          .start().addClass(self.myClass('loading-progress'))
-            .add(self.loadingProgress_$.map(function(progress) {
-              if ( self.totalBlocks_ > 0 ) {
-                return `Loading block ${progress} of ${self.totalBlocks_}`;
-              }
-              return 'Preparing flow...';
-            }))
-          .end()
-          .tag(foam.u2.ProgressView, {
-            data$: self.loadingPercentage_$
-          })
-        .end().
+        add(self.dynamic(function(isLoading_, isLoadingMinimized_) {
+          if ( isLoading_ && ! isLoadingMinimized_ ) {
+            this.start()
+              .addClass(self.myClass('loading-indicator'))
+              .start().addClass(self.myClass('loading-header'))
+                .start().addClass(self.myClass('loading-text'))
+                  .add('Loading Flow...')
+                .end()
+                .tag(self.MINIMIZE_LOADING)
+              .end()
+              .start().addClass(self.myClass('loading-progress'))
+                .add(self.loadingProgress_$.map(function(progress) {
+                  if ( self.totalBlocks_ > 0 ) {
+                    return `Loading block ${progress} of ${self.totalBlocks_}`;
+                  }
+                  return 'Preparing flow...';
+                }))
+              .end()
+              .tag(foam.u2.ProgressView, { data$: self.loadingPercentage_$ })
+            .end();
+          }
+        }, self.isLoading_$, self.isLoadingMinimized_$)).
         tag(self.ReflowToolBar);
 
         // These observers might cause scroll issues later when queries in the console can be edited
@@ -1435,7 +1519,9 @@ foam.CLASS({
           if ( ! block.flowName ) {
             // For commands like 'cells(2,3)' pickout 'cells' as the block name
             var m = cmd.match(/^\s*([a-zA-Z][a-zA-Z0-9_\$]*)\(/);
-            if ( m ) block.flowName = this.createFlowChildName(m[1]);
+            block.flowName = m ? m[1] : 'a';
+            // Make sure we aren't duplicating an existing name;
+            block.flowName = this.createFlowChildName(block.flowName);
           }
         } catch (x) {
           var i = cmd.indexOf(' ');
@@ -1701,6 +1787,16 @@ foam.CLASS({
         }, 16);
       },
       keyboardShortcuts: [ 'escape' ]
+    },
+    {
+      name: 'minimizeLoading',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'minus',
+      label: '',
+      code: function() {
+        this.isLoadingMinimized_ = true;
+      }
     },
     {
       name: 'stepUpHistory',

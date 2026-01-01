@@ -32,7 +32,7 @@ foam.CLASS({
       of: 'foam.dao.RoutingJournal',
       name: 'journal',
       javaPostSet: `
-new Thread() {
+Thread thread = new Thread() {
   public void run() {
     getJournal().waitForReplay();
     setPromise(
@@ -43,7 +43,9 @@ new Thread() {
         .build()
     );
   }
-}.start();
+};
+thread.setDaemon(true);
+thread.start();
       `
     }
   ],

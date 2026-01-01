@@ -4,11 +4,11 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-
 foam.CLASS({
   package: 'foam.u2.view',
   name: 'ViewConfiguratorView',
   extends: 'foam.u2.Tabs',
+
   documentation: `Renders a detail view using a given element or id for a rendered view.
   Can be used to configure the view and return a ViewSpec.
   When using an id, slot the view id to traceId
@@ -21,9 +21,7 @@ foam.CLASS({
     'foam.u2.Tab'
   ],
 
-  exports: ['clsDAO'],
-
-  TODO: "reactions_ dont currently work when set on view properties",
+  // TODO: "reactions_ dont currently work when set on view properties",
 
   constants: {
     ViewSpecOutputter: foam.json.Outputter.create({
@@ -56,32 +54,8 @@ foam.CLASS({
       value: true
     },
     {
-      name: 'clsDAO',
-      hidden: true,
-      factory: function() {
-        let a = foam.dao.MDAO.create({ of: foam.mlang.LabeledValue }, this);
-        [...Object.keys(foam.USED), ...Object.keys(foam.UNUSED)].map(v => {
-          a.put(foam.mlang.LabeledValue.create({ label: v }), this);
-        });
-        return a;
-      }
-    },
-    {
       name: 'viewClass',
       section: 'viewSection',
-      view: function(_,X) {
-        return {
-          class: 'foam.u2.view.RichChoiceView',
-          of: foam.mlang.LabeledValue,
-          search: true,
-          sections: [
-            {
-              heading: 'Classes',
-              dao: X.clsDAO
-            }
-          ]
-        };
-      },
       expression: function(data_) {
         return data_?.cls_.id ?? '';
       }
@@ -174,9 +148,12 @@ foam.CLASS({
       name: 'updateViewSpec',
       isFramed: true,
       code: function() {
-        let c = this.VIEW_SPEC_OUTPUTTER.objectify(this.data_);
-        if ( ! foam.Object.equals(this.data, c) )
-          this.data = c;
+        let compareObj = this.VIEW_SPEC_OUTPUTTER.objectify(this.data_);
+        if ( ! this.allowClassChange && compareObj.class ) {
+          delete compareObj.class;
+        }
+        if ( ! foam.Object.equals(this.data, compareObj) )
+          this.data = compareObj;
       }
     }
   ]

@@ -457,10 +457,35 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'ConstantSlot',
-
   extends: 'foam.lang.Slot',
 
   documentation: 'An immutable constant valued Slot.',
+
+  axioms: [
+    {
+      // Lots of identical ConstantSlots are created so cache instances
+      // for string, boolean and enum values
+      installInClass: function(cls) {
+        let map = {};
+        let oldCreate = cls.create;
+        cls.create = function(args) {
+          if ( args && args.value ) {
+            let value = args.value;
+            let type  = typeof value;
+
+            if ( type === 'string' || type  === 'boolean' || ( foam.lang.AbstractEnum && foam.lang.AbstractEnum.isInstance(value) ) ) {
+              let key = typeof value + value.toString();
+              if ( ! map[key] ) {
+                map[key] = oldCreate.apply(this, arguments);
+              }
+              return map[key];
+            }
+          }
+          return oldCreate.apply(this, arguments);
+        };
+      }
+    }
+  ],
 
   properties: [
     {
@@ -670,8 +695,8 @@ foam.CLASS({
   methods: [
     function init() {
       this.SUPER();
-      var i = window.requestAnimationFrame(() => this.value);
-      this.onDetach(() => window.cancelAnimationFrame(i));
+      var i = globalThis.requestAnimationFrame(() => this.value);
+      this.onDetach(() => globalThis.cancelAnimationFrame(i));
     },
     function subToArgs_(args) {
       // Overrides implementation in ExpressionSlot

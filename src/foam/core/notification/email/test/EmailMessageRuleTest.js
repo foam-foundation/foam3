@@ -70,15 +70,6 @@ foam.CLASS({
     user.setLifecycleState(LifecycleState.ACTIVE);
     user_ = (User) ((DAO) x.get("userDAO")).put_(x, user);
 
-    EmailTemplate template = new EmailTemplate();
-    template.setId(spid_);
-    template.setName(spid_);
-    template.setSpid(spid_);
-    // template.setGroup(spid_);
-    template.setSubject(subjectTemplate_);
-    template.setBody("Body: {{arg1}}");
-    template_ = (EmailTemplate) ((DAO) x.get("emailTemplateDAO")).put(template);
-
     EmailConfig config = new EmailConfig();
     config.setSpid(spid_);
     config.setFrom("noreply@example.com");
@@ -94,9 +85,18 @@ foam.CLASS({
     setup(x);
     DAO dao = (DAO) x.get("emailMessageDAO");
     HashMap args = new HashMap();
-    args.put("template", template_.getId());
+
+
+    EmailTemplate template = new EmailTemplate();
+    template.setId(spid_);
+    template.setName(spid_);
+    template.setSpid(spid_);
+    // template.setGroup(spid_);
+    template.setSubject(subjectTemplate_);
+    template.setBody("Body: {{arg1}}");
+    template = (EmailTemplate) ((DAO) x.get("emailTemplateDAO")).put(template).fclone();
+    args.put("template", template.getId());
     args.put("subject", subject_);
-    args.put("args1", "args1");
     EmailMessage msg = new EmailMessage(x, user_.getId(), args);
     msg.setTo(new String[] { "another@example.com" });
     msg = (EmailMessage) dao.put(msg);
@@ -106,33 +106,54 @@ foam.CLASS({
     test(msg.getStatus() == Status.UNSENT, "EmailMessage status==UNSENT: "+msg.getStatus());
     test(subjectResolved_.equals(msg.getSubject()), "EmailMessage subject=="+subjectResolved_+": "+msg.getSubject());
 
+    // CSS
     msg = new EmailMessage();
-    msg.setSubject(subjectResolved_);
-    msg.setBody("Body: args1");
     msg.setUser(user_.getId());
     msg.setTo(new String[] { "another@example.com" });
+    template.setBody("CSS: {$ font-semi-bold $}");
+    template = (EmailTemplate) ((DAO) x.get("emailTemplateDAO")).put(template).fclone();
     args = new HashMap();
-    args.put("template", template_.getId());
+    args.put("template", template.getId());
+    args.put("subject", subject_);
     msg.setTemplateArguments(args);
     msg = (EmailMessage) ((DAO) x.get("emailMessageDAO")).put(msg);
-    test(msg!=null, "EmailsUtility(2) found: "+msg.getId());
-    test(msg.getStatus() == Status.UNSENT, "EmailsUtility(2) status==UNSENT: "+msg.getStatus());
-    test(subjectResolved_.equals(msg.getSubject()), "EmailsUtility(2) subject=="+subjectResolved_+": "+msg.getSubject());
+    test(msg!=null, "MailMessage (CSS) found: "+msg.getId());
+    test("CSS: 700".equals(msg.getBody()), "EmailMessage (CSS) body: "+msg.getBody());
 
+    // No-args
+    msg = new EmailMessage();
+    msg.setUser(user_.getId());
+    msg.setTo(new String[] { "another@example.com" });
+    template.setBody("Body: args1_not_replaced");
+    template = (EmailTemplate) ((DAO) x.get("emailTemplateDAO")).put(template).fclone();
+    args = new HashMap();
+    args.put("template", template.getId());
+    args.put("subject", subject_);
+    msg.setTemplateArguments(args);
+    msg = (EmailMessage) ((DAO) x.get("emailMessageDAO")).put(msg);
+    test(msg!=null, "EmailMessage (No Args) found: "+msg.getId());
+    test(msg.getStatus() == Status.UNSENT, "EmailMessage (No Args) status==UNSENT: "+msg.getStatus());
+    test(subjectResolved_.equals(msg.getSubject()), "EmailMessage (No Args) subject=="+subjectResolved_+": "+msg.getSubject());
+    test("Body: args1_not_replaced".equals(msg.getBody()), "EmailMessage (No Args) Body: args1_not_replaced: "+msg.getBody());
+
+    // Args
+    template.setBody("Body: {{args1}}");
+    template = (EmailTemplate) ((DAO) x.get("emailTemplateDAO")).put(template).fclone();
     args = new HashMap();
     args.put("subject", subject_);
-    args.put("args1", "args1");
-    args.put("template", template_.getId());
-    EmailMessage msg3 = new EmailMessage();
-    msg3.setTo(new String[] { "another@example.com" });
-    msg3.setUser(user_.getId());
-    msg3.setTemplateArguments(args);
-    msg3 = (EmailMessage) ((DAO) x.get("emailMessageDAO")).put(msg3);
-    test(msg3 != null, "EmailsUtility(3) found: "+msg3.getId());
-    test(msg3.getStatus() == Status.UNSENT, "EmailsUtility(3) status==UNSENT: "+msg.getStatus());
-    test(subjectResolved_.equals(msg3.getSubject()), "EmailsUtility(3) subject=="+subjectResolved_+": "+msg3.getSubject());
-    String[] to = msg3.getTo();
-    test(to != null && to[0].equals("another@example.com"), "EmailsUtility(3) to[0]==another@example.com");
+    args.put("args1", "args1_resolved");
+    args.put("template", template.getId());
+    msg = new EmailMessage();
+    msg.setTo(new String[] { "another@example.com" });
+    msg.setUser(user_.getId());
+    msg.setTemplateArguments(args);
+    msg = (EmailMessage) ((DAO) x.get("emailMessageDAO")).put(msg);
+    test(msg != null, "EmailMessage (Args) found: "+msg.getId());
+    test(msg.getStatus() == Status.UNSENT, "EmailMessage (Args) status==UNSENT: "+msg.getStatus());
+    test(subjectResolved_.equals(msg.getSubject()), "EmailMessage (Args) subject=="+subjectResolved_+": "+msg.getSubject());
+    String[] to = msg.getTo();
+    test(to != null && to[0].equals("another@example.com"), "EmailMessage (Args) to[0]==another@example.com");
+    test("Body: args1_resolved".equals(msg.getBody()), "EmailMessage (Args) Body: args1_resolved: "+msg.getBody());
        `
     // },
     // {

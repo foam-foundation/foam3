@@ -11,10 +11,13 @@ foam.POM({
     CORE_PIDFILE:      ['JVM process ID file', () => `${APP_HOME}/core.pid`],
     DOCUMENT_HOME:     ['Appplication documents directory',() => APP_NAME ? `${APP_HOME}/documents`: 'APP_HOME/documents'],
     DOCUMENT_OUT:      ['Build documents directory',() => `${PROJECT_HOME}/${BUILD_DIR}/documents`],
-    JAR_INCLUDES:      ['Additional directories to include Java jar',''],
+    JAR_INCLUDES:      ['Directories to include in binary JAR (compiled .class files)',''],
+    JAR_RES_INCLUDES:  ['Directories to include in resources JAR (journals, documents, images, webroot)',''],
     JAR_LIB_DIR:       ['Deployment lib directory',() => ( TAR ? `${PROJECT_HOME}/${BUILD_DIR}` : (APP_NAME ? APP_HOME : 'APP_HOME')) + '/lib'],
-    JAR_NAME:          ['Java jar name',() => APP_NAME ? `${APP_NAME}-${VERSION}.jar` : 'APP_NAME-VERSION.jar' ],
-    JAR_OUT:           ['Java jar path and name',() => `${JAR_LIB_DIR}/${JAR_NAME}`],
+    JAR_NAME:          ['Binary JAR name (contains compiled .class files)',() => APP_NAME ? `${APP_NAME}-${VERSION}.jar` : 'APP_NAME-VERSION.jar' ],
+    JAR_RES_NAME:      ['Resources JAR name (contains journals, documents, images, webroot)',() => APP_NAME ? `${APP_NAME}-resources-${VERSION}.jar` : 'APP_NAME-resources-VERSION.jar' ],
+    JAR_OUT:           ['Binary JAR full path',() => `${JAR_LIB_DIR}/${JAR_NAME}`],
+    JAR_RES_OUT:       ['Resources JAR full path',() => `${JAR_LIB_DIR}/${JAR_RES_NAME}`],
     JAVA:              ['Java executable', ''],
     JAVA_MANIFEST:     ['Generated JAVA_MANIFEST', ''],
     JAVA_TOOL_OPTIONS: ['Internal configuration for JVM with the JAVA_OPTS',() => JAVA_OPTS],
@@ -32,7 +35,9 @@ foam.POM({
     buildOnly: [ 'o', 'build-only', 'BUILD_ONLY', "Only execute java generation and java compilation build steps, don't start CORE server.", false, function(arg) { BUILD_ONLY = arg ? this.bool(arg) : true; } ],
     debug: [ 'd', 'debug', 'DEBUG', 'Launch JVM with JDPA debugging enabled. Default port 8000.', false, function(arg) { DEBUG = arg ? this.bool(arg) : true; } ],
     debugPort: [ 'D', 'debug-port', 'DEBUG_PORT', 'Port JVM will listen on for debuggers (JDPA) connections.',8000, function(arg) { DEBUG_PORT = arg; DEBUG = true; }],
-    deleteRuntimeJournals: [ 'j', 'delete-runtime-journals', 'DELETE_RUNTIME_JOURNALS', 'Delete runtime journals.', false, function(arg) { DELETE_RUNTIME_JOURNALS = arg ? this.bool(arg) : true; } ],
+    backupRuntimeJournalsDirSuffix: [ 'S', 'backup-runtime-journals-dir-suffix', 'BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX', 'Backup runtime journals directory suffix. Defaults to a timestamp.', TIMESTAMP, function(arg) { BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX = arg ? arg : TIMESTAMP; BACKUP_RUNTIME_JOURNALS = true; }],
+    backupRuntimeJournals: [ 'b', 'backup-runtime-journals', 'BACKUP_RUNTIME_JOURNALS', 'Backup runtime journals. By default journals are copied to journals_\'timestamp\'. The timestamp suffix can be overridden by provide an argument to this options. Also see \'backupRuntimeJournalsDirSuffix\'.  See option \'-N\' for naming and retaining journal sets.', false, function(arg) { BACKUP_RUNTIME_JOURNALS = true; BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX = arg ? arg : TIMESTAMP; }],
+    deleteRuntimeJournals: [ 'j', 'delete-runtime-journals', 'DELETE_RUNTIME_JOURNALS', 'Delete runtime journals. See option \'-N\' for naming and retaining journal sets.', false, function(arg) { DELETE_RUNTIME_JOURNALS = true; AUTO_CONFIRM = arg ? this.bool(arg) : AUTO_CONFIRM; }],
     javacParameters: ['', 'javac-parameters', 'JAVAC_PARAMETERS', 'Parameters passed to Java Compiler','-proc:none', arg => JAVAC_PARAMETERS = arg ],
     javaRelease: ['', 'java-release', 'JAVA_RELEASE', 'Java target version. Can also be set in root pom. ex: java: \'11\'', '21', args => JAVA_RELEASE = args],
     journals: [ 'J', 'journals', 'JOURNALS', 'Comma seperated list of additional journal directories, relative to deployment/ from the root project.', '', function(args) { JOURNALS = this.comma(JOURNALS, args); } ],
@@ -70,6 +75,9 @@ foam.POM({
         } else if ( CLEAN ) {
           this.execute('clean');
         }
+        if ( BACKUP_RUNTIME_JOURNALS ) {
+          this.execute('backupRuntimeJournals');
+        }
         if ( DELETE_RUNTIME_JOURNALS ) {
           this.execute('deleteRuntimeJournals');
         }
@@ -91,9 +99,17 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build Java JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'versions', 'copy', 'genImages', 'genJavaManifest', 'jarFOAM' ], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} webroot `;
+    buildJar: ['build-jar', 'Build binary and resources JAR files.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'versions', 'copy', 'genImages', 'genJavaManifest', 'jarFOAM' ], function() {
+      // Webroot goes into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} webroot `;
+
+      // Build binary JAR (compiled .class files only)
+      this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+
+      // Build resources JAR (journals, documents, images, webroot)
+      this.info(`Building resources JAR: ${JAR_RES_NAME}`);
+      this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
     buildJavaMainArgs: ['build-java-main-args', 'Collection all options which should be passed to Java main', [], function() {
@@ -138,7 +154,8 @@ foam.POM({
 
       JAVA_OPTS += ' -enableassertions';
       JAVA_OPTS += ' -Dresource.journals.dir=journals';
-      JAVA_OPTS += ' -DRES_JAR_HOME=' + JAR_OUT;
+      // Point RES_JAR_HOME to the resources JAR for ResourceStorage
+      JAVA_OPTS += ' -DRES_JAR_HOME=' + JAR_RES_OUT;
       JAVA_OPTS += ` -Dproject.home=${PROJECT_HOME}`;
 
       if ( DEBUG )
@@ -147,12 +164,44 @@ foam.POM({
         JAVA_OPTS += ` -${SYSTEM_PROPERTY.split(',').join(' -')}`;
     }],
 
-    buildTar: ['build-tar', 'Package files into a TAR archive', [()=>TAR=true, 'buildJar'], function() {
+    buildTar: ['build-tar', 'Package files into a TAR archive (both binary and resources JARs)', [()=>TAR=true, 'buildJar'], function() {
       this.ensureDir(this.join(BUILD_DIR, 'package'));
-      // Notice that the argument to the second -C is relative to the directory from the first -C, since -C
-      this.log(`buildTar TARBALL_PATH:${TARBALL_PATH}`);
+      this.info(`Building full tarball with binary and resources JARs: ${TARBALL}`);
       const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
+      // Packages bin/, etc/, and lib/ (containing both binary and resources JARs)
       this.execSync(`tar -a -cf ${TARBALL_PATH} -C ${toolsDeploy} bin etc -C${require('path').resolve(BUILD_DIR)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+    }],
+
+    buildBinaryTar: ['build-binary-tar', 'Package binary JAR only into a TAR archive (for Docker base image)', [()=>TAR=true, 'buildJar'], function() {
+      this.ensureDir(this.join(BUILD_DIR, 'package'));
+      const binaryTarball = APP_NAME + '-binary-' + VERSION + '.tar.gz';
+      const binaryTarballPath = BUILD_DIR + '/package/' + binaryTarball;
+      this.info(`Building binary-only tarball: ${binaryTarball}`);
+      const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
+      // Create a staging area with lib/ structure containing only binary JAR and dependencies
+      const stagingDir = this.join(BUILD_DIR, 'staging-binary');
+      const stagingLibDir = this.join(stagingDir, 'lib');
+      this.ensureDir(stagingLibDir);
+      // Copy binary JAR and all dependency JARs (but not the resources JAR)
+      this.execSync(`find ${BUILD_DIR}/lib -name "*.jar" ! -name "*-resources-*.jar" -exec cp {} ${stagingLibDir}/ \\;`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      // Package with lib/ directory structure for compatibility
+      this.execSync(`tar -a -cf ${binaryTarballPath} -C ${toolsDeploy} bin etc -C${require('path').resolve(stagingDir)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.info(`Binary tarball created: ${binaryTarballPath}`);
+    }],
+
+    buildResourcesTar: ['build-resources-tar', 'Package resources JAR only into a TAR archive (customer-specific)', [()=>TAR=true, 'buildJar'], function() {
+      this.ensureDir(this.join(BUILD_DIR, 'package'));
+      const resourcesTarball = APP_NAME + '-resources-' + VERSION + '.tar.gz';
+      const resourcesTarballPath = BUILD_DIR + '/package/' + resourcesTarball;
+      this.info(`Building resources-only tarball: ${resourcesTarball}`);
+      // Create a staging area with lib/ structure containing only resources JAR
+      const stagingDir = this.join(BUILD_DIR, 'staging-resources');
+      const stagingLibDir = this.join(stagingDir, 'lib');
+      this.ensureDir(stagingLibDir);
+      this.execSync(`cp ${BUILD_DIR}/lib/${JAR_RES_NAME} ${stagingLibDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      // Package with lib/ directory structure for compatibility
+      this.execSync(`tar -a -cf ${resourcesTarballPath} -C${require('path').resolve(stagingDir)} lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.info(`Resources tarball created: ${resourcesTarballPath}`);
     }],
 
     clean: ['clean', 'Remove generated files', ['cleanJava'], function() {
@@ -171,22 +220,85 @@ foam.POM({
       this.emptyDir(APP_HOME);
     }],
 
-    deleteRuntimeJournals: ['delete-runtime-journals', 'Delete runtime journals.', [], function() {
-      this.info('Runtime journals deleted.');
-      this.emptyDir(JOURNAL_HOME);
-      this.emptyDir(SAF_HOME);
-      this.emptyDir(DOCUMENT_HOME);
+    backupRuntimeJournals: ['backup-runtime-journals', 'Backup runtime journals.', [], function() {
+      const JOURNAL_BACKUP_DIR = `${JOURNAL_HOME}_${BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX}`;
+      this.ensureDir(JOURNAL_BACKUP_DIR);
+      this.copyDir(JOURNAL_HOME, JOURNAL_BACKUP_DIR);
+
+      const SAF_BACKUP_DIR = `${SAF_HOME}_${BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX}`;
+      this.ensureDir(SAF_BACKUP_DIR);
+      this.copyDir(SAF_HOME, SAF_BACKUP_DIR);
+
+      const DOCUMENT_BACKUP_DIR = `${DOCUMENT_HOME}_${BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX}`;
+      this.ensureDir(DOCUMENT_BACKUP_DIR);
+      this.copyDir(DOCUMENT_HOME, DOCUMENT_BACKUP_DIR);
+
+      this.info(`Runtime journals backed up to ${JOURNAL_BACKUP_DIR}`);
     }],
 
-    genImages: ['gen-images', 'Prepare images from inclusion in jar.', [], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} images `;
+    deleteRuntimeJournals: ['delete-runtime-journals', 'Delete runtime journals. When propted press \'y\' to proceed, \'b\' to backup before deleting, \'b:scenario1\' to backup to named directory before deleting.  Any other key will cancel.' , [], function() {
+      var confirmed = false;
+      if ( ! AUTO_CONFIRM && ! BACKUP_RUNTIME_JOURNALS ) {
+        // Confirmation check to protect against accidental journal deletion
+        const { spawnSync } = require('child_process');
+
+        console.log('\x1b[0;33m⚠️  WARNING: You are about to delete runtime journals!\x1b[0;0m');
+        console.log(`   JOURNAL_HOME: ${JOURNAL_HOME}`);
+        console.log(`   SAF_HOME: ${SAF_HOME}`);
+        console.log(`   DOCUMENT_HOME: ${DOCUMENT_HOME}`);
+
+        // Use bash read command for synchronous input with proper signal handling
+        const result = spawnSync('bash', ['-c', 'read -p "Are you sure you want to proceed? (y/n/b): " answer && echo "$answer"'], {
+          stdio: ['inherit', 'pipe', 'inherit'],
+          encoding: 'utf8'
+        });
+
+        // Check if interrupted (Ctrl+C)
+        if ( result.signal === 'SIGINT' || result.status === 130 ) {
+          console.log('\n\x1b[0;31mOperation cancelled.\x1b[0;0m');
+          process.exit(130);
+        }
+
+        const answer = (result.stdout || '').trim().toLowerCase();
+        confirmed = answer === 'y' || answer === 'yes' || answer === 'b';
+        var noDelete = answer === 'n' || answer === 'no';
+        var backup = answer === 'b';
+        if ( answer.startsWith('b:') ) {
+          confirmed = true;
+          backup = true;
+          BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX = answer.split(':')[1];
+        }
+        if ( ! confirmed && ! noDelete && ! backup ) {
+          console.log('\x1b[0;31mOperation cancelled. Runtime journals were NOT deleted.\x1b[0;0m');
+          process.exit(1);
+        }
+        if ( ! confirmed && noDelete ) {
+          this.warning('Runtime journals NOT deleted.');
+        }
+        if ( backup ) {
+          this.execute("backupRuntimeJournals");
+        }
+      }
+      if ( AUTO_CONFIRM || confirmed ) {
+        this.info('Runtime journals deleted.');
+        this.emptyDir(JOURNAL_HOME);
+        this.emptyDir(SAF_HOME);
+        this.emptyDir(DOCUMENT_HOME);
+      }
+    }],
+
+    genImages: ['gen-images', 'Prepare images for inclusion in resources jar.', [], function() {
+      // Images go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} images `;
 
       this.pmake.bind(this, `-makers=Image -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR}`)();
     }],
 
     genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters'], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} journals `;
-      JAR_INCLUDES += ` -C ${BUILD_DIR} documents `;
+      // Resources (journals, documents) go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} documents `;
+      // Compiled classes go into the binary JAR
       JAR_INCLUDES += ` -C ${BUILD_DIR}/classes .`;
 
       var makers = VERBOSE ? 'Verbose,' : '';
@@ -387,10 +499,12 @@ foam.POM({
       JAVA_OPTS += ` -Dresource.journals.dir=journals`;
       JAVA_OPTS += ` -DLOG_HOME=${LOG_HOME}`;
 
-      // this.info(`Starting CORE ${APP_NAME}`);
+      // Binary and resources JARs
+      var BIN_JAR = `${APP_HOME}/lib/${APP_NAME}-${VERSION}.jar`;
+      var RES_JAR = `${APP_HOME}/lib/${APP_NAME}-resources-${VERSION}.jar`;
+      var CLASSPATH = `${BIN_JAR}:${RES_JAR}:${APP_HOME}/lib/*`;
 
-      var JAR=`${APP_HOME}/lib/${APP_NAME}-${VERSION}.jar`;
-      var proc = this.spawn(JAVA, ['-server', '-jar', `${JAR}`], { shell: '/bin/bash', env: {JAVA_TOOL_OPTIONS: JAVA_OPTS, RES_JAR_HOME: JAR }, stdio: 'inherit'});
+      var proc = this.spawn(JAVA, ['-server', '-cp', CLASSPATH, JAVA_MAIN_CLASS], { shell: '/bin/bash', env: {JAVA_TOOL_OPTIONS: JAVA_OPTS, RES_JAR_HOME: RES_JAR }, stdio: 'inherit'});
       this.writeFileSync(CORE_PIDFILE, proc.pid.toString());
     }],
 
@@ -418,8 +532,11 @@ foam.POM({
 
       this.info(MESSAGE);
 
+      // Build classpath with binary and resources JARs
+      var CLASSPATH = `${JAR_OUT}:${JAR_RES_OUT}:${BUILD_DIR}/lib/*`;
+
       try {
-        this.execSync(`java -jar ${JAR_OUT}`, { stdio: 'inherit' });
+        this.execSync(`java -cp "${CLASSPATH}" ${JAVA_MAIN_CLASS}`, { stdio: 'inherit' });
       } catch ( e ) {
         if ( mode !== 'test' )
           throw e;
@@ -472,6 +589,27 @@ foam.POM({
       this.log('    Build into a unique path \'demo\', launch from JAR, start HTTPS web server on port \'8300\'.');
       this.log('  ./build.sh -EAPP_NAME:demo,WEB_PORT:8300,JAR:true,JOURNALS:https');
       this.log('    Build into a unique path \'demo\', launch from JAR, start HTTPS web server on port \'8300\'.');
+      this.log('  ./build.sh -j');
+      this.log('    Build and delete runtime journals, with confirmation.');
+      this.log('  ./build.sh -jy');
+      this.log('    Build and delete runtime journals, without confirmation.');
+      this.log('  ./build.sh -jb');
+      this.log('    Build, backup runtime journals before deleting, without confirmation.');
+      this.log('  ./build.sh -j --backupRuntimeJournals:scenario1');
+      this.log('    Build, backup runtime journals to journals_scenario1 before deleting, without confirmation.');
+      this.log('  ./build.sh -jSscenario1');
+      this.log('    Build, backup runtime journals to journals_scenario1 before deleting, without confirmation.');
+      this.log('\nPackaging for Deployment:');
+      this.log('  ./build.sh --build-tar');
+      this.log('    Build full deployment tarball containing both binary and resources JARs.');
+      this.log('  ./build.sh --build-binary-tar');
+      this.log('    Build binary-only tarball (for Docker base image). Contains compiled classes and dependencies.');
+      this.log('  ./build.sh --build-resources-tar');
+      this.log('    Build resources-only tarball (customer-specific). Contains journals, documents, images, webroot.');
+      this.log('  Docker workflow example:');
+      this.log('    1. ./build.sh --build-binary-tar    # Build base image with binary JAR');
+      this.log('    2. ./build.sh --build-resources-tar # Build customer-specific resources');
+      this.log('    3. Overlay resources tarball into container at runtime');
       this.log('\nRunning Java Test Cases:');
       this.log('  ./build.sh --run-tests');
       this.log('    Run all test cases.');

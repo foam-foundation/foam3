@@ -2,13 +2,12 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [SimpleQueryParser Syntax Guide](#simplequeryparser-syntax-guide)
+- [AutoQueryParser Syntax Guide](#simplequeryparser-syntax-guide)
   - [Basic AQL Syntax](#basic-aql-syntax)
   - [Logical Operators](#logical-operators)
     - [AND](#and)
     - [NOT](#not)
     - [OR](#or)
-    - [OR](#or-1)
   - [Grouping](#grouping)
   - [Property Values](#property-values)
   - [Expressions](#expressions)
@@ -27,11 +26,11 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# SimpleQueryParser Syntax Guide
+# AutoQueryParser Syntax Guide
 
 ## Basic AQL Syntax
-SimpleQueryParser supports property-based queries with various operators and logical combinations. This parser is meant to work together with the 
-<code>foam.parse.auto.AutoCompleter</code> component, providing suggestions to the user as they type and it is referred to as <code>AQL</code>.
+The AQL Query Language supports property-based queries with various operators and logical combinations. This parser is meant to work together with the 
+`foam.parse.auto.SmartView` component, providing suggestions to the user as they type and it is referred to as `AQL`.
 
 ## Logical Operators
 
@@ -46,13 +45,6 @@ expression1 & expression2
 Negate expressions with NOT:
 ```
 NOT expression
-```
-
-### OR
-Combine expressions with OR or pipe:
-```
-expression1 OR expression2
-expression1 | expression2
 ```
 
 ### OR
@@ -150,7 +142,7 @@ The expressions that are supported for all numbers are:
 | _property_ <= _value_ | _property_ is less than or equal to _value_ |
 | _property_ < _value_ | _property_ is less than _value_ |
 | _property_ != _value_ | _property_ is not equal to _value_ |
-| _property_ = _value_ | _property_ equals _value_ | 
+| _property_ = _value_ | _property_ equals _value_ |
 
 Additional expressions that are supported for floating point numbers only:
 

@@ -286,6 +286,10 @@ new BrowserAgent(...) {
       BrowserConfig bc = (BrowserConfig) ((DAO) x.get("browserConfigDAO")).find(AND(EQ(BrowserConfig.ENABLED, true), EQ(BrowserConfig.TYPE, getType())));
       List list = new ArrayList();
       list.add(bc.getExecutable(x));
+      // Add user data directory FIRST if configured (must be before other flags)
+      if ( bc.getDataDir() != null && !bc.getDataDir().isEmpty() ) {
+        list.add("--user-data-dir=" + bc.getDataDir());
+      }
       if ( getHeadless() ) {
         list.addAll(List.of(bc.getHeadlessFlags()));
       } else {

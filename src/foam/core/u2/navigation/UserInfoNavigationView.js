@@ -149,19 +149,19 @@ foam.CLASS({
       this
         .addClass(this.myClass('label-container'))
         .add(this.slot(function(subject$user) {
-          if ( ! this.subject.user ) return;
+          if ( ! subject$user ) return;
           return this.E().addClass(self.myClass('name-container'))
               .start('span')
                 .addClass('p-label')
-                .add(this.subject.user.toSummary())
+                .add(subject$user.toSummary())
               .end();
         }))
         .add(this.slot(function(subject$realUser, subject$user) {
-          if ( ! this.subject.realUser || this.subject.user.id == this.subject.realUser.id ) return;
+          if ( ! subject$user || ! subject$realUser || subject$user.id == subject$realUser.id ) return;
           return this.E().addClass(self.myClass('name-container'))
               .start('span')
                 .addClass('p-legal-light', this.myClass('agentName'))
-                .add( this.subject.realUser.toSummary() )
+                .add( subject$realUser.toSummary() )
               .end();
         }));
     }

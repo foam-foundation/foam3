@@ -1971,7 +1971,21 @@ foam.CLASS({
       let d = this.dateProp.f(obj);
       let c = this.categoryProp ? this.categoryProp.f(obj) : 'default';
       if (!d || !c) return;
-      let key = new Date(d).toISOString().slice(0, 10);
+      let key = d;
+      if ( ! (d instanceof Date) ) {
+        // Try to parse as a date string
+        if ( typeof d !== 'string' ) {
+          // Should never happen, but just in case.
+          throw new Error('Date must be Date object or a string'); 
+        }
+        if (d.length === 7) { d = d + `${d[4]}01`; }  // d[4] MUST be '/' or '-'
+        // We only support YYYY/MM and YYYY/MM/DD formats. Add support for the other formats if needed.
+        const datePattern = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/;
+        const dateParser = (m) => new Date(Date.UTC(m[1], m[2] - 1, m[3]));
+        if ( ! datePattern.test(d) ) { return; }
+        key = dateParser(d.match(datePattern));
+      }
+      key = key.toISOString().slice(0, 10);
       if (!this.map_[key]) this.map_[key] = {};
       let v = 1;
       if (this.valueSink && this.valueSink.put) {
@@ -1998,7 +2012,6 @@ foam.CLASS({
       updateChartData();
       e.add(this.chart_$);
       // Live slot binding like Pie/Bar
-      console.log('colors', this.colors$);
       this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
         var c = self.chart_;
         if (!c) return;

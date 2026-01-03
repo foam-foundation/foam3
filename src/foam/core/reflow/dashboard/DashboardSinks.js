@@ -668,14 +668,19 @@ foam.CLASS({
         .start('div')
           .addClass(self.getMyClass('graph-container'))
           .style({ 'min-height': this.height$, height: this.height$ })
-          .add(self.slot(function(hasData, chart_, emptyValueMessage) {
-            return hasData ? chart_ : x.E()
+          .add(self.dynamic(function(hasData, chart_, emptyValueMessage) {
+            if ( hasData ) {
+              this.add(chart_);
+            }
+            else {
+              this
               .start('div')
-              .addClass(self.getMyClass('empty-value-message'))
-              .start('p')
-                .add(emptyValueMessage)
-              .end()
-            .end();
+                .addClass(self.getMyClass('empty-value-message'))
+                .start('p')
+                  .add(emptyValueMessage)
+                .end()
+              .end();
+            }
           }))
         .end();
 

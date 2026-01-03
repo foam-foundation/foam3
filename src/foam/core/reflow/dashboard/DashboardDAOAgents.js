@@ -880,7 +880,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 3,
       collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage']
     },
     {
       name: 'colors',
@@ -941,7 +941,13 @@ foam.CLASS({
         onKey: true
       },
       help: 'Starting angle in degrees (-180 to 180)'
-    }
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      help: 'Message to display when there is no data',
+      value: 'No data available'
+    },
   ],
 
   methods: [
@@ -974,7 +980,8 @@ foam.CLASS({
         showTooltipSum: this.showTooltipSum,
         animate: this.animate,
         animationDuration: this.animationDuration,
-        alignment: this.alignment
+        alignment: this.alignment,
+        emptyValueMessage: this.emptyValueMessage
       });
 
       return sink;

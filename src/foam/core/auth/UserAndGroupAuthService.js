@@ -36,6 +36,7 @@ foam.CLASS({
   javaImports: [
     'foam.lang.X',
     'foam.dao.DAO',
+    'foam.core.auth.AuthService',
     'foam.core.auth.LifecycleState',
     'foam.core.auth.ServiceProvider',
     'foam.core.auth.Subject',
@@ -160,7 +161,10 @@ foam.CLASS({
       name: 'checkGroup',
       javaCode: `
         // check whether user has permission to check group permissions
-        if ( ! check(x, CHECK_USER_PERMISSION) ) throw new AuthorizationException();
+        // Use full auth chain (from context) so capabilities/other grants can satisfy this permission
+        AuthService auth = (AuthService) x.get("auth");
+        if ( auth == null ) throw new AuthorizationException("Fishy Auth missing");
+        if ( ! auth.check(x, CHECK_USER_PERMISSION) ) throw new AuthorizationException("Not allowed to check user permissions.");
         try {
           Permission p = new AuthPermission(permission);
           while ( ! SafetyUtil.isEmpty(groupId) ) {

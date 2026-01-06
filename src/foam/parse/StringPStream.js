@@ -64,6 +64,7 @@ foam.CLASS({
       if ( args ) {
         if ( args.apply ) this.apply = args.apply;
         if ( args.str   ) this.setString(args.str);
+        else this.setString("");
       }
     },
 

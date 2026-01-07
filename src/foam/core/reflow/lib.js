@@ -122,6 +122,39 @@ foam.LIB({
         /* Convert a string to upper case. */
         return s ? s.toString().toUpperCase() : '';
       }
+    },
+    {
+      name: 'substr',
+      code: function(s, start, len) {
+        /**
+         * Extract a substring from a string.
+         * @param {string} s - Source string
+         * @param {number} start - Start index
+         * @param {number} len - Optional length (if omitted, extracts to end)
+         * @returns {string} The extracted substring
+         */
+        if ( ! s ) return '';
+        s = s.toString();
+        return len !== undefined ? s.substring(start, start + len) : s.substring(start);
+      }
+    },
+    {
+      name: 'concat',
+      code: function() {
+        /**
+         * Concatenate multiple strings together.
+         * @param {...string} args - Strings to concatenate
+         * @returns {string} The concatenated string
+         */
+        var result = '';
+        for ( var i = 0 ; i < arguments.length ; i++ ) {
+          var arg = arguments[i];
+          if ( arg != null && arg !== undefined ) {
+            result += arg.toString();
+          }
+        }
+        return result;
+      }
     }
   ]
 });

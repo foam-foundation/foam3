@@ -426,6 +426,7 @@ foam.CLASS({
       name: 'getData',
       code: function() {
         this.deFeedback(() => {
+          if ( this.data && this.data !== this.TRUE ) return;
           var queryParser = foam.parse.QueryParser.create({ of: this.dao.of }, this);
           var value = this.mementoString;
           if ( value && value.indexOf('{') != -1 && value.indexOf('}') != -1 ) {

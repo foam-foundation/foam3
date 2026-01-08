@@ -49,8 +49,6 @@ foam.CLASS({
 
   searchColumns: [ 'name', 'status', 'source', 'keywords' ],
 
-  constants: { ROLE_PERMISSION_PREFIX: '@' },
-
   topics: [ 'loadComplete' ],
 
   sections: [
@@ -131,16 +129,6 @@ foam.CLASS({
       class: 'FObjectArray',
       of: 'foam.core.reflow.UserFlowAccess',
       name: 'specifiedUserAccess',
-      autoValidate: true,
-      section: 'general',
-      visibility: function(accessLevel) {
-        return accessLevel != foam.core.reflow.FlowAccess.SHARED ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW;
-      }
-    },
-    {
-      class: 'FObjectArray',
-      of: 'foam.core.reflow.RoleFlowAccess',
-      name: 'specifiedRoleAccess',
       autoValidate: true,
       section: 'general',
       visibility: function(accessLevel) {
@@ -251,18 +239,6 @@ foam.CLASS({
           }
 
           // check role access
-          if ( getSpecifiedRoleAccess() != null ) {
-            for ( int i = 0; i < getSpecifiedRoleAccess().length; i++ ) {
-              var roleAccess = getSpecifiedRoleAccess()[i];
-              // if its not rw/ro don't bother checking
-              if ( roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RW &&
-                   roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RO ) continue;
-              try {
-                var hasRolePermission = ((AuthService) x.get("auth")).check(x, this.ROLE_PERMISSION_PREFIX + roleAccess.getRoleId());
-                if ( hasRolePermission ) return;
-              } catch (AuthorizationException e) { }
-            }
-          }
           throw new AuthorizationException();
         }
       `
@@ -286,17 +262,6 @@ foam.CLASS({
           }
 
           // check role access
-          if ( getSpecifiedRoleAccess() != null ) {
-            for ( int i = 0; i < getSpecifiedRoleAccess().length; i++ ) {
-              var roleAccess = getSpecifiedRoleAccess()[i];
-              // if its not rw don't bother checking
-              if ( roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RW ) continue;
-              try {
-                var hasRolePermission = ((AuthService) x.get("auth")).check(x, this.ROLE_PERMISSION_PREFIX + roleAccess.getRoleId());
-                if ( hasRolePermission ) return;
-              } catch (AuthorizationException e) { }
-            }
-          }
           throw new AuthorizationException();
         }
       `
@@ -320,17 +285,6 @@ foam.CLASS({
           }
 
           // check role access
-          if ( getSpecifiedRoleAccess() != null ) {
-            for ( int i = 0; i < getSpecifiedRoleAccess().length; i++ ) {
-              var roleAccess = getSpecifiedRoleAccess()[i];
-              // if its not rw don't bother checking
-              if ( roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RW ) continue;
-              try {
-                var hasRolePermission = ((AuthService) x.get("auth")).check(x, this.ROLE_PERMISSION_PREFIX + roleAccess.getRoleId());
-                if ( hasRolePermission ) return;
-              } catch (AuthorizationException e) { }
-            }
-          }
           throw new AuthorizationException();
         }
       `

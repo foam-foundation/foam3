@@ -30,7 +30,6 @@ foam.POM({
     { name: 'ErrorView',               flags: 'js' },
     { name: 'FlowableTree',            flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
-    { name: 'RoleFlowAccess',          flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
     { name: 'Pivot',                   flags: 'js|java' },

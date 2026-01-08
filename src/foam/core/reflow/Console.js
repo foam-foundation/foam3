@@ -1176,6 +1176,8 @@ foam.CLASS({
         if ( o === n ) return;
         // Block scroll during loading to prevent jumping while content is being built
         if ( this.isLoading_ ) return;
+        // Don't auto-scroll in presentation-only mode
+        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
         if ( n && n.element_ ) {
           n.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -1598,7 +1600,10 @@ foam.CLASS({
         }
       }
 
-      this.setTimeout(() => this.scrollToBottom(), 100);
+      // Don't auto-scroll in presentation-only mode
+      if ( this.flowMode != this.FlowMode.PRESENTATION_ONLY ) {
+        this.setTimeout(() => this.scrollToBottom(), 100);
+      }
 
       return block;
     },

@@ -960,6 +960,7 @@ foam.CLASS({
     'scope',
     'scrollToBottom',
     'selected',
+    'selectFromTree',
     'showPrompts',
     'value as flow'
   ],
@@ -1172,16 +1173,6 @@ foam.CLASS({
     },
     {
       name: 'selected',
-      postSet: function(o, n) {
-        if ( o === n ) return;
-        // Block scroll during loading to prevent jumping while content is being built
-        if ( this.isLoading_ ) return;
-        // Don't auto-scroll in presentation-only mode
-        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
-        if ( n && n.element_ ) {
-          n.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      },
       factory: function() { return this; }
     },
     {
@@ -1688,6 +1679,21 @@ foam.CLASS({
         this.selected = this;
       } else {
         this.selected = this.flowChildren[i];
+      }
+    },
+
+    function selectFromTree(block) {
+      /**
+       * Select a block from the tree view and scroll it into view.
+       * When selecting from the tree, we want to scroll because the block
+       * may not be visible. When clicking directly on a block in the center
+       * view, no scroll is needed since the block was already visible.
+       **/
+      this.selected = block;
+      // Block scroll during loading to prevent jumping while content is being built
+      if ( this.isLoading_ ) return;
+      if ( block && block.element_ ) {
+        block.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     },
 

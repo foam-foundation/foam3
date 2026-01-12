@@ -1473,12 +1473,10 @@ foam.CLASS({
      * @param {Boolean} update True if you'd like changes to each record to be put to
      * the DAO
      */
-    function select(dao, f, before, after) {
+    function select(dao, f) {
       this.add(foam.u2.DAOSelectNode.create({
         dao:  dao,
         code: f,
-        before,
-        after,
       }, this));
       return this;
     },

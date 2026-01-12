@@ -11,7 +11,9 @@ foam.CLASS({
   //TODO: reactions dont work for block properties
   requires: [
     'foam.core.reflow.ReactiveSectionedDetailView',
-    'foam.core.reflow.Block'
+    'foam.core.reflow.Block',
+    'foam.core.reflow.FlowMode',
+    'foam.core.reflow.Flow'
   ],
   css:` 
     ^ {
@@ -26,6 +28,12 @@ foam.CLASS({
   properties: [
     {
       name: 'data'
+    },
+    {
+      class: 'Enum',
+      of: 'foam.core.reflow.FlowMode',
+      name: 'flowMode',
+      value: 'CONSOLE'
     },
     {
       name: 'selectedValue',
@@ -44,7 +52,17 @@ foam.CLASS({
             self.selected = this;
           }));
         })
-        .add(this.dynamic(function(data$configViewSpec, selectedValue) {
+        .add(this.dynamic(function(data$configViewSpec, selectedValue, flowMode, data) {
+          var limitedBlocked = flowMode == self.FlowMode.LIMIT_EDIT_CONSOLE && (
+            ( self.Block.isInstance(data) && data.allowLimitedEdit !== true ) ||
+            ( self.Flow.isInstance(selectedValue) )
+          );
+
+          if ( limitedBlocked ) {
+            this.add('Access Denied');
+            return;
+          }
+
           if ( ! selectedValue ) return;
           this.tag(self.ReactiveSectionedDetailView, {
             of: selectedValue.cls_.id ?? '',
@@ -53,21 +71,30 @@ foam.CLASS({
             showActions: true,
             showHeader: true
           });
-        }))
+        }, self.data$configViewSpec$, self.selectedValue$, self.flowMode$, self.data$))
       .end()
       .start(this.Tab, { label: 'Block Properties' })
-        .add(this.dynamic(function(data) {
+        .add(this.dynamic(function(data, flowMode) {
           if ( ! data || data.deleted_ || ! self.Block.isInstance(data) ) {
             this.add('No block selected');
             return;
           }
+
+          var limitedBlocked = flowMode == self.FlowMode.LIMIT_EDIT_CONSOLE &&
+            data.allowLimitedEdit !== true;
+
+          if ( limitedBlocked ) {
+            this.add('Access Denied');
+            return;
+          }
+
           this.tag(self.ReactiveSectionedDetailView, {
             ...(data.configViewSpec || {}),
             data: data,
             showActions: true,
             showHeader: true
           });
-        }))
+        }, self.data$, self.flowMode$))
       .end();;
     }
   ]

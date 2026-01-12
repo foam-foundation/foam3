@@ -32,12 +32,24 @@ foam.CLASS({
         // Main entry point - try all formats including unambiguous month names
         // NOTE: Month name formats go FIRST because they contain letters (unambiguous!)
         // Once the parser sees letters, it knows it's not a numeric format
+        // Timestamps (10-13 digits) go LAST to avoid matching date formats like YYYYMMDDHH
         dateOrDatetime: alt(
           sym('datemonthname'),  // All month name formats (with or without separators)
           sym('yyyymmdd'),
           sym('mmddyyyy'),
-          sym('mmddyy')
+          sym('mmddyy'),
+          sym('timestamp')       // Unix/JS timestamps (10-13 digits, must not match date formats)
         ),
+
+        // Unix timestamp (10 digits, seconds) or JavaScript timestamp (13 digits, milliseconds)
+        // Placed LAST in dateOrDatetime to avoid matching date formats like YYYYMMDDHH
+        // Note: 10-digit timestamps will only match if they don't match any other format
+        timestamp: alt(
+          sym('timestamp13'),  // 13-digit JavaScript millisecond timestamp (always safe)
+          sym('timestamp10')   // 10-digit Unix second timestamp (checked after date formats fail)
+        ),
+        timestamp13: str(repeat(range('0', '9'), null, 13, 13)),
+        timestamp10: str(repeat(range('0', '9'), null, 10, 10)),
 
         // Date with month names - ALL completely unambiguous (contain letters!)
         // DD-MMM-YYYY, DD/MMM/YYYY, DDMMMYYYY, YYYY-DD-MMM, YYYY/DD/MMM, YYYYDDMMM
@@ -175,23 +187,23 @@ foam.CLASS({
           )
         ),
 
-        // MMDDYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern) with optional space-separated time
+        // MMDDYYYY compact: 8 digits with validated month (01-12), day (01-31), year
         mmddyyyycompact: alt(
           // With space and compact time (HHMMSS - no colons)
           seq(
-            str(repeat(range('0', '9'), null, 8, 8)),
+            str(seq(sym('month2'), sym('day2'), sym('year4'))),
             sym('datetimesep'),
             sym('hour2'), sym('minute2'), sym('second2')
           ),
           // With space and time with colons
           seq(
-            str(repeat(range('0', '9'), null, 8, 8)),
+            str(seq(sym('month2'), sym('day2'), sym('year4'))),
             sym('datetimesep'),
             sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
             optional(sym('timezone'))
           ),
           // Date only
-          str(repeat(range('0', '9'), null, 8, 8))
+          str(seq(sym('month2'), sym('day2'), sym('year4')))
         ),
 
         // YYMMDD - tries all variants (compact, separated)
@@ -229,8 +241,8 @@ foam.CLASS({
           )
         ),
 
-        // YYMMDD compact: 6 digits
-        yymmddcompact: str(repeat(range('0', '9'), null, 6, 6)),
+        // YYMMDD compact: 6 digits with validated year, month (01-12), day (01-31)
+        yymmddcompact: str(seq(sym('year2'), sym('month2'), sym('day2'))),
 
         // MMDDYY - tries all variants (compact, separated)
         // Covers: MMDDYY, MM-DD-YY, MM/DD/YY with optional time
@@ -267,8 +279,8 @@ foam.CLASS({
           )
         ),
 
-        // MMDDYY compact: 6 digits
-        mmddyycompact: str(repeat(range('0', '9'), null, 6, 6)),
+        // MMDDYY compact: 6 digits with validated month (01-12), day (01-31), year
+        mmddyycompact: str(seq(sym('month2'), sym('day2'), sym('year2'))),
 
         // DDMMYYYY - NOT in main dateOrDatetime, accessible via opt_name only
         // Covers: DD-MM-YYYY, DD/MM/YYYY, DDMMYYYY, DD-MM-YY, DD/MM/YY, DDMMYY with optional time
@@ -309,23 +321,23 @@ foam.CLASS({
           )
         ),
 
-        // DDMMYYYY compact: 8 digits (that don't match YYYY 1900-2999 pattern) with optional space-separated time
+        // DDMMYYYY compact: 8 digits with validated day (01-31), month (01-12), year
         ddmmyyyycompact: alt(
           // With space and compact time (HHMMSS - no colons)
           seq(
-            str(repeat(range('0', '9'), null, 8, 8)),
+            str(seq(sym('day2'), sym('month2'), sym('year4'))),
             sym('datetimesep'),
             sym('hour2'), sym('minute2'), sym('second2')
           ),
           // With space and time with colons
           seq(
-            str(repeat(range('0', '9'), null, 8, 8)),
+            str(seq(sym('day2'), sym('month2'), sym('year4'))),
             sym('datetimesep'),
             sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
             optional(sym('timezone'))
           ),
           // Date only
-          str(repeat(range('0', '9'), null, 8, 8))
+          str(seq(sym('day2'), sym('month2'), sym('year4')))
         ),
 
         // DDMMYY with separators and optional time (2-digit year)
@@ -357,8 +369,8 @@ foam.CLASS({
           )
         ),
 
-        // DDMMYY compact: 6 digits
-        ddmmyycompact: str(repeat(range('0', '9'), null, 6, 6)),
+        // DDMMYY compact: 6 digits with validated day (01-31), month (01-12), year
+        ddmmyycompact: str(seq(sym('day2'), sym('month2'), sym('year2'))),
 
         // YYYYDDMM - NOT in main dateOrDatetime, accessible via opt_name only
         // Covers: YYYY-DD-MM, YYYY/DD/MM, YYYYDDMM, YY-DD-MM, YY/DD/MM, YYDDMM with optional time
@@ -398,23 +410,23 @@ foam.CLASS({
           )
         ),
 
-        // YYYYDDMM compact: 8 digits with optional space-separated time
+        // YYYYDDMM compact: 8 digits with validated year, day (01-31), month (01-12)
         yyyyddmmcompact: alt(
           // With space and compact time (HHMMSS - no colons)
           seq(
-            str(repeat(range('0', '9'), null, 8, 8)),
+            str(seq(sym('year4'), sym('day2'), sym('month2'))),
             sym('datetimesep'),
             sym('hour2'), sym('minute2'), sym('second2')
           ),
           // With space and time with colons
           seq(
-            str(repeat(range('0', '9'), null, 8, 8)),
+            str(seq(sym('year4'), sym('day2'), sym('month2'))),
             sym('datetimesep'),
             sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
             optional(sym('timezone'))
           ),
           // Date only
-          str(repeat(range('0', '9'), null, 8, 8))
+          str(seq(sym('year4'), sym('day2'), sym('month2')))
         ),
 
         // YYDDMM - 2-digit year, day, month (6 digits)
@@ -452,8 +464,8 @@ foam.CLASS({
           )
         ),
 
-        // YYDDMM compact: 6 digits
-        yyddmmcompact: str(repeat(range('0', '9'), null, 6, 6)),
+        // YYDDMM compact: 6 digits with validated year, day (01-31), month (01-12)
+        yyddmmcompact: str(seq(sym('year2'), sym('day2'), sym('month2'))),
 
         // YYYYDDMMM with separators: YYYY-DD-MMM, YYYY/DD/MMM
         // Supports single-digit days (e.g., 2025-5-JAN)
@@ -496,7 +508,11 @@ foam.CLASS({
           seq('2', range('0', '9'), range('0', '9'), range('0', '9'))
         )),
         year2: str(seq(range('0', '9'), range('0', '9'))),
-        month2: str(seq(range('0', '1'), range('0', '9'))),  // Used in compact formats (without separators)
+        // Month (01-12) for compact formats - strict validation to prevent timestamp mismatches
+        month2: str(alt(
+          seq('0', range('1', '9')),      // 01-09
+          seq('1', range('0', '2'))       // 10-12
+        )),
 
         // Flexible parsers to support single digits (e.g. 7/2/2025) in formats with separators
         // Allows slightly out-of-range values for JavaScript Date normalization:
@@ -529,7 +545,12 @@ foam.CLASS({
           literalIC('NOV'),
           literalIC('DEC')
         ),
-        day2: str(seq(range('0', '3'), range('0', '9'))),  // Used in compact formats (without separators)
+        // Day (01-31) for compact formats - strict validation to prevent timestamp mismatches
+        day2: str(alt(
+          seq('0', range('1', '9')),           // 01-09
+          seq(range('1', '2'), range('0', '9')), // 10-29
+          seq('3', range('0', '1'))            // 30-31
+        )),
         hour2: str(seq(range('0', '2'), range('0', '9'))),
         minute2: str(seq(range('0', '5'), range('0', '9'))),
         second2: str(seq(range('0', '5'), range('0', '9'))),

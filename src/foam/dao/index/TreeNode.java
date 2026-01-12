@@ -354,48 +354,47 @@ public class TreeNode {
   /**
    * In-order traversal to reach every node of Tree, and put data into sink
    */
-  protected void select_(TreeNode currentNode, Sink sink, Index tail) {
-    if ( currentNode == null ) return;
+  protected void select_(TreeNode node, Sink sink, Index tail) {
+    while ( node != null ) {
+      Object   value = node.getValue();
+      TreeNode right = node.getRight();
 
-    TreeNode left = currentNode.getLeft();
-    if ( left != null ) select_(left, sink, tail);
+      select_(node.getLeft(), sink, tail);
 
-    Object value = currentNode.getValue();
-    if ( value != null ) {
-      // Sometimes the value will be a sub-tree.
-      // If value is a sub-tree, the tail will be treeIndex, use tail to re-select the plan to reach the data. If the index is valueIndex the value will be an object.
-      tail.planSelect(value, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null).select(value, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
+      if ( value != null ) {
+        // Sometimes the value will be a sub-tree.
+        // If value is a sub-tree, the tail will be treeIndex, use tail to re-select the plan to reach the data. If the index is valueIndex the value will be an object.
+        tail.select(value, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
+      }
+
+      node = right;
     }
-
-    TreeNode right = currentNode.getRight();
-    if ( right != null ) select_(right, sink, tail);
   }
 
   /**
    * This function only used for GroupByPlan. To out each data if the tree to groupBy sink.
    */
-  protected void groupBy(TreeNode currentNode, Sink sink, Index tail) {
-    if ( currentNode == null ) return;
+  protected void groupBy(TreeNode node, Sink sink, Index tail) {
+    while ( node != null ) {
+      TreeNode left = node.getLeft();
+      if ( left != null ) groupBy(left, sink, tail);
 
-    TreeNode left = currentNode.getLeft();
-    long leftSize = 0;
-    if ( left != null ) groupBy(left, sink, tail);
-    Object value = currentNode.getValue();
-    if ( value != null ) {
+      Object value = node.getValue();
+      if ( value != null ) {
 
-      // GroupBy sink implement by HashMap, the key is the indexererty of groupBy and the value will be another sink(ex:MAX, MIN, SUM, MAP, GROUPBY, ARRAYSINK ...)
-      // Different sink will do different operation of Object.
-      // If we have index of the parameter which we want to grouby this parameter. Each value will be a object or a sub-tree and in they should be in the same group.
-      // Each group need a new sink, so deepclone the origin sink of groupBy's arg2.
-      Sink temp = (Sink) ( (FObject) ( (GroupBy) sink ).getArg2() ).deepClone();
-      tail.planSelect(value, temp, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null)
-        .select(value, temp, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
+        // GroupBy sink implement by HashMap, the key is the indexererty of groupBy and the value will be another sink(ex:MAX, MIN, SUM, MAP, GROUPBY, ARRAYSINK ...)
+        // Different sink will do different operation of Object.
+        // If we have index of the parameter which we want to grouby this parameter. Each value will be a object or a sub-tree and in they should be in the same group.
+        // Each group need a new sink, so deepclone the origin sink of groupBy's arg2.
+        Sink temp = (Sink) ( (FObject) ( (GroupBy) sink ).getArg2() ).deepClone();
+        tail.select(value, temp, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
 
-      // After operate every node in each group, just put the sink into groupBy's HashMap.
-      ( ( (GroupBy) sink ).getGroups() ).put(currentNode.key, temp);
+        // After operate every node in each group, just put the sink into groupBy's HashMap.
+        (((GroupBy) sink).getGroups()).put(node.key, temp);
+      }
+
+      node = node.getRight();
     }
-    TreeNode right = currentNode.getRight();
-    if ( right != null ) groupBy(right, sink, tail);
   }
 
   /**
@@ -408,33 +407,33 @@ public class TreeNode {
    *
    * @return a long[] which contains update skip and limit number.
    */
-  protected void skipLimitTreeNode(TreeNode currentNode, Sink sink, long[] skipLimit, Index tail, boolean reverse) {
-    if ( skipLimit[1] <= 0 || currentNode == null ) return;
+  protected void skipLimitTreeNode(TreeNode node, Sink sink, long[] skipLimit, Index tail, boolean reverse) {
+    while ( node != null ) {
+      if ( skipLimit[1] <= 0 || node == null ) return;
 
-    long size = currentNode.size;
-    if ( size <= skipLimit[0] ) {
-      skipLimit[0] -= size;
-      return;
-    }
+      long size = node.size;
+      if ( size <= skipLimit[0] ) {
+        skipLimit[0] -= size;
+        return;
+      }
 
-    TreeNode left  = reverse ? currentNode.getRight() : currentNode.getLeft();
-    TreeNode right = reverse ? currentNode.getLeft()  : currentNode.getRight();
+      TreeNode left  = reverse ? node.getRight() : node.getLeft();
+      TreeNode right = reverse ? node.getLeft()  : node.getRight();
 
-    if ( left != null ) {
-      skipLimitTreeNode(left, sink, skipLimit, tail, reverse);
-    }
+      if ( left != null ) {
+        skipLimitTreeNode(left, sink, skipLimit, tail, reverse);
+      }
 
-    Object value = currentNode.getValue();
-    tail.planSelect(value, sink, skipLimit[0], skipLimit[1], null, null).select(value, sink, skipLimit[0], skipLimit[1], null, null);
-    long tailSize = tail.size(value);
-    skipLimit[0] -= tailSize;
-    if ( skipLimit[0] < 0 ) {
-      skipLimit[1] += skipLimit[0];
-      skipLimit[0] = 0;
-    }
+      Object value = node.getValue();
+      tail.planSelect(value, sink, skipLimit[0], skipLimit[1], null, null).select(value, sink, skipLimit[0], skipLimit[1], null, null);
+      long tailSize = tail.size(value);
+      skipLimit[0] -= tailSize;
+      if ( skipLimit[0] < 0 ) {
+        skipLimit[1] += skipLimit[0];
+        skipLimit[0] = 0;
+      }
 
-    if ( right != null ) {
-      skipLimitTreeNode(right, sink, skipLimit, tail, reverse);
+      node = right;
     }
   }
 
@@ -448,8 +447,10 @@ public class TreeNode {
       sink = decorateSink(null, sink, skip, limit, order, predicate);
       select_(currentNode, sink, tail);
       if ( order != null ) sink.eof();
-    } else {
+    } else if ( skip > 0 || limit != AbstractDAO.MAX_SAFE_INTEGER ) {
       skipLimitTreeNode(currentNode, sink, new long[] {skip, limit}, tail, reverse);
+    } else {
+      select_(currentNode, sink, tail);
     }
   }
 

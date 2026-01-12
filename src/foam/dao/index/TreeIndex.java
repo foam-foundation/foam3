@@ -167,16 +167,45 @@ public class TreeIndex
     return null;
   }
 
+  public boolean isSafeToRemoveOrder(Sink sink) {
+    // Counts and GroupBys of only GroupBys and Counts are safe to ignore the order
+    if ( sink instanceof Count   ) return true;
+    // TODO? same for SUM(), MIN(), MAX(), ... if there is no limit
+    if ( sink instanceof GroupBy ) return isSafeToRemoveOrder(((GroupBy) sink).getArg2());
+    return false;
+  }
+
   /**
    * This function tries to return an optimal plan based on its arguments.
    */
   @Override
   public SelectPlan planSelect(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     if ( state == null || predicate instanceof False ) return NotFoundPlan.instance();
+
+    // Try to simplify the query:
+
     Object   originalState  = state;
     Object[] statePredicate = simplifyPredicate(state, predicate);
+    long     size           = state == null ? 0 : ((TreeNode) state).size;
+
     state     = statePredicate[0];
     predicate = (Predicate) statePredicate[1];
+
+    // Treat as "no limit" if limit >= the size of the collection
+    if ( limit >= size ) limit = AbstractDAO.MAX_SAFE_INTEGER;
+
+    // Remove order if possible
+    if ( order != null ) {
+      if ( limit == AbstractDAO.MAX_SAFE_INTEGER && isSafeToRemoveOrder(sink) ) {
+        order = null;
+      } else if ( order.toString().equals(indexer_.toString()) ) {
+        // The ScanPlan already performs this check, but doint it here will possibly
+        // let the GroupByPlan be picked
+        order = null;
+      }
+    }
+
+    // Now the state, predicate, limit and order have all been simplified if possible
 
     if ( ! isPrimary_ && state == originalState && ( order == null || ! order.toString().equals(indexer_.toString()) ) ) {
       // Unless we're the primary index, we shouldn't offer a plan if we can't contribute
@@ -186,12 +215,11 @@ public class TreeIndex
     if ( predicate == null ) {
       // See if it's possible to do Count or GroupBy select efficiently.
       if ( sink instanceof Count && state != null ) {
-        return new CountPlan(Math.min(limit, ((TreeNode) state).size));
+        return new CountPlan(Math.min(limit, size));
       }
 
       // We return a groupByPlan only if no order, no limit, no skip, no predicate
-      if ( sink instanceof GroupBy
-        && ((GroupBy) sink).getArg1().toString().equals(indexer_.toString())
+      if ( sink instanceof GroupBy && ((GroupBy) sink).getArg1().toString().equals(indexer_.toString())
         && order == null && skip == 0 && limit == AbstractDAO.MAX_SAFE_INTEGER )
       {
         return new GroupByPlan(state, sink, predicate, indexer_, tail_);

@@ -267,8 +267,6 @@ foam.CLASS({
 
   properties: [
     'fn', // a foam.lang.DynamicFunction
-    'before',
-    'after',
     {
       name: 'element_',
       factory: function() { return this.document.createComment('dynamic'); }
@@ -304,14 +302,12 @@ foam.CLASS({
 
       // Before rendering, remove all children between dynamic and /dynamic
       this.fn.pre = () => {
-        this.before?.call?.(this);
         this.requiresRemoval = true;
         //        this.maybeRemovePreviousChildren();
       };
 
       this.fn.post = () => {
         this.maybeRemovePreviousChildren();
-        this.after?.call?.(this);
       };
 
       this.onDetach(this.fn);
@@ -340,8 +336,6 @@ foam.CLASS({
   properties: [
     'dao',
     'code',
-    'before',
-    'after',
     {
       class: 'Int',
       name: 'batch',
@@ -469,6 +463,8 @@ foam.CLASS({
     'translationService?'
   ],
 
+  // TODO: this is relatively expensive for how little it is used
+  // Try to find a cheaper way.
   exports: [
     'namespace'
   ],
@@ -776,7 +772,7 @@ foam.CLASS({
       if ( this.extraStyle ) this.style(this.extraStyle);
     },
 
-    function mutationObserver(fn, config = { attributes: true, childList: true, characterData: true }) {
+    function mutationObserver(fn, config = { attributes: true, childList: true, characterData: true, subtree: true }) {
       var observer = new MutationObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
@@ -868,7 +864,8 @@ foam.CLASS({
       // if ( this.of ) count += this.initKeyMap_(keyMap, this.of);
       if ( keyMap ) {
         this.keyMap_ = keyMap;
-        var target = this.parentNode || this;
+        // TODO Checking a concrete type like FunctionNode here seems wrong.
+        var target = (this.parentNode && !foam.u2.FunctionNode.isInstance(this.parentNode)) ? this.parentNode : this;
 
         // Ensure that target is focusable, and therefore will capture keydown
         // and keypress events.
@@ -1476,12 +1473,10 @@ foam.CLASS({
      * @param {Boolean} update True if you'd like changes to each record to be put to
      * the DAO
      */
-    function select(dao, f, before, after) {
+    function select(dao, f) {
       this.add(foam.u2.DAOSelectNode.create({
         dao:  dao,
         code: f,
-        before,
-        after,
       }, this));
       return this;
     },
@@ -1662,6 +1657,7 @@ foam.CLASS({
       // Without wrapping in a PropertyBorder
       name: '__',
       transient: true,
+      compare: function() { return 0; },
       getter: function() {
         return { __proto__: this, toE: this.toPropertyView };
       }

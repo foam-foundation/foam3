@@ -5,6 +5,7 @@
  */
 package foam.dao.index;
 
+import foam.lang.Detachable;
 import foam.lang.FObject;
 import foam.dao.Sink;
 import foam.mlang.order.Comparator;
@@ -13,8 +14,10 @@ import foam.mlang.predicate.Predicate;
 public class ValueIndex
   extends AbstractIndex
 {
+  protected final static Detachable DETACH_SELECT = foam.dao.MDAO.DetachSelect.instance();
 
-  protected static ValueIndex instance_ = new ValueIndex();
+  protected final static ValueIndex instance_     = new ValueIndex();
+
 
   public static ValueIndex instance() {
     return instance_;
@@ -39,20 +42,27 @@ public class ValueIndex
     return null; // Why doesn't this return state?
   }
 
+  public void select(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+    try {
+      if ( predicate != null && ! predicate.f((FObject) state) ) return;
+    } catch (ClassCastException e) {
+      // Can happen when the Indexer is a PropertyInfo for a sub-class
+      return;
+    } catch (NullPointerException e) {
+      // Can happen when the Indexer is Dot(x, y) when x is nullf
+      return;
+    }
+    if ( skip > 0 ) return;
+    if ( limit <= 0 ) return;
+    sink.put(state, DETACH_SELECT);
+  }
+
   public SelectPlan planSelect(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     return ValuePlan.instance();
   }
 
   public long size(Object state) {
     return state == null ? 0 : 1;
-  }
-
-  public void select(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    if ( predicate != null && ! predicate.f((FObject) state) ) return;
-    if ( skip > 0 ) return;
-    if ( limit <= 0 ) return;
-    // We need to check whether we'll do with this detachable parameter inside this index
-    sink.put(state, null);
   }
 
   public String toString() { return "ValueIndex()"; }

@@ -11,7 +11,8 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   requires: [
-    'foam.core.reflow.ToolbarControl'
+    'foam.core.reflow.ToolbarControl',
+    'foam.mlang.sink.Count'
   ],
 
   imports: ['showPrompts','toolbarControlDAO', 'data as importedData'],
@@ -49,22 +50,38 @@ foam.CLASS({
       }
     },
     {
+      class: 'StringArray',
+      name: 'promptModes',
+      value: []
+    },
+    {
       class: 'String',
       name: 'promptMode',
       value: 'Standard',
-      view: {
-        class: 'foam.u2.view.ChoiceView',
-        choices: ['Standard', 'Advanced']
+      view: function(_, X) {
+        return {
+          class: 'foam.u2.view.ChoiceView',
+          choices$: X.data.promptModes$.map(modes =>
+            (modes || []).map(m => [m, foam.String.labelize(m)])
+          )
+        };
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'hasControls'
     }
   ],
 
   methods: [
     function render() {
       let self = this;
+      this.updatePromptModes();
+      this.updateHasControls();
+      this.onDetach(this.showPrompts$.sub(this.updateHasControls));
       this.
         addClass().
-        show(this.showPrompts$).
+        show(this.hasControls$).
         start().
         addClass(this.myClass('input-field-container')).
         add(this.dynamic(function(promptMode) {
@@ -80,8 +97,45 @@ foam.CLASS({
         })).
         end().
         startContext({ data: this }).
-        add(this.PROMPT_MODE).
+        start().
+          show(this.promptModes$.map(modes => modes && modes.length > 1)).
+          add(this.PROMPT_MODE).
+        end().
         endContext();
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'updateHasControls',
+      isMerged: true,
+      code: function() {
+        if ( ! this.showPrompts ) {
+          this.hasControls = false;
+          return;
+        }
+        this.toolbarControlDAO
+          .where(this.EQ(this.ToolbarControl.TOOLBAR, this.promptMode))
+          .select(this.Count.create())
+          .then(count => { this.hasControls = count.value > 0; });
+      }
+    },
+    {
+      name: 'updatePromptModes',
+      isMerged: true,
+      code: function() {
+        this.toolbarControlDAO.select().then(result => {
+          const modes = Array.from(
+            new Set(
+              result.array
+                .map(c => c.toolbar || 'Standard')
+                .filter(Boolean)
+            )
+          ).sort();
+
+          this.promptModes = modes;
+        });
+      }
     }
   ]
 });

@@ -40,6 +40,15 @@ foam.CLASS({
     { name: 'SIGNUP_SUCCESS_TITLE', message: 'Success' }
   ],
 
+  properties: [
+    {
+      class: 'Boolean',
+      documentation: 'Set to true to run oauth flow in a separate window, false to redirect the current window',
+      name: 'oauthInWindow',
+      value: true
+    }
+  ],
+
   methods: [
     {
       name: 'signin',
@@ -125,18 +134,18 @@ foam.CLASS({
           state: JSON.stringify({
             session_id: this.sessionID,
             provider: provider.id,
-            return_to_app: false,
+            return_to_app: !this.oauthInWindow,
             return_to_url: this.window.location.toString(),
             sign_up: signUp,
             sign_up_username: signUpUsername
           })
         }
 
-        let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&')
-        ///this.window.location = authURL;
-        //return;
-        // If you want to run the login flow in a separate window
-        // set return_to_app: false in the above open a window to authURL
+        if ( !this.oauthInWindow ) {
+          let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&')
+          this.window.location = authURL;
+          return;
+        }
 
         try {
           await new Promise((resolve, reject) => {

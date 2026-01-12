@@ -33,8 +33,8 @@ foam.CLASS({
     {
       name: 'f',
       code: function() { return this.value; },
-      swiftCode: `return value`,
-      javaCode: 'return getValue();'
+      swiftCode: 'return value',
+      javaCode: 'return value_;'
     },
     {
       name: 'createStatement',

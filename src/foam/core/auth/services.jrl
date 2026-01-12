@@ -383,7 +383,14 @@ p({
       .setAuthorizer(new foam.core.auth.StandardAuthorizer("serviceprovider"))
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.ServiceProvider\"}"
+  "client": """
+    {
+      "of": "foam.core.auth.ServiceProvider",
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0,
+      "cache": true
+    }
+  """
 })
 
 p({

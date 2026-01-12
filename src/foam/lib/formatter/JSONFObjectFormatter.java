@@ -209,7 +209,7 @@ public class JSONFObjectFormatter
       p.formatJSON(this, o);
     } catch (Throwable t) {
       System.err.println("***************************************************** error outputting " + getPropertyName(p));
-      System.err.println("" + p.get(o));
+      // System.err.println("" + p.get(o));
       t.printStackTrace();
     }
   }

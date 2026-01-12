@@ -67,7 +67,7 @@ foam.LIB({
       name: 'fix',
       code: function(num, precision) {
         /* Convert a number to a fixed precision. */
-        return num.valueOf().toFixed(precision);
+        return Number(num).toFixed(precision);
       }
     },
     {

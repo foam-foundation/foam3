@@ -56,6 +56,11 @@
     - [How Suggestion Collection Works](#how-suggestion-collection-works)
     - [Building Dynamic Property Suggestions](#building-dynamic-property-suggestions)
     - [Nested Property Suggestions](#nested-property-suggestions)
+  - [Parser Messages](#parser-messages)
+    - [Creating Messages with msg()](#creating-messages-with-msg)
+    - [Message Properties](#message-properties)
+    - [Example: Empty File Detection](#example-empty-file-detection)
+    - [Collecting Messages](#collecting-messages)
   - [Best Practices](#best-practices)
   - [Complete Example: Email Address Parser](#complete-example-email-address-parser)
   - [Live Examples](#live-examples)
@@ -327,6 +332,153 @@ Like `until()` but returns no value - optimized for performance.
 var comment = P.seq0('/*', P.until0('*/'));
 // Efficiently skips comment content
 ```
+
+### cut(parser)
+
+Memory optimization parser that **destroys the input PStream after a successful parse**. This allows the JavaScript garbage collector to reclaim memory, enabling parsing of very large files that would otherwise cause heap exhaustion.
+
+```javascript
+var parser = P.cut(P.seq('a', 'b', 'c'));
+// After successful parse, input PStream memory is released
+```
+
+**Why cut() is needed:**
+
+FOAM's PStream is immutable - each `tail` operation creates a new PStream object. For large files (millions of characters), this creates millions of intermediate objects that can exhaust heap memory. Without `cut()`, a 60MB file might require 7+ GB of heap memory (116x the file size). With `cut()`, the same file needs only ~400MB (6x the file size).
+
+**Memory usage comparison:**
+
+| Approach | Memory Ratio | 60MB File Needs |
+|----------|--------------|-----------------|
+| Without cut | ~116x | 7+ GB |
+| With cut | ~6x | ~400 MB |
+
+**Important usage patterns:**
+
+`cut()` must be used carefully because it destroys the input PStream. There are two valid approaches for collecting results when using `cut()`:
+
+**Approach 1: Using `repeat` with actions that return values**
+
+Actions return values directly, and `repeat()` collects them into an array:
+
+```javascript
+foam.CLASS({
+  name: 'LargeFileParser',
+  extends: 'foam.parse.Grammar',
+
+  methods: [
+    function grammar(alt, cut, eof, not, repeat, seq, seq0, sym) {
+      return {
+        // repeat() collects values returned by actions
+        START: repeat(not(eof(), sym('line'))),
+
+        // cut() wraps the entire line alternatives
+        line: cut(alt(
+          sym('header'),
+          sym('dataLine'),
+          sym('ignored')
+        )),
+
+        // Each rule must consume its own terminator (newline)
+        header: seq0(sym('headerContent'), sym('nl')),
+        ignored: seq0(sym('ignoredContent'), sym('nl')),
+        dataLine: seq(sym('field1'), ',', sym('field2'), sym('nl')),
+
+        nl: alt('\r\n', '\n', '\r')
+      };
+    },
+
+    // Action returns the record - repeat() collects these
+    function dataLineAction(v) {
+      return {
+        field1: v[0],
+        field2: v[2]
+      };
+    },
+
+    // Header and ignored lines return null (filtered out or kept as null)
+    function headerAction(v) { return null; },
+    function ignoredAction(v) { return null; }
+  ]
+});
+```
+
+**Approach 2: Using `repeat0` with external collection**
+
+When you don't need `repeat()` to collect values, use `repeat0()` and push to an external array:
+
+```javascript
+foam.CLASS({
+  name: 'LargeFileParser',
+  extends: 'foam.parse.Grammar',
+
+  properties: [
+    {
+      name: 'records_',
+      factory: function() { return []; }
+    }
+  ],
+
+  methods: [
+    function grammar(alt, cut, eof, not, repeat0, seq, seq0, sym) {
+      return {
+        // repeat0() doesn't collect values
+        START: repeat0(not(eof(), sym('line'))),
+
+        line: cut(alt(
+          sym('header'),
+          sym('dataLine'),
+          sym('ignored')
+        )),
+
+        header: seq0(sym('headerContent'), sym('nl')),
+        ignored: seq0(sym('ignoredContent'), sym('nl')),
+        dataLine: seq(sym('field1'), ',', sym('field2'), sym('nl')),
+
+        nl: alt('\r\n', '\n', '\r')
+      };
+    },
+
+    // Action pushes to external array
+    function dataLineAction(v) {
+      this.records_.push({
+        field1: v[0],
+        field2: v[2]
+      });
+      return null;
+    },
+
+    function STARTAction(v) {
+      return this.records_;
+    },
+
+    function parseString(str) {
+      this.records_ = []; // Reset for fresh parse
+      this.SUPER(str);
+      return this.records_;
+    }
+  ]
+});
+```
+
+**Key rules for using cut():**
+
+1. **Wrap the main `alt` with `cut()`** - not individual rules inside
+2. **Each rule must consume its own terminator** - include newline in each line rule
+3. **Choose `repeat` vs `repeat0` based on your needs** - use `repeat()` to collect action return values, use `repeat0()` when you don't need results collected
+
+**When to use cut():**
+
+- Parsing files larger than 10MB
+- Processing files with hundreds of thousands of lines
+- When you encounter "JavaScript heap out of memory" errors
+- When memory usage is critical
+
+**When NOT to use cut():**
+
+- Small files (<10MB) - overhead not worth it
+- When you need backtracking after a match
+- Simple parsers that don't process large amounts of data
 
 ---
 
@@ -901,6 +1053,140 @@ let innerProperty = (prop, innerProp) => {
   );
 };
 ```
+
+---
+
+## Parser Messages
+
+FOAM parsers support attaching messages to parsers through the `msg()` decorator. This enables parsers to communicate status information, warnings, or metadata back to the calling code when specific patterns are matched.
+
+### Creating Messages with msg()
+
+Use the `msg(parser, messageConfig)` combinator to attach a message to a parser:
+
+```javascript
+var P = foam.parse.Parsers.create();
+
+// Basic message for empty file detection
+msg(eof(), {type: 'EMPTY', code: 'NO_DATA', text: 'File contains no data'})
+
+// Warning message for deprecated format
+msg(sym('oldFormat'), {type: 'WARNING', code: 'DEPRECATED_FORMAT', text: 'This format is deprecated'})
+
+// Message with additional data
+msg(sym('emptySection'), {
+  type: 'EMPTY',
+  code: 'NO_TRANSACTIONS',
+  text: 'File contains no rejected transactions for this day',
+  data: { section: 'transactions' }
+})
+```
+
+### Message Properties
+
+The `message` property in FOAM's `Msg` class is **untyped** - it can store any value (string, object, array, etc.). The structure is determined by your application.
+
+**Example convention** (for file processing systems):
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | String | Message type (e.g., 'EMPTY', 'WARNING') |
+| `code` | String | Unique code identifier (e.g., 'NO_DATA', 'DEPRECATED_FORMAT') |
+| `text` | String | Human-readable message text |
+
+**Alternative uses:**
+
+```javascript
+// Simple string message
+msg(sym('rule'), 'Parsing completed')
+
+// Custom object structure
+msg(sym('rule'), { severity: 'low', category: 'validation', details: {...} })
+
+// Array of messages
+msg(sym('rule'), ['Message 1', 'Message 2'])
+```
+
+The consuming code is responsible for interpreting the message format.
+
+### Example: Parser with Messages
+
+Messages can be attached to any parser rule to communicate status back to the caller:
+
+```javascript
+foam.CLASS({
+  name: 'DataFileParser',
+  extends: 'foam.parse.Grammar',
+
+  methods: [
+    function grammar(alt, sym, seq, msg, eof, literal, repeat) {
+      return {
+        START: alt(
+          sym('dataFile'),
+          sym('emptyFile')
+        ),
+
+        // Normal file with data
+        dataFile: seq(sym('header'), sym('records'), sym('footer')),
+
+        // Empty file - valid structure but no data
+        emptyFile: msg(
+          seq(sym('header'), sym('emptyMarker'), sym('footer')),
+          'File contains no data'  // Simple string message
+        ),
+
+        // Deprecated format warning
+        oldHeader: msg(
+          sym('legacyHeaderFormat'),
+          { warning: 'Deprecated header format detected' }
+        ),
+
+        // Record with validation note
+        specialRecord: msg(
+          sym('recordWithFlag'),
+          { note: 'Special processing applied', flag: 'SPECIAL' }
+        )
+      };
+    }
+  ]
+});
+```
+
+### Collecting Messages
+
+Messages are collected via the `apply` callback mechanism, following the same pattern as `foam.parse.auto.SmartView` uses for suggestions:
+
+```javascript
+var messages = [];
+
+// Create an apply function that collects messages
+function createApply() {
+  return function(p, grammar) {
+    // 'this' is the PStream
+    var result = p.parse(this, grammar);
+
+    // If parse succeeded and parser has a message, collect it
+    if ( result && p.msg ) {
+      var m = p.msg();
+      if ( m ) messages.push(m);
+    }
+
+    return result;
+  };
+}
+
+// Pass apply function to parseString
+var result = grammar.parseString(inputText, null, createApply());
+
+// messages array now contains collected messages
+```
+
+**Common use cases:**
+
+- Display status messages to users
+- Log warnings or notes during processing
+- Flag special conditions (empty files, deprecated formats)
+- Collect metadata about parsed content
 
 ---
 

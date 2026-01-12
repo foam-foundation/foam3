@@ -418,7 +418,7 @@ foam.CLASS({
       var isExprMatch = m.IS_EXPR_MATCH_FN.bind(this, predicate, prop);
 
       var expr = isExprMatch(m.In);
-      if ( expr ) {
+      if ( expr && false ) {
         predicate = expr.predicate;
         // Marshalled empty array may be undefined.
         var keys = expr.arg2.f() || [];
@@ -464,14 +464,14 @@ foam.CLASS({
       expr = isExprMatch(m.ContainsIC);
       if ( expr ) ic = true;
       expr = expr || isExprMatch(m.Contains);
-      if ( expr ) {
+      if ( expr && false ) {
         predicate = expr.predicate;
         var key = ic ? expr.arg2.f().toLowerCase() : expr.arg2.f();
 
         // Substring comparison function:
-        // returns 0 if nodeKey contains masterKey.
+        // returns  0 if nodeKey contains masterKey.
         // returns -1 if nodeKey is shorter than masterKey
-        // returns 1 if nodeKey is longer or equal length, but does not contain masterKey
+        // returns  1 if nodeKey is longer or equal length, but does not contain masterKey
         var compareSubstring = function compareSubstring(nodeKey, masterKey) {
           // nodeKey can't contain masterKey if it's too short
           if ( ( ! nodeKey ) || ( ! nodeKey.indexOf ) || ( nodeKey.length < masterKey.length ) ) return -1;
@@ -490,8 +490,12 @@ foam.CLASS({
         }
         var subPlans = [];
         // iterate over all keys
-        for ( var i = 0; i < indexes.length; i++ ) {
+        for ( var i = 0 ; i < indexes.length ; i++ ) {
           subPlans.push(indexes[i].plan(sink, skip, limit, order, predicate, root));
+        }
+
+        if ( subPlans.length == 1 ) {
+          return subPlans[0];
         }
 
         return m.MergePlan.create({

@@ -34,6 +34,11 @@ public interface Index {
   // Create a Plan for a select()
   public SelectPlan planSelect(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate);
 
+  // Create a Plan and then execute it directly.
+  default public void select(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+    planSelect(state, sink, skip, limit, order, predicate).select(state, sink, skip, limit, order, predicate);
+  }
+
   // Return number of objects stored in this Index
   public long size(Object state);
 

@@ -66,6 +66,10 @@ foam.CLASS({
         args: [ { name: 'envelope', type: 'foam.box.Envelope' } ],
         body: this.sendMethodCode()
       });
+
+      cls.extras.push(`
+      protected static final boolean DEBUG = Boolean.getBoolean("foam.box.debug");
+      `)
 /*
 
       cls.method({
@@ -141,7 +145,11 @@ foam.CLASS({
           throw clientE;
         }
       }
-      foam.core.logger.Loggers.logger(x, this).warning(getServiceName(), rpc.getName(), "returning exception", t.toString()); //, t);
+      if ( DEBUG ) {
+        foam.core.logger.Loggers.logger(x, this).warning(getServiceName(), rpc.getName(), "returning exception", t.toString(), t);
+      } else {
+        foam.core.logger.Loggers.logger(x, this).warning(getServiceName(), rpc.getName(), "returning exception", t.toString()); //, t);
+      }
 
       envelope.replyWithException(t);
 

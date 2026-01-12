@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public class SessionServerBox
   extends ProxyBox
 {
+  protected static final boolean DEBUG = Boolean.getBoolean("foam.box.debug");
   protected boolean authenticate_;
 
   public SessionServerBox() {
@@ -162,8 +163,11 @@ public class SessionServerBox
       pm.log(x);
       delegate.send(new foam.box.Envelope(effectiveContext, message, replyBox));
     } catch (Throwable t) {
-      logger.warning(t.getMessage());
-      // logger.warning(t.getMessage(), t); // Uncomment to debug server-side exceptions
+      if ( DEBUG ) {
+        logger.warning(t.getMessage(), t);
+      } else {
+        logger.warning(t.getMessage());
+      }
       if ( t instanceof NullPointerException) {
         logger.error(t);
       }

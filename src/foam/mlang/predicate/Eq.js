@@ -57,6 +57,3 @@ return FOAM_utils.equals(v1, v2)
     }
   ]
 });
-
-
-/** Binary expression for inequality of two arguments. */

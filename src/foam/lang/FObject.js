@@ -745,16 +745,17 @@ foam.CLASS({
       this.pub('propertyChange', prop.name, slot);
     },
 
-    function dynamic(m /* either a map or a function */) {
+    function dynamic(m /* either a map or a function */, ...args) {
       return this.onDetach(foam.lang.DynamicFunction.create(
         foam.Function.isInstance(m) ?
-          { code: m, obj: this } :
+          (args.length > 0 ? { code: m, obj: this, args } : { code: m, obj: this }) :
           {
             code: m.code,
             obj:  this,
             self: m.self || this,
             pre:  m.pre  || function() {},
-            post: m.post || function() {}
+            post: m.post || function() {},
+            args: m.args
           }
         ));
     },

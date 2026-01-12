@@ -118,6 +118,9 @@ public class CachingAuthService
     DAO groupPermissionJunctionDAO = (DAO) getX().get("groupPermissionJunctionDAO");
     if ( groupPermissionJunctionDAO != null ) groupPermissionJunctionDAO.listen(purgeSink, TRUE);
 
+    DAO prerequisiteCapabilityJunctionDAO = (DAO) getX().get("prerequisiteCapabilityJunctionDAO");
+    if ( prerequisiteCapabilityJunctionDAO != null ) prerequisiteCapabilityJunctionDAO.listen(purgeSink, TRUE);
+
     // Configure listeners for additional permission DAOs
     if ( extraDAOsToListenTo_ != null ) {
       for ( String daoName : extraDAOsToListenTo_ ) {

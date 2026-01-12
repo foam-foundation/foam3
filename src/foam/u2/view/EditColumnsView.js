@@ -85,13 +85,25 @@ foam.CLASS({
     'columnConfigPropView',
     'height',
     'rightOffset',
-    'topOffset'
+    'topOffset',
+    { class: 'Int', name: 'refreshIdx', value: 0 }
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      if ( this.data?.selectedColumnNames$ ) {
+        this.onDetach(this.data.selectedColumnNames$.sub(() => {
+          this.refresh();
+        }));
+      }
+      this.onDetach(this.selectColumnsExpanded$.sub(() => {
+        if ( this.selectColumnsExpanded ) this.refresh();
+      }));
+    },
     function closeDropDown(e) {
       e.stopPropagation();
-      this.columnConfigPropView.onClose();
+      this.columnConfigPropView?.onClose?.();
       this.selectColumnsExpanded = ! this.selectColumnsExpanded;
     },
     function render() {
@@ -104,19 +116,22 @@ foam.CLASS({
       .addClass(this.myClass())
         .show(this.selectColumnsExpanded$)
         .addClass(this.myClass('drop-down-bg'))
-          .start({ class: 'foam.u2.view.ColumnConfigPropView', data: self.data }, { } ,this.columnConfigPropView$ )
-            .addClass(this.myClass('container'))
-            .style({
-              'max-height': this.height$,
-              'right': this.rightOffset$,
-              'top': this.topOffset$
-            })
-          .end()
+        .add(this.dynamic(function(refreshIdx) {
+          this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
+              .addClass(self.myClass('container'))
+              .style({
+                'max-height': self.height$,
+                'right': self.rightOffset$,
+                'top': self.topOffset$
+              })
+            .end();
+        }))
       .on('click', this.closeDropDown.bind(this))
       .end();
     }
   ],
   listeners: [
+    function refresh() { this.refreshIdx++; }, 
     function updatePosition() {
       var availableSpace;
       
@@ -150,7 +165,7 @@ foam.CLASS({
       label: '',
       icon: 'images/ic-cancelwhite.svg',
       code: function(X) {
-        this.columnConfigPropView.onClose();
+        this.columnConfigPropView?.onClose?.();
         this.selectColumnsExpanded = ! this.selectColumnsExpanded;
       }
     }

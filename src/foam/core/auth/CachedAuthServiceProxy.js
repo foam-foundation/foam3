@@ -26,6 +26,10 @@ foam.CLASS({
     {
       class: 'Map',
       name: 'cache'
+    },
+    {
+      class: 'Map',
+      name: 'userCache'
     }
   ],
 
@@ -49,12 +53,18 @@ foam.CLASS({
     function check(x, p) {
       if ( ! this.cache[p] ) this.cache[p] = this.delegate.check(x, p);
       return this.cache[p];
+    },
+    function checkUser(x, u, p) {
+      let key = u.id + '.' + p;
+      if ( ! this.userCache[key] ) this.userCache[key] = this.delegate.checkUser(x, u, p);
+      return this.userCache[key];
     }
   ],
 
   listeners: [
     function resetCache() {
-      this.cache = {};
+      this.cache     = {};
+      this.userCache = {};
     }
   ]
 });

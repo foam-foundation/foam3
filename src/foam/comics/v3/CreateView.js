@@ -80,7 +80,11 @@ foam.CLASS({
       name: 'save',
       buttonStyle: 'PRIMARY',
       isEnabled: function(data$errors_) {
-        return ! data$errors_;
+        let enabled = ! data$errors_;
+        if ( ! enabled ) {
+          console.error('Save disabled:', data$errors_);
+        }
+        return enabled;
       },
       code: function() {
         var cData = this.data;

@@ -31,6 +31,7 @@ foam.CLASS({
       name: 'serviceName'
     }
   ],
+
   methods: [
     async function launch(x) {
       let url = new URL(this.window.location.href);

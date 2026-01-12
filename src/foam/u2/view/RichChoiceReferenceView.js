@@ -13,6 +13,7 @@ foam.CLASS({
     View for editing ReferenceProperty-ies.
     Displayed value -row view- summary = this.fullObject.toSummary();
   `,
+
   requires: [
     'foam.u2.view.RichChoiceViewSection'
   ],

@@ -65,13 +65,15 @@ foam.CLASS({
 
           htmlBlock: seq(
             '<',
-            str(repeat(range('a', 'z'), null, 1)),
+            str(sym('htmlTagName')),
             sym('htmlAttributes'),
             alt(
-              seq('>', sym('htmlContent'), '</', str(repeat(range('a', 'z'), null, 1)), '>'),
+              seq('>', sym('htmlContent'), '</', sym('htmlTagName'), '>'),
               '/>'
             )
           ),
+
+          htmlTagName: repeat(alt(range('0','9'), range('a', 'z')), null, 1),
 
           htmlAttributes: repeat(seq(
             repeat(chars(' \t')),
@@ -274,7 +276,7 @@ foam.CLASS({
             }
           });
           return attrs;
-      },
+        },
 
         function htmlBlock(v) {
           let tagName    = v[1];
@@ -288,7 +290,16 @@ foam.CLASS({
             } else {
               // Tag with content
               let content = closing[1];
-              this.start(tagName, attributes).call(content);
+              let e = this.start(tagName, attributes).call(content);
+              // TODO: Use foam.u2.parse.CSSParser to allow for CSS tokens
+              if ( attributes.style ) {
+                let style = {};
+                attributes.style.split(';').forEach(s => {
+                  let p = s.split(':');
+                  style[p[0]] = p[1];
+                });
+                e.style(style);
+              }
             }
           };
         },

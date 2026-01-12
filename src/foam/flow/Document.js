@@ -76,7 +76,7 @@ foam.CLASS({
 
       return x.E('span').add(this.dynamic(function(markup) {
         var f = self.htmlish.parseString(markup, self.cls_.id);
-        this.add( f ? f(x) : self.htmlish.getLastError() );
+        this.add( f ? f(x) : self.htmlish.getLastError(markup, self.cls_.id) );
       }));
     }
   ],

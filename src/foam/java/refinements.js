@@ -1402,10 +1402,17 @@ foam.CLASS({
   refines: 'foam.lang.AbstractEnum',
   // flags: ['java'],
 
+  properties: [
+    {
+      class: 'String',
+      name: 'javaCode'
+    }
+  ],
+
   axioms: [
     {
-      installInClass: function(cls) {
-        cls.buildJavaClass = function(cls) {
+      installInClass: function(fcls) {
+        fcls.buildJavaClass = function(cls) {
           cls = cls || foam.java.Enum.create();
 
           cls.name       = this.name;
@@ -1413,6 +1420,11 @@ foam.CLASS({
           cls.extends    = this.extends;
           cls.values     = this.VALUES;
           cls.implements = [ 'foam.lang.FEnum' ];
+
+          // TODO: temporary work-around, to be moved to FSM specific refinement
+          if ( this.model_.extends === 'foam.lang.StateMachineEnum' ) {
+            cls.implements = [ 'foam.lang.StateMachineEnum' ];
+          }
 
           // TODO: needed for now because Enums don't extend FObject
           // but a better solution would be to remove setters from
@@ -1454,7 +1466,7 @@ foam.CLASS({
           });
 
           cls.declarations = this.VALUES.map(function(v) {
-            return `${v.name}(${properties.map(p => foam.java.asJavaValue(v[p.name])).join(', ')})`;
+            return `${v.name}(${properties.map(p => foam.java.asJavaValue(v[p.name], p)).join(', ')}) ${v.javaCode ? ' { ' + v.javaCode + ' }' : '/* NO CODE */'}`;
           }).join(',\n  ');
 
           cls.method({

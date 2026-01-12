@@ -133,7 +133,6 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(dao, predicate) {
-        console.log('********************', predicate.toString());
         if ( ! dao ) return null;
         return predicate ? dao.where(predicate) : dao;
       }
@@ -150,7 +149,7 @@ foam.CLASS({
         if ( ! dao ) return null;
         var fv = this.FilterView.create({
           dao: dao,
-          searchMode: foam.comics.SearchMode.SIMPLE,
+          searchMode: foam.comics.SearchMode.MQL,
           data$: this.predicate$,
           searchData$: this.query$,
           isOpen: ! showSearch  // When search is hidden, filters should be open

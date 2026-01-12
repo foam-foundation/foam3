@@ -1,15 +1,15 @@
 /**
  * @license
- * Copyright 2025 The FOAM Authors. All Rights Reserved.
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
 foam.CLASS({
   package: 'foam.core.menu',
-  name: 'FlowMenu',
+  name: 'LimitedEditFlowMenu',
   extends: 'foam.core.menu.ViewMenu',
 
-  documentation: 'A menu item which routes to a flow page.',
+  documentation: 'Menu item that opens a flow in limited-edit mode (presentation with edit affordance).',
 
   imports: [
     'currentMenu?'
@@ -25,15 +25,15 @@ foam.CLASS({
 
   methods: [
     function select(X, menu) {
-      /** Include flowMode in route to preserve PRESENTATION_ONLY mode. **/
+      /** Include flowMode in route to enable limited edit presentation. **/
       if ( this.currentMenu?.id === menu.id ) return;
-      X.routeTo(menu.id + '?flowMode=PRESENTATION_ONLY');
+      X.routeTo(menu.id + '?flowMode=LIMIT_EDIT');
     },
     function createView(X) {
       return {
         class: "foam.core.reflow.Console",
         route: this.flow,
-        flowMode: "PRESENTATION_ONLY"
+        flowMode: "LIMIT_EDIT"
       };
     }
   ]

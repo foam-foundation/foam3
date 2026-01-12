@@ -450,6 +450,24 @@ foam.CLASS({
     'org.chartjs.Pie2',
     'foam.u2.layout.ContainerWidth'
   ],
+
+  css: `
+    ^graph-container {
+      width: 100%;
+    }
+
+    ^empty-value-message {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      height: 100%;
+      background-color: $grey200;
+      border-radius: 5px;
+    }
+  `,
   
   properties: [
     // TopNGroupBy properties (inherited but exposed here for clarity)
@@ -480,12 +498,14 @@ foam.CLASS({
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available' },
+    { class: 'Boolean', name: 'hasData', section: "displayOptions", value: false, hidden: true },
     {
       name: 'chart_',
       transient: true,
       expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
                           responsive, maintainAspectRatio, showLegend,
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width) {
+                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width, emptyValueMessage) {
         // Don't create chart until we have a valid width
         if ( ! width || width <= 0 ) {
           return null;
@@ -517,6 +537,7 @@ foam.CLASS({
           index++;
         }
         
+        this.hasData = data.length > 0;
         
         var chartData = {
           labels: labels,
@@ -628,10 +649,16 @@ foam.CLASS({
     function toE(_, x) {
       return x.E().add(this.chart_$);
     },
+    function getMyClass(className = null) {
+      // this.myClass() does not work here because it is not a view so I made an equivalent helper function
+      const baseClass = this.cls_.package.replaceAll('.', '-') + '-' + this.cls_.name;
+      return className && className.length > 0 ? baseClass + '-' + className : baseClass;
+    },
     function addToE(e) {
       var self = this;
 
       e
+        .addClass(self.getMyClass())
         .style({
           width: '100%',
           display: 'flex',
@@ -639,8 +666,22 @@ foam.CLASS({
           textAlign: this.alignment$.map(function(a) { return a.textAlign; })
         })
         .start('div')
+          .addClass(self.getMyClass('graph-container'))
           .style({ 'min-height': this.height$, height: this.height$ })
-          .add(this.chart_$)
+          .add(self.dynamic(function(hasData, chart_, emptyValueMessage) {
+            if ( hasData ) {
+              this.add(chart_);
+            }
+            else {
+              this
+              .start('div')
+                .addClass(self.getMyClass('empty-value-message'))
+                .start('p')
+                  .add(emptyValueMessage)
+                .end()
+              .end();
+            }
+          }))
         .end();
 
       // ContainerWidth uses ResizeObserver for efficient size tracking
@@ -1971,7 +2012,21 @@ foam.CLASS({
       let d = this.dateProp.f(obj);
       let c = this.categoryProp ? this.categoryProp.f(obj) : 'default';
       if (!d || !c) return;
-      let key = new Date(d).toISOString().slice(0, 10);
+      let key = d;
+      if ( ! (d instanceof Date) ) {
+        // Try to parse as a date string
+        if ( typeof d !== 'string' ) {
+          // Should never happen, but just in case.
+          throw new Error('Date must be Date object or a string'); 
+        }
+        if (d.length === 7) { d = d + `${d[4]}01`; }  // d[4] MUST be '/' or '-'
+        // We only support YYYY/MM and YYYY/MM/DD formats. Add support for the other formats if needed.
+        const datePattern = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/;
+        const dateParser = (m) => new Date(Date.UTC(m[1], m[2] - 1, m[3]));
+        if ( ! datePattern.test(d) ) { return; }
+        key = dateParser(d.match(datePattern));
+      }
+      key = key.toISOString().slice(0, 10);
       if (!this.map_[key]) this.map_[key] = {};
       let v = 1;
       if (this.valueSink && this.valueSink.put) {
@@ -1998,7 +2053,6 @@ foam.CLASS({
       updateChartData();
       e.add(this.chart_$);
       // Live slot binding like Pie/Bar
-      console.log('colors', this.colors$);
       this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
         var c = self.chart_;
         if (!c) return;

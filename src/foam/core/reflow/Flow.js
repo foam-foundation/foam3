@@ -75,6 +75,12 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'limitedEditPermission',
+      hidden: true,
+      documentation: 'Permission id required to access limited-edit controls; hidden from standard UI.'
+    },
+    {
+      class: 'String',
       name: 'description',
       section: 'general',
       width: 80

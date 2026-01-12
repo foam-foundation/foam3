@@ -9,9 +9,9 @@ foam.CLASS({
   name: 'SimpleQueryParser',
 
   documentation:
-      'NQL parser that generates FOAM MLang predicates. Supports AND, OR, grouping, and property-specific predicates based on \
+      'AQL parser that generates FOAM MLang predicates. Supports AND, OR, grouping, and property-specific predicates based on \
       the properties of the specified "of" class. The parser is meant to be used in search bars and similar simple query inputs. \
-      It supports auto-completion via the QueryComplete class.',
+      It supports auto-completion via the SmartView class.',
 
   axioms: [
     // Reuse parsers if created for same 'of' class.
@@ -39,8 +39,7 @@ foam.CLASS({
     'foam.parse.Grammar',
     'foam.parse.LiteralIC',
     'foam.parse.Suggest',
-    'foam.parse.Parsers',
-    'foam.parse.StringPStream'
+    'foam.parse.Parsers'
   ],
 
   properties: [
@@ -388,8 +387,9 @@ foam.CLASS({
     {
       name: 'grammar_',
       factory: function() {
-        let base       = foam.Function.withArgs(this.baseGrammar_,       this.Parsers.create(), this);
-        let properties = foam.Function.withArgs(this.propertiesGrammar_, this.Parsers.create(), this);
+        let parsers    = this.Parsers.create();
+        let base       = foam.Function.withArgs(this.baseGrammar_,       parsers, this);
+        let properties = foam.Function.withArgs(this.propertiesGrammar_, parsers, this);
         let grammar    = {
           __proto__: base,
           propPredicates: properties.propPredicates,
@@ -429,6 +429,12 @@ foam.CLASS({
           return [ v[0][0], v[1][1] ]; // [start of first, end of second]
         }
         let actions    = {
+          START: function(v) {
+            if ( v && v.partialEval ) v = v.partialEval();
+
+            return v;
+          },
+
           or: function(v) {
             return self.Or.create({ args: v });
           },
@@ -529,7 +535,7 @@ foam.CLASS({
           },
 
           propPredicates: function(v) {
-            let prop   = v[0];
+            let prop     = v[0];
             let operator = v[1].operator;
             let value    = v[1].value;
 
@@ -618,14 +624,11 @@ foam.CLASS({
   ],
 
   methods: [
-    function parse(ps, grammar) {
+    function parse(ps) {
       return this.grammar_.parse(ps);
     },
     function parseString(str, opt_name, opt_apply) {
-      let query = this.grammar_.parseString(str, opt_name, opt_apply);
-      // if we can simplify the query, do so now (something AND FALSE -> FALSE)
-      query = query && query.partialEval ? query.partialEval() : query;
-      return query;
+      return this.grammar_.parseString(str, opt_name, opt_apply);
     }
   ]
 });

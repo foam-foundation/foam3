@@ -181,6 +181,8 @@ foam.CLASS({
 });
 
 
+// TODO: Would be better if the input field was replaced by a contenteditable=true <div> so that errors
+// could be displayed in-line in real-time
 foam.CLASS({
   package: 'foam.parse.auto',
   name: 'SmartView', // TODO: rename GrammarView or SyntaxView
@@ -246,6 +248,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'normalize',
+      value: true,
       documentation: 'If true the input will be normalized to preferred syntax where options exist.'
     },
     {
@@ -274,6 +277,7 @@ foam.CLASS({
     },
     {
       name: 'apply',
+      documentation: 'Parser callback to be used to track parsing and make suggestions.',
       factory: function() {
         let self = this;
 
@@ -311,7 +315,7 @@ foam.CLASS({
             let s = p.suggest();
             if ( ! s.text ) return result;
             let prevQuery = self.preview.substring(0, this.pos);
-            self.normalizedQuery = prevQuery + s.text + self.preview.substring(this.substring(result).length+this.pos) ;
+            self.normalizedQuery = prevQuery + s.text + self.preview.substring(this.substring(result).length+this.pos);
             if ( self.preview !== self.normalizedQuery ) self.preview = self.normalizedQuery;
           }
 
@@ -344,10 +348,10 @@ foam.CLASS({
       this
         .addClass()
         .start(this.TextField, {
-          data$: this.data$,
+          data$:        this.data$,
           autocomplete: false,
-          autocorrect: false,
-          tooltip$: this.error$
+          autocorrect:  false,
+          tooltip$:     this.error$
         }, this.field$).
           enableClass(this.myClass('error'), this.error$).
           on('blur', this.onBlur).
@@ -424,7 +428,7 @@ foam.CLASS({
     function suggestText(txt, sug) {
       let str = this.preview.substring(0, this.maxPos);
       // This causes issues when suggesting units like 'px' after numbers
-      if ( sug.prependSpaceOnSelect ) str += ' ';
+      if ( sug.prependSpaceOnSelect ) str = str.trim() + ' ';
       this.preview = ( str + txt ).trimStart();
       this.field.focus();
     },
@@ -475,6 +479,7 @@ foam.CLASS({
           let el = this.field.el_();
           let event = new Event('change', { bubbles: true });
           el.dispatchEvent(event);
+          // this.onDataChange();
         }
       }
     },

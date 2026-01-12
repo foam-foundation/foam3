@@ -10,8 +10,8 @@ foam.CLASS({
 
   imports: ['installCSS'],
 
-  documentation: `Mixin that models some basic css styling properties. 
-  Useful when end users need to configure the look and feel of an element. 
+  documentation: `Mixin that models some basic css styling properties.
+  Useful when end users need to configure the look and feel of an element.
   Look at foam.core.reflow.Block for implementation`,
 
   sections: [

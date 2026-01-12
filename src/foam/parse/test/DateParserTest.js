@@ -38,6 +38,7 @@ foam.CLASS({
       this.testWithAndWithoutZ(x);
       this.testInvalidLeapYearDates(x);
       this.testAllParseMethodsExample(x);
+      this.testTimestampStrings(x);
     },
 
     function testYYYYMMDDFormats(x) {
@@ -1976,6 +1977,93 @@ foam.CLASS({
         console.error(`Test datetime error:`, e);
         return false;
       }
+    },
+
+    /**
+     * Test that timestamp strings don't conflict with date parsing.
+     * Tests foam.lang.Date and foam.lang.DateTime adapt functions handle:
+     * - 13-digit JavaScript millisecond timestamps (always treated as timestamps)
+     * - 10-digit Unix timestamps starting with '1' (treated as seconds since epoch)
+     * - 10-digit strings starting with '2' should still parse as dates (YYYYMMDDHH)
+     */
+    function testTimestampStrings(x) {
+      // Test 13-digit millisecond timestamps (should be treated as timestamps)
+      let msTimestamps = [
+        { input: '1754308800000', expectedDate: new Date(1754308800000), desc: '13-digit ms timestamp (2025-08-04)' },
+        { input: '1000000000000', expectedDate: new Date(1000000000000), desc: '13-digit ms timestamp (2001-09-09)' },
+        { input: '1609459200000', expectedDate: new Date(1609459200000), desc: '13-digit ms timestamp (2021-01-01)' }
+      ];
+
+      // Test 10-digit Unix second timestamps starting with '1' (should be treated as timestamps)
+      let secTimestamps = [
+        { input: '1754308800', expectedDate: new Date(1754308800 * 1000), desc: '10-digit sec timestamp starting with 1' },
+        { input: '1000000000', expectedDate: new Date(1000000000 * 1000), desc: '10-digit sec timestamp (2001-09-09)' },
+        { input: '1609459200', expectedDate: new Date(1609459200 * 1000), desc: '10-digit sec timestamp (2021-01-01)' }
+      ];
+
+      // Test 10-digit strings starting with '2' should NOT be treated as timestamps
+      // They should be parsed as YYYYMMDDHH format
+      let dateStrings = [
+        { input: '2025011512', desc: '10-digit starting with 2 (YYYYMMDDHH format)', expectedYear: 2025, expectedMonth: 0, expectedDay: 15 },
+        { input: '2024123123', desc: '10-digit date format', expectedYear: 2024, expectedMonth: 11, expectedDay: 31 }
+      ];
+
+      // Test 13-digit timestamps via foam.lang.Date adapt
+      msTimestamps.forEach((testCase, i) => {
+        try {
+          let dateProp = foam.lang.Date.create();
+          let result = dateProp.adapt.call({}, null, testCase.input);
+          // Compare timestamps (allow 1 day tolerance for Date noon UTC normalization)
+          let timeDiff = Math.abs(result.getTime() - testCase.expectedDate.getTime());
+          let pass = timeDiff < 86400000; // Within 24 hours
+          x.test(pass, `Timestamp-13digit Test${i + 1}: ${testCase.desc} - expected ~${testCase.expectedDate.toISOString()}, got ${result.toISOString()}`);
+        } catch (e) {
+          x.test(false, `Timestamp-13digit Test${i + 1}: ${testCase.desc} - Error: ${e.message}`);
+        }
+      });
+
+      // Test 10-digit timestamps starting with '1' via foam.lang.Date adapt
+      secTimestamps.forEach((testCase, i) => {
+        try {
+          let dateProp = foam.lang.Date.create();
+          let result = dateProp.adapt.call({}, null, testCase.input);
+          // Compare timestamps (allow 1 day tolerance for Date noon UTC normalization)
+          let timeDiff = Math.abs(result.getTime() - testCase.expectedDate.getTime());
+          let pass = timeDiff < 86400000; // Within 24 hours
+          x.test(pass, `Timestamp-10digit Test${i + 1}: ${testCase.desc} - expected ~${testCase.expectedDate.toISOString()}, got ${result.toISOString()}`);
+        } catch (e) {
+          x.test(false, `Timestamp-10digit Test${i + 1}: ${testCase.desc} - Error: ${e.message}`);
+        }
+      });
+
+      // Test that 10-digit strings starting with '2' are still parsed as dates (not timestamps)
+      dateStrings.forEach((testCase, i) => {
+        try {
+          let dateProp = foam.lang.Date.create();
+          let result = dateProp.adapt.call({}, null, testCase.input);
+          // Should be parsed as a date, not a timestamp from 1970
+          let isReasonableYear = result.getFullYear() >= 2000 && result.getFullYear() <= 2100;
+          x.test(isReasonableYear, `DateString-10digit Test${i + 1}: ${testCase.desc} - year should be 2000-2100, got ${result.getFullYear()}`);
+          if ( testCase.expectedYear ) {
+            let yearMatch = result.getUTCFullYear() === testCase.expectedYear;
+            x.test(yearMatch, `DateString-10digit Test${i + 1}: ${testCase.desc} - expected year ${testCase.expectedYear}, got ${result.getUTCFullYear()}`);
+          }
+        } catch (e) {
+          x.test(false, `DateString-10digit Test${i + 1}: ${testCase.desc} - Error: ${e.message}`);
+        }
+      });
+
+      // Test foam.lang.DateTime adapt with 13-digit timestamps
+      msTimestamps.forEach((testCase, i) => {
+        try {
+          let dateTimeProp = foam.lang.DateTime.create();
+          let result = dateTimeProp.adapt.call({}, null, testCase.input);
+          let pass = result.getTime() === testCase.expectedDate.getTime();
+          x.test(pass, `DateTime-Timestamp Test${i + 1}: ${testCase.desc} - expected ${testCase.expectedDate.toISOString()}, got ${result.toISOString()}`);
+        } catch (e) {
+          x.test(false, `DateTime-Timestamp Test${i + 1}: ${testCase.desc} - Error: ${e.message}`);
+        }
+      });
     }
   ]
 });

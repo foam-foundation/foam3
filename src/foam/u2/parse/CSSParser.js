@@ -29,24 +29,6 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'Class',
-      name: 'of'
-    },
-    /** An optional input. If this is defined, 'me' is a keyword in the search
-     * and can be used for queries like <tt>owner:me</tt>. Note that since
-     * there is exactly one parser instance per 'of' value, the value of 'me' is
-     * also shared.
-     */
-    {
-      class: 'String',
-      name: 'me' //TODO: Implement 'me' support.
-    },
-    {
-      class: 'Boolean',
-      name: 'allowShortNames',
-      value: false // TODO: Implement short names support.
-    },
-    {
       name: 'baseGrammar_',
       value: function(alt, anyChar, not, opt, range, repeat, repeat0, seq, seq1, str, sug, sym) {
         // Override sug to add prepend overrides

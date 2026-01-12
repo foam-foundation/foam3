@@ -306,7 +306,7 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
           public void signalDone() {
             logger.debug("signalDone called - setting stop flag");
             // Set flag to break out of await loop (single-threaded pattern)
-            stopping_ = true;
+            // stopping_ = true; // exists before test cases run. perhaps have the test system set this.
             // Also tell Node.js to stop scheduling new tasks
             nodeRuntime.setStopping(true);
           }

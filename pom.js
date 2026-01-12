@@ -21,6 +21,12 @@ foam.POM({
   copy: [
     { source: 'webroot', targetDir: 'webroot' }
   ],
+  tasks: [
+    function buildJavaOpts() {
+      // Allow calling out to javet for node process
+      JAVA_OPTS += ` --enable-native-access=ALL-UNNAMED`;
+    }
+  ],
   javaDependencies: [
     'com.authy:authy-java:1.1.0',
     'com.caoccao.javet:javet:5.0.2',

@@ -222,12 +222,15 @@ foam.CLASS({
     
     async function eof() {
       var self = this;
-      
+
       // Only send agent command if no validation errors
       if ( this.agent_ && Object.keys(this.validationErrorMap).length === 0 ) {
         await this.dao.cmd(this.agent_);
       }
-      
+
+      // Wait for all pending batch operations to complete
+      await this.semaphore_.drain();
+
       this.updateStatus();
       this.progress = 100;
       

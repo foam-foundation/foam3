@@ -229,9 +229,9 @@ foam.CLASS({
           .end()
 
           .start().addClass(this.myClass('header-actions'))
-            .startContext({ data: this.data.mementoMgr })
-              .tag(this.data.mementoMgr.BACK)
-              .tag(this.data.mementoMgr.FORTH)
+            .startContext({ data: this })
+              .tag(this.UNDO)
+              .tag(this.REDO)
             .endContext()
             .start('span').addClass(this.myClass('separator')).end()
             .startContext({data: this})
@@ -376,6 +376,32 @@ foam.CLASS({
         this.mementoMgr.clear();
         flow.version  = undefined;
         flow.revision = undefined;
+      }
+    },
+    {
+      name: 'undo',
+      label: '',
+      help: 'Undo',
+      buttonStyle: 'BLACK',
+      themeIcon: 'redo',
+      isEnabled: function(data$mementoMgr$stackSize_, data$isLoading_) {
+        return !! data$mementoMgr$stackSize_ && ! data$isLoading_;
+      },
+      code: function() {
+        this.data.mementoMgr.back();
+      }
+    },
+    {
+      name: 'redo',
+      label: '',
+      help: 'Redo',
+      buttonStyle: 'BLACK',
+      themeIcon: 'undo',
+      isEnabled: function(data$mementoMgr$redoSize_, data$isLoading_) {
+        return !! data$mementoMgr$redoSize_ && ! data$isLoading_;
+      },
+      code: function() {
+        this.data.mementoMgr.forth();
       }
     },
     {
@@ -665,7 +691,7 @@ foam.CLASS({
 
     function outputJSON(json) {
       json.outputFObject_(this, this.cls_, [
-        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER,
+        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
         this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
       ]);
     }
@@ -1885,6 +1911,9 @@ foam.CLASS({
         // Don't allow toggling out of PRESENTATION_ONLY mode
         if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
 
+        // In LIMIT_EDIT mode, block escape-based toggling to prevent bypassing permission gates.
+        if ( this.flowMode == this.FlowMode.LIMIT_EDIT ) return;
+        
         if ( this.flowMode == this.FlowMode.CONSOLE ) {
           this.flowMode = this.FlowMode.PRESENTATION;
         } else if ( this.flowMode == this.FlowMode.PRESENTATION ) {

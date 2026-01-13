@@ -6,9 +6,21 @@ The Javet system allows the server to run FOAM client code in a Node.js process.
 
 ### Signal Done
 
-The shell automatically calls `signalDone()` after the user code completes, which stops the Node.js event loop immediately. This avoids the ~10 second timeout that would otherwise occur waiting for the event loop to drain.
+To avoid a ~10 second timeout after the script has run, append a call to `signalDone()` to notify the JavetShell agent to shutdown.
 
-Both inline code (`setCode()`) and file-based scripts (`setFilename()`) auto-append `signalDone()` - no manual intervention needed. 
+Do not do this for test cases as the JSTestRunner already manages test completion. 
+
+**Developer Note** `signalDone()` can not be wrapped on the script 'code' as this fails test case completion. 
+
+Example:
+
+   ```
+   // Shutdown JavetShell
+   if ( typeof signalDone === 'function' ) {
+     console.info('JSTestRunner: signalDone');
+     signalDone();
+   }
+   ```
 
 ## Use
 

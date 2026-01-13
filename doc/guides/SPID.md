@@ -211,7 +211,7 @@ public String getSpid(X x) {
 
 ### Automatic Setup with EasyDAO
 
-**EasyDAO automatically adds `ServiceProviderAwareDAO`** when your model implements `ServiceProviderAware`. You do NOT need to manually configure it.
+EasyDAO automatically adds `ServiceProviderAwareDAO` when the model implements `ServiceProviderAware`.
 
 From EasyDAO.js:
 ```javascript
@@ -222,13 +222,9 @@ From EasyDAO.js:
 }
 ```
 
-This means:
-1. Implement `ServiceProviderAware` in your model
-2. Use EasyDAO in services.jrl (standard pattern)
-3. SPID filtering is automatically enabled
+Standard services.jrl pattern:
 
 ```javascript
-// Standard services.jrl - NO manual ServiceProviderAwareDAO needed
 p({
   "class": "foam.core.boot.CSpec",
   "name": "myModelDAO",
@@ -242,25 +238,25 @@ p({
 })
 ```
 
-EasyDAO will automatically:
-- Detect that `MyModel` implements `ServiceProviderAware`
-- Add `ServiceProviderAwareDAO` to the decorator chain
-- Add an index on the `spid` property for performance
+EasyDAO automatically:
+- Detects that `MyModel` implements `ServiceProviderAware`
+- Adds `ServiceProviderAwareDAO` to the decorator chain
+- Adds an index on the `spid` property for performance
 
 ### Disabling Automatic SPID Filtering
 
-If you need to disable automatic SPID filtering for a specific DAO:
+To disable automatic SPID filtering for a specific DAO:
 
 ```javascript
 return new foam.dao.EasyDAO.Builder(x)
   .setOf(com.example.MyModel.getOwnClassInfo())
-  .setServiceProviderAware(false)  // Explicitly disable
+  .setServiceProviderAware(false)
   .build();
 ```
 
-### Manual Setup (Advanced)
+### Manual Setup
 
-Only use manual setup when NOT using EasyDAO (rare). If you manually craft your DAO stack:
+When manually crafting a DAO stack (without EasyDAO):
 
 ```java
 delegate = new foam.core.auth.ServiceProviderAwareDAO.Builder(x)
@@ -268,7 +264,7 @@ delegate = new foam.core.auth.ServiceProviderAwareDAO.Builder(x)
   .build();
 ```
 
-**WARNING**: Do NOT add `ServiceProviderAwareDAO` manually when using EasyDAO - this would cause double decoration.
+Note: Adding `ServiceProviderAwareDAO` manually when using EasyDAO results in double decoration since EasyDAO already adds it automatically.
 
 ### Decorator Chain
 
@@ -444,11 +440,11 @@ Common issues and solutions:
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| AuthorizationException on create | No SPID in context | Ensure user has SPID or theme has SPID |
-| User can't see data | Missing `serviceprovider.read.<spid>` | Check UserCapabilityJunction |
-| Data visible across tenants | Model doesn't implement `ServiceProviderAware` | Add `implements: ['foam.core.auth.ServiceProviderAware']` to model |
-| Data visible across tenants (manual DAO) | DAO not wrapped with ServiceProviderAwareDAO | Only relevant when manually crafting DAO stack (not using EasyDAO) |
-| SPID not set on new objects | Context SPID empty | Check user SPID and theme SPID |
+| AuthorizationException on create | No SPID in context | User needs SPID assigned, or theme needs SPID configured |
+| User can't see data | Missing `serviceprovider.read.<spid>` | Check UserCapabilityJunction for the user |
+| Data visible across tenants | Model missing `ServiceProviderAware` | Model needs `implements: ['foam.core.auth.ServiceProviderAware']` |
+| Data visible across tenants (manual DAO) | Missing ServiceProviderAwareDAO | Relevant when manually crafting DAO stack without EasyDAO |
+| SPID not set on new objects | Context SPID empty | User SPID or theme SPID needs to be set |
 
 ## Related Documentation
 

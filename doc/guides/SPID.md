@@ -209,11 +209,26 @@ public String getSpid(X x) {
 
 ## Setting Up SPID-Aware DAOs
 
-### In services.jrl
+### Automatic Setup with EasyDAO
 
-Wrap your DAO with `ServiceProviderAwareDAO`:
+**EasyDAO automatically adds `ServiceProviderAwareDAO`** when your model implements `ServiceProviderAware`. You do NOT need to manually configure it.
+
+From EasyDAO.js:
+```javascript
+{
+  name: 'serviceProviderAware',
+  class: 'Boolean',
+  javaFactory: 'return getOf().isAssignableTo(foam.core.auth.ServiceProviderAware.class);'
+}
+```
+
+This means:
+1. Implement `ServiceProviderAware` in your model
+2. Use EasyDAO in services.jrl (standard pattern)
+3. SPID filtering is automatically enabled
 
 ```javascript
+// Standard services.jrl - NO manual ServiceProviderAwareDAO needed
 p({
   "class": "foam.core.boot.CSpec",
   "name": "myModelDAO",
@@ -222,26 +237,49 @@ p({
     return new foam.dao.EasyDAO.Builder(x)
       .setSeqNo(true)
       .setOf(com.example.MyModel.getOwnClassInfo())
-      .setDecorator(
-        new foam.core.auth.ServiceProviderAwareDAO.Builder(x)
-          .setDelegate(/* inner DAO */)
-          .build()
-      )
       .build();
   """
 })
 ```
 
+EasyDAO will automatically:
+- Detect that `MyModel` implements `ServiceProviderAware`
+- Add `ServiceProviderAwareDAO` to the decorator chain
+- Add an index on the `spid` property for performance
+
+### Disabling Automatic SPID Filtering
+
+If you need to disable automatic SPID filtering for a specific DAO:
+
+```javascript
+return new foam.dao.EasyDAO.Builder(x)
+  .setOf(com.example.MyModel.getOwnClassInfo())
+  .setServiceProviderAware(false)  // Explicitly disable
+  .build();
+```
+
+### Manual Setup (Advanced)
+
+Only use manual setup when NOT using EasyDAO (rare). If you manually craft your DAO stack:
+
+```java
+delegate = new foam.core.auth.ServiceProviderAwareDAO.Builder(x)
+  .setDelegate(delegate)
+  .build();
+```
+
+**WARNING**: Do NOT add `ServiceProviderAwareDAO` manually when using EasyDAO - this would cause double decoration.
+
 ### Decorator Chain
 
-A typical SPID-aware DAO setup:
+A typical SPID-aware DAO setup (created automatically by EasyDAO):
 
 ```
 Request
    │
    ▼
 ┌──────────────────────────┐
-│ ServiceProviderAwareDAO  │ ← SPID filtering
+│ ServiceProviderAwareDAO  │ ← SPID filtering (auto-added by EasyDAO)
 └────────────┬─────────────┘
              │
              ▼
@@ -251,7 +289,7 @@ Request
              │
              ▼
 ┌──────────────────────────┐
-│       EasyDAO            │ ← Persistence
+│       MDAO / JDAO        │ ← Persistence
 └──────────────────────────┘
 ```
 
@@ -395,11 +433,12 @@ foam.CLASS({
 ## Best Practices
 
 1. **Always implement ServiceProviderAware** for tenant-specific data
-2. **Use ServiceProviderAwareDAO** decorator in your DAO chain
-3. **Never expose SPID in APIs** - it's externalTransient for a reason
-4. **Use global SPID (`*`) sparingly** - only for truly shared data
-5. **Check SPID permissions** before sensitive operations
-6. **Consider Theme SPID** for unauthenticated access scenarios
+2. **Use EasyDAO** - it automatically adds `ServiceProviderAwareDAO` when needed
+3. **Don't manually add ServiceProviderAwareDAO** when using EasyDAO (causes double decoration)
+4. **Never expose SPID in APIs** - it's externalTransient for a reason
+5. **Use global SPID (`*`) sparingly** - only for truly shared data
+6. **Check SPID permissions** before sensitive operations
+7. **Consider Theme SPID** for unauthenticated access scenarios
 
 ## Debugging SPID Issues
 
@@ -409,7 +448,8 @@ Common issues and solutions:
 |-------|-------|----------|
 | AuthorizationException on create | No SPID in context | Ensure user has SPID or theme has SPID |
 | User can't see data | Missing `serviceprovider.read.<spid>` | Check UserCapabilityJunction |
-| Data visible across tenants | DAO not wrapped with ServiceProviderAwareDAO | Add decorator to DAO chain |
+| Data visible across tenants | Model doesn't implement `ServiceProviderAware` | Add `implements: ['foam.core.auth.ServiceProviderAware']` to model |
+| Data visible across tenants (manual DAO) | DAO not wrapped with ServiceProviderAwareDAO | Only relevant when manually crafting DAO stack (not using EasyDAO) |
 | SPID not set on new objects | Context SPID empty | Check user SPID and theme SPID |
 
 ## Related Documentation

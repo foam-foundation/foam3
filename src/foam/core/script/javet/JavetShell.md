@@ -26,7 +26,7 @@ Example:
 
 ### Test Case
 
-`./build.sh server-test:JavetShellConcurrentTest`
+`./build.sh server-tests:JavetShellConcurrentTest`
 
 ### Manual Testing
 

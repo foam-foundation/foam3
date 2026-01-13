@@ -114,6 +114,12 @@ foam.CLASS({
                 testRun = await self.testRunDAO.put(testRun);
               }
               console.info('Testing complete');
+
+              // Shutdown JavetShell
+              if ( typeof signalDone === 'function' ) {
+                console.info('JSTestRunner: signalDone');
+                signalDone();
+              }
             }
           }
         }

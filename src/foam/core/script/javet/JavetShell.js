@@ -26,8 +26,6 @@ See JavetShell.md for more info.
     'com.caoccao.javet.interfaces.IJavetAnonymous',
     'com.caoccao.javet.interop.NodeRuntime',
     'com.caoccao.javet.interop.V8Runtime',
-    'com.caoccao.javet.interop.callback.IJavetPromiseRejectCallback',
-    'com.caoccao.javet.interop.callback.JavetPromiseRejectCallback',
     'com.caoccao.javet.interop.callback.JavetBuiltInModuleResolver',
     'com.caoccao.javet.utils.JavetOSUtils',
     'com.caoccao.javet.values.V8Value',
@@ -63,7 +61,6 @@ See JavetShell.md for more info.
   ],
 
   javaCode: `
-  IJavetPromiseRejectCallback promiseCallback_ = null;
   IV8ValuePromise.IListener promiseListener_ = null;
   JavetStandardConsoleInterceptor javetConsoleInterceptor_ = null;
   volatile boolean stopping_ = false;
@@ -204,19 +201,13 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
     %s
   };
   await code.call(x);
-  console.info('JavetShell: code complete, calling signalDone()');
-  if ( typeof signalDone === 'function' ) {
-    signalDone();
-  } else {
-    console.error('JavetShell: signalDone is not defined!');
-  }
+  // NOTE: do not call signalDone from here, else test case execution will fail.
+  // Call from individual scripts when needed, see JSTestRunner.
 }, err => {
   console.error('%s', err);
   console.info('JavetShell: error path, calling signalDone()');
   if ( typeof signalDone === 'function' ) {
     signalDone();
-  } else {
-    console.error('JavetShell: signalDone is not defined!');
   }
 });
             """.formatted(session.getId(), getCode(), getId()));
@@ -246,17 +237,6 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       final Logger logger = Loggers.logger(x, this);
       final Logger log = logger;
       PrintStream ps = (PrintStream) getPrintStream();
-
-      promiseCallback_ = new JavetPromiseRejectCallback(v8Runtime.getLogger()) {
-        public void callback(JavetPromiseRejectEvent event, V8ValuePromise promise, V8Value value) {
-          log.info("JavetPromiseRejectCallback", event, promise, value);
-          try {
-            promise.resolve(value);
-          } catch (JavetException e) {
-            log.error(e);
-          }
-        }
-      };
 
       promiseListener_ = new IV8ValuePromise.IListener() {
         public void onCatch(V8Value v8Value) {
@@ -304,9 +284,9 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         v8Runtime.getGlobalObject().bind(new IJavetAnonymous() {
           @V8Function(name = "signalDone")
           public void signalDone() {
-            logger.debug("signalDone called - setting stop flag");
+            logger.info("signalDone called - setting stop flag");
             // Set flag to break out of await loop (single-threaded pattern)
-            // stopping_ = true; // exists before test cases run. perhaps have the test system set this.
+            stopping_ = true; // exists before test cases run. perhaps have the test system set this.
             // Also tell Node.js to stop scheduling new tasks
             nodeRuntime.setStopping(true);
           }
@@ -317,7 +297,7 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         v8Runtime.getGlobalObject().bind(new IJavetAnonymous() {
           @V8Function(name = "signalDone")
           public void signalDone() {
-            logger.debug("signalDone called (V8Runtime) - no-op");
+            logger.info("signalDone called (V8Runtime) - no-op");
           }
         });
       }
@@ -355,7 +335,6 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
       logger.debug("string", string);
       logger.debug("executing");
       stopping_ = false; // Reset flag for this execution
-      // v8Runtime.setPromiseRejectCallback(promiseCallback_);
       try ( V8ValuePromise v8ValuePromise = v8Runtime.getExecutor(string).execute() ) {
         v8ValuePromise.register(promiseListener_);
         logger.debug("waiting");
@@ -391,8 +370,6 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
     console.info('JavetShell: file execution complete, calling signalDone()');
     if ( typeof signalDone === 'function' ) {
       signalDone();
-    } else {
-      console.error('JavetShell: signalDone is not defined!');
     }
   }
 })();

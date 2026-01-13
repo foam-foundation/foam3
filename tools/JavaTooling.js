@@ -142,9 +142,6 @@ foam.POM({
         JAVA_OPTS += ` -Dhttp.port=${WEB_PORT}`;
       if ( SYSTEM_PROPERTY )
         JAVA_OPTS += ` -${SYSTEM_PROPERTY.split(',').join(' -')}`;
-
-      // Access to call out to javet node process
-      JAVA_OPTS += ` --enable-native-access=ALL-UNNAMED`;
     }],
 
     buildJavaTestOpts: ['build-java-test-ops', 'Add test specific JAVA_OPTS', ['buildJavaOpts'], function() {

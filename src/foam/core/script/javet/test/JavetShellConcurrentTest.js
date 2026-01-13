@@ -60,7 +60,6 @@ x.createSubContext({b: id});
 for ( let i = 0; i < %s; i++ ) {
   console.info('loop', id, i);
 }
-// signalDone() is auto-appended by JavetShell code wrapper
         """;
         PrintStream ps = new PrintStream(new ByteArrayOutputStream()) {
           @Override

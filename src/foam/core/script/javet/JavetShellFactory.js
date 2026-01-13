@@ -30,6 +30,7 @@ See JavetShell.md for more info.
     'com.caoccao.javet.interop.engine.IJavetEnginePool',
     'com.caoccao.javet.interop.engine.JavetEngineConfig',
     'com.caoccao.javet.interop.engine.JavetEnginePool',
+    'com.caoccao.javet.interop.executors.IV8Executor',
     'com.caoccao.javet.utils.JavetOSUtils',
 
     'foam.core.fs.FileSystemStorage',
@@ -72,7 +73,7 @@ See JavetShell.md for more info.
       try {
         IJavetEngine engine = iJavetEnginePool_.getEngine();
         try ( V8Runtime v8Runtime = engine.getV8Runtime(); ) {
-          loadFOAM(v8Runtime);
+          load(v8Runtime, "foam-bin-node.js", "foam.flags.node=true;");
         }
         return engine;
       } catch (Throwable t) {
@@ -88,41 +89,39 @@ See JavetShell.md for more info.
   }
 
   /**
-   * Load foam-bin into this thread's engine
+   * Load js into this thread's engine.
    */
-  static public void loadFOAM(V8Runtime v8Runtime)
+  static public void load(V8Runtime v8Runtime, String name, String flags)
     throws JavetException, java.io.IOException {
     PM pm = new PM("JavetShellFactory","load");
     try {
       Logger logger = Loggers.logger(XLocator.get());
-      String name = "foam-bin-node.js";
       Storage storage = (Storage) XLocator.get().get(Storage.class);
+
       if ( storage instanceof FileSystemStorage ) {
         logger.debug("WORKING_DIRECTORY", JavetOSUtils.WORKING_DIRECTORY);
         File file = new File(
                              JavetOSUtils.WORKING_DIRECTORY,
-                             "build/js/"+name); // build with -agw)
+                             "build/js/"+name);
         if (file.exists() && file.canRead()) {
-          logger.debug("FOAM Loading (file)", name);
+          logger.debug("Loading (file)", name);
           v8Runtime.getExecutor(file).executeVoid();
-          logger.debug("FOAM Loaded", name);
-
-          logger.debug("FOAM Flags setting", name);
-          v8Runtime.getExecutor("foam.flags.node=true;").executeVoid();
-          logger.debug("FOAM Flags set", name);
+          logger.debug("Loaded", name);
         } else {
           throw new java.io.IOException("File not found: "+file.getAbsolutePath());
         }
       } else {
         String path = "../webroot/"+name;
         InputStream is = new ByteArrayInputStream(storage.getBytes(path));
-        logger.debug("FOAM Loading (resource)", name);
+        logger.debug("Loading (resource)", name);
         v8Runtime.getExecutor(new String(is.readAllBytes(), StandardCharsets.UTF_8)).executeVoid();
-        logger.debug("FOAM Loaded", name);
+        logger.debug("Loaded", name);
       }
-      logger.debug("FOAM initializing");
-      v8Runtime.getExecutor("foam.flags.node = true;").executeVoid();
-      logger.debug("FOAM initialized");
+      if ( ! SafetyUtil.isEmpty(flags) ) {
+        logger.debug("initializing", flags);
+        v8Runtime.getExecutor("foam.flags.node = true;").executeVoid();
+        logger.debug("initialized");
+      }
     } finally {
       pm.log(XLocator.get());
     }

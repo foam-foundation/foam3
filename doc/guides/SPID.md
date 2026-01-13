@@ -432,13 +432,11 @@ foam.CLASS({
 
 ## Best Practices
 
-1. **Always implement ServiceProviderAware** for tenant-specific data
-2. **Use EasyDAO** - it automatically adds `ServiceProviderAwareDAO` when needed
-3. **Don't manually add ServiceProviderAwareDAO** when using EasyDAO (causes double decoration)
-4. **Never expose SPID in APIs** - it's externalTransient for a reason
-5. **Use global SPID (`*`) sparingly** - only for truly shared data
-6. **Check SPID permissions** before sensitive operations
-7. **Consider Theme SPID** for unauthenticated access scenarios
+1. **Implement ServiceProviderAware** for tenant-specific data models
+2. **EasyDAO handles SPID automatically** - detects the interface and adds `ServiceProviderAwareDAO`
+3. **SPID is externalTransient** - computed at runtime, not persisted or sent over the network
+4. **Global SPID (`*`)** is for shared data accessible to all tenants
+5. **Theme SPID** provides fallback for unauthenticated access scenarios
 
 ## Debugging SPID Issues
 

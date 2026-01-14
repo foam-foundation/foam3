@@ -198,7 +198,8 @@ foam.CLASS({
   methods: [
     function render() {
       let self = this;
-      const isLimitedEditConsole = this.data.flowMode === this.FlowMode.LIMIT_EDIT_CONSOLE;
+      // Hide HOME button in limited edit console mode
+      const isLimitedEditConsole = this.data.flowMode.isLimitedEditMode && this.data.flowMode.showsPrompts;
 
       var fullVersion = this.data.value.dynamic(function(version, revision) {
         this.add(`v${version}.${revision}`);
@@ -248,7 +249,7 @@ foam.CLASS({
                 horizontal: false
               })
               .start('span').addClass(this.myClass('separator')).end()
-              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c == self.FlowMode.CONSOLE || c == self.FlowMode.LIMIT_EDIT_CONSOLE  ? 'fullScreen' : 'minimize') })
+              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c.fullscreenIcon) })
             .endContext()
             // callIf(this.data.showPrompts$, function() {
             //   this.start().addClass(self.myClass('save-text'))
@@ -281,8 +282,9 @@ foam.CLASS({
         return ! showPrompts;
       },
       code: function() {
-        if ( this.data.flowMode == this.data.FlowMode.LIMIT_EDIT ) {
-          this.data.flowMode = this.data.FlowMode.CONSOLE;
+        var target = this.data.flowMode.getToggleTarget();
+        if ( target ) {
+          this.data.flowMode = target;
         }
         this.data.showPrompts = true;
       }
@@ -410,19 +412,12 @@ foam.CLASS({
       label: '',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       isAvailable: function(data$flowMode) {
-        // Hide toggle button in PRESENTATION_ONLY and limited edit modes
-        return data$flowMode != this.FlowMode.PRESENTATION_ONLY &&
-               data$flowMode != this.FlowMode.LIMIT_EDIT;
+        return data$flowMode.showsFullscreenButton;
       },
       code: function() {
-        if ( this.data.flowMode == this.FlowMode.CONSOLE ) {
-          this.data.flowMode = this.FlowMode.PRESENTATION;
-        } else if ( this.data.flowMode == this.FlowMode.PRESENTATION ) {
-          this.data.flowMode = this.FlowMode.CONSOLE;
-        } else if ( this.data.flowMode == this.FlowMode.LIMIT_EDIT ) {
-          this.data.flowMode = this.FlowMode.LIMIT_EDIT_CONSOLE;
-        } else if ( this.data.flowMode == this.FlowMode.LIMIT_EDIT_CONSOLE ) {
-          this.data.flowMode = this.FlowMode.LIMIT_EDIT;
+        var target = this.data.flowMode.getToggleTarget();
+        if ( target ) {
+          this.data.flowMode = target;
         }
       }
     }
@@ -989,7 +984,144 @@ foam.CLASS({
 foam.ENUM({
   package: 'foam.core.reflow',
   name: 'FlowMode',
-  values: [ 'CONSOLE', 'PRESENTATION', 'PRESENTATION_ONLY', 'LIMIT_EDIT', 'LIMIT_EDIT_CONSOLE' ]
+
+  documentation: 'Defines the display and interaction mode for Flow/Console views.',
+
+  properties: [
+    {
+      class: 'Boolean',
+      name: 'showsPrompts',
+      documentation: 'Whether to show UI prompts, sidebars, and editing UI'
+    },
+    {
+      class: 'Boolean',
+      name: 'showsHeader',
+      documentation: 'Whether to show the header bar'
+    },
+    {
+      class: 'Boolean',
+      name: 'autoscrollEnabled',
+      documentation: 'Whether to auto-scroll to bottom after command execution'
+    },
+    {
+      class: 'Boolean',
+      name: 'autosaveEnabled',
+      documentation: 'Whether to auto-save script changes to localStorage'
+    },
+    {
+      class: 'Boolean',
+      name: 'allowsEscapeToggle',
+      documentation: 'Whether ESC key can toggle presentation mode'
+    },
+    {
+      class: 'Boolean',
+      name: 'showsFullscreenButton',
+      documentation: 'Whether to show the fullscreen/minimize toggle button'
+    },
+    {
+      class: 'String',
+      name: 'fullscreenIcon',
+      documentation: 'Icon name for fullscreen button (fullScreen or minimize)'
+    },
+    {
+      class: 'Boolean',
+      name: 'isLimitedEditMode',
+      documentation: 'Whether this is a limited edit mode variant'
+    },
+    {
+      class: 'Boolean',
+      name: 'checksAutosave',
+      documentation: 'Whether to check for and prompt about autosaved scripts'
+    },
+    {
+      class: 'Boolean',
+      name: 'showsHelpKey',
+      documentation: 'Whether F1 help key is available'
+    },
+    {
+      name: 'getToggleTarget',
+      documentation: 'Returns the FlowMode to switch to when toggling, null if toggle not allowed',
+      value: function() { return null; }
+    }
+  ],
+
+  values: [
+    {
+      name: 'CONSOLE',
+      label: 'Console',
+      showsPrompts: true,
+      showsHeader: true,
+      autoscrollEnabled: true,
+      autosaveEnabled: true,
+      allowsEscapeToggle: true,
+      showsFullscreenButton: true,
+      fullscreenIcon: 'fullScreen',
+      isLimitedEditMode: false,
+      checksAutosave: true,
+      showsHelpKey: true,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
+    },
+    {
+      name: 'PRESENTATION',
+      label: 'Presentation',
+      showsPrompts: false,
+      showsHeader: true,
+      autoscrollEnabled: true,
+      autosaveEnabled: true,
+      allowsEscapeToggle: true,
+      showsFullscreenButton: true,
+      fullscreenIcon: 'minimize',
+      isLimitedEditMode: false,
+      checksAutosave: true,
+      showsHelpKey: false,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.CONSOLE; }
+    },
+    {
+      name: 'PRESENTATION_ONLY',
+      label: 'Presentation Only',
+      showsPrompts: false,
+      showsHeader: false,
+      autoscrollEnabled: false,
+      autosaveEnabled: false,
+      allowsEscapeToggle: false,
+      showsFullscreenButton: false,
+      fullscreenIcon: 'minimize',
+      isLimitedEditMode: false,
+      checksAutosave: false,
+      showsHelpKey: false,
+      getToggleTarget: function() { return null; }
+    },
+    {
+      name: 'LIMIT_EDIT',
+      label: 'Limited Edit',
+      showsPrompts: false,
+      showsHeader: true,
+      autoscrollEnabled: false,
+      autosaveEnabled: false,
+      allowsEscapeToggle: false,
+      showsFullscreenButton: false,
+      fullscreenIcon: 'minimize',
+      isLimitedEditMode: true,
+      checksAutosave: true,
+      showsHelpKey: false,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT_CONSOLE; }
+    },
+    {
+      name: 'LIMIT_EDIT_CONSOLE',
+      label: 'Limited Edit Console',
+      showsPrompts: true,
+      showsHeader: true,
+      autoscrollEnabled: true,
+      autosaveEnabled: true,
+      allowsEscapeToggle: true,
+      showsFullscreenButton: true,
+      fullscreenIcon: 'fullScreen',
+      isLimitedEditMode: true,
+      checksAutosave: true,
+      showsHelpKey: false,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT; }
+    }
+  ]
 });
 
 
@@ -1198,7 +1330,7 @@ foam.CLASS({
       name: 'showPrompts',
       value: true,
       expression: function(flowMode) {
-        return flowMode === this.FlowMode.CONSOLE || flowMode === this.FlowMode.LIMIT_EDIT_CONSOLE;
+        return flowMode.showsPrompts;
       },
       preSet: function(_, n) { return n === 'false' ? '' : n; },
 //      memorable: true // use flowMode
@@ -1460,7 +1592,7 @@ foam.CLASS({
 
       layout.showLeft$   = this.showPrompts$;
       layout.showRight$  = this.showPrompts$;
-      layout.showHeader$ = this.flowMode$.map(m => m != this.FlowMode.PRESENTATION_ONLY);
+      layout.showHeader$ = this.flowMode$.map(m => m.showsHeader);
       layout.middle.call(this.renderSelf, [this]);
 
       let setupEditMode = () => {
@@ -1481,7 +1613,7 @@ foam.CLASS({
       }
 
       layout.header.add(this.dynamic(function(flowMode, showPrompts) {
-        if ( flowMode == self.FlowMode.LIMIT_EDIT ) {
+        if ( flowMode.isLimitedEditMode && ! flowMode.showsPrompts ) {
           this.tag(self.LimitEditHeader, { data: self });
         } else {
           this.tag(self.ReflowHeader, {data: self, showPrompts: showPrompts, resetFlow: self.clearFlow});
@@ -1698,8 +1830,8 @@ foam.CLASS({
         }
       }
 
-      // Don't auto-scroll in presentation-only mode
-      if ( this.flowMode != this.FlowMode.PRESENTATION_ONLY ) {
+      // Don't auto-scroll in presentation-style modes
+      if ( this.flowMode.autoscrollEnabled ) {
         this.setTimeout(() => this.scrollToBottom(), 100);
       }
 
@@ -1829,8 +1961,8 @@ foam.CLASS({
     },
 
     async function checkForAutosavedScript(scriptName) {
-      // Don't retrieve autosave for unnamed flows or in PRESENTATION_ONLY mode
-      if ( ! scriptName || this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return false;
+      // Don't retrieve autosave for unnamed flows or in modes that don't check autosave
+      if ( ! scriptName || ! this.flowMode.checksAutosave ) return false;
 
       var autosaveData = this.loadAutosaveData(scriptName);
       if ( ! autosaveData || ! autosaveData.script ) return false;
@@ -1894,7 +2026,7 @@ foam.CLASS({
     {
       name: 'helpKey',
       isAvailable: function(flowMode, input_) {
-        return this.flowMode == this.FlowMode.CONSOLE && input_.element_ === document.activeElement;
+        return flowMode.showsHelpKey && input_.element_ === document.activeElement;
       },
       code: function() { this.eval_('help'); },
       keyboardShortcuts: [ 'f1' ]
@@ -1908,20 +2040,12 @@ foam.CLASS({
       name: 'toggleMode',
       // You can do this.showPrompts = true|false; from flow scripts
       code: function() {
-        // Don't allow toggling out of PRESENTATION_ONLY mode
-        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+        // Check if escape toggle is allowed for this mode
+        if ( ! this.flowMode.allowsEscapeToggle ) return;
 
-        // In LIMIT_EDIT mode, block escape-based toggling to prevent bypassing permission gates.
-        if ( this.flowMode == this.FlowMode.LIMIT_EDIT ) return;
-        
-        if ( this.flowMode == this.FlowMode.CONSOLE ) {
-          this.flowMode = this.FlowMode.PRESENTATION;
-        } else if ( this.flowMode == this.FlowMode.PRESENTATION ) {
-          this.flowMode = this.FlowMode.CONSOLE;
-        } else if ( this.flowMode == this.FlowMode.LIMIT_EDIT ) {
-          this.flowMode = this.FlowMode.LIMIT_EDIT_CONSOLE;
-        } else if ( this.flowMode == this.FlowMode.LIMIT_EDIT_CONSOLE ) {
-          this.flowMode = this.FlowMode.LIMIT_EDIT;
+        var target = this.flowMode.getToggleTarget();
+        if ( target ) {
+          this.flowMode = target;
         }
 
         // After toggleMode is executed the app may no longer have focus so thee
@@ -2002,7 +2126,7 @@ foam.CLASS({
 
         // When script name changes, check if there's existing autosave for new name
         if ( oldValue === newValue ) return;
-        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+        if ( ! this.flowMode.checksAutosave ) return;
 
         // Check if the new name has existing autosave data that differs from current
         var existingData = this.loadAutosaveData(newValue);
@@ -2100,8 +2224,8 @@ foam.CLASS({
       isMerged: true,
       delay: 250,
       code: function() {
-        // Don't auto-save in PRESENTATION_ONLY mode
-        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+        // Don't auto-save in modes that don't support autosave
+        if ( ! this.flowMode.autosaveEnabled ) return;
 
         if ( ! this.value || ! this.value.script ) return;
 

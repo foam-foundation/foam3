@@ -131,6 +131,9 @@ foam.CLASS({
           this.isAvailable = 'invalid';
           return;
         }
+        // Clear any previous "invalid" state as soon as the input matches the pattern.
+        // This prevents stale format errors from lingering while we wait for the availability check.
+        this.isAvailable = 'valid';
         this.userPropertyAvailabilityService.checkAvailability(this, this.fromPropertyName, this.data)
           .then(isAvailable => {
             this.isAvailable = isAvailable ? 'available' : 'unavailable';

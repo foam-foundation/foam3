@@ -205,3 +205,62 @@ Option **--flags:test** will include all source and configuration flagged as `te
     # see ussage with
     ./build.sh -TESLint --usage
     ```
+
+# Building Third-Party from Source
+
+Third party repositories can be built from source with the addition of a small **pom** file.
+
+Create a **pom** file at the root of your project with a name matching the the repository, `ThirdParty-pom.js` for example.  In it, specify `javaFiles`, `resources`, `licenses`, and `javaDependencies`.  **Note** the paths are relative to your root project.
+
+Example:
+    
+    ```
+    foam.POM({
+      name: 'ThirdParty',
+      javaFiles: [
+        { '../ThirdParty/src/main/java/*' }
+      ],
+      copy: [
+        { source: '../ThirdParty/src/main/resources' }
+      ],
+      licenses: `
+        // Add license header
+      `,
+      javaDependencies: [
+        ...
+      ]
+    })
+    ```
+    
+
+Add this pom file to your root project pom `projects` section.
+
+    ```
+    foam.POM({
+      ...
+      projects: [
+        ...
+        { name: 'ThirdParty-pom' }
+      ],
+      ...
+    })
+    ```
+    
+Build as you would normally for your project.
+
+# Enabling Java Preview Features
+
+Java Preview Features can be specified as such in a pom:
+
+    ```
+    foam.POM({
+      ...
+    
+      tasks: [
+        function buildJavaOps() {
+          JAVA_OPTS += ` --add-modules jdk.incubator.vector --enable-preview`;
+        }
+      ],
+    
+    ```
+    

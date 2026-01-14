@@ -466,7 +466,7 @@ Client test are run via a nodejs process.  To run via a browser:
       var shell = (JavetShell) x.get("javetShell");
       shell.setAllowEval(true); // allow JS Test to eval modelCode
       shell.setCode("""
-foam.core.test.JSTestRunner.create({
+await foam.core.test.JSTestRunner.create({
   testRunId: '%s',
   testSuites: '%s',
   testIds: '%s'

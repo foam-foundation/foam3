@@ -201,12 +201,14 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
     %s
   };
   await code.call(x);
-  // NOTE: do not call signalDone from here, else test case execution will fail.
-  // Call from individual scripts when needed, see JSTestRunner.
+  if ( typeof signalDone === 'function' ) {
+    console.info('JavetShell: code complete, calling signalDone()');
+    signalDone();
+  }
 }, err => {
   console.error('%s', err);
-  console.info('JavetShell: error path, calling signalDone()');
   if ( typeof signalDone === 'function' ) {
+    console.info('JavetShell: error path, calling signalDone()');
     signalDone();
   }
 });
@@ -284,9 +286,9 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         v8Runtime.getGlobalObject().bind(new IJavetAnonymous() {
           @V8Function(name = "signalDone")
           public void signalDone() {
-            logger.info("signalDone called - setting stop flag");
+            logger.debug("signalDone called - setting stop flag");
             // Set flag to break out of await loop (single-threaded pattern)
-            stopping_ = true; // exists before test cases run. perhaps have the test system set this.
+            stopping_ = true;
             // Also tell Node.js to stop scheduling new tasks
             nodeRuntime.setStopping(true);
           }
@@ -297,7 +299,7 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
         v8Runtime.getGlobalObject().bind(new IJavetAnonymous() {
           @V8Function(name = "signalDone")
           public void signalDone() {
-            logger.info("signalDone called (V8Runtime) - no-op");
+            logger.debug("signalDone called (V8Runtime) - no-op");
           }
         });
       }

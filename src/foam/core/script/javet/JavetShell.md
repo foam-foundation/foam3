@@ -6,21 +6,38 @@ The Javet system allows the server to run FOAM client code in a Node.js process.
 
 ### Signal Done
 
-To avoid a ~10 second timeout after the script has run, append a call to `signalDone()` to notify the JavetShell agent to shutdown.
+The shell automatically calls `signalDone()` after the user code completes, which stops the Node.js event loop immediately. This avoids the ~10 second timeout that would otherwise occur waiting for the event loop to drain.
 
-Do not do this for test cases as the JSTestRunner already manages test completion. 
+**Note** It is important to understand when the script resolves.  The shell automatically calls `await` on the script, but the script may still return earlier than expected. 
 
-**Developer Note** `signalDone()` can not be wrapped on the script 'code' as this fails test case completion. 
+For example, in the following scenario the `await dao` will return before the `sink` operations are complete:
 
-Example:
+    ```
+    async function foo() {
+      await dao.select({
+        put: async function(o, s) {
+          await bar();
+        },
+        eof: function() {
+        }
+      });
+    ```
 
-   ```
-   // Shutdown JavetShell
-   if ( typeof signalDone === 'function' ) {
-     console.info('JSTestRunner: signalDone');
-     signalDone();
-   }
-   ```
+To ensure the function does not return until the `sink` is complete:
+
+    ```
+    async function foo() {
+      return new Promise((resolve, reject) => {
+        dao.select({
+          put: async function(o, s) {
+            await bar();
+          },
+          eof: function() {
+            resolve();
+          }
+        });
+      });
+    ```
 
 ## Use
 

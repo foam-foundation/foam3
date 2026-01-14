@@ -369,8 +369,8 @@ foam.core.client.ClientBuilder.create({sessionID: '%s'}).promise.then(async clie
   try {
     %s
   } finally {
-    console.info('JavetShell: file execution complete, calling signalDone()');
     if ( typeof signalDone === 'function' ) {
+      console.info('JavetShell: file execution complete, calling signalDone()');
       signalDone();
     }
   }

@@ -235,9 +235,9 @@ foam.CLASS({
     },
     async function render() {
       var self = this;
-      this.mementoString$.sub(this.getData);
+      this.onDetach(this.mementoString$.sub(this.getData));
       this.getData();
-      this.filterController.mementoPredicate$.sub(this.updateMementoString);
+      this.onDetach(this.filterController.mementoPredicate$.sub(this.updateMementoString));
 
       await this.updateFilters();
 
@@ -413,7 +413,9 @@ foam.CLASS({
       name: 'updateMementoString',
       code: function() {
         this.deFeedback(() => {
-          var mem = this.filterController.mementoPredicate.toMQL();
+          var pred = this.filterController.mementoPredicate;
+          // TRUE doesn't have toMQL, so check if it exists
+          var mem = pred.toMQL ? pred.toMQL() : '';
           if ( mem ) {
             this.mementoString = '{' + mem + '}';
           } else {
@@ -426,6 +428,7 @@ foam.CLASS({
       name: 'getData',
       code: function() {
         this.deFeedback(() => {
+          if ( this.data && this.data !== this.TRUE ) return;
           var queryParser = foam.parse.QueryParser.create({ of: this.dao.of }, this);
           var value = this.mementoString;
           if ( value && value.indexOf('{') != -1 && value.indexOf('}') != -1 ) {
@@ -468,7 +471,8 @@ foam.CLASS({
         // clear all filters
         this.filterController.clearAll();
         if ( this.generalSearchField ) this.generalSearchField.view.data = '';
-        this.mementoString = '';
+        // Use undefined so hasDefaultValue() returns true and memento removes from URL
+        this.mementoString = undefined;
       }
     },
     {

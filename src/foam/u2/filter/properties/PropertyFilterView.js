@@ -248,7 +248,7 @@ foam.CLASS({
       // View is not active. Does not require creation
       if ( ! this.active ) return;
       // View has been instantiated before. Does not require creation
-      if ( ! this.firstTime_ );
+      if ( this.firstTime_ )
         this.initView();
 
       let x = e.clientX || this.getBoundingClientRect().x;

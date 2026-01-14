@@ -78,9 +78,12 @@ foam.CLASS({
         // The PromisedDAO resolves as our delegate when the cache is ready to use
         return this.PromisedDAO.create({
           promise: (async function() {
-            console.group('Loading Cache, ignore Missing required import messages');
+            if ( foam.flags.node )
+              console.warn('  Loading Cache, ignore Missing required import messages');
+            else
+              console.group('Loading Cache, ignore Missing required import messages');
             var a = await src.select();
-            console.groupEnd();
+            console.groupEnd && console.groupEnd();
             await cache.removeAll();
             a.array.forEach(o => cache.put(o));
             return cache;

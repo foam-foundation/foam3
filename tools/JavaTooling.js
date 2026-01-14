@@ -213,6 +213,7 @@ foam.POM({
 
     cleanJava: ['clean-java', 'Remove previously generated JAR.', [], function() {
       // remove previous app jar in build directory to fix classes resolution for non-jar run
+      // FIXME - This also deletes third party java libraries with a prefix matching APP_NAME, causing lots of confusion, as next '-c' will fail with 'cannot find symbol' errors.
       this.execSync(`rm -f ${BUILD_DIR}/lib/${APP_NAME}-*.jar >/dev/null 2>&1`);
     }],
 
@@ -559,11 +560,13 @@ foam.POM({
         if ( pid ) {
           this.info('CORE server stopping...');
           try {
+            // TODO: run ps and test for process
             this.execSync(`kill -9 ${pid} &>/dev/null`);
-            this.rmfile(CORE_PIDFILE);
             this.info('CORE server stopped.');
           } catch (e) {
             this.warning('CORE server failed stop.', e);
+          } finally {
+            this.rmfile(CORE_PIDFILE);
           }
         } else {
           this.verbose('CORE server not running.');

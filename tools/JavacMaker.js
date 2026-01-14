@@ -38,9 +38,32 @@ exports.init = function() {
 exports.visitPOM = function(pom) {
   var self = this;
   foam.checkFiles(pom.javaFiles, function(f) {
-    let path = path_.resolve(foam.cwd, f.name + '.java');
-    self.verbose('[Javac] include', path);
-    X.javaFiles.push(path);
+    if ( f.name.endsWith( '*' ) ) {
+      // Support non foam/pom projects
+      let i = f.name.lastIndexOf('/');
+      let path = path_.resolve(foam.cwd, i > 0 ? f.name.substring(0, i) : '');
+      includeAll.bind(self, path)();
+    } else {
+      let path = path_.resolve(foam.cwd, f.name + '.java');
+      self.verbose('[Javac] include', path);
+      X.javaFiles.push(path);
+    }
+  });
+}
+
+// Support non foam/pom projects
+function includeAll(dir) {
+  var self = this;
+  this.verbose(`[Javac] includeAll ${dir}`);
+  var files = fs_.readdirSync(dir, {withFileTypes: true});
+  files.forEach(f => {
+    let path = path_.resolve(dir, f.name);
+    if ( f.isDirectory() ) {
+      includeAll.bind(self, path)();
+    } else if ( f.name.endsWith('.java') ) {
+      self.verbose(`[Javac] includeAll include ${path}`);
+      X.javaFiles.push(path);
+    }
   });
 }
 

@@ -1,0 +1,20 @@
+c({
+  class: "foam.core.script.Script",
+  id: "NodeShellTest",
+  language: 3,
+  code: """
+// ScriptParameters access
+console.info('ps.getParameter(a)', ps.getParameter('a'));
+console.info('ps.get(a)', ps.get('a')); // short form of getParameter
+console.info('ps.getDate()', ps.getDate());
+
+// MLang
+let c = (await x.countryDAO.select(MLang.COUNT())).value;
+console.info('Country count', c);
+
+// DAO
+x.countryDAO.select(function(c) {
+    console.info('Country', c.toSummary());
+});
+  """
+})

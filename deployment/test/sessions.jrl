@@ -1,0 +1,2 @@
+// admin-test user for executing javascript tests from build
+p({class:"foam.core.session.Session",id:"4d771b7e9778fea",userId:105307497,remoteHost:"[0:0:0:0:0:0:0:1]"})

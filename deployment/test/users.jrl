@@ -55,3 +55,19 @@ p({
   "password":"BZVrotlKyF0=:GhhCkcBBI5zeXSGa9S5+U9AjkX3mElUQ23LRsd568bC++2yvFN45/F6OKJDGApmuSG65cb87rh0LSTQHbZAaJ2C8uqsOgNJzVQ==",
   "address":{"class":"foam.core.auth.Address","countryId":"CA","regionId":"ON","streetNumber":"905","streetName":"King Street West","city":"Toronto"}
 })
+p({
+  "class":"foam.core.auth.User",
+  "id": 105307497,
+  "spid":"test",
+  "firstName":"Admin",
+  "lastName":"Test",
+  "email":"admin-test@foam.net",
+  "userName":"admin-test",
+  "language":{"class":"foam.core.auth.LanguageId","code":"en","variant":"US"},
+  "emailVerified":true,
+  "status":2,
+  "group": "admin",
+  "isPublic":false,
+  "lifecycleState":1,
+  "password":"BZVrotlKyF0=:GhhCkcBBI5zeXSGa9S5+U9AjkX3mElUQ23LRsd568bC++2yvFN45/F6OKJDGApmuSG65cb87rh0LSTQHbZAaJ2C8uqsOgNJzVQ==",
+})

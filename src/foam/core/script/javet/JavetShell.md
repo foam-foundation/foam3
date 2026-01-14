@@ -1,0 +1,134 @@
+#JavetShell
+
+The Javet system allows the server to run FOAM client code in a Node.js process.
+
+**NOTE**: first build will require `--cleanAll,all` as this PR pulls in new Java libraries.
+
+### Signal Done
+
+The shell automatically calls `signalDone()` after the user code completes, which stops the Node.js event loop immediately. This avoids the ~10 second timeout that would otherwise occur waiting for the event loop to drain.
+
+**Note** It is important to understand when the script resolves.  The shell automatically calls `await` on the script, but the script may still return earlier than expected. 
+
+For example, in the following scenario the `await dao` will return before the `sink` operations are complete:
+
+    ```
+    async function foo() {
+      await dao.select({
+        put: async function(o, s) {
+          await bar();
+        },
+        eof: function() {
+        }
+      });
+    ```
+
+To ensure the function does not return until the `sink` is complete:
+
+    ```
+    async function foo() {
+      return new Promise((resolve, reject) => {
+        dao.select({
+          put: async function(o, s) {
+            await bar();
+          },
+          eof: function() {
+            resolve();
+          }
+        });
+      });
+    ```
+
+## Use
+
+### Test Case
+
+`./build.sh server-tests:JavetShellConcurrentTest`
+
+### Manual Testing
+
+`./build.sh -aJdemo,test --flags:test`
+
+then execute:
+
+- run `tools/exampleBinNode.js` from the file system.  _(you'll most likely need to set the Session ID in the script)_
+- run script `NodeShellTest` _(presently takes about 12s to 'complete' - script will be in 'running' state until complete)_
+
+### The Build
+The Build now uses JavetShell for client test cases rather than a browser.
+
+`./build.sh client-tests`
+
+**NOTE**: failure results differ in two Date test cases.
+
+To continue using a browser for testing build with `test-headed` option.
+
+`./build.sh client-tests test-headed`
+
+### Script 
+See example script `NodeShellTest`
+
+Create a script with language `NODESHELL` with FOAM javascript:
+
+**NOTE**: `NODESHELL` scripts use a threadpool to manage concurrent shells, so if you have a number of concurrent `NODESHELL` scripts, they will be queued based on threadpool `javetThreadPool` thread count.
+
+```
+// ScriptParameters access
+console.info('ps.getParameter(a)', ps.getParameter('a'));
+console.info('ps.get(a)', ps.get('a')); // short form of getParameter
+console.info('ps.getDate()', ps.getDate());
+
+// MLang
+let c = (await x.countryDAO.select(MLang.COUNT())).value;
+console.info('Country count', c);
+
+// DAO
+x.countryDAO.select(function(c) {
+    console.info('Country', c.toSummary());
+});
+```
+
+### Direct JavaShell use
+
+**NOTE**: Use caution with direct JavetShell use. Recommend to use the `javetThreadPool` and Agency, as each thread will load a copy of foam-bin. 
+
+```
+    JavetShell shell = (JavetShell) x.get("javetShell");
+    shell.setCode(...);
+    shell.execute(x);
+
+    JavetShell.create(x, "...code...").execute(x);
+```
+
+See `foam/core/test/TestRunnerScript.js` (line 463) for example.
+
+## Other / Features
+JavetShell provides for specifying:
+
+* the user whose session will be used to initialize the ClientBuilder.  Defaults to 'admin'.
+* the printstream which captures `console` output.  **NOTE** Only `console.info` is captured by the printstream. All `console` output is captured by the Logger.
+* if `eval` is enabled. Defautls to false, enabled for `NODESHELL` scripts.
+
+## Considerations / Concerns
+When designing a use, be aware that each thread that uses a JavetShell will load foam-bin into a ThreadLocal.
+
+To control memory use the `javetThreadPool` Agency and call the JavetShellFactory with the Agency's context.
+
+```
+    Agency agency = (Agency) x.get("javetThreadPool");
+    Future future = agency.submit(x, new ContextAgent() {
+      public void execute(X x) {
+        JavetShell shell = (JavetShell) x.get("javetShell");
+        shell.setCode(...);
+        shell.execute(x);
+      }
+   }, "identifier");
+```
+
+See `foam/core/script/javet/test/JavetShellConcurrentTest.js` for example. 
+
+## Documentation
+* https://docs.google.com/presentation/d/1lQ8xIHuywuE0ydqm2w6xq8OeQZO_WeTLYXW9bNflQb8/edit?pli=1&slide=id.p#slide=id.p
+* https://github.com/caoccao/Javet
+* https://www.caoccao.com/Javet/index.html
+* https://www.caoccao.com/Javet/reference/javadoc/allclasses-frame.html

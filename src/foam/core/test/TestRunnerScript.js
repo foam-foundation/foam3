@@ -24,8 +24,7 @@ Test results are also captured in the TestRun DAO - but since the test
 are normally run from the build, the TestRun DAO is destroyed on each
 run.
 
-To run headed rather than headless, run tests with the following.
-This will also keep the foam application running for inspection from the GUI.
+Client test are run via a nodejs process.  To run via a browser:
 ./build.sh --client-tests --test-headed
 `,
 
@@ -36,6 +35,7 @@ This will also keep the foam application running for inspection from the GUI.
     'foam.core.logger.Loggers',
     'foam.core.logger.PrefixLogger',
     'foam.core.script.Language',
+    'foam.core.script.javet.JavetShell',
     'foam.core.test.Test',
     'foam.core.test.TestRun',
     'foam.dao.DAO',
@@ -96,21 +96,25 @@ This will also keep the foam application running for inspection from the GUI.
       value: 'both'
     },
     {
+      documentation: `Comma seperated list of test case ids.  Prepend an id with '-' to exclude`,
       name: 'SYSTEM_TESTS',
       type: 'String',
       value: 'foam.tests'
     },
     {
+      documentation: 'Comma seperated list of test suites',
       name: 'SYSTEM_TEST_SUITES',
       type: 'String',
       value: 'foam.test.suites'
     },
     {
+      documentation: 'Generally controlled internally, indicates if just client or server tests are being run',
       name: 'SYSTEM_TEST_SIDE',
       type: 'String',
       value: 'foam.test.side'
     },
     {
+      documentation: 'The default is JavetShell. From the build use --head-headed to force use of BrowserAgent in headed state',
       name: 'SYSTEM_TEST_HEADED',
       type: 'String',
       value: 'foam.test.headed'
@@ -453,6 +457,32 @@ This will also keep the foam application running for inspection from the GUI.
     },
     {
       name: 'runClientSideTests',
+      args: 'X x, List tests, TestRun testRun',
+      type: 'TestRun',
+      javaCode: `
+      if ( Boolean.getBoolean(SYSTEM_TEST_HEADED) )
+        return runClientSideTestsHeaded(x, tests, testRun);
+
+      var shell = (JavetShell) x.get("javetShell");
+      shell.setAllowEval(true); // allow JS Test to eval modelCode
+      shell.setCode("""
+await foam.core.test.JSTestRunner.create({
+  testRunId: '%s',
+  testSuites: '%s',
+  testIds: '%s'
+},x).execute(x);
+        """.formatted(
+              testRun.getId(),
+              System.getProperty(SYSTEM_TEST_SUITES, ""),
+              System.getProperty(SYSTEM_TESTS, "")
+            ));
+      shell.setUser(105307497L); // test admin
+      shell.execute(x);
+      return (TestRun) ((DAO) x.get("testRunDAO")).find(testRun.getId());
+      `
+    },
+    {
+      name: 'runClientSideTestsHeaded',
       args: 'X x, List tests, TestRun testRun',
       type: 'TestRun',
       javaCode: `

@@ -31,6 +31,7 @@ foam.POM({
     { name: "ruler/pom" },
     { name: "crunch/pom" }, // NOTE: must follow ruler - direct reference to RULE_PREDICATE
     { name: "notification/email/ms/pom" },
+    { name: "script/javet/pom" },
     { name: "security/pom" },
     { name: "so/pom" },
     { name: "test/pom",                                flags: "test" },

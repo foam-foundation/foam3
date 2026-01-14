@@ -1,0 +1,12 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"javetTestModelDAO",
+  "serve":true,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.script.javet.test.JavetTestModel.getOwnClassInfo())
+      .setFuid(true)
+      .build();
+  """,
+  "client":"{\"of\":\"foam.core.script.javet.test.JavetTestModel\"}"
+})

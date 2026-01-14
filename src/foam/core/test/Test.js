@@ -10,6 +10,7 @@ foam.CLASS({
   extends: 'foam.core.script.Script',
 
   imports: [
+    'subject?',
     'testDAO',
     'testEventDAO'
   ],

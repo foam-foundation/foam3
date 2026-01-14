@@ -19,10 +19,25 @@ foam.POM({
     { name: 'webroot/pom' }
   ],
   copy: [
-    { source: 'webroot', targetDir: 'webroot' }
+    { source: 'webroot',     targetDir: 'webroot' },
+    { source: 'logback.xml', targetDir: 'classes' }
+  ],
+  tasks: [
+    function buildJavaOpts() {
+      // Allow JVM to call out to Javet for nodejs process
+      JAVA_OPTS += ` --enable-native-access=ALL-UNNAMED`;
+    }
   ],
   javaDependencies: [
+    'ch.qos.logback:logback-classic:1.5.24',
     'com.authy:authy-java:1.1.0',
+    'com.caoccao.javet:javet:5.0.2',
+    'com.caoccao.javet:javet-node-linux-arm64:5.0.2',
+    'com.caoccao.javet:javet-node-linux-x86_64:5.0.2',
+    'com.caoccao.javet:javet-node-macos-arm64:5.0.2',
+    'com.caoccao.javet:javet-node-macos-x86_64:5.0.2',
+    'com.caoccao.javet:javet-node-windows-x86_64:5.0.2',
+    'com.caoccao.javet:javenode:0.8.0',
     'com.google.api-client:google-api-client:1.22.0',
     'com.google.apis:google-api-services-drive:v3-rev72-1.22.0',
     'com.google.apis:google-api-services-sheets:v4-rev567-1.22.0',
@@ -78,8 +93,6 @@ foam.POM({
     'io.netty:netty-resolver-dns-native-macos:4.1.114.Final',
     'org.junit.jupiter:junit-jupiter-engine:5.6.0',
     'org.junit.jupiter:junit-jupiter-params:5.6.0',
-    'org.junit.platform:junit-platform-launcher:1.6.0',
-    'org.slf4j:slf4j-api:2.0.16',
-    'org.slf4j:slf4j-simple:2.0.16'
+    'org.junit.platform:junit-platform-launcher:1.6.0'
   ]
 });

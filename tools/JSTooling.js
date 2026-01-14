@@ -28,7 +28,7 @@ foam.POM({
 
     genJS: ['gen-js', 'Build foam-bin.js', ['cleanFOAM', 'genFoamBinVersion'], function() {
       let version = FOAM_BIN_VERSION;
-      let flags = this.flag();
+      var flags = this.flag();
       let outdir = BUILD_DIR+'/js';
       if ( WITHOUT_STAGES ) {
         this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir}`)();
@@ -37,6 +37,9 @@ foam.POM({
         this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=1`)();
         this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=2`)();
       }
+      // again for node version
+      flags = this.flag('node');
+      this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir}`)();
     }]
   }
 });

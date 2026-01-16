@@ -99,7 +99,7 @@ foam.CLASS({
       name: 'USER_NAME_MATCHER',
       type: 'Regex',
       value: /^[\w-]*$/,
-      javaValue: `Pattern.compile("^[\\\\w-]*$")`
+      javaValue: `Pattern.compile("^[\\\\w-+@.]*$")`
     }
   ],
 

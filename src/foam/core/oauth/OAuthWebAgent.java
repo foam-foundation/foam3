@@ -177,7 +177,7 @@ public class OAuthWebAgent implements WebAgent {
 
         foam.core.auth.User user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
 
-        if ( user == null ) {
+        if ( provider.getAutoSignup() && user == null ) {
             String givenName = bodyObject.containsKey("given_name") ? bodyObject.getString("given_name") : null;
             String familyName = bodyObject.containsKey("family_name") ? bodyObject.getString("family_name") : null;
             String userName = state.containsKey("sign_up_username") ? state.getString("sign_up_username") : null;

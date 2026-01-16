@@ -46,6 +46,12 @@ foam.CLASS({
       name: 'scope',
       documentation: 'The permissions requested pre-authorization. eg. openid profile email',
       value: 'openid profile email'
+    },
+    {
+      class: 'Boolean',
+      name: 'autoSignup',
+      documentation: 'Automatically signup the user (after successful SSO) if it does not yet exist.',
+      value: true
     }
   ],
   methods: [

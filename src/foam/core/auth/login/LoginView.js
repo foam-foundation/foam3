@@ -238,6 +238,7 @@ foam.CLASS({
                   let action = foam.lang.Action.create({
                     name: 'signIn',
                     label: provider.description,
+                    icon: provider.icon,
                     code: async function () {
                       await self.clientLoginService.signInWithOIDC(provider);
                     }

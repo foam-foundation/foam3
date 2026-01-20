@@ -155,6 +155,9 @@ foam.CLASS({
         }));
       }
 
+      foam.assert(prop && prop.tableCellFormatter,
+        'Missing prop or tableCellFormatter for column:', this.col, 'propName:', this.propName, 'cls:', this.data?.cls_?.id);
+
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
@@ -163,6 +166,7 @@ foam.CLASS({
           })
         })
         .call(function() {
+          if ( ! prop || ! prop.tableCellFormatter ) return;
           prop.tableCellFormatter.format(
             this,
             prop.f ? prop.f(objReturned) : null,

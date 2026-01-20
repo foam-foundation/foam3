@@ -264,11 +264,27 @@ for (Object key : getGroups().keySet()) {
         expr = expr.delegate || expr.arg1;
       }
 
-      // Generate deterministic name based on source class, property name, and sink type
-      // This prevents conflicts in chained GroupBy operations
+      // Generate deterministic name based on source class, property name, sink type, AND property names
+      // This ensures:
+      // 1. Same GroupBy structure always gets the same model name (needed for reload/persistence)
+      // 2. Different internal sink structures get different model names (prevents property conflicts)
+      //
+      // Example: GroupBy(Transaction.currency, Sequence[LabeledSink('debit', Sum), LabeledSink('credit', Sum)])
+      //   => 'GroupBy_Transaction_currency_Sequence_debit_credit'
+      //
       var sinkName = this.arg2.cls_?.name || 'Count';
       var sourceClassName = sourceClass.split('.').pop(); // Get last part of class name
-      var modelName = 'GroupBy_' + sourceClassName + '_' + exprName + '_' + sinkName;
+
+      // Include property names from nested sinks to differentiate structures with same outer shape
+      var nestedPropNames = '';
+      if ( this.arg2.toProperties ) {
+        var props = this.arg2.toProperties();
+        if ( props && Array.isArray(props) ) {
+          nestedPropNames = '_' + props.filter(p => p && p.name).map(p => p.name).join('_');
+        }
+      }
+
+      var modelName = 'GroupBy_' + sourceClassName + '_' + exprName + '_' + sinkName + nestedPropNames;
 
       const model = {
         package: 'foam.tmp',

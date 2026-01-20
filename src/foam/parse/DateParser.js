@@ -562,6 +562,57 @@ foam.CLASS({
         -1, -1, -1, -1, null);
     },
 
+    // YYDDD Julian date format: 5-digit (2-digit year + 3-digit day of year)
+    // v = "25216" (string) where 25=year 2025, 216=day of year (August 4)
+    // Year cutoff: 00-49 = 2000-2049, 50-99 = 1950-1999 (uses convertTwoDigitYear)
+    function yydddAction(v) {
+      var twoDigitYear = parseInt(v.substring(0, 2), 10);
+      var dayOfYear = parseInt(v.substring(2), 10);
+      var year = this.convertTwoDigitYear(twoDigitYear);
+
+      // Convert day-of-year to month and day using UTC to avoid timezone issues
+      // Create Jan 1 of the year at noon UTC, then add (dayOfYear - 1) days
+      var date = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
+      date.setUTCDate(dayOfYear);
+
+      return this.buildDate(this.dateParseMode,
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        -1, -1, -1, -1, null);
+    },
+
+    // YDDD Julian date format: 4-digit (1-digit year + 3-digit day of year)
+    // v = "5216" (string) where 5=year 2025, 216=day of year (August 4)
+    // Year mapping: Sliding window based on current year
+    // - Uses current decade as base (e.g., 2020 in 2025, 2030 in 2035)
+    // - If result is more than 5 years in future, assumes previous decade
+    function ydddAction(v) {
+      var oneDigitYear = parseInt(v.substring(0, 1), 10);
+      var dayOfYear = parseInt(v.substring(1), 10);
+
+      // Sliding window: calculate year based on current decade
+      var currentYear = new Date().getUTCFullYear();
+      var decade = Math.floor(currentYear / 10) * 10;
+      var year = decade + oneDigitYear;
+
+      // If calculated year is more than 5 years in future, assume previous decade
+      if ( year > currentYear + 5 ) {
+        year -= 10;
+      }
+
+      // Convert day-of-year to month and day using UTC to avoid timezone issues
+      // Create Jan 1 of the year at noon UTC, then add (dayOfYear - 1) days
+      var date = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
+      date.setUTCDate(dayOfYear);
+
+      return this.buildDate(this.dateParseMode,
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        -1, -1, -1, -1, null);
+    },
+
     // Timestamp actions - convert timestamp strings directly to Date objects
     // These return Date objects directly (not {year, month, day} objects) because
     // timestamps are already a complete date representation

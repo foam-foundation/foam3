@@ -84,6 +84,9 @@ foam.CLASS({
 
         // Unix/Java Date.toString() format tests
         DateParserTest_UnixDateToString();
+
+        // Julian Date Format Tests
+        DateParserTest_JulianDate();
       `
     },
 
@@ -1193,6 +1196,132 @@ foam.CLASS({
         Calendar calOffset4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
         calOffset4.setTime(dateOffset4);
         test(calOffset4.get(Calendar.HOUR_OF_DAY) == 5, "Unix Date.toString() +05:00: hour 5 UTC (10 - 5)");
+      `
+    },
+
+    // ========== Julian Date Format Tests ==========
+
+    {
+      name: 'DateParserTest_JulianDate',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // ========== YYDDD Format Tests (5-digit: 2-digit year + 3-digit day of year) ==========
+        // Uses fixed pivot: 00-49 -> 2000-2049, 50-99 -> 1950-1999
+
+        // Test "25216" = August 4, 2025 (day 216 of 2025)
+        Date date1 = parser.parseDateString("25216", "yyddd");
+        Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2025, "YYDDD 25216: year 2025");
+        test(cal1.get(Calendar.MONTH) == 7, "YYDDD 25216: month 7 (Aug)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 4, "YYDDD 25216: day 4");
+
+        // Test "24341" = December 6, 2024 (day 341 of 2024)
+        Date date2 = parser.parseDateString("24341", "yyddd");
+        Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2024, "YYDDD 24341: year 2024");
+        test(cal2.get(Calendar.MONTH) == 11, "YYDDD 24341: month 11 (Dec)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 6, "YYDDD 24341: day 6");
+
+        // Test "25001" = January 1, 2025 (day 1)
+        Date date3 = parser.parseDateString("25001", "yyddd");
+        Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal3.setTime(date3);
+        test(cal3.get(Calendar.YEAR) == 2025, "YYDDD 25001: year 2025");
+        test(cal3.get(Calendar.MONTH) == 0, "YYDDD 25001: month 0 (Jan)");
+        test(cal3.get(Calendar.DAY_OF_MONTH) == 1, "YYDDD 25001: day 1");
+
+        // Test "25365" = December 31, 2025 (day 365, non-leap year)
+        Date date4 = parser.parseDateString("25365", "yyddd");
+        Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal4.setTime(date4);
+        test(cal4.get(Calendar.YEAR) == 2025, "YYDDD 25365: year 2025");
+        test(cal4.get(Calendar.MONTH) == 11, "YYDDD 25365: month 11 (Dec)");
+        test(cal4.get(Calendar.DAY_OF_MONTH) == 31, "YYDDD 25365: day 31");
+
+        // Test "24366" = December 31, 2024 (day 366, leap year)
+        Date date5 = parser.parseDateString("24366", "yyddd");
+        Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal5.setTime(date5);
+        test(cal5.get(Calendar.YEAR) == 2024, "YYDDD 24366 leap year: year 2024");
+        test(cal5.get(Calendar.MONTH) == 11, "YYDDD 24366 leap year: month 11 (Dec)");
+        test(cal5.get(Calendar.DAY_OF_MONTH) == 31, "YYDDD 24366 leap year: day 31");
+
+        // Test 2-digit year pivot: 49 → 2049
+        Date date6 = parser.parseDateString("49001", "yyddd");
+        Calendar cal6 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal6.setTime(date6);
+        test(cal6.get(Calendar.YEAR) == 2049, "YYDDD year pivot: 49 → 2049");
+
+        // Test 2-digit year pivot: 50 → 1950
+        Date date7 = parser.parseDateString("50001", "yyddd");
+        Calendar cal7 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal7.setTime(date7);
+        test(cal7.get(Calendar.YEAR) == 1950, "YYDDD year pivot: 50 → 1950");
+
+        // ========== YDDD Format Tests (4-digit: 1-digit year + 3-digit day of year) ==========
+        // Uses sliding window logic based on current year:
+        //   decade = floor(currentYear / 10) * 10
+        //   year = decade + oneDigitYear
+        //   if year > currentYear + 5 then year = year - 10
+
+        int currentYear = Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.YEAR);
+        int decade = (currentYear / 10) * 10;
+
+        // Calculate expected years using sliding window
+        int expectedYear0 = decade + 0;
+        if ( expectedYear0 > currentYear + 5 ) expectedYear0 -= 10;
+        int expectedYear5 = decade + 5;
+        if ( expectedYear5 > currentYear + 5 ) expectedYear5 -= 10;
+        int expectedYear9 = decade + 9;
+        if ( expectedYear9 > currentYear + 5 ) expectedYear9 -= 10;
+
+        // Test "5216" = August 4 (year 5 with sliding window, day 216)
+        Date date8 = parser.parseDateString("5216", "yddd");
+        Calendar cal8 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal8.setTime(date8);
+        test(cal8.get(Calendar.YEAR) == expectedYear5, "YDDD 5216: year " + expectedYear5);
+        test(cal8.get(Calendar.MONTH) == 7, "YDDD 5216: month 7 (Aug)");
+        test(cal8.get(Calendar.DAY_OF_MONTH) == 4, "YDDD 5216: day 4");
+
+        // Test "0001" = January 1 (year 0 with sliding window)
+        Date date9 = parser.parseDateString("0001", "yddd");
+        Calendar cal9 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal9.setTime(date9);
+        test(cal9.get(Calendar.YEAR) == expectedYear0, "YDDD 0001: year " + expectedYear0 + " (0 → " + expectedYear0 + ")");
+        test(cal9.get(Calendar.MONTH) == 0, "YDDD 0001: month 0 (Jan)");
+        test(cal9.get(Calendar.DAY_OF_MONTH) == 1, "YDDD 0001: day 1");
+
+        // Test "9365" = December 31 (year 9 with sliding window)
+        Date date10 = parser.parseDateString("9365", "yddd");
+        Calendar cal10 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal10.setTime(date10);
+        test(cal10.get(Calendar.YEAR) == expectedYear9, "YDDD 9365: year " + expectedYear9 + " (9 → " + expectedYear9 + ")");
+        test(cal10.get(Calendar.MONTH) == 11, "YDDD 9365: month 11 (Dec)");
+        test(cal10.get(Calendar.DAY_OF_MONTH) == 31, "YDDD 9365: day 31");
+
+        // ========== Combined juliandate Format Tests ==========
+        // Auto-detects YYDDD (5 digits) or YDDD (4 digits)
+        // 5-digit: Uses fixed 2-digit year pivot
+        // 4-digit: Uses sliding window based on current year
+
+        // Test 5-digit with juliandate opt_name (uses fixed pivot)
+        Date date11 = parser.parseDateString("25216", "juliandate");
+        Calendar cal11 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal11.setTime(date11);
+        test(cal11.get(Calendar.YEAR) == 2025, "juliandate 25216 (5-digit): year 2025");
+        test(cal11.get(Calendar.MONTH) == 7, "juliandate 25216 (5-digit): month 7 (Aug)");
+        test(cal11.get(Calendar.DAY_OF_MONTH) == 4, "juliandate 25216 (5-digit): day 4");
+
+        // Test 4-digit with juliandate opt_name (uses sliding window)
+        Date date12 = parser.parseDateString("5216", "juliandate");
+        Calendar cal12 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal12.setTime(date12);
+        test(cal12.get(Calendar.YEAR) == expectedYear5, "juliandate 5216 (4-digit): year " + expectedYear5);
+        test(cal12.get(Calendar.MONTH) == 7, "juliandate 5216 (4-digit): month 7 (Aug)");
+        test(cal12.get(Calendar.DAY_OF_MONTH) == 4, "juliandate 5216 (4-digit): day 4");
       `
     }
   ]

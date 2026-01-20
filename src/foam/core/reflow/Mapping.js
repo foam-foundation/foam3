@@ -47,6 +47,11 @@ foam.ENUM({
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
       documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
+    },
+    {
+      name: 'JULIANDATE',
+      label: 'Julian Date',
+      documentation: 'Julian date format: YYDDD (5 digits like 25216) or YDDD (4 digits like 5216) where YY/Y is year and DDD is day of year (001-366). Example: 25216 = August 4, 2025 (day 216 of 2025)'
     }
   ],
 
@@ -322,7 +327,7 @@ foam.CLASS({
        * Maps DateFormat enum to DateParser grammar symbol name.
        * This is used when calling DateUtil parsing methods with format hints.
        *
-       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm')
+       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm', 'juliandate')
        */
       if ( ! this.dateFormat ) return 'START';
 
@@ -332,6 +337,8 @@ foam.CLASS({
           return 'ddmmyyyy';
         case 'YYYYDDMM':
           return 'yyyyddmm';
+        case 'JULIANDATE':
+          return 'juliandate';
         case 'STANDARD':
         default:
           return 'START';

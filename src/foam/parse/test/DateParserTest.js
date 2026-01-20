@@ -43,6 +43,7 @@ foam.CLASS({
       this.testStrictValidationMode(x);
       this.testLenientValidationMode(x);
       this.testInvalidMonthNameValidation(x);
+      this.testJulianDateFormats(x);
     },
 
     function testYYYYMMDDFormats(x) {
@@ -2335,6 +2336,138 @@ foam.CLASS({
       parser.strictValidation = false;
       let result = parser.parseString('15-XYZ-2025');
       x.test(result.getTime() === foam.Date.MAX_DATE.getTime(), 'LenientMode: unparseable returns MAX_DATE');
+    },
+
+    function testJulianDateFormats(x) {
+      let parser = this.DateParser.create();
+
+      // ============================================================
+      // YYDDD format tests (5-digit: 2-digit year + 3-digit day of year)
+      // ============================================================
+      let yydddTestCases = [
+        { input: '25216', year: 2025, month: 7, day: 4, desc: 'day 216 of 2025 = Aug 4, 2025' },
+        { input: '24341', year: 2024, month: 11, day: 6, desc: 'day 341 of 2024 = Dec 6, 2024' },
+        { input: '25001', year: 2025, month: 0, day: 1, desc: 'day 1 of 2025 = Jan 1, 2025' },
+        { input: '25365', year: 2025, month: 11, day: 31, desc: 'day 365 of 2025 = Dec 31, 2025' },
+        // 2-digit year pivot tests: 00-49 -> 2000-2049, 50-99 -> 1950-1999
+        { input: '49365', year: 2049, month: 11, day: 31, desc: 'day 365 of 2049 (year pivot: 49 -> 2049)' },
+        { input: '50001', year: 1950, month: 0, day: 1, desc: 'day 1 of 1950 (year pivot: 50 -> 1950)' }
+      ];
+
+      yydddTestCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, 'yyddd');
+          if ( ! result || isNaN(result.getTime()) ) {
+            x.test(false, `YYDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}. Got: null/invalid`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `YYDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+          } else {
+            x.test(false, `YYDDD Test${i + 1}: ${testCase.input} - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `YYDDD Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
+        }
+      });
+
+      // ============================================================
+      // YDDD format tests (4-digit: 1-digit year + 3-digit day of year)
+      // Uses sliding window logic based on current year:
+      //   decade = floor(currentYear / 10) * 10
+      //   year = decade + oneDigitYear
+      //   if year > currentYear + 5 then year = year - 10
+      // ============================================================
+
+      // Calculate expected years using sliding window
+      let currentYear = new Date().getUTCFullYear();
+      let decade = Math.floor(currentYear / 10) * 10;
+
+      // Helper to calculate expected year for a single digit
+      function calcExpectedYear(digit) {
+        let yr = decade + digit;
+        if ( yr > currentYear + 5 ) yr -= 10;
+        return yr;
+      }
+
+      let expectedYear0 = calcExpectedYear(0);
+      let expectedYear5 = calcExpectedYear(5);
+      let expectedYear9 = calcExpectedYear(9);
+
+      let ydddTestCases = [
+        { input: '5216', year: expectedYear5, month: 7, day: 4, desc: `day 216 of ${expectedYear5} = Aug 4, ${expectedYear5} (year 5 = ${expectedYear5})` },
+        { input: '0001', year: expectedYear0, month: 0, day: 1, desc: `day 1 of ${expectedYear0} = Jan 1, ${expectedYear0} (year 0 = ${expectedYear0})` },
+        { input: '9365', year: expectedYear9, month: 11, day: 31, desc: `day 365 of ${expectedYear9} = Dec 31, ${expectedYear9} (year 9 = ${expectedYear9})` }
+      ];
+
+      ydddTestCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, 'yddd');
+          if ( ! result || isNaN(result.getTime()) ) {
+            x.test(false, `YDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}. Got: null/invalid`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `YDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+          } else {
+            x.test(false, `YDDD Test${i + 1}: ${testCase.input} - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `YDDD Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
+        }
+      });
+
+      // ============================================================
+      // Combined juliandate format tests (auto-detects 4 or 5 digit)
+      // 5-digit: Uses fixed 2-digit year pivot (00-49 -> 2000-2049, 50-99 -> 1950-1999)
+      // 4-digit: Uses sliding window based on current year
+      // ============================================================
+      let juliandateTestCases = [
+        // 5-digit format (YYDDD) - uses fixed pivot
+        { input: '25216', year: 2025, month: 7, day: 4, desc: '5-digit: day 216 of 2025 = Aug 4, 2025' },
+        { input: '24341', year: 2024, month: 11, day: 6, desc: '5-digit: day 341 of 2024 = Dec 6, 2024' },
+        { input: '25001', year: 2025, month: 0, day: 1, desc: '5-digit: day 1 of 2025 = Jan 1, 2025' },
+        { input: '25365', year: 2025, month: 11, day: 31, desc: '5-digit: day 365 of 2025 = Dec 31, 2025' },
+        // 4-digit format (YDDD) - uses sliding window (expectedYear vars calculated above)
+        { input: '5216', year: expectedYear5, month: 7, day: 4, desc: `4-digit: day 216 of ${expectedYear5} = Aug 4, ${expectedYear5}` },
+        { input: '0001', year: expectedYear0, month: 0, day: 1, desc: `4-digit: day 1 of ${expectedYear0} = Jan 1, ${expectedYear0}` },
+        { input: '9365', year: expectedYear9, month: 11, day: 31, desc: `4-digit: day 365 of ${expectedYear9} = Dec 31, ${expectedYear9}` }
+      ];
+
+      juliandateTestCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, 'juliandate');
+          if ( ! result || isNaN(result.getTime()) ) {
+            x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - ${testCase.desc}. Got: null/invalid`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `JulianDate Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+          } else {
+            x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
+        }
+      });
     }
   ]
 });

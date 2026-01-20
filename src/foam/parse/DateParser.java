@@ -1028,6 +1028,39 @@ public class DateParser {
     // YYDDMM compact: 6 digits with validated year, day (01-31), month (01-12)
     grammar.addSymbol("yyddmm-compact", new Join(new Seq(grammar.sym("year2"), grammar.sym("day2"), grammar.sym("month2"))));
 
+    // ========== Julian Date Formats ==========
+
+    // Combined Julian date parser - tries YYDDD first (5 digits), then YDDD (4 digits)
+    // Use opt_name='juliandate' in mapping configurations
+    grammar.addSymbol("juliandate", new Alt(
+      grammar.sym("yyddd"),   // Try 5-digit format first (more specific)
+      grammar.sym("yddd")     // Fall back to 4-digit format
+    ));
+
+    // YYDDD format: 5-digit Julian date (2-digit year + 3-digit day of year)
+    // e.g., "25216" = Year 2025, Day 216 = August 4, 2025
+    // Year cutoff: 00-50 = 2000-2050, 51-99 = 1951-1999
+    grammar.addSymbol("yyddd", new Join(new Seq(
+      grammar.sym("year2"),      // YY: 2-digit year (00-99)
+      grammar.sym("dayOfYear")   // DDD: day of year (001-366)
+    )));
+
+    // YDDD format: 4-digit Julian date (1-digit year + 3-digit day of year)
+    // e.g., "5216" = Year 2025, Day 216 = August 4, 2025
+    // Year mapping: 0-9 = 2020-2029
+    grammar.addSymbol("yddd", new Join(new Seq(
+      Range.create('0', '9'),    // Y: 1-digit year (0-9 → 2020-2029)
+      grammar.sym("dayOfYear")   // DDD: day of year (001-366)
+    )));
+
+    // Day of year (001-366) - used for Julian date formats
+    grammar.addSymbol("dayOfYear", new Alt(
+      new Seq(Literal.create("3"), Literal.create("6"), Range.create('0', '6')),  // 360-366
+      new Seq(Literal.create("3"), Range.create('0', '5'), Range.create('0', '9')),  // 300-359
+      new Seq(Range.create('1', '2'), Range.create('0', '9'), Range.create('0', '9')),  // 100-299
+      new Seq(Literal.create("0"), Range.create('0', '9'), Range.create('0', '9'))   // 000-099
+    ));
+
     // ========== Month Name Formats ==========
 
     // YYYYDDMMM with separators - supports single-digit days (e.g., 2025-5-JAN)
@@ -1416,6 +1449,62 @@ public class DateParser {
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt(v.substring(0, 2)) - 1,
         Integer.parseInt(v.substring(2, 4)),
+        -1, -1, -1, -1, null);
+    });
+
+    // YYDDD Julian date action: "25216" (5 digits)
+    // 2-digit year + 3-digit day of year
+    grammar.addAction("yyddd", (val, x) -> {
+      String v = (String) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      int twoDigitYear = Integer.parseInt(v.substring(0, 2));
+      int dayOfYear = Integer.parseInt(v.substring(2));
+      int year = self.convertTwoDigitYear(twoDigitYear);
+
+      // Convert day-of-year to month and day using Calendar
+      Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+      cal.clear();
+      cal.set(Calendar.YEAR, year);
+      cal.set(Calendar.DAY_OF_YEAR, dayOfYear);
+
+      return self.buildDate(mode,
+        cal.get(Calendar.YEAR),
+        cal.get(Calendar.MONTH),
+        cal.get(Calendar.DAY_OF_MONTH),
+        -1, -1, -1, -1, null);
+    });
+
+    // YDDD Julian date action: "5216" (4 digits)
+    // 1-digit year + 3-digit day of year
+    // Year mapping: Sliding window based on current year
+    // - Uses current decade as base (e.g., 2020 in 2025, 2030 in 2035)
+    // - If result is more than 5 years in future, assumes previous decade
+    grammar.addAction("yddd", (val, x) -> {
+      String v = (String) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      int oneDigitYear = Integer.parseInt(v.substring(0, 1));
+      int dayOfYear = Integer.parseInt(v.substring(1));
+
+      // Sliding window: calculate year based on current decade
+      int currentYear = Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.YEAR);
+      int decade = (currentYear / 10) * 10;
+      int year = decade + oneDigitYear;
+
+      // If calculated year is more than 5 years in future, assume previous decade
+      if ( year > currentYear + 5 ) {
+        year -= 10;
+      }
+
+      // Convert day-of-year to month and day using Calendar
+      Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+      cal.clear();
+      cal.set(Calendar.YEAR, year);
+      cal.set(Calendar.DAY_OF_YEAR, dayOfYear);
+
+      return self.buildDate(mode,
+        cal.get(Calendar.YEAR),
+        cal.get(Calendar.MONTH),
+        cal.get(Calendar.DAY_OF_MONTH),
         -1, -1, -1, -1, null);
     });
   }

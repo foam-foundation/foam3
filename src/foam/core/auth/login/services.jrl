@@ -4,5 +4,5 @@ p({
   "serve":true,
   "lazyClient": false,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.auth.login.ClientLoginService\", \"oauthInWindow\":false }"
+  "client":"{ \"class\": \"foam.core.auth.login.ClientLoginService\" }"
 })

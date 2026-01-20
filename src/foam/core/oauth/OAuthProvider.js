@@ -64,7 +64,7 @@ foam.CLASS({
         { name: 'redirectURI', type: 'String' }
       ],
       javaCode: `
-            foam.core.logger.Logger logger = (foam.core.logger.Logger) x.get("logger");
+            var logger = foam.core.logger.Loggers.logger(x, this, getId());
             try {
                 java.net.URL url = new java.net.URL(getTokenURL());
                 javax.net.ssl.HttpsURLConnection conn = (javax.net.ssl.HttpsURLConnection) url.openConnection();

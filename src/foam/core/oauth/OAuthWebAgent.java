@@ -82,7 +82,7 @@ public class OAuthWebAgent implements WebAgent {
                 try {
                     user = loginWithIdToken(x, state, provider, tokenResponse.getString("id_token"));
                 } catch (AuthenticationException e) {
-                    resp.sendRedirect("/?oauth_exception=" + e.getMessage());
+                    sendErrorResponse(x, e.getMessage(), state, resp);
                     return;
                 }
             } else {
@@ -145,6 +145,26 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<h1>Success</h1>");
             out.println("<script language=\"javascript\" nonce=\"OAuthWebAgent\">");
             out.println("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: \"" + state.getString("session_id") + "\" }, location.origin);\n");
+            out.println("window.close();\n");
+            out.println("</script>");
+            out.println("</body></html>");
+            out.close();
+        }
+    }
+
+    protected void sendErrorResponse(X x, String errorMessage, JsonObject state, HttpServletResponse resp) throws java.io.IOException {
+        if (state.getBoolean("return_to_app", false)) {
+            resp.sendRedirect("/?oauth_exception=" + errorMessage);
+        } else {
+            // emit a mini HTML that calls postMessage to the opener, then closes
+            java.io.PrintWriter out = resp.getWriter();
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.setContentType("text/html");
+            out.println("<!DOCTYPE html>");
+            out.println("<html><body>");
+            out.println("<h1>Something went wrong!</h1>");
+            out.println("<script language=\"javascript\" nonce=\"OAuthWebAgent\">");
+            out.println("window.opener && window.opener.postMessage({ error: { message: \"" + errorMessage + "\"}, sessionID: \"" + state.getString("session_id") + "\" }, location.origin);\n");
             out.println("window.close();\n");
             out.println("</script>");
             out.println("</body></html>");

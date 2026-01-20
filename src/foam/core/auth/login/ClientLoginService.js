@@ -141,8 +141,8 @@ foam.CLASS({
           })
         }
 
+        let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&');
         if ( !this.oauthInWindow ) {
-          let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&')
           this.window.location = authURL;
           return;
         }
@@ -156,17 +156,18 @@ foam.CLASS({
                   authwindow.close();
                   resolve();
                 } else {
-                  reject(e.data.error)
+                  reject(e.data.error);
                 }
               }
             };
 
             window.addEventListener('message', listener);
 
-            let authwindow = window.open(authURL);
+            let authwindow = window.open(authURL, 'OAuthWindow');
           });
         } catch(e) {
           this.notify(e.message, '', this.LogLevel.ERROR, true);
+          return;
         }
 
         this.subject = await this.auth.getCurrentSubject(x);

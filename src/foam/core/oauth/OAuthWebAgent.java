@@ -136,17 +136,14 @@ public class OAuthWebAgent implements WebAgent {
         if (state.getBoolean("return_to_app", false)) {
             resp.sendRedirect(state.getString("return_to_url"));
         } else {
-            // NOTE: If you change the inline script you likely also need to update your CSP
-            // to list the hash
-
-            // Then emit a mini HTML that calls postMessage to the opener, then closes
+            // emit a mini HTML that calls postMessage to the opener, then closes
             java.io.PrintWriter out = resp.getWriter();
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.setContentType("text/html");
             out.println("<!DOCTYPE html>");
             out.println("<html><body>");
             out.println("<h1>Success</h1>");
-            out.println("<script language=\"javascript\">");
+            out.println("<script language=\"javascript\" nonce=\"OAuthWebAgent\">");
             out.println("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: \"" + state.getString("session_id") + "\" }, location.origin);\n");
             out.println("window.close();\n");
             out.println("</script>");

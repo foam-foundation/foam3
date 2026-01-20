@@ -8,5 +8,6 @@
 //    description: "Sign in with Google",
 //    tokenURL: "https://oauth2.googleapis.com/token",
 //    authURL: "https://accounts.google.com/o/oauth2/v2/auth",
-//    domains: ["example.com", "localhost:8080"]
+//    domains: ["example.com", "localhost:8080"],
+//    signUp: true
 //})

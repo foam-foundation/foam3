@@ -49,7 +49,7 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'autoSignup',
+      name: 'signUp',
       documentation: 'Automatically signup the user (after successful SSO) if it does not yet exist.',
       value: true
     }

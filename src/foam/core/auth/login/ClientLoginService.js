@@ -121,7 +121,7 @@ foam.CLASS({
     },
     {
       name: 'signInWithOIDC',
-      code: async function(provider, signUp = false, signUpUsername = '') {
+      code: async function(provider, signUpUsername = '') {
         // TODO: Validate nonce
         var nonce = crypto.randomUUID();
 
@@ -136,7 +136,7 @@ foam.CLASS({
             provider: provider.id,
             return_to_app: !this.oauthInWindow,
             return_to_url: this.window.location.toString(),
-            sign_up: signUp,
+            sign_up: provider.signUp,
             sign_up_username: signUpUsername
           })
         }

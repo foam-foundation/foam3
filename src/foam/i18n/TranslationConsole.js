@@ -165,7 +165,7 @@ foam.CLASS({
       this.
         addClass(this.myClass()).
         start(this.CardBorder).
-          style({ height: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }).
+          style({ height: '32px', display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }).
           start('span').
             style({ display: 'inline-block', 'font-size': 'larger'}).
             add('Translation Console').

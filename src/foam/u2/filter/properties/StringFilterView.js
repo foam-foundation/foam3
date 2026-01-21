@@ -51,7 +51,7 @@ foam.CLASS({
     ^container-filter {
       max-height: 320px;
       overflow: auto;
-      padding-bottom: 24px;
+      padding: 24px;
     }
 
     ^label-section {

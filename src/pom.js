@@ -693,6 +693,7 @@ foam.POM({
     // { name: "foam/u2/view/SimpleStringArrayView",                     flags: "web" }, // Not used, uncomment if needed
     { name: "foam/u2/view/ImageView",                                 flags: "web" },
     { name: "foam/u2/view/ExprView",                                  flags: "web" },
+    { name: "foam/u2/view/MultiSelectView",                           flags: "web" },
     { name: "foam/u2/view/MultiChoiceView",                           flags: "web" },
     { name: "foam/u2/view/CardSelectionView",                         flags: "web" },
     { name: "foam/u2/view/CardSelectView",                            flags: "web" },

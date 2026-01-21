@@ -1055,23 +1055,33 @@ foam.CLASS({
 
     async function downloadLocal(dao, modelName, format) {
       try {
-        var driver    = format.driver.create({}, this);
-        var result    = await driver.exportDAO(this.__context__, dao);
-        var blob      = new Blob([result], { type: 'text/plain' });
-        var url       = URL.createObjectURL(blob);
-        var link      = document.createElement('a');
+        var driver = format.driver.create({}, this);
+        var result = await driver.exportDAO(this.__context__, dao);
+
+        const mime =
+          format.mimeType ||
+          (format.extension === '.csv' ? 'text/csv;charset=utf-8' : 'text/plain;charset=utf-8');
+
+        var blob = result instanceof Blob ? result : new Blob([result], { type: mime });
+        var url = URL.createObjectURL(blob);
+
+        var link = document.createElement('a');
         var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
 
         link.setAttribute('href', url);
         link.setAttribute('download', `${modelName}_Export_${timestamp}${format.extension}`);
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
 
-        URL.revokeObjectURL(url);
-        document.body.removeChild(link);
+        // Give the browser time to start the download before cleanup
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          link.remove();
+        }, 60_000); // 1 minute is safe; you can shorten to e.g. 2–5s and test
       } catch (error) {
         console.error('Export failed:', error);
-        alert('Export failed: ' + error.message);
+        alert('Export failed: ' + (error?.message ?? error));
       }
     }
   ]

@@ -1854,7 +1854,7 @@ foam.CLASS({
 
         // For primitive types, use their default view as valueView
         if ( elementType ) {
-          var typeCls = foam.lookup('foam.lang.' + elementType, true);
+          var typeCls = foam.lookup(elementType);
           if ( typeCls && typeCls.VIEW ) {
             return {
               class: 'foam.u2.view.ArrayView',

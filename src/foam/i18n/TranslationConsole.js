@@ -174,7 +174,7 @@ foam.CLASS({
             style({ display: 'flex', gap: '1vw' }).
             add(this.SEARCH).
             start('span').
-              style({ paddingTop: '1vw' }).
+              style({ paddingTop: '0.5em' }).
               add(' Locale: ').
             end().
             tag({class: 'foam.u2.TextField', data$: this.locale$, size: 10}).

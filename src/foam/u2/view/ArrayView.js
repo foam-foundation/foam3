@@ -30,7 +30,18 @@ foam.CLASS({
     {
       class: 'foam.u2.ViewSpec',
       name: 'valueView',
-      value: { class: 'foam.u2.view.AnyView' }
+      factory: function() {
+        // Get the 'of' type from the property and use its default view
+        var prop = this.prop;
+        if ( prop && prop.of ) {
+          var typeCls = foam.lookup('foam.lang.' + prop.of, true);
+          if ( typeCls && typeCls.VIEW ) {
+            return typeCls.VIEW.value;
+          }
+        }
+        // Default to AnyView for FObjects and unknown types
+        return { class: 'foam.u2.view.AnyView' };
+      }
     },
     {
       name: 'defaultNewItem',

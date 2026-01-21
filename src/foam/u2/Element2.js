@@ -1832,7 +1832,41 @@ foam.CLASS({
   refines: 'foam.lang.Array',
   requires: [ 'foam.u2.view.ArrayView' ],
   properties: [
-    [ 'view', { class: 'foam.u2.view.ArrayView' } ]
+    {
+      name: 'view',
+      expression: function(of) {
+        // Determine element type from 'of' or 'javaType'
+        var elementType = of;
+
+        if ( ! elementType && this.javaType ) {
+          // Extract type from javaType (e.g., 'Long[]' -> 'Long', 'int[]' -> 'int')
+          var match = this.javaType.match(/^(\w+)\[\]$/);
+          if ( match ) {
+            elementType = match[1];
+            // Map Java primitives to FOAM types
+            var javaToFoam = {
+              'int': 'Int', 'long': 'Long', 'float': 'Float',
+              'double': 'Double', 'boolean': 'Boolean'
+            };
+            elementType = javaToFoam[elementType] || elementType;
+          }
+        }
+
+        // For primitive types, use their default view as valueView
+        if ( elementType ) {
+          var typeCls = foam.lookup('foam.lang.' + elementType, true);
+          if ( typeCls && typeCls.VIEW ) {
+            return {
+              class: 'foam.u2.view.ArrayView',
+              valueView: typeCls.VIEW.value
+            };
+          }
+        }
+
+        // Default to ArrayView with AnyView
+        return { class: 'foam.u2.view.ArrayView' };
+      }
+    }
   ]
 });
 

@@ -29,8 +29,8 @@ foam.CLASS({
     },
     {
       class: 'foam.u2.ViewSpec',
-      name: 'valueView'
-      // Set dynamically in fromProperty() based on the 'of' type
+      name: 'valueView',
+      value: { class: 'foam.u2.view.AnyView' }
     },
     {
       name: 'defaultNewItem',
@@ -164,27 +164,6 @@ foam.CLASS({
   `,
 
   methods: [
-    function fromProperty(prop) {
-      /**
-       * Set valueView based on the property's 'of' type.
-       * For primitive types (Int, Long, String, etc.), use their default view.
-       * For FObjects or unknown types, fall back to AnyView.
-       */
-      if ( ! this.valueView && prop && prop.of ) {
-        // Try to find the type class (e.g., 'Long' -> foam.lang.Long)
-        var typeCls = foam.lookup('foam.lang.' + prop.of, true);
-        if ( typeCls && typeCls.VIEW ) {
-          this.valueView = typeCls.VIEW.value;
-          return;
-        }
-      }
-
-      // Default to AnyView for FObjects and unknown types
-      if ( ! this.valueView ) {
-        this.valueView = { class: 'foam.u2.view.AnyView' };
-      }
-    },
-
     function render() {
       this.SUPER();
       var self = this;

@@ -29,7 +29,7 @@ foam.CLASS({
     ^table {
       border-collapse: collapse;
       border-spacing: 0;
-      border: 1px solid $borderStrong;
+      border: 1px solid $borderDefault;
     }
 
     /* Row styling */
@@ -46,6 +46,7 @@ foam.CLASS({
     ^th, ^td {
       padding: .8rem 1rem;
       transition: background-color 0.15s ease;
+      vertical-align: middle;
       border: 1px solid $borderDefault;
     }
 
@@ -53,8 +54,11 @@ foam.CLASS({
     ^th {
       background-color: $backgroundDefault;
       font-weight: bold;
-      text-align: left;
+      text-align: center;
       text-wrap-mode: nowrap;
+      cursor: pointer;
+      justify-items: anchor-center;
+      align-items: anchor-center;
     }
       
     ^ td:hover {
@@ -73,13 +77,56 @@ foam.CLASS({
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
     }
+
+    ^header-grid {
+      display: grid;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      width: 100%;
+    }
+    ^header-grid-row {
+      grid-template-rows: 1fr;
+      grid-template-columns: 20% 80%;
+      text-align: center;
+    }
+    ^header-grid-col {
+      grid-template-rows: 20% 80%;
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    ^collapse-symbol {
+      font-family: monospace;
+      justify-self: center;
+      align-self: center;
+    }
+    ^collapsed-header-col {
+      padding: 0.8rem 0.2rem;
+      font-weight: 400!important;
+    }
+    ^collapsed-header-row {
+      padding: 0.2rem 1rem;
+      font-weight: 400!important;
+    }
+    ^collapsed-cell {
+      border: 0px solid $borderDefault;
+      pointer-events: none;
+      padding: 0.2rem;
+      opacity: 0.1;
+      font-size: 0;
+      height: 0;
+      padding: 0;
+      overflow: hidden;
+    }
   `,
 
   properties: [
     { name: 'x' },
     { name: 'y' },
     { name: 'currentHoverCol' },
-    { name: 'currentHoverRow' }
+    { name: 'currentHoverRow' },
+    { name: 'collapsedKeys', factory: () => ({}) }
   ],
 
   methods: [
@@ -95,42 +142,77 @@ foam.CLASS({
         start('tr').addClass(this.myClass('tr')).
           start('th').addClass(this.myClass('th')).end().
           forEach(cols, function(c) {
+            var colKey = `col:${c}`;
             this.start('th')
-              .addClass(this.myClass('th'))
-              .add(c.toString())
-              .on('click', () => { self.x = c; self.y = undefined; })
+              .addClass(self.myClass('th'))
+              .on('click', () => self.toggleCollapse(c, null))
               .on('mouseover', () => self.currentHoverCol = c)
               .on('mouseleave', function() { self.currentHoverCol = undefined; self.currentHoverRow = undefined; })
-              .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol) => currentHoverCol === c));
+              .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol) => currentHoverCol === c))
+              .enableClass(self.myClass('collapsed-header-col'), self.slot(collapsedKeys => collapsedKeys[colKey]))
+              .start()
+                .addClass(self.myClass('header-grid'), self.myClass('header-grid-col'))
+                .start()
+                  .style({ 'padding': '0 0 2px 0', 'width': 'max-content', 'height': 'max-content'})
+                  .addClass(self.myClass('collapse-symbol'))
+                  .add(self.slot(collapsedKeys => collapsedKeys[colKey] ? '▿' : '▵'))
+                .end()
+                .start()
+                  .add(c.toString())
+                .end()
+              .end()
+            .end();
           }).
         end().
         forEach(data.rows.sortedKeys(), function(r) {
+          var rowKey = `row:${r}`;
           var row = data.rows.groups[r];
           this.start('tr')
             .addClass(self.myClass('tr'))
-            .on('click', () => self.y = r)
             .on('mouseover', () => self.currentHoverRow = r)
             .on('mouseleave', () => self.currentHoverRow = undefined)
             .enableClass(self.myClass('highlighted-row'), self.slot((currentHoverRow) => currentHoverRow === r))
             .start('th')
-              .on('click', () => { self.y = r; self.x = undefined; })
+              .on('click', () => self.toggleCollapse(null, r))
               .on('mouseover', () => self.currentHoverRow = r)
               .addClass(self.myClass('th'))
               .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverRow) => currentHoverRow === r))
-              .add(r)
+              .enableClass(self.myClass('collapsed-header-row'), self.slot(collapsedKeys => collapsedKeys[rowKey]))
+              .start()
+                .addClass(self.myClass('header-grid'), self.myClass('header-grid-row'))
+                .start()
+                  .style({ 'padding': '0 2px 0 0', 'width': 'max-content', 'height': 'max-content'})
+                  .addClass(self.myClass('collapse-symbol'))
+                  .add(self.slot(collapsedKeys => collapsedKeys[rowKey] ? '▹' : '◃'))
+                .end()
+                .start()
+                  .add(r)
+                .end()
+              .end()
             .end().
             forEach(cols, function(c) {
+              const colKey = `col:${c}`;
+              const cellVal = row.groups[c]?.value || row.groups[c] || '';
               this.start('td')
-                .on('click', (e) => { self.x = c; self.y = r; e.stopPropagation(); })
                 .on('mouseover', function() { self.currentHoverCol = c; self.currentHoverRow = r; })
                 .on('mouseleave', function() { self.currentHoverCol = undefined; self.currentHoverRow = undefined; })
                 .addClass(self.myClass('td'))
                 .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol, currentHoverRow) => currentHoverCol === c || currentHoverRow === r))
-                .add(row.groups[c] || '');
+                .enableClass(self.myClass('collapsed-cell'), self.slot(collapsedKeys => collapsedKeys[colKey] || collapsedKeys[rowKey]))
+                .add(self.slot(collapsedKeys => (collapsedKeys[colKey] || collapsedKeys[rowKey]) ? '' : cellVal))
+              .end();
             }).
             end();
         });
-    }
+    },
+    function toggleCollapse(colKey, rowKey) {
+      const key = colKey ? `col:${colKey}` : `row:${rowKey}`;
+      this.collapsedKeys[key] = !this.collapsedKeys[key];
+      this.collapsedKeys = { ...this.collapsedKeys };
+    },
+    function isCollapsed(key) {
+      return this.collapsedKeys[key];
+    },
 
     /*
     renderCell: function(x, y, value) {

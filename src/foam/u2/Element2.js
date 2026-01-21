@@ -1834,36 +1834,21 @@ foam.CLASS({
   properties: [
     {
       name: 'view',
-      expression: function(of) {
-        // Determine element type from 'of' or 'javaType'
-        var elementType = of;
-
-        if ( ! elementType && this.javaType ) {
-          // Extract type from javaType (e.g., 'Long[]' -> 'Long', 'int[]' -> 'int')
+      factory: function() {
+        // Extract element type from javaType (e.g., 'Long[]' -> 'Long')
+        if ( this.javaType ) {
           var match = this.javaType.match(/^(\w+)\[\]$/);
           if ( match ) {
-            elementType = match[1];
             // Map Java primitives to FOAM types
-            var javaToFoam = {
-              'int': 'Int', 'long': 'Long', 'float': 'Float',
-              'double': 'Double', 'boolean': 'Boolean'
-            };
-            elementType = javaToFoam[elementType] || elementType;
+            var javaToFoam = { 'int': 'Int', 'long': 'Long', 'float': 'Float', 'double': 'Double', 'boolean': 'Boolean' };
+            var elementType = javaToFoam[match[1]] || match[1];
+            var typeCls     = foam.lookup(elementType);
+
+            if ( typeCls && typeCls.VIEW ) {
+              return { class: 'foam.u2.view.ArrayView', valueView: typeCls.VIEW.value };
+            }
           }
         }
-
-        // For primitive types, use their default view as valueView
-        if ( elementType ) {
-          var typeCls = foam.lookup(elementType);
-          if ( typeCls && typeCls.VIEW ) {
-            return {
-              class: 'foam.u2.view.ArrayView',
-              valueView: typeCls.VIEW.value
-            };
-          }
-        }
-
-        // Default to ArrayView with AnyView
         return { class: 'foam.u2.view.ArrayView' };
       }
     }

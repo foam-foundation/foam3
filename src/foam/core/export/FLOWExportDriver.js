@@ -86,6 +86,12 @@ foam.CLASS({
     },
 
     function exportDAO(X, dao) {
+      var of = this.of || dao.of;
+      if ( ! of ) {
+        console.error('FLOWExportDriver: No model class available for export');
+        return '';
+      }
+
       var propNames = this.getPropName(X, dao.of);
       var where     = '';
       var comp      = this.findComparator(dao);
@@ -99,32 +105,38 @@ foam.CLASS({
 
       if ( comp ) { debugger; }
 
+      var daoKey = this.daoKey || X.serviceName;
+      var plural = this.plural || of.model_.plural;
+
+      var columnsArray = JSON.stringify(propNames);
+      var columnsString = propNames.join(',');
+
+      var label = this.name || plural;
+
       var flow = this.Flow.create({
         name: this.name,
         description: this.description,
-        source: this.daoKey,
-        mementoStr: `
-[
-	{
-    "flowName": "title",
-    "cmd": "h2 ${this.name}"
-	},
+        source: daoKey,
+        script: `[
   {
-    "flowName": "${this.plural}1",
-    "cmd": "dao ${this.daoKey}",
+    "flowName": "${plural}1",
+    "cmd": "dao ${daoKey}",
     "value": {
-      "class": "foam.core.reflow.DAOPrompt2",
-      "label": "${this.plural}",
-      "columns": "${propNames.join(',')}",
-      "version": 2,${where}
+      "class": "foam.core.reflow.DAOPrompt",${where}
       "select": {
         "class": "foam.core.reflow.TableDAOAgent",
-        "of": {"class":"__Class__","forClass_":"${this.of.id}"}
-      }
-    }
+        "columns": ${columnsArray}
+      },
+      "label": "${label}",
+      "columns": "${columnsString}"
+    },
+    "border": {
+      "title": "${label}",
+      "oldTitleStyle_": "h300"
+    },
+    "padding_st": "16px"
   }
-]
-        `
+]`
       });
       this.flowDAO.put(flow).then(() => {
         if ( this.openOnCreate )

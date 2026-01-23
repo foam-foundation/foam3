@@ -18,6 +18,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 22, "label":"All",       "value":
 p({"class":"foam.core.reflow.SinkAgent", "id": 10, "label":"AVG",       "value":"foam.core.reflow.AvgDAOAgent",        "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 11, "label":"COUNT",     "value":"foam.core.reflow.CountDAOAgent",      "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 12, "label":"Duplicate", "value":"foam.core.reflow.DuplicateDAOAgent",  "sink":true,  "type":"calculation"})
+p({"class":"foam.core.reflow.SinkAgent", "id": 34, "label":"SET",       "value":"foam.core.reflow.SetDAOAgent",        "sink":true,  "type":"structure"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 13, "label":"MAX",       "value":"foam.core.reflow.MaxDAOAgent",        "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 14, "label":"MIN",       "value":"foam.core.reflow.MinDAOAgent",        "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 15, "label":"SUM",       "value":"foam.core.reflow.SumDAOAgent",        "sink":true,  "type":"calculation"})

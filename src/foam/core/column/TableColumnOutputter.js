@@ -21,6 +21,12 @@ foam.CLASS({
   properties: [
     {
       name: 'dateFormat',
+      factory: function() {
+        return [
+          d => d ? d.toLocaleDateString('en-us') : '',
+          d => d ? d.toLocaleTimeString('en-us') : ''
+        ];
+      }
     },
     {
       class: 'Boolean',

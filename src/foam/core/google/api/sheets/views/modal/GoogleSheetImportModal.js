@@ -35,7 +35,9 @@
         .add('Link to Document')
       .end()
       .start()
-        .tag(this.importConfig)
+        .add(this.dynamic(function(importConfig) {
+          if ( importConfig ) this.tag(importConfig);
+        }))
       .end();
       this.start({ class: 'foam.core.google.api.sheets.views.wizardModal.WizardModalNavigationBar', back: this.BACK, next: this.NEXT }).addClass(this.myClass('footer')).end();
     },

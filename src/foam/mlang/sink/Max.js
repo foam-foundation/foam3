@@ -87,6 +87,16 @@ if (other instanceof foam.mlang.sink.Max) {
     },
     function toSummary() { return this.value; },
     function valueOf() { return this.value; },
-    function addToE(e) { e.add(this.value); }
+    function addToE(e) { e.add(this.value); },
+
+    function toProperties() {
+      var name = 'max_' + this.arg1.name;
+      var propClass = this.arg1.cls_?.id || 'String';
+      return [ { class: propClass, name: name, label: 'MAX(' + foam.String.labelize(this.arg1.name) + ')' } ];
+    },
+
+    function setPropertyValues(o, sink, ps) {
+      ps[0].set(o, sink.value);
+    }
   ]
 });

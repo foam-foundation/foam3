@@ -230,10 +230,19 @@ foam.CLASS({
     {
       name: 'importModal',
       factory: function() {
+        // Find DAO key from various sources:
+        // - serviceName: set for normal menus via config.daoKey
+        // - data.delegate.delegate.serviceName: set for Data Management menus (deeper nesting)
+        var dao = this.serviceName ||
+                  this.data?.delegate?.delegate?.serviceName ||
+                  this.data?.delegate?.serviceName ||
+                  this.config?.daoKey;
+        // Remove 'service/' prefix if present
+        if ( dao && dao.startsWith('service/') ) dao = dao.substring(8);
         return {
           class: 'foam.core.google.api.sheets.views.modal.ImportFromGoogleSheetsForm',
           of: this.config.of,
-          dao: this.serviceName || this.data.delegate.serviceName
+          dao: dao
         };
       }
     },

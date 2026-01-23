@@ -251,7 +251,8 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
-      if ( ! this.choice && this.choices.length == 1 ) this.data = this.choices[0][0];
+      // Only auto-select single choice if no placeholder is set
+      if ( ! this.choice && this.choices.length == 1 && ! this.placeholder ) this.data = this.choices[0][0];
 
       // If no item is selected, and data has not been provided, select the 0th
       // entry.

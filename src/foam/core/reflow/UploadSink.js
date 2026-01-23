@@ -37,6 +37,13 @@ foam.CLASS({
       factory: function() { return {}; }
     },
     {
+      class: 'Map',
+      name: 'requiredPropsCache_',
+      hidden: true,
+      factory: function() { return {}; },
+      documentation: 'Cache of required properties by class id'
+    },
+    {
       class: 'Int',
       name: 'totalRows',
       value: 0
@@ -151,10 +158,43 @@ foam.CLASS({
       this.processing++;
       this.updateStatus();
       
-      // Check for validation errors
+      // Custom validation for required fields based on actual source data
+      // We use __emptySourceFields__ instead of FOAM's built-in validation because
+      // FOAM's validation flags falsy values like "0" as missing
+      var emptySourceFields = o.__emptySourceFields__ || [];
+
+      // Build our own validation errors for required fields
+      var customErrors = [];
+      var cls = o.cls_;
+      if ( cls ) {
+        // Cache required properties per class to avoid repeated getAxiomsByClass calls
+        var clsId = cls.id;
+        var requiredProps = this.requiredPropsCache_[clsId];
+        if ( ! requiredProps ) {
+          requiredProps = cls.getAxiomsByClass(foam.lang.Property).filter(p => p.required);
+          this.requiredPropsCache_[clsId] = requiredProps;
+        }
+
+        for ( var i = 0; i < requiredProps.length; i++ ) {
+          var prop = requiredProps[i];
+          if ( emptySourceFields.indexOf(prop.name) !== -1 ) {
+            customErrors.push([prop, 'value is empty (required field)']);
+          }
+        }
+      }
+
+      // Include non-required validation errors from FOAM (like format errors)
       var errors = o.errors_;
       if ( errors ) {
-        this.trackValidationError(errors, { row: this.processing });
+        var nonRequiredErrors = errors.filter(function(e) {
+          // Skip FOAM's "Required" errors - we handle those with __emptySourceFields__
+          return e[1] !== 'Required';
+        });
+        customErrors = customErrors.concat(nonRequiredErrors);
+      }
+
+      if ( customErrors.length > 0 ) {
+        this.trackValidationError(customErrors, { row: this.processing });
       }
       
       // Apply filter for both preview and real uploads
@@ -267,7 +307,10 @@ foam.CLASS({
       // Handle different error types
       if ( Array.isArray(errorSource) ) {
         // Handle o.errors_ array format: [fieldAxiom, errorMessage]
-        errorMsg = errorSource.map(e => e[0].name + ' ' + e[1]).join(', ');
+        errorMsg = errorSource.map(e => {
+          var propName = e[0].label || e[0].name;
+          return propName + ': ' + e[1];
+        }).join(', ');
         errorKey = `multiple:${errorMsg.substring(0, 80)}`;
         field = 'multiple';
         errorText = errorMsg;
@@ -317,16 +360,29 @@ foam.CLASS({
     },
     
     function processAllMappings(obj, rowData) {
-      // Process all mappings using the mapping's process method
+      /**
+       * Process all mappings and apply values to the target object.
+       *
+       * Tracks which fields had empty source values for required field validation.
+       * This allows distinguishing between:
+       * - Empty source (user provided no data) → fail required validation
+       * - Source with "0" or other falsy value → pass validation (user provided data)
+       */
       if ( ! this.mappings || this.mappings.length === 0 ) return;
-      
+
       var hasValidationErrors = false;
-      
+      var emptySourceFields = [];
+
       for ( var i = 0; i < this.mappings.length; i++ ) {
         var mapping = this.mappings[i];
         try {
-          mapping.process(obj, undefined, rowData);
-          
+          var result = mapping.process(obj, undefined, rowData);
+
+          // Track fields that had empty source values
+          if ( result && result.sourceWasEmpty && result.property ) {
+            emptySourceFields.push(result.property);
+          }
+
           // Check for NaN/invalid values after processing
           this.validateProcessedValue(obj, mapping.property);
         } catch (x) {
@@ -334,10 +390,18 @@ foam.CLASS({
           this.trackValidationError(x, { mapping: mapping, rowData: rowData });
         }
       }
-      
+
+      // Store empty source fields on object for put() to filter false positives
+      // This allows put() to distinguish between:
+      // - Empty source (no user data) → required validation error is legitimate
+      // - Source with "0" (user provided data) → required validation error is false positive
+      if ( emptySourceFields.length > 0 ) {
+        obj.__emptySourceFields__ = emptySourceFields;
+      }
+
       return hasValidationErrors;
     },
-    
+
     function validateProcessedValue(obj, propertyName) {
       var value = obj[propertyName];
       

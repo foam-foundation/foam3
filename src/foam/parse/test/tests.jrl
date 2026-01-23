@@ -3,3 +3,5 @@ p({"class":"foam.parse.test.QueryParserJSTest","id":"QueryParserJSTest", languag
 p({"class":"foam.parse.test.FScriptParserTest","id":"FScriptParserTest"})
 p({"class":"foam.parse.test.SimpleQueryParserTest","id":"SimpleQueryParserTest", language: 0})
 p({"class":"foam.parse.test.DateParserTest","id":"DateParserTest", language: 0})
+p({"class":"foam.parse.test.NumberParserTest","id":"NumberParserTest", language: 0})
+p({"class":"foam.parse.test.DateParserJavaTest","id":"DateParserJavaTest"})

@@ -20,6 +20,7 @@ foam.CLASS({
   javaImports: [
     'foam.lang.X',
     'foam.dao.DAO',
+    'foam.parse.DateParser',
     'foam.time.TimeZone',
     'foam.util.SafetyUtil',
     'java.text.ParseException',
@@ -34,16 +35,6 @@ foam.CLASS({
 
   messages: [
     { name: 'INVALID_FORMAT', message: 'Invalid format.' }
-  ],
-
-  properties: [
-    {
-      name: 'parser_',
-      documentation: 'Shared DateParser instance for all date parsing operations',
-      factory: function() {
-        return this.DateParser.create();
-      }
-    }
   ],
 
   constants: [
@@ -72,17 +63,13 @@ foam.CLASS({
           d = String(d);
         }
 
-        var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+        var parser = foam.parse.DateParser.create();
         return parser.parseDateTime(d, opt_name);
       },
       javaCode: `
-        // TODO: When migrating to Java grammar-based parsing, replace this with DateParser.parseDateTime()
-        // Parses datetime string in local timezone
-        try {
-          return parseDateTimeWithTimezone(d, java.util.TimeZone.getDefault().getID());
-        } catch ( ParseException e ) {
-          throw new RuntimeException("Cannot parse invalid datetime: " + d);
-        }
+        // Parses datetime string in local timezone using grammar-based DateParser
+        DateParser parser = new DateParser();
+        return parser.parseDateTime(d, opt_name);
       `
     },
     {
@@ -99,17 +86,13 @@ foam.CLASS({
           d = String(d);
         }
 
-        var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+        var parser = foam.parse.DateParser.create();
         return parser.parseDateTimeUTC(d, opt_name);
       },
       javaCode: `
-        // TODO: When migrating to Java grammar-based parsing, replace this with DateParser.parseDateTimeUTC()
-        // Parses datetime string in UTC timezone
-        try {
-          return parseDateTimeWithTimezone(d, "GMT");
-        } catch ( ParseException e ) {
-          throw new RuntimeException("Cannot parse invalid datetime: " + d);
-        }
+        // Parses datetime string in UTC timezone using grammar-based DateParser
+        DateParser parser = new DateParser();
+        return parser.parseDateTimeUTC(d, opt_name);
       `
     },
     {
@@ -126,90 +109,45 @@ foam.CLASS({
           d = String(d);
         }
 
-        var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+        var parser = foam.parse.DateParser.create();
         return parser.parseDateString(d, opt_name);
       },
       javaCode: `
-        /*
-         TODO: When migrating to Java grammar-based parsing, replace this with DateParser.parseDateString()
-
-         Supported formats (checked in order):
-         1. YYYY/MM/DD, YYYY-MM-DD (with separators)
-         2. YYYYMMDD (no separators, year 1900-2999)
-         3. MM/DD/YYYY, MM-DD-YYYY (with separators)
-         4. MMDDYYYY (no separators)
-         5. YY/MM/DD, YY-MM-DD (with separators, 2-digit year with sliding window)
-         6. YYMMDD (no separators, 2-digit year with sliding window)
-        */
-        SimpleDateFormat format;
-        Date date;
-        try {
-          // YYYY/MM/DD or YYYY-MM-DD (with separators)
-          if ( d.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}(?!\\\\d).*") ) {
-            format = new SimpleDateFormat("yyyyMMdd");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
-            date = format.parse(d.replaceAll("[-/]", "").substring(0, 8));
-          }
-          // YYYYMMDD (no separators, year must be 1900-2999)
-          else if ( d.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}(?!\\\\d).*") ) {
-            format = new SimpleDateFormat("yyyyMMdd");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
-            date = format.parse(d.substring(0, 8));
-          }
-          // MM/DD/YYYY or MM-DD-YYYY (with separators)
-          else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4}(?!\\\\d).*") ) {
-            format = new SimpleDateFormat("MMddyyyy");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
-            date = format.parse(d.replaceAll("[-/]", "").substring(0, 8));
-          }
-          // MMDDYYYY (no separators)
-          else if ( d.matches("^\\\\d{8}(?!\\\\d).*") ) {
-            format = new SimpleDateFormat("MMddyyyy");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
-            date = format.parse(d.substring(0, 8));
-          }
-          // YY/MM/DD or YY-MM-DD (with separators)
-          else if ( d.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{2}(?!\\\\d).*") ) {
-            format = new SimpleDateFormat("yyMMdd");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
-            // Sliding window: 100-year window centered on current year (50 years back, 50 years forward)
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            cal.add(java.util.Calendar.YEAR, -50);
-            format.set2DigitYearStart(cal.getTime());
-            date = format.parse(d.replaceAll("[-/]", "").substring(0, 6));
-          }
-          // YYMMDD (no separators)
-          else if ( d.matches("^\\\\d{6}(?!\\\\d).*") ) {
-            format = new SimpleDateFormat("yyMMdd");
-            format.setLenient(false);
-            format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
-            // Sliding window: 100-year window centered on current year (50 years back, 50 years forward)
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            cal.add(java.util.Calendar.YEAR, -50);
-            format.set2DigitYearStart(cal.getTime());
-            date = format.parse(d.substring(0, 6));
-          }
-          else {
-            throw new RuntimeException("Unsupported Date format: " + d);
-          }
-
-          // Normalize to noon GMT (12:00:00)
-          java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
-          cal.setTime(date);
-          cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
-          cal.set(java.util.Calendar.MINUTE, 0);
-          cal.set(java.util.Calendar.SECOND, 0);
-          cal.set(java.util.Calendar.MILLISECOND, 0);
-          date = cal.getTime();
-        } catch ( ParseException e ) {
-          throw new RuntimeException("Cannot parse invalid date: " + d);
-        }
-        return date;
+        // Parses date string using grammar-based DateParser
+        // Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats
+        // Optional opt_name to specify format (e.g., "ddmmyyyy")
+        DateParser parser = new DateParser();
+        return parser.parseDateString(d, opt_name);
+      `
+    },
+    {
+      name: 'setStrictValidation',
+      args: 'Boolean strict',
+      type: 'Void',
+      documentation: 'Sets the strict validation mode for date parsing. When true, invalid dates throw errors. When false (default), invalid dates log warnings and return MAX_DATE.',
+      code: function(strict) {
+        // DateParser is a Singleton, so create() returns the same instance
+        var parser = foam.parse.DateParser.create();
+        parser.strictValidation = strict;
+      },
+      javaCode: `
+        DateParser parser = new DateParser();
+        parser.setStrictValidation(strict);
+      `
+    },
+    {
+      name: 'getStrictValidation',
+      args: '',
+      type: 'Boolean',
+      documentation: 'Gets the current strict validation mode for date parsing.',
+      code: function() {
+        // DateParser is a Singleton, so create() returns the same instance
+        var parser = foam.parse.DateParser.create();
+        return parser.strictValidation;
+      },
+      javaCode: `
+        DateParser parser = new DateParser();
+        return parser.getStrictValidation();
       `
     },
     {
@@ -221,7 +159,7 @@ foam.CLASS({
         if ( ! o ) return null;
         if ( o instanceof Date ) return o;
         if ( foam.String.isInstance(o) ) {
-          var parser = foam.util.DateUtil.parser_ || foam.parse.DateParser.create();
+          var parser = foam.parse.DateParser.create();
           return parser.parseDateString(o);
         }
         if ( typeof o === 'number' ) return new Date(o);
@@ -244,12 +182,7 @@ foam.CLASS({
         }
 
         if ( o instanceof String ) {
-          try {
-            return parseDateString((String) o, null);
-          } catch ( RuntimeException e ) {
-            // Return MAX_DATE for invalid strings instead of throwing exception
-            return MAX_DATE;
-          }
+          return parseDateString((String) o, null);
         }
 
         if ( o instanceof Number ) return new Date(((Number) o).longValue());
@@ -484,118 +417,6 @@ foam.CLASS({
   ],
 
   javaCode: `
-    /*
-     * Generic Java datetime parsing helper used by both parseDateTime and parseDateTimeUTC
-     */
-    private static Date parseDateTimeWithTimezone(String d, String timeZoneId) throws ParseException {
-      SimpleDateFormat format;
-      Date date;
-
-      // Check for ISO 8601 timezone suffix (Z, +HH:MM, -HH:MM, +HHMM, -HHMM)
-      // If present, use it instead of the provided timeZoneId
-      String actualTimeZone = timeZoneId;
-      String dateTimePart = d;
-
-      // Check for Z (UTC) suffix
-      if ( d.matches(".*[0-9]Z$") ) {
-        actualTimeZone = "GMT";
-        dateTimePart = d.substring(0, d.length() - 1);
-      }
-      // Check for +HH:MM or -HH:MM format
-      else if ( d.matches(".*[+-]\\\\d{2}:\\\\d{2}$") ) {
-        String offset = d.substring(d.length() - 6);
-        actualTimeZone = "GMT" + offset;
-        dateTimePart = d.substring(0, d.length() - 6);
-      }
-      // Check for +HHMM or -HHMM format (no colon)
-      else if ( d.matches(".*[+-]\\\\d{4}$") ) {
-        String offset = d.substring(d.length() - 5);
-        // Convert +HHMM to +HH:MM
-        actualTimeZone = "GMT" + offset.substring(0, 3) + ":" + offset.substring(3);
-        dateTimePart = d.substring(0, d.length() - 5);
-      }
-
-      // ISO 8601: YYYY-MM-DDTHH:MM:SS.SSS or YYYY-MM-DD HH:MM:SS.SSS
-      if ( dateTimePart.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{3})?$") ) {
-        String normalized = dateTimePart.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
-        int dotIndex = normalized.indexOf('.');
-
-        if ( dotIndex > 0 ) {
-          format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-          format.setLenient(false);
-          format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-          date = format.parse(normalized.substring(0, Math.min(23, normalized.length())));
-        } else {
-          format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-          format.setLenient(false);
-          format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-          date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
-        }
-      }
-      // ISO 8601 short: YYYY-MM-DDTHH:MM or YYYY-MM-DD HH:MM
-      else if ( dateTimePart.matches("^\\\\d{4}[-/]\\\\d{2}[-/]\\\\d{2}[T ]\\\\d{2}:\\\\d{2}$") ) {
-        String normalized = dateTimePart.replaceAll("[T ]", " ").replaceAll("[-/]", "-");
-        format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-        format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-        date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
-      }
-      // US format with time: MM/DD/YYYY HH:MM:SS or MM-DD-YYYY HH:MM:SS
-      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}:\\\\d{2}$") ) {
-        String normalized = dateTimePart.replaceAll("/", "-");
-        format = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss");
-        format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-        date = format.parse(normalized.substring(0, Math.min(19, normalized.length())));
-      }
-      // US format with time short: MM/DD/YYYY HH:MM or MM-DD-YYYY HH:MM
-      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{4} \\\\d{2}:\\\\d{2}$") ) {
-        String normalized = dateTimePart.replaceAll("/", "-");
-        format = new SimpleDateFormat("MM-dd-yyyy HH:mm");
-        format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-        date = format.parse(normalized.substring(0, Math.min(16, normalized.length())));
-      }
-      // Compact: YYYYMMDDHHMMSS
-      else if ( dateTimePart.matches("^(1[9]\\\\d{2}|2\\\\d{3})\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}\\\\d{2}$") ) {
-        format = new SimpleDateFormat("yyyyMMddHHmmss");
-        format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-        date = format.parse(dateTimePart.substring(0, 14));
-      }
-      // 2-digit year format with time and seconds: YY-MM-DD HH:MM:SS or YY/MM/DD HH:MM:SS
-      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{2} \\\\d{2}:\\\\d{2}:\\\\d{2}$") ) {
-        String normalized = dateTimePart.replaceAll("/", "-");
-        // Parse with 4-digit year format to get full control over year conversion
-        format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-        // Extract 2-digit year and convert: 00-49 → 2000-2049, 50-99 → 1950-1999
-        int yy = Integer.parseInt(normalized.substring(0, 2));
-        int yyyy = yy < 50 ? 2000 + yy : 1900 + yy;
-        String fullDate = yyyy + normalized.substring(2);
-        date = format.parse(fullDate);
-      }
-      // 2-digit year format with time (no seconds): YY-MM-DD HH:MM or YY/MM/DD HH:MM
-      else if ( dateTimePart.matches("^\\\\d{2}[-/]\\\\d{2}[-/]\\\\d{2} \\\\d{2}:\\\\d{2}$") ) {
-        String normalized = dateTimePart.replaceAll("/", "-");
-        // Parse with 4-digit year format to get full control over year conversion
-        format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-        format.setLenient(false);
-        format.setTimeZone(java.util.TimeZone.getTimeZone(actualTimeZone));
-        // Extract 2-digit year and convert: 00-49 → 2000-2049, 50-99 → 1950-1999
-        int yy = Integer.parseInt(normalized.substring(0, 2));
-        int yyyy = yy < 50 ? 2000 + yy : 1900 + yy;
-        String fullDate = yyyy + normalized.substring(2);
-        date = format.parse(fullDate);
-      }
-      else {
-        throw new RuntimeException("Unsupported DateTime format: " + d);
-      }
-
-      return date;
-    }
-
     /*
      * Java method overloads
      *

@@ -81,6 +81,16 @@ if (other instanceof foam.mlang.sink.Min) {
     },
     function toSummary() { return this.value; },
     function valueOf() { return this.value; },
-    function addToE(e) { e.add(this.value); }
+    function addToE(e) { e.add(this.value); },
+
+    function toProperties() {
+      var name = 'min_' + this.arg1.name;
+      var propClass = this.arg1.cls_?.id || 'String';
+      return [ { class: propClass, name: name, label: 'MIN(' + foam.String.labelize(this.arg1.name) + ')' } ];
+    },
+
+    function setPropertyValues(o, sink, ps) {
+      ps[0].set(o, sink.value);
+    }
   ]
 });

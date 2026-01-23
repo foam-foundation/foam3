@@ -22,6 +22,7 @@ foam.CLASS({
       this.testDDMMYYYYFormats(x);
       this.testYYYYDDMMFormats(x);
       this.testDDMMMYYYYFormats(x);
+      this.testUnixDateToStringFormat(x);
       this.testDateTimeFormats(x);
       this.testFractionalSeconds(x);
       this.testParseDateString(x);
@@ -39,6 +40,10 @@ foam.CLASS({
       this.testInvalidLeapYearDates(x);
       this.testAllParseMethodsExample(x);
       this.testTimestampStrings(x);
+      this.testStrictValidationMode(x);
+      this.testLenientValidationMode(x);
+      this.testInvalidMonthNameValidation(x);
+      this.testJulianDateFormats(x);
     },
 
     function testYYYYMMDDFormats(x) {
@@ -1234,7 +1239,7 @@ foam.CLASS({
     function testValidation(x) {
       let parser = this.DateParser.create();
 
-      // Test that parser returns MAX_DATE for truly unparseable inputs
+      // In non-strict mode (default), unparseable inputs return MAX_DATE
       let invalidInputs = [
         'invalid-date',
         '99/99/99',
@@ -1243,13 +1248,8 @@ foam.CLASS({
       ];
 
       invalidInputs.forEach((input, i) => {
-        try {
-          let result = parser.parseString(input);
-          let isMaxDate = result && result.getTime() === foam.Date.MAX_DATE.getTime();
-          x.test(isMaxDate, `Validation Test${i + 1}: "${input}" should return MAX_DATE (invalid)`);
-        } catch (e) {
-          x.test(false, `Validation Test${i + 1}: "${input}" - ${e.message}`);
-        }
+        let result = parser.parseString(input);
+        x.test(result.getTime() === foam.Date.MAX_DATE.getTime(), `Validation Test${i + 1}: "${input}" returns MAX_DATE in lenient mode`);
       });
 
       // Test date normalization - JavaScript Date normalizes out-of-range values
@@ -2062,6 +2062,410 @@ foam.CLASS({
           x.test(pass, `DateTime-Timestamp Test${i + 1}: ${testCase.desc} - expected ${testCase.expectedDate.toISOString()}, got ${result.toISOString()}`);
         } catch (e) {
           x.test(false, `DateTime-Timestamp Test${i + 1}: ${testCase.desc} - Error: ${e.message}`);
+        }
+      });
+    },
+
+    function testStrictValidationMode(x) {
+      // Test strict validation mode - should throw errors for invalid dates
+      let parser = this.DateParser.create();
+
+      // Enable strict validation for this test
+      parser.strictValidation = true;
+
+      try {
+        // Test 1: Invalid format should throw
+        let invalidInputs = [
+          { input: 'invalid-date', desc: 'completely invalid string' },
+          { input: 'notadate', desc: 'non-date text' },
+          { input: '', desc: 'empty string' }
+        ];
+
+        invalidInputs.forEach((testCase, i) => {
+          try {
+            parser.parseString(testCase.input);
+            x.test(false, `StrictMode parseString Test${i + 1}: "${testCase.input}" should throw (${testCase.desc})`);
+          } catch (e) {
+            x.test(true, `StrictMode parseString Test${i + 1}: "${testCase.input}" throws error as expected (${testCase.desc})`);
+          }
+        });
+
+        // Test 2: parseDateTime with invalid input should throw
+        try {
+          parser.parseDateTime('not-a-date');
+          x.test(false, 'StrictMode parseDateTime: should throw for invalid input');
+        } catch (e) {
+          x.test(true, 'StrictMode parseDateTime: throws error for invalid input');
+        }
+
+        // Test 3: parseDateTimeUTC with invalid input should throw
+        try {
+          parser.parseDateTimeUTC('garbage');
+          x.test(false, 'StrictMode parseDateTimeUTC: should throw for invalid input');
+        } catch (e) {
+          x.test(true, 'StrictMode parseDateTimeUTC: throws error for invalid input');
+        }
+
+        // Test 4: Valid dates should still work in strict mode
+        try {
+          let result = parser.parseString('2025-01-15');
+          x.test(result.getUTCFullYear() === 2025, 'StrictMode: valid date parses correctly');
+        } catch (e) {
+          x.test(false, 'StrictMode: valid date should not throw - ' + e.message);
+        }
+
+        // Test 5: Valid datetime should work in strict mode
+        try {
+          let result = parser.parseDateTime('2025-01-15T14:30:45');
+          x.test(result.getFullYear() === 2025, 'StrictMode: valid datetime parses correctly');
+        } catch (e) {
+          x.test(false, 'StrictMode: valid datetime should not throw - ' + e.message);
+        }
+      } finally {
+        // Reset to default
+        parser.strictValidation = false;
+      }
+    },
+
+    function testLenientValidationMode(x) {
+      // Test lenient validation mode (default) - should return MAX_DATE for invalid dates
+      let parser = this.DateParser.create();
+
+      // Ensure lenient mode (default)
+      parser.strictValidation = false;
+
+      // Test 1: Invalid format returns MAX_DATE in lenient mode
+      let invalidInputs = [
+        { input: 'invalid-date', desc: 'completely invalid string' },
+        { input: 'notadate', desc: 'non-date text' }
+      ];
+
+      invalidInputs.forEach((testCase, i) => {
+        let result = parser.parseString(testCase.input);
+        x.test(result.getTime() === foam.Date.MAX_DATE.getTime(), `LenientMode parseString Test${i + 1}: "${testCase.input}" returns MAX_DATE (${testCase.desc})`);
+      });
+
+      // Test 2: Empty string returns MAX_DATE in lenient mode
+      let emptyResult = parser.parseString('');
+      x.test(emptyResult.getTime() === foam.Date.MAX_DATE.getTime(), 'LenientMode: empty string returns MAX_DATE');
+
+      // Test 3: Valid dates should work in lenient mode
+      try {
+        let result = parser.parseString('2025-01-15');
+        x.test(result.getUTCFullYear() === 2025, 'LenientMode: valid date parses correctly');
+      } catch (e) {
+        x.test(false, 'LenientMode: valid date should not throw - ' + e.message);
+      }
+
+      // Test 4: Default parser should be lenient
+      x.test(parser.strictValidation === false, 'Default parser has strictValidation=false');
+    },
+
+    /**
+     * Test Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY
+     * e.g., "Tue Apr 01 05:17:59 GMT 2025"
+     */
+    function testUnixDateToStringFormat(x) {
+      let parser = this.DateParser.create();
+
+      // Basic test cases - different days of week
+      let basicCases = [
+        { input: 'Tue Apr 01 05:17:59 GMT 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'Mon Jan 15 12:30:45 GMT 2025', year: 2025, month: 0, day: 15, hour: 12, minute: 30, second: 45 },
+        { input: 'Wed Feb 28 23:59:59 GMT 2024', year: 2024, month: 1, day: 28, hour: 23, minute: 59, second: 59 },
+        { input: 'Thu Mar 01 00:00:00 GMT 2024', year: 2024, month: 2, day: 1, hour: 0, minute: 0, second: 0 },
+        { input: 'Fri Dec 31 18:45:30 GMT 2025', year: 2025, month: 11, day: 31, hour: 18, minute: 45, second: 30 },
+        { input: 'Sat Jul 04 09:15:00 GMT 2025', year: 2025, month: 6, day: 4, hour: 9, minute: 15, second: 0 },
+        { input: 'Sun Nov 11 11:11:11 GMT 2025', year: 2025, month: 10, day: 11, hour: 11, minute: 11, second: 11 }
+      ];
+
+      // Test with UTC results (since GMT timezone should normalize to UTC)
+      basicCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `UnixDate-Basic Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test case-insensitive parsing
+      let caseInsensitiveCases = [
+        { input: 'TUE APR 01 05:17:59 GMT 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'tue apr 01 05:17:59 gmt 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'Tue Apr 01 05:17:59 gmt 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'tue APR 01 05:17:59 GMT 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 }
+      ];
+
+      caseInsensitiveCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `UnixDate-CaseInsensitive Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test with UTC timezone
+      let utcCases = [
+        { input: 'Tue Apr 01 05:17:59 UTC 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'Mon Jan 15 12:30:45 utc 2025', year: 2025, month: 0, day: 15, hour: 12, minute: 30, second: 45 }
+      ];
+
+      utcCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `UnixDate-UTC Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test with timezone offsets - these should convert to UTC correctly
+      let offsetCases = [
+        // +05:00 means 5 hours ahead of UTC, so UTC time is 5 hours earlier
+        { input: 'Tue Apr 01 10:17:59 +0500 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        // -05:00 means 5 hours behind UTC, so UTC time is 5 hours later
+        { input: 'Tue Apr 01 00:17:59 -0500 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        // +00:00 is same as GMT/UTC
+        { input: 'Tue Apr 01 05:17:59 +0000 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 }
+      ];
+
+      offsetCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `UnixDate-Offset Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test all months
+      let monthCases = [
+        { input: 'Wed Jan 01 12:00:00 GMT 2025', year: 2025, month: 0, day: 1 },
+        { input: 'Sat Feb 01 12:00:00 GMT 2025', year: 2025, month: 1, day: 1 },
+        { input: 'Sat Mar 01 12:00:00 GMT 2025', year: 2025, month: 2, day: 1 },
+        { input: 'Tue Apr 01 12:00:00 GMT 2025', year: 2025, month: 3, day: 1 },
+        { input: 'Thu May 01 12:00:00 GMT 2025', year: 2025, month: 4, day: 1 },
+        { input: 'Sun Jun 01 12:00:00 GMT 2025', year: 2025, month: 5, day: 1 },
+        { input: 'Tue Jul 01 12:00:00 GMT 2025', year: 2025, month: 6, day: 1 },
+        { input: 'Fri Aug 01 12:00:00 GMT 2025', year: 2025, month: 7, day: 1 },
+        { input: 'Mon Sep 01 12:00:00 GMT 2025', year: 2025, month: 8, day: 1 },
+        { input: 'Wed Oct 01 12:00:00 GMT 2025', year: 2025, month: 9, day: 1 },
+        { input: 'Sat Nov 01 12:00:00 GMT 2025', year: 2025, month: 10, day: 1 },
+        { input: 'Mon Dec 01 12:00:00 GMT 2025', year: 2025, month: 11, day: 1 }
+      ];
+
+      monthCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, 12, 0, 0);
+        let testName = `UnixDate-Month Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test single digit day (should work with dayFlexible)
+      let singleDigitDayCases = [
+        { input: 'Tue Apr 1 05:17:59 GMT 2025', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'Wed Jan 5 10:30:00 GMT 2025', year: 2025, month: 0, day: 5, hour: 10, minute: 30, second: 0 }
+      ];
+
+      singleDigitDayCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `UnixDate-SingleDigitDay Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test parseString (returns Date at noon UTC for date-only, or with time for datetime)
+      let parseStringCases = [
+        { input: 'Tue Apr 01 05:17:59 GMT 2025', year: 2025, month: 3, day: 1 }
+      ];
+
+      parseStringCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input);
+          // parseString with time should keep time in local time
+          let pass = result &&
+                     result.getFullYear() === testCase.year &&
+                     result.getMonth() === testCase.month &&
+                     result.getDate() === testCase.day;
+          x.test(pass, `UnixDate-parseString Test${i + 1}: ${testCase.input}`);
+        } catch (e) {
+          x.test(false, `UnixDate-parseString Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // Test parseDateString (returns date only at noon UTC)
+      parseStringCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input);
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `UnixDate-parseDateString Test${i + 1}: ${testCase.input}`);
+        } catch (e) {
+          x.test(false, `UnixDate-parseDateString Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+    },
+
+    function testInvalidMonthNameValidation(x) {
+      // Test invalid month name handling in both modes
+      // Note: "XYZ" doesn't match the grammar's month pattern, so it fails at grammar level
+      // and returns MAX_DATE (lenient) or throws (strict)
+      let parser = this.DateParser.create();
+
+      // Strict mode test
+      parser.strictValidation = true;
+      try {
+        parser.parseString('15-XYZ-2025');
+        x.test(false, 'StrictMode: invalid month name "XYZ" should throw');
+      } catch (e) {
+        // Grammar validation happens before parseMonthName, so we may get "Unsupported Date format"
+        let validError = e.message.includes('Invalid month name') || e.message.includes('Unsupported Date format');
+        x.test(validError, 'StrictMode: invalid month name throws error');
+      }
+
+      // Lenient mode test - returns MAX_DATE for unparseable input
+      parser.strictValidation = false;
+      let result = parser.parseString('15-XYZ-2025');
+      x.test(result.getTime() === foam.Date.MAX_DATE.getTime(), 'LenientMode: unparseable returns MAX_DATE');
+    },
+
+    function testJulianDateFormats(x) {
+      let parser = this.DateParser.create();
+
+      // ============================================================
+      // YYDDD format tests (5-digit: 2-digit year + 3-digit day of year)
+      // ============================================================
+      let yydddTestCases = [
+        { input: '25216', year: 2025, month: 7, day: 4, desc: 'day 216 of 2025 = Aug 4, 2025' },
+        { input: '24341', year: 2024, month: 11, day: 6, desc: 'day 341 of 2024 = Dec 6, 2024' },
+        { input: '25001', year: 2025, month: 0, day: 1, desc: 'day 1 of 2025 = Jan 1, 2025' },
+        { input: '25365', year: 2025, month: 11, day: 31, desc: 'day 365 of 2025 = Dec 31, 2025' },
+        // 2-digit year pivot tests: 00-49 -> 2000-2049, 50-99 -> 1950-1999
+        { input: '49365', year: 2049, month: 11, day: 31, desc: 'day 365 of 2049 (year pivot: 49 -> 2049)' },
+        { input: '50001', year: 1950, month: 0, day: 1, desc: 'day 1 of 1950 (year pivot: 50 -> 1950)' }
+      ];
+
+      yydddTestCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, 'yyddd');
+          if ( ! result || isNaN(result.getTime()) ) {
+            x.test(false, `YYDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}. Got: null/invalid`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `YYDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+          } else {
+            x.test(false, `YYDDD Test${i + 1}: ${testCase.input} - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `YYDDD Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
+        }
+      });
+
+      // ============================================================
+      // YDDD format tests (4-digit: 1-digit year + 3-digit day of year)
+      // Uses sliding window logic based on current year:
+      //   decade = floor(currentYear / 10) * 10
+      //   year = decade + oneDigitYear
+      //   if year > currentYear + 5 then year = year - 10
+      // ============================================================
+
+      // Calculate expected years using sliding window
+      let currentYear = new Date().getUTCFullYear();
+      let decade = Math.floor(currentYear / 10) * 10;
+
+      // Helper to calculate expected year for a single digit
+      function calcExpectedYear(digit) {
+        let yr = decade + digit;
+        if ( yr > currentYear + 5 ) yr -= 10;
+        return yr;
+      }
+
+      let expectedYear0 = calcExpectedYear(0);
+      let expectedYear5 = calcExpectedYear(5);
+      let expectedYear9 = calcExpectedYear(9);
+
+      let ydddTestCases = [
+        { input: '5216', year: expectedYear5, month: 7, day: 4, desc: `day 216 of ${expectedYear5} = Aug 4, ${expectedYear5} (year 5 = ${expectedYear5})` },
+        { input: '0001', year: expectedYear0, month: 0, day: 1, desc: `day 1 of ${expectedYear0} = Jan 1, ${expectedYear0} (year 0 = ${expectedYear0})` },
+        { input: '9365', year: expectedYear9, month: 11, day: 31, desc: `day 365 of ${expectedYear9} = Dec 31, ${expectedYear9} (year 9 = ${expectedYear9})` }
+      ];
+
+      ydddTestCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, 'yddd');
+          if ( ! result || isNaN(result.getTime()) ) {
+            x.test(false, `YDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}. Got: null/invalid`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `YDDD Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+          } else {
+            x.test(false, `YDDD Test${i + 1}: ${testCase.input} - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `YDDD Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
+        }
+      });
+
+      // ============================================================
+      // Combined juliandate format tests (auto-detects 4 or 5 digit)
+      // 5-digit: Uses fixed 2-digit year pivot (00-49 -> 2000-2049, 50-99 -> 1950-1999)
+      // 4-digit: Uses sliding window based on current year
+      // ============================================================
+      let juliandateTestCases = [
+        // 5-digit format (YYDDD) - uses fixed pivot
+        { input: '25216', year: 2025, month: 7, day: 4, desc: '5-digit: day 216 of 2025 = Aug 4, 2025' },
+        { input: '24341', year: 2024, month: 11, day: 6, desc: '5-digit: day 341 of 2024 = Dec 6, 2024' },
+        { input: '25001', year: 2025, month: 0, day: 1, desc: '5-digit: day 1 of 2025 = Jan 1, 2025' },
+        { input: '25365', year: 2025, month: 11, day: 31, desc: '5-digit: day 365 of 2025 = Dec 31, 2025' },
+        // 4-digit format (YDDD) - uses sliding window (expectedYear vars calculated above)
+        { input: '5216', year: expectedYear5, month: 7, day: 4, desc: `4-digit: day 216 of ${expectedYear5} = Aug 4, ${expectedYear5}` },
+        { input: '0001', year: expectedYear0, month: 0, day: 1, desc: `4-digit: day 1 of ${expectedYear0} = Jan 1, ${expectedYear0}` },
+        { input: '9365', year: expectedYear9, month: 11, day: 31, desc: `4-digit: day 365 of ${expectedYear9} = Dec 31, ${expectedYear9}` }
+      ];
+
+      juliandateTestCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, 'juliandate');
+          if ( ! result || isNaN(result.getTime()) ) {
+            x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - ${testCase.desc}. Got: null/invalid`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `JulianDate Test${i + 1}: ${testCase.input} - ${testCase.desc}`);
+          } else {
+            x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
         }
       });
     }

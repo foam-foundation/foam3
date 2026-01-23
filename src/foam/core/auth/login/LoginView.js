@@ -219,7 +219,7 @@ foam.CLASS({
           }))
         .end()
         .start().style({ display: 'contents' })
-          .add(self.slot(function(mode_) {
+          .add(self.slot(function(mode_, showAction) {
             if ( mode_ != self.SIGN_IN ) {
               return this.E();
             }
@@ -238,6 +238,7 @@ foam.CLASS({
                   let action = foam.lang.Action.create({
                     name: 'signIn',
                     label: provider.description,
+                    buttonStyle: showAction ? 'SECONDARY' : 'PRIMARY',
                     code: async function () {
                       await self.clientLoginService.signInWithOIDC(provider);
                     }

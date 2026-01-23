@@ -32,34 +32,49 @@ foam.ENUM({
   package: 'foam.core.reflow',
   name: 'DateFormat',
 
+  properties: [
+    {
+      class: 'String',
+      name: 'parserSymbol',
+      documentation: 'The DateParser grammar symbol name for this format'
+    },
+    {
+      // Add an 'id' property that returns the ordinal for DAO compatibility
+      name: 'id',
+      getter: function() { return this.ordinal; }
+    }
+  ],
+
   values: [
     {
       name: 'STANDARD',
       label: 'Standard',
+      parserSymbol: 'START',
       documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, mm/dd/yy, mm-dd-yy, mmddyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN, Jan 02 2025'
     },
     {
       name: 'DDMMYYYY',
       label: 'dd/mm/yyyy',
+      parserSymbol: 'ddmmyyyy',
       documentation: 'Day-Month-Year format for NUMERIC dates: dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy (month names work automatically in STANDARD)'
     },
     {
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
+      parserSymbol: 'yyyyddmm',
       documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
     },
     {
       name: 'JULIANDATE',
       label: 'Julian Date',
+      parserSymbol: 'juliandate',
       documentation: 'Julian date format: YYDDD (5 digits like 25216) or YDDD (4 digits like 5216) where YY/Y is year and DDD is day of year (001-366). Example: 25216 = August 4, 2025 (day 216 of 2025)'
-    }
-  ],
-
-  properties: [
+    },
     {
-      // Add an 'id' property that returns the ordinal for DAO compatibility
-      name: 'id',
-      getter: function() { return this.ordinal; }
+      name: 'YYMMDD',
+      label: 'yy/mm/dd',
+      parserSymbol: 'yymmdd',
+      documentation: 'Year-Month-Day with 2-digit year: yymmdd (compact 6-digit), yy-mm-dd, yy/mm/dd. Example: 250325 = March 25, 2025. Year pivot: 00-49 → 2000-2049, 50-99 → 1950-1999'
     }
   ],
 
@@ -327,22 +342,10 @@ foam.CLASS({
        * Maps DateFormat enum to DateParser grammar symbol name.
        * This is used when calling DateUtil parsing methods with format hints.
        *
-       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm', 'juliandate')
+       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm', 'juliandate', 'yymmdd')
        */
       if ( ! this.dateFormat ) return 'START';
-
-      // Map enum values to parser symbol names
-      switch ( this.dateFormat.name ) {
-        case 'DDMMYYYY':
-          return 'ddmmyyyy';
-        case 'YYYYDDMM':
-          return 'yyyyddmm';
-        case 'JULIANDATE':
-          return 'juliandate';
-        case 'STANDARD':
-        default:
-          return 'START';
-      }
+      return this.dateFormat.parserSymbol || 'START';
     },
 
     function process(obj, value, rowData) {

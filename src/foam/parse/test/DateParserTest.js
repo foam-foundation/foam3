@@ -44,6 +44,7 @@ foam.CLASS({
       this.testLenientValidationMode(x);
       this.testInvalidMonthNameValidation(x);
       this.testJulianDateFormats(x);
+      this.testYearConstraintInCompactFormats(x);
     },
 
     function testYYYYMMDDFormats(x) {
@@ -2466,6 +2467,109 @@ foam.CLASS({
           }
         } catch (e) {
           x.test(false, `JulianDate Test${i + 1}: ${testCase.input} - Error: ${e.message}`);
+        }
+      });
+    },
+
+    function testYearConstraintInCompactFormats(x) {
+      /**
+       * Test that compact date formats (yyyymmddcompact, mmddyyyycompact, ddmmyyyycompact,
+       * yyyyddmmcompact) reject years outside the 1900-2999 range.
+       *
+       * This constraint prevents false positives when parsing filenames with embedded dates
+       * where digit sequences like "02025033" could be incorrectly parsed as MM=02, DD=02, YYYY=5033.
+       *
+       * The year4_1900_2999 rule only accepts years starting with '19' or '2'.
+       */
+      let parser = this.DateParser.create();
+
+      // ============================================================
+      // Valid years within 1900-2999 range
+      // ============================================================
+      let validYearCases = [
+        // YYYYMMDD compact
+        { input: '19000115', year: 1900, month: 0, day: 15, format: 'yyyymmddcompact', desc: 'Year 1900 (boundary)' },
+        { input: '19990615', year: 1999, month: 5, day: 15, format: 'yyyymmddcompact', desc: 'Year 1999' },
+        { input: '20250330', year: 2025, month: 2, day: 30, format: 'yyyymmddcompact', desc: 'Year 2025' },
+        { input: '29991231', year: 2999, month: 11, day: 31, format: 'yyyymmddcompact', desc: 'Year 2999 (boundary)' },
+        // MMDDYYYY compact
+        { input: '01151900', year: 1900, month: 0, day: 15, format: 'mmddyyyycompact', desc: 'Year 1900 (boundary)' },
+        { input: '06151999', year: 1999, month: 5, day: 15, format: 'mmddyyyycompact', desc: 'Year 1999' },
+        { input: '03302025', year: 2025, month: 2, day: 30, format: 'mmddyyyycompact', desc: 'Year 2025' },
+        { input: '12312999', year: 2999, month: 11, day: 31, format: 'mmddyyyycompact', desc: 'Year 2999 (boundary)' },
+        // DDMMYYYY compact
+        { input: '15011900', year: 1900, month: 0, day: 15, format: 'ddmmyyyycompact', desc: 'Year 1900 (boundary)' },
+        { input: '15061999', year: 1999, month: 5, day: 15, format: 'ddmmyyyycompact', desc: 'Year 1999' },
+        { input: '30032025', year: 2025, month: 2, day: 30, format: 'ddmmyyyycompact', desc: 'Year 2025' },
+        { input: '31122999', year: 2999, month: 11, day: 31, format: 'ddmmyyyycompact', desc: 'Year 2999 (boundary)' }
+      ];
+
+      validYearCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, testCase.format);
+          if ( ! result || isNaN(result.getTime()) || result.getTime() === foam.Date.MAX_DATE.getTime() ) {
+            x.test(false, `Year Constraint Valid Test${i + 1}: ${testCase.input} (${testCase.format}) - ${testCase.desc}. Should parse but got: invalid/MAX_DATE`);
+            return;
+          }
+          let actualYear = result.getUTCFullYear();
+          let actualMonth = result.getUTCMonth();
+          let actualDay = result.getUTCDate();
+          let pass = actualYear === testCase.year &&
+                     actualMonth === testCase.month &&
+                     actualDay === testCase.day;
+          if ( pass ) {
+            x.test(true, `Year Constraint Valid Test${i + 1}: ${testCase.input} (${testCase.format}) - ${testCase.desc}`);
+          } else {
+            x.test(false, `Year Constraint Valid Test${i + 1}: ${testCase.input} (${testCase.format}) - Expected: ${testCase.year}-${testCase.month + 1}-${testCase.day}, Got: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          x.test(false, `Year Constraint Valid Test${i + 1}: ${testCase.input} (${testCase.format}) - Error: ${e.message}`);
+        }
+      });
+
+      // ============================================================
+      // Invalid years outside 1900-2999 range should NOT match compact formats
+      // These inputs should return MAX_DATE (in lenient mode) because the
+      // compact format won't match, and no other format handles them.
+      // ============================================================
+      let invalidYearCases = [
+        // Years before 1900 (starts with 0, 1 but not 19)
+        { input: '18991231', format: 'yyyymmddcompact', desc: 'Year 1899 (just before 1900)' },
+        { input: '10000101', format: 'yyyymmddcompact', desc: 'Year 1000' },
+        { input: '05000515', format: 'yyyymmddcompact', desc: 'Year 500' },
+        // Years after 2999 (starts with 3-9)
+        { input: '30000101', format: 'yyyymmddcompact', desc: 'Year 3000 (just after 2999)' },
+        { input: '50330202', format: 'yyyymmddcompact', desc: 'Year 5033 (the problematic case)' },
+        { input: '99991231', format: 'yyyymmddcompact', desc: 'Year 9999' },
+        // Same for MMDDYYYY compact
+        { input: '12311899', format: 'mmddyyyycompact', desc: 'Year 1899 in MMDDYYYY' },
+        { input: '01013000', format: 'mmddyyyycompact', desc: 'Year 3000 in MMDDYYYY' },
+        { input: '02025033', format: 'mmddyyyycompact', desc: 'Year 5033 in MMDDYYYY (the problematic case)' },
+        // Same for DDMMYYYY compact
+        { input: '31121899', format: 'ddmmyyyycompact', desc: 'Year 1899 in DDMMYYYY' },
+        { input: '01013000', format: 'ddmmyyyycompact', desc: 'Year 3000 in DDMMYYYY' }
+      ];
+
+      invalidYearCases.forEach((testCase, i) => {
+        try {
+          let result = parser.parseDateString(testCase.input, testCase.format);
+          // In lenient mode, invalid formats return MAX_DATE
+          let isMaxDate = result && result.getTime() === foam.Date.MAX_DATE.getTime();
+          // Or the result could be null/NaN for unparseable input
+          let isInvalid = ! result || isNaN(result.getTime());
+          let pass = isMaxDate || isInvalid;
+          if ( pass ) {
+            x.test(true, `Year Constraint Invalid Test${i + 1}: ${testCase.input} (${testCase.format}) - ${testCase.desc} - correctly rejected`);
+          } else {
+            // It parsed to some date - this is unexpected
+            let actualYear = result.getUTCFullYear();
+            let actualMonth = result.getUTCMonth();
+            let actualDay = result.getUTCDate();
+            x.test(false, `Year Constraint Invalid Test${i + 1}: ${testCase.input} (${testCase.format}) - ${testCase.desc} - Should reject but parsed to: ${actualYear}-${actualMonth + 1}-${actualDay}`);
+          }
+        } catch (e) {
+          // Exception means it rejected the input, which is correct
+          x.test(true, `Year Constraint Invalid Test${i + 1}: ${testCase.input} (${testCase.format}) - ${testCase.desc} - correctly threw exception`);
         }
       });
     }

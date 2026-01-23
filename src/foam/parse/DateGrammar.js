@@ -228,23 +228,24 @@ foam.CLASS({
           )
         ),
 
-        // MMDDYYYY compact: 8 digits with validated month (01-12), day (01-31), year
+        // MMDDYYYY compact: 8 digits with validated month (01-12), day (01-31), year (1900-2999)
+        // Uses year4_1900_2999 to prevent matching invalid years like 5033 in filenames
         mmddyyyycompact: alt(
           // With space and compact time (HHMMSS - no colons)
           seq(
-            str(seq(sym('month2'), sym('day2'), sym('year4'))),
+            str(seq(sym('month2'), sym('day2'), sym('year4_1900_2999'))),
             sym('datetimesep'),
             sym('hour2'), sym('minute2'), sym('second2')
           ),
           // With space and time with colons
           seq(
-            str(seq(sym('month2'), sym('day2'), sym('year4'))),
+            str(seq(sym('month2'), sym('day2'), sym('year4_1900_2999'))),
             sym('datetimesep'),
             sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
             optional(sym('timezone'))
           ),
           // Date only
-          str(seq(sym('month2'), sym('day2'), sym('year4')))
+          str(seq(sym('month2'), sym('day2'), sym('year4_1900_2999')))
         ),
 
         // YYMMDD - tries all variants (compact, separated)
@@ -362,23 +363,24 @@ foam.CLASS({
           )
         ),
 
-        // DDMMYYYY compact: 8 digits with validated day (01-31), month (01-12), year
+        // DDMMYYYY compact: 8 digits with validated day (01-31), month (01-12), year (1900-2999)
+        // Uses year4_1900_2999 to prevent matching invalid years like 5033 in filenames
         ddmmyyyycompact: alt(
           // With space and compact time (HHMMSS - no colons)
           seq(
-            str(seq(sym('day2'), sym('month2'), sym('year4'))),
+            str(seq(sym('day2'), sym('month2'), sym('year4_1900_2999'))),
             sym('datetimesep'),
             sym('hour2'), sym('minute2'), sym('second2')
           ),
           // With space and time with colons
           seq(
-            str(seq(sym('day2'), sym('month2'), sym('year4'))),
+            str(seq(sym('day2'), sym('month2'), sym('year4_1900_2999'))),
             sym('datetimesep'),
             sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
             optional(sym('timezone'))
           ),
           // Date only
-          str(seq(sym('day2'), sym('month2'), sym('year4')))
+          str(seq(sym('day2'), sym('month2'), sym('year4_1900_2999')))
         ),
 
         // DDMMYY with separators and optional time (2-digit year)
@@ -451,23 +453,24 @@ foam.CLASS({
           )
         ),
 
-        // YYYYDDMM compact: 8 digits with validated year, day (01-31), month (01-12)
+        // YYYYDDMM compact: 8 digits with validated year (1900-2999), day (01-31), month (01-12)
+        // Uses year4_1900_2999 to prevent matching invalid years in filenames
         yyyyddmmcompact: alt(
           // With space and compact time (HHMMSS - no colons)
           seq(
-            str(seq(sym('year4'), sym('day2'), sym('month2'))),
+            str(seq(sym('year4_1900_2999'), sym('day2'), sym('month2'))),
             sym('datetimesep'),
             sym('hour2'), sym('minute2'), sym('second2')
           ),
           // With space and time with colons
           seq(
-            str(seq(sym('year4'), sym('day2'), sym('month2'))),
+            str(seq(sym('year4_1900_2999'), sym('day2'), sym('month2'))),
             sym('datetimesep'),
             sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
             optional(sym('timezone'))
           ),
           // Date only
-          str(seq(sym('year4'), sym('day2'), sym('month2')))
+          str(seq(sym('year4_1900_2999'), sym('day2'), sym('month2')))
         ),
 
         // YYDDMM - 2-digit year, day, month (6 digits)

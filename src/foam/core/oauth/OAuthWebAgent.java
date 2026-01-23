@@ -143,10 +143,11 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<!DOCTYPE html>");
             out.println("<html><body>");
             out.println("<h1>Success</h1>");
-            out.println("<script language=\"javascript\" nonce=\"OAuthWebAgent\">");
-            out.println("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: \"" + state.getString("session_id") + "\" }, location.origin);\n");
-            out.println("window.close();\n");
-            out.println("</script>");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.print("<script language=\"javascript\">");
+            out.print("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
+            out.print("window.close();");
+            out.print("</script>");
             out.println("</body></html>");
             out.close();
         }
@@ -163,10 +164,12 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<!DOCTYPE html>");
             out.println("<html><body>");
             out.println("<h1>Something went wrong!</h1>");
-            out.println("<script language=\"javascript\" nonce=\"OAuthWebAgent\">");
-            out.println("window.opener && window.opener.postMessage({ error: { message: \"" + errorMessage + "\"}, sessionID: \"" + state.getString("session_id") + "\" }, location.origin);\n");
-            out.println("window.close();\n");
-            out.println("</script>");
+            out.println("<input type=\"hidden\" id=\"errorMessage\" value=\"" + errorMessage + "\">");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.print("<script language=\"javascript\">");
+            out.print("window.opener && window.opener.postMessage({ error: { message: document.getElementById(\"errorMessage\").value }, sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
+            out.print("window.close();");
+            out.print("</script>");
             out.println("</body></html>");
             out.close();
         }

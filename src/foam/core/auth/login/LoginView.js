@@ -17,6 +17,7 @@ foam.CLASS({
     'logAnalyticEvent?',
     'oAuthProviderDAO',
     'params',
+    'signInWithOIDC?',
     'window?',
     'stack'
   ],
@@ -241,7 +242,11 @@ foam.CLASS({
                     icon: provider.icon,
                     buttonStyle: showAction ? 'SECONDARY' : 'PRIMARY',
                     code: async function () {
-                      await self.clientLoginService.signInWithOIDC(provider);
+                      if ( self.signInWithOIDC ) {
+                        await self.signInWithOIDC(provider);
+                      } else {
+                        await self.clientLoginService.signInWithOIDC(provider);
+                      }
                     }
                   });
 

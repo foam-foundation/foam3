@@ -231,8 +231,12 @@ public class OAuthWebAgent implements WebAgent {
                 throw new AuthenticationException("userRegistrationDAO not available");
             }
 
-            userRegistrationDAO.inX(x).put(builder.build());
-
+            try {
+                userRegistrationDAO.inX(x).put(builder.build());
+            } catch ( RuntimeException e ) {
+                logger.error("Unable to register user", e);
+                throw new AuthenticationException("Unable to register user");
+            }
             user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
         }
 

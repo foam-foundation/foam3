@@ -54,6 +54,11 @@ and then
 
         String spid = null;
         Theme theme = ((Themes) x.get("themes")).findTheme(x);
+        
+        if ( theme != null && ! theme.getUserRegistrationEnabled() ) {
+          throw new RuntimeException("User registration not enabled");
+        }
+        
         if ( theme != null &&
               ! SafetyUtil.isEmpty(theme.getSpid()) ) {
           spid = theme.getSpid();

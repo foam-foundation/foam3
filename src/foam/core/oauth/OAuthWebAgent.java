@@ -80,7 +80,7 @@ public class OAuthWebAgent implements WebAgent {
             foam.core.auth.User user;
             if (idToken != null) {
                 try {
-                    user = loginWithIdToken(x, state, provider, tokenResponse.getString("id_token"));
+                    user = loginWithIdToken(x, state, provider, idToken);
                 } catch (AuthenticationException e) {
                     sendErrorResponse(x, e.getMessage(), state, resp);
                     return;
@@ -203,7 +203,7 @@ public class OAuthWebAgent implements WebAgent {
 
         foam.core.auth.User user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
 
-        if ( provider.getSignUp() && user == null ) {
+        if ( user == null ) {
             String givenName = bodyObject.containsKey("given_name") ? bodyObject.getString("given_name") : null;
             String familyName = bodyObject.containsKey("family_name") ? bodyObject.getString("family_name") : null;
             String userName = state.containsKey("sign_up_username") ? state.getString("sign_up_username") : null;

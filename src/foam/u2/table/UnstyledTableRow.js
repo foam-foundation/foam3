@@ -89,26 +89,29 @@ foam.CLASS({
         if ( ! self.table ) return;
         self.table.updateValues = ! self.table.updateValues;
       });
-      if ( Object.keys(actions).length ) self
-        .start('')
+      self
+        .start()
           .addClass(this.table.myClass('td'))
-          .on('dblClick', e => {
-            e.preventDefault();
-            e.stopPropogation();
-          })
           .attrs({ name: 'contextMenuCell' })
           .style({ flex: `0 0 ${this.table.EDIT_COLUMNS_BUTTON_CONTAINER_WIDTH}px` })
-          .startContext({ stack: this.subStack })
-          .tag(this.OverlayActionListView, {
-            data: Object.values(actions),
-            lazy: true,
-            id: obj.id,
-            dao: self.actionDAO,
-            showDropdownIcon: false,
-            buttonStyle: 'TERTIARY',
-            icon: 'images/Icon_More_Resting.svg'
+          .callIf( Object.keys(actions).length, function() {
+            this
+            .on('dblClick', e => {
+              e.preventDefault();
+              e.stopPropogation();
+            })
+            .startContext({ stack: this.subStack })
+            .tag(this.OverlayActionListView, {
+              data: Object.values(actions),
+              lazy: true,
+              id: obj.id,
+              dao: self.actionDAO,
+              showDropdownIcon: false,
+              buttonStyle: 'TERTIARY',
+              icon: 'images/Icon_More_Resting.svg'
+            })
+            .endContext();
           })
-          .endContext()
         .end();
     }
   ]

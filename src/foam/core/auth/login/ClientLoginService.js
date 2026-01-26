@@ -128,7 +128,7 @@ foam.CLASS({
         var reqParams = {
           response_type: 'code',
           client_id: provider.clientId,
-          scope: provider.scope,
+          scope: 'openid email',
           redirect_uri: location.origin + "/service/oauth",
           nonce: nonce,
           state: JSON.stringify({

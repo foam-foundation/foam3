@@ -40,12 +40,6 @@ foam.CLASS({
       documentation: 'List of hostnames that should offer this OAuth provider.',
       factory: function() { return []; },
       javaFactory: 'return new String[] {};'
-    },
-    {
-      class: 'String',
-      name: 'scope',
-      documentation: 'The permissions requested pre-authorization. eg. openid profile email',
-      value: 'openid profile email'
     }
   ],
   methods: [

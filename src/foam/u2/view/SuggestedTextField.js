@@ -15,7 +15,8 @@
     'foam.u2.Autocompleter',
     'foam.u2.CitationView',
     'foam.u2.TextField',
-    'foam.u2.LoadingSpinner'
+    'foam.u2.LoadingSpinner',
+    'foam.u2.md.OverlayDropdown'
   ],
 
   implements: [
@@ -38,13 +39,10 @@
       display: flex;
       flex-direction: column;
       height: auto;
-      margin-top: 2px;
+      max-height: 40vh;
       overflow: auto;
       padding: 12px;
       gap: 8px;
-      position: absolute;
-      width: 100%;
-      z-index: 100;
     }
     ^row {
       color: $textDefault;
@@ -65,6 +63,11 @@
     {
       class: 'String',
       name: 'daoKey'
+    },
+    {
+      class: 'Boolean',
+      name: 'onKey',
+      value: true
     },
     {
       class: 'FObjectProperty',
@@ -133,10 +136,28 @@
       name: 'error',
       documentation: 'When populated and autocompleter is done loading, displays the error'
     },
-    'inputFocused'
+    'inputFocused',
+    {
+      class: 'FObjectProperty',
+      of: 'foam.u2.Element',
+      name: 'overlay_',
+      factory: function() {
+        return this.OverlayDropdown.create({
+          closeOnLeave: false,
+          styled: false,
+          parentEdgePadding: '4',
+          lockToParentWidth: true
+        });
+      }
+    },
+    'textField_',
   ],
 
   methods: [
+    function detach() {
+      this.overlay_.remove();
+      this.SUPER();
+    },
     function render() {
       var self = this;
       this.SUPER();
@@ -150,26 +171,25 @@
         if ( self.data )
           self.inputFocused = true;
       }));
-
       // Initialize loaded listener after render
       this.loaded();
       this
       .addClass()
       .start(this.TextField, {
         data$: this.data$,
-        onKey: true,
+        onKey: this.onKey,
         placeholder$: this.placeholder$,
         autocomplete: false
-      })
+      }, this.textField_$)
         .call(callFromProperty)
         .on('focus', () => {
           this.inputFocused = true;
-        })
-        .on('blur', () => {
-          this.inputFocused = false;
+          this.onFocused();
         })
       .end()
-      .add(this.slot(this.populate));
+      self.overlay_.write();
+      self.overlay_.add(this.slot(this.populate));
+      // self.onDetach(() => self.overlay_.remove());
     },
     function populate(filteredValues, data, inputFocused, suggestOnFocus, loading, error) {
       const self = this;
@@ -186,9 +206,15 @@
               // using mousedown not click since mousedown is fired before blur is fired so we can intercept rowClick
               // otherwise when using click the blur gets fired first and the row listener is never called
                 let fn = self.onRowSelect ? self.onRowSelect(obj) : self.onSelect.call(self, obj);
-                fn?.then(() => {
+                if ( fn?.then ) {
+                  fn?.then(() => {
+                    self.inputFocused = false;
+                    self.onFocused();
+                  });
+                } else {
                   self.inputFocused = false;
-                });
+                  self.onFocused();
+                }
 
                 e.preventDefault();
               })
@@ -196,12 +222,31 @@
         })
         .add(this.refineInput$.map(v => v ? self.MORE_SUGGESTIONS : this.E().style({ display: 'contents' })));
     },
-    function fromProperty(prop) {
-      this.prop = prop;
+    function fromProperty(p) {
+      this.prop = p;
+
+      if ( ! this.hasOwnProperty('onKey') ) {
+        this.onKey = p.hasOwnProperty('onKey') ? p.onKey : p.validateObj || p.internalValidateObj;
+      }
     }
   ],
 
   listeners: [
+    {
+      name: 'onFocused',
+      isFramed: true,
+      // Idk why this keeps detaching itself when on: is used
+      // on: ['this.propertyChange.inputFocused'],
+      code: function() {
+        if ( this.inputFocused ) {
+          if ( ! this.textField_ ) return;
+          this.overlay_.parentEl = this.textField_.el_();
+          this.overlay_.open();
+        } else {
+          this.overlay_.close();
+        }
+      }
+    },
     {
       name: 'onUpdate',
       isFramed: true,

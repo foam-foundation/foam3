@@ -12,6 +12,7 @@ foam.CLASS({
     { class: 'Long', name: 'id' },
     { class: 'String', name: 'firstName' },
     { class: 'String', name: 'lastName' },
+    { class: 'String', name: 'email' },
     { class: 'foam.lang.Date', name: 'birthday' },
     { class: 'foam.lang.DateTime', name: 'lastLogin' },
     { class: 'Boolean', name: 'emailVerified' }
@@ -33,6 +34,7 @@ foam.CLASS({
   methods: [
     async function runTest(x) {
       this.testBasicQueries(x);
+      this.testEmailPlusAddressing(x);
       this.testDateParsing(x);
       this.testDateParsingFixes(x);
       this.testTimezoneHandling(x);
@@ -71,6 +73,48 @@ foam.CLASS({
       // Lists
       x.test(this.isValidQuery(parser, "firstName=Simon,John"), "Should parse value list");
       x.test(this.isValidQuery(parser, "firstName:(Simon|John)"), "Should parse OR values");
+    },
+
+    function testEmailPlusAddressing(x) {
+      var parser = this.QueryParser.create({ of: this.QueryParserTestUser });
+
+      // Verify the full email with + is captured, not truncated
+      // Without + in char rule, "user+tag@example.com" would parse as just "user"
+      var query = parser.parseString("email=user+tag@example.com");
+      var value = this.extractValue(query);
+      x.test(value === "user+tag@example.com",
+        "Email with + should not be truncated at +, expected 'user+tag@example.com' got: '" + value + "'");
+
+      // Test multiple emails with +
+      var query2 = parser.parseString("email=a+b@test.com,c+d@test.com");
+      var values = this.extractValues(query2);
+      x.test(values.includes("a+b@test.com") && values.includes("c+d@test.com"),
+        "Multiple emails with + should parse correctly, got: " + JSON.stringify(values));
+    },
+
+    function extractValue(query) {
+      // Extract single value from Eq predicate
+      if ( ! query ) return null;
+      var pred = query.args ? query.args[0] : query;
+      if ( ! pred || ! pred.arg2 ) return null;
+      var val = pred.arg2;
+      return val.value !== undefined ? val.value : val;
+    },
+
+    function extractValues(query) {
+      // Extract values from In predicate (used for comma-separated values with =)
+      var values = [];
+      if ( ! query ) return values;
+      // Handle And wrapper: query.args[0] is the actual predicate
+      var pred = query.args ? query.args[0] : query;
+      if ( ! pred || ! pred.arg2 ) return values;
+      var arg2 = pred.arg2;
+      // arg2 could be a Constant wrapping an array, or the array directly
+      var arr = arg2.value !== undefined ? arg2.value : arg2;
+      if ( Array.isArray(arr) ) {
+        return arr;
+      }
+      return [arr];
     },
 
     function testDateParsing(x) {

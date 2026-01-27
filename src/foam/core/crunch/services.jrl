@@ -102,6 +102,7 @@ p({
     {
       "of":"foam.core.crunch.UserCapabilityJunction",
       "remoteListenerSupport": false,
+      "ttlPurgeTime": 0,
       "decorators": [
         {
           "class":"foam.core.fs.FileArrayDAODecorator",

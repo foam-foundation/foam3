@@ -10,6 +10,10 @@ foam.CLASS({
   extends: 'foam.dao.AbstractSink',
   implements: [ 'foam.lang.Serializable', 'foam.mlang.sink.Reducible' ],
 
+  javaGenerateDefaultConstructor: false,
+
+  javaCode: 'public Count() { setValue(0l); }',
+
   documentation: 'Sink which counts number of objects put().',
 
   properties: [
@@ -25,7 +29,7 @@ foam.CLASS({
       name: 'put',
       code: function() { this.value++; },
       swiftCode: 'value+=1',
-      javaCode: 'setValue(this.getValue() + 1);'
+      javaCode: 'value_++;' // 'setValue(this.getValue() + 1);'
     },
     {
       name: 'remove',

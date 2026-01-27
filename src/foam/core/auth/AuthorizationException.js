@@ -39,6 +39,10 @@ foam.CLASS({
       class: 'String',
       name: 'errorCode',
       value: '1009'
+    },
+    {
+      name: "retryable",
+      value: false
     }
   ]
 });

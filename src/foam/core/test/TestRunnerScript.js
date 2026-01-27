@@ -144,6 +144,7 @@ This will also keep the foam application running for inspection from the GUI.
       name: 'runScript',
       args: 'Context x',
       javaCode: `
+      long startTime = System.currentTimeMillis();
       TestRun serverTestRun  = null;
       TestRun clientTestRun  = null;
       List<Test> serverTests = null;
@@ -203,14 +204,16 @@ This will also keep the foam application running for inspection from the GUI.
         }
       }
 
+      long runTime = System.currentTimeMillis() - startTime;
+
       int exitCode = 0;
       if ( serverTestRun != null ) {
-        reportResults(x, serverTestRun);
+        reportResults(x, serverTestRun, runTime);
         if ( serverTestRun.getFailed() > 0 )
           exitCode = 1;
       }
       if ( clientTestRun != null ) {
-        reportResults(x, clientTestRun);
+        reportResults(x, clientTestRun, runTime);
         if (clientTestRun.getFailed() > 0 )
           exitCode = 1;
       }
@@ -495,10 +498,11 @@ This will also keep the foam application running for inspection from the GUI.
     },
     {
       name: 'reportResults',
-      args: 'X x, TestRun testRun',
+      args: 'X x, TestRun testRun, long runTime',
       javaCode: `
+        Duration duration = Duration.ofMillis(runTime);
         System.out.println();
-        System.out.println("TEST REPORT" + (testRun.getServer() ? " SERVER - ":" CLIENT - ") + "TEST CASES: " + testRun.getCases() + ", TESTS: " + testRun.getTests());
+        System.out.println("TEST REPORT" + (testRun.getServer() ? " SERVER - ":" CLIENT - ") + "TEST CASES: " + testRun.getCases() + ", TESTS: " + testRun.getTests() + " ("+duration+")");
         if ( ! SafetyUtil.isEmpty(testRun.getSuites()) )
           System.out.println("TEST SUITES: " + testRun.getSuites());
 

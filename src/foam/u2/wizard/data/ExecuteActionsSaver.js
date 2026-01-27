@@ -11,6 +11,9 @@
 
   documentation: `
     Used to execute specified list of actions on wizardlet data when it is saved.
+
+    While the name suggests that this saver only executes actions, it also can execute methods
+    on the data object. Note that the only argument passed to these methods is the context.
   `,
 
   properties: [

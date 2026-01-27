@@ -75,7 +75,7 @@ foam.CLASS({
       forwards: [ 'find_', 'select_' ],
       expression: function(src) {
         var cache = this.cache;
-        // The PromisedDAO resolves as our delegatec when the cache is ready to use
+        // The PromisedDAO resolves as our delegate when the cache is ready to use
         return this.PromisedDAO.create({
           promise: (async function() {
             console.group('Loading Cache, ignore Missing required import messages');

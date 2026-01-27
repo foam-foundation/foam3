@@ -310,7 +310,7 @@ foam.CLASS({
     ^black:disabled {
       color: $buttonSecondaryColor$active;
     }
-    
+
     /* Text */
 
     ^text{

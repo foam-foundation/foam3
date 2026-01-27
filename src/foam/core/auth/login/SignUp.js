@@ -152,6 +152,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'referralToken',
+      label: 'Referral Code',
+      order: 3,
       factory: function() {
         var searchParams = new URLSearchParams(location.search);
         return searchParams.get('referral');

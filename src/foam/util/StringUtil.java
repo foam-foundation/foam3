@@ -4,8 +4,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * A string splitting mechanism which doesn't not split if the
- * separator has been escaped.
+   String helper methods.
  */
 public class StringUtil {
 
@@ -43,6 +42,8 @@ public class StringUtil {
       + "DAO";
   }
 
+  // A string splitting mechanism which does not split if the
+  // separator has been escaped.
   public static String[] split(String s, char separator) {
     java.util.List<String> list = storage__.get();
 
@@ -80,6 +81,11 @@ public class StringUtil {
     char[] chars = s.toCharArray();
     chars[0] = Character.toUpperCase(chars[0]);
     return new String(chars);
+  }
+
+  public static String constantize(String s) {
+    // convert from from fooBar to FOO_BAR
+    return s.replaceAll("-","_").replaceAll("([a-z])([^0-9a-z_])", "$1_$2").replaceAll("\\s","").toUpperCase();
   }
 
   // Replace non ASC-II unicode with non unicode representation, finally strip out any remaining printable unicode characters.

@@ -656,9 +656,16 @@ foam.CLASS({
       properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
+      name: 'interactivity',
+      title: 'Interactivity',
+      order: 5,
+      collapsable: true,
+      properties: ['onClickScript']
+    },
+    {
       name: 'colors',
       title: 'Color Configuration',
-      order: 5,
+      order: 6,
       collapsable: true,
       properties: ['colors']
     }
@@ -730,6 +737,13 @@ foam.CLASS({
       name: 'showGridLines',
       label: 'Show Grid Lines',
       value: true
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      section: 'interactivity',
+      help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
     }
   ],
 
@@ -756,6 +770,7 @@ foam.CLASS({
         xAxisLabel: this.xAxisLabel,
         yAxisLabel: this.yAxisLabel,
         showGridLines: this.showGridLines,
+        onClickScript: this.onClickScript,
         periodCount: this.periodCount,
         maintainAspectRatio: this.maintainAspectRatio,
         height: this.height,
@@ -777,7 +792,7 @@ foam.CLASS({
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(colors, horizontal, xAxisLabel, yAxisLabel, showGridLines,
                                   periodCount, maintainAspectRatio, height, showLegend, legendPosition,
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) {
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment, onClickScript) {
         s.colors = colors;
         s.horizontal = horizontal;
         s.xAxisLabel = xAxisLabel;
@@ -793,6 +808,7 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
+        s.onClickScript = onClickScript;
 
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -864,7 +880,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 3,
       collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage']
     },
     {
       name: 'colors',
@@ -925,7 +941,13 @@ foam.CLASS({
         onKey: true
       },
       help: 'Starting angle in degrees (-180 to 180)'
-    }
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      help: 'Message to display when there is no data',
+      value: 'No data available'
+    },
   ],
 
   methods: [
@@ -958,7 +980,8 @@ foam.CLASS({
         showTooltipSum: this.showTooltipSum,
         animate: this.animate,
         animationDuration: this.animationDuration,
-        alignment: this.alignment
+        alignment: this.alignment,
+        emptyValueMessage: this.emptyValueMessage
       });
 
       return sink;
@@ -1392,6 +1415,124 @@ foam.CLASS({
       e.startContext({data: this.sink$})
         .tag(this.ReactiveSectionedDetailView, {
           data$: this.sink$,
+          showTitle: true
+        })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCalendarChartDAOAgent',
+  extends: 'foam.core.reflow.GroupByDAOAgent',
+  mixins: [
+    'foam.core.reflow.dashboard.ColorMappingMixin',
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin',
+    'foam.core.reflow.dashboard.ChartDisplayMixin'
+  ],
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardCalendarSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  sections: [
+    {
+      name: 'dataConfig',
+      title: 'Data Configuration',
+      order: 1,
+      collapsable: true,
+      properties: ['prop', 'categoryProp', 'sink', 'periodCount']
+    },
+    {
+      name: 'display',
+      title: 'Display Options',
+      order: 2,
+      collapsable: true,
+      properties: [ 'alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'colors']
+    }
+  ],
+
+  properties: [
+    {
+      name: 'prop',
+      label: 'Date Property',
+      view: function(_, X) {
+        return {
+          class: 'foam.core.reflow.PropertyExprView',
+          forCls: X.data.dao.of
+        };
+      }
+    },
+    {
+      name: 'categoryProp',
+      label: 'Category Property',
+      view: function(_, X) {
+        return {
+          class: 'foam.core.reflow.PropertyChoiceView',
+          forCls: X.data.dao.of
+        };
+      }
+    },
+    {
+      name: 'sink',
+      view: {
+        class: 'foam.core.reflow.SinkView',
+        choice: 'foam.core.reflow.CountDAOAgent',
+        disabledTypes: [ 'structure', 'format', 'chart' ]
+      }
+    },
+    {
+      name: 'periodCount',
+      label: 'Periods',
+      value: 30,
+      help: 'How many days to show from today'
+    }
+  ],
+
+  methods: [
+    function getDatePropertyForFiltering() {
+      return this.prop;
+    },
+    function createSink() {
+      this.applyDateRangeFilter && this.applyDateRangeFilter();
+      var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
+      return this.DashboardCalendarSink.create({
+        dateProp: this.prop,
+        categoryProp: this.categoryProp,
+        valueSink: valueSink,
+        colors: this.colors,
+        showLegend: this.showLegend,
+        legendPosition: this.legendPosition,
+        maintainAspectRatio: this.maintainAspectRatio,
+        height: this.height,
+        alignment: this.alignment,
+        animate: this.animate,
+        animationDuration: this.animationDuration,
+        periodCount: this.periodCount
+      });
+    },
+    function addSinkToE(e, s) {
+      var self = this;
+      e.add(s);
+      // Live binding like other charts
+      this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
+        s.colors = colors;
+        s.showLegend = showLegend;
+        s.legendPosition = legendPosition;
+        s.maintainAspectRatio = maintainAspectRatio;
+        s.height = height;
+        s.alignment = alignment;
+        s.animate = animate;
+        s.animationDuration = animationDuration;
+        if ( s.updateChart ) s.updateChart();
+      }));
+    },
+    function addToE(e) {
+      e.startContext({data: this})
+        .tag(this.ReactiveSectionedDetailView, {
+          data: this,
           showTitle: true
         })
       .endContext();

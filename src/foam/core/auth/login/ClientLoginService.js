@@ -40,6 +40,15 @@ foam.CLASS({
     { name: 'SIGNUP_SUCCESS_TITLE', message: 'Success' }
   ],
 
+  properties: [
+    {
+      class: 'Boolean',
+      documentation: 'Set to true to run oauth flow in a separate window, false to redirect the current window',
+      name: 'oauthInWindow',
+      value: true
+    }
+  ],
+
   methods: [
     {
       name: 'signin',
@@ -112,7 +121,7 @@ foam.CLASS({
     },
     {
       name: 'signInWithOIDC',
-      code: async function(provider, signUp = false, signUpUsername = '') {
+      code: async function(provider, signUp = false, signUpUsername = '', reqParamsOverrides = {}) {
         // TODO: Validate nonce
         var nonce = crypto.randomUUID();
 
@@ -125,18 +134,19 @@ foam.CLASS({
           state: JSON.stringify({
             session_id: this.sessionID,
             provider: provider.id,
-            return_to_app: false,
+            return_to_app: !this.oauthInWindow,
             return_to_url: this.window.location.toString(),
             sign_up: signUp,
             sign_up_username: signUpUsername
-          })
+          }),
+          ...reqParamsOverrides
         }
 
-        let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&')
-        ///this.window.location = authURL;
-        //return;
-        // If you want to run the login flow in a separate window
-        // set return_to_app: false in the above open a window to authURL
+        let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&');
+        if ( !this.oauthInWindow ) {
+          this.window.location = authURL;
+          return;
+        }
 
         try {
           await new Promise((resolve, reject) => {
@@ -147,17 +157,18 @@ foam.CLASS({
                   authwindow.close();
                   resolve();
                 } else {
-                  reject(e.data.error)
+                  reject(e.data.error);
                 }
               }
             };
 
             window.addEventListener('message', listener);
 
-            let authwindow = window.open(authURL);
+            let authwindow = window.open(authURL, 'OAuthWindow');
           });
         } catch(e) {
           this.notify(e.message, '', this.LogLevel.ERROR, true);
+          return;
         }
 
         this.subject = await this.auth.getCurrentSubject(x);

@@ -408,11 +408,9 @@ foam.CLASS({
     {
       class: 'foam.u2.view.TableCellFormatter',
       name: 'tableCellFormatter',
-      value: function(date) {
-        // allow the browser to deal with this since we are technically using the user's preference
+      value: function(date, obj, axiom) {
         if ( date ) {
-          // toLocaleString includes date and time
-          var formattedDate = date.toLocaleString(foam.locale);
+          var formattedDate = axiom.formatLocale(date);
           this.add(formattedDate);
           this.tooltip = formattedDate;
         }
@@ -422,6 +420,27 @@ foam.CLASS({
       class: 'Int',
       name: 'tableWidth',
       value: 130
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'DateTimeUTCTableCellFormatterRefinement',
+  refines: 'foam.lang.DateTimeUTC',
+
+  properties: [
+    {
+      class: 'foam.u2.view.TableCellFormatter',
+      name: 'tableCellFormatter',
+      value: function(date, obj, axiom) {
+        if ( date ) {
+          var formattedDate = axiom.formatLocale(date);
+          this.add(formattedDate);
+          this.tooltip = formattedDate;
+        }
+      }
     }
   ]
 });

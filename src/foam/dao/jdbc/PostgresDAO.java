@@ -38,7 +38,9 @@ public class PostgresDAO
     }
   };
 
-  public PostgresDAO(X x, ClassInfo of) throws java.sql.SQLException, ClassNotFoundException {
+  public PostgresDAO(X x, ClassInfo of)
+    throws java.sql.SQLException, ClassNotFoundException
+  {
     super(x, of);
   }
 
@@ -53,17 +55,15 @@ public class PostgresDAO
       c = connectionPool.getConnection();
 
       StringBuilder builder = sb.get()
-          .append("select * from ")
-          .append(tableName_);
+        .append("select * from ")
+        .append(tableName_);
 
       if ( predicate != null ) {
-        builder.append(" where ")
-            .append(predicate.createStatement());
+        builder.append(" where ").append(predicate.createStatement());
       }
 
       if ( order != null ) {
-        builder.append(" order by ")
-            .append(order.createStatement());
+        builder.append(" order by ").append(order.createStatement());
       }
 
       if ( limit > 0 && limit < this.MAX_SAFE_INTEGER ) {
@@ -109,21 +109,23 @@ public class PostgresDAO
       if ( insertStmt == null ) {
         c = connectionPool.getConnection();
         StringBuilder builder = sb.get()
-                .append("insert into ")
-                .append(tableName_);
+          .append("insert into ")
+          .append(tableName_);
 
         buildFormattedColumnNames(obj, builder);
         builder.append(" values");
         buildFormattedColumnPlaceholders(obj, builder);
         builder.append(" on conflict (")
-                .append(getPrimaryKey().createStatement())
-                .append(") do update set");
+          .append(getPrimaryKey().createStatement())
+          .append(") do update set");
         buildFormattedColumnNames(obj, builder);
         builder.append(" = ");
         buildFormattedColumnPlaceholders(obj, builder);
 
-        insertStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString(),
-                Statement.RETURN_GENERATED_KEYS));
+        insertStmt = new IndexedPreparedStatement(
+          c.prepareStatement(
+            builder.toString(),
+            Statement.RETURN_GENERATED_KEYS));
       }
 
       // set statement values twice: once for the insert and once for the update on conflict
@@ -142,7 +144,7 @@ public class PostgresDAO
       } */
 
       return obj;
-    } catch ( Throwable e ) {
+    } catch (Throwable e) {
       Logger logger = (Logger) x.get("logger");
       logger.error(e);
       return null;

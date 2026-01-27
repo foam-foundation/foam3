@@ -16,7 +16,10 @@ foam.CLASS({
       gap: 1rem;
     }
     ^filters-container {
-      padding: 12px;
+      padding: 0;
+    }
+    ^filters-container .foam-u2-filter-FilterView-container-drawer-open {
+      padding: 10px 0 0;
     }
   `,
 
@@ -31,7 +34,6 @@ foam.CLASS({
           .show(this.data.labelVisible$)
           .add(self.data.label$)
         .end()
-        .br()
         .start()
           .show(self.data.showSearch$)
           .add(self.data.filterView$)
@@ -131,7 +133,6 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(dao, predicate) {
-        console.log('********************', predicate.toString());
         if ( ! dao ) return null;
         return predicate ? dao.where(predicate) : dao;
       }
@@ -148,7 +149,7 @@ foam.CLASS({
         if ( ! dao ) return null;
         var fv = this.FilterView.create({
           dao: dao,
-          searchMode: foam.comics.SearchMode.SIMPLE,
+          searchMode: foam.comics.SearchMode.MQL,
           data$: this.predicate$,
           searchData$: this.query$,
           isOpen: ! showSearch  // When search is hidden, filters should be open

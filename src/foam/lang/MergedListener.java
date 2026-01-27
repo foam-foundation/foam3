@@ -26,6 +26,7 @@ public abstract class MergedListener {
 
     if ( thread_ == null ) {
       thread_ = new Thread(new ListenerThread());
+      thread_.setDaemon(true);
       thread_.start();
     }
   }

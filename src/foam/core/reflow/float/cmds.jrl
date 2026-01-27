@@ -22,8 +22,9 @@ p({
     // If no testResults, then create one first then rerun this command
     if ( ! results ) {
        results = foam.core.reflow.float.TestResults.create({}, this);
-       this.block.value = results;
+       this.block.value    = results;
        this.block.flowName = 'testResults';
+       this.block.cmd      = 'testresults';
        this.out.tag(foam.core.reflow.float.TestResultsView, {data: results});
 
        setTimeout(() => {

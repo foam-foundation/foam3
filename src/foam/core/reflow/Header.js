@@ -11,7 +11,17 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ {
+    ^ h1 {
+      margin: 12px 0;
+    }
+    ^ h2 {
+      margin: 8px 0;
+    }
+    ^ h3 {
+      margin: 6px 0;
+    }
+    ^ h4 {
+      margin: 4px 0;
     }
   `,
 

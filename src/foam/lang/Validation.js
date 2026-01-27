@@ -153,7 +153,13 @@ foam.CLASS({
     {
       class: 'ValidationPredicateArray',
       name: 'validationPredicates',
-      documentation: 'Developer supplied validationPredicates.'
+      documentation: 'Developer supplied validationPredicates.',
+      postSet: function(o, n) {
+        n && n.forEach(vp => vp.prop = this);
+        if ( o != n ) {
+          this.clearProperty('internalValidateObj');
+        }
+      }
     },
     {
       class: 'ValidationPredicateArray',
@@ -555,7 +561,7 @@ foam.CLASS({
         a.push(
           {
             args: [ this.name ],
-            query: 'thisValue==""||thisValue~/\\S+@\\S+\\.\\S+/',
+            query: 'thisValue==""||thisValue~/^\\S+@\\S+\\.\\S+$/',
             errorString: this.VALID_EMAIL_REQUIRED
           }
         );
@@ -598,8 +604,8 @@ foam.CLASS({
   constants: [
     {
       name: 'ALPHA_CHAR_CHECK',
-      factory: () => /^[\d+-]*$/,
-      javaFactory: '  return "^[\\d+-]*$";'
+      factory: () => /^\+?\d+(?:-\d+)?$/,
+      javaFactory: '  return "^\\+?\\d+(?:-\\d+)?$";'
     }
   ],
 

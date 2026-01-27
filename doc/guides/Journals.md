@@ -2,15 +2,17 @@
 
 ## What are FOAM Journals?
 
-FOAM journals are append-only log files that record all data changes (creates, updates, deletes) to provide durable persistence and enable data recovery [2](#0-1) . They implement the `Journal` interface which defines three core operations: `put()` for recording object creation/updates, `remove()` for recording deletions, and `replay()` for reconstructing state from the journal [3](#0-2) .
+FOAM journals are append-only log files that record all data changes (creates, updates, deletes) to provide durable persistence and enable data recovery [2](#0-1) . They implement the `Journal` interface which defines three core operations: `put()` for recording object creation and updates, `remove()` for recording deletions, and `replay()` for reconstructing state from the journal [3](#0-2) .
 
 ## How Journals Work
 
-Journals use a simple text-based format with three operation types<cite />:
+Journals use a simple text-based format with three core operation types<cite />:
 
-- **`p({...})`** - Records a put (create/update) operation
+- **`c({...})`** - Records a create operation
+- **`p({...})`** - Records an update operation
 - **`r({...})`** - Records a remove (delete) operation
-- **`// comment`** - Adds audit trail metadata [4](#0-3)
+- **`// comment`** - Adds audit trail metadata (when the model does not implement CreatedByAware and LastModifiedByAware) [4](#0-3)
+- **`v({...})`** - Records the application version for subsequent `put()` operations.
 
 The journal stores objects as JSON with delta compression - only changed properties are written rather than the entire object, significantly reducing file size [5](#0-4) .
 

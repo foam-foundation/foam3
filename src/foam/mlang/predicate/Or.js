@@ -90,7 +90,7 @@ return stmt.toString();`
           }
         }
 
-        this.reduce_(newArgs, FALSE, 'reduceAnd');
+        this.reduce_(newArgs, FALSE, 'reduceOr');
 
         if ( newArgs.length === 0 ) return FALSE;
         if ( newArgs.length === 1 ) return newArgs[0];
@@ -140,7 +140,7 @@ return this;`
       var oldArgs = this.args;
       var newArgs = [];
       var changed = false;
-      for (var i = 0; i < oldArgs.length; i++ ) {
+      for ( var i = 0 ; i < oldArgs.length ; i++ ) {
         var a = oldArgs[i].toDisjunctiveNormalForm();
         if ( a !== oldArgs[i] ) changed = true;
         newArgs[i] = a;
@@ -156,6 +156,7 @@ return this;`
 
       return self;
     },
+
     function toMQL() {
       var mqlStringsArr = [];
       for ( var a in this.args ) {

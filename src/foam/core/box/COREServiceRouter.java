@@ -78,6 +78,7 @@ public class COREServiceRouter
       result = skeleton;
 
       informService(skeleton, spec);
+      skeleton.setServiceName(spec.getName());
       skeleton.setDelegateFactory(getX().getFactory(getX(), spec.getName()));
 
       foam.lang.X x = getX().put(CSpec.class, spec);

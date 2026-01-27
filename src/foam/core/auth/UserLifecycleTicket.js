@@ -8,7 +8,8 @@ foam.CLASS({
   name: 'UserLifecycleTicket',
   extends: 'foam.core.ticket.Ticket',
 
-  documentation: `Ticket to coordinate the changing of a User's lifecycle state.  Changing to 'DELETED', for example, will also mark associated UCJs as deleted.`,
+  documentation: `Ticket to coordinate the changing of a User's lifecycle state.
+Changing to 'DELETED', for example, will also mark associated UCJs as deleted.`,
 
   implements: [
     'foam.mlang.Expressions'
@@ -23,7 +24,7 @@ foam.CLASS({
 
   imports: [
     'userDAO',
-    'sessionDAO'
+    'sessionDAO?'
   ],
 
   requires: [
@@ -55,7 +56,8 @@ foam.CLASS({
           s.push(['CLOSED', 'CLOSED']);
         }
         return s;
-      }
+      },
+      compare: function() { return 0; }
     },
     {
       name: 'comment',
@@ -83,51 +85,16 @@ foam.CLASS({
       }
     },
     {
-      name: 'state',
-      hidden: true,
-      transient: true
-    },
-    {
       name: 'currentLifecycleState',
       class: 'foam.lang.Enum',
       of: 'foam.core.auth.LifecycleState',
       value: foam.core.auth.LifecycleState.PENDING,
       transient: true,
+      compare: function() { return 0; },
       visibility: 'RO',
       section: 'infoSection',
       order: 7,
-      gridColumns: 6,
-      view: function(_, X) {
-        X.data.state = foam.core.auth.LifecycleState.PENDING;
-        if ( ! X.data.createdFor ) {
-          X.data.createdFor$.sub(function() {
-            X.userDAO.find(X.data.createdFor).then(function(user) {
-              X.data.state = user.lifecycleState;
-            });
-            X.sessionDAO.find(X.data.EQ(X.data.Session.USER_ID, X.data.createdFor)).then(function(session) {
-              if ( ! session )
-                return;
-              X.data.loggedIn = session.uses > 0 && session.remoteHost;
-              X.data.lastActivity = Date.now() - session.lastUsed.getTime();
-            });
-          });
-        } else {
-          X.userDAO.find(X.data.createdFor).then(function(user) {
-            X.data.state = user.lifecycleState;
-          });
-          X.sessionDAO.find(X.data.EQ(X.data.Session.USER_ID, X.data.createdFor)).then(function(session) {
-            if ( ! session )
-              return;
-            X.data.loggedIn = session.uses > 0 && session.remoteHost;
-            X.data.lastActivity = Date.now() - session.lastUsed.getTime();
-          });
-        }
-        return {
-          class: 'foam.u2.view.ReadOnlyEnumView',
-          of: 'foam.core.auth.LifecycleState',
-          data$: X.data.state$
-        };
-      }
+      gridColumns: 6
     },
     {
       name: 'requestedLifecycleState',
@@ -203,7 +170,8 @@ foam.CLASS({
       name: 'current',
       class: 'List',
       transient: true,
-      hidden: true
+      hidden: true,
+      compare: function() { return 0; }
     },
     {
       name: 'assignedTo',
@@ -216,6 +184,46 @@ foam.CLASS({
     {
       name: 'externalComment',
       hidden: true
+    },
+    {
+      documentation: 'Allow sink or rule to report exception',
+      name: 'exception',
+      class: 'Object',
+      storageTransient: true,
+      hidden: true,
+      compare: function() { return 0; }
+    },
+    {
+      name: 'comments',
+      compare: function() { return 0; }
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      this.fetchUserSession(this);
+    },
+    {
+      name: 'fetchUserSession',
+      code: function() {
+        var self = this;
+        // sessionDAO not accessible when user deleting self.
+        if ( this.sessionDAO ) {
+          this.userDAO.find(self.createdFor).then(function(user) {
+            self.currentLifecycleState = user.lifecycleState;
+          });
+          this.sessionDAO.find(self.EQ(self.Session.USER_ID, self.createdFor)).then(function(session) {
+            if ( ! session ) {
+              self.loggedIn = false;
+              self.clearProperty('lastActivity');
+            } else {
+              self.loggedIn = session.uses > 0 && session.remoteHost;
+              self.lastActivity = Date.now() - session.lastUsed.getTime();
+            }
+          });
+        }
+      }
     }
   ],
 
@@ -229,10 +237,14 @@ foam.CLASS({
       confirmationRequired: function() {
         return true;
       },
+      isEnabled: function(comment) {
+        return comment;
+      },
       isAvailable: function(status, id) {
         return id && status !== 'CLOSED';
       },
-      code: function(X) {
+      code: async function(X) {
+        var self = this;
         if ( ! this.comment ) {
           this.notify(this.COMMENT_REQUIRED, '', this.LogLevel.ERROR, true);
           return;
@@ -246,6 +258,7 @@ foam.CLASS({
           this.ticketDAO.cmd(this.AbstractDAO.RESET_CMD);
           this.finished.pub();
           this.notify(this.SUCCESS_CLOSED, '', this.LogLevel.INFO, true);
+          self.pollDAO(X);
         }, e => {
           this.throwError.pub(e);
           this.notify(e.message, '', this.LogLevel.ERROR, true);
@@ -256,6 +269,37 @@ foam.CLASS({
       class: 'foam.comics.v3.ComicsAction',
       name: 'save',
       isAvailable: () => false
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'pollDAO',
+      isMerged: true,
+      delay: 1000,
+      code: function(X) {
+        console.log('pollDAO');
+        var self = this;
+        return this.ticketDAO.find(this.id).then(function(t) {
+          // NOTE: compare functions added to properties not to be
+          // included in equals.
+          if ( foam.util.equals(self, t) ) {
+            X.detailView.finished.pub();
+          } else {
+            // Perform copyFrom. After a poll with no changes,
+            // polling will end.
+
+            // HACK: expecting FObject.js copyFrom to copy all properties,
+            // but it's default copy logic uses hasOwnProperty, so only
+            // explicitly defined properties of this subclass are copied.
+            // Setting cls_ forces copyFrom to skip the default block and
+            // just copy named properties which exist in both objects.
+            t.cls_ = '';
+            self.copyFrom(t);
+            self.pollDAO(X);
+          }
+        });
+      }
     }
   ]
 });

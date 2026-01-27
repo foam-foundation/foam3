@@ -9,12 +9,12 @@ foam.CLASS({
   name: 'DAOPromptView',
   extends: 'foam.u2.View',
 
+  imports: [ 'block' ],
+
   requires: [
     'foam.u2.LoadingSpinner',
+    'foam.core.reflow.ErrorView'
   ],
-
-  css: `
-  `,
 
   properties: [
     { class: 'Long',    name: 'version' },
@@ -25,28 +25,40 @@ foam.CLASS({
     function render() {
       var self = this;
 
+      if ( this.block?.borderEl_?.title$ ) {
+        this.block.borderEl_.title$.relateTo(this.data.label$, function(title) {
+          return title;
+        }, function(label) {
+          self.block?.setTitle(label);
+          return label;
+        })
+      }
+
       this.data.where$.sub(this.rerun);
       this.data.skip$.sub(this.onUpdate);
       this.data.version$.sub(this.onUpdate);
 
       this.
         addClass().
-        start('h3').
-          show(this.data.labelVisible$).
-          add(self.data.label$).
-        end().
-        start().show(self.loading$).tag(self.LoadingSpinner, {size: '32px'} ).end().
-          add(self.dynamic(async function(data, version) {
-            if ( ! data ) { debugger; return; }
-            var startTime = Date.now();
-            var select    = self.data.select;
-            self.data.select = select;
-            self.loading = true;
+        tag(self.LoadingSpinner, {size: '32px', isHidden$: self.loading$.not()} ).
+        add(self.dynamic(async function(data, version) {
+          var startTime = Date.now();
+          var select    = self.data.select;
+          self.data.select = select;
+          self.loading = true;
+          try {
             await self.data.select.execute(this);
-            self.loading = false;
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
-          }));
+          } catch (error) {
+            console.error('DAOPrompt execution error:', error);
+            self.data.readyLatch_.reject(error);
+            self.data.hasError = true;
+            this.tag(self.ErrorView, { error: error });
+          } finally {
+            self.loading = false;
+          }
+        }));
     }
   ],
 
@@ -83,11 +95,11 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'DAOPrompt',
 
+  mixins: [ 'foam.core.reflow.DAOResolverMixin' ],
+
+  /*
+    UI is cleaner without the sections
   sections: [
-    {
-      name: 'general',
-      title: 'General'
-    },
     {
       name: 'output',
       title: 'Output',
@@ -108,6 +120,7 @@ foam.CLASS({
       title: ''
     }
   ],
+  */
 
   implements: [
     'foam.mlang.Expressions'
@@ -117,29 +130,67 @@ foam.CLASS({
     'foam.dao.ProxyDAO',
     'foam.core.reflow.TableDAOAgent',
     'foam.core.reflow.DAOPromptView',
+    'foam.parse.SimpleQueryParser',
     'foam.parse.QueryParser'
   ],
 
-  imports: [ 'block', 'eval_', 'scope' ],
+  imports: [ 'block?', 'eval_', 'scope' ],
 
   exports: [
     'dao',
     'limitedDAO as sinkDAO',
     'filteredDAO as sinkUnlimitedDAO',
-    'columnStorage'
+    'columnStorage',
+    'columns as flowColumns',
+    'predicate as flowPredicate'
   ],
 
   properties: [
     {
+      class: 'FObjectProperty',
+      name: 'predicate',
+      hidden: true
+    },
+    {
+      name: 'select',
+      view: function(_, X) {
+//        return foam.core.reflow.SinkView2.create({
+        return foam.core.reflow.SinkView.create({
+          sinksOnly: false,
+          choice: 'foam.core.reflow.TableDAOAgent',
+          dao: X.data.dao}, X.data);
+      },
+      preSet: function(o, n) {
+        // Temporary fix to recontextualize the object after load.
+        // TODO: remove once JSON parsing/loading is fixed
+        if ( n && n.__context__ != this.__subContext__ ) {
+          return n.clone(this.__subContext__);
+        }
+        return n;
+      },
+      reactive: false,
+      section: 'output',
+      label: '',
+      factory: function() { return this.TableDAOAgent.create(); }
+    },
+    {
       class: 'String',
       name: 'label',
-      section: 'general',
       label: 'Name',
+      section: 'general',
+      hidden: true,
       onKey: true,
       expression: function(dao) {
         return dao.of.model_.plural;
       },
       displayWidth: 60
+    },
+    {
+      class: 'String',
+      name: 'daoKey',
+      section: 'general',
+      hidden: true,
+      transient: true
     },
     {
       class: 'foam.dao.DAOProperty',
@@ -148,71 +199,10 @@ foam.CLASS({
       hidden: true,
       transient: true,
       adapt: function(o, n, p) {
-        let oldAdapt = foam.dao.DAOProperty.ADAPT;
-        if ( foam.String.isInstance(n) ) {
-          // Handle dotted keys by traversing down the scope hierarchy
-          // e.g., "daoCommand.data1.dao" or "flow.subflow.property"
-          if ( n.includes('.') ) {
-            // Split the key into parts at each dot
-            var parts = n.split('.');
-            // Start at the root scope
-            var current = this.scope;
-            var i = 0;
-
-            // Traverse down the object hierarchy following each part
-            while ( i < parts.length && current ) {
-              var part = parts[i];
-
-              // Check if this part ends with '()' - it's a method call
-              if ( part.endsWith('()') ) {
-                // Remove the '()' to get the method name
-                var methodName = part.substring(0, part.length - 2);
-                // Get the method and call it with current as 'this'
-                var method = current[methodName];
-                if ( typeof method === 'function' ) {
-                  current = method.call(current);
-                } else {
-                  current = null;
-                }
-              } else {
-                current = current[part];
-              }
-              i++;
-            }
-
-            // If we successfully resolved the dotted path, use it
-            if ( current ) {
-              this.daoKey = n;
-              n = current;
-            } else {
-              console.error('Could not resolve dotted DAO path:', n);
-              return null;
-            }
-          } else {
-            if ( n.endsWith('s') ) {
-              // Try plural+DAO first (preserves exact name), then fallback to singular+DAO
-              if ( this.scope[n + 'DAO'] ) {
-                this.daoKey = n + 'DAO';
-                n = this.scope[n + 'DAO'];
-              } else if ( this.__context__[n + 'DAO'] ) {
-                this.daoKey = n + 'DAO';
-                n = n + 'DAO';
-              } else {
-                this.daoKey = n;
-                n = n.substring(0, n.length-1) + 'DAO';
-              }
-            } else if ( this.__context__[n + 'DAO'] ) {
-              n = n + 'DAO';
-            } else if ( this.scope[n + 'DAO'] ) {
-              this.daoKey = n + 'DAO';
-              n = this.scope[n + 'DAO'];
-            } else if ( this.scope[n] ) {
-              this.daoKey = n;
-              n = this.scope[n];
-            }
-          }
-        }
-        return oldAdapt.value.call(this, o, n, p);
+        return this.adaptDAOProperty(o, n, p);
+      },
+      expression: function(daoKey) {
+        return this.resolveDAOFromKey(daoKey);
       }
     },
     {
@@ -259,7 +249,7 @@ foam.CLASS({
       section: 'general',
       hidden: true,
       transient: true,
-      expression: function(dao, where, order) {
+      expression: function(dao, where, aql, order) {
         if ( ! dao || ! this.dao.of ) return null;
 
         // Compiled on the Server
@@ -270,6 +260,13 @@ foam.CLASS({
           var p = this.QueryParser.create({of: dao.of}).parseString(where);
           dao = dao.where(p);
           // TODO: display syntax error if didn't parse
+        }
+
+        if ( aql ) {
+          var p = this.SimpleQueryParser.create({of: dao.of}).parseString(aql);
+          if ( p ) {
+            dao = dao.where(p);
+          }
         }
 
         if ( order ) {
@@ -305,6 +302,21 @@ foam.CLASS({
       name: 'filteredDAO',
       transient: true,
       factory: function() { return this.ProxyDAO.create({delegate$: this.filteredDAO_$}); }
+    },
+    {
+      class: 'String',
+      name: 'aql',
+      label: 'Where (autocomplete)',
+      section: 'filter',
+      displayWidth: 60,
+      visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN; },
+      view: function(_, X) {
+        var data = X.data;
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: data.SimpleQueryParser.create({of: data.dao.of}, X)
+        };
+      }
     },
     {
       class: 'Int',
@@ -346,26 +358,52 @@ foam.CLASS({
       name: 'where',
       section: 'filter',
       displayWidth: 60,
+      postSet: function(o, n) { this.enableAQL_ = ! n; },
+      visibility: function(enableAQL_) { return enableAQL_ ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW; },
       view: { class: 'foam.core.reflow.PredicateSuggestedField' }
 //      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
+    },
+    {
+      class: 'Boolean',
+      name: 'enableAQL_',
+      transient: true,
+      hidden: true,
+      value: true,
+      documentation: 'Temporary flag to determine if AQL is available.'
     },
     {
       class: 'String',
       name: 'order',
       section: 'filter',
+      onKey: true,
       displayWidth: 60,
       view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
-//      view: { class: 'foam.u2.TextField', type: 'search' } // adds 'x' to clear field
     },
     {
       class: 'String',
       name: 'columns',
       section: 'filter',
       displayWidth: 60,
+      onKey: false,
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertySuggestedField'
         };
+      },
+      xxxvalidateObj: function(columns) {
+        let a = columns.trim().split(',').map(c => c.trim());
+
+        for ( let i = 0 ; i < a.length ; i++ ) {
+          let of = this.dao.of;
+          let names = a[i].split('.');
+          for ( let j = 0 ; j < names.length ; j++ ) {
+            let name = names[j];
+            if ( ! of ) return 'Inner Property on Non Object: ' + name;
+            let p = of.getAxiomByName(name);
+            if ( ! p ) return 'Unknown Property: ' + name;
+            of = p.of;
+          }
+        }
       }
     },
     {
@@ -399,30 +437,11 @@ foam.CLASS({
         });
       }
     },
-    {
-      name: 'select',
-      view: function(_, X) {
-        return foam.core.reflow.SinkView.create({
-          sinksOnly: false,
-          choice: 'foam.core.reflow.TableDAOAgent',
-          dao: X.data.dao}, X.data);
-      },
-      preSet: function(o, n) {
-        // Temporary fix to recontextualize the object after load.
-        // TODO: remove once JSON parsing/loading is fixed
-        if ( n && n.__context__ != this.__subContext__ ) {
-          return n.clone(this.__subContext__);
-        }
-        return n;
-      },
-      reactive: false,
-      section: 'output',
-      label: '',
-      factory: function() { return this.TableDAOAgent.create(); }
-    },
     { class: 'Long',       hidden: true,  name: 'rowCount', visibility: 'RO', transient: true },
     { class: 'String',     hidden: true,  name: 'executionTime', value: '-', visibility: 'RO', transient: true, readPermissionRequired: true },
     { class: 'Int',        hidden: true,  name: 'version', transient: true },
+    { class: 'Boolean',    hidden: true,  name: 'skipInitialReset_', transient: true },
+    { class: 'Boolean',    hidden: true,  name: 'hasError', value: false, transient: true },
     { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
     {
       name: 'readyLatch_',
@@ -432,16 +451,7 @@ foam.CLASS({
         return foam.lang.Latch.create();
       }
     },
-    // since the label is calculated by the expression when we try to hide it by making it empty that gets rendered
-    {
-      class: 'Boolean',
-      name: 'labelVisible',
-      section: 'general',
-      label: 'Show Name',
-      value: true,
-      view: { class: 'foam.u2.Switch' }
-    },
-    { class: 'Boolean',    section: 'general',   name: 'autoRun', view: { class: 'foam.u2.Switch' } }
+    { class: 'Boolean', section: 'general', name: 'autoRun', view: { class: 'foam.u2.Switch' } }
   ],
 
   methods: [
@@ -476,12 +486,16 @@ foam.CLASS({
       if ( ! this.columns ) {
         this.columns = this.getColumnNamesFromStorage(localStorage.getItem(this.dao.of.id));
       }
+      this.aql$.sub(this.maybeAutoRun);
       this.where$.sub(this.maybeAutoRun);
       this.order$.sub(this.maybeAutoRun);
     },
 
-    async function addToE(e) {
-      this.onDetach(this.dao.listen(this.updateRowCount));
+    function addToE(e) {
+      // Skip the initial reset from ProxyDAO.listen_() to prevent double execution
+      this.skipInitialReset_ = true;
+      this.onDetach(this.dao.listen(this.rerun));
+      this.onDetach(this.filteredDAO.listen(this.updateRowCount));
       this.updateRowCount_();
 
       // TODO: name current block
@@ -499,8 +513,10 @@ foam.CLASS({
       // but then we do a copyFrom() the DAOPrompt stored in the script and then
       // the columnStorage gets swapped.
       var old = this.columnStorage;
+      var oldLatch = this.readyLatch_;  // Preserve latch so addToE's await still works
       this.SUPER(o);
       this.columnStorage = old;
+      this.readyLatch_ = oldLatch;
       this.valueDAO = undefined;
     },
 
@@ -543,7 +559,7 @@ foam.CLASS({
         await this.waitForRun();
 
         var name = this.block.flowName;
-        this.eval_(`test(${name}.value,'Test output of ${name}')`);
+        this.eval_(`test(${name}.value, 'Test output of ${name}')`);
       }
     }
   ],
@@ -552,12 +568,25 @@ foam.CLASS({
     {
       name: 'updateRowCount',
       isFramed: true,
-      code: function() { this.updateRowCount_(); this.run(); }
+      code: function() { this.updateRowCount_(); }
+    },
+    {
+      name: 'rerun',
+      isMerged: true,
+      delay: 100,
+      code: function() {
+        // Skip the initial reset from ProxyDAO.listen_() - not a real data change
+        if ( this.skipInitialReset_ ) {
+          this.skipInitialReset_ = false;
+          return;
+        }
+        this.run();
+      }
     },
     {
       name: 'maybeAutoRun',
       isMerged: true,
-      delay: 200,
+      delay: 250,
       code: function maybeAutoRun() {
         if ( this.autoRun ) this.run();
       }

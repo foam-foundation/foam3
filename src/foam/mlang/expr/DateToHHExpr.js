@@ -15,6 +15,11 @@ foam.CLASS({
     {
       class: 'foam.mlang.ExprProperty',
       name: 'delegate'
+    },
+    {
+      name: 'outputType',
+      value: 'String',
+      documentation: 'Output type is String (HH format) - hour only, not a full date/time'
     }
   ],
 

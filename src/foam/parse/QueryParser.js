@@ -131,7 +131,7 @@ foam.CLASS({
             seq(key('NOT '), sym('expr'))
           ),
 
-          id: sym('number'),
+          id: sym('string'),
 
           has: seq(key('HAS:'), sym('fieldname')),
 
@@ -240,7 +240,7 @@ foam.CLASS({
           word: repeat(sym('char'), null, 1),
 
           char: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'), '-', '^',
-            '_', '@', '%', '.'),
+            '_', '@', '%', '.', '+'),
 
           number: repeat(range('0', '9'), null, 1),
 

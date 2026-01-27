@@ -32,8 +32,8 @@ public class Outputter
 
   protected PrintWriter   writer_;
   protected OutputterMode mode_;
-  protected StringWriter  stringWriter_ = null;
-  protected boolean       outputShortNames_ = false;
+  protected StringWriter  stringWriter_        = null;
+  protected boolean       outputShortNames_    = false;
   protected boolean       outputDefaultValues_ = false;
 
   public Outputter() {
@@ -51,7 +51,7 @@ public class Outputter
   public Outputter(PrintWriter writer, OutputterMode mode) {
     if ( writer == null ) {
       stringWriter_ = new StringWriter();
-      writer = new PrintWriter(stringWriter_);
+      writer        = new PrintWriter(stringWriter_);
     }
 
     this.mode_   = mode;

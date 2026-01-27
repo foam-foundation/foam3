@@ -58,7 +58,7 @@ p({
     import foam.mlang.MLang;
     import foam.core.logger.Logger;
     import foam.util.SafetyUtil;
-    
+
     logger = x.get("logger");
     userDAO = x.get("localUserUserDAO");
 
@@ -100,12 +100,12 @@ p({
     for (region : regions) {
       region = region.fclone();
       alternateNameList = new ArrayList(Arrays.asList(region.getAlternativeNames()));
-      
+
       // specify new format
       alternateName = region.getCode().replace("-", "|");
 
-      if ( region.getIsoCode().equals(alternateName) 
-        || region.getName().equalsIgnoreCase(alternateName) 
+      if ( region.getIsoCode().equals(alternateName)
+        || region.getName().equalsIgnoreCase(alternateName)
         || alternateNameList.contains(alternateName)
          ) {
          continue;
@@ -122,6 +122,43 @@ p({
     }
 
     print("done");
-  
+
   """
+})
+
+c({
+  class:"foam.core.script.Script",
+  id:"LogUserFailedPermissionChecks",
+  description: "Help detect which permissions are preventing a user from accessing a system feature",
+  code:"""
+  /*
+    Tool to be used to help detect which permissions are preventing a user from accessing a system feature.
+    To use:
+      1. Use the Sessions menu to find the user's sessionId.
+      2. Edit ScriptParameter with name \"LogUserFailedPermissionChecks\", and set parameter 'sessionId'.
+      3. Run this script.
+      4. Use the user's account to attempt the desired operation
+      4. View logs and look for \"FAILED PERMISSION\" entries to see the failed permission checks that are
+         preventing the user's access.
+      5. Add the desired to the user's Group or appropriate Role until access is granted
+  */
+    if ( scriptParameter != null ) {
+        p = scriptParameter.getParameters();
+        sessionID = p.get("sessionID");
+        if ( sessionID != null ) {
+            s = x.get("sessionDAO").find(sessionID);
+            if ( s != null ) {
+                s.setApplyContext(s.getApplyContext().put("auth", new foam.core.auth.LoggingAuthService(x.get("auth"))));
+                print("LoggingAuthService installed.");
+            } else {
+                print("SessionID not found.");
+            }
+        } else {
+            print("ScriptParameter sessionID not found.");
+        }
+    } else {
+        print("ScriptParameter not found, or not enabled.");
+    }
+  """,
+  lastModified:1763499145132
 })

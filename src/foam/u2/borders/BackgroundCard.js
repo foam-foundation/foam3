@@ -12,12 +12,11 @@ foam.CLASS({
   css: `
     ^ {
       width: 100%;
-      padding: 2.4rem;
       border-radius: 4px;
       overflow: auto;
     }
     ^.disablePadding {
-      padding: 0;
+      padding: 0 !important;
     }
   `,
 
@@ -28,16 +27,27 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'padding',
+      name: 'enablePadding',
       value: true
+    },
+    {
+      class: 'String',
+      name: 'padding',
+      visibility: function(enablePadding) {
+        return enablePadding ? 'RW' : 'HIDDEN';
+      },
+      value: '2.4rem'
     }
   ],
 
   methods: [
     function init() {
       this.addClass()
-        .enableClass('disablePadding', this.padding$.map(v => ! v))
-        .style({ 'background' : this.backgroundColor$.map(v => foam.CSS.returnTokenValue(v, this.cls_,this.__subContext__)) })
+        .enableClass('disablePadding', this.enablePadding$.map(v => ! v))
+        .style({
+          'background': this.backgroundColor$.map(v => foam.CSS.returnTokenValue(v, this.cls_,this.__subContext__)),
+          'padding': this.padding$.map(v => foam.CSS.returnTokenValue(v, this.cls_,this.__subContext__))
+        })
         .tag('', null, this.content$);
     }
   ]

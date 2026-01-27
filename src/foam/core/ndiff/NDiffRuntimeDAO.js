@@ -36,15 +36,17 @@ foam.CLASS({
 
           String cSpecName = ndiff.getCSpecName();
           DAO dao = (DAO)x.get(cSpecName);
-          if ( dao != null ) {  
+
+          if ( dao != null ) {
             // the dao is almost certainly being decorated by NDiffDAO.
             // this put_ will recursively call this function and we
-            // won't be able to restore the result. 
-            dao.put_(x, ndiff.getInitialFObject()); 
-        
+            // won't be able to restore the result.
+            FObject initialFObject = ndiff.getInitialFObject();
+            dao.put_(x, initialFObject);
+
             var newNdiff = (NDiff) this.find_(x, new NDiffId(ndiff.getCSpecName(),
                                              ndiff.getObjectId()));
-            
+
             ndiff = newNdiff != null ? (NDiff)newNdiff.fclone() : ndiff;
 
             ndiff.setDeletedAtRuntime(false);
@@ -110,15 +112,15 @@ foam.CLASS({
             // we have to call the DAO to get the runtime object
             // and to set the deletedAtRuntime flag.
             // looks slow, but the predicate filters out unchanged
-            // ndiffs ahead of time. 
+            // ndiffs ahead of time.
             // (important: predicate MUST be applied or problems happen)
 
             NDiff ndiff = (NDiff)( ((NDiff)obj).fclone() );
             FObject initialFObject = ndiff.getInitialFObject();
-          
+
             String cSpecName = ndiff.getCSpecName();
             DAO dao = (DAO)x.get(cSpecName);
-            Object id = initialFObject.getProperty("id");    
+            Object id = initialFObject.getProperty("id");
             FObject runtimeFObject = dao.find_(x, id);
 
             var deletedAtRuntime = runtimeFObject == null;
@@ -126,7 +128,7 @@ foam.CLASS({
             if ( ! deletedAtRuntime ) {
               ndiff.setRuntimeFObject(runtimeFObject);
             }
-            
+
             super.put(ndiff,sub);
           }
         };

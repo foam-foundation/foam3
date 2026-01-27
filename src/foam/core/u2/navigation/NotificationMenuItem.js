@@ -22,6 +22,7 @@ foam.CLASS({
     'menuDAO',
     'myNotificationDAO',
     'routeTo',
+    'setTimeout',
     'subject'
   ],
 
@@ -109,12 +110,14 @@ foam.CLASS({
 
   methods: [
     function render() {
-      setTimeout(() => {
-        this.onDetach(this.myNotificationDAO.on.sub(this.onDAOUpdate));
-        this.onDetach(this.subject.user$.dot('id').sub(this.onDAOUpdate));
-        this.onDAOUpdate();
-      }, this.INITIAL_DELAY);
+      this.onDetach(this.myNotificationDAO.on.sub(this.onDAOUpdate));
+      this.onDetach(this.subject.user$.dot('id').sub(this.onDAOUpdate));
+
       var self = this;
+      this.setTimeout(function() {
+        self.onDAOUpdate();
+      }, this.INITIAL_DELAY);
+
       this.addClass()
         .addClass('icon-container')
         .startContext({ data: this })

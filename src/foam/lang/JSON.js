@@ -75,6 +75,9 @@ foam.CLASS({
             cls = X.lookup(clsName);
           }
 
+          if ( ! cls ) {
+            console.error('Unknown class:', clsName);
+          }
           var prop = cls.getAxiomByName(name);
 
           foam.assert(prop, 'Could not find property "', args.forClass_ + '.' + name, '"');
@@ -596,14 +599,6 @@ foam.CLASS({
     },
     {
       name: 'creationContext'
-    },
-    {
-      name: 'fonParser_',
-      expression: function(creationContext) {
-        return foam.parsers.FON.create({
-          creationContext: creationContext
-        });
-      }
     }
   ],
 

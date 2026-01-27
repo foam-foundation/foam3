@@ -112,7 +112,9 @@ foam.CLASS({
                 // honor script enabled flag if it was updated before runScript() finished
                 DAO dao = (DAO) x.get(script.getDaoKey());
                 Script current = (Script) dao.find(script.getId());
-                script.setEnabled(current.getEnabled());
+                if ( current.getLastModified().after(script.getLastModified()) ) {
+                  script.setEnabled(current.getEnabled());
+                }
                 dao.put_(x, script);
 
                 // cleanup thread interrupted flag so it can be reused eg. by threadPool

@@ -143,6 +143,7 @@ foam.POM({
     { name: "menu/DAOMenu2",                                                              flags: "web" },
     { name: "menu/DocumentMenu",                                                          flags: "js" },
     { name: "menu/FlowMenu",                                                              flags: "js" },
+    { name: "menu/LimitedEditFlowMenu",                                                     flags: "js" },
     { name: "menu/SeparatorMenu",                                                         flags: "js" },
     { name: "menu/DocumentFileMenu",                                                      flags: "js|java" },
     { name: "menu/LinkMenu",                                                              flags: "js" },

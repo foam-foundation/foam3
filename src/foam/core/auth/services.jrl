@@ -94,7 +94,8 @@ p({
       .setOrder(new foam.lang.PropertyInfo[] {foam.core.auth.Country.NAME})
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Country.ISO31661CODE })
-      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Country.ALTERNATIVE_NAMES });
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Country.ALTERNATIVE_NAMES })
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Country.CURRENCY });
   """
 })
 
@@ -382,7 +383,14 @@ p({
       .setAuthorizer(new foam.core.auth.StandardAuthorizer("serviceprovider"))
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.ServiceProvider\"}"
+  "client": """
+    {
+      "of": "foam.core.auth.ServiceProvider",
+      "ttlSelectPurgeTime": 0,
+      "ttlPurgeTime": 0,
+      "cache": true
+    }
+  """
 })
 
 p({

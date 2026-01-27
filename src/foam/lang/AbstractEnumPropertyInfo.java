@@ -41,6 +41,7 @@ public abstract class AbstractEnumPropertyInfo
 
   public abstract int            getOrdinal(Object o);
   public abstract java.lang.Enum forOrdinal(int ordinal);
+  public abstract java.lang.Enum forLabel(String label);
   public abstract void           toJSON(foam.lib.json.Outputter outputter, Object value);
 
   @Override
@@ -53,14 +54,12 @@ public abstract class AbstractEnumPropertyInfo
             if ( reader.getLocalName().equals(this.getName()) || reader.getLocalName().equals(this.getShortName()) ) {
               // Move to characters within tags to extract ordinal value
               reader.next();
-              Integer ordinalVal;
+              String text = reader.getText();
               try {
-                ordinalVal = Integer.parseInt(reader.getText());
+                set(fobj, this.forOrdinal(Integer.parseInt(text)));
               } catch (NumberFormatException e) {
-                return;
+                set(fobj, this.forLabel(text));
               }
-              // Searches forOrdinal in relation to the specific ENUM that's created
-              set(fobj, this.forOrdinal(ordinalVal));
               return;
             }
           case XMLStreamConstants.END_ELEMENT:

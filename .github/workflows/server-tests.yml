@@ -1,0 +1,39 @@
+name: Server Tests
+
+on:
+  pull_request:
+    branches: [ development ]
+  push:
+    branches: [ development ]
+  workflow_dispatch:
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Create application directory
+        run: |
+          sudo mkdir -p /opt/foam
+          sudo chown -R $USER /opt/foam
+
+      - name: Run server tests
+        run: ./build.sh server-tests

@@ -20,6 +20,12 @@ foam.CLASS({
       name: 'description'
     },
     {
+      class: 'String',
+      name: 'type',
+      value: 'foam.u2.CSSToken'
+    },
+    {
+      class: 'Object',
       name: 'value',
       preSet: function(o, d) {
         var f = ! d || foam.util.isPrimitive(d) || foam.Function.isInstance(d);
@@ -31,6 +37,7 @@ foam.CLASS({
       }
     },
     {
+      class: 'String',
       name: 'fallback',
       preSet: function(o, d) {
         var f = ! d || foam.util.isPrimitive(d);
@@ -50,7 +57,7 @@ foam.CLASS({
 
         A token can only respond to one of the keys in activeVariants and this is denoted by the token's variantKey property.
         FOAM already provides a 'color' and a 'size' key but more can be added or the existing ones can be modified.
-        
+
         The limitation for one variantKey exists to make it easy to configure CSSTokens. If more complex responsive behaviour is required using
         multiple activeVariants, it's always possible to slot on the property in U2 and write custom logic to handle that case.
       `
@@ -88,43 +95,12 @@ foam.CLASS({
         }
       );
     },
+
     function installInProto(proto) {
       this.installInClass(proto);
     }
   ]
 });
 
-
-foam.CLASS({
-  package: 'foam.u2',
-  name: 'CSSTokenRefinement',
-  refines: 'foam.lang.Model',
-
-  properties: [
-    {
-      name: 'cssTokens',
-      class: 'AxiomArray',
-      of: 'foam.u2.CSSToken',
-      adapt: function(_, a, prop) {
-        if ( ! a ) return [];
-        if ( ! Array.isArray(a) ) {
-          var cs = [];
-          for ( var key in a ) {
-            cs.push(foam.u2.CSSToken.create({name: key, value: a[key]}));
-          }
-          return cs;
-        }
-        return foam.lang.AxiomArray.ADAPT.value.call(this, _, a, prop);
-      },
-      adaptArrayElement: function(o, prop) {
-        if ( Array.isArray(o) ) {
-          return foam.u2.CSSToken.create({ name: o[0], value: o[1] });
-        }
-
-        return foam.lang.AxiomArray.ADAPT_ARRAY_ELEMENT.value.call(this, o, prop);
-      }
-    }
-  ]
-});
 
 

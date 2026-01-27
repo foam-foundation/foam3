@@ -77,7 +77,8 @@
           [ 'foam.core.menu.TabsMenu',         'Tabs' ],
           [ 'foam.core.menu.ViewMenu',         'View' ],
           [ 'foam.core.menu.SeparatorMenu',    'Separator' ],
-          [ 'foam.core.menu.FlowMenu',         'Flow' ]
+          [ 'foam.core.menu.FlowMenu',         'Flow' ],
+          [ 'foam.core.menu.LimitedEditFlowMenu', 'Flow (Limited Edit)' ]
         ]
       }
     },

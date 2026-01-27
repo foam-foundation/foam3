@@ -115,7 +115,6 @@ return false
   return false;
   `
     },
-
     {
       name: 'createStatement',
       type: 'String',

@@ -80,6 +80,13 @@ foam.CLASS({
       
       test( isValid("has:businessName"," (businessname <> '') is not true ") , "The businessName exist");
       test( isValid("is:emailVerified"," emailverified =  ?  ") , "The emailVerified is equal to true");
+
+      // Email with + (plus addressing) - verify full email is captured, not truncated at +
+      var emailUser = new User();
+      emailUser.setEmail("user+tag@example.com");
+      test( evaluate("email=user+tag@example.com", emailUser), "Email with + should match user with that email");
+      test( !evaluate("email=user", emailUser), "Truncated email (without +tag) should NOT match - if this fails, + is not in CHAR rule");
+
       //          {"id=me"," ( ( id =  ?  ) ) "},
       
       test( isValid("firstName=Simon,Wassim"," ( firstname =  ?  )  OR  ( firstname =  ?  ) ") , "The firstName is equal to value1 OR to value2");
@@ -92,13 +99,11 @@ foam.CLASS({
       user.setMiddleName("senorita");
       user.setLastName("alice");
       user.setBirthday(new Date(2323223232L)); // Tue Jan 27 21:20:23 GMT 1970
-
-      Date earlierDate = new Date(2322603000L); // Tue Jan 27 21:10:03 GMT 1970
-      Date laterDate = new Date(2323803000L);   // Tue Jan 27 21:30:03 GMT 1970
+      // should convert to noon
+      Date noon = new Date(2289600000L);
 
       // test user's birthday is between two timestamps
-      test(evaluate("birthday<" + dateFormat_.get().format(laterDate), user), user.getBirthday() + " < "+laterDate.toString());
-      test(evaluate("birthday>" + dateFormat_.get().format(earlierDate), user), user.getBirthday() + " > "+earlierDate.toString());
+      test(evaluate("birthday=" + dateFormat_.get().format(noon), user), user.getBirthday() + " = "+noon.toString());
       `
     },
     {

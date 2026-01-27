@@ -66,6 +66,9 @@ foam.CLASS({
     ^parents {
       z-index: 1000 !important;
     }
+    @media print {
+      ^ { display: none !important; }
+    }
   `,
 
   properties: [
@@ -117,7 +120,7 @@ foam.CLASS({
       class: 'Boolean',
       name: 'lockToParentWidth'
     },
-    'ro_', 'x', 'y'
+    'ro_', 'x', 'y', 'internalResizeObserver_'
   ],
 
   methods: [
@@ -136,6 +139,7 @@ foam.CLASS({
       this.x = x; this.y = y;
       this.setPosition();
       this.ro_?.observe(this.parentEl);
+      this.internalResizeObserver_?.observe(this.dropdownE_.el_())
       this.opened = true;
       this.window.addEventListener('resize', this.onResize);
     },
@@ -166,9 +170,30 @@ foam.CLASS({
       }
     },
 
+    function setHeight() {
+      var el = this.dropdownE_.el_?.();
+      var contentHeight = el.scrollHeight || el.offsetHeight || 0;
+      var screenHeight = this.window.innerHeight;
+      let availableHeight;
+      if ( this.top == 'auto' ) {
+        availableHeight = screenHeight - this.bottom;
+      } else {
+        availableHeight = screenHeight - this.top;
+      }
+      if ( contentHeight > availableHeight ) {
+        availableHeight = Math.max(0, availableHeight - 8);
+        el.style.maxHeight = availableHeight + 'px';
+        el.style.overflowY = 'auto';
+      } else {
+        el.style.maxHeight = '';
+        el.style.overflowY = '';
+      }
+    },
+
     function close() {
       this.opened = false;
       this.ro_?.unobserve(this.parentEl);
+      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_())
     },
 
     function render() {
@@ -187,6 +212,12 @@ foam.CLASS({
       }
       this.parentEl$.sub(fn);
       fn();
+
+      this.internalResizeObserver_ = new ResizeObserver(() => {
+        if ( this.opened )
+          this.setHeight();
+      });
+      this.onDetach(() => { this.internalResizeObserver_?.disconnect(); })
 
       this.addClass(this.slot(function(opened) {
         this.shown = opened;
@@ -222,6 +253,7 @@ foam.CLASS({
       this.add(this.dropdownE_);
 
       this.addToSelf_ = false;
+
     }
   ],
 

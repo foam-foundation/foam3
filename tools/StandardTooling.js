@@ -8,11 +8,12 @@ foam.POM({
   name: 'standard',
 
   options: {
-    appName: [ 'N', 'app-name', 'APP_NAME', "Name used to construct a unique deployment directory, '/opt/NAME', to support multiple running applications.  Also requires a unique WEB_PORT.", '', args => APP_NAME = args ],
+    appName: [ 'N', 'app-name', 'APP_NAME', "Name used to construct a unique deployment directory, '/opt/NAME'.  Can be used to name and retain journal data rather than delete with \'j\'.  Also used to support multiple running applications. NOTE Each applications also requires a unique WEB_PORT (-W).", '', args => APP_NAME = args ],
     appHome: [ '','app-home', 'APP_HOME', 'Application root directory. To symultaniously deploy multiple applications, give each a unique APP_NAME and WEB_PORT',() => APP_NAME ? APP_ROOT + '/' + APP_NAME : 'APP_ROOT/APP_NAME', arg => APP_HOME = arg ],
     appRoot: [ '', 'app-root', 'APP_ROOT', 'Application root directory','/opt', arg => APP_ROOT = arg ],
     clean: [ 'c', 'clean', 'CLEAN', 'Clean generated code before building.  Required if generated classes have been removed. Use -XcleanAll to remove build/ directory. NOTE: if compilation fails after option c is issued, clean is again required until a succesful build.', false, function(arg) { CLEAN = arg ? this.bool(arg) : true; } ],
-    cleanAll: [ '', 'clean-all', 'CLEAN_ALL', 'Clean application lib/, and remove build/ directory.',false, function(arg) { CLEAN_ALL = arg ? this.bool(arg) : true; } ]
+    cleanAll: [ '', 'clean-all', 'CLEAN_ALL', 'Clean application lib/, and remove build/ directory.',false, function(arg) { CLEAN_ALL = arg ? this.bool(arg) : true; } ],
+    autoConfirm: [ 'y', 'auto-confirm', 'AUTO_CONFIRM', 'Suppress prompt for tasks which require confirmation, such as \'-j\'.', false, function(arg) { AUTO_CONFIRM = arg ? this.bool(arg) : true; } ]
   },
 
   tasks: {
@@ -38,15 +39,15 @@ foam.POM({
     }],
 
     usage: ['usage', 'Build usage examples', [], function() {
-      console.log('CLI examples:');
-      console.log('  ./build.sh -c');
-      console.log('    Remove previously generated code, before rebuilding.');
-      console.log('  ./build.sh -cj');
-      console.log('    Remove previously generated code and runtime journals, before rebuilding.');
-      console.log('  ./build.sh --cleanAll,all');
-      console.log('    Perform an extra deep clean before building normally.');
-      console.log('  ./build.sh --topic:foo');
-      console.log('    Print usage for \'topic\'. Ex: ./build.sh --topic:cleanAll  or  ./xobuild.sh -Ha');
+      this.log('CLI examples:');
+      this.log('  ./build.sh -c');
+      this.log('    Remove previously generated code, before rebuilding.');
+      this.log('  ./build.sh -Ntestset1');
+      this.log('    Build and deploy into a unique deployment directory. Use this to name and retain journal test sets for later selection.');
+      this.log('  ./build.sh --cleanAll,all');
+      this.log('    Remove entire build/ diretory, including third-party java libraries, before building normally.');
+      this.log('  ./build.sh --help:foo');
+      this.log('    Print usage for \'foo\'. Ex: ./build.sh --help:cleanAll or ./build.sh --help:N');
     }]
   }
 });

@@ -109,9 +109,9 @@ foam.CLASS({
     },
     {
       name: 'save',
-      code: function(X) {
-        X.cssTokenOverrideDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({ theme: '', source: 'buttonPrimaryColor', target: this.color }, this));
-        return X.cssTokenOverrideDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({ theme: '', source: 'buttonSecondaryColor', target: this.color2 }, this));
+      code: async function(X) {
+        await X.cssTokenOverrideDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({ theme: '', source: 'buttonPrimaryColor', target: this.color }, this));
+        var result = await X.cssTokenOverrideDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({ theme: '', source: 'buttonSecondaryColor', target: this.color2 }, this));
       }
     }
   ]

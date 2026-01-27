@@ -116,7 +116,11 @@ foam.CLASS({
     {
       name: 'save',
       isEnabled: function(workingData$errors_) {
-        return ! workingData$errors_;
+        let enabled = ! workingData$errors_;
+        if ( ! enabled ) {
+          console.error('Save disabled:', workingData$errors_);
+        }
+        return enabled;
       },
       code: function() {
         this.config.dao.put(this.workingData).then(o => {

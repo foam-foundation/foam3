@@ -15,6 +15,11 @@ foam.CLASS({
     {
       class: 'foam.mlang.ExprProperty',
       name: 'delegate'
+    },
+    {
+      name: 'outputType',
+      value: 'String',
+      documentation: 'Output type is String (YYYY format) - year only, not a full date'
     }
   ],
 

@@ -11,6 +11,10 @@ foam.CLASS({
 
   documentation: 'A menu item which routes to a flow page.',
 
+  imports: [
+    'currentMenu?'
+  ],
+
   properties: [
     {
       class: 'Reference',
@@ -20,6 +24,11 @@ foam.CLASS({
   ],
 
   methods: [
+    function select(X, menu) {
+      /** Include flowMode in route to preserve PRESENTATION_ONLY mode. **/
+      if ( this.currentMenu?.id === menu.id ) return;
+      X.routeTo(menu.id + '?flowMode=PRESENTATION_ONLY');
+    },
     function createView(X) {
       return {
         class: "foam.core.reflow.Console",

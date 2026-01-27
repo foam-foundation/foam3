@@ -180,7 +180,7 @@ foam.CLASS({
       this.ariaLabel = p.label || p.name;
 
       if ( p.normalize ) {
-        this.on('blur', () => this.data$.set(p.normalize(this.data$.get(), p)));
+        this.on('blur', async () => this.data$.set(await p.normalize(this.data$.get(), p)));
       }
 
       this.addClass(this.myClass(p.name));

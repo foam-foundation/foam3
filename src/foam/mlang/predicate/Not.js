@@ -45,10 +45,7 @@ foam.CLASS({
           this.arg1 = this.arg1.partialEval();
         }
         if ( this.Not.isInstance(this.arg1) ) {
-          this.arg1 = this.arg1.partialEval();
-          if ( ! this.arg2 ) {
-            return this.arg1;
-          }
+          return this.arg1.arg1;
         } else if ( this.Eq.isInstance(this.arg1) ) {
           return this.Neq.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.Neq.isInstance(this.arg1)) {
@@ -63,57 +60,64 @@ foam.CLASS({
           return this.Gt.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.And.isInstance(this.arg1)) {
           for ( var i = 0; i < this.arg1.args.length; i++ ) {
-            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] });
+            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] }).partialEval();
           }
-          return this.Or.create({args: this.arg1.args[i]});
+          return this.Or.create({args: this.arg1.args});
         } else if (this.Or.isInstance(this.arg1)) {
           for ( var i = 0; i < this.arg1.args.length; i++ ) {
-            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] });
+            this.arg1.args[i] = this.Not.create({ arg1: this.arg1.args[i] }).partialEval();
           }
-          return this.And.create({args: this.arg1.args[i]});
+          return this.And.create({args: this.arg1.args});
         }
         return this;
       },
       javaCode:
       `
     if ( this.arg1_ instanceof Not )
-      return ( (Not) arg1_ ).arg1_.partialEval();
+      return ((Not) arg1_).arg1_.partialEval();
+
     if ( arg1_.getClass().equals(Eq.class) ) {
       return new Neq.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Neq.class) ) {
       return new Eq.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Gt.class) ) {
       return new Lte.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Gte.class) ) {
       return new Lt.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Lt.class) ) {
       return new Gte.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
     if ( arg1_.getClass().equals(Lte.class) ) {
       return new Gt.Builder(null)
         .setArg1(( (Binary) arg1_ ).getArg1())
         .setArg2(( (Binary) arg1_ ).getArg2())
         .build();
     }
+
 //    Not predicate = (Not) this.fclone();
     Not predicate = this;
     if ( predicate.arg1_.getClass().equals(And.class) ) {
@@ -130,7 +134,8 @@ foam.CLASS({
       }
       return new And.Builder(null).setArgs((( (Or) predicate.getArg1() ).args_)).build().partialEval();
     }
-return this;`
+
+    return this;`
     },
     {
       name: 'createStatement',
@@ -147,7 +152,6 @@ return this;`
         getArg1().authorize(x);
       `
     }
-
 
     /*
       TODO: this isn't ported to FOAM2/FOAM3 yet.

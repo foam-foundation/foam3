@@ -486,7 +486,8 @@ foam.CLASS({
           },
 
           form_expr: function(v) {
-          if ( foam.mlang.expr.Dot.isInstance(v[0]) || foam.lang.Property.isInstance(v[0]) && ! foam.lang.Int.isInstance(v[0]) ) return foam.parse.ParserWithAction.NO_PARSE;
+            // KGR: I don't know what this line is supposed to do but it's preventing from evaling formulas which are just property names.
+            //        if ( foam.mlang.expr.Dot.isInstance(v[0]) || ( foam.lang.Property.isInstance(v[0]) && ! foam.lang.Int.isInstance(v[0]) ) ) return foam.parse.ParserWithAction.NO_PARSE;
 
             // handle left hand side (lhs) value as formula without MUL or DIV operator and right hand side (rhs) value
             // v[0] is lhs value and v[1] is null or empty
@@ -520,7 +521,6 @@ foam.CLASS({
           regex: function(v) {
             return new RegExp(v[1], v[3] || '');
           },
-
 
           date: function(v) {
             if ( 'now' === v ) return self.NOW();

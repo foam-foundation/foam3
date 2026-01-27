@@ -112,6 +112,12 @@ foam.CLASS({
       writePermissionRequired: true
     },
     {
+      class: 'Boolean',
+      name: 'userRegistrationEnabled',
+      section: 'infoSection',
+      writePermissionRequired: true
+    },
+    {
       class: 'String',
       name: 'registrationGroup',
       shortName: 'rg',

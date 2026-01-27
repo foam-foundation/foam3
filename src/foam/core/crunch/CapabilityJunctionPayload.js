@@ -82,19 +82,16 @@ foam.CLASS({
         Capability capability = (Capability) capabilityDAO.find(getCapability());
         ClassInfo dataClass = capability.getOf();
         if ( dataClass == null ) return;
+
         FObject dataObject = getData();
         if ( dataObject == null ) {
-          throw new IllegalStateException(String.format(
-            "Missing payload data for capability '%s'",
-            capability.getId()
-          ));
+          throw new IllegalStateException("Missing payload data for capability " + capability.getId());
         }
+
         if ( ! dataClass.isInstance(dataObject) ) {
-          throw new IllegalStateException(String.format(
-            "Invalid payload data class for capability '%s'",
-            capability.getId()
-          ));
+          throw new IllegalStateException("Invalid payload data class for capability " + capability.getId());
         }
+
         if ( dataObject instanceof Validatable ) {
           dataObject.validate(x);
         }

@@ -58,7 +58,7 @@ foam.POM({
       this.execute('hashAdminPassword');
       this.execute('templateMerge', TEMPLATE_DIR, 'adminUser.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, 'users.jrl', true);
     }],
-    createProject: ['create-project', 'Create directories and creates root and src/ POMs for a new FOAM based project', ['validate'], function () {
+    createProject: ['create-project', 'Create directories and creates root and src/ POMs for a new FOAM based project', ['validate', 'genJava'], function () {
       var modelName = MODEL_NAME || APP_NAME;
       MODEL_NAME_CAP = modelName[0].toUpperCase() + modelName.substring(1);
       MODEL_NAME = modelName[0].toLowerCase() + modelName.substring(1);
@@ -182,10 +182,12 @@ foam.POM({
       this.log('      Generate a project with a very simple model.');
       this.log('  node tools/build.js -T+setup/Project --type:demo --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
       this.log('      Generate a project with a more elaborate model demonstrating more FOAM features..');
-      this.log('  node tools/build.js -T+setup/Project --appName:example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
-      this.log('      Generate a project named "example" based on the "simple" model.');
+      this.log('  node tools/build.js -T+setup/Project --appName:Examples --moduleName:Example --package:com.foamdev --adminPassword:badpassword --genJava,createProject');
+      this.log('      Generate a project named "Examples" based on the "simple" model which will be named "Example".');
       this.log('  node tools/build.js -T+setup/Project --appName:example --package:com.foamdev --createAdmin:badpassword --genJava,createProject');
       this.log('      Generate an admin user for existing projects which were previously relying on the, now removed, foam-admin user provided by the baseline FOAM repo.');
+      this.log('  node tools/build.js -T+setup/Project --appName:Recipes --moduleName:Recipe --package:com.foamdev --createAdmin:demopassword --genJava,createProject');
+      this.log('      See https://github.com/VesnaSUG/FOAM-Recipes/blob/main/foam-tutorial.md');
       this.log();
     }],
 

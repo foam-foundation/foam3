@@ -36,8 +36,6 @@ foam.CLASS({
       border: 1px solid $borderXLight;
       border-radius: 4px;
       box-sizing: border-box;
-      height: 40px;
-      margin-top: 8px;
       padding: 12px;
       width: 100%;
 
@@ -56,11 +54,6 @@ foam.CLASS({
       width: 100%;
     }
 
-    ^ img,^ svg {
-      width: 16px;
-      height: 16px;
-    }
-
     ^name {
       color: $textBrand;
       cursor: pointer;
@@ -75,12 +68,10 @@ foam.CLASS({
     }
 
     ^ .foam-u2-ActionView {
-      height: 16px;
       padding: 0;
     }
 
-    ^close-action {
-      margin-left: auto;
+    ^file-action {
       padding: 0;
     }
 
@@ -91,7 +82,12 @@ foam.CLASS({
 
     ^fileButton {
       overflow: hidden;
+      flex-grow: 1;
       justify-content: flex-start;
+    }
+    ^fileCard-content.foam-u2-layout-Cols {
+      gap: 8px;
+      align-items: center;
     }
   `,
 
@@ -132,13 +128,15 @@ foam.CLASS({
         .start(this.FileSizeView, { data: this.data.filesize }).addClass(this.myClass('size'), 'p-legal').end();
 
       this.addClass()
-        .start(this.Cols)
-          .start(self.File.DOWNLOAD, { label: label, buttonStyle: 'UNSTYLED' }).addClass(this.myClass('fileButton')).end()
+      .start(this.Cols)
+          .addClass(this.myClass('fileCard-content'))
+          .start(self.File.VIEW, { label: label, buttonStyle: 'UNSTYLED' }).addClass(this.myClass('fileButton')).end()
+          .start(self.File.DOWNLOAD, { buttonStyle: 'TERTIARY', label: '', themeIcon: 'download' }).addClass(this.myClass('file-action')).end()
           .start(this.REMOVE_FILE_X, {
             label: '',
             buttonStyle: foam.u2.ButtonStyle.TERTIARY,
             themeIcon: 'trash'
-          }).show(this.allowRemoval && this.canBeRemoved).addClass(this.myClass('close-action')).end()
+          }).show(this.allowRemoval && this.canBeRemoved).addClass(this.myClass('file-action')).end()
         .end();
 
       this.on('click', this.pick);

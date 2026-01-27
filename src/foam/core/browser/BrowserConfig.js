@@ -46,6 +46,11 @@ foam.CLASS({
     {
       name: 'headedFlags',
       class: 'StringArray'
+    },
+    {
+      name: 'dataDir',
+      class: 'String',
+      documentation: 'Directory for browser user data and cache. If not set, browser defaults to system temp or profile directory.'
     }
   ],
 

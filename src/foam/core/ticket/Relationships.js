@@ -26,7 +26,8 @@ foam.RELATIONSHIP({
     tableCellFormatter: function(value) {
       this.add(this.__subSubContext__.userDAO.find(value)
         .then((user) => user && user.legalName ? user.legalName : value));
-    }
+    },
+    writePermissionRequired: true
   }
 });
 

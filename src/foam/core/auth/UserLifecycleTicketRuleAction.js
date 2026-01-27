@@ -58,12 +58,15 @@ foam.CLASS({
               ticketComment.setComment(ticket.getComment());
               ticketComment.setTicket(ticket.getId());
               ((DAO) x.get("ticketCommentDAO")).put_(x, ticketComment);
+              UserLifecycleTicket.COMMENT.clear(ticket);
             }
 
             // Previous updated list is stored in current for this run,
             // and saved back to updated if the run was aborted.
             ticket.setCurrent(ticket.getUpdated()); // List.copyOf(ticket.getUpdated()));
             UserLifecycleTicket.UPDATED.clear(ticket);
+            UserLifecycleTicket.MESSAGE.clear(ticket);
+            UserLifecycleTicket.EXCEPTION.clear(ticket);
 
             try {
               // run if
@@ -102,11 +105,12 @@ foam.CLASS({
                   ((DAO) ruler.getX().get("localUserDAO")).put(user);
                 }
               }
-              ticket.setMessage(null);
-              ticket.setComment(old.getName()+" -> "+nu.getName()+" successful");
+              if ( ticket.getException() != null ) {
+                throw (Throwable) ticket.getException();
+              }
+              ticket.setComment(ticket.getComment()+" "+old.getName()+" -> "+nu.getName()+" successful");
             } catch (Throwable t) {
-              ticket.setMessage(t.getMessage());
-              ticket.setComment(old.getName()+" -> "+nu.getName()+" failed: "+t.getMessage());
+              ticket.setComment("WARNING: "+old.getName()+" -> "+nu.getName()+" failed: "+t.getClass().getSimpleName()+" "+t.getMessage());
               if ( ! ( t instanceof IllegalStateException ) ) {
                 ((Logger) x.get("logger")).warning(ticket.getComment(), t);
               }
@@ -114,9 +118,16 @@ foam.CLASS({
                    nu == LifecycleState.DELETED ) {
                 user.setLifecycleState(LifecycleState.DISABLED);
                 updateSessions(x, user, LifecycleState.DELETED);
-                ((Logger) x.get("logger")).warning("UserLifecycleTicket", user.getId(), "Failed",ticket.getRequestedLifecycleState(), "only disabling", t.getMessage());
-                ((DAO) ruler.getX().get("localUserDAO")).put(user);
+                try {
+                  ((DAO) ruler.getX().get("localUserDAO")).put(user);
+                  ((Logger) x.get("logger")).warning("UserLifecycleTicket", user.getId(), "Failed",ticket.getRequestedLifecycleState(), "only disabling", t.getMessage());
+                  ticket.setComment(ticket.getComment() + ". Only disabling user.");
+                } catch (Throwable th) {
+                  ((Logger) x.get("logger")).error("UserLifecycleTicket", user.getId(), "Failed disabling user", ticket.getRequestedLifecycleState(), th.getMessage(), th);
+                  ticket.setComment(ticket.getComment() + ". ERROR failed disabling user: "+th.getMessage());
+                }
               }
+              ticket.setMessage(ticket.getComment());
               ticket.setUpdated(ticket.getCurrent());
               ticket.setStatus(((Ticket)oldObj).getStatus());
             }

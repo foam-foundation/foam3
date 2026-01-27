@@ -313,7 +313,7 @@ foam.CLASS({
       margin: 0;
       padding: 8px;
       background: $backgroundDefault;
-      color: $textDefault; 
+      color: $textDefault;
     }
     ^index {
       background: $backgroundSecondary;
@@ -352,6 +352,8 @@ foam.CLASS({
     {
       name: 'data',
       factory: function() {
+        this.createMarkdown();
+
         return this.EasyDAO.create({
           of: foam.demos.examples.Example,
           daoType: 'MDAO',
@@ -455,6 +457,36 @@ foam.CLASS({
         }
       });
       return a;
+    },
+
+    function createMarkdown() {
+      var s = this.testData;
+      var md = '';
+      var inCode = false;
+      s = s.split('\n').forEach(l => {
+        if ( inCode ) {
+          if ( l.startsWith('#') ) {
+            md += '</example>\n\n';
+            inCode = false;
+          }
+          md += l + '\n';
+        } else if ( l == '--' ) {
+          md += '<example>\n';
+          inCode = true;
+        } else {
+          md += l + '\n';
+        }
+      });
+
+      if ( inCode )
+        md += '</example>\n';
+
+      md.replaceAll('\n\n</example>\n', '\n</example>\n');
+      md.replaceAll('<example></example>\n', '');
+      console.clear();
+      console.log(md);
+      localStorage.md = md;
     }
   ]
+
 });

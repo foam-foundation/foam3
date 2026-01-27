@@ -21,6 +21,11 @@ https://www.regexplanet.com/advanced/java/index.html
   Colour converters
 https://www.myfixguide.com/color-converter/ - hex,rgb,hsl, rgba, argb
 https://web-toolbox.dev/en/tools/color-converter - hsla
+
+  FOAM Color picker - run from console to open
+a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
+
+  TODO: replace regex with CSSParser
   `,
 
   javaImports: [

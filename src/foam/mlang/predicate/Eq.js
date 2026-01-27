@@ -37,32 +37,16 @@ return FOAM_utils.equals(v1, v2)
     },
 
     function reduceAnd(other) {
-      var myArg1           = this.arg1;
-      var myArg2           = this.arg2;
-      var otherArg1        = other.arg1;
-      var otherArg2        = other.arg2;
-      var isConst          = foam.mlang.Constant.isInstance.bind(foam.mlang.Constant);
-      var myArg1IsConst    = isConst(myArg1);
-      var myArg2IsConst    = isConst(myArg2);
-      var otherArg1IsConst = isConst(otherArg1);
-      var otherArg2IsConst = isConst(otherArg2);
+      // If you query field=value1 AND field=value1, reduce to just field=value1
+      // If you query field=value1 AND field=value2, reduce to FALSE
+      if ( ! foam.util.equals(this.arg1, other.arg1) ) return this.SUPER(other);
+      return foam.util.equals(this.arg2, other.arg2) ? this : foam.mlang.predicate.False.create();
+    },
 
-      // Require one const, one non-const in this and other.
-      if ( myArg1IsConst === myArg2IsConst || otherArg1IsConst === otherArg2IsConst )
-        return this.SUPER(other);
-
-      // Require same expr.
-      var myExpr    = myArg1IsConst ? myArg2 : myArg1;
-      var otherExpr = otherArg1IsConst ? otherArg2 : otherArg1;
-      var equals    = foam.util.equals;
-
-      if ( ! equals(myExpr, otherExpr) ) return this.SUPER(other);
-
-      // Reduce to FALSE when consts are not equal.
-      var myConst    = myArg1IsConst    ? myArg1    : myArg2;
-      var otherConst = otherArg1IsConst ? otherArg1 : otherArg2;
-
-      return equals(myConst, otherConst) ? this.SUPER(other) : this.FALSE;
+    function reduceOr(other) {
+      // If you query field=value1 OR field=value1, reduce to just field=value1
+      if ( ! foam.util.equals(this.arg1, other.arg1) ) return this.SUPER(other);
+      return foam.util.equals(this.arg2, other.arg2) ? this : null;
     },
 
     function toMQL() {
@@ -73,6 +57,3 @@ return FOAM_utils.equals(v1, v2)
     }
   ]
 });
-
-
-/** Binary expression for inequality of two arguments. */

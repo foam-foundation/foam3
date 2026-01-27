@@ -20,9 +20,11 @@ foam.CLASS({
   name: 'TextSearchView',
   extends: 'foam.u2.View',
 
+  documentation: `Configurable Search text field input which creates a Predicate bound to the 'predicate' Property.`,
+
   requires: [
     'foam.comics.SearchMode',
-    'foam.parse.QueryParser',
+    'foam.parse.QueryRouter',
     'foam.u2.tag.Input'
   ],
 
@@ -44,11 +46,6 @@ foam.CLASS({
       name: 'of'
     },
     {
-      class: 'Boolean',
-      name: 'richSearch',
-      value: true
-    },
-    {
       class: 'Enum',
       of: 'foam.comics.SearchMode',
       name: 'searchMode',
@@ -57,34 +54,20 @@ foam.CLASS({
       }
     },
     {
-      class: 'Boolean',
-      name: 'checkStrictEquality',
-      documentation: `
-        Set this flag if you want to match by strict equality instead of
-        checking if the text contains the string. Doing so should improve
-        performance.
-      `
-    },
-    {
       name: 'queryParser',
       factory: function() {
-        return this.QueryParser.create({ of: this.of });
+        return this.QueryRouter.create({of: this.of, searchMode: this.searchMode});
       }
     },
     {
       class: 'Int',
       name: 'width',
-      value: 60
+      value: 80
     },
     'property',
     {
       name: 'predicate',
       factory: function() { return this.TRUE; }
-    },
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'viewSpec',
-      value: { class: 'foam.u2.SearchField' }
     },
     {
       name: 'view'
@@ -107,26 +90,42 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'searchData'
+      name: 'data'
     }
   ],
 
   methods: [
+    function init() {
+      // If data is pre-populated (e.g., from URL memento), parse it immediately
+      // Don't wait for the 500ms debounced updateValue listener
+      if ( this.data ) {
+        this.predicate = this.queryParser.parseString(this.data) || this.TRUE;
+      }
+    },
+
     function render() {
+      this.__subContext__.register(foam.u2.SearchField, 'foam.u2.TextField');
+
+      let viewSpec = {
+        class: 'foam.parse.auto.SmartView',
+        parser: this.queryParser
+      };
+
       this
         .addClass(this.myClass())
-        .start(this.viewSpec, {
-          alwaysFloatLabel: true,
-          label$: this.label$,
-          ariaLabel$: this.label$,
-          onKey: this.onKey,
-          mode$: this.mode$
+        .start(viewSpec, {
+          label$:      this.label$,
+          ariaLabel$:  this.label$,
+          onKey:       this.onKey,
+          mode$:       this.mode$,
+          placeholder: 'Search...'
         }, this.view$)
           .attrs({ name: this.name$ })
         .end();
+
       this.view.data$.sub(this.updateValue);
 
-      this.view.data$.follow(this.searchData$);
+      this.view.data$.follow(this.data$);
 
       this.updateValue();
     },
@@ -139,34 +138,18 @@ foam.CLASS({
 
   listeners: [
     {
+      // Even if onKey: true, we don't want to update on each character change
+      // because it could be expensive to re-evaluate the predicate and re-perform
+      // a new dao.select()
       name: 'updateValue',
       isIdled: true,
       delay: 500,
       code: function() {
-        var value = this.searchData = this.view.data;
-        if ( ! value ) {
-          this.predicate = this.True.create();
-          return;
-        }
-        // TODO: dont think we ever use anything other than richSearch, maybe remove the boolean and only perform richSearch
-        if ( this.richSearch ) {
-          if ( this.searchMode === this.SearchMode.FULL ) {
-            this.predicate = this.OR(
-              this.queryParser.parseString(value) || this.FALSE,
-              this.KEYWORD(value)
-            );
-          } else if ( this.searchMode === this.SearchMode.MQL ) {
-            this.predicate = this.queryParser.parseString(value) || this.FALSE;
-          } else {
-            this.predicate = this.KEYWORD(value);
-          }
-        } else if ( this.checkStrictEquality ) {
-          this.predicate = this.EQ(this.property, value);
-        } else if ( this.searchMode === this.SearchMode.SIMPLE ) {
-          this.predicate = this.CONTAINS_IC(this.property, value);
-        } else {
-          this.predicate = this.False.create();
-        }
+        var value = this.data = this.view.data;
+
+        this.predicate = value ?
+          this.queryParser.parseString(value) :
+          this.True.create() ;
       }
     }
   ]

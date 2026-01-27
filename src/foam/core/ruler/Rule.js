@@ -204,9 +204,7 @@ foam.CLASS({
       readPermissionRequired: true,
       writePermissionRequired: true,
       postSet: function(_, nu) {
-        if ( nu > 0
-          && ! this.saveHistory
-        ) {
+        if ( nu > 0 && ! this.saveHistory ) {
           this.saveHistory = true;
         }
       }

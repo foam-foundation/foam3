@@ -180,7 +180,7 @@ foam.CLASS({
               .addClass('p')
               .forEach(data || [], function(e, i) {
                 var row = self.Row.create({ index: i, value: e });
-                e && e.sub(self.updateDataWithoutFeedback);
+                e && e.sub && e.sub(self.updateDataWithoutFeedback);
                 this
                   .startContext({ data: row })
                     .start(self.Cols)

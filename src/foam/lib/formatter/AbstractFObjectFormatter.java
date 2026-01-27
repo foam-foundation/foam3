@@ -28,6 +28,8 @@ public abstract class AbstractFObjectFormatter
   protected PropertyPredicate optionalPredicate_         = new StorageOptionalPropertyPredicate();
   protected Map<String, List<PropertyInfo>> propertyMap_ = new HashMap<>();
 
+  public static char COMMA = ',';
+
   public AbstractFObjectFormatter(X x) {
     setX(x);
   }
@@ -52,10 +54,29 @@ public abstract class AbstractFObjectFormatter
     return b_;
   }
 
-  public void reset() {
-    builder().setLength(0);
+  // Determining when to output and not output commas is becoming non trivial.
+  // When in doubt, use this method.
+  public StringBuilder maybeAppendComma() {
+    int i = b_.length() - 1;
+
+    while ( i > 0 && Character.isWhitespace(b_.charAt(i)) ) i--;
+
+    if ( i == 0 ) return b_;
+
+    char lastChar = b_.charAt(i);
+
+    if ( lastChar == '{' || lastChar == '[' ) return b_;
+
+    return append(COMMA);
   }
 
+  public void setLength(int length) {
+    b_.setLength(length);
+  }
+
+  public void reset() {
+    setLength(0);
+  }
 
   public void output(float val, int precision) {
     output(val);

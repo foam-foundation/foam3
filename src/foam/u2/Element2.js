@@ -231,6 +231,8 @@ foam.CLASS({
       if ( this.parentNode )
         this.parentNode.childNodes = this.parentNode.childNodes.filter(v => v !== this);
       this.parentNode = e;
+      // This is extremely important as otherwise the wrapper might detach with old parents
+      this.clearPrivate_('listeners');
       for ( let el = this.element_.nextSibling;
         el != this.endElement_; el = el.nextSibling ) {
         this.nodesToMove_.push(el);
@@ -265,8 +267,6 @@ foam.CLASS({
 
   properties: [
     'fn', // a foam.lang.DynamicFunction
-    'before',
-    'after',
     {
       name: 'element_',
       factory: function() { return this.document.createComment('dynamic'); }
@@ -302,14 +302,12 @@ foam.CLASS({
 
       // Before rendering, remove all children between dynamic and /dynamic
       this.fn.pre = () => {
-        this.before?.call?.(this);
         this.requiresRemoval = true;
         //        this.maybeRemovePreviousChildren();
       };
 
       this.fn.post = () => {
         this.maybeRemovePreviousChildren();
-        this.after?.call?.(this);
       };
 
       this.onDetach(this.fn);
@@ -338,8 +336,6 @@ foam.CLASS({
   properties: [
     'dao',
     'code',
-    'before',
-    'after',
     {
       class: 'Int',
       name: 'batch',
@@ -467,6 +463,8 @@ foam.CLASS({
     'translationService?'
   ],
 
+  // TODO: this is relatively expensive for how little it is used
+  // Try to find a cheaper way.
   exports: [
     'namespace'
   ],
@@ -591,6 +589,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'shown',
+      hidden: true,
       value: true,
       postSet: function(o, n) {
         if ( o === n ) return;
@@ -727,7 +726,7 @@ foam.CLASS({
     // from state
 
     function replaceElement_(el) {
-      el.parentNode.replaceChild(this, el);
+      el.parentNode.replaceChild(this.element_, el);
     },
 
     // TODO: for backward compatibility with U2, remove when all code ported
@@ -773,16 +772,18 @@ foam.CLASS({
       if ( this.extraStyle ) this.style(this.extraStyle);
     },
 
-    function mutationObserver(fn, config = { attributes: true, childList: true, characterData: true }) {
+    function mutationObserver(fn, config = { attributes: true, childList: true, characterData: true, subtree: true }) {
       var observer = new MutationObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
+      return this;
     },
 
     function resizeObserver(fn, config = { box: 'content-box' }) {
       var observer = new ResizeObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
+      return this;
     },
 
     function observeScrollHeight() {
@@ -865,14 +866,15 @@ foam.CLASS({
       // if ( this.of ) count += this.initKeyMap_(keyMap, this.of);
       if ( keyMap ) {
         this.keyMap_ = keyMap;
-        var target = this.parentNode || this;
+        // TODO Checking a concrete type like FunctionNode here seems wrong.
+        var target = (this.parentNode && !foam.u2.FunctionNode.isInstance(this.parentNode)) ? this.parentNode : this;
 
         // Ensure that target is focusable, and therefore will capture keydown
         // and keypress events.
         target.tabIndex = target.tabIndex || 1;
 
-        target.on('keydown',  this.onKeyboardShortcut, true);
-        target.on('keypress', this.onKeyboardShortcut, true);
+        target.on('keydown',  this.onKeyboardShortcut);
+        target.on('keypress', this.onKeyboardShortcut);
       }
     },
 
@@ -1473,12 +1475,10 @@ foam.CLASS({
      * @param {Boolean} update True if you'd like changes to each record to be put to
      * the DAO
      */
-    function select(dao, f, before, after) {
+    function select(dao, f) {
       this.add(foam.u2.DAOSelectNode.create({
         dao:  dao,
         code: f,
-        before,
-        after,
       }, this));
       return this;
     },
@@ -1575,9 +1575,14 @@ foam.CLASS({
   refines: 'foam.lang.FObject',
   methods: [
     function toE(args, X) {
+      var ctx = X?.__context__ || this.__context__ || foam.__context__;
+      // Create isolated memento so inline views don't participate in navigation chain
+      var isolatedCtx = ctx.createSubContext({
+        memento_: foam.u2.memento.Memento.create({obj: this}, ctx)
+      });
       return foam.u2.ViewSpec.createView(
         { class: 'foam.u2.DetailView', showActions: true, data: this },
-        args, this, X);
+        args, this, isolatedCtx);
     }
   ]
 });
@@ -1659,6 +1664,7 @@ foam.CLASS({
       // Without wrapping in a PropertyBorder
       name: '__',
       transient: true,
+      compare: function() { return 0; },
       getter: function() {
         return { __proto__: this, toE: this.toPropertyView };
       }

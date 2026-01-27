@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'DigFormatDriver',
   abstract: true,
 
-  flags: ['java'],
+  flags: [ 'java' ],
 
   javaImports: [
     'foam.lang.*',

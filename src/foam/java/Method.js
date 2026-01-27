@@ -87,13 +87,17 @@ foam.CLASS({
       if ( this.abstract ) {
         o.out(';');
       } else {
-        o.out(' {\n');
-
-        o.increaseIndent();
-        o.out(this.body);
-        o.decreaseIndent();
-        o.indent();
-        o.out('}');
+        var body = this.body.data;
+        if ( body.indexOf('\n') == -1 && body.indexOf('//') == -1 && body.length < 60 ) {
+          o.out(' { ' + body + '}');
+        } else {
+          o.out(' {\n');
+          o.increaseIndent();
+          o.out(this.body);
+          o.decreaseIndent();
+          o.indent();
+          o.out('}');
+        }
       }
 
     }

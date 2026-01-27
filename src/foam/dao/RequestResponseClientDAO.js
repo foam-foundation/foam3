@@ -28,10 +28,11 @@ foam.CLASS({
 Suitable for usage against backends that don't support listen(), such as plain HTTP based servers.`,
 
   methods: [
-    function put_(x, obj) {
-      obj.normalizeObj();
+    async function put_(x, obj) {
+      var superMethod = this.SUPER;
+      await obj.normalizeObj();
       var self = this;
-      return this.SUPER(null, obj).then(function(obj) {
+      return superMethod.call(this, x, obj).then(function(obj) {
         self.on.put.pub(obj);
         return obj;
       });
@@ -113,7 +114,7 @@ Suitable for usage against backends that don't support listen(), such as plain H
       name: 'cmd_',
       code: function cmd_(x, obj) {
         var self = this;
-        var superMethod = this.SUPER.bind(this);
+        var superMethod = this.SUPER;
 
         function processCmd() {
           /** Force the DAO to publish a 'reset' notification. **/
@@ -130,7 +131,7 @@ Suitable for usage against backends that don't support listen(), such as plain H
           if ( foam.dao.DAO.PURGE_CMD === obj ) {
             return obj;
           }
-          return superMethod(x, obj);
+          return superMethod.call(self, x, obj);
         }
         if (obj && obj.normalizeObj && typeof obj.normalizeObj === 'function') {
           var result = obj.normalizeObj();

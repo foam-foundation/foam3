@@ -70,6 +70,10 @@ foam.CLASS({
       name: 'displayHeight',
       attribute: true
     },
+    {
+      name: 'title',
+      attribute: true
+    },
     ['alpha', 1.0],
     {
       class: 'String',
@@ -137,7 +141,7 @@ foam.CLASS({
           }
 
           this.start('img')
-            .attrs({ src: src, role: self.role })
+            .attrs({ src: src, role: self.role, title: self.title })
             .style({
               height:  displayHeight,
               width:   displayWidth,

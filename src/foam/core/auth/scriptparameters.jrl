@@ -1,0 +1,7 @@
+c({
+  class:"foam.core.script.ScriptParameter",
+  id:"LogUserFailedPermissionChecks",
+  name:"LogUserFailedPermissionChecks",
+  parameters:{"sessionID":"8ac803b0-2208-4a4f-bedb-63679050a6e7"},
+  enabled:true
+})

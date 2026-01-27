@@ -39,8 +39,9 @@ foam.CLASS({
       o.indent();
       o.out(this.visibility, this.visibility ? ' ' : '',
         this.static ? 'static ' : '',
-        this.final ? 'final ' : '',
+        this.final  ? 'final '  : '',
         this.type, ' ', this.name);
+
       if ( this.initializer ) {
         o.increaseIndent();
         o.out(' = ', this.initializer);
@@ -48,7 +49,6 @@ foam.CLASS({
       } else {
         o.out(';');
       }
-      o.out('\n');
     }
   ]
 });

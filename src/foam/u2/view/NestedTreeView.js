@@ -93,6 +93,7 @@ foam.CLASS({
               ariaLabel: labelString,
               size: 'SMALL'
             }).
+              attrs({ title: labelString }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().

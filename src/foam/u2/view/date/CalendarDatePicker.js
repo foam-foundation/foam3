@@ -8,24 +8,11 @@ foam.CLASS({
   package: 'foam.u2.view.date',
   name: 'CalendarDatePicker',
   extends: 'foam.u2.Element',
+
   requires: [
     'foam.u2.view.date.Weekday'
   ],
-  properties: [
-    {
-      class: 'Date',
-      name: 'data'
-    },
-    {
-      name: 'nodeName',
-      value: 'table'
-    },
-    {
-      class: 'Boolean',
-      name: 'skipDateUpdate',
-      value: false
-    }
-  ],
+
   css: `
     ^selected_day_cell {
       background-color: $backgroundTertiary;;
@@ -64,6 +51,22 @@ foam.CLASS({
       color: $textTertiary;
     }
   `,
+
+  properties: [
+    {
+      class: 'Date',
+      name: 'data'
+    },
+    {
+      name: 'nodeName',
+      value: 'table'
+    },
+    {
+      class: 'Boolean',
+      name: 'skipDateUpdate',
+      value: false
+    }
+  ],
 
   methods: [
     function daysInMonth(month, year) {

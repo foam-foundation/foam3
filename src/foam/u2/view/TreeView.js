@@ -314,6 +314,7 @@ foam.CLASS({
               themeIcon: self.data.themeIcon || '',
               icon: self.data.icon || ''
             }).
+              attrs({ title: labelString }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().

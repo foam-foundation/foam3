@@ -20,6 +20,7 @@ foam.CLASS({
       name: 'placeId'
     }
   ],
+
   methods: [
     function toSummary() {
       return this.description;

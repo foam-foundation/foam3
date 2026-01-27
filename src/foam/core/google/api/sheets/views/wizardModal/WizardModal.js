@@ -12,6 +12,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.stack.Stack',
+    'foam.u2.stack.StackBlock',
     'foam.u2.stack.StackView'
   ],
 
@@ -71,15 +72,21 @@ foam.CLASS({
     function render() {
       if ( ! this.views ) {
         console.error('No views to render WizardModal');
-        return; // No views to render. Quit.
+        return;
       }
-      this.start({ class: 'foam.u2.stack.StackView', data: this.subStack, showActions: false }).style({'width':'auto', 'height':'auto'}).end();
+      this.start({ class: 'foam.u2.stack.StackView', data: this.subStack, showActions: false })
+        .style({ 'width': 'auto', 'height': 'auto' })
+      .end();
     },
+
     function pushToId(id) {
       // Set the data to be the data exported from the wizard, not the stack.
       this.views[id].data$ = this.data$;
 
-      this.subStack.push(this.views[id].view);
+      this.subStack.push(this.StackBlock.create({
+        view: this.views[id].view,
+        id: id
+      }));
     }
   ]
 });

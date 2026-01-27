@@ -290,6 +290,17 @@ foam.CLASS({
           }
         }
 
+        // Generate csvParser override for primitive types when explicitly provided
+        // This allows custom CSV parsing for Double, Int, Long, etc. (e.g., handling "NULL" strings)
+        if ( primitiveType.includes(this.propType) && this.csvParser ) {
+          m.push({
+            name: 'csvParser',
+            type: 'foam.lib.parse.Parser',
+            visibility: 'public',
+            body: 'return ' + this.csvParser + ';'
+          });
+        }
+
         if ( this.compare !== '' ) {
           m.push({
             name: 'compare',

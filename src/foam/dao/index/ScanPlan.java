@@ -22,6 +22,7 @@ public class ScanPlan
   protected Object     state_;
   protected Comparator order_;
   protected Predicate  predicate_;
+  protected long       limit_;
   protected long       cost_;
   protected Index      tail_;
   protected boolean    reverse_ = false;
@@ -29,6 +30,7 @@ public class ScanPlan
   // TODO: add ThenBy support for 'order'
   public ScanPlan(Object state, long skip, long limit, Comparator order, Predicate predicate, Indexer indexer, Index tail) {
     state_     = state;
+    limit_     = limit;
     order_     = order;
     predicate_ = predicate;
     cost_      = calculateCost(indexer, skip, limit);
@@ -67,7 +69,7 @@ public class ScanPlan
   public void select(Object unused, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     if ( state_ == null ) return;
     // Use the state_, order_, predicate_... which we have already pre-processed.
-    ((TreeNode) state_).select((TreeNode) state_, sink, skip, limit, order_, predicate_, tail_, reverse_);
+    ((TreeNode) state_).select((TreeNode) state_, sink, skip, limit_, order_, predicate_, tail_, reverse_);
   }
 
   public SelectPlan restate(Object state) {

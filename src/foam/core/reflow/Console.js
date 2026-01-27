@@ -28,7 +28,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'flowName',
-      onKey: true
     },
     {
       class: 'Array',
@@ -51,6 +50,18 @@ foam.CLASS({
   ],
 
   methods: [
+    function detachFlowChild(c) {
+      // Helper function to properly detach a flow child
+      // Detach the block's value first (e.g., Script, etc.)
+      if ( c.value && c.value.detach ) {
+        c.value.detach();
+      }
+      // Then detach the block wrapper itself
+      if ( c.detach ) {
+        c.detach();
+      }
+    },
+
     function toSummary() {
       return this.flowName;
     },
@@ -80,8 +91,8 @@ foam.CLASS({
     function addFlowChild(f) {
       if ( f.deleted_ ) return;
       f.flowParent = this;
-      this.addFlowChild_ && this.addFlowChild_(f);
       this.flowChildren$push(f);
+      this.addFlowChild_ && this.addFlowChild_(f);
     },
 
     function removeFlowChild(f) {
@@ -100,7 +111,10 @@ foam.CLASS({
     },
 
     function removeAllFlowChildren() {
-      this.removeFlowChild_ && this.flowChildren.forEach(c => this.removeFlowChild_(c));
+        this.flowChildren.forEach(c => {
+          this.removeFlowChild_(c);
+          this.detachFlowChild(c);
+        });
       this.flowChildren = [];
     }
   ]
@@ -184,6 +198,8 @@ foam.CLASS({
   methods: [
     function render() {
       let self = this;
+      // Hide HOME button in limited edit console mode
+      const isLimitedEditConsole = this.data.flowMode.isLimitedEditMode && this.data.flowMode.showsPrompts;
 
       var fullVersion = this.data.value.dynamic(function(version, revision) {
         this.add(`v${version}.${revision}`);
@@ -193,7 +209,9 @@ foam.CLASS({
         .start()
           .addClass(this.myClass('header-container'))
           .start().addClass(this.myClass('navigator'))
-            .tag(this.HOME)
+            .callIf(! isLimitedEditConsole, function() {
+              this.tag(self.HOME);
+            })
             .start(foam.u2.tag.Image, {
               glyph: 'rightChevron',
               embedSVG: true
@@ -203,7 +221,7 @@ foam.CLASS({
                 class: 'foam.u2.TextField',
                 data$: this.data.value.name$,
                 placeholder: 'Unnamed',
-                onKey: true
+                onKey: false
               })
                 .addClass(this.myClass('name'))
               .end()
@@ -212,16 +230,16 @@ foam.CLASS({
           .end()
 
           .start().addClass(this.myClass('header-actions'))
-            .startContext({ data: this.data.mementoMgr })
-              .tag(this.data.mementoMgr.BACK)
-              .tag(this.data.mementoMgr.FORTH)
+            .startContext({ data: this })
+              .tag(this.UNDO)
+              .tag(this.REDO)
             .endContext()
             .start('span').addClass(this.myClass('separator')).end()
             .startContext({data: this})
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: [this.RESET, this.CANCEL, this.CLEAR],
+                data: isLimitedEditConsole ? [this.CANCEL] : [this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -231,7 +249,7 @@ foam.CLASS({
                 horizontal: false
               })
               .start('span').addClass(this.myClass('separator')).end()
-              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c == self.FlowMode.CONSOLE ? 'fullScreen' : 'minimize') })
+              .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c.fullscreenIcon) })
             .endContext()
             // callIf(this.data.showPrompts$, function() {
             //   this.start().addClass(self.myClass('save-text'))
@@ -252,7 +270,7 @@ foam.CLASS({
       size: 'SMALL',
       code: function(X) {
         this.showNav = true;
-        X.routeTo('flows');
+        X.routeTo('flows'); // consider route to default menu...
       }
     },
     {
@@ -264,6 +282,10 @@ foam.CLASS({
         return ! showPrompts;
       },
       code: function() {
+        var target = this.data.flowMode.getToggleTarget();
+        if ( target ) {
+          this.data.flowMode = target;
+        }
         this.data.showPrompts = true;
       }
     },
@@ -295,8 +317,8 @@ foam.CLASS({
       label: 'Save',
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       size: 'SMALL',
-      isEnabled: function(data$flowErrors_) {
-        return ! data$flowErrors_;
+      isEnabled: function(data$flowErrors_, data$isLoading_) {
+        return ! data$flowErrors_ && ! data$isLoading_;
       },
       isAvailable: function(showPrompts) {
         return showPrompts;
@@ -359,20 +381,104 @@ foam.CLASS({
       }
     },
     {
+      name: 'undo',
+      label: '',
+      help: 'Undo',
+      buttonStyle: 'BLACK',
+      themeIcon: 'redo',
+      isEnabled: function(data$mementoMgr$stackSize_, data$isLoading_) {
+        return !! data$mementoMgr$stackSize_ && ! data$isLoading_;
+      },
+      code: function() {
+        this.data.mementoMgr.back();
+      }
+    },
+    {
+      name: 'redo',
+      label: '',
+      help: 'Redo',
+      buttonStyle: 'BLACK',
+      themeIcon: 'undo',
+      isEnabled: function(data$mementoMgr$redoSize_, data$isLoading_) {
+        return !! data$mementoMgr$redoSize_ && ! data$isLoading_;
+      },
+      code: function() {
+        this.data.mementoMgr.forth();
+      }
+    },
+    {
       name: 'fullScreen',
       toolTip: 'Toggle Presentation Mode / ESC',
       label: '',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       isAvailable: function(data$flowMode) {
-        // Hide toggle button in PRESENTATION_ONLY mode
-        return data$flowMode != this.FlowMode.PRESENTATION_ONLY;
+        return data$flowMode.showsFullscreenButton;
       },
       code: function() {
-        if (this.data.flowMode == this.FlowMode.CONSOLE) {
-          this.data.flowMode = this.FlowMode.PRESENTATION;
-        } else if (this.data.flowMode == this.FlowMode.PRESENTATION) {
-          this.data.flowMode = this.FlowMode.CONSOLE;
+        var target = this.data.flowMode.getToggleTarget();
+        if ( target ) {
+          this.data.flowMode = target;
         }
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'LimitEditHeader',
+  extends: 'foam.u2.View',
+
+  requires: [
+    'foam.core.reflow.FlowMode'
+  ],
+
+  css: `
+    ^container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    ^title {
+      font-weight: $font-medium;
+      color: $textDefault;
+    }
+  `,
+
+  methods: [
+    function render() {
+      var self = this;
+      this.
+        addClass().
+        add(this.slot(function(flow, permission) {
+          var e = self.E().start().addClass(self.myClass('container'));
+
+          if ( permission ) {
+            var action = self.EDIT_LIMITED.clone();
+            action.availablePermissions = [ permission ];
+            action.availablePermissionsSlot_ = null; // reset permission cache
+
+            e.startContext({ data: self })
+              .tag(action)
+            .endContext();
+          }
+
+          return e.end();
+        }, this.data.value$, this.data.value$.dot('limitedEditPermission')))
+        ;
+    }
+  ],
+
+  actions: [
+    {
+      name: 'editLimited',
+      label: 'Edit',
+      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
+      size: 'SMALL',
+      code: function() {
+        this.data.flowMode = this.FlowMode.LIMIT_EDIT_CONSOLE;
       }
     }
   ]
@@ -383,8 +489,11 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Block',
   extends: 'foam.u2.Accordion',
+  implements: [ 'foam.core.reflow.Flowable' ],
 
   requires: ['foam.u2.WrapperNode'],
+
+  mixins: [ 'foam.u2.StyleConfigurator' ],
 
   implements: [ 'foam.core.reflow.Flowable' ],
 
@@ -425,7 +534,6 @@ foam.CLASS({
       width: 100%;
       height: fit-content;
       overflow-y: hidden;
-      padding: 16px;
     }
     ^.expanded > ^toolbar {
       padding: 0 0 0.8rem 16px;
@@ -442,12 +550,12 @@ foam.CLASS({
     {
       name: 'general',
       order: 100,
-      properties: ['flowName', 'cmd']
+      properties: ['flowName', 'cmd', 'shown']
     },
     {
-      name: 'borderSettings',
+      name: 'titleSettings',
       order: 200,
-      properties: ['borderClass', 'border']
+      properties: ['border']
     }
   ],
 
@@ -470,33 +578,24 @@ foam.CLASS({
       hidden: true
     },
     {
-      class: 'Class',
-      name: 'borderClass',
-      label: 'Border Type',
-      factory: function() { return foam.u2.borders.NullBorder; },
-      view: function(_,X) {
-        // TODO: replace with strategizer
-        // TODO: add a new card with title border that uses the foam.u2.borders.CardBorder
-        // rather than foam.dashboard.view.Card
-        return {
-          class: 'foam.u2.view.ChoiceView',
-          choices: [
-            [foam.u2.borders.NullBorder, 'None'],
-            [foam.u2.borders.CardBorder, 'Card'],
-            [foam.u2.borders.BackgroundCard, 'Background'],
-            [foam.u2.borders.SpacingBorder, 'Padding'],
-            [foam.dashboard.view.CardWrapper, 'Card with Title']
-          ]
-        };
-      }
+      class: 'Boolean',
+      name: 'shown',
+      hidden: false
+    },
+    {
+      class: 'Boolean',
+      name: 'allowLimitedEdit',
+      documentation: 'When true, Block configuration remains accessible in LIMIT_EDIT_CONSOLE mode.'
     },
     {
       class: 'foam.u2.ViewSpec',
       name: 'border',
       label: 'Border Properties',
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
+      label: '',
       factory: function() { return {}; },
       preSet: function(_, n) {
-        // Dont save the class so that the ViewSpec doesnt convert to a view
+        // Dont save the class so that the ViewSpec doesn't convert to a view
         // The fromJSON should handle this but the scripts dont store the class
         // so parsing ignores all the fromJSON
         if ( n.class ) delete n.class;
@@ -509,6 +608,13 @@ foam.CLASS({
           allowClassChange: false
         };
       }
+    },
+    {
+      class: 'Class',
+      name: 'borderClass',
+      hidden: true,
+      label: 'Border Type',
+      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
     },
     {
       name: 'borderEl_',
@@ -525,12 +631,24 @@ foam.CLASS({
   ],
 
   methods: [
+    function setTitle(title) {
+      if ( this.borderEl_ ) {
+        this.borderEl_.title = title;
+      } else {
+        this.border.title = title;
+      }
+    },
     function init() {
       let self = this;
       this.SUPER();
-      this.content.tag(this.borderClass, { ...this.border }, self.borderEl_$);
+      this.content.tag(foam.u2.borders.TitleBorder, { ...this.border }, self.borderEl_$);
       this.out = this.WrapperNode.create({ parentNode: this.content }, this);
       self.borderEl_.add(this.out);
+      // Since border's properties will be copied over after in includeScript, set it here
+      this.onDetach(this.border$.sub(() => {
+        this.borderEl_.copyFrom(this.border);
+        this.maybeMigrate();
+      }));
     },
 
     function render() {
@@ -540,6 +658,9 @@ foam.CLASS({
       this.title.add(this.flowName$);
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
+      this.initCSSProps(this.content);
+      if ( ! this.padding_st )
+        this.padding_st = '16px';
     },
 
     function addValue(o, skipOutput) {
@@ -564,7 +685,10 @@ foam.CLASS({
     },
 
     function outputJSON(json) {
-      json.outputFObject_(this, this.cls_, [ this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.BORDER_CLASS, this.BORDER ]);
+      json.outputFObject_(this, this.cls_, [
+        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
+        this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
+      ]);
     }
   ],
 
@@ -583,6 +707,26 @@ foam.CLASS({
   ],
 
   listeners: [
+    function maybeMigrate() {
+      // Legacy support
+      if ( this.borderClass && this.borderClass !== foam.u2.borders.TitleBorder ) {
+        switch ( this.borderClass ) {
+          case foam.u2.borders.CardBorder:
+            this.border_st = 'solid 1px $borderDefault';
+            this.padding_st = '16px';
+            break;
+          case foam.u2.borders.BackgroundCard:
+            this.background_st = this.border.backgroundColor || '$backgroundSecondary';
+            this.padding_st = this.border.padding || '2.4rem';
+            break;
+          case foam.u2.borders.SpacingBorder:
+            this.padding_st = this.border.padding || '1rem';
+            break;
+        }
+        // After migration clear the borderClass so it is never run again on this block;
+        this.borderClass = null;
+      }
+    },
     {
       name: 'pubUpdate',
       on: ['this.propertyChange.borderClass', 'this.propertyChange.border'],
@@ -593,12 +737,12 @@ foam.CLASS({
     {
       name: 'replaceBorder',
       isFramed: true,
-      on: ['this.propertyChange.borderClass'],
       code: function() {
         if ( ! this.WrapperNode.isInstance(this.out) ) return;
-        let el = this.borderClass.create({...(this.border || {})}, this);
+        let el = foam.u2.borders.TitleBorder.create({...(this.border || {})}, this);
+        this.borderEl_.parentNode.add(el);
         this.out.moveTo(el);
-        el.replaceElement_(this.borderEl_);
+        this.borderEl_.remove();
         this.borderEl_ = el;
       }
     },
@@ -618,10 +762,14 @@ foam.CLASS({
   name: 'Layout',
   extends: 'foam.u2.Element',
 
+  imports: [
+    'window'
+  ],
+
   css: `
     ^ {
       display: grid;
-      grid-template-rows: max-content;
+      grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: 100vh;
     }
@@ -629,6 +777,9 @@ foam.CLASS({
       display: flex;
       flex-direction: row;
       overflow: auto;
+      grid-row: 2;
+      height: 100%;
+      min-height: 0;
     }
     ^header {
       padding: 5px 24px;
@@ -659,7 +810,7 @@ foam.CLASS({
     }
     ^r {
       overflow-y: auto;
-      width: 30%;
+      width: 40%;
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
@@ -726,12 +877,24 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'rightWidth',
-      value: 360
+      factory: function() {
+        var saved = this.window.localStorage['foam.reflow.layout.rightWidth'];
+        return saved ? parseInt(saved) : 550;
+      },
+      postSet: function(_, n) {
+        this.window.localStorage['foam.reflow.layout.rightWidth'] = n;
+      }
     },
     {
       class: 'Int',
       name: 'leftWidth',
-      value: 300
+      factory: function() {
+        var saved = this.window.localStorage['foam.reflow.layout.leftWidth'];
+        return saved ? parseInt(saved) : 300;
+      },
+      postSet: function(_, n) {
+        this.window.localStorage['foam.reflow.layout.leftWidth'] = n;
+      }
     },
     'oldX_', 'oldWidth_'
   ],
@@ -821,7 +984,144 @@ foam.CLASS({
 foam.ENUM({
   package: 'foam.core.reflow',
   name: 'FlowMode',
-  values: [ 'CONSOLE', 'PRESENTATION', 'PRESENTATION_ONLY' ]
+
+  documentation: 'Defines the display and interaction mode for Flow/Console views.',
+
+  properties: [
+    {
+      class: 'Boolean',
+      name: 'showsPrompts',
+      documentation: 'Whether to show UI prompts, sidebars, and editing UI'
+    },
+    {
+      class: 'Boolean',
+      name: 'showsHeader',
+      documentation: 'Whether to show the header bar'
+    },
+    {
+      class: 'Boolean',
+      name: 'autoscrollEnabled',
+      documentation: 'Whether to auto-scroll to bottom after command execution'
+    },
+    {
+      class: 'Boolean',
+      name: 'autosaveEnabled',
+      documentation: 'Whether to auto-save script changes to localStorage'
+    },
+    {
+      class: 'Boolean',
+      name: 'allowsEscapeToggle',
+      documentation: 'Whether ESC key can toggle presentation mode'
+    },
+    {
+      class: 'Boolean',
+      name: 'showsFullscreenButton',
+      documentation: 'Whether to show the fullscreen/minimize toggle button'
+    },
+    {
+      class: 'String',
+      name: 'fullscreenIcon',
+      documentation: 'Icon name for fullscreen button (fullScreen or minimize)'
+    },
+    {
+      class: 'Boolean',
+      name: 'isLimitedEditMode',
+      documentation: 'Whether this is a limited edit mode variant'
+    },
+    {
+      class: 'Boolean',
+      name: 'checksAutosave',
+      documentation: 'Whether to check for and prompt about autosaved scripts'
+    },
+    {
+      class: 'Boolean',
+      name: 'showsHelpKey',
+      documentation: 'Whether F1 help key is available'
+    },
+    {
+      name: 'getToggleTarget',
+      documentation: 'Returns the FlowMode to switch to when toggling, null if toggle not allowed',
+      value: function() { return null; }
+    }
+  ],
+
+  values: [
+    {
+      name: 'CONSOLE',
+      label: 'Console',
+      showsPrompts: true,
+      showsHeader: true,
+      autoscrollEnabled: true,
+      autosaveEnabled: true,
+      allowsEscapeToggle: true,
+      showsFullscreenButton: true,
+      fullscreenIcon: 'fullScreen',
+      isLimitedEditMode: false,
+      checksAutosave: true,
+      showsHelpKey: true,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
+    },
+    {
+      name: 'PRESENTATION',
+      label: 'Presentation',
+      showsPrompts: false,
+      showsHeader: true,
+      autoscrollEnabled: true,
+      autosaveEnabled: true,
+      allowsEscapeToggle: true,
+      showsFullscreenButton: true,
+      fullscreenIcon: 'minimize',
+      isLimitedEditMode: false,
+      checksAutosave: true,
+      showsHelpKey: false,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.CONSOLE; }
+    },
+    {
+      name: 'PRESENTATION_ONLY',
+      label: 'Presentation Only',
+      showsPrompts: false,
+      showsHeader: false,
+      autoscrollEnabled: false,
+      autosaveEnabled: false,
+      allowsEscapeToggle: false,
+      showsFullscreenButton: false,
+      fullscreenIcon: 'minimize',
+      isLimitedEditMode: false,
+      checksAutosave: false,
+      showsHelpKey: false,
+      getToggleTarget: function() { return null; }
+    },
+    {
+      name: 'LIMIT_EDIT',
+      label: 'Limited Edit',
+      showsPrompts: false,
+      showsHeader: true,
+      autoscrollEnabled: false,
+      autosaveEnabled: false,
+      allowsEscapeToggle: false,
+      showsFullscreenButton: false,
+      fullscreenIcon: 'minimize',
+      isLimitedEditMode: true,
+      checksAutosave: true,
+      showsHelpKey: false,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT_CONSOLE; }
+    },
+    {
+      name: 'LIMIT_EDIT_CONSOLE',
+      label: 'Limited Edit Console',
+      showsPrompts: true,
+      showsHeader: true,
+      autoscrollEnabled: true,
+      autosaveEnabled: true,
+      allowsEscapeToggle: true,
+      showsFullscreenButton: true,
+      fullscreenIcon: 'fullScreen',
+      isLimitedEditMode: true,
+      checksAutosave: true,
+      showsHelpKey: false,
+      getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT; }
+    }
+  ]
 });
 
 
@@ -833,6 +1133,12 @@ foam.CLASS({
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ 'foam.u2.memento.Memorable' ],
 
+  documentation: `
+    If you want to embed FLOWs in regular U3 views without all of the editing UI, you can do it like this:
+    requires: [ 'foam.core.reflow.Console' ]
+    ...
+    this.add(self.Console.create({route: 'name of flow to load', flowMode: foam.core.reflow.FlowMode.PRESENTATION_ONLY});
+  `,
   requires: [
     'foam.core.reflow.Flowable',
     'foam.core.reflow.ReflowHeader',
@@ -842,6 +1148,7 @@ foam.CLASS({
     'foam.core.reflow.ToolbarControl',
     'foam.core.reflow.Block',
     'foam.core.reflow.Flow',
+    'foam.core.reflow.LimitEditHeader',
     'foam.core.reflow.FlowMode',
     'foam.core.reflow.FlowableTree',
     'foam.core.reflow.Layout',
@@ -858,7 +1165,8 @@ foam.CLASS({
     'setTimeout',
     'toolbarControlDAO',
     'window',
-    'showNav'
+    'showNav',
+    'isMenuOpen'
   ],
 
   constants: [
@@ -888,6 +1196,7 @@ foam.CLASS({
     'scope',
     'scrollToBottom',
     'selected',
+    'selectFromTree',
     'showPrompts',
     'value as flow'
   ],
@@ -906,15 +1215,54 @@ foam.CLASS({
       flex: 1;
       overflow: auto;
       text-align: left;
-      width: 100%
+      width: 100%;
+      position: relative;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;
     }
-    ^ .foam-u2-ProgressView { width: 600px; }
     ^error {
       background: $backgroundDestructiveTertiary!important;
       color: $textDestructive;
+    }
+    ^loading-indicator {
+      position: absolute;
+      top: 200px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 32px;
+      background: $backgroundDefault;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      width: 400px;
+      max-width: 90%;
+      justify-content: center;
+    }
+    ^loading-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    ^loading-indicator .foam-u2-ProgressView {
+      width: 100%;
+    }
+    ^loading-text {
+      color: $textDefault;
+      font-size: 16px;
+      font-weight: $font-medium;
+      text-align: center;
+    }
+    ^loading-progress {
+      color: $textSecondary;
+      font-size: 14px;
+      text-align: center;
     }
   `,
 
@@ -930,6 +1278,13 @@ foam.CLASS({
       getter: function() {
         return {...this.localScope, ...this.flowScope};
       }
+    },
+    {
+      class: 'Enum',
+      of: 'foam.core.reflow.FlowMode',
+      name: 'flowMode',
+      value: 'CONSOLE',
+      memorable: true
     },
     {
       class: 'String',
@@ -959,6 +1314,18 @@ foam.CLASS({
       getter: function() { return 'flow'; }
     },
     {
+      class: 'Boolean',
+      name: 'showNavOnMount',
+      documentation: 'If provided, overrides nav visibility while this Console is mounted.',
+      factory: function() { return this.showNav; }
+    },
+    {
+      class: 'Boolean',
+      name: 'isMenuOpenOnMount',
+      documentation: 'If provided, overrides side menu open state while this Console is mounted.',
+      factory: function() { return this.isMenuOpen; }
+    },
+    {
       class: 'String',
       name: 'input',
       view: {
@@ -972,18 +1339,11 @@ foam.CLASS({
       name: 'out'
     },
     {
-      class: 'Enum',
-      of: 'foam.core.reflow.FlowMode',
-      name: 'flowMode',
-      value: 'CONSOLE',
-      memorable: true
-    },
-    {
       // class: 'Boolean',
       name: 'showPrompts',
       value: true,
       expression: function(flowMode) {
-        return flowMode === this.FlowMode.CONSOLE;
+        return flowMode.showsPrompts;
       },
       preSet: function(_, n) { return n === 'false' ? '' : n; },
 //      memorable: true // use flowMode
@@ -1025,13 +1385,42 @@ foam.CLASS({
     },
     'currentBlock',
     {
+      class: 'Boolean',
+      name: 'isLoading_',
+      hidden: true,
+      transient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'isLoadingMinimized_',
+      hidden: true,
+      transient: true,
+      value: false
+    },
+    {
+      class: 'Int',
+      name: 'loadingProgress_',
+      hidden: true,
+      transient: true,
+      value: 0
+    },
+    {
+      class: 'Int',
+      name: 'totalBlocks_',
+      hidden: true,
+      transient: true,
+      value: 0
+    },
+    {
+      class: 'Int',
+      name: 'loadingPercentage_',
+      hidden: true,
+      transient: true,
+      value: 0,
+      documentation: 'Progress percentage (0-100) for the loading indicator'
+    },
+    {
       name: 'selected',
-      postSet: function(o, n) {
-        if ( o === n ) return;
-        if (n && n.element_) {
-          n.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      },
       factory: function() { return this; }
     },
     {
@@ -1090,8 +1479,6 @@ foam.CLASS({
       if ( flow ) {
         await this.includeScript(flow.script);
       }
-
-      await this.eval_('postLoad', null, true);
     },
 
     async function includeScript(script, parent, skipParse) {
@@ -1101,8 +1488,18 @@ foam.CLASS({
         script :
         foam.json.parseString(script, ctx);
 
+      // Count total blocks for progress tracking (only at top level)
+      if ( ! parent ) {
+        this.totalBlocks_ = this.countBlocks(cs);
+        this.loadingProgress_ = 0;
+      }
+
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
+
+        // Update progress counter for all blocks (including nested)
+        this.loadingProgress_++;
+        this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
 
@@ -1119,16 +1516,32 @@ foam.CLASS({
           this.currentBlock.value.copyFrom(c.value);
         }
 
-        await this.currentBlock.value?.onLoad?.();
-
-        // CRITICAL: Refresh scope after value is fully set to ensure next command can access it
-        this.refreshFlowScope();
+        // Wrap onLoad in try-catch to prevent errors in one block from stopping other blocks
+        try {
+          await this.currentBlock.value?.onLoad?.();
+        } catch (error) {
+          console.error('Error loading block:', this.currentBlock.flowName, error);
+          // Continue processing other blocks even if this one failed
+        }
 
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
       }
+      if ( ! parent ){
+        await this.eval_('postLoad', null, true);
+      }
+    },
 
+    function countBlocks(blocks) {
+      if ( ! blocks || ! blocks.length ) return 0;
+      var count = blocks.length;
+      blocks.forEach(b => {
+        if ( b.flowChildren ) {
+          count += this.countBlocks(b.flowChildren);
+        }
+      });
+      return count;
     },
 
     function clearFlow() {
@@ -1150,8 +1563,15 @@ foam.CLASS({
       this.addClass(this.flowMode$.map(m => this.myClass(m.toString())));
 
       let oldShowNav = this.showNav;
-      this.showNav = false;
-      this.onDetach(() => { this.showNav = oldShowNav;});
+      let oldIsMenuOpen = this.isMenuOpen;
+      this.showNav = this.showNavOnMount;
+      this.isMenuOpen = this.isMenuOpenOnMount;
+      this.onDetach(() => {
+        this.showNav = oldShowNav;
+        this.isMenuOpen = oldIsMenuOpen;
+        // Detach all flow children when closing the flow page
+        this.flowChildren.forEach(c => this.detachFlowChild(c));
+      });
       this.SUPER();
 
       var self = this;
@@ -1183,21 +1603,38 @@ foam.CLASS({
       //   update this.value.script
 
       this.value.script$.sub(this.onScriptChange);
-
-      this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
-
+      this.onScriptChange();
       var layout = this.start(this.Layout);
 
-      layout.showLeft$  = this.showPrompts$;
-      layout.showRight$ = this.showPrompts$;
-      layout.showHeader$ = this.flowMode$.map(m => m != this.FlowMode.PRESENTATION_ONLY);
-      layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
+      layout.showLeft$   = this.showPrompts$;
+      layout.showRight$  = this.showPrompts$;
+      layout.showHeader$ = this.flowMode$.map(m => m.showsHeader);
       layout.middle.call(this.renderSelf, [this]);
-      layout.right.tag(this.ReflowConfigView, { data$: this.selected$});
 
-      layout.header.add(this.dynamic(function(showPrompts) {
-        this.tag(self.ReflowHeader, {data: self, showPrompts: showPrompts, resetFlow: self.clearFlow});
-      }));
+      let setupEditMode = () => {
+        this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
+        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
+        layout.right.tag(this.ReflowConfigView, { data$: this.selected$, flowMode$: this.flowMode$});
+      };
+
+      if ( this.showPrompts ) {
+        setupEditMode();
+      } else {
+        let sub = this.showPrompts$.sub(() => {
+          if ( this.showPrompts ) {
+            sub.detach();
+            setupEditMode();
+          }
+        });
+      }
+
+      layout.header.add(this.dynamic(function(flowMode, showPrompts) {
+        if ( flowMode.isLimitedEditMode && ! flowMode.showsPrompts ) {
+          this.tag(self.LimitEditHeader, { data: self });
+        } else {
+          this.tag(self.ReflowHeader, {data: self, showPrompts: showPrompts, resetFlow: self.clearFlow});
+        }
+      }, self.flowMode$, self.showPrompts$));
 
       await this.eval_('preLoad', null, true);
 
@@ -1212,6 +1649,29 @@ foam.CLASS({
         start('div', null, self.out$)
           .addClass(self.myClass('output')).
         end().
+        // Add loading indicator overlay
+        add(self.dynamic(function(isLoading_, isLoadingMinimized_) {
+          if ( isLoading_ && ! isLoadingMinimized_ ) {
+            this.start()
+              .addClass(self.myClass('loading-indicator'))
+              .start().addClass(self.myClass('loading-header'))
+                .start().addClass(self.myClass('loading-text'))
+                  .add('Loading Flow...')
+                .end()
+                .tag(self.MINIMIZE_LOADING)
+              .end()
+              .start().addClass(self.myClass('loading-progress'))
+                .add(self.loadingProgress_$.map(function(progress) {
+                  if ( self.totalBlocks_ > 0 ) {
+                    return `Loading block ${progress} of ${self.totalBlocks_}`;
+                  }
+                  return 'Preparing flow...';
+                }))
+              .end()
+              .tag(foam.u2.ProgressView, { data$: self.loadingPercentage_$ })
+            .end();
+          }
+        }, self.isLoading_$, self.isLoadingMinimized_$)).
         tag(self.ReflowToolBar);
 
         // These observers might cause scroll issues later when queries in the console can be edited
@@ -1326,7 +1786,9 @@ foam.CLASS({
           if ( ! block.flowName ) {
             // For commands like 'cells(2,3)' pickout 'cells' as the block name
             var m = cmd.match(/^\s*([a-zA-Z][a-zA-Z0-9_\$]*)\(/);
-            if ( m ) block.flowName = this.createFlowChildName(m[1]);
+            block.flowName = m ? m[1] : 'a';
+            // Make sure we aren't duplicating an existing name;
+            block.flowName = this.createFlowChildName(block.flowName);
           }
         } catch (x) {
           var i = cmd.indexOf(' ');
@@ -1352,7 +1814,6 @@ foam.CLASS({
 
         // Name the block if it hasn't already been named
         if ( ! block.flowName ) block.flowName = this.createFlowChildName('a');
-
         if ( typeof r === 'function' ) {
           if ( ! block.flowName.startsWith(cmd) )
             block.flowName = this.createFlowChildName(cmd);
@@ -1362,9 +1823,6 @@ foam.CLASS({
           r = await r;
         }
       }}}
-
-      // Re-set block in case the command changed currentBlock
-      // block = this.currentBlock;
 
       flowParent.addFlowChild(block);
 
@@ -1388,7 +1846,10 @@ foam.CLASS({
         }
       }
 
-      this.setTimeout(() => this.scrollToBottom(), 100);
+      // Don't auto-scroll in presentation-style modes
+      if ( this.flowMode.autoscrollEnabled ) {
+        this.setTimeout(() => this.scrollToBottom(), 100);
+      }
 
       return block;
     },
@@ -1405,6 +1866,7 @@ foam.CLASS({
     },
 
     function removeFlowChild_(c) {
+      this.detachFlowChild(c);
       c.remove();
     },
 
@@ -1475,6 +1937,21 @@ foam.CLASS({
       }
     },
 
+    function selectFromTree(block) {
+      /**
+       * Select a block from the tree view and scroll it into view.
+       * When selecting from the tree, we want to scroll because the block
+       * may not be visible. When clicking directly on a block in the center
+       * view, no scroll is needed since the block was already visible.
+       **/
+      this.selected = block;
+      // Block scroll during loading to prevent jumping while content is being built
+      if ( this.isLoading_ ) return;
+      if ( block && block.element_ ) {
+        block.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    },
+
     function generateScript() {
       var json = foam.json.Outputter.create({
         pretty: true,
@@ -1500,8 +1977,8 @@ foam.CLASS({
     },
 
     async function checkForAutosavedScript(scriptName) {
-      // Don't retrieve autosave for unnamed flows or in PRESENTATION_ONLY mode
-      if ( ! scriptName || this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return false;
+      // Don't retrieve autosave for unnamed flows or in modes that don't check autosave
+      if ( ! scriptName || ! this.flowMode.checksAutosave ) return false;
 
       var autosaveData = this.loadAutosaveData(scriptName);
       if ( ! autosaveData || ! autosaveData.script ) return false;
@@ -1565,9 +2042,9 @@ foam.CLASS({
     {
       name: 'helpKey',
       isAvailable: function(flowMode, input_) {
-        return this.flowMode == this.FlowMode.CONSOLE && input_.element_ === document.activeElement;
+        return flowMode.showsHelpKey && input_.element_ === document.activeElement;
       },
-      code: function() { this.help(); },
+      code: function() { this.eval_('help'); },
       keyboardShortcuts: [ 'f1' ]
     },
     {
@@ -1579,14 +2056,34 @@ foam.CLASS({
       name: 'toggleMode',
       // You can do this.showPrompts = true|false; from flow scripts
       code: function() {
-        // Don't allow toggling out of PRESENTATION_ONLY mode
-        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+        // Check if escape toggle is allowed for this mode
+        if ( ! this.flowMode.allowsEscapeToggle ) return;
 
-        this.flowMode = this.flowMode == this.FlowMode.CONSOLE ?
-          this.FlowMode.PRESENTATION :
-          this.FlowMode.CONSOLE ;
+        var target = this.flowMode.getToggleTarget();
+        if ( target ) {
+          this.flowMode = target;
+        }
+
+        // After toggleMode is executed the app may no longer have focus so thee
+        // keyboard shortcut won't work. Set focus to something so if you user presses escape again
+        // they can toggle back.
+        setTimeout(() => {
+          var focusable = this.el_().querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          var firstFocusable = focusable[1];
+          firstFocusable.focus();
+        }, 16);
       },
       keyboardShortcuts: [ 'escape' ]
+    },
+    {
+      name: 'minimizeLoading',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'minus',
+      label: '',
+      code: function() {
+        this.isLoadingMinimized_ = true;
+      }
     },
     {
       name: 'stepUpHistory',
@@ -1638,8 +2135,6 @@ foam.CLASS({
   listeners: [
     {
       name: 'onScriptNameChange',
-      isMerged: true,
-      delay: 500,
       code: function(_, __, ___, evt) {
         // evt contains: { instance_, obj, prop, oldValue }
         var oldValue = evt.oldValue;
@@ -1647,6 +2142,7 @@ foam.CLASS({
 
         // When script name changes, check if there's existing autosave for new name
         if ( oldValue === newValue ) return;
+        if ( ! this.flowMode.checksAutosave ) return;
 
         // Check if the new name has existing autosave data that differs from current
         var existingData = this.loadAutosaveData(newValue);
@@ -1707,6 +2203,7 @@ foam.CLASS({
       code: async function() {
         if ( this.feedback_ ) return;
         this.feedback_ = true;
+        this.isLoading_ = true;
         try {
           var currentBlockName = (this.selected || this).flowName;
 
@@ -1721,6 +2218,11 @@ foam.CLASS({
           this.value.loadComplete.pub();
         } finally {
           this.feedback_ = false;
+          this.isLoading_ = false;
+          // Reset progress counters
+          this.loadingProgress_ = 0;
+          this.totalBlocks_ = 0;
+          this.loadingPercentage_ = 0;
         }
       }
     },
@@ -1738,8 +2240,8 @@ foam.CLASS({
       isMerged: true,
       delay: 250,
       code: function() {
-        // Don't auto-save in PRESENTATION_ONLY mode
-        if ( this.flowMode == this.FlowMode.PRESENTATION_ONLY ) return;
+        // Don't auto-save in modes that don't support autosave
+        if ( ! this.flowMode.autosaveEnabled ) return;
 
         if ( ! this.value || ! this.value.script ) return;
 

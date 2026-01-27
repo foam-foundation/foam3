@@ -24,7 +24,6 @@ import static foam.mlang.MLang.TRUE;
 
 /**
  * Decorator to add Caching to AuthService.
- * Stores cache in user Session so that memory is freed when user logs out.
  **/
 public class CachingAuthService
   extends ProxyAuthService
@@ -118,6 +117,9 @@ public class CachingAuthService
 
     DAO groupPermissionJunctionDAO = (DAO) getX().get("groupPermissionJunctionDAO");
     if ( groupPermissionJunctionDAO != null ) groupPermissionJunctionDAO.listen(purgeSink, TRUE);
+
+    DAO prerequisiteCapabilityJunctionDAO = (DAO) getX().get("prerequisiteCapabilityJunctionDAO");
+    if ( prerequisiteCapabilityJunctionDAO != null ) prerequisiteCapabilityJunctionDAO.listen(purgeSink, TRUE);
 
     // Configure listeners for additional permission DAOs
     if ( extraDAOsToListenTo_ != null ) {

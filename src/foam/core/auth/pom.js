@@ -130,6 +130,7 @@ foam.POM({
     { name: "LocaleSupport",                                          flags: "js|java" },
     { name: "PasswordExpiryAuthService",                              flags: "js|java" },
     { name: "SystemAuthService",                                      flags: "js|java" },
+    { name: "LoggingAuthService",                                     flags: "js|java" },
     { name: "SubjectAuthService",                                     flags: "js|java" },
     { name: "LogoutDisabledUserDAO",                                  flags: "js|java" },
     { name: "EnabledCheckAuthService",                                flags: "js|java" },

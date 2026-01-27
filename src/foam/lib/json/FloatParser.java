@@ -16,9 +16,9 @@ public class FloatParser implements Parser {
   private FloatParser() {}
 
   public PStream parse(PStream ps, ParserContext x) {
-    StringBuilder n = new StringBuilder();
-    boolean decimalFound = false;
-    boolean exponentFound = false;
+    StringBuilder n             = new StringBuilder();
+    boolean       decimalFound  = false;
+    boolean       exponentFound = false;
 
     if ( ! ps.valid() ) return null;
 

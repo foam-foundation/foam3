@@ -10,7 +10,7 @@ p({
   "after": true,
   predicate: {
     class: "foam.core.ruler.predicate.FScriptRulePredicate",
-    query: '(o !exists&&n.url !exists)||(o exists&&n.menu exists&&n.website exists&&(n.menu!=o.menu||n.website!=o.website||n.customReferralCode!=o.customReferralCode))'
+    query: '(o !exists&&n.url !exists)||(o exists&&n.menu exists&&n.website exists&&(n.menu!=o.menu||n.website!=o.website||n.code!=o.code))'
   },
   "action":{
     "class":"foam.core.referral.BuildReferralCodeURLRuleAction"
@@ -36,6 +36,24 @@ p({
   "after": true,
   "action":{
     "class":"foam.core.referral.CreateReferralCodeRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState":1
+})
+
+p({
+  "class": "foam.core.ruler.Rule",
+  "id":"disable-old-referral-codes",
+  "name": "Disable old referral codes",
+  "priority": 100,
+  "documentation": "When a new referral code is created, mark old referral codes as enabled = false",
+  "ruleGroup": "Referrals",
+  "daoKey": "referralCodeDAO",
+  "operation": 0,
+  "after": true,
+  "action":{
+    "class":"foam.core.referral.DisableOldReferralCodesRuleAction"
   },
   "enabled": true,
   "saveHistory": false,

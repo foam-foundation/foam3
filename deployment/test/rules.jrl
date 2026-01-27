@@ -48,7 +48,7 @@ p({
   "lifecycleState": 1,
   "predicate": {
     class: "foam.core.ruler.predicate.FScriptRulePredicate",
-    query: 'o.lifecycleState == foam.core.auth.LifecycleState.ACTIVE && n.lifecycleState == foam.core.auth.LifecycleState.DELETED && n.loginEnabled == true && n.type == "User"',
+    query: 'o.lifecycleState == foam.core.auth.LifecycleState.ACTIVE && n.lifecycleState == foam.core.auth.LifecycleState.DELETED && n.loginEnabled == true && n.type == "User"'
   },
   action: {
     "class": "foam.core.auth.UserLifecycleDeletedRuleAction"

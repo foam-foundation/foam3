@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'FlowableTree',
   extends: 'foam.u2.View',
 
-  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild' ],
+  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild', 'selectFromTree' ],
 
   css: `
     ^ {
@@ -188,7 +188,7 @@ foam.CLASS({
       this.add(data.dynamic(function (flowName) {
         this.
         start('tr').
-          on('click',    () => self.selected = data).
+          on('click',    () => self.selectFromTree(data)).
           on('dblclick', () => data.expanded = ! data.expanded).
           on('contextmenu', (e) => self.onContextMenu(e, data)).
           start('td').

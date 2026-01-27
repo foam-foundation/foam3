@@ -145,9 +145,8 @@ foam.CLASS({
         args: Object.values(criterias).map((criteria) => { return this.and(criteria.predicates); })
       }).partialEval();
       if ( orPredicate === this.FALSE ) orPredicate = this.TRUE;
-      if ( foam.util.equals(orPredicate, this.finalPredicate) ) return;
 
-      this.mementoPredicate = this.Or.create({
+      var newMementoPredicate = this.Or.create({
         args: Object.values(criterias)
                 .map((criteria) => {
                   let temp = {}
@@ -159,6 +158,14 @@ foam.CLASS({
                 })
       }).partialEval();
 
+      // Check both predicates since finalPredicate can be set externally via FilterView's
+      // data$ binding (from URL memento), which would cause early return before mementoPredicate is updated
+      if ( foam.util.equals(orPredicate, this.finalPredicate) &&
+           foam.util.equals(newMementoPredicate, this.mementoPredicate) ) {
+        return;
+      }
+
+      this.mementoPredicate = newMementoPredicate;
       this.finalPredicate = orPredicate;
     },
 

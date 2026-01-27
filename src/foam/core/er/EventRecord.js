@@ -218,7 +218,11 @@ foam.CLASS({
       javaFormatJSON: 'formatter.output(get_(obj).toString());',
       javaPostSet: `
       if ( ! messageIsSet_ ) {
-        setMessage(((Exception)val).getMessage());
+        if ( val instanceof Exception ) {
+          setMessage(((Exception) val).getMessage());
+        } else {
+          setMessage(String.valueOf(val));
+        }
       }
       `
     },

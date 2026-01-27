@@ -111,7 +111,8 @@ if ( getDelegate() != null ) {
 
     function setPropertyValues(o, sink, ps) {
       if ( this.delegate && this.delegate.setPropertyValues ) {
-        this.delegate.setPropertyValues(o, sink.delegate, ps);
+        // Delegate to the wrapped sink and return result (may be array of rows)
+        return this.delegate.setPropertyValues(o, sink.delegate, ps);
       } else if ( ps && ps.length > 0 ) {
         ps[0].set(o, this.value);
       }

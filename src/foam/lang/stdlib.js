@@ -547,8 +547,8 @@ foam.LIB({
     {
       name: 'constantize',
       code: foam.Function.memoize1(function(/* String */ str) {
-        // switches from from camelCase to CAMEL_CASE
-        return str.replace(/([a-z])([^0-9a-z_])/g, '$1_$2').replace(/\s/g,'').toUpperCase();
+        // convert from from fooBar to FOO_BAR,
+        return str.replace(/-/g, '_').replace(/([a-z])([^0-9a-z_])/g, '$1_$2').replace(/\s/g,'').toUpperCase();
       })
     },
     {
@@ -983,7 +983,7 @@ foam.LIB({
       if ( arguments.length == 1 ) return formattedDate;
 
       var formattedTime = date.toLocaleTimeString(foam.locale, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      return  ( timeFirst ? formattedTime + ' ' : '' )
+      return ( timeFirst ? formattedTime + ' ' : '' )
             + formattedDate
             + ( ! timeFirst ? ' ' + formattedTime : '' );
     },
@@ -1329,7 +1329,7 @@ foam.LIB({
         result = defaultsCls[foam.String.constantize(tokenName)];
       }
       return result;
-    },  
+    },
     function returnTokenAndClass(tokenString, cls, ctx) {
       tokenString = tokenString.substring(1);
       if ( tokenString.indexOf('.') != -1 ) {

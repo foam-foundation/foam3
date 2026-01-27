@@ -94,6 +94,7 @@ foam.CLASS({
       var self = this;
       this.onDetach(this.stack.setTrailingContainer(
         this.E()
+          .style({display: 'inline-flex', marginBottom: '10px'})
           .startContext({ data: this })
           .start().tag(this.RUN_CLIENT).tag(this.RUN_FAILED_CLIENT).end()
           .start().tag(this.RUN_ALL).tag(this.RUN_FAILED).end()
@@ -106,7 +107,7 @@ foam.CLASS({
         .addClass(this.myClass('container'))
         .start()
           .addClass(this.myClass('upper'))
-          .start('span').add('Total: ', this.total$).end()
+          .start('span').add('Total: ',  this.total$).end()
           .start('span').add('Passed: ', this.passed$).end()
           .start('span').add('Failed: ', this.failed$).end()
           .start('span').add('Status: ', this.status$).end()
@@ -115,63 +116,73 @@ foam.CLASS({
           .addClass(this.myClass('table'))
         .end();
 
-      this.dao.select({
-        put: function(t) {
-            self.total += 1;
-          }
-      });
+      this.dao.select({ put: function(t) { self.total += 1; } });
       if ( this.testRunId ) {
         this.runTests(this.dao);
       }
     },
 
-    function runTests(dao) {
+    async function runTests(dao) {
       var self = this;
       this.status = 'Testing...';
       this.passed = this.failed = 0;
 
       console.log('Testing starting');
       var startTime = Date.now();
+      var count     = (await dao.select(this.Count.create())).value;
+      var visited   = 0;
+      var testRun   = null;
+      if ( this.testRunId ) {
+        testRun = await this.testRunDAO.find(this.testRunId);
+        if ( ! testRun ) {
+          testRun = this.TestRun.create({id: this.testRunId});
+          testRun.server = false;
+        } else {
+          testRun.completed = false;
+        }
+      }
 
       dao.select({
         put: async function(t) {
           try {
             self.status = 'Testing: ' + t.id;
 
-            // NOTE t.run vs t.runScript
-            // t.run sets the status to SCHEDULED, puts, then polls
-            // until it is completed. It does not return a promise.
-            // t.runScript directly runs the sript and returns a promise.
-            // with t.run, Neither sink operation is garanteed to get
-            // correct results.
+            // When running a lot of unit tests at once, we don't want to get flooded
+            // with notifications, so turn them off in this context
+            t = t.clone(t.__context__.createSubContext({
+              notificationDAO: foam.dao.NullDAO.create(),
+              myNotificationDAO: foam.dao.NullDAO.create()
+            }));
 
-            t.runScript();
+            t.run();
             t.copyFrom(await dao.put(t));
-
             self.passed += t.passed;
-            self.failed += t.failed;
+            if ( t.failed ) {
+              self.failed += t.failed;
+              if ( testRun ) {
+                // TODO: capture individual tests failures on the test,
+                // so they can be added here.
+                testRun.failures.push(t.id);
+              }
+            }
           } catch (e) {
             console.error('Test failed', t.id, e);
             self.failed += 1;
-          }
-        },
-        eof: async function() {
-          var duration = (Date.now() - startTime) / 1000;
-          self.status = `${self.passed + self.failed} tests run in ${duration.toFixed(2)} seconds`;
-          console.log('Testing complete.', self.status);
-          if ( self.testRunId ) {
-            var testRun = await self.testRunDAO.find(self.testRunId);
-            if ( ! testRun ||
-                 testRun.completed ) {
-              testRun = self.TestRun.create();
+          } finally {
+            visited += 1;
+            if ( visited == count ) {
+              if ( testRun ) {
+                testRun.cases     = self.total;
+                testRun.passed    = self.passed;
+                testRun.failed    = self.failed;
+                testRun.tests     = self.passed + self.failed;
+                testRun.completed = true;
+                self.testRunDAO.put(testRun);
+              }
+              var duration = (Date.now() - startTime) / 1000;
+              self.status = `${self.passed + self.failed} tests run in ${duration.toFixed(2)} seconds`;
+              console.log('Testing complete.', self.status);
             }
-            testRun.server = false;
-            testRun.cases = self.total;
-            testRun.passed = self.passed;
-            testRun.failed = self.failed;
-            testRun.tests = self.passed + self.failed;
-            testRun.completed = true;
-            self.testRunDAO.put(testRun);
           }
         }
       });

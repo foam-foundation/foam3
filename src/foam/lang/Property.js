@@ -327,6 +327,19 @@ foam.CLASS({
 
   methods: [
     /**
+      Properties are singletons, so use reference equality for comparison.
+      This prevents infinite recursion when comparing objects containing
+      Property references (e.g., predicates with __Property__ args).
+    */
+    function compareTo(other) {
+      return this === other ? 0 : this.name.localeCompare(other.name);
+    },
+
+    function equals(other) {
+      return this === other;
+    },
+
+    /**
       Handle overriding of Property definition from parent class by
       copying undefined values from parent Property, if it exists.
     */

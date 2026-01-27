@@ -17,6 +17,8 @@ foam.CLASS({
     'logAnalyticEvent?',
     'oAuthProviderDAO',
     'params',
+    'signInWithOIDC?',
+    'window?',
     'stack'
   ],
 
@@ -24,6 +26,8 @@ foam.CLASS({
     'foam.core.app.AppBadgeView',
     'foam.core.auth.login.SignIn',
     'foam.core.auth.login.SignUp',
+    'foam.mlang.ExpressionsSingleton',
+    'foam.core.oauth.OAuthProvider',
     'foam.u2.stack.StackBlock',
     'foam.u2.crunch.WizardRunner',
     'foam.u2.wizard.WizardType'
@@ -120,6 +124,20 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'currentDomain',
+      factory: function() {
+        return this.window?.location?.host || '';
+      }
+    },
+    {
+      class: 'String',
+      name: 'currentHostname',
+      factory: function() {
+        return this.window?.location?.hostname || '';
+      }
+    },
+    {
+      class: 'String',
       name: 'modelCls_',
       documentation: `
         If modelCls_ is provided, the data can be created directly from this instead of mode
@@ -202,20 +220,33 @@ foam.CLASS({
           }))
         .end()
         .start().style({ display: 'contents' })
-          .add(self.slot(function(mode_) {
+          .add(self.slot(function(mode_, showAction) {
             if ( mode_ != self.SIGN_IN ) {
               return this.E();
             }
 
+            var E = self.ExpressionsSingleton.create();
+            var dao = self.oAuthProviderDAO.where(
+              E.OR(
+                E.CONTAINS(self.OAuthProvider.DOMAINS, self.currentDomain),
+                E.CONTAINS(self.OAuthProvider.DOMAINS, self.currentHostname)
+              )
+            );
             return this.E()
                 .style({ display: 'contents' })
-                .select(self.oAuthProviderDAO, function (provider) {
+                .select(dao, function (provider) {
                   if ( !provider ) return;
                   let action = foam.lang.Action.create({
                     name: 'signIn',
                     label: provider.description,
+                    icon: provider.icon,
+                    buttonStyle: showAction ? 'SECONDARY' : 'PRIMARY',
                     code: async function () {
-                      await self.clientLoginService.signInWithOIDC(provider);
+                      if ( self.signInWithOIDC ) {
+                        await self.signInWithOIDC(provider);
+                      } else {
+                        await self.clientLoginService.signInWithOIDC(provider);
+                      }
                     }
                   });
 

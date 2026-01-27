@@ -117,7 +117,10 @@ foam.CLASS({
       border-radius: 5px;
       border: 1px solid $borderLight;
     }
-    ^switch { color: $textTertiary;  }
+    ^switch {
+      color: $textTertiary;
+      line-height: 1;
+    }
     ^switch:hover {
       padding-inline: 5px;
       border-radius: 2px;
@@ -151,6 +154,7 @@ foam.CLASS({
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
+      gap: 0.8rem;
     }
     ^layoutView {
       width: 100%;
@@ -216,6 +220,7 @@ foam.CLASS({
           add(labelSlot).
           start().on('click', this.toggleMode).
             addClass(this.myClass('switch')).
+            show(self.optionalPropertyState$).
             enableClass('reactive', this.reactive$).
             add(this.dynamic(function(reactive) {
               if ( reactive ) {
@@ -229,6 +234,14 @@ foam.CLASS({
               }
             })).
           end().
+          callIf(prop.optionalBorder, function() {
+            this.start().
+              startContext({ data: self }).
+              addClass(self.myClass('optionalHolder')).
+              add(self.OPTIONAL_PROPERTY_STATE).
+              endContext().
+            end();
+          }).
         end().
         add(supportingLabelSlot).
         call(this.layoutView, [self, prop, viewSlot]).
@@ -281,6 +294,7 @@ foam.CLASS({
     function layoutView(self, prop, viewSlot) {
       this.start().
         addClass(self.myClass('layoutView')).
+        show(self.optionalPropertyState$).
         add(
           self.dynamic(function(reactive) {
             if ( reactive ) {

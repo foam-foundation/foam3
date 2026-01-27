@@ -527,7 +527,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
     {
       name: 'poll',
       code: function() {
-        var delay = Math.min(4000, Math.max(40, this.lastDuration));
+        var delay = Math.min(4000, Math.max(500, this.lastDuration));
         var self  = this;
         function check() {
           var dao = self.__context__[self.daoKey];

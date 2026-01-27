@@ -168,7 +168,11 @@ foam.CLASS({
           this.onDetach(cRSlot$.sub(() => this.setConfirm(cRSlot$.get())));
           this.setConfirm(cRSlot$.get());
         }
-        this.enableClass(this.myClass('unavailable'), this.action.createIsAvailable$(this.__context__, this.data), true);
+
+        this.dynamic(function(data) {
+          this.enableClass(this.myClass('unavailable'), this.action.createIsAvailable$(this.__context__, this.data), true);
+        });
+
         this.attrs({ disabled: this.action.createIsEnabled$(this.__context__, this.data).map((e) => e ? false : 'disabled') });
       }
     },

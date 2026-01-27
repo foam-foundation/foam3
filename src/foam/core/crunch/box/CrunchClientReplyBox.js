@@ -21,7 +21,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'crunchController'
+    'crunchController?'
   ],
 
   properties: [
@@ -63,7 +63,7 @@ foam.CLASS({
           };
 
           // Ask CrunchController to handle the intercept
-          this.crunchController.handleIntercept(intercept);
+          this.crunchController?.handleIntercept(intercept);
           return;
         }
 

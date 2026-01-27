@@ -184,6 +184,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       section: 'details'
     },
     {
+      // Inherited from HttpParametersWebAgent
       name: 'cmd',
       label: 'API Command',
       section: 'details'
@@ -193,7 +194,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       label: 'Data Format',
       section: 'details',
       visibility: function(cmd) {
-        return ( cmd == 'SELECT' || cmd == 'PUT' ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return ( cmd === foam.core.http.Command.SELECT || cmd === foam.core.http.Command.PUT ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -203,7 +204,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       help: 'Used to specify the primary key if you want to act on only a single row with either a SELECT or REMOVE command.',
       section: 'details',
       visibility: function(cmd) {
-        return ( cmd == 'SELECT' || cmd == 'REMOVE' ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return ( cmd === foam.core.http.Command.SELECT || cmd === foam.core.http.Command.REMOVE ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -213,7 +214,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       section: 'details',
       help: 'Specify query to restrict data using the MQL query language. See: https://github.com/foam-framework/foam/wiki/MQL---Query-Language',
       visibility: function(cmd) {
-        return (cmd == 'SELECT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return (cmd === foam.core.http.Command.SELECT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -223,8 +224,8 @@ NOTE: when using the java client, the first call to a newly started instance may
       view: 'foam.u2.view.StringView',
       help: 'Specify column names as a comma-separated list. Leave empty to receive all columns.',
       visibility: function(cmd) {
-        return (cmd == 'SELECT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
-      },
+        return (cmd === foam.core.http.Command.SELECT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
     },
     {
       class: 'Long',
@@ -232,7 +233,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       section: 'details',
       help: 'Limits the number of results returned.',
       visibility: function(cmd) {
-        return (cmd == 'SELECT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return (cmd === foam.core.http.Command.SELECT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
       value: 1000,
       min: 0
@@ -243,7 +244,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       section: 'details',
       help: 'Specify number of initial rows in result set to skip (ie. not return). If empty it defaults to 0.',
       visibility: function(cmd) {
-        return (cmd == 'SELECT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return (cmd === foam.core.http.Command.SELECT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
       min: 0
     },
@@ -251,7 +252,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       name: 'data',
       section: 'details',
       visibility: function(cmd) {
-        return (cmd == 'PUT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return (cmd === foam.core.http.Command.PUT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
       view: function(_, X) {
         // Only Support entering data with a DetailView when the format is JSON,
@@ -271,7 +272,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       section: 'details',
       view: { class: 'foam.u2.view.MapView' },
       visibility: function(cmd) {
-        return (cmd == 'PUT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return (cmd === foam.core.http.Command.PUT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -280,7 +281,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       section: 'details',
       view: { class: 'foam.u2.view.MapView' },
       visibility: function(cmd) {
-        return (cmd == 'PUT') ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return (cmd === foam.core.http.Command.PUT) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {

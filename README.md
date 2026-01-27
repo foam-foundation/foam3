@@ -74,7 +74,7 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
 **NOTE: this will create a parent directory above foam3/**
 
-    ./build.sh -T+setup/Project --appName:Example --package:com.foamdev --adminPassword:badpassword --genJava,createProject
+    ./build.sh -T+setup/Project --appName:Example --package:com.foamdev --adminPassword:badpassword
     cd ..
     ./build.sh
 

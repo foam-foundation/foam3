@@ -589,7 +589,8 @@ public class QueryParser
       Literal.create("_"),
       Literal.create("@"),
       Literal.create("%"),
-      Literal.create(".")
+      Literal.create("."),
+      Literal.create("+")
     ));
 
     grammar.addSymbol("NUMBER", new Repeat(

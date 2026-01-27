@@ -202,25 +202,7 @@ foam.CLASS({
           d = new Date(d);
 
         if ( typeof d === 'string' ) {
-          var match = d.match(/^(\d{4})[-\/]?(\d{2})[-\/]?(\d{2})$/);
-
-          if ( match ) {
-            // Parse yyyy-mm-dd, yyyy/mm/dd, or yyyymmdd formats
-            // T00:00:00 is required to force local timezone interpretation
-            // Without it, new Date("2024-03-15") is parsed as UTC midnight
-            // which displays as previous day in negative UTC offset timezones
-            d = new Date(match[1] + '-' + match[2] + '-' + match[3] + 'T00:00:00');
-          } else {
-            // Parse mm/dd/yyyy
-            match = d.match(/^(\d{2})[-\/]?(\d{2})[-\/]?(\d{4})$/);
-            if ( match ) {
-              //           yyyy             mm               dd
-              d = new Date(match[3] + '-' + match[1] + '-' + match[2] + 'T00:00:00');
-            } else {
-              // Fallback to default Date constructor
-              d = new Date(d);
-            }
-          }
+          d = foam.util.DateUtil.parseDateString(d);
         }
 
         if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE )
@@ -277,14 +259,7 @@ foam.CLASS({
       value: function (_, d) {
         if ( typeof d === 'number' ) return new Date(d);
         if ( typeof d === 'string' ) {
-          var ret = new Date(d);
-
-          if ( isNaN(ret.getTime()) ) {
-            ret = foam.Date.MAX_DATE;
-            console.warn("Invalid date: " + d + "; assuming " + ret.toISOString() + ".");
-          }
-
-          return ret;
+          return foam.util.DateUtil.parseDateTime(d);
         }
         return d;
       }
@@ -293,6 +268,69 @@ foam.CLASS({
       name: 'format',
       value: function(val, timeFirst = false) {
         return foam.Date.formatDate(val, timeFirst);
+      }
+    },
+    {
+      name: 'formatLocale',
+      value: function(val) {
+        return foam.util.DateUtil.format(val);
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'DateTimeUTC',
+  extends: 'foam.lang.DateTime',
+
+  documentation: `
+    A DateTime property type that formats dates in UTC timezone instead of the user's local timezone.
+    The adapt method uses foam.util.DateUtil for parsing, and the format method displays the date in UTC.
+  `,
+
+  requires: [
+    'foam.util.DateUtil'
+  ],
+
+  properties: [
+    {
+      name: 'adapt',
+      value: function (_, d) {
+        // Handle null/undefined
+        if ( d === null || d === undefined || d === '' ) {
+          return null;
+        }
+
+        // Numbers (timestamps) - always preserve exact time
+        if ( typeof d === 'number' ) {
+          return new Date(d);
+        }
+
+        // Date objects - always preserve as-is
+        if ( d instanceof Date ) {
+          return d;
+        }
+
+        // Use DateUtil.parseDateTimeUTC to ensure all string inputs
+        // are parsed as UTC. Numbers and Date objects are always preserved exactly.
+        var result = foam.util.DateUtil.parseDateTimeUTC(d);
+        return result;
+      }
+    },
+    {
+      name: 'format',
+      value: function(val, timeFirst = false) {
+        // Use DateUtil.formatWithTimeControl with timeFirst parameter and UTC timezone
+        var result = foam.util.DateUtil.formatWithTimeControl(val, timeFirst, 'UTC');
+        return result;
+      }
+    },
+    {
+      name: 'formatLocale',
+      value: function(val) {
+        return foam.util.DateUtil.format(val, 'UTC');
       }
     }
   ]
@@ -550,6 +588,10 @@ foam.CLASS({
       value: 'String',
       documentation: 'The FOAM sub-type of this property.'
     },
+    [
+      'isDefaultValue',
+      function(v) { return ! v || ! v.length; }
+    ],
     [ 'type', 'String[]' ],
     [
       'factory',
@@ -1356,16 +1398,23 @@ foam.CLASS({
       }
     },
     {
-      name: 'postSet',
-      value: function(_, n, prop) {
-        var self = this;
-        if ( typeof n === 'string' && Number.isNaN(Number(n)) ) return;
-        x.currencyDAO.find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(n)))
-          .then(ret => {
-            if ( ret ) {
-              self[prop.name] = ret.id;
-            }
-          });
+      name: 'normalize',
+      value: async function(value, prop) {
+        /**
+         * If the currencyCode is entered as a numeric code rather than string code, then adapt to the string code
+         * so that all currency codes are in the same format.
+         * This is done in 'normalize' rather than 'adapt' because it needs to be async because it performs a DAO
+         * operation, which is itself async.
+         **/
+        if ( foam.String.isInstance(value) && Number.isNaN(Number(value)) ) return value;
+
+        var currency = await this.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
+
+        if ( currency ) {
+          return currency.id;
+        }
+
+        return value;
       }
     }
   ]

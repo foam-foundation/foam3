@@ -25,7 +25,6 @@ foam.CLASS({
       class: 'Int',
       name: 'precision',
       value: -1,
-      generateJava: false,
       documentation: 'Number of decimal places for numeric results. -1 means no rounding (default behavior).'
     }
   ],

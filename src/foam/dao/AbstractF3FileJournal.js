@@ -273,7 +273,8 @@ try {
           writer.write(entry);
           writer.newLine();
           writer.flush();
-        } catch (java.io.IOException e) {
+        } catch (Throwable t) {
+          t.printStackTrace();
           getLogger().error("Failed to write version", version);
         }
       `

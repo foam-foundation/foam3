@@ -29,7 +29,11 @@
       class: 'FObjectProperty',
       of: 'foam.core.google.api.sheets.views.GoogleSheetsImportConfig',
       expression: function(of, dao) {
-        return foam.core.google.api.sheets.views.GoogleSheetsImportConfig.create({importClassInfo: of, DAO: dao.includes('/') ? dao.split('/')[1] : dao });
+        if ( ! dao ) return null;
+        return foam.core.google.api.sheets.views.GoogleSheetsImportConfig.create({
+          importClassInfo: of,
+          DAO: dao.includes('/') ? dao.split('/')[1] : dao
+        });
       }
     },
     'of',

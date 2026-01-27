@@ -45,12 +45,17 @@ return null;`
     {
       name: 'select_',
       code: function(x, sink, skip, limit, order, predicate) {
-        var thisPredicate = this.predicateIn(x);
-        return this.delegate.select_(
-          x, sink, skip, limit, order,
-          predicate ?
-            this.And.create({ args: [thisPredicate, predicate] }) :
-            thisPredicate);
+        let thisPredicate = this.predicateIn(x);
+
+        if ( thisPredicate && thisPredicate != foam.mlang.predicate.True.create() ) {
+          if ( predicate ) {
+            predicate = this.And.create({ args: [thisPredicate, predicate] });
+          } else {
+            predicate = thisPredicate;
+          }
+        }
+
+        return this.delegate.select_(x, sink, skip, limit, order, predicate);
       },
       swiftCode: `
 return try delegate.select_(
@@ -59,7 +64,19 @@ return try delegate.select_(
     And_create(["args": [self.predicate, predicate!] ]) :
     self.predicate)
      `,
-      javaCode: 'return super.select_(x, sink, skip, limit, order, predicate == null ? predicateIn(x) : foam.mlang.MLang.AND(predicateIn(x), predicate));'
+      javaCode: `
+        foam.mlang.predicate.Predicate thisPredicate = predicateIn(x);
+
+        if ( thisPredicate != null && thisPredicate != foam.mlang.MLang.TRUE ) {
+          if ( predicate != null ) {
+            predicate = foam.mlang.MLang.AND(thisPredicate, predicate);
+          } else {
+            predicate = thisPredicate;
+          }
+        }
+
+        return super.select_(x, sink, skip, limit, order, predicate);
+      `
     },
 
     {

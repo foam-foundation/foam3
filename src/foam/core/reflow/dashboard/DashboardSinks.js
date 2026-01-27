@@ -462,9 +462,9 @@ foam.CLASS({
       justify-content: center;
       align-items: center;
       font-size: 14px;
-      color: #666;
+      color: $textTertiary;
       height: 100%;
-      background-color: #eee;
+      background-color: $grey200;
       border-radius: 5px;
     }
   `,

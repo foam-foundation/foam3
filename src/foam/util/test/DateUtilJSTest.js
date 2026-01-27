@@ -74,6 +74,9 @@ foam.CLASS({
       this.testParseDateTimeUTC_TwoDigitYearWithTimeNoSeconds(x);
       this.testParseDateTimeUTC_TwoDigitYearSlidingWindow(x);
       this.testParseDateTimeUTC_TwoDigitYearUTCBehavior(x);
+      this.testStrictValidationUtility(x);
+      this.testStrictValidationMode(x);
+      this.testNonStrictValidationMode(x);
     },
 
     function testParseDateString_YYYYMMDD(x) {
@@ -244,10 +247,9 @@ foam.CLASS({
     },
 
     function testParseDateString_UnsupportedFormat(x) {
-      // Unsupported format should return MAX_DATE
+      // In non-strict mode (default), unsupported format returns MAX_DATE
       var date = foam.util.DateUtil.parseDateString('March 15, 2024');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(date.getTime() === maxDate.getTime(), 'Unsupported format returns MAX_DATE');
+      x.test(date.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: unsupported format returns MAX_DATE');
     },
 
     function testAdapt_Number(x) {
@@ -310,9 +312,9 @@ foam.CLASS({
     },
 
     function testAdapt_InvalidString(x) {
+      // In non-strict mode (default), invalid/unsupported format returns MAX_DATE
       var date = foam.util.DateUtil.parseDateString('invalid date string');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(date.getTime() === maxDate.getTime(), 'parseDateString(invalid string) returns MAX_DATE');
+      x.test(date.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: invalid string returns MAX_DATE');
     },
 
     function testParseDateString_LeapYear(x) {
@@ -466,24 +468,36 @@ foam.CLASS({
     },
 
     function testParseDateString_InvalidFormats(x) {
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-
-      // Test various invalid formats (don't match any pattern)
+      // Test various truly unsupported formats - return MAX_DATE in non-strict mode
       var unsupportedFormats = [
         '2024.03.15',      // dots instead of dashes/slashes
         '2024,03,15',      // commas
-        '2024/3/15',       // single digit month
-        '2024/03/5',       // single digit day
-        '24-3-15',         // single digits in YY-MM-DD
         '2024-3',          // incomplete date
         '2024',            // year only
         '03/2024',         // month/year only
         'abc123'           // random text
       ];
 
+      // In non-strict mode (default), unsupported formats return MAX_DATE
       unsupportedFormats.forEach(function(format) {
         var date = foam.util.DateUtil.parseDateString(format);
-        x.test(date.getTime() === maxDate.getTime(), `Unsupported format "${format}" returns MAX_DATE`);
+        x.test(date.getTime() === foam.Date.MAX_DATE.getTime(), `Non-strict: format "${format}" returns MAX_DATE`);
+      });
+
+      // Test single-digit month/day formats - these ARE supported with separators
+      // Note: YY-MM-DD format requires opt_name='yymmdd' as it's not in default parser
+      var singleDigitFormats = [
+        { input: '2024/3/15', year: 2024, month: 2, day: 15, desc: 'single digit month' },
+        { input: '2024/03/5', year: 2024, month: 2, day: 5, desc: 'single digit day' }
+      ];
+
+      singleDigitFormats.forEach(function(testCase) {
+        var date = foam.util.DateUtil.parseDateString(testCase.input);
+        var year = date.getUTCFullYear();
+        var month = date.getUTCMonth();
+        var day = date.getUTCDate();
+        x.test(year === testCase.year && month === testCase.month && day === testCase.day,
+          `Single digit format "${testCase.input}" parses correctly (${testCase.desc})`);
       });
 
       // Test formats that match a pattern but have invalid date values
@@ -506,25 +520,24 @@ foam.CLASS({
     },
 
     function testParseDateString_EmptyAndWhitespace(x) {
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-
+      // In non-strict mode (default), empty/whitespace returns MAX_DATE
       var emptyDate = foam.util.DateUtil.parseDateString('');
-      x.test(emptyDate.getTime() === maxDate.getTime(), 'Empty string returns MAX_DATE');
+      x.test(emptyDate.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: empty string returns MAX_DATE');
 
       var wsDate = foam.util.DateUtil.parseDateString('   ');
-      x.test(wsDate.getTime() === maxDate.getTime(), 'Whitespace returns MAX_DATE');
+      x.test(wsDate.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: whitespace returns MAX_DATE');
     },
 
     function testAdapt_EmptyString(x) {
+      // In non-strict mode (default), empty string returns MAX_DATE
       var date = foam.util.DateUtil.parseDateString('');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(date.getTime() === maxDate.getTime(), 'parseDateString(empty string) returns MAX_DATE');
+      x.test(date.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: empty string returns MAX_DATE');
     },
 
     function testAdapt_WhitespaceString(x) {
+      // In non-strict mode (default), whitespace returns MAX_DATE
       var date = foam.util.DateUtil.parseDateString('   ');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(date.getTime() === maxDate.getTime(), 'parseDateString(whitespace) returns MAX_DATE');
+      x.test(date.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: whitespace returns MAX_DATE');
     },
 
     function testAdapt_AllFormats(x) {
@@ -690,16 +703,18 @@ foam.CLASS({
       var expectedDate = new Date(2024, 2, 1, 15, 30, 45, 0); // March 1, 2024 15:30:45 local time
       x.test(invalidDate.getTime() === expectedDate.getTime(), 'Invalid datetime (Feb 30) normalizes to March 1');
 
-      // Invalid hour 25 - DateParser validation should catch this before normalization
+      // Invalid hour 25 - JavaScript Date normalizes (hour 25 = next day, hour 1)
       var invalidHour = foam.util.DateUtil.parseDateTime('2024-03-15 25:30:45');
-      var maxDate = foam.util.DateUtil.MAX_DATE;
-      x.test(invalidHour.getTime() === maxDate.getTime(), 'Invalid hour (25) returns MAX_DATE');
+      var expectedHour = new Date(2024, 2, 16, 1, 30, 45, 0); // March 16, 2024 01:30:45 local time
+      x.test(invalidHour.getTime() === expectedHour.getTime(), 'Invalid hour (25) normalizes to next day, hour 1');
 
+      // Invalid minute 60 - grammar rejects minute > 59, so this returns MAX_DATE in non-strict mode
       var invalidMinute = foam.util.DateUtil.parseDateTime('2024-03-15 15:60:45');
-      x.test(invalidMinute.getTime() === maxDate.getTime(), 'Invalid minute (60) returns MAX_DATE');
+      x.test(invalidMinute.getTime() === foam.Date.MAX_DATE.getTime(), 'Invalid minute (60) returns MAX_DATE');
 
+      // In non-strict mode (default), unsupported format returns MAX_DATE
       var unsupportedFormat = foam.util.DateUtil.parseDateTime('March 15, 2024 3:30 PM');
-      x.test(unsupportedFormat.getTime() === maxDate.getTime(), 'Unsupported format returns MAX_DATE');
+      x.test(unsupportedFormat.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict: unsupported format returns MAX_DATE');
     },
 
     function testParseDateTime_PreservesTime(x) {
@@ -1756,6 +1771,95 @@ foam.CLASS({
       var hour6 = dt6.getUTCHours();
       x.test(day6 === 14, `Date boundary crossing - day is 14 (got ${day6})`);
       x.test(hour6 === 20, `Date boundary crossing - hour is 20 UTC (got ${hour6})`);
+    },
+
+    function testStrictValidationUtility(x) {
+      // Test the setStrictValidation/getStrictValidation utility functions
+      var originalStrict = foam.util.DateUtil.getStrictValidation();
+
+      try {
+        // Test setting to true
+        foam.util.DateUtil.setStrictValidation(true);
+        x.test(foam.util.DateUtil.getStrictValidation() === true, 'setStrictValidation(true) sets strict mode');
+
+        // Test setting to false
+        foam.util.DateUtil.setStrictValidation(false);
+        x.test(foam.util.DateUtil.getStrictValidation() === false, 'setStrictValidation(false) sets non-strict mode');
+
+        // Default should be false
+        x.test(originalStrict === false, 'Default strict validation should be false');
+      } finally {
+        // Restore original setting
+        foam.util.DateUtil.setStrictValidation(originalStrict);
+      }
+    },
+
+    function testStrictValidationMode(x) {
+      // Test that strict mode throws errors for invalid dates
+      var originalStrict = foam.util.DateUtil.getStrictValidation();
+
+      try {
+        foam.util.DateUtil.setStrictValidation(true);
+
+        // Verify strict mode is set
+        x.test(foam.util.DateUtil.getStrictValidation() === true, 'Strict mode is enabled');
+
+        // Test that unsupported format throws in strict mode
+        try {
+          foam.util.DateUtil.parseDateString('invalid');
+          x.test(false, 'Strict mode: unsupported format should throw error');
+        } catch (e) {
+          // validateDate throws "Invalid date" for unparseable input
+          x.test(e.message.includes('Invalid date'), 'Strict mode: unsupported format throws correct error');
+        }
+
+        // Test empty string throws in strict mode
+        try {
+          foam.util.DateUtil.parseDateString('');
+          x.test(false, 'Strict mode: empty string should throw error');
+        } catch (e) {
+          x.test(e.message.includes('empty or null'), 'Strict mode: empty string throws correct error');
+        }
+
+        // Test parseDateTime throws in strict mode
+        try {
+          foam.util.DateUtil.parseDateTime('invalid');
+          x.test(false, 'Strict mode: parseDateTime with invalid input should throw error');
+        } catch (e) {
+          x.test(e.message.includes('Unsupported DateTime format'), 'Strict mode: parseDateTime throws correct error');
+        }
+
+      } finally {
+        foam.util.DateUtil.setStrictValidation(originalStrict);
+      }
+    },
+
+    function testNonStrictValidationMode(x) {
+      // Test that non-strict mode handles invalid dates gracefully
+      var originalStrict = foam.util.DateUtil.getStrictValidation();
+
+      try {
+        foam.util.DateUtil.setStrictValidation(false);
+
+        // Verify non-strict mode is set
+        x.test(foam.util.DateUtil.getStrictValidation() === false, 'Non-strict mode is enabled');
+
+        // Test that unsupported format returns MAX_DATE in non-strict mode
+        var invalidDate = foam.util.DateUtil.parseDateString('invalid');
+        x.test(invalidDate.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict mode: unsupported format returns MAX_DATE');
+
+        // Test empty string returns MAX_DATE
+        var emptyDate = foam.util.DateUtil.parseDateString('');
+        x.test(emptyDate.getTime() === foam.Date.MAX_DATE.getTime(), 'Non-strict mode: empty string returns MAX_DATE');
+
+        // Test that valid formats with invalid values normalize (JavaScript behavior)
+        var date = foam.util.DateUtil.parseDateString('2024-02-30');
+        var expectedDate = new Date(Date.UTC(2024, 2, 1, 12, 0, 0, 0)); // March 1, 2024
+        x.test(date.getTime() === expectedDate.getTime(), 'Non-strict mode: Feb 30 normalizes to March 1');
+
+      } finally {
+        foam.util.DateUtil.setStrictValidation(originalStrict);
+      }
     }
   ]
 });

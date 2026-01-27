@@ -75,6 +75,12 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'limitedEditPermission',
+      hidden: true,
+      documentation: 'Permission id required to access limited-edit controls; hidden from standard UI.'
+    },
+    {
+      class: 'String',
       name: 'description',
       section: 'general',
       width: 80
@@ -335,7 +341,7 @@ foam.CLASS({
     {
       name: 'reflow',
       code: function(X) {
-        X.routeTo('flow/' + this.name + '?flowMode=PRESENTATION');
+        X.routeTo('flow/' + encodeURIComponent(this.name) + '?flowMode=PRESENTATION');
       },
       isAvailable: function() {
         // Disable in Reflow, but enable in DAOController (because already in reflow)

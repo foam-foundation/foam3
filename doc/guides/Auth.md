@@ -32,6 +32,8 @@ The `@GroupName` pseudo-permission creates a permission inheritance relationship
 
 ## ServiceProvider (SPID) System
 
+See [SPID.md](SPID.md) for comprehensive documentation on the SPID system.
+
 `ServiceProvider` is a subclass of `Capability` that extends the core capability functionality. This provides multi-tenancy by isolating data and permissions per service provider.
 
 ### Inherent Permissions

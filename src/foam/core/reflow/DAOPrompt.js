@@ -141,10 +141,16 @@ foam.CLASS({
     'limitedDAO as sinkDAO',
     'filteredDAO as sinkUnlimitedDAO',
     'columnStorage',
-    'columns as flowColumns'
+    'columns as flowColumns',
+    'predicate as flowPredicate'
   ],
 
   properties: [
+    {
+      class: 'FObjectProperty',
+      name: 'predicate',
+      hidden: true
+    },
     {
       name: 'select',
       view: function(_, X) {

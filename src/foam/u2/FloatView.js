@@ -23,6 +23,10 @@ foam.CLASS({
 
   documentation: 'View for editing Float Properties.',
 
+  requires: [
+    'foam.parse.NumberParser'
+  ],
+
   properties: [
     ['type', 'text'],
     { class: 'Float', name: 'data' },
@@ -37,7 +41,21 @@ foam.CLASS({
           when the arrow buttons in the input are clicked.`,
       value: 0.01
     },
-    'preventFeedback'
+    'preventFeedback',
+    {
+      class: 'String',
+      name: 'numberFormat_',
+      documentation: 'Internal: Parser format derived from foam.locale (undefined for standard, "european" for European)',
+      hidden: true,
+      getter: function() {
+        // Use foam.locale to determine number format
+        var locale = foam.locale || 'en-US';
+        var lang = locale.split('-')[0].toLowerCase();
+        // European format locales use comma as decimal separator
+        var europeanLocales = ['de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'cs', 'sk', 'hu', 'ro', 'bg', 'el', 'ru', 'uk', 'tr', 'id', 'vi'];
+        return europeanLocales.indexOf(lang) !== -1 ? 'european' : undefined;
+      }
+    }
   ],
 
   methods: [
@@ -96,13 +114,28 @@ foam.CLASS({
     },
 
     function dataToText(val) {
-      return foam.Undefined.isInstance(this.precision) ?
-        '' + val :
-        this.formatNumber(val) ;
+      // Use Intl.NumberFormat with foam.locale for formatting
+      if ( typeof Intl !== 'undefined' ) {
+        var locale = foam.locale || 'en-US';
+        var options = {};
+        if ( ! foam.Undefined.isInstance(this.precision) ) {
+          options.minimumFractionDigits = this.trimZeros ? 0 : this.precision;
+          options.maximumFractionDigits = this.precision;
+        }
+        return new Intl.NumberFormat(locale, options).format(val);
+      }
+
+      // Fallback to default formatting
+      if ( foam.Undefined.isInstance(this.precision) ) {
+        return '' + val;
+      }
+      return this.formatNumber(val);
     },
 
     function textToData(text) {
-      return parseFloat(text) || 0;
+      // Use NumberParser with locale-derived format
+      var parsed = this.NumberParser.create().parseString(text, this.numberFormat_);
+      return isNaN(parsed) ? 0 : parsed;
     },
 
     function viewListenerFn() {

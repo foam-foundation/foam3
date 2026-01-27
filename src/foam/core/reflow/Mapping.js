@@ -32,29 +32,49 @@ foam.ENUM({
   package: 'foam.core.reflow',
   name: 'DateFormat',
 
+  properties: [
+    {
+      class: 'String',
+      name: 'parserSymbol',
+      documentation: 'The DateParser grammar symbol name for this format'
+    },
+    {
+      // Add an 'id' property that returns the ordinal for DAO compatibility
+      name: 'id',
+      getter: function() { return this.ordinal; }
+    }
+  ],
+
   values: [
     {
       name: 'STANDARD',
       label: 'Standard',
+      parserSymbol: 'START',
       documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, mm/dd/yy, mm-dd-yy, mmddyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN, Jan 02 2025'
     },
     {
       name: 'DDMMYYYY',
       label: 'dd/mm/yyyy',
+      parserSymbol: 'ddmmyyyy',
       documentation: 'Day-Month-Year format for NUMERIC dates: dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy (month names work automatically in STANDARD)'
     },
     {
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
+      parserSymbol: 'yyyyddmm',
       documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
-    }
-  ],
-
-  properties: [
+    },
     {
-      // Add an 'id' property that returns the ordinal for DAO compatibility
-      name: 'id',
-      getter: function() { return this.ordinal; }
+      name: 'JULIANDATE',
+      label: 'Julian Date',
+      parserSymbol: 'juliandate',
+      documentation: 'Julian date format: YYDDD (5 digits like 25216) or YDDD (4 digits like 5216) where YY/Y is year and DDD is day of year (001-366). Example: 25216 = August 4, 2025 (day 216 of 2025)'
+    },
+    {
+      name: 'YYMMDD',
+      label: 'yy/mm/dd',
+      parserSymbol: 'yymmdd',
+      documentation: 'Year-Month-Day with 2-digit year: yymmdd (compact 6-digit), yy-mm-dd, yy/mm/dd. Example: 250325 = March 25, 2025. Year pivot: 00-49 → 2000-2049, 50-99 → 1950-1999'
     }
   ],
 
@@ -66,6 +86,24 @@ foam.ENUM({
 });
 
 
+foam.ENUM({
+  package: 'foam.core.reflow',
+  name: 'NumberFormat',
+
+  values: [
+    {
+      name: 'STANDARD',
+      label: 'Standard (1,000.00)',
+      documentation: 'US/UK format: comma for thousands, period for decimal'
+    },
+    {
+      name: 'EUROPEAN',
+      label: 'European (1.000,00)',
+      documentation: 'European format: period for thousands, comma for decimal'
+    }
+  ]
+});
+
 
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -73,7 +111,10 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.MappingType',
-    'foam.core.reflow.DateFormat'
+    'foam.core.reflow.DateFormat',
+    'foam.parse.SimpleJavaScriptParser',
+    'foam.parse.auto.SmartView',
+    'foam.core.reflow.NumberFormat'
   ],
 
   imports: [ 'scope?' ],
@@ -102,6 +143,7 @@ foam.CLASS({
       name: 'constantValue',
       label: '',
       documentation: 'Static value applied to all rows',
+      onKey: true,
       visibility: function(type) {
         return foam.u2.DisplayMode[type === foam.core.reflow.MappingType.CONSTANT ? 'RW' : 'HIDDEN'];
       }
@@ -126,9 +168,21 @@ foam.CLASS({
       class: 'String',
       name: 'dynamicExpression',
       label: '',
-      documentation: 'JavaScript expression for dynamic computation',
-      help: 'JavaScript expression that can access row data fields directly. Examples: firstName + " " + lastName, age > 18 ? "Adult" : "Minor", email.toLowerCase()',
-      view: { class: 'foam.u2.tag.TextArea', rows: 2, cols: 40 },
+      documentation: 'FScript expression for dynamic computation - supports field access, operators, and functions',
+      help: 'FScript expression examples: firstName + " " + lastName, age > 18, email.toLowerCase(), YEARS(birthDate) > 21',
+      onKey: true,
+      view: function(_, X) {
+        // Use the parser from the instance property
+        if ( ! X.data.expressionParser_ ) {
+          // Fallback to regular TextField if no parser available (no headers)
+          return { class: 'foam.u2.TextField' };
+        }
+
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: X.data.expressionParser_
+        };
+      },
       visibility: function(type) {
         return foam.u2.DisplayMode[type === foam.core.reflow.MappingType.DYNAMIC ? 'RW' : 'HIDDEN'];
       }
@@ -136,6 +190,46 @@ foam.CLASS({
     {
       name: 'of',
       hidden: true
+    },
+    {
+      name: 'expressionParser_',
+      hidden: true,
+      transient: true,
+      expression: function(fileHeaders) {
+        if ( ! fileHeaders || fileHeaders.length === 0 ) return null;
+
+        var headerMap   = {};
+        var constantMap = {};
+        var props       = [];
+
+        for ( var i = 0 ; i < fileHeaders.length ; i++ ) {
+          var original   = fileHeaders[i];
+          var normalized = this.normalizeHeader(original);
+          normalized     = this.resolveConstantCollision(normalized, constantMap);
+
+          headerMap[normalized] = original;
+          props.push({ class: 'String', name: normalized, label: original });
+        }
+
+        var propKey   = props.map(p => p.name).sort().join('_');
+        var modelName = 'DynamicExpressionModel_' + Math.abs(foam.String.hashCode(propKey));
+        var fullName  = 'foam.core.reflow.temp.' + modelName;
+        var TempModel = foam.maybeLookup(fullName);
+
+        if ( ! TempModel ) {
+          foam.CLASS({
+            package: 'foam.core.reflow.temp',
+            name: modelName,
+            properties: props
+          });
+          TempModel = foam.lookup(fullName);
+        }
+
+        return this.SimpleJavaScriptParser.create({
+          of: TempModel,
+          headerMap: headerMap
+        });
+      }
     },
     {
       name: 'prop',
@@ -167,44 +261,146 @@ foam.CLASS({
         var isDateProp = foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop);
         return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
+    },
+    {
+      name: 'sampleData',
+      hidden: true,
+      transient: true,
+      factory: function() { return {}; },
+      documentation: 'First row of data for computing sample values'
+    },
+    {
+      class: 'String',
+      name: 'sampleValue',
+      label: 'Sample',
+      documentation: 'Sample value computed based on mapping type and configuration',
+      visibility: 'RO',
+      expression: function(type, constantValue, fieldName, dynamicExpression, sampleData) {
+        // Return sample based on mapping type
+        switch ( type ) {
+          case foam.core.reflow.MappingType.CONSTANT:
+            // For CONSTANT: show the constant value
+            return constantValue || '';
+
+          case foam.core.reflow.MappingType.FIELD:
+            // For FIELD: show value from sampleData
+            if ( fieldName && sampleData && sampleData[fieldName] !== undefined ) {
+              return sampleData[fieldName];
+            }
+            return '';
+
+          case foam.core.reflow.MappingType.DYNAMIC:
+            // For DYNAMIC: evaluate expression with sampleData
+            if ( dynamicExpression && sampleData && Object.keys(sampleData).length > 0 ) {
+              try {
+                return this.evaluateExpression(dynamicExpression, sampleData);
+              } catch (x) {
+                return '⚠ Error: ' + x.message;
+              }
+            }
+            return '';
+
+          default:
+            return '';
+        }
+      }
+    },
+    {
+      class: 'Enum',
+      of: 'foam.core.reflow.NumberFormat',
+      name: 'numberFormat',
+      label: '',
+      value: 'STANDARD',
+      help: 'Standard format uses comma for thousands and period for decimal (1,000.00). European format uses period for thousands and comma for decimal (1.000,00).',
+      documentation: 'Number format for this field (only applies to numeric properties)',
+      view: {
+        class: 'foam.core.reflow.NumberFormatRichChoiceView'
+      },
+      visibility: function(type, prop) {
+        // Only show for numeric properties that use FIELD or CONSTANT mapping
+        if ( type === foam.core.reflow.MappingType.DYNAMIC ) return foam.u2.DisplayMode.HIDDEN;
+        if ( ! prop ) return foam.u2.DisplayMode.HIDDEN;
+        var isNumericProp = foam.lang.Int.isInstance(prop) ||
+                            foam.lang.Long.isInstance(prop) ||
+                            foam.lang.Float.isInstance(prop) ||
+                            foam.lang.Double.isInstance(prop);
+        return isNumericProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
     }
   ],
 
   methods: [
+    function normalizeHeader(header) {
+      /** Normalize a header string to a valid property name. */
+      return header.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
+    },
+
+    function resolveConstantCollision(normalized, constantMap) {
+      /**
+       * Resolve FOAM constant name collisions by appending a numeric suffix.
+       * Returns the resolved property name.
+       */
+      var constantName = foam.String.constantize(normalized);
+
+      if ( ! constantMap[constantName] || constantMap[constantName] === normalized ) {
+        constantMap[constantName] = normalized;
+        return normalized;
+      }
+
+      // Collision detected - append suffix to make unique
+      var suffix = 2;
+      var newNormalized = normalized + '_' + suffix;
+      while ( constantMap[foam.String.constantize(newNormalized)] ) {
+        suffix++;
+        newNormalized = normalized + '_' + suffix;
+      }
+      constantMap[foam.String.constantize(newNormalized)] = newNormalized;
+      return newNormalized;
+    },
+
     function formatToParserName() {
       /**
        * Maps DateFormat enum to DateParser grammar symbol name.
        * This is used when calling DateUtil parsing methods with format hints.
        *
-       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm')
+       * @returns {string} Parser grammar symbol name ('START', 'ddmmyyyy', 'yyyyddmm', 'juliandate', 'yymmdd')
        */
       if ( ! this.dateFormat ) return 'START';
-
-      // Map enum values to parser symbol names
-      switch ( this.dateFormat.name ) {
-        case 'DDMMYYYY':
-          return 'ddmmyyyy';
-        case 'YYYYDDMM':
-          return 'yyyyddmm';
-        case 'STANDARD':
-        default:
-          return 'START';
-      }
+      return this.dateFormat.parserSymbol || 'START';
     },
 
     function process(obj, value, rowData) {
-      if ( ! this.property ) return;
+      /**
+       * Process a mapping and set the value on the target object.
+       *
+       * Returns an object with info about what happened:
+       * - sourceWasEmpty: true if the source value was empty/null/undefined
+       * - valueWasSet: true if a value was actually set on the object
+       * - property: the property name
+       *
+       * This info is used by UploadSink to track empty source fields for
+       * accurate required field validation.
+       */
+      if ( ! this.property ) return { sourceWasEmpty: false, valueWasSet: false, property: null };
 
       var fieldName = this.fieldName;
+      var sourceWasEmpty = false;
 
       switch ( this.type ) {
         case this.MappingType.FIELD:
           if ( rowData && fieldName ) {
-            value = rowData[fieldName] !== undefined ? rowData[fieldName] : value;
+            var sourceValue = rowData[fieldName];
+            // Track if source was empty BEFORE any transformation
+            sourceWasEmpty = this.isEmptyValue(sourceValue);
+            value = sourceValue !== undefined ? sourceValue : value;
+          } else {
+            sourceWasEmpty = true;
           }
           break;
         case this.MappingType.CONSTANT:
           value = this.constantValue;
+          // Check if constant value is empty (user left the field blank)
+          sourceWasEmpty = this.isEmptyValue(value);
           break;
         case this.MappingType.DYNAMIC:
           if ( this.dynamicExpression && rowData ) {
@@ -217,6 +413,8 @@ foam.CLASS({
           } else {
             value = this.dynamicExpression || '';
           }
+          // Check if dynamic result is empty
+          sourceWasEmpty = this.isEmptyValue(value);
           break;
       }
 
@@ -224,22 +422,73 @@ foam.CLASS({
         value = value.trim();
       }
 
-      // Set property value using fromCSV, passing format hint for date fields
+      var valueWasSet = false;
+
+      // Set property value using fromCSV, passing format hint for date/number fields
       if ( value !== '' && value != null && value !== undefined ) {
-        // Check DateTimeUTC BEFORE DateTime since DateTimeUTC extends DateTime
-        if ( this.prop && foam.lang.Date.isInstance(this.prop) ) {
-          // For date/datetime properties, pass format to fromCSV
-          var formatName = this.formatToParserName();
-          this.prop.set(obj, this.prop.fromCSV(value, formatName));
-        } else {
-          this.prop.set(obj, this.prop.fromCSV(value));
+        if ( this.prop ) {
+          if ( foam.lang.Date.isInstance(this.prop) || foam.lang.DateTime.isInstance(this.prop) ) {
+            // For date/datetime properties, pass format to fromCSV
+            var dateFormatName = this.formatToParserName();
+            this.prop.set(obj, this.prop.fromCSV(value, dateFormatName));
+            return;
+          } else if ( foam.lang.Int.isInstance(this.prop) ||
+                      foam.lang.Long.isInstance(this.prop) ||
+                      foam.lang.Float.isInstance(this.prop) ||
+                      foam.lang.Double.isInstance(this.prop) ) {
+            // For numeric properties, pass format to fromCSV
+            var numberFormatName = this.numberFormatToParserName();
+            this.prop.set(obj, this.prop.fromCSV(value, numberFormatName));
+            return;
+          }
         }
+        this.prop.set(obj, this.prop.fromCSV(value));
+        valueWasSet = true;
+      }
+      return {
+        sourceWasEmpty: sourceWasEmpty,
+        valueWasSet: valueWasSet,
+        property: this.property
+      };
+    },
+    function isEmptyValue(value) {
+      /**
+       * Check if a source value should be considered "empty" for required field validation.
+       *
+       * Empty means: null, undefined, or empty string (after trim).
+       * NOT empty: 0, false, "0", " 0 " (has content after trim).
+       *
+       * This distinction is important for required field validation:
+       * - Empty source → field has no user-provided data → fail required validation
+       * - Non-empty source (even "0") → user provided data → pass required validation
+       */
+      if ( value === null || value === undefined ) return true;
+      if ( foam.String.isInstance(value) && value.trim() === '' ) return true;
+      return false;
+    },
+    function numberFormatToParserName() {
+      /**
+       * Maps NumberFormat enum to NumberParser grammar symbol name.
+       * This is used when calling fromCSV with format hints.
+       *
+       * @returns {string} Parser grammar symbol name (undefined for standard, 'european' for European)
+       */
+      if ( ! this.numberFormat ) return undefined;
+
+      // Map enum values to parser symbol names
+      switch ( this.numberFormat.name ) {
+        case 'EUROPEAN':
+          return 'european';
+        case 'STANDARD':
+        default:
+          return undefined;
       }
     },
+
     function evaluateExpression(expression, rowData) {
       /**
-       * Safely evaluate a JavaScript expression within the context of rowData.
-       * Uses the same scoping pattern as ReactiveDetailView.js (lines 56-58).
+       * Safely evaluate a simple JavaScript expression with field access.
+       * Uses a with statement to provide field access while keeping it simple.
        *
        * @param {string} expression - The JavaScript expression to evaluate
        * @param {Object} rowData - The row data object containing field values
@@ -247,27 +496,31 @@ foam.CLASS({
        */
       if ( ! expression || ! rowData ) return '';
 
-      // Validate expression before evaluation
-      this.validateExpression(expression);
-
-      // Use the same pattern as ReactiveDetailView.js: with scope + eval
-      var result;
       try {
-        with ( foam.core.reflow.lib ) {
-          with ( rowData ) {
-            result = eval(expression);
-          }
+        // Normalize rowData keys to valid JavaScript identifiers
+        var normalizedData = {};
+        for ( var key in rowData ) {
+          var normalizedKey = key.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
+          normalizedData[normalizedKey] = rowData[key];
         }
+
+        // Simple evaluation with normalized rowData in scope
+        // This allows expressions like: Account_Type + " " + Status
+        var result;
+        with ( normalizedData ) {
+          result = eval(expression);
+        }
+        return result;
+
       } catch (x) {
         console.error('Expression evaluation error:', {
           expression: expression,
           rowData: rowData,
+          normalizedData: normalizedData,
           error: x.message
         });
         throw x;
       }
-
-      return result;
     },
 
     function validateExpression(expression) {

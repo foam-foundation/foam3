@@ -54,7 +54,14 @@ foam.CLASS({
     {
       name: 'save',
       buttonStyle: 'PRIMARY',
-      isEnabled: function(dao, data$errors_, inProgress) { return !! dao && ! inProgress && ! data$errors_; },
+      isEnabled: function(dao, data$errors_, inProgress) {
+        if ( ! dao || inProgress ) return false;
+        let enabled = ! data$errors_;
+        if ( ! enabled ) {
+          console.error('Save disabled:', data$errors_);
+        }
+        return !! enabled;
+      },
       code: function() {
         this.inProgress = true;
         this.clearProperty('exception');

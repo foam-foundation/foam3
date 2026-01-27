@@ -112,38 +112,55 @@ foam.CLASS({
     },
 
     function setPropertyValues(o, sink, ps) {
-      // Map through properties and set values from corresponding sink args
+      // Helper to unwrap wrapper sinks
+      var unwrapSink = function(s) {
+        while ( s && s.delegate ) s = s.delegate;
+        return s;
+      };
+
+      // Process args and collect properties
+      var allRows = null;
       var propIndex = 0;
-      for ( var i = 0 ; i < this.args.length ; i++ ) {
-        var arg      = sink.args[i];
+
+      for ( var i = 0; i < this.args.length; i++ ) {
+        var arg = sink.args[i];
         var argProps = arg.toProperties ? arg.toProperties() : [{ name: 'value' }];
         var propsForArg = [];
 
-        // Collect the properties that belong to this arg
+        // Collect properties for this arg
         if ( argProps && Array.isArray(argProps) ) {
-          for ( var j = 0 ; j < argProps.length ; j++ ) {
+          for ( var j = 0; j < argProps.length; j++ ) {
             if ( propIndex < ps.length ) {
-              propsForArg.push(ps[propIndex]);
-              propIndex++;
+              propsForArg.push(ps[propIndex++]);
             }
           }
-        } else {
-          if ( propIndex < ps.length ) {
-            propsForArg.push(ps[propIndex]);
-            propIndex++;
-          }
+        } else if ( propIndex < ps.length ) {
+          propsForArg.push(ps[propIndex++]);
         }
 
-        // Delegate to child's setPropertyValues if it has one
+        // Delegate to child
         if ( arg.setPropertyValues ) {
-          arg.setPropertyValues(o, sink.args[i], propsForArg);
+          var result = arg.setPropertyValues(o, sink.args[i], propsForArg);
+          // If child returned multiple rows (from GroupBy), save them
+          if ( result && Array.isArray(result) ) {
+            allRows = result;
+          }
+        } else if ( allRows ) {
+          // Apply value to all rows
+          allRows.forEach(row => {
+            for ( var k = 0; k < propsForArg.length; k++ ) {
+              propsForArg[k].set(row, arg.value);
+            }
+          });
         } else {
-          // Otherwise, set values the normal way
-          for ( var k = 0 ; k < propsForArg.length ; k++ ) {
+          // Apply value to single object
+          for ( var k = 0; k < propsForArg.length; k++ ) {
             propsForArg[k].set(o, arg.value);
           }
         }
       }
+
+      return allRows;
     }
   ]
 });

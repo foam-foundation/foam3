@@ -36,6 +36,8 @@ foam.CLASS({
   javaImports: [
     'foam.lang.X',
     'foam.dao.DAO',
+    'foam.core.auth.AuthService',
+    'foam.core.auth.AuthorizationException',
     'foam.core.auth.LifecycleState',
     'foam.core.auth.ServiceProvider',
     'foam.core.auth.Subject',
@@ -151,7 +153,17 @@ foam.CLASS({
       in permission attributed to it by checking their group. No check on User
       and group enabled flags.`,
       javaCode: `
-        if ( user == null || permission == null ) return false;
+        if ( x == null || user == null || permission == null ) return false;
+
+        Subject subject = (Subject) x.get("subject");
+        User current = subject == null ? null : subject.getUser();
+
+        if ( current == null || current.getId() != user.getId() ) {
+          AuthService auth = (AuthService) x.get("auth");
+          if ( auth == null ) throw new AuthorizationException("Fishy Auth missing");
+          if ( ! auth.check(x, CHECK_USER_PERMISSION) ) throw new AuthorizationException("Not allowed to check user permissions.");
+        }
+
         String groupId = (String) user.getGroup();
         return checkGroup(x, groupId, permission);
       `
@@ -159,8 +171,6 @@ foam.CLASS({
     {
       name: 'checkGroup',
       javaCode: `
-        // check whether user has permission to check group permissions
-        if ( ! check(x, CHECK_USER_PERMISSION) ) throw new AuthorizationException();
         try {
           Permission p = new AuthPermission(permission);
           while ( ! SafetyUtil.isEmpty(groupId) ) {
@@ -183,18 +193,12 @@ foam.CLASS({
         permission.`,
       javaCode: `
         if ( x == null || permission == null ) return false;
-        Permission p = new AuthPermission(permission);
         try {
           Group group = getCurrentGroup(x);
-          while ( group != null ) {
-            // check permission
-            if ( group.implies(x, p) ) return true;
-            // check parent group
-            group = (Group) ((DAO) getLocalGroupDAO()).find(group.getParent());
-          }
+          return checkGroup(x, group == null ? null : group.getId(), permission);
         } catch (IllegalArgumentException e) {
           Logger logger = (Logger) x.get("logger");
-          logger.error("check", p, e);
+          logger.error("check", permission, e);
         } catch (Throwable t) {
         }
         return false;

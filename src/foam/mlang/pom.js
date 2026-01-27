@@ -16,6 +16,7 @@ foam.POM({
     { name: "order/Comparator",                     flags: "js|java" },
     { name: "Compare",                              flags: "js" },
     { name: "sink/Count",                           flags: "js|java" },
+    { name: "sink/Set",                             flags: "js|java" },
     { name: "sink/Sequence",                        flags: "js|java" },
     { name: "sink/NullSink",                        flags: "js|java" },
     { name: "F",                                    flags: "js|java" },

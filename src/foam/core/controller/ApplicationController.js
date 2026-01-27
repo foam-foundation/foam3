@@ -491,9 +491,21 @@ foam.CLASS({
         self.subToNotifications();
         let ret = await self.initMenu();
 
+        const isAnonymous = await client.auth.isAnonymous();
+
+        // show oauth_exception toast notification when failed to link SSO user to existing user in the app
+        if ( isAnonymous ) {
+          const searchParams = new URLSearchParams(location.search);
+          const oauthException = searchParams.get('oauth_exception');
+          if ( oauthException ) {
+            self.notify(oauthException, '', self.LogLevel.ERROR, true);
+            return;
+          }
+        }
+
         // For anonymous users, we shouldn't reinstall the language
         // because the user's language setting isn't meaningful.
-        if ( self?.subject?.realUser && ! ( await client.auth.isAnonymous() ) ) {
+        if ( self?.subject?.realUser && ! isAnonymous ) {
           await self.maybeReinstallLanguage(self.client);
           await self.onUserAgentAndGroupLoaded();
         }

@@ -83,7 +83,7 @@ foam.CLASS({
           name: 'text',
           projectionSafe: false,
           tableCellFormatter: function(val, obj, prop) {
-            this.startContext({data: obj}).add(prop).endContext();
+            this.startContext({ controllerMode: foam.u2.ControllerMode.CREATE, data: obj }).add(prop).endContext();
           },
           displayWidth: 50,
           tableWidth: 400
@@ -165,15 +165,20 @@ foam.CLASS({
       this.
         addClass(this.myClass()).
         start(this.CardBorder).
-          style({height: '32px'}).
+          style({ height: '32px', display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }).
           start('span').
-            style({'padding-top': '5px', display: 'inline-block', 'font-size': 'larger'}).            add('Translation Console').
+            style({ display: 'inline-block', 'font-size': 'larger'}).
+            add('Translation Console').
           end().
           start('div').
-            style({float: 'right'}).
-            add(this.SEARCH, '  Locale: ').
+            style({ display: 'flex', gap: '1vw' }).
+            add(this.SEARCH).
+            start('span').
+              style({ paddingTop: '0.5em' }).
+              add(' Locale: ').
+            end().
             tag({class: 'foam.u2.TextField', data$: this.locale$, size: 10}).
-            add(' ' , this.CLEAR).
+            add(this.CLEAR).
           end().
         end().
         start(this.CardBorder, {}, this.content$).

@@ -80,6 +80,13 @@ foam.CLASS({
       
       test( isValid("has:businessName"," (businessname <> '') is not true ") , "The businessName exist");
       test( isValid("is:emailVerified"," emailverified =  ?  ") , "The emailVerified is equal to true");
+
+      // Email with + (plus addressing) - verify full email is captured, not truncated at +
+      var emailUser = new User();
+      emailUser.setEmail("user+tag@example.com");
+      test( evaluate("email=user+tag@example.com", emailUser), "Email with + should match user with that email");
+      test( !evaluate("email=user", emailUser), "Truncated email (without +tag) should NOT match - if this fails, + is not in CHAR rule");
+
       //          {"id=me"," ( ( id =  ?  ) ) "},
       
       test( isValid("firstName=Simon,Wassim"," ( firstname =  ?  )  OR  ( firstname =  ?  ) ") , "The firstName is equal to value1 OR to value2");

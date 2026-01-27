@@ -42,7 +42,8 @@ foam.CLASS({
 
   imports: [
     'stack',
-    'block'
+    'block',
+    'flowPredicate'
   ],
 
   css: `
@@ -111,10 +112,12 @@ foam.CLASS({
       this.data.selectEnabled = false;
       this.data.editEnabled   = false;
       this.data.exportEnabled = true;
-
+      if ( this.flowPredicate$ ) {
+        this.data.predicate$.linkFrom(this.flowPredicate$);
+      }
       var filterView = foam.u2.ViewSpec.createView(this.FilterView, {
         dao$:  this.data.data$,
-        data$: this.data.predicate$,
+        data$: this.flowPredicate$
       }, this, this.__subContext__.createSubContext({
         controllerMode: foam.u2.ControllerMode.EDIT
       }));

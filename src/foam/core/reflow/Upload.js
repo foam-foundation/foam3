@@ -50,11 +50,38 @@ foam.CLASS({
 
   css: `
     ^ { overflow-x: auto; }
-    ^ .foam-u2-tag-Select { height: 20px; }
-    ^ td { padding: 2px 10px; }
+    ^ .foam-u2-tag-Select { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
+    ^ .foam-u2-tag-Select:hover { border-color: $borderDefault; }
+    ^ .foam-u2-tag-Select:focus { outline: none; border-color: $borderBrand; }
+    ^ .foam-u2-tag-Input { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
+    ^ .foam-u2-tag-Input:hover { border-color: $borderDefault; }
+    ^ .foam-u2-tag-Input:focus { outline: none; border-color: $borderBrand; }
+    ^ .foam-u2-tag-TextArea { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
+    ^ .foam-u2-tag-TextArea:hover { border-color: $borderDefault; }
+    ^ .foam-u2-tag-TextArea:focus { outline: none; border-color: $borderBrand; }
+    ^ .foam-u2-PropertyBorder { border: none !important; width: 100%; box-sizing: border-box; margin: 0 !important; padding: 0 !important; }
+    ^ .foam-u2-PropertyBorder-propHolder { padding: 0 !important; margin: 0 !important; }
+    ^ .foam-u2-PropertyBorder-propHolderInner { padding: 0 !important; margin: 0 !important; }
+    ^ .foam-u2-PropertyBorder-view { padding: 0 !important; margin: 0 !important; }
+    ^ .foam-u2-PropertyBorder-helper-icon { display: none; }
+    ^ .foam-u2-borders-ExpandableBorder { display: none; }
+    ^ .foam-core-reflow-DateFormatRichChoiceView { border: 1px solid $borderLight !important; border-radius: 4px; padding: 0 !important; min-height: 28px; display: flex; align-items: center; }
+    ^ .foam-core-reflow-DateFormatRichChoiceView:hover { border-color: $borderDefault !important; }
+    ^ .foam-core-reflow-DateFormatRichChoiceView:focus-within { outline: none; border-color: $borderBrand !important; }
+    ^ .foam-core-reflow-DateFormatRichChoiceView-selection-view { border: none !important; padding: 6px !important; flex: 1; }
     ^ .foam-u2-DetailView { padding: 0; }
     ^ .foam-u2-DetailView table { margin: 0; }
     ^ .foam-u2-DetailView td { padding: 0; }
+    ^ table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    ^ th, ^ td { border-bottom: 1px solid $borderXLight; padding: 8px 4px; vertical-align: middle; }
+    ^ th { border-bottom: 1px solid $borderLight; padding: 10px 4px; }
+    ^ tr { height: auto; }
+    ^ .col-property { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
+    ^ .col-type { width: 10%; }
+    ^ .col-value { width: 20%; }
+    ^ .col-sample { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
+    ^ .col-dateformat { width: 20%; }
+    ^ .col-required { width: 10%; padding: 12px $inputHorizontalPadding; }
   `,
 
   methods: [
@@ -63,11 +90,12 @@ foam.CLASS({
 
       this.addClass().
       start('table').start('tr').
-        start('th').add('Property').end().
-        start('th').add('Type').end().
-        start('th').add('Value').end().
-        start('th').add('Date Format').end().
-        start('th').add('Required').end().
+        start('th').addClass('col-property').add('Property').end().
+        start('th').addClass('col-type').add('Type').end().
+        start('th').addClass('col-value').add('Value').end().
+        start('th').addClass('col-sample').add('Sample').end().
+        start('th').addClass('col-dateformat').add('Date Format').end().
+        start('th').addClass('col-required').add('Required').end().
       end().
       add(this.dynamic(function(data) {
         if ( ! data || data.length === 0 ) return;
@@ -77,25 +105,44 @@ foam.CLASS({
           var targetModel = mapping.of;
           var prop = targetModel && targetModel.getAxiomByName(mapping.property);
           var isDateProp = prop && (foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop));
+          var isNumericProp = prop && (foam.lang.Int.isInstance(prop) ||
+                                       foam.lang.Long.isInstance(prop) ||
+                                       foam.lang.Float.isInstance(prop) ||
+                                       foam.lang.Double.isInstance(prop));
+
+          var tooltipContent = mapping.property;
 
           this.
             startContext({ data: mapping }).
             start('tr').
-              start('td').add(mapping.property).end().
-              start('td').
+              start('td').addClass('col-property').
+                attr('title', tooltipContent).
+                add(mapping.property).
+              end().
+              start('td').addClass('col-type').
                 add(mapping.TYPE.__).
               end().
-              start('td').
+              start('td').addClass('col-value').
                 add(mapping.CONSTANT_VALUE.__).
                 add(mapping.FIELD_NAME.__).
                 add(mapping.DYNAMIC_EXPRESSION.__).
               end().
-              start('td').
+              start('td').addClass('col-sample').
+                add(mapping.dynamic(function(sampleValue) {
+                  this.start('span', { tooltip: sampleValue || '' })
+                    .add(sampleValue || '')
+                  .end();
+                })).
+              end().
+              start('td').addClass('col-dateformat').
                 callIf(isDateProp, function() {
                   this.add(mapping.DATE_FORMAT.__);
                 }).
+                callIf(isNumericProp, function() {
+                  this.add(mapping.NUMBER_FORMAT.__);
+                }).
               end().
-              start('td').add(prop ? (prop.required || false) : false).end().
+              start('td').addClass('col-required').add(prop ? (prop.required || false) : false).end().
             end()
             .endContext();
         });
@@ -819,6 +866,22 @@ foam.CLASS({
         var a = parser.parseFile(input, this.delimiter);
 
         this.rows = a.length;
+
+        // Extract sample data from first row if available
+        if ( a.length > 0 && this.mappings && this.mappings.length > 0 ) {
+          var firstRow = a[0];
+          var sampleRowData = {};
+          firstRow.forEach((cell, index) => {
+            if ( index < fileHeaders.length ) {
+              sampleRowData[fileHeaders[index]] = cell.value;
+            }
+          });
+
+          // Set sample data on all mappings (expression will compute sampleValue)
+          this.mappings.forEach(mapping => {
+            mapping.sampleData = sampleRowData;
+          });
+        }
 
         for ( var i = 0 ; i < a.length ; i++ ) {
           var csv = a[i];

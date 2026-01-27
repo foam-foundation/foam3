@@ -65,13 +65,15 @@ foam.CLASS({
 
           htmlBlock: seq(
             '<',
-            str(repeat(range('a', 'z'), null, 1)),
+            str(sym('htmlTagName')),
             sym('htmlAttributes'),
             alt(
-              seq('>', sym('htmlContent'), '</', str(repeat(range('a', 'z'), null, 1)), '>'),
+              seq('>', sym('htmlContent'), '</', sym('htmlTagName'), '>'),
               '/>'
             )
           ),
+
+          htmlTagName: repeat(alt(range('0','9'), range('a', 'z')), null, 1),
 
           htmlAttributes: repeat(seq(
             repeat(chars(' \t')),

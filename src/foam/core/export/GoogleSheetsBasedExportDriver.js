@@ -18,9 +18,19 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'outputter',
+      name: 'dateFormat',
+      hidden: true,
       factory: function() {
-        return foam.core.export.GoogleSheetsOutputter.create();
+        return [
+          d => d ? d.toLocaleDateString('en-us') : '',
+          d => d ? d.toLocaleTimeString('en-us') : ''
+        ];
+      }
+    },
+    {
+      name: 'outputter',
+      expression: function(dateFormat) {
+        return foam.core.export.GoogleSheetsOutputter.create({ dateFormat: dateFormat });
       },
       hidden: true,
       flags: ['js']

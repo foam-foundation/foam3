@@ -218,8 +218,11 @@ foam.CLASS({
         return isConvertAvailable;
       },
       code: async function() {
+        this.loading = true;
+        this.note = '';
         if ( ! this.exportData && ! this.exportObj ) {
-          console.log('Neither exportData nor exportObj exist');
+          this.note = 'Error: No data available for export';
+          this.loading = false;
           return;
         }
 
@@ -231,9 +234,13 @@ foam.CLASS({
           this.note = this.exportData ?
             await this.exportDriver.exportDAO(this.__context__, this.exportData) :
             await this.exportDriver.exportFObject(this.__context__, this.exportObj);
+        } catch (e) {
+          console.error('Export failed:', e);
+          this.note = 'Error: ' + (e.data?.message || e.message || 'Export failed');
         } finally {
           if ( this.exportAllColumns )
             this.filteredTableColumns = filteredColumnsCopy;
+          this.loading = false;
         }
       }
     },
@@ -246,8 +253,9 @@ foam.CLASS({
       },
       code: async function download() {
         this.loading = true;
+        this.note = '';
         if ( ! this.exportData && ! this.exportObj ) {
-          console.log('Neither exportData nor exportObj exist'); // TODO: Make this a proper error message in the UI
+          this.note = 'Error: No data available for export';
           this.loading = false;
           return;
         }
@@ -256,36 +264,41 @@ foam.CLASS({
         if ( this.exportAllColumns )
           this.filteredTableColumns = null;
 
-        var result;
-        if ( this.exportData ) {
-          result = await this.exportDriver.exportDAO(this.__context__, this.exportData);
-        } else {
-          result = await this.exportDriver.exportFObject(this.__context__, this.exportObj);
-        }
-        if ( result ) {
-          var link = document.createElement('a');
-          var href = '';
-          if ( this.exportDriverReg.mimeType && this.exportDriverReg.mimeType.length != 0 ) {
-            var blob = new Blob([result], { type: this.exportDriverReg.mimeType });
-            href = URL.createObjectURL(blob);
+        try {
+          var result;
+          if ( this.exportData ) {
+            result = await this.exportDriver.exportDAO(this.__context__, this.exportData);
           } else {
-            this.loading = false;
-            throw new Error('Data type for export not specified');
+            result = await this.exportDriver.exportFObject(this.__context__, this.exportObj);
           }
-          link.setAttribute('href', href);
-          link.setAttribute('download', ( `${this.exportData?.of?.name}_Export_${(new Date()).toDateString().replaceAll(' ', '_')}.` || 'data.') + this.exportDriverReg.extension);
-          document.body.appendChild(link);
-          link.click();
+          if ( result ) {
+            var link = document.createElement('a');
+            var href = '';
+            if ( this.exportDriverReg.mimeType && this.exportDriverReg.mimeType.length != 0 ) {
+              var blob = new Blob([result], { type: this.exportDriverReg.mimeType });
+              href = URL.createObjectURL(blob);
+            } else {
+              this.loading = false;
+              this.note = 'Error: Data type for export not specified';
+              return;
+            }
+            link.setAttribute('href', href);
+            link.setAttribute('download', ( `${this.exportData?.of?.name}_Export_${(new Date()).toDateString().replaceAll(' ', '_')}.` || 'data.') + this.exportDriverReg.extension);
+            document.body.appendChild(link);
+            link.click();
 
-          // Cleanup data blob and link
-          if ( blob ) URL.revokeObjectURL(link.href);
-          document.body.removeChild(link);
+            // Cleanup data blob and link
+            if ( blob ) URL.revokeObjectURL(link.href);
+            document.body.removeChild(link);
+          }
+        } catch (e) {
+          console.error('Export failed:', e);
+          this.note = 'Error: ' + (e.data?.message || e.message || 'Export failed');
+        } finally {
+          if ( this.exportAllColumns )
+            this.filteredTableColumns = filteredColumnsCopy;
+          this.loading = false;
         }
-
-        if ( this.exportAllColumns )
-          this.filteredTableColumns = filteredColumnsCopy;
-        
-        this.loading = false;
       }
     },
     {
@@ -295,6 +308,8 @@ foam.CLASS({
         return isOpenAvailable;
       },
       code: async function() {
+        this.loading = true;
+        this.note = '';
 
         var filteredColumnsCopy = this.filteredTableColumns;
         if ( this.exportAllColumns )
@@ -305,14 +320,19 @@ foam.CLASS({
           url = this.exportData ?
             await this.exportDriver.exportDAO(this.__context__, this.exportData) :
             await this.exportDriver.exportFObject(this.__context__, this.exportObj);
+
+          if ( url && url.length > 0 ) {
+            window.location.replace(url);
+          } else {
+            this.parentNode.close();
+          }
+        } catch (e) {
+          console.error('Export failed:', e);
+          this.note = 'Error: ' + (e.data?.message || e.message || 'Export failed');
         } finally {
           if ( this.exportAllColumns )
             this.filteredTableColumns = filteredColumnsCopy;
-        }
-        if ( url && url.length > 0 ) {
-          window.location.replace(url);
-        } else {
-          this.parentNode.close();
+          this.loading = false;
         }
       }
     }

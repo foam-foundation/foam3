@@ -95,6 +95,14 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      // If data is pre-populated (e.g., from URL memento), parse it immediately
+      // Don't wait for the 500ms debounced updateValue listener
+      if ( this.data ) {
+        this.predicate = this.queryParser.parseString(this.data) || this.TRUE;
+      }
+    },
+
     function render() {
       this.__subContext__.register(foam.u2.SearchField, 'foam.u2.TextField');
 

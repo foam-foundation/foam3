@@ -88,13 +88,16 @@ foam.CLASS({
           });
         }
         return props;
+      } else if ( this.delegate && ! this.delegate.toProperties ) {
+        console.error('LabeledSink: delegate ' + this.delegate.cls_.id + ' does not implement toProperties(). Add toProperties() method to the delegate sink class.');
+        throw new Error('LabeledSink: delegate ' + this.delegate.cls_.id + ' does not implement toProperties()');
       }
     },
 
     function setPropertyValues(o, sink, ps) {
       if ( this.delegate && this.delegate.setPropertyValues ) {
-        // Delegate to the wrapped sink
-        this.delegate.setPropertyValues(o, sink.delegate, ps);
+        // Delegate to the wrapped sink and return result (may be array of rows)
+        return this.delegate.setPropertyValues(o, sink.delegate, ps);
       } else if ( ps && ps.length > 0 ) {
         // Set the value using our label
         ps[0].set(o, this.value);

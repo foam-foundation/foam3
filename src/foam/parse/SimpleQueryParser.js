@@ -296,7 +296,7 @@ foam.CLASS({
         let props               = cls.getAxiomsByClass(foam.lang.Property);
         let operator            = this.operator;
         let operatorIn          = this.operatorIn;
-        let property            = (prop) => seq1(1, sym('ws'), sug(literal(prop.name, prop), {text: prop.name, label: prop.label, category: 'property'}));
+        let property            = (prop) => seq1(1, sym('ws'), sug(literalIC(prop.name, prop), {text: prop.name, label: prop.label, category: 'property'}));
 
 
         let innerProperty = (prop, innerProp) => {
@@ -304,7 +304,7 @@ foam.CLASS({
           let expr = foam.mlang.expr.Dot.create({arg1: prop, arg2: innerProp});
           return seq1(2,
             sym('ws'),
-            sug(seq1(0, literal(prop.name), '.'), {text: prop.name + '.', label: prop.label, category: 'property'}),
+            sug(seq1(0, literalIC(prop.name), '.'), {text: prop.name + '.', label: prop.label, category: 'property'}),
             sug(literal(innerProp.name, expr), {text: innerProp.name, label: innerProp.label, category: 'property', prependSpaceOnSelect: false })
           );
         };

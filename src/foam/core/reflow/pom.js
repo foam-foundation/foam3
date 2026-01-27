@@ -3,12 +3,14 @@ foam.POM({
   projects: [
     { name: 'dashboard/pom' },
     { name: "pivottest/pom" },
-    { name: "example/pom" }
+    { name: "example/pom" },
+    { name: "test/pom", flags: "test" }
   ],
   files: [
     { name: '../../u2/mlang/Table',    flags: 'js|java' },
     { name: '../../u2/mlang/Pie',      flags: 'js|java' },
     { name: 'AbstractDAOAgent',        flags: 'js' },
+    { name: 'SetDAOAgent',             flags: 'js' },
     { name: 'DAOResolverMixin',        flags: 'js' },
     { name: 'Check',                   flags: 'js' },
     { name: 'CitationSink',            flags: 'js|java' },
@@ -72,9 +74,12 @@ foam.POM({
     { name: 'lib',                     flags: 'js' },
     { name: 'Mapping',                 flags: 'js|java' },
     { name: 'DateFormatCitationView',  flags: 'js' },
+    { name: 'NumberFormatCitationView', flags: 'js' },
     { name: 'FromCsvRefines',          flags: 'js' },
     { name: 'ToolbarControl',          flags: 'js|java' },
     { name: 'control/HelpControl',     flags: 'js' },
+    { name: 'control/AutoControl',     flags: 'js' },
+    { name: 'control/AutoGrammar',     flags: 'js' },
     { name: 'control/CollectionsControl', flags: 'js' },
     { name: 'control/FlowsControl',     flags: 'js' },
     { name: 'control/ComponentsControl', flags: 'js' },

@@ -33,6 +33,7 @@ foam.CLASS({
         this.VALUE,
         this.FLOW_CHILDREN,
         this.REACTIONS_,
+        this.ALLOW_LIMITED_EDIT,
         this.BORDER_CLASS,
         this.BORDER,
         this.GRID_COLUMNS,

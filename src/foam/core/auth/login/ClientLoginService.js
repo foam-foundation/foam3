@@ -121,7 +121,7 @@ foam.CLASS({
     },
     {
       name: 'signInWithOIDC',
-      code: async function(provider, signUp = false, signUpUsername = '') {
+      code: async function(provider, signUp = false, signUpUsername = '', reqParamsOverrides = {}) {
         // TODO: Validate nonce
         var nonce = crypto.randomUUID();
 
@@ -138,11 +138,12 @@ foam.CLASS({
             return_to_url: this.window.location.toString(),
             sign_up: signUp,
             sign_up_username: signUpUsername
-          })
+          }),
+          ...reqParamsOverrides
         }
 
+        let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&');
         if ( !this.oauthInWindow ) {
-          let authURL = provider.authURL + '?' + Object.entries(reqParams).map(v => v.map(p => encodeURIComponent(p)).join('=')).join('&')
           this.window.location = authURL;
           return;
         }
@@ -156,17 +157,18 @@ foam.CLASS({
                   authwindow.close();
                   resolve();
                 } else {
-                  reject(e.data.error)
+                  reject(e.data.error);
                 }
               }
             };
 
             window.addEventListener('message', listener);
 
-            let authwindow = window.open(authURL);
+            let authwindow = window.open(authURL, 'OAuthWindow');
           });
         } catch(e) {
           this.notify(e.message, '', this.LogLevel.ERROR, true);
+          return;
         }
 
         this.subject = await this.auth.getCurrentSubject(x);

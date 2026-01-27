@@ -22,8 +22,13 @@ foam.CLASS({
       /** Call the supplied function with feedback elimination. **/
       if ( this.feedback_ ) return;
       this.feedback_ = true;
-      try { fn(); } catch(x) {}
-      this.feedback_ = false;
+      try {
+        fn();
+      } catch(e) {
+        console.error('deFeedback error:', e);
+      } finally {
+        this.feedback_ = false;
+      }
     }
   ]
 });

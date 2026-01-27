@@ -1,6 +1,7 @@
 package foam.core.oauth;
 
 import foam.core.boot.Boot;
+import foam.core.auth.AuthenticationException;
 import foam.core.session.Session;
 import foam.lang.X;
 import foam.core.http.WebAgent;
@@ -78,7 +79,12 @@ public class OAuthWebAgent implements WebAgent {
             // if an idToken was returned, log the session into the new account
             foam.core.auth.User user;
             if (idToken != null) {
-                user = loginWithIdToken(x, state, provider, tokenResponse.getString("id_token"));
+                try {
+                    user = loginWithIdToken(x, state, provider, idToken);
+                } catch (AuthenticationException e) {
+                    sendErrorResponse(x, e.getMessage(), state, resp);
+                    return;
+                }
             } else {
                 user = session.findUserId(x);
             }
@@ -115,7 +121,7 @@ public class OAuthWebAgent implements WebAgent {
             e.printStackTrace();
             try {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                resp.getWriter().write("Server error");
+                resp.getWriter().write("Server error: " + e.getMessage());
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -130,20 +136,40 @@ public class OAuthWebAgent implements WebAgent {
         if (state.getBoolean("return_to_app", false)) {
             resp.sendRedirect(state.getString("return_to_url"));
         } else {
-            // NOTE: If you change the inline script you likely also need to update your CSP
-            // to list the hash
-
-            // Then emit a mini HTML that calls postMessage to the opener, then closes
+            // emit a mini HTML that calls postMessage to the opener, then closes
             java.io.PrintWriter out = resp.getWriter();
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.setContentType("text/html");
             out.println("<!DOCTYPE html>");
             out.println("<html><body>");
             out.println("<h1>Success</h1>");
-            out.println("<script language=\"javascript\">");
-            out.println("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: \"" + state.getString("session_id") + "\" }, location.origin);\n");
-            out.println("window.close();\n");
-            out.println("</script>");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.print("<script language=\"javascript\">");
+            out.print("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
+            out.print("window.close();");
+            out.print("</script>");
+            out.println("</body></html>");
+            out.close();
+        }
+    }
+
+    protected void sendErrorResponse(X x, String errorMessage, JsonObject state, HttpServletResponse resp) throws java.io.IOException {
+        if (state.getBoolean("return_to_app", false)) {
+            resp.sendRedirect("/?oauth_exception=" + errorMessage);
+        } else {
+            // emit a mini HTML that calls postMessage to the opener, then closes
+            java.io.PrintWriter out = resp.getWriter();
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.setContentType("text/html");
+            out.println("<!DOCTYPE html>");
+            out.println("<html><body>");
+            out.println("<h1>Something went wrong!</h1>");
+            out.println("<input type=\"hidden\" id=\"errorMessage\" value=\"" + errorMessage + "\">");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.print("<script language=\"javascript\">");
+            out.print("window.opener && window.opener.postMessage({ error: { message: document.getElementById(\"errorMessage\").value }, sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
+            out.print("window.close();");
+            out.print("</script>");
             out.println("</body></html>");
             out.close();
         }
@@ -162,15 +188,15 @@ public class OAuthWebAgent implements WebAgent {
         reader.close();
 
         if (!bodyObject.getBoolean("email_verified")) {
-            throw new foam.core.auth.AuthenticationException("email is not verified");
+            throw new AuthenticationException("Email is not verified");
         }
 
         if (bodyObject.getInt("exp", Integer.MIN_VALUE) < java.time.Instant.now().getEpochSecond()) {
-            throw new foam.core.auth.AuthenticationException("expired token");
+            throw new AuthenticationException("Expired token");
         }
 
         if (!bodyObject.getString("aud").equals(provider.getClientId())) {
-            throw new foam.core.auth.AuthenticationException("incorrect audience");
+            throw new AuthenticationException("Incorrect audience");
         }
 
         String email = bodyObject.getString("email");
@@ -202,21 +228,25 @@ public class OAuthWebAgent implements WebAgent {
 
             foam.dao.DAO userRegistrationDAO = (foam.dao.DAO) x.get("userRegistrationDAO");
             if ( userRegistrationDAO == null ) {
-                throw new RuntimeException("user registration DAO not available");
+                throw new AuthenticationException("userRegistrationDAO not available");
             }
 
-            userRegistrationDAO.inX(x).put(builder.build());
-
+            try {
+                userRegistrationDAO.inX(x).put(builder.build());
+            } catch ( RuntimeException e ) {
+                logger.error("Unable to register user", e);
+                throw new AuthenticationException("Unable to register user");
+            }
             user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
         }
 
         if ( user == null ) {
-            throw new RuntimeException("user not found");
+            throw new AuthenticationException("User not found");
         }
 
         foam.core.session.Session session = (foam.core.session.Session)((foam.dao.DAO)x.get("sessionDAO")).find(state.getString("session_id"));
         if ( session == null ) {
-            throw new RuntimeException("session not found");
+            throw new AuthenticationException("Session not found");
         }
 
         foam.core.auth.LoginService login = (foam.core.auth.LoginService)x.get("loginService");

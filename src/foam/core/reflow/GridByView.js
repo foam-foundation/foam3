@@ -56,13 +56,13 @@ foam.CLASS({
       text-align: left;
       text-wrap-mode: nowrap;
     }
-      
+
     ^ td:hover {
       font-weight: $font-medium;
       background: $highlightCell;
       color: $highlightCell$foreground;
     }
-    
+
     ^highlighted-col {
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
@@ -126,6 +126,7 @@ foam.CLASS({
                 .on('mouseleave', function() { self.currentHoverCol = undefined; self.currentHoverRow = undefined; })
                 .addClass(self.myClass('td'))
                 .enableClass(self.myClass('highlighted-col'), self.slot((currentHoverCol, currentHoverRow) => currentHoverCol === c || currentHoverRow === r))
+                .call(function() { this.tooltip = `Row: ${r}, Col: ${c}`; })
                 .add(row.groups[c] || '');
             }).
             end();

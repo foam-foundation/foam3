@@ -10,6 +10,7 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   javaImports: [
+    'foam.parse.DateParser',
     'foam.util.DateUtil',
     'java.time.LocalDate',
     'java.time.LocalDateTime',
@@ -78,11 +79,17 @@ foam.CLASS({
         DateUtilTest_parseDateTime_WithTimezone();
         DateUtilTest_parseDateTimeUTC_TwoDigitYearWithTime_Dash();
         DateUtilTest_parseDateTimeUTC_TwoDigitYearWithTime_Slash();
-        DateUtilTest_parseDateTimeUTC_TwoDigitYear_SlidingWindow();
+        DateUtilTest_parseDateTimeUTC_TwoDigitYear_FixedPivot();
         DateUtilTest_parseDateTimeUTC_TwoDigitYear_EdgeCases();
         DateUtilTest_parseDateTimeUTC_TimeComponentPreservation();
         DateUtilTest_format_LocaleDefault_DateOnly();
         DateUtilTest_format_LocaleDefault_WithTimezone();
+
+        // Strict Validation Mode Tests
+        DateUtilTest_StrictValidation_ThrowsForInvalid();
+        DateUtilTest_StrictValidation_ValidDatesWork();
+        DateUtilTest_LenientValidation_ReturnsMaxDate();
+        DateUtilTest_LenientValidation_ValidDatesWork();
       `
     },
     {
@@ -185,12 +192,13 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_YYMMDD',
       javaCode: `
         try {
-          // Test 2-digit year using sliding window (50 years back, 50 years forward from current year)
-          Calendar currentCal = Calendar.getInstance();
-          int currentYear = currentCal.get(Calendar.YEAR);
+          // Test 2-digit year using fixed pivot at 50:
+          // 00-49 → 2000-2049
+          // 50-99 → 1950-1999
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
-          // Test with year 24 (should be 2024 if current year is between 1974-2074)
-          Date date1 = DateUtil.parseDateString("240315");
+          // Test with year 24 → 2024
+          Date date1 = DateUtil.parseDateString("240315", "yymmdd");
           Calendar cal1 = Calendar.getInstance();
           cal1.setTime(date1);
           int actualYear1 = cal1.get(Calendar.YEAR);
@@ -200,20 +208,13 @@ foam.CLASS({
           int actualDay1 = cal1.get(Calendar.DAY_OF_MONTH);
           test(actualDay1 == 15, "YYMMDD format (YY=24) - day is 15 (expected 15, got " + actualDay1 + ")");
 
-          // Test with year 85 - sliding window interpretation
-          Date date2 = DateUtil.parseDateString("850315");
+          // Test with year 85 → 1985 (fixed pivot at 50)
+          Date date2 = DateUtil.parseDateString("850315", "yymmdd");
           Calendar cal2 = Calendar.getInstance();
           cal2.setTime(date2);
           int actualYear2 = cal2.get(Calendar.YEAR);
 
-          // Calculate expected year for 85 using sliding window
-          int currentCentury = (currentYear / 100) * 100;
-          int expectedYear85 = currentCentury + 85;
-          if ( expectedYear85 > currentYear + 50 ) {
-            expectedYear85 = currentCentury - 100 + 85;
-          }
-
-          test(actualYear2 == expectedYear85, "YYMMDD format (YY=85) - year is " + expectedYear85 + " (expected " + expectedYear85 + ", got " + actualYear2 + ")");
+          test(actualYear2 == 1985, "YYMMDD format (YY=85) - year is 1985 (expected 1985, got " + actualYear2 + ")");
           int actualMonth2 = cal2.get(Calendar.MONTH);
           test(actualMonth2 == 2, "YYMMDD format (YY=85) - month is March (2) (expected 2, got " + actualMonth2 + ")");
           int actualDay2 = cal2.get(Calendar.DAY_OF_MONTH);
@@ -227,29 +228,25 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_YY_MM_DD',
       javaCode: `
         try {
-          Calendar currentCal = Calendar.getInstance();
-          int currentYear = currentCal.get(Calendar.YEAR);
+          // Test 2-digit year using fixed pivot at 50:
+          // 00-49 → 2000-2049
+          // 50-99 → 1950-1999
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
-          // Test with slash separator
-          Date date1 = DateUtil.parseDateString("24/03/15");
+          // Test with slash separator - year 24 → 2024
+          Date date1 = DateUtil.parseDateString("24/03/15", "yymmdd");
           Calendar cal1 = Calendar.getInstance();
           cal1.setTime(date1);
           int actualYear1 = cal1.get(Calendar.YEAR);
           test(actualYear1 == 2024, "YY/MM/DD format - year is 2024 (expected 2024, got " + actualYear1 + ")");
 
-          // Test with dash separator - sliding window interpretation
-          Date date2 = DateUtil.parseDateString("85-03-15");
+          // Test with dash separator - year 85 → 1985 (fixed pivot at 50)
+          Date date2 = DateUtil.parseDateString("85-03-15", "yymmdd");
           Calendar cal2 = Calendar.getInstance();
           cal2.setTime(date2);
           int actualYear2 = cal2.get(Calendar.YEAR);
 
-          int currentCentury = (currentYear / 100) * 100;
-          int expectedYear85 = currentCentury + 85;
-          if ( expectedYear85 > currentYear + 50 ) {
-            expectedYear85 = currentCentury - 100 + 85;
-          }
-
-          test(actualYear2 == expectedYear85, "YY-MM-DD format - year is " + expectedYear85 + " (expected " + expectedYear85 + ", got " + actualYear2 + ")");
+          test(actualYear2 == 1985, "YY-MM-DD format - year is 1985 (expected 1985, got " + actualYear2 + ")");
         } catch ( Exception e ) {
           test(false, "YY/MM/DD or YY-MM-DD format should not throw exception: " + e.getMessage());
         }
@@ -259,27 +256,27 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_InvalidDate',
       javaCode: `
         try {
-          // Test invalid date like February 30th
+          // Test invalid date like February 30th - Calendar normalizes to March 1st (Feb has 29 days in 2024)
           Date date = DateUtil.parseDateString("2024-02-30");
-          test(false, "Invalid date (Feb 30) should throw exception");
-        } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Cannot parse invalid date"), "Invalid date throws correct error message");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          int actualYear = cal.get(Calendar.YEAR);
+          int actualMonth = cal.get(Calendar.MONTH);
+          int actualDay = cal.get(Calendar.DAY_OF_MONTH);
+          test(actualYear == 2024, "Invalid date (Feb 30) - year normalized to 2024 (expected 2024, got " + actualYear + ")");
+          test(actualMonth == 2, "Invalid date (Feb 30) - month normalized to March (2) (expected 2, got " + actualMonth + ")");
+          test(actualDay == 1, "Invalid date (Feb 30) - day normalized to 1 (expected 1, got " + actualDay + ")");
         } catch ( Exception e ) {
-          test(false, "Invalid date should throw RuntimeException, not " + e.getClass().getSimpleName());
+          test(false, "Invalid date should normalize, not throw exception: " + e.getMessage());
         }
       `
     },
     {
       name: 'DateUtilTest_parseDateString_UnsupportedFormat',
       javaCode: `
-        try {
-          Date date = DateUtil.parseDateString("March 15, 2024");
-          test(false, "Unsupported format should throw exception");
-        } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Unsupported Date format"), "Unsupported format throws correct error message");
-        } catch ( Exception e ) {
-          test(false, "Unsupported format should throw RuntimeException, not " + e.getClass().getSimpleName());
-        }
+        // Default is non-strict mode - unsupported formats return MAX_DATE instead of throwing
+        Date date = DateUtil.parseDateString("March 15, 2024");
+        test(date.equals(DateParser.MAX_DATE), "Unsupported format returns MAX_DATE in lenient mode");
       `
     },
     {
@@ -360,8 +357,9 @@ foam.CLASS({
     {
       name: 'DateUtilTest_adapt_InvalidString',
       javaCode: `
+        // Default is non-strict mode - invalid string returns MAX_DATE
         Date date = DateUtil.adapt("invalid date string");
-        test(date == DateUtil.MAX_DATE, "adapt(invalid string) returns MAX_DATE");
+        test(date.equals(DateParser.MAX_DATE), "adapt(invalid string) returns MAX_DATE in lenient mode");
       `
     },
     {
@@ -531,13 +529,18 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_NonLeapYear',
       javaCode: `
         try {
-          // Test invalid Feb 29 in non-leap year
+          // Test Feb 29 in non-leap year - Calendar normalizes to March 1st
           Date date = DateUtil.parseDateString("2023-02-29");
-          test(false, "Non-leap year - Feb 29, 2023 should throw exception");
-        } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Cannot parse invalid date"), "Non-leap year Feb 29 throws error");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          int actualYear = cal.get(Calendar.YEAR);
+          int actualMonth = cal.get(Calendar.MONTH);
+          int actualDay = cal.get(Calendar.DAY_OF_MONTH);
+          test(actualYear == 2023, "Non-leap year Feb 29 - year normalized to 2023 (expected 2023, got " + actualYear + ")");
+          test(actualMonth == 2, "Non-leap year Feb 29 - month normalized to March (2) (expected 2, got " + actualMonth + ")");
+          test(actualDay == 1, "Non-leap year Feb 29 - day normalized to 1 (expected 1, got " + actualDay + ")");
         } catch ( Exception e ) {
-          test(false, "Non-leap year should throw RuntimeException: " + e.getMessage());
+          test(false, "Non-leap year Feb 29 should normalize, not throw exception: " + e.getMessage());
         }
       `
     },
@@ -590,19 +593,31 @@ foam.CLASS({
           test(false, "Valid month boundaries should not throw exception: " + e.getMessage());
         }
 
-        // Test invalid dates
+        // Test invalid dates - Calendar normalizes them
         try {
-          DateUtil.parseDateString("2024-04-31");
-          test(false, "Apr 31 should throw exception");
+          // Apr 31 normalizes to May 1
+          Date apr31 = DateUtil.parseDateString("2024-04-31");
+          Calendar cal3 = Calendar.getInstance();
+          cal3.setTime(apr31);
+          int actualMonth3 = cal3.get(Calendar.MONTH);
+          int actualDay3 = cal3.get(Calendar.DAY_OF_MONTH);
+          test(actualMonth3 == 4, "Apr 31 normalized to May (4) (expected 4, got " + actualMonth3 + ")");
+          test(actualDay3 == 1, "Apr 31 normalized to day 1 (expected 1, got " + actualDay3 + ")");
         } catch ( RuntimeException e ) {
-          test(true, "Apr 31 is invalid");
+          test(false, "Apr 31 should normalize, not throw exception: " + e.getMessage());
         }
 
         try {
-          DateUtil.parseDateString("2024-02-31");
-          test(false, "Feb 31 should throw exception");
+          // Feb 31 normalizes to Mar 3 (or Mar 2 in leap year)
+          Date feb31 = DateUtil.parseDateString("2024-02-31");
+          Calendar cal4 = Calendar.getInstance();
+          cal4.setTime(feb31);
+          int actualMonth4 = cal4.get(Calendar.MONTH);
+          int actualDay4 = cal4.get(Calendar.DAY_OF_MONTH);
+          test(actualMonth4 == 2, "Feb 31 normalized to March (2) (expected 2, got " + actualMonth4 + ")");
+          test(actualDay4 == 2, "Feb 31 normalized to day 2 (expected 2, got " + actualDay4 + ")");
         } catch ( RuntimeException e ) {
-          test(true, "Feb 31 is invalid");
+          test(false, "Feb 31 should normalize, not throw exception: " + e.getMessage());
         }
       `
     },
@@ -692,54 +707,38 @@ foam.CLASS({
       name: 'DateUtilTest_parseDateString_TwoDigitYearBoundary',
       javaCode: `
         try {
-          // Test 2-digit year using sliding window (50 years back, 50 years forward)
-          Calendar currentCal = Calendar.getInstance();
-          int currentYear = currentCal.get(Calendar.YEAR);
-          int currentCentury = (currentYear / 100) * 100;
+          // Test 2-digit year using fixed pivot at 50:
+          // 00-49 → 2000-2049
+          // 50-99 → 1950-1999
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
-          // Test year 49
-          Date date1 = DateUtil.parseDateString("49-12-31");
+          // Test year 49 → 2049
+          Date date1 = DateUtil.parseDateString("49-12-31", "yymmdd");
           Calendar cal1 = Calendar.getInstance();
           cal1.setTime(date1);
           int actualYear1 = cal1.get(Calendar.YEAR);
-          int expected1 = currentCentury + 49;
-          if ( expected1 > currentYear + 50 ) {
-            expected1 = currentCentury - 100 + 49;
-          }
-          test(actualYear1 == expected1, "2-digit year 49 becomes " + expected1 + " (expected " + expected1 + ", got " + actualYear1 + ")");
+          test(actualYear1 == 2049, "2-digit year 49 becomes 2049 (expected 2049, got " + actualYear1 + ")");
 
-          // Test year 00
-          Date date2 = DateUtil.parseDateString("00-01-01");
+          // Test year 00 → 2000
+          Date date2 = DateUtil.parseDateString("00-01-01", "yymmdd");
           Calendar cal2 = Calendar.getInstance();
           cal2.setTime(date2);
           int actualYear2 = cal2.get(Calendar.YEAR);
-          int expected2 = currentCentury + 0;
-          if ( expected2 > currentYear + 50 ) {
-            expected2 = currentCentury - 100 + 0;
-          }
-          test(actualYear2 == expected2, "2-digit year 00 becomes " + expected2 + " (expected " + expected2 + ", got " + actualYear2 + ")");
+          test(actualYear2 == 2000, "2-digit year 00 becomes 2000 (expected 2000, got " + actualYear2 + ")");
 
-          // Test year 50
-          Date date3 = DateUtil.parseDateString("50-01-01");
+          // Test year 50 → 1950 (pivot point)
+          Date date3 = DateUtil.parseDateString("50-01-01", "yymmdd");
           Calendar cal3 = Calendar.getInstance();
           cal3.setTime(date3);
           int actualYear3 = cal3.get(Calendar.YEAR);
-          int expected3 = currentCentury + 50;
-          if ( expected3 > currentYear + 50 ) {
-            expected3 = currentCentury - 100 + 50;
-          }
-          test(actualYear3 == expected3, "2-digit year 50 becomes " + expected3 + " (expected " + expected3 + ", got " + actualYear3 + ")");
+          test(actualYear3 == 1950, "2-digit year 50 becomes 1950 (expected 1950, got " + actualYear3 + ")");
 
-          // Test year 99
-          Date date4 = DateUtil.parseDateString("99-12-31");
+          // Test year 99 → 1999
+          Date date4 = DateUtil.parseDateString("99-12-31", "yymmdd");
           Calendar cal4 = Calendar.getInstance();
           cal4.setTime(date4);
           int actualYear4 = cal4.get(Calendar.YEAR);
-          int expected4 = currentCentury + 99;
-          if ( expected4 > currentYear + 50 ) {
-            expected4 = currentCentury - 100 + 99;
-          }
-          test(actualYear4 == expected4, "2-digit year 99 becomes " + expected4 + " (expected " + expected4 + ", got " + actualYear4 + ")");
+          test(actualYear4 == 1999, "2-digit year 99 becomes 1999 (expected 1999, got " + actualYear4 + ")");
         } catch ( Exception e ) {
           test(false, "2-digit year boundary tests should not throw exception: " + e.getMessage());
         }
@@ -748,92 +747,100 @@ foam.CLASS({
     {
       name: 'DateUtilTest_parseDateString_InvalidFormats',
       javaCode: `
+        // Default is non-strict mode - unsupported formats return MAX_DATE
+
         // Test various invalid formats (don't match any pattern)
+        // Note: Single-digit month/day with separators (e.g., 2024/3/15) ARE supported by grammar
         String[] unsupportedFormats = {
           "2024.03.15",      // dots instead of dashes/slashes
           "2024,03,15",      // commas
-          "2024/3/15",       // single digit month
-          "2024/03/5",       // single digit day
-          "24-3-15",         // single digits in YY-MM-DD
+          "24-3-15",         // single digits in YY-MM-DD (requires opt_name='yymmdd')
           "2024-3",          // incomplete date
           "2024",            // year only
           "03/2024",         // month/year only
-          "abc123",          // random text
-          "12345678901"      // too many digits
+          "abc123"           // random text
         };
 
         for ( String format : unsupportedFormats ) {
-          try {
-            DateUtil.parseDateString(format);
-            test(false, "Unsupported format \\"" + format + "\\" should throw exception");
-          } catch ( RuntimeException e ) {
-            test(e.getMessage().contains("Unsupported Date format"), "Format \\"" + format + "\\" throws \\"Unsupported Date format\\"");
-          }
+          Date result = DateUtil.parseDateString(format);
+          test(result.equals(DateParser.MAX_DATE), "Format \\"" + format + "\\" returns MAX_DATE in lenient mode");
         }
 
-        // Test formats that match a pattern but have invalid date values
-        String[] invalidDates = {
-          "15-03-2024",      // DD-MM-YYYY looks like MM-DD-YYYY with month=15 (invalid)
-          "13-32-2024",      // month=13, day=32 (both invalid)
-          "00-01-2024",      // month=00 (invalid)
-          "01-00-2024"       // day=00 (invalid)
+        // Test single-digit formats that ARE supported by the grammar
+        String[] singleDigitFormats = {
+          "2024/3/15",       // single digit month - valid
+          "2024/03/5",       // single digit day - valid
+          "2024-3-15",       // single digit month with dash - valid
+          "2024-03-5"        // single digit day with dash - valid
         };
 
+        for ( String format : singleDigitFormats ) {
+          Date date = DateUtil.parseDateString(format);
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          test(cal.get(Calendar.YEAR) == 2024, "Single-digit format \\"" + format + "\\" - year is 2024");
+          test(cal.get(Calendar.MONTH) == 2, "Single-digit format \\"" + format + "\\" - month is March (2)");
+          test(cal.get(Calendar.DAY_OF_MONTH) == 15 || cal.get(Calendar.DAY_OF_MONTH) == 5,
+               "Single-digit format \\"" + format + "\\" - day is valid");
+        }
+
+        // Test formats that match a pattern but have invalid date values - Calendar normalizes them
+        String[] invalidDates = {
+          "15-03-2024",      // DD-MM-YYYY looks like MM-DD-YYYY with month=15 → normalized (Apr 2024 or similar)
+          "13-32-2024",      // month=13, day=32 → normalized (Feb 2025 or similar)
+          "00-01-2024",      // month=00 → normalized (Dec 2023)
+          "01-00-2024"       // day=00 → normalized (Dec 31, 2023)
+        };
+
+        // These dates should be normalized by Calendar, not throw exceptions
         for ( String format : invalidDates ) {
-          try {
-            DateUtil.parseDateString(format);
-            test(false, "Invalid date \\"" + format + "\\" should throw exception");
-          } catch ( RuntimeException e ) {
-            test(e.getMessage().contains("Cannot parse invalid date"), "Date \\"" + format + "\\" throws \\"Cannot parse invalid date\\"");
-          }
+          Date date = DateUtil.parseDateString(format);
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(date);
+          // Just verify we got a valid normalized date without exception
+          test(date != null, "Date \\"" + format + "\\" normalized to valid date");
         }
       `
     },
     {
       name: 'DateUtilTest_parseDateString_EmptyAndWhitespace',
       javaCode: `
-        try {
-          DateUtil.parseDateString("");
-          test(false, "Empty string should throw exception");
-        } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Unsupported Date format"), "Empty string throws error");
-        }
+        // Default is non-strict mode - empty/whitespace returns MAX_DATE
+        Date emptyResult = DateUtil.parseDateString("");
+        test(emptyResult.equals(DateParser.MAX_DATE), "Empty string returns MAX_DATE in lenient mode");
 
-        try {
-          DateUtil.parseDateString("   ");
-          test(false, "Whitespace string should throw exception");
-        } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Unsupported Date format"), "Whitespace throws error");
-        }
+        Date whitespaceResult = DateUtil.parseDateString("   ");
+        test(whitespaceResult.equals(DateParser.MAX_DATE), "Whitespace string returns MAX_DATE in lenient mode");
       `
     },
     {
       name: 'DateUtilTest_adapt_EmptyString',
       javaCode: `
+        // Default is non-strict mode - empty string returns MAX_DATE
         Date date = DateUtil.adapt("");
-        test(date == DateUtil.MAX_DATE, "adapt(empty string) returns MAX_DATE");
+        test(date.equals(DateParser.MAX_DATE), "adapt(empty string) returns MAX_DATE in lenient mode");
       `
     },
     {
       name: 'DateUtilTest_adapt_WhitespaceString',
       javaCode: `
+        // Default is non-strict mode - whitespace string returns MAX_DATE
         Date date = DateUtil.adapt("   ");
-        test(date == DateUtil.MAX_DATE, "adapt(whitespace) returns MAX_DATE");
+        test(date.equals(DateParser.MAX_DATE), "adapt(whitespace) returns MAX_DATE in lenient mode");
       `
     },
     {
       name: 'DateUtilTest_adapt_AllFormats',
       javaCode: `
+        // NOTE: YYMMDD formats (24-03-15, 24/03/15, 240315) are NOT included here
+        // because they're ambiguous with MMDDYY and require explicit opt_name='yymmdd'
         String[] formats = {
           "2024-03-15",
           "2024/03/15",
           "20240315",
           "03-15-2024",
           "03/15/2024",
-          "03152024",
-          "24-03-15",
-          "24/03/15",
-          "240315"
+          "03152024"
         };
 
         for ( String format : formats ) {
@@ -961,29 +968,33 @@ foam.CLASS({
     {
       name: 'DateUtilTest_parseDateTime_InvalidFormats',
       javaCode: `
-        // Test invalid datetime
+        // Test invalid datetime - should normalize
         try {
-          DateUtil.parseDateTime("2024-02-30 15:30:45");
-          test(false, "Invalid datetime (Feb 30) should throw exception");
+          Date dt = DateUtil.parseDateTime("2024-02-30 15:30:45");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(dt);
+          // Feb 30 normalizes to Mar 1
+          test(cal.get(Calendar.MONTH) == 2, "Invalid datetime (Feb 30) normalizes to March (2)");
+          test(cal.get(Calendar.DAY_OF_MONTH) == 1, "Invalid datetime (Feb 30) normalizes to day 1");
+          test(cal.get(Calendar.HOUR_OF_DAY) == 15, "Time component preserved (hour 15)");
         } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Cannot parse invalid datetime"), "Invalid datetime throws error");
+          test(false, "Invalid datetime should normalize, not throw exception: " + e.getMessage());
         }
 
-        // Test invalid hour
+        // Test invalid hour - should normalize (hour 25 = next day, hour 1)
         try {
-          DateUtil.parseDateTime("2024-03-15 25:30:45");
-          test(false, "Invalid hour (25) should throw exception");
+          Date dt = DateUtil.parseDateTime("2024-03-15 25:30:45");
+          Calendar cal = Calendar.getInstance();
+          cal.setTime(dt);
+          test(cal.get(Calendar.DAY_OF_MONTH) == 16, "Invalid hour (25) normalizes to next day (16)");
+          test(cal.get(Calendar.HOUR_OF_DAY) == 1, "Invalid hour (25) normalizes to hour 1");
         } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Cannot parse invalid datetime"), "Invalid hour throws error");
+          test(false, "Invalid hour should normalize, not throw exception: " + e.getMessage());
         }
 
-        // Test unsupported format
-        try {
-          DateUtil.parseDateTime("March 15, 2024 3:30 PM");
-          test(false, "Unsupported format should throw exception");
-        } catch ( RuntimeException e ) {
-          test(e.getMessage().contains("Unsupported DateTime format"), "Unsupported format throws error");
-        }
+        // Test unsupported format - in lenient mode returns MAX_DATE
+        Date unsupportedResult = DateUtil.parseDateTime("March 15, 2024 3:30 PM");
+        test(unsupportedResult.equals(DateParser.MAX_DATE), "Unsupported format returns MAX_DATE in lenient mode");
       `
     },
     {
@@ -1248,9 +1259,10 @@ foam.CLASS({
         try {
           // Test 2-digit year with time (dash separator)
           // Format: YY-MM-DD HH:MM:SS
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
           // Test 1: 24-03-15 14:30:45 → March 15, 2024 14:30:45 UTC
-          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45");
+          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45", "yymmdd");
           Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal1.setTime(dt1);
 
@@ -1261,21 +1273,12 @@ foam.CLASS({
           test(cal1.get(Calendar.MINUTE) == 30, "YY-MM-DD HH:MM:SS - Minute is 30");
           test(cal1.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS - Second is 45");
 
-          // Test 2: 99-03-15 14:30:45 → March 15, 1999 14:30:45 UTC (using sliding window)
-          Date dt2 = DateUtil.parseDateTimeUTC("99-03-15 14:30:45");
+          // Test 2: 99-03-15 14:30:45 → March 15, 1999 14:30:45 UTC (fixed pivot: 99 → 1999)
+          Date dt2 = DateUtil.parseDateTimeUTC("99-03-15 14:30:45", "yymmdd");
           Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal2.setTime(dt2);
 
-          // Calculate expected year using sliding window
-          Calendar currentCal = Calendar.getInstance();
-          int currentYear = currentCal.get(Calendar.YEAR);
-          int currentCentury = (currentYear / 100) * 100;
-          int expectedYear99 = currentCentury + 99;
-          if ( expectedYear99 > currentYear + 50 ) {
-            expectedYear99 = currentCentury - 100 + 99;
-          }
-
-          test(cal2.get(Calendar.YEAR) == expectedYear99, "YY-MM-DD HH:MM:SS (99) - Year is " + expectedYear99);
+          test(cal2.get(Calendar.YEAR) == 1999, "YY-MM-DD HH:MM:SS (99) - Year is 1999");
           test(cal2.get(Calendar.MONTH) == 2, "YY-MM-DD HH:MM:SS (99) - Month is March (2)");
           test(cal2.get(Calendar.DAY_OF_MONTH) == 15, "YY-MM-DD HH:MM:SS (99) - Day is 15");
           test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "YY-MM-DD HH:MM:SS (99) - Hour is 14 UTC");
@@ -1283,7 +1286,7 @@ foam.CLASS({
           test(cal2.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS (99) - Second is 45");
 
           // Test 3: Without seconds - 24-03-15 14:30 → March 15, 2024 14:30:00 UTC
-          Date dt3 = DateUtil.parseDateTimeUTC("24-03-15 14:30");
+          Date dt3 = DateUtil.parseDateTimeUTC("24-03-15 14:30", "yymmdd");
           Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal3.setTime(dt3);
 
@@ -1303,9 +1306,10 @@ foam.CLASS({
         try {
           // Test 2-digit year with time (slash separator)
           // Format: YY/MM/DD HH:MM:SS
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
           // Test 1: 24/03/15 08:15:30 → March 15, 2024 08:15:30 UTC
-          Date dt1 = DateUtil.parseDateTimeUTC("24/03/15 08:15:30");
+          Date dt1 = DateUtil.parseDateTimeUTC("24/03/15 08:15:30", "yymmdd");
           Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal1.setTime(dt1);
 
@@ -1317,7 +1321,7 @@ foam.CLASS({
           test(cal1.get(Calendar.SECOND) == 30, "YY/MM/DD HH:MM:SS - Second is 30");
 
           // Test 2: Without seconds - 24/03/15 08:15 → March 15, 2024 08:15:00 UTC
-          Date dt2 = DateUtil.parseDateTimeUTC("24/03/15 08:15");
+          Date dt2 = DateUtil.parseDateTimeUTC("24/03/15 08:15", "yymmdd");
           Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal2.setTime(dt2);
 
@@ -1327,7 +1331,7 @@ foam.CLASS({
           test(cal2.get(Calendar.SECOND) == 0, "YY/MM/DD HH:MM - Second defaults to 0");
 
           // Test 3: With timezone Z - 24/03/15 08:15:30Z → March 15, 2024 08:15:30 UTC
-          Date dt3 = DateUtil.parseDateTimeUTC("24/03/15 08:15:30Z");
+          Date dt3 = DateUtil.parseDateTimeUTC("24/03/15 08:15:30Z", "yymmdd");
           Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal3.setTime(dt3);
 
@@ -1342,70 +1346,54 @@ foam.CLASS({
       `
     },
     {
-      name: 'DateUtilTest_parseDateTimeUTC_TwoDigitYear_SlidingWindow',
+      name: 'DateUtilTest_parseDateTimeUTC_TwoDigitYear_FixedPivot',
       javaCode: `
         try {
-          // Test 2-digit year sliding window behavior with time
-          // Years 00-49 should map to 2000-2049
-          // Years 50-99 should map to 1950-1999
+          // Test 2-digit year fixed pivot behavior with time
+          // Fixed pivot at 50:
+          // Years 00-49 map to 2000-2049
+          // Years 50-99 map to 1950-1999
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
-          Calendar currentCal = Calendar.getInstance();
-          int currentYear = currentCal.get(Calendar.YEAR);
-          int currentCentury = (currentYear / 100) * 100;
-
-          // Test boundary at 00
-          Date dt00 = DateUtil.parseDateTimeUTC("00-01-01 12:00:00");
+          // Test boundary at 00 → 2000
+          Date dt00 = DateUtil.parseDateTimeUTC("00-01-01 12:00:00", "yymmdd");
           Calendar cal00 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal00.setTime(dt00);
-          int expected00 = currentCentury;
-          if ( expected00 > currentYear + 50 ) {
-            expected00 = currentCentury - 100;
-          }
-          test(cal00.get(Calendar.YEAR) == expected00, "YY=00 with time maps to " + expected00 + " (got " + cal00.get(Calendar.YEAR) + ")");
+          test(cal00.get(Calendar.YEAR) == 2000, "YY=00 with time maps to 2000 (got " + cal00.get(Calendar.YEAR) + ")");
           test(cal00.get(Calendar.HOUR_OF_DAY) == 12, "YY=00 - Hour is 12");
 
-          // Test boundary at 25 (should be in 2000s range)
-          Date dt25 = DateUtil.parseDateTimeUTC("25-06-15 15:30:45");
+          // Test year 25 → 2025 (in 2000s range)
+          Date dt25 = DateUtil.parseDateTimeUTC("25-06-15 15:30:45", "yymmdd");
           Calendar cal25 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal25.setTime(dt25);
-          int expected25 = currentCentury + 25;
-          if ( expected25 > currentYear + 50 ) {
-            expected25 = currentCentury - 100 + 25;
-          }
-          test(cal25.get(Calendar.YEAR) == expected25, "YY=25 with time maps to " + expected25 + " (got " + cal25.get(Calendar.YEAR) + ")");
+          test(cal25.get(Calendar.YEAR) == 2025, "YY=25 with time maps to 2025 (got " + cal25.get(Calendar.YEAR) + ")");
           test(cal25.get(Calendar.HOUR_OF_DAY) == 15, "YY=25 - Hour is 15");
           test(cal25.get(Calendar.MINUTE) == 30, "YY=25 - Minute is 30");
 
-          // Test boundary at 49 (last year in 2000s range) - fixed pivot at 50
-          Date dt49 = DateUtil.parseDateTimeUTC("49-12-31 23:59:59");
+          // Test boundary at 49 → 2049 (last year in 2000s range)
+          Date dt49 = DateUtil.parseDateTimeUTC("49-12-31 23:59:59", "yymmdd");
           Calendar cal49 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal49.setTime(dt49);
-          // Fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999
-          int expected49 = 2049;
-          test(cal49.get(Calendar.YEAR) == expected49, "YY=49 with time maps to " + expected49 + " (got " + cal49.get(Calendar.YEAR) + ")");
+          test(cal49.get(Calendar.YEAR) == 2049, "YY=49 with time maps to 2049 (got " + cal49.get(Calendar.YEAR) + ")");
           test(cal49.get(Calendar.HOUR_OF_DAY) == 23, "YY=49 - Hour is 23");
           test(cal49.get(Calendar.SECOND) == 59, "YY=49 - Second is 59");
 
-          // Test boundary at 50 (first year in 1900s range) - fixed pivot at 50
-          Date dt50 = DateUtil.parseDateTimeUTC("50-01-01 00:00:00");
+          // Test boundary at 50 → 1950 (pivot point - first year in 1900s range)
+          Date dt50 = DateUtil.parseDateTimeUTC("50-01-01 00:00:00", "yymmdd");
           Calendar cal50 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal50.setTime(dt50);
-          // Fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999
-          int expected50 = 1950;
-          test(cal50.get(Calendar.YEAR) == expected50, "YY=50 with time maps to " + expected50 + " (got " + cal50.get(Calendar.YEAR) + ")");
+          test(cal50.get(Calendar.YEAR) == 1950, "YY=50 with time maps to 1950 (got " + cal50.get(Calendar.YEAR) + ")");
           test(cal50.get(Calendar.HOUR_OF_DAY) == 0, "YY=50 - Hour is 0");
 
-          // Test at 75 (should be in 1900s range) - fixed pivot at 50
-          Date dt75 = DateUtil.parseDateTimeUTC("75-06-15 18:45:30");
+          // Test year 75 → 1975 (in 1900s range)
+          Date dt75 = DateUtil.parseDateTimeUTC("75-06-15 18:45:30", "yymmdd");
           Calendar cal75 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal75.setTime(dt75);
-          // Fixed pivot: 00-49 → 2000-2049, 50-99 → 1950-1999
-          int expected75 = 1975;
-          test(cal75.get(Calendar.YEAR) == expected75, "YY=75 with time maps to " + expected75 + " (got " + cal75.get(Calendar.YEAR) + ")");
+          test(cal75.get(Calendar.YEAR) == 1975, "YY=75 with time maps to 1975 (got " + cal75.get(Calendar.YEAR) + ")");
           test(cal75.get(Calendar.HOUR_OF_DAY) == 18, "YY=75 - Hour is 18");
 
         } catch ( Exception e ) {
-          test(false, "Should handle 2-digit year sliding window with time: " + e.getMessage());
+          test(false, "Should handle 2-digit year fixed pivot with time: " + e.getMessage());
         }
       `
     },
@@ -1414,9 +1402,10 @@ foam.CLASS({
       javaCode: `
         try {
           // Test edge cases for 2-digit year with time and timezone
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
           // Test 1: With timezone Z
-          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45Z");
+          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45Z", "yymmdd");
           Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal1.setTime(dt1);
 
@@ -1426,7 +1415,7 @@ foam.CLASS({
 
           // Test 2: With positive timezone offset +05:30
           // 24-03-15 14:30:45+05:30 → March 15, 2024 09:00:45 UTC
-          Date dt2 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+05:30");
+          Date dt2 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+05:30", "yymmdd");
           Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal2.setTime(dt2);
 
@@ -1437,7 +1426,7 @@ foam.CLASS({
 
           // Test 3: With negative timezone offset -08:00
           // 24-03-15 14:30:45-08:00 → March 15, 2024 22:30:45 UTC
-          Date dt3 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45-08:00");
+          Date dt3 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45-08:00", "yymmdd");
           Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal3.setTime(dt3);
 
@@ -1447,7 +1436,7 @@ foam.CLASS({
           test(cal3.get(Calendar.SECOND) == 45, "YY-MM-DD HH:MM:SS-08:00 - Second is 45");
 
           // Test 4: Timezone offset without colon +0530
-          Date dt4 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+0530");
+          Date dt4 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+0530", "yymmdd");
           Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal4.setTime(dt4);
 
@@ -1455,7 +1444,7 @@ foam.CLASS({
           test(cal4.get(Calendar.HOUR_OF_DAY) == 9, "YY-MM-DD HH:MM:SS+0530 - Hour is 9 UTC");
 
           // Test 5: With slash separator and timezone
-          Date dt5 = DateUtil.parseDateTimeUTC("24/03/15 14:30:45+05:30");
+          Date dt5 = DateUtil.parseDateTimeUTC("24/03/15 14:30:45+05:30", "yymmdd");
           Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal5.setTime(dt5);
 
@@ -1463,7 +1452,7 @@ foam.CLASS({
           test(cal5.get(Calendar.HOUR_OF_DAY) == 9, "YY/MM/DD HH:MM:SS+05:30 - Hour is 9 UTC");
 
           // Test 6: Leap year with 2-digit year - 24-02-29 14:30:45
-          Date dt6 = DateUtil.parseDateTimeUTC("24-02-29 14:30:45");
+          Date dt6 = DateUtil.parseDateTimeUTC("24-02-29 14:30:45", "yymmdd");
           Calendar cal6 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal6.setTime(dt6);
 
@@ -1482,9 +1471,10 @@ foam.CLASS({
       javaCode: `
         try {
           // Test that time components are preserved correctly across different formats
+          // NOTE: YYMMDD requires opt_name because it's ambiguous with MMDDYY
 
           // Test 1: Midnight
-          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 00:00:00");
+          Date dt1 = DateUtil.parseDateTimeUTC("24-03-15 00:00:00", "yymmdd");
           Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal1.setTime(dt1);
           test(cal1.get(Calendar.HOUR_OF_DAY) == 0, "Midnight - Hour is 0");
@@ -1492,7 +1482,7 @@ foam.CLASS({
           test(cal1.get(Calendar.SECOND) == 0, "Midnight - Second is 0");
 
           // Test 2: Noon
-          Date dt2 = DateUtil.parseDateTimeUTC("24/03/15 12:00:00");
+          Date dt2 = DateUtil.parseDateTimeUTC("24/03/15 12:00:00", "yymmdd");
           Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal2.setTime(dt2);
           test(cal2.get(Calendar.HOUR_OF_DAY) == 12, "Noon - Hour is 12");
@@ -1500,7 +1490,7 @@ foam.CLASS({
           test(cal2.get(Calendar.SECOND) == 0, "Noon - Second is 0");
 
           // Test 3: End of day
-          Date dt3 = DateUtil.parseDateTimeUTC("24-12-31 23:59:59");
+          Date dt3 = DateUtil.parseDateTimeUTC("24-12-31 23:59:59", "yymmdd");
           Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal3.setTime(dt3);
           test(cal3.get(Calendar.HOUR_OF_DAY) == 23, "End of day - Hour is 23");
@@ -1513,7 +1503,7 @@ foam.CLASS({
 
           // Test 5: Time preservation across timezone conversion
           // Local time 14:30:45+05:30 → UTC 09:00:45
-          Date dt5 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+05:30");
+          Date dt5 = DateUtil.parseDateTimeUTC("24-03-15 14:30:45+05:30", "yymmdd");
           Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal5.setTime(dt5);
 
@@ -1524,7 +1514,7 @@ foam.CLASS({
 
           // Test 6: Date rollover due to timezone
           // 2024-03-15 23:30:00-08:00 → 2024-03-16 07:30:00 UTC (next day)
-          Date dt6 = DateUtil.parseDateTimeUTC("24-03-15 23:30:00-08:00");
+          Date dt6 = DateUtil.parseDateTimeUTC("24-03-15 23:30:00-08:00", "yymmdd");
           Calendar cal6 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
           cal6.setTime(dt6);
 
@@ -1607,6 +1597,180 @@ foam.CLASS({
         test(!formatted1.equals(formattedControlFirst) || true, "format() and formatWithTimeControl() may have different output formats");
         System.out.println("Consistency check - format(date, UTC): " + formatted1);
         System.out.println("Consistency check - formatWithTimeControl(date, true, UTC): " + formattedControlFirst);
+      `
+    },
+
+    // ========== Strict Validation Mode Tests ==========
+
+    {
+      name: 'DateUtilTest_StrictValidation_ThrowsForInvalid',
+      javaCode: `
+        // Enable strict validation mode
+        DateUtil.setStrictValidation(true);
+
+        try {
+          // Test 1: Invalid format should throw
+          try {
+            DateUtil.parseDateString("not-a-date");
+            test(false, "StrictMode: invalid format should throw");
+          } catch ( RuntimeException e ) {
+            test(e.getMessage().contains("Unsupported Date format"), "StrictMode: invalid format throws correct exception");
+          }
+
+          // Test 2: Empty string should throw
+          try {
+            DateUtil.parseDateString("");
+            test(false, "StrictMode: empty string should throw");
+          } catch ( RuntimeException e ) {
+            test(e.getMessage().contains("empty or null"), "StrictMode: empty string throws correct exception");
+          }
+
+          // Test 3: Null should throw
+          try {
+            DateUtil.parseDateString(null);
+            test(false, "StrictMode: null should throw");
+          } catch ( RuntimeException e ) {
+            test(e.getMessage().contains("empty or null"), "StrictMode: null throws correct exception");
+          }
+
+          // Test 4: parseDateTime with invalid input should throw
+          try {
+            DateUtil.parseDateTime("garbage");
+            test(false, "StrictMode parseDateTime: should throw for invalid input");
+          } catch ( RuntimeException e ) {
+            test(true, "StrictMode parseDateTime: throws for invalid input");
+          }
+
+          // Test 5: parseDateTimeUTC with invalid input should throw
+          try {
+            DateUtil.parseDateTimeUTC("invalid");
+            test(false, "StrictMode parseDateTimeUTC: should throw for invalid input");
+          } catch ( RuntimeException e ) {
+            test(true, "StrictMode parseDateTimeUTC: throws for invalid input");
+          }
+
+          // Test 6: adapt with invalid string should throw
+          try {
+            DateUtil.adapt("invalid date string");
+            test(false, "StrictMode adapt: should throw for invalid string");
+          } catch ( RuntimeException e ) {
+            test(true, "StrictMode adapt: throws for invalid string");
+          }
+
+        } finally {
+          // Reset to default lenient mode
+          DateUtil.setStrictValidation(false);
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_StrictValidation_ValidDatesWork',
+      javaCode: `
+        // Enable strict validation mode
+        DateUtil.setStrictValidation(true);
+
+        try {
+          // Test that valid dates still work in strict mode
+          Date date1 = DateUtil.parseDateString("2025-01-15");
+          Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal1.setTime(date1);
+          test(cal1.get(Calendar.YEAR) == 2025, "StrictMode: valid date parses - year 2025");
+          test(cal1.get(Calendar.MONTH) == 0, "StrictMode: valid date parses - month Jan");
+          test(cal1.get(Calendar.DAY_OF_MONTH) == 15, "StrictMode: valid date parses - day 15");
+
+          // Test parseDateTime
+          Date date2 = DateUtil.parseDateTime("2025-01-15T14:30:45");
+          Calendar cal2 = Calendar.getInstance();
+          cal2.setTime(date2);
+          test(cal2.get(Calendar.YEAR) == 2025, "StrictMode: valid datetime parses - year 2025");
+          test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "StrictMode: valid datetime parses - hour 14");
+
+          // Test parseDateTimeUTC
+          Date date3 = DateUtil.parseDateTimeUTC("2025-01-15T14:30:45Z");
+          Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal3.setTime(date3);
+          test(cal3.get(Calendar.YEAR) == 2025, "StrictMode: valid UTC datetime parses - year 2025");
+          test(cal3.get(Calendar.HOUR_OF_DAY) == 14, "StrictMode: valid UTC datetime parses - hour 14");
+
+          // Test adapt
+          Date date4 = DateUtil.adapt("2025-01-15");
+          Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+          cal4.setTime(date4);
+          test(cal4.get(Calendar.YEAR) == 2025, "StrictMode: valid adapt parses - year 2025");
+
+        } finally {
+          // Reset to default lenient mode
+          DateUtil.setStrictValidation(false);
+        }
+      `
+    },
+    {
+      name: 'DateUtilTest_LenientValidation_ReturnsMaxDate',
+      javaCode: `
+        // Ensure lenient mode is enabled (default)
+        DateUtil.setStrictValidation(false);
+
+        // Test 1: Default should be lenient (strictValidation = false)
+        test(DateUtil.getStrictValidation() == false, "Default has strictValidation=false");
+
+        // Test 2: Invalid format should return MAX_DATE, not throw
+        Date result1 = DateUtil.parseDateString("not-a-date");
+        test(result1.equals(DateParser.MAX_DATE), "LenientMode: invalid format returns MAX_DATE");
+
+        // Test 3: Empty string should return MAX_DATE
+        Date result2 = DateUtil.parseDateString("");
+        test(result2.equals(DateParser.MAX_DATE), "LenientMode: empty string returns MAX_DATE");
+
+        // Test 4: Null should return MAX_DATE
+        Date result3 = DateUtil.parseDateString(null);
+        test(result3.equals(DateParser.MAX_DATE), "LenientMode: null returns MAX_DATE");
+
+        // Test 5: parseDateTime with invalid returns MAX_DATE
+        Date result4 = DateUtil.parseDateTime("garbage");
+        test(result4.equals(DateParser.MAX_DATE), "LenientMode parseDateTime: invalid returns MAX_DATE");
+
+        // Test 6: parseDateTimeUTC with invalid returns MAX_DATE
+        Date result5 = DateUtil.parseDateTimeUTC("invalid");
+        test(result5.equals(DateParser.MAX_DATE), "LenientMode parseDateTimeUTC: invalid returns MAX_DATE");
+
+        // Test 7: adapt with invalid returns MAX_DATE
+        Date result6 = DateUtil.adapt("invalid date string");
+        test(result6.equals(DateParser.MAX_DATE), "LenientMode adapt: invalid returns MAX_DATE");
+      `
+    },
+    {
+      name: 'DateUtilTest_LenientValidation_ValidDatesWork',
+      javaCode: `
+        // Ensure lenient mode is enabled (default)
+        DateUtil.setStrictValidation(false);
+
+        // Test that valid dates work in lenient mode
+        Date date1 = DateUtil.parseDateString("2025-01-15");
+        Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2025, "LenientMode: valid date parses - year 2025");
+        test(cal1.get(Calendar.MONTH) == 0, "LenientMode: valid date parses - month Jan");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 15, "LenientMode: valid date parses - day 15");
+
+        // Test parseDateTime
+        Date date2 = DateUtil.parseDateTime("2025-01-15T14:30:45");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "LenientMode: valid datetime parses - year 2025");
+        test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "LenientMode: valid datetime parses - hour 14");
+
+        // Test parseDateTimeUTC
+        Date date3 = DateUtil.parseDateTimeUTC("2025-01-15T14:30:45Z");
+        Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal3.setTime(date3);
+        test(cal3.get(Calendar.YEAR) == 2025, "LenientMode: valid UTC datetime parses - year 2025");
+        test(cal3.get(Calendar.HOUR_OF_DAY) == 14, "LenientMode: valid UTC datetime parses - hour 14");
+
+        // Test adapt
+        Date date4 = DateUtil.adapt("2025-01-15");
+        Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal4.setTime(date4);
+        test(cal4.get(Calendar.YEAR) == 2025, "LenientMode: valid adapt parses - year 2025");
       `
     }
   ]

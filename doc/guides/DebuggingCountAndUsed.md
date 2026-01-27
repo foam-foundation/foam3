@@ -32,7 +32,7 @@ function create(args, opt_parent) {
 console.log(foam.u2.Element.count_);  // e.g., 1523
 
 // Check creation count for any class
-var myClass = foam.lookup('com.paytic.domain.MyModel');
+var myClass = foam.lookup('com.example.MyModel');
 console.log(myClass.id, myClass.count_);
 ```
 
@@ -73,12 +73,12 @@ var f = foam.Function.memoize0(function() {
 Object.keys(foam.USED);  // ['foam.lang.FObject', 'foam.u2.Element', ...]
 
 // Check if a specific class has been used
-if (foam.USED['com.paytic.domain.MyModel']) {
+if (foam.USED['com.example.MyModel']) {
   console.log('MyModel has been used');
 }
 
 // Get the model definition
-var modelDef = foam.USED['com.paytic.domain.MyModel'];
+var modelDef = foam.USED['com.example.MyModel'];
 ```
 
 ---

@@ -15,7 +15,11 @@ foam.CLASS({
   properties: [
     {
       class: 'foam.mlang.ExprProperty',
-      name: 'arg1'
+      name: 'arg1',
+      hidden: false,
+      postSet: function(o, n) {
+        console.log('Sum arg1 postSet:', n, n?.cls_?.id);
+      }
     },
     {
       class: 'Double',

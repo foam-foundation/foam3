@@ -19,7 +19,10 @@ foam.CLASS({
     {
       class: 'foam.mlang.ExprProperty',
       name: 'arg1',
-      hidden: true
+      hidden: true,
+      postSet: function(o, n) {
+        console.log('arg1 postSet:', n, n?.cls_?.id);
+      }
     },
     {
       class: 'Int',
@@ -28,11 +31,13 @@ foam.CLASS({
       generateJava: false,
       documentation: 'Number of decimal places for numeric results. -1 means no rounding (default behavior).',
       visibility: function(arg1) {
+        console.log('precision visibility check:', arg1, arg1?.cls_?.id);
         if ( ! arg1 ) return foam.u2.DisplayMode.HIDDEN;
         var isNumeric = foam.lang.Int.isInstance(arg1) ||
                         foam.lang.Long.isInstance(arg1) ||
                         foam.lang.Float.isInstance(arg1) ||
                         foam.lang.Double.isInstance(arg1);
+        console.log('isNumeric:', isNumeric);
         return isNumeric ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     }

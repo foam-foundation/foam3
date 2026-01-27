@@ -341,7 +341,13 @@ foam.CLASS({
     {
       name: 'reflow',
       code: function(X) {
-        X.routeTo('flow/' + encodeURIComponent(this.name) + '?flowMode=PRESENTATION');
+        // 1) Allow for flowMode to be passed in
+        // 2) implementation below relies on user having "menu.read.flow_" permission
+        // ^ why? because we routeTo menu. Thus use "flow_" not "flow".
+        // "flow" is visibile and has the ability to be granted.
+        // "flow_" is not visible and used here as a view only
+        var mode = X.flowMode || X.config?.flowMode || 'PRESENTATION';
+        X.routeTo('flow_/' + encodeURIComponent(this.name) + '?flowMode=' + mode);
       },
       isAvailable: function() {
         // Disable in Reflow, but enable in DAOController (because already in reflow)

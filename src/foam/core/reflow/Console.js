@@ -270,7 +270,7 @@ foam.CLASS({
       size: 'SMALL',
       code: function(X) {
         this.showNav = true;
-        X.routeTo('flows');
+        X.routeTo('flows'); // consider route to default menu...
       }
     },
     {
@@ -1165,7 +1165,8 @@ foam.CLASS({
     'setTimeout',
     'toolbarControlDAO',
     'window',
-    'showNav'
+    'showNav',
+    'isMenuOpen'
   ],
 
   constants: [
@@ -1311,6 +1312,18 @@ foam.CLASS({
       name: 'flowName',
       value: 'flow',
       getter: function() { return 'flow'; }
+    },
+    {
+      class: 'Boolean',
+      name: 'showNavOnMount',
+      documentation: 'If provided, overrides nav visibility while this Console is mounted.',
+      factory: function() { return this.showNav; }
+    },
+    {
+      class: 'Boolean',
+      name: 'isMenuOpenOnMount',
+      documentation: 'If provided, overrides side menu open state while this Console is mounted.',
+      factory: function() { return this.isMenuOpen; }
     },
     {
       class: 'String',
@@ -1550,9 +1563,12 @@ foam.CLASS({
       this.addClass(this.flowMode$.map(m => this.myClass(m.toString())));
 
       let oldShowNav = this.showNav;
-      this.showNav = false;
+      let oldIsMenuOpen = this.isMenuOpen;
+      this.showNav = this.showNavOnMount;
+      this.isMenuOpen = this.isMenuOpenOnMount;
       this.onDetach(() => {
         this.showNav = oldShowNav;
+        this.isMenuOpen = oldIsMenuOpen;
         // Detach all flow children when closing the flow page
         this.flowChildren.forEach(c => this.detachFlowChild(c));
       });

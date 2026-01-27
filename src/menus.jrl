@@ -314,6 +314,27 @@ p({
   "parent":"admin"
 })
 
+// creating a hidden flow menu for reflow access 
+//- allows us to control access to the actual flow menu
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"internal",
+  "handler": {
+    "class":"foam.core.menu.SubMenu",
+    "order":-1
+  },
+  "parent":""
+})
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"flow_",
+  "handler":{
+    "class":"foam.core.menu.ViewMenu",
+    "view":{"class":"foam.core.reflow.Console"}
+  },
+  "parent":"internal"
+})
+
 p({
   "class":"foam.core.menu.Menu",
   "id":"flows",

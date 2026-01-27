@@ -53,10 +53,15 @@ foam.CLASS({
       factory: function() {
         return this.AutoGrammar.create();
       }
-    }
+    },
+    'smartView_'
   ],
 
   methods: [
+    function reset() {
+      this.smartView_.reset();
+    },
+
     async function render() {
       await this.grammar.aInit();
 
@@ -67,11 +72,30 @@ foam.CLASS({
           glyph: 'rightChevron',
           embedSVG: true
         }).addClass(this.myClass('chevron')).end()
-        .start(this.SmartView, {data$: this.input$, parser: this.grammar})
+        .start(this.SmartView, {data$: this.input$, parser: this.grammar}, this.smartView_$)
+          .on('keydown', this.onKeyDown)
           .addClass(this.myClass('input'))
           .focus()
         .end()
       .end();
     }
-  ]
+  ],
+
+  listeners: [
+    function onKeyDown(e) {
+      if ( e.key === 'Enter' ) {
+        let n = this.smartView_.preview;
+        this.smartView_.preview = '';
+
+        if ( n ) {
+          if ( n.startsWith('/') ) n = n.substring(1);
+          if ( n ) this.eval_(n);
+        }
+
+        e.stopPropagation();
+        e.preventDefault();
+        this.reset();
+      }
+    }
+  ],
 });

@@ -15,11 +15,7 @@ foam.CLASS({
   properties: [
     {
       class: 'foam.mlang.ExprProperty',
-      name: 'arg1',
-      hidden: false,
-      postSet: function(o, n) {
-        console.log('Average arg1 postSet:', n, n?.cls_?.id);
-      }
+      name: 'arg1'
     },
     {
       class: 'Double',

@@ -147,6 +147,13 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'clientBundle',
+      section: 'applicationSection',
+      documentation: 'Client bundle name used to select the foam-bin script for this theme.',
+      writePermissionRequired: true
+    },
+    {
+      class: 'String',
       name: 'bootservices',
       section: 'applicationSection',
       documentation: 'Comma-separated boot services to instantiate (e.g., cookbookZACClient).',

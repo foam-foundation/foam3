@@ -30,12 +30,25 @@ foam.POM({
       let version = FOAM_BIN_VERSION;
       let flags = this.flag();
       let outdir = BUILD_DIR+'/js';
-      if ( WITHOUT_STAGES ) {
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir}`)();
+      let bundles = globalThis.CLIENT_BUNDLES;
+
+      let runStages = (pom, bundle) => {
+        let bundleArg = bundle ? ` -bundle=${bundle}` : '';
+        if ( WITHOUT_STAGES ) {
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir}${bundleArg}`)();
+        } else {
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=0${bundleArg}`)();
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=1${bundleArg}`)();
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=2${bundleArg}`)();
+        }
+      };
+
+      if ( bundles && bundles.length ) {
+        bundles.forEach(bundle => {
+          runStages(bundle.poms, bundle.name);
+        });
       } else {
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=0`)();
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=1`)();
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=2`)();
+        runStages(POMS);
       }
     }]
   }

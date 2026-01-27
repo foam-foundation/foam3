@@ -138,7 +138,11 @@ foam.CLASS({
       if ( headConfig == null || ! headConfig.containsKey("customScripts") || customScriptsFailed ) {
         if ( x.get(foam.core.fs.Storage.class) instanceof foam.core.fs.ResourceStorage  ) {
           // running from jar file
-          out.println("<script async fetchpriority='high' language='javascript' type='text/javascript' src='/foam-bin-"+appConfig.getVersion()+".js' ></script>");
+          String clientBundle = theme.getClientBundle();
+          String foamBinName = SafetyUtil.isEmpty(clientBundle)
+            ? "foam-bin-" + appConfig.getVersion() + ".js"
+            : "foam-bin-" + clientBundle + "-" + appConfig.getVersion() + ".js";
+          out.println("<script async fetchpriority='high' language='javascript' type='text/javascript' src='/" + foamBinName + "' ></script>");
         } else {
           // development
           out.println("<script language=\\"javascript\\" src=\\"" + appConfig.getFoamUrl() + "\\" project=\\"" + appConfig.getPom() + "\\" flags=\\"" + appConfig.getFlags() + "\\"></script>");

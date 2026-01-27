@@ -27,6 +27,10 @@ exports.args = [
     name: 'outdir',
     description: 'location to write foam-bin files, default: {builddir}/js',
     factory: () => path_.resolve(path_.normalize(X.outdir || (X.builddir + '/js')))
+  },
+  {
+    name: 'bundle',
+    description: 'bundle name prefix for foam-bin output'
   }
 ];
 
@@ -156,7 +160,8 @@ exports.end = function() {
 
   function fn(s) {
     var stage = ( s === undefined || s == '0' ) ? '' : '-' + s;
-    return version ? `foam-bin-${version}${stage}` : `foam-bin{$stage}`;
+    var bundle = X.bundle ? `${X.bundle}-` : '';
+    return version ? `foam-bin-${bundle}${version}${stage}` : `foam-bin-${bundle}${stage}`;
   }
 
   // We record that we've loaded stage1 in localstorage so that we can be safe

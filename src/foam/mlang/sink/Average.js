@@ -69,8 +69,8 @@ if (other instanceof foam.mlang.sink.Average) {
       javaCode: 'setValue(0); setCount(0);',
       swiftCode: 'value = 0; count = 0'
     },
-    function toSummary() { return this.value; },
-    function valueOf() { return this.value; },
-    function addToE(e) { e.add(this.value); }
+    function toSummary() { return this.applyPrecision(this.value); },
+    function valueOf() { return this.applyPrecision(this.value); },
+    function addToE(e) { e.add(this.applyPrecision(this.value)); }
   ]
 });

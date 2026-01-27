@@ -85,9 +85,14 @@ if (other instanceof foam.mlang.sink.Max) {
       code: function() { this.value = 0; },
       swiftCode: 'value = 0'
     },
-    function toSummary() { return this.value; },
-    function valueOf() { return this.value; },
-    function addToE(e) { e.add(this.value); },
+    function formatValue(val) {
+      if ( this.precision < 0 || typeof val !== 'number' ) return val;
+      return this.applyPrecision(val);
+    },
+
+    function toSummary() { return this.formatValue(this.value); },
+    function valueOf() { return this.formatValue(this.value); },
+    function addToE(e) { e.add(this.formatValue(this.value)); },
 
     function toProperties() {
       var name = 'max_' + this.arg1.name;
@@ -96,7 +101,7 @@ if (other instanceof foam.mlang.sink.Max) {
     },
 
     function setPropertyValues(o, sink, ps) {
-      ps[0].set(o, sink.value);
+      ps[0].set(o, sink.formatValue(sink.value));
     }
   ]
 });

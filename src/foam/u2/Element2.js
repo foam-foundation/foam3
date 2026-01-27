@@ -776,12 +776,14 @@ foam.CLASS({
       var observer = new MutationObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
+      return this;
     },
 
     function resizeObserver(fn, config = { box: 'content-box' }) {
       var observer = new ResizeObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
+      return this;
     },
 
     function observeScrollHeight() {

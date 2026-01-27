@@ -19,13 +19,11 @@ foam.CLASS({
     },
     {
       class: 'Double',
-      name: 'value',
-      value: 0
+      name: 'value'
     },
     {
       class: 'Long',
-      name: 'count',
-      value: 0
+      name: 'count'
     }
   ],
 

@@ -19,8 +19,7 @@ foam.CLASS({
     },
     {
       class: 'Double',
-      name: 'value',
-      value: 0
+      name: 'value'
     }
   ],
 

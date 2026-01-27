@@ -231,16 +231,27 @@ foam.CLASS({
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
       }
+    },
+    {
+      class: 'Int',
+      name: 'precision',
+      value: -1,
+      help: 'Number of decimal places for numeric results. -1 means no rounding.'
     }
   ],
 
   methods: [
     function value(s) { return s; },
-    function createSink() { return this.MIN(this.prop); },
+    function createSink() {
+      var sink = this.MIN(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    },
     function addToE(e) {
       e.startContext({data: this}).start().
         style({display: 'flex'}).
-        add(this.PROP);
+        add(this.PROP).
+        add(this.PRECISION.__);
     }
   ]
 });
@@ -251,7 +262,11 @@ foam.CLASS({
   name: 'MaxDAOAgent',
   extends: 'foam.core.reflow.MinDAOAgent',
   methods: [
-    function createSink() { return this.MAX(this.prop); }
+    function createSink() {
+      var sink = this.MAX(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    }
   ]
 });
 
@@ -278,7 +293,11 @@ foam.CLASS({
   ],
 
   methods: [
-    function createSink() { return this.AVG(this.prop); }
+    function createSink() {
+      var sink = this.AVG(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    }
   ]
 });
 
@@ -288,7 +307,11 @@ foam.CLASS({
   name: 'SumDAOAgent',
   extends: 'foam.core.reflow.AvgDAOAgent',
   methods: [
-    function createSink() { return this.SUM(this.prop); }
+    function createSink() {
+      var sink = this.SUM(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    }
   ]
 });
 

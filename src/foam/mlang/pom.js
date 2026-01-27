@@ -140,6 +140,9 @@ foam.POM({
     { name: "predicate/AuthPermissionPredicate",    flags: "js|java" },
     { name: "LabeledValue",                         flags: "js" }
   ],
+  projects: [
+    { name: "sink/test/pom",                        flags: "test" }
+  ],
   journalFiles: [
     { name: "tests",                                flags: "test" }
   ]

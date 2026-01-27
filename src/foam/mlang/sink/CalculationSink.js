@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 The FOAM Authors. All Rights Reserved.
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
@@ -41,7 +41,6 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'evaluateAtRowLevel',
-      value: false,
       documentation: `When true, evaluates the expression for each row and accumulates the results.
         When false (default), collects data in operand sinks and evaluates the expression once at EOF.`
     },
@@ -67,7 +66,6 @@ foam.CLASS({
       class: 'Double',
       name: 'value',
       documentation: 'The accumulated calculation result',
-      value: 0,
       getter: function() {
         // For total-level, recalculate from sink values on demand
         // For row-level, return the accumulated value
@@ -145,12 +143,27 @@ foam.CLASS({
     {
       name: 'eof',
       code: function() {
+        // Call eof on all operand sinks first to finalize their state
+        this.operations.forEach(function(op) {
+          if ( op.operand && op.operand.eof ) {
+            op.operand.eof();
+          }
+        });
         if ( ! this.evaluateAtRowLevel ) {
           // Evaluate expression once using accumulated sink values
           this.value = this.evaluateExpression_(null);
         }
       },
       javaCode: `
+        // Call eof on all operand sinks first to finalize their state
+        for ( int i = 0; i < getOperations().length; i++ ) {
+          if ( getOperations()[i] != null && getOperations()[i].getOperand() != null ) {
+            Object operand = getOperations()[i].getOperand();
+            if ( operand instanceof foam.dao.Sink ) {
+              ((foam.dao.Sink) operand).eof();
+            }
+          }
+        }
         if ( ! getEvaluateAtRowLevel() ) {
           setValue(evaluateExpression_(null));
         }
@@ -286,7 +299,8 @@ foam.CLASS({
 
         if ( this.evaluateAtRowLevel ) {
           // For row-level: evaluate expressions against the object
-          if ( foam.mlang.Expr.isInstance(operand) ) {
+          // Check for Expr instance or any object with an f() function (like Property axioms)
+          if ( foam.mlang.Expr.isInstance(operand) || ( operand.f && typeof operand.f === 'function' ) ) {
             var val = operand.f(obj);
             return typeof val === 'number' ? val : parseFloat(val) || 0;
           }
@@ -304,8 +318,15 @@ foam.CLASS({
         if ( operand == null ) return 0.0;
 
         if ( getEvaluateAtRowLevel() ) {
+          // For row-level: evaluate expressions against the object
+          // Check for Expr or PropertyInfo (both have f() method)
           if ( operand instanceof foam.mlang.Expr ) {
             Object val = ((foam.mlang.Expr) operand).f(obj);
+            if ( val instanceof Number ) {
+              return ((Number) val).doubleValue();
+            }
+          } else if ( operand instanceof foam.lang.PropertyInfo ) {
+            Object val = ((foam.lang.PropertyInfo) operand).f(obj);
             if ( val instanceof Number ) {
               return ((Number) val).doubleValue();
             }
@@ -371,6 +392,8 @@ foam.CLASS({
             return getSinkValue_(((foam.mlang.sink.FilteredSink) sink).getDelegate());
           } else if ( sink instanceof foam.mlang.sink.LabeledSink ) {
             return getSinkValue_(((foam.mlang.sink.LabeledSink) sink).getDelegate());
+          } else if ( sink instanceof foam.mlang.sink.CalculationSink ) {
+            return ((foam.mlang.sink.CalculationSink) sink).getValue();
           }
         } catch (Exception e) {
           System.err.println("Error getting sink value: " + e.getMessage());
@@ -382,21 +405,40 @@ foam.CLASS({
     {
       name: 'toString',
       code: function() {
+        if ( ! this.operations || this.operations.length === 0 ) return 'CALC()';
+
+        var self = this;
         var expr = this.operations.map(function(op, i) {
           var opSymbol = '';
           if ( i > 0 ) {
-            opSymbol = {
-              ADD: ' + ',
-              SUBTRACT: ' - ',
-              MULTIPLY: ' * ',
-              DIVIDE: ' / '
-            }[op.operation] || ' ? ';
+            // Use the PREVIOUS operation's label since ops[i-1] determines how to combine values[i-1] with values[i]
+            var prevOp = self.operations[i - 1];
+            opSymbol = ' ' + (prevOp.operation ? prevOp.operation.label : '?') + ' ';
           }
           return opSymbol + (op.operand ? op.operand.toString() : 'null');
         }).join('');
 
         return 'CALC(' + expr + ')';
-      }
+      },
+      javaCode: `
+        if ( getOperations() == null || getOperations().length == 0 ) return "CALC()";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("CALC(");
+
+        for ( int i = 0; i < getOperations().length; i++ ) {
+          CalculationOperation op = getOperations()[i];
+          if ( i > 0 ) {
+            // Use the PREVIOUS operation's label since ops[i-1] determines how to combine values[i-1] with values[i]
+            CalculationOperation prevOp = getOperations()[i - 1];
+            sb.append(" ").append(prevOp.getOperation().getLabel()).append(" ");
+          }
+          sb.append(op.getOperand() != null ? op.getOperand().toString() : "null");
+        }
+
+        sb.append(")");
+        return sb.toString();
+      `
     },
     {
       name: 'reduce',
@@ -436,7 +478,7 @@ foam.CLASS({
             Object thisOp = getOperations()[i].getOperand();
             Object otherOp = otherCalc.getOperations()[i].getOperand();
 
-            if ( thisOp instanceof foam.mlang.sink.Reducible && otherOp != null ) {
+            if ( thisOp instanceof foam.mlang.sink.Reducible && otherOp instanceof foam.mlang.sink.Reducible ) {
               ((foam.mlang.sink.Reducible) thisOp).reduce((foam.mlang.sink.Reducible) otherOp);
             }
           }

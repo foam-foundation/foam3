@@ -100,8 +100,8 @@ foam.CLASS({
               e.preventDefault();
               e.stopPropogation();
             })
-            .startContext({ stack: this.subStack })
-            .tag(this.OverlayActionListView, {
+            .startContext({ stack: self.subStack })
+            .tag(self.OverlayActionListView, {
               data: Object.values(actions),
               lazy: true,
               id: obj.id,

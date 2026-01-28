@@ -9,6 +9,7 @@ package foam.parse;
 import foam.lib.parse.*;
 import foam.lib.parse.Optional;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Comprehensive date and datetime parser that handles all formats from DateUtil.js.
@@ -47,6 +48,17 @@ public class DateParser {
 
   public boolean getStrictValidation() { return strictValidation_; }
   public void setStrictValidation(boolean v) { strictValidation_ = v; }
+
+  /**
+   * Static cache for parsed date results (thread-safe).
+   * Shared across all DateParser instances to avoid re-parsing the same strings.
+   */
+  private static final ConcurrentHashMap<String, Date> cache_ = new ConcurrentHashMap<>();
+
+  /**
+   * Maximum cache size to prevent unbounded growth.
+   */
+  private static final int MAX_CACHE_SIZE = 10000;
 
   /**
    * Maximum date value for invalid dates
@@ -111,6 +123,15 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first
+    String cacheKey = "STRING:" + (opt_name != null ? opt_name : "") + ":" + str;
+    Date cached = cache_.get(cacheKey);
+    if ( cached != null ) {
+      // Clone Date to prevent cache corruption (Date is mutable)
+      return new Date(cached.getTime());
+    }
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.STRING);  // STRING mode: date-only → noon GMT, with time → local time
@@ -124,7 +145,15 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    Date result = (Date) parseResult.value();
+
+    // Cache the result if cache is not full
+    if ( cache_.size() < MAX_CACHE_SIZE ) {
+      cache_.put(cacheKey, result);
+    }
+
+    // Return cloned Date to prevent cache corruption
+    return new Date(result.getTime());
   }
 
   /**
@@ -153,6 +182,15 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first
+    String cacheKey = "DATE:" + (opt_name != null ? opt_name : "") + ":" + str;
+    Date cached = cache_.get(cacheKey);
+    if ( cached != null ) {
+      // Clone Date to prevent cache corruption (Date is mutable)
+      return new Date(cached.getTime());
+    }
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.DATE);
@@ -166,7 +204,15 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    Date result = (Date) parseResult.value();
+
+    // Cache the result if cache is not full
+    if ( cache_.size() < MAX_CACHE_SIZE ) {
+      cache_.put(cacheKey, result);
+    }
+
+    // Return cloned Date to prevent cache corruption
+    return new Date(result.getTime());
   }
 
   /**
@@ -197,6 +243,15 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first
+    String cacheKey = "DATETIME:" + (opt_name != null ? opt_name : "") + ":" + str;
+    Date cached = cache_.get(cacheKey);
+    if ( cached != null ) {
+      // Clone Date to prevent cache corruption (Date is mutable)
+      return new Date(cached.getTime());
+    }
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.DATETIME);
@@ -210,7 +265,15 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    Date result = (Date) parseResult.value();
+
+    // Cache the result if cache is not full
+    if ( cache_.size() < MAX_CACHE_SIZE ) {
+      cache_.put(cacheKey, result);
+    }
+
+    // Return cloned Date to prevent cache corruption
+    return new Date(result.getTime());
   }
 
   /**
@@ -241,6 +304,15 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first
+    String cacheKey = "DATETIME_UTC:" + (opt_name != null ? opt_name : "") + ":" + str;
+    Date cached = cache_.get(cacheKey);
+    if ( cached != null ) {
+      // Clone Date to prevent cache corruption (Date is mutable)
+      return new Date(cached.getTime());
+    }
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.DATETIME_UTC);
@@ -254,7 +326,15 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    Date result = (Date) parseResult.value();
+
+    // Cache the result if cache is not full
+    if ( cache_.size() < MAX_CACHE_SIZE ) {
+      cache_.put(cacheKey, result);
+    }
+
+    // Return cloned Date to prevent cache corruption
+    return new Date(result.getTime());
   }
 
   /**

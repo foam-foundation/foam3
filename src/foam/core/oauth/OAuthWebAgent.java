@@ -19,6 +19,25 @@ import javax.json.JsonReader;
 // can be used for login and for storing oauth credentials for users
 // can be subclassed to customize behaviour
 public class OAuthWebAgent implements WebAgent {
+    protected JsonObject parseIdTokenBody(String idToken) {
+        if ( SafetyUtil.isEmpty(idToken) ) return null;
+        try {
+            String parts[] = idToken.split("\\.");
+            if ( parts.length < 2 ) return null;
+            String bodyb64 = parts[1];
+
+            byte[] bodyBytes = java.util.Base64.getUrlDecoder().decode(bodyb64);
+            String body = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
+
+            javax.json.JsonReader reader = javax.json.Json.createReader(new java.io.StringReader(body));
+            javax.json.JsonObject bodyObject = reader.readObject();
+            reader.close();
+            return bodyObject;
+        } catch ( Exception e ) {
+            return null;
+        }
+    }
+
     @Override
     public void execute(X x) {
         Logger logger = (Logger) x.get("logger");
@@ -46,7 +65,7 @@ public class OAuthWebAgent implements WebAgent {
             state = stateReader.readObject();
             stateReader.close();
 
-            var sessionID = state.getString("session_id");
+            var sessionID = state.getString("session_id", null);
             var sessionDAO = ((foam.dao.DAO)x.get("sessionDAO"));
             var session = (foam.core.session.Session)sessionDAO.find(sessionID);
             if ( session == null ) {
@@ -76,29 +95,52 @@ public class OAuthWebAgent implements WebAgent {
             String refreshToken = tokenResponse.getString("refresh_token", null);
             String idToken = tokenResponse.getString("id_token", null);
 
-            // if an idToken was returned, log the session into the new account
+            String flow = state.getString("flow", "login");
+
+            // if an idToken was returned, we can identify the remote account
             foam.core.auth.User user;
-            if (idToken != null) {
-                try {
-                    user = loginWithIdToken(x, state, provider, idToken);
-                } catch (AuthenticationException e) {
-                    sendErrorResponse(x, e.getMessage(), state, resp);
+            javax.json.JsonObject idTokenBody = parseIdTokenBody(idToken);
+            String remoteSubject = idTokenBody != null && idTokenBody.containsKey("sub") ? idTokenBody.getString("sub") : null;
+            String remoteEmail   = idTokenBody != null && idTokenBody.containsKey("email") ? idTokenBody.getString("email") : null;
+
+            if ( "connect".equals(flow) ) {
+                // Connect external account to the currently logged-in user. Do NOT login/switch user.
+                if ( idTokenBody == null || SafetyUtil.isEmpty(remoteSubject) ) {
+                    sendErrorResponse(x, "Missing id_token/sub for connect flow", state, resp);
+                    return;
+                }
+                user = session.findUserId(x);
+                if ( user == null ) {
+                    sendErrorResponse(x, "Not logged in", state, resp);
                     return;
                 }
             } else {
-                user = session.findUserId(x);
+                // Login flow (default)
+                if ( idToken != null ) {
+                    try {
+                        user = loginWithIdToken(x, state, provider, idToken);
+                    } catch (AuthenticationException e) {
+                        sendErrorResponse(x, e.getMessage(), state, resp);
+                        return;
+                    }
+                } else {
+                    user = session.findUserId(x);
+                }
             }
 
             var userX = session.getContext();
 
             var oAuthCredentialsDAO = (foam.dao.DAO)x.get("oAuthCredentialDAO");
-            var existingCredential = oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId()));
+            if ( remoteSubject == null ) remoteSubject = "";
+            var existingCredential = oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId(), remoteSubject));
             var credential = new foam.core.oauth.OAuthCredential();
             if (existingCredential != null) {
                 credential.copyFrom(existingCredential);
             }
             credential.setUser(user.getId());
             credential.setProvider(provider.getId());
+            credential.setRemoteSubject(remoteSubject);
+            credential.setRemoteEmail(remoteEmail);
             credential.setAccessToken(accessToken);
             if (refreshToken != null) {
                 credential.setRefreshToken(refreshToken);
@@ -143,7 +185,7 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<!DOCTYPE html>");
             out.println("<html><body>");
             out.println("<h1>Success</h1>");
-            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id", "") + "\">");
             out.print("<script language=\"javascript\">");
             out.print("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
             out.print("window.close();");
@@ -165,7 +207,7 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<html><body>");
             out.println("<h1>Something went wrong!</h1>");
             out.println("<input type=\"hidden\" id=\"errorMessage\" value=\"" + errorMessage + "\">");
-            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id", "") + "\">");
             out.print("<script language=\"javascript\">");
             out.print("window.opener && window.opener.postMessage({ error: { message: document.getElementById(\"errorMessage\").value }, sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
             out.print("window.close();");
@@ -177,15 +219,10 @@ public class OAuthWebAgent implements WebAgent {
 
     protected foam.core.auth.User loginWithIdToken(foam.lang.X x, javax.json.JsonObject state, foam.core.oauth.OAuthProvider provider, String idToken) {
         Logger logger = (Logger) x.get("logger");
-        String parts[] = idToken.split("\\.");
-        String bodyb64 = parts[1];
-
-        byte[] bodyBytes = java.util.Base64.getUrlDecoder().decode(bodyb64);
-        String body = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
-
-        javax.json.JsonReader reader = javax.json.Json.createReader(new java.io.StringReader(body));
-        javax.json.JsonObject bodyObject = reader.readObject();
-        reader.close();
+        javax.json.JsonObject bodyObject = parseIdTokenBody(idToken);
+        if ( bodyObject == null ) {
+            throw new AuthenticationException("Invalid id_token");
+        }
 
         if (!bodyObject.getBoolean("email_verified")) {
             throw new AuthenticationException("Email is not verified");

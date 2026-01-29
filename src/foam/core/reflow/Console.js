@@ -1042,6 +1042,11 @@ foam.ENUM({
       name: 'getToggleTarget',
       documentation: 'Returns the FlowMode to switch to when toggling, null if toggle not allowed',
       value: function() { return null; }
+    },
+    {
+      class: 'Boolean',
+      name: 'showNav',
+      documentation: 'AppCont. showNav setting used in Console.showNavOnMount'
     }
   ],
 
@@ -1059,6 +1064,7 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: true,
+      showNav: false,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
     },
     {
@@ -1074,6 +1080,7 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: false,
+      showNav: false,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.CONSOLE; }
     },
     {
@@ -1089,6 +1096,7 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: false,
       showsHelpKey: false,
+      showNav: true,
       getToggleTarget: function() { return null; }
     },
     {
@@ -1104,6 +1112,7 @@ foam.ENUM({
       isLimitedEditMode: true,
       checksAutosave: true,
       showsHelpKey: false,
+      showNav: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT_CONSOLE; }
     },
     {
@@ -1119,6 +1128,7 @@ foam.ENUM({
       isLimitedEditMode: true,
       checksAutosave: true,
       showsHelpKey: false,
+      showNav: false,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT; }
     }
   ]
@@ -1284,7 +1294,10 @@ foam.CLASS({
       of: 'foam.core.reflow.FlowMode',
       name: 'flowMode',
       value: 'CONSOLE',
-      memorable: true
+      memorable: true,
+      postSet: function(_, n) {
+        this.showNavOnMount = !! n ? n.showNav : true;
+      }
     },
     {
       class: 'String',
@@ -1317,13 +1330,35 @@ foam.CLASS({
       class: 'Boolean',
       name: 'showNavOnMount',
       documentation: 'If provided, overrides nav visibility while this Console is mounted.',
-      factory: function() { return this.showNav; }
+      postSet: function(_, n) {
+        if ( typeof this.oldShowNav === 'undefined' ) {
+          // Capture the nav state the first time we apply an override so we can restore it on detach
+          this.oldShowNav = this.showNav;
+        }
+        this.showNav = !! n;
+      }
     },
     {
       class: 'Boolean',
       name: 'isMenuOpenOnMount',
       documentation: 'If provided, overrides side menu open state while this Console is mounted.',
-      factory: function() { return this.isMenuOpen; }
+      postSet: function(_, n) {
+        if ( typeof this.oldIsMenuOpen === 'undefined' ) {
+          // Capture the menu state the first time we apply an override so we can restore it on detach
+          this.oldIsMenuOpen = this.isMenuOpen;
+        }
+        this.isMenuOpen = !! n;
+      }
+    },
+    {
+      name: 'oldShowNav',
+      hidden: true,
+      transient: true
+    },
+    {
+      name: 'oldIsMenuOpen',
+      hidden: true,
+      transient: true
     },
     {
       class: 'String',
@@ -1555,23 +1590,28 @@ foam.CLASS({
       return this.cls_.id + '_HISTORY';
     },
 
+    function init() {
+      // Capture existing application nav state before we apply Console-specific overrides
+      if ( typeof this.oldShowNav === 'undefined' ) this.oldShowNav = this.showNav;
+      if ( typeof this.oldIsMenuOpen === 'undefined' ) this.oldIsMenuOpen = this.isMenuOpen;
+
+      // Apply mode defaults while mounted
+      this.showNavOnMount = this.flowMode?.showNav;
+      this.isMenuOpenOnMount = false;
+
+      this.onDetach(() => {
+        if ( typeof this.oldShowNav !== 'undefined' ) this.showNav = this.oldShowNav;
+        if ( typeof this.oldIsMenuOpen !== 'undefined' ) this.isMenuOpen = this.oldIsMenuOpen;
+        // Detach all flow children when closing the flow page
+        this.flowChildren.forEach(c => this.detachFlowChild(c));
+      });
+    },
     async function render() {
       foam.u2.table.UnstyledTableView.SELECTED_COLUMN_NAMES.memorable = false;
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
       // Add the Mode as a CSS Class so we can adjust stying based on the mode
-      this.addClass(this.flowMode$.map(m => this.myClass(m.toString())));
-
-      let oldShowNav = this.showNav;
-      let oldIsMenuOpen = this.isMenuOpen;
-      this.showNav = this.showNavOnMount;
-      this.isMenuOpen = this.isMenuOpenOnMount;
-      this.onDetach(() => {
-        this.showNav = oldShowNav;
-        this.isMenuOpen = oldIsMenuOpen;
-        // Detach all flow children when closing the flow page
-        this.flowChildren.forEach(c => this.detachFlowChild(c));
-      });
+      this.addClass(this.flowMode$.map(m => this.myClass(m.toString()))); 
       this.SUPER();
 
       var self = this;

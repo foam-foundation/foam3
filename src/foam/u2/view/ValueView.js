@@ -42,10 +42,10 @@ foam.CLASS({
         this.add(
           unitPropSlot ?
           this.slot(function(data, unitProp) {
-            return prop.unitPropValueToString.call(self.__subContext__.objData, self.__subContext__, data, unitProp);
+            return prop.unitPropValueToString.call(self.__subContext__.objData, self.__subContext__, data, unitProp, prop.hideId);
           }, this.data$, unitPropSlot) :
           this.slot(function(data) {
-            return prop.unitPropValueToString.call(self.__subContext__.objData, self.__subContext__, data, self.__subContext__.objData[prop.unitPropName]);
+            return prop.unitPropValueToString.call(self.__subContext__.objData, self.__subContext__, data, self.__subContext__.objData[prop.unitPropName], prop.hideId);
           })
         );
       } else {

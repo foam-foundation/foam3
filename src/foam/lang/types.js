@@ -909,6 +909,52 @@ foam.CLASS({
       `
     },
     {
+      class: 'Boolean',
+      name: 'hideId',
+      documentation: `
+        If true, the unit id will be excluded when formatting the value by default.
+        NOTE: This only affects formatting when using the unitPropValueToString method using the default view and tableCellFormatter.
+      `
+    },
+    {
+      name: 'unitPropValueToString',
+      value: async function(x, val, unitPropName, excludeUnit) {
+        if ( unitPropName ) {
+          const unitProp = await x.currencyDAO.find(unitPropName);
+          if ( unitProp )
+            return unitProp.format(val, excludeUnit, false);
+        }
+        return val;
+      }
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'DoubleUnitValue',
+  extends: 'Double',
+  documentation: `
+    A Double value with an associated unit property for formatting.
+  `,
+  properties: [
+    {
+      class: 'String',
+      name: 'unitPropName',
+      documentation: `
+        The name of the property of a model that contains the denomination String.
+      `
+    },
+    {
+      class: 'Boolean',
+      name: 'hideId',
+      documentation: `
+        If true, the unit id will be excluded when formatting the value by default.
+        NOTE: This only affects formatting when using the unitPropValueToString method using the default view and tableCellFormatter.
+      `,
+      value: true
+    },
+    {
       name: 'unitPropValueToString',
       value: async function(x, val, unitPropName, excludeUnit) {
         if ( unitPropName ) {

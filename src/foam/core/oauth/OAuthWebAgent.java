@@ -132,7 +132,7 @@ public class OAuthWebAgent implements WebAgent {
 
             var oAuthCredentialsDAO = (foam.dao.DAO)x.get("oAuthCredentialDAO");
             if ( remoteSubject == null ) remoteSubject = "";
-            var existingCredential = oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId(), remoteSubject));
+            foam.lang.FObject existingCredential = (foam.lang.FObject) oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId(), remoteSubject));
             var credential = new foam.core.oauth.OAuthCredential();
             if (existingCredential != null) {
                 credential.copyFrom(existingCredential);
@@ -145,7 +145,19 @@ public class OAuthWebAgent implements WebAgent {
             if (refreshToken != null) {
                 credential.setRefreshToken(refreshToken);
             }
-            credential.setScopes(scopes);
+            foam.core.oauth.OAuthCredential oldCred = existingCredential instanceof foam.core.oauth.OAuthCredential ? (foam.core.oauth.OAuthCredential) existingCredential : null;
+            if ( oldCred != null && oldCred.getScopes() != null && scopes != null ) {
+                java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
+                for ( String s : oldCred.getScopes() ) {
+                    if ( ! SafetyUtil.isEmpty(s) ) merged.add(s);
+                }
+                for ( String s : scopes ) {
+                    if ( ! SafetyUtil.isEmpty(s) ) merged.add(s);
+                }
+                credential.setScopes(merged.toArray(new String[0]));
+            } else {
+                credential.setScopes(scopes);
+            }
 
             oAuthCredentialsDAO.put(credential);
 

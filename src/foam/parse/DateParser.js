@@ -41,12 +41,42 @@ foam.CLASS({
     },
     {
       name: 'cache_',
-      documentation: 'Cache for parsed date results to avoid re-parsing the same strings.',
-      factory: function() { return {}; }
+      documentation: 'LRU cache for parsed date results to avoid re-parsing the same strings. Uses Map to maintain insertion order for LRU eviction.',
+      factory: function() { return new Map(); }
+    },
+    {
+      class: 'Int',
+      name: 'maxCacheSize_',
+      value: 10000
     }
   ],
 
   methods: [
+    // ========== Cache Helper Methods ==========
+
+    function cacheGet_(key) {
+      if ( this.cache_.has(key) ) {
+        var cached = this.cache_.get(key);
+        // LRU: delete and re-add to move to end (most recently used)
+        this.cache_.delete(key);
+        this.cache_.set(key, cached);
+        // Clone Date to prevent cache corruption
+        return new Date(cached.getTime());
+      }
+      return null;
+    },
+
+    function cacheSet_(key, value) {
+      // LRU eviction: remove oldest entry if at capacity
+      if ( this.cache_.size >= this.maxCacheSize_ ) {
+        var oldestKey = this.cache_.keys().next().value;
+        this.cache_.delete(oldestKey);
+      }
+      this.cache_.set(key, value);
+      // Return cloned Date
+      return new Date(value.getTime());
+    },
+
     function buildDate(mode, year, month, day, hour, minute, second, ms, tz) {
       var offset, utcTime;
       switch ( mode ) {
@@ -742,10 +772,8 @@ foam.CLASS({
 
       // Check cache first
       var cacheKey = 'STRING:' + (opt_name || '') + ':' + str;
-      if ( this.cache_[cacheKey] !== undefined ) {
-        // Clone Date to prevent cache corruption (Date is mutable)
-        return new Date(this.cache_[cacheKey].getTime());
-      }
+      var cached = this.cacheGet_(cacheKey);
+      if ( cached ) return cached;
 
       this.dateParseMode = 'STRING';
 
@@ -773,9 +801,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        var validated = this.validateDate(result, str);
-        this.cache_[cacheKey] = validated;
-        return new Date(validated.getTime());
+        return this.cacheSet_(cacheKey, this.validateDate(result, str));
       }
 
       // Determine if this is a datetime or date-only result based on presence of time components
@@ -796,9 +822,7 @@ foam.CLASS({
         ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
       }
 
-      var validated = this.validateDate(ret, str);
-      this.cache_[cacheKey] = validated;
-      return new Date(validated.getTime());
+      return this.cacheSet_(cacheKey, this.validateDate(ret, str));
     },
 
     function parseDateString(str, opt_name) {
@@ -813,10 +837,8 @@ foam.CLASS({
 
       // Check cache first
       var cacheKey = 'DATE:' + (opt_name || '') + ':' + str;
-      if ( this.cache_[cacheKey] !== undefined ) {
-        // Clone Date to prevent cache corruption (Date is mutable)
-        return new Date(this.cache_[cacheKey].getTime());
-      }
+      var cached = this.cacheGet_(cacheKey);
+      if ( cached ) return cached;
 
       this.dateParseMode = 'DATE';
 
@@ -842,14 +864,10 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        var validated = this.validateDate(result, str);
-        this.cache_[cacheKey] = validated;
-        return new Date(validated.getTime());
+        return this.cacheSet_(cacheKey, this.validateDate(result, str));
       }
 
-      // Cache and return cloned result
-      this.cache_[cacheKey] = parseResult.value;
-      return new Date(parseResult.value.getTime());
+      return this.cacheSet_(cacheKey, parseResult.value);
     },
 
     function parseDateTime(str, opt_name) {
@@ -864,10 +882,8 @@ foam.CLASS({
 
       // Check cache first
       var cacheKey = 'DATETIME:' + (opt_name || '') + ':' + str;
-      if ( this.cache_[cacheKey] !== undefined ) {
-        // Clone Date to prevent cache corruption (Date is mutable)
-        return new Date(this.cache_[cacheKey].getTime());
-      }
+      var cached = this.cacheGet_(cacheKey);
+      if ( cached ) return cached;
 
       this.dateParseMode = 'DATETIME';
 
@@ -897,9 +913,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        var validated = this.validateDate(result, str);
-        this.cache_[cacheKey] = validated;
-        return new Date(validated.getTime());
+        return this.cacheSet_(cacheKey, this.validateDate(result, str));
       }
 
       // Validate time components if present
@@ -931,10 +945,6 @@ foam.CLASS({
         // Subtract offset to convert to UTC (if timezone is +05:00, we subtract 5 hours)
         utcTime -= offset * 60000;
         ret = new Date(utcTime);
-        // Don't validate date parts - timezone conversion is expected to change the date
-        var validated = this.validateDate(ret, str);
-        this.cache_[cacheKey] = validated;
-        return new Date(validated.getTime());
       } else {
         // No timezone - use local time
         ret = new Date(
@@ -946,10 +956,9 @@ foam.CLASS({
           result.second !== undefined ? result.second : 0,
           result.millisecond !== undefined ? result.millisecond : 0
         );
-        var validated = this.validateDate(ret, str);
-        this.cache_[cacheKey] = validated;
-        return new Date(validated.getTime());
       }
+
+      return this.cacheSet_(cacheKey, this.validateDate(ret, str));
     },
 
     function parseDateTimeUTC(str, opt_name) {
@@ -964,10 +973,8 @@ foam.CLASS({
 
       // Check cache first
       var cacheKey = 'DATETIME_UTC:' + (opt_name || '') + ':' + str;
-      if ( this.cache_[cacheKey] !== undefined ) {
-        // Clone Date to prevent cache corruption (Date is mutable)
-        return new Date(this.cache_[cacheKey].getTime());
-      }
+      var cached = this.cacheGet_(cacheKey);
+      if ( cached ) return cached;
 
       this.dateParseMode = 'DATETIME_UTC';
 
@@ -997,9 +1004,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        var validated = this.validateDateUTC(result, str);
-        this.cache_[cacheKey] = validated;
-        return new Date(validated.getTime());
+        return this.cacheSet_(cacheKey, this.validateDateUTC(result, str));
       }
 
       // Validate time components if present
@@ -1009,9 +1014,7 @@ foam.CLASS({
         return this.validateDateUTC(this.INVALID_DATE, str);
       }
 
-      // Cache and return cloned result
-      this.cache_[cacheKey] = parseResult.value;
-      return new Date(parseResult.value.getTime());
+      return this.cacheSet_(cacheKey, parseResult.value);
     }
   ]
 });

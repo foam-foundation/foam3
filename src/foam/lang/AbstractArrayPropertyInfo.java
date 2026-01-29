@@ -8,7 +8,9 @@ package foam.lang;
 
 import foam.dao.jdbc.IndexedPreparedStatement;
 import foam.core.logger.Logger;
+import foam.util.SafetyUtil;
 import java.lang.UnsupportedOperationException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 import javax.xml.stream.XMLStreamConstants;
@@ -32,8 +34,69 @@ public abstract class AbstractArrayPropertyInfo
   // NESTED ARRAY
   @Override
   public void copyFromXML(X x, FObject obj, XMLStreamReader reader) {
-    List objList = new ArrayList();
     String startTag = reader.getLocalName();
+
+    // Special-case common LLM-friendly encoding for primitive/object arrays:
+    // repeated elements with text content, eg:
+    //   <to>alice@example.com</to>
+    //   <to>bob@example.com</to>
+    //
+    // For StringArray (and other Object[] arrays), treat each occurrence as one element.
+    // If the text contains commas, split and append multiple values.
+    try {
+      Object current = get(obj);
+      if ( current != null && current.getClass().isArray() && current instanceof Object[] ) {
+        Object[] oldArr = (Object[]) current;
+        Class componentType = oldArr.getClass().getComponentType();
+
+        // Only support String element arrays here. FObject arrays override copyFromXML.
+        if ( componentType != null && componentType.equals(String.class) ) {
+          StringBuilder text = new StringBuilder();
+          int eventType;
+          while ( reader.hasNext() ) {
+            eventType = reader.next();
+            switch ( eventType ) {
+              case XMLStreamConstants.CHARACTERS:
+              case XMLStreamConstants.CDATA:
+                text.append(reader.getText());
+                break;
+              case XMLStreamConstants.END_ELEMENT:
+                if ( reader.getLocalName().equals(startTag) ) {
+                  String raw = text.toString();
+                  if ( ! SafetyUtil.isEmpty(raw) ) {
+                    String[] parts = foam.util.StringUtil.split(raw, ',');
+                    java.util.ArrayList<String> values = new java.util.ArrayList<>();
+                    for ( int i = 0 ; i < parts.length ; i++ ) {
+                      String v = parts[i] == null ? null : parts[i].trim();
+                      if ( ! SafetyUtil.isEmpty(v) ) values.add(v);
+                    }
+                    if ( values.size() > 0 ) {
+                      Object newArrObj = Array.newInstance(componentType, oldArr.length + values.size());
+                      System.arraycopy(oldArr, 0, newArrObj, 0, oldArr.length);
+                      Object[] newArr = (Object[]) newArrObj;
+                      for ( int i = 0 ; i < values.size() ; i++ ) {
+                        newArr[oldArr.length + i] = values.get(i);
+                      }
+                      set(obj, newArrObj);
+                    }
+                  }
+                  return;
+                }
+                break;
+              case XMLStreamConstants.START_ELEMENT:
+                // fall-through to legacy behavior
+                throw new UnsupportedOperationException("Nested XML in primitive array is not supported");
+            }
+          }
+        }
+      }
+    } catch (UnsupportedOperationException e) {
+      // fall-through to legacy behavior
+    } catch (Throwable t) {
+      // fall-through to legacy behavior
+    }
+
+    List objList = new ArrayList();
     try {
       int eventType;
       while ( reader.hasNext() ) {

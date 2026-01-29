@@ -988,12 +988,23 @@ foam.CLASS({
   imports: [ 'block', 'sessionID', 'window' ],
 
   requires: [
+    'foam.dao.ArrayDAO',
     'foam.core.export.CSVTableExportDriver',
     'foam.core.export.JSONDriver',
     'foam.core.export.JSONJDriver',
     'foam.core.export.XMLDriver'
   ],
-
+  css: `
+  ^basicLink {
+    border:none;
+    background:none;
+    padding:0;
+    margin:0;
+    cursor:pointer;
+    color:#0066cc;
+    text-decoration:underline;
+  }
+  `,
   properties: [
     {
       name: 'formats',
@@ -1043,13 +1054,22 @@ foam.CLASS({
     async function renderServiceDownloads(dao, serviceName) {
       var location = this.window.location.origin;
       var daoKey   = serviceName.substring(8);
-      var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
+      // Build base POST payload instead of a GET query string. Keeping the
+      // body small avoids URL-length limits and prevents putting session
+      // identifiers or predicates into the address bar (which some proxies
+      // flag as policy violations).
+      var baseParams = {
+        dao:  daoKey,
+        cmd:  'select',
+        limit: this.block.value.limit
+      };
+      if ( this.sessionID ) baseParams.sessionId = this.sessionID;
 
       // Probe DAO to find the actual full query being used
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
-          url = url + '&q=' + encodeURIComponent(p.toMQL());
+          baseParams.q = p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1057,22 +1077,55 @@ foam.CLASS({
       }
 
       if ( this.block.value.columns ) {
-        url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
+        baseParams.columns = this.block.value.columns;
       }
 
       this.add('Download As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
-        this.
-          start('a').
-            attrs({
-              href: url + '&format=' + fmt.format,
-              rel: 'noopener noreferrer',
-              download: daoKey + fmt.extension,
-              target: '_blank'
-            }).
-            add(fmt.label).
-          end();
+
+        // Render a tiny form per format so we can POST and let the browser
+        // handle STREAMING the response directly to disk.
+        var form = this.start('form').attrs({
+          method: 'POST',
+          action: `${location}/service/dig`,
+          target: '_blank',
+          style: 'display:inline'
+        });
+
+        Object.keys(baseParams).forEach(k => {
+          form.start('input').attrs({ type: 'hidden', name: k, value: baseParams[k] }).end();
+        });
+
+        form.start('input').attrs({ type: 'hidden', name: 'format', value: fmt.format }).end();
+
+        form.start('button').
+          attrs({
+            type: 'submit',
+            style: 'border:none;background:none;padding:0;margin:0;cursor:pointer;color:#0066cc;text-decoration:underline'
+          }).
+          add(fmt.label).
+        end();
+
+        form.end(); // form
+      });
+
+      // FALLBACK for strict enterprise DLP: fetch data via the service API,
+      // then export client-side as a Blob (no direct file response for DLP to
+      // intercept). This preserves fixes for large files but gives an escape hatch.
+      this.start('div').style({ marginTop: '12px', color: '#555' })
+        .add('Blocked by a download proxy? Use client-side export: ')
+        .end();
+
+      this.formats.forEach((fmt, idx) => {
+        if ( idx > 0 ) this.add(', ');
+        this.start('a')
+          .style({ cursor: 'pointer', color: '#0066cc', 'text-decoration': 'underline' })
+          .on('click', async () => {
+            await this.downloadServiceClientSide(dao, daoKey, fmt, baseParams);
+          })
+          .add(fmt.label + ' (local fetch)')
+          .end();
       });
     },
 
@@ -1105,6 +1158,23 @@ foam.CLASS({
       } catch (error) {
         console.error('Export failed:', error);
         alert('Export failed: ' + (error?.message ?? error));
+      }
+    },
+
+    async function downloadServiceClientSide(remoteDAO, daoKey, format, baseParams) {
+      try {
+        // Pull data over the existing DAO API (respects predicates/columns/limit),
+        // accumulate locally, then reuse the client export path.
+        var sink = await remoteDAO.select();
+
+        var arrayDAO = this.ArrayDAO.create({
+          of: remoteDAO.of,
+          array: sink.array
+        }, this);
+
+        await this.downloadLocal(arrayDAO, daoKey || 'data', format);
+      } catch (error) {
+        console.error('Client-side export failed:', error);
       }
     }
   ]

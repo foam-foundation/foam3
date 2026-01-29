@@ -132,6 +132,7 @@ foam.CLASS({
       if ( window.matchMedia ) {
         var colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
         let fn = () => {
+          if ( ! theme.useVariants ) return;
           if ( window.matchMedia('(prefers-color-scheme: dark)').matches ) {
             theme.activeVariants$set('color', 'dark');
           } else {

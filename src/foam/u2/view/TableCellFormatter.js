@@ -61,6 +61,9 @@ foam.CLASS({
         return foam.u2.view.FnFormatter.create({
           class: 'foam.u2.view.FnFormatter',
           f: function(value, obj, axiom) {
+            if ( foam.Number.isInstance(value) ) {
+              return Number(value).toLocaleString(navigator.locale);
+            }
             this.add(value);
           }
         });

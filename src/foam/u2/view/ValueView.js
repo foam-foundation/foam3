@@ -49,7 +49,12 @@ foam.CLASS({
           })
         );
       } else {
-        this.add(this.data$);
+        this.add(this.data$.map(v => {
+          if ( foam.Number.isInstance(v) ) {
+            return Number(v).toLocaleString(navigator.locale);
+          }
+          return v;
+        }));
       }
     }
   ]

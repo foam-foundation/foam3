@@ -50,8 +50,9 @@ public class OAuthWebAgent implements WebAgent {
             var sessionDAO = ((foam.dao.DAO)x.get("sessionDAO"));
             var session = (foam.core.session.Session)sessionDAO.find(sessionID);
             if ( session == null ) {
-                session = new Session((X) x.get(Boot.ROOT));
+                session = new Session();
                 session.setId(sessionID == null ? "anonymous" : sessionID);
+                session.setContext(session.reset(x));
                 session = (foam.core.session.Session) sessionDAO.put(session);
             }
 

@@ -79,7 +79,7 @@ public class OAuthWebAgent implements WebAgent {
 
             // if an idToken was returned, log the session into the new account
             foam.core.auth.User user;
-            if (idToken != null) {
+            if ( idToken != null ) {
                 try {
                     user = loginWithIdToken(x, state, provider, idToken);
                 } catch (AuthenticationException e) {
@@ -177,6 +177,10 @@ public class OAuthWebAgent implements WebAgent {
     }
 
     protected foam.core.auth.User loginWithIdToken(foam.lang.X x, jakarta.json.JsonObject state, foam.core.oauth.OAuthProvider provider, String idToken) {
+        if ( ! provider.verifyTokenSignature(x, idToken) ) {
+          throw new RuntimeException("Failed to verify idToken signature");
+        }
+
         Logger logger = (Logger) x.get("logger");
         String parts[] = idToken.split("\\.");
         String bodyb64 = parts[1];

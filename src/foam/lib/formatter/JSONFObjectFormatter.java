@@ -215,6 +215,9 @@ public class JSONFObjectFormatter
       // Only do this when OutputDefaultClassNames is true, otherwise preserve
       // original behavior (which may produce invalid JSON for edge cases).
       if ( builder().length() == valueStart ) {
+        setLength(startLen);
+        outputKey(getPropertyName(p));
+        append(':');
         if ( propObj instanceof FObject && outputDefaultClassNames_ ) {
           append('{');
           outputKey("class");

@@ -447,9 +447,11 @@ foam.CLASS({
 
       if ( ! of ) this.filters = [];
 
+      var selectedFilters = this.getSelectedFilters();
+
       var searchColumns_ = await this.filterPropertiesByReadPermission(this.searchColumns, of.id);
       if ( searchColumns_?.length ) {
-        this.filters =  searchColumns_;
+        this.filters =  [...new Set([...searchColumns_, ...selectedFilters])];
         return;
       }
 
@@ -457,9 +459,26 @@ foam.CLASS({
       columns = columns && columns.columns;
       columns = await this.filterPropertiesByReadPermission(columns, of.id);
       if ( columns ) {
-        this.filters = columns;
+        this.filters =  [...new Set([...columns, ...selectedFilters])];
         return;
       }
+    },
+
+    // get filters used in predicates to prevent non-default filter predicates geting discarded
+    function getSelectedFilters() {
+      if ( ! this.data ) return [];
+
+      var filters = [];
+      var preds = [this.data];
+      if ( this.And.isInstance(this.data) ) {
+        preds = this.data.args;
+      }
+      preds.forEach(pred => {
+        if ( this.In.isInstance(pred) || this.Eq.isInstance(pred) ) {
+          filters.push(pred.arg1.name);
+        }
+      });
+      return [...new Set(filters)];
     }
   ],
 

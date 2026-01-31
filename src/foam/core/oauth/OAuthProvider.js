@@ -17,8 +17,15 @@ foam.CLASS({
     'java.security.PublicKey',
     'java.security.Signature',
     'java.security.spec.RSAPublicKeySpec',
-    'java.util.Base64'
+    'java.util.Base64',
+    'java.util.Map',
+    'java.util.concurrent.ConcurrentHashMap'
   ],
+
+  javaCode: `
+    // Cache oauth provider <kid, publicKey>
+    protected Map<String, PublicKey> cache_ = new ConcurrentHashMap<>();
+  `,
 
   ids: [
     "clientId"
@@ -183,7 +190,12 @@ try {
     throw new RuntimeException("Missing JWT key id");
   }
 
-  var publicKey = getPublicKey(kid);
+  PublicKey publicKey = this.cache_.get(kid);
+  if ( publicKey == null ) {
+    publicKey = getPublicKey(kid);
+    this.cache_.put(kid, publicKey);
+  }
+
   var signingInput = parts[0] + "." + parts[1];
   var signatureBytes = Base64.getUrlDecoder().decode(parts[2]);
 

@@ -215,57 +215,70 @@ try {
       type: 'PublicKey',
       javaThrows: [ 'java.io.IOException', 'java.security.NoSuchAlgorithmException', 'java.security.spec.InvalidKeySpecException' ],
       javaCode: `
-var url = new URL(getCertificateURL());
-var conn = (HttpsURLConnection) url.openConnection();
-conn.setConnectTimeout(5000);
-conn.setReadTimeout(5000);
-conn.setRequestMethod("GET");
-conn.connect();
+HttpsURLConnection conn = null;
 
-int responseCode = conn.getResponseCode();
-if ( responseCode != 200 ) {
-  throw new RuntimeException("Failed to fetch provider certificates, response code: " + responseCode);
-}
+try {
+  var url = new URL(getCertificateURL());
+  conn = (HttpsURLConnection) url.openConnection();
+  conn.setConnectTimeout(5000);
+  conn.setReadTimeout(5000);
+  conn.setRequestMethod("GET");
+  conn.connect();
 
-var jsonReader = Json.createReader(conn.getInputStream());
-var jwks = jsonReader.readObject(); 
-var keys = jwks.getJsonArray("keys");
+  int responseCode = conn.getResponseCode();
+  if ( responseCode != 200 ) {
+    throw new RuntimeException("Failed to fetch provider certificates, response code: " + responseCode);
+  }
 
-if ( keys == null ) {
-  throw new RuntimeException("No keys found in certificate response");
-}
+  JsonArray keys = null;
+  try ( var in = conn.getInputStream() ) {
+    var jsonReader = Json.createReader(conn.getInputStream());
+    var jwks = jsonReader.readObject();
+    keys = jwks.getJsonArray("keys");
+  }
 
-// Find matching key in jwks
-JsonObject matchingKey = null;
-for ( int i = 0 ; i < keys.size() ; i++ ) {
-  var key = keys.getJsonObject(i);
-  if ( kid.equals(key.getString("kid", null)) ) {
-    matchingKey = key;
-    break;
+  if ( keys == null ) {
+    throw new RuntimeException("No keys found in certificate response");
+  }
+
+  // Find matching key in jwks
+  JsonObject matchingKey = null;
+  for ( int i = 0 ; i < keys.size() ; i++ ) {
+    var key = keys.getJsonObject(i);
+    if ( kid.equals(key.getString("kid", null)) ) {
+      matchingKey = key;
+      break;
+    }
+  }
+
+  if ( matchingKey == null ) {
+    throw new RuntimeException("Key not found");
+  }
+
+  String kty = matchingKey.getString("kty", null);
+  if ( ! "RSA".equals(kty) ) {
+    throw new RuntimeException("Unsupported public key type");
+  }
+
+  String n = matchingKey.getString("n", null);
+  String e = matchingKey.getString("e", null);
+  if ( SafetyUtil.isEmpty(n) || SafetyUtil.isEmpty(e) ) {
+    throw new RuntimeException("Missing RSA parameters");
+  }
+
+  var modulus = new BigInteger(1, Base64.getUrlDecoder().decode(n));
+  var exponent = new BigInteger(1, Base64.getUrlDecoder().decode(e));
+
+  var spec = new RSAPublicKeySpec(modulus, exponent);
+  var keyFactory = KeyFactory.getInstance("RSA");
+  return keyFactory.generatePublic(spec);
+} catch ( Exception e ) {
+  throw e;
+} finally {
+  if ( conn != null ) {
+    conn.disconnect();
   }
 }
-
-if ( matchingKey == null ) {
-  throw new RuntimeException("Key not found");
-}
-
-String kty = matchingKey.getString("kty", null);
-if ( ! "RSA".equals(kty) ) {
-  throw new RuntimeException("Unsupported public key type");
-}
-
-String n = matchingKey.getString("n", null);
-String e = matchingKey.getString("e", null);
-if ( SafetyUtil.isEmpty(n) || SafetyUtil.isEmpty(e) ) {
-  throw new RuntimeException("Missing RSA parameters");
-}
-
-var modulus = new BigInteger(1, Base64.getUrlDecoder().decode(n));
-var exponent = new BigInteger(1, Base64.getUrlDecoder().decode(e));
-
-var spec = new RSAPublicKeySpec(modulus, exponent);
-var keyFactory = KeyFactory.getInstance("RSA");
-return keyFactory.generatePublic(spec);
 `
     }
   ]

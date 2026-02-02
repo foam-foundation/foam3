@@ -40,8 +40,23 @@ foam.CLASS({
       documentation: 'If true, throws errors for invalid dates. If false, logs warnings and returns MAX_DATE.'
     },
     {
-      name: 'cache_',
-      documentation: 'LRU cache for parsed date results to avoid re-parsing the same strings. Uses Map to maintain insertion order for LRU eviction.',
+      name: 'stringCache_',
+      documentation: 'LRU cache for parseString results. Uses Map to maintain insertion order for LRU eviction.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateCache_',
+      documentation: 'LRU cache for parseDateString results.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateTimeCache_',
+      documentation: 'LRU cache for parseDateTime results.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateTimeUtcCache_',
+      documentation: 'LRU cache for parseDateTimeUTC results.',
       factory: function() { return new Map(); }
     },
     {
@@ -54,25 +69,36 @@ foam.CLASS({
   methods: [
     // ========== Cache Helper Methods ==========
 
-    function cacheGet_(key) {
-      if ( this.cache_.has(key) ) {
-        var cached = this.cache_.get(key);
+    /**
+     * Build cache key: use str directly when opt_name is null (common case),
+     * otherwise concatenate opt_name:str (rare case).
+     */
+    function buildCacheKey_(str, opt_name) {
+      if ( ! opt_name ) {
+        return str;
+      }
+      return opt_name + ':' + str;
+    },
+
+    function cacheGet_(cache, key) {
+      if ( cache.has(key) ) {
+        var cached = cache.get(key);
         // LRU: delete and re-add to move to end (most recently used)
-        this.cache_.delete(key);
-        this.cache_.set(key, cached);
+        cache.delete(key);
+        cache.set(key, cached);
         // Clone Date to prevent cache corruption
         return new Date(cached.getTime());
       }
       return null;
     },
 
-    function cacheSet_(key, value) {
+    function cacheSet_(cache, key, value) {
       // LRU eviction: remove oldest entry if at capacity
-      if ( this.cache_.size >= this.maxCacheSize_ ) {
-        var oldestKey = this.cache_.keys().next().value;
-        this.cache_.delete(oldestKey);
+      if ( cache.size >= this.maxCacheSize_ ) {
+        var oldestKey = cache.keys().next().value;
+        cache.delete(oldestKey);
       }
-      this.cache_.set(key, value);
+      cache.set(key, value);
       // Return cloned Date
       return new Date(value.getTime());
     },
@@ -770,9 +796,9 @@ foam.CLASS({
       }
       str = str.trim();
 
-      // Check cache first
-      var cacheKey = 'STRING:' + (opt_name || '') + ':' + str;
-      var cached = this.cacheGet_(cacheKey);
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.stringCache_, cacheKey);
       if ( cached ) return cached;
 
       this.dateParseMode = 'STRING';
@@ -801,7 +827,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(cacheKey, this.validateDate(result, str));
+        return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(result, str));
       }
 
       // Determine if this is a datetime or date-only result based on presence of time components
@@ -822,7 +848,7 @@ foam.CLASS({
         ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
       }
 
-      return this.cacheSet_(cacheKey, this.validateDate(ret, str));
+      return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(ret, str));
     },
 
     function parseDateString(str, opt_name) {
@@ -835,9 +861,9 @@ foam.CLASS({
       }
       str = str.trim();
 
-      // Check cache first
-      var cacheKey = 'DATE:' + (opt_name || '') + ':' + str;
-      var cached = this.cacheGet_(cacheKey);
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateCache_, cacheKey);
       if ( cached ) return cached;
 
       this.dateParseMode = 'DATE';
@@ -864,10 +890,10 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(cacheKey, this.validateDate(result, str));
+        return this.cacheSet_(this.dateCache_, cacheKey, this.validateDate(result, str));
       }
 
-      return this.cacheSet_(cacheKey, parseResult.value);
+      return this.cacheSet_(this.dateCache_, cacheKey, parseResult.value);
     },
 
     function parseDateTime(str, opt_name) {
@@ -880,9 +906,9 @@ foam.CLASS({
       }
       str = str.trim();
 
-      // Check cache first
-      var cacheKey = 'DATETIME:' + (opt_name || '') + ':' + str;
-      var cached = this.cacheGet_(cacheKey);
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateTimeCache_, cacheKey);
       if ( cached ) return cached;
 
       this.dateParseMode = 'DATETIME';
@@ -913,7 +939,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(cacheKey, this.validateDate(result, str));
+        return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(result, str));
       }
 
       // Validate time components if present
@@ -958,7 +984,7 @@ foam.CLASS({
         );
       }
 
-      return this.cacheSet_(cacheKey, this.validateDate(ret, str));
+      return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(ret, str));
     },
 
     function parseDateTimeUTC(str, opt_name) {
@@ -971,9 +997,9 @@ foam.CLASS({
       }
       str = str.trim();
 
-      // Check cache first
-      var cacheKey = 'DATETIME_UTC:' + (opt_name || '') + ':' + str;
-      var cached = this.cacheGet_(cacheKey);
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateTimeUtcCache_, cacheKey);
       if ( cached ) return cached;
 
       this.dateParseMode = 'DATETIME_UTC';
@@ -1004,7 +1030,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(cacheKey, this.validateDateUTC(result, str));
+        return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, this.validateDateUTC(result, str));
       }
 
       // Validate time components if present
@@ -1014,7 +1040,7 @@ foam.CLASS({
         return this.validateDateUTC(this.INVALID_DATE, str);
       }
 
-      return this.cacheSet_(cacheKey, parseResult.value);
+      return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, parseResult.value);
     }
   ]
 });

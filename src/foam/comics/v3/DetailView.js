@@ -352,7 +352,7 @@ foam.CLASS({
       code: function(latch) {
         let self = this;
         let id   = this.data?.id ?? this.idOfRecord;
-        self.config.unfilteredDAO.inX(self.__subContext__).find(id).then(d => {
+        self.config.dao.inX(self.__subContext__).find(id).then(d => {
           if ( ! d ) {
             this.daoController.routeToMe();
             return;

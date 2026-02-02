@@ -1834,7 +1834,26 @@ foam.CLASS({
   refines: 'foam.lang.Array',
   requires: [ 'foam.u2.view.ArrayView' ],
   properties: [
-    [ 'view', { class: 'foam.u2.view.ArrayView' } ]
+    {
+      name: 'view',
+      factory: function() {
+        // Extract element type from javaType (e.g., 'Long[]' -> 'Long')
+        if ( this.javaType ) {
+          var match = this.javaType.match(/^(\w+)\[\]$/);
+          if ( match ) {
+            // Map Java primitives to FOAM types
+            var javaToFoam = { 'int': 'Int', 'long': 'Long', 'float': 'Float', 'double': 'Double', 'boolean': 'Boolean' };
+            var elementType = javaToFoam[match[1]] || match[1];
+            var typeCls     = foam.lookup(elementType);
+
+            if ( typeCls && typeCls.VIEW ) {
+              return { class: 'foam.u2.view.ArrayView', valueView: typeCls.VIEW.value };
+            }
+          }
+        }
+        return { class: 'foam.u2.view.ArrayView' };
+      }
+    }
   ]
 });
 

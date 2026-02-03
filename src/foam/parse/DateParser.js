@@ -41,22 +41,22 @@ foam.CLASS({
     },
     {
       name: 'stringCache_',
-      documentation: 'LRU cache for parseString results. Uses Map to maintain insertion order for LRU eviction.',
+      documentation: 'LRU cache for parseString results. Stores timestamps (Date.getTime()) instead of Date objects to save memory.',
       factory: function() { return new Map(); }
     },
     {
       name: 'dateCache_',
-      documentation: 'LRU cache for parseDateString results.',
+      documentation: 'LRU cache for parseDateString results. Stores timestamps instead of Date objects.',
       factory: function() { return new Map(); }
     },
     {
       name: 'dateTimeCache_',
-      documentation: 'LRU cache for parseDateTime results.',
+      documentation: 'LRU cache for parseDateTime results. Stores timestamps instead of Date objects.',
       factory: function() { return new Map(); }
     },
     {
       name: 'dateTimeUtcCache_',
-      documentation: 'LRU cache for parseDateTimeUTC results.',
+      documentation: 'LRU cache for parseDateTimeUTC results. Stores timestamps instead of Date objects.',
       factory: function() { return new Map(); }
     },
     {
@@ -86,8 +86,8 @@ foam.CLASS({
         // LRU: delete and re-add to move to end (most recently used)
         cache.delete(key);
         cache.set(key, cached);
-        // Clone Date to prevent cache corruption
-        return new Date(cached.getTime());
+        // Create new Date from cached timestamp
+        return new Date(cached);
       }
       return null;
     },
@@ -98,9 +98,10 @@ foam.CLASS({
         var oldestKey = cache.keys().next().value;
         cache.delete(oldestKey);
       }
-      cache.set(key, value);
-      // Return cloned Date
-      return new Date(value.getTime());
+      // Store timestamp instead of Date object to save memory
+      cache.set(key, value.getTime());
+      // Return the original Date
+      return value;
     },
 
     function buildDate(mode, year, month, day, hour, minute, second, ms, tz) {

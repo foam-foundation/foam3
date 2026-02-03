@@ -58,14 +58,15 @@ public class DateParser {
    * Separate LRU caches for each parse method (thread-safe).
    * Using separate caches avoids string concatenation overhead for cache keys.
    * Each cache is keyed by the input string directly (or opt_name:str when opt_name is provided).
+   * Caches store Long timestamps (from Date.getTime()) instead of Date objects to save memory.
    */
-  private static final LRULinkedHashMap<String, Date> stringCache_ =
+  private static final LRULinkedHashMap<String, Long> stringCache_ =
     new LRULinkedHashMap<>("DateParser.STRING", MAX_CACHE_SIZE);
-  private static final LRULinkedHashMap<String, Date> dateCache_ =
+  private static final LRULinkedHashMap<String, Long> dateCache_ =
     new LRULinkedHashMap<>("DateParser.DATE", MAX_CACHE_SIZE);
-  private static final LRULinkedHashMap<String, Date> dateTimeCache_ =
+  private static final LRULinkedHashMap<String, Long> dateTimeCache_ =
     new LRULinkedHashMap<>("DateParser.DATETIME", MAX_CACHE_SIZE);
-  private static final LRULinkedHashMap<String, Date> dateTimeUtcCache_ =
+  private static final LRULinkedHashMap<String, Long> dateTimeUtcCache_ =
     new LRULinkedHashMap<>("DateParser.DATETIME_UTC", MAX_CACHE_SIZE);
 
   /**
@@ -99,23 +100,23 @@ public class DateParser {
   }
 
   /**
-   * Get from cache and clone the Date to prevent cache corruption.
+   * Get from cache and create a new Date from the cached timestamp.
    * Returns null if not in cache.
    */
-  private Date cacheGet(LRULinkedHashMap<String, Date> cache, String key) {
-    Date cached = cache.get(key);
+  private Date cacheGet(LRULinkedHashMap<String, Long> cache, String key) {
+    Long cached = cache.get(key);
     if ( cached != null ) {
-      return new Date(cached.getTime());
+      return new Date(cached);
     }
     return null;
   }
 
   /**
-   * Store in cache and return a cloned Date.
+   * Store timestamp in cache and return the original Date.
    */
-  private Date cacheSet(LRULinkedHashMap<String, Date> cache, String key, Date value) {
-    cache.put(key, value);
-    return new Date(value.getTime());
+  private Date cacheSet(LRULinkedHashMap<String, Long> cache, String key, Date value) {
+    cache.put(key, value.getTime());
+    return value;
   }
 
   /**

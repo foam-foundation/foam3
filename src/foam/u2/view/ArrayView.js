@@ -114,7 +114,6 @@ foam.CLASS({
           newItem = newItem.clone(this.__context__);
         }
         this.data = [ ...this.data, newItem ];
-        this.scrollToIndex(this.data.length-1);
       }
     }
   ],
@@ -250,8 +249,9 @@ foam.CLASS({
         .endContext();
     },
     function initArrayView(self) {
-      this.add(self.dynamic(function(data) {
-        this.forEach(data || [], function(e, i) {
+      this.onDetach(self.data$.sub(() => { if ( ! self.feedback_ ) self.data2_ = self.data; }));
+      this.add(self.dynamic(function(data2_) {
+        this.forEach(data2_ || [], function(e, i) {
           let row = self.buildRow.call(this, e, i, self);
           this.add(row);
         })
@@ -282,7 +282,7 @@ foam.CLASS({
         if ( this.el_() ) {
           let el = this.el_();
           let currentRow = el.querySelector(`div[data-idx='${index}']`);
-          if ( currentRow ) currentRow.scrollIntoView({behaviour: "smooth", block: "start", inline: "nearest"})
+          if ( currentRow ) currentRow.scrollIntoView({behaviour: "smooth", block: "start", inline: "nearest", container: "nearest"})
         }
       }
     },

@@ -1226,9 +1226,6 @@ foam.CLASS({
       width: 100%;
       position: relative;
     }
-    ^ .foam-u2-view-ValueView {
-      min-width: 220px;
-    }
     ^error {
       background: $backgroundDestructiveTertiary!important;
       color: $textDestructive;

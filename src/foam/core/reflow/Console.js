@@ -1977,12 +1977,20 @@ foam.CLASS({
       // Don't retrieve autosave for unnamed flows or in modes that don't check autosave
       if ( ! scriptName || ! this.flowMode.checksAutosave ) return false;
 
+      // Guard against being called multiple times for the same script
+      if ( this.checkingAutosaveFor_ === scriptName ) return false;
+      this.checkingAutosaveFor_ = scriptName;
+
       var autosaveData = this.loadAutosaveData(scriptName);
-      if ( ! autosaveData || ! autosaveData.script ) return false;
+      if ( ! autosaveData || ! autosaveData.script ) {
+        this.checkingAutosaveFor_ = null;
+        return false;
+      }
 
       // Check if autosave differs from current script
       if ( autosaveData.script === this.value.script ) {
         // Autosave matches current - no need to prompt
+        this.checkingAutosaveFor_ = null;
         return false;
       }
 
@@ -1999,6 +2007,7 @@ foam.CLASS({
       // If autosave matches the saved version, no need to prompt
       if ( savedFlow && autosaveData.script === savedFlow.script ) {
         this.clearAutosave();
+        this.checkingAutosaveFor_ = null;
         return false;
       }
 
@@ -2016,6 +2025,7 @@ foam.CLASS({
             code: function() {
               self.value.script = autosaveData.script;
               self.clearAutosave(scriptName);
+              self.checkingAutosaveFor_ = null;
               resolve(true);  // Return true - autosave was loaded
             }
           }),
@@ -2024,6 +2034,7 @@ foam.CLASS({
             label: 'Discard',
             code: function() {
               self.clearAutosave(scriptName);
+              self.checkingAutosaveFor_ = null;
               resolve(false);  // Return false - autosave was discarded
             }
           })
@@ -2140,6 +2151,9 @@ foam.CLASS({
         // When script name changes, check if there's existing autosave for new name
         if ( oldValue === newValue ) return;
         if ( ! this.flowMode.checksAutosave ) return;
+
+        // Don't show modal during initial load - checkForAutosavedScript handles that
+        if ( this.isLoading_ || this.checkingAutosaveFor_ ) return;
 
         // Check if the new name has existing autosave data that differs from current
         var existingData = this.loadAutosaveData(newValue);

@@ -502,7 +502,7 @@ foam.CLASS({
     },
     {
       name: 'updateRenderedPages_',
-      isMerged: true,
+      isIdled: true,
       mergeDelay: 100,
       on: [
         'this.propertyChange.currentTopPage_'

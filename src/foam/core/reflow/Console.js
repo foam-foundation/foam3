@@ -1225,6 +1225,7 @@ foam.CLASS({
       text-align: left;
       width: 100%;
       position: relative;
+      overflow-anchor: none;
     }
     ^ .foam-u2-view-ValueView {
       min-width: 220px;
@@ -1945,7 +1946,7 @@ foam.CLASS({
       // Block scroll during loading to prevent jumping while content is being built
       if ( this.isLoading_ ) return;
       if ( block && block.element_ ) {
-        block.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        block.element_.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     },
 

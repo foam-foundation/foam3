@@ -1050,13 +1050,19 @@ foam.CLASS({
     async function renderServiceDownloads(dao, serviceName) {
       var location = this.window.location.origin;
       var daoKey   = serviceName.substring(8);
-      var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
-      // Probe DAO to find the actual full query being used
+      // Build base POST params instead of a long query string
+      var baseParams = {
+        dao:  daoKey,
+        cmd:  'select',
+        limit: this.block.value.limit
+      };
+
+      // Probe DAO to capture the predicate as MQL
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
-          url = url + '&q=' + encodeURIComponent(p.toMQL());
+          baseParams.q = p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1064,22 +1070,33 @@ foam.CLASS({
       }
 
       if ( this.block.value.columns ) {
-        url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
+        baseParams.columns = this.block.value.columns;
       }
 
       this.add('Download As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
-        this.
-          start('a').
-            attrs({
-              href: url + '&format=' + fmt.format,
-              rel: 'noopener noreferrer',
-              download: daoKey + fmt.extension,
-              target: '_blank'
-            }).
-            add(fmt.label).
-          end();
+
+        var form = this.start('form').attrs({
+          method: 'POST',
+          action: `${location}/service/dig`,
+          style: 'display:inline'
+        });
+
+        Object.keys(baseParams).forEach(k => {
+          form.start('input').attrs({ type: 'hidden', name: k, value: baseParams[k] }).end();
+        });
+        form.start('input').attrs({ type: 'hidden', name: 'format', value: fmt.format }).end();
+
+        form.start('button').
+          attrs({
+            type: 'submit',
+            style: 'border:none;background:none;padding:0;margin:0;cursor:pointer;color:#0066cc;text-decoration:underline'
+          }).
+          add(fmt.label).
+        end();
+
+        form.end(); // form
       });
     },
 

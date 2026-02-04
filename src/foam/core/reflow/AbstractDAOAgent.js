@@ -1043,22 +1043,19 @@ foam.CLASS({
     async function renderServiceDownloads(dao, serviceName) {
       var location = this.window.location.origin;
       var daoKey   = serviceName.substring(8);
-      var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
       // Build base POST params instead of a long query string
       var baseParams = {
         dao:  daoKey,
         cmd:  'select',
-        limit: this.block.value.limit,
-        download: true
+        limit: this.block.value.limit
       };
-      if ( this.sessionID ) baseParams.sessionId = this.sessionID;
 
       // Probe DAO to capture the predicate as MQL
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
-          url = url + '&q=' + encodeURIComponent(p.toMQL());
+          baseParams.q = p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1066,7 +1063,7 @@ foam.CLASS({
       }
 
       if ( this.block.value.columns ) {
-        url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
+        baseParams.columns = this.block.value.columns;
       }
 
       this.add('Download As: ');
@@ -1076,18 +1073,7 @@ foam.CLASS({
         var form = this.start('form').attrs({
           method: 'POST',
           action: `${location}/service/dig`,
-          target: '_blank',
           style: 'display:inline'
-        }).on('submit', () => {
-          try {
-            this.__subContext__.analyticEventDAO.put(
-              foam.core.analytics.AnalyticEvent.create({
-                name: 'DownloadView: submitting form for ' + fmt.format +' dao ' + daoKey,
-                userId: this.__subContext__.subject.user.id,
-                tags: ["DIG_DOWNLOAD"],
-                extras: `{ POST_ACTION: "${location}/service/dig" }`
-              }, x));
-          } catch(_) {}
         });
 
         Object.keys(baseParams).forEach(k => {

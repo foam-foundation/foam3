@@ -39,6 +39,10 @@ foam.ENUM({
       documentation: 'The DateParser grammar symbol name for this format'
     },
     {
+      class: 'String',
+      name: 'help'
+    },
+    {
       // Add an 'id' property that returns the ordinal for DAO compatibility
       name: 'id',
       getter: function() { return this.ordinal; }
@@ -50,31 +54,31 @@ foam.ENUM({
       name: 'STANDARD',
       label: 'Standard',
       parserSymbol: 'START',
-      documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, mm/dd/yy, mm-dd-yy, mmddyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN, Jan 02 2025'
+      help: 'yyyy-mm-dd, mm/dd/yyyy, 31-JAN-2025, Jan 02 2025'
     },
     {
       name: 'DDMMYYYY',
       label: 'dd/mm/yyyy',
       parserSymbol: 'ddmmyyyy',
-      documentation: 'Day-Month-Year format for NUMERIC dates: dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy (month names work automatically in STANDARD)'
+      help: 'dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy'
     },
     {
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
       parserSymbol: 'yyyyddmm',
-      documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
+      help: 'yyyy-dd-mm, yyyyddmm'
     },
     {
       name: 'JULIANDATE',
       label: 'Julian Date',
       parserSymbol: 'juliandate',
-      documentation: 'Julian date format: YYDDD (5 digits like 25216) or YDDD (4 digits like 5216) where YY/Y is year and DDD is day of year (001-366). Example: 25216 = August 4, 2025 (day 216 of 2025)'
+      help: 'YYDDD or YDDD (e.g. 25216 = Aug 4, 2025)'
     },
     {
       name: 'YYMMDD',
       label: 'yy/mm/dd',
       parserSymbol: 'yymmdd',
-      documentation: 'Year-Month-Day with 2-digit year: yymmdd (compact 6-digit), yy-mm-dd, yy/mm/dd. Example: 250325 = March 25, 2025. Year pivot: 00-49 → 2000-2049, 50-99 → 1950-1999'
+      help: 'yymmdd, yy-mm-dd (e.g. 250325 = Mar 25, 2025)'
     }
   ],
 
@@ -97,6 +101,10 @@ foam.ENUM({
       documentation: 'The number parser grammar symbol name for this format'
     },
     {
+      class: 'String',
+      name: 'help'
+    },
+    {
       name: 'id',
       getter: function() { return this.ordinal; }
     }
@@ -105,15 +113,15 @@ foam.ENUM({
   values: [
     {
       name: 'US_UK',
-      label: 'US/UK Style (1,000.00)',
+      label: 'US/UK (1,000.00)',
       parserSymbol: 'START',
-      documentation: 'Period as decimal separator, comma for thousands: 1,234.56'
+      help: '1,234.56'
     },
     {
       name: 'EUROPEAN',
-      label: 'European / Continental (1.000,00)',
+      label: 'European (1.000,00)',
       parserSymbol: 'european',
-      documentation: 'Comma as decimal separator, period for thousands: 1.234,56'
+      help: '1.234,56'
     }
   ],
 

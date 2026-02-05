@@ -2755,7 +2755,6 @@ foam.CLASS({
   package: 'foam.java',
   name: 'CurrencyCodeJavaRefinement',
   refines: 'foam.lang.CurrencyCode',
-  extends: 'foam.lang.Reference',
   flags: [ 'java' ],
 
   properties: [
@@ -2764,7 +2763,8 @@ foam.CLASS({
       value: `
         try {
           var numericCode = Long.parseLong(val);
-          var curr = (foam.lang.Currency) ((foam.dao.DAO) getX().get("currencyDAO"))
+          foam.lang.X x = foam.lang.XLocator.get();
+          var curr = (foam.lang.Currency) ((foam.dao.DAO) x.get("currencyDAO"))
             .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, val));
           if ( curr != null )
             val = curr.getId();

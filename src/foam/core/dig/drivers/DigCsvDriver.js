@@ -71,6 +71,14 @@ foam.CLASS({
       ClassInfo           cInfo  = dao.getOf();
       String              output = null;
 
+      HttpParameters p = x.get(HttpParameters.class);
+      boolean forceDownload = p != null && "true".equalsIgnoreCase(p.getParameter("download"));
+      resp.setContentType("text/csv");
+      if ( forceDownload ) {
+        String filename = cInfo != null ? cInfo.getName() : "export";
+        resp.setHeader("Content-Disposition", "attachment; filename=\\"" + filename + ".csv\\"");
+      }
+
       if ( fobjects == null || fobjects.size() == 0 ) {
         out.println("[]");
         return;

@@ -141,7 +141,7 @@ foam.CLASS({
       class: 'foam.u2.ViewSpec',
       name: 'viewView',
       factory: function() {
-        return this.config?.detailView ?? foam.u2.detail.TabbedDetailView;
+        return this.config?.detailView ?? { class: 'foam.u2.detail.TabbedDetailView', hideActions: true };
       }
     },
     {
@@ -227,9 +227,9 @@ foam.CLASS({
               overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
             }, this.buttonGroup_$)
             .addClass(self.myClass('buttonGroup'))
-            .add(self.slot(function(primary) {
+            .add(self.dynamic(function(primary) {
               if ( ! primary ) return;
-              return this.E()
+              this
                 // .hide(self.controllerMode$.map(c => c == 'EDIT' ))
                 .startContext({ data: self.currentData_$ })
                   .tag(primary, { buttonStyle: 'PRIMARY', size: 'SMALL' })

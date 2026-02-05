@@ -1085,6 +1085,16 @@ foam.CLASS({
           action: `${location}/service/dig`,
           target: '_blank',
           style: 'display:inline'
+        }).on('submit', () => {
+          try {
+            this.__subContext__.analyticEventDAO.put(
+              foam.core.analytics.AnalyticEvent.create({
+                name: 'DownloadView: submitting form for ' + fmt.format +' dao ' + daoKey,
+                userId: this.__subContext__.subject.user.id,
+                tags: ["DIG_DOWNLOAD"],
+                extras: `{ POST_ACTION: "${location}/service/dig" }`
+              }, x));
+          } catch(_) {}
         });
 
         Object.keys(baseParams).forEach(k => {

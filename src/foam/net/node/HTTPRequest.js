@@ -144,8 +144,10 @@ foam.CLASS({
             offset += length;
 
             blob.read(function(buf) {
+              // Convert ArrayBuffer to Node.js Buffer for req.write()
+              var chunk = Buffer.from(buf);
               // req.write() returns false if buffer is full, true if ok to continue
-              if ( ! req.write(buf) ) {
+              if ( ! req.write(chunk) ) {
                 // Buffer full, wait for drain before continuing
                 req.once('drain', writeNextChunk);
               } else {

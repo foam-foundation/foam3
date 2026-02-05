@@ -118,7 +118,7 @@ foam.CLASS({
 
     /**
       A function of the form:
-        Object function(value, property)
+        Object function(value, property, obj)
       that normalizes an property value in some way. Like postSet but only
       called when done editing a property.
     */

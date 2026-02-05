@@ -379,6 +379,20 @@ foam.CLASS({
   ]
 });
 
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'ArrayTableCellFormatterRefinement',
+  refines: 'foam.lang.Array',
+  properties: [
+    {
+      class: 'foam.u2.view.TableCellFormatter',
+      name: 'tableCellFormatter',
+      value: function(value) {
+        this.add(value.length + ' item(s)');
+      }
+    }
+  ]
+});
 
 foam.CLASS({
   package: 'foam.u2.view',
@@ -523,5 +537,23 @@ foam.CLASS({
         this.add(foam.String.applyFormat(val, format));
       }
     }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'CurrencyCodeTableCellFormatterRefinement',
+  refines: 'foam.lang.CurrencyCode',
+
+  properties: [
+    {
+      class: 'foam.u2.view.TableCellFormatter',
+      name: 'tableCellFormatter',
+      value: function(value, obj, axiom) {
+        // Since currency codes resolve their values async, their tcfs are slotted 
+        this.add(axiom.toSlot(obj));
+      }
+    },
+    ['projectionSafe', false]
   ]
 });

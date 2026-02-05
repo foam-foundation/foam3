@@ -1445,8 +1445,15 @@ foam.CLASS({
       }
     },
     {
+      name: 'initObject',
+      value: async function(obj) {
+        let c = await this.normalize(this.f(obj), this, obj);
+        this.set(obj, c);
+      } 
+    },
+    {
       name: 'normalize',
-      value: async function(value, prop) {
+      value: async function(value, prop, obj) {
         /**
          * If the currencyCode is entered as a numeric code rather than string code, then adapt to the string code
          * so that all currency codes are in the same format.
@@ -1455,7 +1462,7 @@ foam.CLASS({
          **/
         if ( foam.String.isInstance(value) && Number.isNaN(Number(value)) ) return value;
 
-        var currency = await this.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
+        var currency = await obj.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
 
         if ( currency ) {
           return currency.id;

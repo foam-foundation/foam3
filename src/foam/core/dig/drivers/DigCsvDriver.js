@@ -71,6 +71,8 @@ foam.CLASS({
       ClassInfo           cInfo  = dao.getOf();
       String              output = null;
 
+      getLogger().info("csv.output.start", "dao", dao != null ? dao.getClass().getSimpleName() : null, "of", cInfo != null ? cInfo.getId() : null);
+
       HttpParameters p = x.get(HttpParameters.class);
       boolean forceDownload = p != null && "true".equalsIgnoreCase(p.getParameter("download"));
       resp.setContentType("text/csv");
@@ -80,9 +82,13 @@ foam.CLASS({
       }
 
       if ( fobjects == null || fobjects.size() == 0 ) {
+        getLogger().info("csv.output.empty");
         out.println("[]");
         return;
       }
+
+      String colsStr = cols == null ? "all" : String.join(",", cols);
+      getLogger().info("csv.output.count", "count", fobjects.size(), "columns", colsStr);
 
       CSVOutputterImpl csv = new CSVOutputterImpl.Builder(x)
         .setOf(cInfo)

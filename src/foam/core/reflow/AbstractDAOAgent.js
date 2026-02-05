@@ -998,12 +998,11 @@ foam.CLASS({
     {
       name: 'formats',
       factory: function() {
-        // Used to get large file downloads - currently streaming only setup for csv.
-        //  { label: 'JSON',   extension: '.json', format: 'json',  driver: this.JSONDriver },
-        //  { label: 'JSON/J', extension: '.jrl',  format: 'jsonj', driver: this.JSONJDriver },
-        //  { label: 'XML',    extension: '.xml',  format: 'xml',   driver: this.XMLDriver }
         return [
-          { label: 'CSV',    extension: '.csv',  format: 'csv',   driver: this.CSVTableExportDriver }
+          { label: 'CSV',    extension: '.csv',  format: 'csv',   driver: this.CSVTableExportDriver },
+          { label: 'JSON',   extension: '.json', format: 'json',  driver: this.JSONDriver },
+          { label: 'JSON/J', extension: '.jrl',  format: 'jsonj', driver: this.JSONJDriver },
+          { label: 'XML',    extension: '.xml',  format: 'xml',   driver: this.XMLDriver }
         ];
       }
     }

@@ -270,7 +270,7 @@ foam.CLASS({
       size: 'SMALL',
       code: function(X) {
         this.showNav = true;
-        X.routeTo('flows'); // consider route to default menu...
+        X.pushDefaultMenu();
       }
     },
     {
@@ -771,14 +771,14 @@ foam.CLASS({
       display: grid;
       grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
-      min-height: 100vh;
+      min-height: -webkit-fill-available;
     }
     ^flex-container {
       display: flex;
       flex-direction: row;
       overflow: auto;
       grid-row: 2;
-      height: 100%;
+      height: auto;
       min-height: 0;
     }
     ^header {
@@ -804,9 +804,9 @@ foam.CLASS({
       flex: 3 1 50%;
     }
     ^m {
-       border: 2px dashed $borderLight;
-       overflow-x: auto;
-       background-color: $backgroundDefault;
+      border: 2px dashed $borderLight;
+      overflow-x: auto;
+      background-color: $backgroundDefault;
     }
     ^r {
       overflow-y: auto;
@@ -825,7 +825,7 @@ foam.CLASS({
       background: $backgroundBrandSecondary;
     }
 
-    ^r .foam-core-reflow-SinkView, .foam-u2-view-IntView {
+    ^r .foam-core-reflow-SinkView, ^r .foam-u2-view-IntView {
       width: 100%;
     }
 
@@ -1039,6 +1039,11 @@ foam.ENUM({
       documentation: 'Whether F1 help key is available'
     },
     {
+      class: 'Boolean',
+      name: 'forceNavHide',
+      documentation: 'Whether to force hiding the app navigation bars',
+    },
+    {
       name: 'getToggleTarget',
       documentation: 'Returns the FlowMode to switch to when toggling, null if toggle not allowed',
       value: function() { return null; }
@@ -1059,6 +1064,7 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: true,
+      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
     },
     {
@@ -1074,6 +1080,7 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: false,
+      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.CONSOLE; }
     },
     {
@@ -1119,6 +1126,7 @@ foam.ENUM({
       isLimitedEditMode: true,
       checksAutosave: true,
       showsHelpKey: false,
+      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.LIMIT_EDIT; }
     }
   ]
@@ -1206,7 +1214,7 @@ foam.CLASS({
       display: flex;
       flex-direction: column;
       width: 100%;
-      height: 100%;
+      height: -webkit-fill-available;
       position: relative;
       align-items: center;
       justify-content: center;
@@ -1217,9 +1225,7 @@ foam.CLASS({
       text-align: left;
       width: 100%;
       position: relative;
-    }
-    ^ .foam-u2-view-ValueView {
-      min-width: 220px;
+      overflow-anchor: none;
     }
     ^error {
       background: $backgroundDestructiveTertiary!important;
@@ -1312,18 +1318,6 @@ foam.CLASS({
       name: 'flowName',
       value: 'flow',
       getter: function() { return 'flow'; }
-    },
-    {
-      class: 'Boolean',
-      name: 'showNavOnMount',
-      documentation: 'If provided, overrides nav visibility while this Console is mounted.',
-      factory: function() { return this.showNav; }
-    },
-    {
-      class: 'Boolean',
-      name: 'isMenuOpenOnMount',
-      documentation: 'If provided, overrides side menu open state while this Console is mounted.',
-      factory: function() { return this.isMenuOpen; }
     },
     {
       class: 'String',
@@ -1556,18 +1550,19 @@ foam.CLASS({
     },
 
     async function render() {
+      let oldIsMenuOpen = this.isMenuOpen;
       foam.u2.table.UnstyledTableView.SELECTED_COLUMN_NAMES.memorable = false;
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
       // Add the Mode as a CSS Class so we can adjust stying based on the mode
-      this.addClass(this.flowMode$.map(m => this.myClass(m.toString())));
+      this.addClass(this.flowMode$.map(m => {
+        this.myClass(m.toString());
+        this.showNav = m.forceNavHide ? false : this.showNav;
+      }));
 
-      let oldShowNav = this.showNav;
-      let oldIsMenuOpen = this.isMenuOpen;
-      this.showNav = this.showNavOnMount;
-      this.isMenuOpen = this.isMenuOpenOnMount;
+      this.isMenuOpen = false;
       this.onDetach(() => {
-        this.showNav = oldShowNav;
+        this.showNav = true;
         this.isMenuOpen = oldIsMenuOpen;
         // Detach all flow children when closing the flow page
         this.flowChildren.forEach(c => this.detachFlowChild(c));
@@ -1948,7 +1943,7 @@ foam.CLASS({
       // Block scroll during loading to prevent jumping while content is being built
       if ( this.isLoading_ ) return;
       if ( block && block.element_ ) {
-        block.element_.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        block.element_.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     },
 
@@ -1980,12 +1975,20 @@ foam.CLASS({
       // Don't retrieve autosave for unnamed flows or in modes that don't check autosave
       if ( ! scriptName || ! this.flowMode.checksAutosave ) return false;
 
+      // Guard against being called multiple times for the same script
+      if ( this.checkingAutosaveFor_ === scriptName ) return false;
+      this.checkingAutosaveFor_ = scriptName;
+
       var autosaveData = this.loadAutosaveData(scriptName);
-      if ( ! autosaveData || ! autosaveData.script ) return false;
+      if ( ! autosaveData || ! autosaveData.script ) {
+        this.checkingAutosaveFor_ = null;
+        return false;
+      }
 
       // Check if autosave differs from current script
       if ( autosaveData.script === this.value.script ) {
         // Autosave matches current - no need to prompt
+        this.checkingAutosaveFor_ = null;
         return false;
       }
 
@@ -2002,6 +2005,7 @@ foam.CLASS({
       // If autosave matches the saved version, no need to prompt
       if ( savedFlow && autosaveData.script === savedFlow.script ) {
         this.clearAutosave();
+        this.checkingAutosaveFor_ = null;
         return false;
       }
 
@@ -2019,6 +2023,7 @@ foam.CLASS({
             code: function() {
               self.value.script = autosaveData.script;
               self.clearAutosave(scriptName);
+              self.checkingAutosaveFor_ = null;
               resolve(true);  // Return true - autosave was loaded
             }
           }),
@@ -2027,6 +2032,7 @@ foam.CLASS({
             label: 'Discard',
             code: function() {
               self.clearAutosave(scriptName);
+              self.checkingAutosaveFor_ = null;
               resolve(false);  // Return false - autosave was discarded
             }
           })
@@ -2144,6 +2150,9 @@ foam.CLASS({
         if ( oldValue === newValue ) return;
         if ( ! this.flowMode.checksAutosave ) return;
 
+        // Don't show modal during initial load - checkForAutosavedScript handles that
+        if ( this.isLoading_ || this.checkingAutosaveFor_ ) return;
+
         // Check if the new name has existing autosave data that differs from current
         var existingData = this.loadAutosaveData(newValue);
 
@@ -2219,6 +2228,9 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+
+
+
           // Reset progress counters
           this.loadingProgress_ = 0;
           this.totalBlocks_ = 0;

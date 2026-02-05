@@ -11,9 +11,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import foam.core.logger.Logger;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonReader;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonReader;
 
 // Generic OAuth Web Agent for handling oauth redirects
 // can be used for login and for storing oauth credentials for users
@@ -50,8 +50,9 @@ public class OAuthWebAgent implements WebAgent {
             var sessionDAO = ((foam.dao.DAO)x.get("sessionDAO"));
             var session = (foam.core.session.Session)sessionDAO.find(sessionID);
             if ( session == null ) {
-                session = new Session((X) x.get(Boot.ROOT));
+                session = new Session();
                 session.setId(sessionID == null ? "anonymous" : sessionID);
+                session.setContext(session.reset(x));
                 session = (foam.core.session.Session) sessionDAO.put(session);
             }
 
@@ -78,7 +79,7 @@ public class OAuthWebAgent implements WebAgent {
 
             // if an idToken was returned, log the session into the new account
             foam.core.auth.User user;
-            if (idToken != null) {
+            if ( idToken != null ) {
                 try {
                     user = loginWithIdToken(x, state, provider, idToken);
                 } catch (AuthenticationException e) {
@@ -118,7 +119,7 @@ public class OAuthWebAgent implements WebAgent {
 
             sendResponse(x, state, resp);
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("OAuthWebAgent", e);
             try {
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 resp.getWriter().write("Server error: " + e.getMessage());
@@ -175,7 +176,11 @@ public class OAuthWebAgent implements WebAgent {
         }
     }
 
-    protected foam.core.auth.User loginWithIdToken(foam.lang.X x, javax.json.JsonObject state, foam.core.oauth.OAuthProvider provider, String idToken) {
+    protected foam.core.auth.User loginWithIdToken(foam.lang.X x, jakarta.json.JsonObject state, foam.core.oauth.OAuthProvider provider, String idToken) {
+        if ( ! provider.verifyTokenSignature(x, idToken) ) {
+          throw new RuntimeException("Failed to verify idToken signature");
+        }
+
         Logger logger = (Logger) x.get("logger");
         String parts[] = idToken.split("\\.");
         String bodyb64 = parts[1];
@@ -183,8 +188,8 @@ public class OAuthWebAgent implements WebAgent {
         byte[] bodyBytes = java.util.Base64.getUrlDecoder().decode(bodyb64);
         String body = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
 
-        javax.json.JsonReader reader = javax.json.Json.createReader(new java.io.StringReader(body));
-        javax.json.JsonObject bodyObject = reader.readObject();
+        jakarta.json.JsonReader reader = jakarta.json.Json.createReader(new java.io.StringReader(body));
+        jakarta.json.JsonObject bodyObject = reader.readObject();
         reader.close();
 
         if (!bodyObject.getBoolean("email_verified")) {

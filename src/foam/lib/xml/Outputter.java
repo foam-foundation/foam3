@@ -9,6 +9,8 @@ package foam.lib.xml;
 import foam.lang.ClassInfo;
 import foam.lang.FObject;
 import foam.lang.PropertyInfo;
+import foam.lang.X;
+import foam.lib.PropertyPredicate;
 import foam.lib.json.OutputterMode;
 import foam.util.SafetyUtil;
 import java.io.*;
@@ -30,32 +32,51 @@ public class Outputter
     }
   };
 
-  protected PrintWriter   writer_;
-  protected OutputterMode mode_;
-  protected StringWriter  stringWriter_        = null;
-  protected boolean       outputShortNames_    = false;
-  protected boolean       outputDefaultValues_ = false;
+  protected PrintWriter       writer_;
+  protected OutputterMode     mode_;
+  protected StringWriter      stringWriter_        = null;
+  protected boolean           outputShortNames_    = false;
+  protected boolean           outputDefaultValues_ = false;
+  protected PropertyPredicate propertyPredicate_   = null;
+  protected X                 x_                   = null;
 
-  public Outputter() {
-    this(OutputterMode.FULL);
+  // Cached property lists per ClassInfo, keyed by ClassInfo id + attribute flag
+  protected java.util.Map<String, List<PropertyInfo>> propertyMap_ = new java.util.HashMap<>();
+
+  public Outputter(X x) {
+    this(x, OutputterMode.FULL);
   }
 
-  public Outputter(OutputterMode mode) {
-    this((PrintWriter) null, mode);
+  public Outputter(X x, OutputterMode mode) {
+    this(x, (PrintWriter) null, mode);
   }
 
-  public Outputter(File file, OutputterMode mode) throws FileNotFoundException {
-    this(new PrintWriter(file), mode);
+  public Outputter(X x, File file, OutputterMode mode) throws FileNotFoundException {
+    this(x, new PrintWriter(file), mode);
   }
 
-  public Outputter(PrintWriter writer, OutputterMode mode) {
+  public Outputter(X x, PrintWriter writer, OutputterMode mode) {
     if ( writer == null ) {
       stringWriter_ = new StringWriter();
       writer        = new PrintWriter(stringWriter_);
     }
 
+    this.x_      = x;
     this.mode_   = mode;
     this.writer_ = writer;
+  }
+
+  public X getX() {
+    return x_;
+  }
+
+  public Outputter setPropertyPredicate(PropertyPredicate predicate) {
+    propertyPredicate_ = predicate;
+    return this;
+  }
+
+  public PropertyPredicate getPropertyPredicate() {
+    return propertyPredicate_;
   }
 
   protected void initWriter() {
@@ -135,12 +156,28 @@ public class Outputter
     outputProperties_(obj);
   }
 
-  protected void outputProperties_(FObject obj) {
-    // output properties
+  /**
+   * Get filtered properties for an FObject, applying PropertyPredicate if set.
+   * Results are cached per ClassInfo for efficiency.
+   */
+  protected List<PropertyInfo> getProperties(FObject obj, boolean forAttributes) {
     ClassInfo info = obj.getClassInfo();
-    List<PropertyInfo> properties = info.getAxiomsByClass(PropertyInfo.class).stream()
-      .filter(propertyInfo -> ! propertyInfo.getXMLAttribute())
-      .collect(Collectors.toList());
+    String key = info.getId() + (forAttributes ? ":attr" : ":elem");
+
+    List<PropertyInfo> properties = propertyMap_.get(key);
+    if ( properties == null ) {
+      String of = info.getSimpleName().toLowerCase();
+      properties = info.getAxiomsByClass(PropertyInfo.class).stream()
+        .filter(prop -> forAttributes ? prop.getXMLAttribute() : ! prop.getXMLAttribute())
+        .filter(prop -> propertyPredicate_ == null || propertyPredicate_.propertyPredicateCheck(getX(), of, prop))
+        .collect(Collectors.toList());
+      propertyMap_.put(key, properties);
+    }
+    return properties;
+  }
+
+  protected void outputProperties_(FObject obj) {
+    List<PropertyInfo> properties = getProperties(obj, false);
     for ( PropertyInfo prop : properties ) {
       outputProperty_(obj, prop);
     }
@@ -222,9 +259,7 @@ public class Outputter
   }
 
   protected void outputAttributes(FObject obj) {
-    List<PropertyInfo> attributes = obj.getClassInfo().getAxiomsByClass(PropertyInfo.class)
-      .stream().filter(PropertyInfo::getXMLAttribute)
-      .collect(Collectors.toList());
+    List<PropertyInfo> attributes = getProperties(obj, true);
 
     for ( PropertyInfo attribute : attributes ) {
       Object value = attribute.get(obj);

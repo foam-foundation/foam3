@@ -220,6 +220,7 @@ foam.CLASS({
       documentation: 'Tracks the first page where each group appears to ensure headers show only once',
       factory: function() { return {}; }
     },
+    ['suspendObserver', false]
   ],
 
   methods: [
@@ -332,7 +333,7 @@ foam.CLASS({
 
       if ( sortParams.length ) proxy = proxy.orderBy(sortParams);
 
-      this.loadingPages_[page] = true;
+      self.loadingPages_$set(page);
 
       let promise = this.prepDAO(proxy, this.ctx);
       var e       = this.E().attr('data-page', page);
@@ -410,7 +411,8 @@ foam.CLASS({
         if ( ! isSet ) { this.appendTo.add(e); isSet = true; }
 
         self.renderedPages_[page] = e;
-        self.loadingPages_[page]  = false;
+        // self.loadingPages_[page]  = false;
+        self.loadingPages_$remove(page);
 
         // If there is a scroll in progress and all pages have been loaded, try to scroll again
         if ( this.scrollToIndex && Object.keys(this.renderedPages_).length == Math.min(this.NUM_PAGES_TO_RENDER, this.numPages_) )
@@ -430,14 +432,13 @@ foam.CLASS({
       var page = this.currentTopPage_ + pageIndex;
       if ( this.renderedPages_[page] || this.loadingPages_[page] ) {
         // Skip this page and move to next
-        this.processPageSequentially_(pageIndex + 1);
-        return;
+        return this.processPageSequentially_(pageIndex + 1);
       }
 
       var skip = page * this.pageSize_;
       var dao  = this.data.limit(this.pageSize_).skip(skip);
 
-      this.getPage(dao, page).then(() => {
+      return this.getPage(dao, page).then(() => {
         // Process next page after this one completes
         this.processPageSequentially_(pageIndex + 1);
       });
@@ -501,22 +502,19 @@ foam.CLASS({
     },
     {
       name: 'updateRenderedPages_',
-      isMerged: true,
+      isIdled: true,
       mergeDelay: 100,
       on: [
         'this.propertyChange.currentTopPage_'
       ],
       code: function() {
-        // Remove any pages that are no longer on screen to save on
-        // the amount of DOM we add to the page.
-        Object.keys(this.renderedPages_).forEach(i => {
-          if ( (i >= this.currentTopPage_ ) && i < this.currentTopPage_ + this.NUM_PAGES_TO_RENDER ) return;
-          this.clearPage(i);
-        });
+        let currentTopPage_ = this.currentTopPage_;
         // If grouping is enabled, process pages sequentially to maintain group order
         // Otherwise, process in parallel for better performance
+        this.suspendObserver = true;
+        let promise = Promise.resolve();
         if ( this.groupBy ) {
-          this.processPageSequentially_(0);
+          promise = this.processPageSequentially_(0);
         } else {
           let promiseArr = [];
           // Add any pages that are not already rendered.
@@ -529,11 +527,27 @@ foam.CLASS({
           }
           // If there is nothing to load, we should not set daoLoading to false
           if ( promiseArr.length !== 0 ){
-            Promise.all(promiseArr).then(()=>{
+            promise = Promise.all(promiseArr).then(()=>{
               this.daoLoading = false;
             });
           }
         }
+        promise.finally(() => {
+          // Remove any pages that are no longer on screen to save on
+          // the amount of DOM we add to the page.
+          Object.keys(this.renderedPages_).forEach(i => {
+            if ( (i >= currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < currentTopPage_ ) {
+              this.clearPage(i);
+            }
+          });
+          if ( ! this.scrollToIndex ) {
+            this.scrollToIndex = this.topRow;
+            this.suspendObserver = false;
+          } else {
+            this.suspendObserver = false;
+            this.safeScroll();
+          }
+        })
       }
     },
     {
@@ -541,7 +555,7 @@ foam.CLASS({
       isFramed: true,
       code: function(entries, self){
         entries.forEach((entry) => {
-          if ( entry.intersectionRatio == 0 ) return;
+          if ( entry.intersectionRatio == 0 || self.suspendObserver ) return;
           var index = Number(entry.target.dataset.idx);
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
             if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) <= entry.rootBounds.top )
@@ -573,8 +587,8 @@ foam.CLASS({
     {
       name: 'nextPage',
       toolTip: 'Next Page',
-      isEnabled: function(bottomRow, daoCount) {
-        return bottomRow != daoCount;
+      isEnabled: function(bottomRow, daoCount, suspendObserver) {
+        return ! suspendObserver && bottomRow != daoCount;
       },
       code: function() {
         var n = foam.Number.clamp(1,this.topRow + this.displayedRowCount_ + 1,this.daoCount);
@@ -584,8 +598,8 @@ foam.CLASS({
     {
       name: 'lastPage',
       toolTip: 'Last Page',
-      isEnabled: function(bottomRow, daoCount) {
-        return bottomRow != daoCount;
+      isEnabled: function(bottomRow, daoCount, suspendObserver) {
+        return ! suspendObserver && bottomRow != daoCount;
       },
       code: function() {
         this.scrollToIndex = this.daoCount;
@@ -594,8 +608,8 @@ foam.CLASS({
     {
       name: 'prevPage',
       toolTip: 'Previous Page',
-      isEnabled: function(topRow) {
-        return topRow > 1;
+      isEnabled: function(topRow, suspendObserver) {
+        return ! suspendObserver && topRow > 1;
       },
       code: function() {
         var n = foam.Number.clamp(1,this.topRow - this.displayedRowCount_, this.daoCount);
@@ -605,8 +619,8 @@ foam.CLASS({
     {
       name: 'firstPage',
       toolTip: 'First Page',
-      isEnabled: function(topRow) {
-        return topRow > 1;
+      isEnabled: function(topRow, suspendObserver) {
+        return ! suspendObserver && topRow > 1;
       },
       code: function() {
         this.scrollToIndex = 1;

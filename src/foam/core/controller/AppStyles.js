@@ -169,5 +169,9 @@ foam.CLASS({
   .safari-svg-pos-support {
     position: static !important;
   }
+  // Remove browser password reveal button on edge
+  ::-ms-reveal {
+    display: none;
+  }
   `
 });

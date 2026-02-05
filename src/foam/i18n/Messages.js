@@ -130,7 +130,7 @@ foam.CLASS({
             self.messageMap[foam.locale] = self.messageMap[foam.language] = v;
             self.message_ = undefined;
           },
-          configurable: false
+          configurable: true // needed in case a message is updated in a refinement
         });
     },
 

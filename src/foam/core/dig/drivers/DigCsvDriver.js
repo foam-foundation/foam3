@@ -85,11 +85,12 @@ foam.CLASS({
       for ( Object o : fobjects ) {
         FObject fobj = (FObject) o;
         csv.outputFObject(x, fobj);
+        out.append(csv.getSb());
+        csv.getSb().setLength(0); // stream: clear buffer after each row
       }
 
-      // Output the formatted data
-      out.append(csv.getSb());
       out.println();
+      out.flush();
       `
     }
   ]

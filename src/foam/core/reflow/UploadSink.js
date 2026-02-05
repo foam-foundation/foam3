@@ -146,14 +146,14 @@ foam.CLASS({
     
     async function put(o) {
       var self = this;
-      
+
       // Apply object adaptation callback
       try {
         this.adaptObject(o);
       } catch (e) {
         console.warn('Object adaptation callback failed:', e);
       }
-      
+
       // Increment processing counter (totalRows should be set by parser upfront)
       this.processing++;
       this.updateStatus();
@@ -239,14 +239,15 @@ foam.CLASS({
           if ( this.bulkUpload ) {
             if ( ! this.agent_ ) this.agent_ = this.UploadAgent.create();
             this.agent_.data.push(o);
-            
+
             if ( this.matchedRows && this.matchedRows % 2000 === 0 ) {
               var oldAgent = this.agent_;
               this.agent_ = undefined;
               await new Promise(r => self.setTimeout(r, 0));
-              // Only allow a fixed number of outstanding cmd() calls
-              await this.semaphore_;
-              this.dao.cmd(oldAgent).then(() => self.semaphore_.decr());
+              // Limit concurrent batch uploads using semaphore
+              this.semaphore_.then(async () => {
+                await this.dao.cmd(oldAgent);
+              });
             }
           } else {
             await this.dao.put(o);

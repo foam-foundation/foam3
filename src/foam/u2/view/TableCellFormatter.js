@@ -4,6 +4,21 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+/*
+  TableCellFormatters are Flyweight views. They are used to add a value to a table cell, but
+  because they are flyweights, they can be reused for each cell in a particular table column
+  without having to create a new view for each cell.
+
+  This design is a holdeover from FOAM1 / U1 where UI's were created as HTML strings, but in
+  U2, where all views are U2 DOM Elements, you still need to create an object anyway, so this
+  isn't such a big savings as it used to be. When just adding a string value, it will just
+  be added as a foam.u2.Text node, rather than the larger foam.u2.Element class, so there is
+  still some savings, just not as much as in the past.
+
+  Probably too much work with too little return to bother changing now, but maybe also
+  adding support for specifying a cellView: would be more convenient in many instances.
+*/
+
 foam.CLASS({
   package: 'foam.u2.view',
   name: 'TableCellFormatter',
@@ -61,6 +76,9 @@ foam.CLASS({
         return foam.u2.view.FnFormatter.create({
           class: 'foam.u2.view.FnFormatter',
           f: function(value, obj, axiom) {
+            if ( axiom.name !== 'id' && foam.Number.isInstance(value) && axiom.formatValue ) {
+              value = Number(value).toLocaleString(navigator.locale);
+            }
             this.add(value);
           }
         });
@@ -233,6 +251,30 @@ foam.CLASS({
   package: 'foam.u2.view',
   name: 'UnitValueTableCellFormatterRefinement',
   refines: 'foam.lang.UnitValue',
+
+  properties: [
+    {
+      class: 'foam.u2.view.TableCellFormatter',
+      name: 'tableCellFormatter',
+      value: function(value, obj, axiom) {
+        var unitProp = obj.cls_.getAxiomByName(axiom.unitPropName);
+        if ( ! unitProp ) {
+          console.warn(obj.cls_.name, ' does not have the property: ', axiom.unitPropName);
+          this.add(value);
+          return;
+        }
+        var self = this;
+        this.startContext({objData: obj}).tag(foam.u2.view.ValueView, {prop: axiom, data: value}).endContext();
+      }
+    },
+    ['projectionSafe', false]
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.u2.view',
+  name: 'DoubleUnitValueTableCellFormatterRefinement',
+  refines: 'foam.lang.DoubleUnitValue',
 
   properties: [
     {

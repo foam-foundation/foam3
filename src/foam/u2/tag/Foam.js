@@ -49,7 +49,6 @@ foam.CLASS({
       } else {
         this.add('UNKNOWN CLASS:', this.class);
       }
-
     }
   ]
 });

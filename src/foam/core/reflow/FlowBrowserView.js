@@ -117,7 +117,7 @@ foam.CLASS({
       }
       var filterView = foam.u2.ViewSpec.createView(this.FilterView, {
         dao$:  this.data.data$,
-        data$: this.flowPredicate$
+        data$: this.flowPredicate$ || this.data.predicate$
       }, this, this.__subContext__.createSubContext({
         controllerMode: foam.u2.ControllerMode.EDIT
       }));

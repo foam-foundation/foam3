@@ -1,6 +1,32 @@
 foam.CLASS({
   package: "foam.core.oauth",
   name: "OAuthProvider",
+
+  javaImports: [
+    'foam.util.SafetyUtil',
+    'java.net.URL',
+    'java.math.BigInteger',
+    'javax.net.ssl.HttpsURLConnection',
+    'jakarta.json.Json',
+    'jakarta.json.JsonArray',
+    'jakarta.json.JsonObject',
+    'jakarta.json.JsonReader',
+    'java.io.StringReader',
+    'java.nio.charset.StandardCharsets',
+    'java.security.KeyFactory',
+    'java.security.PublicKey',
+    'java.security.Signature',
+    'java.security.spec.RSAPublicKeySpec',
+    'java.util.Base64',
+    'java.util.Map',
+    'java.util.concurrent.ConcurrentHashMap'
+  ],
+
+  javaCode: `
+    // Cache oauth provider <kid, publicKey>
+    protected Map<String, PublicKey> cache_ = new ConcurrentHashMap<>();
+  `,
+
   ids: [
     "clientId"
   ],
@@ -40,6 +66,11 @@ foam.CLASS({
       documentation: 'List of hostnames that should offer this OAuth provider.',
       factory: function() { return []; },
       javaFactory: 'return new String[] {};'
+    },
+    {
+      class: 'String',
+      name: 'certificateURL',
+      documentation: '(Optional) URL to crytographic keys for verifing the signature of JWTs issued by the OAuth provider.'
     }
   ],
   methods: [
@@ -119,13 +150,136 @@ if (responseCode != 200) {
 
 // Read the response body into a JsonObject
 java.io.InputStream is = connection.getInputStream();
-javax.json.JsonReader jsonReader = javax.json.Json.createReader(is);
-javax.json.JsonObject responseJson = jsonReader.readObject(); 
+jakarta.json.JsonReader jsonReader = jakarta.json.Json.createReader(is);
+jakarta.json.JsonObject responseJson = jsonReader.readObject(); 
 return responseJson.getString("access_token");
 } catch (Exception e) {
     throw new RuntimeException("Failed to refresh token", e);
 }
         `
+    },
+    {
+      name: 'verifyTokenSignature',
+      args: 'Context x, String jwtToken',
+      type: 'Boolean',
+      javaCode: `
+if ( SafetyUtil.isEmpty(jwtToken) ) return false;
+
+// certificateURL is not set, assuming token signature is verified
+if ( SafetyUtil.isEmpty(getCertificateURL()) ) return true;
+
+try {
+  String[] parts = jwtToken.split("\\\\.");
+  if ( parts == null || parts.length != 3 ) {
+    throw new RuntimeException("Invalid JWT format");
+  }
+
+  var headerBytes = Base64.getUrlDecoder().decode(parts[0]);
+  var header = new String(headerBytes, StandardCharsets.UTF_8);
+  var headerReader = Json.createReader(new StringReader(header));
+  var headerObject = headerReader.readObject();
+  headerReader.close();
+
+  String alg = headerObject.getString("alg", null);
+  if ( alg == null || ! "RS256".equals(alg) ) {
+    throw new RuntimeException("Unsupported JWT algorithm");
+  }
+
+  String kid = headerObject.getString("kid", null);
+  if ( SafetyUtil.isEmpty(kid) ) {
+    throw new RuntimeException("Missing JWT key id");
+  }
+
+  PublicKey publicKey = this.cache_.get(kid);
+  if ( publicKey == null ) {
+    publicKey = getPublicKey(kid);
+    this.cache_.put(kid, publicKey);
+  }
+
+  var signingInput = parts[0] + "." + parts[1];
+  var signatureBytes = Base64.getUrlDecoder().decode(parts[2]);
+
+  var signature = Signature.getInstance("SHA256withRSA");
+  signature.initVerify(publicKey);
+  signature.update(signingInput.getBytes(StandardCharsets.US_ASCII));
+  return signature.verify(signatureBytes);
+} catch ( Exception e ) {
+  throw new RuntimeException("Failed to verify token signature", e);
+}
+`
+    },
+    {
+      visibility: 'protected',
+      name: 'getPublicKey',
+      args: 'String kid',
+      type: 'PublicKey',
+      javaThrows: [ 'java.io.IOException', 'java.security.NoSuchAlgorithmException', 'java.security.spec.InvalidKeySpecException' ],
+      javaCode: `
+HttpsURLConnection conn = null;
+
+try {
+  var url = new URL(getCertificateURL());
+  conn = (HttpsURLConnection) url.openConnection();
+  conn.setConnectTimeout(5000);
+  conn.setReadTimeout(5000);
+  conn.setRequestMethod("GET");
+  conn.connect();
+
+  int responseCode = conn.getResponseCode();
+  if ( responseCode != 200 ) {
+    throw new RuntimeException("Failed to fetch provider certificates, response code: " + responseCode);
+  }
+
+  JsonArray keys = null;
+  try ( var in = conn.getInputStream() ) {
+    var jsonReader = Json.createReader(conn.getInputStream());
+    var jwks = jsonReader.readObject();
+    keys = jwks.getJsonArray("keys");
+  }
+
+  if ( keys == null ) {
+    throw new RuntimeException("No keys found in certificate response");
+  }
+
+  // Find matching key in jwks
+  JsonObject matchingKey = null;
+  for ( int i = 0 ; i < keys.size() ; i++ ) {
+    var key = keys.getJsonObject(i);
+    if ( kid.equals(key.getString("kid", null)) ) {
+      matchingKey = key;
+      break;
+    }
+  }
+
+  if ( matchingKey == null ) {
+    throw new RuntimeException("Key not found");
+  }
+
+  String kty = matchingKey.getString("kty", null);
+  if ( ! "RSA".equals(kty) ) {
+    throw new RuntimeException("Unsupported public key type");
+  }
+
+  String n = matchingKey.getString("n", null);
+  String e = matchingKey.getString("e", null);
+  if ( SafetyUtil.isEmpty(n) || SafetyUtil.isEmpty(e) ) {
+    throw new RuntimeException("Missing RSA parameters");
+  }
+
+  var modulus = new BigInteger(1, Base64.getUrlDecoder().decode(n));
+  var exponent = new BigInteger(1, Base64.getUrlDecoder().decode(e));
+
+  var spec = new RSAPublicKeySpec(modulus, exponent);
+  var keyFactory = KeyFactory.getInstance("RSA");
+  return keyFactory.generatePublic(spec);
+} catch ( Exception e ) {
+  throw e;
+} finally {
+  if ( conn != null ) {
+    conn.disconnect();
+  }
+}
+`
     }
   ]
 });

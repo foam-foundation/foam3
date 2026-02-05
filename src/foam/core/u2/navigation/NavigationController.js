@@ -66,6 +66,11 @@ foam.CLASS({
       overflow: auto;
       transition: 0.2s ease;
     }
+    /*  When nav is hidden, make stack view take up all columns */
+    :not(^showNav) > ^stack-view {
+      grid-column: 1/3;
+      grid-row: 1/3;
+    }
 
     ^sidebar^sideNav{
       transition: 0.2s ease;
@@ -151,6 +156,7 @@ foam.CLASS({
       this.setNavCtx_();
 
       this.addClass()
+        .enableClass(this.myClass('showNav'), this.showNav$)
         .add(this.slot( async function(layoutResolved_, topNav) {
           let e = self.E().addClass(this.myClass('header'));
           if ( ! layoutResolved_ || ! topNav || foam.flags.topNav == false ) return e;

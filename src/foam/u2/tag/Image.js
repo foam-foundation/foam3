@@ -157,11 +157,6 @@ foam.CLASS({
 foam.SCRIPT({
   package: 'foam.u2.tag',
   name: 'ImageScript',
-  requires: [
-    'foam.u2.tag.Image',
-    'foam.u2.U2ContextScript'
-  ],
-  flags: ['web'],
   code: function() {
     foam.__context__.registerElement(foam.u2.tag.Image);
   }

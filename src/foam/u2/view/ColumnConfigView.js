@@ -308,7 +308,7 @@ foam.CLASS({
             if ( ! axiom )
               axiom = data.of.getAxiomByName(data.selectedColumnNames[i]);
           }
-          if ( ! axiom  || foam.dao.DAOProperty.isInstance(axiom) ) {
+          if ( ! axiom  || foam.dao.DAOProperty.isInstance(axiom) || axiom.hidden ) {
             continue;
           }
           rootProperty = [ axiom.name, this.columnHandler.returnAxiomHeader(axiom) ];
@@ -354,7 +354,7 @@ foam.CLASS({
           else {
             var axiom =  tableColumns.find(c => c.name === notSelectedColumns[i]);
             axiom = axiom || data.of.getAxiomByName(notSelectedColumns[i]);
-            if ( foam.dao.DAOProperty.isInstance(axiom) ) {
+            if ( foam.dao.DAOProperty.isInstance(axiom) || axiom.hidden ) {
               continue;
             }
             rootProperty = [ axiom.name, this.columnHandler.returnAxiomHeader(axiom) ];

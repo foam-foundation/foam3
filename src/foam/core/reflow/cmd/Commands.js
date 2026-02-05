@@ -628,15 +628,10 @@ foam.CLASS({
         this.flow.loadComplete.sub(() => this.maybeCallScript(loaded.postLoadScript));
         this.selected = this.flow;
         this.flow.copyFrom(loaded);
-        // HACK: after loading a flow the revision is set to 2 for some unknown
-        // reason. This resets it back to 0.
-        // TODO: find out why it is 2 and remove this code.
-        this.flow.revision$.sub((sub, _, __, e) => {
-          if ( e.get() == 2 ) {
-            sub.detach();
-            setTimeout(() => this.mementoMgr.clear(), 100);
-          }
-        });
+        // After loading, revert the revision back to 0
+        this.flow.loadComplete.sub(foam.events.oneTime(() => {
+          this.mementoMgr.clear();
+        }));
       }
     },
     async function maybeCallScript(s) {
@@ -673,8 +668,6 @@ foam.CLASS({
       }).catch(err => {
         this.notify('Error saving flow: ' + err.message);
       });
-
-
     }
   ]
 });

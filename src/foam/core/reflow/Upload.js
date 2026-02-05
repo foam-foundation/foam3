@@ -94,7 +94,7 @@ foam.CLASS({
         start('th').addClass('col-type').add('Type').end().
         start('th').addClass('col-value').add('Value').end().
         start('th').addClass('col-sample').add('Sample').end().
-        start('th').addClass('col-dateformat').add('Date Format').end().
+        start('th').addClass('col-dateformat').add('Format').end().
         start('th').addClass('col-required').add('Required').end().
       end().
       add(this.dynamic(function(data) {

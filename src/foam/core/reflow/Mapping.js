@@ -90,16 +90,36 @@ foam.ENUM({
   package: 'foam.core.reflow',
   name: 'NumberFormat',
 
+  properties: [
+    {
+      class: 'String',
+      name: 'parserSymbol',
+      documentation: 'The number parser grammar symbol name for this format'
+    },
+    {
+      name: 'id',
+      getter: function() { return this.ordinal; }
+    }
+  ],
+
   values: [
     {
-      name: 'STANDARD',
-      label: 'Standard (1,000.00)',
-      documentation: 'US/UK format: comma for thousands, period for decimal'
+      name: 'US_UK',
+      label: 'US/UK Style (1,000.00)',
+      parserSymbol: 'START',
+      documentation: 'Period as decimal separator, comma for thousands: 1,234.56'
     },
     {
       name: 'EUROPEAN',
-      label: 'European (1.000,00)',
-      documentation: 'European format: period for thousands, comma for decimal'
+      label: 'European / Continental (1.000,00)',
+      parserSymbol: 'european',
+      documentation: 'Comma as decimal separator, period for thousands: 1.234,56'
+    }
+  ],
+
+  methods: [
+    function toSummary() {
+      return this.label;
     }
   ]
 });
@@ -310,8 +330,8 @@ foam.CLASS({
       of: 'foam.core.reflow.NumberFormat',
       name: 'numberFormat',
       label: '',
-      value: 'STANDARD',
-      help: 'Standard format uses comma for thousands and period for decimal (1,000.00). European format uses period for thousands and comma for decimal (1.000,00).',
+      value: 'US_UK',
+      help: 'US/UK Style uses period for decimal (1,000.00). European uses comma for decimal (1.000,00).',
       documentation: 'Number format for this field (only applies to numeric properties)',
       view: {
         class: 'foam.core.reflow.NumberFormatRichChoiceView'
@@ -471,18 +491,10 @@ foam.CLASS({
        * Maps NumberFormat enum to NumberParser grammar symbol name.
        * This is used when calling fromCSV with format hints.
        *
-       * @returns {string} Parser grammar symbol name (undefined for standard, 'european' for European)
+       * @returns {string} Parser grammar symbol name ('START' or 'european')
        */
-      if ( ! this.numberFormat ) return undefined;
-
-      // Map enum values to parser symbol names
-      switch ( this.numberFormat.name ) {
-        case 'EUROPEAN':
-          return 'european';
-        case 'STANDARD':
-        default:
-          return undefined;
-      }
+      if ( ! this.numberFormat ) return 'START';
+      return this.numberFormat.parserSymbol || 'START';
     },
 
     function evaluateExpression(expression, rowData) {

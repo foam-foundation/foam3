@@ -1934,6 +1934,17 @@ foam.CLASS({
   ]
 });
 
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'DoubleUnitValueViewRefinement',
+  refines: 'foam.lang.DoubleUnitValue',
+  requires: [ 'foam.u2.view.CurrencyView' ],
+  properties: [
+    [ 'displayWidth', 15 ],
+    [ 'view', { class: 'foam.u2.view.CurrencyView', onKey: false } ]
+  ]
+});
+
 
 foam.CLASS({
   package: 'foam.u2',

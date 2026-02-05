@@ -28,6 +28,10 @@ foam.CLASS({
     'emoji'
   ],
 
+  constants: {
+    FORMATTER_CACHE: {}
+  },
+
   axioms: [
     {
       buildJavaClass: function(cls) {
@@ -156,6 +160,28 @@ foam.CLASS({
          * is not equal to the homeDenomination
          *
          */
+        // Not using foam locale as foam locale can be reset to a different value mid-session based on translation available
+        // using browser default formatting when available 
+        if ( navigator.language ) {
+          amount = Number(amount);
+          let opts = {
+            minimumFractionDigits: this.precision,
+            maximumFractionDigits: this.precision
+          }
+          if ( ! hideSymbol ) {
+            opts.style = 'currency';
+            opts.currency = this.id;
+          }
+          let formatterId = navigator.language + '-' + this.id;
+          if ( this.FORMATTER_CACHE[formatterId] ) {
+            return this.FORMATTER_CACHE[formatterId].format(amount);
+          } else {
+            let formatter = new Intl.NumberFormat(navigator.language, opts);
+            this.FORMATTER_CACHE[formatterId] = formatter;
+            return formatter.format(amount);
+          }
+        }
+        // TODO: Maybe consider deleting the custom formatting logic below
         amount = Math.round(amount);
         var isNegative = amount < 0;
         amount = amount.toString();

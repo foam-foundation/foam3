@@ -4,15 +4,14 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// TODO:
-//   TOC?
-
 foam.CLASS({
   package: 'foam.u2.view',
   name: 'MarkdownView',
   extends: 'foam.u2.View',
 
   documentation: 'Markdown parser and View with full CommonMark support including HTML',
+
+  exports: [ 'markdownContext' ],
 
   css: `
     ^codeBlock {
@@ -63,7 +62,16 @@ foam.CLASS({
             '-->'
           ),
 
-          htmlBlock: seq(
+          htmlBlock: alt(sym('autoCloseHtmlBlock'), sym('fullHtmlBlock')),
+
+          autoCloseHtmlBlock: seq(
+            '<',
+            'img',
+            sym('htmlAttributes'),
+            '>'
+          ),
+
+          fullHtmlBlock: seq(
             '<',
             str(sym('htmlTagName')),
             sym('htmlAttributes'),
@@ -99,7 +107,7 @@ foam.CLASS({
             )
           ),
 
-          htmlText: str(repeat(notChars('<'), null, 1)),
+          htmlText: str(repeat(not(alt('</', sym('htmlBlock')), any()), null, 1)),
 
           // Block-level elements
           heading: seq(
@@ -443,7 +451,7 @@ foam.CLASS({
         function image(v) {
           let alt = v[1], url = v[3], title = v[4] || '';
           return function() {
-            this.start('img').attrs({
+            this.start('img').attrs( {
               src: url,
               alt: alt,
               title: title
@@ -453,7 +461,7 @@ foam.CLASS({
 
         function link(v) {
           let title = v[1], url = v[3];
-          return function() { this.start('a').attrs({href: url}).add(title); };
+          return function() { this.start('a').attrs({href: encodeURI(url)}).add(title); };
         },
 
         function strikethrough(v) {
@@ -489,6 +497,12 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'markdownContext',
+      factory: function() {
+        return {};
+      }
+    },
+    {
       class: 'String',
       name: 'data'
     }
@@ -503,6 +517,7 @@ foam.CLASS({
       this.addClass();
 
       this.add(this.dynamic(function(data) {
+        self.markdownContext = undefined;
         var tokens = self.markdownGrammar.parseString(data + '\n');
         if ( tokens ) {
           tokens.forEach(t => t.call(this));

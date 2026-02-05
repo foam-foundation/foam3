@@ -32,7 +32,7 @@ foam.CLASS({
       name: 'E',
       code: function E(ctx, opt_nodeName, opt_args) {
         var nodeName = opt_nodeName ? opt_nodeName.toLowerCase() : 'div';
-        var args = opt_args || {};
+        var args     = opt_args || {};
 
         // Check if a class has been registered for the specified nodeName
         var cls = ctx.elementForName(nodeName);

@@ -142,7 +142,7 @@ foam.CLASS({
           return;
         }
 
-        var el = await this.el();
+        var el = await this.el_();
         var startingPos = el.children[0].selectionStart;
         var endPos = el.children[0].selectionEnd;
 

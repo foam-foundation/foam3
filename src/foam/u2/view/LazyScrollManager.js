@@ -239,7 +239,7 @@ foam.CLASS({
 
       var self = this;
       var resize = new ResizeObserver (this.checkPageSize_);
-      let root = await this.rootElement.el()
+      let root = await this.rootElement.el_()
       let options = {
         root: root ?? null,
         rootMargin: `-${this.offsetTop}px 0px 0px`,
@@ -249,7 +249,7 @@ foam.CLASS({
       // defer till after atleast one page has been loaded in order
       // to ensure correct value for displayedRowCount_
       this.dataLatch.then(() => {
-        this.rootElement?.el().then(el => {
+        this.rootElement?.el_().then(el => {
           resize.observe(el);
         })
       })
@@ -375,7 +375,7 @@ foam.CLASS({
 
           var isEven = (index + 1) % 2 !== 0 ;
           var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven);
-          rowEl.el().then(a => {
+          rowEl.el_().then(a => {
             self.rowObserver.observe(a)
           });
         };

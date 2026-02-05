@@ -76,7 +76,7 @@ foam.CLASS({
         .start(foam.u2.tag.Image, {data: this.img, displayWidth: this.imgWidth})
         .addClass(this.myClass('img')).end();
 
-        this.el().then((v) => {
+        this.el_().then((v) => {
           v.style.setProperty(`--img-postion`, this.insetPos);
         })
     }

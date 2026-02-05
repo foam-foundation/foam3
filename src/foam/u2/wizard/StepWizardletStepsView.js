@@ -293,7 +293,7 @@ foam.CLASS({
       name: 'setScrollPos',
       isFramed: true,
       code: async function() {
-        var el    = await this.parentNode.el();
+        var el    = await this.parentNode.el_();
 
         if ( ! this.data.currentWizardlet ) {
           console.warn('setScrollPos() failed; no current wizardlet', {
@@ -317,8 +317,8 @@ foam.CLASS({
           });
           return;
         }
-        var firstChild = await this.childNodes[0].childNodes[0].el();
-        currChild = await currChild.el();
+        var firstChild = await this.childNodes[0].childNodes[0].el_();
+        currChild = await currChild.el_();
 
         var padding    = firstChild.offsetTop;
         var scrollTop  = currChild.offsetTop;

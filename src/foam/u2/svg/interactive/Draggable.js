@@ -35,7 +35,7 @@ foam.CLASS({
       this.pos.bind(this);
     },
     async function transformMouseEvent (evt) {
-      const svg = await this.svg.el();
+      const svg = await this.svg.el_();
       const ctm = svg.getScreenCTM();
       return {
         x: (evt.clientX - ctm.e) / ctm.a,

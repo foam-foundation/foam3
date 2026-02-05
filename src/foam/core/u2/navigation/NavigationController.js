@@ -164,9 +164,8 @@ foam.CLASS({
           this.headerSlot_$.set(topView);
           var resize = new ResizeObserver (this.adjustTopBarHeight);
           this.onDetach(resize.disconnect());
-          this.headerSlot_?.el().then(el => {
-            resize.observe(el);
-          })
+          let el = this.headerSlot_?.el_();
+          if ( el ) resize.observe(el);
           return e
             .addClass(this.myClass('header'))
             // Fix this
@@ -221,9 +220,7 @@ foam.CLASS({
     function adjustTopBarHeight() {
       if ( ! this.headerSlot_ ) return;
       let root = this.document.documentElement;
-      this.headerSlot_.el().then(el => {
-        root?.style.setProperty('--topbar-height', el.offsetHeight + 'px' );
-      })
+      root?.style.setProperty('--topbar-height', el.offsetHeight + 'px' );
     }
   ]
 });

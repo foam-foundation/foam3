@@ -98,7 +98,7 @@ foam.CLASS({
     // TODO: fix
     // function scrollTo() {
     //   var self = this;
-    //   this.createEl_.el().then(() => {
+    //   this.createEl_.el_().then(() => {
     //     var el = self.document.querySelector('.' + self.myClass('container'));
     //     if ( ! el ) return;
     //     el.scrollTop = el.scrollHeight;

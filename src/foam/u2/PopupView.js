@@ -46,7 +46,7 @@ foam.CLASS({
   methods: [
     async function render() {
       var parent  = this.parentNode;
-      var parentE = await parent.el();
+      var parentE = await parent.el_();
 
       if ( ! this.padding ) this.padding = 20;
       if ( ! this.y       ) this.y = (parentE.clientHeight - this.height)/2;

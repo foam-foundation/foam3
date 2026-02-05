@@ -163,10 +163,10 @@ foam.CLASS({
         })
       }))
     },
-    async function addHeaderObserver() {
-      const root = await this.el();
+    function addHeaderObserver() {
+      const root = this.el_();
       const options = { root, threshold: [1.0] };
-      let el = await this.header_.el();
+      let el = this.header_.el_();
       const isVisible = () => {
         let flag = false
         el.childNodes?.forEach(v => {

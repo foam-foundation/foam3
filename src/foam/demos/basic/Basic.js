@@ -313,7 +313,7 @@ foam.CLASS({
     function render() {
       this.SUPER();
 
-      this.out$.sub(() => this.el().then(e => e.scrollTop = e.scrollHeight));
+      this.out$.sub(() => this.el_().then(e => e.scrollTop = e.scrollHeight));
 
       this.
         on('keypress', this.keypress).

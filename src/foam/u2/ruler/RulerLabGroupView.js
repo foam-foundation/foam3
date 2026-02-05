@@ -58,7 +58,7 @@ foam.CLASS({
   methods: [
     function render () {
       if (this.color )
-        this.el().then(el => el?.style.setProperty('--color', this.color ))
+        this.el_().then(el => el?.style.setProperty('--color', this.color ))
       this.computeShow();
       this
         .addClass()

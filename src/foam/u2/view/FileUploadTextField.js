@@ -54,7 +54,7 @@ foam.CLASS({
         return !! fileInput_;
       },
       code: function() {
-        this.fileInput_.el().then(el => el.click());
+        this.fileInput_.el_().then(el => el.click());
       }
     }
   ],
@@ -64,7 +64,7 @@ foam.CLASS({
       name: 'onFileUpload',
       code: async function() {
         if ( ! this.fileInput_ ) return;
-        var el = await this.fileInput_.el();
+        var el = await this.fileInput_.el_();
         if ( el.value == '' ) return;
         if ( el.files.length == 0 ) return;
         var file = el.files[0];

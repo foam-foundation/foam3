@@ -47,7 +47,7 @@ foam.CLASS({
 
   css: `
     ^ {
-      flex: 1;
+      flex: 1 0 60%;
       position: relative;
     }
 
@@ -85,7 +85,7 @@ foam.CLASS({
 
     ^general-field {
       margin: 0;
-      flex: 0 0 85%;
+      flex-basis: 85%;
     }
 
     ^general-field input {
@@ -309,9 +309,6 @@ foam.CLASS({
                 .addClass(self.myClass('filter-button'))
               .end()
             .endContext()
-            .end()
-            .start()
-            .style({ overflow: 'hidden', 'align-self': 'center' })
             .end()
           .end();
           //set here to avoid prematured finalPredicate override

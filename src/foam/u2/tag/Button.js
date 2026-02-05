@@ -80,6 +80,7 @@ foam.CLASS({
       outline: none;
       position: relative;
       text-align: center;
+      text-wrap-mode: nowrap;
     }
 
     ^:focus-visible {

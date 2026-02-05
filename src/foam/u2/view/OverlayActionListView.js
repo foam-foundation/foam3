@@ -184,9 +184,10 @@ foam.CLASS({
     ^iconOnly{
       padding: 0px;
     }
-
+    ^dropdown.foam-u2-HTMLView {
+      padding: 0
+    }
     ^dropdown svg {
-      font-size: 0.6rem;
       fill: currentcolor;
     }
 
@@ -279,7 +280,7 @@ foam.CLASS({
       self.obj?.data?.sub('action', function() {
         self.overlay_.close();
       });
-      view$ = this.dynamic(function(availabilities_) {
+      view$ = this.dynamic(function(availabilities_, data) {
         this.startContext({ data: self.obj, dropdown: self.overlay_ });
         if ( availabilities_ === false ) {
           this.start().addClass('p', self.myClass('disabled')).add(self.NO_AVAILABLE).end();

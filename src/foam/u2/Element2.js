@@ -1302,7 +1302,7 @@ foam.CLASS({
 
     function add() {
       if ( this.content ) {
-        this.content.add_(arguments, this);
+        this.content.add_(arguments, this.content);
         return this;
       }
       return this.add_(arguments, this);

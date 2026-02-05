@@ -48,6 +48,7 @@ foam.CLASS({
     ^browse-title {
       transition: all 0.2s ease;
       font-weight: $font-semi-bold;
+      text-wrap-mode: nowrap;
     }
     ^header-container {
       display: flex;
@@ -143,7 +144,7 @@ foam.CLASS({
               this.add(specMap_[pos]?.title);
             }))
           .end()
-          .tag('', {}, this.trailingContainer$)
+          .start('', {}, this.trailingContainer$).style({ display: 'contents'}).end()
         .end()
       .end()
       .start('', {}, this.content$).addClass(this.myClass('content')).end();

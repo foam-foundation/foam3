@@ -61,12 +61,12 @@ foam.CLASS({
 
     ^query-bar {
       padding: 6px 8px 6px 0;
+      gap: 10px;
     }
 
-    ^buttons{
-      display: flex;
-      gap: 0.5em;
-      align-items: flex-start;
+    ^buttons.foam-u2-ButtonGroup{
+      justify-content: flex-end;
+      flex: 2 0 30%;
     }
 
     ^filters{
@@ -245,16 +245,6 @@ foam.CLASS({
           dao: dao
         };
       }
-    },
-    {
-      class: 'Int',
-      name: 'maxActions',
-      expression: function(displayWidth) {
-        if ( displayWidth === undefined ) return 3;
-        return displayWidth.minWidth < this.DisplayWidth.MD.minWidth ? 0 :
-               displayWidth.minWidth < this.DisplayWidth.LG.minWidth ? 1 :
-               3;
-      }
     }
   ],
 
@@ -271,7 +261,7 @@ foam.CLASS({
     function render() {
       [ this.EXPORT, this.IMPORT, this.REFRESH_TABLE ].forEach(action => {
         if ( this.config.DAOActions.indexOf(action) === -1 )
-          this.config.DAOActions.push(action);
+          this.config.DAOActions$push(action);
       });
 
       if ( ! foam.dao.QueryCachingDAO.isInstance(this.data) ) {
@@ -366,39 +356,25 @@ foam.CLASS({
                       this.add(filterView);
                     })
                     .endContext()
-                    .start(self.Cols)
-                      .addClass(self.myClass('buttons'))
-                        .add(self.maxActions$.map(function(maxActions) {
-                          var visibleActions;
-                          if ( self.config.DAOActions.length > Math.max(1, self.maxActions) ) {
-                            var extraActions = self.config.DAOActions.slice(self.maxActions);
-                            visibleActions = self.config.DAOActions.slice(0, self.maxActions);
-                          } else {
-                            visibleActions = self.config.DAOActions;
-                          }
-                          var el = self.E();
-                          var actions = el.addClass(self.myClass('buttons')).startContext({
-                            data: self,
-                            controllerMode: foam.u2.ControllerMode.EDIT
-                          });
-                          for ( action of visibleActions ) {
-                            actions.start(action, buttonStyle).
-                              callIf(action === self.REFRESH_TABLE, function() {
-                                this.tooltip$ = self.lastRefresh$.map(l => self.LAST_REFRESHED + ' ' + l.toLocaleString());
-                              }).
-                              addClass(self.myClass('actions')).
-                            end();
-                          }
-                          if ( extraActions && extraActions.length ) {
-                            el.start(self.OverlayActionListView, {
-                              label: self.ACTIONS,
-                              data: extraActions,
-                              obj: self
-                            }).addClass(self.myClass('buttons')).end();
-                          }
-                          return el.endContext();
-                        }))
-                    .end()
+                    .add(self.dynamic(function(config$DAOActions) {
+                      this
+                        .startContext({ data: self })
+                          .start(foam.u2.ButtonGroup, { 
+                            overlaySpec: { 
+                              obj: self,
+                              label: 'Actions', size: 'SMALL'
+                            }
+                          })
+                            .addClass(self.myClass('buttons'))
+                            .forEach(config$DAOActions, function(v) {
+                              this.start(v, { size: 'SMALL' })
+                                .callIf(v === self.REFRESH_TABLE, function() {
+                                  this.tooltip$ = self.lastRefresh$.map(l => self.LAST_REFRESHED + ' ' + l.toLocaleString());
+                                }).end()
+                            })
+                          .end()
+                        .endContext();
+                    }))
                   .end()
                   .start().tag(filterView.filtersContainer$).addClass(self.myClass('filters')).end();
               })
@@ -415,6 +391,7 @@ foam.CLASS({
     {
       name: 'export',
       label: 'Export',
+      buttonStyle: 'PRIMARY',
       toolTip: 'Export Table Data',
       icon: 'images/export-arrow-icon.svg',
       isAvailable: async function(config) {

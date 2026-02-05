@@ -998,11 +998,12 @@ foam.CLASS({
     {
       name: 'formats',
       factory: function() {
+        // Used to get large file downloads - currently streaming only setup for csv.
+        //  { label: 'JSON',   extension: '.json', format: 'json',  driver: this.JSONDriver },
+        //  { label: 'JSON/J', extension: '.jrl',  format: 'jsonj', driver: this.JSONJDriver },
+        //  { label: 'XML',    extension: '.xml',  format: 'xml',   driver: this.XMLDriver }
         return [
-          { label: 'CSV',    extension: '.csv',  format: 'csv',   driver: this.CSVTableExportDriver },
-          { label: 'JSON',   extension: '.json', format: 'json',  driver: this.JSONDriver },
-          { label: 'JSON/J', extension: '.jrl',  format: 'jsonj', driver: this.JSONJDriver },
-          { label: 'XML',    extension: '.xml',  format: 'xml',   driver: this.XMLDriver }
+          { label: 'CSV',    extension: '.csv',  format: 'csv',   driver: this.CSVTableExportDriver }
         ];
       }
     }
@@ -1045,7 +1046,16 @@ foam.CLASS({
       var daoKey   = serviceName.substring(8);
       var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
-      // Probe DAO to find the actual full query being used
+      // Build base POST params instead of a long query string
+      var baseParams = {
+        dao:  daoKey,
+        cmd:  'select',
+        limit: this.block.value.limit,
+        download: true
+      };
+      if ( this.sessionID ) baseParams.sessionId = this.sessionID;
+
+      // Probe DAO to capture the predicate as MQL
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
@@ -1063,16 +1073,28 @@ foam.CLASS({
       this.add('Download As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
-        this.
-          start('a').
-            attrs({
-              href: url + '&format=' + fmt.format,
-              rel: 'noopener noreferrer',
-              download: daoKey + fmt.extension,
-              target: '_blank'
-            }).
-            add(fmt.label).
-          end();
+
+        var form = this.start('form').attrs({
+          method: 'POST',
+          action: `${location}/service/dig`,
+          target: '_blank',
+          style: 'display:inline'
+        });
+
+        Object.keys(baseParams).forEach(k => {
+          form.start('input').attrs({ type: 'hidden', name: k, value: baseParams[k] }).end();
+        });
+        form.start('input').attrs({ type: 'hidden', name: 'format', value: fmt.format }).end();
+
+        form.start('button').
+          attrs({
+            type: 'submit',
+            style: 'border:none;background:none;padding:0;margin:0;cursor:pointer;color:#0066cc;text-decoration:underline'
+          }).
+          add(fmt.label).
+        end();
+
+        form.end(); // form
       });
     },
 

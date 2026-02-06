@@ -61,7 +61,7 @@ foam.CLASS({
           l();
         })
       .end()
-      .tag('', {}, this.content$);
+      .start('', {}, this.content$).style({ display: 'contents'}).end();
     }
   ]
 });

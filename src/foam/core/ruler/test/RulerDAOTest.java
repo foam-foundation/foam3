@@ -6,9 +6,12 @@ import foam.lang.X;
 import foam.dao.ArraySink;
 import foam.dao.DAO;
 import foam.mlang.predicate.Predicate;
+import foam.core.auth.Group;
+import foam.core.auth.GroupPermissionJunction;
 import foam.core.auth.LifecycleState;
 import foam.core.auth.User;
 import foam.core.dao.Operation;
+import foam.util.Auth;
 import foam.core.ruler.*;
 import foam.core.test.Test;
 import foam.test.TestUtils;
@@ -45,6 +48,7 @@ public class RulerDAOTest extends Test {
     removeData(x);
     testCompositeRuleAction(x);
     removeData(x);
+    testSpidFiltering(x);
   }
 
   public void testUsers(X x) {
@@ -388,5 +392,140 @@ public class RulerDAOTest extends Test {
     localRuleDAO.remove_(x, rule10);
     userDAO.remove_(x, user1);
     userDAO.remove_(x, user2);
+  }
+
+  /**
+   * Test that the RuleEngine's SPID filtering works correctly:
+   * - A rule with a specific SPID only fires when context SPID matches
+   * - A rule with a specific SPID does NOT fire when context SPID differs
+   * - A rule with a specific SPID fires when no context SPID (backward compat)
+   * - A global rule (spid="*") fires regardless of context SPID
+   */
+  public void testSpidFiltering(X x) {
+    // Create a rule group for SPID tests
+    RuleGroup spidRG = new RuleGroup();
+    spidRG.setId("spid:test");
+    rgDAO.put(spidRG);
+
+    // Track which rules fire
+    final boolean[] spidRuleFired = { false };
+    final boolean[] globalRuleFired = { false };
+
+    // Rule with spid = "providerA"
+    Rule spidRule = new Rule();
+    spidRule.setId("spid_test_1");
+    spidRule.setName("spidRule. SPID-scoped rule");
+    spidRule.setRuleGroup("spid:test");
+    spidRule.setDaoKey("localUserDAO");
+    spidRule.setOperation(Operation.CREATE);
+    spidRule.setAfter(false);
+    spidRule.setLifecycleState(LifecycleState.ACTIVE);
+    spidRule.setSpid("test.spidA");
+    RuleAction spidAction = (x1, obj, oldObj, ruler, rule, agent) -> {
+      spidRuleFired[0] = true;
+    };
+    spidRule.setAction(spidAction);
+    localRuleDAO.put_(x, spidRule);
+
+    // Global rule (spid = "*", the default)
+    Rule globalRule = new Rule();
+    globalRule.setId("spid_test_2");
+    globalRule.setName("globalRule. Global rule");
+    globalRule.setRuleGroup("spid:test");
+    globalRule.setDaoKey("localUserDAO");
+    globalRule.setOperation(Operation.CREATE);
+    globalRule.setAfter(false);
+    globalRule.setLifecycleState(LifecycleState.ACTIVE);
+    RuleAction globalAction = (x1, obj, oldObj, ruler, rule, agent) -> {
+      globalRuleFired[0] = true;
+    };
+    globalRule.setAction(globalAction);
+    localRuleDAO.put_(x, globalRule);
+
+    // Test 1: Matching SPID — both rules should fire
+    spidRuleFired[0] = false;
+    globalRuleFired[0] = false;
+    X matchingCtx = x.put("spid", "test.spidA");
+    User u = new User();
+    u.setId(900);
+    u.setFirstName("SpidTest");
+    userDAO.put_(matchingCtx, u);
+    test(spidRuleFired[0], "SPID rule fires when context SPID matches rule SPID");
+    test(globalRuleFired[0], "Global rule fires when context SPID is set");
+
+    userDAO.remove_(x, u);
+
+    // Test 2: Non-matching SPID without hierarchical auth — only global fires
+    spidRuleFired[0] = false;
+    globalRuleFired[0] = false;
+    X nonMatchingCtx = x.put("spid", "test.spidB").put("auth", null);
+    u = new User();
+    u.setId(901);
+    u.setFirstName("SpidTest2");
+    userDAO.put_(nonMatchingCtx, u);
+    test( ! spidRuleFired[0], "SPID rule does NOT fire when context SPID differs from rule SPID");
+    test(globalRuleFired[0], "Global rule fires regardless of context SPID");
+
+    userDAO.remove_(x, u);
+
+    // Test 3: No context SPID — both rules should fire (backward compatibility)
+    spidRuleFired[0] = false;
+    globalRuleFired[0] = false;
+    u = new User();
+    u.setId(902);
+    u.setFirstName("SpidTest3");
+    userDAO.put_(x, u);
+    test(spidRuleFired[0], "SPID rule fires when no context SPID is set (backward compat)");
+    test(globalRuleFired[0], "Global rule fires when no context SPID is set");
+
+    // Test 4: Hierarchical SPID — user with serviceprovider.read permission
+    // can access rules scoped to a different SPID via auth.check
+    spidRuleFired[0] = false;
+    globalRuleFired[0] = false;
+
+    DAO groupDAO = (DAO) x.get("localGroupDAO");
+    DAO gpjDAO   = (DAO) x.get("localGroupPermissionJunctionDAO");
+    DAO mockUserDAO = (DAO) x.get("localUserDAO");
+
+    // Create group with explicit permission to access the rule's SPID
+    Group testGroup = new Group.Builder(x).setId("test.ruler.spid").build();
+    groupDAO.put(testGroup);
+    gpjDAO.put(new GroupPermissionJunction.Builder(x)
+      .setSourceId("test.ruler.spid")
+      .setTargetId("serviceprovider.read.test.spidA")
+      .build());
+
+    // Create user in that group with a DIFFERENT spid
+    User authUser = new User.Builder(x)
+      .setId(903)
+      .setFirstName("HierarchicalTest")
+      .setLastName("User")
+      .setEmail("hierarchical-test@test.com")
+      .setGroup("test.ruler.spid")
+      .setSpid("test.other")
+      .setLifecycleState(LifecycleState.ACTIVE)
+      .build();
+    mockUserDAO.put(authUser);
+
+    // Create authenticated context — spid will be "test.other" from user
+    // checkSpid: exact match fails (test.other != test.spidA)
+    // auth.check should pass because group has serviceprovider.read.test.spidA
+    X authCtx = Auth.sudo(x, authUser);
+
+    u = new User();
+    u.setId(904);
+    u.setFirstName("SpidTest4");
+    userDAO.put_(authCtx, u);
+
+    test(spidRuleFired[0], "SPID rule fires via hierarchical auth (serviceprovider.read permission)");
+    test(globalRuleFired[0], "Global rule fires with hierarchical auth");
+
+    userDAO.remove_(x, u);
+    mockUserDAO.remove_(x, authUser);
+    groupDAO.remove(testGroup);
+
+    // Cleanup
+    localRuleDAO.remove_(x, spidRule);
+    localRuleDAO.remove_(x, globalRule);
   }
 }

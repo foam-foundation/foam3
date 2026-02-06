@@ -517,6 +517,30 @@ foam.CLASS({
       `
     },
     {
+      name: 'checkSpid',
+      type: 'Boolean',
+      documentation: `Check if this rule's SPID is accessible from the given context.
+        - Global rules (spid="*") always apply.
+        - If no context SPID, all rules apply (backward compatibility).
+        - Exact match as fast path.
+        - Hierarchical match via permission system (e.g., parent SPID can access child rules).`,
+      args: [
+        { name: 'x', type: 'Context' }
+      ],
+      javaCode: `
+        if ( "*".equals(getSpid()) ) return true;
+
+        String contextSpid = (String) x.get("spid");
+
+        if ( SafetyUtil.isEmpty(contextSpid) ) return true;
+
+        if ( contextSpid.equals(getSpid()) ) return true;
+
+        AuthService auth = (AuthService) x.get("auth");
+        return auth != null && auth.check(x, "serviceprovider.read." + getSpid());
+      `
+    },
+    {
       name: 'getUser',
       type: 'foam.core.auth.User',
       args: [

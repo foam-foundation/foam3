@@ -78,6 +78,7 @@ public class RuleEngine extends ContextAwareSupport {
         if ( stops_.get()                  ) break;
         if ( ! isRuleActive(rule)          ) continue;
         if ( ! checkPermission(rule, obj)  ) continue;
+        if ( ! rule.checkSpid(userX_)       ) continue;
         if ( ! rule.ruleF(userX_, oldObj, obj) ) continue;
 
         if ( ! locked && lock_ != null && rule.getRequiresLock() ) {

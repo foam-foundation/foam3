@@ -304,8 +304,8 @@ foam.CLASS({
           });
           spinner.remove();
           var actionElArray_ = this.childNodes;
-          self.firstEl_ = actionElArray_[0].childNodes[0];
-          self.lastEl_ = actionElArray_[actionElArray_.length - 1].childNodes[0];
+          self.firstEl_ = actionElArray_[0]?.childNodes[0];
+          self.lastEl_ = actionElArray_[actionElArray_.length - 1]?.childNodes[0];
           (self.firstEl_ && ! self.isMouseClick) && self.firstEl_.focus();
         }
         this.endContext();
@@ -347,6 +347,7 @@ foam.CLASS({
     {
       name: 'createAvailabilitySlotArray',
       documentation: 'Returns an array slot that returns true when any of the actions in data are available',
+      on: ['this.propertyChange.data'],
       code: function() {
         let availSlots = this.data.map(action => {
           if (  foam.u2.ActionReference.isInstance(action) && action.data ) return action.action.createIsAvailable$(this.__context__, action.data)

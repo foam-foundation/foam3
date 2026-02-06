@@ -56,10 +56,12 @@ foam.CLASS({
       name: 'isModalRequired'
     },
     {
-      name: 'propertyData',
-      attribute: true
+      class: 'Boolean',
+      name: 'showCancel'
     },
-    'data'
+    'propertyData',
+    'data',
+    'actionsLabelOverride'
   ],
 
   methods: [
@@ -74,9 +76,9 @@ foam.CLASS({
     },
     function addActions(self) {
       var actions = this.E().startContext({ data: self });
-      actions.tag(self.OK, { isDestructive: self.modalStyle == 'DESTRUCTIVE' });
+      actions.tag(self.OK, { isDestructive: self.modalStyle == 'DESTRUCTIVE', label: self.actionsLabelOverride['ok'] || self.OK.label });
       if ( self.showCancel ) {
-        actions.tag(self.CANCEL);
+        actions.tag(self.CANCEL, { label: self.actionsLabelOverride['cancel'] || self.CANCEL.label });
       }
       this.add(actions.endContext());
     }
@@ -89,7 +91,7 @@ foam.CLASS({
       isEnabled: (isModalRequired, propertyData) => {
         if ( ! isModalRequired ) return true;
 
-        return propertyData;
+        return Array.isArray(propertyData) ? propertyData.length > 0 : propertyData;
       },
       code: function(X) {
         this.onExecute();

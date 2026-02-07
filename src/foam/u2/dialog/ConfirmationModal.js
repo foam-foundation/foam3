@@ -15,7 +15,10 @@ foam.CLASS({
 
   imports: ['theme?'],
 
-  messages: [{ name: 'CANCEL_LABEL', message: 'Cancel' }],
+  messages: [
+    { name: 'CONFIRM_LABEL', message: 'Confirm' },
+    { name: 'CANCEL_LABEL', message: 'Cancel' }
+  ],
 
   properties: [
     {
@@ -39,9 +42,9 @@ foam.CLASS({
     function addActions(self) {
       var actions = this.startContext({ data: self });
       if ( self.showCancel ) {
-        actions.tag(self.CANCEL, { label: self.secondaryAction ? self.secondaryAction.label : self.CANCEL_LABEL });
+        actions.tag(self.CANCEL, { label: self.secondaryAction?.label || self.CANCEL_LABEL });
       }
-      actions.tag(self.CONFIRM, { label: self.primaryAction.label, isDestructive: self.modalStyle == 'DESTRUCTIVE' });
+      actions.tag(self.CONFIRM, { label: self.primaryAction?.label || self.CONFIRM_LABEL, isDestructive: self.modalStyle == 'DESTRUCTIVE' });
       return actions.endContext();
     }
   ],

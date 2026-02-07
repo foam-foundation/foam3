@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.u2',
   name: 'PropertyModal',
-  extends: 'foam.u2.dialog.StyledModal',
+  extends: 'foam.u2.dialog.ConfirmationModal',
 
   documentation: 'View for attaching a choice to a modal',
 
@@ -21,9 +21,6 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'CONFIRM_DELETE_1', message: 'Are you sure you want to delete' },
-    { name: 'SUCCESS_MSG', message: ' deleted' },
-    { name: 'FAIL_MSG', message: 'Failed to delete' },
     { name: 'DEFAULT_TITLE', message: 'Please fill out the following' },
     { name: 'REQUIRED', message: 'Required' },
     { name: 'OPTIONAL', message: 'Optional' }
@@ -36,10 +33,7 @@ foam.CLASS({
   `,
 
   properties: [
-    {
-      class: 'Function',
-      name: 'onExecute'
-    },
+    [ 'showCancel', false ],
     {
       name: 'title',
       expression: function(isModalRequired) {
@@ -55,13 +49,7 @@ foam.CLASS({
       class: 'Boolean',
       name: 'isModalRequired'
     },
-    {
-      class: 'Boolean',
-      name: 'showCancel'
-    },
-    'propertyData',
-    'data',
-    'actionsLabelOverride'
+    'propertyData'
   ],
 
   methods: [
@@ -73,34 +61,20 @@ foam.CLASS({
             data$: this.data$
           })
         .endContext();
-    },
-    function addActions(self) {
-      var actions = this.E().startContext({ data: self });
-      actions.tag(self.OK, { isDestructive: self.modalStyle == 'DESTRUCTIVE', label: self.actionsLabelOverride['ok'] || self.OK.label });
-      if ( self.showCancel ) {
-        actions.tag(self.CANCEL, { label: self.actionsLabelOverride['cancel'] || self.CANCEL.label });
-      }
-      this.add(actions.endContext());
     }
   ],
 
   actions: [
     {
-      name: 'ok',
+      name: 'confirm',
       buttonStyle: 'PRIMARY',
       isEnabled: (isModalRequired, propertyData) => {
         if ( ! isModalRequired ) return true;
 
         return Array.isArray(propertyData) ? propertyData.length > 0 : propertyData;
       },
-      code: function(X) {
-        this.onExecute();
-        X.closeDialog();
-      }
-    },
-    {
-      name: 'cancel',
-      code: function(X) {
+      code: async function(X) {
+        await this.primaryAction && this.primaryAction.maybeCall(X, this.data);
         X.closeDialog();
       }
     }

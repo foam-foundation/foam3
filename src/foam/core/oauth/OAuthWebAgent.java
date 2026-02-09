@@ -192,7 +192,10 @@ public class OAuthWebAgent implements WebAgent {
         jakarta.json.JsonObject bodyObject = reader.readObject();
         reader.close();
 
-        if (!bodyObject.getBoolean("email_verified")) {
+        // Some IdP eg. Microsoft Entra doesn't include "email_verified" claim in the payload,
+        // after user successfully authenticated on the provider side their email is considered
+        // as verified implicitly.
+        if (!bodyObject.getBoolean("email_verified", true)) {
             throw new AuthenticationException("Email is not verified");
         }
 
@@ -200,11 +203,14 @@ public class OAuthWebAgent implements WebAgent {
             throw new AuthenticationException("Expired token");
         }
 
-        if (!bodyObject.getString("aud").equals(provider.getClientId())) {
+        if (!provider.getClientId().equals(bodyObject.getString("aud"))) {
             throw new AuthenticationException("Incorrect audience");
         }
 
         String email = bodyObject.getString("email");
+        if ( SafetyUtil.isEmpty(email) ) {
+            throw new AuthenticationException("Missing email");
+        }
 
         foam.core.auth.User user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
 

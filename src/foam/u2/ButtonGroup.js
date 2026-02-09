@@ -221,7 +221,6 @@ foam.CLASS({
   methods: [
     function render() {
       this.SUPER();
-      console.log('action', this.action);
       this.storeAction(this);
     }
   ]

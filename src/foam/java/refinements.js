@@ -1405,7 +1405,8 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
-      name: 'javaCode'
+      name: 'javaCode',
+      generateJava: false
     }
   ],
 

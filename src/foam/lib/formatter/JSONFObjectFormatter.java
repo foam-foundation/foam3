@@ -442,7 +442,7 @@ public class JSONFObjectFormatter
         } else {
           if ( calculateDeltaForNestedFObjects_ &&
                prop.get(newFObject) != null && prop.get(oldFObject) != null &&
-               prop.get(newFObject).getClass().getCanonicalName().equals(prop.get(oldFObject).getClass().getCanonicalName()) ) {
+               SafetyUtil.classEquals(prop.get(newFObject), prop.get(oldFObject)) ) {
             if ( maybeOutputFObjectProperty(newFObject, oldFObject, prop) ) {
               delta += 1;
               if ( optionalPredicate_.propertyPredicateCheck(getX(), of, prop) ) {

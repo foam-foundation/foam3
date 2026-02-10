@@ -415,4 +415,20 @@ public class SafetyUtil {
     v.validate(x);
   }
 
+  public static boolean classEquals(Object o1, Object o2) {
+    if ( o1 == null ) return o2 == null;
+
+    Class c1 = o1.getClass();
+    Class c2 = o2.getClass();
+
+    if ( c1 == c2 ) return true;
+
+    // Enum value with javaCode is being treated as anonymous class by the compiler
+    // e.g. MyEnum$1, which doesn't have canonical name so comparing on enclosing class.
+    if ( c1.isAnonymousClass() )
+      return c2.isAnonymousClass() && c1.getEnclosingClass() == c2.getEnclosingClass();
+
+    String canonicalName = c1.getCanonicalName();
+    return canonicalName != null && canonicalName.equals(c2.getCanonicalName());
+  }
 }

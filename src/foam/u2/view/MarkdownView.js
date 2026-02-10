@@ -303,7 +303,7 @@ foam.CLASS({
               this.tag(tagName);
             } else {
               let content = closing[1];
-              let e = this.start(tagName, attributes).call(content);
+              let e = this.start(tagName).attrs(attributes).call(content);
               if ( attributes.style ) {
                 let style = {};
                 attributes.style.split(';').forEach(s => {

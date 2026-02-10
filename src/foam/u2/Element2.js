@@ -1613,8 +1613,23 @@ foam.CLASS({
 foam.ENUM({
   package: 'foam.u2',
   name: 'AttributeType',
+  documentation: 'Defines how a property attribute is synchronized between the model and the DOM.',
   values: [
-    'DOM', 'MODEL', 'BOTH'
+    {
+      name: 'DOM',
+      documentation: `Property is only reflected to the DOM as an attribute. 
+      The model property is not updated when the DOM attribute changes.`
+    },
+    {
+      name: 'MODEL',
+      documentation: `Property is only stored in the model.
+      It is not synchronized with the DOM as an HTML attribute.`
+    },
+    {
+      name: 'BOTH',
+      documentation: `Property is kept in sync between the model and DOM. 
+      When the model property changes, it updates the DOM attribute.`
+    }
   ]
 })
 

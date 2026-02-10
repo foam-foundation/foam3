@@ -170,7 +170,7 @@ foam.CLASS({
 
 
 foam.SCRIPT({
-  package: 'foam.core.reflow',
+  package: 'foam.u2.tag',
   name: 'ImageScript',
   code: function() {
     foam.__context__.registerElement(foam.u2.tag.ImageTag, 'img');

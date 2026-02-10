@@ -46,7 +46,10 @@ public class OAuthWebAgent implements WebAgent {
             state = stateReader.readObject();
             stateReader.close();
 
-            var sessionID = state.getString("session_id");
+            var sessionID = state.getString("session_id", null);
+            if ( SafetyUtil.isEmpty(sessionID) ) {
+                throw new RuntimeException("Missing state.session_id");
+            }
             var sessionDAO = ((foam.dao.DAO)x.get("sessionDAO"));
             var session = (foam.core.session.Session)sessionDAO.find(sessionID);
             if ( session == null ) {
@@ -56,9 +59,15 @@ public class OAuthWebAgent implements WebAgent {
                 session = (foam.core.session.Session) sessionDAO.put(session);
             }
 
-            String clientId = state.getString("provider");
+            String clientId = state.getString("provider", null);
+            if ( SafetyUtil.isEmpty(clientId) ) {
+                throw new RuntimeException("Missing state.provider");
+            }
             foam.dao.DAO oAuthProviderDAO = (foam.dao.DAO) x.get("oAuthProviderDAO");
             var provider = (OAuthProvider) oAuthProviderDAO.find(clientId);
+            if ( provider == null ) {
+                throw new RuntimeException("OAuthProvider(" + clientId + ") not found");
+            }
 
             // Exchange authorization code for access/refresh tokens
             String response = provider.getTokenForCode(x, code, req.getRequestURL().toString());
@@ -73,7 +82,7 @@ public class OAuthWebAgent implements WebAgent {
             jsonReader.close();
 
             String[] scopes = tokenResponse.getString("scope", "").split(" ");
-            String accessToken = tokenResponse.getString("access_token");
+            String accessToken = tokenResponse.getString("access_token", null);
             String refreshToken = tokenResponse.getString("refresh_token", null);
             String idToken = tokenResponse.getString("id_token", null);
 
@@ -144,7 +153,7 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<!DOCTYPE html>");
             out.println("<html><body>");
             out.println("<h1>Success</h1>");
-            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id", null) + "\">");
             out.print("<script language=\"javascript\">");
             out.print("window.opener && window.opener.postMessage({ msg: \"success\", sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
             out.print("window.close();");
@@ -166,7 +175,7 @@ public class OAuthWebAgent implements WebAgent {
             out.println("<html><body>");
             out.println("<h1>Something went wrong!</h1>");
             out.println("<input type=\"hidden\" id=\"errorMessage\" value=\"" + errorMessage + "\">");
-            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id") + "\">");
+            out.println("<input type=\"hidden\" id=\"sessionId\" value=\"" + state.getString("session_id", null) + "\">");
             out.print("<script language=\"javascript\">");
             out.print("window.opener && window.opener.postMessage({ error: { message: document.getElementById(\"errorMessage\").value }, sessionID: document.getElementById(\"sessionId\").value }, location.origin);");
             out.print("window.close();");
@@ -207,7 +216,7 @@ public class OAuthWebAgent implements WebAgent {
             throw new AuthenticationException("Incorrect audience");
         }
 
-        String email = bodyObject.getString("email");
+        String email = bodyObject.getString("email", null);
         if ( SafetyUtil.isEmpty(email) ) {
             throw new AuthenticationException("Missing email");
         }
@@ -215,9 +224,9 @@ public class OAuthWebAgent implements WebAgent {
         foam.core.auth.User user = ((foam.core.auth.UniqueUserService)x.get("uniqueUserService")).getUser(x, email);
 
         if ( user == null ) {
-            String givenName = bodyObject.containsKey("given_name") ? bodyObject.getString("given_name") : null;
-            String familyName = bodyObject.containsKey("family_name") ? bodyObject.getString("family_name") : null;
-            String userName = state.containsKey("sign_up_username") ? state.getString("sign_up_username") : null;
+            String givenName = bodyObject.getString("given_name", null);
+            String familyName = bodyObject.getString("family_name", null);
+            String userName = state.getString("sign_up_username", null);
 
             if ( SafetyUtil.isEmpty(userName) ) {
                 userName = email;
@@ -255,7 +264,7 @@ public class OAuthWebAgent implements WebAgent {
             throw new AuthenticationException("User not found");
         }
 
-        foam.core.session.Session session = (foam.core.session.Session)((foam.dao.DAO)x.get("sessionDAO")).find(state.getString("session_id"));
+        foam.core.session.Session session = (foam.core.session.Session)((foam.dao.DAO)x.get("sessionDAO")).find(state.getString("session_id", null));
         if ( session == null ) {
             throw new AuthenticationException("Session not found");
         }

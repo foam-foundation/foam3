@@ -50,7 +50,7 @@ foam.CLASS({
 
 foam.SCRIPT({
   package: 'foam.core.reflow',
-  name: 'ImageScript',
+  name: 'LinkScript',
   code: function() {
     foam.__context__.registerElement(foam.core.reflow.Link, 'a');
   }

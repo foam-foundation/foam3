@@ -49,31 +49,61 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'onKey',
-      attribute: true,
+      attribute: 'MODEL',
       // documentation: 'When true, $$DOC{ref:".data"} is updated on every keystroke, rather than on blur.'
     },
     {
       class: 'Boolean',
       name: 'autofocus',
-      attribute: true,
+      attribute: 'BOTH',
       documentation: 'If enabled, field gains focus when added to screen.'
     },
     {
       class: 'Int',
-      name: 'size'
+      name: 'size',
+      attribute: 'BOTH'
     },
     {
       class: 'Int',
       name: 'maxLength',
-      attribute: true,
-      // documentation: 'When set, will limit the length of the input to a certain number'
+      domName: 'maxlength',
+      attribute: 'BOTH',
+      documentation: 'When set, will limit the length of the input to a certain number'
     },
-    'type',
-    'placeholder',
-    'ariaLabel',
-    [ 'autocomplete', true ],
+    {
+      class: 'String',
+      name: 'type',
+      attribute: 'BOTH'
+    },
+    {
+      class: 'String',
+      name:'placeholder',
+      attribute: 'BOTH'
+    },
+    {
+      class: 'String',
+      name: 'ariaLabel',
+      domName: 'aria-label',
+      attribute: 'BOTH'
+    },
+    {
+      class: 'String',
+      name: 'autocomplete',
+      attribute: 'BOTH',
+      adapt: function(o,n) {
+        if ( n === true ) return 'on';
+        if ( n === false ) return 'off';
+        return n;
+      }
+    },
 //    'autocompleter',
-    'inputMode', // Allows a browser to display an appropriate virtual keyboard
+    {
+      class: 'String',
+      name: 'inputMode',
+      domName: 'inputmode',
+      documentation: 'Allows a browser to display an appropriate virtual keyboard',
+      attribute: 'BOTH'
+    },
     {
       class: 'Array',
       name: 'choices',
@@ -114,18 +144,6 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
-      if ( this.size          ) this.setAttribute('size',        this.size);
-      if ( this.type          ) this.setAttribute('type',        this.type$);
-      if ( this.placeholder   ) this.setAttribute('placeholder', this.placeholder$);
-      if ( this.ariaLabel     ) this.setAttribute('aria-label',  this.ariaLabel);
-      if ( this.maxLength > 0 ) this.setAttribute('maxlength',   this.maxLength);
-      if ( this.inputMode     ) this.setAttribute('inputmode',   this.inputMode);
-
-      this.setAttribute('autocomplete', this.autocomplete ?
-        (foam.String.isInstance(this.autocomplete) ? this.autocomplete : 'on') :
-        'off'
-      );
-
       if ( this.choices && this.choices.length ) {
         var cid = self.$UID + '-choices';
 
@@ -156,12 +174,6 @@ foam.CLASS({
 
       this.initCls();
       this.link();
-
-      if ( this.autofocus ) {
-        window.setTimeout(() => {
-          this.focus();
-        }, 0);
-      }
     },
 
     function initCls() {

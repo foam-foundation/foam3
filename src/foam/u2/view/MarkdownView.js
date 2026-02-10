@@ -438,11 +438,11 @@ foam.CLASS({
         function image(v) {
           let alt = v[1], url = v[3], title = v[4] || '';
           return function() {
-            this.start('img').attrs( {
+            this.start('img').attrs({
               src: url,
               alt: alt,
               title: title
-            });
+            }).end();
           };
         },
 

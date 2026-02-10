@@ -1004,19 +1004,22 @@ foam.CLASS({
         return;
       }
 
-      var prop = this.cls_.getAxiomByName(name);
+      const AttributeType = foam.u2.AttributeType;
+      let prop = this.getPropertyByDOMName(name);
 
-      if ( prop &&
-           foam.lang.Property.isInstance(prop) &&
-           prop.attribute )
-      {
+      if ( prop && prop.attribute !== AttributeType.DOM ) {
         if ( typeof value === 'string' ) {
           // TODO: remove check when all properties have fromString()
-          this[name] = prop.fromString ? prop.fromString(value) : value;
+          this[name] = prop.fromString(value);
         } else if ( foam.lang.Slot.isInstance(value) ) {
           this.onDetach(this.slot(name).follow(value));
         } else {
           this[name] = value;
+        }
+        // When setting a non slotted value, refetch value from the model in case
+        // an adapt/preset/postset changes it
+        if ( ! foam.lang.Slot.isInstance(value) ) {
+          value = this[name];
         }
       } else {
         if ( value === undefined || value === null || value === false ) {
@@ -1543,7 +1546,27 @@ foam.CLASS({
       this.css[key] = value;
       this.element_.style[key] = value;
       return this;
-    }
+    },
+
+    function getPropertyByDOMName(name) {
+      /**
+       * Find an axiom by the specified domName from either this class or an
+       * ancestor.
+       */
+      let cache = this.getPrivate_('domNameCache') || {};
+      let val = cache[name];
+      if ( ! val ) {
+        let props = this.cls_.getAxiomsByClass(foam.lang.Property);
+        for ( var prop of props ) {
+          if ( prop.domName === name ) {
+            val = cache[name] = prop;
+            break;
+          }
+        }
+        this.setPrivate_('domNameCache', cache);
+      }
+      return val;
+    },
   ],
 
   listeners: [
@@ -1587,6 +1610,14 @@ foam.CLASS({
   ]
 });
 
+foam.ENUM({
+  package: 'foam.u2',
+  name: 'AttributeType',
+  values: [
+    'DOM', 'MODEL', 'BOTH'
+  ]
+})
+
 
 foam.CLASS({
   package: 'foam.u2',
@@ -1594,14 +1625,51 @@ foam.CLASS({
   refines: 'foam.lang.Property',
 
   requires: [
-    'foam.u2.TextField'
+    'foam.u2.TextField',
+    'foam.u2.AttributeType'
   ],
 
   properties: [
     {
+      name: 'postSet',
+      factory: function() {
+        let self = this;
+        if ( this.attribute != 'BOTH' ) return undefined;
+        return function(o, n) {
+          if ( ! self.isDefaultValue(n) ) {
+            this.element_?.setAttribute?.(self.domName, this[self.name]);
+          }
+        }
+      },
+      adapt: function(oFn, nFn, prop) {
+        let self = this;
+        if ( self.attribute != 'BOTH' ) return nFn;
+        let fn = function(o, n) {
+          if ( ! self.isDefaultValue(n) ) {
+            this.element_.setAttribute(self.domName, this[self.name]);
+          }
+          nFn?.call(this, o, n);
+        }
+        return fn;
+      }
+    },
+    {
       // If true, this property is treated as a psedo-U2 attribute.
+      class: 'Enum',
+      of: 'foam.u2.AttributeType',
       name: 'attribute',
-      value: false
+      adapt: function(o, n, prop) {
+        if ( n === true ) return this.AttributeType.MODEL;
+        if ( n === false ) return this.AttributeType.DOM;
+        return foam.lang.Enum.ADAPT.value.call(this, o, n, prop);
+      }
+    },
+    {
+      class: 'String',
+      name: 'domName',
+      factory: function() {
+        return this.name
+      }
     },
     {
       class: 'String',

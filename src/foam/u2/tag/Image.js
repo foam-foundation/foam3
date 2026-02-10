@@ -153,11 +153,26 @@ foam.CLASS({
   ]
 });
 
+foam.CLASS({
+  package: 'foam.u2.tag',
+  name: 'ImageTag',
+  extends: 'foam.u2.Element',
+
+  properties: [
+    { name: 'nodeName', value: 'img' },
+    { class: 'String', name: 'src', attribute: 'BOTH' },
+    { class: 'String', name: 'title', attribute: 'BOTH' },
+    { class: 'String', name: 'alt', attribute: 'BOTH' },
+    { class: 'String', name: 'width', attribute: 'BOTH' },
+    { class: 'String', name: 'height', attribute: 'BOTH' }
+  ]
+});
+
 
 foam.SCRIPT({
-  package: 'foam.u2.tag',
+  package: 'foam.core.reflow',
   name: 'ImageScript',
   code: function() {
-    foam.__context__.registerElement(foam.u2.tag.Image);
+    foam.__context__.registerElement(foam.u2.tag.ImageTag, 'img');
   }
 });

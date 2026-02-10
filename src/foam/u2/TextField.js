@@ -60,10 +60,6 @@ foam.CLASS({
         this.displayWidth = prop.displayWidth;
       }
 
-      if ( ! this.size ) {
-        this.size = this.displayWidth;
-      }
-
       if ( ! this.units ) {
         this.units = prop.units;
       }

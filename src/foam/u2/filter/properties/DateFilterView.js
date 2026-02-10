@@ -20,11 +20,12 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'LABEL_ALL',    message: 'All Time' },
-    { name: 'LABEL_AFTER',    message: 'After' },
+    { name: 'LABEL_ALL',       message: 'All Time' },
+    { name: 'LABEL_EQUAL',     message: 'Equal' },
+    { name: 'LABEL_AFTER',     message: 'After' },
     { name: 'LABEL_BEFORE',    message: 'Before' },
-    { name: 'LABEL_BETWEEN',    message: 'Between' },
-    { name: 'LABEL_INCLUSIVE',    message: 'Inclusive' }
+    { name: 'LABEL_BETWEEN',   message: 'Between' },
+    { name: 'LABEL_INCLUSIVE',  message: 'Inclusive' }
   ],
 
   css: `
@@ -147,9 +148,10 @@ foam.CLASS({
               data$: this.qualifier$,
               choices: [
                 ['True', this.LABEL_ALL],
-                ['Gt', this.LABEL_AFTER],
-                ['Lt', this.LABEL_BEFORE],
-                ['Bt', this.LABEL_BETWEEN]
+                ['Eq',   this.LABEL_EQUAL],
+                ['Gt',   this.LABEL_AFTER],
+                ['Lt',   this.LABEL_BEFORE],
+                ['Bt',   this.LABEL_BETWEEN]
               ],
               defaultValue: 'True'
             })

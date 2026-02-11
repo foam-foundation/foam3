@@ -1072,7 +1072,7 @@ foam.ENUM({
       label: 'Presentation',
       showsPrompts: false,
       showsHeader: true,
-      autoscrollEnabled: true,
+      autoscrollEnabled: false,
       autosaveEnabled: true,
       allowsEscapeToggle: true,
       showsFullscreenButton: true,
@@ -2220,8 +2220,6 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
-
-
 
           // Reset progress counters
           this.loadingProgress_ = 0;

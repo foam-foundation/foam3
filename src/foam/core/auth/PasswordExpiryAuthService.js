@@ -43,7 +43,7 @@ foam.CLASS({
       name: 'login',
       javaCode:`
         if ( foam.util.SafetyUtil.isEmpty(identifier) ) {
-          throw new AuthenticationException();
+          throw new AuthenticationException("No user id provided");
         }
 
         User user = (User) ((DAO) getLocalUserDAO())

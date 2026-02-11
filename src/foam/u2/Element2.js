@@ -2022,7 +2022,7 @@ foam.CLASS({
   requires: [ 'foam.u2.view.CurrencyView' ],
   properties: [
     [ 'displayWidth', 15 ],
-    [ 'view', { class: 'foam.u2.view.CurrencyView', onKey: false } ]
+    [ 'view', { class: 'foam.u2.view.CurrencyView', onKey: false, useMinorUnits: false } ]
   ]
 });
 

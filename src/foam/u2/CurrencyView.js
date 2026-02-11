@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'CurrencyView',
   extends: 'foam.u2.FloatView',
 
-  documentation: 'View for formatting cents into dollars.',
+  documentation: 'View for formatting currency values. Supports both UnitValue (Long/cents) and DoubleUnitValue (Double/dollars).',
 
   properties: [
     ['precision', 2],
@@ -22,7 +22,13 @@ foam.CLASS({
       value: 'CAD'
     },
     'curr_',
-    ['hideSymbol', true]
+    ['hideSymbol', true],
+    {
+      class: 'Boolean',
+      name: 'useMinorUnits',
+      documentation: 'When true, converts between major and minor units (e.g. dollars to cents). Set to false for DoubleUnitValue properties that store values in major units.',
+      value: true
+    }
   ],
 
   methods: [
@@ -40,7 +46,8 @@ foam.CLASS({
         ! this.hideSymbol && this.curr_.symbol && plainText.startsWith(this.curr_.symbol) ?
         plainText.substring(1) :
         plainText;
-      return Math.round(this.SUPER(plainText) * 100);
+      var val = this.SUPER(plainText);
+      return this.useMinorUnits ? Math.round(val * 100) : val;
     },
 
     function formatNumber(val) {

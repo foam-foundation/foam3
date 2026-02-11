@@ -815,9 +815,9 @@ foam.CLASS({
       flex: 0 0 auto;
     }
     ^resize-handle {
-      width: 2px;
+      flex: 0 0 4px;
       cursor: ew-resize;
-      background: $borderLight;
+      background: $backgroundSecondary;
       height: 100%;
       z-index: 10;
     }

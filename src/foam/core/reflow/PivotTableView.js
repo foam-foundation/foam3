@@ -228,7 +228,7 @@ foam.CLASS({
 
     // convert the nested groupbys into a simpler nested dictionary
     function makeDictionary(data) {
-      if ( ! foam.mlang.sink.GroupBy.isInstance(data) ) return data?.value || data;
+      if ( ! foam.mlang.sink.GroupBy.isInstance(data) ) return data?.valueOf() || data;
       var ret = {};
       var keys = data.sortedKeys();
       for ( var i = 0; i < keys.length; i++ ) {

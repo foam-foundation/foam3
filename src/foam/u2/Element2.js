@@ -1557,13 +1557,13 @@ foam.CLASS({
        * Find an axiom by the specified domName from either this class or an
        * ancestor.
        */
-      let cache = this.DOM_NAME_CACHE;
+      let cache = this.DOM_NAME_CACHE[this.cls_.id] ?? {};
       if ( ! Object.keys(cache).length ) {
         let props = this.cls_.getAxiomsByClass(foam.lang.Property);
         for ( var prop of props ) {
           cache[prop.domName] = prop;
         }
-        this.DOM_NAME_CACHE = cache;
+        this.DOM_NAME_CACHE[this.cls_.id] = cache;
       }
       return cache[name];
     },

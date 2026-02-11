@@ -446,6 +446,12 @@ foam.CLASS({
 
       var selectedFilters = this.getSelectedFilters();
 
+      var currFilters = await this.filterPropertiesByReadPermission(this.filters, of.id);
+      if ( currFilters?.length ) {
+        this.filters = [...new Set([...selectedFilters, ...currFilters])];
+        return;
+      }
+
       var searchColumns_ = await this.filterPropertiesByReadPermission(this.searchColumns, of.id);
       if ( searchColumns_?.length ) {
         this.filters =  [...new Set([...searchColumns_, ...selectedFilters])];

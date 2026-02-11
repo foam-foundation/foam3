@@ -1040,6 +1040,7 @@ foam.CLASS({
         this.start('a').
           style({ cursor: 'pointer', color: '#0066cc', 'text-decoration': 'underline' }).
           on('click', async function() {
+            self.logDownloadSelection('local', modelName, fmt.format);
             await self.downloadLocal(dao, modelName, fmt);
           }).
           add(fmt.label).
@@ -1078,9 +1079,29 @@ foam.CLASS({
               download: daoKey + fmt.extension,
               target: '_blank'
             }).
+            on('click', () => {
+              this.logDownloadSelection('service', daoKey, fmt.format);
+            }).
             add(fmt.label).
           end();
       });
+    },
+
+    function logDownloadSelection(source, target, format) {
+      try {
+        this.__subContext__.analyticEventDAO?.put(
+          foam.core.analytics.AnalyticEvent.create({
+            name: 'DownloadView:'+JSON.stringify({
+              source: source,
+              target: target,
+              format: format,
+              flowName: this.block?.flowName
+            }),
+            tags: [ 'DIG_DOWNLOAD' ]
+          }, this.__subContext__),
+          this
+        );
+      } catch (e) {}
     },
 
     async function downloadLocal(dao, modelName, format) {

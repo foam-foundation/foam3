@@ -322,6 +322,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.AbstractDAOAgent',
 
   requires: [
+    'foam.u2.memento.Memento',
     'foam.comics.v2.DAOControllerConfig',
     'foam.u2.table.TableView'
   ],
@@ -387,8 +388,8 @@ foam.CLASS({
         config.selectedObjects$ = this.selectedObjects$;
       }
 
-      e.startContext({click: self.click, columnStorage: this.columnStorage}).
-        callIf(config.multiSelectEnabled, function() {
+      e.startContext({click: self.click, columnStorage: this.columnStorage})
+        .callIf(config.multiSelectEnabled, function() {
           this.startContext({data: self})
             .start()
               .show(self.selectedObjects$.map(o => Object.keys(o).length > 0 ))
@@ -400,9 +401,15 @@ foam.CLASS({
               .add(multiSelectActions)
             .end()
           .endContext();
-          }).
-        start(self.TableView, config).
-          style({height: '600px'});
+        })
+        // Remove memento linking for this table so it doesnt conflict with 
+        // other tables in the flow
+        .startContext({ memento_: this.Memento.create({obj: this}, this) })
+          .start(self.TableView, config)
+            .style({height: '600px'})
+          .end()
+        .endContext()
+      .endContext();
 
     },
     function addToE(e) {

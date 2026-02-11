@@ -251,6 +251,7 @@ foam.CLASS({
       this.dataLatch.then(() => {
         this.rootElement?.el().then(el => {
           resize.observe(el);
+          this.checkPageSize_();
         })
       })
       // Render empty view if dao is empty
@@ -532,6 +533,7 @@ foam.CLASS({
             });
           }
         }
+        // TODO: Defer page deletion until the user stops scrolling to prevent jittering
         promise.finally(() => {
           // Remove any pages that are no longer on screen to save on
           // the amount of DOM we add to the page.

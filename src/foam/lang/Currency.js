@@ -166,7 +166,8 @@ foam.CLASS({
           amount = Number(amount);
           let opts = {
             minimumFractionDigits: this.precision,
-            maximumFractionDigits: this.precision
+            maximumFractionDigits: this.precision,
+            currencySign: 'accounting'
           }
           if ( ! hideSymbol ) {
             opts.style = 'currency';

@@ -513,6 +513,10 @@ foam.CLASS({
         '112': 'f1',
         '127': 'delete'
       }
+    },
+    {
+      name: 'DOM_NAME_CACHE',
+      value: {}
     }
   ],
 
@@ -1553,19 +1557,15 @@ foam.CLASS({
        * Find an axiom by the specified domName from either this class or an
        * ancestor.
        */
-      let cache = this.getPrivate_('domNameCache') || {};
-      let val = cache[name];
-      if ( ! val ) {
+      let cache = this.DOM_NAME_CACHE;
+      if ( ! Object.keys(cache).length ) {
         let props = this.cls_.getAxiomsByClass(foam.lang.Property);
         for ( var prop of props ) {
-          if ( prop.domName === name ) {
-            val = cache[name] = prop;
-            break;
-          }
+          cache[prop.domName] = prop;
         }
-        this.setPrivate_('domNameCache', cache);
+        this.DOM_NAME_CACHE = cache;
       }
-      return val;
+      return cache[name];
     },
   ],
 

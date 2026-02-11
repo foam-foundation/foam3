@@ -88,14 +88,15 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'ImageTagRefine',
-  refines: 'foam.u2.tag.ImageTag',
-
+  name: 'ImageTag',
+  extends: 'foam.u2.Element',
   imports: [ 'scope?' ],
 
   properties: [
+    ['nodeName', 'img'],
     {
       name: 'src',
+      attribute: 'BOTH',
       preSet: function(o, n) {
         if ( ! this.scope ) return n;
         // If the src is the name of a value from the scope (probably from reflow) then
@@ -108,4 +109,12 @@ foam.CLASS({
       }
     }
   ]
+});
+
+foam.SCRIPT({
+  package: 'foam.core.reflow',
+  name: 'ImageScript',
+  code: function() {
+    foam.__context__.registerElement(foam.u2.tag.ImageTag, 'img');
+  }
 });

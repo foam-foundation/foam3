@@ -61,9 +61,9 @@ public class DateParser {
    * Caches store Long timestamps (from Date.getTime()) instead of Date objects to save memory.
    */
   private static final LRULinkedHashMap<String, Long> stringCache_ =
-    new LRULinkedHashMap<>("DateParser.STRING", MAX_CACHE_SIZE);
+    new LRULinkedHashMap<>("DateParser.STRING", MAX_CACHE_SIZE / 10);
   private static final LRULinkedHashMap<String, Long> dateCache_ =
-    new LRULinkedHashMap<>("DateParser.DATE", MAX_CACHE_SIZE);
+    new LRULinkedHashMap<>("DateParser.DATE", MAX_CACHE_SIZE / 10);
   private static final LRULinkedHashMap<String, Long> dateTimeCache_ =
     new LRULinkedHashMap<>("DateParser.DATETIME", MAX_CACHE_SIZE);
   private static final LRULinkedHashMap<String, Long> dateTimeUtcCache_ =

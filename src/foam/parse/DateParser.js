@@ -41,7 +41,7 @@ foam.CLASS({
     },
     {
       name: 'stringCache_',
-      documentation: 'LRU cache for parseString results. Stores timestamps (Date.getTime()) instead of Date objects to save memory.',
+      documentation: 'LRU cache for parseString results. Stores timestamps (Date.getTime()) instead of Date objects.',
       factory: function() { return new Map(); }
     },
     {
@@ -92,13 +92,13 @@ foam.CLASS({
       return null;
     },
 
-    function cacheSet_(cache, key, value) {
+    function cacheSet_(cache, key, value, maxSize) {
       // LRU eviction: remove oldest entry if at capacity
-      if ( cache.size >= this.maxCacheSize_ ) {
+      if ( cache.size >= maxSize ) {
         var oldestKey = cache.keys().next().value;
         cache.delete(oldestKey);
       }
-      // Store timestamp instead of Date object to save memory
+      // Store timestamp instead of Date object
       cache.set(key, value.getTime());
       // Return the original Date
       return value;
@@ -828,7 +828,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(result, str));
+        return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_ / 10);
       }
 
       // Determine if this is a datetime or date-only result based on presence of time components
@@ -849,7 +849,7 @@ foam.CLASS({
         ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
       }
 
-      return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(ret, str));
+      return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_ / 10);
     },
 
     function parseDateString(str, opt_name) {
@@ -891,10 +891,10 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(this.dateCache_, cacheKey, this.validateDate(result, str));
+        return this.cacheSet_(this.dateCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_ / 10);
       }
 
-      return this.cacheSet_(this.dateCache_, cacheKey, parseResult.value);
+      return this.cacheSet_(this.dateCache_, cacheKey, parseResult.value, this.maxCacheSize_ / 10);
     },
 
     function parseDateTime(str, opt_name) {
@@ -940,7 +940,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(result, str));
+        return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_);
       }
 
       // Validate time components if present
@@ -985,7 +985,7 @@ foam.CLASS({
         );
       }
 
-      return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(ret, str));
+      return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_);
     },
 
     function parseDateTimeUTC(str, opt_name) {
@@ -1031,7 +1031,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, this.validateDateUTC(result, str));
+        return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, this.validateDateUTC(result, str), this.maxCacheSize_);
       }
 
       // Validate time components if present
@@ -1041,7 +1041,7 @@ foam.CLASS({
         return this.validateDateUTC(this.INVALID_DATE, str);
       }
 
-      return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, parseResult.value);
+      return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, parseResult.value, this.maxCacheSize_);
     }
   ]
 });

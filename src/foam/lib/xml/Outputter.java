@@ -14,7 +14,8 @@ import foam.lib.PropertyPredicate;
 import foam.lib.json.OutputterMode;
 import foam.util.SafetyUtil;
 import java.io.*;
-import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,14 +24,8 @@ import org.apache.commons.io.IOUtils;
 public class Outputter
   implements foam.lib.Outputter
 {
-  protected static ThreadLocal<SimpleDateFormat> sdf = new ThreadLocal<SimpleDateFormat>() {
-    @Override
-    protected SimpleDateFormat initialValue() {
-      SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-      df.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-      return df;
-    }
-  };
+  protected static DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                                              .withZone(ZoneOffset.UTC);
 
   protected PrintWriter       writer_;
   protected OutputterMode     mode_;
@@ -145,7 +140,7 @@ public class Outputter
   }
 
   protected void outputDate(Date value) {
-    writer_.append(sdf.get().format(value));
+    writer_.append(sdf.format(value.toInstant()));
   }
 
   protected void outputEnum(Enum<?> value) {

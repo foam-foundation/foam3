@@ -19,16 +19,15 @@ foam.CLASS({
   'foam.mlang.predicate.Predicate',
   'foam.parse.*',
   'java.util.Date',
-  'java.text.SimpleDateFormat',
+  'java.time.ZoneOffset',
+  'java.time.format.DateTimeFormatter',
   'java.util.TimeZone'
   ],
 
   javaCode: `
-  protected final static ThreadLocal<SimpleDateFormat> dateFormat_ = ThreadLocal.withInitial(() -> {
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
-    sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-    return sdf;
-  });`,
+    protected static DateTimeFormatter dateFormat_ = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+                                                      .withZone(ZoneOffset.UTC);
+  `,
 
   methods: [
     {
@@ -103,7 +102,7 @@ foam.CLASS({
       Date noon = new Date(2289600000L);
 
       // test user's birthday is between two timestamps
-      test(evaluate("birthday=" + dateFormat_.get().format(noon), user), user.getBirthday() + " = "+noon.toString());
+      test(evaluate("birthday=" + dateFormat_.format(noon.toInstant()), user), user.getBirthday() + " = "+noon.toString());
       `
     },
     {

@@ -73,7 +73,9 @@ foam.CLASS({
 
       this.start()
         .addClass(this.myClass('promptHolder'))
-        .add(this.COLLECTIONS, this.FLOWS, this.COMMANDS)
+        .add([this.COLLECTIONS, this.FLOWS, this.COMMANDS].map(v => {
+          return v.clone().copyFrom({ toolTip: v.label, label: '' });
+        }))
         .start(this.SmartView, {data$: this.data.input$, parser: this.grammar}, this.smartView_$)
           .on('keydown', this.onKeyDown)
           .addClass(this.myClass('input'))

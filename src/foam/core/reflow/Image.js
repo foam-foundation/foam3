@@ -34,12 +34,29 @@ foam.CLASS({
       hidden: true
     },
     {
-      class: 'Int',
-      name: 'maxWidth'
+      class: 'String',
+      name: 'sizingStrategy',
+      value: 'Auto',
+      view: {
+        class: 'foam.u2.view.ChoiceView',
+        choices: ['Auto', 'Manual', 'Maintain-Ratio']
+      }
     },
     {
       class: 'Int',
-      name: 'maxHeight'
+      name: 'width',
+      value: 100,
+      visibility: function(sizingStrategy) {
+        return sizingStrategy === 'Auto' ? 'HIDDEN' : 'RW'
+      }
+    },
+    {
+      class: 'Int',
+      name: 'height',
+      value: 100,
+      visibility: function(sizingStrategy) {
+        return sizingStrategy === 'Auto' || sizingStrategy === 'Maintain-Ratio' ? 'HIDDEN' : 'RW'
+      }
     },
     {
       class: 'String',
@@ -49,47 +66,37 @@ foam.CLASS({
 
   methods: [
     function addToE(e) {
-      e.tag(foam.core.reflow.ImageView, {data: this});
+      e.start('img')
+        .attrs({
+          src: this.imageData$,
+          alt: this.alt$,
+          width: this.slot(function(sizingStrategy, width) {
+            if ( sizingStrategy === 'Auto') return 'auto';
+            return width;
+          }),
+          height: this.slot(function(sizingStrategy, height) {
+            if ( sizingStrategy === 'Auto') return 'auto';
+            if ( sizingStrategy === 'Maintain-Ratio') return 'auto';
+            return height;
+          })
+        })
+        .style({ 'aspect-ratio': this.imageData$.map(v => v ? 1 : 'auto') })
+      .end();
     }
   ]
 });
 
-
-foam.CLASS({
-  package: 'foam.core.reflow',
-  name: 'ImageView',
-  extends: 'foam.u2.View',
-
-  documentation: 'Display view for reflow Image. Uses base64 data URL stored inline.',
-
-  methods: [
-    function render() {
-      this.add(this.data.dynamic(function(imageData, alt, maxWidth, maxHeight) {
-        if ( ! imageData ) return;
-
-        var style = {};
-        if ( maxWidth )  style['max-width']  = maxWidth + 'px';
-        if ( maxHeight ) style['max-height'] = maxHeight + 'px';
-
-        this.start('img').attrs({ src: imageData, alt: alt || '' }).style(style).end();
-      }));
-    }
-  ]
-});
-
-
-// TODO: it should be possible to simplify this and only handle 'src' and let everything else pass through
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'ImageTag',
   extends: 'foam.u2.Element',
-
   imports: [ 'scope?' ],
 
   properties: [
+    ['nodeName', 'img'],
     {
       name: 'src',
-      attribute: true,
+      attribute: 'BOTH',
       preSet: function(o, n) {
         if ( ! this.scope ) return n;
         // If the src is the name of a value from the scope (probably from reflow) then
@@ -100,38 +107,14 @@ foam.CLASS({
         }
         return n;
       }
-    },
-    { class: 'String', name: 'title', attribute: true },
-    { class: 'String', name: 'alt',   attribute: true },
-    { class: 'Int',    name: 'width'  },
-    { class: 'Int',    name: 'height' }
-  ],
-
-  methods: [
-    function render() {
-      this.dynamic(function(src, title, alt, width, height) {
-        if ( ! src ) return;
-
-        let style = {};
-        if ( width  ) style.width  = width;
-        if ( height ) style.height = height;
-
-        // We create an Element() instead of doing start('img') to avoid in infinite loop
-        // where the 'img' element gets replaced by this view.
-        this.start(foam.u2.Element.create({nodeName: 'img'}, this))
-          .attrs({ src: src, title: title, alt: alt })
-          .style(style)
-        .end();
-      });
     }
   ]
 });
-
 
 foam.SCRIPT({
   package: 'foam.core.reflow',
   name: 'ImageScript',
   code: function() {
-    foam.__context__.registerElement(foam.core.reflow.ImageTag, 'img');
+    foam.__context__.registerElement(foam.u2.tag.ImageTag, 'img');
   }
 });

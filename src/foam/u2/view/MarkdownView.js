@@ -303,7 +303,7 @@ foam.CLASS({
               this.tag(tagName);
             } else {
               let content = closing[1];
-              let e = this.start(tagName, attributes).call(content);
+              let e = this.start(tagName).attrs(attributes).call(content);
               if ( attributes.style ) {
                 let style = {};
                 attributes.style.split(';').forEach(s => {
@@ -438,11 +438,11 @@ foam.CLASS({
         function image(v) {
           let alt = v[1], url = v[3], title = v[4] || '';
           return function() {
-            this.start('img').attrs( {
+            this.start('img').attrs({
               src: url,
               alt: alt,
               title: title
-            });
+            }).end();
           };
         },
 

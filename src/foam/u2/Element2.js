@@ -1557,16 +1557,14 @@ foam.CLASS({
        * Find an axiom by the specified domName from either this class or an
        * ancestor.
        */
-      let cache = this.DOM_NAME_CACHE[this.cls_.id] ?? {};
-      if ( ! Object.keys(cache).length ) {
-        let props = this.cls_.getAxiomsByClass(foam.lang.Property);
-        for ( var prop of props ) {
-          cache[prop.domName] = prop;
-        }
-        this.DOM_NAME_CACHE[this.cls_.id] = cache;
-      }
-      return cache[name];
-    },
+      let generateCache = () => {
+        let map = {};
+        this.cls_.getAxiomsByClass(foam.lang.Property).forEach(p => map[p.domName] = p);
+        return map;
+      };
+
+      return (this.DOM_NAME_CACHE[this.cls_.id] || ( this.DOM_NAME_CACHE[this.cls_.id] = generateCache() ))[name];
+    }
   ],
 
   listeners: [
@@ -1617,7 +1615,7 @@ foam.ENUM({
   values: [
     {
       name: 'DOM',
-      documentation: `Property is only reflected to the DOM as an attribute. 
+      documentation: `Property is only reflected to the DOM as an attribute.
       The model property is not updated when the DOM attribute changes.`
     },
     {
@@ -1627,7 +1625,7 @@ foam.ENUM({
     },
     {
       name: 'BOTH',
-      documentation: `Property is kept in sync between the model and DOM. 
+      documentation: `Property is kept in sync between the model and DOM.
       When the model property changes, it updates the DOM attribute.`
     }
   ]

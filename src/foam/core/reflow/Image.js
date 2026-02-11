@@ -80,7 +80,6 @@ foam.CLASS({
             return height;
           })
         })
-        .style({ 'aspect-ratio': this.imageData$.map(v => v ? 1 : 'auto') })
       .end();
     }
   ]
@@ -115,6 +114,6 @@ foam.SCRIPT({
   package: 'foam.core.reflow',
   name: 'ImageScript',
   code: function() {
-    foam.__context__.registerElement(foam.u2.tag.ImageTag, 'img');
+    foam.__context__.registerElement(foam.core.reflow.ImageTag, 'img');
   }
 });

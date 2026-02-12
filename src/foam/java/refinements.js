@@ -89,6 +89,20 @@ ${Object.keys(o).map(function(k, i, a) {
       code: function(type) {
         return foam.lang.type.toType(type).toJavaType();
       }
+    },
+    {
+      name: 'toJavaComments',
+      code: function(text) {
+        if ( typeof text !== 'string' || ! text ) return '';
+
+        return '\n' +
+          text.split('\n')
+            .filter(c => c.trim())
+            .map(c => '  // ' + c.trim())
+            .join('\n')
+          + '\n  ';
+
+      }
     }
   ]
 });
@@ -1407,6 +1421,10 @@ foam.CLASS({
       class: 'String',
       name: 'javaCode',
       generateJava: false
+    },
+    {
+      name: 'documentation',
+      generateJava: false
     }
   ],
 
@@ -1467,7 +1485,7 @@ foam.CLASS({
           });
 
           cls.declarations = this.VALUES.map(function(v) {
-            return `${v.name}(${properties.map(p => foam.java.asJavaValue(v[p.name], p)).join(', ')}) ${v.javaCode ? ' { ' + v.javaCode + ' }' : '/* NO CODE */'}`;
+            return `${foam.java.toJavaComments(v.documentation)}${v.name}(${properties.map(p => foam.java.asJavaValue(v[p.name], p)).join(', ')}) ${v.javaCode ? ' { ' + v.javaCode + ' }' : '/* NO CODE */'}`;
           }).join(',\n  ');
 
           cls.method({

@@ -1643,29 +1643,43 @@ foam.CLASS({
   ],
 
   properties: [
-    {
-      name: 'postSet',
-      factory: function() {
-        let self = this;
-        if ( this.attribute != 'BOTH' ) return undefined;
-        return function(o, n) {
-          if ( ! self.isDefaultValue(n) ) {
-            this.element_?.setAttribute?.(self.domName, this[self.name]);
+  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH', 
+  // ensuring model and DOM attribute synchronization.
+  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in 
+  // subclasses
+    ...[
+      [
+        'initObject', function(obj) {
+          let value = this.f(obj);
+          if ( this.comparePropertyValues(this.cls_.VALUE.value, value) != 0 ) {
+            obj.element_?.setAttribute?.(this.domName, value);
           }
         }
-      },
-      adapt: function(oFn, nFn, prop) {
-        let self = this;
-        if ( self.attribute != 'BOTH' ) return nFn;
-        let fn = function(o, n) {
-          if ( ! self.isDefaultValue(n) ) {
-            this.element_.setAttribute(self.domName, this[self.name]);
+      ],
+      [
+        'postSet', function(o, n, prop) {
+          if ( ! prop.isDefaultValue(n) ) {
+            this.element_?.setAttribute?.(prop.domName, prop.f(this));
           }
-          nFn?.call(this, o, n);
         }
-        return fn;
+      ]
+    ].map((val) => {
+      let [key, callback] = val;
+      return {
+        name: key,
+        factory: function() {
+          if ( this.attribute != 'BOTH' ) return undefined;
+          return callback;
+        },
+        adapt: function(oFn, nFn, prop) {
+          if ( this.attribute != 'BOTH' || callback === nFn ) return nFn;
+          return function() {
+            callback.call(this, ...arguments);
+            nFn?.call(this, ...arguments);
+          }
+        }
       }
-    },
+    }),
     {
       // If true, this property is treated as a psedo-U2 attribute.
       class: 'Enum',

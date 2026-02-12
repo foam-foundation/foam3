@@ -60,7 +60,7 @@ foam.ENUM({
       name: 'DDMMYYYY',
       label: 'dd/mm/yyyy',
       parserSymbol: 'ddmmyyyy',
-      help: 'dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy'
+      help: 'dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy'
     },
     {
       name: 'YYYYDDMM',

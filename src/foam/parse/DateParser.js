@@ -38,10 +38,72 @@ foam.CLASS({
       class: 'Boolean',
       name: 'strictValidation',
       documentation: 'If true, throws errors for invalid dates. If false, logs warnings and returns MAX_DATE.'
+    },
+    {
+      name: 'stringCache_',
+      documentation: 'LRU cache for parseString results. Stores timestamps (Date.getTime()) instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateCache_',
+      documentation: 'LRU cache for parseDateString results. Stores timestamps instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateTimeCache_',
+      documentation: 'LRU cache for parseDateTime results. Stores timestamps instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateTimeUtcCache_',
+      documentation: 'LRU cache for parseDateTimeUTC results. Stores timestamps instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      class: 'Int',
+      name: 'maxCacheSize_',
+      value: 10000
     }
   ],
 
   methods: [
+    // ========== Cache Helper Methods ==========
+
+    /**
+     * Build cache key: use str directly when opt_name is null (common case),
+     * otherwise concatenate opt_name:str (rare case).
+     */
+    function buildCacheKey_(str, opt_name) {
+      if ( ! opt_name ) {
+        return str;
+      }
+      return opt_name + ':' + str;
+    },
+
+    function cacheGet_(cache, key) {
+      if ( cache.has(key) ) {
+        var cached = cache.get(key);
+        // LRU: delete and re-add to move to end (most recently used)
+        cache.delete(key);
+        cache.set(key, cached);
+        // Create new Date from cached timestamp
+        return new Date(cached);
+      }
+      return null;
+    },
+
+    function cacheSet_(cache, key, value, maxSize) {
+      // LRU eviction: remove oldest entry if at capacity
+      if ( cache.size >= maxSize ) {
+        var oldestKey = cache.keys().next().value;
+        cache.delete(oldestKey);
+      }
+      // Store timestamp instead of Date object
+      cache.set(key, value.getTime());
+      // Return the original Date
+      return value;
+    },
+
     function buildDate(mode, year, month, day, hour, minute, second, ms, tz) {
       var offset, utcTime;
       switch ( mode ) {
@@ -734,6 +796,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.stringCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'STRING';
 
       // Use parse() to get position information
@@ -760,7 +828,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDate(result, str);
+        return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_ / 10);
       }
 
       // Determine if this is a datetime or date-only result based on presence of time components
@@ -781,7 +849,7 @@ foam.CLASS({
         ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
       }
 
-      return this.validateDate(ret, str);
+      return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_ / 10);
     },
 
     function parseDateString(str, opt_name) {
@@ -793,6 +861,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'DATE';
 
       // Use parse() to get position information
@@ -817,10 +891,10 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDate(result, str);
+        return this.cacheSet_(this.dateCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_ / 10);
       }
 
-      return parseResult.value;
+      return this.cacheSet_(this.dateCache_, cacheKey, parseResult.value, this.maxCacheSize_ / 10);
     },
 
     function parseDateTime(str, opt_name) {
@@ -832,6 +906,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateTimeCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'DATETIME';
 
       // Use parse() instead of parseString() to get position information
@@ -860,7 +940,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDate(result, str);
+        return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_);
       }
 
       // Validate time components if present
@@ -892,8 +972,6 @@ foam.CLASS({
         // Subtract offset to convert to UTC (if timezone is +05:00, we subtract 5 hours)
         utcTime -= offset * 60000;
         ret = new Date(utcTime);
-        // Don't validate date parts - timezone conversion is expected to change the date
-        return this.validateDate(ret, str);
       } else {
         // No timezone - use local time
         ret = new Date(
@@ -905,8 +983,9 @@ foam.CLASS({
           result.second !== undefined ? result.second : 0,
           result.millisecond !== undefined ? result.millisecond : 0
         );
-        return this.validateDate(ret, str);
       }
+
+      return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_);
     },
 
     function parseDateTimeUTC(str, opt_name) {
@@ -918,6 +997,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateTimeUtcCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'DATETIME_UTC';
 
       // Use parse() instead of parseString() to get position information
@@ -946,7 +1031,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDateUTC(result, str);
+        return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, this.validateDateUTC(result, str), this.maxCacheSize_);
       }
 
       // Validate time components if present
@@ -956,7 +1041,7 @@ foam.CLASS({
         return this.validateDateUTC(this.INVALID_DATE, str);
       }
 
-      return parseResult.value;
+      return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, parseResult.value, this.maxCacheSize_);
     }
   ]
 });

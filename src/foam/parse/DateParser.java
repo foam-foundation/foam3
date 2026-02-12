@@ -8,6 +8,7 @@ package foam.parse;
 
 import foam.lib.parse.*;
 import foam.lib.parse.Optional;
+import foam.util.LRULinkedHashMap;
 import java.util.*;
 
 /**
@@ -49,6 +50,26 @@ public class DateParser {
   public void setStrictValidation(boolean v) { strictValidation_ = v; }
 
   /**
+   * Maximum cache size per method to prevent unbounded growth.
+   */
+  private static final int MAX_CACHE_SIZE = 10000;
+
+  /**
+   * Separate LRU caches for each parse method (thread-safe).
+   * Using separate caches avoids string concatenation overhead for cache keys.
+   * Each cache is keyed by the input string directly (or opt_name:str when opt_name is provided).
+   * Caches store Long timestamps (from Date.getTime()) instead of Date objects to save memory.
+   */
+  private static final LRULinkedHashMap<String, Long> stringCache_ =
+    new LRULinkedHashMap<>("DateParser.STRING", MAX_CACHE_SIZE / 10);
+  private static final LRULinkedHashMap<String, Long> dateCache_ =
+    new LRULinkedHashMap<>("DateParser.DATE", MAX_CACHE_SIZE / 10);
+  private static final LRULinkedHashMap<String, Long> dateTimeCache_ =
+    new LRULinkedHashMap<>("DateParser.DATETIME", MAX_CACHE_SIZE);
+  private static final LRULinkedHashMap<String, Long> dateTimeUtcCache_ =
+    new LRULinkedHashMap<>("DateParser.DATETIME_UTC", MAX_CACHE_SIZE);
+
+  /**
    * Maximum date value for invalid dates
    */
   public static final Date MAX_DATE = new Date(Long.MAX_VALUE);
@@ -63,6 +84,39 @@ public class DateParser {
    */
   public DateParser() {
     grammar_ = getGrammar();
+  }
+
+  // ========== Cache Helper Methods ==========
+
+  /**
+   * Build cache key: use str directly when opt_name is null (common case),
+   * otherwise concatenate opt_name:str (rare case).
+   */
+  private String buildCacheKey(String str, String opt_name) {
+    if ( opt_name == null || opt_name.isEmpty() ) {
+      return str;
+    }
+    return opt_name + ":" + str;
+  }
+
+  /**
+   * Get from cache and create a new Date from the cached timestamp.
+   * Returns null if not in cache.
+   */
+  private Date cacheGet(LRULinkedHashMap<String, Long> cache, String key) {
+    Long cached = cache.get(key);
+    if ( cached != null ) {
+      return new Date(cached);
+    }
+    return null;
+  }
+
+  /**
+   * Store timestamp in cache and return the original Date.
+   */
+  private Date cacheSet(LRULinkedHashMap<String, Long> cache, String key, Date value) {
+    cache.put(key, value.getTime());
+    return value;
   }
 
   /**
@@ -111,9 +165,15 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first - use str directly as key when opt_name is null (common case)
+    String cacheKey = buildCacheKey(str, opt_name);
+    Date cached = cacheGet(stringCache_, cacheKey);
+    if ( cached != null ) return cached;
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
-    x.set("dateParseMode", DateParseMode.STRING);  // STRING mode: date-only → noon GMT, with time → local time
+    x.set("dateParseMode", DateParseMode.STRING);
 
     PStream parseResult = grammar_.parse(sps, x, opt_name);
     if ( parseResult == null || parseResult.value() == null ) {
@@ -124,7 +184,7 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    return cacheSet(stringCache_, cacheKey, (Date) parseResult.value());
   }
 
   /**
@@ -153,6 +213,12 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first - use str directly as key when opt_name is null (common case)
+    String cacheKey = buildCacheKey(str, opt_name);
+    Date cached = cacheGet(dateCache_, cacheKey);
+    if ( cached != null ) return cached;
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.DATE);
@@ -166,7 +232,7 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    return cacheSet(dateCache_, cacheKey, (Date) parseResult.value());
   }
 
   /**
@@ -197,6 +263,12 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first - use str directly as key when opt_name is null (common case)
+    String cacheKey = buildCacheKey(str, opt_name);
+    Date cached = cacheGet(dateTimeCache_, cacheKey);
+    if ( cached != null ) return cached;
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.DATETIME);
@@ -210,7 +282,7 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    return cacheSet(dateTimeCache_, cacheKey, (Date) parseResult.value());
   }
 
   /**
@@ -241,6 +313,12 @@ public class DateParser {
     }
 
     str = str.trim();
+
+    // Check cache first - use str directly as key when opt_name is null (common case)
+    String cacheKey = buildCacheKey(str, opt_name);
+    Date cached = cacheGet(dateTimeUtcCache_, cacheKey);
+    if ( cached != null ) return cached;
+
     StringPStream sps = new StringPStream(str);
     ParserContext x = new ParserContextImpl();
     x.set("dateParseMode", DateParseMode.DATETIME_UTC);
@@ -254,7 +332,7 @@ public class DateParser {
       return MAX_DATE;
     }
 
-    return (Date) parseResult.value();
+    return cacheSet(dateTimeUtcCache_, cacheKey, (Date) parseResult.value());
   }
 
   /**

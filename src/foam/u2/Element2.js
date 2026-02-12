@@ -1643,7 +1643,6 @@ foam.CLASS({
   ],
 
   properties: [
-    
   // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH', 
   // ensuring model and DOM attribute synchronization.
   // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in 

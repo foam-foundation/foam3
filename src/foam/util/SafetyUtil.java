@@ -78,8 +78,6 @@ public class SafetyUtil {
     if ( o2 == null ) return  1;
     if ( o1 == null ) return -1;
 
-    if ( o1 instanceof Comparable ) return ((Comparable) o1).compareTo(o2);
-
     // Number subtypes (Long, Integer, etc.) are type-specific comparable and
     // can only be compareTo the same type eg., Long can only compareTo Long.
     //

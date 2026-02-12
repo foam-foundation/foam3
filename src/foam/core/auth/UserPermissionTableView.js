@@ -67,7 +67,7 @@ foam.CLASS({
   methods: [
     function tableColumns(gs, matrix) {
       var self = matrix;
-      self.userDAO = self.userDAO.where(self.NOT(self.IN(self.User.GROUP, ['system', 'admin', 'anonymous', 'paytic-anonymous'])));
+      self.userDAO = self.userDAO.where(self.NOT(self.IN(self.User.GROUP, ['system', 'admin', 'anonymous'])));
 
       this.start('td')
         .style({'white-space': 'pre'})

@@ -24,7 +24,7 @@ public class SafetyUtil {
   }
 
   public static boolean equals(Object o1, Object o2) {
-    if ( o1 == o2 ) return  true;
+    if ( o1 == o2 ) return true;
     if ( o1 == null || o2 == null ) return false;
 
     // Number subtypes (Long, Integer, etc.) are type-specific comparable and
@@ -77,6 +77,8 @@ public class SafetyUtil {
     if ( o1 == o2   ) return  0;
     if ( o2 == null ) return  1;
     if ( o1 == null ) return -1;
+
+    if ( o1 instanceof Comparable ) return ((Comparable) o1).compareTo(o2);
 
     // Number subtypes (Long, Integer, etc.) are type-specific comparable and
     // can only be compareTo the same type eg., Long can only compareTo Long.

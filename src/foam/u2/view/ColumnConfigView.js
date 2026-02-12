@@ -397,7 +397,7 @@ foam.CLASS({
       name: 'resetColumns',
       label: 'Reset Columns',
       code: function() {
-        this.columnStorage.removeItem(this.data.of.id);
+        this.columnStorage?.removeItem(this.data.of.id);
         this.data.selectedColumnNames = undefined;
         this.data.resetColWidths();
         this.data.updateColumns();

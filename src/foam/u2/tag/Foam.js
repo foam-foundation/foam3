@@ -27,28 +27,32 @@ foam.CLASS({
       attribute: true
     },
     {
+      class: 'Map',
       name: 'attributes'
-    }
+    },
+    'proxyEl_'
   ],
 
   methods: [
-    function initArgs(args, opt_parent) {
-      this.SUPER(args, opt_parent);
-
-      args = foam.util.clone(args);
-      delete args['class'];
-      this.attributes = args;
-    },
-
     function render() {
       var self = this;
-      var cls = foam.maybeLookup(this.class);
-      if ( cls ) {
-        var o = cls.create(this.attributes, this);
-        this.tag(o);
-      } else {
-        this.add('UNKNOWN CLASS:', this.class);
-      }
+      this.add(this.dynamic(function(cls, attrs) {
+        cls = foam.maybeLookup(cls);
+        if ( cls ) {
+          this.start(cls, attrs, self.proxyEl_$)
+        } else {
+          this.add('UNKNOWN CLASS:', cls);
+        }
+      }, this.class$, this.attributes$));
+    },
+    function setAttribute(key, value) {
+      if ( key === 'class' ) { this.class = value; return; }
+      if ( ! this.proxyEl_ ) { this.attributes$set(key, value); return; }
+      if ( this.proxyEl_.setAttribute )
+        this.proxyEl_.setAttribute(key, value);
+      else
+        this.proxyEl_[key] = value;
+      return this;
     }
   ]
 });

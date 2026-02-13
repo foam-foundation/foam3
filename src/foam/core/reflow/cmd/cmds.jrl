@@ -34,7 +34,7 @@ p({
   "id": "api",
   "description": "Show DAO API documentation",
   "script": """
-    let doc = foam.doc.DIGApiDoc.create({data: this.__context__[args[0]].of});
+    let doc = foam.doc.DIGApiDoc.create({data: args[0]}, this);
     this.addValue(doc);
    """,
    permissionRequired: true

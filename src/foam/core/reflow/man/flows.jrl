@@ -1,5 +1,29 @@
 p({
 "class":"foam.core.reflow.Flow",
+"name":"manual:DIG",
+"version":1,
+"script":
+"""[
+	{
+
+		"flowName": "markdown1",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "# Data Integration Gateway (DIG)\\u000a\\u000aDIG provides a simple unified method for users and systems to interact with FOAM/CORE Data Access Objects (DAOs). A DAO is similar to a database table, but with additional access control, performance monitoring, auditing, replication, validation, and business logic.\\u000a\\u000aCommands (operations) that can be performed on a DAO include: `put`, `select`, `remove`, and `help`. DIG supports multiple data formats, including: XML, JSON, CSV, HTML, and JSON/J. DIG is intended as an end-point for programmatic integration, but also includes a simple user interface to aid developers with the creation of their query parameters.\\u000a\\u000a## User Guide\\u000a\\u000a**Step 1.** Pick a DAO from the drop-down list.\\u000a\\u000a**Step 2.** Pick a Format: XML, JSON, CSV, HTML, or JSON/J\\u000a\\u000a**Step 3.** Pick a Command:\\u000a\\u000a| Command | Description |\\u000a|---------|-------------|\\u000a| **PUT** | Add new records to a DAO. Users can put one or more rows in the Data section. The format of data should match the format selected in Step 2. Only CSV, JSON, and XML can be parsed on DIG when putting. |\\u000a| **SELECT** | Select data from a DAO. The result format is specified in Step 2. If SELECT is chosen, Email and Subject fields are shown. If filled in, results will be emailed rather than downloaded. |\\u000a| **REMOVE** | Remove a row from the DAO selected in Step 1. The ID field is shown to specify the id of the row to be deleted. |\\u000a\\u000a**Step 4.** Software Integration — DIG will provide a URL that specifies your choices from steps 1-3. Use this URL when generating AJAX requests from your software.\\u000a\\u000a## Data Format Guidance\\u000a\\u000a> **Tip:** Before performing a \\"put\\", it's recommended to perform a select first to get the accurate format for the DAO.\\u000a\\u000a### JSON\\u000a\\u000aText values must be included in double quotes. For multiple objects, use a JSON array:\\u000a\\u000a```json\\u000a{\\"property1\\": \\"text\\", \\"property2\\": number}\\u000a\\u000a[{\\"property1\\": \\"value1\\"}, {\\"property2\\": \\"value2\\"}]\\u000a```\\u000a\\u000a### CSV\\u000a\\u000aOne line per object:\\u000a\\u000a```csv\\u000aproperty1,property2\\u000avalue1,value2\\u000avalue3,value4\\u000a```\\u000a\\u000a### XML\\u000a\\u000a```xml\\u000a<objects>\\u000a  <object>\\u000a    <property1>value1</property1>\\u000a    <property2>value2</property2>\\u000a  </object>\\u000a  <object>\\u000a    <property1>value3</property1>\\u000a    <property2>value4</property2>\\u000a  </object>\\u000a</objects>\\u000a```\\u000a\\u000a## Authentication\\u000a\\u000aTo ensure the security of sensitive data and login credentials, DIG should only be accessed over HTTPS.\\u000a\\u000aThere are three ways to authenticate with DIG:\\u000a\\u000a### 1. HTTP Basic Authentication\\u000a\\u000aUser (email) and password credentials are passed in the HTTP Headers:\\u000a\\u000a1. Combine username and password into a string: `username:password`\\u000a2. Encode the resulting string using Base64\\u000a3. Prepend `Basic ` (with a space) to the encoded string\\u000a4. Pass the resulting string as the value to the HTTP Header key `Authorization`\\u000a\\u000aFor client implementation details and examples, see:\\u000a- [MDN: HTTP Authentication](https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication)\\u000a- [Java2Novice: HTTP Basic Authentication](https://www.java2novice.com/restful-web-services/http-basic-authentication/)\\u000a\\u000a### 2. HTTP POST Parameters\\u000a\\u000aFor each HTTP POST request, include your login credentials as HTTP parameters with `user` being your account's email address and `password` being your account password.\\u000a\\u000a---\\u000a\\u000aAll DIG requests are performed with your access credentials so that you don't have access to data to which you are not authorized, and so that any updates you perform are audited against your account."
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	}
+]""",
+"created":"2026-02-13T20:56:22.200Z",
+"lastModified":"2026-02-13T20:56:22.200Z",
+"lastRun":"2026-02-13T20:43:02.399Z"
+})
+p({
+"class":"foam.core.reflow.Flow",
 "name":"manual:ExtendedMarkdown",
 "version":2,
 "script":
@@ -109,12 +133,11 @@ p({
 "lastModified":"2026-02-03T20:37:00.520Z",
 "lastRun":"2026-02-03T20:36:44.652Z"
 })
-
 p({
 "class":"foam.core.reflow.Flow",
 "name":"manual:REFLOW",
 "accessLevel":1,
-"version":32,
+"version":33,
 "preLoadScript":"",
 "script":
 """[
@@ -138,7 +161,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "<img src=\\"image1\\" width=400>\\u000a<span style=\\"font-size:x-large\\">\\u000aThe <span style=\\"color:red\\">R</span>eactive <span style=\\"color:red\\">E</span>ditor for <span style=\\"color:gray\\">FLOW</span> documents.\\u000a</span>\\u000a\\u000a<hr/>\\u000a\\u000a# Topics\\u000a\\u000a## Markdown\\u000a[Standard Markdown](#flow/manual:Markdown)\\u000a[Extended Markdown](#flow/manual:ExtendedMarkdown)\\u000a[Extended Markdown Example](#flow/manual:ExtendedMarkdownExample)\\u000a\\u000a## Query Support\\u000a[Query Syntax](#flow/manual:Query Syntax)\\u000a\\u000a"
+			"markdown": "<img src=\\"image1\\" width=400>\\u000a<span style=\\"font-size:x-large\\">\\u000aThe <span style=\\"color:red\\">R</span>eactive <span style=\\"color:red\\">E</span>ditor for <span style=\\"color:gray\\">FLOW</span> documents.\\u000a</span>\\u000a\\u000a<hr/>\\u000a\\u000a# Topics\\u000a\\u000a## Markdown\\u000a[Standard Markdown](manual:Markdown)\\u000a[Extended Markdown](manual:ExtendedMarkdown)\\u000a[Extended Markdown Example](manual:ExtendedMarkdownExample)\\u000a\\u000a## Query Support\\u000a[Query Syntax](manual:Query Syntax)\\u000a\\u000a## Integration\\u000a[DIG - Data Integration Gateway](manual:DIG)\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -165,6 +188,6 @@ p({
 	}
 ]""",
 "created":"2026-02-03T20:35:27.779Z",
-"lastModified":"2026-02-06T18:44:14.932Z",
+"lastModified":"2026-02-13T20:58:41.215Z",
 "lastRun":"2025-12-04T21:30:18.693Z"
 })

@@ -4,6 +4,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// Can be used in markdown: <foam class="foam.doc.DIGApiDoc" data="foam.core.auth.User"></foam>
+// Use daoPrompt and Script agent to output all APIs: this.__context__.out.add(foam.doc.DIGApiDoc.create({data: x[o.id].of}));
 foam.CLASS({
   package: 'foam.doc',
   name: 'DIGApiDoc',
@@ -25,12 +27,14 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'Class',
+      class: 'String',
       name: 'data',
-      attribute: true,
-      adapt: function(o, n) {
-        if ( foam.String.isInstance(n) ) n = foam.lookup(n);
-        return n;
+      documentation: 'DAO key'
+    },
+    {
+      name: 'of',
+      expression: function (data) {
+        return this.__context__[data].of;
       }
     },
     {
@@ -39,18 +43,10 @@ foam.CLASS({
       value: '/service/dig'
     },
     {
-      name: 'daoName',
-      expression: function(data) {
-        if ( ! data ) return '';
-        var name = data.name;
-        return name.charAt(0).toLowerCase() + name.slice(1) + 'DAO';
-      }
-    },
-    {
       name: 'properties',
-      expression: function(data) {
-        if ( ! data ) return [];
-        return data.getAxiomsByClass(foam.lang.Property)
+      expression: function(of) {
+        if ( ! of ) return [];
+        return of.getAxiomsByClass(foam.lang.Property)
           .filter(p => ! p.hidden && ! p.transient && ! p.networkTransient);
       }
     }
@@ -59,7 +55,7 @@ foam.CLASS({
   methods: [
     function render() {
       var self = this;
-      var cls  = this.data;
+      var cls  = this.of;
       if ( ! cls ) return;
 
       this.addClass(this.myClass())
@@ -72,17 +68,17 @@ foam.CLASS({
 
           .start('div').style({'margin-bottom': '12px'})
             .start('span').addClass(this.myClass('method')).addClass(this.myClass('select')).add('SELECT').end()
-            .start('code').add(this.baseUrl, '?dao=', this.daoName, '&format=JSON&cmd=select').end()
+            .start('code').add(this.baseUrl, '?dao=', this.data, '&format=JSON&cmd=select').end()
           .end()
 
           .start('div').style({'margin-bottom': '12px'})
             .start('span').addClass(this.myClass('method')).addClass(this.myClass('put')).add('PUT').end()
-            .start('code').add(this.baseUrl, '?dao=', this.daoName, '&format=JSON&cmd=put').end()
+            .start('code').add(this.baseUrl, '?dao=', this.data, '&format=JSON&cmd=put').end()
           .end()
 
           .start('div').style({'margin-bottom': '12px'})
             .start('span').addClass(this.myClass('method')).addClass(this.myClass('remove')).add('REMOVE').end()
-            .start('code').add(this.baseUrl, '?dao=', this.daoName, '&format=JSON&cmd=remove&id={id}').end()
+            .start('code').add(this.baseUrl, '?dao=', this.data, '&format=JSON&cmd=remove&id={id}').end()
           .end()
         .end()
 
@@ -117,11 +113,11 @@ foam.CLASS({
             .add('Use the ')
             .start('code').add('q').end()
             .add(' parameter to filter results. See ')
-            .start('a').attrs({href: 'https://github.com/kgrgreer/foam3/wiki/MQL---Query-Language', target: '_blank'}).add('MQL Query Language').end()
+            .start('a').attrs({href: '/#flow/manual:Query Syntax', target: '_blank'}).add('AQL Query Language').end()
             .add(' for full syntax.')
           .end()
           .start('div').addClass(this.myClass('endpoint'))
-            .add(this.baseUrl, '?dao=', this.daoName, '&format=JSON&cmd=select&q=propertyName:value')
+            .add(this.baseUrl, '?dao=', this.data, '&format=JSON&cmd=select&q=propertyName:value')
           .end()
         .end()
 
@@ -138,7 +134,9 @@ foam.CLASS({
         // Authentication
         .start('div').addClass(this.myClass('section'))
           .start('h2').add('Authentication').end()
-          .start('p').add('All requests require authentication via HTTP Basic Auth or session cookie. See DIG documentation for details.').end()
+          .start('p')
+          .add('All requests require authentication via HTTP Basic Auth or session cookie. See ')
+          .start('a').attrs({href: '/#flow/manual:DIG'}).add('DIG documentation').end().add(' for details.')
         .end();
     },
 

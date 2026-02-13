@@ -118,7 +118,7 @@ foam.CLASS({
     function onKeyDown(e) {
       if ( e.key === 'Enter' ) {
         let n = this.smartView_.preview;
-        this.smartView_.preview = '';
+        this.smartView_.preview = this.smartView_.data = '';
 
         if ( n ) {
           if ( n.startsWith('/') || n.startsWith('!') ) n = n.substring(1);

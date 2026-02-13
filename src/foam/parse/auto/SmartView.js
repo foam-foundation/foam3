@@ -331,6 +331,12 @@ foam.CLASS({
       this.overlay_.remove();
       this.SUPER();
     },
+
+    function focus() {
+      this.field.focus();
+      return this;
+    },
+
     function render() {
       let self = this;
 
@@ -449,6 +455,12 @@ foam.CLASS({
           this.reset();
           return;
         }
+        if ( e.key === 'Enter' ) {
+          this.data = this.preview;
+          this.onBlur();
+          return;
+        }
+
         if ( e.key !== 'Tab' ) return;
 
         let keys  = Object.keys(this.suggestions);
@@ -470,6 +482,7 @@ foam.CLASS({
       isMerged: true,
       delay: 250,
       code: function() {
+        this.data = this.preview;
         let overlay = this?.overlay_;
         // Close the selections list when the user leaves the field (and descendents)
         if ( ! this.element_.parentNode.contains(document.activeElement) && ! ( overlay && overlay.el_().contains(document.activeElement) ) ) {
@@ -504,6 +517,8 @@ foam.CLASS({
       isFramed: true,
       code: function() {
         if ( ! this.data ) { this.error = ''; return; }
+
+        this.preview = this.data;
 
         let maxPos = 0;
         let apply  = function(p, grammar) {

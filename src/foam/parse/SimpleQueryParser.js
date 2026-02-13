@@ -335,9 +335,9 @@ foam.CLASS({
             propPredicates.push(seq(propertyParser, sym('compareBoolean')));
           }
           else if ( foam.lang.Enum.isInstance(type) ) {
-            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: v, category: 'value'}));
-            let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
-            let enumArray  = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
+            let value     = (v) => seq1(1, sym('ws'), sug(literalIC(v), {text: v, category: 'value'}));
+            let enumValue = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
+            let enumArray = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
 
             // TODO: Enums can have assigned colours. If they do, they should be provided to the suggestion.
 
@@ -346,12 +346,7 @@ foam.CLASS({
                   seq(operator('!='), enumValue),
                   seq(operatorIn('IN'), enumArray),
                   seq(operatorIn('NOT IN'), enumArray)),
-              function(v) {
-                return {
-                  operator: v[0],
-                  value: v[1]
-                };
-              });
+              function(v) { return { operator: v[0], value: v[1] }; });
 
             propPredicates.push(seq(propertyParser, compareEnum));
           }
@@ -415,15 +410,15 @@ foam.CLASS({
         }
         function simpleOpValue(v) {
           return {
-              operator: v[0],
-              value: v[1]
-            };
+            operator: v[0],
+            value: v[1]
+          };
         }
         function dateOpValue(v) {
           return {
-              operator: v[0],
-              value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, except for EMPTY operators
-            };
+            operator: v[0],
+            value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, except for EMPTY operators
+          };
         }
         function rangeValue(v) {
           return [ v[0][0], v[1][1] ]; // [start of first, end of second]

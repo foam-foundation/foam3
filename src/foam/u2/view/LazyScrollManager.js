@@ -110,7 +110,7 @@ foam.CLASS({
       memorable: true,
       documentation: 'Stores the index top row that is currently displayed in the table',
       postSet: function(o, n) {
-        if ( this.scrollToIndex || o == n ) return;
+        if ( this.suspendObserver || this.scrollToIndex || o == n ) return;
         var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
         if ( n < o && n1 <= 1 && n1 < 1 - this.MIN_PAGE_PROGRESS ) {
           this.currentTopPage_ --;
@@ -122,7 +122,7 @@ foam.CLASS({
       name: 'bottomRow',
       documentation: 'Stores the index of last row that is currently displayed in the table',
       postSet: function(o, n) {
-        if ( this.scrollToIndex || o == n ) return;
+        if ( this.suspendObserver || this.scrollToIndex || o == n ) return;
         var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
         if ( n > o && n1 >= this.NUM_PAGES_TO_RENDER - 2 && n1%1 >= this.MIN_PAGE_PROGRESS ) {
           this.currentTopPage_++;
@@ -140,7 +140,10 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'scrollToIndex',
-      postSet: function () { this.safeScroll(); }
+      postSet: function () { 
+        if ( ! this.suspendObserver )
+          this.safeScroll(); 
+      }
     },
     'rowObserver',
     {
@@ -243,7 +246,7 @@ foam.CLASS({
       let options = {
         root: root ?? null,
         rootMargin: `-${this.offsetTop}px 0px 0px`,
-        threshold: [0.25, 0.5, 0.75]
+        threshold: [0, 0.25, 0.5, 0.75]
       };
 
       // defer till after atleast one page has been loaded in order
@@ -251,7 +254,6 @@ foam.CLASS({
       this.dataLatch.then(() => {
         this.rootElement?.el().then(el => {
           resize.observe(el);
-          this.checkPageSize_();
         })
       })
       // Render empty view if dao is empty
@@ -424,10 +426,10 @@ foam.CLASS({
       });
     },
 
-    function processPageSequentially_(pageIndex) {
+    async function processPageSequentially_(pageIndex) {
       if ( pageIndex >= Math.min(this.numPages_, this.NUM_PAGES_TO_RENDER) ) {
         this.daoLoading = false;
-        return;
+        return Promise.resolve();
       }
 
       var page = this.currentTopPage_ + pageIndex;
@@ -439,9 +441,10 @@ foam.CLASS({
       var skip = page * this.pageSize_;
       var dao  = this.data.limit(this.pageSize_).skip(skip);
 
-      return this.getPage(dao, page).then(() => {
+      return await this.getPage(dao, page).then(() => {
+        console.log('Processed', pageIndex);
         // Process next page after this one completes
-        this.processPageSequentially_(pageIndex + 1);
+        return this.processPageSequentially_(pageIndex + 1);
       });
     }
   ],
@@ -533,7 +536,6 @@ foam.CLASS({
             });
           }
         }
-        // TODO: Defer page deletion until the user stops scrolling to prevent jittering
         promise.finally(() => {
           // Remove any pages that are no longer on screen to save on
           // the amount of DOM we add to the page.
@@ -542,22 +544,38 @@ foam.CLASS({
               this.clearPage(i);
             }
           });
-          if ( ! this.scrollToIndex ) {
-            this.scrollToIndex = this.topRow;
-            this.suspendObserver = false;
+
+          if ( this.topRow ) {
+            this.rootElement.addEventListener('scroll', this.onScrollEnd);
           } else {
             this.suspendObserver = false;
+          }        
+          if ( ! this.scrollToIndex ) {
+            this.scrollToIndex = this.topRow;
+          } else {
             this.safeScroll();
           }
         })
       }
     },
     {
+      name: 'onScrollEnd',
+      isIdled: true,
+      delay: 100,
+      code: function() {
+        this.suspendObserver = false;
+        this.removeEventListener('scroll', this.onScrollEnd);
+      }
+    },
+    {
       name: 'onRowIntersect',
       isFramed: true,
       code: function(entries, self){
+        let intersectingSet = false;
         entries.forEach((entry) => {
-          if ( entry.intersectionRatio == 0 || self.suspendObserver ) return;
+          if ( entry.intersectionRatio == 0 ) return;
+          intersectingSet = true;
+          if ( self.suspendObserver && self.scrollToIndex ) return;
           var index = Number(entry.target.dataset.idx);
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
             if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) <= entry.rootBounds.top )
@@ -573,8 +591,9 @@ foam.CLASS({
           }
         });
 
+        if ( ! intersectingSet ) return
         // Only applicable for grouped lists as group headers would be the ones intersecting and the "topRow" would eval to 0 in the code above
-        if ( ! self.topRow && entries.length  ) {
+        if ( ! self.topRow && entries.length ) {
           self.topRow = entries[0].target.dataset.idx;
         }
 

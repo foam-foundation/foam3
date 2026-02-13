@@ -4,6 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// TODO: historyParser doesn't update when history changes
 foam.CLASS({
   package: 'foam.core.reflow.control',
   name: 'AutoGrammar',
@@ -112,7 +113,7 @@ foam.CLASS({
           category: 'command'});
 
         // TODO: take custom parser from Command object itself
-        if ( c.id === 'dao' || c.id === 'add' || c.id == 'from' ) {
+        if ( c.id === 'dao' || c.id === 'add' || c.id == 'from' || c.id == 'api' ) {
           parser = p.seq(parser, p.optional(p.seq(' ', p.sym('dao'))));
         } else if ( c.id === 'load' ) {
           parser = p.seq(parser, p.optional(p.seq(' ', p.sym('flowName'))));

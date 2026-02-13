@@ -379,6 +379,7 @@ foam.CLASS({
           if ( shortName.endsWith('DAO') ) shortName = shortName.substring(0, shortName.length-3);
 
           this.tag(self.DAORowView, {
+            name: n.name,
             shortName: shortName,
             description: n.description,
             ofId: of.id,

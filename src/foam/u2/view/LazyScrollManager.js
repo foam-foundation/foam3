@@ -536,33 +536,34 @@ foam.CLASS({
           }
         }
         promise.finally(() => {
+          Object.keys(this.renderedPages_).forEach(i => {
+            if ( (i >= this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < this.currentTopPage_ ) {
+              this.clearPage(i);
+            }
+          });
           // Wait to delete pages to fix scroll jumping and causing issues
-          this.rootElement.addEventListener('scroll', this.onScrollEnd);  
+          // this.rootElement.addEventListener('scroll', this.onScrollEnd);  
           if ( ! this.scrollToIndex ) {
             this.scrollToIndex = this.topRow;
             this.suspendObserver = false;
           } else {
-            this.safeScroll();
             this.suspendObserver = false;
+            this.safeScroll();
           }
         })
       }
     },
-    {
-      name: 'onScrollEnd',
-      isIdled: true,
-      delay: 100,
-      code: function() {
-        // Remove any pages that are no longer on screen to save on
-        // the amount of DOM we add to the page.
-        Object.keys(this.renderedPages_).forEach(i => {
-          if ( (i >= this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < this.currentTopPage_ ) {
-            this.clearPage(i);
-          }
-        });
-        this.removeEventListener('scroll', this.onScrollEnd);
-      }
-    },
+    // {
+    //   name: 'onScrollEnd',
+    //   isIdled: true,
+    //   delay: 200,
+    //   code: function() {
+    //     // Remove any pages that are no longer on screen to save on
+    //     // the amount of DOM we add to the page.
+        
+    //     this.removeEventListener('scroll', this.onScrollEnd);
+    //   }
+    // },
     {
       name: 'onRowIntersect',
       isFramed: true,

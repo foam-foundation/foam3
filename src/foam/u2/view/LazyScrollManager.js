@@ -33,7 +33,7 @@ foam.CLASS({
       documentation: `
        If the top or bottom page is scrolled by this amount update the currentTopPage_ accordingly
       `,
-      value: 0.5
+      value: 0.25
     },
     {
       type: 'Integer',
@@ -110,7 +110,7 @@ foam.CLASS({
       memorable: true,
       documentation: 'Stores the index top row that is currently displayed in the table',
       postSet: function(o, n) {
-        if ( this.suspendObserver || this.scrollToIndex || o == n ) return;
+        if ( this.scrollToIndex || o == n ) return;
         var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
         if ( n < o && n1 <= 1 && n1 < 1 - this.MIN_PAGE_PROGRESS ) {
           this.currentTopPage_ --;
@@ -122,7 +122,7 @@ foam.CLASS({
       name: 'bottomRow',
       documentation: 'Stores the index of last row that is currently displayed in the table',
       postSet: function(o, n) {
-        if ( this.suspendObserver || this.scrollToIndex || o == n ) return;
+        if ( this.scrollToIndex || o == n ) return;
         var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
         if ( n > o && n1 >= this.NUM_PAGES_TO_RENDER - 2 && n1%1 >= this.MIN_PAGE_PROGRESS ) {
           this.currentTopPage_++;
@@ -141,7 +141,6 @@ foam.CLASS({
       class: 'Int',
       name: 'scrollToIndex',
       postSet: function () { 
-        if ( ! this.suspendObserver )
           this.safeScroll(); 
       }
     },
@@ -507,7 +506,7 @@ foam.CLASS({
     {
       name: 'updateRenderedPages_',
       isIdled: true,
-      mergeDelay: 100,
+      delay: 100,
       on: [
         'this.propertyChange.currentTopPage_'
       ],
@@ -537,36 +536,34 @@ foam.CLASS({
           }
         }
         promise.finally(() => {
-          // Remove any pages that are no longer on screen to save on
-          // the amount of DOM we add to the page.
           Object.keys(this.renderedPages_).forEach(i => {
-            if ( (i >= currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < currentTopPage_ ) {
+            if ( (i >= this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < this.currentTopPage_ ) {
               this.clearPage(i);
             }
           });
-
-          if ( this.topRow ) {
-            this.rootElement.addEventListener('scroll', this.onScrollEnd);
-          } else {
-            this.suspendObserver = false;
-          }        
+          // Wait to delete pages to fix scroll jumping and causing issues
+          // this.rootElement.addEventListener('scroll', this.onScrollEnd);  
           if ( ! this.scrollToIndex ) {
             this.scrollToIndex = this.topRow;
+            this.suspendObserver = false;
           } else {
+            this.suspendObserver = false;
             this.safeScroll();
           }
         })
       }
     },
-    {
-      name: 'onScrollEnd',
-      isIdled: true,
-      delay: 100,
-      code: function() {
-        this.suspendObserver = false;
-        this.removeEventListener('scroll', this.onScrollEnd);
-      }
-    },
+    // {
+    //   name: 'onScrollEnd',
+    //   isIdled: true,
+    //   delay: 200,
+    //   code: function() {
+    //     // Remove any pages that are no longer on screen to save on
+    //     // the amount of DOM we add to the page.
+        
+    //     this.removeEventListener('scroll', this.onScrollEnd);
+    //   }
+    // },
     {
       name: 'onRowIntersect',
       isFramed: true,

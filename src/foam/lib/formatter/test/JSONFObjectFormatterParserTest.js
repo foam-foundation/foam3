@@ -151,6 +151,13 @@ foam.CLASS({
       // With default settings (JRL-like), empty Address should still have class output
       test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated");
       test ( json.contains("address") && json.contains("foam.core.auth.Address"), testId+" address with class present: "+json);
+
+      // Test outputting enum with custom javaCode
+      testId = "EnumWithCustomJavaCode";
+      formatter = new JSONFObjectFormatter();
+      formatter.output(foam.test.TestEnum.CUSTOM);
+      json = formatter.builder().toString();
+      test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" valid json generated: " + json);
       `
     }
   ]

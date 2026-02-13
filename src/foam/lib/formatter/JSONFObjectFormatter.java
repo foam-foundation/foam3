@@ -287,10 +287,13 @@ public class JSONFObjectFormatter
 
 
   public void outputEnumValue(FEnum value) {
+    String className = value.getClass().isAnonymousClass()
+                      ? value.getClass().getEnclosingClass().getCanonicalName()
+                      : value.getClass().getCanonicalName();
     append('{');
     outputKey("class");
     append(':');
-    output(value.getClass().getName());
+    output(className);
     append(COMMA);
     outputKey("ordinal");
     append(':');

@@ -38,7 +38,7 @@
       position: relative;
       overflow: auto;
       overscroll-behavior-y: contain;
-      scroll-behavior: smooth;
+      // scroll-behavior: smooth;
     }
 
     @keyframes slide {

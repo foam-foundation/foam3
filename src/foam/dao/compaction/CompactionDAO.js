@@ -40,6 +40,10 @@ select from mdao and write full records to new empty journal
     'foam.log.LogLevel',
     'foam.mlang.sink.Count',
     'foam.mlang.sink.Sequence',
+    'foam.core.fs.Storage',
+    'java.io.BufferedReader',
+    'java.io.File',
+    'java.io.FileReader',
     'java.time.Duration'
   ],
 
@@ -67,6 +71,11 @@ select from mdao and write full records to new empty journal
       name: 'eventRecord',
       class: 'FObjectProperty',
       of: 'foam.core.er.EventRecord'
+    },
+    {
+      name: 'report',
+      class: 'String',
+      documentation: 'Human-readable compaction report populated after execute()'
     }
   ],
 
@@ -108,13 +117,18 @@ select from mdao and write full records to new empty journal
       er.clearId();
       setEventRecord(er);
       Compaction compaction = (Compaction) ((DAO) x.get("compactionDAO")).find(getServiceName());
+      if ( compaction == null ) {
+        compaction = new Compaction();
+        compaction.setCSpec(getServiceName());
+        logger.info("no compaction config found, using defaults");
+      }
 
       try {
         roll(x);
         if ( compaction.getCompactible() ) {
           compaction(x);
         } else {
-          logger.warning(getServiceName(), "not compactibe");
+          logger.warning(getServiceName(), "not compactible");
         }
 
         logger.info("end");
@@ -172,6 +186,10 @@ select from mdao and write full records to new empty journal
       javaCode: `
       final Logger logger = Loggers.logger(x, this, "compaction", getServiceName());
       Compaction compaction = (Compaction) ((DAO) x.get("compactionDAO")).find(getServiceName());
+      if ( compaction == null ) {
+        compaction = new Compaction();
+        compaction.setCSpec(getServiceName());
+      }
 
       DAO dao = (DAO) x.get(getServiceName());
       MDAO mdao = null;
@@ -200,6 +218,31 @@ select from mdao and write full records to new empty journal
       }
 
       final DAO sourceDAO = (MDAO) mdao;
+
+      // Capture backup file stats before compaction
+      Storage storage = (Storage) x.get(Storage.class);
+      String filename = jdao.getFilename();
+      long originalEntries = 0;
+      long originalSize = 0;
+      // Find the most recent backup (.1, .2, etc.)
+      for ( int i = 1 ; ; i++ ) {
+        File f = storage.get(filename + "." + (i + 1));
+        if ( f == null || ! f.exists() ) {
+          File backup = storage.get(filename + "." + i);
+          if ( backup != null && backup.exists() ) {
+            originalSize = backup.length();
+            try ( BufferedReader br = new BufferedReader(new FileReader(backup)) ) {
+              while ( br.readLine() != null ) originalEntries++;
+            } catch (Exception e) {
+              logger.warning("could not read backup file", e.getMessage());
+            }
+          }
+          break;
+        }
+      }
+
+      final long backupEntries = originalEntries;
+      final long backupSize = originalSize;
 
       final Count total = (Count) dao.select(new Count());
       final Count processed = new Count();
@@ -261,12 +304,29 @@ select from mdao and write full records to new empty journal
       double reduced = ((((Long) processed.getValue()) - compacted) / ((Long) processed.getValue()).doubleValue()) * 100.0;
       long compactionTime = System.currentTimeMillis() - startTime;
       double seconds = compactionTime / 1000.0;
-      double minutes = compactionTime / 60;
+      double minutes = compactionTime / 60000.0;
       double min100K = minutes / ( (Long) processed.getValue() / 100000.0 );
+
+      // Capture new journal stats
+      long newEntries = 0;
+      long newSize = 0;
+      File journalFile = storage.get(filename);
+      if ( journalFile != null && journalFile.exists() ) {
+        newSize = journalFile.length();
+        try ( BufferedReader br = new BufferedReader(new FileReader(journalFile)) ) {
+          while ( br.readLine() != null ) newEntries++;
+        } catch (Exception e) {
+          logger.warning("could not read journal file", e.getMessage());
+        }
+      }
+
+      double entryReduction = backupEntries > 0 ? ((backupEntries - newEntries) / (double) backupEntries) * 100.0 : 0;
+      double sizeReduction = backupSize > 0 ? ((backupSize - newSize) / (double) backupSize) * 100.0 : 0;
+
       StringBuilder report = new StringBuilder();
-      report.append("instance,processed,compacted,duration s,reduced,date");
+      report.append("instance,processed,compacted,duration s,objects filtered,date,original entries,new entries,entry reduction,original size,new size,size reduction");
       report.append("\\n");
-      report.append(System.getProperty("hostname", "loalhost"));
+      report.append(System.getProperty("hostname", "localhost"));
       report.append(",");
       report.append(processed.getValue());
       report.append(",");
@@ -277,11 +337,46 @@ select from mdao and write full records to new empty journal
       report.append(String.format("%.2f%%", reduced));
       report.append(",");
       report.append(new java.util.Date(startTime));
+      report.append(",");
+      report.append(backupEntries);
+      report.append(",");
+      report.append(newEntries);
+      report.append(",");
+      report.append(String.format("%.2f%%", entryReduction));
+      report.append(",");
+      report.append(formatSize(backupSize));
+      report.append(",");
+      report.append(formatSize(newSize));
+      report.append(",");
+      report.append(String.format("%.2f%%", sizeReduction));
 
       logger.info("compactionComplete", "report", "\\n"+report.toString());
 
+      StringBuilder readable = new StringBuilder();
+      readable.append("Compaction Report");
+      readable.append("\\n  Instance:          " + System.getProperty("hostname", "localhost"));
+      readable.append("\\n  Date:              " + new java.util.Date(startTime));
+      readable.append("\\n  Duration:          " + Math.round(seconds) + "s");
+      readable.append("\\n  Objects processed:  " + processed.getValue());
+      readable.append("\\n  Objects compacted:  " + compacted);
+      readable.append("\\n  Objects filtered:   " + String.format("%.2f%%", reduced));
+      readable.append("\\n  Journal entries:    " + backupEntries + " -> " + newEntries + " (" + String.format("%.2f%%", entryReduction) + " reduction)");
+      readable.append("\\n  Journal size:       " + formatSize(backupSize) + " -> " + formatSize(newSize) + " (" + String.format("%.2f%%", sizeReduction) + " reduction)");
+      setReport(readable.toString());
+
       EventRecord er = getEventRecord();
       er.setResponseMessage(report.toString());
+      `
+    },
+    {
+      name: 'formatSize',
+      args: 'long bytes',
+      type: 'String',
+      javaCode: `
+      if ( bytes < 1024 ) return bytes + " B";
+      if ( bytes < 1024 * 1024 ) return String.format("%.1f KB", bytes / 1024.0);
+      if ( bytes < 1024 * 1024 * 1024 ) return String.format("%.1f MB", bytes / (1024.0 * 1024));
+      return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
       `
     }
   ],

@@ -1,53 +1,364 @@
 # Journal Compaction
 
-Each DAO operation on the same object generates a journal entry containing just the change on the object.  Over time there are many entries for the same object, slowing **replay** since replay time is propotional to the number of lines in a journal file.  **Compaction** writes out each object to a new journal file in it's entirety, thus reducing the multiple entries to just one, and in turn reducing replay time. 
+## Table of Contents
+1. [Overview](#overview)
+2. [How It Works](#how-it-works)
+3. [Default Behavior](#default-behavior)
+4. [Configuration](#configuration)
+5. [Invoking Compaction](#invoking-compaction)
+6. [Running Programmatically](#running-programmatically)
+7. [Filtering and Archiving](#filtering-and-archiving)
+8. [Custom Compaction Sinks](#custom-compaction-sinks)
+9. [Rollback](#rollback)
+10. [Monitoring](#monitoring)
+11. [Gotchas](#gotchas)
+12. [Key Files](#key-files)
 
-Used in conjuction with a custom compaction sink, the compaction process can facilitate archiving with only recent or active objects written to the new journal.
+---
 
-## Considerations
+## Overview
 
-- Compaction can be run concurrently with live traffic, but it is recommended to run compaction at a low traffic period.  Also, compaction can fail requiring system halt and manual intervention, so a Maintenance Window should be scheduled.
-- Compaction filters out many archive or history operations. See `deployment/compaction/compactions.jrl`.
-- The **select** for compaction is performed on the DAO returned from the context using CSpecname. If the DAO stack contains a FixedSizedDAO then only those records retained by the FixedSizedDAO will be compacted into the new journal.
+Each DAO operation on the same object generates a journal entry containing just the changed fields. Over time a single object may have hundreds of entries, slowing **replay** since replay time is proportional to journal line count. **Compaction** writes each object to a new journal file in its entirety, reducing many entries to one and dramatically improving replay time.
 
-## Invocation
+Used in conjunction with custom compaction sinks, the compaction process can also facilitate **archiving** by only writing recent or active objects to the new journal.
 
-Compaction is controlled by Script `DAOCompaction` and scriptParameter `DAOCompaction`.  The ScriptParameter lists the DAOs to compact.
+---
 
-Once script execution reports completion, check:
+## How It Works
 
-1. ScriptEvents for an 'OK' message.
-1. EventRecords for a compaction summary.  Open the reponse message to see the statistics.
+Compaction follows a five-step process:
 
-## Compaction, Major steps
+```
++--------------------------------------------------------------------+
+|                    CompactionDAO.execute()                          |
+|                                                                    |
+|  1. BLOCK         All DAO operations are paused                    |
+|       |                                                            |
+|  2. ROLL          Journal copied to backup (.1, .2, etc.)          |
+|       |           Original truncated (new empty journal)           |
+|       |                                                            |
+|  3. UNBLOCK       DAO operations resume                            |
+|       |           New traffic writes to the new empty journal      |
+|       |                                                            |
+|  4. COMPACT       Read all objects from MDAO (in-memory)           |
+|       |           Write full copies through sink chain             |
+|       |           to the new journal (concurrent with traffic)     |
+|       |                                                            |
+|  5. COMPLETE      Log statistics, record EventRecord               |
++--------------------------------------------------------------------+
+```
 
-1. Start blocking DAO operations.
-1. Roll the journal.  journal becomes journal.1 on the first invocation. Next will rename journal to journal.2 
-1. Unblock DAO operations. At this point live traffic is processed during compaction and written to the new journal file.
-1. Start compacting.
-1. End
+**Journal files after compaction:**
+```
+Before:                     After first compaction:
+  users (large, many        users (compacted + new traffic)
+   delta entries)            users.1 (backup of original)
+```
+
+The roll step uses **copy + truncate** (not rename) because on Linux, renaming only updates the inode. The JVM file operations continue against the original inode, so a rename would leave the writer pointing at the backup file.
+
+**Key point:** Live traffic continues during step 4. New writes go to the new journal alongside compacted entries. This is why compaction should run during low-traffic periods.
+
+---
+
+## Default Behavior
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `compactible` | `true` | All DAOs are compacted by default |
+| `discardLifecycleDeleted` | `true` | Objects marked DELETED are not written to the new journal |
+| `predicate` | none | No filtering -- all objects are compacted |
+| `createdSince` | none | No date filter on creation time |
+| `lastModifiedSince` | none | No date filter on modification time |
+
+If no `Compaction` record exists for a DAO, default settings are used: the DAO is compacted with lifecycle-deleted objects discarded.
+
+---
+
+## Setup
+
+Compaction requires the `deployment/compaction` journals to be included in your build. Add them to the `-J` flag:
+
+```
+./build.sh -J../foam3/deployment/compaction,...
+```
+
+The compaction deployment provides:
+
+| File | Purpose |
+|------|---------|
+| `services.jrl` | Registers the `compactionDAO` service for storing per-DAO configuration |
+| `compactions.jrl` | Per-DAO compaction configuration entries |
+| `scripts.jrl` | The `DAOCompaction` BeanShell script |
+| `scriptparameters.jrl` | Script parameter with the `daos` list |
+
+Without these journals, the compaction script and `compactionDAO` service will not be available.
+
+---
+
+## Configuration
+
+Compaction is configured per-DAO in `deployment/compaction/compactions.jrl`.
+
+### Enable compaction (default)
+
+A DAO is compactible by default. To explicitly configure it:
+
+```
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "userDAO"
+})
+```
+
+### Disable compaction for a DAO
+
+Set `compactible: false`. The journal is still rolled, but **no data is written** to the new journal from the old data. Only new live traffic after the roll goes to the new journal.
+
+```
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "alarmDAO",
+  compactible: false
+})
+```
+
+### Compaction Model Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `cSpec` | Reference | (required) | CSpec ID of the DAO to configure |
+| `compactible` | Boolean | `true` | If true, objects are compacted to new journal. If false, entries are discarded |
+| `discardLifecycleDeleted` | Boolean | `true` | Discard objects with lifecycleState=DELETED |
+| `predicate` | Predicate | null | Custom filter -- only matching objects are compacted |
+| `createdSince` | DateTime | null | Only compact objects created on/after this date |
+| `lastModifiedSince` | DateTime | null | Only compact objects modified on/after this date |
+| `journalName` | String | auto | Journal filename. Defaults to CSpec name with "DAO" removed + "s" |
+
+---
+
+## Invoking Compaction
+
+Compaction is controlled by the `DAOCompaction` Script and its `ScriptParameter`.
+
+1. Configure which DAOs to compact in the `DAOCompaction` ScriptParameter:
+   - Set `parameters.daos` to a comma-separated list of DAO service names
+   - Enable the parameter
+
+2. Run the `DAOCompaction` script from the Scripts admin menu
+
+3. After completion, check:
+   - **ScriptEvents** for an 'OK' message
+   - **EventRecords** for a compaction summary with statistics
+
+### Considerations
+
+- Schedule compaction during a **maintenance window** with low traffic
+- Compaction can fail, requiring manual intervention (see Rollback)
+- If the DAO stack contains a `FixedSizedDAO`, only retained records are compacted
+
+---
+
+## Running Programmatically
+
+### Full compaction (roll + rewrite)
+
+```java
+import foam.dao.compaction.CompactionDAO;
+
+CompactionDAO compactor = new CompactionDAO(x, "myDAO");
+compactor.execute(x);
+```
+
+### Roll only (no compaction)
+
+If you only need to back up the current journal and start a fresh one:
+
+```java
+import foam.dao.FileRollCmd;
+
+DAO dao = (DAO) x.get("myDAO");
+FileRollCmd cmd = new FileRollCmd();
+cmd = (FileRollCmd) dao.cmd_(x, cmd);
+// cmd.getRolledFilename() = "mymodel.1"
+```
+
+**Warning:** Roll-only does NOT compact. The backup retains all delta entries. The new journal only contains writes after the roll.
+
+---
+
+## Filtering and Archiving
+
+Compaction sinks allow filtering which objects are written to the new journal. Objects not matching the filter are discarded, effectively archiving them.
+
+### Sink Chain
+
+```
++-------------------+     +----------------------+     +-------------+
+| CompactionSink    |---->| Filter Sink(s)       |---->| JournalSink |
+| (faceted lookup)  |     | (optional per config)|     | (writes)    |
++-------------------+     +----------------------+     +-------------+
+```
+
+### Filter options
+
+**1. By predicate** -- Only objects matching the predicate are kept:
+
+```
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "approvalRequestDAO",
+  compactible: true,
+  predicate: {
+    class: "foam.mlang.predicate.FScriptPredicate",
+    query: 'status == foam.core.approval.ApprovalStatus.REQUESTED'
+  }
+})
+```
+
+**2. By creation date** -- Only objects created after the date are kept:
+
+```
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "transactionDAO",
+  compactible: true,
+  createdSince: "2024-01-01T00:00:00.000Z"
+})
+```
+
+**3. By last modified date** -- Only recently modified objects are kept:
+
+```
+p({
+  class: "foam.dao.compaction.Compaction",
+  cSpec: "logDAO",
+  compactible: true,
+  lastModifiedSince: "2024-06-01T00:00:00.000Z"
+})
+```
+
+**Note:** Predicate, createdSince, and lastModifiedSince are mutually exclusive. Only one is used (checked in that order).
+
+---
+
+## Custom Compaction Sinks
+
+For per-model filtering logic, create a faceted sink class. The system auto-discovers classes named `{ModelClassId}CompactionSink` via FacetManager.
+
+```javascript
+foam.CLASS({
+  package: 'com.example',
+  name: 'MyModelCompactionSink',
+  extends: 'foam.dao.ProxySink',
+  implements: ['foam.lang.ContextAware'],
+
+  methods: [
+    {
+      name: 'put',
+      javaCode: `
+      MyModel model = (MyModel) obj;
+      if ( model.getStatus() == Status.ACTIVE ) {
+        getDelegate().put(obj, sub);  // Keep: forward to journal
+      }
+      // Discard: don't forward
+      `
+    }
+  ]
+});
+```
+
+See `deployment/compaction/compactions.jrl` for working examples including `TicketCompactionSink` and `ApprovalRequestCompactionSink`.
+
+---
 
 ## Rollback
 
-Should compaction fail for any reason, a rollback is required.
+Should compaction fail, the system should be considered in an **unknown state**. Live traffic must be halted immediately. Operations that occurred during compaction will be lost.
 
-When compaction fails the system should be considered invalid. Live traffic must be halted immediately.  Any operations which occured during compaction will be lost on rollback.
+### Rollback Steps
 
-To rollback:
+1. **Halt the system** -- Stop all traffic
+2. **Restore the journal** -- Discard the new journal file and rename the highest-numbered backup back to the original name:
+   ```
+   rm journals/users
+   mv journals/users.1 journals/users
+   ```
+3. **Restart the system** -- The restored journal will replay on startup
 
-1. Halt the system.
-1. Undo the rolled journal.  Discard the unnumbered journal file and remove the number postfix from the highest number journal.  journal.1 -> journal
-1. Start the system
+### Data loss
 
+Any writes that occurred between the roll and the failure are lost. This is why compaction should be scheduled during maintenance windows with minimal traffic.
 
-## Controlling Compaction via the Compaction model
+---
 
-Compaction model properties:
-    `foam.dao.compaction.Compaction`,
-- compactable :: By default a DAO is compactable, meaning it's entries will be reduced. If compaction is disabled (false), then the DAO's entries will be discarded - they will not be compacted into a new journal.
-- reducible :: By default a DAO is reducible, meaning multiple CRUD operations are reduced to one. If *reducible* is false, then all entries are transfered the new ledger.
-- compactLifecycleDeleted :: LifecycleAware objects which are deleted/removed are set to state DELETED, an r() journal entry is not created.  This option allows to compact DELETED entries.
-- clearable :: Not used outside of [Medusa](https://github.com/kgrgreer/foam-medusa).
-- **sink** :: Custom sinks can be registered for per entry control during compaction.
-See localTicketCommentDAO for an example of inline sink Predicate controlling Ticket Comment compaction based on Ticket Status.
-    see `deployment/compaction/compactions.jrl` ticketDAO for an example. 
+## Monitoring
+
+### EventRecords
+
+Each compaction run creates EventRecords tracking progress:
+- **Start**: Records compaction initiation
+- **Complete**: Includes a CSV summary report
+
+### Report Format
+
+```
+instance,processed,compacted,duration s,reduced,date
+localhost,50000,12000,125,76.00%,2024-12-01
+```
+
+| Field | Description |
+|-------|-------------|
+| instance | Server hostname |
+| processed | Total objects read from MDAO |
+| compacted | Objects written to new journal |
+| duration s | Total time in seconds |
+| reduced | Percentage of entries eliminated |
+| date | When compaction started |
+
+### Progress Logging
+
+During compaction, progress is logged every 5 seconds:
+```
+[INFO] CompactionDAO compaction progress processed=25000 50%
+```
+
+---
+
+## Gotchas
+
+1. **Roll-only does NOT compact** -- `FileRollCmd` only copies the journal and truncates. Use `CompactionDAO.execute()` for full compaction.
+
+2. **ProxyDAO requirement** -- `CompactionDAO.roll()` casts `x.get(serviceName)` to `ProxyDAO`. The DAO must be wrapped in a ProxyDAO or roll will fail.
+
+3. **Compaction is async** -- The compaction step runs on the thread pool. `execute()` polls for completion every 5 seconds.
+
+4. **Live traffic during compaction** -- After the roll, DAO operations resume. New writes go to the new journal. If compaction fails, these writes are lost on rollback.
+
+5. **MDAO is the source** -- Compaction reads from MDAO, not the journal file. The in-memory state is what gets written.
+
+6. **FixedSizedDAO interaction** -- If the DAO stack includes a FixedSizedDAO, only objects retained by it are compacted.
+
+7. **eventRecordDAO required** -- `execute()` writes to `eventRecordDAO`. Must be available in context.
+
+8. **Filter mutual exclusivity** -- Only one of predicate/createdSince/lastModifiedSince is applied (checked in that order as if/else if).
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `foam/dao/compaction/Compaction.js` | Configuration model |
+| `foam/dao/compaction/CompactionDAO.js` | Orchestrator (roll + compact) |
+| `foam/dao/compaction/BlockingDAO.js` | Thread synchronization during roll |
+| `foam/dao/compaction/CompactionSink.js` | Faceted sink discovery |
+| `foam/dao/compaction/LifecycleDeletedCompactionSink.js` | Filter deleted objects |
+| `foam/dao/compaction/PredicateCompactionSink.js` | Filter by predicate |
+| `foam/dao/compaction/CreatedCompactionSink.js` | Filter by creation date |
+| `foam/dao/compaction/LastModifiedCompactionSink.js` | Filter by modification date |
+| `foam/dao/FileRollCmd.js` | Command to trigger journal roll |
+| `foam/dao/AbstractF3FileJournal.js` | Journal roll implementation |
+| `deployment/compaction/compactions.jrl` | Per-DAO compaction configuration |
+| `deployment/compaction/scripts.jrl` | DAOCompaction script |
+| `deployment/compaction/scriptparameters.jrl` | Script parameters |

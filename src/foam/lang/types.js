@@ -1447,9 +1447,16 @@ foam.CLASS({
     {
       name: 'initObject',
       value: async function(obj) {
-        let c = await this.normalize(this.f(obj), this, obj);
+        var value = this.f(obj);
+        // Skip normalization for empty/default values — the value will be
+        // set later by mappings or other code. Without this guard, the async
+        // DAO lookup races with synchronous property setters: initObject
+        // reads the empty default, starts an async query, then overwrites
+        // the already-set value when the query resolves.
+        if ( ! value ) return;
+        let c = await this.normalize(value, this, obj);
         this.set(obj, c);
-      } 
+      }
     },
     {
       name: 'normalize',

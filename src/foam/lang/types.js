@@ -1445,17 +1445,32 @@ foam.CLASS({
       }
     },
     {
+      name: 'postSet',
+      value: function(oldValue, newValue, prop) {
+        // Increment the generation counter so any in-flight async initObject
+        // normalization knows it's been superseded by a direct setter.
+        var key = prop.name + '$gen_';
+        this[key] = ( this[key] || 0 ) + 1;
+      }
+    },
+    {
       name: 'initObject',
       value: async function(obj) {
         var value = this.f(obj);
-        // Skip normalization for empty/default values — the value will be
-        // set later by mappings or other code. Without this guard, the async
-        // DAO lookup races with synchronous property setters: initObject
-        // reads the empty default, starts an async query, then overwrites
-        // the already-set value when the query resolves.
         if ( ! value ) return;
+
+        // Capture the current generation before async work. If a setter fires
+        // while the DAO lookup is in flight, the generation will change and
+        // we discard the stale result instead of overwriting.
+        var key = this.name + '$gen_';
+        var gen = obj[key] || 0;
+
         let c = await this.normalize(value, this, obj);
-        this.set(obj, c);
+
+        // Only apply the normalized value if no setter has fired since we started.
+        if ( ( obj[key] || 0 ) === gen ) {
+          this.set(obj, c);
+        }
       }
     },
     {

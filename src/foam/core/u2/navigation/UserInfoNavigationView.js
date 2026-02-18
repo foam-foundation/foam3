@@ -127,7 +127,6 @@ foam.CLASS({
 
   css: `
     ^name-container {
-      max-width: 90px;
       line-height: normal;
       display: flex;
     }

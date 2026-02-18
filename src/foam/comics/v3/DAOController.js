@@ -123,7 +123,8 @@ foam.CLASS({
           self.tag({
             class: 'foam.comics.v3.DetailView',
             config$: self.config$,
-            idOfRecord$: self.route$
+            idOfRecord$: self.route$,
+            of: this.data.of
           });
         } else {
           self.renderDAOView();
@@ -135,7 +136,8 @@ foam.CLASS({
       this.stack.setTitle(this.viewTitle$, self);
       let memento = this.emptyRouteParams_;
       let l = function() {
-        if ( self.route ) return;
+        let mementoRoute = self.memento_.usedStr?.indexOf('?') !== -1 ? self.memento_.usedStr?.split('?')[0] : null;
+        if ( self.route || mementoRoute ) return;
         self.emptyRouteParams_ = self.memento_.usedStr;
       }
       this.sub_ = this.memento_$.dot('usedStr').sub(l);

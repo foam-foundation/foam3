@@ -345,14 +345,126 @@ foam.CLASS({
     {
       name: 'view',
       code: function(a, X) {
-        // TODO: Add logging for who has downloaded files etc.
-        var blob = this.data;
-        if ( foam.blob.BlobBlob.isInstance(blob) ) {
-          window.open(URL.createObjectURL(blob.blob));
-        } else {
-          var url = this.address;
-          window.open(url);
-        }
+        var self = this;
+
+        var url = foam.blob.BlobBlob.isInstance(this.data)
+          ? URL.createObjectURL(this.data.blob)
+          : this.address;
+
+        var isImage = this.mimeType && this.mimeType.startsWith('image/');
+        var isPdf   = this.mimeType === 'application/pdf';
+        var title   = this.filename || 'Document';
+
+        var popup = foam.u2.dialog.Popup.create({ closeable: true }, X);
+
+        popup
+          .start('div')
+            .style({
+              'display':        'flex',
+              'flex-direction':  'column',
+              'width':           '80vw',
+              'max-width':       '1000px',
+              'height':          '80vh',
+              'max-height':      '800px'
+            })
+
+            // ── Header ──
+            .start('div')
+              .style({
+                'display':         'flex',
+                'align-items':     'center',
+                'justify-content': 'space-between',
+                'padding':         '12px 16px',
+                'border-bottom':   '1px solid #e5e7eb',
+                'background':      '#f9fafb',
+                'flex-shrink':     '0'
+              })
+              .start('span')
+                .style({
+                  'font-size':     '14px',
+                  'font-weight':   '600',
+                  'color':         '#111827',
+                  'overflow':      'hidden',
+                  'text-overflow': 'ellipsis',
+                  'white-space':   'nowrap',
+                  'max-width':     '80%'
+                })
+                .add(title)
+              .end()
+              .start('span')
+                .style({
+                  'font-size':     '11px',
+                  'padding':       '2px 8px',
+                  'border-radius': '4px',
+                  'background':    '#f3f4f6',
+                  'color':         '#6b7280'
+                })
+                .add(self.mimeType || 'Unknown')
+              .end()
+            .end()
+
+            // ── Content ──
+            .start('div')
+              .style({
+                'flex':            '1',
+                'overflow':        'auto',
+                'display':         'flex',
+                'align-items':     'center',
+                'justify-content': 'center',
+                'padding':         '16px',
+                'background':      '#ffffff'
+              })
+              .callIf(isImage, function() {
+                this.start('img')
+                  .attrs({ src: url, alt: title })
+                  .style({
+                    'max-width':     '100%',
+                    'max-height':    '100%',
+                    'object-fit':    'contain',
+                    'border-radius': '4px'
+                  })
+                .end();
+              })
+              .callIf(isPdf, function() {
+                this.start('iframe')
+                  .attrs({ src: url + '#toolbar=1&navpanes=0', title: title })
+                  .style({
+                    'width':         '100%',
+                    'height':        '100%',
+                    'border':        'none',
+                    'border-radius': '4px'
+                  })
+                .end();
+              })
+              .callIf( ! isImage && ! isPdf, function() {
+                this.start('span')
+                  .style({ 'color': '#9ca3af', 'font-size': '14px' })
+                  .add('Preview not available for this file type.')
+                .end();
+              })
+            .end()
+
+            // ── Footer ──
+            .start('div')
+              .style({
+                'display':         'flex',
+                'align-items':     'center',
+                'justify-content': 'flex-end',
+                'gap':             '8px',
+                'padding':         '10px 16px',
+                'border-top':      '1px solid #e5e7eb',
+                'background':      '#f9fafb',
+                'flex-shrink':     '0'
+              })
+              .startContext({ data: self })
+                .tag(self.cls_.DOWNLOAD, { buttonStyle: 'PRIMARY' })
+              .endContext()
+            .end()
+
+          .end();
+
+        // Use open() which calls write() — works without ctrl
+        popup.open();
       }
     },
     {

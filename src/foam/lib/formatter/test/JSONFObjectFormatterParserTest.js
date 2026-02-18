@@ -44,11 +44,11 @@ foam.CLASS({
       // predicate defaults to TRUE
       formatter.output(rg);
       json = formatter.builder().toString();
-      test ( ! SafetyUtil.isEmpty(json) && json.contains(":,"), testId+" INVALID json generated "+json.toString());
+      test ( ! SafetyUtil.isEmpty(json) && json.contains("foam.mlang.predicate.True"), testId+" valid json generated "+json.toString());
       parser = new JSONParser();
       try {
         Object o = parser.parseString(json);
-        test ( o == null, testId+" json NOT parsed");
+        test ( SafetyUtil.equals(rg, o), testId+" json parsed");
       } catch ( Throwable t ) {
         // Should fail parsing, but not through exception
         test ( false, testId+" Error parsing: "+t.getMessage());
@@ -115,8 +115,8 @@ foam.CLASS({
 
       testId = "EmptyFObjectProperty-OutputDefaultClassNames:true";
       formatter = new JSONFObjectFormatter();
-      // formatter.setOutputDefaultClassNames(true); - default
-      formatter.setOutputDefaultValues(true);
+      formatter.setOutputDefaultClassNames(true);
+
       var user = new User();
       user.setId(12345L);
       user.setAddress(new Address()); // Empty/default address
@@ -137,20 +137,17 @@ foam.CLASS({
         test ( false, testId+" Error parsing: "+t.getMessage());
       }
 
-      // Test with OutputDefaultValues=false (JRL default) - the actual use case from PR
-      // When OutputDefaultValues=false, the empty Address outputs nothing except the class
-      testId = "EmptyFObjectProperty-JRLDefaults";
+      // ============================================================
+      // Test empty/default FObjectProperty (like User.address)
+      // When OutputDefaultClassNames=false, empty FObjects should output {}
+      // ============================================================
+      testId = "EmptyFObjectProperty-OutputDefaultClassNames:false";
       formatter = new JSONFObjectFormatter();
-      // OutputDefaultClassNames=true (default)
-      // OutputDefaultValues=false (default) - mimics JRL behavior
-      user = new User();
-      user.setId(12345L);
-      user.setAddress(new Address()); // Empty/default address
+      formatter.setOutputDefaultClassNames(false);
+
       formatter.output(user);
       json = formatter.builder().toString();
-      // With default settings (JRL-like), empty Address should still have class output
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated");
-      test ( json.contains("address") && json.contains("foam.core.auth.Address"), testId+" address with class present: "+json);
+      test ( json.contains("address:{}"), testId+" output address as empty json: "+json);
 
       // Test outputting enum with custom javaCode
       testId = "EnumWithCustomJavaCode";

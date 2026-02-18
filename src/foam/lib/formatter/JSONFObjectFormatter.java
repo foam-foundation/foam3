@@ -204,31 +204,19 @@ public class JSONFObjectFormatter
 
   protected void outputProperty(FObject o, PropertyInfo p) {
     try {
-      int startLen = builder().length();
+      // output propertyName:
       outputKey(getPropertyName(p));
       append(':');
-      int valueStart = builder().length();
-      Object propObj = p.get(o);
+
+      // output property value which can be empty. See. output(FObject, ClassInfo, PropertyInfo)
+      int startLen = builder().length();
       p.formatJSON(this, o);
-      // If nothing was written for the value (eg: empty/default nested FObject),
-      // output a minimal object carrying the class to avoid blank entries.
-      // Only do this when OutputDefaultClassNames is true, otherwise preserve
-      // original behavior (which may produce invalid JSON for edge cases).
-      if ( builder().length() == valueStart ) {
-        setLength(startLen);
-        outputKey(getPropertyName(p));
-        append(':');
-        if ( propObj instanceof FObject && outputDefaultClassNames_ ) {
-          append('{');
-          outputKey("class");
-          append(':');
-          output(((FObject) propObj).getClassInfo().getId());
-          append('}');
-        } else if ( ! ( propObj instanceof FObject ) ) {
-          append("null");
-        }
-        // else: FObject with OutputDefaultClassNames=false - leave empty
-        // (preserves original behavior, produces invalid JSON as expected)
+
+      // handle empty property value output:
+      //   - for FObjectProperty returns empty json: {}
+      //   - Otherwise returns null
+      if ( builder().length() == startLen ) {
+        append( p.get(o) instanceof FObject ? "{}" : "null" );
       }
     } catch (Throwable t) {
       System.err.println("***************************************************** error outputting " + getPropertyName(p));
@@ -541,7 +529,7 @@ public class JSONFObjectFormatter
       if ( outputProp ) props++;
     }
 
-    if ( props > 0 || outputDefaultClassNames_ ) {
+    if ( props > 0 || outputDefaultClassNames_ || outputDefaultValues_ ) {
       addInnerNewline();
       append('}');
     } else {

@@ -59,7 +59,7 @@ foam.CLASS({
       of: 'foam.u2.Element',
       name: 'overlay_',
       factory: function() {
-        return this.OverlayDropdown.create();
+        return this.OverlayDropdown.create({ parentEdgePadding: 1 });
       }
     },
     {

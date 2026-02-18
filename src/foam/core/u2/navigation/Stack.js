@@ -29,6 +29,7 @@ foam.CLASS({
       flex-direction: column;
       overflow: auto;
       position: relative;
+      scroll-padding-top: var(--header-height, 50px);
     }
     ^header-gap {
       gap: 1.6rem;
@@ -171,8 +172,11 @@ foam.CLASS({
       const isVisible = () => {
         let flag = false
         el.childNodes?.forEach(v => {
-          if ( v.offsetHeight ) flag = true;
+          if ( v.offsetHeight ) {
+            flag = true;
+          }
         })
+        root.style.setProperty('--header-height', el.offsetHeight+'px');
         this.headerVisibility = flag;
       }
       isVisible()

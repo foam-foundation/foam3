@@ -282,7 +282,7 @@ foam.CLASS({
         if ( this.el_() ) {
           let el = this.el_();
           let currentRow = el.querySelector(`div[data-idx='${index}']`);
-          if ( currentRow ) currentRow.scrollIntoView({behaviour: "smooth", block: "start", inline: "nearest", container: "nearest"})
+          if ( currentRow ) currentRow.scrollIntoView({behaviour: "smooth", block: "nearest", inline: "nearest", container: "nearest"})
         }
       }
     },

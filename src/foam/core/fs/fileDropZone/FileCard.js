@@ -82,6 +82,7 @@ foam.CLASS({
 
     ^fileButton {
       overflow: hidden;
+      padding: 0;
       flex-grow: 1;
       justify-content: flex-start;
     }

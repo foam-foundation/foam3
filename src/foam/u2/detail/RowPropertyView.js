@@ -31,6 +31,7 @@ foam.CLASS({
     }
     ^body{
       flex-shrink: 2;
+      font-family: monospace;
     }
     ^ > .note {
       white-space: pre;

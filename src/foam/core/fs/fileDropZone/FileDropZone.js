@@ -105,6 +105,14 @@ foam.CLASS({
       background: $backgroundBrandTertiary;
       border: 2px dashed $borderBrand;
     }
+    ^supportedTypes {
+      display: flex;
+      gap: 2px;
+    }
+    ^supportedTypes:not(.hasFiles) {
+      flex-direction: column;
+      gap: 0;
+    }
     ^fileCards {
       display: flex;
       flex-direction: column;
@@ -248,8 +256,10 @@ foam.CLASS({
             }))
         .end()
         .start().addClass(this.myClass('caption-container'))
-        .show(this.slot(function(showHelp, files) { return showHelp && files.length < 1; }))
+        .show(this.slot(function(showHelp) { return showHelp  }))
           .start()
+            .addClass(self.myClass('supportedTypes'))
+            .enableClass('hasFiles', self.files$.map(v => v.length))
             .start('p').addClass('p-xs', this.myClass('caption')).add(this.LABEL_SUPPORTED).end()
             .start('p').addClass('p-xs', self.myClass('caption')).add(this.getSupportedTypes(true)).end()
           .end()

@@ -23,9 +23,6 @@ foam.CLASS({
     {
       name: 'runTest',
       javaCode: `
-
-      JSONFObjectFormatter formatter = null;
-      JSONParser parser = null;
       String json = null;
       String testId = null;
 
@@ -93,127 +90,10 @@ foam.CLASS({
 
       // test outputting enum with custom javaCode
       testId = "EnumWithCustomJavaCode";
-      formatter = new JSONFObjectFormatter();
+      var formatter = new JSONFObjectFormatter();
       formatter.output(foam.test.TestEnum.CUSTOM);
       json = formatter.builder().toString();
       test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" should not output java anonymous class name: " + json);
-
-      if (true) return;
-
-
-
-
-      parser = new JSONParser();
-      try {
-        Object o = parser.parseString(json);
-        test ( o != null, testId+" valid json generated. " + json);
-      } catch ( Throwable t ) {
-        // Should fail parsing, but not through exception
-        test ( false, testId+" Error parsing: "+t.getMessage());
-      }
-
-      testId = "OutputDefaultClassNames:true-OutputDefaultValues:true";
-      formatter = new JSONFObjectFormatter();
-      // formatter.setOutputDefaultClassNames(true); - default
-      formatter.setOutputDefaultValues(true);
-      rg = new foam.core.ruler.RuleGroup();
-      rg.setId(this.getClass().getSimpleName());
-      // predicate defaults to TRUE
-      formatter.output(rg);
-      json = formatter.builder().toString();
-
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated: "+json.toString());
-      parser = new JSONParser();
-      try {
-        Object o = parser.parseString(json);
-        test ( o != null, testId+" json parsed");
-      } catch ( Throwable t ) {
-        test ( false, testId+" Error parsing: "+t.getMessage());
-      }
-
-      testId = "OutputDefaultClassNames:true-OutputDefaultValues:false";
-      formatter = new JSONFObjectFormatter();
-      // formatter.setOutputDefaultClassNames(true); - default
-      // formatter.setOutputDefaultValues(false); - default
-      rg = new foam.core.ruler.RuleGroup();
-      rg.setId(this.getClass().getSimpleName());
-      // predicate defaults to TRUE
-      formatter.output(rg);
-      json = formatter.builder().toString();
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated: "+json.toString());
-      parser = new JSONParser();
-      try {
-        Object o = parser.parseString(json);
-        test ( o != null, testId+" json parsed");
-      } catch ( Throwable t ) {
-        test ( false, testId+" Error parsing: "+t.getMessage());
-      }
-
-      testId = "OutputDefaultClassNames:false-OutputDefaultValues:false";
-      formatter = new JSONFObjectFormatter();
-      formatter.setOutputDefaultClassNames(false);
-      // formatter.setOutputDefaultValues(false); - default
-      rg = new foam.core.ruler.RuleGroup();
-      rg.setId(this.getClass().getSimpleName());
-      // predicate defaults to TRUE
-      formatter.output(rg);
-      json = formatter.builder().toString();
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated: "+json.toString());
-      parser = new JSONParser();
-      try {
-        Object o = parser.parseString(json);
-        test ( o != null, testId+" json parsed");
-      } catch ( Throwable t ) {
-        test ( false, testId+" Error parsing: "+t.getMessage());
-      }
-
-      // ============================================================
-      // Test empty/default FObjectProperty (like User.address)
-      // When OutputDefaultClassNames=true, empty FObjects should output {class:"..."}
-      // ============================================================
-
-      testId = "EmptyFObjectProperty-OutputDefaultClassNames:true";
-      formatter = new JSONFObjectFormatter();
-      formatter.setOutputDefaultClassNames(true);
-
-      user = new User();
-      user.setId(12345L);
-      user.setAddress(new Address()); // Empty address
-      formatter.output(user);
-      json = formatter.builder().toString();
-      // Should contain address with at least the class
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated (no empty values)");
-      test ( json.contains("address") && json.contains("foam.core.auth.Address"), testId+" address with class present: "+json);
-      parser = new JSONParser();
-      try {
-        Object o = parser.parseString(json);
-        test ( o != null, testId+" json parsed successfully");
-        if ( o instanceof User ) {
-          User parsedUser = (User) o;
-          test ( parsedUser.getAddress() != null, testId+" parsed user has address object");
-        }
-      } catch ( Throwable t ) {
-        test ( false, testId+" Error parsing: "+t.getMessage());
-      }
-
-      // ============================================================
-      // Test empty/default FObjectProperty (like User.address)
-      // When OutputDefaultClassNames=false, empty FObjects should output {}
-      // ============================================================
-      testId = "EmptyFObjectProperty-OutputDefaultClassNames:false";
-      formatter = new JSONFObjectFormatter();
-      formatter.setOutputDefaultClassNames(false);
-
-      formatter.output(user);
-      json = formatter.builder().toString();
-      test ( json.contains("address:{}"), testId+" output address as empty json: "+json);
-
-      // Test outputting enum with custom javaCode
-      testId = "EnumWithCustomJavaCode";
-      formatter = new JSONFObjectFormatter();
-      formatter.output(foam.test.TestEnum.CUSTOM);
-      json = formatter.builder().toString();
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" valid json generated: " + json);
       `
     }
   ],

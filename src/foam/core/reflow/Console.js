@@ -1566,6 +1566,7 @@ foam.CLASS({
 
     async function render() {
       let oldIsMenuOpen = this.isMenuOpen;
+      let oldShowNav = this.showNav;
       foam.u2.table.UnstyledTableView.SELECTED_COLUMN_NAMES.memorable = false;
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
@@ -1613,7 +1614,7 @@ foam.CLASS({
 
       // Add the Mode as a CSS Class so we can adjust stying based on the mode
       layout.addClass(this.flowMode$.map(m => {
-        this.showNav = m.forceNavHide ? false : this.showNav;
+        this.showNav = m.forceNavHide ? false : oldShowNav;
         return layout.myClass(m.toString().toLowerCase());
       }));
 

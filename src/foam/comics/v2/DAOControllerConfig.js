@@ -109,6 +109,11 @@ foam.CLASS({
       factory: function() { return this.of.model_.plural; }
     },
     {
+      class: 'String',
+      name: 'emptyLabel',
+      factory: function() { return this.of.model_.plural; }
+    },
+    {
       class: 'FObjectProperty',
       name: 'primaryAction',
       documentation: `

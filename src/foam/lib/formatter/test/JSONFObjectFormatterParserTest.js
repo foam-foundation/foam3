@@ -95,30 +95,28 @@ foam.CLASS({
       json = formatter.builder().toString();
       test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" should not output java anonymous class name: " + json);
       `
+    },
+    {
+      name: 'testJSONFObjectFormatter',
+      type: 'String',
+      args: 'String testId, FObject obj, Boolean outputDefaultClassNames, Boolean outputDefaultValues, foam.lang.ClassInfo defaultCls',
+      javaCode: `
+        var fmt = new JSONFObjectFormatter();
+        fmt.setOutputDefaultClassNames(outputDefaultClassNames);
+        fmt.setOutputDefaultValues(outputDefaultValues);
+        fmt.output(obj, defaultCls);
+
+        String json = fmt.builder().toString();
+
+        var parser = new JSONParser();
+        try {
+          Object o = parser.parseString(json, defaultCls != null ? defaultCls.getObjClass() : null);
+          test( o != null, testId + " generate valid json: " + json );
+        } catch ( Throwable t ) {
+          test( false, testId + " error parsing: " + t.getMessage() );
+        }
+        return json;
+      `
     }
-  ],
-
-  javaCode: `
-    protected String testJSONFObjectFormatter(String testId, foam.lang.FObject obj, boolean outputDefaultClassNames, boolean outputDefaultValues) {
-      return testJSONFObjectFormatter(testId, obj, outputDefaultClassNames, outputDefaultValues, null);
-    }
-
-    protected String testJSONFObjectFormatter(String testId, foam.lang.FObject obj, boolean outputDefaultClassNames, boolean outputDefaultValues, foam.lang.ClassInfo defaultCls) {
-      var fmt = new JSONFObjectFormatter();
-      fmt.setOutputDefaultClassNames(outputDefaultClassNames);
-      fmt.setOutputDefaultValues(outputDefaultValues);
-      fmt.output(obj, defaultCls);
-
-      String json = fmt.builder().toString();
-
-      var parser = new JSONParser();
-      try {
-        Object o = parser.parseString(json, defaultCls != null ? defaultCls.getObjClass() : null);
-        test( o != null, testId + " generate valid json: " + json );
-      } catch ( Throwable t ) {
-        test( false, testId + " error parsing: " + t.getMessage() );
-      }
-      return json;
-    }
-  `
+  ]
 })

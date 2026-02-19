@@ -37,43 +37,43 @@ foam.CLASS({
 
       testId = "OutputDefaultClassNames:true-OutputDefaultValues:false";
       json = testJSONFObjectFormatter(testId, rg, true, false, rg.getClassInfo());
-      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
-      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" should not output properties default value");
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" -- output obj class name");
+      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" -- do not output properties default value");
 
       testId = "OutputDefaultClassNames:false-OutputDefaultValues:false";
       json = testJSONFObjectFormatter(testId, rg, false, false, rg.getClassInfo());
-      test ( ! json.contains("foam.core.ruler.RuleGroup"), testId+" should not output obj class name");
-      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" should not output properties default value");
+      test ( ! json.contains("foam.core.ruler.RuleGroup"), testId+" -- do not output obj class name");
+      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" -- do not output properties default value");
 
       testId = "OutputDefaultClassNames:false-OutputDefaultValues:false-DefaultClass:null";
       json = testJSONFObjectFormatter(testId, rg, false, false, null);
-      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
-      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" should not output properties default value");
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" -- output obj class name");
+      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" -- do not output properties default value");
 
       testId = "OutputDefaultClassNames:false-OutputDefaultValues:true";
       json = testJSONFObjectFormatter(testId, rg, false, true, rg.getClassInfo());
-      test ( ! json.contains("foam.core.ruler.RuleGroup"), testId+" should not output obj class name");
-      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" should output properties default value");
+      test ( ! json.contains("foam.core.ruler.RuleGroup"), testId+" -- do not output obj class name");
+      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" -- output properties default value");
 
       rg = new foam.core.ruler.RuleGroup(); // initialize new object because properties factory of the old object has already been invoked
       testId = "OutputDefaultClassNames:false-OutputDefaultValues:true-DefaultClass:null";
       json = testJSONFObjectFormatter(testId, rg, false, true, null);
-      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
-      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" should output properties default value");
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" -- output obj class name");
+      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" -- output properties default value");
 
       rg = new foam.core.ruler.RuleGroup();
       testId = "OutputDefaultClassNames:true-OutputDefaultValues:true";
       json = testJSONFObjectFormatter(testId, rg, true, true, rg.getClassInfo());
-      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
-      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" should output properties default value");
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" -- output obj class name");
+      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" -- output properties default value");
 
       // test outputting property after factory is invoked
       rg = new foam.core.ruler.RuleGroup();
       rg.getPredicate();
       testId = "OutputDefaultClassNames:true-OutputDefaultValues:false-InvokePropertyFactory";
       json = testJSONFObjectFormatter(testId, rg, false, false, rg.getClassInfo());
-      test ( json.contains("foam.mlang.predicate.True"), testId+" should output properties set by factory");
-      test ( ! json.contains("priority:10"), testId+" should output unset properties");
+      test ( json.contains("foam.mlang.predicate.True"), testId+" -- output properties set by factory");
+      test ( ! json.contains("priority:10"), testId+" -- output unset properties");
 
       // test outputting empty fobject property
       var user = new User();
@@ -82,18 +82,18 @@ foam.CLASS({
 
       testId = "OutputDefaultClassNames:true-OutputDefaultValues:false-EmptyFObjectProperty";
       json = testJSONFObjectFormatter(testId, user, true, false, user.getClassInfo());
-      test ( json.contains("address:{class:\\\"foam.core.auth.Address\\\"}"), testId+" should output empty fobject property");
+      test ( json.contains("address:{class:\\\"foam.core.auth.Address\\\"}"), testId+" -- output empty fobject property");
 
       testId = "OutputDefaultClassNames:false-OutputDefaultValues:false-EmptyFObjectProperty";
       json = testJSONFObjectFormatter(testId, user, false, false, user.getClassInfo());
-      test ( json.contains("address:{class:\\\"foam.core.auth.Address\\\"}"), testId+" should output empty fobject property");
+      test ( json.contains("address:{class:\\\"foam.core.auth.Address\\\"}"), testId+" -- output empty fobject property");
 
       // test outputting enum with custom javaCode
       testId = "EnumWithCustomJavaCode";
       var formatter = new JSONFObjectFormatter();
       formatter.output(foam.test.TestEnum.CUSTOM);
       json = formatter.builder().toString();
-      test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" should not output java anonymous class name: " + json);
+      test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" -- do not output java anonymous class name: " + json);
       `
     },
     {

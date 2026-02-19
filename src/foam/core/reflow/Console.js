@@ -796,15 +796,20 @@ foam.CLASS({
       flex: 0 0 auto;
       overflow-y: auto;
     }
-    ^middle-holder {
+    ^:not(^presentation_only, ^limit_edit) ^middle-holder {
       padding: 16px 16px 0 16px;
+    }
+    ^middle-holder {
+      padding: 0;
       width: 100%;
       background-color: $backgroundTertiary;
       overflow: auto;
       flex: 3 1 50%;
     }
-    ^m {
+    ^:not(^presentation_only, ^limit_edit) ^m {
       border: 2px dashed $borderLight;
+    }
+    ^m {
       overflow-x: auto;
       background-color: $backgroundDefault;
     }
@@ -814,7 +819,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
-    ^resize-handle {
+    ^:not(^presentation_only, ^limit_edit) ^resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
       background: $backgroundSecondary;
@@ -851,7 +856,7 @@ foam.CLASS({
       justify-content: space-between;
     }
     @media (min-width: /*%DISPLAYWIDTH.XL%*/ 1280px ) {
-      ^middle-holder {
+      ^:not(^presentation_only, ^limit_edit) ^middle-holder {
         padding: 24px 24px 0 24px;
       }
     }
@@ -1139,7 +1144,7 @@ foam.CLASS({
   extends: 'foam.u2.Controller',
 
   implements: [ 'foam.core.reflow.Flowable' ],
-  mixins: [ 'foam.u2.memento.Memorable' ],
+  mixins: [ { path: 'foam.u2.Router', priority: 200 } ],
 
   documentation: `
     If you want to embed FLOWs in regular U3 views without all of the editing UI, you can do it like this:
@@ -1429,10 +1434,20 @@ foam.CLASS({
         return foam.memento.MementoMgr.create({memento$: this.value.script$, position$: this.value.revision$});
       }
     },
+    {
+      name: 'viewTitle',
+      expression: function(value$label) {
+        return value$label;
+      }
+    },
     'flowErrors_'
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+    },
     function getAutosaveKey(scriptName) {
       // Include script name in the key to prevent tabs from overwriting each other
       // Handle unnamed scripts with a separate key
@@ -1554,11 +1569,6 @@ foam.CLASS({
       foam.u2.table.UnstyledTableView.SELECTED_COLUMN_NAMES.memorable = false;
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
-      // Add the Mode as a CSS Class so we can adjust stying based on the mode
-      this.addClass(this.flowMode$.map(m => {
-        this.myClass(m.toString());
-        this.showNav = m.forceNavHide ? false : this.showNav;
-      }));
 
       this.isMenuOpen = false;
       this.onDetach(() => {
@@ -1600,6 +1610,12 @@ foam.CLASS({
       this.value.script$.sub(this.onScriptChange);
       this.onScriptChange();
       var layout = this.start(this.Layout);
+
+      // Add the Mode as a CSS Class so we can adjust stying based on the mode
+      layout.addClass(this.flowMode$.map(m => {
+        this.showNav = m.forceNavHide ? false : this.showNav;
+        return layout.myClass(m.toString().toLowerCase());
+      }));
 
       layout.showLeft$   = this.showPrompts$;
       layout.showRight$  = this.showPrompts$;

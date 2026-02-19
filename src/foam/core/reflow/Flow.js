@@ -73,6 +73,14 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'label',
+      expression: function(name) {
+        return foam.String.labelize(name);
+      },
+      section: 'general',
+    },
+    {
+      class: 'String',
       name: 'limitedEditPermission',
       hidden: true,
       documentation: 'Permission id required to access limited-edit controls; hidden from standard UI.'

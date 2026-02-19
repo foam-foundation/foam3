@@ -796,7 +796,7 @@ foam.CLASS({
       flex: 0 0 auto;
       overflow-y: auto;
     }
-    ^:not(^presentation_only, ^limit_edit) ^middle-holder {
+    ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
       padding: 16px 16px 0 16px;
     }
     ^middle-holder {
@@ -806,7 +806,7 @@ foam.CLASS({
       overflow: auto;
       flex: 3 1 50%;
     }
-    ^:not(^presentation_only, ^limit_edit) ^m {
+    ^:not(^presentation_only, ^limit_edit, ^presentation) ^m {
       border: 2px dashed $borderLight;
     }
     ^m {
@@ -819,7 +819,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
-    ^:not(^presentation_only, ^limit_edit) ^resize-handle {
+    ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
       background: $backgroundSecondary;
@@ -856,7 +856,7 @@ foam.CLASS({
       justify-content: space-between;
     }
     @media (min-width: /*%DISPLAYWIDTH.XL%*/ 1280px ) {
-      ^:not(^presentation_only, ^limit_edit) ^middle-holder {
+      ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
         padding: 24px 24px 0 24px;
       }
     }

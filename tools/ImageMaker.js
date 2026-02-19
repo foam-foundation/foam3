@@ -10,7 +10,6 @@ exports.init = function() {
   X.imagedir = X.builddir + '/images';
   this.ensureDir(X.imagedir);
   // Collect image directories to process them in reverse order 
-  // Why Reverse: check exports.end (contains `this.copyDir(..)`)
   this.imageDirs = [];
 }
 
@@ -31,11 +30,7 @@ exports.end = function() {
   }
   
   this.verbose(`[Image Maker] Processing ${this.imageDirs.length} image directories in reverse order`);
-  
-  // Reverse the array so application directories are processed last
-  // That way if Application and FOAM have two images with same filename (e.g. export-icon.svg) then Application file will override FOAM image
-  // As opposed, to previously when FOAM images would overwrite Application images if name was same.
-  this.imageDirs.reverse().forEach(fn => {
+  this.imageDirs.forEach(fn => {
     this.log(`[Image Maker] Copying ${fn} to ${X.imagedir}`);
     this.copyDir(fn, X.imagedir);
   });

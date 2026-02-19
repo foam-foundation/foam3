@@ -23,6 +23,7 @@ foam.CLASS({
       this.testYYYYDDMMFormats(x);
       this.testDDMMMYYYYFormats(x);
       this.testUnixDateToStringFormat(x);
+      this.testJSDateToStringFormat(x);
       this.testDateTimeFormats(x);
       this.testFractionalSeconds(x);
       this.testParseDateString(x);
@@ -2313,6 +2314,139 @@ foam.CLASS({
         } catch (e) {
           x.test(false, `UnixDate-parseDateString Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
+      });
+    },
+
+    /**
+     * Test JavaScript Date.toString() format: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name)
+     * e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
+     */
+    function testJSDateToStringFormat(x) {
+      let parser = this.DateParser.create();
+
+      // Basic test cases with timezone offset and parenthesized timezone name
+      let basicCases = [
+        // -04:00 means 4 hours behind UTC, so UTC time is 4 hours later: 16+4 = 20
+        { input: 'Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)', year: 2026, month: 1, day: 19, hour: 20, minute: 20, second: 23 },
+        { input: 'Mon Jan 15 2025 12:30:45 GMT+0000 (Coordinated Universal Time)', year: 2025, month: 0, day: 15, hour: 12, minute: 30, second: 45 },
+        { input: 'Wed Dec 31 2025 23:59:59 GMT-0500 (Eastern Standard Time)', year: 2026, month: 0, day: 1, hour: 4, minute: 59, second: 59 },
+        // +05:30 means 5.5 hours ahead, UTC = 10:17:59 - 5:30 = 04:47:59
+        { input: 'Tue Apr 01 2025 10:17:59 GMT+0530 (India Standard Time)', year: 2025, month: 3, day: 1, hour: 4, minute: 47, second: 59 },
+        { input: 'Sat Jul 04 2025 09:15:00 GMT+0100 (British Summer Time)', year: 2025, month: 6, day: 4, hour: 8, minute: 15, second: 0 },
+        { input: 'Fri Nov 28 2025 18:00:00 GMT+0900 (Japan Standard Time)', year: 2025, month: 10, day: 28, hour: 9, minute: 0, second: 0 }
+      ];
+
+      basicCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `JSDate-Basic Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // GMT with no offset (bare)
+      let gmtBareCases = [
+        { input: 'Mon Jan 15 2025 12:30:45 GMT', year: 2025, month: 0, day: 15, hour: 12, minute: 30, second: 45 },
+        { input: 'Tue Apr 01 2025 05:17:59 GMT', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 }
+      ];
+
+      gmtBareCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `JSDate-GMTBare Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // GMT with parenthesized name but no offset
+      let gmtWithNameCases = [
+        { input: 'Mon Jan 15 2025 12:30:45 GMT (Greenwich Mean Time)', year: 2025, month: 0, day: 15, hour: 12, minute: 30, second: 45 }
+      ];
+
+      gmtWithNameCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `JSDate-GMTWithName Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Case insensitive
+      let caseInsensitiveCases = [
+        { input: 'thu feb 19 2026 16:20:23 gmt-0400 (Atlantic Standard Time)', year: 2026, month: 1, day: 19, hour: 20, minute: 20, second: 23 },
+        { input: 'THU FEB 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)', year: 2026, month: 1, day: 19, hour: 20, minute: 20, second: 23 }
+      ];
+
+      caseInsensitiveCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `JSDate-CaseInsensitive Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Single digit day
+      let singleDigitDayCases = [
+        { input: 'Tue Apr 1 2025 05:17:59 GMT+0000', year: 2025, month: 3, day: 1, hour: 5, minute: 17, second: 59 },
+        { input: 'Wed Jan 5 2025 10:30:00 GMT-0500 (Eastern Standard Time)', year: 2025, month: 0, day: 5, hour: 15, minute: 30, second: 0 }
+      ];
+
+      singleDigitDayCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `JSDate-SingleDigitDay Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // All days of week
+      let dayOfWeekCases = [
+        { input: 'Mon Jan 06 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 6, hour: 12, minute: 0, second: 0 },
+        { input: 'Tue Jan 07 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 7, hour: 12, minute: 0, second: 0 },
+        { input: 'Wed Jan 08 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 8, hour: 12, minute: 0, second: 0 },
+        { input: 'Thu Jan 09 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 9, hour: 12, minute: 0, second: 0 },
+        { input: 'Fri Jan 10 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 10, hour: 12, minute: 0, second: 0 },
+        { input: 'Sat Jan 11 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 11, hour: 12, minute: 0, second: 0 },
+        { input: 'Sun Jan 12 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 12, hour: 12, minute: 0, second: 0 }
+      ];
+
+      dayOfWeekCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second);
+        let testName = `JSDate-DayOfWeek Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // All months
+      let monthCases = [
+        { input: 'Wed Jan 01 2025 12:00:00 GMT+0000', year: 2025, month: 0, day: 1 },
+        { input: 'Sat Feb 01 2025 12:00:00 GMT+0000', year: 2025, month: 1, day: 1 },
+        { input: 'Sat Mar 01 2025 12:00:00 GMT+0000', year: 2025, month: 2, day: 1 },
+        { input: 'Tue Apr 01 2025 12:00:00 GMT+0000', year: 2025, month: 3, day: 1 },
+        { input: 'Thu May 01 2025 12:00:00 GMT+0000', year: 2025, month: 4, day: 1 },
+        { input: 'Sun Jun 01 2025 12:00:00 GMT+0000', year: 2025, month: 5, day: 1 },
+        { input: 'Tue Jul 01 2025 12:00:00 GMT+0000', year: 2025, month: 6, day: 1 },
+        { input: 'Fri Aug 01 2025 12:00:00 GMT+0000', year: 2025, month: 7, day: 1 },
+        { input: 'Mon Sep 01 2025 12:00:00 GMT+0000', year: 2025, month: 8, day: 1 },
+        { input: 'Wed Oct 01 2025 12:00:00 GMT+0000', year: 2025, month: 9, day: 1 },
+        { input: 'Sat Nov 01 2025 12:00:00 GMT+0000', year: 2025, month: 10, day: 1 },
+        { input: 'Mon Dec 01 2025 12:00:00 GMT+0000', year: 2025, month: 11, day: 1 }
+      ];
+
+      monthCases.forEach((testCase, i) => {
+        let result = this.testParseDTUTCWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, 12, 0, 0);
+        let testName = `JSDate-Month Test${i + 1}: ${testCase.input}`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
       });
     },
 

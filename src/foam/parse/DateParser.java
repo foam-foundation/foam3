@@ -395,6 +395,19 @@ public class DateParser {
   }
 
   /**
+   * Normalize JS timezone: Seq result [GMT_literal, optional_offset] to standard format.
+   * ['GMT', null] → 'Z', ['GMT', ['+', ['0','4','0','0']]] → '+0400'
+   */
+  private String normalizeJsTimezone(Object tz) {
+    if ( tz == null ) return "Z";
+    if ( ! (tz instanceof Object[]) ) return "Z";
+    Object[] arr = (Object[]) tz;
+    // arr = [GMT_literal, optional_offset]
+    if ( arr.length < 2 || arr[1] == null ) return "Z";
+    return flattenTimezone(arr[1]);
+  }
+
+  /**
    * Parse timezone string and return offset in minutes.
    * Z means UTC (0). +05:30 means +330 minutes.
    */
@@ -618,6 +631,7 @@ public class DateParser {
 
     // Date with month names - ALL completely unambiguous (contain letters!)
     grammar.addSymbol("date-monthname", new Alt(
+      grammar.sym("js-date-tostring"),   // JS Date.toString(): "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
       grammar.sym("unix-date-tostring"), // Unix/Java Date.toString(): "Tue Apr 01 05:17:59 GMT 2025"
       grammar.sym("mmmddyyyy-space"),    // MMM dd yyyy (e.g., Jan 02 2025)
       grammar.sym("ddmmmyyyy-space"),    // DD MMM YYYY (e.g., 15 JAN 2025)
@@ -1169,6 +1183,41 @@ public class DateParser {
       grammar.sym("dayFlexible"), Literal.create(" "), grammar.sym("month3alpha"), Literal.create(" "), grammar.sym("year4")
     ));
 
+    // JavaScript Date.toString() format: "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
+    // Format: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name)
+    grammar.addSymbol("js-date-tostring", new Seq(
+      grammar.sym("day3alpha"),           // Day name (ignored)
+      Literal.create(" "),
+      grammar.sym("month3alpha"),         // Month name
+      Literal.create(" "),
+      grammar.sym("dayFlexible"),         // Day of month
+      Literal.create(" "),
+      grammar.sym("year4"),               // Year (before time)
+      Literal.create(" "),
+      grammar.sym("hour2"),               // Hour
+      Literal.create(":"),
+      grammar.sym("minute2"),             // Minute
+      Literal.create(":"),
+      grammar.sym("second2"),             // Second
+      Literal.create(" "),
+      grammar.sym("jsTimezone"),          // GMT or GMT±HHMM
+      new Optional(new Seq(              // Optional (Timezone Name)
+        Literal.create(" "),
+        Literal.create("("),
+        new Repeat(new NotChars(")"), (Parser) null, 1),
+        Literal.create(")")
+      ))
+    ));
+
+    // JS timezone format: GMT optionally followed by ±HHMM offset
+    grammar.addSymbol("jsTimezone", new Seq(
+      new LiteralIC("GMT"),
+      new Optional(new Seq(
+        new Chars("+-"),
+        new Repeat(Range.create('0', '9'), null, 4, 4)
+      ))
+    ));
+
     // Unix/Java Date.toString() format: "Tue Apr 01 05:17:59 GMT 2025"
     // Format: DDD MMM DD HH:MM:SS TZ YYYY
     grammar.addSymbol("unix-date-tostring", new Seq(
@@ -1482,6 +1531,23 @@ public class DateParser {
         self.parseMonthName((String) v[2]),
         Integer.parseInt((String) v[0]),
         -1, -1, -1, -1, null);
+    });
+
+    // JS Date.toString() action: [DDD, ' ', MMM, ' ', DD, ' ', YYYY, ' ', HH, ':', MM, ':', SS, ' ', TZ, optional]
+    // Index mapping: 0=day_name, 1=' ', 2=month, 3=' ', 4=day, 5=' ', 6=year, 7=' ', 8=hour, 9=':', 10=min, 11=':', 12=sec, 13=' ', 14=tz, 15=optional
+    grammar.addAction("js-date-tostring", (val, x) -> {
+      Object[] v = (Object[]) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      String tz = self.normalizeJsTimezone(v[14]);
+      return self.buildDate(mode,
+        Integer.parseInt((String) v[6]),    // year
+        self.parseMonthName((String) v[2]), // month
+        Integer.parseInt((String) v[4]),    // day
+        Integer.parseInt((String) v[8]),    // hour
+        Integer.parseInt((String) v[10]),   // minute
+        Integer.parseInt((String) v[12]),   // second
+        -1,                                  // ms
+        tz);
     });
 
     // Unix/Java Date.toString() action: [DDD, ' ', MMM, ' ', DD, ' ', HH, ':', MM, ':', SS, ' ', TZ, ' ', YYYY]

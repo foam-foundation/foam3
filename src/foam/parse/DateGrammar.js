@@ -26,7 +26,7 @@ foam.CLASS({
   `,
 
   methods: [
-    function grammar(alt, anyChar, chars, literalIC, optional, range, repeat, seq, str, sym) {
+    function grammar(alt, anyChar, chars, literalIC, notChars, optional, range, repeat, seq, str, sym) {
       return {
         START: sym('dateOrDatetime'),
 
@@ -93,8 +93,10 @@ foam.CLASS({
         // DD MMM YYYY (with spaces)
         // Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY
         // NOTE: yyyyddmmmcompact must come BEFORE ddmmmyyyycompact to match correctly
-        // NOTE: unixdatetostring must come FIRST because it has the most specific pattern
+        // NOTE: jsdatetostring must come FIRST (year before time), then unixdatetostring
         datemonthname: alt(
+          // Support: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name) (e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)")
+          sym('jsdatetostring'),
           // Support: DDD MMM DD HH:MM:SS TZ YYYY (e.g., "Tue Apr 01 05:17:59 GMT 2025")
           sym('unixdatetostring'),
           // Support: MMM dd yyyy (e.g., Jan 02 2025)
@@ -543,6 +545,26 @@ foam.CLASS({
         // Supports single-digit days
         ddmmmyyyyspace: seq(
           sym('dayFlexible'), ' ', sym('month3alpha'), ' ', sym('year4')
+        ),
+
+        // JavaScript Date.toString() format: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name)
+        // e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
+        // The day name (Mon, Tue, etc.) is parsed but ignored for date construction
+        // Year comes BEFORE time (unlike Unix format), timezone is GMT fused with offset
+        jsdatetostring: seq(
+          sym('day3alpha'), ' ',      // Day name (ignored)
+          sym('month3alpha'), ' ',    // Month name
+          sym('dayFlexible'), ' ',    // Day of month (1-31 or 01-31)
+          sym('year4'), ' ',          // Year
+          sym('hour2'), ':', sym('minute2'), ':', sym('second2'), ' ',  // Time HH:MM:SS
+          sym('jsTimezone'),          // Timezone (GMT or GMT±HHMM)
+          optional(seq(' ', '(', str(repeat(notChars(')'), null, 1)), ')'))  // Optional (Timezone Name)
+        ),
+
+        // JS timezone format: GMT optionally followed by ±HHMM offset
+        jsTimezone: seq(
+          literalIC('GMT'),
+          optional(seq(chars('+-'), repeat(range('0', '9'), null, 4, 4)))
         ),
 
         // Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY

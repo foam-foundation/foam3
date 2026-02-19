@@ -561,6 +561,39 @@ foam.CLASS({
         -1, -1, -1, -1, null);
     },
 
+    // JavaScript Date.toString() format: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name)
+    // e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
+    // v = [DDD, ' ', MMM, ' ', DD, ' ', YYYY, ' ', HH, ':', MM, ':', SS, ' ', TZ, optional]
+    function jsdatetostringAction(v) {
+      // v[0] = day name (ignored)
+      // v[2] = month name
+      // v[4] = day
+      // v[6] = year
+      // v[8] = hour
+      // v[10] = minute
+      // v[12] = second
+      // v[14] = jsTimezone [GMT_literal, optional_offset]
+      var tz = this.normalizeJsTimezone(v[14]);
+      return this.buildDate(this.dateParseMode,
+        parseInt(v[6]),
+        this.parseMonthName(v[2]),
+        parseInt(v[4]),
+        parseInt(v[8]),
+        parseInt(v[10]),
+        parseInt(v[12]),
+        -1,
+        tz);
+    },
+
+    // Normalize JS timezone: ['GMT', ['+', ['0','4','0','0']]] → '+0400'
+    // or ['GMT', null] → 'Z'
+    function normalizeJsTimezone(tz) {
+      if ( ! tz || ! Array.isArray(tz) ) return 'Z';
+      var offset = tz[1]; // optional offset part
+      if ( ! offset ) return 'Z'; // Just "GMT" with no offset
+      return this.flattenTimezone(offset);
+    },
+
     // Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY
     // e.g., "Tue Apr 01 05:17:59 GMT 2025"
     // v = [DDD, ' ', MMM, ' ', DD, ' ', HH, ':', MM, ':', SS, ' ', TZ, ' ', YYYY]

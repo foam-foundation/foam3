@@ -78,7 +78,25 @@ foam.CLASS({
       test ( json.contains("foam.mlang.predicate.True"), testId+" should output properties set by factory");
       test ( ! json.contains("priority:10"), testId+" should output unset properties");
 
+      // test outputting empty fobject property
+      var user = new User();
+      user.setId(12345L);
+      user.setAddress(new Address()); // Empty address
 
+      testId = "OutputDefaultClassNames:true-OutputDefaultValues:false-EmptyFObjectProperty";
+      json = testJSONFObjectFormatter(testId, user, true, false, user.getClassInfo());
+      test ( json.contains("address:{class:\\\"foam.core.auth.Address\\\"}"), testId+" should output empty fobject property");
+
+      testId = "OutputDefaultClassNames:false-OutputDefaultValues:false-EmptyFObjectProperty";
+      json = testJSONFObjectFormatter(testId, user, false, false, user.getClassInfo());
+      test ( json.contains("address:{class:\\\"foam.core.auth.Address\\\"}"), testId+" should output empty fobject property");
+
+      // test outputting enum with custom javaCode
+      testId = "EnumWithCustomJavaCode";
+      formatter = new JSONFObjectFormatter();
+      formatter.output(foam.test.TestEnum.CUSTOM);
+      json = formatter.builder().toString();
+      test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" should not output java anonymous class name: " + json);
 
       if (true) return;
 
@@ -158,9 +176,9 @@ foam.CLASS({
       formatter = new JSONFObjectFormatter();
       formatter.setOutputDefaultClassNames(true);
 
-      var user = new User();
+      user = new User();
       user.setId(12345L);
-      user.setAddress(new Address()); // Empty/default address
+      user.setAddress(new Address()); // Empty address
       formatter.output(user);
       json = formatter.builder().toString();
       // Should contain address with at least the class

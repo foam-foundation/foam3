@@ -39,7 +39,7 @@ foam.CLASS({
     {
       name: 'valueView',
       expression: function(of) {
-        return { class: 'foam.u2.DetailView' };
+        return { class: 'foam.u2.detail.VerticalDetailView' };
         /*
         return {
           class: 'foam.u2.view.CollapseableDetailView',

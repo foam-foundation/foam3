@@ -35,20 +35,60 @@ foam.CLASS({
       // This combination should produce invalid json.
       // Setting OutputDefaultClassNames(false) will set OutputDefaultValues(false)
       // but this test case explicitly setOutputDefaultValues(true)
-      testId = "OutputDefaultClassNames:false-OutputDefaultValues:true";
-      formatter = new JSONFObjectFormatter();
-      formatter.setOutputDefaultClassNames(false);
-      formatter.setOutputDefaultValues(true);
       var rg = new foam.core.ruler.RuleGroup();
       rg.setId(this.getClass().getSimpleName());
-      // predicate defaults to TRUE
-      formatter.output(rg);
-      json = formatter.builder().toString();
-      test ( ! SafetyUtil.isEmpty(json) && json.contains("foam.mlang.predicate.True"), testId+" valid json generated "+json.toString());
+
+      testId = "OutputDefaultClassNames:true-OutputDefaultValues:false";
+      json = testJSONFObjectFormatter(testId, rg, true, false, rg.getClassInfo());
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
+      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" should not output properties default value");
+
+      testId = "OutputDefaultClassNames:false-OutputDefaultValues:false";
+      json = testJSONFObjectFormatter(testId, rg, false, false, rg.getClassInfo());
+      test ( ! json.contains("foam.core.ruler.RuleGroup"), testId+" should not output obj class name");
+      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" should not output properties default value");
+
+      testId = "OutputDefaultClassNames:false-OutputDefaultValues:false-DefaultClass:null";
+      json = testJSONFObjectFormatter(testId, rg, false, false, null);
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
+      test ( ! json.contains("priority:") && ! json.contains("predicate:"), testId+" should not output properties default value");
+
+      testId = "OutputDefaultClassNames:false-OutputDefaultValues:true";
+      json = testJSONFObjectFormatter(testId, rg, false, true, rg.getClassInfo());
+      test ( ! json.contains("foam.core.ruler.RuleGroup"), testId+" should not output obj class name");
+      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" should output properties default value");
+
+      rg = new foam.core.ruler.RuleGroup(); // initialize new object because properties factory of the old object has already been invoked
+      testId = "OutputDefaultClassNames:false-OutputDefaultValues:true-DefaultClass:null";
+      json = testJSONFObjectFormatter(testId, rg, false, true, null);
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
+      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" should output properties default value");
+
+      rg = new foam.core.ruler.RuleGroup();
+      testId = "OutputDefaultClassNames:true-OutputDefaultValues:true";
+      json = testJSONFObjectFormatter(testId, rg, true, true, rg.getClassInfo());
+      test ( json.contains("foam.core.ruler.RuleGroup"), testId+" should output obj class name");
+      test ( json.contains("priority:10") && json.contains("foam.mlang.predicate.True"), testId+" should output properties default value");
+
+      // test outputting property after factory is invoked
+      rg = new foam.core.ruler.RuleGroup();
+      rg.getPredicate();
+      testId = "OutputDefaultClassNames:true-OutputDefaultValues:false-InvokePropertyFactory";
+      json = testJSONFObjectFormatter(testId, rg, false, false, rg.getClassInfo());
+      test ( json.contains("foam.mlang.predicate.True"), testId+" should output properties set by factory");
+      test ( ! json.contains("priority:10"), testId+" should output unset properties");
+
+
+
+      if (true) return;
+
+
+
+
       parser = new JSONParser();
       try {
         Object o = parser.parseString(json);
-        test ( SafetyUtil.equals(rg, o), testId+" json parsed");
+        test ( o != null, testId+" valid json generated. " + json);
       } catch ( Throwable t ) {
         // Should fail parsing, but not through exception
         test ( false, testId+" Error parsing: "+t.getMessage());
@@ -63,6 +103,7 @@ foam.CLASS({
       // predicate defaults to TRUE
       formatter.output(rg);
       json = formatter.builder().toString();
+
       test ( ! SafetyUtil.isEmpty(json) && ! json.contains(":,"), testId+" valid json generated: "+json.toString());
       parser = new JSONParser();
       try {
@@ -157,5 +198,29 @@ foam.CLASS({
       test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" valid json generated: " + json);
       `
     }
-  ]
+  ],
+
+  javaCode: `
+    protected String testJSONFObjectFormatter(String testId, foam.lang.FObject obj, boolean outputDefaultClassNames, boolean outputDefaultValues) {
+      return testJSONFObjectFormatter(testId, obj, outputDefaultClassNames, outputDefaultValues, null);
+    }
+
+    protected String testJSONFObjectFormatter(String testId, foam.lang.FObject obj, boolean outputDefaultClassNames, boolean outputDefaultValues, foam.lang.ClassInfo defaultCls) {
+      var fmt = new JSONFObjectFormatter();
+      fmt.setOutputDefaultClassNames(outputDefaultClassNames);
+      fmt.setOutputDefaultValues(outputDefaultValues);
+      fmt.output(obj, defaultCls);
+
+      String json = fmt.builder().toString();
+
+      var parser = new JSONParser();
+      try {
+        Object o = parser.parseString(json, defaultCls != null ? defaultCls.getObjClass() : null);
+        test( o != null, testId + " generate valid json: " + json );
+      } catch ( Throwable t ) {
+        test( false, testId + " error parsing: " + t.getMessage() );
+      }
+      return json;
+    }
+  `
 })

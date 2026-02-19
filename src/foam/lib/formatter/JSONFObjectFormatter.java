@@ -213,10 +213,18 @@ public class JSONFObjectFormatter
       p.formatJSON(this, o);
 
       // handle empty property value output:
-      //   - for FObjectProperty returns empty json: {}
+      //   - for FObjectProperty returns {class:"..."}
       //   - Otherwise returns null
       if ( builder().length() == startLen ) {
-        append( p.get(o) instanceof FObject ? "{}" : "null" );
+        if ( p.get(o) instanceof FObject fo ) {
+          append('{');
+          outputKey("class");
+          append(':');
+          output(fo.getClassInfo());
+          append('}');
+        } else {
+          append("null");
+        }
       }
     } catch (Throwable t) {
       System.err.println("***************************************************** error outputting " + getPropertyName(p));
@@ -529,7 +537,7 @@ public class JSONFObjectFormatter
       if ( outputProp ) props++;
     }
 
-    if ( props > 0 || outputDefaultClassNames_ || outputDefaultValues_ ) {
+    if ( props > 0 || outputDefaultClassNames_ ) {
       addInnerNewline();
       append('}');
     } else {

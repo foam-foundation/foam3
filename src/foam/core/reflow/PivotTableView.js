@@ -25,11 +25,18 @@ foam.CLASS({
   ],
 
   css: `
+    ^tableWrapper {
+      width: 100%;
+      overflow: auto;
+      position: relative;
+      border: 1px solid $borderStrong;
+      max-height: 80vh;
+    }
     /* Base table styling */
     ^table {
-      border-collapse: collapse;
+      // Needed as otherwise there is jitter during scrolling with sticky rows 
+      border-collapse: separate;
       border-spacing: 0;
-      border: 1px solid $borderStrong;
     }
 
     /* Row styling */
@@ -42,7 +49,7 @@ foam.CLASS({
       text-align: center;
       padding: .8rem 1rem;
       transition: background-color 0.15s ease;
-      border: 1px solid $borderDefault;
+      box-shadow: inset -1px -1px 0 $borderLight;
     }
 
     /* Header cells */
@@ -68,12 +75,30 @@ foam.CLASS({
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
     }
+
+    ^sticky-headers th {
+      position: sticky;
+      z-index: 1;
+    }
+
+    ^sticky-headers tr[data-type="header-row"] th {
+      position: sticky;
+      z-index: 2;
+    }
+
+    ^sticky-headers tr:first-child th:first-child {
+      z-index: 100; 
+    }
   `,
 
   properties: [
     { name: 'currentHoverCol' },
     { name: 'currentHoverRow' },
-    { name: 'colIndexMap', documentation: 'flattened list of cols' }
+    { name: 'colIndexMap', documentation: 'flattened list of cols' },
+    { class: 'Boolean', name: 'renderComplete' },
+    { class: 'Array', name: 'rowHeightCache' },
+    { class: 'Array', name: 'colWidthCache' },
+    'table'
   ],
 
   methods: [
@@ -85,14 +110,23 @@ foam.CLASS({
       var rowsDict = this.makeDictionary(this.data.rows);
       // get cols from rows only returns the cols which actually have corresponding row data instead of using data cols
       var colsDict = colDepth > 0 ? this.getColsFromRows(this.data.rows, 0, {}, rowDepth, this.data.cols) : null;
-
-      var table = this.start('table').addClass(this.myClass('table'));
+      this
+        .addClass(this.myClass('tableWrapper'))
+        .enableClass(this.myClass('sticky-headers'), this.data$.dot('stickyHeaders'))
+        .resizeObserver(() => {
+          this.clearProperty('rowHeightCache');
+          this.clearProperty('colWidthCache');
+          this.applyOffsets();
+        });
+      var table = this.start('table', {}, this.table$).addClass(this.myClass('table'));
       this.renderColHeaders(table, colsDict, [], 0, rowDepth, colDepth);
       if ( ! this.data.rows ) 
         this.renderColVals(table, colsDict, colDepth);
       else
         this.renderRows(table, rowsDict, 0, rowDepth, colDepth);
       table.end();
+      this.renderComplete = true;
+      this.applyOffsets();
     },
 
     /**
@@ -108,8 +142,13 @@ foam.CLASS({
       if ( ! keyPrefix ) keyPrefix = '';
       var row;
       if ( rows.length < depth + 1 ) {
-        row = table.start('tr').addClass(this.myClass('tr'));
-        if ( depth == 0 && rowDepth && colDepth ) row.start('th').addClass(this.myClass('th')).attrs({ 'colspan' : rowDepth, 'rowspan' : colDepth }).add('').end();
+        row = table.start('tr').addClass(this.myClass('tr')).attrs({'data-type': 'header-row'});
+        if ( depth == 0 && rowDepth && colDepth ) row
+          .start('th')
+            .addClass(this.myClass('th'))
+            .attrs({ 'colspan' : rowDepth, 'rowspan' : colDepth, 'data-type': 'headers', 'data-vcol': 0, 'data-vrow': 0 })
+            .add('')
+          .end();
         rows.push(row);
       }
       row = rows[depth];
@@ -123,12 +162,13 @@ foam.CLASS({
           colSpans.push(childKeysSpan);
         });
       }
+      let vCol = rowDepth + 0;
       for ( var i = 0; i < keys.length; i++ ) {
         var colSpan = hasChildren ? colSpans[i] : 1;
         const key = keyPrefix + keys[i];
-        this.renderCell(rows[depth], 'th', { 'colspan' : colSpan  }, keys[i], key, null);
+        this.renderCell(rows[depth], 'th', { 'colspan' : colSpan, 'data-type': 'headers', 'data-vcol': vCol, 'data-vrow': depth }, keys[i], key, null);
+        vCol = vCol + colSpan;
         if ( depth == colDepth - 1 ) this.colIndexMap.push(key);
-
       }
       if ( depth === 0 ) rows.forEach(r => r.end());
       return hasChildren ? 
@@ -150,6 +190,8 @@ foam.CLASS({
       }
       var rowSpans = [];
       var retData = { rowSpan: 1, row: null };
+      let vRow = rowDepth;
+      let vCol = currDepth;
       for ( var i = 0; i < rowKeys.length; i++ ) {
         const key = prefix + rowKeys[i];
         // rendering header cell with children
@@ -157,7 +199,7 @@ foam.CLASS({
           var ret = this.renderRows(table, rows[rowKeys[i]], currDepth + 1, rowDepth, colDepth, key);
           if ( ret.row ) {
             var el = foam.u2.Element.create({nodeName: 'th'});
-            el.attrs({ 'rowspan' : ret.rowSpan })
+            el.attrs({ 'rowspan' : ret.rowSpan, 'data-vcol': vCol, 'data-vrow': vRow })
               .addClass(this.myClass('th'))
               .add(rowKeys[i])
               .on('mouseover', () => this.onCellMouseOver(null, key))
@@ -167,10 +209,11 @@ foam.CLASS({
             if ( i == 0 ) retData.row = ret.row;
           }
           rowSpans.push(ret.rowSpan);
+          vRow += ret.rowSpan
         } else {
           // rendering childless header with row of values
           var row = table.start('tr').addClass(this.myClass('tr'))
-          this.renderCell(row, 'th', {}, rowKeys[i], null, key);
+          this.renderCell(row, 'th', { 'data-vcol': vCol, 'data-vrow': vRow }, rowKeys[i], null, key);
           if ( this.colIndexMap?.length ) {
             // case: table has columns
             // get flattened map of column keys and values 
@@ -186,6 +229,7 @@ foam.CLASS({
           row.end();
           if ( i == 0 ) retData.row = row;
           rowSpans.push(1);
+          vRow++;
         } 
       }
       retData.rowSpan = rowSpans.reduce((x, y) => x + y, 0);
@@ -288,6 +332,65 @@ foam.CLASS({
     function onCellMouseLeave() {
       this.currentHoverCol = undefined;
       this.currentHoverRow = undefined;
+    }
+  ],
+  listeners: [
+    {
+      name: 'applyOffsets',
+      isFramed: true,
+      on: ['data.propertyChange.stickyHeaders'],
+      code: function applyOffsets() {
+        if ( ! this.renderComplete ) return;
+
+        const table = this.table.el_();
+        const thElements = table.querySelectorAll('th');
+
+        if ( ! this.data.stickyHeaders ) {
+          thElements.forEach(th => {
+            if (th.closest('tr[data-type="header-row"]')) {
+              th.style.top = 'unset';
+            } else {
+              th.style.left = 'unset';
+            }
+          })
+        }
+
+        const rows = table.rows;
+        let firstNonHeaderRow = Array.from(rows).find(r => r.dataset.type !== 'header-row')
+
+        const rowHeights = this.rowHeightCache.length ? 
+                           this.rowHeightCache : 
+                           Array.from(rows).map(row => row.getBoundingClientRect().height);
+
+        // We only check the first row's cells to get the base widths
+        const colWidths = this.colWidthCache || [];
+        if ( ! colWidths.length ) {
+          Array.from(firstNonHeaderRow.cells).forEach((cell, idx) => {
+            // Width per visual slot (handling colspan)
+            const unitWidth = cell.offsetWidth / (cell.colSpan || 1);
+            const vCol = parseInt(cell.dataset.vcol);
+            for (let i = 0; i < (cell.colSpan || 1); i++) {
+              colWidths[vCol + i] = unitWidth;
+            }
+          });
+        }
+
+        thElements.forEach(th => {
+          const vCol = parseInt(th.dataset.vcol);
+          const vRow = parseInt(th.dataset.vrow);
+
+          // Summing offsets using slice/reduce (very fast for table scales)
+          const leftOffset = colWidths.slice(0, vCol).reduce((a, b) => a + b, 0);
+          const topOffset = rowHeights.slice(0, vRow).reduce((a, b) => a + b, 0);
+
+          // Vertical Stickiness (Header)
+          if (th.closest('tr[data-type="header-row"]')) {
+            th.style.top = `${topOffset}px`;
+          } else {
+            th.style.left = `${leftOffset}px`;
+          }
+        });
+      }
     }
   ]
 });

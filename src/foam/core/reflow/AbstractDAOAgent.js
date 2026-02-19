@@ -758,6 +758,13 @@ foam.CLASS({
         choice: 'foam.core.reflow.CountDAOAgent',
         disabledTypes: [ 'structure', 'format' ]
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'stickyHeaders',
+      label: 'Freeze Headers',
+      view: { class: 'foam.u2.Switch' },
+      value: true
     }
   ],
 
@@ -770,11 +777,12 @@ foam.CLASS({
       return this.Pivot.create({
         yFunc: xProps,
         xFunc: yProps,
-        acc:   this.sink.createSink()
+        acc:   this.sink.createSink(),
+        stickyHeaders: this.stickyHeaders
       });
     },
     function addToE(e) {
-      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.X_PROPS, this.Y_PROPS, this.SINK);
+      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.X_PROPS, this.Y_PROPS, this.SINK, this.STICKY_HEADERS.__);
     }
   ]
 });

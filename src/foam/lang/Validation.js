@@ -170,13 +170,6 @@ foam.CLASS({
       name: 'validateObj'
     },
     {
-      name: 'isDefaultValueValid',
-      class: 'Boolean',
-      factory: function() {
-        return this.hasOwnProperty('value');
-      }
-    },
-    {
       name: 'internalValidateObj',
       factory: function() {
         var name     = this.name;
@@ -190,7 +183,7 @@ foam.CLASS({
           var args = foam.Array.unique(vps.map(vp => vp.args).flat());
 
           return [args, function() {
-            if ( required && ! self.isDefaultValueValid && self.isDefaultValue(this[name]) ) {
+            if ( required && self.isDefaultValue(this[name]) ) {
               return self.REQUIRED;
             }
             // let err = null;
@@ -205,23 +198,11 @@ foam.CLASS({
 
         return ! required ? null : [[name],
           function() {
-            // const axiom = this.cls_.getAxiomByName(name);
-            return ! self.isDefaultValueValid && self.isDefaultValue(this[name]) && self.REQUIRED;
+            const axiom = this.cls_.getAxiomByName(name);
+            return axiom.isDefaultValue(this[name]) && self.REQUIRED;
             // TODO: normalise all reqired-esque predicates to use the same message, currently split between "<prop> required" and "Please enter <prop>"
           }];
       }
-    }
-  ]
-});
-
-foam.CLASS({
-  package: 'foam.lang',
-  name: 'StringPropertyValidationRefinement',
-  refines: 'foam.lang.Enum',
-  properties: [
-    {
-      name: 'isDefaultValueValid',
-      // factory: function() { return true; }
     }
   ]
 });

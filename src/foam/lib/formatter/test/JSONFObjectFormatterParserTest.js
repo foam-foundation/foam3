@@ -73,7 +73,7 @@ foam.CLASS({
       testId = "OutputDefaultClassNames:true-OutputDefaultValues:false-InvokePropertyFactory";
       json = testJSONFObjectFormatter(testId, rg, false, false, rg.getClassInfo());
       test ( json.contains("foam.mlang.predicate.True"), testId+" -- output properties set by factory");
-      test ( ! json.contains("priority:10"), testId+" -- output unset properties");
+      test ( ! json.contains("priority:10"), testId+" -- do not output unset properties");
 
       // test outputting empty fobject property
       var user = new User();

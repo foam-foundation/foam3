@@ -54,8 +54,9 @@ foam.CLASS({
       name: 'confirm',
       buttonStyle: 'PRIMARY',
       code: async function(X) {
-        await this.primaryAction && this.primaryAction.maybeCall(X, this.data);
-        X.closeDialog();
+        return await this.primaryAction?.maybeCall(X, this.data).then(() => {
+          X.closeDialog();
+        });
       }
     },
     {

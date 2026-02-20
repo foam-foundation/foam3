@@ -74,7 +74,7 @@ foam.CLASS({
         return Array.isArray(propertyData) ? propertyData.length > 0 : propertyData;
       },
       code: async function(X) {
-        await this.primaryAction && this.primaryAction.maybeCall(X, this.data);
+        await this.primaryAction?.maybeCall(X, this.data);
         X.closeDialog();
       }
     }

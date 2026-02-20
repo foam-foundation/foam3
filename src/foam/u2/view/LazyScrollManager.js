@@ -53,7 +53,13 @@ foam.CLASS({
       justify-content: center;
       align-items: center;
     }
+
+    ^table-page {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 2400px; // Approx initial page height
+    }
   `,
+  topics: ['pageLoading'],
 
   properties: [
     {
@@ -110,11 +116,11 @@ foam.CLASS({
       memorable: true,
       documentation: 'Stores the index top row that is currently displayed in the table',
       postSet: function(o, n) {
-        if ( this.scrollToIndex || o == n ) return;
-        var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
-        if ( n < o && n1 <= 1 && n1 < 1 - this.MIN_PAGE_PROGRESS ) {
-          this.currentTopPage_ --;
-        }
+        // if ( this.scrollToIndex || o == n ) return;
+        // var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
+        // if ( n < o && n1 <= 1 && n1 < 1 - this.MIN_PAGE_PROGRESS ) {
+        //   this.currentTopPage_ --;
+        // }
       }
     },
     {
@@ -122,11 +128,11 @@ foam.CLASS({
       name: 'bottomRow',
       documentation: 'Stores the index of last row that is currently displayed in the table',
       postSet: function(o, n) {
-        if ( this.scrollToIndex || o == n ) return;
-        var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
-        if ( n > o && n1 >= this.NUM_PAGES_TO_RENDER - 2 && n1%1 >= this.MIN_PAGE_PROGRESS ) {
-          this.currentTopPage_++;
-        }
+        // if ( this.scrollToIndex || o == n ) return;
+        // var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
+        // if ( n > o && n1 >= this.NUM_PAGES_TO_RENDER - 2 && n1%1 >= this.MIN_PAGE_PROGRESS ) {
+        //   this.currentTopPage_++;
+        // }
       }
     },
     {
@@ -222,7 +228,16 @@ foam.CLASS({
       documentation: 'Tracks the first page where each group appears to ensure headers show only once',
       factory: function() { return {}; }
     },
-    ['suspendObserver', false]
+    ['suspendObserver', false],
+    {
+      name: 'seenPages',
+      class: 'Map'
+    },
+    { 
+      name: 'visibleRows', 
+      factory: function() { return new Set(); }
+    },
+    'lastScrollTop'
   ],
 
   methods: [
@@ -245,7 +260,7 @@ foam.CLASS({
       let options = {
         root: root ?? null,
         rootMargin: `-${this.offsetTop}px 0px 0px`,
-        threshold: [0, 0.25, 0.5, 0.75]
+        threshold: [0.1, 0.99]
       };
 
       // defer till after atleast one page has been loaded in order
@@ -318,12 +333,46 @@ foam.CLASS({
       ! opt_skipObserver && this.renderedPages_[page].childNodes?.forEach((e) => {
         if ( e.el_() )
           this.rowObserver.unobserve(e.el_());
-      })
-      this.renderedPages_[page].remove();
+      });
+      let el = this.seenPages[page] = this.renderedPages_[page];
+      let height = el.element_.offsetHeight;
+      this.seenPages[page].style({ height: height });
+      el.removeAllChildren();
       delete this.renderedPages_[page];
     },
 
+    function renderPageWrapper(page) {
+      let self = this;
+      if ( self.renderedPages_[page] ) {
+        console.warn('Trying to overwrite a loaded page without clearing....Clearing page');
+        this.clearPage(page)
+      }
+      let oldPage = this.seenPages[page];
+      oldPage?.style({ height: 'auto' });
+      var e = oldPage ?? this.E().addClass(self.myClass('table-page')).attr('data-page', page);
+      e.el().then(el => {
+        self.rowObserver.observe(el);
+      })
+      let isSet = false;
+      if ( ! oldPage ) {
+        if ( Object.keys(self.renderedPages_).length ) {
+          for ( let j = page; j < Object.keys(self.renderedPages_) && ! isSet; j++) {
+            if ( self.renderedPages_[j+1] ) {
+              console.log("inserting at", j+1, page);
+              this.appendTo.insertBefore(e, self.renderedPages_[j+1]);
+              isSet = true;
+            }
+          }
+        }
+        console.log("inserting at end", page);
+        if ( ! isSet ) { this.appendTo.add(e); isSet = true; }
+      }
+      self.renderedPages_[page] = e;
+      return e;
+    },
+
     function getPage(dao, page) {
+      console.log('getting page', page);
       var self       = this;
       var proxy      = this.ProxyDAO.create({ delegate: dao });
       var sortParams = [];
@@ -338,7 +387,7 @@ foam.CLASS({
       self.loadingPages_$set(page);
 
       let promise = this.prepDAO(proxy, this.ctx);
-      var e       = this.E().attr('data-page', page);
+      let e = this.renderPageWrapper(page);
 
       return promise.then(values => {
         function populateRows(args) {
@@ -364,12 +413,18 @@ foam.CLASS({
             }
 
             if ( showHeader ) {
-              e.tag(self.groupHeaderView,
+              e.start(self.groupHeaderView,
                 { ...args,
                   groupLabel: group,
                   groupBy: self.groupBy,
                 }
-              );
+              )
+                // Add index of the next row to the group as well for the intersection observer
+                .attr('data-idx', index)
+                .call(function() {
+                  self.rowObserver.observe(this.element_)
+                })
+              .end();
             }
 
             previousGroup = group;
@@ -396,32 +451,8 @@ foam.CLASS({
           }
         }
 
-        var isSet = false;
-        if ( self.renderedPages_[page] ) {
-          console.warn('Trying to overwrite a loaded page without clearing....Clearing page');
-          this.clearPage(page)
-        }
-
-        Object.keys(self.renderedPages_).forEach(j => {
-          if ( j > page && self.renderedPages_[j] && ! isSet ) {
-            this.appendTo.insertBefore(e, self.renderedPages_[j]);
-            isSet = true;
-            // TODO: Figure out why scrolling to the top causes you to go to first page
-          }
-        });
-
-        if ( ! isSet ) { this.appendTo.add(e); isSet = true; }
-
-        self.renderedPages_[page] = e;
-        // self.loadingPages_[page]  = false;
         self.loadingPages_$remove(page);
-
-        // If there is a scroll in progress and all pages have been loaded, try to scroll again
-        if ( this.scrollToIndex && Object.keys(this.renderedPages_).length == Math.min(this.NUM_PAGES_TO_RENDER, this.numPages_) )
-          self.safeScroll();
-
         this.dataLatch.resolve();
-        if ( this.displayedRowCount_ < 0 ) this.bottomRow = this.daoCount
       });
     },
 
@@ -473,8 +504,10 @@ foam.CLASS({
         this.rowObserver?.disconnect();
         // Don't clear loadingPages_ here since they are being
         // loaded and will have latest data anyway
-        Object.keys(this.renderedPages_).forEach(i => {
-          this.clearPage(i, true);
+        Object.keys(this.seenPages).forEach(i => {
+          if ( this.renderedPages_[i] ) this.clearPage(i, true); 
+          this.seenPages[i]?.remove();
+          delete this.seenPages[i];
         });
         // Clear group first page tracking
         this.groupFirstPage_ = {};
@@ -482,6 +515,7 @@ foam.CLASS({
           this.currentTopPage_ = 0;
           this.topRow = 0;
           this.bottomRow = 0;
+          this.pageHeights = {}
         }
         this.isInit = false;
         this.updateRenderedPages_();
@@ -515,6 +549,7 @@ foam.CLASS({
         // If grouping is enabled, process pages sequentially to maintain group order
         // Otherwise, process in parallel for better performance
         this.suspendObserver = true;
+        this.pageLoading.pub('started');
         let promise = Promise.resolve();
         if ( this.groupBy ) {
           promise = this.processPageSequentially_(0);
@@ -536,66 +571,92 @@ foam.CLASS({
           }
         }
         promise.finally(() => {
+          // If pages are still loading (can happen if current page changes multiple times) just return
+          if ( Object.keys(this.loadingPages_).length ) return;
           Object.keys(this.renderedPages_).forEach(i => {
             if ( (i >= this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < this.currentTopPage_ ) {
               this.clearPage(i);
             }
           });
-          // Wait to delete pages to fix scroll jumping and causing issues
-          // this.rootElement.addEventListener('scroll', this.onScrollEnd);  
-          if ( ! this.scrollToIndex ) {
-            this.scrollToIndex = this.topRow;
-            this.suspendObserver = false;
-          } else {
-            this.suspendObserver = false;
+          this.suspendObserver = false;
+          if ( this.scrollToIndex )
             this.safeScroll();
-          }
+          if ( this.displayedRowCount_ < 0 ) this.bottomRow = this.daoCount;
+          this.pageLoading.pub('finished');
         })
       }
     },
-    // {
-    //   name: 'onScrollEnd',
-    //   isIdled: true,
-    //   delay: 200,
-    //   code: function() {
-    //     // Remove any pages that are no longer on screen to save on
-    //     // the amount of DOM we add to the page.
-        
-    //     this.removeEventListener('scroll', this.onScrollEnd);
-    //   }
-    // },
     {
       name: 'onRowIntersect',
-      isFramed: true,
+      // isFramed: true,
       code: function(entries, self){
         let intersectingSet = false;
-        entries.forEach((entry) => {
+        // const currentST = this.container.scrollTop;
+        // const isScrollingDown = currentST > this.lastScrollTop;
+        let pages = [];
+        let rows = [];
+        entries.reduce((acc,v) => {
+          var index = Number(v.target.dataset.idx);
+          if ( index ) {
+            acc.push(v);
+          } else {
+            pages.push(v);
+          }
+          return acc;
+        }, rows);
+        rows.forEach((entry) => {
           if ( entry.intersectionRatio == 0 ) return;
           intersectingSet = true;
           if ( self.suspendObserver && self.scrollToIndex ) return;
-          var index = Number(entry.target.dataset.idx);
+          let index = Number(entry.target.dataset.idx);
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
-            if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) <= entry.rootBounds.top )
-              index += 1;
+            // if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) <= entry.rootBounds.top )
+            //   index += 1;
 
             self.topRow = index;
           } else if( entry.boundingClientRect.bottom >= entry.rootBounds.bottom ) {
-            if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) >= entry.rootBounds.bottom )
-              index -= 1;
+            // if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) >= entry.rootBounds.bottom )
+            //   index -= 1;
 
             if ( index > 0 )
               self.bottomRow = index;
           }
         });
+        pages.forEach(v => {
+          if ( self.suspendObserver && self.scrollToIndex ) return;
+          if ( ! v.isIntersecting ) return;
+          // Re-get to ensure latest data
+          const { top, height } = entry.target.getBoundingClientRect();
+          const rootTop  = entry.rootBounds.top;
+          // let visibleTop = 
+          let progress = (Math.abs(top) / height) * 100;
+          let pageNo = Number(v.target.dataset.page);
+          let lowestAllowedCount = (Math.max(0, pageNo - 1) * self.pageSize_);
+          let maxAllowedCount = (Math.min(self.numPages_, pageNo + 1) * self.pageSize_);
+          let oldScroll = self.rootElement.el_().scrollTop;
+          if ( self.topRow > maxAllowedCount || self.bottomRow < lowestAllowedCount ) {
+            // Implies a scroll up so fast that the observer missed it
+            console.log("forcing page", pageNo, oldScroll);
+            self.pageLoading.sub('finished', foam.events.oneTime(() => {
+              if ( self.currentTopPage_ !== pageNo - 1 ) return;
+              console.log("scrolling to", oldScroll);
+              this.rootElement.el_().scrollTop = oldScroll;
+            }))
+            self.currentTopPage_ = pageNo - 1;
+          } 
+          // else if ( self.bottomRow < lowestAllowedCount ) {
+          //   // Implies a scroll down so fast that the observer missed it
+          //   self.currentTopPage_ = pageNo - 1;
+          //   self.pageLoading.sub('finished', foam.events.oneTime(() => {
+          //     self.scrollView(oldScroll);
+          //   }))
+          // }
+        })
 
-        if ( ! intersectingSet ) return
-        // Only applicable for grouped lists as group headers would be the ones intersecting and the "topRow" would eval to 0 in the code above
-        if ( ! self.topRow && entries.length ) {
-          self.topRow = entries[0].target.dataset.idx;
-        }
+        if ( ! intersectingSet ) return;
 
         if ( ! self.bottomRow && self.displayedRowCount_ <= 0 )
-          self.bottomRow = self.pageSize_ > entries.length ? entries.length : self.pageSize_;
+          self.bottomRow = self.pageSize_ > rows.length ? rows.length : self.pageSize_;
       }
     }
   ],

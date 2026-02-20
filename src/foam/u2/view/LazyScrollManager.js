@@ -701,14 +701,20 @@ foam.CLASS({
           if ( accumulated + pageH >= scrollBottom ) {
             var offsetInPage = scrollBottom - accumulated;
             this.bottomRow = Math.min(this.daoCount, pageStartRow + Math.ceil(offsetInPage / rowH) - 1);
-            return;
+            break;
           }
 
           accumulated += pageH;
         }
 
         if ( ! topFound ) this.topRow = 1;
-        this.bottomRow = this.daoCount;
+        if ( accumulated < scrollBottom ) this.bottomRow = this.daoCount;
+
+        // Fast scroll detection: if viewport is over unloaded pages, load them
+        var viewportPage = this.getViewportPage_();
+        if ( ! this.renderedPages_[viewportPage] && ! this.loadingPages_[viewportPage] ) {
+          this.scrollToIndex = this.topRow;
+        }
       }
     }
   ],

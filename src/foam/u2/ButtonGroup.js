@@ -194,7 +194,7 @@ foam.CLASS({
         children.forEach((child, idx) => {
           if ( ! this.childWidths[child.$UID] ) return;
           let el = this.childWidths[child.$UID]?.el;
-          let act = el.action;
+          let act = this.ActionReference.create({ action$: el.action$, data$: el.data$ });
           if ( idx < visibleCount ) {
             el.show();
           } else {

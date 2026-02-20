@@ -26,22 +26,6 @@ foam.CLASS({
 
   imports: ['config'],
 
-  constants: [
-    {
-      type: 'Float',
-      name: 'MIN_PAGE_PROGRESS',
-      documentation: `
-       If the top or bottom page is scrolled by this amount update the currentTopPage_ accordingly
-      `,
-      value: 0.25
-    },
-    {
-      type: 'Integer',
-      name: 'NUM_PAGES_TO_RENDER',
-      value: 3
-    }
-  ],
-
   messages: [
     { name: 'NO_DATA', message: 'No ${modelName} found', template: true }
   ],
@@ -67,32 +51,22 @@ foam.CLASS({
     {
       type: 'Int',
       name: 'pageSize_',
-      // Used to prevent extra large datasets being requested as it caused chrome to crash
       max: 1000,
       factory: function() { return this.pageSize; },
-      documentation: 'The number of items in each "page". There are three pages.'
+      documentation: 'The number of items in each page.'
     },
     {
       type: 'Int',
       name: 'pageSize',
-      // Used to prevent extra large datasets being requested as it caused chrome to crash
       max: 1000,
       value: 50,
-      documentation: 'The number of items in each "page". There are three pages.'
+      documentation: 'The number of items in each page.'
     },
     {
       class: 'Int',
       name: 'numPages_',
       expression: function(daoCount, pageSize_) {
         return Math.ceil(daoCount / pageSize_);
-      }
-    },
-    {
-      class: 'Int',
-      name: 'currentTopPage_',
-      factory: function() { return 0; },
-      preSet: function(o, n) {
-        return foam.Number.clamp(0, n, this.numPages_ - this.NUM_PAGES_TO_RENDER );
       }
     },
     {
@@ -108,43 +82,28 @@ foam.CLASS({
       class: 'Int',
       name: 'topRow',
       memorable: true,
-      documentation: 'Stores the index top row that is currently displayed in the table',
-      postSet: function(o, n) {
-        if ( this.scrollToIndex || o == n ) return;
-        var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
-        if ( n < o && n1 <= 1 && n1 < 1 - this.MIN_PAGE_PROGRESS ) {
-          this.currentTopPage_ --;
-        }
-      }
+      documentation: 'Stores the index top row that is currently displayed in the table'
     },
     {
       class: 'Int',
       name: 'bottomRow',
-      documentation: 'Stores the index of last row that is currently displayed in the table',
-      postSet: function(o, n) {
-        if ( this.scrollToIndex || o == n ) return;
-        var n1 = (n-(this.currentTopPage_*this.pageSize_))/this.pageSize_;
-        if ( n > o && n1 >= this.NUM_PAGES_TO_RENDER - 2 && n1%1 >= this.MIN_PAGE_PROGRESS ) {
-          this.currentTopPage_++;
-        }
-      }
+      documentation: 'Stores the index of last row that is currently displayed in the table'
     },
     {
       class: 'Float',
       name: 'displayedRowCount_',
       documentation: 'Stores the number of rows that are currently displayed in the div height',
       expression: function(topRow, bottomRow) {
-        return topRow && bottomRow ? bottomRow - topRow : 0;
+        return bottomRow > topRow ? bottomRow - topRow : 0;
       }
     },
     {
       class: 'Int',
       name: 'scrollToIndex',
-      postSet: function () { 
-          this.safeScroll(); 
+      postSet: function () {
+          this.safeScroll();
       }
     },
-    'rowObserver',
     {
       name: 'rootElement',
       documentation: 'FOAM element that is used as the observation bounds for intersectionManager'
@@ -222,7 +181,50 @@ foam.CLASS({
       documentation: 'Tracks the first page where each group appears to ensure headers show only once',
       factory: function() { return {}; }
     },
-    ['suspendObserver', false]
+    {
+      class: 'Map',
+      name: 'pageHeights_',
+      documentation: 'Cache of measured pixel heights per page number',
+      factory: function() { return {}; }
+    },
+    {
+      class: 'Float',
+      name: 'estimatedRowHeight_',
+      value: 48,
+      documentation: 'Rolling average row height for estimating unloaded page heights'
+    },
+    {
+      class: 'Int',
+      name: 'totalMeasuredRows_',
+      documentation: 'Total number of rows measured so far, used for rolling average'
+    },
+    {
+      class: 'Float',
+      name: 'totalMeasuredHeight_',
+      documentation: 'Total measured height in pixels, used for rolling average'
+    },
+    {
+      class: 'Int',
+      name: 'firstLoadedPage_',
+      documentation: 'Index of the first currently rendered page'
+    },
+    {
+      class: 'Int',
+      name: 'lastLoadedPage_',
+      value: -1,
+      documentation: 'Index of the last currently rendered page. -1 means no pages loaded.'
+    },
+    {
+      class: 'Int',
+      name: 'overscan',
+      value: 1,
+      documentation: 'Number of extra pages to keep rendered beyond the viewport in each direction'
+    },
+    'topSpacer_',
+    'bottomSpacer_',
+    'topSentinel_',
+    'bottomSentinel_',
+    'sentinelObserver_'
   ],
 
   methods: [
@@ -233,54 +235,57 @@ foam.CLASS({
         }
       })));
       this.updateCount();
-      this.dataLoading = false;
+      this.daoLoading = false;
     },
 
     async function render() {
       this.appendTo.id = 'id' + this.$UID;
 
       var self = this;
-      var resize = new ResizeObserver (this.checkPageSize_);
-      let root = await this.rootElement.el()
-      let options = {
-        root: root ?? null,
-        rootMargin: `-${this.offsetTop}px 0px 0px`,
-        threshold: [0, 0.25, 0.5, 0.75]
-      };
+      var root = await this.rootElement.el();
 
-      // defer till after atleast one page has been loaded in order
-      // to ensure correct value for displayedRowCount_
-      this.dataLatch.then(() => {
-        this.rootElement?.el().then(el => {
-          resize.observe(el);
-        })
-      })
-      // Render empty view if dao is empty
-      // Change to dynamic after U3
+      this.topSpacer_      = this.E('div').style({ height: '0px' });
+      this.topSentinel_    = this.E('div').style({ height: '1px', width: '100%' });
+      this.bottomSentinel_ = this.E('div').style({ height: '1px', width: '100%' });
+      this.bottomSpacer_   = this.E('div').style({ height: '0px' });
+
+      this.appendTo.add(this.topSpacer_);
+      this.appendTo.add(this.topSentinel_);
+      this.appendTo.add(this.bottomSentinel_);
+      this.appendTo.add(this.bottomSpacer_);
+
+      // Empty state / loading spinner
       this.appendTo.add(this.slot(function(daoCount, isInit, daoLoading) {
-        if (daoLoading) {
+        if ( daoLoading ) {
           return this.E().addClass(self.myClass('no-data'))
-          .tag(this.LoadingSpinner, { size: 48 });
+            .tag(self.LoadingSpinner, { size: 48 });
         }
         if ( isInit || daoCount ) return;
         return this.E().addClass(self.myClass('no-data'))
           .add(self.NO_DATA({ modelName: self.config?.emptyLabel ?? 'Data' }));
       }));
 
-      this.rowObserver = new IntersectionObserver(handleIntersect, options);
-      // This needs to be here because intersectionObserver does not bind the correct this during callback
-      function handleIntersect(entries, observer) {
-        self.onRowIntersect(entries, self);
+      var options = {
+        root: root ?? null,
+        rootMargin: this.offsetTop + 'px 0px 200px 0px',
+        threshold: [0]
+      };
+      this.sentinelObserver_ = new IntersectionObserver(function(entries) {
+        self.onSentinelIntersect(entries);
+      }, options);
+
+      this.topSentinel_.el().then(function(el) { if ( el ) self.sentinelObserver_.observe(el); });
+      this.bottomSentinel_.el().then(function(el) { if ( el ) self.sentinelObserver_.observe(el); });
+
+      if ( root ) {
+        root.addEventListener('scroll', this.onScroll, { passive: true });
+        this.onDetach(function() { root.removeEventListener('scroll', self.onScroll); });
       }
-      this.onDetach(() => {
-        // might already be disconnected
-        try { resize.disconnect(); } catch(x) {}
+
+      this.onDetach(function() {
+        try { self.sentinelObserver_.disconnect(); } catch (x) {}
       });
-      this.onDetach(() => {
-        // might already be disconnected
-        try { this.rowObserver.disconnect(); } catch(x) {}
-      });
-      this.onDetach(this.rootElement$.sub(this.updateRenderedPages_));
+
       this.onDetach(this.order$.sub(this.refresh));
       this.onDetach(this.groupBy$.sub(this.refresh));
     },
@@ -293,32 +298,67 @@ foam.CLASS({
 
     function safeScroll() {
       if ( ! this.scrollToIndex ) return;
-      var page = Math.floor(this.scrollToIndex/this.pageSize_);
-      if ( this.renderedPages_[page] ) {
-        var el = document.querySelector(`#${this.appendTo.id} [data-idx='${this.scrollToIndex}']`);
-        if ( ! el ) return;
-        this.scrollView(el.offsetTop);
-      } else {
-        if ( page == 0 && this.currentTopPage_ != 0 ) {
-          this.currentTopPage_ = 0;
-          return;
-        }
-        if ( page == this.numPages_ - 1 && this.currentTopPage_ != this.numPages_ - this.NUM_PAGES_TO_RENDER ) {
-          this.currentTopPage_ = this.numPages_ - this.NUM_PAGES_TO_RENDER;
-          return;
-        }
-        if ( page != this.currentTopPage_ + 1 ) {
-          this.currentTopPage_ = page - 1;
+      var targetIndex = this.scrollToIndex;
+      var targetPage = Math.floor((targetIndex - 1) / this.pageSize_);
+
+      if ( this.renderedPages_[targetPage] ) {
+        var el = document.querySelector('#' + this.appendTo.id + " [data-idx='" + targetIndex + "']");
+        if ( el ) {
+          this.scrollView(el.offsetTop);
           return;
         }
       }
+
+      var self = this;
+      Object.keys(this.renderedPages_).forEach(function(i) { self.clearPage(i); });
+      this.renderedPages_ = {};
+      this.loadingPages_ = {};
+      this.groupFirstPage_ = {};
+
+      var from = Math.max(0, targetPage - 1);
+      var to   = Math.min(this.numPages_, targetPage + 2 + this.overscan);
+      this.firstLoadedPage_ = from;
+      this.lastLoadedPage_ = from - 1;
+      this.updateSpacers_();
+
+      function loadAndTrack(page) {
+        var skip = page * self.pageSize_;
+        var dao  = self.data.limit(self.pageSize_).skip(skip);
+        return self.getPage(dao, page).then(function() {
+          self.measurePage_(page);
+          if ( page > self.lastLoadedPage_ ) self.lastLoadedPage_ = page;
+          if ( page < self.firstLoadedPage_ ) self.firstLoadedPage_ = page;
+        });
+      }
+
+      function onAllLoaded() {
+        self.updateSpacers_();
+        var el = document.querySelector('#' + self.appendTo.id + " [data-idx='" + targetIndex + "']");
+        if ( el ) {
+          self.scrollView(el.offsetTop);
+        }
+        self.daoLoading = false;
+        self.dataLatch.resolve();
+      }
+
+      if ( this.groupBy ) {
+        // Sequential loading to preserve group header order
+        var chain = Promise.resolve();
+        for ( var p = from ; p < to ; p++ ) {
+          chain = chain.then(loadAndTrack.bind(null, p));
+        }
+        chain.then(onAllLoaded);
+      } else {
+        var promises = [];
+        for ( var p = from ; p < to ; p++ ) {
+          promises.push(loadAndTrack(p));
+        }
+        Promise.all(promises).then(onAllLoaded);
+      }
     },
 
-    function clearPage(page, opt_skipObserver) {
-      ! opt_skipObserver && this.renderedPages_[page].childNodes?.forEach((e) => {
-        if ( e.el_() )
-          this.rowObserver.unobserve(e.el_());
-      })
+    function clearPage(page) {
+      if ( ! this.renderedPages_[page] ) return;
       this.renderedPages_[page].remove();
       delete this.renderedPages_[page];
     },
@@ -335,16 +375,16 @@ foam.CLASS({
 
       if ( sortParams.length ) proxy = proxy.orderBy(sortParams);
 
-      self.loadingPages_$set(page);
+      self.loadingPages_$set(page, true);
 
-      let promise = this.prepDAO(proxy, this.ctx);
+      var promise = this.prepDAO(proxy, this.ctx);
       var e       = this.E().attr('data-page', page);
 
-      return promise.then(values => {
+      return promise.then(function(values) {
         function populateRows(args) {
           if ( args.data === undefined ) return;
 
-          var index = (page*self.pageSize_) + i + 1;
+          var index = (page * self.pageSize_) + i + 1;
           var group = null;
           var showHeader = false;
 
@@ -352,13 +392,10 @@ foam.CLASS({
             group = self.groupBy.f(args.data);
             var groupKey = foam.json.stringify(group);
 
-            // Track if this is the first time we've seen this group
             if ( self.groupFirstPage_[groupKey] === undefined ) {
               self.groupFirstPage_[groupKey] = page;
             }
 
-            // Show header only if this is the first page where this group appears
-            // and it's different from the previous group in this page
             if ( page === self.groupFirstPage_[groupKey] ) {
               showHeader = ! foam.util.equals(group, previousGroup);
             }
@@ -376,118 +413,228 @@ foam.CLASS({
           }
 
           var isEven = (index + 1) % 2 !== 0 ;
-          var rowEl = e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven);
-          rowEl.el().then(a => {
-            self.rowObserver.observe(a)
-          });
+          e.start(self.rowView, args).attr('data-idx', index).attr('data-even', isEven);
         };
 
         var previousGroup = null;
 
         if ( foam.mlang.sink.Projection.isInstance( values ) ) {
           for ( var i = 0 ; i < values.projection.length ; i++ ) {
-            let args = { data: values.array[i], projection: values.projection[i] };
+            var args = { data: values.array[i], projection: values.projection[i] };
             populateRows(args);
           }
         } else if ( foam.dao.Sink.isInstance( values ) && values.array ) {
           for ( var i = 0 ; i < values.array.length ; i++ ) {
-            let args = { data: values.array[i] };
+            var args = { data: values.array[i] };
             populateRows(args);
           }
         }
 
-        var isSet = false;
         if ( self.renderedPages_[page] ) {
           console.warn('Trying to overwrite a loaded page without clearing....Clearing page');
-          this.clearPage(page)
+          self.clearPage(page);
         }
 
-        Object.keys(self.renderedPages_).forEach(j => {
-          if ( j > page && self.renderedPages_[j] && ! isSet ) {
-            this.appendTo.insertBefore(e, self.renderedPages_[j]);
-            isSet = true;
-            // TODO: Figure out why scrolling to the top causes you to go to first page
+        // Insert in correct page order between sentinels
+        var inserted = false;
+        Object.keys(self.renderedPages_).sort(function(a, b) { return a - b; }).forEach(function(j) {
+          if ( j > page && self.renderedPages_[j] && ! inserted ) {
+            self.appendTo.insertBefore(e, self.renderedPages_[j]);
+            inserted = true;
           }
         });
-
-        if ( ! isSet ) { this.appendTo.add(e); isSet = true; }
+        if ( ! inserted ) {
+          self.appendTo.insertBefore(e, self.bottomSentinel_);
+        }
 
         self.renderedPages_[page] = e;
-        // self.loadingPages_[page]  = false;
         self.loadingPages_$remove(page);
 
-        // If there is a scroll in progress and all pages have been loaded, try to scroll again
-        if ( this.scrollToIndex && Object.keys(this.renderedPages_).length == Math.min(this.NUM_PAGES_TO_RENDER, this.numPages_) )
-          self.safeScroll();
-
-        this.dataLatch.resolve();
-        if ( this.displayedRowCount_ < 0 ) this.bottomRow = this.daoCount
+        self.dataLatch.resolve();
       });
     },
 
-    async function processPageSequentially_(pageIndex) {
-      if ( pageIndex >= Math.min(this.numPages_, this.NUM_PAGES_TO_RENDER) ) {
-        this.daoLoading = false;
-        return Promise.resolve();
-      }
+    function loadPage_(page) {
+      if ( this.renderedPages_[page] || this.loadingPages_[page] ) return;
+      if ( page < 0 || page >= this.numPages_ ) return;
 
-      var page = this.currentTopPage_ + pageIndex;
-      if ( this.renderedPages_[page] || this.loadingPages_[page] ) {
-        // Skip this page and move to next
-        return this.processPageSequentially_(pageIndex + 1);
-      }
-
+      var self = this;
       var skip = page * this.pageSize_;
       var dao  = this.data.limit(this.pageSize_).skip(skip);
 
-      return await this.getPage(dao, page).then(() => {
-        console.log('Processed', pageIndex);
-        // Process next page after this one completes
-        return this.processPageSequentially_(pageIndex + 1);
+      this.getPage(dao, page).then(function() {
+        self.measurePage_(page);
+
+        if ( self.lastLoadedPage_ < 0 || page < self.firstLoadedPage_ ) {
+          self.firstLoadedPage_ = page;
+        }
+        if ( page > self.lastLoadedPage_ ) {
+          self.lastLoadedPage_ = page;
+        }
+
+        self.updateSpacers_();
+        self.evictDistantPages_();
+        self.dataLatch.resolve();
       });
+    },
+
+    function estimatePageHeight_(page) {
+      if ( this.pageHeights_[page] !== undefined ) return this.pageHeights_[page];
+      var rows = (page === this.numPages_ - 1)
+        ? this.daoCount - page * this.pageSize_
+        : this.pageSize_;
+      return rows * this.estimatedRowHeight_;
+    },
+
+    function calcSpacerHeight_(fromPage, toPage) {
+      var h = 0;
+      for ( var i = fromPage ; i < toPage ; i++ ) {
+        h += this.estimatePageHeight_(i);
+      }
+      return h;
+    },
+
+    function updateSpacers_() {
+      if ( ! this.topSpacer_ || ! this.bottomSpacer_ ) return;
+      var topH = this.calcSpacerHeight_(0, this.firstLoadedPage_);
+      var botH = this.calcSpacerHeight_(this.lastLoadedPage_ + 1, this.numPages_);
+      this.topSpacer_.style({ height: topH + 'px' });
+      this.bottomSpacer_.style({ height: botH + 'px' });
+    },
+
+    function measurePage_(page) {
+      var el = this.renderedPages_[page];
+      if ( ! el ) return;
+      var self = this;
+      el.el().then(function(domEl) {
+        if ( ! domEl ) return;
+        var h = domEl.offsetHeight;
+        var wasEstimated = self.pageHeights_[page] === undefined;
+        self.pageHeights_[page] = h;
+
+        var rows = (page === self.numPages_ - 1)
+          ? self.daoCount - page * self.pageSize_
+          : self.pageSize_;
+        if ( wasEstimated ) {
+          self.totalMeasuredRows_ += rows;
+          self.totalMeasuredHeight_ += h;
+        }
+        if ( self.totalMeasuredRows_ > 0 ) {
+          self.estimatedRowHeight_ = self.totalMeasuredHeight_ / self.totalMeasuredRows_;
+        }
+        self.updateSpacers_();
+      });
+    },
+
+    function evictDistantPages_() {
+      var viewportPage = this.getViewportPage_();
+      var keepFrom = Math.max(0, viewportPage - this.overscan - 1);
+      var keepTo   = Math.min(this.numPages_ - 1, viewportPage + this.overscan + 1);
+
+      var self = this;
+      Object.keys(this.renderedPages_).forEach(function(i) {
+        i = Number(i);
+        if ( i < keepFrom || i > keepTo ) {
+          self.clearPage(i);
+        }
+      });
+
+      this.firstLoadedPage_ = this.findFirstLoadedPage_();
+      this.lastLoadedPage_ = this.findLastLoadedPage_();
+      this.updateSpacers_();
+    },
+
+    function getViewportPage_() {
+      var root = this.rootElement?.el_();
+      if ( ! root ) return this.firstLoadedPage_;
+      var scrollCenter = root.scrollTop + root.clientHeight / 2;
+      var accumulated = 0;
+      for ( var i = 0 ; i < this.numPages_ ; i++ ) {
+        accumulated += this.estimatePageHeight_(i);
+        if ( accumulated >= scrollCenter ) return i;
+      }
+      return this.numPages_ - 1;
+    },
+
+    function findFirstLoadedPage_() {
+      var pages = Object.keys(this.renderedPages_).map(Number).sort(function(a, b) { return a - b; });
+      return pages.length > 0 ? pages[0] : 0;
+    },
+
+    function findLastLoadedPage_() {
+      var pages = Object.keys(this.renderedPages_).map(Number).sort(function(a, b) { return a - b; });
+      return pages.length > 0 ? pages[pages.length - 1] : -1;
+    },
+
+    function loadInitialPages_() {
+      var startPage = 0;
+      if ( this.topRow > 0 ) {
+        startPage = Math.floor((this.topRow - 1) / this.pageSize_);
+      }
+      startPage = Math.max(0, Math.min(startPage, this.numPages_ - 1));
+
+      var pagesToLoad = Math.min(this.numPages_, 2 + this.overscan);
+      var from = Math.max(0, startPage);
+      var to   = Math.min(this.numPages_, from + pagesToLoad);
+
+      if ( this.groupBy ) {
+        this.loadPagesSequentially_(from, to);
+      } else {
+        for ( var p = from ; p < to ; p++ ) {
+          this.loadPage_(p);
+        }
+      }
+    },
+
+    async function loadPagesSequentially_(from, to) {
+      for ( var p = from ; p < to ; p++ ) {
+        if ( this.renderedPages_[p] || this.loadingPages_[p] ) continue;
+        var skip = p * this.pageSize_;
+        var dao  = this.data.limit(this.pageSize_).skip(skip);
+        await this.getPage(dao, p);
+        this.measurePage_(p);
+        if ( p < this.firstLoadedPage_ || this.lastLoadedPage_ < 0 ) this.firstLoadedPage_ = Math.min(this.firstLoadedPage_, p);
+        if ( p > this.lastLoadedPage_ ) this.lastLoadedPage_ = p;
+        this.updateSpacers_();
+      }
+      this.daoLoading = false;
+      this.dataLatch.resolve();
+
+      if ( this.topRow > 1 ) {
+        this.scrollToIndex = this.topRow;
+      }
     }
   ],
 
   listeners: [
     {
-      name: 'checkPageSize_',
-      isFramed: true,
-      documentation: 'Ensure page size is always atleast as large as the displayedRowCount_',
-      code: function () {
-        let old = this.pageSize_;
-        if ( this.displayedRowCount_ && this.displayedRowCount_ != this.pageSize_ ) {
-          if (  this.pageSize < this.displayedRowCount_) {
-            this.pageSize_ = this.displayedRowCount_;
-          } else {
-            this.pageSize_ = this.pageSize;
-          }
-          if ( old != this.pageSize_ )
-            this.refresh();
-        }
-      }
-    },
-    {
       name: 'refresh',
       isFramed: true,
       code: function() {
-        this.rowObserver?.disconnect();
-        // Don't clear loadingPages_ here since they are being
-        // loaded and will have latest data anyway
-        Object.keys(this.renderedPages_).forEach(i => {
-          this.clearPage(i, true);
+        var self = this;
+        Object.keys(this.renderedPages_).forEach(function(i) {
+          self.clearPage(i);
         });
-        // Clear group first page tracking
+        this.renderedPages_ = {};
+        this.loadingPages_ = {};
         this.groupFirstPage_ = {};
+        this.pageHeights_ = {};
+        this.totalMeasuredRows_ = 0;
+        this.totalMeasuredHeight_ = 0;
+        this.estimatedRowHeight_ = 48;
+
+        this.firstLoadedPage_ = 0;
+        this.lastLoadedPage_ = -1;
+
+        this.updateSpacers_();
+
         if ( ! this.isInit ) {
-          this.currentTopPage_ = 0;
           this.topRow = 0;
           this.bottomRow = 0;
         }
         this.isInit = false;
-        this.updateRenderedPages_();
-        if ( this.topRow > 1) {
-          this.scrollToIndex = this.topRow;
-        }
+
+        this.loadInitialPages_();
       }
     },
     {
@@ -504,120 +651,85 @@ foam.CLASS({
       }
     },
     {
-      name: 'updateRenderedPages_',
-      isIdled: true,
-      delay: 100,
-      on: [
-        'this.propertyChange.currentTopPage_'
-      ],
-      code: function() {
-        let currentTopPage_ = this.currentTopPage_;
-        // If grouping is enabled, process pages sequentially to maintain group order
-        // Otherwise, process in parallel for better performance
-        this.suspendObserver = true;
-        let promise = Promise.resolve();
-        if ( this.groupBy ) {
-          promise = this.processPageSequentially_(0);
-        } else {
-          let promiseArr = [];
-          // Add any pages that are not already rendered.
-          for ( var i = 0; i < Math.min(this.numPages_, this.NUM_PAGES_TO_RENDER) ; i++ ) {
-            var page = this.currentTopPage_ + i;
-            if ( this.renderedPages_[page] || this.loadingPages_[page] ) continue;
-            var skip = page * this.pageSize_;
-            var dao  = this.data.limit(this.pageSize_).skip(skip);
-            promiseArr.push(this.getPage(dao, page));
-          }
-          // If there is nothing to load, we should not set daoLoading to false
-          if ( promiseArr.length !== 0 ){
-            promise = Promise.all(promiseArr).then(()=>{
-              this.daoLoading = false;
-            });
+      name: 'onSentinelIntersect',
+      isFramed: true,
+      code: function(entries) {
+        for ( var i = 0 ; i < entries.length ; i++ ) {
+          var entry = entries[i];
+          if ( ! entry.isIntersecting ) continue;
+
+          if ( this.topSentinel_ && entry.target === this.topSentinel_.el_() ) {
+            var page = this.firstLoadedPage_ - 1;
+            if ( page >= 0 && ! this.renderedPages_[page] && ! this.loadingPages_[page] ) {
+              this.loadPage_(page);
+            }
+          } else if ( this.bottomSentinel_ && entry.target === this.bottomSentinel_.el_() ) {
+            var page = this.lastLoadedPage_ + 1;
+            if ( page < this.numPages_ && ! this.renderedPages_[page] && ! this.loadingPages_[page] ) {
+              this.loadPage_(page);
+            }
           }
         }
-        promise.finally(() => {
-          Object.keys(this.renderedPages_).forEach(i => {
-            if ( (i >= this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) || i < this.currentTopPage_ ) {
-              this.clearPage(i);
-            }
-          });
-          // Wait to delete pages to fix scroll jumping and causing issues
-          // this.rootElement.addEventListener('scroll', this.onScrollEnd);  
-          if ( ! this.scrollToIndex ) {
-            this.scrollToIndex = this.topRow;
-            this.suspendObserver = false;
-          } else {
-            this.suspendObserver = false;
-            this.safeScroll();
-          }
-        })
       }
     },
-    // {
-    //   name: 'onScrollEnd',
-    //   isIdled: true,
-    //   delay: 200,
-    //   code: function() {
-    //     // Remove any pages that are no longer on screen to save on
-    //     // the amount of DOM we add to the page.
-        
-    //     this.removeEventListener('scroll', this.onScrollEnd);
-    //   }
-    // },
     {
-      name: 'onRowIntersect',
+      name: 'onScroll',
       isFramed: true,
-      code: function(entries, self){
-        let intersectingSet = false;
-        entries.forEach((entry) => {
-          if ( entry.intersectionRatio == 0 ) return;
-          intersectingSet = true;
-          if ( self.suspendObserver && self.scrollToIndex ) return;
-          var index = Number(entry.target.dataset.idx);
-          if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
-            if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) <= entry.rootBounds.top )
-              index += 1;
+      code: function() {
+        var root = this.rootElement?.el_();
+        if ( ! root ) return;
 
-            self.topRow = index;
-          } else if( entry.boundingClientRect.bottom >= entry.rootBounds.bottom ) {
-            if ( entry.boundingClientRect.top + (entry.boundingClientRect.height/2) >= entry.rootBounds.bottom )
-              index -= 1;
+        var scrollTop    = root.scrollTop + this.offsetTop;
+        var scrollBottom = scrollTop + root.clientHeight - this.offsetTop;
+        var accumulated  = 0;
+        var topFound     = false;
 
-            if ( index > 0 )
-              self.bottomRow = index;
+        for ( var p = 0 ; p < this.numPages_ ; p++ ) {
+          var pageH = this.estimatePageHeight_(p);
+          var pageStartRow = p * this.pageSize_ + 1;
+          var pageRows = (p === this.numPages_ - 1)
+            ? this.daoCount - p * this.pageSize_
+            : this.pageSize_;
+          var rowH = pageRows > 0 ? pageH / pageRows : this.estimatedRowHeight_;
+
+          if ( ! topFound && accumulated + pageH > scrollTop ) {
+            var offsetInPage = scrollTop - accumulated;
+            this.topRow = Math.max(1, pageStartRow + Math.floor(offsetInPage / rowH));
+            topFound = true;
           }
-        });
 
-        if ( ! intersectingSet ) return
-        // Only applicable for grouped lists as group headers would be the ones intersecting and the "topRow" would eval to 0 in the code above
-        if ( ! self.topRow && entries.length ) {
-          self.topRow = entries[0].target.dataset.idx;
+          if ( accumulated + pageH >= scrollBottom ) {
+            var offsetInPage = scrollBottom - accumulated;
+            this.bottomRow = Math.min(this.daoCount, pageStartRow + Math.ceil(offsetInPage / rowH) - 1);
+            return;
+          }
+
+          accumulated += pageH;
         }
 
-        if ( ! self.bottomRow && self.displayedRowCount_ <= 0 )
-          self.bottomRow = self.pageSize_ > entries.length ? entries.length : self.pageSize_;
+        if ( ! topFound ) this.topRow = 1;
+        this.bottomRow = this.daoCount;
       }
     }
   ],
 
   actions: [
-    // All of these can be used by views that use this view for navigation
     {
       name: 'nextPage',
       toolTip: 'Next Page',
-      isEnabled: function(bottomRow, daoCount, suspendObserver) {
-        return ! suspendObserver && bottomRow != daoCount;
+      isEnabled: function(bottomRow, daoCount) {
+        return bottomRow < daoCount;
       },
       code: function() {
-        var n = foam.Number.clamp(1,this.topRow + this.displayedRowCount_ + 1,this.daoCount);
+        var n = foam.Number.clamp(1, this.topRow + this.displayedRowCount_ + 1, this.daoCount);
         this.scrollToIndex = n;
       }
     },
     {
       name: 'lastPage',
       toolTip: 'Last Page',
-      isEnabled: function(bottomRow, daoCount, suspendObserver) {
-        return ! suspendObserver && bottomRow != daoCount;
+      isEnabled: function(bottomRow, daoCount) {
+        return bottomRow < daoCount;
       },
       code: function() {
         this.scrollToIndex = this.daoCount;
@@ -626,19 +738,19 @@ foam.CLASS({
     {
       name: 'prevPage',
       toolTip: 'Previous Page',
-      isEnabled: function(topRow, suspendObserver) {
-        return ! suspendObserver && topRow > 1;
+      isEnabled: function(topRow) {
+        return topRow > 1;
       },
       code: function() {
-        var n = foam.Number.clamp(1,this.topRow - this.displayedRowCount_, this.daoCount);
+        var n = foam.Number.clamp(1, this.topRow - this.displayedRowCount_, this.daoCount);
         this.scrollToIndex = n;
       }
     },
     {
       name: 'firstPage',
       toolTip: 'First Page',
-      isEnabled: function(topRow, suspendObserver) {
-        return ! suspendObserver && topRow > 1;
+      isEnabled: function(topRow) {
+        return topRow > 1;
       },
       code: function() {
         this.scrollToIndex = 1;

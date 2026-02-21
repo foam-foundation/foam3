@@ -535,6 +535,14 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'updateTableWidthCSS',
+      isFramed: true,
+      on: ['this.propertyChange.tableWidth_'],
+      code: function() {
+        this.element_.style.setProperty('--table-width', this.tableWidth_);
+      }
+    },
     function resetColWidths() {
       this.selectedColumnsWidth = {};
       for ( var s of this.selectedColumnNames ) {

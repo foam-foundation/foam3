@@ -38,7 +38,12 @@
       position: relative;
       overflow: auto;
       overscroll-behavior-y: contain;
-      // scroll-behavior: smooth;
+      scroll-behavior: smooth;
+      scroll-padding-top: 48px;
+    }
+    
+    ^table-wrapper ^table-page {
+      contain-intrinsic-width: auto var(--table-width, 100%);
     }
 
     @keyframes slide {

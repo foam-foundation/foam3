@@ -6,14 +6,10 @@
 
 foam.POM({
   name: "kv",
-//   files: [
-//     { name: "LSMDAO", flags: "java" },
-//   ],
 
-//   files: [
-//     { name: "btree/BTreeTest",    flags: "java&test" },
-//     { name: "btree/BTreeObject",  flags: "java" },
-//   ],
+  files: [
+    { name: "KVOptions",    flags: "java" },
+  ],
 
   javaFiles: [
     { name: "KVDAO" },

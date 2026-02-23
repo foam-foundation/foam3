@@ -864,7 +864,7 @@ foam.CLASS({
       var ret = [];
       var p = this.p;
 
-      while ( true ) {
+      while ( ps.valid ) {
         var res;
 
         if ( res = ps.apply(p, obj) ) {
@@ -895,7 +895,7 @@ foam.CLASS({
     function parse(ps, obj) {
       var p = this.p;
 
-      while ( true ) {
+      while ( ps.valid ) {
         var res;
 
         if ( res = ps.apply(p, obj) ) {

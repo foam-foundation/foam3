@@ -459,7 +459,7 @@ foam.CLASS({
           .attr('data-page', page).style({ height: this.estimatedPageHeight });
 
         self.renderedPages_[page] = e;
-
+        // All of this must happen in the same animation frame to avoid jitter
         this.requestAnimationFrame(() => {
           // Insert in sorted order among sibling pages
           var inserted = false;
@@ -766,9 +766,6 @@ foam.CLASS({
       }
     },
     {
-      // Listener for extreme edge case where user scrolls faster than 
-      // we can listen to the observer or their device can process pages
-      // approximates desired page and loads that page will not be accurate
       name: 'onScroll_',
       documentation: `
         Listener for extreme edge case where user scrolls faster than 

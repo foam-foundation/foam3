@@ -44,6 +44,7 @@
     
     ^table-wrapper .foam-u2-view-LazyScrollManager-table-page {
       contain-intrinsic-width: auto var(--table-width, 100%);
+      min-width: var(--table-width, 100%);
     }
 
     @keyframes slide {

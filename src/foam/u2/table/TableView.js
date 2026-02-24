@@ -42,7 +42,7 @@
       scroll-padding-top: 48px;
     }
     
-    ^table-wrapper ^table-page {
+    ^table-wrapper .foam-u2-view-LazyScrollManager-table-page {
       contain-intrinsic-width: auto var(--table-width, 100%);
     }
 

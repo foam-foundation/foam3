@@ -561,7 +561,7 @@ foam.CLASS({
       }
 
       var page = this.currentTopPage_ + pageIndex;
-      if ( this.renderedPages_[page] || this.loadingPages_[page] ) {
+      if ( this.loadingPages_[page] ) {
         return this.processPageSequentially_(pageIndex + 1);
       }
 

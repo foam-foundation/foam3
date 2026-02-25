@@ -1359,6 +1359,19 @@ foam.CLASS({
         ],
         body: `return ${this.of.id}.forOrdinal(ordinal);`
       });
+      info.method({
+        name: 'forValue',
+        visibility: 'public',
+        type: this.of.id,
+        args: [
+          {
+            name: 'value',
+            type: 'String'
+          }
+        ],
+        body: `return ${this.of.id}.forValue(value);`
+      });
+
 
       info.method({
         name: 'forLabel',
@@ -1382,12 +1395,18 @@ foam.CLASS({
           { type: 'foam.lib.json.Outputter', name: 'outputter' },
           { type: 'Object',                  name: 'value' }
         ],
-        body: `outputter.output(getOrdinal(value));`
+        body: `
+        if ( value == null ) { outputter.output(null); return; }
+        ${this.of.id} e = (${this.of.id}) value;
+        String v = e.getValue();
+        if ( v != null && v.length() > 0 ) outputter.output(v);
+        else outputter.output(e.getOrdinal());
+        `
       });
 
       var cast = info.getMethod('cast');
       cast.body = `if ( o instanceof Integer ) return forOrdinal((int) o);
-  if ( o instanceof String ) return Enum.valueOf(${this.of.id}.class, (String) o);
+  if ( o instanceof String ) return forValue((String) o);
   return (${this.of.id})o;`;
 
       return info;
@@ -1553,6 +1572,22 @@ ${this.VALUES.map(v => `\tcase ${v.ordinal} -> ${cls.name}.${v.name};`).join('\n
 ${this.VALUES.map(v => `\tcase ${nameLabel(v)} -> ${cls.name}.${v.name};`).join('\n')}
   default -> null;
 };`
+          });
+
+          cls.method({
+            name: 'forValue',
+            type: cls.name,
+            visibility: 'public',
+            static: true,
+            args: [{ name: 'value', type: 'String' }],
+            body: `
+              switch (value) {
+              ${this.VALUES
+                .filter(v => v.value !== undefined && v.value !== null && v.value !== '')
+                .map(v => `  case ${foam.java.asJavaValue(v.value)}: return ${cls.name}.${v.name};`)
+                .join('\n')}
+                default: return null;
+              }`
           });
 
           return cls;

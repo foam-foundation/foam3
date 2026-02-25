@@ -299,6 +299,14 @@ public class JSONFObjectFormatter
   }
 
   public void outputEnum(FEnum value) {
+    try {
+      String v = (String) value.getValue();
+      if ( v instanceof String && ((String) v).length() > 0 ) {
+        output(v);
+        return;
+      }
+    } catch (RuntimeException e) {
+    }
     output(value.getOrdinal());
   }
 

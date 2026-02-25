@@ -1398,6 +1398,52 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.java',
+  name: 'ChoiceValidatorJavaRefinement',
+  refines: 'foam.lang.ChoiceValidator',
+
+  properties: [
+    [ 'javaInfoType', 'foam.lang.AbstractObjectPropertyInfo' ],
+    {
+      class: 'String',
+      name: 'javaValidateObj',
+      expression: function(choiceProperties, minOccurs, maxOccurs) {
+        if ( ! choiceProperties || choiceProperties.length === 0 ) return '';
+
+        var propChecks = choiceProperties.map(function(propName) {
+          return '    if ( ((foam.lang.PropertyInfo) classInfo.getAxiomByName("' + propName + '")).isSet(obj) ) setCount++;';
+        }).join('\n');
+
+        var minCheck = '';
+        if ( minOccurs > 0 ) {
+          minCheck = `
+            if ( setCount < ${minOccurs} ) {
+              throw new IllegalStateException(
+                "Choice constraint violated: at least ${minOccurs} of [${choiceProperties.join(', ')}] must be set, but only " + setCount + " found.");
+            }`;
+        }
+
+        var maxCheck = '';
+        if ( maxOccurs !== -1 ) {
+          maxCheck = `
+            if ( setCount > ${maxOccurs} ) {
+              throw new IllegalStateException(
+                "Choice constraint violated: at most ${maxOccurs} of [${choiceProperties.join(', ')}] may be set, but " + setCount + " found.");
+            }`;
+        }
+
+        return `
+          foam.lang.ClassInfo classInfo = obj.getClassInfo();
+          int setCount = 0;
+          ${propChecks}
+          ${minCheck}${maxCheck}`;
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
   name: 'AbstractEnumJavaRefinement',
   refines: 'foam.lang.AbstractEnum',
   // flags: ['java'],

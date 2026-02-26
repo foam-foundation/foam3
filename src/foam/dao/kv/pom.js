@@ -8,10 +8,20 @@ foam.POM({
   name: "kv",
 
   files: [
-    { name: "KVOptions",    flags: "java" },
+    { name: "LSMOptions",    flags: "java" },
   ],
 
   javaFiles: [
     { name: "KVDAO" },
+    { name: "KVCORE" },
+    { name: "LSMCore" },
+    { name: 'wal/WAL' },
+    { name: 'wal/WALManager' },
+    { name: "level/Level" },
+    { name: "level/Levels" },
+    { name: "level/LevelManager" },
+    { name: "sstable/Table" },
+    { name: "transaction/Transaction" },
+    { name: "util/KVFileDescriptor" },
   ]
 });

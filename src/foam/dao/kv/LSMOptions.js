@@ -21,6 +21,7 @@ foam.CLASS({
   properties: [
     { class: 'Int', name: 'blockSize', value: 64 * 1024, documentation: 'default to 64KB'},
     { class: 'Int', name: 'maxMemtablSize' },
+    { class: 'Int', name: 'levelCount' },
     { class: 'Object', javaType: 'Path', name: 'path', documentation: 'path to store LSM files'},
     { 
       class: 'Object', javaType: 'Path', name: 'manifestDir', 

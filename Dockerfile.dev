@@ -1,0 +1,64 @@
+#Java21 and Maven in Debian-based
+FROM maven:3.9.12-eclipse-temurin-25
+
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean
+RUN apt-get update && apt-get install -y git && apt-get clean
+RUN git config --global safe.directory '*'
+RUN apt-get update && apt-get install -y jq && apt-get clean
+
+RUN useradd -rm -d /home/foam_user -s /usr/bin/zsh -g root -G sudo -u 4444 foam_user
+# Allow user add journal directory.
+RUN chown -R foam_user:root /opt/
+# Allow user install node dependency globally.
+RUN chown -R foam_user:root /usr/
+
+USER foam_user
+
+# install all dependencies into image, remember force rebuild image if dependencies(java/node) get update.
+WORKDIR /home/foam_user/foam_deps
+COPY --chown=foam_user:root . .
+RUN ./build.sh -XmavenGetSources
+
+EXPOSE 8080
+# Java debug port.
+EXPOSE 8000
+EXPOSE 8443
+
+WORKDIR /home/foam_user/foam
+ENTRYPOINT ["./build.sh"]
+CMD ["-dc"]
+# CMD ["-Japi,nbp,nbp_qa,scotiabank", "-dc"]
+
+############ Guide ###############
+# Requires:
+#   Docker version 28.0.4
+# Pre-requisite:
+#   run: npm install
+# Build image:
+#   template:
+#       docker build -f Dockerfile.dev -t ${image_name} .
+#   example:
+#       docker build -f Dockerfile.dev -t i_dev_foam .
+#
+# Force build image:
+#   usage:
+#       force rebuild image when the dependencies change.
+#   template:
+#       docker build --no-cache -f Dockerfile.dev -t ${image_name} .
+#   example:
+#       docker build --no-cache -f Dockerfile.dev -t i_dev_foam .
+#
+# Run container:
+#   template:
+#       docker run -p 8080:8080 -p 8000:8000 -v "${PWD}:/home/foam_user/foam" --name ${container_name} ${image_name} ${custom_build_args}
+#   examples:
+#       1. run with args specified in the CMD:
+#           docker run -p 8080:8080 -p 8000:8000 -v "${PWD}:/home/foam_user/foam" --name c_dev_foam i_dev_foam
+#       2. run with custom args:
+#           docker run -p 8080:8080 -p 8000:8000 -v "${PWD}:/home/foam_user/foam" --name c_dev_nbp i_dev_foam -Jdemo -dc
+#       3. run with same journal directory with host machine.
+#           docker run -p 8080:8080 -p 8000:8000 -v "${PWD}:/home/foam_user/foam" -v "/opt/foam-full:/opt/foam-full" --name c_dev_nbp_sync_journal i_dev_foam -Jdemo -dc
+#       3. create test container.
+#           docker run -v "${PWD}:/home/foam_user/foam" --name c_dev_foam_test i_dev_foam -ct

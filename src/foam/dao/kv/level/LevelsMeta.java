@@ -20,16 +20,20 @@ import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.io.IOException;
 
-class LevelManager {
+class LevelsMeta {
   
-  static final short MANIFEST_VESION = 1;
+  static short MANIFEST_VESION = 1;
 
-  private final AtomicLong nextTableId;
-  private final Path manifestFilePath;
+  private AtomicLong nextTableId;
+  private Path manifestFilePath;
   private long walNum;
   private long lastSeqNum;
 
-  LevelManager(LSMOptions options) {
+  LevelsMeta() {
+
+  }
+
+  LevelsMeta(LSMOptions options) {
     
     if ( options.getLevelCount() > 0 ) throw new AssertionError("levelCount should be greater than 0");
 
@@ -69,7 +73,7 @@ class LevelManager {
    * |version:2B|nextTableId:8B|walNum:8B|lastSeqNum:8B|levelCount:1B|
    * (tableCount:4B|tableId:8B):levelCount|
    */
-  static LevelManager initFromManifest(LSMOptions options, Path manifestFilePath) throws IOException {
+  static LevelsMeta initFromManifest(LSMOptions options, Path manifestFilePath) throws IOException {
 
     byte[] data = Files.readAllBytes(manifestFilePath);
     var buffer = ByteBuffer.wrap(data);
@@ -96,20 +100,26 @@ class LevelManager {
       for ( int j = 0 ; j < levelsMeta[i].length ; j ++ ) {
         //TODO: load tables
         long tableId = levelsMeta[i][j];
-        Table table = null;
+        Table table = Table.initTable(tableId, options);
         tables.add(table);
       }
 
       if ( i > 0 && tables.size() > 0 ) {
         verifyTableSeqNum(i, tables);
       }
-
-
+      
       levels.add(new Level(tables));
     }
 
-    //TODO: snapshot.
-    return null;
+    long totalTable = -1; //TODO
+
+    var meta = new LevelsMeta();
+    meta.walNum = walNum;
+    meta.lastSeqNum = lastSeqNum;
+    meta.nextTableId = new AtomicLong(nextTableId);
+    meta.manifestFilePath = manifestFilePath;
+
+    return meta;
   }
 
   static void verifyTableSeqNum(int levelId, List<Table> tables) {

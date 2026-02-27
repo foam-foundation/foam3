@@ -19,8 +19,9 @@ foam.POM({
     { name: 'wal/WALManager' },
     { name: "level/Level" },
     { name: "level/Levels" },
-    { name: "level/LevelManager" },
+    { name: "level/LevelsMeta" },
     { name: "sstable/Table" },
+    { name: "sstable/TableMeta" },
     { name: "transaction/Transaction" },
     { name: "util/KVFileDescriptor" },
   ]

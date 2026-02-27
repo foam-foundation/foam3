@@ -11,28 +11,49 @@ import foam.dao.kv.util.KVFileDescriptor;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.nio.file.Path;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.io.IOException;
 
 public class Table {
 
   long id;
+  long fileSize;
   KVFileDescriptor file;
+  FileChannel fd;
 
-  LSMOptions lsmOptions;
+  LSMOptions options;
 
-  public Table(long id, LSMOptions lsmOptions, KVFileDescriptor file) {
+  public Table() {
+
+  }
+
+  public Table(long id, LSMOptions options, KVFileDescriptor file) {
 
 
   }
 
-  static public Table initTable(long id, LSMOptions lsmOptions, KVFileDescriptor file) {
+  static public Table initTable(long id, LSMOptions options, KVFileDescriptor file) {
 
     // 1. Read footer.
 
     return null;
   }
 
-  // public static enum Format {
-    
-  // }
+  static public Table initTable(long id, LSMOptions options) throws IOException {
+
+    Path tableFilePath = options.getSstableFilePath(id);
+
+    FileChannel channel = FileChannel.open(tableFilePath, StandardOpenOption.READ);
+
+    var table = new Table();
+    table.id = id;
+    table.fd = channel;
+    table.fileSize = channel.size();
+    table.options = options;
+  
+    return table;
+  }
+
 }

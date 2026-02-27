@@ -7,6 +7,7 @@
 package foam.dao.kv.level;
 
 import foam.dao.kv.LSMOptions;
+import foam.dao.kv.sstable.Table;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -85,9 +86,33 @@ class LevelManager {
 
     //TODO: log.debug
 
-    long[][] levels = Levels.deserialize(buffer);
+    long[][] levelsMeta = Levels.deserialize(buffer);
+
+    var levels = new ArrayList<Level>(levelsMeta.length);
+
+    for ( int i = 0 ; i < levelsMeta.length ; i++ ) {
+      var tables = new ArrayList<Table>(levelsMeta[i].length);
+
+      for ( int j = 0 ; j < levelsMeta[i].length ; j ++ ) {
+        //TODO: load tables
+        long tableId = levelsMeta[i][j];
+        Table table = null;
+        tables.add(table);
+      }
+
+      if ( i > 0 && tables.size() > 0 ) {
+        verifyTableSeqNum(i, tables);
+      }
+
+
+      levels.add(new Level(tables));
+    }
 
     //TODO: snapshot.
     return null;
+  }
+
+  static void verifyTableSeqNum(int levelId, List<Table> tables) {
+    //TODO:
   }
 }

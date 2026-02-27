@@ -15,8 +15,11 @@ class Level {
   
   List<Table> tables;
 
-  // Level(List<Table> levels) {
-  //   this.levels = levels;
-  // }
+  Level(List<Table> tables) {
+    this.tables = tables;
+  }
 
+  Level() {
+    this.tables = new ArrayList();
+  }
 }

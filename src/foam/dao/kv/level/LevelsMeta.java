@@ -14,6 +14,7 @@ import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
@@ -22,12 +23,13 @@ import java.io.IOException;
 
 class LevelsMeta {
   
-  static short MANIFEST_VESION = 1;
+  static short META_VESION = 1;
 
   private AtomicLong nextTableId;
   private Path manifestFilePath;
   private long walNum;
   private long lastSeqNum;
+  private short metaVersion;
 
   LevelsMeta() {
 
@@ -80,7 +82,7 @@ class LevelsMeta {
     buffer.order(ByteOrder.BIG_ENDIAN);
 
     short version = buffer.getShort();
-    if ( version == MANIFEST_VESION ) {
+    if ( version == META_VESION ) {
       throw new AssertionError(String.format("unsupported manifest version: %d", version));
     }
 
@@ -118,11 +120,20 @@ class LevelsMeta {
     meta.lastSeqNum = lastSeqNum;
     meta.nextTableId = new AtomicLong(nextTableId);
     meta.manifestFilePath = manifestFilePath;
-
+    meta.metaVersion = version;
+  
     return meta;
   }
 
   static void verifyTableSeqNum(int levelId, List<Table> tables) {
     //TODO:
+  }
+
+  public void applyMetaChanges() {
+
+  }
+
+  static class MetaChanges {
+    Optional<Short> metaVersion;
   }
 }

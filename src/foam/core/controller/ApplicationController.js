@@ -642,7 +642,7 @@ foam.CLASS({
       const M = m.toUpperCase();
       var prop = m.startsWith('DisplayWidth') ? m + '.minWidthString' : m
       var val = this.theme ? foam.util.path(this.theme, prop, false) : undefined;
-
+      if ( ! val ) return css;
       // NOTE: We add a negative lookahead for */, which is used to close a
       // comment in CSS. We do this because if we don't, then when a developer
       // chooses to include a long form CSS macro directly in their CSS such as
@@ -652,9 +652,10 @@ foam.CLASS({
       // then we don't want this method to expand the commented portion of that
       // CSS because it's already in long form. By checking if */ follows the
       // macro, we can tell if it's already in long form and skip it.
-      return val ? css.replace(
+      val = foam.CSS.replaceTokens(val, this.cls_, this.__subContext__);
+      return css.replace(
         new RegExp('%' + M + '%(?!\\*\\/)', 'g'),
-        '/*%' + M + '%*/ ' + val) : css;
+        '/*%' + M + '%*/ ' + val);
     },
 
     function expandLongFormMacro(css, m) {
@@ -662,9 +663,11 @@ foam.CLASS({
       const M = m.toUpperCase();
       var prop = m.startsWith('DisplayWidth') ? m + '.minWidthString' : m
       var val = this.theme ? foam.util.path(this.theme, prop, false) : undefined;
-      return val ? css.replace(
+      if ( ! val ) return css;
+      val = foam.CSS.replaceTokens(val, this.cls_, this.__subContext__);
+      return css.replace(
         new RegExp('/\\*%' + M + '%\\*/[^);!]*', 'g'),
-        '/*%' + M + '%*/ ' + val) : css;
+        '/*%' + M + '%*/ ' + val);
     },
 
     function returnExpandedCSS(text) {

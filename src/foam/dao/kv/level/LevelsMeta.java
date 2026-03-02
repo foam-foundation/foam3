@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.ArrayList;
@@ -129,11 +130,20 @@ class LevelsMeta {
     //TODO:
   }
 
-  public void applyMetaChanges() {
-
+  //TODO:
+  public MateRevert genrateMetaRevert(MetaChanges changes) {
+    return null;
   }
 
   static class MetaChanges {
     Optional<Short> metaVersion;
+    HashSet<DeleteTableEntry> deleteTables;
+    long walNum;
   }
+
+  static class MateRevert {
+
+  }
+
+  static record DeleteTableEntry(byte level, long tableId){};
 }

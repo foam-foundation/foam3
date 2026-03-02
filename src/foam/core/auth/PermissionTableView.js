@@ -15,6 +15,8 @@ foam.CLASS({
   name: 'PermissionTableView',
   extends: 'foam.u2.Controller',
 
+  mixins: ['foam.u2.Router'],
+
   implements: [ 'foam.mlang.Expressions' ],
 
   requires: [
@@ -234,10 +236,18 @@ foam.CLASS({
       expression: function(filteredGs) {
         return filteredGs.length;
       }
+    },
+    {
+      name: 'viewTitle',
+      value: 'Permission Matrix'
     }
   ],
 
   methods: [
+    function init() {
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
     async function initMap() {
       var self = this;
       var perms = await this.groupPermissionJunctionDAO.select();
@@ -272,10 +282,6 @@ foam.CLASS({
 
         callIf(this.showSearch, function() { this.start()
           .addClass(this.myClass('header'))
-          .start('span')
-            .style({padding: '8px'})
-            .add('Permission Matrix')
-          .end()
           .add(this.G_QUERY, ' ', this.QUERY)
         .end(); })
 

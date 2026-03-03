@@ -24,9 +24,6 @@ from either File or Resource Storage.`,
     'java.security.KeyStore',
     'static java.security.KeyStore.PasswordProtection',
     'static java.security.KeyStore.SecretKeyEntry',
-    'java.security.spec.KeySpec',
-    'javax.crypto.SecretKeyFactory',
-    'javax.crypto.spec.PBEKeySpec'
   ],
 
   properties: [
@@ -86,9 +83,9 @@ from either File or Resource Storage.`,
       javaCode: `
         SecretKeyEntry entry = (SecretKeyEntry) loadKey(alias.toLowerCase());
         if ( entry != null ) {
-          SecretKeyFactory factory = SecretKeyFactory.getInstance(algorithm);
-          PBEKeySpec keySpec = (PBEKeySpec) factory.getKeySpec(entry.getSecretKey(), PBEKeySpec.class);
-          return new String(keySpec.getPassword());
+          // SecretKey.getEncoded() is simpler and more reliable, no need to
+          // construct SecretKeyFactory with algorithm and cast to PBEKeySpec.
+          return new String(entry.getSecretKey().getEncoded());
         }
         Loggers.logger(getX(), this).warning("getSecret, Alias not found", alias.toLowerCase());
         throw new IllegalArgumentException("Alias not found");

@@ -10,7 +10,8 @@ foam.CLASS({
 
   implements: [
     'foam.core.COREService',
-    'foam.core.security.KeyStoreManager'
+    'foam.core.security.KeyStoreManager',
+    'foam.core.security.KeyStoreAware'
   ],
 
   documentation: `KeyStoreManager which manages a Java KeyStore loaded
@@ -18,6 +19,7 @@ from either File or Resource Storage.`,
 
   javaImports: [
     'foam.core.logger.Loggers',
+    'foam.core.fs.Storage',
     'foam.util.SafetyUtil',
     'java.io.InputStream',
     'java.io.IOException',
@@ -27,6 +29,11 @@ from either File or Resource Storage.`,
   ],
 
   properties: [
+    {
+      class: 'Object',
+      name: 'storage',
+      documentation: 'File or Resource stroage in which the keystore resides.'
+    },
     {
       class: 'String',
       name: 'type',
@@ -69,13 +76,13 @@ from either File or Resource Storage.`,
     {
       name: 'loadKey',
       javaCode: `
-        return loadKey_(alias, new KeyStore.PasswordProtection(getKeyStorePass().toCharArray()));
+        return loadKey_(alias, new KeyStore.PasswordProtection(resolveSecret(getX(), getKeyStorePass()).toCharArray()));
       `
     },
     {
       name: 'storeKey',
       javaCode: `
-        storeKey_(alias, entry, new KeyStore.PasswordProtection(getKeyStorePass().toCharArray()));
+        storeKey_(alias, entry, new KeyStore.PasswordProtection(resolveSecret(getX(), getKeyStorePass()).toCharArray()));
       `
     },
     {
@@ -95,9 +102,10 @@ from either File or Resource Storage.`,
       name: 'unlock',
       javaCode: `
         try {
-          InputStream is = getX().get(foam.core.fs.Storage.class).getInputStream(getKeyStorePath());
+          Storage storage = getStorage() != null ? (Storage) getStorage() : getX().get(Storage.class);
+          InputStream is = storage.getInputStream(getKeyStorePath());
           if ( is != null ) {
-            getKeyStore().load(is, getKeyStorePass().toCharArray());
+            getKeyStore().load(is, resolveSecret(getX(), getKeyStorePass()).toCharArray());
             is.close();
           } else {
             throw new java.io.FileNotFoundException("Keystore resource not found "+getKeyStorePath());

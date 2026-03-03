@@ -234,14 +234,14 @@ foam.CLASS({
       // This is extremely important as otherwise the wrapper might detach with old parents
       this.clearPrivate_('listeners');
       for ( let el = this.element_.nextSibling;
-        el != this.endElement_; el = el.nextSibling ) {
+        el != this.endElement_ && el; el = el.nextSibling ) {
         this.nodesToMove_.push(el);
       }
       e.add(this);
     },
     function render() {
       if ( ! this.parentNode ) { this.detach(); return; }
-      this.element_.parentNode.appendChild(this.endElement_);
+      this.parentNode.appendChild_(this.endElement_);
       this.nodesToMove_.forEach(v => this.appendChild_(v));
       this.nodesToMove_ = undefined;
     },

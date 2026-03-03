@@ -1049,7 +1049,7 @@ foam.CLASS({
     {
       name: 'fromJSON',
       value: function(json, ctx, prop) {
-        return foam.json.parse(json, foam.lookup(prop.type), ctx);
+        return foam.json.parse(json, prop.type ? foam.lookup(prop.type) : prop.of, ctx);
       }
     },
     {

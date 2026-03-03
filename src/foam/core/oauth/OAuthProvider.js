@@ -2,6 +2,10 @@ foam.CLASS({
   package: "foam.core.oauth",
   name: "OAuthProvider",
 
+  implements: [
+    'foam.core.security.KeyStoreAware'
+  ],
+
   javaImports: [
     'foam.util.SafetyUtil',
     'java.net.URL',
@@ -93,7 +97,7 @@ foam.CLASS({
     
                 String params = "code=" + java.net.URLEncoder.encode(code, "UTF-8") +
                         "&client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8") +
-                        "&client_secret=" + java.net.URLEncoder.encode(getClientSecret(), "UTF-8") +
+                        "&client_secret=" + java.net.URLEncoder.encode(resolveSecret(x, getClientSecret()), "UTF-8") +
                         "&redirect_uri=" + java.net.URLEncoder.encode(redirectURI, "UTF-8") +
                         "&grant_type=authorization_code";
     
@@ -134,7 +138,7 @@ connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded
 // Prepare the request body
 String requestBody = String.join("&",
     "client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8"),
-    "client_secret=" + java.net.URLEncoder.encode(getClientSecret(), "UTF-8"),
+    "client_secret=" + java.net.URLEncoder.encode(resolveSecret(x, getClientSecret()), "UTF-8"),
     "refresh_token=" + java.net.URLEncoder.encode(refreshToken, "UTF-8"),
     "grant_type=refresh_token");
 

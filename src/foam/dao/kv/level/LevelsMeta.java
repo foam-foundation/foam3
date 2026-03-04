@@ -153,10 +153,10 @@ class LevelsMeta {
 
     //TODO: write level
 
-    flushToFile(baos.toByteArray());
+    forceFlushToFile(baos.toByteArray());
   }
 
-  public void flushToFile(byte[] rawMeta) throws IOException {
+  public void forceFlushToFile(byte[] rawMeta) throws IOException {
     try (FileChannel ch = FileChannel.open(
       manifestFilePath,
       StandardOpenOption.CREATE,

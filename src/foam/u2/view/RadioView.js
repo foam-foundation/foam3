@@ -37,6 +37,9 @@ foam.CLASS({
       cursor: pointer;
       align-items: center;
     }
+    ^ input[type='radio']:disabled+ label {
+      cursor: not-allowed;
+    }
     ^ .choice {
       white-space: nowrap;
     }

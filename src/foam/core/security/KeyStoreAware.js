@@ -84,7 +84,7 @@ foam.INTERFACE({
       var vault = (KeyStoreManager) x.get(getVault());
       if ( vault != null ) {
         try {
-          return vault.getSecret(x, secretId, null);
+          return vault.getSecret(x, secretId);
         } catch ( Throwable e ) {
           throw new RuntimeException(e);
         }

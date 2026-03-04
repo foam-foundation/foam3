@@ -11,8 +11,10 @@ import foam.dao.kv.sstable.Table;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +22,8 @@ import java.util.ArrayList;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 
 class LevelsMeta {
@@ -131,8 +135,38 @@ class LevelsMeta {
   }
 
   //TODO:
-  public MateRevert genrateMetaRevert(MetaChanges changes) {
+  public MateRevert applyMetaChange(MetaChanges changes) {
     return null;
+  }
+
+  public void flushMetaToDisk() throws IOException {
+    long nextTableId = this.nextTableId.get();
+    
+    // BigEndian by default.
+    var baos = new ByteArrayOutputStream();
+    var dos = new DataOutputStream(baos);
+
+    dos.writeShort(metaVersion);
+    dos.writeLong(nextTableId);
+    dos.writeLong(walNum);
+    dos.writeLong(lastSeqNum);
+
+    //TODO: write level
+
+    flushToFile(baos.toByteArray());
+  }
+
+  public void flushToFile(byte[] rawMeta) throws IOException {
+    try (FileChannel ch = FileChannel.open(
+      manifestFilePath,
+      StandardOpenOption.CREATE,
+      StandardOpenOption.WRITE)) {
+
+      ByteBuffer buf = ByteBuffer.wrap(rawMeta);
+      ch.write(buf);
+
+      ch.force(true);
+    }
   }
 
   static class MetaChanges {

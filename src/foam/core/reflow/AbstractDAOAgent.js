@@ -355,11 +355,16 @@ foam.CLASS({
       }
     },
     {
-      name: 'tableEl'
+      name: 'tableEl',
+      transient: true
     }
   ],
 
   methods: [
+    // Temporary code needed to reset tableEl on saved flows
+    function init() {
+      this.tableEl = undefined;
+    },
     function execute(e) {
       // TODO: prevent table updates when block is hidden
       var self = this;

@@ -10,12 +10,12 @@ foam.CLASS({
   implements: [ 'foam.core.security.KeyStoreManager' ],
 
   methods: [
-    { name: 'getKeyStore',  javaCode: 'return null;' },
-    { name: 'unlock',       javaCode: '/* noop */' },
-    { name: 'loadKey',      javaCode: 'return null;' },
-    { name: 'loadKey_',     javaCode: 'return null;' },
-    { name: 'storeKey',     javaCode: '' },
-    { name: 'storeKey_',    javaCode: '' },
-    { name: 'getSecret',    javaCode: 'return null;' }
+    { name: 'getKeyStore',  javaCode: 'return null; ' },
+    { name: 'unlock',       javaCode: '/* noop */ ' },
+    { name: 'loadKey',      javaCode: 'return null; ' },
+    { name: 'loadKey_',     javaCode: 'return null; ' },
+    { name: 'storeKey',     javaCode: '/* noop */ ' },
+    { name: 'storeKey_',    javaCode: '/* noop */ ' },
+    { name: 'getSecret',    javaCode: 'return ""; ' }
   ]
 });

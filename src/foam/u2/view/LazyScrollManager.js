@@ -142,6 +142,11 @@ foam.CLASS({
       name: 'loadingPages_',
       documentation: 'Set of page indices currently being fetched, to prevent duplicate loads.'
     },
+    {
+      class: 'Map',
+      name: 'loadedPages_',
+      documentation: 'Set of page indices that have data loaded already.'
+    },
 
     // Spacer / Virtual Windowing
 
@@ -440,6 +445,7 @@ foam.CLASS({
         pageEl.remove();
         this.correctSpacers_();
         delete this.renderedPages_[page];
+        delete this.loadedPages_[page];
       }
     },
     {
@@ -549,6 +555,7 @@ foam.CLASS({
         }
 
         self.loadingPages_$remove(page);
+        self.loadedPages_$set(page, true);
         e.style({ height: "unset" });
         self.setEstimatedPageHeight(page);
         this.dataLatch.resolve();
@@ -686,7 +693,8 @@ foam.CLASS({
           var promiseArr = [];
           for ( var i = 0; i < Math.min(this.numPages_, this.NUM_PAGES_TO_RENDER); i++ ) {
             var page = this.currentTopPage_ + i;
-            if ( this.loadingPages_[page] ) continue;
+            if ( this.loadingPages_[page] || this.loadedPages_[page] ) continue;
+            // console.debug('loading data for', page);
             var skip = page * this.pageSize_;
             var dao  = this.data.limit(this.pageSize_).skip(skip);
             promiseArr.push(this.getPage(dao, page));
@@ -753,10 +761,8 @@ foam.CLASS({
 
           var index = Number(entry.target.dataset.idx);
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
-            if ( entry.boundingClientRect.top + entry.boundingClientRect.height/2 <= entry.rootBounds.top ) index += 1; 
             self.topRow = index;
           } else if ( entry.boundingClientRect.bottom >= entry.rootBounds.bottom ) {
-            if ( entry.boundingClientRect.bottom + entry.boundingClientRect.height/2 >= entry.rootBounds.top ) index -= 1; 
             if ( index > 0 ) self.bottomRow = index;
           }
         });

@@ -1937,7 +1937,7 @@ foam.CLASS({
       var self = this;
       return new Promise(function(resolve) {
         var modal = self.ConfirmationModal.create({
-          title: 'Name Already Exists',
+          title: 'Flow Name Already Exists',
           modalStyle: 'WARN',
           maxWidth: '35vw',
           closeable: false,

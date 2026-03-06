@@ -60,6 +60,7 @@ foam.CLASS({
       flex-direction: column;
       overflow: hidden;
       padding: 24px;
+      height: 100%;
       padding-bottom: 0px; 
     }
     ^modal-body{

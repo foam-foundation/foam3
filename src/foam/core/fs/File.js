@@ -359,19 +359,24 @@ foam.CLASS({
           return;
         }
 
-        var popup = foam.u2.dialog.Popup.create({
+        var popup = foam.u2.dialog.StyledModal.create({
           closeable: true,
-          backgroundColor: '#ffffff'
-        }, X);
+          title: 'Preview',
+          maxWidth: '',
+          maxHeight: ''
+        }, X)
+        .styleWrapper({ 
+          width: 'clamp(90vw, 800px, 100vw)',
+          height: 'clamp(90vh, 800px, 100vh)'
+        });
 
         popup
-          .start()
-            .style({ 'width': '85vw', 'height': '85vh' })
-            .tag({
-              class: 'foam.core.fs.fileDropZone.FilePreview',
-              data: this,
-              fullScreen: true
-            })
+          .start({
+            class: 'foam.core.fs.fileDropZone.FilePreview',
+            data: this,
+            fullScreen: true
+          })
+            .style({ 'width': '100%', 'height': '100%' })
           .end();
 
         popup.open();

@@ -274,3 +274,21 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.u2.navigation',
+  name: 'NoViewStack',
+  extends: 'foam.core.u2.navigation.Stack',
+  documentation: 'Simple stack that can be used for embedded views so they dont impact parent view stack',
+  methods: [
+    function setTitle() {
+      // no-op
+    },
+    function setCompact() {
+      // no-op
+    },
+    function setTrailingContainer() {
+      // no-op
+    }
+  ]
+});

@@ -1927,38 +1927,38 @@ foam.CLASS({
       // If this is a new flow (never saved/loaded), check for name collision
       if ( ! flow.version && flow.name ) {
         var existing = await flow.flowDAO.find(flow.name);
-        if ( existing ) {
-          return new Promise((resolve) => {
-            var self = this;
-            var modal = this.ConfirmationModal.create({
-              title: 'Name Already Exists',
-              modalStyle: 'WARN',
-              maxWidth: '35vw',
-              closeable: false,
-              primaryAction: foam.lang.Action.create({
-                name: 'overwrite',
-                label: 'Overwrite',
-                buttonStyle: 'PRIMARY',
-                code: function() {
-                  resolve(self.doSave_());
-                }
-              }),
-              secondaryAction: foam.lang.Action.create({
-                name: 'cancel',
-                label: 'Cancel',
-                code: function() {
-                  flow.version = 0;
-                  resolve();
-                }
-              })
-            });
-            modal.add('A Flow named "' + flow.name + '" already exists. Overwrite it?');
-            self.add(modal);
-          });
-        }
+        if ( existing ) return this.confirmOverwrite_(flow);
       }
 
       return this.doSave_();
+    },
+
+    function confirmOverwrite_(flow) {
+      var self = this;
+      return new Promise(function(resolve) {
+        var modal = self.ConfirmationModal.create({
+          title: 'Name Already Exists',
+          modalStyle: 'WARN',
+          maxWidth: '35vw',
+          closeable: false,
+          primaryAction: foam.lang.Action.create({
+            name: 'overwrite',
+            label: 'Overwrite',
+            buttonStyle: 'PRIMARY',
+            code: function() { resolve(self.doSave_()); }
+          }),
+          secondaryAction: foam.lang.Action.create({
+            name: 'cancel',
+            label: 'Cancel',
+            code: function() {
+              flow.version = 0;
+              resolve();
+            }
+          })
+        });
+        modal.add('A Flow named "' + flow.name + '" already exists. Overwrite it?');
+        self.add(modal);
+      });
     },
 
     function doSave_() {

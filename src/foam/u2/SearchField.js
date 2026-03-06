@@ -14,8 +14,9 @@
   ],
 
   css: `
-    ^ {
+    ^.foam-u2-TextInputCSS{
       border-radius: $searchRoundness;
+      border-color: $borderStrong;
     }
     ^icon{
       background-image: url("/images/ic-search.svg");

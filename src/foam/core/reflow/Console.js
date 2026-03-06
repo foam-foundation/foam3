@@ -1916,12 +1916,52 @@ foam.CLASS({
       this.generateScript();
     },
 
-    function save() {
+    async function save() {
       // This is a hackish solution to the bug that the memento is saved before
       // the last block's name is set. Ideally the block would be named before
       // being added to the flowChildren. Alternatively, the mementoStr could never
       // be created until just before you save, but updating it for every update
       // will make it easy to implement undo/redo in the future.
+      var flow = this.value;
+
+      // If this is a new flow (never saved/loaded), check for name collision
+      if ( ! flow.version && flow.name ) {
+        var existing = await flow.flowDAO.find(flow.name);
+        if ( existing ) {
+          return new Promise((resolve) => {
+            var self = this;
+            var modal = this.ConfirmationModal.create({
+              title: 'Name Already Exists',
+              modalStyle: 'WARN',
+              maxWidth: '35vw',
+              closeable: false,
+              primaryAction: foam.lang.Action.create({
+                name: 'overwrite',
+                label: 'Overwrite',
+                buttonStyle: 'PRIMARY',
+                code: function() {
+                  resolve(self.doSave_());
+                }
+              }),
+              secondaryAction: foam.lang.Action.create({
+                name: 'cancel',
+                label: 'Cancel',
+                code: function() {
+                  flow.version = 0;
+                  resolve();
+                }
+              })
+            });
+            modal.add('A Flow named "' + flow.name + '" already exists. Overwrite it?');
+            self.add(modal);
+          });
+        }
+      }
+
+      return this.doSave_();
+    },
+
+    function doSave_() {
       var flow = this.value;
 
       this.generateScript();

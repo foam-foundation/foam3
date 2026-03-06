@@ -664,8 +664,8 @@ foam.CLASS({
       // Don't save the 'save' command
       this.currentBlock.del();
 
-      return this.save().then(() => {
-        this.notify('Flow saved');
+      return this.save().then(ret => {
+        if ( ret ) this.notify('Flow saved');
       }).catch(err => {
         this.notify('Error saving flow: ' + err.message);
       });

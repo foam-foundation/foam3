@@ -70,7 +70,7 @@ foam.CLASS({
     }
 
     ^filters{
-      padding: 0 24px;
+      padding: 0;
       padding-bottom: 12px;
     }
 

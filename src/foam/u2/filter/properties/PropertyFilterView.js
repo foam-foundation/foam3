@@ -38,6 +38,8 @@ foam.CLASS({
       padding-right: 4px;
       border-radius: 3px;
       background: $backgroundSecondary;
+      border: 1px solid $borderDefault;
+      align-items: center;
     }
 
     ^container-property:hover {

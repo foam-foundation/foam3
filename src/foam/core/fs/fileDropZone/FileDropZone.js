@@ -321,20 +321,7 @@ foam.CLASS({
     function addFiles(files) {
       var errors = false;
       for ( var i = 0 ; i < files.length ; i++ ) {
-        // skip files that exceed limit
-        if ( files[i].size > ( this.maxSize * 1024 * 1024 ) ) {
-          if ( ! errors ) errors = true;
-          this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE(), this.LogLevel.ERROR, true);
-          continue;
-        }
-        var isIncluded = false;
-        for ( var j = 0; j < this.files.length; j++ ) {
-          if ( this.files[j].filename.localeCompare(files[i].name) === 0 ) {
-            isIncluded = true;
-            break;
-          }
-        }
-        if ( isIncluded ) continue;
+        if ( ! this.validateFile(files[i]) ) continue;
         if ( this.isMultipleFiles ) {
           var f = this.createFile({
             owner:    this.subject.user.id,
@@ -368,6 +355,29 @@ foam.CLASS({
 
     function isFileType(file) {
       return ( file.type in this.supportedFormats );
+    },
+
+    // Ensures file size, format and duplicates
+    // Returns true is valid
+    function validateFile(file) {
+      if ( ! this.isFileType(file) ) {
+        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
+        return false;
+      }
+      if ( file.size > ( this.maxSize * 1024 * 1024 ) ) {
+        if ( ! errors );
+        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE(), this.LogLevel.ERROR, true);
+        return false;
+      }
+      var isIncluded = false;
+      for ( var j = 0; j < this.files.length; j++ ) {
+        if ( this.files[j].filename.localeCompare(file.name) === 0 ) {
+          isIncluded = true;
+          break;
+        }
+      }
+      if ( isIncluded ) return false;
+      return true;
     },
 
     function removeFile(atIndex) {
@@ -413,10 +423,8 @@ foam.CLASS({
             // If dropped items aren't files, reject them
             if ( inputFile[i].kind === 'file' ) {
               var file = inputFile[i].getAsFile();
-              if ( this.isFileType(file) ) {
+              if ( this.validateFile(file) ) {
                 files.push(file);
-              } else {
-                this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
               }
             }
           }
@@ -425,10 +433,8 @@ foam.CLASS({
         inputFile = e.dataTransfer.files;
         for ( var i = 0 ; i < inputFile.length ; i++ ) {
           var file = inputFile[i];
-          if ( this.isFileType(file) ) {
+          if ( this.validateFile(file) ) {
             files.push(file);
-          } else {
-            this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
           }
         }
       }

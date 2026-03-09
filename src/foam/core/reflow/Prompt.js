@@ -110,11 +110,18 @@ foam.CLASS({
     function addToE(e) {
       var self = this;
       e.add(this.dynamic(function(type) {
-        var prop = self.prop = foam.lang[type].create({name: 'value' });
+        var prop = self.prop = foam.lang[type].create({ name: 'value' });
         let traceId = 'el-' + foam.next$UID();
         prop.view = {...(self.view || prop.view), id: traceId};
         this.startContext({data: self})
-          .tag(prop.__, { config: { label$: self.label$, supportingLabel$: self.supportingLabel$ } })
+          .start(prop.__, { config: { label$: self.label$ } })
+            .call(function() {
+              // Now in the context of the property border
+              this.prop.supportingLabel$.mapFrom(self.supportingLabel$, v => {
+                return v;
+              })
+            })
+          .end()
         .endContext();
         self.traceId = traceId;
       }));

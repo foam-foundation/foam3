@@ -508,16 +508,6 @@ foam.CLASS({
             self.selection = obj;
             isFirstSet = true;
           }
-          var t = {
-            class:        foam.u2.view.TreeViewRow,
-            data:         obj,
-            relationship: self.relationship,
-            expanded:     self.startExpanded,
-            formatter:    self.formatter,
-            query:        self.query,
-            onClickAddOn: self.onClickAddOn,
-            level:        1
-          };
           this.tag({
             class:        foam.u2.view.TreeViewRow,
             data:         obj,
@@ -526,7 +516,7 @@ foam.CLASS({
             formatter:    self.formatter,
             query:        self.query,
             onClickAddOn: self.onClickAddOn,
-            level:        1
+            level:        0
           });
         });
     },

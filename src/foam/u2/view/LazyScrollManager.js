@@ -761,9 +761,15 @@ foam.CLASS({
 
           var index = Number(entry.target.dataset.idx);
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
-            self.topRow = index;
+            // Recheck before setting since the intersection observer might have been delayed
+            let bounds = entry.target.getBoundingClientRect();
+            if ( bounds.top <= entry.rootBounds.top && bounds.bottom >= entry.rootBounds.top )  
+              self.topRow = index;
           } else if ( entry.boundingClientRect.bottom >= entry.rootBounds.bottom ) {
-            if ( index > 0 ) self.bottomRow = index;
+            // Recheck before setting since the intersection observer might have been delayed
+            let bounds = entry.target.getBoundingClientRect();
+            if ( bounds.bottom >= entry.rootBounds.bottom && bounds.top < entry.rootBounds.bottom )  
+              if ( index > 0 ) self.bottomRow = index;
           }
         });
         if ( ! intersectingSet ) return;

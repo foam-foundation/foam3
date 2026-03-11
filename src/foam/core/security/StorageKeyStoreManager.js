@@ -19,7 +19,7 @@ from either File or Resource Storage.`,
 
   javaImports: [
     'foam.core.logger.Loggers',
-    'foam.core.fs.Storage',
+    'foam.core.fs.FileSystemStorage',
     'foam.util.SafetyUtil',
     'java.io.InputStream',
     'java.io.IOException',
@@ -34,7 +34,9 @@ from either File or Resource Storage.`,
     {
       class: 'Object',
       name: 'storage',
-      documentation: 'File or Resource stroage in which the keystore resides.'
+      javaType: 'foam.core.fs.Storage',
+      documentation: 'File or Resource storage in which the keystore resides.',
+      javaFactory: 'return getX().get(foam.core.fs.Storage.class);'
     },
     {
       class: 'String',
@@ -90,7 +92,16 @@ from either File or Resource Storage.`,
     {
       name: 'getSecret',
       javaCode: `
-        SecretKeyEntry entry = (SecretKeyEntry) loadKey(alias.toLowerCase());
+        SecretKeyEntry entry = null;
+
+        // reload keystore file for new entries and key passwords update externally
+        synchronized ( getKeyStorePath().intern() ) {
+          if ( getStorage() instanceof FileSystemStorage ) {
+            reload();
+          }
+          entry = (SecretKeyEntry) loadKey(alias.toLowerCase());
+        }
+
         if ( entry != null ) {
           SecretKeyFactory factory = SecretKeyFactory.getInstance(entry.getSecretKey().getAlgorithm());
           PBEKeySpec keySpec = (PBEKeySpec) factory.getKeySpec(entry.getSecretKey(), PBEKeySpec.class);
@@ -104,8 +115,7 @@ from either File or Resource Storage.`,
       name: 'unlock',
       javaCode: `
         try {
-          Storage storage = getStorage() != null ? (Storage) getStorage() : getX().get(Storage.class);
-          InputStream is = storage.getInputStream(getKeyStorePath());
+          InputStream is = getStorage().getInputStream(getKeyStorePath());
           if ( is != null ) {
             getKeyStore().load(is, resolveSecret(getX(), getKeyStorePass()).toCharArray());
             is.close();

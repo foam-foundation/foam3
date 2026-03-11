@@ -1078,15 +1078,32 @@ foam.CLASS({
       var daoKey   = serviceName.substring(8);
       var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
+      var explicitAQL   = this.block?.value?.aql;
+      var explicitWhere = this.block?.value?.where;
+      var hasExplicitQuery = false;
+
+      // Preserve exact table semantics when block-level query strings are available.
+      if ( explicitAQL ) {
+        url += '&aql=' + encodeURIComponent(explicitAQL);
+        hasExplicitQuery = true;
+      }
+
+      if ( explicitWhere ) {
+        url += '&q=' + encodeURIComponent(explicitWhere);
+        hasExplicitQuery = true;
+      }
+
       // Probe DAO to find the actual full query being used
-      try {
-        var sink = foam.dao.ArraySink.create();
-        sink.setPredicate = function(p) {
-          url = url + '&q=' + encodeURIComponent(p.toMQL());
-          throw "just probing";
-        };
-        await dao.select(sink);
-      } catch (x) {
+      if ( ! hasExplicitQuery ) {
+        try {
+          var sink = foam.dao.ArraySink.create();
+          sink.setPredicate = function(p) {
+            url = url + '&q=' + encodeURIComponent(p.toMQL());
+            throw "just probing";
+          };
+          await dao.select(sink);
+        } catch (x) {
+        }
       }
 
       if ( this.block.value.columns ) {

@@ -28,6 +28,7 @@ foam.CLASS({
     'foam.core.logger.PrefixLogger',
     'foam.mlang.MLang',
     'foam.mlang.predicate.Predicate',
+    'foam.parse.SimpleQueryParser',
     'foam.util.SafetyUtil',
     'java.io.PrintWriter',
     'java.util.ArrayList',
@@ -143,6 +144,7 @@ foam.CLASS({
       Command   command   = (Command) p.get(Command.class);
       String   id         = p.getParameter("id");
       String   q          = p.getParameter("q");
+      String   aql        = p.getParameter("aql");
       String   cols       = p.getParameter("columns");
       String   limit      = p.getParameter("limit");
       String   skip       = p.getParameter("skip");
@@ -169,6 +171,13 @@ foam.CLASS({
       final ClassInfo cInfoFinal = cInfo;
 
       Predicate pred = new WebAgentQueryParser(cInfo).parse(x, q);
+      if ( ! SafetyUtil.isEmpty(aql) ) {
+        Predicate aqlPred = new SimpleQueryParser(cInfo).parseString(aql);
+        if ( aqlPred == null ) {
+          throw new IllegalArgumentException("failed to parse [" + aql + "]");
+        }
+        pred = MLang.AND(pred, aqlPred).partialEval();
+      }
       getLogger().debug(pred.toString());
       dao = dao.where(pred);
 

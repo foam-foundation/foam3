@@ -17,7 +17,9 @@ foam.CLASS({
     'java.security.PublicKey',
     'java.security.Signature',
     'java.security.spec.RSAPublicKeySpec',
+    'java.time.Instant',
     'java.util.Base64',
+    'java.util.Date',
     'java.util.Map',
     'java.util.concurrent.ConcurrentHashMap'
   ],
@@ -117,11 +119,8 @@ foam.CLASS({
     },
     {
       name: 'refreshAccessToken',
-      args: [
-        { name: 'x', type: "Context" },
-        { name: 'refreshToken', type: 'String' },
-      ],
-      type: 'String',
+      args: 'Context x, foam.core.oauth.OAuthCredential credential',
+      type: 'Void',
       throws: [ 'java.io.IOException' ],
       javaCode: `
 try {
@@ -130,6 +129,11 @@ java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openCon
 connection.setRequestMethod("POST");
 connection.setDoOutput(true);
 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+String refreshToken = credential.getRefreshToken();
+if ( refreshToken == null || refreshToken.isEmpty() ) {
+  throw new RuntimeException("No refresh token available");
+}
 
 // Prepare the request body
 String requestBody = String.join("&",
@@ -152,7 +156,18 @@ if (responseCode != 200) {
 java.io.InputStream is = connection.getInputStream();
 jakarta.json.JsonReader jsonReader = jakarta.json.Json.createReader(is);
 jakarta.json.JsonObject responseJson = jsonReader.readObject(); 
-return responseJson.getString("access_token");
+
+// Update oauth credential data
+credential.setAccessToken(responseJson.getString("access_token", null));
+if ( responseJson.containsKey("refresh_token") ) {
+  credential.setRefreshToken(responseJson.getString("refresh_token"));
+}
+
+if ( responseJson.containsKey("expires_in") ) {
+  int expiresIn = responseJson.getInt("expires_in");
+  Instant expiresAt = Instant.now().plusSeconds(expiresIn);
+  credential.setExpiresAt(Date.from(expiresAt));
+}
 } catch (Exception e) {
     throw new RuntimeException("Failed to refresh token", e);
 }

@@ -1,6 +1,5 @@
 package foam.core.oauth;
 
-import foam.core.boot.Boot;
 import foam.core.auth.AuthenticationException;
 import foam.core.session.Session;
 import foam.lang.X;
@@ -14,6 +13,9 @@ import foam.core.logger.Logger;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
+
+import java.time.Instant;
+import java.util.Date;
 
 // Generic OAuth Web Agent for handling oauth redirects
 // can be used for login and for storing oauth credentials for users
@@ -114,6 +116,13 @@ public class OAuthWebAgent implements WebAgent {
                 credential.setRefreshToken(refreshToken);
             }
             credential.setScopes(scopes);
+
+            // Handle expires_in if present
+            if ( tokenResponse.containsKey("expires_in") ) {
+                int expiresIn = tokenResponse.getInt("expires_in");
+                Instant expiresAt = Instant.now().plusSeconds(expiresIn);
+                credential.setExpiresAt(Date.from(expiresAt));
+            }
 
             oAuthCredentialsDAO.put(credential);
 

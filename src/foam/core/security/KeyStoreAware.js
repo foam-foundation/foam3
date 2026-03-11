@@ -65,7 +65,8 @@ foam.INTERFACE({
     {
       class: 'String',
       name: 'vault',
-      documentation: 'A cspec service that implements KeyStoreManager.'
+      documentation: 'A cspec service that implements KeyStoreManager.',
+      order: -1
     }
   ],
 

@@ -35,6 +35,11 @@ foam.CLASS({
       class: 'DateTime',
       name: 'expiresAt',
       documentation: 'Expiration time of the access token, as returned by the OAuth provider'
+    },
+    {
+      class: 'String',
+      name: 'sessionId',
+      documentation: 'Session ID associated with the OAuth token'
     }
   ],
   methods: [

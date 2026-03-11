@@ -109,6 +109,7 @@ public class OAuthWebAgent implements WebAgent {
             if (existingCredential != null) {
                 credential.copyFrom(existingCredential);
             }
+            credential.setSessionId(session.getId());
             credential.setUser(user.getId());
             credential.setProvider(provider.getId());
             credential.setAccessToken(accessToken);

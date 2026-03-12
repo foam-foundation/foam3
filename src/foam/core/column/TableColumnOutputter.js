@@ -32,6 +32,12 @@ foam.CLASS({
       class: 'Boolean',
       name: 'addUnits',
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'resolveReferences',
+      documentation: 'Resolve Reference properties to their referenced object summary instead of raw ID',
+      value: true
     }
   ],
 
@@ -48,6 +54,13 @@ foam.CLASS({
               stringArr.push(await this.valueToString(val[i]));
             }
             return stringArr.join(' ');
+          }
+          if ( this.resolveReferences && foam.lang.Reference.isInstance(prop) ) {
+            var dao = x[prop.targetDAOKey];
+            if ( dao ) {
+              var ref = await dao.find(val);
+              if ( ref ) return await this.valueToString(ref);
+            }
           }
           if ( foam.lang.UnitValue.isInstance(prop) ) {
             if ( unitPropName ) {

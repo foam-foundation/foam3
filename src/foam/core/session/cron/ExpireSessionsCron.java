@@ -43,15 +43,14 @@ public class ExpireSessionsCron implements ContextAgent {
         session.setLastUsed(now);
       }
 
-      if ( session.getLastUsed().getTime() + session.getTtl() <= now.getTime() ) {
+      var oauthSession = (OAuthCredential) oAuthCredentialDAO.find(EQ(OAuthCredential.SESSION_ID, session.getId()));
+      if ( session.getLastUsed().getTime() + session.getTtl() <= now.getTime()
+          || ( oauthSession != null && oauthSession.getExpiresAt().getTime() <= now.getTime() ) ) {
         logger.debug("Destroyed expired session : " + (String) session.getId());
         localSessionDAO.remove(session);
-      } else if ( session.getCreated().getTime() + oauthSessionTtl <= now.getTime() ) {
-        var oauthSession = oAuthCredentialDAO.find(EQ(OAuthCredential.SESSION_ID, session.getId()));
-        if ( oauthSession != null ) {
-          logger.debug("Destroyed long-running oauth session : " + (String) session.getId());
-          localSessionDAO.remove(session);
-        }
+      } else if ( oauthSession != null && session.getCreated().getTime() + oauthSessionTtl <= now.getTime() ) {
+        logger.debug("Destroyed long-running oauth session : " + (String) session.getId());
+        localSessionDAO.remove(session);
       }
     }
   }

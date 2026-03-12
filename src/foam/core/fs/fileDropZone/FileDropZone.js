@@ -121,6 +121,19 @@ foam.CLASS({
     }
   `,
 
+  constants: [
+    {
+      name: 'ANY',
+      type: 'String',
+      value: '*'
+    },
+    {
+      name: 'ANY_FORMAT',
+      type: 'Map',
+      value: {'*':'ANY'}
+    }
+  ],
+
   messages: [
     { name: 'LABEL_DEFAULT_TITLE', message: 'Drag and Drop files here' },
     { name: 'LABEL_OR',            message: 'or' },
@@ -140,7 +153,7 @@ foam.CLASS({
     },
     {
       name: 'supportedFormats',
-      documentation: `Please use the following format: { 'image/jpg' : 'JPG' }`,
+      documentation: `Please use the following format: { 'image/jpg' : 'JPG' }.  Use supportedFormats: foam.core.fs.fileDropZone.FileDropZOne.ANY_FORMAT to support uploading any document type.`,
       value: {}
     },
     {
@@ -354,7 +367,8 @@ foam.CLASS({
     },
 
     function isFileType(file) {
-      return ( file.type in this.supportedFormats );
+      return ( this.ANY in this.supportedFormats ||
+               file.type in this.supportedFormats );
     },
 
     // Ensures file size, format and duplicates

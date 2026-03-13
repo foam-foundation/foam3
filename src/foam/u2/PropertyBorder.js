@@ -185,21 +185,6 @@ foam.CLASS({
         return this.E().addClass(self.myClass('view')).add(e).enableClass('error', errorSlot.and(colorSlot));
       });
 
-      if ( prop.optionalBorder ) {
-        this.optionalPropertyState$.follow(this.data$.dot(prop.name).map(v =>  {
-          // If viewSlot elemet has focus, do not toggle optional state to prevent focus loss
-          let viewEl = viewSlot.get()?.el_();
-          if ( document.activeElement && viewEl?.contains(document.activeElement) ) {
-            let setValue = () => {
-              this.optionalPropertyState = v;
-            };
-            viewEl.removeEventListener('focusout', setValue);
-            viewEl.addEventListener('focusout', setValue, { once: true });
-            return this.optionalPropertyState;
-          }
-          return v;
-        }));
-      }
 
       this.layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot);
     }
@@ -306,19 +291,10 @@ foam.CLASS({
           add(labelSlot).
           add(supportingLabelSlot).
           end().
-          callIf(prop.optionalBorder, function() {
-            this.start().
-              startContext({ data: self }).
-              addClass(self.myClass('optionalHolder')).
-              add(self.OPTIONAL_PROPERTY_STATE).
-              endContext().
-            end();
-          }).
         end().
         start().
           addClass(this.myClass('propHolder')).
           start('span').
-            show(self.optionalPropertyState$).
             addClass(this.myClass('propHolderInner')).
             call(this.layoutView, [self, prop, viewSlot]).
           end().

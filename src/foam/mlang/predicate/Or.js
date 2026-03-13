@@ -13,6 +13,7 @@ foam.CLASS({
   documentation: 'Logical Or n-ary Predicate.',
 
   requires: [
+    'foam.mlang.predicate.And',
     'foam.mlang.predicate.False',
     'foam.mlang.predicate.True'
   ],
@@ -163,6 +164,9 @@ return this;`
         if ( ! this.args[a].toMQL )
           throw new Error( 'Predicate\'s argument does not support toMQL' );
         var mql = this.args[a].toMQL();
+        if ( mql && this.And.isInstance(this.args[a]) ) {
+          mql = '(' + mql + ')';
+        }
         if ( mql )
           mqlStringsArr.push(mql);
       }

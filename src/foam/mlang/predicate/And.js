@@ -257,6 +257,9 @@ return this;`
       var mqlStringsArr = [];
       for ( var a in this.args ) {
         var mql = this.args[a].toMQL ? this.args[a].toMQL() : '<UNKNOWN MQL>';
+        if ( mql && this.Or.isInstance(this.args[a]) ) {
+          mql = '(' + mql + ')';
+        }
         mqlStringsArr.push(mql);
       }
       return mqlStringsArr.join(' AND ');

@@ -10,6 +10,8 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
   
   javaImports: [
+  'foam.dao.ArraySink',
+  'foam.dao.DAO',
   'foam.lib.parse.PStream',
   'foam.lib.parse.ParserContext',
   'foam.lib.parse.ParserContextImpl',
@@ -103,6 +105,72 @@ foam.CLASS({
 
       // test user's birthday is between two timestamps
       test(evaluate("birthday=" + dateFormat_.format(noon.toInstant()), user), user.getBirthday() + " = "+noon.toString());
+
+      // ── Float/Decimal parsing tests ──
+      QueryParser floatParser = new QueryParser(
+        foam.parse.test.QueryParserTestUser.getOwnClassInfo());
+
+      // Decimal values should parse
+      test(canParseFloat(floatParser, "amount=6.5"),        "Float: parse amount=6.5");
+      test(canParseFloat(floatParser, "amount=0.10000000009999999995"), "Float: parse long decimal");
+      test(canParseFloat(floatParser, "amount=0.0"),          "Float: parse 0.0");
+
+      // Decimal comparisons
+      test(canParseFloat(floatParser, "amount>6.5"),          "Float: parse amount>6.5");
+      test(canParseFloat(floatParser, "amount>=6.5"),         "Float: parse amount>=6.5");
+      test(canParseFloat(floatParser, "amount<6.5"),          "Float: parse amount<6.5");
+      test(canParseFloat(floatParser, "amount<=6.5"),         "Float: parse amount<=6.5");
+
+      // Negative decimals
+      test(canParseFloat(floatParser, "amount>-0.10000000009999999995"), "Float: parse negative decimal");
+      test(canParseFloat(floatParser, "amount<-6.5"),         "Float: parse amount<-6.5");
+
+      // Combined with other predicates
+      test(canParseFloat(floatParser, "amount>=0.1 AND firstName=John"), "Float: decimal in AND");
+
+      // Evaluate predicates against objects with float values
+      foam.parse.test.QueryParserTestUser m1 = new foam.parse.test.QueryParserTestUser();
+      m1.setId(1);
+      m1.setFirstName("positive");
+      m1.setAmount(6.5);
+
+      foam.parse.test.QueryParserTestUser m2 = new foam.parse.test.QueryParserTestUser();
+      m2.setId(2);
+      m2.setFirstName("negative");
+      m2.setAmount(-3.14);
+
+      foam.parse.test.QueryParserTestUser m3 = new foam.parse.test.QueryParserTestUser();
+      m3.setId(3);
+      m3.setFirstName("zero");
+      m3.setAmount(0.0);
+
+      test(evaluateFloat(floatParser, "amount>6.0", m1),     "Float: 6.5 > 6.0");
+      test(!evaluateFloat(floatParser, "amount>6.0", m2),    "Float: -3.14 !> 6.0");
+      test(evaluateFloat(floatParser, "amount<0.0", m2),     "Float: -3.14 < 0.0");
+      test(!evaluateFloat(floatParser, "amount<0.0", m1),    "Float: 6.5 !< 0.0");
+      test(evaluateFloat(floatParser, "amount>=0.0", m3),    "Float: 0.0 >= 0.0");
+      test(evaluateFloat(floatParser, "amount<=0.0", m3),    "Float: 0.0 <= 0.0");
+      test(evaluateFloat(floatParser, "amount>=-3.15", m2),  "Float: -3.14 >= -3.15");
+      test(!evaluateFloat(floatParser, "amount>=-3.13", m2), "Float: -3.14 !>= -3.13");
+
+      // DAO select with float predicate
+      DAO dao = new foam.dao.MapDAO(
+        foam.parse.test.QueryParserTestUser.getOwnClassInfo());
+      dao.put(m1);
+      dao.put(m2);
+      dao.put(m3);
+
+      Predicate floatPred = buildFloatPredicate(floatParser, "amount>0.0");
+      if ( floatPred != null ) {
+        ArraySink sink = (ArraySink) dao.where(floatPred).select(new ArraySink());
+        test(sink.getArray().size() == 1, "Float DAO: amount>0.0 matches 1 record, got " + sink.getArray().size());
+      }
+
+      floatPred = buildFloatPredicate(floatParser, "amount<0.0");
+      if ( floatPred != null ) {
+        ArraySink sink = (ArraySink) dao.where(floatPred).select(new ArraySink());
+        test(sink.getArray().size() == 1, "Float DAO: amount<0.0 matches 1 record, got " + sink.getArray().size());
+      }
       `
     },
     {
@@ -146,6 +214,57 @@ foam.CLASS({
         Predicate predicate = buildPredicate(query);
         if (predicate == null) return false;
         return predicate.f(user);
+      `
+    },
+    {
+      name: 'buildFloatPredicate',
+      type: 'foam.mlang.predicate.Predicate',
+      args: [
+        { name: 'parser', javaType: 'foam.parse.QueryParser' },
+        { name: 'query',  type: 'String' }
+      ],
+      javaCode: `
+        StringPStream sps = new StringPStream();
+        sps.setString(query);
+        PStream ps = sps;
+        ParserContext px = new ParserContextImpl();
+        ps = parser.parse(ps, px);
+        if ( ps == null ) return null;
+        Predicate pred = (Predicate) ps.value();
+        return pred.partialEval();
+      `
+    },
+    {
+      name: 'canParseFloat',
+      type: 'Boolean',
+      args: [
+        { name: 'parser', javaType: 'foam.parse.QueryParser' },
+        { name: 'query',  type: 'String' }
+      ],
+      javaCode: `
+        try {
+          return buildFloatPredicate(parser, query) != null;
+        } catch ( Exception e ) {
+          return false;
+        }
+      `
+    },
+    {
+      name: 'evaluateFloat',
+      type: 'Boolean',
+      args: [
+        { name: 'parser', javaType: 'foam.parse.QueryParser' },
+        { name: 'query',  type: 'String' },
+        { name: 'obj',    type: 'FObject' }
+      ],
+      javaCode: `
+        try {
+          Predicate pred = buildFloatPredicate(parser, query);
+          if ( pred == null ) return false;
+          return pred.f(obj);
+        } catch ( Exception e ) {
+          return false;
+        }
       `
     }
   ]

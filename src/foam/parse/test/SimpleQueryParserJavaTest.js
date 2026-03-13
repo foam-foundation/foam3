@@ -272,7 +272,7 @@ foam.CLASS({
         String ft13 = buildPredicate("address.latitude IN RANGE (-0.0001, 0.0001)");
         test(ft13 != null, "Float Test13: Small float IN RANGE (-0.0001, 0.0001) parses");
         test(
-          ft13.contains("-1.0001E-4") || ft13.contains("-0.0001") || ft13.contains("-1.0E-4"),
+          ft13.contains("-1.000001E-4") || ft13.contains("-0.0001000001") || ft13.contains("-1.0001E-4"),
           "Float Test13: Small float IN RANGE lower bound preserves magnitude — got: " + ft13
         );
         test(

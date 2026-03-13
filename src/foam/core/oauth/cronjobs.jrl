@@ -2,7 +2,7 @@ p({
   class: "foam.core.cron.Cron",
   id: "OAuthTokenRefreshCron",
   description: "Proactively refreshes OAuth access tokens before they expire. Iterates through oAuthCredentialDAO, finds matching sessions in sessionDAO, and triggers checkAndRefresh for tokens expiring within 5 minutes.",
-  enabled: false,
+  enabled: true,
   schedule: {
     class: "foam.core.cron.IntervalSchedule",
     duration: {

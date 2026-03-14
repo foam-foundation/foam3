@@ -110,11 +110,11 @@ public class SimpleQueryParser
   // ───────── Primitive Symbols ─────────
 
   private void buildPrimitiveSymbols(foam.lib.parse.Grammar g) {
-    // digits: one or more digit chars joined into a string
-    g.addSymbol("digits", new Join(new Repeat(Range.create('0', '9'), 1)));
-
-    // rawDigits: same grammar as digits but without the parseInt action, preserves leading zeros
+    // rawDigits: base grammar for one or more digit chars, no action (preserves leading zeros)
     g.addSymbol("rawDigits", new Join(new Repeat(Range.create('0', '9'), 1)));
+
+    // digits: delegates to rawDigits, but has a parseInt action (see buildActions)
+    g.addSymbol("digits", g.sym("rawDigits"));
 
     // float: optional negative, rawDigits, optional decimal part → joined string
     // Uses rawDigits (not digits) to avoid parseInt stripping leading zeros (e.g., "001" → 1)

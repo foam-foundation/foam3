@@ -14,3 +14,34 @@ p({
     "port":5432
   }
 })
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"testEmployeeDAO",
+  "serve":false,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setSeqNo(true)
+      .setPostgre(true)
+      .setAuthorize(false)
+      .setRuler(false)
+      .setOf(foam.dao.jdbc.test.TestEmployee.getOwnClassInfo())
+      .build();
+  """
+})
+
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"testCompanyDAO",
+  "serve":false,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setSeqNo(true)
+      .setPostgre(true)
+      .setAuthorize(false)
+      .setRuler(false)
+      .setOf(foam.dao.jdbc.test.TestCompany.getOwnClassInfo())
+      .build();
+  """
+})

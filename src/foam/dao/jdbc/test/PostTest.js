@@ -13,7 +13,9 @@ foam.CLASS({
     'foam.dao.*',
     'foam.core.auth.*',
     'foam.lang.*',
-    'foam.dao.jdbc.*'
+    'foam.dao.jdbc.*',
+    'foam.mlang.sink.*',
+    'java.util.*'
   ],
 
   methods: [
@@ -23,22 +25,48 @@ foam.CLASS({
         var jdbcSpec = x.get("JDBCConnectionSpec");
         test (jdbcSpec != null, "JDBCConnectionSpec found in context");
 
-        JDBCPooledDataSource source = new JDBCPooledDataSource(x, "PoolA");
-        X xcopy = x.put("JDBCDataSource", source);
-        var employeeDAO = new PostgresDAO(xcopy, TestEmployee.getOwnClassInfo());
+        var employeeDAO = (DAO) x.get("testEmployeeDAO");
 
         TestEmployee testObject = new TestEmployee.Builder(x)
-          .setId(23)
           .setFirstName("Sam")
           .setLastName("King")
+          .setCompany(1)
           .build();
+        
         employeeDAO.put(testObject);
 
-        // In particular, ensure that 
-        // - sequence number support
-        // - GROUP BY 
-        // - COUNT operations
-        // still work as expected.
+        testObject = new TestEmployee.Builder(x)
+          .setFirstName("Mam")
+          .setLastName("King")
+          .setCompany(1)
+          .build();
+
+        employeeDAO.put(testObject);
+
+        testObject = new TestEmployee.Builder(x)
+          .setFirstName("Uam")
+          .setLastName("King")
+          .setCompany(1)
+          .build();
+
+        employeeDAO.put(testObject);
+
+        Count count = (Count) employeeDAO.select(new Count());
+        test(count.getValue() >= 3, "count: " + count.getValue());
+
+
+        GroupBy gr = new GroupBy.Builder(x)
+          .setArg1(foam.dao.jdbc.test.TestEmployee.FIRST_NAME)
+          .setArg2(new Count())
+          .build();
+        gr = (GroupBy) employeeDAO.select(gr);
+        test(gr.getGroups().size() >= 3, "right number of groups selected: " + gr.getGroups());
+        test(((Count) gr.getGroups().get("Uam")).getValue() == ( count.getValue() / 3 ) , "right number in group: " + gr.getGroups().get("Uam"));
+
+        ArraySink sink = (ArraySink) employeeDAO.select(new ArraySink());
+        List<TestEmployee> list = sink.getArray();
+        test(list.size() == count.getValue(), "normal select works");
+
       `
     }
   ]

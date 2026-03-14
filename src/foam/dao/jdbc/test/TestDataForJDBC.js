@@ -27,8 +27,8 @@ foam.CLASS({
   properties: [
     {
       name: 'id',
-      class: 'Int',
-      sqlType: 'int'
+      class: 'Long', // for testing seqno
+      sqlType: 'bigint'
     },
     {
       name: 'name',
@@ -44,8 +44,8 @@ foam.CLASS({
   properties: [
     {
       name: 'id',
-      class: 'Int',
-      sqlType: 'int'
+      class: 'Long',
+      sqlType: 'bigint'
     },
     {
       name: 'firstName',

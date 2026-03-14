@@ -102,10 +102,11 @@ public class PostgresDAO
   @Override
   public FObject put_(X x, FObject obj) {
     Connection c = null;
+    IndexedPreparedStatement stmt      = null;
     ResultSet resultSet = null;
 
     try {
-      if ( insertStmt == null ) {
+      if ( stmt == null ) {
         c = dataSource_.getConnection();
         StringBuilder builder = sb.get()
           .append("insert into ")
@@ -121,17 +122,17 @@ public class PostgresDAO
         builder.append(" = ");
         buildFormattedColumnPlaceholders(obj, builder);
 
-        insertStmt = new IndexedPreparedStatement(
+        stmt = new IndexedPreparedStatement(
           c.prepareStatement(
             builder.toString(),
             Statement.RETURN_GENERATED_KEYS));
       }
 
       // set statement values twice: once for the insert and once for the update on conflict
-      setStatementValues(insertStmt, obj);
-      setStatementValues(insertStmt, obj);
+      setStatementValues(stmt, obj);
+      setStatementValues(stmt, obj);
 
-      int inserted = insertStmt.executeUpdate();
+      int inserted = stmt.executeUpdate();
       if ( inserted == 0 ) {
         throw new SQLException("Error performing put_ command");
       }
@@ -148,7 +149,7 @@ public class PostgresDAO
       logger.error(e);
       return null;
     } finally {
-      closeAllQuietly(resultSet, insertStmt);
+      closeAllQuietly(resultSet, stmt);
     }
   }
 

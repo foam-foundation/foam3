@@ -45,8 +45,7 @@ public abstract class AbstractJDBCDAO
   protected String tableName_;
 
   /** Holds a reference to the connection pool ( .getConnection() ) */
-  // TODO: Why is this static? Remove 'static' and retest.
-  protected static DataSource dataSource_;
+  protected DataSource dataSource_;
 
   protected IndexedPreparedStatement findStmt;
   protected IndexedPreparedStatement removeStmt;

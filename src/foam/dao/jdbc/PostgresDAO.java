@@ -23,7 +23,6 @@ import java.util.List;
 public class PostgresDAO
   extends AbstractJDBCDAO
 {
-  protected ConnectionPool connectionPool = new ConnectionPool();
   protected ThreadLocal<StringBuilder> sb = new ThreadLocal<StringBuilder>() {
     @Override
     protected StringBuilder initialValue() {
@@ -52,7 +51,7 @@ public class PostgresDAO
     ResultSet                resultSet = null;
 
     try {
-      c = connectionPool.getConnection();
+      c = dataSource_.getConnection();
 
       StringBuilder builder = sb.get()
         .append("select * from ")
@@ -107,7 +106,7 @@ public class PostgresDAO
 
     try {
       if ( insertStmt == null ) {
-        c = connectionPool.getConnection();
+        c = dataSource_.getConnection();
         StringBuilder builder = sb.get()
           .append("insert into ")
           .append(tableName_);
@@ -149,12 +148,6 @@ public class PostgresDAO
       logger.error(e);
       return null;
     } finally {
-      try {
-        setStatementValues(insertStmt, null);
-      } catch (SQLException e) {
-        Logger logger = (Logger) x.get("logger");
-        logger.error(e);
-      }
       closeAllQuietly(resultSet, insertStmt);
     }
   }

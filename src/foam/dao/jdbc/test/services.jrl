@@ -1,0 +1,16 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"JDBCConnectionSpec",
+  "lazy":false,
+  "serve":false,
+  "class":"foam.core.boot.CSpec",
+  "service":{
+    "class":"foam.dao.jdbc.JDBCConnectionSpec",
+    "databaseServer":"postgresql",
+    "hostName":"localhost",
+    "databaseName":"testSQLDAO",
+    "userName":"foam_user",
+    "userPassword":"foam_password",
+    "port":5432
+  }
+})

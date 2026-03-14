@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.jdbc',
+  package: 'foam.dao.jdbc.test',
   name: 'TestDataForJDBC',
   properties: [
     {
@@ -22,7 +22,7 @@ foam.CLASS({
 });
 
 foam.CLASS({
-  package: 'foam.dao.jdbc',
+  package: 'foam.dao.jdbc.test',
   name: 'TestCompany',
   properties: [
     {
@@ -39,7 +39,7 @@ foam.CLASS({
 });
 
 foam.CLASS({
-  package: 'foam.dao.jdbc',
+  package: 'foam.dao.jdbc.test',
   name: 'TestEmployee',
   properties: [
     {
@@ -62,9 +62,9 @@ foam.CLASS({
 
 //Foreign Key from TestEmployee to TestCompany
 foam.RELATIONSHIP({
-  sourceModel: 'foam.dao.jdbc.TestCompany',
+  sourceModel: 'foam.dao.jdbc.test.TestCompany',
   forwardName: 'employees',
-  targetModel: 'foam.dao.jdbc.TestEmployee',
+  targetModel: 'foam.dao.jdbc.test.TestEmployee',
   inverseName: 'company'
 });
 

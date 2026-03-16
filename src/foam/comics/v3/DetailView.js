@@ -374,12 +374,12 @@ foam.CLASS({
       themeIcon: 'edit',
       icon: 'images/edit-icon.svg',
       size: 'SMALL',
-      internalIsEnabled: function(config, data) {
+      internalIsEnabled: async function(config, data) {
         if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
           try {
             let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.UPDATE, data);
 
-            return this.auth?.check(null, permissionString) && this.data;
+            return (await this.auth?.check(null, permissionString)) && this.data;
           } catch(e) {
             return false;
           }
@@ -402,12 +402,12 @@ foam.CLASS({
       class: 'foam.comics.v3.ComicsAction',
       name: 'copy',
       size: 'SMALL',
-      internalIsEnabled: function(config, data) {
+      internalIsEnabled: async function(config, data) {
         if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
           try {
             let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.CREATE, data);
 
-            return this.auth?.check(null, permissionString);
+            return await this.auth?.check(null, permissionString);
           } catch(e) {
             return false;
           }
@@ -516,12 +516,12 @@ foam.CLASS({
       class: 'foam.comics.v3.ComicsAction',
       name: 'delete',
       size: 'SMALL',
-      internalIsEnabled: function(config, data) {
+      internalIsEnabled: async function(config, data) {
         if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
           try {
             let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.REMOVE, data);
 
-            return this.auth?.check(null, permissionString);
+            return await this.auth?.check(null, permissionString);
           } catch(e) {
             return false;
           }

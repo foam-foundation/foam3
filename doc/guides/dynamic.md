@@ -25,6 +25,10 @@ The implementation shows that `DynamicFunction` eagerly evaluates and always upd
 
 Both use FOAM's reactive slot system under the hood, but serve different purposes - expressions for computed model data and `this.dynamic()` for reactive UI rendering. The `DynamicFunction` implementation ensures UI updates happen immediately when dependencies change, while expressions only compute when accessed.
 
+## See Also
+
+- [Reactive UI Patterns](ReactiveUI.md) — covers `dynamic()` alongside the other three reactive UI patterns (`slot.dot()`, `slot.map()`, and slot binding via `prop$:`), with a decision framework for choosing between them
+
 Wiki pages you might want to explore:
 - [FOAM Framework Overview (kgrgreer/foam3)](/wiki/kgrgreer/foam3#1)
 - [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)

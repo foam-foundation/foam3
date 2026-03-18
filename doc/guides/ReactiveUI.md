@@ -23,7 +23,7 @@ Use the simplest one that fits:
 1. **Slot binding** (`data$: this.name$`) — wire a changing value into a child component
 2. **`dot()`** (`this.data$.dot('name')`) — track a property inside a changing object
 3. **`map()`** (`this.count$.map(n => n + ' items')`) — transform a value for display
-4. **`dynamic()`** (`this.dynamic(function(mode) { ... })`) — rebuild DOM when structure changes
+4. **`dynamic()`** (`this.dynamic(function(mode) { ... })`) — rebuild DOM when dependent values change and you need different elements
 
 ---
 
@@ -412,6 +412,12 @@ re-run function, create N new components, insert N new DOM nodes.
 When you `.add()` a plain function, Element calls `dynamic()` on it
 (`Element2.js:1345-1348`), converting it to a DynamicFunction. This is
 why `this.add(function(prop) { ... })` behaves like `dynamic()`.
+
+---
+
+## See Also
+
+- [Expressions vs dynamic()](dynamic.md) — covers how `expression` (model-level computed properties) differs from `this.dynamic()` (UI rendering), including evaluation semantics (lazy vs eager)
 
 ---
 

@@ -62,7 +62,7 @@ foam.INTERFACE({
           args: 'Context x',
           javaCode: """
             String secretApiKey = resolveSecret(x, getApiKey());
-            // make api call with the resolved `secretApiKey`
+            // make api call with the resolved secretApiKey
           """
         }
       ]

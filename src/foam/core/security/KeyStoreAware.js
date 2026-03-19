@@ -15,23 +15,18 @@ foam.INTERFACE({
     (such as API keys, passwords, or tokens) from a configured vault
     service rather than storing them as plain text on the object itself.
 
-    Usage Example:
+    Usage example 1 (via credentialDAO):
     <pre>
-    // MyCredential.js
-    foam.CLASS({
-      package: 'my.package',
-      name: 'MyCredential',
+    // credentials.jrl
+    p({id:'cred1', password:'password-in-plain-text'})
+    p({id:'cred2', password:'password-in-myVault', vault: 'myVault'})
 
-      implements: ['foam.core.security.KeyStoreAware'],
+    // Retrieval
+    cred1.getPassword();          // returns "password-in-plain-text"
+    cred1.getPasswordSecret(x);   // returns "password-in-plain-text" (because vault property is not set)
 
-      properties: [
-        // ...
-        {
-          class: 'String',
-          name: 'secret'
-        }
-      ]
-    });
+    cred2.getPassword();          // returns "password-in-myVault"
+    cred2.getPasswordSecret(x);   // returns the secret key with alias:"password-in-myVault" from "myVault" keystore
 
     // services.jrl
     p({
@@ -47,17 +42,44 @@ foam.INTERFACE({
           .build();
       """
     })
+    </pre>
 
-    // myCredentials.jrl
-    p({ id: 'cred1', secret: 'store-secret-in-plain-text' })
-    p({ id: 'cred2', secret: 'store-secret-in-myVault', vault: 'myVault' })
 
-    // Retrieval
-    cred2.getSecret();                         // returns "store-secret-in-myVault"
-    cred2.resolveSecret(x, cred2.getSecret()); // returns the secret key named "store-secret-in-myVault" stored in vault.p12
+    Usage example 2 (install directly on a service):
+    <pre>
+    // MyService.js
+    foam.CLASS({
+      package: 'my.package',
+      name: 'MyService',
+      implements: ['foam.core.security.KeyStoreAware'],
 
-    cred1.getSecret();                         // returns "store-secret-in-plain-text"
-    cred1.resolveSecret(x, cred1.getSecret()); // returns "store-secret-in-plain-text"
+      properties: [
+        { class: 'String', name: 'apiKey' }
+      ],
+      methods: [
+        {
+          name: 'doSomething',
+          args: 'Context x',
+          javaCode: `
+            String secretApiKey = resolveSecret(x, getApiKey());
+            // make api call with the resolved `secretApiKey`
+          `
+        }
+      ]
+    });
+
+    // services.jrl
+    p({
+      class: 'foam.core.boot.CSpec',
+      name: 'myService',
+      lazy: false,
+      serviceScript: """
+        return new my.package.MyService.Builder(x)
+          .setVault("myVault")
+          .setApiKey("my-service-api-key")
+          .build();
+      """
+    })
     </pre>
   `,
 

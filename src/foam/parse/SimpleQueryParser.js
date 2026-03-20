@@ -320,9 +320,27 @@ foam.CLASS({
           // Property or Referenced Property, the effective type of the Property
           let type = prop;
 
-          // TODO: It would be better to handle references with a custom view:
-          // which auto-completes based on DAO searches.
           if ( foam.lang.Reference.isInstance(prop) ) {
+            // Suggestion-only entry: fires ReferenceSuggester at the value level
+            // (after the operator), matching DateSuggester's placement in the
+            // 'date' symbol. sug(nop()) never produces a parse result — it only
+            // triggers SmartView's suggestion collection. Actual parsing is
+            // handled by the fallthrough to compareNumber/compareString below.
+            propPredicates.push(seq(propertyParser, seq1(1,
+              alt(operator('='), operator('!=')),
+              sym('ws'),
+              sug(nop(), {
+                view: {
+                  class: 'foam.parse.auto.ReferenceSuggester',
+                  targetDAOKey: prop.targetDAOKey,
+                  of: prop.of
+                },
+                label: prop.label + ' lookup',
+                category: 'value'
+              })
+            )));
+
+            // Resolve ID type and fall through to compareNumber/compareString.
             type = prop.of.ID;
             if ( foam.lang.IDAlias.isInstance(type) ) {
               type = prop.of.getAxiomByName(type.propName);

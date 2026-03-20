@@ -69,8 +69,10 @@ public abstract class AbstractJDBCDAO
         findStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
       }
 
-      // TODO: add support for non-numbers
-      //stmt.setLong(((Number) o).longValue());
+      if ( id instanceof FObject ) {
+        id = ((FObject) id).getProperty(getPrimaryKey().getName());
+      }
+
       findStmt.setObject(id);
       resultSet = findStmt.executeQuery();
       if ( ! resultSet.next() ) {

@@ -92,6 +92,12 @@ public abstract class AbstractJDBCDAO
         logger.error(e);
       }
       closeAllQuietly(resultSet, findStmt);
+      try {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
+        Logger logger = (Logger) x.get("logger");
+        logger.error(e);
+      }
     }
   }
 
@@ -136,6 +142,12 @@ public abstract class AbstractJDBCDAO
         logger.error(e);
       }
       closeAllQuietly(null, removeStmt);
+      try {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
+        Logger logger = (Logger) x.get("logger");
+        logger.error(e);
+      } 
     }
   }
 

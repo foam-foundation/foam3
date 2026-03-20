@@ -91,9 +91,16 @@ public class PostgresDAO
       return null;
     } finally {
       closeAllQuietly(resultSet, stmt);
+      try {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
+        Logger logger = (Logger) x.get("logger");
+        logger.error(e);
+      }
     }
   }
 
+  // todo
   @Override
   public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
     throw new UnsupportedOperationException("Unsupported operation: removeAll_");
@@ -150,6 +157,12 @@ public class PostgresDAO
       return null;
     } finally {
       closeAllQuietly(resultSet, stmt);
+      try {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
+        Logger logger = (Logger) x.get("logger");
+        logger.error(e);
+      } 
     }
   }
 

@@ -48,6 +48,9 @@ public class Loggers {
     if ( caller != null ) {
       Class<?> callerClass = caller.getClass();
       while ( SafetyUtil.isEmpty(callerClass.getSimpleName()) ) {
+        if ( callerClass.getEnclosingClass() == null )
+          break;
+
         callerClass = callerClass.getEnclosingClass();
       }
       String callerName = callerClass.getSimpleName();

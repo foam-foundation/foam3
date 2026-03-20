@@ -291,7 +291,7 @@ foam.CLASS({
     },
     {
       name: 'propertiesGrammar_',
-      value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
+      value: function(action, alt, nop, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
         let cls                 = this.of;

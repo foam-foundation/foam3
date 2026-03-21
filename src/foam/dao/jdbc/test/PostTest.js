@@ -122,6 +122,19 @@ foam.CLASS({
         // Test correct removed item removed.
         employee = (TestEmployee) employeeDAO.find(employee);
         test(employee == null, "Removed employee not found");
+
+        // Test removeAll with predicate
+        Count beforeRemove = (Count) employeeDAO.select(new Count());
+        employeeDAO.where(EQ(TestEmployee.FIRST_NAME, "Sam")).removeAll();
+        Count afterRemove = (Count) employeeDAO.select(new Count());
+        test(afterRemove.getValue() < beforeRemove.getValue(), "removeAll with predicate reduced count: " + beforeRemove.getValue() + " -> " + afterRemove.getValue());
+        employee = (TestEmployee) employeeDAO.find(EQ(TestEmployee.FIRST_NAME, "Sam"));
+        test(employee == null, "removeAll with predicate: Sam no longer found");
+
+        // Test removeAll with no predicate
+        employeeDAO.removeAll();
+        count = (Count) employeeDAO.select(new Count());
+        test(count.getValue() == 0, "removeAll with no predicate: table empty, count = " + count.getValue());
       
       `
     }

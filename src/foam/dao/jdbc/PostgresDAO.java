@@ -100,10 +100,62 @@ public class PostgresDAO
     }
   }
 
-  // todo
   @Override
   public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
-    throw new UnsupportedOperationException("Unsupported operation: removeAll_");
+    Connection               c    = null;
+    IndexedPreparedStatement stmt = null;
+
+    try {
+      c = dataSource_.getConnection();
+      StringBuilder builder = sb.get();
+
+      if ( order == null && ( skip <= 0 || skip >= MAX_SAFE_INTEGER ) && ( limit <= 0 || limit >= MAX_SAFE_INTEGER ) ) {
+        builder.append("delete from ").append(tableName_);
+
+        if ( predicate != null ) {
+          builder.append(" where ").append(predicate.createStatement());
+        }
+      } else {
+        String pk = getPrimaryKey().createStatement();
+        builder.append("delete from ").append(tableName_)
+          .append(" where ").append(pk)
+          .append(" in (select ").append(pk)
+          .append(" from ").append(tableName_);
+
+        if ( predicate != null ) {
+          builder.append(" where ").append(predicate.createStatement());
+        }
+        if ( order != null ) {
+          builder.append(" order by ").append(order.createStatement());
+        }
+        if ( limit > 0 && limit < MAX_SAFE_INTEGER ) {
+          builder.append(" limit ").append(limit);
+        }
+        if ( skip > 0 && skip < MAX_SAFE_INTEGER ) {
+          builder.append(" offset ").append(skip);
+        }
+        builder.append(')');
+      }
+
+      stmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
+
+      if ( predicate != null ) {
+        predicate.prepareStatement(stmt);
+      }
+
+      stmt.executeUpdate();
+    } catch ( Throwable e ) {
+      Logger logger = (Logger) x.get("logger");
+      logger.error(e);
+    } finally {
+      closeAllQuietly(null, stmt);
+      try {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
+        Logger logger = (Logger) x.get("logger");
+        logger.error(e);
+      }
+    }
   }
 
   @Override
@@ -113,27 +165,25 @@ public class PostgresDAO
     ResultSet resultSet = null;
 
     try {
-      if ( stmt == null ) {
-        c = dataSource_.getConnection();
-        StringBuilder builder = sb.get()
-          .append("insert into ")
-          .append(tableName_);
+      c = dataSource_.getConnection();
+      StringBuilder builder = sb.get()
+        .append("insert into ")
+        .append(tableName_);
 
-        buildFormattedColumnNames(obj, builder);
-        builder.append(" values");
-        buildFormattedColumnPlaceholders(obj, builder);
-        builder.append(" on conflict (")
-          .append(getPrimaryKey().createStatement())
-          .append(") do update set");
-        buildFormattedColumnNames(obj, builder);
-        builder.append(" = ");
-        buildFormattedColumnPlaceholders(obj, builder);
+      buildFormattedColumnNames(obj, builder);
+      builder.append(" values");
+      buildFormattedColumnPlaceholders(obj, builder);
+      builder.append(" on conflict (")
+        .append(getPrimaryKey().createStatement())
+        .append(") do update set");
+      buildFormattedColumnNames(obj, builder);
+      builder.append(" = ");
+      buildFormattedColumnPlaceholders(obj, builder);
 
-        stmt = new IndexedPreparedStatement(
-          c.prepareStatement(
-            builder.toString(),
-            Statement.RETURN_GENERATED_KEYS));
-      }
+      stmt = new IndexedPreparedStatement(
+        c.prepareStatement(
+          builder.toString(),
+          Statement.RETURN_GENERATED_KEYS));
 
       // set statement values twice: once for the insert and once for the update on conflict
       setStatementValues(stmt, obj);

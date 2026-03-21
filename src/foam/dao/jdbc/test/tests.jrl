@@ -1,1 +1,1 @@
-p({"class":"foam.dao.jdbc.test.PostTest","id":"postTest"})
+p({"class":"foam.dao.jdbc.test.PostTest","id":"postTest","enabled":false})

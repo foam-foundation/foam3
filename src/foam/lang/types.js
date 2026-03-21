@@ -1554,3 +1554,44 @@ foam.CLASS({
     }
   ]
 })
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'TimeUnitValue',
+  extends: 'Int',
+  properties: [
+    {
+      class: 'String',
+      name: 'unitPropName',
+      value: 'timeUnit'
+    },
+    {
+      name: 'unitPropValueToString',
+      value: async function(x, val, unitProp) {
+        if ( unitProp && foam.time.TimeUnit.isInstance(unitProp) ) {
+          return `${val} ${unitProp.plural}`;
+        }
+        return val;
+      }
+    }
+  ],
+
+  methods: [
+    function installInClass(cls) {
+      this.SUPER(cls);
+
+      var name = this.name;
+      var Name = foam.String.capitalize(name);
+
+      var unitPropName = this.unitPropName;
+      var UnitPropName = foam.String.capitalize(unitPropName);
+
+      cls.installAxiom(foam.lang.Method.create({
+        name: `get${Name}Ms`,
+        type: 'Long',
+        code: function() { return this[name] * this[unitPropName].conversionFactorMs; },
+        javaCode: `return get${Name}() * get${UnitPropName}().getConversionFactorMs();`
+      }));
+    }
+  ]
+});

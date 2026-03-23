@@ -183,12 +183,6 @@ foam.CLASS({
       z-index: 1000;
       position: relative;
     }
-    ^container^embedded {
-      border: none;
-    }
-    ^container^embedded .foam-u2-SearchField-icon {
-      background-image: none;
-    }
 
     ^heading {
       color: $textSecondary;
@@ -400,23 +394,6 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'embedded',
-      documentation: `
-        Renders the search and section content directly without the selection
-        button or OverlayDropdown wrapper. The container border, shadow, and
-        background are also removed since the parent is expected to provide
-        its own styling.
-
-        Use when this view is placed inside another dropdown, overlay, or
-        suggestion panel.
-        Example:
-          RichChoiceReferenceView.create({ embedded: true })
-
-        See: foam.parse.auto.ReferenceSuggester
-      `
-    },
-    {
-      class: 'Boolean',
       name: 'search',
       documentation: 'Set to true to enable searching.'
     },
@@ -524,12 +501,6 @@ foam.CLASS({
         throw new Error(`You must provide an array of sections. See documentation on the 'sections' property in RichTextView.js.`);
       }
 
-      if ( this.embedded ) {
-        // Render content directly — no OverlayDropdown, no selection button.
-        this.renderContent_(this);
-        return;
-      }
-
       // If the property that this view is for already has a value when being
       // rendered, the 'data' property on this model will be set to an id for
       // the object being referenced by the Reference property being rendered.
@@ -551,9 +522,75 @@ foam.CLASS({
       self.isOpen_$.follow(this.dropdown_.opened$);
       self.dropdown_.add(self.slot(function(hasBeenOpenedYet_) {
         if ( ! hasBeenOpenedYet_ ) return this.E();
-        var e = this.E();
-        self.renderContent_(e);
-        return e;
+        return this.E()
+          .addClass(self.myClass('container'))
+          .add(self.search$.map(searchEnabled => {
+            if ( ! searchEnabled ) return null;
+            return this.E()
+              .start()
+                .start('img')
+                  .attrs({ src: '/images/ic-search.svg' })
+                .end()
+                .startContext({ data: self })
+                  .addClass(self.myClass('search'))
+                  .tag(self.FILTER_.clone().copyFrom({ view: {
+                    class: 'foam.u2.TextField',
+                    placeholder: this.searchPlaceholder || 'Search... ',
+                    autofocus: true,
+                    onKey: true
+                  } }), {}, self.inputField$)
+                .endContext()
+              .end();
+          }))
+          .add(self.slot(function(sections) {
+            var promiseArray = [];
+            sections.forEach(function(section) {
+              promiseArray.push(section.dao.select(self.COUNT()));
+            });
+            return Promise.all(promiseArray).then(resp => {
+              var index = 0;
+              return this.E().forEach(sections, function(section) {
+                if ( section.hideIfEmpty && resp[index].value <= 0 ) {
+                  index++;
+                  return;
+                }
+                section.refineInput_ = resp[index].value > section.choicesLimit;
+                this.addClass(self.myClass('setAbove'))
+                  .start().addClass(self.myClass('section'))
+                  .start().hide(! section.heading)
+                    .addClass('h600', self.myClass('heading'))
+                    .translate(section.heading$)
+                  .end()
+                  .start()
+                    .select( section.choicesLimit ? section.filteredDAO$proxy.limit(section.choicesLimit) : section.filteredDAO$proxy, function(obj) {
+                      let addRow = function() {
+                        this.start(self.rowView, { data: obj })
+                          .attr('disabled', section.disabled)
+                          .attr('role', 'option')
+                          .enableClass('disabled', section.disabled)
+                          .callIf(! section.disabled, function() {
+                            this.on('click', () => {
+                              self.onSelect(obj);
+                              self.dropdown_.close();
+                            });
+                          })
+                        .end();
+                      }
+                      this.call(addRow);
+                    }, false, self.comparator)
+                  .end()
+                  .callIf(section.choicesLimit, function() {
+                    this.start()
+                      .addClass(self.myClass('moreChoices'))
+                      .add(section.refineInput_$.map(v => v ? self.MORE_CHOICES : ''))
+                    .end();
+                  })
+                  .end();
+                  index++;
+              });
+            });
+          }))
+          .add(this.slot(self.addAction));
       }));
 
       this
@@ -614,80 +651,6 @@ foam.CLASS({
                 .end();
           }
         }));
-    },
-
-    function renderContent_(e) {
-      var self = this;
-      e
-        .addClass(self.myClass('container'))
-        .enableClass(self.myClass('embedded'), self.embedded)
-        .add(self.search$.map(searchEnabled => {
-          if ( ! searchEnabled ) return null;
-          return e.E()
-            .start()
-              .start('img')
-                .attrs({ src: '/images/ic-search.svg' })
-              .end()
-              .startContext({ data: self })
-                .addClass(self.myClass('search'))
-                .tag(self.FILTER_.clone().copyFrom({ view: {
-                  class: 'foam.u2.TextField',
-                  placeholder: self.searchPlaceholder || 'Search... ',
-                  autofocus: true,
-                  onKey: true
-                } }), {}, self.inputField$)
-              .endContext()
-            .end();
-        }))
-        .add(self.slot(function(sections) {
-          var promiseArray = [];
-          sections.forEach(function(section) {
-            promiseArray.push(section.dao.select(self.COUNT()));
-          });
-          return Promise.all(promiseArray).then(resp => {
-            var index = 0;
-            return this.E().forEach(sections, function(section) {
-              if ( section.hideIfEmpty && resp[index].value <= 0 ) {
-                index++;
-                return;
-              }
-              section.refineInput_ = resp[index].value > section.choicesLimit;
-              this.addClass(self.myClass('setAbove'))
-                .start().addClass(self.myClass('section'))
-                .start().hide(! section.heading)
-                  .addClass('h600', self.myClass('heading'))
-                  .translate(section.heading$)
-                .end()
-                .start()
-                  .select( section.choicesLimit ? section.filteredDAO$proxy.limit(section.choicesLimit) : section.filteredDAO$proxy, function(obj) {
-                    let addRow = function() {
-                      this.start(self.rowView, { data: obj })
-                        .attr('disabled', section.disabled)
-                        .attr('role', 'option')
-                        .enableClass('disabled', section.disabled)
-                        .callIf(! section.disabled, function() {
-                          this.on('click', () => {
-                            self.onSelect(obj);
-                            if ( ! self.embedded ) self.dropdown_.close();
-                          });
-                        })
-                      .end();
-                    }
-                    this.call(addRow);
-                  }, false, self.comparator)
-                .end()
-                .callIf(section.choicesLimit, function() {
-                  this.start()
-                    .addClass(self.myClass('moreChoices'))
-                    .add(section.refineInput_$.map(v => v ? self.MORE_CHOICES : ''))
-                  .end();
-                })
-                .end();
-                index++;
-            });
-          });
-        }))
-        .add(self.slot(self.addAction));
     },
 
     function onSelect(obj) {

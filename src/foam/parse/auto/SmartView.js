@@ -110,65 +110,6 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.parse.auto',
-  name: 'ReferenceSuggester',
-  extends: 'foam.u2.View',
-
-  implements: [
-    'foam.mlang.Expressions'
-  ],
-
-  properties: [
-    'suggestText',
-    { class: 'Class', name: 'of' },
-    { class: 'String', name: 'targetDAOKey' },
-    { class: 'String', name: 'search', onKey: true },
-    { name: 'results', factory: function() { return []; } }
-  ],
-
-  methods: [
-    function render() {
-      var self = this;
-      this.search$.sub(this.onSearchChange);
-
-      this
-        .startContext({ data: this })
-          .add(this.SEARCH)
-        .endContext()
-        .add(this.dynamic(function(results) {
-          for ( var i = 0 ; i < results.length ; i++ ) {
-            var r = results[i];
-            this.start('div')
-              .add(r.toSummary() + ' (' + r.id + ')')
-              .on('click', function() {
-                self.suggestText(this.id + ' ');
-              }.bind(r))
-            .end();
-          }
-        }));
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'onSearchChange',
-      isMerged: true,
-      mergeDelay: 250,
-      code: function() {
-        var self = this;
-        var dao  = this.__subContext__[this.targetDAOKey];
-        if ( ! dao || ! this.search ) { this.results = []; return; }
-
-        dao.where(this.KEYWORD(this.search)).limit(10).select().then(function(sink) {
-          self.results = sink.array;
-        });
-      }
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.parse.auto',
   name: 'SuggestionView',
   extends: 'foam.u2.View',
 

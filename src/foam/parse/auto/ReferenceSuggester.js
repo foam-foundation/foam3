@@ -11,29 +11,38 @@ foam.CLASS({
 
   documentation: `
     A suggester view for Reference properties in the AQL search bar.
-    Renders a RichChoiceReferenceView in embedded mode inside SmartView's
-    suggestion dropdown. When the user selects a record, its ID is inserted
-    into the search text via suggestText.
+    Shows records from the target DAO using CitationView. SmartView passes
+    a 'filter' string (the text typed after the operator) which is used to
+    narrow results via KEYWORD search. Selecting a record inserts its ID.
   `,
 
+  requires: [
+    'foam.u2.CitationView'
+  ],
+
   css: `
+    ^ {
+      padding: 0 !important;
+    }
     ^:hover {
       background-color: unset !important;
       cursor: default !important;
     }
-    ^ {
-      padding: 0 !important;
+    ^row {
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    ^row:hover {
+      background-color: $backgroundBrandTertiary;
     }
   `,
-
-  requires: [
-    'foam.u2.view.RichChoiceReferenceView'
-  ],
 
   properties: [
     'suggestText',
     { class: 'Class', name: 'of' },
-    { class: 'String', name: 'targetDAOKey' }
+    { class: 'String', name: 'targetDAOKey' },
+    { class: 'String', name: 'filter' },
+    { class: 'Int', name: 'resultLimit', value: 10 }
   ],
 
   methods: [
@@ -43,22 +52,19 @@ foam.CLASS({
       var dao  = this.__subContext__[this.targetDAOKey];
       if ( ! dao ) return;
 
-      var choiceView = this.RichChoiceReferenceView.create({
-        embedded: true
-      });
-      choiceView.fromProperty({
-        targetDAOKey: this.targetDAOKey,
-        of: this.of,
-        name: this.targetDAOKey
-      });
+      var filtered = this.filter
+        ? dao.where(this.KEYWORD(this.filter))
+        : dao;
 
-      choiceView.data$.sub(function() {
-        if ( choiceView.data != null ) {
-          self.suggestText(choiceView.data + ' ');
-        }
-      });
-
-      this.add(choiceView);
+      this
+        .start()
+          .select(filtered.limit(self.resultLimit), function(obj) {
+            this.start(self.CitationView, { data: obj })
+              .addClass(self.myClass('row'))
+              .on('click', function() { self.suggestText(obj.id + ' '); })
+            .end();
+          })
+        .end();
     }
   ]
 });

@@ -412,7 +412,12 @@ foam.CLASS({
       let keys    = Object.keys(suggestions);
       let ss      = keys.sort(compare); // Sort by section then (label or text)
 
-      if ( delta ) ss = ss.filter(k => suggestions[k].matches(delta));
+      if ( delta ) ss = ss.filter(k => {
+        let sug = suggestions[k];
+        // Custom views handle their own filtering via the 'filter' property.
+        if ( sug.view ) return true;
+        return sug.matches(delta);
+      });
 
       let parent = e.parentNode;
 
@@ -424,6 +429,7 @@ foam.CLASS({
         let sug = self.suggestions[s];
         this.tag(sug.view || self.SuggestionView, {
           data: sug,
+          filter: sug.view ? delta.trim() : '',
           suggestText: (text) => {
             self.suggestText.call(self, text, sug);
           }

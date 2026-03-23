@@ -19,17 +19,7 @@ foam.CLASS({
   requires: [
     'foam.u2.CitationView'
   ],
-
-  css: `
-    ^row {
-      cursor: pointer;
-      padding: 4px 8px;
-    }
-    ^row:hover {
-      background-color: $backgroundBrandTertiary;
-    }
-  `,
-
+  
   properties: [
     'suggestText',
     { class: 'Class', name: 'of' },

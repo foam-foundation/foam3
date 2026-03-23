@@ -16,6 +16,16 @@ foam.CLASS({
     into the search text via suggestText.
   `,
 
+  css: `
+    ^:hover {
+      background-color: unset !important;
+      cursor: default !important;
+    }
+    ^ {
+      padding: 0 !important;
+    }
+  `,
+
   requires: [
     'foam.u2.view.RichChoiceReferenceView'
   ],
@@ -28,6 +38,7 @@ foam.CLASS({
 
   methods: [
     function render() {
+      this.addClass();
       var self = this;
       var dao  = this.__subContext__[this.targetDAOKey];
       if ( ! dao ) return;

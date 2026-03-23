@@ -8,6 +8,12 @@ foam.CLASS({
   package: 'foam.parse.auto',
   name: 'DateSuggester',
   extends: 'foam.u2.View',
+  
+  css:`
+    ^ {
+      padding: 4px 0px;
+    }
+  `,
 
   properties: [
     'suggestText',
@@ -20,6 +26,7 @@ foam.CLASS({
 
   methods: [
     function render() {
+      this.addClass();
       this.startContext({data: this}).add(this.DATE);
       this.date$.sub(() => {
         this.suggestText(this.date.toISOString().substring(0,10) + ' ');
@@ -118,6 +125,8 @@ foam.CLASS({
   css: `
     ^ {
       color: $textDefault;
+      border-radius: 4px;
+      padding: 4px 8px;
     }
     ^label {
       font-style: normal;
@@ -127,6 +136,10 @@ foam.CLASS({
     }
     ^text {
       color: $textSecondary;
+    }
+    ^:hover{
+      background-color: $backgroundBrandTertiary;
+      cursor: pointer;
     }
 
     ^property { color: $green400; }
@@ -214,14 +227,6 @@ foam.CLASS({
       gap: 4px;
       overflow-y: auto;
       z-index: 1000;
-    }
-    ^suggestions > :not(^suggestionSeparator) {
-      border-radius: 4px;
-      padding: 4px 8px;
-    }
-    ^suggestions > :not(^suggestionSeparator):hover {
-      background-color: $backgroundBrandTertiary;
-      cursor: pointer;
     }
     ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
     ^error { border: 1px solid red !important; }

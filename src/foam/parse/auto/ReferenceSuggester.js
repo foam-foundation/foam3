@@ -21,13 +21,6 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
-      padding: 0 !important;
-    }
-    ^:hover {
-      background-color: unset !important;
-      cursor: default !important;
-    }
     ^row {
       cursor: pointer;
       padding: 4px 8px;
@@ -55,10 +48,15 @@ foam.CLASS({
       var filtered = this.filter
         ? dao.where(this.KEYWORD(this.filter))
         : dao;
-
+      
+      let isFirstElement = true;
       this
         .start()
           .select(filtered.limit(self.resultLimit), function(obj) {
+            if ( ! isFirstElement ) {
+              this.start().addClass('foam-parse-auto-SmartView-suggestionSeparator').end();
+            }
+            isFirstElement = false;
             this.start(self.CitationView, { data: obj })
               .addClass(self.myClass('row'))
               .on('click', function() { self.suggestText(obj.id + ' '); })

@@ -321,11 +321,7 @@ foam.CLASS({
           let type = prop;
 
           if ( foam.lang.Reference.isInstance(prop) ) {
-            // Suggestion-only entry: fires ReferenceSuggester at the value level
-            // (after the operator), matching DateSuggester's placement in the
-            // 'date' symbol. sug(nop()) never produces a parse result — it only
-            // triggers SmartView's suggestion collection. Actual parsing is
-            // handled by the fallthrough to compareNumber/compareString below.
+            // Delegate to ReferenceSuggester for suggestions after = or !=
             propPredicates.push(seq(propertyParser, seq1(1,
               alt(operator('='), operator('!=')),
               sym('ws'),

@@ -419,7 +419,10 @@ foam.CLASS({
 
       if ( delta ) ss = ss.filter(k => {
         let sug = suggestions[k];
-        // Custom views handle their own filtering via the 'filter' property.
+        // Currently custom views handle their own filtering via the 'filter' property.
+        // TODO: for Ajeet, enhancement suggestion by Sarthak: 
+        // This should probably check an interface and ignore if the view implements a searchable interface,
+        // dont think its prudent to just assume views will always filter themselves, maybe a todo
         if ( sug.view ) return true;
         return sug.matches(delta);
       });

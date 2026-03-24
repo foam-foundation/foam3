@@ -46,6 +46,7 @@ foam.CLASS({
         this.removeAllChildren();
         var color = this.resolveColor(this.data.color);
         var background = this.resolveColor(this.data.background);
+        var borderColor = this.resolveColor(this.data.borderColor);
         var isPill = this.isFancy(this.data.VALUES);
         this
           .enableClass(this.myClass('pill'), isPill)
@@ -54,15 +55,15 @@ foam.CLASS({
           .style({
             'background-color': background,
             'color': color,
-            'border-color': background.includes('#FFFFFF') || ! background ? color : background
+            'border-color': borderColor
           })
-          .callIf(this.showGlyph && data.glyph, () => {
+          .callIf(this.showGlyph && (data.glyph || data.icon), () => {
             var icon = {
               size: 14,
               backgroundColor: color,
-              icon: data.glyph.clone(this).getDataUrl({
+              icon: data.glyph?.clone(this).getDataUrl({
                 fill: background || color
-              })
+              }) ?? data.icon
             };
             this.start(this.CircleIndicator, icon).addClass(this.myClass('icon')).end();
           })

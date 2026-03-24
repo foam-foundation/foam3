@@ -862,18 +862,18 @@ foam.CLASS({
   methods: [
     function parse(ps, obj) {
       var ret = [];
-      var p = this.p;
+      var p   = this.p;
+      var res;
 
       while ( ps.valid ) {
-        var res;
-
-        if ( res = ps.apply(p, obj) ) {
-          return res.setValue(ret);
-        }
-
+        if ( res = ps.apply(p, obj) ) return res.setValue(ret);
         ret.push(ps.head);
         ps = ps.tail;
       }
+
+      // Try terminator once more at EOF (allows eof() to match)
+      if ( res = ps.apply(p, obj) ) return res.setValue(ret);
+
       return undefined;
     },
 
@@ -893,17 +893,17 @@ foam.CLASS({
 
   methods: [
     function parse(ps, obj) {
-      var p = this.p;
+      var p   = this.p;
+      var res;
 
       while ( ps.valid ) {
-        var res;
-
-        if ( res = ps.apply(p, obj) ) {
-          return res.setValue(null);
-        }
-
+        if ( res = ps.apply(p, obj) ) return res.setValue(null);
         ps = ps.tail;
       }
+
+      // Try terminator once more at EOF (allows eof() to match)
+      if ( res = ps.apply(p, obj) ) return res.setValue(null);
+
       return undefined;
     },
 

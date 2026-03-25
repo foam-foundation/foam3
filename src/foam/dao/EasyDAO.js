@@ -163,7 +163,7 @@ foam.CLASS({
 
         foam.dao.DAO delegate = getInnerDAO();
 
-        if ( getPostgre() ) {
+        if ( getPostgres() ) {
           delegate = getPostgresDAO(getX());
         }
 
@@ -389,7 +389,7 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'postgre'
+      name: 'postgres'
     },
     {
       class: 'Object',
@@ -1263,6 +1263,28 @@ dao loading, which improves overall startup time.`,
       return dao;
     },
 
+    /** Only relevant if using postgresdao */
+    {
+      name: 'addTableIndex',
+      type: 'foam.dao.EasyDAO',
+      args: 'String name, foam.lang.Indexer... indexers',
+      javaCode: `
+        if ( ! getPostgres() ) {
+          ((Logger) getX().get("logger")).warning(getName(), "addTableIndex only works for postgres DAOs");
+          return this;
+        }
+        AddIndexCommand cmd = new AddIndexCommand();
+        cmd.setName(name);
+        cmd.setIndexers(indexers);
+        Object result = getDelegate().cmd_(getX(), cmd);
+        if ( result == null ||
+            ! ( result instanceof Boolean ) ||
+            ((Boolean) result).booleanValue() != true ) {
+          ((Logger) getX().get("logger")).warning(getName(), "Index not added due to invalid indexers or other error", Arrays.toString(indexers));
+        }
+        return this;
+      `
+    },
     /** Only relevant if cache is true or if daoType
        was set to MDAO, but harmless otherwise. Generates an index
        for a query over all specified properties together.
@@ -1296,7 +1318,7 @@ dao loading, which improves overall startup time.`,
     {
       name: 'addIndex',
       type: 'foam.dao.EasyDAO',
-      documentation: 'Only relavent if the cache is true or if daoType was set to MDAO, but harmless otherwise. Adds an existing index to the MDAO',
+      documentation: 'Only relevant if the cache is true or if daoType was set to MDAO, but harmless otherwise. Adds an existing index to the MDAO',
       // TODO: The java Index interface conflicts with the js CLASS Index
 //      args: [ { javaType: 'foam.dao.index.Index', name: 'index' } ],
       args: 'Object index',

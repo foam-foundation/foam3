@@ -8,6 +8,7 @@ package foam.dao.jdbc;
 
 import foam.lang.ClassInfo;
 import foam.lang.FObject;
+import foam.lang.Indexer;
 import foam.lang.PropertyInfo;
 import foam.lang.X;
 import foam.dao.Sink;
@@ -216,4 +217,47 @@ public class PostgresDAO
     }
   }
 
+  public void addIndex(X x,String indexName, boolean unique, Indexer... props) {
+    if ( props == null || props.length == 0 ) return;
+
+    Logger logger = (Logger) x.get("logger");
+    Connection c = null;
+    Statement stmt = null;
+
+    try {
+      c = dataSource_.getConnection();
+
+      StringBuilder builder = sb.get();
+      if ( unique ) {
+        builder.append("create unique index if not exists ");
+      } else {
+        builder.append("create index if not exists ");
+      }
+      builder.append(indexName)
+        .append(" on ")
+        .append(tableName_);
+      // do we need option to specify index type?
+      // if ( type != null ) {
+      //   builder.append(" using ").append(type.toString());
+      // }
+      builder.append('(');
+      for ( int i = 0; i < props.length; i++ ) {
+        if ( i > 0 ) builder.append(", ");
+        builder.append(((PropertyInfo) props[i]).createStatement());
+      }
+      builder.append(')');
+
+      stmt = c.createStatement();
+      stmt.execute(builder.toString());
+    } catch ( Throwable e ) {
+      logger.error(e);
+    } finally {
+      try {
+        if ( stmt != null ) stmt.close();
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
+        logger.error(e);
+      }
+    }
+  }
 }

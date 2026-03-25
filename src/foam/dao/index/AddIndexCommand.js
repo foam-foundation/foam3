@@ -26,6 +26,11 @@ foam.CLASS({
        class: 'Object',
 //       of: 'foam.dao.index.Index',
        name: 'index'
+    },
+    {
+      class: 'String',
+      name: 'name',
+      documentation: 'required for sql table index'
     }
   ]
 });

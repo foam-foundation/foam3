@@ -7,6 +7,7 @@
 package foam.dao.jdbc;
 
 import foam.dao.AbstractDAO;
+import foam.dao.index.AddIndexCommand;
 import foam.lang.*;
 import foam.core.logger.Logger;
 
@@ -82,12 +83,6 @@ public abstract class AbstractJDBCDAO
       logger.error(e);
       return null;
     } finally {
-      try {
-        stmt.setObject(null);
-      } catch (SQLException e) {
-        Logger logger = (Logger) x.get("logger");
-        logger.error(e);
-      }
       closeAllQuietly(resultSet, stmt);
       try {
         if ( c != null ) c.close();
@@ -131,12 +126,6 @@ public abstract class AbstractJDBCDAO
       logger.error(e);
       return null;
     } finally {
-      try {
-        stmt.setObject(null);
-      } catch (SQLException e) {
-        Logger logger = (Logger) x.get("logger");
-        logger.error(e);
-      }
       closeAllQuietly(null, stmt);
       try {
         if ( c != null ) c.close();
@@ -361,4 +350,23 @@ public abstract class AbstractJDBCDAO
     }
   }
 
+  public Object cmd_(X x, Object cmd) {
+    if ( cmd instanceof AddIndexCommand ) {
+      AddIndexCommand indexCmd = (AddIndexCommand) cmd;
+      try {
+        addIndex(x, indexCmd.getName(), indexCmd.getUnique(), indexCmd.getIndexers());
+        return true;
+       } catch ( Throwable e ) {
+         Logger logger = (Logger) x.get("logger");
+         logger.error(e);
+         return false;
+      }
+    }
+    return super.cmd_(x, cmd);
+  }
+
+  public void addIndex(X x, String name, boolean unique, Indexer... props) {
+    // noop can add support for mysqldao later
+    throw new UnsupportedOperationException("addPropertyIndex is not supported by AbstractJDBCDAO");
+  }
 }

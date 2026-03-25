@@ -12,20 +12,18 @@ foam.CLASS({
   javaImports: [
     'foam.dao.*',
     'foam.core.auth.*',
+    'foam.core.logger.Logger',
     'foam.lang.*',
     'foam.dao.jdbc.*',
     'foam.mlang.sink.*',
+    'java.sql.Connection',
+    'java.sql.ResultSet',
+    'java.sql.Statement',
     'java.util.*',
     'static foam.mlang.MLang.*',
     'foam.mlang.predicate.FScriptPredicate',
-    'foam.util.SafetyUtil'
-  ],
-
-  properties: [
-    {
-      name: 'employeeDAO',
-      class: 'foam.dao.DAOProperty'
-    }
+    'foam.util.SafetyUtil',
+    'foam.dao.index.AddIndexCommand'
   ],
 
   methods: [
@@ -36,7 +34,7 @@ foam.CLASS({
         test (jdbcSpec != null, "JDBCConnectionSpec found in context");
 
         var employeeDAO = (DAO) x.get("testEmployeeDAO");
-        if ( employeeDAO != null ) setEmployeeDAO(employeeDAO);
+        employeeDAO.removeAll();
 
         TestEmployee testObject = new TestEmployee.Builder(x)
           .setFirstName("Sam")
@@ -136,6 +134,76 @@ foam.CLASS({
         count = (Count) employeeDAO.select(new Count());
         test(count.getValue() == 0, "removeAll with no predicate: table empty, count = " + count.getValue());
       
+
+        addRowsForIndexTest(x, employeeDAO, 10000);
+        boolean usingIndex = checkExplainUsesIndex(x, "select * from testemployee where firstname = 'Uam' and id > 2000");
+        var disclaimer = "it SHOULD be using the index, but it's alright if it doesn't";
+        test(usingIndex, "explain uses index for firstname = 'Uam' and id > 2000, " + disclaimer);
+      `
+    },
+    {
+      name: 'checkExplainUsesIndex',
+      args: 'X x, String sql',
+      type: 'Boolean',
+      javaCode: `
+        Connection c = null;
+        Statement stmt = null;
+        ResultSet resultSet = null;
+
+        JDBCPooledDataSource jp = new foam.dao.jdbc.JDBCPooledDataSource(x);
+        javax.sql.DataSource dataSource_ = jp.getDataSource();
+
+        try {
+          c = dataSource_.getConnection();
+          stmt = c.createStatement();
+          resultSet = stmt.executeQuery("explain " + sql);
+          while ( resultSet.next() ) {
+            String line = resultSet.getString(1);
+            if ( line != null && (
+              line.contains("Bitmap Index Scan") ||
+              line.contains("Bitmap Heap Scan")
+            ) ) {
+              return true;
+            }
+          }
+
+          return false;
+        } catch ( Throwable t ) {
+          Logger logger = (Logger) x.get("logger");
+          if ( logger != null ) logger.error(t);
+          return false;
+        } finally {
+          try {
+            if ( resultSet != null ) resultSet.close();
+            if ( stmt != null ) stmt.close();
+            if ( c != null ) c.close();
+          } catch ( Throwable e ) {}
+        }
+      `
+    },
+    {
+      name: 'addRowsForIndexTest',
+      args: 'X x, DAO employeeDAO, int rows',
+      type: 'Void',
+      javaCode: `
+        for ( int i = 0; i < rows; i++ ) {
+          String firstName;
+          if ( i % 1000 == 0 ) {
+            firstName = "Uam";
+          } else if ( i % 3 == 0 ) {
+            firstName = "Sam";
+          } else if ( i % 3 == 1 ) {
+            firstName = "Mam";
+          } else {
+            firstName = "Tobe";
+          }
+          TestEmployee obj = new TestEmployee.Builder(x)
+            .setFirstName(firstName)
+            .setLastName("L" + i)
+            .setCompany(1)
+            .build();
+          obj = (TestEmployee) employeeDAO.put(obj);
+        }
       `
     }
   ]

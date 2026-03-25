@@ -39,13 +39,13 @@ foam.CLASS({
         name: 'buildConnectionURI',
         type: 'String',
         javaCode: `
-          if ( getDatabaseServer() == "mysql" )
+          if ( foam.util.SafetyUtil.equals(getDatabaseServer(), "mysql") )
             return "jdbc:" + getDatabaseServer() + "://" + getHostName() +
                    ( foam.util.SafetyUtil.isEmpty(getPort()) ? "" : ":" + getPort() ) +
                    "/" + getDatabaseName() + "?useUnicode=true&useJDBCCompliantTimezoneShift=true" +
                    "&useLegacyDatetimeCode=false&serverTimezone=UTC" +
                    "&user=" + getUserName() + "&password=" + getUserPassword();
-          else if (getDatabaseServer() == "postgresql")
+          else if ( foam.util.SafetyUtil.equals(getDatabaseServer(), "postgresql") )
             return "jdbc:" + getDatabaseServer() + "://" + getHostName() +
                    ( foam.util.SafetyUtil.isEmpty(getPort()) ? "" : ":" + getPort() ) +
                    "/" + getDatabaseName() +

@@ -1,9 +1,8 @@
-package foam.core.ruler;
+package foam.util.retry;
 
 import foam.lang.ContextAgent;
 import foam.lang.X;
 import foam.core.logger.Logger;
-import foam.util.retry.RetryStrategy;
 
 import java.util.Timer;
 import java.util.TimerTask;

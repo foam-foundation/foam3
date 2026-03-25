@@ -1211,6 +1211,7 @@ foam.POM({
     { name: "foam/util/concurrent/FoldReducer" },
     { name: "foam/util/concurrent/SyncAssemblyLine" },
     { name: "foam/util/concurrent/AssemblyLine" },
+    { name: "foam/util/retry/RetryManager" },
     { name: "foam/util/EmptyTRIE" },
     { name: "foam/util/UIDSupport" },
     { name: "foam/util/Arrays" },

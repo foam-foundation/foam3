@@ -13,12 +13,13 @@ import foam.lib.parse.Not;
 import foam.lib.parse.Optional;
 import foam.mlang.Constant;
 import foam.mlang.Expr;
-import foam.mlang.MLang;
 import foam.mlang.predicate.*;
 import foam.util.SafetyUtil;
 
 import java.lang.reflect.Method;
 import java.util.*;
+
+import static foam.mlang.MLang.*;
 
 /**
  * A type-aware AQL (Advanced Query Language) parser that generates FOAM MLang
@@ -54,14 +55,44 @@ public class SimpleQueryParser
    * Returns null if the input is empty or parsing fails.
    */
   public Predicate parseString(String query) {
-    return (Predicate) parseString(query, null);
+    return (Predicate) parseSymbol(query, null);
+  }
+
+  /**
+   * Parse a query string with an external ParserContext.
+   * Returns null if the input is empty or parsing fails.
+   */
+  public Predicate parseString(String query, ParserContext x) {
+    if ( SafetyUtil.isEmpty(query) ) return null;
+
+    StringPStream ps = new StringPStream();
+    ps.setString(query);
+
+    if ( x == null ) x = new ParserContextImpl();
+    x.set("classInfo", info_);
+
+    PStream result = grammar_.parse(ps, x, "");
+    if ( result == null ) return null;
+
+    Object val = result.value();
+    return val instanceof Predicate ? ((Predicate) val).partialEval() : null;
+  }
+
+  /**
+   * Parse a PStream with an external ParserContext.
+   * Enables embedding this parser inside larger grammar compositions.
+   */
+  public PStream parse(PStream ps, ParserContext x) {
+    if ( x == null ) x = new ParserContextImpl();
+    x.set("classInfo", info_);
+    return grammar_.parse(ps, x, "");
   }
 
   /**
    * Parse a query string starting from a specific grammar symbol.
    * If symbolName is null, defaults to "START".
    */
-  protected Object parseString(String query, String symbolName) {
+  protected Object parseSymbol(String query, String symbolName) {
     if ( SafetyUtil.isEmpty(query) ) return null;
 
     StringPStream ps = new StringPStream();
@@ -110,17 +141,21 @@ public class SimpleQueryParser
   // ───────── Primitive Symbols ─────────
 
   private void buildPrimitiveSymbols(foam.lib.parse.Grammar g) {
-    // digits: one or more digit chars joined into a string
-    g.addSymbol("digits", new Join(new Repeat(Range.create('0', '9'), 1)));
+    // rawDigits: base grammar for one or more digit chars, no action (preserves leading zeros)
+    g.addSymbol("rawDigits", new Join(new Repeat(Range.create('0', '9'), 1)));
 
-    // float: optional negative, digits, optional decimal part → joined string
+    // digits: delegates to rawDigits, but has a parseInt action (see buildActions)
+    g.addSymbol("digits", g.sym("rawDigits"));
+
+    // float: optional negative, rawDigits, optional decimal part → joined string
+    // Uses rawDigits (not digits) to avoid parseInt stripping leading zeros (e.g., "001" → 1)
     g.addSymbol("float",
       new Seq1(1,
         g.sym("ws"),
         new Join(new Seq(
           new Optional(Literal.create("-")),
-          g.sym("digits"),
-          new Optional(new Join(new Seq(Literal.create("."), new Optional(g.sym("digits")))))))));
+          g.sym("rawDigits"),
+          new Optional(new Join(new Seq(Literal.create("."), new Optional(g.sym("rawDigits")))))))));
 
     // floats: two or more floats separated by comma (for IN RANGE)
     g.addSymbol("floats", new Repeat(g.sym("float"), Literal.create(","), 2));
@@ -494,8 +529,9 @@ public class SimpleQueryParser
     if ( type instanceof AbstractFloatPropertyInfo || type instanceof AbstractDoublePropertyInfo ) {
       rangePropPredicates.add(new Seq(propertyParser, g.sym("compareFloat")));
     }
-    // Int/Long properties → number predicates
-    else if ( type instanceof AbstractIntPropertyInfo || type instanceof AbstractLongPropertyInfo ) {
+    // Int/Long/Short/Byte properties → number predicates
+    else if ( type instanceof AbstractIntPropertyInfo || type instanceof AbstractLongPropertyInfo ||
+              type instanceof AbstractShortPropertyInfo || type instanceof AbstractBytePropertyInfo ) {
       propPredicates.add(new Seq(propertyParser, g.sym("compareNumber")));
     }
     // Boolean properties
@@ -728,32 +764,16 @@ public class SimpleQueryParser
     g.addAction("or", (val, x) -> {
       Object[] values = (Object[]) val;
       if ( values.length == 1 ) return values[0];
-      Or or = new Or();
-      Predicate[] args = new Predicate[values.length];
-      for ( int i = 0 ; i < values.length ; i++ ) {
-        args[i] = (Predicate) values[i];
-      }
-      or.setArgs(args);
-      return or;
+      return OR(Arrays.copyOf(values, values.length, Predicate[].class));
     });
 
     g.addAction("and", (val, x) -> {
       Object[] values = (Object[]) val;
       if ( values.length == 1 ) return values[0];
-      And and = new And();
-      Predicate[] args = new Predicate[values.length];
-      for ( int i = 0 ; i < values.length ; i++ ) {
-        args[i] = (Predicate) values[i];
-      }
-      and.setArgs(args);
-      return and;
+      return AND(Arrays.copyOf(values, values.length, Predicate[].class));
     });
 
-    g.addAction("negate", (val, x) -> {
-      foam.mlang.predicate.Not not = new foam.mlang.predicate.Not();
-      not.setArg1((Predicate) val);
-      return not;
-    });
+    g.addAction("negate", (val, x) -> NOT((Predicate) val));
 
     // ── Property predicate actions ──
 
@@ -788,84 +808,41 @@ public class SimpleQueryParser
     switch ( op ) {
       case "=":
       case "HAS":
-        if ( isStringArrayProp(prop) ) {
-          In in = new In();
-          in.setArg1(prop);
-          Object eqVal = value instanceof Object[] ? value : new Object[] { value };
-          in.setArg2(MLang.prepare(eqVal));
-          return in;
+        if ( prop instanceof AbstractArrayPropertyInfo ) {
+          return IN(prop, toArray(value));
         }
-        return eq(prop, value);
+        return EQ(prop, value);
 
       case "!=":
-        if ( isStringArrayProp(prop) ) {
-          In in = new In();
-          in.setArg1(prop);
-          Object neqVal = value instanceof Object[] ? value : new Object[] { value };
-          in.setArg2(MLang.prepare(neqVal));
-          foam.mlang.predicate.Not not = new foam.mlang.predicate.Not();
-          not.setArg1(in);
-          return not;
+        if ( prop instanceof AbstractArrayPropertyInfo ) {
+          return NOT(IN(prop, toArray(value)));
         }
-        Neq neq = new Neq();
-        neq.setArg1(prop);
-        neq.setArg2(MLang.prepare(value));
-        return neq;
+        return NEQ(prop, value);
 
-      case ">=":
-        Gte gte = new Gte();
-        gte.setArg1(prop);
-        gte.setArg2(MLang.prepare(value));
-        return gte;
-
-      case ">":
-        Gt gt = new Gt();
-        gt.setArg1(prop);
-        gt.setArg2(MLang.prepare(value));
-        return gt;
-
-      case "<=":
-        Lte lte = new Lte();
-        lte.setArg1(prop);
-        lte.setArg2(MLang.prepare(value));
-        return lte;
-
-      case "<":
-        Lt lt = new Lt();
-        lt.setArg1(prop);
-        lt.setArg2(MLang.prepare(value));
-        return lt;
+      case ">=": return GTE(prop, value);
+      case ">":  return GT(prop, value);
+      case "<=": return LTE(prop, value);
+      case "<":  return LT(prop, value);
 
       case "IN":
-        In in = new In();
-        in.setArg1(prop);
-        in.setArg2(buildArrayConstant(value));
-        return in;
+        return IN(prop, toArray(value));
 
       case "NOT IN":
-        In inInner = new In();
-        inInner.setArg1(prop);
-        inInner.setArg2(buildArrayConstant(value));
-        foam.mlang.predicate.Not notIn = new foam.mlang.predicate.Not();
-        notIn.setArg1(inInner);
-        return notIn;
+        return NOT(IN(prop, toArray(value)));
 
       case "IS":
-        return eq(prop, value);
+        return EQ(prop, value);
 
       case "CONTAINS":
       case ":":
       case "~":
-        ContainsIC containsIC = new ContainsIC();
-        containsIC.setArg1(prop);
-        containsIC.setArg2(MLang.prepare(value));
-        return containsIC;
+        return CONTAINS_IC(prop, value);
 
       case "IS EMPTY":
-        return notHas(prop);
+        return NOT(HAS(prop));
 
       case "IS NOT EMPTY":
-        return has(prop);
+        return HAS(prop);
 
       default:
         return null;
@@ -879,108 +856,23 @@ public class SimpleQueryParser
   private Predicate buildRangePredicate(Expr prop, String op, Object value) {
     switch ( op ) {
       case "=":
-      case "IN RANGE": {
-        double[] range = getRange(value);
-        if ( range != null ) {
-          return andRange(prop, range[0], range[1]);
-        }
-        Date[] dates = getDateRange(value);
-        if ( dates != null ) {
-          return andDateRange(prop, dates[0], dates[1]);
-        }
-        return null;
-      }
+      case "IN RANGE":
+        return AND(GTE(prop, rangeStart(value)), LT(prop, rangeEnd(value)));
 
       case "!=":
-      case "NOT IN RANGE": {
-        double[] range = getRange(value);
-        if ( range != null ) {
-          return orNotRange(prop, range[0], range[1]);
-        }
-        Date[] dates = getDateRange(value);
-        if ( dates != null ) {
-          return orNotDateRange(prop, dates[0], dates[1]);
-        }
-        return null;
-      }
+      case "NOT IN RANGE":
+        return OR(GTE(prop, rangeEnd(value)), LT(prop, rangeStart(value)));
 
-      case ">=": {
-        double[] range = getRange(value);
-        if ( range != null ) {
-          Gte gte = new Gte();
-          gte.setArg1(prop);
-          gte.setArg2(new Constant(range[0]));
-          return gte;
-        }
-        Date[] dates = getDateRange(value);
-        if ( dates != null ) {
-          Gte gte = new Gte();
-          gte.setArg1(prop);
-          gte.setArg2(new Constant(dates[0]));
-          return gte;
-        }
-        return null;
-      }
-
-      case ">": {
-        double[] range = getRange(value);
-        if ( range != null ) {
-          Gt gt = new Gt();
-          gt.setArg1(prop);
-          gt.setArg2(new Constant(range[1]));
-          return gt;
-        }
-        Date[] dates = getDateRange(value);
-        if ( dates != null ) {
-          Gt gt = new Gt();
-          gt.setArg1(prop);
-          gt.setArg2(new Constant(dates[1]));
-          return gt;
-        }
-        return null;
-      }
-
-      case "<=": {
-        double[] range = getRange(value);
-        if ( range != null ) {
-          Lte lte = new Lte();
-          lte.setArg1(prop);
-          lte.setArg2(new Constant(range[1]));
-          return lte;
-        }
-        Date[] dates = getDateRange(value);
-        if ( dates != null ) {
-          Lte lte = new Lte();
-          lte.setArg1(prop);
-          lte.setArg2(new Constant(dates[1]));
-          return lte;
-        }
-        return null;
-      }
-
-      case "<": {
-        double[] range = getRange(value);
-        if ( range != null ) {
-          Lt lt = new Lt();
-          lt.setArg1(prop);
-          lt.setArg2(new Constant(range[0]));
-          return lt;
-        }
-        Date[] dates = getDateRange(value);
-        if ( dates != null ) {
-          Lt lt = new Lt();
-          lt.setArg1(prop);
-          lt.setArg2(new Constant(dates[0]));
-          return lt;
-        }
-        return null;
-      }
+      case ">=": return GTE(prop, rangeStart(value));
+      case ">":  return GT(prop, rangeEnd(value));
+      case "<=": return LTE(prop, rangeEnd(value));
+      case "<":  return LT(prop, rangeStart(value));
 
       case "IS EMPTY":
-        return notHas(prop);
+        return NOT(HAS(prop));
 
       case "IS NOT EMPTY":
-        return has(prop);
+        return HAS(prop);
 
       default:
         return null;
@@ -989,115 +881,25 @@ public class SimpleQueryParser
 
   // ───────── Helpers ─────────
 
-  private Predicate eq(Expr prop, Object value) {
-    Eq eq = new Eq();
-    eq.setArg1(prop);
-    eq.setArg2(MLang.prepare(value));
-    return eq;
+  /** Ensure value is array-compatible for IN predicates. */
+  private Object toArray(Object value) {
+    if ( value instanceof Object[] ) return Arrays.asList((Object[]) value);
+    if ( value instanceof List )     return value;
+    return new Object[] { value };
   }
 
-  private Predicate has(Expr prop) {
-    Has h = new Has();
-    h.setArg1(prop);
-    return h;
+  /** Extract the start (lower bound) from a range value (double[] or Date[]). */
+  private Object rangeStart(Object value) {
+    if ( value instanceof double[] ) return ((double[]) value)[0];
+    if ( value instanceof Date[] )   return ((Date[]) value)[0];
+    return value;
   }
 
-  private Predicate notHas(Expr prop) {
-    foam.mlang.predicate.Not n = new foam.mlang.predicate.Not();
-    n.setArg1(has(prop));
-    return n;
-  }
-
-  private boolean isStringArrayProp(Expr prop) {
-    return prop instanceof AbstractArrayPropertyInfo;
-  }
-
-  private Expr buildArrayConstant(Object value) {
-    if ( value instanceof Object[] ) {
-      return MLang.prepare(Arrays.asList((Object[]) value));
-    }
-    if ( value instanceof List ) {
-      return MLang.prepare((List) value);
-    }
-    return MLang.prepare(value);
-  }
-
-  private double[] getRange(Object value) {
-    if ( value instanceof double[] ) return (double[]) value;
-    return null;
-  }
-
-  private Date[] getDateRange(Object value) {
-    if ( value instanceof Date[] ) return (Date[]) value;
-    return null;
-  }
-
-  /**
-   * AND(GTE(prop, start), LT(prop, end)) — inclusive start, exclusive end
-   */
-  private Predicate andRange(Expr prop, double start, double end) {
-    Gte gte = new Gte();
-    gte.setArg1(prop);
-    gte.setArg2(new Constant(start));
-
-    Lt lt = new Lt();
-    lt.setArg1(prop);
-    lt.setArg2(new Constant(end));
-
-    And and = new And();
-    and.setArgs(new Predicate[] { gte, lt });
-    return and;
-  }
-
-  /**
-   * AND(GTE(prop, start), LT(prop, end)) for dates
-   */
-  private Predicate andDateRange(Expr prop, Date start, Date end) {
-    Gte gte = new Gte();
-    gte.setArg1(prop);
-    gte.setArg2(new Constant(start));
-
-    Lt lt = new Lt();
-    lt.setArg1(prop);
-    lt.setArg2(new Constant(end));
-
-    And and = new And();
-    and.setArgs(new Predicate[] { gte, lt });
-    return and;
-  }
-
-  /**
-   * OR(GTE(prop, end), LT(prop, start)) — not in range
-   */
-  private Predicate orNotRange(Expr prop, double start, double end) {
-    Gte gte = new Gte();
-    gte.setArg1(prop);
-    gte.setArg2(new Constant(end));
-
-    Lt lt = new Lt();
-    lt.setArg1(prop);
-    lt.setArg2(new Constant(start));
-
-    Or or = new Or();
-    or.setArgs(new Predicate[] { gte, lt });
-    return or;
-  }
-
-  /**
-   * OR(GTE(prop, end), LT(prop, start)) for dates — not in range
-   */
-  private Predicate orNotDateRange(Expr prop, Date start, Date end) {
-    Gte gte = new Gte();
-    gte.setArg1(prop);
-    gte.setArg2(new Constant(end));
-
-    Lt lt = new Lt();
-    lt.setArg1(prop);
-    lt.setArg2(new Constant(start));
-
-    Or or = new Or();
-    or.setArgs(new Predicate[] { gte, lt });
-    return or;
+  /** Extract the end (upper bound) from a range value (double[] or Date[]). */
+  private Object rangeEnd(Object value) {
+    if ( value instanceof double[] ) return ((double[]) value)[1];
+    if ( value instanceof Date[] )   return ((Date[]) value)[1];
+    return value;
   }
 
   /**

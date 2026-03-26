@@ -9,6 +9,7 @@ foam.CLASS({
   name: 'RowPropertyView',
   extends: 'foam.u2.PropertyBorder',
   mixins: ['foam.u2.layout.ContainerWidth'],
+  requires: ['foam.u2.ControllerMode'],
 
   documentation: `
     View a property's columnLabel and value in a single row. The table cell formatter
@@ -50,40 +51,48 @@ foam.CLASS({
       const self = this;
       const sup = this.SUPER;
       this.initContainer();
+      if ( this.__context__.controllerMode$ )
+        this.controllerMode$.follow(this.__context__.controllerMode$);
       this.isRow_$ = this.inlineSize$.map(v => v > foam.u2.layout.DisplayWidth.XS.minWidth);
       // dynamic is implemented manually and not through add() here as the sup.call() will always add to "this" element and
       // not to the dynamic node. Hence removal has to be performed on this element.
       // Hijack prop label and view and replace them with the table-esque variant
       let label = self.prop.columnLabel;
-      self.prop.view = function() {
-        const el = self.E();
-        const prop = this;
-        prop.tableCellFormatter.format(
-          el,
-          prop.f ? prop.f(self.objData || self.data) : null,
-          self.objData || self.data,
-          prop
-        );
-        return el;
-      };
-      this.dynamic(function(isRow_) {
+      this.config = { label: label };
+      this.dynamic(function(isRow_, mode) {
         this.removeAllChildren();
-        this.enableClass(self.myClass('row'), isRow_);
-        if ( ! isRow_ ) {
-          this.config = { label: label };
-          sup.call(self);
-        } else {
-          this
-            .start()
-              .add(label).show(label)
-              .addClass(self.myClass('label'))
-            .end()
-            .add(this.slot(function(data, objData) {
-              let el = self.prop.view();
-              return el.addClass(self.myClass('body'));
-            }));
+        switch ( mode ) {
+          case self.ControllerMode.CREATE:
+          case self.ControllerMode.EDIT:
+            sup.call(self);
+            break;
+          case self.ControllerMode.VIEW:
+            this.enableClass(self.myClass('row'), isRow_);
+            if ( ! isRow_ ) {
+              sup.call(self);
+            } else {
+              this
+                .start()
+                  .add(label).show(label)
+                  .addClass(self.myClass('label'))
+                .end()
+                .add(self.slot(function(data, objData) {
+                  const el = self.E();
+                  const prop = self.prop;
+                  prop.tableCellFormatter.format(
+                    el,
+                    prop.f ? prop.f(self.objData || self.data) : null,
+                    self.objData || self.data,
+                    prop
+                  );
+                  return el.addClass(self.myClass('body'))
+                }));
+            }
+            break;
+          default:
+            console.warn('Unrecognized mode: ' + mode);
         }
-      });
+      }, this.isRow_$, this.controllerMode$);
     }
   ]
 });

@@ -46,6 +46,7 @@ foam.CLASS({
     'java.util.Collection',
     'java.util.Date',
     'foam.util.retry.RetryStrategy',
+    'foam.util.retry.RetryManager',
     'foam.util.retry.SimpleRetryStrategy',
     'foam.util.SafetyUtil'
   ],

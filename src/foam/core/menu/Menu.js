@@ -39,6 +39,7 @@
     {
       class: 'String',
       name: 'id',
+      required: true,
       tableWidth: 280
     },
     {

@@ -10,7 +10,8 @@ foam.CLASS({
 
   implements: [
     'foam.core.COREService',
-    'foam.core.security.KeyStoreManager'
+    'foam.core.security.KeyStoreManager',
+    'foam.core.security.KeyStoreAware'
   ],
 
   documentation: `KeyStoreManager which manages a Java KeyStore loaded
@@ -18,18 +19,25 @@ from either File or Resource Storage.`,
 
   javaImports: [
     'foam.core.logger.Loggers',
+    'foam.core.fs.FileSystemStorage',
     'foam.util.SafetyUtil',
     'java.io.InputStream',
     'java.io.IOException',
     'java.security.KeyStore',
     'static java.security.KeyStore.PasswordProtection',
     'static java.security.KeyStore.SecretKeyEntry',
-    'java.security.spec.KeySpec',
     'javax.crypto.SecretKeyFactory',
-    'javax.crypto.spec.PBEKeySpec'
+    'javax.crypto.spec.PBEKeySpec',
   ],
 
   properties: [
+    {
+      class: 'Object',
+      name: 'storage',
+      javaType: 'foam.core.fs.Storage',
+      documentation: 'File or Resource storage in which the keystore resides.',
+      javaFactory: 'return getX().get(foam.core.fs.Storage.class);'
+    },
     {
       class: 'String',
       name: 'type',
@@ -72,21 +80,30 @@ from either File or Resource Storage.`,
     {
       name: 'loadKey',
       javaCode: `
-        return loadKey_(alias, new KeyStore.PasswordProtection(getKeyStorePass().toCharArray()));
+        return loadKey_(alias, new KeyStore.PasswordProtection(resolveSecret(getX(), getKeyStorePass()).toCharArray()));
       `
     },
     {
       name: 'storeKey',
       javaCode: `
-        storeKey_(alias, entry, new KeyStore.PasswordProtection(getKeyStorePass().toCharArray()));
+        storeKey_(alias, entry, new KeyStore.PasswordProtection(resolveSecret(getX(), getKeyStorePass()).toCharArray()));
       `
     },
     {
       name: 'getSecret',
       javaCode: `
-        SecretKeyEntry entry = (SecretKeyEntry) loadKey(alias.toLowerCase());
+        SecretKeyEntry entry = null;
+
+        // reload keystore file for new entries and key passwords update externally
+        synchronized ( getKeyStorePath().intern() ) {
+          if ( getStorage() instanceof FileSystemStorage ) {
+            reload();
+          }
+          entry = (SecretKeyEntry) loadKey(alias.toLowerCase());
+        }
+
         if ( entry != null ) {
-          SecretKeyFactory factory = SecretKeyFactory.getInstance(algorithm);
+          SecretKeyFactory factory = SecretKeyFactory.getInstance(entry.getSecretKey().getAlgorithm());
           PBEKeySpec keySpec = (PBEKeySpec) factory.getKeySpec(entry.getSecretKey(), PBEKeySpec.class);
           return new String(keySpec.getPassword());
         }
@@ -98,9 +115,9 @@ from either File or Resource Storage.`,
       name: 'unlock',
       javaCode: `
         try {
-          InputStream is = getX().get(foam.core.fs.Storage.class).getInputStream(getKeyStorePath());
+          InputStream is = getStorage().getInputStream(getKeyStorePath());
           if ( is != null ) {
-            getKeyStore().load(is, getKeyStorePass().toCharArray());
+            getKeyStore().load(is, resolveSecret(getX(), getKeyStorePass()).toCharArray());
             is.close();
           } else {
             throw new java.io.FileNotFoundException("Keystore resource not found "+getKeyStorePath());

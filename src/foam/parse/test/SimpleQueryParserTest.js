@@ -75,6 +75,20 @@ foam.CLASS({
       x.test(this.isValid("address.latitude IN RANGE (6.5, 8.5)", "AND(GTE(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatStart(6.5) + "),LT(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatEnd(8.5) + "))"), "Float Test11: Inner property is within range 6.5 to 8.5");
       x.test(this.isValid('address.latitude NOT IN RANGE (6.5, 8.5)', "OR(GTE(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatEnd(8.5) + "),LT(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatStart(6.5) + "))"), 'Float Test12: Inner property is not within range 6.5 to 8.5');
 
+      // Float small-value precision tests — parser must preserve leading zeros after decimal
+      x.test(this.isValidSymbol('float', '0.001', '0.001', true), 'Float Test13: Small float 0.001 preserves precision');
+
+      // Float small-value IN RANGE — the user-reported bug
+      x.test(this.isValid("address.latitude IN RANGE (-0.0001, 0.0001)",
+        "AND(GTE(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatStart(-0.0001) + "),LT(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatEnd(0.0001) + "))"),
+        "Float Test16: Small float IN RANGE (-0.0001, 0.0001)");
+      x.test(this.isValid('address.latitude NOT IN RANGE (-0.0001, 0.0001)',
+        "OR(GTE(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatEnd(0.0001) + "),LT(foam.core.auth.User.address.foam.core.auth.Address.latitude, " + testFloatStart(-0.0001) + "))"),
+        'Float Test17: Small float NOT IN RANGE (-0.0001, 0.0001)');
+      x.test(this.isValid("address.longitude = 0.001",
+        "AND(GTE(foam.core.auth.User.address.foam.core.auth.Address.longitude, " + testFloatStart(0.001) + "),LT(foam.core.auth.User.address.foam.core.auth.Address.longitude, " + testFloatEnd(0.001) + "))"),
+        "Float Test18: Small float equals 0.001");
+
       // Date format tests
       x.test(this.isValidSymbol('date', '2025-01-01', [testDate([2025, 0, 1, 12]), testDate([2025, 0, 2, 12])].toString()), 'Date Test1: ISO date YYYY-MM-DD');
       x.test(this.isValidSymbol('date', '25/10/01', [testDate([2025, 9, 1, 12]), testDate([2025, 9, 2, 12])].toString()), 'Date Test2: Short date YY/MM/DD');

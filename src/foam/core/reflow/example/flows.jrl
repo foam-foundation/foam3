@@ -22,3 +22,24 @@ p({
 "lastModified":"2025-12-05T20:46:48.239Z",
 "lastRun":"2025-12-05T13:47:49.574Z"
 })
+
+p({
+"class":"foam.core.reflow.Flow",
+"name":"Relationship Examples",
+"version":3,
+"script":
+"""[
+	{
+
+		"flowName": "markdown1",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "<example>\\u000aM = foam.mlang.ExpressionsSingleton.create();\\u000a\\u000afoam.CLASS({\\u000a  package: 'example',\\u000a  name: 'Bank',\\u000a  properties: [ 'id', 'name' ]\\u000a});\\u000afoam.CLASS({\\u000a  package: 'example',\\u000a  name: 'Customer',\\u000a  properties: [ 'id', 'firstName', 'lastName' ]\\u000a});\\u000afoam.CLASS({\\u000a  package: 'example',\\u000a  name: 'Account',\\u000a  properties: [ 'id', 'type' ]\\u000a});\\u000afoam.CLASS({\\u000a  package: 'example',\\u000a  name: 'Transaction',\\u000a  properties: [\\u000a    'id',\\u000a    'label',\\u000a    'amount',\\u000a    { class: 'Date', name: 'date' },\\u000a  ]\\u000a});\\u000a\\u000a// relate with foreign key relationships\\u000afoam.RELATIONSHIP({\\u000a  sourceModel: 'example.Bank',\\u000a  forwardName: 'customers', // adds a 'customers' property to Bank\\u000a  targetModel: 'example.Customer',\\u000a  inverseName: 'bank' // adds 'bank' property to Customer\\u000a});\\u000afoam.RELATIONSHIP({\\u000a  sourceModel: 'example.Customer',\\u000a  forwardName: 'accounts',\\u000a  targetModel: 'example.Account',\\u000a  inverseName: 'owner'\\u000a});\\u000afoam.RELATIONSHIP({\\u000a  sourceModel: 'example.Account',\\u000a  forwardName: 'transactions',\\u000a  targetModel: 'example.Transaction',\\u000a  inverseName: 'account'\\u000a});\\u000a\\u000a// create the example app with our DAOs exported\\u000afoam.CLASS({\\u000a  package: 'example',\\u000a  name: 'BankApp',\\u000a  requires: [ // using app.Customer.create() gives it our exports\\u000a    'example.Bank',\\u000a    'example.Customer',\\u000a    'example.Account',\\u000a    'example.Transaction',\\u000a    'foam.dao.EasyDAO'\\u000a  ],\\u000a  exports: [ // by default, DAOs are looked up by class name\\u000a    'bankDAO',\\u000a    'customerDAO',\\u000a    'accountDAO',\\u000a    'transactionDAO',\\u000a  ],\\u000a  properties: [\\u000a    { name: 'bankDAO', factory: function() {\\u000a      return this.EasyDAO.create({\\u000a        name: 'banks',\\u000a        of: this.Bank, daoType: 'MDAO'\\u000a      });\\u000a    }},\\u000a    { name: 'customerDAO', factory: function() {\\u000a      return this.EasyDAO.create({\\u000a        name: 'customers',\\u000a        seqNo: true,\\u000a        of: this.Customer, daoType: 'MDAO'\\u000a      });\\u000a    }},\\u000a    { name: 'accountDAO', factory: function() {\\u000a      return this.EasyDAO.create({\\u000a        name: 'accounts',\\u000a        seqNo: true,\\u000a        of: this.Account, daoType: 'MDAO'\\u000a      });\\u000a    }},\\u000a    { name: 'transactionDAO', factory: function() {\\u000a      return this.EasyDAO.create({\\u000a        name: 'transactions',\\u000a        seqNo: true,\\u000a        of: this.Transaction, daoType: 'MDAO'\\u000a      });\\u000a    }}\\u000a  ]\\u000a});\\u000aapp = example.BankApp.create();\\u000a</example>\\u000a\\u000a<example>\\u000a\\u000alog(app.cls_.id);\\u000a\\u000aapp.bankDAO.put(app.Bank.create({ id: 'fn', name: 'First National' })),\\u000aapp.bankDAO.put(app.Bank.create({ id: 'tt', name: 'Tortuga Credit Union' }))\\u000a\\u000aapp.customerDAO.put(app.Customer.create({ firstName: 'Sarah',  lastName: 'Smith',    bank: 'fn' }));\\u000aapp.customerDAO.put(app.Customer.create({ firstName: 'Harry',  lastName: 'Sullivan', bank: 'fn' }));\\u000aapp.customerDAO.put(app.Customer.create({ firstName: 'Jamie', lastName: 'MacKenzie',  bank: 'fn' }));\\u000a\\u000aapp.customerDAO.put(app.Customer.create({ firstName: 'Herman',  lastName: 'Blackbeard', bank: 'tt' }));\\u000aapp.customerDAO.put(app.Customer.create({ firstName: 'Hector',  lastName: 'Barbossa',   bank: 'tt' }));\\u000aapp.customerDAO.put(app.Customer.create({ firstName: 'William', lastName: 'Roberts',    bank: 'tt' }));\\u000a</example>"
+		}
+	}
+]""",
+"created":"2026-03-17T19:31:48.807Z",
+"lastModified":"2026-03-17T19:37:48.278Z",
+"lastRun":"2026-03-17T19:29:30.488Z"
+})

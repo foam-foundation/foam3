@@ -83,36 +83,40 @@ foam.CLASS({
       var self = this;
       var key  = [sink, skip, limit, order, predicate].toString();
 
-      if ( this.cache[key] ) {
-        // console.log('************************ TTL CACHED:', key);
-        if ( this.cache[key].clone ) {
-          /// Need to clone to get expressions to re-evaluate
-          return Promise.resolve(this.cache[key].clone());
-        } else {
-          return Promise.resolve(this.cache[key]);
-        }
+      var entry = this.cache[key];
+
+      if ( entry ) {
+        // In-flight thenable — concurrent callers share one request
+        if ( typeof entry.then === 'function' ) return Promise.resolve(entry).then(function(s) {
+          return s.clone ? s.clone() : s;
+        });
+
+        // Resolved result — clone to prevent cache corruption
+        if ( entry.clone ) return Promise.resolve(entry.clone());
+        return Promise.resolve(entry);
       }
 
-      return new Promise(function (resolve, reject) {
-        self.delegate.select_(x, sink, skip, limit, order, predicate).then(s => {
-          // Clone before storing to prevent cache corruption from mutations.
-          // Since objects are passed by reference in JavaScript, storing 's' directly
-          // would cache the same object returned to the caller. Any mutations to the
-          // returned sink (e.g., modifying array contents, changing properties) would
-          // corrupt the cached copy, causing incorrect results on subsequent cache hits.
-          var sinkToCache = s.clone ? s.clone() : s;
+      // Snapshot cache reference so write-back is skipped if put_/remove_ clears it
+      var cacheAtDispatch = this.cache;
+
+      // Store the promise immediately so concurrent calls deduplicate
+      var promise = self.delegate.select_(x, sink, skip, limit, order, predicate).then(function(s) {
+        var sinkToCache = s.clone ? s.clone() : s;
+        // Only write back if cache hasn't been replaced by put_/remove_
+        if ( self.cache === cacheAtDispatch ) {
           self.cache[key] = sinkToCache;
-          // console.log('************************ TTL CACHING:', key);
-          // TODO: check if cache is > maxCacheSize and remove oldest entry if it is
           self.purgeCache();
-          resolve(s);
-        },
-        e => {
-          // console.log('************************ TTL ERROR:', e);
-          self.cache = {};
-          reject(e);
-        });
+        }
+        // Return clone so first caller can't corrupt cached copy
+        return sinkToCache;
+      }, function(e) {
+        if ( self.cache === cacheAtDispatch ) delete self.cache[key];
+        throw e;
       });
+
+      this.cache[key] = promise;
+
+      return promise;
     },
 
     /** Removes are sent to the cache and to the source, ensuring both

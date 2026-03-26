@@ -33,36 +33,34 @@ public class MySQLDAO extends AbstractJDBCDAO{
   @Override
   public FObject put_(X x, FObject obj) {
     Connection c = null;
+    IndexedPreparedStatement stmt = null;
     ResultSet resultSet = null;
 
     try {
-      if ( insertStmt == null ) {
-        c = dataSource_.getConnection();
-        StringBuilder builder = threadLocalBuilder_.get()
-                .append("insert into ")
-                .append(tableName_);
+      c = dataSource_.getConnection();
+      StringBuilder builder = threadLocalBuilder_.get()
+              .append("insert into ")
+              .append(tableName_);
 
-        buildFormattedColumnNames(obj, builder);
-        builder.append(" values");
-        buildFormattedColumnPlaceholders(obj, builder);
-        builder.append(" on duplicate key ")
-                // .append(getPrimaryKey().createStatement()) ... Not in MySQL
-                .append(" update ");
-        buildUpdateFormattedColumnNames(obj, builder);   // Specific to MySQL
+      buildFormattedColumnNames(obj, builder);
+      builder.append(" values");
+      buildFormattedColumnPlaceholders(obj, builder);
+      builder.append(" on duplicate key ")
+              // .append(getPrimaryKey().createStatement()) ... Not in MySQL
+              .append(" update ");
+      buildUpdateFormattedColumnNames(obj, builder);   // Specific to MySQL
 
-        insertStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString(),
-                Statement.RETURN_GENERATED_KEYS));
-      }
+      stmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString(),
+              Statement.RETURN_GENERATED_KEYS));
 
-      setStatementValues(insertStmt, obj);
-
-      int inserted = insertStmt.executeUpdate();
+      setStatementValues(stmt, obj);
+      int inserted = stmt.executeUpdate();
       if ( inserted == 0 ) {
         throw new SQLException("Error performing put_ command");
       }
 
       // get auto-generated postgres keys
-/*       resultSet = insertStmt.getGeneratedKeys();
+/*       resultSet = stmt.getGeneratedKeys();
       if ( resultSet.next() ) {
         obj.setProperty(getPrimaryKey().getName(), resultSet.getObject(1));
       } */
@@ -74,12 +72,12 @@ public class MySQLDAO extends AbstractJDBCDAO{
       return null;
     } finally {
       try {
-        setStatementValues(insertStmt, null);
+        setStatementValues(stmt, null);
       } catch (SQLException e) {
         Logger logger = (Logger) x.get("logger");
         logger.error(e);
       }
-      closeAllQuietly(resultSet, insertStmt);
+      closeAllQuietly(resultSet, stmt);
     }
   }
 

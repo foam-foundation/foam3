@@ -189,10 +189,14 @@ foam.CLASS({
 
           'range float': seq1(1, sym('ws'), sym('floats'), sym('ws'), ')'),
 
-          digits: str(repeat(range('0', '9'), null, 1)),
+          // rawDigits: base grammar for one or more digit chars, no action (preserves leading zeros)
+          rawDigits: str(repeat(range('0', '9'), null, 1)),
+
+          // digits: delegates to rawDigits, but has a parseInt action (see actions below)
+          digits: sym('rawDigits'),
 
           // TODO replace '.' with an internationalized decimal point, or have the input preprocessed
-          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), optional(str(seq('.', optional(sym('digits')))))))),
+          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('rawDigits'), optional(str(seq('.', optional(sym('rawDigits')))))))),
 
           numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
 

@@ -3,6 +3,7 @@
  * Copyright 2017 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
+
 foam.CLASS({
   package: 'foam.box',
   name: 'HTTPException',
@@ -11,6 +12,7 @@ foam.CLASS({
     'response'
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.box',
@@ -181,7 +183,7 @@ foam.CLASS({
           message: envelope.message,
           replyBox: this.getReplyBox()
         }));
-        
+
         var headers = {
           'Content-Type': 'application/json; charset=utf-8',
           'Origin': this.origin

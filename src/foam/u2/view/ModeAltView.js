@@ -71,8 +71,6 @@ foam.CLASS({
 
     function render() {
       var self = this;
-      if ( this.__context__.controllerMode$ )
-        this.controllerMode$.follow(this.__context__.controllerMode$);
       var callFromProperty = function() {
         self.prop && this.fromProperty && this.fromProperty(self.prop);
         self.realView = this;

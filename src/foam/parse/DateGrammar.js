@@ -199,7 +199,9 @@ foam.CLASS({
         // Covers: MMDDYYYY, MM-DD-YYYY, MM/DD/YYYY with optional time
         mmddyyyy: alt(
           sym('mmddyyyycompact'),
-          sym('mmddyyyysep')
+          sym('mmddyyyysep'),
+          sym('mmddyysep'),
+          sym('mmddyycompact')
         ),
 
         // MMDDYYYY with separators and optional time
@@ -286,7 +288,21 @@ foam.CLASS({
         ),
 
         // YYMMDD compact: 6 digits with validated year, month (01-12), day (01-31)
-        yymmddcompact: str(seq(sym('year2'), sym('month2'), sym('day2'))),
+        // Supports optional time: YYMMDD HHMMSS, YYMMDD HH:MM:SS, or YYMMDD (date only)
+        yymmddcompact: alt(
+          seq(
+            str(seq(sym('year2'), sym('month2'), sym('day2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          seq(
+            str(seq(sym('year2'), sym('month2'), sym('day2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          str(seq(sym('year2'), sym('month2'), sym('day2')))
+        ),
 
         // MMDDYY - tries all variants (compact, separated)
         // Covers: MMDDYY, MM-DD-YY, MM/DD/YY with optional time
@@ -324,7 +340,21 @@ foam.CLASS({
         ),
 
         // MMDDYY compact: 6 digits with validated month (01-12), day (01-31), year
-        mmddyycompact: str(seq(sym('month2'), sym('day2'), sym('year2'))),
+        // Supports optional time: MMDDYY HHMMSS, MMDDYY HH:MM:SS, or MMDDYY (date only)
+        mmddyycompact: alt(
+          seq(
+            str(seq(sym('month2'), sym('day2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          seq(
+            str(seq(sym('month2'), sym('day2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          str(seq(sym('month2'), sym('day2'), sym('year2')))
+        ),
 
         // DDMMYYYY - NOT in main dateOrDatetime, accessible via opt_name only
         // Covers: DD-MM-YYYY, DD/MM/YYYY, DDMMYYYY, DD-MM-YY, DD/MM/YY, DDMMYY with optional time
@@ -415,7 +445,24 @@ foam.CLASS({
         ),
 
         // DDMMYY compact: 6 digits with validated day (01-31), month (01-12), year
-        ddmmyycompact: str(seq(sym('day2'), sym('month2'), sym('year2'))),
+        // Supports optional time: DDMMYY HHMMSS, DDMMYY HH:MM:SS, or DDMMYY (date only)
+        ddmmyycompact: alt(
+          // With space/T and compact time (HHMMSS - no colons)
+          seq(
+            str(seq(sym('day2'), sym('month2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          // With space/T and colon time (HH:MM:SS)
+          seq(
+            str(seq(sym('day2'), sym('month2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          // Date only
+          str(seq(sym('day2'), sym('month2'), sym('year2')))
+        ),
 
         // YYYYDDMM - NOT in main dateOrDatetime, accessible via opt_name only
         // Covers: YYYY-DD-MM, YYYY/DD/MM, YYYYDDMM, YY-DD-MM, YY/DD/MM, YYDDMM with optional time
@@ -511,7 +558,21 @@ foam.CLASS({
         ),
 
         // YYDDMM compact: 6 digits with validated year, day (01-31), month (01-12)
-        yyddmmcompact: str(seq(sym('year2'), sym('day2'), sym('month2'))),
+        // Supports optional time: YYDDMM HHMMSS, YYDDMM HH:MM:SS, or YYDDMM (date only)
+        yyddmmcompact: alt(
+          seq(
+            str(seq(sym('year2'), sym('day2'), sym('month2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          seq(
+            str(seq(sym('year2'), sym('day2'), sym('month2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          str(seq(sym('year2'), sym('day2'), sym('month2')))
+        ),
 
         // YYYYDDMMM with separators: YYYY-DD-MMM, YYYY/DD/MMM
         // Supports single-digit days (e.g., 2025-5-JAN)

@@ -1768,6 +1768,13 @@ foam.CLASS({
       class: 'Boolean',
       name: 'reserveLabelSpace',
       documentation: 'Property to indicate if PropertyBorders need to reserve label space when label is empty'
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'propertyBorderSpec',
+      value: {
+        class: 'foam.u2.PropertyBorder'
+      }
     }
   ],
 
@@ -1782,7 +1789,7 @@ foam.CLASS({
     },
 
     function toPropertyView(args, X) {
-      return this.createElFromSpec_({ class: 'foam.u2.PropertyBorder', prop: this }, args, X);
+      return this.createElFromSpec_({ ...this.propertyBorderSpec, prop: this }, args, X);
     },
 
     function createElFromSpec_(spec, args, X) {

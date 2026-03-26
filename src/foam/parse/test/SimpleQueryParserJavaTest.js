@@ -267,6 +267,35 @@ foam.CLASS({
           ft12.toLowerCase().contains("latitude"),
           "Float Test12: Inner property NOT IN RANGE produces OR — got: " + ft12
         );
+
+        // Float Test13: Small float IN RANGE preserves decimal precision
+        String ft13 = buildPredicate("address.latitude IN RANGE (-0.0001, 0.0001)");
+        test(ft13 != null, "Float Test13: Small float IN RANGE (-0.0001, 0.0001) parses");
+        test(
+          ft13.contains("-1.000001E-4") || ft13.contains("-0.0001000001") || ft13.contains("-1.0001E-4"),
+          "Float Test13: Small float IN RANGE lower bound preserves magnitude — got: " + ft13
+        );
+        test(
+          ! ft13.contains("0.1") || ft13.contains("0.0001"),
+          "Float Test13: Small float IN RANGE does NOT corrupt to 0.1 — got: " + ft13
+        );
+
+        // Float Test14: Small float equality preserves decimal precision
+        String ft14 = buildPredicate("address.longitude = 0.001");
+        test(ft14 != null, "Float Test14: Small float = 0.001 parses");
+        test(
+          ! ft14.contains("0.1,") && ! ft14.contains(", 0.1"),
+          "Float Test14: Small float = 0.001 does NOT corrupt to 0.1 — got: " + ft14
+        );
+
+        // Float Test15: Small float NOT IN RANGE preserves precision
+        String ft15 = buildPredicate("address.latitude NOT IN RANGE (-0.0001, 0.0001)");
+        test(ft15 != null, "Float Test15: Small float NOT IN RANGE parses");
+        test(
+          ft15.toLowerCase().contains("or(") &&
+          ft15.toLowerCase().contains("gte(") && ft15.toLowerCase().contains("lt("),
+          "Float Test15: Small float NOT IN RANGE produces OR(GTE,LT) — got: " + ft15
+        );
       `
     },
 

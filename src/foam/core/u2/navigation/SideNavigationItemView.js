@@ -22,6 +22,14 @@ foam.CLASS({
       opacity:1 !important;
       text-shadow: 0 0 0px white, 0 0 0px white;
     }
+    ^disabled a {
+      opacity: 0.35 !important;
+      cursor: default !important;
+      pointer-events: none;
+    }
+    ^disabled a:hover {
+      opacity: 0.35 !important;
+    }
   `,
 
   properties: [
@@ -46,6 +54,7 @@ foam.CLASS({
 
       this
         .addClass(`${this.myClass()}-level-${this.level}`)
+        .enableClass(this.myClass('disabled'), ! this.data.enabled)
         .start('a')
           .add(this.data.label)
           .enableClass(this.myClass('selected'), view.currentMenu$.map(function (value) {

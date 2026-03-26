@@ -163,6 +163,41 @@ foam.CLASS({
         }
         x.test(result.pass, testName);
       });
+
+      // Test YYMMDD compact with compact time (HHMMSS) - requires opt_name='yymmdd'
+      let yymmddCompactTime = [
+        { input: '250901 143025', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 },
+        { input: '991231 235959', year: 1999, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '250901 14:30:25', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 }
+      ];
+
+      yymmddCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'yymmdd');
+        let testName = `YYMMDD-CompactTime Test${i + 1}: ${testCase.input} (opt_name='yymmdd')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYMMDD compact date-only backward compatibility
+      let yymmddCompactBackcompat = [
+        { input: '250901', year: 2025, month: 8, day: 1 }
+      ];
+
+      yymmddCompactBackcompat.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'yymmdd');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `YYMMDD-Compact-Backcompat Test${i + 1}: ${testCase.input}`);
+        } catch (e) {
+          x.test(false, `YYMMDD-Compact-Backcompat Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
     },
 
     function testMMDDYYYYFormats(x) {
@@ -341,6 +376,41 @@ foam.CLASS({
         }
         x.test(result.pass, testName);
       });
+
+      // Test MMDDYY compact with compact time (HHMMSS) - requires opt_name='mmddyyyy'
+      let mmddyyCompactTime = [
+        { input: '090125 143025', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 },
+        { input: '123199 235959', year: 1999, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '090125 14:30:25', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 }
+      ];
+
+      mmddyyCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'mmddyyyy');
+        let testName = `MMDDYY-CompactTime Test${i + 1}: ${testCase.input} (opt_name='mmddyyyy')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test MMDDYY compact date-only backward compatibility
+      let mmddyyCompactBackcompat = [
+        { input: '090125', year: 2025, month: 8, day: 1 }
+      ];
+
+      mmddyyCompactBackcompat.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'mmddyyyy');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `MMDDYY-Compact-Backcompat Test${i + 1}: ${testCase.input}`);
+        } catch (e) {
+          x.test(false, `MMDDYY-Compact-Backcompat Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
     },
 
     function testDDMMYYYYFormats(x) {
@@ -517,6 +587,44 @@ foam.CLASS({
           testName += ` - ${result.message}`;
         }
         x.test(result.pass, testName);
+      });
+
+      // Test DDMMYY compact with compact time (HHMMSS) - requires opt_name='ddmmyyyy'
+      let ddmmyyCompactTime = [
+        { input: '010925 143025', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 },
+        { input: '311299 235959', year: 1999, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '010925 14:30:25', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 },
+        { input: '150125 08:00', year: 2025, month: 0, day: 15, hour: 8, minute: 0, second: 0 }
+      ];
+
+      ddmmyyCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'ddmmyyyy');
+        let testName = `DDMMYY-CompactTime Test${i + 1}: ${testCase.input} (opt_name='ddmmyyyy')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test DDMMYY compact date-only backward compatibility
+      let ddmmyyCompactBackcompat = [
+        { input: '010925', year: 2025, month: 8, day: 1 },
+        { input: '150149', year: 2049, month: 0, day: 15 },
+        { input: '311250', year: 1950, month: 11, day: 31 }
+      ];
+
+      ddmmyyCompactBackcompat.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'ddmmyyyy');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `DDMMYY-Compact-Backcompat Test${i + 1}: ${testCase.input}`);
+        } catch (e) {
+          x.test(false, `DDMMYY-Compact-Backcompat Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
       });
 
       // Test DDMMYYYY with fractional seconds (milliseconds and microseconds)
@@ -773,6 +881,41 @@ foam.CLASS({
           testName += ` - Expected ms:${testCase.millisecond}, Got ms:${result.getMilliseconds()}`;
         }
         x.test(pass, testName);
+      });
+
+      // Test YYDDMM compact with compact time (HHMMSS) - requires opt_name='yyyyddmm'
+      let yyddmmCompactTime = [
+        { input: '250109 143025', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 },
+        { input: '993112 235959', year: 1999, month: 11, day: 31, hour: 23, minute: 59, second: 59 },
+        { input: '250109 14:30:25', year: 2025, month: 8, day: 1, hour: 14, minute: 30, second: 25 }
+      ];
+
+      yyddmmCompactTime.forEach((testCase, i) => {
+        let result = this.testParseDTWithDetails(parser, testCase.input, testCase.year, testCase.month, testCase.day, testCase.hour, testCase.minute, testCase.second, 0, 'yyyyddmm');
+        let testName = `YYDDMM-CompactTime Test${i + 1}: ${testCase.input} (opt_name='yyyyddmm')`;
+        if ( ! result.pass && result.message ) {
+          testName += ` - ${result.message}`;
+        }
+        x.test(result.pass, testName);
+      });
+
+      // Test YYDDMM compact date-only backward compatibility
+      let yyddmmCompactBackcompat = [
+        { input: '250109', year: 2025, month: 8, day: 1 }
+      ];
+
+      yyddmmCompactBackcompat.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input, 'yyyyddmm');
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth() === testCase.month &&
+                     result.getUTCDate() === testCase.day &&
+                     result.getUTCHours() === 12;
+          x.test(pass, `YYDDMM-Compact-Backcompat Test${i + 1}: ${testCase.input}`);
+        } catch (e) {
+          x.test(false, `YYDDMM-Compact-Backcompat Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
       });
     },
 
@@ -1733,7 +1876,7 @@ foam.CLASS({
         let isMaxDate = result.getTime() === foam.Date.MAX_DATE.getTime();
         if ( isMaxDate ) {
           let msg = `Parse returned MAX_DATE (invalid) - format didn't match or was partially parsed`;
-          console.error(`${msg} for ${dateStr} with opt_name=${actualOptName}`);
+          console.error(`${msg} for ${dateStr} with opt_name=${opt_name}`);
           return { pass: false, message: msg };
         }
 
@@ -1753,7 +1896,7 @@ foam.CLASS({
           let expected = `${expectedYear}-${String(expectedMonth + 1).padStart(2, '0')}-${String(expectedDay).padStart(2, '0')} ${String(expectedHour).padStart(2, '0')}:${String(expectedMinute).padStart(2, '0')}:${String(expectedSecond).padStart(2, '0')}.${String(expectedMs).padStart(3, '0')}`;
           let got = `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')} ${String(result.getHours()).padStart(2, '0')}:${String(result.getMinutes()).padStart(2, '0')}:${String(result.getSeconds()).padStart(2, '0')}.${String(result.getMilliseconds()).padStart(3, '0')}`;
           let msg = `Expected: ${expected}, Got: ${got}`;
-          console.error(`Parse mismatch for ${dateStr} (opt_name=${actualOptName}): ${msg}`);
+          console.error(`Parse mismatch for ${dateStr} (opt_name=${opt_name}): ${msg}`);
           return { pass: false, message: msg };
         }
 

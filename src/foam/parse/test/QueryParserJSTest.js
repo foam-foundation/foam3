@@ -13,6 +13,7 @@ foam.CLASS({
     { class: 'String', name: 'firstName' },
     { class: 'String', name: 'lastName' },
     { class: 'String', name: 'email' },
+    { class: 'Double', name: 'amount' },
     { class: 'foam.lang.Date', name: 'birthday' },
     { class: 'foam.lang.DateTime', name: 'lastLogin' },
     { class: 'Boolean', name: 'emailVerified' }
@@ -35,6 +36,7 @@ foam.CLASS({
     async function runTest(x) {
       this.testBasicQueries(x);
       this.testEmailPlusAddressing(x);
+      this.testFloatParsing(x);
       this.testDateParsing(x);
       this.testDateParsingFixes(x);
       this.testTimezoneHandling(x);
@@ -90,6 +92,49 @@ foam.CLASS({
       var values = this.extractValues(query2);
       x.test(values.includes("a+b@test.com") && values.includes("c+d@test.com"),
         "Multiple emails with + should parse correctly, got: " + JSON.stringify(values));
+    },
+
+    function testFloatParsing(x) {
+      var parser = this.QueryParser.create({ of: this.QueryParserTestUser });
+
+      // Decimal values in equality and comparisons
+      x.test(this.isValidQuery(parser, 'amount=6.5'),
+        'Float: should parse amount=6.5');
+      x.test(this.isValidQuery(parser, 'amount=0.10000000009999999995'),
+        'Float: should parse long decimal');
+      x.test(this.isValidQuery(parser, 'amount=0.0'),
+        'Float: should parse 0.0');
+      x.test(this.isValidQuery(parser, 'amount>6.5'),
+        'Float: should parse amount>6.5');
+      x.test(this.isValidQuery(parser, 'amount>=6.5'),
+        'Float: should parse amount>=6.5');
+      x.test(this.isValidQuery(parser, 'amount<6.5'),
+        'Float: should parse amount<6.5');
+      x.test(this.isValidQuery(parser, 'amount<=6.5'),
+        'Float: should parse amount<=6.5');
+
+      // Negative decimals
+      x.test(this.isValidQuery(parser, 'amount>-0.10000000009999999995'),
+        'Float: should parse negative decimal in gt');
+      x.test(this.isValidQuery(parser, 'amount<-6.5'),
+        'Float: should parse amount<-6.5');
+
+      // Verify parsed value is a Number, not a String
+      var query = parser.parseString('amount>6.5');
+      if ( query ) {
+        var pred = query.args ? query.args[0] : query;
+        var val = pred && pred.arg2 ? (pred.arg2.value !== undefined ? pred.arg2.value : pred.arg2) : null;
+        x.test(typeof val === 'number',
+          'Float: decimal value should parse as Number, not String');
+        x.test(val === 6.5,
+          'Float: parsed value should equal 6.5, got ' + val);
+      }
+
+      // Combined with other predicates
+      x.test(this.isValidQuery(parser, 'amount>=0.1 AND firstName=John'),
+        'Float: decimal in AND expression');
+      x.test(this.isValidQuery(parser, '(amount>=0.1 OR amount<-0.1) AND firstName=John'),
+        'Float: decimal OR inside AND');
     },
 
     function extractValue(query) {

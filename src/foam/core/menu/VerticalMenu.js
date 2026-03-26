@@ -137,7 +137,7 @@ foam.CLASS({
         })
         .start({
           class: 'foam.u2.view.TreeView',
-          data: self.dao_.where(self.EQ(self.Menu.ENABLED, true)),
+          data: self.dao_,
           relationship: foam.core.menu.MenuMenuChildrenRelationship,
           startExpanded: true,
           query: self.menuSearch$,
@@ -157,6 +157,7 @@ foam.CLASS({
     },
 
     function openMenu(menu, hasChildren) {
+      if ( menu.enabled === false ) return;
       if ( menu.handler ) {
         // When menu is opened close it if window size is small(e.g. phone or tablet) and there are no sub menus
         if ( ! hasChildren && this.displayWidth?.ordinal <= foam.u2.layout.DisplayWidth.MD.ordinal )

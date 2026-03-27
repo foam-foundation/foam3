@@ -48,7 +48,6 @@ foam.POM({
   ],
   javaFiles: [
     { name: "RuleEngine" },
-    { name: "RetryManager" },
     { name: "cron/RenewRuleHistoryCron" },
     { name: "test/DummyErroneousPredicate",                            flags: "test" },
     { name: "test/RulerDAOTest",                                       flags: "test" }

@@ -28,17 +28,31 @@ foam.CLASS({
     {
       class: 'Password',
       name: 'userPassword'
+    },
+    {
+      class: 'String',
+      name: 'port'
     }
   ],
   methods: [
     {
         name: 'buildConnectionURI',
         type: 'String',
-        javaCode: `return "jdbc:" + getDatabaseServer() + "://" + getHostName() +
-                               "/" + getDatabaseName() + "?useUnicode=true&useJDBCCompliantTimezoneShift=true" +
-                               "&useLegacyDatetimeCode=false&serverTimezone=UTC" +
-                               "&user=" + getUserName() + "&password=" + getUserPassword();
-                  `
+        javaCode: `
+          if ( foam.util.SafetyUtil.equals(getDatabaseServer(), "mysql") )
+            return "jdbc:" + getDatabaseServer() + "://" + getHostName() +
+                   ( foam.util.SafetyUtil.isEmpty(getPort()) ? "" : ":" + getPort() ) +
+                   "/" + getDatabaseName() + "?useUnicode=true&useJDBCCompliantTimezoneShift=true" +
+                   "&useLegacyDatetimeCode=false&serverTimezone=UTC" +
+                   "&user=" + getUserName() + "&password=" + getUserPassword();
+          else if ( foam.util.SafetyUtil.equals(getDatabaseServer(), "postgresql") )
+            return "jdbc:" + getDatabaseServer() + "://" + getHostName() +
+                   ( foam.util.SafetyUtil.isEmpty(getPort()) ? "" : ":" + getPort() ) +
+                   "/" + getDatabaseName() +
+                   "?user=" + getUserName() +
+                   "&password=" + getUserPassword();
+          else throw new RuntimeException("Unsupported database server: " + getDatabaseServer());
+        `
     }
   ]
 });

@@ -907,7 +907,7 @@ foam.CLASS({
         if ( unitPropName ) {
           const unitProp = await x.currencyDAO.find(unitPropName);
           if ( unitProp )
-            return unitProp.format(val, excludeUnit, false);
+            return unitProp.format(unitProp.floatAmount(val), excludeUnit, false);
         }
         return val;
       }
@@ -1554,3 +1554,45 @@ foam.CLASS({
     }
   ]
 })
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'TimeUnitValue',
+  extends: 'Int',
+  properties: [
+    {
+      class: 'String',
+      name: 'unitPropName',
+    },
+    {
+      name: 'unitPropValueToString',
+      value: async function(x, val, unitProp) {
+        if ( unitProp && foam.time.TimeUnit.isInstance(unitProp) ) {
+          return `${val} ${unitProp.plural}`;
+        }
+        return val;
+      }
+    }
+  ],
+
+  methods: [
+    function installInClass(cls) {
+      if ( ! this.unitPropName ) return;
+
+      this.SUPER(cls);
+
+      var name = this.name;
+      var Name = foam.String.capitalize(name);
+
+      var unitPropName = this.unitPropName;
+      var UnitPropName = foam.String.capitalize(unitPropName);
+
+      cls.installAxiom(foam.lang.Method.create({
+        name: `get${Name}Ms`,
+        type: 'Long',
+        code: function() { return this[name] * this[unitPropName].conversionFactorMs; },
+        javaCode: `return get${Name}() * get${UnitPropName}().getConversionFactorMs();`
+      }));
+    }
+  ]
+});

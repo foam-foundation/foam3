@@ -209,7 +209,7 @@ foam.CLASS({
           },
           code: function() {
             this.data = this.data.toSpliced(this.index, 1);
-            this.scrollToIndex(this.index == 0 ? 0 : this.index -1);
+            this.scrollToIndex?.(this.index == 0 ? 0 : this.index -1);
           }
         }
       ]

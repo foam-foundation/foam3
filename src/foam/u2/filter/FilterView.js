@@ -83,6 +83,12 @@ foam.CLASS({
       width: 100%;
     }
 
+    ^no-filters {
+      display: flex;
+      width: 100%;
+      align-items: center;
+    }
+
     ^general-field {
       margin: 0;
       flex-basis: 85%;
@@ -159,7 +165,8 @@ foam.CLASS({
     { name: 'LINK_ADVANCED',        message: 'Advanced filters' },
     { name: 'LINK_SIMPLE',          message: 'Switch to simple filters' },
     { name: 'MESSAGE_ADVANCEDMODE', message: 'Advanced filters are currently being used.' },
-    { name: 'LABEL_FILTER',         message: 'Filters' }
+    { name: 'LABEL_FILTER',         message: 'Filters' },
+    { name: 'NO_FILTERS',           message: 'No filters selected' }
   ],
 
   properties: [
@@ -226,7 +233,8 @@ foam.CLASS({
       shortName: 'search',
       onKey: true,
       memorable: true
-    }
+    },
+    'hasAvailableFilters'
   ],
 
   methods: [
@@ -241,6 +249,7 @@ foam.CLASS({
       this.onDetach(this.filterController.mementoPredicate$.sub(this.updateMementoString));
 
       await this.updateFilters();
+      this.hasAvailableFilters = await this.checkAvailableFilters();
 
       self.filtersContainer = this.E().addClass(self.myClass('container-drawer'))
       .enableClass(self.myClass('container-drawer-open'), self.isOpen$)
@@ -249,7 +258,14 @@ foam.CLASS({
       .add(self.dynamic(function (filters) {
         // This must be done as the predicate might change as the views are rendered;
         let currentPredicate = self.filterController.finalPredicate;
-        if ( ! filters ) return;
+        if ( ! filters?.length && ! self.hasAvailableFilters ) return;
+        if ( ! filters?.length && self.hasAvailableFilters ) {
+          this.start()
+            .addClass(self.myClass('no-filters'))
+            .add(self.NO_FILTERS)
+          .end();
+          return;
+        }
         this
           .start().addClass(self.myClass('container-filters'))
             .forEach(filters, function(f) {
@@ -305,7 +321,7 @@ foam.CLASS({
             .start().addClass(self.myClass('container-handle'))
             .startContext({ data: self })
               .start(self.TOGGLE_DRAWER, { label$: labelSlot, isIconAfter: true, themeIcon: 'dropdown', size: 'SMALL' })
-                .show(filters.length)
+                .show(filters.length || self.hasAvailableFilters)
                 .enableClass(self.myClass('filter-button-active'), self.isOpen$)
                 .addClass(self.myClass('filter-button'))
               .end()
@@ -403,6 +419,20 @@ foam.CLASS({
       } else {
         if ( pred.arg1 && pred.arg1.name == prop.name ) return pred;
       }
+    },
+
+    async function checkAvailableFilters() {
+      var of = this.dao.of;
+      let props = of.getAxiomsByClass(foam.lang.Property)
+        .filter( m => m.searchView && m.name != 'reactions_' && ! m.hidden )
+      let availableProps = []
+      await Promise.all(props.map(p => {
+        if ( ! this.auth || ! p.columnPermissionRequired )
+          availableProps.push(p);
+        else
+          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name}`).then(v => v && availableProps.push(p))
+      }));
+      return availableProps.length > 0;
     }
   ],
 
@@ -490,6 +520,9 @@ foam.CLASS({
     {
       name: 'clearAll',
       label: 'Clear all',
+      isEnabled: function(filters) {
+        return filters?.length > 0;
+      },
       code: function() {
         // clear all filters
         this.filterController.clearAll();

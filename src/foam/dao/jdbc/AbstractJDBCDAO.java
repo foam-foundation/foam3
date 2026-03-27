@@ -7,6 +7,7 @@
 package foam.dao.jdbc;
 
 import foam.dao.AbstractDAO;
+import foam.dao.index.AddIndexCommand;
 import foam.lang.*;
 import foam.core.logger.Logger;
 
@@ -45,35 +46,31 @@ public abstract class AbstractJDBCDAO
   protected String tableName_;
 
   /** Holds a reference to the connection pool ( .getConnection() ) */
-  // TODO: Why is this static? Remove 'static' and retest.
-  protected static DataSource dataSource_;
-
-  protected IndexedPreparedStatement findStmt;
-  protected IndexedPreparedStatement removeStmt;
-  protected IndexedPreparedStatement insertStmt;
+  protected DataSource dataSource_;
 
   @Override
   public FObject find_(X x, Object id) {
     Connection c = null;
+    IndexedPreparedStatement stmt = null;
     ResultSet resultSet = null;
 
     try {
-      if ( findStmt == null ) {
-        c = dataSource_.getConnection();
-        StringBuilder builder = threadLocalBuilder_.get()
-          .append("select * from ")
-          .append(tableName_)
-          .append(" where ")
-          .append(getPrimaryKey().createStatement())
-          .append(" = ?");
+      c = dataSource_.getConnection();
+      StringBuilder builder = threadLocalBuilder_.get()
+        .append("select * from ")
+        .append(tableName_)
+        .append(" where ")
+        .append(getPrimaryKey().createStatement())
+        .append(" = ?");
 
-        findStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
+      stmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
+
+      if ( id instanceof FObject ) {
+        id = ((FObject) id).getProperty(getPrimaryKey().getName());
       }
 
-      // TODO: add support for non-numbers
-      //stmt.setLong(((Number) o).longValue());
-      findStmt.setObject(id);
-      resultSet = findStmt.executeQuery();
+      stmt.setObject(id);
+      resultSet = stmt.executeQuery();
       if ( ! resultSet.next() ) {
         // no rows
         return null;
@@ -86,38 +83,37 @@ public abstract class AbstractJDBCDAO
       logger.error(e);
       return null;
     } finally {
+      closeAllQuietly(resultSet, stmt);
       try {
-        findStmt.setObject(null);
-      } catch (SQLException e) {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
         Logger logger = (Logger) x.get("logger");
         logger.error(e);
       }
-      closeAllQuietly(resultSet, findStmt);
     }
   }
 
   @Override
   public FObject remove_(X x, FObject obj) {
     Connection c = null;
+    IndexedPreparedStatement stmt = null;
 
     try {
-      if ( removeStmt == null ) {
-        c = dataSource_.getConnection();
-        StringBuilder builder = threadLocalBuilder_.get()
-          .append("delete from ")
-          .append(tableName_)
-          .append(" where ")
-          .append(getPrimaryKey().createStatement())
-          .append(" = ?");
+      c = dataSource_.getConnection();
+      StringBuilder builder = threadLocalBuilder_.get()
+        .append("delete from ")
+        .append(tableName_)
+        .append(" where ")
+        .append(getPrimaryKey().createStatement())
+        .append(" = ?");
 
-        removeStmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
-      }
+      stmt = new IndexedPreparedStatement(c.prepareStatement(builder.toString()));
 
       // TODO: add support for non-numbers
-      //removeStmt.setLong(((Number) o.getProperty("id")).longValue());
-      removeStmt.setObject(obj.getProperty(getPrimaryKey().getName()));
+      //stmt.setLong(((Number) o.getProperty("id")).longValue());
+      stmt.setObject(obj.getProperty(getPrimaryKey().getName()));
 
-      int removed = removeStmt.executeUpdate();
+      int removed = stmt.executeUpdate();
       if ( removed == 0 ) {
         // throw new SQLException("Error while removing.");
         // According to doc, no error when removing doesn't remove anything
@@ -130,13 +126,13 @@ public abstract class AbstractJDBCDAO
       logger.error(e);
       return null;
     } finally {
+      closeAllQuietly(null, stmt);
       try {
-        removeStmt.setObject(null);
-      } catch (SQLException e) {
+        if ( c != null ) c.close();
+      } catch ( SQLException e ) {
         Logger logger = (Logger) x.get("logger");
         logger.error(e);
-      }
-      closeAllQuietly(null, removeStmt);
+      } 
     }
   }
 
@@ -354,4 +350,23 @@ public abstract class AbstractJDBCDAO
     }
   }
 
+  public Object cmd_(X x, Object cmd) {
+    if ( cmd instanceof AddIndexCommand ) {
+      AddIndexCommand indexCmd = (AddIndexCommand) cmd;
+      try {
+        addIndex(x, indexCmd.getName(), indexCmd.getUnique(), indexCmd.getIndexers());
+        return true;
+       } catch ( Throwable e ) {
+         Logger logger = (Logger) x.get("logger");
+         logger.error(e);
+         return false;
+      }
+    }
+    return super.cmd_(x, cmd);
+  }
+
+  public void addIndex(X x, String name, boolean unique, Indexer... props) {
+    // noop can add support for mysqldao later
+    throw new UnsupportedOperationException("addPropertyIndex is not supported by AbstractJDBCDAO");
+  }
 }

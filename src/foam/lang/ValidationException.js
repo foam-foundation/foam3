@@ -35,3 +35,39 @@ foam.CLASS({
     }
   `
 });
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'PropertyRequiredException',
+  extends: 'foam.lang.ValidationException',
+  javaGenerateConvenienceConstructor: false,
+
+  properties: [
+    {
+      name: 'exceptionMessage',
+      value: '{{propLabel}} required'
+    },
+    {
+      class: 'String',
+      name: 'propLabel',
+      factory: function() {
+        return this.propertyInfo.label;
+      },
+      javaFactory: 'return foam.util.StringUtil.labelize(getPropName());'
+    }
+  ],
+
+  javaCode: `
+    public PropertyRequiredException(String message) {
+      super(message);
+    }
+
+    public PropertyRequiredException(String message, Throwable cause) {
+      super(message, cause);
+    }
+
+    public PropertyRequiredException(Throwable cause) {
+      super(cause);
+    }
+  `
+});

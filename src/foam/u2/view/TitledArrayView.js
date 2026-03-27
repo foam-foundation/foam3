@@ -77,8 +77,7 @@ foam.CLASS({
       methods: [
         function render() {
           let arrView = this.arrayView
-          var summaryType = arrView.title || this.value.toSummary ? this.value$.map(v => v.toSummary()) : 'default';
-          var label = this.value$.dot('label').map(label => label || ('New ' + arrView.of.model_.label))
+          var summaryType = arrView.title || this.value.toSummary ? this.value$.map(v => v.toSummary()) : ('New ' + arrView.of.model_.label);
           var summaryTypeClass = this.value.toCSSClassName ? this.value$.map(v => v.toCSSClassName().code()) : 'default';
 
           this
@@ -93,16 +92,11 @@ foam.CLASS({
                   .enableClass('opened', this.collapsed$.map(c => !c))
                   .start().style({alignContent: 'center'}).addClass(this.myClass('item-row'))
                     .start('span').addClass(this.myClass('item-index')).add(this.index$.map(i => i + 1)).end()
-                    .start('span').addClass(this.myClass('item-name')).add(
-                      label
+                    .start('span').addClass(this.myClass('item-name'), 'h600').add(
+                      summaryType
                     ).end()
                   .end()
                   .start().addClass(this.myClass('actions-holder'))
-                    .start('span')
-                      .addClass('type-label')
-                      .addClass(summaryTypeClass)
-                      .add(summaryType)
-                    .end()
                     .tag(this.REMOVE_ROW, {
                       buttonStyle: 'TERTIARY',
                       themeIcon: 'trash',

@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.jdbc',
+  package: 'foam.dao.jdbc.test',
   name: 'TestDataForJDBC',
   properties: [
     {
@@ -22,13 +22,13 @@ foam.CLASS({
 });
 
 foam.CLASS({
-  package: 'foam.dao.jdbc',
+  package: 'foam.dao.jdbc.test',
   name: 'TestCompany',
   properties: [
     {
       name: 'id',
-      class: 'Int',
-      sqlType: 'int'
+      class: 'Long', // for testing seqno
+      sqlType: 'bigint'
     },
     {
       name: 'name',
@@ -39,13 +39,13 @@ foam.CLASS({
 });
 
 foam.CLASS({
-  package: 'foam.dao.jdbc',
+  package: 'foam.dao.jdbc.test',
   name: 'TestEmployee',
   properties: [
     {
       name: 'id',
-      class: 'Int',
-      sqlType: 'int'
+      class: 'Long',
+      sqlType: 'bigint'
     },
     {
       name: 'firstName',
@@ -62,9 +62,9 @@ foam.CLASS({
 
 //Foreign Key from TestEmployee to TestCompany
 foam.RELATIONSHIP({
-  sourceModel: 'foam.dao.jdbc.TestCompany',
+  sourceModel: 'foam.dao.jdbc.test.TestCompany',
   forwardName: 'employees',
-  targetModel: 'foam.dao.jdbc.TestEmployee',
+  targetModel: 'foam.dao.jdbc.test.TestEmployee',
   inverseName: 'company'
 });
 

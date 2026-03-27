@@ -162,6 +162,11 @@ foam.CLASS({
         }, logger);
 
         foam.dao.DAO delegate = getInnerDAO();
+
+        if ( getPostgres() ) {
+          delegate = getPostgresDAO(getX());
+        }
+
         if ( delegate == null ) {
           if ( getNullify() ) {
             delegate = new foam.dao.NullDAO(getX(), getOf());
@@ -381,6 +386,10 @@ foam.CLASS({
 
         return delegate_;
       `
+    },
+    {
+      class: 'Boolean',
+      name: 'postgres'
     },
     {
       class: 'Object',
@@ -720,12 +729,18 @@ dao loading, which improves overall startup time.`,
       value: true
     },
     {
+      name: 'requestTimeout',
+      generateJava: false,
+      units: 'ms'
+    },
+    {
       documentation: 'Destination address for server',
       name: 'serverBox',
       generateJava: false,
       factory: function() {
         // TODO: This should come from the server via a lookup from a NamedBox.
         var box = this.TimeoutBox.create({
+          timeout: this.requestTimeout,
           delegate: this.remoteListenerSupport ?
             this.WebSocketBox.create({uri: this.serviceName}) :
             this.HTTPBox.create({url: this.serviceName})
@@ -931,6 +946,30 @@ dao loading, which improves overall startup time.`,
         System.err.println("---- Due to inability to create DAO. Fix DAO specification.");
 
         System.exit(-1);
+      `
+    },
+    {
+      name: 'getPostgresDAO',
+      args: 'X x',
+      type: 'DAO',
+      javaCode: `
+        try {
+          var jdbcSpec = x.get("JDBCConnectionSpec");
+          if ( jdbcSpec == null ) {
+            throw new RuntimeException("No JDBCConnectionSpec");
+          }
+
+          foam.dao.jdbc.JDBCPooledDataSource source = new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA");
+          X xcopy = x.put("JDBCDataSource", source);
+          var dao = new foam.dao.jdbc.PostgresDAO(xcopy, getOf());
+          return dao;
+        } catch (java.sql.SQLException e) {
+          Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), e);
+          throw new RuntimeException("Error creating PostgresDAO: " + getName() + ", " + e.getMessage());
+        } catch (ClassNotFoundException e) {
+          Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), e);
+          throw new RuntimeException("Error creating PostgresDAO: " + getName() + ", " + e.getMessage());
+        }
       `
     },
     {
@@ -1230,6 +1269,28 @@ dao loading, which improves overall startup time.`,
       return dao;
     },
 
+    /** Only relevant if using postgresdao */
+    {
+      name: 'addTableIndex',
+      type: 'foam.dao.EasyDAO',
+      args: 'String name, foam.lang.Indexer... indexers',
+      javaCode: `
+        if ( ! getPostgres() ) {
+          ((Logger) getX().get("logger")).warning(getName(), "addTableIndex only works for postgres DAOs");
+          return this;
+        }
+        AddIndexCommand cmd = new AddIndexCommand();
+        cmd.setName(name);
+        cmd.setIndexers(indexers);
+        Object result = getDelegate().cmd_(getX(), cmd);
+        if ( result == null ||
+            ! ( result instanceof Boolean ) ||
+            ((Boolean) result).booleanValue() != true ) {
+          ((Logger) getX().get("logger")).warning(getName(), "Index not added due to invalid indexers or other error", Arrays.toString(indexers));
+        }
+        return this;
+      `
+    },
     /** Only relevant if cache is true or if daoType
        was set to MDAO, but harmless otherwise. Generates an index
        for a query over all specified properties together.
@@ -1263,7 +1324,7 @@ dao loading, which improves overall startup time.`,
     {
       name: 'addIndex',
       type: 'foam.dao.EasyDAO',
-      documentation: 'Only relavent if the cache is true or if daoType was set to MDAO, but harmless otherwise. Adds an existing index to the MDAO',
+      documentation: 'Only relevant if the cache is true or if daoType was set to MDAO, but harmless otherwise. Adds an existing index to the MDAO',
       // TODO: The java Index interface conflicts with the js CLASS Index
 //      args: [ { javaType: 'foam.dao.index.Index', name: 'index' } ],
       args: 'Object index',

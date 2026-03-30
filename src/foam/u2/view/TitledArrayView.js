@@ -67,9 +67,6 @@ foam.CLASS({
           font-size: $body-sm;
           font-weight: $font-bold;
         }
-        ^value-view-container.opened.collapsable {
-          border-color: $primary500;
-        }
       `,
       properties: [
         {

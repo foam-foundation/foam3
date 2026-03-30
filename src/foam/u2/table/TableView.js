@@ -172,7 +172,7 @@
       right: 4px;
     }
 
-    ^resizeButton:hover:not(:disabled), ^resizeCursor {
+    ^resizeButton.foam-u2-ActionView:hover:not(:disabled), ^resizeCursor {
       cursor: col-resize;
     }
 

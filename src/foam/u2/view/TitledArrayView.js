@@ -39,6 +39,9 @@ foam.CLASS({
           border: 1px solid $borderLight;
           border-radius: 4px;
         }
+        ^value-view-container ^value-view-container {
+          background: $backgroundSecondary;
+        }
         ^value-view {
           padding: 8px;
         }

@@ -55,6 +55,9 @@ foam.CLASS({
           align-items: center;
           gap: 10px;
         }
+        ^item-name {
+          line-height: inherit;
+        }
         ^item-index {
           color: $grey700;
         }

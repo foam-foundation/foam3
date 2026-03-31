@@ -550,8 +550,15 @@ foam.CLASS({
       class: 'foam.u2.view.TableCellFormatter',
       name: 'tableCellFormatter',
       value: function(value, obj, axiom) {
-        // Since currency codes resolve their values async, their tcfs are slotted 
-        this.add(axiom.toSlot(obj));
+        // Reactive slot — re-fires when currency property changes.
+        // Uses FOAM's $find to resolve Currency object, then shows toSummary().
+        // Falls back to raw code for GroupBy/generated objects that lack currencyDAO.
+        this.add(axiom.toSlot(obj).map(function(code) {
+          if ( ! code || ! obj.__context__[axiom.targetDAOKey] ) return code || '';
+          return obj[axiom.name + '$find'].then(function(c) {
+            return c?.toSummary?.() ?? code;
+          });
+        }));
       }
     },
     ['projectionSafe', false]

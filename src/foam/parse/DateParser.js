@@ -104,6 +104,28 @@ foam.CLASS({
       return value;
     },
 
+    /**
+     * Extracts time components from a compact date action's parsed value.
+     * Handles both compact time (HHMMSS) and colon time (HH:MM:SS) variants.
+     * @param {string|Array} v - Parsed value: string (date-only) or array (date + time)
+     * @returns {{ hour: number, minute: number, second: number, tz: string|null }}
+     */
+    function extractTimeFromCompact_(v) {
+      if ( ! Array.isArray(v) || v.length <= 2 ) {
+        return { hour: -1, minute: -1, second: -1, tz: null };
+      }
+      if ( v[3] && v[3] !== ':' ) {
+        // Compact time: [dateStr, sep, HH, MM, SS]
+        return { hour: parseInt(v[2]), minute: parseInt(v[3]), second: parseInt(v[4]), tz: null };
+      }
+      // Colon time: [dateStr, sep, HH, :, MM, optional([:, SS]), ...]
+      var second = -1;
+      if ( v[5] && Array.isArray(v[5]) ) {
+        second = parseInt(v[5][1]);
+      }
+      return { hour: parseInt(v[2]), minute: parseInt(v[4]), second: second, tz: this.extractTimezone(v) };
+    },
+
     function buildDate(mode, year, month, day, hour, minute, second, ms, tz) {
       var offset, utcTime;
       switch ( mode ) {
@@ -191,28 +213,12 @@ foam.CLASS({
     // v = "20250115" OR v = ["20250115", sep, HH, MM, SS] (compact time) OR v = ["20250115", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function yyyymmddcompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(0, 4)),
         parseInt(dateStr.substring(4, 6)) - 1,
         parseInt(dateStr.substring(6, 8)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYYYMMDDHHMMSS compact: 14 digits with time
@@ -255,28 +261,12 @@ foam.CLASS({
     // v = "01152025" OR v = ["01152025", sep, HH, MM, SS] (compact time) OR v = ["01152025", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function mmddyyyycompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(4, 8)),
         parseInt(dateStr.substring(0, 2)) - 1,
         parseInt(dateStr.substring(2, 4)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYMMDD with separators: YY-MM-DD, YY/MM/DD with optional time and timezone
@@ -306,12 +296,14 @@ foam.CLASS({
     // YYMMDD compact: 6 digits "250115"
     // v = "250115"
     function yymmddcompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(0, 2));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(0, 2));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(2, 4)) - 1,
-        parseInt(v.substring(4, 6)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(2, 4)) - 1,
+        parseInt(dateStr.substring(4, 6)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // MMDDYY with separators: MM-DD-YY, MM/DD/YY with optional time
@@ -341,12 +333,14 @@ foam.CLASS({
     // MMDDYY compact: 6 digits "011525"
     // v = "011525"
     function mmddyycompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(4, 6));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(4, 6));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(0, 2)) - 1,
-        parseInt(v.substring(2, 4)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(0, 2)) - 1,
+        parseInt(dateStr.substring(2, 4)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // DDMMYYYY with separators: DD-MM-YYYY, DD/MM/YYYY with optional time
@@ -376,28 +370,12 @@ foam.CLASS({
     // v = "15012025" OR v = ["15012025", sep, HH, MM, SS] (compact time) OR v = ["15012025", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function ddmmyyyycompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(4, 8)),
         parseInt(dateStr.substring(2, 4)) - 1,
         parseInt(dateStr.substring(0, 2)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // DDMMYY with separators: DD-MM-YY, DD/MM/YY with optional time
@@ -424,15 +402,17 @@ foam.CLASS({
         this.extractTimezone(v));
     },
 
-    // DDMMYY compact: 6 digits "150125"
-    // v = "150125"
+    // DDMMYY compact: 6 digits "150125" or "150125 143045" or "150125 14:30:45"
+    // v = "150125" (string) or ["150125", sep, HH, MM, SS] or ["150125", sep, HH, :, MM, ...]
     function ddmmyycompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(4, 6));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(4, 6));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(2, 4)) - 1,
-        parseInt(v.substring(0, 2)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(2, 4)) - 1,
+        parseInt(dateStr.substring(0, 2)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYYYDDMM with separators: YYYY-DD-MM, YYYY/DD/MM with optional time
@@ -462,28 +442,12 @@ foam.CLASS({
     // v = "20251501" OR v = ["20251501", sep, HH, MM, SS] (compact time) OR v = ["20251501", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function yyyyddmmcompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(0, 4)),
         parseInt(dateStr.substring(6, 8)) - 1,
         parseInt(dateStr.substring(4, 6)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYDDMM with separators: YY-DD-MM, YY/DD/MM with optional time
@@ -513,12 +477,14 @@ foam.CLASS({
     // YYDDMM compact: 6 digits "251501"
     // v = "251501"
     function yyddmmcompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(0, 2));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(0, 2));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(4, 6)) - 1,
-        parseInt(v.substring(2, 4)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(4, 6)) - 1,
+        parseInt(dateStr.substring(2, 4)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // DDMMMYYYY with separators: DD-MMM-YYYY, DD/MMM/YYYY

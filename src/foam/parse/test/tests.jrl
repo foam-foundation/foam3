@@ -7,3 +7,5 @@ p({"class":"foam.parse.test.NumberParserTest","id":"NumberParserTest", language:
 p({"class":"foam.parse.test.DateParserJavaTest","id":"DateParserJavaTest"})
 p({"class":"foam.parse.test.SimpleQueryParserJavaTest","id":"SimpleQueryParserJavaTest"})
 p({"class":"foam.parse.test.SimpleQueryParserMQLTest","id":"SimpleQueryParserMQLTest", language: 0})
+p({"class":"foam.parse.test.GrammarCombinatorsTest","id":"GrammarCombinatorsTest", language: 0})
+p({"class":"foam.parse.test.GrammarCombinatorsJavaTest","id":"GrammarCombinatorsJavaTest"})

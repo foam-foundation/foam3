@@ -90,6 +90,12 @@ foam.CLASS({
 
         // Julian Date Format Tests
         DateParserTest_JulianDate();
+
+        // 2-Digit Year Compact Time Tests
+        DateParserTest_DDMMYY_CompactTime();
+        DateParserTest_MMDDYY_CompactTime();
+        DateParserTest_YYMMDD_CompactTime();
+        DateParserTest_YYDDMM_CompactTime();
       `
     },
 
@@ -1416,6 +1422,132 @@ foam.CLASS({
         test(cal12.get(Calendar.YEAR) == expectedYear5, "juliandate 5216 (4-digit): year " + expectedYear5);
         test(cal12.get(Calendar.MONTH) == 7, "juliandate 5216 (4-digit): month 7 (Aug)");
         test(cal12.get(Calendar.DAY_OF_MONTH) == 4, "juliandate 5216 (4-digit): day 4");
+      `
+    },
+
+    // ========== 2-Digit Year Compact Time Tests ==========
+
+    {
+      name: 'DateParserTest_DDMMYY_CompactTime',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // Test compact time: 010925 143025 (DD=01, MM=09, YY=25, HH=14, MM=30, SS=25)
+        Date date1 = parser.parseDateTime("010925 143025", "ddmmyyyy");
+        Calendar cal1 = Calendar.getInstance();
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2025, "DDMMYY compact time: year 2025");
+        test(cal1.get(Calendar.MONTH) == 8, "DDMMYY compact time: month 8 (Sep)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 1, "DDMMYY compact time: day 1");
+        test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "DDMMYY compact time: hour 14");
+        test(cal1.get(Calendar.MINUTE) == 30, "DDMMYY compact time: minute 30");
+        test(cal1.get(Calendar.SECOND) == 25, "DDMMYY compact time: second 25");
+
+        // Test colon-separated time: 010925 14:30:25
+        Date date2 = parser.parseDateTime("010925 14:30:25", "ddmmyyyy");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "DDMMYY colon time: year 2025");
+        test(cal2.get(Calendar.MONTH) == 8, "DDMMYY colon time: month 8 (Sep)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 1, "DDMMYY colon time: day 1");
+        test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "DDMMYY colon time: hour 14");
+        test(cal2.get(Calendar.MINUTE) == 30, "DDMMYY colon time: minute 30");
+        test(cal2.get(Calendar.SECOND) == 25, "DDMMYY colon time: second 25");
+
+        // Test date-only backward compat: 010925
+        Date date3 = parser.parseString("010925", "ddmmyyyy");
+        Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal3.setTime(date3);
+        test(cal3.get(Calendar.YEAR) == 2025, "DDMMYY date-only: year 2025");
+        test(cal3.get(Calendar.MONTH) == 8, "DDMMYY date-only: month 8 (Sep)");
+        test(cal3.get(Calendar.DAY_OF_MONTH) == 1, "DDMMYY date-only: day 1");
+      `
+    },
+
+    {
+      name: 'DateParserTest_MMDDYY_CompactTime',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // Test compact time: 090125 143025 (MM=09, DD=01, YY=25, HH=14, MM=30, SS=25)
+        Date date1 = parser.parseDateTime("090125 143025", "mmddyyyy");
+        Calendar cal1 = Calendar.getInstance();
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2025, "MMDDYY compact time: year 2025");
+        test(cal1.get(Calendar.MONTH) == 8, "MMDDYY compact time: month 8 (Sep)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 1, "MMDDYY compact time: day 1");
+        test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "MMDDYY compact time: hour 14");
+        test(cal1.get(Calendar.MINUTE) == 30, "MMDDYY compact time: minute 30");
+        test(cal1.get(Calendar.SECOND) == 25, "MMDDYY compact time: second 25");
+
+        // Test colon-separated time: 090125 14:30:25
+        Date date2 = parser.parseDateTime("090125 14:30:25", "mmddyyyy");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "MMDDYY colon time: year 2025");
+        test(cal2.get(Calendar.MONTH) == 8, "MMDDYY colon time: month 8 (Sep)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 1, "MMDDYY colon time: day 1");
+        test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "MMDDYY colon time: hour 14");
+        test(cal2.get(Calendar.MINUTE) == 30, "MMDDYY colon time: minute 30");
+        test(cal2.get(Calendar.SECOND) == 25, "MMDDYY colon time: second 25");
+      `
+    },
+
+    {
+      name: 'DateParserTest_YYMMDD_CompactTime',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // Test compact time: 250901 143025 (YY=25, MM=09, DD=01, HH=14, MM=30, SS=25)
+        Date date1 = parser.parseDateTime("250901 143025", "yymmdd");
+        Calendar cal1 = Calendar.getInstance();
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2025, "YYMMDD compact time: year 2025");
+        test(cal1.get(Calendar.MONTH) == 8, "YYMMDD compact time: month 8 (Sep)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 1, "YYMMDD compact time: day 1");
+        test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "YYMMDD compact time: hour 14");
+        test(cal1.get(Calendar.MINUTE) == 30, "YYMMDD compact time: minute 30");
+        test(cal1.get(Calendar.SECOND) == 25, "YYMMDD compact time: second 25");
+
+        // Test colon-separated time: 250901 14:30:25
+        Date date2 = parser.parseDateTime("250901 14:30:25", "yymmdd");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "YYMMDD colon time: year 2025");
+        test(cal2.get(Calendar.MONTH) == 8, "YYMMDD colon time: month 8 (Sep)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 1, "YYMMDD colon time: day 1");
+        test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "YYMMDD colon time: hour 14");
+        test(cal2.get(Calendar.MINUTE) == 30, "YYMMDD colon time: minute 30");
+        test(cal2.get(Calendar.SECOND) == 25, "YYMMDD colon time: second 25");
+      `
+    },
+
+    {
+      name: 'DateParserTest_YYDDMM_CompactTime',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // Test compact time: 250109 143025 (YY=25, DD=01, MM=09, HH=14, MM=30, SS=25)
+        Date date1 = parser.parseDateTime("250109 143025", "yyyyddmm");
+        Calendar cal1 = Calendar.getInstance();
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2025, "YYDDMM compact time: year 2025");
+        test(cal1.get(Calendar.MONTH) == 8, "YYDDMM compact time: month 8 (Sep)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 1, "YYDDMM compact time: day 1");
+        test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "YYDDMM compact time: hour 14");
+        test(cal1.get(Calendar.MINUTE) == 30, "YYDDMM compact time: minute 30");
+        test(cal1.get(Calendar.SECOND) == 25, "YYDDMM compact time: second 25");
+
+        // Test colon-separated time: 250109 14:30:25
+        Date date2 = parser.parseDateTime("250109 14:30:25", "yyyyddmm");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "YYDDMM colon time: year 2025");
+        test(cal2.get(Calendar.MONTH) == 8, "YYDDMM colon time: month 8 (Sep)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 1, "YYDDMM colon time: day 1");
+        test(cal2.get(Calendar.HOUR_OF_DAY) == 14, "YYDDMM colon time: hour 14");
+        test(cal2.get(Calendar.MINUTE) == 30, "YYDDMM colon time: minute 30");
+        test(cal2.get(Calendar.SECOND) == 25, "YYDDMM colon time: second 25");
       `
     }
   ]

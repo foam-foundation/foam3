@@ -486,6 +486,7 @@ foam.CLASS({
     { class: 'Int', name: 'cutoutPercentage', value: 0 },
     { class: 'Boolean', name: 'clockwise', value: true },
     { class: 'Int', name: 'rotation', value: -90 },
+    { class: 'Boolean', name: 'disableLegendClick', help: 'Disable legend click to toggle slice visibility' },
     // Display properties
     { class: 'Boolean', name: 'responsive', value: true },
     { class: 'Boolean', name: 'maintainAspectRatio', value: false },
@@ -505,7 +506,7 @@ foam.CLASS({
       transient: true,
       expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
                           responsive, maintainAspectRatio, showLegend,
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width, emptyValueMessage) {
+                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width, emptyValueMessage, disableLegendClick) {
         // Don't create chart until we have a valid width
         if ( ! width || width <= 0 ) {
           return null;
@@ -557,13 +558,13 @@ foam.CLASS({
             legend: {
               display: showLegend,
               position: legendPosition ? legendPosition.toString().toLowerCase() : 'top',
-
+              onClick: disableLegendClick ? function() { /* no-op: prevent slice toggle */ } : undefined,
             },
             tooltip: {
               enabled: showTooltips,
               callbacks: (function() {
                 var callbacks = {};
-                
+
                 // Add percentage display to individual tooltip labels
                 if ( showPercentages ) {
                   callbacks.label = function(context) {
@@ -2014,17 +2015,13 @@ foam.CLASS({
       if (!d || !c) return;
       let key = d;
       if ( ! (d instanceof Date) ) {
-        // Try to parse as a date string
         if ( typeof d !== 'string' ) {
-          // Should never happen, but just in case.
-          throw new Error('Date must be Date object or a string'); 
+          throw new Error('Date must be Date object or a string');
         }
-        if (d.length === 7) { d = d + `${d[4]}01`; }  // d[4] MUST be '/' or '-'
-        // We only support YYYY/MM and YYYY/MM/DD formats. Add support for the other formats if needed.
-        const datePattern = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/;
-        const dateParser = (m) => new Date(Date.UTC(m[1], m[2] - 1, m[3]));
-        if ( ! datePattern.test(d) ) { return; }
-        key = dateParser(d.match(datePattern));
+        if ( d.length === 7 ) { d = d + d[4] + '01'; }
+        d = foam.parse.DateParser.create().parseDateString(d);
+        if ( ! d || d.getTime() === foam.Date.MAX_DATE.getTime() ) return;
+        key = d;
       }
       key = key.toISOString().slice(0, 10);
       if (!this.map_[key]) this.map_[key] = {};

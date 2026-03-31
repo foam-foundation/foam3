@@ -862,19 +862,19 @@ foam.CLASS({
   methods: [
     function parse(ps, obj) {
       var ret = [];
-      var p = this.p;
+      var p   = this.p;
+      var res;
 
-      while ( ps.valid ) {
-        var res;
-
-        if ( res = ps.apply(p, obj) ) {
-          return res.setValue(ret);
-        }
-
+      // Try terminator before consuming each character.
+      // This ordering lets eof() match at end-of-stream since
+      // eof() succeeds when ps.valid is false. After the
+      // terminator check, bail on EOF to prevent infinite loops.
+      while ( true ) {
+        if ( res = ps.apply(p, obj) ) return res.setValue(ret);
+        if ( ! ps.valid ) return undefined;
         ret.push(ps.head);
         ps = ps.tail;
       }
-      return undefined;
     },
 
     function toString() {
@@ -893,18 +893,16 @@ foam.CLASS({
 
   methods: [
     function parse(ps, obj) {
-      var p = this.p;
+      var p   = this.p;
+      var res;
 
-      while ( ps.valid ) {
-        var res;
-
-        if ( res = ps.apply(p, obj) ) {
-          return res.setValue(null);
-        }
-
+      // Same ordering as Until: try terminator first so eof()
+      // can match at end-of-stream, then bail on EOF.
+      while ( true ) {
+        if ( res = ps.apply(p, obj) ) return res.setValue(null);
+        if ( ! ps.valid ) return undefined;
         ps = ps.tail;
       }
-      return undefined;
     },
 
     function toString() {

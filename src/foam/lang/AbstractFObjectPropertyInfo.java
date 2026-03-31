@@ -107,7 +107,7 @@ public abstract class AbstractFObjectPropertyInfo
   public void validateObj(X x, FObject obj) {
     if ( getRequired() ) {
       if ( ! isSet(obj) || get(obj) == null ) {
-        throw new ValidationException(getName() + " required");
+        throw new PropertyRequiredException();
       }
 
       ((FObject) get(obj)).validate(x);

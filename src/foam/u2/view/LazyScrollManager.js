@@ -285,7 +285,14 @@ foam.CLASS({
       documentation: 'Tracks the first page where each group appears.',
       factory: function() { return {}; }
     },
-    ['suspendObserver', false]
+    ['suspendObserver', false],
+    {
+      name: 'refreshId', 
+      documentation: 'UID used to prevent old data from corrupting the refresh process',
+      factory: function() {
+        return foam.next$UID();
+      }
+    }
   ],
 
   methods: [
@@ -494,10 +501,13 @@ foam.CLASS({
         sortParams.push(this.invertGroupingOrder ? this.DESC(this.groupBy) : this.groupBy);
       if ( this.order ) sortParams.push(this.order);
       if ( sortParams.length ) proxy = proxy.orderBy(sortParams);
+      let refreshId = this.refreshId;
 
       this.loadingPages_$set(page);
-
       return this.prepDAO(proxy, this.ctx).then((values) => { 
+        // This means a refresh was triggered while the call was in-flight
+        // discard any calls since they might have old data
+        if ( this.refreshId !== refreshId ) return;
         if ( page < this.currentTopPage_ || page > this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) {
           // console.debug('Skipping load', page);
           this.loadingPages_$remove(page);
@@ -631,6 +641,8 @@ foam.CLASS({
         this.groupFirstPage_ = {};
         this.pageHeights_   = {};
         this.loadingPages_   = {};
+        this.loadedPages_   = {};
+        this.renderedPages_   = {};
         if ( ! this.isInit ) {
           this.currentTopPage_ = 0;
           this.topRow          = 0;
@@ -645,6 +657,7 @@ foam.CLASS({
         // Re-attach sentinel observer after disconnect
         this.topSpacer_?.el().then(el    => this.sentinelObserver_?.observe(el));
         this.bottomSpacer_?.el().then(el => this.sentinelObserver_?.observe(el));
+        this.clearProperty('refreshId');
         this.updateRenderedPages();
         if ( this.topRow > 1 ) this.scrollToIndex = this.topRow;
       }

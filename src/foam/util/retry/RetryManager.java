@@ -1,9 +1,8 @@
-package foam.core.ruler;
+package foam.util.retry;
 
 import foam.lang.ContextAgent;
 import foam.lang.X;
 import foam.core.logger.Logger;
-import foam.util.retry.RetryStrategy;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -47,6 +46,7 @@ public class RetryManager {
             while ( latch_.getCount() > 0 ) {
               latch_.countDown();
             }
+            exception_ = null;
           } catch (Exception ex) {
             exception_ = ex;
             start();
@@ -72,6 +72,12 @@ public class RetryManager {
     retry.start();
     try {
       latch_.await();
+      if ( exception_ != null ) {
+        if ( exception_ instanceof RuntimeException ) {
+          throw (RuntimeException) exception_;
+        }
+        throw new RuntimeException(exception_);
+      }
     } catch (InterruptedException e) {
       retry.cancel();
     }

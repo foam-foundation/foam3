@@ -175,7 +175,7 @@ foam.CLASS({
       keyboardShortcuts: [ 27 /* Escape */ ],
       code: function() {
         if ( this.onClose ) this.onClose();
-        this.closedLatch?.resolve();
+        this.closedLatch?.resolve(this.data);
         // Delay removal by 32ms (two animation frames) so the action.closeModal
         // topic has a chance to be published
         this.hide();

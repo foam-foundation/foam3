@@ -2023,11 +2023,11 @@ foam.CLASS({
         if (d.length === 7) { d = d + `${d[4]}01`; }  // d[4] MUST be '/' or '-'
         // We only support YYYY/MM and YYYY/MM/DD formats. Add support for the other formats if needed.
         const datePattern = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/;
-        const dateParser = (m) => new Date(Date.UTC(m[1], m[2] - 1, m[3]));
+        const dateParser = (m) => new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
         if ( ! datePattern.test(d) ) { return; }
         key = dateParser(d.match(datePattern));
       }
-      key = key.toISOString().slice(0, 10);
+      key = key.getFullYear() + '-' + String(key.getMonth() + 1).padStart(2, '0') + '-' + String(key.getDate()).padStart(2, '0');
       if (!this.map_[key]) this.map_[key] = {};
       let v = 1;
       if (this.valueSink && this.valueSink.put) {

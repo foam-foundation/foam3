@@ -19,6 +19,17 @@ Think of these as a spectrum. Start at the top; only reach for the heavier optio
 **When to use it:** Whenever a child component already knows how to display the value.
 
 ```javascript
+// Display Value
+this.add(this.searchTerm$);
+```
+```javascript
+// Display with ability to edit
+...
+requires: [
+  'foam.u2.TextField'     // using require, when you use `this.TextField`, the textField will inherit ControllerMode from parent's context
+],
+... 
+// when controllerMode=EDIT, you will get a textField to update the value of searchTerm, and RO in controllerMode=View
 this.start(this.TextField, { data$: this.searchTerm$ }).end();
 ```
 
@@ -37,8 +48,10 @@ The `$` suffix is the key. `data: value` copies once. `data$: slot` creates a li
 **The problem it solves:**
 
 ```javascript
-// WRONG — grabs a slot from caseA; if this.data becomes caseB, still watching caseA
+// CAREFUL — grabs a slot from caseA; if this.data becomes caseB, still watching caseA
 var transactions$ = this.data.transactions$;
+// the above line is correct if you KNOW, that `data` isn't going to change
+// OR you're inside dynamic function which updates `data`
 
 // RIGHT — tracks this.data.transactions, surviving data reassignment
 var transactions$ = this.data$.dot('transactions');

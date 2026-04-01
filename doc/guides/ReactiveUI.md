@@ -187,7 +187,9 @@ FOAM wraps it in a `FunctionNode`, which inserts two HTML comment markers: `<!--
 
 ### Plain function → `dynamic()`
 
-`this.add(function(name) { ... })` is syntactic sugar — FOAM calls `dynamic()` on it. So a bare function in `.add()` has the same teardown-and-rebuild behavior.
+Normally, `this.add(function(name) { ... })` is syntactic sugar — FOAM calls `dynamic()` on it. So a bare function in `.add()` has the same teardown-and-rebuild behavior. When we say "Normally", we are assuming that the `.add(function()...)` call is made in a context where `data` hasn't been overridden by a parent `startContext()` or a child view that exports its own `data`. In simpler terms: the deeper you nest your `start()`/`end()` chains, the more likely the context's `data` has changed from what you expect — using `self.dynamic()` explicitly avoids this by binding to exactly the object you choose. 
+
+i.e. if you do `this.add(function()...)` instead of `this.add(self.dynamic(function()...))` then it will look for a `data` object in the current context and if the view/element doesn't find `data` in current context then the view will use the `this` you called `.add()` on, which if you have a nested structure of U3 calls in your render() method may not be the object(`data`) you expect.
 
 ---
 

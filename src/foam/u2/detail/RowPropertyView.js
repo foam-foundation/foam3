@@ -33,6 +33,7 @@ foam.CLASS({
     ^body{
       flex-shrink: 2;
       font-family: monospace;
+      text-align: end;
     }
     ^ > .note {
       white-space: pre;

@@ -8,6 +8,8 @@ Every UI framework must answer: "when data changes, what updates on screen?" Rea
 
 FOAM gives you four ways to connect slots to the DOM. They differ in **how much of the screen gets rebuilt** when data changes.
 
+TL;DR: ReactiveUI - the more you can contain/isolate the changing pieces, the faster the re-render of that part of DOM.
+
 ## The Four Patterns — Lightest to Heaviest
 
 Think of these as a spectrum. Start at the top; only reach for the heavier options when the lighter ones can't express what you need.
@@ -202,7 +204,7 @@ i.e. if you do `this.add(function()...)` instead of `this.add(self.dynamic(funct
 
 2. **`dynamic()` destroys scroll position and component state**
    - Every re-fire tears down the DOM region. Table scroll, input focus, expanded/collapsed state — all lost.
-   - If you see flickering, you probably want `dot()` + slot binding instead.
+   - If you see flickering, minimize the amount of DOM inside the reactive boundary. All reactive patterns touch the DOM (`SlotNode` does `replaceChild`, `map()` swaps nodes), but smaller reactive regions mean faster redraws. Move what you can outside the `dynamic()` using `dot()`, `map()`, or slot binding — keep `dynamic()` only around the elements whose structure actually changes.
 
 3. **`map()` inside `dynamic()` is wasted work**
    - `dynamic()` throws everything away on each cycle, including any `map()` slots created inside it.

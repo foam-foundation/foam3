@@ -95,6 +95,15 @@ foam.CLASS({
       this.stack.setTitle(this.viewTitle$, this);
       var self = this;
       this.SUPER();
+      this.config.dao.on.reset.sub(async () => {
+        if ( self.route ) {
+          await this.config.dao.find(this.route).then(obj => {
+            if ( ! obj ) {
+              self.route = '';
+            }
+          });
+        }
+      })
       // DAOController uses a custom implementation of dynamic
       // This is done as it needs to perform actions before it removes all children
       // and adds new ones, such as storing the current memento for filters etc. 

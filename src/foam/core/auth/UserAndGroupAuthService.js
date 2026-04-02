@@ -319,7 +319,7 @@ foam.CLASS({
         the cleanup of the current context.`,
       javaCode: `
         Session session = x.get(Session.class);
-        if ( session != null && session.getUserId() != 0 ) {
+        if ( session != null && ! SafetyUtil.isEmpty(session.getId()) && session.getUserId() != 0 ) {
 ((foam.core.logger.Logger) getX().get("logger")).info(this.getClass().getSimpleName(), "logout", session.getId());
           ((DAO) getLocalSessionDAO()).remove(session);
         }

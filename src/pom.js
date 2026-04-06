@@ -1318,6 +1318,7 @@ foam.POM({
     { name: "foam/lang/VirtualThreadAgency" },
     { name: "foam/lib/parse/Join" },
     { name: "foam/lib/parse/Until" },
+    { name: "foam/lib/parse/SkipTo" },
     { name: "foam/lib/parse/CSVParser" },
     { name: "foam/lib/parse/TracingPStream" },
     { name: "foam/lib/parse/Fail" },

@@ -37,6 +37,7 @@ foam.CLASS({
         testRepeat0();
         testNot();
         testUntil();
+        testSkipTo();
         testInfiniteLoopPrevention();
       `
     },
@@ -347,6 +348,38 @@ foam.CLASS({
         PStream r6 = doParse(untilNl, "line1\\nline2");
         test(r6 != null && strValue(r6).equals("line1"),
           "until(nl): should only consume first line");
+      `
+    },
+
+    // === SkipTo ===
+    {
+      name: 'testSkipTo',
+      javaCode: `
+        SkipTo skipToMarker = new SkipTo("MARKER");
+
+        // Normal: jump to pattern
+        PStream r = doParse(skipToMarker, "aaa MARKER bbb");
+        test(r != null, "skipTo: should find pattern in input");
+        test(r != null && r.pos() == 4, "skipTo: should position at start of pattern, got pos: " + (r != null ? r.pos() : -1));
+
+        // Pattern at position 0: should skip past and find next occurrence
+        r = doParse(skipToMarker, "MARKER aaa MARKER");
+        test(r != null, "skipTo: should skip past pattern at pos 0");
+        test(r != null && r.pos() == 11, "skipTo: should find second occurrence at pos 11, got: " + (r != null ? r.pos() : -1));
+
+        // Pattern not found: should advance to EOF
+        r = doParse(skipToMarker, "no match here");
+        test(r != null, "skipTo: should succeed even when pattern not found");
+        test(r != null && ! r.valid(), "skipTo: should be at EOF when pattern not found");
+
+        // Empty input: should fail
+        r = doParse(skipToMarker, "");
+        test(r == null, "skipTo: should fail on empty input");
+
+        // Use in sequence: skip junk then parse a known section
+        Parser skipThenLit = new Seq(new Parser[] { skipToMarker, new Literal("MARKER", "MARKER") });
+        r = doParse(skipThenLit, "junk junk MARKER");
+        test(r != null, "skipTo+literal: should skip junk then match pattern");
       `
     },
 

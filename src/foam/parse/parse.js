@@ -914,6 +914,63 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.parse',
+  name: 'SkipTo',
+
+  documentation: `Advances the stream to the next occurrence of a literal string using
+String.indexOf() for O(n) native performance. Creates a single PStream at
+the target position instead of walking the tail chain character-by-character.
+
+Use instead of until0() when skipping large stretches of irrelevant text
+to reach a known string marker.
+
+The skipped content is discarded (value is null). The stream is positioned
+at the START of the found pattern so subsequent parsers can match it.
+If the pattern is not found, the stream advances to EOF.`,
+
+  properties: [
+    {
+      name: 's',
+      class: 'Simple',
+      documentation: 'The literal string to search for'
+    }
+  ],
+
+  methods: [
+    function parse(ps) {
+      if ( ! ps.valid ) return undefined;
+
+      var str = ps.str[0];
+      // Search from pos + 1 to always advance at least one character.
+      // Prevents infinite loops when the pattern is at the current position
+      // (e.g., a guard rejected the match — skip past it to find the next one).
+      var idx = str.indexOf(this.s, ps.pos + 1);
+
+      if ( idx < 0 ) {
+        // Pattern not found — advance to EOF
+        var end   = ps.cls_.create();
+        end.str   = ps.str;
+        end.pos   = str.length;
+        end.apply = ps.apply;
+        return end.setValue(null);
+      }
+
+      // Jump directly to the pattern position (O(1) PStream creation)
+      var target   = ps.cls_.create();
+      target.str   = ps.str;
+      target.pos   = idx;
+      target.apply = ps.apply;
+      return target.setValue(null);
+    },
+
+    function toString() {
+      return 'skipTo("' + this.s + '")';
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse',
   name: 'Join',
   extends: 'foam.parse.ParserDecorator',
 
@@ -1176,6 +1233,7 @@ foam.CLASS({
     'foam.parse.Symbol',
     'foam.parse.Until',
     'foam.parse.Until0',
+    'foam.parse.SkipTo',
     'foam.parse.Join',
     'foam.parse.ParserWithAction'
   ],
@@ -1319,6 +1377,12 @@ foam.CLASS({
     function until0(p) {
       return this.Until0.create({
         p: p
+      });
+    },
+
+    function skipTo(s) {
+      return this.SkipTo.create({
+        s: s
       });
     },
 

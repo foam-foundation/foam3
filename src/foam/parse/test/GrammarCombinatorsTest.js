@@ -42,6 +42,7 @@ foam.CLASS({
       this.testStr(x, ps);
       this.testUntil(x, ps);
       this.testUntil0(x, ps);
+      this.testSkipTo(x, ps);
       this.testInfiniteLoopPrevention(x, ps);
     },
 
@@ -320,6 +321,45 @@ foam.CLASS({
       // No trailing newline - should fail
       x.test(this.doParse(ps, until0Nl, 'hello') == null,
         'until0(nl): should fail when no newline before EOF');
+    },
+
+    // ==================== SkipTo ====================
+    function testSkipTo(x, ps) {
+      var skipToMarker = ps.skipTo('MARKER');
+
+      // Normal: jump to pattern
+      var r = this.doParse(ps, skipToMarker, 'aaa MARKER bbb');
+      x.test(r != null, 'skipTo: should find pattern in input');
+      x.test(r && r.pos === 4, 'skipTo: should position at start of pattern, got pos: ' + (r && r.pos));
+
+      // Pattern at position 0: should skip past and find next occurrence
+      r = this.doParse(ps, skipToMarker, 'MARKER aaa MARKER');
+      x.test(r != null, 'skipTo: should skip past pattern at pos 0');
+      x.test(r && r.pos === 11, 'skipTo: should find second occurrence at pos 11, got: ' + (r && r.pos));
+
+      // Pattern not found: should advance to EOF
+      r = this.doParse(ps, skipToMarker, 'no match here');
+      x.test(r != null, 'skipTo: should succeed even when pattern not found');
+      x.test(r && ! r.valid, 'skipTo: should be at EOF when pattern not found');
+
+      // Empty input: should fail
+      r = this.doParse(ps, skipToMarker, '');
+      x.test(r == null, 'skipTo: should fail on empty input');
+
+      // Use in grammar: skip junk then parse a known section
+      var skipThenLit = ps.seq(skipToMarker, ps.literal('MARKER'));
+      r = this.doParse(ps, skipThenLit, 'junk junk MARKER');
+      x.test(r != null, 'skipTo+literal: should skip junk then match pattern');
+
+      // Multiple skips in repeat
+      var skipReportId = ps.skipTo('REPORT');
+      var section = ps.alt(
+        ps.seq(ps.literal('REPORT A'), ps.until0(ps.literal('\n'))),
+        skipReportId
+      );
+      var multi = ps.repeat0(ps.not(ps.eof(), section));
+      r = this.doParse(ps, multi, 'junk\nREPORT A data\njunk\nREPORT A more\n');
+      x.test(r != null, 'skipTo in repeat: should parse multiple sections');
     },
 
     // ==================== Infinite Loop Prevention ====================

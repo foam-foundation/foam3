@@ -14,19 +14,24 @@ foam.CLASS({
   imports: ['returnExpandedCSS', 'theme'],
 
   css: `
-    ^pill{
-      align-items: center;
-      border-radius: 11.2px;
-      border: 1px solid;
+    ^ {
       display: inline-flex;
-      justify-content: space-around;
+      justify-content: center;
+      align-items: center;
       min-width: 88px;
       padding: 0 12px;
       width: -webkit-max-content;
       width: -moz-max-content;
     }
+    ^pill{
+      border-radius: 11.2px;
+      border: 1px solid;
+    }
     ^icon{
       margin-right: 4px;
+    }
+    ^center {
+      justify-content: center;
     }
   `,
 
@@ -41,31 +46,36 @@ foam.CLASS({
 
   methods: [
     function render() {
+      let self = this;
       this.SUPER();
       this.dynamic(function(data) {
         this.removeAllChildren();
         var color = this.resolveColor(this.data.color);
         var background = this.resolveColor(this.data.background);
+        var glyphBackground = this.resolveColor(this.data.glyphBackground);
+        var glyphColor = this.resolveColor(this.data.glyphFill);
         var borderColor = this.resolveColor(this.data.borderColor);
         var isPill = this.isFancy(this.data.VALUES);
         this
           .enableClass(this.myClass('pill'), isPill)
           .addClass('enum-label', this.myClass())
-          .style({ 'width': 'max-content' })
+          .style({ width: 'max-content' })
           .style({
             'background-color': background,
-            'color': color,
+            color: color,
             'border-color': borderColor
           })
-          .callIf(this.showGlyph && (data.glyph || data.icon), () => {
+          .callIfElse(this.showGlyph && (data.glyph || data.icon), () => {
             var icon = {
               size: 14,
-              backgroundColor: color,
+              backgroundColor: glyphBackground || color,
               icon: data.glyph?.clone(this).getDataUrl({
-                fill: background || color
+                fill: glyphColor || background || color
               }) ?? data.icon
             };
             this.start(this.CircleIndicator, icon).addClass(this.myClass('icon')).end();
+          }, function() {
+            self.addClass(self.myClass('center'))
           })
           .callIfElse(isPill,
             () => { this.start().add(data.label).end(); },

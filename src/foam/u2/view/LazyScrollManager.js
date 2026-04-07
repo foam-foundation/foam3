@@ -15,8 +15,8 @@ foam.CLASS({
 
     Three pages of rows are rendered at a time. As the user scrolls, old pages
     are removed and new ones loaded, with spacers maintaining correct scroll height
-    and position in both directions to prevent scroll jumping. 
-    
+    and position in both directions to prevent scroll jumping.
+
     Page heights are measured after render and cached so that spacer estimates converge to exact values as the user scrolls.
 
     TODO: There is potentially a small issue with grouping where if you jump pages in the table
@@ -287,7 +287,7 @@ foam.CLASS({
     },
     ['suspendObserver', false],
     {
-      name: 'refreshId', 
+      name: 'refreshId',
       documentation: 'UID used to prevent old data from corrupting the refresh process',
       factory: function() {
         return foam.next$UID();
@@ -504,7 +504,7 @@ foam.CLASS({
       let refreshId = this.refreshId;
 
       this.loadingPages_$set(page);
-      return this.prepDAO(proxy, this.ctx).then((values) => { 
+      return this.prepDAO(proxy, this.ctx).then((values) => {
         // This means a refresh was triggered while the call was in-flight
         // discard any calls since they might have old data
         if ( this.refreshId !== refreshId ) return;
@@ -593,7 +593,7 @@ foam.CLASS({
 
   listeners: [
     {
-      // This is framed to prevent layout thrashing 
+      // This is framed to prevent layout thrashing
       name: 'setEstimatedPageHeight',
       documentation: 'Updates estimated page height based on a median of all known heights',
       isFramed: true,
@@ -603,9 +603,9 @@ foam.CLASS({
           this.pageHeights_[page] = h;
 
           values = Object.values(this.pageHeights_).sort((a, b) => a - b);
-  
+
           const half = Math.floor(values.length / 2);
-  
+
           this.estimatedPageHeight = (values.length % 2
             ? values[half]
             : (values[half - 1] + values[half]) / 2
@@ -709,7 +709,7 @@ foam.CLASS({
             if ( this.loadingPages_[page] || this.loadedPages_[page] ) continue;
             // console.debug('loading data for', page);
             var skip = page * this.pageSize_;
-            var dao  = this.data.limit(this.pageSize_).skip(skip);
+            var dao  = this.data$proxy.limit(this.pageSize_).skip(skip);
             promiseArr.push(this.getPage(dao, page));
           }
           if ( promiseArr.length ) {
@@ -776,12 +776,12 @@ foam.CLASS({
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
             // Recheck before setting since the intersection observer might have been delayed
             let bounds = entry.target.getBoundingClientRect();
-            if ( bounds.top <= entry.rootBounds.top && bounds.bottom >= entry.rootBounds.top )  
+            if ( bounds.top <= entry.rootBounds.top && bounds.bottom >= entry.rootBounds.top )
               self.topRow = index;
           } else if ( entry.boundingClientRect.bottom >= entry.rootBounds.bottom ) {
             // Recheck before setting since the intersection observer might have been delayed
             let bounds = entry.target.getBoundingClientRect();
-            if ( bounds.bottom >= entry.rootBounds.bottom && bounds.top < entry.rootBounds.bottom )  
+            if ( bounds.bottom >= entry.rootBounds.bottom && bounds.top < entry.rootBounds.bottom )
               if ( index > 0 ) self.bottomRow = index;
           }
         });
@@ -793,7 +793,7 @@ foam.CLASS({
     {
       name: 'onScroll_',
       documentation: `
-        Listener for extreme edge case where user scrolls faster than 
+        Listener for extreme edge case where user scrolls faster than
         we can listen to the observer or their device can process pages
         approximates desired page and loads that page will not be accurate
       `,

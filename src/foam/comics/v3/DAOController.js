@@ -83,7 +83,7 @@ foam.CLASS({
       }
     },
     'sub_',
-    'emptyRouteParams_',
+    'emptyRouteParams_'
   ],
 
   methods: [
@@ -91,8 +91,11 @@ foam.CLASS({
       this.SUPER();
       this.addCrumb();
     },
+    function getTitle$() {
+      return this.viewTitle$;
+    },
     function render() {
-      this.stack.setTitle(this.viewTitle$, this);
+      this.stack.setTitle(this.getTitle$(), this);
       var self = this;
       this.SUPER();
       this.config.dao.on.reset.sub(async () => {
@@ -106,7 +109,7 @@ foam.CLASS({
       })
       // DAOController uses a custom implementation of dynamic
       // This is done as it needs to perform actions before it removes all children
-      // and adds new ones, such as storing the current memento for filters etc. 
+      // and adds new ones, such as storing the current memento for filters etc.
       this.dynamic(function(route) {
         if ( self.sub_ && self.route ) {
           self.sub_.detach();
@@ -142,7 +145,7 @@ foam.CLASS({
     },
     function renderDAOView() {
       var self = this;
-      this.stack.setTitle(this.viewTitle$, self);
+      this.stack.setTitle(this.getTitle$(), this);
       let memento = this.emptyRouteParams_;
       let l = function() {
         let mementoRoute = self.memento_.usedStr?.indexOf('?') !== -1 ? self.memento_.usedStr?.split('?')[0] : null;
@@ -160,4 +163,3 @@ foam.CLASS({
     }
   ]
 });
-

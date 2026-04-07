@@ -318,10 +318,10 @@ foam.CLASS({
               label: { class: 'foam.u2.view.TreeViewRow.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL',
-              themeIcon: self.data.themeIcon || '',
-              icon: self.data.icon || ''
+              themeIcon$: self.data$.dot('themeIcon') || '',
+              icon$: self.data$.dot('icon') || ''
             }).
-              attrs({ title: labelString }).
+              attrs({ title: self.data$.dot('tooltip').map(t => t || labelString) }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().

@@ -1006,17 +1006,25 @@ foam.CLASS({
           settingsMap.put(setting.getClassInfo().getId(), setting);
         }
 
-        // Spid specific
-        settingDefaults = ((ArraySink) ((DAO) x.get("notificationSettingDefaultsDAO")).inX(x)
-          .where(EQ(foam.core.notification.NotificationSetting.SPID, getSpid()))
-          .select(new ArraySink()))
-          .getArray();
-        for ( NotificationSetting setting : settingDefaults ) {
-          if ( setting.getEnabled() || setting.getClass() == NotificationSetting.class ) {
-            settingsMap.put(setting.getClassInfo().getId(), setting);
-          } else {
-            // use disabled to opt-out
-            settingsMap.remove(setting.getClassInfo().getId());
+        // Spid defaults
+        if ( ! SafetyUtil.isEmpty(getSpid()) ) {
+          StringBuilder spid = new StringBuilder();
+          for ( String s : getSpid().split("\\\\.") ) {
+            if ( spid.length() > 0 ) spid.append('.');
+            spid.append(s);
+
+            settingDefaults = ((ArraySink) ((DAO) x.get("notificationSettingDefaultsDAO")).inX(x)
+              .where(EQ(foam.core.notification.NotificationSetting.SPID, spid.toString()))
+              .select(new ArraySink()))
+              .getArray();
+            for ( NotificationSetting setting : settingDefaults ) {
+              if ( setting.getEnabled() || setting.getClass() == NotificationSetting.class ) {
+                settingsMap.put(setting.getClassInfo().getId(), setting);
+              } else {
+                // use disabled to opt-out
+                settingsMap.remove(setting.getClassInfo().getId());
+              }
+            }
           }
         }
 

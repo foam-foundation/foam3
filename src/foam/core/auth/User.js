@@ -30,6 +30,7 @@ foam.CLASS({
   imports: [
     'auth?',
     'notify?',
+    'resetPasswordToken',
     'routeTo?',
     'ticketDAO?'
   ],
@@ -1229,6 +1230,27 @@ foam.CLASS({
           }
         }, e => {
           self?.notify(e, '', this.LogLevel.ERROR);
+        });
+      }
+    },
+    {
+      name: 'resetPassword',
+      label: 'Reset Password',
+      toolTip: 'Send a password reset email to this user',
+      availablePermissions: ['user.action.resetPassword'],
+      isAvailable: async function(id, type, spid, lifecycleState) {
+        return id && type == 'User' && spid &&
+          ( lifecycleState != this.LifecycleState.DISABLED &&
+            lifecycleState != this.LifecycleState.DELETED );
+      },
+      confirmationRequired: () => true,
+      code: function () {
+        var self = this;
+        this.resetPasswordToken.generateToken(null, this).then(() => {
+          self?.notify('Password reset email sent.', '', self.LogLevel.INFO, true);
+        }, e => {
+          const errorMsg = e?.message || 'Issue resetting your password. Please try again';
+          self?.notify(errorMsg, '', this.LogLevel.ERROR, true);
         });
       }
     }

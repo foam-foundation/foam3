@@ -157,11 +157,32 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     try (BufferedReader br = new BufferedReader(new FileReader(path.toFile()))) {
       String line;
       int lineNum = 0;
+      // Tracks paren depth of an open .style( call across lines so that
+      // multi-line .style({ ... }) bodies are skipped (the values inside
+      // are JS variables/expressions, not hardcoded CSS literals).
+      int styleParenDepth = 0;
       while ( (line = br.readLine()) != null ) {
         lineNum += 1;
+        boolean lineStartsInStyleCall = styleParenDepth > 0;
+        // Update styleParenDepth by scanning this line for ".style(" and
+        // any matching parentheses while inside an open style call.
+        int searchFrom = 0;
+        while ( searchFrom < line.length() ) {
+          if ( styleParenDepth == 0 ) {
+            int idx = line.indexOf(".style(", searchFrom);
+            if ( idx < 0 ) break;
+            styleParenDepth = 1;
+            searchFrom = idx + 7; // length of ".style("
+          } else {
+            char c = line.charAt(searchFrom);
+            if ( c == '(' ) styleParenDepth++;
+            else if ( c == ')' ) styleParenDepth--;
+            searchFrom++;
+          }
+        }
         Matcher matcher = pattern.matcher(line);
         if ( matcher.find() ) {
-          if ( line.contains("style") ) {
+          if ( lineStartsInStyleCall || line.contains("style") ) {
             logger.info("ignoring", line);
             continue;
           }

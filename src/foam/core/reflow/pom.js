@@ -1,9 +1,12 @@
 foam.POM({
   name: 'console',
   projects: [
+    { name: 'parser/pom' },
     { name: 'dashboard/pom' },
     { name: "pivottest/pom" },
     { name: "example/pom" },
+    { name: "canvas/pom" },
+    { name: "ai/pom" },
     { name: "test/pom", flags: "test" }
   ],
   files: [
@@ -22,6 +25,7 @@ foam.POM({
     { name: 'DAOCreate',               flags: 'js' },
     { name: 'DAOFilterPrompt',         flags: 'js' },
     { name: 'DAOPrompt',               flags: 'js' },
+    { name: 'ClassLink',               flags: 'js' },
     { name: 'Doc',                     flags: 'js' },
     { name: 'Markdown',                flags: 'js' },
     { name: 'Image',                   flags: 'js' },
@@ -70,6 +74,7 @@ foam.POM({
     { name: 'float/Test',              flags: 'js' },
     { name: 'XMLSink',                 flags: 'js|java' },
     { name: 'cmd/Commands',            flags: 'js|java' },
+    { name: 'cmd/DAO',                 flags: 'js|java' },
     { name: 'cmd/DAORowView',          flags: 'js' },
     { name: 'cmd/Info',                flags: 'js|java' },
     { name: 'ColumnParser',            flags: 'js' },

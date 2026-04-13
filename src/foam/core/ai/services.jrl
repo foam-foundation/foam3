@@ -1,0 +1,35 @@
+// ── services.jrl ──
+// Claude as default provider, with PM and logging decorators
+// Stack: Client → Skeleton → Logging → PM → ClaudeLLMService
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"llmService",
+  "lazy":true,
+  "serve":true,
+  "authenticate":true,
+  "boxClass":"foam.core.ai.LLMServiceSkeleton",
+  "client":
+    """
+      {
+        "class": "foam.core.ai.ClientLLMService",
+        "delegate": {
+          "class": "foam.box.SessionClientBox",
+          "delegate": {
+            "class": "foam.box.HTTPBox",
+            "url": "service/llmService"
+          }
+        }
+      }
+    """,
+  "serviceScript":"return new foam.core.ai.LoggingLLMService.Builder(x).setDelegate(new foam.core.ai.PMLLMService.Builder(x).setDelegate(new foam.core.ai.ClaudeLLMService.Builder(x).build()).build()).build();"
+})
+
+
+// ── To swap to OpenAI, just change serviceClass: ──
+// p({"class":"foam.core.boot.CSpec", "name":"llmService", "lazy":true, "serve":true, "authenticate":true, "boxClass":"foam.core.ai.LLMServiceSkeleton", "serviceClass":"foam.core.ai.OpenAILLMService", "client":"{\"class\":\"foam.core.ai.LLMServiceClientService\"}", "serviceScript":"return new foam.core.ai.LoggingLLMService.Builder(x).setDelegate(new foam.core.ai.PMLLMService.Builder(x).setDelegate(delegate).build()).build();"})
+
+// ── API key injection via deployment.cfg ──
+// In deployment.cfg or environment:
+//   foam.core.ai.ClaudeLLMService.apiKey = sk-ant-api03-xxxxx
+//   foam.core.ai.OpenAILLMService.apiKey = sk-xxxxx

@@ -242,33 +242,6 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
-  name: 'DAO',
-  extends: 'foam.core.reflow.cmd.Command',
-
-  requires: [ 'foam.core.reflow.DAOPrompt' ],
-
-  imports: [ 'createFlowChildName' ],
-
-  properties: [
-    [ 'description', 'Perform DAO operation' ]
-  ],
-
-  methods: [
-    function execute(dao, opt_label) {
-      let p     = this.DAOPrompt.create({dao: dao, label: opt_label});
-      let label = p.dao.of.model_.plural;
-
-      p.addToE(this.out);
-      this.currentBlock.flowName = opt_label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());
-      this.currentBlock.obj    = p; // ???: Needed
-      this.currentBlock.value  = p;
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow.cmd',
   name: 'DAOFilter',
   extends: 'foam.core.reflow.cmd.Command',
 
@@ -435,16 +408,26 @@ foam.CLASS({
 
   methods: [
     function execute(cls) {
+      let original = cls;
       if ( foam.String.isInstance(cls) ) {
-        cls = foam.lookup(cls);
+        cls = foam.maybeLookup(cls);
         if ( cls == null ) {
-          log('Unknown class');
-          return;
+          cls = this.__context__[original];
+          if ( cls == null ) {
+            this.log('Unknown class or service');
+            return;
+          }
+          cls = cls.cls_;
         }
       }
+
       // TODO: add ability to specify how SimpleClassView writes links so it can hyperlink back to this command
-      this.out.startContext({conventionalUML: true}).
-        tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+      if ( foam.lang.InterfaceModel.isInstance(cls.model_) ) {
+        this.out.tag(foam.doc.InterfaceView, {data: cls});
+      } else {
+        this.out.startContext({conventionalUML: true}).
+          tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+      }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
       this.outputLink(cls.__proto__.id, () => this.eval_('describe(' + cls.__proto__.id + ')'), this.out);

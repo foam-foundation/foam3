@@ -70,7 +70,6 @@ foam.CLASS({
             if ( ! item ) continue;
             let newIndex = self.data.indexOf(item) 
             if ( newIndex === -1 ) {
-              self.data2_[j] = null;
               self.removeRowWithID(item.$UID)
               continue;
             }
@@ -86,6 +85,10 @@ foam.CLASS({
           // flip the array around since element only supports insert before
           for ( let i = self.data.length - 1; i >= 0; i--) {
             let row = self.data[i];
+            if ( ! row ) {
+              console.error(`Invalid array element at index ${i} with value: ${row}`);
+              continue;
+            }
             if ( ! self.dataViewMap[self.data[i].$UID] ) {
               let rowEl = self.buildRow.call(this.rows_, row, i, self);
               if ( i >= self.data.length - 1 ) {
@@ -107,6 +110,12 @@ foam.CLASS({
       }));
     },
     function initArrayView(self) {
+      this.add(self.dynamic(function(data, mode) {
+        if ( data.length === 0 && mode == foam.u2.DisplayMode.RO ) {
+          this.add('No ', self.of.model_.plural);
+          return;
+        }
+      }));
       this.forEach(self.data || [], function(e, i) {
         let row = self.buildRow.call(this, e, i, self);
         this.add(row);

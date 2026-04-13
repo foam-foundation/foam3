@@ -48,7 +48,6 @@ foam.CLASS({
   methods: [
     function init() {
       this.stack.stackReset.sub(() => { this.crumbs = []; this.pos = -1; });
-      
     },
     function setDocumentTitleLink() {
       // Hook up the document title listener in case the memento doesnt update
@@ -71,6 +70,7 @@ foam.CLASS({
       this.crumbs[pos] = c;
       this.pos = c.position = pos;
       view.setPrivate_('crumb', c);
+      return c;
     }
   ],
   listeners: [

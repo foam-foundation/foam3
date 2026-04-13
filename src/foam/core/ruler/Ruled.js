@@ -39,6 +39,7 @@ foam.CLASS({
         Rules with a higher priority are to be applied first.
         The convention for values is ints that are multiple of 10.
       `,
+      help: 'Controls execution order. Higher values run first. Use multiples of 10 (e.g. 10, 20, 30) to leave room for inserting rules later.',
       readPermissionRequired: true,
       writePermissionRequired: true
     },

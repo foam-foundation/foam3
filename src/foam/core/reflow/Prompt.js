@@ -6,6 +6,7 @@
 
 
 // TODO: Temporarily hide 'type' Property until it can be handled properly.
+// TODO: Rename to something else because Prompt has another meaning these days
 // Is currently used for String queries not as objects.
 foam.CLASS({
   package: 'foam.core.reflow',

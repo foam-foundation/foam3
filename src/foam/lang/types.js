@@ -1563,7 +1563,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'unitPropName',
-      value: 'timeUnit'
     },
     {
       name: 'unitPropValueToString',
@@ -1578,6 +1577,8 @@ foam.CLASS({
 
   methods: [
     function installInClass(cls) {
+      if ( ! this.unitPropName ) return;
+
       this.SUPER(cls);
 
       var name = this.name;

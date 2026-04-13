@@ -320,6 +320,11 @@ foam.CLASS({
       writePermissionRequired: true
     },
     {
+      class: 'String',
+      name: 'logoutRedirectUrl',
+      documentation: 'URL to redirects users after logout',
+    },
+    {
       class: 'Image',
       name: 'topNavLogo',
       displayWidth: 60,

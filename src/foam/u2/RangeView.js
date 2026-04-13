@@ -20,7 +20,12 @@ foam.CLASS({
   name: 'RangeView',
   extends: 'foam.u2.tag.Input',
 
-  css: '^ { width: 100%; vertical-align: middle; height: -webkit-fill-available; accent-color: $backgroundBrand; }',
+  css: `^ {
+    width: 100%;
+    vertical-align: middle;
+    height: 100%;
+    accent-color: $backgroundBrand;
+  }`,
 
   properties: [
     [ 'type',         'range' ],

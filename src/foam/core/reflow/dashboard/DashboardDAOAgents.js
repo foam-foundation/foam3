@@ -873,7 +873,7 @@ foam.CLASS({
       title: 'Pie Chart Settings',
       order: 2,
       collapsable: true,
-      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation']
+      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick']
     },
     {
       name: 'display',
@@ -948,6 +948,12 @@ foam.CLASS({
       help: 'Message to display when there is no data',
       value: 'No data available'
     },
+    {
+      class: 'Boolean',
+      name: 'disableLegendClick',
+      label: 'Disable Legend Click',
+      help: 'Prevent clicking legend items from toggling slice visibility'
+    },
   ],
 
   methods: [
@@ -981,7 +987,8 @@ foam.CLASS({
         animate: this.animate,
         animationDuration: this.animationDuration,
         alignment: this.alignment,
-        emptyValueMessage: this.emptyValueMessage
+        emptyValueMessage: this.emptyValueMessage,
+        disableLegendClick: this.disableLegendClick
       });
 
       return sink;
@@ -993,8 +1000,8 @@ foam.CLASS({
       
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(cutoutPercentage, rotation, colors, showPercentages, clockwise,
-                                  maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
+                                  maintainAspectRatio, height, showLegend, legendPosition,
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment, disableLegendClick) {
         s.cutoutPercentage = cutoutPercentage;
         s.rotation = rotation;
         s.colors = colors;
@@ -1009,6 +1016,7 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
+        s.disableLegendClick = disableLegendClick;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -1039,6 +1047,7 @@ foam.CLASS({
       clone.showTooltipSum$ = this.showTooltipSum$;
       clone.animate$ = this.animate$;
       clone.animationDuration$ = this.animationDuration$;
+      clone.disableLegendClick$ = this.disableLegendClick$;
       return clone;
     }
   ]

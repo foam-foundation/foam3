@@ -30,8 +30,9 @@ foam.CLASS({
         var date = this.delegate.f(obj);
         if ( ! date ) return '';
 
-        var year = date.getFullYear();
-        var quarter = Math.floor(date.getMonth() / 3) + 1;
+        // Use UTC methods to avoid DST/timezone shifts causing wrong quarter
+        var year = date.getUTCFullYear();
+        var quarter = Math.floor(date.getUTCMonth() / 3) + 1;
 
         return year + '-Q' + quarter;
       },
@@ -39,7 +40,7 @@ foam.CLASS({
         java.util.Date date = (java.util.Date) getDelegate().f(obj);
         if ( date == null ) return "";
 
-        java.util.Calendar cal = java.util.Calendar.getInstance();
+        java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
         cal.setTime(date);
 
         int year = cal.get(java.util.Calendar.YEAR);

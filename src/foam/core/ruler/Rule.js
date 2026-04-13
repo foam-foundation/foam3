@@ -101,7 +101,8 @@ foam.CLASS({
     {
       name: 'priority',
       tableWidth: 66,
-      section: 'basicInfo'
+      section: 'basicInfo',
+      help: 'Controls execution order within the same rule group, operation, and timing phase. Higher values run first. Use multiples of 10 (e.g. 10, 20, 30) to leave room for inserting rules later.'
     },
     {
       class: 'String',

@@ -209,7 +209,7 @@ foam.CLASS({
           },
           code: function() {
             this.data = this.data.toSpliced(this.index, 1);
-            this.scrollToIndex(this.index == 0 ? 0 : this.index -1);
+            this.scrollToIndex?.(this.index == 0 ? 0 : this.index -1);
           }
         }
       ]
@@ -251,6 +251,14 @@ foam.CLASS({
     function initArrayView(self) {
       this.onDetach(self.data$.sub(() => { if ( ! self.feedback_ ) self.data2_ = self.data; }));
       this.add(self.dynamic(function(data2_) {
+        if ( data2_.length === 0 ) {
+          this.add(self.mode$.map(function(mode) {
+            if ( mode == foam.u2.DisplayMode.RO ) {
+              return '0 Items';
+            }
+          }));
+          return;
+        }
         this.forEach(data2_ || [], function(e, i) {
           let row = self.buildRow.call(this, e, i, self);
           this.add(row);

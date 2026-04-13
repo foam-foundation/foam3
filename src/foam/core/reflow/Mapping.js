@@ -361,7 +361,7 @@ foam.CLASS({
   methods: [
     function normalizeHeader(header) {
       /** Normalize a header string to a valid property name. */
-      var s = header.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[^a-zA-Z]+/, '');
+      var s = header.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[^a-zA-Z]+/, '').replace(/_+$/, '');
       if ( ! s ) return '';
       // FOAM property names must start with a lowercase letter to avoid
       // collisions with the UPPER_CASE constant name that FOAM generates
@@ -525,6 +525,11 @@ foam.CLASS({
        * Safely evaluate a simple JavaScript expression with field access.
        * Uses a with statement to provide field access while keeping it simple.
        *
+       * Normalizes rowData keys using the same normalizeHeader() +
+       * resolveConstantCollision() pipeline that expressionParser_ uses
+       * to build the autocomplete model, so suggested field names match
+       * the variables in scope at eval time.
+       *
        * @param {string} expression - The JavaScript expression to evaluate
        * @param {Object} rowData - The row data object containing field values
        * @returns {*} The result of the expression evaluation
@@ -532,15 +537,19 @@ foam.CLASS({
       if ( ! expression || ! rowData ) return '';
 
       try {
-        // Normalize rowData keys to valid JavaScript identifiers
+        // Normalize rowData keys using the same pipeline as expressionParser_
         var normalizedData = {};
-        for ( var key in rowData ) {
-          var normalizedKey = key.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
-          normalizedData[normalizedKey] = rowData[key];
+        var constantMap    = {};
+        var keys           = Object.keys(rowData);
+
+        for ( var i = 0 ; i < keys.length ; i++ ) {
+          var original   = keys[i];
+          var normalized = this.normalizeHeader(original);
+          normalized     = normalized || 'field' + i;
+          normalized     = this.resolveConstantCollision(normalized, constantMap);
+          normalizedData[normalized] = rowData[original];
         }
 
-        // Simple evaluation with normalized rowData in scope
-        // This allows expressions like: Account_Type + " " + Status
         var result;
         with ( normalizedData ) {
           result = eval(expression);
@@ -551,7 +560,6 @@ foam.CLASS({
         console.error('Expression evaluation error:', {
           expression: expression,
           rowData: rowData,
-          normalizedData: normalizedData,
           error: x.message
         });
         throw x;

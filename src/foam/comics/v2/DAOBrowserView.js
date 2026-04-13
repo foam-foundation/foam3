@@ -265,7 +265,7 @@ foam.CLASS({
       });
 
       if ( ! foam.dao.QueryCachingDAO.isInstance(this.data) ) {
-        this.data = this.onDetach(foam.dao.QueryCachingDAO.create({ delegate: this.data }, this));
+        this.data = foam.dao.QueryCachingDAO.create({ delegate: this.data }, this);
       } else {
         this.data.cache = {};
       }
@@ -359,8 +359,8 @@ foam.CLASS({
                     .add(self.dynamic(function(config$DAOActions) {
                       this
                         .startContext({ data: self })
-                          .start(foam.u2.ButtonGroup, { 
-                            overlaySpec: { 
+                          .start(foam.u2.ButtonGroup, {
+                            overlaySpec: {
                               obj: self,
                               label: 'Actions', size: 'SMALL'
                             }

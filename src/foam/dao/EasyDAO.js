@@ -729,12 +729,18 @@ dao loading, which improves overall startup time.`,
       value: true
     },
     {
+      name: 'requestTimeout',
+      generateJava: false,
+      units: 'ms'
+    },
+    {
       documentation: 'Destination address for server',
       name: 'serverBox',
       generateJava: false,
       factory: function() {
         // TODO: This should come from the server via a lookup from a NamedBox.
         var box = this.TimeoutBox.create({
+          timeout: this.requestTimeout,
           delegate: this.remoteListenerSupport ?
             this.WebSocketBox.create({uri: this.serviceName}) :
             this.HTTPBox.create({url: this.serviceName})

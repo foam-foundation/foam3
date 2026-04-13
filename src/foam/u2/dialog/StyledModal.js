@@ -74,6 +74,9 @@ foam.CLASS({
       padding: 16px 0px;
       gap: 8px;
     }
+    ^actionBar:empty {
+      display:none;
+    }
     ^fullscreen ^wrapper {
       height: 100%;
       width: 100%;
@@ -184,10 +187,10 @@ foam.CLASS({
               .addClass(this.myClass('modal-body'))
               .add(this.addBody())
             .end()
-            .start()
-              .addClass(this.myClass('actionBar'))
-              .call(this.addActions, [this])
-            .end()
+              .start()
+                .addClass(this.myClass('actionBar'))
+                .call(this.addActions, [this])
+              .end()
           .end()
         .end();
     },

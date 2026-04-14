@@ -1290,6 +1290,65 @@ resolver2.loadFromRegistry();
 resolver2.loadFromJournals();
 test(Object.keys(resolver2.themeNames_).length >= 0, 'loadFromJournals: runs without error using JrlLoader');
 
+// === TABLE COLUMNS / SEARCH COLUMNS ===
+
+section('tableColumns / searchColumns');
+
+// Register a test model for column validation
+foam.CLASS({
+  package: 'foam.parse.lsp.test',
+  name: 'ColumnTestModel',
+  extends: 'foam.lang.FObject',
+  properties: [
+    { class: 'Long', name: 'id' },
+    { class: 'String', name: 'firstName' },
+    { class: 'String', name: 'lastName' },
+    { class: 'Boolean', name: 'active' }
+  ]
+});
+
+// Completion: cursor inside tableColumns array with partial 'fi' should filter matches
+var colCompText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColumnTestModel',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'Long', name: 'id' },\n    { class: 'String', name: 'firstName' },\n    { class: 'String', name: 'lastName' },\n    { class: 'Boolean', name: 'active' }\n  ],\n  tableColumns: ['fi']\n})";
+var colCompResult = completionHandler.handle(colCompText, { line: 10, character: 20 });
+var colItems = colCompResult.items || [];
+test(colItems.some(function(it) { return it.label === 'firstName'; }), 'tableColumns: partial "fi" suggests firstName');
+
+// Completion: empty partial should suggest all own properties
+var colCompText2 = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColumnTestModel',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'Long', name: 'id' },\n    { class: 'String', name: 'firstName' },\n    { class: 'String', name: 'lastName' },\n    { class: 'Boolean', name: 'active' }\n  ],\n  tableColumns: ['']\n})";
+var colCompResult2 = completionHandler.handle(colCompText2, { line: 10, character: 19 });
+var colItems2 = colCompResult2.items || [];
+test(colItems2.some(function(it) { return it.label === 'firstName'; }), 'tableColumns: suggests firstName');
+test(colItems2.some(function(it) { return it.label === 'lastName'; }), 'tableColumns: suggests lastName');
+test(colItems2.some(function(it) { return it.label === 'id'; }), 'tableColumns: suggests id');
+
+// Completion: searchColumns too
+var searchCompText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColumnTestModel',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'Long', name: 'id' },\n    { class: 'String', name: 'firstName' }\n  ],\n  searchColumns: ['']\n})";
+var searchCompResult = completionHandler.handle(searchCompText, { line: 8, character: 19 });
+var searchItems = searchCompResult.items || [];
+test(searchItems.some(function(it) { return it.label === 'firstName'; }), 'searchColumns: suggests firstName');
+
+// Diagnostics: valid column name — no warning
+var validColText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColDiagTest',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'String', name: 'firstName' }\n  ],\n  tableColumns: ['firstName']\n})";
+var validColDiags = diagHandler.handle(validColText);
+var colWarns = validColDiags.filter(function(d) { return d.message.indexOf('firstName') !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(colWarns.length === 0, 'tableColumns: valid property NOT flagged');
+
+// Diagnostics: invalid column name — should warn
+var invalidColText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColDiagTest2',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'String', name: 'firstName' }\n  ],\n  tableColumns: ['nonExistent']\n})";
+var invalidColDiags = diagHandler.handle(invalidColText);
+test(invalidColDiags.some(function(d) { return d.message.indexOf('nonExistent') !== -1 && d.message.indexOf('does not exist') !== -1; }), 'tableColumns: invalid property IS flagged');
+
+// Diagnostics: inherited property — should NOT warn
+var inheritedColText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColDiagTest3',\n  extends: 'foam.parse.lsp.test.ColumnTestModel',\n  tableColumns: ['firstName']\n})";
+var inheritedColDiags = diagHandler.handle(inheritedColText);
+var inheritedWarns = inheritedColDiags.filter(function(d) { return d.message.indexOf('firstName') !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(inheritedWarns.length === 0, 'tableColumns: inherited property NOT flagged');
+
+// Diagnostics: searchColumns works too
+var invalidSearchText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColDiagTest4',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'String', name: 'x' }\n  ],\n  searchColumns: ['bogus']\n})";
+var invalidSearchDiags = diagHandler.handle(invalidSearchText);
+test(invalidSearchDiags.some(function(d) { return d.message.indexOf('bogus') !== -1; }), 'searchColumns: invalid property IS flagged');
+
 // === SUMMARY ===
 
 section('SUMMARY');

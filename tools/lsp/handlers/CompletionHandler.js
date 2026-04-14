@@ -201,6 +201,42 @@ foam.CLASS({
         return this.getJavaImportSuggestions_(replaceRange, this.extractPartial_(prefix));
       }
 
+      // Inside tableColumns: ['...' or searchColumns: ['...' → property names
+      var lineContext = this.getLineContext_(lines, position.line);
+      if ( (/tableColumns\s*:\s*\[/.test(lineContext) || /searchColumns\s*:\s*\[/.test(lineContext)) &&
+           /['"][^'"]*$/.test(prefix) ) {
+        var partial = this.extractPartial_(prefix).toLowerCase();
+        var cache = this.cache || this.FileModelCache.create();
+        var model = cache.getModelAt('', text, position.line);
+        if ( model ) {
+          var classId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+          var props = this.index.getProperties(classId);
+          var items = [];
+
+          // Also add own model properties not yet in registry
+          var propNames = {};
+          for ( var pi = 0 ; pi < props.length ; pi++ ) propNames[props[pi].name] = props[pi];
+          (model.properties || []).forEach(function(p) {
+            var name = typeof p === 'string' ? p : p.name;
+            if ( name && ! propNames[name] ) propNames[name] = { name: name, cls_: null };
+          });
+
+          for ( var name in propNames ) {
+            if ( ! propNames.hasOwnProperty(name) ) continue;
+            if ( partial && name.toLowerCase().indexOf(partial) === -1 ) continue;
+            var p = propNames[name];
+            var typeName = p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
+            items.push({
+              label: name, kind: 10,
+              detail: typeName + ' Property',
+              textEdit: { range: replaceRange, newText: name },
+              sortText: '!' + name.toLowerCase()
+            });
+          }
+          return items;
+        }
+      }
+
       return [];
     },
 

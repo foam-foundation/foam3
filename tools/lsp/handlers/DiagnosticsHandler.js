@@ -138,6 +138,9 @@ foam.CLASS({
 
       // Validate CSS token references
       this.validateCSS_(m, text, diagnostics);
+
+      // Validate tableColumns/searchColumns
+      this.validateColumns_(m, text, diagnostics);
     },
 
     function validateCSS_(model, text, diagnostics) {
@@ -160,6 +163,53 @@ foam.CLASS({
         if ( ! this.cssTokenResolver.tokenExists(tokenName) ) {
           this.addDiag_(diagnostics, text, baseOffset + tm.index, tm[0].length, 2,
             "Unknown CSS token: '$" + tokenName + "'");
+        }
+      }
+    },
+
+    function validateColumns_(m, text, diagnostics) {
+      /**
+       * Validate tableColumns and searchColumns entries are real property names.
+       */
+      var columnKeys = ['tableColumns', 'searchColumns'];
+      var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+      var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
+
+      // Build property name set (own + inherited + model-defined)
+      var propNames = {};
+      var props = this.index.getProperties(classId);
+      for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
+
+      // If the class itself isn't registered, resolve inherited properties from extends
+      if ( props.length === 0 && m.extends ) {
+        var parentProps = this.index.getProperties(m.extends);
+        for ( var i = 0 ; i < parentProps.length ; i++ ) propNames[parentProps[i].name] = true;
+      }
+
+      var ownProps = m.properties || [];
+      for ( var i = 0 ; i < ownProps.length ; i++ ) {
+        var p = ownProps[i];
+        var name = typeof p === 'string' ? p : p.name;
+        if ( name ) propNames[name] = true;
+      }
+
+      for ( var k = 0 ; k < columnKeys.length ; k++ ) {
+        var key = columnKeys[k];
+        var columns = m[key];
+        if ( ! columns || ! Array.isArray(columns) ) continue;
+
+        for ( var i = 0 ; i < columns.length ; i++ ) {
+          var col = columns[i];
+          if ( typeof col !== 'string' ) continue;
+          // Column names can have dot paths (e.g., 'owner.name') — validate the first segment
+          var baseName = col.split('.')[0];
+          if ( ! propNames[baseName] ) {
+            var loc = this.findInText_(text, null, col, modelOffset);
+            if ( loc !== null ) {
+              this.addDiag_(diagnostics, text, loc, col.length, 2,
+                "Property '" + col + "' does not exist on " + classId);
+            }
+          }
         }
       }
     },

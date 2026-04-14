@@ -570,6 +570,26 @@ foam.CLASS({
       };
       var propType = prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property';
       return typeMap[propType] || 'Object';
+    },
+
+    function resolvePropertyTypeClassId(classId, propName) {
+      /**
+       * Resolve a property's type to a FOAM class ID for chain walking.
+       * Returns the class ID if the property is an FObjectProperty with of:,
+       * a Reference with of:, or an Enum with of:. Returns null otherwise.
+       */
+      var cls = this.getClass(classId);
+      if ( ! cls ) return null;
+      var prop = cls.getAxiomByName(propName);
+      if ( ! prop ) return null;
+
+      if ( prop.of ) {
+        var ofId = typeof prop.of === 'string' ? prop.of :
+                   (prop.of.id || prop.of.name || null);
+        if ( ofId && this.classExists(ofId) ) return ofId;
+      }
+
+      return null;
     }
   ]
 });

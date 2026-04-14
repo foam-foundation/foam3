@@ -1385,6 +1385,68 @@ var hex3CssText = "foam.CLASS({\n  package: 'test',\n  name: 'Hex3Test',\n  css:
 var hex3Diags = diagHandler.handle(hex3CssText);
 test(hex3Diags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; }), 'Raw CSS: 3-char hex flagged');
 
+// === EXPRESSION PARAMETER VALIDATION ===
+
+section('Expression Parameter Validation');
+
+// Register test models for expression chain validation
+foam.CLASS({
+  package: 'foam.parse.lsp.test',
+  name: 'ExprParent',
+  properties: [
+    { class: 'String', name: 'title' },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.test.ExprChild',
+      name: 'child'
+    },
+    { class: 'Boolean', name: 'isActive' }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.parse.lsp.test',
+  name: 'ExprChild',
+  properties: [
+    { class: 'String', name: 'label' },
+    { class: 'Int', name: 'count' }
+  ]
+});
+
+// Valid simple property — no warning
+var exprValidText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ExprParent',\n  properties: [\n    { class: 'String', name: 'title' },\n    { class: 'FObjectProperty', of: 'foam.parse.lsp.test.ExprChild', name: 'child' },\n    { class: 'Boolean', name: 'isActive' },\n    { name: 'computed', expression: function(title, isActive) { return title + isActive; } }\n  ]\n})";
+var exprValidDiags = diagHandler.handle(exprValidText);
+var exprTitleWarns = exprValidDiags.filter(function(d) { return d.message.indexOf("'title'") !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(exprTitleWarns.length === 0, 'Expression: valid property title NOT flagged');
+
+// Invalid property name — should warn
+var exprInvalidText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ExprParent',\n  properties: [\n    { class: 'String', name: 'title' },\n    { name: 'computed', expression: function(title, nonExistent) { return title; } }\n  ]\n})";
+var exprInvalidDiags = diagHandler.handle(exprInvalidText);
+test(exprInvalidDiags.some(function(d) { return d.message.indexOf('nonExistent') !== -1 && d.message.indexOf('does not exist') !== -1; }), 'Expression: invalid property nonExistent IS flagged');
+
+// Slot access suffix $ — should validate base name
+var exprSlotText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ExprParent',\n  properties: [\n    { class: 'Boolean', name: 'isActive' },\n    { name: 'computed', expression: function(isActive$) { return isActive$; } }\n  ]\n})";
+var exprSlotDiags = diagHandler.handle(exprSlotText);
+var exprSlotWarns = exprSlotDiags.filter(function(d) { return d.message.indexOf('isActive') !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(exprSlotWarns.length === 0, 'Expression: isActive$ (slot suffix) NOT flagged');
+
+// Deep $ chain — valid path
+var exprChainText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ExprParent',\n  properties: [\n    { class: 'FObjectProperty', of: 'foam.parse.lsp.test.ExprChild', name: 'child' },\n    { name: 'computed', expression: function(child$label) { return child$label; } }\n  ]\n})";
+var exprChainDiags = diagHandler.handle(exprChainText);
+var exprChainWarns = exprChainDiags.filter(function(d) { return d.message.indexOf('does not exist') !== -1 && (d.message.indexOf('child') !== -1 || d.message.indexOf('label') !== -1); });
+test(exprChainWarns.length === 0, 'Expression: valid chain child$label NOT flagged');
+
+// Deep $ chain — invalid segment
+var exprBadChainText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ExprParent',\n  properties: [\n    { class: 'FObjectProperty', of: 'foam.parse.lsp.test.ExprChild', name: 'child' },\n    { name: 'computed', expression: function(child$bogus) { return child$bogus; } }\n  ]\n})";
+var exprBadChainDiags = diagHandler.handle(exprBadChainText);
+test(exprBadChainDiags.some(function(d) { return d.message.indexOf('bogus') !== -1 && d.message.indexOf('does not exist') !== -1; }), 'Expression: invalid chain segment bogus IS flagged');
+
+// Unresolvable type — should NOT flag further segments (no false positives)
+var exprStringChainText = "foam.CLASS({\n  package: 'test',\n  name: 'StrChainTest',\n  properties: [\n    { class: 'String', name: 'title' },\n    { name: 'computed', expression: function(title$length) { return title$length; } }\n  ]\n})";
+var exprStrDiags = diagHandler.handle(exprStringChainText);
+var exprStrWarns = exprStrDiags.filter(function(d) { return d.message.indexOf('length') !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(exprStrWarns.length === 0, 'Expression: unresolvable chain stops validation (no false positive on String$length)');
+
 // === SUMMARY ===
 
 section('SUMMARY');

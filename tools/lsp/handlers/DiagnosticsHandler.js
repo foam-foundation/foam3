@@ -144,6 +144,9 @@ foam.CLASS({
 
       // Validate raw CSS values
       this.validateRawCSSValues_(m, text, diagnostics);
+
+      // Validate expression parameters
+      this.validateExpressions_(m, text, diagnostics);
     },
 
     function validateCSS_(model, text, diagnostics) {
@@ -257,6 +260,90 @@ foam.CLASS({
           if ( loc !== null ) {
             this.addDiag_(diagnostics, text, loc, colorVal.length, 2,
               "Prefer CSS token (e.g., '$primary400') over raw color value '" + colorVal + "'");
+          }
+        }
+      }
+    },
+
+    function validateExpressions_(m, text, diagnostics) {
+      /**
+       * Validate expression function parameters are real property names.
+       * Handles trailing $ (slot access), and deep $ chains (block$flowParent$value).
+       */
+      var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+
+      // Build property name set for the model
+      var propNames = {};
+      var props = this.index.getProperties(classId);
+      for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
+      var ownProps = m.properties || [];
+      for ( var i = 0 ; i < ownProps.length ; i++ ) {
+        var p = ownProps[i];
+        var name = typeof p === 'string' ? p : p.name;
+        if ( name ) propNames[name] = true;
+      }
+
+      // Find expression: function(...) patterns in the text
+      var exprRegex = /expression\s*:\s*function\s*\(([^)]*)\)/g;
+      var match;
+      while ( ( match = exprRegex.exec(text) ) !== null ) {
+        var paramsStr = match[1].trim();
+        if ( ! paramsStr ) continue;
+
+        var params = paramsStr.split(/\s*,\s*/);
+        var paramsOffset = match.index + match[0].indexOf(paramsStr);
+
+        var currentOffset = paramsOffset;
+        for ( var i = 0 ; i < params.length ; i++ ) {
+          var param = params[i].trim();
+          if ( ! param ) { currentOffset += params[i].length + 1; continue; }
+
+          // Calculate offset for this specific parameter
+          var paramOffset = text.indexOf(param, currentOffset);
+          if ( paramOffset === -1 ) paramOffset = currentOffset;
+          currentOffset = paramOffset + param.length + 1;
+
+          // Strip trailing $ (slot access)
+          var cleanParam = param;
+          if ( cleanParam.charAt(cleanParam.length - 1) === '$' ) cleanParam = cleanParam.substring(0, cleanParam.length - 1);
+
+          // Split on $ for deep paths
+          var segments = cleanParam.split('$');
+          var firstSegment = segments[0];
+
+          // Skip non-property-like params
+          if ( /^[_$]$/.test(firstSegment) || firstSegment === 'x' || firstSegment === 'data' ||
+               firstSegment === 'self' || firstSegment === 'this' ) continue;
+
+          // Validate first segment against model properties
+          if ( ! propNames[firstSegment] ) {
+            this.addDiag_(diagnostics, text, paramOffset, param.length, 2,
+              "Property '" + firstSegment + "' does not exist on " + classId);
+            continue;
+          }
+
+          // Walk the chain for deep paths
+          if ( segments.length > 1 ) {
+            var currentClassId = this.index.resolvePropertyTypeClassId(classId, firstSegment);
+            for ( var s = 1 ; s < segments.length ; s++ ) {
+              if ( ! currentClassId ) break;
+              var segment = segments[s];
+              var segProps = this.index.getProperties(currentClassId);
+              var segFound = false;
+              for ( var sp = 0 ; sp < segProps.length ; sp++ ) {
+                if ( segProps[sp].name === segment ) { segFound = true; break; }
+              }
+
+              if ( ! segFound ) {
+                var segOffset = text.indexOf(segment, paramOffset);
+                if ( segOffset === -1 ) segOffset = paramOffset;
+                this.addDiag_(diagnostics, text, segOffset, segment.length, 2,
+                  "Property '" + segment + "' does not exist on " + currentClassId);
+                break;
+              }
+
+              currentClassId = this.index.resolvePropertyTypeClassId(currentClassId, segment);
+            }
           }
         }
       }

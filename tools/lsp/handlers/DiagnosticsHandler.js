@@ -269,13 +269,28 @@ foam.CLASS({
       /**
        * Validate expression function parameters are real property names.
        * Handles trailing $ (slot access), and deep $ chains (block$flowParent$value).
+       * Scoped to the model's text range to avoid false positives in multi-model files.
        */
       var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+      var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
-      // Build property name set for the model
+      // Determine end of this model's text (next foam.CLASS/ENUM/INTERFACE or EOF)
+      var nextModelRegex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/g;
+      nextModelRegex.lastIndex = modelOffset + 1;
+      var nextMatch = nextModelRegex.exec(text);
+      var modelEnd = nextMatch ? nextMatch.index : text.length;
+
+      // Build property name set (own + inherited + model-defined)
       var propNames = {};
       var props = this.index.getProperties(classId);
       for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
+
+      // If the class itself isn't registered, resolve inherited properties from extends
+      if ( props.length === 0 && m.extends ) {
+        var parentProps = this.index.getProperties(m.extends);
+        for ( var i = 0 ; i < parentProps.length ; i++ ) propNames[parentProps[i].name] = true;
+      }
+
       var ownProps = m.properties || [];
       for ( var i = 0 ; i < ownProps.length ; i++ ) {
         var p = ownProps[i];
@@ -283,15 +298,17 @@ foam.CLASS({
         if ( name ) propNames[name] = true;
       }
 
-      // Find expression: function(...) patterns in the text
+      // Find expression: function(...) patterns ONLY within this model's text range
+      var modelText = text.substring(modelOffset, modelEnd);
       var exprRegex = /expression\s*:\s*function\s*\(([^)]*)\)/g;
       var match;
-      while ( ( match = exprRegex.exec(text) ) !== null ) {
+      while ( ( match = exprRegex.exec(modelText) ) !== null ) {
         var paramsStr = match[1].trim();
         if ( ! paramsStr ) continue;
 
         var params = paramsStr.split(/\s*,\s*/);
-        var paramsOffset = match.index + match[0].indexOf(paramsStr);
+        // Convert to absolute offset for diagnostics
+        var paramsOffset = modelOffset + match.index + match[0].indexOf(paramsStr);
 
         var currentOffset = paramsOffset;
         for ( var i = 0 ; i < params.length ; i++ ) {

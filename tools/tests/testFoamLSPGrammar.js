@@ -1447,6 +1447,15 @@ var exprStrDiags = diagHandler.handle(exprStringChainText);
 var exprStrWarns = exprStrDiags.filter(function(d) { return d.message.indexOf('length') !== -1 && d.message.indexOf('does not exist') !== -1; });
 test(exprStrWarns.length === 0, 'Expression: unresolvable chain stops validation (no false positive on String$length)');
 
+// Multi-model file — expression params should NOT bleed across models
+var multiModelText = "foam.CLASS({\n  package: 'test',\n  name: 'ModelA',\n  properties: [\n    { class: 'String', name: 'propA' },\n    { name: 'computed', expression: function(propA) { return propA; } }\n  ]\n})\n\nfoam.CLASS({\n  package: 'test',\n  name: 'ModelB',\n  properties: [\n    { class: 'String', name: 'propB' },\n    { name: 'computed', expression: function(propB) { return propB; } }\n  ]\n})";
+var multiDiags = diagHandler.handle(multiModelText);
+var multiWarns = multiDiags.filter(function(d) { return d.message.indexOf('does not exist') !== -1 && d.message.indexOf('expression') === -1; });
+var propAOnB = multiWarns.filter(function(d) { return d.message.indexOf('propA') !== -1 && d.message.indexOf('ModelB') !== -1; });
+var propBOnA = multiWarns.filter(function(d) { return d.message.indexOf('propB') !== -1 && d.message.indexOf('ModelA') !== -1; });
+test(propAOnB.length === 0, 'Expression: propA NOT flagged against ModelB (multi-model scoping)');
+test(propBOnA.length === 0, 'Expression: propB NOT flagged against ModelA (multi-model scoping)');
+
 // === SUMMARY ===
 
 section('SUMMARY');

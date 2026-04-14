@@ -64,10 +64,8 @@ foam.CLASS({
           options: options
         });
 
-        debugger;
         var result = await this.llmService.complete(null, request);
 
-        debugger;
         this.out.tag(this.Markdown, {markdown: result.content});
       } catch (e) {
         this.notify('LLM error: ' + e.message, '', this.LogLevel.ERROR);

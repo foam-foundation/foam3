@@ -38,7 +38,27 @@
   - [Updating the POM](#updating-the-pom)
   - [Adding Menu Navigation](#adding-menu-navigation)
   - [Build and Verify](#build-and-verify)
-- [Custom Views (Coming Soon)](#custom-views-coming-soon)
+- [Custom Views](#custom-views)
+  - [The FOAM UI Library](#the-foam-ui-library)
+  - [Core DSL Methods](#core-dsl-methods)
+    - [`start()` and `end()`](#start-and-end)
+    - [`tag()`](#tag)
+    - [`add()`](#add)
+    - [DOM Building Methods at a Glance](#dom-building-methods-at-a-glance)
+    - [Element Configuration Methods](#element-configuration-methods)
+      - [`addClass()`](#addclass)
+      - [`attrs()`](#attrs)
+      - [`on()`](#on)
+  - [CSS Scoping with `^`](#css-scoping-with-%5E)
+  - [View vs Controller](#view-vs-controller)
+  - [Reactive Slots](#reactive-slots)
+    - [Property Slots](#property-slots)
+    - [Two-Way Binding](#two-way-binding)
+    - [Subscribing to Changes](#subscribing-to-changes)
+    - [Computed Slots](#computed-slots)
+  - [Creating a Recipe Detail View](#creating-a-recipe-detail-view)
+  - [Faceted Views and Menu Configuration](#faceted-views-and-menu-configuration)
+  - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
 - [Nano Services (Coming Soon)](#nano-services-coming-soon)
 - [Notifications (Coming Soon)](#notifications-coming-soon)
 - [Appendix](#appendix)
@@ -82,6 +102,20 @@
     - [Feature Flags and Conditional Compilation](#feature-flags-and-conditional-compilation)
     - [Exporting Runtime Data to Static Journals](#exporting-runtime-data-to-static-journals)
     - [Journal Precedence Summary](#journal-precedence-summary)
+  - [U2/U3 Element Method Reference](#u2u3-element-method-reference)
+    - [DOM Building](#dom-building)
+    - [CSS and Styling](#css-and-styling)
+    - [Attributes](#attributes)
+    - [Events](#events)
+    - [Control Flow](#control-flow)
+    - [Visibility](#visibility)
+    - [Context](#context)
+    - [Property Rendering](#property-rendering)
+    - [Tooltips](#tooltips)
+    - [Component Lifecycle](#component-lifecycle)
+    - [Views and Data Binding](#views-and-data-binding)
+    - [ControllerMode and DisplayMode](#controllermode-and-displaymode)
+    - [Advanced](#advanced)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -1194,10 +1228,416 @@ After starting the application, you should see the new menu items. When you open
 
 For a comprehensive reference on FOAM relationships, including advanced configuration options like custom property settings, custom DAO keys, and one-way relationships, see the [FOAM Relationships Guide][foam-relationships].
 
-# Custom Views (Coming Soon)
+# Custom Views
 
-// Coming soon
-// SmartView, explain search filtering
+While FOAM's automatic view generation handles many common cases, you'll often need custom views for specialized user interfaces. This section introduces FOAM's UI library and guides you through building custom views for the Recipe application.
+
+## The FOAM UI Library
+
+FOAM provides a powerful UI framework called **U2** (and its successor **U3**) for building web interfaces. At its core, U2/U3 is a **Fluent Internal Domain-Specific Language (DSL)** for creating DOM elements.
+
+Let's break down what this means:
+
+- **Domain-Specific**: U2/U3 is specifically designed for creating DOM User Interfaces. Unlike general-purpose template languages, every feature is optimized for building interactive web UIs.
+
+- **Internal DSL**: Rather than inventing a new language with its own syntax and parser, U2/U3 reuses JavaScript as its host language. This means you get full access to JavaScript's features — variables, loops, conditionals, functions — while writing UI code. There's no special syntax to learn beyond JavaScript itself.
+
+- **Fluent**: Methods in U2/U3 return `this`, allowing method calls to be chained together. This creates readable, flowing code that mirrors the structure of the resulting DOM.
+
+Here's a simple example of the fluent DSL in action:
+
+```javascript
+this.start('div').addClass('container')
+  .start('h1').add('Welcome').end()
+  .start('p').add('This is a paragraph.').end()
+.end();
+```
+
+This creates the following DOM structure:
+
+```html
+<div class="container">
+  <h1>Welcome</h1>
+  <p>This is a paragraph.</p>
+</div>
+```
+
+## Core DSL Methods
+
+The U2/U3 DSL provides several key methods for building DOM structures:
+
+### `start()` and `end()`
+
+The `start()` method begins a new DOM element and returns the builder for that element. The `end()` method closes the current element and returns the builder for its parent. This pairing naturally creates nested structures.
+
+```javascript
+this.start('div')           // Create a <div>
+  .start('span')            // Create a nested <span>
+    .add('Hello')           // Add text content
+  .end()                    // Close the <span>, return to <div>
+.end();                     // Close the <div>
+```
+
+When `start()` is called without arguments, it creates a `<span>` element by default. You can also pass a FOAM class to create a view instance:
+
+```javascript
+this.start({class: 'foam.u2.TextField', data$: this.name$}).end();
+```
+
+### `tag()`
+
+The `tag()` method is a shortcut for `start().end()` — it creates an element and immediately closes it. Use this for leaf elements that don't need children:
+
+```javascript
+this.tag('br');                                    // Creates <br>
+this.tag('hr');                                    // Creates <hr>
+this.tag({class: 'foam.u2.TextField', data$: this.value$});  // Creates a TextField
+```
+
+### `add()`
+
+The `add()` method appends content to the current element. It doesn't create a new element — it adds to the one you're already building. What makes `add()` powerful is that it accepts many different content types and does the right thing with each:
+
+```javascript
+this.add('Plain text');                 // Adds a text node
+this.add(this.someProperty$);           // Adds a reactive slot (updates automatically)
+this.add(this.SOME_ACTION);             // Adds an action button
+this.add(someViewInstance);             // Adds a view
+```
+
+- **Strings and numbers** are inserted as text nodes — plain DOM content.
+- **Slots** (indicated by the `$` suffix, e.g., `this.name$`) create reactive bindings: the displayed value automatically updates whenever the underlying property changes. This is the foundation of FOAM's reactive UI — you bind once and never manually update the DOM.
+- **Property constants** (upper-case, e.g., `this.SOME_PROPERTY`) render the property's configured view (typically a text field, checkbox, etc.) and automatically bind it to the current `data` in context.
+- **Action constants** (e.g., `this.SOME_ACTION`) render as buttons with the action's label, and automatically handle enablement and availability based on the action's `isEnabled` and `isAvailable` declarations.
+- **View instances** and **ViewSpecs** are added as child components, fully integrated into the FOAM lifecycle.
+
+### DOM Building Methods at a Glance
+
+| Method | Creates Element? | Adds Content? | Returns |
+|--------|------------------|---------------|---------|
+| <code>add()</code> | No | Yes | this (current element) |
+| <code>start()</code> | Yes | No | New child element |
+| <code>end()</code> | No | No | Parent element |
+| <code>tag()</code> | Yes | No | this (current element) |
+
+### Element Configuration Methods
+
+#### `addClass()`
+
+Adds CSS classes to the current element:
+
+```javascript
+this.start('div')
+  .addClass('card')
+  .addClass('highlighted')
+  // ...
+.end();
+```
+
+#### `attrs()`
+
+Sets HTML attributes on the current element:
+
+```javascript
+this.start('input')
+  .attrs({type: 'text', placeholder: 'Enter name', maxlength: 50})
+.end();
+```
+
+#### `on()`
+
+Attaches event listeners:
+
+```javascript
+this.start('button')
+  .add('Click Me')
+  .on('click', () => this.handleClick())
+.end();
+```
+
+## CSS Scoping with `^`
+
+FOAM provides automatic CSS scoping to prevent style conflicts between components. In a view's `css` template, the `^` character is replaced with a unique class prefix for that view:
+
+```javascript
+foam.CLASS({
+  name: 'MyView',
+  extends: 'foam.u2.View',
+
+  css: `
+    ^ {
+      padding: 16px;
+    }
+    ^title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    ^content {
+      margin-top: 12px;
+    }
+  `,
+
+  methods: [
+    function render() {
+      this.addClass()  // Adds the base ^ class
+        .start().addClass(this.myClass('title')).add('Hello').end()
+        .start().addClass(this.myClass('content')).add('World').end();
+    }
+  ]
+});
+```
+
+The `^` prefix ensures that `.title` in this component won't conflict with `.title` in another component. The `addClass()` method with no arguments adds the base class (matching the lone `^` in CSS), and `this.myClass('title')` generates the scoped class name for `^title`.
+
+## View vs Controller
+
+FOAM provides two base classes for building views:
+
+- **`foam.u2.View`**: A basic view that renders data. It has a `data` property that holds the object being displayed.
+
+- **`foam.u2.Controller`**: Extends View but is designed for views that manage their own state. Controllers typically define their own properties rather than relying on external data.
+
+Use `View` when displaying or editing an existing object. Use `Controller` when building a self-contained screen with its own state management.
+
+## Reactive Slots
+
+One of FOAM's most powerful features is its reactive slot system. A **slot** is a reactive reference to a value — think of it as a live wire that notifies the UI whenever the value changes. You never manually update DOM elements; instead, you bind them to slots and FOAM keeps everything in sync.
+
+### Property Slots
+
+Every FOAM property automatically has a corresponding slot, accessed with the `$` suffix:
+
+```javascript
+this.name       // the current value (static)
+this.name$      // a slot that tracks changes to this.name (reactive)
+```
+
+When you pass a slot to `add()`, the displayed content updates automatically:
+
+```javascript
+// In render():
+this.add(this.name$);  // Text updates automatically when this.name changes
+```
+
+### Two-Way Binding
+
+Slots enable two-way data binding between properties and form fields. When you bind a view's `data$` to a property slot, changes flow in both directions — editing the field updates the property, and changing the property updates the field:
+
+```javascript
+this.tag({class: 'foam.u2.TextField', data$: this.name$});
+```
+
+You can also link two slots together explicitly:
+
+```javascript
+slot1.linkFrom(slot2);           // two-way bind
+this.firstName$ = view.data$;    // shorthand for two-way bind
+```
+
+### Subscribing to Changes
+
+You can subscribe to a slot to run code whenever the value changes:
+
+```javascript
+this.name$.sub(function(e, _, __, newVal) {
+  console.log('Name changed to:', newVal);
+});
+```
+
+In views, always wrap subscriptions with `onDetach()` to avoid memory leaks when the component is removed:
+
+```javascript
+this.onDetach(this.name$.sub(this.onNameChange));
+```
+
+### Computed Slots
+
+The `slot()` method creates a **computed slot** — a derived value that automatically recalculates when any of its dependencies change. The argument names in the function declare the dependencies:
+
+```javascript
+// A computed slot that depends on firstName and lastName
+var fullName = this.slot(function(firstName, lastName) {
+  return firstName + ' ' + lastName;
+});
+```
+
+When used with `add()`, computed slots re-render their content whenever any dependency changes. This is particularly useful for building views that react to data:
+
+```javascript
+this.add(this.slot(function(items) {
+  return this.E().forEach(items, function(item) {
+    this.start('div').add(item.name).end();
+  });
+}));
+```
+
+Note the use of `this.E()` — it creates a new empty DOM element (a `<span>` by default). Inside a `slot()` callback you can't append to the current view's element chain, so you create a fresh element with `E()`, build a tree on it, and return it.
+
+The view inside `slot()` automatically re-renders whenever `items` changes. This is the FOAM alternative to imperative DOM updates — you declare what the UI should look like given the current state, and the framework handles the rest.
+
+## Creating a Recipe Detail View
+
+Now let's apply these concepts to create a custom detail view for our Recipe application. This view will display a recipe with its steps and ingredients in a nicely formatted layout.
+
+Create `src/com/foamdev/cook/RecipeDetailView.js`:
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'RecipeDetailView',
+  extends: 'foam.u2.View',
+
+  documentation: 'Custom detail view for Recipe showing steps and ingredients',
+
+  imports: [
+    'recipeStepDAO',
+    'ingredientDAO'
+  ],
+
+  css: `
+    ^ {
+      padding: 16px;
+      font-family: sans-serif;
+    }
+    ^header {
+      border-bottom: 2px solid #333;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    ^title {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 0 0 8px 0;
+    }
+    ^category {
+      color: #666;
+      font-style: italic;
+    }
+    ^description {
+      margin-top: 12px;
+      color: #444;
+    }
+    ^section {
+      margin-top: 24px;
+    }
+    ^section-title {
+      font-size: 18px;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 4px;
+      margin-bottom: 12px;
+    }
+    ^step {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+    ^step-rank {
+      font-weight: bold;
+      color: #333;
+    }
+    ^step-category {
+      font-size: 12px;
+      color: #888;
+      margin-left: 8px;
+    }
+    ^step-instruction {
+      margin-top: 8px;
+    }
+    ^step-prep {
+      font-size: 12px;
+      color: #0066cc;
+      margin-left: 8px;
+    }
+    ^ingredients {
+      margin-top: 8px;
+      padding-left: 16px;
+    }
+    ^ingredient {
+      margin: 4px 0;
+      color: #555;
+    }
+  `,
+
+  methods: [
+    function render() {
+      var self = this;
+
+      this.addClass()
+        .start().addClass(this.myClass('header'))
+          .start('h1').addClass(this.myClass('title')).add(this.data.name$).end()
+          .start().addClass(this.myClass('category')).add(this.data.category$).end()
+          .start().addClass(this.myClass('description')).add(this.data.description$).end()
+        .end()
+
+        // Steps Section
+        .start().addClass(this.myClass('section'))
+          .start().addClass(this.myClass('section-title')).add('Steps').end()
+          .select(this.data.steps, function(step) {
+            this
+              .start().addClass(self.myClass('step'))
+                .start('span').addClass(self.myClass('step-rank'))
+                  .add('Step ', step.rank)
+                .end()
+                .callIf(step.category, function() {
+                  this.start('span').addClass(self.myClass('step-category'))
+                    .add('(', step.category.label, ')')
+                  .end();
+                })
+                .callIf(step.isPrep, function() {
+                  this.start('span').addClass(self.myClass('step-prep'))
+                    .add('[Prep]')
+                  .end();
+                })
+                .start().addClass(self.myClass('step-instruction'))
+                  .add(step.instruction)
+                .end()
+                // Ingredients for this step
+                .start().addClass(self.myClass('ingredients'))
+                  .select(step.ingredientAmounts, function(ia) {
+                    this.start().addClass(self.myClass('ingredient'))
+                      .add(ia.amount, ' ', ia.unit?.label, ' ')
+                      .call(async function() {
+                        var ingredient = await self.ingredientDAO.find(ia.ingredient);
+                        if ( ingredient ) this.add(ingredient.name);
+                      })
+                    .end();
+                  })
+                .end()
+              .end();
+          })
+        .end();
+    }
+  ]
+});
+```
+
+This view demonstrates several key concepts:
+
+1. **CSS scoping** with `^` prefixes — all styles are namespaced to this component
+2. **Imports** — `recipeStepDAO` and `ingredientDAO` are pulled from the context, keeping the view decoupled from specific DAO implementations
+3. **Reactive slots** — `this.data.name$`, `this.data.category$`, etc. bind the header directly to the data so the UI stays in sync without manual DOM updates
+4. **`.select()` on relationship DAOs** — iterates over `this.data.steps` and nested `step.ingredientAmounts` directly in the DOM chain, rather than manually calling `.select().then()` and building elements in a callback
+5. **`callIf()`** — conditionally renders the step category and prep badge only when the values are present
+6. **`call()` with async** — used to resolve the ingredient reference and add its name to the DOM once the promise resolves
+7. **Nested DOM building** with `start()/end()` chains that mirror the resulting HTML structure
+
+Add the view to your `pom.js`:
+
+```javascript
+{ name: 'RecipeDetailView', flags: 'js' }
+```
+
+## Faceted Views and Menu Configuration
+
+// TODO: Demonstrate faceted views (browse + detail) and adjust the Recipe menu to use RecipeDetailView
+
+## Creating a Custom Controller — RecipeCreateView
+
+// TODO: Build a RecipeCreateView as a Controller that manages its own state. Unlike RecipeDetailView (a View that displays external data), this Controller owns its own properties and orchestrates the creation of a Recipe with its steps and ingredients in a single screen.
+
+For more on FOAM's UI framework, see the [FOAM DSL Guide][foam-dsl-guide], [Reactive UI Patterns][foam-reactive-ui], and [ControllerMode and Visibility][foam-visibility]. A complete method reference is available in the [U2/U3 Element Method Reference](#u2u3-element-method-reference) appendix.
 
 # Nano Services (Coming Soon)
 
@@ -2130,7 +2570,152 @@ build/journals/menus.0:    label = "Demo Recipes"
 Similarly, runtime journals are replayed after static journals (`.0`), so any changes made during application execution will override the static configuration.
 
 
-[FOAM Guides][foam-guides]
+## U2/U3 Element Method Reference
+
+The following tables provide a quick reference for the methods available on `foam.u2.Element`, organized by category.
+
+### DOM Building
+
+| Method | Description |
+|--------|-------------|
+| `start(tag)` | Creates a new child element and returns its builder. Defaults to `<div>` if no tag is specified. Can also accept a ViewSpec object. |
+| `end()` | Closes the current element and returns the parent's builder. |
+| `tag(spec)` | Shorthand for `start(spec).end()`. Creates an element without needing to add children. |
+| `add(...)` | Appends content to the current element. Accepts strings, numbers, booleans, arrays, slots, promises, views, actions, and property constants. |
+| `br()` | Shorthand for `tag('br')`. |
+| `nbsp()` | Adds a non-breaking space. |
+| `E(nodeName)` | Creates a new detached element. Useful inside `slot()` callbacks where you need to return a fresh element tree. |
+
+### CSS and Styling
+
+| Method | Description |
+|--------|-------------|
+| `addClass(cls)` | Adds a CSS class. With no arguments, adds the component's base scoped class (matching `^` in CSS). |
+| `removeClass(cls)` | Removes a CSS class. |
+| `enableClass(cls, slot)` | Adds or removes a CSS class based on a boolean slot's value. |
+| `style(map)` | Sets inline CSS styles via an object. Values can be slots for dynamic styling. |
+| `myClass(name)` | Returns the scoped CSS class name for `^name`. Used with `addClass()` to avoid global namespace conflicts. |
+| `css:` (property) | Defines component-scoped CSS. Use `^` as a prefix for scoped class names. |
+| `inheritCSS` (property) | Controls whether a subclass inherits its parent's CSS. Defaults to `true`. |
+
+### Attributes
+
+| Method | Description |
+|--------|-------------|
+| `attr(name, value)` | Sets a single HTML attribute. Value can be a slot for dynamic updates. |
+| `attrs(map)` | Sets multiple HTML attributes from an object. |
+| `removeAttribute(name)` | Removes an HTML attribute. |
+
+### Events
+
+| Method | Description |
+|--------|-------------|
+| `on(event, handler)` | Attaches a DOM event listener (e.g., `'click'`, `'mouseover'`). |
+| `removeEventListener(event, handler)` | Removes a previously attached event listener. |
+
+### Control Flow
+
+| Method | Description |
+|--------|-------------|
+| `call(fn)` | Calls `fn` with `this` bound to the current element. Use for inserting procedural logic mid-chain. Must use `function()` syntax, not arrow functions, to get correct `this` binding. |
+| `callIf(cond, fn)` | Calls `fn` only if `cond` is truthy. |
+| `callIfElse(cond, ifFn, elseFn)` | Calls `ifFn` if `cond` is truthy, otherwise `elseFn`. |
+| `repeat(start, end, fn)` | Calls `fn(i)` for each integer from `start` to `end`. |
+| `forEach(array, fn)` | Calls `fn(item)` for each element in the array. |
+| `select(dao, fn)` | Iterates over a DAO's contents, calling `fn(obj)` for each object. Automatically re-renders when the DAO changes. |
+
+### Visibility
+
+| Method | Description |
+|--------|-------------|
+| `show(slot)` | Shows the element when the slot's value is truthy. |
+| `hide(slot)` | Hides the element when the slot's value is truthy. |
+| `shown` (property) | Controls initial visibility. Set to `false` to hide on creation. |
+
+### Context
+
+| Method | Description |
+|--------|-------------|
+| `startContext(map)` | Creates a sub-context with the given key-value pairs. Children created within will inherit this context. |
+| `endContext()` | Closes the sub-context, returning to the parent context. |
+
+### Property Rendering
+
+There are four ways to add a property to the DOM, each with increasing functionality:
+
+| Expression | What It Renders |
+|------------|----------------|
+| `this.firstName` | The current value as static text — never updates. |
+| `this.firstName$` | A reactive slot — updates automatically when the value changes. |
+| `this.FIRST_NAME` | The property's configured view (e.g., TextField), bound to the current `data` in context. |
+| `this.FIRST_NAME.__` | The view wrapped in a PropertyBorder: adds label, units, visibility control, and inline validation messages. |
+
+### Tooltips
+
+| Method | Description |
+|--------|-------------|
+| `tooltip` (property) | Sets a tooltip on the element. Pass as a property in `start()`: `start('div', {tooltip: 'My tooltip'})`. |
+
+### Component Lifecycle
+
+| Method | Description |
+|--------|-------------|
+| `render()` | Override this method to build the component's DOM. Called once when the element is first rendered. |
+| `remove()` | Removes the element from the DOM. |
+| `removeAllChildren()` | Removes all child elements. |
+| `onDetach(sub)` | Registers a subscription to be cancelled when this element is detached. Essential for avoiding memory leaks. |
+| `write()` | Appends the element to the document body. Typically only used for debugging. |
+
+### Views and Data Binding
+
+| Class | Description |
+|-------|-------------|
+| `foam.u2.Element` | Base class for all UI elements. |
+| `foam.u2.View` | Extends Element with a `data` property. Use when displaying or editing an external object. |
+| `foam.u2.Controller` | Extends View and exports itself as `data`. Use for self-contained screens that manage their own state. |
+| `foam.u2.DetailView` | Automatically renders all properties of an object using their configured views. |
+| `foam.u2.table.TableView` | Renders a DAO as a table with sorting and pagination. |
+| `foam.u2.DAOList` | Renders each object in a DAO using a specified `rowView`. |
+| `foam.comics.v2.DAOBrowserView` | Full CRUD interface: search, browse, create, edit, and delete. |
+
+### ControllerMode and DisplayMode
+
+| Mode | Description |
+|------|-------------|
+| `CREATE` | A new object is being created. |
+| `VIEW` | An object is being viewed (read-only). RW properties are downgraded to RO. |
+| `EDIT` | An existing object is being updated. |
+
+| DisplayMode | Description |
+|-------------|-------------|
+| `RW` | Read-write — fully editable. |
+| `RO` | Read-only — visible but not editable. |
+| `DISABLED` | Visible but greyed out. |
+| `HIDDEN` | Not rendered in the DOM. |
+
+Visibility can be a static value or a function that returns a DisplayMode based on other properties:
+
+```javascript
+{
+  name: 'conditionalField',
+  visibility: function(flag) {
+    return flag ? foam.u2.DisplayMode.DISABLED : foam.u2.DisplayMode.RW;
+  }
+}
+```
+
+### Advanced
+
+| Feature | Description |
+|---------|-------------|
+| `registerElement(cls, tag)` | Registers a FOAM Element class to replace a standard HTML tag. E.g., register a custom image viewer for `<img>`. |
+| `elementForName(tag)` | Returns the registered Element class for a tag name (used internally). |
+| `translate(key, default)` | Adds translatable text. The key is looked up via the `translationService` in context; the default is used as fallback. |
+| `el()` | Returns a promise that resolves to the underlying real DOM element. Use sparingly. |
+| `element_` | Direct access to the underlying DOM element (U3 only). Use sparingly. |
+| `Borders` | Components with a `content` element. Children added to the border are inserted into the content area rather than appended at the end. Used for cards, tabs, etc. |
+| `onKey` (property) | When `true` on a property or view, the value updates on every keystroke rather than on blur. |
+| `view:` (property config) | Overrides the default view used for a property in DetailView. Accepts a class name or ViewSpec object. |
 
 <!-- List all links here -->
 
@@ -2150,3 +2735,6 @@ Similarly, runtime journals are replayed after static journals (`.0`), so any ch
 [foam-guides]: https://github.com/kgrgreer/foam3/tree/development/doc/guides
 [foam-relationships]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Relationships.md
 [foam-nanoservices]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/NanoServices.md
+[foam-dsl-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/DSL.md
+[foam-reactive-ui]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ReactiveUI.md
+[foam-visibility]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md

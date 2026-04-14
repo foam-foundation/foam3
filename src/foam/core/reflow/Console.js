@@ -1599,9 +1599,13 @@ foam.CLASS({
       globalThis.shell = this; // for debugging
 
       // Add commands to localScope
-      var cmds = await this.commandDAO.select();
+      var cmds = (await this.commandDAO.select()).array;
 
-      cmds.array.forEach(c => {
+      for ( let i = 0 ; i < cmds.length ; i++ ) {
+        if ( cmds[i].aInit ) await cmds[i].aInit();
+      }
+
+      cmds.forEach(c => {
         this.localScope[c.id] = async (...args) => {
           var cmd = c.clone(this.currentBlock);
           return await cmd.execute.apply(cmd, args);

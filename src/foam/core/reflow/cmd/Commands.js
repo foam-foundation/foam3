@@ -242,33 +242,6 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
-  name: 'DAO',
-  extends: 'foam.core.reflow.cmd.Command',
-
-  requires: [ 'foam.core.reflow.DAOPrompt' ],
-
-  imports: [ 'createFlowChildName' ],
-
-  properties: [
-    [ 'description', 'Perform DAO operation' ]
-  ],
-
-  methods: [
-    function execute(dao, opt_label) {
-      let p     = this.DAOPrompt.create({dao: dao, label: opt_label});
-      let label = p.dao.of.model_.plural;
-
-      p.addToE(this.out);
-      this.currentBlock.flowName = opt_label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());
-      this.currentBlock.obj    = p; // ???: Needed
-      this.currentBlock.value  = p;
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow.cmd',
   name: 'DAOFilter',
   extends: 'foam.core.reflow.cmd.Command',
 

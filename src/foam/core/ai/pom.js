@@ -6,6 +6,7 @@ foam.POM({
     { name: 'LLMService',               flags: 'js|java' },
 
     // Implementations
+    { name: 'OllamaLLMService',         flags: 'js|java' },
     { name: 'ClaudeLLMService',         flags: 'js|java' },
     { name: 'DeepSeekLLMService',       flags: 'js|java' },
     { name: 'OpenAILLMService',         flags: 'js|java' },

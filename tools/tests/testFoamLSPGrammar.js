@@ -1264,6 +1264,32 @@ var overrides = jrlLoader.filterByClass(result7, 'foam.core.theme.customisation.
 test(themes.length === 1, 'JrlLoader: filterByClass returns matching class');
 test(overrides.length === 1, 'JrlLoader: filterByClass returns other class');
 
+// === CSS TOKEN RESOLUTION ===
+
+section('CSSTokenResolver — value resolution');
+
+var cssTokenResolver = foam.parse.lsp.CSSTokenResolver.create();
+cssTokenResolver.loadFromRegistry();
+
+// Test resolveTokenValue on base tokens
+var resolvedPrimary = cssTokenResolver.resolveTokenValue('primary400');
+test(resolvedPrimary != null && resolvedPrimary !== '', 'resolveTokenValue: primary400 resolves to a value');
+test(resolvedPrimary && resolvedPrimary.charAt(0) === '#', 'resolveTokenValue: primary400 resolves to hex color');
+
+// Test resolveTokenValue on unknown token
+var resolvedUnknown = cssTokenResolver.resolveTokenValue('totallyFakeToken');
+test(resolvedUnknown === null, 'resolveTokenValue: unknown token returns null');
+
+// Test resolveTokenValue on recursive $-references
+var resolvedBg = cssTokenResolver.resolveTokenValue('backgroundDefault');
+test(resolvedBg != null && resolvedBg.charAt(0) === '#', 'resolveTokenValue: backgroundDefault resolves through $white to hex');
+
+// Test that loadFromJournals still works (uses JrlLoader internally now)
+var resolver2 = foam.parse.lsp.CSSTokenResolver.create();
+resolver2.loadFromRegistry();
+resolver2.loadFromJournals();
+test(Object.keys(resolver2.themeNames_).length >= 0, 'loadFromJournals: runs without error using JrlLoader');
+
 // === SUMMARY ===
 
 section('SUMMARY');

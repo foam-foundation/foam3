@@ -12,6 +12,10 @@ foam.CLASS({
     cssTokenOverrides.jrl and themes.jrl journals. Resolves $-references
     recursively. Provides multi-theme lookup for hover content.`,
 
+  requires: [
+    'foam.parse.lsp.JrlLoader'
+  ],
+
   properties: [
     {
       name: 'tokenMap_',
@@ -24,6 +28,12 @@ foam.CLASS({
       name: 'themeNames_',
       documentation: 'Map of themeId to display name.',
       factory: function() { return {}; }
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.JrlLoader',
+      name: 'jrlLoader',
+      factory: function() { return this.JrlLoader.create(); }
     }
   ],
 
@@ -97,11 +107,12 @@ foam.CLASS({
     function loadFromJournals() {
       /**
        * Parse themes.jrl for theme IDs/names and cssTokenOverrides.jrl
-       * for per-theme token overrides. Resolves $-references after loading.
+       * for per-theme token overrides using JrlLoader. Resolves $-references
+       * after loading.
        */
-      var fs, path_;
+      var fs_, path_;
       try {
-        fs = require('fs');
+        fs_ = require('fs');
         path_ = require('path');
       } catch ( e ) {
         return;
@@ -110,7 +121,7 @@ foam.CLASS({
       var root = this.findProjectRoot_(path_);
       if ( ! root ) return;
 
-      // Load theme names from various themes.jrl locations
+      // Collect theme JRL file paths
       var themeFiles = [
         path_.join(root, 'journals', 'themes.jrl'),
         path_.join(root, 'foam3', 'src', 'foam', 'core', 'theme', 'themes.jrl')
@@ -119,22 +130,51 @@ foam.CLASS({
       // Also check deployment directories
       var deployDir = path_.join(root, 'deployment');
       try {
-        if ( fs.existsSync(deployDir) ) {
-          var deployDirs = fs.readdirSync(deployDir);
+        if ( fs_.existsSync(deployDir) ) {
+          var deployDirs = fs_.readdirSync(deployDir);
           for ( var i = 0 ; i < deployDirs.length ; i++ ) {
             var tf = path_.join(deployDir, deployDirs[i], 'themes.jrl');
-            if ( fs.existsSync(tf) ) themeFiles.push(tf);
+            if ( fs_.existsSync(tf) ) themeFiles.push(tf);
           }
         }
       } catch ( e ) {}
 
+      // Load theme objects via JrlLoader and extract id/name
       for ( var i = 0 ; i < themeFiles.length ; i++ ) {
-        this.loadThemeFile_(themeFiles[i], fs);
+        var objects = this.jrlLoader.loadFile(themeFiles[i]);
+        for ( var j = 0 ; j < objects.length ; j++ ) {
+          var obj = objects[j];
+          if ( obj.id && obj.name ) {
+            this.themeNames_[obj.id] = obj.name;
+          }
+        }
       }
 
-      // Load CSS token overrides
+      // Load CSS token overrides via JrlLoader
       var overrideFile = path_.join(root, 'journals', 'cssTokenOverrides.jrl');
-      this.loadOverrideFile_(overrideFile, fs);
+      var overrides = this.jrlLoader.loadFile(overrideFile);
+      for ( var i = 0 ; i < overrides.length ; i++ ) {
+        var obj = overrides[i];
+        if ( ! obj.theme || ! obj.source || ! obj.target ) continue;
+
+        var source = obj.source;
+
+        // Ensure token entry exists
+        if ( ! this.tokenMap_[source] ) {
+          this.tokenMap_[source] = {
+            default_: { value: '', resolved: '' },
+            themes: {},
+            variants: {},
+            type: null,
+            source: 'cssTokenOverrides.jrl'
+          };
+        }
+
+        this.tokenMap_[source].themes[obj.theme] = {
+          value: obj.target,
+          resolved: null
+        };
+      }
 
       // Resolve all theme override $-references
       for ( var name in this.tokenMap_ ) {
@@ -162,70 +202,6 @@ foam.CLASS({
         dir = parent;
       }
       return null;
-    },
-
-    function loadThemeFile_(filePath, fs) {
-      /** Extract theme id and name from a themes.jrl file. */
-      try {
-        if ( ! fs.existsSync(filePath) ) return;
-        var content = fs.readFileSync(filePath, 'utf8');
-
-        // Find each theme entry (themes.jrl entries can span multiple lines)
-        var entryRegex = /p\s*\(\s*\{/g;
-        var match;
-        while ( ( match = entryRegex.exec(content) ) !== null ) {
-          // Extract a reasonable chunk from this entry
-          var chunk = content.substring(match.index, match.index + 2000);
-          var idMatch = chunk.match(/"id"\s*:\s*"([^"]+)"/);
-          var nameMatch = chunk.match(/"name"\s*:\s*"([^"]+)"/);
-          if ( idMatch && nameMatch ) {
-            this.themeNames_[idMatch[1]] = nameMatch[1];
-          }
-        }
-      } catch ( e ) {}
-    },
-
-    function loadOverrideFile_(filePath, fs) {
-      /**
-       * Parse cssTokenOverrides.jrl for per-theme overrides.
-       * Each line: p({class:"...CSSTokenOverride",theme:"...",source:"...",target:"...",...})
-       */
-      try {
-        if ( ! fs.existsSync(filePath) ) return;
-        var content = fs.readFileSync(filePath, 'utf8');
-        var lines = content.split('\n');
-
-        for ( var i = 0 ; i < lines.length ; i++ ) {
-          var line = lines[i].trim();
-          if ( ! line || line.indexOf('CSSTokenOverride') === -1 ) continue;
-
-          var themeMatch = line.match(/theme\s*:\s*"([^"]+)"/);
-          var sourceMatch = line.match(/source\s*:\s*"([^"]+)"/);
-          var targetMatch = line.match(/target\s*:\s*"([^"]+)"/);
-
-          if ( ! themeMatch || ! sourceMatch || ! targetMatch ) continue;
-
-          var theme = themeMatch[1];
-          var source = sourceMatch[1];
-          var target = targetMatch[1];
-
-          // Ensure token entry exists
-          if ( ! this.tokenMap_[source] ) {
-            this.tokenMap_[source] = {
-              default_: { value: '', resolved: '' },
-              themes: {},
-              variants: {},
-              type: null,
-              source: 'cssTokenOverrides.jrl'
-            };
-          }
-
-          this.tokenMap_[source].themes[theme] = {
-            value: target,
-            resolved: null
-          };
-        }
-      } catch ( e ) {}
     },
 
     function resolve_(value, opt_themeId, opt_depth) {
@@ -290,6 +266,27 @@ foam.CLASS({
       }
 
       return entry.default_.resolved || entry.default_.value;
+    },
+
+    function resolveTokenValue(tokenName) {
+      /**
+       * Resolve a token to its final CSS value using foam.CSS.returnTokenValue.
+       * Falls back to internal resolution if foam.CSS is unavailable.
+       * @param tokenName Token name without $ prefix.
+       * @returns Resolved CSS value string or null if token unknown.
+       */
+      if ( ! this.tokenMap_[tokenName] ) return null;
+
+      // Try foam.CSS.returnTokenValue for full resolution (recursive, LIGHTEN, FOREGROUND)
+      if ( foam.CSS && foam.CSS.returnTokenValue ) {
+        try {
+          var result = foam.CSS.returnTokenValue('$' + tokenName, foam.maybeLookup('foam.u2.CSSTokens'));
+          if ( result && result !== '$' + tokenName ) return result;
+        } catch ( e ) {}
+      }
+
+      // Fallback to internal resolution
+      return this.getResolvedValue(tokenName);
     },
 
     function colorSwatch_(hexColor) {

@@ -1347,6 +1347,7 @@ foam.POM({
     { name: "foam/lib/parse/Seq2" },
     { name: "foam/lib/parse/InvalidPStream" },
     { name: "foam/lib/parse/StringPStream" },
+    { name: "foam/lib/parse/PooledStringPStream" },
     { name: "foam/lib/parse/Literal" },
     { name: "foam/lib/parse/ErrorReportingNodePStream" },
     { name: "foam/lib/parse/AbstractLiteral" },

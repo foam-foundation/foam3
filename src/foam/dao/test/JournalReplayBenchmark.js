@@ -32,9 +32,11 @@ foam.CLASS({
     'foam.lang.AbstractObjectPropertyInfo',
     'foam.lang.AbstractClassPropertyInfo',
     'foam.lang.AbstractListPropertyInfo',
+    'foam.dao.ArraySink',
     'foam.dao.MDAO',
     'foam.dao.JacksonJournalParser',
     'foam.lib.json.JSONParser',
+    'foam.lib.parse.PooledStringPStream',
     'java.io.BufferedReader',
     'java.io.BufferedWriter',
     'java.io.File',
@@ -51,6 +53,9 @@ foam.CLASS({
   javaCode: `
     private static final Pattern COMMENT = Pattern.compile("(/\\\\*([^*]|[\\\\r\\\\n]|(\\\\*+([^*/]|[\\\\r\\\\n])))*\\\\*+/)|(//.*)");
     private static final int NUM_ENTRIES = Integer.getInteger("benchmark.entries", 1000000);
+
+    private double foamWallSec_, jacksonWallSec_, inlinedWallSec_, jacksonInlinedWallSec_,
+                   pooledWallSec_, allOptWallSec_, parallelWallSec_;
   `,
 
   methods: [
@@ -81,6 +86,15 @@ foam.CLASS({
 
           // ---- Experiment 1b: Jackson + Inlined ----
           replayJacksonInlined(x, ci, jrlPath);
+
+          // ---- Experiment 2: Pooled PStream ----
+          replayWithPooledPStream(x, ci, jrlPath);
+
+          // ---- All optimizations combined ----
+          replayAllOptimizations(x, ci, jrlPath);
+
+          // ---- Experiment 3: Parallel file loading ----
+          replayParallel(x, ci, jrlPath);
 
           // ---- Phase 7: Comment check ----
           commentCheckBenchmark();
@@ -306,6 +320,7 @@ foam.CLASS({
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
 
+        foamWallSec_ = wallSec;
         test(count == NUM_ENTRIES, "FOAM replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
@@ -373,6 +388,7 @@ foam.CLASS({
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
 
+        jacksonWallSec_ = wallSec;
         test(count == NUM_ENTRIES, "Jackson replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
@@ -442,6 +458,7 @@ foam.CLASS({
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
 
+        inlinedWallSec_ = wallSec;
         test(count == NUM_ENTRIES, "FOAM inlined replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
@@ -521,7 +538,272 @@ foam.CLASS({
         log("  Jackson hits: " + jacksonHits + ", FOAM fallbacks: " + fallbacks);
         log("  Comments skipped: " + comments);
 
+        jacksonInlinedWallSec_ = wallSec;
         test(count == NUM_ENTRIES, "Jackson inlined replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
+      name: 'replayWithPooledPStream',
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      javaCode: `
+        JSONParser parser = new JSONParser();
+        parser.setX(x);
+        Class cls = ci.getObjClass();
+        MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+        PooledStringPStream pooledPs = PooledStringPStream.create("", 8192);
+
+        long readNanos = 0, parseNanos = 0, putNanos = 0;
+        int count = 0, comments = 0;
+        long totalBytes = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line == null ) break;
+
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            String body = line.substring(2, len - 1);
+            totalBytes += body.length();
+
+            long p0 = System.nanoTime();
+            FObject obj = parser.parseStringPooled(body, cls, pooledPs);
+            parseNanos += System.nanoTime() - p0;
+
+            if ( obj != null ) {
+              long w0 = System.nanoTime();
+              mdao.put_(x, obj);
+              putNanos += System.nanoTime() - w0;
+              count++;
+            }
+          }
+        } catch (Exception e) {
+          throw new RuntimeException("Pooled PStream replay failed", e);
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec     = wallNanos / 1e9;
+        double readSec     = readNanos / 1e9;
+        double parseSec    = parseNanos / 1e9;
+        double putSec      = putNanos / 1e9;
+        double unacctSec   = wallSec - readSec - parseSec - putSec;
+        double mbSec       = (totalBytes / 1e6) / wallSec;
+
+        log("");
+        log("=== End-to-End: FOAM + Pooled PStream (" + count + " entries, " + (totalBytes/1_000_000) + " MB) ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
+        log("  Comments skipped: " + comments);
+
+        pooledWallSec_ = wallSec;
+        test(count == NUM_ENTRIES, "Pooled PStream replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
+      name: 'replayAllOptimizations',
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      javaCode: `
+        JacksonJournalParser jacksonParser = new JacksonJournalParser();
+        jacksonParser.setTargetClassInfo(ci);
+        JSONParser foamParser = new JSONParser();
+        foamParser.setX(x);
+        Class cls = ci.getObjClass();
+        MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+        PooledStringPStream pooledPs = PooledStringPStream.create("", 8192);
+
+        long readNanos = 0, parseNanos = 0, putNanos = 0;
+        int count = 0, comments = 0;
+        long totalBytes = 0;
+        int jacksonHits = 0, fallbacks = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line == null ) break;
+
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            String body = line.substring(2, len - 1);
+            totalBytes += body.length();
+
+            long p0 = System.nanoTime();
+            FObject obj = null;
+            try {
+              obj = jacksonParser.parseString(body);
+              jacksonHits++;
+            } catch (Exception e) {
+              obj = foamParser.parseStringPooled(body, cls, pooledPs);
+              fallbacks++;
+            }
+            parseNanos += System.nanoTime() - p0;
+
+            if ( obj != null ) {
+              long w0 = System.nanoTime();
+              mdao.put_(x, obj);
+              putNanos += System.nanoTime() - w0;
+              count++;
+            }
+          }
+        } catch (Exception e2) {
+          throw new RuntimeException("All optimizations replay failed", e2);
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec     = wallNanos / 1e9;
+        double readSec     = readNanos / 1e9;
+        double parseSec    = parseNanos / 1e9;
+        double putSec      = putNanos / 1e9;
+        double unacctSec   = wallSec - readSec - parseSec - putSec;
+        double mbSec       = (totalBytes / 1e6) / wallSec;
+
+        log("");
+        log("=== End-to-End: All Optimizations Combined (" + count + " entries, " + (totalBytes/1_000_000) + " MB) ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
+        log("  Jackson hits: " + jacksonHits + ", FOAM+Pool fallbacks: " + fallbacks);
+        log("  Comments skipped: " + comments);
+
+        allOptWallSec_ = wallSec;
+        test(count == NUM_ENTRIES, "All optimizations replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
+      name: 'replayParallel',
+      javaThrows: ['Exception'],
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      javaCode: `
+        // Step 1: Read all data lines
+        List<String> dataLines = new ArrayList<>(NUM_ENTRIES + 10);
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          String line;
+          while ( (line = reader.readLine()) != null ) {
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) continue;
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+            dataLines.add(line);
+          }
+        }
+        int totalLines = dataLines.size();
+        log("");
+        log("=== End-to-End: Parallel (" + totalLines + " entries) ===");
+
+        // Step 2: Split into N chunks
+        int nThreads = Runtime.getRuntime().availableProcessors();
+        int chunkSize = (totalLines + nThreads - 1) / nThreads;
+        log("  Threads: " + nThreads + ", chunk size: ~" + chunkSize);
+
+        // Step 3: Create N threads, each with own parsers and MDAO
+        MDAO[] mdaos = new MDAO[nThreads];
+        Thread[] threads = new Thread[nThreads];
+        long[] threadNanos = new long[nThreads];
+        int[] threadCounts = new int[nThreads];
+        Class cls = ci.getObjClass();
+
+        long parseStart = System.nanoTime();
+        for ( int t = 0 ; t < nThreads ; t++ ) {
+          final int threadIdx = t;
+          final int from = t * chunkSize;
+          final int to = Math.min(from + chunkSize, totalLines);
+          mdaos[t] = new MDAO(ci);
+          mdaos[t].setSafeMode(false);
+
+          threads[t] = new Thread(() -> {
+            JacksonJournalParser jp = new JacksonJournalParser();
+            jp.setTargetClassInfo(ci);
+            JSONParser fp = new JSONParser();
+            fp.setX(x);
+            PooledStringPStream pooledPs = PooledStringPStream.create("", 8192);
+            long t0 = System.nanoTime();
+            int cnt = 0;
+
+            for ( int i = from ; i < to ; i++ ) {
+              String line = dataLines.get(i);
+              String body = line.substring(2, line.length() - 1);
+              FObject obj = null;
+              try {
+                obj = jp.parseString(body);
+              } catch (Exception e) {
+                obj = fp.parseStringPooled(body, cls, pooledPs);
+              }
+              if ( obj != null ) {
+                mdaos[threadIdx].put_(x, obj);
+                cnt++;
+              }
+            }
+            threadNanos[threadIdx] = System.nanoTime() - t0;
+            threadCounts[threadIdx] = cnt;
+          }, "parallel-replay-" + t);
+          threads[t].start();
+        }
+
+        // Step 4: Wait for all threads
+        for ( int t = 0 ; t < nThreads ; t++ ) {
+          threads[t].join();
+        }
+        long parseDoneNanos = System.nanoTime() - parseStart;
+
+        // Step 5: Merge all MDAOs into one
+        long mergeStart = System.nanoTime();
+        MDAO merged = new MDAO(ci);
+        merged.setSafeMode(false);
+        int totalCount = 0;
+        for ( int t = 0 ; t < nThreads ; t++ ) {
+          ArraySink sink = (ArraySink) mdaos[t].select(new ArraySink());
+          List list = sink.getArray();
+          for ( int i = 0 ; i < list.size() ; i++ ) {
+            merged.put_(x, (FObject) list.get(i));
+          }
+          totalCount += threadCounts[t];
+        }
+        long mergeNanos = System.nanoTime() - mergeStart;
+        long totalNanos = parseDoneNanos + mergeNanos;
+
+        double parseSec = parseDoneNanos / 1e9;
+        double mergeSec = mergeNanos / 1e9;
+        double totalSec = totalNanos / 1e9;
+
+        for ( int t = 0 ; t < nThreads ; t++ ) {
+          log(String.format("  Thread %2d: %6d entries in %.2f sec", t, threadCounts[t], threadNanos[t] / 1e9));
+        }
+        log(String.format("  Parallel parse: %.2f sec", parseSec));
+        log(String.format("  Merge:          %.2f sec", mergeSec));
+        log(String.format("  Total:          %.2f sec", totalSec));
+        log(String.format("  Throughput:     %.0f entries/sec", totalCount / totalSec));
+
+        parallelWallSec_ = totalSec;
+        test(totalCount == NUM_ENTRIES, "Parallel replay should process all " + NUM_ENTRIES + " entries (got " + totalCount + ")");
       `
     },
     {
@@ -562,14 +844,31 @@ foam.CLASS({
       `
     },
     {
+      name: 'printRow',
+      args: 'String label, double wallSec, double baseline',
+      javaCode: `
+        if ( wallSec <= 0 ) return;
+        double entriesPerSec = NUM_ENTRIES / wallSec;
+        double speedup = baseline / wallSec;
+        log(String.format("%-40s %8.2f %10.0f %7.1fx", label, wallSec, entriesPerSec, speedup));
+      `
+    },
+    {
       name: 'printSummary',
       javaCode: `
         log("");
-        log("=== Summary ===");
-        log("  Model-level parser selection: inspect ClassInfo properties once per DAO.");
-        log("  If all properties are simple scalars → Jackson fast path.");
-        log("  If any Enum/FObject/Array/Map/Reference → FOAM parser (no change).");
-        log("  The check runs once at replay start, zero per-entry cost.");
+        log("=== COMPARISON TABLE ===");
+        log(String.format("%-40s %8s %10s %8s", "Variant", "Wall(s)", "Entries/s", "vs FOAM"));
+        log(String.format("%-40s %8s %10s %8s", "-------", "------", "--------", "-------"));
+        double baseline = foamWallSec_;
+        printRow("FOAM Parser (baseline)",          foamWallSec_,          baseline);
+        printRow("Jackson (ceiling)",               jacksonWallSec_,       baseline);
+        printRow("FOAM Inlined (no AssemblyLine)",  inlinedWallSec_,       baseline);
+        printRow("Jackson Inlined",                 jacksonInlinedWallSec_,baseline);
+        printRow("FOAM + Pooled PStream",           pooledWallSec_,        baseline);
+        printRow("All Optimizations Combined",      allOptWallSec_,        baseline);
+        if ( parallelWallSec_ > 0 )
+          printRow("Parallel (" + Runtime.getRuntime().availableProcessors() + " threads)", parallelWallSec_, baseline);
       `
     },
     {

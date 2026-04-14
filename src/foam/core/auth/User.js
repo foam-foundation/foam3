@@ -110,7 +110,9 @@ foam.CLASS({
     { name: 'INVALID_MIDDLE_NAME',  message: 'Invalid characters in middle name: ' },
     { name: 'INVALID_LAST_NAME',    message: 'Invalid characters in last name: ' },
     { name: 'INVALID_MATCHER',      message: "[^\\p{Letter}\\s\\-.']" },
-    { name: 'INVALID_USERNAME',     message: "Username can only contain alphanumeric characters, '-', and '_'" }
+    { name: 'INVALID_USERNAME',     message: "Username can only contain alphanumeric characters, '-', and '_'" },
+    { name: 'RESET_PASSWORD_SENT',  message: "Password reset request sent." },
+    { name: 'RESET_PASSWORD_FAILED',message: "Issue resetting your password. Please try again." },
   ],
 
   sections: [
@@ -1247,10 +1249,10 @@ foam.CLASS({
       code: function () {
         var self = this;
         this.resetPasswordToken.generateToken(null, this).then(() => {
-          self?.notify('Password reset email sent.', '', self.LogLevel.INFO, true);
+          self?.notify(self.RESET_PASSWORD_SENT, '', self.LogLevel.INFO, true);
         }, e => {
-          const errorMsg = e?.message || 'Issue resetting your password. Please try again';
-          self?.notify(errorMsg, '', this.LogLevel.ERROR, true);
+          const errorMsg = e?.message || self.RESET_PASSWORD_FAILED;
+          self?.notify(errorMsg, '', self.LogLevel.ERROR, true);
         });
       }
     }

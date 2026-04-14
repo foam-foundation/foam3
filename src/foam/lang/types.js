@@ -1189,6 +1189,12 @@ foam.CLASS({
         let of = (prop || this).of;
         if ( of ) {
           if ( of.isInstance(newValue) ) return newValue.id;
+          // RefSummary map shape: { id, summary } — cache summary, return id
+          if ( newValue && ! foam.lang.FObject.isInstance(newValue) &&
+               typeof newValue === 'object' && newValue.id !== undefined ) {
+            this[prop.name + '$summary'] = newValue.summary;
+            return newValue.id;
+          }
           if ( foam.lang.MultiPartID.isInstance(of.ID) ) return newValue;
           if ( ! of.ID ) {
             return newValue;
@@ -1244,6 +1250,14 @@ foam.CLASS({
       Object.defineProperty(proto, self.name + '$find', {
         get: function classGetter() {
           return this[daoName].find(this[self.name]);
+        },
+        configurable: true
+      });
+
+      Object.defineProperty(proto, self.name + '$summary', {
+        get: async function classGetter() {
+          let temp = await this[`${self.name}$find`];
+          return temp?.toSummary() || '';
         },
         configurable: true
       });

@@ -76,6 +76,12 @@ foam.CLASS({
           // ---- Phase 6: Jackson (ceiling) ----
           replayWithJackson(x, ci, jrlPath);
 
+          // ---- Experiment 1: Inlined (no AssemblyLine) ----
+          replayInlined(x, ci, jrlPath);
+
+          // ---- Experiment 1b: Jackson + Inlined ----
+          replayJacksonInlined(x, ci, jrlPath);
+
           // ---- Phase 7: Comment check ----
           commentCheckBenchmark();
 
@@ -368,6 +374,154 @@ foam.CLASS({
         log("  Comments skipped: " + comments);
 
         test(count == NUM_ENTRIES, "Jackson replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
+      name: 'replayInlined',
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      javaCode: `
+        JSONParser parser = new JSONParser();
+        parser.setX(x);
+        Class cls = ci.getObjClass();
+        MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+
+        long readNanos = 0, parseNanos = 0, putNanos = 0;
+        int count = 0, comments = 0;
+        long totalBytes = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line == null ) break;
+
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue; // version line
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            String body = line.substring(2, len - 1);
+            totalBytes += body.length();
+
+            long p0 = System.nanoTime();
+            FObject obj = parser.parseString(body, cls);
+            parseNanos += System.nanoTime() - p0;
+
+            if ( obj != null ) {
+              long w0 = System.nanoTime();
+              mdao.put_(x, obj);
+              putNanos += System.nanoTime() - w0;
+              count++;
+            }
+          }
+        } catch (Exception e) {
+          throw new RuntimeException("FOAM inlined replay failed", e);
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec     = wallNanos / 1e9;
+        double readSec     = readNanos / 1e9;
+        double parseSec    = parseNanos / 1e9;
+        double putSec      = putNanos / 1e9;
+        double unacctSec   = wallSec - readSec - parseSec - putSec;
+        double mbSec       = (totalBytes / 1e6) / wallSec;
+
+        log("");
+        log("=== End-to-End: FOAM Inlined (no AssemblyLine) (" + count + " entries, " + (totalBytes/1_000_000) + " MB) ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
+        log("  Comments skipped: " + comments);
+
+        test(count == NUM_ENTRIES, "FOAM inlined replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
+      name: 'replayJacksonInlined',
+      javaThrows: ['Exception'],
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      javaCode: `
+        JacksonJournalParser jacksonParser = new JacksonJournalParser();
+        jacksonParser.setTargetClassInfo(ci);
+        JSONParser foamParser = new JSONParser();
+        foamParser.setX(x);
+        Class cls = ci.getObjClass();
+        MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+
+        long readNanos = 0, parseNanos = 0, putNanos = 0;
+        int count = 0, comments = 0;
+        long totalBytes = 0;
+        int jacksonHits = 0, fallbacks = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line == null ) break;
+
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            String body = line.substring(2, len - 1);
+            totalBytes += body.length();
+
+            long p0 = System.nanoTime();
+            FObject obj = null;
+            try {
+              obj = jacksonParser.parseString(body);
+              jacksonHits++;
+            } catch (Exception e) {
+              obj = foamParser.parseString(body, cls);
+              fallbacks++;
+            }
+            parseNanos += System.nanoTime() - p0;
+
+            if ( obj != null ) {
+              long w0 = System.nanoTime();
+              mdao.put_(x, obj);
+              putNanos += System.nanoTime() - w0;
+              count++;
+            }
+          }
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec     = wallNanos / 1e9;
+        double readSec     = readNanos / 1e9;
+        double parseSec    = parseNanos / 1e9;
+        double putSec      = putNanos / 1e9;
+        double unacctSec   = wallSec - readSec - parseSec - putSec;
+        double mbSec       = (totalBytes / 1e6) / wallSec;
+
+        log("");
+        log("=== End-to-End: Jackson Inlined (no AssemblyLine) (" + count + " entries, " + (totalBytes/1_000_000) + " MB) ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
+        log("  Jackson hits: " + jacksonHits + ", FOAM fallbacks: " + fallbacks);
+        log("  Comments skipped: " + comments);
+
+        test(count == NUM_ENTRIES, "Jackson inlined replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
     {

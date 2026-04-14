@@ -45,9 +45,9 @@ foam.CLASS({
   ],
     */
 
-  tableColumns: [ 'name', 'source', 'description', 'status', 'version', /* 'isPublic', 'readOnly', */ 'reflow' ],
+  tableColumns: [ 'category', 'name', 'source', 'description', 'status', 'version', /* 'isPublic', 'readOnly', */ 'reflow' ],
 
-  searchColumns: [ 'name', 'status', 'source', 'keywords' ],
+  searchColumns: [ 'category', 'name', 'status', 'source', 'keywords' ],
 
   topics: [ 'loadComplete' ],
 
@@ -69,7 +69,12 @@ foam.CLASS({
     {
       class: 'String',
       name: 'name',
-      section: 'general',
+      section: 'general'
+    },
+    {
+      class: 'String',
+      name: 'category',
+      section: 'general'
     },
     {
       class: 'String',
@@ -77,7 +82,7 @@ foam.CLASS({
       expression: function(name) {
         return foam.String.labelize(name);
       },
-      section: 'general',
+      section: 'general'
     },
     {
       class: 'String',
@@ -217,7 +222,7 @@ foam.CLASS({
     },
     {
       name: 'checkBypassAuthorization',
-      args: `X x`,
+      args: 'X x',
       type: 'boolean',
       javaCode: `
         AuthService auth = (AuthService) x.get("auth");

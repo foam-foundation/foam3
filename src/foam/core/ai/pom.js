@@ -3,15 +3,17 @@ foam.POM({
 
   files: [
     // Interface (generates Skeleton, Client, Proxy)
-    { name: 'LLMService',           flags: 'js|java' },
+    { name: 'LLMService',               flags: 'js|java' },
 
     // Implementations
-    { name: 'ClaudeLLMService',     flags: 'js|java' },
-    { name: 'DeepSeekLLMService',   flags: 'js|java' },
-    { name: 'OpenAILLMService',     flags: 'js|java' },
+    { name: 'OllamaLLMService',         flags: 'js|java' },
+    { name: 'ClaudeLLMService',         flags: 'js|java' },
+    { name: 'DeepSeekLLMService',       flags: 'js|java' },
+    { name: 'OpenAILLMService',         flags: 'js|java' },
 
     // Decorators
-    { name: 'LoggingLLMService',    flags: 'js|java' },
-    { name: 'PMLLMService',         flags: 'js|java' }
-    ]
+    { name: 'ConversationalLLMService', flags: 'js' },
+    { name: 'LoggingLLMService',        flags: 'js|java' },
+    { name: 'PMLLMService',             flags: 'js|java' }
+  ]
 });

@@ -33,7 +33,7 @@ foam.CLASS({
       }).add(`
 System Information:
 ------------------------------------
-Flow:            "${flow.name}" v${flow.version}
+Flow:            ${flow.name} v${flow.version}
 Hostname:        ${health.hostname}
 Application:     ${health.appName}
 Version:         ${health.version}

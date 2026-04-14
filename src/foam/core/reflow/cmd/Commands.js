@@ -242,33 +242,6 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
-  name: 'DAO',
-  extends: 'foam.core.reflow.cmd.Command',
-
-  requires: [ 'foam.core.reflow.DAOPrompt' ],
-
-  imports: [ 'createFlowChildName' ],
-
-  properties: [
-    [ 'description', 'Perform DAO operation' ]
-  ],
-
-  methods: [
-    function execute(dao, opt_label) {
-      let p     = this.DAOPrompt.create({dao: dao, label: opt_label});
-      let label = p.dao.of.model_.plural;
-
-      p.addToE(this.out);
-      this.currentBlock.flowName = opt_label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());
-      this.currentBlock.obj    = p; // ???: Needed
-      this.currentBlock.value  = p;
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow.cmd',
   name: 'DAOFilter',
   extends: 'foam.core.reflow.cmd.Command',
 
@@ -494,8 +467,9 @@ foam.CLASS({
       if ( q ) q = q.toLowerCase();
       var self = this;
       this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
-        if ( q != undefined && (f.id + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
+        if ( q != undefined && (f.id + f.category + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
         this.start('tr').
+          start('td').add(f.category).end().
           start('td').start(self.Link).add(f.name).on('click', () => self.eval_('load("' + f.name + '")')).end().end().
           start('td').call(function() { f.STATUS.tableCellFormatter.f.call(this, f.status); }).end().
           start('td').add(f.description).end().

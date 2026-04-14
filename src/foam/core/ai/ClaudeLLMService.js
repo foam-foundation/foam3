@@ -89,7 +89,7 @@ foam.CLASS({
       javaCode: `
         String model     = options.getModel();
         if ( model == null || model.isEmpty() ) model = getDefaultModel();
-        int    maxTokens = options.getMaxTokens() > 0 ? options.getMaxTokens() : 4096;
+        int    maxTokens = options.getMaxTokens() > 0 ? options.getMaxTokens() : 4096*2;
 
         // Build request body
         JSONObject body = new JSONObject();

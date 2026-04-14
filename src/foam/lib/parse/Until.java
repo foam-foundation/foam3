@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2020 The FOAM Authors. All Rights Reserved.
@@ -7,21 +6,31 @@
 
 package foam.lib.parse;
 
+/**
+ * Matches any characters until the terminating pattern, returning an array of
+ * the characters before the terminator. Consumes the terminator. Fails if the
+ * terminator is never found.
+ *
+ * When the terminator is an AbstractLiteral, delegates to UntilLiteral which
+ * uses String.indexOf() for O(n) native performance.
+ */
 public class Until
-  implements Parser {
-
-  protected Parser until_;
+  implements Parser
+{
+  protected Parser delegate_;
 
   public Until(Parser until) {
-    // TODO: Make faster, and also add a UntilStr which builds a string directly
-    until_ = new Seq1(0,
-      new Repeat(new Not(until, AnyChar.instance())),
-      until
-    );
+    if ( until instanceof AbstractLiteral ) {
+      delegate_ = new UntilLiteral(((AbstractLiteral) until).getString());
+    } else {
+      delegate_ = new Seq1(0,
+        new Repeat(new Not(until, AnyChar.instance())),
+        until
+      );
+    }
   }
 
   public PStream parse(PStream ps, ParserContext x) {
-    PStream pst = until_.parse(ps, x);
-    return pst;
+    return delegate_.parse(ps, x);
   }
 }

@@ -62,7 +62,7 @@ foam.CLASS({
           .style({ width: 'max-content' })
           .style({
             'background-color': background,
-            color: color,
+            'color': color,
             'border-color': borderColor
           })
           .callIfElse(this.showGlyph && (data.glyph || data.icon), () => {

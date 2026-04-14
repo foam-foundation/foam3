@@ -1,6 +1,7 @@
 foam.POM({
   name: 'console',
   projects: [
+    { name: 'parser/pom' },
     { name: 'dashboard/pom' },
     { name: "pivottest/pom" },
     { name: "example/pom" },
@@ -73,6 +74,7 @@ foam.POM({
     { name: 'float/Test',              flags: 'js' },
     { name: 'XMLSink',                 flags: 'js|java' },
     { name: 'cmd/Commands',            flags: 'js|java' },
+    { name: 'cmd/DAO',                 flags: 'js|java' },
     { name: 'cmd/DAORowView',          flags: 'js' },
     { name: 'cmd/Info',                flags: 'js|java' },
     { name: 'ColumnParser',            flags: 'js' },

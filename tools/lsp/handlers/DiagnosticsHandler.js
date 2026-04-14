@@ -141,6 +141,9 @@ foam.CLASS({
 
       // Validate tableColumns/searchColumns
       this.validateColumns_(m, text, diagnostics);
+
+      // Validate raw CSS values
+      this.validateRawCSSValues_(m, text, diagnostics);
     },
 
     function validateCSS_(model, text, diagnostics) {
@@ -209,6 +212,51 @@ foam.CLASS({
               this.addDiag_(diagnostics, text, loc, col.length, 2,
                 "Property '" + col + "' does not exist on " + classId);
             }
+          }
+        }
+      }
+    },
+
+    function validateRawCSSValues_(m, text, diagnostics) {
+      /**
+       * Warn when raw color values are used where CSS tokens should be.
+       * Checks css: template strings and color properties on enum values.
+       * Consistent with CSSAuditTest.js detection patterns.
+       */
+      var colorProps = /(?:^|[;{}\s])\s*(color|background(?:-color)?|border(?:-color)?|border-(?:top|bottom|left|right)(?:-color)?|outline-color)\s*:\s*([^;}\n$]+)/g;
+      var rawColorValue = /#[0-9a-fA-F]{3,8}\b|rgba?\s*\(|hsla?\s*\(/;
+
+      // Check css: template string
+      var cssStr = m.css;
+      if ( cssStr && typeof cssStr === 'string' ) {
+        var baseOffset = text.indexOf(cssStr);
+        if ( baseOffset !== -1 ) {
+          var match;
+          while ( ( match = colorProps.exec(cssStr) ) !== null ) {
+            var valueStr = match[2].trim();
+            if ( rawColorValue.test(valueStr) ) {
+              var rawMatch = valueStr.match(/#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]*\)|hsla?\s*\([^)]*\)/);
+              var rawVal = rawMatch ? rawMatch[0] : valueStr;
+              var offset = baseOffset + match.index + match[0].indexOf(valueStr);
+              this.addDiag_(diagnostics, text, offset, rawVal.length, 2,
+                "Prefer CSS token (e.g., '$primary400') over raw color value '" + rawVal + "'");
+            }
+          }
+        }
+      }
+
+      // Check enum values with color properties
+      var values = m.values || [];
+      for ( var i = 0 ; i < values.length ; i++ ) {
+        var v = values[i];
+        if ( ! v || typeof v !== 'object' ) continue;
+        var colorVal = v.color || v.background;
+        if ( colorVal && typeof colorVal === 'string' && rawColorValue.test(colorVal) ) {
+          var loc = this.findInText_(text, 'color', colorVal, 0);
+          if ( loc === null ) loc = this.findInText_(text, 'background', colorVal, 0);
+          if ( loc !== null ) {
+            this.addDiag_(diagnostics, text, loc, colorVal.length, 2,
+              "Prefer CSS token (e.g., '$primary400') over raw color value '" + colorVal + "'");
           }
         }
       }

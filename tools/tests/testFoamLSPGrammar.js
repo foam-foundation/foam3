@@ -1349,6 +1349,42 @@ var invalidSearchText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name
 var invalidSearchDiags = diagHandler.handle(invalidSearchText);
 test(invalidSearchDiags.some(function(d) { return d.message.indexOf('bogus') !== -1; }), 'searchColumns: invalid property IS flagged');
 
+// === RAW CSS VALUE DIAGNOSTICS ===
+
+section('Raw CSS Value Diagnostics');
+
+// Hex color in css: template string — should warn
+var hexCssText = "foam.CLASS({\n  package: 'test',\n  name: 'HexTest',\n  css: `\n    ^ { color: #FF0000; }\n  `\n})";
+var hexDiags = diagHandler.handle(hexCssText);
+test(hexDiags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1 && d.message.indexOf('#FF0000') !== -1; }), 'Raw CSS: hex color in css: flagged');
+
+// rgb() in css: — should warn
+var rgbCssText = "foam.CLASS({\n  package: 'test',\n  name: 'RgbTest',\n  css: `\n    ^ { background-color: rgb(255, 0, 0); }\n  `\n})";
+var rgbDiags = diagHandler.handle(rgbCssText);
+test(rgbDiags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1 && d.message.indexOf('rgb(') !== -1; }), 'Raw CSS: rgb() in css: flagged');
+
+// $token reference — should NOT warn
+var tokenCssText = "foam.CLASS({\n  package: 'test',\n  name: 'TokenTest',\n  css: `\n    ^ { color: $primary400; }\n  `\n})";
+var tokenDiags = diagHandler.handle(tokenCssText);
+var tokenRawWarns = tokenDiags.filter(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; });
+test(tokenRawWarns.length === 0, 'Raw CSS: $token NOT flagged');
+
+// Non-color property — should NOT warn
+var widthCssText = "foam.CLASS({\n  package: 'test',\n  name: 'WidthTest',\n  css: `\n    ^ { width: 100px; height: 50px; }\n  `\n})";
+var widthDiags = diagHandler.handle(widthCssText);
+var widthRawWarns = widthDiags.filter(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; });
+test(widthRawWarns.length === 0, 'Raw CSS: width/height NOT flagged');
+
+// Hex color in enum property value — should warn
+var enumCssText = "foam.ENUM({\n  package: 'test',\n  name: 'LogLevel',\n  values: [\n    { name: 'ERROR', color: '#FF0000' }\n  ]\n})";
+var enumDiags = diagHandler.handle(enumCssText);
+test(enumDiags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; }), 'Raw CSS: hex in enum color property flagged');
+
+// 3-char hex — should warn
+var hex3CssText = "foam.CLASS({\n  package: 'test',\n  name: 'Hex3Test',\n  css: `\n    ^ { border-color: #F00; }\n  `\n})";
+var hex3Diags = diagHandler.handle(hex3CssText);
+test(hex3Diags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; }), 'Raw CSS: 3-char hex flagged');
+
 // === SUMMARY ===
 
 section('SUMMARY');

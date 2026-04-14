@@ -1422,6 +1422,12 @@ foam.CLASS({
       return this.Until0.create({ p: p });
     },
 
+    function skipTo(s) {
+      return this.SkipTo.create({
+        s: s
+      });
+    },
+
     function join(p) {
       return this.Join.create({
         p: p

@@ -1212,6 +1212,58 @@ foam.CLASS({
 var singleImplHover = hoverHandler.buildClassHover('foam.parse.lsp.test.SingleImplTest');
 test(singleImplHover && singleImplHover.contents.value.indexOf('implements foam.parse.lsp.test.IFoo') !== -1, 'Sig format: single implement inline');
 
+// === JRL LOADER ===
+
+section('JrlLoader');
+
+var jrlLoader = foam.parse.lsp.JrlLoader.create();
+
+// Test p() puts objects
+var result1 = jrlLoader.loadString('p({"class":"foam.core.theme.Theme","id":"theme1","name":"Test Theme"})');
+test(result1.length === 1, 'JrlLoader: p() collects one object');
+test(result1[0].id === 'theme1', 'JrlLoader: p() preserves id');
+test(result1[0].name === 'Test Theme', 'JrlLoader: p() preserves name');
+test(result1[0]['class'] === 'foam.core.theme.Theme', 'JrlLoader: p() preserves class');
+
+// Test c() creates objects (same as p)
+var result2 = jrlLoader.loadString('c({"class":"foam.core.theme.Theme","id":"theme2","name":"Created"})');
+test(result2.length === 1, 'JrlLoader: c() collects object');
+
+// Test r() removes objects
+var result3 = jrlLoader.loadString(
+  'p({"class":"foam.core.theme.Theme","id":"t1","name":"A"})\n' +
+  'p({"class":"foam.core.theme.Theme","id":"t2","name":"B"})\n' +
+  'r({"class":"foam.core.theme.Theme","id":"t1"})'
+);
+test(result3.length === 1, 'JrlLoader: r() removes object by id');
+test(result3[0].id === 't2', 'JrlLoader: r() keeps non-removed objects');
+
+// Test multiple p() calls
+var result4 = jrlLoader.loadString(
+  'p({"class":"test.A","id":"1","value":"x"})\n' +
+  'p({"class":"test.B","id":"2","value":"y"})\n' +
+  'p({"class":"test.A","id":"3","value":"z"})'
+);
+test(result4.length === 3, 'JrlLoader: multiple p() calls collected');
+
+// Test empty/comment lines
+var result5 = jrlLoader.loadString('// comment\n\np({"id":"1"})\n\n// another comment');
+test(result5.length === 1, 'JrlLoader: skips comments and empty lines');
+
+// Test malformed JRL (should not throw)
+var result6 = jrlLoader.loadString('p({invalid json})');
+test(result6.length === 0, 'JrlLoader: malformed JRL returns empty, no throw');
+
+// Test filterByClass
+var result7 = jrlLoader.loadString(
+  'p({"class":"foam.core.theme.Theme","id":"t1"})\n' +
+  'p({"class":"foam.core.theme.customisation.CSSTokenOverride","id":"o1","source":"primary400","target":"#000"})'
+);
+var themes = jrlLoader.filterByClass(result7, 'foam.core.theme.Theme');
+var overrides = jrlLoader.filterByClass(result7, 'foam.core.theme.customisation.CSSTokenOverride');
+test(themes.length === 1, 'JrlLoader: filterByClass returns matching class');
+test(overrides.length === 1, 'JrlLoader: filterByClass returns other class');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -914,18 +914,15 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.parse',
-  name: 'SkipTo',
+  name: 'UntilLiteral0',
 
-  documentation: `Advances the stream to the next occurrence of a literal string using
-String.indexOf() for O(n) native performance. Creates a single PStream at
-the target position instead of walking the tail chain character-by-character.
+  documentation: `Optimized version of Until0 for literal string terminators. Uses
+String.indexOf() for O(n) native performance instead of per-character
+parser invocation. Discards matched content (value is null) and consumes
+the terminator — identical semantics to Until0 with a Literal parser.
 
-Use instead of until0() when skipping large stretches of irrelevant text
-to reach a known string marker.
-
-The skipped content is discarded (value is null). The stream is positioned
-at the START of the found pattern so subsequent parsers can match it.
-If the pattern is not found, the stream advances to EOF.`,
+Returned transparently by the until0() factory when given a String or
+Literal argument. Users do not need to reference this class directly.`,
 
   properties: [
     {
@@ -937,33 +934,69 @@ If the pattern is not found, the stream advances to EOF.`,
 
   methods: [
     function parse(ps) {
-      if ( ! ps.valid ) return undefined;
-
       var str = ps.str[0];
-      // Search from pos + 1 to always advance at least one character.
-      // Prevents infinite loops when the pattern is at the current position
-      // (e.g., a guard rejected the match — skip past it to find the next one).
-      var idx = str.indexOf(this.s, ps.pos + 1);
+      var idx = str.indexOf(this.s, ps.pos);
 
-      if ( idx < 0 ) {
-        // Pattern not found — advance to EOF
-        var end   = ps.cls_.create();
-        end.str   = ps.str;
-        end.pos   = str.length;
-        end.apply = ps.apply;
-        return end.setValue(null);
-      }
+      if ( idx < 0 ) return undefined;
 
-      // Jump directly to the pattern position (O(1) PStream creation)
+      // Jump past the terminator (consumes it, same as Until0)
       var target   = ps.cls_.create();
       target.str   = ps.str;
-      target.pos   = idx;
+      target.pos   = idx + this.s.length;
       target.apply = ps.apply;
       return target.setValue(null);
     },
 
     function toString() {
-      return 'skipTo("' + this.s + '")';
+      return 'until0("' + this.s + '")';
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.parse',
+  name: 'UntilLiteral',
+
+  documentation: `Optimized version of Until for literal string terminators. Uses
+String.indexOf() to find the terminator in O(n) native time, then returns
+the characters before it as an array — identical semantics to Until with a
+Literal parser.
+
+Returned transparently by the until() factory when given a String or
+Literal argument. Users do not need to reference this class directly.`,
+
+  properties: [
+    {
+      name: 's',
+      class: 'Simple',
+      documentation: 'The literal string to search for'
+    }
+  ],
+
+  methods: [
+    function parse(ps) {
+      var str = ps.str[0];
+      var idx = str.indexOf(this.s, ps.pos);
+
+      if ( idx < 0 ) return undefined;
+
+      // Collect characters before the terminator (matching Until's return format)
+      var res = [];
+      for ( var i = ps.pos ; i < idx ; i++ ) {
+        res.push(str[i]);
+      }
+
+      // Position past the terminator (consumes it, same as Until)
+      var target   = ps.cls_.create();
+      target.str   = ps.str;
+      target.pos   = idx + this.s.length;
+      target.apply = ps.apply;
+      return target.setValue(res);
+    },
+
+    function toString() {
+      return 'until("' + this.s + '")';
     }
   ]
 });
@@ -1233,7 +1266,8 @@ foam.CLASS({
     'foam.parse.Symbol',
     'foam.parse.Until',
     'foam.parse.Until0',
-    'foam.parse.SkipTo',
+    'foam.parse.UntilLiteral',
+    'foam.parse.UntilLiteral0',
     'foam.parse.Join',
     'foam.parse.ParserWithAction'
   ],
@@ -1369,21 +1403,23 @@ foam.CLASS({
     },
 
     function until(p) {
-      return this.Until.create({
-        p: p
-      });
+      if ( typeof p === 'string' ) {
+        return this.UntilLiteral.create({ s: p });
+      }
+      if ( foam.parse.Literal.isInstance(p) ) {
+        return this.UntilLiteral.create({ s: p.s });
+      }
+      return this.Until.create({ p: p });
     },
 
     function until0(p) {
-      return this.Until0.create({
-        p: p
-      });
-    },
-
-    function skipTo(s) {
-      return this.SkipTo.create({
-        s: s
-      });
+      if ( typeof p === 'string' ) {
+        return this.UntilLiteral0.create({ s: p });
+      }
+      if ( foam.parse.Literal.isInstance(p) ) {
+        return this.UntilLiteral0.create({ s: p.s });
+      }
+      return this.Until0.create({ p: p });
     },
 
     function join(p) {

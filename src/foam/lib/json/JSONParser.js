@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.lib.parse.Parser',
     'foam.lib.parse.ParserContext',
     'foam.lib.parse.ParserContextImpl',
+    'foam.lib.parse.PooledStringPStream',
     'foam.lib.parse.StringPStream'
   ],
 
@@ -30,6 +31,19 @@ foam.CLASS({
       try {
         ps = (StringPStream) ps.apply(defaultClass == null ? parser : ExprParser.create(defaultClass), x);
         return ps == null ? null : (FObject) ps.value();
+      } catch ( Throwable t ) {
+        return null;
+      }
+    }
+
+    public FObject parseStringPooled(String data, Class defaultClass, PooledStringPStream pooledPs) {
+      pooledPs.setString(data);
+      ParserContext x = new ParserContextImpl();
+      x.set("X", getX());
+      try {
+        foam.lib.parse.PStream result = pooledPs.apply(
+          defaultClass == null ? parser : ExprParser.create(defaultClass), x);
+        return result == null ? null : (FObject) result.value();
       } catch ( Throwable t ) {
         return null;
       }

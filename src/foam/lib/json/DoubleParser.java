@@ -17,59 +17,82 @@ public class DoubleParser
 
 
   public PStream parse(PStream ps, ParserContext x) {
-    StringBuilder n                = new StringBuilder();
-    boolean       decimalFound     = false;
-    boolean       exponentFound    = false;
-    boolean       negativeExponent = false;
-    char          previousChar;
-
     if ( ! ps.valid() ) return null;
 
+    boolean negative = false;
     char c = ps.head();
 
     if ( c == '-' ) {
-      n.append(c);
+      negative = true;
       ps = ps.tail();
       if ( ! ps.valid() ) return null;
       c = ps.head();
     }
 
-    // Double numbers must start with a digit: 0.1, 4.0
-    if ( Character.isDigit(c) ) n.append(c);
-    else return null;
+    if ( ! Character.isDigit(c) ) return null;
 
+    // Integer part
+    long intPart = c - '0';
     ps = ps.tail();
-
     while ( ps.valid() ) {
-      previousChar = c;
       c = ps.head();
       if ( Character.isDigit(c) ) {
-        n.append(c);
-      } else if ( c == '.' ) { // TODO: localization
-        if ( decimalFound ) return null;
-
-        // Java throws a NumberFormatException if exponent is before decimal.
-        // Exponent with no decimal is acceptable.
-        if ( exponentFound ) return null;
-
-        decimalFound = true;
-        n.append(c);
-      } else if ( c == 'E' || c == 'e' ) {
-        if ( exponentFound ) return null;
-        exponentFound = true;
-        n.append(c);
-      } else if ( c == '-' ) {
-        if ( negativeExponent ) return null;
-        if ( previousChar == 'E' || previousChar == 'e' ) {
-          negativeExponent = true;
-          n.append(c);
-        }
+        intPart = intPart * 10 + (c - '0');
+        ps = ps.tail();
       } else {
         break;
       }
-      ps = ps.tail();
     }
 
-    return ps.setValue(n.length() > 0 ? Double.valueOf(n.toString()) : null);
+    // Decimal part
+    long fracPart  = 0;
+    long fracScale = 1;
+    if ( ps.valid() && ps.head() == '.' ) {
+      ps = ps.tail();
+      while ( ps.valid() ) {
+        c = ps.head();
+        if ( Character.isDigit(c) ) {
+          fracPart = fracPart * 10 + (c - '0');
+          fracScale *= 10;
+          ps = ps.tail();
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Exponent part
+    int     expSign = 1;
+    long    expPart = 0;
+    boolean hasExp  = false;
+    if ( ps.valid() ) {
+      c = ps.head();
+      if ( c == 'e' || c == 'E' ) {
+        hasExp = true;
+        ps = ps.tail();
+        if ( ps.valid() ) {
+          c = ps.head();
+          if ( c == '+' || c == '-' ) {
+            if ( c == '-' ) expSign = -1;
+            ps = ps.tail();
+          }
+        }
+        while ( ps.valid() ) {
+          c = ps.head();
+          if ( Character.isDigit(c) ) {
+            expPart = expPart * 10 + (c - '0');
+            ps = ps.tail();
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    double val = (double) intPart + (double) fracPart / fracScale;
+    if ( hasExp ) val *= Math.pow(10.0, expSign * expPart);
+    if ( negative ) val = -val;
+
+    return ps.setValue(val);
   }
 }

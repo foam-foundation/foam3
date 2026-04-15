@@ -1354,6 +1354,7 @@ foam.POM({
     { name: "foam/lib/parse/PooledStringPStream" },
     { name: "foam/lib/parse/Literal" },
     { name: "foam/lib/parse/ErrorReportingNodePStream" },
+    { name: "foam/lib/parse/CharLiteral" },
     { name: "foam/lib/parse/AbstractLiteral" },
     { name: "foam/lib/parse/LiteralIC" },
     { name: "foam/lib/parse/Range" },

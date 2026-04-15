@@ -47,7 +47,31 @@ public class ModelParserFactory {
   protected final static Parser OPTIONAL_COMMENTS = new Optional(COMMENTS);
   protected final static Parser UNKNOWN_PROPERTY  = new UnknownPropertyParser();
 
-  protected final static Parser SKIP              = new Repeat0(new Alt(new Seq0(Literal.create("//"),new Until(NewlineParser.create())), new WS()));
+  protected final static Parser SKIP              = new Parser() {
+    public PStream parse(PStream ps, ParserContext x) {
+      while ( ps.valid() ) {
+        char c = ps.head();
+        if ( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) {
+          ps = ps.tail();
+          continue;
+        }
+        if ( c == '/' ) {
+          PStream next = ps.tail();
+          if ( next.valid() && next.head() == '/' ) {
+            ps = next.tail();
+            while ( ps.valid() ) {
+              char nc = ps.head();
+              if ( nc == '\n' || nc == '\r' ) { ps = ps.tail(); break; }
+              ps = ps.tail();
+            }
+            continue;
+          }
+        }
+        break;
+      }
+      return ps;
+    }
+  };
 
   public static Parser getInstance(ClassInfo ci) {
     if ( parsers_.containsKey(ci) ) return parsers_.get(ci);

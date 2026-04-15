@@ -176,32 +176,8 @@ foam.CLASS({
         });
       }
 
-      // Inside extends: '...' or of: '...' or requires: ['...' → class names
-      if ( /(?:extends|of)\s*:\s*['"][^'"]*$/.test(prefix) ||
-           /requires\s*:\s*\[/.test(this.getLineContext_(lines, position.line)) && /['"][^'"]*$/.test(prefix) ||
-           /implements\s*:\s*\[/.test(this.getLineContext_(lines, position.line)) && /['"][^'"]*$/.test(prefix) ) {
-        var partial = this.extractPartial_(prefix).toLowerCase();
-        var ids = this.index.getAllClassIds();
-        var items = [];
-        for ( var i = 0 ; i < ids.length ; i++ ) {
-          if ( partial && ids[i].toLowerCase().indexOf(partial) === -1 ) continue;
-          items.push({
-            label: ids[i], kind: 7,
-            textEdit: { range: replaceRange, newText: ids[i] },
-            filterText: ids[i],
-            sortText: '!' + ids[i].toLowerCase()
-          });
-          if ( items.length > 200 ) break;
-        }
-        return items;
-      }
-
-      // Inside javaImports: ['...' → Java packages (dynamic from registry)
-      if ( /javaImports\s*:\s*\[/.test(this.getLineContext_(lines, position.line)) && /['"][^'"]*$/.test(prefix) ) {
-        return this.getJavaImportSuggestions_(replaceRange, this.extractPartial_(prefix));
-      }
-
       // Inside tableColumns: ['...' or searchColumns: ['...' → property names
+      // MUST be checked before requires/implements (those use broad lineContext matching)
       var lineContext = this.getLineContext_(lines, position.line);
       if ( (/tableColumns\s*:\s*\[/.test(lineContext) || /searchColumns\s*:\s*\[/.test(lineContext)) &&
            /['"][^'"]*$/.test(prefix) ) {
@@ -235,6 +211,31 @@ foam.CLASS({
           }
           return items;
         }
+      }
+
+      // Inside extends: '...' or of: '...' or requires: ['...' → class names
+      if ( /(?:extends|of)\s*:\s*['"][^'"]*$/.test(prefix) ||
+           /requires\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix) ||
+           /implements\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix) ) {
+        var partial = this.extractPartial_(prefix).toLowerCase();
+        var ids = this.index.getAllClassIds();
+        var items = [];
+        for ( var i = 0 ; i < ids.length ; i++ ) {
+          if ( partial && ids[i].toLowerCase().indexOf(partial) === -1 ) continue;
+          items.push({
+            label: ids[i], kind: 7,
+            textEdit: { range: replaceRange, newText: ids[i] },
+            filterText: ids[i],
+            sortText: '!' + ids[i].toLowerCase()
+          });
+          if ( items.length > 200 ) break;
+        }
+        return items;
+      }
+
+      // Inside javaImports: ['...' → Java packages (dynamic from registry)
+      if ( /javaImports\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix) ) {
+        return this.getJavaImportSuggestions_(replaceRange, this.extractPartial_(prefix));
       }
 
       // Inside a property object { ... } within properties: [...] → suggest property keys

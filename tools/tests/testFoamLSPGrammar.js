@@ -1327,6 +1327,13 @@ var searchCompResult = completionHandler.handle(searchCompText, { line: 8, chara
 var searchItems = searchCompResult.items || [];
 test(searchItems.some(function(it) { return it.label === 'firstName'; }), 'searchColumns: suggests firstName');
 
+// tableColumns with requires above — should suggest props, not classes
+var colWithReqText = "foam.CLASS({\n  package: 'test',\n  name: 'ColReqTest',\n  requires: ['foam.u2.DetailView'],\n  properties: [\n    { class: 'String', name: 'myProp' }\n  ],\n  tableColumns: ['']\n})";
+var colWithReqResult = completionHandler.handle(colWithReqText, { line: 7, character: 19 });
+var colWithReqItems = colWithReqResult.items || [];
+test(colWithReqItems.some(function(it) { return it.label === 'myProp'; }), 'tableColumns: suggests props not classes when requires is above');
+test( ! colWithReqItems.some(function(it) { return it.label === 'foam.u2.DetailView'; }), 'tableColumns: does NOT suggest class names');
+
 // Diagnostics: valid column name — no warning
 var validColText = "foam.CLASS({\n  package: 'foam.parse.lsp.test',\n  name: 'ColDiagTest',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'String', name: 'firstName' }\n  ],\n  tableColumns: ['firstName']\n})";
 var validColDiags = diagHandler.handle(validColText);

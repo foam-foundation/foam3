@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+/**
  * QA Compiler v2 — Decision Matrix
  *
  * Compiles foam.QA() definitions in the decision matrix format into a
@@ -268,10 +274,7 @@ foam.CLASS({
             return this.OUTCOMES.filter(function(outcome) {
               self.ensureCompiled(outcome);
               return outcome.terms.every(function(term) {
-                let a = self.isTermConsistent(term)
-                if ( a == false )
-                console.debug('eliminating: ',self.outcomeFormatter(outcome), 'term: ',term, 'result: ', a);
-                return a;
+                return self.isTermConsistent(term);
               });
             });
           },

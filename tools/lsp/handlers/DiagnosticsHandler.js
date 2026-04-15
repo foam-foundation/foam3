@@ -298,6 +298,20 @@ foam.CLASS({
         if ( name ) propNames[name] = true;
       }
 
+      // Also collect property names from inner classes (classes: [...])
+      var innerClasses = m.classes || [];
+      for ( var ic = 0 ; ic < innerClasses.length ; ic++ ) {
+        var innerProps = innerClasses[ic].properties || [];
+        for ( var ip = 0 ; ip < innerProps.length ; ip++ ) {
+          var ipName = typeof innerProps[ip] === 'string' ? innerProps[ip] : innerProps[ip].name;
+          if ( ipName ) propNames[ipName] = true;
+        }
+        // Also check registry for the inner class
+        var innerClassId = (m.package ? m.package + '.' : '') + m.name + '.' + innerClasses[ic].name;
+        var innerRegProps = this.index.getProperties(innerClassId);
+        for ( var ir = 0 ; ir < innerRegProps.length ; ir++ ) propNames[innerRegProps[ir].name] = true;
+      }
+
       // Find expression: function(...) patterns ONLY within this model's text range
       var modelText = text.substring(modelOffset, modelEnd);
       var exprRegex = /expression\s*:\s*function\s*\(([^)]*)\)/g;

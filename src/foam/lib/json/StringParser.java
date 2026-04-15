@@ -96,7 +96,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    // inter()'ed objects are GC'ed, so safe to do here
-    return ps.setValue(sb.toString().intern());
+    return ps.setValue(sb.toString());
   }
 }

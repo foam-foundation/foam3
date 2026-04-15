@@ -133,7 +133,7 @@ foam.CLASS({
       name: 'onComplete',
       documentation: 'Optional callback invoked with (data) when the wizard finishes'
     },
-    'valueSub__'
+    'valueSub_'
   ],
 
   methods: [
@@ -144,21 +144,20 @@ foam.CLASS({
       // Keep currentAnswerFilled in sync with whatever question is currently shown.
       // When the question changes, tear down the old subscription and create a new one.
       this.dynamic(function(currentAnswerName_) {
-        if ( self.__valueSub ) { self.__valueSub.detach(); self.__valueSub = null; }
+        if ( self.valueSub_ ) { self.valueSub_.detach(); self.valueSub_ = null; }
         var name = self.currentAnswerName_;
         if ( name && self.data ) {
           var slot = self.data$.dot(name);
-          self.currentAnswerFilled = !! slot.get();
-          self.__valueSub = slot.sub(function() {
-            self.currentAnswerFilled = !! slot.get();
-          });
+          self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function(v) {
+            return !!v;
+          }));
         } else {
           self.currentAnswerFilled = false;
         }
       });
 
       this.onDetach(function() {
-        if ( self.__valueSub ) self.__valueSub.detach();
+        if ( self.valueSub_ ) self.valueSub_.detach();
       });
 
       if ( this.data ) {
@@ -211,7 +210,6 @@ foam.CLASS({
         })
       .end();
 
-      // ── Content ─────────────────────────────────────────────────────────────
       this.start().addClass(this.myClass('content'))
         .add(this.dynamic(function(phase, currentQuestionAxiom) {
           this
@@ -281,7 +279,6 @@ foam.CLASS({
         }))
       .end();
 
-      // ── Footer ───────────────────────────────────────────────────────────────
       this.start().addClass(this.myClass('footer'))
         .startContext({ data: this })
           .tag(this.BACK)
@@ -326,7 +323,7 @@ foam.CLASS({
       isEnabled: function(phase, currentAnswerFilled, pickedOutcomeIndex) {
         if ( phase == 'QUESTION'  ) return currentAnswerFilled;
         if ( phase == 'PICK' ) return !! pickedOutcomeIndex || pickedOutcomeIndex === '0';
-        return true; // outcome phase: always enabled
+        return true;
       },
       code: async function() {
         if ( this.phase == 'OUTCOME' ) {
@@ -345,7 +342,6 @@ foam.CLASS({
           }
         }
 
-        // asking: record the answer and advance
         this.answeredStack$push(this.currentQuestionAxiom);
         return await this.advance_();
       }

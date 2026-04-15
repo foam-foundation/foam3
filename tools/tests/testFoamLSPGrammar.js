@@ -1510,6 +1510,27 @@ test(propItems.some(function(it) { return it.label === 'tableCellFormatter: '; }
 test(propItems.some(function(it) { return it.label === 'label: '; }), 'Prop key: suggests label');
 test(propItems.some(function(it) { return it.label === 'section: '; }), 'Prop key: suggests section');
 
+// === INNER CLASS EXPRESSION SCOPING ===
+
+section('Inner Class Expression Scoping');
+
+// Expression in inner class should validate against inner class properties, not outer
+var innerClassText = "foam.CLASS({\n  package: 'test',\n  name: 'Outer',\n  properties: [\n    { class: 'String', name: 'outerProp' }\n  ],\n  classes: [\n    {\n      name: 'Inner',\n      properties: [\n        { class: 'String', name: 'innerProp' },\n        { name: 'computed', expression: function(innerProp) { return innerProp; } }\n      ]\n    }\n  ]\n})";
+var innerDiags = diagHandler.handle(innerClassText);
+var innerExprWarns = innerDiags.filter(function(d) { return d.message.indexOf('innerProp') !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(innerExprWarns.length === 0, 'Inner class: innerProp expression NOT flagged');
+
+// Expression in inner class referencing outer property should be flagged
+var innerBadText = "foam.CLASS({\n  package: 'test',\n  name: 'Outer2',\n  properties: [\n    { class: 'String', name: 'outerProp' }\n  ],\n  classes: [\n    {\n      name: 'Inner2',\n      properties: [\n        { name: 'computed', expression: function(outerProp) { return outerProp; } }\n      ]\n    }\n  ]\n})";
+var innerBadDiags = diagHandler.handle(innerBadText);
+test(innerBadDiags.some(function(d) { return d.message.indexOf('outerProp') !== -1 && d.message.indexOf('does not exist') !== -1; }), 'Inner class: outerProp expression IS flagged (wrong scope)');
+
+// Outer expression should still work
+var outerExprText = "foam.CLASS({\n  package: 'test',\n  name: 'Outer3',\n  properties: [\n    { class: 'String', name: 'outerProp' },\n    { name: 'computed', expression: function(outerProp) { return outerProp; } }\n  ],\n  classes: [\n    {\n      name: 'Inner3',\n      properties: [\n        { class: 'String', name: 'innerProp' }\n      ]\n    }\n  ]\n})";
+var outerExprDiags = diagHandler.handle(outerExprText);
+var outerExprWarns = outerExprDiags.filter(function(d) { return d.message.indexOf('outerProp') !== -1 && d.message.indexOf('does not exist') !== -1; });
+test(outerExprWarns.length === 0, 'Outer class: outerProp expression NOT flagged');
+
 // === SUMMARY ===
 
 section('SUMMARY');

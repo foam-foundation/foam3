@@ -268,60 +268,53 @@ foam.CLASS({
     function validateExpressions_(m, text, diagnostics) {
       /**
        * Validate expression function parameters are real property names.
-       * Handles trailing $ (slot access), and deep $ chains (block$flowParent$value).
-       * Scoped to the model's text range to avoid false positives in multi-model files.
+       * Handles trailing $ (slot access), deep $ chains (block$flowParent$value),
+       * inner classes (classes: [...]), and multi-model files.
+       *
+       * Builds property scopes — one for the outer model, one per inner class —
+       * each with a text range. For each expression match, finds the narrowest
+       * enclosing scope and validates against that scope's properties.
        */
       var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
       var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
-      // Determine end of this model's text (next foam.CLASS/ENUM/INTERFACE or EOF)
+      // Determine end of this model's text
       var nextModelRegex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/g;
       nextModelRegex.lastIndex = modelOffset + 1;
       var nextMatch = nextModelRegex.exec(text);
       var modelEnd = nextMatch ? nextMatch.index : text.length;
+      var modelText = text.substring(modelOffset, modelEnd);
 
-      // Build property name set (own + inherited + model-defined)
-      var propNames = {};
-      var props = this.index.getProperties(classId);
-      for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
+      // Build property scopes: outer model + each inner class
+      var scopes = [];
+      scopes.push(this.buildPropScope_(classId, m, 0, modelText.length));
 
-      // If the class itself isn't registered, resolve inherited properties from extends
-      if ( props.length === 0 && m.extends ) {
-        var parentProps = this.index.getProperties(m.extends);
-        for ( var i = 0 ; i < parentProps.length ; i++ ) propNames[parentProps[i].name] = true;
-      }
-
-      var ownProps = m.properties || [];
-      for ( var i = 0 ; i < ownProps.length ; i++ ) {
-        var p = ownProps[i];
-        var name = typeof p === 'string' ? p : p.name;
-        if ( name ) propNames[name] = true;
-      }
-
-      // Also collect property names from inner classes (classes: [...])
+      // Inner classes get their own scopes with text ranges
       var innerClasses = m.classes || [];
       for ( var ic = 0 ; ic < innerClasses.length ; ic++ ) {
-        var innerProps = innerClasses[ic].properties || [];
-        for ( var ip = 0 ; ip < innerProps.length ; ip++ ) {
-          var ipName = typeof innerProps[ip] === 'string' ? innerProps[ip] : innerProps[ip].name;
-          if ( ipName ) propNames[ipName] = true;
-        }
-        // Also check registry for the inner class
-        var innerClassId = (m.package ? m.package + '.' : '') + m.name + '.' + innerClasses[ic].name;
-        var innerRegProps = this.index.getProperties(innerClassId);
-        for ( var ir = 0 ; ir < innerRegProps.length ; ir++ ) propNames[innerRegProps[ir].name] = true;
+        var inner = innerClasses[ic];
+        var innerName = inner.name || ('InnerClass' + ic);
+        var innerClassId = classId + '.' + innerName;
+
+        // Find inner class text range within modelText
+        var innerRange = this.findInnerClassRange_(modelText, innerName);
+        scopes.push(this.buildPropScope_(innerClassId, inner,
+          innerRange ? innerRange.start : 0,
+          innerRange ? innerRange.end : modelText.length));
       }
 
-      // Find expression: function(...) patterns ONLY within this model's text range
-      var modelText = text.substring(modelOffset, modelEnd);
+      // Find expression: function(...) patterns within this model's text
       var exprRegex = /expression\s*:\s*function\s*\(([^)]*)\)/g;
       var match;
       while ( ( match = exprRegex.exec(modelText) ) !== null ) {
         var paramsStr = match[1].trim();
         if ( ! paramsStr ) continue;
 
+        // Find the narrowest enclosing scope for this expression
+        var exprPos = match.index;
+        var scope = this.findEnclosingScope_(scopes, exprPos);
+
         var params = paramsStr.split(/\s*,\s*/);
-        // Convert to absolute offset for diagnostics
         var paramsOffset = modelOffset + match.index + match[0].indexOf(paramsStr);
 
         var currentOffset = paramsOffset;
@@ -329,7 +322,6 @@ foam.CLASS({
           var param = params[i].trim();
           if ( ! param ) { currentOffset += params[i].length + 1; continue; }
 
-          // Calculate offset for this specific parameter
           var paramOffset = text.indexOf(param, currentOffset);
           if ( paramOffset === -1 ) paramOffset = currentOffset;
           currentOffset = paramOffset + param.length + 1;
@@ -346,16 +338,16 @@ foam.CLASS({
           if ( /^[_$]$/.test(firstSegment) || firstSegment === 'x' || firstSegment === 'data' ||
                firstSegment === 'self' || firstSegment === 'this' ) continue;
 
-          // Validate first segment against model properties
-          if ( ! propNames[firstSegment] ) {
+          // Validate first segment against scope properties
+          if ( ! scope.propNames[firstSegment] ) {
             this.addDiag_(diagnostics, text, paramOffset, param.length, 2,
-              "Property '" + firstSegment + "' does not exist on " + classId);
+              "Property '" + firstSegment + "' does not exist on " + scope.classId);
             continue;
           }
 
           // Walk the chain for deep paths
           if ( segments.length > 1 ) {
-            var currentClassId = this.index.resolvePropertyTypeClassId(classId, firstSegment);
+            var currentClassId = this.index.resolvePropertyTypeClassId(scope.classId, firstSegment);
             for ( var s = 1 ; s < segments.length ; s++ ) {
               if ( ! currentClassId ) break;
               var segment = segments[s];
@@ -378,6 +370,89 @@ foam.CLASS({
           }
         }
       }
+    },
+
+    function buildPropScope_(classId, modelObj, rangeStart, rangeEnd) {
+      /**
+       * Build a property scope: { classId, propNames, start, end }.
+       * Collects property names from both the FOAM registry and the raw model object.
+       */
+      var propNames = {};
+
+      // Registry properties (own + inherited)
+      var props = this.index.getProperties(classId);
+      for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
+
+      // If class not registered, try parent
+      if ( props.length === 0 && modelObj.extends ) {
+        var parentProps = this.index.getProperties(modelObj.extends);
+        for ( var i = 0 ; i < parentProps.length ; i++ ) propNames[parentProps[i].name] = true;
+      }
+
+      // Raw model properties
+      var ownProps = modelObj.properties || [];
+      for ( var i = 0 ; i < ownProps.length ; i++ ) {
+        var p = ownProps[i];
+        var name = typeof p === 'string' ? p : p.name;
+        if ( name ) propNames[name] = true;
+      }
+
+      return { classId: classId, propNames: propNames, start: rangeStart, end: rangeEnd };
+    },
+
+    function findInnerClassRange_(modelText, className) {
+      /**
+       * Find the text range of an inner class definition within the model text.
+       * Returns { start, end } offsets or null.
+       */
+      var namePattern = new RegExp("name\\s*:\\s*['\"]" + className + "['\"]");
+      var nameMatch = namePattern.exec(modelText);
+      if ( ! nameMatch ) return null;
+
+      // Walk backward from name match to find the opening {
+      var start = nameMatch.index;
+      for ( var i = start ; i >= 0 ; i-- ) {
+        if ( modelText.charAt(i) === '{' ) { start = i; break; }
+      }
+
+      // Walk forward to find the closing } at the same depth
+      var depth = 0;
+      var end = modelText.length;
+      for ( var i = start ; i < modelText.length ; i++ ) {
+        var ch = modelText.charAt(i);
+        if ( ch === '{' ) depth++;
+        else if ( ch === '}' ) {
+          depth--;
+          if ( depth === 0 ) { end = i + 1; break; }
+        }
+        // Skip strings
+        else if ( ch === "'" || ch === '"' || ch === '`' ) {
+          for ( i++ ; i < modelText.length ; i++ ) {
+            if ( modelText.charAt(i) === '\\' ) { i++; continue; }
+            if ( modelText.charAt(i) === ch ) break;
+          }
+        }
+      }
+
+      return { start: start, end: end };
+    },
+
+    function findEnclosingScope_(scopes, position) {
+      /**
+       * Find the narrowest scope that contains the given position.
+       * Inner class scopes are narrower than the outer model scope.
+       */
+      var best = scopes[0]; // outer model is always the fallback
+      for ( var i = 1 ; i < scopes.length ; i++ ) {
+        var s = scopes[i];
+        if ( position >= s.start && position < s.end ) {
+          // Prefer narrower scope
+          if ( (s.end - s.start) < (best.end - best.start) ) {
+            best = s;
+          }
+        }
+      }
+      return best;
     },
 
     function classKnown_(classId) {

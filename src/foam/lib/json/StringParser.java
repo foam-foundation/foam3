@@ -9,6 +9,7 @@ package foam.lib.json;
 import foam.lib.parse.PStream;
 import foam.lib.parse.Parser;
 import foam.lib.parse.ParserContext;
+import foam.lib.parse.FastStringPStream;
 import foam.lib.parse.StringPStream;
 import foam.lib.parse.Alt;
 import foam.lib.parse.Literal;
@@ -64,6 +65,19 @@ public class StringParser
    * of per-character ps.apply(delimiter, x) checks.
    * Returns null if escapes are present (falls back to slow path).
    */
+  private PStream parseFastFPS(FastStringPStream fps, char delim) {
+    String str = fps.getString();
+    int    pos = fps.pos();
+    int closeIdx = str.indexOf(delim, pos);
+    if ( closeIdx < 0 ) return null;
+
+    int escIdx = str.indexOf(ESCAPE, pos);
+    if ( escIdx >= 0 && escIdx < closeIdx ) return null;
+
+    String value = str.substring(pos, closeIdx);
+    return fps.createAt(closeIdx + 1).setValue(value);
+  }
+
   private PStream parseFast(StringPStream sps, char delim) {
     String str = sps.getString().toString();
     int    pos = sps.pos();
@@ -85,14 +99,20 @@ public class StringParser
 
     Parser delimiter = (Parser) ps.value();
 
-    // Fast path: single-char delimiter on StringPStream with no escapes.
+    // Fast path: single-char delimiter with no escapes.
     // Uses indexOf() to find closing delimiter in one call — same pattern as
     // UntilLiteral but with backslash pre-check for escape handling.
-    if ( ps instanceof StringPStream && delimiter instanceof foam.lib.parse.AbstractLiteral ) {
+    if ( delimiter instanceof foam.lib.parse.AbstractLiteral ) {
       String ds = ((foam.lib.parse.AbstractLiteral) delimiter).getString();
       if ( ds != null && ds.length() == 1 ) {
-        PStream fast = parseFast((StringPStream) ps, ds.charAt(0));
-        if ( fast != null ) return fast;
+        char delim = ds.charAt(0);
+        if ( ps instanceof FastStringPStream ) {
+          PStream fast = parseFastFPS((FastStringPStream) ps, delim);
+          if ( fast != null ) return fast;
+        } else if ( ps instanceof StringPStream ) {
+          PStream fast = parseFast((StringPStream) ps, delim);
+          if ( fast != null ) return fast;
+        }
       }
       // Fall through to character-by-character for escaped strings,
       // triple-quotes, or when indexOf can't find the delimiter

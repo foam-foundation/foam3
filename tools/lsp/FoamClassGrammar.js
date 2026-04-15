@@ -125,7 +125,8 @@ foam.CLASS({
         // === FILE-LEVEL ===
         START: P.repeat(P.alt(P.sym('foamCall'), P.sym('ignoredContent')), null, 0),
 
-        foamCall: P.alt(P.sym('foamClass'), P.sym('foamEnum'), P.sym('foamInterface')),
+        foamCall: P.alt(P.sym('foamClass'), P.sym('foamEnum'), P.sym('foamInterface'),
+          P.sym('foamPOM')),
 
         foamClass: P.seq(P.literal('foam.CLASS'), wsc, P.literal('('), wsc,
           P.sym('classBody'), wsc, P.optional(P.literal(')'))),
@@ -133,6 +134,23 @@ foam.CLASS({
           P.sym('classBody'), wsc, P.optional(P.literal(')'))),
         foamInterface: P.seq(P.literal('foam.INTERFACE'), wsc, P.literal('('), wsc,
           P.sym('classBody'), wsc, P.optional(P.literal(')'))),
+
+        foamPOM: P.seq(P.literal('foam.POM'), wsc, P.literal('('), wsc,
+          P.sym('pomBody'), wsc, P.optional(P.literal(')'))),
+
+        pomBody: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('pomEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        pomEntry: P.alt(
+          P.sym('pomKey'),
+          P.sym('genericEntry')
+        ),
+
+        pomKey: P.alt(
+          key('name'), key('version'), key('files'), key('projects'),
+          key('javaDependencies'), key('javaFiles'), key('journalFiles')
+        ),
 
         // Skip one character — catch-all that lets START consume the whole file
         ignoredContent: P.anyChar(),
@@ -232,7 +250,10 @@ foam.CLASS({
           key('implements'), key('javaImports'), key('axioms'),
           key('css'), key('messages'), key('topics'), key('listeners'),
           key('constants'), key('sections'), key('flags'),
-          key('tableColumns'), key('searchColumns')
+          key('tableColumns'), key('searchColumns'),
+          key('refines'), key('label'), key('plural'), key('order'),
+          key('ids'), key('javaCode'), key('cssTokens'), key('mixins'),
+          key('static'), key('of'), key('values')
         ),
 
         // === CLASS REFERENCES (dynamic) ===
@@ -270,7 +291,24 @@ foam.CLASS({
           P.seq(P.sug(P.literal('transient'), foam.parse.Suggestion.create({
             text: 'transient', category: 'key' })),
             wsc, P.literal(':'), wsc, booleanLiteral),
+          P.sym('propKey'),
           P.sym('genericEntry')
+        ),
+
+        propKey: P.alt(
+          key('class'), key('name'), key('of'), key('documentation'),
+          key('hidden'), key('transient'),
+          key('value'), key('factory'), key('expression'),
+          key('javaCode'), key('javaGetter'), key('javaPostSet'),
+          key('javaPreSet'), key('javaFactory'),
+          key('aliases'), key('label'), key('section'), key('visibility'),
+          key('view'), key('adapt'), key('preSet'), key('postSet'),
+          key('required'), key('width'), key('placeholder'), key('help'),
+          key('gridColumns'), key('tableCellFormatter'), key('labelFormatter'),
+          key('shortName'), key('readPermissionRequired'), key('writePermissionRequired'),
+          key('validateObj'), key('tableWidth'), key('storageTransient'),
+          key('cloneProperty'), key('networkTransient'), key('readOnly'),
+          key('permissionRequired'), key('javaSetter'), key('javaInfoType')
         ),
 
         propType: P.alt(

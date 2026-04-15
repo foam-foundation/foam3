@@ -1456,6 +1456,60 @@ var propBOnA = multiWarns.filter(function(d) { return d.message.indexOf('propB')
 test(propAOnB.length === 0, 'Expression: propA NOT flagged against ModelB (multi-model scoping)');
 test(propBOnA.length === 0, 'Expression: propB NOT flagged against ModelA (multi-model scoping)');
 
+// === POM COMPLETIONS ===
+
+section('POM Completions');
+
+var pomText = "foam.POM({\n  na\n})";
+var pomResult = completionHandler.handle(pomText, { line: 1, character: 4 });
+var pomItems = pomResult.items || [];
+test(pomItems.some(function(it) { return it.label === 'name: '; }), 'POM: suggests name');
+
+var pomText2 = "foam.POM({\n  \n})";
+var pomResult2 = completionHandler.handle(pomText2, { line: 1, character: 2 });
+var pomItems2 = pomResult2.items || [];
+test(pomItems2.some(function(it) { return it.label === 'files: '; }), 'POM: suggests files');
+test(pomItems2.some(function(it) { return it.label === 'projects: '; }), 'POM: suggests projects');
+test(pomItems2.some(function(it) { return it.label === 'javaDependencies: '; }), 'POM: suggests javaDependencies');
+
+// === FOAM.CLASS KEY COMPLETIONS ===
+
+section('foam.CLASS Key Completions');
+
+var classText = "foam.CLASS({\n  \n})";
+var classResult = completionHandler.handle(classText, { line: 1, character: 2 });
+var classItems = classResult.items || [];
+test(classItems.some(function(it) { return it.label === 'refines: '; }), 'CLASS key: suggests refines');
+test(classItems.some(function(it) { return it.label === 'label: '; }), 'CLASS key: suggests label');
+test(classItems.some(function(it) { return it.label === 'plural: '; }), 'CLASS key: suggests plural');
+test(classItems.some(function(it) { return it.label === 'ids: '; }), 'CLASS key: suggests ids');
+test(classItems.some(function(it) { return it.label === 'javaCode: '; }), 'CLASS key: suggests javaCode');
+test(classItems.some(function(it) { return it.label === 'cssTokens: '; }), 'CLASS key: suggests cssTokens');
+
+// Existing keys still work
+test(classItems.some(function(it) { return it.label === 'package: '; }), 'CLASS key: still suggests package');
+test(classItems.some(function(it) { return it.label === 'properties: '; }), 'CLASS key: still suggests properties');
+
+// === PROPERTY KEY COMPLETIONS ===
+
+section('Property Key Completions');
+
+var propText = "foam.CLASS({\n  properties: [\n    {\n      \n    }\n  ]\n})";
+var propResult = completionHandler.handle(propText, { line: 3, character: 6 });
+var propItems = propResult.items || [];
+test(propItems.some(function(it) { return it.label === 'class: ' || it.label === 'class'; }), 'Prop key: suggests class');
+test(propItems.some(function(it) { return it.label === 'name: ' || it.label === 'name'; }), 'Prop key: suggests name');
+test(propItems.some(function(it) { return it.label === 'value: '; }), 'Prop key: suggests value');
+test(propItems.some(function(it) { return it.label === 'factory: '; }), 'Prop key: suggests factory');
+test(propItems.some(function(it) { return it.label === 'expression: '; }), 'Prop key: suggests expression');
+test(propItems.some(function(it) { return it.label === 'javaCode: '; }), 'Prop key: suggests javaCode');
+test(propItems.some(function(it) { return it.label === 'javaGetter: '; }), 'Prop key: suggests javaGetter');
+test(propItems.some(function(it) { return it.label === 'view: '; }), 'Prop key: suggests view');
+test(propItems.some(function(it) { return it.label === 'visibility: '; }), 'Prop key: suggests visibility');
+test(propItems.some(function(it) { return it.label === 'tableCellFormatter: '; }), 'Prop key: suggests tableCellFormatter');
+test(propItems.some(function(it) { return it.label === 'label: '; }), 'Prop key: suggests label');
+test(propItems.some(function(it) { return it.label === 'section: '; }), 'Prop key: suggests section');
+
 // === SUMMARY ===
 
 section('SUMMARY');

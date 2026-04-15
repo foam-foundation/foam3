@@ -102,7 +102,7 @@ foam.CLASS({
 
   methods: [
     function handle(text, position) {
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text) ) {
+      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|POM)\s*\(/.test(text) ) {
         return { isIncomplete: false, items: [] };
       }
 
@@ -237,7 +237,70 @@ foam.CLASS({
         }
       }
 
+      // Inside a property object { ... } within properties: [...] → suggest property keys
+      if ( this.isInsidePropertyObject_(text, position) ) {
+        var partial = prefix.trim().toLowerCase();
+        var propKeys = [
+          'class', 'name', 'of', 'documentation', 'hidden', 'transient',
+          'value', 'factory', 'expression', 'javaCode', 'javaGetter',
+          'javaPostSet', 'javaPreSet', 'javaFactory', 'javaSetter',
+          'aliases', 'label', 'section', 'visibility', 'view',
+          'adapt', 'preSet', 'postSet', 'required', 'width',
+          'placeholder', 'help', 'gridColumns', 'tableCellFormatter',
+          'labelFormatter', 'shortName', 'readPermissionRequired',
+          'writePermissionRequired', 'validateObj', 'tableWidth',
+          'storageTransient', 'networkTransient', 'readOnly',
+          'permissionRequired', 'cloneProperty', 'javaInfoType'
+        ];
+        var items = [];
+        for ( var i = 0 ; i < propKeys.length ; i++ ) {
+          var k = propKeys[i];
+          if ( partial && k.toLowerCase().indexOf(partial) === -1 ) continue;
+          items.push({
+            label: k + ': ',
+            kind: 14,
+            insertText: k + ': ',
+            sortText: '!' + k.toLowerCase()
+          });
+        }
+        return items;
+      }
+
       return [];
+    },
+
+    function isInsidePropertyObject_(text, position) {
+      /**
+       * Detect if cursor is inside a property definition object { ... }
+       * within a properties: [...] array. Walks backward from cursor to find
+       * the opening { and then checks if we're inside a properties array.
+       */
+      var lines = text.split('\n');
+      var depth = 0;
+
+      // Walk backward from cursor line to find the enclosing { at depth 0
+      for ( var l = position.line ; l >= 0 ; l-- ) {
+        var line = lines[l] || '';
+        var end = l === position.line ? position.character : line.length;
+        for ( var c = end - 1 ; c >= 0 ; c-- ) {
+          var ch = line.charAt(c);
+          if ( ch === '}' || ch === ']' ) depth++;
+          else if ( ch === '{' ) {
+            if ( depth === 0 ) {
+              // Found the opening { — check if this is inside properties: [
+              var textBefore = '';
+              for ( var bl = Math.max(0, l - 5) ; bl <= l ; bl++ ) {
+                textBefore += (lines[bl] || '') + '\n';
+              }
+              return /properties\s*:\s*\[/.test(textBefore);
+            }
+            depth--;
+          } else if ( ch === '[' ) {
+            if ( depth > 0 ) depth--;
+          }
+        }
+      }
+      return false;
     },
 
     function cssBlockCompletion_(text, position) {

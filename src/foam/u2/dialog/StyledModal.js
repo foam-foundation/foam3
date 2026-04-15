@@ -55,13 +55,13 @@ foam.CLASS({
       border: 1px solid $borderDefault;
       border-radius: 0 0 3px 3px;
       border-top: none;
-      box-shadow: 0 24px 24px 0 rgba(0, 0, 0, 0.12), 0 0 24px 0 rgba(0, 0, 0, 0.15);      
+      box-shadow: 0 24px 24px 0 rgba(0, 0, 0, 0.12), 0 0 24px 0 rgba(0, 0, 0, 0.15);
       display: flex;
       flex-direction: column;
       overflow: hidden;
       padding: 24px;
       height: 100%;
-      padding-bottom: 0px; 
+      padding-bottom: 0px;
     }
     ^modal-body{
       height: 100%;
@@ -187,10 +187,13 @@ foam.CLASS({
               .addClass(this.myClass('modal-body'))
               .add(this.addBody())
             .end()
-              .start()
-                .addClass(this.myClass('actionBar'))
-                .call(this.addActions, [this])
+            .add(this.dynamic(function(actionArray) {
+              if ( actionArray.length === 0 ) return;
+              this.start()
+                .addClass(self.myClass('actionBar'))
+                .call(self.addActions, [self])
               .end()
+            }))
           .end()
         .end();
     },
@@ -210,4 +213,3 @@ foam.CLASS({
     }
   ]
 });
-

@@ -37,6 +37,7 @@ foam.CLASS({
     'foam.dao.JacksonJournalParser',
     'foam.lib.json.JSONParser',
     'foam.lib.parse.PooledStringPStream',
+    'foam.lib.parse.FastStringPStream',
     'java.io.BufferedReader',
     'java.io.BufferedWriter',
     'java.io.File',
@@ -55,7 +56,7 @@ foam.CLASS({
     private static final int NUM_ENTRIES = Integer.getInteger("benchmark.entries", 1000000);
 
     private double foamWallSec_, jacksonWallSec_, inlinedWallSec_, jacksonInlinedWallSec_,
-                   pooledWallSec_, allOptWallSec_, parallelWallSec_;
+                   pooledWallSec_, fastPsWallSec_, allOptWallSec_, parallelWallSec_;
   `,
 
   methods: [
@@ -89,6 +90,9 @@ foam.CLASS({
 
           // ---- Experiment 2: Pooled PStream ----
           replayWithPooledPStream(x, ci, jrlPath);
+
+          // ---- Experiment 2b: FastStringPStream ----
+          replayWithFastPStream(x, ci, jrlPath);
 
           // ---- All optimizations combined ----
           replayAllOptimizations(x, ci, jrlPath);
@@ -614,6 +618,77 @@ foam.CLASS({
       `
     },
     {
+      name: 'replayWithFastPStream',
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      javaCode: `
+        JSONParser parser = new JSONParser();
+        parser.setX(x);
+        Class cls = ci.getObjClass();
+        MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+        FastStringPStream fps = new FastStringPStream("");
+
+        long readNanos = 0, parseNanos = 0, putNanos = 0;
+        int count = 0, comments = 0;
+        long totalBytes = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line == null ) break;
+
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            String body = line.substring(2, len - 1);
+            totalBytes += body.length();
+
+            long p0 = System.nanoTime();
+            FObject obj = parser.parseStringFast(body, cls, fps);
+            parseNanos += System.nanoTime() - p0;
+
+            if ( obj != null ) {
+              long w0 = System.nanoTime();
+              mdao.put_(x, obj);
+              putNanos += System.nanoTime() - w0;
+              count++;
+            }
+          }
+        } catch (Exception e) {
+          throw new RuntimeException("FastPStream replay failed", e);
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec     = wallNanos / 1e9;
+        double readSec     = readNanos / 1e9;
+        double parseSec    = parseNanos / 1e9;
+        double putSec      = putNanos / 1e9;
+        double unacctSec   = wallSec - readSec - parseSec - putSec;
+        double mbSec       = (totalBytes / 1e6) / wallSec;
+
+        log("");
+        log("=== End-to-End: FOAM + FastPStream (char[]) (" + count + " entries, " + (totalBytes/1_000_000) + " MB) ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
+        log("  Comments skipped: " + comments);
+
+        fastPsWallSec_ = wallSec;
+        test(count == NUM_ENTRIES, "FastPStream replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
       name: 'replayAllOptimizations',
       args: 'Context x, ClassInfo ci, String jrlPath',
       javaCode: `
@@ -866,6 +941,7 @@ foam.CLASS({
         printRow("FOAM Inlined (no AssemblyLine)",  inlinedWallSec_,       baseline);
         printRow("Jackson Inlined",                 jacksonInlinedWallSec_,baseline);
         printRow("FOAM + Pooled PStream",           pooledWallSec_,        baseline);
+        printRow("FOAM + FastPStream (char[])",     fastPsWallSec_,        baseline);
         printRow("All Optimizations Combined",      allOptWallSec_,        baseline);
         if ( parallelWallSec_ > 0 )
           printRow("Parallel (" + Runtime.getRuntime().availableProcessors() + " threads)", parallelWallSec_, baseline);

@@ -127,20 +127,33 @@ public class ModelParserFactory {
       if ( pp == null ) continue;
 
       //      System.err.println("PI " + pi.getName() + " " + pp);
-      // valueParser is the part of the key:value parser that happens after 'key'
-      Parser valueParser = new Seq0(
-        SKIP,
-        Literal.create(":"),
-        SKIP,
-        new Parser() {
-          public PStream parse(PStream ps, ParserContext x) {
-            ps = pp.parse(ps, x);
-            if ( ps == null ) return null;
-            pi.set(x.get("obj"), ps.value());
-            return ps;
+      // Inlined value parser: skip ws, match ':', skip ws, parse value, set property.
+      // Replaces Seq0(SKIP, Literal(':'), SKIP, valueParser) to eliminate
+      // 4 combinator layers of virtual dispatch per property.
+      Parser valueParser = new Parser() {
+        public PStream parse(PStream ps, ParserContext x) {
+          // Inline whitespace skip
+          while ( ps.valid() ) {
+            char c = ps.head();
+            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
+            ps = ps.tail();
           }
+          // Match ':'
+          if ( ! ps.valid() || ps.head() != ':' ) return null;
+          ps = ps.tail();
+          // Inline whitespace skip
+          while ( ps.valid() ) {
+            char c = ps.head();
+            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
+            ps = ps.tail();
+          }
+          // Parse value and set property
+          ps = pp.parse(ps, x);
+          if ( ps == null ) return null;
+          pi.set(x.get("obj"), ps.value());
+          return ps;
         }
-      );
+      };
 
       alt = alt.add(pi.getName(),             valueParser);
       alt = alt.add('"' + pi.getName() + '"', valueParser);
@@ -153,9 +166,48 @@ public class ModelParserFactory {
 
     alt = alt.rebalance();
 
-    return new Repeat0(
-      new Seq0(SKIP, new Alt(alt, UNKNOWN_PROPERTY), SKIP),
-      Literal.create(",")
-    );
+    // Inlined property loop: replaces Repeat0(Seq0(SKIP, Alt, SKIP), Literal(','))
+    // to eliminate Repeat0 + Seq0 + Literal combinator overhead per property.
+    final PrefixAlt finalAlt = alt;
+    return new Parser() {
+      final Parser unknownProperty = UNKNOWN_PROPERTY;
+
+      public PStream parse(PStream ps, ParserContext x) {
+        boolean first = true;
+
+        while ( true ) {
+          // Skip whitespace (inline SKIP — no comment check needed between properties)
+          while ( ps.valid() ) {
+            char c = ps.head();
+            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
+            ps = ps.tail();
+          }
+
+          // Try property name via PrefixAlt, then unknown property fallback
+          PStream result = finalAlt.parse(ps, x);
+          if ( result == null ) {
+            result = unknownProperty.parse(ps, x);
+          }
+          if ( result == null ) break;
+          ps = result;
+
+          // Skip trailing whitespace
+          while ( ps.valid() ) {
+            char c = ps.head();
+            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
+            ps = ps.tail();
+          }
+
+          // Inline comma check (replaces Literal(',') delimiter in Repeat0)
+          if ( ps.valid() && ps.head() == ',' ) {
+            ps = ps.tail();
+          } else {
+            break;
+          }
+        }
+
+        return ps;
+      }
+    };
   }
 }

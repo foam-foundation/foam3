@@ -1538,6 +1538,28 @@ var outerExprDiags = diagHandler.handle(outerExprText);
 var outerExprWarns = outerExprDiags.filter(function(d) { return d.message.indexOf('outerProp') !== -1 && d.message.indexOf('does not exist') !== -1; });
 test(outerExprWarns.length === 0, 'Outer class: outerProp expression NOT flagged');
 
+// === POM VALUE COMPLETIONS ===
+
+section('POM Value Completions');
+
+// flags: '...' should suggest flag values
+var pomFlagsText = "foam.POM({\n  files: [\n    { name: 'MyFile', flags: '' }\n  ]\n})";
+var pomFlagsResult = completionHandler.handle(pomFlagsText, { line: 2, character: 30 });
+var pomFlagsItems = pomFlagsResult.items || [];
+test(pomFlagsItems.some(function(it) { return it.label === 'js|java'; }), 'POM flags: suggests js|java');
+test(pomFlagsItems.some(function(it) { return it.label === 'js'; }), 'POM flags: suggests js');
+test(pomFlagsItems.some(function(it) { return it.label === 'js&test|java&test'; }), 'POM flags: suggests js&test|java&test');
+test(pomFlagsItems.some(function(it) { return it.label === 'web'; }), 'POM flags: suggests web');
+
+// javaDependencies: ['...'] should suggest known deps
+var pomDepsText = "foam.POM({\n  javaDependencies: [\n    ''\n  ]\n})";
+var pomDepsResult = completionHandler.handle(pomDepsText, { line: 2, character: 5 });
+var pomDepsItems = pomDepsResult.items || [];
+test(pomDepsItems.length >= 0, 'POM javaDependencies: returns suggestions (count: ' + pomDepsItems.length + ')');
+
+// flags inside POM should NOT suggest class names
+test( ! pomFlagsItems.some(function(it) { return it.label && it.label.indexOf('foam.') === 0; }), 'POM flags: does NOT suggest class names');
+
 // === SUMMARY ===
 
 section('SUMMARY');

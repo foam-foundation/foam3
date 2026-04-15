@@ -164,6 +164,12 @@ foam.CLASS({
         end: position
       };
 
+      // POM file completions — file names, flags, projects
+      if ( /foam\.POM\s*\(/.test(text) && /['"][^'"]*$/.test(prefix) ) {
+        var pomItems = this.pomContextCompletion_(text, position, lines, prefix, replaceRange);
+        if ( pomItems ) return pomItems;
+      }
+
       // Inside class: '...' → property types
       if ( /class\s*:\s*['"][^'"]*$/.test(prefix) ) {
         var self = this;
@@ -302,6 +308,184 @@ foam.CLASS({
         }
       }
       return false;
+    },
+
+    function pomContextCompletion_(text, position, lines, prefix, replaceRange) {
+      /**
+       * Context-aware completions for foam.POM files.
+       * Suggests file names, flag values, project paths, and java file names
+       * based on the cursor's position within the POM structure.
+       */
+      var lineContext = this.getLineContext_(lines, position.line);
+      var partial = this.extractPartial_(prefix);
+
+      // Inside flags: '...' → suggest flag combinations
+      if ( /flags\s*:\s*['"][^'"]*$/.test(prefix) ) {
+        var flagValues = [
+          'js', 'java', 'web', 'test',
+          'js|java', 'js&test|java&test', 'js&test', 'java&test'
+        ];
+        var items = [];
+        var lower = partial.toLowerCase();
+        for ( var i = 0 ; i < flagValues.length ; i++ ) {
+          if ( lower && flagValues[i].toLowerCase().indexOf(lower) === -1 ) continue;
+          items.push({
+            label: flagValues[i], kind: 21,
+            textEdit: { range: replaceRange, newText: flagValues[i] },
+            sortText: '!' + flagValues[i]
+          });
+        }
+        return items;
+      }
+
+      // Inside name: '...' within files: [...] or javaFiles: [...] → suggest filenames
+      if ( /name\s*:\s*['"][^'"]*$/.test(prefix) &&
+           (/files\s*:\s*\[/.test(lineContext) || /javaFiles\s*:\s*\[/.test(lineContext)) ) {
+        var isJava = /javaFiles\s*:\s*\[/.test(lineContext);
+        return this.pomFileNameSuggestions_(text, partial, replaceRange, isJava);
+      }
+
+      // Inside projects: [{ name: '...' }] → suggest subdirectory pom paths
+      if ( /name\s*:\s*['"][^'"]*$/.test(prefix) && /projects\s*:\s*\[/.test(lineContext) ) {
+        return this.pomProjectSuggestions_(text, partial, replaceRange);
+      }
+
+      // Inside javaDependencies: ['...'] → suggest from existing deps in codebase
+      if ( /javaDependencies\s*:\s*\[/.test(lineContext) ) {
+        return this.pomJavaDependencySuggestions_(partial, replaceRange);
+      }
+
+      return null;
+    },
+
+    function pomFileNameSuggestions_(text, partial, replaceRange, isJava) {
+      /**
+       * Suggest file names from the POM file's directory.
+       * For files: [...] suggests .js files, for javaFiles: [...] suggests .java files.
+       */
+      var fs_, path_;
+      try { fs_ = require('fs'); path_ = require('path'); } catch ( e ) { return []; }
+
+      // Find the POM file's directory from the file index or cwd
+      var pomDir = this.findPomDir_(text, path_);
+      if ( ! pomDir || ! fs_.existsSync(pomDir) ) return [];
+
+      var ext = isJava ? '.java' : '.js';
+      var items = [];
+      var lower = partial.toLowerCase();
+
+      // Collect existing file names from POM to exclude
+      var existing = {};
+      var nameRegex = /name\s*:\s*['"]([^'"]+)['"]/g;
+      var nm;
+      while ( ( nm = nameRegex.exec(text) ) !== null ) existing[nm[1]] = true;
+
+      this.scanDirForFiles_(pomDir, pomDir, ext, items, existing, lower, replaceRange, fs_, path_);
+      return items;
+    },
+
+    function scanDirForFiles_(baseDir, dir, ext, items, existing, lower, replaceRange, fs_, path_) {
+      /** Recursively scan directory for files with the given extension. */
+      try {
+        var entries = fs_.readdirSync(dir);
+        for ( var i = 0 ; i < entries.length ; i++ ) {
+          var entry = entries[i];
+          var fullPath = path_.join(dir, entry);
+          var stat = fs_.statSync(fullPath);
+
+          if ( stat.isDirectory() && entry !== 'node_modules' && entry !== 'build' && entry !== '.git' ) {
+            this.scanDirForFiles_(baseDir, fullPath, ext, items, existing, lower, replaceRange, fs_, path_);
+          } else if ( entry.endsWith(ext) ) {
+            var relative = path_.relative(baseDir, fullPath);
+            // Remove extension for the POM name
+            var name = relative.replace(/\\/g, '/').replace(new RegExp(ext.replace('.', '\\.') + '$'), '');
+            if ( existing[name] ) continue;
+            if ( lower && name.toLowerCase().indexOf(lower) === -1 ) continue;
+            items.push({
+              label: name, kind: 17,
+              textEdit: { range: replaceRange, newText: name },
+              sortText: '!' + name.toLowerCase()
+            });
+          }
+          if ( items.length > 200 ) return;
+        }
+      } catch ( e ) {}
+    },
+
+    function pomProjectSuggestions_(text, partial, replaceRange) {
+      /** Suggest subdirectory pom.js paths for projects: [...]. */
+      var fs_, path_;
+      try { fs_ = require('fs'); path_ = require('path'); } catch ( e ) { return []; }
+
+      var pomDir = this.findPomDir_(text, path_);
+      if ( ! pomDir || ! fs_.existsSync(pomDir) ) return [];
+
+      var items = [];
+      var lower = partial.toLowerCase();
+
+      // Scan subdirectories for pom.js files
+      try {
+        var entries = fs_.readdirSync(pomDir);
+        for ( var i = 0 ; i < entries.length ; i++ ) {
+          var subDir = path_.join(pomDir, entries[i]);
+          if ( ! fs_.statSync(subDir).isDirectory() ) continue;
+          var pomPath = path_.join(subDir, 'pom.js');
+          if ( fs_.existsSync(pomPath) ) {
+            var name = entries[i] + '/pom';
+            if ( lower && name.toLowerCase().indexOf(lower) === -1 ) continue;
+            items.push({
+              label: name, kind: 17,
+              textEdit: { range: replaceRange, newText: name },
+              sortText: '!' + name.toLowerCase()
+            });
+          }
+        }
+      } catch ( e ) {}
+      return items;
+    },
+
+    function pomJavaDependencySuggestions_(partial, replaceRange) {
+      /** Suggest Java dependencies from existing pom.js files in the project. */
+      var items = [];
+      var lower = partial.toLowerCase();
+      var seen = {};
+
+      // Scan all loaded POMs for javaDependencies
+      var poms = foam.poms || [];
+      for ( var p = 0 ; p < poms.length ; p++ ) {
+        var deps = poms[p].javaDependencies || [];
+        for ( var d = 0 ; d < deps.length ; d++ ) {
+          var dep = deps[d];
+          if ( seen[dep] || ( lower && dep.toLowerCase().indexOf(lower) === -1 ) ) continue;
+          seen[dep] = true;
+          items.push({
+            label: dep, kind: 17,
+            textEdit: { range: replaceRange, newText: dep },
+            sortText: '!' + dep.toLowerCase()
+          });
+        }
+      }
+      return items;
+    },
+
+    function findPomDir_(text, path_) {
+      /** Find the directory of the POM file being edited. */
+      var fs_ = require('fs');
+
+      // Try to find the POM's location from loaded poms
+      var nameMatch = text.match(/name\s*:\s*['"]([^'"]+)['"]/);
+      if ( nameMatch ) {
+        var pomName = nameMatch[1];
+        var poms = foam.poms || [];
+        for ( var i = 0 ; i < poms.length ; i++ ) {
+          if ( poms[i].name === pomName && poms[i].location ) {
+            return poms[i].location;
+          }
+        }
+      }
+
+      // Fallback: use cwd
+      return process.cwd();
     },
 
     function cssBlockCompletion_(text, position) {

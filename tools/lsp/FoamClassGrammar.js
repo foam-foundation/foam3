@@ -441,13 +441,17 @@ foam.CLASS({
 
         // Context marker: the sug here always fails (matches \u0002 which
         // doesn't appear in source) so it fires during suggestion collection.
-        // The id-shaped fallback handles actual parsing.
+        // The id-shaped fallback is msg-wrapped so validation can flag
+        // unknown column names (property names not on the class).
         columnName: P.alt(
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
             text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
           })),
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_.')), null, 1))
+          P.msg(
+            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+              P.range('0', '9'), P.chars('_.')), null, 1)),
+            { type: 'columnName' }
+          )
         ),
 
         importsEntry: P.seq(key('imports'), wsc, P.literal(':'), wsc, P.sym('array')),

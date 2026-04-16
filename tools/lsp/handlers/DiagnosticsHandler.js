@@ -111,7 +111,7 @@ foam.CLASS({
       /**
        * Consume msg-tagged records from grammar parse. For each record,
        * decide whether to emit a Diagnostic based on the msg type and the
-       * matched text's registry status.
+       * matched text. All positions come from parser offsets — no regex.
        */
       var records = this.grammar.collectDiagnostics(text);
       for ( var i = 0 ; i < records.length ; i++ ) {
@@ -129,8 +129,40 @@ foam.CLASS({
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 3,
               "Unknown property type: '" + matched + "'");
           }
+        } else if ( r.msg && r.msg.type === 'columnName' ) {
+          // Cross-reference with the enclosing model's property set.
+          var pos = this.analyzer.offsetToPosition(text, r.startPos);
+          var model = this.cache.getModelAt('', text, pos.line);
+          if ( ! model ) continue;
+          var propSet = this.collectPropNames_(model);
+          // Column names can be dot paths ('owner.name') — check first segment
+          var baseName = matched.split('.')[0];
+          if ( ! propSet[baseName] ) {
+            var classId = this.cache.getClassId(model);
+            this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
+              "Property '" + matched + "' does not exist on " + classId);
+          }
         }
       }
+    },
+
+    function collectPropNames_(model) {
+      /** Property-name set for a model: registry props + own raw props. */
+      var propNames = {};
+      var classId = this.cache.getClassId(model);
+      var props = this.index.getProperties(classId);
+      for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
+      if ( props.length === 0 && model.extends ) {
+        var parentProps = this.index.getProperties(model.extends);
+        for ( var i = 0 ; i < parentProps.length ; i++ ) propNames[parentProps[i].name] = true;
+      }
+      var ownProps = model.properties || [];
+      for ( var i = 0 ; i < ownProps.length ; i++ ) {
+        var p = ownProps[i];
+        var name = typeof p === 'string' ? p : p.name;
+        if ( name ) propNames[name] = true;
+      }
+      return propNames;
     },
 
     function toLSPDiagnostics_(diagnostics) {
@@ -157,7 +189,8 @@ foam.CLASS({
       this.validateCSS_(m, text, diagnostics);
 
       // Validate tableColumns/searchColumns
-      this.validateColumns_(m, text, diagnostics);
+      // tableColumns/searchColumns validation is now emitted from the grammar's
+      // columnName rule via P.msg — see collectGrammarDiagnostics_.
 
       // Validate raw CSS values
       this.validateRawCSSValues_(m, text, diagnostics);
@@ -186,53 +219,6 @@ foam.CLASS({
         if ( ! this.cssTokenResolver.tokenExists(tokenName) ) {
           this.addDiag_(diagnostics, text, baseOffset + tm.index, tm[0].length, 2,
             "Unknown CSS token: '$" + tokenName + "'");
-        }
-      }
-    },
-
-    function validateColumns_(m, text, diagnostics) {
-      /**
-       * Validate tableColumns and searchColumns entries are real property names.
-       */
-      var columnKeys = ['tableColumns', 'searchColumns'];
-      var classId = this.cache.getClassId(m);
-      var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
-
-      // Build property name set (own + inherited + model-defined)
-      var propNames = {};
-      var props = this.index.getProperties(classId);
-      for ( var i = 0 ; i < props.length ; i++ ) propNames[props[i].name] = true;
-
-      // If the class itself isn't registered, resolve inherited properties from extends
-      if ( props.length === 0 && m.extends ) {
-        var parentProps = this.index.getProperties(m.extends);
-        for ( var i = 0 ; i < parentProps.length ; i++ ) propNames[parentProps[i].name] = true;
-      }
-
-      var ownProps = m.properties || [];
-      for ( var i = 0 ; i < ownProps.length ; i++ ) {
-        var p = ownProps[i];
-        var name = typeof p === 'string' ? p : p.name;
-        if ( name ) propNames[name] = true;
-      }
-
-      for ( var k = 0 ; k < columnKeys.length ; k++ ) {
-        var key = columnKeys[k];
-        var columns = m[key];
-        if ( ! columns || ! Array.isArray(columns) ) continue;
-
-        for ( var i = 0 ; i < columns.length ; i++ ) {
-          var col = columns[i];
-          if ( typeof col !== 'string' ) continue;
-          // Column names can have dot paths (e.g., 'owner.name') — validate the first segment
-          var baseName = col.split('.')[0];
-          if ( ! propNames[baseName] ) {
-            var loc = this.findInText_(text, null, col, modelOffset);
-            if ( loc !== null ) {
-              this.addDiag_(diagnostics, text, loc, col.length, 2,
-                "Property '" + col + "' does not exist on " + classId);
-            }
-          }
         }
       }
     },

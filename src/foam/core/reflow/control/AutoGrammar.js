@@ -40,9 +40,9 @@ foam.CLASS({
 
         autoCmd: seq('/', this.commandParser),
 
-        historyCmd: seq('!', this.historyParser),
+        historyCmd: seq('~', this.historyParser),
 
-        jsCmd: str(seq(notChars('!/'), str(repeat(not(eof()), anyChar()))))
+        jsCmd: str(seq(notChars('~/'), str(repeat(not(eof()), anyChar()))))
       };
     }
   ]

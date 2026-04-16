@@ -94,7 +94,12 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       name: 'runTest',
       javaCode: `
     Logger logger = new PrefixLogger(new Object[] { "CSSAuditTest"}, (Logger) x.get("logger"));
-    Pattern pattern = Pattern.compile(".*?([;']?)(color|font|border|font-weight):\\s*([a-zA-Z0-9#\\s.(]*)");
+    // Group 1: CSS property name.
+    // Group 2: optional opening quote (' or ") — empty means the value is unquoted.
+    // Group 3: value content (stops at the closing quote / comma / semicolon / etc.).
+    // The previously-captured "embedded" group ([;']?) was removed: a quoted
+    // property key like 'color': should NOT cause the line to be skipped.
+    Pattern pattern = Pattern.compile(".*?(color|font|border|font-weight):\\s*(['\\\"]?)([a-zA-Z0-9#\\s.($_-]*)");
     String projectHome = System.getProperty("project.home");
     if ( SafetyUtil.isEmpty(projectHome) ) {
       test ( false, "project.home found "+projectHome );
@@ -161,25 +166,40 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
         lineNum += 1;
         Matcher matcher = pattern.matcher(line);
         if ( matcher.find() ) {
-          if ( line.contains("style") ) {
-            logger.info("ignoring", line);
-            continue;
-          }
           if ( line.contains("foam.CSS") ) {
             logger.info("ignoring", line);
             continue;
           }
-          String embedded = matcher.group(1);
-          if ( ! SafetyUtil.isEmpty(embedded) ) {
-            // style lines, console.log with color, ... 
-            logger.info("ignoring", line);
+          String property  = matcher.group(1);
+          String openQuote = matcher.group(2);
+          String value     = matcher.group(3);
+          boolean isStringLiteral = ! SafetyUtil.isEmpty(openQuote);
+
+          // For unquoted values, distinguish a CSS rule from a JS object entry.
+          // A CSS rule terminates with ';' (audit it). A JS object entry
+          // terminates with ',', '}' or ')' and the value is therefore a JS
+          // variable / expression (skip — not a hardcoded literal).
+          if ( ! isStringLiteral ) {
+            int valueEnd = matcher.end(3);
+            boolean isCssRule = false;
+            for ( int i = valueEnd ; i < line.length() ; i++ ) {
+              char c = line.charAt(i);
+              if ( c == ';' ) { isCssRule = true; break; }
+              if ( c == ',' || c == '}' || c == ')' ) break;
+            }
+            if ( ! isCssRule ) {
+              logger.info("ignoring JS variable", line);
+              continue;
+            }
+          }
+
+          if ( SafetyUtil.isEmpty(value) ) {
+            // no value content captured (e.g. empty string or interpolation) - skip
             continue;
           }
-          String property = matcher.group(2);
-          String value = matcher.group(3);
-          if ( SafetyUtil.isEmpty(value) ) {
-            // no match - line is correct
-            // logger.info("ignoring", line);
+          // FOAM theme tokens (e.g. '$primary', '$blue500') are valid - skip.
+          if ( value.startsWith("$") ) {
+            logger.info("ignoring theme token", property, value);
             continue;
           }
           if ( "color".equals(property) ) {

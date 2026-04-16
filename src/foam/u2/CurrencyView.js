@@ -13,6 +13,18 @@ foam.CLASS({
 
   properties: [
     ['precision', 2],
+    {
+      name: 'precision',
+      expression: function(curr_) {
+        return curr_?.precision ?? 2;
+      },
+    },
+    {
+      name: 'units',
+      expression: function(curr_) {
+        return curr_ ? (curr_.symbol || curr_.code) : '';
+      },
+    },
     ['trimZeros', false],
     ['onKey', true],
     {
@@ -42,7 +54,7 @@ foam.CLASS({
     function textToData(text) {
       const delim = new RegExp((this.curr_?.delimiter ?? ','), 'g');
       let plainText = text.replace(delim, '')
-      plainText = 
+      plainText =
         ! this.hideSymbol && this.curr_.symbol && plainText.startsWith(this.curr_.symbol) ?
         plainText.substring(1) :
         plainText;

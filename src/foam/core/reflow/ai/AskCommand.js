@@ -36,7 +36,7 @@ foam.CLASS({
 
       console.log(`ASK: ${cmd} -> ${response}`);
       const reply = JSON.stringify({asked: cmd, response: response}).replaceAll('"', '\\"');;
-      await this.eval_(`llm("${reply}")`);
+      await this.eval_(`ai("${reply}")`);
 
       setTimeout(() => block.del(), 100);
     }

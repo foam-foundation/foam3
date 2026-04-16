@@ -116,6 +116,11 @@ foam.CLASS({
       class: 'foam.mlang.ExprProperty',
       name: 'groupBy'
     },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'groupHeaderView', // Property to accept custom views for group headers
+      value: { class: 'foam.u2.DAOList.GroupHeader' }
+    },
     'order',
     ['invertGroupingOrder', false]
   ],
@@ -150,7 +155,7 @@ foam.CLASS({
           .end();
         }
       ]
-    }
+    },
   ],
 
   messages: [
@@ -168,7 +173,7 @@ foam.CLASS({
             data$: this.data$,
             rowView: this.rowView_,
             rootElement: this.listEl_,
-            groupHeaderView: { class: 'foam.u2.DAOList.GroupHeader' },
+            groupHeaderView$: this.groupHeaderView$,
             groupBy$: this.groupBy$,
             order$: this.order$,
             invertGroupingOrder$: this.invertGroupingOrder$,

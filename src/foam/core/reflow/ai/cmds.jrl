@@ -1,6 +1,6 @@
 p({
   "class":"foam.core.reflow.ai.LLMCommand",
-  "id": "llm",
+  "id": "ai",
   "permissionRequired": true,
   "description": "Issue a direct LLM query."
 })
@@ -13,16 +13,16 @@ p({
 })
 p({
    "class":"foam.core.reflow.ai.AgentCommand",
-   "id": "?",
+   "id": "!",
    "permissionRequired": true,
-   "dryRun": true,
+   "dryRun": false,
    "description": "Issue a request to an LLM agent to execute FLOW commands."
 })
 p({
    "class":"foam.core.reflow.ai.AgentCommand",
-   "id": "??",
+   "id": "?",
    "permissionRequired": true,
-   "dryRun": false,
+   "dryRun": true,
    "description": "Issue a request to an LLM agent to execute FLOW commands."
 })
 p({

@@ -174,9 +174,9 @@ foam.CLASS({
             .add(topView)
             .show(this.showNav$);
         }))
-        .add(this.slot( async function(layoutResolved_, sideNav, showNav) {
+        .add(this.slot( async function(layoutResolved_, sideNav) {
           let e = self.E().addClass(this.myClass('sideNav'));
-          if ( ! layoutResolved_ || ! sideNav || ! showNav ) return e;
+          if ( ! layoutResolved_ || ! sideNav ) return e;
           var sideView = foam.u2.ViewSpec.createView(sideNav, {}, self, self.navCtx_);
           return e
             // .tag(sideNav)

@@ -8,6 +8,8 @@ foam.INTERFACE({
   package: 'foam.core.security',
   name: 'KeyStoreManager',
 
+  proxy: true,
+
   documentation: 'FOAM interface to Java KeyStore',
 
   javaImports: [

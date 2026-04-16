@@ -406,65 +406,99 @@ foam.CLASS({
       if ( ! cls ) return null;
       var m = cls.model_;
 
-      // Header: class signature in a code block — multi-line for readability
-      var sig = m.id;
-      if ( m.extends && m.extends !== 'FObject' ) sig += '\n  extends ' + m.extends;
+      var md = '';
+
+      // 1. Header — class id, one-line signature with extends/implements.
+      //    Kept tight; multi-line only when needed, never wraps awkwardly.
+      var header = m.id;
+      var sigParts = [];
+      if ( m.extends && m.extends !== 'FObject' ) sigParts.push('extends ' + m.extends);
       if ( m.implements && m.implements.length > 0 ) {
         var ifaces = m.implements.map(function(i) { return typeof i === 'string' ? i : i.path; });
-        if ( ifaces.length === 1 ) {
-          sig += '\n  implements ' + ifaces[0];
-        } else {
-          sig += '\n  implements\n    ' + ifaces.join(',\n    ');
-        }
+        sigParts.push('implements ' + ifaces.join(', '));
       }
-      var md = '```foam\n' + sig + '\n```\n';
+      md += '```foam\n' + header + '\n```\n';
+      if ( sigParts.length > 0 ) {
+        md += '*' + sigParts.join(' · ') + '*\n';
+      }
 
-      // Documentation — quoted block for visual distinction, paragraphs preserved
+      // 2. Documentation — quoted block.
       if ( m.documentation ) {
-        md += '\n**Documentation**\n\n';
         var formatted = this.formatDocumentation_(m.documentation);
-        md += '> ' + formatted.split('\n').join('\n> ') + '\n';
+        md += '\n> ' + formatted.split('\n').join('\n> ') + '\n';
       }
 
-      // Own properties
-      var ownProps = this.index.getOwnProperties(classId);
+      // 3. Own properties — table with conditional Description column,
+      //    framework-internal `_`-suffixed props hidden.
+      var ownProps = this.filterUserFacing_(this.index.getOwnProperties(classId));
       if ( ownProps.length > 0 ) {
-        md += '\n---\n\n';
-        md += '| Property | Type | Description |\n';
-        md += '|:--|:--|:--|\n';
-        for ( var i = 0 ; i < ownProps.length ; i++ ) {
-          var p = ownProps[i];
-          var typeName = p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
-          var doc = p.documentation ? p.documentation.split('\n')[0].substring(0, 50) : '';
-          md += '| `' + p.name + '` | ' + typeName + ' | ' + doc + ' |\n';
+        md += '\n**Properties** (' + ownProps.length + ')\n\n';
+        var hasDocs = ownProps.some(function(p) { return p.documentation; });
+        if ( hasDocs ) {
+          md += '| Property | Type | Description |\n|:--|:--|:--|\n';
+          for ( var i = 0 ; i < ownProps.length ; i++ ) {
+            var p = ownProps[i];
+            md += '| `' + p.name + '` | ' + this.propTypeName_(p) + ' | ' +
+              this.briefDoc_(p.documentation) + ' |\n';
+          }
+        } else {
+          md += '| Property | Type |\n|:--|:--|\n';
+          for ( var i = 0 ; i < ownProps.length ; i++ ) {
+            var p = ownProps[i];
+            md += '| `' + p.name + '` | ' + this.propTypeName_(p) + ' |\n';
+          }
         }
       }
 
-      // Inherited properties grouped by ancestor
-      var inherited = this.index.getInheritedProperties(classId);
-      for ( var g = 0 ; g < inherited.length ; g++ ) {
-        var group = inherited[g];
-        md += '\n---\n\n';
-        md += '**' + group.className + '** (' + group.properties.length + ')\n\n';
-        var names = [];
-        for ( var j = 0 ; j < group.properties.length ; j++ ) {
-          var ip = group.properties[j];
-          var iType = ip.cls_ && ip.cls_.model_ ? ip.cls_.model_.name : '';
-          names.push('`' + ip.name + '`' + ( iType ? ' *' + iType + '*' : '' ));
-        }
-        md += names.join(' · ') + '\n';
-      }
-
-      // Methods (compact inline)
-      var methods = this.index.getMethods(classId);
-      if ( methods.length > 0 ) {
-        var methodNames = methods.slice(0, 8).map(function(m) { return '`' + m.name + '()`'; });
-        md += '\nMethods: ' + methodNames.join(' · ');
-        if ( methods.length > 8 ) md += ' *+' + (methods.length - 8) + ' more*';
+      // 4. Own methods — one line with signatures (up to 8), overflow summarized.
+      var ownMethods = this.index.getOwnMethods ? this.index.getOwnMethods(classId) : [];
+      if ( ownMethods && ownMethods.length > 0 ) {
+        md += '\n**Methods** (' + ownMethods.length + ')\n\n';
+        var show = ownMethods.slice(0, 8).map(function(mt) {
+          return '`' + mt.name + '()`';
+        });
+        md += show.join(' · ');
+        if ( ownMethods.length > 8 ) md += ' *+' + (ownMethods.length - 8) + ' more*';
         md += '\n';
       }
 
+      // 5. Inherited — single-line summary per ancestor instead of dumping names.
+      var inherited = this.index.getInheritedProperties(classId);
+      if ( inherited && inherited.length > 0 ) {
+        md += '\n**Inherited**\n\n';
+        for ( var g = 0 ; g < inherited.length ; g++ ) {
+          var group = inherited[g];
+          var visibleProps = this.filterUserFacing_(group.properties);
+          md += '- `' + group.className + '` — ' + visibleProps.length + ' properties\n';
+        }
+      }
+
       return { contents: { kind: 'markdown', value: md } };
+    },
+
+    function filterUserFacing_(props) {
+      /** Hide framework-internal props (trailing underscore) from hover. */
+      if ( ! props ) return [];
+      var out = [];
+      for ( var i = 0 ; i < props.length ; i++ ) {
+        var n = props[i].name;
+        if ( n && n.charAt(n.length - 1) === '_' ) continue;
+        out.push(props[i]);
+      }
+      return out;
+    },
+
+    function propTypeName_(p) {
+      /** Short, readable property type name. */
+      return p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
+    },
+
+    function briefDoc_(doc) {
+      /** First line of doc, trimmed to 60 chars, markdown-safe. */
+      if ( ! doc ) return '';
+      var first = doc.split('\n')[0].trim();
+      if ( first.length > 60 ) first = first.substring(0, 57) + '…';
+      return first.replace(/\|/g, '\\|');
     },
 
     function resolveCreateContext_(text, position) {

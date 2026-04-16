@@ -1181,7 +1181,7 @@ var docHoverClassId = 'foam.parse.lsp.JavaGrammar';
 if ( index.classExists(docHoverClassId) ) {
   var docClassHover = hoverHandler.buildClassHover(docHoverClassId);
   test(docClassHover != null, 'Doc hover: class hover returned');
-  test(docClassHover && docClassHover.contents.value.indexOf('**Documentation**') !== -1, 'Doc hover: documentation header present');
+  test(docClassHover && docClassHover.contents.value.indexOf('> ') !== -1, 'Doc hover: documentation rendered as quoted block');
   test(docClassHover && docClassHover.contents.value.indexOf('> ') !== -1, 'Doc hover: blockquote for docs');
 }
 
@@ -1200,8 +1200,8 @@ foam.CLASS({
 
 var multiImplHover = hoverHandler.buildClassHover('foam.parse.lsp.test.MultiImplTest');
 test(multiImplHover != null, 'Sig format: hover returned');
-test(multiImplHover && multiImplHover.contents.value.indexOf('implements\n    foam.parse.lsp.test.IFoo') !== -1, 'Sig format: multiple implements on separate lines');
-test(multiImplHover && multiImplHover.contents.value.indexOf('IBar,\n    foam.parse.lsp.test.IBaz') !== -1, 'Sig format: implements have indented separator');
+test(multiImplHover && multiImplHover.contents.value.indexOf('implements foam.parse.lsp.test.IFoo, foam.parse.lsp.test.IBar') !== -1,
+  'Sig format: multiple implements on same line, comma-separated');
 
 // Single implement stays on one line
 foam.CLASS({

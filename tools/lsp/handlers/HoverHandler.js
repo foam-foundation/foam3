@@ -69,6 +69,13 @@ foam.CLASS({
       var cssHover = this.cssBlockHover_(text, position, opt_uri);
       if ( cssHover ) return cssHover;
 
+      // Guard: if cursor is inside any backtick block (css/javaCode/…) and the
+      // block-specific hover above returned nothing, DON'T fall through to
+      // class-body property lookup — a property name happening to match a CSS
+      // selector or Java identifier is a coincidence, not a reference.
+      var blockCtx = this.analyzer.getBacktickBlockContext(text, position);
+      if ( blockCtx ) return null;
+
       // Try as class ID (full path like foam.lang.FObject)
       if ( this.index.classExists(word) ) {
         return this.buildClassHover(word);
@@ -331,8 +338,14 @@ foam.CLASS({
       var cssCtx = this.analyzer.getCSSContext(line, position.character);
       if ( ! cssCtx || ! cssCtx.partial ) return null;
 
-      // Get the full word (including text after cursor) for exact matching
-      var fullWord = line.substring(cssCtx.replaceRange.start, cssCtx.replaceRange.end);
+      // Get the full word (including text after cursor) for exact matching.
+      // Extend left one char to catch leading `$`/`^` which aren't in the
+      // CSS word-char set but are part of the token/selector semantics.
+      var wordStart = cssCtx.replaceRange.start;
+      var wordEnd   = cssCtx.replaceRange.end;
+      var leadChar  = wordStart > 0 ? line.charAt(wordStart - 1) : '';
+      var fullWord  = ( leadChar === '$' || leadChar === '^' ? leadChar : '' )
+                      + line.substring(wordStart, wordEnd);
 
       // $tokenName — resolve via CSSTokenResolver
       if ( fullWord.charAt(0) === '$' ) {
@@ -341,17 +354,19 @@ foam.CLASS({
         if ( md ) return { contents: { kind: 'markdown', value: md } };
       }
 
-      // ^name — myClass shorthand
+      // ^name — FOAM myClass shorthand. This is a CSS selector, NOT a
+      // reference to the class property of the same name — always takes
+      // precedence over property-doc lookup to prevent false hovers.
       if ( fullWord.charAt(0) === '^' ) {
         var suffix = fullWord.substring(1);
         var model = this.cache.getModelAt(opt_uri || '', text, position.line);
-        if ( model ) {
-          var pkg = model.package ? model.package.replace(/\./g, '-') : '';
-          var cls = model.name || '';
-          var expanded = '.' + pkg + '-' + cls + (suffix ? '-' + suffix : '');
-          var md = '**^' + suffix + '**\n\nExpands to: `' + expanded + '`';
-          return { contents: { kind: 'markdown', value: md } };
-        }
+        var pkg = model && model.package ? model.package.replace(/\./g, '-') : '';
+        var cls = model && model.name || '';
+        var expanded = '.' + pkg + ( pkg ? '-' : '' ) + cls + ( suffix ? '-' + suffix : '' );
+        var md = '**`^' + suffix + '`** — FOAM CSS scope selector\n\n' +
+                 'Expands to `' + expanded + '` (scoped to this class\'s DOM).\n\n' +
+                 '*Not a reference to the `' + suffix + '` property.*';
+        return { contents: { kind: 'markdown', value: md } };
       }
 
       return null;

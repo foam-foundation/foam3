@@ -253,8 +253,9 @@ function start() {
         }
       }
 
-      // For raw color diagnostics, offer a $token replacement if available
-      var rawColorMatch = diag.message.match(/raw color value '([^']+)'/);
+      // For raw color diagnostics, offer a $token replacement if available.
+      // Matches both new message ("raw color 'X'") and legacy phrasing.
+      var rawColorMatch = diag.message.match(/raw color[^']*'([^']+)'/);
       if ( rawColorMatch && cssTokenResolver ) {
         var raw = rawColorMatch[1];
         var token = cssTokenResolver.findTokenForValue(raw);

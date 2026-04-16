@@ -245,7 +245,7 @@ foam.CLASS({
               var rawVal = rawMatch ? rawMatch[0] : valueStr;
               var offset = baseOffset + match.index + match[0].indexOf(valueStr);
               this.addDiag_(diagnostics, text, offset, rawVal.length, 2,
-                "Prefer CSS token (e.g., '$primary400') over raw color value '" + rawVal + "'");
+                this.rawColorMessage_(rawVal));
             }
           }
         }
@@ -262,10 +262,24 @@ foam.CLASS({
           if ( loc === null ) loc = this.findInText_(text, 'background', colorVal, 0);
           if ( loc !== null ) {
             this.addDiag_(diagnostics, text, loc, colorVal.length, 2,
-              "Prefer CSS token (e.g., '$primary400') over raw color value '" + colorVal + "'");
+              this.rawColorMessage_(colorVal));
           }
         }
       }
+    },
+
+    function rawColorMessage_(rawVal) {
+      /**
+       * Build a raw-color diagnostic message that names the matching CSS
+       * token when one exists. No match → honest "no token matches" message.
+       */
+      if ( this.cssTokenResolver ) {
+        var token = this.cssTokenResolver.findTokenForValue(rawVal);
+        if ( token ) {
+          return "Prefer CSS token '$" + token + "' over raw color '" + rawVal + "'";
+        }
+      }
+      return "Raw color '" + rawVal + "' — no matching CSS token in the registry";
     },
 
     function validateExpressions_(m, text, diagnostics) {

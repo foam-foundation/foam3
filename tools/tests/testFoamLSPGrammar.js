@@ -182,8 +182,12 @@ test(myClassItem && myClassItem.detail === 'myClass(opt_extra)', 'myClass detail
 
 // === HOVER TESTS ===
 
+// Shared CSSTokenResolver so CSS-aware hovers (e.g. ^selector) work below.
+var cssTokenResolver = foam.parse.lsp.CSSTokenResolver.create();
+cssTokenResolver.loadFromRegistry();
+
 section('HoverHandler — class hover');
-var hoverHandler = foam.parse.lsp.handlers.HoverHandler.create({ index: index });
+var hoverHandler = foam.parse.lsp.handlers.HoverHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
 
 var hoverText = "foam.CLASS({\n  requires: ['foam.parse.Suggestion']\n})";
 var hoverResult = hoverHandler.handle(hoverText, { line: 1, character: 20 });
@@ -1267,9 +1271,7 @@ test(overrides.length === 1, 'JrlLoader: filterByClass returns other class');
 // === CSS TOKEN RESOLUTION ===
 
 section('CSSTokenResolver — value resolution');
-
-var cssTokenResolver = foam.parse.lsp.CSSTokenResolver.create();
-cssTokenResolver.loadFromRegistry();
+// cssTokenResolver is declared earlier (before HoverHandler init).
 
 // Test resolveTokenValue on base tokens
 var resolvedPrimary = cssTokenResolver.resolveTokenValue('primary400');
@@ -1363,34 +1365,34 @@ section('Raw CSS Value Diagnostics');
 // Hex color in css: template string — should warn
 var hexCssText = "foam.CLASS({\n  package: 'test',\n  name: 'HexTest',\n  css: `\n    ^ { color: #FF0000; }\n  `\n})";
 var hexDiags = diagHandler.handle(hexCssText);
-test(hexDiags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1 && d.message.indexOf('#FF0000') !== -1; }), 'Raw CSS: hex color in css: flagged');
+test(hexDiags.some(function(d) { return /raw color/i.test(d.message) && d.message.indexOf('#FF0000') !== -1; }), 'Raw CSS: hex color in css: flagged');
 
 // rgb() in css: — should warn
 var rgbCssText = "foam.CLASS({\n  package: 'test',\n  name: 'RgbTest',\n  css: `\n    ^ { background-color: rgb(255, 0, 0); }\n  `\n})";
 var rgbDiags = diagHandler.handle(rgbCssText);
-test(rgbDiags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1 && d.message.indexOf('rgb(') !== -1; }), 'Raw CSS: rgb() in css: flagged');
+test(rgbDiags.some(function(d) { return /raw color/i.test(d.message) && d.message.indexOf('rgb(') !== -1; }), 'Raw CSS: rgb() in css: flagged');
 
 // $token reference — should NOT warn
 var tokenCssText = "foam.CLASS({\n  package: 'test',\n  name: 'TokenTest',\n  css: `\n    ^ { color: $primary400; }\n  `\n})";
 var tokenDiags = diagHandler.handle(tokenCssText);
-var tokenRawWarns = tokenDiags.filter(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; });
+var tokenRawWarns = tokenDiags.filter(function(d) { return /raw color/i.test(d.message); });
 test(tokenRawWarns.length === 0, 'Raw CSS: $token NOT flagged');
 
 // Non-color property — should NOT warn
 var widthCssText = "foam.CLASS({\n  package: 'test',\n  name: 'WidthTest',\n  css: `\n    ^ { width: 100px; height: 50px; }\n  `\n})";
 var widthDiags = diagHandler.handle(widthCssText);
-var widthRawWarns = widthDiags.filter(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; });
+var widthRawWarns = widthDiags.filter(function(d) { return /raw color/i.test(d.message); });
 test(widthRawWarns.length === 0, 'Raw CSS: width/height NOT flagged');
 
 // Hex color in enum property value — should warn
 var enumCssText = "foam.ENUM({\n  package: 'test',\n  name: 'LogLevel',\n  values: [\n    { name: 'ERROR', color: '#FF0000' }\n  ]\n})";
 var enumDiags = diagHandler.handle(enumCssText);
-test(enumDiags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; }), 'Raw CSS: hex in enum color property flagged');
+test(enumDiags.some(function(d) { return /raw color/i.test(d.message); }), 'Raw CSS: hex in enum color property flagged');
 
 // 3-char hex — should warn
 var hex3CssText = "foam.CLASS({\n  package: 'test',\n  name: 'Hex3Test',\n  css: `\n    ^ { border-color: #F00; }\n  `\n})";
 var hex3Diags = diagHandler.handle(hex3CssText);
-test(hex3Diags.some(function(d) { return d.message.indexOf('Prefer CSS token') !== -1; }), 'Raw CSS: 3-char hex flagged');
+test(hex3Diags.some(function(d) { return /raw color/i.test(d.message); }), 'Raw CSS: 3-char hex flagged');
 
 // === EXPRESSION PARAMETER VALIDATION ===
 
@@ -1887,6 +1889,71 @@ var strLines = strText.split('\n');
 var strCtx = ca.findCreateContext(strLines, 5, strText, index);
 test(strCtx === 'foam.u2.Element',
   'findCreateContext: ignores braces inside string literals');
+
+// === RAW COLOR MESSAGE + REPLACEMENT LOGIC ===
+section('Raw color diagnostic — message + code-action replacement');
+
+var diagHandler2 = foam.parse.lsp.handlers.DiagnosticsHandler.create({
+  index: index,
+  cssTokenResolver: cssTokenResolver
+});
+
+// Pick a ColorToken whose resolved value is a hex (so we can construct a
+// source file that uses exactly that color and expect a matching-token msg).
+var ctNames = cssTokenResolver.getAllTokenNames();
+var hitToken = null, hitHex = null;
+for ( var i = 0 ; i < ctNames.length ; i++ ) {
+  var info = cssTokenResolver.getTokenInfo(ctNames[i]);
+  if ( ! info || info.type !== 'ColorToken' ) continue;
+  var v = cssTokenResolver.resolveTokenValue(ctNames[i]);
+  if ( v && /^#[0-9a-fA-F]{6}$/.test(v) ) { hitToken = ctNames[i]; hitHex = v; break; }
+}
+
+if ( hitToken ) {
+  var hitSrc = "foam.CLASS({\n  package: 'test',\n  name: 'HitColor',\n" +
+               "  css: `\n    ^ { color: " + hitHex + "; }\n  `\n})";
+  var hitDiags = diagHandler2.handle(hitSrc);
+  var withMatch = hitDiags.filter(function(d) {
+    return /raw color/i.test(d.message) && d.message.indexOf(hitHex) !== -1;
+  });
+  test(withMatch.length === 1, 'Raw color with matching token: diagnostic present');
+  test(withMatch[0].message.indexOf("'$" + hitToken + "'") !== -1,
+    'Matching token name appears in diagnostic message (not generic $primary400)');
+}
+
+// Raw color with NO matching token — different phrasing, no false recommendation
+var missSrc = "foam.CLASS({\n  package: 'test',\n  name: 'MissColor',\n" +
+              "  css: `\n    ^ { color: #deadbe; }\n  `\n})";
+var missDiags = diagHandler2.handle(missSrc);
+var missing = missDiags.filter(function(d) { return /raw color/i.test(d.message); });
+test(missing.length === 1, 'Raw color without matching token: diagnostic present');
+test(missing[0].message.indexOf('no matching') !== -1,
+  'No-match message explicitly states there is no matching token');
+test(missing[0].message.indexOf('$primary400') === -1,
+  'No-match message does NOT include a misleading example token');
+
+// === HOVER ON ^selector IN CSS BLOCK ===
+section('Hover — CSS ^selector vs same-named property');
+
+var selSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'SelTest',",
+  "  properties: [ { class: 'Boolean', name: 'centered' } ],",
+  "  css: `",
+  "    ^centered > * { align-self: center; }",
+  "  `",
+  "})"
+].join('\n');
+// Line 5: `    ^centered > * { align-self: center; }`, cursor on `centered`
+var selHover = hoverHandler.handle(selSrc, { line: 5, character: 8 });
+test(selHover != null, 'CSS ^centered: hover returned');
+test(selHover && selHover.contents.value.indexOf('Expands to') !== -1,
+  'CSS ^centered: hover explains selector expansion');
+test(selHover && selHover.contents.value.indexOf('Boolean') === -1,
+  'CSS ^centered: hover does NOT confuse it with the Boolean property');
+test(selHover && selHover.contents.value.indexOf('Not a reference') !== -1,
+  'CSS ^centered: hover clarifies it is not a property reference');
 
 // === SUMMARY ===
 

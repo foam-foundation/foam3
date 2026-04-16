@@ -38,6 +38,11 @@ foam.CLASS({
     'foam.lib.json.JSONParser',
     'foam.lib.parse.PooledStringPStream',
     'foam.lib.parse.FastStringPStream',
+    'foam.lib.parse.CircularStringPStream',
+    'foam.util.concurrent.AbstractAssembly',
+    'foam.util.concurrent.AssemblyLine',
+    'foam.util.concurrent.SimpleAsyncAssemblyLine',
+    'foam.util.concurrent.SyncAssemblyLine',
     'java.io.BufferedReader',
     'java.io.BufferedWriter',
     'java.io.File',
@@ -48,6 +53,8 @@ foam.CLASS({
     'java.util.Iterator',
     'java.util.List',
     'java.util.Map',
+    'java.util.concurrent.atomic.AtomicInteger',
+    'java.util.concurrent.atomic.AtomicLong',
     'java.util.regex.Pattern'
   ],
 
@@ -56,7 +63,8 @@ foam.CLASS({
     private static final int NUM_ENTRIES = Integer.getInteger("benchmark.entries", 1000000);
 
     private double foamWallSec_, jacksonWallSec_, inlinedWallSec_, jacksonInlinedWallSec_,
-                   pooledWallSec_, fastPsWallSec_, allOptWallSec_, parallelWallSec_;
+                   pooledWallSec_, fastPsWallSec_, allOptWallSec_, parallelWallSec_,
+                   syncLineWallSec_, simpleAsyncLineWallSec_, circularWallSec_;
   `,
 
   methods: [
@@ -88,11 +96,20 @@ foam.CLASS({
           // ---- Experiment 1b: Jackson + Inlined ----
           replayJacksonInlined(x, ci, jrlPath);
 
+          // ---- AssemblyLine comparison: SyncAssemblyLine (current production default) ----
+          replayWithSyncLine(x, ci, jrlPath);
+
+          // ---- AssemblyLine comparison: SimpleAsyncAssemblyLine (proposed change) ----
+          replayWithSimpleAsyncLine(x, ci, jrlPath);
+
           // ---- Experiment 2: Pooled PStream ----
           replayWithPooledPStream(x, ci, jrlPath);
 
           // ---- Experiment 2b: FastStringPStream ----
           replayWithFastPStream(x, ci, jrlPath);
+
+          // ---- Experiment 2c: CircularStringPStream (256-char sliding window) ----
+          replayWithCircularPStream(x, ci, jrlPath);
 
           // ---- All optimizations combined ----
           replayAllOptimizations(x, ci, jrlPath);
@@ -547,6 +564,190 @@ foam.CLASS({
       `
     },
     {
+      name: 'replayWithSyncLine',
+      javaThrows: ['Exception'],
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      documentation: `
+        Mirrors F3FileJournal's production pattern: parse runs in executeJob,
+        mdao.put runs in endJob, both driven by SyncAssemblyLine (current default).
+        Establishes the real baseline for AssemblyLine overhead.
+      `,
+      javaCode: `
+        final JSONParser parser = new JSONParser();
+        parser.setX(x);
+        final Class cls = ci.getObjClass();
+        final MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+        final AssemblyLine line = new SyncAssemblyLine();
+
+        // SyncAssemblyLine runs on the caller thread, so plain long[] accumulators are safe.
+        final long[] parseNanos = new long[1];
+        final long[] putNanos   = new long[1];
+        final AtomicInteger count = new AtomicInteger();
+        long readNanos = 0;
+        int comments = 0;
+        long totalBytes = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line1 = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line1 == null ) break;
+
+            int len = line1.length();
+            if ( len == 0 ) continue;
+            if ( line1.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line1.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            final String body = line1.substring(2, len - 1);
+            totalBytes += body.length();
+
+            line.enqueue(new AbstractAssembly() {
+              FObject obj;
+              public void executeJob() {
+                long p0 = System.nanoTime();
+                obj = parser.parseString(body, cls);
+                parseNanos[0] += System.nanoTime() - p0;
+              }
+              public void endJob(boolean isLast) {
+                if ( obj == null ) return;
+                long w0 = System.nanoTime();
+                mdao.put_(x, obj);
+                putNanos[0] += System.nanoTime() - w0;
+                count.incrementAndGet();
+              }
+            });
+          }
+        } catch (Exception e) {
+          throw new RuntimeException("SyncAssemblyLine replay failed", e);
+        } finally {
+          line.shutdown();
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec   = wallNanos / 1e9;
+        double readSec   = readNanos / 1e9;
+        double parseSec  = parseNanos[0] / 1e9;
+        double putSec    = putNanos[0] / 1e9;
+        double unacctSec = wallSec - readSec - parseSec - putSec;
+        double mbSec     = (totalBytes / 1e6) / wallSec;
+        int processed   = count.get();
+
+        log("");
+        log("=== End-to-End: FOAM + SyncAssemblyLine (" + processed + " entries, " + (totalBytes/1_000_000) + " MB) ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
+        log("  Comments skipped: " + comments);
+
+        syncLineWallSec_ = wallSec;
+        test(processed == NUM_ENTRIES, "SyncAssemblyLine replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");
+      `
+    },
+    {
+      name: 'replayWithSimpleAsyncLine',
+      javaThrows: ['Exception'],
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      documentation: `
+        Same pattern as SyncAssemblyLine benchmark, but uses SimpleAsyncAssemblyLine.
+        executeJob runs in parallel on a worker pool, endJob runs serially on a
+        dedicated end thread. Each pool thread gets its own JSONParser because
+        JSONParser is not thread-safe.
+      `,
+      javaCode: `
+        final Class cls = ci.getObjClass();
+        final MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+        final AssemblyLine line = new SimpleAsyncAssemblyLine(x, "bench");
+
+        // Per-thread parser because JSONParser isn't thread-safe.
+        final ThreadLocal<JSONParser> tlParser = ThreadLocal.withInitial(() -> {
+          JSONParser p = new JSONParser();
+          p.setX(x);
+          return p;
+        });
+
+        // Concurrent accumulators: parse runs on many threads, endJob on one.
+        final AtomicLong parseNanos = new AtomicLong();
+        final AtomicLong putNanos   = new AtomicLong();
+        final AtomicInteger count   = new AtomicInteger();
+        long readNanos = 0;
+        int comments = 0;
+        long totalBytes = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line1 = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line1 == null ) break;
+
+            int len = line1.length();
+            if ( len == 0 ) continue;
+            if ( line1.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line1.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            final String body = line1.substring(2, len - 1);
+            totalBytes += body.length();
+
+            line.enqueue(new AbstractAssembly() {
+              FObject obj;
+              public void executeJob() {
+                long p0 = System.nanoTime();
+                obj = tlParser.get().parseString(body, cls);
+                parseNanos.addAndGet(System.nanoTime() - p0);
+              }
+              public void endJob(boolean isLast) {
+                if ( obj == null ) return;
+                long w0 = System.nanoTime();
+                mdao.put_(x, obj);
+                putNanos.addAndGet(System.nanoTime() - w0);
+                count.incrementAndGet();
+              }
+            });
+          }
+        } catch (Exception e) {
+          throw new RuntimeException("SimpleAsyncAssemblyLine replay failed", e);
+        } finally {
+          // shutdown blocks until every enqueued job has been drained through endJob
+          line.shutdown();
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec   = wallNanos / 1e9;
+        double readSec   = readNanos / 1e9;
+        double parseSec  = parseNanos.get() / 1e9;  // sum across worker threads, can exceed wall
+        double putSec    = putNanos.get() / 1e9;
+        double mbSec     = (totalBytes / 1e6) / wallSec;
+        int processed    = count.get();
+        int threads      = Runtime.getRuntime().availableProcessors();
+
+        log("");
+        log("=== End-to-End: FOAM + SimpleAsyncAssemblyLine (" + processed + " entries, " + (totalBytes/1_000_000) + " MB, " + threads + " pool threads) ===");
+        log(String.format("  Wall time:        %6.2f sec", wallSec));
+        log(String.format("  Read:             %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse (CPU sum):  %6.2f sec  (%4.1fx wall — parallelism)", parseSec, parseSec/wallSec));
+        log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
+        log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
+        log("  Comments skipped: " + comments);
+
+        simpleAsyncLineWallSec_ = wallSec;
+        test(processed == NUM_ENTRIES, "SimpleAsyncAssemblyLine replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");
+      `
+    },
+    {
       name: 'replayWithPooledPStream',
       args: 'Context x, ClassInfo ci, String jrlPath',
       javaCode: `
@@ -686,6 +887,87 @@ foam.CLASS({
 
         fastPsWallSec_ = wallSec;
         test(count == NUM_ENTRIES, "FastPStream replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
+      `
+    },
+    {
+      name: 'replayWithCircularPStream',
+      args: 'Context x, ClassInfo ci, String jrlPath',
+      documentation: `
+        Experimental: parse through a 256-char sliding-window (circular) PStream.
+        Each entry allocates a fresh CircularStringPStream (the ring is tied to
+        one source string). Tests the user's hypothesis that keeping only a
+        small window of characters live — rather than indexing into the full
+        source on every head() — improves cache/code-gen behavior.
+
+        Correctness: substring() and out-of-window reads fall back to the
+        source string, so backtracking beyond the window works but pays a
+        slower path.
+      `,
+      javaCode: `
+        JSONParser parser = new JSONParser();
+        parser.setX(x);
+        Class cls = ci.getObjClass();
+        MDAO mdao = new MDAO(ci);
+        mdao.setSafeMode(false);
+
+        long readNanos = 0, parseNanos = 0, putNanos = 0;
+        int count = 0, comments = 0;
+        long totalBytes = 0;
+
+        long wallStart = System.nanoTime();
+        try ( BufferedReader reader = new BufferedReader(new FileReader(jrlPath), 2 * 1024 * 1024) ) {
+          for ( ; ; ) {
+            long t0 = System.nanoTime();
+            String line = reader.readLine();
+            readNanos += System.nanoTime() - t0;
+            if ( line == null ) break;
+
+            int len = line.length();
+            if ( len == 0 ) continue;
+            if ( line.charAt(0) == '/' ) { comments++; continue; }
+            if ( len < 3 ) continue;
+            char op = line.charAt(0);
+            if ( op == 'v' ) continue;
+            if ( op != 'c' && op != 'p' && op != 'r' ) continue;
+
+            String body = line.substring(2, len - 1);
+            totalBytes += body.length();
+
+            long p0 = System.nanoTime();
+            FObject obj = parser.parseStringCircular(body, cls);
+            parseNanos += System.nanoTime() - p0;
+
+            if ( obj != null ) {
+              long w0 = System.nanoTime();
+              mdao.put_(x, obj);
+              putNanos += System.nanoTime() - w0;
+              count++;
+            }
+          }
+        } catch (Exception e) {
+          throw new RuntimeException("CircularPStream replay failed", e);
+        }
+        long wallNanos = System.nanoTime() - wallStart;
+
+        double wallSec     = wallNanos / 1e9;
+        double readSec     = readNanos / 1e9;
+        double parseSec    = parseNanos / 1e9;
+        double putSec      = putNanos / 1e9;
+        double unacctSec   = wallSec - readSec - parseSec - putSec;
+        double mbSec       = (totalBytes / 1e6) / wallSec;
+
+        log("");
+        log("=== End-to-End: FOAM + CircularStringPStream (" + count + " entries, " + (totalBytes/1_000_000) + " MB, ring=" + CircularStringPStream.RING_SIZE + ") ===");
+        log(String.format("  Wall time:  %6.2f sec", wallSec));
+        log(String.format("  Read:       %6.2f sec  (%4.1f%%)", readSec,  100*readSec/wallSec));
+        log(String.format("  Parse:      %6.2f sec  (%4.1f%%)", parseSec, 100*parseSec/wallSec));
+        log(String.format("  MDAO put:   %6.2f sec  (%4.1f%%)", putSec,   100*putSec/wallSec));
+        log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
+        log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
+        log("  Comments skipped: " + comments);
+
+        circularWallSec_ = wallSec;
+        test(count == NUM_ENTRIES, "CircularPStream replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
     {
@@ -940,8 +1222,11 @@ foam.CLASS({
         printRow("Jackson (ceiling)",               jacksonWallSec_,       baseline);
         printRow("FOAM Inlined (no AssemblyLine)",  inlinedWallSec_,       baseline);
         printRow("Jackson Inlined",                 jacksonInlinedWallSec_,baseline);
+        printRow("FOAM + SyncAssemblyLine",         syncLineWallSec_,      baseline);
+        printRow("FOAM + SimpleAsyncAssemblyLine",  simpleAsyncLineWallSec_,baseline);
         printRow("FOAM + Pooled PStream",           pooledWallSec_,        baseline);
         printRow("FOAM + FastPStream (char[])",     fastPsWallSec_,        baseline);
+        printRow("FOAM + CircularPStream (ring=256)", circularWallSec_,    baseline);
         printRow("All Optimizations Combined",      allOptWallSec_,        baseline);
         if ( parallelWallSec_ > 0 )
           printRow("Parallel (" + Runtime.getRuntime().availableProcessors() + " threads)", parallelWallSec_, baseline);

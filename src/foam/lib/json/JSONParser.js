@@ -63,6 +63,19 @@ foam.CLASS({
       }
     }
 
+    public FObject parseStringCircular(String data, Class defaultClass) {
+      foam.lib.parse.CircularStringPStream cps = new foam.lib.parse.CircularStringPStream(data);
+      ParserContext x = new ParserContextImpl();
+      x.set("X", getX());
+      try {
+        foam.lib.parse.PStream result = cps.apply(
+          defaultClass == null ? parser : ExprParser.create(defaultClass), x);
+        return result == null ? null : (FObject) result.value();
+      } catch ( Throwable t ) {
+        return null;
+      }
+    }
+
     public Object[] parseStringForArray(String data, Class defaultClass) {
       StringPStream ps = new StringPStream(data);
       ParserContext x = new ParserContextImpl();

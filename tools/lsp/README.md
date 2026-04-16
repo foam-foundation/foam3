@@ -9,7 +9,7 @@ A runtime-aware Language Server for FOAM3 that provides autocomplete, hover, go-
 node foam3/tools/lsp-start.js
 
 # Run tests:
-cd <your-project> && node foam3/tools/tests/testFoamLSPGrammar.js
+cd <your-project> && node foam3/tools/tests/testFoamLSP.js
 
 # VS Code debug mode:
 cd foam3/tools/lsp/editors/vscode && npm install && npx tsc -p ./
@@ -207,7 +207,7 @@ npx tsc -p ./
 
 ### Quick Test (seconds, no build)
 ```bash
-cd <your-project> && node foam3/tools/tests/testFoamLSPGrammar.js
+cd <your-project> && node foam3/tools/tests/testFoamLSP.js
 ```
 
 123 tests covering:
@@ -268,7 +268,7 @@ foam3/tools/
 │       ├── JavaBlockValidatorTest.js
 │       └── LSPIntegrationTest.js
 ├── tests/
-│   └── testFoamLSPGrammar.js      # Quick standalone test (123 tests)
+│   └── testFoamLSP.js      # Quick standalone test (123 tests)
 └── editors/
     ├── vscode/                    # VS Code extension
     │   ├── package.json

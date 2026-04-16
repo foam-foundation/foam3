@@ -275,7 +275,7 @@ Quick standalone test (no build required):
 
 ```bash
 cd <your-project>
-node foam3/tools/tests/testFoamLSPGrammar.js
+node foam3/tools/tests/testFoamLSP.js
 ```
 
 This runs 200+ tests covering all handlers, the grammar, file model cache, and

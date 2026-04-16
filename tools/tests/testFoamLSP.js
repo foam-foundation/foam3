@@ -7,7 +7,7 @@
  */
 
 // Quick test for FOAM LSP grammar — runs in seconds without full build.
-// Usage: cd <your-project> && node foam3/tools/tests/testFoamLSPGrammar.js
+// Usage: cd <your-project> && node foam3/tools/tests/testFoamLSP.js
 
 console.log = function() { console.error.apply(console, arguments); };
 console.warn = function() { console.error.apply(console, arguments); };

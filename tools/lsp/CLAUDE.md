@@ -91,7 +91,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 ## Testing
 ```bash
 # Quick test (123 tests, ~30s):
-cd <project> && node foam3/tools/tests/testFoamLSPGrammar.js
+cd <project> && node foam3/tools/tests/testFoamLSP.js
 
 # FOAM framework tests:
 ./build.sh -W9090 -Jlsp --flags:test client-tests:FoamIndexTest
@@ -103,7 +103,7 @@ cd <project> && node foam3/tools/tests/testFoamLSPGrammar.js
 1. Add handler method in appropriate handler file
 2. Add capability in `server.js` initialize response
 3. Add dispatch case in `server.js` handleMessage switch
-4. Add test in `testFoamLSPGrammar.js`
+4. Add test in `testFoamLSP.js`
 5. If VS Code-specific, update `extension.ts` and `package.json`
 
 ### Adding a new diagnostic check

@@ -62,6 +62,7 @@ foam.CLASS({
       position: fixed;
       right: 60px;
       top: 120px;
+      overflow-y: auto;
     }
   `,
 
@@ -69,10 +70,9 @@ foam.CLASS({
     DEFAULT_TOP_OFFSET: 120,
     DEFAULT_RIGHT_OFFSET: 60,
     BOTTOM_BUFFER: 30,
-    MIN_HEIGHT: 250, 
-    // MIN_HEIGHT, MINOR KNOW ISSUE: Based on trying multiple values, '250' seemed good. 
-    // tldr; there's a certain vertical scroll position, if the BUTTON which opens Pop-up is below that vertical point
-    // the pop-up overflows to below the fold(visible screen area)
+    TOP_BUFFER: 30,
+    TABLE_HEADER_HEIGHT: 60,  // Approximate table header height
+    MIN_HEIGHT: 250,
     MAX_HEIGHT: 600,
     DROPDOWN_WIDTH: 300 // Approximate width from CSS max-width
   },
@@ -98,7 +98,10 @@ foam.CLASS({
         }));
       }
       this.onDetach(this.selectColumnsExpanded$.sub(() => {
-        if ( this.selectColumnsExpanded ) this.refresh();
+        if ( this.selectColumnsExpanded ) {
+          this.updatePosition();
+          this.refresh();
+        }
       }));
     },
     function closeDropDown(e) {
@@ -111,12 +114,16 @@ foam.CLASS({
       var self = this;
       this.window.addEventListener('resize', this.updatePosition);
       this.onDetach(() => self.window.removeEventListener('resize', self.updatePosition));
-      
+
       this.start()
       .addClass(this.myClass())
         .show(this.selectColumnsExpanded$)
         .addClass(this.myClass('drop-down-bg'))
-        .add(this.dynamic(function(refreshIdx) {
+        .add(this.dynamic(function(selectColumnsExpanded) {
+          // Call updatePosition when popover becomes visible to ensure correct placement
+          if ( selectColumnsExpanded ) {
+            setTimeout(function() { self.updatePosition(); }, 0);
+          }
           this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
               .addClass(self.myClass('container'))
               .style({
@@ -131,32 +138,47 @@ foam.CLASS({
     }
   ],
   listeners: [
-    function refresh() { this.refreshIdx++; }, 
+    function refresh() { this.refreshIdx++; },
     function updatePosition() {
-      var availableSpace;
-      
+      var availableBelow, availableAbove, topPos, headerBottomPos;
+
       if ( this.table && this.table.tableEl_ ) {
         var tableRect = this.table.tableEl_.getBoundingClientRect();
-        
+
         // Position relative to table's right edge, offset by dropdown width
         this.rightOffset = Math.max(10, this.window.innerWidth - tableRect.right - this.DROPDOWN_WIDTH) + 'px';
-        this.topOffset = tableRect.top + 'px';
 
-        // Calculate available space from dropdown top to viewport bottom
-        availableSpace = this.window.innerHeight - tableRect.top - this.BOTTOM_BUFFER;
+        // Position below the table header
+        headerBottomPos = tableRect.top + this.TABLE_HEADER_HEIGHT;
+
+        // Calculate available space below header and above table top
+        availableBelow = this.window.innerHeight - headerBottomPos - this.BOTTOM_BUFFER;
+        availableAbove = tableRect.top - this.TOP_BUFFER;
+
+        // Position below header if enough space, otherwise position above
+        if ( availableBelow >= this.MIN_HEIGHT ) {
+          topPos = headerBottomPos;
+          this.topOffset = topPos + 'px';
+          this.height = Math.max(this.MIN_HEIGHT,
+              Math.min(this.MAX_HEIGHT, availableBelow)) + 'px';
+        } else if ( availableAbove >= this.MIN_HEIGHT ) {
+          topPos = Math.max(0, tableRect.top - this.MAX_HEIGHT - this.TOP_BUFFER);
+          this.topOffset = topPos + 'px';
+          this.height = Math.max(this.MIN_HEIGHT,
+              Math.min(this.MAX_HEIGHT, availableAbove)) + 'px';
+        } else {
+          // Not enough space either way, position below header and rely on max-height + scroll
+          topPos = headerBottomPos;
+          this.topOffset = topPos + 'px';
+          this.height = this.MAX_HEIGHT + 'px';
+        }
       } else {
         // Use default positioning when no table is present
         this.rightOffset = this.DEFAULT_RIGHT_OFFSET + 'px';
         this.topOffset = this.DEFAULT_TOP_OFFSET + 'px';
-        
-        // Calculate available space from default position to viewport bottom
-        availableSpace = this.window.innerHeight -
-            this.DEFAULT_TOP_OFFSET - this.BOTTOM_BUFFER;
+        this.height = Math.max(this.MIN_HEIGHT,
+            Math.min(this.MAX_HEIGHT, this.window.innerHeight - this.DEFAULT_TOP_OFFSET - this.BOTTOM_BUFFER)) + 'px';
       }
-      
-      // Clamp height between min and max, but don't exceed available space
-      this.height = Math.max(this.MIN_HEIGHT,
-          Math.min(this.MAX_HEIGHT, availableSpace)) + 'px';
     }
   ],
   actions: [

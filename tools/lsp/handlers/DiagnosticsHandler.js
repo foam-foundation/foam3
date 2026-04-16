@@ -11,6 +11,7 @@ foam.CLASS({
   requires: [
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
+    'foam.parse.lsp.FoamClassGrammar',
     'foam.parse.lsp.CursorAnalyzer',
     'foam.parse.lsp.Diagnostic',
     'foam.parse.lsp.handlers.JavaBlockValidator'
@@ -34,6 +35,12 @@ foam.CLASS({
       of: 'foam.parse.lsp.CursorAnalyzer',
       name: 'analyzer',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.FoamClassGrammar',
+      name: 'grammar',
+      factory: function() { return this.FoamClassGrammar.create({ index: this.index }); }
     },
     {
       class: 'FObjectProperty',
@@ -91,8 +98,39 @@ foam.CLASS({
         }
       }
 
+      // Parser-emitted diagnostics — single grammar pass covers all class-ref
+      // and property-type positions (extends/requires/of/implements and
+      // class: '…'). Positions come straight from parser offsets, no regex.
+      this.collectGrammarDiagnostics_(text, diagnostics);
+
       this.prevResults_[uri] = { text: text, modelKeys: prev ? prev.modelKeys : {} };
       return this.toLSPDiagnostics_(diagnostics);
+    },
+
+    function collectGrammarDiagnostics_(text, diagnostics) {
+      /**
+       * Consume msg-tagged records from grammar parse. For each record,
+       * decide whether to emit a Diagnostic based on the msg type and the
+       * matched text's registry status.
+       */
+      var records = this.grammar.collectDiagnostics(text);
+      for ( var i = 0 ; i < records.length ; i++ ) {
+        var r = records[i];
+        var matched = text.substring(r.startPos, r.endPos);
+        if ( ! matched ) continue;
+
+        if ( r.msg && r.msg.type === 'unknownClassRef' ) {
+          if ( ! this.classKnown_(matched) ) {
+            this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
+              "Unknown class: '" + matched + "'");
+          }
+        } else if ( r.msg && r.msg.type === 'unknownPropType' ) {
+          if ( ! this.validTypes_[matched] && ! this.classKnown_(matched) ) {
+            this.addDiag_(diagnostics, text, r.startPos, matched.length, 3,
+              "Unknown property type: '" + matched + "'");
+          }
+        }
+      }
     },
 
     function toLSPDiagnostics_(diagnostics) {
@@ -108,40 +146,9 @@ foam.CLASS({
 
     function validateModel_(m, text, diagnostics) {
       var classId = this.cache.getClassId(m);
-      var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
-      // Validate extends
-      if ( m.extends && ! this.classKnown_(m.extends) ) {
-        var loc = this.findInText_(text, 'extends', m.extends, modelOffset);
-        if ( loc !== null ) this.addDiag_(diagnostics, text, loc, m.extends.length, 2,
-          "Unknown class in extends: '" + m.extends + "'");
-      }
-
-      // Validate requires — parse 'as' aliases to extract the real class ID
-      var requires = m.requires || [];
-      for ( var i = 0 ; i < requires.length ; i++ ) {
-        var parsed = this.cache.parseRequiresEntry(requires[i]);
-        if ( ! parsed ) continue;
-        var reqId = parsed.classId;
-        if ( reqId && ! this.classKnown_(reqId) ) {
-          var loc = this.findInText_(text, null, reqId, modelOffset);
-          if ( loc !== null ) this.addDiag_(diagnostics, text, loc, reqId.length, 2,
-            "Unknown class in requires: '" + reqId + "'");
-        }
-      }
-
-      // Validate property types
-      var props = m.properties || [];
-      for ( var i = 0 ; i < props.length ; i++ ) {
-        var p = props[i];
-        if ( typeof p === 'object' && p.class ) {
-          if ( ! this.validTypes_[p.class] && ! this.classKnown_(p.class) ) {
-            var loc = this.findInText_(text, 'class', p.class, modelOffset);
-            if ( loc !== null ) this.addDiag_(diagnostics, text, loc, p.class.length, 3,
-              "Unknown property type: '" + p.class + "'");
-          }
-        }
-      }
+      // Unknown class (extends/requires/of/implements) and unknown property-type
+      // diagnostics come from collectGrammarDiagnostics_ — not repeated here.
 
       // Validate Java blocks
       this.javaValidator.validateModel(m, classId, diagnostics, text);

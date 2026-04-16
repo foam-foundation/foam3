@@ -43,6 +43,47 @@ foam.CLASS({
   ],
 
   methods: [
+    function collectDiagnostics(text) {
+      /**
+       * Parse `text` and collect diagnostic records from P.msg()-wrapped
+       * parsers that succeeded. Each record is { startPos, endPos, msg }.
+       * Callers interpret `msg` to produce a Diagnostic — e.g., the
+       * 'unknownClassRef' msg is converted to an "Unknown class: X" warning
+       * only if the matched text isn't in the class registry.
+       *
+       * No framework additions — uses the existing foam.parse.Msg decorator
+       * which already carries an arbitrary message payload.
+       */
+      var records = [];
+
+      var apply = function(p, grammar) {
+        var startPos = this.pos;
+        var result = p.parse(this, grammar);
+        if ( result && typeof p.msg === 'function' ) {
+          var m = p.msg();
+          if ( m ) {
+            // FOAM parsers are immutable — the new position is on `result`,
+            // not on `this` (which still points to startPos).
+            records.push({ startPos: startPos, endPos: result.pos, msg: m });
+          }
+        }
+        return result;
+      };
+
+      var ps = foam.parse.StringPStream.create({
+        str: text + String.fromCharCode(26),
+        apply: apply
+      });
+
+      try {
+        this.parse(ps);
+      } catch ( e ) {
+        // Partial results are fine.
+      }
+
+      return records;
+    },
+
     function collectSuggestionsAt(text, cursorOffset) {
       /**
        * Parse `text` and collect suggestions from sug() parsers whose
@@ -462,10 +503,16 @@ foam.CLASS({
         ),
 
         // === CLASS REFERENCES (dynamic) ===
+        // The permissive fallback is wrapped in msg() so diagnostic collection
+        // can flag it as an unknown class — the msg is only consumed by
+        // collectDiagnostics(), not by completion.
         classRef: P.alt(
           self.classRefParser_,
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('._')), null, 1))
+          P.msg(
+            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+              P.range('0', '9'), P.chars('._')), null, 1)),
+            { type: 'unknownClassRef' }
+          )
         ),
 
         // === PROPERTY DEFINITIONS ===
@@ -518,8 +565,11 @@ foam.CLASS({
 
         propType: P.alt(
           self.propTypeParser_,
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('._')), null, 1))
+          P.msg(
+            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+              P.range('0', '9'), P.chars('._')), null, 1)),
+            { type: 'unknownPropType' }
+          )
         ),
 
         // === METHOD DEFINITIONS ===

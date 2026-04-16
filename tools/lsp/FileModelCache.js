@@ -82,6 +82,38 @@ foam.CLASS({
       return map;
     },
 
+    function getClassId(model) {
+      /**
+       * Return the full class ID for a model object.
+       * For refinements, uses m.refines (the target being refined).
+       * Otherwise joins package + name (or just name if no package).
+       * Handlers used to inline this expression 10+ times — use this helper.
+       */
+      if ( ! model ) return null;
+      if ( model.refines ) return model.refines;
+      return model.package ? model.package + '.' + model.name : model.name;
+    },
+
+    function getClassIdAt(uri, text, line) {
+      /** Convenience: getModelAt(..) then getClassId(..) — returns null if no model. */
+      return this.getClassId(this.getModelAt(uri || '', text, line));
+    },
+
+    function resolveRequiresMap(uri, text, analyzer, opt_line) {
+      /**
+       * Single source of truth for requires → { alias: classId } resolution.
+       * Uses the eval-captured model when available (handles 'as' aliases and
+       * object-form entries). Falls back to CursorAnalyzer.parseRequires for
+       * broken/mid-edit files where eval fails.
+       *
+       * Replaces the "model ? cache.buildRequiresMap(model) : analyzer.parseRequires(text)"
+       * pattern that was duplicated across handlers.
+       */
+      var model = this.getModelAt(uri || '', text, opt_line == null ? 0 : opt_line);
+      if ( model ) return this.buildRequiresMap(model);
+      return analyzer ? analyzer.parseRequires(text) : {};
+    },
+
     function parseFileModels(text) {
       /**
        * Execute file text with overridden foam.CLASS/ENUM/INTERFACE to capture

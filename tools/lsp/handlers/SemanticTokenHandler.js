@@ -84,7 +84,7 @@ foam.CLASS({
        * Typed variable usages (var x = this.Foo.create()) are only emitted
        * inside code scope — NOT in structural ranges or string literals.
        */
-      var classId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+      var classId = this.cache.getClassId(model);
       var cls     = this.index.getClass(classId);
 
       // --- Build requires set ---
@@ -438,7 +438,7 @@ foam.CLASS({
         'javaCondition', 'javaValue', 'javaImports', 'code', 'serviceScript'
       ];
       var self = this;
-      var classId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+      var classId = this.cache.getClassId(model);
 
       // Use registry class for refines — FOAM merges refinements into the original class
       var cls = self.index.getClass(classId);

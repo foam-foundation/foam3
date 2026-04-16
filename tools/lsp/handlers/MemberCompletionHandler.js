@@ -43,7 +43,7 @@ foam.CLASS({
 
   methods: [
     function handle(text, position, opt_uri) {
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text) ) {
+      if ( ! this.analyzer.isFoamFile(text) ) {
         return { isIncomplete: false, items: [] };
       }
 
@@ -86,8 +86,7 @@ foam.CLASS({
       // Detect context: this.RequiredClass. ▊ — suggest create() and class constants
       var reqClassMatch = prefix.match(/this\.([A-Z]\w*)\.\w*$/);
       if ( reqClassMatch ) {
-        var model = this.cache.getModelAt(opt_uri || '', text, position.line);
-        var requiresMap = model ? this.cache.buildRequiresMap(model) : this.analyzer.parseRequires(text);
+        var requiresMap = this.cache.resolveRequiresMap(opt_uri, text, this.analyzer, position.line);
         var fullId = requiresMap[reqClassMatch[1]];
         if ( fullId && this.index.classExists(fullId) ) {
           return this.getRequiredClassItems(fullId);
@@ -105,7 +104,7 @@ foam.CLASS({
     function handleThisCompletion(text, position, opt_uri) {
       /** Suggest: own properties, methods, actions, required classes, imports. */
       var model = this.cache.getModelAt(opt_uri || '', text, position.line);
-      var classId = model ? (model.refines || (model.package ? model.package + '.' + model.name : model.name)) : null;
+      var classId = this.cache.getClassId(model);
 
       // Fallback: if eval failed (SyntaxError from incomplete code like 'this.'),
       // resolve classId from regex
@@ -160,60 +159,40 @@ foam.CLASS({
         });
       }
 
-      // Required classes from model — this.ShortName is available
-      if ( model ) {
-        var requiresMap = this.cache.buildRequiresMap(model);
-        for ( var alias in requiresMap ) {
-          var fullId = requiresMap[alias];
-          var cls = this.index.getClass(fullId);
-          var rdoc = cls && cls.model_ ? ( cls.model_.documentation || '' ) : '';
-          items.push({
-            label: alias,
-            kind: 7,
-            detail: fullId,
-            documentation: rdoc.substring(0, 100),
-            sortText: '!2_' + alias
-          });
-        }
+      // Required classes (model-first, text fallback) — this.ShortName is available
+      var requiresMap = this.cache.resolveRequiresMap(opt_uri, text, this.analyzer, position.line);
+      for ( var alias in requiresMap ) {
+        var fullId = requiresMap[alias];
+        var cls = this.index.getClass(fullId);
+        var rdoc = cls && cls.model_ ? ( cls.model_.documentation || '' ) : '';
+        items.push({
+          label: alias,
+          kind: 7,
+          detail: fullId,
+          documentation: rdoc.substring(0, 100),
+          sortText: '!2_' + alias
+        });
+      }
 
-        // Imports from model — this.importedName is available
+      // Imports — model-first (preserves shape), text fallback
+      var importNames = [];
+      if ( model ) {
         var imports = model.imports || [];
         for ( var i = 0 ; i < imports.length ; i++ ) {
           var imp = imports[i];
           var name = typeof imp === 'string' ? imp : imp.name;
-          name = name.replace(/\?$/, '');
-          items.push({
-            label: name,
-            kind: 10,
-            detail: 'import',
-            sortText: '!2_' + name
-          });
+          importNames.push(name.replace(/\?$/, ''));
         }
       } else {
-        // Fallback: parse requires/imports via regex for broken files
-        var requiresMap = this.analyzer.parseRequires(text);
-        for ( var shortName in requiresMap ) {
-          var fullId = requiresMap[shortName];
-          var cls = this.index.getClass(fullId);
-          var rdoc = cls && cls.model_ ? ( cls.model_.documentation || '' ) : '';
-          items.push({
-            label: shortName,
-            kind: 7,
-            detail: fullId,
-            documentation: rdoc.substring(0, 100),
-            sortText: '!2_' + shortName
-          });
-        }
-
-        var importNames = this.analyzer.parseImports(text);
-        for ( var i = 0 ; i < importNames.length ; i++ ) {
-          items.push({
-            label: importNames[i],
-            kind: 10,
-            detail: 'import',
-            sortText: '!2_' + importNames[i]
-          });
-        }
+        importNames = this.analyzer.parseImports(text);
+      }
+      for ( var i = 0 ; i < importNames.length ; i++ ) {
+        items.push({
+          label: importNames[i],
+          kind: 10,
+          detail: 'import',
+          sortText: '!2_' + importNames[i]
+        });
       }
 
       return { isIncomplete: false, items: items };

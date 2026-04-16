@@ -34,16 +34,14 @@ foam.CLASS({
        * Returns DocumentSymbol[] — outline of class, properties, methods.
        * Uses FileModelCache for class-level info, regex for source positions.
        */
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text) ) {
-        return [];
-      }
+      if ( ! this.analyzer.isFoamFile(text) ) return [];
 
       var models = this.cache.getModels(opt_uri || '', text);
       var symbols = [];
 
       for ( var i = 0 ; i < models.length ; i++ ) {
         var m = models[i];
-        var className = m.refines || (m.package ? m.package + '.' + m.name : (m.name || 'Unknown'));
+        var className = this.cache.getClassId(m) || 'Unknown';
         var startLine = m.sourceLine_ || 0;
         var kindNum = m.type_ === 'ENUM' ? 10 : m.type_ === 'INTERFACE' ? 11 : 5;
         var children = [];

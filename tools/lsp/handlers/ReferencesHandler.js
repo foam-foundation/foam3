@@ -31,7 +31,7 @@ foam.CLASS({
   ],
 
   methods: [
-    function handle(text, position) {
+    function handle(text, position, opt_uri) {
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return [];
 

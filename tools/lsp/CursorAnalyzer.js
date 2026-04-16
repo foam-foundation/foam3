@@ -10,7 +10,27 @@ foam.CLASS({
 
   documentation: 'Shared text analysis utilities for LSP handlers.',
 
+  constants: {
+    // Matches the opening of any FOAM model call. Shared by all handlers for
+    // file-type detection and by FileModelCache for bracket-matching fallback.
+    FOAM_CALL_REGEX: /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/,
+    FOAM_CALL_REGEX_POM: /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|POM)\s*\(/
+  },
+
   methods: [
+    function isFoamFile(text, opt_includePom) {
+      /** True if the text contains a foam.CLASS/ENUM/INTERFACE/RELATIONSHIP (or POM) call. */
+      var re = opt_includePom ? this.FOAM_CALL_REGEX_POM : this.FOAM_CALL_REGEX;
+      return re.test(text);
+    },
+
+    function classIdOf(model) {
+      /** Mirror of FileModelCache.getClassId — for use where cache isn't injected. */
+      if ( ! model ) return null;
+      if ( model.refines ) return model.refines;
+      return model.package ? model.package + '.' + model.name : model.name;
+    },
+
     function offsetToPosition(text, offset) {
       /** Convert a character offset to { line, character } position. */
       var line = 0;
@@ -234,7 +254,7 @@ foam.CLASS({
         var getterMatch = scanLine.match(new RegExp(varName + '\\s*=\\s*(get)([A-Z]\\w*)\\s*\\('));
         if ( getterMatch ) {
           var propName = getterMatch[2].charAt(0).toLowerCase() + getterMatch[2].substring(1);
-          var classId = model ? (model.refines || (model.package ? model.package + '.' + model.name : model.name)) : null;
+          var classId = this.classIdOf(model);
           if ( classId ) {
             var propType = index.getPropertyJavaType(classId, propName);
             if ( propType ) return this.resolveJavaTypeName(propType, model, index);

@@ -56,9 +56,7 @@ foam.CLASS({
 
   methods: [
     function handle(text, position, opt_uri) {
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text) ) {
-        return null;
-      }
+      if ( ! this.analyzer.isFoamFile(text) ) return null;
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
@@ -68,7 +66,7 @@ foam.CLASS({
       if ( javaHover ) return javaHover;
 
       // Try CSS block hover — $tokens and ^myClass references
-      var cssHover = this.cssBlockHover_(text, position);
+      var cssHover = this.cssBlockHover_(text, position, opt_uri);
       if ( cssHover ) return cssHover;
 
       // Try as class ID (full path like foam.lang.FObject)
@@ -129,7 +127,7 @@ foam.CLASS({
 
       // Try 'create' — show info about the class being created
       if ( segment === 'create' ) {
-        var createHover = this.buildCreateHover_(text, position);
+        var createHover = this.buildCreateHover_(text, position, opt_uri);
         if ( createHover ) return createHover;
       }
 
@@ -176,7 +174,7 @@ foam.CLASS({
       /** Get the class ID of the model at the cursor position. */
       var model = this.cache.getModelAt(opt_uri || '', text, position.line);
       if ( ! model ) return null;
-      return model.refines || (model.package ? model.package + '.' + model.name : model.name);
+      return this.cache.getClassId(model);
     },
 
     function javaBlockHover_(text, position, opt_uri) {
@@ -203,7 +201,7 @@ foam.CLASS({
 
         // Fall back to current model's class
         if ( ! classId ) {
-          classId = model ? (model.refines || (model.package ? model.package + '.' + model.name : model.name)) : null;
+          classId = this.cache.getClassId(model);
         }
 
         if ( classId ) {
@@ -318,7 +316,7 @@ foam.CLASS({
       return null;
     },
 
-    function cssBlockHover_(text, position) {
+    function cssBlockHover_(text, position, opt_uri) {
       /**
        * Hover inside CSS template blocks — uses shared block detection
        * and CSS context analysis.
@@ -346,7 +344,7 @@ foam.CLASS({
       // ^name — myClass shorthand
       if ( fullWord.charAt(0) === '^' ) {
         var suffix = fullWord.substring(1);
-        var model = this.cache.getModelAt('', text, position.line);
+        var model = this.cache.getModelAt(opt_uri || '', text, position.line);
         if ( model ) {
           var pkg = model.package ? model.package.replace(/\./g, '-') : '';
           var cls = model.name || '';
@@ -475,7 +473,7 @@ foam.CLASS({
       return this.analyzer.findCreateContext(lines, position.line, text, this.index);
     },
 
-    function buildCreateHover_(text, position) {
+    function buildCreateHover_(text, position, opt_uri) {
       /** When hovering on 'create', resolve the class and show its info. */
       var lines = text.split('\n');
       var line = lines[position.line] || '';

@@ -36,10 +36,9 @@ foam.CLASS({
   ],
 
   methods: [
-    function handle(text, position) {
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text) ) {
-        return null;
-      }
+    function handle(text, position, opt_uri) {
+      if ( ! this.analyzer.isFoamFile(text) ) return null;
+      var uri = opt_uri || '';
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
@@ -47,7 +46,7 @@ foam.CLASS({
       // Java block: resolve type names and methods via javaImports + registry
       var blockCtx = this.analyzer.getBacktickBlockContext(text, position);
       if ( blockCtx && blockCtx.blockKey !== 'css' ) {
-        var result = this.handleJavaDefinition_(text, position, word);
+        var result = this.handleJavaDefinition_(text, position, word, uri);
         if ( result ) return result;
       }
 
@@ -68,8 +67,8 @@ foam.CLASS({
       // Try as method/property on current class — navigate to the defining class
       var segment = this.analyzer.getSegmentAtPosition(text, position);
       if ( segment ) {
-        var model = this.cache.getModelAt('', text, position.line);
-        var classId = model ? (model.refines || (model.package ? model.package + '.' + model.name : model.name)) : null;
+        var model = this.cache.getModelAt(uri, text, position.line);
+        var classId = this.cache.getClassId(model);
         if ( classId ) {
           var cls = this.index.getClass(classId);
           if ( cls ) {
@@ -159,7 +158,7 @@ foam.CLASS({
         var endLine = content.split('\n').length;
         for ( var i = 0 ; i < models.length ; i++ ) {
           var m = models[i];
-          var id = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+          var id = this.cache.getClassId(m);
           if ( id === classId ) {
             startLine = m.sourceLine_ || 0;
             endLine = (i + 1 < models.length && models[i + 1].sourceLine_) ? models[i + 1].sourceLine_ : endLine;
@@ -197,13 +196,13 @@ foam.CLASS({
       return this.buildLocation(filePath);
     },
 
-    function handleJavaDefinition_(text, position, word) {
+    function handleJavaDefinition_(text, position, word, opt_uri) {
       /**
        * Go-to-definition inside Java code blocks.
        * Resolves: type names (Country → foam.core.auth.Country),
        * variable.method() chains, getters/setters, x.get().
        */
-      var model = this.cache.getModelAt('', text, position.line);
+      var model = this.cache.getModelAt(opt_uri || '', text, position.line);
       var segment = this.analyzer.getSegmentAtPosition(text, position);
       if ( ! segment ) return null;
 
@@ -259,7 +258,7 @@ foam.CLASS({
       }
 
       // 3. Standalone method name (e.g., getProperty on current model)
-      var currentClassId = model ? (model.refines || (model.package ? model.package + '.' + model.name : model.name)) : null;
+      var currentClassId = this.cache.getClassId(model);
       if ( currentClassId ) {
         var javaLoc = this.findJavaMethodLocation_(currentClassId, segment);
         if ( javaLoc ) return javaLoc;
@@ -305,7 +304,7 @@ foam.CLASS({
           var models = this.cache.parseFileModels(content);
           for ( var i = 0 ; i < models.length ; i++ ) {
             var m = models[i];
-            var id = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+            var id = this.cache.getClassId(m);
             if ( id === opt_classId && m.sourceLine_ ) { line = m.sourceLine_; break; }
           }
         } catch (e) {}

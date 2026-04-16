@@ -101,23 +101,24 @@ foam.CLASS({
   ],
 
   methods: [
-    function handle(text, position) {
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|POM)\s*\(/.test(text) ) {
+    function handle(text, position, opt_uri) {
+      if ( ! this.analyzer.isFoamFile(text, true) ) {
         return { isIncomplete: false, items: [] };
       }
+      var uri = opt_uri || '';
 
       var lines = text.split('\n');
       var line = lines[position.line] || '';
       var prefix = line.substring(0, position.character);
 
       // CSS block completions
-      var cssItems = this.cssBlockCompletion_(text, position);
+      var cssItems = this.cssBlockCompletion_(text, position, uri);
       if ( cssItems && cssItems.length > 0 ) {
         return { isIncomplete: cssItems.length > 200, items: cssItems };
       }
 
       // Java block completions: suggest getters/setters inside javaCode/javaGetter/etc.
-      var javaItems = this.javaBlockCompletion_(text, position, lines, prefix);
+      var javaItems = this.javaBlockCompletion_(text, position, lines, prefix, uri);
       if ( javaItems && javaItems.length > 0 ) {
         return { isIncomplete: false, items: javaItems };
       }
@@ -126,7 +127,7 @@ foam.CLASS({
       // The grammar sees complete text including closing quote, but contextFallback
       // correctly extracts the partial value between opening quote and cursor.
       if ( /['"][^'"]*$/.test(prefix) ) {
-        var contextItems = this.contextFallback(text, position);
+        var contextItems = this.contextFallback(text, position, uri);
         if ( contextItems.length > 0 ) {
           return { isIncomplete: contextItems.length > 200, items: contextItems };
         }
@@ -145,13 +146,13 @@ foam.CLASS({
 
       // Fallback: if grammar found no suggestions, detect context from line text
       if ( items.length === 0 ) {
-        items = this.contextFallback(text, position);
+        items = this.contextFallback(text, position, uri);
       }
 
       return { isIncomplete: items.length > 200, items: items };
     },
 
-    function contextFallback(text, position) {
+    function contextFallback(text, position, opt_uri) {
       /** Detect cursor context from surrounding text and provide suggestions. */
       var lines = text.split('\n');
       var line = lines[position.line] || '';
@@ -188,10 +189,9 @@ foam.CLASS({
       if ( (/tableColumns\s*:\s*\[/.test(lineContext) || /searchColumns\s*:\s*\[/.test(lineContext)) &&
            /['"][^'"]*$/.test(prefix) ) {
         var partial = this.extractPartial_(prefix).toLowerCase();
-        var cache = this.cache || this.FileModelCache.create();
-        var model = cache.getModelAt('', text, position.line);
+        var model = this.cache.getModelAt(opt_uri || '', text, position.line);
         if ( model ) {
-          var classId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+          var classId = this.cache.getClassId(model);
           var props = this.index.getProperties(classId);
           var items = [];
 
@@ -488,7 +488,7 @@ foam.CLASS({
       return process.cwd();
     },
 
-    function cssBlockCompletion_(text, position) {
+    function cssBlockCompletion_(text, position, opt_uri) {
       /**
        * CSS completion using shared CursorAnalyzer methods.
        * Handles: property names, property values, $token references.
@@ -675,7 +675,7 @@ foam.CLASS({
       return values.length > 0 ? values.concat(common) : common;
     },
 
-    function javaBlockCompletion_(text, position, lines, prefix) {
+    function javaBlockCompletion_(text, position, lines, prefix, opt_uri) {
       /**
        * Suggest getter/setter methods when cursor is inside a Java code block.
        * Uses shared getBacktickBlockContext for block detection.
@@ -685,8 +685,7 @@ foam.CLASS({
       // blockCtx.blockKey is one of: javaCode, javaPreSet, javaPostSet, javaFactory, javaGetter
 
       // User is typing inside a Java code block
-      var cache = this.cache || foam.parse.lsp.FileModelCache.create();
-      var model = cache.getModelAt('', text, position.line);
+      var model = this.cache.getModelAt(opt_uri || '', text, position.line);
 
       var targetClassId = null;
       var getSet, partial;
@@ -697,7 +696,7 @@ foam.CLASS({
         if ( model ) {
           getSet = 'both';
           partial = '';
-          targetClassId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+          targetClassId = this.cache.getClassId(model);
         }
       }
 
@@ -732,7 +731,7 @@ foam.CLASS({
         getSet = bareGetSet[1];
         partial = bareGetSet[2] ? bareGetSet[2].toLowerCase() : '';
         if ( model ) {
-          targetClassId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+          targetClassId = this.cache.getClassId(model);
         }
       }
 

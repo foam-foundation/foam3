@@ -66,9 +66,7 @@ foam.CLASS({
 
   methods: [
     function handle(text, opt_uri) {
-      if ( ! /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text) ) {
-        return [];
-      }
+      if ( ! this.analyzer.isFoamFile(text) ) return [];
 
       var uri = opt_uri || '';
       var models = this.cache.getModels(uri, text);
@@ -77,7 +75,7 @@ foam.CLASS({
 
       for ( var i = 0 ; i < models.length ; i++ ) {
         var m = models[i];
-        var modelKey = (m.refines || (m.package ? m.package + '.' + m.name : m.name)) + '_' + (m.sourceLine_ || 0);
+        var modelKey = (this.cache.getClassId(m)) + '_' + (m.sourceLine_ || 0);
 
         // Incremental: reuse previous diagnostics if model hasn't changed
         if ( prev && prev.modelKeys && prev.modelKeys[modelKey] && prev.text === text ) {
@@ -97,7 +95,7 @@ foam.CLASS({
     },
 
     function validateModel_(m, text, diagnostics) {
-      var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+      var classId = this.cache.getClassId(m);
       var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
       // Validate extends
@@ -178,7 +176,7 @@ foam.CLASS({
        * Validate tableColumns and searchColumns entries are real property names.
        */
       var columnKeys = ['tableColumns', 'searchColumns'];
-      var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+      var classId = this.cache.getClassId(m);
       var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
       // Build property name set (own + inherited + model-defined)
@@ -275,11 +273,11 @@ foam.CLASS({
        * each with a text range. For each expression match, finds the narrowest
        * enclosing scope and validates against that scope's properties.
        */
-      var classId = m.refines || (m.package ? m.package + '.' + m.name : m.name);
+      var classId = this.cache.getClassId(m);
       var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
       // Determine end of this model's text
-      var nextModelRegex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/g;
+      var nextModelRegex = new RegExp(this.analyzer.FOAM_CALL_REGEX.source, 'g');
       nextModelRegex.lastIndex = modelOffset + 1;
       var nextMatch = nextModelRegex.exec(text);
       var modelEnd = nextMatch ? nextMatch.index : text.length;

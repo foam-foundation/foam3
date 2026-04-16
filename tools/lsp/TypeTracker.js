@@ -36,7 +36,7 @@ foam.CLASS({
       var lines = text.split('\n');
 
       // Resolve the current class for method return type lookups
-      var classId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+      var classId = this.cache.getClassId(model);
 
       // Scan backward from cursor, stop at function boundary
       for ( var i = position.line ; i >= 0 ; i-- ) {

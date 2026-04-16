@@ -92,14 +92,14 @@ function start() {
   }
 
   function isFoamFile(text) {
-    return /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/.test(text);
+    return foam.parse.lsp.CursorAnalyzer.FOAM_CALL_REGEX.test(text);
   }
 
   function isJrlFile(uri) {
     return uri && uri.endsWith('.jrl');
   }
 
-  function getSignatureHelp(text, position, index) {
+  function getSignatureHelp(text, position, index, opt_uri) {
     /**
      * Provides parameter hints when cursor is inside parentheses of a method call.
      * E.g., this.myClass(|) → shows parameters for myClass
@@ -117,9 +117,9 @@ function start() {
     var methodName = callMatch[1];
 
     // Resolve the current class using FileModelCache for multi-class support
-    var model = fileModelCache.getModelAt('', text, position.line);
+    var model = fileModelCache.getModelAt(opt_uri || '', text, position.line);
     if ( ! model ) return null;
-    var classId = model.refines || (model.package ? model.package + '.' + model.name : model.name);
+    var classId = fileModelCache.getClassId(model);
 
     // Find the method in the class
     var methods = index.getMethods(classId);
@@ -444,10 +444,10 @@ function start() {
           var prefix = line.substring(0, params.position.character);
           var result;
           // Try member completion first (this., .create({), or inside create block)
-          result = memberHandler.handle(doc.text, params.position);
+          result = memberHandler.handle(doc.text, params.position, params.textDocument.uri);
           // Fall back to grammar-based completion
           if ( ! result || result.items.length === 0 ) {
-            result = completionHandler.handle(doc.text, params.position);
+            result = completionHandler.handle(doc.text, params.position, params.textDocument.uri);
           }
           console.error('[LSP] completion: ' + result.items.length + ' items at line ' + params.position.line + ':' + params.position.character);
           respond(id, result);
@@ -474,7 +474,7 @@ function start() {
         }
         if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
         try {
-          var result = hoverHandler.handle(doc.text, params.position);
+          var result = hoverHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] hover: success');
           respond(id, result);
         } catch (e) {
@@ -499,7 +499,7 @@ function start() {
         }
         if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
         try {
-          var result = definitionHandler.handle(doc.text, params.position);
+          var result = definitionHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] definition: success');
           respond(id, result);
         } catch (e) {
@@ -525,7 +525,7 @@ function start() {
         var doc = documents[params.textDocument.uri];
         if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
         try {
-          var result = getSignatureHelp(doc.text, params.position, index);
+          var result = getSignatureHelp(doc.text, params.position, index, params.textDocument.uri);
           respond(id, result);
         } catch (e) {
           console.error('[LSP] signatureHelp error:', e.message);
@@ -625,7 +625,7 @@ function start() {
         var doc = documents[params.textDocument.uri];
         if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
         try {
-          var result = referencesHandler.handle(doc.text, params.position);
+          var result = referencesHandler.handle(doc.text, params.position, params.textDocument.uri);
           respond(id, result);
         } catch (e) {
           console.error('[LSP] references error:', e.message);

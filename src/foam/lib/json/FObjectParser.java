@@ -95,6 +95,13 @@ public class FObjectParser
               }
             } else {
               c = defaultClass;
+              // No "class:" prefix and no Java Class supplied; fall back to
+              // a caller-supplied default ClassInfo (threaded via X context).
+              // Used for types whose getObjClass() returns null.
+              if ( c == null ) {
+                ClassInfo fallbackCi = (ClassInfo) ctx.get("defaultClassInfo");
+                if ( fallbackCi != null ) ci = fallbackCi;
+              }
             }
 
             ParserContext subx = x.sub();

@@ -108,6 +108,12 @@ foam.CLASS({
                 FObject obj;
 
                 public void executeJob() {
+                  // For ClassInfos without a backing Java class (getObjClass() == null),
+                  // thread the ClassInfo through X so the parser can still instantiate
+                  // the target via ci.newInstance() when the journal entry omits "class:".
+                  foam.lang.X parseX = dao.getOf().getObjClass() == null
+                    ? x.put("defaultClassInfo", dao.getOf())
+                    : x;
                   obj = getParser(parseX).parseString(strEntry, dao.getOf().getObjClass());
                 }
 

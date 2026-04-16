@@ -4,7 +4,27 @@
   "injectionSelector": "L:source.js",
   "patterns": [
     {
-      "comment": "Java injection into backtick template literals for all FOAM Java properties",
+      "comment": "Java injection when key+colon on line N and backtick on line N+1 (common FOAM formatting). Starts a nested state that consumes whitespace/newline then enters the backtick block.",
+      "name": "meta.foam.java-block-wrapped.js",
+      "begin": "(?<=[:\\s])(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|javaThrows|javaGenerate|javaInfoType|javaType|code|serviceScript)(\\s*:\\s*)$",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.foam" },
+        "2": { "name": "punctuation.separator.key-value.js" }
+      },
+      "end": "(?=[^\\s`])|(?<=`[\\s\\S]*?`)",
+      "patterns": [
+        {
+          "begin": "(`)",
+          "beginCaptures": { "1": { "name": "punctuation.definition.string.template.begin.js" } },
+          "end": "(`)",
+          "endCaptures": { "1": { "name": "punctuation.definition.string.template.end.js" } },
+          "contentName": "meta.embedded.block.java",
+          "patterns": [{ "include": "source.java" }]
+        }
+      ]
+    },
+    {
+      "comment": "Java injection into backtick template literals for all FOAM Java properties (same-line form)",
       "name": "meta.foam.java-block.js",
       "begin": "(?<=[:\\s])(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|javaThrows|javaGenerate|javaInfoType|javaType|code|serviceScript)(\\s*:\\s*)(`)",
       "beginCaptures": {

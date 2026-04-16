@@ -32,6 +32,8 @@ function start() {
 
   var semanticTokenHandler = foam.parse.lsp.handlers.SemanticTokenHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker, cssTokenResolver: cssTokenResolver });
   var referencesHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
+  var documentHighlightHandler = foam.parse.lsp.handlers.DocumentHighlightHandler.create();
+  var renameHandler = foam.parse.lsp.handlers.RenameHandler.create({ index: index });
   var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
@@ -399,7 +401,9 @@ function start() {
               },
               full: true
             },
-            codeActionProvider: true
+            codeActionProvider: true,
+            documentHighlightProvider: true,
+            renameProvider: { prepareProvider: true }
           },
           experimental: {
             workspaceAnalyzer: true
@@ -655,6 +659,39 @@ function start() {
         } catch (e) {
           console.error('[LSP] references error:', e.message);
           respond(id, []);
+        }
+        break;
+
+      case 'textDocument/documentHighlight':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc ) { respond(id, []); break; }
+        try {
+          respond(id, documentHighlightHandler.handle(doc.text, params.position));
+        } catch (e) {
+          console.error('[LSP] documentHighlight error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/prepareRename':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, renameHandler.prepare(doc.text, params.position));
+        } catch (e) {
+          console.error('[LSP] prepareRename error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'textDocument/rename':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, renameHandler.handle(doc.text, params.position, params.newName, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] rename error:', e.message);
+          respond(id, null);
         }
         break;
 

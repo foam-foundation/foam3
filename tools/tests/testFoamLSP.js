@@ -1955,6 +1955,45 @@ test(selHover && selHover.contents.value.indexOf('Boolean') === -1,
 test(selHover && selHover.contents.value.indexOf('Not a reference') !== -1,
   'CSS ^centered: hover clarifies it is not a property reference');
 
+// === DOCUMENT HIGHLIGHT ===
+section('DocumentHighlightHandler');
+
+var dhh = foam.parse.lsp.handlers.DocumentHighlightHandler.create();
+var dhText = "foam.CLASS({\n  properties: [\n    { class: 'String', name: 'foobar' }\n  ],\n  methods: [ function m() { return this.foobar + this.foobar; } ]\n});";
+// Cursor on 'foobar' in the method body — inside `this.foobar`
+var fhHighlights = dhh.handle(dhText, { line: 4, character: 42 });
+test(fhHighlights.length === 3,
+  'documentHighlight: finds all 3 foobar occurrences (' + fhHighlights.length + ')');
+test(fhHighlights.every(function(h) { return h.range.end.character - h.range.start.character === 6; }),
+  'documentHighlight: ranges span exactly the identifier length');
+
+// === RENAME ===
+section('RenameHandler');
+
+var rh = foam.parse.lsp.handlers.RenameHandler.create({ index: index });
+var renameSrc = "foam.CLASS({\n  extends: 'foam.lang.FObject'\n});";
+var prep = rh.prepare(renameSrc, { line: 1, character: 20 });
+test(prep !== null, 'prepareRename: returns range for a known class');
+test(prep && prep.placeholder === 'foam.lang.FObject',
+  'prepareRename: placeholder is the current class id');
+
+var prep2 = rh.prepare("foam.CLASS({\n  documentation: 'hi'\n})", { line: 1, character: 5 });
+test(prep2 === null, 'prepareRename: returns null when cursor is not on a class id');
+
+var sameWe = rh.handle(renameSrc, { line: 1, character: 20 }, 'foam.lang.FObject');
+test(sameWe === null, 'rename: returns null for same-name rename');
+
+// === REFERENCES EXPANDED ===
+section('ReferencesHandler — expanded coverage');
+
+var rfh = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
+var fobjRefs = rfh.handle("foam.CLASS({\n  extends: 'foam.lang.FObject'\n});",
+  { line: 1, character: 20 });
+test(fobjRefs.length > 10,
+  'references: FObject has many references (subclasses + users): ' + fobjRefs.length);
+test(fobjRefs.every(function(l) { return l.uri && l.range; }),
+  'references: every location has uri and range');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -239,6 +239,56 @@ foam.CLASS({
       return result;
     },
 
+    function getRequirers(classId) {
+      /**
+       * Return class IDs of all classes whose `requires: [...]` array
+       * contains the given class. Cached.
+       */
+      if ( this.cache_['req_' + classId] ) return this.cache_['req_' + classId];
+      var result = [];
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        try {
+          var cls = foam.maybeLookup(ids[i]);
+          if ( ! cls || ! cls.model_ ) continue;
+          var reqs = cls.model_.requires || [];
+          for ( var j = 0 ; j < reqs.length ; j++ ) {
+            var r = reqs[j];
+            var path = typeof r === 'string' ? r.split(/\s+as\s+/)[0].trim() : (r.path || '');
+            if ( path === classId ) { result.push(ids[i]); break; }
+          }
+        } catch ( e ) {}
+      }
+      this.cache_['req_' + classId] = result;
+      return result;
+    },
+
+    function getOfUsers(classId) {
+      /**
+       * Return class IDs of classes that have at least one property with
+       * `of: classId`. Cached.
+       */
+      if ( this.cache_['of_' + classId] ) return this.cache_['of_' + classId];
+      var result = [];
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        try {
+          var cls = foam.maybeLookup(ids[i]);
+          if ( ! cls || ! cls.model_ || ! cls.model_.properties ) continue;
+          var props = cls.model_.properties;
+          for ( var j = 0 ; j < props.length ; j++ ) {
+            var p = props[j];
+            if ( p && typeof p === 'object' && p.of === classId ) {
+              result.push(ids[i]);
+              break;
+            }
+          }
+        } catch ( e ) {}
+      }
+      this.cache_['of_' + classId] = result;
+      return result;
+    },
+
     function getImports(classId) {
       /** Returns import axioms for a class. */
       var cls = this.getClass(classId);

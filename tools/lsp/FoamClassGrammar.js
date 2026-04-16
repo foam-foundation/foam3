@@ -45,25 +45,35 @@ foam.CLASS({
   methods: [
     function collectSuggestionsAt(text, cursorOffset) {
       /**
-       * Parse `text` and collect suggestions from sug() parsers that FAIL
-       * at or within 1 char of `cursorOffset`. The caller is expected to
-       * have inserted a sentinel character at cursorOffset (via CursorSentinel)
-       * so parse failure is guaranteed exactly at the cursor.
+       * Parse `text` and collect suggestions from sug() parsers whose
+       * failure/end position lands at or within 1 char of `cursorOffset`.
+       * The caller is expected to have inserted a sentinel at cursorOffset
+       * (via CursorSentinel) so parse failure is guaranteed exactly there.
        *
-       * Deduplicates by text. Unlike the SmartView-style collector in
-       * CompletionHandler, this does NOT rely on maxPos heuristics — the
-       * sentinel guarantees failure at cursorOffset, so the failing-alt
-       * suggestions at that position ARE the completion set.
+       * Uses SmartView-style maxPos tracking: a parser may advance through
+       * valid prefix (e.g., `foam.u2.`) before hitting the sentinel — its
+       * final pos marks the failure point and the relevant suggestions are
+       * the ones that failed *at that point*. Deduplicates by text.
        */
       var seen = {};
       var suggestions = [];
+      var maxPos = 0;
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
         var result = p.parse(this, grammar);
+        var endPos = this.pos;
+
+        if ( endPos > maxPos ) maxPos = endPos;
 
         if ( ! result && p.suggest ) {
-          if ( startPos >= cursorOffset - 1 && startPos <= cursorOffset + 1 ) {
+          // Two collection modes:
+          //  (a) startPos is at cursor (empty-value case like `extends: ''`)
+          //  (b) parser advanced to the cursor and failed there
+          //      (partial-value case like `extends: 'foam.u2'`)
+          var nearCursor = (startPos >= cursorOffset - 1 && startPos <= cursorOffset + 1)
+                        || (endPos   >= cursorOffset - 1 && endPos   <= cursorOffset + 1);
+          if ( nearCursor ) {
             var s = p.suggest();
             if ( s ) {
               var key = s.text || s.label;

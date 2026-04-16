@@ -13,6 +13,7 @@ foam.CLASS({
     'foam.parse.lsp.FileModelCache',
     'foam.parse.lsp.FoamClassGrammar',
     'foam.parse.lsp.CursorAnalyzer',
+    'foam.parse.lsp.CursorSentinel',
     'foam.parse.StringPStream'
   ],
 
@@ -219,10 +220,17 @@ foam.CLASS({
         }
       }
 
-      // Inside extends: '...' or of: '...' or requires: ['...' → class names
-      if ( /(?:extends|of)\s*:\s*['"][^'"]*$/.test(prefix) ||
-           /requires\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix) ||
-           /implements\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix) ) {
+      // Inside extends: '...' / requires: [...] / implements: [...] / of: '...' →
+      // detect context via grammar (sentinel-based), fall back to regex checks.
+      // Suggestions come from the index, not sug() — class IDs are too numerous
+      // and the grammar's fallback classRef rule silently matches partials,
+      // suppressing sug() collection.
+      var inClassRefContext =
+        this.isInClassRefContext_(text, position) ||
+        /(?:extends|of)\s*:\s*['"][^'"]*$/.test(prefix) ||
+        (/requires\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix)) ||
+        (/implements\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix));
+      if ( inClassRefContext ) {
         var partial = this.extractPartial_(prefix).toLowerCase();
         var ids = this.index.getAllClassIds();
         var items = [];
@@ -274,6 +282,29 @@ foam.CLASS({
       }
 
       return [];
+    },
+
+    function isInClassRefContext_(text, position) {
+      /**
+       * Grammar-driven: returns true if the cursor is inside a position
+       * where the grammar expects a class reference (extends, requires, of,
+       * implements). Uses the sentinel trick to probe: after replacing the
+       * word under cursor with a sentinel, collect which suggestion
+       * categories the grammar would offer at that position. If any
+       * 'class' suggestion fires, we're in a class-ref context.
+       *
+       * This handles empty values (`extends: '▊'`) deterministically.
+       * Partial values still need the regex fallback because the grammar's
+       * classRef rule has a permissive string-literal fallback that
+       * suppresses sug() collection when the partial looks class-shaped.
+       */
+      var sentinel = this.CursorSentinel.create();
+      var ins = sentinel.insertAt(text, position);
+      var suggestions = this.grammar.collectSuggestionsAt(ins.text, ins.offset);
+      for ( var i = 0 ; i < suggestions.length ; i++ ) {
+        if ( suggestions[i].category === 'class' ) return true;
+      }
+      return false;
     },
 
     function isInsidePropertyObject_(text, position) {

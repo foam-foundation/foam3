@@ -1628,6 +1628,48 @@ var sugsValid = grammarC.collectSuggestionsAt(insValid.text, insValid.offset);
 test(sugsValid.length > 100,
   'requires: with already-valid entry still returns suggestions via sentinel');
 
+// === COMPLETION (GRAMMAR-DRIVEN CONTEXT) ===
+section('Completion — grammar-driven context detection');
+
+var grammarHandler = foam.parse.lsp.handlers.CompletionHandler.create({ index: index });
+
+var extSrc = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  extends: ''\n});";
+test(grammarHandler.isInClassRefContext_(extSrc, { line: 3, character: 12 }),
+  'Grammar detects extends: empty string context');
+
+var ofSrcCtx = "foam.CLASS({\n  name: 'X',\n  properties: [\n    { class: 'FObjectProperty', of: '' }\n  ]\n});";
+test(grammarHandler.isInClassRefContext_(ofSrcCtx, { line: 3, character: 38 }),
+  'Grammar detects of: context deep inside property object');
+
+var nonCtxSrc = "foam.CLASS({\n  name: 'X',\n  documentation: ''\n});";
+test( ! grammarHandler.isInClassRefContext_(nonCtxSrc, { line: 2, character: 18 }),
+  'Grammar correctly rejects documentation: as class-ref context');
+
+var extRes = grammarHandler.handle(extSrc, { line: 3, character: 12 });
+test(extRes.items.length > 50, 'extends: completion returns many items (' + extRes.items.length + ')');
+
+// Filter with a partial to ensure specific classes surface despite 200-item cap
+var extFObjSrc = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  extends: 'foam.lang.F'\n});";
+var extFObjRes = grammarHandler.handle(extFObjSrc, { line: 3, character: 23 });
+test(extFObjRes.items.some(function(i) { return i.label === 'foam.lang.FObject'; }),
+  'extends: partial foam.lang.F surfaces FObject');
+
+var reqSrc2 = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  requires: ['']\n});";
+var reqRes = grammarHandler.handle(reqSrc2, { line: 3, character: 14 });
+test(reqRes.items.length > 50, 'requires: completion returns many items');
+
+var ofRes = grammarHandler.handle(ofSrcCtx, { line: 3, character: 38 });
+test(ofRes.items.length > 50, 'of: completion returns many items');
+
+var impSrc = "foam.CLASS({\n  name: 'X',\n  implements: ['']\n});";
+var impRes = grammarHandler.handle(impSrc, { line: 2, character: 16 });
+test(impRes.items.length > 50, 'implements: completion returns many items');
+
+// Partial value: regex fallback still fires so suggestions appear.
+var partialSrc = "foam.CLASS({\n  name: 'X',\n  extends: 'foam.u2'\n});";
+var partialRes = grammarHandler.handle(partialSrc, { line: 2, character: 19 });
+test(partialRes.items.length > 0, 'Partial extends value still returns suggestions');
+
 // === SUMMARY ===
 
 section('SUMMARY');

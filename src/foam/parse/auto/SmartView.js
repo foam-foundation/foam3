@@ -393,7 +393,8 @@ foam.CLASS({
         .start()
           .addClass(this.myClass('suggestions'))
           .add(this.dynamic(function (suggestions) {
-            self.populateSuggestions(this, suggestions);
+            if ( self.element_.parentNode.contains(document.activeElement) || ( self.overlay?.el_().contains(document.activeElement) ) )
+              self.populateSuggestions(this, suggestions);
           }))
         .end();
     },

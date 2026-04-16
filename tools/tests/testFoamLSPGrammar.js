@@ -1670,6 +1670,39 @@ var partialSrc = "foam.CLASS({\n  name: 'X',\n  extends: 'foam.u2'\n});";
 var partialRes = grammarHandler.handle(partialSrc, { line: 2, character: 19 });
 test(partialRes.items.length > 0, 'Partial extends value still returns suggestions');
 
+// === GRAMMAR CONTEXT DETECTION ===
+section('Grammar context detection (detectContext_)');
+
+var ctxHandler = foam.parse.lsp.handlers.CompletionHandler.create({ index: index });
+
+var extCtx = ctxHandler.detectContext_(
+  "foam.CLASS({\n  name: 'X',\n  extends: ''\n});",
+  { line: 2, character: 12 });
+test(extCtx.classRef, 'detectContext_: extends → classRef');
+test( ! extCtx.propKey, 'detectContext_: extends is not propKey');
+
+var propObjCtx = ctxHandler.detectContext_(
+  "foam.CLASS({ name: 'X', properties: [{  }] });",
+  { line: 0, character: 39 });
+test(propObjCtx.propKey, 'detectContext_: inside property object → propKey');
+test( ! propObjCtx.classRef, 'detectContext_: property object is not classRef');
+
+var tableCtx = ctxHandler.detectContext_(
+  "foam.CLASS({\n  name: 'X',\n  tableColumns: ['']\n});",
+  { line: 2, character: 18 });
+test(tableCtx.columnName, 'detectContext_: tableColumns value → columnName');
+
+var searchCtx = ctxHandler.detectContext_(
+  "foam.CLASS({\n  name: 'X',\n  searchColumns: ['']\n});",
+  { line: 2, character: 19 });
+test(searchCtx.columnName, 'detectContext_: searchColumns value → columnName');
+
+var docCtx = ctxHandler.detectContext_(
+  "foam.CLASS({\n  name: 'X',\n  documentation: ''\n});",
+  { line: 2, character: 18 });
+test( ! docCtx.classRef && ! docCtx.propKey && ! docCtx.columnName,
+  'detectContext_: documentation is not a structural context');
+
 // === SUMMARY ===
 
 section('SUMMARY');

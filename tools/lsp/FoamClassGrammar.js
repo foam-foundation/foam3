@@ -172,6 +172,25 @@ foam.CLASS({
         }));
       }
 
+      // Category-tagged key helpers so callers can distinguish cursor context
+      // from collected suggestions (top-level class body vs property object
+      // vs POM body). LSP handler maps all of these to Keyword kind (14).
+      function topKey(name) {
+        return P.sug(P.literal(name), foam.parse.Suggestion.create({
+          text: name + ': ', category: 'topKey'
+        }));
+      }
+      function propKey(name) {
+        return P.sug(P.literal(name), foam.parse.Suggestion.create({
+          text: name + ': ', category: 'propKey'
+        }));
+      }
+      function pomKeyHelper(name) {
+        return P.sug(P.literal(name), foam.parse.Suggestion.create({
+          text: name + ': ', category: 'pomKey'
+        }));
+      }
+
       var comma = P.seq0(wsc, P.literal(','), wsc);
 
       var anyValue = P.alt(
@@ -207,8 +226,9 @@ foam.CLASS({
         ),
 
         pomKey: P.alt(
-          key('name'), key('version'), key('files'), key('projects'),
-          key('javaDependencies'), key('javaFiles'), key('journalFiles')
+          pomKeyHelper('name'), pomKeyHelper('version'), pomKeyHelper('files'),
+          pomKeyHelper('projects'), pomKeyHelper('javaDependencies'),
+          pomKeyHelper('javaFiles'), pomKeyHelper('journalFiles')
         ),
 
         // Skip one character — catch-all that lets START consume the whole file
@@ -231,6 +251,8 @@ foam.CLASS({
           P.sym('importsEntry'),
           P.sym('exportsEntry'),
           P.sym('javaImportsEntry'),
+          P.sym('tableColumnsEntry'),
+          P.sym('searchColumnsEntry'),
           P.sym('documentationEntry'),
           P.sym('abstractEntry'),
           P.sym('flagsEntry'),
@@ -262,6 +284,31 @@ foam.CLASS({
           P.optional(P.repeat(
             P.seq(wsc, P.literal("'"), P.sym('classRef'), P.optional(P.literal("'")), wsc), comma)),
           wsc, P.optional(P.literal(']'))),
+
+        // tableColumns/searchColumns: emit a 'columnName' category at each value
+        // position so the LSP handler can detect context without regex scanning.
+        // Real suggestions come from the model (this class's properties).
+        tableColumnsEntry: P.seq(topKey('tableColumns'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+            P.optional(P.literal("'")), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+        searchColumnsEntry: P.seq(topKey('searchColumns'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+            P.optional(P.literal("'")), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        // Context marker: the sug here always fails (matches \u0002 which
+        // doesn't appear in source) so it fires during suggestion collection.
+        // The id-shaped fallback handles actual parsing.
+        columnName: P.alt(
+          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+            text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
+          })),
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_.')), null, 1))
+        ),
 
         importsEntry: P.seq(key('imports'), wsc, P.literal(':'), wsc, P.sym('array')),
         exportsEntry: P.seq(key('exports'), wsc, P.literal(':'), wsc, P.sym('array')),
@@ -303,16 +350,16 @@ foam.CLASS({
           wsc, P.optional(P.literal(']'))),
 
         topLevelKey: P.alt(
-          key('package'), key('name'), key('extends'), key('requires'),
-          key('imports'), key('exports'), key('properties'), key('methods'),
-          key('actions'), key('documentation'), key('abstract'),
-          key('implements'), key('javaImports'), key('axioms'),
-          key('css'), key('messages'), key('topics'), key('listeners'),
-          key('constants'), key('sections'), key('flags'),
-          key('tableColumns'), key('searchColumns'),
-          key('refines'), key('label'), key('plural'), key('order'),
-          key('ids'), key('javaCode'), key('cssTokens'), key('mixins'),
-          key('static'), key('of'), key('values')
+          topKey('package'), topKey('name'), topKey('extends'), topKey('requires'),
+          topKey('imports'), topKey('exports'), topKey('properties'), topKey('methods'),
+          topKey('actions'), topKey('documentation'), topKey('abstract'),
+          topKey('implements'), topKey('javaImports'), topKey('axioms'),
+          topKey('css'), topKey('messages'), topKey('topics'), topKey('listeners'),
+          topKey('constants'), topKey('sections'), topKey('flags'),
+          topKey('tableColumns'), topKey('searchColumns'),
+          topKey('refines'), topKey('label'), topKey('plural'), topKey('order'),
+          topKey('ids'), topKey('javaCode'), topKey('cssTokens'), topKey('mixins'),
+          topKey('static'), topKey('of'), topKey('values')
         ),
 
         // === CLASS REFERENCES (dynamic) ===
@@ -355,19 +402,19 @@ foam.CLASS({
         ),
 
         propKey: P.alt(
-          key('class'), key('name'), key('of'), key('documentation'),
-          key('hidden'), key('transient'),
-          key('value'), key('factory'), key('expression'),
-          key('javaCode'), key('javaGetter'), key('javaPostSet'),
-          key('javaPreSet'), key('javaFactory'),
-          key('aliases'), key('label'), key('section'), key('visibility'),
-          key('view'), key('adapt'), key('preSet'), key('postSet'),
-          key('required'), key('width'), key('placeholder'), key('help'),
-          key('gridColumns'), key('tableCellFormatter'), key('labelFormatter'),
-          key('shortName'), key('readPermissionRequired'), key('writePermissionRequired'),
-          key('validateObj'), key('tableWidth'), key('storageTransient'),
-          key('cloneProperty'), key('networkTransient'), key('readOnly'),
-          key('permissionRequired'), key('javaSetter'), key('javaInfoType')
+          propKey('class'), propKey('name'), propKey('of'), propKey('documentation'),
+          propKey('hidden'), propKey('transient'),
+          propKey('value'), propKey('factory'), propKey('expression'),
+          propKey('javaCode'), propKey('javaGetter'), propKey('javaPostSet'),
+          propKey('javaPreSet'), propKey('javaFactory'),
+          propKey('aliases'), propKey('label'), propKey('section'), propKey('visibility'),
+          propKey('view'), propKey('adapt'), propKey('preSet'), propKey('postSet'),
+          propKey('required'), propKey('width'), propKey('placeholder'), propKey('help'),
+          propKey('gridColumns'), propKey('tableCellFormatter'), propKey('labelFormatter'),
+          propKey('shortName'), propKey('readPermissionRequired'), propKey('writePermissionRequired'),
+          propKey('validateObj'), propKey('tableWidth'), propKey('storageTransient'),
+          propKey('cloneProperty'), propKey('networkTransient'), propKey('readOnly'),
+          propKey('permissionRequired'), propKey('javaSetter'), propKey('javaInfoType')
         ),
 
         propType: P.alt(

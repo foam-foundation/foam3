@@ -142,6 +142,8 @@ foam.CLASS({
       var keys = Object.keys(suggestions);
       for ( var i = 0 ; i < keys.length ; i++ ) {
         var s = suggestions[keys[i]];
+        // Skip internal context-marker sugs (used by detectContext_)
+        if ( s.text && s.text.indexOf('__ctx_') === 0 ) continue;
         items.push(this.toCompletionItem(s));
       }
 
@@ -185,9 +187,13 @@ foam.CLASS({
       }
 
       // Inside tableColumns: ['...' or searchColumns: ['...' → property names
-      // MUST be checked before requires/implements (those use broad lineContext matching)
+      // Grammar-driven detection via 'columnName' context marker; fall back
+      // to regex for robustness on mid-edit files where the grammar may fail.
       var lineContext = this.getLineContext_(lines, position.line);
-      if ( (/tableColumns\s*:\s*\[/.test(lineContext) || /searchColumns\s*:\s*\[/.test(lineContext)) &&
+      var ctx = this.detectContext_(text, position);
+      if ( (ctx.columnName ||
+            /tableColumns\s*:\s*\[/.test(lineContext) ||
+            /searchColumns\s*:\s*\[/.test(lineContext)) &&
            /['"][^'"]*$/.test(prefix) ) {
         var partial = this.extractPartial_(prefix).toLowerCase();
         var model = this.cache.getModelAt(opt_uri || '', text, position.line);
@@ -284,61 +290,56 @@ foam.CLASS({
       return [];
     },
 
-    function isInClassRefContext_(text, position) {
+    function detectContext_(text, position) {
       /**
-       * Grammar-driven: returns true if the cursor is inside a position
-       * where the grammar expects a class reference (extends, requires, of,
-       * implements). Uses the sentinel trick to probe: after replacing the
-       * word under cursor with a sentinel, collect which suggestion
-       * categories the grammar would offer at that position. If any
-       * 'class' suggestion fires, we're in a class-ref context.
+       * Grammar-driven context probe. Returns an object describing which
+       * rule(s) the cursor is inside, determined by inspecting the
+       * sug()-categories collected via CursorSentinel + collectSuggestionsAt.
        *
-       * This handles empty values (`extends: '▊'`) deterministically.
-       * Partial values still need the regex fallback because the grammar's
-       * classRef rule has a permissive string-literal fallback that
-       * suppresses sug() collection when the partial looks class-shaped.
+       * Returned flags (each boolean):
+       *   - classRef:    cursor inside extends/requires/of/implements value
+       *   - propertyType: cursor inside a `class: 'X'` value (property type)
+       *   - topKey:      cursor at a top-level class-body key position
+       *   - propKey:     cursor at a key position inside properties: [{ ... }]
+       *   - pomKey:      cursor at a POM-body key position
+       *
+       * Handles empty values deterministically. Partial values are subject
+       * to the grammar's permissive classRef fallback — callers should
+       * combine with regex checks where needed (Phase 1 compromise; Phase 6
+       * removes the permissive fallback and makes this authoritative).
        */
       var sentinel = this.CursorSentinel.create();
       var ins = sentinel.insertAt(text, position);
       var suggestions = this.grammar.collectSuggestionsAt(ins.text, ins.offset);
+
+      var ctx = {
+        classRef: false, propertyType: false, columnName: false,
+        topKey: false, propKey: false, pomKey: false
+      };
       for ( var i = 0 ; i < suggestions.length ; i++ ) {
-        if ( suggestions[i].category === 'class' ) return true;
+        var c = suggestions[i].category;
+        if ( c === 'class' ) ctx.classRef = true;
+        else if ( c === 'property' ) ctx.propertyType = true;
+        else if ( c === 'columnName' ) ctx.columnName = true;
+        else if ( c === 'topKey' ) ctx.topKey = true;
+        else if ( c === 'propKey' ) ctx.propKey = true;
+        else if ( c === 'pomKey' ) ctx.pomKey = true;
       }
-      return false;
+      return ctx;
+    },
+
+    function isInClassRefContext_(text, position) {
+      /** Back-compat shim over detectContext_. */
+      return this.detectContext_(text, position).classRef;
     },
 
     function isInsidePropertyObject_(text, position) {
       /**
-       * Detect if cursor is inside a property definition object { ... }
-       * within a properties: [...] array. Walks backward from cursor to find
-       * the opening { and then checks if we're inside a properties array.
+       * Grammar-driven detection: cursor is inside a property object when
+       * the grammar offers property-object keys (class, name, of, value, …)
+       * at the cursor position. Replaces the brace-depth + regex walk.
        */
-      var lines = text.split('\n');
-      var depth = 0;
-
-      // Walk backward from cursor line to find the enclosing { at depth 0
-      for ( var l = position.line ; l >= 0 ; l-- ) {
-        var line = lines[l] || '';
-        var end = l === position.line ? position.character : line.length;
-        for ( var c = end - 1 ; c >= 0 ; c-- ) {
-          var ch = line.charAt(c);
-          if ( ch === '}' || ch === ']' ) depth++;
-          else if ( ch === '{' ) {
-            if ( depth === 0 ) {
-              // Found the opening { — check if this is inside properties: [
-              var textBefore = '';
-              for ( var bl = Math.max(0, l - 5) ; bl <= l ; bl++ ) {
-                textBefore += (lines[bl] || '') + '\n';
-              }
-              return /properties\s*:\s*\[/.test(textBefore);
-            }
-            depth--;
-          } else if ( ch === '[' ) {
-            if ( depth > 0 ) depth--;
-          }
-        }
-      }
-      return false;
+      return this.detectContext_(text, position).propKey;
     },
 
     function pomContextCompletion_(text, position, lines, prefix, replaceRange) {
@@ -952,7 +953,10 @@ foam.CLASS({
         case 'class':    return 7;
         case 'property': return 10;
         case 'method':   return 2;
-        case 'key':      return 14;
+        case 'key':
+        case 'topKey':
+        case 'propKey':
+        case 'pomKey':   return 14;
         case 'enum':     return 13;
         case 'operator': return 24;
         default:         return 1;

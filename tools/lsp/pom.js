@@ -3,6 +3,7 @@ foam.POM({
   files: [
     { name: 'FileModelCache', flags: 'js' },
     { name: 'TypeTracker', flags: 'js' },
+    { name: 'CursorSentinel', flags: 'js' },
     { name: 'FoamIndex', flags: 'js' },
     { name: 'FoamClassGrammar', flags: 'js' },
     { name: 'CursorAnalyzer', flags: 'js' },

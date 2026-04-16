@@ -1560,6 +1560,35 @@ test(pomDepsItems.length >= 0, 'POM javaDependencies: returns suggestions (count
 // flags inside POM should NOT suggest class names
 test( ! pomFlagsItems.some(function(it) { return it.label && it.label.indexOf('foam.') === 0; }), 'POM flags: does NOT suggest class names');
 
+// === CURSOR SENTINEL ===
+section('CursorSentinel');
+
+var sentinelCS = foam.parse.lsp.CursorSentinel.create();
+
+var ins1 = sentinelCS.insertAt('hello world', { line: 0, character: 4 });
+test(ins1.text.indexOf(sentinelCS.CHAR) === 0, 'Sentinel replaces word under cursor at start');
+test(ins1.offset === 0, 'Sentinel offset reported correctly (word replaced)');
+
+var ins1b = sentinelCS.insertAt('hello  world', { line: 0, character: 6 });
+test(ins1b.text === 'hello ' + sentinelCS.CHAR + ' world',
+  'Sentinel inserts at whitespace-only position');
+test(ins1b.offset === 6, 'Sentinel offset at whitespace-only position is correct');
+
+var ins1c = sentinelCS.insertAt('hello world', { line: 0, character: 5 });
+test(ins1c.text === sentinelCS.CHAR + ' world',
+  'Sentinel replaces preceding word when cursor is right after it');
+
+var ins2 = sentinelCS.insertAt('foo bar baz', { line: 0, character: 5 });
+test(ins2.text === 'foo ' + sentinelCS.CHAR + ' baz', 'Sentinel replaces identifier under cursor');
+
+var ins3 = sentinelCS.insertAt('line1\nline2\nline3', { line: 1, character: 3 });
+test(ins3.text.split('\n')[1].indexOf(sentinelCS.CHAR) === 0, 'Sentinel replaces word at line+column');
+
+test(sentinelCS.CHAR.charCodeAt(0) < 32 || sentinelCS.CHAR.charCodeAt(0) > 126,
+  'Sentinel char is non-ASCII-printable so no terminal matches');
+
+test(sentinelCS.removeFrom('ab' + sentinelCS.CHAR + 'cd') === 'abcd', 'removeFrom strips sentinel');
+
 // === SUMMARY ===
 
 section('SUMMARY');

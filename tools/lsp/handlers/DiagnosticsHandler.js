@@ -12,6 +12,7 @@ foam.CLASS({
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
     'foam.parse.lsp.CursorAnalyzer',
+    'foam.parse.lsp.Diagnostic',
     'foam.parse.lsp.handlers.JavaBlockValidator'
   ],
 
@@ -91,7 +92,18 @@ foam.CLASS({
       }
 
       this.prevResults_[uri] = { text: text, modelKeys: prev ? prev.modelKeys : {} };
-      return diagnostics;
+      return this.toLSPDiagnostics_(diagnostics);
+    },
+
+    function toLSPDiagnostics_(diagnostics) {
+      /** Flatten Diagnostic instances to LSP protocol shape; pass raws through. */
+      if ( ! diagnostics ) return diagnostics;
+      var out = new Array(diagnostics.length);
+      for ( var i = 0 ; i < diagnostics.length ; i++ ) {
+        var d = diagnostics[i];
+        out[i] = ( d && typeof d.toLSP === 'function' ) ? d.toLSP() : d;
+      }
+      return out;
     },
 
     function validateModel_(m, text, diagnostics) {
@@ -476,15 +488,14 @@ foam.CLASS({
 
     function addDiag_(diagnostics, text, offset, length, severity, message) {
       var pos = this.analyzer.offsetToPosition(text, offset);
-      diagnostics.push({
+      diagnostics.push(this.Diagnostic.create({
         range: {
           start: pos,
           end: { line: pos.line, character: pos.character + length }
         },
         severity: severity,
-        message: message,
-        source: 'foam-lsp'
-      });
+        message: message
+      }));
     }
   ]
 });

@@ -10,7 +10,8 @@ foam.CLASS({
 
   requires: [
     'foam.parse.lsp.FoamIndex',
-    'foam.parse.lsp.CursorAnalyzer'
+    'foam.parse.lsp.CursorAnalyzer',
+    'foam.parse.lsp.Diagnostic'
   ],
 
   properties: [
@@ -47,15 +48,14 @@ foam.CLASS({
             var idx = fullText.indexOf(imp);
             if ( idx !== -1 ) {
               var pos = this.analyzer.offsetToPosition(fullText, idx);
-              diagnostics.push({
+              diagnostics.push(this.Diagnostic.create({
                 range: {
                   start: pos,
                   end: { line: pos.line, character: pos.character + imp.length }
                 },
-                severity: 1,
-                message: "Wrong Java package: '" + imp + "' → use '" + mappings[bad] + "' instead",
-                source: 'foam-lsp'
-              });
+                severity: this.Diagnostic.ERROR,
+                message: "Wrong Java package: '" + imp + "' → use '" + mappings[bad] + "' instead"
+              }));
             }
             break;
           }
@@ -135,15 +135,14 @@ foam.CLASS({
           if ( ! propNames[propName.toLowerCase()] ) {
             var absOffset = baseOffset + gs.index;
             var pos = self.analyzer.offsetToPosition(fullText, absOffset);
-            diagnostics.push({
+            diagnostics.push(self.Diagnostic.create({
               range: {
                 start: pos,
                 end: { line: pos.line, character: pos.character + gs[0].length - 1 }
               },
-              severity: 3,
-              message: "Property '" + propName + "' not found on " + classId,
-              source: 'foam-lsp'
-            });
+              severity: self.Diagnostic.INFORMATION,
+              message: "Property '" + propName + "' not found on " + classId
+            }));
           }
         }
       }

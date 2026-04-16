@@ -1762,6 +1762,25 @@ var pomDepCtx = pomHandler.detectContext_(
   { line: 2, character: 5 });
 test(pomDepCtx.pomJavaDep, 'POM javaDependencies: detects pomJavaDep');
 
+// === HANDLER OUTPUT SHAPE ===
+section('Handler output — LSP wire format');
+
+var dh = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index });
+var badText = "foam.CLASS({\n  name: 'X',\n  extends: 'not.a.real.class.at.all.NoWay'\n});";
+var diags = dh.handle(badText, 'file:///tmp/test.js');
+test(diags.length > 0, 'DiagnosticsHandler: produces diagnostics for unknown class');
+test( ! diags.some(function(d) { return d['class']; }),
+  'DiagnosticsHandler: no FOAM class marker leaks into LSP output');
+test(diags.every(function(d) { return d.range && d.message && d.severity; }),
+  'DiagnosticsHandler: every diagnostic has range/message/severity');
+
+var ch = foam.parse.lsp.handlers.CompletionHandler.create({ index: index });
+var compText = "foam.CLASS({\n  name: 'X',\n  extends: ''\n});";
+var compRes = ch.handle(compText, { line: 2, character: 12 });
+test(compRes.items.length > 0, 'CompletionHandler: produces items');
+test( ! compRes.items.some(function(i) { return i['class']; }),
+  'CompletionHandler: no FOAM class marker leaks into LSP output');
+
 // === SUMMARY ===
 
 section('SUMMARY');

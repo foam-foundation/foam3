@@ -14,6 +14,7 @@ foam.CLASS({
     'foam.parse.lsp.FoamClassGrammar',
     'foam.parse.lsp.CursorAnalyzer',
     'foam.parse.lsp.CursorSentinel',
+    'foam.parse.lsp.CompletionItem',
     'foam.parse.StringPStream'
   ],
 
@@ -115,13 +116,13 @@ foam.CLASS({
       // CSS block completions
       var cssItems = this.cssBlockCompletion_(text, position, uri);
       if ( cssItems && cssItems.length > 0 ) {
-        return { isIncomplete: cssItems.length > 200, items: cssItems };
+        return { isIncomplete: cssItems.length > 200, items: this.toLSPItems_(cssItems) };
       }
 
       // Java block completions: suggest getters/setters inside javaCode/javaGetter/etc.
       var javaItems = this.javaBlockCompletion_(text, position, lines, prefix, uri);
       if ( javaItems && javaItems.length > 0 ) {
-        return { isIncomplete: false, items: javaItems };
+        return { isIncomplete: false, items: this.toLSPItems_(javaItems) };
       }
 
       // Try context-based completion first when cursor is inside a quoted value.
@@ -130,7 +131,7 @@ foam.CLASS({
       if ( /['"][^'"]*$/.test(prefix) ) {
         var contextItems = this.contextFallback(text, position, uri);
         if ( contextItems.length > 0 ) {
-          return { isIncomplete: contextItems.length > 200, items: contextItems };
+          return { isIncomplete: contextItems.length > 200, items: this.toLSPItems_(contextItems) };
         }
       }
 
@@ -152,7 +153,7 @@ foam.CLASS({
         items = this.contextFallback(text, position, uri);
       }
 
-      return { isIncomplete: items.length > 200, items: items };
+      return { isIncomplete: items.length > 200, items: this.toLSPItems_(items) };
     },
 
     function contextFallback(text, position, opt_uri) {
@@ -957,13 +958,28 @@ foam.CLASS({
     },
 
     function toCompletionItem(suggestion) {
-      return {
+      return this.CompletionItem.create({
         label: suggestion.text || suggestion.label,
         kind: this.categoryToKind(suggestion.category),
         detail: suggestion.hint || '',
         documentation: suggestion.tooltip || '',
         insertText: suggestion.text
-      };
+      });
+    },
+
+    function toLSPItems_(items) {
+      /**
+       * Normalize an items array to LSP protocol shape. Model instances
+       * (CompletionItem) are flattened via toLSP(); raw objects pass through.
+       * Lets handlers mix typed and raw items during the migration.
+       */
+      if ( ! items ) return items;
+      var out = new Array(items.length);
+      for ( var i = 0 ; i < items.length ; i++ ) {
+        var it = items[i];
+        out[i] = ( it && typeof it.toLSP === 'function' ) ? it.toLSP() : it;
+      }
+      return out;
     },
 
     function categoryToKind(category) {

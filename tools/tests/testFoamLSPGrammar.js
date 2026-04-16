@@ -1634,15 +1634,15 @@ section('Completion — grammar-driven context detection');
 var grammarHandler = foam.parse.lsp.handlers.CompletionHandler.create({ index: index });
 
 var extSrc = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  extends: ''\n});";
-test(grammarHandler.isInClassRefContext_(extSrc, { line: 3, character: 12 }),
+test(grammarHandler.detectContext_(extSrc, { line: 3, character: 12 }).classRef,
   'Grammar detects extends: empty string context');
 
 var ofSrcCtx = "foam.CLASS({\n  name: 'X',\n  properties: [\n    { class: 'FObjectProperty', of: '' }\n  ]\n});";
-test(grammarHandler.isInClassRefContext_(ofSrcCtx, { line: 3, character: 38 }),
+test(grammarHandler.detectContext_(ofSrcCtx, { line: 3, character: 38 }).classRef,
   'Grammar detects of: context deep inside property object');
 
 var nonCtxSrc = "foam.CLASS({\n  name: 'X',\n  documentation: ''\n});";
-test( ! grammarHandler.isInClassRefContext_(nonCtxSrc, { line: 2, character: 18 }),
+test( ! grammarHandler.detectContext_(nonCtxSrc, { line: 2, character: 18 }).classRef,
   'Grammar correctly rejects documentation: as class-ref context');
 
 var extRes = grammarHandler.handle(extSrc, { line: 3, character: 12 });

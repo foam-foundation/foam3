@@ -233,7 +233,7 @@ foam.CLASS({
       // and the grammar's fallback classRef rule silently matches partials,
       // suppressing sug() collection.
       var inClassRefContext =
-        this.isInClassRefContext_(text, position) ||
+        ctx.classRef ||
         /(?:extends|of)\s*:\s*['"][^'"]*$/.test(prefix) ||
         (/requires\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix)) ||
         (/implements\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix));
@@ -334,11 +334,6 @@ foam.CLASS({
         else if ( c === 'pomJavaDep' ) ctx.pomJavaDep = true;
       }
       return ctx;
-    },
-
-    function isInClassRefContext_(text, position) {
-      /** Back-compat shim over detectContext_. */
-      return this.detectContext_(text, position).classRef;
     },
 
     function isInsidePropertyObject_(text, position) {

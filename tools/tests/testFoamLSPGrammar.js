@@ -1808,6 +1808,40 @@ if ( enumCandidates.length === 0 ) {
     'Enum completion: all items use EnumMember kind (13)');
 }
 
+// === CSS TOKEN RESOLVER — REVERSE LOOKUP ===
+section('CSSTokenResolver.findTokenForValue');
+
+var resolver = foam.parse.lsp.CSSTokenResolver.create();
+resolver.loadFromRegistry();
+resolver.loadFromJournals();
+
+// Pick a known ColorToken and verify round-trip
+var allNames = resolver.getAllTokenNames();
+var colorName = null;
+for ( var i = 0 ; i < allNames.length ; i++ ) {
+  var info = resolver.getTokenInfo(allNames[i]);
+  if ( info && info.type === 'ColorToken' ) {
+    var val = resolver.resolveTokenValue(allNames[i]);
+    if ( val && val.charAt(0) === '#' ) { colorName = allNames[i]; break; }
+  }
+}
+if ( colorName ) {
+  var colorVal = resolver.resolveTokenValue(colorName);
+  test(resolver.findTokenForValue(colorVal) === colorName,
+    'findTokenForValue: exact-hex match returns token name (' + colorName + ')');
+  test(resolver.findTokenForValue(colorVal.toUpperCase()) === colorName,
+    'findTokenForValue: case-insensitive');
+}
+test(resolver.findTokenForValue('#deadbeef') === null,
+  'findTokenForValue: unknown color returns null');
+test(resolver.findTokenForValue(null) === null,
+  'findTokenForValue: null input returns null');
+
+// 3-char hex normalization: '#f00' → '#ff0000'
+var f00 = resolver.findTokenForValue('#ff0000');
+var f00Short = resolver.findTokenForValue('#f00');
+test(f00 === f00Short, 'findTokenForValue: 3-char hex normalizes to 6-char');
+
 // === SUMMARY ===
 
 section('SUMMARY');

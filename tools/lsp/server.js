@@ -218,11 +218,12 @@ function start() {
     return ranges;
   }
 
-  function getCodeActions(text, range, context, index, uri) {
+  function getCodeActions(text, range, context, index, uri, cssTokenResolver) {
     /**
      * Provides code actions for diagnostics:
      * - "Did you mean X?" for unknown class references
      * - "Replace with correct import" for wrong Java packages
+     * - "Replace '#abc' with '$token'" for raw color values with a matching token
      */
     var actions = [];
     if ( ! context || ! context.diagnostics ) return actions;
@@ -245,6 +246,29 @@ function start() {
                 [uri]: [{
                   range: diag.range,
                   newText: suggestions[s]
+                }]
+              }
+            }
+          });
+        }
+      }
+
+      // For raw color diagnostics, offer a $token replacement if available
+      var rawColorMatch = diag.message.match(/raw color value '([^']+)'/);
+      if ( rawColorMatch && cssTokenResolver ) {
+        var raw = rawColorMatch[1];
+        var token = cssTokenResolver.findTokenForValue(raw);
+        if ( token ) {
+          actions.push({
+            title: "Replace '" + raw + "' with '$" + token + "'",
+            kind: 'quickfix',
+            isPreferred: true,
+            diagnostics: [diag],
+            edit: {
+              changes: {
+                [uri]: [{
+                  range: diag.range,
+                  newText: '$' + token
                 }]
               }
             }
@@ -593,7 +617,7 @@ function start() {
       case 'textDocument/codeAction':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getCodeActions(doc.text, params.range, params.context, index, params.textDocument.uri));
+        respond(id, getCodeActions(doc.text, params.range, params.context, index, params.textDocument.uri, cssTokenResolver));
         break;
 
       case 'textDocument/semanticTokens/full':

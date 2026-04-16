@@ -268,6 +268,40 @@ foam.CLASS({
       return entry.default_.resolved || entry.default_.value;
     },
 
+    function findTokenForValue(cssValue) {
+      /**
+       * Reverse-lookup: return the ColorToken name whose resolved value
+       * matches `cssValue` (normalized, case-insensitive). Returns null
+       * if no match. Used by the "raw color → $token" code-action fix.
+       */
+      if ( ! cssValue ) return null;
+      var needle = this.normalizeColor_(cssValue);
+      if ( ! needle ) return null;
+      var names = this.getAllTokenNames();
+      for ( var i = 0 ; i < names.length ; i++ ) {
+        var info = this.getTokenInfo(names[i]);
+        if ( ! info || info.type !== 'ColorToken' ) continue;
+        var resolved = this.resolveTokenValue(names[i]);
+        if ( ! resolved ) continue;
+        if ( this.normalizeColor_(resolved) === needle ) return names[i];
+      }
+      return null;
+    },
+
+    function normalizeColor_(v) {
+      /** Normalize to lowercase 6-digit hex when possible; else lowercased trimmed. */
+      if ( ! v ) return null;
+      var s = v.trim().toLowerCase();
+      var m = s.match(/^#([0-9a-f]{3})$/);
+      if ( m ) {
+        var c = m[1];
+        return '#' + c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+      }
+      if ( /^#[0-9a-f]{6}$/.test(s) ) return s;
+      if ( /^#[0-9a-f]{8}$/.test(s) ) return s;
+      return s;
+    },
+
     function resolveTokenValue(tokenName) {
       /**
        * Resolve a token to its final CSS value using foam.CSS.returnTokenValue.

@@ -1703,6 +1703,35 @@ var docCtx = ctxHandler.detectContext_(
 test( ! docCtx.classRef && ! docCtx.propKey && ! docCtx.columnName,
   'detectContext_: documentation is not a structural context');
 
+// === MODELED TYPES ===
+section('CompletionItem and Diagnostic models');
+
+var CI = foam.parse.lsp.CompletionItem;
+var item = CI.create({
+  label: 'foo', kind: CI.KIND_CLASS, detail: 'a class',
+  filterText: 'foo', sortText: '!foo'
+});
+var itemLSP = item.toLSP();
+test(itemLSP.label === 'foo', 'CompletionItem.toLSP preserves label');
+test(itemLSP.kind === 7, 'CompletionItem.toLSP uses class kind 7');
+test(itemLSP['class'] === undefined, 'CompletionItem.toLSP strips FOAM class marker');
+test(itemLSP.insertText === undefined, 'CompletionItem.toLSP omits unset optional fields');
+
+var D = foam.parse.lsp.Diagnostic;
+var diag = D.create({
+  range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
+  severity: D.WARNING,
+  message: 'test',
+  code: 'TEST-1',
+  fix: { title: 'Fix it', edit: {} }
+});
+var diagLSP = diag.toLSP();
+test(diagLSP.message === 'test', 'Diagnostic.toLSP preserves message');
+test(diagLSP.severity === 2, 'Diagnostic.toLSP uses WARNING=2');
+test(diagLSP.source === 'foam-lsp', 'Diagnostic.toLSP default source');
+test(diagLSP.fix === undefined, 'Diagnostic.toLSP strips fix (code-action metadata)');
+test(diagLSP['class'] === undefined, 'Diagnostic.toLSP strips FOAM class marker');
+
 // === SUMMARY ===
 
 section('SUMMARY');

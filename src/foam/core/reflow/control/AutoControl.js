@@ -121,7 +121,7 @@ foam.CLASS({
         this.smartView_.preview = this.smartView_.data = '';
 
         if ( n ) {
-          if ( n.startsWith('/') || n.startsWith('!') ) n = n.substring(1);
+          if ( n.startsWith('/') || n.startsWith('~') ) n = n.substring(1);
           if ( n ) this.eval_(n);
         }
 

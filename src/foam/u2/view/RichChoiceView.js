@@ -172,6 +172,7 @@ foam.CLASS({
     }
 
     ^container {
+      position: relative;
       background: $backgroundDefault;
       border: 1px solid $borderDefault;
       max-height: min(400px, 40vh);
@@ -259,8 +260,12 @@ foam.CLASS({
     }
 
     ^search {
+      background: $backgroundDefault;
       border-bottom: 1px solid $borderDefault;
       display: flex;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     ^container .disabled {
@@ -527,7 +532,6 @@ foam.CLASS({
           .add(self.search$.map(searchEnabled => {
             if ( ! searchEnabled ) return null;
             return this.E()
-              .start()
                 .start('img')
                   .attrs({ src: '/images/ic-search.svg' })
                 .end()
@@ -539,8 +543,7 @@ foam.CLASS({
                     autofocus: true,
                     onKey: true
                   } }), {}, self.inputField$)
-                .endContext()
-              .end();
+                .endContext();
           }))
           .add(self.slot(function(sections) {
             var promiseArray = [];

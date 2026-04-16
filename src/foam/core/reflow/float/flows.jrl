@@ -1,6 +1,7 @@
 p({
 "class":"foam.core.reflow.Flow",
-"name":"FLOAT: Basic Features",
+"name":"Basic Features",
+"category":"TEST",
 "status":"PASSED (Passed=9, Failed=0)",
 "version":6,
 "script":

@@ -153,7 +153,7 @@ foam.LIB({
         time before resolving. */
       return function() {
         return new Promise(function(resolve, reject) {
-          setTimeout(function() { resolve(); }, time);
+          setTimeout(resolve, time);
         });
       };
     }

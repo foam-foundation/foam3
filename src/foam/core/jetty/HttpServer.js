@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.blob.Blob',
     'foam.lang.X',
     'foam.dao.DAO',
+    'foam.util.SafetyUtil',
     'static foam.mlang.MLang.EQ',
     'static foam.mlang.MLang.TRUE',
     'foam.core.fs.File',
@@ -33,6 +34,9 @@ foam.CLASS({
     'java.io.InputStream',
     'java.io.IOException',
     'java.io.PrintStream',
+    'java.net.URI',
+    'java.net.URL',
+    'java.nio.file.Paths',
     'java.security.KeyStore',
     'java.util.Arrays',
     'java.util.HashSet',
@@ -50,12 +54,15 @@ foam.CLASS({
     'org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory',
     'org.eclipse.jetty.proxy.ProxyServlet',
     'org.eclipse.jetty.proxy.ProxyServlet.Transparent',
+    'org.eclipse.jetty.server.AllowedResourceAliasChecker',
     'org.eclipse.jetty.server.*',
     'org.eclipse.jetty.server.handler.InetAccessHandler',
     'org.eclipse.jetty.server.handler.gzip.GzipHandler',
     'org.eclipse.jetty.server.handler.StatisticsHandler',
+    'org.eclipse.jetty.servlet.ServletContextHandler',
     'org.eclipse.jetty.servlet.ServletHolder',
     'org.eclipse.jetty.util.component.Container',
+    'org.eclipse.jetty.util.resource.Resource',
     'org.eclipse.jetty.util.ssl.SslContextFactory',
     'org.eclipse.jetty.util.thread.QueuedThreadPool',
     'org.eclipse.jetty.util.thread.ThreadPool',
@@ -202,6 +209,56 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'resolveWebrootBaseResource',
+      type: 'org.eclipse.jetty.util.resource.Resource',
+      javaThrows: [ 'java.lang.Exception' ],
+      args: [
+        {
+          name: 'handler',
+          javaType: 'org.eclipse.jetty.servlet.ServletContextHandler'
+        }
+      ],
+      javaCode: `
+        String root = System.getProperty("core.webroot");
+        if ( ! SafetyUtil.isEmpty(root) ) return handler.newResource(root);
+
+        String resJar = System.getProperty("RES_JAR_HOME");
+        if ( SafetyUtil.isEmpty(resJar) ) {
+          resJar = System.getenv("RES_JAR_HOME");
+        }
+
+        if ( ! SafetyUtil.isEmpty(resJar) ) {
+          // In jar mode, prefer the explicit resources jar over classpath lookup so
+          // test resource jars do not shadow the app's timestamped foam-bin files.
+          String jarRoot = Paths.get(resJar).toUri().toString();
+          return handler.newResource(URI.create("jar:" + jarRoot + "!/webroot/"));
+        }
+
+        URL webrootURL = this.getClass().getResource("/webroot/");
+        if ( webrootURL != null ) return handler.newResource(webrootURL.toURI());
+
+        URL errorURL = this.getClass().getResource("/webroot/error.html");
+        if ( errorURL == null ) throw new RuntimeException("Missing /webroot resources");
+
+        return handler.newResource(errorURL.toURI().resolve("."));
+      `
+    },
+    {
+      name: 'configureWebrootBaseResource',
+      javaThrows: [ 'java.lang.Exception' ],
+      args: [
+        {
+          name: 'handler',
+          javaType: 'org.eclipse.jetty.servlet.ServletContextHandler'
+        }
+      ],
+      javaCode: `
+        Resource baseResource = resolveWebrootBaseResource(handler);
+        handler.setBaseResource(baseResource);
+        handler.addAliasCheck(new AllowedResourceAliasChecker(handler, baseResource));
+      `
+    },
+    {
       name: 'start',
       javaCode: `
       clearLogger();
@@ -250,20 +307,13 @@ foam.CLASS({
         StatisticsHandler statisticsHandler = new StatisticsHandler();
         statisticsHandler.setServer(server);
 
-        org.eclipse.jetty.servlet.ServletContextHandler handler =
-          new org.eclipse.jetty.servlet.ServletContextHandler();
+        ServletContextHandler handler = new ServletContextHandler();
 
         if ( getEnableWebsockets() ) {
           org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer.configure(handler, null);
         }
 
-        String root = System.getProperty("core.webroot");
-        if ( root == null ) {
-          root = this.getClass().getResource("/webroot/error.html").toExternalForm();
-          root = root.substring(0, root.lastIndexOf("/"));
-        }
-
-        handler.setResourceBase(root);
+        configureWebrootBaseResource(handler);
         handler.setWelcomeFiles(getWelcomeFiles());
 
         handler.setAttribute("X", getX());

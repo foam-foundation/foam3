@@ -626,13 +626,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function setTitle(title) {
-      if ( this.borderEl_ ) {
-        this.borderEl_.title = title;
-      } else {
-        this.border.title = title;
-      }
-    },
     function init() {
       let self = this;
       this.SUPER();
@@ -644,6 +637,14 @@ foam.CLASS({
         this.borderEl_.copyFrom(this.border);
         this.maybeMigrate();
       }));
+    },
+
+    function setTitle(title) {
+      if ( this.borderEl_ ) {
+        this.borderEl_.title = title;
+      } else {
+        this.border.title = title;
+      }
     },
 
     function render() {
@@ -1137,7 +1138,6 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Console',
   extends: 'foam.u2.Controller',
-
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ { path: 'foam.u2.Router', priority: 200 } ],
 
@@ -1147,19 +1147,21 @@ foam.CLASS({
     ...
     this.add(self.Console.create({route: 'name of flow to load', flowMode: foam.core.reflow.FlowMode.PRESENTATION_ONLY});
   `,
+
   requires: [
-    'foam.core.reflow.Flowable',
-    'foam.core.reflow.ReflowHeader',
-    'foam.core.reflow.ReactiveSectionedDetailView',
-    'foam.core.reflow.ReflowConfigView',
-    'foam.core.reflow.ReflowToolBar',
-    'foam.core.reflow.ToolbarControl',
+    'foam.core.ai.ConversationalLLMService',
     'foam.core.reflow.Block',
     'foam.core.reflow.Flow',
-    'foam.core.reflow.LimitEditHeader',
     'foam.core.reflow.FlowMode',
+    'foam.core.reflow.Flowable',
     'foam.core.reflow.FlowableTree',
     'foam.core.reflow.Layout',
+    'foam.core.reflow.LimitEditHeader',
+    'foam.core.reflow.ReactiveSectionedDetailView',
+    'foam.core.reflow.ReflowConfigView',
+    'foam.core.reflow.ReflowHeader',
+    'foam.core.reflow.ReflowToolBar',
+    'foam.core.reflow.ToolbarControl',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
     'foam.u2.Link',
@@ -1174,7 +1176,8 @@ foam.CLASS({
     'toolbarControlDAO',
     'window',
     'showNav',
-    'isMenuOpen'
+    'isMenuOpen',
+    'llmService as parentLLMService'
   ],
 
   constants: [
@@ -1194,6 +1197,7 @@ foam.CLASS({
     'eval_',
     'flowChildren',
     'history_',
+    'llmService',
     'localScope',
     'log',
     'mementoMgr',
@@ -1273,6 +1277,12 @@ foam.CLASS({
   `,
 
   properties: [
+    {
+      name: 'llmService',
+      factory: function() {
+        return this.ConversationalLLMService.create({delegate: this.parentLLMService});
+      }
+    },
     {
       name: 'childType',
       factory: function() {
@@ -1440,6 +1450,8 @@ foam.CLASS({
 
   methods: [
     function init() {
+      this.__subContext__.register(foam.core.reflow.ClassLink, 'foam.doc.ClassLink');
+
       this.SUPER();
       this.addCrumb();
     },
@@ -1587,9 +1599,13 @@ foam.CLASS({
       globalThis.shell = this; // for debugging
 
       // Add commands to localScope
-      var cmds = await this.commandDAO.select();
+      var cmds = (await this.commandDAO.select()).array;
 
-      cmds.array.forEach(c => {
+      for ( let i = 0 ; i < cmds.length ; i++ ) {
+        if ( cmds[i].aInit ) await cmds[i].aInit();
+      }
+
+      cmds.forEach(c => {
         this.localScope[c.id] = async (...args) => {
           var cmd = c.clone(this.currentBlock);
           return await cmd.execute.apply(cmd, args);

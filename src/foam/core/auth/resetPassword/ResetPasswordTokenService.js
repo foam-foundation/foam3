@@ -29,6 +29,7 @@ foam.CLASS({
     'foam.core.auth.User',
     'foam.core.auth.UserNotFoundException',
     'foam.core.auth.token.Token',
+    'foam.core.notification.Notification',
     'foam.core.notification.email.EmailMessage',
     'foam.util.Email',
     'foam.util.Password',
@@ -64,12 +65,17 @@ foam.CLASS({
           throw new RuntimeException("Invalid Email");
         }
 
+        String spid = user.getSpid();
+        if ( SafetyUtil.isEmpty(spid) ) {
+          spid = (String) x.get("spid");
+        }
+
         Sink sink = new ArraySink();
         sink = userDAO.where(
           MLang.AND(
             MLang.EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE),
             MLang.EQ(User.LOGIN_ENABLED, true),
-            MLang.EQ(User.SPID, x.get("spid")),
+            MLang.EQ(User.SPID, spid),
             MLang.EQ(User.EMAIL, user.getEmail())
           ))
           .limit(1).select(sink);
@@ -79,29 +85,29 @@ foam.CLASS({
           throw new UserNotFoundException();
         }
 
-        user = (User) list.get(0);
-        if ( user == null ) {
+        var found = (User) list.get(0);
+        if ( found == null || found.getId() != user.getId() ) {
           throw new UserNotFoundException();
         }
 
         Token token = new Token();
-        token.setUserId(user.getId());
+        token.setUserId(found.getId());
         token.setExpiry(generateExpiryDate());
         token.setData(UUID.randomUUID().toString());
         token.setParameters(parameters);
         token = (Token) tokenDAO.put(token);
 
-        EmailMessage message = new EmailMessage();
-        message.setTo(new String[] { user.getEmail() });
-        message.setUser(user.getId());
         HashMap<String, Object> args = new HashMap<>();
-        args.put("name", user.getLegalName());
+        args.put("name", found.getLegalName());
         args.put("link", url +"?token=" + token.getData() + getParameter(parameters, "menu", "#reset"));
         args.put("templateSource", this.getClass().getName());
         String templateName = getParameter(parameters, "templateName", "reset-password");
-        args.put("template", templateName);
-        message.setTemplateArguments(args);
-        ((DAO) getX().get("emailMessageDAO")).put(message);
+        Notification notification = new Notification();
+        notification.setEmailName(templateName);
+        notification.setEmailArgs(args);
+        notification.setBody("Password reset requested.");
+
+        user.doNotify(x, notification);
         return true;
       `
     },
@@ -165,17 +171,17 @@ foam.CLASS({
         tokenResult.setProcessed(true);
         tokenDAO.put(tokenResult);
 
-        EmailMessage message = new EmailMessage();
-        message.setTo(new String[] { userResult.getEmail() });
-        message.setUser(userResult.getId());
         HashMap<String, Object> args = new HashMap<>();
-        args.put("name", userResult.getFirstName());
+        args.put("name", userResult.getLegalName());
         args.put("sendTo", userResult.getEmail());
         args.put("link", url);
         args.put("templateSource", this.getClass().getName());
-        args.put("template", "password-changed");
-        message.setTemplateArguments(args);
-        ((DAO) x.get("emailMessageDAO")).put(message);
+        Notification notification = new Notification();
+        notification.setEmailName("password-changed");
+        notification.setEmailArgs(args);
+        notification.setBody("Password updated.");
+
+        userResult.doNotify(x, notification);
         return true;
       `
     },

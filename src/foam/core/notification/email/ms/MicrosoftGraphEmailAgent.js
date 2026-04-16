@@ -177,11 +177,16 @@ foam.CLASS({
         Logger logger = Loggers.logger(getX(), this);
         logger.debug("Checking if token needs to be refreshed");
         if (getAccessToken() == null || getAccessToken().getExpiresAt().isBefore(OffsetDateTime.now().plusMinutes(5))) {
-          TokenRequestContext ctx = new TokenRequestContext();
-          ctx.addScopes(SCOPE);
-          AccessToken accessToken = getCredential().getTokenSync(ctx);
-          setAccessToken(accessToken);
-          logger.debug("Token refreshed successfully");
+          try {
+            TokenRequestContext ctx = new TokenRequestContext();
+            ctx.addScopes(SCOPE);
+            AccessToken accessToken = getCredential().getTokenSync(ctx);
+            setAccessToken(accessToken);
+            logger.debug("Token refreshed successfully");
+          } catch (Exception e) {
+            logger.error("Failed to refresh Azure token. Check clientId, tenantId, and clientSecret.", e);
+            throw new RuntimeException("Azure authentication failed: " + e.getMessage(), e);
+          }
         }
       `
     },

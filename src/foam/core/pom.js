@@ -33,6 +33,7 @@ foam.POM({
     { name: "notification/email/ms/pom" },
     { name: "security/pom" },
     { name: "so/pom" },
+    { name: "ai/pom" },
     { name: "bench/pom",                               flags: "test" },
     { name: "test/pom",                                flags: "test" },
     { name: "theme/pom" }

@@ -54,7 +54,14 @@ foam.CLASS({
       name: 'confirm',
       buttonStyle: 'PRIMARY',
       code: async function(X) {
-        return await this.primaryAction?.maybeCall(X, this.data).then(() => {
+        if ( ! this.primaryAction ) {
+          X.closeDialog();
+          return;
+        }
+
+        var self = this;
+        return await this.primaryAction.maybeCall(X, this.data).then((result) => {
+          self.data = result;
           X.closeDialog();
         });
       }
@@ -62,9 +69,17 @@ foam.CLASS({
     {
       name: 'cancel',
       buttonStyle: 'TERTIARY',
-      code: function(X) {
-        this.secondaryAction && this.secondaryAction.maybeCall(X, this.data);
-        X.closeDialog();
+      code: async function(X) {
+        if ( ! this.secondaryAction ) {
+          X.closeDialog();
+          return;
+        }
+
+        var self = this;
+        return await this.secondaryAction?.maybeCall(X, this.data).then((result) => {
+          self.data = result;
+          X.closeDialog();
+        })
       }
     }
   ]

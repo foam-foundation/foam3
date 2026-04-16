@@ -122,6 +122,8 @@ foam.CLASS({
 
 //  imports: [ 'suggestText' ],
 
+  constants: { MAX_WIDTH: 60 }, // Max label width in characters
+
   css: `
     ^ {
       color: $textDefault;
@@ -158,8 +160,8 @@ foam.CLASS({
 
   methods: [
     function render() {
-      let self = this;
-      let data = this.data;
+      const self  = this;
+      const data  = this.data;
 
       this.
         addClass().
@@ -170,9 +172,10 @@ foam.CLASS({
               this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(data.tooltip).end();
             },
             function() {
+              const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');
               this.
                 style({cursor: 'pointer'}).
-                add(data.label || data.text);
+                add(label || data.text);
               self.on('click', () => self.suggestText(data.text));
             }
           ).
@@ -395,7 +398,8 @@ foam.CLASS({
         .start()
           .addClass(this.myClass('suggestions'))
           .add(this.dynamic(function (suggestions) {
-            self.populateSuggestions(this, suggestions);
+            if ( self.element_.parentNode.contains(document.activeElement) || ( self.overlay?.el_().contains(document.activeElement) ) )
+              self.populateSuggestions(this, suggestions);
           }))
         .end();
     },

@@ -39,6 +39,9 @@ foam.CLASS({
           border: 1px solid $borderLight;
           border-radius: 4px;
         }
+        ^value-view-container ^value-view-container {
+          background: $backgroundSecondary;
+        }
         ^value-view {
           padding: 8px;
         }
@@ -52,6 +55,9 @@ foam.CLASS({
           align-items: center;
           gap: 10px;
         }
+        ^item-name {
+          line-height: inherit;
+        }
         ^item-index {
           color: $grey700;
         }
@@ -63,9 +69,6 @@ foam.CLASS({
           border-radius: 4px;
           font-size: $body-sm;
           font-weight: $font-bold;
-        }
-        ^value-view-container.opened.collapsable {
-          border-color: $primary500;
         }
       `,
       properties: [

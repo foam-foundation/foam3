@@ -90,11 +90,11 @@ foam.CLASS({
     },
     {
       name: 'params',
-      factory: function() {
+      getter: function() { // Changed to a getter so that it will run whenever a change is made
         var m = {};
-        this.window.location.search.substring(1).split('&').forEach(p => {
-          var a = p.split('=');
-          m[a[0]] = a[1];
+        const params = new URLSearchParams(window.location.search);
+        params.keys().forEach(element => {
+          m[element] = params.get(element);
         });
         return m;
       }

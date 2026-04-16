@@ -1842,6 +1842,52 @@ var f00 = resolver.findTokenForValue('#ff0000');
 var f00Short = resolver.findTokenForValue('#f00');
 test(f00 === f00Short, 'findTokenForValue: 3-char hex normalizes to 6-char');
 
+// === CREATE CONTEXT (DEEP + STRINGS + COMMENTS) ===
+section('findCreateContext — method-body resilience');
+
+var ca = foam.parse.lsp.CursorAnalyzer.create();
+
+// Deep-nested: cursor 30 lines below the .create(
+var deep = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'X',",
+  "  requires: [ 'foam.u2.Element' ],",
+  "  methods: [",
+  "    function m() {",
+  "      var e = this.Element.create({"
+];
+for ( var pad = 0 ; pad < 25 ; pad++ ) deep.push("        // filler " + pad);
+deep.push("        ");  // cursor line
+deep.push("      });");
+deep.push("    }");
+deep.push("  ]");
+deep.push("});");
+var deepText = deep.join('\n');
+var deepLines = deepText.split('\n');
+var cursorLine = 6 + 25; // last filler → cursor line right after, offset from pad
+var deepCtx = ca.findCreateContext(deepLines, cursorLine, deepText, index);
+test(deepCtx === 'foam.u2.Element',
+  'findCreateContext: resolves 30+ lines below opening .create( (old limit was 20)');
+
+// String with `{` inside shouldn't fool the scanner
+var strText = [
+  "foam.CLASS({",
+  "  requires: [ 'foam.u2.Element' ],",
+  "  methods: [ function m() {",
+  "    var msg = 'hello { weird } string';",
+  "    this.Element.create({",
+  "      foo: 'bar'",
+  "    });",
+  "  } ]",
+  "});"
+].join('\n');
+var strLines = strText.split('\n');
+// Cursor line 5 is `      foo: 'bar'` — inside the create
+var strCtx = ca.findCreateContext(strLines, 5, strText, index);
+test(strCtx === 'foam.u2.Element',
+  'findCreateContext: ignores braces inside string literals');
+
 // === SUMMARY ===
 
 section('SUMMARY');

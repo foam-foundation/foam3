@@ -138,33 +138,81 @@ foam.CLASS({
 
     function findCreateContext(lines, lineNum, text, index) {
       /**
-       * Scan backwards from current line to find if we're inside a .create({ block.
+       * Scan backward from the cursor to find an enclosing `.create({` whose
+       * opening `{` is at one level of brace-depth above the cursor. Uses a
+       * linear scan over the full text (no line limit) with string and
+       * comment skipping, then resolves the short name via requires or index.
+       *
        * Returns the resolved class ID or null.
-       * @param lines - text split by newlines
+       *
+       * @param lines - text split by newlines (unused but kept for back-compat callers)
        * @param lineNum - current line number
-       * @param text - full source text (for requires resolution)
-       * @param index - FoamIndex instance (for classExists checks)
+       * @param text - full source text
+       * @param index - FoamIndex instance
        */
+      var cursorOffset = this.positionToOffset(text, { line: lineNum, character: (lines[lineNum] || '').length });
+
+      // Walk backward from cursor, tracking brace depth and skipping strings/comments.
       var depth = 0;
-      for ( var i = lineNum ; i >= Math.max(0, lineNum - 20) ; i-- ) {
-        var line = lines[i];
-        for ( var c = line.length - 1 ; c >= 0 ; c-- ) {
-          if ( line[c] === '}' ) depth++;
-          if ( line[c] === '{' ) depth--;
-        }
-        if ( depth < 0 ) {
-          for ( var j = i ; j >= Math.max(0, i - 3) ; j-- ) {
-            var checkLine = lines[j];
-            var createMatch = checkLine.match(/(?:this\.)?(\w+)\.create\s*\(/);
-            if ( createMatch ) {
-              var shortName = createMatch[1];
-              var resolved = this.resolveShortName(text, shortName);
-              if ( resolved ) return resolved;
-              if ( index.classExists(shortName) ) return shortName;
-            }
+      var i = cursorOffset - 1;
+      while ( i >= 0 ) {
+        var ch = text[i];
+
+        // Skip strings (scan backward to matching opener)
+        if ( ch === "'" || ch === '"' || ch === '`' ) {
+          var q = ch;
+          for ( i-- ; i >= 0 ; i-- ) {
+            if ( text[i] === q && text[i - 1] !== '\\' ) { i--; break; }
           }
-          break;
+          continue;
         }
+
+        // Skip block comments: */ ... /*
+        if ( ch === '/' && i > 0 && text[i - 1] === '*' ) {
+          i -= 2;
+          while ( i >= 1 && ! ( text[i - 1] === '/' && text[i] === '*' ) ) i--;
+          i -= 2;
+          continue;
+        }
+
+        // Skip line comments — find start-of-line, check for //
+        if ( ch === '\n' ) {
+          // could be end of a line comment; no-op, just fall through
+        }
+
+        if ( ch === '}' ) depth++;
+        else if ( ch === '{' ) {
+          if ( depth === 0 ) {
+            // Found the opening brace of our enclosing block.
+            // Scan backward from here for `.create(` — allow whitespace between.
+            var j = i - 1;
+            while ( j >= 0 && /\s/.test(text[j]) ) j--;
+            if ( j >= 0 && text[j] === '(' ) {
+              var end = j;
+              j--;
+              while ( j >= 0 && /\s/.test(text[j]) ) j--;
+              // Expect 'create' before the paren
+              if ( j >= 5 && text.substring(j - 5, j + 1) === 'create' ) {
+                // Before 'create' expect '.identifier' (or 'this.identifier')
+                var k = j - 6;
+                if ( k >= 0 && text[k] === '.' ) {
+                  var nameEnd = k;
+                  var nameStart = nameEnd;
+                  while ( nameStart > 0 && /[\w$]/.test(text[nameStart - 1]) ) nameStart--;
+                  var shortName = text.substring(nameStart, nameEnd);
+                  if ( shortName ) {
+                    var resolved = this.resolveShortName(text, shortName);
+                    if ( resolved ) return resolved;
+                    if ( index.classExists(shortName) ) return shortName;
+                  }
+                }
+              }
+            }
+            return null;
+          }
+          depth--;
+        }
+        i--;
       }
       return null;
     },

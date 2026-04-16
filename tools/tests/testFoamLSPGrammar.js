@@ -1781,6 +1781,33 @@ test(compRes.items.length > 0, 'CompletionHandler: produces items');
 test( ! compRes.items.some(function(i) { return i['class']; }),
   'CompletionHandler: no FOAM class marker leaks into LSP output');
 
+// === ENUM COMPLETION ===
+section('Enum value completion (this.EnumAlias.▊)');
+
+// Find a real FOAM enum for testing
+var enumCandidates = index.getAllClassIds().filter(function(id) {
+  var cls = index.getClass(id);
+  return cls && cls.VALUES && cls.VALUES.length > 0;
+});
+if ( enumCandidates.length === 0 ) {
+  test(false, 'Expected at least one enum in registry');
+} else {
+  var enumId = enumCandidates[0];
+  var enumVals = index.getEnumValues(enumId);
+  var enumShort = enumId.split('.').pop();
+  // Line 3: `this.<EnumShort>.` — cursor right after trailing dot
+  var line3 = "this." + enumShort + ".";
+  var srcEnum = "foam.CLASS({\n  name: 'X',\n  requires: [ '" + enumId + "' ],\n" + line3 + "\n});";
+  var mh = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index });
+  var res = mh.handle(srcEnum, { line: 3, character: line3.length });
+  var hasEnum = res.items.some(function(i) {
+    return enumVals.some(function(v) { return v.name === i.label; });
+  });
+  test(hasEnum, 'Enum completion: suggests enum values for required enum (' + enumId + ')');
+  test(res.items.every(function(i) { return i.kind === 13; }),
+    'Enum completion: all items use EnumMember kind (13)');
+}
+
 // === SUMMARY ===
 
 section('SUMMARY');

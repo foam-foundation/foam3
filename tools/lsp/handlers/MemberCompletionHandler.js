@@ -254,8 +254,24 @@ foam.CLASS({
     },
 
     function getRequiredClassItems(classId) {
-      /** Get completion items for a required class: create(), static methods, constants. */
+      /** Get completion items for a required class: enum values, create(), constants. */
       var items = [];
+
+      // If it's an enum, suggest its ordinal values (primary usage)
+      var enumValues = this.index.getEnumValues(classId);
+      if ( enumValues && enumValues.length > 0 ) {
+        for ( var i = 0 ; i < enumValues.length ; i++ ) {
+          var v = enumValues[i];
+          items.push({
+            label: v.name,
+            kind: 13, // EnumMember
+            detail: classId + '.' + v.name + ( v.label ? ' — ' + v.label : '' ),
+            documentation: v.label || '',
+            sortText: '!0_' + ('0000' + v.ordinal).slice(-4)
+          });
+        }
+        return { isIncomplete: false, items: items };
+      }
 
       // create() — primary action on a required class
       var props = this.index.getOwnProperties(classId);

@@ -1589,6 +1589,45 @@ test(sentinelCS.CHAR.charCodeAt(0) < 32 || sentinelCS.CHAR.charCodeAt(0) > 126,
 
 test(sentinelCS.removeFrom('ab' + sentinelCS.CHAR + 'cd') === 'abcd', 'removeFrom strips sentinel');
 
+// === GRAMMAR COLLECT SUGGESTIONS AT ===
+section('FoamClassGrammar.collectSuggestionsAt');
+
+var grammarC = foam.parse.lsp.FoamClassGrammar.create({ index: index });
+var sentinelC = foam.parse.lsp.CursorSentinel.create();
+
+var srcExt = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  extends: ''\n});";
+var insExt = sentinelC.insertAt(srcExt, { line: 3, character: 12 });
+var sugsExt = grammarC.collectSuggestionsAt(insExt.text, insExt.offset);
+test(sugsExt.length > 100, 'extends: suggests many class IDs (' + sugsExt.length + ')');
+test(sugsExt.some(function(s) { return s.text === 'foam.lang.FObject'; }),
+  'extends: suggests FObject');
+
+var srcReq = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  requires: ['']\n});";
+var insReq = sentinelC.insertAt(srcReq, { line: 3, character: 14 });
+var sugsReq = grammarC.collectSuggestionsAt(insReq.text, insReq.offset);
+test(sugsReq.length > 100, 'requires: suggests many class IDs (' + sugsReq.length + ')');
+
+var srcOf = "foam.CLASS({\n  name: 'X',\n  properties: [\n    { class: 'FObjectProperty', of: '' }\n  ]\n});";
+// Line 3: `    { class: 'FObjectProperty', of: '' }` — opening of-quote is at index 37
+var insOf = sentinelC.insertAt(srcOf, { line: 3, character: 38 });
+var sugsOf = grammarC.collectSuggestionsAt(insOf.text, insOf.offset);
+test(sugsOf.length > 100, 'of: suggests many class IDs (' + sugsOf.length + ')');
+
+var srcCls = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  properties: [{ class: '' }]\n});";
+var insCls = sentinelC.insertAt(srcCls, { line: 3, character: 25 });
+var sugsCls = grammarC.collectSuggestionsAt(insCls.text, insCls.offset);
+test(sugsCls.some(function(s) { return s.text === 'String'; }),
+  'class: suggests String property type');
+test(sugsCls.some(function(s) { return s.text === 'FObjectProperty'; }),
+  'class: suggests FObjectProperty');
+
+// Valid entry — sentinel forces failure, suggestions still come back
+var srcValid = "foam.CLASS({\n  package: 'test',\n  name: 'X',\n  requires: ['foam.u2.Element']\n});";
+var insValid = sentinelC.insertAt(srcValid, { line: 3, character: 14 });
+var sugsValid = grammarC.collectSuggestionsAt(insValid.text, insValid.offset);
+test(sugsValid.length > 100,
+  'requires: with already-valid entry still returns suggestions via sentinel');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -43,6 +43,55 @@ foam.CLASS({
   ],
 
   methods: [
+    function collectSuggestionsAt(text, cursorOffset) {
+      /**
+       * Parse `text` and collect suggestions from sug() parsers that FAIL
+       * at or within 1 char of `cursorOffset`. The caller is expected to
+       * have inserted a sentinel character at cursorOffset (via CursorSentinel)
+       * so parse failure is guaranteed exactly at the cursor.
+       *
+       * Deduplicates by text. Unlike the SmartView-style collector in
+       * CompletionHandler, this does NOT rely on maxPos heuristics — the
+       * sentinel guarantees failure at cursorOffset, so the failing-alt
+       * suggestions at that position ARE the completion set.
+       */
+      var seen = {};
+      var suggestions = [];
+
+      var apply = function(p, grammar) {
+        var startPos = this.pos;
+        var result = p.parse(this, grammar);
+
+        if ( ! result && p.suggest ) {
+          if ( startPos >= cursorOffset - 1 && startPos <= cursorOffset + 1 ) {
+            var s = p.suggest();
+            if ( s ) {
+              var key = s.text || s.label;
+              if ( key && ! seen[key] ) {
+                seen[key] = true;
+                suggestions.push(s);
+              }
+            }
+          }
+        }
+
+        return result;
+      };
+
+      var ps = foam.parse.StringPStream.create({
+        str: text + String.fromCharCode(26),
+        apply: apply
+      });
+
+      try {
+        this.parse(ps);
+      } catch ( e ) {
+        // Grammar errors are fine — suggestions are collected along the way
+      }
+
+      return suggestions;
+    },
+
     function buildDynamicParsers_() {
       var self = this;
       var P = foam.parse.Parsers.create();

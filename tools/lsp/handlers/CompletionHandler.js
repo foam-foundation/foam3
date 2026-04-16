@@ -314,7 +314,9 @@ foam.CLASS({
 
       var ctx = {
         classRef: false, propertyType: false, columnName: false,
-        topKey: false, propKey: false, pomKey: false
+        topKey: false, propKey: false, pomKey: false,
+        pomFileName: false, pomJavaFileName: false, pomProjectPath: false,
+        pomFlagValue: false, pomJavaDep: false
       };
       for ( var i = 0 ; i < suggestions.length ; i++ ) {
         var c = suggestions[i].category;
@@ -324,6 +326,11 @@ foam.CLASS({
         else if ( c === 'topKey' ) ctx.topKey = true;
         else if ( c === 'propKey' ) ctx.propKey = true;
         else if ( c === 'pomKey' ) ctx.pomKey = true;
+        else if ( c === 'pomFileName' ) ctx.pomFileName = true;
+        else if ( c === 'pomJavaFileName' ) ctx.pomJavaFileName = true;
+        else if ( c === 'pomProjectPath' ) ctx.pomProjectPath = true;
+        else if ( c === 'pomFlagValue' ) ctx.pomFlagValue = true;
+        else if ( c === 'pomJavaDep' ) ctx.pomJavaDep = true;
       }
       return ctx;
     },
@@ -344,50 +351,61 @@ foam.CLASS({
 
     function pomContextCompletion_(text, position, lines, prefix, replaceRange) {
       /**
-       * Context-aware completions for foam.POM files.
-       * Suggests file names, flag values, project paths, and java file names
-       * based on the cursor's position within the POM structure.
+       * Grammar-driven POM completions. detectContext_ tells us which POM
+       * position the cursor is in (file name, Java file name, project path,
+       * flag value, Java dep). The helpers below produce the actual items.
+       *
+       * Regex fallbacks remain only where the grammar may fail (mid-edit
+       * files); once Phase 6 lands proper recovery, those go away.
        */
-      var lineContext = this.getLineContext_(lines, position.line);
       var partial = this.extractPartial_(prefix);
+      var ctx = this.detectContext_(text, position);
+      var lineContext = this.getLineContext_(lines, position.line);
 
-      // Inside flags: '...' → suggest flag combinations
-      if ( /flags\s*:\s*['"][^'"]*$/.test(prefix) ) {
-        var flagValues = [
-          'js', 'java', 'web', 'test',
-          'js|java', 'js&test|java&test', 'js&test', 'java&test'
-        ];
-        var items = [];
-        var lower = partial.toLowerCase();
-        for ( var i = 0 ; i < flagValues.length ; i++ ) {
-          if ( lower && flagValues[i].toLowerCase().indexOf(lower) === -1 ) continue;
-          items.push({
-            label: flagValues[i], kind: 21,
-            textEdit: { range: replaceRange, newText: flagValues[i] },
-            sortText: '!' + flagValues[i]
-          });
-        }
-        return items;
+      if ( ctx.pomFlagValue || /flags\s*:\s*['"][^'"]*$/.test(prefix) ) {
+        return this.pomFlagItems_(partial, replaceRange);
       }
 
-      // Inside name: '...' within files: [...] or javaFiles: [...] → suggest filenames
-      if ( /name\s*:\s*['"][^'"]*$/.test(prefix) &&
-           (/files\s*:\s*\[/.test(lineContext) || /javaFiles\s*:\s*\[/.test(lineContext)) ) {
-        var isJava = /javaFiles\s*:\s*\[/.test(lineContext);
-        return this.pomFileNameSuggestions_(text, partial, replaceRange, isJava);
+      if ( ctx.pomFileName ||
+           (/name\s*:\s*['"][^'"]*$/.test(prefix) && /files\s*:\s*\[/.test(lineContext)
+            && ! /javaFiles\s*:\s*\[/.test(lineContext)) ) {
+        return this.pomFileNameSuggestions_(text, partial, replaceRange, false);
       }
 
-      // Inside projects: [{ name: '...' }] → suggest subdirectory pom paths
-      if ( /name\s*:\s*['"][^'"]*$/.test(prefix) && /projects\s*:\s*\[/.test(lineContext) ) {
+      if ( ctx.pomJavaFileName ||
+           (/name\s*:\s*['"][^'"]*$/.test(prefix) && /javaFiles\s*:\s*\[/.test(lineContext)) ) {
+        return this.pomFileNameSuggestions_(text, partial, replaceRange, true);
+      }
+
+      if ( ctx.pomProjectPath ||
+           (/name\s*:\s*['"][^'"]*$/.test(prefix) && /projects\s*:\s*\[/.test(lineContext)) ) {
         return this.pomProjectSuggestions_(text, partial, replaceRange);
       }
 
-      // Inside javaDependencies: ['...'] → suggest from existing deps in codebase
-      if ( /javaDependencies\s*:\s*\[/.test(lineContext) ) {
+      if ( ctx.pomJavaDep || /javaDependencies\s*:\s*\[/.test(lineContext) ) {
         return this.pomJavaDependencySuggestions_(partial, replaceRange);
       }
 
       return null;
+    },
+
+    function pomFlagItems_(partial, replaceRange) {
+      /** Build completion items for POM flag values. */
+      var flagValues = [
+        'js', 'java', 'web', 'test',
+        'js|java', 'js&test|java&test', 'js&test', 'java&test'
+      ];
+      var lower = partial.toLowerCase();
+      var items = [];
+      for ( var i = 0 ; i < flagValues.length ; i++ ) {
+        if ( lower && flagValues[i].toLowerCase().indexOf(lower) === -1 ) continue;
+        items.push({
+          label: flagValues[i], kind: 21,
+          textEdit: { range: replaceRange, newText: flagValues[i] },
+          sortText: '!' + flagValues[i]
+        });
+      }
+      return items;
     },
 
     function pomFileNameSuggestions_(text, partial, replaceRange, isJava) {

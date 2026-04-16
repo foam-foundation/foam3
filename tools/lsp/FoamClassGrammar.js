@@ -221,6 +221,10 @@ foam.CLASS({
           wsc, P.optional(P.literal('}'))),
 
         pomEntry: P.alt(
+          P.sym('pomFilesEntry'),
+          P.sym('pomJavaFilesEntry'),
+          P.sym('pomProjectsEntry'),
+          P.sym('pomJavaDepsEntry'),
           P.sym('pomKey'),
           P.sym('genericEntry')
         ),
@@ -229,6 +233,101 @@ foam.CLASS({
           pomKeyHelper('name'), pomKeyHelper('version'), pomKeyHelper('files'),
           pomKeyHelper('projects'), pomKeyHelper('javaDependencies'),
           pomKeyHelper('javaFiles'), pomKeyHelper('journalFiles')
+        ),
+
+        // Specific POM entry rules. Each emits a context marker (via sug with
+        // \u0002 that never matches) so the LSP handler can detect cursor
+        // position by inspecting collected sug categories.
+
+        pomFilesEntry: P.seq(pomKeyHelper('files'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.sym('pomFileObj'), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        pomJavaFilesEntry: P.seq(pomKeyHelper('javaFiles'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.sym('pomJavaFileObj'), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        pomProjectsEntry: P.seq(pomKeyHelper('projects'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.sym('pomProjectObj'), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        pomJavaDepsEntry: P.seq(pomKeyHelper('javaDependencies'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('pomJavaDep'),
+            P.optional(P.literal("'")), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        pomFileObj: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('pomFileObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        pomJavaFileObj: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('pomJavaFileObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        pomProjectObj: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('pomProjectObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        pomFileObjEntry: P.alt(
+          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('pomFileName'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.sym('genericEntry')
+        ),
+
+        pomJavaFileObjEntry: P.alt(
+          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('pomJavaFileName'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.sym('genericEntry')
+        ),
+
+        pomProjectObjEntry: P.alt(
+          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('pomProjectPath'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.sym('genericEntry')
+        ),
+
+        // Context markers — each alternative's sug(literal('\u0002')) fails
+        // at cursor and emits a category marker. The str(repeat) fallback
+        // handles the actual token parse.
+        pomFileName: P.alt(
+          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+            text: '__ctx_pomFileName__', category: 'pomFileName', hint: 'file name'
+          })),
+          P.str(P.repeat(P.notChars("'"), null, 0))
+        ),
+        pomJavaFileName: P.alt(
+          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+            text: '__ctx_pomJavaFileName__', category: 'pomJavaFileName', hint: 'Java file name'
+          })),
+          P.str(P.repeat(P.notChars("'"), null, 0))
+        ),
+        pomProjectPath: P.alt(
+          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+            text: '__ctx_pomProjectPath__', category: 'pomProjectPath', hint: 'subproject path'
+          })),
+          P.str(P.repeat(P.notChars("'"), null, 0))
+        ),
+        pomFlagValue: P.alt(
+          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+            text: '__ctx_pomFlagValue__', category: 'pomFlagValue', hint: 'flag combination'
+          })),
+          P.str(P.repeat(P.notChars("'"), null, 0))
+        ),
+        pomJavaDep: P.alt(
+          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+            text: '__ctx_pomJavaDep__', category: 'pomJavaDep', hint: 'Java dependency'
+          })),
+          P.str(P.repeat(P.notChars("'"), null, 0))
         ),
 
         // Skip one character — catch-all that lets START consume the whole file

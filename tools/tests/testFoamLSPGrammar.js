@@ -1732,6 +1732,36 @@ test(diagLSP.source === 'foam-lsp', 'Diagnostic.toLSP default source');
 test(diagLSP.fix === undefined, 'Diagnostic.toLSP strips fix (code-action metadata)');
 test(diagLSP['class'] === undefined, 'Diagnostic.toLSP strips FOAM class marker');
 
+// === POM GRAMMAR CONTEXT ===
+section('POM grammar context detection');
+
+var pomHandler = foam.parse.lsp.handlers.CompletionHandler.create({ index: index });
+
+var pomFlags = pomHandler.detectContext_(
+  "foam.POM({\n  files: [\n    { name: 'X', flags: '' }\n  ]\n});",
+  { line: 2, character: 25 });
+test(pomFlags.pomFlagValue, 'POM flags: detects pomFlagValue');
+
+var pomFileNameCtx = pomHandler.detectContext_(
+  "foam.POM({\n  files: [\n    { name: '' }\n  ]\n});",
+  { line: 2, character: 13 });
+test(pomFileNameCtx.pomFileName, 'POM files.name: detects pomFileName');
+
+var pomJavaFileCtx = pomHandler.detectContext_(
+  "foam.POM({\n  javaFiles: [\n    { name: '' }\n  ]\n});",
+  { line: 2, character: 13 });
+test(pomJavaFileCtx.pomJavaFileName, 'POM javaFiles.name: detects pomJavaFileName');
+
+var pomProjCtx = pomHandler.detectContext_(
+  "foam.POM({\n  projects: [\n    { name: '' }\n  ]\n});",
+  { line: 2, character: 13 });
+test(pomProjCtx.pomProjectPath, 'POM projects.name: detects pomProjectPath');
+
+var pomDepCtx = pomHandler.detectContext_(
+  "foam.POM({\n  javaDependencies: [\n    ''\n  ]\n});",
+  { line: 2, character: 5 });
+test(pomDepCtx.pomJavaDep, 'POM javaDependencies: detects pomJavaDep');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -20,14 +20,19 @@ foam.CLASS({
     'foam.u2.ProgressView',
     'foam.u2.qa.RankedOutcome',
     'foam.dao.MDAO',
-    'foam.u2.qa.WizardState',
+    'foam.u2.qa.WizardState'
+  ],
+
+  messages: [
+    { name: 'NO_CANDIDATES', message: 'No candidates eligible. Please check your answers or manually enter an outcome.' },
+    { name: 'MATCHES', message: 'Matches' },
+    { name: 'POTENTIAL_MATCHES', message: 'Potential Matches, need more information' }
   ],
 
   css: `
     ^ {
       display: flex;
       flex-direction: column;
-      border-radius: 8px;
       height: 100%;
       background: $backgroundDefault;
     }
@@ -213,7 +218,7 @@ foam.CLASS({
             if ( self.candidatesCount === 0 )
               return this.start()
                 .addClass('p')
-                .add('No candidates eligible. Please check your answers or manually enter an outcome.')
+                .add(self.NO_CANDIDATES)
               .end();
             var outputProps = self.getOutputProperties_();
             this.startContext({ controllerMode: foam.u2.ControllerMode.VIEW })
@@ -253,11 +258,11 @@ foam.CLASS({
                   choosePlaceholder: '---',
                   sections: [
                     {
-                      heading: 'Matches',
+                      heading: self.MATCHES,
                       dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)))
                     },
                     {
-                      heading: 'Potential Matches, need more information',
+                      heading: self.POTENTIAL_MATCHES,
                       dao$: self.rankedOutcomeDAO$.map(v => v.where(self.EQ(self.RankedOutcome.SCORE, 0)))
                     }
                   ]
@@ -360,6 +365,16 @@ foam.CLASS({
 foam.ENUM({
   package: 'foam.u2.qa',
   name: 'WizardState',
+  messages: [
+    { name: 'QUESTION_MSG', message: 'Question' },
+    { name: 'PICK_MSG', message: 'Select Best Match' },
+    { name: 'REMAINING', message: '${candidatesCount} of ${totalOutcomes} options remaining', template: true },
+    { name: 'PICK_ONE', message: '${candidatesCount} options — pick one', template: true },
+    { name: 'MATCH_FOUND', message: 'Match found!' },
+    { name: 'ALL_DONE', message: 'All done!' },
+    { name: 'NO_MATCH_FOUND', message: 'No match found' },
+    { name: 'MANUALLY_SELECT', message: 'Multiple options match your answers. Please select the best fit or check your answers:' }
+  ],
   properties: [
     { class: 'Function', name: 'labelFormatter' },
     { class: 'Function', name: 'headingFormatter' },
@@ -369,32 +384,32 @@ foam.ENUM({
     {
       name: 'QUESTION',
       headingFormatter: function(self) {
-        return self.currentQuestionAxiom?.label || 'Question';
+        return self.currentQuestionAxiom?.label || this.QUESTION_MSG;
       },
       subHeadingFormatter: function(self) {
         return '';
       },
       labelFormatter: function(candidatesCount, totalOutcomes) {
-        return candidatesCount + ' of ' + totalOutcomes + ' options remaining';
+        return this.REMAINING({ candidatesCount, totalOutcomes });
       }
     },
     {
       name: 'PICK',
       headingFormatter: function() {
-        return 'Select Best Match';
+        return this.PICK_MSG;
       },
       subHeadingFormatter: function() {
-        return 'Multiple options match your answers. Please select the best fit or check your answers:';
+        return this.MANUALLY_SELECT;
       },
       labelFormatter: function(candidatesCount, totalOutcomes) {
-        return candidatesCount + ' options — pick one';
+        return this.PICK_ONE({ candidatesCount });
       }
     },
     {
       name: 'OUTCOME',
-      labelFormatter: function() { return 'Match found'; },
+      labelFormatter: function() { return this.MATCH_FOUND; },
       headingFormatter: function(self) {
-        return self.candidatesCount ? 'All Done!' : 'No Match Found';
+        return self.candidatesCount ? this.ALL_DONE : this.NO_MATCH_FOUND;
       },
       subHeadingFormatter: function(self) {
         return '';

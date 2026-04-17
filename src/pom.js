@@ -430,6 +430,7 @@ foam.POM({
     { name: "foam/parse/NumberParser",                                flags: "js" },
     { name: "foam/parse/auto/SmartView",                              flags: "web" },
     { name: "foam/parse/auto/ReferenceSuggester",                     flags: "web" },
+    { name: "foam/parse/auto/EnumSuggester",                          flags: "web" },
     { name: "foam/parse/FScriptParser",                               flags: "js" },
     { name: "foam/parse/test/FScriptParserTestUser",                  flags: "js&test|java&test" },
     { name: "foam/parse/test/FScriptParserTest",                      flags: "js&test|java&test" },

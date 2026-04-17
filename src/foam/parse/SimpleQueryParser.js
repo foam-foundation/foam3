@@ -353,11 +353,26 @@ foam.CLASS({
             propPredicates.push(seq(propertyParser, sym('compareBoolean')));
           }
           else if ( foam.lang.Enum.isInstance(type) ) {
-            let value     = (v) => seq1(1, sym('ws'), sug(literalIC(v), {text: v, category: 'value'}));
+            // Delegate to EnumSuggester for a rich, color/glyph-aware dropdown after = or !=.
+            // Also handles class: 'StateMachine' (extends foam.lang.Enum).
+            propPredicates.push(seq(propertyParser, seq1(1,
+              alt(operator('='), operator('!=')),
+              sym('ws'),
+              sug(nop(), {
+                view: {
+                  class: 'foam.parse.auto.EnumSuggester',
+                  of:    prop.of
+                },
+                label:    prop.label + ' values',
+                category: 'value'
+              })
+            )));
+
+            // Keep per-value literal parsing so the grammar still accepts `status = ACTIVE`,
+            // but drop the per-value sug() to avoid duplicate suggestions (EnumSuggester owns those now).
+            let value     = (v) => seq1(1, sym('ws'), literalIC(v));
             let enumValue = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
             let enumArray = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
-
-            // TODO: Enums can have assigned colours. If they do, they should be provided to the suggestion.
 
             let compareEnum = action(
               alt(seq(operator('='), enumValue),

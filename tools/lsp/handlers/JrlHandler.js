@@ -827,33 +827,38 @@ foam.CLASS({
     function resolveReceiverBefore_(line, wordStart) {
       /**
        * Return the FOAM class id of the receiver expression that precedes
-       * `line[wordStart]`. Handles:
-       *   • `<dotted>.` — `foo.X.something.`
-       *   • `<dotted>(args).` — `foo.X.Builder(x).`
+       * `line[wordStart]`. Handles arbitrarily long chains:
+       *   • `foo.X.something.`
+       *   • `foo.X.Builder(x).`
+       *   • `foo.X.Builder(x).setA(true).setB(y).`   ← chained builder
+       *
+       * Walks backward peeling alternating `word/dot` runs and balanced
+       * `(…)` groups. Stops on whitespace, operators, or line start.
        */
-      var i = wordStart;
-      if ( i === 0 || line.charAt(i - 1) !== '.' ) return null;
-      var callEnd = i - 1;
-      var parseEnd = callEnd;
-
-      // Optional balanced `(…)` right before the dot.
-      if ( callEnd > 0 && line.charAt(callEnd - 1) === ')' ) {
-        var depth = 1;
-        var j = callEnd - 2;
-        while ( j >= 0 && depth > 0 ) {
-          var ch = line.charAt(j);
-          if ( ch === ')' ) depth++;
-          else if ( ch === '(' ) depth--;
-          if ( depth === 0 ) break;
-          j--;
+      if ( wordStart === 0 || line.charAt(wordStart - 1) !== '.' ) return null;
+      var pos = wordStart - 2; // start before the trailing dot
+      while ( pos >= 0 ) {
+        var ch = line.charAt(pos);
+        if ( /[\w.$]/.test(ch) ) { pos--; continue; }
+        if ( ch === ')' ) {
+          var depth = 1;
+          pos--;
+          while ( pos >= 0 && depth > 0 ) {
+            var c = line.charAt(pos);
+            if ( c === ')' ) depth++;
+            else if ( c === '(' ) depth--;
+            if ( depth === 0 ) break;
+            pos--;
+          }
+          if ( depth !== 0 ) return null;
+          pos--; // consume the '('
+          continue;
         }
-        if ( depth !== 0 ) return null;
-        parseEnd = j;
+        break;
       }
-
-      var k = parseEnd - 1;
-      while ( k >= 0 && /[\w.$]/.test(line.charAt(k)) ) k--;
-      var receiverExpr = line.substring(k + 1, parseEnd).replace(/\.+$/, '');
+      var start = pos + 1;
+      while ( start < wordStart - 1 && line.charAt(start) === '.' ) start++;
+      var receiverExpr = line.substring(start, wordStart - 1);
       if ( ! receiverExpr ) return null;
       return this.resolveReceiverType_(receiverExpr);
     },
@@ -1032,14 +1037,20 @@ foam.CLASS({
        *   • Fully-qualified / short class id (e.g. `foam.dao.EasyDAO`)
        *   • `X.Builder(...)` — type is `X.Builder` if registered, else `X`
        *   • `X.getOwnClassInfo()` — the class's own ClassInfo; treat as X
+       *   • Chained builder calls `X.Builder(x).setA(true).setB(y)` —
+       *     iteratively strip trailing `.method(args)` (FOAM builders
+       *     return `this`, so the chain's type is the head's type)
        */
       var e = expr.replace(/\s+/g, '');
-      if ( this.index.classExists(e) ) return e;
-      var builderBase = e.match(/^([\w.$]+?)\.Builder$/);
-      if ( builderBase && this.index.classExists(builderBase[1]) ) return builderBase[1];
-      // Strip trailing method invocations
-      var stripped = e.replace(/\.\w+\s*\([^)]*\)\s*$/, '');
-      if ( stripped !== e && this.index.classExists(stripped) ) return stripped;
+      var callRe = /\.\w+\s*\([^)]*\)\s*$/;
+      while ( e ) {
+        if ( this.index.classExists(e) ) return e;
+        var builderBase = e.match(/^([\w.$]+?)\.Builder$/);
+        if ( builderBase && this.index.classExists(builderBase[1]) ) return builderBase[1];
+        var next = e.replace(callRe, '');
+        if ( next === e ) break;
+        e = next;
+      }
       return null;
     },
 

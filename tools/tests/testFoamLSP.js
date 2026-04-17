@@ -2799,6 +2799,28 @@ var vscodeJrl = JSON.parse(fs_.readFileSync(path_.join(__dirname, '../lsp/editor
 test(!! vscodeJrl.repository['json-block-triple'] && !! vscodeJrl.repository['json-block-backtick'],
   'VS Code foam-jrl grammar has JSON injections for client triple/backtick');
 
+// === CHAINED BUILDER SETTER HOVERS ===
+section('Chained builder setter hovers — walk back through .a(x).b(y) chains');
+var chained = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "id":"myDAO",',
+  '  "serviceScript":"""',
+  '    return new foam.dao.EasyDAO.Builder(x).setPm(true).setOf(foam.lang.FObject.getOwnClassInfo()).build();',
+  '  """',
+  '})'
+].join('\n');
+var chainedLine = chained.split('\n')[4];
+// setOf comes AFTER setPm(true). in the chain. Walk-back must skip the
+// intermediate call to resolve to foam.dao.EasyDAO.
+['setPm', 'setOf'].forEach(function(name) {
+  var idx = chainedLine.indexOf(name);
+  var hover = jrlH3.handleHover(chained, { line: 4, character: idx + 2 });
+  test(hover && hover.contents && hover.contents.value &&
+       /void ' + name + '|property/i.test(hover.contents.value.replace(/[|]/g, '')),
+    'Hover on .' + name + '( in chained builder — resolves to EasyDAO setter');
+});
+
 // === SUMMARY ===
 
 section('SUMMARY');

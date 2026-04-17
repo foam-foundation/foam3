@@ -2348,6 +2348,42 @@ if ( index.classExists(SFV) ) {
     'Grammar axiom-pos: LABEL_PLACEHOLDER at expected line');
 }
 
+// === MESSAGE + CONSTANT REFERENCES ===
+section('ReferencesHandler — message & constant axioms');
+
+if ( index.classExists(SFV) ) {
+  var sfvTxt4 = require('fs').readFileSync(
+    'foam3/src/foam/u2/filter/properties/StringFilterView.js', 'utf8');
+
+  // Cursor on `name: 'LABEL_PLACEHOLDER'` inside messages: [...]
+  var lpIdx = sfvTxt4.indexOf("name: 'LABEL_PLACEHOLDER'");
+  if ( lpIdx !== -1 ) {
+    var ln = 0, col = 0;
+    for ( var i = 0 ; i < lpIdx ; i++ ) {
+      if ( sfvTxt4.charCodeAt(i) === 10 ) { ln++; col = 0; } else col++;
+    }
+    var lpRefs = rfh.handle(sfvTxt4,
+      { line: ln, character: col + "name: '".length + 3 },
+      'file://sfv-msg');
+    test(lpRefs.length >= 1,
+      'Message references: finds uses of LABEL_PLACEHOLDER (' + lpRefs.length + ')');
+    test(lpRefs.every(function(l) { return l.uri && l.range; }),
+      'Message references: every location has uri and range');
+  }
+}
+
+// Recognition helpers — decouple from registry so they test cleanly.
+test(rfh.isOwnMessageName_({ messages: [{ name: 'HI' }] }, 'HI'),
+  'axiomReferences: recognizes message name from model.messages');
+test(rfh.isOwnConstantName_({ constants: [{ name: 'FOO' }] }, 'FOO'),
+  'axiomReferences: recognizes constant name from array form');
+test(rfh.isOwnConstantName_({ constants: { BAR: 1 } }, 'BAR'),
+  'axiomReferences: recognizes constant name from object-map form');
+test(! rfh.isOwnConstantName_({}, 'BAR'),
+  'axiomReferences: model without constants returns false');
+test(! rfh.isOwnMessageName_({}, 'HI'),
+  'axiomReferences: model without messages returns false');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -47,7 +47,13 @@ foam.CLASS({
       var propRefs = this.propertyReferences_(text, position, word, opt_uri);
       if ( propRefs ) return propRefs;
 
-      // Case B: cursor on a class identifier (name, extends, requires, of, etc.)
+      // Case B: cursor on a message name inside `messages: [{ name: '…' }]`
+      // or a constant name inside `constants: { NAME: … }` / `constants: [...]`.
+      // Same scoping as properties — own class + subclasses + requirers + of-users.
+      var axiomRefs = this.axiomReferences_(text, position, word, opt_uri);
+      if ( axiomRefs ) return axiomRefs;
+
+      // Case C: cursor on a class identifier (name, extends, requires, of, etc.)
       var classId = this.resolveClassAtCursor_(text, position, word, opt_uri);
       if ( ! classId ) return [];
 
@@ -116,6 +122,87 @@ foam.CLASS({
         this.scanPropertyRefs_(filesToScan[i], word, locations);
       }
       return locations;
+    },
+
+    function axiomReferences_(text, position, word, opt_uri) {
+      /**
+       * Find references when the cursor is on a **message** name inside
+       * `messages: [{ name: '…' }]` OR a **constant** name inside
+       * `constants: { NAME: … }` / `constants: [{ name: '…' }]`.
+       * Returns null if the cursor isn't on one of those (so the caller
+       * falls through to class-reference resolution).
+       *
+       * The pattern is the same as property references: both are exposed
+       * on `this` and accessed via `this.NAME` in subclasses. We scope
+       * the file scan to the defining class, its subclasses, and classes
+       * that require/`of:` the defining class — strict `.NAME` /
+       * `'NAME'` / `NAME(` patterns with a comment mask, no false positives.
+       */
+      var model = this.cache.getModelAt(opt_uri || '', text, position.line);
+      if ( ! model ) return null;
+
+      var kind = null;
+      if ( this.isOwnMessageName_(model, word) )       kind = 'message';
+      else if ( this.isOwnConstantName_(model, word) ) kind = 'constant';
+      if ( ! kind ) return null;
+
+      var classId = this.cache.getClassId(model);
+      if ( ! classId ) return null;
+
+      // Same scoping as property references — own class + transitive
+      // subclasses + requirers + of-users.
+      var seen = {};
+      var files = [];
+      function addFile(id) {
+        if ( ! id || seen[id] ) return;
+        seen[id] = true; files.push(id);
+      }
+      addFile(classId);
+      var subs = this.transitiveSubclasses_(classId);
+      for ( var i = 0 ; i < subs.length ; i++ ) addFile(subs[i]);
+      var reqs = this.index.getRequirers(classId);
+      var ofs  = this.index.getOfUsers(classId);
+      for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
+      for ( var i = 0 ; i < ofs.length ; i++ )   addFile(ofs[i]);
+
+      var locations = [];
+      for ( var i = 0 ; i < files.length ; i++ ) {
+        this.scanPropertyRefs_(files[i], word, locations);
+      }
+      return locations;
+    },
+
+    function isOwnMessageName_(model, word) {
+      /** True if `word` names one of this model's messages[] entries. */
+      var msgs = model.messages || [];
+      for ( var i = 0 ; i < msgs.length ; i++ ) {
+        var m = msgs[i];
+        var n = typeof m === 'string' ? m : (m && m.name);
+        if ( n === word ) return true;
+      }
+      return false;
+    },
+
+    function isOwnConstantName_(model, word) {
+      /**
+       * True if `word` names one of this model's constants. FOAM supports
+       * two shapes: an object map `constants: { NAME: … }` and an array
+       * `constants: [{ name: 'NAME', value: … }]`.
+       */
+      var c = model.constants;
+      if ( ! c ) return false;
+      if ( Array.isArray(c) ) {
+        for ( var i = 0 ; i < c.length ; i++ ) {
+          var entry = c[i];
+          var n = typeof entry === 'string' ? entry : (entry && entry.name);
+          if ( n === word ) return true;
+        }
+        return false;
+      }
+      if ( typeof c === 'object' ) {
+        return Object.prototype.hasOwnProperty.call(c, word);
+      }
+      return false;
     },
 
     function isOwnPropertyName_(model, word) {

@@ -213,6 +213,63 @@ foam.CLASS({
       return subs;
     },
 
+    function getAffectedFiles(classIds) {
+      /**
+       * Given a set of class IDs that have been re-registered (e.g. after
+       * a save), return the set of source file paths whose diagnostics
+       * could be affected:
+       *   • the files that defined these classes
+       *   • files containing direct subclasses (transitive)
+       *   • files containing requirers of the classes (transitive on subclasses too)
+       *   • files containing of-users of the classes
+       *   • files containing implementers (when an interface is in the set)
+       *
+       * Used to narrow the post-save re-analyze to actual dependents
+       * instead of scanning every FOAM file in the workspace.
+       */
+      var self = this;
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+
+      var affectedClassIds = {};
+      var queue = [];
+      (classIds || []).forEach(function(id) {
+        if ( id && ! affectedClassIds[id] ) {
+          affectedClassIds[id] = true;
+          queue.push(id);
+        }
+      });
+
+      // Transitive subclasses (class change propagates down the tree).
+      while ( queue.length ) {
+        var cur = queue.shift();
+        var subs = self.getSubclasses(cur);
+        for ( var i = 0 ; i < subs.length ; i++ ) {
+          if ( ! affectedClassIds[subs[i]] ) {
+            affectedClassIds[subs[i]] = true;
+            queue.push(subs[i]);
+          }
+        }
+      }
+
+      // Direct requirers, of-users, implementers of any class in the set.
+      var seeds = Object.keys(affectedClassIds);
+      var extras = {};
+      seeds.forEach(function(id) {
+        self.getRequirers(id).forEach(function(r) { extras[r] = true; });
+        self.getOfUsers(id).forEach(function(u)   { extras[u] = true; });
+        self.getImplementors(id).forEach(function(m) { extras[m] = true; });
+      });
+      Object.keys(extras).forEach(function(id) { affectedClassIds[id] = true; });
+
+      // Map class ids to their file paths. De-duplicate.
+      var paths = {};
+      Object.keys(affectedClassIds).forEach(function(id) {
+        var fp = self.getFilePath(id);
+        if ( fp ) paths[fp] = true;
+      });
+      return Object.keys(paths);
+    },
+
     function getImplementors(interfaceId) {
       /**
        * Returns class IDs of all classes that implement the given interface.

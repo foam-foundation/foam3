@@ -381,6 +381,7 @@ function start() {
     if ( ! doc ) return;
     fileModelCache.invalidate(uri);
 
+    var changedClassIds = [];
     if ( isFoamFile(doc.text) ) {
       var models = fileModelCache.getModels(uri, doc.text);
 
@@ -399,53 +400,93 @@ function start() {
         }
       }
 
-      // Clear FoamIndex caches for each class defined in this file.
+      // Clear FoamIndex caches for each class defined in this file and
+      // collect them for the targeted re-analyze pass below.
       for ( var i = 0 ; i < models.length ; i++ ) {
         var classId = fileModelCache.getClassId(models[i]);
-        if ( classId && typeof index.invalidate === 'function' ) {
-          index.invalidate(classId);
+        if ( ! classId ) continue;
+        changedClassIds.push(classId);
+        if ( typeof index.invalidate === 'function' ) index.invalidate(classId);
+      }
+    }
+
+    // Compute the dependency closure — files whose diagnostics could be
+    // impacted by this change. Empty list for non-FOAM saves; JRLs only
+    // affect the open-file loop below.
+    var affectedPaths = changedClassIds.length > 0
+      ? index.getAffectedFiles(changedClassIds)
+      : [];
+    var affectedPathsSet = {};
+    affectedPaths.forEach(function(p) { affectedPathsSet[p] = true; });
+
+    // Re-push diagnostics for the saved file itself, open JRLs (registry
+    // mutation affects their class refs), and any open FOAM file that's in
+    // the affected set. Untouched open files are left alone — FOAM's axiom
+    // state didn't change relative to them.
+    for ( var ouri in documents ) {
+      var otext = documents[ouri].text;
+      if ( ouri === uri ) {
+        fileModelCache.invalidate(ouri);
+        if ( isJrlFile(ouri) ) pushJrlDiagnostics(ouri, otext);
+        else if ( isFoamFile(otext) ) pushDiagnostics(ouri, otext);
+        continue;
+      }
+      if ( isJrlFile(ouri) ) {
+        pushJrlDiagnostics(ouri, otext);
+      } else if ( isFoamFile(otext) ) {
+        // Only re-diagnose if this file's path is in the affected set.
+        var opath = uriToPath_(ouri);
+        if ( opath && affectedPathsSet[opath] ) {
+          fileModelCache.invalidate(ouri);
+          pushDiagnostics(ouri, otext);
         }
       }
     }
 
-    // Re-push diagnostics for EVERY open file (FOAM + JRL) — registry
-    // mutation can affect any of them. Invalidate their incremental caches
-    // first so revalidation runs fresh.
-    for ( var ouri in documents ) {
-      var otext = documents[ouri].text;
-      if ( isJrlFile(ouri) ) {
-        pushJrlDiagnostics(ouri, otext);
-      } else if ( isFoamFile(otext) ) {
-        fileModelCache.invalidate(ouri);
-        pushDiagnostics(ouri, otext);
-      }
+    // Re-analyze closed-but-affected files so the Problems panel stays
+    // coherent. Debounced so burst-saves coalesce.
+    if ( affectedPaths.length > 0 ) {
+      scheduleAffectedReanalyze(affectedPaths, uri);
     }
-
-    // Also schedule a full workspace re-analyze so closed-but-affected
-    // files (subclasses, referencers, JRLs in the Problems panel) refresh.
-    // Debounced to coalesce burst-saves.
-    scheduleWorkspaceReanalyze();
   }
 
-  var workspaceReanalyzeTimer_ = null;
-  function scheduleWorkspaceReanalyze() {
-    /** Debounced full-workspace re-analysis after a registry change. */
-    if ( workspaceReanalyzeTimer_ ) clearTimeout(workspaceReanalyzeTimer_);
-    workspaceReanalyzeTimer_ = setTimeout(function() {
-      workspaceReanalyzeTimer_ = null;
+  function uriToPath_(uri) {
+    if ( ! uri ) return null;
+    if ( uri.indexOf('file://') === 0 ) return decodeURIComponent(uri.substring(7));
+    return uri;
+  }
+
+  var affectedReanalyzeTimer_ = null;
+  var pendingAffectedPaths_ = {};
+  function scheduleAffectedReanalyze(paths, skipUri) {
+    /**
+     * Debounced, targeted re-analysis: scans ONLY the file paths supplied
+     * by getAffectedFiles. Burst-saves merge their path sets rather than
+     * each triggering a full workspace scan.
+     */
+    paths.forEach(function(p) { pendingAffectedPaths_[p] = true; });
+    if ( affectedReanalyzeTimer_ ) clearTimeout(affectedReanalyzeTimer_);
+    affectedReanalyzeTimer_ = setTimeout(function() {
+      affectedReanalyzeTimer_ = null;
+      var batch = Object.keys(pendingAffectedPaths_);
+      pendingAffectedPaths_ = {};
       try {
-        var results = workspaceAnalyzer.analyze();
+        var results = workspaceAnalyzer.analyzeFiles(batch);
         for ( var uri in results.fileResults ) {
+          // Skip the saved file and any open file — they've already been
+          // pushed from the open-doc loop with live buffer contents.
+          if ( uri === skipUri ) continue;
+          if ( documents[uri] ) continue;
           notify('textDocument/publishDiagnostics', {
             uri: uri,
             diagnostics: results.fileResults[uri]
           });
         }
-        console.error('[LSP] reanalyze after reindex: ' +
+        console.error('[LSP] affected reanalyze: ' +
           results.filesScanned + ' scanned, ' +
           results.filesWithIssues + ' with issues');
       } catch ( e ) {
-        console.error('[LSP] reanalyze error: ' + e.message);
+        console.error('[LSP] affected reanalyze error: ' + e.message);
       }
     }, 500);
   }

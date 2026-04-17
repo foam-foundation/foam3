@@ -2926,6 +2926,48 @@ if ( require('fs').existsSync(realJrlPath) ) {
   }
 }
 
+// === SAVE → TARGETED REANALYZE ===
+section('Targeted reanalyze: getAffectedFiles covers the dependency closure');
+
+// FObject is the mother class — every FOAM class should be affected.
+// We just want to sanity-check the API and ordering. Using a mid-level
+// class keeps the set reasonable.
+var startId = 'foam.dao.EasyDAO';
+if ( index.classExists(startId) ) {
+  var affected = index.getAffectedFiles([startId]);
+  test(Array.isArray(affected),
+    'getAffectedFiles returns an array');
+  // The saved file's own path should be in the set.
+  var selfPath = index.getFilePath(startId);
+  test(selfPath && affected.indexOf(selfPath) !== -1,
+    'Affected set includes the saved file itself');
+  // It should NOT include every file in the workspace — narrower than full scan.
+  test(affected.length < index.getAllClassIds().length / 2,
+    'Affected set (' + affected.length + ') is a small fraction of total classes (' +
+    index.getAllClassIds().length + ')');
+
+  // A subclass's file should be in the set if any subclass exists.
+  var subs = index.getSubclasses(startId);
+  if ( subs.length > 0 ) {
+    var subPath = index.getFilePath(subs[0]);
+    if ( subPath ) {
+      test(affected.indexOf(subPath) !== -1,
+        'Affected set includes subclass file ' + subPath);
+    }
+  }
+}
+
+// analyzeFiles runs diagnostics on the supplied files only
+var analyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+var anyFilePath = startId && index.getFilePath(startId);
+if ( anyFilePath ) {
+  var singleRes = analyzer.analyzeFiles([anyFilePath]);
+  test(singleRes.filesScanned === 1,
+    'analyzeFiles({[path]}) scans exactly one file');
+  test(typeof singleRes.fileResults === 'object',
+    'analyzeFiles returns fileResults map');
+}
+
 // === SUMMARY ===
 
 section('SUMMARY');

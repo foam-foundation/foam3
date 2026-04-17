@@ -131,6 +131,62 @@ foam.CLASS({
       };
     },
 
+    function analyzeFiles(filePaths) {
+      /**
+       * Scan a specific list of file paths — same result shape as analyze().
+       * Use this when a save affects only some subset of the workspace
+       * (saved file + subclasses + requirers + of-users). Much faster than
+       * a full workspace scan when the dependency fan-out is small.
+       */
+      var fs_  = require('fs');
+      var diag = this.diagnosticsHandler;
+      var seen = {};
+      var unique = [];
+      for ( var i = 0 ; i < filePaths.length ; i++ ) {
+        var p = filePaths[i];
+        if ( p && ! seen[p] ) { seen[p] = true; unique.push(p); }
+      }
+
+      var filesScanned    = 0;
+      var filesWithIssues = 0;
+      var warnings        = 0;
+      var errors          = 0;
+      var infos           = 0;
+      var fileResults     = {};
+
+      for ( var j = 0 ; j < unique.length ; j++ ) {
+        var filePath = unique[j];
+        try {
+          var content = fs_.readFileSync(filePath, 'utf8');
+          var diagnostics = diag.handle(content);
+          var uri = 'file://' + filePath;
+          // ALWAYS include the file in results — empty arrays clear stale
+          // diagnostics from a prior save.
+          fileResults[uri] = diagnostics;
+          if ( diagnostics.length > 0 ) {
+            filesWithIssues++;
+            for ( var d = 0 ; d < diagnostics.length ; d++ ) {
+              var sev = diagnostics[d].severity;
+              if ( sev === 1 ) errors++;
+              else if ( sev === 2 ) warnings++;
+              else infos++;
+            }
+          }
+        } catch ( e ) {}
+        filesScanned++;
+      }
+
+      return {
+        filesScanned:    filesScanned,
+        filesWithIssues: filesWithIssues,
+        warnings:        warnings,
+        errors:          errors,
+        infos:           infos,
+        patterns:        [],
+        fileResults:     fileResults
+      };
+    },
+
     function analyzeSingleFile(filePath) {
       /**
        * Analyzes a single file and returns its diagnostics.

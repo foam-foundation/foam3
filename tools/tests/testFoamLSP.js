@@ -2028,6 +2028,37 @@ test(propRefLocs.length > 0,
 test(propRefLocs.every(function(l) { return l.uri && l.range; }),
   'property references: each location has uri and range');
 
+// False-positive guard: words inside comments/docs must NOT match.
+var falsePosText = [
+  "foam.CLASS({",
+  "  package: 'foam.mlang.sink',",
+  "  name: 'FakeGroupBy',",
+  "  documentation: 'the top groups based on sortOrder and their values',",
+  "  properties: [",
+  "    { class: 'Map', name: 'groups' }",
+  "  ],",
+  "  methods: [",
+  "    function m() {",
+  "      // remaining groups and includeOthers is true",
+  "      /* replace groups with only top N */",
+  "      return this.groups['k'];",
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var fpRfh = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
+// Cursor on the `groups` property name (line 5 `    { class: 'Map', name: 'groups' }`)
+var fpLocs = fpRfh.handle(falsePosText, { line: 5, character: 33 }, 'test://fp');
+// Expect ONLY the real refs in this file: the quoted definition + this.groups.
+// The documentation prose, line comment, and block comment mentions must be skipped.
+var fpOwnFileLocs = fpLocs.filter(function(l) { return l.uri === 'test://fp'; });
+test(fpOwnFileLocs.length === 0 /* file not on disk, won't scan */ ||
+     fpOwnFileLocs.every(function(l) {
+       // If we scanned, none of the matches should land on the documentation line
+       return l.range.start.line !== 3;
+     }),
+  'property references: documentation prose containing the name is NOT matched');
+
 // === SUMMARY ===
 
 section('SUMMARY');

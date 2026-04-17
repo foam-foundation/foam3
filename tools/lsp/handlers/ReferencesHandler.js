@@ -151,8 +151,14 @@ foam.CLASS({
     function scanPropertyRefs_(refClassId, propName, locations) {
       /**
        * Read the file backing `refClassId` and emit a Location for every
-       * whole-word occurrence of `propName`. Uses `\b` boundaries so
-       * `foo` doesn't match `fooBar`. Skips binary/large files defensively.
+       * real reference to `propName`. Matches these semantic patterns only:
+       *   • `.propName`          — property access (this.x, obj.x)
+       *   • `propName:`          — key position (definition, .create({}))
+       *   • `'propName'`         — quoted (tableColumns, searchColumns, aliases)
+       *   • `getPropName(`       — Java getter
+       *   • `setPropName(`       — Java setter
+       * Skips any match whose match-position is inside a line/block comment
+       * (detected via preceding-line state).
        */
       var filePath = this.index.getFilePath(refClassId);
       if ( ! filePath ) return;
@@ -160,23 +166,85 @@ foam.CLASS({
       var fs_ = require('fs');
       var content;
       try { content = fs_.readFileSync(filePath, 'utf8'); } catch ( e ) { return; }
-      if ( content.length > 2 * 1024 * 1024 ) return;   // skip very large files
+      if ( content.length > 2 * 1024 * 1024 ) return;
 
       var escaped = propName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      var re = new RegExp('\\b' + escaped + '\\b', 'g');
-      var m;
+      var cap = propName.charAt(0).toUpperCase() + propName.substring(1);
+      var capEsc = cap.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Each entry: [regex, length-of-matched-identifier, offsetFromMatchStart]
+      // offsetFromMatchStart = position of propName within the overall match
+      // (e.g. for `.propName`, the name is at offset 1 relative to the `.`).
+      var patterns = [
+        [ new RegExp('\\.' + escaped + '\\b', 'g'),               propName.length, 1 ],
+        [ new RegExp('\\b' + escaped + '\\s*:', 'g'),             propName.length, 0 ],
+        [ new RegExp("['\"]" + escaped + "['\"]", 'g'),           propName.length, 1 ],
+        [ new RegExp('\\bget' + capEsc + '\\s*\\(', 'g'),         3 + cap.length,  0 ],
+        [ new RegExp('\\bset' + capEsc + '\\s*\\(', 'g'),         3 + cap.length,  0 ]
+      ];
+
+      var commentMask = this.buildCommentMask_(content);
       var uri = 'file://' + filePath;
-      while ( ( m = re.exec(content) ) !== null ) {
-        var startPos = this.analyzer.offsetToPosition(content, m.index);
-        locations.push({
-          uri: uri,
-          range: {
-            start: startPos,
-            end: { line: startPos.line, character: startPos.character + propName.length }
-          }
-        });
-        if ( locations.length > 1000 ) return;   // safety cap
+      var seen = {};
+
+      for ( var p = 0 ; p < patterns.length ; p++ ) {
+        var re = patterns[p][0];
+        var nameLen = patterns[p][1];
+        var offFromMatch = patterns[p][2];
+        var m;
+        while ( ( m = re.exec(content) ) !== null ) {
+          var hitIdx = m.index + offFromMatch;
+          if ( commentMask[hitIdx] ) continue;
+          if ( seen[hitIdx] ) continue;
+          seen[hitIdx] = true;
+          var startPos = this.analyzer.offsetToPosition(content, hitIdx);
+          locations.push({
+            uri: uri,
+            range: {
+              start: startPos,
+              end: { line: startPos.line, character: startPos.character + nameLen }
+            }
+          });
+          if ( locations.length > 1000 ) return;
+        }
       }
+    },
+
+    function buildCommentMask_(content) {
+      // Return an array where mask[i] === true iff offset i is inside a line
+      // comment or block comment. Strings are NOT masked — quoted property
+      // names like 'propName' in tableColumns are legitimate references the
+      // caller matches.
+      var mask = new Array(content.length);
+      var i = 0, n = content.length;
+      while ( i < n ) {
+        var c = content[i];
+        if ( c === '/' && content[i + 1] === '/' ) {
+          while ( i < n && content[i] !== '\n' ) { mask[i++] = true; }
+          continue;
+        }
+        if ( c === '/' && content[i + 1] === '*' ) {
+          mask[i++] = true; mask[i++] = true;
+          while ( i < n && ! ( content[i] === '*' && content[i + 1] === '/' ) ) {
+            mask[i++] = true;
+          }
+          if ( i < n ) { mask[i++] = true; mask[i++] = true; }
+          continue;
+        }
+        // Skip string literals so '//' inside a string doesn't start a comment.
+        if ( c === "'" || c === '"' || c === '`' ) {
+          var q = c;
+          i++;
+          while ( i < n && content[i] !== q ) {
+            if ( content[i] === '\\' ) i++;
+            i++;
+          }
+          if ( i < n ) i++;
+          continue;
+        }
+        i++;
+      }
+      return mask;
     },
 
     function resolveClassAtCursor_(text, position, word, opt_uri) {

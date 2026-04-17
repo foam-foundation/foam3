@@ -1418,6 +1418,7 @@ foam.POM({
     { name: "foam/lib/json/UnknownReferenceParser" },
     { name: "foam/lib/json/Whitespace" },
     { name: "foam/lib/json/StringDoubleArrayParser" },
+    { name: "foam/lib/json/GlyphPropertyParser" },
     { name: "foam/lib/json/test/FObjectParserJavaTestClass", flags: "test" },
     { name: "foam/lib/csv/CSVStringParser" },
     { name: "foam/lib/csv/CSVNormalStringParser" },

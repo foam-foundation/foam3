@@ -56,7 +56,7 @@ foam.CLASS({
         if ( ! f ) return true;
         return ( v.name  && v.name.toUpperCase().indexOf(f)  !== -1 ) ||
                ( v.label && v.label.toUpperCase().indexOf(f) !== -1 );
-      })
+      });
 
       var isFirst = true;
       this

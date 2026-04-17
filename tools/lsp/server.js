@@ -359,10 +359,95 @@ function start() {
   }
 
   function reindexFile(uri) {
+    /**
+     * Re-evaluate a FOAM source file into the live registry so that
+     * changes (new/removed/renamed properties on a class) are picked up
+     * without restarting the LSP. Triggered on save — not on every
+     * keystroke, since mid-edit text is often syntactically broken.
+     *
+     * Steps:
+     *   1. Invalidate the per-URI FileModelCache entry.
+     *   2. Eval the file text in a context that calls the real foam.CLASS /
+     *      foam.ENUM / foam.INTERFACE, which re-registers (or refines) the
+     *      classes in the global foam.__context__.__cache__ registry.
+     *   3. Invalidate any FoamIndex caches keyed on classes defined in the
+     *      file so subsequent queries rebuild from the fresh axioms.
+     *   4. Re-push diagnostics for this file AND every open JRL — JRL
+     *      validates property/class names against the live registry, so a
+     *      newly-added property here should immediately clear matching
+     *      "Unknown property" warnings in any open .jrl file.
+     */
     var doc = documents[uri];
     if ( ! doc ) return;
     fileModelCache.invalidate(uri);
-    pushDiagnostics(uri, doc.text);
+
+    if ( isFoamFile(doc.text) ) {
+      var models = fileModelCache.getModels(uri, doc.text);
+
+      // Re-register the classes via real foam.CLASS. Wrap each model block
+      // in a try/catch so one bad block doesn't skip the rest.
+      for ( var i = 0 ; i < models.length ; i++ ) {
+        var m = models[i];
+        try {
+          var typeFn = ( m.type_ === 'ENUM'      ? foam.ENUM :
+                         m.type_ === 'INTERFACE' ? foam.INTERFACE :
+                                                   foam.CLASS );
+          typeFn(m);
+        } catch ( e ) {
+          console.error('[LSP] reindex re-register failed for ' +
+            (m.package ? m.package + '.' : '') + m.name + ': ' + e.message);
+        }
+      }
+
+      // Clear FoamIndex caches for each class defined in this file.
+      for ( var i = 0 ; i < models.length ; i++ ) {
+        var classId = fileModelCache.getClassId(models[i]);
+        if ( classId && typeof index.invalidate === 'function' ) {
+          index.invalidate(classId);
+        }
+      }
+    }
+
+    // Re-push diagnostics for EVERY open file (FOAM + JRL) — registry
+    // mutation can affect any of them. Invalidate their incremental caches
+    // first so revalidation runs fresh.
+    for ( var ouri in documents ) {
+      var otext = documents[ouri].text;
+      if ( isJrlFile(ouri) ) {
+        pushJrlDiagnostics(ouri, otext);
+      } else if ( isFoamFile(otext) ) {
+        fileModelCache.invalidate(ouri);
+        pushDiagnostics(ouri, otext);
+      }
+    }
+
+    // Also schedule a full workspace re-analyze so closed-but-affected
+    // files (subclasses, referencers, JRLs in the Problems panel) refresh.
+    // Debounced to coalesce burst-saves.
+    scheduleWorkspaceReanalyze();
+  }
+
+  var workspaceReanalyzeTimer_ = null;
+  function scheduleWorkspaceReanalyze() {
+    /** Debounced full-workspace re-analysis after a registry change. */
+    if ( workspaceReanalyzeTimer_ ) clearTimeout(workspaceReanalyzeTimer_);
+    workspaceReanalyzeTimer_ = setTimeout(function() {
+      workspaceReanalyzeTimer_ = null;
+      try {
+        var results = workspaceAnalyzer.analyze();
+        for ( var uri in results.fileResults ) {
+          notify('textDocument/publishDiagnostics', {
+            uri: uri,
+            diagnostics: results.fileResults[uri]
+          });
+        }
+        console.error('[LSP] reanalyze after reindex: ' +
+          results.filesScanned + ' scanned, ' +
+          results.filesWithIssues + ' with issues');
+      } catch ( e ) {
+        console.error('[LSP] reanalyze error: ' + e.message);
+      }
+    }, 500);
   }
 
   // === Message Dispatch ===

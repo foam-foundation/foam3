@@ -2154,6 +2154,13 @@ if ( index.classExists(SFV) ) {
     var hv = h && h.contents && h.contents.value || '';
     test(hv.indexOf('foam.mlang.sink.GroupBy') !== -1,
       'Hover on this.GROUP_BY in StringFilterView shows return foam.mlang.sink.GroupBy');
+    // Regression: make sure only ONE "Returns:" line appears, even when the
+    // method axiom declares `type:` AND the code-parse resolves a concrete
+    // class. The parser-resolved concrete wins; the declared-type line is
+    // suppressed by buildMethodHover_.
+    var returnsCount = (hv.match(/Returns:/g) || []).length;
+    test(returnsCount === 1,
+      'Hover on this.GROUP_BY has exactly one `Returns:` line (got ' + returnsCount + ')');
   }
 }
 

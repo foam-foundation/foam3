@@ -565,12 +565,19 @@ foam.CLASS({
     },
 
     function buildMethodHover_(method, classId) {
-      /** Build markdown hover for a method with signature. */
+      /**
+       * Build markdown hover for a method with signature, documentation,
+       * and (where inferrable) the concrete return type. The return type
+       * is computed by FoamIndex.getMethodReturnType which parses the
+       * method body for `return this.X.create(...)` etc. and falls back to
+       * the declared `type:` axiom — so we don't emit both lines here;
+       * that single line is appended by the caller in handle() to avoid
+       * duplication for paths that don't want it.
+       */
       var sig = this.analyzer.getMethodSignature(method);
       var md = '```javascript\n' + sig + '\n```\n';
       md += '*' + classId + '*\n';
       if ( method.documentation ) md += '\n' + method.documentation + '\n';
-      if ( method.type ) md += '\nReturns: `' + method.type + '`\n';
       return md;
     }
   ]

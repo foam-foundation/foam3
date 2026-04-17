@@ -22,24 +22,6 @@
       ]
     },
     {
-      "comment": "Java injection into single-quoted strings for FOAM Java properties",
-      "name": "meta.foam.java-string.js",
-      "begin": "(?<=[:\\s])(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|javaThrows|javaGenerate|javaInfoType|javaType|code|serviceScript)(\\s*:\\s*)(')",
-      "beginCaptures": {
-        "1": { "name": "support.type.property-name.foam" },
-        "2": { "name": "punctuation.separator.key-value.js" },
-        "3": { "name": "punctuation.definition.string.begin.js" }
-      },
-      "end": "(')",
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.string.end.js" }
-      },
-      "contentName": "meta.embedded.block.java",
-      "patterns": [
-        { "include": "source.java" }
-      ]
-    },
-    {
       "comment": "CSS injection into backtick template literals for css: property",
       "name": "meta.foam.css-block.js",
       "begin": "(?<=[:\\s])(css)(\\s*:\\s*)(`)",

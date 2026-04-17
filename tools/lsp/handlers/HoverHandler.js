@@ -157,11 +157,14 @@ foam.CLASS({
           return { contents: { kind: 'markdown', value: propDoc } };
         }
 
-        // Method hover — show signature and documentation
+        // Method hover — show signature and documentation + return type
         var methods = this.index.getMethods(currentClassId);
         for ( var i = 0 ; i < methods.length ; i++ ) {
           if ( methods[i].name === lookupName ) {
-            return { contents: { kind: 'markdown', value: this.buildMethodHover_(methods[i], currentClassId) } };
+            var md = this.buildMethodHover_(methods[i], currentClassId);
+            var retType = this.index.getMethodReturnType(currentClassId, lookupName);
+            if ( retType ) md += '\n\n**Returns:** `' + retType + '`';
+            return { contents: { kind: 'markdown', value: md } };
           }
         }
       }

@@ -58,35 +58,14 @@ foam.CLASS({
           continue;
         }
 
-        // var x = this.methodName(...) → resolve from method.type on current class
+        // var x = this.methodName(...) → FoamIndex.getMethodReturnType handles
+        // both explicit method.type axioms and code-body `return …` parsing.
         var methodMatch = line.match(/(?:var|let|const)\s+(\w+)\s*=\s*this\.(\w+)\s*\(/);
         if ( methodMatch ) {
-          var varName = methodMatch[1];
-          var methodName = methodMatch[2];
-          // Skip .create() (handled above)
-          if ( methodName === 'create' ) continue;
-          var cls = index.getClass(classId);
-          if ( cls ) {
-            var methods = cls.getAxiomsByClass(foam.lang.Method);
-            for ( var j = 0 ; j < methods.length ; j++ ) {
-              if ( methods[j].name === methodName && methods[j].type ) {
-                var retType = methods[j].type;
-                if ( retType !== 'Void' && retType !== 'void' ) {
-                  var resolved = index.classExists(retType) ? retType : null;
-                  if ( ! resolved ) {
-                    // Try short name resolution
-                    var ids = index.getAllClassIds();
-                    var suffix = '.' + retType;
-                    for ( var k = 0 ; k < ids.length ; k++ ) {
-                      if ( ids[k].endsWith(suffix) ) { resolved = ids[k]; break; }
-                    }
-                  }
-                  if ( resolved ) types[varName] = resolved;
-                }
-                break;
-              }
-            }
-          }
+          var mName = methodMatch[2];
+          if ( mName === 'create' ) continue;   // .create() handled above
+          var ret = index.getMethodReturnType(classId, mName);
+          if ( ret ) types[methodMatch[1]] = ret;
         }
       }
       return types;

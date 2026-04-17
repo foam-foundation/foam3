@@ -303,6 +303,110 @@ foam.CLASS({
       return cls.getAxiomsByClass(foam.lang.Requires);
     },
 
+    function getMethodReturnType(classId, methodName) {
+      /**
+       * Resolve the return type of a method to a FOAM class id. Strategy,
+       * in order of precedence:
+       *   1. The method axiom's explicit `type:` field, resolved to a class id
+       *      (short name via the class's requires, else suffix search).
+       *   2. The method body's `code` (as a function/string). Parse for
+       *      common `return …` patterns and resolve the target class id.
+       * Returns null when nothing conclusive.
+       */
+      var method = this.findMethod_(classId, methodName);
+      if ( ! method ) return null;
+
+      // 1. Parse the code body for a concrete `return this.X.create(…)`. A
+      //    parsed concrete class is more useful to the IDE than a declared
+      //    interface type (e.g. DESC's `type: Comparator` vs code-returned
+      //    concrete `Desc` — the concrete is what you can `.` into).
+      var src = typeof method.code === 'function' ? method.code.toString()
+              : typeof method.code === 'string'   ? method.code
+              : null;
+      if ( src ) {
+        var parsed = this.parseReturnType_(classId, src);
+        if ( parsed ) return parsed;
+      }
+
+      // 2. Fall back to the declared type: axiom.
+      if ( method.type ) {
+        return this.resolveShortClassName_(classId, method.type);
+      }
+
+      return null;
+    },
+
+    function findMethod_(classId, methodName) {
+      var cls = this.getClass(classId);
+      if ( ! cls ) return null;
+      var methods = cls.getAxiomsByClass(foam.lang.Method);
+      for ( var i = 0 ; i < methods.length ; i++ ) {
+        if ( methods[i].name === methodName ) return methods[i];
+      }
+      return null;
+    },
+
+    function resolveShortClassName_(classId, name) {
+      /**
+       * Resolve `name` to a full class id. Order:
+       *   - if fully qualified and known, return as-is
+       *   - look up in the class's own requires list (handles 'as' aliases)
+       *   - final fallback: suffix search through the full registry
+       */
+      if ( ! name || name === 'Void' || name === 'void' ) return null;
+      if ( this.classExists(name) ) return name;
+
+      var cls = this.getClass(classId);
+      if ( cls ) {
+        var reqs = cls.getAxiomsByClass(foam.lang.Requires);
+        for ( var i = 0 ; i < reqs.length ; i++ ) {
+          var alias = reqs[i].name;
+          var path  = reqs[i].path;
+          if ( alias === name || path.endsWith('.' + name) || path === name ) {
+            return path;
+          }
+        }
+      }
+
+      var ids = this.getAllClassIds();
+      var suffix = '.' + name;
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        if ( ids[i].endsWith(suffix) ) return ids[i];
+      }
+      return null;
+    },
+
+    function parseReturnType_(classId, src) {
+      /**
+       * Parse a JS function body source string for common return-type
+       * patterns. First hit wins. Patterns in decreasing specificity:
+       *
+       *   return foam.pkg.Class.create(…)   → foam.pkg.Class
+       *   return this.ShortName.create(…)   → short via class.requires
+       *   return this._binary_("Name", …)   → Name short via class.requires
+       *   return this._unary_("Name", …)    → same
+       *   return this._nary_("Name", …)     → same
+       *   return new foam.pkg.Class(…)      → foam.pkg.Class
+       *   return new ShortName(…)           → short via class.requires
+       */
+      var patterns = [
+        [ /return\s+(foam(?:\.\w+)+)\s*\.\s*create\s*\(/,   1, true  ],
+        [ /return\s+this\s*\.\s*(\w+)\s*\.\s*create\s*\(/,  1, false ],
+        [ /return\s+this\s*\.\s*_(?:binary|unary|nary)_\s*\(\s*['"](\w+)['"]/, 1, false ],
+        [ /return\s+new\s+(foam(?:\.\w+)+)\s*\(/,           1, true  ],
+        [ /return\s+new\s+(\w+)\s*\(/,                       1, false ]
+      ];
+      for ( var i = 0 ; i < patterns.length ; i++ ) {
+        var m = src.match(patterns[i][0]);
+        if ( ! m ) continue;
+        var name = m[patterns[i][1]];
+        var isFull = patterns[i][2];
+        if ( isFull ) return this.classExists(name) ? name : null;
+        return this.resolveShortClassName_(classId, name);
+      }
+      return null;
+    },
+
     function getEnumValues(classId) {
       /** Returns enum values for an enum class. */
       var cls = this.getClass(classId);

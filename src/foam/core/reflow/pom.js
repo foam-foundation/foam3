@@ -38,6 +38,7 @@ foam.POM({
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
+    { name: 'FlowHistoryView',         flags: 'js' },
     { name: 'Pivot',                   flags: 'js|java' },
     { name: 'PivotTableView',          flags: 'js' },
     { name: 'GridBy',                  flags: 'js|java' },

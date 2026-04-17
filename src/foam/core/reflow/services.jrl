@@ -19,15 +19,40 @@ p({
 
 p({
   "class":"foam.core.boot.CSpec",
+  "name":"flowHistoryDAO",
+  "description": "In-memory history of FLOW changes; rebuilt from flows journal replay on each startup.",
+  "serve":true,
+  "authenticate":false,
+  "serviceScript":
+  """
+    // In-memory MDAO with auto-assigned seqNo so HistoryRecord's composite id
+    // (objectId + seqNo) stays unique across multiple edits of the same flow.
+    foam.dao.DAO mdao = new foam.dao.MDAO(foam.dao.history.HistoryRecord.getOwnClassInfo());
+    return new foam.dao.SequenceNumberDAO.Builder(x)
+      .setDelegate(mdao)
+      .setProperty("seqNo")
+      .build();
+  """,
+  "client":"""{"of":"foam.dao.history.HistoryRecord"}"""
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
   "name":"flowDAO",
   "description": "Stores FLOWs.",
   "serve":true,
   "authenticate":false,
   "serviceScript":
   """
+    // Wrap HistoryDAO inside the journal so replay produces history records.
+    foam.dao.DAO historyMdao = (foam.dao.DAO) x.get("flowHistoryDAO");
+    foam.dao.MDAO flowMdao = new foam.dao.MDAO(foam.core.reflow.Flow.getOwnClassInfo());
+    foam.dao.DAO historyWrappedMdao = new foam.dao.history.HistoryDAO(x, historyMdao, flowMdao);
+
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
       .setNdiff(true)
+      .setMdao(historyWrappedMdao)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("flows")
       .setOf(foam.core.reflow.Flow.getOwnClassInfo())

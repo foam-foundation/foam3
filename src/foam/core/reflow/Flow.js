@@ -14,7 +14,8 @@ foam.CLASS({
     'foam.core.auth.CreatedByAware',
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
-    'foam.core.auth.ServiceProviderAware'
+    'foam.core.auth.ServiceProviderAware',
+    'foam.mlang.Expressions'
   ],
 
   javaImports: [
@@ -27,7 +28,7 @@ foam.CLASS({
   ],
 
 
-  imports: [ 'flowDAO' ],
+  imports: [ 'flowDAO', 'flowHistoryDAO?' ],
 
   ids: [ 'name' ],
 /*
@@ -62,6 +63,12 @@ foam.CLASS({
       collapsable: true,
       permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
       properties: [ 'preLoadScript', 'script', 'postLoadScript' ]
+    },
+    {
+      name: 'historySection',
+      title: 'History',
+      collapsable: true,
+      properties: [ 'history' ]
     }
   ],
 
@@ -210,6 +217,25 @@ foam.CLASS({
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+    },
+    {
+      class: 'foam.dao.DAOProperty',
+      name: 'history',
+      label: '',
+      section: 'historySection',
+      transient: true,
+      storageTransient: true,
+      networkTransient: true,
+      createVisibility: 'HIDDEN',
+      visibility: 'RO',
+      expression: function(name) {
+        var dao = this.flowHistoryDAO;
+        if ( ! dao || ! name ) return null;
+        return dao.
+          where(this.EQ(foam.dao.history.HistoryRecord.OBJECT_ID, name)).
+          orderBy(this.DESC(foam.dao.history.HistoryRecord.SEQ_NO));
+      },
+      view: { class: 'foam.core.reflow.FlowHistoryView' }
     }
   ],
 

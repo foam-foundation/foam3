@@ -42,8 +42,7 @@ foam.CLASS({
   properties: [
     'suggestText',
     { class: 'Class',  name: 'of' },
-    { class: 'String', name: 'filter' },
-    { class: 'Int',    name: 'resultLimit', value: 50 }
+    { class: 'String', name: 'filter' }
   ],
 
   methods: [

@@ -2463,6 +2463,78 @@ var clientRes = jrlH.handleCompletion(clientSrc, { line: 1, character: 28 });
 test(Array.isArray(clientRes.items),
   'client completion: returns an items array (delegated to JRL completion)');
 
+// === JRL EMBEDDED BLOCK VARIANTS (triple + escaped) ===
+section('JRL embedded block — triple-quote + escaped double-quote');
+
+var jrlH2 = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+jrlH2.buildJournalClassMap();
+
+// Escaped double-quoted client: "client": "{\"of\":\"com.paytic.Transaction\"}"
+var escSrc = [
+  'p({',
+  '  "class": "foam.core.boot.CSpec",',
+  '  "name": "txDAO",',
+  '  "client": "{\\"of\\":\\"com.paytic.Transaction\\"}"',
+  '})'
+].join('\n');
+// Cursor inside the empty space after `"of":"` (line 3)
+var escLine = '  "client": "{\\"of\\":\\"com.paytic.Transaction\\"}"';
+// Test detection fires for escaped form
+var escCtx = jrlH2.detectEmbeddedBlockContext_(escSrc, { line: 3, character: 30 });
+test(escCtx && escCtx.key === 'client' && escCtx.escaped === true,
+  'detectEmbeddedBlockContext_: detects escaped client form');
+test(escCtx && escCtx.content.indexOf('"of":"com.paytic.Transaction"') !== -1,
+  'detectEmbeddedBlockContext_: unescapes the content correctly');
+
+// Triple-quote client still works through the unified detector
+var tripleClient = [
+  'p({',
+  '  "client": """',
+  '    { "of": "com.paytic.Transaction" }',
+  '  """',
+  '})'
+].join('\n');
+var triCtx = jrlH2.detectEmbeddedBlockContext_(tripleClient, { line: 2, character: 20 });
+test(triCtx && triCtx.key === 'client' && triCtx.escaped === false,
+  'detectEmbeddedBlockContext_: still detects triple-quote client form');
+
+// Triple-quote serviceScript detection
+var tripleSS = [
+  'p({',
+  '  "serviceScript": """',
+  '    return new foam.dao.EasyDAO.Builder(x).build();',
+  '  """',
+  '})'
+].join('\n');
+var ssCtx2 = jrlH2.detectEmbeddedBlockContext_(tripleSS, { line: 2, character: 20 });
+test(ssCtx2 && ssCtx2.key === 'serviceScript',
+  'detectEmbeddedBlockContext_: detects triple-quote serviceScript form');
+
+// === JRL TEXTMATE HIGHLIGHTS (Java + JSON injections) ===
+section('JRL grammar injections — Java & JSON');
+
+var jrlGrammarPath = 'foam3/tools/lsp/editors/vscode/syntaxes/foam-jrl.tmLanguage.json';
+var jrlGrammar = JSON.parse(require('fs').readFileSync(jrlGrammarPath, 'utf8'));
+
+test(!! jrlGrammar.repository['java-block-triple'],
+  'JRL grammar: java-block-triple injection exists');
+test(!! jrlGrammar.repository['java-block-backtick'],
+  'JRL grammar: java-block-backtick injection exists');
+test(!! jrlGrammar.repository['java-block-single-quoted'],
+  'JRL grammar: java-block-single-quoted injection exists');
+test(!! jrlGrammar.repository['json-block-triple'],
+  'JRL grammar: json-block-triple injection exists (client """…""")');
+test(!! jrlGrammar.repository['json-block-backtick'],
+  'JRL grammar: json-block-backtick injection exists');
+
+// The `object` repository entry (reachable from top-level patterns) includes
+// the new JSON injections.
+var objPatterns = JSON.stringify(jrlGrammar.repository.object.patterns);
+test(objPatterns.indexOf('json-block-triple') !== -1,
+  'JRL grammar: object patterns reference json-block-triple');
+test(objPatterns.indexOf('json-block-backtick') !== -1,
+  'JRL grammar: object patterns reference json-block-backtick');
+
 // === SUMMARY ===
 
 section('SUMMARY');

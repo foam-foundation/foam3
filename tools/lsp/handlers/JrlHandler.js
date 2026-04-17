@@ -133,24 +133,22 @@ foam.CLASS({
       var lines = text.split('\n');
       var line = lines[position.line] || '';
 
-      // Triple-quoted block hover — for `client` delegate to JRL hover on the
-      // embedded JSON; for `serviceScript` resolve class IDs the cursor is on.
-      var tripleCtx = this.detectTripleQuoteContext_(text, position);
-      if ( tripleCtx ) {
-        if ( tripleCtx.key === 'client' ) {
-          var absCursor = this.toOffset_(text, position);
-          var rel = absCursor - tripleCtx.contentOffset;
-          var contentBefore = tripleCtx.content.substring(0, rel);
-          var relLine = 0, relCol = 0;
-          for ( var i = 0 ; i < contentBefore.length ; i++ ) {
-            if ( contentBefore.charCodeAt(i) === 10 ) { relLine++; relCol = 0; } else relCol++;
-          }
-          return this.handleHover(tripleCtx.content, { line: relLine, character: relCol }, null);
+      // Embedded block hover — `client` delegates to JRL hover on the
+      // (un)escaped JSON; `serviceScript` resolves class IDs under cursor.
+      // Covers both triple-quote and escaped-in-double-quote forms.
+      var embedCtx = this.detectEmbeddedBlockContext_(text, position);
+      if ( embedCtx ) {
+        if ( embedCtx.key === 'client' ) {
+          return this.handleHover(embedCtx.content,
+            this.embedCursorToPosition_(embedCtx), null);
         }
-        if ( tripleCtx.key === 'serviceScript' ) {
-          // Extract the dotted word under cursor and resolve as a class id.
-          var wordLine = lines[position.line] || '';
-          var ch = position.character;
+        if ( embedCtx.key === 'serviceScript' ) {
+          // Extract the dotted word under cursor from the unescaped content
+          // and resolve as a class id.
+          var cpos = this.embedCursorToPosition_(embedCtx);
+          var clines = embedCtx.content.split('\n');
+          var wordLine = clines[cpos.line] || '';
+          var ch = cpos.character;
           var start = ch;
           var wordRe = /[\w.$]/;
           while ( start > 0 && wordRe.test(wordLine.charAt(start - 1)) ) start--;
@@ -437,16 +435,17 @@ foam.CLASS({
       var lines = text.split('\n');
       var line = lines[position.line] || '';
 
-      // Triple-quoted value blocks (`"""…"""`) carry code: serviceScript is
-      // Java, `client` is a nested FObject JSON spec. Route to the right
-      // sub-completion before the normal JRL path.
-      var tripleCtx = this.detectTripleQuoteContext_(text, position);
-      if ( tripleCtx ) {
-        if ( tripleCtx.key === 'serviceScript' ) {
-          return this.serviceScriptCompletion_(text, position, tripleCtx);
+      // Embedded value blocks — serviceScript (Java) and client (FObject
+      // JSON) may be triple-quoted OR escaped inside a regular double-quoted
+      // string. Route to the right sub-completion before the normal JRL path.
+      var embedCtx = this.detectEmbeddedBlockContext_(text, position);
+      if ( embedCtx ) {
+        if ( embedCtx.key === 'serviceScript' ) {
+          return this.serviceScriptCompletion_(embedCtx.content,
+            this.embedCursorToPosition_(embedCtx), embedCtx);
         }
-        if ( tripleCtx.key === 'client' ) {
-          return this.clientBlockCompletion_(text, position, tripleCtx);
+        if ( embedCtx.key === 'client' ) {
+          return this.clientBlockCompletion_(text, position, embedCtx);
         }
       }
 
@@ -518,6 +517,98 @@ foam.CLASS({
       }
 
       return { isIncomplete: false, items: items };
+    },
+
+    function detectEmbeddedBlockContext_(text, position) {
+      /**
+       * Find the embedded-value block the cursor is inside, whether it's
+       * `key: """…"""`, `key: \`…\``, or the escaped-inside-double-quotes
+       * form `key: "…"`. Returns { key, content, contentOffset, relativeOffset,
+       * escaped } or null.
+       *
+       * For the escaped form, `content` is the UNESCAPED inner string
+       * (so `"{\"of\":\"X\"}"` yields `{"of":"X"}`), and relativeOffset is
+       * the cursor's offset into the unescaped form — good enough for
+       * class/property completion on the JSON structure.
+       */
+      var triple = this.detectTripleQuoteContext_(text, position);
+      if ( triple ) { triple.escaped = false; return triple; }
+
+      // Escaped-in-double-quotes form. Only for `client` (and any other
+      // key whose value is an FObject JSON literal). Look backward for a
+      // `"key": "` start; the opening quote position is derived from the
+      // regex match (NOT lastIndexOf, which is fooled by escaped quotes
+      // inside the value).
+      var abs = this.toOffset_(text, position);
+      var before = text.substring(0, abs);
+      // Anchor the pattern to end-of-prefix: key + colon + opening quote
+      // + captured (so-far) value chars; the value must not be triple-quoted.
+      var vm = before.match(/"([a-zA-Z_][\w$]*)"\s*:\s*"(?!"")((?:\\.|[^"\n\\])*)$/);
+      if ( ! vm ) return null;
+      if ( vm[1] !== 'client' && vm[1] !== 'serviceScript' ) return null;
+
+      // Position of the value's opening `"`: start of the full match,
+      // plus the full match length, minus the captured-value length,
+      // minus 1 (the opening quote itself).
+      var valOpen = vm.index + vm[0].length - vm[2].length - 1;
+
+      var j = abs;
+      var n = text.length;
+      while ( j < n ) {
+        var c = text.charAt(j);
+        if ( c === '\\' ) { j += 2; continue; }
+        if ( c === '"' ) break;
+        if ( c === '\n' ) break;
+        j++;
+      }
+      var valClose = j;
+
+      var raw = text.substring(valOpen + 1, valClose);
+      var unescaped = raw.replace(/\\(["\\/bfnrt]|u[0-9a-fA-F]{4})/g, function(_, esc) {
+        switch ( esc.charAt(0) ) {
+          case '"':  return '"';
+          case '\\': return '\\';
+          case '/':  return '/';
+          case 'b':  return '\b';
+          case 'f':  return '\f';
+          case 'n':  return '\n';
+          case 'r':  return '\r';
+          case 't':  return '\t';
+          case 'u':  return String.fromCharCode(parseInt(esc.substring(1), 16));
+          default:   return esc;
+        }
+      });
+
+      // Compute the cursor's offset into `unescaped` by replaying the
+      // escape rules up to `abs`.
+      var cursorInRaw = abs - (valOpen + 1);
+      var cursorInUnesc = 0;
+      var rawIdx = 0;
+      while ( rawIdx < cursorInRaw && rawIdx < raw.length ) {
+        if ( raw.charAt(rawIdx) === '\\' && rawIdx + 1 < raw.length ) {
+          rawIdx += 2; cursorInUnesc += 1;
+        } else {
+          rawIdx += 1; cursorInUnesc += 1;
+        }
+      }
+
+      return {
+        key: vm[1],
+        content: unescaped,
+        contentOffset: valOpen + 1,
+        relativeOffset: cursorInUnesc,
+        escaped: true
+      };
+    },
+
+    function embedCursorToPosition_(ctx) {
+      /** Translate ctx.relativeOffset into a {line,character} inside ctx.content. */
+      var before = ctx.content.substring(0, ctx.relativeOffset);
+      var line = 0, col = 0;
+      for ( var i = 0 ; i < before.length ; i++ ) {
+        if ( before.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
+      }
+      return { line: line, character: col };
     },
 
     function detectTripleQuoteContext_(text, position) {
@@ -697,20 +788,11 @@ foam.CLASS({
 
     function clientBlockCompletion_(text, position, ctx) {
       /**
-       * Inside client `"""{ … }"""` — this is a nested FObject JSON spec.
-       * Delegate to normal JRL completion by running it against the
-       * content itself (reusing class/property logic) with an adjusted
-       * position. Handles `"class": "…"`, `"of": "…"`, property keys, etc.
+       * Inside a client value — nested FObject JSON spec. Works for both
+       * triple-quoted and escaped-in-double-quotes forms. Delegate to the
+       * normal JRL completion on the unescaped content, adjusted position.
        */
-      // Translate absolute cursor to content-relative line/char.
-      var absCursor = this.toOffset_(text, position);
-      var rel = absCursor - ctx.contentOffset;
-      var contentBefore = ctx.content.substring(0, rel);
-      var relLine = 0, relCol = 0;
-      for ( var i = 0 ; i < contentBefore.length ; i++ ) {
-        if ( contentBefore.charCodeAt(i) === 10 ) { relLine++; relCol = 0; } else relCol++;
-      }
-      return this.handleCompletion(ctx.content, { line: relLine, character: relCol }, null);
+      return this.handleCompletion(ctx.content, this.embedCursorToPosition_(ctx), null);
     },
 
     function getClassNameCompletions_(partial) {

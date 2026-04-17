@@ -30,7 +30,7 @@ foam.CLASS({
     ^row {
       display: flex;
       align-items: center;
-      padding: 4px 8px;
+      padding: 8px;
       border-radius: 4px;
       cursor: pointer;
     }

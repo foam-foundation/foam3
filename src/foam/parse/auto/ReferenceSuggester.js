@@ -59,25 +59,65 @@ foam.CLASS({
     },
 
     function buildFilterPredicate_(filter) {
-      // Prefer CONTAINS_IC against columns of type:String in the model's
-      // searchColumns axiom. Non-String properties (Enum, Long, Reference,
-      // etc.) are skipped because Binary.adapt would coerce the keyword
-      // to arg1's type and throw on anything that isn't a valid literal
-      // of that type. Falls back to KEYWORD when no usable columns remain.
+      // Build predicates against columns in the model's searchColumns axiom:
+      //   - String columns    → CONTAINS_IC(col, filter)
+      //   - Numeric columns   → EQ(col, +filter)   (when filter parses as number)
+      //   - Reference columns → resolved to the ID type they store, then above
+      //   - Enum/Date/Boolean/etc. are skipped (Binary.adapt would throw).
+      // Falls back to KEYWORD when no usable columns are available.
+      var self        = this;
       var searchAxiom = this.of.getAxiomByName('searchColumns');
-      var cols = searchAxiom && searchAxiom.columns;
-      if ( cols && cols.length > 0 ) {
-        var self = this;
-        var props = cols
-          .map(function(name) { return self.of.getAxiomByName(name); })
-          .filter(function(p) { return p && foam.lang.String.isInstance(p); });
-        if ( props.length > 0 ) {
-          return this.OR.apply(this, props.map(function(p) {
-            return self.CONTAINS_IC(p, filter);
-          }));
-        }
-      }
+      var cols        = ( searchAxiom && searchAxiom.columns ) || [];
+
+      var preds = cols
+        .map(function(name)    { return self.of.getAxiomByName(name); })
+        .filter(function(p)    { return p; })
+        .map(function(p)       { return self.columnPredicate_(p, filter); })
+        .filter(function(pred) { return pred; });
+
+      if ( preds.length > 0 ) return this.OR.apply(this, preds);
+
+      console.warn(
+        '[ReferenceSuggester] Falling back to KEYWORD for ' + this.of.id +
+        ' - no usable searchColumns for filter "' + filter + '". ' +
+        'KEYWORD scans all keyword-indexed properties on the server which is ' +
+        'less efficient. Declare `searchColumns` with String/Int properties on ' +
+        this.of.id + ' (e.g. name, email, id) for targeted filtering.'
+      );
       return this.KEYWORD(filter);
+    },
+
+    function columnPredicate_(prop, filter) {
+      // Return the best predicate for one column, or null if the column's
+      // type can't be safely filtered by `filter`.
+      var type = this.effectivePropertyType_(prop);
+
+      if ( foam.lang.String.isInstance(type) ) {
+        return this.CONTAINS_IC(prop, filter);
+      }
+      if ( foam.lang.Int.isInstance(type) ) {
+        var n = this.parseNumber_(filter);
+        return n === null ? null : this.EQ(prop, n);
+      }
+      return null;
+    },
+
+    function effectivePropertyType_(prop) {
+      // A Reference doesn't store the referenced object — it stores the ID.
+      // Unwrap Reference → target model's ID property (resolving IDAlias for
+      // compound-ID models) so callers can check the real stored type.
+      if ( ! foam.lang.Reference.isInstance(prop) ) return prop;
+      var id = prop.of.ID;
+      if ( foam.lang.IDAlias.isInstance(id) ) {
+        id = prop.of.getAxiomByName(id.propName);
+      }
+      return id;
+    },
+
+    function parseNumber_(str) {
+      if ( str === '' ) return null;
+      var n = Number(str);
+      return isNaN(n) ? null : n;
     }
   ]
 });

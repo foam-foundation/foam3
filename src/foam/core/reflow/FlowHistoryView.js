@@ -127,6 +127,13 @@ foam.CLASS({
     ^cell:hover ^copyBtn {
       opacity: 1;
     }
+    ^count {
+      margin-top: 2px;
+      font-size: 10px;
+      color: $textSecondary;
+      text-align: right;
+      font-family: monospace;
+    }
   `,
 
   properties: [
@@ -204,6 +211,7 @@ foam.CLASS({
             .add('Copy')
             .on('click', function(e) { e.stopPropagation(); self.copy(oldText); })
           .end()
+          .start('div').addClass(this.myClass('count')).add(this.countSummary(oldText)).end()
         .end()
         .start('div').addClass(this.myClass('cell'))
           .start('div').addClass(this.myClass('newValue')).add(newText).end()
@@ -211,8 +219,16 @@ foam.CLASS({
             .add('Copy')
             .on('click', function(e) { e.stopPropagation(); self.copy(newText); })
           .end()
+          .start('div').addClass(this.myClass('count')).add(this.countSummary(newText)).end()
         .end()
       .end();
+    },
+
+    function countSummary(text) {
+      if ( ! text || text === '(empty)' ) return '0 words · 0 chars';
+      var words = text.trim().split(/\s+/).filter(Boolean).length;
+      var chars = text.length;
+      return words + ' words · ' + chars + ' chars';
     },
 
     function summaryFor(record) {

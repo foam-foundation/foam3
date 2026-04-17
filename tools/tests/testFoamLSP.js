@@ -2700,6 +2700,105 @@ if ( index.classExists('foam.dao.EasyDAO') ) {
   }
 }
 
+// === EMBEDDED-BLOCK SEMANTIC TOKENS ===
+section('JRL embedded-block semantic tokens — Java + client JSON');
+
+// Java serviceScript with a dotted FOAM class id inside.
+var embedJava = [
+  'p({',
+  '  "class": "foam.core.boot.CSpec",',
+  '  "id": "myService",',
+  '  "serviceScript": """',
+  '    return new foam.dao.EasyDAO.Builder(x).setOf(foam.lang.FObject.getOwnClassInfo()).build();',
+  '  """',
+  '})'
+].join('\n');
+var javaTokens = jrlH3.handleSemanticTokens(embedJava);
+// data format: [dL, dC, len, type, mods, …]. Expect at least one type=0
+// token (class reference) somewhere inside the serviceScript body.
+function hasTokenOfType(data, type) {
+  for ( var i = 3 ; i < data.length ; i += 5 ) {
+    if ( data[i] === type ) return true;
+  }
+  return false;
+}
+test(hasTokenOfType(javaTokens.data, 0),
+  'Embedded Java block emits type (0) tokens for registered class IDs');
+
+// Verify class:"..." at top level is tagged as class (type=1).
+test(hasTokenOfType(javaTokens.data, 1),
+  'Top-level "class":"…" value still emitted as class (1) token');
+
+// JSON client block — verified "class":"…" inside the nested JSON.
+var embedClient = [
+  'p({',
+  '  "class": "foam.core.boot.CSpec",',
+  '  "id": "myCSpec",',
+  '  "client": """',
+  '    {',
+  '      "class": "foam.dao.EasyDAO",',
+  '      "of": "foam.lang.FObject"',
+  '    }',
+  '  """',
+  '})'
+].join('\n');
+var clientTokens = jrlH3.handleSemanticTokens(embedClient);
+// Expect TWO class tokens: top-level foam.core.boot.CSpec AND nested foam.dao.EasyDAO.
+var classTokenCount = 0;
+for ( var i = 3 ; i < clientTokens.data.length ; i += 5 ) {
+  if ( clientTokens.data[i] === 1 ) classTokenCount++;
+}
+test(classTokenCount >= 2,
+  'Nested "class":"…" inside triple-quoted client block emits class token (got ' + classTokenCount + ')');
+
+// Escaped-in-double-quote client form.
+var embedClientEsc = [
+  'p({',
+  '  "class": "foam.core.boot.CSpec",',
+  '  "id": "myCSpec",',
+  '  "client": "{\\"class\\":\\"foam.dao.EasyDAO\\",\\"of\\":\\"foam.lang.FObject\\"}"',
+  '})'
+].join('\n');
+var escTokens = jrlH3.handleSemanticTokens(embedClientEsc);
+var escClassCount = 0;
+for ( var i = 3 ; i < escTokens.data.length ; i += 5 ) {
+  if ( escTokens.data[i] === 1 ) escClassCount++;
+}
+test(escClassCount >= 2,
+  'Escaped "class":"…" inside escaped-double-quote client block emits class token (got ' + escClassCount + ')');
+
+// Unknown class inside serviceScript should NOT emit a type token.
+var embedUnknown = [
+  'p({',
+  '  "class": "foam.core.boot.CSpec",',
+  '  "serviceScript": """',
+  '    return totally.not.a.real.Class.foo();',
+  '  """',
+  '})'
+].join('\n');
+var unkTokens = jrlH3.handleSemanticTokens(embedUnknown);
+// Should only have the top-level class token (type=1), no type=0 from the unknown ID.
+var unkTypeCount = 0;
+for ( var i = 3 ; i < unkTokens.data.length ; i += 5 ) {
+  if ( unkTokens.data[i] === 0 ) unkTypeCount++;
+}
+test(unkTypeCount === 0,
+  'Unknown dotted identifier in serviceScript does not emit type token (got ' + unkTypeCount + ')');
+
+// === ZED TREE-SITTER — JSON INJECTION FOR client BLOCKS ===
+section('Zed tree-sitter grammar: JSON injection for client blocks');
+var fs_ = require('fs');
+var path_ = require('path');
+var zedInj = fs_.readFileSync(path_.join(__dirname, '../lsp/editors/zed-foam3/languages/jrl/injections.scm'), 'utf8');
+test(/injection\.language\s+"json"/.test(zedInj),
+  'Zed JRL injections.scm declares JSON injection');
+test(/#eq\?\s+@_key\s+"client"/.test(zedInj),
+  'Zed JRL injections.scm matches `client` key for JSON injection');
+// VS Code grammar parity.
+var vscodeJrl = JSON.parse(fs_.readFileSync(path_.join(__dirname, '../lsp/editors/vscode/syntaxes/foam-jrl.tmLanguage.json'), 'utf8'));
+test(!! vscodeJrl.repository['json-block-triple'] && !! vscodeJrl.repository['json-block-backtick'],
+  'VS Code foam-jrl grammar has JSON injections for client triple/backtick');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -15,6 +15,20 @@ foam.CLASS({
     'foam.parse.lsp.CursorAnalyzer'
   ],
 
+  constants: {
+    JAVA_EMBED_KEYS_: {
+      javaCode: true, javaFactory: true, javaGetter: true, javaSetter: true,
+      javaPreSet: true, javaPostSet: true, javaAdapt: true, javaCompare: true,
+      javaComparePropertyToObject: true, javaComparePropertyToValue: true,
+      javaCloneProperty: true, javaDiffProperty: true,
+      javaFormatJSON: true, javaJSONParser: true, javaCSVParser: true,
+      javaQueryParser: true, javaToCSV: true, javaToCSVLabel: true,
+      javaFromCSVLabelMapping: true, javaAssertValue: true,
+      javaValidateObj: true, javaCondition: true, javaValue: true,
+      javaImports: true, code: true, serviceScript: true
+    }
+  },
+
   properties: [
     {
       class: 'FObjectProperty',
@@ -226,18 +240,34 @@ foam.CLASS({
     },
 
     function handleSemanticTokens(text) {
-      var lines = text.split('\n');
+      /**
+       * JRL semantic tokens complement the TextMate/tree-sitter grammar by
+       * emitting registry-verified highlights the grammar cannot reach:
+       *   • Verified `"class":"…"` values (top-level and inside embedded JSON)
+       *   • Dotted class IDs inside embedded Java blocks (serviceScript,
+       *     javaCode, javaFactory, etc.)
+       *   • Dotted class IDs inside escaped-in-double-quote client strings
+       *
+       * Token types: 0=type, 1=class, 2=variable, 3=keyword, 4=string,
+       * 5=comment, 6=number, 7=operator, 8=method.
+       */
       var tokens = [];
+      this.collectClassValueTokens_(text, tokens);
+      this.collectEmbeddedBlockTokens_(text, tokens);
 
-      // Only emit semantic tokens for things the TextMate grammar can't resolve:
-      // - Class values verified against the FOAM registry (type=1 class)
-      // Token types: 0=type, 1=class, 2=variable, 3=keyword, 4=string,
-      // 5=comment, 6=number, 7=operator, 8=method
+      tokens.sort(function(a, b) {
+        return a.line !== b.line ? a.line - b.line : a.char - b.char;
+      });
+      return this.encodeTokens_(tokens);
+    },
+
+    function collectClassValueTokens_(text, tokens) {
+      /** Line-by-line scan for "class":"…" and class:"…" verified values. */
+      var lines = text.split('\n');
       for ( var lineNum = 0 ; lineNum < lines.length ; lineNum++ ) {
         var line = lines[lineNum];
         if ( ! line.trim() || /^\s*\/\//.test(line) ) continue;
 
-        // Highlight verified class values — both "class":"value" and class:"value"
         var classRegex = /(?:"class"|(?<=[{,])\s*class)\s*:\s*(?:"([^"]+)"|'([^']+)')/g;
         var cm;
         while ( ( cm = classRegex.exec(line) ) !== null ) {
@@ -250,12 +280,172 @@ foam.CLASS({
           }
         }
       }
+    },
 
-      // Sort and encode
-      tokens.sort(function(a, b) {
-        return a.line !== b.line ? a.line - b.line : a.char - b.char;
+    function collectEmbeddedBlockTokens_(text, tokens) {
+      /**
+       * Walk every embedded value block in the file and emit tokens for
+       * registry-verified identifiers inside. Handles:
+       *   1. Triple-quoted values:  "key": """…"""
+       *   2. Backtick values:        "key": `…`
+       *   3. Escaped-in-double-quote values: "key": "…"   (for client only)
+       *
+       * Dispatch by key:
+       *   • Java keys (serviceScript, javaCode, …)    → Java tokenization
+       *   • `client`                                  → JSON tokenization
+       */
+      var blocks = this.findEmbeddedBlocks_(text);
+      for ( var i = 0 ; i < blocks.length ; i++ ) {
+        var b = blocks[i];
+        if ( this.JAVA_EMBED_KEYS_[b.key] ) {
+          this.collectJavaEmbedTokens_(text, b, tokens);
+        } else if ( b.key === 'client' ) {
+          this.collectJsonEmbedTokens_(text, b, tokens);
+        }
+      }
+    },
+
+    function findEmbeddedBlocks_(text) {
+      /**
+       * Scan the full text for every triple-quote and backtick embedded
+       * value. Returns array of { key, contentStart, contentEnd, delim }
+       * where delim is '"""' or '`'. Skips `//` line comments.
+       *
+       * Approach: find `"key":` then the opening delimiter right after.
+       * Matches BOTH quoted-key (`"javaCode"`) and unquoted-key (`javaCode`).
+       */
+      var out = [];
+      var keyDelimRe = /(?:"([a-zA-Z_][\w$]*)"|([a-zA-Z_][\w$]*))\s*:\s*("""|`)/g;
+      var m;
+      while ( ( m = keyDelimRe.exec(text) ) !== null ) {
+        var key = m[1] || m[2];
+        if ( ! key ) continue;
+        var delim = m[3];
+        var openStart = m.index + m[0].length - delim.length;
+        var contentStart = openStart + delim.length;
+        var contentEnd = text.indexOf(delim, contentStart);
+        if ( contentEnd === -1 ) break;
+        out.push({ key: key, contentStart: contentStart, contentEnd: contentEnd, delim: delim });
+        keyDelimRe.lastIndex = contentEnd + delim.length;
+      }
+
+      // Escaped-in-double-quote form: `"client": "…"` where inner quotes
+      // are `\"`. Only honor `client` (FObject JSON); serviceScript also
+      // uses this form but we leave Java highlighting to grammar injection
+      // there since escaping makes it hard to detect reliably.
+      var escRe = /"(client)"\s*:\s*"(?!"")((?:\\.|[^"\\\n])*)"/g;
+      var em;
+      while ( ( em = escRe.exec(text) ) !== null ) {
+        var vStart = em.index + em[0].length - em[2].length - 1;
+        out.push({
+          key: em[1],
+          contentStart: vStart + 1,
+          contentEnd: vStart + 1 + em[2].length,
+          delim: '"',
+          escaped: true
+        });
+      }
+      return out;
+    },
+
+    function collectJavaEmbedTokens_(text, block, tokens) {
+      /**
+       * Emit `type` tokens (0) for dotted class IDs and short class names
+       * that the registry resolves. Registry-verified only — no hardcoded
+       * list. The surrounding grammar handles Java keyword / string /
+       * comment highlighting; we add what the grammar can't know:
+       * which identifiers are actually FOAM classes.
+       */
+      var content = text.substring(block.contentStart, block.contentEnd);
+      var lineOffsets = this.computeLineOffsets_(text);
+
+      // Dotted identifier — a.b.c.D — followed by optional `.getOwnClassInfo`
+      var dottedRe = /\b([a-z][\w$]*(?:\.[a-zA-Z_][\w$]*)+)\b/g;
+      var dm;
+      while ( ( dm = dottedRe.exec(content) ) !== null ) {
+        var id = dm[1];
+        var hit = this.resolveRegisteredPrefix_(id);
+        if ( ! hit ) continue;
+        this.pushTokenAt_(tokens, block.contentStart + dm.index, hit.length, 0, lineOffsets);
+      }
+    },
+
+    function collectJsonEmbedTokens_(text, block, tokens) {
+      /**
+       * Emit `class` tokens (1) for registry-verified `"class":"…"` values
+       * inside an embedded JSON block. If the block is escaped-in-double-
+       * quote form, `\"class\":\"…\"` — handle both literal and escaped.
+       */
+      var content = text.substring(block.contentStart, block.contentEnd);
+      var lineOffsets = this.computeLineOffsets_(text);
+
+      // Literal: "class":"com.foo.Bar"
+      var litRe = /"class"\s*:\s*"([^"\n]+)"/g;
+      var lm;
+      while ( ( lm = litRe.exec(content) ) !== null ) {
+        var cid = lm[1];
+        if ( ! this.index.classExists(cid) ) continue;
+        var valIdx = content.indexOf(cid, lm.index);
+        if ( valIdx === -1 ) continue;
+        this.pushTokenAt_(tokens, block.contentStart + valIdx, cid.length, 1, lineOffsets);
+      }
+
+      // Escaped: \"class\":\"com.foo.Bar\"
+      var escRe = /\\"class\\"\s*:\s*\\"([^"\\\n]+)\\"/g;
+      var em;
+      while ( ( em = escRe.exec(content) ) !== null ) {
+        var ecid = em[1];
+        if ( ! this.index.classExists(ecid) ) continue;
+        var eIdx = content.indexOf(ecid, em.index);
+        if ( eIdx === -1 ) continue;
+        this.pushTokenAt_(tokens, block.contentStart + eIdx, ecid.length, 1, lineOffsets);
+      }
+    },
+
+    function resolveRegisteredPrefix_(dottedId) {
+      /**
+       * Given `foo.X.Builder`, return the longest prefix that exists in the
+       * FOAM registry. Returns { length } (char length of the matched
+       * prefix) or null.
+       */
+      if ( ! dottedId ) return null;
+      var cand = dottedId;
+      while ( cand ) {
+        if ( this.index.classExists(cand) ) return { length: cand.length };
+        var dot = cand.lastIndexOf('.');
+        if ( dot === -1 ) return null;
+        cand = cand.substring(0, dot);
+      }
+      return null;
+    },
+
+    function computeLineOffsets_(text) {
+      /** Pre-computed line-start offsets for fast offset → {line,char}. */
+      var offs = [0];
+      for ( var i = 0 ; i < text.length ; i++ ) {
+        if ( text.charCodeAt(i) === 10 ) offs.push(i + 1);
+      }
+      return offs;
+    },
+
+    function pushTokenAt_(tokens, offset, length, type, lineOffsets) {
+      /** Binary-search offset → line/char and push a semantic token. */
+      var lo = 0, hi = lineOffsets.length - 1;
+      while ( lo < hi ) {
+        var mid = (lo + hi + 1) >> 1;
+        if ( lineOffsets[mid] <= offset ) lo = mid; else hi = mid - 1;
+      }
+      tokens.push({
+        line: lo,
+        char: offset - lineOffsets[lo],
+        length: length,
+        type: type,
+        modifiers: 0
       });
+    },
 
+    function encodeTokens_(tokens) {
+      /** LSP delta-encoding: [dL, dC, length, type, modifiers] per token. */
       var data = [];
       var prevLine = 0, prevChar = 0;
       for ( var i = 0 ; i < tokens.length ; i++ ) {

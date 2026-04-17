@@ -13,13 +13,16 @@ foam.CLASS({
     A suggester view for Reference properties in the AQL search bar.
     Shows records from the target DAO using CitationView. SmartView passes
     a 'filter' string (the text typed after the operator) which is used to
-    narrow results via KEYWORD search. Selecting a record inserts its ID.
+    narrow results. 
+    For searching, prefers CONTAINS_IC on the model's searchColumns axiom
+    (mirroring RichChoiceView); falls back to KEYWORD if none declared.
+    Selecting a record inserts its ID.
   `,
 
   requires: [
     'foam.u2.CitationView'
   ],
-  
+
   properties: [
     'suggestText',
     { class: 'Class', name: 'of' },
@@ -36,7 +39,7 @@ foam.CLASS({
       if ( ! dao ) return;
 
       var filtered = this.filter
-        ? dao.where(this.KEYWORD(this.filter))
+        ? dao.where(this.buildFilterPredicate_(this.filter))
         : dao;
       
       let isFirstElement = true;
@@ -53,6 +56,28 @@ foam.CLASS({
             .end();
           })
         .end();
+    },
+
+    function buildFilterPredicate_(filter) {
+      // Prefer CONTAINS_IC against columns of type:String in the model's
+      // searchColumns axiom. Non-String properties (Enum, Long, Reference,
+      // etc.) are skipped because Binary.adapt would coerce the keyword
+      // to arg1's type and throw on anything that isn't a valid literal
+      // of that type. Falls back to KEYWORD when no usable columns remain.
+      var searchAxiom = this.of.getAxiomByName('searchColumns');
+      var cols = searchAxiom && searchAxiom.columns;
+      if ( cols && cols.length > 0 ) {
+        var self = this;
+        var props = cols
+          .map(function(name) { return self.of.getAxiomByName(name); })
+          .filter(function(p) { return p && foam.lang.String.isInstance(p); });
+        if ( props.length > 0 ) {
+          return this.OR.apply(this, props.map(function(p) {
+            return self.CONTAINS_IC(p, filter);
+          }));
+        }
+      }
+      return this.KEYWORD(filter);
     }
   ]
 });

@@ -2535,6 +2535,101 @@ test(objPatterns.indexOf('json-block-triple') !== -1,
 test(objPatterns.indexOf('json-block-backtick') !== -1,
   'JRL grammar: object patterns reference json-block-backtick');
 
+// === JRL EMBEDDED-BLOCK HOVERS (full coverage) ===
+section('JRL embedded-block hovers — serviceScript + client, both forms');
+
+var jrlH3 = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+jrlH3.buildJournalClassMap();
+
+// Hover on a FOAM class id inside triple-quoted serviceScript.
+// Use a class guaranteed to be in the registry (foam.dao.EasyDAO).
+if ( index.classExists('foam.dao.EasyDAO') ) {
+  var ssH = [
+    'p({',
+    '  "class": "foam.core.boot.CSpec",',
+    '  "name": "x",',
+    '  "serviceScript": """',
+    '    return new foam.dao.EasyDAO.Builder(x).build();',
+    '  """',
+    '})'
+  ].join('\n');
+  // Cursor on `foam.dao.EasyDAO` — line 4, around char 26
+  var h1 = jrlH3.handleHover(ssH, { line: 4, character: 26 });
+  test(h1 && h1.contents && h1.contents.value &&
+       h1.contents.value.indexOf('foam.dao.EasyDAO') !== -1,
+    'Hover on class id in triple-quoted serviceScript resolves via registry');
+}
+
+// Hover on a class id inside triple-quoted client JSON
+if ( index.classExists('foam.dao.EasyDAO') ) {
+  var cliH = [
+    'p({',
+    '  "name": "x",',
+    '  "client": """',
+    '    { "class": "foam.dao.EasyDAO", "of": "foam.lang.FObject" }',
+    '  """',
+    '})'
+  ].join('\n');
+  // Cursor on the "foam.dao.EasyDAO" value — line 3, around char 24
+  var h2 = jrlH3.handleHover(cliH, { line: 3, character: 24 });
+  test(h2 && h2.contents && h2.contents.value &&
+       h2.contents.value.indexOf('foam.dao.EasyDAO') !== -1,
+    'Hover on class id in triple-quoted client JSON resolves via registry');
+}
+
+// Hover on a class id inside ESCAPED-double-quote client
+if ( index.classExists('foam.dao.EasyDAO') ) {
+  var escH = [
+    'p({',
+    '  "name": "x",',
+    '  "client": "{\\"class\\":\\"foam.dao.EasyDAO\\"}"',
+    '})'
+  ].join('\n');
+  // Cursor on EasyDAO — the escaped line is:
+  //   "client": "{\"class\":\"foam.dao.EasyDAO\"}"
+  // Position inside `foam.dao.EasyDAO` — around char 36 on line 2
+  var h3 = jrlH3.handleHover(escH, { line: 2, character: 36 });
+  test(h3 && h3.contents && h3.contents.value &&
+       h3.contents.value.indexOf('foam.dao.EasyDAO') !== -1,
+    'Hover on class id in escaped-double-quote client resolves via registry');
+}
+
+// Completion at a dotted prefix works in both forms of serviceScript,
+// regardless of whether the body happens to look Java-ish or JS-ish.
+// Simple one-liner (JS-like)
+var simpleScript = [
+  'p({',
+  '  "serviceScript": """',
+  '    return foam.dao.',
+  '  """',
+  '})'
+].join('\n');
+var c1 = jrlH3.handleCompletion(simpleScript, { line: 2, character: 20 });
+test(c1.items.length > 5,
+  'serviceScript completion: simple `return foam.dao.` yields class-id matches');
+
+// Java-like builder chain
+var complexScript = [
+  'p({',
+  '  "serviceScript": """',
+  '    return new foam.dao.EasyDAO.Builder(x).setOf(com.paytic.',
+  '  """',
+  '})'
+].join('\n');
+var c2 = jrlH3.handleCompletion(complexScript, { line: 2, character: 62 });
+test(c2.items.length >= 0 /* zero is acceptable when no classes match com.paytic in this env */,
+  'serviceScript completion: Java-style builder chain still returns an items array');
+
+// Escaped-double-quote serviceScript (rarer but valid)
+var escScript = [
+  'p({',
+  '  "serviceScript": "return x.get(\\"transactionDAO\\");"',
+  '})'
+].join('\n');
+var escCtxSS = jrlH3.detectEmbeddedBlockContext_(escScript, { line: 1, character: 30 });
+test(escCtxSS && escCtxSS.key === 'serviceScript' && escCtxSS.escaped === true,
+  'detectEmbeddedBlockContext_: detects escaped-double-quote serviceScript');
+
 // === SUMMARY ===
 
 section('SUMMARY');

@@ -133,34 +133,19 @@ foam.CLASS({
       var lines = text.split('\n');
       var line = lines[position.line] || '';
 
-      // Embedded block hover — `client` delegates to JRL hover on the
-      // (un)escaped JSON; `serviceScript` resolves class IDs under cursor.
-      // Covers both triple-quote and escaped-in-double-quote forms.
+      // Embedded block hover — for BOTH serviceScript (language-agnostic
+      // Java/JS-ish code) and client (FObject JSON): extract the dotted
+      // identifier under the cursor and resolve it to a registered class.
+      // If the full dotted word isn't a class (e.g. `foo.X.Builder` where
+      // only `foo.X` is registered), progressively trim trailing segments
+      // until we hit a known class or run out — single predictable path,
+      // covers member-access chains, JSON-quoted class ids, and escaped
+      // values uniformly.
       var embedCtx = this.detectEmbeddedBlockContext_(text, position);
       if ( embedCtx ) {
-        if ( embedCtx.key === 'client' ) {
-          return this.handleHover(embedCtx.content,
-            this.embedCursorToPosition_(embedCtx), null);
-        }
-        if ( embedCtx.key === 'serviceScript' ) {
-          // Extract the dotted word under cursor from the unescaped content
-          // and resolve as a class id.
-          var cpos = this.embedCursorToPosition_(embedCtx);
-          var clines = embedCtx.content.split('\n');
-          var wordLine = clines[cpos.line] || '';
-          var ch = cpos.character;
-          var start = ch;
-          var wordRe = /[\w.$]/;
-          while ( start > 0 && wordRe.test(wordLine.charAt(start - 1)) ) start--;
-          var end = ch;
-          while ( end < wordLine.length && wordRe.test(wordLine.charAt(end)) ) end++;
-          var dotted = wordLine.substring(start, end).replace(/\.$/, '');
-          if ( this.index.classExists(dotted) ) {
-            var doc = this.index.getClassDoc(dotted);
-            if ( doc ) return { contents: { kind: 'markdown', value: doc } };
-          }
-          return null;
-        }
+        var hit = this.resolveDottedClassUnderCursor_(embedCtx);
+        if ( hit ) return { contents: { kind: 'markdown', value: hit } };
+        return null;
       }
 
       // Try single-line first, then multi-line
@@ -599,6 +584,39 @@ foam.CLASS({
         relativeOffset: cursorInUnesc,
         escaped: true
       };
+    },
+
+    function resolveDottedClassUnderCursor_(ctx) {
+      /**
+       * Walk outward from the cursor to collect a dotted/JSON-escaped word,
+       * then progressively trim trailing `.segment` parts until the remaining
+       * prefix is a registered class. Returns the class's hover markdown or
+       * null. Works inside Java/JS code AND inside quoted JSON string values.
+       */
+      var cpos = this.embedCursorToPosition_(ctx);
+      var clines = ctx.content.split('\n');
+      var line = clines[cpos.line] || '';
+      var wordRe = /[\w.$]/;
+      var start = cpos.character;
+      var end = cpos.character;
+      while ( start > 0 && wordRe.test(line.charAt(start - 1)) ) start--;
+      while ( end < line.length && wordRe.test(line.charAt(end)) ) end++;
+      var dotted = line.substring(start, end).replace(/^\.+|\.+$/g, '');
+      if ( ! dotted || dotted.indexOf('.') === -1 ) {
+        // Short names aren't meaningful without a parent class context here.
+        if ( dotted && this.index.classExists(dotted) ) {
+          return this.index.getClassDoc(dotted);
+        }
+        return null;
+      }
+      // Try the full id, then drop trailing .segment until a class matches.
+      for ( var cand = dotted ; cand.indexOf('.') !== -1 ; ) {
+        if ( this.index.classExists(cand) ) {
+          return this.index.getClassDoc(cand);
+        }
+        cand = cand.substring(0, cand.lastIndexOf('.'));
+      }
+      return null;
     },
 
     function embedCursorToPosition_(ctx) {

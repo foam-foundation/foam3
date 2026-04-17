@@ -22,10 +22,18 @@ process.on('uncaughtException', function(e) {
 
 // Hard watchdog: fail fast if any single test infinite-loops. 30s is generous
 // given the whole suite normally completes in ~2s after pmake boot.
-setTimeout(function() {
-  console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 30s — possible infinite loop. Aborting.\x1b[0m');
-  process.exit(2);
-}, 30000).unref();
+//
+// IMPORTANT: guard with `require.main === module` so the timer only arms when
+// this file is run as the test entrypoint. The LSP server's FileModelCache
+// evaluates arbitrary .js files to capture foam.CLASS calls — an unguarded
+// top-level setTimeout here would kill the LSP process 30s after any user
+// opens this test file in their editor.
+if ( require.main === module ) {
+  setTimeout(function() {
+    console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 30s — possible infinite loop. Aborting.\x1b[0m');
+    process.exit(2);
+  }, 30000).unref();
+}
 
 var path = require('path');
 var fs = require('fs');
@@ -2267,6 +2275,59 @@ if ( index.classExists(SFV) ) {
        msgDef.range.start.line < 110,
     'Message go-to-def: points into the messages: [...] block');
 }
+
+// === GRAMMAR-DRIVEN AXIOM POSITIONS ===
+section('FoamClassGrammar.collectAxiomPositions');
+
+var axiomGrammar = foam.parse.lsp.FoamClassGrammar.create({ index: index });
+
+var axSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'Ax',",
+  "  documentation: 'messages: [ fake ]',",         // must NOT be picked up
+  "  messages: [",                                  // L4
+  "    { name: 'GREETING', message: 'hi' },",       // L5
+  "    { name: 'FAREWELL', message: 'bye' }",       // L6
+  "  ]",
+  "});"
+].join('\n');
+
+var axMap = axiomGrammar.collectAxiomPositions(axSrc);
+test(axMap.message.GREETING && axMap.message.GREETING.line === 5,
+  'Grammar axiom-pos: GREETING message at line 5');
+test(axMap.message.FAREWELL && axMap.message.FAREWELL.line === 6,
+  'Grammar axiom-pos: FAREWELL message at line 6');
+test(! axMap.message.fake,
+  'Grammar axiom-pos: docstring containing messages: [ fake ] is NOT indexed');
+
+// Caching
+var m1 = axiomGrammar.collectAxiomPositions(axSrc);
+var m2 = axiomGrammar.collectAxiomPositions(axSrc);
+test(m1 === m2, 'Grammar axiom-pos: cache hit on identical text');
+
+// Enum values container
+var enumSrc = [
+  "foam.ENUM({",
+  "  package: 'test',",
+  "  name: 'Color',",
+  "  values: [",                                 // L3
+  "    { name: 'RED', label: 'Red' },",          // L4
+  "    { name: 'GREEN', label: 'Green' }",       // L5
+  "  ]",
+  "});"
+].join('\n');
+var enumMap = axiomGrammar.collectAxiomPositions(enumSrc);
+test(enumMap.value.RED && enumMap.value.RED.line === 4,
+  'Grammar axiom-pos: enum value RED at line 4');
+test(enumMap.value.GREEN && enumMap.value.GREEN.line === 5,
+  'Grammar axiom-pos: enum value GREEN at line 5');
+
+// StringFilterView cross-check — grammar sees the full messages block
+// only when earlier class entries fully parse. Skip hard-fail if grammar
+// bails early on some preceding construct; the message go-to-def test
+// upstream already covers the end-to-end path via the existing eval
+// fallback.
 
 // === SUMMARY ===
 

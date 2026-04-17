@@ -43,6 +43,72 @@ foam.CLASS({
   ],
 
   methods: [
+    function collectAxiomPositions(text) {
+      /**
+       * Single-parse axiom-position index driven by the grammar itself.
+       * The `messageNameValue` / `enumValueName` / (future) propertyName /
+       * methodName rules are wrapped in `P.msg({kind: '...'})`. On successful
+       * match their msg is emitted with the parser's start/end position —
+       * exactly the info callers need to go-to-definition or build hover
+       * targets.
+       *
+       * Returns:
+       *   {
+       *     message:  { NAME: { line, col, startPos, endPos } },
+       *     value:    { NAME: { … } },
+       *     property: { name: { … } },       // future
+       *     method:   { name: { … } }        // future
+       *   }
+       *
+       * Cached by text identity on the grammar instance.
+       */
+      if ( this.axiomCache_ && this.axiomCache_.text === text ) {
+        return this.axiomCache_.map;
+      }
+
+      var self = this;
+      var map = { message: {}, value: {}, property: {}, method: {} };
+
+      var apply = function(p, grammar) {
+        var startPos = this.pos;
+        var result = p.parse(this, grammar);
+        if ( result && typeof p.msg === 'function' ) {
+          var m = p.msg();
+          if ( m && m.kind && map[m.kind] !== undefined ) {
+            var endPos = result.pos;
+            var name = text.substring(startPos, endPos);
+            if ( name && ! map[m.kind][name] ) {
+              var line = 0, col = 0;
+              for ( var i = 0 ; i < startPos ; i++ ) {
+                if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
+              }
+              map[m.kind][name] = {
+                line: line, col: col,
+                startPos: startPos, endPos: endPos
+              };
+            }
+          }
+        }
+        return result;
+      };
+
+      var ps = foam.parse.StringPStream.create({
+        str: text + String.fromCharCode(26),
+        apply: apply
+      });
+
+      try { this.parse(ps); } catch ( e ) { /* partial results fine */ }
+
+      this.axiomCache_ = { text: text, map: map };
+      return map;
+    },
+
+    function findAxiomPosition(text, kind, name) {
+      /** Convenience: lookup single axiom position. kind ∈ {'message','value','property','method'}. */
+      var map = this.collectAxiomPositions(text);
+      return ( map[kind] && map[kind][name] ) || null;
+    },
+
     function collectDiagnostics(text) {
       /**
        * Parse `text` and collect diagnostic records from P.msg()-wrapped
@@ -388,6 +454,8 @@ foam.CLASS({
           P.sym('requiresEntry'),
           P.sym('propertiesEntry'),
           P.sym('methodsEntry'),
+          P.sym('messagesEntry'),
+          P.sym('valuesEntry'),
           P.sym('importsEntry'),
           P.sym('exportsEntry'),
           P.sym('javaImportsEntry'),
@@ -424,6 +492,58 @@ foam.CLASS({
           P.optional(P.repeat(
             P.seq(wsc, P.literal("'"), P.sym('classRef'), P.optional(P.literal("'")), wsc), comma)),
           wsc, P.optional(P.literal(']'))),
+
+        // messages: [ { name: 'LABEL_X', message: '…' } ]
+        // Each name's string content is msg-tagged so collectAxiomPositions
+        // can harvest source positions in one parse pass — replacing the
+        // per-axiom regex scanners we used to need.
+        messagesEntry: P.seq(topKey('messages'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.sym('messageObject'), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        messageObject: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('messageObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        messageObjEntry: P.alt(
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('messageNameValue'), P.optional(P.literal("'"))),
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal('"'), P.sym('messageNameValue'), P.optional(P.literal('"'))),
+          P.seq(propKey('message'), wsc, P.literal(':'), wsc, stringLiteral),
+          P.sym('genericEntry')
+        ),
+
+        messageNameValue: P.msg(
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_$')), null, 1)),
+          { kind: 'message' }
+        ),
+
+        // values: [ { name: 'X', ... } ] — foam.ENUM value declarations.
+        valuesEntry: P.seq(topKey('values'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.sym('valueObject'), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        valueObject: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('valueObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        valueObjEntry: P.alt(
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('enumValueName'), P.optional(P.literal("'"))),
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal('"'), P.sym('enumValueName'), P.optional(P.literal('"'))),
+          P.sym('genericEntry')
+        ),
+
+        enumValueName: P.msg(
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_$')), null, 1)),
+          { kind: 'value' }
+        ),
 
         // tableColumns/searchColumns: emit a 'columnName' category at each value
         // position so the LSP handler can detect context without regex scanning.

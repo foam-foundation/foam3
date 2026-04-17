@@ -407,6 +407,61 @@ foam.CLASS({
       return null;
     },
 
+    function getMessages(classId) {
+      /**
+       * Return the model's messages axiom entries as
+       * [{ name, message }, …]. Includes inherited messages from
+       * extends/implements chains so `this.LABEL_X` usages in a subclass
+       * still resolve when the definition lives on a parent/mixin.
+       */
+      var out = [];
+      var seen = {};
+      var id = classId;
+      var guard = 0;
+      while ( id && guard++ < 50 ) {
+        var cls = this.getClass(id);
+        if ( ! cls ) break;
+        var msgs = cls.model_ && cls.model_.messages;
+        if ( msgs ) {
+          for ( var i = 0 ; i < msgs.length ; i++ ) {
+            var m = msgs[i];
+            if ( ! m || ! m.name || seen[m.name] ) continue;
+            seen[m.name] = true;
+            out.push({ name: m.name, message: m.message, definerId: id });
+          }
+        }
+        // Walk implements first, then extends.
+        var impls = cls.model_ && cls.model_.implements;
+        if ( impls ) {
+          for ( var j = 0 ; j < impls.length ; j++ ) {
+            var ifc = impls[j];
+            var ip = typeof ifc === 'string' ? ifc : (ifc && ifc.path);
+            var icls = ip && this.getClass(ip);
+            var imsgs = icls && icls.model_ && icls.model_.messages;
+            if ( imsgs ) {
+              for ( var k = 0 ; k < imsgs.length ; k++ ) {
+                var im = imsgs[k];
+                if ( ! im || ! im.name || seen[im.name] ) continue;
+                seen[im.name] = true;
+                out.push({ name: im.name, message: im.message, definerId: ip });
+              }
+            }
+          }
+        }
+        id = cls.model_ && cls.model_.extends;
+      }
+      return out;
+    },
+
+    function findMessage(classId, name) {
+      /** Find a single message by name walking the inheritance chain. */
+      var all = this.getMessages(classId);
+      for ( var i = 0 ; i < all.length ; i++ ) {
+        if ( all[i].name === name ) return all[i];
+      }
+      return null;
+    },
+
     function getEnumValues(classId) {
       /** Returns enum values for an enum class. */
       var cls = this.getClass(classId);
@@ -437,11 +492,13 @@ foam.CLASS({
     },
 
     function getPropertyDoc(classId, propName) {
-      /** Build markdown hover content for a property. */
+      /** Build markdown hover content for a property. Returns null if the
+       *  named axiom isn't a real Property (so methods/actions fall through
+       *  to their dedicated hover formatters instead of being mis-labeled). */
       var cls = this.getClass(classId);
       if ( ! cls ) return null;
       var prop = cls.getAxiomByName(propName);
-      if ( ! prop ) return null;
+      if ( ! prop || ! foam.lang.Property.isInstance(prop) ) return null;
 
       var md = '**' + propName + '** (' + (prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property') + ')\n\n';
       if ( prop.documentation ) md += prop.documentation + '\n\n';

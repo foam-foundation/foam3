@@ -100,6 +100,12 @@ foam.CLASS({
                 if ( filePath ) return this.buildLocationAtProperty(filePath, segment);
               }
             }
+            // Check if it's a message axiom — `this.LABEL_X`
+            var msg = this.index.findMessage(classId, segment);
+            if ( msg && msg.definerId ) {
+              filePath = this.index.getFilePath(msg.definerId);
+              if ( filePath ) return this.buildLocationAtMessage_(filePath, segment);
+            }
           }
         }
 
@@ -176,6 +182,33 @@ foam.CLASS({
         }
       } catch (e) {}
       return this.buildLocation(filePath, classId);
+    },
+
+    function buildLocationAtMessage_(filePath, msgName) {
+      /**
+       * Jump to a `{ name: 'msgName', message: '...' }` entry inside a
+       * messages: [...] array. Same precise-position approach as
+       * buildLocationAtProperty — cheapest reliable match.
+       */
+      try {
+        var fs_ = require('fs');
+        var content = fs_.readFileSync(filePath, 'utf8');
+        var esc = msgName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var re = new RegExp("name\\s*:\\s*['\"]" + esc + "['\"]");
+        var match = re.exec(content);
+        if ( match ) {
+          var line = 0, col = 0;
+          for ( var i = 0 ; i < match.index ; i++ ) {
+            if ( content[i] === '\n' ) { line++; col = 0; } else col++;
+          }
+          return {
+            uri: 'file://' + filePath,
+            range: { start: { line: line, character: col },
+                     end:   { line: line, character: col + match[0].length } }
+          };
+        }
+      } catch ( e ) {}
+      return this.buildLocation(filePath);
     },
 
     function buildLocationAtProperty(filePath, propName) {

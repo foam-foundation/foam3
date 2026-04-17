@@ -2123,6 +2123,144 @@ test(types2.g === 'foam.mlang.sink.GroupBy' ||
      index.getMethodReturnType('foam.mlang.Expressions', 'GROUP_BY') === 'foam.mlang.sink.GroupBy',
   'TypeTracker uses getMethodReturnType for non-create calls');
 
+// === StringFilterView — GROUP_BY hover + .then chain ===
+section('StringFilterView — return-type resolution & .then param');
+
+// Core: implementers of mlang.Expressions should resolve GROUP_BY, COUNT, etc.
+var SFV = 'foam.u2.filter.properties.StringFilterView';
+if ( index.classExists(SFV) ) {
+  test(index.getMethodReturnType(SFV, 'GROUP_BY') === 'foam.mlang.sink.GroupBy',
+    'StringFilterView.GROUP_BY resolves via implements: Expressions');
+  test(index.getMethodReturnType(SFV, 'COUNT') === 'foam.mlang.sink.Count',
+    'StringFilterView.COUNT resolves via implements: Expressions');
+  test(index.getMethodReturnType(SFV, 'STARTS_WITH') === 'foam.mlang.predicate.StartsWith',
+    'StringFilterView.STARTS_WITH resolves via implements: Expressions');
+
+  // Hover on `GROUP_BY` inside a StringFilterView method body should include
+  // the return type. StringFilterView IS in the registry (loaded via pmake).
+  var sfvFs = require('fs');
+  var sfvPath = 'foam3/src/foam/u2/filter/properties/StringFilterView.js';
+  if ( sfvFs.existsSync(sfvPath) ) {
+    var sfvText = sfvFs.readFileSync(sfvPath, 'utf8');
+    // Find `this.GROUP_BY(` — cursor right after the `Y` of GROUP_BY
+    var idx = sfvText.indexOf('this.GROUP_BY(');
+    var ln = 0, col = 0;
+    for ( var k = 0 ; k < idx ; k++ ) {
+      if ( sfvText.charCodeAt(k) === 10 ) { ln++; col = 0; } else col++;
+    }
+    // land cursor inside `GROUP_BY`
+    var cursorChar = col + 'this.GROUP_BY'.length - 2;
+    var h = hoverHandler.handle(sfvText, { line: ln, character: cursorChar }, 'file://' + sfvPath);
+    var hv = h && h.contents && h.contents.value || '';
+    test(hv.indexOf('foam.mlang.sink.GroupBy') !== -1,
+      'Hover on this.GROUP_BY in StringFilterView shows return foam.mlang.sink.GroupBy');
+  }
+}
+
+// `.select(SINK).then((p) => …)` — p typed as SINK's class
+var thenSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'ChainTest',",
+  "  implements: [ 'foam.mlang.Expressions' ],",
+  "  methods: [",
+  "    function m() {",
+  "      this.dao.where(pred)",
+  "        .select(this.GROUP_BY(this.property, this.COUNT(), 21))",
+  "        .then((results) => {",
+  "          this.countByContents = results.groups;",
+  "        });",
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var tt2 = foam.parse.lsp.TypeTracker.create();
+var chainModel = { package: 'test', name: 'ChainTest',
+  implements: [ 'foam.mlang.Expressions' ],
+  requires: [] };
+// cursor on `results.groups` (line 9, character 30-ish)
+var chainTypes = tt2.getVariableTypes(thenSrc, { line: 9, character: 30 }, chainModel, index);
+test(chainTypes.results === 'foam.mlang.sink.GroupBy',
+  '.then((results) => …) param typed from preceding .select(this.GROUP_BY(...)) (got: ' + chainTypes.results + ')');
+
+// Same with `.select(this.GroupBy.create({...}))` — direct create form
+var createChain = [
+  "foam.CLASS({",
+  "  name: 'X',",
+  "  requires: [ 'foam.mlang.sink.GroupBy' ],",
+  "  methods: [",
+  "    function m() {",
+  "      this.dao.select(this.GroupBy.create({})).then(function(r) { r.groups; });",
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var createModel = { package: 'test', name: 'X',
+  requires: [ 'foam.mlang.sink.GroupBy' ] };
+var createTypes = tt2.getVariableTypes(createChain, { line: 5, character: 65 }, createModel, index);
+test(createTypes.r === 'foam.mlang.sink.GroupBy',
+  '.then(function(r) …) param typed from preceding .select(this.GroupBy.create({}))');
+
+// Arrow function with single-param no-parens: .then(r => r.groups)
+var bareArrow = [
+  "foam.CLASS({",
+  "  name: 'Y',",
+  "  requires: [ 'foam.mlang.sink.Count' ],",
+  "  methods: [",
+  "    function m() {",
+  "      this.dao.select(this.Count.create()).then(r => r.value);",
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var bareModel = { package: 'test', name: 'Y', requires: [ 'foam.mlang.sink.Count' ] };
+var bareTypes = tt2.getVariableTypes(bareArrow, { line: 5, character: 55 }, bareModel, index);
+test(bareTypes.r === 'foam.mlang.sink.Count',
+  '.then(r => …) bare-arrow param typed from preceding .select');
+
+// === MESSAGE AXIOM: hover + go-to-definition ===
+section('Message axiom hover + go-to-definition');
+
+if ( index.classExists(SFV) ) {
+  var sfvFs2 = require('fs');
+  var sfvFile = 'foam3/src/foam/u2/filter/properties/StringFilterView.js';
+  var sfvTxt  = sfvFs2.readFileSync(sfvFile, 'utf8');
+
+  // FoamIndex layer
+  var allMsgs = index.getMessages(SFV);
+  test(allMsgs.length >= 7,
+    'getMessages returns StringFilterView messages (' + allMsgs.length + ')');
+  var lm = index.findMessage(SFV, 'LABEL_PLACEHOLDER');
+  test(lm && lm.message === 'Search', 'findMessage returns LABEL_PLACEHOLDER with its text');
+  test(index.findMessage(SFV, 'NOT_A_MESSAGE') === null,
+    'findMessage returns null for unknown names');
+
+  // Hover — cursor on `this.LABEL_PLACEHOLDER` inside render()
+  var hIdx = sfvTxt.indexOf('this.LABEL_PLACEHOLDER');
+  var hLine = 0, hCol = 0;
+  for ( var i = 0 ; i < hIdx ; i++ ) {
+    if ( sfvTxt.charCodeAt(i) === 10 ) { hLine++; hCol = 0; } else hCol++;
+  }
+  // land cursor inside LABEL_PLACEHOLDER (pos = after `this.`)
+  var msgHover = hoverHandler.handle(sfvTxt,
+    { line: hLine, character: hCol + 'this.'.length + 5 }, 'file://' + sfvFile);
+  var mv = msgHover && msgHover.contents && msgHover.contents.value || '';
+  test(mv.indexOf('LABEL_PLACEHOLDER') !== -1,
+    'Message hover: includes the message name');
+  test(mv.indexOf('Search') !== -1,
+    'Message hover: includes the message text');
+
+  // Definition — same cursor jumps to the `{ name: 'LABEL_PLACEHOLDER', … }` entry
+  var defHandler = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
+  var msgDef = defHandler.handle(sfvTxt,
+    { line: hLine, character: hCol + 'this.'.length + 5 }, 'file://' + sfvFile);
+  test(msgDef && msgDef.uri && msgDef.uri.indexOf('StringFilterView.js') !== -1,
+    'Message go-to-def: lands in StringFilterView.js');
+  test(msgDef && msgDef.range && msgDef.range.start.line > 90 &&
+       msgDef.range.start.line < 110,
+    'Message go-to-def: points into the messages: [...] block');
+}
+
 // === SUMMARY ===
 
 section('SUMMARY');

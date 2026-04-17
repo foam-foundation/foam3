@@ -167,6 +167,17 @@ foam.CLASS({
             return { contents: { kind: 'markdown', value: md } };
           }
         }
+
+        // Message axiom hover — `this.LABEL_X` → show the message text.
+        var msg = this.index.findMessage(currentClassId, lookupName);
+        if ( msg ) {
+          var mmd = '**' + msg.name + '** — message\n\n' +
+                    '```\n' + (msg.message || '') + '\n```\n';
+          if ( msg.definerId && msg.definerId !== currentClassId ) {
+            mmd += '\n*Defined on `' + msg.definerId + '`.*';
+          }
+          return { contents: { kind: 'markdown', value: mmd } };
+        }
       }
 
       return null;

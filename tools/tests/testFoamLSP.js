@@ -2384,6 +2384,85 @@ test(! rfh.isOwnConstantName_({}, 'BAR'),
 test(! rfh.isOwnMessageName_({}, 'HI'),
   'axiomReferences: model without messages returns false');
 
+// === JRL TRIPLE-QUOTED SERVICE SCRIPT / CLIENT ===
+section('JRL triple-quote completion (serviceScript + client)');
+
+var jrlH = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+jrlH.buildJournalClassMap();
+
+// detectTripleQuoteContext_
+var jrlTq = [
+  'p({',
+  '  "class": "foam.core.boot.CSpec",',
+  '  "name": "xDAO",',
+  '  "serviceScript": """',
+  '    return new foam.dao.EasyDAO.Builder(x).build();',
+  '  """,',
+  '  "client": """',
+  '    { "class": "foam.dao.EasyDAO", "of": "" }',
+  '  """',
+  '})'
+].join('\n');
+
+// Cursor inside serviceScript (line 4, char 15 — inside "foam.dao.Easy")
+var ssCtx = jrlH.detectTripleQuoteContext_(jrlTq, { line: 4, character: 20 });
+test(ssCtx && ssCtx.key === 'serviceScript',
+  'detectTripleQuoteContext_: identifies serviceScript');
+
+// Cursor inside client JSON (line 7, char 20)
+var clCtx = jrlH.detectTripleQuoteContext_(jrlTq, { line: 7, character: 20 });
+test(clCtx && clCtx.key === 'client',
+  'detectTripleQuoteContext_: identifies client');
+
+// Outside triple-quote (line 1, inside "name")
+var outCtx = jrlH.detectTripleQuoteContext_(jrlTq, { line: 2, character: 12 });
+test(outCtx === null,
+  'detectTripleQuoteContext_: returns null outside triple-quote');
+
+// serviceScript completion — dotted prefix yields class-id matches
+var ssSrc = [
+  'p({',
+  '  "serviceScript": """',
+  '    return foam.dao.',
+  '  """',
+  '})'
+].join('\n');
+var ssRes = jrlH.handleCompletion(ssSrc, { line: 2, character: 20 });
+test(ssRes.items.length > 5,
+  'serviceScript completion: dotted foam.dao. prefix yields class-id matches (' + ssRes.items.length + ')');
+test(ssRes.items.every(function(i) { return i.label.indexOf('foam.dao.') === 0; }),
+  'serviceScript completion: all suggestions start with foam.dao.');
+
+// serviceScript completion — member-access on a resolved receiver derives
+// its suggestions from the registry (no hardcoded names). Uses
+// `foam.dao.EasyDAO` since it's universally present.
+if ( index.classExists('foam.dao.EasyDAO') ) {
+  var memberSrc = [
+    'p({',
+    '  "serviceScript": """',
+    '    foam.dao.EasyDAO.set',
+    '  """',
+    '})'
+  ].join('\n');
+  var memberRes = jrlH.handleCompletion(memberSrc, { line: 2, character: 23 });
+  // We expect at least one setter surfaced from the class's own properties.
+  test(memberRes.items.some(function(i) {
+    return /^set\w+/.test(i.label);
+  }), 'serviceScript completion: member-access on EasyDAO surfaces registry-derived setters');
+}
+
+// client completion — delegation to nested JRL completion. The inner
+// JSON gets treated as a JRL entry; `"class": "…"` should suggest classes.
+var clientSrc = [
+  'p({',
+  '  "client": """{ "class": "" }"""',
+  '})'
+].join('\n');
+// Line 1 `  "client": """{ "class": "" }"""` — cursor at the empty class value (char 28)
+var clientRes = jrlH.handleCompletion(clientSrc, { line: 1, character: 28 });
+test(Array.isArray(clientRes.items),
+  'client completion: returns an items array (delegated to JRL completion)');
+
 // === SUMMARY ===
 
 section('SUMMARY');

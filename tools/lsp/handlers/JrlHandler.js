@@ -133,6 +133,38 @@ foam.CLASS({
       var lines = text.split('\n');
       var line = lines[position.line] || '';
 
+      // Triple-quoted block hover — for `client` delegate to JRL hover on the
+      // embedded JSON; for `serviceScript` resolve class IDs the cursor is on.
+      var tripleCtx = this.detectTripleQuoteContext_(text, position);
+      if ( tripleCtx ) {
+        if ( tripleCtx.key === 'client' ) {
+          var absCursor = this.toOffset_(text, position);
+          var rel = absCursor - tripleCtx.contentOffset;
+          var contentBefore = tripleCtx.content.substring(0, rel);
+          var relLine = 0, relCol = 0;
+          for ( var i = 0 ; i < contentBefore.length ; i++ ) {
+            if ( contentBefore.charCodeAt(i) === 10 ) { relLine++; relCol = 0; } else relCol++;
+          }
+          return this.handleHover(tripleCtx.content, { line: relLine, character: relCol }, null);
+        }
+        if ( tripleCtx.key === 'serviceScript' ) {
+          // Extract the dotted word under cursor and resolve as a class id.
+          var wordLine = lines[position.line] || '';
+          var ch = position.character;
+          var start = ch;
+          var wordRe = /[\w.$]/;
+          while ( start > 0 && wordRe.test(wordLine.charAt(start - 1)) ) start--;
+          var end = ch;
+          while ( end < wordLine.length && wordRe.test(wordLine.charAt(end)) ) end++;
+          var dotted = wordLine.substring(start, end).replace(/\.$/, '');
+          if ( this.index.classExists(dotted) ) {
+            var doc = this.index.getClassDoc(dotted);
+            if ( doc ) return { contents: { kind: 'markdown', value: doc } };
+          }
+          return null;
+        }
+      }
+
       // Try single-line first, then multi-line
       var entry = this.parseJrlEntry_(line);
       if ( ! entry ) {
@@ -404,6 +436,20 @@ foam.CLASS({
       /** Suggest property names based on the class in the JRL entry. */
       var lines = text.split('\n');
       var line = lines[position.line] || '';
+
+      // Triple-quoted value blocks (`"""…"""`) carry code: serviceScript is
+      // Java, `client` is a nested FObject JSON spec. Route to the right
+      // sub-completion before the normal JRL path.
+      var tripleCtx = this.detectTripleQuoteContext_(text, position);
+      if ( tripleCtx ) {
+        if ( tripleCtx.key === 'serviceScript' ) {
+          return this.serviceScriptCompletion_(text, position, tripleCtx);
+        }
+        if ( tripleCtx.key === 'client' ) {
+          return this.clientBlockCompletion_(text, position, tripleCtx);
+        }
+      }
+
       var entry = this.parseJrlEntry_(line);
       if ( ! entry ) {
         var found = this.findEntryAtLine_(text, position.line);
@@ -472,6 +518,199 @@ foam.CLASS({
       }
 
       return { isIncomplete: false, items: items };
+    },
+
+    function detectTripleQuoteContext_(text, position) {
+      /**
+       * If the cursor is inside a triple-quoted JRL value (`"""…"""`),
+       * return { key, content, contentOffset, relativeOffset } where:
+       *   • key: the JRL key preceding the `"""` (e.g. 'serviceScript',
+       *     'client', 'javaCode')
+       *   • content: the string between the opening and closing `"""`
+       *   • contentOffset: absolute offset in text where content starts
+       *   • relativeOffset: cursor's offset within content
+       * Returns null if the cursor isn't in such a block.
+       */
+      var abs = this.toOffset_(text, position);
+      // Walk backward for an unmatched opening `"""`.
+      var i = abs;
+      var openIdx = -1;
+      while ( i >= 2 ) {
+        if ( text.charAt(i) === '"' && text.charAt(i - 1) === '"' && text.charAt(i - 2) === '"' ) {
+          openIdx = i - 2;
+          break;
+        }
+        i--;
+      }
+      if ( openIdx === -1 ) return null;
+
+      // Confirm there's no earlier `"""` that would close this one.
+      // Count `"""` occurrences before cursor: must be odd (open without close).
+      var before = text.substring(0, abs);
+      var tripleRe = /"""/g;
+      var count = 0;
+      while ( tripleRe.exec(before) !== null ) count++;
+      if ( count % 2 === 0 ) return null;
+
+      // Extract the key immediately before the opening `"""` — e.g.
+      //   "serviceScript": """
+      // Scan back from openIdx for the pattern `"KEY"`.
+      var beforeOpen = text.substring(Math.max(0, openIdx - 200), openIdx);
+      var km = beforeOpen.match(/"([a-zA-Z_][\w$]*)"\s*:\s*$/);
+      if ( ! km ) return null;
+
+      var contentStart = openIdx + 3;
+      var contentEnd = text.indexOf('"""', contentStart);
+      if ( contentEnd === -1 ) contentEnd = text.length;
+
+      return {
+        key: km[1],
+        content: text.substring(contentStart, contentEnd),
+        contentOffset: contentStart,
+        relativeOffset: abs - contentStart
+      };
+    },
+
+    function toOffset_(text, position) {
+      var offset = 0, line = 0, col = 0;
+      for ( var i = 0 ; i < text.length && line <= position.line ; i++ ) {
+        if ( line === position.line && col === position.character ) return i;
+        if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
+        offset = i + 1;
+      }
+      return offset;
+    },
+
+    function serviceScriptCompletion_(text, position, ctx) {
+      /**
+       * Inside a serviceScript Java code block. Two registry-driven modes:
+       *
+       *   1. Dotted class/package path — `foam.dao.E<cursor>` or
+       *      `com.paytic.<cursor>` → suggest every class id that starts
+       *      with the prefix. No hardcoded names.
+       *
+       *   2. Member access on a resolvable receiver — `<expr>.<partial>`
+       *      → resolve the receiver's Java type via the Java-type-resolver
+       *      (cast/new/literal class / `com.x.Y.getOwnClassInfo()`) and
+       *      offer that class's own getters/setters from the registry.
+       *      For FOAM Builder-pattern receivers (anything returning `this`
+       *      or the builder's own type) this surfaces EVERY real setter
+       *      the class actually declares, no hardcoded list.
+       */
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var prefix = line.substring(0, position.character);
+
+      // Member access: `<receiver>.<partial>` — try registry-driven resolution.
+      var memberMatch = prefix.match(/([\w.$]+)\s*(?:\([^)]*\)\s*(?:\.\w+\s*\([^)]*\)\s*)*)?\.(\w*)$/);
+      if ( memberMatch ) {
+        var receiverExpr = memberMatch[1];
+        var partialName  = memberMatch[2] || '';
+        var receiverType = this.resolveReceiverType_(receiverExpr);
+        if ( receiverType ) {
+          var items = this.memberCompletions_(receiverType, partialName);
+          if ( items.length > 0 ) return { isIncomplete: false, items: items };
+        }
+      }
+
+      // Otherwise: dotted class-id prefix search.
+      var dotted = prefix.match(/([\w.$]+)$/);
+      var partial = dotted ? dotted[1] : '';
+      var ids = this.index.getAllClassIds();
+      var out = [];
+      var lower = partial.toLowerCase();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        if ( lower && ids[i].toLowerCase().indexOf(lower) === -1 ) continue;
+        out.push({
+          label: ids[i], kind: 7,
+          insertText: ids[i],
+          sortText: ids[i].toLowerCase()
+        });
+        if ( out.length > 200 ) break;
+      }
+      return { isIncomplete: out.length > 200, items: out };
+    },
+
+    function resolveReceiverType_(expr) {
+      /**
+       * Best-effort: resolve the type of a Java-expression receiver string
+       * to a FOAM class id. Handles:
+       *   • Fully-qualified / short class id (e.g. `foam.dao.EasyDAO`)
+       *   • `X.Builder(...)` — type is `X.Builder` if registered, else `X`
+       *   • `X.getOwnClassInfo()` — the class's own ClassInfo; treat as X
+       */
+      var e = expr.replace(/\s+/g, '');
+      if ( this.index.classExists(e) ) return e;
+      var builderBase = e.match(/^([\w.$]+?)\.Builder$/);
+      if ( builderBase && this.index.classExists(builderBase[1]) ) return builderBase[1];
+      // Strip trailing method invocations
+      var stripped = e.replace(/\.\w+\s*\([^)]*\)\s*$/, '');
+      if ( stripped !== e && this.index.classExists(stripped) ) return stripped;
+      return null;
+    },
+
+    function memberCompletions_(classId, partial) {
+      /**
+       * Build completion items for members of a FOAM class's Java surface:
+       * every property as `getX()` / `setX(…)`, and every FOAM method by
+       * its name. Everything derived from the registry — no hardcoding.
+       */
+      var items = [];
+      var lower = partial.toLowerCase();
+      var props = this.index.getProperties(classId);
+      for ( var i = 0 ; i < props.length ; i++ ) {
+        var p = props[i];
+        var cap = p.name.charAt(0).toUpperCase() + p.name.substring(1);
+        var typeName = this.index.getPropertyJavaType(classId, p.name) || 'Object';
+        var getter = 'get' + cap;
+        var setter = 'set' + cap;
+        if ( ! lower || getter.toLowerCase().indexOf(lower) !== -1 ) {
+          items.push({
+            label: getter + '()', kind: 2,
+            detail: typeName + ' — ' + classId,
+            insertText: getter + '()',
+            sortText: '!' + p.name
+          });
+        }
+        if ( ! lower || setter.toLowerCase().indexOf(lower) !== -1 ) {
+          items.push({
+            label: setter + '(' + typeName + ')', kind: 2,
+            detail: 'void — ' + classId,
+            insertText: setter + '(',
+            sortText: '!' + p.name
+          });
+        }
+      }
+      var methods = this.index.getMethods(classId);
+      for ( var j = 0 ; j < methods.length ; j++ ) {
+        var m = methods[j];
+        if ( lower && m.name.toLowerCase().indexOf(lower) === -1 ) continue;
+        items.push({
+          label: m.name + '()', kind: 2,
+          detail: classId + '.' + m.name,
+          insertText: m.name + '(',
+          sortText: '!!' + m.name
+        });
+      }
+      return items;
+    },
+
+    function clientBlockCompletion_(text, position, ctx) {
+      /**
+       * Inside client `"""{ … }"""` — this is a nested FObject JSON spec.
+       * Delegate to normal JRL completion by running it against the
+       * content itself (reusing class/property logic) with an adjusted
+       * position. Handles `"class": "…"`, `"of": "…"`, property keys, etc.
+       */
+      // Translate absolute cursor to content-relative line/char.
+      var absCursor = this.toOffset_(text, position);
+      var rel = absCursor - ctx.contentOffset;
+      var contentBefore = ctx.content.substring(0, rel);
+      var relLine = 0, relCol = 0;
+      for ( var i = 0 ; i < contentBefore.length ; i++ ) {
+        if ( contentBefore.charCodeAt(i) === 10 ) { relLine++; relCol = 0; } else relCol++;
+      }
+      return this.handleCompletion(ctx.content, { line: relLine, character: relCol }, null);
     },
 
     function getClassNameCompletions_(partial) {

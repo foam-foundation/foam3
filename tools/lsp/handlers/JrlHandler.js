@@ -794,57 +794,86 @@ foam.CLASS({
        * back once the grammar path is stable and covered by tests.
        */
       var cpos = this.embedCursorToPosition_(ctx);
-      var clines = ctx.content.split('\n');
-      var line = clines[cpos.line] || '';
+      var content = ctx.content;
+      var cursorAbs = this.positionToOffset_(content, cpos);
+
       var wordRe = /[\w.$]/;
-      var start = cpos.character;
-      var end = cpos.character;
-      while ( start > 0 && wordRe.test(line.charAt(start - 1)) ) start--;
-      while ( end < line.length && wordRe.test(line.charAt(end)) ) end++;
-      var dotted = line.substring(start, end).replace(/^\.+|\.+$/g, '');
+      var start = cursorAbs;
+      var end = cursorAbs;
+      while ( start > 0 && wordRe.test(content.charAt(start - 1)) ) start--;
+      while ( end < content.length && wordRe.test(content.charAt(end)) ) end++;
+      var dotted = content.substring(start, end).replace(/^\.+|\.+$/g, '');
 
       if ( dotted && this.index.classExists(dotted) ) {
         return this.index.getClassDoc(dotted);
       }
       if ( dotted && dotted.indexOf('.') !== -1 ) {
         for ( var cand = dotted ; cand.indexOf('.') !== -1 ; ) {
-          if ( this.index.classExists(cand) ) return this.index.getClassDoc(cand);
+          if ( this.index.classExists(cand) ) {
+            // If the trimmed suffix is an enum value on this class, show
+            // the value hover rather than the class doc.
+            var suffix = dotted.substring(cand.length + 1);
+            if ( suffix && suffix.indexOf('.') === -1 ) {
+              var enumHit = this.buildEnumValueHover_(cand, suffix);
+              if ( enumHit ) return enumHit;
+            }
+            return this.index.getClassDoc(cand);
+          }
           cand = cand.substring(0, cand.lastIndexOf('.'));
         }
       }
       if ( dotted && dotted.indexOf('.') === -1 ) {
         // Effective word start: first non-dot char in the matched region.
         var effectiveStart = start;
-        while ( effectiveStart < line.length && line.charAt(effectiveStart) === '.' ) {
+        while ( effectiveStart < content.length && content.charAt(effectiveStart) === '.' ) {
           effectiveStart++;
         }
-        var receiverType = this.resolveReceiverBefore_(line, effectiveStart);
-        if ( receiverType ) return this.buildMemberHover_(receiverType, dotted);
+        var receiverType = this.resolveReceiverBefore_(content, effectiveStart);
+        if ( receiverType ) {
+          // Check enum first — hovering on ENUM_VALUE inside enum class scope.
+          var enumHover = this.buildEnumValueHover_(receiverType, dotted);
+          if ( enumHover ) return enumHover;
+          return this.buildMemberHover_(receiverType, dotted);
+        }
       }
       return null;
     },
 
-    function resolveReceiverBefore_(line, wordStart) {
+    function positionToOffset_(content, pos) {
+      /** Map {line, character} to absolute offset in content. */
+      var off = 0, line = 0;
+      for ( var i = 0 ; i < content.length ; i++ ) {
+        if ( line === pos.line ) return i + pos.character;
+        if ( content.charCodeAt(i) === 10 ) line++;
+      }
+      return content.length;
+    },
+
+    function resolveReceiverBefore_(content, wordStart) {
       /**
        * Return the FOAM class id of the receiver expression that precedes
-       * `line[wordStart]`. Handles arbitrarily long chains:
-       *   • `foo.X.something.`
-       *   • `foo.X.Builder(x).`
-       *   • `foo.X.Builder(x).setA(true).setB(y).`   ← chained builder
+       * `content[wordStart]`. Operates on the FULL embedded content so
+       * multi-line builder chains work:
        *
-       * Walks backward peeling alternating `word/dot` runs and balanced
-       * `(…)` groups. Stops on whitespace, operators, or line start.
+       *   return new foo.X.Builder(x)
+       *     .setA(true)
+       *     .setB(y)
+       *     .setC(…)   ← cursor on setC resolves receiver across lines
+       *
+       * Walks backward peeling alternating word/dot runs and balanced
+       * `(…)` groups; treats whitespace (including newlines) as part of
+       * the chain if it's between a dot and the next token.
        */
-      if ( wordStart === 0 || line.charAt(wordStart - 1) !== '.' ) return null;
+      if ( wordStart === 0 || content.charAt(wordStart - 1) !== '.' ) return null;
       var pos = wordStart - 2; // start before the trailing dot
       while ( pos >= 0 ) {
-        var ch = line.charAt(pos);
+        var ch = content.charAt(pos);
         if ( /[\w.$]/.test(ch) ) { pos--; continue; }
         if ( ch === ')' ) {
           var depth = 1;
           pos--;
           while ( pos >= 0 && depth > 0 ) {
-            var c = line.charAt(pos);
+            var c = content.charAt(pos);
             if ( c === ')' ) depth++;
             else if ( c === '(' ) depth--;
             if ( depth === 0 ) break;
@@ -854,13 +883,50 @@ foam.CLASS({
           pos--; // consume the '('
           continue;
         }
+        if ( /\s/.test(ch) ) {
+          // Whitespace (including newlines) is part of the chain only if it
+          // sits between two chain elements — i.e. the next non-ws char
+          // going backward is `.`, `)`, or `]`. This rejects `new foo.Bar`
+          // (whitespace between `new` and the chain) while accepting
+          //    foo.Builder(x)
+          //      .setA(…)           (ws before `.`)
+          // and foo
+          //      .bar                (ws before `.`)
+          var skip = pos;
+          while ( skip >= 0 && /\s/.test(content.charAt(skip)) ) skip--;
+          if ( skip < 0 ) break;
+          var prev = content.charAt(skip);
+          if ( prev !== '.' && prev !== ')' && prev !== ']' ) break;
+          pos = skip;
+          continue;
+        }
         break;
       }
-      var start = pos + 1;
-      while ( start < wordStart - 1 && line.charAt(start) === '.' ) start++;
-      var receiverExpr = line.substring(start, wordStart - 1);
+      var segStart = pos + 1;
+      // Skip leading whitespace and leading dots.
+      while ( segStart < wordStart - 1 && /[\s.]/.test(content.charAt(segStart)) ) segStart++;
+      var receiverExpr = content.substring(segStart, wordStart - 1).replace(/\s+/g, '');
       if ( ! receiverExpr ) return null;
       return this.resolveReceiverType_(receiverExpr);
+    },
+
+    function buildEnumValueHover_(classId, valueName) {
+      /**
+       * If classId is an enum and valueName is one of its values, build a
+       * hover showing the value's label and ordinal.
+       */
+      var values = this.index.getEnumValues(classId);
+      if ( ! values || ! values.length ) return null;
+      for ( var i = 0 ; i < values.length ; i++ ) {
+        if ( values[i].name !== valueName ) continue;
+        var v = values[i];
+        var md = '```java\n' + classId + '.' + v.name + '\n```\n';
+        md += '*enum value on `' + classId + '`*';
+        if ( v.label ) md += '\n\nLabel: **' + v.label + '**';
+        if ( v.ordinal != null ) md += '\n\nOrdinal: ' + v.ordinal;
+        return md;
+      }
+      return null;
     },
 
     function buildMemberHover_(classId, memberName) {
@@ -996,24 +1062,34 @@ foam.CLASS({
        *      or the builder's own type) this surfaces EVERY real setter
        *      the class actually declares, no hardcoded list.
        */
-      var lines = text.split('\n');
-      var line = lines[position.line] || '';
-      var prefix = line.substring(0, position.character);
+      // Operate on the FULL content up to the cursor so multi-line
+       // builder chains resolve correctly (each setter on its own line).
+      var cursorAbs = this.positionToOffset_(text, position);
+      var prefix = text.substring(0, cursorAbs);
 
-      // Member access: `<receiver>.<partial>` — try registry-driven resolution.
-      var memberMatch = prefix.match(/([\w.$]+)\s*(?:\([^)]*\)\s*(?:\.\w+\s*\([^)]*\)\s*)*)?\.(\w*)$/);
-      if ( memberMatch ) {
-        var receiverExpr = memberMatch[1];
-        var partialName  = memberMatch[2] || '';
-        var receiverType = this.resolveReceiverType_(receiverExpr);
+      // Partial word at cursor: letters only — we match an optional leading
+      // dot explicitly below.
+      var partialMatch = prefix.match(/\.(\w*)$/);
+      if ( partialMatch ) {
+        var partialName = partialMatch[1] || '';
+        var dotPos = cursorAbs - partialName.length - 1;
+        var receiverType = this.resolveReceiverBefore_(text, dotPos + 1);
         if ( receiverType ) {
+          // Enum values take precedence — they're what you actually want
+          // when the receiver is an enum class.
+          var enumItems = this.enumValueCompletions_(receiverType, partialName);
+          if ( enumItems.length > 0 ) return { isIncomplete: false, items: enumItems };
+
           var items = this.memberCompletions_(receiverType, partialName);
           if ( items.length > 0 ) return { isIncomplete: false, items: items };
         }
       }
 
       // Otherwise: dotted class-id prefix search.
-      var dotted = prefix.match(/([\w.$]+)$/);
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var linePrefix = line.substring(0, position.character);
+      var dotted = linePrefix.match(/([\w.$]+)$/);
       var partial = dotted ? dotted[1] : '';
       var ids = this.index.getAllClassIds();
       var out = [];
@@ -1052,6 +1128,29 @@ foam.CLASS({
         e = next;
       }
       return null;
+    },
+
+    function enumValueCompletions_(classId, partial) {
+      /**
+       * If classId is a FOAM enum, offer its VALUES as completions.
+       * Returns empty array for non-enums.
+       */
+      var values = this.index.getEnumValues(classId);
+      if ( ! values || ! values.length ) return [];
+      var items = [];
+      var lower = partial ? partial.toLowerCase() : '';
+      for ( var i = 0 ; i < values.length ; i++ ) {
+        var v = values[i];
+        if ( lower && v.name.toLowerCase().indexOf(lower) === -1 ) continue;
+        items.push({
+          label: v.name,
+          kind: 20, // CompletionItemKind.EnumMember
+          detail: classId + (v.label ? ' — ' + v.label : ''),
+          insertText: v.name,
+          sortText: '!' + String(v.ordinal != null ? v.ordinal : i).padStart(5, '0')
+        });
+      }
+      return items;
     },
 
     function memberCompletions_(classId, partial) {

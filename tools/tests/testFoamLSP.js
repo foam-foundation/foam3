@@ -2799,6 +2799,71 @@ var vscodeJrl = JSON.parse(fs_.readFileSync(path_.join(__dirname, '../lsp/editor
 test(!! vscodeJrl.repository['json-block-triple'] && !! vscodeJrl.repository['json-block-backtick'],
   'VS Code foam-jrl grammar has JSON injections for client triple/backtick');
 
+// === MULTI-LINE BUILDER CHAIN (real-world services.jrl shape) ===
+section('Multi-line builder chain — hover + enum completion');
+var mlsrc = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"transactionDAO",',
+  '  "serviceScript": """',
+  '    return new foam.dao.EasyDAO.Builder(x)',
+  '      .setPm(true)',
+  '      .setSeqNo(true)',
+  '      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)',
+  '      .setOf(foam.lang.FObject.getOwnClassInfo())',
+  '      .build();',
+  '  """',
+  '})'
+].join('\n');
+
+// Hover on .setSeqNo — receiver is on line 4 (the return new ... Builder(x)),
+// but .setSeqNo is on line 6. Walk-back must cross line boundaries.
+var linesMl = mlsrc.split('\n');
+var seqLine = 6; // .setSeqNo
+var seqCol = linesMl[seqLine].indexOf('setSeqNo') + 2;
+var seqH = jrlH3.handleHover(mlsrc, { line: seqLine, character: seqCol });
+test(seqH && seqH.contents && seqH.contents.value && /setSeqNo|property|seqNo/i.test(seqH.contents.value),
+  'Multi-line: hover on .setSeqNo resolves to EasyDAO setter (receiver on prior line)');
+
+// Hover on .setJournalType (line 7, two chained setters + Builder above)
+var jtLine = 7;
+var jtCol = linesMl[jtLine].indexOf('setJournalType') + 2;
+var jtH = jrlH3.handleHover(mlsrc, { line: jtLine, character: jtCol });
+test(jtH && jtH.contents && jtH.contents.value && /setJournalType|journalType|property/i.test(jtH.contents.value),
+  'Multi-line: hover on .setJournalType resolves to EasyDAO setter (chain with multiple prior setters)');
+
+// Hover on SINGLE_JOURNAL — should be enum value hover.
+var enumLine = 7;
+var enumCol = linesMl[enumLine].indexOf('SINGLE_JOURNAL') + 2;
+var enumH = jrlH3.handleHover(mlsrc, { line: enumLine, character: enumCol });
+if ( index.classExists('foam.dao.JournalType') ) {
+  test(enumH && enumH.contents && enumH.contents.value && /JournalType\.SINGLE_JOURNAL|enum value/i.test(enumH.contents.value),
+    'Hover on foam.dao.JournalType.SINGLE_JOURNAL shows enum value info');
+}
+
+// Completion at `foam.dao.JournalType.` — must surface enum values FIRST,
+// not all classes starting with foam.dao.JournalType.
+if ( index.classExists('foam.dao.JournalType') ) {
+  var enumCompSrc = [
+    'p({',
+    '  "serviceScript": """',
+    '    return new foam.dao.EasyDAO.Builder(x).setJournalType(foam.dao.JournalType.',
+    '  """',
+    '})'
+  ].join('\n');
+  var enumCompLine = 2;
+  var enumCompCol = enumCompSrc.split('\n')[enumCompLine].length;
+  var enumComp = jrlH3.handleCompletion(enumCompSrc, { line: enumCompLine, character: enumCompCol });
+  var hasSingleJournal = enumComp.items.some(function(it) { return it.label === 'SINGLE_JOURNAL'; });
+  test(hasSingleJournal,
+    'Completion after `foam.dao.JournalType.` offers enum values (SINGLE_JOURNAL found: ' +
+    enumComp.items.slice(0, 4).map(function(i) { return i.label; }).join(',') + ')');
+  // First item must be an enum value (kind 20), not a class
+  var firstIsEnum = enumComp.items.length > 0 && enumComp.items[0].kind === 20;
+  test(firstIsEnum,
+    'First completion item is an enum value (kind=20), not a class');
+}
+
 // === CHAINED BUILDER SETTER HOVERS ===
 section('Chained builder setter hovers — walk back through .a(x).b(y) chains');
 var chained = [
@@ -2820,6 +2885,46 @@ var chainedLine = chained.split('\n')[4];
        /void ' + name + '|property/i.test(hover.contents.value.replace(/[|]/g, '')),
     'Hover on .' + name + '( in chained builder — resolves to EasyDAO setter');
 });
+
+// === REAL services.jrl sanity check ===
+section('Real services.jrl hover sanity');
+var realJrlPath = require('path').resolve(__dirname, '../../../journals/services.jrl');
+if ( require('fs').existsSync(realJrlPath) ) {
+  var realText = require('fs').readFileSync(realJrlPath, 'utf8');
+  var realLines = realText.split('\n');
+
+  // Find the first .setPm( occurrence and hover on it.
+  for ( var rl = 0 ; rl < realLines.length ; rl++ ) {
+    var m = realLines[rl].indexOf('.setPm(');
+    if ( m === -1 ) continue;
+    var h = jrlH3.handleHover(realText, { line: rl, character: m + 3 });
+    test(h && h.contents && h.contents.value && /setPm|pm/i.test(h.contents.value),
+      'Real services.jrl: hover on .setPm at line ' + rl + ' resolves (setPm or pm in output)');
+    break;
+  }
+
+  // First .setOf( across the entire file.
+  for ( var rl2 = 0 ; rl2 < realLines.length ; rl2++ ) {
+    var m2 = realLines[rl2].indexOf('.setOf(');
+    if ( m2 === -1 ) continue;
+    var h2 = jrlH3.handleHover(realText, { line: rl2, character: m2 + 3 });
+    test(h2 && h2.contents && h2.contents.value && /setOf|of /i.test(h2.contents.value),
+      'Real services.jrl: hover on .setOf at line ' + rl2 + ' resolves');
+    break;
+  }
+
+  // First `foam.dao.JournalType.SINGLE_JOURNAL` reference.
+  for ( var rl3 = 0 ; rl3 < realLines.length ; rl3++ ) {
+    var m3 = realLines[rl3].indexOf('JournalType.SINGLE_JOURNAL');
+    if ( m3 === -1 ) continue;
+    // Hover on SINGLE_JOURNAL
+    var sj = realLines[rl3].indexOf('SINGLE_JOURNAL');
+    var h3 = jrlH3.handleHover(realText, { line: rl3, character: sj + 2 });
+    test(h3 && h3.contents && h3.contents.value && /SINGLE_JOURNAL|enum value|ordinal/i.test(h3.contents.value),
+      'Real services.jrl: hover on SINGLE_JOURNAL enum value resolves');
+    break;
+  }
+}
 
 // === SUMMARY ===
 

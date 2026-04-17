@@ -187,16 +187,16 @@ foam.CLASS({
     function buildLocationAtMessage_(filePath, msgName) {
       /**
        * Jump to the `{ name: 'msgName', … }` entry inside messages:[…].
-       * Tries grammar-indexed position first (FoamClassGrammar emits a
-       * `{kind: 'message'}` msg on every parsed message name — zero
-       * ambiguity, container-aware). If the grammar bails before reaching
-       * the messages block (pathological earlier constructs), falls back
-       * to the name-regex to keep go-to-def working.
+       * Grammar-only: FoamClassGrammar emits a `{kind: 'message'}` msg on
+       * every parsed message name. If the grammar can't see a message
+       * (rare; file earlier in the body breaks parse), we return a
+       * file-top location so the user still lands in the right file and
+       * we learn the grammar needs more recovery rules — not a regex
+       * fallback that hides the breakage.
        */
       try {
         var fs_ = require('fs');
         var content = fs_.readFileSync(filePath, 'utf8');
-
         var pos = this.grammar_().findAxiomPosition(content, 'message', msgName);
         if ( pos ) {
           return {
@@ -207,103 +207,8 @@ foam.CLASS({
             }
           };
         }
-
-        // Grammar didn't see this message — regex fallback scoped to the
-        // messages: [...] block so we don't pick up stray name: '…' entries.
-        var mb = this.findMessagesBlock_(content);
-        if ( mb ) {
-          var esc = msgName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          var re = new RegExp("name\\s*:\\s*['\"]" + esc + "['\"]");
-          var slice = content.substring(mb.start, mb.end);
-          var m = re.exec(slice);
-          if ( m ) {
-            var absIdx = mb.start + m.index;
-            var line = 0, col = 0;
-            for ( var i = 0 ; i < absIdx ; i++ ) {
-              if ( content[i] === '\n' ) { line++; col = 0; } else col++;
-            }
-            return {
-              uri: 'file://' + filePath,
-              range: {
-                start: { line: line, character: col },
-                end:   { line: line, character: col + m[0].length }
-              }
-            };
-          }
-        }
       } catch ( e ) {}
       return this.buildLocation(filePath);
-    },
-
-    function findMessagesBlock_(content) {
-      /**
-       * Locate the `messages: [ … ]` block by scanning for the key at code
-       * scope (strings/comments skipped) and balance-matching its closing `]`.
-       * Returns `{start, end}` absolute offsets into content, or null.
-       */
-      var key = 'messages';
-      var n = content.length;
-      var i = 0;
-      while ( i < n ) {
-        // Skip strings/comments
-        var c = content[i];
-        if ( c === "'" || c === '"' || c === '`' ) {
-          var q = c; i++;
-          while ( i < n && content[i] !== q ) { if ( content[i] === '\\' ) i++; i++; }
-          i++;
-          continue;
-        }
-        if ( c === '/' && content[i + 1] === '/' ) {
-          while ( i < n && content[i] !== '\n' ) i++;
-          continue;
-        }
-        if ( c === '/' && content[i + 1] === '*' ) {
-          i += 2;
-          while ( i < n - 1 && ! ( content[i] === '*' && content[i + 1] === '/' ) ) i++;
-          i += 2;
-          continue;
-        }
-        // Word-boundary key match
-        if ( content.substr(i, key.length) === key ) {
-          var prev = i > 0 ? content.charCodeAt(i - 1) : 0;
-          var isWord = function(c) {
-            return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) ||
-                   (c >= 97 && c <= 122) || c === 95 || c === 36;
-          };
-          if ( ! isWord(prev) ) {
-            var after = i + key.length;
-            if ( ! isWord(content.charCodeAt(after)) ) {
-              // Expect `:` then `[`
-              var p = after;
-              while ( p < n && /\s/.test(content[p]) ) p++;
-              if ( content[p] === ':' ) {
-                p++;
-                while ( p < n && /\s/.test(content[p]) ) p++;
-                if ( content[p] === '[' ) {
-                  var start = p + 1;
-                  var depth = 1;
-                  var k = start;
-                  while ( k < n && depth > 0 ) {
-                    var ch = content[k];
-                    if ( ch === "'" || ch === '"' || ch === '`' ) {
-                      var qq = ch; k++;
-                      while ( k < n && content[k] !== qq ) { if ( content[k] === '\\' ) k++; k++; }
-                      k++;
-                      continue;
-                    }
-                    if ( ch === '[' ) depth++;
-                    else if ( ch === ']' ) depth--;
-                    if ( depth === 0 ) return { start: start, end: k };
-                    k++;
-                  }
-                }
-              }
-            }
-          }
-        }
-        i++;
-      }
-      return null;
     },
 
     function grammar_() {

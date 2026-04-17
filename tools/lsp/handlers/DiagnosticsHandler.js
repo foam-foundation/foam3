@@ -392,7 +392,9 @@ foam.CLASS({
     function buildPropScope_(classId, modelObj, rangeStart, rangeEnd) {
       /**
        * Build a property scope: { classId, propNames, start, end }.
-       * Collects property names from both the FOAM registry and the raw model object.
+       * Collects names that are valid as `expression:` / `postSet:` / etc.
+       * parameters — i.e., anything accessible on `this.`: own + inherited
+       * properties, plus imports (which FOAM exposes on `this` too).
        */
       var propNames = {};
 
@@ -412,6 +414,36 @@ foam.CLASS({
         var p = ownProps[i];
         var name = typeof p === 'string' ? p : p.name;
         if ( name ) propNames[name] = true;
+      }
+
+      // Imports — `imports: [ 'visualizationWidth', 'ctrl?' ]` are all exposed
+      // on `this` at runtime so they're valid expression params too.
+      var imps = modelObj.imports || [];
+      for ( var i = 0 ; i < imps.length ; i++ ) {
+        var imp = imps[i];
+        var iname = typeof imp === 'string' ? imp : (imp && imp.name);
+        if ( ! iname ) continue;
+        // handle aliases `'a as b'` and optional `'x?'`
+        var asIdx = iname.indexOf(' as ');
+        if ( asIdx !== -1 ) iname = iname.substring(asIdx + 4).trim();
+        iname = iname.replace(/\?$/, '').trim();
+        if ( iname ) propNames[iname] = true;
+      }
+
+      // Constants — `constants: { NAME: 'X' }` or `constants: [{ name: 'X' }]`
+      var consts = modelObj.constants;
+      if ( consts ) {
+        if ( Array.isArray(consts) ) {
+          for ( var i = 0 ; i < consts.length ; i++ ) {
+            var c = consts[i];
+            var cn = typeof c === 'string' ? c : (c && c.name);
+            if ( cn ) propNames[cn] = true;
+          }
+        } else if ( typeof consts === 'object' ) {
+          for ( var cn in consts ) {
+            if ( Object.prototype.hasOwnProperty.call(consts, cn) ) propNames[cn] = true;
+          }
+        }
       }
 
       return { classId: classId, propNames: propNames, start: rangeStart, end: rangeEnd };

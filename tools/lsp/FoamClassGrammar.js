@@ -225,8 +225,15 @@ foam.CLASS({
       this.propTypeParser_ = propTypeParsers.length > 0 ?
         P.alt.apply(P, propTypeParsers) : P.literalIC('String');
 
-      // Class references — all known class IDs
-      var ids = this.index.getAllClassIds();
+      // Class references — all known class IDs, SORTED BY LENGTH DESCENDING.
+      // Critical: `alt` returns the FIRST match, so longer ids must be tried
+      // first. Otherwise a shorter prefix (e.g. `foam.mlang.Expr`) would
+      // greedy-match inside `foam.mlang.Expressions`, consuming 14 chars and
+      // leaving the outer seq stranded at `essions'`. We used to lose every
+      // `implements: [ 'foam.mlang.Expressions' ]` to exactly this bug.
+      var ids = this.index.getAllClassIds().slice().sort(function(a, b) {
+        return b.length - a.length;
+      });
       var classRefParsers = ids.map(function(id) {
         var cls = self.index.getClass(id);
         var doc = cls && cls.model_ ? ( cls.model_.documentation || '' ) : '';

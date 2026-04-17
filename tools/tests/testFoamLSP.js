@@ -2322,11 +2322,31 @@ test(enumMap.value.RED && enumMap.value.RED.line === 4,
 test(enumMap.value.GREEN && enumMap.value.GREEN.line === 5,
   'Grammar axiom-pos: enum value GREEN at line 5');
 
-// StringFilterView cross-check — grammar sees the full messages block
-// only when earlier class entries fully parse. Skip hard-fail if grammar
-// bails early on some preceding construct; the message go-to-def test
-// upstream already covers the end-to-end path via the existing eval
-// fallback.
+// Regression: `foam.mlang.Expressions` was greedy-matched by `foam.mlang.Expr`
+// before we started sorting class-ref sugs by length-descending. Guard that
+// here so the bug can't come back silently.
+var exprCheck = axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ implements: [ 'foam.mlang.Expressions' ], messages: [ { name: 'FOO', message: 'hi' } ] });"
+);
+test(Object.keys(exprCheck.message).length === 1,
+  'Grammar parses implements: [ foam.mlang.Expressions ] without prefix-match regression');
+
+// StringFilterView cross-check — grammar MUST resolve axiom positions
+// on real files.
+if ( index.classExists(SFV) ) {
+  var sfvFs3 = require('fs');
+  var sfvTxt3 = sfvFs3.readFileSync('foam3/src/foam/u2/filter/properties/StringFilterView.js', 'utf8');
+  var sfvAxMap = axiomGrammar.collectAxiomPositions(sfvTxt3);
+
+  // Progressive isolation: test increasingly minimal versions of SFV until
+  // grammar produces results — identifies which construct breaks it.
+
+  var msgKeys = Object.keys(sfvAxMap.message);
+  test(msgKeys.length >= 7,
+    'Grammar axiom-pos on StringFilterView: all 7 messages indexed (got ' + msgKeys.length + ')');
+  test(sfvAxMap.message.LABEL_PLACEHOLDER && sfvAxMap.message.LABEL_PLACEHOLDER.line > 90,
+    'Grammar axiom-pos: LABEL_PLACEHOLDER at expected line');
+}
 
 // === SUMMARY ===
 

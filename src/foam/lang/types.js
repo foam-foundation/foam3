@@ -1366,16 +1366,6 @@ foam.CLASS({
 
   properties: [
     ['of', 'foam.lang.Glyph'],
-    // [
-    //   'fromJSON',
-    //   function fromJSON(value, ctx, prop, json) {
-    //     /** Prevents viewspecs from converting to views when loaded from JSON. **/
-    //     return value;
-    //   }
-    // ],
-    // [ 'javaJSONParser', 'foam.lib.json.UnknownFObjectParser.instance()' ],
-    // [ 'displayWidth', 80 ],
-    // [ 'copyValueFrom', () =>  false]
     [ 'value', null ],
     {
       name: 'adapt',

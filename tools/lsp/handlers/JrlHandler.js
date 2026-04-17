@@ -588,10 +588,20 @@ foam.CLASS({
 
     function resolveDottedClassUnderCursor_(ctx) {
       /**
-       * Walk outward from the cursor to collect a dotted/JSON-escaped word,
-       * then progressively trim trailing `.segment` parts until the remaining
-       * prefix is a registered class. Returns the class's hover markdown or
-       * null. Works inside Java/JS code AND inside quoted JSON string values.
+       * Hover resolver for embedded code/JSON. Four modes, first hit wins:
+       *
+       *   1. Full dotted word IS a registered class id → class doc.
+       *   2. Dotted word with a trailing `.segment` that isn't a class —
+       *      trim trailing segments until a prefix matches.
+       *   3. Short word (no dots) that IS itself a class id → class doc.
+       *   4. Short word preceded by a resolvable receiver chain —
+       *      `<receiver>.<word>` where receiver walks to a class. Look up
+       *      the word as a method/getter/setter on that class.
+       *
+       * Grammar-level upgrade planned: replace char walks with a chain
+       * grammar. First cut went through `foam.parse.Grammar.symbols`
+       * callback (arg ordering issue) — keep char-walking for now, add
+       * back once the grammar path is stable and covered by tests.
        */
       var cpos = this.embedCursorToPosition_(ctx);
       var clines = ctx.content.split('\n');
@@ -602,20 +612,105 @@ foam.CLASS({
       while ( start > 0 && wordRe.test(line.charAt(start - 1)) ) start--;
       while ( end < line.length && wordRe.test(line.charAt(end)) ) end++;
       var dotted = line.substring(start, end).replace(/^\.+|\.+$/g, '');
-      if ( ! dotted || dotted.indexOf('.') === -1 ) {
-        // Short names aren't meaningful without a parent class context here.
-        if ( dotted && this.index.classExists(dotted) ) {
-          return this.index.getClassDoc(dotted);
-        }
-        return null;
+
+      if ( dotted && this.index.classExists(dotted) ) {
+        return this.index.getClassDoc(dotted);
       }
-      // Try the full id, then drop trailing .segment until a class matches.
-      for ( var cand = dotted ; cand.indexOf('.') !== -1 ; ) {
-        if ( this.index.classExists(cand) ) {
-          return this.index.getClassDoc(cand);
+      if ( dotted && dotted.indexOf('.') !== -1 ) {
+        for ( var cand = dotted ; cand.indexOf('.') !== -1 ; ) {
+          if ( this.index.classExists(cand) ) return this.index.getClassDoc(cand);
+          cand = cand.substring(0, cand.lastIndexOf('.'));
         }
-        cand = cand.substring(0, cand.lastIndexOf('.'));
       }
+      if ( dotted && dotted.indexOf('.') === -1 ) {
+        // Effective word start: first non-dot char in the matched region.
+        var effectiveStart = start;
+        while ( effectiveStart < line.length && line.charAt(effectiveStart) === '.' ) {
+          effectiveStart++;
+        }
+        var receiverType = this.resolveReceiverBefore_(line, effectiveStart);
+        if ( receiverType ) return this.buildMemberHover_(receiverType, dotted);
+      }
+      return null;
+    },
+
+    function resolveReceiverBefore_(line, wordStart) {
+      /**
+       * Return the FOAM class id of the receiver expression that precedes
+       * `line[wordStart]`. Handles:
+       *   • `<dotted>.` — `foo.X.something.`
+       *   • `<dotted>(args).` — `foo.X.Builder(x).`
+       */
+      var i = wordStart;
+      if ( i === 0 || line.charAt(i - 1) !== '.' ) return null;
+      var callEnd = i - 1;
+      var parseEnd = callEnd;
+
+      // Optional balanced `(…)` right before the dot.
+      if ( callEnd > 0 && line.charAt(callEnd - 1) === ')' ) {
+        var depth = 1;
+        var j = callEnd - 2;
+        while ( j >= 0 && depth > 0 ) {
+          var ch = line.charAt(j);
+          if ( ch === ')' ) depth++;
+          else if ( ch === '(' ) depth--;
+          if ( depth === 0 ) break;
+          j--;
+        }
+        if ( depth !== 0 ) return null;
+        parseEnd = j;
+      }
+
+      var k = parseEnd - 1;
+      while ( k >= 0 && /[\w.$]/.test(line.charAt(k)) ) k--;
+      var receiverExpr = line.substring(k + 1, parseEnd).replace(/\.+$/, '');
+      if ( ! receiverExpr ) return null;
+      return this.resolveReceiverType_(receiverExpr);
+    },
+
+    function buildMemberHover_(classId, memberName) {
+      /**
+       * Build hover markdown for a member access on a known class. Matches
+       * getters/setters derived from properties, and FOAM methods. Returns
+       * null if the member isn't on the class.
+       */
+      // Getter/setter pattern — `getX` / `setX` where X is a capitalized
+      // name that, lowercased, names a property on the class.
+      var gs = memberName.match(/^(get|set|is)([A-Z]\w*)$/);
+      if ( gs ) {
+        var propName = gs[2].charAt(0).toLowerCase() + gs[2].substring(1);
+        var props = this.index.getProperties(classId);
+        for ( var i = 0 ; i < props.length ; i++ ) {
+          if ( props[i].name === propName ) {
+            var typeName = this.index.getPropertyJavaType(classId, propName) || 'Object';
+            var md = '```java\n';
+            md += ( gs[1] === 'set' ? 'void '
+                                    : typeName + ' ' ) + memberName;
+            md += ( gs[1] === 'set' ? '(' + typeName + ' val)' : '()' );
+            md += '\n```\n';
+            md += '*property `' + propName + '` on `' + classId + '`*';
+            if ( props[i].documentation ) md += '\n\n' + props[i].documentation;
+            return md;
+          }
+        }
+      }
+
+      // FOAM method axiom
+      var methods = this.index.getMethods(classId);
+      for ( var i = 0 ; i < methods.length ; i++ ) {
+        if ( methods[i].name !== memberName ) continue;
+        var m = methods[i];
+        var md = '```java\n' + memberName + '(';
+        if ( m.args && m.args.length > 0 ) {
+          md += m.args.map(function(a) {
+            return ( a.type ? a.type + ' ' : '' ) + a.name;
+          }).join(', ');
+        }
+        md += ')\n```\n*method on `' + classId + '`*';
+        if ( m.documentation ) md += '\n\n' + m.documentation;
+        return md;
+      }
+
       return null;
     },
 

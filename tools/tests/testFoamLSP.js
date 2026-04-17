@@ -2630,6 +2630,76 @@ var escCtxSS = jrlH3.detectEmbeddedBlockContext_(escScript, { line: 1, character
 test(escCtxSS && escCtxSS.key === 'serviceScript' && escCtxSS.escaped === true,
   'detectEmbeddedBlockContext_: detects escaped-double-quote serviceScript');
 
+// === EMBEDDED-BLOCK: dot-after-class completion + method hover ===
+section('JRL embedded-block: typing dot after known class should surface setters (not classes)');
+
+if ( index.classExists('foam.dao.EasyDAO') ) {
+  // Typing `foam.dao.EasyDAO.Builder(x).` — cursor right after the trailing
+  // dot. Expected: setters/getters from foam.dao.EasyDAO, NOT the full
+  // class-id list (which is what the user reported seeing).
+  var dotSrc = [
+    'p({',
+    '  "serviceScript": """',
+    '    return new foam.dao.EasyDAO.Builder(x).',
+    '  """',
+    '})'
+  ].join('\n');
+  // Line 2 is `    return new foam.dao.EasyDAO.Builder(x).`; cursor at EOL (char 44)
+  var line2Len = dotSrc.split('\n')[2].length;
+  var dotRes = jrlH3.handleCompletion(dotSrc, { line: 2, character: line2Len });
+  // At least one setter must be present, and NOT all suggestions should be full class IDs.
+  var hasSetter = dotRes.items.some(function(i) {
+    return /^set\w/.test(i.label);
+  });
+  var allClassIds = dotRes.items.every(function(i) {
+    return i.label.indexOf('.') !== -1;
+  });
+  test(hasSetter,
+    'Dot after Builder(x).: surfaces at least one setter (' +
+    dotRes.items.slice(0, 5).map(function(i) { return i.label; }).join(',') + ')');
+  test(! allClassIds,
+    'Dot after Builder(x).: suggestions are not just full class IDs');
+
+  // Hover on a setter name like `.setPm(` — cursor on 'setPm' itself.
+  var setH = [
+    'p({',
+    '  "serviceScript": """',
+    '    return new foam.dao.EasyDAO.Builder(x).setPm(true).build();',
+    '  """',
+    '})'
+  ].join('\n');
+  // Line 2: `    return new foam.dao.EasyDAO.Builder(x).setPm(true).build();`
+  //  chars  0123456789012345678901234567890123456789012345 — `setPm` starts at 43
+  var setLine = setH.split('\n')[2];
+  var setPmIdx = setLine.indexOf('setPm');
+  var hSet = jrlH3.handleHover(setH, { line: 2, character: setPmIdx + 2 });
+  // If EasyDAO doesn't have a `pm` property we can't resolve `setPm` as a
+  // setter — but the resolver should still return something useful for
+  // setters that DO map to a property. Try `setOf` which is universal.
+  var setOfIdx = setLine.indexOf('setOf');
+  if ( setOfIdx === -1 ) {
+    // Different test with setOf explicitly
+    var setOfSrc = [
+      'p({',
+      '  "serviceScript": """',
+      '    return new foam.dao.EasyDAO.Builder(x).setOf(foam.lang.FObject.getOwnClassInfo());',
+      '  """',
+      '})'
+    ].join('\n');
+    var setOfLine = setOfSrc.split('\n')[2];
+    setOfIdx = setOfLine.indexOf('setOf');
+    var hOf = jrlH3.handleHover(setOfSrc, { line: 2, character: setOfIdx + 2 });
+    test(hOf && hOf.contents && hOf.contents.value &&
+         /setOf|of/i.test(hOf.contents.value),
+      'Hover on .setOf( (maps to `of` property) inside serviceScript shows member info');
+  } else {
+    var hOf = jrlH3.handleHover(setH, { line: 2, character: setOfIdx + 2 });
+    test(hOf && hOf.contents && hOf.contents.value &&
+         /setOf|of/i.test(hOf.contents.value),
+      'Hover on .setOf( inside serviceScript shows member info');
+  }
+}
+
 // === SUMMARY ===
 
 section('SUMMARY');

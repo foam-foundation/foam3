@@ -20,6 +20,13 @@ process.on('uncaughtException', function(e) {
   if ( e instanceof SyntaxError ) return;
 });
 
+// Hard watchdog: fail fast if any single test infinite-loops. 30s is generous
+// given the whole suite normally completes in ~2s after pmake boot.
+setTimeout(function() {
+  console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 30s — possible infinite loop. Aborting.\x1b[0m');
+  process.exit(2);
+}, 30000).unref();
+
 var path = require('path');
 var fs = require('fs');
 var pmake = require(path.resolve(__dirname, '../pmake'));
@@ -1993,6 +2000,33 @@ test(fobjRefs.length > 10,
   'references: FObject has many references (subclasses + users): ' + fobjRefs.length);
 test(fobjRefs.every(function(l) { return l.uri && l.range; }),
   'references: every location has uri and range');
+
+// References on `name: '...'` should find refs to the declared class
+var refOnNameSrc = "foam.CLASS({\n  package: 'foam.lang',\n  name: 'FObject'\n});";
+var refOnNameResolved = rfh.resolveClassAtCursor_(refOnNameSrc, { line: 2, character: 12 }, 'FObject', 'test://name');
+var refOnNameLocs = rfh.handle(refOnNameSrc, { line: 2, character: 12 }, 'test://name');
+test(refOnNameResolved === 'foam.lang.FObject',
+  'references on name: resolves to full class id (got: ' + refOnNameResolved + ')');
+test(refOnNameLocs.length > 10,
+  'references on name: value resolves via package+name (' + refOnNameLocs.length + ' refs)');
+
+// References on a property name should find the prop in the own class +
+// inheriting subclasses that reference it.
+var propRefSrc = [
+  "foam.CLASS({",
+  "  package: 'foam.lang',",
+  "  name: 'Property',",
+  "  properties: [",
+  "    { class: 'String', name: 'name' }",
+  "  ]",
+  "});"
+].join('\n');
+// Line 4: `    { class: 'String', name: 'name' }` — cursor inside 'name' value
+var propRefLocs = rfh.handle(propRefSrc, { line: 4, character: 30 }, 'test://prop');
+test(propRefLocs.length > 0,
+  'property references: finds refs to `name` property (' + propRefLocs.length + ')');
+test(propRefLocs.every(function(l) { return l.uri && l.range; }),
+  'property references: each location has uri and range');
 
 // === SUMMARY ===
 

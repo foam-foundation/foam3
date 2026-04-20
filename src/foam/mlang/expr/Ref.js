@@ -62,7 +62,11 @@ foam.CLASS({
   name: 'RefSummary',
   extends: 'foam.mlang.expr.Ref',
 
-  documentation: 'Same as Ref, but also returns toSummary()',
+  documentation: `
+    Same as Ref, but returns a map of { id, summary: obj.toSummary() }
+    TODO: Maybe this should return a proper FObject of type referenceSummaryData
+    Would make all the typechecking easier
+  `,
 
   javaImports: [
     'foam.lang.FObject',

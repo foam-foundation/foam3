@@ -304,14 +304,15 @@ foam.CLASS({
   properties: [
     {
       class: 'Boolean',
-      name: 'projectionSafe'
+      name: 'projectionSafe',
+      value: true
     }
   ],
 
   methods: [
     function format(e, value, obj, axiom) {
       try {
-        obj[axiom.name + '$find'].then(o => e.add(o && o?.toSummary() || value), r => e.add(value));
+        obj[axiom.name + '$summary'].then(o => e.add(o || value), r => e.add(value));
       } catch (x) {
       }
     }

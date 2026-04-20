@@ -71,6 +71,18 @@ foam.CLASS({
   ],
 
   methods: [
+    // Delegates to Property.set() if arg1 is a Property, otherwise uses the property name or arg1 itself.
+    {
+      name: 'set',
+      code: function(o, value) {
+        if ( ! o || ! this.arg1 ) return;
+        if ( foam.lang.Property.isInstance(this.arg1) ) {
+          this.arg1.set(o, value);
+        } else {
+          o[this.arg1.name ?? this.arg1] = value;
+        }
+      }
+    },
     {
       name: 'f',
       code: function(o) {   // js side is for DAOs with cache:true

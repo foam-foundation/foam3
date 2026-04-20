@@ -676,6 +676,7 @@ foam.CLASS({
       order: 50,
       gridColumns: 6,
       writePermissionRequired:true,
+      tableCellFormatter: {class: 'foam.u2.view.ReferenceToSummaryCellFormatter' },
       documentation: `
         Need to override getter to return "" because its trying to
         return null (probably as a result of moving order of files

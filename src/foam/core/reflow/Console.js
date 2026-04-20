@@ -1544,9 +1544,11 @@ foam.CLASS({
           await this.includeScript(c.flowChildren, this.currentBlock, true);
         }
       }
+      /*
       if ( ! parent ){
         await this.eval_('postLoad', null, true);
-      }
+        }
+        */
     },
 
     function countBlocks(blocks) {
@@ -1804,6 +1806,7 @@ foam.CLASS({
       with ( this.localScope ) { with ( innerScope ) { with ( this.flowScope ) {
         let scope = { ...(this.scope || {} ), ...this.localScope };
         var r, arg;
+        let originalCmd = cmd;
         try {
           r = eval(cmd);
           if ( ! block.flowName ) {
@@ -1827,7 +1830,7 @@ foam.CLASS({
           } else {
             console.log(x);
             block.flowName = this.createFlowChildName('error');
-            block.value = foam.lang.StringHolder.create({value: x.toString()});
+            block.value = foam.lang.StringHolder.create({value: x.toString() + ', ' + originalCmd});
             block.treeRowRenderer = function(e) {
               e.parentNode.addClass(self.myClass('error'));
               e.add(this.flowName);

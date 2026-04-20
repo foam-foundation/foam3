@@ -187,13 +187,10 @@ foam.CLASS({
               .addClass(this.myClass('modal-body'))
               .add(this.addBody())
             .end()
-            .add(this.dynamic(function(actionArray) {
-              if ( actionArray.length === 0 ) return;
-              this.start()
-                .addClass(self.myClass('actionBar'))
-                .call(self.addActions, [self])
+            .start()
+                .addClass(this.myClass('actionBar'))
+                .call(this.addActions, [this])
               .end()
-            }))
           .end()
         .end();
     },

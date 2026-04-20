@@ -1,0 +1,21 @@
+Short Term
+- agentDAO
+- finish smartview for dao command
+- make agent and llm commands visibile in right panel
+- add auto-run property to agent/llm ?
+- RecordingLLMService -> promptDAO
+- prompt prompt
+- add remember() command
+- use 'category' for loading system prompts
+- remove now() from ask bootstrap
+
+Longer Term
+- $ UNIX shell
+- ability to mount other servers
+
+
+Examples:
+- GROUP_BY
+- PI Chart
+- recon
+- queries

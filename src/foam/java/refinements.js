@@ -2896,3 +2896,15 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'GlyphPropertyJavaRefinement',
+  refines: 'foam.lang.GlyphProperty',
+  flags: [ 'java' ],
+  javaImports: [ 'foam.lang.Glyph' ],
+
+  properties: [
+    [ 'javaJSONParser', 'foam.lib.json.GlyphPropertyParser.instance()' ],
+  ]
+});

@@ -61,7 +61,7 @@ foam.CLASS({
       title: 'Script',
       collapsable: true,
       permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
-      properties: [ 'preLoadScript', 'script', 'postLoadScript' ]
+      properties: [ 'preLoadScript', 'script' ]
     }
   ],
 
@@ -190,14 +190,6 @@ foam.CLASS({
       name: 'preLoadScript',
       section: 'scriptSection',
       documentation: 'Script to be run before the main script, typically used to set up classes or environment variables needed by the main script.',
-      reactive: false,
-      preSet: function(o, n) { return n.trim(); },
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
-    },
-    {
-      class: 'String',
-      name: 'postLoadScript',
-      section: 'scriptSection',
       reactive: false,
       preSet: function(o, n) { return n.trim(); },
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }

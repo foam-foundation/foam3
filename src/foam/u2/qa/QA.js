@@ -225,18 +225,19 @@ foam.CLASS({
       return {
         package: pkg,
         name:    name,
+        javaImports: model.javaImports || [],
         implements: ['foam.mlang.Expressions'],
         requires: [
           'foam.parse.SimpleQueryParser',
           'foam.mlang.predicate.And',
         ],
 
-        constants: {
-          QUESTIONS: questions,
-          OUTCOMES:  outcomes,
-          INPUT_NAMES:  inputNames,
-          OUTPUT_NAMES: outputNames
-        },
+        constants: [
+          { name: 'QUESTIONS', value: questions, flags: ['js'] },
+          { name: 'OUTCOMES', value: outcomes, flags: ['js'] },
+          { name: 'INPUT_NAMES', value: inputNames, flags: ['js'] },
+          { name: 'OUTPUT_NAMES', value: outputNames, flags: ['js'] }
+        ],
 
         properties: props,
 

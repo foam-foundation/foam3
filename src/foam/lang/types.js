@@ -1360,11 +1360,12 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'GlyphProperty',
-  extends: 'FObjectProperty',
+  extends: 'foam.lang.FObjectProperty',
 
   requires: [ 'foam.lang.Glyph' ],
 
   properties: [
+    ['of', 'foam.lang.Glyph'],
     [ 'value', null ],
     {
       name: 'adapt',

@@ -43,6 +43,7 @@ foam.CLASS({
     }
     ^::-webkit-progress-value {
       background-color: $progressColor;
+      border-radius: 25px;
     }
   `,
 

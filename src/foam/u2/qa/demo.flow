@@ -1,11 +1,92 @@
-[
-	{
+console.clear();
 
-		"flowName": "script1",
-		"cmd": "script",
-		"value": {
-			"class": "foam.core.reflow.Script",
-			"code": "foam.QA2({\u000a  package: 'com.example',\u000a  name: 'RestaurantPicker',\u000a\u000a  properties: [\u000a    // Inputs\u000a    { class: 'Boolean', name: 'allergicToSeafood' },\u000a    { class: 'Boolean', name: 'allergicToWheat' },\u000a    { class: 'Float',   name: 'priceLimit' },\u000a\u000a    // Outputs\u000a    { class: 'String',  name: 'name' }\u000a  ],\u000a\u000a  questions: [\u000a    { name: 'cuisine',\u000a      prompt: 'What type of cuisine are you in the mood for?',\u000a      choices: ['Asian', 'Italian', 'American', 'Mexican'] },\u000a\u000a    { name: 'spicy',\u000a      prompt: 'Do you enjoy spicy food?' },\u000a\u000a    { name: 'vegetarian',\u000a      prompt: 'Are you looking for a vegetarian option?' },\u000a\u000a    { name: 'dineIn',\u000a      prompt: 'Would you like to dine in?' }\u000a  ],\u000a\u000a  outcomes: [\u000a    { name: 'Sushi Place',\u000a      predicate: 'allergicToSeafood IS FALSE AND cuisine=Asian AND spicy=FALSE AND priceLimit>=30' },\u000a\u000a    { name: 'Thai Restaurant',\u000a      predicate: 'cuisine = Asian AND spicy = TRUE AND priceLimit >= 20' },\u000a\u000a    { name: 'Noodle Bar',\u000a      predicate: 'allergicToWheat IS FALSE AND cuisine = Asian AND priceLimit < 20' },\u000a\u000a    { name: 'Pizza Trattoria',\u000a      predicate: 'allergicToWheat IS FALSE AND cuisine = Italian AND priceLimit < 25' },\u000a\u000a    { name: 'Fine Italian',\u000a      predicate: 'cuisine = Italian AND priceLimit >= 40' },\u000a\u000a    { name: 'Burger Joint',\u000a      predicate: 'allergicToWheat IS FALSE AND cuisine = American AND vegetarian = FALSE AND priceLimit < 20' },\u000a\u000a    { name: 'Steakhouse',\u000a      predicate: 'cuisine = American AND vegetarian = FALSE AND priceLimit >= 30' },\u000a\u000a    { name: 'Veggie Grill',\u000a      predicate: 'cuisine = American AND vegetarian = TRUE' },\u000a\u000a    { name: 'Taco Truck',\u000a      predicate: 'cuisine = Mexican AND spicy = TRUE AND dineIn = FALSE AND priceLimit < 15' },\u000a\u000a    { name: 'Burrito Bar',\u000a      predicate: 'allergicToWheat IS FALSE AND cuisine = Mexican AND priceLimit < 20' },\u000a\u000a    { name: 'Upscale Mexican',\u000a      predicate: 'cuisine = Mexican AND priceLimit >= 30' }\u000a  ]\u000a});\u000a\u000a\u000a    var picker = com.example.RestaurantPicker.create({\u000a      allergicToSeafood: false,\u000a      priceLimit: 1000\u000a    });\u000a    \u000a    console.log('Choices:', picker.getCandidates());\u000a \u000a    // Properties are resolved immediately, narrowing candidates.\u000a    // Then loop: ask questions, set answers, converge.\u000a    var q = picker.selectNextQuestion();   // -> { name: 'cuisine', ... }\u000a    picker.cuisine = 'Asian';\u000a\u000a    console.log('Choices:', picker.getCandidates());\u000a \u000a    q = picker.selectNextQuestion();       // -> { name: 'spicy', ... }\u000a    picker.spicy = 'TRUE';\u000a\u000a    console.log('Choices:', picker.getCandidates());\u000a\u000a    console.log('Choices:', picker.getCandidates());\u000a    var results = picker.getCandidates();\u000a    picker.applyOutcome(results[0]);       // sets picker.name = 'Thai Restaurant'\u000a    console.log(picker.name);\u000a    \u000a"
-		}
-	}
-]
+foam.QA2({
+  package: 'com.example',
+  name: 'RestaurantPicker',
+
+  properties: [
+    // Inputs
+    { class: 'Boolean', name: 'allergicToSeafood' },
+    { class: 'Boolean', name: 'allergicToWheat' },
+    { class: 'Float',   name: 'priceLimit' },
+
+    // Outputs
+    { class: 'String',  name: 'name' }
+  ],
+
+  questions: [
+    { name: 'cuisine',
+      prompt: 'What type of cuisine are you in the mood for?',
+      choices: ['Asian', 'Italian', 'American', 'Mexican'] },
+
+    { name: 'spicy',
+      prompt: 'Do you enjoy spicy food?' },
+
+    { name: 'vegetarian',
+      prompt: 'Are you looking for a vegetarian option?' },
+
+    { name: 'dineIn',
+      prompt: 'Would you like to dine in?' }
+  ],
+
+  outcomes: [
+    { name: 'Sushi Place',
+      predicate: 'allergicToSeafood IS FALSE AND cuisine=Asian AND spicy=FALSE AND priceLimit>=30' },
+
+    { name: 'Thai Restaurant',
+      predicate: 'cuisine = Asian AND spicy = TRUE AND priceLimit >= 20' },
+
+    { name: 'Noodle Bar',
+      predicate: 'allergicToWheat IS FALSE AND cuisine = Asian AND priceLimit < 20' },
+
+    { name: 'Pizza Trattoria',
+      predicate: 'allergicToWheat IS FALSE AND cuisine = Italian AND priceLimit < 25' },
+
+    { name: 'Fine Italian',
+      predicate: 'cuisine = Italian AND priceLimit >= 40' },
+
+    { name: 'Burger Joint',
+      predicate: 'allergicToWheat IS FALSE AND cuisine = American AND vegetarian = FALSE AND priceLimit < 20' },
+
+    { name: 'Steakhouse',
+      predicate: 'cuisine = American AND vegetarian = FALSE AND priceLimit >= 30' },
+
+    { name: 'Veggie Grill',
+      predicate: 'cuisine = American AND vegetarian = TRUE' },
+
+    { name: 'Taco Truck',
+      predicate: 'cuisine = Mexican AND spicy = TRUE AND dineIn = FALSE AND priceLimit < 15' },
+
+    { name: 'Burrito Bar',
+      predicate: 'allergicToWheat IS FALSE AND cuisine = Mexican AND priceLimit < 20' },
+
+    { name: 'Upscale Mexican',
+      predicate: 'cuisine = Mexican AND priceLimit >= 30' }
+  ]
+});
+
+
+    var picker = com.example.RestaurantPicker.create({
+      allergicToSeafood: false,
+      priceLimit: 1000
+    });
+
+    console.log('Picket:', picker);
+    console.log('Choices:', picker.getCandidates());
+
+    // Properties are resolved immediately, narrowing candidates.
+    // Then loop: ask questions, set answers, converge.
+    var q = picker.selectNextQuestion();   // -> { name: 'cuisine', ... }
+    console.log('Next Question:', q.name);
+    picker.cuisine = 'Asian';
+
+    console.log('Choices:', picker.getCandidates());
+
+    q = picker.selectNextQuestion();       // -> { name: 'spicy', ... }
+    console.log('Next Question:', q.name);
+    picker.spicy = 'TRUE';
+
+    console.log('Choices:', picker.getCandidates());
+    var results = picker.getCandidates();
+    picker.applyOutcome(results[0]);       // sets picker.name = 'Thai Restaurant'
+    console.log(picker.name);

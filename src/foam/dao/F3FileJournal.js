@@ -62,6 +62,18 @@ foam.CLASS({
 
         getLogger().info("Replay starting");
 
+        // Pre-compute the parser X context once per replay. When the target
+        // ClassInfo has no backing Java class (getObjClass() is null), thread
+        // the ClassInfo itself through X so the parser can instantiate via
+        // ci.newInstance() for entries that omit the class: prefix.
+        final foam.lang.X parseX;
+        if ( dao.getOf().getObjClass() == null ) {
+          getLogger().warning("Class not found for of, falling back to defaultClassInfo", dao.getOf().getId());
+          parseX = x.put("defaultClassInfo", dao.getOf());
+        } else {
+          parseX = x;
+        }
+
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
@@ -96,7 +108,7 @@ foam.CLASS({
                 FObject obj;
 
                 public void executeJob() {
-                  obj = getParser(x).parseString(strEntry, dao.getOf().getObjClass());
+                  obj = getParser(parseX).parseString(strEntry, dao.getOf().getObjClass());
                 }
 
                 public void endJob(boolean isLast) {
@@ -106,10 +118,9 @@ foam.CLASS({
                     return;
                   }
                   switch ( operation ) {
-                    case OP_CREATE:
-                      dao.put(obj);
-                      break;
-
+                    case OP_CREATE: // Workaround: treat c as p so that duplicate IDs
+                                    // across journals are merged instead of silently dropped.
+                                    // Real fix: make honorCreate configurable at EasyDAO level.
                     case OP_PUT:
                       foam.lang.FObject old = dao.find(obj.getProperty("id"));
                       dao.put(old != null ? mergeFObject(old.fclone(), obj) : obj);

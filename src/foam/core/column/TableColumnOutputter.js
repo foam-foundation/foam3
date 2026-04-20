@@ -41,6 +41,9 @@ foam.CLASS({
       type: 'String',
       documentation: 'Method that converts value to string',
       code: async function(x, prop, val, unitPropName, addUnitPropValueToStr) {
+        if ( prop.exportFormatter ) {
+          return await prop.exportFormatter(x, val, null);
+        }
         if ( val == 0 || val ) {
           if ( foam.Array.isInstance(val) ) {
             var stringArr = [];

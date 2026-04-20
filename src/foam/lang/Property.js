@@ -125,6 +125,17 @@ foam.CLASS({
     'normalize',
 
     /**
+      An async function of the form:
+        String async function(x, val, obj)
+      called during export to convert the raw property value to a string.
+      If not provided, the default serialization logic is used.
+      - x   : the FOAM context (for DAO lookups, services, etc.)
+      - val : the raw property value
+      - obj : the parent FObject row (may be null in DAO exports)
+    */
+    'exportFormatter',
+
+    /**
       A dynamic function which defines this Property's value.
       Similar to 'factory', except that the function takes arguments
       which are named the same as other properties of this object.

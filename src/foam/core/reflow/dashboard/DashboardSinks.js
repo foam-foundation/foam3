@@ -200,18 +200,29 @@ foam.CLASS({
   ],
 
   properties: [
-    // TopNGroupBy properties (inherited but exposed here for clarity)
-    // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
-    // groupLimit cuts off data collection early, while topN properly aggregates all data first
-    { name: 'sortOrder', hidden: true, value: 'DESC', help: 'Sort order for groups' },
-    { name: 'includeOthers', hidden: true, value: false, help: 'Include "Others" category for remaining groups' },
-    { name: 'othersLabel', hidden: true, value: 'Others', help: 'Label for the "Others" category' },
+    // TopNGroupBy user-configurable properties
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: false,
+      help: 'Include "Others" group for remaining items when using Top N',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'Sort order for value-based limiting',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the aggregated "Others" category',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
     // Hide parent-class internals wired programmatically by createSink()
     { name: 'arg1', hidden: true },
     { name: 'arg2', hidden: true },
     { name: 'groupKeys', hidden: true },
     { name: 'processArrayValuesIndividually', hidden: true },
-    { name: 'topN', hidden: true },
     { name: 'groupLimit', hidden: true },
     // Chart-specific properties
     {
@@ -500,19 +511,29 @@ foam.CLASS({
   `,
   
   properties: [
-    // TopNGroupBy properties (inherited but exposed here for clarity)
-    // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
-    // groupLimit cuts off data collection early, while topN properly aggregates all data first
-    // The init() method forces groupLimit to -1 to prevent interference
-    { name: 'sortOrder', hidden: true, value: 'DESC', help: 'Sort order for slices' },
-    { name: 'includeOthers', hidden: true, value: true, help: 'Include "Others" slice for remaining groups' },
-    { name: 'othersLabel', hidden: true, value: 'Others', help: 'Label for the "Others" slice' },
+    // TopNGroupBy user-configurable properties
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: true,
+      help: 'Include "Others" group for remaining items when using Top N',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'Sort order for value-based limiting',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the aggregated "Others" category',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
     // Hide parent-class internals wired programmatically by createSink()
     { name: 'arg1', hidden: true },
     { name: 'arg2', hidden: true },
     { name: 'groupKeys', hidden: true },
     { name: 'processArrayValuesIndividually', hidden: true },
-    { name: 'topN', hidden: true },
     { name: 'groupLimit', hidden: true },
     // Pie-specific properties
     {
@@ -1309,11 +1330,25 @@ foam.CLASS({
     { name: 'arg2', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value' },
     { name: 'groupKeys', hidden: true },
     { name: 'processArrayValuesIndividually', hidden: true },
-    { name: 'topN', hidden: true },
-    { name: 'sortOrder', hidden: true },
-    { name: 'includeOthers', hidden: true },
-    { name: 'othersLabel', hidden: true },
     { name: 'groupLimit', hidden: true },
+    // TopN user-configurable properties
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: true,
+      help: 'Include "Others" group for remaining items when using Top N',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'Sort order for value-based limiting',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the aggregated "Others" category',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
     // LineChartMixin internal/sizing props hidden from editor
     { name: 'responsive', hidden: true },
     { name: 'width', hidden: true },

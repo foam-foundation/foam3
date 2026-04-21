@@ -81,7 +81,8 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'useClientSecretBasic',
-      documentation: "The OAuth provider uses 'client_secret_post' instead of 'client_secret_post' to token exchange i.e. getTokenForCode() call"
+      documentation: 'When true, send client_id and client_secret using HTTP Basic authentication. Otherwise, send as form parameters.',
+      help: "Set this property to true, when oauth application at the identity provider e.g. SecureAuth, side only supports 'client_secret_basic' for token authorization method."
     }
   ],
   methods: [

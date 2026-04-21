@@ -339,7 +339,7 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() { this.flowParent.removeFlowChild(this); }
+      code: function() { this.promptDeleteWithDependents_(); }
     },
     {
       name: 'menuControl',

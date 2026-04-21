@@ -116,6 +116,172 @@ foam.CLASS({
           this.detachFlowChild(c);
         });
       this.flowChildren = [];
+    },
+
+    function getRootFlowable_() {
+      // Walk up flowParent to reach the top-level Flowable (the Console).
+      var root = this;
+      var hops = 0;
+      while ( root.flowParent ) { root = root.flowParent; hops++; }
+      return root;
+    },
+
+    function findDependentsOf(block) {
+      // Find every other block in the flow whose cmd, reactions_, or value
+      // text references this block by flowName, DAO shorthand, or $block suffix.
+      if ( ! block || ! block.flowName ) {
+        return [];
+      }
+
+      var ids = [ block.flowName, block.flowName + '$block' ];
+      if ( block.flowName.endsWith('DAO') ) {
+        ids.push(block.flowName.substring(0, block.flowName.length - 3));
+      }
+
+      var escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var regexes = ids.map(id => new RegExp('\\b' + escapeRe(id) + '\\b'));
+
+      // Exclude the target block and all its descendants — they can't be broken
+      // by removing/moving themselves.
+      var skip = new Set();
+      var markSkip = b => {
+        skip.add(b);
+        if ( b.flowChildren ) b.flowChildren.forEach(markSkip);
+      };
+      markSkip(block);
+
+      var dependents = [];
+      var visit = parent => {
+        if ( ! parent.flowChildren ) return;
+        parent.flowChildren.forEach(c => {
+          if ( ! skip.has(c) && this.blockReferencesAny_(c, regexes) ) {
+            dependents.push(c);
+          }
+          visit(c);
+        });
+      };
+      visit(this);
+      return dependents;
+    },
+
+    function flattenWithOverrides_(overrides) {
+      // DFS of the tree rooted at `this`, using `overrides` (Map<node, Array>)
+      // in place of node.flowChildren when present.
+      var flat = [];
+      var walk = (node) => {
+        var children = overrides.has(node) ? overrides.get(node) : node.flowChildren;
+        for ( var c of children ) {
+          flat.push(c);
+          walk(c);
+        }
+      };
+      walk(this);
+      return flat;
+    },
+
+    function promptDeleteWithDependents_() {
+      var self = this;
+      var parent = this.flowParent;
+      var doDelete = function() {
+        self.deleted_ = true;
+        parent && parent.removeFlowChild(self);
+      };
+      if ( ! parent ) { doDelete(); return; }
+      var root = this.getRootFlowable_();
+      var dependents = root.findDependentsOf(this);
+      if ( dependents.length === 0 ) { doDelete(); return; }
+
+      var names = dependents.map(function(b) { return '"' + b.flowName + '"'; }).join(', ');
+      var modal = this.ConfirmationModal.create({
+        title: 'Delete will break other blocks',
+        modalStyle: 'WARN',
+        primaryAction: foam.lang.Action.create({
+          name: 'proceed',
+          label: 'Delete Anyway',
+          buttonStyle: 'PRIMARY',
+          code: doDelete
+        }),
+        secondaryAction: foam.lang.Action.create({
+          name: 'cancel',
+          label: 'Cancel',
+          code: function() {}
+        })
+      });
+      var delVerb = dependents.length > 1 ? 'use' : 'uses';
+      var delPronoun = dependents.length > 1 ? 'them' : 'it';
+      modal.add(
+        names + ' ' + delVerb + ' "' + this.flowName + '". ' +
+        'Deleting "' + this.flowName + '" breaks ' + delPronoun + '.'
+      );
+      root.add(modal);
+    },
+
+    function findDependenciesOf(block) {
+      // Blocks that `block` references (i.e. block depends on them; they must
+      // run before block in the flow).
+      if ( ! block ) return [];
+
+      var texts = [];
+      if ( block.cmd ) texts.push(block.cmd);
+      var r = block.reactions_;
+      if ( r ) {
+        for ( var k in r ) if ( r[k] ) texts.push(String(r[k]));
+      }
+      if ( block.value ) {
+        try { texts.push(foam.json.stringify(block.value)); } catch ( e ) {}
+      }
+      var combined = texts.join('\n');
+
+      var escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Exclude the block itself and all its descendants.
+      var skip = new Set();
+      var markSkip = b => { skip.add(b); if ( b.flowChildren ) b.flowChildren.forEach(markSkip); };
+      markSkip(block);
+
+      var deps = [];
+      var visit = (parent) => {
+        if ( ! parent.flowChildren ) return;
+        parent.flowChildren.forEach(c => {
+          if ( ! skip.has(c) && c.flowName ) {
+            var ids = [ c.flowName, c.flowName + '$block' ];
+            if ( c.flowName.endsWith('DAO') ) {
+              ids.push(c.flowName.substring(0, c.flowName.length - 3));
+            }
+            for ( var i = 0 ; i < ids.length ; i++ ) {
+              if ( new RegExp('\\b' + escapeRe(ids[i]) + '\\b').test(combined) ) {
+                deps.push(c);
+                break;
+              }
+            }
+          }
+          visit(c);
+        });
+      };
+      visit(this);
+      return deps;
+    },
+
+    function blockReferencesAny_(candidate, regexes) {
+      var texts = [];
+      if ( candidate.cmd ) texts.push(candidate.cmd);
+      var r = candidate.reactions_;
+      if ( r ) {
+        for ( var k in r ) {
+          if ( r[k] ) texts.push(String(r[k]));
+        }
+      }
+      if ( candidate.value ) {
+        try { texts.push(foam.json.stringify(candidate.value)); } catch ( e ) {}
+      }
+      for ( var i = 0 ; i < texts.length ; i++ ) {
+        for ( var j = 0 ; j < regexes.length ; j++ ) {
+          if ( regexes[j].test(texts[i]) ) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
   ]
 });
@@ -490,7 +656,10 @@ foam.CLASS({
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ 'foam.u2.StyleConfigurator' ],
 
-  requires: [ 'foam.u2.WrapperNode' ],
+  requires: [
+    'foam.u2.WrapperNode',
+    'foam.u2.dialog.ConfirmationModal'
+  ],
 
   imports: [ 'data', 'showPrompts', 'addToScope', 'selected' ],
 
@@ -696,8 +865,7 @@ foam.CLASS({
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
       code: function() {
-        this.deleted_ = true;
-        this.flowParent && this.flowParent.removeFlowChild(this);
+        this.promptDeleteWithDependents_();
       }
     }
   ],
@@ -1900,12 +2068,26 @@ foam.CLASS({
       // TODO: prevent cycles
       console.log('moveFlowChild', childName, parent.flowName);
       var child = this.findFlowChildByName(childName);
-      child.flowParent.removeFlowChild(child);
-      // Can not use addFlowChild here as the child is detached in the above remove call, this casues cascade of issues when adding a detached child
-      // Better to just push into parent flow children manually and rebuild the script, the script rebuild will build all children in correct context
-      // parent.addFlowChild(child);
-      parent.flowChildren.push(child);
-      this.generateScript();
+      if ( ! child ) return;
+      var self = this;
+      var doMove = function() {
+        child.flowParent.removeFlowChild(child);
+        // Can not use addFlowChild here as the child is detached in the above remove call, this casues cascade of issues when adding a detached child
+        // Better to just push into parent flow children manually and rebuild the script, the script rebuild will build all children in correct context
+        // parent.addFlowChild(child);
+        parent.flowChildren.push(child);
+        self.generateScript();
+      };
+
+      // Simulate the post-move flowChildren: child removed from oldParent, pushed onto newParent.
+      var oldParent = child.flowParent;
+      var overrides = new Map();
+      var oldChildrenMinus = oldParent.flowChildren.filter(c => c !== child);
+      overrides.set(oldParent, oldChildrenMinus);
+      overrides.set(parent,
+        parent === oldParent ? [...oldChildrenMinus, child] : [...parent.flowChildren, child]);
+
+      this.confirmIfMoveBreaks_(child, overrides, doMove);
     },
 
     function moveFlowChildAfter(childName, target) {
@@ -1918,21 +2100,103 @@ foam.CLASS({
       console.log('moveFlowChildAfter', childName, target.flowName);
 
       let child = this.findFlowChildByName(childName);
+      if ( ! child ) return;
       let targetFlow = target === this ? this : target.flowParent;
       if ( child == targetFlow ) return;
-      // Remove from old position
-      console.log('removing', i);
-      child.flowParent.removeFlowChild(child);
 
-      // Can not use addFlowChild here as the child is detached in the above remove call, this casues cascade of issues when adding a detached child
-      // Better to just push into parent flow children manually and rebuild the script, the script rebuild will build all children in correct context
-      let children = [...targetFlow.flowChildren];
-      i = findPos(target, children);
-      console.log('inserting', i);
-      children.splice(i, 0, child);
+      var self = this;
+      var doMove = function() {
+        // Remove from old position
+        console.log('removing', i);
+        child.flowParent.removeFlowChild(child);
 
-      targetFlow.flowChildren = children;
-      this.generateScript();
+        // Can not use addFlowChild here as the child is detached in the above remove call, this casues cascade of issues when adding a detached child
+        // Better to just push into parent flow children manually and rebuild the script, the script rebuild will build all children in correct context
+        let children = [...targetFlow.flowChildren];
+        i = findPos(target, children);
+        console.log('inserting', i);
+        children.splice(i, 0, child);
+
+        targetFlow.flowChildren = children;
+        self.generateScript();
+      };
+
+      // Simulate the post-move flowChildren without mutating anything.
+      var oldParent = child.flowParent;
+      var overrides = new Map();
+      var oldChildrenMinus = oldParent.flowChildren.filter(c => c !== child);
+      overrides.set(oldParent, oldChildrenMinus);
+      var targetChildren = targetFlow === oldParent ? oldChildrenMinus : [...targetFlow.flowChildren];
+      var insertAt = findPos(target, targetChildren);
+      var simTargetChildren = [...targetChildren];
+      simTargetChildren.splice(insertAt, 0, child);
+      overrides.set(targetFlow, simTargetChildren);
+
+      this.confirmIfMoveBreaks_(child, overrides, doMove);
+    },
+
+    function confirmIfMoveBreaks_(child, overrides, doAction) {
+      var dependents   = this.findDependentsOf(child);    // who uses child (must come after child)
+      var dependencies = this.findDependenciesOf(child);  // who child uses  (must come before child)
+
+      if ( dependents.length === 0 && dependencies.length === 0 ) { doAction(); return; }
+
+      var flat = this.flattenWithOverrides_(overrides);
+      var movedIdx = flat.indexOf(child);
+
+      // Case A: dependents now come before the moved block (need to be after).
+      var brokenDependents = dependents.filter(d => {
+        var di = flat.indexOf(d);
+        return di !== -1 && di < movedIdx;
+      });
+      // Case B: dependencies now come after the moved block (need to be before).
+      var brokenDependencies = dependencies.filter(d => {
+        var di = flat.indexOf(d);
+        return di !== -1 && di > movedIdx;
+      });
+
+      if ( brokenDependents.length === 0 && brokenDependencies.length === 0 ) { doAction(); return; }
+
+      var quote = b => '"' + b.flowName + '"';
+      var childName = '"' + child.flowName + '"';
+      var msgs = [];
+
+      if ( brokenDependents.length > 0 ) {
+        var names = brokenDependents.map(quote).join(', ');
+        var plural = brokenDependents.length > 1;
+        msgs.push(
+          names + ' ' + (plural ? 'use' : 'uses') + ' ' + childName + '. ' +
+          'Moving ' + childName + ' after ' + (plural ? 'them' : names) +
+          ' breaks ' + (plural ? 'them' : names) + '.'
+        );
+      }
+      if ( brokenDependencies.length > 0 ) {
+        var names = brokenDependencies.map(quote).join(', ');
+        var plural = brokenDependencies.length > 1;
+        msgs.push(
+          childName + ' uses ' + names + '. ' +
+          'Moving ' + childName + ' before ' + (plural ? 'them' : names) +
+          ' breaks ' + childName + '.'
+        );
+      }
+
+      var modal = this.ConfirmationModal.create({
+        title: 'Move will break other blocks',
+        modalStyle: 'WARN',
+        primaryAction: foam.lang.Action.create({
+          name: 'proceed',
+          label: 'Move Anyway',
+          buttonStyle: 'PRIMARY',
+          code: function() { doAction(); }
+        }),
+        secondaryAction: foam.lang.Action.create({
+          name: 'cancel',
+          label: 'Cancel',
+          code: function() {}
+        })
+      });
+      modal.add(msgs.join(' '));
+      this.add(modal);
     },
 
     async function save() {

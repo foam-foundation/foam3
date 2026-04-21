@@ -411,6 +411,8 @@ foam.CLASS({
       }
     },
     // periodCount comes from TimeSeriesGapFillingMixin; forwarding handled in init()
+    // Hide on agent — the sink's periodCount (in chartSettings) is the editable one
+    { name: 'periodCount', hidden: true },
 
     { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, transient: true, value: 'DAY',
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -534,6 +536,8 @@ foam.CLASS({
       }
     },
     // periodCount from TimeSeriesGapFillingMixin — forwarded to displaySink in init()
+    // Hide on agent — the sink's periodCount (in chartSettings) is the editable one
+    { name: 'periodCount', hidden: true },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, transient: true,
       value: 'DAY',
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -746,6 +750,8 @@ foam.CLASS({
       label: 'Aggregation',
       view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' }
     },
+    // periodCount from TimeSeriesGapFillingMixin — hide on agent, sink's periodCount is editable
+    { name: 'periodCount', hidden: true },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, transient: true,
       value: 'DAY',
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -936,6 +942,8 @@ foam.CLASS({
         disabledTypes: [ 'structure', 'format', 'chart' ]
       }
     },
+    // periodCount from TimeSeriesGapFillingMixin — hide on agent, sink's periodCount is editable
+    { name: 'periodCount', hidden: true },
     { class: 'StringArray', name: 'colors', hidden: true, transient: true,
       setter: function(v) { this.displaySink.colors = v; } },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true, transient: true,

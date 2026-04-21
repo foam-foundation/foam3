@@ -203,9 +203,16 @@ foam.CLASS({
     // TopNGroupBy properties (inherited but exposed here for clarity)
     // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
     // groupLimit cuts off data collection early, while topN properly aggregates all data first
-    { name: 'sortOrder', value: 'DESC', help: 'Sort order for groups' },
-    { name: 'includeOthers', value: false, help: 'Include "Others" category for remaining groups' },
-    { name: 'othersLabel', value: 'Others', help: 'Label for the "Others" category' },
+    { name: 'sortOrder', hidden: true, value: 'DESC', help: 'Sort order for groups' },
+    { name: 'includeOthers', hidden: true, value: false, help: 'Include "Others" category for remaining groups' },
+    { name: 'othersLabel', hidden: true, value: 'Others', help: 'Label for the "Others" category' },
+    // Hide parent-class internals wired programmatically by createSink()
+    { name: 'arg1', hidden: true },
+    { name: 'arg2', hidden: true },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'topN', hidden: true },
+    { name: 'groupLimit', hidden: true },
     // Chart-specific properties
     {
       class: 'StringArray',
@@ -223,11 +230,11 @@ foam.CLASS({
     { class: 'String', name: 'yAxisLabel' },
     { class: 'Boolean', name: 'showGridLines', value: true },
     // periodCount inherited from TimeSeriesGapFillingSinkMixin
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
+    // Display properties — internal/sizing props hidden from editor
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
     { class: 'Boolean', name: 'maintainAspectRatio', value: false },
     { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
+    { class: 'Int', name: 'width', hidden: true, value: 400 },
     { class: 'Boolean', name: 'showLegend', value: false },  // Bar charts typically don't need legend for single dataset
     { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
     { class: 'Boolean', name: 'showTooltips', value: true },
@@ -237,6 +244,7 @@ foam.CLASS({
     { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       expression: function(groups, colors, timeUnit, horizontal, barThickness, datasetLabel, xAxisLabel, yAxisLabel,
                           showGridLines, responsive, maintainAspectRatio, showLegend,
@@ -496,9 +504,16 @@ foam.CLASS({
     // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
     // groupLimit cuts off data collection early, while topN properly aggregates all data first
     // The init() method forces groupLimit to -1 to prevent interference
-    { name: 'sortOrder', value: 'DESC', help: 'Sort order for slices' },
-    { name: 'includeOthers', value: true, help: 'Include "Others" slice for remaining groups' },
-    { name: 'othersLabel', value: 'Others', help: 'Label for the "Others" slice' },
+    { name: 'sortOrder', hidden: true, value: 'DESC', help: 'Sort order for slices' },
+    { name: 'includeOthers', hidden: true, value: true, help: 'Include "Others" slice for remaining groups' },
+    { name: 'othersLabel', hidden: true, value: 'Others', help: 'Label for the "Others" slice' },
+    // Hide parent-class internals wired programmatically by createSink()
+    { name: 'arg1', hidden: true },
+    { name: 'arg2', hidden: true },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'topN', hidden: true },
+    { name: 'groupLimit', hidden: true },
     // Pie-specific properties
     {
       class: 'StringArray',
@@ -509,11 +524,11 @@ foam.CLASS({
     { class: 'Boolean', name: 'clockwise', value: true },
     { class: 'Int', name: 'rotation', value: -90 },
     { class: 'Boolean', name: 'disableLegendClick', help: 'Disable legend click to toggle slice visibility' },
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
+    // Display properties — internal/sizing props hidden from editor
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
     { class: 'Boolean', name: 'maintainAspectRatio', value: false },
     { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
+    { class: 'Int', name: 'width', hidden: true, value: 400 },
     { class: 'Boolean', name: 'showLegend', value: true },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
     { class: 'Boolean', name: 'showTooltips', value: true },
@@ -525,6 +540,7 @@ foam.CLASS({
     { class: 'Boolean', name: 'hasData', section: "displayOptions", value: false, hidden: true },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
                           responsive, maintainAspectRatio, showLegend,
@@ -783,11 +799,11 @@ foam.CLASS({
     { class: 'String', name: 'xAxisLabel' },
     { class: 'String', name: 'yAxisLabel' },
     { class: 'Boolean', name: 'showGridLines', value: true },
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
+    // Display properties — internal/sizing props hidden from editor
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
     { class: 'Boolean', name: 'maintainAspectRatio', value: false },
     { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
+    { class: 'Int', name: 'width', hidden: true, value: 400 },
     { class: 'Boolean', name: 'showLegend', value: true },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
     { class: 'Boolean', name: 'showTooltips', value: true },
@@ -795,8 +811,19 @@ foam.CLASS({
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
     { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    // Hide GridBy parent-class internals wired programmatically by createSink()
+    { name: 'xFunc', hidden: true },
+    { name: 'yFunc', hidden: true },
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       expression: function(cols, rows, colors, timeUnit, horizontal, xAxisLabel, yAxisLabel,
                           showGridLines, responsive, maintainAspectRatio,
@@ -1277,19 +1304,22 @@ foam.CLASS({
   ],
 
   properties: [
-    // Map GroupBy properties directly
-    { 
-      name: 'arg1',
-      label: 'X-Axis Property',
-      help: 'Property to group by (x-axis values)' 
-    },
-    { 
-      name: 'arg2',
-      label: 'Aggregation Sink', 
-      help: 'Sink to aggregate y-values for each x-value' 
-    },
-     {
+    // GroupBy parent-class internals — wired programmatically by createSink()
+    { name: 'arg1', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
+    { name: 'arg2', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value' },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'topN', hidden: true },
+    { name: 'sortOrder', hidden: true },
+    { name: 'includeOthers', hidden: true },
+    { name: 'othersLabel', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    // LineChartMixin internal/sizing props hidden from editor
+    { name: 'responsive', hidden: true },
+    { name: 'width', hidden: true },
+    {
     name: 'chart_',
+    hidden: true,
     transient: true,
     expression: function(groups, arg1, arg2, timeUnit, colors, borderColors, xAxisLabel, yAxisLabel,
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
@@ -1448,24 +1478,22 @@ foam.CLASS({
   ],
 
   properties: [
-    // Map GridBy properties directly  
-    { 
-      name: 'xFunc',
-      label: 'X-Axis Property',
-      help: 'Property to group by (x-axis values)' 
-    },
-    { 
-      name: 'yFunc',
-      label: 'Line Group Property', 
-      help: 'Property to group by (different lines)' 
-    },
-    { 
-      name: 'acc',
-      label: 'Aggregation Sink',
-      help: 'Sink to aggregate y-values for each x-value/line combination' 
-    },
-      {
+    // GridBy parent-class internals — wired programmatically by createSink()
+    { name: 'xFunc', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
+    { name: 'yFunc', hidden: true, label: 'Line Group Property', help: 'Property to group by (different lines)' },
+    { name: 'acc', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value/line combination' },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    // LineChartMixin internal/sizing props hidden from editor
+    { name: 'responsive', hidden: true },
+    { name: 'width', hidden: true },
+    {
     name: 'chart_',
+    hidden: true,
     transient: true,
     expression: function(cols, rows, xFunc, yFunc, acc, timeUnit, colors, borderColors, xAxisLabel, yAxisLabel,
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
@@ -2050,9 +2078,10 @@ foam.CLASS({
   ],
 
   properties: [
-    { name: 'dateProp', label: 'Date Property' },
-    { name: 'categoryProp', label: 'Category Property' },
-    { name: 'valueSink', documentation: 'Aggregator sink.' },
+    // Internal properties wired programmatically by createSink() — hidden from editor
+    { name: 'dateProp', hidden: true, label: 'Date Property' },
+    { name: 'categoryProp', hidden: true, label: 'Category Property' },
+    { name: 'valueSink', hidden: true, documentation: 'Aggregator sink.' },
     { class: 'Int', name: 'periodCount', label: 'Periods', value: 12 },
     { name: 'map_', hidden: true, factory: function() { return {}; } },
     // Dashboard-style display properties
@@ -2066,6 +2095,7 @@ foam.CLASS({
     { class: 'Int', name: 'animationDuration', value: 1000 },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       factory: function() {
         // Only create once, then drive via property slots

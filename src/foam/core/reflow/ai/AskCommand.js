@@ -35,8 +35,8 @@ foam.CLASS({
       const response = block.childNodes[1].element_.innerText; //innerHTML;
 
       console.log(`ASK: ${cmd} -> ${response}`);
-      const reply = JSON.stringify({asked: cmd, response: response}).replaceAll('"', '\\"');;
-      await this.eval_(`ai("${reply}")`);
+      const reply = JSON.stringify({asked: cmd, response: response});
+      await this.eval_(`agent(${reply})`);
 
       setTimeout(() => block.del(), 100);
     }

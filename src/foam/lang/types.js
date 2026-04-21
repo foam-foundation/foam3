@@ -1136,6 +1136,7 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'Reference',
   extends: 'Property',
+  imports: ['setTimeout'],
 
   properties: [
     {
@@ -1189,6 +1190,17 @@ foam.CLASS({
         let of = (prop || this).of;
         if ( of ) {
           if ( of.isInstance(newValue) ) return newValue.id;
+
+          // RefSummary map shape: { id, summary } — cache summary, return id
+          // RefSummary is used by projection to provide the summary for the reference
+          // along with the id to avoid multiple network calls to the a DAO such as when loading
+          // a model on a table with a reference column
+          if ( newValue && ! foam.lang.FObject.isInstance(newValue) &&
+               typeof newValue === 'object' && newValue.id !== undefined ) {
+            if ( newValue.summary != undefined )
+              this[`${prop.name}$summary_`] = newValue.summary;
+            return newValue.id;
+          }
           if ( foam.lang.MultiPartID.isInstance(of.ID) ) return newValue;
           if ( ! of.ID ) {
             return newValue;
@@ -1244,6 +1256,32 @@ foam.CLASS({
       Object.defineProperty(proto, self.name + '$find', {
         get: function classGetter() {
           return this[daoName].find(this[self.name]);
+        },
+        configurable: true
+      });
+
+      Object.defineProperty(proto, self.name + '$summary_', {
+        get: function() {
+          return this.getPrivate_(`${self.name}$summary_`) || '';
+        },
+        set: function(value) {
+          this.setPrivate_(`${self.name}$summary_`, value);
+          // After 1s, clear the summary to avoid stale summaries
+          // 1s is plenty of time in computer cycles that helps us
+          // avoid multiple network calls to the same dao only to fetch summary
+          if ( value !== undefined )
+            self.setTimeout(() => {
+              this[`${self.name}$summary_`] = undefined;
+            }, 1000);
+        },
+        configurable: true
+      });
+
+      Object.defineProperty(proto, self.name + '$summary', {
+        get: async function() {
+          if ( this[`${self.name}$summary_`] ) return this[`${self.name}$summary_`];
+          let temp = await this[`${self.name}$find`];
+          return (await temp?.toSummary()) || '';
         },
         configurable: true
       });
@@ -1360,11 +1398,12 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'GlyphProperty',
-  extends: 'FObjectProperty',
+  extends: 'foam.lang.FObjectProperty',
 
   requires: [ 'foam.lang.Glyph' ],
 
   properties: [
+    ['of', 'foam.lang.Glyph'],
     [ 'value', null ],
     {
       name: 'adapt',

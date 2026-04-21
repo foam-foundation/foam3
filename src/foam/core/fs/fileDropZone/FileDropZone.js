@@ -332,7 +332,6 @@ foam.CLASS({
     },
 
     function addFiles(files) {
-      var errors = false;
       for ( var i = 0 ; i < files.length ; i++ ) {
         if ( ! this.validateFile(files[i]) ) continue;
         if ( this.isMultipleFiles ) {
@@ -379,7 +378,6 @@ foam.CLASS({
         return false;
       }
       if ( file.size > ( this.maxSize * 1024 * 1024 ) ) {
-        if ( ! errors );
         this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE(), this.LogLevel.ERROR, true);
         return false;
       }

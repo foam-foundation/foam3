@@ -427,6 +427,11 @@ foam.CLASS({
       } else {
         this.out.startContext({conventionalUML: true}).
           tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+
+        // TODO: a better method of determining if a cls is a QA
+        if ( cls.QUESTIONS ) {
+          this.out.tag(foam.u2.qa.QADocView, {data: cls});
+        }
       }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
@@ -468,6 +473,8 @@ foam.CLASS({
       var self = this;
       this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
         if ( q != undefined && (f.id + f.category + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
+        // TODO: use a real TableView instead
+        // FROM flowDAO ORDER BY -category,name COLUMNS category,name,status,description TO CSV
         this.start('tr').
           start('td').add(f.category).end().
           start('td').start(self.Link).add(f.name).on('click', () => self.eval_('load("' + f.name + '")')).end().end().

@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'AxiomTableView',
   extends: 'foam.u2.table.TableView',
 
+  requires: [
+    'foam.doc.ClassLink'
+  ],
+
   css: `
     ^ { border-collapse: collapse; height: auto; }
     ^ th { text-align: left; }
@@ -27,7 +31,19 @@ foam.CLASS({
   ],
 
   methods: [
+    function addAxiomClass(e, a) {
+      if ( a.cls_ == foam.lang.FObjectProperty ) {
+        e.tag(this.ClassLink, { data: a.of });
+      } else if ( a.cls_ == foam.lang.FObjectArray ) {
+        e.tag(this.ClassLink, { data: a.of }).add('[]');
+      } else {
+        e.add(a.cls_.name);
+      }
+    },
+
     function render() {
+      let self = this;
+
       this.addClass(this.myClass());
       this.start('table').
         attr('cellpadding', '8').
@@ -39,7 +55,7 @@ foam.CLASS({
         end().
         select(this.data, function(a) {
           this.start('tr').
-            start('td').add(a.axiom.cls_.name).end().
+            start('td').call(function() { self.addAxiomClass(this, a.axiom); }).end().
             start('td').add(a.name).end().
             start('td').add(a.label).end().
             start('td').style({overflow: 'hidden', 'text-wrap':'pretty'}).add(a.documentation).end()

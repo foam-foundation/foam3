@@ -96,7 +96,7 @@ foam.CLASS({
  `,
 
   properties: [
-    { 
+    {
       name: 'backgroundColor'
     },
     {

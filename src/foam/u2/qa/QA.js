@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+/**
  * QA Compiler v2 — Decision Matrix
  *
  * Compiles foam.QA() definitions in the decision matrix format into a
@@ -56,6 +62,12 @@
  *         predicate: 'cuisine = Italian AND priceLimit < 25' },
  *       { name: 'Taco Truck',
  *         predicate: 'cuisine = Mexican AND spicy = TRUE AND priceLimit < 15' }
+ *     ],
+ *     methods: [
+ *       {
+ *         name: 'outcomeFormatter',
+ *         code: function(outcome) { return outcome.name; }
+ *       }
  *     ]
  *   });
  *
@@ -126,7 +138,7 @@ foam.CLASS({
 
       questions = questions.map(this.normalizeQuestion_.bind(this));
 
-      var classDef = this.buildClass_(pkg, name, properties, questions, outcomes);
+      var classDef = this.buildClass_(pkg, name, properties, questions, outcomes, model);
       return foam.CLASS(classDef);
     },
 
@@ -143,15 +155,11 @@ foam.CLASS({
     function normalizeQuestion_(q) {
       var normalized = Object.assign({}, q);
 
-      if ( ! q.choices ) {
+      if ( ! q.choices && ! q.class ) {
         normalized.choices = [
-          ['Yes',  'TRUE'],
-          ['No',   'FALSE']
+          ['TRUE', 'Yes'],
+          ['FALSE', 'No']
         ];
-      } else {
-        normalized.choices = q.choices.map(function(c) {
-          return foam.Array.isInstance(c) ? c : [c, c];
-        });
       }
 
       return normalized;
@@ -162,7 +170,9 @@ foam.CLASS({
     // CLASS Builder
     // =========================================================================
 
-    function buildClass_(pkg, name, properties, questions, outcomes) {
+    function buildClass_(pkg, name, properties, questions, outcomes, model) {
+      let outputNames = [];
+      let inputNames = [];
       var props = [];
       var existingNames = {};
 
@@ -170,6 +180,7 @@ foam.CLASS({
       properties.forEach(function(p) {
         var copy = Object.assign({}, p);
         existingNames[p.name] = true;
+        inputNames.push(p.name);
         props.push(copy);
       });
 
@@ -177,10 +188,18 @@ foam.CLASS({
       questions.forEach(function(q) {
         if ( ! existingNames[q.name] ) {
           existingNames[q.name] = true;
+          inputNames.push(q.name);
           props.push({
-            class: 'String',
+            ...q,
+            class: q.class || 'String',
             name:  q.name,
-            label: q.prompt
+            label: q.prompt,
+            ...( ! q.class ? { view: {
+              class: 'foam.u2.qa.QuestionChoiceView',
+              placeholder: '---',
+              prompt: q.prompt,
+              choices: q.choices
+            } } : {} )
           });
         }
       });
@@ -189,6 +208,7 @@ foam.CLASS({
       outcomes.forEach(function(o) {
         Object.keys(o).forEach(function(key) {
           if ( key === 'predicate' || key === 'terms' ) return;
+          outputNames.push(key);
           if ( ! existingNames[key] ) {
             existingNames[key] = true;
             props.push({ class: 'String', name: key });
@@ -196,24 +216,33 @@ foam.CLASS({
         });
       });
 
+      // Remove all outputNames from inputNames
+      outputNames.forEach(function(name) {
+        var idx = inputNames.indexOf(name);
+        if ( idx !== -1 ) inputNames.splice(idx, 1);
+      });
+
       return {
         package: pkg,
         name:    name,
-
+        javaImports: model.javaImports || [],
+        implements: ['foam.mlang.Expressions'],
         requires: [
           'foam.parse.SimpleQueryParser',
-          'foam.mlang.predicate.And'
+          'foam.mlang.predicate.And',
         ],
 
-        constants: {
-          QUESTIONS: questions,
-          OUTCOMES:  outcomes
-        },
+        constants: [
+          { name: 'QUESTIONS', value: questions, flags: ['js'] },
+          { name: 'OUTCOMES', value: outcomes, flags: ['js'] },
+          { name: 'INPUT_NAMES', value: inputNames, flags: ['js'] },
+          { name: 'OUTPUT_NAMES', value: outputNames, flags: ['js'] }
+        ],
 
         properties: props,
 
         methods: [
-
+          ...model.methods,
           /**
            * Lazily compile an outcome's predicate string into mlang terms.
            * Called on first access; results are cached on the outcome object.
@@ -282,14 +311,14 @@ foam.CLASS({
               var q = questions[i];
 
               // Skip answered questions
-              if ( self[q.name] !== '' ) continue;
+              if ( self[q.name] !== '' && self[q.name] != undefined ) continue;
 
               var gain = self.computeInfoGain(q, candidates);
 
               // Prefer higher gain, then fewer choices, then earlier declaration
               if ( gain > bestGain ||
                    ( gain === bestGain && bestQ &&
-                     q.choices.length < bestQ.choices.length ) ) {
+                     q.choices?.length < bestQ.choices?.length ) ) {
                 bestGain = gain;
                 bestQ    = q;
               }
@@ -314,13 +343,13 @@ foam.CLASS({
             var dontCareCount = 0;
 
             // Initialize buckets for each choice
-            question.choices.forEach(function(c) {
-              var value = foam.Array.isInstance(c) ? c[1] : c;
+            question.choices?.forEach(function(c) {
+              var value = foam.Array.isInstance(c) ? c[0] : c;
               buckets[value] = 0;
             });
 
             // Count candidates per bucket
-            candidates.forEach(function(outcome) {
+            candidates.forEach((outcome) => {
               self.ensureCompiled(outcome);
 
               // Find if this outcome has a term referencing this question
@@ -335,11 +364,15 @@ foam.CLASS({
               if ( ! term ) {
                 // Don't-care: outcome survives regardless of answer
                 dontCareCount++;
+              } else if ( ! question.choices && question.class ) {
+                // If question is not choice based, we cant calculate exact entropy
+                // but we can estimate it by treating it like it is a true/false question
+                buckets[question.name] = 0;
               } else {
                 // Try each choice and see if the term would match
                 var self_ = this;
                 question.choices.forEach(function(c) {
-                  var value = foam.Array.isInstance(c) ? c[1] : c;
+                  var value = foam.Array.isInstance(c) ? c[0] : c;
                   // Temporarily set the value to test the term
                   var prev = self_[question.name];
                   self_[question.name] = value;
@@ -349,13 +382,13 @@ foam.CLASS({
                   self_[question.name] = prev;
                 });
               }
-            }.bind(this));
+            });
 
             // Add don't-care outcomes to every bucket
             var total = candidates.length;
             var entropy = 0;
 
-            question.choices.forEach(function(c) {
+            question.choices?.forEach(function(c) {
               var value = foam.Array.isInstance(c) ? c[1] : c;
               var count = buckets[value] + dontCareCount;
               if ( count > 0 && count < total ) {
@@ -363,6 +396,15 @@ foam.CLASS({
                 entropy -= p * Math.log2(p);
               }
             });
+            // Compute entropy for non-choice questions
+            if ( ! question.choices && question.class ) {
+              var totalBuckets = buckets[question.name] + dontCareCount;
+              if ( totalBuckets >= 1 && totalBuckets < total ) {
+                var p = totalBuckets / total;
+                entropy -= p * Math.log2(p);
+              }
+            }
+
 
             return entropy;
           },
@@ -414,8 +456,8 @@ foam.CLASS({
               if ( b.matching !== a.matching ) return b.matching - a.matching;
               return b.specificity - a.specificity;
             });
-
-            return scored.map(function(s) { return s.outcome; });
+            // returns a list of [outcome, match percentage]
+            return scored.map(function(s) { return [s.outcome, (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0)]; });
           }
         ]
       };

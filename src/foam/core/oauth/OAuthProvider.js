@@ -120,12 +120,12 @@ foam.CLASS({
                 try ( java.io.OutputStream os = conn.getOutputStream() ) {
                     os.write(params.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 }
-    
+
                 if (conn.getResponseCode() != 200) {
                     logger.error("Failed to obtain tokens, HTTP response code: " + conn.getResponseCode());
                     return null;
                 }
-    
+
                 try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()))) {
                     return org.apache.commons.io.IOUtils.toString(in);
                 }
@@ -153,16 +153,24 @@ if ( refreshToken == null || refreshToken.isEmpty() ) {
   throw new RuntimeException("No refresh token available");
 }
 
-// Prepare the request body
-String requestBody = String.join("&",
-    "client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8"),
-    "client_secret=" + java.net.URLEncoder.encode(resolveSecret(x, getClientSecret()), "UTF-8"),
-    "refresh_token=" + java.net.URLEncoder.encode(refreshToken, "UTF-8"),
-    "grant_type=refresh_token");
+String clientId = getClientId();
+String clientSecret = resolveSecret(x, getClientSecret());
+String requestBody = "grant_type=refresh_token" +
+        "&refresh_token=" + java.net.URLEncoder.encode(refreshToken, "UTF-8");
+
+if ( getUseClientSecretBasic() ) {
+    String authCredentials = clientId + ":" + clientSecret;
+    String base64Auth = Base64.getEncoder().encodeToString(authCredentials.getBytes(StandardCharsets.UTF_8));
+    connection.setRequestProperty("Authorization", "Basic " + base64Auth);
+} else {
+    requestBody += "&client_id=" + java.net.URLEncoder.encode(clientId, "UTF-8") +
+                   "&client_secret=" + java.net.URLEncoder.encode(clientSecret, "UTF-8");
+}
 
 // Send the request
-java.io.OutputStream os = connection.getOutputStream();
-os.write(requestBody.getBytes("UTF-8"));
+try ( java.io.OutputStream os = connection.getOutputStream() ) {
+    os.write(requestBody.getBytes(StandardCharsets.UTF_8));
+}
 
 // Read the response
 int responseCode = connection.getResponseCode();

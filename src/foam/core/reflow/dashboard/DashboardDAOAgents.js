@@ -407,37 +407,37 @@ foam.CLASS({
     },
     // periodCount comes from TimeSeriesGapFillingMixin; forwarding handled in init()
 
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, value: 'DAY',
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, transient: true, value: 'DAY',
       setter: function(v) { this.displaySink.timeUnit = v; } },
-    { class: 'Boolean', name: 'horizontal', hidden: true,
+    { class: 'Boolean', name: 'horizontal', hidden: true, transient: true,
       setter: function(v) { this.displaySink.horizontal = v; } },
-    { class: 'Float', name: 'barThickness', hidden: true,
+    { class: 'Float', name: 'barThickness', hidden: true, transient: true,
       setter: function(v) { this.displaySink.barThickness = v; } },
-    { class: 'String', name: 'xAxisLabel', hidden: true,
+    { class: 'String', name: 'xAxisLabel', hidden: true, transient: true,
       setter: function(v) { this.displaySink.xAxisLabel = v; } },
-    { class: 'String', name: 'yAxisLabel', hidden: true,
+    { class: 'String', name: 'yAxisLabel', hidden: true, transient: true,
       setter: function(v) { this.displaySink.yAxisLabel = v; } },
-    { class: 'Boolean', name: 'showGridLines', hidden: true,
+    { class: 'Boolean', name: 'showGridLines', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showGridLines = v; } },
-    { class: 'StringArray', name: 'colors', hidden: true,
+    { class: 'StringArray', name: 'colors', hidden: true, transient: true,
       setter: function(v) { this.displaySink.colors = v; } },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true,
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true, transient: true,
       setter: function(v) { this.displaySink.alignment = v; } },
-    { class: 'Boolean', name: 'maintainAspectRatio', hidden: true,
+    { class: 'Boolean', name: 'maintainAspectRatio', hidden: true, transient: true,
       setter: function(v) { this.displaySink.maintainAspectRatio = v; } },
-    { class: 'Int', name: 'height', hidden: true,
+    { class: 'Int', name: 'height', hidden: true, transient: true,
       setter: function(v) { this.displaySink.height = v; } },
-    { class: 'Boolean', name: 'showLegend', hidden: true,
+    { class: 'Boolean', name: 'showLegend', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showLegend = v; } },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', hidden: true,
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', hidden: true, transient: true,
       setter: function(v) { this.displaySink.legendPosition = v; } },
-    { class: 'Boolean', name: 'showTooltips', hidden: true,
+    { class: 'Boolean', name: 'showTooltips', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showTooltips = v; } },
-    { class: 'Boolean', name: 'showTooltipSum', hidden: true,
+    { class: 'Boolean', name: 'showTooltipSum', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showTooltipSum = v; } },
-    { class: 'Boolean', name: 'animate', hidden: true,
+    { class: 'Boolean', name: 'animate', hidden: true, transient: true,
       setter: function(v) { this.displaySink.animate = v; } },
-    { class: 'Int', name: 'animationDuration', hidden: true,
+    { class: 'Int', name: 'animationDuration', hidden: true, transient: true,
       setter: function(v) { this.displaySink.animationDuration = v; } }
   ],
 
@@ -475,7 +475,7 @@ foam.CLASS({
     function addSinkToE(e, s) { e.add(s); },
 
     function addToE(e) {
-      e.startContext({ data: this.displaySink$ })
+      e.startContext({})
         .tag(this.ReactiveSectionedDetailView, {
           data$: this.displaySink$,
           showTitle: true
@@ -589,7 +589,7 @@ foam.CLASS({
     function addSinkToE(e, s) { e.add(s); },
 
     function addToE(e) {
-      e.startContext({ data: this.displaySink$ })
+      e.startContext({})
         .tag(this.ReactiveSectionedDetailView, {
           data$: this.displaySink$,
           showTitle: true
@@ -673,7 +673,7 @@ foam.CLASS({
     },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
-      e.startContext({ data: this.displaySink$ })
+      e.startContext({})
         .tag(this.ReactiveSectionedDetailView, {
           data$: this.displaySink$,
           showTitle: true
@@ -706,7 +706,7 @@ foam.CLASS({
   properties: [
     {
       class: 'FObjectProperty',
-      of: 'foam.core.reflow.dashboard.DashboardLineSink',
+      of: 'foam.dao.Sink',
       name: 'displaySink',
       hidden: true,
       factory: function() { return this.DashboardLineSink.create({}, this); }
@@ -824,7 +824,7 @@ foam.CLASS({
     function addSinkToE(e, s) { e.add(s); },
 
     function addToE(e) {
-      e.startContext({ data: this.displaySink$ })
+      e.startContext({})
         .tag(this.ReactiveSectionedDetailView, {
           data$: this.displaySink$,
           showTitle: true
@@ -899,7 +899,7 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardCalendarSink',
       name: 'displaySink',
       hidden: true,
-      factory: function() { return this.DashboardCalendarSink.create({}, this); }
+      factory: function() { return this.DashboardCalendarSink.create({ periodCount: 30 }, this); }
     },
     {
       name: 'prop',
@@ -961,7 +961,7 @@ foam.CLASS({
     },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
-      e.startContext({ data: this.displaySink$ })
+      e.startContext({})
         .tag(this.ReactiveSectionedDetailView, {
           data$: this.displaySink$,
           showTitle: true

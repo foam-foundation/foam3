@@ -77,6 +77,11 @@ foam.CLASS({
       class: 'String',
       name: 'certificateURL',
       documentation: '(Optional) URL to crytographic keys for verifing the signature of JWTs issued by the OAuth provider.'
+    },
+    {
+      class: 'Boolean',
+      name: 'useClientSecretBasic',
+      documentation: "The OAuth provider uses 'client_secret_post' instead of 'client_secret_post' to token exchange i.e. getTokenForCode() call"
     }
   ],
   methods: [
@@ -96,14 +101,23 @@ foam.CLASS({
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-    
+
+                String clientId = getClientId();
+                String clientSecret = resolveSecret(x, getClientSecret());
                 String params = "code=" + java.net.URLEncoder.encode(code, "UTF-8") +
-                        "&client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8") +
-                        "&client_secret=" + java.net.URLEncoder.encode(resolveSecret(x, getClientSecret()), "UTF-8") +
                         "&redirect_uri=" + java.net.URLEncoder.encode(redirectURI, "UTF-8") +
                         "&grant_type=authorization_code";
-    
-                try (java.io.OutputStream os = conn.getOutputStream()) {
+
+                if ( getUseClientSecretBasic() ) {
+                    String authCredentials = clientId + ":" + clientSecret;
+                    String base64Auth = Base64.getEncoder().encodeToString(authCredentials.getBytes(StandardCharsets.UTF_8));
+                    conn.setRequestProperty("Authorization", "Basic " + base64Auth);
+                } else {
+                    params += "&client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8") +
+                               "&client_secret=" + java.net.URLEncoder.encode(resolveSecret(x, getClientSecret()), "UTF-8");
+                }
+
+                try ( java.io.OutputStream os = conn.getOutputStream() ) {
                     os.write(params.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 }
     

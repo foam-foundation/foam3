@@ -885,9 +885,7 @@ foam.CLASS({
   name: 'DashboardCalendarChartDAOAgent',
   extends: 'foam.core.reflow.GroupByDAOAgent',
   mixins: [
-    'foam.core.reflow.dashboard.ColorMappingMixin',
-    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin',
-    'foam.core.reflow.dashboard.ChartDisplayMixin'
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin'
   ],
 
   requires: [
@@ -895,43 +893,23 @@ foam.CLASS({
     'foam.core.reflow.ReactiveSectionedDetailView'
   ],
 
-  sections: [
-    {
-      name: 'dataConfig',
-      title: 'Data Configuration',
-      order: 1,
-      collapsable: true,
-      properties: ['prop', 'categoryProp', 'sink', 'periodCount']
-    },
-    {
-      name: 'display',
-      title: 'Display Options',
-      order: 2,
-      collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'colors']
-    }
-  ],
-
   properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardCalendarSink',
+      name: 'displaySink',
+      hidden: true,
+      factory: function() { return this.DashboardCalendarSink.create({}, this); }
+    },
     {
       name: 'prop',
       label: 'Date Property',
-      view: function(_, X) {
-        return {
-          class: 'foam.core.reflow.PropertyExprView',
-          forCls: X.data.dao.of
-        };
-      }
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.dao.of }; }
     },
     {
       name: 'categoryProp',
       label: 'Category Property',
-      view: function(_, X) {
-        return {
-          class: 'foam.core.reflow.PropertyChoiceView',
-          forCls: X.data.dao.of
-        };
-      }
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.dao.of }; }
     },
     {
       name: 'sink',
@@ -941,56 +919,51 @@ foam.CLASS({
         disabledTypes: [ 'structure', 'format', 'chart' ]
       }
     },
-    {
-      name: 'periodCount',
-      label: 'Periods',
-      value: 30,
-      help: 'How many days to show from today'
-    }
+    { class: 'StringArray', name: 'colors', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.colors = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.alignment = v; } },
+    { class: 'Boolean', name: 'maintainAspectRatio', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.maintainAspectRatio = v; } },
+    { class: 'Int', name: 'height', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.height = v; } },
+    { class: 'Boolean', name: 'showLegend', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showLegend = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.legendPosition = v; } },
+    { class: 'Boolean', name: 'animate', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animate = v; } },
+    { class: 'Int', name: 'animationDuration', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animationDuration = v; } }
   ],
 
   methods: [
-    function getDatePropertyForFiltering() {
-      return this.prop;
+    function getDatePropertyForFiltering() { return this.prop; },
+    function init() {
+      this.SUPER();
+      var self = this;
+      // Calendar has its own periodCount default on the sink (12). The agent's TimeSeriesGapFillingMixin
+      // also declares periodCount (default 0). Only forward non-undefined / explicitly-set values.
+      if ( this.periodCount !== undefined && this.periodCount !== 0 ) {
+        self.displaySink.periodCount = this.periodCount;
+      }
+      this.onDetach(this.periodCount$.sub(function() {
+        if ( self.periodCount !== undefined ) self.displaySink.periodCount = self.periodCount;
+      }));
     },
     function createSink() {
       this.applyDateRangeFilter && this.applyDateRangeFilter();
       var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
-      return this.DashboardCalendarSink.create({
-        dateProp: this.prop,
-        categoryProp: this.categoryProp,
-        valueSink: valueSink,
-        colors: this.colors,
-        showLegend: this.showLegend,
-        legendPosition: this.legendPosition,
-        maintainAspectRatio: this.maintainAspectRatio,
-        height: this.height,
-        alignment: this.alignment,
-        animate: this.animate,
-        animationDuration: this.animationDuration,
-        periodCount: this.periodCount
-      });
+      this.displaySink.dateProp     = this.prop;
+      this.displaySink.categoryProp = this.categoryProp;
+      this.displaySink.valueSink    = valueSink;
+      return this.displaySink;
     },
-    function addSinkToE(e, s) {
-      var self = this;
-      e.add(s);
-      // Live binding like other charts
-      this.onDetach(this.dynamic(function(colors, showLegend, legendPosition, maintainAspectRatio, height, alignment, animate, animationDuration) {
-        s.colors = colors;
-        s.showLegend = showLegend;
-        s.legendPosition = legendPosition;
-        s.maintainAspectRatio = maintainAspectRatio;
-        s.height = height;
-        s.alignment = alignment;
-        s.animate = animate;
-        s.animationDuration = animationDuration;
-        if ( s.updateChart ) s.updateChart();
-      }));
-    },
+    function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
-      e.startContext({data: this})
+      e.startContext({ data: this.displaySink$ })
         .tag(this.ReactiveSectionedDetailView, {
-          data: this,
+          data$: this.displaySink$,
           showTitle: true
         })
       .endContext();

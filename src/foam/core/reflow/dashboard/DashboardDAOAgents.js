@@ -691,326 +691,145 @@ foam.CLASS({
   name: 'DashboardLineChartDAOAgent',
   extends: 'foam.core.reflow.AbstractSinkDAOAgent',
   mixins: [
-    'foam.core.reflow.dashboard.ColorMappingMixin',
-    'foam.core.reflow.dashboard.ChartDisplayMixin',
     'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin'
   ],
 
   requires: [
     'foam.core.reflow.dashboard.DashboardLineSink',
     'foam.core.reflow.dashboard.DashboardMultiLineSink',
+    'foam.core.reflow.dashboard.LegendPosition',
     'foam.core.reflow.dashboard.TimeUnit',
-    'foam.core.reflow.ReactiveSectionedDetailView'
-  ],
-
-  sections: [
-    {
-      name: 'dataConfig',
-      title: 'Data Configuration',
-      order: 1,
-      collapsable: true,
-      properties: ['xProp', 'yProp', 'groupBy', 'aggregationSink', 'timeUnit']
-    },
-    {
-      name: 'lineChart',
-      title: 'Line Chart Settings',
-      order: 2,
-      collapsable: true,
-      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'periodCount']
-    },
-    {
-      name: 'axisLabels',
-      title: 'Axis Labels',
-      order: 3,
-      collapsable: true,
-      properties: ['xAxisLabel', 'yAxisLabel']
-    },
-    {
-      name: 'display',
-      title: 'Display Options',
-      order: 4,
-      collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
-    },
-    {
-      name: 'colors',
-      title: 'Color Configuration',
-      order: 5,
-      collapsable: true,
-      properties: ['colors']
-    }
+    'foam.core.reflow.ReactiveSectionedDetailView',
+    'foam.dao.ArraySink'
   ],
 
   properties: [
     {
-      name: 'xProp',
-      label: 'X Property',
-      view: function(_, X) {
-        return { 
-          class: 'foam.core.reflow.PropertyExprView', 
-          forCls: X.data.dao.of
-        };
-      }
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardLineSink',
+      name: 'displaySink',
+      hidden: true,
+      factory: function() { return this.DashboardLineSink.create({}, this); }
     },
     {
-      name: 'yProp', 
+      name: 'xProp',
+      label: 'X Property',
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.dao.of }; }
+    },
+    {
+      name: 'yProp',
       label: 'Y Property',
-      view: function(_, X) {
-        return { 
-          class: 'foam.core.reflow.PropertyChoiceView', 
-          forCls: X.data.dao.of
-        };
-      }
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.dao.of }; }
     },
     {
       name: 'groupBy',
       label: 'Group By (Multiple Lines)',
       help: 'Optional: Group data by this property to create multiple lines',
-      view: function(_, X) {
-        return { 
-          class: 'foam.core.reflow.PropertyChoiceView', 
-          forCls: X.data.dao.of
-        };
-      }
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.dao.of }; }
     },
     {
       name: 'aggregationSink',
       label: 'Aggregation',
-      view: { class: 'foam.core.reflow.SinkView', choice:  'foam.core.reflow.CountDAOAgent' },
-      help: 'How to aggregate values when multiple records have the same X-value',
-
+      view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' }
     },
-    // Inherited from TimeSeriesGapFillingMixin: periodCount (visibility defined below)
-    // Define visibility for periodCount (from mixin)
-    {
-      name: 'periodCount',
-      visibility: function(xProp) {
-        // Only show for date/time properties on X-axis
-        var isDateProp = xProp && xProp.delegate &&
-          (foam.lang.Date.isInstance(xProp.delegate) || foam.lang.DateTime.isInstance(xProp.delegate));
-        return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit',
-      label: 'Time Unit',
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, transient: true,
       value: 'DAY',
-      help: 'Time unit for X-axis when using date/time properties',
-      visibility: function(xProp) {
-        // hidden for now (its not working due to our new propertyexprview returning values as strings instead of dates)
-        return foam.u2.DisplayMode.HIDDEN;
-        // return prop2 && (foam.lang.Date.isInstance(prop2) || foam.lang.DateTime.isInstance(prop2)) ? 
-        //   foam.u2.DisplayMode.RW : 
-        //   foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    {
-      class: 'String',
-      name: 'xAxisLabel',
-      label: 'X-Axis Label'
-    },
-    {
-      class: 'String',
-      name: 'yAxisLabel',
-      label: 'Y-Axis Label'
-    },
-    {
-      class: 'Boolean',
-      name: 'fill',
-      label: 'Fill Area',
-      value: false
-    },
-    {
-      class: 'Float',
-      name: 'tension',
-      label: 'Line Tension',
-      value: 0.1,
-      help: 'Bezier curve tension (0 = straight lines)'
-    },
-    {
-      class: 'Boolean',
-      name: 'stepped',
-      label: 'Stepped Line',
-      value: false
-    },
-    {
-      class: 'Boolean',
-      name: 'showPoints',
-      label: 'Show Points',
-      value: true
-    },
-    {
-      class: 'Float',
-      name: 'pointRadius',
-      label: 'Point Radius',
-      value: 3,
-      visibility: function(showPoints) {
-        return showPoints ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    {
-      class: 'Boolean',
-      name: 'showGridLines',
-      label: 'Show Grid Lines',
-      value: true
-    }
+      setter: function(v) { this.displaySink.timeUnit = v; } },
+    { class: 'String', name: 'xAxisLabel', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.xAxisLabel = v; } },
+    { class: 'String', name: 'yAxisLabel', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.yAxisLabel = v; } },
+    { class: 'Boolean', name: 'fill', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.fill = v; } },
+    { class: 'Float', name: 'tension', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.tension = v; } },
+    { class: 'Boolean', name: 'stepped', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.stepped = v; } },
+    { class: 'Boolean', name: 'showPoints', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showPoints = v; } },
+    { class: 'Float', name: 'pointRadius', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.pointRadius = v; } },
+    { class: 'Boolean', name: 'showGridLines', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showGridLines = v; } },
+    { class: 'StringArray', name: 'colors', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.colors = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.alignment = v; } },
+    { class: 'Boolean', name: 'maintainAspectRatio', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.maintainAspectRatio = v; } },
+    { class: 'Int', name: 'height', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.height = v; } },
+    { class: 'Boolean', name: 'showLegend', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showLegend = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.legendPosition = v; } },
+    { class: 'Boolean', name: 'showTooltips', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showTooltips = v; } },
+    { class: 'Boolean', name: 'showTooltipSum', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showTooltipSum = v; } },
+    { class: 'Boolean', name: 'animate', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animate = v; } },
+    { class: 'Int', name: 'animationDuration', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animationDuration = v; } }
   ],
 
   methods: [
-    function getDatePropertyForFiltering() {
-      // For line charts, the date property is 'xProp'
-      return this.xProp;
+    function getDatePropertyForFiltering() { return this.xProp; },
+
+    function init() {
+      this.SUPER();
+      var self = this;
+      if ( this.periodCount ) self.displaySink.periodCount = this.periodCount;
+      this.onDetach(this.periodCount$.sub(function() {
+        self.displaySink.periodCount = self.periodCount;
+      }));
     },
 
     function createSink() {
-      // Apply date range filter if periodCount is enabled
       this.applyDateRangeFilter();
+      if ( ! this.xProp ) return this.ArraySink.create();
 
-      if ( ! this.xProp ) {
-        return this.ArraySink.create();
-      }
-
-      // Use the aggregationSink if provided, otherwise COUNT (like StackedBar does)
       var valueSink = this.aggregationSink ? this.aggregationSink.createSink() : this.COUNT();
-      
-      // Choose sink based on whether groupBy is set
-      if ( this.groupBy ) {
-        // Multi-line chart: Use GridBy-based sink
-        return this.DashboardMultiLineSink.create({
-          xFunc: this.xProp,        // x-axis grouping
-          yFunc: this.groupBy,      // line grouping
-          acc: valueSink,          // aggregation sink (defaulted to COUNT)
-          timeUnit: this.timeUnit,
-          colors: this.colors,
-          xAxisLabel: this.xAxisLabel,
-          yAxisLabel: this.yAxisLabel,
-          fill: this.fill,
-          tension: this.tension,
-          stepped: this.stepped,
-          showPoints: this.showPoints,
-          pointRadius: this.pointRadius,
-          showGridLines: this.showGridLines,
-          maintainAspectRatio: this.maintainAspectRatio,
-          height: this.height,
-          showLegend: this.showLegend,
-          legendPosition: this.legendPosition,
-          showTooltips: this.showTooltips,
-          showTooltipSum: this.showTooltipSum,
-          animate: this.animate,
-          animationDuration: this.animationDuration,
-          alignment: this.alignment,
-          periodCount: this.periodCount
+      var wantMulti = !! this.groupBy;
+      var isMulti   = this.DashboardMultiLineSink.isInstance(this.displaySink);
+
+      if ( wantMulti !== isMulti ) {
+        var old = this.displaySink;
+        var next = wantMulti
+          ? this.DashboardMultiLineSink.create({}, this)
+          : this.DashboardLineSink.create({}, this);
+        [ 'periodCount', 'timeUnit', 'xAxisLabel', 'yAxisLabel', 'fill', 'tension', 'stepped',
+          'showPoints', 'pointRadius', 'showGridLines', 'colors', 'alignment', 'maintainAspectRatio',
+          'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum',
+          'animate', 'animationDuration' ].forEach(function(p) {
+          if ( old && old[p] !== undefined ) next[p] = old[p];
         });
-      } else {
-        // Single-line chart: Use GroupBy-based sink
-        return this.DashboardLineSink.create({
-          arg1: this.xProp,         // x-axis grouping
-          arg2: valueSink,         // aggregation sink (defaulted to COUNT)
-          timeUnit: this.timeUnit,
-          colors: this.colors,
-          xAxisLabel: this.xAxisLabel,
-          yAxisLabel: this.yAxisLabel,
-          fill: this.fill,
-          tension: this.tension,
-          stepped: this.stepped,
-          showPoints: this.showPoints,
-          pointRadius: this.pointRadius,
-          showGridLines: this.showGridLines,
-          maintainAspectRatio: this.maintainAspectRatio,
-          height: this.height,
-          showLegend: this.showLegend,
-          legendPosition: this.legendPosition,
-          showTooltips: this.showTooltips,
-          showTooltipSum: this.showTooltipSum,
-          animate: this.animate,
-          animationDuration: this.animationDuration,
-          alignment: this.alignment,
-          periodCount: this.periodCount
-        });
+        this.displaySink = next;
       }
+
+      this.displaySink.timeUnit = this.timeUnit;
+      if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
+        this.displaySink.xFunc = this.xProp;
+        this.displaySink.yFunc = this.groupBy;
+        this.displaySink.acc   = valueSink;
+      } else {
+        this.displaySink.arg1 = this.xProp;
+        this.displaySink.arg2 = valueSink;
+      }
+      return this.displaySink;
     },
 
-    function value(s) {
-      return s;
-    },
-    
-    function addSinkToE(e, s) {
-      var self = this;
-      // Add the sink once
-      e.add(s);
-      
-      // Then update its properties reactively
-      this.onDetach(this.dynamic(function(colors, xAxisLabel, yAxisLabel, fill, tension, stepped, showPoints, pointRadius, showGridLines,
-                                  maintainAspectRatio, height, showLegend, legendPosition,
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment,
-                                  periodCount) {
-        s.colors = colors;
-        s.xAxisLabel = xAxisLabel;
-        s.yAxisLabel = yAxisLabel;
-        s.fill = fill;
-        s.tension = tension;
-        s.stepped = stepped;
-        s.showPoints = showPoints;
-        s.pointRadius = pointRadius;
-        s.showGridLines = showGridLines;
-        s.maintainAspectRatio = maintainAspectRatio;
-        s.height = height;
-        s.showLegend = showLegend;
-        s.legendPosition = legendPosition;
-        s.showTooltips = showTooltips;
-        s.showTooltipSum = showTooltipSum;
-        s.animate = animate;
-        s.animationDuration = animationDuration;
-        s.alignment = alignment;
-        s.periodCount = periodCount;
-        
-        // Force chart to update/redraw
-        if ( s.updateChart ) s.updateChart();
-       }));
-    },
-    
+    function value(s) { return s; },
+
+    function addSinkToE(e, s) { e.add(s); },
+
     function addToE(e) {
-      e.startContext({data: this})
-        .start('div')
-          .style({
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: this.alignment$.map(function(a) { return a.alignmentStyle; }),
-            textAlign: this.alignment$.map(function(a) { return a.textAlign; })
-          })
-          .tag(this.ReactiveSectionedDetailView, {
-            data: this,
-            showTitle: true
-          })
-        .end()
+      e.startContext({ data: this.displaySink$ })
+        .tag(this.ReactiveSectionedDetailView, {
+          data$: this.displaySink$,
+          showTitle: true
+        })
       .endContext();
-    },
-    
-    function clone(subContext) {
-      var clone = this.SUPER(subContext);
-      clone.alignment$ = this.alignment$;
-      clone.colors$ = this.colors$;
-      clone.xAxisLabel$ = this.xAxisLabel$;
-      clone.yAxisLabel$ = this.yAxisLabel$;
-      clone.fill$ = this.fill$;
-      clone.tension$ = this.tension$;
-      clone.stepped$ = this.stepped$;
-      clone.showPoints$ = this.showPoints$;
-      clone.pointRadius$ = this.pointRadius$;
-      clone.showGridLines$ = this.showGridLines$;
-      clone.periodCount$ = this.periodCount$;
-      clone.maintainAspectRatio$ = this.maintainAspectRatio$;
-      clone.height$ = this.height$;
-      clone.showLegend$ = this.showLegend$;
-      clone.legendPosition$ = this.legendPosition$;
-      clone.showTooltips$ = this.showTooltips$;
-      clone.showTooltipSum$ = this.showTooltipSum$;
-      clone.animate$ = this.animate$;
-      clone.animationDuration$ = this.animationDuration$;
-      return clone;
     }
   ]
 });

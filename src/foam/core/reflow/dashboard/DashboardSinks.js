@@ -181,13 +181,24 @@ foam.CLASS({
   mixins: [
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
-  
+
   requires: [
     'org.chartjs.Bar2',
     'foam.u2.layout.ContainerWidth',
     'foam.core.reflow.dashboard.LegendPosition'
   ],
-  
+
+  sections: [
+    { name: 'chartSettings', title: 'Bar Chart Settings', order: 1, collapsable: true,
+      properties: ['horizontal', 'barThickness', 'timeUnit', 'showGridLines', 'datasetLabel', 'periodCount'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
     // TopNGroupBy properties (inherited but exposed here for clarity)
     // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
@@ -446,11 +457,20 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardPieSink',
   extends: 'foam.mlang.sink.TopNGroupBy',
-  
+
   requires: [
     'org.chartjs.Pie2',
     'foam.u2.layout.ContainerWidth',
     'foam.core.reflow.dashboard.LegendPosition'
+  ],
+
+  sections: [
+    { name: 'chartSettings', title: 'Pie Chart Settings', order: 1, collapsable: true,
+      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick', 'emptyValueMessage'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] }
   ],
 
   css: `
@@ -730,7 +750,18 @@ foam.CLASS({
     'foam.u2.layout.ContainerWidth',
     'foam.core.reflow.dashboard.LegendPosition'
   ],
-  
+
+  sections: [
+    { name: 'chartSettings', title: 'Stacked Bar Settings', order: 1, collapsable: true,
+      properties: ['horizontal', 'timeUnit', 'showGridLines', 'onClickScript', 'periodCount'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
     // Stacked bar-specific properties
     {
@@ -1233,7 +1264,18 @@ foam.CLASS({
     'foam.core.reflow.dashboard.LineChartMixin',
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
-  
+
+  sections: [
+    { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit', 'periodCount'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
     // Map GroupBy properties directly
     { 
@@ -1393,7 +1435,18 @@ foam.CLASS({
     'foam.core.reflow.dashboard.LineChartMixin',
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
-  
+
+  sections: [
+    { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit', 'periodCount'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
     // Map GridBy properties directly  
     { 
@@ -1988,6 +2041,14 @@ foam.CLASS({
     'foam.u2.layout.ContainerWidth',
     'org.chartjs.CalendarDAOChartView'
   ],
+
+  sections: [
+    { name: 'displayOptions', title: 'Display', order: 1, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'animate', 'animationDuration', 'periodCount'] },
+    { name: 'colorConfig', title: 'Colors', order: 2, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
     { name: 'dateProp', label: 'Date Property' },
     { name: 'categoryProp', label: 'Category Property' },

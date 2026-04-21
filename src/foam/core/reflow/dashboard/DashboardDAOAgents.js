@@ -381,6 +381,11 @@ foam.CLASS({
     'foam.core.reflow.ReactiveSectionedDetailView'
   ],
 
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 1, collapsable: true,
+      properties: ['prop', 'sink', 'topN', 'includeOthers', 'sortOrder', 'othersLabel', 'groupLimit'] }
+  ],
+
   properties: [
     {
       class: 'FObjectProperty',
@@ -476,10 +481,8 @@ foam.CLASS({
 
     function addToE(e) {
       e.startContext({})
-        .tag(this.ReactiveSectionedDetailView, {
-          data$: this.displaySink$,
-          showTitle: true
-        })
+        .tag(this.ReactiveSectionedDetailView, { data: this, showTitle: true })
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: false })
       .endContext();
     }
   ]
@@ -497,6 +500,11 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardStackedBarSink',
     'foam.core.reflow.dashboard.LegendPosition',
     'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 1, collapsable: true,
+      properties: ['prop2', 'prop1', 'sink'] }
   ],
 
   properties: [
@@ -590,10 +598,8 @@ foam.CLASS({
 
     function addToE(e) {
       e.startContext({})
-        .tag(this.ReactiveSectionedDetailView, {
-          data$: this.displaySink$,
-          showTitle: true
-        })
+        .tag(this.ReactiveSectionedDetailView, { data: this, showTitle: true })
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: false })
       .endContext();
     }
   ]
@@ -607,6 +613,11 @@ foam.CLASS({
   requires: [
     'foam.core.reflow.dashboard.DashboardPieSink',
     'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 1, collapsable: true,
+      properties: ['prop', 'sink', 'topN', 'includeOthers', 'sortOrder', 'othersLabel', 'groupLimit'] }
   ],
 
   properties: [
@@ -674,10 +685,8 @@ foam.CLASS({
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
       e.startContext({})
-        .tag(this.ReactiveSectionedDetailView, {
-          data$: this.displaySink$,
-          showTitle: true
-        })
+        .tag(this.ReactiveSectionedDetailView, { data: this, showTitle: true })
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: false })
       .endContext();
     }
   ]
@@ -701,6 +710,11 @@ foam.CLASS({
     'foam.core.reflow.dashboard.TimeUnit',
     'foam.core.reflow.ReactiveSectionedDetailView',
     'foam.dao.ArraySink'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 1, collapsable: true,
+      properties: ['xProp', 'yProp', 'groupBy', 'aggregationSink'] }
   ],
 
   properties: [
@@ -825,10 +839,8 @@ foam.CLASS({
 
     function addToE(e) {
       e.startContext({})
-        .tag(this.ReactiveSectionedDetailView, {
-          data$: this.displaySink$,
-          showTitle: true
-        })
+        .tag(this.ReactiveSectionedDetailView, { data: this, showTitle: true })
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: false })
       .endContext();
     }
   ]
@@ -891,6 +903,11 @@ foam.CLASS({
   requires: [
     'foam.core.reflow.dashboard.DashboardCalendarSink',
     'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 1, collapsable: true,
+      properties: ['prop', 'categoryProp', 'sink'] }
   ],
 
   properties: [
@@ -962,10 +979,8 @@ foam.CLASS({
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
       e.startContext({})
-        .tag(this.ReactiveSectionedDetailView, {
-          data$: this.displaySink$,
-          showTitle: true
-        })
+        .tag(this.ReactiveSectionedDetailView, { data: this, showTitle: true })
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: false })
       .endContext();
     }
   ]

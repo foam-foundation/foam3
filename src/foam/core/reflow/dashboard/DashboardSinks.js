@@ -179,7 +179,9 @@ foam.CLASS({
   name: 'DashboardBarSink',
   extends: 'foam.mlang.sink.TopNGroupBy',
   mixins: [
-    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin',
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
   ],
 
   requires: [
@@ -245,35 +247,20 @@ foam.CLASS({
     { name: 'groupKeys', hidden: true },
     { name: 'processArrayValuesIndividually', hidden: true },
     { name: 'groupLimit', hidden: true },
-    // Chart-specific properties
-    {
-      class: 'StringArray',
-      name: 'colors',
-    },
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit'
-    },
-    { class: 'Boolean', name: 'horizontal', value: false },
-    { class: 'Int', name: 'barThickness' },
+    // Bar-specific properties (display properties come from ChartDisplayMixin)
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+      label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    { class: 'Boolean', name: 'horizontal', label: 'Horizontal Bars', value: false },
+    { class: 'Int', name: 'barThickness', label: 'Bar Thickness', help: 'Thickness of bars (0 = auto)' },
     { class: 'String', name: 'datasetLabel', value: '', help: 'Label for the dataset (shown in legend if enabled)' },
-    { class: 'String', name: 'xAxisLabel' },
-    { class: 'String', name: 'yAxisLabel' },
-    { class: 'Boolean', name: 'showGridLines', value: true },
-    // periodCount inherited from TimeSeriesGapFillingSinkMixin
-    // Display properties — internal/sizing props hidden from editor
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Internal-only sizing props (hidden)
     { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
     { class: 'Int', name: 'width', hidden: true, value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: false },  // Bar charts typically don't need legend for single dataset
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    // Override ChartDisplayMixin's showLegend default (true) — bar charts default to no legend
+    { class: 'Boolean', name: 'showLegend', label: 'Show Legend', value: false },
     {
       name: 'chart_',
       hidden: true,
@@ -497,6 +484,10 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardPieSink',
   extends: 'foam.mlang.sink.TopNGroupBy',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
 
   requires: [
     'org.chartjs.Pie2',
@@ -577,29 +568,22 @@ foam.CLASS({
     { name: 'groupKeys', hidden: true },
     { name: 'processArrayValuesIndividually', hidden: true },
     { name: 'groupLimit', hidden: true },
-    // Pie-specific properties
-    {
-      class: 'StringArray',
-      name: 'colors',
-    },
-    { class: 'Boolean', name: 'showPercentages', value: false },
-    { class: 'Int', name: 'cutoutPercentage', value: 0 },
-    { class: 'Boolean', name: 'clockwise', value: true },
-    { class: 'Int', name: 'rotation', value: -90 },
-    { class: 'Boolean', name: 'disableLegendClick', help: 'Disable legend click to toggle slice visibility' },
-    // Display properties — internal/sizing props hidden from editor
+    // Pie-specific properties (display properties come from ChartDisplayMixin)
+    { class: 'Boolean', name: 'showPercentages', label: 'Show Percentages', value: false },
+    { class: 'Int', name: 'cutoutPercentage', label: 'Cutout %', value: 0,
+      view: { class: 'foam.u2.RangeView', minValue: 0, maxValue: 100, step: 1, onKey: true },
+      help: 'For donut effect (0-100)' },
+    { class: 'Boolean', name: 'clockwise', label: 'Clockwise', value: true },
+    { class: 'Int', name: 'rotation', label: 'Rotation Angle', value: -90,
+      view: { class: 'foam.u2.RangeView', minValue: -180, maxValue: 180, step: 1, onKey: true },
+      help: 'Starting angle in degrees (-180 to 180)' },
+    { class: 'Boolean', name: 'disableLegendClick', label: 'Disable Legend Click',
+      help: 'Prevent clicking legend items from toggling slice visibility' },
+    { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available',
+      help: 'Message to display when there is no data' },
+    // Internal-only props (hidden)
     { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
     { class: 'Int', name: 'width', hidden: true, value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
-    { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available' },
     { class: 'Boolean', name: 'hasData', section: "displayOptions", value: false, hidden: true },
     {
       name: 'chart_',
@@ -821,7 +805,9 @@ foam.CLASS({
   extends: 'foam.core.reflow.GridBy',
 
   mixins: [
-    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin',
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
   ],
 
   requires: [
@@ -872,38 +858,22 @@ foam.CLASS({
         if ( n && n.createSink ) this.acc = n.createSink();
       }
     },
-    // Stacked bar-specific properties
-    {
-      class: 'StringArray',
-      name: 'colors',
-    },
+    // Stacked-bar-specific properties (display & colors come from mixins)
     {
       class: 'Code',
       name: 'onClickScript',
       label: 'On Click Script',
       help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
     },
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit'
-    },
-    { class: 'Boolean', name: 'horizontal', value: false },
-    { class: 'String', name: 'xAxisLabel' },
-    { class: 'String', name: 'yAxisLabel' },
-    { class: 'Boolean', name: 'showGridLines', value: true },
-    // Display properties — internal/sizing props hidden from editor
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+      label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    { class: 'Boolean', name: 'horizontal', label: 'Horizontal Stacks', value: false },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Internal-only sizing props (hidden)
     { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
     { class: 'Int', name: 'width', hidden: true, value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
     // Hide GridBy parent-class internals wired programmatically by createSink()
     { name: 'xFunc', hidden: true },
     { name: 'yFunc', hidden: true },
@@ -1222,41 +1192,38 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'LineChartMixin',
 
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
   requires: [
     'org.chartjs.Line2',
     'foam.u2.layout.ContainerWidth',
     'foam.core.reflow.dashboard.LegendPosition'
   ],
-  
+
   properties: [
-    // Chart rendering properties
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit'
-    },
-    { class: 'StringArray', name: 'colors' },
-    { class: 'StringArray', name: 'borderColors', help: 'Border colors for line elements. If not specified, colors will be used.' },
-    { class: 'String', name: 'xAxisLabel' },
-    { class: 'String', name: 'yAxisLabel' },
-    { class: 'Boolean', name: 'fill', value: false },
-    { class: 'Double', name: 'tension', value: 0.1 },
-    { class: 'Boolean', name: 'stepped', value: false },
-    { class: 'Boolean', name: 'showPoints', value: true },
-    { class: 'Int', name: 'pointRadius', value: 3 },
-    { class: 'Boolean', name: 'showGridLines', value: true },
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer (for multiple lines)' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' }
+    // Line-specific rendering properties (display & colors come from mixins)
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+      label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    { class: 'StringArray', name: 'borderColors', label: 'Border Colors',
+      help: 'Border colors for line elements. If not specified, colors will be used.' },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'fill', label: 'Fill Area', value: false },
+    { class: 'Double', name: 'tension', label: 'Line Tension', value: 0.1,
+      help: 'Bezier curve tension (0 = straight lines)' },
+    { class: 'Boolean', name: 'stepped', label: 'Stepped Line', value: false },
+    { class: 'Boolean', name: 'showPoints', label: 'Show Points', value: true },
+    { class: 'Int', name: 'pointRadius', label: 'Point Radius', value: 3,
+      visibility: function(showPoints) {
+        return showPoints ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Internal-only sizing props (hidden)
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
+    { class: 'Int', name: 'width', hidden: true, value: 400 }
   ],
 
   methods: [
@@ -2222,6 +2189,10 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardCalendarSink',
   extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
   documentation: 'Calendar sink with fully live dashboard properties (match Pie/Bar).',
   requires: [
     'foam.u2.layout.ContainerWidth',
@@ -2270,17 +2241,10 @@ foam.CLASS({
     { name: 'dateProp', hidden: true, label: 'Date Property' },
     { name: 'categoryProp', hidden: true, label: 'Category Property' },
     { name: 'valueSink', hidden: true, documentation: 'Aggregator sink.' },
-    { class: 'Int', name: 'periodCount', label: 'Periods', value: 12 },
+    { class: 'Int', name: 'periodCount', label: 'Periods', value: 12,
+      help: 'How many days to show from today' },
     { name: 'map_', hidden: true, factory: function() { return {}; } },
-    // Dashboard-style display properties
-    { class: 'StringArray', name: 'colors', documentation: 'Dashboard chart colors' },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', name: 'legendPosition', of: 'foam.core.reflow.dashboard.LegendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Enum', name: 'alignment', of: 'foam.core.reflow.dashboard.MetricAlignment', value: 'CENTER' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
+    // Display & colors properties come from ChartDisplayMixin and ColorMappingMixin
     {
       name: 'chart_',
       hidden: true,

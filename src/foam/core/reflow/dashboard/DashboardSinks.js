@@ -445,15 +445,92 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardPieSink',
   extends: 'foam.mlang.sink.TopNGroupBy',
-  
+
   requires: [
     'org.chartjs.Pie2',
     'foam.u2.layout.ContainerWidth'
   ],
 
   css: `
-    ^graph-container {
+    ^ {
+      display: flex;
       width: 100%;
+      align-items: center;
+      gap: 16px;
+      box-sizing: border-box;
+    }
+
+    ^row {
+      flex-direction: row;
+    }
+
+    ^column {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    ^align-left {
+      padding-left: 14px;
+    }
+
+    ^canvas-container {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    ^html-legend {
+      flex: 0 0 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    ^column ^html-legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      justify-content: center;
+    }
+
+    ^legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: $textDefault;
+      user-select: none;
+    }
+
+    ^legend-item-clickable {
+      cursor: pointer;
+    }
+
+    ^legend-item-hidden ^legend-swatch {
+      opacity: 0.3;
+    }
+
+    ^legend-item-hidden ^legend-label {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    ^legend-swatch {
+      width: 30px;
+      height: 14px;
+      border-radius: 3px;
+      flex: none;
+    }
+
+    ^legend-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     ^empty-value-message {
@@ -502,11 +579,17 @@ foam.CLASS({
     { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available' },
     { class: 'Boolean', name: 'hasData', section: "displayOptions", value: false, hidden: true },
     {
+      class: 'Array',
+      name: 'hiddenIndices_',
+      hidden: true,
+      transient: true
+    },
+    {
       name: 'chart_',
       transient: true,
-      expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
+      expression: function(groups, groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
                           responsive, maintainAspectRatio, showLegend,
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width, emptyValueMessage, disableLegendClick) {
+                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width, emptyValueMessage, disableLegendClick, hiddenIndices_) {
         // Don't create chart until we have a valid width
         if ( ! width || width <= 0 ) {
           return null;
@@ -520,25 +603,29 @@ foam.CLASS({
         // Otherwise, use sortedKeys() for proper sorting
         var sortedKeys = this.topN > 0 ? (this.groupKeys || Object.keys(groups)) :
                         (this.sortedKeys ? this.sortedKeys() : Object.keys(groups));
-        
-        var index = 0;
+
+        // Hidden slices are filtered out so remaining slices grow to fill
+        // the pie — matching Chart.js's built-in legend-click behavior.
+        var hidden = hiddenIndices_ || [];
+
         for ( var i = 0; i < sortedKeys.length; i++ ) {
+          if ( hidden.indexOf(i) >= 0 ) continue;
           var key = sortedKeys[i];
           labels.push(key.toString());
           data.push(groups[key].value);
-          
-          // Only handle colors if they are defined
+
           if ( colors && colors.length > 0 ) {
-            var color = colors[index % colors.length];
+            var color = colors[i % colors.length];
             if ( color !== undefined && color !== null ) {
               color = foam.CSS.returnTokenValue(color, this.cls_, this.__context__);
               backgroundColors.push(color);
             }
           }
-          index++;
         }
-        
-        this.hasData = data.length > 0;
+
+        // hasData reflects the underlying groups — not the visible subset —
+        // so toggling every slice off doesn't swap in the empty-value message.
+        this.hasData = sortedKeys.length > 0;
         
         var chartData = {
           labels: labels,
@@ -554,11 +641,15 @@ foam.CLASS({
           cutout: cutoutPercentage + '%',
           rotation: rotation,
           circumference: clockwise ? 360 : -360,
+          layout: {
+            padding: 0
+          },
           plugins: {
+            // Chart.js internal legend is disabled — the sink renders its own
+            // HTML legend so click-to-hide, percentages, and ordering work
+            // consistently alongside a full-width canvas.
             legend: {
-              display: showLegend,
-              position: legendPosition ? legendPosition.toString().toLowerCase() : 'top',
-              onClick: disableLegendClick ? function() { /* no-op: prevent slice toggle */ } : undefined,
+              display: false
             },
             tooltip: {
               enabled: showTooltips,
@@ -613,29 +704,6 @@ foam.CLASS({
           } : false
         };
         
-        if ( showPercentages ) {
-          options.plugins.legend.labels = {
-            generateLabels: function(chart) {
-              var dataset = chart.data.datasets[0];
-              var total = dataset.data.reduce(function(sum, val) { return sum + val; }, 0);
-              
-              return chart.data.labels.map(function(label, i) {
-                var percentage = total > 0 ? ((dataset.data[i] / total) * 100).toFixed(1) : '0.0';
-                var style = chart.getDatasetMeta(0).controller ? 
-                           chart.getDatasetMeta(0).controller.getStyle(i) : 
-                           { backgroundColor: dataset.backgroundColor[i] };
-                
-                return {
-                  text: percentage + '% ' + label,
-                  fillStyle: style.backgroundColor,
-                  fontColor: undefined,
-                  index: i
-                };
-              });
-            }
-          };
-        }
-        
         return this.Pie2.create({
           data: chartData,
           chartJSOptions: options,
@@ -658,38 +726,117 @@ foam.CLASS({
     function addToE(e) {
       var self = this;
 
+      function legendPositionName(pos) {
+        if ( ! pos ) return 'RIGHT';
+        return typeof pos === 'string' ? pos : (pos.name || pos.toString());
+      }
+
       e
         .addClass(self.getMyClass())
+        .enableClass(self.getMyClass('column'), this.legendPosition$.map(function(pos) {
+          var p = legendPositionName(pos);
+          return p === 'TOP' || p === 'BOTTOM';
+        }))
+        .enableClass(self.getMyClass('row'), this.legendPosition$.map(function(pos) {
+          var p = legendPositionName(pos);
+          return p !== 'TOP' && p !== 'BOTTOM';
+        }))
+        .enableClass(self.getMyClass('align-left'), this.alignment$.map(function(a) {
+          return a && a.name === 'LEFT';
+        }))
         .style({
-          width: '100%',
-          display: 'flex',
-          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
-          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+          justifyContent: this.alignment$.map(function(a) { return a ? a.alignmentStyle : 'center'; }),
+          textAlign: this.alignment$.map(function(a) { return a ? a.textAlign : 'center'; })
+        });
+
+      // Canvas container flex-grows to fill the width remaining after the
+      // legend. Height is fixed by this.height; width is tracked via
+      // ContainerWidth below and fed into self.width to size the <canvas>.
+      var canvasEl = e.start()
+        .addClass(self.getMyClass('canvas-container'))
+        .style({
+          height: this.height$.map(function(h) { return (h || 300) + 'px'; })
         })
-        .start('div')
-          .addClass(self.getMyClass('graph-container'))
-          .style({ 'min-height': this.height$, height: this.height$ })
-          .add(self.dynamic(function(hasData, chart_, emptyValueMessage) {
-            if ( hasData ) {
-              this.add(chart_);
+        .add(self.dynamic(function(hasData, chart_, emptyValueMessage) {
+          if ( hasData ) {
+            this.add(chart_);
+          }
+          else {
+            this.start()
+              .addClass(self.getMyClass('empty-value-message'))
+              .start('p').add(emptyValueMessage).end()
+            .end();
+          }
+        }));
+      canvasEl.end();
+
+      // HTML legend — order (before/after canvas) is controlled by flex
+      // `order` based on legendPosition. Click on a legend item toggles slice
+      // visibility unless disableLegendClick is set.
+      e.add(self.dynamic(function(showLegend, hasData, groups, groupKeys, colors, showPercentages, legendPosition, topN, hiddenIndices_, disableLegendClick) {
+        if ( ! showLegend || ! hasData || ! groups ) return;
+
+        var sortedKeys = self.topN > 0
+          ? (groupKeys || Object.keys(groups))
+          : (self.sortedKeys ? self.sortedKeys() : Object.keys(groups));
+
+        // Percentages are computed against the total of visible slices only,
+        // so values shown in the legend match what the pie renders.
+        var hidden = hiddenIndices_ || [];
+        var total = 0;
+        if ( showPercentages ) {
+          for ( var i = 0; i < sortedKeys.length; i++ ) {
+            if ( hidden.indexOf(i) >= 0 ) continue;
+            total += (groups[sortedKeys[i]] && groups[sortedKeys[i]].value) || 0;
+          }
+        }
+
+        var posName = legendPositionName(legendPosition);
+        var order = (posName === 'LEFT' || posName === 'TOP') ? '-1' : '0';
+
+        this.start()
+          .addClass(self.getMyClass('html-legend'))
+          .style({ order: order })
+          .forEach(sortedKeys, function(key, i) {
+            var color = (colors && colors.length > 0) ? colors[i % colors.length] : '#b3cde0';
+            color = foam.CSS.returnTokenValue(color, self.cls_, self.__context__);
+
+            var isHidden = hidden.indexOf(i) >= 0;
+            var value = (groups[key] && groups[key].value) || 0;
+            var labelText = key.toString();
+            if ( showPercentages ) {
+              var pct = (! isHidden && total > 0) ? (value / total) * 100 : 0;
+              labelText = pct.toFixed(1) + '% ' + labelText;
             }
-            else {
-              this
-              .start('div')
-                .addClass(self.getMyClass('empty-value-message'))
-                .start('p')
-                  .add(emptyValueMessage)
-                .end()
-              .end();
+
+            var item = this.start()
+              .addClass(self.getMyClass('legend-item'))
+              .enableClass(self.getMyClass('legend-item-clickable'), ! disableLegendClick)
+              .enableClass(self.getMyClass('legend-item-hidden'), isHidden);
+
+            if ( ! disableLegendClick ) {
+              item.on('click', function() {
+                var current = (self.hiddenIndices_ || []).slice();
+                var idx = current.indexOf(i);
+                if ( idx >= 0 ) current.splice(idx, 1);
+                else current.push(i);
+                self.hiddenIndices_ = current;
+              });
             }
-          }))
+
+            item
+              .start().addClass(self.getMyClass('legend-swatch')).style({ background: color }).end()
+              .start().addClass(self.getMyClass('legend-label')).add(labelText).end()
+            .end();
+          })
         .end();
+      }));
 
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
+      // Track the canvas container's actual pixel width and feed it into
+      // self.width. onWidthChange rebuilds the Chart.js instance whenever
+      // width changes (e.g., on resize or when the legend grows/shrinks).
+      var cw = self.ContainerWidth.create();
+      cw.initContainer(canvasEl);
       self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
         return inlineSize > 0 ? inlineSize : self.width;
       }));

@@ -490,69 +490,32 @@ foam.CLASS({
   name: 'DashboardStackedBarChartDAOAgent',
   extends: 'foam.core.reflow.GridByDAOAgent',
   mixins: [
-    'foam.core.reflow.dashboard.ColorMappingMixin',
-    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin',
-    'foam.core.reflow.dashboard.ChartDisplayMixin'
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingMixin'
   ],
 
   requires: [
     'foam.core.reflow.dashboard.DashboardStackedBarSink',
+    'foam.core.reflow.dashboard.LegendPosition',
     'foam.core.reflow.ReactiveSectionedDetailView'
-  ],
-
-  sections: [
-    {
-      name: 'dataConfig',
-      title: 'Data Configuration',
-      order: 1,
-      collapsable: true,
-      properties: ['prop2', 'prop1', 'sink', 'periodCount', 'timeUnit']
-    },
-    {
-      name: 'stackedBarChart',
-      title: 'Stacked Bar Settings',
-      order: 2,
-      collapsable: true,
-      properties: ['horizontal', 'showGridLines']
-    },
-    {
-      name: 'axisLabels',
-      title: 'Axis Labels',
-      order: 3,
-      collapsable: true,
-      properties: ['xAxisLabel', 'yAxisLabel']
-    },
-    {
-      name: 'display',
-      title: 'Display Options',
-      order: 4,
-      collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
-    },
-    {
-      name: 'interactivity',
-      title: 'Interactivity',
-      order: 5,
-      collapsable: true,
-      properties: ['onClickScript']
-    },
-    {
-      name: 'colors',
-      title: 'Color Configuration',
-      order: 6,
-      collapsable: true,
-      properties: ['colors']
-    }
   ],
 
   properties: [
     {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardStackedBarSink',
+      name: 'displaySink',
+      hidden: true,
+      factory: function() { return this.DashboardStackedBarSink.create({}, this); }
+    },
+    {
       name: 'prop2',
-      label: "X Axis"
+      label: 'X-Axis Property',
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.dao.of }; }
     },
     {
       name: 'prop1',
-      label: "Stacked By"
+      label: 'Stack Group Property',
+      view: function(_, X) { return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.dao.of }; }
     },
     {
       name: 'sink',
@@ -562,160 +525,76 @@ foam.CLASS({
         disabledTypes: [ 'structure', 'format', 'chart' ]
       }
     },
-    // Inherited from GridByDAOAgent: prop1 (yFunc), prop2 (xFunc), sink
-    // Inherited from TimeSeriesGapFillingMixin: periodCount
-    // Override periodCount visibility to check prop2 (X-axis) instead of prop
-    {
-      name: 'periodCount',
-      visibility: function(prop2) {
-        // For stacked charts, check prop2 (X-axis) for date properties
-        var isDateProp = prop2 && prop2.delegate &&
-          (foam.lang.Date.isInstance(prop2.delegate) || foam.lang.DateTime.isInstance(prop2.delegate));
-        return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    // From mixins: colors, chart display options
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit',
-      label: 'Time Unit',
+    // periodCount from TimeSeriesGapFillingMixin — forwarded to displaySink in init()
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit', hidden: true, transient: true,
       value: 'DAY',
-      help: 'Time unit for X-axis when using date/time properties',
-      visibility: function(prop2) {
-        /// hidden for now (its not working due to our new propertyexprview returning values as strings instead of dates)
-        return foam.u2.DisplayMode.HIDDEN;
-        // return prop2 && (foam.lang.Date.isInstance(prop2) || foam.lang.DateTime.isInstance(prop2)) ?
-        //   foam.u2.DisplayMode.RW :
-        //   foam.u2.DisplayMode.HIDDEN;
-      }
-    },
-    {
-      class: 'Boolean',
-      name: 'horizontal',
-      label: 'Horizontal Stacks',
-      value: false
-    },
-    {
-      class: 'String',
-      name: 'xAxisLabel',
-      label: 'X-Axis Label'
-    },
-    {
-      class: 'String',
-      name: 'yAxisLabel',
-      label: 'Y-Axis Label'
-    },
-    {
-      class: 'Boolean',
-      name: 'showGridLines',
-      label: 'Show Grid Lines',
-      value: true
-    },
-    {
-      class: 'Code',
-      name: 'onClickScript',
-      label: 'On Click Script',
-      section: 'interactivity',
-      help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
-    }
+      setter: function(v) { this.displaySink.timeUnit = v; } },
+    { class: 'Boolean', name: 'horizontal', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.horizontal = v; } },
+    { class: 'String', name: 'xAxisLabel', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.xAxisLabel = v; } },
+    { class: 'String', name: 'yAxisLabel', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.yAxisLabel = v; } },
+    { class: 'Boolean', name: 'showGridLines', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showGridLines = v; } },
+    { class: 'Code', name: 'onClickScript', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.onClickScript = v; } },
+    { class: 'StringArray', name: 'colors', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.colors = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.alignment = v; } },
+    { class: 'Boolean', name: 'maintainAspectRatio', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.maintainAspectRatio = v; } },
+    { class: 'Int', name: 'height', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.height = v; } },
+    { class: 'Boolean', name: 'showLegend', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showLegend = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.legendPosition = v; } },
+    { class: 'Boolean', name: 'showTooltips', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showTooltips = v; } },
+    { class: 'Boolean', name: 'showTooltipSum', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showTooltipSum = v; } },
+    { class: 'Boolean', name: 'animate', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animate = v; } },
+    { class: 'Int', name: 'animationDuration', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animationDuration = v; } }
   ],
 
   methods: [
-    function getDatePropertyForFiltering() {
-      // For stacked bar charts, the date property is 'prop2' (X-axis)
-      return this.prop2;
+    function init() {
+      this.SUPER();
+      var self = this;
+      // Sync initial value and forward future changes to displaySink.
+      // periodCount comes from TimeSeriesGapFillingMixin; mixin wins over
+      // class-level property overrides so we use a reactive listener instead.
+      if ( this.periodCount ) self.displaySink.periodCount = self.periodCount;
+      this.onDetach(this.periodCount$.sub(function() {
+        self.displaySink.periodCount = self.periodCount;
+      }));
     },
+
+    function getDatePropertyForFiltering() { return this.prop2; },
 
     function createSink() {
-      // Apply date range filter if periodCount is enabled
       this.applyDateRangeFilter();
-
-      // Use the sink from parent GridByDAOAgent if provided, otherwise COUNT
       var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
-
-      return this.DashboardStackedBarSink.create({
-        yFunc: this.prop1,
-        xFunc: this.prop2,
-        acc: valueSink,
-        colors: this.colors,
-        timeUnit: this.timeUnit,
-        horizontal: this.horizontal,
-        xAxisLabel: this.xAxisLabel,
-        yAxisLabel: this.yAxisLabel,
-        showGridLines: this.showGridLines,
-        onClickScript: this.onClickScript,
-        periodCount: this.periodCount,
-        maintainAspectRatio: this.maintainAspectRatio,
-        height: this.height,
-        showLegend: this.showLegend,
-        legendPosition: this.legendPosition,
-        showTooltips: this.showTooltips,
-        showTooltipSum: this.showTooltipSum,
-        animate: this.animate,
-        animationDuration: this.animationDuration,
-        alignment: this.alignment
-      });
+      this.displaySink.xFunc    = this.prop2;
+      this.displaySink.yFunc    = this.prop1;
+      this.displaySink.acc      = valueSink;
+      this.displaySink.timeUnit = this.timeUnit;
+      return this.displaySink;
     },
-    
-    function addSinkToE(e, s) {
-      var self = this;
-      // Add the sink once
-      e.add(s);
-      
-      // Then update its properties reactively
-      this.onDetach(this.dynamic(function(colors, horizontal, xAxisLabel, yAxisLabel, showGridLines,
-                                  periodCount, maintainAspectRatio, height, showLegend, legendPosition,
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment, onClickScript) {
-        s.colors = colors;
-        s.horizontal = horizontal;
-        s.xAxisLabel = xAxisLabel;
-        s.yAxisLabel = yAxisLabel;
-        s.showGridLines = showGridLines;
-        s.periodCount = periodCount;
-        s.maintainAspectRatio = maintainAspectRatio;
-        s.height = height;
-        s.showLegend = showLegend;
-        s.legendPosition = legendPosition;
-        s.showTooltips = showTooltips;
-        s.showTooltipSum = showTooltipSum;
-        s.animate = animate;
-        s.animationDuration = animationDuration;
-        s.alignment = alignment;
-        s.onClickScript = onClickScript;
 
-        // Force chart to update/redraw
-        if ( s.updateChart ) s.updateChart();
-       }));
-    },
-    
+    function addSinkToE(e, s) { e.add(s); },
+
     function addToE(e) {
-      e.startContext({data: this})
+      e.startContext({ data: this.displaySink$ })
         .tag(this.ReactiveSectionedDetailView, {
-          data: this,
+          data$: this.displaySink$,
           showTitle: true
         })
       .endContext();
-    },
-    
-    function clone(subContext) {
-      var clone = this.SUPER(subContext);
-      clone.alignment$ = this.alignment$;
-      clone.colors$ = this.colors$;
-      clone.horizontal$ = this.horizontal$;
-      clone.xAxisLabel$ = this.xAxisLabel$;
-      clone.yAxisLabel$ = this.yAxisLabel$;
-      clone.showGridLines$ = this.showGridLines$;
-      clone.periodCount$ = this.periodCount$;
-      clone.maintainAspectRatio$ = this.maintainAspectRatio$;
-      clone.height$ = this.height$;
-      clone.showLegend$ = this.showLegend$;
-      clone.legendPosition$ = this.legendPosition$;
-      clone.showTooltips$ = this.showTooltips$;
-      clone.showTooltipSum$ = this.showTooltipSum$;
-      clone.animate$ = this.animate$;
-      clone.animationDuration$ = this.animationDuration$;
-      return clone;
     }
   ]
 });

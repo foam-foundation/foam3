@@ -61,6 +61,37 @@ The roll step uses **copy + truncate** (not rename) because on Linux, renaming o
 
 ---
 
+## .0 Awareness
+
+Compaction is aware of `.0` (deployment) journals. During step 4, objects that are **identical to their `.0` version** are skipped -- they don't need to be in the runtime journal since `.0` is replayed on every startup.
+
+This significantly reduces the compacted journal size when most data comes from deployment:
+
+```
+Before compaction:
+  users.0 (22,000 objects from deployment)
+  users   (50,000 delta entries for 926 modified objects)
+
+After compaction:
+  users.0 (22,000 objects, unchanged)
+  users   (926 entries -- only modified/new objects)
+  users.1 (backup of original runtime journal)
+```
+
+### How it works
+
+1. Replay `.0` into a temporary in-memory MDAO
+2. For each object in the main MDAO, compare against the `.0` version
+3. **Identical** -- skip (`.0` provides it on startup)
+4. **Modified or new** -- write to the compacted journal
+5. **Deleted at runtime** (exists in `.0` but not in MDAO) -- write a `remove` entry to prevent resurrection on next startup
+
+### No configuration needed
+
+This optimization is automatic when a `.0` file exists. It works with both filesystem and JAR-embedded `.0` files. If no `.0` file is found, compaction proceeds normally (all objects written).
+
+---
+
 ## Default Behavior
 
 | Setting | Default | Meaning |
@@ -302,19 +333,31 @@ Each compaction run creates EventRecords tracking progress:
 
 ### Report Format
 
+The human-readable report printed by the DAOCompaction script:
+
 ```
-instance,processed,compacted,duration s,reduced,date
-localhost,50000,12000,125,76.00%,2024-12-01
+Compaction Report
+  Instance:          localhost
+  Date:              Mon Feb 13 16:07:51 GMT 2026
+  Duration:          5s
+  Objects processed:  22926
+  Objects compacted:  926
+  Objects filtered:   0.00%
+  Journal entries:    160000 -> 926 (99.42% reduction)
+  Journal size:       48.0 MB -> 1.2 MB (97.50% reduction)
+  Skipped (.0):       22000 (unchanged from .0)
+  Removed (.0):       3 (deleted at runtime)
 ```
 
 | Field | Description |
 |-------|-------------|
-| instance | Server hostname |
 | processed | Total objects read from MDAO |
 | compacted | Objects written to new journal |
-| duration s | Total time in seconds |
-| reduced | Percentage of entries eliminated |
-| date | When compaction started |
+| filtered | Percentage of objects removed by sink filters |
+| journal entries | Line count before vs after compaction |
+| journal size | File size before vs after compaction |
+| skipped (.0) | Objects identical to `.0` version (not written) |
+| removed (.0) | `.0` objects deleted at runtime (remove entries written) |
 
 ### Progress Logging
 
@@ -359,6 +402,7 @@ During compaction, progress is logged every 5 seconds:
 | `foam/dao/compaction/LastModifiedCompactionSink.js` | Filter by modification date |
 | `foam/dao/FileRollCmd.js` | Command to trigger journal roll |
 | `foam/dao/AbstractF3FileJournal.js` | Journal roll implementation |
+| `deployment/compaction/services.jrl` | compactionDAO service definition |
 | `deployment/compaction/compactions.jrl` | Per-DAO compaction configuration |
 | `deployment/compaction/scripts.jrl` | DAOCompaction script |
 | `deployment/compaction/scriptparameters.jrl` | Script parameters |

@@ -1,0 +1,107 @@
+{
+  "name": "foam-lsp",
+  "displayName": "FOAM3 Language Support",
+  "description": "Autocomplete, hover, go-to-definition, and diagnostics for FOAM3 model files",
+  "version": "0.1.0",
+  "publisher": "foam",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "activationEvents": [
+    "workspaceContains:pom.js",
+    "workspaceContains:foam3/src/foam.js",
+    "onLanguage:javascript",
+    "onLanguage:foam-journal"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "FOAM LSP",
+      "properties": {
+        "foam.buildScript": {
+          "type": "string",
+          "default": "./build.sh",
+          "description": "Path to build.sh relative to workspace root"
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "foam-journal",
+        "extensions": [".jrl"],
+        "aliases": ["FOAM Journal"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "foam-journal",
+        "scopeName": "source.foam-journal",
+        "path": "./syntaxes/foam-jrl.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.java": "java"
+        }
+      },
+      {
+        "scopeName": "foam.js.injection",
+        "path": "./syntaxes/foam-js.tmLanguage.json",
+        "injectTo": ["source.js"],
+        "embeddedLanguages": {
+          "meta.embedded.block.java": "java",
+          "meta.embedded.block.css": "css"
+        }
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "foam-explorer",
+          "title": "FOAM",
+          "icon": "resources/foam-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "foam-explorer": [
+        {
+          "id": "foamAnalysis",
+          "name": "Analysis"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "foam.analyzeWorkspace",
+        "title": "FOAM: Analyze Workspace",
+        "icon": "$(play)"
+      },
+      {
+        "command": "foam.toggleFlag",
+        "title": "FOAM: Toggle Flag"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "foam.analyzeWorkspace",
+          "when": "view == foamAnalysis",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package --allow-missing-repository"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

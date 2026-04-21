@@ -724,48 +724,20 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardPieChartDAOAgent',
   extends: 'foam.core.reflow.GroupByDAOAgent',
-  mixins: [
-    'foam.core.reflow.dashboard.ColorMappingMixin',
-    'foam.core.reflow.dashboard.ChartDisplayMixin'
-  ],
 
   requires: [
     'foam.core.reflow.dashboard.DashboardPieSink',
     'foam.core.reflow.ReactiveSectionedDetailView'
   ],
 
-  sections: [
-    {
-      name: 'dataConfig',
-      title: 'Data Configuration',
-      order: 1,
-      collapsable: true,
-      properties: ['prop', 'sink', 'topN', 'includeOthers', 'sortOrder', 'othersLabel']
-    },
-    {
-      name: 'pieChart',
-      title: 'Pie Chart Settings',
-      order: 2,
-      collapsable: true,
-      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick']
-    },
-    {
-      name: 'display',
-      title: 'Display Options',
-      order: 3,
-      collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage']
-    },
-    {
-      name: 'colors',
-      title: 'Color Configuration',
-      order: 4,
-      collapsable: true,
-      properties: ['colors']
-    }
-  ],
-
   properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardPieSink',
+      name: 'displaySink',
+      hidden: true,
+      factory: function() { return this.DashboardPieSink.create({}, this); }
+    },
     {
       name: 'sink',
       view: {
@@ -774,155 +746,60 @@ foam.CLASS({
         disabledTypes: [ 'structure', 'format', 'chart' ]
       }
     },
-    // Inherited from GroupByDAOAgent: prop, sink, groupLimit, sortOrder, includeOthers, othersLabel
-    // From mixins: colors, chart display options
-    {
-      class: 'Boolean',
-      name: 'showPercentages',
-      label: 'Show Percentages',
-      value: false
-    },
-    {
-      class: 'Float',
-      name: 'cutoutPercentage',
-      label: 'Cutout %',
-      value: 0,
-      view: {
-        class: 'foam.u2.RangeView',
-        minValue: 0,
-        maxValue: 100,
-        step: 1,
-        onKey: true
-      },
-      help: 'For donut effect (0-100)'
-    },
-    {
-      class: 'Boolean',
-      name: 'clockwise',
-      label: 'Clockwise',
-      value: true
-    },
-    {
-      class: 'Float',
-      name: 'rotation',
-      label: 'Rotation Angle',
-      value: -90,
-      view: {
-        class: 'foam.u2.RangeView',
-        minValue: -180,
-        maxValue: 180,
-        step: 1,
-        onKey: true
-      },
-      help: 'Starting angle in degrees (-180 to 180)'
-    },
-    {
-      class: 'String',
-      name: 'emptyValueMessage',
-      help: 'Message to display when there is no data',
-      value: 'No data available'
-    },
-    {
-      class: 'Boolean',
-      name: 'disableLegendClick',
-      label: 'Disable Legend Click',
-      help: 'Prevent clicking legend items from toggling slice visibility'
-    },
+    { class: 'Boolean', name: 'showPercentages', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showPercentages = v; } },
+    { class: 'Int', name: 'cutoutPercentage', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.cutoutPercentage = v; } },
+    { class: 'Boolean', name: 'clockwise', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.clockwise = v; } },
+    { class: 'Int', name: 'rotation', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.rotation = v; } },
+    { class: 'Boolean', name: 'disableLegendClick', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.disableLegendClick = v; } },
+    { class: 'String', name: 'emptyValueMessage', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.emptyValueMessage = v; } },
+    { class: 'StringArray', name: 'colors', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.colors = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.alignment = v; } },
+    { class: 'Boolean', name: 'maintainAspectRatio', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.maintainAspectRatio = v; } },
+    { class: 'Int', name: 'height', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.height = v; } },
+    { class: 'Boolean', name: 'showLegend', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showLegend = v; } },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.legendPosition = v; } },
+    { class: 'Boolean', name: 'showTooltips', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showTooltips = v; } },
+    { class: 'Boolean', name: 'showTooltipSum', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showTooltipSum = v; } },
+    { class: 'Boolean', name: 'animate', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animate = v; } },
+    { class: 'Int', name: 'animationDuration', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.animationDuration = v; } }
   ],
 
   methods: [
-    
     function createSink() {
-      // Create sink with GroupBy configuration inherited from parent
-      // Use the sink from parent GroupByDAOAgent if provided, otherwise COUNT
       var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
-      
-      // Default to DESC sort order for pie charts to show highest values first
-      var sink = this.DashboardPieSink.create({
-        arg1: this.prop,
-        arg2: valueSink,
-        groupLimit: this.groupLimit,
-        topN: this.topN,
-        sortOrder: this.sortOrder,
-        includeOthers: this.includeOthers,
-        othersLabel: this.othersLabel,
-        colors: this.colors,
-        showPercentages: this.showPercentages,
-        cutoutPercentage: this.cutoutPercentage,
-        clockwise: this.clockwise,
-        rotation: this.rotation,
-        maintainAspectRatio: this.maintainAspectRatio,
-        height: this.height,
-        
-        showLegend: this.showLegend,
-        legendPosition: this.legendPosition,
-        showTooltips: this.showTooltips,
-        showTooltipSum: this.showTooltipSum,
-        animate: this.animate,
-        animationDuration: this.animationDuration,
-        alignment: this.alignment,
-        emptyValueMessage: this.emptyValueMessage,
-        disableLegendClick: this.disableLegendClick
-      });
-
-      return sink;
+      this.displaySink.arg1 = this.prop;
+      this.displaySink.arg2 = valueSink;
+      this.displaySink.topN          = this.topN;
+      this.displaySink.sortOrder     = this.sortOrder;
+      this.displaySink.includeOthers = this.includeOthers;
+      this.displaySink.othersLabel   = this.othersLabel;
+      this.displaySink.groupLimit    = this.groupLimit;
+      return this.displaySink;
     },
-    function addSinkToE(e, s) {
-      var self = this;
-      // Add the sink once
-      e.add(s);
-      
-      // Then update its properties reactively
-      this.onDetach(this.dynamic(function(cutoutPercentage, rotation, colors, showPercentages, clockwise,
-                                  maintainAspectRatio, height, showLegend, legendPosition,
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment, disableLegendClick) {
-        s.cutoutPercentage = cutoutPercentage;
-        s.rotation = rotation;
-        s.colors = colors;
-        s.showPercentages = showPercentages;
-        s.clockwise = clockwise;
-        s.maintainAspectRatio = maintainAspectRatio;
-        s.height = height;
-        s.showLegend = showLegend;
-        s.legendPosition = legendPosition;
-        s.showTooltips = showTooltips;
-        s.showTooltipSum = showTooltipSum;
-        s.animate = animate;
-        s.animationDuration = animationDuration;
-        s.alignment = alignment;
-        s.disableLegendClick = disableLegendClick;
-        
-        // Force chart to update/redraw
-        if ( s.updateChart ) s.updateChart();
-       }));
-    },
+    function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
-      e.startContext({data: this})
+      e.startContext({ data: this.displaySink$ })
         .tag(this.ReactiveSectionedDetailView, {
-          data: this,
+          data$: this.displaySink$,
           showTitle: true
         })
       .endContext();
-    },
-    function clone(subContext) {
-      var clone = this.SUPER(subContext);
-      clone.alignment$ = this.alignment$;
-      clone.cutoutPercentage$ = this.cutoutPercentage$;
-      clone.rotation$ = this.rotation$;
-      clone.colors$ = this.colors$;
-      clone.showPercentages$ = this.showPercentages$;
-      clone.clockwise$ = this.clockwise$;
-      clone.maintainAspectRatio$ = this.maintainAspectRatio$;
-      clone.height$ = this.height$;
-
-      clone.showLegend$ = this.showLegend$;
-      clone.legendPosition$ = this.legendPosition$;
-      clone.showTooltips$ = this.showTooltips$;
-      clone.showTooltipSum$ = this.showTooltipSum$;
-      clone.animate$ = this.animate$;
-      clone.animationDuration$ = this.animationDuration$;
-      clone.disableLegendClick$ = this.disableLegendClick$;
-      return clone;
     }
   ]
 });

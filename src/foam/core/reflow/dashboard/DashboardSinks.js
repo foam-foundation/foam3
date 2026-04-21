@@ -184,7 +184,8 @@ foam.CLASS({
   
   requires: [
     'org.chartjs.Bar2',
-    'foam.u2.layout.ContainerWidth'
+    'foam.u2.layout.ContainerWidth',
+    'foam.core.reflow.dashboard.LegendPosition'
   ],
   
   properties: [
@@ -217,7 +218,7 @@ foam.CLASS({
     { class: 'Int', name: 'height', value: 300 },
     { class: 'Int', name: 'width', value: 400 },
     { class: 'Boolean', name: 'showLegend', value: false },  // Bar charts typically don't need legend for single dataset
-    { class: 'String', name: 'legendPosition', value: 'TOP' },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
     { class: 'Boolean', name: 'showTooltips', value: true },
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
     { class: 'Boolean', name: 'animate', value: true },

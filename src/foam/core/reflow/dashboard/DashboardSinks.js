@@ -189,8 +189,10 @@ foam.CLASS({
   ],
 
   sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['groupByProp', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel', 'periodCount'] },
     { name: 'chartSettings', title: 'Bar Chart Settings', order: 1, collapsable: true,
-      properties: ['horizontal', 'barThickness', 'timeUnit', 'showGridLines', 'datasetLabel', 'periodCount'] },
+      properties: ['horizontal', 'barThickness', 'timeUnit', 'showGridLines', 'datasetLabel'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -200,6 +202,25 @@ foam.CLASS({
   ],
 
   properties: [
+    // User-facing data config properties that drive parent-class internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'groupByProp', label: 'Group By',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.arg1 = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.arg2 = n.createSink();
+      }
+    },
     // TopNGroupBy user-configurable properties
     { class: 'Int', name: 'topN', label: 'Top N', value: 0,
       help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
@@ -484,6 +505,8 @@ foam.CLASS({
   ],
 
   sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['groupByProp', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel'] },
     { name: 'chartSettings', title: 'Pie Chart Settings', order: 1, collapsable: true,
       properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick', 'emptyValueMessage'] },
     { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
@@ -511,6 +534,25 @@ foam.CLASS({
   `,
   
   properties: [
+    // User-facing data config properties that drive parent-class internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'groupByProp', label: 'Group By',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.arg1 = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.arg2 = n.createSink();
+      }
+    },
     // TopNGroupBy user-configurable properties
     { class: 'Int', name: 'topN', label: 'Top N', value: 0,
       help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
@@ -789,8 +831,10 @@ foam.CLASS({
   ],
 
   sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'aggregation', 'periodCount'] },
     { name: 'chartSettings', title: 'Stacked Bar Settings', order: 1, collapsable: true,
-      properties: ['horizontal', 'timeUnit', 'showGridLines', 'onClickScript', 'periodCount'] },
+      properties: ['horizontal', 'timeUnit', 'showGridLines', 'onClickScript'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -800,6 +844,34 @@ foam.CLASS({
   ],
 
   properties: [
+    // User-facing data config properties that drive parent-class internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'xProp', label: 'X-Axis Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.xFunc = n; }
+    },
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'yProp', label: 'Stack Group Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.yFunc = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.acc = n.createSink();
+      }
+    },
     // Stacked bar-specific properties
     {
       class: 'StringArray',
@@ -1314,8 +1386,10 @@ foam.CLASS({
   ],
 
   sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['groupByProp', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel', 'periodCount'] },
     { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
-      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit', 'periodCount'] },
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -1325,6 +1399,25 @@ foam.CLASS({
   ],
 
   properties: [
+    // User-facing data config properties that drive parent-class internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'groupByProp', label: 'X-Axis Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.arg1 = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.arg2 = n.createSink();
+      }
+    },
     // GroupBy parent-class internals — wired programmatically by createSink()
     { name: 'arg1', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
     { name: 'arg2', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value' },
@@ -1502,8 +1595,10 @@ foam.CLASS({
   ],
 
   sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'aggregation', 'periodCount'] },
     { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
-      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit', 'periodCount'] },
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -1513,6 +1608,34 @@ foam.CLASS({
   ],
 
   properties: [
+    // User-facing data config properties that drive parent-class internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'xProp', label: 'X-Axis Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.xFunc = n; }
+    },
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'yProp', label: 'Line Group Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.yFunc = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.acc = n.createSink();
+      }
+    },
     // GridBy parent-class internals — wired programmatically by createSink()
     { name: 'xFunc', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
     { name: 'yFunc', hidden: true, label: 'Line Group Property', help: 'Property to group by (different lines)' },
@@ -2106,13 +2229,43 @@ foam.CLASS({
   ],
 
   sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['dateProperty', 'categoryProperty', 'aggregation', 'periodCount'] },
     { name: 'displayOptions', title: 'Display', order: 1, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'animate', 'animationDuration', 'periodCount'] },
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'animate', 'animationDuration'] },
     { name: 'colorConfig', title: 'Colors', order: 2, collapsable: true,
       properties: ['colors'] }
   ],
 
   properties: [
+    // User-facing data config properties that drive internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'dateProperty', label: 'Date Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.dateProp = n; }
+    },
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'categoryProperty', label: 'Category Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.categoryProp = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.valueSink = n.createSink();
+      }
+    },
     // Internal properties wired programmatically by createSink() — hidden from editor
     { name: 'dateProp', hidden: true, label: 'Date Property' },
     { name: 'categoryProp', hidden: true, label: 'Category Property' },

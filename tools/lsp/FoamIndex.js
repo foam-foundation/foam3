@@ -589,6 +589,7 @@ foam.CLASS({
        * }
        */
       this.fileIndex_ = {};
+      this.libIndex_ = {};
       var path_ = require('path');
       var fs_ = require('fs');
 
@@ -624,7 +625,8 @@ foam.CLASS({
 
     function indexFileClasses_(filePath, fileFlags, fs_) {
       /** Read a file and extract all foam.CLASS/ENUM/INTERFACE class IDs via regex.
-       *  Uses regex (not eval) for speed — scanning 4000+ files at startup. */
+       *  Uses regex (not eval) for speed — scanning 4000+ files at startup.
+       *  TODO: migrate to FoamClassGrammar-based scanner. */
       try {
         if ( ! fs_.existsSync(filePath) ) return;
         var content = fs_.readFileSync(filePath, 'utf8');
@@ -639,7 +641,96 @@ foam.CLASS({
             this.fileIndex_[classId] = { path: filePath, flags: fileFlags };
           }
         }
+        this.indexFileLibs_(filePath, content);
       } catch (e) {}
+    },
+
+    function indexFileLibs_(filePath, content) {
+      /** Extract foam.LIB names and their method names for the LIB registry.
+       *  TODO: migrate to FoamClassGrammar. */
+      if ( ! this.libIndex_ ) this.libIndex_ = {};
+      var libRegex = /foam\.LIB\s*\(\s*\{/g;
+      var libMatch;
+      while ( ( libMatch = libRegex.exec(content) ) !== null ) {
+        var blockEnd = this.findMatchingBrace_(content, libMatch.index + libMatch[0].length - 1);
+        if ( blockEnd === -1 ) continue;
+        var block = content.substring(libMatch.index, blockEnd + 1);
+        var nameM = block.match(/name\s*:\s*['"]([^'"]+)['"]/);
+        if ( ! nameM ) continue;
+        var libName = nameM[1];
+        var line = 0;
+        for ( var i = 0 ; i < libMatch.index ; i++ ) {
+          if ( content[i] === '\n' ) line++;
+        }
+        var methods = this.extractLibMemberNames_(block, 'methods');
+        var constants = this.extractLibMemberNames_(block, 'constants');
+        this.libIndex_[libName] = {
+          path: filePath,
+          line: line,
+          methods: methods,
+          constants: constants
+        };
+      }
+    },
+
+    function extractLibMemberNames_(block, sectionKey) {
+      /**
+       * Extract member names from a methods: [...] or constants: [...]
+       * section of a foam.LIB block. Supports both `function fn(...) { ... }`
+       * and `{ name: 'fn', code: ... }` forms.
+       * TODO: migrate to FoamClassGrammar.
+       */
+      var names = [];
+      var keyRegex = new RegExp('\\b' + sectionKey + '\\s*:\\s*\\[');
+      var keyMatch = keyRegex.exec(block);
+      if ( ! keyMatch ) return names;
+      var start = keyMatch.index + keyMatch[0].length;
+      var depth = 1;
+      var end = -1;
+      for ( var i = start ; i < block.length ; i++ ) {
+        var ch = block[i];
+        if ( ch === '[' ) depth++;
+        else if ( ch === ']' ) { depth--; if ( depth === 0 ) { end = i; break; } }
+        else if ( ch === "'" || ch === '"' || ch === '`' ) {
+          var q = ch;
+          for ( i++ ; i < block.length ; i++ ) {
+            if ( block[i] === '\\' ) { i++; continue; }
+            if ( block[i] === q ) break;
+          }
+        }
+      }
+      if ( end === -1 ) return names;
+      var body = block.substring(start, end);
+      // function fn(args) { ... }  and  { name: 'fn' ...}
+      var fnRegex = /function\s+(\w+)\s*\(/g;
+      var fm;
+      while ( ( fm = fnRegex.exec(body) ) !== null ) names.push(fm[1]);
+      var namedRegex = /\{\s*name\s*:\s*['"]([^'"]+)['"]/g;
+      var nm;
+      while ( ( nm = namedRegex.exec(body) ) !== null ) {
+        if ( names.indexOf(nm[1]) === -1 ) names.push(nm[1]);
+      }
+      return names;
+    },
+
+    function findMatchingBrace_(content, openIdx) {
+      /** Find index of brace matching the `{` at openIdx. Returns -1 if none. */
+      var depth = 0;
+      for ( var i = openIdx ; i < content.length ; i++ ) {
+        var ch = content[i];
+        if ( ch === '{' ) depth++;
+        else if ( ch === '}' ) {
+          depth--;
+          if ( depth === 0 ) return i;
+        } else if ( ch === "'" || ch === '"' || ch === '`' ) {
+          var q = ch;
+          for ( i++ ; i < content.length ; i++ ) {
+            if ( content[i] === '\\' ) { i++; continue; }
+            if ( content[i] === q ) break;
+          }
+        }
+      }
+      return -1;
     },
 
     function walkSkippedProjects_(pom, path_, fs_, visited) {
@@ -838,6 +929,42 @@ foam.CLASS({
       };
       var propType = prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property';
       return typeMap[propType] || 'Object';
+    },
+
+    function getLibFilePath(libName) {
+      /** File path for a foam.LIB by name, or null if unknown. */
+      if ( ! this.libIndex_ ) this.buildFileIndex();
+      var entry = this.libIndex_[libName];
+      return entry ? entry.path : null;
+    },
+
+    function getLibEntry(libName) {
+      /** Full LIB entry { path, line, methods, constants } or null. */
+      if ( ! this.libIndex_ ) this.buildFileIndex();
+      return this.libIndex_[libName] || null;
+    },
+
+    function getLibMemberNames(libName) {
+      /** Combined list of method + constant names for a LIB. */
+      var entry = this.getLibEntry(libName);
+      if ( ! entry ) return [];
+      return (entry.methods || []).concat(entry.constants || []);
+    },
+
+    function getAllLibNames() {
+      /** All indexed foam.LIB names, sorted. */
+      if ( ! this.libIndex_ ) this.buildFileIndex();
+      return Object.keys(this.libIndex_).sort();
+    },
+
+    function findLibByPrefix(prefix) {
+      /** LIB names starting with `prefix` (e.g., 'foam.'). */
+      var all = this.getAllLibNames();
+      var out = [];
+      for ( var i = 0 ; i < all.length ; i++ ) {
+        if ( all[i].indexOf(prefix) === 0 ) out.push(all[i]);
+      }
+      return out;
     },
 
     function resolvePropertyTypeClassId(classId, propName) {

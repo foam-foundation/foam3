@@ -81,6 +81,12 @@ foam.CLASS({
         return this.buildClassHover(word);
       }
 
+      // foam.LIB references — foam.Color, foam.Color.adjustAlpha, etc.
+      // Runs after class lookup so a class ID that shares a name with a LIB
+      // refinement prefers the class.
+      var libHover = this.buildLibHover_(word);
+      if ( libHover ) return libHover;
+
       // Try as property type (short name like String, FObjectProperty)
       var propTypes = this.index.getPropertyTypes();
       for ( var i = 0 ; i < propTypes.length ; i++ ) {
@@ -428,6 +434,40 @@ foam.CLASS({
       }
 
       return out.join('\n');
+    },
+
+    function buildLibHover_(word) {
+      /**
+       * Hover for a foam.LIB reference. Matches the longest LIB prefix and
+       * surfaces LIB name + member name (methods/constants).
+       */
+      if ( ! word || word.indexOf('.') === -1 ) return null;
+      var parts = word.split('.');
+      var libName = null;
+      for ( var k = parts.length ; k >= 2 ; k-- ) {
+        var candidate = parts.slice(0, k).join('.');
+        if ( this.index.getLibEntry(candidate) ) { libName = candidate; break; }
+      }
+      if ( ! libName ) return null;
+
+      var entry = this.index.getLibEntry(libName);
+      var tail = word.substring(libName.length + 1);
+      var md = '```foam\nfoam.LIB ' + libName + '\n```\n';
+      if ( ! tail ) {
+        var methods = entry.methods || [];
+        var consts = entry.constants || [];
+        if ( methods.length ) md += '\n**Methods:** ' + methods.join(', ') + '\n';
+        if ( consts.length )  md += '\n**Constants:** ' + consts.join(', ') + '\n';
+        md += '\n*Defined in `' + (entry.path || 'unknown') + '`.*';
+        return { contents: { kind: 'markdown', value: md } };
+      }
+      var member = tail.split('.')[0];
+      var isMethod = (entry.methods || []).indexOf(member) !== -1;
+      var isConst  = (entry.constants || []).indexOf(member) !== -1;
+      if ( ! isMethod && ! isConst ) return null;
+      md += '\n**' + (isMethod ? 'method' : 'constant') + '** `' + libName + '.' + member + '`\n';
+      md += '\n*Defined in `' + (entry.path || 'unknown') + '`.*';
+      return { contents: { kind: 'markdown', value: md } };
     },
 
     function buildClassHover(classId) {

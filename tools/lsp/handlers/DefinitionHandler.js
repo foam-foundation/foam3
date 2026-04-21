@@ -54,6 +54,12 @@ foam.CLASS({
       var filePath = this.index.getFilePath(word);
       if ( filePath ) return this.buildLocation(filePath, word);
 
+      // foam.LIB: handle 'foam.Color.adjustAlpha' and 'foam.Color'
+      // Runs after class lookup so class IDs that share a name with a LIB
+      // refinement (e.g., foam.lang.FObject has both) resolve to the class.
+      var libLoc = this.resolveLibReference_(text, position, word);
+      if ( libLoc ) return libLoc;
+
       // Try as short property type name → resolve to full ID → get file
       var propTypes = this.index.getPropertyTypes();
       for ( var i = 0 ; i < propTypes.length ; i++ ) {
@@ -69,6 +75,27 @@ foam.CLASS({
       if ( segment ) {
         var model = this.cache.getModelAt(uri, text, position.line);
         var classId = this.cache.getClassId(model);
+
+        // If the dotted word is a chain (this.a.b.c), walk each intermediate
+        // segment through its FObjectProperty/Reference/Enum `of:` class.
+        // Only do this when the final segment truly is the cursor's segment —
+        // otherwise skip the chain walk and fall through to the normal path.
+        if ( classId && word && word.indexOf('.') !== -1 ) {
+          var parts = word.split('.');
+          if ( parts[parts.length - 1] === segment && parts.length >= 3 ) {
+            var walkClassId = classId;
+            if ( parts[0] === 'this' ) {
+              for ( var p = 1 ; p < parts.length - 1 && walkClassId ; p++ ) {
+                walkClassId = this.index.resolvePropertyTypeClassId(walkClassId, parts[p]);
+              }
+              if ( walkClassId && walkClassId !== classId ) {
+                var chainLoc = this.resolveMemberOnClass_(walkClassId, segment);
+                if ( chainLoc ) return chainLoc;
+              }
+            }
+          }
+        }
+
         if ( classId ) {
           var cls = this.index.getClass(classId);
           if ( cls ) {
@@ -115,6 +142,139 @@ foam.CLASS({
           filePath = this.index.getFilePath(resolved);
           if ( filePath ) return this.buildLocation(filePath, resolved);
         }
+      }
+
+      return null;
+    },
+
+    function resolveLibReference_(text, position, word) {
+      /**
+       * Jump to foam.X or foam.X.Y where foam.X was registered via foam.LIB.
+       * Supports cursor on any segment — resolves the longest LIB prefix
+       * of `word` and uses the remaining tail as a method/constant name.
+       */
+      if ( ! word || word.indexOf('.') === -1 ) return null;
+      var parts = word.split('.');
+
+      // Find the longest LIB-registered prefix, e.g. 'foam.animation.Interp'
+      // for word 'foam.animation.Interp.linear'.
+      var libName = null;
+      for ( var k = parts.length ; k >= 2 ; k-- ) {
+        var candidate = parts.slice(0, k).join('.');
+        if ( this.index.getLibEntry(candidate) ) { libName = candidate; break; }
+      }
+      if ( ! libName ) return null;
+
+      var entry = this.index.getLibEntry(libName);
+      var tail = word.substring(libName.length + 1);  // '' if cursor on lib name
+
+      // Determine the segment under the cursor.
+      var segment = this.analyzer.getSegmentAtPosition(text, position);
+
+      // Cursor on the LIB name itself → jump to the foam.LIB declaration line.
+      if ( ! tail || libName.split('.').indexOf(segment) !== -1 ) {
+        return {
+          uri: 'file://' + entry.path,
+          range: {
+            start: { line: entry.line || 0, character: 0 },
+            end:   { line: entry.line || 0, character: 0 }
+          }
+        };
+      }
+
+      // Cursor on a member name (possibly deeper than one hop — take the first
+      // tail segment; nested member resolution isn't modeled by foam.LIB).
+      var memberName = tail.split('.')[0];
+      if ( segment && segment !== memberName ) {
+        // Cursor is deeper in the chain — ignore, fall through to other handlers.
+        return null;
+      }
+      // Only claim this word when the tail is a real LIB member — otherwise
+      // fall through so the word can be resolved as e.g. a full class ID.
+      var isMethod = (entry.methods || []).indexOf(memberName) !== -1;
+      var isConst  = (entry.constants || []).indexOf(memberName) !== -1;
+      if ( ! isMethod && ! isConst ) return null;
+      return this.locateLibMember_(entry, memberName);
+    },
+
+    function locateLibMember_(entry, memberName) {
+      /**
+       * Find the line of `memberName` inside a foam.LIB block's file.
+       * Looks for `function name(...)` or `{ name: 'name' …}` within the
+       * block starting at entry.line. Falls back to the block start.
+       */
+      try {
+        var fs_ = require('fs');
+        var content = fs_.readFileSync(entry.path, 'utf8');
+        var lines = content.split('\n');
+        var fnRe = new RegExp('function\\s+' + memberName + '\\s*\\(');
+        var nameRe = new RegExp("name\\s*:\\s*['\"]" + memberName + "['\"]");
+        var endLine = lines.length;
+        // Limit the search to after the LIB call starts — best-effort end.
+        for ( var ln = (entry.line || 0) ; ln < endLine ; ln++ ) {
+          var l = lines[ln];
+          if ( fnRe.test(l) || nameRe.test(l) ) {
+            return {
+              uri: 'file://' + entry.path,
+              range: {
+                start: { line: ln, character: 0 },
+                end:   { line: ln, character: 0 }
+              }
+            };
+          }
+        }
+      } catch ( e ) {}
+      return {
+        uri: 'file://' + entry.path,
+        range: {
+          start: { line: entry.line || 0, character: 0 },
+          end:   { line: entry.line || 0, character: 0 }
+        }
+      };
+    },
+
+    function resolveMemberOnClass_(classId, name) {
+      /**
+       * Resolve a method/property/message `name` on `classId` to a Location.
+       * Returns null if not found. Used by the property-chain walk so
+       * `this.country.capital.name` navigates into Capital.name and not
+       * the current model.
+       */
+      var cls = this.index.getClass(classId);
+      if ( ! cls ) return null;
+
+      var methods = cls.getAxiomsByClass(foam.lang.Method);
+      for ( var i = 0 ; i < methods.length ; i++ ) {
+        if ( methods[i].name === name ) {
+          var defClass = this.findMethodDefiner_(cls, name);
+          if ( defClass ) {
+            var filePath = this.index.getFilePath(defClass);
+            if ( filePath ) return this.buildLocationAtMethod(filePath, defClass, name);
+          }
+        }
+      }
+
+      var javaMethods = this.index.getJavaMethods(classId);
+      for ( var i = 0 ; i < javaMethods.length ; i++ ) {
+        if ( javaMethods[i].name === name ) {
+          var javaLoc = this.findJavaMethodLocation_(classId, name);
+          if ( javaLoc ) return javaLoc;
+        }
+      }
+
+      var prop = cls.getAxiomByName(name);
+      if ( prop && foam.lang.Property.isInstance(prop) ) {
+        var defClass = this.findPropertyDefiner_(cls, name);
+        if ( defClass ) {
+          var filePath = this.index.getFilePath(defClass);
+          if ( filePath ) return this.buildLocationAtProperty(filePath, name);
+        }
+      }
+
+      var msg = this.index.findMessage(classId, name);
+      if ( msg && msg.definerId ) {
+        var filePath = this.index.getFilePath(msg.definerId);
+        if ( filePath ) return this.buildLocationAtMessage_(filePath, name);
       }
 
       return null;

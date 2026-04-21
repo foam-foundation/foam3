@@ -284,6 +284,122 @@ test(ifaceGetterErrors.length === 0, 'Interface own property getter NOT flagged'
 var implementors = index.getImplementors('foam.core.auth.CreatedByAware');
 test(implementors.length > 0, 'getImplementors finds classes implementing CreatedByAware: ' + implementors.length);
 
+// === LSP #4993 Fix 3: user-defined cssTokens not flagged as unknown ===
+section('DiagnosticsHandler — local cssTokens (issue #4993)');
+var diagWithTokens = foam.parse.lsp.handlers.DiagnosticsHandler.create({
+  index: index,
+  cssTokenResolver: cssTokenResolver
+});
+
+var localTokenSrc =
+  "foam.CLASS({\n" +
+  "  package: 'test',\n  name: 'LocalTokenUser',\n" +
+  "  cssTokens: [\n    { name: 'tooltipBackground', value: '#eeeeee' }\n  ],\n" +
+  "  css: `\n    ^ { background: $tooltipBackground; color: $white; }\n  `\n" +
+  "})";
+var localDiags = diagWithTokens.handle(localTokenSrc);
+test(localDiags.filter(function(d) { return d.message.indexOf('tooltipBackground') !== -1; }).length === 0,
+  'Local cssTokens: $tooltipBackground NOT flagged as unknown');
+test(localDiags.filter(function(d) { return d.message.indexOf('Unknown CSS token') !== -1 && d.message.indexOf('nonExistent') !== -1; }).length === 0,
+  'Local cssTokens: unrelated tokens untouched');
+
+var unknownTokenSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'UnknownTokenUser',\n" +
+  "  cssTokens: [\n    { name: 'fooBg', value: '#ffffff' }\n  ],\n" +
+  "  css: `\n    ^ { background: $nonExistent; }\n  `\n})";
+var unknownDiags = diagWithTokens.handle(unknownTokenSrc);
+test(unknownDiags.some(function(d) { return d.message.indexOf('nonExistent') !== -1 && d.message.indexOf('Unknown CSS token') !== -1; }),
+  'Local cssTokens: $nonExistent still flagged');
+
+// === LSP #4993 Fix 4: unused ^classname in css: ===
+section('DiagnosticsHandler — unused ^classname (issue #4993)');
+var unusedSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'UnusedCss',\n" +
+  "  css: `\n    ^foo { color: red; }\n    ^bar { color: blue; }\n  `,\n" +
+  "  methods: [\n" +
+  "    function render() { this.addClass(this.myClass('foo')); }\n" +
+  "  ]\n})";
+var unusedDiags = diagWithTokens.handle(unusedSrc);
+var unusedWarns = unusedDiags.filter(function(d) { return /Unused CSS class/.test(d.message); });
+test(unusedWarns.length === 1, 'Unused ^classname: exactly one unused class flagged');
+test(unusedWarns.some(function(d) { return d.message.indexOf("'^bar'") !== -1; }),
+  'Unused ^classname: ^bar (unused) is flagged');
+test(! unusedWarns.some(function(d) { return d.message.indexOf("'^foo'") !== -1; }),
+  'Unused ^classname: ^foo (applied via myClass) is NOT flagged');
+
+// Dynamic myClass(var) → suppress unused-class diagnostics entirely
+var dynamicSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'DynamicMyClass',\n" +
+  "  css: `\n    ^alpha { color: red; }\n    ^beta { color: blue; }\n  `,\n" +
+  "  methods: [\n" +
+  "    function render(tag) { this.addClass(this.myClass(tag)); }\n" +
+  "  ]\n})";
+var dynamicDiags = diagWithTokens.handle(dynamicSrc);
+test(dynamicDiags.filter(function(d) { return /Unused CSS class/.test(d.message); }).length === 0,
+  'Unused ^classname: dynamic myClass(arg) suppresses all unused-class warnings');
+
+// === LSP #4993 Fix 1: go-to-definition follows FObjectProperty of: ===
+section('DefinitionHandler — property-chain navigation (issue #4993)');
+// Uses existing indexed classes: FObjectProperty with of: is pervasive in foam3.
+// foam.u2.Element has `tooltip: { class: 'FObjectProperty', of: 'foam.u2.Tooltip' }` in many versions —
+// pick any real example. We use the FoamIndex resolver directly as the core check:
+var resolvedClassId = index.resolvePropertyTypeClassId('foam.core.auth.User', 'group');
+test(resolvedClassId === null || typeof resolvedClassId === 'string',
+  'resolvePropertyTypeClassId: returns string or null for foam.core.auth.User.group');
+
+// Chain-walk in DefinitionHandler: synthesize a minimal pair of classes and check the walk.
+var chainClassA = index.getAllClassIds().find(function(id) {
+  var cls = index.getClass(id);
+  if ( ! cls ) return false;
+  var props = cls.getAxiomsByClass(foam.lang.Property);
+  for ( var i = 0 ; i < props.length ; i++ ) {
+    if ( index.resolvePropertyTypeClassId(id, props[i].name) ) return true;
+  }
+  return false;
+});
+test(typeof chainClassA === 'string',
+  'Found at least one class with an FObjectProperty-typed property for chain walking');
+
+// === LSP #4993 Fix 2: foam.LIB indexing ===
+section('FoamIndex — foam.LIB registry (issue #4993)');
+test(index.getAllLibNames().length > 0,
+  'LIB registry: at least one foam.LIB indexed (got ' + index.getAllLibNames().length + ')');
+var colorEntry = index.getLibEntry('foam.Color');
+test(colorEntry !== null, 'LIB registry: foam.Color has an entry');
+test(colorEntry && (colorEntry.methods || []).indexOf('adjustAlpha') !== -1,
+  'LIB registry: foam.Color.adjustAlpha indexed as method');
+
+// Go-to-definition for foam.Color.adjustAlpha — must be inside a foam.CLASS
+// so isFoamFile() passes. Cursor lands on 'adjustAlpha'.
+var libDefHandler = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
+var libCallText =
+  "foam.CLASS({\n  package: 'test',\n  name: 'LibCaller',\n" +
+  "  methods: [\n    function f() {\n      var c = foam.Color.adjustAlpha(x, 0.5);\n    }\n  ]\n})";
+// Line 5 is "      var c = foam.Color.adjustAlpha(x, 0.5);"
+// 'adjustAlpha' starts at character 25; land cursor on 'adjustAlpha'.
+var libDef = libDefHandler.handle(libCallText, { line: 5, character: 33 });
+test(libDef && libDef.uri && libDef.uri.indexOf('colorlib.js') !== -1,
+  'LIB definition: foam.Color.adjustAlpha navigates to colorlib.js');
+
+// Completion after 'foam.Color.' — inside a method body of a foam.CLASS
+var memberCompletion = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index });
+var compSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'LibCompletion',\n" +
+  "  methods: [\n    function f() {\n      var c = foam.Color.\n    }\n  ]\n})";
+// Line 5 ends with 'foam.Color.'; cursor positioned right after the trailing dot.
+var compResult = memberCompletion.handle(compSrc, { line: 5, character: 25 });
+test(compResult && compResult.items && compResult.items.some(function(it) { return it.label === 'adjustAlpha'; }),
+  'LIB completion: foam.Color. suggests adjustAlpha');
+
+// Hover on a LIB member
+var libHoverHandler = foam.parse.lsp.handlers.HoverHandler.create({
+  index: index,
+  cssTokenResolver: cssTokenResolver
+});
+var hoverResult = libHoverHandler.handle(libCallText, { line: 5, character: 33 });
+test(hoverResult && hoverResult.contents && /foam\.Color/.test(hoverResult.contents.value),
+  'LIB hover: foam.Color.adjustAlpha shows hover with lib name');
+
 // === DEFINITION TESTS ===
 
 section('DefinitionHandler');

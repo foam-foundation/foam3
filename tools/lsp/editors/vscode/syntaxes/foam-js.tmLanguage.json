@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/tc39-proposal-tagged-template-literal-grammars/master/vscode-extension/schema.json",
+  "scopeName": "foam.js.injection",
+  "injectionSelector": "L:source.js",
+  "patterns": [
+    {
+      "comment": "Java injection into backtick template literals for all FOAM Java properties",
+      "name": "meta.foam.java-block.js",
+      "begin": "(?<=[:\\s])(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|javaThrows|javaGenerate|javaInfoType|javaType|code|serviceScript)(\\s*:\\s*)(`)",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.foam" },
+        "2": { "name": "punctuation.separator.key-value.js" },
+        "3": { "name": "punctuation.definition.string.template.begin.js" }
+      },
+      "end": "(`)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.template.end.js" }
+      },
+      "contentName": "meta.embedded.block.java",
+      "patterns": [
+        { "include": "source.java" }
+      ]
+    },
+    {
+      "comment": "CSS injection into backtick template literals for css: property",
+      "name": "meta.foam.css-block.js",
+      "begin": "(?<=[:\\s])(css)(\\s*:\\s*)(`)",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.foam.css" },
+        "2": { "name": "punctuation.separator.key-value.js" },
+        "3": { "name": "punctuation.definition.string.template.begin.js" }
+      },
+      "end": "(`)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.template.end.js" }
+      },
+      "contentName": "meta.embedded.block.css",
+      "patterns": [
+        { "include": "source.css" }
+      ]
+    },
+    {
+      "comment": "FOAM model keys highlighted as types: extends, of, package values",
+      "match": "(?<=[:\\s])(extends|of|package)(\\s*:\\s*)('[^']*'|\"[^\"]*\")",
+      "captures": {
+        "1": { "name": "support.type.property-name.foam" },
+        "2": { "name": "punctuation.separator.key-value.js" },
+        "3": { "name": "entity.name.type.foam" }
+      }
+    },
+    {
+      "comment": "FOAM class declarations: foam.CLASS, foam.ENUM, foam.INTERFACE",
+      "match": "(foam)\\s*\\.\\s*(CLASS|ENUM|INTERFACE|RELATIONSHIP)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "support.class.foam" },
+        "2": { "name": "entity.name.function.foam" }
+      }
+    }
+  ]
+}

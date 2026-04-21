@@ -122,10 +122,10 @@ foam.CLASS({
   ],
 
   constants: [
-    { name: 'EXPECTED_BAR',      value: '{class:"foam.core.reflow.dashboard.DashboardBarSink",includeOthers:true,arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,colors:["$barChart1","$barChart2"],timeUnit:4,horizontal:true,barThickness:20,xAxisLabel:"X",yAxisLabel:"Y",showGridLines:false,maintainAspectRatio:true,height:400,legendPosition:2,showTooltipSum:true,animate:false,animationDuration:500}' },
+    { name: 'EXPECTED_BAR',      value: '{class:"foam.core.reflow.dashboard.DashboardBarSink",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,colors:["$barChart1","$barChart2"],horizontal:true,barThickness:20,xAxisLabel:"X",yAxisLabel:"Y",showGridLines:false,maintainAspectRatio:true,height:400,legendPosition:2,showTooltipSum:true,animate:false,animationDuration:500}' },
     { name: 'EXPECTED_PIE',      value: '{class:"foam.core.reflow.dashboard.DashboardPieSink",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,colors:["$a","$b","$c"],showPercentages:true,cutoutPercentage:50,disableLegendClick:true}' },
-    { name: 'EXPECTED_STACKED',  value: '{class:"foam.core.reflow.dashboard.DashboardStackedBarSink",colors:["$s1","$s2"],timeUnit:4,xAxisLabel:"X",yAxisLabel:"Y",height:350,acc:{class:"foam.mlang.sink.Count"},rows:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true},groupKeys:[],processArrayValuesIndividually:true},cols:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true}}' },
+    { name: 'EXPECTED_STACKED',  value: '{class:"foam.core.reflow.dashboard.DashboardStackedBarSink",colors:["$s1","$s2"],xAxisLabel:"X",yAxisLabel:"Y",height:350,rows:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true},groupKeys:[],processArrayValuesIndividually:true},cols:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true}}' },
     { name: 'EXPECTED_LINE',     value: '{class:"foam.dao.ArraySink"}' },
-    { name: 'EXPECTED_CALENDAR', value: '{class:"foam.core.reflow.dashboard.DashboardCalendarSink",valueSink:{class:"foam.mlang.sink.Count"},periodCount:30,map_:{},colors:["$c1"],height:250,animationDuration:800}' }
+    { name: 'EXPECTED_CALENDAR', value: '{class:"foam.core.reflow.dashboard.DashboardCalendarSink",periodCount:30,map_:{},colors:["$c1"],height:250,animationDuration:800}' }
   ]
 });

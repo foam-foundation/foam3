@@ -381,15 +381,34 @@ foam.CLASS({
             P.optional(P.literal("'")), wsc), comma)),
           wsc, P.optional(P.literal(']'))),
 
-        pomFileObj: P.seq(P.literal('{'), wsc,
+        // File/project object headers fire a snippet sug when `{` is expected
+        // but not present — e.g. on a blank line between entries. Without this
+        // the grammar backtracks to pomEntry and the user sees top-level POM
+        // keys instead of a new-entry template.
+        pomFileObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '', flags: 'js' }", category: 'pomFileEntry',
+            hint: 'new file entry'
+          })),
+          wsc,
           P.optional(P.repeat(P.sym('pomFileObjEntry'), comma)),
           wsc, P.optional(P.literal('}'))),
 
-        pomJavaFileObj: P.seq(P.literal('{'), wsc,
+        pomJavaFileObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '' }", category: 'pomJavaFileEntry',
+            hint: 'new Java file entry'
+          })),
+          wsc,
           P.optional(P.repeat(P.sym('pomJavaFileObjEntry'), comma)),
           wsc, P.optional(P.literal('}'))),
 
-        pomProjectObj: P.seq(P.literal('{'), wsc,
+        pomProjectObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '' }", category: 'pomProjectEntry',
+            hint: 'new project entry'
+          })),
+          wsc,
           P.optional(P.repeat(P.sym('pomProjectObjEntry'), comma)),
           wsc, P.optional(P.literal('}'))),
 

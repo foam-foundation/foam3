@@ -926,8 +926,11 @@ foam.CLASS({
       while ( rightEdge < text.length && /\s/.test(text.charAt(rightEdge)) ) rightEdge++;
 
       function nearCursor(pos) {
+        // Exact window around the cursor (original ±2).
         if ( pos >= cursorOffset - 2 && pos <= cursorOffset + 2 ) return true;
-        if ( pos >= leftEdge - 2 && pos <= rightEdge + 2 ) return true;
+        // Whitespace-aware window: accept sugs fired inside the whitespace
+        // gap and at the first non-whitespace char on either side.
+        if ( pos >= leftEdge && pos <= rightEdge ) return true;
         return false;
       }
 

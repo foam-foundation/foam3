@@ -906,35 +906,46 @@ foam.CLASS({
 
     function collectSuggestions(text, cursorOffset) {
       /**
-       * Uses the SmartView pattern: track maxPos (furthest successful parse),
-       * collect suggestions at maxPos. Reset when maxPos advances.
-       * Only collect when near the cursor position.
+       * SmartView pattern: track maxPos and collect suggestions from parsers
+       * tried near the cursor.
+       *
+       * Cursor-window: the strict ±2 char window misses suggestions when the
+       * cursor sits inside whitespace (the parser's `wsc` eats the whitespace
+       * before any sug fires, so sugs end up at the next non-whitespace char).
+       * We accept a sug whose start position is within ±2 OR is within ±2 of
+       * the cursor with only whitespace between — "cursor-effective" window.
        */
       var suggestions = {};
       var maxPos = 0;
 
+      // Precompute: for each offset, the nearest non-whitespace positions on
+      // either side of the cursor, so we can accept sugs that fire after wsc.
+      var leftEdge  = cursorOffset;
+      while ( leftEdge > 0 && /\s/.test(text.charAt(leftEdge - 1)) ) leftEdge--;
+      var rightEdge = cursorOffset;
+      while ( rightEdge < text.length && /\s/.test(text.charAt(rightEdge)) ) rightEdge++;
+
+      function nearCursor(pos) {
+        if ( pos >= cursorOffset - 2 && pos <= cursorOffset + 2 ) return true;
+        if ( pos >= leftEdge - 2 && pos <= rightEdge + 2 ) return true;
+        return false;
+      }
+
       var apply = function(p, grammar) {
         var result = p.parse(this, grammar);
 
-        // Only consider suggestions from parsers that were tried near cursor
-        // AND at positions that are part of a successful parse path
         if ( result && p.suggest ) {
           var s = p.suggest();
           if ( s ) {
-            // Track suggestion at the position where the parser started (this.pos)
             var startPos = this.pos;
-            if ( startPos >= cursorOffset - 2 && startPos <= cursorOffset + 2 ) {
+            if ( nearCursor(startPos) ) {
               suggestions[s.text || s.label] = s;
             }
           }
         }
 
-        // Also collect at current max position (like SmartView)
-        if ( this.pos > maxPos ) {
-          maxPos = this.pos;
-        }
-        if ( ! result && p.suggest && this.pos === maxPos &&
-             this.pos >= cursorOffset - 2 && this.pos <= cursorOffset + 2 ) {
+        if ( this.pos > maxPos ) maxPos = this.pos;
+        if ( ! result && p.suggest && this.pos === maxPos && nearCursor(this.pos) ) {
           var s = p.suggest();
           if ( s ) suggestions[s.text || s.label] = s;
         }

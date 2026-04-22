@@ -2464,6 +2464,56 @@ if ( index.classExists(SFV) ) {
     'Grammar axiom-pos: LABEL_PLACEHOLDER at expected line');
 }
 
+// === POM completion: grammar-driven key + value suggestions ===
+section('POM completion — grammar drives every position');
+
+var pomCh = foam.parse.lsp.handlers.CompletionHandler.create({
+  index: index, analyzer: analyzer, cssTokenResolver: cssTokenResolver
+});
+
+var pomSrc = [
+  "foam.POM({",                                          // L0
+  "  name: 'lsp',",                                      // L1
+  "  files: [",                                          // L2
+  "    {  },",                                           // L3 — empty file object
+  "    { name: '', flags: '' }",                         // L4 — empty value strings
+  "  ]",                                                  // L5
+  "});"                                                   // L6
+].join('\n');
+
+function pomLabels(pos) {
+  var items = (pomCh.handle(pomSrc, pos) || {}).items || [];
+  return items.map(function(it) { return it.label || it.insertText; });
+}
+
+// Top-level POM body: keys like files, javaFiles, projects, name, journalFiles
+var topLabels = pomLabels({ line: 0, character: 10 });
+test(topLabels.indexOf('files: ') !== -1,
+  'POM top-level: suggests files: after foam.POM({');
+test(topLabels.indexOf('projects: ') !== -1,
+  'POM top-level: suggests projects:');
+
+// Empty file object `{ ▊ }` — grammar must emit pomKey sugs for name/flags
+var emptyObjLabels = pomLabels({ line: 3, character: 6 });
+test(emptyObjLabels.indexOf('name: ') !== -1,
+  'POM empty file object: suggests name:');
+test(emptyObjLabels.indexOf('flags: ') !== -1,
+  'POM empty file object: suggests flags:');
+
+// Inside name: '▊' — grammar context marker triggers file-name suggestions
+var nameValLabels = pomLabels({ line: 4, character: 13 });
+test(nameValLabels.length > 0,
+  'POM name value: at least one file-name suggestion');
+test(nameValLabels.some(function(l) { return /^[A-Z]\w+$/.test(l); }),
+  'POM name value: suggestions look like file names (PascalCase)');
+
+// Inside flags: '▊' — grammar context marker triggers flag values
+var flagsLabels = pomLabels({ line: 4, character: 24 });
+test(flagsLabels.indexOf('js') !== -1,
+  'POM flags value: suggests js');
+test(flagsLabels.indexOf('java') !== -1,
+  'POM flags value: suggests java');
+
 // === Migration coverage: grammar emits 'property' and 'method' positions ===
 section('Grammar: property / method axiom positions');
 

@@ -339,15 +339,22 @@ foam.CLASS({
           P.sym('pomJavaFilesEntry'),
           P.sym('pomProjectsEntry'),
           P.sym('pomJavaDepsEntry'),
-          P.sym('pomKey'),
+          P.sym('pomJournalFilesEntry'),
+          P.sym('pomNameEntry'),
+          P.sym('pomVersionEntry'),
           P.sym('genericEntry')
         ),
 
-        pomKey: P.alt(
-          pomKeyHelper('name'), pomKeyHelper('version'), pomKeyHelper('files'),
-          pomKeyHelper('projects'), pomKeyHelper('javaDependencies'),
-          pomKeyHelper('javaFiles'), pomKeyHelper('journalFiles')
-        ),
+        // Scalar string entries — each emits its key sug and parses through
+        // the rest of the `key: 'value'` assignment so the outer repeat can
+        // move on to the next comma-separated entry without blocking.
+        pomNameEntry: P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc, stringLiteral),
+        pomVersionEntry: P.seq(pomKeyHelper('version'), wsc, P.literal(':'), wsc, stringLiteral),
+
+        pomJournalFilesEntry: P.seq(pomKeyHelper('journalFiles'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, stringLiteral, wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
 
         // Specific POM entry rules. Each emits a context marker (via sug with
         // \u0002 that never matches) so the LSP handler can detect cursor

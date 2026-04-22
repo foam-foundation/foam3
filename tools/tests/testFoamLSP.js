@@ -2464,6 +2464,145 @@ if ( index.classExists(SFV) ) {
     'Grammar axiom-pos: LABEL_PLACEHOLDER at expected line');
 }
 
+// === Migration coverage: grammar emits 'property' and 'method' positions ===
+section('Grammar: property / method axiom positions');
+
+var propMethodSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",                              // L1
+  "  name: 'PM',",                                   // L2
+  "  properties: [",                                 // L3
+  "    { class: 'String', name: 'firstName' },",     // L4
+  "    { class: 'Int',    name: 'age' }",            // L5
+  "  ],",
+  "  methods: [",                                    // L7
+  "    function greet() { return 'hi'; },",          // L8
+  "    { name: 'farewell', code: function() { return 'bye'; } }",  // L9
+  "  ]",
+  "});"
+].join('\n');
+var pmMap = axiomGrammar.collectAxiomPositions(propMethodSrc);
+test(pmMap.property && pmMap.property.firstName && pmMap.property.firstName.line === 4,
+  'Grammar axiom-pos: property firstName at line 4');
+test(pmMap.property && pmMap.property.age && pmMap.property.age.line === 5,
+  'Grammar axiom-pos: property age at line 5');
+test(pmMap.method && pmMap.method.greet && pmMap.method.greet.line === 8,
+  'Grammar axiom-pos: method greet at line 8 (bare function form)');
+test(pmMap.method && pmMap.method.farewell && pmMap.method.farewell.line === 9,
+  'Grammar axiom-pos: method farewell at line 9 (object form)');
+
+// === Migration coverage: buildLocationAtProperty uses the grammar path ===
+section('DefinitionHandler — grammar-based property navigation');
+
+// Create a temp file we can point the handler at.
+var tmpFs = require('fs');
+var tmpOs = require('os');
+var tmpPath2 = require('path');
+var tmpFile = tmpPath2.join(tmpOs.tmpdir(), 'lsp-grammar-propnav.js');
+tmpFs.writeFileSync(tmpFile,
+  "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'PropNav',\n" +
+  "  properties: [\n" +
+  "    { class: 'String', name: 'aProp' }\n" +
+  "  ]\n" +
+  "});\n");
+try {
+  var propLoc = defHandler.buildLocationAtProperty(tmpFile, 'aProp');
+  test(propLoc && propLoc.uri && propLoc.uri.indexOf('lsp-grammar-propnav.js') !== -1,
+    'buildLocationAtProperty returns a URI for aProp');
+  test(propLoc && propLoc.range && propLoc.range.start.line === 4,
+    'buildLocationAtProperty: aProp is on line 4 (grammar-resolved)');
+} finally {
+  try { tmpFs.unlinkSync(tmpFile); } catch ( e ) {}
+}
+
+// === Migration coverage: buildLocationAtMethod uses the grammar path ===
+section('DefinitionHandler — grammar-based method navigation');
+
+var tmpFile2 = tmpPath2.join(tmpOs.tmpdir(), 'lsp-grammar-methodnav.js');
+tmpFs.writeFileSync(tmpFile2,
+  "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'MethodNav',\n" +
+  "  methods: [\n" +
+  "    function computeValue() { return 42; }\n" +
+  "  ]\n" +
+  "});\n");
+try {
+  var methodLoc = defHandler.buildLocationAtMethod(tmpFile2, 'test.MethodNav', 'computeValue');
+  test(methodLoc && methodLoc.uri && methodLoc.uri.indexOf('lsp-grammar-methodnav.js') !== -1,
+    'buildLocationAtMethod returns a URI for computeValue');
+  test(methodLoc && methodLoc.range && methodLoc.range.start.line === 4,
+    'buildLocationAtMethod: computeValue is on line 4 (grammar-resolved)');
+} finally {
+  try { tmpFs.unlinkSync(tmpFile2); } catch ( e ) {}
+}
+
+// === Migration coverage: LIB + POM eval recovery ===
+section('FileModelCache: foam.LIB captured via parseFileModels');
+
+var cacheInst = foam.parse.lsp.FileModelCache.create();
+var libFileSrc =
+  "foam.CLASS({ package: 'test', name: 'Together' });\n" +
+  "foam.LIB({\n" +
+  "  name: 'test.MyLib',\n" +
+  "  methods: [ function doIt(x) { return x; } ]\n" +
+  "});\n";
+var libModels = cacheInst.parseFileModels(libFileSrc);
+var libCaught = libModels.some(function(m) { return m.type_ === 'LIB' && m.name === 'test.MyLib'; });
+test(libCaught, 'parseFileModels captures foam.LIB with correct name');
+var clsCaught = libModels.some(function(m) {
+  return m.type_ !== 'LIB' && m.package === 'test' && m.name === 'Together';
+});
+test(clsCaught, 'parseFileModels still captures sibling foam.CLASS in the same file');
+
+// Syntax-error fallback still finds LIB (Phase 4: LIB added to evalIndividualBlocks_ regex)
+var brokenLibSrc =
+  "foam.CLASS({ package: 'test', name: 'BrokenSibling' });\n" +
+  "this is not valid JS + syntax\n" +
+  "foam.LIB({\n" +
+  "  name: 'test.RecoveredLib',\n" +
+  "  methods: [ function ok() { return 1; } ]\n" +
+  "});\n";
+var brokenModels = cacheInst.parseFileModels(brokenLibSrc);
+var recovered = brokenModels.some(function(m) {
+  return m.type_ === 'LIB' && m.name === 'test.RecoveredLib';
+});
+test(recovered, 'evalIndividualBlocks_ fallback recovers foam.LIB from a file with a syntax error');
+
+// === Migration coverage: FoamIndex POM eval parsers ===
+section('FoamIndex — POM eval parsers');
+
+var simplePom = "foam.POM({ name: 'p', projects: [ { name: 'test/pom', flags: 'test' } ] });";
+var parsedProjects = index.parsePomProjects_(simplePom);
+test(parsedProjects && parsedProjects.length === 1 && parsedProjects[0].name === 'test/pom',
+  'parsePomProjects_: eval returns the projects array');
+test(parsedProjects && parsedProjects[0].flags === 'test',
+  'parsePomProjects_: flags preserved through eval');
+
+var simpleFilesPom = "foam.POM({ name: 'p', files: [ { name: 'Foo', flags: 'js' } ] });";
+var parsedFiles = index.parsePomFiles_(simpleFilesPom);
+test(parsedFiles && parsedFiles.length === 1 && parsedFiles[0].name === 'Foo',
+  'parsePomFiles_: eval returns the files array');
+
+// === Migration coverage: LIB + class indexed in the same pass ===
+section('FoamIndex — unified eval-based file indexing');
+
+// foam.Color LIB is in colorlib.js alongside no other classes; index was built
+// at LSP boot so both should be present.
+test(index.getLibEntry('foam.Color') && index.getLibEntry('foam.Color').methods.indexOf('adjustAlpha') !== -1,
+  'Unified indexing: foam.Color captured via eval-intercept');
+// At least one RELATIONSHIP class must be indexed — these are only captured by eval
+// (regex approach misses them because the name is synthesized from sourceModel+targetModel).
+var relCount = 0;
+var allIds = Object.keys(index.fileIndex_ || {});
+for ( var rIdx = 0 ; rIdx < allIds.length ; rIdx++ ) {
+  if ( /Relationship$/.test(allIds[rIdx]) ) relCount++;
+}
+test(relCount >= 1,
+  'Unified indexing: RELATIONSHIP classes are indexed (got ' + relCount + ')');
+
 // === MESSAGE + CONSTANT REFERENCES ===
 section('ReferencesHandler — message & constant axioms');
 

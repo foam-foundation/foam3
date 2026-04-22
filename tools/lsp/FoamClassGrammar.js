@@ -552,6 +552,15 @@ foam.CLASS({
           { kind: 'value' }
         ),
 
+        // Property `name: 'foo'` — emit a 'property' axiom position so
+        // DefinitionHandler.buildLocationAtProperty can jump straight to
+        // the declaration without text-scan regex.
+        propertyNameValue: P.msg(
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_$')), null, 1)),
+          { kind: 'property' }
+        ),
+
         // tableColumns/searchColumns: emit a 'columnName' category at each value
         // position so the LSP handler can detect context without regex scanning.
         // Real suggestions come from the model (this class's properties).
@@ -660,7 +669,12 @@ foam.CLASS({
             P.optional(P.literal("'"))),
           P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
             text: 'name', category: 'key' })),
-            wsc, P.literal(':'), wsc, stringLiteral),
+            wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('propertyNameValue'), P.optional(P.literal("'"))),
+          P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
+            text: 'name', category: 'key' })),
+            wsc, P.literal(':'), wsc,
+            P.literal('"'), P.sym('propertyNameValue'), P.optional(P.literal('"'))),
           P.seq(P.sug(P.literal('of'), foam.parse.Suggestion.create({
             text: 'of', category: 'key' })),
             wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
@@ -704,7 +718,41 @@ foam.CLASS({
         ),
 
         // === METHOD DEFINITIONS ===
-        methodDef: P.alt(P.sym('functionBody'), P.sym('object')),
+        // Method forms:
+        //   function foo(args) { ... }           — bare function
+        //   { name: 'foo', code: function... }   — object with name
+        // Both forms emit a 'method' axiom position so DefinitionHandler
+        // can jump straight to the declaration without text-scan regex.
+        methodDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('methodObject'),
+          P.sym('object')
+        ),
+
+        namedFunctionBody: P.seq(
+          P.optional(P.literal('async')), wsc,
+          P.literal('function'), wsc,
+          P.sym('methodNameValue'),
+          wsc, P.sym('balancedParens'), wsc, P.sym('balancedBraces')
+        ),
+
+        methodObject: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('methodObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        methodObjEntry: P.alt(
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('methodNameValue'), P.optional(P.literal("'"))),
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal('"'), P.sym('methodNameValue'), P.optional(P.literal('"'))),
+          P.sym('genericEntry')
+        ),
+
+        methodNameValue: P.msg(
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_$')), null, 1)),
+          { kind: 'method' }
+        ),
 
         // === GENERIC CATCH-ALL ===
         genericEntry: P.seq(identifier, wsc, P.literal(':'), wsc, anyValue),

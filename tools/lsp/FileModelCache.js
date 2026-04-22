@@ -185,7 +185,7 @@ foam.CLASS({
        * Fallback for SyntaxError: extract individual foam.CLASS/ENUM/INTERFACE
        * blocks using bracket matching and eval each separately.
        */
-      var regex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/g;
+      var regex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|LIB)\s*\(/g;
       var match;
       while ( ( match = regex.exec(text) ) !== null ) {
         var start = match.index;

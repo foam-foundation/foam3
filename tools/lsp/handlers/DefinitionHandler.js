@@ -311,14 +311,14 @@ foam.CLASS({
     function buildLocationAtMethod(filePath, classId, methodName) {
       /**
        * Jump to a method definition within the correct class in the file.
-       * Uses FileModelCache to find the class's source range, then searches
-       * only within that range — avoids matching refinement methods.
+       * Uses the grammar's axiom-position index (`kind: 'method'` emitted by
+       * `methodNameValue` in FoamClassGrammar) and constrains the match to
+       * the target class's source range via FileModelCache.
        */
       try {
         var fs_ = require('fs');
         var content = fs_.readFileSync(filePath, 'utf8');
 
-        // Find the correct model's source range
         var models = this.cache.parseFileModels(content);
         var startLine = 0;
         var endLine = content.split('\n').length;
@@ -332,15 +332,20 @@ foam.CLASS({
           }
         }
 
-        // Search for the method only within the model's range
-        var lines = content.split('\n');
-        var regex = new RegExp('function\\s+' + methodName + '\\s*\\(');
-        for ( var ln = startLine ; ln < endLine ; ln++ ) {
-          if ( regex.test(lines[ln]) ) {
-            return { uri: 'file://' + filePath, range: { start: { line: ln, character: 0 }, end: { line: ln, character: 0 } } };
-          }
+        // Grammar emits all method positions; pick the one inside [startLine, endLine).
+        var map = this.grammar_().collectAxiomPositions(content);
+        var positions = map && map.method ? map.method : null;
+        var hit = positions ? positions[methodName] : null;
+        if ( hit && hit.line >= startLine && hit.line < endLine ) {
+          return {
+            uri: 'file://' + filePath,
+            range: {
+              start: { line: hit.line, character: hit.col },
+              end:   { line: hit.line, character: hit.col + methodName.length }
+            }
+          };
         }
-      } catch (e) {}
+      } catch ( e ) {}
       return this.buildLocation(filePath, classId);
     },
 
@@ -380,20 +385,26 @@ foam.CLASS({
     },
 
     function buildLocationAtProperty(filePath, propName) {
-      /** Jump to a property definition within a file. */
+      /**
+       * Jump to a property definition within a file. Uses the grammar's
+       * axiom-position index (`kind: 'property'` emitted by `propertyNameValue`
+       * in FoamClassGrammar) so the lookup respects multi-class files and
+       * matches how messages are located.
+       */
       try {
         var fs_ = require('fs');
         var content = fs_.readFileSync(filePath, 'utf8');
-        var regex = new RegExp("name\\s*:\\s*['\"]" + propName + "['\"]");
-        var match = regex.exec(content);
-        if ( match ) {
-          var line = 0;
-          for ( var i = 0 ; i < match.index ; i++ ) {
-            if ( content[i] === '\n' ) line++;
-          }
-          return { uri: 'file://' + filePath, range: { start: { line: line, character: 0 }, end: { line: line, character: 0 } } };
+        var pos = this.grammar_().findAxiomPosition(content, 'property', propName);
+        if ( pos ) {
+          return {
+            uri: 'file://' + filePath,
+            range: {
+              start: { line: pos.line, character: pos.col },
+              end:   { line: pos.line, character: pos.col + propName.length }
+            }
+          };
         }
-      } catch (e) {}
+      } catch ( e ) {}
       return this.buildLocation(filePath);
     },
 

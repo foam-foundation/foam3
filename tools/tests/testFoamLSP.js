@@ -3273,6 +3273,145 @@ if ( anyFilePath ) {
     'analyzeFiles returns fileResults map');
 }
 
+// === LSP #4999 Fix 1: property-type completion inserts full path (except foam.lang.*) ===
+section('CompletionHandler — property-type full-path insertion (issue #4999)');
+
+// Empty value: class: '▊' — suggestions should include both a foam.lang.* short
+// name (e.g., 'String') and a non-lang full path (e.g., 'foam.u2.ViewSpec').
+var classEmptyText = 'foam.CLASS({\n  properties: [\n    { class: ' + Q + Q + ' }\n  ]\n})';
+var classEmptyPos = { line: 2, character: classEmptyText.split('\n')[2].indexOf(Q) + 1 };
+var classEmptyRes = completionHandler.handle(classEmptyText, classEmptyPos);
+
+function findItem(items, pred) {
+  for ( var i = 0 ; i < items.length ; i++ ) if ( pred(items[i]) ) return items[i];
+  return null;
+}
+function insertedText(item) {
+  return (item && item.textEdit && item.textEdit.newText) || (item && item.insertText) || item && item.label;
+}
+
+var stringItem = findItem(classEmptyRes.items, function(i) { return i.label === 'String'; });
+test(stringItem && insertedText(stringItem) === 'String',
+  'foam.lang.String: label and inserted text both short (got ' + insertedText(stringItem) + ')');
+
+var viewSpecItem = findItem(classEmptyRes.items, function(i) { return i.label === 'ViewSpec'; });
+test(viewSpecItem && insertedText(viewSpecItem) === 'foam.u2.ViewSpec',
+  'foam.u2.ViewSpec: inserted text is full path (got ' + insertedText(viewSpecItem) + ')');
+
+// Partial value: class: 'foam.u2.V▊' — replacement should still be full path.
+var classPartialText = 'foam.CLASS({\n  properties: [\n    { class: ' + Q + 'foam.u2.V' + Q + ' }\n  ]\n})';
+var classPartialPos = { line: 2, character: classPartialText.split('\n')[2].indexOf('V') + 1 };
+var classPartialRes = completionHandler.handle(classPartialText, classPartialPos);
+var viewSpecPartial = findItem(classPartialRes.items, function(i) { return i.label === 'ViewSpec'; });
+test(viewSpecPartial && insertedText(viewSpecPartial) === 'foam.u2.ViewSpec',
+  'Partial foam.u2.V: ViewSpec still replaces with full path (got ' + insertedText(viewSpecPartial) + ')');
+
+// Grammar-level check: the propType sug carries the correct insert text so
+// sug-driven paths stay consistent with the contextFallback path.
+var sentinelForProp = foam.parse.lsp.CursorSentinel.create();
+var propSentinelSrc = 'foam.CLASS({ properties: [ { class: ' + Q + Q + ' } ] })';
+var propSentinelPos = { line: 0, character: propSentinelSrc.indexOf(Q) + 1 };
+var propIns = sentinelForProp.insertAt(propSentinelSrc, propSentinelPos);
+var propTypeSugs = grammar.collectSuggestionsAt(propIns.text, propIns.offset);
+// Scan every sug's text so we don't depend on which specific prop types the
+// grammar's cursor-window happens to return at this offset.
+var langShorts = {};
+index.getPropertyTypes().forEach(function(t) {
+  if ( t.id && t.id.indexOf('foam.lang.') === 0 ) langShorts[t.name] = true;
+});
+var shortLeaks = propTypeSugs.filter(function(s) {
+  return s.category === 'property' && s.text.indexOf('.') === -1 && ! langShorts[s.text];
+});
+test(shortLeaks.length === 0,
+  'Grammar sug: no non-lang property types emit short-name insert text (leaks=' + shortLeaks.length + ')');
+var fullPathSugs = propTypeSugs.filter(function(s) {
+  return s.category === 'property' && s.text.indexOf('.') !== -1;
+});
+test(fullPathSugs.length > 0,
+  'Grammar sug: at least one non-lang property type emits a full-path insert text (' + fullPathSugs.length + ')');
+
+// === LSP #4999 Fix 2: view: '...' offers view-class suggestions ===
+section('CompletionHandler — view: class-ref suggestions (issue #4999)');
+
+// Empty string value for view: — should list class ids including views.
+var viewEmptyText = 'foam.CLASS({\n  properties: [\n    { name: ' + Q + 'x' + Q + ', view: ' + Q + Q + ' }\n  ]\n})';
+var viewEmptyPos = { line: 2, character: viewEmptyText.split('\n')[2].lastIndexOf(Q) };
+var viewEmptyRes = completionHandler.handle(viewEmptyText, viewEmptyPos);
+test(viewEmptyRes.items.length > 0,
+  'view: empty string gets class suggestions (' + viewEmptyRes.items.length + ' items)');
+test(viewEmptyRes.items.some(function(i) { return /^foam\.u2\./.test(i.label); }),
+  'view: suggestions include foam.u2.* classes');
+
+// Partial value — view: 'foam.u2.' — suggestions should still include views.
+var viewPartialText = 'foam.CLASS({\n  properties: [\n    { name: ' + Q + 'x' + Q + ', view: ' + Q + 'foam.u2.' + Q + ' }\n  ]\n})';
+var viewPartialPos = { line: 2, character: viewPartialText.split('\n')[2].lastIndexOf(Q) };
+var viewPartialRes = completionHandler.handle(viewPartialText, viewPartialPos);
+test(viewPartialRes.items.some(function(i) { return /^foam\.u2\./.test(i.label); }),
+  'view: partial foam.u2. still offers view classes (' + viewPartialRes.items.length + ' items)');
+
+// === LSP #4999 Fix 3: exports: [...] suggests model axiom names ===
+section('CompletionHandler — exports axiom names (issue #4999)');
+
+// Model with a requires: [...] block above exports: [...] — this is the
+// shape that previously produced bogus foam.comics.* suggestions because
+// the 10-line requires lookback hijacked the classRef fallback.
+var exportText =
+  'foam.CLASS({\n' +
+  "  package: 'test',\n" +
+  "  name: 'MyExporter',\n" +
+  "  requires: [\n" +
+  "    'foam.u2.View',\n" +
+  "    'foam.u2.ViewSpec'\n" +
+  "  ],\n" +
+  "  exports: [\n" +
+  "    'as asController',\n" +
+  "    " + Q + Q + "\n" +
+  "  ],\n" +
+  "  properties: [\n" +
+  "    { name: 'alpha' },\n" +
+  "    { name: 'beta' }\n" +
+  "  ],\n" +
+  "  methods: [\n" +
+  "    function refresh() {}\n" +
+  "  ],\n" +
+  "  actions: [\n" +
+  "    { name: 'reload' }\n" +
+  "  ],\n" +
+  "  listeners: [\n" +
+  "    { name: 'onUpdate' }\n" +
+  "  ]\n" +
+  "})";
+
+var exportLines = exportText.split('\n');
+// Target line 9 (1-indexed 10) which is the empty '' slot inside exports.
+var exportLineIdx = -1;
+for ( var li = 0 ; li < exportLines.length ; li++ ) {
+  if ( exportLines[li].indexOf("    ''") === 0 ) { exportLineIdx = li; break; }
+}
+test(exportLineIdx !== -1, 'Exports test setup: found empty-string line at index ' + exportLineIdx);
+var exportPos = { line: exportLineIdx, character: exportLines[exportLineIdx].indexOf(Q) + 1 };
+var exportRes = completionHandler.handle(exportText, exportPos);
+
+test(exportRes.items.length > 0,
+  'exports: empty slot returns completions (' + exportRes.items.length + ' items)');
+test(exportRes.items.every(function(i) { return i.label.indexOf('foam.') !== 0; }),
+  'exports: no class-id (foam.*) leakage from the requires block above');
+test(exportRes.items.some(function(i) { return i.label === 'alpha'; }),
+  'exports: own property "alpha" is suggested');
+test(exportRes.items.some(function(i) { return i.label === 'beta'; }),
+  'exports: own property "beta" is suggested');
+test(exportRes.items.some(function(i) { return i.label === 'refresh'; }),
+  'exports: own method "refresh" is suggested');
+test(exportRes.items.some(function(i) { return i.label === 'reload'; }),
+  'exports: own action "reload" is suggested');
+test(exportRes.items.some(function(i) { return i.label === 'onUpdate'; }),
+  'exports: own listener "onUpdate" is suggested');
+
+// Grammar-level: the exportName context marker fires at an empty-string slot.
+var exportCtx = completionHandler.detectContext_(exportText, exportPos);
+test(exportCtx.exportName === true, 'detectContext_: exportName flag set inside exports array');
+test(exportCtx.classRef === false, 'detectContext_: classRef flag NOT set inside exports array');
+
 // === SUMMARY ===
 
 section('SUMMARY');

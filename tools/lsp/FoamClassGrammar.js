@@ -213,11 +213,17 @@ foam.CLASS({
       var self = this;
       var P = foam.parse.Parsers.create();
 
-      // Property types — all subclasses of foam.lang.Property
+      // Property types — all subclasses of foam.lang.Property.
+      // Only foam.lang.* types may be inserted by short name; every other
+      // package must be inserted as its full class id so the generated code
+      // resolves unambiguously (fixes issue where `class: 'foam.u2.ViewSpec'`
+      // completed to bare `'ViewSpec'`).
       var propTypes = this.index.getPropertyTypes();
       var propTypeParsers = propTypes.map(function(t) {
+        var isLang = t.id && t.id.indexOf('foam.lang.') === 0;
+        var insertText = isLang ? t.name : t.id;
         return P.sug(P.literalIC(t.name), foam.parse.Suggestion.create({
-          text: t.name,
+          text: insertText,
           category: 'property',
           hint: t.doc || t.id
         }));
@@ -617,7 +623,27 @@ foam.CLASS({
         ),
 
         importsEntry: P.seq(key('imports'), wsc, P.literal(':'), wsc, P.sym('array')),
-        exportsEntry: P.seq(key('exports'), wsc, P.literal(':'), wsc, P.sym('array')),
+
+        // exports: [ 'axiomName', 'axiomName as alias' ] — emit an 'exportName'
+        // context marker per value so the LSP handler can suggest axiom names
+        // (properties, methods, actions, listeners) from the enclosing model
+        // instead of the class-ref fallback list.
+        exportsEntry: P.seq(key('exports'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('exportName'),
+            P.optional(P.literal("'")), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        exportName: P.alt(
+          P.sug(P.literal(''), foam.parse.Suggestion.create({
+            text: '__ctx_exportName__', category: 'exportName', hint: 'axiom name'
+          })),
+          P.msg(
+            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+              P.range('0', '9'), P.chars('_ $')), null, 1)),
+            { type: 'exportName' }
+          )
+        ),
 
         javaImportsEntry: P.seq(key('javaImports'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
@@ -703,6 +729,14 @@ foam.CLASS({
             P.literal('"'), P.sym('propertyNameValue'), P.optional(P.literal('"'))),
           P.seq(P.sug(P.literal('of'), foam.parse.Suggestion.create({
             text: 'of', category: 'key' })),
+            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
+            P.optional(P.literal("'"))),
+          // view: 'com.acme.MyView' — treat the string form exactly like `of:`
+          // so class suggestions (including view classes) surface in viewSpec
+          // positions. The { class: '...' } object form is covered by the
+          // normal propEntry/class rule inside that object.
+          P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
+            text: 'view', category: 'key' })),
             wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
             P.optional(P.literal("'"))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({

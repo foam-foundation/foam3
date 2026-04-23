@@ -259,7 +259,7 @@ foam.CLASS({
                   sections: [
                     {
                       heading: self.MATCHES,
-                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)))
+                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)).orderBy(self.DESC(self.RankedOutcome.SCORE)))
                     },
                     {
                       heading: self.POTENTIAL_MATCHES,

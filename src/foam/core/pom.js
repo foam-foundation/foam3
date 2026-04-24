@@ -21,6 +21,7 @@ foam.POM({
     { name: "app/pom" },
     { name: "auth/pom" },
     { name: "browser/pom" },
+    { name: "config/pom" },
     { name: "reflow/pom" },
     { name: "er/pom" },
     { name: "jetty/pom" },

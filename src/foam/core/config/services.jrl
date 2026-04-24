@@ -1,0 +1,18 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "globalConfigDAO",
+  "serve": true,
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.config.GlobalConfig.getOwnClassInfo())
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("globalConfigs")
+      .setAuthorize(false)
+      .build();
+  """,
+  "client": """
+    {
+      "of": "foam.core.config.GlobalConfig"
+    }
+  """
+})

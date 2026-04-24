@@ -18,13 +18,14 @@ foam.CLASS({
   methods: [
     function render() {
       this.SUPER();
+      var self = this;
       var config = this.objData;
       if ( ! config ) return;
       this.add(config.dynamic(function(type) {
         if ( ! type ) return;
         var axiom = config.cls_.getAxiomByName(type.valueField);
         if ( ! axiom ) return;
-        this.startContext({ data: config }).tag(axiom).endContext();
+        this.add(axiom.toE({ data$: config.slot(type.valueField) }, self.__subContext__));
       }));
     }
   ]

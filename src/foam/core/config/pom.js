@@ -8,6 +8,10 @@ foam.POM({
   files: [
     { name: "GlobalConfigType",      flags: "js|java" },
     { name: "GlobalConfig",          flags: "js|java" },
-    { name: "GlobalConfigValueView", flags: "js"      }
+    { name: "GlobalConfigValueView", flags: "js"      },
+    { name: "GlobalConfigs",         flags: "js"      }
+  ],
+  javaFiles: [
+    { name: "GlobalConfigs" }
   ]
 });

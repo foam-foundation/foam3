@@ -24,11 +24,17 @@ foam.CLASS({
     'foam.core.config.GlobalConfigType'
   ],
 
+  tableColumns: [ 'name', 'type', 'value', 'description' ],
+
   properties: [
     {
       class: 'String',
       name: 'name',
       required: true
+    },
+    {
+      class: 'String',
+      name: 'description'
     },
     {
       class: 'Enum',
@@ -58,8 +64,14 @@ foam.CLASS({
     {
       name: 'value',
       transient: true,
-      storageTransient: true,
+      projectionSafe: false,
       view: { class: 'foam.core.config.GlobalConfigValueView' },
+      tableWidth: 200,
+      tableCellFormatter: function(value) {
+        if ( value == null ) return;
+        if ( value instanceof Date ) { this.add(value.toISOString()); return; }
+        this.add(String(value));
+      },
       expression: function(type, stringValue, booleanValue, intValue, longValue, floatValue, doubleValue, dateValue, dateTimeValue) {
         if ( ! type ) return undefined;
         return this[type.valueField];

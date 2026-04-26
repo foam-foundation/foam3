@@ -302,6 +302,47 @@ test(pmMap.method && pmMap.method.greet && pmMap.method.greet.line === 8,
 test(pmMap.method && pmMap.method.farewell && pmMap.method.farewell.line === 9,
   'Grammar axiom-pos: method farewell at line 9 (object form)');
 
+// === Regression: top-level/property keys with values must NOT abort the parse ===
+// Earlier `topKey()` and `propKey()` only matched the key word, leaving
+// the `: <value>` for the next iteration to choke on. Result: ANY class
+// using `label:`, `plural:`, or per-property `label:`/`visibility:`/etc.
+// silently dropped every downstream property/method position emission,
+// so go-to-def fell through to file-top.
+section('Grammar: top-level + property keys consume their values');
+
+var noisySrc = [
+  'foam.CLASS({',
+  "  package: 'test',",
+  "  name: 'Noisy',",
+  "  label: 'Noisy Display',",                                    // L3
+  "  plural: 'Noisys',",                                          // L4
+  "  documentation: 'A docstring with spaces and \"quotes\"',",   // L5
+  '  properties: [',
+  "    { name: 'alpha', label: 'Alpha Display', visibility: 'RO' },",   // L7
+  "    { name: 'beta', help: 'Type a beta value' },",                   // L8
+  "    { name: 'gamma' }",                                              // L9
+  '  ],',
+  '  methods: [',
+  '    function delta() {},',                                            // L12
+  "    { name: 'epsilon', code: function() {} }",                        // L13
+  '  ]',
+  '});'
+].join('\n');
+
+var noisyPositions = axiomGrammar.collectAxiomPositions(noisySrc);
+['alpha', 'beta', 'gamma'].forEach(function(p) {
+  test(noisyPositions.property && noisyPositions.property[p],
+    'Property "' + p + '" position emitted past noisy class-level + property-level slots');
+});
+['delta', 'epsilon'].forEach(function(m) {
+  test(noisyPositions.method && noisyPositions.method[m],
+    'Method "' + m + '" position emitted past noisy class-level + property-level slots');
+});
+test(noisyPositions.property && noisyPositions.property.alpha && noisyPositions.property.alpha.line === 7,
+  'Property alpha is on line 7 (positions stay accurate)');
+test(noisyPositions.method && noisyPositions.method.epsilon && noisyPositions.method.epsilon.line === 13,
+  'Method epsilon is on line 13 (positions stay accurate)');
+
 // === Generic foam.<X>(...) detection — covers FSM and any future model type ===
 section('Grammar: generic foam.<X> top-level call');
 

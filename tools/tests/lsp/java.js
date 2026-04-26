@@ -735,5 +735,82 @@ var elapsedSelf = Date.now() - startSelf;
 test(elapsedSelf < 1000,
   'resolveJavaVariableType self-reference terminates fast (took ' + elapsedSelf + 'ms)');
 
+// === FOAM method `args:` parameter resolution ===
+// In FOAM models, method parameters are declared in the `args:` axiom,
+// not in the javaCode body. Without recognizing this, hovering or
+// going-to-def on a parameter receiver (e.g., `disputeCase.getId()`)
+// in the body would fail to resolve.
+section('CursorAnalyzer: FOAM method args parameter resolution');
+
+var argsStringForm = [
+  'foam.CLASS({',
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'D' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      args: ' + Q + 'X x, FObject obj' + Q + ',',
+  '      javaCode: `obj.toString();`',
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+var argsLines = argsStringForm.split('\n');
+for ( var ai = 0 ; ai < argsLines.length ; ai++ ) {
+  if ( argsLines[ai].indexOf('obj.toString') !== -1 ) {
+    var argType = analyzer.resolveJavaVariableType(argsStringForm,
+      { line: ai, character: 8 }, 'obj', { package: 'com.example', name: 'D' }, index);
+    test(argType && argType.indexOf('FObject') >= 0,
+      'String-form args: parameter `obj` resolves to FObject (got ' + argType + ')');
+  }
+}
+
+var argsArrayForm = [
+  'foam.CLASS({',
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'D' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      args: [{ name: ' + Q + 'obj' + Q + ', javaType: ' + Q + 'FObject' + Q + ' }],',
+  '      javaCode: `obj.toString();`',
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+var arrLines = argsArrayForm.split('\n');
+for ( var ai2 = 0 ; ai2 < arrLines.length ; ai2++ ) {
+  if ( arrLines[ai2].indexOf('obj.toString') !== -1 ) {
+    var arrType = analyzer.resolveJavaVariableType(argsArrayForm,
+      { line: ai2, character: 8 }, 'obj', { package: 'com.example', name: 'D' }, index);
+    test(arrType && arrType.indexOf('FObject') >= 0,
+      'Array-form args: parameter `obj` resolves to FObject (got ' + arrType + ')');
+  }
+}
+
+// Generics in args param type strip cleanly: `List<String> items` → List
+var argsGenerics = [
+  'foam.CLASS({',
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'D' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      args: ' + Q + 'List<String> items, FObject obj' + Q + ',',
+  '      javaCode: `obj.toString();`',
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+var genLines = argsGenerics.split('\n');
+for ( var ai3 = 0 ; ai3 < genLines.length ; ai3++ ) {
+  if ( genLines[ai3].indexOf('obj.toString') !== -1 ) {
+    var genType = analyzer.resolveJavaVariableType(argsGenerics,
+      { line: ai3, character: 8 }, 'obj', { package: 'com.example', name: 'D' }, index);
+    test(genType && genType.indexOf('FObject') >= 0,
+      'args with generics on a sibling param: still resolves obj to FObject');
+  }
+}
+
 // === MESSAGE AXIOM: hover + go-to-definition ===
 

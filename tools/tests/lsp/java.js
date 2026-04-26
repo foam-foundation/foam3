@@ -529,5 +529,122 @@ var bareTypes = tt2.getVariableTypes(bareArrow, { line: 5, character: 55 }, bare
 test(bareTypes.r === 'foam.mlang.sink.Count',
   '.then(r => …) bare-arrow param typed from preceding .select');
 
+// === JAVA BODY PARSING: parseFile + parseBlock ===
+// JavaGrammar emits position-tagged tokens for method calls, casts, new
+// expressions, and local variable declarations inside method bodies and
+// javaCode template literals. These tests pin the behavior so future
+// grammar changes don't silently regress the body-parsing feature.
+
+section('JavaParser: method-body extraction');
+
+var JavaParser = foam.lookup('foam.parse.lsp.JavaParser');
+var jParser = JavaParser.create();
+
+// A representative javaCode block — patterns mirror real ptv3 FSM/javaCode
+// usage but with generic class names so the test stays foam-only.
+var javaBody = [
+  'Logger logger = Loggers.logger(x, this, "demo");',
+  'Config config = registry.findConfig(x);',
+  'DAO theDAO = (DAO) x.get("demoDAO");',
+  'Parser p = new Parser(Demo.getOwnClassInfo());',
+  'if ( status == DemoLifecycle.QUEUED ) return;'
+].join('\n');
+
+var jr = jParser.parseFile(javaBody);
+test(jr.calls.length === 4,
+  'parseFile: 4 method calls extracted (Loggers.logger, registry.findConfig, x.get, Demo.getOwnClassInfo)');
+test(jr.calls.some(function(c) { return c.receiver === 'Loggers' && c.methodName === 'logger'; }),
+  'parseFile: Loggers.logger captured');
+test(jr.calls.some(function(c) { return c.receiver === 'registry' && c.methodName === 'findConfig'; }),
+  'parseFile: registry.findConfig captured (lowercase receiver)');
+test(! jr.calls.some(function(c) { return c.methodName === 'QUEUED'; }),
+  'parseFile: enum constants are NOT false-positive method calls');
+test(jr.casts.length === 1 && jr.casts[0].typeName === 'DAO',
+  'parseFile: 1 cast (DAO), no false positives from `(x)` argument lists');
+test(jr.news.length === 1 && jr.news[0].typeName === 'Parser',
+  'parseFile: 1 newExpr (new Parser)');
+test(jr.locals.length === 4,
+  'parseFile: 4 local declarations');
+test(jr.locals.some(function(l) { return l.typeName === 'Logger' && l.varName === 'logger'; }),
+  'parseFile: Logger logger captured');
+test(jr.locals.some(function(l) { return l.typeName === 'Parser' && l.varName === 'p'; }),
+  'parseFile: Parser p captured (single-char var name)');
+
+// parseBlock offsets — same body but pretend it lives at line 10 col 4
+section('JavaParser: parseBlock offsets');
+
+var jb = jParser.parseBlock(javaBody, 10, 4);
+test(jb.calls.length === 4,
+  'parseBlock: same call count as parseFile');
+test(jb.calls.every(function(c) { return c.line >= 10; }),
+  'parseBlock: all call lines shifted by baseLine');
+var firstLine0Call = jb.calls.filter(function(c) { return c.line === 10; });
+// First line cols are shifted by baseCol (4)
+test(firstLine0Call.length === 0 || firstLine0Call.every(function(c) { return c.col >= 4; }),
+  'parseBlock: line-0 calls shifted by baseCol');
+test(jb.locals.every(function(l) { return l.line >= 10; }),
+  'parseBlock: locals lines shifted by baseLine');
+
+// Multi-line javaCode mirroring a real javaCode: backtick block. The block
+// lives at line 5 col 8 (typical 4-space FOAM indent + javaCode: prefix).
+var multiBody = [
+  'String name = config.getName();',
+  'if ( SafetyUtil.isEmpty(name) ) return null;',
+  'return name;'
+].join('\n');
+var multi = jParser.parseBlock(multiBody, 5, 8);
+test(multi.calls.length >= 2,
+  'parseBlock multi-line: >= 2 calls');
+// First-line call (config.getName) on line 5 with col offset
+var lineFiveCalls = multi.calls.filter(function(c) { return c.line === 5; });
+test(lineFiveCalls.length === 1 && lineFiveCalls[0].col >= 8,
+  'parseBlock multi-line: first-line call honors baseCol');
+// Second-line call (SafetyUtil.isEmpty) — line 6, recv col reset (no baseCol)
+// recv `SafetyUtil` is at source col 5; if buggy and offset, would be 13.
+var lineSixCalls = multi.calls.filter(function(c) { return c.line === 6; });
+test(lineSixCalls.length === 1 && lineSixCalls[0].recvCol === 5,
+  'parseBlock multi-line: subsequent-line recvCol is NOT offset by baseCol (raw col 5)');
+
+// === SemanticTokenHandler: method-name tokens inside javaCode ===
+// SemanticTokenHandler now consumes JavaParser to surface methodName
+// tokens (type 8) for receiver.method(args) patterns inside javaCode
+// blocks. Without this, method names were invisible to syntax highlighting.
+section('SemanticTokenHandler: method tokens inside javaCode');
+
+var BTQ = String.fromCharCode(96);
+var stSrc = [
+  'foam.CLASS({',
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STDemo' + Q + ',',
+  '  javaImports: [' + Q + 'foam.core.logger.Loggers' + Q + ',' + Q + 'foam.core.logger.Logger' + Q + '],',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ + 'Logger logger = Loggers.logger(x, this, "demo"); logger.info("hi");' + BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var stTokens = semanticHandler.handle(stSrc);
+test(stTokens && stTokens.data && stTokens.data.length > 0,
+  'SemanticTokenHandler returns tokens for foam.CLASS with javaCode');
+
+// The token stream is delta-encoded by the LSP. Decode to absolute positions
+// and look for any token of type 8 (method) — proves Java method-call
+// extraction is wired into the highlighter.
+var streamData = stTokens.data || [];
+var hasMethodToken = false;
+var lineCursor = 0, colCursor = 0;
+for ( var ti = 0 ; ti < streamData.length ; ti += 5 ) {
+  var deltaLine = streamData[ti], deltaCol = streamData[ti+1];
+  var len = streamData[ti+2], type = streamData[ti+3];
+  if ( deltaLine > 0 ) { lineCursor += deltaLine; colCursor = deltaCol; }
+  else { colCursor += deltaCol; }
+  if ( type === 8 ) { hasMethodToken = true; break; }
+}
+test(hasMethodToken,
+  'SemanticTokenHandler emits at least one method token (type 8) for `Loggers.logger(...)` inside javaCode');
+
 // === MESSAGE AXIOM: hover + go-to-definition ===
 

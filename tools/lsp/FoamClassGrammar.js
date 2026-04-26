@@ -31,6 +31,12 @@ foam.CLASS({
       documentation: 'Cached alt() parser of all property type suggestions.'
     },
     {
+      name: 'classTypedKeyParser_',
+      documentation: `Cached alt() parser matching any axiom slot name whose
+        value is a class id (Class/Reference/FObjectProperty/FObjectArray on
+        any registered model). Drives the generic classTypedSlotEntry rule.`
+    },
+    {
       name: 'symbols',
       factory: function() {
         var self = this;
@@ -251,6 +257,33 @@ foam.CLASS({
       });
       this.classRefParser_ = classRefParsers.length > 0 ?
         P.alt.apply(P, classRefParsers) : P.literal('foam.lang.FObject');
+
+      // Class-typed axiom slot names — any axiom whose value is a class id.
+      // Used by classTypedSlotEntry so a custom property like FSM `next`
+      // (Class-typed) parses its `'foo.X'` value as a class reference
+      // without the LSP knowing about FSM. Sorted longest-first to keep
+      // alt() deterministic for prefix-overlapping names.
+      var slotNames = this.index.getClassTypedPropertyNames().slice().sort(function(a, b) {
+        return b.length - a.length;
+      });
+      // Skip names already handled by their own first-class entry to avoid
+      // duplicate matching (extends/implements/refines/sourceModel/
+      // targetModel/of/class/view).
+      var handled = {
+        'extends':     true, 'implements':  true, 'refines':     true,
+        'sourceModel': true, 'targetModel': true,
+        'of':          true, 'class':       true, 'view':        true
+      };
+      var classTypedKeyParsers = [];
+      for ( var s = 0 ; s < slotNames.length ; s++ ) {
+        if ( handled[slotNames[s]] ) continue;
+        classTypedKeyParsers.push(P.literal(slotNames[s]));
+      }
+      this.classTypedKeyParser_ = classTypedKeyParsers.length > 0 ?
+        P.alt.apply(P, classTypedKeyParsers) :
+        // Fallback: if registry walk yielded nothing (unlikely), match a
+        // sentinel that never appears so this rule simply never fires.
+        P.literal('');
     },
 
     function buildGrammar_(P) {
@@ -292,6 +325,31 @@ foam.CLASS({
         }));
       }
 
+      // Accept either 'value' or "value" — defensive against mismatched/
+      // mixed quote styles in hand-edited files. The closing quote is
+      // optional so cursor-mid-edit input still parses far enough for
+      // suggestions and diagnostics to fire.
+      function quotedAny(inner) {
+        return P.alt(
+          P.seq(P.literal("'"), inner, P.optional(P.literal("'"))),
+          P.seq(P.literal('"'), inner, P.optional(P.literal('"')))
+        );
+      }
+
+      // Like quotedAny but tags the double-quote arm with a style hint
+      // (FOAM convention is single quotes for class refs). The
+      // DiagnosticsHandler converts the msg to a hint-level diagnostic
+      // and the server.js CodeAction provides a one-click fix.
+      function quoted(inner) {
+        return P.alt(
+          P.seq(P.literal("'"), inner, P.optional(P.literal("'"))),
+          P.msg(
+            P.seq(P.literal('"'), inner, P.optional(P.literal('"'))),
+            { type: 'doubleQuotedClassRef' }
+          )
+        );
+      }
+
       // Category-tagged key helpers so callers can distinguish cursor context
       // from collected suggestions (top-level class body vs property object
       // vs POM body). LSP handler maps all of these to Keyword kind (14).
@@ -323,18 +381,30 @@ foam.CLASS({
         // === FILE-LEVEL ===
         START: P.repeat(P.alt(P.sym('foamCall'), P.sym('ignoredContent')), null, 0),
 
-        foamCall: P.alt(P.sym('foamClass'), P.sym('foamEnum'), P.sym('foamInterface'),
-          P.sym('foamPOM')),
-
-        foamClass: P.seq(P.literal('foam.CLASS'), wsc, P.literal('('), wsc,
-          P.sym('classBody'), wsc, P.optional(P.literal(')'))),
-        foamEnum: P.seq(P.literal('foam.ENUM'), wsc, P.literal('('), wsc,
-          P.sym('classBody'), wsc, P.optional(P.literal(')'))),
-        foamInterface: P.seq(P.literal('foam.INTERFACE'), wsc, P.literal('('), wsc,
-          P.sym('classBody'), wsc, P.optional(P.literal(')'))),
+        // POM keeps a distinct rule because its body grammar (pomBody) is
+        // different from a class body. Everything else (CLASS, ENUM,
+        // INTERFACE, RELATIONSHIP, FSM, and any future foam.<X> extension)
+        // routes through `foamGenericCall` so adding a new model type
+        // requires no grammar changes.
+        foamCall: P.alt(P.sym('foamPOM'), P.sym('foamGenericCall')),
 
         foamPOM: P.seq(P.literal('foam.POM'), wsc, P.literal('('), wsc,
           P.sym('pomBody'), wsc, P.optional(P.literal(')'))),
+
+        // Captures `foam.<UPPER>(<classBody>)` for any uppercase identifier
+        // other than POM. The captured name is preserved by `foamCallName`
+        // so handlers can branch (e.g., FSM-specific completions) if needed.
+        foamGenericCall: P.seq(
+          P.literal('foam.'),
+          P.sym('foamCallName'),
+          wsc, P.literal('('), wsc,
+          P.sym('classBody'),
+          wsc, P.optional(P.literal(')'))
+        ),
+
+        foamCallName: P.str(P.repeat(P.alt(
+          P.range('A', 'Z'), P.range('0', '9'), P.literal('_')
+        ), null, 1)),
 
         pomBody: P.seq(P.literal('{'), wsc,
           P.optional(P.repeat(P.sym('pomEntry'), comma)),
@@ -490,6 +560,7 @@ foam.CLASS({
           P.sym('nameEntry'),
           P.sym('extendsEntry'),
           P.sym('implementsEntry'),
+          P.sym('refinesEntry'),
           P.sym('requiresEntry'),
           P.sym('propertiesEntry'),
           P.sym('methodsEntry'),
@@ -506,6 +577,9 @@ foam.CLASS({
           P.sym('actionsEntry'),
           P.sym('listenersEntry'),
           P.sym('cssEntry'),
+          P.sym('sourceModelEntry'),
+          P.sym('targetModelEntry'),
+          P.sym('classTypedSlotEntry'),
           P.sym('topLevelKey'),
           P.sym('genericEntry')
         ),
@@ -514,7 +588,31 @@ foam.CLASS({
         packageEntry: P.seq(key('package'), wsc, P.literal(':'), wsc, stringLiteral),
         nameEntry: P.seq(key('name'), wsc, P.literal(':'), wsc, stringLiteral),
         extendsEntry: P.seq(key('extends'), wsc, P.literal(':'), wsc,
-          P.literal("'"), P.sym('classRef'), P.optional(P.literal("'"))),
+          quoted(P.sym('classRef'))),
+
+        // refines: 'foam.x.Y' — classRef-typed top-level slot. Promoted from
+        // suggestion-only topLevelKey to first-class entry so go-to-def,
+        // hover, and unknown-class diagnostics work the same as `extends:`.
+        refinesEntry: P.seq(key('refines'), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
+
+        // sourceModel/targetModel: classRef-typed slots used by
+        // foam.RELATIONSHIP({...}). Same treatment as extends/refines.
+        sourceModelEntry: P.seq(key('sourceModel'), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
+        targetModelEntry: P.seq(key('targetModel'), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
+
+        // Generic axiom-class-typed slot: `<key>: 'foo.X'` where <key> is
+        // the name of any property defined as Class/Reference/FObjectProperty/
+        // FObjectArray on a model in the FOAM registry. Driven by
+        // FoamIndex.getClassTypedPropertyNames() — adding a new class-typed
+        // axiom (e.g., FSM `next: 'foo.X.STATE'`) requires no grammar change.
+        classTypedSlotEntry: P.seq(
+          self.classTypedKeyParser_,
+          wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))
+        ),
         documentationEntry: P.seq(key('documentation'), wsc, P.literal(':'), wsc, stringLiteral),
         abstractEntry: P.seq(key('abstract'), wsc, P.literal(':'), wsc, booleanLiteral),
         flagsEntry: P.seq(key('flags'), wsc, P.literal(':'), wsc, P.sym('array')),
@@ -524,12 +622,12 @@ foam.CLASS({
 
         implementsEntry: P.seq(key('implements'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           P.optional(P.repeat(
-            P.seq(wsc, P.literal("'"), P.sym('classRef'), P.optional(P.literal("'")), wsc), comma)),
+            P.seq(wsc, quoted(P.sym('classRef')), wsc), comma)),
           wsc, P.optional(P.literal(']'))),
 
         requiresEntry: P.seq(key('requires'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           P.optional(P.repeat(
-            P.seq(wsc, P.literal("'"), P.sym('classRef'), P.optional(P.literal("'")), wsc), comma)),
+            P.seq(wsc, quoted(P.sym('classRef')), wsc), comma)),
           wsc, P.optional(P.literal(']'))),
 
         // messages: [ { name: 'LABEL_X', message: '…' } ]
@@ -689,7 +787,12 @@ foam.CLASS({
           topKey('css'), topKey('messages'), topKey('topics'), topKey('listeners'),
           topKey('constants'), topKey('sections'), topKey('flags'),
           topKey('tableColumns'), topKey('searchColumns'),
-          topKey('refines'), topKey('label'), topKey('plural'), topKey('order'),
+          topKey('refines'),
+          // RELATIONSHIP-side class-id slots — handled as first-class entries
+          // by sourceModelEntry/targetModelEntry, kept here for completion-
+          // suggestion fallback in mid-edit files.
+          topKey('sourceModel'), topKey('targetModel'),
+          topKey('label'), topKey('plural'), topKey('order'),
           topKey('ids'), topKey('javaCode'), topKey('cssTokens'), topKey('mixins'),
           topKey('static'), topKey('of'), topKey('values')
         ),
@@ -715,30 +818,29 @@ foam.CLASS({
         propEntries: P.repeat(P.sym('propEntry'), comma),
 
         propEntry: P.alt(
+          // class: 'String'  → propType (short name, matches String/Long/etc.)
+          // class: 'foo.X.Y' → classRef (dotted full class id)
+          // Order matters: propType is `literalIC` of short names, so it
+          // declines on dotted input and we fall through to classRef.
+          // quoted() accepts " too, with a style hint diagnostic.
           P.seq(P.sug(P.literal('class'), foam.parse.Suggestion.create({
             text: 'class', category: 'key' })),
-            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('propType'),
-            P.optional(P.literal("'"))),
+            wsc, P.literal(':'), wsc,
+            quoted(P.alt(P.sym('propType'), P.sym('classRef')))),
           P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
             text: 'name', category: 'key' })),
             wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('propertyNameValue'), P.optional(P.literal("'"))),
-          P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
-            text: 'name', category: 'key' })),
-            wsc, P.literal(':'), wsc,
-            P.literal('"'), P.sym('propertyNameValue'), P.optional(P.literal('"'))),
+            quotedAny(P.sym('propertyNameValue'))),
           P.seq(P.sug(P.literal('of'), foam.parse.Suggestion.create({
             text: 'of', category: 'key' })),
-            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
-            P.optional(P.literal("'"))),
+            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           // view: 'com.acme.MyView' — treat the string form exactly like `of:`
           // so class suggestions (including view classes) surface in viewSpec
           // positions. The { class: '...' } object form is covered by the
           // normal propEntry/class rule inside that object.
           P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
             text: 'view', category: 'key' })),
-            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
-            P.optional(P.literal("'"))),
+            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
             text: 'documentation', category: 'key' })),
             wsc, P.literal(':'), wsc, stringLiteral),

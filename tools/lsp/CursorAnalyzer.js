@@ -11,15 +11,17 @@ foam.CLASS({
   documentation: 'Shared text analysis utilities for LSP handlers.',
 
   constants: {
-    // Matches the opening of any FOAM model call. Shared by all handlers for
-    // file-type detection and by FileModelCache for bracket-matching fallback.
-    FOAM_CALL_REGEX: /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/,
-    FOAM_CALL_REGEX_POM: /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|POM)\s*\(/
+    // Matches the opening of any FOAM model call: foam.<UPPER_IDENT>( ... ).
+    // Generic on purpose — any extension (FSM, future model types) is picked up
+    // without changes here. POM is excluded from the default form because
+    // diagnostics aren't meaningful on POM bodies; the _POM variant includes it.
+    FOAM_CALL_REGEX: /foam\.(?!POM\b)[A-Z][A-Z0-9_]*\s*\(/,
+    FOAM_CALL_REGEX_POM: /foam\.[A-Z][A-Z0-9_]*\s*\(/
   },
 
   methods: [
     function isFoamFile(text, opt_includePom) {
-      /** True if the text contains a foam.CLASS/ENUM/INTERFACE/RELATIONSHIP (or POM) call. */
+      /** True if the text contains any foam.<UPPER>(...) model-defining call. */
       var re = opt_includePom ? this.FOAM_CALL_REGEX_POM : this.FOAM_CALL_REGEX;
       return re.test(text);
     },

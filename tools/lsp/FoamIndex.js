@@ -79,6 +79,58 @@ foam.CLASS({
       return types;
     },
 
+    function getClassTypedPropertyNames() {
+      /**
+       * Names of all axiom slots whose value is a class id (string).
+       * Used by FoamClassGrammar to recognize `<key>: 'foo.X'` as a class
+       * reference for any registered model — so a downstream extension that
+       * adds a Class/Reference-typed axiom under a custom name is picked up
+       * automatically without grammar changes.
+       *
+       * The set is the union of:
+       *   1. The canonical JSON.js list (extends, implements, of, class,
+       *      view, sourceModel, targetModel, refines).
+       *   2. Every axiom on every registered class whose property's class is
+       *      Class, Reference, FObjectProperty, or FObjectArray.
+       *
+       * Cached because the registry walk is expensive.
+       */
+      if ( this.cache_.classTypedNames ) return this.cache_.classTypedNames;
+
+      var seen = {};
+      [
+        'extends', 'implements', 'of', 'class', 'view',
+        'sourceModel', 'targetModel', 'refines'
+      ].forEach(function(n) { seen[n] = true; });
+
+      var classTypedClassNames = {
+        'Class':           true,
+        'Reference':       true,
+        'FObjectProperty': true,
+        'FObjectArray':    true
+      };
+
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var cls;
+        try { cls = foam.maybeLookup(ids[i]); } catch (e) { continue; }
+        if ( ! cls ) continue;
+        var props;
+        try { props = cls.getAxiomsByClass(foam.lang.Property); }
+        catch (e) { continue; }
+        for ( var j = 0 ; j < props.length ; j++ ) {
+          var p = props[j];
+          if ( ! p || ! p.name || ! p.cls_ ) continue;
+          var pcName = p.cls_.model_ && p.cls_.model_.name;
+          if ( pcName && classTypedClassNames[pcName] ) seen[p.name] = true;
+        }
+      }
+
+      var names = Object.keys(seen);
+      this.cache_.classTypedNames = names;
+      return names;
+    },
+
     function getAxioms(classId) {
       /** Returns all axioms for a class including inherited. */
       var cls = this.getClass(classId);

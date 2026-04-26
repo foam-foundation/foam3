@@ -302,5 +302,157 @@ test(pmMap.method && pmMap.method.greet && pmMap.method.greet.line === 8,
 test(pmMap.method && pmMap.method.farewell && pmMap.method.farewell.line === 9,
   'Grammar axiom-pos: method farewell at line 9 (object form)');
 
+// === Generic foam.<X>(...) detection — covers FSM and any future model type ===
+section('Grammar: generic foam.<X> top-level call');
+
+[
+  ['foam.FSM({ package: ' + Q + 'com.example.fsm' + Q + ', name: ' + Q + 'TrafficLight' + Q + ' });', 'FSM',          'com.example.fsm.TrafficLight'],
+  ['foam.RELATIONSHIP({ sourceModel: ' + Q + 'foam.u2.View' + Q + ', targetModel: ' + Q + 'foam.lang.Property' + Q + ', forwardName: ' + Q + 'a' + Q + ', inverseName: ' + Q + 'b' + Q + ' });', 'RELATIONSHIP', null],
+  ['foam.CLASS({ package: ' + Q + 'com.example' + Q + ', name: ' + Q + 'X' + Q + ' });', 'CLASS', 'com.example.X'],
+  ['foam.ENUM({ package: ' + Q + 'com.example' + Q + ', name: ' + Q + 'E' + Q + ', values: [{name: ' + Q + 'A' + Q + '}] });', 'ENUM', 'com.example.E']
+].forEach(function(row) {
+  var src = row[0], expectedType = row[1], expectedClassId = row[2];
+  test(analyzer.isFoamFile(src),
+    'isFoamFile recognizes foam.' + expectedType + '(...)');
+  var models = cache.parseFileModels(src);
+  test(models.length === 1,
+    'parseFileModels captures one model from foam.' + expectedType);
+  test(models.length === 1 && models[0].type_ === expectedType,
+    'Captured model has type_=' + expectedType);
+  if ( expectedClassId ) {
+    test(models.length === 1 && cache.getClassId(models[0]) === expectedClassId,
+      'Captured classId for foam.' + expectedType + ' is ' + expectedClassId);
+  }
+});
+
+// Hypothetical custom model type — proves the LSP doesn't need to know
+// the call name to track the file. Use a name unlikely to clash.
+var customSrc = "foam.NEWMODELTYPE_X9({ package: " + Q + "com.example.x9" + Q + ", name: " + Q + "Demo" + Q + " });";
+test(analyzer.isFoamFile(customSrc),
+  'isFoamFile recognizes any uppercase foam.<X> call');
+var customModels = cache.parseFileModels(customSrc);
+test(customModels.length === 1 && customModels[0].type_ === 'NEWMODELTYPE_X9',
+  'Generic capture preserves the call name as type_');
+
+// POM is excluded from default isFoamFile (different body shape, no diagnostics)
+var pomSrc = "foam.POM({ name: " + Q + "test" + Q + ", projects: [] });";
+test(! analyzer.isFoamFile(pomSrc),
+  'isFoamFile() (default) excludes foam.POM');
+test(analyzer.isFoamFile(pomSrc, true),
+  'isFoamFile(text, true) includes foam.POM for completion paths');
+
+// === Class-id slot recognition (axiom-driven) ===
+section('Grammar: class-id slot recognition');
+
+// refines: parses as a first-class entry, not just a topLevelKey suggestion
+var refinesSrc = "foam.CLASS({ refines: " + Q + "foam.u2.View" + Q + ", properties: [] });";
+var refinesDiags = diagHandler.handle(refinesSrc);
+test(refinesDiags.filter(function(d) { return d.message.indexOf('Unknown') >= 0 }).length === 0,
+  'refines: with known class produces no Unknown-class diagnostic');
+
+var refinesBogus = "foam.CLASS({ refines: " + Q + "foo.bar.NoSuchClass" + Q + " });";
+var refinesBogusDiags = diagHandler.handle(refinesBogus);
+test(refinesBogusDiags.filter(function(d) { return d.message.indexOf('Unknown class') >= 0 }).length === 1,
+  'refines: with unknown class produces exactly 1 Unknown-class diagnostic');
+
+// sourceModel/targetModel — RELATIONSHIP class-id slots
+var relSrc = "foam.RELATIONSHIP({ sourceModel: " + Q + "foam.u2.View" + Q + ", targetModel: " + Q + "foam.lang.Property" + Q + ", forwardName: " + Q + "a" + Q + ", inverseName: " + Q + "b" + Q + " });";
+test(diagHandler.handle(relSrc).filter(function(d) { return d.message.indexOf('Unknown') >= 0 }).length === 0,
+  'RELATIONSHIP with known sourceModel/targetModel: no diagnostics');
+
+var relBogus = "foam.RELATIONSHIP({ sourceModel: " + Q + "foo.bar.None" + Q + ", targetModel: " + Q + "foam.lang.Property" + Q + ", forwardName: " + Q + "a" + Q + ", inverseName: " + Q + "b" + Q + " });";
+test(diagHandler.handle(relBogus).filter(function(d) { return d.message.indexOf('Unknown class') >= 0 }).length === 1,
+  'RELATIONSHIP with bogus sourceModel: 1 Unknown-class diagnostic');
+
+// class: 'foam.x.Y' — dotted class id parses as classRef, not propType
+var dottedClassSrc = "foam.CLASS({ package: " + Q + "com.example" + Q + ", name: " + Q + "X" + Q + ", properties: [{ class: " + Q + "foam.u2.view.RichChoiceView" + Q + ", name: " + Q + "v" + Q + " }] });";
+var dottedDiags = diagHandler.handle(dottedClassSrc);
+test(dottedDiags.filter(function(d) { return d.message.indexOf('Unknown') >= 0 }).length === 0,
+  'class: with dotted real class produces no Unknown-class diagnostic');
+
+// class: 'String' — short propType still works (no false positive)
+var shortClassSrc = "foam.CLASS({ package: " + Q + "com.example" + Q + ", name: " + Q + "X" + Q + ", properties: [{ class: " + Q + "String" + Q + ", name: " + Q + "s" + Q + " }] });";
+test(diagHandler.handle(shortClassSrc).filter(function(d) { return d.message.indexOf('Unknown') >= 0 }).length === 0,
+  'class: with short propType String produces no diagnostic');
+
+// === Double-quote tolerance + style hint ===
+section('Grammar: double-quote tolerance for class refs');
+
+var dqExtSrc = 'foam.CLASS({ refines: "foam.u2.View" });';
+var dqDiags = diagHandler.handle(dqExtSrc);
+var hints = dqDiags.filter(function(d) { return d.severity === 4 && d.message.indexOf('single quotes') >= 0 });
+test(hints.length === 1,
+  'Double-quoted refines: emits 1 hint diagnostic (severity 4)');
+test(diagHandler.handle(dqExtSrc).filter(function(d) { return d.severity === 1 || d.severity === 2 }).length === 0,
+  'Double-quoted real class: no error/warning, only the style hint');
+
+// `name:` should NOT trigger the class-ref hint when double-quoted
+var dqNameSrc = 'foam.CLASS({ package: "com.example", name: "MyClass" });';
+test(diagHandler.handle(dqNameSrc).filter(function(d) { return d.message.indexOf('single quotes') >= 0 }).length === 0,
+  'Double-quoted name:/package: emits NO class-ref style hint');
+
+// Mismatched quotes (open " close ') still parse leniently
+var mismatchSrc = 'foam.CLASS({ refines: "foam.u2.View' + Q + ' });';
+test(diagHandler.handle(mismatchSrc).length >= 0,
+  'Mismatched-quote refines: parses without throwing (lenient)');
+
+// === Generic class-typed slot detection ===
+section('Grammar: generic class-typed property slots');
+
+var classTypedNames = index.getClassTypedPropertyNames();
+test(classTypedNames.indexOf('of') >= 0, 'getClassTypedPropertyNames includes "of"');
+test(classTypedNames.indexOf('extends') >= 0, 'getClassTypedPropertyNames includes "extends"');
+test(classTypedNames.indexOf('view') >= 0, 'getClassTypedPropertyNames includes "view"');
+test(classTypedNames.indexOf('refines') >= 0, 'getClassTypedPropertyNames includes "refines"');
+test(classTypedNames.indexOf('sourceModel') >= 0, 'getClassTypedPropertyNames includes "sourceModel"');
+test(classTypedNames.indexOf('targetModel') >= 0, 'getClassTypedPropertyNames includes "targetModel"');
+test(classTypedNames.length > 8,
+  'getClassTypedPropertyNames returns canonical 8 + registry-derived (' + classTypedNames.length + ' total)');
+
+// === Tree-sitter grammar parity (VS Code TextMate + Zed scm) ===
+// The LSP grammar handles foam.<X> generically AND treats refines /
+// sourceModel / targetModel / view / class as class-id slots. The
+// VS Code TextMate grammar and the Zed tree-sitter highlights MUST
+// follow suit so syntax highlighting matches LSP behavior. These
+// regex/text checks pin the grammar files so future grammar tweaks
+// can't silently drop coverage.
+section('Tree-sitter parity: foam.<X> highlight + class-id slots');
+
+var fs_ts  = require('fs');
+var path_ts = require('path');
+
+// VS Code TextMate grammar
+var vscodeJs = JSON.parse(fs_ts.readFileSync(
+  path_ts.join(__dirname, '../../lsp/editors/vscode/syntaxes/foam-js.tmLanguage.json'),
+  'utf8'));
+var vscodePatterns = (vscodeJs.patterns || []).map(function(p) { return p.match || ''; }).join('\n');
+
+test(/foam.+\[A-Z\].*A-Z0-9_/.test(vscodePatterns),
+  'VS Code foam-js grammar matches generic foam.<UPPER>(...) call (not hardcoded names)');
+test(! /CLASS\|ENUM\|INTERFACE\|RELATIONSHIP\)\\\\s\*\(\?=/.test(vscodePatterns) ||
+     /\[A-Z\]\[A-Z0-9_\]\*/.test(vscodePatterns),
+  'VS Code foam-js grammar no longer hardcodes the model-type list');
+
+['refines', 'sourceModel', 'targetModel', 'view', 'class'].forEach(function(slot) {
+  test(vscodePatterns.indexOf(slot) >= 0,
+    'VS Code foam-js grammar lists "' + slot + '" as a class-id slot');
+});
+
+// Zed tree-sitter highlights
+var zedHi = fs_ts.readFileSync(
+  path_ts.join(__dirname, '../../lsp/editors/zed-foam3/languages/foam-javascript/highlights.scm'),
+  'utf8');
+
+test(/#match\?\s+@function\.macro\s+"\^\[A-Z\]\[A-Z0-9_\]\*\$"/.test(zedHi) ||
+     /\[A-Z\]\[A-Z0-9_\]\*/.test(zedHi),
+  'Zed foam-javascript highlights match generic foam.<UPPER> call');
+test(/foam.*function\.macro/.test(zedHi.replace(/\s+/g, ' ')) ||
+     /\(\#eq\?\s+@\S+\s+"foam"\)/.test(zedHi),
+  'Zed foam-javascript highlights bind the receiver `foam` for the macro');
+['refines', 'sourceModel', 'targetModel', 'view', 'class'].forEach(function(slot) {
+  test(new RegExp('"' + slot + '"').test(zedHi),
+    'Zed foam-javascript highlights list "' + slot + '" as a class-id slot');
+});
+
 // === Migration coverage: buildLocationAtProperty uses the grammar path ===
 

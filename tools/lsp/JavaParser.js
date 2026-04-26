@@ -21,8 +21,17 @@ foam.CLASS({
     before and after, then convert to line numbers.
 
     parseFile(text) returns:
-      { package, imports, classes, methods }
-    where methods is [{ name, sig, returnType, params, modifiers, doc, line }].
+      { package, imports, classes, methods, calls, casts, news, locals, idents }
+    where:
+      methods = [{ name, sig, returnType, params, modifiers, doc, line }]
+      calls   = [{ receiver, methodName, line, col, recvCol, methodCol }]
+      casts   = [{ typeName, line, col }]
+      news    = [{ typeName, line, col }]
+      locals  = [{ typeName, varName, line, col }]
+      idents  = [{ name, line, col }]   // bare identifiers — used for enum constants
+
+    parseBlock(text, baseLine, baseCol) returns the same shape but with
+    per-token positions offset so positions land in the host file.
   `,
 
   requires: [
@@ -44,7 +53,10 @@ foam.CLASS({
         return lo;
       };
 
-      var result = { 'package': null, imports: [], classes: [], methods: [] };
+      var result = {
+        'package': null, imports: [], classes: [], methods: [],
+        calls: [], casts: [], news: [], locals: [], idents: []
+      };
       var captured = []; // { kind, startPos, endPos, value }
 
       // The apply callback observes every parser application. We watch
@@ -76,36 +88,127 @@ foam.CLASS({
         this.parseString(text, 'START', apply);
       } catch (e) {}
 
+      // Map line offsets to col-of-first-char so we can compute column.
+      var offsetToCol = function(offset) {
+        var ln = offsetToLine(offset);
+        return offset - lineOffsets[ln];
+      };
+
       // Process captured nodes
       var seen = {}; // dedup by startPos+kind
+
       for ( var n = 0 ; n < captured.length ; n++ ) {
         var node = captured[n];
         var key = node.kind + ':' + node.startPos;
         if ( seen[key] ) continue;
         seen[key] = true;
         var line = offsetToLine(node.startPos);
+        var col  = offsetToCol(node.startPos);
 
         if ( node.kind === 'package' ) {
-          var name = this.extractPackageName_(node.text);
-          if ( name ) result['package'] = name;
+          var pname = this.extractPackageName_(node.text);
+          if ( pname ) result['package'] = pname;
         } else if ( node.kind === 'import' ) {
-          var name = this.extractImportName_(node.text);
-          if ( name ) result.imports.push({ name: name, line: line });
+          var iname = this.extractImportName_(node.text);
+          if ( iname ) result.imports.push({ name: iname, line: line });
         } else if ( node.kind === 'classDecl' ) {
-          var info = this.extractClassInfo_(node.text);
-          if ( info ) { info.line = line; result.classes.push(info); }
+          var cinfo = this.extractClassInfo_(node.text);
+          if ( cinfo ) { cinfo.line = line; result.classes.push(cinfo); }
         } else if ( node.kind === 'methodSig' ) {
-          var info = this.extractMethodInfo_(node.text);
-          if ( ! info ) continue;
-          if ( /^(if|for|while|switch|catch|return|throw|do|else|try)$/.test(info.name) ) continue;
-          if ( info.name === 'getName' || info.name === 'call' ) continue;
-          info.line = line;
-          info.doc = this.findJavadoc_(text, node.startPos);
-          result.methods.push(info);
+          var minfo = this.extractMethodInfo_(node.text);
+          if ( ! minfo ) continue;
+          if ( /^(if|for|while|switch|catch|return|throw|do|else|try)$/.test(minfo.name) ) continue;
+          if ( minfo.name === 'getName' || minfo.name === 'call' ) continue;
+          minfo.line = line;
+          minfo.doc = this.findJavadoc_(text, node.startPos);
+          result.methods.push(minfo);
+        } else if ( node.kind === 'qualifiedCall' ) {
+          var qc = this.extractQualifiedCall_(node.text, node.startPos,
+            offsetToLine, offsetToCol);
+          if ( qc ) result.calls.push(qc);
+        } else if ( node.kind === 'castExpr' ) {
+          var ce = this.extractTypeFromSpan_(node.text, /\(\s*([A-Z][\w.$]*)/,
+            node.startPos, offsetToLine, offsetToCol);
+          if ( ce ) result.casts.push(ce);
+        } else if ( node.kind === 'newExpr' ) {
+          var ne = this.extractTypeFromSpan_(node.text, /new\s+([A-Z][\w.$]*)/,
+            node.startPos, offsetToLine, offsetToCol);
+          if ( ne ) result.news.push(ne);
+        } else if ( node.kind === 'localDecl' ) {
+          var ldExt = this.extractLocalDecl_(node.text, node.startPos,
+            offsetToLine, offsetToCol);
+          if ( ldExt ) result.locals.push(ldExt);
+        } else if ( node.kind === 'identTok' ) {
+          // Bare identifiers — useful for enum-constant detection (a
+          // standalone TypeName.UPPER_VALUE shows up as two adjacent
+          // identTok captures).
+          result.idents.push({ name: node.text, line: line, col: col });
         }
       }
 
       return result;
+    },
+
+    function parseBlock(text, baseLine, baseCol) {
+      /**
+       * Parse a Java fragment (e.g., the contents of a javaCode: backtick
+       * block) and return parseFile()'s structure with all positions
+       * shifted so they land in the host file.
+       *
+       * baseLine/baseCol point at the first character of `text` in the
+       * host file. Newlines within `text` push following positions to
+       * line baseLine + N, with col reset to that line's offset within
+       * the block. The first line is offset by baseCol; subsequent lines
+       * start at column 0.
+       */
+      var raw = this.parseFile(text);
+
+      var shift = function(ln, c) {
+        return {
+          line: baseLine + ln,
+          col:  ln === 0 ? baseCol + c : c
+        };
+      };
+
+      var arrShift = function(arr, lineKey, colKey) {
+        for ( var i = 0 ; i < arr.length ; i++ ) {
+          var s = shift(arr[i][lineKey || 'line'], arr[i][colKey || 'col']);
+          arr[i][lineKey || 'line'] = s.line;
+          arr[i][colKey  || 'col']  = s.col;
+        }
+      };
+
+      arrShift(raw.imports);
+      arrShift(raw.classes);
+      arrShift(raw.methods);
+      arrShift(raw.casts);
+      arrShift(raw.news);
+      arrShift(raw.idents);
+
+      // calls have receiver + method positions
+      for ( var i = 0 ; i < raw.calls.length ; i++ ) {
+        var c = raw.calls[i];
+        if ( c.recvLine != null ) {
+          var rs = shift(c.recvLine, c.recvCol);
+          c.recvLine = rs.line; c.recvCol = rs.col;
+        }
+        var ms = shift(c.line, c.col);
+        c.line = ms.line; c.col = ms.col;
+        c.methodCol = c.col;
+      }
+
+      // locals have type + name positions
+      for ( var i = 0 ; i < raw.locals.length ; i++ ) {
+        var l = raw.locals[i];
+        var ts = shift(l.line, l.col);
+        l.line = ts.line; l.col = ts.col;
+        if ( l.nameLine != null ) {
+          var ns = shift(l.nameLine, l.nameCol);
+          l.nameLine = ns.line; l.nameCol = ns.col;
+        }
+      }
+
+      return raw;
     },
 
     // ===== Helpers to extract structured info from grammar-validated text =====
@@ -191,6 +294,67 @@ foam.CLASS({
       }
       if ( current ) tokens.push(current);
       return tokens;
+    },
+
+    function extractQualifiedCall_(span, spanStart, offsetToLine, offsetToCol) {
+      /**
+       * span looks like "Loggers.logger(" (whitespace allowed). The outer
+       * `qualifiedCall` rule guarantees the shape <ident>.<ident> ws? `(`.
+       * Recover receiver and method positions by re-locating each in span.
+       */
+      var m = span.match(/^([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)/);
+      if ( ! m ) return null;
+      var recvName   = m[1];
+      var methodName = m[2];
+      var recvOff    = spanStart + span.indexOf(recvName);
+      var methodOff  = spanStart + span.indexOf(methodName, span.indexOf(recvName) + recvName.length);
+      return {
+        receiver:   recvName,
+        methodName: methodName,
+        line:       offsetToLine(methodOff),
+        col:        offsetToCol(methodOff),
+        recvLine:   offsetToLine(recvOff),
+        recvCol:    offsetToCol(recvOff),
+        methodCol:  offsetToCol(methodOff)
+      };
+    },
+
+    function extractTypeFromSpan_(span, regex, spanStart, offsetToLine, offsetToCol) {
+      /**
+       * Generic helper: regex captures a single type identifier inside the
+       * outer span. Returns position info for the captured type. Used for
+       * castExpr and newExpr where the upper-case-typed slot is the only
+       * navigation target.
+       */
+      var m = span.match(regex);
+      if ( ! m ) return null;
+      var typeName = m[1];
+      var typeOff  = spanStart + span.indexOf(typeName);
+      return {
+        typeName: typeName,
+        line: offsetToLine(typeOff),
+        col:  offsetToCol(typeOff)
+      };
+    },
+
+    function extractLocalDecl_(span, spanStart, offsetToLine, offsetToCol) {
+      /**
+       * span looks like "Logger logger =", "List<String> items;", or
+       * "ConfigMatrix configMatrix=". Recover type and var name positions.
+       */
+      var m = span.match(/^([A-Z][\w.$]*)(?:\s*<[^>]*>)?\s+([A-Za-z_$][\w$]*)/);
+      if ( ! m ) return null;
+      var typeName = m[1];
+      var varName  = m[2];
+      var typeOff  = spanStart + span.indexOf(typeName);
+      var nameOff  = spanStart + span.indexOf(varName, typeOff - spanStart + typeName.length);
+      return {
+        typeName: typeName, varName: varName,
+        line:     offsetToLine(typeOff),
+        col:      offsetToCol(typeOff),
+        nameLine: offsetToLine(nameOff),
+        nameCol:  offsetToCol(nameOff)
+      };
     },
 
     function findJavadoc_(text, beforeOffset) {

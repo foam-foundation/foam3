@@ -26,6 +26,11 @@ foam.CLASS({
   methods: [
     function grammar(alt, anyChar, chars, literal, notChars, optional, range, repeat, seq, str, substring, sym, until, plus, msg) {
       return {
+        // Top-level patterns. Rule order is significant — first match wins.
+        // The body-level patterns (qualifiedCall, castExpr, newExpr,
+        // localDecl) fire inside method bodies AND in field initializers
+        // because START is a flat scan. `skip` is the catch-all so unmatched
+        // input never blocks parsing.
         START: repeat(alt(
           sym('lineComment'),
           sym('blockComment'),
@@ -34,6 +39,12 @@ foam.CLASS({
           msg(sym('importDecl'),  { kind: 'import' }),
           msg(sym('classDecl'),   { kind: 'classDecl' }),
           msg(sym('methodSig'),   { kind: 'methodSig' }),
+          // === Body-level patterns ===
+          msg(sym('castExpr'),       { kind: 'castExpr' }),
+          msg(sym('newExpr'),        { kind: 'newExpr' }),
+          msg(sym('qualifiedCall'),  { kind: 'qualifiedCall' }),
+          msg(sym('localDecl'),      { kind: 'localDecl' }),
+          msg(sym('plainIdent'),     { kind: 'plainIdent' }),
           sym('skip')
         )),
 
@@ -137,6 +148,82 @@ foam.CLASS({
         qualifiedName: seq(
           sym('identifier'),
           repeat(seq('.', alt(sym('identifier'), '*')))
+        ),
+
+        // ===== Body-level patterns (method bodies, field initializers) =====
+        // Emit position-tagged identifiers for go-to-def / hover / semantic
+        // tokens. These rules don't try to fully parse Java — they just
+        // surface the offsets of identifiers that benefit from navigation.
+        // Each rule consumes its match exactly; mismatched input falls
+        // through to the broader patterns above and finally to `skip`.
+
+        // `<recv>.<method>(args` — method call on a receiver. Receiver may
+        // be a Type (UpperCamelCase, e.g. `Loggers.logger(...)`) or a
+        // variable (`disputeCase.getId()`). Only the LAST segment is
+        // tagged; chains like `a.b.c.method()` resolve segment-by-segment
+        // as the parser sweeps START's alt list. Sub-positions are
+        // recovered by the parser from the matched span — using inner
+        // msg() decorators here would emit false positives on failed
+        // outer attempts (apply-callback isn't transactional).
+        qualifiedCall: seq(
+          sym('identifier'),
+          '.',
+          sym('identifier'),
+          sym('ws'),
+          '('
+        ),
+
+        // `new <Type>(args)` — instance creation. Emit the type position.
+        // upperTypeName so Java conventional capitalization protects
+        // against `new x(...)` false positives.
+        newExpr: seq(
+          literal('new'),
+          sym('ws1'),
+          sym('upperTypeName'),
+          optional(sym('generics')),
+          sym('ws'),
+          alt(literal('('), literal('['), literal('{'))
+        ),
+
+        // `(<Type>) expr` — cast target. upperTypeName eliminates the
+        // common false positive `(x)` from `foo(x)` argument lists.
+        // Double-paren forms `((<Type>) expr).method()` resolve naturally:
+        // the outer `(` is consumed by `skip`, then the inner cast matches.
+        castExpr: seq(
+          literal('('),
+          sym('ws'),
+          sym('upperTypeName'),
+          optional(sym('generics')),
+          sym('ws'),
+          literal(')')
+        ),
+
+        // `<Type> [<generics>] <name>` followed by `=` or `;` — local var
+        // declaration. The TypeTracker uses this to resolve identifiers.
+        // Restrict typeName to start with an uppercase letter so
+        // statements like `disputeCase.getId();` (where `disputeCase` is a
+        // lowercase identifier) don't accidentally match.
+        localDecl: seq(
+          sym('upperTypeName'),
+          optional(sym('generics')),
+          sym('ws1'),
+          sym('identifier'),
+          sym('ws'),
+          alt(literal('='), literal(';'), literal(','))
+        ),
+
+        upperTypeName: seq(
+          range('A', 'Z'),
+          repeat(alt(range('a', 'z'), range('A', 'Z'), range('0', '9'),
+            literal('_'), literal('$'))),
+          repeat(seq('.', sym('identifier')))
+        ),
+
+        // Catch-all bare identifier. Emitted so dot-prefixed enum constants
+        // like `Foo.BAR` get the trailing `BAR` tagged (after the
+        // `qualifiedCall` arm declines because no `(` follows).
+        plainIdent: seq(
+          msg(sym('identifier'), { kind: 'identTok' })
         )
       };
     }

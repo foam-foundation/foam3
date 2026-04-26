@@ -251,5 +251,50 @@ var nameValueHover = hoverHandler.handle(noKeySrc, { line: 0, character: noKeySr
 var noKeyOk = ! nameValueHover || ! (nameValueHover.contents && nameValueHover.contents.value && nameValueHover.contents.value.indexOf('Class name (CamelCase)') !== -1);
 test(noKeyOk, 'Cursor on a string value does NOT trigger axiom-key hover');
 
+// === Scope-aware axiom hover ===
+// The same key (e.g. `javaCode`, `name`) appears at multiple scopes:
+// top-level, per-property, per-method, per-action, etc. The hover
+// must use the scope that matches the cursor's container, not the
+// first scope alphabetically. Otherwise hovering `javaCode:` inside a
+// methods: [{ }] block would wrongly say "Class-level Java code".
+section('HoverHandler — scope-aware axiom hover');
+
+var BTQ = String.fromCharCode(96);
+var scopeCases = [
+  // [label, src, line, col, expected substring in hover]
+  ['javaCode @ top-level',
+   "foam.CLASS({\n  javaCode: " + BTQ + "static {}" + BTQ + "\n});",
+   1, 4, 'Class-level'],
+  ['javaCode @ method',
+   "foam.CLASS({\n  methods: [\n    {\n      javaCode: " + BTQ + "x" + BTQ + "\n    }\n  ]\n});",
+   3, 8, 'Java implementation body'],
+  ['javaCode @ property',
+   "foam.CLASS({\n  properties: [\n    { javaCode: " + BTQ + "x" + BTQ + " }\n  ]\n});",
+   2, 8, 'Java statement'],
+  ['name @ section',
+   "foam.CLASS({\n  sections: [\n    { name: 's' }\n  ]\n});",
+   2, 8, 'Section identifier'],
+  ['label @ action',
+   "foam.CLASS({\n  actions: [\n    { label: 'L' }\n  ]\n});",
+   2, 8, 'action button'],
+  ['name @ message',
+   "foam.CLASS({\n  messages: [\n    { name: 'M' }\n  ]\n});",
+   2, 8, 'Message identifier'],
+  ['name @ enum value',
+   "foam.ENUM({\n  values: [\n    { name: 'V' }\n  ]\n});",
+   2, 8, 'Enum value identifier'],
+  ['code @ listener',
+   "foam.CLASS({\n  listeners: [\n    { code: function() {} }\n  ]\n});",
+   2, 8, 'listener body']
+];
+
+scopeCases.forEach(function(c) {
+  var label = c[0], src = c[1], ln = c[2], col = c[3], needle = c[4];
+  var h = hoverHandler.handle(src, { line: ln, character: col });
+  var got = h && h.contents && h.contents.value || '';
+  test(got.indexOf(needle) !== -1,
+    label + ' hover mentions "' + needle + '" (got: ' + got.slice(0, 90) + ')');
+});
+
 // === GRAMMAR-DRIVEN AXIOM POSITIONS ===
 

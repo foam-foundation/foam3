@@ -36,9 +36,7 @@ foam.POM({
     }],
 
     cleanAll: ['clean-all', 'Remove build directory', [], function(args) {
-      this.log("StandardTooling::clean-all");
       if ( this.existsSync(BUILD_DIR) ) {
-        // this.log('Removing build/');
         this.rmdir(BUILD_DIR);
       }
     }],

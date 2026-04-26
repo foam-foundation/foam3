@@ -12,6 +12,7 @@ foam.CLASS({
   documentation: 'Grammar that parses foam.CLASS/ENUM/INTERFACE definitions with dynamic suggestions.',
 
   requires: [
+    'foam.parse.lsp.AxiomCatalog',
     'foam.parse.lsp.FoamIndex'
   ],
 
@@ -21,6 +22,12 @@ foam.CLASS({
       of: 'foam.parse.lsp.FoamIndex',
       name: 'index',
       factory: function() { return this.FoamIndex.create(); }
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.AxiomCatalog',
+      name: 'catalog',
+      factory: function() { return this.AxiomCatalog.create(); }
     },
     {
       name: 'classRefParser_',
@@ -366,6 +373,26 @@ foam.CLASS({
       var propKey       = makeKeyHelper('propKey');
       var pomKeyHelper  = makeKeyHelper('pomKey');
 
+      // Build an alt() of all key suggestions for a given scope, sourced
+      // from AxiomCatalog. Single source of truth: adding a new axiom
+      // slot in AxiomCatalog automatically grows the grammar's hint
+      // and the editor's hover.
+      var catalog = this.catalog;
+      function catalogAlt(scope) {
+        var helper = makeKeyHelper(scope);
+        var entries = catalog.byScope(scope);
+        var alts = entries.map(function(e) { return helper(e.name, e.hint); });
+        return alts.length > 0 ? P.alt.apply(P, alts) : P.literal('');
+      }
+
+      // Convenience: pull a hint by scope+name. Used in explicit entry
+      // declarations (extendsEntry, refinesEntry, etc.) so their key()
+      // suggestion uses the same hint text as catalogAlt's auto-generated
+      // sug() arms.
+      function topHint(name)  { return catalog.getHint('topKey',  name); }
+      function propHint(name) { return catalog.getHint('propKey', name); }
+      function pomHint(name)  { return catalog.getHint('pomKey',  name); }
+
       // Accept either 'value' or "value" — defensive against mismatched/
       // mixed quote styles in hand-edited files. The closing quote is
       // optional so cursor-mid-edit input still parses far enough for
@@ -461,10 +488,10 @@ foam.CLASS({
         // Scalar string entries — each emits its key sug and parses through
         // the rest of the `key: 'value'` assignment so the outer repeat can
         // move on to the next comma-separated entry without blocking.
-        pomNameEntry: P.seq(pomKeyHelper('name', 'POM project name'), wsc, P.literal(':'), wsc, stringLiteral),
-        pomVersionEntry: P.seq(pomKeyHelper('version', 'POM project version'), wsc, P.literal(':'), wsc, stringLiteral),
+        pomNameEntry: P.seq(pomKeyHelper('name', pomHint('name')), wsc, P.literal(':'), wsc, stringLiteral),
+        pomVersionEntry: P.seq(pomKeyHelper('version', pomHint('version')), wsc, P.literal(':'), wsc, stringLiteral),
 
-        pomJournalFilesEntry: P.seq(pomKeyHelper('journalFiles', 'Extra .jrl files to load (rare; usually auto-loaded from same dir)'), wsc, P.literal(':'), wsc,
+        pomJournalFilesEntry: P.seq(pomKeyHelper('journalFiles', pomHint('journalFiles')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, stringLiteral, wsc)),
           wsc, P.optional(P.literal(']'))),
@@ -473,22 +500,22 @@ foam.CLASS({
         // \u0002 that never matches) so the LSP handler can detect cursor
         // position by inspecting collected sug categories.
 
-        pomFilesEntry: P.seq(pomKeyHelper('files', 'FOAM .js model files in this project (flags decide js/java/test)'), wsc, P.literal(':'), wsc,
+        pomFilesEntry: P.seq(pomKeyHelper('files', pomHint('files')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, P.sym('pomFileObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomJavaFilesEntry: P.seq(pomKeyHelper('javaFiles', 'Hand-written .java files (no FOAM .js sibling)'), wsc, P.literal(':'), wsc,
+        pomJavaFilesEntry: P.seq(pomKeyHelper('javaFiles', pomHint('javaFiles')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, P.sym('pomJavaFileObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomProjectsEntry: P.seq(pomKeyHelper('projects', 'Sub-project pom.js paths to include'), wsc, P.literal(':'), wsc,
+        pomProjectsEntry: P.seq(pomKeyHelper('projects', pomHint('projects')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, P.sym('pomProjectObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomJavaDepsEntry: P.seq(pomKeyHelper('javaDependencies', 'Maven coordinates ("group:artifact:version")'), wsc, P.literal(':'), wsc,
+        pomJavaDepsEntry: P.seq(pomKeyHelper('javaDependencies', pomHint('javaDependencies')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, P.literal("'"), P.sym('pomJavaDep'),
             P.optional(P.literal("'")), wsc)),
@@ -622,22 +649,24 @@ foam.CLASS({
         ),
 
         // === SPECIFIC ENTRIES ===
-        packageEntry: P.seq(key('package', 'Java/JS package id (e.g., foam.lang)'), wsc, P.literal(':'), wsc, stringLiteral),
-        nameEntry: P.seq(key('name', 'Class name (CamelCase)'), wsc, P.literal(':'), wsc, stringLiteral),
-        extendsEntry: P.seq(key('extends', 'Parent class id'), wsc, P.literal(':'), wsc,
+        // Hints are sourced from AxiomCatalog via topHint() — keeps the
+        // descriptions in one place and reachable from HoverHandler too.
+        packageEntry: P.seq(key('package',  topHint('package')),  wsc, P.literal(':'), wsc, stringLiteral),
+        nameEntry:    P.seq(key('name',     topHint('name')),     wsc, P.literal(':'), wsc, stringLiteral),
+        extendsEntry: P.seq(key('extends',  topHint('extends')),  wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))),
 
         // refines: 'foam.x.Y' — classRef-typed top-level slot. Promoted from
         // suggestion-only topLevelKey to first-class entry so go-to-def,
         // hover, and unknown-class diagnostics work the same as `extends:`.
-        refinesEntry: P.seq(key('refines', 'Target class id this refinement modifies'), wsc, P.literal(':'), wsc,
+        refinesEntry: P.seq(key('refines', topHint('refines')), wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))),
 
         // sourceModel/targetModel: classRef-typed slots used by
         // foam.RELATIONSHIP({...}). Same treatment as extends/refines.
-        sourceModelEntry: P.seq(key('sourceModel', 'RELATIONSHIP — class id at the source side'), wsc, P.literal(':'), wsc,
+        sourceModelEntry: P.seq(key('sourceModel', topHint('sourceModel')), wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))),
-        targetModelEntry: P.seq(key('targetModel', 'RELATIONSHIP — class id at the target side'), wsc, P.literal(':'), wsc,
+        targetModelEntry: P.seq(key('targetModel', topHint('targetModel')), wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))),
 
         // Generic axiom-class-typed slot: `<key>: 'foo.X'` where <key> is
@@ -650,18 +679,18 @@ foam.CLASS({
           wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))
         ),
-        documentationEntry: P.seq(key('documentation', 'Class-level documentation string'), wsc, P.literal(':'), wsc, stringLiteral),
-        abstractEntry: P.seq(key('abstract', 'Boolean — true if class is abstract'), wsc, P.literal(':'), wsc, booleanLiteral),
-        flagsEntry: P.seq(key('flags', 'Build flags ("js", "java", "web", "test", ...)'), wsc, P.literal(':'), wsc, P.sym('array')),
-        actionsEntry: P.seq(key('actions', 'Action axioms (UI buttons)'), wsc, P.literal(':'), wsc, P.sym('array')),
-        listenersEntry: P.seq(key('listeners', 'Listener axioms'), wsc, P.literal(':'), wsc, P.sym('array')),
-        cssEntry: P.seq(key('css', 'Class-scoped CSS'), wsc, P.literal(':'), wsc, backtickString),
+        documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc, stringLiteral),
+        abstractEntry: P.seq(key('abstract', topHint('abstract')), wsc, P.literal(':'), wsc, booleanLiteral),
+        flagsEntry: P.seq(key('flags', topHint('flags')), wsc, P.literal(':'), wsc, P.sym('array')),
+        actionsEntry: P.seq(key('actions', topHint('actions')), wsc, P.literal(':'), wsc, P.sym('array')),
+        listenersEntry: P.seq(key('listeners', topHint('listeners')), wsc, P.literal(':'), wsc, P.sym('array')),
+        cssEntry: P.seq(key('css', topHint('css')), wsc, P.literal(':'), wsc, backtickString),
 
-        implementsEntry: P.seq(key('implements', 'Interface ids implemented by this class'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+        implementsEntry: P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        requiresEntry: P.seq(key('requires', 'Class ids required by this class (for create())'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+        requiresEntry: P.seq(key('requires', topHint('requires')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),
 
@@ -742,13 +771,13 @@ foam.CLASS({
           )
         ),
 
-        importsEntry: P.seq(key('imports', 'Context names this class consumes'), wsc, P.literal(':'), wsc, P.sym('array')),
+        importsEntry: P.seq(key('imports', topHint('imports')), wsc, P.literal(':'), wsc, P.sym('array')),
 
         // exports: [ 'axiomName', 'axiomName as alias' ] — emit an 'exportName'
         // context marker per value so the LSP handler can suggest axiom names
         // (properties, methods, actions, listeners) from the enclosing model
         // instead of the class-ref fallback list.
-        exportsEntry: P.seq(key('exports', 'Context names this class exports'), wsc, P.literal(':'), wsc,
+        exportsEntry: P.seq(key('exports', topHint('exports')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, P.literal("'"), P.sym('exportName'),
             P.optional(P.literal("'")), wsc)),
@@ -764,7 +793,7 @@ foam.CLASS({
           )
         ),
 
-        javaImportsEntry: P.seq(key('javaImports', 'Java import statements'), wsc, P.literal(':'), wsc,
+        javaImportsEntry: P.seq(key('javaImports', topHint('javaImports')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.seq(wsc, P.sym('javaImport'), wsc)),
           wsc, P.optional(P.literal(']'))),
@@ -802,69 +831,22 @@ foam.CLASS({
           }))
         ),
 
-        propertiesEntry: P.seq(key('properties', 'Property axioms (FObject fields)'), wsc, P.literal(':'), wsc,
+        propertiesEntry: P.seq(key('properties', topHint('properties')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.sym('propertyDef')),
           wsc, P.optional(P.literal(']'))),
 
-        methodsEntry: P.seq(key('methods', 'Method axioms'), wsc, P.literal(':'), wsc,
+        methodsEntry: P.seq(key('methods', topHint('methods')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
           repeatList(P.sym('methodDef')),
           wsc, P.optional(P.literal(']'))),
 
-        // topLevelKey is a FULL entry: it suggests known top-level keys
-        // AND consumes their `: <value>` so the rest of classEntries keeps
-        // parsing. Earlier this rule only matched the key word, leaving
-        // `: 'My Label'` un-consumed — which broke classEntries' repeat
-        // loop the moment a class had any unknown-explicit-entry slot
-        // (label, plural, sections, etc.) and silently swallowed every
-        // downstream property/method position emission.
-        topLevelKey: P.seq(
-          P.alt(
-            topKey('package',       'Java/JS package id (e.g., foam.lang)'),
-            topKey('name',          'Class name (CamelCase)'),
-            topKey('extends',       'Parent class id'),
-            topKey('implements',    'Interface ids implemented by this class'),
-            topKey('refines',       'Target class id this refinement modifies'),
-            topKey('requires',      'Class ids required by this class (for create())'),
-            topKey('imports',       'Context names this class consumes'),
-            topKey('exports',       'Context names this class exports'),
-            topKey('properties',    'Property axioms (FObject fields)'),
-            topKey('methods',       'Method axioms'),
-            topKey('actions',       'Action axioms (UI buttons)'),
-            topKey('listeners',     'Listener axioms'),
-            topKey('axioms',        'Raw axiom objects'),
-            topKey('topics',        'Topic axioms (pub/sub channels)'),
-            topKey('constants',     'Constant axioms'),
-            topKey('messages',      'Localizable message axioms'),
-            topKey('sections',      'Section grouping for properties'),
-            topKey('values',        'Enum value declarations (foam.ENUM)'),
-            topKey('documentation', 'Class-level documentation string'),
-            topKey('abstract',      'Boolean — true if class is abstract'),
-            topKey('flags',         'Build flags ("js", "java", "web", "test", ...)'),
-            topKey('javaImports',   'Java import statements'),
-            topKey('javaCode',      'Class-level Java code'),
-            topKey('css',           'Class-scoped CSS'),
-            topKey('cssTokens',     'CSS design-token declarations'),
-            topKey('mixins',        'Mixin class ids'),
-            topKey('tableColumns',  'Column property names for table views'),
-            topKey('searchColumns', 'Property names for filterable columns'),
-            topKey('sourceModel',     'RELATIONSHIP — class id at the source side'),
-            topKey('targetModel',     'RELATIONSHIP — class id at the target side'),
-            topKey('forwardName',     'RELATIONSHIP — name of the forward navigation'),
-            topKey('inverseName',     'RELATIONSHIP — name of the inverse navigation'),
-            topKey('cardinality',     'RELATIONSHIP — "1:*" / "*:*" / "1:1"'),
-            topKey('sourceProperty',  'RELATIONSHIP — overrides for the source side'),
-            topKey('targetProperty',  'RELATIONSHIP — overrides for the target side'),
-            topKey('label',           'Display label'),
-            topKey('plural',          'Plural form for UI'),
-            topKey('order',           'Sort order in containing list'),
-            topKey('ids',             'Property names that form the primary key'),
-            topKey('static',          'Static (LIB-style) members'),
-            topKey('of',              'Class id of contained type')
-          ),
-          wsc, P.literal(':'), wsc, anyValue
-        ),
+        // topLevelKey is a FULL entry: suggests known top-level keys AND
+        // consumes their `: <value>` so the outer classEntries repeat keeps
+        // progressing. The list of slots + descriptions comes from
+        // AxiomCatalog so grammar hints and HoverHandler hover text share
+        // the same source.
+        topLevelKey: P.seq(catalogAlt('topKey'), wsc, P.literal(':'), wsc, anyValue),
 
         // === CLASS REFERENCES (dynamic) ===
         // The permissive fallback is wrapped in msg() so diagnostic collection
@@ -923,59 +905,9 @@ foam.CLASS({
         ),
 
         // propKey is a full entry — suggests the prop slot AND consumes
-        // its `: <value>` so propEntries' repeat keeps progressing past
-        // any unknown-explicit-entry slot (label, visibility, hidden,
-        // adapt, preSet, postSet, etc.). Earlier this rule only emitted
-        // a sug() and left `: <value>` for the next iteration to choke
-        // on — same bug as topLevelKey. The catch-all genericEntry
-        // could consume the same shape, but propKey-as-full-entry keeps
-        // the suggestion's hint text reachable through completion.
-        propKey: P.seq(
-          P.alt(
-            propKey('class',         'Property type — short name (String, Long, ...) or full class id'),
-            propKey('name',          'Property name (camelCase)'),
-            propKey('of',            'Class id of the contained type (FObjectProperty/Reference/FObjectArray)'),
-            propKey('documentation', 'Property docstring'),
-            propKey('hidden',        'Boolean — hide from auto-rendered views'),
-            propKey('transient',     'Boolean — exclude from serialization'),
-            propKey('value',         'Default value (literal)'),
-            propKey('factory',       'function() — computed default'),
-            propKey('expression',    'function(deps...) — reactive derived value'),
-            propKey('javaCode',      'Java statement(s) for class-level body'),
-            propKey('javaGetter',    'Java getter body'),
-            propKey('javaSetter',    'Java setter body'),
-            propKey('javaFactory',   'Java factory body'),
-            propKey('javaPreSet',    'Java code run before set'),
-            propKey('javaPostSet',   'Java code run after set'),
-            propKey('javaInfoType',  'Java PropertyInfo class (rare)'),
-            propKey('aliases',       'Alternate names for serialization'),
-            propKey('label',         'Display label for UI'),
-            propKey('section',       'Section name for grouped views'),
-            propKey('visibility',    'Visibility enum (RW, RO, HIDDEN, ...)'),
-            propKey('view',          'View class id or { class: "..." }'),
-            propKey('adapt',         'function(old, nu, prop) — JS adapter'),
-            propKey('preSet',        'function(old, nu) — JS pre-set hook'),
-            propKey('postSet',       'function(old, nu) — JS post-set hook'),
-            propKey('required',      'Boolean — fail validation if empty'),
-            propKey('width',         'Display width for inputs'),
-            propKey('placeholder',   'Input placeholder text'),
-            propKey('help',          'Help text shown next to the input'),
-            propKey('gridColumns',   'Grid columns occupied by this field'),
-            propKey('tableCellFormatter', 'function(value, obj, prop) — table cell formatter'),
-            propKey('labelFormatter',     'function(data, prop) — render-time label'),
-            propKey('shortName',     'Short name used in CLI/JRL'),
-            propKey('readPermissionRequired',  'Boolean — gate reads on permission'),
-            propKey('writePermissionRequired', 'Boolean — gate writes on permission'),
-            propKey('permissionRequired',      'Boolean — gate read AND write'),
-            propKey('validateObj',   'function(...) — validation method'),
-            propKey('tableWidth',    'Table column width'),
-            propKey('storageTransient',   'Boolean — exclude from persistence'),
-            propKey('networkTransient',   'Boolean — exclude from RPC'),
-            propKey('cloneProperty', 'function(value) — clone hook'),
-            propKey('readOnly',      'Boolean — disable editing in default view')
-          ),
-          wsc, P.literal(':'), wsc, anyValue
-        ),
+        // its `: <value>`. List + hints come from AxiomCatalog (shared
+        // with HoverHandler).
+        propKey: P.seq(catalogAlt('propKey'), wsc, P.literal(':'), wsc, anyValue),
 
         propType: P.alt(
           self.propTypeParser_,

@@ -9,6 +9,7 @@ foam.CLASS({
   name: 'HoverHandler',
 
   requires: [
+    'foam.parse.lsp.AxiomCatalog',
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
     'foam.parse.lsp.CursorAnalyzer',
@@ -51,6 +52,12 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.CSSTokenResolver',
       name: 'cssTokenResolver'
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.AxiomCatalog',
+      name: 'axiomCatalog',
+      factory: function() { return this.AxiomCatalog.create(); }
     }
   ],
 
@@ -60,6 +67,12 @@ foam.CLASS({
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
+
+      // Axiom key hover: cursor on `requires:`, `properties:`, `messages:`,
+      // `sections:`, `searchColumns:`, etc. — show the description from
+      // AxiomCatalog (single source of truth shared with the grammar).
+      var axiomKeyHover = this.axiomKeyHover_(text, position);
+      if ( axiomKeyHover ) return axiomKeyHover;
 
       // Try Java block hover — getters, variables, type references inside javaCode
       var javaHover = this.javaBlockHover_(text, position, opt_uri);
@@ -195,6 +208,35 @@ foam.CLASS({
       if ( ! model ) return null;
       var requiresMap = this.cache.buildRequiresMap(model);
       return requiresMap[shortName] || null;
+    },
+
+    function axiomKeyHover_(text, position) {
+      /**
+       * Hover on an axiom key like `requires:`, `properties:`, `sections:`,
+       * `searchColumns:`, `messages:`, etc. Pulls the description from
+       * AxiomCatalog so hover text and grammar suggestions stay in sync.
+       *
+       * Detects key context by checking that the cursor's segment is
+       * immediately followed (after optional whitespace) by `:`. This
+       * prevents false hits on the same word used as a value or inside
+       * a string literal.
+       */
+      var segment = this.analyzer.getSegmentAtPosition(text, position);
+      if ( ! segment ) return null;
+
+      // Cursor must be on an axiom-key shaped position (followed by `:`).
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var afterCursor = line.substring(position.character);
+      // Allow trailing identifier chars (cursor in middle of word) before
+      // looking for `:` or word-boundary then `:`.
+      if ( ! /^[A-Za-z0-9_$]*\s*:/.test(afterCursor) ) return null;
+
+      var hint = this.axiomCatalog.findHint(segment);
+      if ( ! hint ) return null;
+
+      var md = '**' + segment + '** — ' + hint;
+      return { contents: { kind: 'markdown', value: md } };
     },
 
     function resolveCurrentClass_(text, position, opt_uri) {

@@ -20,6 +20,7 @@ foam.POM({
     clean: ['clean', 'Remove generated files', [], function(args) {
       if ( args === 'all') { // -Xclean:all
         this.execute('cleanAll');
+        return;
       }
 
       if ( this.existsSync(BUILD_DIR) ) {
@@ -31,6 +32,14 @@ foam.POM({
           if ( f.isDirectory() ) this.rmdir(fn);
           if ( f.isFile()      ) this.rmfile(fn);
         });
+      }
+    }],
+
+    cleanAll: ['clean-all', 'Remove build directory', [], function(args) {
+      this.log("StandardTooling::clean-all");
+      if ( this.existsSync(BUILD_DIR) ) {
+        // this.log('Removing build/');
+        this.rmdir(BUILD_DIR);
       }
     }],
 

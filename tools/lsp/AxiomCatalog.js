@@ -112,6 +112,57 @@ foam.CLASS({
       { name: 'cloneProperty',          scope: 'propKey', hint: 'function(value) — clone hook' },
       { name: 'readOnly',               scope: 'propKey', hint: 'Boolean — disable editing in default view' },
 
+      // === Per-method-object slots (inside `methods: [...]`) ===
+      { name: 'name',          scope: 'methodKey', hint: 'Method name (camelCase)' },
+      { name: 'code',          scope: 'methodKey', hint: 'function(...) — JS implementation' },
+      { name: 'args',          scope: 'methodKey', hint: 'String "T name, …" or array of { name, type, javaType }' },
+      { name: 'type',          scope: 'methodKey', hint: 'Return type (FOAM class id)' },
+      { name: 'javaType',      scope: 'methodKey', hint: 'Java return type (e.g., "void", "List<String>")' },
+      { name: 'javaCode',      scope: 'methodKey', hint: 'Java implementation body' },
+      { name: 'javaThrows',    scope: 'methodKey', hint: 'Array of checked-exception class ids' },
+      { name: 'documentation', scope: 'methodKey', hint: 'Method docstring' },
+      { name: 'async',         scope: 'methodKey', hint: 'Boolean — async function form' },
+
+      // === Per-action-object slots (inside `actions: [...]`) ===
+      { name: 'name',           scope: 'actionKey', hint: 'Action name' },
+      { name: 'label',          scope: 'actionKey', hint: 'Display label for the action button' },
+      { name: 'icon',           scope: 'actionKey', hint: 'Icon URL or token' },
+      { name: 'iconFontName',   scope: 'actionKey', hint: 'Icon-font glyph name' },
+      { name: 'iconFontFamily', scope: 'actionKey', hint: 'Icon font family' },
+      { name: 'iconFontClass',  scope: 'actionKey', hint: 'CSS class for the icon font' },
+      { name: 'isAvailable',    scope: 'actionKey', hint: 'function() — returns true if action is selectable' },
+      { name: 'isEnabled',      scope: 'actionKey', hint: 'function() — returns true if action is clickable' },
+      { name: 'confirmationRequired', scope: 'actionKey', hint: 'Boolean — show confirm dialog before invoking' },
+      { name: 'code',           scope: 'actionKey', hint: 'function() — action handler' },
+      { name: 'documentation',  scope: 'actionKey', hint: 'Action docstring' },
+
+      // === Per-section-object slots (inside `sections: [...]`) ===
+      { name: 'name',          scope: 'sectionKey', hint: 'Section identifier' },
+      { name: 'title',         scope: 'sectionKey', hint: 'Section heading text' },
+      { name: 'help',          scope: 'sectionKey', hint: 'Helper text under the section heading' },
+      { name: 'isAvailable',   scope: 'sectionKey', hint: 'function() — show/hide the section' },
+      { name: 'view',          scope: 'sectionKey', hint: 'View class id or { class: "..." }' },
+      { name: 'order',         scope: 'sectionKey', hint: 'Sort order among siblings' },
+
+      // === Per-message-object slots (inside `messages: [...]`) ===
+      { name: 'name',          scope: 'messageKey', hint: 'Message identifier (UPPER_SNAKE_CASE convention)' },
+      { name: 'message',       scope: 'messageKey', hint: 'Localizable message text' },
+      { name: 'documentation', scope: 'messageKey', hint: 'Message docstring' },
+
+      // === Per-enum-value slots (inside `values: [...]` of foam.ENUM) ===
+      { name: 'name',          scope: 'valueKey', hint: 'Enum value identifier (UPPER_SNAKE_CASE)' },
+      { name: 'label',         scope: 'valueKey', hint: 'Display label for this enum value' },
+      { name: 'ordinal',       scope: 'valueKey', hint: 'Numeric ordinal (rare; auto-assigned by default)' },
+      { name: 'documentation', scope: 'valueKey', hint: 'Enum value docstring' },
+
+      // === Per-listener slots (inside `listeners: [...]`) ===
+      { name: 'name',          scope: 'listenerKey', hint: 'Listener name' },
+      { name: 'code',          scope: 'listenerKey', hint: 'function(...) — listener body' },
+      { name: 'isFramed',      scope: 'listenerKey', hint: 'Boolean — coalesce calls to one per animation frame' },
+      { name: 'isMerged',      scope: 'listenerKey', hint: 'Boolean — merge bursts of calls' },
+      { name: 'mergeDelay',    scope: 'listenerKey', hint: 'Merge delay in ms (when isMerged is true)' },
+      { name: 'documentation', scope: 'listenerKey', hint: 'Listener docstring' },
+
       // === POM-body slots ===
       { name: 'name',             scope: 'pomKey', hint: 'POM project name' },
       { name: 'version',          scope: 'pomKey', hint: 'POM project version' },
@@ -124,6 +175,7 @@ foam.CLASS({
   },
 
   methods: [
+
     function getHint(scope, name) {
       /**
        * Look up an axiom's hint description by scope ('topKey', 'propKey',

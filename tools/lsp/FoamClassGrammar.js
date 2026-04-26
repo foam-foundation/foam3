@@ -640,6 +640,7 @@ foam.CLASS({
           P.sym('flagsEntry'),
           P.sym('actionsEntry'),
           P.sym('listenersEntry'),
+          P.sym('sectionsEntry'),
           P.sym('cssEntry'),
           P.sym('sourceModelEntry'),
           P.sym('targetModelEntry'),
@@ -682,8 +683,50 @@ foam.CLASS({
         documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc, stringLiteral),
         abstractEntry: P.seq(key('abstract', topHint('abstract')), wsc, P.literal(':'), wsc, booleanLiteral),
         flagsEntry: P.seq(key('flags', topHint('flags')), wsc, P.literal(':'), wsc, P.sym('array')),
-        actionsEntry: P.seq(key('actions', topHint('actions')), wsc, P.literal(':'), wsc, P.sym('array')),
-        listenersEntry: P.seq(key('listeners', topHint('listeners')), wsc, P.literal(':'), wsc, P.sym('array')),
+        // actions/listeners/sections — array-of-object axioms. Each gets a
+        // dedicated inner-object rule so completion suggests the right keys
+        // for THAT scope (actionKey/listenerKey/sectionKey from
+        // AxiomCatalog). Falls back to `array` of unstructured values
+        // when the inner-object form isn't used.
+        actionsEntry: P.seq(key('actions', topHint('actions')), wsc, P.literal(':'), wsc,
+          P.alt(P.sym('actionsArray'), P.sym('array'))),
+        listenersEntry: P.seq(key('listeners', topHint('listeners')), wsc, P.literal(':'), wsc,
+          P.alt(P.sym('listenersArray'), P.sym('array'))),
+        sectionsEntry: P.seq(key('sections', topHint('sections')), wsc, P.literal(':'), wsc,
+          P.alt(P.sym('sectionsArray'), P.sym('array'))),
+
+        actionsArray: P.seq(P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('actionObject'), wsc)),
+          wsc, P.optional(P.literal(']'))),
+        actionObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('actionObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+        actionObjEntry: P.alt(
+          P.seq(catalogAlt('actionKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
+
+        listenersArray: P.seq(P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('listenerObject'), wsc)),
+          wsc, P.optional(P.literal(']'))),
+        listenerObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('listenerObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+        listenerObjEntry: P.alt(
+          P.seq(catalogAlt('listenerKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
+
+        sectionsArray: P.seq(P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('sectionObject'), wsc)),
+          wsc, P.optional(P.literal(']'))),
+        sectionObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('sectionObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+        sectionObjEntry: P.alt(
+          P.seq(catalogAlt('sectionKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
         cssEntry: P.seq(key('css', topHint('css')), wsc, P.literal(':'), wsc, backtickString),
 
         implementsEntry: P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
@@ -707,12 +750,13 @@ foam.CLASS({
           repeatList(P.sym('messageObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
+        // First arm emits the 'message' axiom position; catalogAlt covers
+        // every other message-object slot (name/message/documentation).
         messageObjEntry: P.alt(
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('messageNameValue'), P.optional(P.literal("'"))),
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal('"'), P.sym('messageNameValue'), P.optional(P.literal('"'))),
-          P.seq(propKey('message'), wsc, P.literal(':'), wsc, stringLiteral),
+          P.seq(propKey('name', catalog.getHint('messageKey', 'name')),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('messageNameValue'))),
+          P.seq(catalogAlt('messageKey'), wsc, P.literal(':'), wsc, anyValue),
           P.sym('genericEntry')
         ),
 
@@ -728,11 +772,13 @@ foam.CLASS({
           repeatList(P.sym('valueObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
+        // First arm emits the 'value' axiom position for enum values;
+        // catalogAlt covers everything else (label/ordinal/documentation).
         valueObjEntry: P.alt(
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('enumValueName'), P.optional(P.literal("'"))),
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal('"'), P.sym('enumValueName'), P.optional(P.literal('"'))),
+          P.seq(propKey('name', catalog.getHint('valueKey', 'name')),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('enumValueName'))),
+          P.seq(catalogAlt('valueKey'), wsc, P.literal(':'), wsc, anyValue),
           P.sym('genericEntry')
         ),
 
@@ -940,11 +986,18 @@ foam.CLASS({
           repeatList(P.sym('methodObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
+        // The first two arms emit a 'method' axiom position from the
+        // string value (used by buildLocationAtMethod). Catalog-driven
+        // entry handles every other method-object slot AND consumes its
+        // `: <value>` so the loop keeps progressing across mixed forms
+        // (`{ name: 'm', args: 'X x', javaCode: ` ... `, documentation: '...' }`).
+        // The trailing genericEntry remains as a safety net for keys we
+        // haven't catalogued.
         methodObjEntry: P.alt(
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('methodNameValue'), P.optional(P.literal("'"))),
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal('"'), P.sym('methodNameValue'), P.optional(P.literal('"'))),
+          P.seq(propKey('name', catalog.getHint('methodKey', 'name')),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('methodNameValue'))),
+          P.seq(catalogAlt('methodKey'), wsc, P.literal(':'), wsc, anyValue),
           P.sym('genericEntry')
         ),
 

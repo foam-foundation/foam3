@@ -646,5 +646,49 @@ for ( var ti = 0 ; ti < streamData.length ; ti += 5 ) {
 test(hasMethodToken,
   'SemanticTokenHandler emits at least one method token (type 8) for `Loggers.logger(...)` inside javaCode');
 
+// === var-decl type inference (Java 10+ `var` keyword) ===
+// `var <name> = ...` is invisible to the upper-typed `localDecl` rule.
+// JavaParser infers the type from the RHS shape: `new T(...)`, `(T) ...`,
+// `T.staticMethod(`, or `T.class`. Each form gets a regression test so
+// future RHS-pattern additions can't silently regress.
+section('JavaParser: var-decl type inference');
+
+var varBody = [
+  'var a = new Foo();',                                    // new T(...)
+  'var b = (Bar) src.something(x);',                       // (T) ...
+  'a.doSomething(x);',
+  'var c = Baz.create();',                                 // T.staticMethod(
+  'var d = Demo.class;',                                   // T.class literal
+  'var e = (Quux<String>) registry.get("q");',             // generics in cast
+  'a = (Foo) src.refresh(x);'                              // reassignment, not decl
+].join('\n');
+
+var vr = jParser.parseFile(varBody);
+var byVar = {};
+vr.locals.forEach(function(l) { byVar[l.varName] = l; });
+
+test(byVar.a && byVar.a.typeName === 'Foo' && byVar.a.inferred_,
+  'var a = new Foo() → typeName=Foo (inferred from new)');
+test(byVar.b && byVar.b.typeName === 'Bar' && byVar.b.inferred_,
+  'var b = (Bar) ... → typeName=Bar (inferred from cast)');
+test(byVar.c && byVar.c.typeName === 'Baz' && byVar.c.inferred_,
+  'var c = Baz.create() → typeName=Baz (inferred from static call)');
+test(byVar.d && byVar.d.typeName === 'Demo.class' && byVar.d.inferred_,
+  'var d = Demo.class → typeName=Demo.class (inferred from class literal)');
+test(byVar.e && byVar.e.typeName === 'Quux' && byVar.e.inferred_,
+  'var e = (Quux<String>) ... → typeName=Quux (cast strips generics)');
+
+// Reassignment to a var (without `var` keyword) must NOT be picked up as
+// a new local. `a = (Foo) ...` has only one `a` entry — from the original
+// `var a = new Foo()` line.
+var aLocals = vr.locals.filter(function(l) { return l.varName === 'a'; });
+test(aLocals.length === 1,
+  'Reassignment `a = (Foo) ...` is not added as a duplicate local');
+
+// Method calls on a var-declared receiver still resolve in the calls list.
+// `a.doSomething(x)` produces a qualifiedCall with receiver=a.
+test(vr.calls.some(function(c) { return c.receiver === 'a' && c.methodName === 'doSomething'; }),
+  'qualifiedCall captured on a var-declared receiver (a.doSomething)');
+
 // === MESSAGE AXIOM: hover + go-to-definition ===
 

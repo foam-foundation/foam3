@@ -43,6 +43,7 @@ foam.CLASS({
           msg(sym('castExpr'),       { kind: 'castExpr' }),
           msg(sym('newExpr'),        { kind: 'newExpr' }),
           msg(sym('qualifiedCall'),  { kind: 'qualifiedCall' }),
+          msg(sym('varDecl'),        { kind: 'varDecl' }),
           msg(sym('localDecl'),      { kind: 'localDecl' }),
           msg(sym('plainIdent'),     { kind: 'plainIdent' }),
           sym('skip')
@@ -210,6 +211,31 @@ foam.CLASS({
           sym('identifier'),
           sym('ws'),
           alt(literal('='), literal(';'), literal(','))
+        ),
+
+        // `var <name> = <rhs>` — Java 10+ inferred-type declaration. The
+        // RHS shape (new T(), (T) expr, T.staticMethod(), literal class,
+        // method ref) determines the variable's type. Consume up to the
+        // first non-whitespace token after `=` so JavaParser sees the
+        // beginning of the RHS in the matched span.
+        varDecl: seq(
+          literal('var'),
+          sym('ws1'),
+          sym('identifier'),
+          sym('ws'),
+          literal('='),
+          sym('ws'),
+          // Capture enough of the RHS to extract a type. We grab up to a
+          // statement terminator or end-of-line so `extractVarDecl_` can
+          // pattern-match `new T(...)`, `(T) ...`, or `T.staticMethod(`.
+          sym('varDeclRhs')
+        ),
+
+        // RHS of var-decl: scan forward until ; or newline, but limited
+        // so we don't swallow whole method bodies.
+        varDeclRhs: seq(
+          repeat(notChars(';\n\r'), null, 1),
+          optional(literal(';'))
         ),
 
         upperTypeName: seq(

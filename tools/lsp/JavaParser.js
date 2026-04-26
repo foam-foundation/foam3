@@ -138,6 +138,10 @@ foam.CLASS({
           var ldExt = this.extractLocalDecl_(node.text, node.startPos,
             offsetToLine, offsetToCol);
           if ( ldExt ) result.locals.push(ldExt);
+        } else if ( node.kind === 'varDecl' ) {
+          var vdExt = this.extractVarDecl_(node.text, node.startPos,
+            offsetToLine, offsetToCol);
+          if ( vdExt ) result.locals.push(vdExt);
         } else if ( node.kind === 'identTok' ) {
           // Bare identifiers — useful for enum-constant detection (a
           // standalone TypeName.UPPER_VALUE shows up as two adjacent
@@ -334,6 +338,57 @@ foam.CLASS({
         typeName: typeName,
         line: offsetToLine(typeOff),
         col:  offsetToCol(typeOff)
+      };
+    },
+
+    function extractVarDecl_(span, spanStart, offsetToLine, offsetToCol) {
+      /**
+       * span looks like "var v = new Foo();" or "var x = (Foo) bar;"
+       * or "var y = Foo.create()".
+       * Recovers: var name + inferred type from the RHS shape. Tries
+       * (in order): `new T(`, `(T)`, `T.method(`, literal `T.class`.
+       * Returns null if no type can be inferred — we don't want to add
+       * a typeless entry to result.locals.
+       */
+      var nameMatch = span.match(/^var\s+([A-Za-z_$][\w$]*)\s*=/);
+      if ( ! nameMatch ) return null;
+      var varName = nameMatch[1];
+      var rhs = span.substring(nameMatch[0].length);
+
+      // RHS type inference — order matters (most specific first).
+      var typeName = null;
+      var newM = rhs.match(/^\s*new\s+([A-Z][\w.$]*)/);
+      if ( newM ) {
+        typeName = newM[1];
+      } else {
+        // Cast accepts optional generics between the type and `)`:
+        // `(Foo)`, `(Foo<String>)`, `(Foo<Map<K,V>>)`. Strip generics
+        // for the result so the typeName is the bare class.
+        var castM = rhs.match(/^\s*\(\s*([A-Z][\w.$]*)\s*(?:<[^()]*>)?\s*\)/);
+        if ( castM ) {
+          typeName = castM[1];
+        } else {
+          var staticM = rhs.match(/^\s*([A-Z][\w.$]*)\s*\.[A-Za-z_$][\w$]*\s*\(/);
+          if ( staticM ) typeName = staticM[1];
+          else {
+            var classLitM = rhs.match(/^\s*([A-Z][\w.$]*)\s*\.class\b/);
+            if ( classLitM ) typeName = classLitM[1] + '.class';
+          }
+        }
+      }
+      if ( ! typeName ) return null;
+
+      var nameOff = spanStart + span.indexOf(varName);
+      // For inferred-type vars, `line/col` points at the `var` keyword
+      // (so go-to-def lands on the declaration), and nameLine/nameCol
+      // point at the name itself.
+      return {
+        typeName: typeName, varName: varName,
+        line: offsetToLine(spanStart),
+        col:  offsetToCol(spanStart),
+        nameLine: offsetToLine(nameOff),
+        nameCol:  offsetToCol(nameOff),
+        inferred_: true
       };
     },
 

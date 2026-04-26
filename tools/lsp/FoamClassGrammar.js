@@ -297,41 +297,74 @@ foam.CLASS({
       var self = this;
 
       // === PRIMITIVES ===
-      var ws = P.repeat0(P.alt(P.literal(' '), P.literal('\t'), P.literal('\n'), P.literal('\r')));
+      // Reusable character classes — these are the primitive building
+      // blocks. Defining them once and reusing them keeps the grammar
+      // DRY and ensures every identifier-shaped position uses the same
+      // tolerance (e.g., letters / digits / underscore / `$`).
+      var lower = P.range('a', 'z');
+      var upper = P.range('A', 'Z');
+      var digit = P.range('0', '9');
+      var alpha = P.alt(lower, upper);
+      var alphaNum = P.alt(lower, upper, digit);
 
-      // Comments
+      // Whitespace primitives. `ws` is whitespace-only; `wsc` is the
+      // whitespace + comments form used between grammar tokens.
       var lineComment = P.seq(P.literal('//'), P.str(P.repeat(P.notChars('\n\r'), null, 0)),
         P.alt(P.literal('\r\n'), P.literal('\n'), P.literal('\r')));
       var blockComment = P.seq(P.literal('/*'), P.str(P.until(P.literal('*/'))));
+      var wsChar = P.chars(' \t\n\r');
+      var ws  = P.repeat0(wsChar);
+      var wsc = P.repeat0(P.alt(wsChar, lineComment, blockComment));
 
-      // Whitespace including comments
-      var wsc = P.repeat0(P.alt(P.literal(' '), P.literal('\t'), P.literal('\n'), P.literal('\r'),
-        lineComment, blockComment));
+      // String literals — three quote flavors share the same shape.
+      function quotedString(qChar) {
+        return P.seq1(1, P.literal(qChar),
+          P.str(P.repeat(P.alt(P.literal('\\' + qChar), P.notChars(qChar)), null, 0)),
+          P.literal(qChar));
+      }
+      var sqString       = quotedString("'");
+      var dqString       = quotedString('"');
+      var backtickString = quotedString('`');
+      var stringLiteral  = P.alt(sqString, dqString, backtickString);
 
-      // String literals
-      var sqString = P.seq1(1, P.literal("'"),
-        P.str(P.repeat(P.alt(P.literal("\\'"), P.notChars("'")), null, 0)), P.literal("'"));
-      var dqString = P.seq1(1, P.literal('"'),
-        P.str(P.repeat(P.alt(P.literal('\\"'), P.notChars('"')), null, 0)), P.literal('"'));
-      var backtickString = P.seq1(1, P.literal('`'),
-        P.str(P.repeat(P.alt(P.literal('\\`'), P.notChars('`')), null, 0)), P.literal('`'));
-      var stringLiteral = P.alt(sqString, dqString, backtickString);
-
-      var digit = P.range('0', '9');
       var number = P.str(P.repeat(P.alt(digit, P.literal('.'), P.literal('-')), null, 1));
       var booleanLiteral = P.alt(P.literal('true'), P.literal('false'),
         P.literal('null'), P.literal('undefined'));
-      var identifier = P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-        P.range('0', '9'), P.chars('_$')), null, 1));
-      var dottedId = P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-        P.range('0', '9'), P.chars('_.$')), null, 1));
 
-      function key(name, hint) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'key',
-          hint: hint || ''
-        }));
+      // Identifier shapes. Plain ident = `[A-Za-z0-9_$]+`; dotted form
+      // also accepts `.`. Centralized so future tweaks (e.g., adding
+      // `-` for property names that allow it) hit one place.
+      var identChars       = P.alt(alphaNum, P.chars('_$'));
+      var dottedIdentChars = P.alt(alphaNum, P.chars('_.$'));
+      var identifier = P.str(P.repeat(identChars, null, 1));
+      var dottedId   = P.str(P.repeat(dottedIdentChars, null, 1));
+
+      // Identifier-as-msg helper. The grammar has many `name: ` slots
+      // that must emit a position-tagged msg for downstream handlers
+      // (axiom-position lookups, references, definition jumps). All of
+      // them use the same identifier shape, so route through one helper.
+      function identMsg(kind) {
+        return P.msg(P.str(P.repeat(identChars, null, 1)), { kind: kind });
       }
+
+      // Suggestion-shaped key helpers. All four (key/topKey/propKey/
+      // pomKey) emit a sug() with a label, category, and optional hint
+      // — only the category differs. Generate the four flavors from one
+      // factory so the suggestion shape stays in sync. LSP handler
+      // maps all four categories to Keyword kind (14). The hint is
+      // shown as the suggestion description in IDEs that render it
+      // (e.g., VS Code shows it under the label).
+      function makeKeyHelper(category) {
+        return function(name, hint) {
+          return P.sug(P.literal(name), foam.parse.Suggestion.create({
+            text: name + ': ', category: category, hint: hint || ''
+          }));
+        };
+      }
+      var key           = makeKeyHelper('key');
+      var topKey        = makeKeyHelper('topKey');
+      var propKey       = makeKeyHelper('propKey');
+      var pomKeyHelper  = makeKeyHelper('pomKey');
 
       // Accept either 'value' or "value" — defensive against mismatched/
       // mixed quote styles in hand-edited files. The closing quote is
@@ -356,33 +389,6 @@ foam.CLASS({
             { type: 'doubleQuotedClassRef' }
           )
         );
-      }
-
-      // Category-tagged key helpers so callers can distinguish cursor context
-      // from collected suggestions (top-level class body vs property object
-      // vs POM body). LSP handler maps all of these to Keyword kind (14).
-      //
-      // Each helper accepts an optional `hint` string. The hint is shown as
-      // the suggestion description in IDEs that render it (VS Code shows it
-      // in the secondary text under the suggestion label) so users see what
-      // each axiom does without leaving the editor.
-      function topKey(name, hint) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'topKey',
-          hint: hint || ''
-        }));
-      }
-      function propKey(name, hint) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'propKey',
-          hint: hint || ''
-        }));
-      }
-      function pomKeyHelper(name, hint) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'pomKey',
-          hint: hint || ''
-        }));
       }
 
       var comma = P.seq0(wsc, P.literal(','), wsc);
@@ -681,11 +687,7 @@ foam.CLASS({
           P.sym('genericEntry')
         ),
 
-        messageNameValue: P.msg(
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_$')), null, 1)),
-          { kind: 'message' }
-        ),
+        messageNameValue: identMsg('message'),
 
         // values: [ { name: 'X', ... } ] — foam.ENUM value declarations.
         valuesEntry: P.seq(topKey('values'), wsc, P.literal(':'), wsc,
@@ -705,20 +707,12 @@ foam.CLASS({
           P.sym('genericEntry')
         ),
 
-        enumValueName: P.msg(
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_$')), null, 1)),
-          { kind: 'value' }
-        ),
+        enumValueName: identMsg('value'),
 
         // Property `name: 'foo'` — emit a 'property' axiom position so
         // DefinitionHandler.buildLocationAtProperty can jump straight to
         // the declaration without text-scan regex.
-        propertyNameValue: P.msg(
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_$')), null, 1)),
-          { kind: 'property' }
-        ),
+        propertyNameValue: identMsg('property'),
 
         // tableColumns/searchColumns: emit a 'columnName' category at each value
         // position so the LSP handler can detect context without regex scanning.
@@ -743,8 +737,7 @@ foam.CLASS({
             text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
           })),
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('_.')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
             { type: 'columnName' }
           )
         ),
@@ -766,8 +759,7 @@ foam.CLASS({
             text: '__ctx_exportName__', category: 'exportName', hint: 'axiom name'
           })),
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('_ $')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('_ $')), null, 1)),
             { type: 'exportName' }
           )
         ),
@@ -791,8 +783,7 @@ foam.CLASS({
         javaImportRef: P.alt(
           P.seq(
             P.optional(P.seq(P.literal('static'), P.repeat(P.chars(' \t')))),
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('._*')), null, 1))
+            P.str(P.repeat(P.alt(alphaNum, P.chars('._*')), null, 1))
           ),
           P.sug(P.literal('foam.lang.'), foam.parse.Suggestion.create({
             text: 'foam.lang.', category: 'class',
@@ -882,8 +873,7 @@ foam.CLASS({
         classRef: P.alt(
           self.classRefParser_,
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('._')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('._')), null, 1)),
             { type: 'unknownClassRef' }
           )
         ),
@@ -990,8 +980,7 @@ foam.CLASS({
         propType: P.alt(
           self.propTypeParser_,
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('._')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('._')), null, 1)),
             { type: 'unknownPropType' }
           )
         ),
@@ -1027,11 +1016,7 @@ foam.CLASS({
           P.sym('genericEntry')
         ),
 
-        methodNameValue: P.msg(
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_$')), null, 1)),
-          { kind: 'method' }
-        ),
+        methodNameValue: identMsg('method'),
 
         // === GENERIC CATCH-ALL ===
         genericEntry: P.seq(identifier, wsc, P.literal(':'), wsc, anyValue),

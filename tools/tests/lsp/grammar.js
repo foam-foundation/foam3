@@ -409,6 +409,58 @@ test(classTypedNames.indexOf('targetModel') >= 0, 'getClassTypedPropertyNames in
 test(classTypedNames.length > 8,
   'getClassTypedPropertyNames returns canonical 8 + registry-derived (' + classTypedNames.length + ' total)');
 
+// === topLevelKey / propKey / pomKey suggestions carry description hints ===
+section('Grammar: completion suggestions carry hint text');
+
+var hintGrammar = foam.parse.lsp.FoamClassGrammar.create({ index: index });
+var hintSentinel = foam.parse.lsp.CursorSentinel.create();
+
+// Top-level keys with hints — cursor at the start of an empty class body.
+// At this position the explicit-entry suggestions (category='key') fire
+// first; they go through key()/topKey() which both carry hints.
+var topSrc = 'foam.CLASS({\n  \n});';
+var topIns = hintSentinel.insertAt(topSrc, { line: 1, character: 2 });
+var topSugs = hintGrammar.collectSuggestionsAt(topIns.text, topIns.offset);
+var topHinted = topSugs.filter(function(s) {
+  return (s.category === 'topKey' || s.category === 'key') && s.hint;
+});
+test(topHinted.length > 10,
+  'class-body key suggestions ship with hint text (' + topHinted.length + ' have hints)');
+var packageHint = topSugs.filter(function(s) { return s.text && s.text.indexOf('package') === 0; })[0];
+test(packageHint && packageHint.hint && packageHint.hint.length > 0,
+  'package: suggestion has a description hint');
+var refinesHint = topSugs.filter(function(s) { return s.text && s.text.indexOf('refines') === 0; })[0];
+test(refinesHint && refinesHint.hint && refinesHint.hint.toLowerCase().indexOf('refinement') >= 0,
+  'refines: suggestion describes refinement target');
+
+// New RELATIONSHIP-only keys (forwardName/inverseName/cardinality)
+['forwardName', 'inverseName', 'cardinality', 'sourceProperty', 'targetProperty'].forEach(function(k) {
+  var hit = topSugs.filter(function(s) { return s.text && s.text.indexOf(k) === 0; })[0];
+  test(hit, 'topLevelKey alt includes "' + k + '"');
+});
+
+// Property keys carry hints too
+var propSrc = "foam.CLASS({\n  properties: [\n    { \n  ]\n});";
+var propIns = hintSentinel.insertAt(propSrc, { line: 2, character: 6 });
+var propSugs = hintGrammar.collectSuggestionsAt(propIns.text, propIns.offset);
+var propHinted = propSugs.filter(function(s) { return s.category === 'propKey' && s.hint; });
+test(propHinted.length > 10,
+  'propKey suggestions ship with hint text (' + propHinted.length + ' have hints)');
+var classKeyHint = propSugs.filter(function(s) { return s.text && s.text.indexOf('class:') === 0 && s.category === 'propKey'; })[0];
+test(classKeyHint && classKeyHint.hint && classKeyHint.hint.toLowerCase().indexOf('property type') >= 0,
+  'class: prop-key hint mentions property type');
+
+// POM keys carry hints
+var pomSrc = "foam.POM({\n  \n});";
+var pomIns = hintSentinel.insertAt(pomSrc, { line: 1, character: 2 });
+var pomSugs = hintGrammar.collectSuggestionsAt(pomIns.text, pomIns.offset);
+var filesHint = pomSugs.filter(function(s) { return s.text && s.text.indexOf('files:') === 0; })[0];
+test(filesHint && filesHint.hint && filesHint.hint.length > 0,
+  'POM files: suggestion has a description hint');
+var projectsHint = pomSugs.filter(function(s) { return s.text && s.text.indexOf('projects:') === 0; })[0];
+test(projectsHint && projectsHint.hint && projectsHint.hint.length > 0,
+  'POM projects: suggestion has a description hint');
+
 // === Tree-sitter grammar parity (VS Code TextMate + Zed scm) ===
 // The LSP grammar handles foam.<X> generically AND treats refines /
 // sourceModel / targetModel / view / class as class-id slots. The

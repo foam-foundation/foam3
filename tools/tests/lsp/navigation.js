@@ -382,6 +382,43 @@ try {
   try { tmpFs.unlinkSync(tmpFile2); } catch ( e ) {}
 }
 
+// === buildLocationAtMethod regex fallback ===
+// When the grammar's axiom map can't pin the method (e.g., the supplied
+// classId doesn't match what parseFileModels captured), the handler MUST
+// still land on the method line via a regex fallback — not on file top.
+var tmpFile3 = tmpPath2.join(tmpOs.tmpdir(), 'lsp-method-regex-fallback.js');
+tmpFs.writeFileSync(tmpFile3,
+  "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'RegexFallback',\n" +
+  "  methods: [\n" +
+  "    {\n" +
+  "      name: 'normalize',\n" +
+  "      args: 'X x',\n" +
+  "      type: 'String',\n" +
+  "      javaCode: " + String.fromCharCode(96) + "return \"hi\";" + String.fromCharCode(96) + "\n" +
+  "    }\n" +
+  "  ]\n" +
+  "});\n");
+try {
+  // Mismatched classId forces the constrained-grammar path to miss; the
+  // unconstrained grammar path or regex fallback must rescue.
+  var rxLoc = defHandler.buildLocationAtMethod(tmpFile3, 'wrong.ClassId', 'normalize');
+  test(rxLoc && rxLoc.range && rxLoc.range.start.line === 5,
+    'buildLocationAtMethod fallback lands on the method-name line (got line ' + (rxLoc && rxLoc.range && rxLoc.range.start.line) + ', not file top)');
+  // Direct fallback API check
+  var content3 = tmpFs.readFileSync(tmpFile3, 'utf8');
+  var directHit = defHandler.findMethodLineByRegex_(content3, 'normalize');
+  test(directHit && directHit.line === 5,
+    'findMethodLineByRegex_ pinpoints the method-name line directly');
+  // Unknown method returns null (no false positive)
+  var miss = defHandler.findMethodLineByRegex_(content3, 'noSuchMethod');
+  test(miss === null,
+    'findMethodLineByRegex_ returns null for non-existent method');
+} finally {
+  try { tmpFs.unlinkSync(tmpFile3); } catch ( e ) {}
+}
+
 // === Migration coverage: LIB + POM eval recovery ===
 
 

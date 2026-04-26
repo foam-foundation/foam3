@@ -314,6 +314,17 @@ foam.CLASS({
        * Uses the grammar's axiom-position index (`kind: 'method'` emitted by
        * `methodNameValue` in FoamClassGrammar) and constrains the match to
        * the target class's source range via FileModelCache.
+       *
+       * Resolution order (each falls back to the next):
+       *   1. Grammar map of method positions, constrained to the class's
+       *      source range. Best when the file has multiple class blocks.
+       *   2. Unconstrained grammar map — handles files where parseFileModels
+       *      didn't capture the class section we wanted (eval issues, refines,
+       *      generic foam.<X> calls without explicit classId match).
+       *   3. Regex scan of `name:\s*['"]<methodName>['"]` — last-resort
+       *      grep so we land on the method line instead of the file top
+       *      when the grammar can't see the position (rare; usually means
+       *      a parse failure earlier in the body).
        */
       try {
         var fs_ = require('fs');
@@ -332,21 +343,57 @@ foam.CLASS({
           }
         }
 
-        // Grammar emits all method positions; pick the one inside [startLine, endLine).
         var map = this.grammar_().collectAxiomPositions(content);
         var positions = map && map.method ? map.method : null;
+
+        // 1. Constrained match
         var hit = positions ? positions[methodName] : null;
         if ( hit && hit.line >= startLine && hit.line < endLine ) {
-          return {
-            uri: 'file://' + filePath,
-            range: {
-              start: { line: hit.line, character: hit.col },
-              end:   { line: hit.line, character: hit.col + methodName.length }
-            }
-          };
+          return this.buildMethodPosLocation_(filePath, hit, methodName);
         }
+        // 2. Unconstrained — single-class files or where the model wasn't
+        //    captured under the expected classId.
+        if ( hit ) {
+          return this.buildMethodPosLocation_(filePath, hit, methodName);
+        }
+        // 3. Regex fallback so we still land on the method line.
+        var rxLoc = this.findMethodLineByRegex_(content, methodName);
+        if ( rxLoc ) return this.buildMethodPosLocation_(filePath, rxLoc, methodName);
       } catch ( e ) {}
       return this.buildLocation(filePath, classId);
+    },
+
+    function buildMethodPosLocation_(filePath, pos, methodName) {
+      return {
+        uri: 'file://' + filePath,
+        range: {
+          start: { line: pos.line, character: pos.col || 0 },
+          end:   { line: pos.line, character: (pos.col || 0) + methodName.length }
+        }
+      };
+    },
+
+    function findMethodLineByRegex_(content, methodName) {
+      /**
+       * Last-resort line lookup when the grammar's axiom map doesn't see
+       * the method (parse failure, multi-class file the cache missed,
+       * refinement adding the method). Returns { line, col } of the
+       * `name: 'methodName'` declaration, or null.
+       *
+       * Matches both single- and double-quoted forms. Anchors to a `name:`
+       * key so we don't match arbitrary string literals containing the
+       * method name.
+       */
+      var escaped = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var rx = new RegExp("name\\s*:\\s*(['\"])" + escaped + "\\1", 'g');
+      var match = rx.exec(content);
+      if ( ! match ) return null;
+      var idx = match.index + match[0].indexOf(methodName);
+      var line = 0, col = 0;
+      for ( var i = 0 ; i < idx ; i++ ) {
+        if ( content.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
+      }
+      return { line: line, col: col };
     },
 
     function buildLocationAtMessage_(filePath, msgName) {

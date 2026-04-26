@@ -343,6 +343,61 @@ test(noisyPositions.property && noisyPositions.property.alpha && noisyPositions.
 test(noisyPositions.method && noisyPositions.method.epsilon && noisyPositions.method.epsilon.line === 13,
   'Method epsilon is on line 13 (positions stay accurate)');
 
+// === Regression: trailing commas in arrays / object literals must parse ===
+// JS allows trailing commas; the FOAM JSON serializer emits them too.
+// Without `repeatList` tolerating them, the parser bails on the trailing
+// comma and silently drops every downstream property/method emission.
+section('Grammar: trailing commas tolerated in lists');
+
+[
+  ['no trailing comma',     "foam.CLASS({ package: 'x', name: 'Y', requires: ['foam.u2.View'], properties: [{ name: 'a' }] });"],
+  ['trailing in requires',  "foam.CLASS({ package: 'x', name: 'Y', requires: ['foam.u2.View',], properties: [{ name: 'a' }] });"],
+  ['trailing in properties',"foam.CLASS({ package: 'x', name: 'Y', properties: [{ name: 'a' },] });"],
+  ['trailing in methods',
+    "foam.CLASS({ package: 'x', name: 'Y', methods: [function _ignored(){}, function _ignored2(){},], properties: [{ name: 'a' }] });"],
+  ['trailing in implements',"foam.CLASS({ package: 'x', name: 'Y', implements: ['foam.u2.View',], properties: [{ name: 'a' }] });"],
+  ['trailing in imports',   "foam.CLASS({ package: 'x', name: 'Y', imports: ['ctrl?', 'userDAO?',], properties: [{ name: 'a' }] });"],
+  ['trailing in tableCols', "foam.CLASS({ package: 'x', name: 'Y', tableColumns: ['a', 'b',], properties: [{ name: 'a' }] });"],
+  ['trailing in messages',  "foam.CLASS({ package: 'x', name: 'Y', messages: [{ name: 'M', message: 'hi' },], properties: [{ name: 'a' }] });"],
+  ['trailing in sections',  "foam.CLASS({ package: 'x', name: 'Y', sections: [{ name: 's', title: 'S' },], properties: [{ name: 'a' }] });"],
+  ['multi-line + trailing',
+    "foam.CLASS({\n" +
+    "  package: 'x',\n" +
+    "  name: 'Y',\n" +
+    "  requires: [\n" +
+    "    'foam.u2.View',\n" +
+    "    'foam.lang.X',\n" +    // ← trailing comma after this entry
+    "  ],\n" +
+    "  properties: [\n" +
+    "    { name: 'a' },\n" +
+    "    { name: 'b' },\n" +    // ← trailing comma in properties
+    "  ],\n" +
+    "  methods: [\n" +
+    "    function m1() {},\n" +
+    "    function m2() {},\n" + // ← trailing comma in methods
+    "  ]\n" +
+    "});"]
+].forEach(function(row) {
+  var label = row[0], src = row[1];
+  var p = axiomGrammar.collectAxiomPositions(src);
+  test(p.property && p.property.a,
+    label + ': property "a" emits position (parse keeps progressing)');
+});
+
+// And the negative-direction check: a property declared AFTER a list
+// with a trailing comma must still emit, not get swallowed by a parser
+// that bailed out on the comma.
+var afterTrail =
+  "foam.CLASS({\n" +
+  "  package: 'x',\n" +
+  "  name: 'Y',\n" +
+  "  requires: ['foam.u2.View',],\n" +    // trailing comma
+  "  properties: [{ name: 'shouldEmit' }]\n" +
+  "});";
+var afterMap = axiomGrammar.collectAxiomPositions(afterTrail);
+test(afterMap.property && afterMap.property.shouldEmit,
+  'Property after a list with trailing comma still emits its position');
+
 // === Generic foam.<X>(...) detection — covers FSM and any future model type ===
 section('Grammar: generic foam.<X> top-level call');
 

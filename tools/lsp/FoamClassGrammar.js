@@ -380,6 +380,21 @@ foam.CLASS({
 
       var comma = P.seq0(wsc, P.literal(','), wsc);
 
+      // Trailing-comma-tolerant list: `entry (, entry)* ,?`. JavaScript
+      // allows trailing commas in arrays / object literals, and so does
+      // the FOAM JSON serializer; without this helper the parser would
+      // bail at the first list with one (silently swallowing every
+      // downstream property/method emission). All array-of-entries
+      // sites in the grammar route through this so the bug only has
+      // one place to fix.
+      function repeatList(entry) {
+        return P.optional(P.seq(
+          entry,
+          P.repeat(P.seq(comma, entry)),
+          P.optional(comma)
+        ));
+      }
+
       var anyValue = P.alt(
         stringLiteral, number, booleanLiteral,
         P.sym('functionBody'),  // BEFORE dottedId — 'function' would match as identifier otherwise
@@ -416,7 +431,7 @@ foam.CLASS({
         ), null, 1)),
 
         pomBody: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('pomEntry'), comma)),
+          repeatList(P.sym('pomEntry')),
           wsc, P.optional(P.literal('}'))),
 
         pomEntry: P.alt(
@@ -438,7 +453,7 @@ foam.CLASS({
 
         pomJournalFilesEntry: P.seq(pomKeyHelper('journalFiles', 'Extra .jrl files to load (rare; usually auto-loaded from same dir)'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, stringLiteral, wsc), comma)),
+          repeatList(P.seq(wsc, stringLiteral, wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // Specific POM entry rules. Each emits a context marker (via sug with
@@ -447,23 +462,23 @@ foam.CLASS({
 
         pomFilesEntry: P.seq(pomKeyHelper('files', 'FOAM .js model files in this project (flags decide js/java/test)'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('pomFileObj'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('pomFileObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         pomJavaFilesEntry: P.seq(pomKeyHelper('javaFiles', 'Hand-written .java files (no FOAM .js sibling)'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('pomJavaFileObj'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('pomJavaFileObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         pomProjectsEntry: P.seq(pomKeyHelper('projects', 'Sub-project pom.js paths to include'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('pomProjectObj'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('pomProjectObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         pomJavaDepsEntry: P.seq(pomKeyHelper('javaDependencies', 'Maven coordinates ("group:artifact:version")'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('pomJavaDep'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('pomJavaDep'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // File/project object headers fire a snippet sug when `{` is expected
@@ -476,7 +491,7 @@ foam.CLASS({
             hint: 'new file entry'
           })),
           wsc,
-          P.optional(P.repeat(P.sym('pomFileObjEntry'), comma)),
+          repeatList(P.sym('pomFileObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         pomJavaFileObj: P.seq(
@@ -485,7 +500,7 @@ foam.CLASS({
             hint: 'new Java file entry'
           })),
           wsc,
-          P.optional(P.repeat(P.sym('pomJavaFileObjEntry'), comma)),
+          repeatList(P.sym('pomJavaFileObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         pomProjectObj: P.seq(
@@ -494,7 +509,7 @@ foam.CLASS({
             hint: 'new project entry'
           })),
           wsc,
-          P.optional(P.repeat(P.sym('pomProjectObjEntry'), comma)),
+          repeatList(P.sym('pomProjectObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         pomFileObjEntry: P.alt(
@@ -562,7 +577,7 @@ foam.CLASS({
         classBody: P.seq(P.literal('{'), wsc,
           P.optional(P.sym('classEntries')), wsc, P.optional(P.literal('}'))),
 
-        classEntries: P.repeat(P.sym('classEntry'), P.seq0(wsc, P.literal(','), wsc)),
+        classEntries: repeatList(P.sym('classEntry')),
 
         classEntry: P.alt(
           P.sym('packageEntry'),
@@ -630,13 +645,11 @@ foam.CLASS({
         cssEntry: P.seq(key('css', 'Class-scoped CSS'), wsc, P.literal(':'), wsc, backtickString),
 
         implementsEntry: P.seq(key('implements', 'Interface ids implemented by this class'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
-          P.optional(P.repeat(
-            P.seq(wsc, quoted(P.sym('classRef')), wsc), comma)),
+          repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         requiresEntry: P.seq(key('requires', 'Class ids required by this class (for create())'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
-          P.optional(P.repeat(
-            P.seq(wsc, quoted(P.sym('classRef')), wsc), comma)),
+          repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // messages: [ { name: 'LABEL_X', message: '…' } ]
@@ -645,11 +658,11 @@ foam.CLASS({
         // per-axiom regex scanners we used to need.
         messagesEntry: P.seq(topKey('messages'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('messageObject'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('messageObject'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         messageObject: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('messageObjEntry'), comma)),
+          repeatList(P.sym('messageObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         messageObjEntry: P.alt(
@@ -670,11 +683,11 @@ foam.CLASS({
         // values: [ { name: 'X', ... } ] — foam.ENUM value declarations.
         valuesEntry: P.seq(topKey('values'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('valueObject'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('valueObject'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         valueObject: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('valueObjEntry'), comma)),
+          repeatList(P.sym('valueObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         valueObjEntry: P.alt(
@@ -705,13 +718,13 @@ foam.CLASS({
         // Real suggestions come from the model (this class's properties).
         tableColumnsEntry: P.seq(topKey('tableColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('columnName'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
         searchColumnsEntry: P.seq(topKey('searchColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('columnName'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // Context marker: the sug here always fails (matches \u0002 which
@@ -737,8 +750,8 @@ foam.CLASS({
         // instead of the class-ref fallback list.
         exportsEntry: P.seq(key('exports', 'Context names this class exports'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('exportName'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('exportName'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         exportName: P.alt(
@@ -754,7 +767,7 @@ foam.CLASS({
 
         javaImportsEntry: P.seq(key('javaImports', 'Java import statements'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('javaImport'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('javaImport'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         javaImport: P.seq1(1, P.literal("'"), P.sym('javaImportRef'), P.optional(P.literal("'"))),
@@ -780,12 +793,12 @@ foam.CLASS({
 
         propertiesEntry: P.seq(key('properties', 'Property axioms (FObject fields)'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.sym('propertyDef'), comma)),
+          repeatList(P.sym('propertyDef')),
           wsc, P.optional(P.literal(']'))),
 
         methodsEntry: P.seq(key('methods', 'Method axioms'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.sym('methodDef'), comma)),
+          repeatList(P.sym('methodDef')),
           wsc, P.optional(P.literal(']'))),
 
         // topLevelKey is a FULL entry: it suggests known top-level keys
@@ -860,7 +873,7 @@ foam.CLASS({
         propertyDef: P.alt(stringLiteral, P.sym('propertyObject'), P.sym('balancedBraces')),
         propertyObject: P.seq(P.literal('{'), wsc,
           P.optional(P.sym('propEntries')), wsc, P.optional(P.literal('}'))),
-        propEntries: P.repeat(P.sym('propEntry'), comma),
+        propEntries: repeatList(P.sym('propEntry')),
 
         propEntry: P.alt(
           // class: 'String'  → propType (short name, matches String/Long/etc.)
@@ -983,7 +996,7 @@ foam.CLASS({
         ),
 
         methodObject: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('methodObjEntry'), comma)),
+          repeatList(P.sym('methodObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         methodObjEntry: P.alt(
@@ -1005,11 +1018,11 @@ foam.CLASS({
 
         // === STRUCTURAL ===
         array: P.seq(P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, anyValue, wsc), comma)),
+          repeatList(P.seq(wsc, anyValue, wsc)),
           wsc, P.optional(P.literal(']'))),
 
         object: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('genericEntry'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('genericEntry'), wsc)),
           wsc, P.optional(P.literal('}'))),
 
         functionBody: P.seq(

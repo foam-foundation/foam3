@@ -177,6 +177,9 @@ foam.CLASS({
     },
 
     function validateModel_(m, text, diagnostics) {
+      // LIB objects are not classes — skip all class-level validators.
+      if ( m && m.type_ === 'LIB' ) return;
+
       var classId = this.cache.getClassId(m);
 
       // Unknown class (extends/requires/of/implements) and unknown property-type
@@ -195,6 +198,9 @@ foam.CLASS({
       // Validate raw CSS values
       this.validateRawCSSValues_(m, text, diagnostics);
 
+      // Warn about ^classname rules in css: that aren't applied from JS
+      this.validateUnusedCSSClasses_(m, text, diagnostics);
+
       // Validate expression parameters
       this.validateExpressions_(m, text, diagnostics);
     },
@@ -203,6 +209,8 @@ foam.CLASS({
       /**
        * Validate $token references inside css: template strings.
        * Reports unknown CSS token names as warnings.
+       * Tokens declared in the model's own cssTokens: [...] array or
+       * inherited from the extends chain are recognized as valid.
        */
       if ( ! this.cssTokenResolver ) return;
 
@@ -212,15 +220,45 @@ foam.CLASS({
       var baseOffset = text.indexOf(cssStr);
       if ( baseOffset === -1 ) return;
 
+      var localTokens = this.collectLocalCssTokens_(model);
+
       var tokenPattern = /\$([a-zA-Z][a-zA-Z0-9_\-]*)/g;
       var tm;
       while ( ( tm = tokenPattern.exec(cssStr) ) !== null ) {
         var tokenName = tm[1];
+        if ( localTokens[tokenName] ) continue;
         if ( ! this.cssTokenResolver.tokenExists(tokenName) ) {
           this.addDiag_(diagnostics, text, baseOffset + tm.index, tm[0].length, 2,
             "Unknown CSS token: '$" + tokenName + "'");
         }
       }
+    },
+
+    function collectLocalCssTokens_(model) {
+      /**
+       * Build a set of CSS token names declared on the model itself or
+       * inherited from its extends chain. Walks up `extends` via the index;
+       * unknown ancestors are silently skipped.
+       */
+      var set = Object.create(null);
+      var addFrom = function(tokens) {
+        if ( ! tokens || ! tokens.length ) return;
+        for ( var i = 0 ; i < tokens.length ; i++ ) {
+          var t = tokens[i];
+          if ( t && t.name ) set[t.name] = true;
+        }
+      };
+      addFrom(model.cssTokens);
+
+      var parentId = model.extends;
+      var guard = 0;
+      while ( parentId && guard++ < 32 ) {
+        var parentCls = this.index.getClass(parentId);
+        if ( ! parentCls || ! parentCls.model_ ) break;
+        addFrom(parentCls.model_.cssTokens);
+        parentId = parentCls.model_.extends;
+      }
+      return set;
     },
 
     function validateRawCSSValues_(m, text, diagnostics) {
@@ -231,6 +269,7 @@ foam.CLASS({
        */
       var colorProps = /(?:^|[;{}\s])\s*(color|background(?:-color)?|border(?:-color)?|border-(?:top|bottom|left|right)(?:-color)?|outline-color)\s*:\s*([^;}\n$]+)/g;
       var rawColorValue = /#[0-9a-fA-F]{3,8}\b|rgba?\s*\(|hsla?\s*\(/;
+      var localTokenValues = this.collectLocalCssTokenValueMap_(m);
 
       // Check css: template string
       var cssStr = m.css;
@@ -245,7 +284,7 @@ foam.CLASS({
               var rawVal = rawMatch ? rawMatch[0] : valueStr;
               var offset = baseOffset + match.index + match[0].indexOf(valueStr);
               this.addDiag_(diagnostics, text, offset, rawVal.length, 2,
-                this.rawColorMessage_(rawVal));
+                this.rawColorMessage_(rawVal, localTokenValues));
             }
           }
         }
@@ -262,17 +301,130 @@ foam.CLASS({
           if ( loc === null ) loc = this.findInText_(text, 'background', colorVal, 0);
           if ( loc !== null ) {
             this.addDiag_(diagnostics, text, loc, colorVal.length, 2,
-              this.rawColorMessage_(colorVal));
+              this.rawColorMessage_(colorVal, localTokenValues));
           }
         }
       }
     },
 
-    function rawColorMessage_(rawVal) {
+    function collectLocalCssTokenValueMap_(model) {
+      /**
+       * Map of normalized color value → local token name, for reverse lookup.
+       * Only string-valued tokens are included — function/$-reference values
+       * can't be resolved without the runtime.
+       */
+      var map = {};
+      var normalize = function(v) {
+        if ( ! v || typeof v !== 'string' ) return null;
+        var s = v.trim().toLowerCase();
+        var m3 = s.match(/^#([0-9a-f]{3})$/);
+        if ( m3 ) {
+          var c = m3[1];
+          return '#' + c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+        }
+        return s;
+      };
+      var addFrom = function(tokens) {
+        if ( ! tokens || ! tokens.length ) return;
+        for ( var i = 0 ; i < tokens.length ; i++ ) {
+          var t = tokens[i];
+          if ( ! t || ! t.name ) continue;
+          var n = normalize(t.value);
+          if ( n && ! map[n] ) map[n] = t.name;
+        }
+      };
+      addFrom(model.cssTokens);
+      var parentId = model.extends;
+      var guard = 0;
+      while ( parentId && guard++ < 32 ) {
+        var cls = this.index.getClass(parentId);
+        if ( ! cls || ! cls.model_ ) break;
+        addFrom(cls.model_.cssTokens);
+        parentId = cls.model_.extends;
+      }
+      return map;
+    },
+
+    function validateUnusedCSSClasses_(model, text, diagnostics) {
+      /**
+       * Flag ^classname rules in css: that no JS code applies via
+       * this.myClass('name') / myClass("name") / myClass(`name`).
+       *
+       * Suppressed entirely when any call site passes a non-literal
+       * argument to myClass(…) — too many false positives when class
+       * names are computed (e.g. myClass(state), myClass(this.tag)).
+       */
+      var cssStr = model.css;
+      if ( ! cssStr || typeof cssStr !== 'string' ) return;
+      var baseOffset = text.indexOf(cssStr);
+      if ( baseOffset === -1 ) return;
+
+      // Collect ^name tokens that look like class selectors (letter-start).
+      var defs = {};
+      var order = [];
+      var declPattern = /\^([a-zA-Z][a-zA-Z0-9_\-]*)/g;
+      var dm;
+      while ( ( dm = declPattern.exec(cssStr) ) !== null ) {
+        var n = dm[1];
+        if ( defs[n] ) continue;
+        defs[n] = { offset: baseOffset + dm.index, len: dm[0].length };
+        order.push(n);
+      }
+      if ( order.length === 0 ) return;
+
+      // Build haystack from methods/listeners/actions source.
+      var hay = '';
+      var collect = function(arr) {
+        if ( ! arr ) return;
+        for ( var i = 0 ; i < arr.length ; i++ ) {
+          var s = arr[i];
+          if ( ! s ) continue;
+          if ( typeof s === 'function' ) { hay += '\n' + s.toString(); continue; }
+          if ( typeof s.code === 'function' ) { hay += '\n' + s.code.toString(); continue; }
+          if ( typeof s.code === 'string' )   { hay += '\n' + s.code; continue; }
+          if ( typeof s.isAvailable === 'function' ) hay += '\n' + s.isAvailable.toString();
+        }
+      };
+      collect(model.methods);
+      collect(model.listeners);
+      collect(model.actions);
+
+      // If myClass(...) is ever called with something other than a quoted
+      // literal, we can't be sure — skip the whole diagnostic.
+      var dynamicCall = /myClass\s*\(\s*(?!['"`])/;
+      if ( dynamicCall.test(hay) ) return;
+
+      for ( var i = 0 ; i < order.length ; i++ ) {
+        var name = order[i];
+        var re = new RegExp("myClass\\s*\\(\\s*['\"`]" + this.escapeRegex_(name) + "['\"`]\\s*\\)");
+        if ( re.test(hay) ) continue;
+        this.addDiag_(diagnostics, text, defs[name].offset, defs[name].len, 2,
+          "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+      }
+    },
+
+    function escapeRegex_(s) {
+      return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    },
+
+    function rawColorMessage_(rawVal, opt_localTokenValues) {
       /**
        * Build a raw-color diagnostic message that names the matching CSS
-       * token when one exists. No match → honest "no token matches" message.
+       * token when one exists. Checks local tokens first, then the global
+       * resolver. No match → honest "no token matches" message.
        */
+      if ( opt_localTokenValues ) {
+        var needle = rawVal ? rawVal.trim().toLowerCase() : '';
+        var m3 = needle.match(/^#([0-9a-f]{3})$/);
+        if ( m3 ) {
+          var c = m3[1];
+          needle = '#' + c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+        }
+        var localName = opt_localTokenValues[needle];
+        if ( localName ) {
+          return "Prefer CSS token '$" + localName + "' over raw color '" + rawVal + "'";
+        }
+      }
       if ( this.cssTokenResolver ) {
         var token = this.cssTokenResolver.findTokenForValue(rawVal);
         if ( token ) {

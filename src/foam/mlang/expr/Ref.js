@@ -89,19 +89,22 @@ foam.CLASS({
     },
     {
       name: 'f',
-      code: function(o) {   // js side is for DAOs with cache:true
+      code: function(o) {
+        // js side is for DAOs with cache:true
+        // Needs to be a sync return otherwise the client will get an NaN on
+        // the reference property value. Summary is expected to be async so this is not an issue
         if ( ! o || ! this.arg1 ) return null;
         var name = this.arg1.name;
         if ( o[name] == null ) return null;
         var finder;
         try { finder = o[name + '$find']; }
         catch (e) { return null; }
-        return finder.then(async function(ref) {
-          if ( ref == null ) return null;
-          var summary = ref.toSummary ? ref.toSummary() : null;
-          if ( summary instanceof Promise ) summary = await summary;
-          return { id: ref.id, summary: summary };
-        });
+        return {
+          id: o[name],
+          summary: finder.then(async function(ref) {
+            return ref?.toSummary?.() ?? null;
+          })
+        };
       },
       javaCode: `
         // java side is for DAOs with cache:false

@@ -37,7 +37,7 @@ public class SimpleAsyncAssemblyLine
   }
 
   public SimpleAsyncAssemblyLine(X x, String name) {
-    this(x, name, Runtime.getRuntime().availableProcessors());
+    this(x, name, Math.max(1, Runtime.getRuntime().availableProcessors()-1));
   }
 
   public SimpleAsyncAssemblyLine(X x, String name, int numberOfThreads) {
@@ -66,7 +66,6 @@ public class SimpleAsyncAssemblyLine
         }
       }
     );
-    pool_.allowCoreThreadTimeOut(true);
 
     endThread_ = new Thread(threadGroup_, name_ + "-endJob") {
       public void run() {

@@ -175,13 +175,19 @@ foam.CLASS({
         if ( pomItems ) return pomItems;
       }
 
-      // Inside class: '...' → property types
+      // Inside class: '...' → property types.
+      // Only foam.lang.* types insert by short name; all others must use the
+      // full class id so the generated completion doesn't silently strip
+      // the package (e.g. `class: 'foam.u2.ViewSpec'` must stay qualified).
       if ( /class\s*:\s*['"][^'"]*$/.test(prefix) ) {
         var self = this;
         return this.index.getPropertyTypes().map(function(t) {
+          var isLang = t.id && t.id.indexOf('foam.lang.') === 0;
+          var insertText = isLang ? t.name : t.id;
           return {
             label: t.name, kind: 7, detail: t.id,
-            textEdit: { range: replaceRange, newText: t.name },
+            textEdit: { range: replaceRange, newText: insertText },
+            filterText: t.name,
             sortText: '!' + t.name.toLowerCase()
           };
         });
@@ -227,6 +233,15 @@ foam.CLASS({
         }
       }
 
+      // Inside exports: ['...' → axiom names from the current model.
+      // Grammar-driven via the exportName context marker. Must run before the
+      // class-ref branch below — otherwise the 10-line `requires: [` lookback
+      // hijacks the cursor and proposes class ids (the bogus suggestions
+      // reported in issue #4999).
+      if ( ctx.exportName && /['"][^'"]*$/.test(prefix) ) {
+        return this.getExportNameItems_(text, position, opt_uri, replaceRange, prefix);
+      }
+
       // Inside extends: '...' / requires: [...] / implements: [...] / of: '...' →
       // detect context via grammar (sentinel-based), fall back to regex checks.
       // Suggestions come from the index, not sug() — class IDs are too numerous
@@ -234,7 +249,7 @@ foam.CLASS({
       // suppressing sug() collection.
       var inClassRefContext =
         ctx.classRef ||
-        /(?:extends|of)\s*:\s*['"][^'"]*$/.test(prefix) ||
+        /(?:extends|of|view)\s*:\s*['"][^'"]*$/.test(prefix) ||
         (/requires\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix)) ||
         (/implements\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix));
       if ( inClassRefContext ) {
@@ -315,6 +330,7 @@ foam.CLASS({
 
       var ctx = {
         classRef: false, propertyType: false, columnName: false,
+        exportName: false,
         topKey: false, propKey: false, pomKey: false,
         pomFileName: false, pomJavaFileName: false, pomProjectPath: false,
         pomFlagValue: false, pomJavaDep: false
@@ -324,6 +340,7 @@ foam.CLASS({
         if ( c === 'class' ) ctx.classRef = true;
         else if ( c === 'property' ) ctx.propertyType = true;
         else if ( c === 'columnName' ) ctx.columnName = true;
+        else if ( c === 'exportName' ) ctx.exportName = true;
         else if ( c === 'topKey' ) ctx.topKey = true;
         else if ( c === 'propKey' ) ctx.propKey = true;
         else if ( c === 'pomKey' ) ctx.pomKey = true;
@@ -842,6 +859,73 @@ foam.CLASS({
       return items;
     },
 
+    function getExportNameItems_(text, position, opt_uri, replaceRange, prefix) {
+      /**
+       * Build completion items for an `exports:` array value. Suggests axiom
+       * names declared on the model being edited — properties, methods,
+       * actions, listeners — plus any already-registered inherited ones.
+       * Strings like 'name as alias' are valid exports; we only complete the
+       * leading axiom name, so we filter by the substring before any ' as '.
+       */
+      var model = this.cache.getModelAt(opt_uri || '', text, position.line);
+      var partial = this.extractPartial_(prefix);
+      var asIdx = partial.indexOf(' as ');
+      if ( asIdx !== -1 ) partial = partial.substring(0, asIdx);
+      var lower = partial.toLowerCase();
+
+      var names = {};
+
+      // Inherited axioms from the registry (if the class is already built).
+      var classId = model ? this.cache.getClassId(model) : null;
+      if ( classId ) {
+        var props = this.index.getProperties(classId) || [];
+        for ( var i = 0 ; i < props.length ; i++ )
+          names[props[i].name] = { name: props[i].name, detail: 'Property' };
+
+        var methods = this.index.getMethods(classId) || [];
+        for ( var i = 0 ; i < methods.length ; i++ )
+          names[methods[i].name] = { name: methods[i].name, detail: 'Method' };
+
+        var actions = this.index.getActions(classId) || [];
+        for ( var i = 0 ; i < actions.length ; i++ )
+          names[actions[i].name] = { name: actions[i].name, detail: 'Action' };
+      }
+
+      // Own axioms from the live model text — covers names the user is
+      // declaring right now that aren't in the registry yet.
+      if ( model ) {
+        var own = [
+          { field: 'properties', label: 'Property' },
+          { field: 'methods',    label: 'Method'   },
+          { field: 'actions',    label: 'Action'   },
+          { field: 'listeners',  label: 'Listener' }
+        ];
+        for ( var i = 0 ; i < own.length ; i++ ) {
+          var arr = model[own[i].field] || [];
+          for ( var j = 0 ; j < arr.length ; j++ ) {
+            var a = arr[j];
+            var name = typeof a === 'string' ? a : a.name;
+            if ( name && ! names[name] ) names[name] = { name: name, detail: own[i].label };
+          }
+        }
+      }
+
+      var items = [];
+      for ( var n in names ) {
+        if ( ! names.hasOwnProperty(n) ) continue;
+        if ( lower && n.toLowerCase().indexOf(lower) === -1 ) continue;
+        items.push({
+          label: n,
+          kind: 10,
+          detail: names[n].detail,
+          textEdit: { range: replaceRange, newText: n },
+          filterText: n,
+          sortText: '!' + n.toLowerCase()
+        });
+      }
+      return items;
+    },
+
     function getLineContext_(lines, lineNum) {
       var ctx = '';
       for ( var i = Math.max(0, lineNum - 10) ; i <= lineNum ; i++ ) {
@@ -906,35 +990,49 @@ foam.CLASS({
 
     function collectSuggestions(text, cursorOffset) {
       /**
-       * Uses the SmartView pattern: track maxPos (furthest successful parse),
-       * collect suggestions at maxPos. Reset when maxPos advances.
-       * Only collect when near the cursor position.
+       * SmartView pattern: track maxPos and collect suggestions from parsers
+       * tried near the cursor.
+       *
+       * Cursor-window: the strict ±2 char window misses suggestions when the
+       * cursor sits inside whitespace (the parser's `wsc` eats the whitespace
+       * before any sug fires, so sugs end up at the next non-whitespace char).
+       * We accept a sug whose start position is within ±2 OR is within ±2 of
+       * the cursor with only whitespace between — "cursor-effective" window.
        */
       var suggestions = {};
       var maxPos = 0;
 
+      // Precompute: for each offset, the nearest non-whitespace positions on
+      // either side of the cursor, so we can accept sugs that fire after wsc.
+      var leftEdge  = cursorOffset;
+      while ( leftEdge > 0 && /\s/.test(text.charAt(leftEdge - 1)) ) leftEdge--;
+      var rightEdge = cursorOffset;
+      while ( rightEdge < text.length && /\s/.test(text.charAt(rightEdge)) ) rightEdge++;
+
+      function nearCursor(pos) {
+        // Exact window around the cursor (original ±2).
+        if ( pos >= cursorOffset - 2 && pos <= cursorOffset + 2 ) return true;
+        // Whitespace-aware window: accept sugs fired inside the whitespace
+        // gap and at the first non-whitespace char on either side.
+        if ( pos >= leftEdge && pos <= rightEdge ) return true;
+        return false;
+      }
+
       var apply = function(p, grammar) {
         var result = p.parse(this, grammar);
 
-        // Only consider suggestions from parsers that were tried near cursor
-        // AND at positions that are part of a successful parse path
         if ( result && p.suggest ) {
           var s = p.suggest();
           if ( s ) {
-            // Track suggestion at the position where the parser started (this.pos)
             var startPos = this.pos;
-            if ( startPos >= cursorOffset - 2 && startPos <= cursorOffset + 2 ) {
+            if ( nearCursor(startPos) ) {
               suggestions[s.text || s.label] = s;
             }
           }
         }
 
-        // Also collect at current max position (like SmartView)
-        if ( this.pos > maxPos ) {
-          maxPos = this.pos;
-        }
-        if ( ! result && p.suggest && this.pos === maxPos &&
-             this.pos >= cursorOffset - 2 && this.pos <= cursorOffset + 2 ) {
+        if ( this.pos > maxPos ) maxPos = this.pos;
+        if ( ! result && p.suggest && this.pos === maxPos && nearCursor(this.pos) ) {
           var s = p.suggest();
           if ( s ) suggestions[s.text || s.label] = s;
         }

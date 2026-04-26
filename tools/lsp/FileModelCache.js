@@ -86,10 +86,12 @@ foam.CLASS({
       /**
        * Return the full class ID for a model object.
        * For refinements, uses m.refines (the target being refined).
+       * For foam.LIB, the ID is m.name directly (e.g., 'foam.Color').
        * Otherwise joins package + name (or just name if no package).
        * Handlers used to inline this expression 10+ times — use this helper.
        */
       if ( ! model ) return null;
+      if ( model.type_ === 'LIB' ) return model.name;
       if ( model.refines ) return model.refines;
       return model.package ? model.package + '.' + model.name : model.name;
     },
@@ -156,7 +158,12 @@ foam.CLASS({
       };
       context.foam.SCRIPT = function() {};
       context.foam.POM = function() {};
-      context.foam.LIB = function() {};
+      context.foam.LIB = function(m) {
+        if ( ! m || ! m.name ) return;
+        m.type_ = 'LIB';
+        m.sourceLine_ = findLibCallLine(text, models);
+        models.push(m);
+      };
 
       try {
         with ( context ) { eval(text); }
@@ -178,7 +185,7 @@ foam.CLASS({
        * Fallback for SyntaxError: extract individual foam.CLASS/ENUM/INTERFACE
        * blocks using bracket matching and eval each separately.
        */
-      var regex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/g;
+      var regex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|LIB)\s*\(/g;
       var match;
       while ( ( match = regex.exec(text) ) !== null ) {
         var start = match.index;
@@ -230,6 +237,32 @@ function findCallLine(text, index) {
   var count = 0;
   while ( ( match = regex.exec(text) ) !== null ) {
     if ( count === index ) {
+      var line = 0;
+      for ( var i = 0 ; i < match.index ; i++ ) {
+        if ( text[i] === '\n' ) line++;
+      }
+      return line;
+    }
+    count++;
+  }
+  return 0;
+}
+
+function findLibCallLine(text, models) {
+  /**
+   * Find the line number of the Nth foam.LIB call in text, where N is the
+   * count of LIBs already captured.
+   * TODO: migrate to FoamClassGrammar so LIB positions come from the parser.
+   */
+  var libIndex = 0;
+  for ( var i = 0 ; i < models.length ; i++ ) {
+    if ( models[i].type_ === 'LIB' ) libIndex++;
+  }
+  var regex = /foam\.LIB\s*\(/g;
+  var match;
+  var count = 0;
+  while ( ( match = regex.exec(text) ) !== null ) {
+    if ( count === libIndex ) {
       var line = 0;
       for ( var i = 0 ; i < match.index ; i++ ) {
         if ( text[i] === '\n' ) line++;

@@ -213,11 +213,17 @@ foam.CLASS({
       var self = this;
       var P = foam.parse.Parsers.create();
 
-      // Property types — all subclasses of foam.lang.Property
+      // Property types — all subclasses of foam.lang.Property.
+      // Only foam.lang.* types may be inserted by short name; every other
+      // package must be inserted as its full class id so the generated code
+      // resolves unambiguously (fixes issue where `class: 'foam.u2.ViewSpec'`
+      // completed to bare `'ViewSpec'`).
       var propTypes = this.index.getPropertyTypes();
       var propTypeParsers = propTypes.map(function(t) {
+        var isLang = t.id && t.id.indexOf('foam.lang.') === 0;
+        var insertText = isLang ? t.name : t.id;
         return P.sug(P.literalIC(t.name), foam.parse.Suggestion.create({
-          text: t.name,
+          text: insertText,
           category: 'property',
           hint: t.doc || t.id
         }));
@@ -339,15 +345,22 @@ foam.CLASS({
           P.sym('pomJavaFilesEntry'),
           P.sym('pomProjectsEntry'),
           P.sym('pomJavaDepsEntry'),
-          P.sym('pomKey'),
+          P.sym('pomJournalFilesEntry'),
+          P.sym('pomNameEntry'),
+          P.sym('pomVersionEntry'),
           P.sym('genericEntry')
         ),
 
-        pomKey: P.alt(
-          pomKeyHelper('name'), pomKeyHelper('version'), pomKeyHelper('files'),
-          pomKeyHelper('projects'), pomKeyHelper('javaDependencies'),
-          pomKeyHelper('javaFiles'), pomKeyHelper('journalFiles')
-        ),
+        // Scalar string entries — each emits its key sug and parses through
+        // the rest of the `key: 'value'` assignment so the outer repeat can
+        // move on to the next comma-separated entry without blocking.
+        pomNameEntry: P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc, stringLiteral),
+        pomVersionEntry: P.seq(pomKeyHelper('version'), wsc, P.literal(':'), wsc, stringLiteral),
+
+        pomJournalFilesEntry: P.seq(pomKeyHelper('journalFiles'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, stringLiteral, wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
 
         // Specific POM entry rules. Each emits a context marker (via sug with
         // \u0002 that never matches) so the LSP handler can detect cursor
@@ -374,15 +387,34 @@ foam.CLASS({
             P.optional(P.literal("'")), wsc), comma)),
           wsc, P.optional(P.literal(']'))),
 
-        pomFileObj: P.seq(P.literal('{'), wsc,
+        // File/project object headers fire a snippet sug when `{` is expected
+        // but not present — e.g. on a blank line between entries. Without this
+        // the grammar backtracks to pomEntry and the user sees top-level POM
+        // keys instead of a new-entry template.
+        pomFileObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '', flags: 'js' }", category: 'pomFileEntry',
+            hint: 'new file entry'
+          })),
+          wsc,
           P.optional(P.repeat(P.sym('pomFileObjEntry'), comma)),
           wsc, P.optional(P.literal('}'))),
 
-        pomJavaFileObj: P.seq(P.literal('{'), wsc,
+        pomJavaFileObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '' }", category: 'pomJavaFileEntry',
+            hint: 'new Java file entry'
+          })),
+          wsc,
           P.optional(P.repeat(P.sym('pomJavaFileObjEntry'), comma)),
           wsc, P.optional(P.literal('}'))),
 
-        pomProjectObj: P.seq(P.literal('{'), wsc,
+        pomProjectObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '' }", category: 'pomProjectEntry',
+            hint: 'new project entry'
+          })),
+          wsc,
           P.optional(P.repeat(P.sym('pomProjectObjEntry'), comma)),
           wsc, P.optional(P.literal('}'))),
 
@@ -552,6 +584,15 @@ foam.CLASS({
           { kind: 'value' }
         ),
 
+        // Property `name: 'foo'` — emit a 'property' axiom position so
+        // DefinitionHandler.buildLocationAtProperty can jump straight to
+        // the declaration without text-scan regex.
+        propertyNameValue: P.msg(
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_$')), null, 1)),
+          { kind: 'property' }
+        ),
+
         // tableColumns/searchColumns: emit a 'columnName' category at each value
         // position so the LSP handler can detect context without regex scanning.
         // Real suggestions come from the model (this class's properties).
@@ -582,7 +623,27 @@ foam.CLASS({
         ),
 
         importsEntry: P.seq(key('imports'), wsc, P.literal(':'), wsc, P.sym('array')),
-        exportsEntry: P.seq(key('exports'), wsc, P.literal(':'), wsc, P.sym('array')),
+
+        // exports: [ 'axiomName', 'axiomName as alias' ] — emit an 'exportName'
+        // context marker per value so the LSP handler can suggest axiom names
+        // (properties, methods, actions, listeners) from the enclosing model
+        // instead of the class-ref fallback list.
+        exportsEntry: P.seq(key('exports'), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('exportName'),
+            P.optional(P.literal("'")), wsc), comma)),
+          wsc, P.optional(P.literal(']'))),
+
+        exportName: P.alt(
+          P.sug(P.literal(''), foam.parse.Suggestion.create({
+            text: '__ctx_exportName__', category: 'exportName', hint: 'axiom name'
+          })),
+          P.msg(
+            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+              P.range('0', '9'), P.chars('_ $')), null, 1)),
+            { type: 'exportName' }
+          )
+        ),
 
         javaImportsEntry: P.seq(key('javaImports'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
@@ -660,9 +721,22 @@ foam.CLASS({
             P.optional(P.literal("'"))),
           P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
             text: 'name', category: 'key' })),
-            wsc, P.literal(':'), wsc, stringLiteral),
+            wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('propertyNameValue'), P.optional(P.literal("'"))),
+          P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
+            text: 'name', category: 'key' })),
+            wsc, P.literal(':'), wsc,
+            P.literal('"'), P.sym('propertyNameValue'), P.optional(P.literal('"'))),
           P.seq(P.sug(P.literal('of'), foam.parse.Suggestion.create({
             text: 'of', category: 'key' })),
+            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
+            P.optional(P.literal("'"))),
+          // view: 'com.acme.MyView' — treat the string form exactly like `of:`
+          // so class suggestions (including view classes) surface in viewSpec
+          // positions. The { class: '...' } object form is covered by the
+          // normal propEntry/class rule inside that object.
+          P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
+            text: 'view', category: 'key' })),
             wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
             P.optional(P.literal("'"))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
@@ -704,7 +778,41 @@ foam.CLASS({
         ),
 
         // === METHOD DEFINITIONS ===
-        methodDef: P.alt(P.sym('functionBody'), P.sym('object')),
+        // Method forms:
+        //   function foo(args) { ... }           — bare function
+        //   { name: 'foo', code: function... }   — object with name
+        // Both forms emit a 'method' axiom position so DefinitionHandler
+        // can jump straight to the declaration without text-scan regex.
+        methodDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('methodObject'),
+          P.sym('object')
+        ),
+
+        namedFunctionBody: P.seq(
+          P.optional(P.literal('async')), wsc,
+          P.literal('function'), wsc,
+          P.sym('methodNameValue'),
+          wsc, P.sym('balancedParens'), wsc, P.sym('balancedBraces')
+        ),
+
+        methodObject: P.seq(P.literal('{'), wsc,
+          P.optional(P.repeat(P.sym('methodObjEntry'), comma)),
+          wsc, P.optional(P.literal('}'))),
+
+        methodObjEntry: P.alt(
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal("'"), P.sym('methodNameValue'), P.optional(P.literal("'"))),
+          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
+            P.literal('"'), P.sym('methodNameValue'), P.optional(P.literal('"'))),
+          P.sym('genericEntry')
+        ),
+
+        methodNameValue: P.msg(
+          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+            P.range('0', '9'), P.chars('_$')), null, 1)),
+          { kind: 'method' }
+        ),
 
         // === GENERIC CATCH-ALL ===
         genericEntry: P.seq(identifier, wsc, P.literal(':'), wsc, anyValue),

@@ -343,6 +343,50 @@ test(noisyPositions.property && noisyPositions.property.alpha && noisyPositions.
 test(noisyPositions.method && noisyPositions.method.epsilon && noisyPositions.method.epsilon.line === 13,
   'Method epsilon is on line 13 (positions stay accurate)');
 
+// === Regression: longest-first sort for property type alts ===
+// The propTypeParser was matching `Double` before `DoubleUnitValue`, so
+// `class: 'DoubleUnitValue'` consumed only `Double` and left `UnitValue`
+// to choke the outer rule — silently bailing every downstream property
+// emission. Sort propTypes longest-first.
+section('Grammar: prop-type alt ordered longest-first');
+
+var dblSrc =
+  "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'D',\n" +
+  "  properties: [\n" +
+  "    { class: 'DoubleUnitValue', name: 'amount' },\n" +
+  "    { class: 'String',          name: 'label' }\n" +
+  "  ]\n" +
+  "});";
+var dblMap = axiomGrammar.collectAxiomPositions(dblSrc);
+test(dblMap.property && dblMap.property.amount,
+  'DoubleUnitValue property emits position (longer prop type not prefix-clobbered by Double)');
+test(dblMap.property && dblMap.property.label,
+  'Property after a long-type entry still emits — parse keeps progressing');
+
+// === Regression: javaImports with `static ` prefix and wildcard `.*` ===
+// Java static-method imports look like `'static foo.MLang.AND'`. Wildcard
+// imports look like `'foo.bar.*'`. Both must parse without aborting the
+// outer class body.
+section('Grammar: javaImports static + wildcard tolerated');
+
+var jiSrc =
+  "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'JI',\n" +
+  "  javaImports: [\n" +
+  "    'java.util.List',\n" +
+  "    'foo.bar.*',\n" +
+  "    'static foo.MLang.AND',\n" +
+  "    'static foo.MLang.EQ'\n" +
+  "  ],\n" +
+  "  properties: [{ name: 'marker' }]\n" +
+  "});";
+var jiMap = axiomGrammar.collectAxiomPositions(jiSrc);
+test(jiMap.property && jiMap.property.marker,
+  'Property after javaImports with static + wildcard still emits');
+
 // === Regression: trailing commas in arrays / object literals must parse ===
 // JS allows trailing commas; the FOAM JSON serializer emits them too.
 // Without `repeatList` tolerating them, the parser bails on the trailing

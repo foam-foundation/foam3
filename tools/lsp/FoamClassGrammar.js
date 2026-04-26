@@ -224,7 +224,14 @@ foam.CLASS({
       // package must be inserted as its full class id so the generated code
       // resolves unambiguously (fixes issue where `class: 'foam.u2.ViewSpec'`
       // completed to bare `'ViewSpec'`).
-      var propTypes = this.index.getPropertyTypes();
+      // Property type alts MUST be sorted longest-first. P.alt returns
+      // the FIRST match — without the sort, `Double` would prefix-match
+      // and short-circuit `DoubleUnitValue`/`UnitValue`, leaving the
+      // `UnitValue` suffix to choke the outer rule. Same bug as the
+      // classRefParser_ ordering below.
+      var propTypes = this.index.getPropertyTypes().slice().sort(function(a, b) {
+        return b.name.length - a.name.length;
+      });
       var propTypeParsers = propTypes.map(function(t) {
         var isLang = t.id && t.id.indexOf('foam.lang.') === 0;
         var insertText = isLang ? t.name : t.id;
@@ -771,7 +778,22 @@ foam.CLASS({
           wsc, P.optional(P.literal(']'))),
 
         javaImport: P.seq1(1, P.literal("'"), P.sym('javaImportRef'), P.optional(P.literal("'"))),
+        // Full Java FQ-name first — must consume the entire qualified name
+        // including any wildcard `.*` suffix and the optional `static `
+        // prefix used for static-method imports
+        // (`'static foo.MLang.AND'`). The sug() arms below match common
+        // prefixes (foam.lang., java.util., …) and emit completion
+        // suggestions; they're ordered AFTER the full-id regex so they
+        // only fire when collectSuggestionsAt() runs against a sentinel
+        // — never during a real parse where they'd otherwise greedily
+        // consume just the prefix and leave the rest un-parsed (which
+        // silently bailed the whole class body downstream).
         javaImportRef: P.alt(
+          P.seq(
+            P.optional(P.seq(P.literal('static'), P.repeat(P.chars(' \t')))),
+            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
+              P.range('0', '9'), P.chars('._*')), null, 1))
+          ),
           P.sug(P.literal('foam.lang.'), foam.parse.Suggestion.create({
             text: 'foam.lang.', category: 'class',
             hint: 'FOAM lang package (FObject, X, PropertyInfo)'
@@ -786,9 +808,7 @@ foam.CLASS({
           })),
           P.sug(P.literal('java.io.'), foam.parse.Suggestion.create({
             text: 'java.io.', category: 'class', hint: 'Java IO'
-          })),
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('._*')), null, 1))
+          }))
         ),
 
         propertiesEntry: P.seq(key('properties', 'Property axioms (FObject fields)'), wsc, P.literal(':'), wsc,

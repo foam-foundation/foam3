@@ -504,7 +504,36 @@ foam.CLASS({
       var blockKey = keyMatch[1];
 
       // Only return for known block keys
-      var knownKeys = { css: true, javaCode: true, javaPreSet: true, javaPostSet: true, javaFactory: true, javaGetter: true };
+      // Every key that holds a Java code/CSS template-literal block. The
+      // SemanticTokenHandler scans the same superset; keep them in sync so
+      // hover/go-to-def fire inside any Java slot (not just `javaCode:`).
+      var knownKeys = {
+        css:                            true,
+        javaCode:                       true,
+        javaPreSet:                     true,
+        javaPostSet:                    true,
+        javaFactory:                    true,
+        javaGetter:                     true,
+        javaSetter:                     true,
+        javaAdapt:                      true,
+        javaCompare:                    true,
+        javaComparePropertyToObject:    true,
+        javaComparePropertyToValue:     true,
+        javaCloneProperty:              true,
+        javaDiffProperty:               true,
+        javaFormatJSON:                 true,
+        javaJSONParser:                 true,
+        javaCSVParser:                  true,
+        javaQueryParser:                true,
+        javaToCSV:                      true,
+        javaToCSVLabel:                 true,
+        javaFromCSVLabelMapping:        true,
+        javaAssertValue:                true,
+        javaValidateObj:                true,
+        javaCondition:                  true,
+        javaValue:                      true,
+        javaInit:                       true
+      };
       if ( ! knownKeys[blockKey] ) return null;
 
       // Extract block content (between opening backtick and next backtick or end)

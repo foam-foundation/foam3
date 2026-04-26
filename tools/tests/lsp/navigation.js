@@ -382,15 +382,16 @@ try {
   try { tmpFs.unlinkSync(tmpFile2); } catch ( e ) {}
 }
 
-// === buildLocationAtMethod regex fallback ===
-// When the grammar's axiom map can't pin the method (e.g., the supplied
-// classId doesn't match what parseFileModels captured), the handler MUST
-// still land on the method line via a regex fallback — not on file top.
-var tmpFile3 = tmpPath2.join(tmpOs.tmpdir(), 'lsp-method-regex-fallback.js');
+// === buildLocationAtMethod unconstrained grammar fallback ===
+// When the grammar's axiom map for a specific classId yields no match
+// (e.g., the supplied classId doesn't appear in the file), the handler
+// must still try the unconstrained grammar map. This relies purely on
+// FoamClassGrammar.methodNameValue emissions — no regex.
+var tmpFile3 = tmpPath2.join(tmpOs.tmpdir(), 'lsp-method-unconstrained.js');
 tmpFs.writeFileSync(tmpFile3,
   "foam.CLASS({\n" +
   "  package: 'test',\n" +
-  "  name: 'RegexFallback',\n" +
+  "  name: 'Unconstrained',\n" +
   "  methods: [\n" +
   "    {\n" +
   "      name: 'normalize',\n" +
@@ -401,20 +402,12 @@ tmpFs.writeFileSync(tmpFile3,
   "  ]\n" +
   "});\n");
 try {
-  // Mismatched classId forces the constrained-grammar path to miss; the
-  // unconstrained grammar path or regex fallback must rescue.
+  // Pass a wrong classId. The class-range constraint check fails, but
+  // the unconstrained grammar map still has `normalize` — handler must
+  // return that position rather than file top.
   var rxLoc = defHandler.buildLocationAtMethod(tmpFile3, 'wrong.ClassId', 'normalize');
   test(rxLoc && rxLoc.range && rxLoc.range.start.line === 5,
-    'buildLocationAtMethod fallback lands on the method-name line (got line ' + (rxLoc && rxLoc.range && rxLoc.range.start.line) + ', not file top)');
-  // Direct fallback API check
-  var content3 = tmpFs.readFileSync(tmpFile3, 'utf8');
-  var directHit = defHandler.findMethodLineByRegex_(content3, 'normalize');
-  test(directHit && directHit.line === 5,
-    'findMethodLineByRegex_ pinpoints the method-name line directly');
-  // Unknown method returns null (no false positive)
-  var miss = defHandler.findMethodLineByRegex_(content3, 'noSuchMethod');
-  test(miss === null,
-    'findMethodLineByRegex_ returns null for non-existent method');
+    'buildLocationAtMethod unconstrained fallback lands on method-name line (got line ' + (rxLoc && rxLoc.range && rxLoc.range.start.line) + ')');
 } finally {
   try { tmpFs.unlinkSync(tmpFile3); } catch ( e ) {}
 }

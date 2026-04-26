@@ -81,52 +81,33 @@ foam.CLASS({
 
     function getClassTypedPropertyNames() {
       /**
-       * Names of all axiom slots whose value is a class id (string).
-       * Used by FoamClassGrammar to recognize `<key>: 'foo.X'` as a class
-       * reference for any registered model — so a downstream extension that
-       * adds a Class/Reference-typed axiom under a custom name is picked up
-       * automatically without grammar changes.
+       * Names of axiom slots whose string value is a class id. Used by
+       * FoamClassGrammar's classTypedSlotEntry rule.
        *
-       * The set is the union of:
-       *   1. The canonical JSON.js list (extends, implements, of, class,
-       *      view, sourceModel, targetModel, refines).
-       *   2. Every axiom on every registered class whose property's class is
-       *      Class, Reference, FObjectProperty, or FObjectArray.
+       * Returns the canonical eight slots that the FOAM JSON serializer
+       * (foam/lang/JSON.js) treats as class-id-typed:
        *
-       * Cached because the registry walk is expensive.
+       *   extends, implements, of, class, view, refines, sourceModel,
+       *   targetModel
+       *
+       * An earlier version walked the registry to also include any axiom
+       * whose property class was Class/Reference/FObjectProperty/
+       * FObjectArray. That over-broad set caused false positives on
+       * extremely common slot names (`label`, `name`, etc.) that happen
+       * to be class-typed in some obscure model — e.g., `label:
+       * 'Transaction Details'` was misparsed as a class ref. Stick to
+       * the canonical list so the grammar doesn't fight content that
+       * isn't a class id.
+       *
+       * If a custom axiom slot needs to be navigable as a class id,
+       * define an explicit grammar entry for it (see refinesEntry /
+       * sourceModelEntry / targetModelEntry as templates).
        */
       if ( this.cache_.classTypedNames ) return this.cache_.classTypedNames;
-
-      var seen = {};
-      [
+      var names = [
         'extends', 'implements', 'of', 'class', 'view',
         'sourceModel', 'targetModel', 'refines'
-      ].forEach(function(n) { seen[n] = true; });
-
-      var classTypedClassNames = {
-        'Class':           true,
-        'Reference':       true,
-        'FObjectProperty': true,
-        'FObjectArray':    true
-      };
-
-      var ids = this.getAllClassIds();
-      for ( var i = 0 ; i < ids.length ; i++ ) {
-        var cls;
-        try { cls = foam.maybeLookup(ids[i]); } catch (e) { continue; }
-        if ( ! cls ) continue;
-        var props;
-        try { props = cls.getAxiomsByClass(foam.lang.Property); }
-        catch (e) { continue; }
-        for ( var j = 0 ; j < props.length ; j++ ) {
-          var p = props[j];
-          if ( ! p || ! p.name || ! p.cls_ ) continue;
-          var pcName = p.cls_.model_ && p.cls_.model_.name;
-          if ( pcName && classTypedClassNames[pcName] ) seen[p.name] = true;
-        }
-      }
-
-      var names = Object.keys(seen);
+      ];
       this.cache_.classTypedNames = names;
       return names;
     },

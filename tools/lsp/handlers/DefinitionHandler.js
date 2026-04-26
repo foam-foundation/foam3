@@ -311,20 +311,19 @@ foam.CLASS({
     function buildLocationAtMethod(filePath, classId, methodName) {
       /**
        * Jump to a method definition within the correct class in the file.
-       * Uses the grammar's axiom-position index (`kind: 'method'` emitted by
-       * `methodNameValue` in FoamClassGrammar) and constrains the match to
-       * the target class's source range via FileModelCache.
+       * Pure grammar-based: relies on `kind: 'method'` positions emitted
+       * by `methodNameValue` in FoamClassGrammar.
        *
-       * Resolution order (each falls back to the next):
-       *   1. Grammar map of method positions, constrained to the class's
-       *      source range. Best when the file has multiple class blocks.
-       *   2. Unconstrained grammar map — handles files where parseFileModels
-       *      didn't capture the class section we wanted (eval issues, refines,
-       *      generic foam.<X> calls without explicit classId match).
-       *   3. Regex scan of `name:\s*['"]<methodName>['"]` — last-resort
-       *      grep so we land on the method line instead of the file top
-       *      when the grammar can't see the position (rare; usually means
-       *      a parse failure earlier in the body).
+       * Resolution order:
+       *   1. Grammar map constrained to the requested class's source range.
+       *      Wins when the file has multiple class blocks.
+       *   2. Unconstrained grammar map — for single-class files or when
+       *      parseFileModels didn't capture the class section under the
+       *      expected classId (refines, generic foam.<X> calls).
+       *
+       * If both miss, that means the grammar didn't emit a method
+       * position — a grammar bug to fix in FoamClassGrammar.js, not
+       * something to paper over with a regex here.
        */
       try {
         var fs_ = require('fs');
@@ -345,20 +344,13 @@ foam.CLASS({
 
         var map = this.grammar_().collectAxiomPositions(content);
         var positions = map && map.method ? map.method : null;
-
-        // 1. Constrained match
         var hit = positions ? positions[methodName] : null;
         if ( hit && hit.line >= startLine && hit.line < endLine ) {
           return this.buildMethodPosLocation_(filePath, hit, methodName);
         }
-        // 2. Unconstrained — single-class files or where the model wasn't
-        //    captured under the expected classId.
         if ( hit ) {
           return this.buildMethodPosLocation_(filePath, hit, methodName);
         }
-        // 3. Regex fallback so we still land on the method line.
-        var rxLoc = this.findMethodLineByRegex_(content, methodName);
-        if ( rxLoc ) return this.buildMethodPosLocation_(filePath, rxLoc, methodName);
       } catch ( e ) {}
       return this.buildLocation(filePath, classId);
     },
@@ -371,29 +363,6 @@ foam.CLASS({
           end:   { line: pos.line, character: (pos.col || 0) + methodName.length }
         }
       };
-    },
-
-    function findMethodLineByRegex_(content, methodName) {
-      /**
-       * Last-resort line lookup when the grammar's axiom map doesn't see
-       * the method (parse failure, multi-class file the cache missed,
-       * refinement adding the method). Returns { line, col } of the
-       * `name: 'methodName'` declaration, or null.
-       *
-       * Matches both single- and double-quoted forms. Anchors to a `name:`
-       * key so we don't match arbitrary string literals containing the
-       * method name.
-       */
-      var escaped = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      var rx = new RegExp("name\\s*:\\s*(['\"])" + escaped + "\\1", 'g');
-      var match = rx.exec(content);
-      if ( ! match ) return null;
-      var idx = match.index + match[0].indexOf(methodName);
-      var line = 0, col = 0;
-      for ( var i = 0 ; i < idx ; i++ ) {
-        if ( content.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
-      }
-      return { line: line, col: col };
     },
 
     function buildLocationAtMessage_(filePath, msgName) {
@@ -437,6 +406,11 @@ foam.CLASS({
        * axiom-position index (`kind: 'property'` emitted by `propertyNameValue`
        * in FoamClassGrammar) so the lookup respects multi-class files and
        * matches how messages are located.
+       *
+       * Pure grammar-based: trusts `propertyNameValue` in
+       * FoamClassGrammar.js to emit position info for every property
+       * declaration. If a property isn't being found, the grammar rule
+       * needs a missing case — fix it there, not with a regex here.
        */
       try {
         var fs_ = require('fs');
@@ -472,20 +446,24 @@ foam.CLASS({
         if ( filePath ) return this.buildLocation(filePath, typeClassId);
       }
 
-      // 2. variable.method() — resolve variable type, then find method definition
+      // 2. variable.method() — resolve variable type, then find method
+      //    definition. CRITICAL: when the click is a chained call
+      //    (`<recv>.<seg>` with a non-`this` receiver), this branch is
+      //    AUTHORITATIVE — we never fall through to step 3 because step 3
+      //    would search the *current* class (e.g., the enclosing FSM)
+      //    and silently land on the wrong file. Better to return null
+      //    (no navigation) than to navigate to an unrelated symbol.
       if ( word && word.indexOf('.') !== -1 ) {
         var parts = word.split('.');
         var varName = parts[parts.length - 2];
         var methodName = parts[parts.length - 1];
 
         if ( varName !== 'this' ) {
-          // Resolve the variable's type
           var varClassId = this.analyzer.resolveJavaVariableType(text, position, varName, model, this.index);
           if ( ! varClassId ) {
             varClassId = this.analyzer.resolveJavaTypeName(varName, model, this.index);
           }
           if ( varClassId ) {
-            // getter/setter → navigate to the property's defining class
             var gsMatch = methodName.match(/^(get|set)([A-Z]\w*)$/);
             if ( gsMatch ) {
               var propName = gsMatch[2].charAt(0).toLowerCase() + gsMatch[2].substring(1);
@@ -499,24 +477,28 @@ foam.CLASS({
               }
             }
 
-            // FOAM method
-            var cls = this.index.getClass(varClassId);
-            if ( cls ) {
-              var defClass = this.findMethodDefiner_(cls, methodName);
-              if ( defClass ) {
-                var filePath = this.index.getFilePath(defClass);
-                if ( filePath ) return this.buildLocationAtMethod(filePath, defClass, methodName);
+            var cls2 = this.index.getClass(varClassId);
+            if ( cls2 ) {
+              var mDefClass = this.findMethodDefiner_(cls2, methodName);
+              if ( mDefClass ) {
+                var mFilePath = this.index.getFilePath(mDefClass);
+                if ( mFilePath ) return this.buildLocationAtMethod(mFilePath, mDefClass, methodName);
               }
             }
 
-            // Java-only method → navigate to .java file
             var javaLoc = this.findJavaMethodLocation_(varClassId, methodName);
             if ( javaLoc ) return javaLoc;
           }
+          // Authoritative: a chained-call click never falls through to
+          // step 3 (current-model search). The receiver is what
+          // determines the target — even if we can't resolve it, the
+          // current model is almost certainly NOT the answer.
+          return null;
         }
       }
 
       // 3. Standalone method name (e.g., getProperty on current model)
+      //    Only reached for non-chained clicks or `this.method` clicks.
       var currentClassId = this.cache.getClassId(model);
       if ( currentClassId ) {
         var javaLoc = this.findJavaMethodLocation_(currentClassId, segment);

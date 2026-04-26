@@ -396,6 +396,28 @@ var mismatchSrc = 'foam.CLASS({ refines: "foam.u2.View' + Q + ' });';
 test(diagHandler.handle(mismatchSrc).length >= 0,
   'Mismatched-quote refines: parses without throwing (lenient)');
 
+// === Regression: plain-string slots must NOT be misparsed as class refs ===
+// `label`, `documentation`, etc. carry human-readable strings that often
+// start with a capitalized word ("Transaction Details"). An over-broad
+// class-typed slot list would mis-flag these as Unknown-class diagnostics.
+section('Grammar: plain-string slots stay plain');
+
+[
+  ['label',         "'Transaction Details'"],
+  ['documentation', "'Reason Code on the Dispute Case'"],
+  ['help',          "'Choose a Country to filter'"],
+  ['placeholder',   "'Card Number'"]
+].forEach(function(row) {
+  var slotName = row[0], stringValue = row[1];
+  var src = 'foam.CLASS({ package: ' + Q + 'com.example' + Q + ', name: ' + Q + 'X' + Q +
+    ', properties: [{ class: ' + Q + 'String' + Q + ', name: ' + Q + 'p' + Q +
+    ', ' + slotName + ': ' + stringValue + ' }] });';
+  var diags = diagHandler.handle(src);
+  var classDiags = diags.filter(function(d) { return d.message.indexOf('Unknown class') >= 0; });
+  test(classDiags.length === 0,
+    slotName + ': ' + stringValue + ' does NOT trigger Unknown-class diagnostic');
+});
+
 // === Generic class-typed slot detection ===
 section('Grammar: generic class-typed property slots');
 
@@ -406,8 +428,12 @@ test(classTypedNames.indexOf('view') >= 0, 'getClassTypedPropertyNames includes 
 test(classTypedNames.indexOf('refines') >= 0, 'getClassTypedPropertyNames includes "refines"');
 test(classTypedNames.indexOf('sourceModel') >= 0, 'getClassTypedPropertyNames includes "sourceModel"');
 test(classTypedNames.indexOf('targetModel') >= 0, 'getClassTypedPropertyNames includes "targetModel"');
-test(classTypedNames.length > 8,
-  'getClassTypedPropertyNames returns canonical 8 + registry-derived (' + classTypedNames.length + ' total)');
+test(classTypedNames.length === 8,
+  'getClassTypedPropertyNames returns the canonical 8 (no over-broad registry walk that would false-positive on `label`/`name`/etc.)');
+['label', 'name', 'documentation'].forEach(function(n) {
+  test(classTypedNames.indexOf(n) === -1,
+    'getClassTypedPropertyNames does NOT include "' + n + '" (would mis-flag plain-string slots)');
+});
 
 // === topLevelKey / propKey / pomKey suggestions carry description hints ===
 section('Grammar: completion suggestions carry hint text');

@@ -236,15 +236,27 @@ foam.CLASS({
       return method.name + '()';
     },
 
-    function resolveJavaVariableType(text, position, varName, model, index) {
+    function resolveJavaVariableType(text, position, varName, model, index, opt_seen) {
       /**
        * Resolve a Java variable's type from cast, declaration, or method return type.
        * Resolution order:
        *   1. Cast on current/nearby line: ((TypeName) varName).
        *   2. Explicit type declaration: TypeName varName = ...
-       *   3. Method return type: var varName = expr.method(...) → method.type
-       *   4. Getter return type: var varName = getProperty() → property type
+       *   3. var x = new T(...)  →  T
+       *   4. var x = (T) expr    →  T
+       *   5. var x = expr.method(...) — resolve receiver then method return type.
+       *   6. var x = getProperty() → property's java type.
+       *
+       * `opt_seen` is the recursion-guard set; it tracks variable names
+       * already on the resolution stack so cycles (`var a = b.x();
+       * var b = a.y();`) and self-references (`var x = x.f();`) terminate
+       * instead of recursing forever.
        */
+      var seen = opt_seen || {};
+      if ( seen[varName] ) return null;
+      seen = Object.assign({}, seen);
+      seen[varName] = true;
+
       var lines = text.split('\n');
 
       // 1. Check for cast on current or nearby lines
@@ -272,6 +284,16 @@ foam.CLASS({
         }
 
         // 3. 'var' declaration — infer from the right-hand side
+        // var x = new T(...)  → T
+        // var x = (T) expr     → T (with optional generics stripped)
+        // var x = T.class      → T (the class type itself)
+        var newM = scanLine.match(new RegExp(varName + '\\s*=\\s*new\\s+([A-Z][\\w.$]*)'));
+        if ( newM ) return this.resolveJavaTypeName(newM[1], model, index);
+
+        var simpleCastM = scanLine.match(
+          new RegExp(varName + '\\s*=\\s*\\(\\s*([A-Z][\\w.$]*)\\s*(?:<[^()]*>)?\\s*\\)'));
+        if ( simpleCastM ) return this.resolveJavaTypeName(simpleCastM[1], model, index);
+
         // var x = ((Cast) y).method() → resolve cast chain
         var rhsCastInfo = this.resolveJavaCastType(scanLine, model, index);
         if ( rhsCastInfo && rhsCastInfo.classId && rhsCastInfo.methodName ) {
@@ -292,8 +314,8 @@ foam.CLASS({
             if ( returnType ) return returnType;
           }
 
-          // Try receiver as a variable
-          var receiverType = this.resolveJavaVariableType(text, { line: i, character: 0 }, receiverName, model, index);
+          // Try receiver as a variable — pass `seen` so cycles terminate
+          var receiverType = this.resolveJavaVariableType(text, { line: i, character: 0 }, receiverName, model, index, seen);
           if ( receiverType ) {
             var returnType = this.resolveMethodReturnType(receiverType, methodName, index);
             if ( returnType ) return returnType;

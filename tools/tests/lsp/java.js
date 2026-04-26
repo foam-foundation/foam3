@@ -690,5 +690,50 @@ test(aLocals.length === 1,
 test(vr.calls.some(function(c) { return c.receiver === 'a' && c.methodName === 'doSomething'; }),
   'qualifiedCall captured on a var-declared receiver (a.doSomething)');
 
+// === resolveJavaVariableType: var-decl + cycle guard ===
+// `var x = new T()` is the most common Java 10+ pattern in javaCode blocks
+// — without this, hovering on a var-typed receiver couldn't resolve the
+// method receiver's class. The cycle guard tests that mutually-referential
+// var-decls (`var a = b.x(); var b = a.y();`) terminate cleanly.
+section('CursorAnalyzer: var-decl resolution');
+
+var fObjModel = { package: 'com.example', name: 'X', javaImports: ['foam.lang.FObject'] };
+
+// resolveJavaTypeName returns either the short or fully-qualified id
+// depending on what foam.isRegistered() answers — both are valid; the
+// test only asserts a non-null resolution that includes "FObject".
+var newT = 'var t = new FObject();\nt.toString();';
+var newTType = analyzer.resolveJavaVariableType(newT, { line: 1, character: 0 }, 't', fObjModel, index);
+test(newTType && newTType.indexOf('FObject') >= 0,
+  'resolveJavaVariableType: var t = new FObject() resolves to an FObject id (got ' + newTType + ')');
+
+var castT = 'var c = (FObject) src.something();\nc.toString();';
+var castTType = analyzer.resolveJavaVariableType(castT, { line: 1, character: 0 }, 'c', fObjModel, index);
+test(castTType && castTType.indexOf('FObject') >= 0,
+  'resolveJavaVariableType: var c = (FObject) ... resolves to an FObject id (got ' + castTType + ')');
+
+var castGenerics = 'var c = (FObject<String>) src.something();\nc.toString();';
+var castGenType = analyzer.resolveJavaVariableType(castGenerics, { line: 1, character: 0 }, 'c', fObjModel, index);
+test(castGenType && castGenType.indexOf('FObject') >= 0,
+  'resolveJavaVariableType: cast with generics still resolves to an FObject id');
+
+// Cycle: a depends on b, b depends on a — must terminate, not infinite-loop.
+var cyclic = 'var a = b.foo();\nvar b = a.bar();\na.method();';
+var startCyc = Date.now();
+var cycResult = analyzer.resolveJavaVariableType(cyclic, { line: 2, character: 0 }, 'a', fObjModel, index);
+var elapsedCyc = Date.now() - startCyc;
+test(cycResult === null,
+  'resolveJavaVariableType cycle (a↔b mutual references) returns null, no infinite recursion');
+test(elapsedCyc < 1000,
+  'resolveJavaVariableType cycle terminates fast (took ' + elapsedCyc + 'ms)');
+
+// Self-reference: `var x = x.method();` — pathological but must not loop.
+var selfRef = 'var x = x.method();\nx.toString();';
+var startSelf = Date.now();
+var selfResult = analyzer.resolveJavaVariableType(selfRef, { line: 1, character: 0 }, 'x', fObjModel, index);
+var elapsedSelf = Date.now() - startSelf;
+test(elapsedSelf < 1000,
+  'resolveJavaVariableType self-reference terminates fast (took ' + elapsedSelf + 'ms)');
+
 // === MESSAGE AXIOM: hover + go-to-definition ===
 

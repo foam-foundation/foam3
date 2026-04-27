@@ -93,9 +93,15 @@ foam.CLASS({
         .start('', {}, this.notContent$)
         .style({ display:'contents'})
         .end()
-        .tag(this.OverlayActionListView, { data$: this.slot(function(data, currentOverflow) {
-          return [...currentOverflow, ...data]
-        }), ...this.overlaySpec }, this.overlay_$)
+        .tag(this.OverlayActionListView, {
+          data$: this.slot(function(data, currentOverflow) {
+            return [...currentOverflow, ...data]
+          }),
+          shown$: this.slot(function(data, currentOverflow) {
+            return data.length > 0 || currentOverflow.length > 0;
+          }),
+          ...this.overlaySpec
+        }, this.overlay_$)
       this.content = this.notContent;
       // Start observing the container
       this.resizeObserver(this.onResize);
@@ -164,7 +170,6 @@ foam.CLASS({
       isFramed: true,
       code: function() {
         if ( ! this.el_() ) return;
-        this.overlay_.overlay_.close();
 
         const containerWidth = this.el_().offsetWidth;
         const overlayWidth = this.overlay_?.el_()?.offsetWidth || 40;
@@ -173,7 +178,7 @@ foam.CLASS({
         let currentWidth = 24; // 24px as padding width for either side
         const children = this.notContent.children;
         // Determine how many fit
-        for ( let i = 0; i < children.length; i++) {
+        for ( let i = 0; i < children.length; i++ ) {
           let child = children[i];
           let value = this.childWidths[child.$UID];
           currentWidth += (value?.width ?? 0) + 16; // 16px for gap
@@ -186,26 +191,26 @@ foam.CLASS({
           }
         }
 
-        
-
         // Toggle visibility and update overlay data
         const overflowItems = [];
+        let visibilityChanged = false;
 
         children.forEach((child, idx) => {
           if ( ! this.childWidths[child.$UID] ) return;
           let el = this.childWidths[child.$UID]?.el;
-          let act = this.ActionReference.create({ action$: el.action$, data$: el.data$ });
           if ( idx < visibleCount ) {
-            el.show();
+            if ( ! el.shown ) { el.show(); visibilityChanged = true; }
           } else {
-            el.hide();
+            if ( el.shown ) { el.hide(); visibilityChanged = true; }
             // Logic to map the hidden child back to an action/spec for the overlay
-            overflowItems.push(act);
+            overflowItems.push(this.ActionReference.create({ action$: el.action$, data$: el.data$ }));
           }
         });
 
-        this.currentOverflow = overflowItems;
-        // this.overlay_.toggle(overflowItems.length > 0);
+        if ( visibilityChanged || overflowItems.length !== this.currentOverflow.length ) {
+          if ( visibilityChanged ) this.overlay_.overlay_.close();
+          this.currentOverflow = overflowItems;
+        }
       }
     }
   ]

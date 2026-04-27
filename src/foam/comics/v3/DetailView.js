@@ -232,6 +232,11 @@ foam.CLASS({
         d = self.stack.setTrailingContainer(
           this.buttonGroup_
             .addClass(self.myClass('buttonGroup'))
+            .startContext({ data: self })
+              .tag(actionsOverrides.edit)
+              .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
+              .tag(self.CANCEL_EDIT)
+            .endContext()
             .add(self.dynamic(function(primary) {
               if ( ! primary ) return;
               this
@@ -251,11 +256,6 @@ foam.CLASS({
                 .endContext();
               });
             })
-            .startContext({ data: self })
-              .tag(actionsOverrides.edit)
-              .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
-              .tag(self.CANCEL_EDIT)
-            .endContext()
             .startOverlay()
               .tag(actionsOverrides.copy)
               .tag(actionsOverrides.delete)

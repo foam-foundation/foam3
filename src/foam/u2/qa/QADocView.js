@@ -77,6 +77,7 @@ foam.CLASS({
                 .start('th').add('Prompt').end()
               .end()
               .forEach(questions, function(q) {
+                try {
                 this.start('tr')
                   .start('td').start('code').add(q.name).end().end()
                   .start('td')
@@ -85,7 +86,15 @@ foam.CLASS({
                     q.choices.length,
                     function() { this.start('b').add('Choices: ').end().add(q.choices.map(c => foam.Array.isInstance(c) ? c[1] : c).join(', ')); }
                   )
-                .end();
+                  .tag('br')
+                  .start('b').add('Outcomes: ').end().add(
+                    self.outcomes.
+                      map((o,i) => [o, i+1]).
+                      filter(o => o[0].predicate.indexOf(q.name) != -1).
+                      map(o => o[1]).
+                      join(', '))
+                    .end();
+                } catch (x) {}
               })
             .end();
           }))
@@ -97,12 +106,14 @@ foam.CLASS({
           .add(self.dynamic(function(outcomes) {
             this.start('table').addClass(self.myClass('table'))
               .start('tr')
+                .start('th').add('#').end()
                 .start('th').add('Reason Code').end()
                 .start('th').add('Reason Text').end()
                 .start('th').add('Predicate').end()
               .end()
-              .forEach(outcomes, function(o) {
+              .forEach(outcomes, function(o, i) {
                 this.start('tr')
+                  .start('td').add(i+1).end()
                   .start('td').start('code').add(o.reasonCode_ || '-').end().end()
                   .start('td').add(o.reasonText || '-').end()
                   .start('td').addClass(self.myClass('predicate')).add(self.formatPredicate(o.predicate)).end()

@@ -130,6 +130,8 @@ foam.CLASS({
       name: 'GroupHeader',
       extends: 'foam.u2.View',
 
+      exports: ['controllerMode'],
+
       css: `
         ^ {
           min-height: 20px;
@@ -144,15 +146,27 @@ foam.CLASS({
         {
           class: 'String',
           name: 'groupLabel'
+        },
+        {
+          name: 'groupBy'
+        },
+        {
+          name: 'controllerMode',
+          value: foam.u2.ControllerMode.VIEW
         }
       ],
 
       methods: [
         function render() {
-          this
-            .addClass(this.myClass(), 'h600')
-            .add(this.groupLabel)
-          .end();
+          this.addClass(this.myClass(), 'h600');
+          if ( foam.lang.Property.isInstance(this.groupBy) ) {
+            this
+              .startContext({ data: this.data })
+              .add(this.groupBy)
+              .endContext();
+          } else {
+            this.add(this.groupLabel);
+          }
         }
       ]
     },

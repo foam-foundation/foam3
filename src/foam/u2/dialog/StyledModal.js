@@ -141,7 +141,8 @@ foam.CLASS({
       class: 'String',
       name: 'description'
     },
-    'wrapper_'
+    'wrapper_',
+    'data'
   ],
 
   methods: [
@@ -202,7 +203,7 @@ foam.CLASS({
       return this.E().tag('', null, this.content$);
     },
     function addActions(self) {
-      var actions = this.startContext({ data$: self.data$ });
+      var actions = this.startContext({ data: self.data$ });
       for ( action of self.actionArray ) {
         actions.tag(action);
       }

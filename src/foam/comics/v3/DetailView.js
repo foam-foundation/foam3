@@ -185,12 +185,16 @@ foam.CLASS({
     {
       name: 'currentData_',
       documentation: 'Active data property that stores current working data for the current view mode',
-      value: null
+      value: null,
+      postSet: function(o, n) {
+        if ( n ) this.populatePrimaryAction(true);
+      }
     },
     {
       class: 'Map',
       name: 'actionsOverrides'
-    }
+    },
+    'actionsToAdd_'
   ],
 
   methods: [
@@ -219,13 +223,14 @@ foam.CLASS({
       this.stack?.setTitle(this.viewTitle$, this);
       this.SUPER();
       let d;
-      this.onDetach(this.dynamic(function(currentData_, actionsOverrides){
+      this.onDetach(this.dynamic(function(currentData_, actionsOverrides, actionArray){
         d?.detach?.();
+        this.buttonGroup_?.remove();
+        this.buttonGroup_ = foam.u2.ButtonGroup.create({
+          overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
+        }, self);
         d = self.stack.setTrailingContainer(
-          this.E().style({ display: 'contents' }).start(foam.u2.ButtonGroup, {
-              // overrides: { size: 'SMALL' },
-              overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
-            }, this.buttonGroup_$)
+          this.buttonGroup_
             .addClass(self.myClass('buttonGroup'))
             .add(self.dynamic(function(primary) {
               if ( ! primary ) return;
@@ -235,6 +240,17 @@ foam.CLASS({
                   .tag(primary, { buttonStyle: 'PRIMARY', size: 'SMALL' })
                 .endContext();
             }))
+            .call(function() {
+              let el = this;
+              actionArray.forEach(function(action) {
+                let actRef = foam.u2.ActionReference.create({ action: action, data: self.currentData_$ });
+                el.startContext({ data: self.currentData_$ })
+                  .start(actRef, { size: 'SMALL' })
+                  .hide(self.controllerMode$.map(c => c == 'EDIT' ))
+                  .end()
+                .endContext();
+              });
+            })
             .startContext({ data: self })
               .tag(actionsOverrides.edit)
               .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
@@ -244,8 +260,6 @@ foam.CLASS({
               .tag(actionsOverrides.copy)
               .tag(actionsOverrides.delete)
             .endOverlay()
-            .callIf(currentData_, function() { self.populatePrimaryAction(true) })
-          .end()
         )
         self.onDetach(d);
       }))
@@ -334,15 +348,7 @@ foam.CLASS({
           this.primary = res;
           this.actionArray = this.actionArray.filter(v => v !== res);
         }
-        if ( this.buttonGroup_ ) {
-          let actionsToAdd = rebuildArray ? this.actionArray : foam.util.diff(oldActions ,this.actionArray).added || [];
-          this.buttonGroup_
-            .startOverlay()
-            .forEach(actionsToAdd, function(v) {
-              this.addActionReference(v, self.currentData_$)
-            })
-            .endOverlay()
-        }
+
       }
     },
     {

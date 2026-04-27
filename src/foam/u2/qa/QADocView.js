@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ { font-family: system-ui, sans-serif; max-width: 1000px; }
+    ^ { font-family: system-ui, sans-serif; max-width: 1200px; }
     ^section { margin: 24px 0; }
     ^table { border-collapse: collapse; width: 100%; }
     ^table th, ^table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -60,18 +60,65 @@ foam.CLASS({
       var self = this;
       var cls  = this.data;
       if ( ! cls ) return;
-
+      var questions = this.questions;
+      var outcomes = this.outcomes;
       var model = cls.model_;
+      let questionNames = { reasonCode_: true, reasonText: true, notice: true, reactions_: true }; // TODO: filter
 
-      this.addClass(this.myClass())
+      this.questions.forEach(q => questionNames[q.name] = true);
+
+      var properties = cls.getOwnAxiomsByClass(foam.lang.Property).filter(p => { return ! questionNames[p.name]; });
+
+      properties.sort((a, b) => foam.String.compare(a.name, b.name));
+      questions.sort((a, b) => foam.String.compare(a.name, b.name));
+      // TODO: reasonCode_ shouldn't be hard-coded
+      outcomes.sort((a, b) => foam.String.compare(a.reasonCode_, b.reasonCode_));
+
+      function addOutcomeList(name) {
+        this.start('b').add('Outcomes: ').end();
+
+        var list = outcomes.
+            map((o,i) => [o, i+1]).
+            filter(o => o[0].predicate.indexOf(name) != -1).
+            map(o => o[1]).
+            join(', ');
+
+        if ( list ) {
+          this.add(list);
+        } else {
+          this.start('span').style({color: 'red'}).add('UNUSED');
+        }
+      }
+
+      this
+        .addClass(this.myClass())
         .start('h1').add(model.name, ' Questionnaire').end()
         .start('p').add(model.documentation || '').end()
+
+        // Hidden Properties
+        .start('div').addClass(this.myClass('section'))
+          .start('h2').add('Hidden Properties').end()
+            .start('table').addClass(self.myClass('table'))
+              .start('tr')
+                .start('th').add('Property').end()
+                .start('th').add('Description').end()
+              .end()
+              .forEach(properties, function(q) {
+                try {
+                this.start('tr')
+                  .start('td').start('code').add(q.name).end().end()
+                  .start('td')
+                  .callIf(q.description, function() { this.add(q.description).tag('br'); })
+                  .call(function() { addOutcomeList.call(this, q.name); })
+                } catch (x) {}
+              })
+            .end()
+        .end()
 
         // Questions Table
         .start('div').addClass(this.myClass('section'))
           .start('h2').add('Questions').end()
-          .add(self.dynamic(function(questions) {
-            this.start('table').addClass(self.myClass('table'))
+            .start('table').addClass(self.myClass('table'))
               .start('tr')
                 .start('th').add('Property').end()
                 .start('th').add('Prompt').end()
@@ -87,23 +134,15 @@ foam.CLASS({
                     function() { this.start('b').add('Choices: ').end().add(q.choices.map(c => foam.Array.isInstance(c) ? c[1] : c).join(', ')); }
                   )
                   .tag('br')
-                  .start('b').add('Outcomes: ').end().add(
-                    self.outcomes.
-                      map((o,i) => [o, i+1]).
-                      filter(o => o[0].predicate.indexOf(q.name) != -1).
-                      map(o => o[1]).
-                      join(', '))
-                    .end();
+                  .call(function() { addOutcomeList.call(this, q.name); })
                 } catch (x) {}
               })
-            .end();
-          }))
+            .end()
         .end()
 
         // Outcomes Table
         .start('div').addClass(this.myClass('section'))
           .start('h2').add('Outcomes').end()
-          .add(self.dynamic(function(outcomes) {
             this.start('table').addClass(self.myClass('table'))
               .start('tr')
                 .start('th').add('#').end()
@@ -119,9 +158,8 @@ foam.CLASS({
                   .start('td').addClass(self.myClass('predicate')).add(self.formatPredicate(o.predicate)).end()
                 .end();
               })
-            .end();
-          }))
-        .end();
+            .end()
+        .end().br();
     },
 
     function formatPredicate(pred) {

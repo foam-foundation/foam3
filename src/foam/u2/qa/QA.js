@@ -320,7 +320,6 @@ foam.CLASS({
               if ( self[q.name] !== '' && self[q.name] != undefined ) continue;
 
               var gain = self.computeInfoGain(q, candidates);
-              console.debug('Checking question', q.name, 'gain', gain, 'bestGain', bestQ?.name, ' - ', bestGain);
               // Prefer higher gain, then fewer choices, then earlier declaration
               if ( gain > bestGain ||
                    ( gain === bestGain && bestQ &&

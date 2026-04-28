@@ -16,6 +16,8 @@ foam.CLASS({
     Fully agnostic to the QA class — works with any compiled foam.QA2() model.
   `,
 
+  exports: ['as wizard'],
+
   requires: [
     'foam.u2.ProgressView',
     'foam.u2.qa.RankedOutcome',

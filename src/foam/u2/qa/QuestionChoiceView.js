@@ -15,10 +15,15 @@ foam.CLASS({
     }
   `,
 
+  imports: ['wizard'],
+
   properties: [
     {
       class: 'String',
       name: 'data',
+      postSet: function(_, n) {
+        if ( n && this.initialized ) this.wizard?.next();
+      }
     },
     {
       class: 'String',
@@ -31,6 +36,10 @@ foam.CLASS({
     {
       class: 'String',
       name: 'placeholder'
+    },
+    {
+      class: 'Boolean',
+      name: 'initialized'
     }
   ],
 
@@ -42,6 +51,7 @@ foam.CLASS({
       viewSpec.choices = this.choices;
       this.startContext({ data: this })
       this.start(this.DATA.__, { config: { label: '', view: viewSpec } }).addClass(this.myClass()).end();
+      this.initialized = true;
     },
     function fromProperty(property) {
       this.prompt = property.label;

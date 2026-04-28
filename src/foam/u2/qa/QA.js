@@ -457,7 +457,7 @@ foam.CLASS({
               return b.specificity - a.specificity;
             });
             // returns a list of [outcome, match percentage]
-            return scored.map(function(s) { return [s.outcome, (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0)]; });
+            return scored.map(function(s) { return [s.outcome, (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0), s.matching, s.specificity]; });
           }
         ]
       };

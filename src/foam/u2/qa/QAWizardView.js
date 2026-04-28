@@ -243,13 +243,12 @@ foam.CLASS({
             var ranked     = self.data.rankOutcomes(candidates);
             ranked.map(function(o) {
               let label = self.data.outcomeFormatter(o[0]) || ('Option ' + (idx + 1));
-              if ( o[1] != 0 ) {
-                label += ' (' + o[1].toFixed(2) + '% match)';
-              }
               self.rankedOutcomeDAO.put(self.RankedOutcome.create({
                 label: label,
                 outcome: o[0],
-                score: o[1]
+                score: o[1],
+                matching: o[2],
+                specificity: o[3]
               }));
             });
             this.startContext({ data: self })
@@ -261,7 +260,7 @@ foam.CLASS({
                   sections: [
                     {
                       heading: self.MATCHES,
-                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)).orderBy(self.DESC(self.RankedOutcome.SCORE)))
+                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)).orderBy(self.DESC(self.RankedOutcome.MATCHING), self.DESC(self.RankedOutcome.SCORE)))
                     },
                     {
                       heading: self.POTENTIAL_MATCHES,
@@ -360,6 +359,50 @@ foam.CLASS({
     {
       name: 'score',
       class: 'Float'
+    },
+    {
+      name: 'matching',
+      class: 'Int'
+    },
+    {
+      name: 'specificity',
+      class: 'Int'
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.u2.qa',
+  name: 'RankedOutcomeCitationView',
+  extends: 'foam.u2.CitationView',
+
+  css: `
+    ^label {
+      color: $textDefault;
+    }
+    ^meta {
+      color: $textTertiary;
+    }
+  `,
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.u2.qa.RankedOutcome',
+      name: 'data'
+    }
+  ],
+
+  methods: [
+    function render() {
+      this
+        .addClass(this.myClass())
+        .start()
+          .start().addClass('p-semiBold', this.myClass('label')).add(this.data.label).end()
+          .start().addClass('p-legal', this.myClass('meta'))
+            .add(this.data.matching + '/' + this.data.specificity + ' conditions match')
+          .end()
+        .end();
     }
   ]
 });

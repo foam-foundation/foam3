@@ -237,23 +237,17 @@ foam.CLASS({
               .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
               .tag(self.CANCEL_EDIT)
             .endContext()
-            .add(self.dynamic(function(primary) {
-              if ( ! primary ) return;
-              this
-                // .hide(self.controllerMode$.map(c => c == 'EDIT' ))
-                .startContext({ data: self.currentData_$ })
-                  .tag(primary, { buttonStyle: 'PRIMARY', size: 'SMALL' })
-                .endContext();
-            }))
             .call(function() {
               let el = this;
+              let first = true;
               actionArray.forEach(function(action) {
-                let actRef = foam.u2.ActionReference.create({ action: action, data: self.currentData_$ });
+                let actRef = foam.u2.ActionReference.create({ action: action, data$: self.currentData_$ });
                 el.startContext({ data: self.currentData_$ })
-                  .start(actRef, { size: 'SMALL' })
-                  .hide(self.controllerMode$.map(c => c == 'EDIT' ))
+                  .start(actRef, { buttonStyle: first ? 'PRIMARY' : 'SECONDARY', size: 'SMALL' })
+                  .show(self.controllerMode$.map(c => c != 'EDIT' ))
                   .end()
                 .endContext();
+                first = false;
               });
             })
             .startOverlay()
@@ -334,21 +328,6 @@ foam.CLASS({
         } else {
           this.actionArray = allActions;
         }
-        if ( acArray && acArray.length ) {
-          let res;
-          for ( let a of acArray ) {
-            var aSlot = a.createIsAvailable$(this.__subContext__, data);
-            let b = aSlot.get();
-            if ( aSlot.promise ) {
-              await aSlot.promise;
-              b = aSlot.get();
-            }
-            if (b) { res = a; break; }
-          }
-          this.primary = res;
-          this.actionArray = this.actionArray.filter(v => v !== res);
-        }
-
       }
     },
     {

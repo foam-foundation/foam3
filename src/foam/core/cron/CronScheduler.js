@@ -41,8 +41,14 @@ foam.CLASS({
     'foam.mlang.sink.Sequence',
     'java.util.Date',
     'java.util.List',
-    'java.util.Timer'
+    'java.util.Timer',
+    'java.util.concurrent.atomic.AtomicBoolean'
   ],
+
+  javaCode: `
+  AtomicBoolean running_ = new AtomicBoolean();
+  Object lock_           = new Object();
+  `,
 
   properties: [
     {
@@ -88,9 +94,25 @@ foam.CLASS({
       `
     },
     {
+      name: 'stop',
+      javaCode: `
+      synchronized ( lock_ ) {
+        running_.set(false);
+      }
+      `
+    },
+    {
       name: 'execute',
       javaCode: `
     final Logger logger = Loggers.logger(x, this);
+    synchronized ( lock_ ) {
+      if ( running_.get() ) {
+        logger.warning("already running");
+        return;
+      }
+      running_.set(true);
+    }
+
     try {
       logger.info("initialize", "cronjobs", "start");
       DAO cronJobDAO = (DAO) x.get(getCronJobDAO());
@@ -132,7 +154,7 @@ foam.CLASS({
 
       logger.info("initialize", "cronjobs", "complete");
 
-      while ( true ) {
+      while ( running_.get() ) {
         long delay = getCronDelay();
         if ( getEnabled() ) {
           Date now = new Date();

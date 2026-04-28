@@ -78,6 +78,11 @@ foam.CLASS({
       name: 'enabled',
       class: 'Boolean',
       value: true
+    },
+    {
+      name: 'timer',
+      class: 'Object',
+      visibility: 'HIDDEN'
     }
   ],
 
@@ -88,6 +93,7 @@ foam.CLASS({
       javaCode: `
       Loggers.logger(getX(), this).info("start");
       Timer timer = new Timer(this.getClass().getSimpleName());
+      setTimer(timer);
       timer.schedule(
         new AgencyTimerTask(getX(), this),
         getInitialTimerDelay());
@@ -98,6 +104,9 @@ foam.CLASS({
       javaCode: `
       synchronized ( lock_ ) {
         running_.set(false);
+        Timer timer = (Timer) getTimer();
+        if ( timer != null )
+          timer.cancel();
       }
       `
     },

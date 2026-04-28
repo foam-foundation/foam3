@@ -179,6 +179,7 @@ foam.CLASS({
       // 1. Declared properties (inputs + outputs)
       properties.forEach(function(p) {
         var copy = Object.assign({}, p);
+        copy.section = 'props_';
         existingNames[p.name] = true;
         inputNames.push(p.name);
         props.push(copy);
@@ -231,6 +232,10 @@ foam.CLASS({
           'foam.parse.SimpleQueryParser',
           'foam.mlang.predicate.And',
           'foam.u2.qa.RankedOutcome'
+        ],
+
+        sections: [
+          { name: 'props_' }
         ],
 
         constants: [

@@ -242,14 +242,7 @@ foam.CLASS({
             var candidates = self.data.getCandidates();
             var ranked     = self.data.rankOutcomes(candidates);
             ranked.map(function(o) {
-              let label = self.data.outcomeFormatter(o[0]) || ('Option ' + (idx + 1));
-              self.rankedOutcomeDAO.put(self.RankedOutcome.create({
-                label: label,
-                outcome: o[0],
-                score: o[1],
-                matching: o[2],
-                specificity: o[3]
-              }));
+              self.rankedOutcomeDAO.put(o);
             });
             this.startContext({ data: self })
               .tag(self.PICKED_OUTCOME_INDEX.__, { config: {
@@ -340,69 +333,6 @@ foam.CLASS({
         this.answeredStack$push(this.currentQuestionAxiom);
         return await this.advance_();
       }
-    }
-  ]
-});
-
-foam.CLASS({
-  package: 'foam.u2.qa',
-  name: 'RankedOutcome',
-  ids: ['label'],
-  properties: [
-    {
-      name: 'label',
-      class: 'String'
-    },
-    {
-      name: 'outcome'
-    },
-    {
-      name: 'score',
-      class: 'Float'
-    },
-    {
-      name: 'matching',
-      class: 'Int'
-    },
-    {
-      name: 'specificity',
-      class: 'Int'
-    }
-  ]
-});
-
-foam.CLASS({
-  package: 'foam.u2.qa',
-  name: 'RankedOutcomeCitationView',
-  extends: 'foam.u2.CitationView',
-
-  css: `
-    ^label {
-      color: $textDefault;
-    }
-    ^meta {
-      color: $textTertiary;
-    }
-  `,
-
-  properties: [
-    {
-      class: 'FObjectProperty',
-      of: 'foam.u2.qa.RankedOutcome',
-      name: 'data'
-    }
-  ],
-
-  methods: [
-    function render() {
-      this
-        .addClass(this.myClass())
-        .start()
-          .start().addClass('p-semiBold', this.myClass('label')).add(this.data.label).end()
-          .start().addClass('p-legal', this.myClass('meta'))
-            .add(this.data.matching + '/' + this.data.specificity + ' conditions match')
-          .end()
-        .end();
     }
   ]
 });

@@ -302,6 +302,9 @@ foam.CLASS({
             var candidates = this.getCandidates();
             if ( candidates.length <= 1 ) return null;
 
+            // console.log('************ CANDIDATES:');
+            // candidates.forEach(c => console.log(c.reasonCode_, ' / ', c.reasonText, ' / ', c.predicate));
+
             var self      = this;
             var questions = this.QUESTIONS;
             var bestQ     = null;
@@ -318,7 +321,8 @@ foam.CLASS({
               // Prefer higher gain, then fewer choices, then earlier declaration
               if ( gain > bestGain ||
                    ( gain === bestGain && bestQ &&
-                     q.choices?.length < bestQ.choices?.length ) ) {
+                     q.choices?.length < bestQ.choices?.length ) )
+              {
                 bestGain = gain;
                 bestQ    = q;
               }
@@ -389,7 +393,7 @@ foam.CLASS({
             var entropy = 0;
 
             question.choices?.forEach(function(c) {
-              var value = foam.Array.isInstance(c) ? c[1] : c;
+              var value = foam.Array.isInstance(c) ? c[0] : c;
               var count = buckets[value] + dontCareCount;
               if ( count > 0 && count < total ) {
                 var p = count / total;
@@ -404,7 +408,6 @@ foam.CLASS({
                 entropy -= p * Math.log2(p);
               }
             }
-
 
             return entropy;
           },

@@ -920,6 +920,8 @@ foam.CLASS({
       this.currentBlock = b;
 //      console.log(this.block, this.currentBlock, b);
     }
+  ]
+});
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',

@@ -52,7 +52,8 @@ foam.CLASS({
         var start = s.indexOf('{');
         var end   = s.lastIndexOf('}');
         return ( start >= 0 && end >= 0 ) ? s.substring(start + 2, end) : '';
-      },
+      }
+    },
     {
       name: 'dom',
       hidden: true,

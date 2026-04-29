@@ -182,7 +182,7 @@ p({
 p({"class":"foam.core.reflow.cmd.DAOFilter", "id": "daofilter"})
 p({
   "class":"foam.core.reflow.cmd.Info",
-
+})
 p({
   "class":"foam.core.reflow.cmd.Example",
   "id": "example",

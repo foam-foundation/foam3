@@ -69,6 +69,9 @@ public class SimpleAsyncAssemblyLine
 
     endThread_ = new Thread(threadGroup_, name_ + "-endJob") {
       public void run() {
+        // Carry forward XLocator Context to this thread
+        foam.lang.XLocator.set(x_);
+
         while ( true ) {
           try {
             Assembly job = channel_.take();
@@ -92,6 +95,9 @@ public class SimpleAsyncAssemblyLine
     if ( shutdown_ ) throw new IllegalStateException("Can't enqueue into a shutdown AssemblyLine.");
 
     pool_.execute(() -> {
+      // Carry forward XLocator Context to this thread
+      foam.lang.XLocator.set(x_);
+
       try {
         job.executeJob();
       } catch (Throwable t) {

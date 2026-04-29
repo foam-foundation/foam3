@@ -19,3 +19,8 @@ Examples:
 - PI Chart
 - recon
 - queries
+
+Agents?
+- agentDAO?
+- flowDAO with "AGENT" category
+- are tied to specific LLMs or independent?

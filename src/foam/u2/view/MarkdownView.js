@@ -342,6 +342,8 @@ foam.CLASS({
           };
         },
 
+        function heading(v) {
+          let level = v[0].length, text = v[2];
           return function() { this.start().addClass('h' + level + '00', 'mdHeader').add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
         },
 
@@ -420,6 +422,8 @@ foam.CLASS({
         function tableRow(v) {
           return v.map(c => this.markdownGrammar.getSymParser('inlineContent').parseString(c));
         },
+
+        function paragraph(v) {
           return function() { this.start().addClass('p','mdParagraph').call(v); };
         },
 

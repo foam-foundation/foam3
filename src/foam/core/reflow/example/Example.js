@@ -13,12 +13,7 @@ foam.CLASS({
 
   css: `
     ^ {
-      margin-bottom: 36px;
-      background: 'pink';
       width: 100%;
-      xxxborder: 2px solid black;
-      xxxborder-radius': 3px;
-      padding-bottom': 24px;
     }
     ^ .property-text { border: none; padding: 10 0; }
     ^ .property-code { margin-bottom: 12px; }
@@ -52,7 +47,8 @@ foam.CLASS({
         var start = s.indexOf('{');
         var end   = s.lastIndexOf('}');
         return ( start >= 0 && end >= 0 ) ? s.substring(start + 2, end) : '';
-      }
+      },
+      view: 'foam.core.reflow.example.CodeView'
     },
     {
       name: 'dom',
@@ -70,6 +66,7 @@ foam.CLASS({
 
       this.
         addClass(this.myClass()).
+        add(this.CODE).
           start('span').addClass('h500').add('Output:').end().
             start().
               addClass(this.myClass('output')).

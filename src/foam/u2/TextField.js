@@ -71,6 +71,8 @@ foam.CLASS({
       if ( this.units ) {
         var parent = this.parentNode;
         var self   = this;
+        var span   = parent.start('span').style({display: 'inline-block', position: 'relative', 'font-weight': '300'}).add(self.units, ' ');
+        var e      = span.el_();
         let restyle = () => {
           var w = Math.ceil(e.getBoundingClientRect().width);
           span.style({left: '-' + (4) + 'px'});

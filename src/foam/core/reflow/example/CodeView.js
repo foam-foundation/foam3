@@ -7,6 +7,7 @@
 foam.CLASS({
   package: 'foam.core.reflow.example',
   name: 'CodeView',
+  extends: 'foam.u2.ReadWriteView',
   css: `
     ^readbox {
       border: 1px dashed $borderDefault;

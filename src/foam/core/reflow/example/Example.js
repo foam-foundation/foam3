@@ -11,8 +11,19 @@ foam.CLASS({
 
   imports: [ 'scope as globalScope' ],
 
-
+  css: `
+    ^ {
+      margin-bottom: 36px;
+      background: 'pink';
+      width: 100%;
+      xxxborder: 2px solid black;
+      xxxborder-radius': 3px;
+      padding-bottom': 24px;
+    }
+    ^ .property-text { border: none; padding: 10 0; }
     ^ .property-code { margin-bottom: 12px; }
+    ^ .property-title { float: left; }
+    ^ .property-id { float: left; margin-right: 12px; }
     ^output {
       border: 2px solid $borderDefault;
       padding: 1rem;

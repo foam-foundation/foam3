@@ -20,12 +20,13 @@ foam.CLASS({
   exports: ['storeAction'],
 
   css: `
-    ^ { 
+    ^ {
       display: flex;
       gap: 1rem;
       align-items: center;
       flex-wrap: nowrap;
       flex: 1 0 0;
+      min-width: 0;
     }
     ^vertical {
       flex-direction: column;
@@ -87,12 +88,11 @@ foam.CLASS({
     function init() {
       this.SUPER();
       this.__subSubContext__.register(foam.u2.ButtonGroupActionView,'foam.u2.ActionView');
+      this.__subSubContext__.register(foam.u2.ButtonGroupActionReferenceView,'foam.u2.ActionReferenceView');
       this
         .addClass()
         .enableClass(this.myClass('vertical'), this.direction$.map(v => v == 'VERTICAL'))
-        .start('', {}, this.notContent$)
-        .style({ display:'contents'})
-        .end()
+        .tag(foam.u2.WrapperNode, { parentNode: this }, this.notContent$)
         .tag(this.OverlayActionListView, {
           data$: this.slot(function(data, currentOverflow) {
             return [...currentOverflow, ...data]
@@ -146,7 +146,7 @@ foam.CLASS({
         uid = e.$UID;
       }
       el.resizeObserver(this.buttonObserver.bind(this, el, uid));
-      this.buttonObserver(el);
+      this.buttonObserver(el, uid);
       this.onResize();
     },
     function isAction(a) {
@@ -158,7 +158,7 @@ foam.CLASS({
       name: 'buttonObserver',
       code: function(el, id) {
         let width = el.el_().offsetWidth;
-        if ( width === 0 || ! el.shown ) return; 
+        if ( width === 0 || ! el.shown ) return;
         this.childWidths[id] = { el: el, width: width };
         el.onDetach(() => {
           this.childWidths$remove[id];
@@ -207,10 +207,8 @@ foam.CLASS({
           }
         });
 
-        if ( visibilityChanged || overflowItems.length !== this.currentOverflow.length ) {
-          if ( visibilityChanged ) this.overlay_.overlay_.close();
-          this.currentOverflow = overflowItems;
-        }
+        if ( visibilityChanged ) this.overlay_.overlay_.close();
+        this.currentOverflow = overflowItems;
       }
     }
   ]
@@ -220,6 +218,22 @@ foam.CLASS({
   package: 'foam.u2',
   name: 'ButtonGroupActionView',
   extends: 'foam.u2.ActionView',
+
+  imports: ['storeAction'],
+
+  methods: [
+    function render() {
+      this.SUPER();
+      this.storeAction(this);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'ButtonGroupActionReferenceView',
+  extends: 'foam.u2.ActionReferenceView',
 
   imports: ['storeAction'],
 

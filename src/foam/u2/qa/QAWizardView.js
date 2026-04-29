@@ -242,15 +242,7 @@ foam.CLASS({
             var candidates = self.data.getCandidates();
             var ranked     = self.data.rankOutcomes(candidates);
             ranked.map(function(o) {
-              let label = self.data.outcomeFormatter(o[0]) || ('Option ' + (idx + 1));
-              if ( o[1] != 0 ) {
-                label += ' (' + o[1].toFixed(2) + '% match)';
-              }
-              self.rankedOutcomeDAO.put(self.RankedOutcome.create({
-                label: label,
-                outcome: o[0],
-                score: o[1]
-              }));
+              self.rankedOutcomeDAO.put(o);
             });
             this.startContext({ data: self })
               .tag(self.PICKED_OUTCOME_INDEX.__, { config: {
@@ -261,7 +253,7 @@ foam.CLASS({
                   sections: [
                     {
                       heading: self.MATCHES,
-                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)).orderBy(self.DESC(self.RankedOutcome.SCORE)))
+                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)).orderBy(self.DESC(self.RankedOutcome.MATCHING), self.DESC(self.RankedOutcome.SCORE)))
                     },
                     {
                       heading: self.POTENTIAL_MATCHES,
@@ -341,25 +333,6 @@ foam.CLASS({
         this.answeredStack$push(this.currentQuestionAxiom);
         return await this.advance_();
       }
-    }
-  ]
-});
-
-foam.CLASS({
-  package: 'foam.u2.qa',
-  name: 'RankedOutcome',
-  ids: ['label'],
-  properties: [
-    {
-      name: 'label',
-      class: 'String'
-    },
-    {
-      name: 'outcome'
-    },
-    {
-      name: 'score',
-      class: 'Float'
     }
   ]
 });

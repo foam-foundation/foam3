@@ -52,11 +52,6 @@ foam.CLASS({
     ^top-bar {
       border-bottom: solid 1px $borderLight;
       align-items: center;
-      padding-top: 16px;
-    }
-
-    ^toolbar {
-      flex-grow: 1;
     }
 
     ^query-bar {

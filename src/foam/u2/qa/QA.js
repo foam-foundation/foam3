@@ -230,6 +230,7 @@ foam.CLASS({
         requires: [
           'foam.parse.SimpleQueryParser',
           'foam.mlang.predicate.And',
+          'foam.u2.qa.RankedOutcome'
         ],
 
         constants: [
@@ -242,6 +243,11 @@ foam.CLASS({
         properties: props,
 
         methods: [
+          {
+            name: 'outcomeFormatter',
+            code: function(outcome) { return outcome.name; }
+          },
+          // After so that the models can override it
           ...model.methods,
           /**
            * Lazily compile an outcome's predicate string into mlang terms.
@@ -317,7 +323,6 @@ foam.CLASS({
               if ( self[q.name] !== '' && self[q.name] != undefined ) continue;
 
               var gain = self.computeInfoGain(q, candidates);
-
               // Prefer higher gain, then fewer choices, then earlier declaration
               if ( gain > bestGain ||
                    ( gain === bestGain && bestQ &&
@@ -459,8 +464,15 @@ foam.CLASS({
               if ( b.matching !== a.matching ) return b.matching - a.matching;
               return b.specificity - a.specificity;
             });
-            // returns a list of [outcome, match percentage]
-            return scored.map(function(s) { return [s.outcome, (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0)]; });
+            return scored.map(function(s, idx) {
+              return self.RankedOutcome.create({
+                label: self.outcomeFormatter(s.outcome) || ('Option ' + (idx + 1)),
+                outcome: s.outcome,
+                score: (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0),
+                matching: s.matching,
+                specificity: s.specificity
+              });
+            });
           }
         ]
       };

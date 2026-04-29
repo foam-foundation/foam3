@@ -283,6 +283,7 @@ foam.POM({
     { name: "foam/u2/qa/QADocView",                                   flags: "js" },
     { name: "foam/u2/qa/QuestionChoiceView",                          flags: "js" },
     { name: "foam/u2/qa/QAWizardView",                                flags: "js" },
+    { name: "foam/u2/qa/RankedOutcome",                                flags: "js" },
 //    { name: "foam/version/VersionTrait",                              flags: "js" },
 //    { name: "foam/version/VersionedClass",                            flags: "js" },
 //    { name: "foam/version/VersionedClassFactory",                     flags: "js" },

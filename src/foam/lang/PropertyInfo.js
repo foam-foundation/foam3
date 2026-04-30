@@ -147,6 +147,15 @@ foam.INTERFACE({
     }`,
     'void fromCSVLabelMapping(java.util.Map<String,foam.lib.csv.FromCSVSetter> map)',
     'boolean getSheetsOutput() { return false; }',
-    'Object castObject(Object value) { return value; }'
+    'Object castObject(Object value) { return value; }',
+
+    // REVIEW: FixedWidth PropertyInfo properties/methods. Unsuccessful attempting to add these via refine or extends of foam.lang.PropertyInfo - Joel
+    'int fixedWidthOffset() { return 0; }',
+    'int fixedWidthLength() { return 0; }',
+    'String fixedWidthPadChar() { return ""; }',
+    'boolean fixedWidthAlignRight() { return false; }',
+    'String fromFixedWidth(String value, FObject obj)',
+    'String toFixedWidth(Object value, FObject obj)',
+    'boolean fixedWidthIsNumeric() { return false; }'
   ]
 });

@@ -359,7 +359,6 @@ foam.CLASS({
             var precision = this.precision;
             var body = `formatter.output(get_(obj), ${precision});`;
           }
-
           m.push({
             name: 'format',
             visibility: 'public',
@@ -555,6 +554,67 @@ foam.CLASS({
             visibility: 'public',
             body: 'return ' + this.sheetsOutput + ';'
           });
+
+        // REVIEW: FixedWidth PropertyInfo properties/methods. Unsuccessful attempting to add these via refine or extends of foam.lang.PropertyInfo - Joel
+        var isFixedWidth = this.property.fixedWidthLength > 0;
+        if ( isFixedWidth ) {
+          m.push({
+            name:       'fixedWidthOffset',
+            visibility: 'public',
+            type:       'int',
+            body:       `return ${this.property.fixedWidthOffset}; `
+          });
+          m.push({
+            name:       'fixedWidthLength',
+            visibility: 'public',
+            type:       'int',
+            body:       `return ${this.property.fixedWidthLength}; `
+          });
+          m.push({
+            name:       'fixedWidthPadChar',
+            visibility: 'public',
+            type:       'String',
+            body:       'return "'+(this.property.fixedWidthPadChar || '')+'";'
+          });
+          m.push({
+            name:       'fixedWidthAlignRight',
+            visibility: 'public',
+            type:       'boolean',
+            body:       'return ' + (this.property.fixedWidthAlignRight || 'false') + ';'
+          });
+
+          // This could become javaType on PropertyInfo proper
+          m.push({
+            name:       'fixedWidthIsNumeric',
+            visibility: 'public',
+            type:       'boolean',
+            body:       'return ' + numberType.includes(this.property.javaType) + ';'
+          })
+        }
+        m.push({
+          name: 'fromFixedWidth',
+          visibility: 'public',
+          args: [{ name: 'value', type: 'String'}, { name: 'obj', type: 'foam.lang.FObject' }],
+          type: 'String',
+          body: this.property.javaFromFixedWidth ||
+            ( isFixedWidth ? 'return (('+this.sourceCls.name+')obj).fixedWidthUnpad(value, this);' : 'return null;' )
+        });
+        var boxType = this.property.javaType;
+        if ( primitiveType.includes(boxType) ) {
+          if ( boxType === 'int' ) boxType = 'Integer';
+          else if ( boxType === 'long' ) boxType = 'Long';
+          else if ( boxType === 'boolean' ) boxType = 'Boolean';
+          else if ( boxType === 'double' ) boxType = 'Double';
+          else if ( boxType === 'float' ) boxType = 'Float';
+        }
+        m.push({
+          name: 'toFixedWidth',
+          args: [{ name: 'value', type: 'Object'}, { name: 'obj', type: 'foam.lang.FObject' }],
+          type: 'String',
+          visibility: 'public',
+          body: this.property.javaToFixedWidth ||
+            ( isFixedWidth ? 'return (('+this.sourceCls.name+')obj).fixedWidthPad(('+boxType+')value, this, false);' : 'return null;' )
+        });
 
         if ( this.formatJSON != null ) {
           m.push({

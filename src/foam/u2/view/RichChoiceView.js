@@ -575,10 +575,11 @@ foam.CLASS({
                   } }), {}, self.inputField$)
                 .endContext();
           }))
-          .add(self.slot(function(sections) {
+          .add(self.slot(function(sections, filter_) {
+            // Check filteredDAO count for each section to respect hideIfEmpty when searching
             var promiseArray = [];
             sections.forEach(function(section) {
-              promiseArray.push(section.dao.select(self.COUNT()));
+              promiseArray.push(section.filteredDAO.select(self.COUNT()));
             });
             return Promise.all(promiseArray).then(resp => {
               var index = 0;

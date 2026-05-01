@@ -382,6 +382,36 @@ try {
   try { tmpFs.unlinkSync(tmpFile2); } catch ( e ) {}
 }
 
+// === buildLocationAtMethod unconstrained grammar fallback ===
+// When the grammar's axiom map for a specific classId yields no match
+// (e.g., the supplied classId doesn't appear in the file), the handler
+// must still try the unconstrained grammar map. This relies purely on
+// FoamClassGrammar.methodNameValue emissions — no regex.
+var tmpFile3 = tmpPath2.join(tmpOs.tmpdir(), 'lsp-method-unconstrained.js');
+tmpFs.writeFileSync(tmpFile3,
+  "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'Unconstrained',\n" +
+  "  methods: [\n" +
+  "    {\n" +
+  "      name: 'normalize',\n" +
+  "      args: 'X x',\n" +
+  "      type: 'String',\n" +
+  "      javaCode: " + String.fromCharCode(96) + "return \"hi\";" + String.fromCharCode(96) + "\n" +
+  "    }\n" +
+  "  ]\n" +
+  "});\n");
+try {
+  // Pass a wrong classId. The class-range constraint check fails, but
+  // the unconstrained grammar map still has `normalize` — handler must
+  // return that position rather than file top.
+  var rxLoc = defHandler.buildLocationAtMethod(tmpFile3, 'wrong.ClassId', 'normalize');
+  test(rxLoc && rxLoc.range && rxLoc.range.start.line === 5,
+    'buildLocationAtMethod unconstrained fallback lands on method-name line (got line ' + (rxLoc && rxLoc.range && rxLoc.range.start.line) + ')');
+} finally {
+  try { tmpFs.unlinkSync(tmpFile3); } catch ( e ) {}
+}
+
 // === Migration coverage: LIB + POM eval recovery ===
 
 

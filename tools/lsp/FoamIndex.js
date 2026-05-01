@@ -79,6 +79,39 @@ foam.CLASS({
       return types;
     },
 
+    function getClassTypedPropertyNames() {
+      /**
+       * Names of axiom slots whose string value is a class id. Used by
+       * FoamClassGrammar's classTypedSlotEntry rule.
+       *
+       * Returns the canonical eight slots that the FOAM JSON serializer
+       * (foam/lang/JSON.js) treats as class-id-typed:
+       *
+       *   extends, implements, of, class, view, refines, sourceModel,
+       *   targetModel
+       *
+       * An earlier version walked the registry to also include any axiom
+       * whose property class was Class/Reference/FObjectProperty/
+       * FObjectArray. That over-broad set caused false positives on
+       * extremely common slot names (`label`, `name`, etc.) that happen
+       * to be class-typed in some obscure model — e.g., `label:
+       * 'Transaction Details'` was misparsed as a class ref. Stick to
+       * the canonical list so the grammar doesn't fight content that
+       * isn't a class id.
+       *
+       * If a custom axiom slot needs to be navigable as a class id,
+       * define an explicit grammar entry for it (see refinesEntry /
+       * sourceModelEntry / targetModelEntry as templates).
+       */
+      if ( this.cache_.classTypedNames ) return this.cache_.classTypedNames;
+      var names = [
+        'extends', 'implements', 'of', 'class', 'view',
+        'sourceModel', 'targetModel', 'refines'
+      ];
+      this.cache_.classTypedNames = names;
+      return names;
+    },
+
     function getAxioms(classId) {
       /** Returns all axioms for a class including inherited. */
       var cls = this.getClass(classId);

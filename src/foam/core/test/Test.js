@@ -63,6 +63,7 @@ foam.CLASS({
       class: 'String',
       name: 'source',
       tableWidth: 300,
+      transient: true,
       visibility: 'RO',
       factory: function() { return this.cls_.id === 'foam.core.test.Test' ? this.language : this.cls_.id; },
       javaFactory: 'return getClass().toString();'

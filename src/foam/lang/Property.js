@@ -322,7 +322,12 @@ foam.CLASS({
       value: []
     },
     'initObject',
-    'copyValueFrom'
+    'copyValueFrom',
+    {
+      // class: 'Integer',
+      name: 'order',
+      documentation: 'Default display order in detail views.'
+    }
   ],
 
   methods: [

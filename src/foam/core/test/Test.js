@@ -63,7 +63,6 @@ foam.CLASS({
       class: 'String',
       name: 'source',
       tableWidth: 300,
-      transient: true,
       visibility: 'RO',
       factory: function() { return this.cls_.id === 'foam.core.test.Test' ? this.language : this.cls_.id; },
       javaFactory: 'return getClass().toString();'
@@ -342,11 +341,20 @@ foam.CLASS({
                 output: this.output
               }));
             };
-
             with ( { log: log, print: log, x: this.__context__, expect: expect, test: test } ) {
+              var script = '';
+              if ( this.cls_.id === 'foam.core.test.JSTest' &&
+                   this.source &&
+                   this.source !== 'foam.core.test.JSTest' ) {
+                script = '(async () => { ';
+                script += 'let t = ' + this.source + '.create(); ';
+                script += 'await t.runTest(this.__context__.createSubContext({ log: log, print: print, expect: expect, test: test })); ';
+                script += 'updateStats()';
+                script += '})()';
+              }
               Promise.resolve(
-                this.code ?
-                  eval('(async () => {' + this.code + '})()') :
+                script ?
+                  eval(script) :
                   this.runTest(this.__context__.createSubContext({
                     log: log, print: log, expect: expect, test: test
                   }))

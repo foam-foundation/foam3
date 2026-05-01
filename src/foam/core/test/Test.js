@@ -344,8 +344,9 @@ foam.CLASS({
             };
             with ( { log: log, print: log, x: this.__context__, expect: expect, test: test } ) {
               var script = '';
-              if ( this.cls_.id === 'foam.core.test.JSTest' &&
-                   this.source &&
+              if ( ! this.code && // see RunTest above.
+                   this.cls_.id === 'foam.core.test.JSTest' &&
+                   this.source && // eval source.runTest
                    this.source !== 'foam.core.test.JSTest' ) {
                 script = '(async () => { ';
                 script += 'let t = ' + this.source + '.create(); ';

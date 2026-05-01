@@ -10,16 +10,13 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
   abstract: false,
   documentation: `Abstract base class for modelled JS tests that implement runTest directly.
-Also for JS only modelled tests:
+Also for JS only modelled tests that do not support java:
 - use pom flags: 'js'
 - in tests.jrl use:
     class: foam.core.test.JSTest
     source: to the modelled class id
 Test.runScript will test for this combination and create an instance of
 'source' and call 'runTest' on it.
-This resolves the issue of having to build JS only tests with flags 'java'
-to satisfy journal loading when the tests.jrl class is set to the
-modelled class id.
 `,
   properties: [
     {

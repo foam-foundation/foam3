@@ -210,7 +210,7 @@ foam.CLASS({
       class: 'Boolean',
       name: 'useTemplateLiterals',
       help: 'If true, multiline strings will be outputted using template literals (i.e. surrounded by backticks)',
-      value: false,
+      value: false
     },
     {
       class: 'Boolean',
@@ -252,7 +252,7 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'defaultPackage',
+      name: 'defaultPackage'
       //value: 'foam.lang.'
     },
     {
@@ -301,6 +301,23 @@ foam.CLASS({
       return str
         .replace(/\\/g, '\\\\')
         .replace(/"/g, '\\"')
+        .replace(/[\x00-\x1f]/g, function(c) {
+          return "\\u00" + ((c.charCodeAt(0) < 0x10) ?
+            '0' + c.charCodeAt(0).toString(16) :
+            c.charCodeAt(0).toString(16));
+        });
+    },
+
+    function escape(str, isJsonStr) {
+      if ( str.indexOf('\\"') === -1 )
+        return str
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"');
+
+      return str
+        .replace(/\\\\/g, '\\\\\\\\')
+        .replace(/\\"/g, '\\\\\\"')
+        .replace(/([^\\])"/g, '$1\\"')
         .replace(/[\x00-\x1f]/g, function(c) {
           return "\\u00" + ((c.charCodeAt(0) < 0x10) ?
             '0' + c.charCodeAt(0).toString(16) :

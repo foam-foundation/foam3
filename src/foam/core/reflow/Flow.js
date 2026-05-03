@@ -201,7 +201,10 @@ foam.CLASS({
       reactive: false,
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 },
+      toJSON: function (value, outputter) {
+        return outputter.escape(value, true);
+      }
     }
   ],
 

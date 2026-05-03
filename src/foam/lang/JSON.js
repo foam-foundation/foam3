@@ -297,17 +297,6 @@ foam.CLASS({
       return this;
     },
 
-    function escape(str) {
-      return str
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/[\x00-\x1f]/g, function(c) {
-          return "\\u00" + ((c.charCodeAt(0) < 0x10) ?
-            '0' + c.charCodeAt(0).toString(16) :
-            c.charCodeAt(0).toString(16));
-        });
-    },
-
     /**
      * Escape a string for JSON output.
      * Idempotent by default to prevent bloating escape characters on multiple calls.

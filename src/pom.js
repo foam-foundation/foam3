@@ -63,6 +63,7 @@ foam.POM({
     { name: "foam/lang/FOAMExceptionTest",                            flags: "js&test|java&test" },
     { name: "foam/lang/test/DateTimeTestModel",                       flags: "js&test|java&test" },
     { name: "foam/lang/test/DateTimeUTCTest",                         flags: "js&test|java&test" },
+    { name: "foam/lang/test/JSONEscapeTest",                          flags: "js&test|java&test" },
     { name: "foam/lang/Window",                                       flags: function() { return ! foam.flags.node; } },
     { name: "foam/lang/NodeWindow",                                   flags: "node" },
     { name: "foam/lang/ContextMultipleInheritence",                   flags: "js" },

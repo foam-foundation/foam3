@@ -308,21 +308,35 @@ foam.CLASS({
         });
     },
 
-    function escape(str, isJsonStr) {
-      if ( str.indexOf('\\"') === -1 )
-        return str
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
+    function escape(str, force) {
+      let result = '';
+      for ( let i = 0 ; i < str.length ; i++ ) {
+        const ch = str[i];
+        // preserve existing escape sequences only if not forcing
+        if ( ! force ) {
+          // preserve existing escape sequences: \", \\, \u
+          if ( ch === '\\' && i + 1 < str.length ) {
+            const next = str[i+1];
+            if ( next === '"' || next === '\\' || next === 'u' ) {
+              result += ch + next;
+              i++;
+              continue;
+            }
+          }
+        }
 
-      return str
-        .replace(/\\\\/g, '\\\\\\\\')
-        .replace(/\\"/g, '\\\\\\"')
-        .replace(/([^\\])"/g, '$1\\"')
-        .replace(/[\x00-\x1f]/g, function(c) {
-          return "\\u00" + ((c.charCodeAt(0) < 0x10) ?
-            '0' + c.charCodeAt(0).toString(16) :
-            c.charCodeAt(0).toString(16));
-        });
+        // escape special characters
+        if ( ch === '\\' ) {
+          result += '\\\\';
+        } else if ( ch === '"' ) {
+          result += '\\"';
+        } else if ( ch.charCodeAt(0) <= 0x1f ) {
+          result += '\\u00' + ch.charCodeAt(0).toString(16).padStart(2, '0');
+        } else {
+          result += ch;
+        }
+      }
+      return result;
     },
 
     function maybeEscapeKey(str) {

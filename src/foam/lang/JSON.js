@@ -308,6 +308,23 @@ foam.CLASS({
         });
     },
 
+    /**
+     * Escape a string for JSON output.
+     * Idempotent by default to prevent bloating escape characters on multiple calls.
+     *
+     * @param {string} str - The string to escape.
+     * @param {boolean} [force] - If truthy, skip idempotency and escape all escape characters.
+     * @returns {string} The escaped string.
+     *
+     * @description
+     * Default behavior (no force):
+     * - Preserves existing valid escape sequences: \", \\, \u00XX.
+     * - Escapes raw backslashes, double quotes, and control characters (\x00-\x1f).
+     *
+     * Force behavior (force=true):
+     * - Escapes all special characters regardless of existing escape sequences.
+     * - Useful when a property stores JSON string itself be later parse or eval e.g. foam.core.reflow.Flow.SCRIPT
+     */
     function escape(str, force) {
       let result = '';
       for ( let i = 0 ; i < str.length ; i++ ) {

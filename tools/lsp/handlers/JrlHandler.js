@@ -222,6 +222,7 @@ foam.CLASS({
       }
 
       // Hover on a value → check if it's a timestamp on a Date property
+      // or an enum ordinal/name on an Enum-backed property.
       if ( segment.isValue && segment.key && cls ) {
         var prop = this.resolveProperty_(cls, segment.key);
         if ( prop ) {
@@ -233,6 +234,9 @@ foam.CLASS({
             md += 'Type: ' + typeName + '\n\nRaw: ' + segment.rawValue;
             return { contents: { kind: 'markdown', value: md } };
           }
+
+          var enumMd = this.buildJrlEnumValueHover_(prop, segment, propLabel);
+          if ( enumMd ) return { contents: { kind: 'markdown', value: enumMd } };
         }
       }
 
@@ -553,12 +557,17 @@ foam.CLASS({
         var afterKey = kv.index + kv[0].length;
         var valuePart = line.substring(afterKey);
 
+        // For nested objects, `entry[keyName]` is undefined (entry is the
+        // outer envelope) — parse the typed `rawValue` from the regex
+        // match itself so hover handlers see the right value at every
+        // nesting depth.
+
         // String value (quoted)
         var strMatch = valuePart.match(/^"([^"]*)"/);
         if ( strMatch ) {
           var valEnd = afterKey + 1 + strMatch[1].length;
           if ( col >= afterKey && col <= valEnd + 1 ) {
-            return { value: strMatch[1], isKey: false, isValue: true, key: keyName, rawValue: entry[keyName] };
+            return { value: strMatch[1], isKey: false, isValue: true, key: keyName, rawValue: strMatch[1] };
           }
           continue;
         }
@@ -568,7 +577,9 @@ foam.CLASS({
         if ( numMatch ) {
           var valEnd = afterKey + numMatch[1].length;
           if ( col >= afterKey && col <= valEnd ) {
-            return { value: numMatch[1], isKey: false, isValue: true, key: keyName, rawValue: entry[keyName] };
+            var topRaw = entry[keyName];
+            var numRaw = typeof topRaw === 'number' ? topRaw : Number(numMatch[1]);
+            return { value: numMatch[1], isKey: false, isValue: true, key: keyName, rawValue: numRaw };
           }
           continue;
         }
@@ -578,7 +589,9 @@ foam.CLASS({
         if ( boolMatch ) {
           var valEnd = afterKey + boolMatch[1].length;
           if ( col >= afterKey && col <= valEnd ) {
-            return { value: boolMatch[1], isKey: false, isValue: true, key: keyName, rawValue: entry[keyName] };
+            var bRaw = boolMatch[1] === 'true' ? true
+                     : boolMatch[1] === 'false' ? false : null;
+            return { value: boolMatch[1], isKey: false, isValue: true, key: keyName, rawValue: bRaw };
           }
         }
       }
@@ -1420,6 +1433,42 @@ foam.CLASS({
         String(d.getUTCHours()).padStart(2, '0') + ':' +
         String(d.getUTCMinutes()).padStart(2, '0') + ':' +
         String(d.getUTCSeconds()).padStart(2, '0') + ' UTC';
+    },
+
+    function buildJrlEnumValueHover_(prop, segment, propLabel) {
+      /**
+       * If `prop` is backed by an enum (has an `of` that resolves to a class
+       * with a `VALUES` array), turn the JRL-stored ordinal (number) or
+       * constant name (string) into the human-readable enum value.
+       *
+       * Real-world JRLs persist enums as ordinals (e.g. `"operation": 0`,
+       * `"lifecycleState": 1`) — without this resolver, hover gives no
+       * insight into what the magic number means.
+       */
+      if ( ! prop || ! prop.of ) return null;
+      var ofId = typeof prop.of === 'string' ? prop.of :
+                 ( prop.of.id || prop.of.name || null );
+      if ( ! ofId ) return null;
+      var values = this.index.getEnumValues(ofId);
+      if ( ! values || ! values.length ) return null;
+
+      var raw = segment.rawValue;
+      var match = null;
+      if ( typeof raw === 'number' ) {
+        for ( var i = 0 ; i < values.length ; i++ ) {
+          if ( values[i].ordinal === raw ) { match = values[i]; break; }
+        }
+      } else if ( typeof raw === 'string' && raw ) {
+        for ( var j = 0 ; j < values.length ; j++ ) {
+          if ( values[j].name === raw ) { match = values[j]; break; }
+        }
+      }
+      if ( ! match ) return null;
+
+      var md = '**' + propLabel + '**: `' + ofId + '.' + match.name + '`\n\n';
+      if ( match.label ) md += 'Label: **' + match.label + '**\n\n';
+      if ( match.ordinal != null ) md += 'Ordinal: ' + match.ordinal + '\n';
+      return md;
     }
   ]
 });

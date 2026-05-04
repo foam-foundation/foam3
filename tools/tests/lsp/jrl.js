@@ -116,6 +116,111 @@ test(noResolve == null, 'JRL resolveProperty: unknown property returns null');
 test(jrlHandler.isJrlFile('file:///test.jrl') === true, 'isJrlFile: .jrl returns true');
 test(jrlHandler.isJrlFile('file:///test.js') === false, 'isJrlFile: .js returns false');
 
+// ========== JRL Enum Ordinal Hover ==========
+section('JRL Enum Ordinal Hover');
+
+// Inline test enum + a model that uses it as an Enum-typed property.
+// JRL files persist Enum values as ordinals (e.g. `"operation": 0`,
+// `"lifecycleState": 1` on `foam.core.ruler.Rule`) — hover has to
+// resolve the number back to the human-readable constant name.
+foam.ENUM({
+  package: 'foam.parse.lsp.test',
+  name: 'JrlTestStatus',
+  values: [
+    { name: 'PENDING', label: 'Pending' },
+    { name: 'ACTIVE',  label: 'Active'  },
+    { name: 'CLOSED',  label: 'Closed'  }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.parse.lsp.test',
+  name: 'JrlEnumModel',
+  properties: [
+    { class: 'Long',   name: 'id' },
+    { class: 'Enum',   of: 'foam.parse.lsp.test.JrlTestStatus', name: 'status', label: 'Status' },
+    { class: 'String', name: 'note' }
+  ]
+});
+
+var enumHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+
+// Single-line: ordinal 1 → ACTIVE
+var enumLineJrl = 'p({"class":"foam.parse.lsp.test.JrlEnumModel","id":1,"status":1})';
+var ordCol = enumLineJrl.indexOf('"status":1') + '"status":'.length;
+var enumOrdHover = enumHandler.handleHover(enumLineJrl, { line: 0, character: ordCol });
+test(enumOrdHover != null, 'Enum ordinal hover: returns hover for numeric value');
+test(enumOrdHover && enumOrdHover.contents.value.indexOf('ACTIVE') !== -1,
+  'Enum ordinal hover: ordinal 1 resolves to ACTIVE');
+test(enumOrdHover && enumOrdHover.contents.value.indexOf('foam.parse.lsp.test.JrlTestStatus') !== -1,
+  'Enum ordinal hover: includes enum class id');
+test(enumOrdHover && enumOrdHover.contents.value.indexOf('Ordinal: 1') !== -1,
+  'Enum ordinal hover: shows ordinal number');
+test(enumOrdHover && enumOrdHover.contents.value.indexOf('Active') !== -1,
+  'Enum ordinal hover: shows label');
+
+// Single-line: ordinal 0 → PENDING (boundary — first value)
+var enumZeroJrl = 'p({"class":"foam.parse.lsp.test.JrlEnumModel","id":2,"status":0})';
+var zeroCol = enumZeroJrl.indexOf('"status":0') + '"status":'.length;
+var enumZeroHover = enumHandler.handleHover(enumZeroJrl, { line: 0, character: zeroCol });
+test(enumZeroHover && enumZeroHover.contents.value.indexOf('PENDING') !== -1,
+  'Enum ordinal hover: ordinal 0 resolves to PENDING (handles falsy ordinal correctly)');
+
+// Multi-line: ordinal hover across newlines
+var enumMultiJrl = 'p({\n  "class": "foam.parse.lsp.test.JrlEnumModel",\n  "id": 3,\n  "status": 2\n})';
+var enumMultiHover = enumHandler.handleHover(enumMultiJrl, { line: 3, character: 13 });
+test(enumMultiHover != null, 'Enum ordinal hover: works on multi-line entry');
+test(enumMultiHover && enumMultiHover.contents.value.indexOf('CLOSED') !== -1,
+  'Enum ordinal hover: multi-line ordinal 2 → CLOSED');
+
+// String-form value ("ACTIVE") also resolves
+var enumStrJrl = 'p({"class":"foam.parse.lsp.test.JrlEnumModel","id":4,"status":"ACTIVE"})';
+var strCol = enumStrJrl.indexOf('"ACTIVE"') + 2;
+var enumStrHover = enumHandler.handleHover(enumStrJrl, { line: 0, character: strCol });
+test(enumStrHover && enumStrHover.contents.value.indexOf('ACTIVE') !== -1,
+  'Enum value hover: string constant "ACTIVE" resolves');
+test(enumStrHover && enumStrHover.contents.value.indexOf('Ordinal: 1') !== -1,
+  'Enum value hover: string form still surfaces ordinal');
+
+// Out-of-range ordinal → no hover (don't fabricate a match)
+var enumOOBJrl = 'p({"class":"foam.parse.lsp.test.JrlEnumModel","id":5,"status":99})';
+var oobCol = enumOOBJrl.indexOf('"status":99') + '"status":'.length;
+var enumOOBHover = enumHandler.handleHover(enumOOBJrl, { line: 0, character: oobCol });
+test(enumOOBHover == null,
+  'Enum ordinal hover: unknown ordinal does not produce a hover');
+
+// Non-enum numeric property must NOT trigger enum hover
+var nonEnumJrl = 'p({"class":"foam.parse.lsp.test.JrlEnumModel","id":42,"status":0})';
+var idCol = nonEnumJrl.indexOf('"id":42') + '"id":'.length;
+var idHover = enumHandler.handleHover(nonEnumJrl, { line: 0, character: idCol });
+test(idHover == null,
+  'Enum ordinal hover: non-enum numeric property (id: Long) yields no enum hover');
+
+// Nested object: enum property on an inner FObject value. The inner
+// object carries its own `"class": …`, so resolveNearestClass_ must
+// switch to the inner class for the enum on its property to resolve.
+foam.CLASS({
+  package: 'foam.parse.lsp.test',
+  name: 'JrlEnumActionModel',
+  properties: [
+    { class: 'Enum', of: 'foam.parse.lsp.test.JrlTestStatus', name: 'mode', label: 'Mode' }
+  ]
+});
+var nestedEnumJrl = 'p({\n' +
+  '  "class": "foam.parse.lsp.test.JrlEnumModel",\n' +
+  '  "id": 7,\n' +
+  '  "action": {\n' +
+  '    "class": "foam.parse.lsp.test.JrlEnumActionModel",\n' +
+  '    "mode": 2\n' +
+  '  }\n' +
+  '})';
+var nestedEnumLine = nestedEnumJrl.split('\n').findIndex(function(l) { return l.indexOf('"mode":') !== -1; });
+var nestedEnumCol = nestedEnumJrl.split('\n')[nestedEnumLine].indexOf('"mode": 2') + '"mode": '.length;
+var nestedEnumHover = enumHandler.handleHover(nestedEnumJrl, { line: nestedEnumLine, character: nestedEnumCol });
+test(nestedEnumHover != null, 'Enum ordinal hover: works inside nested object');
+test(nestedEnumHover && nestedEnumHover.contents.value.indexOf('CLOSED') !== -1,
+  'Enum ordinal hover: nested action.mode ordinal 2 → CLOSED (inner class wins)');
+
 // ========== JRL Multi-line Entry Parsing ==========
 
 

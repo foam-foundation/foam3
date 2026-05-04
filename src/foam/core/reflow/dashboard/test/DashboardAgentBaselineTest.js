@@ -14,7 +14,9 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
-    'foam.core.reflow.dashboard.DashboardCalendarChartDAOAgent'
+    'foam.core.reflow.dashboard.DashboardMultiLineSink',
+    'foam.core.reflow.dashboard.DashboardCalendarChartDAOAgent',
+    'foam.core.reflow.SumDAOAgent'
   ],
 
   methods: [
@@ -23,6 +25,7 @@ foam.CLASS({
       await this.testPieBaseline(x);
       await this.testStackedBarBaseline(x);
       await this.testLineBaseline(x);
+      await this.testLineMultiAggregationPreserved(x);
       await this.testCalendarBaseline(x);
     },
 
@@ -102,6 +105,22 @@ foam.CLASS({
       var sink = agent.createSink();
       var snapshot = this.snapshotSink(sink);
       x.test(snapshot === this.EXPECTED_LINE, 'Line baseline matches. Got: ' + snapshot);
+    },
+
+    async function testLineMultiAggregationPreserved(x) {
+      var fakeXProp = { name: 'month' };
+      var fakeYProp = { name: 'year' };
+      var sum       = this.SumDAOAgent.create({ prop: fakeXProp }, x);
+      var agent     = this.DashboardLineChartDAOAgent.create({
+        xProp: fakeXProp,
+        groupBy: fakeYProp,
+        aggregationSink: sum
+      }, x);
+      var sink = agent.createSink();
+      x.test(this.DashboardMultiLineSink.isInstance(sink), 'Line+groupBy yields MultiLineSink. Got: ' + (sink && sink.cls_ && sink.cls_.id));
+      x.test(!! sink.xFunc, 'MultiLineSink.xFunc wired from agent.xProp');
+      x.test(!! sink.yFunc, 'MultiLineSink.yFunc wired from agent.groupBy');
+      x.test(!! sink.acc,   'MultiLineSink.acc wired from agent.aggregationSink across Line→Multi swap');
     },
 
     async function testCalendarBaseline(x) {

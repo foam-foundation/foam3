@@ -780,11 +780,16 @@ foam.CLASS({
         this.displaySink = next;
       }
 
+      var aggSink = this.aggregationSink && this.aggregationSink.createSink
+        ? this.aggregationSink.createSink()
+        : null;
       if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
         this.displaySink.xFunc = this.xProp;
         this.displaySink.yFunc = this.groupBy;
+        if ( aggSink ) this.displaySink.acc = aggSink;
       } else {
         this.displaySink.arg1 = this.xProp;
+        if ( aggSink ) this.displaySink.arg2 = aggSink;
       }
       return this.displaySink;
     },

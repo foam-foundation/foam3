@@ -108,19 +108,18 @@ foam.CLASS({
     },
 
     async function testLineMultiAggregationPreserved(x) {
-      var fakeXProp = { name: 'month' };
-      var fakeYProp = { name: 'year' };
-      var sum       = this.SumDAOAgent.create({ prop: fakeXProp }, x);
-      var agent     = this.DashboardLineChartDAOAgent.create({
-        xProp: fakeXProp,
-        groupBy: fakeYProp,
-        aggregationSink: sum
-      }, x);
+      var xProp = this.DashboardLineChartDAOAgent.HEIGHT;
+      var yProp = this.DashboardLineChartDAOAgent.TENSION;
+      var sum   = this.SumDAOAgent.create({ prop: xProp }, x);
+      var agent = this.DashboardLineChartDAOAgent.create({}, x);
+      agent.xProp = xProp;
+      agent.groupBy = yProp;
+      agent.aggregationSink = sum;
       var sink = agent.createSink();
       x.test(this.DashboardMultiLineSink.isInstance(sink), 'Line+groupBy yields MultiLineSink. Got: ' + (sink && sink.cls_ && sink.cls_.id));
-      x.test(!! sink.xFunc, 'MultiLineSink.xFunc wired from agent.xProp');
-      x.test(!! sink.yFunc, 'MultiLineSink.yFunc wired from agent.groupBy');
-      x.test(!! sink.acc,   'MultiLineSink.acc wired from agent.aggregationSink across Line→Multi swap');
+      x.test(sink.xFunc === xProp, 'MultiLineSink.xFunc wired from agent.xProp');
+      x.test(sink.yFunc === yProp, 'MultiLineSink.yFunc wired from agent.groupBy');
+      x.test(!! sink.acc,          'MultiLineSink.acc wired from agent.aggregationSink across Line→Multi swap');
     },
 
     async function testCalendarBaseline(x) {

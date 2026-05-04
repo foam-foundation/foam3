@@ -539,6 +539,37 @@ foam.CLASS({
           }
         }
 
+        // Method-call positions via JavaGrammar parseBlock — emits token
+        // type 8 (method) at the methodName offset. Receiver position is
+        // already covered above by the type regex when the receiver is an
+        // UpperCamelCase type. This catches the otherwise-invisible
+        // method names: `Loggers.logger(...)` → `logger` highlighted.
+        try {
+          var jParser = self.javaParser_;
+          if ( ! jParser ) {
+            jParser = self.javaParser_ = foam.parse.lsp.JavaParser
+              ? foam.parse.lsp.JavaParser.create() : null;
+          }
+          if ( jParser ) {
+            // baseLine/baseCol are 0/0 because we re-locate by absolute
+            // offset using lineOffsets — easier than juggling per-block
+            // base positions through the recursive sweep.
+            var blockResult = jParser.parseFile(javaStr);
+            for ( var ci = 0 ; ci < blockResult.calls.length ; ci++ ) {
+              var call = blockResult.calls[ci];
+              // Reconstruct offset from line/col within javaStr.
+              var blockLineOffsets = [0];
+              for ( var k = 0 ; k < javaStr.length ; k++ ) {
+                if ( javaStr[k] === '\n' ) blockLineOffsets.push(k + 1);
+              }
+              if ( call.line >= blockLineOffsets.length ) continue;
+              var methodOffsetInBlock = blockLineOffsets[call.line] + call.col;
+              addToken(baseOffset + methodOffsetInBlock,
+                call.methodName.length, 8);
+            }
+          }
+        } catch (e) { /* parseBlock is best-effort — fail silently */ }
+
         // Java variable declarations + usage tracking
         // Track declared variables so we can highlight their usage throughout the block
         // 'x' is always available as the FOAM context (foam.lang.X)

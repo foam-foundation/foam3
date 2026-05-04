@@ -12,8 +12,7 @@ foam.POM({
     { name: 'CSSTokenResolver', flags: 'js' },
     { name: 'JrlLoader', flags: 'js' },
     { name: 'JavaGrammar', flags: 'js' },
-    { name: 'JavaParser', flags: 'js' },
-    { name: 'AxiomCatalog', flags: 'js' }
+    { name: 'JavaParser', flags: 'js' }
   ],
   projects: [
     { name: 'handlers/pom' },

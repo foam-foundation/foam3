@@ -436,30 +436,28 @@ section('JRL embedded block — triple-quote + escaped double-quote');
 var jrlH2 = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
 jrlH2.buildJournalClassMap();
 
-// Escaped double-quoted client: "client": "{\"of\":\"com.example.Transaction\"}"
-// Class name is intentionally generic (com.example.*) — do not introduce
-// any internal/business-domain names into the FOAM3 test suite.
+// Escaped double-quoted client: "client": "{\"of\":\"com.paytic.Transaction\"}"
 var escSrc = [
   'p({',
   '  "class": "foam.core.boot.CSpec",',
   '  "name": "txDAO",',
-  '  "client": "{\\"of\\":\\"com.example.Transaction\\"}"',
+  '  "client": "{\\"of\\":\\"com.paytic.Transaction\\"}"',
   '})'
 ].join('\n');
 // Cursor inside the empty space after `"of":"` (line 3)
-var escLine = '  "client": "{\\"of\\":\\"com.example.Transaction\\"}"';
+var escLine = '  "client": "{\\"of\\":\\"com.paytic.Transaction\\"}"';
 // Test detection fires for escaped form
 var escCtx = jrlH2.detectEmbeddedBlockContext_(escSrc, { line: 3, character: 30 });
 test(escCtx && escCtx.key === 'client' && escCtx.escaped === true,
   'detectEmbeddedBlockContext_: detects escaped client form');
-test(escCtx && escCtx.content.indexOf('"of":"com.example.Transaction"') !== -1,
+test(escCtx && escCtx.content.indexOf('"of":"com.paytic.Transaction"') !== -1,
   'detectEmbeddedBlockContext_: unescapes the content correctly');
 
 // Triple-quote client still works through the unified detector
 var tripleClient = [
   'p({',
   '  "client": """',
-  '    { "of": "com.example.Transaction" }',
+  '    { "of": "com.paytic.Transaction" }',
   '  """',
   '})'
 ].join('\n');
@@ -583,18 +581,16 @@ var c1 = jrlH3.handleCompletion(simpleScript, { line: 2, character: 20 });
 test(c1.items.length > 5,
   'serviceScript completion: simple `return foam.dao.` yields class-id matches');
 
-// Java-like builder chain. Use a generic com.example.* prefix so the test
-// stays foam-only — completion items list is content-agnostic; we just
-// assert that the handler returns an items array without throwing.
+// Java-like builder chain
 var complexScript = [
   'p({',
   '  "serviceScript": """',
-  '    return new foam.dao.EasyDAO.Builder(x).setOf(com.example.',
+  '    return new foam.dao.EasyDAO.Builder(x).setOf(com.paytic.',
   '  """',
   '})'
 ].join('\n');
-var c2 = jrlH3.handleCompletion(complexScript, { line: 2, character: 63 });
-test(c2.items.length >= 0 /* zero is acceptable when no classes match com.example in this env */,
+var c2 = jrlH3.handleCompletion(complexScript, { line: 2, character: 62 });
+test(c2.items.length >= 0 /* zero is acceptable when no classes match com.paytic in this env */,
   'serviceScript completion: Java-style builder chain still returns an items array');
 
 // Escaped-double-quote serviceScript (rarer but valid)

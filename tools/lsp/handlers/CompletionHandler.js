@@ -1051,25 +1051,12 @@ foam.CLASS({
     },
 
     function toCompletionItem(suggestion) {
-      // sortText prefix decides ordering relative to VS Code's built-in
-      // JS/TS suggestions:
-      //   '!' = top of the list (FOAM-axiom keys, class refs, prop types)
-      //   '"' = just below '!'
-      //   '~' = bottom (rarely useful catch-alls)
-      // Without sortText, VS Code's default JS suggestions outrank ours
-      // because they include kind=Keyword/Variable matches that the
-      // editor weights more heavily than our Keyword=14 emissions.
-      var prefix = suggestion.category === 'class' ? '!' : '!';
-      var label = suggestion.text || suggestion.label;
       return this.CompletionItem.create({
-        label: label,
+        label: suggestion.text || suggestion.label,
         kind: this.categoryToKind(suggestion.category),
         detail: suggestion.hint || '',
         documentation: suggestion.tooltip || '',
-        insertText: suggestion.text,
-        sortText: prefix + (label || '').toLowerCase(),
-        // Preselect the first axiom-key match in editors that honor it.
-        preselect: suggestion.category && suggestion.category.indexOf('Key') !== -1
+        insertText: suggestion.text
       });
     },
 
@@ -1093,21 +1080,10 @@ foam.CLASS({
         case 'class':    return 7;
         case 'property': return 10;
         case 'method':   return 2;
-        // All key categories — top-level, property, POM, and inner-object
-        // scopes (methodKey/actionKey/sectionKey/messageKey/valueKey/
-        // listenerKey) — render as Keyword (14). Keep them in one branch
-        // so adding a new scope auto-routes here.
         case 'key':
         case 'topKey':
         case 'propKey':
-        case 'pomKey':
-        case 'methodKey':
-        case 'actionKey':
-        case 'sectionKey':
-        case 'messageKey':
-        case 'valueKey':
-        case 'listenerKey':
-                         return 14;
+        case 'pomKey':   return 14;
         case 'enum':     return 13;
         case 'operator': return 24;
         default:         return 1;

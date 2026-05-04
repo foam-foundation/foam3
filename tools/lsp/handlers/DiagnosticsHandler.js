@@ -124,14 +124,6 @@ foam.CLASS({
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
               "Unknown class: '" + matched + "'");
           }
-        } else if ( r.msg && r.msg.type === 'doubleQuotedClassRef' ) {
-          // FOAM convention is single-quoted class refs. Parse the value
-          // anyway (lenient) but surface a hint with the corrected form so
-          // the CodeAction in server.js can offer a one-click fix.
-          // `matched` here is the WHOLE "..." span including the quotes.
-          var inner = matched.replace(/^"/, '').replace(/"$/, '');
-          this.addDiag_(diagnostics, text, r.startPos, matched.length, 4,
-            "Use single quotes for FOAM class references: '" + inner + "'");
         } else if ( r.msg && r.msg.type === 'unknownPropType' ) {
           if ( ! this.validTypes_[matched] && ! this.classKnown_(matched) ) {
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 3,

@@ -594,65 +594,6 @@ var exportCtx = completionHandler.detectContext_(exportText, exportPos);
 test(exportCtx.exportName === true, 'detectContext_: exportName flag set inside exports array');
 test(exportCtx.classRef === false, 'detectContext_: classRef flag NOT set inside exports array');
 
-// === Inner-object axiom-key completion (catalog-driven) ===
-// Inside `methods: [ { | } ]`, `actions: [ { | } ]`, `sections: [ { | } ]`,
-// `messages: [ { | } ]`, `values: [ { | } ]`, and `listeners: [ { | } ]`
-// the grammar should suggest the relevant axiom keys for THAT inner-object
-// scope. Earlier this only worked at top-level, so completion inside a
-// method/action/etc. block returned just `name:` (the only hardcoded arm).
-section('CompletionHandler — inner-object axiom-key suggestions');
-
-function _suggestKeys(src, line, character) {
-  var r = completionHandler.handle(src, { line: line, character: character });
-  return r.items.map(function(i) { return (i.label || i.insertText || '').replace(/:.*$/, '').trim(); });
-}
-
-[
-  ['methods',   ['name', 'code', 'args', 'javaCode', 'documentation']],
-  ['actions',   ['name', 'label', 'isAvailable', 'isEnabled', 'code']],
-  ['sections',  ['name', 'title', 'help', 'view']],
-  ['messages',  ['name', 'message']],
-  ['listeners', ['name', 'code', 'isFramed', 'isMerged']]
-].forEach(function(row) {
-  var slot = row[0], expected = row[1];
-  var src = "foam.CLASS({\n  package: 'x',\n  name: 'Y',\n  " + slot + ": [\n    {\n      \n    }\n  ]\n});";
-  var keys = _suggestKeys(src, 5, 6);
-  expected.forEach(function(k) {
-    test(keys.indexOf(k) !== -1,
-      slot + ': { } suggests "' + k + '" (saw: ' + keys.slice(0, 6).join(',') + ')');
-  });
-});
-
-// foam.ENUM values: [ { } ] — different top-level call
-var enumValuesSrc = "foam.ENUM({\n  package: 'x',\n  name: 'Y',\n  values: [\n    {\n      \n    }\n  ]\n});";
-var enumValueKeys = _suggestKeys(enumValuesSrc, 5, 6);
-['name', 'label', 'documentation'].forEach(function(k) {
-  test(enumValueKeys.indexOf(k) !== -1,
-    'foam.ENUM values: { } suggests "' + k + '"');
-});
-
-// === Inner-object grammar parses without breaking outer parse ===
-// Inner-object rules must not stop classEntries from completing. A method
-// with extra keys like `args:` and `javaCode:` should still parse fully
-// and emit position info for properties/methods after it.
-var innerHeavySrc =
-  "foam.CLASS({\n" +
-  "  package: 'x',\n" +
-  "  name: 'Y',\n" +
-  "  methods: [\n" +
-  "    { name: 'm1', args: 'X x', javaCode: `return;`, documentation: 'doc' },\n" +
-  "    function m2() {}\n" +
-  "  ],\n" +
-  "  properties: [{ name: 'tail' }]\n" +
-  "});";
-var innerPositions = grammar.collectAxiomPositions(innerHeavySrc);
-test(innerPositions.method && innerPositions.method.m1,
-  'method m1 (with args/javaCode/documentation) emits position');
-test(innerPositions.method && innerPositions.method.m2,
-  'method m2 (bare function form) emits position');
-test(innerPositions.property && innerPositions.property.tail,
-  'property "tail" after a methods block with rich inner objects still emits');
-
 // === SUMMARY ===
 
 

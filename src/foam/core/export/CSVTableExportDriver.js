@@ -37,7 +37,7 @@ foam.CLASS({
             ],
             this.SPREADSHEET
           ],
-          [ 
+          [
             [
               d => ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear(),
               d => ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2)
@@ -45,8 +45,8 @@ foam.CLASS({
             this.DDMMYYYY
           ],
           [ [
-              d => d.toString().substring(0, 15),
-              d => d.toString()
+              d => d.getTime(),
+              d => d.getTime()
             ],
             this.LONG
           ],

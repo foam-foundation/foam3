@@ -63,6 +63,7 @@ foam.POM({
     { name: "foam/lang/FOAMExceptionTest",                            flags: "js&test|java&test" },
     { name: "foam/lang/test/DateTimeTestModel",                       flags: "js&test|java&test" },
     { name: "foam/lang/test/DateTimeUTCTest",                         flags: "js&test|java&test" },
+    { name: "foam/lang/test/JSONEscapeTest",                          flags: "js&test|java&test" },
     { name: "foam/lang/Window",                                       flags: function() { return ! foam.flags.node; } },
     { name: "foam/lang/NodeWindow",                                   flags: "node" },
     { name: "foam/lang/ContextMultipleInheritence",                   flags: "js" },
@@ -1185,7 +1186,8 @@ foam.POM({
     { name: "foam/lib/json/UnknownFObjectParserTest",                 flags: "js&test|java&test" },
     { name: "foam/lib/json/JSONParserReentrancyTest",                 flags: "js&test|java&test" },
     { name: "foam/audio/Speak",                                       flags: "web" },
-    { name: "foam/audio/Beep",                                        flags: "web" }
+    { name: "foam/audio/Beep",                                        flags: "web" },
+//    { name: "com/foamdev/experimental/fixedwidth/FixedWidth", flags: "js|java" }
   ],
 
   javaFiles: [
@@ -1477,7 +1479,7 @@ foam.POM({
     { name: "foam/mlang/Expressions" },
     { name: "io/nayuki/qrcodegen/QrCode" },
     { name: "io/nayuki/qrcodegen/QrSegment" },
-    { name: "io/nayuki/qrcodegen/BitBuffer" }
+    { name: "io/nayuki/qrcodegen/BitBuffer" },
   ],
   journalFiles: [
     { name: "tests",                                                  flags: "test" },

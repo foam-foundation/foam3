@@ -1185,7 +1185,8 @@ foam.POM({
     { name: "foam/lib/json/UnknownFObjectParserTest",                 flags: "js&test|java&test" },
     { name: "foam/lib/json/JSONParserReentrancyTest",                 flags: "js&test|java&test" },
     { name: "foam/audio/Speak",                                       flags: "web" },
-    { name: "foam/audio/Beep",                                        flags: "web" }
+    { name: "foam/audio/Beep",                                        flags: "web" },
+//    { name: "com/foamdev/experimental/fixedwidth/FixedWidth", flags: "js|java" }
   ],
 
   javaFiles: [
@@ -1477,7 +1478,7 @@ foam.POM({
     { name: "foam/mlang/Expressions" },
     { name: "io/nayuki/qrcodegen/QrCode" },
     { name: "io/nayuki/qrcodegen/QrSegment" },
-    { name: "io/nayuki/qrcodegen/BitBuffer" }
+    { name: "io/nayuki/qrcodegen/BitBuffer" },
   ],
   journalFiles: [
     { name: "tests",                                                  flags: "test" },

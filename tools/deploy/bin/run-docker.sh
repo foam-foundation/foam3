@@ -98,11 +98,9 @@ RES_JAR=$(ls ${APP_HOME}/lib/${APP_NAME}-resources-*.jar 2>/dev/null | head -1)
 if [ -n "${RES_JAR}" ]; then
     echo "Using resources JAR: ${RES_JAR}"
     JAVA_OPTS="${JAVA_OPTS} -DRES_JAR_HOME=${RES_JAR}"
-    export RES_JAR_HOME="${RES_JAR}"
 else
     echo "No resources JAR found (optional)"
     JAVA_OPTS="${JAVA_OPTS} -DRES_JAR_HOME="
-    export RES_JAR_HOME=""
 fi
 
 export JAVA_TOOL_OPTIONS="${JAVA_OPTS}"
@@ -123,6 +121,6 @@ echo "Main class: ${MAIN_CLASS}"
 
 # Launch using classpath with all JARs in lib directory
 # In Docker, both binary and resources JARs are in lib/
-java -server ${JAVA_OPTS} -cp "${APP_HOME}/lib/*" ${MAIN_CLASS}
+java -server -cp "${APP_HOME}/lib/*" ${MAIN_CLASS}
 
 exit $?

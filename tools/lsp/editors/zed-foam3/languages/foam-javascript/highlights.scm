@@ -8,27 +8,11 @@
 ; Properties
 ;-----------
 
-; FOAM class-id slots highlighted as types — generic on slot name so
-; foam.RELATIONSHIP source/target, foam.CLASS refines, view:'...', and
-; class:'foo.X' all surface as type tokens. Add new slot names here when
-; FoamIndex.getClassTypedPropertyNames() grows; the LSP itself drives the
-; canonical list off the registry, so this matches that behavior.
+; FOAM class/package references highlighted as types
 (pair
   key: (property_identifier) @property
-  (#any-of? @property "of" "extends" "package" "refines"
-                       "sourceModel" "targetModel" "view" "class")
+  (#any-of? @property "of" "extends" "package")
   value: (string (string_fragment) @type))
-
-; foam.<UPPER>(...) — FOAM model declarations. Generic on the call name so
-; foam.FSM, foam.RELATIONSHIP, and any future model type are recognized
-; without changing this grammar. The receiver identifier captures `foam`,
-; the property identifier captures the type call (CLASS/ENUM/FSM/...).
-(call_expression
-  function: (member_expression
-    object: (identifier) @support.class
-    property: (property_identifier) @function.macro)
-  (#eq? @support.class "foam")
-  (#match? @function.macro "^[A-Z][A-Z0-9_]*$"))
 
 (property_identifier) @property
 

@@ -11,6 +11,7 @@ foam.CLASS({
 
   imports: [
     'auth',
+    'ctrl',
     'subject'
   ],
 
@@ -45,9 +46,7 @@ foam.CLASS({
 
   methods: [
     async function render() {
-      this.auth.getCurrentSubject(null).then(v => {
-        this.subject = v;
-      });
+      this.subject = await ctrl.__subContext__.auth.getCurrentSubject(null);
       this.addClass(this.myClass(), 'h200')
         .start()
           .add(this.slot(function(subject$realUser, title) {

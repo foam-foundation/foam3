@@ -11,15 +11,17 @@ foam.CLASS({
   documentation: 'Shared text analysis utilities for LSP handlers.',
 
   constants: {
-    // Matches the opening of any FOAM model call. Shared by all handlers for
-    // file-type detection and by FileModelCache for bracket-matching fallback.
-    FOAM_CALL_REGEX: /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/,
-    FOAM_CALL_REGEX_POM: /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|POM)\s*\(/
+    // Matches the opening of any FOAM model call: foam.<UPPER_IDENT>( ... ).
+    // Generic on purpose — any extension (FSM, future model types) is picked up
+    // without changes here. POM is excluded from the default form because
+    // diagnostics aren't meaningful on POM bodies; the _POM variant includes it.
+    FOAM_CALL_REGEX: /foam\.(?!POM\b)[A-Z][A-Z0-9_]*\s*\(/,
+    FOAM_CALL_REGEX_POM: /foam\.[A-Z][A-Z0-9_]*\s*\(/
   },
 
   methods: [
     function isFoamFile(text, opt_includePom) {
-      /** True if the text contains a foam.CLASS/ENUM/INTERFACE/RELATIONSHIP (or POM) call. */
+      /** True if the text contains any foam.<UPPER>(...) model-defining call. */
       var re = opt_includePom ? this.FOAM_CALL_REGEX_POM : this.FOAM_CALL_REGEX;
       return re.test(text);
     },
@@ -234,15 +236,27 @@ foam.CLASS({
       return method.name + '()';
     },
 
-    function resolveJavaVariableType(text, position, varName, model, index) {
+    function resolveJavaVariableType(text, position, varName, model, index, opt_seen) {
       /**
        * Resolve a Java variable's type from cast, declaration, or method return type.
        * Resolution order:
        *   1. Cast on current/nearby line: ((TypeName) varName).
        *   2. Explicit type declaration: TypeName varName = ...
-       *   3. Method return type: var varName = expr.method(...) → method.type
-       *   4. Getter return type: var varName = getProperty() → property type
+       *   3. var x = new T(...)  →  T
+       *   4. var x = (T) expr    →  T
+       *   5. var x = expr.method(...) — resolve receiver then method return type.
+       *   6. var x = getProperty() → property's java type.
+       *
+       * `opt_seen` is the recursion-guard set; it tracks variable names
+       * already on the resolution stack so cycles (`var a = b.x();
+       * var b = a.y();`) and self-references (`var x = x.f();`) terminate
+       * instead of recursing forever.
        */
+      var seen = opt_seen || {};
+      if ( seen[varName] ) return null;
+      seen = Object.assign({}, seen);
+      seen[varName] = true;
+
       var lines = text.split('\n');
 
       // 1. Check for cast on current or nearby lines
@@ -270,6 +284,16 @@ foam.CLASS({
         }
 
         // 3. 'var' declaration — infer from the right-hand side
+        // var x = new T(...)  → T
+        // var x = (T) expr     → T (with optional generics stripped)
+        // var x = T.class      → T (the class type itself)
+        var newM = scanLine.match(new RegExp(varName + '\\s*=\\s*new\\s+([A-Z][\\w.$]*)'));
+        if ( newM ) return this.resolveJavaTypeName(newM[1], model, index);
+
+        var simpleCastM = scanLine.match(
+          new RegExp(varName + '\\s*=\\s*\\(\\s*([A-Z][\\w.$]*)\\s*(?:<[^()]*>)?\\s*\\)'));
+        if ( simpleCastM ) return this.resolveJavaTypeName(simpleCastM[1], model, index);
+
         // var x = ((Cast) y).method() → resolve cast chain
         var rhsCastInfo = this.resolveJavaCastType(scanLine, model, index);
         if ( rhsCastInfo && rhsCastInfo.classId && rhsCastInfo.methodName ) {
@@ -290,8 +314,8 @@ foam.CLASS({
             if ( returnType ) return returnType;
           }
 
-          // Try receiver as a variable
-          var receiverType = this.resolveJavaVariableType(text, { line: i, character: 0 }, receiverName, model, index);
+          // Try receiver as a variable — pass `seen` so cycles terminate
+          var receiverType = this.resolveJavaVariableType(text, { line: i, character: 0 }, receiverName, model, index, seen);
           if ( receiverType ) {
             var returnType = this.resolveMethodReturnType(receiverType, methodName, index);
             if ( returnType ) return returnType;
@@ -310,6 +334,75 @@ foam.CLASS({
         }
 
         return null;
+      }
+
+      // 7. FOAM method parameter — declared in the enclosing method's
+      //    `args:` axiom, NOT in the javaCode body. Common pattern:
+      //      methods: [{
+      //        name: 'foo',
+      //        args: 'X x, MyType someParam',
+      //        javaCode: `someParam.bar();`
+      //      }]
+      //    The javaCode reference resolves through the args string of the
+      //    nearest preceding method-axiom block. Both string form
+      //    ('X x, MyType p') and array-of-objects form
+      //    ([{name:'p', javaType:'MyType'}]) are recognized.
+      var argType = this.resolveMethodParamType_(text, position, varName, model, index);
+      if ( argType ) return argType;
+      return null;
+    },
+
+    function resolveMethodParamType_(text, position, varName, model, index) {
+      /**
+       * Find the type of a FOAM method parameter declared in the enclosing
+       * method's `args:` axiom. Scans back from the cursor for the nearest
+       * `args:` declaration above the current javaCode block.
+       *
+       * Two `args:` shapes are supported:
+       *   - String form:   args: 'X x, MyType someParam'
+       *   - Array form:    args: [{ name: 'someParam', javaType: 'MyType' }]
+       *
+       * Returns a class id resolved via resolveJavaTypeName, or null.
+       */
+      var lines = text.split('\n');
+      var maxScan = Math.min(position.line, 200);
+
+      // String form
+      for ( var i = position.line ; i >= position.line - maxScan ; i-- ) {
+        if ( i < 0 ) break;
+        var line = lines[i] || '';
+        var stringArgs = line.match(/args\s*:\s*['"]([^'"]*)['"]/);
+        if ( stringArgs ) {
+          var pairs = stringArgs[1].split(',');
+          for ( var p = 0 ; p < pairs.length ; p++ ) {
+            var parts = pairs[p].trim().split(/\s+/);
+            if ( parts.length < 2 ) continue;
+            // Tail is the param name; everything before is the type. This
+            // handles generics-as-tokens (e.g., `List<String> items`).
+            var nm = parts[parts.length - 1];
+            var ty = parts.slice(0, parts.length - 1).join(' ');
+            if ( nm === varName && ty ) {
+              return this.resolveJavaTypeName(ty.replace(/<.*$/, ''), model, index);
+            }
+          }
+          break;
+        }
+        // Array form (single-line subset). Multi-line array form would
+        // require a richer parser — fall through to break the scan since
+        // the simple match didn't fire.
+        var arrayArgs = line.match(/args\s*:\s*\[\s*\{([\s\S]*?)\}\s*\]/);
+        if ( arrayArgs ) {
+          var entries = arrayArgs[1].split(/\}\s*,\s*\{/);
+          for ( var e = 0 ; e < entries.length ; e++ ) {
+            var entry = entries[e];
+            var nameM = entry.match(/name\s*:\s*['"]([^'"]+)['"]/);
+            if ( nameM && nameM[1] === varName ) {
+              var typeM = entry.match(/(?:javaType|type)\s*:\s*['"]([^'"]+)['"]/);
+              if ( typeM ) return this.resolveJavaTypeName(typeM[1].replace(/<.*$/, ''), model, index);
+            }
+          }
+          break;
+        }
       }
       return null;
     },
@@ -411,7 +504,36 @@ foam.CLASS({
       var blockKey = keyMatch[1];
 
       // Only return for known block keys
-      var knownKeys = { css: true, javaCode: true, javaPreSet: true, javaPostSet: true, javaFactory: true, javaGetter: true };
+      // Every key that holds a Java code/CSS template-literal block. The
+      // SemanticTokenHandler scans the same superset; keep them in sync so
+      // hover/go-to-def fire inside any Java slot (not just `javaCode:`).
+      var knownKeys = {
+        css:                            true,
+        javaCode:                       true,
+        javaPreSet:                     true,
+        javaPostSet:                    true,
+        javaFactory:                    true,
+        javaGetter:                     true,
+        javaSetter:                     true,
+        javaAdapt:                      true,
+        javaCompare:                    true,
+        javaComparePropertyToObject:    true,
+        javaComparePropertyToValue:     true,
+        javaCloneProperty:              true,
+        javaDiffProperty:               true,
+        javaFormatJSON:                 true,
+        javaJSONParser:                 true,
+        javaCSVParser:                  true,
+        javaQueryParser:                true,
+        javaToCSV:                      true,
+        javaToCSVLabel:                 true,
+        javaFromCSVLabelMapping:        true,
+        javaAssertValue:                true,
+        javaValidateObj:                true,
+        javaCondition:                  true,
+        javaValue:                      true,
+        javaInit:                       true
+      };
       if ( ! knownKeys[blockKey] ) return null;
 
       // Extract block content (between opening backtick and next backtick or end)

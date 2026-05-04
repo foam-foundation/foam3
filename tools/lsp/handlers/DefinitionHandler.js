@@ -54,6 +54,12 @@ foam.CLASS({
       var filePath = this.index.getFilePath(word);
       if ( filePath ) return this.buildLocation(filePath, word);
 
+      // foam.LIB: handle 'foam.Color.adjustAlpha' and 'foam.Color'
+      // Runs after class lookup so class IDs that share a name with a LIB
+      // refinement (e.g., foam.lang.FObject has both) resolve to the class.
+      var libLoc = this.resolveLibReference_(text, position, word);
+      if ( libLoc ) return libLoc;
+
       // Try as short property type name → resolve to full ID → get file
       var propTypes = this.index.getPropertyTypes();
       for ( var i = 0 ; i < propTypes.length ; i++ ) {
@@ -69,6 +75,27 @@ foam.CLASS({
       if ( segment ) {
         var model = this.cache.getModelAt(uri, text, position.line);
         var classId = this.cache.getClassId(model);
+
+        // If the dotted word is a chain (this.a.b.c), walk each intermediate
+        // segment through its FObjectProperty/Reference/Enum `of:` class.
+        // Only do this when the final segment truly is the cursor's segment —
+        // otherwise skip the chain walk and fall through to the normal path.
+        if ( classId && word && word.indexOf('.') !== -1 ) {
+          var parts = word.split('.');
+          if ( parts[parts.length - 1] === segment && parts.length >= 3 ) {
+            var walkClassId = classId;
+            if ( parts[0] === 'this' ) {
+              for ( var p = 1 ; p < parts.length - 1 && walkClassId ; p++ ) {
+                walkClassId = this.index.resolvePropertyTypeClassId(walkClassId, parts[p]);
+              }
+              if ( walkClassId && walkClassId !== classId ) {
+                var chainLoc = this.resolveMemberOnClass_(walkClassId, segment);
+                if ( chainLoc ) return chainLoc;
+              }
+            }
+          }
+        }
+
         if ( classId ) {
           var cls = this.index.getClass(classId);
           if ( cls ) {
@@ -120,6 +147,139 @@ foam.CLASS({
       return null;
     },
 
+    function resolveLibReference_(text, position, word) {
+      /**
+       * Jump to foam.X or foam.X.Y where foam.X was registered via foam.LIB.
+       * Supports cursor on any segment — resolves the longest LIB prefix
+       * of `word` and uses the remaining tail as a method/constant name.
+       */
+      if ( ! word || word.indexOf('.') === -1 ) return null;
+      var parts = word.split('.');
+
+      // Find the longest LIB-registered prefix, e.g. 'foam.animation.Interp'
+      // for word 'foam.animation.Interp.linear'.
+      var libName = null;
+      for ( var k = parts.length ; k >= 2 ; k-- ) {
+        var candidate = parts.slice(0, k).join('.');
+        if ( this.index.getLibEntry(candidate) ) { libName = candidate; break; }
+      }
+      if ( ! libName ) return null;
+
+      var entry = this.index.getLibEntry(libName);
+      var tail = word.substring(libName.length + 1);  // '' if cursor on lib name
+
+      // Determine the segment under the cursor.
+      var segment = this.analyzer.getSegmentAtPosition(text, position);
+
+      // Cursor on the LIB name itself → jump to the foam.LIB declaration line.
+      if ( ! tail || libName.split('.').indexOf(segment) !== -1 ) {
+        return {
+          uri: 'file://' + entry.path,
+          range: {
+            start: { line: entry.line || 0, character: 0 },
+            end:   { line: entry.line || 0, character: 0 }
+          }
+        };
+      }
+
+      // Cursor on a member name (possibly deeper than one hop — take the first
+      // tail segment; nested member resolution isn't modeled by foam.LIB).
+      var memberName = tail.split('.')[0];
+      if ( segment && segment !== memberName ) {
+        // Cursor is deeper in the chain — ignore, fall through to other handlers.
+        return null;
+      }
+      // Only claim this word when the tail is a real LIB member — otherwise
+      // fall through so the word can be resolved as e.g. a full class ID.
+      var isMethod = (entry.methods || []).indexOf(memberName) !== -1;
+      var isConst  = (entry.constants || []).indexOf(memberName) !== -1;
+      if ( ! isMethod && ! isConst ) return null;
+      return this.locateLibMember_(entry, memberName);
+    },
+
+    function locateLibMember_(entry, memberName) {
+      /**
+       * Find the line of `memberName` inside a foam.LIB block's file.
+       * Looks for `function name(...)` or `{ name: 'name' …}` within the
+       * block starting at entry.line. Falls back to the block start.
+       */
+      try {
+        var fs_ = require('fs');
+        var content = fs_.readFileSync(entry.path, 'utf8');
+        var lines = content.split('\n');
+        var fnRe = new RegExp('function\\s+' + memberName + '\\s*\\(');
+        var nameRe = new RegExp("name\\s*:\\s*['\"]" + memberName + "['\"]");
+        var endLine = lines.length;
+        // Limit the search to after the LIB call starts — best-effort end.
+        for ( var ln = (entry.line || 0) ; ln < endLine ; ln++ ) {
+          var l = lines[ln];
+          if ( fnRe.test(l) || nameRe.test(l) ) {
+            return {
+              uri: 'file://' + entry.path,
+              range: {
+                start: { line: ln, character: 0 },
+                end:   { line: ln, character: 0 }
+              }
+            };
+          }
+        }
+      } catch ( e ) {}
+      return {
+        uri: 'file://' + entry.path,
+        range: {
+          start: { line: entry.line || 0, character: 0 },
+          end:   { line: entry.line || 0, character: 0 }
+        }
+      };
+    },
+
+    function resolveMemberOnClass_(classId, name) {
+      /**
+       * Resolve a method/property/message `name` on `classId` to a Location.
+       * Returns null if not found. Used by the property-chain walk so
+       * `this.country.capital.name` navigates into Capital.name and not
+       * the current model.
+       */
+      var cls = this.index.getClass(classId);
+      if ( ! cls ) return null;
+
+      var methods = cls.getAxiomsByClass(foam.lang.Method);
+      for ( var i = 0 ; i < methods.length ; i++ ) {
+        if ( methods[i].name === name ) {
+          var defClass = this.findMethodDefiner_(cls, name);
+          if ( defClass ) {
+            var filePath = this.index.getFilePath(defClass);
+            if ( filePath ) return this.buildLocationAtMethod(filePath, defClass, name);
+          }
+        }
+      }
+
+      var javaMethods = this.index.getJavaMethods(classId);
+      for ( var i = 0 ; i < javaMethods.length ; i++ ) {
+        if ( javaMethods[i].name === name ) {
+          var javaLoc = this.findJavaMethodLocation_(classId, name);
+          if ( javaLoc ) return javaLoc;
+        }
+      }
+
+      var prop = cls.getAxiomByName(name);
+      if ( prop && foam.lang.Property.isInstance(prop) ) {
+        var defClass = this.findPropertyDefiner_(cls, name);
+        if ( defClass ) {
+          var filePath = this.index.getFilePath(defClass);
+          if ( filePath ) return this.buildLocationAtProperty(filePath, name);
+        }
+      }
+
+      var msg = this.index.findMessage(classId, name);
+      if ( msg && msg.definerId ) {
+        var filePath = this.index.getFilePath(msg.definerId);
+        if ( filePath ) return this.buildLocationAtMessage_(filePath, name);
+      }
+
+      return null;
+    },
+
     function findMethodDefiner_(cls, methodName) {
       /** Walk the class hierarchy to find which class defines the method. */
       var seen = {};
@@ -151,14 +311,24 @@ foam.CLASS({
     function buildLocationAtMethod(filePath, classId, methodName) {
       /**
        * Jump to a method definition within the correct class in the file.
-       * Uses FileModelCache to find the class's source range, then searches
-       * only within that range — avoids matching refinement methods.
+       * Pure grammar-based: relies on `kind: 'method'` positions emitted
+       * by `methodNameValue` in FoamClassGrammar.
+       *
+       * Resolution order:
+       *   1. Grammar map constrained to the requested class's source range.
+       *      Wins when the file has multiple class blocks.
+       *   2. Unconstrained grammar map — for single-class files or when
+       *      parseFileModels didn't capture the class section under the
+       *      expected classId (refines, generic foam.<X> calls).
+       *
+       * If both miss, that means the grammar didn't emit a method
+       * position — a grammar bug to fix in FoamClassGrammar.js, not
+       * something to paper over with a regex here.
        */
       try {
         var fs_ = require('fs');
         var content = fs_.readFileSync(filePath, 'utf8');
 
-        // Find the correct model's source range
         var models = this.cache.parseFileModels(content);
         var startLine = 0;
         var endLine = content.split('\n').length;
@@ -172,16 +342,27 @@ foam.CLASS({
           }
         }
 
-        // Search for the method only within the model's range
-        var lines = content.split('\n');
-        var regex = new RegExp('function\\s+' + methodName + '\\s*\\(');
-        for ( var ln = startLine ; ln < endLine ; ln++ ) {
-          if ( regex.test(lines[ln]) ) {
-            return { uri: 'file://' + filePath, range: { start: { line: ln, character: 0 }, end: { line: ln, character: 0 } } };
-          }
+        var map = this.grammar_().collectAxiomPositions(content);
+        var positions = map && map.method ? map.method : null;
+        var hit = positions ? positions[methodName] : null;
+        if ( hit && hit.line >= startLine && hit.line < endLine ) {
+          return this.buildMethodPosLocation_(filePath, hit, methodName);
         }
-      } catch (e) {}
+        if ( hit ) {
+          return this.buildMethodPosLocation_(filePath, hit, methodName);
+        }
+      } catch ( e ) {}
       return this.buildLocation(filePath, classId);
+    },
+
+    function buildMethodPosLocation_(filePath, pos, methodName) {
+      return {
+        uri: 'file://' + filePath,
+        range: {
+          start: { line: pos.line, character: pos.col || 0 },
+          end:   { line: pos.line, character: (pos.col || 0) + methodName.length }
+        }
+      };
     },
 
     function buildLocationAtMessage_(filePath, msgName) {
@@ -220,20 +401,31 @@ foam.CLASS({
     },
 
     function buildLocationAtProperty(filePath, propName) {
-      /** Jump to a property definition within a file. */
+      /**
+       * Jump to a property definition within a file. Uses the grammar's
+       * axiom-position index (`kind: 'property'` emitted by `propertyNameValue`
+       * in FoamClassGrammar) so the lookup respects multi-class files and
+       * matches how messages are located.
+       *
+       * Pure grammar-based: trusts `propertyNameValue` in
+       * FoamClassGrammar.js to emit position info for every property
+       * declaration. If a property isn't being found, the grammar rule
+       * needs a missing case — fix it there, not with a regex here.
+       */
       try {
         var fs_ = require('fs');
         var content = fs_.readFileSync(filePath, 'utf8');
-        var regex = new RegExp("name\\s*:\\s*['\"]" + propName + "['\"]");
-        var match = regex.exec(content);
-        if ( match ) {
-          var line = 0;
-          for ( var i = 0 ; i < match.index ; i++ ) {
-            if ( content[i] === '\n' ) line++;
-          }
-          return { uri: 'file://' + filePath, range: { start: { line: line, character: 0 }, end: { line: line, character: 0 } } };
+        var pos = this.grammar_().findAxiomPosition(content, 'property', propName);
+        if ( pos ) {
+          return {
+            uri: 'file://' + filePath,
+            range: {
+              start: { line: pos.line, character: pos.col },
+              end:   { line: pos.line, character: pos.col + propName.length }
+            }
+          };
         }
-      } catch (e) {}
+      } catch ( e ) {}
       return this.buildLocation(filePath);
     },
 
@@ -254,20 +446,24 @@ foam.CLASS({
         if ( filePath ) return this.buildLocation(filePath, typeClassId);
       }
 
-      // 2. variable.method() — resolve variable type, then find method definition
+      // 2. variable.method() — resolve variable type, then find method
+      //    definition. CRITICAL: when the click is a chained call
+      //    (`<recv>.<seg>` with a non-`this` receiver), this branch is
+      //    AUTHORITATIVE — we never fall through to step 3 because step 3
+      //    would search the *current* class (e.g., the enclosing FSM)
+      //    and silently land on the wrong file. Better to return null
+      //    (no navigation) than to navigate to an unrelated symbol.
       if ( word && word.indexOf('.') !== -1 ) {
         var parts = word.split('.');
         var varName = parts[parts.length - 2];
         var methodName = parts[parts.length - 1];
 
         if ( varName !== 'this' ) {
-          // Resolve the variable's type
           var varClassId = this.analyzer.resolveJavaVariableType(text, position, varName, model, this.index);
           if ( ! varClassId ) {
             varClassId = this.analyzer.resolveJavaTypeName(varName, model, this.index);
           }
           if ( varClassId ) {
-            // getter/setter → navigate to the property's defining class
             var gsMatch = methodName.match(/^(get|set)([A-Z]\w*)$/);
             if ( gsMatch ) {
               var propName = gsMatch[2].charAt(0).toLowerCase() + gsMatch[2].substring(1);
@@ -281,24 +477,28 @@ foam.CLASS({
               }
             }
 
-            // FOAM method
-            var cls = this.index.getClass(varClassId);
-            if ( cls ) {
-              var defClass = this.findMethodDefiner_(cls, methodName);
-              if ( defClass ) {
-                var filePath = this.index.getFilePath(defClass);
-                if ( filePath ) return this.buildLocationAtMethod(filePath, defClass, methodName);
+            var cls2 = this.index.getClass(varClassId);
+            if ( cls2 ) {
+              var mDefClass = this.findMethodDefiner_(cls2, methodName);
+              if ( mDefClass ) {
+                var mFilePath = this.index.getFilePath(mDefClass);
+                if ( mFilePath ) return this.buildLocationAtMethod(mFilePath, mDefClass, methodName);
               }
             }
 
-            // Java-only method → navigate to .java file
             var javaLoc = this.findJavaMethodLocation_(varClassId, methodName);
             if ( javaLoc ) return javaLoc;
           }
+          // Authoritative: a chained-call click never falls through to
+          // step 3 (current-model search). The receiver is what
+          // determines the target — even if we can't resolve it, the
+          // current model is almost certainly NOT the answer.
+          return null;
         }
       }
 
       // 3. Standalone method name (e.g., getProperty on current model)
+      //    Only reached for non-chained clicks or `this.method` clicks.
       var currentClassId = this.cache.getClassId(model);
       if ( currentClassId ) {
         var javaLoc = this.findJavaMethodLocation_(currentClassId, segment);

@@ -8,6 +8,7 @@ foam.POM({
     { name: 'MetricAlignment',         flags: 'js|java' },
 
     { name: 'LegendPosition',          flags: 'js|java' },
+    { name: 'CanvasTextUtil',          flags: 'js' },
     { name: 'DashboardSinks',          flags: 'js|java' },
     { name: 'DashboardDAOAgents',      flags: 'js' },
 

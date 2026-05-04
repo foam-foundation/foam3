@@ -79,6 +79,14 @@ foam.CLASS({
           if ( mName === 'create' ) continue;   // .create() handled above
           var ret = index.getMethodReturnType(classId, mName);
           if ( ret ) types[methodMatch[1]] = ret;
+          continue;
+        }
+
+        // var x = this.propName → type from FObjectProperty/Reference/Enum of:
+        var propMatch = line.match(/(?:var|let|const)\s+(\w+)\s*=\s*this\.(\w+)\s*;?\s*$/);
+        if ( propMatch && classId ) {
+          var resolved = index.resolvePropertyTypeClassId(classId, propMatch[2]);
+          if ( resolved ) types[propMatch[1]] = resolved;
         }
       }
       return types;

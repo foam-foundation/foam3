@@ -773,6 +773,7 @@ foam.CLASS({
           if ( self.suspendObserver && self.scrollToIndex ) return;
 
           var index = Number(entry.target.dataset.idx);
+          if ( ! index ) return;
           if ( entry.boundingClientRect.top <= entry.rootBounds.top ) {
             // Recheck before setting since the intersection observer might have been delayed
             let bounds = entry.target.getBoundingClientRect();
@@ -786,8 +787,9 @@ foam.CLASS({
           }
         });
         if ( ! intersectingSet ) return;
+        let rowEntryCount = entries.filter(e => !! e.target?.dataset?.idx).length;
         if ( ! self.bottomRow && self.displayedRowCount_ <= 0 )
-          self.bottomRow = self.pageSize_ > entries.length ? entries.length : self.pageSize_;
+          self.bottomRow = self.pageSize_ > rowEntryCount ? rowEntryCount : self.pageSize_;
       }
     },
     {

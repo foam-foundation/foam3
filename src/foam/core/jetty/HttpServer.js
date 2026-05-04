@@ -333,8 +333,8 @@ foam.CLASS({
           for ( Map.Entry<String, String> entry : params.entrySet() ) {
             holder.setInitParameter(entry.getKey().toString(), (String) entry.getValue().toString());
           }
-          
-          if ( foam.core.servlet.ImageServlet.class.getName().equals(mapping.getClassName()) && 
+
+          if ( foam.core.servlet.ImageServlet.class.getName().equals(mapping.getClassName()) &&
               getImageDirs().length() > 0 ) {
             holder.setInitParameter("paths", getImageDirs());
           }

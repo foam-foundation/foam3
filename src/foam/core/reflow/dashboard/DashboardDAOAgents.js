@@ -608,6 +608,10 @@ foam.CLASS({
       setter: function(v) { this.displaySink.rotation = v; } },
     { name: 'disableLegendClick', hidden: true, transient: true,
       setter: function(v) { this.displaySink.disableLegendClick = v; } },
+    { name: 'legendMinWidthPercent', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.legendMinWidthPercent = v; } },
+    { name: 'legendMaxWidthPercent', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.legendMaxWidthPercent = v; } },
     { name: 'emptyValueMessage', hidden: true, transient: true,
       setter: function(v) { this.displaySink.emptyValueMessage = v; } },
     { name: 'colors', hidden: true, transient: true,
@@ -873,6 +877,8 @@ foam.CLASS({
       postSet: function(o, n) {
         if ( n && n.createSink ) this.displaySink.valueSink = n.createSink();
       } },
+    { name: 'showAllData', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.showAllData = v; } },
     // Legacy flat-format shims — setter-only
     { name: 'colors', hidden: true, transient: true,
       setter: function(v) { this.displaySink.colors = v; } },
@@ -908,7 +914,11 @@ foam.CLASS({
       }));
     },
     function createSink() {
-      this.applyDateRangeFilter && this.applyDateRangeFilter();
+      // Skip the date-range filter when showAllData is set on the sink so
+      // the calendar renders every record in the DAO regardless of date.
+      if ( ! this.displaySink.showAllData ) {
+        this.applyDateRangeFilter && this.applyDateRangeFilter();
+      }
       return this.displaySink;
     },
     function addSinkToE(e, s) { e.add(s); },

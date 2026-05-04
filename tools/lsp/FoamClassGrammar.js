@@ -12,6 +12,7 @@ foam.CLASS({
   documentation: 'Grammar that parses foam.CLASS/ENUM/INTERFACE definitions with dynamic suggestions.',
 
   requires: [
+    'foam.parse.lsp.AxiomCatalog',
     'foam.parse.lsp.FoamIndex'
   ],
 
@@ -23,12 +24,24 @@ foam.CLASS({
       factory: function() { return this.FoamIndex.create(); }
     },
     {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.AxiomCatalog',
+      name: 'catalog',
+      factory: function() { return this.AxiomCatalog.create(); }
+    },
+    {
       name: 'classRefParser_',
       documentation: 'Cached alt() parser of all class ID suggestions.'
     },
     {
       name: 'propTypeParser_',
       documentation: 'Cached alt() parser of all property type suggestions.'
+    },
+    {
+      name: 'classTypedKeyParser_',
+      documentation: `Cached alt() parser matching any axiom slot name whose
+        value is a class id (Class/Reference/FObjectProperty/FObjectArray on
+        any registered model). Drives the generic classTypedSlotEntry rule.`
     },
     {
       name: 'symbols',
@@ -213,11 +226,24 @@ foam.CLASS({
       var self = this;
       var P = foam.parse.Parsers.create();
 
-      // Property types — all subclasses of foam.lang.Property
-      var propTypes = this.index.getPropertyTypes();
+      // Property types — all subclasses of foam.lang.Property.
+      // Only foam.lang.* types may be inserted by short name; every other
+      // package must be inserted as its full class id so the generated code
+      // resolves unambiguously (fixes issue where `class: 'foam.u2.ViewSpec'`
+      // completed to bare `'ViewSpec'`).
+      // Property type alts MUST be sorted longest-first. P.alt returns
+      // the FIRST match — without the sort, `Double` would prefix-match
+      // and short-circuit `DoubleUnitValue`/`UnitValue`, leaving the
+      // `UnitValue` suffix to choke the outer rule. Same bug as the
+      // classRefParser_ ordering below.
+      var propTypes = this.index.getPropertyTypes().slice().sort(function(a, b) {
+        return b.name.length - a.name.length;
+      });
       var propTypeParsers = propTypes.map(function(t) {
+        var isLang = t.id && t.id.indexOf('foam.lang.') === 0;
+        var insertText = isLang ? t.name : t.id;
         return P.sug(P.literalIC(t.name), foam.parse.Suggestion.create({
-          text: t.name,
+          text: insertText,
           category: 'property',
           hint: t.doc || t.id
         }));
@@ -245,67 +271,169 @@ foam.CLASS({
       });
       this.classRefParser_ = classRefParsers.length > 0 ?
         P.alt.apply(P, classRefParsers) : P.literal('foam.lang.FObject');
+
+      // Class-typed axiom slot names — any axiom whose value is a class id.
+      // Used by classTypedSlotEntry so a custom property like FSM `next`
+      // (Class-typed) parses its `'foo.X'` value as a class reference
+      // without the LSP knowing about FSM. Sorted longest-first to keep
+      // alt() deterministic for prefix-overlapping names.
+      var slotNames = this.index.getClassTypedPropertyNames().slice().sort(function(a, b) {
+        return b.length - a.length;
+      });
+      // Skip names already handled by their own first-class entry to avoid
+      // duplicate matching (extends/implements/refines/sourceModel/
+      // targetModel/of/class/view).
+      var handled = {
+        'extends':     true, 'implements':  true, 'refines':     true,
+        'sourceModel': true, 'targetModel': true,
+        'of':          true, 'class':       true, 'view':        true
+      };
+      var classTypedKeyParsers = [];
+      for ( var s = 0 ; s < slotNames.length ; s++ ) {
+        if ( handled[slotNames[s]] ) continue;
+        classTypedKeyParsers.push(P.literal(slotNames[s]));
+      }
+      this.classTypedKeyParser_ = classTypedKeyParsers.length > 0 ?
+        P.alt.apply(P, classTypedKeyParsers) :
+        // Fallback: if registry walk yielded nothing (unlikely), match a
+        // sentinel that never appears so this rule simply never fires.
+        P.literal('');
     },
 
     function buildGrammar_(P) {
       var self = this;
 
       // === PRIMITIVES ===
-      var ws = P.repeat0(P.alt(P.literal(' '), P.literal('\t'), P.literal('\n'), P.literal('\r')));
+      // Reusable character classes — these are the primitive building
+      // blocks. Defining them once and reusing them keeps the grammar
+      // DRY and ensures every identifier-shaped position uses the same
+      // tolerance (e.g., letters / digits / underscore / `$`).
+      var lower = P.range('a', 'z');
+      var upper = P.range('A', 'Z');
+      var digit = P.range('0', '9');
+      var alpha = P.alt(lower, upper);
+      var alphaNum = P.alt(lower, upper, digit);
 
-      // Comments
+      // Whitespace primitives. `ws` is whitespace-only; `wsc` is the
+      // whitespace + comments form used between grammar tokens.
       var lineComment = P.seq(P.literal('//'), P.str(P.repeat(P.notChars('\n\r'), null, 0)),
         P.alt(P.literal('\r\n'), P.literal('\n'), P.literal('\r')));
       var blockComment = P.seq(P.literal('/*'), P.str(P.until(P.literal('*/'))));
+      var wsChar = P.chars(' \t\n\r');
+      var ws  = P.repeat0(wsChar);
+      var wsc = P.repeat0(P.alt(wsChar, lineComment, blockComment));
 
-      // Whitespace including comments
-      var wsc = P.repeat0(P.alt(P.literal(' '), P.literal('\t'), P.literal('\n'), P.literal('\r'),
-        lineComment, blockComment));
+      // String literals — three quote flavors share the same shape.
+      function quotedString(qChar) {
+        return P.seq1(1, P.literal(qChar),
+          P.str(P.repeat(P.alt(P.literal('\\' + qChar), P.notChars(qChar)), null, 0)),
+          P.literal(qChar));
+      }
+      var sqString       = quotedString("'");
+      var dqString       = quotedString('"');
+      var backtickString = quotedString('`');
+      var stringLiteral  = P.alt(sqString, dqString, backtickString);
 
-      // String literals
-      var sqString = P.seq1(1, P.literal("'"),
-        P.str(P.repeat(P.alt(P.literal("\\'"), P.notChars("'")), null, 0)), P.literal("'"));
-      var dqString = P.seq1(1, P.literal('"'),
-        P.str(P.repeat(P.alt(P.literal('\\"'), P.notChars('"')), null, 0)), P.literal('"'));
-      var backtickString = P.seq1(1, P.literal('`'),
-        P.str(P.repeat(P.alt(P.literal('\\`'), P.notChars('`')), null, 0)), P.literal('`'));
-      var stringLiteral = P.alt(sqString, dqString, backtickString);
-
-      var digit = P.range('0', '9');
       var number = P.str(P.repeat(P.alt(digit, P.literal('.'), P.literal('-')), null, 1));
       var booleanLiteral = P.alt(P.literal('true'), P.literal('false'),
         P.literal('null'), P.literal('undefined'));
-      var identifier = P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-        P.range('0', '9'), P.chars('_$')), null, 1));
-      var dottedId = P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-        P.range('0', '9'), P.chars('_.$')), null, 1));
 
-      function key(name) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'key'
-        }));
+      // Identifier shapes. Plain ident = `[A-Za-z0-9_$]+`; dotted form
+      // also accepts `.`. Centralized so future tweaks (e.g., adding
+      // `-` for property names that allow it) hit one place.
+      var identChars       = P.alt(alphaNum, P.chars('_$'));
+      var dottedIdentChars = P.alt(alphaNum, P.chars('_.$'));
+      var identifier = P.str(P.repeat(identChars, null, 1));
+      var dottedId   = P.str(P.repeat(dottedIdentChars, null, 1));
+
+      // Identifier-as-msg helper. The grammar has many `name: ` slots
+      // that must emit a position-tagged msg for downstream handlers
+      // (axiom-position lookups, references, definition jumps). All of
+      // them use the same identifier shape, so route through one helper.
+      function identMsg(kind) {
+        return P.msg(P.str(P.repeat(identChars, null, 1)), { kind: kind });
       }
 
-      // Category-tagged key helpers so callers can distinguish cursor context
-      // from collected suggestions (top-level class body vs property object
-      // vs POM body). LSP handler maps all of these to Keyword kind (14).
-      function topKey(name) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'topKey'
-        }));
+      // Suggestion-shaped key helpers. All four (key/topKey/propKey/
+      // pomKey) emit a sug() with a label, category, and optional hint
+      // — only the category differs. Generate the four flavors from one
+      // factory so the suggestion shape stays in sync. LSP handler
+      // maps all four categories to Keyword kind (14). The hint is
+      // shown as the suggestion description in IDEs that render it
+      // (e.g., VS Code shows it under the label).
+      function makeKeyHelper(category) {
+        return function(name, hint) {
+          return P.sug(P.literal(name), foam.parse.Suggestion.create({
+            text: name + ': ', category: category, hint: hint || ''
+          }));
+        };
       }
-      function propKey(name) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'propKey'
-        }));
+      var key           = makeKeyHelper('key');
+      var topKey        = makeKeyHelper('topKey');
+      var propKey       = makeKeyHelper('propKey');
+      var pomKeyHelper  = makeKeyHelper('pomKey');
+
+      // Build an alt() of all key suggestions for a given scope, sourced
+      // from AxiomCatalog. Single source of truth: adding a new axiom
+      // slot in AxiomCatalog automatically grows the grammar's hint
+      // and the editor's hover.
+      var catalog = this.catalog;
+      function catalogAlt(scope) {
+        var helper = makeKeyHelper(scope);
+        var entries = catalog.byScope(scope);
+        var alts = entries.map(function(e) { return helper(e.name, e.hint); });
+        return alts.length > 0 ? P.alt.apply(P, alts) : P.literal('');
       }
-      function pomKeyHelper(name) {
-        return P.sug(P.literal(name), foam.parse.Suggestion.create({
-          text: name + ': ', category: 'pomKey'
-        }));
+
+      // Convenience: pull a hint by scope+name. Used in explicit entry
+      // declarations (extendsEntry, refinesEntry, etc.) so their key()
+      // suggestion uses the same hint text as catalogAlt's auto-generated
+      // sug() arms.
+      function topHint(name)  { return catalog.getHint('topKey',  name); }
+      function propHint(name) { return catalog.getHint('propKey', name); }
+      function pomHint(name)  { return catalog.getHint('pomKey',  name); }
+
+      // Accept either 'value' or "value" — defensive against mismatched/
+      // mixed quote styles in hand-edited files. The closing quote is
+      // optional so cursor-mid-edit input still parses far enough for
+      // suggestions and diagnostics to fire.
+      function quotedAny(inner) {
+        return P.alt(
+          P.seq(P.literal("'"), inner, P.optional(P.literal("'"))),
+          P.seq(P.literal('"'), inner, P.optional(P.literal('"')))
+        );
+      }
+
+      // Like quotedAny but tags the double-quote arm with a style hint
+      // (FOAM convention is single quotes for class refs). The
+      // DiagnosticsHandler converts the msg to a hint-level diagnostic
+      // and the server.js CodeAction provides a one-click fix.
+      function quoted(inner) {
+        return P.alt(
+          P.seq(P.literal("'"), inner, P.optional(P.literal("'"))),
+          P.msg(
+            P.seq(P.literal('"'), inner, P.optional(P.literal('"'))),
+            { type: 'doubleQuotedClassRef' }
+          )
+        );
       }
 
       var comma = P.seq0(wsc, P.literal(','), wsc);
+
+      // Trailing-comma-tolerant list: `entry (, entry)* ,?`. JavaScript
+      // allows trailing commas in arrays / object literals, and so does
+      // the FOAM JSON serializer; without this helper the parser would
+      // bail at the first list with one (silently swallowing every
+      // downstream property/method emission). All array-of-entries
+      // sites in the grammar route through this so the bug only has
+      // one place to fix.
+      function repeatList(entry) {
+        return P.optional(P.seq(
+          entry,
+          P.repeat(P.seq(comma, entry)),
+          P.optional(comma)
+        ));
+      }
 
       var anyValue = P.alt(
         stringLiteral, number, booleanLiteral,
@@ -317,21 +445,33 @@ foam.CLASS({
         // === FILE-LEVEL ===
         START: P.repeat(P.alt(P.sym('foamCall'), P.sym('ignoredContent')), null, 0),
 
-        foamCall: P.alt(P.sym('foamClass'), P.sym('foamEnum'), P.sym('foamInterface'),
-          P.sym('foamPOM')),
-
-        foamClass: P.seq(P.literal('foam.CLASS'), wsc, P.literal('('), wsc,
-          P.sym('classBody'), wsc, P.optional(P.literal(')'))),
-        foamEnum: P.seq(P.literal('foam.ENUM'), wsc, P.literal('('), wsc,
-          P.sym('classBody'), wsc, P.optional(P.literal(')'))),
-        foamInterface: P.seq(P.literal('foam.INTERFACE'), wsc, P.literal('('), wsc,
-          P.sym('classBody'), wsc, P.optional(P.literal(')'))),
+        // POM keeps a distinct rule because its body grammar (pomBody) is
+        // different from a class body. Everything else (CLASS, ENUM,
+        // INTERFACE, RELATIONSHIP, FSM, and any future foam.<X> extension)
+        // routes through `foamGenericCall` so adding a new model type
+        // requires no grammar changes.
+        foamCall: P.alt(P.sym('foamPOM'), P.sym('foamGenericCall')),
 
         foamPOM: P.seq(P.literal('foam.POM'), wsc, P.literal('('), wsc,
           P.sym('pomBody'), wsc, P.optional(P.literal(')'))),
 
+        // Captures `foam.<UPPER>(<classBody>)` for any uppercase identifier
+        // other than POM. The captured name is preserved by `foamCallName`
+        // so handlers can branch (e.g., FSM-specific completions) if needed.
+        foamGenericCall: P.seq(
+          P.literal('foam.'),
+          P.sym('foamCallName'),
+          wsc, P.literal('('), wsc,
+          P.sym('classBody'),
+          wsc, P.optional(P.literal(')'))
+        ),
+
+        foamCallName: P.str(P.repeat(P.alt(
+          P.range('A', 'Z'), P.range('0', '9'), P.literal('_')
+        ), null, 1)),
+
         pomBody: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('pomEntry'), comma)),
+          repeatList(P.sym('pomEntry')),
           wsc, P.optional(P.literal('}'))),
 
         pomEntry: P.alt(
@@ -339,51 +479,77 @@ foam.CLASS({
           P.sym('pomJavaFilesEntry'),
           P.sym('pomProjectsEntry'),
           P.sym('pomJavaDepsEntry'),
-          P.sym('pomKey'),
+          P.sym('pomJournalFilesEntry'),
+          P.sym('pomNameEntry'),
+          P.sym('pomVersionEntry'),
           P.sym('genericEntry')
         ),
 
-        pomKey: P.alt(
-          pomKeyHelper('name'), pomKeyHelper('version'), pomKeyHelper('files'),
-          pomKeyHelper('projects'), pomKeyHelper('javaDependencies'),
-          pomKeyHelper('javaFiles'), pomKeyHelper('journalFiles')
-        ),
+        // Scalar string entries — each emits its key sug and parses through
+        // the rest of the `key: 'value'` assignment so the outer repeat can
+        // move on to the next comma-separated entry without blocking.
+        pomNameEntry: P.seq(pomKeyHelper('name', pomHint('name')), wsc, P.literal(':'), wsc, stringLiteral),
+        pomVersionEntry: P.seq(pomKeyHelper('version', pomHint('version')), wsc, P.literal(':'), wsc, stringLiteral),
+
+        pomJournalFilesEntry: P.seq(pomKeyHelper('journalFiles', pomHint('journalFiles')), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          repeatList(P.seq(wsc, stringLiteral, wsc)),
+          wsc, P.optional(P.literal(']'))),
 
         // Specific POM entry rules. Each emits a context marker (via sug with
         // \u0002 that never matches) so the LSP handler can detect cursor
         // position by inspecting collected sug categories.
 
-        pomFilesEntry: P.seq(pomKeyHelper('files'), wsc, P.literal(':'), wsc,
+        pomFilesEntry: P.seq(pomKeyHelper('files', pomHint('files')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('pomFileObj'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('pomFileObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomJavaFilesEntry: P.seq(pomKeyHelper('javaFiles'), wsc, P.literal(':'), wsc,
+        pomJavaFilesEntry: P.seq(pomKeyHelper('javaFiles', pomHint('javaFiles')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('pomJavaFileObj'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('pomJavaFileObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomProjectsEntry: P.seq(pomKeyHelper('projects'), wsc, P.literal(':'), wsc,
+        pomProjectsEntry: P.seq(pomKeyHelper('projects', pomHint('projects')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('pomProjectObj'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('pomProjectObj'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomJavaDepsEntry: P.seq(pomKeyHelper('javaDependencies'), wsc, P.literal(':'), wsc,
+        pomJavaDepsEntry: P.seq(pomKeyHelper('javaDependencies', pomHint('javaDependencies')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('pomJavaDep'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('pomJavaDep'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        pomFileObj: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('pomFileObjEntry'), comma)),
+        // File/project object headers fire a snippet sug when `{` is expected
+        // but not present — e.g. on a blank line between entries. Without this
+        // the grammar backtracks to pomEntry and the user sees top-level POM
+        // keys instead of a new-entry template.
+        pomFileObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '', flags: 'js' }", category: 'pomFileEntry',
+            hint: 'new file entry'
+          })),
+          wsc,
+          repeatList(P.sym('pomFileObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
-        pomJavaFileObj: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('pomJavaFileObjEntry'), comma)),
+        pomJavaFileObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '' }", category: 'pomJavaFileEntry',
+            hint: 'new Java file entry'
+          })),
+          wsc,
+          repeatList(P.sym('pomJavaFileObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
-        pomProjectObj: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('pomProjectObjEntry'), comma)),
+        pomProjectObj: P.seq(
+          P.sug(P.literal('{'), foam.parse.Suggestion.create({
+            text: "{ name: '' }", category: 'pomProjectEntry',
+            hint: 'new project entry'
+          })),
+          wsc,
+          repeatList(P.sym('pomProjectObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
         pomFileObjEntry: P.alt(
@@ -451,13 +617,14 @@ foam.CLASS({
         classBody: P.seq(P.literal('{'), wsc,
           P.optional(P.sym('classEntries')), wsc, P.optional(P.literal('}'))),
 
-        classEntries: P.repeat(P.sym('classEntry'), P.seq0(wsc, P.literal(','), wsc)),
+        classEntries: repeatList(P.sym('classEntry')),
 
         classEntry: P.alt(
           P.sym('packageEntry'),
           P.sym('nameEntry'),
           P.sym('extendsEntry'),
           P.sym('implementsEntry'),
+          P.sym('refinesEntry'),
           P.sym('requiresEntry'),
           P.sym('propertiesEntry'),
           P.sym('methodsEntry'),
@@ -473,31 +640,101 @@ foam.CLASS({
           P.sym('flagsEntry'),
           P.sym('actionsEntry'),
           P.sym('listenersEntry'),
+          P.sym('sectionsEntry'),
           P.sym('cssEntry'),
+          P.sym('sourceModelEntry'),
+          P.sym('targetModelEntry'),
+          P.sym('classTypedSlotEntry'),
           P.sym('topLevelKey'),
           P.sym('genericEntry')
         ),
 
         // === SPECIFIC ENTRIES ===
-        packageEntry: P.seq(key('package'), wsc, P.literal(':'), wsc, stringLiteral),
-        nameEntry: P.seq(key('name'), wsc, P.literal(':'), wsc, stringLiteral),
-        extendsEntry: P.seq(key('extends'), wsc, P.literal(':'), wsc,
-          P.literal("'"), P.sym('classRef'), P.optional(P.literal("'"))),
-        documentationEntry: P.seq(key('documentation'), wsc, P.literal(':'), wsc, stringLiteral),
-        abstractEntry: P.seq(key('abstract'), wsc, P.literal(':'), wsc, booleanLiteral),
-        flagsEntry: P.seq(key('flags'), wsc, P.literal(':'), wsc, P.sym('array')),
-        actionsEntry: P.seq(key('actions'), wsc, P.literal(':'), wsc, P.sym('array')),
-        listenersEntry: P.seq(key('listeners'), wsc, P.literal(':'), wsc, P.sym('array')),
-        cssEntry: P.seq(key('css'), wsc, P.literal(':'), wsc, backtickString),
+        // Hints are sourced from AxiomCatalog via topHint() — keeps the
+        // descriptions in one place and reachable from HoverHandler too.
+        packageEntry: P.seq(key('package',  topHint('package')),  wsc, P.literal(':'), wsc, stringLiteral),
+        nameEntry:    P.seq(key('name',     topHint('name')),     wsc, P.literal(':'), wsc, stringLiteral),
+        extendsEntry: P.seq(key('extends',  topHint('extends')),  wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
 
-        implementsEntry: P.seq(key('implements'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
-          P.optional(P.repeat(
-            P.seq(wsc, P.literal("'"), P.sym('classRef'), P.optional(P.literal("'")), wsc), comma)),
+        // refines: 'foam.x.Y' — classRef-typed top-level slot. Promoted from
+        // suggestion-only topLevelKey to first-class entry so go-to-def,
+        // hover, and unknown-class diagnostics work the same as `extends:`.
+        refinesEntry: P.seq(key('refines', topHint('refines')), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
+
+        // sourceModel/targetModel: classRef-typed slots used by
+        // foam.RELATIONSHIP({...}). Same treatment as extends/refines.
+        sourceModelEntry: P.seq(key('sourceModel', topHint('sourceModel')), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
+        targetModelEntry: P.seq(key('targetModel', topHint('targetModel')), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))),
+
+        // Generic axiom-class-typed slot: `<key>: 'foo.X'` where <key> is
+        // the name of any property defined as Class/Reference/FObjectProperty/
+        // FObjectArray on a model in the FOAM registry. Driven by
+        // FoamIndex.getClassTypedPropertyNames() — adding a new class-typed
+        // axiom (e.g., FSM `next: 'foo.X.STATE'`) requires no grammar change.
+        classTypedSlotEntry: P.seq(
+          self.classTypedKeyParser_,
+          wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))
+        ),
+        documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc, stringLiteral),
+        abstractEntry: P.seq(key('abstract', topHint('abstract')), wsc, P.literal(':'), wsc, booleanLiteral),
+        flagsEntry: P.seq(key('flags', topHint('flags')), wsc, P.literal(':'), wsc, P.sym('array')),
+        // actions/listeners/sections — array-of-object axioms. Each gets a
+        // dedicated inner-object rule so completion suggests the right keys
+        // for THAT scope (actionKey/listenerKey/sectionKey from
+        // AxiomCatalog). Falls back to `array` of unstructured values
+        // when the inner-object form isn't used.
+        actionsEntry: P.seq(key('actions', topHint('actions')), wsc, P.literal(':'), wsc,
+          P.alt(P.sym('actionsArray'), P.sym('array'))),
+        listenersEntry: P.seq(key('listeners', topHint('listeners')), wsc, P.literal(':'), wsc,
+          P.alt(P.sym('listenersArray'), P.sym('array'))),
+        sectionsEntry: P.seq(key('sections', topHint('sections')), wsc, P.literal(':'), wsc,
+          P.alt(P.sym('sectionsArray'), P.sym('array'))),
+
+        actionsArray: P.seq(P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('actionObject'), wsc)),
+          wsc, P.optional(P.literal(']'))),
+        actionObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('actionObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+        actionObjEntry: P.alt(
+          P.seq(catalogAlt('actionKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
+
+        listenersArray: P.seq(P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('listenerObject'), wsc)),
+          wsc, P.optional(P.literal(']'))),
+        listenerObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('listenerObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+        listenerObjEntry: P.alt(
+          P.seq(catalogAlt('listenerKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
+
+        sectionsArray: P.seq(P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('sectionObject'), wsc)),
+          wsc, P.optional(P.literal(']'))),
+        sectionObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('sectionObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+        sectionObjEntry: P.alt(
+          P.seq(catalogAlt('sectionKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
+        cssEntry: P.seq(key('css', topHint('css')), wsc, P.literal(':'), wsc, backtickString),
+
+        implementsEntry: P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+          repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),
 
-        requiresEntry: P.seq(key('requires'), wsc, P.literal(':'), wsc, P.literal('['), wsc,
-          P.optional(P.repeat(
-            P.seq(wsc, P.literal("'"), P.sym('classRef'), P.optional(P.literal("'")), wsc), comma)),
+        requiresEntry: P.seq(key('requires', topHint('requires')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+          repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // messages: [ { name: 'LABEL_X', message: '…' } ]
@@ -506,64 +743,64 @@ foam.CLASS({
         // per-axiom regex scanners we used to need.
         messagesEntry: P.seq(topKey('messages'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('messageObject'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('messageObject'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         messageObject: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('messageObjEntry'), comma)),
+          repeatList(P.sym('messageObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
+        // First arm emits the 'message' axiom position; catalogAlt covers
+        // every other message-object slot (name/message/documentation).
         messageObjEntry: P.alt(
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('messageNameValue'), P.optional(P.literal("'"))),
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal('"'), P.sym('messageNameValue'), P.optional(P.literal('"'))),
-          P.seq(propKey('message'), wsc, P.literal(':'), wsc, stringLiteral),
+          P.seq(propKey('name', catalog.getHint('messageKey', 'name')),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('messageNameValue'))),
+          P.seq(catalogAlt('messageKey'), wsc, P.literal(':'), wsc, anyValue),
           P.sym('genericEntry')
         ),
 
-        messageNameValue: P.msg(
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_$')), null, 1)),
-          { kind: 'message' }
-        ),
+        messageNameValue: identMsg('message'),
 
         // values: [ { name: 'X', ... } ] — foam.ENUM value declarations.
         valuesEntry: P.seq(topKey('values'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('valueObject'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('valueObject'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         valueObject: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.sym('valueObjEntry'), comma)),
+          repeatList(P.sym('valueObjEntry')),
           wsc, P.optional(P.literal('}'))),
 
+        // First arm emits the 'value' axiom position for enum values;
+        // catalogAlt covers everything else (label/ordinal/documentation).
         valueObjEntry: P.alt(
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('enumValueName'), P.optional(P.literal("'"))),
-          P.seq(propKey('name'), wsc, P.literal(':'), wsc,
-            P.literal('"'), P.sym('enumValueName'), P.optional(P.literal('"'))),
+          P.seq(propKey('name', catalog.getHint('valueKey', 'name')),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('enumValueName'))),
+          P.seq(catalogAlt('valueKey'), wsc, P.literal(':'), wsc, anyValue),
           P.sym('genericEntry')
         ),
 
-        enumValueName: P.msg(
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('_$')), null, 1)),
-          { kind: 'value' }
-        ),
+        enumValueName: identMsg('value'),
+
+        // Property `name: 'foo'` — emit a 'property' axiom position so
+        // DefinitionHandler.buildLocationAtProperty can jump straight to
+        // the declaration without text-scan regex.
+        propertyNameValue: identMsg('property'),
 
         // tableColumns/searchColumns: emit a 'columnName' category at each value
         // position so the LSP handler can detect context without regex scanning.
         // Real suggestions come from the model (this class's properties).
         tableColumnsEntry: P.seq(topKey('tableColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('columnName'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
         searchColumnsEntry: P.seq(topKey('searchColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.literal("'"), P.sym('columnName'),
-            P.optional(P.literal("'")), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+            P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // Context marker: the sug here always fails (matches \u0002 which
@@ -575,22 +812,54 @@ foam.CLASS({
             text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
           })),
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('_.')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
             { type: 'columnName' }
           )
         ),
 
-        importsEntry: P.seq(key('imports'), wsc, P.literal(':'), wsc, P.sym('array')),
-        exportsEntry: P.seq(key('exports'), wsc, P.literal(':'), wsc, P.sym('array')),
+        importsEntry: P.seq(key('imports', topHint('imports')), wsc, P.literal(':'), wsc, P.sym('array')),
 
-        javaImportsEntry: P.seq(key('javaImports'), wsc, P.literal(':'), wsc,
+        // exports: [ 'axiomName', 'axiomName as alias' ] — emit an 'exportName'
+        // context marker per value so the LSP handler can suggest axiom names
+        // (properties, methods, actions, listeners) from the enclosing model
+        // instead of the class-ref fallback list.
+        exportsEntry: P.seq(key('exports', topHint('exports')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('javaImport'), wsc), comma)),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('exportName'),
+            P.optional(P.literal("'")), wsc)),
+          wsc, P.optional(P.literal(']'))),
+
+        exportName: P.alt(
+          P.sug(P.literal(''), foam.parse.Suggestion.create({
+            text: '__ctx_exportName__', category: 'exportName', hint: 'axiom name'
+          })),
+          P.msg(
+            P.str(P.repeat(P.alt(alphaNum, P.chars('_ $')), null, 1)),
+            { type: 'exportName' }
+          )
+        ),
+
+        javaImportsEntry: P.seq(key('javaImports', topHint('javaImports')), wsc, P.literal(':'), wsc,
+          P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.sym('javaImport'), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         javaImport: P.seq1(1, P.literal("'"), P.sym('javaImportRef'), P.optional(P.literal("'"))),
+        // Full Java FQ-name first — must consume the entire qualified name
+        // including any wildcard `.*` suffix and the optional `static `
+        // prefix used for static-method imports
+        // (`'static foo.MLang.AND'`). The sug() arms below match common
+        // prefixes (foam.lang., java.util., …) and emit completion
+        // suggestions; they're ordered AFTER the full-id regex so they
+        // only fire when collectSuggestionsAt() runs against a sentinel
+        // — never during a real parse where they'd otherwise greedily
+        // consume just the prefix and leave the rest un-parsed (which
+        // silently bailed the whole class body downstream).
         javaImportRef: P.alt(
+          P.seq(
+            P.optional(P.seq(P.literal('static'), P.repeat(P.chars(' \t')))),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('._*')), null, 1))
+          ),
           P.sug(P.literal('foam.lang.'), foam.parse.Suggestion.create({
             text: 'foam.lang.', category: 'class',
             hint: 'FOAM lang package (FObject, X, PropertyInfo)'
@@ -605,33 +874,25 @@ foam.CLASS({
           })),
           P.sug(P.literal('java.io.'), foam.parse.Suggestion.create({
             text: 'java.io.', category: 'class', hint: 'Java IO'
-          })),
-          P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-            P.range('0', '9'), P.chars('._*')), null, 1))
+          }))
         ),
 
-        propertiesEntry: P.seq(key('properties'), wsc, P.literal(':'), wsc,
+        propertiesEntry: P.seq(key('properties', topHint('properties')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.sym('propertyDef'), comma)),
+          repeatList(P.sym('propertyDef')),
           wsc, P.optional(P.literal(']'))),
 
-        methodsEntry: P.seq(key('methods'), wsc, P.literal(':'), wsc,
+        methodsEntry: P.seq(key('methods', topHint('methods')), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          P.optional(P.repeat(P.sym('methodDef'), comma)),
+          repeatList(P.sym('methodDef')),
           wsc, P.optional(P.literal(']'))),
 
-        topLevelKey: P.alt(
-          topKey('package'), topKey('name'), topKey('extends'), topKey('requires'),
-          topKey('imports'), topKey('exports'), topKey('properties'), topKey('methods'),
-          topKey('actions'), topKey('documentation'), topKey('abstract'),
-          topKey('implements'), topKey('javaImports'), topKey('axioms'),
-          topKey('css'), topKey('messages'), topKey('topics'), topKey('listeners'),
-          topKey('constants'), topKey('sections'), topKey('flags'),
-          topKey('tableColumns'), topKey('searchColumns'),
-          topKey('refines'), topKey('label'), topKey('plural'), topKey('order'),
-          topKey('ids'), topKey('javaCode'), topKey('cssTokens'), topKey('mixins'),
-          topKey('static'), topKey('of'), topKey('values')
-        ),
+        // topLevelKey is a FULL entry: suggests known top-level keys AND
+        // consumes their `: <value>` so the outer classEntries repeat keeps
+        // progressing. The list of slots + descriptions comes from
+        // AxiomCatalog so grammar hints and HoverHandler hover text share
+        // the same source.
+        topLevelKey: P.seq(catalogAlt('topKey'), wsc, P.literal(':'), wsc, anyValue),
 
         // === CLASS REFERENCES (dynamic) ===
         // The permissive fallback is wrapped in msg() so diagnostic collection
@@ -640,8 +901,7 @@ foam.CLASS({
         classRef: P.alt(
           self.classRefParser_,
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('._')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('._')), null, 1)),
             { type: 'unknownClassRef' }
           )
         ),
@@ -651,20 +911,32 @@ foam.CLASS({
         propertyDef: P.alt(stringLiteral, P.sym('propertyObject'), P.sym('balancedBraces')),
         propertyObject: P.seq(P.literal('{'), wsc,
           P.optional(P.sym('propEntries')), wsc, P.optional(P.literal('}'))),
-        propEntries: P.repeat(P.sym('propEntry'), comma),
+        propEntries: repeatList(P.sym('propEntry')),
 
         propEntry: P.alt(
+          // class: 'String'  → propType (short name, matches String/Long/etc.)
+          // class: 'foo.X.Y' → classRef (dotted full class id)
+          // Order matters: propType is `literalIC` of short names, so it
+          // declines on dotted input and we fall through to classRef.
+          // quoted() accepts " too, with a style hint diagnostic.
           P.seq(P.sug(P.literal('class'), foam.parse.Suggestion.create({
             text: 'class', category: 'key' })),
-            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('propType'),
-            P.optional(P.literal("'"))),
+            wsc, P.literal(':'), wsc,
+            quoted(P.alt(P.sym('propType'), P.sym('classRef')))),
           P.seq(P.sug(P.literal('name'), foam.parse.Suggestion.create({
             text: 'name', category: 'key' })),
-            wsc, P.literal(':'), wsc, stringLiteral),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('propertyNameValue'))),
           P.seq(P.sug(P.literal('of'), foam.parse.Suggestion.create({
             text: 'of', category: 'key' })),
-            wsc, P.literal(':'), wsc, P.literal("'"), P.sym('classRef'),
-            P.optional(P.literal("'"))),
+            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
+          // view: 'com.acme.MyView' — treat the string form exactly like `of:`
+          // so class suggestions (including view classes) surface in viewSpec
+          // positions. The { class: '...' } object form is covered by the
+          // normal propEntry/class rule inside that object.
+          P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
+            text: 'view', category: 'key' })),
+            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
             text: 'documentation', category: 'key' })),
             wsc, P.literal(':'), wsc, stringLiteral),
@@ -678,44 +950,69 @@ foam.CLASS({
           P.sym('genericEntry')
         ),
 
-        propKey: P.alt(
-          propKey('class'), propKey('name'), propKey('of'), propKey('documentation'),
-          propKey('hidden'), propKey('transient'),
-          propKey('value'), propKey('factory'), propKey('expression'),
-          propKey('javaCode'), propKey('javaGetter'), propKey('javaPostSet'),
-          propKey('javaPreSet'), propKey('javaFactory'),
-          propKey('aliases'), propKey('label'), propKey('section'), propKey('visibility'),
-          propKey('view'), propKey('adapt'), propKey('preSet'), propKey('postSet'),
-          propKey('required'), propKey('width'), propKey('placeholder'), propKey('help'),
-          propKey('gridColumns'), propKey('tableCellFormatter'), propKey('labelFormatter'),
-          propKey('shortName'), propKey('readPermissionRequired'), propKey('writePermissionRequired'),
-          propKey('validateObj'), propKey('tableWidth'), propKey('storageTransient'),
-          propKey('cloneProperty'), propKey('networkTransient'), propKey('readOnly'),
-          propKey('permissionRequired'), propKey('javaSetter'), propKey('javaInfoType')
-        ),
+        // propKey is a full entry — suggests the prop slot AND consumes
+        // its `: <value>`. List + hints come from AxiomCatalog (shared
+        // with HoverHandler).
+        propKey: P.seq(catalogAlt('propKey'), wsc, P.literal(':'), wsc, anyValue),
 
         propType: P.alt(
           self.propTypeParser_,
           P.msg(
-            P.str(P.repeat(P.alt(P.range('a', 'z'), P.range('A', 'Z'),
-              P.range('0', '9'), P.chars('._')), null, 1)),
+            P.str(P.repeat(P.alt(alphaNum, P.chars('._')), null, 1)),
             { type: 'unknownPropType' }
           )
         ),
 
         // === METHOD DEFINITIONS ===
-        methodDef: P.alt(P.sym('functionBody'), P.sym('object')),
+        // Method forms:
+        //   function foo(args) { ... }           — bare function
+        //   { name: 'foo', code: function... }   — object with name
+        // Both forms emit a 'method' axiom position so DefinitionHandler
+        // can jump straight to the declaration without text-scan regex.
+        methodDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('methodObject'),
+          P.sym('object')
+        ),
+
+        namedFunctionBody: P.seq(
+          P.optional(P.literal('async')), wsc,
+          P.literal('function'), wsc,
+          P.sym('methodNameValue'),
+          wsc, P.sym('balancedParens'), wsc, P.sym('balancedBraces')
+        ),
+
+        methodObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('methodObjEntry')),
+          wsc, P.optional(P.literal('}'))),
+
+        // The first two arms emit a 'method' axiom position from the
+        // string value (used by buildLocationAtMethod). Catalog-driven
+        // entry handles every other method-object slot AND consumes its
+        // `: <value>` so the loop keeps progressing across mixed forms
+        // (`{ name: 'm', args: 'X x', javaCode: ` ... `, documentation: '...' }`).
+        // The trailing genericEntry remains as a safety net for keys we
+        // haven't catalogued.
+        methodObjEntry: P.alt(
+          P.seq(propKey('name', catalog.getHint('methodKey', 'name')),
+            wsc, P.literal(':'), wsc,
+            quotedAny(P.sym('methodNameValue'))),
+          P.seq(catalogAlt('methodKey'), wsc, P.literal(':'), wsc, anyValue),
+          P.sym('genericEntry')
+        ),
+
+        methodNameValue: identMsg('method'),
 
         // === GENERIC CATCH-ALL ===
         genericEntry: P.seq(identifier, wsc, P.literal(':'), wsc, anyValue),
 
         // === STRUCTURAL ===
         array: P.seq(P.literal('['), wsc,
-          P.optional(P.repeat(P.seq(wsc, anyValue, wsc), comma)),
+          repeatList(P.seq(wsc, anyValue, wsc)),
           wsc, P.optional(P.literal(']'))),
 
         object: P.seq(P.literal('{'), wsc,
-          P.optional(P.repeat(P.seq(wsc, P.sym('genericEntry'), wsc), comma)),
+          repeatList(P.seq(wsc, P.sym('genericEntry'), wsc)),
           wsc, P.optional(P.literal('}'))),
 
         functionBody: P.seq(

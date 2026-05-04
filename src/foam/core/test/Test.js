@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'Test',
   extends: 'foam.core.script.Script',
 
+  requires: [
+    'foam.core.script.ScriptEvent'
+  ],
+
   imports: [
     'testDAO',
     'testEventDAO'
@@ -311,7 +315,6 @@ foam.CLASS({
                 this.output += ( condition ? 'SUCCESS: ' : 'FAILURE: ' ) +
                   message + '\n';
               }
-
             };
             var expect = (value, expectedValue, message) => {
               if ( foam.util.equals(value, expectedValue) ) {
@@ -331,6 +334,13 @@ foam.CLASS({
               if ( err ) {
                 this.output += err + '\n';
               }
+              this.testEventDAO.put(this.ScriptEvent.create({
+                scriptType: this.cls_.id,
+                scriptId: this.id,
+                lastRun: this.lastRun,
+                lastDuration: this.lastDuration,
+                output: this.output
+              }));
             };
 
             with ( { log: log, print: log, x: this.__context__, expect: expect, test: test } ) {
@@ -344,14 +354,14 @@ foam.CLASS({
                 updateStats();
                 resolve();
               }, (err) => {
-                updateStats(err);
                 this.failed += 1;
+                updateStats(err);
                 reject(err);
               });
             }
           } catch (err) {
-            updateStats(err);
             this.failed += 1;
+            updateStats(err);
             reject(err);
           }
         });

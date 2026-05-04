@@ -51,6 +51,13 @@ foam.CLASS({
       var line = lines[position.line] || '';
       var prefix = line.substring(0, position.character);
 
+      // Detect context: foam.X. ▊ or foam.X.Y. ▊ where foam.X is a LIB
+      var libMatch = prefix.match(/(foam(?:\.\w+)+)\.\w*$/);
+      if ( libMatch ) {
+        var libItems = this.getLibMemberItems_(libMatch[1]);
+        if ( libItems ) return libItems;
+      }
+
       // Detect context: this.X.create({ ▊ }) — on the same line
       var createMatch = prefix.match(/this\.(\w+)\.create\(\s*\{\s*\w*$/);
       if ( createMatch ) {
@@ -203,6 +210,36 @@ foam.CLASS({
       var fullId = this.analyzer.resolveShortName(text, shortName);
       if ( ! fullId ) return { isIncomplete: false, items: [] };
       return this.getClassPropertyItems(fullId);
+    },
+
+    function getLibMemberItems_(dottedPrefix) {
+      /**
+       * Completion items for foam.LIB members. `dottedPrefix` is the segment
+       * before the trailing dot — e.g. 'foam.Color' or 'foam.animation.Interp'.
+       * Returns null when no matching LIB exists so callers can fall through.
+       */
+      var entry = this.index.getLibEntry(dottedPrefix);
+      if ( ! entry ) return null;
+      var items = [];
+      var methods = entry.methods || [];
+      for ( var i = 0 ; i < methods.length ; i++ ) {
+        items.push({
+          label: methods[i],
+          kind: 2,
+          detail: 'method — ' + dottedPrefix,
+          sortText: '!' + methods[i]
+        });
+      }
+      var consts = entry.constants || [];
+      for ( var j = 0 ; j < consts.length ; j++ ) {
+        items.push({
+          label: consts[j],
+          kind: 21,
+          detail: 'constant — ' + dottedPrefix,
+          sortText: '!' + consts[j]
+        });
+      }
+      return { isIncomplete: false, items: items };
     },
 
     function getClassMemberItems(classId) {

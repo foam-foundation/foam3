@@ -425,13 +425,13 @@ foam.CLASS({
       if ( foam.lang.InterfaceModel.isInstance(cls.model_) ) {
         this.out.tag(foam.doc.InterfaceView, {data: cls});
       } else {
-        this.out.startContext({conventionalUML: true}).
-          tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
-
         // TODO: a better method of determining if a cls is a QA
         if ( cls.QUESTIONS ) {
           this.out.tag(foam.u2.qa.QADocView, {data: cls});
         }
+
+        this.out.startContext({conventionalUML: true}).
+          tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
       }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
@@ -919,6 +919,27 @@ foam.CLASS({
       this.block.del();
       this.currentBlock = b;
 //      console.log(this.block, this.currentBlock, b);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'Example',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  imports: [ 'block', 'currentBlock' ],
+
+  requires: ['foam.core.reflow.example.Example'],
+
+  methods: [
+    function execute(code) {
+      let example = this.Example.create({ code: code });
+      this.currentBlock.value = example;
+    // this.currentBlock.configViewSpec = {
+    //   propertyWhitelist: {'innerText': { label: 'Code' }}
+    // }
+      this.out.tag(example);
     }
   ]
 });

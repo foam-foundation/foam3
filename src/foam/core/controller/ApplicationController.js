@@ -490,8 +490,13 @@ foam.CLASS({
 
         self.subToNotifications();
         let ret = await self.initMenu();
-
-        const isAnonymous = await client.auth.isAnonymous();
+        let isAnonymous = false;
+        try {
+          isAnonymous = await client.auth.isAnonymous();
+        } catch (e) {
+          // NO-OP
+          // This is expected to fail if the an anonymous user is not available
+        }
 
         // show oauth_exception toast notification when failed to link SSO user to existing user in the app
         if ( isAnonymous ) {

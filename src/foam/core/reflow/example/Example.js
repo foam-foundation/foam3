@@ -13,26 +13,32 @@ foam.CLASS({
 
   css: `
     ^ {
-      margin-bottom: 36px;
-      background: 'pink';
       width: 100%;
-      xxxborder: 2px solid black;
-      xxxborder-radius': 3px;
-      padding-bottom': 24px;
     }
     ^ .property-text { border: none; padding: 10 0; }
     ^ .property-code { margin-bottom: 12px; }
     ^ .property-title { float: left; }
     ^ .property-id { float: left; margin-right: 12px; }
+    ^output {
+      border: 2px solid $borderDefault;
+      padding: 1rem;
+      margin: 0;
+      border-radius: 4px;
+    }
   `,
 
   properties: [
     {
       name: 'innerText',
-      setter: function(o, n) { this.code = n; }
+      setter: function(n) { this.code = n; },
+      getter: function() { return this.code; },
+      onKey: false,
+      view: {class: 'foam.u2.view.CodeView', config: { width: '100%', mode: 'JAVASCRIPT', showGutter: false }}
     },
     {
       class: 'String',
+      // ONLY HIDE IN DETAIL VIEW
+      visibility: 'HIDDEN',
 //      class: 'Code',
       name: 'code',
       adapt: function(_, s) {
@@ -44,7 +50,12 @@ foam.CLASS({
       },
       view: 'foam.core.reflow.example.CodeView'
     },
-    'dom'
+    {
+      name: 'dom',
+      hidden: true,
+      // visibility: 'HIDDEN',
+      transient: true
+    }
   ],
 
   methods: [
@@ -56,11 +67,9 @@ foam.CLASS({
       this.
         addClass(this.myClass()).
         add(this.CODE).
-        start().
-          br().
-          start('span').style({'font-weight': 500}).add('Output:').end().
+          start('span').addClass('h500').add('Output:').end().
             start().
-              style({border: '1px solid black', padding: '8px'}).
+              addClass(this.myClass('output')).
               tag('div', {}, this.dom$).
             end().
           end();

@@ -255,6 +255,27 @@ function start() {
         }
       }
 
+      // For "Use single quotes" hints, offer a one-click fix that rewrites
+      // the entire matched span ("foo.X") to single-quoted form ('foo.X').
+      var dqMatch = diag.message.match(/Use single quotes for FOAM class references:\s*'([^']+)'/);
+      if ( dqMatch ) {
+        var inner = dqMatch[1];
+        actions.push({
+          title: "Convert to single quotes: '" + inner + "'",
+          kind: 'quickfix',
+          isPreferred: true,
+          diagnostics: [diag],
+          edit: {
+            changes: {
+              [uri]: [{
+                range: diag.range,
+                newText: "'" + inner + "'"
+              }]
+            }
+          }
+        });
+      }
+
       // For raw color diagnostics, offer a $token replacement if available.
       // Matches both new message ("raw color 'X'") and legacy phrasing.
       var rawColorMatch = diag.message.match(/raw color[^']*'([^']+)'/);

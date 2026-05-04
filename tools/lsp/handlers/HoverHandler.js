@@ -9,6 +9,7 @@ foam.CLASS({
   name: 'HoverHandler',
 
   requires: [
+    'foam.parse.lsp.AxiomCatalog',
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
     'foam.parse.lsp.CursorAnalyzer',
@@ -51,6 +52,12 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.CSSTokenResolver',
       name: 'cssTokenResolver'
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.AxiomCatalog',
+      name: 'axiomCatalog',
+      factory: function() { return this.AxiomCatalog.create(); }
     }
   ],
 
@@ -60,6 +67,12 @@ foam.CLASS({
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
+
+      // Axiom key hover: cursor on `requires:`, `properties:`, `messages:`,
+      // `sections:`, `searchColumns:`, etc. — show the description from
+      // AxiomCatalog (single source of truth shared with the grammar).
+      var axiomKeyHover = this.axiomKeyHover_(text, position);
+      if ( axiomKeyHover ) return axiomKeyHover;
 
       // Try Java block hover — getters, variables, type references inside javaCode
       var javaHover = this.javaBlockHover_(text, position, opt_uri);
@@ -195,6 +208,116 @@ foam.CLASS({
       if ( ! model ) return null;
       var requiresMap = this.cache.buildRequiresMap(model);
       return requiresMap[shortName] || null;
+    },
+
+    function axiomKeyHover_(text, position) {
+      /**
+       * Hover on an axiom key like `requires:`, `properties:`, `javaCode:`,
+       * etc. Pulls the description from AxiomCatalog. The same key (e.g.,
+       * `javaCode`) appears in multiple scopes (top-level, property,
+       * method-object) — we use the surrounding container to pick the
+       * RIGHT scope so the hover description matches what the key
+       * actually does at that position.
+       *
+       * Detection: cursor must sit on an identifier immediately followed
+       * by `:` (allowing whitespace). This guards against matching the
+       * same word used as a value or inside a string.
+       */
+      var segment = this.analyzer.getSegmentAtPosition(text, position);
+      if ( ! segment ) return null;
+
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var afterCursor = line.substring(position.character);
+      if ( ! /^[A-Za-z0-9_$]*\s*:/.test(afterCursor) ) return null;
+
+      // Determine scope from surrounding container. Inner-object scopes
+      // (methodKey/actionKey/etc.) take precedence so a `javaCode:` key
+      // inside a method object reports as method-level, not class-level.
+      var scope = this.detectKeyScope_(text, position);
+      var hint = scope ? this.axiomCatalog.getHint(scope, segment) : '';
+      if ( ! hint ) hint = this.axiomCatalog.findHint(segment);
+      if ( ! hint ) return null;
+
+      var md = '**' + segment + '** — ' + hint;
+      return { contents: { kind: 'markdown', value: md } };
+    },
+
+    function detectKeyScope_(text, position) {
+      /**
+       * Walk backwards from `position` and find the nearest enclosing
+       * `<axiomKey>: [` array opener. Inner-object containers are
+       * `<axiom>: [ { ... } ]` shape — so we need to step OUT of the
+       * inner `{` first, then OUT of the array's `[`, and finally
+       * inspect the key word that precedes the `[`.
+       *
+       * Returns 'methodKey' / 'actionKey' / 'sectionKey' / 'messageKey'
+       * / 'valueKey' / 'listenerKey' for the recognized inner scopes,
+       * 'propKey' inside a property object, or 'topKey' as the default.
+       *
+       * String / comment bodies are skipped so cursors inside javaCode
+       * blocks don't false-match brackets in the code.
+       */
+      var scopeMap = {
+        methods:    'methodKey',
+        actions:    'actionKey',
+        sections:   'sectionKey',
+        messages:   'messageKey',
+        values:     'valueKey',
+        listeners:  'listenerKey',
+        properties: 'propKey'
+      };
+      var offset = this.analyzer.positionToOffset(text, position);
+
+      // Walk back skipping strings/comments. Track [ and { depth
+      // separately so we can step out of the inner `{` and then look
+      // for an enclosing `[`. The first unmatched `[` we cross is the
+      // axiom-array opener; check the preceding key word.
+      var braceDepth = 0;
+      var bracketDepth = 0;
+      for ( var i = offset - 1 ; i >= 0 ; i-- ) {
+        var ch = text[i];
+        // Skip backwards through string literals.
+        if ( ch === "'" || ch === '"' || ch === '`' ) {
+          var q = ch;
+          for ( i-- ; i >= 0 ; i-- ) {
+            if ( text[i] === q && text[i - 1] !== '\\' ) { i--; break; }
+          }
+          continue;
+        }
+        // Skip block comments: */ ... /*
+        if ( ch === '/' && i > 0 && text[i - 1] === '*' ) {
+          i -= 2;
+          while ( i >= 1 && ! ( text[i - 1] === '/' && text[i] === '*' ) ) i--;
+          i -= 2;
+          continue;
+        }
+        if ( ch === '}' ) braceDepth++;
+        else if ( ch === '{' ) {
+          if ( braceDepth > 0 ) { braceDepth--; continue; }
+          // Stepped out of the innermost `{`. Keep walking — we want
+          // the enclosing `[` if there is one.
+          continue;
+        }
+        else if ( ch === ']' ) bracketDepth++;
+        else if ( ch === '[' ) {
+          if ( bracketDepth > 0 ) { bracketDepth--; continue; }
+          // Found the array opener. Look back for `<key>:`.
+          var j = i - 1;
+          while ( j >= 0 && /\s/.test(text[j]) ) j--;
+          if ( j >= 0 && text[j] === ':' ) {
+            j--;
+            while ( j >= 0 && /\s/.test(text[j]) ) j--;
+            var nameEnd = j + 1;
+            while ( j >= 0 && /[A-Za-z0-9_$]/.test(text[j]) ) j--;
+            var name = text.substring(j + 1, nameEnd);
+            if ( name && scopeMap[name] ) return scopeMap[name];
+          }
+          // Array isn't one we know about — treat as top-level for now.
+          return 'topKey';
+        }
+      }
+      return 'topKey';
     },
 
     function resolveCurrentClass_(text, position, opt_uri) {

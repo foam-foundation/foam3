@@ -1051,7 +1051,7 @@ foam.CLASS({
        * Inside a serviceScript Java code block. Two registry-driven modes:
        *
        *   1. Dotted class/package path — `foam.dao.E<cursor>` or
-       *      `com.paytic.<cursor>` → suggest every class id that starts
+       *      `com.example.<cursor>` → suggest every class id that starts
        *      with the prefix. No hardcoded names.
        *
        *   2. Member access on a resolvable receiver — `<expr>.<partial>`

@@ -118,58 +118,91 @@ foam.CLASS({
 
     function parseFileModels(text) {
       /**
-       * Execute file text with overridden foam.CLASS/ENUM/INTERFACE to capture
+       * Execute file text with overridden foam.<X>(...) calls to capture
        * model objects. Same pattern as ModelFileDAO.js:47-108.
+       *
+       * Generic on purpose: any uppercase foam call (foam.CLASS, foam.ENUM,
+       * foam.FSM, future extensions) is captured. Specials with non-class
+       * bodies (POM, SCRIPT) are no-ops; LIB and RELATIONSHIP have custom
+       * shape handling. Everything else routes through `captureGeneric`.
        *
        * Returns array of raw model JS objects with all fields:
        * { package, name, extends, implements, requires, imports, exports,
-       *   properties, methods, javaImports, javaCode, refines, ... }
+       *   properties, methods, javaImports, javaCode, refines, type_, ... }
        */
       var models = [];
       var modelCount = 0;
-      var context = { foam: Object.create(foam) };
 
-      context.foam.CLASS = function(m) {
+      var captureClass = function(m) {
         m.sourceLine_ = findCallLine(text, modelCount);
         m.type_ = m.type_ || 'CLASS';
         models.push(m);
         modelCount++;
       };
-      context.foam.ENUM = function(m) {
-        m.class = m.class || 'foam.lang.EnumModel';
-        m.type_ = 'ENUM';
-        context.foam.CLASS(m);
+
+      // Generic capturer for any foam.<TYPE>(model). Sets type_ from the call
+      // name (FSM → 'FSM') and a best-effort default `class` axiom so the
+      // FOAM JSON serializer can still round-trip the captured model.
+      var captureGeneric = function(typeName) {
+        return function(m) {
+          if ( ! m ) return;
+          m.type_ = typeName;
+          if ( ! m.class ) {
+            m.class = 'foam.lang.' + typeName.charAt(0)
+              + typeName.slice(1).toLowerCase() + 'Model';
+          }
+          captureClass(m);
+        };
       };
-      context.foam.INTERFACE = function(m) {
-        m.class = m.class || 'foam.lang.InterfaceModel';
-        m.type_ = 'INTERFACE';
-        context.foam.CLASS(m);
-      };
-      context.foam.RELATIONSHIP = function(r) {
-        r.class = r.class || 'foam.dao.Relationship';
-        r.type_ = 'RELATIONSHIP';
-        if ( ! r.name && r.sourceModel ) {
-          var s = r.sourceModel;
-          var t = r.targetModel || '';
-          r.package = r.package || s.substring(0, s.lastIndexOf('.'));
-          r.name = s.split('.').pop() + t.split('.').pop() + 'Relationship';
+
+      var overrides = {
+        CLASS: captureClass,
+        ENUM: captureGeneric('ENUM'),
+        INTERFACE: captureGeneric('INTERFACE'),
+        RELATIONSHIP: function(r) {
+          if ( ! r ) return;
+          r.class = r.class || 'foam.dao.Relationship';
+          r.type_ = 'RELATIONSHIP';
+          if ( ! r.name && r.sourceModel ) {
+            var s = r.sourceModel;
+            var t = r.targetModel || '';
+            r.package = r.package || s.substring(0, s.lastIndexOf('.'));
+            r.name = s.split('.').pop() + t.split('.').pop() + 'Relationship';
+          }
+          captureClass(r);
+        },
+        SCRIPT: function() {},
+        POM:    function() {},
+        LIB:    function(m) {
+          if ( ! m || ! m.name ) return;
+          m.type_ = 'LIB';
+          m.sourceLine_ = findLibCallLine(text, models);
+          models.push(m);
         }
-        context.foam.CLASS(r);
       };
-      context.foam.SCRIPT = function() {};
-      context.foam.POM = function() {};
-      context.foam.LIB = function(m) {
-        if ( ! m || ! m.name ) return;
-        m.type_ = 'LIB';
-        m.sourceLine_ = findLibCallLine(text, models);
-        models.push(m);
-      };
+
+      // Proxy intercepts every foam.<X> read inside the eval'd text so unknown
+      // uppercase types (foam.FSM and any future extension) get a generic
+      // capturer instead of falling through to the real foam[<X>] (which
+      // would actually register the class for real — bad side-effect).
+      var foamProxy = new Proxy(Object.create(foam), {
+        get: function(target, prop) {
+          if ( typeof prop === 'string' && Object.prototype.hasOwnProperty.call(overrides, prop) ) {
+            return overrides[prop];
+          }
+          if ( typeof prop === 'string' && /^[A-Z][A-Z0-9_]*$/.test(prop) ) {
+            return captureGeneric(prop);
+          }
+          return target[prop];
+        }
+      });
+      var context = { foam: foamProxy };
 
       try {
         with ( context ) { eval(text); }
       } catch (e) {
         // SyntaxError prevents ALL execution — JS parses before running.
-        // Fall back to extracting individual foam.CLASS blocks and eval each.
+        // Fall back to extracting individual foam.<X>(...) blocks and eval each.
         if ( e instanceof SyntaxError && models.length === 0 ) {
           modelCount = 0;
           this.evalIndividualBlocks_(text, context, models);
@@ -182,10 +215,11 @@ foam.CLASS({
 
     function evalIndividualBlocks_(text, context, models) {
       /**
-       * Fallback for SyntaxError: extract individual foam.CLASS/ENUM/INTERFACE
-       * blocks using bracket matching and eval each separately.
+       * Fallback for SyntaxError: extract individual foam.<X>(...) blocks
+       * using bracket matching and eval each separately. Generic on the call
+       * name so foam.FSM/foam.RELATIONSHIP/etc. all participate.
        */
-      var regex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP|LIB)\s*\(/g;
+      var regex = /foam\.[A-Z][A-Z0-9_]*\s*\(/g;
       var match;
       while ( ( match = regex.exec(text) ) !== null ) {
         var start = match.index;
@@ -221,7 +255,7 @@ foam.CLASS({
 
 function findCallLine(text, index) {
   /**
-   * Find the line number of the Nth foam.CLASS/ENUM/INTERFACE call in text.
+   * Find the line number of the Nth foam.<X>(...) call in text.
    *
    * WHY: Multi-class files (e.g., Element2.js) contain multiple foam.CLASS
    * calls. When the user's cursor is on line 50, getModelAt() needs to know
@@ -229,10 +263,17 @@ function findCallLine(text, index) {
    * this lookup. Also needed by SymbolHandler for accurate outline positions
    * and DiagnosticsHandler for correct error squiggle placement.
    *
+   * Generic on the call name (CLASS/ENUM/INTERFACE/RELATIONSHIP/FSM/...) so
+   * model-position tracking works for any foam.<X> extension. POM/SCRIPT are
+   * matched too but never appear in `models` (their overrides are no-ops).
+   *
    * For single-class files (99% of cases), sourceLine_ is always 0 and
    * getModelAt() returns the only model regardless. The cost is negligible.
+   *
+   * Skips POM/SCRIPT/LIB — those don't enter the regular `models` array via
+   * captureClass(), so counting them would misalign the index.
    */
-  var regex = /foam\.(CLASS|ENUM|INTERFACE|RELATIONSHIP)\s*\(/g;
+  var regex = /foam\.(?!POM\b|SCRIPT\b|LIB\b)[A-Z][A-Z0-9_]*\s*\(/g;
   var match;
   var count = 0;
   while ( ( match = regex.exec(text) ) !== null ) {

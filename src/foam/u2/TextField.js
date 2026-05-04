@@ -73,10 +73,13 @@ foam.CLASS({
         var self   = this;
         var span   = parent.start('span').style({display: 'inline-block', position: 'relative', 'font-weight': '300'}).add(self.units, ' ');
         var e      = span.el_();
-        var w      = Math.ceil(e.getBoundingClientRect().width);
-
-        span.style({left: '-' + (4) + 'px'});
-        self.style({'padding-right': (w+6) + 'px', 'margin-right': (-w) + 'px'});
+        let restyle = () => {
+          var w = Math.ceil(e.getBoundingClientRect().width);
+          span.style({left: '-' + (4) + 'px'});
+          self.style({'padding-right': (w+6) + 'px', 'margin-right': (-w) + 'px'});
+        };
+        restyle();
+        span.resizeObserver(restyle);
       }
     }
   ]

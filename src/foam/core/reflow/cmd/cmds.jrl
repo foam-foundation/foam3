@@ -184,3 +184,8 @@ p({
   "class":"foam.core.reflow.cmd.Info",
   "id": "info"
 })
+p({
+  "class":"foam.core.reflow.cmd.Example",
+  "id": "example",
+  "description": "Run an example code snippet"
+})

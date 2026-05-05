@@ -31,6 +31,7 @@ foam.POM({
     remoteUrl: ['', 'remote-url', 'REMOTE_URL', '', () => REMOTE_USER ? `${REMOTE_USER}@${REMOTE_HOSTNAME}` : REMOTE_HOSTNAME, arg => REMOTE_USER = arg],
     remoteOutput: ['', 'remote-output', 'REMOTE_OUTPUT', 'Working directory on remote host to upload to and install from.', '/tmp', arg => REMOTE_OUTPUT = arg],
     remoteUser: ['', 'remote-user', 'REMOTE_USER', 'User with which to connect via ssh/scp to perform the upload and installation.', '', arg => REMOTE_USER = arg],
+    restart: ['', 'restart', 'RESTART', 'Restart application on succesful depoyment', true, function(arg) { RESTART = arg ? this.bool(arg) : true; }],
     sshId: ['', 'ssh-id', 'SSH_ID', 'ssh id from .ssh/ to use for connection. Will default to that specified in .ssh/config when a matching host is found, otherwise to .ssh/id_rsa', '', arg => SSH_ID = arg],
     sshOpt: ['', 'ssh-opt', 'SSH_OPT', '', () => SSH_ID ? '-i ' + HOME_DIR + '/.ssh/' + SSH_ID : '', arg => SSH_OPT = arg],
     mntHostname: ['', 'mnt-hostname', 'MNT_HOSTNAME', 'Create a unique NFS mnt point using the $HOSTNAME. /mnt/APP_NAME/$HOSTNAME', true, function(arg) { MNT_HOSTNAME = arg ? this.bool(arg) : true; }]
@@ -39,7 +40,7 @@ foam.POM({
   tasks: {
     all: ['all', 'Execute all tasks for a remote deployment.', ['pomEnvs', 'validate', 'upload', 'install'], null],
     buildInstallOpts: ['build-install-opts', 'Build up options passed to the install script', ['pomEnvs'], function() {
-      INSTALL_OPTS += ` -A${APP_HOME} -B${BACKUP} -N${APP_NAME} -Q${MNT_HOSTNAME} -V${VERSION} -U${USER} -Y${USER_ID}`;
+      INSTALL_OPTS += ` -A${APP_HOME} -B${BACKUP} -N${APP_NAME} -Q${MNT_HOSTNAME} -V${VERSION} -U${USER} -Y${USER_ID} -R${RESTART}`;
       if ( WEB_PORT )
         INSTALL_OPTS += ` -W${WEB_PORT}`;
     }],

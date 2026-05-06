@@ -548,6 +548,15 @@ foam.CLASS({
       }
     },
     {
+      name: 'asCollection',
+      section: 'actions',
+      size: 'SMALL',
+      isEnabled: function(select) { return select.browse; },
+      code: function() {
+        this.select.browse();
+      }
+    },
+    {
       name: 'describeCollection',
       section: 'actions',
       code: function() {

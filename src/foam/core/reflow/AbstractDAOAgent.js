@@ -526,6 +526,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   requires: [
+//    'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
@@ -537,6 +538,12 @@ foam.CLASS({
        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
+    /*
+    {
+      name: 'parser',
+      factory: function() { return this.GroupByParser.create(); }
+      },
+      */
     {
       name: 'sink',
       view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' }
@@ -664,8 +671,7 @@ foam.CLASS({
           add(this.TOP_N.__).
           add(this.SORT_ORDER.__).
           add(this.INCLUDE_OTHERS.__).
-          add(this.OTHERS_LABEL.__).
-          callIf(this.block, function() { this.add(self.BROWSE); });
+          add(this.OTHERS_LABEL.__);
     }
   ],
 

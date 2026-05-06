@@ -228,6 +228,8 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
       }
@@ -250,7 +252,7 @@ foam.CLASS({
     function addToE(e) {
       e.startContext({data: this}).start().
         style({display: 'flex'}).
-        add(this.PROP).
+        add(this.PROP.__).
         add(this.PRECISION.__);
     }
   ]
@@ -279,6 +281,8 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertyChoiceView',
@@ -526,6 +530,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   requires: [
+//    'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
@@ -533,12 +538,21 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
+        return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
       }
     },
+    /*
+    {
+      name: 'parser',
+      factory: function() { return this.GroupByParser.create(); }
+      },
+      */
     {
       name: 'sink',
+      label: 'Operation',
       view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' }
     },
     {
@@ -659,13 +673,12 @@ foam.CLASS({
       e.startContext({data: this}).
         start().
           style({paddingLeft: '12px'}).
-          add(this.PROP).
-          add(this.SINK).
+        add(this.PROP.__).
+          add(this.SINK.__).
           add(this.TOP_N.__).
           add(this.SORT_ORDER.__).
           add(this.INCLUDE_OTHERS.__).
-          add(this.OTHERS_LABEL.__).
-          callIf(this.block, function() { this.add(self.BROWSE); });
+          add(this.OTHERS_LABEL.__);
     }
   ],
 
@@ -695,18 +708,20 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
+        return { class: 'foam.core.reflow.PropertyChoiceView', placeholder: '---', forCls: X.data.of };
       }
     },
-    { name: 'sink', view: 'foam.core.reflow.SinkView' }
+    { name: 'sink', label: 'Operation', view: 'foam.core.reflow.SinkView' }
   ],
 
   methods: [
     function value(s) { return this.sink.value(s.sink); },
     function createSink() { return this.DuplicateSink.create({expr: this.prop, sink: this.sink.createSink()}); },
     function addToE(e) {
-      e.startContext({data: this}).start().style({display: 'flex'}).add(this.PROP, this.SINK);
+      e.startContext({data: this}).start().style({display: 'flex'}).add(this.PROP.__, this.SINK.__);
     }
   ]
 });
@@ -722,12 +737,16 @@ foam.CLASS({
   properties: [
     {
       name: 'prop1',
+      label: 'Property 1',
+      validateObj: function(prop1) { if ( ! prop1 ) return 'Required'; },
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
     {
       name: 'prop2',
+      label: 'Property 2',
+      validateObj: function(prop2) { if ( ! prop2 ) return 'Required'; },
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
@@ -743,7 +762,7 @@ foam.CLASS({
       acc:   this.sink.createSink()
     }); },
     function addToE(e) {
-      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.PROP1, this.PROP2, this.SINK);
+      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.PROP1.__, this.PROP2.__, this.SINK);
     }
   ]
 });
@@ -885,7 +904,7 @@ foam.CLASS({
     },
     function addToE(e) {
       e.startContext({data: this}).start().style({display: 'flex'}).
-        add(' r:', this.RADIUS,' ', this.PROP);
+        add(' r:', this.RADIUS,' ', this.PROP.__);
     }
   ]
 });

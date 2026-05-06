@@ -297,19 +297,20 @@ foam.CLASS({
           let closing    = v[3];
 
           return function() {
-            if ( closing === '/>' ) {
-              this.tag(tagName);
-            } else {
+            let e = this.start(tagName).attrs(attributes);
+
+            if ( attributes.style ) {
+              let style = {};
+              attributes.style.split(';').forEach(s => {
+                let p = s.split(':');
+                style[p[0]] = p[1];
+              });
+              e.style(style);
+            }
+
+            if ( closing !== '/>' ) {
               let content = closing[1];
-              let e = this.start(tagName).attrs(attributes).call(content);
-              if ( attributes.style ) {
-                let style = {};
-                attributes.style.split(';').forEach(s => {
-                  let p = s.split(':');
-                  style[p[0]] = p[1];
-                });
-                e.style(style);
-              }
+              e.call(content);
             }
           };
         },

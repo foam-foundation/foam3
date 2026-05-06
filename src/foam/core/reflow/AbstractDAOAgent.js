@@ -100,7 +100,7 @@ foam.CLASS({
     'dao as referenceDAO',
     'sinkDAO as dao',
     'sinkUnlimitedDAO as unlimitedDAO',
-    'columns?'
+    'flowColumns? as columns'
   ],
 
   properties: [
@@ -420,7 +420,7 @@ foam.CLASS({
             .end()
           .endContext();
         })
-        // Remove memento linking for this table so it doesnt conflict with 
+        // Remove memento linking for this table so it doesnt conflict with
         // other tables in the flow
         .startContext({ memento_: this.Memento.create({obj: this}, this) })
           .start(self.TableView, config)

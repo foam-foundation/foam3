@@ -548,10 +548,10 @@ foam.CLASS({
       }
     },
     {
-      name: 'describeModel',
+      name: 'describeCollection',
       section: 'actions',
       code: function() {
-        this.eval_('describe ' + this.dao.of.id);
+        this.eval_('describe(' + this.dao.of.id + ',true)');
       }
     },
     {

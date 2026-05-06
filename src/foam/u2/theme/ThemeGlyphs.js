@@ -1101,6 +1101,58 @@ foam.CLASS({
           </svg>
         `}
       }
+    },
+    {
+      name: 'play',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play-icon lucide-play"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
+        `}
+      }
+    },
+    {
+      name: 'database',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg fill="#000000" width="800px" height="800px" viewBox="0 0 256 256" id="Flat" xmlns="http://www.w3.org/2000/svg">
+  <path d="M192.14062,42.54736C174.94238,33.1665,152.16357,28,128,28S81.05762,33.1665,63.85938,42.54736C45.894,52.34668,36,65.64746,36,80v96c0,14.35254,9.894,27.65332,27.85938,37.45264C81.05762,222.834,103.83643,228,128,228s46.94238-5.166,64.14062-14.54736C210.106,203.65332,220,190.35254,220,176V80C220,65.64746,210.106,52.34668,192.14062,42.54736Zm-124.45068,7.023C83.7334,40.81934,105.15186,36,128,36s44.2666,4.81934,60.31006,13.57031C203.58691,57.90332,212,68.71,212,80s-8.41309,22.09668-23.68994,30.42969C172.2666,119.18066,150.84814,124,128,124s-44.2666-4.81934-60.31006-13.57031C52.41309,102.09668,44,91.29,44,80S52.41309,57.90332,67.68994,49.57031ZM212,176c0,11.29-8.41309,22.09668-23.68994,30.42969C172.2666,215.18066,150.84814,220,128,220s-44.2666-4.81934-60.31006-13.57031C52.41309,198.09668,44,187.29,44,176V149.48193c4.69214,5.93213,11.374,11.34229,19.85938,15.97071C81.05762,174.834,103.83643,180,128,180s46.94238-5.166,64.14062-14.54736C200.626,160.82422,207.30786,155.41406,212,149.48193Zm0-48c0,11.29-8.41309,22.09668-23.68994,30.42969C172.2666,167.18066,150.84814,172,128,172s-44.2666-4.81934-60.31006-13.57031C52.41309,150.09668,44,139.29,44,128V101.48193c4.69214,5.93213,11.374,11.34229,19.85938,15.97071C81.05762,126.8335,103.83643,132,128,132s46.94238-5.1665,64.14062-14.54736C200.626,112.82422,207.30786,107.41406,212,101.48193Z"/>
+</svg> `}
+      }
+    },
+    {
+      name: 'test',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="/*%FILL%*/ #ffffff" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pipette-icon lucide-pipette"><path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"/><path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"/><path d="m2 22 .414-.414"/></svg>
+        `}
+      }
+    },
+    {
+      name: 'transform',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6a3 3 0 1 0 6 0a3 3 0 0 0-6 0m18 5V8a2 2 0 0 0-2-2h-6l3 3m0-6l-3 3M3 13v3a2 2 0 0 0 2 2h6l-3-3m0 6l3-3m4 0a3 3 0 1 0 6 0a3 3 0 0 0-6 0" /></svg>
+        `}
+      }
+    },
+    {
+      name: 'match',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18,10a1,1,0,0,0-1-1H5.41l2.3-2.29A1,1,0,0,0,6.29,5.29l-4,4a1,1,0,0,0-.21,1.09A1,1,0,0,0,3,11H17A1,1,0,0,0,18,10Zm3.92,3.62A1,1,0,0,0,21,13H7a1,1,0,0,0,0,2H18.59l-2.3,2.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0l4-4A1,1,0,0,0,21.92,13.62Z"/></svg>
+        `}
+      }
     }
   ]
 });

@@ -83,7 +83,6 @@ foam.CLASS({
       isMerged: true,
       delay: 500,
       code: function() {
-        console.log('rerun', this.data.where);
         this.data.run();
       }
     }
@@ -542,6 +541,7 @@ foam.CLASS({
       name: 'run',
       section: 'actions',
       size: 'SMALL',
+      themeIcon: 'play',
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       isEnabled: function(select$errors_) { return ! select$errors_; },
       code: function() {
@@ -550,21 +550,30 @@ foam.CLASS({
     },
     {
       name: 'asCollection',
+      label: '',
+      toolTip: 'Export as a new Collection',
       section: 'actions',
       size: 'SMALL',
+      themeIcon: 'database',
       isEnabled: function(select, select$errors_) { return select.browse && ! select$errors_; },
       code: function() { this.select.browse(); }
     },
     {
       name: 'describeCollection',
+      label: '',
+      toolTip: 'Describe Collection Properties',
       section: 'actions',
+      themeIcon: 'helpIcon',
       code: function() {
         this.eval_('describe(' + this.dao.of.id + ',true)');
       }
     },
     {
       name: 'createTest',
+      label: '',
+      toolTip: 'Create a Test from Results',
       section: 'actions',
+      themeIcon: 'test',
       // TODO:
 //      isEnabled: function(value) { return this.value; },
       availablePermissions: [ 'command.read.test' ],

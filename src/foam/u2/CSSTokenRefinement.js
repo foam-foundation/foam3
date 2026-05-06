@@ -16,10 +16,7 @@ foam.CLASS({
         return "new "+javaType+"(\""+name+"\",\""+value+"\","+foam.java.asJavaValue(variants)+",\""+variantKey+"\");";
       }
     },
-    {
-      class: 'foam.java.JavaType',
-      value: 'foam.u2.CSSToken'
-    } // JavaType defines 'name' and other properties
+    [ 'javaType', 'foam.u2.CSSToken' ]
   ],
 
   javaCode: `

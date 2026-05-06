@@ -43,7 +43,8 @@ foam.CLASS({
   imports: [
     'stack',
     'block',
-    'flowPredicate'
+    'flowPredicate',
+    'flowFilters'
   ],
 
   css: `
@@ -117,7 +118,8 @@ foam.CLASS({
       }
       var filterView = foam.u2.ViewSpec.createView(this.FilterView, {
         dao$:  this.data.data$,
-        data$: this.flowPredicate$ || this.data.predicate$
+        data$: this.flowPredicate$ || this.data.predicate$,
+        filters$: this.flowFilters$
       }, this, this.__subContext__.createSubContext({
         controllerMode: foam.u2.ControllerMode.EDIT
       }));

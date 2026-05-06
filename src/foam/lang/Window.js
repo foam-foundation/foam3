@@ -90,11 +90,11 @@ foam.CLASS({
     },
     {
       name: 'params',
-      factory: function() {
+      getter: function() { // Changed to a getter so that it will run whenever a change is made
         var m = {};
-        this.window.location.search.substring(1).split('&').forEach(p => {
-          var a = p.split('=');
-          m[a[0]] = a[1];
+        const params = new URLSearchParams(window.location.search);
+        params.keys().forEach(element => {
+          m[element] = params.get(element);
         });
         return m;
       }
@@ -127,18 +127,20 @@ foam.CLASS({
     function populateDefaultThemeVariants(theme, ctx) {
       // WARNING: IN DEVELOPMENT
       // SET useVariants TO TRUE ON THEME TO ENABLE MODE SWITCHING
+      let colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      let fn = () => {
+        if ( ! theme.useVariants ) return;
+        if ( window.matchMedia('(prefers-color-scheme: dark)').matches ) {
+          theme.activeVariants$set('color', 'dark');
+        } else {
+          theme.activeVariants$remove('color');
+        }
+      }
+      // Every time this is called, remove the listener in case there is one for the old theme
+      colorSchemeQuery.removeEventListener('change', fn);
       if ( this.getPrivate_('currentWindowThemeListener' ) ) this.getPrivate_('currentWindowThemeListener').detach();
       if ( ! theme.useVariants ) return;
       if ( window.matchMedia ) {
-        var colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        let fn = () => {
-          if ( ! theme.useVariants ) return;
-          if ( window.matchMedia('(prefers-color-scheme: dark)').matches ) {
-            theme.activeVariants$set('color', 'dark');
-          } else {
-            theme.activeVariants$remove('color');
-          }
-        }
         colorSchemeQuery.addEventListener('change', fn);
         fn();
         let themeListener = theme.onDetach(theme.activeVariants$.sub(() => { foam.u2.CSS.reloadStyles(ctx); }))

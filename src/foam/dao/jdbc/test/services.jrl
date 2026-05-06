@@ -1,0 +1,48 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"JDBCConnectionSpec",
+  "lazy":false,
+  "serve":false,
+  "class":"foam.core.boot.CSpec",
+  "service":{
+    "class":"foam.dao.jdbc.JDBCConnectionSpec",
+    "databaseServer":"postgresql",
+    "hostName":"localhost",
+    "databaseName":"testSQLDAO",
+    "userName":"foam_user",
+    "userPassword":"foam_password",
+    "port":5432
+  }
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"testEmployeeDAO",
+  "serve":false,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setSeqNo(true)
+      .setPostgres(true)
+      .setAuthorize(false)
+      .setRuler(false)
+      .setOf(foam.dao.jdbc.test.TestEmployee.getOwnClassInfo())
+      .build()
+      .addTableIndex("totallynewindex3", new foam.lang.PropertyInfo[] { foam.dao.jdbc.test.TestEmployee.FIRST_NAME, foam.dao.jdbc.test.TestEmployee.ID });
+  """
+})
+
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"testCompanyDAO",
+  "serve":false,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setSeqNo(true)
+      .setPostgres(true)
+      .setAuthorize(false)
+      .setRuler(false)
+      .setOf(foam.dao.jdbc.test.TestCompany.getOwnClassInfo())
+      .build();
+  """
+})

@@ -38,7 +38,7 @@ foam.CLASS({
     'notify',
     'setControllerMode?',
     'stack?',
-    'controlBorder',
+    'controlBorder?',
     'daoController'
   ],
 
@@ -141,7 +141,7 @@ foam.CLASS({
       class: 'foam.u2.ViewSpec',
       name: 'viewView',
       factory: function() {
-        return this.config?.detailView ?? foam.u2.detail.TabbedDetailView;
+        return this.config?.detailView ?? { class: 'foam.u2.detail.TabbedDetailView', hideActions: true };
       }
     },
     {
@@ -185,12 +185,16 @@ foam.CLASS({
     {
       name: 'currentData_',
       documentation: 'Active data property that stores current working data for the current view mode',
-      value: null
+      value: null,
+      postSet: function(o, n) {
+        if ( n ) this.populatePrimaryAction(true);
+      }
     },
     {
       class: 'Map',
       name: 'actionsOverrides'
-    }
+    },
+    'actionsToAdd_'
   ],
 
   methods: [
@@ -219,33 +223,37 @@ foam.CLASS({
       this.stack?.setTitle(this.viewTitle$, this);
       this.SUPER();
       let d;
-      this.onDetach(this.dynamic(function(currentData_, actionsOverrides){
+      this.onDetach(this.dynamic(function(currentData_, actionsOverrides, actionArray){
         d?.detach?.();
+        this.buttonGroup_?.remove();
+        this.buttonGroup_ = foam.u2.ButtonGroup.create({
+          overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
+        }, self);
         d = self.stack.setTrailingContainer(
-          this.E().style({ display: 'contents' }).start(foam.u2.ButtonGroup, {
-              // overrides: { size: 'SMALL' },
-              overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
-            }, this.buttonGroup_$)
+          this.buttonGroup_
             .addClass(self.myClass('buttonGroup'))
-            .add(self.slot(function(primary) {
-              if ( ! primary ) return;
-              return this.E()
-                // .hide(self.controllerMode$.map(c => c == 'EDIT' ))
-                .startContext({ data: self.currentData_$ })
-                  .tag(primary, { buttonStyle: 'PRIMARY', size: 'SMALL' })
-                .endContext();
-            }))
             .startContext({ data: self })
               .tag(actionsOverrides.edit)
               .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
               .tag(self.CANCEL_EDIT)
             .endContext()
+            .call(function() {
+              let el = this;
+              let first = true;
+              actionArray.forEach(function(action) {
+                let actRef = foam.u2.ActionReference.create({ action: action, data$: self.currentData_$ });
+                el.startContext({ data: self.currentData_$ })
+                  .start(actRef, { buttonStyle: first ? 'PRIMARY' : 'SECONDARY', size: 'SMALL' })
+                  .show(self.controllerMode$.map(c => c != 'EDIT' ))
+                  .end()
+                .endContext();
+                first = false;
+              });
+            })
             .startOverlay()
               .tag(actionsOverrides.copy)
               .tag(actionsOverrides.delete)
             .endOverlay()
-            .callIf(currentData_, function() { self.populatePrimaryAction(true) })
-          .end()
         )
         self.onDetach(d);
       }))
@@ -320,29 +328,6 @@ foam.CLASS({
         } else {
           this.actionArray = allActions;
         }
-        if ( acArray && acArray.length ) {
-          let res;
-          for ( let a of acArray ) {
-            var aSlot = a.createIsAvailable$(this.__subContext__, data);
-            let b = aSlot.get();
-            if ( aSlot.promise ) {
-              await aSlot.promise;
-              b = aSlot.get();
-            }
-            if (b) { res = a; break; }
-          }
-          this.primary = res;
-          this.actionArray = this.actionArray.filter(v => v !== res);
-        }
-        if ( this.buttonGroup_ ) {
-          let actionsToAdd = rebuildArray ? this.actionArray : foam.util.diff(oldActions ,this.actionArray).added || [];
-          this.buttonGroup_
-            .startOverlay()
-            .forEach(actionsToAdd, function(v) {
-              this.addActionReference(v, self.currentData_$)
-            })
-            .endOverlay()
-        }
       }
     },
     {
@@ -352,7 +337,7 @@ foam.CLASS({
       code: function(latch) {
         let self = this;
         let id   = this.data?.id ?? this.idOfRecord;
-        self.config.unfilteredDAO.inX(self.__subContext__).find(id).then(d => {
+        self.config.dao$proxy.inX(self.__subContext__).find(id).then(d => {
           if ( ! d ) {
             this.daoController.routeToMe();
             return;
@@ -374,12 +359,12 @@ foam.CLASS({
       themeIcon: 'edit',
       icon: 'images/edit-icon.svg',
       size: 'SMALL',
-      internalIsEnabled: function(config, data) {
+      internalIsEnabled: async function(config, data) {
         if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
           try {
             let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.UPDATE, data);
 
-            return this.auth?.check(null, permissionString) && this.data;
+            return (await this.auth?.check(null, permissionString)) && this.data;
           } catch(e) {
             return false;
           }
@@ -402,12 +387,12 @@ foam.CLASS({
       class: 'foam.comics.v3.ComicsAction',
       name: 'copy',
       size: 'SMALL',
-      internalIsEnabled: function(config, data) {
+      internalIsEnabled: async function(config, data) {
         if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
           try {
             let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.CREATE, data);
 
-            return this.auth?.check(null, permissionString);
+            return await this.auth?.check(null, permissionString);
           } catch(e) {
             return false;
           }
@@ -516,12 +501,12 @@ foam.CLASS({
       class: 'foam.comics.v3.ComicsAction',
       name: 'delete',
       size: 'SMALL',
-      internalIsEnabled: function(config, data) {
+      internalIsEnabled: async function(config, data) {
         if ( config.CRUDEnabledActionsAuth && config.CRUDEnabledActionsAuth.isEnabled ) {
           try {
             let permissionString = config.CRUDEnabledActionsAuth.enabledActionsAuth.permissionFactory(foam.core.dao.Operation.REMOVE, data);
 
-            return this.auth?.check(null, permissionString);
+            return await this.auth?.check(null, permissionString);
           } catch(e) {
             return false;
           }

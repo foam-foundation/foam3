@@ -161,25 +161,34 @@ foam.CLASS({
          *
          */
         // Not using foam locale as foam locale can be reset to a different value mid-session based on translation available
-        // using browser default formatting when available 
+        // using browser default formatting when available
         if ( navigator.language ) {
           amount = Number(amount);
           let opts = {
             minimumFractionDigits: this.precision,
-            maximumFractionDigits: this.precision
+            maximumFractionDigits: this.precision,
+            currencySign: 'accounting'
           }
           if ( ! hideSymbol ) {
             opts.style = 'currency';
             opts.currency = this.id;
           }
-          let formatterId = navigator.language + '-' + this.id;
-          if ( this.FORMATTER_CACHE[formatterId] ) {
-            return this.FORMATTER_CACHE[formatterId].format(amount);
-          } else {
-            let formatter = new Intl.NumberFormat(navigator.language, opts);
+          let formatterId = navigator.language + '-' + this.id + (hideSymbol ? '-ns' : '');
+          var formatter = this.FORMATTER_CACHE[formatterId];
+          if ( ! formatter ) {
+            formatter = new Intl.NumberFormat(navigator.language, opts);
             this.FORMATTER_CACHE[formatterId] = formatter;
-            return formatter.format(amount);
           }
+          // Intl.NumberFormat may display the ISO code (e.g., "JOD") instead of
+          // the symbol for lesser-known currencies. When that happens, replace
+          // with the actual symbol from the Currency model.
+          if ( ! hideSymbol && this.symbol ) {
+            var self = this;
+            return formatter.formatToParts(amount).map(function(p) {
+              return p.type === 'currency' && p.value === self.id ? self.symbol : p.value;
+            }).join('');
+          }
+          return formatter.format(amount);
         }
         // TODO: Maybe consider deleting the custom formatting logic below
         amount = Math.round(amount);

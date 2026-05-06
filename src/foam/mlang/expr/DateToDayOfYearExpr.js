@@ -30,18 +30,19 @@ foam.CLASS({
         var date = this.delegate.f(obj);
         if ( ! date ) return '';
 
-        var start = new Date(date.getFullYear(), 0, 0);
-        var diff = date - start;
+        // Use UTC methods to avoid DST/timezone shifts
+        var start = new Date(Date.UTC(date.getUTCFullYear(), 0, 0));
+        var diff = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - start.getTime();
         var oneDay = 1000 * 60 * 60 * 24;
         var dayOfYear = Math.floor(diff / oneDay);
 
-        return date.getFullYear() + '-' + String(dayOfYear).padStart(3, '0');
+        return date.getUTCFullYear() + '-' + String(dayOfYear).padStart(3, '0');
       },
       javaCode: `
         java.util.Date date = (java.util.Date) getDelegate().f(obj);
         if ( date == null ) return "";
 
-        java.util.Calendar cal = java.util.Calendar.getInstance();
+        java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
         cal.setTime(date);
 
         int year = cal.get(java.util.Calendar.YEAR);

@@ -357,8 +357,28 @@ public class QueryParser
       return predicate;
     });
 
-    grammar.addSymbol("VALUE", new GreedyAlt(grammar.sym("ME"),grammar.sym("NUMBER"),
-      grammar.sym("DATE"),grammar.sym("STRING")));
+    grammar.addSymbol("DECIMAL", new Seq(
+      new Optional(Literal.create("-")),
+      new Repeat(Range.create('0', '9'), 1),
+      Literal.create("."),
+      new Repeat(Range.create('0', '9'), 1)
+    ));
+    grammar.addAction("DECIMAL", (val, x) -> {
+      Object[] values = (Object[]) val;
+      StringBuilder sb = new StringBuilder();
+      for ( Object v : values ) {
+        if ( v == null ) continue;
+        if ( v instanceof Object[] ) {
+          for ( Object c : (Object[]) v ) sb.append(c);
+        } else {
+          sb.append(v);
+        }
+      }
+      return Double.parseDouble(sb.toString());
+    });
+
+    grammar.addSymbol("VALUE", new GreedyAlt(grammar.sym("ME"),grammar.sym("DECIMAL"),
+      grammar.sym("NUMBER"),grammar.sym("DATE"),grammar.sym("STRING")));
 
     grammar.addSymbol("COMPOUND_VALUE", new Alt(grammar.sym("NEGATE_VALUE"),
       grammar.sym("OR_VALUE"), grammar.sym("AND_VALUE")));

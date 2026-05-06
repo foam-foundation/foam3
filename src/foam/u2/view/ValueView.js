@@ -50,10 +50,11 @@ foam.CLASS({
         );
       } else {
         this.add(this.data$.map(v => {
-          if ( foam.Number.isInstance(v) ) {
-            return Number(v).toLocaleString(navigator.locale);
+          let ret = v;
+          if ( prop?.name !== 'id' && foam.Number.isInstance(v) && foam.lang.Int.isSubClass(prop) && prop.formatValue ) {
+            ret = Number(v).toLocaleString(navigator.locale);
           }
-          return v;
+          return ret + (prop?.units ? ` ${prop?.units}` : '');
         }));
       }
     }

@@ -115,20 +115,14 @@ foam.CLASS({
       tranient: true,
       hidden: true,
       name: 'containerMap'
-    }
+    },
+    'widgetContainer'
   ],
 
   methods: [
     async function render() {
       this.SUPER();
       this.initContainer();
-      var widgetContainer = this.E()
-        .addClass(this.myClass('widget-container'))
-        .style({
-          'grid-template-columns': this.width$,
-          'grid-template-rows': this.height$,
-          'grid-gap': this.gap$
-        });
 
       this
       .addClass(this.myClass())
@@ -142,8 +136,15 @@ foam.CLASS({
             .add(dashboardTitle)
           .end();
       }))
-      .tag(widgetContainer);
-      await this.initWidgets(widgetContainer);
+      .start('', {}, this.widgetContainer$)
+        .addClass(this.myClass('widget-container'))
+        .style({
+          'grid-template-columns': this.width$,
+          'grid-template-rows': this.height$,
+          'grid-gap': this.gap$
+        })
+      .end();
+      await this.initWidgets(this.widgetContainer);
       this.updateCols();
       this.containerWidth$.sub(this.updateCols);
     },
@@ -193,6 +194,8 @@ foam.CLASS({
             cm[v] = 'span ' + col;
           }
         })
+        // Set final one again in case it doesnt get set
+        this.document.documentElement.style.setProperty(`--split-row-${currentWidgetSet}`, widgetSetCount);
         this.containerMap = cm;
       }
     }

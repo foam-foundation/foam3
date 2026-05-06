@@ -84,7 +84,10 @@ foam.CLASS({
       code: function() {
         if ( this.preventFeedback_ ) return;
         this.preventFeedback_ = true;
-        this.data = this.showOther_ ? this.otherData_?.trim() : this.choiceData_;
+        const otherValue = typeof this.otherData_ === 'string' ? this.otherData_.trim() : this.otherData_;
+        this.data = this.showOther_
+          ? (otherValue ? otherValue : this.otherKey)
+          : this.choiceData_;
         this.preventFeedback_ = false;
       }
     },

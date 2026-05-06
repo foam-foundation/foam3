@@ -8,6 +8,8 @@ foam.CLASS({
   package: 'foam.mlang',
   name: 'Expressions',
 
+  // Needed because we need to load Expressions to build java, but we don't want to
+  // output it to a .java file.
   flags: [],
 
   documentation: 'Convenience mix-in for requiring all mlangs.',

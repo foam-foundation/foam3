@@ -155,7 +155,7 @@ foam.CLASS({
     }
 
     ^term {
-      color: #0066cc;
+      color: $textBrand;
       text-decoration: underline;
       text-decoration-style: dotted;
       cursor: pointer;
@@ -163,14 +163,14 @@ foam.CLASS({
     }
 
     ^term:hover {
-      color: #004499;
+      color: $primary500;
     }
 
     ^popup {
       position: absolute;
       z-index: 1000;
-      background: #fff;
-      border: 1px solid #ccc;
+      background: $white;
+      border: 1px solid $borderDefault;
       border-radius: 6px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       padding: 12px 16px;
@@ -181,21 +181,21 @@ foam.CLASS({
     }
 
     ^popup-header {
-      font-weight: 600;
-      color: #333;
+      font-weight: $font-medium;
+      color: $textDefault;
       margin-bottom: 8px;
       padding-bottom: 6px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid $borderLight;
     }
 
     ^popup-definition {
-      color: #555;
+      color: $textSecondary;
     }
 
     ^popup-source {
       margin-top: 8px;
       font-size: 12px;
-      color: #888;
+      color: $textTertiary;
       font-style: italic;
     }
 
@@ -204,13 +204,13 @@ foam.CLASS({
       top: 8px;
       right: 10px;
       cursor: pointer;
-      color: #999;
+      color: $grey400;
       font-size: 16px;
       line-height: 1;
     }
 
     ^popup-close:hover {
-      color: #333;
+      color: $textDefault;
     }
   `,
 
@@ -367,9 +367,9 @@ foam.CLASS({
 
   css: `
     ^entry { margin-bottom: 16px; }
-    ^entry dt { font-weight: 600; color: #333; }
-    ^entry dd { margin-left: 0; margin-top: 4px; color: #555; }
-    ^source { font-size: 0.9em; color: #888; font-style: italic; }
+    ^entry dt { font-weight: $font-medium; color: $textDefault; }
+    ^entry dd { margin-left: 0; margin-top: 4px; color: $textSecondary; }
+    ^source { font-size: 0.9em; color: $textTertiary; font-style: italic; }
   `,
 
   methods: [

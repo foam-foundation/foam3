@@ -30,7 +30,7 @@ foam.CLASS({
     },
     {
       name: 'delimitter',
-      value: ` `
+      value: ' '
     }
   ],
 

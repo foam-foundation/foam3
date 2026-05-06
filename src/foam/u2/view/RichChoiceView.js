@@ -172,6 +172,7 @@ foam.CLASS({
     }
 
     ^container {
+      position: relative;
       background: $backgroundDefault;
       border: 1px solid $borderDefault;
       max-height: min(400px, 40vh);
@@ -259,8 +260,12 @@ foam.CLASS({
     }
 
     ^search {
+      background: $backgroundDefault;
       border-bottom: 1px solid $borderDefault;
       display: flex;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     ^container .disabled {
@@ -295,6 +300,15 @@ foam.CLASS({
 
     ^section:not(:last-child) {
       border-bottom: 1px solid #f4f4f9;
+    }
+
+    ^container .highlighted {
+      border-color: $borderDefault;
+      background-color: $backgroundHover;
+    }
+
+    ^container .highlighted.disabled {
+      background-color: initial;
     }
   `,
 
@@ -342,6 +356,10 @@ foam.CLASS({
           this.sections.forEach((section) => {
             section.clearProperty('filteredDAO');
           });
+        }
+        // Reset highlighted index when dropdown opens/closes
+        if ( nv ) {
+          this.highlightedIndex_ = -1;
         }
       }
     },
@@ -474,7 +492,12 @@ foam.CLASS({
       class: 'String',
       value: 'id'
     },
-    'inputField',
+    {
+      name: 'inputField',
+      postSet: function(_, n) {
+        this.autoFocus();
+      }
+    },
     {
       class: 'FObjectProperty',
       of: 'foam.u2.Element',
@@ -488,7 +511,18 @@ foam.CLASS({
         });
       }
     },
-    'selectionEl_'
+    'selectionEl_',
+    {
+      class: 'Int',
+      name: 'highlightedIndex_',
+      documentation: 'Tracks the currently highlighted item index for keyboard navigation.',
+      value: -1
+    },
+    {
+      name: 'selectableItems_',
+      documentation: 'Array of selectable items in the dropdown.',
+      factory: function() { return []; }
+    }
   ],
 
   methods: [
@@ -524,10 +558,10 @@ foam.CLASS({
         if ( ! hasBeenOpenedYet_ ) return this.E();
         return this.E()
           .addClass(self.myClass('container'))
+          // .attrs({ tabindex: 0 })
           .add(self.search$.map(searchEnabled => {
             if ( ! searchEnabled ) return null;
             return this.E()
-              .start()
                 .start('img')
                   .attrs({ src: '/images/ic-search.svg' })
                 .end()
@@ -539,16 +573,17 @@ foam.CLASS({
                     autofocus: true,
                     onKey: true
                   } }), {}, self.inputField$)
-                .endContext()
-              .end();
+                .endContext();
           }))
-          .add(self.slot(function(sections) {
+          .add(self.slot(function(sections, filter_) {
+            // Check filteredDAO count for each section to respect hideIfEmpty when searching
             var promiseArray = [];
             sections.forEach(function(section) {
-              promiseArray.push(section.dao.select(self.COUNT()));
+              promiseArray.push(section.filteredDAO.select(self.COUNT()));
             });
             return Promise.all(promiseArray).then(resp => {
               var index = 0;
+              self.selectableItems_ = [];
               return this.E().forEach(sections, function(section) {
                 if ( section.hideIfEmpty && resp[index].value <= 0 ) {
                   index++;
@@ -564,10 +599,16 @@ foam.CLASS({
                   .start()
                     .select( section.choicesLimit ? section.filteredDAO$proxy.limit(section.choicesLimit) : section.filteredDAO$proxy, function(obj) {
                       let addRow = function() {
+                        let itemIndex = self.selectableItems_.length;
+                        if ( ! section.disabled ) {
+                          self.selectableItems_.push(obj);
+                        }
                         this.start(self.rowView, { data: obj })
+                          .addClass(self.myClass('selectable-item'))
                           .attr('disabled', section.disabled)
                           .attr('role', 'option')
                           .enableClass('disabled', section.disabled)
+                          .enableClass('highlighted', self.highlightedIndex_$.map(v => v === itemIndex))
                           .callIf(! section.disabled, function() {
                             this.on('click', () => {
                               self.onSelect(obj);
@@ -590,6 +631,9 @@ foam.CLASS({
               });
             });
           }))
+          .on('keydown', function(evt) {
+            self.onKeyDown(evt);
+          })
           .add(this.slot(self.addAction));
       }));
 
@@ -603,6 +647,19 @@ foam.CLASS({
             }
             return self.E()
               .attrs({ tabindex: 0 })
+              .on('keydown', function(evt) {
+                // Press space to open the dropdown when the RichChoiceView has focused
+                if ( evt.key == ' ' ) {
+                  evt.preventDefault();
+                  if ( ! self.isOpen_ ) {
+                    let x = self.selectionEl_.el_().getBoundingClientRect().x;
+                    let y = self.selectionEl_.el_().getBoundingClientRect().y;
+                    self.dropdown_.parentEl = self.selectionEl_.el_();
+                    self.dropdown_.open(x, y);
+                    self.autoFocus();
+                  }
+                }
+              })
               .addClass(this.myClass())
               .start('', {}, this.selectionEl_$)
                 .addClass(this.myClass('selection-view'))
@@ -613,7 +670,7 @@ foam.CLASS({
                   if ( self.mode === foam.u2.DisplayMode.RW ) {
                     self.dropdown_.parentEl = self.selectionEl_.el_();
                     self.dropdown_.open(x, y);
-                    if ( self.inputField ) self.inputField.focused = true;
+                    self.autoFocus();
                   }
                   e.preventDefault();
                   e.stopPropagation();
@@ -657,6 +714,62 @@ foam.CLASS({
       this.fullObject_ = obj;
       this.data = obj[this.idProperty];
       this.isOpen_ = false;
+    },
+
+    function onKeyDown(evt) {
+      if ( ! this.isOpen_ ) return;
+
+      var items = this.selectableItems_;
+      if ( items.length === 0 ) return;
+
+      var idx = this.highlightedIndex_;
+
+      switch ( evt.key ) {
+        // Moving down in the dropdown item list
+        case 'ArrowDown':
+          evt.preventDefault();
+          idx = ( idx + 1 ) % items.length;
+          this.highlightedIndex_ = idx;
+          this.scrollToHighlighted_();
+          break;
+
+        // Moving up in the dropdown item list
+        case 'ArrowUp':
+          evt.preventDefault();
+          idx = idx <= 0 ? items.length - 1 : idx - 1;
+          this.highlightedIndex_ = idx;
+          this.scrollToHighlighted_();
+          break;
+
+        // Select the current highlighted item
+        case 'Enter':
+        case 'Tab':
+          if ( idx >= 0 && idx < items.length ) {
+            evt.preventDefault();
+            this.onSelect(items[idx]);
+            this.dropdown_.close();
+          }
+          break;
+
+        // Close the dropdown
+        case 'Escape':
+          evt.preventDefault();
+          this.dropdown_.close();
+          break;
+
+      }
+    },
+
+    function scrollToHighlighted_() {
+      var container = this.dropdown_.el_();
+      if ( ! container ) return;
+      var items = container.querySelectorAll('.' + this.myClass('selectable-item'));
+      if ( this.highlightedIndex_ >= 0 && this.highlightedIndex_ < items.length ) {
+        var el = items[this.highlightedIndex_];
+        if ( el ) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
     },
 
     function addAction(action, actionData) {
@@ -741,6 +854,13 @@ foam.CLASS({
       // the put. Instead, we need to explicitly set the value to the default
       // value.
       this.data = this.prop ? this.prop.value : undefined;
+    },
+    {
+      name: 'autoFocus',
+      isFramed: true,
+      code: function() {
+        if ( this.inputField ) this.inputField.focused = true;
+      }
     }
   ],
 

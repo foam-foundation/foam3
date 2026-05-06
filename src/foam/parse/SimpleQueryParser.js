@@ -189,10 +189,14 @@ foam.CLASS({
 
           'range float': seq1(1, sym('ws'), sym('floats'), sym('ws'), ')'),
 
-          digits: str(repeat(range('0', '9'), null, 1)),
+          // rawDigits: base grammar for one or more digit chars, no action (preserves leading zeros)
+          rawDigits: str(repeat(range('0', '9'), null, 1)),
+
+          // digits: delegates to rawDigits, but has a parseInt action (see actions below)
+          digits: sym('rawDigits'),
 
           // TODO replace '.' with an internationalized decimal point, or have the input preprocessed
-          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('digits'), optional(str(seq('.', optional(sym('digits')))))))),
+          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('rawDigits'), optional(str(seq('.', optional(sym('rawDigits')))))))),
 
           numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
 
@@ -287,7 +291,7 @@ foam.CLASS({
     },
     {
       name: 'propertiesGrammar_',
-      value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
+      value: function(action, alt, nop, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
         let cls                 = this.of;
@@ -316,9 +320,23 @@ foam.CLASS({
           // Property or Referenced Property, the effective type of the Property
           let type = prop;
 
-          // TODO: It would be better to handle references with a custom view:
-          // which auto-completes based on DAO searches.
           if ( foam.lang.Reference.isInstance(prop) ) {
+            // Delegate to ReferenceSuggester for suggestions after = or !=
+            propPredicates.push(seq(propertyParser, seq1(1,
+              alt(operator('='), operator('!=')),
+              sym('ws'),
+              sug(nop(), {
+                view: {
+                  class: 'foam.parse.auto.ReferenceSuggester',
+                  targetDAOKey: prop.targetDAOKey,
+                  of: prop.of
+                },
+                label: prop.label + ' lookup',
+                category: 'value'
+              })
+            )));
+
+            // Resolve ID type and fall through to compareNumber/compareString.
             type = prop.of.ID;
             if ( foam.lang.IDAlias.isInstance(type) ) {
               type = prop.of.getAxiomByName(type.propName);
@@ -335,23 +353,33 @@ foam.CLASS({
             propPredicates.push(seq(propertyParser, sym('compareBoolean')));
           }
           else if ( foam.lang.Enum.isInstance(type) ) {
-            let value = (v) => seq1(1, sym('ws'),  sug(literal(v), {text: v, category: 'value'}));
-            let enumValue  = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
-            let enumArray  = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
+            // Delegate to EnumSuggester for a rich, color/glyph-aware dropdown after = or !=.
+            // Also handles class: 'StateMachine' (extends foam.lang.Enum).
+            propPredicates.push(seq(propertyParser, seq1(1,
+              alt(operator('='), operator('!=')),
+              sym('ws'),
+              sug(nop(), {
+                view: {
+                  class: 'foam.parse.auto.EnumSuggester',
+                  of:    prop.of
+                },
+                label:    prop.label + ' values',
+                category: 'value'
+              })
+            )));
 
-            // TODO: Enums can have assigned colours. If they do, they should be provided to the suggestion.
+            // Keep per-value literal parsing so the grammar still accepts `status = ACTIVE`,
+            // but drop the per-value sug() to avoid duplicate suggestions (EnumSuggester owns those now).
+            let value     = (v) => seq1(1, sym('ws'), literalIC(v));
+            let enumValue = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
+            let enumArray = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
 
             let compareEnum = action(
               alt(seq(operator('='), enumValue),
                   seq(operator('!='), enumValue),
                   seq(operatorIn('IN'), enumArray),
                   seq(operatorIn('NOT IN'), enumArray)),
-              function(v) {
-                return {
-                  operator: v[0],
-                  value: v[1]
-                };
-              });
+              function(v) { return { operator: v[0], value: v[1] }; });
 
             propPredicates.push(seq(propertyParser, compareEnum));
           }
@@ -415,15 +443,15 @@ foam.CLASS({
         }
         function simpleOpValue(v) {
           return {
-              operator: v[0],
-              value: v[1]
-            };
+            operator: v[0],
+            value: v[1]
+          };
         }
         function dateOpValue(v) {
           return {
-              operator: v[0],
-              value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, except for EMPTY operators
-            };
+            operator: v[0],
+            value: v[1]? {start: v[1][0], end: v[1][1]} : null // date range, except for EMPTY operators
+          };
         }
         function rangeValue(v) {
           return [ v[0][0], v[1][1] ]; // [start of first, end of second]

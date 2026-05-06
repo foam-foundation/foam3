@@ -475,7 +475,7 @@ try {
             if ( line.equals(OPEN_PUT) || line.equals(OPEN_CREATE) || line.equals(OPEN_REMOVE) ) {
               getLogger().error("Entry is not properly closed", stringBuilder.toString());
             }
-            stringBuilder.append("\\n");
+            stringBuilder.append('\\n');
             stringBuilder.append(line);
           }
           return stringBuilder;

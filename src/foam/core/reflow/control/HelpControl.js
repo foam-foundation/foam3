@@ -55,7 +55,13 @@ foam.CLASS({
         .start(this.data.INPUT, null, this.data.input_$)
           .addClass(this.myClass('input'))
           .focus()
-          .on('keyup', e => { if ( e.key == 'Enter' || e.keyCode == 13 ) this.data.onInput(); })
+          .on('keyup', e => {
+            if ( e.key == 'Enter' || e.keyCode == 13 ) {
+              let input = this.data.input;
+              this.data.input = '';
+              this.eval_(input);
+            }
+          })
         .end()
       .end();
     }

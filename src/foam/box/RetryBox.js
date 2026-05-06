@@ -66,7 +66,7 @@ foam.CLASS({
             var data = msg.data;
             if ( self.RemoteException.isInstance(data) ) {
               // Honor remote indication when present
-              retryable = data.isRetryable !== false;
+              retryable = data.retryable !== false;
             }
           }
 

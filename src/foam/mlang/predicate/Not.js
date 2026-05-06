@@ -141,7 +141,21 @@ foam.CLASS({
       name: 'createStatement',
       javaCode: 'return " NOT (" + getArg1().createStatement() + ") ";'
     },
-
+    function toMQL() {
+      if ( foam.mlang.predicate.Has.isInstance(this.arg1) ) {
+        return this.arg1.arg1.name + ' IS EMPTY';
+      }
+      if ( foam.mlang.predicate.In.isInstance(this.arg1) ) {
+        var arg2 = this.arg1.arg2ToMQL();
+        if ( arg2 == null ) return null;
+        if ( Array.isArray(arg2) ) return '-' + this.arg1.arg1.name + ':' + arg2.join(',');
+        return '-' + this.arg1.arg1.name + ':' + arg2;
+      }
+      if ( this.arg1.toMQL ) {
+        return 'NOT (' + this.arg1.toMQL() + ')';
+      }
+      return null;
+    },
     {
       name: 'prepareStatement',
       javaCode: 'getArg1().prepareStatement(stmt);'

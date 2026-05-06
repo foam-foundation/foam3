@@ -66,7 +66,7 @@ foam.CLASS({
     Index counters track current numbering at each level.
   `,
 
-  imports: [ 'markdownContext' ],
+  imports: [ 'markdownContext?' ],
 
   properties: [
     {
@@ -114,6 +114,11 @@ foam.CLASS({
         counters[i] = 0;
       }
 
+      return this.getCurrentIndex(level);
+    },
+
+    function getCurrentIndex(level) {
+      var counters = this.tocConfig.counters;
       // Build the index string (e.g., "2.3.1")
       return counters.slice(0, level).join('.');
     }
@@ -243,16 +248,13 @@ foam.CLASS({
   ],
 
   methods: [
-    function init() {
-      this.addHeading(this);
-    },
-
     function addChild_(c, p) {
       if ( foam.String.isInstance(c) ) { this.title += c; }
       return this.SUPER(c, p);
     },
 
     function render() {
+      this.addHeading(this);
       var self = this;
 
       // Compute section index if TOCConfig has enabled indexing
@@ -300,12 +302,12 @@ foam.CLASS({
 
   css: `
     ^ { margin: 20px 0; }
-    ^title { font-size: 1.25em; font-weight: 600; margin-bottom: 12px; }
+    ^title { font-size: 1.25em; font-weight: $font-medium; margin-bottom: 12px; }
     ^list { list-style: none; padding: 0; margin: 0; }
     ^item { margin: 4px 0; }
-    ^item a { color: #0066cc; text-decoration: none; }
+    ^item a { color: $textBrand; text-decoration: none; }
     ^item a:hover { text-decoration: underline; }
-    ^level-1 { margin-left: 0; font-weight: 500; }
+    ^level-1 { margin-left: 0; font-weight: $font-regular; }
     ^level-2 { margin-left: 20px; }
     ^level-3 { margin-left: 40px; }
     ^level-4 { margin-left: 60px; }

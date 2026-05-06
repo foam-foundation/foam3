@@ -38,7 +38,7 @@
     },
     {
       name: 'INFO',
-      color: '$textBrand',
+      color: '$backgroundBrand',
       glyph: 'checkmark'
     },
     {
@@ -95,10 +95,16 @@ foam.CLASS({
       expression: function(type) {
         return (this.type && foam.CSS.returnTokenValue(this.type.color, this.cls_, this.__subContext__)) || '#FFFFFF';
       },
+      adapt: function(o,n) {
+        return foam.CSS.returnTokenValue(n, this.cls_, this.__subContext__);
+      },
       documentation: 'Border color for the view and icon background. Defaults to type color'
     },
     {
       name: 'iconColor',
+      adapt: function(o,n) {
+        return foam.CSS.returnTokenValue(n, this.cls_, this.__subContext__);
+      },
       factory: function() {
         return (this.type && foam.CSS.returnTokenValue(this.type.background, this.cls_, this.__subContext__)) || '#FFFFFF';
       },

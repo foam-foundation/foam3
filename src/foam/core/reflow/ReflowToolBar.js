@@ -15,7 +15,7 @@ foam.CLASS({
     'foam.mlang.sink.Count'
   ],
 
-  imports: ['showPrompts','toolbarControlDAO', 'data as importedData'],
+  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData' ],
 
   css: `
     ^ {
@@ -51,13 +51,15 @@ foam.CLASS({
     },
     {
       class: 'StringArray',
-      name: 'promptModes',
-      value: []
+      name: 'promptModes'
     },
     {
       class: 'String',
       name: 'promptMode',
-      value: 'Standard',
+      postSet: function(o, n) { localStorage.promptMode = n; },
+      factory: function() {
+        return localStorage.promptMode || 'Standard';
+      },
       view: function(_, X) {
         return {
           class: 'foam.u2.view.ChoiceView',
@@ -79,28 +81,29 @@ foam.CLASS({
       this.updatePromptModes();
       this.updateHasControls();
       this.onDetach(this.showPrompts$.sub(this.updateHasControls));
+
       this.
         addClass().
         show(this.hasControls$).
         start().
-        addClass(this.myClass('input-field-container')).
-        add(this.dynamic(function(promptMode) {
-          self.toolbarControlDAO
-            .where(self.EQ(self.ToolbarControl.TOOLBAR, self.promptMode))
-            .select().then(result => {
-              result.array
-                .sort((a, b) => (a.order || 0) - (b.order || 0))
-                .forEach(c => {
-                  this.tag({class: c.view, data: self.data});
-                });
-            });
-        })).
+          addClass(this.myClass('input-field-container')).
+          add(this.dynamic(function(promptMode) {
+            self.toolbarControlDAO
+              .where(self.EQ(self.ToolbarControl.TOOLBAR, self.promptMode))
+              .select().then(result => {
+                result.array
+                  .sort((a, b) => (a.order || 0) - (b.order || 0))
+                  .forEach(c => {
+                    this.tag({class: c.view, data: self.data});
+                  });
+              });
+          })).
         end().
         startContext({ data: this }).
-        start().
-          show(this.promptModes$.map(modes => modes && modes.length > 1)).
-          add(this.PROMPT_MODE).
-        end().
+          start().
+            show(this.promptModes$.map(modes => modes && modes.length > 1)).
+            add(this.PROMPT_MODE).
+          end().
         endContext();
     }
   ],

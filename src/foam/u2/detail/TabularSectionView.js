@@ -18,11 +18,18 @@ foam.CLASS({
 
   css: `
     ^ > .foam-u2-layout-Rows > .foam-u2-layout-Grid {
-      grid-row-gap: 4px !important;
+      grid-row-gap: 0 !important;
+    }
+    ^ > ^rows > ^grid > div {
+      padding: 1rem;
+    }
+    ^ > ^rows > ^grid > div:nth-child(even of :not(.foam-u2-Element-hidden)) {
+      background: $backgroundSecondary;
     }
   `,
 
   properties: [
+    ['hideActions', true],
     {
       name: 'config',
       expression: function(section){

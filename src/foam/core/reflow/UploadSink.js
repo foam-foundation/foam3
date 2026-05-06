@@ -271,6 +271,7 @@ foam.CLASS({
 
       // Wait for all pending batch operations to complete
       await this.semaphore_.drain();
+      this.dao?.cmd(foam.dao.DAO.RESET_CMD);
 
       this.updateStatus();
       this.progress = 100;

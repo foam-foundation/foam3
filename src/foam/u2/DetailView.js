@@ -115,7 +115,10 @@ foam.CLASS({
           this.
             addClass().
             show(visibilitySlot).
-            start('td').addClass(this.myClass('label')).add(labelSlot).end().
+            start('td')
+              .addClass(this.myClass('label'))
+              .add(labelSlot.map(v => v.addClass(this.myClass('label'), 'p-light')))
+            .end().
             start('td').
             start('span').
               addClass(this.myClass('propHolder')).

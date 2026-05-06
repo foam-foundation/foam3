@@ -30,7 +30,8 @@ foam.CLASS({
         var date = this.delegate.f(obj);
         if ( ! date ) return '';
 
-        var year  = date.getFullYear();
+        // Use UTC to avoid DST/timezone shifts causing wrong year at boundaries
+        var year  = date.getUTCFullYear();
 
         return year;
       },
@@ -38,7 +39,7 @@ foam.CLASS({
         java.util.Date date = (java.util.Date) getDelegate().f(obj);
         if ( date == null ) return "";
 
-        java.util.Calendar cal = java.util.Calendar.getInstance();
+        java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
         cal.setTime(date);
 
         int year  = cal.get(java.util.Calendar.YEAR);

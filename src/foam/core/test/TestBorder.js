@@ -160,9 +160,15 @@ foam.CLASS({
             if ( t.failed ) {
               self.failed += t.failed;
               if ( testRun ) {
-                // TODO: capture individual tests failures on the test,
-                // so they can be added here.
                 testRun.failures.push(t.id);
+                if ( t.output ) {
+                  var lines = t.output.split('\n');
+                  for ( var i = 0 ; i < lines.length ; i++ ) {
+                    if ( lines[i].startsWith('FAILURE') ) {
+                      testRun.failures.push(lines[i]);
+                    }
+                  }
+                }
               }
             }
           } catch (e) {

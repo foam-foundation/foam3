@@ -27,7 +27,8 @@ foam.CLASS({
     'foam.log.LogLevel',
     'foam.util.SafetyUtil',
     'foam.util.StringUtil',
-    'java.text.SimpleDateFormat',
+    'java.time.ZoneOffset',
+    'java.time.format.DateTimeFormatter',
     'java.util.Date',
     'java.util.HashMap',
     'java.util.Map'
@@ -42,14 +43,8 @@ foam.CLASS({
   ],
 
   javaCode: `
-  protected static ThreadLocal<SimpleDateFormat> sdf_ = new ThreadLocal<SimpleDateFormat>() {
-    @Override
-    protected SimpleDateFormat initialValue() {
-      SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-      df.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-      return df;
-    }
-  };
+    protected static DateTimeFormatter sdf_ = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                                              .withZone(ZoneOffset.UTC);
   `,
 
   methods: [
@@ -90,7 +85,7 @@ foam.CLASS({
       if ( er instanceof CreatedAware ) {
         Date date = ((CreatedAware)er).getCreated();
         if ( date != null ) {
-          args.put("created", sdf_.get().format(date));
+          args.put("created", sdf_.format(date.toInstant()));
         }
       }
       if ( er instanceof CreatedByAware ) {
@@ -105,7 +100,7 @@ foam.CLASS({
       if ( er instanceof LastModifiedAware ) {
         Date date = ((LastModifiedAware)er).getLastModified();
         if ( date != null ) {
-          args.put("lastModified", sdf_.get().format(date));
+          args.put("lastModified", sdf_.format(date.toInstant()));
         }
       }
       if ( er instanceof LastModifiedByAware ) {

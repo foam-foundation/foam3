@@ -42,14 +42,14 @@ foam.CLASS({
     }
     .h200{
       font-style: normal;
-      font-weight: $font-medium;
+      font-weight: $font-bold;
       font-size: $header-lg;
       line-height: 1.1;
       margin: 0;
     }
     .h300{
       font-style: normal;
-      font-weight: $font-medium;
+      font-weight: $font-semi-bold;
       font-size: $header-md;
       line-height: 1.17;
       margin: 0;

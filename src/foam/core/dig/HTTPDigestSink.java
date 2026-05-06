@@ -125,7 +125,7 @@ public class HTTPDigestSink extends HTTPSink {
         conn.addRequestProperty("Accept", "application/json");
         conn.addRequestProperty("Content-Type", "application/json");
       } else if ( format_ == Format.XML ) {
-        outputter.set(new foam.lib.xml.Outputter(OutputterMode.NETWORK));
+        outputter.set(new foam.lib.xml.Outputter(getX(), OutputterMode.NETWORK));
         conn.addRequestProperty("Accept", "application/xml");
         conn.addRequestProperty("Content-Type", "application/xml");
       } else {

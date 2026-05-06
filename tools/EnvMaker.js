@@ -74,6 +74,9 @@ exports.end = function() {
       this.verbose(`[Env] setting APP_NAME to root pom name: ${rootPOM.name}`);
       envs['APP_NAME'] = rootPOM.name;
     }
+    if ( rootPOM.clientBundles ) {
+      globalThis.CLIENT_BUNDLES = rootPOM.clientBundles;
+    }
   }
 };
 

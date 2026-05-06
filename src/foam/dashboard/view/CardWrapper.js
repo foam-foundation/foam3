@@ -21,7 +21,6 @@ foam.CLASS({
 
   css: `
   ^ .foam-dashboard-view-Card {
-    border-radius: 22px;
     overflow: hidden;
   }
   ^titled-container {

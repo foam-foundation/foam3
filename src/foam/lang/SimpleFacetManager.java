@@ -117,6 +117,8 @@ public class SimpleFacetManager
 
       return obj;
     } catch (Throwable e) {
+      System.err.println("ERROR CREATING: " + clsName);
+      e.printStackTrace();
       throw new RuntimeException(e);
     }
   }

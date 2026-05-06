@@ -279,8 +279,10 @@ foam.CLASS({
                   return false;
                 }
               });
-              var isDisabledSlot = self.slot(function(choices, data, maxSelected) {
+              var isDisabledSlot = self.slot(function(choices, data, maxSelected, mode) {
                 try {
+                    if ( mode !== foam.u2.DisplayMode.RW ) return true;
+
                     if ( isFinal ) {
                       return true;
                     }
@@ -305,6 +307,8 @@ foam.CLASS({
                 })
                   .call(function() {
                     self.onDetach(this.clicked.sub(() => {
+                      if ( self.mode !== foam.u2.DisplayMode.RW ) return;
+
                       let indexDataToAdd = self.getIndexOfChoice(self.data, valueSimpSlot.get());
                       let array = [
                         ...self.data
@@ -330,8 +334,8 @@ foam.CLASS({
       };
 
       this
-        .add(this.dynamic(function(showMinMaxHelper) {
-          if ( ! showMinMaxHelper ) return;
+        .add(this.dynamic(function(showMinMaxHelper, mode) {
+          if ( ! showMinMaxHelper || mode !== foam.u2.DisplayMode.RW ) return;
           this
           .start(foam.u2.layout.Rows)
             .start()

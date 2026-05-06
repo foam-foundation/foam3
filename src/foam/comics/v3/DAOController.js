@@ -83,7 +83,7 @@ foam.CLASS({
       }
     },
     'sub_',
-    'emptyRouteParams_',
+    'emptyRouteParams_'
   ],
 
   methods: [
@@ -91,13 +91,25 @@ foam.CLASS({
       this.SUPER();
       this.addCrumb();
     },
+    function getTitle$() {
+      return this.viewTitle$;
+    },
     function render() {
-      this.stack.setTitle(this.viewTitle$, this);
+      this.stack.setTitle(this.getTitle$(), this);
       var self = this;
       this.SUPER();
+      this.config.dao.on.reset.sub(async () => {
+        if ( self.route ) {
+          await this.config.dao.find(this.route).then(obj => {
+            if ( ! obj ) {
+              self.route = '';
+            }
+          });
+        }
+      })
       // DAOController uses a custom implementation of dynamic
       // This is done as it needs to perform actions before it removes all children
-      // and adds new ones, such as storing the current memento for filters etc. 
+      // and adds new ones, such as storing the current memento for filters etc.
       this.dynamic(function(route) {
         if ( self.sub_ && self.route ) {
           self.sub_.detach();
@@ -123,7 +135,8 @@ foam.CLASS({
           self.tag({
             class: 'foam.comics.v3.DetailView',
             config$: self.config$,
-            idOfRecord$: self.route$
+            idOfRecord$: self.route$,
+            of: this.data.of
           });
         } else {
           self.renderDAOView();
@@ -132,10 +145,11 @@ foam.CLASS({
     },
     function renderDAOView() {
       var self = this;
-      this.stack.setTitle(this.viewTitle$, self);
+      this.stack.setTitle(this.getTitle$(), this);
       let memento = this.emptyRouteParams_;
       let l = function() {
-        if ( self.route ) return;
+        let mementoRoute = self.memento_.usedStr?.indexOf('?') !== -1 ? self.memento_.usedStr?.split('?')[0] : null;
+        if ( self.route || mementoRoute ) return;
         self.emptyRouteParams_ = self.memento_.usedStr;
       }
       this.sub_ = this.memento_$.dot('usedStr').sub(l);
@@ -149,4 +163,3 @@ foam.CLASS({
     }
   ]
 });
-

@@ -14,6 +14,7 @@ foam.CLASS({
   javaImports: [
     'foam.lang.*',
     'foam.dao.DAO',
+    'foam.lib.PropertyPredicate',
     'foam.lib.json.JSONParser',
     'foam.lib.json.MapParser',
     'foam.lib.formatter.FObjectFormatter',
@@ -32,31 +33,6 @@ foam.CLASS({
     'java.util.Map',
     'java.util.Set'
   ],
-
-  javaCode: `
-    protected static final ThreadLocal<JSONFObjectFormatter> formatter_ = new ThreadLocal<JSONFObjectFormatter>() {
-      @Override
-      protected JSONFObjectFormatter initialValue() {
-        var formatter = new JSONFObjectFormatter();
-        formatter.setQuoteKeys(true);
-        formatter.setOutputClassNames(true);
-        formatter.setOutputDefaultValues(true);
-        formatter.setMultiLine(true);
-        formatter.setPropertyPredicate(new foam.lib.AndPropertyPredicate(
-           new foam.lib.PropertyPredicate[] {
-             new foam.lib.ExternalPropertyPredicate(),
-             new foam.lib.PermissionedPropertyPredicate() }));
-        return formatter;
-      }
-
-      @Override
-      public JSONFObjectFormatter get() {
-        var formatter = super.get();
-        formatter.reset();
-        return formatter;
-      }
-    };
-  `,
 
   properties: [
     {
@@ -127,28 +103,37 @@ foam.CLASS({
     {
       name: 'outputFObjects',
       javaCode: `
-      PrintWriter out    = x.get(PrintWriter.class);
+        PrintWriter out = x.get(PrintWriter.class);
 
-      if ( fobjects == null || fobjects.size() == 0 ) {
-        out.println("[]");
-        return;
-      }
+        if ( fobjects == null || fobjects.size() == 0 ) {
+          out.println("[]");
+          return;
+        }
 
-      var formatter = getFormatter(x);
-      formatter.output(fobjects.toArray());
+        var formatter = createFormatter(x, cols);
 
-      // Output the formatted data
-      out.println(formatter.builder().toString());
+        out.println("[");
+
+        boolean first = true;
+        for ( Object o : fobjects ) {
+          if ( ! first ) out.println(',');
+          formatter.output(o);
+          out.print(formatter.builder().toString());
+          formatter.reset();
+          first = false;
+        }
+
+        out.println("]");
       `
     },
     {
       name: 'outputFObject',
       javaCode: `
-      PrintWriter out    = x.get(PrintWriter.class);
+      PrintWriter out = x.get(PrintWriter.class);
 
       if ( obj == null ) return;
 
-      var formatter = getFormatter(x);
+      var formatter = createFormatter(x, cols);
       formatter.output(obj);
 
       // Output the formatted data
@@ -168,18 +153,44 @@ foam.CLASS({
       `
     },
     {
-      name: 'getFormatter',
+      name: 'createFormatter',
       type: 'FObjectFormatter',
-      args: 'Context x',
+      args: 'Context x, String[] cols',
       javaCode: `
-        var formatter = formatter_.get();
+        var formatter = new JSONFObjectFormatter();
+        formatter.setQuoteKeys(true);
+        formatter.setOutputClassNames(true);
+        formatter.setOutputDefaultValues(true);
+        formatter.setMultiLine(true);
+        formatter.setPropertyPredicate(new foam.lib.AndPropertyPredicate(
+           new PropertyPredicate[] {
+             new foam.lib.NetworkPropertyPredicate(), // Added to prevent fields like User.password from being sent
+             new foam.lib.ExternalPropertyPredicate(),
+             new foam.lib.PermissionedPropertyPredicate() }));
         formatter.setX(x);
+
+        if ( cols != null && cols.length > 0 ) {
+          formatter.setPropertyPredicate(new foam.lib.AndPropertyPredicate(
+           new PropertyPredicate[] {
+             formatter.getPropertyPredicate(),
+             new PropertyPredicate() {
+               public boolean propertyPredicateCheck(X x, String of, PropertyInfo prop) {
+                 // Doesn't need to be efficient because it is cached
+                 for ( int i = 0 ; i < cols.length ; i++ ) {
+                   if ( prop.getName().equals(cols[i]) ) return true;
+                 }
+                 return false;
+               }
+             }
+          }));
+        }
 
         var p = x.get(HttpParameters.class);
         if ( p != null ) {
           var multiline = (String) p.getParameter("multiline");
           if ( ! SafetyUtil.isEmpty(multiline) ) formatter.setMultiLine(isEnabled(multiline));
         }
+
         return formatter;
       `
     },

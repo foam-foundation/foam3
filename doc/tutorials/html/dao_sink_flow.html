@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAO to Sink Flow</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            font-size: 1.3em;
+        }
+        
+        .diagram {
+            margin: 30px 0;
+            overflow-x: auto;
+        }
+        
+        svg {
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .box {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .box:hover rect {
+            filter: brightness(0.9);
+        }
+        
+        .arrow {
+            fill: none;
+            stroke: #34495e;
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
+        }
+        
+        .flow-arrow {
+            fill: none;
+            stroke: #3498db;
+            stroke-width: 3;
+            marker-end: url(#arrowhead-blue);
+        }
+        
+        .label {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .title-text {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .description {
+            font-size: 12px;
+            fill: #7f8c8d;
+        }
+        
+        .pipe-symbol {
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            fill: #e74c3c;
+        }
+        
+        .code-example {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        .code-comment {
+            color: #95a5a6;
+        }
+        
+        .code-keyword {
+            color: #e74c3c;
+        }
+        
+        .code-method {
+            color: #3498db;
+        }
+        
+        .code-string {
+            color: #2ecc71;
+        }
+        
+        .highlight {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .note {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .note strong {
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DAO → Sink Architecture: The FOAM Pipeline</h1>
+        
+        <div class="note">
+            <strong>Key Concept:</strong> Just like Unix pipes chain commands to process data, FOAM chains DAOs and streams results to a Sink. Data flows from left to right through decorators, then into the output Sink.
+        </div>
+
+        <h2>Unix Pipe Analogy</h2>
+        <div class="diagram">
+            <svg width="1100" height="180" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+                    </marker>
+                    <marker id="arrowhead-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#3498db" />
+                    </marker>
+                </defs>
+                
+                <!-- Unix command boxes -->
+                <g class="box">
+                    <rect x="20" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="90" y="65" text-anchor="middle" class="title-text">cat users.txt</text>
+                    <text x="90" y="85" text-anchor="middle" class="description">Read file</text>
+                    <text x="90" y="100" text-anchor="middle" class="description">(data source)</text>
+                </g>
+                
+                <text x="175" y="80" class="pipe-symbol">|</text>
+                
+                <g class="box">
+                    <rect x="200" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="270" y="65" text-anchor="middle" class="title-text">grep "active"</text>
+                    <text x="270" y="85" text-anchor="middle" class="description">Filter rows</text>
+                </g>
+                
+                <text x="355" y="80" class="pipe-symbol">|</text>
+                
+                <g class="box">
+                    <rect x="380" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="450" y="65" text-anchor="middle" class="title-text">sort</text>
+                    <text x="450" y="85" text-anchor="middle" class="description">Order results</text>
+                </g>
+                
+                <text x="535" y="80" class="pipe-symbol">|</text>
+                
+                <g class="box">
+                    <rect x="560" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="630" y="65" text-anchor="middle" class="title-text">head -n 20</text>
+                    <text x="630" y="85" text-anchor="middle" class="description">Limit results</text>
+                </g>
+                
+                <text x="715" y="80" class="pipe-symbol">></text>
+                
+                <g class="box">
+                    <rect x="740" y="40" width="140" height="70" fill="#2ecc71" stroke="#27ae60" stroke-width="2" rx="5"/>
+                    <text x="810" y="65" text-anchor="middle" class="title-text" fill="white">output.txt</text>
+                    <text x="810" y="85" text-anchor="middle" class="description" fill="white">Destination</text>
+                    <text x="810" y="100" text-anchor="middle" class="description" fill="white">(Sink)</text>
+                </g>
+                
+                <!-- Flow arrow -->
+                <path d="M 90 130 L 270 130 L 450 130 L 630 130 L 810 130" 
+                      class="flow-arrow" stroke-dasharray="5,5">
+                    <animate attributeName="stroke-dashoffset" from="10" to="0" dur="1s" repeatCount="indefinite"/>
+                </path>
+                <text x="450" y="155" text-anchor="middle" fill="#3498db" font-weight="bold">Data flows through pipeline →</text>
+            </svg>
+        </div>
+
+        <h2>FOAM DAO → Sink Pipeline</h2>
+        <div class="diagram">
+            <svg width="1100" height="180" xmlns="http://www.w3.org/2000/svg">
+                <!-- FOAM DAO boxes -->
+                <g class="box">
+                    <rect x="20" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="90" y="65" text-anchor="middle" class="title-text">userDAO</text>
+                    <text x="90" y="85" text-anchor="middle" class="description">Storage layer</text>
+                    <text x="90" y="100" text-anchor="middle" class="description">(data source)</text>
+                </g>
+                
+                <text x="175" y="80" class="pipe-symbol">.</text>
+                
+                <g class="box">
+                    <rect x="200" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="270" y="65" text-anchor="middle" class="title-text">.where(EQ(...))</text>
+                    <text x="270" y="85" text-anchor="middle" class="description">Filter predicate</text>
+                </g>
+                
+                <text x="355" y="80" class="pipe-symbol">.</text>
+                
+                <g class="box">
+                    <rect x="380" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="450" y="65" text-anchor="middle" class="title-text">.orderBy(...)</text>
+                    <text x="450" y="85" text-anchor="middle" class="description">Sort comparator</text>
+                </g>
+                
+                <text x="535" y="80" class="pipe-symbol">.</text>
+                
+                <g class="box">
+                    <rect x="560" y="40" width="140" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="630" y="65" text-anchor="middle" class="title-text">.limit(20)</text>
+                    <text x="630" y="85" text-anchor="middle" class="description">Limit count</text>
+                </g>
+                
+                <text x="715" y="80" class="pipe-symbol">→</text>
+                
+                <g class="box">
+                    <rect x="740" y="40" width="140" height="70" fill="#2ecc71" stroke="#27ae60" stroke-width="2" rx="5"/>
+                    <text x="810" y="65" text-anchor="middle" class="title-text" fill="white">.select(sink)</text>
+                    <text x="810" y="85" text-anchor="middle" class="description" fill="white">Result processor</text>
+                    <text x="810" y="100" text-anchor="middle" class="description" fill="white">(Sink)</text>
+                </g>
+                
+                <!-- Flow arrow -->
+                <path d="M 90 130 L 270 130 L 450 130 L 630 130 L 810 130" 
+                      class="flow-arrow" stroke-dasharray="5,5">
+                    <animate attributeName="stroke-dashoffset" from="10" to="0" dur="1s" repeatCount="indefinite"/>
+                </path>
+                <text x="450" y="155" text-anchor="middle" fill="#3498db" font-weight="bold">Data streams through decorated DAOs →</text>
+            </svg>
+        </div>
+
+        <h2>Code Examples</h2>
+        
+        <div class="code-example">
+<span class="code-comment">// Unix-style thinking</span>
+cat users.txt | grep "active" | sort | head -n 20 > output.txt
+
+<span class="code-comment">// FOAM equivalent - fluent DAO chaining</span>
+userDAO
+  .<span class="code-method">where</span>(<span class="code-keyword">this</span>.EQ(User.STATUS, <span class="code-string">'active'</span>))
+  .<span class="code-method">orderBy</span>(User.NAME)
+  .<span class="code-method">limit</span>(20)
+  .<span class="code-method">select</span>(ArraySink.create())  <span class="code-comment">// ← The "output" (Sink)</span>
+  .<span class="code-method">then</span>((sink) => {
+    console.log(sink.array);  <span class="code-comment">// Access collected results</span>
+  });
+        </div>
+
+        <h2>Sink Delegation (Multi-Stage Processing)</h2>
+        <div class="diagram">
+            <svg width="1100" height="220" xmlns="http://www.w3.org/2000/svg">
+                <!-- Decorated DAO chain -->
+                <g class="box">
+                    <rect x="20" y="40" width="180" height="70" fill="#ecf0f1" stroke="#34495e" stroke-width="2" rx="5"/>
+                    <text x="110" y="65" text-anchor="middle" class="title-text">userDAO.where(...)</text>
+                    <text x="110" y="85" text-anchor="middle" class="description">Decorated DAO</text>
+                    <text x="110" y="100" text-anchor="middle" class="description">(query spec)</text>
+                </g>
+                
+                <path d="M 200 75 L 240 75" class="flow-arrow"/>
+                <text x="220" y="65" text-anchor="middle" fill="#3498db" font-size="12px">.select()</text>
+                
+                <!-- Sink chain with delegation -->
+                <g class="box">
+                    <rect x="240" y="30" width="180" height="90" fill="#e8f4f8" stroke="#3498db" stroke-width="2" rx="5"/>
+                    <text x="330" y="55" text-anchor="middle" class="title-text">PredicatedSink</text>
+                    <text x="330" y="75" text-anchor="middle" class="description">Filter in Sink</text>
+                    <text x="330" y="105" text-anchor="middle" class="description" font-style="italic">delegates to →</text>
+                </g>
+                
+                <path d="M 420 75 L 460 75" class="flow-arrow"/>
+                
+                <g class="box">
+                    <rect x="460" y="30" width="180" height="90" fill="#e8f4f8" stroke="#3498db" stroke-width="2" rx="5"/>
+                    <text x="550" y="55" text-anchor="middle" class="title-text">Map</text>
+                    <text x="550" y="75" text-anchor="middle" class="description">Transform results</text>
+                    <text x="550" y="105" text-anchor="middle" class="description" font-style="italic">delegates to →</text>
+                </g>
+                
+                <path d="M 640 75 L 680 75" class="flow-arrow"/>
+                
+                <g class="box">
+                    <rect x="680" y="30" width="180" height="90" fill="#2ecc71" stroke="#27ae60" stroke-width="2" rx="5"/>
+                    <text x="770" y="55" text-anchor="middle" class="title-text" fill="white">ArraySink</text>
+                    <text x="770" y="75" text-anchor="middle" class="description" fill="white">Collect final</text>
+                    <text x="770" y="95" text-anchor="middle" class="description" fill="white">results into</text>
+                    <text x="770" y="110" text-anchor="middle" class="description" fill="white">array</text>
+                </g>
+                
+                <!-- Labels -->
+                <text x="110" y="150" text-anchor="middle" fill="#34495e" font-weight="bold">DAO Composition</text>
+                <text x="110" y="170" text-anchor="middle" fill="#7f8c8d" font-size="12px">(Decorators stack)</text>
+                
+                <text x="550" y="150" text-anchor="middle" fill="#34495e" font-weight="bold">Sink Delegation</text>
+                <text x="550" y="170" text-anchor="middle" fill="#7f8c8d" font-size="12px">(Processing chain)</text>
+                
+                <!-- Overall flow -->
+                <path d="M 110 190 L 770 190" class="flow-arrow" stroke-width="2"/>
+                <text x="440" y="210" text-anchor="middle" fill="#3498db" font-weight="bold">Complete data flow: Source → Processing → Output</text>
+            </svg>
+        </div>
+
+        <div class="code-example">
+<span class="code-comment">// Sink delegation example</span>
+<span class="code-keyword">var</span> sink = PredicatedSink.create({
+  predicate: someCondition,           <span class="code-comment">// Filter in the sink</span>
+  <span class="code-keyword">delegate</span>: Map.create({
+    arg1: User.NAME,                  <span class="code-comment">// Transform (extract name)</span>
+    <span class="code-keyword">delegate</span>: ArraySink.create()    <span class="code-comment">// Final output</span>
+  })
+});
+
+userDAO.<span class="code-method">select</span>(sink);  <span class="code-comment">// Start the flow</span>
+        </div>
+
+        <div class="note">
+            <strong>Key Difference:</strong><br>
+            • <strong>DAO Composition</strong> (left side): Query specification - describes WHAT data to retrieve and HOW to filter/sort it<br>
+            • <strong>Sink Delegation</strong> (right side): Result processing - describes HOW to process the results once retrieved<br><br>
+            Think of it as: <code>where/limit/orderBy</code> build the query, <code>select(sink)</code> executes it and streams to the output processor.
+        </div>
+    </div>
+</body>
+</html>

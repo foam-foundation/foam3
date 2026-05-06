@@ -9,10 +9,22 @@ foam.CLASS({
   name: 'CurrencyView',
   extends: 'foam.u2.FloatView',
 
-  documentation: 'View for formatting cents into dollars.',
+  documentation: 'View for formatting currency values. Supports both UnitValue (Long/cents) and DoubleUnitValue (Double/dollars).',
 
   properties: [
     ['precision', 2],
+    {
+      name: 'precision',
+      expression: function(curr_) {
+        return curr_?.precision ?? 2;
+      },
+    },
+    {
+      name: 'units',
+      expression: function(curr_) {
+        return curr_ ? (curr_.symbol || curr_.code) : '';
+      },
+    },
     ['trimZeros', false],
     ['onKey', true],
     {
@@ -22,7 +34,13 @@ foam.CLASS({
       value: 'CAD'
     },
     'curr_',
-    ['hideSymbol', true]
+    ['hideSymbol', true],
+    {
+      class: 'Boolean',
+      name: 'useMinorUnits',
+      documentation: 'When true, converts between major and minor units (e.g. dollars to cents). Set to false for DoubleUnitValue properties that store values in major units.',
+      value: true
+    }
   ],
 
   methods: [
@@ -36,11 +54,12 @@ foam.CLASS({
     function textToData(text) {
       const delim = new RegExp((this.curr_?.delimiter ?? ','), 'g');
       let plainText = text.replace(delim, '')
-      plainText = 
+      plainText =
         ! this.hideSymbol && this.curr_.symbol && plainText.startsWith(this.curr_.symbol) ?
         plainText.substring(1) :
         plainText;
-      return Math.round(this.SUPER(plainText) * 100);
+      var val = this.SUPER(plainText);
+      return this.useMinorUnits ? Math.round(val * 100) : val;
     },
 
     function formatNumber(val) {

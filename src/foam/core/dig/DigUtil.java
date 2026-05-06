@@ -103,7 +103,7 @@ public class DigUtil {
       //output object in xml format
       resp.setContentType("application/xml");
 
-      foam.lib.xml.Outputter outputterXml = new foam.lib.xml.Outputter(OutputterMode.NETWORK);
+      foam.lib.xml.Outputter outputterXml = new foam.lib.xml.Outputter(x, OutputterMode.NETWORK);
       outputterXml.output(object);
       out.println(outputterXml.toString());
 

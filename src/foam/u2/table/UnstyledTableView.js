@@ -47,7 +47,7 @@ foam.CLASS({
 
   imports: [
     'auth?',
-    'columnStorage',
+    'columnStorage?',
     'config? as importedConfig',
     'filteredTableColumns?',
     'flowColumns?',
@@ -132,6 +132,8 @@ foam.CLASS({
         Can also be set by any column config view to change the current columns loaded by the table`,
       memorable: true,
       expression: function(columns, of) {
+        if ( ! this.columnStorage ) return columns;
+
         var ls = JSON.parse(this.columnStorage.getItem(of.id))?.map(c => foam.Array.isInstance(c) ? c[0] : c)
         return ls || columns;
       },
@@ -145,6 +147,8 @@ foam.CLASS({
         grabbing widths from LS and passing them to table columns. Updating column
         widths here should propogate changes to the rest of the view and LS`,
       factory: function() {
+        if ( ! this.columnStorage ) return {};
+
         var local = {};
         JSON.parse(this.columnStorage.getItem(this.of.id))?.map(c => {
           foam.Array.isInstance(c) ?
@@ -531,6 +535,14 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'updateTableWidthCSS',
+      isFramed: true,
+      on: ['this.propertyChange.tableWidth_'],
+      code: function() {
+        this.element_.style.setProperty('--table-width', this.tableWidth_);
+      }
+    },
     function resetColWidths() {
       this.selectedColumnsWidth = {};
       for ( var s of this.selectedColumnNames ) {
@@ -542,6 +554,8 @@ foam.CLASS({
       isMerged: true,
       mergeDelay: 500,
       code: function() {
+        if ( ! this.columnStorage ) return;
+
         var key = this.of.id;
         var val = JSON.stringify(this.selectedColumnNames.map(c => {
           var name = foam.String.isInstance(c) ? c : c.name;

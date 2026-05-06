@@ -40,7 +40,11 @@ for ( n : daos ) {
         c = new CompactionDAO(x, n);
         print("INFO: Compacting: "+n);
         c.execute(x);
-        print("INFO: Compaction complete: "+n+", System OK");
+        print("");
+        print("=== " + n + " ===");
+        print(c.getReport());
+        print("");
+        print("OK: Compaction complete: "+n);
     } catch (IllegalStateException e) {
         print(e.getMessage());
         print("WARNING: Compaction aborted: "+n+", System OK");

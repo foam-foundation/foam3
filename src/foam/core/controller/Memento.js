@@ -12,7 +12,6 @@ foam.CLASS({
     { name: 'SEPARATOR',    value: '::' },
     { name: 'PARAMS_BEGIN', value: '{'  },
     { name: 'PARAMS_END',   value: '}'  },
-
     {
       name: 'OUTPUTTER',
       factory: function() { return foam.json.Outputter.create({
@@ -32,7 +31,7 @@ foam.CLASS({
       name: 'value',
       value: '',
       postSet: function(o, n) {
-        //to update parent on value change but not on value set first time 
+        //to update parent on value change but not on value set first time
         this.parseValue();
       }
     },
@@ -119,7 +118,7 @@ foam.CLASS({
       this.feedback_ = true;
 
       this.value = decodeURI(this.value);
-      
+
       var i = this.value.indexOf(this.SEPARATOR);
 
       var params = '';

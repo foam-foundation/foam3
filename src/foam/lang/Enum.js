@@ -374,6 +374,18 @@ foam.CLASS({
     {
       class: 'GlyphProperty',
       name: 'glyph'
+    },
+    {
+      class: 'String',
+      name: 'borderColor',
+      factory: function(){
+        return this.background;
+      }
+    },
+    {
+      class: 'String',
+      name: 'icon',
+      documentation: 'simple img src alternative for glyph'
     }
   ],
 

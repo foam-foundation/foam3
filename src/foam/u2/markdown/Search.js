@@ -168,20 +168,6 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'sectionIndex',
-      documentation: 'Computed section number (e.g., "2.3") when indexing is enabled.'
-    },
-    {
-      class: 'String',
-      name: 'anchorId',
-      documentation: 'URL-safe anchor ID for deep linking.',
-      expression: function(title, sectionIndex) {
-        var base = title ? title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
-        return sectionIndex ? 'section-' + sectionIndex.replace(/\./g, '-') + '-' + base : base;
-      }
-    },
-    {
-      class: 'String',
       name: 'searchText_',
       documentation: 'Cached lowercase text content for search matching.'
     }
@@ -191,11 +177,6 @@ foam.CLASS({
     function render() {
       var self = this;
 
-      // Compute section index if TOC has enabled indexing
-      if ( this.tocConfig.index ) {
-        this.sectionIndex = this.getNextIndex(this.level);
-      }
-
       // Register with SearchState for visibility tracking
       this.searchState.registerSection(this);
 
@@ -204,10 +185,8 @@ foam.CLASS({
 
       this.
         addClass().
-        attrs({ id: this.anchorId$ }).
         start('h' + this.level).
           addClass(this.myClass('heading')).
-          callIf(this.sectionIndex, function() { this.add(this.sectionIndex + '. '); }).
           add(this.title).
         end().
         start('div', null, this.content$).
@@ -369,7 +348,7 @@ foam.CLASS({
   css: `
     ^ {
       font-size: 14px;
-      color: #666;
+      color: $textSecondary;
       margin: 8px 0;
     }
   `,

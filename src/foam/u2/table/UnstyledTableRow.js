@@ -94,13 +94,12 @@ foam.CLASS({
           .addClass(this.table.myClass('td'))
           .attrs({ name: 'contextMenuCell' })
           .style({ flex: `0 0 ${this.table.EDIT_COLUMNS_BUTTON_CONTAINER_WIDTH}px` })
-          .callIf( Object.keys(actions).length, function() {
+          .callIf( Object.keys(actions).length && ! this.config?.disableTableRowActions, function() {
             this
             .on('dblClick', e => {
               e.preventDefault();
               e.stopPropogation();
             })
-            .startContext({ stack: self.subStack })
             .tag(self.OverlayActionListView, {
               data: Object.values(actions),
               lazy: true,
@@ -110,7 +109,6 @@ foam.CLASS({
               buttonStyle: 'TERTIARY',
               icon: 'images/Icon_More_Resting.svg'
             })
-            .endContext();
           })
         .end();
     }

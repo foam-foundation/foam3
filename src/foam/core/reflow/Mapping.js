@@ -39,6 +39,10 @@ foam.ENUM({
       documentation: 'The DateParser grammar symbol name for this format'
     },
     {
+      class: 'String',
+      name: 'help'
+    },
+    {
       // Add an 'id' property that returns the ordinal for DAO compatibility
       name: 'id',
       getter: function() { return this.ordinal; }
@@ -50,31 +54,31 @@ foam.ENUM({
       name: 'STANDARD',
       label: 'Standard',
       parserSymbol: 'START',
-      documentation: 'Standard formats: yyyy-mm-dd, yyyy/mm/dd, yyyymmdd, mm/dd/yyyy, mm-dd-yyyy, mmddyyyy, mm/dd/yy, mm-dd-yy, mmddyy, plus ALL month name formats (unambiguous!): 31-JAN-2025, 31JAN2025, 2025-31-JAN, 202531JAN, Jan 02 2025'
+      help: 'yyyy-mm-dd, mm/dd/yyyy, 31-JAN-2025, Jan 02 2025'
     },
     {
       name: 'DDMMYYYY',
       label: 'dd/mm/yyyy',
       parserSymbol: 'ddmmyyyy',
-      documentation: 'Day-Month-Year format for NUMERIC dates: dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy (month names work automatically in STANDARD)'
+      help: 'dd/mm/yyyy, dd-mm-yyyy, ddmmyyyy, dd/mm/yy, dd-mm-yy, ddmmyy'
     },
     {
       name: 'YYYYDDMM',
       label: 'yyyy/dd/mm',
       parserSymbol: 'yyyyddmm',
-      documentation: 'Numeric only: yyyy-dd-mm, yyyyddmm, yy-dd-mm, yyddmm'
+      help: 'yyyy-dd-mm, yyyyddmm'
     },
     {
       name: 'JULIANDATE',
       label: 'Julian Date',
       parserSymbol: 'juliandate',
-      documentation: 'Julian date format: YYDDD (5 digits like 25216) or YDDD (4 digits like 5216) where YY/Y is year and DDD is day of year (001-366). Example: 25216 = August 4, 2025 (day 216 of 2025)'
+      help: 'YYDDD or YDDD (e.g. 25216 = Aug 4, 2025)'
     },
     {
       name: 'YYMMDD',
       label: 'yy/mm/dd',
       parserSymbol: 'yymmdd',
-      documentation: 'Year-Month-Day with 2-digit year: yymmdd (compact 6-digit), yy-mm-dd, yy/mm/dd. Example: 250325 = March 25, 2025. Year pivot: 00-49 → 2000-2049, 50-99 → 1950-1999'
+      help: 'yymmdd, yy-mm-dd (e.g. 250325 = Mar 25, 2025)'
     }
   ],
 
@@ -90,16 +94,40 @@ foam.ENUM({
   package: 'foam.core.reflow',
   name: 'NumberFormat',
 
+  properties: [
+    {
+      class: 'String',
+      name: 'parserSymbol',
+      documentation: 'The number parser grammar symbol name for this format'
+    },
+    {
+      class: 'String',
+      name: 'help'
+    },
+    {
+      name: 'id',
+      getter: function() { return this.ordinal; }
+    }
+  ],
+
   values: [
     {
-      name: 'STANDARD',
-      label: 'Standard (1,000.00)',
-      documentation: 'US/UK format: comma for thousands, period for decimal'
+      name: 'US_UK',
+      label: 'US/UK (1,000.00)',
+      parserSymbol: 'START',
+      help: '1,234.56'
     },
     {
       name: 'EUROPEAN',
       label: 'European (1.000,00)',
-      documentation: 'European format: period for thousands, comma for decimal'
+      parserSymbol: 'european',
+      help: '1.234,56'
+    }
+  ],
+
+  methods: [
+    function toSummary() {
+      return this.label;
     }
   ]
 });
@@ -205,6 +233,7 @@ foam.CLASS({
         for ( var i = 0 ; i < fileHeaders.length ; i++ ) {
           var original   = fileHeaders[i];
           var normalized = this.normalizeHeader(original);
+          normalized     = normalized || 'field' + i;
           normalized     = this.resolveConstantCollision(normalized, constantMap);
 
           headerMap[normalized] = original;
@@ -310,8 +339,8 @@ foam.CLASS({
       of: 'foam.core.reflow.NumberFormat',
       name: 'numberFormat',
       label: '',
-      value: 'STANDARD',
-      help: 'Standard format uses comma for thousands and period for decimal (1,000.00). European format uses period for thousands and comma for decimal (1.000,00).',
+      value: 'US_UK',
+      help: 'US/UK Style uses period for decimal (1,000.00). European uses comma for decimal (1.000,00).',
       documentation: 'Number format for this field (only applies to numeric properties)',
       view: {
         class: 'foam.core.reflow.NumberFormatRichChoiceView'
@@ -332,29 +361,43 @@ foam.CLASS({
   methods: [
     function normalizeHeader(header) {
       /** Normalize a header string to a valid property name. */
-      return header.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
+      var s = header.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[^a-zA-Z]+/, '').replace(/_+$/, '');
+      if ( ! s ) return '';
+      // FOAM property names must start with a lowercase letter to avoid
+      // collisions with the UPPER_CASE constant name that FOAM generates
+      // for each property (e.g., an all-caps name would clash with itself).
+      return s.charAt(0).toLowerCase() + s.substring(1);
     },
 
     function resolveConstantCollision(normalized, constantMap) {
       /**
-       * Resolve FOAM constant name collisions by appending a numeric suffix.
-       * Returns the resolved property name.
+       * Resolve FOAM constant and property name collisions by appending
+       * a numeric suffix. constantMap tracks both constant names (keys)
+       * and used property names (via a '__names__' Set).
+       * Returns a unique resolved property name.
        */
+      var names        = constantMap.__names__ || ( constantMap.__names__ = {} );
       var constantName = foam.String.constantize(normalized);
 
-      if ( ! constantMap[constantName] || constantMap[constantName] === normalized ) {
+      // No collision if both the constant and property name are unused
+      // or belong to this same normalized name
+      if ( ( ! constantMap[constantName] || constantMap[constantName] === normalized ) &&
+           ! names[normalized] ) {
         constantMap[constantName] = normalized;
+        names[normalized]         = true;
         return normalized;
       }
 
       // Collision detected - append suffix to make unique
       var suffix = 2;
-      var newNormalized = normalized + '_' + suffix;
-      while ( constantMap[foam.String.constantize(newNormalized)] ) {
+      var newNormalized = normalized + suffix;
+      while ( constantMap[foam.String.constantize(newNormalized)] ||
+              names[newNormalized] ) {
         suffix++;
-        newNormalized = normalized + '_' + suffix;
+        newNormalized = normalized + suffix;
       }
       constantMap[foam.String.constantize(newNormalized)] = newNormalized;
+      names[newNormalized]                                = true;
       return newNormalized;
     },
 
@@ -471,24 +514,21 @@ foam.CLASS({
        * Maps NumberFormat enum to NumberParser grammar symbol name.
        * This is used when calling fromCSV with format hints.
        *
-       * @returns {string} Parser grammar symbol name (undefined for standard, 'european' for European)
+       * @returns {string} Parser grammar symbol name ('START' or 'european')
        */
-      if ( ! this.numberFormat ) return undefined;
-
-      // Map enum values to parser symbol names
-      switch ( this.numberFormat.name ) {
-        case 'EUROPEAN':
-          return 'european';
-        case 'STANDARD':
-        default:
-          return undefined;
-      }
+      if ( ! this.numberFormat ) return 'START';
+      return this.numberFormat.parserSymbol || 'START';
     },
 
     function evaluateExpression(expression, rowData) {
       /**
        * Safely evaluate a simple JavaScript expression with field access.
        * Uses a with statement to provide field access while keeping it simple.
+       *
+       * Normalizes rowData keys using the same normalizeHeader() +
+       * resolveConstantCollision() pipeline that expressionParser_ uses
+       * to build the autocomplete model, so suggested field names match
+       * the variables in scope at eval time.
        *
        * @param {string} expression - The JavaScript expression to evaluate
        * @param {Object} rowData - The row data object containing field values
@@ -497,15 +537,19 @@ foam.CLASS({
       if ( ! expression || ! rowData ) return '';
 
       try {
-        // Normalize rowData keys to valid JavaScript identifiers
+        // Normalize rowData keys using the same pipeline as expressionParser_
         var normalizedData = {};
-        for ( var key in rowData ) {
-          var normalizedKey = key.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
-          normalizedData[normalizedKey] = rowData[key];
+        var constantMap    = {};
+        var keys           = Object.keys(rowData);
+
+        for ( var i = 0 ; i < keys.length ; i++ ) {
+          var original   = keys[i];
+          var normalized = this.normalizeHeader(original);
+          normalized     = normalized || 'field' + i;
+          normalized     = this.resolveConstantCollision(normalized, constantMap);
+          normalizedData[normalized] = rowData[original];
         }
 
-        // Simple evaluation with normalized rowData in scope
-        // This allows expressions like: Account_Type + " " + Status
         var result;
         with ( normalizedData ) {
           result = eval(expression);
@@ -516,7 +560,6 @@ foam.CLASS({
         console.error('Expression evaluation error:', {
           expression: expression,
           rowData: rowData,
-          normalizedData: normalizedData,
           error: x.message
         });
         throw x;

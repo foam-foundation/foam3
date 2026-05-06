@@ -44,8 +44,7 @@ return ( s1 instanceof String && ((String) s1).toUpperCase().contains(s2) );`
 
     function toMQL() {
       var arg2 = this.arg2ToMQL();
-      if ( ! arg2 )
-        return null;
+      if ( arg2 == null ) return null;
       return this.arg1.name + ':' + arg2;
     }
 

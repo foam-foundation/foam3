@@ -977,7 +977,7 @@ foam.CLASS({
           data$: X.data$,
           propertyData$: X.data.assignedTo$,
           title: this.ASSIGN_TITLE,
-          onExecute: this.assignRequest.bind(this, X)
+          primaryAction: { code: this.assignRequest }
         });
         popup.open();
         return popup.closedLatch;

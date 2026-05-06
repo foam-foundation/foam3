@@ -23,19 +23,26 @@ foam.CLASS({
   documentation: 'Sign Out View',
 
   imports: [
-    'ctrl',
     'auth',
-    'setTimeout',
+    'theme',
     'window'
   ],
 
   methods: [
     function render() {
       this.SUPER();
+
+      var self = this;
+      var logoutRedirectUrl = this.theme?.logoutRedirectUrl;
+
       this.auth.logout().then(() => {
         localStorage.removeItem('defaultSession');
-        this.window.location.hash = '';
-        this.window.location.reload();
+        if ( logoutRedirectUrl ) {
+          self.window.location = logoutRedirectUrl;
+        } else {
+          self.window.location.hash = '';
+          self.window.location.reload();
+        }
       });
     }
   ]

@@ -26,16 +26,35 @@ foam.POM({
       FOAM_BIN_VERSION = `${VERSION}` + (TIMESTAMP_FOAM_BIN ? `-${TIMESTAMP}` : '');
     }],
 
+    lspInstall: ['lsp-install', 'Install FOAM LSP editor integration. Use lsp-install:vscode, lsp-install:emacs, or lsp-install:zed for a specific editor.', [], function(args) {
+      var editor = args || '';
+      var script = this.join(__dirname, 'lsp/install.sh');
+      require('child_process').execSync(`${script} ${editor}`, { stdio: 'inherit' });
+    }],
+
     genJS: ['gen-js', 'Build foam-bin.js', ['cleanFOAM', 'genFoamBinVersion'], function() {
       let version = FOAM_BIN_VERSION;
       let flags = this.flag();
       let outdir = BUILD_DIR+'/js';
-      if ( WITHOUT_STAGES ) {
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir}`)();
+      let bundles = globalThis.CLIENT_BUNDLES;
+
+      let runStages = (pom, bundle) => {
+        let bundleArg = bundle ? ` -bundle=${bundle}` : '';
+        if ( WITHOUT_STAGES ) {
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir}${bundleArg}`)();
+        } else {
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=0${bundleArg}`)();
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=1${bundleArg}`)();
+          this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${pom} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=2${bundleArg}`)();
+        }
+      };
+
+      if ( bundles && bundles.length ) {
+        bundles.forEach(bundle => {
+          runStages(bundle.poms, bundle.name);
+        });
       } else {
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=0`)();
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=1`)();
-        this.pmake.bind(this, `-flags=${flags} -makers=JS -version=${version} -pom=${POMS} -builddir=${BUILD_DIR} -outdir=${outdir} -stage=2`)();
+        runStages(POMS);
       }
     }]
   }

@@ -90,6 +90,7 @@ foam.POM({
     { name: "Expressions",                          flags: "js|java" },
     { name: "ExpressionsSingleton",                 flags: "js|java" },
     { name: "predicate/RegExp",                     flags: "js|java" },
+    { name: "predicate/AQLExpr",                    flags: "js|java" },
     { name: "predicate/MQLExpr",                    flags: "js|java" },
     { name: "predicate/FScript",                    flags: "js|java" },
     { name: "predicate/FScriptPredicate",           flags: "js|java" },

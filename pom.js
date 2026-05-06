@@ -12,11 +12,13 @@ foam.POM({
     { name: 'src/pom' },
     { name: 'src/foam/core/pom' },
     { name: 'src/foam/core/analytics/mixpanel/pom' },
+    { name: 'src/foam/dao/compaction/pom' },
     { name: 'src/foam/net/ipgeo/pom' },
     { name: 'src/foam/u2/wizard/pom' },
     { name: 'src/foam/u2/address/pom' },
     { name: 'src/io/c9/ace/pom' },
-    { name: 'webroot/pom' }
+    { name: 'webroot/pom' },
+    { name: 'src/foam/dao/jdbc/pom' },
   ],
   copy: [
     { source: 'webroot', targetDir: 'webroot' }

@@ -12,6 +12,65 @@
  * from the console.
 **/
 
+foam.LIB({
+  name: 'foam.java.type',
+
+  constants: {
+    TYPES: {
+      Any:      'Object',
+      Char:     'char',
+      Context:  'foam.lang.X',
+      Integer:  'int',
+      List:     'java.util.List',
+      Map:      'java.util.Map',
+      Number:   'float',
+      Object:   'Object',
+      Regex:    'java.util.regex.Pattern',
+      Time:     'java.util.Date',
+      Void:     'void',
+      X:        'foam.lang.X'
+    }
+  },
+
+  methods: [
+    {
+      name: 'toJavaType',
+      code: foam.Function.memoize1(function toJavaType(str) {
+        if ( ! str )
+          return this.TYPES.Any;
+
+        if ( foam.isRegistered(str) ) {
+          var cls = foam.lookup(str);
+          if ( foam.lang.Property.isSubClass(cls) ) {
+            let i = cls.create();
+            if ( i.javaType ) {
+              return i.javaType;
+            }
+          }
+        }
+
+        if ( this.TYPES[str] )
+          return this.TYPES[str];
+
+        if ( str.endsWith('[]') ) {
+          let base     = str.substring(0, str.lastIndexOf('[]'));
+          let baseType = this.toJavaType(base);
+          return baseType + '[]';
+        }
+
+        if ( foam.isRegistered('foam.lang.' + str) )
+          return 'foam.lang.' + str;
+
+        if ( foam.isRegistered(str) )
+          return str;
+
+        return str;
+      })
+    }
+  ]
+});
+
+
 foam.INTERFACE({
   package: 'foam.lib.csv',
   name: 'FromCSVSetter',
@@ -87,38 +146,22 @@ ${Object.keys(o).map(function(k, i, a) {
     {
       name: 'toJavaType',
       code: function(type) {
-        return foam.lang.type.toType(type).toJavaType();
-      }
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.java',
-  name: 'JavaType',
-  extends: 'String',
-  flags: [],
-  properties: [
-    {
-      name: 'flags',
-      value: ['java']
-    },
-    {
-      name: 'expression',
-      expression: function(value) {
-        // TODO: This is a large hack around the way SHADOW_MAP works.
-        // What we really want is a way to specify a default
-        // factory/expression but not to use it if the user sets a
-        // default value.
-        return function(type) {
-          return value || foam.java.toJavaType(type);
-        }
+        return foam.java.type.toJavaType(type);
       }
     },
     {
-      name: 'name',
-      value: 'javaType'
+      name: 'toJavaComments',
+      code: function(text) {
+        if ( typeof text !== 'string' || ! text ) return '';
+
+        return '\n' +
+          text.split('\n')
+            .filter(c => c.trim())
+            .map(c => '  // ' + c.trim())
+            .join('\n')
+          + '\n  ';
+
+      }
     }
   ]
 });
@@ -130,7 +173,12 @@ foam.CLASS({
   refines: 'foam.lang.Argument',
   // flags: ['java'],
   properties: [
-    { class: 'foam.java.JavaType' } // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      expression: function(type) {
+        return foam.java.toJavaType(type);
+      }
+    }
   ]
 });
 
@@ -150,7 +198,13 @@ foam.CLASS({
         return foam.util.flagFilter(['java'])(this);
       }
     },
-    { class: 'foam.java.JavaType' }, // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      factory: function() {
+        // TODO: deprecated, fix
+        return foam.java.toJavaType(this.type);
+      }
+    },
     {
       class: 'String',
       name: 'javaJSONParser',
@@ -841,7 +895,12 @@ foam.CLASS({
       name: 'javaCode',
       // flags: ['java'],
     },
-    { class: 'foam.java.JavaType' }, // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      expression: function(type) {
+        return foam.java.toJavaType(type);
+      }
+    },
     {
       class: 'Boolean',
       name: 'final'
@@ -1034,7 +1093,12 @@ foam.CLASS({
         return foam.java.asJavaValue(value);
       }
     },
-    { class: 'foam.java.JavaType' } // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      expression: function(type) {
+        return foam.java.toJavaType(type);
+      }
+    }
   ],
 
   methods: [
@@ -1120,7 +1184,12 @@ foam.CLASS({
   // flags: ['java'],
 
   properties: [
-    { class: 'foam.java.JavaType' } // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      expression: function(type) {
+        return foam.java.toJavaType(type);
+      }
+    }
   ],
 
   methods: [
@@ -1324,7 +1393,12 @@ foam.CLASS({
   // flags: ['java'],
 
   properties: [
-    { class: 'foam.java.JavaType' }, // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      expression: function(of) {
+        return of.id;
+      }
+    },
     [ 'javaInfoType',   'foam.lang.AbstractEnumPropertyInfo' ],
     [ 'javaJSONParser', 'parser__' ], // parser__ defined in AbstractEnumPropertyInfo
     [ 'javaCSVParser',  'parser__' ]
@@ -1470,7 +1544,12 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
-      name: 'javaCode'
+      name: 'javaCode',
+      generateJava: false
+    },
+    {
+      name: 'documentation',
+      generateJava: false
     }
   ],
 
@@ -1531,7 +1610,7 @@ foam.CLASS({
           });
 
           cls.declarations = this.VALUES.map(function(v) {
-            return `${v.name}(${properties.map(p => foam.java.asJavaValue(v[p.name], p)).join(', ')}) ${v.javaCode ? ' { ' + v.javaCode + ' }' : '/* NO CODE */'}`;
+            return `${foam.java.toJavaComments(v.documentation)}${v.name}(${properties.map(p => foam.java.asJavaValue(v[p.name], p)).join(', ')}) ${v.javaCode ? ' { ' + v.javaCode + ' }' : '/* NO CODE */'}`;
           }).join(',\n  ');
 
           cls.method({
@@ -1606,6 +1685,7 @@ foam.CLASS({
   mixins: [ 'foam.java.JavaCompareImplementor' ],
 
   properties: [
+    ['javaType',        'java.util.Date' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1643,6 +1723,7 @@ foam.CLASS({
   mixins: [ 'foam.java.JavaCompareImplementor' ],
 
   properties: [
+    ['javaType',        'java.util.Date' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
@@ -1725,12 +1806,24 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.java',
+  name: 'FUIDJavaRefinement',
+  refines: 'foam.lang.FUIDProperty',
+
+  properties: [
+    ['javaType',        'String']
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
   name: 'StringJavaRefinement',
   refines: 'foam.lang.String',
   // flags: ['java'],
   mixins: [ 'foam.java.JavaCompareImplementor' ],
 
   properties: [
+    ['javaType',        'String'],
     ['javaInfoType',    'foam.lang.AbstractStringPropertyInfo'],
     {
       name: 'javaAdapt',
@@ -1822,6 +1915,10 @@ foam.CLASS({
   // flags: ['java'],
 
   properties: [
+    {
+      name: 'javaType',
+      factory: function() { return this.type || this.of.id; }
+    },
     ['javaInfoType', 'foam.lang.AbstractFObjectPropertyInfo'],
     ['javaCompare',  ''],
     {
@@ -1874,6 +1971,17 @@ foam.CLASS({
       }
       return info;
     }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'IntegerArrayJavaRefinement',
+  refines: 'foam.lang.IntegerArray',
+
+  properties: [
+    ['javaType',       'int[]']
   ]
 });
 
@@ -2030,11 +2138,16 @@ foam.CLASS({
   // flags: ['java'],
 
   properties: [
-    { class: 'foam.java.JavaType' }, // JavaType defines 'name' and other properties
+    {
+      name: 'javaType',
+      factory: function() {
+        return (this.type || (this.of + '[]'));
+      }
+    },
     {
       name: 'javaFactory',
       expression: function(type) {
-        return `return new ${foam.lang.type.toType(type).type.toJavaType()}[0];`;
+        return `return new ${foam.java.type.toJavaType(type).replace(/\[\]$/, '[0]')};`;
       }
     },
     {
@@ -2173,6 +2286,12 @@ foam.CLASS({
   refines: 'foam.lang.Object',
  // // flags: ['java'],
   properties: [
+    {
+      name: 'javaType',
+      factory: function() {
+        return this.type || 'Object';
+      }
+    },
     ['javaInfoType',    'foam.lang.AbstractObjectPropertyInfo'],
     ['javaCompare',    '']
   ]
@@ -2262,6 +2381,7 @@ foam.CLASS({
   ]
 });
 
+
 foam.CLASS({
   package: 'foam.java',
   name: 'MultitonJavaRefinement',
@@ -2300,6 +2420,7 @@ new foam.lang.MultitonInfo("${this.javaName}", ${cls.name}.${foam.String.constan
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.java',
@@ -2836,7 +2957,6 @@ foam.CLASS({
   package: 'foam.java',
   name: 'CurrencyCodeJavaRefinement',
   refines: 'foam.lang.CurrencyCode',
-  extends: 'foam.lang.Reference',
   flags: [ 'java' ],
 
   properties: [
@@ -2845,7 +2965,8 @@ foam.CLASS({
       value: `
         try {
           var numericCode = Long.parseLong(val);
-          var curr = (foam.lang.Currency) ((foam.dao.DAO) getX().get("currencyDAO"))
+          foam.lang.X x = foam.lang.XLocator.get();
+          var curr = (foam.lang.Currency) ((foam.dao.DAO) x.get("currencyDAO"))
             .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, val));
           if ( curr != null )
             val = curr.getId();
@@ -2854,5 +2975,17 @@ foam.CLASS({
         } catch (NumberFormatException e) { /* assume string id */ }
       `
     }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'GlyphPropertyJavaRefinement',
+  refines: 'foam.lang.GlyphProperty',
+  flags: [ 'java' ],
+  javaImports: [ 'foam.lang.Glyph' ],
+
+  properties: [
+    [ 'javaJSONParser', 'foam.lib.json.GlyphPropertyParser.instance()' ],
   ]
 });

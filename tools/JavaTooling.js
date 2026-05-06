@@ -227,9 +227,9 @@ foam.POM({
       // Copy binary JAR and all dependency JARs (but not the resources JAR)
       this.execSync(`find ${BUILD_DIR}/lib -name "*.jar" ! -name "*-resources-*.jar" -exec cp {} ${stagingLibDir}/ \\;`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
 
-      // Copy Docker-specific install script and run script
+      // Copy Docker-specific install and run scripts
       this.execSync(`cp ${toolsDeploy}/bin/install-docker.sh ${stagingBinDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
-      this.execSync(`cp ${toolsDeploy}/bin/run.sh ${stagingBinDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.execSync(`cp ${toolsDeploy}/bin/run-docker.sh ${stagingBinDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
 
       // Copy etc configuration files
       this.copyDir(this.join(toolsDeploy, 'etc'), stagingEtcDir);

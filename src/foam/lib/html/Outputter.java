@@ -14,7 +14,8 @@ import foam.dao.AbstractSink;
 import foam.lib.json.OutputterMode;
 import foam.util.SafetyUtil;
 import java.io.*;
-import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -25,15 +26,8 @@ public class Outputter
   extends AbstractSink
   implements foam.lib.Outputter
 {
-
-  protected ThreadLocal<SimpleDateFormat> sdf = new ThreadLocal<SimpleDateFormat>() {
-    @Override
-    protected SimpleDateFormat initialValue() {
-      SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-      df.setTimeZone(TimeZone.getTimeZone("UTC"));
-      return df;
-    }
-  };
+  protected static DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                                              .withZone(ZoneOffset.UTC);
 
   protected ClassInfo          of_           = null;
   protected List<PropertyInfo> props_        = null;
@@ -122,7 +116,7 @@ public class Outputter
   }
 
   protected void outputDate(Date value) {
-    outputString(sdf.get().format(value));
+    outputString(sdf.format(value.toInstant()));
   }
 
   public void outputStartHtml() {

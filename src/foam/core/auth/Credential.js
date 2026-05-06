@@ -15,7 +15,8 @@ foam.CLASS({
     'foam.core.auth.EnabledAware',
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
-    'foam.core.auth.ServiceProviderAware'
+    'foam.core.auth.ServiceProviderAware',
+    'foam.core.security.KeyStoreAware'
   ],
 
   searchColumns: [
@@ -84,6 +85,15 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'useMock'
+    }
+  ],
+
+  methods: [
+    {
+      name: 'getPasswordSecret',
+      type: 'String',
+      args: 'Context x',
+      javaCode: 'return resolveSecret(x, getPassword());'
     }
   ]
 });

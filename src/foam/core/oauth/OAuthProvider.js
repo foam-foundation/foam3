@@ -2,6 +2,10 @@ foam.CLASS({
   package: "foam.core.oauth",
   name: "OAuthProvider",
 
+  implements: [
+    'foam.core.security.KeyStoreAware'
+  ],
+
   javaImports: [
     'foam.util.SafetyUtil',
     'java.net.URL',
@@ -17,7 +21,9 @@ foam.CLASS({
     'java.security.PublicKey',
     'java.security.Signature',
     'java.security.spec.RSAPublicKeySpec',
+    'java.time.Instant',
     'java.util.Base64',
+    'java.util.Date',
     'java.util.Map',
     'java.util.concurrent.ConcurrentHashMap'
   ],
@@ -71,6 +77,12 @@ foam.CLASS({
       class: 'String',
       name: 'certificateURL',
       documentation: '(Optional) URL to crytographic keys for verifing the signature of JWTs issued by the OAuth provider.'
+    },
+    {
+      class: 'Boolean',
+      name: 'useClientSecretBasic',
+      documentation: 'When true, send client_id and client_secret using HTTP Basic authentication. Otherwise, send as form parameters.',
+      help: "Set this property to true, when oauth application at the identity provider e.g. SecureAuth, side only supports 'client_secret_basic' for token authorization method."
     }
   ],
   methods: [
@@ -90,22 +102,31 @@ foam.CLASS({
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-    
+
+                String clientId = getClientId();
+                String clientSecret = resolveSecret(x, getClientSecret());
                 String params = "code=" + java.net.URLEncoder.encode(code, "UTF-8") +
-                        "&client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8") +
-                        "&client_secret=" + java.net.URLEncoder.encode(getClientSecret(), "UTF-8") +
                         "&redirect_uri=" + java.net.URLEncoder.encode(redirectURI, "UTF-8") +
                         "&grant_type=authorization_code";
-    
-                try (java.io.OutputStream os = conn.getOutputStream()) {
+
+                if ( getUseClientSecretBasic() ) {
+                    String authCredentials = clientId + ":" + clientSecret;
+                    String base64Auth = Base64.getEncoder().encodeToString(authCredentials.getBytes(StandardCharsets.UTF_8));
+                    conn.setRequestProperty("Authorization", "Basic " + base64Auth);
+                } else {
+                    params += "&client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8") +
+                               "&client_secret=" + java.net.URLEncoder.encode(resolveSecret(x, getClientSecret()), "UTF-8");
+                }
+
+                try ( java.io.OutputStream os = conn.getOutputStream() ) {
                     os.write(params.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 }
-    
+
                 if (conn.getResponseCode() != 200) {
                     logger.error("Failed to obtain tokens, HTTP response code: " + conn.getResponseCode());
                     return null;
                 }
-    
+
                 try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()))) {
                     return org.apache.commons.io.IOUtils.toString(in);
                 }
@@ -117,11 +138,8 @@ foam.CLASS({
     },
     {
       name: 'refreshAccessToken',
-      args: [
-        { name: 'x', type: "Context" },
-        { name: 'refreshToken', type: 'String' },
-      ],
-      type: 'String',
+      args: 'Context x, foam.core.oauth.OAuthCredential credential',
+      type: 'Void',
       throws: [ 'java.io.IOException' ],
       javaCode: `
 try {
@@ -131,16 +149,29 @@ connection.setRequestMethod("POST");
 connection.setDoOutput(true);
 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
-// Prepare the request body
-String requestBody = String.join("&",
-    "client_id=" + java.net.URLEncoder.encode(getClientId(), "UTF-8"),
-    "client_secret=" + java.net.URLEncoder.encode(getClientSecret(), "UTF-8"),
-    "refresh_token=" + java.net.URLEncoder.encode(refreshToken, "UTF-8"),
-    "grant_type=refresh_token");
+String refreshToken = credential.getRefreshToken();
+if ( refreshToken == null || refreshToken.isEmpty() ) {
+  throw new RuntimeException("No refresh token available");
+}
+
+String clientId = getClientId();
+String clientSecret = resolveSecret(x, getClientSecret());
+String requestBody = "grant_type=refresh_token" +
+        "&refresh_token=" + java.net.URLEncoder.encode(refreshToken, "UTF-8");
+
+if ( getUseClientSecretBasic() ) {
+    String authCredentials = clientId + ":" + clientSecret;
+    String base64Auth = Base64.getEncoder().encodeToString(authCredentials.getBytes(StandardCharsets.UTF_8));
+    connection.setRequestProperty("Authorization", "Basic " + base64Auth);
+} else {
+    requestBody += "&client_id=" + java.net.URLEncoder.encode(clientId, "UTF-8") +
+                   "&client_secret=" + java.net.URLEncoder.encode(clientSecret, "UTF-8");
+}
 
 // Send the request
-java.io.OutputStream os = connection.getOutputStream();
-os.write(requestBody.getBytes("UTF-8"));
+try ( java.io.OutputStream os = connection.getOutputStream() ) {
+    os.write(requestBody.getBytes(StandardCharsets.UTF_8));
+}
 
 // Read the response
 int responseCode = connection.getResponseCode();
@@ -152,7 +183,18 @@ if (responseCode != 200) {
 java.io.InputStream is = connection.getInputStream();
 jakarta.json.JsonReader jsonReader = jakarta.json.Json.createReader(is);
 jakarta.json.JsonObject responseJson = jsonReader.readObject(); 
-return responseJson.getString("access_token");
+
+// Update oauth credential data
+credential.setAccessToken(responseJson.getString("access_token", null));
+if ( responseJson.containsKey("refresh_token") ) {
+  credential.setRefreshToken(responseJson.getString("refresh_token"));
+}
+
+if ( responseJson.containsKey("expires_in") ) {
+  int expiresIn = responseJson.getInt("expires_in");
+  Instant expiresAt = Instant.now().plusSeconds(expiresIn);
+  credential.setExpiresAt(Date.from(expiresAt));
+}
 } catch (Exception e) {
     throw new RuntimeException("Failed to refresh token", e);
 }

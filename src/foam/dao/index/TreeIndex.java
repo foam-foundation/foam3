@@ -186,10 +186,12 @@ public class TreeIndex
 
     Object   originalState  = state;
     Object[] statePredicate = simplifyPredicate(state, predicate);
-    long     size           = state == null ? 0 : ((TreeNode) state).size;
 
     state     = statePredicate[0];
     predicate = (Predicate) statePredicate[1];
+
+    // Calculate size AFTER state is potentially narrowed by simplifyPredicate
+    long     size           = state == null ? 0 : ((TreeNode) state).size;
 
     // Treat as "no limit" if limit >= the size of the collection
     if ( limit >= size ) limit = AbstractDAO.MAX_SAFE_INTEGER;

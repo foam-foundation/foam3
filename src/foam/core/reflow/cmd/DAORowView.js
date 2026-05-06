@@ -14,35 +14,34 @@ foam.CLASS({
   ],
   imports: ['eval_'],
 
-  css: `
-    ^desc-cell {
-      min-width: 300px;
-    }
-  `,
-
   properties: [
+    'name',
     'shortName',
     'description',
     'ofId',
-    'uploadAvailable'
+    'uploadAvailable',
+    [ 'nodeName', 'tr' ]
   ],
 
   methods: [
     function render() {
       this.addClass();
-      this.start('tr').
+      this.
         start('td').attr('align', 'left').
           start(this.Button, { buttonStyle: 'BLACK', themeIcon: 'plus', size: 'SMALL' }).on('click', this.addFn).end().
         end().
         start('td').attr('align', 'left').
           show(this.uploadAvailable).
           start(this.Button, { buttonStyle: 'BLACK', themeIcon: 'upload', size: 'SMALL' }).on('click', this.uplFn).end().
-          end().
-        start('th').addClass(this.myClass('desc-cell')).attr('align', 'left').
-        start(this.Button, { buttonStyle: 'LINK', size: 'SMALL'}).addClass(this.myClass('name-btn')).add(this.shortName).on('click', this.daoFn).end().
         end().
-        start('td').addClass(this.myClass('desc-cell')).attr('align', 'left').
-          start(this.Button).add(this.ofId).on('click', this.desFn).end().
+        start('td').attr('align', 'left').
+          start(this.Button).add('describe'/*this.ofId*/).on('click', this.desFn).end().
+        end().
+        start('td').attr('align', 'left').
+          start(this.Button).add('api').on('click', this.apiFn).end().
+        end().
+        start('th').attr('align', 'left').
+        start(this.Button, { buttonStyle: 'LINK', size: 'SMALL'}).addClass(this.myClass('name-btn')).add(this.shortName).on('click', this.daoFn).end().
         end().
         start('td').attr('align', 'left').
           style({
@@ -50,8 +49,7 @@ foam.CLASS({
             overflow: 'hidden',
             paddingRight: '8px',
           }).add(this.description).
-        end().
-      end();
+        end();
     }
   ],
 
@@ -78,6 +76,12 @@ foam.CLASS({
       name: 'desFn',
       code: function() {
         this.eval_('describe(' + this.ofId + ')');
+      }
+    },
+    {
+      name: 'apiFn',
+      code: function() {
+        this.eval_('api("' + this.name + '")');
       }
     }
   ]

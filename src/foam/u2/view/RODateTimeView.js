@@ -40,7 +40,7 @@ foam.CLASS({
           if ( self.prop && self.prop.formatLocale ) {
             return self.prop.formatLocale(d);
           }
-          return new Date(d).toLocaleString(foam.locale, self.options);
+          return new Date(d).toLocaleString(foam.util.getClientLocale(), self.options);
         })).
       end();
     }

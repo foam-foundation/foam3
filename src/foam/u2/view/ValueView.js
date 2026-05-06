@@ -52,7 +52,7 @@ foam.CLASS({
         this.add(this.data$.map(v => {
           let ret = v;
           if ( prop?.name !== 'id' && foam.Number.isInstance(v) && foam.lang.Int.isSubClass(prop) && prop.formatValue ) {
-            ret = Number(v).toLocaleString(navigator.locale);
+            ret = Number(v).toLocaleString(foam.util.getClientLocale());
           }
           return ret + (prop?.units ? ` ${prop?.units}` : '');
         }));

@@ -34,6 +34,10 @@ foam.CLASS({
   ],
 
   methods: [
+    async function beforeRemove() {
+      // Stub for implementing classes to use
+      return;
+    },
     function addCrumb() {
       // Simplest implementation of adding breadcrumbs, other routers
       // might need something more complex

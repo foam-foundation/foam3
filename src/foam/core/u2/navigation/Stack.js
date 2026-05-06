@@ -223,8 +223,17 @@ foam.CLASS({
       this.resetStack();
       return this.push(...arguments);
     },
-    function jump(p) {
-      if ( this.delegate_ ) return this.delegate_.jump(...arguments);
+    async function jump(p) {
+      if ( this.delegate_ ) return await this.delegate_.jump(...arguments);
+      let aboutToRemove = this.stack_.slice(p+1);
+      for ( let v of aboutToRemove ) {
+        if ( foam.u2.Routable.isInstance(v) )
+          try {
+            await v.beforeRemove();
+          } catch(e) {
+            throw e;
+          }
+      }
       this.stack_.splice(p + 1).forEach(v => v.remove());
       this.pos = p;
       this.posUpdated.pub('jump');

@@ -5,6 +5,7 @@ p({"class":"foam.core.test.Test","id":"Freeze test","code":"foam.core.demo.relat
 p({"class":"foam.dao.SequenceNumberDAOTest","id":"SequenceNumberDAO test","description":"SequenceNumberDAO tests"})
 p({"class":"foam.core.ruler.test.RuledDAOTest","id":"RuledDAOTest","description":"RuledDAO tests"})
 p({"class":"foam.core.ruler.test.RulerDAOTest","id":"RulerDAOTest","description":"Rule engine test"})
+p({"class":"foam.core.ruler.test.RulerCacheEvictionTest","id":"RulerCacheEvictionTest","description":"Rule cache eviction on operation/after/group/lifecycleState changes"})
 // Fix and uncomment if PromisedDAO is ever used in Java
 // p({"class":"foam.core.test.Test","id":"PromisedDAO Test","code":"promisedDAO = new foam.dao.PromisedDAO.Builder(x)\n  .setOf(foam.core.auth.Country.getOwnClassInfo())\n  .build();\n\nnew Thread() {\n  public void run() {\n    mdao = new foam.dao.MDAO(foam.core.auth.Country.getOwnClassInfo());\n    country = new foam.core.auth.Country();\n    country.setCode(\"CN\");\n    country.setName(\"CHINA\");\n    mdao.put(country);\n    promisedDAO.setPromise(mdao);\n  }\n}.start();\n\ntest(promisedDAO.select().getArray().size() == 1, \"DAO has 1 element\");"})
 p({"class":"foam.core.test.Test","id":"Freeze test"})

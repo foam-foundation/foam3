@@ -34,50 +34,37 @@ foam.CLASS({
       name: 'put',
       javaCode: `
         Rule rule = (Rule) obj;
-        String ruleGroup = rule.getRuleGroup();
-        var rulesList = dao_.getRulesList();
+        if ( ! rule.getDaoKey().equals(dao_.getDaoKey()) ) {
+          return;
+        }
 
-        // STEP 1 — Evict any existing entry for this rule from every
-        // bucket and every group. Bucket membership is determined by
-        // (operation, after, async); group membership by ruleGroup. Any
-        // of these can change on a put, so a sweep is the only way to
-        // keep the cache consistent. This also handles enabled=false,
-        // lifecycleState=DELETED, and rules whose daoKey moved away.
-        Rule cached = null;
+        var rulesList = dao_.getRulesList();
+        String ruleGroup = rule.getRuleGroup();
+
+        // Evict any pre-existing entry for this rule across every bucket
+        // and group. Bucket/group membership can change on a put
+        // (operation, after, async, or ruleGroup), so the rule may no
+        // longer belong where it currently sits.
         for ( Object key : rulesList.keySet() ) {
           var groupBy = rulesList.get(key);
           for ( Object groupKey : groupBy.getGroupKeys() ) {
             List<Rule> rules = ((ArraySink) groupBy.getGroups().get(groupKey)).getArray();
             Rule existing = Rule.findById(rules, rule.getId());
-            if ( existing != null ) {
-              rules.remove(existing);
-              if ( cached == null ) cached = existing;
-            }
+            if ( existing != null ) rules.remove(existing);
           }
         }
 
-        // STEP 2 — If the rule no longer belongs to this DAO, eviction
-        // is sufficient.
-        if ( ! rule.getDaoKey().equals(dao_.getDaoKey()) ) {
-          return;
-        }
-
-        // STEP 3 — If the rule is disabled or soft-deleted, do not re-add.
         if ( ! rule.getEnabled() || rule.getLifecycleState() == foam.core.auth.LifecycleState.DELETED ) {
           return;
         }
 
-        // STEP 4 — Re-add the rule into every bucket whose predicate
-        // matches its (now current) operation/after/async combination,
-        // and into the group named by its (now current) ruleGroup.
-        rule.setX(getX());
-        Rule effective = cached != null ? cached.updateRule(rule) : rule;
         for ( Object key : rulesList.keySet() ) {
           if ( ((Predicate) key).f(obj) ) {
+            rule.setX(getX());
             var groupBy = rulesList.get(key);
             if ( groupBy.getGroupKeys().contains(ruleGroup) ) {
               List<Rule> rules = ((ArraySink) groupBy.getGroups().get(ruleGroup)).getArray();
-              rules.add(effective);
+              rules.add(rule);
               Collections.sort(rules, new Desc(Rule.PRIORITY));
             } else {
               groupBy.putInGroup_(sub, ruleGroup, obj);

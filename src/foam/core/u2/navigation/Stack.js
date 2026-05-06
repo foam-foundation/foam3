@@ -230,11 +230,12 @@ foam.CLASS({
         if ( foam.u2.Routable.isInstance(v) )
           try {
             await v.beforeRemove();
+            v.remove();
           } catch(e) {
             throw e;
           }
       }
-      this.stack_.splice(p + 1).forEach(v => v.remove());
+      this.stack_.splice(p + 1);
       this.pos = p;
       this.posUpdated.pub('jump');
     },

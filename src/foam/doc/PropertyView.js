@@ -18,6 +18,7 @@ foam.CLASS({
     ^table th { padding: 6px 16px 6px 0; text-align: left; font-weight: bold; color: $textSecondary; border-bottom: 2px solid $borderDefault; white-space: nowrap; }
     ^table td { padding: 8px 16px 8px 0; border-bottom: 1px solid $borderLight; vertical-align: top; }
     ^type { font-family: monospace; color: $primary400; white-space: nowrap; }
+    ^type-detail { display: block; font-size: 0.85em; color: $textTertiary; font-family: monospace; cursor: default; }
     ^name { font-family: monospace; color: $textDefault; white-space: nowrap; }
     ^label { font-weight: bold; color: $textDefault; white-space: nowrap; }
     ^doc { color: $textTertiary; }
@@ -58,7 +59,16 @@ foam.CLASS({
             .forEach(props, function(p) {
               var typeName = p.model_.name.replace(/Property$/, '');
               this.start('tr')
-                .start('td').addClass(self.myClass('type')).add(typeName).end()
+                .start('td').addClass(self.myClass('type'))
+                  .add(typeName)
+                  .callIf(typeName === 'Reference' && p.targetDAOKey, function() {
+                    this.start('span').addClass(self.myClass('type-detail')).add(p.targetDAOKey).end();
+                  })
+                  .callIf((typeName === 'Enum' || typeName === 'FObject') && p.of && p.of.id, function() {
+                    var shortName = p.of.id.split('.').pop();
+                    this.start('span').addClass(self.myClass('type-detail')).attrs({ title: p.of.id }).add(shortName).end();
+                  })
+                .end()
                 .start('td').addClass(self.myClass('name')).add(p.name).end()
                 .start('td').addClass(self.myClass('label')).add(p.label).end()
                 .start('td').addClass(self.myClass('doc')).add(p.documentation || '').end()

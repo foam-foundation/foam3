@@ -854,6 +854,7 @@ foam.POM({
     { name: "foam/doc/AxiomSummaryView",                              flags: "dev&web" },
     { name: "foam/doc/SimpleClassView",                               flags: "dev&web" },
     { name: "foam/doc/InterfaceView",                                 flags: "dev&web" },
+    { name: "foam/doc/PropertyView",                                  flags: "dev&web" },
     { name: "foam/doc/ClassLink",                                     flags: "dev&web" },
     { name: "foam/doc/CodeTabs",                                      flags: "js" },
     { name: "foam/doc/ClassList",                                     flags: "dev&web" },

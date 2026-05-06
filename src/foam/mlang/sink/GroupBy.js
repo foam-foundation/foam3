@@ -271,6 +271,7 @@ for (Object key : getGroups().keySet()) {
       const model = {
         package: 'foam.tmp',
         name: 'GroupBy' + foam.next$UID(),
+        plural: 'Data',
         ids: [ 'row' ],
         properties: [
           { class: 'Long', name: 'row' },
@@ -281,7 +282,6 @@ for (Object key : getGroups().keySet()) {
       // Required in the Property is an Enum or similar type which requires the value of the 'of' field to be complete
       if ( this.arg1.of ) model.properties[1].of = this.arg1.of;
 
-      model.plural = model.name;
       var props = this.arg2.toProperties ? this.arg2.toProperties() : this.arg2.VALUE ? [ this.arg2.VALUE ] : [];
       model.properties.push.apply(model.properties, props);
 

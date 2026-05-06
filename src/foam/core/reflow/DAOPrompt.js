@@ -552,10 +552,8 @@ foam.CLASS({
       name: 'asCollection',
       section: 'actions',
       size: 'SMALL',
-      isEnabled: function(select) { return select.browse; },
-      code: function() {
-        this.select.browse();
-      }
+      isEnabled: function(select, select$errors_) { return select.browse && ! select$errors_; },
+      code: function() { this.select.browse(); }
     },
     {
       name: 'describeCollection',

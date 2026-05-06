@@ -543,6 +543,7 @@ foam.CLASS({
       section: 'actions',
       size: 'SMALL',
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
+      isEnabled: function(select$errors_) { return ! select$errors_; },
       code: function() {
         this.version++;
       }

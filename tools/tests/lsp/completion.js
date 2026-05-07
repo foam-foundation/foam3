@@ -196,6 +196,39 @@ test(propItems.some(function(it) { return it.label === 'tableCellFormatter: '; }
 test(propItems.some(function(it) { return it.label === 'label: '; }), 'Prop key: suggests label');
 test(propItems.some(function(it) { return it.label === 'section: '; }), 'Prop key: suggests section');
 
+// === Class-aware property axiom keys (issue #5032) ===
+// When the property object has `class: 'String'` already declared, the
+// suggested keys should include String's own axioms (e.g., `trim`, `width`)
+// alongside the universal Property keys — not just the static fallback list.
+var stringPropText =
+  "foam.CLASS({\n  properties: [\n" +
+  "    { class: 'String', name: 'foo', \n" +    // cursor lands on the empty line below
+  "       \n" +
+  "    }\n  ]\n})";
+var stringPropResult = completionHandler.handle(stringPropText,
+  { line: 3, character: 7 });
+var stringPropLabels = (stringPropResult.items || []).map(function(it) { return it.label; });
+test(stringPropLabels.indexOf('trim: ') !== -1,
+  'Prop key (class: String): suggests String axiom `trim`');
+test(stringPropLabels.indexOf('class: ') !== -1,
+  'Prop key (class: String): still suggests universal `class`');
+test(stringPropLabels.indexOf('factory: ') !== -1,
+  'Prop key (class: String): still suggests universal `factory`');
+
+// FObjectProperty has `of` and `objectProperties` etc. Verify class-specific
+// suggestions for a different Property subclass.
+var fobjPropText =
+  "foam.CLASS({\n  properties: [\n" +
+  "    { class: 'FObjectProperty', name: 'foo', \n" +
+  "       \n" +
+  "    }\n  ]\n})";
+var fobjPropResult = completionHandler.handle(fobjPropText, { line: 3, character: 7 });
+var fobjPropLabels = (fobjPropResult.items || []).map(function(it) { return it.label; });
+// `of` already lives in the universal list, but the class-specific path must
+// not regress it.
+test(fobjPropLabels.indexOf('of: ') !== -1,
+  'Prop key (class: FObjectProperty): suggests `of`');
+
 // === INNER CLASS EXPRESSION SCOPING ===
 
 

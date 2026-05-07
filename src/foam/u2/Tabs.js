@@ -138,9 +138,9 @@ foam.CLASS({
     ^ {
       display: flex;
       flex-direction: column;
-      gap: 3.2rem;
-      --tabRow-padding: 0.8rem;
-      --tabRow-radius: 1.6rem;
+      gap: 1.2rem;
+      --tabRow-padding: 0.4rem;
+      --tabRow-radius: 0.8rem;
     }
     ^content{
       flex: 1;
@@ -160,7 +160,7 @@ foam.CLASS({
       padding: var(--tabRow-padding, 0.4rem);
       white-space: nowrap;
       background-color: $backgroundDefault;
-      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
+      // box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
       align-self: center;
       display: grid;
       grid-auto-flow: column;

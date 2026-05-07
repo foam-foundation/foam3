@@ -38,7 +38,12 @@ foam.CLASS({
     {
       name: 'treeRowRenderer',
       hidden: true,
-      value: function(e) { e.add(this.flowName$); }
+      value: function(e) {
+        e.parentNode.enableClass('locked', this.locked$);
+        e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
+
+        e.add(this.flowName$);
+      }
     },
     {
       name: 'childType',
@@ -46,6 +51,19 @@ foam.CLASS({
       transient: true,
       documentation: 'Default child type for this flowable',
       factory: function() { return this.cls_; }
+    },
+    {
+      class: 'StringArray',
+      name: 'dependencies',
+      transient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'locked',
+      transient: true,
+      expression: function(dependencies) {
+        return dependencies.length != 0;
+      }
     }
   ],
 
@@ -1274,6 +1292,9 @@ foam.CLASS({
       font-size: 14px;
       text-align: center;
     }
+    .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
+      color: orange !important;
+    }
   `,
 
   properties: [
@@ -2018,7 +2039,39 @@ foam.CLASS({
       }
     },
 
+    function updateDependencies() {
+      let fc = this.flowChildren;
+
+      function hasReactionDependency(c1, c2) {
+        if ( c2.value ) {
+          for ( let r in c2.value.reactions_ ) {
+            let str = Function.prototype.toString.call(c2.value.reactions_.text);
+            if ( str.indexOf(c1.flowName) != -1 )
+              return true;
+          }
+        }
+        return false;
+      }
+
+      for ( let i = 0 ; i < fc.length ; i++ ) {
+        let c  = fc[i];
+        let ds = [];
+
+        for ( let j = i+1 ; j < fc.length ; j++ ) {
+          let c2 = fc[j];
+
+          if ( c2.cmd.indexOf(c.flowName) != -1 || hasReactionDependency(c, c2) ) {
+            ds.push(c2.flowName);
+          }
+        }
+
+        c.dependencies = ds;
+      }
+    },
+
     function generateScript() {
+      this.updateDependencies();
+
       var json = foam.json.Outputter.create({
         pretty: true,
         strict: true,

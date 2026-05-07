@@ -365,7 +365,8 @@ foam.ENUM({
         return '';
       },
       labelFormatter: function(candidatesCount, totalOutcomes) {
-        return this.REMAINING({ candidatesCount, totalOutcomes });
+        return null;
+        // return this.REMAINING({ candidatesCount, totalOutcomes });
       }
     },
     {

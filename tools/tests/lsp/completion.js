@@ -426,6 +426,43 @@ var strCtx = ca.findCreateContext(strLines, 5, strText, index);
 test(strCtx === 'foam.u2.Element',
   'findCreateContext: ignores braces inside string literals');
 
+// === CSS token autocomplete inside css: blocks (issue #5032) ===
+section('CompletionHandler — CSS token completions');
+
+var cssCh = foam.parse.lsp.handlers.CompletionHandler.create({
+  index: index, analyzer: analyzer, cssTokenResolver: cssTokenResolver
+});
+
+var cssSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'CssTokenUser',",
+  "  css: `",
+  "    ^ { color: $",                                   // L4 — cursor right after $
+  "    }",
+  "  `",
+  "});"
+].join('\n');
+
+var cssRes = cssCh.handle(cssSrc, { line: 4, character: 17 });
+var cssLabels = (cssRes.items || []).map(function(i) { return i.label; });
+test(cssLabels.length > 0, 'CSS $token completion: returns items');
+test(cssLabels.indexOf('$primary400') !== -1,
+  'CSS $token completion: includes global $primary400');
+test(cssLabels.indexOf('$tabActiveColor') !== -1,
+  'CSS $token completion: includes per-class $tabActiveColor (Tabs.js)');
+test(cssLabels.indexOf('$checkboxColor') !== -1,
+  'CSS $token completion: includes per-class $checkboxColor (CheckBox.js)');
+
+// Partial filter: typing `$tab` should narrow to tab-* tokens.
+var cssSrcPartial = cssSrc.replace('color: $', 'color: $tab');
+var cssResPartial = cssCh.handle(cssSrcPartial, { line: 4, character: 20 });
+var partialLabels = (cssResPartial.items || []).map(function(i) { return i.label; });
+test(partialLabels.indexOf('$tabActiveColor') !== -1,
+  'CSS $token completion (partial $tab): surfaces $tabActiveColor');
+test(partialLabels.every(function(l) { return l.toLowerCase().indexOf('tab') !== -1; }),
+  'CSS $token completion (partial $tab): every result contains "tab"');
+
 // === RAW COLOR MESSAGE + REPLACEMENT LOGIC ===
 
 

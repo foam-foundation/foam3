@@ -8,7 +8,7 @@
  * To debug in browser, load with ?java=true flag, then run something like:
  *   c = foam.java.Class.create();
  *   foam.core.auth.Region.buildJavaClass(c);
- *   c.toString();
+ *   c.toJavaSource();
  * from the console.
 **/
 
@@ -2366,6 +2366,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.java',

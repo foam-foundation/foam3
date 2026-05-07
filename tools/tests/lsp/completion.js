@@ -196,6 +196,39 @@ test(propItems.some(function(it) { return it.label === 'tableCellFormatter: '; }
 test(propItems.some(function(it) { return it.label === 'label: '; }), 'Prop key: suggests label');
 test(propItems.some(function(it) { return it.label === 'section: '; }), 'Prop key: suggests section');
 
+// === Class-aware property axiom keys (issue #5032) ===
+// When the property object has `class: 'String'` already declared, the
+// suggested keys should include String's own axioms (e.g., `trim`, `width`)
+// alongside the universal Property keys — not just the static fallback list.
+var stringPropText =
+  "foam.CLASS({\n  properties: [\n" +
+  "    { class: 'String', name: 'foo', \n" +    // cursor lands on the empty line below
+  "       \n" +
+  "    }\n  ]\n})";
+var stringPropResult = completionHandler.handle(stringPropText,
+  { line: 3, character: 7 });
+var stringPropLabels = (stringPropResult.items || []).map(function(it) { return it.label; });
+test(stringPropLabels.indexOf('trim: ') !== -1,
+  'Prop key (class: String): suggests String axiom `trim`');
+test(stringPropLabels.indexOf('class: ') !== -1,
+  'Prop key (class: String): still suggests universal `class`');
+test(stringPropLabels.indexOf('factory: ') !== -1,
+  'Prop key (class: String): still suggests universal `factory`');
+
+// FObjectProperty has `of` and `objectProperties` etc. Verify class-specific
+// suggestions for a different Property subclass.
+var fobjPropText =
+  "foam.CLASS({\n  properties: [\n" +
+  "    { class: 'FObjectProperty', name: 'foo', \n" +
+  "       \n" +
+  "    }\n  ]\n})";
+var fobjPropResult = completionHandler.handle(fobjPropText, { line: 3, character: 7 });
+var fobjPropLabels = (fobjPropResult.items || []).map(function(it) { return it.label; });
+// `of` already lives in the universal list, but the class-specific path must
+// not regress it.
+test(fobjPropLabels.indexOf('of: ') !== -1,
+  'Prop key (class: FObjectProperty): suggests `of`');
+
 // === INNER CLASS EXPRESSION SCOPING ===
 
 
@@ -392,6 +425,43 @@ var strLines = strText.split('\n');
 var strCtx = ca.findCreateContext(strLines, 5, strText, index);
 test(strCtx === 'foam.u2.Element',
   'findCreateContext: ignores braces inside string literals');
+
+// === CSS token autocomplete inside css: blocks (issue #5032) ===
+section('CompletionHandler — CSS token completions');
+
+var cssCh = foam.parse.lsp.handlers.CompletionHandler.create({
+  index: index, analyzer: analyzer, cssTokenResolver: cssTokenResolver
+});
+
+var cssSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'CssTokenUser',",
+  "  css: `",
+  "    ^ { color: $",                                   // L4 — cursor right after $
+  "    }",
+  "  `",
+  "});"
+].join('\n');
+
+var cssRes = cssCh.handle(cssSrc, { line: 4, character: 17 });
+var cssLabels = (cssRes.items || []).map(function(i) { return i.label; });
+test(cssLabels.length > 0, 'CSS $token completion: returns items');
+test(cssLabels.indexOf('$primary400') !== -1,
+  'CSS $token completion: includes global $primary400');
+test(cssLabels.indexOf('$tabActiveColor') !== -1,
+  'CSS $token completion: includes per-class $tabActiveColor (Tabs.js)');
+test(cssLabels.indexOf('$checkboxColor') !== -1,
+  'CSS $token completion: includes per-class $checkboxColor (CheckBox.js)');
+
+// Partial filter: typing `$tab` should narrow to tab-* tokens.
+var cssSrcPartial = cssSrc.replace('color: $', 'color: $tab');
+var cssResPartial = cssCh.handle(cssSrcPartial, { line: 4, character: 20 });
+var partialLabels = (cssResPartial.items || []).map(function(i) { return i.label; });
+test(partialLabels.indexOf('$tabActiveColor') !== -1,
+  'CSS $token completion (partial $tab): surfaces $tabActiveColor');
+test(partialLabels.every(function(l) { return l.toLowerCase().indexOf('tab') !== -1; }),
+  'CSS $token completion (partial $tab): every result contains "tab"');
 
 // === RAW COLOR MESSAGE + REPLACEMENT LOGIC ===
 

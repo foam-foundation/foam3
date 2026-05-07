@@ -315,6 +315,33 @@ var diagComment = '// This is a comment\np({"class":"foam.parse.lsp.test.JrlTest
 var diags5 = jrlHandler.handleDiagnostics(diagComment, '');
 test(diags5.length === 0, 'JRL diagnostics: comment lines ignored');
 
+// Nested object with its own class — inner-class axioms must validate against
+// the inner class, not the outer one. Real-world scenario: a Suggestion
+// contains a nested FObject whose props belong to the inner class.
+var nestedDiagJrl =
+  'p({"class":"foam.parse.lsp.test.JrlTestModel","id":1,"acct":"a",' +
+  '"inner":{"class":"foam.parse.lsp.test.JrlTestModel","id":2,"wrongAxiom":"x"}})';
+var nestedDiags = jrlHandler.handleDiagnostics(nestedDiagJrl, '');
+test(nestedDiags.some(function(d) { return d.message.indexOf('wrongAxiom') !== -1
+                                          && d.message.indexOf('JrlTestModel') !== -1; }),
+  'JRL diagnostics: unknown property in nested object flagged against inner class');
+
+// Multi-line nested
+var multiNestedJrl =
+  'p({\n  "class": "foam.parse.lsp.test.JrlTestModel",\n  "id": 1,\n' +
+  '  "inner": {\n    "class": "foam.parse.lsp.test.JrlTestModel",\n    "wrongAxiom": "x"\n  }\n})';
+var multiNestedDiags = jrlHandler.handleDiagnostics(multiNestedJrl, '');
+test(multiNestedDiags.some(function(d) { return d.message.indexOf('wrongAxiom') !== -1; }),
+  'JRL diagnostics: unknown property flagged in multi-line nested object');
+
+// Array of FObjects — each item with its own class gets validated
+var arrayDiagJrl =
+  'p({"class":"foam.parse.lsp.test.JrlTestModel","id":1,"items":[' +
+  '{"class":"foam.parse.lsp.test.JrlTestModel","wrongAxiom":"x"}]})';
+var arrayDiags = jrlHandler.handleDiagnostics(arrayDiagJrl, '');
+test(arrayDiags.some(function(d) { return d.message.indexOf('wrongAxiom') !== -1; }),
+  'JRL diagnostics: unknown property flagged in FObject inside array');
+
 // ========== JRL Nested Class Context ==========
 
 

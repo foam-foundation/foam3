@@ -1290,31 +1290,70 @@ foam.CLASS({
           continue;
         }
 
-        // Validate property names across all lines of the entry
-        for ( var key in entry ) {
-          if ( key === 'class' ) continue;
-          var prop = this.resolveProperty_(cls, key);
-          if ( ! prop ) {
-            var escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            var keyPattern = new RegExp('(?:"' + escaped + '"|' + escaped + ')\\s*:');
-            for ( var sl = startLine ; sl <= endLine ; sl++ ) {
-              var keyMatch = keyPattern.exec(lines[sl]);
-              if ( keyMatch ) {
-                var keyStart = keyMatch.index + (keyMatch[0].charAt(0) === '"' ? 1 : 0);
-                diags.push({
-                  range: { start: { line: sl, character: keyStart }, end: { line: sl, character: keyStart + key.length } },
-                  severity: 2,
-                  source: 'foam-lsp',
-                  message: 'Unknown property "' + key + '" on ' + classId
-                });
-                break;
+        // Validate property names across all lines of the entry. Recurses
+        // into nested objects whose own `class` resolves — e.g.,
+        // `{ "class": "X", "sub": { "class": "Y", "wrongAxiom": "v" } }`
+        // flags `wrongAxiom` against Y, not X.
+        this.validateEntryProperties_(entry, cls, classId, lines, startLine, endLine, diags);
+      }
+
+      return diags;
+    },
+
+    function validateEntryProperties_(entry, cls, classId, lines, startLine, endLine, diags) {
+      /** Walk an entry's own keys and emit Unknown-property diagnostics. */
+      if ( ! entry || ! cls ) return;
+
+      for ( var key in entry ) {
+        if ( key === 'class' ) continue;
+        var value = entry[key];
+        var prop  = this.resolveProperty_(cls, key);
+
+        if ( ! prop ) {
+          this.addUnknownPropertyDiag_(key, classId, lines, startLine, endLine, diags);
+        }
+
+        // Recurse into nested objects that declare their own class.
+        if ( value && typeof value === 'object' && ! Array.isArray(value) && value['class'] ) {
+          var innerId  = value['class'];
+          var innerCls = this.index.getClass(innerId);
+          if ( innerCls ) {
+            this.validateEntryProperties_(value, innerCls, innerId, lines, startLine, endLine, diags);
+          }
+        }
+        // Arrays may contain inner FObjects with their own `class` too.
+        if ( Array.isArray(value) ) {
+          for ( var ai = 0 ; ai < value.length ; ai++ ) {
+            var item = value[ai];
+            if ( item && typeof item === 'object' && item['class'] ) {
+              var iId  = item['class'];
+              var iCls = this.index.getClass(iId);
+              if ( iCls ) {
+                this.validateEntryProperties_(item, iCls, iId, lines, startLine, endLine, diags);
               }
             }
           }
         }
       }
+    },
 
-      return diags;
+    function addUnknownPropertyDiag_(key, classId, lines, startLine, endLine, diags) {
+      /** Locate `key` in the entry's source lines and push the diagnostic. */
+      var escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var keyPattern = new RegExp('(?:"' + escaped + '"|' + escaped + ')\\s*:');
+      for ( var sl = startLine ; sl <= endLine ; sl++ ) {
+        var keyMatch = keyPattern.exec(lines[sl]);
+        if ( keyMatch ) {
+          var keyStart = keyMatch.index + (keyMatch[0].charAt(0) === '"' ? 1 : 0);
+          diags.push({
+            range: { start: { line: sl, character: keyStart }, end: { line: sl, character: keyStart + key.length } },
+            severity: 2,
+            source: 'foam-lsp',
+            message: 'Unknown property "' + key + '" on ' + classId
+          });
+          return;
+        }
+      }
     },
 
     function handleDefinition(text, position, opt_uri) {

@@ -49,13 +49,14 @@ foam.CLASS({
       let self = this;
       this.SUPER();
       this.dynamic(function(data) {
+        if ( ! data ) return;
         this.removeAllChildren();
-        var color = this.resolveColor(this.data.color);
-        var background = this.resolveColor(this.data.background);
-        var glyphBackground = this.resolveColor(this.data.glyphBackground);
-        var glyphColor = this.resolveColor(this.data.glyphFill);
-        var borderColor = this.resolveColor(this.data.borderColor);
-        var isPill = this.isFancy(this.data.VALUES);
+        var color = this.resolveColor(data.color);
+        var background = this.resolveColor(data.background);
+        var glyphBackground = this.resolveColor(data.glyphBackground);
+        var glyphColor = this.resolveColor(data.glyphFill);
+        var borderColor = this.resolveColor(data.borderColor);
+        var isPill = this.isFancy(data.VALUES);
         this
           .enableClass(this.myClass('pill'), isPill)
           .addClass('enum-label', this.myClass())

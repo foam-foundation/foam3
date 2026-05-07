@@ -40,68 +40,145 @@ foam.CLASS({
   methods: [
     function loadFromRegistry() {
       /**
-       * Load CSS tokens from foam.u2.CSSTokens axioms.
-       * Uses getAxiomsByClass to get actual CSSToken/ColorToken instances
-       * (model_.cssTokens raw array loses the 'class' field after FOAM processes it).
-       * Two-pass: first store raw values, then resolve $-references.
+       * Load CSS tokens from EVERY class in the FOAM registry that declares
+       * `cssTokens:` — not just `foam.u2.CSSTokens`. Walks the live axioms
+       * via `getOwnAxiomsByClass(CSSToken)` so each entry preserves its
+       * class (CSSToken vs ColorToken), variants, and function-valued
+       * `value` (LIGHTEN/FOREGROUND/etc.) — none of which survive in raw
+       * `model_.cssTokens` data.
+       *
+       * Resolution is delegated to `foam.CSS.returnTokenValue` so color
+       * tokens resolve through the same machinery as the runtime — LIGHTEN
+       * and FOREGROUND modifiers, function values, theme overrides — instead
+       * of the simple `$ref` chain handled by `resolve_()`. We still keep
+       * `resolve_()` as a fallback when foam.CSS isn't available.
+       *
+       * Token-name collisions (same name in two classes) take last-write
+       * with `foam.u2.CSSTokens` winning when present, since it owns the
+       * project-wide design system.
        */
-      var cls = foam.maybeLookup('foam.u2.CSSTokens');
-      if ( ! cls ) return;
+      var CSSTokenCls   = foam.maybeLookup('foam.u2.CSSToken');
+      var ColorTokenCls = foam.maybeLookup('foam.u2.ColorToken');
+      if ( ! CSSTokenCls ) return;
 
-      // Build a set of ColorToken names for type detection
-      var colorTokenCls = foam.maybeLookup('foam.u2.ColorToken');
-      var colorNames = {};
-      if ( colorTokenCls ) {
-        var colorAxioms = cls.getAxiomsByClass(colorTokenCls);
-        for ( var i = 0 ; i < colorAxioms.length ; i++ ) {
-          colorNames[colorAxioms[i].name] = true;
+      var cache = foam.__context__.__cache__;
+
+      // Collect (sourceCls, axiom) pairs; sort so foam.u2.CSSTokens lands last
+      // and its tokens overwrite any per-class duplicates.
+      var entries = [];
+      for ( var key in cache ) {
+        if ( key.indexOf('.') === -1 ) continue;     // skip short names
+        var cls = foam.maybeLookup(key);
+        if ( ! cls || ! cls.getOwnAxiomsByClass ) continue;
+
+        var axioms;
+        try {
+          axioms = cls.getOwnAxiomsByClass(CSSTokenCls);
+        } catch ( e ) { continue; }
+        if ( ! axioms || ! axioms.length ) continue;
+
+        for ( var i = 0 ; i < axioms.length ; i++ ) {
+          entries.push({ sourceCls: cls, axiom: axioms[i] });
         }
       }
 
-      // Read from model_.cssTokens for raw values (name, value, variants)
-      var tokens = cls.model_.cssTokens;
-      if ( ! tokens || ! tokens.length ) return;
+      entries.sort(function(a, b) {
+        var aRoot = a.sourceCls.id === 'foam.u2.CSSTokens' ? 1 : 0;
+        var bRoot = b.sourceCls.id === 'foam.u2.CSSTokens' ? 1 : 0;
+        return aRoot - bRoot;
+      });
 
-      // First pass: store raw values
-      for ( var i = 0 ; i < tokens.length ; i++ ) {
-        var t = tokens[i];
-        if ( ! t.name ) continue;
-
-        var entry = {
-          default_: { value: t.value || '', resolved: null },
-          themes: {},
-          variants: {},
-          type: colorNames[t.name] ? 'ColorToken' : 'CSSToken',
-          source: 'foam.u2.CSSTokens'
-        };
-
-        // Handle variants
-        if ( t.variants ) {
-          for ( var vk in t.variants ) {
-            if ( t.variants.hasOwnProperty(vk) ) {
-              entry.variants[vk] = {
-                value: t.variants[vk].value || '',
-                resolved: null
-              };
-            }
-          }
-        }
-
-        this.tokenMap_[t.name] = entry;
+      for ( var i = 0 ; i < entries.length ; i++ ) {
+        this.installAxiom_(entries[i].axiom, entries[i].sourceCls);
       }
 
-      // Second pass: resolve all $-references
+      // Resolve $-references / function values across the merged map. Uses
+      // foam.CSS.returnTokenValue per token (which respects the source
+      // class context) and falls back to the legacy resolver otherwise.
+      var ctx = foam.__context__;
       for ( var name in this.tokenMap_ ) {
         if ( ! this.tokenMap_.hasOwnProperty(name) ) continue;
         var entry = this.tokenMap_[name];
-        entry.default_.resolved = this.resolve_(entry.default_.value);
+
+        entry.default_.resolved = this.resolveTokenViaCss_(name, entry, ctx)
+                              || this.resolve_(entry.default_.value);
 
         for ( var vk in entry.variants ) {
-          if ( entry.variants.hasOwnProperty(vk) ) {
-            entry.variants[vk].resolved = this.resolve_(entry.variants[vk].value);
-          }
+          if ( ! entry.variants.hasOwnProperty(vk) ) continue;
+          entry.variants[vk].resolved = this.resolve_(entry.variants[vk].value);
         }
       }
+    },
+
+    function installAxiom_(axiom, sourceCls) {
+      /** Convert one CSSToken/ColorToken axiom into a tokenMap_ entry. */
+      if ( ! axiom || ! axiom.name ) return;
+
+      var rawValue = axiom.value;
+      // Function values (LIGHTEN/FOREGROUND/etc.) — store the source repr
+      // for hover display. The actual resolved value comes from foam.CSS.
+      var displayValue = typeof rawValue === 'function'
+        ? this.functionValueRepr_(rawValue)
+        : ( rawValue || '' );
+
+      var entry = {
+        default_: { value: displayValue, resolved: null },
+        themes:   {},
+        variants: {},
+        type:     ( axiom.cls_ && axiom.cls_.id === 'foam.u2.ColorToken' )
+                    ? 'ColorToken' : 'CSSToken',
+        source:   sourceCls.id
+      };
+
+      if ( axiom.variants ) {
+        for ( var vk in axiom.variants ) {
+          if ( ! axiom.variants.hasOwnProperty(vk) ) continue;
+          var v = axiom.variants[vk];
+          var vv = v && typeof v.value === 'function'
+            ? this.functionValueRepr_(v.value)
+            : ( v && v.value || '' );
+          entry.variants[vk] = { value: vv, resolved: null };
+        }
+      }
+
+      this.tokenMap_[axiom.name] = entry;
+    },
+
+    function functionValueRepr_(fn) {
+      /**
+       * Render a function-valued token as a short string for hover/display.
+       * Tries to detect LIGHTEN/FOREGROUND modifiers from the function body —
+       * good enough for surfacing intent without evaluating the function.
+       */
+      try {
+        var src = fn.toString();
+        var m = src.match(/e\.(LIGHTEN|FOREGROUND|DARKEN)\s*\(/);
+        if ( m ) return m[1] + '(...)';
+        return 'function(...)';
+      } catch ( e ) {
+        return 'function(...)';
+      }
+    },
+
+    function resolveTokenViaCss_(tokenName, entry, ctx) {
+      /**
+       * Use foam.CSS.returnTokenValue with the token's source class. Pass
+       * the source class so per-class tokens (Button.TAB_ACTIVE_COLOR etc.)
+       * resolve correctly — findTokenAxiom checks the passed class first
+       * before falling back to foam.u2.CSSTokens.
+       *
+       * Returns the resolved string, or null if foam.CSS is unavailable
+       * or the call returned the input unchanged.
+       */
+      if ( ! ( foam.CSS && foam.CSS.returnTokenValue ) ) return null;
+      var sourceCls = entry && entry.source ? foam.maybeLookup(entry.source) : null;
+      try {
+        var ret = foam.CSS.returnTokenValue('$' + tokenName, sourceCls || null, ctx);
+        if ( ret && ret !== '$' + tokenName && ret.indexOf('/* failed') === -1 ) {
+          return ret;
+        }
+      } catch ( e ) {}
+      return null;
     },
 
     function loadFromJournals() {
@@ -305,19 +382,17 @@ foam.CLASS({
     function resolveTokenValue(tokenName) {
       /**
        * Resolve a token to its final CSS value using foam.CSS.returnTokenValue.
-       * Falls back to internal resolution if foam.CSS is unavailable.
+       * Passes the token's source class (e.g., Button for tabActiveColor) so
+       * findTokenAxiom looks at the right place. Falls back to internal
+       * resolution if foam.CSS is unavailable or the call doesn't reduce.
        * @param tokenName Token name without $ prefix.
        * @returns Resolved CSS value string or null if token unknown.
        */
-      if ( ! this.tokenMap_[tokenName] ) return null;
+      var entry = this.tokenMap_[tokenName];
+      if ( ! entry ) return null;
 
-      // Try foam.CSS.returnTokenValue for full resolution (recursive, LIGHTEN, FOREGROUND)
-      if ( foam.CSS && foam.CSS.returnTokenValue ) {
-        try {
-          var result = foam.CSS.returnTokenValue('$' + tokenName, foam.maybeLookup('foam.u2.CSSTokens'));
-          if ( result && result !== '$' + tokenName ) return result;
-        } catch ( e ) {}
-      }
+      var ret = this.resolveTokenViaCss_(tokenName, entry, foam.__context__);
+      if ( ret ) return ret;
 
       // Fallback to internal resolution
       return this.getResolvedValue(tokenName);

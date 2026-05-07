@@ -77,8 +77,30 @@ test(ifaceGetterErrors.length === 0, 'Interface own property getter NOT flagged'
 var implementors = index.getImplementors('foam.core.auth.CreatedByAware');
 test(implementors.length > 0, 'getImplementors finds classes implementing CreatedByAware: ' + implementors.length);
 
-// === LSP #4993 Fix 3: user-defined cssTokens not flagged as unknown ===
+// === Per-class cssTokens loaded into the resolver (issue #5032) ===
+section('CSSTokenResolver — per-class cssTokens (issue #5032)');
 
+// Tabs.js defines its own ColorToken cssTokens — they should be in the
+// resolver's map and report Tabs as their source.
+test(cssTokenResolver.tokenExists('tabActiveColor'),
+  'Per-class token `tabActiveColor` (Tabs.js) is loaded');
+var tabInfo = cssTokenResolver.getTokenInfo('tabActiveColor');
+test(tabInfo && tabInfo.source === 'foam.u2.Tabs',
+  'Per-class token `tabActiveColor` source is foam.u2.Tabs');
+test(tabInfo && tabInfo.type === 'ColorToken',
+  'Per-class token `tabActiveColor` type is ColorToken');
+
+// CheckBox.js defines `checkboxColor`.
+test(cssTokenResolver.tokenExists('checkboxColor'),
+  'Per-class token `checkboxColor` (CheckBox.js) is loaded');
+var cbInfo = cssTokenResolver.getTokenInfo('checkboxColor');
+test(cbInfo && cbInfo.source === 'foam.u2.CheckBox',
+  'Per-class token `checkboxColor` source is foam.u2.CheckBox');
+
+// Project-wide CSSTokens still wins over collisions.
+var primaryInfo = cssTokenResolver.getTokenInfo('primary400');
+test(primaryInfo && primaryInfo.source === 'foam.u2.CSSTokens',
+  'Global token `primary400` still owned by foam.u2.CSSTokens');
 
 // === LSP #4993 Fix 3: user-defined cssTokens not flagged as unknown ===
 section('DiagnosticsHandler — local cssTokens (issue #4993)');

@@ -57,28 +57,41 @@ foam.CLASS({
        * with `foam.u2.CSSTokens` winning when present, since it owns the
        * project-wide design system.
        */
-      var CSSTokenCls   = foam.maybeLookup('foam.u2.CSSToken');
-      var ColorTokenCls = foam.maybeLookup('foam.u2.ColorToken');
+      var CSSTokenCls = foam.maybeLookup('foam.u2.CSSToken');
       if ( ! CSSTokenCls ) return;
 
       var cache = foam.__context__.__cache__;
 
-      // Collect (sourceCls, axiom) pairs; sort so foam.u2.CSSTokens lands last
-      // and its tokens overwrite any per-class duplicates.
+      // Collect (sourceCls, axiom) pairs by walking each class's own
+      // properties — not just `getOwnAxiomsByClass(CSSToken)`. ColorToken
+      // installs synthetic suffix axioms (`$hover`, `$active`, `$disabled`,
+      // `$foreground` and combos) via `Object.defineProperty` getters that
+      // don't appear in the axiom registry. Iterating the class's own
+      // properties and checking each for `CSSToken.isInstance` picks up
+      // the directly-declared tokens AND the ColorToken-installed suffix
+      // tokens uniformly — so future framework additions land here for
+      // free without us re-listing suffixes.
+      //
+      // Sorted so foam.u2.CSSTokens lands last and its tokens overwrite
+      // any per-class duplicates.
       var entries = [];
       for ( var key in cache ) {
         if ( key.indexOf('.') === -1 ) continue;     // skip short names
         var cls = foam.maybeLookup(key);
-        if ( ! cls || ! cls.getOwnAxiomsByClass ) continue;
+        if ( ! cls ) continue;
 
-        var axioms;
-        try {
-          axioms = cls.getOwnAxiomsByClass(CSSTokenCls);
-        } catch ( e ) { continue; }
-        if ( ! axioms || ! axioms.length ) continue;
+        // Only walk classes that actually declare cssTokens — avoids the
+        // expensive enumeration on the bulk of the registry, and the
+        // synthetic-suffix axioms only ever live on those classes.
+        if ( ! cls.model_ || ! cls.model_.cssTokens || ! cls.model_.cssTokens.length ) continue;
 
-        for ( var i = 0 ; i < axioms.length ; i++ ) {
-          entries.push({ sourceCls: cls, axiom: axioms[i] });
+        var names;
+        try { names = Object.getOwnPropertyNames(cls); } catch ( e ) { continue; }
+        for ( var i = 0 ; i < names.length ; i++ ) {
+          var ax;
+          try { ax = cls[names[i]]; } catch ( e ) { continue; }
+          if ( ! ax || ! CSSTokenCls.isInstance(ax) ) continue;
+          entries.push({ sourceCls: cls, axiom: ax });
         }
       }
 

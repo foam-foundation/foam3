@@ -102,6 +102,27 @@ var primaryInfo = cssTokenResolver.getTokenInfo('primary400');
 test(primaryInfo && primaryInfo.source === 'foam.u2.CSSTokens',
   'Global token `primary400` still owned by foam.u2.CSSTokens');
 
+// ColorToken suffix tokens — installInClass adds `$hover`, `$active`,
+// `$disabled`, `$foreground` and combos via Object.defineProperty. The
+// resolver picks them up by walking the class's own properties (rather
+// than `getOwnAxiomsByClass`, which misses non-registered axioms) and
+// delegates resolution to foam.CSS.returnTokenValue.
+test(cssTokenResolver.tokenExists('primary400$hover'),
+  'ColorToken suffix: $primary400$hover registered');
+test(cssTokenResolver.tokenExists('primary400$foreground'),
+  'ColorToken suffix: $primary400$foreground registered');
+test(cssTokenResolver.tokenExists('primary400$disabled$foreground'),
+  'ColorToken suffix: $primary400$disabled$foreground registered');
+
+var fgVal = cssTokenResolver.resolveTokenValue('primary400$foreground');
+test(fgVal && /^#[0-9A-Fa-f]+$/.test(fgVal),
+  'ColorToken suffix: $primary400$foreground resolves to a hex color (got ' + fgVal + ')');
+
+// Per-class ColorToken suffixes (Tabs.tabActiveColor) — same path through
+// foam.CSS, so per-class works without any additional special-casing.
+test(cssTokenResolver.tokenExists('tabActiveColor$foreground'),
+  'ColorToken suffix: per-class $tabActiveColor$foreground registered');
+
 // === LSP #4993 Fix 3: user-defined cssTokens not flagged as unknown ===
 section('DiagnosticsHandler — local cssTokens (issue #4993)');
 var diagWithTokens = foam.parse.lsp.handlers.DiagnosticsHandler.create({

@@ -19,6 +19,8 @@ foam.CLASS({
 
   topics: [ 'flowUpdated' ],
 
+  imports: [ 'softSelected' ],
+
   properties: [
     {
       name: 'flowParent',
@@ -42,7 +44,9 @@ foam.CLASS({
         e.parentNode.enableClass('locked', this.locked$);
         e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
 
+        let isDependent = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1 ? 'orange' : '');
         e.add(this.flowName$);
+        e.style({color: isDependent});
       }
     },
     {
@@ -1227,6 +1231,7 @@ foam.CLASS({
     'scrollToBottom',
     'selected',
     'selectFromTree',
+    'softSelected',
     'showPrompts',
     'value as flow'
   ],
@@ -1448,6 +1453,7 @@ foam.CLASS({
       name: 'selected',
       factory: function() { return this; }
     },
+    'softSelected',
     {
       name: 'value',
       // The Console's Flow Value, which is the Flow object it is saved as
@@ -1659,7 +1665,7 @@ foam.CLASS({
 
       let setupEditMode = () => {
         this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
-        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
+        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, softSelected$: this.softSelected$, isMenuOpen$: layout.isMenuOpen$});
         layout.right.tag(this.ReflowConfigView, { data$: this.selected$, flowMode$: this.flowMode$});
       };
 

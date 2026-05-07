@@ -123,6 +123,22 @@ test(fgVal && /^#[0-9A-Fa-f]+$/.test(fgVal),
 test(cssTokenResolver.tokenExists('tabActiveColor$foreground'),
   'ColorToken suffix: per-class $tabActiveColor$foreground registered');
 
+// Diagnostic regex must match the full `$base$suffix` chain as ONE token,
+// not split it into `$base` (known) and `$suffix` (unknown). Using a real
+// per-class ColorToken (foam.u2.tag.Button — buttonPrimaryColor) so the
+// scenario mirrors the editor case.
+var compoundCssDiag = foam.parse.lsp.handlers.DiagnosticsHandler.create({
+  index: index, cssTokenResolver: cssTokenResolver
+});
+var compoundSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'CompoundUser',\n" +
+  "  css: `\n    ^ { color: $buttonPrimaryColor$foreground; }\n  `\n})";
+var compoundDiags = compoundCssDiag.handle(compoundSrc);
+test(compoundDiags.every(function(d) { return d.message.indexOf('$foreground') === -1; }),
+  'CSS token diagnostic: $foreground suffix not flagged as standalone unknown token');
+test(compoundDiags.every(function(d) { return d.message.indexOf('Unknown CSS token') === -1; }),
+  'CSS token diagnostic: $buttonPrimaryColor$foreground recognized as a known compound token');
+
 // === LSP #4993 Fix 3: user-defined cssTokens not flagged as unknown ===
 section('DiagnosticsHandler — local cssTokens (issue #4993)');
 var diagWithTokens = foam.parse.lsp.handlers.DiagnosticsHandler.create({

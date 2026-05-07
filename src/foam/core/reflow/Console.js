@@ -2051,7 +2051,7 @@ foam.CLASS({
       function hasReactionDependency(c1, c2) {
         if ( c2.value ) {
           for ( let r in c2.value.reactions_ ) {
-            let str = Function.prototype.toString.call(c2.value.reactions_.text);
+            let str = Function.prototype.toString.call(c2.value.reactions_[r]);
             if ( str.indexOf(c1.flowName) != -1 )
               return true;
           }

@@ -198,7 +198,7 @@ foam.CLASS({
               on('dragstart', self.onDragStart.bind(self, data, this)).
               on('dragenter', self.onDragOver.bind(self, data, this)).
               on('dragleave', self.onDragLeave.bind(self, this)).
-                on('dragover',  self.onDragOver.bind(self, data, this)).
+              on('dragover',  self.onDragOver.bind(self, data, this)).
               on('drop',      self.onDrop.bind(self, data, this));
             }).
             addClass(self.myClass('element-row')).

@@ -72,7 +72,7 @@ foam.CLASS({
   properties: [
     {
       name: 'icon',
-      factory: function() {
+      expression: function(type) {
         if ( ! this.type.glyph ) return undefined;
         // Colors flipped to make sure icon backgrounds have the right color inside circle indicator
         var props = {
@@ -105,7 +105,7 @@ foam.CLASS({
       adapt: function(o,n) {
         return foam.CSS.returnTokenValue(n, this.cls_, this.__subContext__);
       },
-      factory: function() {
+      expression: function(type) {
         return (this.type && foam.CSS.returnTokenValue(this.type.background, this.cls_, this.__subContext__)) || '#FFFFFF';
       },
       documentation: 'Icon color. Defaults to type background or white'

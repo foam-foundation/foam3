@@ -133,7 +133,8 @@ foam.CLASS({
         var expr = this.of.getAxiomByName(propName) || foam.core.column.NestedPropertiesExpression.create({ objClass: this.of, nestedProperty: propName });
         if ( foam.dao.DAOProperty.isInstance(expr) ||
             foam.dao.OneToManyRelationshipProperty.isInstance(expr) ||
-            foam.dao.ManyToManyRelationshipProperty.isInstance(expr) )
+            foam.dao.ManyToManyRelationshipProperty.isInstance(expr) ||
+            foam.lang.Action.isInstance(expr) )
           continue
         if ( expr )
           exprArray.push(expr);

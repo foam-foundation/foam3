@@ -83,12 +83,6 @@ foam.CLASS({
       documentation: 'The QA instance'
     },
     {
-      class: 'Array',
-      name: 'answeredStack',
-      documentation: 'Back-navigation stack; each entry is an <axiom>',
-      factory: function() { return []; }
-    },
-    {
       class: 'Enum',
       of: 'foam.u2.qa.WizardState',
       name: 'phase',
@@ -288,13 +282,13 @@ foam.CLASS({
       isAvailable: function(phase) {
         return phase != 'OUTCOME';
       },
-      isEnabled: function(answeredStack) {
-        return answeredStack.length > 0;
+      isEnabled: function(data$answeredOrder) {
+        return data$answeredOrder.length > 0;
       },
       code: function() {
-        var last = this.answeredStack[this.answeredStack.length - 1];
+        var last = this.data.answeredOrder[this.data.answeredOrder.length - 1];
         let oldValue = last.f(this.data);
-        this.answeredStack        = this.answeredStack.slice(0, -1);
+        this.data.answeredOrder        = this.data.answeredOrder.slice(0, -1);
         this.currentQuestionAxiom.set(this.data, undefined);
         // Unset answer to get correct count again
         this.data[last.name]      = undefined;
@@ -330,7 +324,7 @@ foam.CLASS({
           }
         }
 
-        this.answeredStack$push(this.currentQuestionAxiom);
+        this.data.answeredOrder$push(this.currentQuestionAxiom);
         return await this.advance_();
       }
     }
@@ -365,7 +359,8 @@ foam.ENUM({
         return '';
       },
       labelFormatter: function(candidatesCount, totalOutcomes) {
-        return this.REMAINING({ candidatesCount, totalOutcomes });
+        return null;
+        // return this.REMAINING({ candidatesCount, totalOutcomes });
       }
     },
     {

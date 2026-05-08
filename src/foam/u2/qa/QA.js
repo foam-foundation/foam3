@@ -329,26 +329,24 @@ foam.CLASS({
               // Skip answered questions
               if ( self[q.name] !== '' && self[q.name] != 0 && self[q.name] != undefined ) continue;
 
-              // Skip lower priority questions
-              if ( priority > highestPriority ) continue;
-
-              // Always accept lower priority questions
-              if ( priority < highestPriority ) { bestQ = null; bestGain = -1 };
-
               var gain = self.computeInfoGain(q, candidates);
-              console.debug('GAIN FOR:', q, '| gain: ', gain);
+
+              if ( gain == 0 ) continue;
+
+              // console.debug('GAIN FOR:', q, '| gain: ', gain);
+
               // Prefer higher gain, then fewer choices, then earlier declaration
-              if ( gain > bestGain ||
-                   ( gain === bestGain && bestQ &&
-                     q.choices?.length < bestQ.choices?.length ) )
-              {
+              if ( priority < highestPriority ||
+                   gain > bestGain ||
+                   ( gain === bestGain && bestQ && q.choices?.length < bestQ.choices?.length )
+              ) {
                 bestGain        = gain;
                 bestQ           = q;
                 highestPriority = priority;
               }
             }
 
-            // console.log('******* NEXT QUESTION:', bestQ.name);
+            // console.log('******* NEXT QUESTION:', bestQ?.name);
 
             // Don't ask questions with zero information gain
             return bestGain > 0 ? this.cls_.getAxiomByName(bestQ.name) : null;

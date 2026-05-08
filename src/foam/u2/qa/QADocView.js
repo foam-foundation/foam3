@@ -121,12 +121,14 @@ foam.CLASS({
             .start('table').addClass(self.myClass('table'))
               .start('tr')
                 .start('th').add('Property').end()
+                .start('th').add('Priority').end()
                 .start('th').add('Prompt').end()
               .end()
               .forEach(questions, function(q) {
                 try {
                 this.start('tr')
                   .start('td').start('code').add(q.name).end().end()
+                  .start('td').add(q.priority || 100).end()
                   .start('td')
                   .add(q.prompt || '-').tag('br')
                   .callIf(

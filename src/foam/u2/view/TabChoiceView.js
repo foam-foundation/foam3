@@ -35,7 +35,7 @@ foam.CLASS({
 
     ^ label {
       cursor: pointer;
-      padding: 16px 32px;
+      padding: 8px 24px;
     }
   `,
 

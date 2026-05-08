@@ -17,7 +17,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'window'
+    'ctrl?'
   ],
 
   css: `
@@ -66,8 +66,12 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
-      this.add(this.dropdown_);
       this.onDetach(() => this.dropdown_.remove());
+      if ( this.ctrl ) {
+        this.ctrl.add(this.dropdown_);
+      } else {
+        this.dropdown_.write();
+      }
 
       this.onDetach(this.selectColumnsExpanded$.sub(function(expanded) {
         if ( expanded && self.triggerEl ) {

@@ -333,11 +333,16 @@ foam.CLASS({
 
               if ( gain == 0 ) continue;
 
+              if ( priority > highestPriority ) continue;
+
+              if ( priority < highestPriority ) {
+                bestGain = -1;
+                bestQ = null;
+              }
               // console.debug('GAIN FOR:', q, '| gain: ', gain);
 
               // Prefer higher gain, then fewer choices, then earlier declaration
-              if ( priority < highestPriority ||
-                   gain > bestGain ||
+              if ( gain > bestGain ||
                    ( gain === bestGain && bestQ && q.choices?.length < bestQ.choices?.length )
               ) {
                 bestGain        = gain;
@@ -366,6 +371,11 @@ foam.CLASS({
             var buckets       = {};
             var dontCareCount = 0;
 
+            // Add don't-care outcomes to every bucket
+            var total = candidates.length;
+            var entropy = 0;
+
+
             // Initialize buckets for each choice
             question.choices?.forEach(function(c) {
               var value = foam.Array.isInstance(c) ? c[0] : c;
@@ -384,6 +394,8 @@ foam.CLASS({
                   break;
                 }
               }
+
+              if ( term ) entropy += 0.001; // small bonus for each outcome that uses this question
 
               if ( ! term ) {
                 // Don't-care: outcome survives regardless of answer
@@ -407,10 +419,6 @@ foam.CLASS({
                 });
               }
             });
-
-            // Add don't-care outcomes to every bucket
-            var total = candidates.length;
-            var entropy = 0;
 
             question.choices?.forEach(function(c) {
               var value = foam.Array.isInstance(c) ? c[0] : c;

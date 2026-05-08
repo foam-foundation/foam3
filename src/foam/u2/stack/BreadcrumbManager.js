@@ -11,18 +11,24 @@ foam.CLASS({
   imports: [
     'document',
     'stack',
-    'theme'
+    'theme',
+    'memento_'
   ],
+  requires: ['foam.u2.memento.WindowHashMemento'],
   classes: [
     {
       name: 'Breadcrumb',
       imports: ['window', 'document', 'stack'],
       properties: ['title', 'position', 'parent', 'view'],
       methods: [
-        function go() {
-          this.stack?.jump(this.view.__subContext__.stackPos);
-          this.view.routeToMe();
-          this.parent.pos = this.position;
+        async function go() {
+          try {
+            await this.stack?.jump(this.view.__subContext__.stackPos);
+            this.view.routeToMe();
+            this.parent.pos = this.position;
+          } catch {
+            //no-op
+          }
         }
       ],
       listeners: [
@@ -45,7 +51,15 @@ foam.CLASS({
   ],
   methods: [
     function init() {
-      this.stack.stackReset.sub(() => { this.crumbs = []; this.pos = -1; })
+      this.stack.stackReset.sub(() => { this.crumbs = []; this.pos = -1; });
+    },
+    function setDocumentTitleLink() {
+      // Hook up the document title listener in case the memento doesnt update
+      let topMemento = this.memento_;
+      while ( ! this.WindowHashMemento.isInstance(topMemento) && topMemento.parent ) {
+        topMemento = topMemento.parent;
+      }
+      if ( topMemento.setTitleListener ) topMemento.setTitleListener();
     },
     function push(view) {
       foam.assert(foam.u2.Routable.isInstance(view), 'Can not add crumb for non-routable view');
@@ -60,6 +74,7 @@ foam.CLASS({
       this.crumbs[pos] = c;
       this.pos = c.position = pos;
       view.setPrivate_('crumb', c);
+      return c;
     }
   ],
   listeners: [
@@ -69,6 +84,14 @@ foam.CLASS({
       on: ['this.propertyChange.crumbs', 'this.propertyChange.pos'],
       code: function() {
         this.current = this.crumbs[this.pos];
+      }
+    },
+    {
+      name: 'updateTitle',
+      on: ['this.propertyChange.current'],
+      code: function() {
+        if ( ! this.current ) return;
+        this.setDocumentTitleLink();
       }
     }
   ]

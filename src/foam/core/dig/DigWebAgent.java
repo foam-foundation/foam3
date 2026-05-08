@@ -93,7 +93,23 @@ public class DigWebAgent extends ContextAwareSupport
   }
 
   public void sendError(X x, int status, String message) {
-    DigErrorMessage error = new GeneralException(message);
+    String defaultMsg;
+    switch ( status ) {
+      case HttpServletResponse.SC_UNAUTHORIZED:
+        defaultMsg = "Unauthorized: login required or session expired.";
+        break;
+      case HttpServletResponse.SC_FORBIDDEN:
+        defaultMsg = "Forbidden: you don’t have permission to access this resource.";
+        break;
+      case HttpServletResponse.SC_NOT_FOUND:
+        defaultMsg = "Not found: the requested resource does not exist.";
+        break;
+      default:
+        defaultMsg = "Request failed with status " + status + ".";
+    }
+    DigErrorMessage error = new GeneralException(
+      foam.util.SafetyUtil.isEmpty(message) ? defaultMsg : message);
+    error.setMoreInfo(defaultMsg);
     error.setStatus(String.valueOf(status));
     DigUtil.outputException(x, error, Format.JSON);
   }

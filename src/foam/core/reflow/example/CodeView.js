@@ -8,10 +8,18 @@ foam.CLASS({
   package: 'foam.core.reflow.example',
   name: 'CodeView',
   extends: 'foam.u2.ReadWriteView',
-
+  css: `
+    ^readbox {
+      border: 1px dashed $borderDefault;
+      padding: 1rem;
+      text-wrap: auto;
+      margin: 0;
+      border-radius: 4px;
+    }
+  `,
   methods: [
     function toReadE() {
-      return this.E().start('pre').add(this.data$);
+      return this.E().start('pre').addClass(this.myClass('readbox')).add(this.data$);
     },
 
     function toWriteE() {

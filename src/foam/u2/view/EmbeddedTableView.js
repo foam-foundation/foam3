@@ -22,7 +22,8 @@ foam.CLASS({
 
   exports: [
     'click',
-    'config'
+    'config',
+    'prop'
   ],
 
   documentation: `A summary view for tables that shows the first n rows
@@ -82,10 +83,10 @@ foam.CLASS({
     },
     {
       name: 'daoCount',
-      expression: async function(data, rowsToDisplay) {
+      expression: async function(data) {
         // not selecting count because want num entries with limit and skip applied
         var daoCount = (await data.select()).array;
-        return Math.max(daoCount.length - rowsToDisplay, 0);
+        return Math.max(daoCount.length, 0);
       }
     },
     {
@@ -110,14 +111,18 @@ foam.CLASS({
       this.config.createPredicate = foam.mlang.predicate.False.create();
       this.config.deletePredicate = foam.mlang.predicate.False.create();
     },
+    function detach() {
+      this.SUPER();
+      this.view_?.remove();
+    },
     async function render() {
       // Default controller config that would be used for nested tables if no menu config can be found.
       // Update this to be a fallback for menuKeys when we have menuKeys for references, DAOproperties and relationships
       this.setConfigPredicates();
       let self = this;
-      this.detailView?.dynamic(function(route) {
+      this.onDetach(this.detailView?.dynamic(function(route) {
         self.handlePropertyRouting();
-      })
+      }))
       let mem = foam.u2.memento.Memento.create({}, this);
       this.add(this.slot(async function(data, daoCount) {
         daoCount = await daoCount;
@@ -160,17 +165,14 @@ foam.CLASS({
         ...this.config.browseController,
         data: this.data,
         config: this.config,
-        idOfRecord: id,
-      }, this.detailView);
+        ...(id ? {route: id} : {})
+      }, this);
     }
   ],
 
   actions: [
     {
       name: 'openTable',
-      isEnabled: async function(daoCount) {
-        return ( await daoCount ) > 0;
-      },
       code: function() {
         this.openFullTable();
       }

@@ -156,7 +156,7 @@ foam.CLASS({
                 .attrs({ href: '#' })
                 .on('click', (evt) => {
                   evt.preventDefault();
-                  if ( self.linkTo == 'permissioned' ) {
+                  if ( self.linkTo == 'daoSummary' ) {
                     this.routeToDAO(this.__subContext__[this.prop.targetDAOKey], this.obj?.id)
                   } else if ( self.linkTo.includes('/') ) {
                     this.routeTo('#' + this.linkTo);
@@ -224,7 +224,7 @@ foam.CLASS({
 
         // have permission to service.{prop.targetDAOKey} ?
         else if ( this.__subContext__[this.prop.targetDAOKey] ) {
-          this.linkTo = 'permissioned';
+          this.linkTo = 'daoSummary';
           await this.maybeEnableLink();
           return;
         }

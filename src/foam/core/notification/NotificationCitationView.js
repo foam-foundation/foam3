@@ -36,7 +36,7 @@ foam.CLASS({
       expression: function(data$body, data$toastMessage, data$toastSubMessage) {
         return data$body ||
           ( data$toastMessage +
-            ( data$toastSubMessage ? " - "+data$toastSubMessage : "" ) );
+            ( data$toastSubMessage ? " - " + data$toastSubMessage : "" ) );
       }
     }
   ],

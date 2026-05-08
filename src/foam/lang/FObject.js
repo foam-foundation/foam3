@@ -809,8 +809,8 @@ foam.CLASS({
       let a = this.cls_.getAxiomsByClass(foam.lang.Property);
       for ( let i = 0 ; i < a.length ; i++ ) {
         let p = a[i];
-        if ( p.normalize && ! p.hasDefaultValue(this) )
-          p.set(this, await p.normalize(p.get(this), p));
+        if ( p.normalize && ! this.hasDefaultValue(p.name) )
+          p.set(this, await p.normalize(p.get(this), p, this));
       }
     },
 

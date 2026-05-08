@@ -1,318 +1,365 @@
-
 # DAO: Data Access Objects
 
-A DAO, or Data Access Object, is a universal interface to a collection of
-objects. The role of a DAO is to operate as an object store, uniquely
-identifying objects by their `id`, and allowing queries based on the
-object's properties.
+A DAO (Data Access Object) is FOAM's universal interface to a collection of objects. Every DAO — regardless of whether it stores data in memory, a journal file, a SQL database, or a remote server — presents exactly the same interface to the caller. Your code works identically with any of them.
 
-To use your class in a DAO, just add an `id` property:
+DAOs are not just for storage. They are composable: you can wrap one DAO with another to transparently add caching, authorisation, logging, sequence number assignment, and more. The caller never knows or needs to know what's underneath.
+
+---
+
+## Making a Class Storable
+
+To store objects of a class in a DAO, FOAM needs to know which property (or properties) uniquely identify each object — the primary key.
+
+The simplest approach is to name your key property `id`:
 
 ```javascript
 foam.CLASS({
   package: 'fun',
   name: 'StoreMe',
-  properties: [ 'id' ],
+  properties: [ 'id', 'name' ],
 });
 ```
 
-Your `id` must be unique for separate objects, so either set it carefully or use a
-`foam.dao.SequenceNumberDAO` or `foam.dao.EasyDAO` with `seqNo:true` to set
-`id` automatically.
-
-## Basic DAO operations
-
-Here are the fundamental functions in the interface, written as though
-Javascript functions specified return types:
-
-```javascript
-Promise<object> find(id);
-Promise<object> put(object);
-Promise         remove(object);
-
-Promise<Sink> select(sink);
-Promise       removeAll();
-
-//TODO: listen?
-void pipe(sink);
-```
-
-Most of these operations are asynchronous, indicating completion by resolving
-the returned promise. `select` will call `sink.put(object)` on the given sink
-for each object, then call `sink.eof()` and resolve the promise.
-
-You can create a sink as an event handler, responding to events as they happen,
-or use a sink that accumulates the results and waits until the `select` is
-finished. When the promise resolves, your sink will be ready.
-
-## Filtering DAOs
-
-There are four more DAO operations that synchronously return modified DAOs. They
-essentially return a window onto part of the data stored in the original DAO.
-They can filter, sort, limit results, and skip early results.
-
-```javascript
-DAO where(query);
-DAO orderBy(sortOrder);
-DAO limit(num);
-DAO skip(num);
-```
-
-Note that each operation returns a DAO, so they can be easily chained:
-
-```javascript
-dao.where(this.EQ(this.Todo.IS_COMPLETED, true)).skip(40).limit(20).select(sink)
-```
-
-## Querying with mLangs
-
-mLangs are composable objects that allow queries to be expressed without knowing
-the underlying target query language. mLangs serialize easily, and can be
-compiled into SQL, server-specific query formats, or run directly in Javascript
-in the indexed, in-memory `foam.dao.MDAO`.
-
-For example, to pass this filter each object must have an `isCompleted` property
-that equals `true`, and a `label` property that contains the string "donuts",
-case-insensitive:
-
-```javascript
-dao.where(
-  this.AND(
-    this.EQ(this.Todo.IS_COMPLETED, true),
-    this.CONTAINS_IC(this.Todo.LABEL, "donuts")
-  )
-)
-```
-
-The language is extensible, so you can write your own mLangs, or use
-`foam.mlang.predicate.Func` to run an inline function on each potential object.
-Be aware that custom behavior is harder for DAOs to optimize, so try to
-use the standard mLangs.
-
-### Using mLangs
-
-For easy access to the basic mLangs and standard Sinks, either implement
-`foam.mlang.Expressions` or create an instance of
-`foam.mlang.ExpressionsSingleton`. You'll see this in most of the examples.
+If your key property has a different name, or if you have a multi-part primary key, declare it explicitly with `ids`:
 
 ```javascript
 foam.CLASS({
-  name: 'GoingToUseMLangs',
-  implements: [ 'foam.mlang.Expressions' ],
-  methods: [
-    function makeSomeQuery() { return this.EQ(...); }
-  ]
+  name: 'OrderLine',
+  ids: [ 'orderId', 'lineNumber' ],
+  properties: [ 'orderId', 'lineNumber', 'product', 'quantity' ],
 });
-// or
-var m = foam.mlang.ExpressionsSingleton.create();
-m.EQ(...)
 ```
 
-## Sinks
+If you don't want to manage IDs yourself, use `foam.dao.EasyDAO` with `seqNo: true` and IDs will be assigned automatically.
 
-The `Sink` interface is a target for data retrieved from a DAO. Its functions
-are called asynchronously by the DAO.
+## The DAO Interface
 
-```javascript
-void put(obj, [opt_flowControl]);
-void remove(obj, [opt_flowControl]);
-void eof();
-void error(error);
-```
+The full DAO interface is small by design.
 
-See below for the details of when each of these is called. Flow control is
-optionally passed in as a way to abort further operations. If the sink has an
-unrecoverable error, for instance, calling `errorEvt()` on the flow control
-object will hint that the upstream DAO should stop sending `put()`s. If an
-internal limit is reached, a call to `stop()` will halt events but not indicate
-that an error occurred.
+### JavaScript
 
 ```javascript
-MySink {
-  function put(o, fc) {
-    if ( ! mystore.store(o) ) {
-      fc && fc.errorEvt("error!"); // updates will cease
-    }
-  }
+interface DAO {
+  Promise<FObject>  put(FObject obj)               // insert or update; returns stored object
+  Promise<FObject>  find(Object id)                // retrieve by id; returns null if not found
+  Promise<FObject>  remove(FObject obj)            // delete; not an error if not found
+  Promise<Sink>     select(Sink sink)              // retrieve matching objects into sink
+  Promise           removeAll()                    // delete all matching objects
+  Detachable        listen(Sink sink)              // receive ongoing changes; detach to stop
+  void              pipe(Sink sink)                // select() then listen()
+  Object            cmd(Object obj)                // send a command to the DAO (advanced)
+
+  DAO               where(Predicate predicate)     // filter results
+  DAO               orderBy(Comparator comparator) // sort results
+  DAO               limit(Long count)              // cap result count
+  DAO               skip(Long count)               // skip first N results
+  DAO               inX(Context x)                 // return DAO running in a different context
 }
 ```
 
-### Creating a Sink inline
+### Java
 
-Often you want to perform a query and do something with each object it
-produces. You can declare a Sink inline with `foam.dao.ProxySink`:
+```java
+public interface DAO {
+  // Single-object operations
+  FObject put(FObject obj);
+  FObject find(Object id);
+  FObject remove(FObject obj);
 
-```javascript
-dao.select(foam.dao.ProxySink.create({delegate: {
-  put: function(o) {
-    console.log("Got an object:", o);
-  },
-}}));
+  // Collection operations
+  Sink select(Sink sink);
+  void removeAll();
+  void listen(Sink sink, Predicate predicate);
+  void pipe(Sink sink);
+
+  // Filtering (returns a new DAO)
+  DAO where(Predicate predicate);
+  DAO orderBy(Comparator comparator);
+  DAO skip(long count);
+  DAO limit(long count);
+  DAO inX(X x);
+
+  // Escape hatch
+  Object cmd(Object obj);
+
+  // Introspection
+  ClassInfo getOf();
+}
 ```
 
-or just add a function:
+Note that `getOf()` returns the `ClassInfo` of the type of objects stored in the DAO — useful for introspection and generic DAO handling code.
+
+---
+
+The filtering methods (`where`, `orderBy`, `limit`, `skip`) return a new DAO that wraps the original. They don't execute anything — they just narrow the scope of the next `select` or `removeAll`. They can be chained freely:
 
 ```javascript
-dao.select(function(o) {
-  console.log("Got an object:", o);
-});
+dao.where(EQ(Todo.IS_COMPLETED, true))  // EQ and other predicates are covered below
+   .orderBy(Todo.CREATED_TIME)
+   .skip(40)
+   .limit(20)
+   .select();
 ```
 
-## Errors
+*(The `EQ` function used here comes from FOAM's mLang query language, explained in the [Querying with mLangs](#querying-with-mlangs) section below.)*
 
-DAO Operations can throw exceptions that cause their returned Promise to reject.
-These errors generally fall into two categories:
+**Important:** filtering methods only affect `select` and `removeAll`. They have no effect on `find`, `put`, or `remove`.
 
-```javascript
-foam.dao.InternalException // The operation can be retried
-foam.dao.ExternalException // The operation will never be able to complete
-```
+---
 
-Both carry a `message` property with general information, and more specific
-error types will have specific properties detailing the error. For example,
-`ObjectNotFoundException.id` notes the ID of the object it couldn't find.
-
-## DAO Operation Methods
-
-In general all DAOs will provide methods to match this behavior. Note that
-DAO operations are asynchronous, so if you need to wait for the operation to
-complete and read a result, make sure to use the returned Promises.
-
-### find(id)
-*`returns Promise<object>`*
-
-Retrieves a single object from the DAO, whose `id` is given.
-
-If the object is found, the promise resolves with the object. If the object is
-not found, it rejects with a `foam.dao.ObjectNotFoundException`.
+## Single-Object Operations
 
 ### put(obj)
-*`returns Promise<object>`*
 
-Inserts a new object, or updates an existing one. The interface makes no
-distinction. Many backends also don't care. DAO implementations for those
-backends which do care can perform a `find()` first to check if the object
-already exists.
+Inserts a new object or updates an existing one. The DAO makes no distinction — backends that care can do a `find` internally to check. The resolved value is the stored object, which may differ from what you passed in (for example, with an auto-assigned `id` or server-side defaults filled in):
 
-When the object is stored successfully, the promise resolves with the newly added
-object. Why return the object? Because the DAO is free to modify the object if
-necessary - filling in an autoincremented `id`, or a default value, or otherwise
-massaging the data.
+```javascript
+var recipe = Recipe.create({ name: 'Pancakes' });
+recipe = await dao.put(recipe);
+console.log(recipe.id); // now set by the DAO
+```
 
+### find(id)
+
+Retrieves a single object by its primary key. If the object is found the promise resolves with it. If not found it resolves with `null` — it does not reject:
+
+```javascript
+var recipe = await dao.find(42);
+if ( recipe === null ) console.log('not found');
+```
+
+For multi-part primary keys, pass an array:
+
+```javascript
+var line = await dao.find([orderId, lineNumber]);
+```
 
 ### remove(obj)
-*`returns Promise`*
 
-Deletes a single object from the DAO.
-
-**NB**: Trying to remove an object which does not exist is **not** an error.
-`remove()` only rejects if it fails to communicate with the backend
-in some fashion.
-
-
-### select(sink)
-*`returns Promise<sink>`*
-
-The primary way of reading objects from a DAO. `select(sink)` retrieves
-a collection of results, sending them to the `sink`. A simple `select(sink)`
-returns everything in the DAO.
+Deletes a single object. Attempting to remove an object that does not exist is **not** an error — `remove` only rejects if it fails to reach the backend:
 
 ```javascript
-dao.select().then(function(sink) {
-  console.log("Default ArraySink with the entire DAO contents:", sink.a);
+await dao.remove(recipe);
+```
+
+---
+
+## Querying with mLangs
+
+FOAM's query language is called **mLang**. Rather than strings (like SQL), mLang queries are composable objects. This means they are injection-safe, can be serialised and sent across a network, and can be executed directly in JavaScript or compiled to SQL or other query formats depending on the backend — all transparently.
+
+To use mLang expressions conveniently, either implement `foam.mlang.Expressions` in your class or create a singleton instance:
+
+```javascript
+// Option 1: implement in your class (recommended)
+foam.CLASS({
+  name: 'MyController',
+  implements: [ 'foam.mlang.Expressions' ],
+  methods: [
+    async function loadOverdue() {
+      return (await this.dao.where(
+        this.LT(Invoice.DUE_DATE, new Date())
+      ).select()).array;
+    }
+  ]
+});
+
+// Option 2: standalone singleton
+var M = foam.mlang.ExpressionsSingleton.create();
+dao.where(M.EQ(Todo.IS_COMPLETED, true));
+```
+
+### Common predicates
+
+| Expression | Meaning |
+|---|---|
+| `EQ(prop, value)` | prop === value |
+| `NEQ(prop, value)` | prop !== value |
+| `GT(prop, value)` | prop > value |
+| `GTE(prop, value)` | prop >= value |
+| `LT(prop, value)` | prop < value |
+| `LTE(prop, value)` | prop <= value |
+| `IN(prop, [v1, v2])` | prop is one of the values |
+| `CONTAINS(prop, str)` | prop contains str (case-sensitive) |
+| `CONTAINS_IC(prop, str)` | prop contains str (case-insensitive) |
+| `AND(pred1, pred2, ...)` | all predicates must match |
+| `OR(pred1, pred2, ...)` | any predicate must match |
+| `NOT(pred)` | negate a predicate |
+
+For cases where no standard predicate fits, `foam.mlang.predicate.Func` lets you run an inline function. Be aware that custom functions can't be optimised by the DAO the way standard mLangs can, so prefer the standard set where possible.
+
+### Sort order
+
+```javascript
+dao.orderBy(MyModel.NAME)                           // ascending
+dao.orderBy(DESC(MyModel.CREATED_TIME))             // descending
+dao.orderBy(DESC(MyModel.RANK), MyModel.LAST_NAME)  // compound
+```
+
+---
+
+## select() and Sinks
+
+`select(sink)` is the primary way to retrieve a collection of objects. It calls `sink.put(obj)` for each matching object, then calls `sink.eof()` when done, and resolves the returned promise with the same sink.
+
+If no sink is provided, an `ArraySink` is used by default.
+
+### The Sink interface
+
+```javascript
+void put(obj, sub)     // called for each object
+void eof()             // called when the stream ends normally
+void remove(obj, sub)  // called for each removed object (listen() only)
+void reset(sub)        // called when the result set may have changed (listen() only)
+```
+
+`select()` only uses `put()` and `eof()`. The `remove()` and `reset()` methods are used by `listen()`, which delivers ongoing changes after the initial select.
+
+The `sub` argument passed to `put()` and `remove()` is a `Detachable` — an object with a single `detach()` method. Call `sub.detach()` if you want to stop receiving further objects without waiting for `eof()`.
+
+### Common Sinks
+
+| Sink | Purpose | Result property |
+|---|---|---|
+| `ArraySink` | Collects all objects into an array | `.array` |
+| `COUNT()` | Counts matching objects | `.value` |
+| `SUM(prop)` | Sums a numeric property | `.value` |
+| `MAX(prop)` | Finds the maximum value of a property | `.value` |
+| `MIN(prop)` | Finds the minimum value of a property | `.value` |
+| `GROUP_BY(prop, sink)` | Groups results by property value | `.groups` |
+| `MAP(prop)` | Projects a single property from each object | `.array` |
+| `UNIQUE(prop, sink)` | Passes only objects with distinct values of prop | — |
+
+### Sink examples
+
+```javascript
+// Collect all results
+var sink = await dao.select();
+console.log(sink.array);
+
+// Count
+var count = await dao.select(COUNT());
+console.log(count.value);
+
+// Sum a property
+var total = await dao.select(SUM(Invoice.AMOUNT));
+console.log(total.value);
+
+// Group by status
+var groups = await dao.select(GROUP_BY(Invoice.STATUS, COUNT()));
+console.log(groups.groups);
+```
+
+### Inline Sinks
+
+For simple cases, pass a function directly:
+
+```javascript
+await dao.select(function(obj) {
+  console.log('Got:', obj.name);
 });
 ```
 
-Often, `where()`, `orderBy()`, `skip()` and `limit()` will be used first, to
-limit the scope of the `select()`.
+Or create a `ProxySink` for more control:
 
 ```javascript
-mySink = this.ArrayDAO.create(); // DAOs are sinks too!
-dao.where(this.EQ(this.Todo.IS_COMPLETED, false)).select(mySink);
+await dao.select(foam.dao.ProxySink.create({
+  delegate: {
+    put: function(obj, sub) {
+      if ( tooMany() ) sub.detach(); // stop early
+      console.log('Got:', obj);
+    },
+    eof: function() { console.log('Done'); }
+  }
+}));
 ```
 
-The DAOs returned by `where()` and friends are actually small wrappers around
-the original DAO that fill in extra, hidden arguments to `select()` and
-`removeAll()`.
+---
 
-`select()` calls `sink.put(obj)` repeatedly, once for each object retrieved. It
-then calls `sink.eof()` and resolves the returned promise with the same sink
-passed in. This allows you to pass in a sink like `ArraySink` or `Count`, and
-inspect it after the `select` completes:
+## listen()
+
+`listen(sink)` is like `select()` but it keeps running. After delivering the current contents of the DAO via `put()`, it continues to call `sink.put()` for new objects, `sink.remove()` for deleted ones, and `sink.reset()` when the result set may have changed in a way that can't be expressed as individual puts and removes (for example, after a bulk operation).
 
 ```javascript
-dao.select(this.COUNT()).then(function(count) {
-  console.log(count.value);
-});
+dao.listen(foam.dao.ProxySink.create({
+  delegate: {
+    put:    function(obj) { console.log('added or updated:', obj); },
+    remove: function(obj) { console.log('removed:', obj);          },
+    reset:  function()    { console.log('reload everything');      }
+  }
+}));
 ```
 
-If you don't specify a Sink when calling `select()`, a `foam.dao.ArraySink`
-will be created by default and passed to the resolved Promise:
+Call `sub.detach()` inside any callback to stop listening.
+
+
+## removeAll()
+
+Works like `select()` but removes matching objects instead of returning them. Use filtering first — a bare `dao.removeAll()` deletes everything:
 
 ```javascript
-dao.select().then(function(arraySink) {
-  // ArraySinks have an 'a' property with the result array
-  console.log("Length:", arraySink.a.length);
-});
+// Delete all completed todos
+await dao.where(EQ(Todo.IS_COMPLETED, true)).removeAll();
 ```
 
-When calling `select()` or `removeAll()`, the returned Promise will resolve
-after all `put` and `remove` operations have been called (if those operations
-happen to return Promises, they are ignored).
+---
 
-### removeAll()
-*`returns Promise`*
+## Error Handling
 
-`removeAll()` is very similar to `select()`, with the obvious exception that it
-removes all matching entries from the DAO instead of returning them.
+DAO operations reject their returned promise on failure. Errors fall into two categories:
 
-Be careful! `myDAO.removeAll()` without any filtering will delete every entry.
+| Exception | Meaning |
+|---|---|
+| `foam.dao.InternalException` | Transient — the operation may be retried |
+| `foam.dao.ExternalException` | Permanent — the operation cannot succeed |
 
-## DAO Filtering Methods
-
-These methods return a new DAO that wraps your old one, restricting what you
-see when you `select`, and `removeAll`. You can call these methods
-multiple times, adding new filters, or call them multiple times on your DAO,
-getting different filtered views of the same contents.
-
-**NB:** These filtering methods do not apply to `find`, `remove` or `put`!
-
-### where(predicate)
-*`returns DAO`*
-
-`where(predicate)` returns a new DAO that is a filtered window onto the
-data in the original.
-
-The `predicate` argument is structured using FOAM's mLang syntax. This is
-a structured, injection-safe query language written in Javascript. Just like
-SQL, you can compose comparisons like `GT`, `EQ`, `IN`, or `CONTAINS` with
-operators like `AND` and `OR`.
-
-
-### orderBy(order)
-*`returns DAO`*
-
-`orderBy(order)` uses a small subset of mLang syntax (see `where()` above) to
-specify a sort order.
-
-Some examples:
+Both carry a `message` property. Note that `find()` returns `null` for a missing object rather than throwing — an exception from `find()` means a genuine failure to reach or query the backend, not simply that the object wasn't there.
 
 ```javascript
-myDAO.orderBy(this.MyModel.NAME)
-myDAO.orderBy(this.DESC(this.MyModel.CREATED_TIME))
-myDAO.orderBy(this.DESC(this.MyModel.RANK),
-    this.MyModel.LAST_NAME, this.MyModel.FIRST_NAME)
+try {
+  var obj = await dao.find(id);
+  if ( obj === null ) console.log('object does not exist');
+} catch (e) {
+  console.log('DAO error:', e.message);
+}
 ```
 
+## Advanced Methods
 
-### limit(num)
-*`returns DAO`*
+### cmd(obj)
 
-Limits the maximum number of requests returned by the DAO. Mostly useful for
-paging results and infinite scrolling.
+`cmd()` is an escape hatch for DAO-specific operations that don't belong on the universal interface. The problem it solves: a `CachingDAO` needs a way to purge its cache, but adding `purge()` to the DAO interface would force every DAO implementation to provide it, even those that have no cache. And manually walking a decorator chain to find the `CachingDAO` — assuming it even exists, and isn't on the other side of a network boundary — is fragile and couples the caller to the implementation.
 
-### skip(num)
-*`returns DAO`*
+Instead, each DAO decorator intercepts the commands it recognises and delegates the rest. The caller just does:
 
-Ignores the first `num` results from the DAO (according to the sort order).
-Useful for paging and infinite scrolling.
+```javascript
+dao.cmd(foam.dao.DAO.PURGE_CMD);
+```
+
+Every decorator in the chain sees it. The `CachingDAO` handles it; everything else passes it along. The caller doesn't need to know what decorators are present, in what order, or where they are.
+
+Individual DAOs define their own domain-specific commands. These follow the same pattern: send the command, the right decorator handles it, the rest ignore it.
+
+A `null` return means the command was not handled by any DAO in the chain. Most application code never needs `cmd()` directly.
+
+### inX(x)
+
+Returns a new DAO that runs all operations in the provided context `x`. Internally it wraps the current DAO in a `ProxyDAO` with `x` as the execution context, so every subsequent call — `put`, `find`, `select`, etc. — runs with the services, permissions, and session data bound to `x` rather than the original context.
+
+```javascript
+// Run a query as a different user / session
+var scopedDAO = dao.inX(otherContext);
+var results = await scopedDAO.select();
+```
+
+Typical uses include impersonating a user, switching sessions, or overriding a context-provided service for a specific set of operations. Note that `inX` is unrelated to the `IN` mlang predicate used in queries.
+
+---
+
+## A Note on Abstraction
+
+You may notice that nothing above says anything about *where* the data is stored. That is intentional. The same code works whether the DAO is backed by an in-memory `MDAO`, a journalled `JDAO`, a `JDBCDAO` connected to PostgreSQL, or a `ClientDAO` talking to a remote server.
+
+This is the point. The DAO interface is the complete contract. Code that depends on knowing the underlying storage mechanism is unnecessarily fragile — and it forfeits the caching, authorisation, audit logging, and other layers that FOAM composes transparently above any DAO.
+
+When you find yourself asking "but what database is this DAO using?" — the answer is: it doesn't matter, and designing your code so that it doesn't matter is what makes it fast, portable, and composable.

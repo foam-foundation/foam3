@@ -43,7 +43,7 @@ foam.CLASS({
         .end()
         .start('div')
           .addClass(this.myClass('documentation'))
-          .add(this.data.documentation || '')
+          .add(this.data.help || '')
         .end();
     }
   ]
@@ -93,6 +93,11 @@ foam.CLASS({
 
   documentation: 'Custom RichChoiceView for NumberFormat enum values',
 
+  requires: [
+    'foam.dao.ArrayDAO',
+    'foam.core.reflow.NumberFormat'
+  ],
+
   properties: [
     {
       name: 'selectionView',
@@ -111,9 +116,9 @@ foam.CLASS({
       factory: function() {
         return [
           {
-            dao: foam.dao.ArrayDAO.create({
-              of: foam.core.reflow.NumberFormat,
-              array: foam.core.reflow.NumberFormat.VALUES
+            dao: this.ArrayDAO.create({
+              of: this.NumberFormat,
+              array: this.NumberFormat.VALUES
             })
           }
         ];

@@ -33,7 +33,6 @@ foam.CLASS({
 
   css: `
     ^ {
-      cursor: pointer;
       inset: none;
       white-space: nowrap;
     }
@@ -44,9 +43,16 @@ foam.CLASS({
     }
 
     ^heading {
+      cursor: pointer;
       min-height: 40px;
       display: flex;
       align-items: center;
+    }
+
+    ^disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     button^button {
@@ -302,6 +308,7 @@ foam.CLASS({
         }).
         start().
           addClass(self.myClass('heading')).
+          enableClass(self.myClass('disabled'), self.data.enabled$.not()).
           style({
             'padding-left': (((self.level - 0.5) * 16 ) + 'px')
           }).
@@ -311,10 +318,10 @@ foam.CLASS({
               label: { class: 'foam.u2.view.TreeViewRow.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL',
-              themeIcon: self.data.themeIcon || '',
-              icon: self.data.icon || ''
+              themeIcon$: self.data$.dot('themeIcon') || '',
+              icon$: self.data$.dot('icon') || ''
             }).
-              attrs({ title: labelString }).
+              attrs({ title: self.data$.dot('tooltip').map(t => t || labelString) }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().
@@ -508,16 +515,6 @@ foam.CLASS({
             self.selection = obj;
             isFirstSet = true;
           }
-          var t = {
-            class:        foam.u2.view.TreeViewRow,
-            data:         obj,
-            relationship: self.relationship,
-            expanded:     self.startExpanded,
-            formatter:    self.formatter,
-            query:        self.query,
-            onClickAddOn: self.onClickAddOn,
-            level:        1
-          };
           this.tag({
             class:        foam.u2.view.TreeViewRow,
             data:         obj,
@@ -526,7 +523,7 @@ foam.CLASS({
             formatter:    self.formatter,
             query:        self.query,
             onClickAddOn: self.onClickAddOn,
-            level:        1
+            level:        0
           });
         });
     },

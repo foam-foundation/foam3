@@ -61,6 +61,7 @@
         Priority is a multiple of 10 in the range of (lowest) 0 -> inf (highest).
         Priority is defaulted to 10 so rule groups can ensure they go last by setting priority to 0
       `,
+      help: 'Controls the order in which rule groups are evaluated. Higher values run first. Default is 10. Set to 0 to ensure a group runs last.',
       writePermissionRequired: true
     }
   ],

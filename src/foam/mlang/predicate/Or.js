@@ -166,7 +166,8 @@ return this;`
         if ( mql )
           mqlStringsArr.push(mql);
       }
-      return mqlStringsArr.join(' OR ');
+      var result = mqlStringsArr.join(' OR ');
+      return mqlStringsArr.length > 1 ? '(' + result + ')' : result;
     }
   ]
 });

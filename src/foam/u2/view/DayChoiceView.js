@@ -19,6 +19,9 @@ foam.CLASS({
   ^:hover {
     cursor: pointer;
   }
+  ^disabled:hover {
+    cursor: default;
+  }
   ^selected {
     background-color: $backgroundBrand;
     border-color: $backgroundBrand;

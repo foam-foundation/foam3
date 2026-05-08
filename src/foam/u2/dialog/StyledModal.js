@@ -55,12 +55,15 @@ foam.CLASS({
       border: 1px solid $borderDefault;
       border-radius: 0 0 3px 3px;
       border-top: none;
-      box-shadow: 0 24px 24px 0 rgba(0, 0, 0, 0.12), 0 0 24px 0 rgba(0, 0, 0, 0.15);      
+      box-shadow: 0 24px 24px 0 rgba(0, 0, 0, 0.12), 0 0 24px 0 rgba(0, 0, 0, 0.15);
       display: flex;
       flex-direction: column;
       overflow: hidden;
       padding: 24px;
-      padding-bottom: 0px; 
+      height: 100%;
+    }
+    ^inner:not(^lowerPadding) {
+      padding-bottom: 0px;
     }
     ^modal-body{
       height: 100%;
@@ -72,6 +75,9 @@ foam.CLASS({
       justify-content: flex-end;
       padding: 16px 0px;
       gap: 8px;
+    }
+    ^actionBar:empty {
+      display:none;
     }
     ^fullscreen ^wrapper {
       height: 100%;
@@ -136,7 +142,9 @@ foam.CLASS({
     {
       class: 'String',
       name: 'description'
-    }
+    },
+    'wrapper_',
+    'data'
   ],
 
   methods: [
@@ -155,7 +163,7 @@ foam.CLASS({
           .addClass(this.myClass('background'))
           .on('click', this.closeable ? this.close : null)
         .end()
-        .start(this.Rows)
+        .start(this.Rows, {}, this.wrapper_$)
           .addClass(this.myClass('wrapper'))
           .style({
             'max-height': this.slot(function(fullscreen, maxHeight) { return ! fullscreen ? maxHeight : ''}),
@@ -168,6 +176,7 @@ foam.CLASS({
           .end()
           .start()
             .enableClass(this.myClass('inner'), this.isStyled$)
+            .enableClass(this.myClass('lowerPadding'), this.actionArray$.map(a => ! a?.length))
             .enableClass(this.myClass('closeable'), this.closeable$)
             .start().addClass(this.myClass('header'))
               .start().addClass('h400', this.myClass('title')).add(this.title).end()
@@ -183,17 +192,21 @@ foam.CLASS({
               .add(this.addBody())
             .end()
             .start()
-              .addClass(this.myClass('actionBar'))
-              .call(this.addActions, [this])
-            .end()
+                .addClass(this.myClass('actionBar'))
+                .call(this.addActions, [this])
+              .end()
           .end()
         .end();
+    },
+    function styleWrapper() {
+      this.wrapper_.style(...arguments);
+      return this;
     },
     function addBody() {
       return this.E().tag('', null, this.content$);
     },
     function addActions(self) {
-      var actions = this.startContext({ data$: self.data$ });
+      var actions = this.startContext({ data: self.data$ });
       for ( action of self.actionArray ) {
         actions.tag(action);
       }
@@ -201,4 +214,3 @@ foam.CLASS({
     }
   ]
 });
-

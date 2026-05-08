@@ -1,1 +1,2 @@
 p({"class":"foam.core.security.test.SecurityAuditTest","id":"SecurityAuditTest","description":"Test DAO CSpecs for misconfiguration"})
+p({"class":"foam.core.security.test.KeyStoreAwareTest","id":"KeyStoreAwareTest"})

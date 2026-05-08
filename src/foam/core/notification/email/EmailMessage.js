@@ -34,6 +34,14 @@ foam.CLASS({
     'status'
   ],
 
+  searchColumns: [
+    'created',
+    'subject',
+    'to',
+    'from',
+    'status'
+  ],
+
   sections: [
     {
       name: 'emailInformation',

@@ -78,10 +78,12 @@ foam.INTERFACE({
   ]
 });
 
+
 foam.CLASS({
   package: 'foam.u2',
   name: 'SuffixFormatter',
   implements: [ 'foam.u2.TextFormatter' ],
+
   documentation: `
     Formats a string of word characters by using a string formatter
     that will be appended to the data.

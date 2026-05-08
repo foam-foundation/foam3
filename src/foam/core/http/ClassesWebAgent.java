@@ -7,8 +7,6 @@
 package foam.core.http;
 
 import foam.lang.*;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.io.PrintWriter;
 
 public class ClassesWebAgent
@@ -17,17 +15,12 @@ public class ClassesWebAgent
   public ClassesWebAgent() {}
 
   public void execute(X x) {
-    final PrintWriter out  = x.get(PrintWriter.class);
-
+    final PrintWriter out = x.get(PrintWriter.class);
     out.println("<pre>");
-    ClassLoader cl = ClassLoader.getSystemClassLoader();
-
-    URL[] urls = ((URLClassLoader) cl).getURLs();
-
-    for ( URL url : urls ) {
-      out.println(url.getFile());
+    String classpath = System.getProperty("java.class.path");
+    for ( String entry : classpath.split(System.getProperty("path.separator")) ) {
+      out.println(entry);
     }
-
     out.println("</pre>");
   }
 }

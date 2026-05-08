@@ -142,11 +142,12 @@ foam.INTERFACE({
     `void validateObj(foam.lang.X x, foam.lang.FObject obj) {
        /* Template Method: override in subclass if required. */
        if ( getRequired() && (! isSet(obj) || isDefaultValue(obj)) ) {
-         throw new ValidationException(getName() + " required");
+         throw new PropertyRequiredException();
        }
     }`,
     'void fromCSVLabelMapping(java.util.Map<String,foam.lib.csv.FromCSVSetter> map)',
     'boolean getSheetsOutput() { return false; }',
-    'Object castObject(Object value) { return value; }'
+    'Object castObject(Object value) { return value; }',
+    'int getOrder() { return 0; }',
   ]
 });

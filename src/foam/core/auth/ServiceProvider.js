@@ -34,6 +34,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'id',
+      createVisibility: 'RW',
+      updateVisibility: 'RW',
       documentation: 'Service provider name',
       validationPredicates: [
         {

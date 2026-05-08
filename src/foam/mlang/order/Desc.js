@@ -20,10 +20,10 @@ foam.CLASS({
     {
       class: 'FObjectProperty',
       name: 'arg1',
-      type: 'foam.mlang.order.Comparator',
+      of: 'foam.mlang.order.Comparator',
       adapt: function(o, n, prop) {
         var ret  = foam.compare.toCompare(n);
-        var type = foam.lookup(prop.type);
+        var type = prop.of;
         if ( type.isInstance(ret) ) {
           return ret;
         }

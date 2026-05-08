@@ -26,9 +26,17 @@ foam.CLASS({
 
   methods: [
     function read(out, offset, length) {
-      var reader = new FileReader();
-
       var b = this.blob.slice(offset, offset + length);
+
+      // Node.js: use blob.arrayBuffer() API (Node.js 18+)
+      if ( typeof FileReader === 'undefined' ) {
+        return b.arrayBuffer().then(function(arrayBuffer) {
+          out(arrayBuffer);
+        });
+      }
+
+      // Browser: use FileReader API
+      var reader = new FileReader();
 
       return new Promise(function(resolve, reject) {
         reader.onload = function(e) {

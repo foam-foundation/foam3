@@ -113,8 +113,12 @@ if [ "${DEBUG}" = "1" -o "${DEBUG_DEV}" = "1" ]; then
 fi
 
 # OutOfMemory
-JAVA_OPTS="${JAVA_OPTS} -XX:+HeapDumpOnOutOfMemoryError"
-JAVA_OPTS="${JAVA_OPTS} -XX:HeapDumpPath=${LOG_HOME}/java-%t.hprof"
+if [ "${HEAP_DUMP_ON_OOM:-1}" = "1" ]; then
+    JAVA_OPTS="${JAVA_OPTS} -XX:+HeapDumpOnOutOfMemoryError"
+    JAVA_OPTS="${JAVA_OPTS} -XX:HeapDumpPath=${LOG_HOME}/java-%t.hprof"
+else
+    JAVA_OPTS="${JAVA_OPTS} -XX:-HeapDumpOnOutOfMemoryError"
+fi
 #JAVA_OPTS="${JAVA_OPTS} -XX:OnOutOfMemoryError="< cmd args >;< cmd args >" // shutdown -r for example.
 JAVA_OPTS="${JAVA_OPTS} -XX:+UseGCOverheadLimit"
 

@@ -1,6 +1,7 @@
 p({"class":"foam.core.reflow.cmd.Cells", "id": "cells", permissionRequired: true })
 p({"class":"foam.core.reflow.cmd.Clear", "id": "clear"})
 p({"class":"foam.core.reflow.cmd.DAO", "id": "dao"})
+p({"class":"foam.core.reflow.cmd.From", "id": "FROM", permissionRequired: true})
 p({"class":"foam.core.reflow.cmd.DAOCreate", "id": "add", linkable: false})
 p({"class":"foam.core.reflow.cmd.DAOS", "id": "daos"})
 p({"class":"foam.core.reflow.cmd.Describe", "id": "describe", linkable: false})
@@ -24,6 +25,17 @@ p({
     this.addValue(clock);
 //    this.out.add(clock);
 //    this.currentBlock.value = clock;
+   """,
+   permissionRequired: true
+})
+
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "api",
+  "description": "Show DAO API documentation",
+  "script": """
+    let doc = foam.doc.DIGApiDoc.create({data: args[0]}, this);
+    this.addValue(doc);
    """,
    permissionRequired: true
 })
@@ -77,6 +89,12 @@ p({
   "id": "markdown",
   "description": "Insert Markdown Document",
   "script": "addValue(foam.core.reflow.Markdown.create({markdown: args.join(' ')}, this));"
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "image",
+  "description": "Insert Image",
+  "script": "addValue(foam.core.reflow.Image.create({}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
@@ -165,4 +183,9 @@ p({"class":"foam.core.reflow.cmd.DAOFilter", "id": "daofilter"})
 p({
   "class":"foam.core.reflow.cmd.Info",
   "id": "info"
+})
+p({
+  "class":"foam.core.reflow.cmd.Example",
+  "id": "example",
+  "description": "Run an example code snippet"
 })

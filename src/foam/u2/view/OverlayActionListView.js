@@ -59,7 +59,7 @@ foam.CLASS({
       of: 'foam.u2.Element',
       name: 'overlay_',
       factory: function() {
-        return this.OverlayDropdown.create();
+        return this.OverlayDropdown.create({ parentEdgePadding: 1 });
       }
     },
     {
@@ -184,9 +184,10 @@ foam.CLASS({
     ^iconOnly{
       padding: 0px;
     }
-
+    ^dropdown.foam-u2-HTMLView {
+      padding: 0
+    }
     ^dropdown svg {
-      font-size: 0.6rem;
       fill: currentcolor;
     }
 
@@ -272,14 +273,14 @@ foam.CLASS({
       this.onDetach(() => { this.overlay_ && this.overlay_.remove(); });
 
       // sub to actions from view
-      self.obj?.sub('action', function() {
+      self.obj?.sub('actionCalled', function() {
         self.overlay_.close();
       });
       // sub to actions from view data
-      self.obj?.data?.sub('action', function() {
+      self.obj?.data?.sub('actionCalled', function() {
         self.overlay_.close();
       });
-      view$ = this.dynamic(function(availabilities_) {
+      view$ = this.dynamic(function(availabilities_, data) {
         this.startContext({ data: self.obj, dropdown: self.overlay_ });
         if ( availabilities_ === false ) {
           this.start().addClass('p', self.myClass('disabled')).add(self.NO_AVAILABLE).end();
@@ -303,8 +304,8 @@ foam.CLASS({
           });
           spinner.remove();
           var actionElArray_ = this.childNodes;
-          self.firstEl_ = actionElArray_[0].childNodes[0];
-          self.lastEl_ = actionElArray_[actionElArray_.length - 1].childNodes[0];
+          self.firstEl_ = actionElArray_[0]?.childNodes[0];
+          self.lastEl_ = actionElArray_[actionElArray_.length - 1]?.childNodes[0];
           (self.firstEl_ && ! self.isMouseClick) && self.firstEl_.focus();
         }
         this.endContext();
@@ -346,6 +347,7 @@ foam.CLASS({
     {
       name: 'createAvailabilitySlotArray',
       documentation: 'Returns an array slot that returns true when any of the actions in data are available',
+      on: ['this.propertyChange.data'],
       code: function() {
         let availSlots = this.data.map(action => {
           if (  foam.u2.ActionReference.isInstance(action) && action.data ) return action.action.createIsAvailable$(this.__context__, action.data)

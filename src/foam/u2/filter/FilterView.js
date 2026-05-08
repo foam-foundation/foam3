@@ -47,7 +47,7 @@ foam.CLASS({
 
   css: `
     ^ {
-      flex: 1;
+      flex: 1 0 60%;
       position: relative;
     }
 
@@ -83,9 +83,15 @@ foam.CLASS({
       width: 100%;
     }
 
+    ^no-filters {
+      display: flex;
+      width: 100%;
+      align-items: center;
+    }
+
     ^general-field {
       margin: 0;
-      flex: 0 0 85%;
+      flex-basis: 85%;
     }
 
     ^general-field input {
@@ -159,7 +165,8 @@ foam.CLASS({
     { name: 'LINK_ADVANCED',        message: 'Advanced filters' },
     { name: 'LINK_SIMPLE',          message: 'Switch to simple filters' },
     { name: 'MESSAGE_ADVANCEDMODE', message: 'Advanced filters are currently being used.' },
-    { name: 'LABEL_FILTER',         message: 'Filters' }
+    { name: 'LABEL_FILTER',         message: 'Filters' },
+    { name: 'NO_FILTERS',           message: 'No filters selected' }
   ],
 
   properties: [
@@ -224,8 +231,10 @@ foam.CLASS({
     {
       name: 'searchData',
       shortName: 'search',
+      onKey: true,
       memorable: true
-    }
+    },
+    'hasAvailableFilters'
   ],
 
   methods: [
@@ -240,6 +249,7 @@ foam.CLASS({
       this.onDetach(this.filterController.mementoPredicate$.sub(this.updateMementoString));
 
       await this.updateFilters();
+      this.hasAvailableFilters = await this.checkAvailableFilters();
 
       self.filtersContainer = this.E().addClass(self.myClass('container-drawer'))
       .enableClass(self.myClass('container-drawer-open'), self.isOpen$)
@@ -248,7 +258,14 @@ foam.CLASS({
       .add(self.dynamic(function (filters) {
         // This must be done as the predicate might change as the views are rendered;
         let currentPredicate = self.filterController.finalPredicate;
-        if ( ! filters ) return;
+        if ( ! filters?.length && ! self.hasAvailableFilters ) return;
+        if ( ! filters?.length && self.hasAvailableFilters ) {
+          this.start()
+            .addClass(self.myClass('no-filters'))
+            .add(self.NO_FILTERS)
+          .end();
+          return;
+        }
         this
           .start().addClass(self.myClass('container-filters'))
             .forEach(filters, function(f) {
@@ -288,7 +305,7 @@ foam.CLASS({
         .add(this.dynamic(function(filters) {
           var generalSearchField = foam.u2.ViewSpec.createView(self.TextSearchView, {
             of: self.dao.of.id,
-            onKey: true,
+            property: self.SEARCH_DATA,
             name: 'filterSearch',
             data$: self.searchData$
           }, self, self.__subContext__);
@@ -304,14 +321,11 @@ foam.CLASS({
             .start().addClass(self.myClass('container-handle'))
             .startContext({ data: self })
               .start(self.TOGGLE_DRAWER, { label$: labelSlot, isIconAfter: true, themeIcon: 'dropdown', size: 'SMALL' })
-                .show(filters.length)
+                .show(filters.length || self.hasAvailableFilters)
                 .enableClass(self.myClass('filter-button-active'), self.isOpen$)
                 .addClass(self.myClass('filter-button'))
               .end()
             .endContext()
-            .end()
-            .start()
-            .style({ overflow: 'hidden', 'align-self': 'center' })
             .end()
           .end();
           //set here to avoid prematured finalPredicate override
@@ -405,6 +419,20 @@ foam.CLASS({
       } else {
         if ( pred.arg1 && pred.arg1.name == prop.name ) return pred;
       }
+    },
+
+    async function checkAvailableFilters() {
+      var of = this.dao.of;
+      let props = of.getAxiomsByClass(foam.lang.Property)
+        .filter( m => m.searchView && m.name != 'reactions_' && ! m.hidden )
+      let availableProps = []
+      await Promise.all(props.map(p => {
+        if ( ! this.auth || ! p.columnPermissionRequired )
+          availableProps.push(p);
+        else
+          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name}`).then(v => v && availableProps.push(p))
+      }));
+      return availableProps.length > 0;
     }
   ],
 
@@ -447,9 +475,17 @@ foam.CLASS({
 
       if ( ! of ) this.filters = [];
 
+      var selectedFilters = this.getSelectedFilters();
+
+      var currFilters = await this.filterPropertiesByReadPermission(this.filters, of.id);
+      if ( currFilters?.length ) {
+        this.filters = [...new Set([...selectedFilters, ...currFilters])];
+        return;
+      }
+
       var searchColumns_ = await this.filterPropertiesByReadPermission(this.searchColumns, of.id);
       if ( searchColumns_?.length ) {
-        this.filters =  searchColumns_;
+        this.filters =  [...new Set([...searchColumns_, ...selectedFilters])];
         return;
       }
 
@@ -457,9 +493,26 @@ foam.CLASS({
       columns = columns && columns.columns;
       columns = await this.filterPropertiesByReadPermission(columns, of.id);
       if ( columns ) {
-        this.filters = columns;
+        this.filters =  [...new Set([...columns, ...selectedFilters])];
         return;
       }
+    },
+
+    // get filters used in predicates to prevent non-default filter predicates geting discarded
+    function getSelectedFilters() {
+      if ( ! this.data ) return [];
+
+      var filters = [];
+      var preds = [this.data];
+      if ( this.And.isInstance(this.data) ) {
+        preds = this.data.args;
+      }
+      preds.forEach(pred => {
+        if ( this.In.isInstance(pred) || this.Eq.isInstance(pred) ) {
+          filters.push(pred.arg1.name);
+        }
+      });
+      return [...new Set(filters)];
     }
   ],
 
@@ -467,6 +520,9 @@ foam.CLASS({
     {
       name: 'clearAll',
       label: 'Clear all',
+      isEnabled: function(filters) {
+        return filters?.length > 0;
+      },
       code: function() {
         // clear all filters
         this.filterController.clearAll();

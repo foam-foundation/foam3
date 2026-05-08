@@ -8,9 +8,9 @@ foam.CLASS({
     package: 'foam.core.reflow.control',
     name: 'FlowsControl',
     extends: 'foam.core.reflow.control.ComponentsControl',
-  
+
     requires: [ 'foam.core.reflow.DynamicReflowData' ],
-  
+
     properties: [
       {
         name: 'buttonLabel',
@@ -29,4 +29,3 @@ foam.CLASS({
       }
     ]
   });
-  

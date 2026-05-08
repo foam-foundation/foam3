@@ -1,0 +1,247 @@
+{
+  "scopeName": "source.foam-journal",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#prefixed-entry" },
+    { "include": "#entry" },
+    { "include": "#object" }
+  ],
+  "repository": {
+    "comments": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.foam-journal"
+    },
+    "prefixed-entry": {
+      "comment": "DAO-prefixed entry: daoName.p({...})",
+      "match": "([a-zA-Z_]\\w*)(\\.)(?=\\s*[prcv]\\s*\\()",
+      "captures": {
+        "1": { "name": "variable.other.dao.foam-journal" },
+        "2": { "name": "punctuation.accessor.foam-journal" }
+      }
+    },
+    "entry": {
+      "comment": "Journal commands with distinct colors: p=blue, r=red, c=green, v=yellow",
+      "patterns": [
+        {
+          "match": "\\b(p)\\s*(?=\\()",
+          "captures": { "1": { "name": "entity.name.function.put.foam-journal" } }
+        },
+        {
+          "match": "\\b(r)\\s*(?=\\()",
+          "captures": { "1": { "name": "keyword.control.remove.foam-journal" } }
+        },
+        {
+          "match": "\\b(c)\\s*(?=\\()",
+          "captures": { "1": { "name": "entity.name.type.create.foam-journal" } }
+        },
+        {
+          "match": "\\b(v)\\s*(?=\\()",
+          "captures": { "1": { "name": "variable.other.version.foam-journal" } }
+        }
+      ]
+    },
+    "object": {
+      "patterns": [
+        { "include": "#class-pair-quoted-quoted" },
+        { "include": "#class-pair-quoted-single" },
+        { "include": "#class-pair-unquoted-quoted" },
+        { "include": "#class-pair-unquoted-single" },
+        { "include": "#id-name-pair" },
+        { "include": "#java-block-triple" },
+        { "include": "#java-block-backtick" },
+        { "include": "#java-block-single-quoted" },
+        { "include": "#json-block-triple" },
+        { "include": "#json-block-backtick" },
+        { "include": "#key-value-quoted" },
+        { "include": "#key-value-unquoted" },
+        { "include": "#double-string" },
+        { "include": "#single-string" },
+        { "include": "#backtick-string" },
+        { "include": "#numbers" },
+        { "include": "#constants" },
+        { "include": "#template-variable" },
+        { "include": "#punctuation" }
+      ]
+    },
+    "class-pair-quoted-quoted": {
+      "comment": "\"class\":\"com.foo.Bar\" — quoted key, double-quoted value",
+      "match": "\"(class)\"\\s*:\\s*\"([^\"]+)\"",
+      "captures": {
+        "1": { "name": "support.type.property-name.class.foam-journal" },
+        "2": { "name": "entity.name.type.class-ref.foam-journal" }
+      }
+    },
+    "class-pair-quoted-single": {
+      "comment": "\"class\":'com.foo.Bar' — quoted key, single-quoted value",
+      "match": "\"(class)\"\\s*:\\s*'([^']+)'",
+      "captures": {
+        "1": { "name": "support.type.property-name.class.foam-journal" },
+        "2": { "name": "entity.name.type.class-ref.foam-journal" }
+      }
+    },
+    "class-pair-unquoted-quoted": {
+      "comment": "class:\"com.foo.Bar\" — unquoted key, double-quoted value",
+      "match": "(?<=[{,])\\s*(class)\\s*:\\s*\"([^\"]+)\"",
+      "captures": {
+        "1": { "name": "support.type.property-name.class.foam-journal" },
+        "2": { "name": "entity.name.type.class-ref.foam-journal" }
+      }
+    },
+    "class-pair-unquoted-single": {
+      "comment": "class:'com.foo.Bar' — unquoted key, single-quoted value",
+      "match": "(?<=[{,])\\s*(class)\\s*:\\s*'([^']+)'",
+      "captures": {
+        "1": { "name": "support.type.property-name.class.foam-journal" },
+        "2": { "name": "entity.name.type.class-ref.foam-journal" }
+      }
+    },
+    "id-name-pair": {
+      "comment": "id and name keys (quoted or unquoted) with special string values",
+      "match": "\"?(id|name)\"?\\s*:\\s*(?:\"([^\"]*)\"|'([^']*)'|(-?\\d+\\.?\\d*))",
+      "captures": {
+        "1": { "name": "support.type.property-name.id.foam-journal" },
+        "2": { "name": "string.special.id.foam-journal" },
+        "3": { "name": "string.special.id.foam-journal" },
+        "4": { "name": "constant.numeric.id.foam-journal" }
+      }
+    },
+    "java-block-triple": {
+      "comment": "Java injection in triple-quoted strings after java* keys",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript)\"?\\s*:\\s*(\"\"\")",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.java.foam-journal" },
+        "2": { "name": "punctuation.definition.string.begin.foam-journal" }
+      },
+      "end": "(\"\"\")",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.foam-journal" }
+      },
+      "contentName": "meta.embedded.block.java",
+      "patterns": [
+        { "include": "source.java" }
+      ]
+    },
+    "java-block-backtick": {
+      "comment": "Java injection in backtick strings after java* keys",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript)\"?\\s*:\\s*(`)",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.java.foam-journal" },
+        "2": { "name": "punctuation.definition.string.begin.foam-journal" }
+      },
+      "end": "(`)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.foam-journal" }
+      },
+      "contentName": "meta.embedded.block.java",
+      "patterns": [
+        { "include": "source.java" }
+      ]
+    },
+    "json-block-triple": {
+      "comment": "JSON injection in triple-quoted strings after client key (nested FObject spec)",
+      "begin": "\"?(client)\"?\\s*:\\s*(\"\"\")",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.json.foam-journal" },
+        "2": { "name": "punctuation.definition.string.begin.foam-journal" }
+      },
+      "end": "(\"\"\")",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.foam-journal" }
+      },
+      "contentName": "meta.embedded.block.json",
+      "patterns": [
+        { "include": "source.json" }
+      ]
+    },
+    "json-block-backtick": {
+      "comment": "JSON injection in backtick strings after client key",
+      "begin": "\"?(client)\"?\\s*:\\s*(`)",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.json.foam-journal" },
+        "2": { "name": "punctuation.definition.string.begin.foam-journal" }
+      },
+      "end": "(`)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.foam-journal" }
+      },
+      "contentName": "meta.embedded.block.json",
+      "patterns": [
+        { "include": "source.json" }
+      ]
+    },
+    "java-block-single-quoted": {
+      "comment": "Java injection in single-quoted strings after java* keys",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript)\"?\\s*:\\s*(')",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.java.foam-journal" },
+        "2": { "name": "punctuation.definition.string.begin.foam-journal" }
+      },
+      "end": "(')",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.string.end.foam-journal" }
+      },
+      "contentName": "meta.embedded.block.java",
+      "patterns": [
+        { "include": "source.java" }
+      ]
+    },
+    "key-value-quoted": {
+      "comment": "Quoted key: \"propName\":",
+      "match": "\"(\\w+)\"\\s*:",
+      "captures": {
+        "1": { "name": "variable.other.property.foam-journal" }
+      }
+    },
+    "key-value-unquoted": {
+      "comment": "Unquoted key: propName:",
+      "match": "(?<=[{,])\\s*(\\w+)\\s*:",
+      "captures": {
+        "1": { "name": "variable.other.property.foam-journal" }
+      }
+    },
+    "double-string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.foam-journal",
+      "patterns": [
+        {
+          "match": "\\\\(?:[\"\\\\/bfnrt]|u[0-9a-fA-F]{4})",
+          "name": "constant.character.escape.foam-journal"
+        }
+      ]
+    },
+    "single-string": {
+      "begin": "'",
+      "end": "'",
+      "name": "string.quoted.single.foam-journal"
+    },
+    "backtick-string": {
+      "begin": "`",
+      "end": "`",
+      "name": "string.template.foam-journal"
+    },
+    "numbers": {
+      "match": "-?\\d+\\.?\\d*(?:[eE][+-]?\\d+)?",
+      "name": "constant.numeric.foam-journal"
+    },
+    "constants": {
+      "match": "\\b(true|false|null)\\b",
+      "name": "constant.language.foam-journal"
+    },
+    "template-variable": {
+      "comment": "Template variables: {varName}",
+      "match": "\\{([a-zA-Z_]\\w*)\\}",
+      "captures": {
+        "0": { "name": "variable.other.template.foam-journal" },
+        "1": { "name": "variable.other.readwrite.foam-journal" }
+      }
+    },
+    "punctuation": {
+      "patterns": [
+        { "match": "[{}()]", "name": "punctuation.bracket.foam-journal" },
+        { "match": "[\\[\\]]", "name": "punctuation.bracket.square.foam-journal" },
+        { "match": ",", "name": "punctuation.separator.comma.foam-journal" }
+      ]
+    }
+  }
+}

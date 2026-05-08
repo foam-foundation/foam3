@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.u2',
   name: 'PropertyModal',
-  extends: 'foam.u2.dialog.StyledModal',
+  extends: 'foam.u2.dialog.ConfirmationModal',
 
   documentation: 'View for attaching a choice to a modal',
 
@@ -21,25 +21,22 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'CONFIRM_DELETE_1', message: 'Are you sure you want to delete' },
-    { name: 'SUCCESS_MSG', message: ' deleted' },
-    { name: 'FAIL_MSG', message: 'Failed to delete' },
     { name: 'DEFAULT_TITLE', message: 'Please fill out the following' },
     { name: 'REQUIRED', message: 'Required' },
     { name: 'OPTIONAL', message: 'Optional' }
   ],
 
   css: `
-    ^inner {
-      align-items: stretch;
+    ^body {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
   `,
 
   properties: [
-    {
-      class: 'Function',
-      name: 'onExecute'
-    },
+    [ 'maxWidth', 'clamp(400px, 100%, 85vw)' ],
+    [ 'showCancel', false ],
     {
       name: 'title',
       expression: function(isModalRequired) {
@@ -55,51 +52,37 @@ foam.CLASS({
       class: 'Boolean',
       name: 'isModalRequired'
     },
-    {
-      name: 'propertyData',
-      attribute: true
-    },
-    'data'
+    'propertyData'
   ],
 
   methods: [
     function addBody() {
       return this.E()
+        .addClass(this.myClass('body'))
         .startContext({ controllerMode: this.ControllerMode.EDIT, data: this.data })
           .tag(this.PropertyBorder, {
             prop: this.property,
             data$: this.data$
           })
+          .tag('', {}, this.content$)
         .endContext();
-    },
-    function addActions(self) {
-      var actions = this.E().startContext({ data: self });
-      actions.tag(self.OK, { isDestructive: self.modalStyle == 'DESTRUCTIVE' });
-      if ( self.showCancel ) {
-        actions.tag(self.CANCEL);
-      }
-      this.add(actions.endContext());
     }
   ],
 
   actions: [
     {
-      name: 'ok',
+      name: 'confirm',
       buttonStyle: 'PRIMARY',
       isEnabled: (isModalRequired, propertyData) => {
         if ( ! isModalRequired ) return true;
 
         return propertyData;
       },
-      code: function(X) {
-        this.onExecute();
-        X.closeDialog();
-      }
-    },
-    {
-      name: 'cancel',
-      code: function(X) {
-        X.closeDialog();
+      code: async function(X) {
+        if ( ! this.primaryAction ) return X.closeDialog();
+        return await this.primaryAction?.maybeCall(X, this.data).then(() => {
+          X.closeDialog();
+        });
       }
     }
   ]

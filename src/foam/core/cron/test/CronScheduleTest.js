@@ -221,10 +221,12 @@ foam.CLASS({
       test ( diff == 12, "MonthsOfYear - next month "+diff+" "+lastTime+" "+nextTime );
 
       // TimeZone
+      // Use hour 10 instead of 2 to avoid DST spring-forward gap
+      // (2:00 AM doesn't exist on DST transition day in America/Toronto)
       sched = new CronSchedule();
-      sched.setHours("2");
+      sched.setHours("10");
       sched.setMinute(25);
-      sched.setTimeZone("America/Toronto"); // EST
+      sched.setTimeZone("America/Toronto"); // EST/EDT
       ZoneId zoneId = ZoneId.of("America/Toronto");
       last = sched.getNextScheduledTime(x, null);
       lastTime = LocalDateTime.ofInstant(last.toInstant(), zoneId);
@@ -236,7 +238,7 @@ foam.CLASS({
         cal.setTimeZone(TimeZone.getTimeZone(zoneId));
       }
       cal.setTime(next);
-      test ( cal.get(Calendar.HOUR_OF_DAY) == 2, "EST Hour 2" );
+      test ( cal.get(Calendar.HOUR_OF_DAY) == 10, "EST Hour 10" );
       test ( cal.get(Calendar.MINUTE) == 25, "EST Minute 25" );
       `
     }

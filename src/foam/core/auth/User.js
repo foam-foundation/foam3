@@ -30,6 +30,7 @@ foam.CLASS({
   imports: [
     'auth?',
     'notify?',
+    'resetPasswordToken',
     'routeTo?',
     'ticketDAO?'
   ],
@@ -109,7 +110,9 @@ foam.CLASS({
     { name: 'INVALID_MIDDLE_NAME',  message: 'Invalid characters in middle name: ' },
     { name: 'INVALID_LAST_NAME',    message: 'Invalid characters in last name: ' },
     { name: 'INVALID_MATCHER',      message: "[^\\p{Letter}\\s\\-.']" },
-    { name: 'INVALID_USERNAME',     message: "Username can only contain alphanumeric characters, '-', and '_'" }
+    { name: 'INVALID_USERNAME',     message: "Username can only contain alphanumeric characters, '-', and '_'" },
+    { name: 'RESET_PASSWORD_SENT',  message: "Password reset request sent." },
+    { name: 'RESET_PASSWORD_FAILED',message: "Issue resetting your password. Please try again." },
   ],
 
   sections: [
@@ -673,6 +676,7 @@ foam.CLASS({
       order: 50,
       gridColumns: 6,
       writePermissionRequired:true,
+      tableCellFormatter: {class: 'foam.u2.view.ReferenceToSummaryCellFormatter' },
       documentation: `
         Need to override getter to return "" because its trying to
         return null (probably as a result of moving order of files
@@ -1006,17 +1010,25 @@ foam.CLASS({
           settingsMap.put(setting.getClassInfo().getId(), setting);
         }
 
-        // Spid specific
-        settingDefaults = ((ArraySink) ((DAO) x.get("notificationSettingDefaultsDAO")).inX(x)
-          .where(EQ(foam.core.notification.NotificationSetting.SPID, getSpid()))
-          .select(new ArraySink()))
-          .getArray();
-        for ( NotificationSetting setting : settingDefaults ) {
-          if ( setting.getEnabled() || setting.getClass() == NotificationSetting.class ) {
-            settingsMap.put(setting.getClassInfo().getId(), setting);
-          } else {
-            // use disabled to opt-out
-            settingsMap.remove(setting.getClassInfo().getId());
+        // Spid defaults
+        if ( ! SafetyUtil.isEmpty(getSpid()) ) {
+          StringBuilder spid = new StringBuilder();
+          for ( String s : getSpid().split("\\\\.") ) {
+            if ( spid.length() > 0 ) spid.append('.');
+            spid.append(s);
+
+            settingDefaults = ((ArraySink) ((DAO) x.get("notificationSettingDefaultsDAO")).inX(x)
+              .where(EQ(foam.core.notification.NotificationSetting.SPID, spid.toString()))
+              .select(new ArraySink()))
+              .getArray();
+            for ( NotificationSetting setting : settingDefaults ) {
+              if ( setting.getEnabled() || setting.getClass() == NotificationSetting.class ) {
+                settingsMap.put(setting.getClassInfo().getId(), setting);
+              } else {
+                // use disabled to opt-out
+                settingsMap.remove(setting.getClassInfo().getId());
+              }
+            }
           }
         }
 
@@ -1073,6 +1085,7 @@ foam.CLASS({
 
   actions: [
     {
+      class: 'foam.comics.v3.ComicsAction',
       name: 'deleteUser',
       label: 'Delete',
       toolTip:'Open ticket to delete a user and all associated entities',
@@ -1221,6 +1234,27 @@ foam.CLASS({
           }
         }, e => {
           self?.notify(e, '', this.LogLevel.ERROR);
+        });
+      }
+    },
+    {
+      name: 'resetPassword',
+      label: 'Reset Password',
+      toolTip: 'Send a password reset email to this user',
+      availablePermissions: ['user.action.resetPassword'],
+      isAvailable: async function(id, type, spid, lifecycleState) {
+        return id && type == 'User' && spid &&
+          ( lifecycleState != this.LifecycleState.DISABLED &&
+            lifecycleState != this.LifecycleState.DELETED );
+      },
+      confirmationRequired: () => true,
+      code: function () {
+        var self = this;
+        this.resetPasswordToken.generateToken(null, this).then(() => {
+          self?.notify(self.RESET_PASSWORD_SENT, '', self.LogLevel.INFO, true);
+        }, e => {
+          const errorMsg = e?.message || self.RESET_PASSWORD_FAILED;
+          self?.notify(errorMsg, '', self.LogLevel.ERROR, true);
         });
       }
     }

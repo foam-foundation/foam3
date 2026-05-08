@@ -105,6 +105,14 @@ foam.CLASS({
       background: $backgroundBrandTertiary;
       border: 2px dashed $borderBrand;
     }
+    ^supportedTypes {
+      display: flex;
+      gap: 2px;
+    }
+    ^supportedTypes:not(.hasFiles) {
+      flex-direction: column;
+      gap: 0;
+    }
     ^fileCards {
       display: flex;
       flex-direction: column;
@@ -112,6 +120,19 @@ foam.CLASS({
       width: 100%;
     }
   `,
+
+  constants: [
+    {
+      name: 'ANY',
+      type: 'String',
+      value: '*'
+    },
+    {
+      name: 'ANY_FORMAT',
+      type: 'Map',
+      value: {'*':'ANY'}
+    }
+  ],
 
   messages: [
     { name: 'LABEL_DEFAULT_TITLE', message: 'Drag and Drop files here' },
@@ -132,7 +153,7 @@ foam.CLASS({
     },
     {
       name: 'supportedFormats',
-      documentation: `Please use the following format: { 'image/jpg' : 'JPG' }`,
+      documentation: `Please use the following format: { 'image/jpg' : 'JPG' }.  Use supportedFormats: foam.core.fs.fileDropZone.FileDropZOne.ANY_FORMAT to support uploading any document type.`,
       value: {}
     },
     {
@@ -150,6 +171,9 @@ foam.CLASS({
       name: 'files',
       factory: function() {
         return [];
+      },
+      postSet: function(o, n) {
+        this.onFilesChanged(n);
       }
     },
     {
@@ -188,6 +212,11 @@ foam.CLASS({
         if ( Array.isArray(v) ) return v;
         return [v];
       }
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'fileCardView',
+      value: { class: 'foam.core.fs.fileDropZone.FileCard' }
     }
   ],
 
@@ -248,8 +277,10 @@ foam.CLASS({
             }))
         .end()
         .start().addClass(this.myClass('caption-container'))
-        .show(this.slot(function(showHelp, files) { return showHelp && files.length < 1; }))
+        .show(this.slot(function(showHelp) { return showHelp  }))
           .start()
+            .addClass(self.myClass('supportedTypes'))
+            .enableClass('hasFiles', self.files$.map(v => v.length))
             .start('p').addClass('p-xs', this.myClass('caption')).add(this.LABEL_SUPPORTED).end()
             .start('p').addClass('p-xs', self.myClass('caption')).add(this.getSupportedTypes(true)).end()
           .end()
@@ -262,11 +293,10 @@ foam.CLASS({
       .on('dragover', e => { this.isDragged_ = true; e.preventDefault(); } )
       .on('dragenter', e => { this.isDragged_ = true; e.preventDefault(); })
       .on('dragleave', e => { this.isDragged_ = false; e.preventDefault(); })
-        .add(this.slot(function(files) {
+      .add(this.slot(function(files) {
         var e = this.E().addClass(self.myClass('fileCards'));
         for ( var i = 0; i < files.length; i++ ) {
-          e.tag({
-            class: 'foam.core.fs.fileDropZone.FileCard',
+          e.tag(this.fileCardView, {
             data: files[i],
             selected: this.selected,
             index: i
@@ -281,8 +311,11 @@ foam.CLASS({
       var constructedString = '';
 
       if ( readable ) {
+        // Remove duplicates in case supportedFormats has multiple extensions for the same type (ex: text/x-vcard and text/vcard both have vCard as an extension)
+        supportedTypes = [...new Set(Object.values(this.supportedFormats))];
         supportedTypes.forEach((type, index) => {
-          constructedString += this.supportedFormats[type];
+          if ( ! type ) return;
+          constructedString += type;
           if ( index < supportedTypes.length - 1 ) {
             constructedString += ', ';
           }
@@ -299,24 +332,10 @@ foam.CLASS({
     },
 
     function addFiles(files) {
-      var errors = false;
       for ( var i = 0 ; i < files.length ; i++ ) {
-        // skip files that exceed limit
-        if ( files[i].size > ( this.maxSize * 1024 * 1024 ) ) {
-          if ( ! errors ) errors = true;
-          this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE(), this.LogLevel.ERROR, true);
-          continue;
-        }
-        var isIncluded = false;
-        for ( var j = 0; j < this.files.length; j++ ) {
-          if ( this.files[j].filename.localeCompare(files[i].name) === 0 ) {
-            isIncluded = true;
-            break;
-          }
-        }
-        if ( isIncluded ) continue;
+        if ( ! this.validateFile(files[i]) ) continue;
         if ( this.isMultipleFiles ) {
-          var f = this.File.create({
+          var f = this.createFile({
             owner:    this.subject.user.id,
             filename: files[i].name,
             filesize: files[i].size,
@@ -327,7 +346,7 @@ foam.CLASS({
           });
           this.files.push(f);
         } else {
-          this.files[0] = this.File.create({
+          this.files[0] = this.createFile({
             owner:    this.subject.user.id,
             filename: files[i].name,
             filesize: files[i].size,
@@ -342,8 +361,35 @@ foam.CLASS({
       this.files = Array.from(this.files);
     },
 
+    function createFile(opts) {
+      return this.File.create(opts);
+    },
+
     function isFileType(file) {
-      return ( file.type in this.supportedFormats );
+      return ( this.ANY in this.supportedFormats ||
+               file.type in this.supportedFormats );
+    },
+
+    // Ensures file size, format and duplicates
+    // Returns true is valid
+    function validateFile(file) {
+      if ( ! this.isFileType(file) ) {
+        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
+        return false;
+      }
+      if ( file.size > ( this.maxSize * 1024 * 1024 ) ) {
+        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE(), this.LogLevel.ERROR, true);
+        return false;
+      }
+      var isIncluded = false;
+      for ( var j = 0; j < this.files.length; j++ ) {
+        if ( this.files[j].filename.localeCompare(file.name) === 0 ) {
+          isIncluded = true;
+          break;
+        }
+      }
+      if ( isIncluded ) return false;
+      return true;
     },
 
     function removeFile(atIndex) {
@@ -356,7 +402,6 @@ foam.CLASS({
               this.selected = files.length - 1;
       this.files = files;
       this.document.getElementById('file-upload-' + this.$UID).value = null;
-      this.onFilesChanged(this.files);
     },
 
     function highlight(atIndex) {
@@ -390,10 +435,8 @@ foam.CLASS({
             // If dropped items aren't files, reject them
             if ( inputFile[i].kind === 'file' ) {
               var file = inputFile[i].getAsFile();
-              if ( this.isFileType(file) ) {
+              if ( this.validateFile(file) ) {
                 files.push(file);
-              } else {
-                this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
               }
             }
           }
@@ -402,10 +445,8 @@ foam.CLASS({
         inputFile = e.dataTransfer.files;
         for ( var i = 0 ; i < inputFile.length ; i++ ) {
           var file = inputFile[i];
-          if ( this.isFileType(file) ) {
+          if ( this.validateFile(file) ) {
             files.push(file);
-          } else {
-            this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
           }
         }
       }
@@ -417,7 +458,6 @@ foam.CLASS({
       this.addFiles(files);
       // Remove all temporary files in the element.target.files
       this.document.getElementById('file-upload-' + this.$UID).value = null;
-      this.onFilesChanged(this.files);
     },
 
     function filePathsChanged() {

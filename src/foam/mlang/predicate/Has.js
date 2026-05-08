@@ -55,6 +55,9 @@ foam.CLASS({
       name: 'createStatement',
       // TODO: check for empty array
       javaCode: `return " (" + getArg1().createStatement() + " <> '') is not true ";`
+    },
+    function toMQL() {
+      return this.arg1.name + ' IS NOT EMPTY';
     }
   ]
 });

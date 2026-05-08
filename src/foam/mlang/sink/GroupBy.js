@@ -268,10 +268,10 @@ for (Object key : getGroups().keySet()) {
         }
       }
 
-
       const model = {
         package: 'foam.tmp',
         name: 'GroupBy' + foam.next$UID(),
+        plural: 'Data',
         ids: [ 'row' ],
         properties: [
           { class: 'Long', name: 'row' },
@@ -282,7 +282,6 @@ for (Object key : getGroups().keySet()) {
       // Required in the Property is an Enum or similar type which requires the value of the 'of' field to be complete
       if ( this.arg1.of ) model.properties[1].of = this.arg1.of;
 
-      model.plural = model.name;
       var props = this.arg2.toProperties ? this.arg2.toProperties() : this.arg2.VALUE ? [ this.arg2.VALUE ] : [];
       model.properties.push.apply(model.properties, props);
 
@@ -291,6 +290,7 @@ for (Object key : getGroups().keySet()) {
 
 
     function asDAO() {
+      // TODO: cache?
       const model = this.genModel();
       foam.CLASS(model);
       var cls = foam.lookup('foam.tmp.' + model.name);
@@ -298,11 +298,11 @@ for (Object key : getGroups().keySet()) {
       // So that tableColumns aren't remembered from a previous run
       delete localStorage[cls.id];
 
-      var props  = model.properties.slice(1).map(p => cls.getAxiomByName(p.name));
-      var dao    = foam.dao.MDAO.create({of: cls});
-      dao = this.SequenceNumberDAO.create({delegate: dao, property: 'row'});
+      var props = model.properties.slice(1).map(p => cls.getAxiomByName(p.name));
+      var dao   = foam.dao.MDAO.create({of: cls});
+      var o     = cls.create({});
 
-      var o = cls.create({});
+      dao = this.SequenceNumberDAO.create({delegate: dao, property: 'row'});
 
       this.processGroupValue(dao, o, props);
 
@@ -316,9 +316,9 @@ for (Object key : getGroups().keySet()) {
     function setPropertyValues(o, sink, ps) {
       if ( ps.length === 0 ) return;
 
-      var keyProp = ps[0];
+      var keyProp        = ps[0];
       var remainingProps = ps.slice(1);
-      var groupKeys = this.groupKeys || Object.keys(this.groups);
+      var groupKeys      = this.groupKeys || Object.keys(this.groups);
 
       // Try to get the key from the object - if we can get it, we're setting a single row
       var key = keyProp.f(o);

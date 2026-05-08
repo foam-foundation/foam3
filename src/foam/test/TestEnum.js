@@ -24,6 +24,10 @@ foam.ENUM({
     },
     {
       name: 'BAR'
+    },
+    {
+      name: 'CUSTOM',
+      javaCode: '/* CODE */'
     }
   ]
 });

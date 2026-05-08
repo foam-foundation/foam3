@@ -12,11 +12,13 @@ foam.POM({
     { name: 'src/pom' },
     { name: 'src/foam/core/pom' },
     { name: 'src/foam/core/analytics/mixpanel/pom' },
+    { name: 'src/foam/dao/compaction/pom' },
     { name: 'src/foam/net/ipgeo/pom' },
     { name: 'src/foam/u2/wizard/pom' },
     { name: 'src/foam/u2/address/pom' },
     { name: 'src/io/c9/ace/pom' },
-    { name: 'webroot/pom' }
+    { name: 'webroot/pom' },
+    { name: 'src/foam/dao/jdbc/pom' },
   ],
   copy: [
     { source: 'webroot', targetDir: 'webroot' }
@@ -37,7 +39,6 @@ foam.POM({
     'jakarta.mail:jakarta.mail-api:2.1.2',
     'jakarta.activation:jakarta.activation-api:2.1.2',
     'jakarta.websocket:jakarta.websocket-api:2.0.0',
-    'javax.json:javax.json-api:1.1.4',
     'jakarta.json:jakarta.json-api:2.1.3',
     'javax.ws.rs:javax.ws.rs-api:2.1.1',
     'jstl:jstl:1.2',
@@ -65,7 +66,6 @@ foam.POM({
     'org.eclipse.jetty.http2:http2-server:11.0.26',
     'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.26',
     'org.eclipse.parsson:parsson:1.1.7',
-    'org.glassfish:javax.json:1.1.4',
     'org.jsoup:jsoup:1.15.1', // HTML Parser
     'org.jtwig:jtwig-core:5.87.0.RELEASE',
     'org.postgresql:postgresql:42.3.8',

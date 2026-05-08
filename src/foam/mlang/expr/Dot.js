@@ -33,6 +33,14 @@ foam.CLASS({
     {
       class: 'foam.mlang.ExprProperty',
       name: 'arg2'
+    },
+    {
+      name: 'name',
+      transient: true,
+      flags: ['js'],
+      getter: function() {
+        return this.arg2.name;
+      }
     }
   ],
 

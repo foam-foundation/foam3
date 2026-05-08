@@ -86,7 +86,10 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'onKey'
+      name: 'onKey',
+      expression: function(property) {
+        return property && property.onKey !== undefined ? property.onKey : false;
+      }
     },
     {
       class: 'String',
@@ -104,6 +107,7 @@ foam.CLASS({
     },
 
     function render() {
+      var self = this;
       this.__subContext__.register(foam.u2.SearchField, 'foam.u2.TextField');
 
       let viewSpec = {
@@ -120,6 +124,9 @@ foam.CLASS({
           mode$:       this.mode$,
           placeholder: 'Search...'
         }, this.view$)
+        .call(function() {
+          return self.property && this.fromProperty?.(self.property);
+        })
           .attrs({ name: this.name$ })
         .end();
 

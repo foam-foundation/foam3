@@ -145,8 +145,7 @@ In this current implementation setDelegate must be called last.`,
 
             String cSpecName = getFilename();
 
-            if ( nspec != null &&
-                 getNdiff() ) {
+            if ( nspec != null && getNdiff() ) {
               cSpecName = nspec.getName();
               journals = new Journal[] {
                 // replays the repo journal

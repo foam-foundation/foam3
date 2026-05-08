@@ -113,8 +113,8 @@ foam.CLASS({
   actions: [
     {
       name: 'back',
-      code: function(X) {
-        this.go();
+      code: async function(X) {
+        await this.go();
       }
     }
   ]

@@ -8,6 +8,18 @@ foam.CLASS({
   package: 'foam.u2.view',
   name: 'ArrayView',
   extends: 'foam.u2.View',
+  documentation: `
+    Renders an array of values as a vertical list of editable rows. 
+    Each row uses a configurable 'valueView' to render or edit a single item. 
+    ArrayView supports adding and removing rows, optional duplicate prevention, 
+    and efficient updates to prevent full re-renders when a single row changes.
+
+    Can be easily extended to support more complex rows (See TitledFObjectArrayView).
+
+    NOTES:
+    - Non-primitive items are tracked via $UID in 'dataViewMap' so that object updates (e.g., 'sub') can be handled without re-rendering every row.
+    - The element intentionally treats programmatic row updates as feedback to avoid remounting slotted per-row views.
+  `,
 
   requires: [
     'foam.lang.FObject',
@@ -16,10 +28,14 @@ foam.CLASS({
   ],
 
   exports: [
+    'allowDuplicates',
     'enableRemoving',
     'mode',
     'updateData',
-    'updateDataWithoutFeedback'
+    'updateDataWithoutFeedback',
+    'as arrayView',
+    'scrollToIndex',
+    'valueView'
   ],
 
   properties: [
@@ -74,7 +90,12 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'feedback_'
-    }
+    },
+    {
+      class: 'Map',
+      name: 'dataViewMap'
+    },
+    'rows_',
   ],
 
   actions: [
@@ -84,9 +105,9 @@ foam.CLASS({
       isAvailable: function(mode, enableAdding) {
         return enableAdding && mode === foam.u2.DisplayMode.RW;
       },
-      isEnabled: function(allowDuplicates, data, arrayLength_) {
+      isEnabled: function(allowDuplicates, data, arrayLength_, defaultNewItem) {
         // Disable adding if no duplicates and all uniques already assigned
-        return allowDuplicates || data.length !== arrayLength_;
+        return allowDuplicates || ! (data.length == arrayLength_ || data.includes(defaultNewItem));
       },
       code: function() {
         var newItem = this.defaultNewItem;
@@ -94,7 +115,6 @@ foam.CLASS({
           newItem = newItem.clone(this.__context__);
         }
         this.data = [ ...this.data, newItem ];
-        this.updateData();
       }
     }
   ],
@@ -102,12 +122,29 @@ foam.CLASS({
   classes: [
     {
       name: 'Row',
+      extends: 'foam.u2.Element',
+      requires: [
+        'foam.u2.layout.Cols'
+      ],
+      css: `
+        ^value-view {
+          flex: 1;
+          max-width: 100%;
+        }
+        ^value-view-container {
+          gap:4px;
+        }
+      `,
       imports: [
         'data',
+        'allowDuplicates',
         'enableRemoving',
         'mode',
         'updateData',
-        'updateDataWithoutFeedback'
+        'updateDataWithoutFeedback',
+        'scrollToIndex',
+        'arrayView',
+        'valueView'
       ],
       properties: [
         {
@@ -117,23 +154,74 @@ foam.CLASS({
         },
         {
           name: 'value',
-          postSet: function(_, n) {
+          postSet: function(o, n) {
             if ( this.data[this.index] === n ) return;
-            this.data[this.index] = n;
+
+            // Clean up old element mapping
+            if ( o && this.arrayView.dataViewMap[o.$UID] ) {
+              delete this.arrayView.dataViewMap[o.$UID];
+            }
+
+            // Check for duplication
+            if ( ! this.allowDuplicates && this.data.includes(n) ) {
+              return;
+            }
+
+            // Update data and new mapping
             var data = [...this.data];
             data[this.index] = n;
+            if ( ! foam.util.isPrimitive(this.value) )
+              this.arrayView.dataViewMap[n.$UID] = this;
+
+            // Treat value updates as feedback to prevent rerendering the whole array since the values are already slotted
+            this.arrayView.feedback_ = true;
             this.data = data;
+            this.arrayView.feedback_ = false;
+            this.scrollToIndex(this.index)
           }
+        }
+      ],
+      methods: [
+        function init() {
+          this.SUPER();
+          if ( foam.util.isPrimitive(this.value) ) return;
+          this.arrayView.dataViewMap[this.value.$UID] = this;
+        },
+        function render() {
+          let self = this;
+          this
+            .attrs({ 'data-idx': self.index$ })
+            .startContext({ data: this })
+              .start(self.Cols)
+                .addClass(self.myClass('value-view-container'))
+                .add(self.dynamic(function(valueView) {
+                  this.start(valueView, { data$: self.value$ })
+                    .addClass(self.myClass('value-view'))
+                  .end()
+                }))
+                .tag(self.REMOVE_ROW, {
+                  label: '',
+                  // icon: '/images/remove-circle.svg',
+                  // encode data as an embedded data URL of the SVG
+                  // because then the GUI updates without flickering
+                  themeIcon: 'close',
+                  icon: "data:image/svg+xml;utf8,%0A%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath fill='%23d9170e' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z'/%3E%3C/svg%3E",
+                  buttonStyle: 'TERTIARY',
+                  size: 'SMALL'
+                })
+              .end()
+            .endContext();
         }
       ],
       actions: [
         {
-          name: 'remove',
+          name: 'removeRow',
           isAvailable: function(enableRemoving, mode) {
             return enableRemoving && mode === foam.u2.DisplayMode.RW;
           },
           code: function() {
             this.data = this.data.toSpliced(this.index, 1);
+            this.scrollToIndex?.(this.index == 0 ? 0 : this.index -1);
           }
         }
       ]
@@ -148,18 +236,11 @@ foam.CLASS({
       justify-content: center;
       gap: 4px;
     }
-    ^value-view {
-      flex: 1;
-      max-width: 100%;
-    }
     ^addButton.foam-u2-ActionView {
       border: 1.5px dashed $borderDefault;
       justify-content: flex-start;
       text-align: left;
       width: 100%;
-    }
-    ^value-view-container {
-      gap:4px;
     }
   `,
 
@@ -167,45 +248,40 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-
-      this.onDetach(this.data$.sub(() => { if ( ! this.feedback_ ) this.data2_ = this.data; }));
       this.data2_ = foam.Array.isInstance(this.data) && this.data;
       this.addClass();
 
       this
-        .add(this.slot(function(data2_, valueView) {
-          var data = data2_;
-          return self.E()
-            .start(self.Rows)
-              .addClass('p')
-              .forEach(data || [], function(e, i) {
-                var row = self.Row.create({ index: i, value: e });
-                e && e.sub && e.sub(self.updateDataWithoutFeedback);
-                this
-                  .startContext({ data: row })
-                    .start(self.Cols)
-                      .addClass(self.myClass('value-view-container'))
-                      .start(valueView, { data$: row.value$ })
-                        .addClass(self.myClass('value-view'))
-                      .end()
-                      .tag(self.Row.REMOVE, {
-                        label: '',
-                        // icon: '/images/remove-circle.svg',
-                        // encode data as an embedded data URL of the SVG
-                        // because then the GUI updates without flickering
-                        themeIcon: 'close',
-                        icon: "data:image/svg+xml;utf8,%0A%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath fill='%23d9170e' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z'/%3E%3C/svg%3E",
-                        buttonStyle: 'TERTIARY',
-                        size: 'SMALL'
-                      })
-                    .end()
-                  .endContext();
-                row.onDetach(row.sub(self.updateDataWithoutFeedback));
-              });
-        }))
+        .start(self.Rows, {}, this.rows_$)
+          .addClass('p')
+          .call(this.initArrayView, [self])
+        .end()
         .startContext({ data: this })
           .add(this.slot(this.addAction))
         .endContext();
+    },
+    function initArrayView(self) {
+      this.onDetach(self.data$.sub(() => { if ( ! self.feedback_ ) self.data2_ = self.data; }));
+      this.add(self.dynamic(function(data2_) {
+        if ( data2_.length === 0 ) {
+          this.add(self.mode$.map(function(mode) {
+            if ( mode == foam.u2.DisplayMode.RO ) {
+              return '0 Items';
+            }
+          }));
+          return;
+        }
+        this.forEach(data2_ || [], function(e, i) {
+          let row = self.buildRow.call(this, e, i, self);
+          this.add(row);
+        })
+      }))
+    },
+    function buildRow(e, i, self) {
+      var row = self.Row.create({ index: i, value: e });
+      e && e.sub && e.sub(self.updateDataWithoutFeedback);
+      row.onDetach(row.sub(self.updateDataWithoutFeedback));
+      return row;
     },
     function addAction() {
       return this.E().start(this.ADD_ROW, {
@@ -217,6 +293,19 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'scrollToIndex',
+      isMerged: true,
+      // Delay a bit to allow for any ui changes
+      delay: 100,
+      code: function(index) {
+        if ( this.el_() ) {
+          let el = this.el_();
+          let currentRow = el.querySelector(`div[data-idx='${index}']`);
+          if ( currentRow ) currentRow.scrollIntoView({behaviour: "smooth", block: "nearest", inline: "nearest", container: "nearest"})
+        }
+      }
+    },
     {
       name: 'updateData',
       code: function() {

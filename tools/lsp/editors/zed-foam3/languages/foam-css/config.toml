@@ -1,0 +1,6 @@
+name = "FOAM CSS"
+grammar = "foam_css"
+line_comments = ["// "]
+block_comment = ["/* ", " */"]
+tab_size = 2
+hard_tabs = false

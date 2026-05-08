@@ -1,0 +1,57 @@
+p({
+"class":"foam.core.reflow.Flow",
+"name":"Questionnaire GuessANumber",
+"category":"TEST",
+"description":"How to use REFLOW AI commands.",
+"status":"PASSED (Passed=1, Failed=0)",
+"accessLevel":1,
+"spid":"foam",
+"version":1,
+"script":
+"""[
+	{
+
+		"flowName": "testResults",
+		"cmd": "testresults",
+		"value": {
+			"class": "foam.core.reflow.float.TestResults",
+			"total": 1
+		},
+		"border": {
+			"title": "Test Results",
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "script1",
+		"cmd": "script",
+		"value": {
+			"class": "foam.core.reflow.Script",
+			"code": "/**\\u000a * GuessANumber — Binary search decision matrix for testing.\\u000a *\\u000a * 16 outcomes (0–15), 4 questions, always resolved in exactly 4 steps.\\u000a * Each question bisects the remaining candidate set, so the information\\u000a * gain selector should pick them in order: below8, below4/below12,\\u000a * then the final bisect — mirroring a classic binary search.\\u000a *\\u000a */\\u000a\\u000afoam.QA2({\\u000a  package: 'com.example',\\u000a  name: 'GuessANumber',\\u000a\\u000a  properties: [\\u000a    { class: 'Int', name: 'value' }\\u000a  ],\\u000a\\u000a  questions: [\\u000a    { name: 'below8',  prompt: 'Is the number below 8?' },\\u000a    { name: 'below4',  prompt: 'Is the number below 4?' },\\u000a    { name: 'below12', prompt: 'Is the number below 12?' },\\u000a    { name: 'below2',  prompt: 'Is the number below 2?' },\\u000a    { name: 'below6',  prompt: 'Is the number below 6?' },\\u000a    { name: 'below10', prompt: 'Is the number below 10?' },\\u000a    { name: 'below14', prompt: 'Is the number below 14?' },\\u000a    { name: 'below1',  prompt: 'Is the number below 1?' },\\u000a    { name: 'below3',  prompt: 'Is the number below 3?' },\\u000a    { name: 'below5',  prompt: 'Is the number below 5?' },\\u000a    { name: 'below7',  prompt: 'Is the number below 7?' },\\u000a    { name: 'below9',  prompt: 'Is the number below 9?' },\\u000a    { name: 'below11', prompt: 'Is the number below 11?' },\\u000a    { name: 'below13', prompt: 'Is the number below 13?' },\\u000a    { name: 'below15', prompt: 'Is the number below 15?' }\\u000a  ],\\u000a\\u000a  outcomes: [\\u000a    { value: 0,  predicate: 'below8 = TRUE  AND below4 = TRUE  AND below2 = TRUE  AND below1 = TRUE' },\\u000a    { value: 1,  predicate: 'below8 = TRUE  AND below4 = TRUE  AND below2 = TRUE  AND below1 = FALSE' },\\u000a    { value: 2,  predicate: 'below8 = TRUE  AND below4 = TRUE  AND below2 = FALSE AND below3 = TRUE' },\\u000a    { value: 3,  predicate: 'below8 = TRUE  AND below4 = TRUE  AND below2 = FALSE AND below3 = FALSE' },\\u000a    { value: 4,  predicate: 'below8 = TRUE  AND below4 = FALSE AND below6 = TRUE  AND below5 = TRUE' },\\u000a    { value: 5,  predicate: 'below8 = TRUE  AND below4 = FALSE AND below6 = TRUE  AND below5 = FALSE' },\\u000a    { value: 6,  predicate: 'below8 = TRUE  AND below4 = FALSE AND below6 = FALSE AND below7 = TRUE' },\\u000a    { value: 7,  predicate: 'below8 = TRUE  AND below4 = FALSE AND below6 = FALSE AND below7 = FALSE' },\\u000a    { value: 8,  predicate: 'below8 = FALSE AND below12 = TRUE  AND below10 = TRUE  AND below9 = TRUE' },\\u000a    { value: 9,  predicate: 'below8 = FALSE AND below12 = TRUE  AND below10 = TRUE  AND below9 = FALSE' },\\u000a    { value: 10, predicate: 'below8 = FALSE AND below12 = TRUE  AND below10 = FALSE AND below11 = TRUE' },\\u000a    { value: 11, predicate: 'below8 = FALSE AND below12 = TRUE  AND below10 = FALSE AND below11 = FALSE' },\\u000a    { value: 12, predicate: 'below8 = FALSE AND below12 = FALSE AND below14 = TRUE  AND below13 = TRUE' },\\u000a    { value: 13, predicate: 'below8 = FALSE AND below12 = FALSE AND below14 = TRUE  AND below13 = FALSE' },\\u000a    { value: 14, predicate: 'below8 = FALSE AND below12 = FALSE AND below14 = FALSE AND below15 = TRUE' },\\u000a    { value: 15, predicate: 'below8 = FALSE AND below12 = FALSE AND below14 = FALSE AND below15 = FALSE' }\\u000a  ]\\u000a});\\u000a\\u000a\\u000a // Test all outcomes in a loop:\\u000a \\u000a    for ( var n = 0 ; n < 16 ; n++ ) {\\u000a      var g = com.example.GuessANumber.create();\\u000a      while ( true ) {\\u000a        var q = g.selectNextQuestion();\\u000a        if ( ! q ) break;\\u000a        console.log('question:',n,q.name);\\u000a        // Answer truthfully: the question threshold is encoded in the name\\u000a        var threshold = parseInt(q.name.replace('below', ''));\\u000a        g[q.name] = n < threshold ? 'TRUE' : 'FALSE';\\u000a      }\\u000a      var c = g.getCandidates();\\u000a\\u000a      log('Expected 1 candidate for ' + n + ', got ' + c.length);\\u000a      log('Expected ' + n + ', got ' + c[0].value);\\u000a\\u000a      console.assert(c.length === 1, 'Expected 1 candidate for ' + n + ', got ' + c.length);\\u000a      console.assert(c[0].value === n, 'Expected ' + n + ', got ' + c[0].value);\\u000a    }\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "test1",
+		"cmd": "test(script1.output, 'Test script output for script1')",
+		"value": {
+			"class": "foam.core.reflow.float.Test",
+			"description": "Test script output for script1",
+			"expected": "Expected 1 candidate for 0, got 1\\u000aExpected 0, got 0\\u000aExpected 1 candidate for 1, got 1\\u000aExpected 1, got 1\\u000aExpected 1 candidate for 2, got 1\\u000aExpected 2, got 2\\u000aExpected 1 candidate for 3, got 1\\u000aExpected 3, got 3\\u000aExpected 1 candidate for 4, got 1\\u000aExpected 4, got 4\\u000aExpected 1 candidate for 5, got 1\\u000aExpected 5, got 5\\u000aExpected 1 candidate for 6, got 1\\u000aExpected 6, got 6\\u000aExpected 1 candidate for 7, got 1\\u000aExpected 7, got 7\\u000aExpected 1 candidate for 8, got 1\\u000aExpected 8, got 8\\u000aExpected 1 candidate for 9, got 1\\u000aExpected 9, got 9\\u000aExpected 1 candidate for 10, got 1\\u000aExpected 10, got 10\\u000aExpected 1 candidate for 11, got 1\\u000aExpected 11, got 11\\u000aExpected 1 candidate for 12, got 1\\u000aExpected 12, got 12\\u000aExpected 1 candidate for 13, got 1\\u000aExpected 13, got 13\\u000aExpected 1 candidate for 14, got 1\\u000aExpected 14, got 14\\u000aExpected 1 candidate for 15, got 1\\u000aExpected 15, got 15\\u000a\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	}
+]""",
+"created":"2026-04-15T12:50:24.661Z",
+"lastModified":"2026-04-15T12:50:24.661Z",
+"lastRun":"2025-12-04T21:30:18.693Z"
+})

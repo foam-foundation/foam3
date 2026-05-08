@@ -80,7 +80,7 @@ public class HTTPSink
         conn.addRequestProperty("Accept", "application/json");
         conn.addRequestProperty("Content-Type", "application/json");
       } else if ( format_ == Format.XML ) {
-        outputter = new foam.lib.xml.Outputter(OutputterMode.NETWORK);
+        outputter = new foam.lib.xml.Outputter(getX(), OutputterMode.NETWORK);
         conn.addRequestProperty("Accept", "application/xml");
         conn.addRequestProperty("Content-Type", "application/xml");
       }

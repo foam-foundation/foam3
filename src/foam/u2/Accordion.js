@@ -67,7 +67,7 @@ foam.CLASS({
 
         IMPORTANT: I spend too much time on this mistake.
         So, DO NOT replace the title element (this.title = ...) as this will break the DOM binding. Instead, use .add() to add content to the existing element.
-        
+
         USAGE:
           EXAMPLE 1 - Simple string title:
           this

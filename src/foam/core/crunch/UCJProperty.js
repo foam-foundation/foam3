@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.core.crunch',
   name: 'UCJProperty',
   extends: 'foam.mlang.predicate.PredicateProperty',
+
   documentation: `
     UCJProperty references a UCJ via a predicate. This property can be used to
     associate a UCJ with an instance either by UUID or by a subject and
@@ -17,7 +18,7 @@ foam.CLASS({
 
   properties: [
     ['transient', true],
-    ['of', 'foam.core.crunch.UserCapabilityJunction'],
+//    ['of', 'foam.core.crunch.UserCapabilityJunction'],
     {
       name: 'capability',
       class: 'String'

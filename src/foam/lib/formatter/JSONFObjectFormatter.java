@@ -204,28 +204,27 @@ public class JSONFObjectFormatter
 
   protected void outputProperty(FObject o, PropertyInfo p) {
     try {
-      int startLen = builder().length();
+      // output propertyName:
       outputKey(getPropertyName(p));
       append(':');
-      int valueStart = builder().length();
-      Object propObj = p.get(o);
+
+      // output property value which can be empty. See. output(FObject, ClassInfo, PropertyInfo)
+      int startLen = builder().length();
       p.formatJSON(this, o);
-      // If nothing was written for the value (eg: empty/default nested FObject),
-      // output a minimal object carrying the class to avoid blank entries.
-      // Only do this when OutputDefaultClassNames is true, otherwise preserve
-      // original behavior (which may produce invalid JSON for edge cases).
-      if ( builder().length() == valueStart ) {
-        if ( propObj instanceof FObject && outputDefaultClassNames_ ) {
+
+      // handle empty property value output:
+      //   - for FObjectProperty returns {class:"..."}
+      //   - Otherwise returns null
+      if ( builder().length() == startLen ) {
+        if ( p.get(o) instanceof FObject fo ) {
           append('{');
           outputKey("class");
           append(':');
-          output(((FObject) propObj).getClassInfo().getId());
+          output(fo.getClassInfo());
           append('}');
-        } else if ( ! ( propObj instanceof FObject ) ) {
+        } else {
           append("null");
         }
-        // else: FObject with OutputDefaultClassNames=false - leave empty
-        // (preserves original behavior, produces invalid JSON as expected)
       }
     } catch (Throwable t) {
       System.err.println("***************************************************** error outputting " + getPropertyName(p));
@@ -284,10 +283,13 @@ public class JSONFObjectFormatter
 
 
   public void outputEnumValue(FEnum value) {
+    String className = value.getClass().isAnonymousClass()
+                      ? value.getClass().getEnclosingClass().getCanonicalName()
+                      : value.getClass().getCanonicalName();
     append('{');
     outputKey("class");
     append(':');
-    output(value.getClass().getName());
+    output(className);
     append(COMMA);
     outputKey("ordinal");
     append(':');
@@ -296,6 +298,14 @@ public class JSONFObjectFormatter
   }
 
   public void outputEnum(FEnum value) {
+    try {
+      String v = (String) value.getValue();
+      if ( v instanceof String && ((String) v).length() > 0 ) {
+        output(v);
+        return;
+      }
+    } catch (RuntimeException e) {
+    }
     output(value.getOrdinal());
   }
 
@@ -439,7 +449,7 @@ public class JSONFObjectFormatter
         } else {
           if ( calculateDeltaForNestedFObjects_ &&
                prop.get(newFObject) != null && prop.get(oldFObject) != null &&
-               prop.get(newFObject).getClass().getCanonicalName().equals(prop.get(oldFObject).getClass().getCanonicalName()) ) {
+               SafetyUtil.classEquals(prop.get(newFObject), prop.get(oldFObject)) ) {
             if ( maybeOutputFObjectProperty(newFObject, oldFObject, prop) ) {
               delta += 1;
               if ( optionalPredicate_.propertyPredicateCheck(getX(), of, prop) ) {

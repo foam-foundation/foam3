@@ -8,6 +8,8 @@ foam.INTERFACE({
   package: 'foam.core.security',
   name: 'KeyStoreManager',
 
+  proxy: true,
+
   documentation: 'FOAM interface to Java KeyStore',
 
   javaImports: [
@@ -106,12 +108,12 @@ keytool -importpass \
         {
           name: 'alias',
           type: 'String'
-        },
-        {
-          documentation: 'A PBE Algorithm. See https://docs.oracle.com/en/java/javase/11/docs/specs/security/standard-names.html#keystore-types',
-          name: 'algorithm',
-          type: 'String'
         }
+        // {
+        //   documentation: 'A PBE Algorithm. See https://docs.oracle.com/en/java/javase/11/docs/specs/security/standard-names.html#keystore-types',
+        //   name: 'algorithm',
+        //   type: 'String'
+        // }
       ],
       javaCode: `
       throw new UnsupportedOperationException();

@@ -17,13 +17,16 @@ foam.CLASS({
     'foam.u2.view.OverlayActionListView'
   ],
 
+  exports: ['storeAction'],
+
   css: `
-    ^ { 
+    ^ {
       display: flex;
       gap: 1rem;
       align-items: center;
-      flex-wrap: wrap;
-      flex: 2 0 fit-content;
+      flex-wrap: nowrap;
+      flex: 1 0 0;
+      min-width: 0;
     }
     ^vertical {
       flex-direction: column;
@@ -65,17 +68,43 @@ foam.CLASS({
       name: 'overlaySpec'
     },
     'notContent',
-    'overlay_'
+    'overlay_',
+    {
+      class: 'Map',
+      name: 'childWidths'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.lang.FObject',
+      name: 'currentOverflow'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.lang.FObject',
+      name: 'otherActions'
+    }
   ],
   methods: [
     function init() {
       this.SUPER();
+      this.__subSubContext__.register(foam.u2.ButtonGroupActionView,'foam.u2.ActionView');
+      this.__subSubContext__.register(foam.u2.ButtonGroupActionReferenceView,'foam.u2.ActionReferenceView');
       this
         .addClass()
         .enableClass(this.myClass('vertical'), this.direction$.map(v => v == 'VERTICAL'))
-        .start('', {}, this.notContent$).style({ display:'contents'}).end()
-        .tag(this.OverlayActionListView, { data$: this.data$, ...this.overlaySpec }, this.overlay_$)
+        .tag(foam.u2.WrapperNode, { parentNode: this }, this.notContent$)
+        .tag(this.OverlayActionListView, {
+          data$: this.slot(function(data, currentOverflow) {
+            return [...currentOverflow, ...data]
+          }),
+          shown$: this.slot(function(data, currentOverflow) {
+            return data.length > 0 || currentOverflow.length > 0;
+          }),
+          ...this.overlaySpec
+        }, this.overlay_$)
       this.content = this.notContent;
+      // Start observing the container
+      this.resizeObserver(this.onResize);
     },
     function startOverlay() {
       this.__subSubContext__ = this.__subSubContext__.createSubContext({overlay: true});
@@ -87,18 +116,131 @@ foam.CLASS({
     },
     function createChild_(spec, args) {
       if ( this.__subSubContext__.overlay ) {
-        this.overlay_.data$push(spec);
+        this.data$push(spec);
         return;
       }
       args = {...args, ...this.overrides};
-      let a = this.SUPER(spec, args);
-      return a;
+      let child = this.SUPER(spec, args);
+      return child;
     },
     function addActionReference(action, data, opts = {}) {
       // Convienience method to add ActionReference
       let actRef = this.ActionReference.create({ action, ...( foam.lang.Slot.isInstance(data) ? {data$: data} : {data: data} ) });
       this.tag(actRef, opts);
       return this
+    },
+    function storeAction(el) {
+      // Expects an action view that it can extract the action and data from
+      if ( el.__subSubContext__.overlay ) return;
+      let uid = el.$UID;
+      // This is a quirk of u3 and how content works, seemingly children added to content still have the top level element as parent
+      // This does not apply to slots as functionNode is created in the context of the content element
+      // This code can be deleted if this is fixed
+      if ( el.parentNode !== this ) {
+        let e = el;
+        while ( e.parentNode !== this.notContent ) {
+          e = e.parentNode;
+          // This happens for overlay actions
+          if ( ! e ) return;
+        }
+        uid = e.$UID;
+      }
+      el.resizeObserver(this.buttonObserver.bind(this, el, uid));
+      this.buttonObserver(el, uid);
+      this.onResize();
+    },
+    function isAction(a) {
+      return foam.lang.Action.isInstance(a) || this.ActionReference.isInstance(a);
     }
   ],
+   listeners: [
+    {
+      name: 'buttonObserver',
+      code: function(el, id) {
+        let width = el.el_().offsetWidth;
+        if ( width === 0 || ! el.shown ) return;
+        this.childWidths[id] = { el: el, width: width };
+        el.onDetach(() => {
+          this.childWidths$remove[id];
+        });
+      }
+    },
+    {
+      name: 'onResize',
+      isFramed: true,
+      code: function() {
+        if ( ! this.el_() ) return;
+
+        const containerWidth = this.el_().offsetWidth;
+        const overlayWidth = this.overlay_?.el_()?.offsetWidth || 40;
+        let available = containerWidth - overlayWidth;
+        let visibleCount = 0;
+        let currentWidth = 24; // 24px as padding width for either side
+        const children = this.notContent.children;
+        // Determine how many fit
+        for ( let i = 0; i < children.length; i++ ) {
+          let child = children[i];
+          let value = this.childWidths[child.$UID];
+          currentWidth += (value?.width ?? 0) + 16; // 16px for gap
+          if ( currentWidth < available ) {
+            visibleCount++;
+          } else {
+            if ( i + 1 == children.length && currentWidth - 16 <= containerWidth )
+              visibleCount++;
+            break;
+          }
+        }
+
+        // Toggle visibility and update overlay data
+        const overflowItems = [];
+        let visibilityChanged = false;
+
+        children.forEach((child, idx) => {
+          if ( ! this.childWidths[child.$UID] ) return;
+          let el = this.childWidths[child.$UID]?.el;
+          if ( idx < visibleCount ) {
+            if ( ! el.shown ) { el.show(); visibilityChanged = true; }
+          } else {
+            if ( el.shown ) { el.hide(); visibilityChanged = true; }
+            // Logic to map the hidden child back to an action/spec for the overlay
+            overflowItems.push(this.ActionReference.create({ action$: el.action$, data$: el.data$ }));
+          }
+        });
+
+        if ( visibilityChanged ) this.overlay_.overlay_.close();
+        this.currentOverflow = overflowItems;
+      }
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'ButtonGroupActionView',
+  extends: 'foam.u2.ActionView',
+
+  imports: ['storeAction'],
+
+  methods: [
+    function render() {
+      this.SUPER();
+      this.storeAction(this);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'ButtonGroupActionReferenceView',
+  extends: 'foam.u2.ActionReferenceView',
+
+  imports: ['storeAction'],
+
+  methods: [
+    function render() {
+      this.SUPER();
+      this.storeAction(this);
+    }
+  ]
 });

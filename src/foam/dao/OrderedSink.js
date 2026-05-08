@@ -12,7 +12,7 @@ foam.CLASS({
   properties: [
     {
       class: 'FObjectProperty',
-      type: 'foam.mlang.order.Comparator',
+      of: 'foam.mlang.order.Comparator',
       required: true,
       name: 'comparator'
     },

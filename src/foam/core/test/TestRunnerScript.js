@@ -213,6 +213,7 @@ This will also keep the foam application running for inspection from the GUI.
           exitCode = 1;
       }
       if ( clientTestRun != null ) {
+        reportClientTestDetails(x, clientTests);
         reportResults(x, clientTestRun, runTime);
         if (clientTestRun.getFailed() > 0 )
           exitCode = 1;
@@ -493,7 +494,31 @@ This will also keep the foam application running for inspection from the GUI.
       };
       agent.setHeadless( ! Boolean.getBoolean(SYSTEM_TEST_HEADED) );
       agent.execute(x);
-      return (TestRun) dao.find(testRun.getId());
+      TestRun result = (TestRun) dao.find(testRun.getId());
+      if ( ! result.getCompleted() ) {
+        result = (TestRun) result.fclone();
+        result.setCompleted(true);
+        result.setFailed(result.getFailed() + 1);
+        result.setTests(result.getTests() + 1);
+        List<String> failures = result.getFailures() != null ? new ArrayList<>((List<String>) result.getFailures()) : new ArrayList<>();
+        failures.add("FAILURE: Client tests timed out after " + agent.getTimeout() + " seconds. Tests may still be running in the browser.");
+        result.setFailures(failures);
+        result = (TestRun) dao.put(result);
+      }
+      return result;
+      `
+    },
+    {
+      name: 'reportClientTestDetails',
+      args: 'X x, List tests',
+      javaCode: `
+        DAO testDAO = (DAO) x.get("testDAO");
+        for ( Test test : (List<Test>) tests ) {
+          test = (Test) testDAO.find(test.getId());
+          if ( test == null ) continue;
+          printBold(test.getId());
+          printOutput(test);
+        }
       `
     },
     {

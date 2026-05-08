@@ -10,18 +10,19 @@ foam.CLASS({
   extends: 'foam.mlang.AbstractExpr',
   documentation: 'Return the number of calendar days since the specified date.',
 
-/*
-  implements: [
-    'foam.lang.Serializable'
-  ],
-  */
-
   javaImports:[
     'java.time.LocalDate',
     'java.time.ZoneId',
     'java.time.temporal.ChronoUnit',
     'java.util.Date'
   ],
+
+  javaCode: `
+    public static long since(Date d) {
+      LocalDate ld = LocalDate.ofInstant(d.toInstant(), ZoneId.systemDefault());
+      return ChronoUnit.DAYS.between(ld, LocalDate.now());
+    }
+  `,
 
   properties: [
     {
@@ -49,8 +50,7 @@ foam.CLASS({
         return days;
       },
       javaCode: `
-        LocalDate d = LocalDate.ofInstant(((Date) getArg1().f(obj)).toInstant(), ZoneId.systemDefault());
-        return ChronoUnit.DAYS.between(d, LocalDate.now());
+        return since(((Date) getArg1().f(obj)));
       `
     },
     {

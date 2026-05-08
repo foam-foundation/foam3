@@ -16,10 +16,7 @@ foam.CLASS({
         return "new "+javaType+"(\""+name+"\",\""+value+"\",\""+fallback+"\");";
       }
     },
-    {
-      class: 'foam.java.JavaType',
-      value: 'foam.u2.ColorToken'
-    } // JavaType defines 'name' and other properties
+    [ 'javaType', 'foam.u2.ColorToken' ]
   ],
 
 

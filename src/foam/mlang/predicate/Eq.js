@@ -51,8 +51,7 @@ return FOAM_utils.equals(v1, v2)
 
     function toMQL() {
       var arg2 = this.arg2ToMQL();
-      if ( ! arg2 )
-        return null;
+      if ( arg2 == null ) return null;
       return this.arg1.name + '=' + arg2;
     }
   ]

@@ -12,8 +12,8 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'associatedTopLevelUCJ',
       class: 'foam.core.crunch.UCJProperty',
+      name: 'associatedTopLevelUCJ',
       documentation: `
         A top-level UCJ associated with these changes. If a UCJUpdateApprovable
         ever contains a collection of UCJs that do not have a common parent,

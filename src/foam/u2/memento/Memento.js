@@ -355,14 +355,20 @@ foam.CLASS({
           this.window.history.pushState(null, '', '#' + this.usedStr)
         }
 
+        this.setTitleListener();
+        this.hashFeedback_ = false;
+      }
+    },
+    {
+      name: 'setTitleListener',
+      code: function() {
         // Title needs to be set here otherwise title changes before the memento does and we get incorrect document titles
         if ( this.breadcrumbs ) {
           if ( this.detacher_ ) this.detacher_.detach();
-          this.detacher_ = this.breadcrumbs.current?.dynamic(function(title) {
-            self.document.title = title;
+          this.detacher_ = this.breadcrumbs.dynamic(function(current$title) {
+            self.document.title = current$title;
           });
         }
-        this.hashFeedback_ = false;
       }
     }
   ]

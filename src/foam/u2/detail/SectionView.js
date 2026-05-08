@@ -24,6 +24,8 @@ foam.CLASS({
     'foam.u2.tag.Button'
   ],
 
+  imports: ['hideActions as importedHideActions' ],
+
   css: `
 
     ^rows {
@@ -132,6 +134,13 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'collapsed'
+    },
+    {
+      class: 'Boolean',
+      name: 'hideActions',
+      factory: function() {
+        return this.importedHideActions ?? false;
+      }
     }
   ],
 
@@ -222,8 +231,8 @@ foam.CLASS({
               }
               return view;
             }))
-            .add(this.dynamic(function(loadLatch) {
-              if ( ! loadLatch || ! section.actions.length )
+            .add(this.dynamic(function(loadLatch, hideActions) {
+              if ( ! loadLatch || ! section.actions.length || hideActions )
                 return;
               this.start(self.Cols)
                   .hide(self.collapsed$.and(section.collapsable$))

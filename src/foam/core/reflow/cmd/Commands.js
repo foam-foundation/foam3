@@ -242,33 +242,6 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
-  name: 'DAO',
-  extends: 'foam.core.reflow.cmd.Command',
-
-  requires: [ 'foam.core.reflow.DAOPrompt' ],
-
-  imports: [ 'createFlowChildName' ],
-
-  properties: [
-    [ 'description', 'Perform DAO operation' ]
-  ],
-
-  methods: [
-    function execute(dao, opt_label) {
-      let p     = this.DAOPrompt.create({dao: dao, label: opt_label});
-      let label = p.dao.of.model_.plural;
-
-      p.addToE(this.out);
-      this.currentBlock.flowName = opt_label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());
-      this.currentBlock.obj    = p; // ???: Needed
-      this.currentBlock.value  = p;
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow.cmd',
   name: 'DAOFilter',
   extends: 'foam.core.reflow.cmd.Command',
 
@@ -379,6 +352,7 @@ foam.CLASS({
           if ( shortName.endsWith('DAO') ) shortName = shortName.substring(0, shortName.length-3);
 
           this.tag(self.DAORowView, {
+            name: n.name,
             shortName: shortName,
             description: n.description,
             ofId: of.id,
@@ -433,17 +407,36 @@ foam.CLASS({
   ],
 
   methods: [
-    function execute(cls) {
+    function execute(cls, simple) {
+      let original = cls;
       if ( foam.String.isInstance(cls) ) {
-        cls = foam.lookup(cls);
+        cls = foam.maybeLookup(cls);
         if ( cls == null ) {
-          log('Unknown class');
-          return;
+          cls = this.__context__[original];
+          if ( cls == null ) {
+            this.log('Unknown class or service');
+            return;
+          }
+          cls = cls.cls_;
         }
       }
+
       // TODO: add ability to specify how SimpleClassView writes links so it can hyperlink back to this command
-      this.out.startContext({conventionalUML: true}).
-        tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+      if ( foam.lang.InterfaceModel.isInstance(cls.model_) ) {
+        this.out.tag(foam.doc.InterfaceView, {data: cls});
+      } else {
+        // TODO: a better method of determining if a cls is a QA
+        if ( cls.QUESTIONS ) {
+          this.out.tag(foam.u2.qa.QADocView, {data: cls});
+        }
+
+        if ( simple ) {
+          this.out.tag(foam.doc.PropertyView, {data: cls});
+        } else {
+          this.out.startContext({conventionalUML: true}).
+            tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        }
+      }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
       this.outputLink(cls.__proto__.id, () => this.eval_('describe(' + cls.__proto__.id + ')'), this.out);
@@ -483,8 +476,11 @@ foam.CLASS({
       if ( q ) q = q.toLowerCase();
       var self = this;
       this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
-        if ( q != undefined && (f.id + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
+        if ( q != undefined && (f.id + f.category + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
+        // TODO: use a real TableView instead
+        // FROM flowDAO ORDER BY -category,name COLUMNS category,name,status,description TO CSV
         this.start('tr').
+          start('td').add(f.category).end().
           start('td').start(self.Link).add(f.name).on('click', () => self.eval_('load("' + f.name + '")')).end().end().
           start('td').call(function() { f.STATUS.tableCellFormatter.f.call(this, f.status); }).end().
           start('td').add(f.description).end().
@@ -628,15 +624,10 @@ foam.CLASS({
         this.flow.loadComplete.sub(() => this.maybeCallScript(loaded.postLoadScript));
         this.selected = this.flow;
         this.flow.copyFrom(loaded);
-        // HACK: after loading a flow the revision is set to 2 for some unknown
-        // reason. This resets it back to 0.
-        // TODO: find out why it is 2 and remove this code.
-        this.flow.revision$.sub((sub, _, __, e) => {
-          if ( e.get() == 2 ) {
-            sub.detach();
-            setTimeout(() => this.mementoMgr.clear(), 100);
-          }
-        });
+        // After loading, revert the revision back to 0
+        this.flow.loadComplete.sub(foam.events.oneTime(() => {
+          this.mementoMgr.clear();
+        }));
       }
     },
     async function maybeCallScript(s) {
@@ -668,13 +659,11 @@ foam.CLASS({
       // Don't save the 'save' command
       this.currentBlock.del();
 
-      return this.save().then(() => {
-        this.notify('Flow saved');
+      return this.save().then(ret => {
+        if ( ret ) this.notify('Flow saved');
       }).catch(err => {
         this.notify('Error saving flow: ' + err.message);
       });
-
-
     }
   ]
 });
@@ -934,6 +923,28 @@ foam.CLASS({
       this.block.del();
       this.currentBlock = b;
 //      console.log(this.block, this.currentBlock, b);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'Example',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  imports: [ 'block', 'currentBlock' ],
+
+  requires: ['foam.core.reflow.example.Example'],
+
+  methods: [
+    function execute(code) {
+      let example = this.Example.create({ code: code });
+      this.currentBlock.value = example;
+    // this.currentBlock.configViewSpec = {
+    //   propertyWhitelist: {'innerText': { label: 'Code' }}
+    // }
+      this.out.tag(example);
     }
   ]
 });

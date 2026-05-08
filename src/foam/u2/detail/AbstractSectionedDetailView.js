@@ -14,7 +14,7 @@ foam.CLASS({
     The abstract for property-sheet style Views with sections for editing an FObject.
   `,
 
-  exports: [ 'data as objData' ],
+  exports: [ 'data as objData', 'hideActions' ],
 
   requires: [
     'foam.lang.Action',

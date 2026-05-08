@@ -39,6 +39,7 @@
     {
       class: 'String',
       name: 'id',
+      required: true,
       tableWidth: 280
     },
     {
@@ -102,7 +103,7 @@
       displayWidth: 80
     },
     {
-      class: 'String',
+      class: 'GlyphProperty',
       name: 'themeIcon',
       documentation: 'Theme icon associated to the menu item.',
       displayWidth: 80

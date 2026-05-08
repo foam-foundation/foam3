@@ -43,7 +43,7 @@ foam.CLASS({
         .end()
         .start('div')
           .addClass(this.myClass('documentation'))
-          .add(this.data.documentation || '')
+          .add(this.data.help || '')
         .end();
     }
   ]
@@ -93,6 +93,11 @@ foam.CLASS({
 
   documentation: 'Custom RichChoiceView for enum values that stores the full enum object',
 
+  requires: [
+    'foam.dao.ArrayDAO',
+    'foam.core.reflow.DateFormat'
+  ],
+
   properties: [
     {
       name: 'selectionView',
@@ -111,9 +116,9 @@ foam.CLASS({
       factory: function() {
         return [
           {
-            dao: foam.dao.ArrayDAO.create({
-              of: foam.core.reflow.DateFormat,
-              array: foam.core.reflow.DateFormat.VALUES
+            dao: this.ArrayDAO.create({
+              of: this.DateFormat,
+              array: this.DateFormat.VALUES
             })
           }
         ];

@@ -27,9 +27,10 @@ p({
        this.block.cmd      = 'testresults';
        this.out.tag(foam.core.reflow.float.TestResultsView, {data: results});
 
+       // A delay of 100ms doesn't work, so we wait 400ms, I don't know why. KGR
        setTimeout(() => {
-         this.eval_(`test('${args[0]}', '${args[1] || ''}')`);
-       }, 100);
+         this.__context__.eval_(`test('${args[0]}', '${args[1] || ''}')`);
+       }, 400);
     } else {
       var test = foam.core.reflow.float.Test.create({
         received: args[0],

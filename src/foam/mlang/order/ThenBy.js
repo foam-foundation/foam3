@@ -18,7 +18,7 @@ foam.CLASS({
   properties: [
     {
       class: 'FObjectProperty',
-      type: 'foam.mlang.order.Comparator',
+      of: 'foam.mlang.order.Comparator',
       adapt: function(_, a) {
         // TODO(adamvy): We should fix FObjectProperty's default adapt when the
         // of parameter is an interface rather than a class.
@@ -29,7 +29,7 @@ foam.CLASS({
     },
     {
       class: 'FObjectProperty',
-      type: 'foam.mlang.order.Comparator',
+      of: 'foam.mlang.order.Comparator',
       adapt: function(_, a) {
         // TODO(adamvy): We should fix FObjectProperty's default adapt when the
         // of parameter is an interface rather than a class.

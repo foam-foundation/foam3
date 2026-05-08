@@ -56,3 +56,65 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.mlang.expr',
+  name: 'RefSummary',
+  extends: 'foam.mlang.expr.Ref',
+
+  documentation: `
+    Same as Ref, but returns a map of { id, summary: obj.toSummary() }
+    TODO: Maybe this should return a proper FObject of type referenceSummaryData
+    Would make all the typechecking easier
+  `,
+
+  javaImports: [
+    'foam.lang.FObject',
+    'java.util.HashMap',
+    'java.util.Map'
+  ],
+
+  methods: [
+    // Delegates to Property.set() if arg1 is a Property, otherwise uses the property name or arg1 itself.
+    {
+      name: 'set',
+      code: function(o, value) {
+        if ( ! o || ! this.arg1 ) return;
+        if ( foam.lang.Property.isInstance(this.arg1) ) {
+          this.arg1.set(o, value);
+        } else {
+          o[this.arg1.name ?? this.arg1] = value;
+        }
+      }
+    },
+    {
+      name: 'f',
+      code: function(o) {
+        // js side is for DAOs with cache:true
+        // Needs to be a sync return otherwise the client will get an NaN on
+        // the reference property value. Summary is expected to be async so this is not an issue
+        if ( ! o || ! this.arg1 ) return null;
+        var name = this.arg1.name;
+        if ( o[name] == null ) return null;
+        var finder;
+        try { finder = o[name + '$find']; }
+        catch (e) { return null; }
+        return {
+          id: o[name],
+          summary: finder.then(async function(ref) {
+            return ref?.toSummary?.() ?? null;
+          })
+        };
+      },
+      javaCode: `
+        // java side is for DAOs with cache:false
+        FObject temp = (FObject) super.f(obj);
+        if ( temp == null ) return null;
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", temp.getProperty("id"));
+        result.put("summary", temp.toSummary());
+        return result;
+      `
+    }
+  ]
+});

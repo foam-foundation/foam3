@@ -14,19 +14,24 @@ foam.CLASS({
   imports: ['returnExpandedCSS', 'theme'],
 
   css: `
-    ^pill{
-      align-items: center;
-      border-radius: 11.2px;
-      border: 1px solid;
+    ^ {
       display: inline-flex;
-      justify-content: space-around;
+      justify-content: center;
+      align-items: center;
       min-width: 88px;
       padding: 0 12px;
       width: -webkit-max-content;
       width: -moz-max-content;
     }
+    ^pill{
+      border-radius: 11.2px;
+      border: 1px solid;
+    }
     ^icon{
       margin-right: 4px;
+    }
+    ^center {
+      justify-content: center;
     }
   `,
 
@@ -41,30 +46,37 @@ foam.CLASS({
 
   methods: [
     function render() {
+      let self = this;
       this.SUPER();
       this.dynamic(function(data) {
+        if ( ! data ) return;
         this.removeAllChildren();
-        var color = this.resolveColor(this.data.color);
-        var background = this.resolveColor(this.data.background);
-        var isPill = this.isFancy(this.data.VALUES);
+        var color = this.resolveColor(data.color);
+        var background = this.resolveColor(data.background);
+        var glyphBackground = this.resolveColor(data.glyphBackground);
+        var glyphColor = this.resolveColor(data.glyphFill);
+        var borderColor = this.resolveColor(data.borderColor);
+        var isPill = this.isFancy(data.VALUES);
         this
           .enableClass(this.myClass('pill'), isPill)
           .addClass('enum-label', this.myClass())
-          .style({ 'width': 'max-content' })
+          .style({ width: 'max-content' })
           .style({
             'background-color': background,
             'color': color,
-            'border-color': background.includes('#FFFFFF') || ! background ? color : background
+            'border-color': borderColor
           })
-          .callIf(this.showGlyph && data.glyph, () => {
+          .callIfElse(this.showGlyph && (data.glyph || data.icon), () => {
             var icon = {
               size: 14,
-              backgroundColor: color,
-              icon: data.glyph.clone(this).getDataUrl({
-                fill: background || color
-              })
+              backgroundColor: glyphBackground || color,
+              icon: data.glyph?.clone(this).getDataUrl({
+                fill: glyphColor || background || color
+              }) ?? data.icon
             };
             this.start(this.CircleIndicator, icon).addClass(this.myClass('icon')).end();
+          }, function() {
+            self.addClass(self.myClass('center'))
           })
           .callIfElse(isPill,
             () => { this.start().add(data.label).end(); },

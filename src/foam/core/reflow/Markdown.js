@@ -10,17 +10,26 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'Boolean',
+      name: 'editable'
+    },
+    {
       class: 'String',
       name: 'markdown',
       onKey: true,
       label: '',
-      view: { class: 'foam.u2.tag.TextArea', rows: 40, cols: 80 }
+//      view: { class: 'foam.u2.tag.TextArea', rows: 40, cols: 80 }
+      view: { class: 'foam.u2.view.MarkdownEditorView' }
     }
   ],
 
   methods: [
     function addToE(e) {
-      e.tag(foam.u2.view.MarkdownView, {data$: this.markdown$});
+      let self = this;
+      e.add(this.dynamic(function (editable) {
+        let view = editable ? foam.u2.view.MarkdownEditorView : foam.u2.view.MarkdownView;
+        this.tag(view, {data$: self.markdown$});
+      }));
     }
   ]
 });

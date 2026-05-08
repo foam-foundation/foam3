@@ -234,9 +234,9 @@ foam.CLASS({
         ],
 
         constants: [
-          { name: 'QUESTIONS', value: questions, flags: ['js'] },
-          { name: 'OUTCOMES', value: outcomes, flags: ['js'] },
-          { name: 'INPUT_NAMES', value: inputNames, flags: ['js'] },
+          { name: 'QUESTIONS',    value: questions,   flags: ['js'] },
+          { name: 'OUTCOMES',     value: outcomes,    flags: ['js'] },
+          { name: 'INPUT_NAMES',  value: inputNames,  flags: ['js'] },
           { name: 'OUTPUT_NAMES', value: outputNames, flags: ['js'] }
         ],
 
@@ -301,26 +301,35 @@ foam.CLASS({
           },
 
           /**
-           * Select the unanswered question with the highest information gain.
+           * Select the unanswered question with the highest priority (lower number is higher) and then highest information gain.
            * Returns the question axiom, or null if no questions remain.
            */
           function selectNextQuestion() {
             var candidates = this.getCandidates();
+
             if ( candidates.length <= 1 ) return null;
 
-            // console.log('************ CANDIDATES:');
+            // console.log('************ CANDIDATES:', candidates.length);
             // candidates.forEach(c => console.log(c.reasonCode_, ' / ', c.reasonText, ' / ', c.predicate));
 
-            var self      = this;
-            var questions = this.QUESTIONS;
-            var bestQ     = null;
-            var bestGain  = -1;
+            var self            = this;
+            var questions       = this.QUESTIONS;
+            var bestQ           = null;
+            var bestGain        = -1;
+            var highestPriority = Number.MAX_SAFE_INTEGER; // lower numbers are higher priority
 
             for ( var i = 0 ; i < questions.length ; i++ ) {
-              var q = questions[i];
+              let q        = questions[i];
+              let priority = q.priority || 100;
 
               // Skip answered questions
-              if ( self[q.name] !== '' && self[q.name] != undefined ) continue;
+              if ( self[q.name] !== '' && self[q.name] != 0 && self[q.name] != undefined ) continue;
+
+              // Skip lower priority questions
+              if ( priority > highestPriority ) continue;
+
+              // Always accept lower priority questions
+              if ( priority < highestPriority ) { bestQ = null; bestGain = -1 };
 
               var gain = self.computeInfoGain(q, candidates);
               // Prefer higher gain, then fewer choices, then earlier declaration
@@ -328,10 +337,13 @@ foam.CLASS({
                    ( gain === bestGain && bestQ &&
                      q.choices?.length < bestQ.choices?.length ) )
               {
-                bestGain = gain;
-                bestQ    = q;
+                bestGain        = gain;
+                bestQ           = q;
+                highestPriority = priority;
               }
             }
+
+            // console.log('******* NEXT QUESTION:', bestQ.name);
 
             // Don't ask questions with zero information gain
             return bestGain > 0 ? this.cls_.getAxiomByName(bestQ.name) : null;

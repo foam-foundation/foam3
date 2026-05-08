@@ -1489,10 +1489,7 @@ foam.CLASS({
       cast.body = `if ( o instanceof Integer ) return forOrdinal((int) o);
   if ( o instanceof String ) {
     ${this.of.id} ret = forValue((String) o);
-    if ( ret == null ) {
-      try { ret = Enum.valueOf(${this.of.id}.class, (String) o); }
-      catch ( IllegalArgumentException e ) { ret = null; }
-    }
+    if ( ret == null ) ret = Enum.valueOf(${this.of.id}.class, (String) o);
     return ret;
   }
   return (${this.of.id})o;`;

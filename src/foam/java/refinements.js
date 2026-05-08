@@ -1479,8 +1479,22 @@ foam.CLASS({
       });
 
       var cast = info.getMethod('cast');
+      // String input first resolves by external `value` axiom (added in
+      // commit 0a90b12cc7 — enum constants may define a stable serialized
+      // value), then falls back to standard Java enum-by-name lookup.
+      // Without the fallback, legacy data using the constant name (e.g.
+      // "DAY") returned null from forValue, silently setting the enum
+      // field to null and NPE-ing later. Mirrors the JS adapt chain in
+      // foam/lang/Enum.js (constantize → forValue).
       cast.body = `if ( o instanceof Integer ) return forOrdinal((int) o);
-  if ( o instanceof String ) return forValue((String) o);
+  if ( o instanceof String ) {
+    ${this.of.id} ret = forValue((String) o);
+    if ( ret == null ) {
+      try { ret = Enum.valueOf(${this.of.id}.class, (String) o); }
+      catch ( IllegalArgumentException e ) { ret = null; }
+    }
+    return ret;
+  }
   return (${this.of.id})o;`;
 
       return info;

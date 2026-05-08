@@ -157,6 +157,7 @@ foam.CLASS({
   `,
 
   properties: [
+    { class: 'Boolean', name: 'showText', value: true },
     'suggestText'
   ],
 
@@ -192,6 +193,8 @@ foam.CLASS({
     },
 
     function renderText() {
+      if ( ! this.showText ) return;
+
       const data  = this.data;
 
       if ( data.label !== data.text ) {
@@ -449,6 +452,7 @@ foam.CLASS({
         let sug = self.suggestions[s];
         this.tag(sug.view || self.SuggestionView, {
           data: sug,
+          showText: sug.showText,
           filter: sug.view ? delta.trim() : '',
           suggestText: (text) => {
             self.suggestText.call(self, text, sug);

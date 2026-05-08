@@ -1480,7 +1480,11 @@ foam.CLASS({
 
       var cast = info.getMethod('cast');
       cast.body = `if ( o instanceof Integer ) return forOrdinal((int) o);
-  if ( o instanceof String ) return forValue((String) o);
+  if ( o instanceof String ) {
+    ${this.of.id} ret = forValue((String) o);
+    if ( ret == null ) ret = Enum.valueOf(${this.of.id}.class, (String) o);
+    return ret;
+  }
   return (${this.of.id})o;`;
 
       return info;

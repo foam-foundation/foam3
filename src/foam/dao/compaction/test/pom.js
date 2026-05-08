@@ -8,6 +8,11 @@ foam.POM({
   name: "compaction-test",
 
   files: [
+    { name: 'TestRecord',        flags: 'js&test|java&test' },
     { name: 'CompactionDAOTest', flags: 'js&test|java&test' }
+  ],
+
+  journalFiles: [
+    { name: 'compactionTestRecords', flags: 'test' }
   ]
 });

@@ -61,6 +61,8 @@ foam.CLASS({
       overflow: hidden;
       padding: 24px;
       height: 100%;
+    }
+    ^inner:not(^lowerPadding) {
       padding-bottom: 0px;
     }
     ^modal-body{
@@ -141,7 +143,8 @@ foam.CLASS({
       class: 'String',
       name: 'description'
     },
-    'wrapper_'
+    'wrapper_',
+    'data'
   ],
 
   methods: [
@@ -173,6 +176,7 @@ foam.CLASS({
           .end()
           .start()
             .enableClass(this.myClass('inner'), this.isStyled$)
+            .enableClass(this.myClass('lowerPadding'), this.actionArray$.map(a => ! a?.length))
             .enableClass(this.myClass('closeable'), this.closeable$)
             .start().addClass(this.myClass('header'))
               .start().addClass('h400', this.myClass('title')).add(this.title).end()
@@ -202,7 +206,7 @@ foam.CLASS({
       return this.E().tag('', null, this.content$);
     },
     function addActions(self) {
-      var actions = this.startContext({ data$: self.data$ });
+      var actions = this.startContext({ data: self.data$ });
       for ( action of self.actionArray ) {
         actions.tag(action);
       }

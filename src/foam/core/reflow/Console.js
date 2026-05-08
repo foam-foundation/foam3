@@ -19,6 +19,8 @@ foam.CLASS({
 
   topics: [ 'flowUpdated' ],
 
+  imports: [ 'softSelected' ],
+
   properties: [
     {
       name: 'flowParent',
@@ -38,7 +40,14 @@ foam.CLASS({
     {
       name: 'treeRowRenderer',
       hidden: true,
-      value: function(e) { e.add(this.flowName$); }
+      value: function(e) {
+        e.parentNode.enableClass('locked', this.locked$);
+        e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
+
+        let isDependent = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1 ? 'orange' : '');
+        e.add(this.flowName$);
+        e.style({color: isDependent});
+      }
     },
     {
       name: 'childType',
@@ -46,6 +55,19 @@ foam.CLASS({
       transient: true,
       documentation: 'Default child type for this flowable',
       factory: function() { return this.cls_; }
+    },
+    {
+      class: 'StringArray',
+      name: 'dependencies',
+      transient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'locked',
+      transient: true,
+      expression: function(dependencies) {
+        return dependencies.length != 0;
+      }
     }
   ],
 
@@ -1209,6 +1231,7 @@ foam.CLASS({
     'scrollToBottom',
     'selected',
     'selectFromTree',
+    'softSelected',
     'showPrompts',
     'value as flow'
   ],
@@ -1273,6 +1296,9 @@ foam.CLASS({
       color: $textSecondary;
       font-size: 14px;
       text-align: center;
+    }
+    .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
+      color: orange !important;
     }
   `,
 
@@ -1427,6 +1453,7 @@ foam.CLASS({
       name: 'selected',
       factory: function() { return this; }
     },
+    'softSelected',
     {
       name: 'value',
       // The Console's Flow Value, which is the Flow object it is saved as
@@ -1638,7 +1665,7 @@ foam.CLASS({
 
       let setupEditMode = () => {
         this.deepSub(this.onFlowChildrenChange, [this.FLOW_CHILDREN, this.VALUE]);
-        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, isMenuOpen$: layout.isMenuOpen$});
+        layout.left.tag(this.FlowableTree, {data: this, selected$: this.selected$, softSelected$: this.softSelected$, isMenuOpen$: layout.isMenuOpen$});
         layout.right.tag(this.ReflowConfigView, { data$: this.selected$, flowMode$: this.flowMode$});
       };
 
@@ -2018,7 +2045,39 @@ foam.CLASS({
       }
     },
 
+    function updateDependencies() {
+      let fc = this.flowChildren;
+
+      function hasReactionDependency(c1, c2) {
+        if ( c2.value ) {
+          for ( let r in c2.value.reactions_ ) {
+            let str = Function.prototype.toString.call(c2.value.reactions_[r]);
+            if ( str.indexOf(c1.flowName) != -1 )
+              return true;
+          }
+        }
+        return false;
+      }
+
+      for ( let i = 0 ; i < fc.length ; i++ ) {
+        let c  = fc[i];
+        let ds = [];
+
+        for ( let j = i+1 ; j < fc.length ; j++ ) {
+          let c2 = fc[j];
+
+          if ( c2.cmd.indexOf(c.flowName) != -1 || hasReactionDependency(c, c2) ) {
+            ds.push(c2.flowName);
+          }
+        }
+
+        c.dependencies = ds;
+      }
+    },
+
     function generateScript() {
+      this.updateDependencies();
+
       var json = foam.json.Outputter.create({
         pretty: true,
         strict: true,

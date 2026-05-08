@@ -22,24 +22,22 @@ foam.CLASS({
     ^ {
       display: flex;
       flex-direction: column;
+      gap: 1rem;
     }
     ^codeBlock {
       background: $backgroundTertiary;
       border-radius: 6px;
       padding: 16px;
+      margin: 0;
+      text-wrap: auto;
     }
-    ^ h3 {
-      font-size: 1.25em;
+    ^ .mdHeader:not(:first-child) {
+      margin-top: 2rem;
     }
-    ^ h4 {
-      font-size: 1.2em;
-    }
-    ^ h5 {
-      font-size: 1.15em;
-    }
-    ^ h6 {
-      font-size: 1.15em;
-      font-weight: normal;
+    ^ hr {
+      color: $borderDefault;
+      margin: 1rem 0 0 0;
+      border: 1px solid;
     }
   `,
 
@@ -299,19 +297,20 @@ foam.CLASS({
           let closing    = v[3];
 
           return function() {
-            if ( closing === '/>' ) {
-              this.tag(tagName);
-            } else {
+            let e = this.start(tagName).attrs(attributes);
+
+            if ( attributes.style ) {
+              let style = {};
+              attributes.style.split(';').forEach(s => {
+                let p = s.split(':');
+                style[p[0]] = p[1];
+              });
+              e.style(style);
+            }
+
+            if ( closing !== '/>' ) {
               let content = closing[1];
-              let e = this.start(tagName).attrs(attributes).call(content);
-              if ( attributes.style ) {
-                let style = {};
-                attributes.style.split(';').forEach(s => {
-                  let p = s.split(':');
-                  style[p[0]] = p[1];
-                });
-                e.style(style);
-              }
+              e.call(content);
             }
           };
         },
@@ -348,7 +347,7 @@ foam.CLASS({
 
         function heading(v) {
           let level = v[0].length, text = v[2];
-          return function() { this.start('h' + level).add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
+          return function() { this.start().addClass('h' + level + '00', 'mdHeader').add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
         },
 
         function codeBlock(v) {
@@ -428,7 +427,7 @@ foam.CLASS({
         },
 
         function paragraph(v) {
-          return function() { this.start('p').call(v); };
+          return function() { this.start().addClass('p','mdParagraph').call(v); };
         },
 
         function blankLine(v) {
@@ -448,7 +447,7 @@ foam.CLASS({
 
         function link(v) {
           let title = v[1], url = v[3];
-          return function() { this.start('a').attrs({href: url}).add(title); };
+          return function() { this.start('a').attrs({href: url, target: '_blank'}).add(title); };
         },
 
         function strikethrough(v) {

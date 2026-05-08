@@ -407,7 +407,7 @@ foam.CLASS({
   ],
 
   methods: [
-    function execute(cls) {
+    function execute(cls, simple) {
       let original = cls;
       if ( foam.String.isInstance(cls) ) {
         cls = foam.maybeLookup(cls);
@@ -425,8 +425,17 @@ foam.CLASS({
       if ( foam.lang.InterfaceModel.isInstance(cls.model_) ) {
         this.out.tag(foam.doc.InterfaceView, {data: cls});
       } else {
-        this.out.startContext({conventionalUML: true}).
-          tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        // TODO: a better method of determining if a cls is a QA
+        if ( cls.QUESTIONS ) {
+          this.out.tag(foam.u2.qa.QADocView, {data: cls});
+        }
+
+        if ( simple ) {
+          this.out.tag(foam.doc.PropertyView, {data: cls});
+        } else {
+          this.out.startContext({conventionalUML: true}).
+            tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        }
       }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
@@ -468,6 +477,8 @@ foam.CLASS({
       var self = this;
       this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
         if ( q != undefined && (f.id + f.category + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
+        // TODO: use a real TableView instead
+        // FROM flowDAO ORDER BY -category,name COLUMNS category,name,status,description TO CSV
         this.start('tr').
           start('td').add(f.category).end().
           start('td').start(self.Link).add(f.name).on('click', () => self.eval_('load("' + f.name + '")')).end().end().
@@ -912,6 +923,28 @@ foam.CLASS({
       this.block.del();
       this.currentBlock = b;
 //      console.log(this.block, this.currentBlock, b);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'Example',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  imports: [ 'block', 'currentBlock' ],
+
+  requires: ['foam.core.reflow.example.Example'],
+
+  methods: [
+    function execute(code) {
+      let example = this.Example.create({ code: code });
+      this.currentBlock.value = example;
+    // this.currentBlock.configViewSpec = {
+    //   propertyWhitelist: {'innerText': { label: 'Code' }}
+    // }
+      this.out.tag(example);
     }
   ]
 });

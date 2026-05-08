@@ -37,7 +37,7 @@ public class SimpleAsyncAssemblyLine
   }
 
   public SimpleAsyncAssemblyLine(X x, String name) {
-    this(x, name, Runtime.getRuntime().availableProcessors());
+    this(x, name, Math.max(1, Runtime.getRuntime().availableProcessors()-1));
   }
 
   public SimpleAsyncAssemblyLine(X x, String name, int numberOfThreads) {
@@ -66,10 +66,12 @@ public class SimpleAsyncAssemblyLine
         }
       }
     );
-    pool_.allowCoreThreadTimeOut(true);
 
     endThread_ = new Thread(threadGroup_, name_ + "-endJob") {
       public void run() {
+        // Carry forward XLocator Context to this thread
+        foam.lang.XLocator.set(x_);
+
         while ( true ) {
           try {
             Assembly job = channel_.take();
@@ -93,6 +95,9 @@ public class SimpleAsyncAssemblyLine
     if ( shutdown_ ) throw new IllegalStateException("Can't enqueue into a shutdown AssemblyLine.");
 
     pool_.execute(() -> {
+      // Carry forward XLocator Context to this thread
+      foam.lang.XLocator.set(x_);
+
       try {
         job.executeJob();
       } catch (Throwable t) {

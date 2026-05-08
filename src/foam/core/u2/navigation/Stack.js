@@ -12,7 +12,10 @@ foam.CLASS({
     A simple stack view for use with nested dao controllers and detailViews
   `,
   exports: ['as controlBorder'],
-  requires: ['foam.u2.layout.Cols'],
+  requires: [
+    'foam.u2.layout.Cols',
+    'foam.u2.WrapperNode'
+  ],
 
   cssTokens: [
     {
@@ -109,9 +112,9 @@ foam.CLASS({
         return stack_[pos];
       }
     },
-    'trailingContainer', 
-    { 
-      class: 'Map', 
+    'trailingContainer',
+    {
+      class: 'Map',
       name: 'specMap_',
       description: 'stores a map of preferred visibility specs of various stack views at different postions, such as title and properties like compact'
     },
@@ -124,12 +127,13 @@ foam.CLASS({
       }
     },
     // If set, takes over stack operations, useful for overriding stack behaviour in routers
-    'delegate_', 
+    'delegate_',
     'header_', ['stuck_', false], 'headerVisibility'
     // TODO: add stack default
   ],
   methods: [
     function render() {
+      // this.trailingContainer = this.WrapperNode.create({ parentNode: this });
       this.addClass()
       .enableClass(this.myClass('compact'), this.compact_$)
       .enableClass(this.myClass('padding'), this.headerVisibility$)
@@ -145,7 +149,7 @@ foam.CLASS({
               this.add(specMap_[pos]?.title);
             }))
           .end()
-          .start('', {}, this.trailingContainer$).style({ display: 'contents'}).end()
+          .tag(foam.u2.WrapperNode, { parentNode: this }, this.trailingContainer$)
         .end()
       .end()
       .start('', {}, this.content$).addClass(this.myClass('content')).end();
@@ -155,7 +159,7 @@ foam.CLASS({
         // this.current.hide();
         if ( type == 'new' )
           this.content.add(this.current);
-        this.stack_.forEach(v => { 
+        this.stack_.forEach(v => {
           if ( v !== this.current ) {
             v.hide();
           } else {
@@ -219,9 +223,22 @@ foam.CLASS({
       this.resetStack();
       return this.push(...arguments);
     },
-    function jump(p) {
-      if ( this.delegate_ ) return this.delegate_.jump(...arguments);
-      this.stack_.splice(p + 1).forEach(v => v.remove());
+    async function jump(p) {
+      if ( this.delegate_ ) return await this.delegate_.jump(...arguments);
+      let aboutToRemove = this.stack_.slice(p+1);
+      for ( let v of aboutToRemove ) {
+        if ( foam.u2.Routable.isInstance(v) ) {
+          try {
+            await v.beforeRemove();
+            v.remove();
+          } catch(e) {
+            throw e;
+          }
+        } else {
+          v.remove();
+        }
+      }
+      this.stack_.splice(p + 1);
       this.pos = p;
       this.posUpdated.pub('jump');
     },
@@ -240,9 +257,9 @@ foam.CLASS({
       this.specMap_[pos] = this.specMap_[pos] || {};
       this.specMap_[pos][spec] = value;
       if ( foam.lang.Slot.isInstance(value) ) {
-        view.onDetach(() => { 
-          if ( value == this.specMap_[this.pos]?.[spec] ) 
-            this.specMap_[this.pos][spec] = null; 
+        view.onDetach(() => {
+          if ( value == this.specMap_[this.pos]?.[spec] )
+            this.specMap_[this.pos][spec] = null;
         });
       }
       this.propertyChange.pub('specMap_', this.specMap_$);

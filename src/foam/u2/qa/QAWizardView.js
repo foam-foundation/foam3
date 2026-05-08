@@ -16,6 +16,8 @@ foam.CLASS({
     Fully agnostic to the QA class — works with any compiled foam.QA2() model.
   `,
 
+  exports: ['as wizard'],
+
   requires: [
     'foam.u2.ProgressView',
     'foam.u2.qa.RankedOutcome',
@@ -79,12 +81,6 @@ foam.CLASS({
     {
       name: 'data',
       documentation: 'The QA instance'
-    },
-    {
-      class: 'Array',
-      name: 'answeredStack',
-      documentation: 'Back-navigation stack; each entry is an <axiom>',
-      factory: function() { return []; }
     },
     {
       class: 'Enum',
@@ -240,15 +236,7 @@ foam.CLASS({
             var candidates = self.data.getCandidates();
             var ranked     = self.data.rankOutcomes(candidates);
             ranked.map(function(o) {
-              let label = self.data.outcomeFormatter(o[0]) || ('Option ' + (idx + 1));
-              if ( o[1] != 0 ) {
-                label += ' (' + o[1].toFixed(2) + '% match)';
-              }
-              self.rankedOutcomeDAO.put(self.RankedOutcome.create({
-                label: label,
-                outcome: o[0],
-                score: o[1]
-              }));
+              self.rankedOutcomeDAO.put(o);
             });
             this.startContext({ data: self })
               .tag(self.PICKED_OUTCOME_INDEX.__, { config: {
@@ -259,7 +247,7 @@ foam.CLASS({
                   sections: [
                     {
                       heading: self.MATCHES,
-                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)))
+                      dao$: self.rankedOutcomeDAO$.map(v => v.where(self.NEQ(self.RankedOutcome.SCORE, 0)).orderBy(self.DESC(self.RankedOutcome.MATCHING), self.DESC(self.RankedOutcome.SCORE)))
                     },
                     {
                       heading: self.POTENTIAL_MATCHES,
@@ -294,13 +282,13 @@ foam.CLASS({
       isAvailable: function(phase) {
         return phase != 'OUTCOME';
       },
-      isEnabled: function(answeredStack) {
-        return answeredStack.length > 0;
+      isEnabled: function(data$answeredOrder) {
+        return data$answeredOrder.length > 0;
       },
       code: function() {
-        var last = this.answeredStack[this.answeredStack.length - 1];
+        var last = this.data.answeredOrder[this.data.answeredOrder.length - 1];
         let oldValue = last.f(this.data);
-        this.answeredStack        = this.answeredStack.slice(0, -1);
+        this.data.answeredOrder        = this.data.answeredOrder.slice(0, -1);
         this.currentQuestionAxiom.set(this.data, undefined);
         // Unset answer to get correct count again
         this.data[last.name]      = undefined;
@@ -336,28 +324,9 @@ foam.CLASS({
           }
         }
 
-        this.answeredStack$push(this.currentQuestionAxiom);
+        this.data.answeredOrder$push(this.currentQuestionAxiom);
         return await this.advance_();
       }
-    }
-  ]
-});
-
-foam.CLASS({
-  package: 'foam.u2.qa',
-  name: 'RankedOutcome',
-  ids: ['label'],
-  properties: [
-    {
-      name: 'label',
-      class: 'String'
-    },
-    {
-      name: 'outcome'
-    },
-    {
-      name: 'score',
-      class: 'Float'
     }
   ]
 });
@@ -390,7 +359,8 @@ foam.ENUM({
         return '';
       },
       labelFormatter: function(candidatesCount, totalOutcomes) {
-        return this.REMAINING({ candidatesCount, totalOutcomes });
+        return null;
+        // return this.REMAINING({ candidatesCount, totalOutcomes });
       }
     },
     {

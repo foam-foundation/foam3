@@ -97,3 +97,328 @@ p({
 "lastModified":"2025-12-05T20:44:24.732Z",
 "lastRun":"2025-12-04T21:30:18.693Z"
 })
+
+p({
+"class":"foam.core.reflow.Flow",
+"name":"REFLOW Command Reference",
+"category":"MANUAL",
+"description":"How to use REFLOW AI commands.",
+"accessLevel":1,
+"version":5,
+"script":
+"""[
+	{
+
+		"flowName": "markdown1",
+		"cmd": "markdown(\\"# 🌊 REFLOW Command Reference\\\\n\\\\n*Your complete guide to the REFLOW command ecosystem*\\\\n\\\\n---\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "# REFLOW Command Reference\\u000a\\u000a*Your complete guide to the REFLOW command ecosystem*\\u000a\\u000a---"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h21",
+		"cmd": "h2(\\"📊 Data & DAO Operations\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "📊 Data & DAO Operations"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown2",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `FROM` | Query DAOs (preferred) | `FROM users WHERE active` |\\\\n| `dao` | DAO operations (legacy) | `dao('users').where('active')` |\\\\n| `daofilter` | Filter DAO data | `daofilter users active=true` |\\\\n| `daos` | List available DAOs | `daos` |\\\\n| `describe` | Show DAO/class structure | `describe users` |\\\\n| `api` | Show DAO API docs | `api users` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `FROM` | Query DAOs (preferred) | `FROM users WHERE active` |\\u000a| `dao` | DAO operations (legacy) | `dao users` |\\u000a| `daofilter` | Filter DAO data | `daofilter users active=true` |\\u000a| `daos` | List available DAOs | `daos` |\\u000a| `describe` | Show DAO/class structure | `describe users` or `describe(foam.audio.Speak)`|\\u000a| `api` | Show DAO API docs | `api users` |"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h22",
+		"cmd": "h2(\\"🤖 AI & Automation\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "🤖 AI & Automation"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown3",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `!` | Execute with AI agent | `! create a user dashboard` |\\\\n| `agent` | Same as `!` | `agent create reports` |\\\\n| `?` | Propose commands (dry run) | `? analyze sales data` |\\\\n| `ai` | Direct LLM query | `ai('Explain this data')` |\\\\n| `propose` | Review before execution | `propose FROM sales` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `!` | Execute with AI agent | `! create a user dashboard` |\\u000a| `agent` | Same as `!` | `agent create reports` |\\u000a| `?` | Propose commands (dry run) | `? analyze sales data` |\\u000a| `ai` | Direct LLM query | `ai('Explain this data')` |\\u000a| `propose` | Review before execution | `propose FROM sales` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h23",
+		"cmd": "h2(\\"📝 Content & Display\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "📝 Content & Display"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown4",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `markdown` | Rich text content | `markdown('# Hello World')` |\\\\n| `h1` - `h4` | Headers | `h1('Main Title')` |\\\\n| `h` | Generic header | `h('Custom Header', 2)` |\\\\n| `image` | Display images | `image('photo.jpg')` |\\\\n| `canvas` | 2D drawing surface | `canvas(400, 300)` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `markdown` | Rich text content | `markdown('# Hello World')` |\\u000a| `h1` - `h4` | Headers | `h1('Main Title')` |\\u000a| `h` | Generic header | `h('Custom Header', 2)` |\\u000a| `image` | Display images | `image('photo.jpg')` |\\u000a| `canvas` | 2D drawing surface | `canvas(400, 300)` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h24",
+		"cmd": "h2(\\"📋 Interactive Elements\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "📋 Interactive Elements"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown5",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `button` | Single interactive button | `button('Click Me', action)` |\\\\n| `buttons` | Multiple buttons | `buttons(['Save', 'Cancel'])` |\\\\n| `check` | Checkmark widget | `check(true, 'Completed')` |\\\\n| `input` | User input field | `input('Enter name:')` |\\\\n| `cells` | Spreadsheet interface | `cells(data)` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `button` | Single interactive button | `button('Click Me', action)` |\\u000a| `buttons` | Multiple buttons | `buttons(['Save', 'Cancel'])` |\\u000a| `check` | Checkmark widget | `check(true, 'Completed')` |\\u000a| `input` | User input field | `input('Enter name:')` |\\u000a| `cells` | Spreadsheet interface | `cells(data)` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h25",
+		"cmd": "h2(\\"🔄 Flow Management\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "🔄 Flow Management"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown6",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `flows` | List available flows | `flows` |\\\\n| `load` | Load a flow | `load('dashboard')` |\\\\n| `save` | Save current flow | `save('my-flow')` |\\\\n| `man` | Load manual pages | `man('getting-started')` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `flows` | List available flows | `flows` |\\u000a| `load` | Load a flow | `load('dashboard')` |\\u000a| `save` | Save current flow | `save('my-flow')` |\\u000a| `man` | Load manual pages | `man('getting-started')` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h26",
+		"cmd": "h2(\\"📁 Data Management\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "📁 Data Management"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown7",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `add` | Add to DAO | `add users` |\\\\n| `upload` | Upload data | `upload('csv')` |\\\\n| `fetchFile` | Get file from URL | `fetchFile('data.json')` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `add` | Add to DAO | `add users` |\\u000a| `upload` | Upload data | `upload('csv')` |\\u000a| `fetchFile` | Get file from URL | `fetchFile('data.json')` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h27",
+		"cmd": "h2(\\"🕒 Time & Date\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "🕒 Time & Date"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown8",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `now` | Current timestamp | `now` |\\\\n| `today` | Today's date | `today` |\\\\n| `clock` | Animated clock widget | `clock()` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `now` | Current timestamp | `now` |\\u000a| `today` | Today's date | `today` |\\u000a| `clock` | Animated clock widget | `clock()` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h28",
+		"cmd": "h2(\\"🔧 System & Utilities\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "🔧 System & Utilities"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown9",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `info` | System information | `info` |\\\\n| `services` | List services | `services` |\\\\n| `models` | Browse models | `models` |\\\\n| `clear` | Clear console | `clear` |\\\\n| `history` | Command history | `history` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `info` | System information | `info` |\\u000a| `services` | List services | `services` |\\u000a| `models` | Browse models | `models` |\\u000a| `clear` | Clear console | `clear` |\\u000a| `history` | Command history | `history` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h29",
+		"cmd": "h2(\\"🧪 Development & Testing\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "🧪 Development & Testing"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown10",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `test` | Create test expectation | `test(result, expected)` |\\\\n| `testresults` | Test summary | `testresults` |\\\\n| `script` | JavaScript code block | `script('console.log(\\\\\\"hi\\\\\\")')` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `test` | Create test expectation | `test(result, expected)` |\\u000a| `testresults` | Test summary | `testresults` |\\u000a| `script` | JavaScript code block | `script('console.log(\\"hi\\")')` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h210",
+		"cmd": "h2(\\"🎨 Layout & Organization\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "🎨 Layout & Organization"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown11",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `layout` | Layout container | `layout('grid', content)` |\\\\n| `signature` | Signature block | `signature('John Doe')` |\\\\n| `notification` | User notifications | `notification('Success!')` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `layout` | Layout container | `layout('grid', content)` |\\u000a| `signature` | Signature block | `signature('John Doe')` |\\u000a| `notification` | User notifications | `notification('Success!')` |"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "h211",
+		"cmd": "h2(\\"ℹ️ Help & Documentation\\")",
+		"value": {
+			"class": "foam.core.reflow.Header",
+			"type": "h2",
+			"text": "ℹ️ Help & Documentation"
+		},
+		"border": {
+
+		},
+		"padding_st": "16px"
+	},
+	{
+
+		"flowName": "markdown12",
+		"cmd": "markdown(\\"| Command | Purpose | Example |\\\\n|---------|---------|----------|\\\\n| `help` | General help | `help` |\\\\n| `helpFn` | Function help | `helpFn` |\\\\n| `helpMQL` | MQL query help | `helpMQL` |\\\\n| `login` | Authentication | `login` |\\")",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "| Command | Purpose | Example |\\u000a|---------|---------|----------|\\u000a| `help` | General help | `help` |\\u000a| `helpFn` | Function help | `helpFn` |\\u000a| `helpMQL` | MQL query help | `helpMQL` |\\u000a| `login` | Authentication | `login` |"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	}
+]""",
+"created":"2026-04-14T14:34:09.279Z",
+"lastModified":"2026-04-14T20:28:25.622Z",
+"lastRun":"2026-04-14T14:31:13.392Z"
+})

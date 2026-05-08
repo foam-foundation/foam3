@@ -281,11 +281,16 @@ foam.CLASS({
     function layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot) {
       var self = this;
 
+      var hasLabelContent = this.slot(function(prop$label, prop$supportingLabel, prop$reserveLabelSpace) {
+        return !! (prop$label || prop$supportingLabel || prop$reserveLabelSpace);
+      });
+
       this.
         addClass().
         show(visibilitySlot).
         start().
           addClass(this.myClass('labelHolder')).
+          show(hasLabelContent).
           start().
           addClass(this.myClass('labels')).
           add(labelSlot.map(v => v.addClass(this.myClass('label'), 'p-light'))).

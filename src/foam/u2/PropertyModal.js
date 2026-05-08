@@ -27,9 +27,6 @@ foam.CLASS({
   ],
 
   css: `
-    ^inner {
-      align-items: stretch;
-    }
     ^body {
       display: flex;
       flex-direction: column;
@@ -79,9 +76,10 @@ foam.CLASS({
       isEnabled: (isModalRequired, propertyData) => {
         if ( ! isModalRequired ) return true;
 
-        return Array.isArray(propertyData) ? propertyData.length > 0 : propertyData;
+        return propertyData;
       },
       code: async function(X) {
+        if ( ! this.primaryAction ) return X.closeDialog();
         return await this.primaryAction?.maybeCall(X, this.data).then(() => {
           X.closeDialog();
         });

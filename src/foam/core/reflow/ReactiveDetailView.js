@@ -401,9 +401,10 @@ foam.CLASS({
 
   css:`
     ^actionDiv {
-      display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
       gap: 8px;
+      justify-content: start;
+      display: flex;
     }
     ^ {
       padding: 8px 0;

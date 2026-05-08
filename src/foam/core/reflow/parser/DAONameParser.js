@@ -6,6 +6,19 @@
 
 foam.CLASS({
   package: 'foam.core.reflow.parser',
+  name: 'DAOSuggestionView',
+  extends: 'foam.parse.auto.SuggestionView',
+
+  methods: [
+    function renderText() {
+      // NOP
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.parser',
   name: 'DAONameParser',
   extends: 'foam.parse.Grammar',
 
@@ -30,8 +43,9 @@ foam.CLASS({
 
       (await dao.select()).array.sort(comparator).forEach(c => {
         this.alt.args.push(p.sug(p.literalIC(c.id), {
+          view:     foam.core.reflow.parser.DAOSuggestionView,
           text:     c.id,
-          label:    c.id,
+          label:    c.id.endsWith('DAO') ? c.id.substring(0, c.id.length-3) : c.id,
           prependSpaceOnSelect: false,
           category: c.keywords.indexOf('custom') == -1 ? 'standard' : 'custom'}));
       });

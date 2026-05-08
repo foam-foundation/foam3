@@ -323,8 +323,8 @@ foam.CLASS({
             console.error('something went wrong');
           }
         }
-
-        this.data.answeredOrder$push(this.currentQuestionAxiom);
+        // $push didnt work here, idk why
+        this.data.answeredOrder = [...this.data.answeredOrder, this.currentQuestionAxiom];
         return await this.advance_();
       }
     }

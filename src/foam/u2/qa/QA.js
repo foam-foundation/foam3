@@ -240,7 +240,11 @@ foam.CLASS({
           { name: 'OUTPUT_NAMES', value: outputNames, flags: ['js'] }
         ],
 
-        properties: props,
+        properties: [
+          // Tracks the order questions were answered; maintained by QAWizardView.
+          { class: 'Array', name: 'answeredOrder' },
+          ...props
+        ],
 
         methods: [
           {
@@ -323,6 +327,7 @@ foam.CLASS({
               if ( self[q.name] !== '' && self[q.name] != undefined ) continue;
 
               var gain = self.computeInfoGain(q, candidates);
+              console.debug('GAIN FOR:', q, '| gain: ', gain);
               // Prefer higher gain, then fewer choices, then earlier declaration
               if ( gain > bestGain ||
                    ( gain === bestGain && bestQ &&

@@ -515,7 +515,7 @@ foam.CLASS({
     function value(s) { return foam.lang.StringHolder.create({value: s.json}); },
     function getSink() { return this.JSONSink.create({of: this.of}); },
     function addSinkToE(e, s) {
-      s = this.useProjection ? this.getSinkWithProjectionData(s) : s;
+//      s = this.useProjection ? this.getSinkWithProjectionData(s) : s;
       e.start(this.CopyFromBorder).add(s);
     }
   ]
@@ -530,7 +530,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   requires: [
-//    'foam.core.reflow.parse.GroupByParser',
+    'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
@@ -544,12 +544,10 @@ foam.CLASS({
         return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
       }
     },
-    /*
     {
       name: 'parser',
       factory: function() { return this.GroupByParser.create(); }
-      },
-      */
+    },
     {
       name: 'sink',
       label: 'Operation',

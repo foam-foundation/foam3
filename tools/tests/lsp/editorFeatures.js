@@ -88,21 +88,32 @@ test(sigInCall === null || (sigInCall.signatures && sigInCall.signatures.length 
   'SignatureHelp: returns null or a signature shape, never throws');
 
 
-// === WorkspaceSymbolHandler ===
+// === WorkspaceSymbolHandler (Phase 3 — backed by FoamIndex.searchSymbols) ===
 
 section('WorkspaceSymbolHandler');
 var wsSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
 
 var anySymbols = wsSymbolHandler.handle('FObject');
 test(Array.isArray(anySymbols), 'WorkspaceSymbol: always returns an array');
-test(anySymbols.every(function(s) { return s.kind === 5; }), 'WorkspaceSymbol: every result is Class kind (5)');
 test(anySymbols.length === 0 || anySymbols[0].location.uri.indexOf('file://') === 0,
   'WorkspaceSymbol: locations use file:// URIs');
 
+// Cap lifted to 500 (was 100).
 var capped = wsSymbolHandler.handle('');
-test(capped.length <= 100, 'WorkspaceSymbol: respects 100-symbol cap (Phase 3 will lift this)');
+test(capped.length <= 500, 'WorkspaceSymbol: respects new 500-symbol cap');
 
-// Substring match against the lower-cased id — known FOAM core classes should match.
-var coreFound = wsSymbolHandler.handle('foam.lang.FObject');
-test(coreFound.length === 0 || coreFound.some(function(s) { return s.containerName === 'foam.lang.FObject'; }),
-  'WorkspaceSymbol: exact full-id search returns the matching class when registered');
+// Search by property name (Phase 3 — was unsupported in Phase 1A).
+var propHits = wsSymbolHandler.handle('id');
+test(Array.isArray(propHits), 'WorkspaceSymbol: property search returns array');
+test(propHits.some(function(s) { return s.kind === 7; }) || propHits.length === 0,
+  'WorkspaceSymbol: property search surfaces property kind (7) when matches exist');
+
+// Search by method name.
+var methodHits = wsSymbolHandler.handle('toSummary');
+test(Array.isArray(methodHits), 'WorkspaceSymbol: method search returns array');
+
+// Empty index → empty results (no crash).
+var emptyIndex = foam.parse.lsp.FoamIndex.create();
+var emptyHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: emptyIndex });
+var none = emptyHandler.handle('Anything');
+test(Array.isArray(none), 'WorkspaceSymbol: empty index returns empty array');

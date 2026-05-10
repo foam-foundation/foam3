@@ -23,6 +23,10 @@ foam.CLASS({
       name: 'javaMethodCache_',
       documentation: 'Class ID → array of { name, sig, doc } for Java-only methods.',
       factory: function() { return {}; }
+    },
+    {
+      name: 'symbolIndex_',
+      documentation: 'Flat workspace symbol array — lazy, built on first searchSymbols call. Entries: { name, kind, classId, filePath, containerName }.'
     }
   ],
 
@@ -642,6 +646,7 @@ foam.CLASS({
       /** Clear cache for a class and dependents. */
       delete this.cache_[classId];
       delete this.cache_.propertyTypes;
+      this.invalidateSymbolIndex_();
     },
 
     function invalidateAll() {
@@ -1053,6 +1058,156 @@ foam.CLASS({
       }
 
       return null;
+    },
+
+    // ----- Workspace symbol index (Phase 3) -------------------------------
+    //
+    // Flat array of every class / property / method / action / listener /
+    // enum-value in the workspace, lazy-built and cached. Lets
+    // WorkspaceSymbolHandler answer "find by name" across all kinds, not
+    // just class ids. Uses cls.getOwnAxiomsByClass — no rescan, no regex.
+
+    function buildSymbolIndex_() {
+      if ( this.symbolIndex_ ) return this.symbolIndex_;
+      var out  = [];
+      var ids  = this.getAllClassIds();
+      var self = this;
+
+      function push(name, kind, classId) {
+        if ( ! name ) return;
+        out.push({
+          name:          name,
+          kind:          kind,
+          classId:       classId,
+          containerName: classId,
+          filePath:      self.getFilePath(classId)
+        });
+      }
+
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var id  = ids[i];
+        var cls = this.getClass(id);
+
+        // Class itself (kind: 5=Class, 11=Interface, 10=Enum)
+        var kind = 5;
+        try {
+          if ( this.isInterface(id) )                                kind = 11;
+          else if ( cls && cls.VALUES && cls.VALUES.length >= 0 )    kind = 10;
+        } catch (e) {}
+        push(id.split('.').pop(), kind, id);
+
+        if ( ! cls ) continue;
+
+        try {
+          var props = cls.getOwnAxiomsByClass(foam.lang.Property);
+          for ( var j = 0 ; j < props.length ; j++ ) push(props[j].name, 7, id);
+
+          var methods = cls.getOwnAxiomsByClass(foam.lang.Method);
+          for ( var j = 0 ; j < methods.length ; j++ ) push(methods[j].name, 6, id);
+
+          if ( foam.lang.Action ) {
+            var actions = cls.getOwnAxiomsByClass(foam.lang.Action);
+            for ( var j = 0 ; j < actions.length ; j++ ) push(actions[j].name, 24, id);
+          }
+          if ( foam.lang.Listener ) {
+            var listeners = cls.getOwnAxiomsByClass(foam.lang.Listener);
+            for ( var j = 0 ; j < listeners.length ; j++ ) push(listeners[j].name, 24, id);
+          }
+          if ( cls.VALUES && cls.VALUES.length > 0 ) {
+            for ( var j = 0 ; j < cls.VALUES.length ; j++ ) push(cls.VALUES[j].name, 22, id);
+          }
+        } catch (e) {
+          // tolerate the occasional badly-shaped class without aborting the
+          // whole index build
+        }
+      }
+
+      this.symbolIndex_ = out;
+      return out;
+    },
+
+    function searchSymbols(query, opts) {
+      /**
+       * Substring + ranking search over the workspace symbol index.
+       *
+       * @param query — case-insensitive substring. Empty string returns the
+       *   first `limit` entries (caller asked for "all").
+       * @param opts.limit         — default 500 (was 100 in the inline impl).
+       * @param opts.kind          — optional LSP SymbolKind filter (5/6/7/...).
+       * @param opts.packagePrefix — optional class-id prefix filter
+       *   (e.g. "foam.u2." narrows to UI classes).
+       *
+       * Returns array of { name, kind, classId, filePath, containerName, score }.
+       */
+      opts = opts || {};
+      var limit         = opts.limit || 500;
+      var kindFilter    = opts.kind;
+      var packagePrefix = opts.packagePrefix;
+      var q             = (query || '').toLowerCase();
+
+      var symbols = this.buildSymbolIndex_();
+      var scored  = [];
+
+      for ( var i = 0 ; i < symbols.length ; i++ ) {
+        var s = symbols[i];
+        if ( ! s.filePath )                                      continue;
+        if ( kindFilter    && s.kind !== kindFilter )            continue;
+        if ( packagePrefix && s.classId.indexOf(packagePrefix) !== 0 ) continue;
+
+        if ( ! q ) {
+          scored.push({ s: s, score: 1 });
+          continue;
+        }
+
+        var name = s.name.toLowerCase();
+        var score = 0;
+
+        if ( name === q )                       score = 1000;
+        else if ( name.indexOf(q) === 0 )       score = 700 - (name.length - q.length);
+        else if ( this.camelHumpMatch_(s.name, query) ) score = 500;
+        else if ( name.indexOf(q) !== -1 )      score = 300 - name.indexOf(q);
+
+        if ( score > 0 ) scored.push({ s: s, score: score });
+      }
+
+      scored.sort(function(a, b) {
+        if ( b.score !== a.score ) return b.score - a.score;
+        return a.s.name.length - b.s.name.length;
+      });
+
+      return scored.slice(0, limit).map(function(e) {
+        return {
+          name:          e.s.name,
+          kind:          e.s.kind,
+          classId:       e.s.classId,
+          containerName: e.s.containerName,
+          filePath:      e.s.filePath,
+          score:         e.score
+        };
+      });
+    },
+
+    function camelHumpMatch_(name, query) {
+      // Each query character must match an uppercase letter (or first char) of
+      // name in order. e.g. "FUC" matches "FileUploadConfig".
+      if ( ! query ) return false;
+      var humps = name.replace(/([a-z0-9])([A-Z])/g, '$1$2').split('')
+        .map(function(h) { return h.charAt(0).toUpperCase(); }).join('');
+      // Compare ignoring case: collapse query to upper to match generated humps
+      var Q = query.toUpperCase();
+      var j = 0;
+      for ( var i = 0 ; i < humps.length && j < Q.length ; i++ ) {
+        if ( humps[i] === Q[j] ) j++;
+      }
+      return j === Q.length;
+    },
+
+    function invalidateSymbolIndex_() {
+      // Called by reindexFile when a class is re-registered. Lazy-rebuild on
+      // next searchSymbols call. Cheap to drop, expensive to incrementally
+      // patch — for a small win in correctness we trade a small cost in
+      // workspace-symbol latency right after a save.
+      this.symbolIndex_ = null;
     }
   ]
 });

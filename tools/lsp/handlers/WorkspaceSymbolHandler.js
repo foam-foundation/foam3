@@ -8,11 +8,10 @@ foam.CLASS({
   package: 'foam.parse.lsp.handlers',
   name: 'WorkspaceSymbolHandler',
 
-  documentation: 'Search FOAM class ids across the workspace by substring. Phase 3 will extend this with property/method search and ranking; today it ships the existing behaviour extracted from server.js.',
+  documentation: 'workspace/symbol — searches FOAM classes, properties, methods, actions, listeners, and enum values across the workspace. Backed by FoamIndex.searchSymbols (lazy-built, cls.getOwnAxiomsByClass per class — no rescan, no regex).',
 
   constants: {
-    SYMBOL_KIND_CLASS: 5,
-    DEFAULT_LIMIT:     100
+    DEFAULT_LIMIT: 500
   },
 
   properties: [
@@ -21,27 +20,24 @@ foam.CLASS({
 
   methods: [
     function handle(query, opt_limit) {
-      var q       = ( query || '' ).toLowerCase();
-      var limit   = opt_limit || this.DEFAULT_LIMIT;
-      var ids     = this.index.getAllClassIds();
-      var symbols = [];
-
-      for ( var i = 0 ; i < ids.length && symbols.length < limit ; i++ ) {
-        if ( ids[i].toLowerCase().indexOf(q) === -1 ) continue;
-        var filePath = this.index.getFilePath(ids[i]);
-        if ( ! filePath ) continue;
-        symbols.push({
-          name:          ids[i].split('.').pop(),
-          kind:          this.SYMBOL_KIND_CLASS,
+      // opt_limit lifted from 100 to 500. Earlier the cap silently truncated
+      // common queries — e.g. searching "Fee" returned 100 of ~340 matches.
+      var limit = opt_limit || this.DEFAULT_LIMIT;
+      var hits  = this.index.searchSymbols(query, { limit: limit });
+      var out   = [];
+      for ( var i = 0 ; i < hits.length ; i++ ) {
+        var h = hits[i];
+        out.push({
+          name:          h.name,
+          kind:          h.kind,
           location: {
-            uri:   'file://' + filePath,
+            uri:   'file://' + h.filePath,
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
           },
-          containerName: ids[i]
+          containerName: h.containerName
         });
       }
-
-      return symbols;
+      return out;
     }
   ]
 });

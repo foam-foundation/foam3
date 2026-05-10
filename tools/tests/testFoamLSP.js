@@ -42,6 +42,7 @@ require('./lsp/diagnostics');
 require('./lsp/navigation');
 require('./lsp/java');
 require('./lsp/jrl');
+require('./lsp/editorFeatures');
 
 h.section('SUMMARY');
 console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');

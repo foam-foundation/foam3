@@ -38,6 +38,11 @@ function start() {
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
 
+  var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
+  var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
+  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
+  var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
+
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
 
@@ -99,266 +104,6 @@ function start() {
 
   function isJrlFile(uri) {
     return uri && uri.endsWith('.jrl');
-  }
-
-  function getSignatureHelp(text, position, index, opt_uri) {
-    /**
-     * Provides parameter hints when cursor is inside parentheses of a method call.
-     * E.g., this.myClass(|) → shows parameters for myClass
-     * Also handles this.X.create({ → shows class properties
-     */
-    var lines = text.split('\n');
-    var line = lines[position.line] || '';
-    var prefix = line.substring(0, position.character);
-
-    // Find the method name by scanning back from cursor to find '('
-    // Then find the word before '('
-    var callMatch = prefix.match(/(?:this\.)?(\w+)\s*\(\s*[^)]*$/);
-    if ( ! callMatch ) return null;
-
-    var methodName = callMatch[1];
-
-    // Resolve the current class using FileModelCache for multi-class support
-    var model = fileModelCache.getModelAt(opt_uri || '', text, position.line);
-    if ( ! model ) return null;
-    var classId = fileModelCache.getClassId(model);
-
-    // Find the method in the class
-    var methods = index.getMethods(classId);
-    var method = null;
-    for ( var i = 0 ; i < methods.length ; i++ ) {
-      if ( methods[i].name === methodName ) { method = methods[i]; break; }
-    }
-
-    if ( ! method ) return null;
-
-    // Build parameter list
-    var params = [];
-    if ( method.args && method.args.length > 0 ) {
-      for ( var i = 0 ; i < method.args.length ; i++ ) {
-        var a = method.args[i];
-        params.push({
-          label: a.name,
-          documentation: a.type ? 'Type: ' + a.type : ''
-        });
-      }
-    } else if ( method.code ) {
-      var match = method.code.toString().match(/function\s*\w*\s*\(([^)]*)\)/);
-      if ( match && match[1].trim() ) {
-        var paramNames = match[1].split(',').map(function(p) { return p.trim(); });
-        for ( var i = 0 ; i < paramNames.length ; i++ ) {
-          params.push({ label: paramNames[i] });
-        }
-      }
-    }
-
-    if ( params.length === 0 ) return null;
-
-    // Build signature label
-    var sig = methodName + '(' + params.map(function(p) { return p.label; }).join(', ') + ')';
-
-    // Determine active parameter by counting commas before cursor
-    var afterParen = prefix.substring(prefix.lastIndexOf('(') + 1);
-    var activeParam = (afterParen.match(/,/g) || []).length;
-
-    return {
-      signatures: [{
-        label: sig,
-        documentation: method.documentation || '',
-        parameters: params
-      }],
-      activeSignature: 0,
-      activeParameter: Math.min(activeParam, params.length - 1)
-    };
-  }
-
-  function getFoldingRanges(text) {
-    /**
-     * Finds foldable sections: properties, methods, requires, imports,
-     * exports, javaImports, actions, listeners arrays.
-     */
-    var ranges = [];
-    var keywords = ['properties', 'methods', 'requires', 'imports', 'exports', 'javaImports', 'actions', 'listeners'];
-    var lines = text.split('\n');
-
-    for ( var k = 0 ; k < keywords.length ; k++ ) {
-      var kw = keywords[k];
-      var pattern = new RegExp(kw + '\\s*:\\s*\\[');
-
-      for ( var i = 0 ; i < lines.length ; i++ ) {
-        if ( ! pattern.test(lines[i]) ) continue;
-
-        // Find the matching ] using balanced bracket tracking
-        var depth = 0;
-        var foundOpen = false;
-        var endLine = -1;
-        for ( var j = i ; j < lines.length ; j++ ) {
-          var line = lines[j];
-          for ( var c = 0 ; c < line.length ; c++ ) {
-            if ( line[c] === '[' ) { depth++; foundOpen = true; }
-            else if ( line[c] === ']' ) {
-              depth--;
-              if ( foundOpen && depth === 0 ) {
-                endLine = j;
-                break;
-              }
-            }
-          }
-          if ( endLine !== -1 ) break;
-        }
-
-        if ( endLine > i ) {
-          ranges.push({
-            startLine: i,
-            endLine: endLine,
-            kind: 'region'
-          });
-        }
-      }
-    }
-
-    return ranges;
-  }
-
-  function getCodeActions(text, range, context, index, uri, cssTokenResolver) {
-    /**
-     * Provides code actions for diagnostics:
-     * - "Did you mean X?" for unknown class references
-     * - "Replace with correct import" for wrong Java packages
-     * - "Replace '#abc' with '$token'" for raw color values with a matching token
-     */
-    var actions = [];
-    if ( ! context || ! context.diagnostics ) return actions;
-
-    for ( var i = 0 ; i < context.diagnostics.length ; i++ ) {
-      var diag = context.diagnostics[i];
-
-      // For "Unknown class" diagnostics, suggest similar names
-      var unknownMatch = diag.message.match(/Unknown class[^']*'([^']+)'/);
-      if ( unknownMatch ) {
-        var unknownId = unknownMatch[1];
-        var suggestions = findSimilarClasses(unknownId, index, 3);
-        for ( var s = 0 ; s < suggestions.length ; s++ ) {
-          actions.push({
-            title: "Did you mean '" + suggestions[s] + "'?",
-            kind: 'quickfix',
-            diagnostics: [diag],
-            edit: {
-              changes: {
-                [uri]: [{
-                  range: diag.range,
-                  newText: suggestions[s]
-                }]
-              }
-            }
-          });
-        }
-      }
-
-      // For "Use single quotes" hints, offer a one-click fix that rewrites
-      // the entire matched span ("foo.X") to single-quoted form ('foo.X').
-      var dqMatch = diag.message.match(/Use single quotes for FOAM class references:\s*'([^']+)'/);
-      if ( dqMatch ) {
-        var inner = dqMatch[1];
-        actions.push({
-          title: "Convert to single quotes: '" + inner + "'",
-          kind: 'quickfix',
-          isPreferred: true,
-          diagnostics: [diag],
-          edit: {
-            changes: {
-              [uri]: [{
-                range: diag.range,
-                newText: "'" + inner + "'"
-              }]
-            }
-          }
-        });
-      }
-
-      // For raw color diagnostics, offer a $token replacement if available.
-      // Matches both new message ("raw color 'X'") and legacy phrasing.
-      var rawColorMatch = diag.message.match(/raw color[^']*'([^']+)'/);
-      if ( rawColorMatch && cssTokenResolver ) {
-        var raw = rawColorMatch[1];
-        var token = cssTokenResolver.findTokenForValue(raw);
-        if ( token ) {
-          actions.push({
-            title: "Replace '" + raw + "' with '$" + token + "'",
-            kind: 'quickfix',
-            isPreferred: true,
-            diagnostics: [diag],
-            edit: {
-              changes: {
-                [uri]: [{
-                  range: diag.range,
-                  newText: '$' + token
-                }]
-              }
-            }
-          });
-        }
-      }
-
-      // For wrong Java import packages, suggest correct ones
-      var javaImportMappings = index.getJavaImportMappings();
-      var wrongPkgMatch = diag.message.match(/Wrong Java package[^']*'([^']+)'/);
-      if ( wrongPkgMatch ) {
-        var wrongPkg = wrongPkgMatch[1];
-        if ( javaImportMappings[wrongPkg] ) {
-          actions.push({
-            title: "Replace with '" + javaImportMappings[wrongPkg] + "'",
-            kind: 'quickfix',
-            isPreferred: true,
-            diagnostics: [diag],
-            edit: {
-              changes: {
-                [uri]: [{
-                  range: diag.range,
-                  newText: javaImportMappings[wrongPkg]
-                }]
-              }
-            }
-          });
-        }
-      }
-    }
-
-    return actions;
-  }
-
-  function findSimilarClasses(target, index, maxResults) {
-    /** Simple fuzzy match: find classes whose short name is close to target's short name. */
-    var targetShort = target.split('.').pop().toLowerCase();
-    var ids = index.getAllClassIds();
-    var scored = [];
-
-    for ( var i = 0 ; i < ids.length ; i++ ) {
-      var shortName = ids[i].split('.').pop().toLowerCase();
-      if ( shortName === targetShort ) {
-        // Exact short name match but different package — high score
-        scored.push({ id: ids[i], score: 100 });
-      } else if ( shortName.indexOf(targetShort) !== -1 || targetShort.indexOf(shortName) !== -1 ) {
-        scored.push({ id: ids[i], score: 50 });
-      } else {
-        // Levenshtein-like: count common chars
-        var common = 0;
-        for ( var c = 0 ; c < targetShort.length ; c++ ) {
-          if ( shortName.indexOf(targetShort[c]) !== -1 ) common++;
-        }
-        var similarity = common / Math.max(targetShort.length, shortName.length);
-        if ( similarity > 0.6 ) {
-          scored.push({ id: ids[i], score: Math.round(similarity * 40) });
-        }
-      }
-    }
-
-    scored.sort(function(a, b) { return b.score - a.score; });
-    var results = [];
-    for ( var i = 0 ; i < Math.min(scored.length, maxResults) ; i++ ) {
-      results.push(scored[i].id);
-    }
-    return results;
   }
 
   function pushDiagnostics(uri, text) {
@@ -701,8 +446,7 @@ function start() {
         var doc = documents[params.textDocument.uri];
         if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
         try {
-          var result = getSignatureHelp(doc.text, params.position, index, params.textDocument.uri);
-          respond(id, result);
+          respond(id, signatureHelpHandler.handle(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
           console.error('[LSP] signatureHelp error:', e.message);
           respond(id, null);
@@ -738,38 +482,34 @@ function start() {
         break;
 
       case 'workspace/symbol':
-        var query = (params.query || '').toLowerCase();
-        var symbols = [];
-        var ids = index.getAllClassIds();
-        for ( var i = 0 ; i < ids.length && symbols.length < 100 ; i++ ) {
-          if ( ids[i].toLowerCase().indexOf(query) !== -1 ) {
-            var filePath = index.getFilePath(ids[i]);
-            if ( filePath ) {
-              symbols.push({
-                name: ids[i].split('.').pop(),
-                kind: 5,
-                location: {
-                  uri: 'file://' + filePath,
-                  range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                },
-                containerName: ids[i]
-              });
-            }
-          }
+        try {
+          respond(id, workspaceSymbolHandler.handle(params.query));
+        } catch (e) {
+          console.error('[LSP] workspace/symbol error:', e.message);
+          respond(id, []);
         }
-        respond(id, symbols);
         break;
 
       case 'textDocument/foldingRange':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getFoldingRanges(doc.text));
+        try {
+          respond(id, foldingRangeHandler.handle(doc.text));
+        } catch (e) {
+          console.error('[LSP] foldingRange error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/codeAction':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getCodeActions(doc.text, params.range, params.context, index, params.textDocument.uri, cssTokenResolver));
+        try {
+          respond(id, codeActionHandler.handle(doc.text, params.range, params.context, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] codeAction error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/semanticTokens/full':

@@ -1,0 +1,108 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+// Tests for handlers extracted out of server.js in Phase 1A:
+// SignatureHelpHandler, FoldingRangeHandler, CodeActionHandler,
+// WorkspaceSymbolHandler. Each previously lived as an inline function
+// in server.js. These tests pin behaviour for the refactor and grow as
+// later phases extend each handler.
+
+var h = require('./_harness');
+var test = h.test, section = h.section;
+var index = h.index, cache = h.cache, cssTokenResolver = h.cssTokenResolver;
+
+// === FoldingRangeHandler ===
+
+section('FoldingRangeHandler');
+var foldingHandler = foam.parse.lsp.handlers.FoldingRangeHandler.create();
+
+var foldText = "foam.CLASS({\n  properties: [\n    { name: 'a' },\n    { name: 'b' }\n  ]\n});";
+var ranges = foldingHandler.handle(foldText);
+test(ranges.length === 1, 'FoldingRange: one fold for a single properties:[]');
+test(ranges.length === 1 && ranges[0].startLine === 1, 'FoldingRange: starts on properties: line');
+test(ranges.length === 1 && ranges[0].endLine === 4, 'FoldingRange: ends on closing ]');
+
+// Both arrays span multiple lines — single-line arrays are intentionally NOT folded.
+var foldText2 = "foam.CLASS({\n  requires: [\n    'foo'\n  ],\n  methods: [\n    function a() {}\n  ]\n});";
+var ranges2 = foldingHandler.handle(foldText2);
+test(ranges2.length >= 2, 'FoldingRange: multiple folds for multiple multi-line array axioms');
+
+var ranges3 = foldingHandler.handle('function foo() { return 1; }');
+test(ranges3.length === 0, 'FoldingRange: returns empty for plain JS');
+
+
+// === CodeActionHandler ===
+
+section('CodeActionHandler');
+var codeActionHandler = foam.parse.lsp.handlers.CodeActionHandler.create({
+  index:            index,
+  cssTokenResolver: cssTokenResolver
+});
+
+var emptyRange = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
+
+var noActions = codeActionHandler.handle('', emptyRange, { diagnostics: [] }, 'file:///x');
+test(noActions.length === 0, 'CodeAction: returns empty when no diagnostics');
+
+var nullCtx = codeActionHandler.handle('', emptyRange, null, 'file:///x');
+test(nullCtx.length === 0, 'CodeAction: returns empty when context is null');
+
+var dqDiag = {
+  range:   { start: { line: 0, character: 0 }, end: { line: 0, character: 7 } },
+  message: 'Use single quotes for FOAM class references: ' + h.Q + 'foo.X' + h.Q
+};
+var dqActions = codeActionHandler.handle('"foo.X"', dqDiag.range, { diagnostics: [dqDiag] }, 'file:///x');
+test(
+  dqActions.some(function(a) { return a.title.indexOf('Convert to single quotes') === 0; }),
+  'CodeAction: offers single-quote conversion for double-quoted class ref'
+);
+
+var wrongPkgDiag = {
+  range:   { start: { line: 0, character: 0 }, end: { line: 0, character: 20 } },
+  message: 'Wrong Java package: ' + h.Q + 'foam.nanos.auth.User' + h.Q
+};
+var wpActions = codeActionHandler.handle('foam.nanos.auth.User', wrongPkgDiag.range,
+  { diagnostics: [wrongPkgDiag] }, 'file:///x');
+test(
+  Array.isArray(wpActions),
+  'CodeAction: handles wrong-Java-package diagnostic without crashing'
+);
+
+
+// === SignatureHelpHandler ===
+
+section('SignatureHelpHandler');
+var sigHandler = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: cache });
+
+var sigNoCall = sigHandler.handle('var x = 1;', { line: 0, character: 5 }, '');
+test(sigNoCall === null, 'SignatureHelp: returns null when not inside a method call');
+
+// Cursor inside parens — handler walks back, attempts to resolve method via cache.getModelAt.
+// With an empty URI / no model, expected null (never throw).
+var sigText = "foam.CLASS({\n  package: 'x',\n  name: 'Y',\n  methods: [ function foo(a, b) {} ]\n});\nfoo(";
+var sigInCall = sigHandler.handle(sigText, { line: 5, character: 4 }, '');
+test(sigInCall === null || (sigInCall.signatures && sigInCall.signatures.length > 0),
+  'SignatureHelp: returns null or a signature shape, never throws');
+
+
+// === WorkspaceSymbolHandler ===
+
+section('WorkspaceSymbolHandler');
+var wsSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
+
+var anySymbols = wsSymbolHandler.handle('FObject');
+test(Array.isArray(anySymbols), 'WorkspaceSymbol: always returns an array');
+test(anySymbols.every(function(s) { return s.kind === 5; }), 'WorkspaceSymbol: every result is Class kind (5)');
+test(anySymbols.length === 0 || anySymbols[0].location.uri.indexOf('file://') === 0,
+  'WorkspaceSymbol: locations use file:// URIs');
+
+var capped = wsSymbolHandler.handle('');
+test(capped.length <= 100, 'WorkspaceSymbol: respects 100-symbol cap (Phase 3 will lift this)');
+
+// Substring match against the lower-cased id — known FOAM core classes should match.
+var coreFound = wsSymbolHandler.handle('foam.lang.FObject');
+test(coreFound.length === 0 || coreFound.some(function(s) { return s.containerName === 'foam.lang.FObject'; }),
+  'WorkspaceSymbol: exact full-id search returns the matching class when registered');

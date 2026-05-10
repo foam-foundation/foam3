@@ -35,6 +35,13 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `WorkspaceAnalyzer.js` | `foam/analyzeWorkspace` | Full codebase scan |
 | `SemanticTokenHandler.js` | `textDocument/semanticTokens/full` | Highlights resolved class refs and typed variables |
 | `ReferencesHandler.js` | `textDocument/references` | Find subclasses and interface implementors |
+| `SignatureHelpHandler.js` | `textDocument/signatureHelp` | Method parameter hints inside `(...)` |
+| `FoldingRangeHandler.js` | `textDocument/foldingRange` | Folds `properties:`/`methods:`/`requires:`/etc. arrays |
+| `CodeActionHandler.js` | `textDocument/codeAction` | Quick-fixes: "Did you mean X?", single-quote conversion, raw-color → $token, wrong-Java-package |
+| `WorkspaceSymbolHandler.js` | `workspace/symbol` | Class-id substring search (Phase 3 will extend with property/method/ranking) |
+| `RenameHandler.js` | `textDocument/{prepareRename,rename}` | Rename a class id + short-name occurrences |
+| `JrlHandler.js` | (custom hover + tokens for `.jrl`) | JRL class-ref resolution, embedded block tokens |
+| `DocumentHighlightHandler.js` | `textDocument/documentHighlight` | Highlight all occurrences of identifier under cursor |
 
 ### VS Code Extension
 | File | Purpose |

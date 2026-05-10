@@ -13,6 +13,10 @@ foam.POM({
     { name: 'DocumentHighlightHandler', flags: 'js' },
     { name: 'RenameHandler', flags: 'js' },
     { name: 'WorkspaceAnalyzer', flags: 'js' },
-    { name: 'JrlHandler', flags: 'js' }
+    { name: 'JrlHandler', flags: 'js' },
+    { name: 'SignatureHelpHandler', flags: 'js' },
+    { name: 'FoldingRangeHandler', flags: 'js' },
+    { name: 'CodeActionHandler', flags: 'js' },
+    { name: 'WorkspaceSymbolHandler', flags: 'js' }
   ]
 });

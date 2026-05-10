@@ -190,3 +190,57 @@ try {
 var noStr = index.getStringUsages('nonexistent_context_key');
 test(Array.isArray(noStr), 'getStringUsages: unknown name returns array');
 test(noStr.length === 0, 'getStringUsages: unknown name returns empty array');
+
+
+// === FoamIndex.getMemberUsages — this.<prop|method> inside class (Phase 4d) ===
+//
+// Per-class view: where inside class X do methods reference property Y
+// or method Y via this.Y? Answers "find references" for a property name
+// scoped to its class — without false positives from unrelated files.
+
+section('FoamIndex.getMemberUsages — this.X within a class');
+
+foam.CLASS({
+  package: 'foam.parse.lsp.membertest',
+  name:    'MemberOwner',
+  properties: [
+    { class: 'String', name: 'someField' },
+    { class: 'String', name: 'unrelatedField' }
+  ],
+  methods: [
+    function readField() {
+      // Body reads someField in two distinct axioms.
+      return this.someField + ' suffix';
+    },
+    function writeField() {
+      this.someField = 'x';
+      return this.someField;
+    },
+    function ignoresIt() {
+      return 42;
+    }
+  ]
+});
+
+index.invalidateSymbolIndex_();
+
+try {
+  var memberUses = index.getMemberUsages('foam.parse.lsp.membertest.MemberOwner', 'someField');
+  test(Array.isArray(memberUses), 'getMemberUsages: returns array');
+  test(memberUses.length >= 2,
+    'getMemberUsages: someField is referenced from at least readField + writeField (got ' + memberUses.length + ')');
+  test(memberUses.some(function(u) { return u.axiomName === 'methods.readField'; }),
+    'getMemberUsages: readField referenced as methods.readField');
+  test(memberUses.some(function(u) { return u.axiomName === 'methods.writeField'; }),
+    'getMemberUsages: writeField referenced as methods.writeField');
+  test(memberUses.every(function(u) { return u.kind === 'usage-member'; }),
+    'getMemberUsages: every entry tagged kind=usage-member');
+  test(memberUses.every(function(u) { return u.memberKind === 'property'; }),
+    'getMemberUsages: someField identified as memberKind=property');
+
+  var noField = index.getMemberUsages('foam.parse.lsp.membertest.MemberOwner', 'unrelatedField');
+  test(noField.length === 0,
+    'getMemberUsages: unrelatedField (declared but unreferenced) returns no usages');
+} catch (err) {
+  test(false, 'getMemberUsages threw: ' + err.message);
+}

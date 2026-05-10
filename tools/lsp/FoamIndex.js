@@ -1211,6 +1211,7 @@ foam.CLASS({
       this.usageIndex_       = null;
       this.javaUsageIndex_   = null;
       this.stringUsageIndex_ = null;
+      this.memberUsageIndex_ = null;
     },
 
     // ----- JS usage index (Phase 4a) --------------------------------------
@@ -1286,6 +1287,78 @@ foam.CLASS({
       }
 
       this.usageIndex_ = { byTarget: byTarget };
+    },
+
+    // ----- Member-reference index (Phase 4d) ------------------------------
+    //
+    // Per-class, per-member view of `this.X` reads inside the class's own
+    // function bodies. Answers "where in this class is property
+    // `clearingIdentifier` read?" without scanning unrelated files.
+    //
+    // The index reuses scanFunctions_'s per-axiom walk so we don't pay a
+    // second registry traversal — it just records a different shape of
+    // edges. Member names are resolved against the class's own + inherited
+    // properties and methods (FOAM's getAxiomsByClass — no regex).
+
+    function getMemberUsages(classId, memberName) {
+      if ( ! this.memberUsageIndex_ ) this.buildMemberUsageIndex_();
+      var byMember = this.memberUsageIndex_.byClass[classId];
+      if ( ! byMember ) return [];
+      return byMember[memberName] || [];
+    },
+
+    function buildMemberUsageIndex_() {
+      var byClass = {};
+      var self    = this;
+      var THIS_X  = /\bthis\.(\w+)\b/g;
+
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var classId = ids[i];
+        var cls     = this.getClass(classId);
+        if ( ! cls ) continue;
+
+        // Names that count as "members" — own + inherited, props + methods.
+        var memberNames = {};
+        try {
+          var props = cls.getAxiomsByClass(foam.lang.Property);
+          for ( var p = 0 ; p < props.length ; p++ ) {
+            if ( typeof props[p].name === 'string' ) memberNames[props[p].name] = 'property';
+          }
+        } catch (e) {}
+        try {
+          var methods = cls.getAxiomsByClass(foam.lang.Method);
+          for ( var m = 0 ; m < methods.length ; m++ ) {
+            if ( typeof methods[m].name === 'string' ) memberNames[methods[m].name] = 'method';
+          }
+        } catch (e) {}
+        if ( Object.keys(memberNames).length === 0 ) continue;
+
+        // Use Object.create(null) so member names like `constructor` or
+        // `__proto__` can't collide with Object.prototype slots.
+        var byMember = byClass[classId] || (byClass[classId] = Object.create(null));
+
+        self.scanFunctions_(cls, function(src, axiomName) {
+          THIS_X.lastIndex = 0;
+          var seenInBlock = Object.create(null);
+          var match;
+          while ( ( match = THIS_X.exec(src) ) !== null ) {
+            var name = match[1];
+            if ( ! memberNames[name] ) continue;
+            var key = axiomName + '|' + name;
+            if ( seenInBlock[key] ) continue;
+            seenInBlock[key] = true;
+            if ( ! Array.isArray(byMember[name]) ) byMember[name] = [];
+            byMember[name].push({
+              axiomName:  axiomName,
+              memberKind: memberNames[name],
+              kind:       'usage-member'
+            });
+          }
+        });
+      }
+
+      this.memberUsageIndex_ = { byClass: byClass };
     },
 
     // ----- String reference index (Phase 4c) ------------------------------

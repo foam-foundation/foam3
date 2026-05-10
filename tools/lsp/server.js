@@ -45,6 +45,7 @@ function start() {
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
   var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
+  var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -301,7 +302,8 @@ function start() {
             renameProvider: { prepareProvider: true },
             typeHierarchyProvider: true,
             implementationProvider: true,
-            typeDefinitionProvider: true
+            typeDefinitionProvider: true,
+            callHierarchyProvider: true
           },
           experimental: {
             workspaceAnalyzer: true
@@ -636,6 +638,35 @@ function start() {
         } catch (e) {
           console.error('[LSP] typeDefinition error:', e.message);
           respond(id, null);
+        }
+        break;
+
+      case 'textDocument/prepareCallHierarchy':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, callHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] prepareCallHierarchy error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'callHierarchy/incomingCalls':
+        try {
+          respond(id, callHierarchyHandler.incomingCalls(params.item));
+        } catch (e) {
+          console.error('[LSP] callHierarchy/incomingCalls error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'callHierarchy/outgoingCalls':
+        try {
+          respond(id, callHierarchyHandler.outgoingCalls(params.item));
+        } catch (e) {
+          console.error('[LSP] callHierarchy/outgoingCalls error:', e.message);
+          respond(id, []);
         }
         break;
 

@@ -20,6 +20,7 @@ foam.POM({
     { name: 'WorkspaceSymbolHandler', flags: 'js' },
     { name: 'TypeHierarchyHandler', flags: 'js' },
     { name: 'ImplementationHandler', flags: 'js' },
-    { name: 'TypeDefinitionHandler', flags: 'js' }
+    { name: 'TypeDefinitionHandler', flags: 'js' },
+    { name: 'CallHierarchyHandler', flags: 'js' }
   ]
 });

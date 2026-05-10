@@ -1208,6 +1208,130 @@ foam.CLASS({
       // patch — for a small win in correctness we trade a small cost in
       // workspace-symbol latency right after a save.
       this.symbolIndex_ = null;
+      this.usageIndex_  = null;
+    },
+
+    // ----- JS usage index (Phase 4a) --------------------------------------
+    //
+    // For every model in the registry, walk axioms that hold JavaScript
+    // function bodies (methods, actions, listeners, property functions,
+    // templates, init/initE) and extract `this.<ShortName>.` references.
+    // Resolve each short name through the source class's requires axiom
+    // (no regex over the file text — we use the captured model). The
+    // result is a `targetClassId → [{ sourceClassId, kind, axiomName }]`
+    // map answering "where in JS code is this class used?".
+    //
+    // Coarse line precision for now (file-level via getFilePath). Phase 4f
+    // can refine to per-method offsets if the call hierarchy needs them.
+
+    function getJsUsages(classId) {
+      /** Return [{ sourceClassId, axiomName, kind }] referencing classId in JS. */
+      if ( ! this.usageIndex_ ) this.buildUsageIndex_();
+      return this.usageIndex_.byTarget[classId] || [];
+    },
+
+    function buildUsageIndex_() {
+      var byTarget = {};
+      var ids      = this.getAllClassIds();
+      var self     = this;
+
+      function record(target, source, axiomName, kind) {
+        if ( ! target ) return;
+        var arr = byTarget[target] || (byTarget[target] = []);
+        // Dedup by source+axiom+kind so listing's twice doesn't double-count.
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === source && arr[k].axiomName === axiomName && arr[k].kind === kind ) return;
+        }
+        arr.push({ sourceClassId: source, axiomName: axiomName, kind: kind });
+      }
+
+      // Pattern: `this.<CapitalIdent>` — short name to resolve via requires.
+      var THIS_SHORT = /\bthis\.([A-Z][\w$]*)\b/g;
+
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var sourceId = ids[i];
+        var cls      = this.getClass(sourceId);
+        if ( ! cls || ! cls.model_ ) continue;
+
+        // requires: build short→full map from the model axiom
+        var shortMap = {};
+        var reqs = cls.model_.requires || [];
+        for ( var r = 0 ; r < reqs.length ; r++ ) {
+          var req = reqs[r];
+          if ( typeof req === 'string' ) {
+            var parts = req.split(/\s+as\s+/);
+            var path  = parts[0].trim();
+            var alias = (parts[1] || path.split('.').pop()).trim();
+            shortMap[alias] = path;
+          } else if ( req && req.path ) {
+            shortMap[req.name || req.path.split('.').pop()] = req.path;
+          }
+        }
+        if ( Object.keys(shortMap).length === 0 ) continue;
+
+        // For each function-bearing axiom on the model, scan its source.
+        self.scanFunctions_(cls.model_, function(src, axiomName) {
+          THIS_SHORT.lastIndex = 0;
+          var m;
+          while ( ( m = THIS_SHORT.exec(src) ) !== null ) {
+            var shortName = m[1];
+            var fullId    = shortMap[shortName];
+            if ( ! fullId ) continue;
+            if ( ! self.classExists(fullId) ) continue;
+            record(fullId, sourceId, axiomName, 'usage-js');
+          }
+        });
+      }
+
+      this.usageIndex_ = { byTarget: byTarget };
+    },
+
+    function scanFunctions_(model, visit) {
+      // Visit `visit(sourceString, axiomName)` for every JS function on the
+      // model that we want to scan. Methods, actions, listeners, init/initE,
+      // and the property-function axioms (factory/expression/preSet/postSet
+      // /value/view/tableCellFormatter/labelFormatter).
+      function srcOf(v) {
+        if ( ! v ) return '';
+        if ( typeof v === 'function' ) return v.toString();
+        if ( typeof v === 'string' ) return v;       // template-literal body
+        if ( typeof v === 'object' && typeof v.code === 'function' ) return v.code.toString();
+        return '';
+      }
+
+      var arrSlots = ['methods', 'actions', 'listeners', 'templates'];
+      for ( var s = 0 ; s < arrSlots.length ; s++ ) {
+        var slot = model[arrSlots[s]];
+        if ( ! Array.isArray(slot) ) continue;
+        for ( var i = 0 ; i < slot.length ; i++ ) {
+          var item = slot[i];
+          var name = (item && item.name) || '(anonymous)';
+          var src  = '';
+          if ( typeof item === 'function' ) src = item.toString();
+          else if ( item && item.code )     src = srcOf(item.code);
+          if ( src ) visit(src, arrSlots[s] + '.' + name);
+        }
+      }
+
+      var lifecycle = ['init', 'initE', 'installInClass', 'installInProto'];
+      for ( var s = 0 ; s < lifecycle.length ; s++ ) {
+        var src = srcOf(model[lifecycle[s]]);
+        if ( src ) visit(src, lifecycle[s]);
+      }
+
+      var propFnSlots = ['factory', 'expression', 'preSet', 'postSet', 'value',
+                         'view', 'tableCellFormatter', 'labelFormatter',
+                         'assertValue', 'adapt'];
+      var props = model.properties || [];
+      for ( var p = 0 ; p < props.length ; p++ ) {
+        var prop = props[p];
+        if ( ! prop || typeof prop !== 'object' ) continue;
+        var pname = prop.name || '(anonymous)';
+        for ( var s = 0 ; s < propFnSlots.length ; s++ ) {
+          var src = srcOf(prop[propFnSlots[s]]);
+          if ( src ) visit(src, 'properties.' + pname + '.' + propFnSlots[s]);
+        }
+      }
     }
   ]
 });

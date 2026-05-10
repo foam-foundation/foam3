@@ -67,10 +67,13 @@ foam.CLASS({
       var impls = this.index.getImplementors(classId);
       var reqs  = this.index.getRequirers(classId);
       var ofs   = this.index.getOfUsers(classId);
-      for ( var i = 0 ; i < subs.length ; i++ )  add(subs[i]);
-      for ( var i = 0 ; i < impls.length ; i++ ) add(impls[i]);
-      for ( var i = 0 ; i < reqs.length ; i++ )  add(reqs[i]);
-      for ( var i = 0 ; i < ofs.length ; i++ )   add(ofs[i]);
+      for ( var i = 0 ; i < subs.length ; i++ )   add(subs[i]);
+      for ( var i = 0 ; i < impls.length ; i++ )  add(impls[i]);
+      for ( var i = 0 ; i < reqs.length ; i++ )   add(reqs[i]);
+      for ( var i = 0 ; i < ofs.length ; i++ )    add(ofs[i]);
+      // Phase 4e wires usage indexes (getJsUsages / getJavaUsages /
+      // getStringUsages / getMemberUsages) into this loop. Deferred here so
+      // the references path stays fast until the indexes are fully sized.
 
       var locations = [];
       for ( var i = 0 ; i < refs.length ; i++ ) {

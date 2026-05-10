@@ -146,3 +146,47 @@ try {
 } catch (err) {
   test(false, 'getJavaUsages workspace build threw: ' + err.message + ' :: ' + (err.stack || '').split('\n').slice(0,5).join(' | '));
 }
+
+
+// === FoamIndex.getStringUsages — exports / imports (Phase 4c) ===
+//
+// String references travel through exports: → imports:. We declare a
+// Producer that exports a name and a Consumer that imports it, then
+// assert the index links them.
+
+section('FoamIndex.getStringUsages — exports/imports');
+
+foam.CLASS({
+  package: 'foam.parse.lsp.stringusagetest',
+  name:    'StringProducer',
+  exports: [ 'as producerProp' ],
+  properties: [
+    { class: 'String', name: 'producerProp' }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.parse.lsp.stringusagetest',
+  name:    'StringConsumer',
+  imports: [ 'producerProp' ]
+});
+
+index.invalidateSymbolIndex_();
+
+try {
+  var stringUses = index.getStringUsages('producerProp');
+  test(Array.isArray(stringUses), 'getStringUsages returns array');
+  test(stringUses.some(function(u) {
+    return u.sourceClassId === 'foam.parse.lsp.stringusagetest.StringConsumer' && u.kind === 'usage-string';
+  }), 'getStringUsages: Consumer recorded as importer of producerProp');
+  test(stringUses.some(function(u) {
+    return u.sourceClassId === 'foam.parse.lsp.stringusagetest.StringProducer' && u.kind === 'export';
+  }), 'getStringUsages: Producer recorded as exporter of producerProp');
+} catch (err) {
+  test(false, 'getStringUsages threw: ' + err.message);
+}
+
+// Unknown name returns empty array.
+var noStr = index.getStringUsages('nonexistent_context_key');
+test(Array.isArray(noStr), 'getStringUsages: unknown name returns array');
+test(noStr.length === 0, 'getStringUsages: unknown name returns empty array');

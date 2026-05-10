@@ -1207,9 +1207,10 @@ foam.CLASS({
       // next searchSymbols call. Cheap to drop, expensive to incrementally
       // patch — for a small win in correctness we trade a small cost in
       // workspace-symbol latency right after a save.
-      this.symbolIndex_     = null;
-      this.usageIndex_      = null;
-      this.javaUsageIndex_  = null;
+      this.symbolIndex_      = null;
+      this.usageIndex_       = null;
+      this.javaUsageIndex_   = null;
+      this.stringUsageIndex_ = null;
     },
 
     // ----- JS usage index (Phase 4a) --------------------------------------
@@ -1285,6 +1286,123 @@ foam.CLASS({
       }
 
       this.usageIndex_ = { byTarget: byTarget };
+    },
+
+    // ----- String reference index (Phase 4c) ------------------------------
+    //
+    // FOAM lets one class declare names via `exports:` and others receive
+    // them via `imports:`. The names are plain strings, but they form a
+    // real reference graph that Claude needs to follow:
+    //
+    //   exports: ['currentUser', 'pushMenu']    // ApplicationController
+    //   imports: ['pushMenu']                    // MyView ← uses currentUser
+    //
+    // Same shape applies to DAO names registered as CSpecs in services.jrl
+    // files — `imports: ['userDAO']` is satisfied by a CSpec entry whose
+    // `id` is `userDAO` somewhere in the workspace.
+    //
+    // The string-reference index walks every class's exports/imports axioms
+    // and every services.jrl file (via JrlLoader, the FOAM-native journal
+    // reader), then answers `getStringUsages(name)` — every class that
+    // imports the name + every services.jrl entry that registers it.
+
+    function getStringUsages(name) {
+      if ( ! this.stringUsageIndex_ ) this.buildStringUsageIndex_();
+      return this.stringUsageIndex_.byName[name] || [];
+    },
+
+    function buildStringUsageIndex_() {
+      var byName = {};
+      var self   = this;
+
+      function record(name, entry) {
+        if ( typeof name !== 'string' || ! name ) return;
+        // Strip the `?` optional-marker that FOAM allows on import names.
+        name = name.replace(/\?$/, '');
+        var arr = byName[name] || (byName[name] = []);
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === entry.sourceClassId &&
+               arr[k].axiomName     === entry.axiomName &&
+               arr[k].kind          === entry.kind ) return;
+        }
+        arr.push(entry);
+      }
+
+      // 1. Imports / exports on every class — read via FOAM axiom APIs.
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var classId = ids[i];
+        var cls     = this.getClass(classId);
+        if ( ! cls ) continue;
+
+        try {
+          var imports = cls.getOwnAxiomsByClass(foam.lang.Import);
+          for ( var j = 0 ; j < imports.length ; j++ ) {
+            var imp = imports[j];
+            if ( typeof imp.key !== 'string' && typeof imp.name !== 'string' ) continue;
+            // Import key falls back to name (FOAM's standard pattern).
+            var key = imp.key || imp.name;
+            record(key, {
+              sourceClassId: classId,
+              axiomName:     'imports.' + imp.name,
+              kind:          'usage-string'
+            });
+          }
+        } catch (e) {}
+
+        try {
+          var exports = cls.getOwnAxiomsByClass(foam.lang.Export);
+          for ( var j = 0 ; j < exports.length ; j++ ) {
+            var exp = exports[j];
+            if ( typeof exp.exportName !== 'string' && typeof exp.name !== 'string' ) continue;
+            var name = exp.exportName || exp.name;
+            record(name, {
+              sourceClassId: classId,
+              axiomName:     'exports.' + exp.name,
+              kind:          'export'
+            });
+          }
+        } catch (e) {}
+      }
+
+      // 2. CSpec entries in every services.jrl walked via JrlLoader (the
+      // FOAM-native reader). Each registered service gets a 'cspec' entry
+      // keyed by its id — matched against import keys above.
+      try {
+        var jrlLoader = foam.parse.lsp.JrlLoader.create();
+        var fs_       = require('fs');
+        var path_     = require('path');
+        var fileIndex = this.fileIndex_ || {};
+        var seenDirs  = {};
+        var services  = [];
+        for ( var id in fileIndex ) {
+          var entry = fileIndex[id];
+          var p     = typeof entry === 'string' ? entry : entry.path;
+          if ( ! p ) continue;
+          var dir = path_.dirname(p);
+          if ( seenDirs[dir] ) continue;
+          seenDirs[dir] = true;
+          var svc = path_.join(dir, 'services.jrl');
+          if ( fs_.existsSync(svc) ) services.push(svc);
+        }
+        for ( var s = 0 ; s < services.length ; s++ ) {
+          try {
+            var entries = jrlLoader.loadFile(services[s]);
+            for ( var e = 0 ; e < entries.length ; e++ ) {
+              var ent = entries[e];
+              if ( ! ent || typeof ent.id !== 'string' ) continue;
+              record(ent.id, {
+                sourceClassId: null,
+                axiomName:     'services.jrl',
+                kind:          'cspec',
+                file:          services[s]
+              });
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+
+      this.stringUsageIndex_ = { byName: byName };
     },
 
     // ----- Java usage index (Phase 4b) ------------------------------------

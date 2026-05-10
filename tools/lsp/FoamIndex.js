@@ -1207,8 +1207,9 @@ foam.CLASS({
       // next searchSymbols call. Cheap to drop, expensive to incrementally
       // patch — for a small win in correctness we trade a small cost in
       // workspace-symbol latency right after a save.
-      this.symbolIndex_ = null;
-      this.usageIndex_  = null;
+      this.symbolIndex_     = null;
+      this.usageIndex_      = null;
+      this.javaUsageIndex_  = null;
     },
 
     // ----- JS usage index (Phase 4a) --------------------------------------
@@ -1269,8 +1270,8 @@ foam.CLASS({
         }
         if ( Object.keys(shortMap).length === 0 ) continue;
 
-        // For each function-bearing axiom on the model, scan its source.
-        self.scanFunctions_(cls.model_, function(src, axiomName) {
+        // For each function-bearing axiom on the class, scan its source.
+        self.scanFunctions_(cls, function(src, axiomName) {
           THIS_SHORT.lastIndex = 0;
           var m;
           while ( ( m = THIS_SHORT.exec(src) ) !== null ) {
@@ -1286,50 +1287,261 @@ foam.CLASS({
       this.usageIndex_ = { byTarget: byTarget };
     },
 
-    function scanFunctions_(model, visit) {
+    // ----- Java usage index (Phase 4b) ------------------------------------
+    //
+    // FOAM captures every javaCode / javaPostSet / javaFactory / etc. block
+    // as a string on the model object. We don't need to invoke the Java
+    // parser — a single regex over capitalised identifiers, resolved
+    // through the class's javaImports, gives a per-target-class index of
+    // every Java-side reference. Same fact pattern as Phase 4a, different
+    // axiom slots.
+
+    function getJavaUsages(classId) {
+      if ( ! this.javaUsageIndex_ ) this.buildJavaUsageIndex_();
+      return this.javaUsageIndex_.byTarget[classId] || [];
+    },
+
+    function buildJavaUsageIndex_() {
+      var byTarget = {};
+      var ids      = this.getAllClassIds();
+      var self     = this;
+
+      function record(target, source, axiomName) {
+        if ( ! target ) return;
+        var arr = byTarget[target] || (byTarget[target] = []);
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === source && arr[k].axiomName === axiomName ) return;
+        }
+        arr.push({ sourceClassId: source, axiomName: axiomName, kind: 'usage-java' });
+      }
+
+      var CAP_IDENT = /\b([A-Z][\w]*(?:\.[A-Z][\w]*)*)\b/g;
+
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var sourceId = ids[i];
+        var cls      = this.getClass(sourceId);
+        if ( ! cls ) continue;
+
+        var javaImports = cls.model_ && cls.model_.javaImports || [];
+        if ( javaImports.length === 0 && ! (cls.model_ && cls.model_.package) ) continue;
+
+        var importLookup = {};
+        for ( var x = 0 ; x < javaImports.length ; x++ ) {
+          var imp = javaImports[x];
+          if ( typeof imp !== 'string' ) continue;
+          if ( imp.indexOf('*') !== -1 ) continue;
+          var parts = imp.split('.');
+          importLookup[parts[parts.length - 1]] = imp;
+        }
+
+        self.scanJavaBlocks_(cls, function(src, axiomName) {
+          CAP_IDENT.lastIndex = 0;
+          var m;
+          var seenThisBlock = {};
+          while ( ( m = CAP_IDENT.exec(src) ) !== null ) {
+            var token = m[1];
+            if ( seenThisBlock[token] ) continue;
+            seenThisBlock[token] = true;
+
+            var fullId = null;
+            if ( importLookup[token] && self.classExists(importLookup[token]) ) {
+              fullId = importLookup[token];
+            } else if ( token.indexOf('.') !== -1 && self.classExists(token) ) {
+              fullId = token;
+            } else if ( cls.model_ && cls.model_.package ) {
+              var candidate = cls.model_.package + '.' + token;
+              if ( self.classExists(candidate) ) fullId = candidate;
+            }
+            if ( ! fullId || fullId === sourceId ) continue;
+            record(fullId, sourceId, axiomName);
+          }
+        });
+      }
+
+      this.javaUsageIndex_ = { byTarget: byTarget };
+    },
+
+    function scanJavaBlocks_(cls, visit) {
+      // Visit `visit(javaString, axiomName)` for every Java-bearing slot on
+      // a FOAM class. Walks via FOAM's axiom APIs (getOwnAxiomsByClass)
+      // first — that's the canonical way to read Method / Property axioms.
+      // When the runtime boots without Java refinements (some test contexts),
+      // the axioms drop `javaCode`/`javaPostSet`/etc.; fall back to the raw
+      // input on cls.model_ so the scanner still works.
+      function emit(name, val) {
+        if ( typeof val === 'string' && val.length > 0 ) visit(val, name);
+      }
+
+      var model = cls && cls.model_ || {};
+
+      // Top-level javaCode on the class.
+      emit('javaCode', model.javaCode);
+
+      // Methods — prefer Method axioms, fall back to model.methods raw input.
+      var methodAxioms = [];
+      try { methodAxioms = cls.getOwnAxiomsByClass(foam.lang.Method); } catch (e) {}
+      var rawMethods = model.methods || [];
+      var seenMethodNames = {};
+      for ( var i = 0 ; i < methodAxioms.length ; i++ ) {
+        var ax = methodAxioms[i];
+        var name = ax.name;
+        seenMethodNames[name] = true;
+        if ( typeof ax.javaCode === 'string' && ax.javaCode.length > 0 ) {
+          emit('methods.' + name + '.javaCode', ax.javaCode);
+        } else {
+          // Axiom missing javaCode (no Java refinements loaded) — pull from raw input
+          for ( var j = 0 ; j < rawMethods.length ; j++ ) {
+            var rm = rawMethods[j];
+            if ( rm && typeof rm === 'object' && rm.name === name && typeof rm.javaCode === 'string' ) {
+              emit('methods.' + name + '.javaCode', rm.javaCode);
+              break;
+            }
+          }
+        }
+      }
+      // Pick up any raw-method entries whose Method axiom didn't materialise
+      // (anonymous functions don't always become axioms). Defensive on the
+      // name type — refinement metadata occasionally produces Symbol-typed
+      // names on raw entries.
+      for ( var j = 0 ; j < rawMethods.length ; j++ ) {
+        var rm = rawMethods[j];
+        if ( ! rm || typeof rm !== 'object' || typeof rm.name !== 'string' ) continue;
+        if ( seenMethodNames[rm.name] ) continue;
+        if ( typeof rm.javaCode === 'string' ) {
+          emit('methods.' + rm.name + '.javaCode', rm.javaCode);
+        }
+      }
+
+      // Properties — same pattern. Kept in sync with the known-keys list in
+      // CursorAnalyzer.getBacktickBlockContext, MINUS the slots that FOAM's
+      // Property refinement implements via `expression:` (javaValue and
+      // javaValidateObj). Reading those triggers asJavaValue, which throws
+      // when the underlying value can't be lowered to Java — fine for code
+      // generation, fatal for a passive scan over every Property in the
+      // registry.
+      var javaPropSlots = [
+        'javaCode',      'javaPreSet',  'javaPostSet',   'javaFactory',
+        'javaGetter',    'javaSetter',  'javaAdapt',     'javaCompare',
+        'javaAssertValue', 'javaInit',  'javaToCSV',     'javaToCSVLabel',
+        'javaQueryParser', 'javaJSONParser', 'javaCSVParser',
+        'javaCloneProperty', 'javaDiffProperty', 'javaFormatJSON',
+        'javaCondition',
+        'javaComparePropertyToObject', 'javaComparePropertyToValue',
+        'javaFromCSVLabelMapping'
+      ];
+      var propAxioms = [];
+      try { propAxioms = cls.getOwnAxiomsByClass(foam.lang.Property); } catch (e) {}
+      var seenPropNames = {};
+      for ( var p = 0 ; p < propAxioms.length ; p++ ) {
+        var pax = propAxioms[p];
+        if ( typeof pax.name !== 'string' ) continue;
+        seenPropNames[pax.name] = true;
+        for ( var s = 0 ; s < javaPropSlots.length ; s++ ) {
+          var slot = javaPropSlots[s];
+          // Defensive try/catch: even non-expression slots can fault when
+          // the underlying axiom is partially built.
+          try {
+            var v = pax[slot];
+            if ( typeof v === 'string' && v.length > 0 ) {
+              emit('properties.' + pax.name + '.' + slot, v);
+            }
+          } catch (e) {}
+        }
+      }
+    },
+
+    function scanFunctions_(cls, visit) {
       // Visit `visit(sourceString, axiomName)` for every JS function on the
-      // model that we want to scan. Methods, actions, listeners, init/initE,
-      // and the property-function axioms (factory/expression/preSet/postSet
-      // /value/view/tableCellFormatter/labelFormatter).
+      // class. Reads axioms via FOAM's getOwnAxiomsByClass — Method, Action,
+      // Listener axioms expose `.code` as the live function. Property axioms
+      // expose `factory` / `expression` / `preSet` / etc. Falls back to
+      // model.<slot>[] raw input when an axiom has no `.code` (rare —
+      // anonymous-function entries that don't materialise as axioms).
       function srcOf(v) {
-        if ( ! v ) return '';
-        if ( typeof v === 'function' ) return v.toString();
-        if ( typeof v === 'string' ) return v;       // template-literal body
+        if ( ! v )                                       return '';
+        if ( typeof v === 'function' )                   return v.toString();
+        if ( typeof v === 'string' )                     return v;
         if ( typeof v === 'object' && typeof v.code === 'function' ) return v.code.toString();
         return '';
       }
 
-      var arrSlots = ['methods', 'actions', 'listeners', 'templates'];
-      for ( var s = 0 ; s < arrSlots.length ; s++ ) {
-        var slot = model[arrSlots[s]];
-        if ( ! Array.isArray(slot) ) continue;
-        for ( var i = 0 ; i < slot.length ; i++ ) {
-          var item = slot[i];
-          var name = (item && item.name) || '(anonymous)';
-          var src  = '';
-          if ( typeof item === 'function' ) src = item.toString();
-          else if ( item && item.code )     src = srcOf(item.code);
-          if ( src ) visit(src, arrSlots[s] + '.' + name);
+      var axiomGroups = [
+        { axiomClass: foam.lang.Method,   modelKey: 'methods',   label: 'methods'   },
+        { axiomClass: foam.lang.Listener, modelKey: 'listeners', label: 'listeners' }
+      ];
+      if ( foam.lang.Action ) {
+        axiomGroups.push({ axiomClass: foam.lang.Action, modelKey: 'actions', label: 'actions' });
+      }
+
+      var model = cls && cls.model_ || {};
+
+      // Methods, listeners, actions — FOAM axiom path first.
+      for ( var g = 0 ; g < axiomGroups.length ; g++ ) {
+        var grp = axiomGroups[g];
+        var seen = {};
+        var axioms = [];
+        try { axioms = cls.getOwnAxiomsByClass(grp.axiomClass); } catch (e) {}
+        for ( var i = 0 ; i < axioms.length ; i++ ) {
+          var ax  = axioms[i];
+          var src = srcOf(ax.code);
+          if ( src ) visit(src, grp.label + '.' + ax.name);
+          seen[ax.name] = true;
+        }
+        // Fallback for raw entries not materialised as axioms (rare).
+        var rawArr = model[grp.modelKey];
+        if ( ! Array.isArray(rawArr) ) continue;
+        for ( var i = 0 ; i < rawArr.length ; i++ ) {
+          var item = rawArr[i];
+          var name = (item && item.name) || null;
+          // Defensive: with Java refinements loaded, some raw entries carry
+          // Symbol-typed `name` slots that confuse string concat.
+          if ( typeof name !== 'string' ) continue;
+          if ( ! name || seen[name] ) continue;
+          var src = typeof item === 'function' ? item.toString() : srcOf(item.code);
+          if ( src ) visit(src, grp.label + '.' + name);
         }
       }
 
+      // Templates — keep raw-array walk; no dedicated axiom class.
+      var templates = model.templates || [];
+      for ( var i = 0 ; i < templates.length ; i++ ) {
+        var t = templates[i];
+        if ( ! t || typeof t !== 'object' ) continue;
+        var name = t.name || '(anonymous)';
+        var src  = srcOf(t.code);
+        if ( src ) visit(src, 'templates.' + name);
+      }
+
+      // Lifecycle hooks live on the model itself.
       var lifecycle = ['init', 'initE', 'installInClass', 'installInProto'];
       for ( var s = 0 ; s < lifecycle.length ; s++ ) {
         var src = srcOf(model[lifecycle[s]]);
         if ( src ) visit(src, lifecycle[s]);
       }
 
+      // Property functions — Property axiom path first.
       var propFnSlots = ['factory', 'expression', 'preSet', 'postSet', 'value',
                          'view', 'tableCellFormatter', 'labelFormatter',
                          'assertValue', 'adapt'];
-      var props = model.properties || [];
-      for ( var p = 0 ; p < props.length ; p++ ) {
-        var prop = props[p];
-        if ( ! prop || typeof prop !== 'object' ) continue;
-        var pname = prop.name || '(anonymous)';
+      var propAxioms  = [];
+      try { propAxioms = cls.getOwnAxiomsByClass(foam.lang.Property); } catch (e) {}
+      var seenProp = {};
+      for ( var p = 0 ; p < propAxioms.length ; p++ ) {
+        var pax = propAxioms[p];
+        seenProp[pax.name] = true;
         for ( var s = 0 ; s < propFnSlots.length ; s++ ) {
-          var src = srcOf(prop[propFnSlots[s]]);
-          if ( src ) visit(src, 'properties.' + pname + '.' + propFnSlots[s]);
+          var src = srcOf(pax[propFnSlots[s]]);
+          if ( src ) visit(src, 'properties.' + pax.name + '.' + propFnSlots[s]);
+        }
+      }
+      var rawProps = model.properties || [];
+      for ( var p = 0 ; p < rawProps.length ; p++ ) {
+        var rp = rawProps[p];
+        if ( ! rp || typeof rp !== 'object' || ! rp.name ) continue;
+        if ( seenProp[rp.name] ) continue;
+        for ( var s = 0 ; s < propFnSlots.length ; s++ ) {
+          var src = srcOf(rp[propFnSlots[s]]);
+          if ( src ) visit(src, 'properties.' + rp.name + '.' + propFnSlots[s]);
         }
       }
     }

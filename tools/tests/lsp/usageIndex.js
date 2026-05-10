@@ -46,7 +46,7 @@ foam.CLASS({
 // that we visit the methods array and emit the function body.
 var src    = foam.maybeLookup('foam.parse.lsp.usagetest.UsageTestSource');
 var seen   = [];
-index.scanFunctions_(src.model_, function(text, axiomName) {
+index.scanFunctions_(src, function(text, axiomName) {
   seen.push({ axiomName: axiomName, hasTarget: text.indexOf('this.UsageTestTarget') !== -1 });
 });
 test(seen.length > 0, 'scanFunctions_: visits at least one function axiom on the synthetic source');
@@ -60,9 +60,89 @@ test(seen.some(function(s) { return s.hasTarget; }),
 index.invalidateSymbolIndex_();
 test(true, 'invalidateSymbolIndex_ executes without throwing');
 
-// NOTE: a workspace-wide getJsUsages call triggers buildUsageIndex_ which
-// walks every registered class's function bodies via fn.toString(). On the
-// full ptv3 workspace that's expensive enough to risk the 30s test
-// watchdog — leave the workspace-build test to the integration runner
-// (./build.sh client-tests:LSPIntegrationTest) and rely here on the
-// scanFunctions_ unit assertions above.
+// End-to-end: walk every registered class via getJsUsages, then assert that
+// our synthetic Source shows up as a user of synthetic Target. This drives
+// scanFunctions_ across the full workspace.
+
+section('FoamIndex.getJsUsages — workspace build (end-to-end)');
+try {
+  var none = index.getJsUsages('nonexistent.NoSuchClass');
+  test(Array.isArray(none), 'getJsUsages returns array');
+  test(none.length === 0, 'getJsUsages returns empty array for unknown class');
+
+  var uses = index.getJsUsages('foam.parse.lsp.usagetest.UsageTestTarget');
+  test(uses.some(function(u) { return u.sourceClassId === 'foam.parse.lsp.usagetest.UsageTestSource'; }),
+    'workspace build: synthetic Source recorded as JS user of synthetic Target');
+  test(uses.some(function(u) { return u.kind === 'usage-js'; }),
+    'workspace build: usage entry tagged kind=usage-js');
+} catch (err) {
+  test(false, 'getJsUsages workspace build threw: ' + err.message + ' :: ' + (err.stack || '').split('\n').slice(0,5).join(' | '));
+}
+
+
+// === FoamIndex Java usage scanner — synthetic (Phase 4b) ===
+//
+// LSPMaker now sets flags.genjava=true at boot so the Java refinements
+// (foam/java/refinements.js — gated on the genjava flag in foam/src/pom.js)
+// load alongside the LSP. With those in place, Method and Property carry
+// javaCode / javaPostSet / javaFactory / etc. — the scanner reads them
+// straight off the FOAM axioms, no regex over file text.
+
+section('FoamIndex Java usage detection — synthetic');
+
+foam.CLASS({
+  package: 'foam.parse.lsp.javausagetest',
+  name:    'JavaUsageTarget'
+});
+
+foam.CLASS({
+  package: 'foam.parse.lsp.javausagetest',
+  name:    'JavaUsageSource',
+  javaImports: [ 'foam.parse.lsp.javausagetest.JavaUsageTarget' ],
+  methods: [
+    {
+      name:     'doIt',
+      javaCode: 'JavaUsageTarget t = new JavaUsageTarget();\nreturn t.toString();'
+    }
+  ],
+  properties: [
+    {
+      class:        'String',
+      name:         'foo',
+      javaPostSet:  'JavaUsageTarget t = new JavaUsageTarget(); System.out.println(t);'
+    }
+  ]
+});
+
+var srcCls = foam.maybeLookup('foam.parse.lsp.javausagetest.JavaUsageSource');
+var seenJava = [];
+index.scanJavaBlocks_(srcCls, function(text, axiomName) {
+  seenJava.push({ axiomName: axiomName, hasTarget: text.indexOf('JavaUsageTarget') !== -1 });
+});
+
+test(seenJava.length >= 2, 'scanJavaBlocks_: visits at least the method + property java slots (' + seenJava.length + ')');
+test(seenJava.some(function(s) { return s.axiomName === 'methods.doIt.javaCode' && s.hasTarget; }),
+  'scanJavaBlocks_: methods.doIt.javaCode references the target class');
+test(seenJava.some(function(s) { return s.axiomName === 'properties.foo.javaPostSet' && s.hasTarget; }),
+  'scanJavaBlocks_: properties.foo.javaPostSet references the target class');
+
+
+// === FoamIndex.getJavaUsages — workspace build (end-to-end) ===
+
+section('FoamIndex.getJavaUsages — workspace build');
+
+index.invalidateSymbolIndex_();
+
+try {
+  var noneJava = index.getJavaUsages('nonexistent.NoSuchClass');
+  test(Array.isArray(noneJava), 'getJavaUsages returns array');
+  test(noneJava.length === 0, 'getJavaUsages returns empty array for unknown class');
+
+  var javaUses = index.getJavaUsages('foam.parse.lsp.javausagetest.JavaUsageTarget');
+  test(javaUses.some(function(u) { return u.sourceClassId === 'foam.parse.lsp.javausagetest.JavaUsageSource'; }),
+    'workspace build: synthetic Source recorded as Java user of Target (via javaImports)');
+  test(javaUses.some(function(u) { return u.kind === 'usage-java'; }),
+    'workspace build: usage entry tagged kind=usage-java');
+} catch (err) {
+  test(false, 'getJavaUsages workspace build threw: ' + err.message + ' :: ' + (err.stack || '').split('\n').slice(0,5).join(' | '));
+}

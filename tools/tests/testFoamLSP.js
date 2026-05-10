@@ -43,6 +43,7 @@ require('./lsp/navigation');
 require('./lsp/java');
 require('./lsp/jrl');
 require('./lsp/editorFeatures');
+require('./lsp/typeHierarchy');
 
 h.section('SUMMARY');
 console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');

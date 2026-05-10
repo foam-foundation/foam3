@@ -42,6 +42,9 @@ function start() {
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
   var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
+  var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
+  var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
+  var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -295,7 +298,10 @@ function start() {
             },
             codeActionProvider: true,
             documentHighlightProvider: true,
-            renameProvider: { prepareProvider: true }
+            renameProvider: { prepareProvider: true },
+            typeHierarchyProvider: true,
+            implementationProvider: true,
+            typeDefinitionProvider: true
           },
           experimental: {
             workspaceAnalyzer: true
@@ -578,6 +584,57 @@ function start() {
           respond(id, renameHandler.handle(doc.text, params.position, params.newName, params.textDocument.uri));
         } catch (e) {
           console.error('[LSP] rename error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'textDocument/prepareTypeHierarchy':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, typeHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] prepareTypeHierarchy error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'typeHierarchy/supertypes':
+        try {
+          respond(id, typeHierarchyHandler.supertypes(params.item));
+        } catch (e) {
+          console.error('[LSP] typeHierarchy/supertypes error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'typeHierarchy/subtypes':
+        try {
+          respond(id, typeHierarchyHandler.subtypes(params.item));
+        } catch (e) {
+          console.error('[LSP] typeHierarchy/subtypes error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/implementation':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        try {
+          respond(id, implementationHandler.handle(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] implementation error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/typeDefinition':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, typeDefinitionHandler.handle(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] typeDefinition error:', e.message);
           respond(id, null);
         }
         break;

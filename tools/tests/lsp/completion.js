@@ -404,7 +404,7 @@ deep.push("});");
 var deepText = deep.join('\n');
 var deepLines = deepText.split('\n');
 var cursorLine = 6 + 25; // last filler → cursor line right after, offset from pad
-var deepCtx = ca.findCreateContext(deepLines, cursorLine, deepText, index);
+var deepCtx = ca.findCreateContext(deepText, cursorLine, cache, index);
 test(deepCtx === 'foam.u2.Element',
   'findCreateContext: resolves 30+ lines below opening .create( (old limit was 20)');
 
@@ -422,7 +422,7 @@ var strText = [
 ].join('\n');
 var strLines = strText.split('\n');
 // Cursor line 5 is `      foo: 'bar'` — inside the create
-var strCtx = ca.findCreateContext(strLines, 5, strText, index);
+var strCtx = ca.findCreateContext(strText, 5, cache, index);
 test(strCtx === 'foam.u2.Element',
   'findCreateContext: ignores braces inside string literals');
 

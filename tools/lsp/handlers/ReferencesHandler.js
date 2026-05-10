@@ -364,9 +364,8 @@ foam.CLASS({
         if ( propTypes[i].name === word ) return propTypes[i].id;
       }
 
-      var resolved = this.analyzer.resolveShortName(text, word);
-      if ( resolved && this.index.classExists(resolved) ) return resolved;
-
+      // No regex fallback: the model-based lookup above (cache.buildRequiresMap)
+      // is the only requires-aware path now.
       if ( this.index.classExists(word) ) return word;
       return null;
     },

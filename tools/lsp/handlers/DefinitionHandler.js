@@ -136,8 +136,8 @@ foam.CLASS({
           }
         }
 
-        // Try as short name from requires
-        var resolved = this.analyzer.resolveShortName(text, segment);
+        // Try as short name from requires (via the captured model — no regex).
+        var resolved = this.cache.resolveShortName(uri, text, segment, position.line);
         if ( resolved ) {
           filePath = this.index.getFilePath(resolved);
           if ( filePath ) return this.buildLocation(filePath, resolved);

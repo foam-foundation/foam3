@@ -68,14 +68,14 @@ foam.CLASS({
       var fullCreateMatch = prefix.match(/([\w.]+)\.create\(\s*\{\s*\w*$/);
       if ( fullCreateMatch ) {
         var classId = fullCreateMatch[1];
-        var resolved = this.analyzer.resolveShortName(text, classId) || classId;
+        var resolved = this.cache.resolveShortName(opt_uri, text, classId, position.line) || classId;
         if ( this.index.classExists(resolved) ) {
           return this.getClassPropertyItems(resolved);
         }
       }
 
       // Detect context: cursor INSIDE a .create({ ... }) block on a separate line
-      var createCtx = this.analyzer.findCreateContext(lines, position.line, text, this.index);
+      var createCtx = this.analyzer.findCreateContext(text, position.line, this.cache, this.index, opt_uri);
       if ( createCtx ) {
         return this.getClassPropertyItems(createCtx);
       }
@@ -113,10 +113,12 @@ foam.CLASS({
       var model = this.cache.getModelAt(opt_uri || '', text, position.line);
       var classId = this.cache.getClassId(model);
 
-      // Fallback: if eval failed (SyntaxError from incomplete code like 'this.'),
-      // resolve classId from regex
+      // Mid-edit fallback: when the file fails to eval (broken body like
+      // `this.` with nothing after it), classId stays null. Route to the
+      // cache's text-regex fallback so completions keep working. Phase 6
+      // replaces this with a grammar-driven axiom extractor.
       if ( ! classId ) {
-        classId = this.analyzer.resolveClassId(text);
+        classId = this.cache.resolveClassIdFromText(text);
       }
 
       var items = [];
@@ -182,17 +184,8 @@ foam.CLASS({
       }
 
       // Imports — model-first (preserves shape), text fallback
-      var importNames = [];
-      if ( model ) {
-        var imports = model.imports || [];
-        for ( var i = 0 ; i < imports.length ; i++ ) {
-          var imp = imports[i];
-          var name = typeof imp === 'string' ? imp : imp.name;
-          importNames.push(name.replace(/\?$/, ''));
-        }
-      } else {
-        importNames = this.analyzer.parseImports(text);
-      }
+      // Imports list (model.imports when available, mid-edit regex fallback otherwise).
+      var importNames = this.cache.resolveImports(opt_uri, text, position.line);
       for ( var i = 0 ; i < importNames.length ; i++ ) {
         items.push({
           label: importNames[i],
@@ -207,7 +200,7 @@ foam.CLASS({
 
     function handleCreateCompletion(text, shortName, position, opt_uri) {
       /** Resolve short name from requires, then suggest its properties. */
-      var fullId = this.analyzer.resolveShortName(text, shortName);
+      var fullId = this.cache.resolveShortName(opt_uri, text, shortName, position ? position.line : 0);
       if ( ! fullId ) return { isIncomplete: false, items: [] };
       return this.getClassPropertyItems(fullId);
     },

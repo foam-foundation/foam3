@@ -117,11 +117,8 @@ foam.CLASS({
         if ( resolved ) {
           return this.buildClassHover(resolved);
         }
-        // Fallback to text-based requires parsing
-        resolved = this.analyzer.resolveShortName(text, segment);
-        if ( resolved ) {
-          return this.buildClassHover(resolved);
-        }
+        // No regex fallback — resolveFromModel_ already consults the cached
+        // model's requires axiom. If that misses, there's nothing left to try.
       }
 
       // Try as typed variable (var x = this.Foo.create())
@@ -159,7 +156,7 @@ foam.CLASS({
 
       // Try as property inside .create({}) block — resolve the target class
       var lookupName = segment || word;
-      var createClassId = this.resolveCreateContext_(text, position);
+      var createClassId = this.resolveCreateContext_(text, position, opt_uri);
       if ( createClassId ) {
         var createPropDoc = this.index.getPropertyDoc(createClassId, lookupName);
         if ( createPropDoc ) {
@@ -693,10 +690,9 @@ foam.CLASS({
       return first.replace(/\|/g, '\\|');
     },
 
-    function resolveCreateContext_(text, position) {
+    function resolveCreateContext_(text, position, opt_uri) {
       /** Find if cursor is inside a .create({}) block, return the target class ID. */
-      var lines = text.split('\n');
-      return this.analyzer.findCreateContext(lines, position.line, text, this.index);
+      return this.analyzer.findCreateContext(text, position.line, this.cache, this.index, opt_uri);
     },
 
     function buildCreateHover_(text, position, opt_uri) {
@@ -706,7 +702,7 @@ foam.CLASS({
       var match = line.match(/(?:this\.)?(\w[\w.]*)\.create/);
       if ( ! match ) return null;
       var name = match[1];
-      var resolved = this.analyzer.resolveShortName(text, name);
+      var resolved = this.cache.resolveShortName(opt_uri, text, name, position.line);
       if ( ! resolved && this.index.classExists(name) ) resolved = name;
       if ( ! resolved ) return null;
 

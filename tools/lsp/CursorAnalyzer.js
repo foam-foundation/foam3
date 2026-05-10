@@ -88,28 +88,42 @@ foam.CLASS({
       return line.substring(start, end);
     },
 
+    // -----------------------------------------------------------------
+    // The four methods below (resolveClassId / parseRequires / parseImports
+    // / resolveShortName) are MID-EDIT FALLBACKS only.
+    //
+    // The handlers prefer the cache-based path (cache.getClassIdAt,
+    // cache.resolveRequiresMap, cache.resolveShortName) which reads from
+    // the eval-intercepted model. When the file fails to eval (mid-edit
+    // SyntaxError, broken function bodies), the model is unavailable and
+    // these regex helpers parse axiom values directly from text so
+    // completion / hover / definition don't go dark while the user types.
+    //
+    // The plan is to replace these with a grammar-driven model field
+    // extractor (Phase 6) — FoamClassGrammar already parses axiom
+    // positions, so the extractor can read values without `eval`. Once
+    // that lands, these methods are deletable. Until then, treat them
+    // as a single tactical surface — do NOT add new regex parsers of
+    // FOAM model structure elsewhere in the LSP.
+    // -----------------------------------------------------------------
+
     function resolveClassId(text) {
-      /** Extract the full class ID (package.name) from a foam.CLASS definition. */
-      var pkgMatch = text.match(/package\s*:\s*['"]([^'"]+)['"]/);
+      /** FALLBACK: extract `package.name` directly from text when no model is available. */
+      var pkgMatch  = text.match(/package\s*:\s*['"]([^'"]+)['"]/);
       var nameMatch = text.match(/name\s*:\s*['"]([^'"]+)['"]/);
       if ( ! nameMatch ) return null;
       return pkgMatch ? pkgMatch[1] + '.' + nameMatch[1] : nameMatch[1];
     },
 
     function parseRequires(text) {
-      /**
-       * Parse requires: [...] to build shortName -> fullId map.
-       * 'foam.u2.DetailView' -> { DetailView: 'foam.u2.DetailView' }
-       * 'foam.u2.DetailView as DV' -> { DV: 'foam.u2.DetailView' }
-       */
+      /** FALLBACK: parse the requires: array via regex when no model is available. */
       var map = {};
       var requiresMatch = text.match(/requires\s*:\s*\[([\s\S]*?)\]/);
       if ( ! requiresMatch ) return map;
-
       var regex = /['"]([a-zA-Z][\w.]+\.(\w+))(?:\s+as\s+(\w+))?['"]/g;
       var m;
       while ( ( m = regex.exec(requiresMatch[1]) ) !== null ) {
-        var fullId = m[1];
+        var fullId    = m[1];
         var shortName = m[3] || m[2];
         map[shortName] = fullId;
       }
@@ -117,41 +131,42 @@ foam.CLASS({
     },
 
     function parseImports(text) {
-      /** Parse imports: [...] to get imported names. */
+      /** FALLBACK: parse the imports: array via regex when no model is available. */
       var names = [];
       var importsMatch = text.match(/imports\s*:\s*\[([\s\S]*?)\]/);
       if ( ! importsMatch ) return names;
-
       var regex = /['"](\w[\w?]*)(?:\s+as\s+(\w+))?['"]/g;
       var m;
       while ( ( m = regex.exec(importsMatch[1]) ) !== null ) {
         var name = m[2] || m[1];
-        name = name.replace(/\?$/, '');
-        names.push(name);
+        names.push(name.replace(/\?$/, ''));
       }
       return names;
     },
 
     function resolveShortName(text, name) {
-      /** Resolve a short class name to full ID using requires. */
+      /** FALLBACK: short-name → full-id via the regex requires-parse. */
       var map = this.parseRequires(text);
       return map[name] || null;
     },
 
-    function findCreateContext(lines, lineNum, text, index) {
+    function findCreateContext(text, lineNum, cache, index, opt_uri) {
       /**
        * Scan backward from the cursor to find an enclosing `.create({` whose
        * opening `{` is at one level of brace-depth above the cursor. Uses a
        * linear scan over the full text (no line limit) with string and
-       * comment skipping, then resolves the short name via requires or index.
+       * comment skipping, then resolves the short name via the cached model's
+       * requires axiom (no regex over FOAM model structure).
        *
        * Returns the resolved class ID or null.
        *
-       * @param lines - text split by newlines (unused but kept for back-compat callers)
+       * @param text    - full source text
        * @param lineNum - current line number
-       * @param text - full source text
-       * @param index - FoamIndex instance
+       * @param cache   - FileModelCache instance (for short-name resolution)
+       * @param index   - FoamIndex instance (final fallback: registered short names)
+       * @param opt_uri - URI of the current document (passed to cache for multi-class files)
        */
+      var lines = text.split('\n');
       var cursorOffset = this.positionToOffset(text, { line: lineNum, character: (lines[lineNum] || '').length });
 
       // Walk backward from cursor, tracking brace depth and skipping strings/comments.
@@ -203,7 +218,7 @@ foam.CLASS({
                   while ( nameStart > 0 && /[\w$]/.test(text[nameStart - 1]) ) nameStart--;
                   var shortName = text.substring(nameStart, nameEnd);
                   if ( shortName ) {
-                    var resolved = this.resolveShortName(text, shortName);
+                    var resolved = cache ? cache.resolveShortName(opt_uri, text, shortName, lineNum) : null;
                     if ( resolved ) return resolved;
                     if ( index.classExists(shortName) ) return shortName;
                   }

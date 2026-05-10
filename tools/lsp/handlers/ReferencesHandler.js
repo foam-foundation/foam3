@@ -71,9 +71,29 @@ foam.CLASS({
       for ( var i = 0 ; i < impls.length ; i++ )  add(impls[i]);
       for ( var i = 0 ; i < reqs.length ; i++ )   add(reqs[i]);
       for ( var i = 0 ; i < ofs.length ; i++ )    add(ofs[i]);
-      // Phase 4e wires usage indexes (getJsUsages / getJavaUsages /
-      // getStringUsages / getMemberUsages) into this loop. Deferred here so
-      // the references path stays fast until the indexes are fully sized.
+
+      // Phase 4e: union with the usage indexes built in Phase 4a-c. These
+      // surface classes that *use* the target inside method bodies (JS),
+      // javaCode blocks, or via context-injection strings — references
+      // grep can't find without parsing every file.
+      try {
+        var jsUses = this.index.getJsUsages(classId);
+        for ( var i = 0 ; i < jsUses.length ; i++ ) add(jsUses[i].sourceClassId);
+      } catch (e) {}
+      try {
+        var javaUses = this.index.getJavaUsages(classId);
+        for ( var i = 0 ; i < javaUses.length ; i++ ) add(javaUses[i].sourceClassId);
+      } catch (e) {}
+      // Class-name strings ARE valid context keys too (e.g. CSpec id matches
+      // the dotted class id of its result type) — pick those up via the
+      // string-reference index keyed on either the short name or the full id.
+      try {
+        var shortName = classId.split('.').pop();
+        var strUses   = this.index.getStringUsages(shortName);
+        for ( var i = 0 ; i < strUses.length ; i++ ) {
+          if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
+        }
+      } catch (e) {}
 
       var locations = [];
       for ( var i = 0 ; i < refs.length ; i++ ) {

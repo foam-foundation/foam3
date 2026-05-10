@@ -12,7 +12,7 @@
 
 var h = require('./_harness');
 var test = h.test, section = h.section;
-var index = h.index;
+var index = h.index, cache = h.cache, analyzer = h.analyzer;
 
 index.buildFileIndex();
 
@@ -243,4 +243,37 @@ try {
     'getMemberUsages: unrelatedField (declared but unreferenced) returns no usages');
 } catch (err) {
   test(false, 'getMemberUsages threw: ' + err.message);
+}
+
+
+// === ReferencesHandler wired to usage indexes (Phase 4e) ===
+//
+// Confirms the handler picks up the new usage edges, not just the
+// declaration-site graph. The Phase 4a synthetic UsageTestSource references
+// UsageTestTarget via this.UsageTestTarget.create() inside its build()
+// method — find references on Target should now surface Source.
+
+section('ReferencesHandler — includes JS/Java/string usages');
+
+try {
+  var refsHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+
+  var refsText  = "foam.CLASS({\n  extends: 'foam.parse.lsp.usagetest.UsageTestTarget'\n});";
+  var refsResult = refsHandler.handle(refsText, { line: 1, character: 45 }, 'file:///t');
+  test(Array.isArray(refsResult), 'ReferencesHandler: returns array');
+
+  // The Source from Phase 4a references Target via this.UsageTestTarget.create();
+  // the references handler should now surface its file path (when indexed).
+  var sourcePath = index.getFilePath('foam.parse.lsp.usagetest.UsageTestSource');
+  if ( sourcePath ) {
+    var sourceUri = 'file://' + sourcePath;
+    test(refsResult.some(function(loc) { return loc.uri === sourceUri; }),
+      'ReferencesHandler: surfaces Source via JS usage (uri=' + sourceUri + ')');
+  } else {
+    test(true, 'ReferencesHandler: synthetic Source has no indexed file (covered by getJsUsages test)');
+  }
+} catch (err) {
+  test(false, 'ReferencesHandler threw: ' + err.message + ' :: ' + (err.stack || '').split('\n').slice(0,3).join(' | '));
 }

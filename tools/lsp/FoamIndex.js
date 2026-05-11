@@ -688,8 +688,9 @@ foam.CLASS({
     },
 
     function indexPomFiles_(pom, path_, fs_) {
-      /** Index all files from a POM, storing flag metadata per class. */
+      /** Index all files from a POM, storing flag metadata + pom location per class. */
       var location = pom.location || '';
+      var pomFile  = path_.resolve(location, 'pom.js');
       var files = pom.files || [];
 
       for ( var f = 0 ; f < files.length ; f++ ) {
@@ -699,11 +700,11 @@ foam.CLASS({
           return s.split('&');
         }).reduce(function(a, b) { return a.concat(b); }, []) : ['js'];
 
-        this.indexFileClasses_(filePath, fileFlags, fs_);
+        this.indexFileClasses_(filePath, fileFlags, pomFile, file.name, fs_);
       }
     },
 
-    function indexFileClasses_(filePath, fileFlags, fs_) {
+    function indexFileClasses_(filePath, fileFlags, pomFile, pomEntryName, fs_) {
       /**
        * Read a file and index every foam.CLASS/ENUM/INTERFACE/RELATIONSHIP/LIB
        * found, using eval-intercept via FileModelCache. Eval is the runtime's
@@ -738,12 +739,97 @@ foam.CLASS({
           // index under their target class so lookups of the refined type find
           // the refining file.
           var ownId = m.package ? m.package + '.' + m.name : m.name;
-          if ( ownId ) this.fileIndex_[ownId] = { path: filePath, flags: fileFlags };
+          if ( ownId ) this.fileIndex_[ownId] = {
+            path:         filePath,
+            flags:        fileFlags,
+            pomFile:      pomFile,
+            pomEntryName: pomEntryName
+          };
           if ( m.refines && ! this.fileIndex_[m.refines] ) {
-            this.fileIndex_[m.refines] = { path: filePath, flags: fileFlags };
+            this.fileIndex_[m.refines] = {
+              path:         filePath,
+              flags:        fileFlags,
+              pomFile:      pomFile,
+              pomEntryName: pomEntryName
+            };
           }
         }
       } catch ( e ) {}
+    },
+
+    function getPomLocationForClass(classId) {
+      /**
+       * Return { pomFile, line, character } for the POM entry that registers
+       * a class — `{ name: 'Foo', flags: ... }` inside the nearest pom.js.
+       * Used by DefinitionHandler so go-to-definition on a class's own name
+       * jumps to its POM entry instead of staying on the declaration site.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var entry = this.fileIndex_[classId];
+      if ( ! entry || ! entry.pomFile || ! entry.pomEntryName ) return null;
+      var loc = this.findPomEntryLocation_(entry.pomFile, entry.pomEntryName);
+      if ( ! loc ) return null;
+      return { pomFile: entry.pomFile, line: loc.line, character: loc.character };
+    },
+
+    function getClassForPomEntry(pomFile, entryName) {
+      /**
+       * Reverse: given a pom.js file path and a file-entry name (`name: 'Foo'`),
+       * return the registered class id. Used by DefinitionHandler so
+       * go-to-definition on a POM entry jumps to the class file.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var path_ = require('path');
+      var pomDir = path_.dirname(pomFile);
+      var expectedPath = path_.resolve(pomDir, entryName + '.js');
+      for ( var id in this.fileIndex_ ) {
+        var entry = this.fileIndex_[id];
+        var p = typeof entry === 'string' ? entry : entry.path;
+        if ( p === expectedPath ) return id;
+      }
+      return null;
+    },
+
+    function findPomEntryLocation_(pomFile, entryName) {
+      // Find the line + column of the `name: 'entryName'` slot inside the
+      // pom.js. Cached per pom file. The lookup goes through FoamClassGrammar
+      // — same parser the LSP uses everywhere else — so we never re-invent
+      // POM tokenisation with regex.
+      if ( ! this.pomEntryLineCache_ ) this.pomEntryLineCache_ = {};
+      var cache = this.pomEntryLineCache_[pomFile];
+      if ( ! cache ) {
+        try {
+          var text = require('fs').readFileSync(pomFile, 'utf8');
+          cache = this.collectPomNameAxiomPositions_(text);
+        } catch (e) {
+          cache = {};
+        }
+        this.pomEntryLineCache_[pomFile] = cache;
+      }
+      return cache[entryName] || null;
+    },
+
+    function collectPomNameAxiomPositions_(pomText) {
+      // Walk the pom.js as a stream of axiom positions emitted by
+      // FoamClassGrammar (the parser the rest of the LSP uses for hover /
+      // completion / diagnostics). The grammar's pomFileName rule wraps
+      // both quote styles in quotedAny() and emits a position-tagged msg
+      // so collectAxiomPositions returns the file-entry name spans.
+      var byName = {};
+      try {
+        var grammar = foam.parse.lsp.FoamClassGrammar.create({ index: this });
+        var map     = grammar.collectAxiomPositions(pomText);
+        var posMap  = map.pomFileName || {};
+        for ( var name in posMap ) {
+          var p = posMap[name];
+          if ( byName[name] !== undefined ) continue;
+          byName[name] = { line: p.line, character: p.col };
+        }
+      } catch (e) {
+        // Grammar failed (mid-edit pom). Leave cache empty rather than
+        // fall back — navigation just doesn't fire until the POM parses.
+      }
+      return byName;
     },
 
     function extractLIBMethodNames_(methodsArr) {
@@ -827,7 +913,7 @@ foam.CLASS({
                 }).reduce(function(a, b) { return a.concat(b); }, []));
 
                 var filePath = path_.resolve(projLocation, file.name + '.js');
-                this.indexFileClasses_(filePath, fileFlags, fs_);
+                this.indexFileClasses_(filePath, fileFlags, projPomPath, file.name, fs_);
               }
             }
 
@@ -1060,7 +1146,7 @@ foam.CLASS({
       return null;
     },
 
-    // ----- Workspace symbol index (Phase 3) -------------------------------
+    // ----- Workspace symbol index -----------------------------------------
     //
     // Flat array of every class / property / method / action / listener /
     // enum-value in the workspace, lazy-built and cached. Lets
@@ -1214,7 +1300,7 @@ foam.CLASS({
       this.memberUsageIndex_ = null;
     },
 
-    // ----- JS usage index (Phase 4a) --------------------------------------
+    // ----- JS usage index -------------------------------------------------
     //
     // For every model in the registry, walk axioms that hold JavaScript
     // function bodies (methods, actions, listeners, property functions,
@@ -1224,8 +1310,9 @@ foam.CLASS({
     // result is a `targetClassId → [{ sourceClassId, kind, axiomName }]`
     // map answering "where in JS code is this class used?".
     //
-    // Coarse line precision for now (file-level via getFilePath). Phase 4f
-    // can refine to per-method offsets if the call hierarchy needs them.
+    // Coarse line precision for now (file-level via getFilePath). The
+    // call-hierarchy handler refines to per-method offsets where it needs
+    // them.
 
     function getJsUsages(classId) {
       /** Return [{ sourceClassId, axiomName, kind }] referencing classId in JS. */
@@ -1289,7 +1376,7 @@ foam.CLASS({
       this.usageIndex_ = { byTarget: byTarget };
     },
 
-    // ----- Member-reference index (Phase 4d) ------------------------------
+    // ----- Member-reference index -----------------------------------------
     //
     // Per-class, per-member view of `this.X` reads inside the class's own
     // function bodies. Answers "where in this class is property
@@ -1361,11 +1448,11 @@ foam.CLASS({
       this.memberUsageIndex_ = { byClass: byClass };
     },
 
-    // ----- String reference index (Phase 4c) ------------------------------
+    // ----- String reference index -----------------------------------------
     //
     // FOAM lets one class declare names via `exports:` and others receive
     // them via `imports:`. The names are plain strings, but they form a
-    // real reference graph that Claude needs to follow:
+    // real reference graph callers need to follow:
     //
     //   exports: ['currentUser', 'pushMenu']    // ApplicationController
     //   imports: ['pushMenu']                    // MyView ← uses currentUser
@@ -1478,14 +1565,14 @@ foam.CLASS({
       this.stringUsageIndex_ = { byName: byName };
     },
 
-    // ----- Java usage index (Phase 4b) ------------------------------------
+    // ----- Java usage index -----------------------------------------------
     //
     // FOAM captures every javaCode / javaPostSet / javaFactory / etc. block
     // as a string on the model object. We don't need to invoke the Java
     // parser — a single regex over capitalised identifiers, resolved
     // through the class's javaImports, gives a per-target-class index of
-    // every Java-side reference. Same fact pattern as Phase 4a, different
-    // axiom slots.
+    // every Java-side reference. Same fact pattern as the JS usage scan,
+    // different axiom slots.
 
     function getJavaUsages(classId) {
       if ( ! this.javaUsageIndex_ ) this.buildJavaUsageIndex_();

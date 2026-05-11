@@ -80,7 +80,10 @@ foam.CLASS({
       }
 
       var self = this;
-      var map = { message: {}, value: {}, property: {}, method: {} };
+      var map = {
+        message:     {}, value:    {}, property: {}, method:  {},
+        pomFileName: {}
+      };
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
@@ -553,26 +556,20 @@ foam.CLASS({
           wsc, P.optional(P.literal('}'))),
 
         pomFileObjEntry: P.alt(
-          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFileName'), P.optional(P.literal("'"))),
-          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('name'),  wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFileName'))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFlagValue'))),
           P.sym('genericEntry')
         ),
 
         pomJavaFileObjEntry: P.alt(
-          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomJavaFileName'), P.optional(P.literal("'"))),
-          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('name'),  wsc, P.literal(':'), wsc, quotedAny(P.sym('pomJavaFileName'))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFlagValue'))),
           P.sym('genericEntry')
         ),
 
         pomProjectObjEntry: P.alt(
-          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomProjectPath'), P.optional(P.literal("'"))),
-          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('name'),  wsc, P.literal(':'), wsc, quotedAny(P.sym('pomProjectPath'))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFlagValue'))),
           P.sym('genericEntry')
         ),
 
@@ -583,19 +580,21 @@ foam.CLASS({
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
             text: '__ctx_pomFileName__', category: 'pomFileName', hint: 'file name'
           })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
+          // Emit a position-tagged msg so collectAxiomPositions records
+          // the file-name span — used by go-to-definition on POM entries.
+          P.msg(P.str(P.repeat(P.notChars("'\""), null, 0)), { kind: 'pomFileName' })
         ),
         pomJavaFileName: P.alt(
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
             text: '__ctx_pomJavaFileName__', category: 'pomJavaFileName', hint: 'Java file name'
           })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
+          P.str(P.repeat(P.notChars("'\""), null, 0))
         ),
         pomProjectPath: P.alt(
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
             text: '__ctx_pomProjectPath__', category: 'pomProjectPath', hint: 'subproject path'
           })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
+          P.str(P.repeat(P.notChars("'\""), null, 0))
         ),
         pomFlagValue: P.alt(
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({

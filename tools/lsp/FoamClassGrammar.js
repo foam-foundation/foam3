@@ -82,8 +82,14 @@ foam.CLASS({
       var self = this;
       var map = {
         message:     {}, value:    {}, property: {}, method:  {},
-        pomFileName: {}
+        pomFileName: {}, classRef: {}
       };
+      // Kinds that allow multiple occurrences per name. Single-occurrence
+      // kinds (message, value, property, method, pomFileName) keep their
+      // first sighting only — a model defines each name once. Class
+      // references DO repeat (requires + extends + ofs + raw strings + …),
+      // so collect every position.
+      var MULTI = { classRef: true };
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
@@ -93,15 +99,21 @@ foam.CLASS({
           if ( m && m.kind && map[m.kind] !== undefined ) {
             var endPos = result.pos;
             var name = text.substring(startPos, endPos);
-            if ( name && ! map[m.kind][name] ) {
+            if ( name ) {
               var line = 0, col = 0;
               for ( var i = 0 ; i < startPos ; i++ ) {
                 if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
               }
-              map[m.kind][name] = {
+              var rec = {
                 line: line, col: col,
                 startPos: startPos, endPos: endPos
               };
+              if ( MULTI[m.kind] ) {
+                var arr = map[m.kind][name] || (map[m.kind][name] = []);
+                arr.push(rec);
+              } else if ( ! map[m.kind][name] ) {
+                map[m.kind][name] = rec;
+              }
             }
           }
         }
@@ -272,8 +284,13 @@ foam.CLASS({
           hint: doc.substring(0, 80)
         }));
       });
-      this.classRefParser_ = classRefParsers.length > 0 ?
+      // Wrap with P.msg so collectAxiomPositions records every class
+      // reference's position. Each msg carries `kind: 'classRef'`; the apply
+      // hook routes those into `map.classRef[classId] = [positions...]` so
+      // references handlers can find exact occurrences without text scan.
+      var rawClassRef = classRefParsers.length > 0 ?
         P.alt.apply(P, classRefParsers) : P.literal('foam.lang.FObject');
+      this.classRefParser_ = P.msg(rawClassRef, { kind: 'classRef' });
 
       // Class-typed axiom slot names — any axiom whose value is a class id.
       // Used by classTypedSlotEntry so a custom property like FSM `next`

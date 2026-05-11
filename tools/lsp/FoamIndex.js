@@ -27,6 +27,10 @@ foam.CLASS({
     {
       name: 'symbolIndex_',
       documentation: 'Flat workspace symbol array — lazy, built on first searchSymbols call. Entries: { name, kind, classId, filePath, containerName }.'
+    },
+    {
+      name: 'grammar_',
+      documentation: 'Cached FoamClassGrammar instance. Building one walks every class id and builds N parser alternatives — share it across handlers.'
     }
   ],
 
@@ -51,6 +55,16 @@ foam.CLASS({
     function getClass(id) {
       /** Resolves a class by ID, returns null if not found. */
       return foam.maybeLookup(id);
+    },
+
+    function getGrammar() {
+      /** Returns a cached FoamClassGrammar bound to this index. Handlers
+       *  that parse source text should reuse this rather than build their
+       *  own — construction walks every class id and builds N parser alts. */
+      if ( ! this.grammar_ ) {
+        this.grammar_ = foam.parse.lsp.FoamClassGrammar.create({ index: this });
+      }
+      return this.grammar_;
     },
 
     function classExists(id) {
@@ -817,7 +831,7 @@ foam.CLASS({
       // so collectAxiomPositions returns the file-entry name spans.
       var byName = {};
       try {
-        var grammar = foam.parse.lsp.FoamClassGrammar.create({ index: this });
+        var grammar = this.getGrammar();
         var map     = grammar.collectAxiomPositions(pomText);
         var posMap  = map.pomFileName || {};
         for ( var name in posMap ) {
@@ -1298,6 +1312,10 @@ foam.CLASS({
       this.javaUsageIndex_   = null;
       this.stringUsageIndex_ = null;
       this.memberUsageIndex_ = null;
+      // FoamClassGrammar bakes class ids into its parser at build time —
+      // adding or removing a class invalidates the alt() list, so drop the
+      // cached instance too.
+      this.grammar_          = null;
     },
 
     function invalidatePomCache(pomFile) {

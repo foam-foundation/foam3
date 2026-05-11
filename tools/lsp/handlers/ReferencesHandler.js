@@ -97,8 +97,8 @@ foam.CLASS({
 
       var locations = [];
       for ( var i = 0 ; i < refs.length ; i++ ) {
-        var loc = this.buildLocation_(refs[i], classId);
-        if ( loc ) locations.push(loc);
+        var locs = this.buildLocations_(refs[i], classId);
+        for ( var j = 0 ; j < locs.length ; j++ ) locations.push(locs[j]);
       }
       return locations;
     },
@@ -393,38 +393,136 @@ foam.CLASS({
       return null;
     },
 
-    function buildLocation_(refClassId, targetClassId) {
+    function buildLocations_(refClassId, targetClassId) {
       /**
-       * Build an LSP Location pointing at the referencing file. When the
-       * target class ID appears literally in the referencer's source text,
-       * point at its exact occurrence; otherwise fall back to line 0.
+       * Build LSP Locations for every reference to targetClassId inside
+       * refClassId's source file. Three complementary sources, deduped by
+       * offset, capped at 200 per file.
+       *
+       *   A. FoamClassGrammar.collectAxiomPositions(text) — every classRef
+       *      position emitted by the grammar (extends / requires / implements
+       *      / of / view-class / class-typed slots). Exact and context-aware
+       *      because it's driven by the parser, not text.
+       *   B. Word-bounded full-id text scan — catches occurrences outside
+       *      grammar reach (string literals inside JS function bodies, raw
+       *      mentions in comments-style strings, javaImports entries).
+       *   C. Short-name scan — `\bShort\b` where the source class's
+       *      requires / javaImports map Short → targetClassId. Captures
+       *      `this.Flow.create(...)` (JS) and `Flow flow = ...` (Java
+       *      code blocks). Word-bounded so `Flow` doesn't match inside
+       *      `FlowMode` / `Flowable`.
+       *
+       * Comments are masked. When no concrete occurrence is found, a single
+       * line-0 fallback is returned so the user can still navigate (e.g.
+       * the referencer uses an `as` alias and the literal id never appears).
        */
       var filePath = this.index.getFilePath(refClassId);
-      if ( ! filePath ) return null;
+      if ( ! filePath ) return [];
 
-      var line = 0, ch = 0;
-      try {
-        var fs_ = require('fs');
-        var content = fs_.readFileSync(filePath, 'utf8');
-        var idx = content.indexOf(targetClassId);
-        if ( idx !== -1 ) {
-          for ( var i = 0 ; i < idx ; i++ ) {
-            if ( content[i] === '\n' ) { line++; ch = 0; } else ch++;
-          }
-          return {
-            uri: 'file://' + filePath,
-            range: {
-              start: { line: line, character: ch },
-              end:   { line: line, character: ch + targetClassId.length }
-            }
-          };
-        }
-      } catch ( e ) {}
+      var fs_ = require('fs');
+      var content;
+      try { content = fs_.readFileSync(filePath, 'utf8'); } catch ( e ) { return []; }
 
-      return {
-        uri: 'file://' + filePath,
+      var uri      = 'file://' + filePath;
+      var fallback = [{
+        uri:   uri,
         range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-      };
+      }];
+      if ( content.length > 2 * 1024 * 1024 ) return fallback;
+
+      var commentMask = this.buildCommentMask_(content);
+      var self = this;
+      var out  = [];
+      var seen = {};
+
+      function push(idx, len) {
+        if ( commentMask[idx] ) return;
+        if ( seen[idx] )        return;
+        seen[idx] = true;
+        var startPos = self.analyzer.offsetToPosition(content, idx);
+        out.push({
+          uri: uri,
+          range: {
+            start: startPos,
+            end:   { line: startPos.line, character: startPos.character + len }
+          }
+        });
+      }
+
+      // === A. Grammar-emitted classRef positions ===
+      try {
+        var grammar = typeof this.index.getGrammar === 'function' ?
+          this.index.getGrammar() : null;
+        if ( grammar ) {
+          var posMap = grammar.collectAxiomPositions(content);
+          var hits   = ( posMap && posMap.classRef && posMap.classRef[targetClassId] ) || [];
+          for ( var i = 0 ; i < hits.length && out.length < 200 ; i++ ) {
+            push(hits[i].startPos, targetClassId.length);
+          }
+        }
+      } catch (e) {}
+
+      // === B. Word-bounded full-id text scan ===
+      var escapedFull = targetClassId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var reFull = new RegExp('(?<![\\w.])' + escapedFull + '(?![\\w])', 'g');
+      var m;
+      while ( ( m = reFull.exec(content) ) !== null ) {
+        push(m.index, targetClassId.length);
+        if ( out.length >= 200 ) break;
+      }
+
+      // === C. Short-name scan via requires / javaImports ===
+      var shortNames = this.shortNamesFor_(refClassId, targetClassId);
+      for ( var s = 0 ; s < shortNames.length && out.length < 200 ; s++ ) {
+        var shortName = shortNames[s];
+        if ( shortName === targetClassId ) continue;
+        var escShort = shortName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // `\bShort\b`, but reject when the preceding char is `.` — those
+        // positions are tails of dotted ids already handled by A/B.
+        var reShort = new RegExp('(?<![\\w$.])' + escShort + '(?![\\w$])', 'g');
+        while ( ( m = reShort.exec(content) ) !== null ) {
+          push(m.index, shortName.length);
+          if ( out.length >= 200 ) break;
+        }
+      }
+
+      return out.length > 0 ? out : fallback;
+    },
+
+    function shortNamesFor_(refClassId, targetClassId) {
+      /**
+       * Short names that refClass uses for targetClassId, drawn from its
+       * `requires:` (`'foam.x.Y'` or `'foam.x.Y as Z'`) and `javaImports:`
+       * (`'foam.x.Y'`). Returns an array — usually 0 or 1 element. Empty
+       * when refClass doesn't declare the target.
+       */
+      var cls = typeof this.index.getClass === 'function' ?
+        this.index.getClass(refClassId) : null;
+      if ( ! cls || ! cls.model_ ) return [];
+      var out = {};
+      var reqs = cls.model_.requires || [];
+      for ( var i = 0 ; i < reqs.length ; i++ ) {
+        var r = reqs[i];
+        var path, alias;
+        if ( typeof r === 'string' ) {
+          var parts = r.split(/\s+as\s+/);
+          path  = parts[0].trim();
+          alias = ( parts[1] || path.split('.').pop() ).trim();
+        } else if ( r && r.path ) {
+          path  = r.path;
+          alias = r.name || path.split('.').pop();
+        }
+        if ( path === targetClassId && alias ) out[alias] = true;
+      }
+      var ji = cls.model_.javaImports || [];
+      for ( var i = 0 ; i < ji.length ; i++ ) {
+        var imp = typeof ji[i] === 'string' ? ji[i] : ( ji[i] && ji[i].path );
+        if ( imp === targetClassId ) {
+          var sh = imp.split('.').pop();
+          if ( sh ) out[sh] = true;
+        }
+      }
+      return Object.keys(out);
     }
   ]
 });

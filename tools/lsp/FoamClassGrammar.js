@@ -371,6 +371,37 @@ foam.CLASS({
           }));
         };
       }
+
+      // String-value rule helper — the canonical shape for any axiom
+      // whose value is a quoted scalar inside the grammar (file names,
+      // flag combinations, subproject paths, Java dep ids, etc.).
+      //
+      // Two responsibilities:
+      //   1. At cursor — emit a Suggestion via P.sug(sentinel) so the
+      //      completion handler knows what category to offer.
+      //   2. Off cursor — match the value text up to the closing quote.
+      //      stopChars defaults to BOTH quote styles so the same value
+      //      parser works whether the caller used single or double
+      //      quotes around it. Forgetting one quote was the source of
+      //      a runaway-match bug that swallowed entire POM files.
+      //
+      // If `msgKind` is provided the off-cursor branch is wrapped in
+      // P.msg({kind}) so collectAxiomPositions records the value span.
+      function stringValueRule(opts) {
+        opts = opts || {};
+        var stopChars = opts.stopChars || "'\"";
+        var capture   = P.str(P.repeat(P.notChars(stopChars), null, 0));
+        if ( opts.msgKind ) capture = P.msg(capture, { kind: opts.msgKind });
+        if ( ! opts.category ) return capture;
+        return P.alt(
+          P.sug(P.literal(''), foam.parse.Suggestion.create({
+            text:     '__ctx_' + opts.category + '__',
+            category: opts.category,
+            hint:     opts.hint || ''
+          })),
+          capture
+        );
+      }
       var key           = makeKeyHelper('key');
       var topKey        = makeKeyHelper('topKey');
       var propKey       = makeKeyHelper('propKey');
@@ -574,40 +605,15 @@ foam.CLASS({
         ),
 
         // Context markers — each alternative's sug(literal('\u0002')) fails
-        // at cursor and emits a category marker. The str(repeat) fallback
-        // handles the actual token parse.
-        pomFileName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomFileName__', category: 'pomFileName', hint: 'file name'
-          })),
-          // Emit a position-tagged msg so collectAxiomPositions records
-          // the file-name span — used by go-to-definition on POM entries.
-          P.msg(P.str(P.repeat(P.notChars("'\""), null, 0)), { kind: 'pomFileName' })
-        ),
-        pomJavaFileName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomJavaFileName__', category: 'pomJavaFileName', hint: 'Java file name'
-          })),
-          P.str(P.repeat(P.notChars("'\""), null, 0))
-        ),
-        pomProjectPath: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomProjectPath__', category: 'pomProjectPath', hint: 'subproject path'
-          })),
-          P.str(P.repeat(P.notChars("'\""), null, 0))
-        ),
-        pomFlagValue: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomFlagValue__', category: 'pomFlagValue', hint: 'flag combination'
-          })),
-          P.str(P.repeat(P.notChars("'\""), null, 0))
-        ),
-        pomJavaDep: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomJavaDep__', category: 'pomJavaDep', hint: 'Java dependency'
-          })),
-          P.str(P.repeat(P.notChars("'\""), null, 0))
-        ),
+        // at cursor and emits a category marker. stringValueRule() drives the
+        // shape, including the "stop at either quote" rule that prevents the
+        // value parser from running past its closing quote into the next
+        // entry. Adding a new POM scalar value is a one-liner now.
+        pomFileName:     stringValueRule({ category: 'pomFileName',     hint: 'file name',          msgKind: 'pomFileName' }),
+        pomJavaFileName: stringValueRule({ category: 'pomJavaFileName', hint: 'Java file name' }),
+        pomProjectPath:  stringValueRule({ category: 'pomProjectPath',  hint: 'subproject path' }),
+        pomFlagValue:    stringValueRule({ category: 'pomFlagValue',    hint: 'flag combination' }),
+        pomJavaDep:      stringValueRule({ category: 'pomJavaDep',      hint: 'Java dependency' }),
 
         // Skip one character — catch-all that lets START consume the whole file
         ignoredContent: P.anyChar(),

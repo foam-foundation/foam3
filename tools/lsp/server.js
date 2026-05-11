@@ -443,7 +443,12 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        // pom.js doesn't match FOAM_CALL_REGEX (POM is excluded), but the
+        // DefinitionHandler has a dedicated pom→class branch that needs to
+        // run. Let pom.js through; other non-FOAM .js files still bail.
+        if ( ! isFoamFile(doc.text) && ! isPomFile(params.textDocument.uri) ) {
+          respond(id, null); break;
+        }
         try {
           var result = definitionHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] definition: success');

@@ -284,6 +284,7 @@ foam.POM({
     { name: "foam/u2/qa/QADocView",                                   flags: "js" },
     { name: "foam/u2/qa/QuestionChoiceView",                          flags: "js" },
     { name: "foam/u2/qa/QAWizardView",                                flags: "js" },
+    { name: "foam/u2/qa/QAAnsweredView",                              flags: "js" },
     { name: "foam/u2/qa/RankedOutcome",                                flags: "js" },
 //    { name: "foam/version/VersionTrait",                              flags: "js" },
 //    { name: "foam/version/VersionedClass",                            flags: "js" },
@@ -854,6 +855,7 @@ foam.POM({
     { name: "foam/doc/AxiomSummaryView",                              flags: "dev&web" },
     { name: "foam/doc/SimpleClassView",                               flags: "dev&web" },
     { name: "foam/doc/InterfaceView",                                 flags: "dev&web" },
+    { name: "foam/doc/PropertyView",                                  flags: "dev&web" },
     { name: "foam/doc/ClassLink",                                     flags: "dev&web" },
     { name: "foam/doc/CodeTabs",                                      flags: "js" },
     { name: "foam/doc/ClassList",                                     flags: "dev&web" },
@@ -1186,7 +1188,8 @@ foam.POM({
     { name: "foam/lib/json/UnknownFObjectParserTest",                 flags: "js&test|java&test" },
     { name: "foam/lib/json/JSONParserReentrancyTest",                 flags: "js&test|java&test" },
     { name: "foam/audio/Speak",                                       flags: "web" },
-    { name: "foam/audio/Beep",                                        flags: "web" }
+    { name: "foam/audio/Beep",                                        flags: "web" },
+//    { name: "com/foamdev/experimental/fixedwidth/FixedWidth", flags: "js|java" }
   ],
 
   javaFiles: [
@@ -1478,7 +1481,7 @@ foam.POM({
     { name: "foam/mlang/Expressions" },
     { name: "io/nayuki/qrcodegen/QrCode" },
     { name: "io/nayuki/qrcodegen/QrSegment" },
-    { name: "io/nayuki/qrcodegen/BitBuffer" }
+    { name: "io/nayuki/qrcodegen/BitBuffer" },
   ],
   journalFiles: [
     { name: "tests",                                                  flags: "test" },

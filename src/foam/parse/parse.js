@@ -105,6 +105,12 @@ foam.CLASS({
       name: 'prependSpaceOnSelect',
       documentation: 'Adds a whitespace before appending suggestion.',
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'showText',
+      documentation: 'If true the suggestion will show both the text and label.',
+      value: true
     }
   ],
 

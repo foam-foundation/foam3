@@ -655,7 +655,7 @@ return junction`
             await this.remove(obj);
           }
         }
-        x.stack.jump(x.stack.pos - 1);
+        await x.stack.jump(x.stack.pos - 1);
       })
 
       x.stack.push({

@@ -31,7 +31,8 @@ foam.CLASS({
       (await dao.select()).array.sort(comparator).forEach(c => {
         this.alt.args.push(p.sug(p.literalIC(c.id), {
           text:     c.id,
-          label:    c.id,
+          showText: false,
+          label:    c.id.endsWith('DAO') ? c.id.substring(0, c.id.length-3) : c.id,
           prependSpaceOnSelect: false,
           category: c.keywords.indexOf('custom') == -1 ? 'standard' : 'custom'}));
       });

@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.parse.auto',
   name: 'DateSuggester',
   extends: 'foam.u2.View',
-  
+
   css:`
     ^ {
       padding: 4px 0px;
@@ -148,6 +148,8 @@ foam.CLASS({
     ^operator { color: $orange400; }
     ^value    { color: $blue400; }
     ^format   { color: $grey400; }
+    ^standard { color: $blue400; }
+    ^custom { color: $orange400; }
 
     ^calculation { color: $orange400; }
     ^chart    { color: $blue400; }
@@ -155,6 +157,7 @@ foam.CLASS({
   `,
 
   properties: [
+    { class: 'Boolean', name: 'showText', value: true },
     'suggestText'
   ],
 
@@ -185,6 +188,14 @@ foam.CLASS({
             }
           ).
         end();
+
+      this.renderText();
+    },
+
+    function renderText() {
+      if ( ! this.showText ) return;
+
+      const data  = this.data;
 
       if ( data.label !== data.text ) {
         this.start().
@@ -424,7 +435,7 @@ foam.CLASS({
       if ( delta ) ss = ss.filter(k => {
         let sug = suggestions[k];
         // Currently custom views handle their own filtering via the 'filter' property.
-        // TODO: for Ajeet, enhancement suggestion by Sarthak: 
+        // TODO: for Ajeet, enhancement suggestion by Sarthak:
         // This should probably check an interface and ignore if the view implements a searchable interface,
         // dont think its prudent to just assume views will always filter themselves, maybe a todo
         if ( sug.view ) return true;
@@ -441,6 +452,7 @@ foam.CLASS({
         let sug = self.suggestions[s];
         this.tag(sug.view || self.SuggestionView, {
           data: sug,
+          showText: sug.showText,
           filter: sug.view ? delta.trim() : '',
           suggestText: (text) => {
             self.suggestText.call(self, text, sug);

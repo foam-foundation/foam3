@@ -1085,6 +1085,7 @@ foam.CLASS({
 
   actions: [
     {
+      class: 'foam.comics.v3.ComicsAction',
       name: 'deleteUser',
       label: 'Delete',
       toolTip:'Open ticket to delete a user and all associated entities',

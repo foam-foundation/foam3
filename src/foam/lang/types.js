@@ -1503,6 +1503,49 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.lang',
+  name: 'ChoiceValidator',
+  extends: 'Property',
+  documentation: `
+    hidden transient property used to validate XSD <choice> constraints.
+    Checks that the number of set choice-branch properties satisfies minOccurs/maxOccurs.
+  `,
+
+  properties: [
+    { class: 'Int', name: 'minOccurs', value: 1 },
+    { class: 'Int', name: 'maxOccurs', value: 1 },
+    { class: 'StringArray', name: 'choiceProperties' },
+    [ 'hidden', true ],
+    [ 'transient', true ],
+    {
+      name: 'internalValidateObj',
+      factory: function() {
+        var choiceProps = this.choiceProperties;
+        var minOccurs   = this.minOccurs;
+        var maxOccurs   = this.maxOccurs;
+
+        if ( ! choiceProps || choiceProps.length === 0 ) return null;
+
+        return [choiceProps, function() {
+          var setCount = 0;
+          for ( var i = 0 ; i < choiceProps.length ; i++ ) {
+            var axiom = this.cls_.getAxiomByName(choiceProps[i]);
+            if ( axiom && ! axiom.isDefaultValue(this[choiceProps[i]]) ) setCount++;
+          }
+
+          if ( setCount < minOccurs ) {
+            return `Choice constraint violated: at least ${minOccurs} of [${choiceProps.join(', ')}] must be set, but only ${setCount} found.`;
+          }
+          if ( maxOccurs !== -1 && setCount > maxOccurs ) {
+            return `Choice constraint violated: at most ${maxOccurs} of [${choiceProps.join(', ')}] may be set, but ${setCount} found.`;
+          }
+        }];
+      }
+    }
+  ]
+})
+
+foam.CLASS({
+  package: 'foam.lang',  
   name: 'CountryCode',
   extends: 'Reference',
   implements: [ 'foam.mlang.Expressions' ],

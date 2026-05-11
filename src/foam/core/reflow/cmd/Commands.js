@@ -407,7 +407,7 @@ foam.CLASS({
   ],
 
   methods: [
-    function execute(cls) {
+    function execute(cls, simple) {
       let original = cls;
       if ( foam.String.isInstance(cls) ) {
         cls = foam.maybeLookup(cls);
@@ -430,8 +430,12 @@ foam.CLASS({
           this.out.tag(foam.u2.qa.QADocView, {data: cls});
         }
 
-        this.out.startContext({conventionalUML: true}).
-          tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        if ( simple ) {
+          this.out.tag(foam.doc.PropertyView, {data: cls});
+        } else {
+          this.out.startContext({conventionalUML: true}).
+            tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        }
       }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
@@ -922,6 +926,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',

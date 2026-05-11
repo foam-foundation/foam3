@@ -113,6 +113,9 @@ foam.CLASS({
   properties: [
     'selected',
     {
+      name: 'softSelected'
+    },
+    {
       class: 'Boolean',
       name: 'isMenuOpen',
       value: true
@@ -188,8 +191,10 @@ foam.CLASS({
       this.add(data.dynamic(function (flowName) {
         this.
         start('tr').
-          on('click',    () => self.selectFromTree(data)).
-          on('dblclick', () => data.expanded = ! data.expanded).
+          on('mouseover',   () => self.softSelected = data).
+          on('mouseout',    () => self.softSelected = null).
+          on('click',       () => self.selectFromTree(data)).
+          on('dblclick',    () => data.expanded = ! data.expanded).
           on('contextmenu', (e) => self.onContextMenu(e, data)).
           start('td').
             attrs({draggable: 'true'}).
@@ -198,7 +203,7 @@ foam.CLASS({
               on('dragstart', self.onDragStart.bind(self, data, this)).
               on('dragenter', self.onDragOver.bind(self, data, this)).
               on('dragleave', self.onDragLeave.bind(self, this)).
-                on('dragover',  self.onDragOver.bind(self, data, this)).
+              on('dragover',  self.onDragOver.bind(self, data, this)).
               on('drop',      self.onDrop.bind(self, data, this));
             }).
             addClass(self.myClass('element-row')).
@@ -257,7 +262,7 @@ foam.CLASS({
 
     function onDragStart(row, el, e) {
       e.dataTransfer.setData('application/x-foam-obj-id', row.flowName);
-      console.log('onDragStart', e, row.flowName);
+      // console.log('onDragStart', e, row.flowName);
       el.addClass(this.myClass('dragTarget'));
       e.stopPropagation();
     },
@@ -270,8 +275,8 @@ foam.CLASS({
 
       var src = e.dataTransfer.getData('application/x-foam-obj-id');
 
-      console.log('onDragOver', e);
-      console.log('over', src, '->', row.flowName);
+      // console.log('onDragOver', e);
+      // console.log('over', src, '->', row.flowName);
 
       // if ( src === row.flowName ) return;
 
@@ -286,7 +291,7 @@ foam.CLASS({
     function onDrop(row, el, e) {
       /** Dropped on another row to cause a change of parent. **/
       el.removeClass(this.myClass('activeTarget'));
-      console.log('onDrop', e, row.flowName);
+      // console.log('onDrop', e, row.flowName);
       if ( ! e.dataTransfer.types.some(m => m === 'application/x-foam-obj-id') )
         return;
 
@@ -297,7 +302,7 @@ foam.CLASS({
       e.preventDefault();
       e.stopPropagation();
 
-      console.log('drop', src, '->', row.flowName);
+      // console.log('drop', src, '->', row.flowName);
 
       this.moveFlowChild(src, row);
     },
@@ -305,7 +310,7 @@ foam.CLASS({
     function onMove(row, el, e) {
       /** Dropped on a space after a row to cause a move. **/
       el.removeClass(this.myClass('activeTarget'));
-      console.log('onMove', e, row.flowName);
+      // console.log('onMove', e, row.flowName);
       if ( ! e.dataTransfer.types.some(m => m === 'application/x-foam-obj-id') )
         return;
 
@@ -314,7 +319,7 @@ foam.CLASS({
       e.preventDefault();
       e.stopPropagation();
 
-      console.log('move', src, '->', row.flowName);
+      // console.log('move', src, '->', row.flowName);
 
       this.moveFlowChildAfter(src, row);
     },

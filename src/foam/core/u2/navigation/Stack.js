@@ -223,9 +223,22 @@ foam.CLASS({
       this.resetStack();
       return this.push(...arguments);
     },
-    function jump(p) {
-      if ( this.delegate_ ) return this.delegate_.jump(...arguments);
-      this.stack_.splice(p + 1).forEach(v => v.remove());
+    async function jump(p) {
+      if ( this.delegate_ ) return await this.delegate_.jump(...arguments);
+      let aboutToRemove = this.stack_.slice(p+1);
+      for ( let v of aboutToRemove ) {
+        if ( foam.u2.Routable.isInstance(v) ) {
+          try {
+            await v.beforeRemove();
+            v.remove();
+          } catch(e) {
+            throw e;
+          }
+        } else {
+          v.remove();
+        }
+      }
+      this.stack_.splice(p + 1);
       this.pos = p;
       this.posUpdated.pub('jump');
     },

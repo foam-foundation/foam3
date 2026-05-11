@@ -86,3 +86,26 @@ if ( loc ) {
       'POM entry → class file: jumps to FObject.js');
   }
 }
+
+
+// === FoamIndex.invalidatePomCache — pom edits must drop cached entry positions ===
+
+section('FoamIndex.invalidatePomCache');
+
+if ( loc ) {
+  // Prime the cache.
+  index.findPomEntryLocation_(loc.pomFile, 'FObject');
+  test(!! (index.pomEntryLineCache_ && index.pomEntryLineCache_[loc.pomFile]),
+    'pomEntryLineCache_ is populated after a lookup');
+
+  // Surgical invalidation — only this pom file should be dropped.
+  index.invalidatePomCache(loc.pomFile);
+  test(! (index.pomEntryLineCache_ && index.pomEntryLineCache_[loc.pomFile]),
+    'invalidatePomCache(pomFile) drops the cached entry');
+
+  // Full reset — passing no path nukes the whole map.
+  index.findPomEntryLocation_(loc.pomFile, 'FObject');
+  index.invalidatePomCache();
+  test(index.pomEntryLineCache_ === null,
+    'invalidatePomCache() with no arg clears the entire cache');
+}

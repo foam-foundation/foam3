@@ -1300,6 +1300,16 @@ foam.CLASS({
       this.memberUsageIndex_ = null;
     },
 
+    function invalidatePomCache(pomFile) {
+      /** Drop a single pom.js's cached entry positions. Called by the server
+       *  when a pom.js is saved — the cache is keyed by pom path, so a
+       *  surgical delete keeps other poms hot. Passing no argument clears
+       *  every pom (full reset). */
+      if ( ! this.pomEntryLineCache_ ) return;
+      if ( pomFile ) delete this.pomEntryLineCache_[pomFile];
+      else this.pomEntryLineCache_ = null;
+    },
+
     // ----- JS usage index -------------------------------------------------
     //
     // For every model in the registry, walk axioms that hold JavaScript

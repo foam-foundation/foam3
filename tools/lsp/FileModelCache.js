@@ -115,8 +115,9 @@ foam.CLASS({
        * Prefers the eval-captured model. When the file fails to eval
        * (mid-edit SyntaxError, broken body), falls back to the analyzer's
        * text-regex parse so completion/hover keep working while the user
-       * types. Phase 6 replaces the regex fallback with a grammar-driven
-       * axiom extractor — until then, this is the single fallback site.
+       * types. A grammar-driven axiom extractor will replace the regex
+       * fallback in a future pass; until then, this is the single
+       * fallback site.
        */
       var model = this.getModelAt(uri || '', text, opt_line == null ? 0 : opt_line);
       if ( model ) return this.buildRequiresMap(model);

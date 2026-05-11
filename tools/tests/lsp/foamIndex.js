@@ -194,7 +194,7 @@ var clsCaught = libModels.some(function(m) {
 });
 test(clsCaught, 'parseFileModels still captures sibling foam.CLASS in the same file');
 
-// Syntax-error fallback still finds LIB (Phase 4: LIB added to evalIndividualBlocks_ regex)
+// Syntax-error fallback still finds LIB (LIB added to evalIndividualBlocks_ regex).
 var brokenLibSrc =
   "foam.CLASS({ package: 'test', name: 'BrokenSibling' });\n" +
   "this is not valid JS + syntax\n" +

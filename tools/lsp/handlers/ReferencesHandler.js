@@ -72,10 +72,10 @@ foam.CLASS({
       for ( var i = 0 ; i < reqs.length ; i++ )   add(reqs[i]);
       for ( var i = 0 ; i < ofs.length ; i++ )    add(ofs[i]);
 
-      // Phase 4e: union with the usage indexes built in Phase 4a-c. These
-      // surface classes that *use* the target inside method bodies (JS),
-      // javaCode blocks, or via context-injection strings — references
-      // grep can't find without parsing every file.
+      // Union with the workspace usage indexes (JS / Java / string). These
+      // surface classes that *use* the target inside method bodies, javaCode
+      // blocks, or via context-injection strings — references grep can't
+      // find without parsing every file.
       try {
         var jsUses = this.index.getJsUsages(classId);
         for ( var i = 0 ; i < jsUses.length ; i++ ) add(jsUses[i].sourceClassId);

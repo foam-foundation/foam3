@@ -115,8 +115,8 @@ foam.CLASS({
 
       // Mid-edit fallback: when the file fails to eval (broken body like
       // `this.` with nothing after it), classId stays null. Route to the
-      // cache's text-regex fallback so completions keep working. Phase 6
-      // replaces this with a grammar-driven axiom extractor.
+      // cache's text-regex fallback so completions keep working. A
+      // grammar-driven axiom extractor will replace this fallback.
       if ( ! classId ) {
         classId = this.cache.resolveClassIdFromText(text);
       }

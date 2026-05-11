@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.parse.lsp.handlers',
   name: 'CallHierarchyHandler',
 
-  documentation: 'Call hierarchy for FOAM methods — handles textDocument/prepareCallHierarchy + callHierarchy/{incomingCalls,outgoingCalls}. Built on FoamIndex.getMemberUsages (Phase 4d) plus subclass walking; no separate parse pass.',
+  documentation: 'Call hierarchy for FOAM methods — handles textDocument/prepareCallHierarchy + callHierarchy/{incomingCalls,outgoingCalls}. Built on FoamIndex.getMemberUsages plus subclass walking; no separate parse pass.',
 
   requires: [
     'foam.parse.lsp.CursorAnalyzer'

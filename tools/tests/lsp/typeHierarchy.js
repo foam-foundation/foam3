@@ -4,10 +4,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Phase 2: textDocument/prepareTypeHierarchy + typeHierarchy/{supertypes,
-// subtypes} + textDocument/implementation + textDocument/typeDefinition.
-// All three handlers map directly to FoamIndex.getInheritanceChain /
-// getSubclasses / getImplementors.
+// textDocument/prepareTypeHierarchy + typeHierarchy/{supertypes,subtypes}
+// + textDocument/implementation + textDocument/typeDefinition. All three
+// handlers map directly to FoamIndex.getInheritanceChain / getSubclasses /
+// getImplementors.
 
 var h = require('./_harness');
 var test = h.test, section = h.section;

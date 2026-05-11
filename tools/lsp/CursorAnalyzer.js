@@ -99,12 +99,12 @@ foam.CLASS({
     // these regex helpers parse axiom values directly from text so
     // completion / hover / definition don't go dark while the user types.
     //
-    // The plan is to replace these with a grammar-driven model field
-    // extractor (Phase 6) — FoamClassGrammar already parses axiom
-    // positions, so the extractor can read values without `eval`. Once
-    // that lands, these methods are deletable. Until then, treat them
-    // as a single tactical surface — do NOT add new regex parsers of
-    // FOAM model structure elsewhere in the LSP.
+    // The eventual replacement is a grammar-driven model-field
+    // extractor — FoamClassGrammar already parses axiom positions, so
+    // the extractor can read values without `eval`. Once that lands,
+    // these methods are deletable. Until then, treat them as a single
+    // tactical surface — do NOT add new regex parsers of FOAM model
+    // structure elsewhere in the LSP.
     // -----------------------------------------------------------------
 
     function resolveClassId(text) {

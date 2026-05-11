@@ -46,6 +46,7 @@ function start() {
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
   var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
   var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
+  var pomValidator           = foam.parse.lsp.handlers.PomValidator.create({ index: index });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -303,7 +304,11 @@ function start() {
             typeHierarchyProvider: true,
             implementationProvider: true,
             typeDefinitionProvider: true,
-            callHierarchyProvider: true
+            callHierarchyProvider: true,
+            diagnosticProvider: {
+              interFileDependencies: false,
+              workspaceDiagnostics:  false
+            }
           },
           experimental: {
             workspaceAnalyzer: true
@@ -458,6 +463,18 @@ function start() {
         } catch (e) {
           console.error('[LSP] signatureHelp error:', e.message);
           respond(id, null);
+        }
+        break;
+
+      case 'foam/validatePoms':
+        // Custom request: returns { orphans, missing, duplicates } for the
+        // POM membership audit. Surfaced via foam/analyzeWorkspace too;
+        // also callable on demand.
+        try {
+          respond(id, pomValidator.validate());
+        } catch (e) {
+          console.error('[LSP] foam/validatePoms error:', e.message);
+          respondError(id, -32603, e.message);
         }
         break;
 
@@ -638,6 +655,38 @@ function start() {
         } catch (e) {
           console.error('[LSP] typeDefinition error:', e.message);
           respond(id, null);
+        }
+        break;
+
+      case 'textDocument/diagnostic':
+        // LSP 3.17 pull-diagnostic model. Caller asks for the diagnostics
+        // of an arbitrary file without first didOpen-ing it. We read the
+        // file fresh from disk so non-editor clients can query without a
+        // document-open round trip.
+        try {
+          var dUri  = params.textDocument && params.textDocument.uri;
+          if ( ! dUri ) { respond(id, { kind: 'full', items: [] }); break; }
+          var dDoc  = documents[dUri];
+          var dText = dDoc ? dDoc.text : null;
+          if ( ! dText ) {
+            var p = uriToPath_(dUri);
+            if ( p ) {
+              try { dText = require('fs').readFileSync(p, 'utf8'); } catch (re) {}
+            }
+          }
+          if ( ! dText ) { respond(id, { kind: 'full', items: [] }); break; }
+          var items;
+          if ( isJrlFile(dUri) ) {
+            items = jrlHandler.handleDiagnostics(dText, dUri);
+          } else if ( isFoamFile(dText) ) {
+            items = diagnosticsHandler.handle(dText, dUri);
+          } else {
+            items = [];
+          }
+          respond(id, { kind: 'full', items: items });
+        } catch (e) {
+          console.error('[LSP] textDocument/diagnostic error:', e.message);
+          respond(id, { kind: 'full', items: [] });
         }
         break;
 

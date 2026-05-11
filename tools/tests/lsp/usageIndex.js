@@ -4,11 +4,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Phase 4a: JS usage index. FoamIndex now walks every class's function-
-// bearing axioms (methods, actions, listeners, property functions,
-// init/initE, templates) and resolves `this.<ShortName>` patterns through
-// the source class's requires axiom. The usage map answers
-// "where in JavaScript is class X used?" beyond the requires-list itself.
+// Workspace usage indexes. FoamIndex walks every class's axioms and
+// records who references each class via JavaScript method bodies, Java
+// code blocks, and string-keyed context names. Builds the data plane
+// behind ReferencesHandler / CallHierarchyHandler.
 
 var h = require('./_harness');
 var test = h.test, section = h.section;
@@ -80,9 +79,9 @@ try {
 }
 
 
-// === FoamIndex Java usage scanner — synthetic (Phase 4b) ===
+// === FoamIndex Java usage scanner — synthetic ===
 //
-// LSPMaker now sets flags.genjava=true at boot so the Java refinements
+// LSPMaker sets flags.genjava=true at boot so the Java refinements
 // (foam/java/refinements.js — gated on the genjava flag in foam/src/pom.js)
 // load alongside the LSP. With those in place, Method and Property carry
 // javaCode / javaPostSet / javaFactory / etc. — the scanner reads them
@@ -148,7 +147,7 @@ try {
 }
 
 
-// === FoamIndex.getStringUsages — exports / imports (Phase 4c) ===
+// === FoamIndex.getStringUsages — exports / imports ===
 //
 // String references travel through exports: → imports:. We declare a
 // Producer that exports a name and a Consumer that imports it, then
@@ -192,7 +191,7 @@ test(Array.isArray(noStr), 'getStringUsages: unknown name returns array');
 test(noStr.length === 0, 'getStringUsages: unknown name returns empty array');
 
 
-// === FoamIndex.getMemberUsages — this.<prop|method> inside class (Phase 4d) ===
+// === FoamIndex.getMemberUsages — this.<prop|method> inside class ===
 //
 // Per-class view: where inside class X do methods reference property Y
 // or method Y via this.Y? Answers "find references" for a property name
@@ -246,10 +245,10 @@ try {
 }
 
 
-// === ReferencesHandler wired to usage indexes (Phase 4e) ===
+// === ReferencesHandler wired to usage indexes ===
 //
 // Confirms the handler picks up the new usage edges, not just the
-// declaration-site graph. The Phase 4a synthetic UsageTestSource references
+// declaration-site graph. The synthetic UsageTestSource references
 // UsageTestTarget via this.UsageTestTarget.create() inside its build()
 // method — find references on Target should now surface Source.
 
@@ -264,7 +263,7 @@ try {
   var refsResult = refsHandler.handle(refsText, { line: 1, character: 45 }, 'file:///t');
   test(Array.isArray(refsResult), 'ReferencesHandler: returns array');
 
-  // The Source from Phase 4a references Target via this.UsageTestTarget.create();
+  // The Source class references Target via this.UsageTestTarget.create();
   // the references handler should now surface its file path (when indexed).
   var sourcePath = index.getFilePath('foam.parse.lsp.usagetest.UsageTestSource');
   if ( sourcePath ) {

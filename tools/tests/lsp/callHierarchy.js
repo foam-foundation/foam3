@@ -4,9 +4,9 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Phase 4f — textDocument/prepareCallHierarchy + callHierarchy/{incoming,
-// outgoing}Calls. Backed by FoamIndex.getMemberUsages (Phase 4d) and a
-// reverse pass over the cursor method's own this.X(...) calls.
+// textDocument/prepareCallHierarchy + callHierarchy/{incoming,outgoing}Calls.
+// Backed by FoamIndex.getMemberUsages and a reverse pass over the cursor
+// method's own this.X(...) calls.
 
 var h = require('./_harness');
 var test = h.test, section = h.section;

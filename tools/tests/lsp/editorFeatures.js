@@ -4,11 +4,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Tests for handlers extracted out of server.js in Phase 1A:
+// Tests for editor-shaped handlers extracted out of server.js:
 // SignatureHelpHandler, FoldingRangeHandler, CodeActionHandler,
 // WorkspaceSymbolHandler. Each previously lived as an inline function
-// in server.js. These tests pin behaviour for the refactor and grow as
-// later phases extend each handler.
+// in server.js.
 
 var h = require('./_harness');
 var test = h.test, section = h.section;
@@ -88,7 +87,7 @@ test(sigInCall === null || (sigInCall.signatures && sigInCall.signatures.length 
   'SignatureHelp: returns null or a signature shape, never throws');
 
 
-// === WorkspaceSymbolHandler (Phase 3 — backed by FoamIndex.searchSymbols) ===
+// === WorkspaceSymbolHandler (backed by FoamIndex.searchSymbols) ===
 
 section('WorkspaceSymbolHandler');
 var wsSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
@@ -102,7 +101,7 @@ test(anySymbols.length === 0 || anySymbols[0].location.uri.indexOf('file://') ==
 var capped = wsSymbolHandler.handle('');
 test(capped.length <= 500, 'WorkspaceSymbol: respects new 500-symbol cap');
 
-// Search by property name (Phase 3 — was unsupported in Phase 1A).
+// Search by property name (previously class-only).
 var propHits = wsSymbolHandler.handle('id');
 test(Array.isArray(propHits), 'WorkspaceSymbol: property search returns array');
 test(propHits.some(function(s) { return s.kind === 7; }) || propHits.length === 0,

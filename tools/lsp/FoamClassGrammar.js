@@ -600,13 +600,13 @@ foam.CLASS({
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
             text: '__ctx_pomFlagValue__', category: 'pomFlagValue', hint: 'flag combination'
           })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
+          P.str(P.repeat(P.notChars("'\""), null, 0))
         ),
         pomJavaDep: P.alt(
           P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
             text: '__ctx_pomJavaDep__', category: 'pomJavaDep', hint: 'Java dependency'
           })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
+          P.str(P.repeat(P.notChars("'\""), null, 0))
         ),
 
         // Skip one character — catch-all that lets START consume the whole file

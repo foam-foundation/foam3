@@ -21,9 +21,13 @@ foam.CLASS({
   requires: [
     'foam.u2.ProgressView',
     'foam.u2.qa.RankedOutcome',
+    'foam.u2.qa.QAOutcomeLog',
+    'foam.log.LogLevel',
     'foam.dao.MDAO',
     'foam.u2.qa.WizardState'
   ],
+
+  imports: ['qaOutcomeLogDAO?'],
 
   messages: [
     { name: 'NO_CANDIDATES', message: 'No candidates eligible. Please check your answers or manually enter an outcome.' },
@@ -169,7 +173,29 @@ foam.CLASS({
       var nextAxiom = this.data.selectNextQuestion();
       if ( ! nextAxiom ) {
         await this.rankedOutcomeDAO.removeAll();
-        this.phase = 'PICK';
+        // this.phase = 'PICK';
+        // Auto-pick: highest MATCHING first, then highest SCORE, then first
+        var ranked = this.data.rankOutcomes(candidates);
+        ranked.sort(function(a, b) {
+          if ( b.matching !== a.matching ) return b.matching - a.matching;
+          return b.score - a.score;
+        });
+
+        // ERROR if top 2 are tied on both matching and score (ambiguous); WARN otherwise
+        var tied = ranked.length > 1 &&
+                   ranked[0].matching === ranked[1].matching &&
+                   ranked[0].score    === ranked[1].score;
+        if ( this.qaOutcomeLogDAO ) {
+          this.qaOutcomeLogDAO.put(this.QAOutcomeLog.create({
+            questionnaire:  this.data,
+            rankedOutcomes: ranked,
+            logLevel:       tied ? this.LogLevel.ERROR : this.LogLevel.WARN
+          }));
+        }
+
+        if ( ranked.length > 0 ) this.data.applyOutcome(ranked[0].outcome);
+        this.candidatesCount = ranked.length > 0 ? 1 : 0;
+        this.phase = 'OUTCOME';
         return;
       }
 

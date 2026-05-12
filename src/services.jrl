@@ -554,3 +554,25 @@ p({
     }
   }
 })
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "id":"qaOutcomeLogDAO",
+  "serve":true,
+  "authenticate": true,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setGuid(true)
+      .setAuthorizer(new foam.core.auth.StandardAuthorizer("qaoutcomelog"))
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("qaOutcomeLog")
+      .setOf(foam.u2.qa.QAOutcomeLog.getOwnClassInfo())
+    .build();
+  """,
+  "client": """
+    {
+      "of": "foam.u2.qa.QAOutcomeLog"
+    }
+  """
+})

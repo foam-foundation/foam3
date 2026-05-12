@@ -304,7 +304,7 @@ foam.CLASS({
             var val = this[term.property];
 
             // Unanswered question — term is still possible
-            if ( val === '' || val === undefined || val === null ) return true;
+            if ( val == 0 || val === '' || val === undefined || val === null ) return true;
 
             // Evaluate the mlang term against this object
             return term.mlang.f(this);
@@ -362,9 +362,9 @@ foam.CLASS({
                   q2.priority = Math.min(q.priority-1, q2.priority);
                 });
               }
-            });
+              });
 
-            qs = qs.filter(q => q.enabled && q.gain > 0);
+            qs = qs.filter(q => /*q.enabled &&*/ q.gain > 0);
 
             for ( var i = 0 ; i < qs.length ; i++ ) {
               let q        = qs[i].q;

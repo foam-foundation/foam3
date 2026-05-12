@@ -52,6 +52,8 @@
         { "include": "#java-block-single-quoted" },
         { "include": "#json-block-triple" },
         { "include": "#json-block-backtick" },
+        { "include": "#java-block-eol" },
+        { "include": "#json-block-eol" },
         { "include": "#key-value-quoted" },
         { "include": "#key-value-unquoted" },
         { "include": "#double-string" },
@@ -107,7 +109,7 @@
     },
     "java-block-triple": {
       "comment": "Java injection in triple-quoted strings after java* keys",
-      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript)\"?\\s*:\\s*(\"\"\")",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript|script)\"?\\s*:\\s*(\"\"\")",
       "beginCaptures": {
         "1": { "name": "support.type.property-name.java.foam-journal" },
         "2": { "name": "punctuation.definition.string.begin.foam-journal" }
@@ -123,7 +125,7 @@
     },
     "java-block-backtick": {
       "comment": "Java injection in backtick strings after java* keys",
-      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript)\"?\\s*:\\s*(`)",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript|script)\"?\\s*:\\s*(`)",
       "beginCaptures": {
         "1": { "name": "support.type.property-name.java.foam-journal" },
         "2": { "name": "punctuation.definition.string.begin.foam-journal" }
@@ -171,7 +173,7 @@
     },
     "java-block-single-quoted": {
       "comment": "Java injection in single-quoted strings after java* keys",
-      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript)\"?\\s*:\\s*(')",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript|script)\"?\\s*:\\s*(')",
       "beginCaptures": {
         "1": { "name": "support.type.property-name.java.foam-journal" },
         "2": { "name": "punctuation.definition.string.begin.foam-journal" }
@@ -183,6 +185,68 @@
       "contentName": "meta.embedded.block.java",
       "patterns": [
         { "include": "source.java" }
+      ]
+    },
+    "java-block-eol": {
+      "comment": "Java/BeanShell injection when a java* / code / serviceScript / script key is alone on its line and the opening delimiter (\"\"\", `, or ') begins a later line. begin can't span lines, so match the key, then grab the delimited block as a nested pattern; the scope ends at the next non-whitespace if no delimiter follows.",
+      "begin": "\"?(javaCode|javaFactory|javaGetter|javaSetter|javaPreSet|javaPostSet|javaAdapt|javaCompare|javaComparePropertyToObject|javaComparePropertyToValue|javaCloneProperty|javaDiffProperty|javaFormatJSON|javaJSONParser|javaCSVParser|javaQueryParser|javaToCSV|javaToCSVLabel|javaFromCSVLabelMapping|javaAssertValue|javaValidateObj|javaCondition|javaValue|javaImports|code|serviceScript|script)\"?\\s*:\\s*$",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.java.foam-journal" }
+      },
+      "end": "(?=\\S)",
+      "applyEndPatternLast": true,
+      "patterns": [
+        {
+          "begin": "(\"\"\")",
+          "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.foam-journal" } },
+          "end": "(\"\"\")",
+          "endCaptures": { "1": { "name": "punctuation.definition.string.end.foam-journal" } },
+          "contentName": "meta.embedded.block.java",
+          "patterns": [ { "include": "source.java" } ]
+        },
+        {
+          "begin": "(`)",
+          "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.foam-journal" } },
+          "end": "(`)",
+          "endCaptures": { "1": { "name": "punctuation.definition.string.end.foam-journal" } },
+          "contentName": "meta.embedded.block.java",
+          "patterns": [ { "include": "source.java" } ]
+        },
+        {
+          "begin": "(')",
+          "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.foam-journal" } },
+          "end": "(')",
+          "endCaptures": { "1": { "name": "punctuation.definition.string.end.foam-journal" } },
+          "contentName": "meta.embedded.block.java",
+          "patterns": [ { "include": "source.java" } ]
+        }
+      ]
+    },
+    "json-block-eol": {
+      "comment": "JSON injection when the client key is alone on its line and the opening delimiter (\"\"\" or `) begins a later line. Same structure as java-block-eol.",
+      "begin": "\"?(client)\"?\\s*:\\s*$",
+      "beginCaptures": {
+        "1": { "name": "support.type.property-name.json.foam-journal" }
+      },
+      "end": "(?=\\S)",
+      "applyEndPatternLast": true,
+      "patterns": [
+        {
+          "begin": "(\"\"\")",
+          "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.foam-journal" } },
+          "end": "(\"\"\")",
+          "endCaptures": { "1": { "name": "punctuation.definition.string.end.foam-journal" } },
+          "contentName": "meta.embedded.block.json",
+          "patterns": [ { "include": "source.json" } ]
+        },
+        {
+          "begin": "(`)",
+          "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.foam-journal" } },
+          "end": "(`)",
+          "endCaptures": { "1": { "name": "punctuation.definition.string.end.foam-journal" } },
+          "contentName": "meta.embedded.block.json",
+          "patterns": [ { "include": "source.json" } ]
+        }
       ]
     },
     "key-value-quoted": {

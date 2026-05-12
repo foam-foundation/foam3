@@ -351,8 +351,6 @@ foam.CLASS({
               qMap[q.name] = e;
             });
 
-            debugger;
-
             // Raise gain and lower priority of dependencies to each question
             // TODO: a more ellegant and efficient method of updating chained dependencies
             for ( let i = 0 ; i < 10 ; i++ ) qs.forEach(q => {
@@ -366,10 +364,8 @@ foam.CLASS({
               }
             });
 
-            debugger;
             qs = qs.filter(q => q.enabled && q.gain > 0);
 
-            debugger;
             for ( var i = 0 ; i < qs.length ; i++ ) {
               let q        = qs[i].q;
               let priority = qs[i].priority;
@@ -416,8 +412,6 @@ foam.CLASS({
             var total   = candidates.length;
             var entropy = 0;
 
-            if ( question.name == 'forcedOrThreatened' ) debugger;
-
             // Initialize buckets for each choice
             question.choices?.forEach(function(c) {
               var value = foam.Array.isInstance(c) ? c[0] : c;
@@ -437,7 +431,7 @@ foam.CLASS({
                 }
               }
 
-//              if ( term ) entropy += 0.001; // small bonus for each outcome that uses this question
+              if ( term ) entropy += 0.001; // small bonus for each outcome that uses this question
 
               if ( ! term ) {
                 // Don't-care: outcome survives regardless of answer
@@ -455,7 +449,6 @@ foam.CLASS({
                   var prev = self_[question.name];
                   self_[question.name] = value;
                   if ( term.mlang.f(self_) ) {
-                    if ( question.name === 'forcedOrThreatened' ) console.log('***** Outcome: ', outcome);
                     buckets[value]++;
                   }
                   self_[question.name] = prev;
@@ -480,7 +473,6 @@ foam.CLASS({
               }
             }
 
-            console.log('**** ENTROYP', question.name, entropy);
             return entropy;
           },
 

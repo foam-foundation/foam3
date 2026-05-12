@@ -171,10 +171,11 @@ foam.CLASS({
     {
       class: 'foam.u2.view.TableCellFormatter',
       name: 'tableCellFormatter',
-      value: function(value) {
+      value: function(value, obj, axiom) {
         if ( value ) {
           this
-            .tag(foam.u2.view.ReadOnlyEnumView, { data: value });
+            .startContext({ data: obj })
+            .tag(axiom);
         } else {
           this.start().
             add('-').

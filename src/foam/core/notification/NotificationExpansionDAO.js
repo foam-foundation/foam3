@@ -44,7 +44,7 @@ foam.CLASS({
       name: 'put_',
       javaCode: `
         Logger logger = Loggers.logger(x, this);
-        DAO userDAO = (DAO) x.get("localUserDAO");
+        DAO userDAO = (DAO) x.get("userDAO");
         Notification notif = (Notification) obj;
         if (getDelegate().find(notif.getId()) != null)
           return getDelegate().put(notif);

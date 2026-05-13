@@ -79,9 +79,9 @@ if (other instanceof foam.mlang.sink.Min) {
       code: function() { this.value = 0; },
       swiftCode: 'value = 0'
     },
-    function toSummary() { return this.value; },
-    function valueOf() { return this.value; },
-    function addToE(e) { e.add(this.value); },
+    function toSummary() { return this.applyPrecision(this.value); },
+    function valueOf() { return this.applyPrecision(this.value); },
+    function addToE(e) { e.add(this.applyPrecision(this.value)); },
 
     function toProperties() {
       var name = 'min_' + this.arg1.name;
@@ -90,7 +90,7 @@ if (other instanceof foam.mlang.sink.Min) {
     },
 
     function setPropertyValues(o, sink, ps) {
-      ps[0].set(o, sink.value);
+      ps[0].set(o, sink.applyPrecision(sink.value));
     }
   ]
 });

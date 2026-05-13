@@ -163,14 +163,16 @@ foam.CLASS({
       var visibilitySlot = modeSlot.map(m => m != foam.u2.DisplayMode.HIDDEN);
       var colorSlot      = this.data$.dot(prop.name).map(v => ! prop.isDefaultValue(v));
       var labelSlot      = this.slot(function(prop$reserveLabelSpace, prop$label) {
-        let el = this.E().addClass(this.myClass('label'), this.myClass('label' + '-' + prop.name), 'p-light');
+        let el = this.E().addClass(this.myClass('label' + '-' + prop.name));
         return prop$label ?
           el.call(prop.labelFormatter, [data, prop]) :
           ( prop$reserveLabelSpace ? el : this.E().style({ display: 'contents' }) )
       });
       var supportingLabelSlot = this.slot(function(prop$supportingLabel) {
-        let el = this.E().addClass(this.myClass('supportingLabel'), this.myClass('supportingLabel' + '-' + prop.name), 'p-legal');
-        return prop$supportingLabel ? el.add(prop$supportingLabel) : this.E().style({ display: 'contents' })
+        let el = this.E().addClass(this.myClass('supportingLabel' + '-' + prop.name));
+        return prop$supportingLabel ?
+          el.call(prop.supportingLabel, [data, prop]) :
+          this.E().style({ display: 'contents' })
       });
 
       var viewSlot = prop.view$.map(v => {
@@ -183,21 +185,6 @@ foam.CLASS({
         return this.E().addClass(self.myClass('view')).add(e).enableClass('error', errorSlot.and(colorSlot));
       });
 
-      if ( prop.optionalBorder ) {
-        this.optionalPropertyState$.follow(this.data$.dot(prop.name).map(v =>  {
-          // If viewSlot elemet has focus, do not toggle optional state to prevent focus loss
-          let viewEl = viewSlot.get()?.el_();
-          if ( document.activeElement && viewEl?.contains(document.activeElement) ) {
-            let setValue = () => {
-              this.optionalPropertyState = v;
-            };
-            viewEl.removeEventListener('focusout', setValue);
-            viewEl.addEventListener('focusout', setValue, { once: true });
-            return this.optionalPropertyState;
-          }
-          return v;
-        }));
-      }
 
       this.layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot);
     }
@@ -283,34 +270,36 @@ foam.CLASS({
       justify-content: space-between;
       gap: 0.8rem;
     }
+    ^labels {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2lh;
+    }
   `,
 
   methods: [
     function layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot) {
       var self = this;
 
+      var hasLabelContent = this.slot(function(prop$label, prop$supportingLabel, prop$reserveLabelSpace) {
+        return !! (prop$label || prop$supportingLabel || prop$reserveLabelSpace);
+      });
+
       this.
         addClass().
         show(visibilitySlot).
         start().
           addClass(this.myClass('labelHolder')).
+          show(hasLabelContent).
           start().
-          add(labelSlot).
-          add(supportingLabelSlot).
+          addClass(this.myClass('labels')).
+          add(labelSlot.map(v => v.addClass(this.myClass('label'), 'p-light'))).
+          add(supportingLabelSlot.map(v => v.addClass(this.myClass('supportingLabel'), 'p-legal'))).
           end().
-          callIf(prop.optionalBorder, function() {
-            this.start().
-              startContext({ data: self }).
-              addClass(self.myClass('optionalHolder')).
-              add(self.OPTIONAL_PROPERTY_STATE).
-              endContext().
-            end();
-          }).
         end().
         start().
           addClass(this.myClass('propHolder')).
           start('span').
-            show(self.optionalPropertyState$).
             addClass(this.myClass('propHolderInner')).
             call(this.layoutView, [self, prop, viewSlot]).
           end().
@@ -353,7 +342,7 @@ foam.CLASS({
           this
             .start(self.ExpandableBorder, { expanded$: self.helpEnabled$, title: self.HELP })
               .style({ 'flex-basis': '100%', width: '100%' })
-              .start('p').add(prop.help).end()
+              .start().addClass('p').add(prop.help).end()
             .end();
         });
     }

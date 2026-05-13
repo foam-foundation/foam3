@@ -21,13 +21,10 @@ foam.CLASS({
   ],
 
   javaCode: `
-    protected Parser        parser   = ExprParser.instance();
-    protected StringPStream stringps = new StringPStream();
+    protected Parser parser = ExprParser.instance();
 
     public FObject parseString(String data, Class defaultClass) {
-      StringPStream ps = stringps;
-
-      ps.setString(data);
+      StringPStream ps = new StringPStream(data);
       ParserContext x = new ParserContextImpl();
       x.set("X", getX());
       try {
@@ -39,8 +36,7 @@ foam.CLASS({
     }
 
     public Object[] parseStringForArray(String data, Class defaultClass) {
-      StringPStream ps = stringps;
-      ps.setString(data);
+      StringPStream ps = new StringPStream(data);
       ParserContext x = new ParserContextImpl();
       x.set("X", getX());
 

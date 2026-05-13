@@ -125,6 +125,10 @@ public abstract class AbstractFObjectFormatter
     return propertyMap_.get(of);
   }
 
+  public PropertyPredicate getPropertyPredicate() {
+    return propertyPredicate_;
+  }
+
   public void setPropertyPredicate(PropertyPredicate p) {
     propertyPredicate_ = p;
     propertyMap_.clear();

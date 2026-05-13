@@ -67,7 +67,7 @@ foam.CLASS({
     },
 
     function drain() {
-      if ( this.count_ == 0 ) return Promise.resolve();
+      if ( this.count_ <= 0 ) return Promise.resolve();
       return this.drainLatch_ = this.Latch.create();
     }
   ],

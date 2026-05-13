@@ -3,3 +3,4 @@ p({"class":"foam.lib.json.PropertyReferenceParserTest","id":"PropertyReferencePa
 p({"class":"foam.lib.json.StringToStringArrayParserTest","id":"StringToStringArrayParserTest","description":"Tests string data to string array parser"})
 p({"class":"foam.lib.json.RawMapParserTest","id":"RawMapParserTest","description":"Tests raw map parser"})
 p({"class":"foam.lib.json.UnknownFObjectParserTest","id":"UnknownFObjectParserTest","description":"Tests unknown fobject parser"})
+p({"class":"foam.lib.json.JSONParserReentrancyTest","id":"JSONParserReentrancyTest","description":"Tests JSONParser reentrant safety with independent StringPStream per parseString call"})

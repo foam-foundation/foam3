@@ -69,11 +69,12 @@ foam.CLASS({
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO',
       tableCellFormatter: function(value, obj) {
-        this.__subSubContext__.userDAO.find(value).then(function(user) {
+        this.add(value);
+        if ( value ) this.__subSubContext__.userDAO.find(value).then(user => {
           if ( user ) {
-            this.add(user.legalName);
+            this.add(' - ', user.legalName);
           }
-        }.bind(this));
+        });
       }
     },
     {
@@ -83,11 +84,12 @@ foam.CLASS({
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO',
       tableCellFormatter: function(value, obj) {
-        this.__subSubContext__.userDAO.find(value).then(function(user) {
+        this.add(value);
+        if ( value ) this.__subSubContext__.userDAO.find(value).then(user => {
           if ( user ) {
-            this.add(user.legalName);
+            this.add(' - ', user.legalName);
           }
-        }.bind(this));
+        });
       }
     },
     {

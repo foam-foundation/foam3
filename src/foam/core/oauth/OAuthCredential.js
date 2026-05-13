@@ -2,6 +2,11 @@ foam.CLASS({
   package: 'foam.core.oauth',
   name: 'OAuthCredential',
   ids: ["provider", "user", "remoteSubject"],
+
+  javaImports: [
+    'foam.util.SafetyUtil',
+    'java.time.Instant'
+  ],
   properties: [
     {
       class: 'Reference',
@@ -26,6 +31,16 @@ foam.CLASS({
       name: 'scopes'
     },
     {
+      class: 'DateTime',
+      name: 'expiresAt',
+      documentation: 'Expiration time of the access token, as returned by the OAuth provider'
+    },
+    {
+      class: 'String',
+      name: 'sessionId',
+      documentation: 'Session ID associated with the OAuth token'
+    },
+    {
       class: 'String',
       name: 'remoteSubject',
       documentation: 'Remote account identifier (e.g., OpenID Connect sub).'
@@ -43,8 +58,23 @@ foam.CLASS({
       args: [ { name: 'x', type: 'Context' } ],
       javaCode: `
         var provider = findProvider(x);
-        String newAccessToken = provider.refreshAccessToken(x, getRefreshToken());
-        setAccessToken(newAccessToken);
+        provider.refreshAccessToken(x, this);
+      `
+    },
+    {
+      name: 'checkAndRefresh',
+      type: 'String',
+      documentation: 'Returns the access token, proactively refreshing if within 5 minutes of expiration',
+      args: 'Context x',
+      javaCode: `
+        if ( getExpiresAt() != null && ! SafetyUtil.isEmpty(getRefreshToken()) ) {
+          Instant expiresAt = getExpiresAt().toInstant();
+          Instant fiveMinutesFromNow = Instant.now().plusSeconds(300);
+          if ( expiresAt.isBefore(fiveMinutesFromNow) )
+            refreshAuth(x);
+        }
+
+        return getAccessToken();
       `
     }
   ]

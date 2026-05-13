@@ -15,7 +15,16 @@ foam.CLASS({
 
   imports: ['theme?'],
 
-  messages: [{ name: 'CANCEL_LABEL', message: 'Cancel' }],
+  css: `
+    ^lowerPadding {
+      padding-bottom: 0;
+    }
+  `,
+
+  messages: [
+    { name: 'CONFIRM_LABEL', message: 'Confirm' },
+    { name: 'CANCEL_LABEL', message: 'Cancel' }
+  ],
 
   properties: [
     {
@@ -39,9 +48,9 @@ foam.CLASS({
     function addActions(self) {
       var actions = this.startContext({ data: self });
       if ( self.showCancel ) {
-        actions.tag(self.CANCEL, { label: self.secondaryAction ? self.secondaryAction.label : self.CANCEL_LABEL });
+        actions.tag(self.CANCEL, { label: self.secondaryAction?.label || self.CANCEL_LABEL });
       }
-      actions.tag(self.CONFIRM, { label: self.primaryAction.label, isDestructive: self.modalStyle == 'DESTRUCTIVE' });
+      actions.tag(self.CONFIRM, { label: self.primaryAction?.label || self.CONFIRM_LABEL, isDestructive: self.modalStyle == 'DESTRUCTIVE' });
       return actions.endContext();
     }
   ],
@@ -51,16 +60,32 @@ foam.CLASS({
       name: 'confirm',
       buttonStyle: 'PRIMARY',
       code: async function(X) {
-        await this.primaryAction && this.primaryAction.maybeCall(X, this.data);
-        X.closeDialog();
+        if ( ! this.primaryAction ) {
+          X.closeDialog();
+          return;
+        }
+
+        var self = this;
+        return await this.primaryAction.maybeCall(X, this.data).then((result) => {
+          self.data = result;
+          X.closeDialog();
+        });
       }
     },
     {
       name: 'cancel',
       buttonStyle: 'TERTIARY',
-      code: function(X) {
-        this.secondaryAction && this.secondaryAction.maybeCall(X, this.data);
-        X.closeDialog();
+      code: async function(X) {
+        if ( ! this.secondaryAction ) {
+          X.closeDialog();
+          return;
+        }
+
+        var self = this;
+        return await this.secondaryAction?.maybeCall(X, this.data).then((result) => {
+          self.data = result;
+          X.closeDialog();
+        })
       }
     }
   ]

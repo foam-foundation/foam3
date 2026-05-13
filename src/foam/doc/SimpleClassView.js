@@ -77,7 +77,8 @@ foam.CLASS({
         end().
         callIf(this.showUML, function() {
           this.start().
-            tag({class: 'foam.doc.UMLDiagram', data: cls}).
+            tag({class: 'foam.doc.ModelDiagramView', data: cls}).
+            br().
           end();
         }).
         callIf(model.documentation, function() {
@@ -165,11 +166,11 @@ foam.CLASS({
           start(self.AxiomListView, {
             of:      of,
             modelId: id,
-            titleFn: () => {
-              return self.E('h4').
+            titleFn: function() {
+              this.start('h4').
                 add(plural + ' inherited from ').
                 tag(self.ClassLink, { data: id });
-            },
+            }
           }).
           end();
       });

@@ -11,21 +11,22 @@ foam.CLASS({
   flags: ['java'],
 
   javaImports: [
-    'foam.lang.*',
-    'foam.dao.DAO',
-    'foam.lib.csv.CSVOutputter',
-    'foam.lib.json.OutputterMode',
     'foam.core.boot.CSpec',
     'foam.core.dig.*',
     'foam.core.dig.exception.*',
     'foam.core.http.*',
     'foam.core.logger.Logger',
     'foam.core.logger.PrefixLogger',
+    'foam.dao.DAO',
+    'foam.lang.*',
+    'foam.lib.PropertyPredicate',
+    'foam.lib.csv.CSVOutputter',
+    'foam.lib.json.OutputterMode',
     'foam.util.SafetyUtil',
+    'jakarta.servlet.http.HttpServletResponse',
     'java.io.PrintWriter',
     'java.io.StringReader',
     'java.util.List',
-    'jakarta.servlet.http.HttpServletResponse',
     'javax.xml.stream.XMLInputFactory',
     'javax.xml.stream.XMLStreamReader'
   ],
@@ -73,15 +74,30 @@ foam.CLASS({
 
       resp.setContentType("application/xml");
 
-      foam.lib.xml.Outputter outputterXml = new foam.lib.xml.Outputter(OutputterMode.NETWORK);
-      outputterXml.output(fobjects.toArray());
+      foam.lib.xml.Outputter outputterXml = new foam.lib.xml.Outputter(x, out, OutputterMode.NETWORK);
+
+      if ( cols != null && cols.length > 0 ) {
+        outputterXml.setPropertyPredicate(new PropertyPredicate() {
+          public boolean propertyPredicateCheck(X x, String of, PropertyInfo prop) {
+            // Doesn't need to be efficient because it is cached
+            for ( int i = 0 ; i < cols.length ; i++ ) {
+              if ( prop.getName().equals(cols[i]) ) return true;
+            }
+            return false;
+          }
+        });
+      }
+
 
       String simpleName = cInfo.getSimpleName();
-      // String header  = "<?xml version=\\"1.0\\" encoding=\\"ISO-8859-1\\"?>;
-      String output     = "<" + simpleName + "s>"+ outputterXml.toString() + "</" + simpleName + "s>";
 
-      // Output the formatted data
-      out.println(output);
+      // String header  = "<?xml version=\\"1.0\\" encoding=\\"ISO-8859-1\\"?>;
+
+      out.println("<" + simpleName + "s>");
+      for ( Object o : fobjects ) {
+        outputterXml.output(o);
+      }
+      out.println("</" + simpleName + "s>");
       `
     }
   ]

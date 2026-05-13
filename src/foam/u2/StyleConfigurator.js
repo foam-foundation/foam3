@@ -27,14 +27,12 @@ foam.CLASS({
       class: 'String',
       name: 'padding_st',
       label: 'Padding',
-      optionalBorder: true,
       reactive: false
     },
     {
       class: 'String',
       name: 'background_st',
       label: 'Background',
-      optionalBorder: true,
       onKey: true,
       view: function(_, X) {
         var data = X.data;
@@ -50,7 +48,6 @@ foam.CLASS({
       class: 'String',
       name: 'border_st',
       label: 'Border',
-      optionalBorder: true,
       onKey: true,
       view: function(_, X) {
         var data = X.data;
@@ -66,21 +63,18 @@ foam.CLASS({
       class: 'String',
       name: 'borderRadius_st',
       label: 'Border Radius',
-      optionalBorder: true,
       reactive: false
     },
     {
       class: 'String',
       name: 'boxShadow_st',
       label: 'Box Shadow',
-      optionalBorder: true,
       reactive: false
     },
     {
       class: 'String',
       name: 'extraCSS_st',
       label: 'Extra CSS',
-      optionalBorder: true,
       reactive: false,
       view: 'foam.u2.tag.TextArea',
       documentation: 'Will override the above properties'

@@ -15,8 +15,8 @@ p({
       .setJournalName("tests")
       .setDecorator(new foam.core.script.ScriptRunnerDAO(new foam.dao.NullDAO(x, foam.core.test.Test.getOwnClassInfo())))
       .setOrder(new foam.mlang.order.Comparator[] {
-        new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.script.Script.ENABLED).build(),
-        new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.script.Script.LAST_RUN).build()
+        new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.script.Script.LAST_RUN).build(),
+        new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.script.Script.ENABLED).build()
       })
       .build();
   """,
@@ -36,9 +36,6 @@ p({
       .setOf(foam.core.script.ScriptEvent.getOwnClassInfo())
       .setMdao(mdao)
       .setGuid(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("testEvents")
-      .setWriteOnly(true)
       .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
         .setComparator(foam.mlang.MLang.DESC(foam.core.script.ScriptEvent.LAST_RUN))
         .setSize(10000)

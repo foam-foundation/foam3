@@ -1,0 +1,5 @@
+p({
+  class:"foam.dao.compaction.test.CompactionDAOTest",
+  id:"CompactionDAOTest",
+  description:"Tests CompactionDAO roll and compaction of journal files"
+})

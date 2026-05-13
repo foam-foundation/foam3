@@ -7,6 +7,7 @@
 foam.POM({
   name: "test",
   files: [
-    { name: "SecurityAuditTest",                   flags: "js|java" }
+    { name: "SecurityAuditTest",                   flags: "js|java" },
+    { name: "KeyStoreAwareTest",                   flags: "js|java" }
   ]
 });

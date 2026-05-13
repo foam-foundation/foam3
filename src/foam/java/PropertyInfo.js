@@ -174,6 +174,7 @@ foam.CLASS({
       factory: function() { return this.property.sheetsOutput; },
       documentation: 'The sheetsOutput specifies if property shoud be written to Google Sheet on import. eg on Transaction import in case there is Status column transaction\'s status will be written there'
     },
+    { name: 'propOrder',           factory: function() { return this.property.order; } },
     {
       name: 'methods',
       factory: function() {
@@ -574,6 +575,12 @@ foam.CLASS({
             body: this.formatJSON + ';'
           });
         }
+        m.push({
+          name: 'getOrder',
+          visibility: 'public',
+          type: 'int',
+          body: 'return ' + ( this.propOrder || '0') + ';'
+        });
 
         return m;
       }

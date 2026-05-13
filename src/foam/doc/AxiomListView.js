@@ -74,7 +74,7 @@ foam.CLASS({
       dao.select(this.COUNT()).then(c => {
         if ( ! c.value ) return;
 
-        if ( titleFn ) this.add(titleFn());
+        if ( titleFn ) titleFn.call(this);
 
         this.start('code').
           addClass('commaseparated').

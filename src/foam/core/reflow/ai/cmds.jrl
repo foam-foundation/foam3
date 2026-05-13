@@ -1,0 +1,48 @@
+p({
+  "class":"foam.core.reflow.ai.LLMCommand",
+  "id": "ai",
+  "permissionRequired": true,
+  "description": "Issue a direct LLM query."
+})
+p({
+  "class":"foam.core.reflow.ai.AgentCommand",
+  "id": "agent",
+  "dryRun": false,
+  "permissionRequired": true,
+  "description": "Issue a request to an LLM agent to execute FLOW commands."
+})
+p({
+   "class":"foam.core.reflow.ai.AgentCommand",
+   "id": "!",
+   "permissionRequired": true,
+   "dryRun": false,
+   "description": "Issue a request to an LLM agent to execute FLOW commands."
+})
+p({
+   "class":"foam.core.reflow.ai.AgentCommand",
+   "id": "?",
+   "permissionRequired": true,
+   "dryRun": true,
+   "description": "Issue a request to an LLM agent to execute FLOW commands."
+})
+p({
+  "class":"foam.core.reflow.ai.AgentCommand",
+  "id": "plan",
+  "dryRun": true,
+  "permissionRequired": true,
+  "description": "Issue a request to an LLM agent to plan FLOW commands."
+})
+p({
+  "class":"foam.core.reflow.ai.AskCommand",
+  "id": "ask",
+  "permissionRequired": true,
+  "description": "Allow LLMs to ask questions and get responses.",
+  "hidden": true
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "propose",
+  "permissionRequired": true,
+  "description": "Propose a command for execution",
+  "script": "addValue(foam.core.reflow.ai.Propose.create({command: args.join(' ')}, this));"
+})

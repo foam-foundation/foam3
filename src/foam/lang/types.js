@@ -14,7 +14,7 @@ foam.CLASS({
     [ 'value', 0 ],
     'min',
     'max',
-    [ 'type', 'Integer' ],
+    ['formatValue', true],
     [ 'adapt', function adaptInt(_, v) {
       return typeof v === 'number' ? Math.trunc(v) :
         v ? parseInt(v) :
@@ -61,7 +61,6 @@ foam.CLASS({
       }
     },
     [ 'normalize', function(value, p) { return p.trim ? value.trim() : value; } ],
-    [ 'type', 'String' ],
     [ 'value', '' ]
   ]
 });
@@ -224,7 +223,6 @@ foam.CLASS({
         return d;
       }
     },
-    [ 'type', 'Date' ],
     {
       name: 'comparePropertyValues',
       value: function(o1, o2) {
@@ -253,7 +251,6 @@ foam.CLASS({
   label: 'Date and time',
 
   properties: [
-    [ 'type', 'DateTime' ],
     {
       name: 'adapt',
       value: function (_, d) {
@@ -346,7 +343,6 @@ foam.CLASS({
   label: 'Time',
 
   properties: [
-//    [ 'type', 'time' ]
   ]
 });
 
@@ -360,7 +356,6 @@ foam.CLASS({
   label: 'Round byte numbers',
 
   properties: [
-    [ 'type', 'Byte' ],
     [ 'min', -128 ],
     [ 'max', 127 ]
   ]
@@ -376,7 +371,6 @@ foam.CLASS({
   label: 'Round short numbers',
 
   properties: [
-    [ 'type', 'Short' ],
     [ 'min', -32768 ],
     [ 'max', 32767 ]
   ]
@@ -392,7 +386,6 @@ foam.CLASS({
   label: 'Round long numbers',
 
   properties: [
-    [ 'type', 'Long' ]
   ]
 });
 
@@ -413,7 +406,6 @@ foam.CLASS({
         return typeof v === 'number' ? v : v ? parseFloat(v) : 0.0 ;
       }
     ],
-    [ 'type', 'Float' ],
     [ 'fromString', function floatFromString(str) {
       return parseFloat(str);
     }]
@@ -429,7 +421,6 @@ foam.CLASS({
   name: 'Double',
   extends: 'Float',
   properties: [
-    [ 'type', 'Double' ]
   ]
 });
 
@@ -473,7 +464,6 @@ foam.CLASS({
   extends: 'Property',
   documentation: '',
   properties: [
-    [ 'type', 'Any' ]
   ]
 });
 
@@ -491,8 +481,7 @@ foam.CLASS({
     [
       'isDefaultValue',
       function(v) { return ! v || ! v.length; }
-    ],
-    [ 'type', 'Any[]' ]
+    ]
   ],
 
   methods: [
@@ -565,7 +554,6 @@ foam.CLASS({
   name: 'List',
   extends: 'foam.lang.Object',
   properties: [
-    [ 'type', 'List' ],
     [
       'factory',
       function() { return []; }
@@ -592,7 +580,6 @@ foam.CLASS({
       'isDefaultValue',
       function(v) { return ! v || ! v.length; }
     ],
-    [ 'type', 'String[]' ],
     [
       'factory',
       function() { return []; }
@@ -652,7 +639,6 @@ foam.CLASS({
       name: 'of',
       value: 'Int'
     },
-    [ 'type', 'int[]' ],
     [
       'factory',
       function() { return []; }
@@ -720,7 +706,6 @@ foam.CLASS({
         return v;
       }
     ],
-    [ 'type', 'Class' ],
     [ 'displayWidth', 80 ],
     [ 'cloneProperty', function(value, cloneMap, _, obj) {
         cloneMap[this.name] = obj.instance_[this.name];
@@ -909,6 +894,52 @@ foam.CLASS({
       `
     },
     {
+      class: 'Boolean',
+      name: 'hideId',
+      documentation: `
+        If true, the unit id will be excluded when formatting the value by default.
+        NOTE: This only affects formatting when using the unitPropValueToString method using the default view and tableCellFormatter.
+      `
+    },
+    {
+      name: 'unitPropValueToString',
+      value: async function(x, val, unitPropName, excludeUnit) {
+        if ( unitPropName ) {
+          const unitProp = await x.currencyDAO.find(unitPropName);
+          if ( unitProp )
+            return unitProp.format(unitProp.floatAmount(val), excludeUnit, false);
+        }
+        return val;
+      }
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'DoubleUnitValue',
+  extends: 'Double',
+  documentation: `
+    A Double value with an associated unit property for formatting.
+  `,
+  properties: [
+    {
+      class: 'String',
+      name: 'unitPropName',
+      documentation: `
+        The name of the property of a model that contains the denomination String.
+      `
+    },
+    {
+      class: 'Boolean',
+      name: 'hideId',
+      documentation: `
+        If true, the unit id will be excluded when formatting the value by default.
+        NOTE: This only affects formatting when using the unitPropValueToString method using the default view and tableCellFormatter.
+      `,
+      value: true
+    },
+    {
       name: 'unitPropValueToString',
       value: async function(x, val, unitPropName, excludeUnit) {
         if ( unitPropName ) {
@@ -970,8 +1001,7 @@ foam.CLASS({
       function(o1, o2) {
         // TODO
       }
-    ],
-    [ 'type', 'Map' ]
+    ]
   ],
 
   methods: [
@@ -1017,15 +1047,9 @@ foam.CLASS({
       value: 'foam.lang.FObject'
     },
     {
-      name: 'type',
-      factory: function() {
-        return this.of.id;
-      }
-    },
-    {
       name: 'fromJSON',
       value: function(json, ctx, prop) {
-        return foam.json.parse(json, foam.lookup(prop.type), ctx);
+        return foam.json.parse(json, prop.type ? foam.lookup(prop.type) : prop.of, ctx);
       }
     },
     {
@@ -1034,7 +1058,7 @@ foam.CLASS({
         // All FObjects may be null.
         if ( v === null ) return v;
 
-        var type = foam.lookup(prop.type);
+        var type = prop.of;
 
         // Example: type = Predicate and v=foam.mlang.predicate.True
         if ( type.isSubClass(v) ) {
@@ -1112,13 +1136,13 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'Reference',
   extends: 'Property',
+  imports: ['setTimeout'],
 
   properties: [
     {
       class: 'Class',
       name: 'of'
     },
-    [ 'type', 'Any' ],
     {
       class: 'String',
       name: 'targetDAOKey',
@@ -1166,6 +1190,17 @@ foam.CLASS({
         let of = (prop || this).of;
         if ( of ) {
           if ( of.isInstance(newValue) ) return newValue.id;
+
+          // RefSummary map shape: { id, summary } — cache summary, return id
+          // RefSummary is used by projection to provide the summary for the reference
+          // along with the id to avoid multiple network calls to the a DAO such as when loading
+          // a model on a table with a reference column
+          if ( newValue && ! foam.lang.FObject.isInstance(newValue) &&
+               typeof newValue === 'object' && newValue.id !== undefined ) {
+            if ( newValue.summary != undefined )
+              this[`${prop.name}$summary_`] = newValue.summary;
+            return newValue.id;
+          }
           if ( foam.lang.MultiPartID.isInstance(of.ID) ) return newValue;
           if ( ! of.ID ) {
             return newValue;
@@ -1224,6 +1259,32 @@ foam.CLASS({
         },
         configurable: true
       });
+
+      Object.defineProperty(proto, self.name + '$summary_', {
+        get: function() {
+          return this.getPrivate_(`${self.name}$summary_`) || '';
+        },
+        set: function(value) {
+          this.setPrivate_(`${self.name}$summary_`, value);
+          // After 1s, clear the summary to avoid stale summaries
+          // 1s is plenty of time in computer cycles that helps us
+          // avoid multiple network calls to the same dao only to fetch summary
+          if ( value !== undefined )
+            self.setTimeout(() => {
+              this[`${self.name}$summary_`] = undefined;
+            }, 1000);
+        },
+        configurable: true
+      });
+
+      Object.defineProperty(proto, self.name + '$summary', {
+        get: async function() {
+          if ( this[`${self.name}$summary_`] ) return this[`${self.name}$summary_`];
+          let temp = await this[`${self.name}$find`];
+          return (await temp?.toSummary()) || '';
+        },
+        configurable: true
+      });
     }
   ]
 });
@@ -1261,15 +1322,21 @@ foam.CLASS({
       }
     },
     {
-      class: 'I18NString',
       name: 'supportingLabel',
       documentation: `A supporting label for the property. Useful when the label is not enough to describe the property to end users.
       Different from help in that this is a short description of the property that is typically always visible, not a detailed explanation.
       Similar to Supporting Text in Material Design: https://m3.material.io/components/text-fields/guidelines#6aeaf1ef-d864-455d-9758-d0a0a6c0269e.
       See foam.u2.PropertyBorder for implementation.
 
-      String for now, can be upgraded to allow a formatter like label does in the future.
-      `
+      Can be set to a string (auto-wrapped into a formatter) or a function(data, prop)
+      for reactive/dynamic supporting labels. Default is null (no supporting label).
+      `,
+      adapt: function(_, nu) {
+        if ( foam.String.isInstance(nu) ) {
+          return function() { this.add(nu); };
+        }
+        return nu;
+      }
     },
     { class: 'String', name: 'shortName' }
   ]
@@ -1331,11 +1398,12 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.lang',
   name: 'GlyphProperty',
-  extends: 'FObjectProperty',
+  extends: 'foam.lang.FObjectProperty',
 
   requires: [ 'foam.lang.Glyph' ],
 
   properties: [
+    ['of', 'foam.lang.Glyph'],
     [ 'value', null ],
     {
       name: 'adapt',
@@ -1366,7 +1434,6 @@ foam.CLASS({
         return a ? a.toString().trim() : '';
       }
     },
-    [ 'type', 'String' ],
     [ 'value', '' ]
   ]
 });
@@ -1384,7 +1451,6 @@ foam.CLASS({
       name: 'of',
       value: 'foam.lang.Currency'
     },
-    [ 'type', 'String' ],
     {
       class: 'String',
       name: 'targetDAOKey',
@@ -1398,8 +1464,22 @@ foam.CLASS({
       }
     },
     {
+      name: 'initObject',
+      value: async function(obj) {
+        var value = this.f(obj);
+        // Skip normalization for empty/default values — the value will be
+        // set later by mappings or other code. Without this guard, the async
+        // DAO lookup races with synchronous property setters: initObject
+        // reads the empty default, starts an async query, then overwrites
+        // the already-set value when the query resolves.
+        if ( ! value ) return;
+        let c = await this.normalize(value, this, obj);
+        this.set(obj, c);
+      }
+    },
+    {
       name: 'normalize',
-      value: async function(value, prop) {
+      value: async function(value, prop, obj) {
         /**
          * If the currencyCode is entered as a numeric code rather than string code, then adapt to the string code
          * so that all currency codes are in the same format.
@@ -1408,7 +1488,7 @@ foam.CLASS({
          **/
         if ( foam.String.isInstance(value) && Number.isNaN(Number(value)) ) return value;
 
-        var currency = await this.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
+        var currency = await obj.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
 
         if ( currency ) {
           return currency.id;
@@ -1419,3 +1499,139 @@ foam.CLASS({
     }
   ]
 })
+
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'CountryCode',
+  extends: 'Reference',
+  implements: [ 'foam.mlang.Expressions' ],
+
+  properties: [
+    {
+      class: 'Class',
+      name: 'of',
+      value: 'foam.core.auth.Country'
+    },
+    [ 'type', 'String' ],
+    {
+      class: 'String',
+      name: 'targetDAOKey',
+      value: 'countryDAO'
+    },
+    {
+      name: 'adapt',
+      value: function(_, n) {
+        if ( foam.core.auth.Country.isInstance(n) ) return n.code || n.id;
+        if ( ! foam.String.isInstance(n) ) return n;
+
+        let v = n.trim();
+        if ( ! v ) return v;
+
+        // Normalize numeric variants for ISO 3166-1 numeric lookup (e.g. "36" => "036").
+        if ( /^\d+$/.test(v) ) return v.padStart(3, '0');
+
+        return v.toUpperCase();
+      }
+    },
+    {
+      name: 'javaAdapt',
+      value: `
+        if ( val == null ) return;
+        String s = foam.util.SafetyUtil.trim(val);
+        if ( foam.util.SafetyUtil.isEmpty(s) ) {
+          val = "";
+          return;
+        }
+        if ( s.matches("\\\\d+") ) {
+          while ( s.length() < 3 ) s = "0" + s;
+          val = s;
+          return;
+        }
+        val = s.toUpperCase();
+      `
+    },
+    {
+      name: 'initObject',
+      value: async function(obj) {
+        let c = await this.normalize(this.f(obj), this, obj);
+        this.set(obj, c);
+      }
+    },
+    {
+      name: 'normalize',
+      value: async function(value, prop, obj) {
+        if ( ! foam.String.isInstance(value) ) return value;
+
+        var v = value.trim();
+        if ( ! v ) return v;
+        v = /^\d+$/.test(v) ? v.padStart(3, '0') : v.toUpperCase();
+
+        var dao = obj && obj.__context__ && obj.__context__[prop.targetDAOKey];
+        if ( ! dao ) return v;
+        var Country = foam.core.auth.Country;
+        var iso3Prop = Country.ISO31661CODE || Country.ISO31661_CODE;
+        var isoNumProp = Country.ISONUMERIC || Country.ISO_NUMERIC;
+
+        // alpha-2 id (Country.code)
+        if ( /^[A-Z]{2}$/.test(v) ) return v;
+
+        // alpha-3 ISO 3166-1 -> normalize to alpha-2 Country.code
+        if ( /^[A-Z]{3}$/.test(v) ) {
+          var c3 = iso3Prop ? await dao.find(prop.EQ(iso3Prop, v)) : null;
+          return c3 ? c3.code : v;
+        }
+
+        // numeric ISO 3166-1 -> normalize to alpha-2 Country.code
+        if ( /^\\d{3}$/.test(v) ) {
+          var cn = isoNumProp ? await dao.find(prop.EQ(isoNumProp, v)) : null;
+          return cn ? cn.code : v;
+        }
+
+        return v;
+      }
+    }
+  ]
+})
+
+foam.CLASS({
+  package: 'foam.lang',
+  name: 'TimeUnitValue',
+  extends: 'Int',
+  properties: [
+    {
+      class: 'String',
+      name: 'unitPropName',
+    },
+    {
+      name: 'unitPropValueToString',
+      value: async function(x, val, unitProp) {
+        if ( unitProp && foam.time.TimeUnit.isInstance(unitProp) ) {
+          return `${val} ${unitProp.plural}`;
+        }
+        return val;
+      }
+    }
+  ],
+
+  methods: [
+    function installInClass(cls) {
+      if ( ! this.unitPropName ) return;
+
+      this.SUPER(cls);
+
+      var name = this.name;
+      var Name = foam.String.capitalize(name);
+
+      var unitPropName = this.unitPropName;
+      var UnitPropName = foam.String.capitalize(unitPropName);
+
+      cls.installAxiom(foam.lang.Method.create({
+        name: `get${Name}Ms`,
+        type: 'Long',
+        code: function() { return this[name] * this[unitPropName].conversionFactorMs; },
+        javaCode: `return get${Name}() * get${UnitPropName}().getConversionFactorMs();`
+      }));
+    }
+  ]
+});

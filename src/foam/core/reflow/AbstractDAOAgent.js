@@ -231,16 +231,27 @@ foam.CLASS({
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
       }
+    },
+    {
+      class: 'Int',
+      name: 'precision',
+      value: -1,
+      help: 'Number of decimal places for numeric results. -1 means no rounding.'
     }
   ],
 
   methods: [
     function value(s) { return s; },
-    function createSink() { return this.MIN(this.prop); },
+    function createSink() {
+      var sink = this.MIN(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    },
     function addToE(e) {
       e.startContext({data: this}).start().
         style({display: 'flex'}).
-        add(this.PROP);
+        add(this.PROP).
+        add(this.PRECISION.__);
     }
   ]
 });
@@ -251,7 +262,11 @@ foam.CLASS({
   name: 'MaxDAOAgent',
   extends: 'foam.core.reflow.MinDAOAgent',
   methods: [
-    function createSink() { return this.MAX(this.prop); }
+    function createSink() {
+      var sink = this.MAX(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    }
   ]
 });
 
@@ -278,7 +293,11 @@ foam.CLASS({
   ],
 
   methods: [
-    function createSink() { return this.AVG(this.prop); }
+    function createSink() {
+      var sink = this.AVG(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    }
   ]
 });
 
@@ -288,7 +307,11 @@ foam.CLASS({
   name: 'SumDAOAgent',
   extends: 'foam.core.reflow.AvgDAOAgent',
   methods: [
-    function createSink() { return this.SUM(this.prop); }
+    function createSink() {
+      var sink = this.SUM(this.prop);
+      sink.precision = this.precision;
+      return sink;
+    }
   ]
 });
 
@@ -299,6 +322,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.AbstractDAOAgent',
 
   requires: [
+    'foam.u2.memento.Memento',
     'foam.comics.v2.DAOControllerConfig',
     'foam.u2.table.TableView'
   ],
@@ -329,12 +353,28 @@ foam.CLASS({
           allowClearingSelection: true
         };
       }
+    },
+    {
+      name: 'tableEl',
+      transient: true
     }
   ],
 
   methods: [
+    // Temporary code needed to reset tableEl on saved flows
+    function init() {
+      this.tableEl = undefined;
+    },
     function execute(e) {
+      // TODO: prevent table updates when block is hidden
       var self = this;
+      // Tables already listen to underlying daos and are completely reactive by themselves as
+      // opposed to other sinks, this means rendering the tables twice is just causing unecessary flickering that we can
+      // avoid by returning the same table back
+      if ( this.tableEl ) {
+        this.tableEl.moveTo(e);
+        return;
+      }
 
       this.columns$.follow(this.block.value.columns$.map(
         c => c.trim().split(',').map(c => c.trim()).filter(c => c)
@@ -363,9 +403,11 @@ foam.CLASS({
         config.multiSelectEnabled = true;
         config.selectedObjects$ = this.selectedObjects$;
       }
-
-      e.startContext({click: self.click, columnStorage: this.columnStorage}).
-        callIf(config.multiSelectEnabled, function() {
+      this.tableEl = foam.u2.WrapperNode.create({}, this);
+      e.add(this.tableEl);
+      this.tableEl
+      .startContext({click: self.click, columnStorage: this.columnStorage})
+        .callIf(config.multiSelectEnabled, function() {
           this.startContext({data: self})
             .start()
               .show(self.selectedObjects$.map(o => Object.keys(o).length > 0 ))
@@ -377,10 +419,15 @@ foam.CLASS({
               .add(multiSelectActions)
             .end()
           .endContext();
-          }).
-        start(self.TableView, config).
-          style({height: '600px'});
-
+        })
+        // Remove memento linking for this table so it doesnt conflict with 
+        // other tables in the flow
+        .startContext({ memento_: this.Memento.create({obj: this}, this) })
+          .start(self.TableView, config)
+            .style({height: '600px'})
+          .end()
+        .endContext()
+      .endContext();
     },
     function addToE(e) {
       var self = this;
@@ -728,6 +775,13 @@ foam.CLASS({
         choice: 'foam.core.reflow.CountDAOAgent',
         disabledTypes: [ 'structure', 'format' ]
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'stickyHeaders',
+      label: 'Freeze Headers',
+      view: { class: 'foam.u2.Switch' },
+      value: true
     }
   ],
 
@@ -740,11 +794,12 @@ foam.CLASS({
       return this.Pivot.create({
         yFunc: xProps,
         xFunc: yProps,
-        acc:   this.sink.createSink()
+        acc:   this.sink.createSink(),
+        stickyHeaders: this.stickyHeaders
       });
     },
     function addToE(e) {
-      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.X_PROPS, this.Y_PROPS, this.SINK);
+      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.X_PROPS, this.Y_PROPS, this.SINK, this.STICKY_HEADERS.__);
     }
   ]
 });
@@ -1010,6 +1065,7 @@ foam.CLASS({
         this.start('a').
           style({ cursor: 'pointer', color: '#0066cc', 'text-decoration': 'underline' }).
           on('click', async function() {
+            self.logDownloadSelection('local', modelName, fmt.format);
             await self.downloadLocal(dao, modelName, fmt);
           }).
           add(fmt.label).
@@ -1048,9 +1104,29 @@ foam.CLASS({
               download: daoKey + fmt.extension,
               target: '_blank'
             }).
+            on('click', () => {
+              this.logDownloadSelection('service', daoKey, fmt.format);
+            }).
             add(fmt.label).
           end();
       });
+    },
+
+    function logDownloadSelection(source, target, format) {
+      try {
+        this.__subContext__.analyticEventDAO?.put(
+          foam.core.analytics.AnalyticEvent.create({
+            name: 'DownloadView:'+JSON.stringify({
+              source: source,
+              target: target,
+              format: format,
+              flowName: this.block?.flowName
+            }),
+            tags: [ 'DIG_DOWNLOAD' ]
+          }, this.__subContext__),
+          this
+        );
+      } catch (e) {}
     },
 
     async function downloadLocal(dao, modelName, format) {

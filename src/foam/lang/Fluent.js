@@ -25,7 +25,7 @@ foam.CLASS({
     */
 
     function call(f, args) {
-      f.apply(this, args);
+      f && f.apply(this, args);
 
       return this;
     },

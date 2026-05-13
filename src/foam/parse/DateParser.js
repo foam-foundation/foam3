@@ -38,10 +38,94 @@ foam.CLASS({
       class: 'Boolean',
       name: 'strictValidation',
       documentation: 'If true, throws errors for invalid dates. If false, logs warnings and returns MAX_DATE.'
+    },
+    {
+      name: 'stringCache_',
+      documentation: 'LRU cache for parseString results. Stores timestamps (Date.getTime()) instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateCache_',
+      documentation: 'LRU cache for parseDateString results. Stores timestamps instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateTimeCache_',
+      documentation: 'LRU cache for parseDateTime results. Stores timestamps instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'dateTimeUtcCache_',
+      documentation: 'LRU cache for parseDateTimeUTC results. Stores timestamps instead of Date objects.',
+      factory: function() { return new Map(); }
+    },
+    {
+      class: 'Int',
+      name: 'maxCacheSize_',
+      value: 10000
     }
   ],
 
   methods: [
+    // ========== Cache Helper Methods ==========
+
+    /**
+     * Build cache key: use str directly when opt_name is null (common case),
+     * otherwise concatenate opt_name:str (rare case).
+     */
+    function buildCacheKey_(str, opt_name) {
+      if ( ! opt_name ) {
+        return str;
+      }
+      return opt_name + ':' + str;
+    },
+
+    function cacheGet_(cache, key) {
+      if ( cache.has(key) ) {
+        var cached = cache.get(key);
+        // LRU: delete and re-add to move to end (most recently used)
+        cache.delete(key);
+        cache.set(key, cached);
+        // Create new Date from cached timestamp
+        return new Date(cached);
+      }
+      return null;
+    },
+
+    function cacheSet_(cache, key, value, maxSize) {
+      // LRU eviction: remove oldest entry if at capacity
+      if ( cache.size >= maxSize ) {
+        var oldestKey = cache.keys().next().value;
+        cache.delete(oldestKey);
+      }
+      // Store timestamp instead of Date object
+      cache.set(key, value.getTime());
+      // Return the original Date
+      return value;
+    },
+
+    /**
+     * Extracts time components from a compact date action's parsed value.
+     * Handles both compact time (HHMMSS) and colon time (HH:MM:SS) variants.
+     * @param {string|Array} v - Parsed value: string (date-only) or array (date + time)
+     * @returns {{ hour: number, minute: number, second: number, tz: string|null }}
+     */
+    function extractTimeFromCompact_(v) {
+      if ( ! Array.isArray(v) || v.length <= 2 ) {
+        return { hour: -1, minute: -1, second: -1, tz: null };
+      }
+      if ( v[3] && v[3] !== ':' ) {
+        // Compact time: [dateStr, sep, HH, MM, SS]
+        return { hour: parseInt(v[2]), minute: parseInt(v[3]), second: parseInt(v[4]), tz: null };
+      }
+      // Colon time: [dateStr, sep, HH, :, MM, optional([:, SS]), ...]
+      var second = -1;
+      if ( v[5] && Array.isArray(v[5]) ) {
+        second = parseInt(v[5][1]);
+      }
+      return { hour: parseInt(v[2]), minute: parseInt(v[4]), second: second, tz: this.extractTimezone(v) };
+    },
+
     function buildDate(mode, year, month, day, hour, minute, second, ms, tz) {
       var offset, utcTime;
       switch ( mode ) {
@@ -129,28 +213,12 @@ foam.CLASS({
     // v = "20250115" OR v = ["20250115", sep, HH, MM, SS] (compact time) OR v = ["20250115", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function yyyymmddcompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(0, 4)),
         parseInt(dateStr.substring(4, 6)) - 1,
         parseInt(dateStr.substring(6, 8)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYYYMMDDHHMMSS compact: 14 digits with time
@@ -193,28 +261,12 @@ foam.CLASS({
     // v = "01152025" OR v = ["01152025", sep, HH, MM, SS] (compact time) OR v = ["01152025", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function mmddyyyycompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(4, 8)),
         parseInt(dateStr.substring(0, 2)) - 1,
         parseInt(dateStr.substring(2, 4)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYMMDD with separators: YY-MM-DD, YY/MM/DD with optional time and timezone
@@ -244,12 +296,14 @@ foam.CLASS({
     // YYMMDD compact: 6 digits "250115"
     // v = "250115"
     function yymmddcompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(0, 2));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(0, 2));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(2, 4)) - 1,
-        parseInt(v.substring(4, 6)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(2, 4)) - 1,
+        parseInt(dateStr.substring(4, 6)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // MMDDYY with separators: MM-DD-YY, MM/DD/YY with optional time
@@ -279,12 +333,14 @@ foam.CLASS({
     // MMDDYY compact: 6 digits "011525"
     // v = "011525"
     function mmddyycompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(4, 6));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(4, 6));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(0, 2)) - 1,
-        parseInt(v.substring(2, 4)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(0, 2)) - 1,
+        parseInt(dateStr.substring(2, 4)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // DDMMYYYY with separators: DD-MM-YYYY, DD/MM/YYYY with optional time
@@ -314,28 +370,12 @@ foam.CLASS({
     // v = "15012025" OR v = ["15012025", sep, HH, MM, SS] (compact time) OR v = ["15012025", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function ddmmyyyycompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(4, 8)),
         parseInt(dateStr.substring(2, 4)) - 1,
         parseInt(dateStr.substring(0, 2)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // DDMMYY with separators: DD-MM-YY, DD/MM/YY with optional time
@@ -362,15 +402,17 @@ foam.CLASS({
         this.extractTimezone(v));
     },
 
-    // DDMMYY compact: 6 digits "150125"
-    // v = "150125"
+    // DDMMYY compact: 6 digits "150125" or "150125 143045" or "150125 14:30:45"
+    // v = "150125" (string) or ["150125", sep, HH, MM, SS] or ["150125", sep, HH, :, MM, ...]
     function ddmmyycompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(4, 6));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(4, 6));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(2, 4)) - 1,
-        parseInt(v.substring(0, 2)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(2, 4)) - 1,
+        parseInt(dateStr.substring(0, 2)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYYYDDMM with separators: YYYY-DD-MM, YYYY/DD/MM with optional time
@@ -400,28 +442,12 @@ foam.CLASS({
     // v = "20251501" OR v = ["20251501", sep, HH, MM, SS] (compact time) OR v = ["20251501", sep, HH, :, MM, optional([:, SS]), optional(timezone)] (time with colons)
     function yyyyddmmcompactAction(v) {
       var dateStr = typeof v === 'string' ? v : v[0];
-      var hour = -1, minute = -1, second = -1, tz = null;
-
-      if ( Array.isArray(v) && v.length > 2 ) {
-        if ( v[3] && v[3] !== ':' ) {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[3]);
-          second = parseInt(v[4]);
-        } else {
-          hour = parseInt(v[2]);
-          minute = parseInt(v[4]);
-          if ( v[5] && Array.isArray(v[5]) ) {
-            second = parseInt(v[5][1]);
-          }
-          tz = this.extractTimezone(v);
-        }
-      }
-
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         parseInt(dateStr.substring(0, 4)),
         parseInt(dateStr.substring(6, 8)) - 1,
         parseInt(dateStr.substring(4, 6)),
-        hour, minute, second, -1, tz);
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // YYDDMM with separators: YY-DD-MM, YY/DD/MM with optional time
@@ -451,12 +477,14 @@ foam.CLASS({
     // YYDDMM compact: 6 digits "251501"
     // v = "251501"
     function yyddmmcompactAction(v) {
-      var twoDigitYear = parseInt(v.substring(0, 2));
+      var dateStr = typeof v === 'string' ? v : v[0];
+      var twoDigitYear = parseInt(dateStr.substring(0, 2));
+      var t = this.extractTimeFromCompact_(v);
       return this.buildDate(this.dateParseMode,
         this.convertTwoDigitYear(twoDigitYear),
-        parseInt(v.substring(4, 6)) - 1,
-        parseInt(v.substring(2, 4)),
-        -1, -1, -1, -1, null);
+        parseInt(dateStr.substring(4, 6)) - 1,
+        parseInt(dateStr.substring(2, 4)),
+        t.hour, t.minute, t.second, -1, t.tz);
     },
 
     // DDMMMYYYY with separators: DD-MMM-YYYY, DD/MMM/YYYY
@@ -497,6 +525,39 @@ foam.CLASS({
         this.parseMonthName(v[2]),
         parseInt(v[0]),
         -1, -1, -1, -1, null);
+    },
+
+    // JavaScript Date.toString() format: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name)
+    // e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
+    // v = [DDD, ' ', MMM, ' ', DD, ' ', YYYY, ' ', HH, ':', MM, ':', SS, ' ', TZ, optional]
+    function jsdatetostringAction(v) {
+      // v[0] = day name (ignored)
+      // v[2] = month name
+      // v[4] = day
+      // v[6] = year
+      // v[8] = hour
+      // v[10] = minute
+      // v[12] = second
+      // v[14] = jsTimezone [GMT_literal, optional_offset]
+      var tz = this.normalizeJsTimezone(v[14]);
+      return this.buildDate(this.dateParseMode,
+        parseInt(v[6]),
+        this.parseMonthName(v[2]),
+        parseInt(v[4]),
+        parseInt(v[8]),
+        parseInt(v[10]),
+        parseInt(v[12]),
+        -1,
+        tz);
+    },
+
+    // Normalize JS timezone: ['GMT', ['+', ['0','4','0','0']]] → '+0400'
+    // or ['GMT', null] → 'Z'
+    function normalizeJsTimezone(tz) {
+      if ( ! tz || ! Array.isArray(tz) ) return 'Z';
+      var offset = tz[1]; // optional offset part
+      if ( ! offset ) return 'Z'; // Just "GMT" with no offset
+      return this.flattenTimezone(offset);
     },
 
     // Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY
@@ -734,6 +795,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.stringCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'STRING';
 
       // Use parse() to get position information
@@ -760,7 +827,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDate(result, str);
+        return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_ / 10);
       }
 
       // Determine if this is a datetime or date-only result based on presence of time components
@@ -781,7 +848,7 @@ foam.CLASS({
         ret = new Date(Date.UTC(result.year, result.month, result.day, 12, 0, 0, 0));
       }
 
-      return this.validateDate(ret, str);
+      return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_ / 10);
     },
 
     function parseDateString(str, opt_name) {
@@ -793,6 +860,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'DATE';
 
       // Use parse() to get position information
@@ -817,10 +890,10 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDate(result, str);
+        return this.cacheSet_(this.dateCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_ / 10);
       }
 
-      return parseResult.value;
+      return this.cacheSet_(this.dateCache_, cacheKey, parseResult.value, this.maxCacheSize_ / 10);
     },
 
     function parseDateTime(str, opt_name) {
@@ -832,6 +905,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateTimeCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'DATETIME';
 
       // Use parse() instead of parseString() to get position information
@@ -860,7 +939,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDate(result, str);
+        return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(result, str), this.maxCacheSize_);
       }
 
       // Validate time components if present
@@ -892,8 +971,6 @@ foam.CLASS({
         // Subtract offset to convert to UTC (if timezone is +05:00, we subtract 5 hours)
         utcTime -= offset * 60000;
         ret = new Date(utcTime);
-        // Don't validate date parts - timezone conversion is expected to change the date
-        return this.validateDate(ret, str);
       } else {
         // No timezone - use local time
         ret = new Date(
@@ -905,8 +982,9 @@ foam.CLASS({
           result.second !== undefined ? result.second : 0,
           result.millisecond !== undefined ? result.millisecond : 0
         );
-        return this.validateDate(ret, str);
       }
+
+      return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_);
     },
 
     function parseDateTimeUTC(str, opt_name) {
@@ -918,6 +996,12 @@ foam.CLASS({
         return foam.Date.MAX_DATE;
       }
       str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cached = this.cacheGet_(this.dateTimeUtcCache_, cacheKey);
+      if ( cached ) return cached;
+
       this.dateParseMode = 'DATETIME_UTC';
 
       // Use parse() instead of parseString() to get position information
@@ -946,7 +1030,7 @@ foam.CLASS({
 
       // Check if result is already a Date object (from timestamp actions)
       if ( result instanceof Date ) {
-        return this.validateDateUTC(result, str);
+        return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, this.validateDateUTC(result, str), this.maxCacheSize_);
       }
 
       // Validate time components if present
@@ -956,7 +1040,7 @@ foam.CLASS({
         return this.validateDateUTC(this.INVALID_DATE, str);
       }
 
-      return parseResult.value;
+      return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, parseResult.value, this.maxCacheSize_);
     }
   ]
 });

@@ -13,7 +13,7 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'type',
+      name: 'javaType',
       value: 'foam.dao.Sink'
     },
     ['javaJSONParser', 'foam.lib.json.FObjectParser.instance()'],

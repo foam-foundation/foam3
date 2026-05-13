@@ -8,6 +8,12 @@ foam.CLASS({
   package: 'foam.parse.auto',
   name: 'DateSuggester',
   extends: 'foam.u2.View',
+  
+  css:`
+    ^ {
+      padding: 4px 0px;
+    }
+  `,
 
   properties: [
     'suggestText',
@@ -20,6 +26,7 @@ foam.CLASS({
 
   methods: [
     function render() {
+      this.addClass();
       this.startContext({data: this}).add(this.DATE);
       this.date$.sub(() => {
         this.suggestText(this.date.toISOString().substring(0,10) + ' ');
@@ -115,9 +122,13 @@ foam.CLASS({
 
 //  imports: [ 'suggestText' ],
 
+  constants: { MAX_WIDTH: 60 }, // Max label width in characters
+
   css: `
     ^ {
       color: $textDefault;
+      border-radius: 4px;
+      padding: 4px 8px;
     }
     ^label {
       font-style: normal;
@@ -127,6 +138,10 @@ foam.CLASS({
     }
     ^text {
       color: $textSecondary;
+    }
+    ^:hover{
+      background-color: $backgroundBrandTertiary;
+      cursor: pointer;
     }
 
     ^property { color: $green400; }
@@ -145,8 +160,8 @@ foam.CLASS({
 
   methods: [
     function render() {
-      let self = this;
-      let data = this.data;
+      const self  = this;
+      const data  = this.data;
 
       this.
         addClass().
@@ -157,9 +172,10 @@ foam.CLASS({
               this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(data.tooltip).end();
             },
             function() {
+              const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');
               this.
                 style({cursor: 'pointer'}).
-                add(data.label || data.text);
+                add(label || data.text);
               self.on('click', () => self.suggestText(data.text));
             }
           ).
@@ -214,14 +230,6 @@ foam.CLASS({
       gap: 4px;
       overflow-y: auto;
       z-index: 1000;
-    }
-    ^suggestions > :not(^suggestionSeparator) {
-      border-radius: 4px;
-      padding: 4px 8px;
-    }
-    ^suggestions > :not(^suggestionSeparator):hover {
-      background-color: $backgroundBrandTertiary;
-      cursor: pointer;
     }
     ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
     ^error { border: 1px solid red !important; }
@@ -323,7 +331,14 @@ foam.CLASS({
         }
       }
     },
-    'prop'
+    {
+      name: 'prop',
+      postSet: function(_, prop) {
+        if (prop?.onKey ) {
+          this.data$.linkFrom(this.preview$);
+        }
+      }
+    }
   ],
 
   methods: [
@@ -331,6 +346,12 @@ foam.CLASS({
       this.overlay_.remove();
       this.SUPER();
     },
+
+    function focus() {
+      this.field.focus();
+      return this;
+    },
+
     function render() {
       let self = this;
 
@@ -339,7 +360,6 @@ foam.CLASS({
 
       // Recalculate error when the data text changes
       this.data$.sub(this.onDataChange);
-
       if ( this.prop?.onKey ) {
         this.data$.linkFrom(this.preview$);
       }
@@ -378,7 +398,8 @@ foam.CLASS({
         .start()
           .addClass(this.myClass('suggestions'))
           .add(this.dynamic(function (suggestions) {
-            self.populateSuggestions(this, suggestions);
+            if ( self.element_.parentNode.contains(document.activeElement) || ( self.overlay?.el_().contains(document.activeElement) ) )
+              self.populateSuggestions(this, suggestions);
           }))
         .end();
     },
@@ -400,7 +421,15 @@ foam.CLASS({
       let keys    = Object.keys(suggestions);
       let ss      = keys.sort(compare); // Sort by section then (label or text)
 
-      if ( delta ) ss = ss.filter(k => suggestions[k].matches(delta));
+      if ( delta ) ss = ss.filter(k => {
+        let sug = suggestions[k];
+        // Currently custom views handle their own filtering via the 'filter' property.
+        // TODO: for Ajeet, enhancement suggestion by Sarthak: 
+        // This should probably check an interface and ignore if the view implements a searchable interface,
+        // dont think its prudent to just assume views will always filter themselves, maybe a todo
+        if ( sug.view ) return true;
+        return sug.matches(delta);
+      });
 
       let parent = e.parentNode;
 
@@ -412,6 +441,7 @@ foam.CLASS({
         let sug = self.suggestions[s];
         this.tag(sug.view || self.SuggestionView, {
           data: sug,
+          filter: sug.view ? delta.trim() : '',
           suggestText: (text) => {
             self.suggestText.call(self, text, sug);
           }
@@ -449,6 +479,12 @@ foam.CLASS({
           this.reset();
           return;
         }
+        if ( e.key === 'Enter' ) {
+          this.data = this.preview;
+          this.onBlur();
+          return;
+        }
+
         if ( e.key !== 'Tab' ) return;
 
         let keys  = Object.keys(this.suggestions);
@@ -470,6 +506,7 @@ foam.CLASS({
       isMerged: true,
       delay: 250,
       code: function() {
+        this.data = this.preview;
         let overlay = this?.overlay_;
         // Close the selections list when the user leaves the field (and descendents)
         if ( ! this.element_.parentNode.contains(document.activeElement) && ! ( overlay && overlay.el_().contains(document.activeElement) ) ) {
@@ -504,6 +541,8 @@ foam.CLASS({
       isFramed: true,
       code: function() {
         if ( ! this.data ) { this.error = ''; return; }
+
+        this.preview = this.data;
 
         let maxPos = 0;
         let apply  = function(p, grammar) {

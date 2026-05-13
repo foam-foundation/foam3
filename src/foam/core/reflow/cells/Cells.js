@@ -200,10 +200,6 @@ foam.CLASS({
         },
         {
           name: 'data',
-          adapt: function(_, v) {
-            var ret = parseFloat(v);
-            return ret && ! Number.isInteger(ret) ? ret.toFixed(2) : v;
-          },
           displayWidth: 12
         },
         {

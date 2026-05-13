@@ -7,6 +7,8 @@
 package foam.core.logger;
 
 import foam.lang.X;
+import foam.util.SafetyUtil;
+
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +46,17 @@ public class Loggers {
 
     List<String> p = new ArrayList();
     if ( caller != null ) {
-      p.add(caller.getClass().getSimpleName());
+      Class<?> callerClass = caller.getClass();
+      while ( SafetyUtil.isEmpty(callerClass.getSimpleName()) ) {
+        if ( callerClass.getEnclosingClass() == null )
+          break;
+
+        callerClass = callerClass.getEnclosingClass();
+      }
+      String callerName = callerClass.getSimpleName();
+      if ( caller instanceof Enum<?> e ) callerName += "." + e.name();
+
+      p.add(callerName);
     }
     if ( prefixes != null ) {
       p.addAll(Arrays.asList(prefixes));

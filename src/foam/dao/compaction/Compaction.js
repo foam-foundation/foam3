@@ -40,7 +40,7 @@ Used in conjuction with a custom compaction sink, the compaction process can fac
       documentation: `DAO is eligible for compaction, meaning it's entries will be reduced. If compaction is disabled (false), then the DAO's entries will be discarded - they will not be compacted into a new ledger.`,
       name: 'compactible',
       class: 'Boolean',
-      value: false
+      value: true
     },
     {
       name: 'predicate',

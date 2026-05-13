@@ -27,7 +27,7 @@ let v1 = arg1!.f(obj)
 let v2 = arg2!.f(obj)
 return !FOAM_utils.equals(v1, v2)
 `,
-      javaCode: 'return foam.util.SafetyUtil.compare(getArg1().f(obj),getArg2().f(obj))!=0;'
+      javaCode: 'return ! foam.util.SafetyUtil.equals(getArg1().f(obj),getArg2().f(obj));'
     },
     {
       name: 'createStatement',
@@ -35,8 +35,7 @@ return !FOAM_utils.equals(v1, v2)
     },
     function toMQL() {
       var arg2 = this.arg2ToMQL();
-      if ( ! arg2 )
-        return null;
+      if ( arg2 == null ) return null;
       return '-' + this.arg1.name + '=' + arg2;
     }
   ]

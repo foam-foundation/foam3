@@ -156,7 +156,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
     {
       class: 'Object',
       name: 'applyContext',
-      type: 'Context',
+      javaType: 'foam.lang.X',
       visibility: 'HIDDEN',
       javaCompare: 'return 0;',
       transient: true,
@@ -166,7 +166,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
     {
       class: 'Object',
       name: 'context',
-      type: 'Context',
+      javaType: 'foam.lang.X',
       javaFactory: 'return reset(getX());',
       visibility: 'HIDDEN',
       javaCompare: 'return 0;',

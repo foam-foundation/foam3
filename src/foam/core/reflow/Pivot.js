@@ -116,6 +116,11 @@ foam.CLASS({
         if ( this.y !== null && this.y !== undefined ) query += ( query ? ' AND ' : '' ) + this.yFunc.name + '="' + y + '"';
         return query;
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'stickyHeaders',
+      value: true
     }
   ],
 

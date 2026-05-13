@@ -71,7 +71,7 @@ foam.CLASS({
             showActions: true,
             showHeader: true
           });
-        }, self.data$configViewSpec$, self.selectedValue$, self.flowMode$, self.data$))
+        }))
       .end()
       .start(this.Tab, { label: 'Block Properties' })
         .add(this.dynamic(function(data, flowMode) {

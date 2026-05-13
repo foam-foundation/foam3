@@ -27,6 +27,7 @@ import foam.util.SafetyUtil;
 //
 // Wrap the common WebAgent use case of QueryParser
 // to extract and compile the 'q' (mql) URL query.
+// TODO: better error logging and return status, switch to AQL
 //
 public class WebAgentQueryParser {
   protected QueryParser parser_;
@@ -41,8 +42,9 @@ public class WebAgentQueryParser {
     if ( ! SafetyUtil.isEmpty(q) ) {
       Logger        logger = (Logger) x.get("logger");
       StringPStream sps    = new StringPStream();
-      PStream       ps = sps;
-      ParserContext px = new ParserContextImpl();
+      PStream       ps     = sps;
+      ParserContext px     = new ParserContextImpl();
+
       px.set("logger", logger);
 
       sps.setString(q);

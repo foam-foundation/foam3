@@ -31,7 +31,12 @@ foam.CLASS({
 
       var self = this;
       var i = 0;
+
+      // FileDAODecorator explicitly extracts File properties from 'obj' to send to a separate file storage service (fileDAO).
+      // These transient File properties on 'obj' are client-side only and generally for UI/UX purposes. There is no need to
+      // save it to fileDAO.
       var props = obj.cls_.getAxiomsByClass(foam.core.fs.FileProperty);
+      props = props.filter(p => ! ( p.transient || p.networkTransient || p.storageTransient ));
 
       // clone the object if we need to update the file properties
       if ( props.length > 0 ) obj = obj.clone();

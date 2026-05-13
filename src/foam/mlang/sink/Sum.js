@@ -19,8 +19,7 @@ foam.CLASS({
     },
     {
       class: 'Double',
-      name: 'value',
-      value: 0
+      name: 'value'
     }
   ],
 
@@ -50,19 +49,19 @@ if (other instanceof foam.mlang.sink.Sum) {
       swiftCode: 'value = 0'
     },
 
-    function toSummary() { return this.value; },
+    function toSummary() { return this.applyPrecision(this.value); },
 
-    function addToE(e) { e.add(this.value); },
+    function addToE(e) { e.add(this.applyPrecision(this.value)); },
 
     function toProperties() {
       var name = 'sum_' + this.arg1.name;
       return [ { class: 'Double', name: name , label: 'SUM(' + foam.String.labelize(name) + ')' } ];
     },
 
-    function valueOf() { return this.value; },
+    function valueOf() { return this.applyPrecision(this.value); },
 
     function setPropertyValues(o, sink, ps) {
-      ps[0].set(o, sink.value);
+      ps[0].set(o, sink.applyPrecision(sink.value));
     }
   ]
 });

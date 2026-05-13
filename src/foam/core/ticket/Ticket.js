@@ -668,7 +668,7 @@ foam.CLASS({
           data$: X.data$,
           propertyData$: X.data.assignedTo$,
           title: this.ASSIGN_TITLE,
-          onExecute: this.assignTicket.bind(this, X)
+          primaryAction: { code: this.assignTicket }
         });
       }
     },

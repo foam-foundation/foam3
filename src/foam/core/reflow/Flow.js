@@ -45,11 +45,9 @@ foam.CLASS({
   ],
     */
 
-  tableColumns: [ 'name', 'source', 'description', 'status', 'version', /* 'isPublic', 'readOnly', */ 'reflow' ],
+  tableColumns: [ 'category', 'name', 'source', 'description', 'status', 'version', /* 'isPublic', 'readOnly', */ 'reflow' ],
 
-  searchColumns: [ 'name', 'status', 'source', 'keywords' ],
-
-  constants: { ROLE_PERMISSION_PREFIX: '@' },
+  searchColumns: [ 'category', 'name', 'status', 'source', 'keywords' ],
 
   topics: [ 'loadComplete' ],
 
@@ -63,7 +61,7 @@ foam.CLASS({
       title: 'Script',
       collapsable: true,
       permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
-      properties: [ 'preLoadScript', 'script', 'postLoadScript' ]
+      properties: [ 'preLoadScript', 'script' ]
     }
   ],
 
@@ -71,7 +69,20 @@ foam.CLASS({
     {
       class: 'String',
       name: 'name',
-      section: 'general',
+      section: 'general'
+    },
+    {
+      class: 'String',
+      name: 'category',
+      section: 'general'
+    },
+    {
+      class: 'String',
+      name: 'label',
+      expression: function(name) {
+        return foam.String.labelize(name);
+      },
+      section: 'general'
     },
     {
       class: 'String',
@@ -138,16 +149,6 @@ foam.CLASS({
       }
     },
     {
-      class: 'FObjectArray',
-      of: 'foam.core.reflow.RoleFlowAccess',
-      name: 'specifiedRoleAccess',
-      autoValidate: true,
-      section: 'general',
-      visibility: function(accessLevel) {
-        return accessLevel != foam.core.reflow.FlowAccess.SHARED ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW;
-      }
-    },
-    {
       name: 'lastModifiedByAgent',
       hidden: true
     },
@@ -195,20 +196,15 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'postLoadScript',
-      section: 'scriptSection',
-      reactive: false,
-      preSet: function(o, n) { return n.trim(); },
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
-    },
-    {
-      class: 'String',
       name: 'script',
       section: 'scriptSection',
       reactive: false,
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 },
+      toJSON: function (value, outputter) {
+        return outputter.escape(value, true);
+      }
     }
   ],
 
@@ -221,7 +217,7 @@ foam.CLASS({
     },
     {
       name: 'checkBypassAuthorization',
-      args: `X x`,
+      args: 'X x',
       type: 'boolean',
       javaCode: `
         AuthService auth = (AuthService) x.get("auth");
@@ -251,18 +247,6 @@ foam.CLASS({
           }
 
           // check role access
-          if ( getSpecifiedRoleAccess() != null ) {
-            for ( int i = 0; i < getSpecifiedRoleAccess().length; i++ ) {
-              var roleAccess = getSpecifiedRoleAccess()[i];
-              // if its not rw/ro don't bother checking
-              if ( roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RW &&
-                   roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RO ) continue;
-              try {
-                var hasRolePermission = ((AuthService) x.get("auth")).check(x, this.ROLE_PERMISSION_PREFIX + roleAccess.getRoleId());
-                if ( hasRolePermission ) return;
-              } catch (AuthorizationException e) { }
-            }
-          }
           throw new AuthorizationException();
         }
       `
@@ -286,17 +270,6 @@ foam.CLASS({
           }
 
           // check role access
-          if ( getSpecifiedRoleAccess() != null ) {
-            for ( int i = 0; i < getSpecifiedRoleAccess().length; i++ ) {
-              var roleAccess = getSpecifiedRoleAccess()[i];
-              // if its not rw don't bother checking
-              if ( roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RW ) continue;
-              try {
-                var hasRolePermission = ((AuthService) x.get("auth")).check(x, this.ROLE_PERMISSION_PREFIX + roleAccess.getRoleId());
-                if ( hasRolePermission ) return;
-              } catch (AuthorizationException e) { }
-            }
-          }
           throw new AuthorizationException();
         }
       `
@@ -320,17 +293,6 @@ foam.CLASS({
           }
 
           // check role access
-          if ( getSpecifiedRoleAccess() != null ) {
-            for ( int i = 0; i < getSpecifiedRoleAccess().length; i++ ) {
-              var roleAccess = getSpecifiedRoleAccess()[i];
-              // if its not rw don't bother checking
-              if ( roleAccess.getAccessLevel() != foam.core.reflow.FlowAccess.PUBLIC_RW ) continue;
-              try {
-                var hasRolePermission = ((AuthService) x.get("auth")).check(x, this.ROLE_PERMISSION_PREFIX + roleAccess.getRoleId());
-                if ( hasRolePermission ) return;
-              } catch (AuthorizationException e) { }
-            }
-          }
           throw new AuthorizationException();
         }
       `
@@ -341,7 +303,13 @@ foam.CLASS({
     {
       name: 'reflow',
       code: function(X) {
-        X.routeTo('flow/' + encodeURIComponent(this.name) + '?flowMode=PRESENTATION');
+        // 1) Allow for flowMode to be passed in
+        // 2) implementation below relies on user having "menu.read.flow_" permission
+        // ^ why? because we routeTo menu. Thus use "flow_" not "flow".
+        // "flow" is visibile and has the ability to be granted.
+        // "flow_" is not visible and used here as a view only
+        var mode = X.flowMode || X.config?.flowMode || 'PRESENTATION';
+        X.routeTo('flow_/' + encodeURIComponent(this.name) + '?flowMode=' + mode);
       },
       isAvailable: function() {
         // Disable in Reflow, but enable in DAOController (because already in reflow)

@@ -42,16 +42,16 @@ foam.CLASS({
         {
           name: 'envelope',
           type: 'foam.box.Envelope',
-        },
+        }
       ],
       code: function(envelope) {
         var p;
 
         try {
-          var message = envelope.message;
+          var message  = envelope.message;
           var replyBox = envelope.replyBox;
-          var method = this.data.cls_.getAxiomByName(message.name);
-          var args   = message.args.slice();
+          var method   = this.data.cls_.getAxiomByName(message.name);
+          var args     = message.args.slice();
 
           // TODO: This is pretty hackish.  Context-Oriented methods should just be modeled.
           // TODO: at least check that the javaType is foam.lang.X
@@ -64,7 +64,7 @@ foam.CLASS({
           return;
         }
 
-        var self     = this;
+        var self = this;
 
         if ( p instanceof Promise ) {
           p.then(

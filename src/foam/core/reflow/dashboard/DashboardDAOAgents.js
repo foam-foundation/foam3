@@ -873,14 +873,14 @@ foam.CLASS({
       title: 'Pie Chart Settings',
       order: 2,
       collapsable: true,
-      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation']
+      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick']
     },
     {
       name: 'display',
       title: 'Display Options',
       order: 3,
       collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'legendMinWidthPercent', 'legendMaxWidthPercent', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage']
     },
     {
       name: 'colors',
@@ -948,6 +948,24 @@ foam.CLASS({
       help: 'Message to display when there is no data',
       value: 'No data available'
     },
+    {
+      class: 'Boolean',
+      name: 'disableLegendClick',
+      label: 'Disable Legend Click',
+      help: 'Prevent clicking legend items from toggling slice visibility'
+    },
+    {
+      class: 'Int',
+      name: 'legendMinWidthPercent',
+      label: 'Legend Min Width (%)',
+      help: 'Forces the legend to be at least this percentage (0-100) of container width by padding the widest label with trailing non-breaking spaces. Short legends grow; unboundedly long labels also wrap at this width.'
+    },
+    {
+      class: 'Int',
+      name: 'legendMaxWidthPercent',
+      label: 'Legend Max Width (%)',
+      help: 'Caps the legend at this percentage (0-100) of container width and word-wraps long labels at the cap. Set min = max for an exact fixed-width legend.'
+    },
   ],
 
   methods: [
@@ -981,7 +999,10 @@ foam.CLASS({
         animate: this.animate,
         animationDuration: this.animationDuration,
         alignment: this.alignment,
-        emptyValueMessage: this.emptyValueMessage
+        legendMinWidthPercent: this.legendMinWidthPercent,
+        legendMaxWidthPercent: this.legendMaxWidthPercent,
+        emptyValueMessage: this.emptyValueMessage,
+        disableLegendClick: this.disableLegendClick
       });
 
       return sink;
@@ -993,8 +1014,8 @@ foam.CLASS({
       
       // Then update its properties reactively
       this.onDetach(this.dynamic(function(cutoutPercentage, rotation, colors, showPercentages, clockwise,
-                                  maintainAspectRatio, height, showLegend, legendPosition, 
-                                  showTooltips, showTooltipSum, animate, animationDuration, alignment) { 
+                                  maintainAspectRatio, height, showLegend, legendPosition,
+                                  showTooltips, showTooltipSum, animate, animationDuration, alignment, legendMinWidthPercent, legendMaxWidthPercent, disableLegendClick) {
         s.cutoutPercentage = cutoutPercentage;
         s.rotation = rotation;
         s.colors = colors;
@@ -1009,7 +1030,10 @@ foam.CLASS({
         s.animate = animate;
         s.animationDuration = animationDuration;
         s.alignment = alignment;
-        
+        s.legendMinWidthPercent = legendMinWidthPercent;
+        s.legendMaxWidthPercent = legendMaxWidthPercent;
+        s.disableLegendClick = disableLegendClick;
+
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
        }));
@@ -1039,6 +1063,9 @@ foam.CLASS({
       clone.showTooltipSum$ = this.showTooltipSum$;
       clone.animate$ = this.animate$;
       clone.animationDuration$ = this.animationDuration$;
+      clone.disableLegendClick$ = this.disableLegendClick$;
+      clone.legendMinWidthPercent$ = this.legendMinWidthPercent$;
+      clone.legendMaxWidthPercent$ = this.legendMaxWidthPercent$;
       return clone;
     }
   ]
@@ -1443,7 +1470,7 @@ foam.CLASS({
       title: 'Data Configuration',
       order: 1,
       collapsable: true,
-      properties: ['prop', 'categoryProp', 'sink', 'periodCount']
+      properties: ['prop', 'categoryProp', 'sink', 'showAllData', 'periodCount']
     },
     {
       name: 'display',
@@ -1484,10 +1511,19 @@ foam.CLASS({
       }
     },
     {
+      class: 'Boolean',
+      name: 'showAllData',
+      label: 'Show All Data',
+      help: 'When enabled, the calendar includes every record regardless of date. Disable to limit to the last N days configured by Periods.'
+    },
+    {
       name: 'periodCount',
       label: 'Periods',
       value: 30,
-      help: 'How many days to show from today'
+      help: 'How many days to show from today. Ignored when Show All Data is enabled.',
+      visibility: function(showAllData) {
+        return showAllData ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW;
+      }
     }
   ],
 
@@ -1496,7 +1532,11 @@ foam.CLASS({
       return this.prop;
     },
     function createSink() {
-      this.applyDateRangeFilter && this.applyDateRangeFilter();
+      // Skip the date-range filter when showAllData is set so the
+      // calendar renders every record in the DAO regardless of date.
+      if ( ! this.showAllData ) {
+        this.applyDateRangeFilter && this.applyDateRangeFilter();
+      }
       var valueSink = this.sink ? this.sink.createSink() : this.COUNT();
       return this.DashboardCalendarSink.create({
         dateProp: this.prop,

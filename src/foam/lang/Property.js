@@ -118,7 +118,7 @@ foam.CLASS({
 
     /**
       A function of the form:
-        Object function(value, property)
+        Object function(value, property, obj)
       that normalizes an property value in some way. Like postSet but only
       called when done editing a property.
     */
@@ -303,7 +303,7 @@ foam.CLASS({
       transient: true
     },
     {
-      name: 'type',
+      name: 'type'
     },
     {
       class: 'Boolean',
@@ -322,7 +322,12 @@ foam.CLASS({
       value: []
     },
     'initObject',
-    'copyValueFrom'
+    'copyValueFrom',
+    {
+      // class: 'Integer',
+      name: 'order',
+      documentation: 'Default display order in detail views.'
+    }
   ],
 
   methods: [

@@ -10,6 +10,7 @@ import foam.lang.X;
 import org.apache.commons.dbcp2.*;
 import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import foam.core.logger.Logger;
 import javax.sql.DataSource;
 import java.sql.DriverManager;
@@ -70,8 +71,10 @@ public class JDBCPooledDataSource {
 
     PoolableConnectionFactory poolableConnectionFactory = new PoolableConnectionFactory(connectionFactory, null);
 
-    ObjectPool<PoolableConnection> connectionPool = new GenericObjectPool<>(poolableConnectionFactory);
+    GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
+    poolConfig.setMaxWaitMillis(5000);
 
+    ObjectPool<PoolableConnection> connectionPool = new GenericObjectPool<>(poolableConnectionFactory, poolConfig);
     poolableConnectionFactory.setPool(connectionPool);
 
     Class.forName("org.apache.commons.dbcp2.PoolingDriver");

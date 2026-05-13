@@ -20,12 +20,23 @@ foam.CLASS({
       class: 'foam.mlang.ExprProperty',
       name: 'arg1',
       hidden: true
+    },
+    {
+      class: 'Int',
+      name: 'precision',
+      value: -1,
+      documentation: 'Number of decimal places for numeric results. -1 means no rounding (default behavior).'
     }
   ],
 
   methods: [
     function toString() {
       return foam.String.constantize(this.cls_.name) + '(' + this.arg1.toString() + ')';
+    },
+
+    function applyPrecision(val) {
+      if ( this.precision < 0 || typeof val !== 'number' ) return val;
+     return Number(val).toFixed(this.precision);
     }
   ]
 });

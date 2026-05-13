@@ -234,14 +234,14 @@ foam.CLASS({
       // This is extremely important as otherwise the wrapper might detach with old parents
       this.clearPrivate_('listeners');
       for ( let el = this.element_.nextSibling;
-        el != this.endElement_; el = el.nextSibling ) {
+        el != this.endElement_ && el; el = el.nextSibling ) {
         this.nodesToMove_.push(el);
       }
       e.add(this);
     },
     function render() {
       if ( ! this.parentNode ) { this.detach(); return; }
-      this.element_.parentNode.appendChild(this.endElement_);
+      this.parentNode.appendChild_(this.endElement_);
       this.nodesToMove_.forEach(v => this.appendChild_(v));
       this.nodesToMove_ = undefined;
     },
@@ -513,6 +513,10 @@ foam.CLASS({
         '112': 'f1',
         '127': 'delete'
       }
+    },
+    {
+      name: 'DOM_NAME_CACHE',
+      value: {}
     }
   ],
 
@@ -776,12 +780,14 @@ foam.CLASS({
       var observer = new MutationObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
+      return this;
     },
 
     function resizeObserver(fn, config = { box: 'content-box' }) {
       var observer = new ResizeObserver(fn);
       observer.observe(this.element_, config);
       this.onDetach(() => observer.disconnect());
+      return this;
     },
 
     function observeScrollHeight() {
@@ -1002,19 +1008,22 @@ foam.CLASS({
         return;
       }
 
-      var prop = this.cls_.getAxiomByName(name);
+      const AttributeType = foam.u2.AttributeType;
+      let prop = this.getPropertyByDOMName(name);
 
-      if ( prop &&
-           foam.lang.Property.isInstance(prop) &&
-           prop.attribute )
-      {
+      if ( prop && prop.attribute !== AttributeType.DOM ) {
         if ( typeof value === 'string' ) {
           // TODO: remove check when all properties have fromString()
-          this[name] = prop.fromString ? prop.fromString(value) : value;
+          this[name] = prop.fromString(value);
         } else if ( foam.lang.Slot.isInstance(value) ) {
           this.onDetach(this.slot(name).follow(value));
         } else {
           this[name] = value;
+        }
+        // When setting a non slotted value, refetch value from the model in case
+        // an adapt/preset/postset changes it
+        if ( ! foam.lang.Slot.isInstance(value) ) {
+          value = this[name];
         }
       } else {
         if ( value === undefined || value === null || value === false ) {
@@ -1541,6 +1550,20 @@ foam.CLASS({
       this.css[key] = value;
       this.element_.style[key] = value;
       return this;
+    },
+
+    function getPropertyByDOMName(name) {
+      /**
+       * Find an axiom by the specified domName from either this class or an
+       * ancestor.
+       */
+      let generateCache = () => {
+        let map = {};
+        this.cls_.getAxiomsByClass(foam.lang.Property).forEach(p => map[p.domName] = p);
+        return map;
+      };
+
+      return (this.DOM_NAME_CACHE[this.cls_.id] || ( this.DOM_NAME_CACHE[this.cls_.id] = generateCache() ))[name];
     }
   ],
 
@@ -1585,6 +1608,29 @@ foam.CLASS({
   ]
 });
 
+foam.ENUM({
+  package: 'foam.u2',
+  name: 'AttributeType',
+  documentation: 'Defines how a property attribute is synchronized between the model and the DOM.',
+  values: [
+    {
+      name: 'DOM',
+      documentation: `Property is only reflected to the DOM as an attribute.
+      The model property is not updated when the DOM attribute changes.`
+    },
+    {
+      name: 'MODEL',
+      documentation: `Property is only stored in the model.
+      It is not synchronized with the DOM as an HTML attribute.`
+    },
+    {
+      name: 'BOTH',
+      documentation: `Property is kept in sync between the model and DOM.
+      When the model property changes, it updates the DOM attribute.`
+    }
+  ]
+})
+
 
 foam.CLASS({
   package: 'foam.u2',
@@ -1592,14 +1638,65 @@ foam.CLASS({
   refines: 'foam.lang.Property',
 
   requires: [
-    'foam.u2.TextField'
+    'foam.u2.TextField',
+    'foam.u2.AttributeType'
   ],
 
   properties: [
+  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH', 
+  // ensuring model and DOM attribute synchronization.
+  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in 
+  // subclasses
+    ...[
+      [
+        'initObject', function(obj) {
+          let value = this.f(obj);
+          if ( this.comparePropertyValues(this.cls_.VALUE.value, value) != 0 ) {
+            obj.element_?.setAttribute?.(this.domName, value);
+          }
+        }
+      ],
+      [
+        'postSet', function(o, n, prop) {
+          if ( ! prop.isDefaultValue(n) ) {
+            this.element_?.setAttribute?.(prop.domName, prop.f(this));
+          }
+        }
+      ]
+    ].map((val) => {
+      let [key, callback] = val;
+      return {
+        name: key,
+        factory: function() {
+          if ( this.attribute != 'BOTH' ) return undefined;
+          return callback;
+        },
+        adapt: function(oFn, nFn, prop) {
+          if ( this.attribute != 'BOTH' || callback === nFn ) return nFn;
+          return function() {
+            callback.call(this, ...arguments);
+            nFn?.call(this, ...arguments);
+          }
+        }
+      }
+    }),
     {
       // If true, this property is treated as a psedo-U2 attribute.
+      class: 'Enum',
+      of: 'foam.u2.AttributeType',
       name: 'attribute',
-      value: false
+      adapt: function(o, n, prop) {
+        if ( n === true ) return this.AttributeType.MODEL;
+        if ( n === false ) return this.AttributeType.DOM;
+        return foam.lang.Enum.ADAPT.value.call(this, o, n, prop);
+      }
+    },
+    {
+      class: 'String',
+      name: 'domName',
+      factory: function() {
+        return this.name
+      }
     },
     {
       class: 'String',
@@ -1671,6 +1768,13 @@ foam.CLASS({
       class: 'Boolean',
       name: 'reserveLabelSpace',
       documentation: 'Property to indicate if PropertyBorders need to reserve label space when label is empty'
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'propertyBorderSpec',
+      value: {
+        class: 'foam.u2.PropertyBorder'
+      }
     }
   ],
 
@@ -1685,7 +1789,7 @@ foam.CLASS({
     },
 
     function toPropertyView(args, X) {
-      return this.createElFromSpec_({ class: 'foam.u2.PropertyBorder', prop: this }, args, X);
+      return this.createElFromSpec_({ ...this.propertyBorderSpec, prop: this }, args, X);
     },
 
     function createElFromSpec_(spec, args, X) {
@@ -1929,6 +2033,17 @@ foam.CLASS({
   properties: [
     [ 'displayWidth', 15 ],
     [ 'view', { class: 'foam.u2.view.CurrencyView', onKey: false } ]
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'DoubleUnitValueViewRefinement',
+  refines: 'foam.lang.DoubleUnitValue',
+  requires: [ 'foam.u2.view.CurrencyView' ],
+  properties: [
+    [ 'displayWidth', 15 ],
+    [ 'view', { class: 'foam.u2.view.CurrencyView', onKey: false, useMinorUnits: false } ]
   ]
 });
 

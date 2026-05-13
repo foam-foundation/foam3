@@ -32,8 +32,12 @@ foam.CLASS({
     ^ .foam-u2-Tabs-tabRow {
       border-top-left-radius: 6px;
       border-top-right-radius: 6px;
+      position: sticky;
+      top: 0;
     }
-
+    ^tab-wrapper.foam-u2-borders-CardBorder {
+      padding: 0;
+    }
     ^wrapper {
       padding: 14px 24px;
     }
@@ -84,9 +88,9 @@ foam.CLASS({
 
               var e = availableSections.length == 1 ?
                 this.E().start(self.CardBorder).addClass(self.myClass('wrapper'))
-                  .tag(self.SectionView, { data$: self.data$, section: availableSections[0], showTitle: false })
+                  .tag(availableSections[0].view, { data$: self.data$, section: availableSections[0], showTitle: false })
                 .end() :
-                this.E()
+                this.E().start(self.CardBorder).addClass(self.myClass('tab-wrapper'))
                 .start(self.Tabs, {}, self.tabs$)
                   .forEach(availableSections, function(s) {
                     if ( s.title ) {
@@ -110,7 +114,7 @@ foam.CLASS({
                        .end();
                     }
                   })
-                .end();
+                .end().end();
               return e;
             }));
         }));

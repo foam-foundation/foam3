@@ -46,6 +46,10 @@ foam.CLASS({
       class: 'Boolean'
     },
     {
+      name: 'disableTableRowActions',
+      class: 'Boolean'
+    },
+    {
       class: 'String',
       name: 'daoKey'
     },
@@ -106,6 +110,11 @@ foam.CLASS({
     {
       class: 'String',
       name: 'browseTitle',
+      factory: function() { return this.of.model_.plural; }
+    },
+    {
+      class: 'String',
+      name: 'emptyLabel',
       factory: function() { return this.of.model_.plural; }
     },
     {

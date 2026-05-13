@@ -26,7 +26,7 @@ foam.CLASS({
   `,
 
   methods: [
-    function grammar(alt, anyChar, chars, literalIC, optional, range, repeat, seq, str, sym) {
+    function grammar(alt, anyChar, chars, literalIC, notChars, optional, range, repeat, seq, str, sym) {
       return {
         START: sym('dateOrDatetime'),
 
@@ -93,8 +93,10 @@ foam.CLASS({
         // DD MMM YYYY (with spaces)
         // Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY
         // NOTE: yyyyddmmmcompact must come BEFORE ddmmmyyyycompact to match correctly
-        // NOTE: unixdatetostring must come FIRST because it has the most specific pattern
+        // NOTE: jsdatetostring must come FIRST (year before time), then unixdatetostring
         datemonthname: alt(
+          // Support: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name) (e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)")
+          sym('jsdatetostring'),
           // Support: DDD MMM DD HH:MM:SS TZ YYYY (e.g., "Tue Apr 01 05:17:59 GMT 2025")
           sym('unixdatetostring'),
           // Support: MMM dd yyyy (e.g., Jan 02 2025)
@@ -197,7 +199,9 @@ foam.CLASS({
         // Covers: MMDDYYYY, MM-DD-YYYY, MM/DD/YYYY with optional time
         mmddyyyy: alt(
           sym('mmddyyyycompact'),
-          sym('mmddyyyysep')
+          sym('mmddyyyysep'),
+          sym('mmddyysep'),
+          sym('mmddyycompact')
         ),
 
         // MMDDYYYY with separators and optional time
@@ -284,7 +288,21 @@ foam.CLASS({
         ),
 
         // YYMMDD compact: 6 digits with validated year, month (01-12), day (01-31)
-        yymmddcompact: str(seq(sym('year2'), sym('month2'), sym('day2'))),
+        // Supports optional time: YYMMDD HHMMSS, YYMMDD HH:MM:SS, or YYMMDD (date only)
+        yymmddcompact: alt(
+          seq(
+            str(seq(sym('year2'), sym('month2'), sym('day2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          seq(
+            str(seq(sym('year2'), sym('month2'), sym('day2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          str(seq(sym('year2'), sym('month2'), sym('day2')))
+        ),
 
         // MMDDYY - tries all variants (compact, separated)
         // Covers: MMDDYY, MM-DD-YY, MM/DD/YY with optional time
@@ -322,7 +340,21 @@ foam.CLASS({
         ),
 
         // MMDDYY compact: 6 digits with validated month (01-12), day (01-31), year
-        mmddyycompact: str(seq(sym('month2'), sym('day2'), sym('year2'))),
+        // Supports optional time: MMDDYY HHMMSS, MMDDYY HH:MM:SS, or MMDDYY (date only)
+        mmddyycompact: alt(
+          seq(
+            str(seq(sym('month2'), sym('day2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          seq(
+            str(seq(sym('month2'), sym('day2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          str(seq(sym('month2'), sym('day2'), sym('year2')))
+        ),
 
         // DDMMYYYY - NOT in main dateOrDatetime, accessible via opt_name only
         // Covers: DD-MM-YYYY, DD/MM/YYYY, DDMMYYYY, DD-MM-YY, DD/MM/YY, DDMMYY with optional time
@@ -413,7 +445,24 @@ foam.CLASS({
         ),
 
         // DDMMYY compact: 6 digits with validated day (01-31), month (01-12), year
-        ddmmyycompact: str(seq(sym('day2'), sym('month2'), sym('year2'))),
+        // Supports optional time: DDMMYY HHMMSS, DDMMYY HH:MM:SS, or DDMMYY (date only)
+        ddmmyycompact: alt(
+          // With space/T and compact time (HHMMSS - no colons)
+          seq(
+            str(seq(sym('day2'), sym('month2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          // With space/T and colon time (HH:MM:SS)
+          seq(
+            str(seq(sym('day2'), sym('month2'), sym('year2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          // Date only
+          str(seq(sym('day2'), sym('month2'), sym('year2')))
+        ),
 
         // YYYYDDMM - NOT in main dateOrDatetime, accessible via opt_name only
         // Covers: YYYY-DD-MM, YYYY/DD/MM, YYYYDDMM, YY-DD-MM, YY/DD/MM, YYDDMM with optional time
@@ -509,7 +558,21 @@ foam.CLASS({
         ),
 
         // YYDDMM compact: 6 digits with validated year, day (01-31), month (01-12)
-        yyddmmcompact: str(seq(sym('year2'), sym('day2'), sym('month2'))),
+        // Supports optional time: YYDDMM HHMMSS, YYDDMM HH:MM:SS, or YYDDMM (date only)
+        yyddmmcompact: alt(
+          seq(
+            str(seq(sym('year2'), sym('day2'), sym('month2'))),
+            sym('datetimesep'),
+            sym('hour2'), sym('minute2'), sym('second2')
+          ),
+          seq(
+            str(seq(sym('year2'), sym('day2'), sym('month2'))),
+            sym('datetimesep'),
+            sym('hour2'), ':', sym('minute2'), optional(seq(':', sym('second2'))),
+            optional(sym('timezone'))
+          ),
+          str(seq(sym('year2'), sym('day2'), sym('month2')))
+        ),
 
         // YYYYDDMMM with separators: YYYY-DD-MMM, YYYY/DD/MMM
         // Supports single-digit days (e.g., 2025-5-JAN)
@@ -543,6 +606,26 @@ foam.CLASS({
         // Supports single-digit days
         ddmmmyyyyspace: seq(
           sym('dayFlexible'), ' ', sym('month3alpha'), ' ', sym('year4')
+        ),
+
+        // JavaScript Date.toString() format: DDD MMM DD YYYY HH:MM:SS GMT±HHMM (Timezone Name)
+        // e.g., "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
+        // The day name (Mon, Tue, etc.) is parsed but ignored for date construction
+        // Year comes BEFORE time (unlike Unix format), timezone is GMT fused with offset
+        jsdatetostring: seq(
+          sym('day3alpha'), ' ',      // Day name (ignored)
+          sym('month3alpha'), ' ',    // Month name
+          sym('dayFlexible'), ' ',    // Day of month (1-31 or 01-31)
+          sym('year4'), ' ',          // Year
+          sym('hour2'), ':', sym('minute2'), ':', sym('second2'), ' ',  // Time HH:MM:SS
+          sym('jsTimezone'),          // Timezone (GMT or GMT±HHMM)
+          optional(seq(' ', '(', str(repeat(notChars(')'), null, 1)), ')'))  // Optional (Timezone Name)
+        ),
+
+        // JS timezone format: GMT optionally followed by ±HHMM offset
+        jsTimezone: seq(
+          literalIC('GMT'),
+          optional(seq(chars('+-'), repeat(range('0', '9'), null, 4, 4)))
         ),
 
         // Unix/Java Date.toString() format: DDD MMM DD HH:MM:SS TZ YYYY

@@ -7,6 +7,10 @@
 foam.POM({
   name: "compaction",
 
+  projects: [
+    { name: 'test/pom', flags: 'test' }
+  ],
+
   files: [
     { name: 'BlockingDAO',                                       flags: 'js|java'},
     { name: 'Compaction',                                        flags: 'js|java'},

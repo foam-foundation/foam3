@@ -160,9 +160,13 @@ foam.CLASS({
     {
       name: 'start',
       javaCode: `
+      Logger logger = Loggers.logger(getX(), this);
       EmailServiceConfig config = findId(getX());
       if ( config == null ) {
+        logger.warning("start", "EmailServiceConfig not found for id", getId(), "Emails will NOT be sent");
         config = new EmailServiceConfig(); // use default timer values
+      } else if ( ! config.getEnabled() ) {
+        logger.warning("start", "EmailServiceConfig DISABLED for id", getId());
       }
       ((DAO) getX().get("eventRecordDAO")).put(new EventRecord(getX(), this, "start", getId(), null, null, LogLevel.INFO, null));
       Timer timer = new Timer(this.getClass().getSimpleName(), true);
@@ -239,7 +243,7 @@ foam.CLASS({
       try {
         while ( true ) {
           EmailServiceConfig config = findId(getX());
-          if ( ! config.getEnabled() ) break;
+          if ( config == null || ! config.getEnabled() ) break;
 
           DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
           List<EmailMessage> emailMessages = (List) ((ArraySink)

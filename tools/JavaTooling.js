@@ -204,6 +204,43 @@ foam.POM({
       this.info(`Resources tarball created: ${resourcesTarballPath}`);
     }],
 
+    buildDockerTar: ['build-docker-tar', 'Package binary JAR into a Docker-friendly TAR archive (no systemd, no user setup)', [()=>TAR=true, 'buildJar'], function() {
+      this.ensureDir(this.join(BUILD_DIR, 'package'));
+      const dockerTarball = APP_NAME + '-docker-' + VERSION + '.tar.gz';
+      const dockerTarballPath = BUILD_DIR + '/package/' + dockerTarball;
+      this.info(`Building Docker tarball: ${dockerTarball}`);
+
+      const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
+
+      // Create staging area for Docker-specific packaging
+      const stagingDir = this.join(BUILD_DIR, 'staging-docker');
+      const stagingLibDir = this.join(stagingDir, 'lib');
+      const stagingBinDir = this.join(stagingDir, 'bin');
+      const stagingEtcDir = this.join(stagingDir, 'etc');
+
+      // Clean and create staging directories
+      this.execSync(`rm -rf ${stagingDir}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.ensureDir(stagingLibDir);
+      this.ensureDir(stagingBinDir);
+      this.ensureDir(stagingEtcDir);
+
+      // Copy binary JAR and all dependency JARs (but not the resources JAR)
+      this.execSync(`find ${BUILD_DIR}/lib -name "*.jar" ! -name "*-resources-*.jar" -exec cp {} ${stagingLibDir}/ \\;`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+
+      // Copy Docker-specific install and run scripts
+      this.execSync(`cp ${toolsDeploy}/bin/install-docker.sh ${stagingBinDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.execSync(`cp ${toolsDeploy}/bin/run-docker.sh ${stagingBinDir}/`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+
+      // Copy etc configuration files
+      this.copyDir(this.join(toolsDeploy, 'etc'), stagingEtcDir);
+
+      // Package the Docker tarball
+      this.execSync(`tar -a -cf ${dockerTarballPath} -C${require('path').resolve(stagingDir)} bin etc lib`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+      this.info(`Docker tarball created: ${dockerTarballPath}`);
+      this.info(`  - Contains binary JAR and dependencies (no resources JAR)`);
+      this.info(`  - Use install-docker.sh for Dockerfile installation`);
+    }],
+
     clean: ['clean', 'Remove generated files', ['cleanJava'], function() {
       if ( APP_HOME && this.existsSync(APP_HOME) ) {
         this.emptyDir(`${APP_HOME}/bin`);
@@ -613,10 +650,13 @@ foam.POM({
       this.log('    Build binary-only tarball (for Docker base image). Contains compiled classes and dependencies.');
       this.log('  ./build.sh --build-resources-tar');
       this.log('    Build resources-only tarball (customer-specific). Contains journals, documents, images, webroot.');
+      this.log('  ./build.sh --build-docker-tar');
+      this.log('    Build Docker-friendly tarball with binary JAR only and Docker-specific install script.');
+      this.log('    Uses install-docker.sh (no systemd, no user/group setup, simple file copy).');
       this.log('  Docker workflow example:');
-      this.log('    1. ./build.sh --build-binary-tar    # Build base image with binary JAR');
+      this.log('    1. ./build.sh --build-docker-tar    # Build Docker-friendly tarball with binary JAR');
       this.log('    2. ./build.sh --build-resources-tar # Build customer-specific resources');
-      this.log('    3. Overlay resources tarball into container at runtime');
+      this.log('    3. In Dockerfile: extract tarball and run bin/install-docker.sh');
       this.log('\nRunning Java Test Cases:');
       this.log('  ./build.sh --run-tests');
       this.log('    Run all test cases.');

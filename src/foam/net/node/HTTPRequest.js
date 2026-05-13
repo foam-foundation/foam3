@@ -127,13 +127,38 @@ foam.CLASS({
         });
 
         if ( this.payload && this.Blob.isInstance(this.payload) ) {
-          this.payload.pipe(function(buf) {
-            if ( req.write(buf) ) {
-              return new Promise(function(resolve) { req.once('drain', resolve); });
+          // Stream blob data in chunks using read()
+          var blob = this.payload;
+          var chunkSize = 1024 * 1024; // 1MB chunks
+          var offset = 0;
+          var size = blob.size;
+
+          function writeNextChunk() {
+            if ( offset >= size ) {
+              req.end();
+              return;
             }
-          }).then(function() {
-            req.end();
-          });
+
+            var length = Math.min(chunkSize, size - offset);
+            var currentOffset = offset;
+            offset += length;
+
+            blob.read(function(buf) {
+              // Convert ArrayBuffer to Node.js Buffer for req.write()
+              var chunk = Buffer.from(buf);
+              // req.write() returns false if buffer is full, true if ok to continue
+              if ( ! req.write(chunk) ) {
+                // Buffer full, wait for drain before continuing
+                req.once('drain', writeNextChunk);
+              } else {
+                writeNextChunk();
+              }
+            }, currentOffset, length).catch(function(err) {
+              reject(err);
+            });
+          }
+
+          writeNextChunk();
           return;
         } else if ( this.payload ) {
           req.write(buf);

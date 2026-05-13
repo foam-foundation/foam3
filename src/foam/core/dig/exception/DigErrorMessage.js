@@ -35,12 +35,16 @@ foam.CLASS({
       class: 'String',
       name: 'status'
     },
+      /*
     {
       name: 'message',
+        This just hides the supplied message and makes diagnosing errors difficult.
+        If needed, there should be a renderedMessage field.
       javaGetter: `
         return renderMessage(getExceptionMessage());
-      `
+        `
     },
+        */
     {
       class: 'String',
       name: 'type',
@@ -70,10 +74,10 @@ foam.CLASS({
 
   methods: [
     {
-        name: 'getClientRethrowException',
-        type: 'RuntimeException',
-        visibility: 'public',
-        javaCode: `return this;`
+      name: 'getClientRethrowException',
+      type: 'RuntimeException',
+      visibility: 'public',
+      javaCode: `return this;`
     }
   ]
 });

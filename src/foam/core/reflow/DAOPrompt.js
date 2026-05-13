@@ -142,13 +142,19 @@ foam.CLASS({
     'filteredDAO as sinkUnlimitedDAO',
     'columnStorage',
     'columns as flowColumns',
-    'predicate as flowPredicate'
+    'predicate as flowPredicate',
+    'filters as flowFilters'
   ],
 
   properties: [
     {
       class: 'FObjectProperty',
       name: 'predicate',
+      hidden: true
+    },
+    {
+      class: 'Array',
+      name: 'filters',
       hidden: true
     },
     {

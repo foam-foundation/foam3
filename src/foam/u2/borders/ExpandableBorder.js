@@ -26,7 +26,7 @@
       background:$backgroundDefault; 
       border-radius: 4px;
       border: 1px solid $borderDefault;
-      padding: 24px;
+      padding: 12px;
     }
     ^ h6{
       padding-bottom: 12px;

@@ -15,10 +15,12 @@ foam.CLASS({
   When data passed is an array, selected is used as the index for the file to display. 
   
   When data is a file the file is displayed.
-  To show a complete file array wrap this view in an ArrayView`,
+  To show a complete file array wrap this view in an ArrayView.
+  
+  Set fullScreen to true when used inside a Popup for full-size preview.`,
 
   css: `
-  ^container{
+  ^container {
     margin: 0;
     padding: 0;
     flex-grow: 1;
@@ -28,11 +30,40 @@ foam.CLASS({
     align-content: stretch;
     align-items: stretch;
   }
+
+  ^fullScreen {
+    width: 100%;
+    height: 100%;
+  }
+
+  ^fullScreen ^container {
+    width: 100% !important;
+    max-height: none !important;
+    height: 100%;
+  }
+
+  ^fullScreen ^container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  ^fullScreen ^container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
   `,
 
   properties: [
     {
       name: 'selected'
+    },
+    {
+      class: 'Boolean',
+      name: 'fullScreen',
+      value: false
     }
   ],
 
@@ -42,13 +73,19 @@ foam.CLASS({
 
       await this
         .addClass(this.myClass())
+        .enableClass(this.myClass('fullScreen'), this.fullScreen$)
         .start('div')
           .addClass('file-image-div' + this.id)
           .addClass(this.myClass('container'))
-          .style({
-            'max-height': '45vh',
-            'width': '28vw',
-            'display': 'none'
+          .callIf( ! this.fullScreen, function() {
+            this.style({
+              'max-height': '45vh',
+              'width': '28vw',
+              'display': 'none'
+            });
+          })
+          .callIf(this.fullScreen, function() {
+            this.style({ 'display': 'none' });
           })
           .start('img')
             .addClass('file-image' + this.id)
@@ -57,7 +94,7 @@ foam.CLASS({
               'object-fit': 'contain',
               'height': '100%',
               'max-width': '100%',
-              'object-position': 'left'
+              'object-position': this.fullScreen ? 'center' : 'left'
             })
           .end()
         .end()
@@ -79,26 +116,26 @@ foam.CLASS({
             'height': '0px',
             'width': '0px'
           })
-          .end()
         .end();
-        this.showData();
+
+      this.showData();
       this.data$.sub(() => this.showData());
     },
 
     async function showData() {
       let iFrame = document.getElementsByClassName('file-iframe' + this.id)[0],
-          image = document.getElementsByClassName('file-image' + this.id)[0],
-          div = document.getElementsByClassName('file-image-div' + this.id)[0],
-          p = document.getElementsByClassName('file-text' + this.id)[0],
-          url = '',
+          image  = document.getElementsByClassName('file-image' + this.id)[0],
+          div    = document.getElementsByClassName('file-image-div' + this.id)[0],
+          p      = document.getElementsByClassName('file-text' + this.id)[0],
+          url    = '',
           pos;
 
-      iFrame.innerHTML = '';
-      iFrame.style.visibility= 'hidden';
-      iFrame.style.display = 'none';
-      div.style.visibility = 'hidden';
-      div.style.display = 'none';
-      p.style.visibility = 'hidden';
+      iFrame.innerHTML     = '';
+      iFrame.style.visibility = 'hidden';
+      iFrame.style.display    = 'none';
+      div.style.visibility    = 'hidden';
+      div.style.display       = 'none';
+      p.style.visibility      = 'hidden';
 
       let data;
       if ( Array.isArray(this.data) ) {
@@ -109,15 +146,12 @@ foam.CLASS({
         }
 
         data = this.data[pos];
-        if ( ! data ) {
-          return;
-        }
+        if ( ! data ) return;
       } else {
         data = this.data;
       }
 
       let d = data.data;
-      // If file is stored as a dataString, actual file is already on client side. Otherwise, actual file can be retrieved from server from File.address
       if ( ! d ) {
         url = data.address;
       } else {
@@ -125,26 +159,27 @@ foam.CLASS({
       }
 
       if ( data.mimeType === 'application/pdf' ) {
-        var pdfframe = document.createElement('iframe');
-        pdfframe.src = url;
+        var pdfframe     = document.createElement('iframe');
+        pdfframe.src     = url;
         iFrame.appendChild(pdfframe);
         iFrame.style.visibility = 'visible';
-        iFrame.style.display = 'flex';
-        iFrame.style.height = '100%';
-        iFrame.style.width = '100%';
+        iFrame.style.display    = 'flex';
+        iFrame.style.height     = '100%';
+        iFrame.style.width      = '100%';
       } else if ( data.mimeType === 'plain/text' ) {
-        let t = await data.getText();
+        let t    = await data.getText();
         let text = document.createTextNode(t);
         p.appendChild(text);
         p.style.visibility = 'visible';
-        p.style.display = 'block';
-        p.style.height = '100%';
-        p.style.width = '100%';
+        p.style.display    = 'block';
+        p.style.height     = '100%';
+        p.style.width      = '100%';
       } else {
-        image.src = url;
+        image.src            = url;
         div.style.visibility = 'visible';
-        div.style.display = 'block';
+        div.style.display    = 'flex';
       }
     }
   ]
 });
+

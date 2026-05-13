@@ -75,8 +75,8 @@ foam.CLASS({
 
         AppConfig appConfig = (AppConfig) x.get("appConfig");
         String url = appConfig.getUrl();
-        templateArgs.put("logo", url + "/" + theme.getLogo());
-        templateArgs.put("largeLogo", url + "/" + theme.getLargeLogo());
+        templateArgs.put("logo", url + theme.getLogo());
+        templateArgs.put("largeLogo", url + theme.getLargeLogo());
         templateArgs.put("appLink", url);
         templateArgs.put("appName", theme.getAppName());
         templateArgs.put("locale", user.getLanguage().getCode().toString());

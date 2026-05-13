@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2018 The FOAM Authors. All Rights Reserved.
@@ -637,7 +636,7 @@ return junction`
         click: function(obj, id) {
           // TODO: Select the objects, this is hard because UnstyledTableRow/UnstyledTableView maintains a lot of state about selection
           // this might be buggy if the user has used select all
-          
+
           var result = { ...config.selectedObjs };
           if ( result[id] ) {
             delete result[id]

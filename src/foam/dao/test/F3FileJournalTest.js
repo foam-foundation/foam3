@@ -204,7 +204,7 @@ foam.CLASS({
         c = (Count) languageDAO.select(COUNT());
         test ( c.getValue() == 2, "Language replay count 2 "+c);
 
-        // Remove 
+        // Remove
         languageDAO.remove(language);
         languageDAO = new foam.dao.java.JDAO();
         languageDAO.setX(x);
@@ -212,6 +212,35 @@ foam.CLASS({
         languageDAO.setDelegate(new foam.dao.MDAO(foam.core.auth.Language.getOwnClassInfo()));
         c = (Count) languageDAO.select(COUNT());
         test ( c.getValue() == 1, "Language replay count 1 after remove "+c);
+
+        // OP_CREATE treated as OP_PUT (c-as-p)
+        // Two c entries for the same ID: second is sparse (only firstName).
+        // After replay, lastName from the first c entry must survive via merge.
+        // Use FileSystemStorage context (same as JDAO does) so reader finds files on disk
+        X fsX = testX.put(foam.core.fs.Storage.class, testX.get(foam.core.fs.FileSystemStorage.class));
+
+        String cAsPFile = "cAsPutJournal";
+        foam.core.fs.Storage cAsPStorage = (foam.core.fs.Storage) fsX.get(foam.core.fs.Storage.class);
+        try ( BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(cAsPStorage.getOutputStream(cAsPFile))) ) {
+          bw.write("c({\\"class\\":\\"foam.core.auth.User\\",\\"id\\":999,\\"firstName\\":\\"First\\",\\"lastName\\":\\"Last\\"})");
+          bw.newLine();
+          bw.write("c({\\"class\\":\\"foam.core.auth.User\\",\\"id\\":999,\\"firstName\\":\\"Updated\\"})");
+          bw.newLine();
+        }
+
+        foam.dao.MDAO cAsPMdao = new foam.dao.MDAO(User.getOwnClassInfo());
+        foam.dao.F3FileJournal cAsPJournal = new foam.dao.F3FileJournal.Builder(fsX)
+          .setFilename(cAsPFile)
+          .build();
+        cAsPJournal.replay(fsX, cAsPMdao);
+
+        c = (Count) cAsPMdao.select(COUNT());
+        test ( c.getValue() == 1, "c-as-p: one record after two c entries for same ID " + c);
+
+        User cAsPUser = (User) cAsPMdao.find(999L);
+        test ( cAsPUser != null, "c-as-p: record found" );
+        test ( "Updated".equals(cAsPUser.getFirstName()), "c-as-p: firstName updated by second c entry " + (cAsPUser != null ? cAsPUser.getFirstName() : "null") );
+        test ( "Last".equals(cAsPUser.getLastName()), "c-as-p: lastName preserved from first c entry via merge " + (cAsPUser != null ? cAsPUser.getLastName() : "null") );
 
       `
     },

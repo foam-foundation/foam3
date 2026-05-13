@@ -304,6 +304,9 @@ If empty then no permissions are required.`
         return;
       }
       var ret = self.code.call(data, x, self);
+      // Post fire method so that overlays that dont care about the action return can close
+      // themselves before the action promise resolves
+      data && data.pub && data.pub('actionCalled', self.name, self);
       if ( ret && ret.then ) {
         running.set(true);
         try {
@@ -315,10 +318,9 @@ If empty then no permissions are required.`
         } finally {
           data && data.pub && data.pub('action', self.name, self);
         }
+      } else {
+        data && data.pub && data.pub('action', self.name, self);
       }
-      // primitive types won't have a pub method
-      // Why are we publishing this event anyway? KGR
-      data && data.pub && data.pub('action', self.name, self);
       return ret;
     },
 

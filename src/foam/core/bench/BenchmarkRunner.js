@@ -416,7 +416,7 @@ foam.CLASS({
           // print out transactions per second
           long endTime = System.currentTimeMillis();
 
-          Average avg = new Average(x, PMInfo.TOTAL_TIME, 0.0, 0L);
+          Average avg = new Average(x, PMInfo.TOTAL_TIME, 0.0, 0L, -1);
           ((DAO) x.get("pmInfoDAO"))
             .where(
               AND(

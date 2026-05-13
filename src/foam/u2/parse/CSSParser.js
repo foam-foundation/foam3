@@ -30,7 +30,7 @@ foam.CLASS({
   properties: [
     {
       name: 'baseGrammar_',
-      value: function(alt, anyChar, not, opt, range, repeat, repeat0, seq, seq1, str, sug, sym) {
+      value: function(alt, anyChar, literal, not, opt, range, repeat, repeat0, seq, seq1, str, sug, sym) {
         // Override sug to add prepend overrides
         let oldSug = sug;
         sug = (v, opt) => { return oldSug(v, { prependSpaceOnSelect: false, ...opt}) };
@@ -94,10 +94,7 @@ foam.CLASS({
             sym('genericPropertyValue')
           ),
           // Token suggestions
-          tokenValue: seq(
-            '$',
-            alt(sym('tokens'), sym('tokenIdentifier'))
-          ),
+          tokenValue: sym('tokens'),
           // CSS property value suggestions
           tokenIdentifier: repeat(not(alt(' ', ';', '\n', '\r', ','), anyChar())),
           // Padding suggestions
@@ -195,11 +192,11 @@ foam.CLASS({
             '%'
           ),
           colorPropertyValue: alt(
+            str(seq(sug(literal('$'), { text: '$', label: 'CSS Token', prependSpaceOnSelect: false }), sym('tokenValue'))),
             sug(sym('hexValue'), { view: 'foam.parse.auto.ColorSuggester', label: 'Hex Color' }),
             // Only one is required
             // sug(sym('rbgValue'), { view: 'foam.parse.auto.ColorSuggester', text: 'RGB Color' }),
             // sug(sym('hslValue'), { view: 'foam.parse.auto.ColorSuggester', text: 'HSL Color' }),
-            sug(sym('tokenValue'), { text: '$', label: 'CSS Token' }),
             sug('transparent', { text: 'transparent' })
           )
         };
@@ -213,9 +210,17 @@ foam.CLASS({
           let tokenProps = [];
           let allTokens  = foam.u2.CSSTokens.getAxiomsByClass(foam.u2.CSSToken);
           let token      = (token) => sug(literal(token.name, token), { text: token.name, view: { class: 'foam.parse.auto.CSSTokenSuggester', token: token }, prependSpaceOnSelect: false });
+
+          allTokens.sort((o1, o2) => {
+            o1 = o1.name;
+            o2 = o2.name;
+            return (o2.length - o1.length) || foam.util.compare(o1, o2);
+          });
+
           allTokens.forEach(v => {
             tokenProps.push(token(v));
-          })
+          });
+
           return alt.apply(null, tokenProps);
           // Load current theme tokens if they exist
           // Can this work?? Do we need this??

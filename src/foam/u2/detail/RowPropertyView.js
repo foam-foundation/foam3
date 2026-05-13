@@ -34,6 +34,7 @@ foam.CLASS({
       flex-shrink: 2;
       font-family: monospace;
       text-align: end;
+      word-break: break-word;
     }
     ^ > .note {
       white-space: pre;
@@ -86,7 +87,7 @@ foam.CLASS({
                     self.objData || self.data,
                     prop
                   );
-                  return el.addClass(self.myClass('body'))
+                  return el.addClass(self.myClass('body'), 'p-label-lg')
                 }));
             }
             break;

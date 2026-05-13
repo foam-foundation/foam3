@@ -75,7 +75,8 @@ foam.CLASS({
         {
           class: 'Boolean',
           name: 'collapsed'
-        }
+        },
+        'of'
       ],
       methods: [
         function render() {
@@ -112,7 +113,7 @@ foam.CLASS({
                     .end()
                   .end()
                 .end()
-                .start(arrView.valueView, { data$: this.value$ })
+                .start(arrView.valueView, { data$: this.value$, of: this.of})
                   .hide(this.collapsed$)
                   .addClass(this.myClass('value-view'))
                 .end()
@@ -173,7 +174,7 @@ foam.CLASS({
         ? !! self.collapseState[key]
         : (self.collapseBehaviour == 'START_COLLAPSED');
 
-      var row = self.CollapsableRow.create({ index: i, value: e, collapsed: initialCollapsed });
+      var row = self.CollapsableRow.create({ index: i, value: e, collapsed: initialCollapsed, of: self.of });
       row.onDetach(row.sub(self.updateDataWithoutFeedback));
       row.onDetach(row.collapsed$.sub(function() {
         self.collapseState[key] = row.collapsed;

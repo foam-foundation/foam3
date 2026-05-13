@@ -119,7 +119,7 @@ foam.CLASS({
       class: 'String',
       name: 'output',
       value: '',
-      documentation: 'HTML output for errors and status'
+      documentation: 'Plain-text output for errors and status. Newline-separated; render with white-space: pre-wrap.'
     }
   ],
   
@@ -278,23 +278,16 @@ foam.CLASS({
       
       // Generate validation error summary if there were any errors
       if ( Object.keys(this.validationErrorMap).length > 0 ) {
-        this.output += '<br><div style="border: 1px solid #ff9800; padding: 10px; background: #fff3e0; border-radius: 4px;">';
-        this.output += '<h3 style="color: #e65100; margin-top: 0;">Validation Error Summary</h3>';
-        this.output += '<p style="color: #333;">Total rows processed: ' + this.processing + '</p>';
-        this.output += '<p style="color: #333;">Rows with errors: ' + (this.processing - this.matchedRows) + '</p>';
-        
-        // Group and display errors
-        this.output += '<h4 style="color: #e65100;">Error Details:</h4>';
-        this.output += '<ul style="color: #333;">';
-        
+        this.output += '\nValidation Error Summary\n';
+        this.output += 'Total rows processed: ' + this.processing + '\n';
+        this.output += 'Rows with errors: ' + (this.processing - this.matchedRows) + '\n';
+        this.output += 'Error Details:\n';
+
         var sortedErrors = Object.values(this.validationErrorMap).sort((a, b) => b.count - a.count);
         for ( var i = 0; i < sortedErrors.length; i++ ) {
           var errorInfo = sortedErrors[i];
-          this.output += '<li><strong>' + errorInfo.field + '</strong>: ' + errorInfo.error + ' (' + errorInfo.count + ' occurrences)</li>';
+          this.output += '  - ' + errorInfo.field + ': ' + errorInfo.error + ' (' + errorInfo.count + ' occurrences)\n';
         }
-        
-        this.output += '</ul>';
-        this.output += '</div><br>';
       }
       
       return this;
@@ -358,7 +351,7 @@ foam.CLASS({
       this.validationErrorMap[errorKey].count++;
       
       // Add error to output for user visibility
-      this.output += `<span style="color:red">${errorMsg}</span><br>`;
+      this.output += errorMsg + '\n';
     },
     
     function processAllMappings(obj, rowData) {

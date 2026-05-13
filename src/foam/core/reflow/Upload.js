@@ -362,10 +362,7 @@ foam.CLASS({
       class: 'String',
       name: 'output',
       label: 'Errors',
-      view: {
-        class: 'foam.u2.HTMLView',
-        nodeName: 'pre'
-      },
+      view: { class: 'foam.u2.tag.TextArea', rows: 10 },
       visibility: 'RO'
     },
     {
@@ -564,7 +561,7 @@ foam.CLASS({
         this.format = this.SUPPORTED_FORMATS[firstFile.mimeType] || 'AUTO';
       } catch (e) {
         console.error('Error processing uploaded files:', e);
-        this.output += '<span style="color:red">Error reading uploaded file: ' + e.message + '</span><br>';
+        this.output += 'Error reading uploaded file: ' + e.message + '\n';
       }
     },
 
@@ -662,7 +659,7 @@ foam.CLASS({
         } catch (e) {
           console.error('Upload eof error:', e);
           var errorMessage = e.message || 'Unknown error during upload completion';
-          self.output += '<span style="color:red">ERROR: ' + errorMessage + '</span><br>';
+          self.output += 'ERROR: ' + errorMessage + '\n';
           latch.reject(e);
         }
       };
@@ -911,7 +908,7 @@ foam.CLASS({
         sink.eof();
       } catch (x) {
         console.error('Error processing uploaded files:', x);
-        this.output += '<span style="color:red">ERROR: ' + x + '</span>';
+        this.output += 'ERROR: ' + x + '\n';
       }
     }
   ],

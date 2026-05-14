@@ -75,7 +75,9 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'FObjectProperty',
       name: 'sink',
+      autoValidate: true,
       preSet: function(o, n) {
         // Temporary fix to recontextualize the object after load.
         // TODO: remove once JSON parsing/loading is fixed

@@ -37,6 +37,10 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'keyStoreDir'
+    },
+    {
+      class: 'String',
       name: 'keyStorePath'
     },
     {
@@ -159,7 +163,7 @@ foam.CLASS({
       javaCode: `
         KeyStore keyStore = null;
         try {
-          InputStream is = getX().get(foam.core.fs.Storage.class).getInputStream(storePath);
+          InputStream is = getStorage().getInputStream(storePath);
           if ( is == null ) {
             throw new IOException("Failed opening inputstream "+storePath);
           }
@@ -275,6 +279,24 @@ foam.CLASS({
         }
         return sslContext;
       `
+    },
+    {
+      name: 'getStorage',
+      type: 'foam.core.fs.Storage',
+      javaCode: `
+        if ( storage_ == null ) {
+          if ( ! foam.util.SafetyUtil.isEmpty(getKeyStoreDir()) ) {
+            storage_ = new foam.core.fs.FileSystemStorage(getKeyStoreDir());
+          } else {
+            storage_ = getX().get(foam.core.fs.Storage.class);
+          }
+        }
+        return storage_;
+      `
     }
   ],
+
+  javaCode: `
+    protected foam.core.fs.Storage storage_;
+  `
 });

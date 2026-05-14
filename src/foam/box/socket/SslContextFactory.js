@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'SslContextFactory',
   documentation: 'create SSL context from resource',
 
+  implements: [
+    'foam.core.security.KeyStoreAware'
+  ],
+
   javaImports: [
     'foam.lang.X',
     'foam.core.logger.PrefixLogger',
@@ -199,8 +203,8 @@ foam.CLASS({
         try {
           sslContext = SSLContext.getInstance(getProtocol());
           sslContext.init(
-            getKeyManagers(getKeyStorePath(), getKeyStorePass()),
-            getTrustManagers(getTrustStorePath(), getTrustStorePass()),
+            getKeyManagers(getKeyStorePath(), resolveSecret(getX(), getKeyStorePass())),
+            getTrustManagers(getTrustStorePath(), resolveSecret(getX(), getTrustStorePass())),
             null
           );
         } catch ( NoSuchAlgorithmException e ) {
@@ -225,7 +229,7 @@ foam.CLASS({
       javaCode: `
         SSLContext sslContext = null;
         try {
-          KeyManager[] keyManagers = getKeyManagers(getKeyStorePath(), getKeyStorePass());
+          KeyManager[] keyManagers = getKeyManagers(getKeyStorePath(), resolveSecret(getX(), getKeyStorePass()));
           if ( keyManagers == null || keyManagers.length < 1 ) return sslContext;
 
           sslContext = SSLContext.getInstance(getProtocol());
@@ -267,7 +271,7 @@ foam.CLASS({
                 return k;
               }
             }).toArray(KeyManager[]::new),
-            getTrustManagers(getTrustStorePath(), getTrustStorePass()),
+            getTrustManagers(getTrustStorePath(), resolveSecret(getX(), getTrustStorePass())),
               null);
 
         } catch ( NoSuchAlgorithmException e ) {

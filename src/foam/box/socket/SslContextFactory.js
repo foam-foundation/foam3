@@ -98,7 +98,7 @@ foam.CLASS({
 
         try {
           keyStore = getKeystore(storePath, storePass);
-          factory = KeyManagerFactory.getInstance("SunX509");
+          factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
           factory.init(keyStore, storePass == null ? null : storePass.toCharArray());
         } catch ( UnrecoverableKeyException e ) {
           getLogger().error(e);
@@ -134,7 +134,7 @@ foam.CLASS({
 
         try {
           keyStore = getKeystore(storePath, storePass);
-          factory = TrustManagerFactory.getInstance("SunX509");
+          factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
           factory.init(keyStore);
         } catch ( KeyStoreException e ) {
           getLogger().error(e);

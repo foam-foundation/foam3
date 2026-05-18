@@ -87,8 +87,7 @@ foam.CLASS({
         return n;
       }
     }
-  ],
-
+  ]
 });
 
 
@@ -842,9 +841,23 @@ foam.CLASS({
       },
       */
     {
+      class: 'FObjectArray',
       name: 'sinks',
+      of: 'foam.core.reflow.AbstractDAOAgent',
+      autoValidate: true,
       factory: function() { return []; },
       preSet: function(o, n) {
+        // TODO:
+        // - this is needed because parsing doesn't put objects in the correct context,
+        // - but then it breaks nested validation because nested objects aren't the correct ones
+        // - remove once parsing contextualizes correctly
+
+        // Don't clone if not necessary. Only necessary if the dao is different.
+        let count = n.filter(o => o && o.dao != this.__subContext__.dao ).length;
+        if ( count == 0 ) {
+          return n;
+        }
+
         if ( foam.Array.isInstance(n) ) {
           n = n.map(o => o && o.__context__ != this.__subContext__ ? o.clone(this.__subContext__) : o);
         }

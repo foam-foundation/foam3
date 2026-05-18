@@ -65,7 +65,12 @@ foam.CLASS({
         with ( this.__context__.scope ) {
           // Create function - can be sync or return a Promise
           // The timer will handle both cases by checking if result is a Promise
-          f = eval('(function() { return ' + formula + '})');
+          try {
+            f = eval('(function() { return ' + formula + '})');
+          } catch (x) {
+            // TODO: display somewhere better
+            console.log('Reactive function error:', x);
+          }
         }
         f.toString = function() { return formula; };
 

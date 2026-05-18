@@ -312,7 +312,7 @@ foam.CLASS({
         try {
           // Use toLocaleString for natural locale formatting (includes both date and time)
           var options = { timeZone: tz };
-          var result = date.toLocaleString(foam.locale, options);
+          var result = date.toLocaleString(foam.util.getClientLocale(), options);
           return result;
         } catch (e) {
           // Invalid timezone or formatting error - return empty string
@@ -359,7 +359,7 @@ foam.CLASS({
             day: '2-digit',
             timeZone: tz
           };
-          var formattedDate = date.toLocaleDateString(foam.locale, dateOptions);
+          var formattedDate = date.toLocaleDateString(foam.util.getClientLocale(), dateOptions);
 
           if ( timeFirst === undefined || timeFirst === null ) {
             return formattedDate;
@@ -373,7 +373,7 @@ foam.CLASS({
             second: '2-digit',
             timeZone: tz
           };
-          var formattedTime = date.toLocaleTimeString(foam.locale, timeOptions);
+          var formattedTime = date.toLocaleTimeString(foam.util.getClientLocale(), timeOptions);
 
           var result = ( timeFirst ? formattedTime + ' ' : '' )
                + formattedDate

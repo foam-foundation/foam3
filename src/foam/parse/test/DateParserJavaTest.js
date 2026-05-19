@@ -50,6 +50,7 @@ foam.CLASS({
         // Month Name Format Tests
         DateParserTest_DDMMMYYYY_Separated();
         DateParserTest_DDMMMYYYY_Compact();
+        DateParserTest_DDMMMYY_Separated();
         DateParserTest_YYYYDDMMM_Separated();
         DateParserTest_YYYYDDMMM_Compact();
 
@@ -468,6 +469,47 @@ foam.CLASS({
         test(cal2.get(Calendar.YEAR) == 2024, "DDMMMYYYY-Sep: year 2024");
         test(cal2.get(Calendar.MONTH) == 11, "DDMMMYYYY-Sep: month 11 (DEC)");
         test(cal2.get(Calendar.DAY_OF_MONTH) == 31, "DDMMMYYYY-Sep: day 31");
+      `
+    },
+
+    {
+      name: 'DateParserTest_DDMMMYY_Separated',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // Test 14-MAY-26 (the real-world case that prompted this feature)
+        Date date1 = parser.parseString("14-MAY-26");
+        Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2026, "DDMMMYY-Sep: 14-MAY-26 year 2026");
+        test(cal1.get(Calendar.MONTH) == 4,   "DDMMMYY-Sep: 14-MAY-26 month 4 (MAY)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 14, "DDMMMYY-Sep: 14-MAY-26 day 14");
+
+        // Test 31/DEC/25
+        Date date2 = parser.parseString("31/DEC/25");
+        Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "DDMMMYY-Sep: 31/DEC/25 year 2025");
+        test(cal2.get(Calendar.MONTH) == 11,  "DDMMMYY-Sep: 31/DEC/25 month 11 (DEC)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 31, "DDMMMYY-Sep: 31/DEC/25 day 31");
+
+        // Year pivot: < 50 → 20xx, >= 50 → 19xx
+        Date date3 = parser.parseString("01-JAN-49");
+        Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal3.setTime(date3);
+        test(cal3.get(Calendar.YEAR) == 2049, "DDMMMYY-Sep: 01-JAN-49 year 2049");
+
+        Date date4 = parser.parseString("01-JAN-50");
+        Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal4.setTime(date4);
+        test(cal4.get(Calendar.YEAR) == 1950, "DDMMMYY-Sep: 01-JAN-50 year 1950");
+
+        // Lowercase / mixed case months
+        Date date5 = parser.parseString("15-may-26");
+        Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal5.setTime(date5);
+        test(cal5.get(Calendar.YEAR) == 2026, "DDMMMYY-Sep: 15-may-26 (lowercase) year 2026");
+        test(cal5.get(Calendar.MONTH) == 4,   "DDMMMYY-Sep: 15-may-26 month 4 (MAY)");
       `
     },
 

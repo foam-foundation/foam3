@@ -222,6 +222,7 @@ foam.CLASS({
       }
 
       // Hover on a value → check if it's a timestamp on a Date property
+      // or an enum ordinal/name on an Enum-backed property.
       if ( segment.isValue && segment.key && cls ) {
         var prop = this.resolveProperty_(cls, segment.key);
         if ( prop ) {
@@ -233,6 +234,9 @@ foam.CLASS({
             md += 'Type: ' + typeName + '\n\nRaw: ' + segment.rawValue;
             return { contents: { kind: 'markdown', value: md } };
           }
+
+          var enumMd = this.buildJrlEnumValueHover_(prop, segment, propLabel);
+          if ( enumMd ) return { contents: { kind: 'markdown', value: enumMd } };
         }
       }
 
@@ -553,12 +557,17 @@ foam.CLASS({
         var afterKey = kv.index + kv[0].length;
         var valuePart = line.substring(afterKey);
 
+        // For nested objects, `entry[keyName]` is undefined (entry is the
+        // outer envelope) — parse the typed `rawValue` from the regex
+        // match itself so hover handlers see the right value at every
+        // nesting depth.
+
         // String value (quoted)
         var strMatch = valuePart.match(/^"([^"]*)"/);
         if ( strMatch ) {
           var valEnd = afterKey + 1 + strMatch[1].length;
           if ( col >= afterKey && col <= valEnd + 1 ) {
-            return { value: strMatch[1], isKey: false, isValue: true, key: keyName, rawValue: entry[keyName] };
+            return { value: strMatch[1], isKey: false, isValue: true, key: keyName, rawValue: strMatch[1] };
           }
           continue;
         }
@@ -568,7 +577,9 @@ foam.CLASS({
         if ( numMatch ) {
           var valEnd = afterKey + numMatch[1].length;
           if ( col >= afterKey && col <= valEnd ) {
-            return { value: numMatch[1], isKey: false, isValue: true, key: keyName, rawValue: entry[keyName] };
+            var topRaw = entry[keyName];
+            var numRaw = typeof topRaw === 'number' ? topRaw : Number(numMatch[1]);
+            return { value: numMatch[1], isKey: false, isValue: true, key: keyName, rawValue: numRaw };
           }
           continue;
         }
@@ -578,7 +589,9 @@ foam.CLASS({
         if ( boolMatch ) {
           var valEnd = afterKey + boolMatch[1].length;
           if ( col >= afterKey && col <= valEnd ) {
-            return { value: boolMatch[1], isKey: false, isValue: true, key: keyName, rawValue: entry[keyName] };
+            var bRaw = boolMatch[1] === 'true' ? true
+                     : boolMatch[1] === 'false' ? false : null;
+            return { value: boolMatch[1], isKey: false, isValue: true, key: keyName, rawValue: bRaw };
           }
         }
       }
@@ -1277,31 +1290,70 @@ foam.CLASS({
           continue;
         }
 
-        // Validate property names across all lines of the entry
-        for ( var key in entry ) {
-          if ( key === 'class' ) continue;
-          var prop = this.resolveProperty_(cls, key);
-          if ( ! prop ) {
-            var escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            var keyPattern = new RegExp('(?:"' + escaped + '"|' + escaped + ')\\s*:');
-            for ( var sl = startLine ; sl <= endLine ; sl++ ) {
-              var keyMatch = keyPattern.exec(lines[sl]);
-              if ( keyMatch ) {
-                var keyStart = keyMatch.index + (keyMatch[0].charAt(0) === '"' ? 1 : 0);
-                diags.push({
-                  range: { start: { line: sl, character: keyStart }, end: { line: sl, character: keyStart + key.length } },
-                  severity: 2,
-                  source: 'foam-lsp',
-                  message: 'Unknown property "' + key + '" on ' + classId
-                });
-                break;
+        // Validate property names across all lines of the entry. Recurses
+        // into nested objects whose own `class` resolves — e.g.,
+        // `{ "class": "X", "sub": { "class": "Y", "wrongAxiom": "v" } }`
+        // flags `wrongAxiom` against Y, not X.
+        this.validateEntryProperties_(entry, cls, classId, lines, startLine, endLine, diags);
+      }
+
+      return diags;
+    },
+
+    function validateEntryProperties_(entry, cls, classId, lines, startLine, endLine, diags) {
+      /** Walk an entry's own keys and emit Unknown-property diagnostics. */
+      if ( ! entry || ! cls ) return;
+
+      for ( var key in entry ) {
+        if ( key === 'class' ) continue;
+        var value = entry[key];
+        var prop  = this.resolveProperty_(cls, key);
+
+        if ( ! prop ) {
+          this.addUnknownPropertyDiag_(key, classId, lines, startLine, endLine, diags);
+        }
+
+        // Recurse into nested objects that declare their own class.
+        if ( value && typeof value === 'object' && ! Array.isArray(value) && value['class'] ) {
+          var innerId  = value['class'];
+          var innerCls = this.index.getClass(innerId);
+          if ( innerCls ) {
+            this.validateEntryProperties_(value, innerCls, innerId, lines, startLine, endLine, diags);
+          }
+        }
+        // Arrays may contain inner FObjects with their own `class` too.
+        if ( Array.isArray(value) ) {
+          for ( var ai = 0 ; ai < value.length ; ai++ ) {
+            var item = value[ai];
+            if ( item && typeof item === 'object' && item['class'] ) {
+              var iId  = item['class'];
+              var iCls = this.index.getClass(iId);
+              if ( iCls ) {
+                this.validateEntryProperties_(item, iCls, iId, lines, startLine, endLine, diags);
               }
             }
           }
         }
       }
+    },
 
-      return diags;
+    function addUnknownPropertyDiag_(key, classId, lines, startLine, endLine, diags) {
+      /** Locate `key` in the entry's source lines and push the diagnostic. */
+      var escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var keyPattern = new RegExp('(?:"' + escaped + '"|' + escaped + ')\\s*:');
+      for ( var sl = startLine ; sl <= endLine ; sl++ ) {
+        var keyMatch = keyPattern.exec(lines[sl]);
+        if ( keyMatch ) {
+          var keyStart = keyMatch.index + (keyMatch[0].charAt(0) === '"' ? 1 : 0);
+          diags.push({
+            range: { start: { line: sl, character: keyStart }, end: { line: sl, character: keyStart + key.length } },
+            severity: 2,
+            source: 'foam-lsp',
+            message: 'Unknown property "' + key + '" on ' + classId
+          });
+          return;
+        }
+      }
     },
 
     function handleDefinition(text, position, opt_uri) {
@@ -1420,6 +1472,42 @@ foam.CLASS({
         String(d.getUTCHours()).padStart(2, '0') + ':' +
         String(d.getUTCMinutes()).padStart(2, '0') + ':' +
         String(d.getUTCSeconds()).padStart(2, '0') + ' UTC';
+    },
+
+    function buildJrlEnumValueHover_(prop, segment, propLabel) {
+      /**
+       * If `prop` is backed by an enum (has an `of` that resolves to a class
+       * with a `VALUES` array), turn the JRL-stored ordinal (number) or
+       * constant name (string) into the human-readable enum value.
+       *
+       * Real-world JRLs persist enums as ordinals (e.g. `"operation": 0`,
+       * `"lifecycleState": 1`) — without this resolver, hover gives no
+       * insight into what the magic number means.
+       */
+      if ( ! prop || ! prop.of ) return null;
+      var ofId = typeof prop.of === 'string' ? prop.of :
+                 ( prop.of.id || prop.of.name || null );
+      if ( ! ofId ) return null;
+      var values = this.index.getEnumValues(ofId);
+      if ( ! values || ! values.length ) return null;
+
+      var raw = segment.rawValue;
+      var match = null;
+      if ( typeof raw === 'number' ) {
+        for ( var i = 0 ; i < values.length ; i++ ) {
+          if ( values[i].ordinal === raw ) { match = values[i]; break; }
+        }
+      } else if ( typeof raw === 'string' && raw ) {
+        for ( var j = 0 ; j < values.length ; j++ ) {
+          if ( values[j].name === raw ) { match = values[j]; break; }
+        }
+      }
+      if ( ! match ) return null;
+
+      var md = '**' + propLabel + '**: `' + ofId + '.' + match.name + '`\n\n';
+      if ( match.label ) md += 'Label: **' + match.label + '**\n\n';
+      if ( match.ordinal != null ) md += 'Ordinal: ' + match.ordinal + '\n';
+      return md;
     }
   ]
 });

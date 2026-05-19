@@ -79,6 +79,48 @@ foam.CLASS({
       return types;
     },
 
+    function isInterface(classId) {
+      /**
+       * Returns true if `classId` was declared via foam.INTERFACE — i.e.,
+       * its class extends foam.lang.AbstractInterface. The interface
+       * subtype check is canonical: `foam.INTERFACE` sets
+       * `extends: 'foam.lang.AbstractInterface'` on every interface.
+       */
+      var iface = foam.maybeLookup('foam.lang.AbstractInterface');
+      if ( ! iface ) return false;
+      var cls = foam.maybeLookup(classId);
+      if ( ! cls ) return false;
+      try { return iface.isSubClass(cls); } catch ( e ) { return false; }
+    },
+
+    function getInterfaceIds() {
+      /**
+       * Returns all class IDs declared via foam.INTERFACE — i.e., classes
+       * whose own class extends foam.lang.AbstractInterface. Used by the
+       * completion handler so `implements: [...]` suggests interfaces
+       * specifically rather than every class id.
+       */
+      if ( this.cache_.interfaceIds ) return this.cache_.interfaceIds;
+
+      var iface = foam.maybeLookup('foam.lang.AbstractInterface');
+      if ( ! iface ) {
+        this.cache_.interfaceIds = [];
+        return this.cache_.interfaceIds;
+      }
+
+      var result = [];
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        try {
+          var cls = foam.maybeLookup(ids[i]);
+          if ( cls && cls !== iface && iface.isSubClass(cls) ) result.push(ids[i]);
+        } catch ( e ) {}
+      }
+
+      this.cache_.interfaceIds = result;
+      return result;
+    },
+
     function getClassTypedPropertyNames() {
       /**
        * Names of axiom slots whose string value is a class id. Used by

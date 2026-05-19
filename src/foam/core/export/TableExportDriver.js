@@ -77,7 +77,16 @@ foam.CLASS({
 
     function getPropName(X, of) {
       var propNames = X.filteredTableColumns ? X.filteredTableColumns : this.outputter.getAllPropertyNames(of);
-      return this.columnConfigToPropertyConverter.filterExportedProps(of, propNames);
+      return this.columnConfigToPropertyConverter.filterExportedProps(of, propNames).filter(propName => {
+        var prop = this.columnConfigToPropertyConverter.returnProperty(of, propName);
+        var isDAOProperty               = foam.dao.DAOProperty && foam.dao.DAOProperty.isInstance(prop);
+        var isOneToManyRelationship     = foam.dao.OneToManyRelationshipProperty && foam.dao.OneToManyRelationshipProperty.isInstance(prop);
+        var isManyToManyRelationship    = foam.dao.ManyToManyRelationshipProperty && foam.dao.ManyToManyRelationshipProperty.isInstance(prop);
+        return prop &&
+          ! isDAOProperty &&
+          ! isOneToManyRelationship &&
+          ! isManyToManyRelationship;
+      });
     }
   ]
 });

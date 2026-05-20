@@ -91,6 +91,12 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'editColumnsEnabled',
+      value: true,
+      documentation: 'Set to false to hide the column chooser button.'
+    },
+    {
+      class: 'Boolean',
       name: 'multiSelectEnabled',
       documentation: 'Set to true to support selecting multiple table rows.'
     },
@@ -130,7 +136,7 @@ foam.CLASS({
             .startContext({ memento_: mem})
             .start(this.TableView, {
               data$: this.slot(function(rowsToDisplay) {return data.limit(rowsToDisplay)}),
-              // editColumnsEnabled: false,
+              editColumnsEnabled: self.editColumnsEnabled,
               multiSelectEnabled: self.multiSelectEnabled,
               selectedObjects$: self.selectedObjects$,
               showPagination: false

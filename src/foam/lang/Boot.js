@@ -140,14 +140,15 @@ foam.LIB({
           foam.lang.FObject            ;
 
         foam.assert(parent, "Missing parent.", this.name);
-        cls                  = parent.createSubClass_();
-        cls.prototype.cls_   = cls;
-        cls.prototype.model_ = this;
-        cls.count_           = 0;            // Number of instances created
-        cls.id               = this.id;
-        cls.package          = this.package;
-        cls.name             = this.name;
-        cls.model_           = this;
+        cls                     = parent.createSubClass_();
+        cls.prototype.cls_      = cls;
+        cls.prototype.model_    = this;
+        cls.prototype.instance_ = {};
+        cls.count_              = 0;            // Number of instances created
+        cls.id                  = this.id;
+        cls.package             = this.package;
+        cls.name                = this.name;
+        cls.model_              = this;
 
         // Install an FObject on the class that we can use as a pub/sub hub.
         // We have to do this because classes aren't FObjects.

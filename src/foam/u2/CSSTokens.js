@@ -140,7 +140,7 @@ foam.CLASS({
     { name: 'success', value: '#34CF56' },
 
     // SEMANTIC TOKENS
-    // For semantic tokens we use the term brand instead of primary for two reasons: 
+    // For semantic tokens we use the term brand instead of primary for two reasons:
     // 1. Default, secondary, and tertiary are three variations of the semantic tokens so primary might cause confusion
     // 2. When theme semantic tokens are overriden, brand colour might be a mix of various random tokens that might be set up so "brand" offers a consistent easy to understand name
 
@@ -218,7 +218,7 @@ foam.CLASS({
     { name: 'header-sm', value: '2rem' },
     { name: 'header-xs', value: '1.6rem' },
     { name: 'header-xxs', value: '1.4rem' },
-    { name: 'header-xxxs', value: '1.2rem' }
+    // { name: 'header-xxxs', value: '1.2rem' }
   ]),
 
   javaCode: `

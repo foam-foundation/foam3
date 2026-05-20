@@ -18,6 +18,7 @@ import foam.util.SafetyUtil;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import static foam.mlang.MLang.*;
 
@@ -27,7 +28,7 @@ import static foam.mlang.MLang.*;
  * predicates based on the properties of the specified ClassInfo.
  *
  * Each property type gets its own set of operators:
- *   String:      =, !=, >=, >, <=, <, :, ~, CONTAINS, IN(), NOT IN(), IS EMPTY, IS NOT EMPTY
+ *   String:      =, !=, >=, >, <=, <, :, ~, CONTAINS, MATCH(), IN(), NOT IN(), IS EMPTY, IS NOT EMPTY
  *   StringArray: =, HAS, !=, IN(), NOT IN()
  *   Number/Long: =, !=, >=, >, <=, <, IN(), NOT IN()
  *   Float/Double:=, !=, >=, >, <=, <, IN RANGE(), NOT IN RANGE()
@@ -207,6 +208,15 @@ public class SimpleQueryParser
     // stringArray: ws strings ws )
     g.addSymbol("strings", new Repeat(g.sym("string"), Literal.create(","), 1));
     g.addSymbol("stringArray", new Seq1(1, g.sym("ws"), g.sym("strings"), g.sym("ws"), Literal.create(")")));
+    g.addSymbol("position match", new Seq(
+      g.sym("ws"),
+      g.sym("digits"),
+      g.sym("ws"),
+      Literal.create(","),
+      g.sym("string"),
+      g.sym("ws"),
+      Literal.create(")")
+    ));
 
     // ── Date symbols ──
     // literal date: YYYY-MM-DD or YYYY-MM or YYYY (with - or / separator)
@@ -359,6 +369,7 @@ public class SimpleQueryParser
       new Seq(operatorNoSpace(g, ":"), g.sym("string")),
       new Seq(operatorNoSpace(g, "~"), g.sym("string")),
       new Seq(operator(g, "CONTAINS"), g.sym("string")),
+      new Seq(operatorIn(g, "MATCH"), g.sym("position match")),
       new Seq(operatorIn(g, "IN"), g.sym("stringArray")),
       new Seq(operatorIn(g, "NOT IN"), g.sym("stringArray")),
       new Seq(operator(g, "IS EMPTY")),
@@ -747,6 +758,14 @@ public class SimpleQueryParser
       return new Object[] { values[0], values.length > 1 ? values[1] : null };
     });
 
+    g.addAction("position match", (val, x) -> {
+      Object[] values = (Object[]) val;
+      Map<String, Object> match = new HashMap<>();
+      match.put("position", values[1]);
+      match.put("value", values[4]);
+      return match;
+    });
+
     g.addAction("compareStringArray", (val, x) -> {
       Object[] values = (Object[]) val;
       return new Object[] { values[0], values.length > 1 ? values[1] : null };
@@ -838,6 +857,9 @@ public class SimpleQueryParser
       case "~":
         return CONTAINS_IC(prop, value);
 
+      case "MATCH":
+        return buildPositionMatchPredicate(prop, value);
+
       case "IS EMPTY":
         return NOT(HAS(prop));
 
@@ -847,6 +869,27 @@ public class SimpleQueryParser
       default:
         return null;
     }
+  }
+
+  private Predicate buildPositionMatchPredicate(Expr prop, Object value) {
+    if ( ! ( value instanceof Map ) ) return new False();
+
+    Map match = (Map) value;
+    Object positionValue = match.get("position");
+    Object stringValue = match.get("value");
+
+    if ( ! ( positionValue instanceof Number ) || ! ( stringValue instanceof String ) ) {
+      return new False();
+    }
+
+    int position = ((Number) positionValue).intValue();
+    if ( position < 1 || SafetyUtil.isEmpty((String) stringValue) ) return new False();
+
+    String pattern = "^.{" + ( position - 1 ) + "}" + Pattern.quote((String) stringValue) + ".*$";
+    RegExp regExp = new RegExp();
+    regExp.setArg1(prop);
+    regExp.setRegExp(Pattern.compile(pattern));
+    return regExp;
   }
 
   /**

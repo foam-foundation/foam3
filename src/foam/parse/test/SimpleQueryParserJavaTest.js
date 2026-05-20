@@ -132,6 +132,11 @@ foam.CLASS({
           "ContainsIC(foam.core.auth.User.firstName, SomeName)",
           "String Test11: The name contains the value with ~ operator"
         );
+        assertQuery(
+          "firstName STARTSWITH SomeName",
+          "StartsWithIC(foam.core.auth.User.firstName, SomeName)",
+          "String Test11b: The name starts with the value"
+        );
         // JS Test12: The name exactly matches any of the listed values
         assertQuery(
           "firstName IN (SomeName,AnotherName)",

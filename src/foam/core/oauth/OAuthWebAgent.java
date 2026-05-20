@@ -111,7 +111,7 @@ public class OAuthWebAgent implements WebAgent {
 
             // if an idToken was returned, we can identify the remote account
             foam.core.auth.User user;
-            javax.json.JsonObject idTokenBody = parseIdTokenBody(idToken);
+            JsonObject idTokenBody = parseIdTokenBody(idToken);
             String remoteSubject = idTokenBody != null && idTokenBody.containsKey("sub") ? idTokenBody.getString("sub") : null;
             String remoteEmail   = idTokenBody != null && idTokenBody.containsKey("email") ? idTokenBody.getString("email") : null;
 
@@ -254,7 +254,7 @@ public class OAuthWebAgent implements WebAgent {
         }
 
         Logger logger = (Logger) x.get("logger");
-        javax.json.JsonObject bodyObject = parseIdTokenBody(idToken);
+        JsonObject bodyObject = parseIdTokenBody(idToken);
         if ( bodyObject == null ) {
             throw new AuthenticationException("Invalid id_token");
         }

@@ -35,6 +35,8 @@ foam.CLASS({
     'foam.mlang.predicate.Not',
     'foam.mlang.predicate.Or',
     'foam.mlang.predicate.StartsWithIC',
+    'foam.mlang.predicate.RegExp',
+    'foam.mlang.predicate.False',
     'foam.mlang.predicate.True',
     'foam.parse.Alternate',
     'foam.parse.Grammar',
@@ -186,6 +188,7 @@ foam.CLASS({
             seq(operator('~'), sym('string')),
             seq(operator('CONTAINS'), sym('string')),
             seq(operator('STARTSWITH'), sym('string')),
+            seq(operatorIn('MATCH'), sym('position match')),
             seq(operatorIn('IN'), sym('stringArray')),
             seq(operatorIn('NOT IN'), sym('stringArray')),
             seq(operator('IS EMPTY')),
@@ -308,7 +311,9 @@ foam.CLASS({
 
           stringArray: seq1(1, sym('ws'), sym('strings'), sym('ws'), ')'),
 
-          strings: repeat(sym('string'), ',', 1)
+          strings: repeat(sym('string'), ',', 1),
+
+          'position match': seq(sym('ws'), sym('digits'), sym('ws'), ',', sym('string'), sym('ws'), ')')
         };
       }
     },
@@ -479,6 +484,23 @@ foam.CLASS({
         function rangeValue(v) {
           return [ v[0][0], v[1][1] ]; // [start of first, end of second]
         }
+        function positionMatchValue(v) {
+          return {
+            position: v[1],
+            value: v[4]
+          };
+        }
+        function escapeRegExp(s) {
+          return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        function buildPositionMatchPattern(v) {
+          var position = parseInt(v.position, 10);
+          var match = v.value;
+
+          if ( ! Number.isInteger(position) || position < 1 || ! match ) return null;
+
+          return '^.{' + ( position - 1 ) + '}' + escapeRegExp(match) + '.*$';
+        }
         let actions    = {
           START: function(v) {
             if ( v && v.partialEval ) v = v.partialEval();
@@ -546,6 +568,10 @@ foam.CLASS({
 
           compareStringArray: function(v) {
             return simpleOpValue(v);
+          },
+
+          'position match': function(v) {
+            return positionMatchValue(v);
           },
 
           date: function(v) {
@@ -622,6 +648,11 @@ foam.CLASS({
                 return self.ContainsIC.create({ arg1: prop, arg2: value });
               case 'STARTSWITH':
                 return self.StartsWithIC.create({ arg1: prop, arg2: value });
+              case 'MATCH':
+                let pattern = buildPositionMatchPattern(value);
+                return pattern ?
+                  self.RegExp.create({ arg1: prop, regExp: new RegExp(pattern) }) :
+                  self.False.create();
               case 'IS EMPTY':
                 return self.Not.create({arg1: self.Has.create({ arg1: prop })});
               case 'IS NOT EMPTY':

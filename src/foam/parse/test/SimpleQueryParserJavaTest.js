@@ -97,6 +97,32 @@ foam.CLASS({
         test(result == null, message + " — expected null, got: " + result);
       `
     },
+    {
+      name: 'assertMatchesQuery',
+      args: [
+        { name: 'query',     type: 'String' },
+        { name: 'firstName', type: 'String' },
+        { name: 'expected',  type: 'Boolean' },
+        { name: 'message',   type: 'String' }
+      ],
+      javaCode: `
+        SimpleQueryParser parser = new SimpleQueryParser(User.getOwnClassInfo());
+        Predicate pred = parser.parseString(query);
+        if ( pred == null ) {
+          test(false, message + " — got null predicate");
+          return;
+        }
+
+        User user = new User();
+        user.setFirstName(firstName);
+
+        boolean actual = pred.f(user);
+        test(
+          actual == expected,
+          message + " — expected: " + expected + ", got: " + actual
+        );
+      `
+    },
 
     // ───────── String property tests (matches JS Test8-Test15) ─────────
     {
@@ -136,6 +162,17 @@ foam.CLASS({
           "firstName STARTSWITH SomeName",
           "StartsWithIC(foam.core.auth.User.firstName, SomeName)",
           "String Test11b: The name starts with the value"
+        assertMatchesQuery(
+          "firstName MATCH (3,me)",
+          "SomeName",
+          true,
+          "String Test11c: MATCH finds a substring starting at a one-based position"
+        );
+        assertMatchesQuery(
+          "firstName MATCH (3,zz)",
+          "SomeName",
+          false,
+          "String Test11d: MATCH fails when the substring at the position does not match"
         );
         // JS Test12: The name exactly matches any of the listed values
         assertQuery(

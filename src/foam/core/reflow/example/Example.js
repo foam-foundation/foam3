@@ -11,6 +11,8 @@ foam.CLASS({
 
   imports: [ 'scope as globalScope' ],
 
+  exports: ['stack_ as stack', 'breadcrumbs_ as breadcrumbs'],
+
   css: `
     ^ {
       width: 100%;
@@ -55,6 +57,18 @@ foam.CLASS({
       hidden: true,
       // visibility: 'HIDDEN',
       transient: true
+    },
+    {
+      name: 'stack_',
+      factory: function() {
+        return foam.core.u2.navigation.Stack.create({}, this.__subContext__);
+      }
+    },
+    {
+      name: 'breadcrumbs_',
+      factory: function() {
+        return foam.u2.stack.BreadcrumbManager.create({}, this.__subContext__);
+      }
     }
   ],
 
@@ -67,13 +81,12 @@ foam.CLASS({
       this.
         addClass(this.myClass()).
         add(this.CODE).
-          start('span').addClass('h500').add('Output:').end().
-            start().
-              addClass(this.myClass('output')).
-              tag('div', {}, this.dom$).
-            end().
-          end();
-
+        start('span').addClass('h500').add('Output:').end().
+        add(this.stack_).
+        end();
+      this.stack_.addClass(this.myClass('output'));
+      this.stack_.push(this.E().startContext({ stack: this.stack_, breadcrumbs: this.breadcrumbs_, memento_: null }).
+        tag('div', {}, this.dom$)).endContext();
       this.runListener();
       this.onDetach(this.code$.sub(this.runListener));
     },
@@ -132,7 +145,7 @@ foam.CLASS({
             return self.dom.start.apply(self.dom, arguments);
           },
           tag: function() {
-            return self.dom.start.apply(self.dom, arguments);
+            return self.dom.tag.apply(self.dom, arguments);
           }
         };
 

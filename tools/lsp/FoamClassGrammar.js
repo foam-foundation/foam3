@@ -729,6 +729,10 @@ foam.CLASS({
         ),
         cssEntry: P.seq(key('css', topHint('css')), wsc, P.literal(':'), wsc, backtickString),
 
+        // implements: ['foam.x.Y'] — same classRef parsing as extends.
+        // FOAM allows implements to reference any class id, not just
+        // foam.INTERFACE-declared ones (e.g., StringFilterView implements
+        // foam.mlang.Expressions, which is a class).
         implementsEntry: P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
           wsc, P.optional(P.literal(']'))),

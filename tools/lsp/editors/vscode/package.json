@@ -39,7 +39,8 @@
         "scopeName": "source.foam-journal",
         "path": "./syntaxes/foam-jrl.tmLanguage.json",
         "embeddedLanguages": {
-          "meta.embedded.block.java": "java"
+          "meta.embedded.block.java": "java",
+          "meta.embedded.block.json": "json"
         }
       },
       {

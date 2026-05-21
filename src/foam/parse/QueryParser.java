@@ -220,13 +220,14 @@ public class QueryParser
     grammar.addSymbol("EQUALS", new Seq(
       grammar.sym("FIELD_NAME"),
       Whitespace.instance(),
-      new Alt(Literal.create(":"), Literal.create("=")),
+      new Alt(Literal.create("!="), Literal.create(":"), Literal.create("=")),
       Whitespace.instance(),
       grammar.sym("VALUE_LIST")
     ));
     grammar.addAction("EQUALS", (val, x) -> {
       Object[] values = (Object[]) val;
       Expr prop = ( Expr ) values[0];
+      boolean isNEQ = values[2].equals("!=");
 
       Object[] value = (Object[]) values[4];
       if ( prop instanceof AbstractDatePropertyInfo ) {
@@ -248,6 +249,7 @@ public class QueryParser
 
         Binary[] predicates = { gte, lte };
         and.setArgs(predicates);
+        if ( isNEQ ) { foam.mlang.predicate.Not n = new foam.mlang.predicate.Not(); n.setArg1(and); return n; }
         return and;
       }
 
@@ -281,19 +283,21 @@ public class QueryParser
         In in = new In();
         in.setArg1(prop);
         in.setArg2(MLang.prepare(newValues));
+        if ( isNEQ ) { foam.mlang.predicate.Not n = new foam.mlang.predicate.Not(); n.setArg1(in); return n; }
         return in;
       }
 
       Or or = new Or();
       Predicate[] vals = new Predicate[value.length];
       for ( int i = 0; i < value.length; i++ ) {
-        Binary binary = values[2].equals("=") ? new Eq() : new Contains();
+        Binary binary = values[2].equals(":") ? new Contains() : new Eq();
         binary.setArg1(prop);
         binary.setArg2(( value[i] instanceof Expr ) ?
           ( Expr ) value[i] : new foam.mlang.Constant (value[i].equals("null") ? null : value[i]));
         vals[i] = binary;
       }
       or.setArgs(vals);
+      if ( isNEQ ) { foam.mlang.predicate.Not n = new foam.mlang.predicate.Not(); n.setArg1(or); return n; }
       return or;
     });
 

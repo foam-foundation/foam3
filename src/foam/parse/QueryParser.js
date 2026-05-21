@@ -154,7 +154,7 @@ foam.CLASS({
 
           simpleSubQuery: seq1(1, '.', repeat(not(alt(' ', eof()), anyChar()))),
 
-          equals: seq(sym('fieldname'), alt(key(':'), key('=')), sym('valueList')),
+          equals: seq(sym('fieldname'), alt(key('!='), key(':'), key('=')), sym('valueList')),
 
           // TODO(kgr): Merge with 'equals'.
           before: seq(sym('fieldname'), alt(key('<='), key('<'), literalIC('-before:')),
@@ -490,7 +490,7 @@ foam.CLASS({
               }
               expr = self.In.create({ arg1: prop, arg2: newValues });
             } else {
-              expr = (v[1] === '=') ?
+              expr = (v[1] !== ':') ?
                   self.In.create({ arg1: prop, arg2: values }) : // will partialEval() to Eq if only one value
                   self.Or.create({
                     args: values.map(function(v) {
@@ -508,6 +508,8 @@ foam.CLASS({
                 })
               });
             }
+
+            if ( v[1] === '!=' ) return self.Not.create({ arg1: expr });
 
             return expr;
           },

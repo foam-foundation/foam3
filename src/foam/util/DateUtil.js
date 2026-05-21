@@ -418,8 +418,8 @@ foam.CLASS({
       name: 'formatIsoDate',
       args: 'java.util.Date date',
       type: 'String',
-      documentation: `ISO-8601 calendar date in UTC (e.g. "2016-01-01"). Use for
-        XSD xs:date fields whose REST peer expects the date-only form.`,
+      documentation: `ISO-8601 calendar date in UTC (e.g. "2016-01-01"). Use
+        when emitting a date without a time component.`,
       code: function(date) {
         if ( date == null ) return null;
         if ( typeof date === 'number' ) date = new Date(date);
@@ -434,8 +434,8 @@ foam.CLASS({
       args: 'java.util.Date date',
       type: 'String',
       documentation: `ISO-8601 instant in UTC with millisecond precision and
-        literal Z suffix (e.g. "2024-03-18T14:26:05.000Z"). Use for XSD
-        xs:dateTime fields whose REST peer expects the full timestamp.`,
+        literal Z suffix (e.g. "2024-03-18T14:26:05.000Z"). Use when
+        emitting a full timestamp.`,
       code: function(date) {
         if ( date == null ) return null;
         if ( typeof date === 'number' ) date = new Date(date);
@@ -450,8 +450,7 @@ foam.CLASS({
   javaCode: `
     // Thread-local ISO-8601 formatters in UTC. SimpleDateFormat is not
     // thread-safe; reusing instances per thread keeps formatIsoDate /
-    // formatIsoDateTime cheap on hot paths (per-property JSON serialization
-    // in XSD-generated REST clients).
+    // formatIsoDateTime cheap on hot paths.
     private static final ThreadLocal<SimpleDateFormat> ISO_DATE =
       ThreadLocal.withInitial(() -> {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");

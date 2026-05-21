@@ -315,6 +315,14 @@ foam.CLASS({
           },
 
           /**
+           * Return an array of two elements [ # of remaining candidates, total number of candidates ] so that
+           * the progress can be determined.
+           */
+          function getProgress() {
+            return [ this.getCandidates().length, this.OUTCOMES.length ];
+          },
+
+          /**
            * Select the unanswered question with the highest priority (lower number is higher) and then highest information gain.
            * Returns the question axiom, or null if no questions remain.
            */
@@ -323,8 +331,8 @@ foam.CLASS({
 
             if ( candidates.length <= 1 ) return null;
 
-            console.log('************ CANDIDATES:', candidates.length);
-            candidates.forEach(c => console.log(c.reasonCode_, ' / ', c.reasonText, ' / ', c.predicate));
+            // console.log('************ CANDIDATES:', candidates.length);
+            // candidates.forEach(c => console.log(c.reasonCode_, ' / ', c.reasonText, ' / ', c.predicate));
 
             let self            = this;
             let questions       = this.QUESTIONS;

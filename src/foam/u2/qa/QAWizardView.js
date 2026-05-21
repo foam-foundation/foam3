@@ -155,7 +155,7 @@ foam.CLASS({
       });
 
       if ( this.data ) {
-        this.totalOutcomes = this.data.OUTCOMES.length;
+        this.totalOutcomes = this.data.getProgress()[1];
         this.advance_();
       }
     },
@@ -319,7 +319,7 @@ foam.CLASS({
         // Unset answer to get correct count again
         this.data[last.name]      = undefined;
         this.currentQuestionAxiom = last;
-        this.candidatesCount      = this.data.getCandidates().length;
+        this.candidatesCount      = this.data.getProgress()[0];
         this.data[last.name]      = oldValue;
         this.phase                = 'QUESTION';
       }

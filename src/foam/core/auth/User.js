@@ -664,7 +664,12 @@ foam.CLASS({
       gridColumns: 6,
       value: foam.core.auth.LifecycleState.ACTIVE,
       writePermissionRequired: false,
-      documentation: 'Recommend using state change actions'
+      documentation: 'Recommend using state change actions',
+      searchView: {
+        class: 'foam.u2.EnumView',
+        of: foam.core.auth.LifecycleState,
+        permissioned: true
+      }
     },
     {
       class: 'Reference',

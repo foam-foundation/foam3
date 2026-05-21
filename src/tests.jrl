@@ -92,4 +92,4 @@ p({
   testAddressParse("1505-19 Western Battery Rd", "", "19", "Western Battery Rd");
   """
 })
-p({ class:"foam.core.test.JrlCheckTest", id:"jrlCheckTest" })
+p({class:"foam.core.test.JrlCheckTest",id:"JrlCheckTest"})

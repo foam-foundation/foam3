@@ -36,8 +36,10 @@ public class DateParser
   public DateParser() {
     super(new Alt(
       NullParser.instance(),
-      new Seq(
-        Literal.create("\""),
+      // YYYY-MM-DDTHH:MM:SS[.fff]Z — JSON canonical instant, optionally quoted.
+      new Quoted(new Seq( // 0 year, 1 "-", 2 month, 3 "-", 4 day,
+                          // 5 "T", 6 hr, 7 ":", 8 min, 9 ":", 10 sec,
+                          // 11 optional millis Object[], 12 "Z"
         IntParser.instance(),
         Literal.create("-"),
         IntParser.instance(),
@@ -53,8 +55,8 @@ public class DateParser
           new Seq1(1, Literal.create("."),
           new Repeat(new Chars("0123456789"), null, 3, 3))
         ),
-        Literal.create("Z"),
-        Literal.create("\"")),
+        Literal.create("Z")
+      )),
       new Seq( // YYYY-MM-DD HH:MM:SS || YYYY-MM-DD HH:MM:SS.III
         IntParser.instance(), // 0 - year
         new Alt(  // 1
@@ -75,7 +77,9 @@ public class DateParser
           new Seq1(1, Literal.create("."),
           new Repeat(new Chars("0123456789"), null, 3, 3))
         )),
-        new Seq( // YYYY-MM-DD HH:MM:SS || YYYY-MM-DD HH:MM:SS.III
+      // YYYY-MM-DD — date-only, optionally quoted (the RFC 8259 canonical form
+      // for a JSON date, since JSON has no native date type).
+      new Quoted(new Seq(
         IntParser.instance(), // 0 - year
         new Alt(  // 1
           Literal.create("-"),
@@ -85,7 +89,7 @@ public class DateParser
           Literal.create("-"),
           Literal.create("/")),
         IntParser.instance() // 4 - day
-        ),
+      )),
       new LongParser()
     ));
   }
@@ -107,31 +111,21 @@ public class DateParser
     // TODO: Handle sub-millisecond accuracy, either with java 8 java.time package or some custom type
     // to support java 7
 
+    // All Seq branches above produce arrays starting at index 0 with year /
+    // separator / month / separator / day. Bare date-only is length 5, space
+    // datetime is length 12, full ISO is length 13.
     Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     c.clear();
-    Object[] milli = null;
-    try {
-      c.set(
-        (Integer) result[1],
-        (Integer) result[3] - 1, // Java calendar uses zero-indexed months
-        (Integer) result[5],
-        (Integer) result[7],
-        (Integer) result[9],
-        (Integer) result[11]);
-      if ( result[12] == null ) return ps.setValue(c.getTime());
-      milli = (Object[]) result[12];
-    } catch (Exception e ) {
-      c.set(
-        (Integer) result[0],
-        (Integer) result[2] - 1, // Java calendar uses zero-indexed months
-        (Integer) result[4],
-        result.length >= 7 ? (Integer) result[6] : 0,
-        result.length >= 9 ? (Integer) result[8] : 0,
-        result.length >= 11 ? (Integer) result[10] : 0);
-      if ( result.length < 12 ) return ps.setValue(c.getTime());
-      if ( result[11] == null ) return ps.setValue(c.getTime());
-      milli = (Object[]) result[11];
-    }
+    c.set(
+      (Integer) result[0],
+      (Integer) result[2] - 1, // Java calendar uses zero-indexed months
+      (Integer) result[4],
+      result.length >= 7 ? (Integer) result[6] : 0,
+      result.length >= 9 ? (Integer) result[8] : 0,
+      result.length >= 11 ? (Integer) result[10] : 0);
+    if ( result.length < 12 ) return ps.setValue(c.getTime());
+    if ( result[11] == null ) return ps.setValue(c.getTime());
+    Object[] milli = (Object[]) result[11];
 
     boolean zeroPrefixed = true;
     StringBuilder milliseconds = sb.get();

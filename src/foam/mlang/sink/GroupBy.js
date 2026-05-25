@@ -122,7 +122,11 @@ return getGroupKeys();`
           this.groupKeys = undefined;
           this.groups[key] = group;
         }
-        group.put(obj, sub);
+        // Isolate the outer iteration's subscription from inner sinks.
+        // Inner sinks like LimitedSink call sub.detach() when their own
+        // limit is reached; that must not cancel the source-DAO scan,
+        // or subsequent groups silently disappear.
+        group.put(obj, { detach: function() {} });
         this.pub('propertyChange', 'groups');
       },
       javaCode:
@@ -133,7 +137,11 @@ return getGroupKeys();`
    getGroups().put(key, group);
    clearGroupKeys();
  }
- group.put(obj, sub);`
+ // Isolate the outer iteration's subscription from inner sinks.
+ // Inner sinks like LimitedSink call sub.detach() when their own
+ // limit is reached; that must not cancel the source-DAO scan,
+ // or subsequent groups silently disappear.
+ group.put(obj, new foam.lang.Detachable() { public void detach() {} });`
     },
 
     function reset() {

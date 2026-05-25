@@ -34,7 +34,7 @@ foam.POM({
     sshId: ['', 'ssh-id', 'SSH_ID', 'ssh id from .ssh/ to use for connection. Will default to that specified in .ssh/config when a matching host is found, otherwise to .ssh/id_rsa', '', arg => SSH_ID = arg],
     sshOpt: ['', 'ssh-opt', 'SSH_OPT', '', () => SSH_ID ? '-i ' + HOME_DIR + '/.ssh/' + SSH_ID : '', arg => SSH_OPT = arg],
     systemdRestart: ['', 'systemd-restart', 'SYSTEMD_RESTART', 'Execute systemd restart on succesful depoyment', true, function(arg) { SYSTEMD_RESTART = arg ? this.bool(arg) : true; }],
-    mntHostname: ['', 'mnt-hostname', 'MNT_HOSTNAME', 'Create a unique NFS mnt point using the $HOSTNAME. /mnt/APP_NAME/$HOSTNAME', true, function(arg) { MNT_HOSTNAME = arg ? this.bool(arg) : true; }]
+    mntHostname: ['', 'mnt-hostname', 'MNT_HOSTNAME', 'Create a unique NFS mnt point. true uses /mnt/APP_NAME/$HOSTNAME, false uses /mnt/APP_NAME, any other value is used as the mnt path.', true, arg => MNT_HOSTNAME = arg]
   },
 
   tasks: {

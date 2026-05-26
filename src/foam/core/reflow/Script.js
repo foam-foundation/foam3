@@ -11,7 +11,8 @@ foam.CLASS({
   imports: [
     'data as block',
     'eval_',
-    'scope'
+    'scope',
+    'notify?'
   ],
 
   documentation: `
@@ -24,6 +25,19 @@ foam.CLASS({
   `,
 
   properties: [
+    {
+      class: 'Long',
+      name: 'id',
+      visibility: 'RO'
+    },
+    {
+      class: 'String',
+      name: 'scriptName'
+    },
+    {
+      class: 'String',
+      name: 'description'
+    },
     {
       class: 'String',
       name: 'code',
@@ -61,10 +75,16 @@ foam.CLASS({
   actions: [
     function run() {
       let self = this;
-      with ( this.scope ) {
+      var _scope = this.scope || {};
+      with ( _scope ) {
         with ( { log: this.log.bind(this) } ) {
           var ret = eval('(async function() {' + self.code + '})').call(self.block);
-          ret.then(v => this.log(v), v => this.log(v)).catch(e => this.log(e.stack));
+          ret
+            .then(v => {
+              this.log(v);
+              try { this.notify && this.notify(`Script${this.scriptName ? ' "' + this.scriptName + '"' : ''} executed successfully`); } catch (e) {}
+            }, v => this.log(v))
+            .catch(e => this.log(e.stack));
           return ret;
         }
       }

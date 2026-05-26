@@ -35,7 +35,7 @@ foam.CLASS({
         } else {
           if ( ! this.values.hasOwnProperty(value) ) {
             this.values[value] = obj;
-            this.delegate.put(obj);
+            this.delegate.put(obj, sub);
           }
         }
       },

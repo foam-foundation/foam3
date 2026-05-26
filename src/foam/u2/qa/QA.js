@@ -190,6 +190,11 @@ foam.CLASS({
         if ( ! existingNames[q.name] ) {
           existingNames[q.name] = true;
           inputNames.push(q.name);
+          if ( q.class && q.choices ) {
+            console.warn('[QACompiler] ' + pkg + '.' + name + ': question "' + q.name +
+              '" sets both class and choices — choices are ignored (the auto choice-view ' +
+              'is only attached when no class is set; supply an explicit view: instead).');
+          }
           props.push({
             ...q,
             class: q.class || 'String',

@@ -48,6 +48,7 @@ with RulerDAO which can perform further per user setup before user.doNotify.`,
         x = x.put("notification", notification);
         notification.setX(x);
         if ( notification.getPredicate() != null && ! notification.getPredicate().f(user) ) {
+          ((foam.lang.FObject) notification.getPredicate()).setX(getX());
           return; // Predicate is false, skip this user
         }
       } catch (Exception e) {

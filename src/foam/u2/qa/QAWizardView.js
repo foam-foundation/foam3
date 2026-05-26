@@ -15,6 +15,9 @@ foam.CLASS({
     back-navigation stack, narrows the candidate set, and presents the outcome.
     Fully agnostic to the QA class — works with any compiled foam.QA2() model.
   `,
+  imports: [
+    'appConfig',
+  ],
 
   exports: ['as wizard'],
 
@@ -39,6 +42,8 @@ foam.CLASS({
     ^ {
       display: flex;
       flex-direction: column;
+      flex: 1;
+      min-height: 0;
       height: 100%;
       background: $backgroundDefault;
     }
@@ -48,12 +53,15 @@ foam.CLASS({
       display: flex;
       flex-direction: column;
       gap: 8px;
+      position: sticky;
+      top: 0;
     }
     ^candidate-count {
       color: $textSecondary;
     }
     ^content {
       flex: 1;
+      min-height: 0;
       padding: 24px;
       overflow-y: auto;
       display: flex;
@@ -68,6 +76,8 @@ foam.CLASS({
       padding: 16px 24px;
       border-top: 1px solid $borderLight;
       background: $backgroundDefault;
+      position: sticky;
+      bottom: 0;
     }
     ^pick-hint {
       color: $textTertiary;
@@ -127,7 +137,8 @@ foam.CLASS({
       name: 'onComplete',
       documentation: 'Optional callback invoked with (data) when the wizard finishes'
     },
-    'valueSub_'
+    'valueSub_',
+    'oldPhase_'
   ],
 
   methods: [
@@ -283,12 +294,21 @@ foam.CLASS({
                 }
               }})
             .endContext();
+          } else if (phase == 'EDIT_METADATA') {
+            this.start(foam.u2.detail.VerticalDetailView, {
+              data$: self.data$,
+              showTitle: false,
+              useSections: ['props_']
+            })
+            .end();
           }
         }))
       .end();
 
       this.start().addClass(this.myClass('footer'))
         .startContext({ data: this })
+          .tag(this.EDIT_METADATA)
+          .tag(this.CONFIRM_EDIT)
           .tag(this.BACK)
           .tag(this.NEXT, { label$: this.slot(function(phase) {
             if ( phase == 'PICK' ) return 'Confirm';
@@ -306,7 +326,7 @@ foam.CLASS({
       name: 'back',
       size: 'MEDIUM',
       isAvailable: function(phase) {
-        return phase != 'OUTCOME';
+        return phase != 'OUTCOME' && phase != 'EDIT_METADATA';
       },
       isEnabled: function(data$answeredOrder) {
         return data$answeredOrder.length > 0;
@@ -328,6 +348,10 @@ foam.CLASS({
       name: 'next',
       buttonStyle: 'PRIMARY',
       size: 'MEDIUM',
+      isAvailable: function(phase) {
+        if ( phase == 'EDIT_METADATA' ) return false;
+        return true;
+      },
       isEnabled: function(phase, currentAnswerFilled, pickedOutcomeIndex) {
         if ( phase == 'QUESTION'  ) return currentAnswerFilled;
         if ( phase == 'PICK' ) return !! pickedOutcomeIndex || pickedOutcomeIndex === '0';
@@ -352,6 +376,26 @@ foam.CLASS({
         // $push didnt work here, idk why
         this.data.answeredOrder = [...this.data.answeredOrder, this.currentQuestionAxiom];
         return await this.advance_();
+      }
+    },
+    {
+      name: 'editMetadata',
+      isAvailable: function(appConfig, phase){
+        return (appConfig.mode == 'TEST' || appConfig.mode == 'DEVELOPMENT') && phase != 'EDIT_METADATA'
+      },
+      code: async function() {
+        this.oldPhase_ = this.phase;
+        this.phase = 'EDIT_METADATA'
+      }
+    },
+    {
+      name: 'confirmEdit',
+      isAvailable: function(phase){
+        return phase == 'EDIT_METADATA'
+      },
+      code: async function() {
+        this.phase = this.oldPhase_;
+        this.oldPhase_ = null;
       }
     }
   ]
@@ -410,6 +454,10 @@ foam.ENUM({
       subHeadingFormatter: function(self) {
         return '';
       },
+    },
+    {
+      name: 'EDIT_METADATA',
+      headingFormatter: function() { return 'Edit Metadata'; }
     }
   ]
 });

@@ -17,7 +17,11 @@ foam.CLASS({
     'foam.core.reflow.ErrorView'
   ],
 
-  imports: [ 'block', 'dao as referenceDAO', 'sinkDAO as dao', 'sinkUnlimitedDAO as unlimitedDAO' ],
+  imports: [
+    'block?',
+    'dao as referenceDAO',
+    'sinkDAO as dao',
+    'sinkUnlimitedDAO as unlimitedDAO' ],
 
   exports: [ 'dao' ],
 
@@ -532,7 +536,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   requires: [
-//    'foam.core.reflow.parse.GroupByParser',
+    'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
@@ -546,12 +550,11 @@ foam.CLASS({
         return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
       }
     },
-    /*
     {
       name: 'parser',
+      transient: true,
       factory: function() { return this.GroupByParser.create(); }
-      },
-      */
+    },
     {
       name: 'sink',
       label: 'Operation',
@@ -629,6 +632,7 @@ foam.CLASS({
         groupLimit cuts off data collection early (during put), while topN properly
         aggregates all data first then limits groups (during eof). Use topN instead.`
     },
+    // TODO: not needed anymore, remove
     {
       name: 'browseEnabled',
       hidden: true,
@@ -675,12 +679,14 @@ foam.CLASS({
       e.startContext({data: this}).
         start().
           style({paddingLeft: '12px'}).
-        add(this.PROP.__).
+          add(this.PROP.__).
           add(this.SINK.__).
           add(this.TOP_N.__).
           add(this.SORT_ORDER.__).
           add(this.INCLUDE_OTHERS.__).
-          add(this.OTHERS_LABEL.__);
+          add(this.OTHERS_LABEL.__).
+        end().
+      endContext();
     }
   ],
 
@@ -957,7 +963,7 @@ foam.CLASS({
   name: 'ControllerDAOAgent',
   extends: 'foam.core.reflow.AbstractDAOAgent',
 
-  imports: [ 'sinkDAO as limitedDAO' ],
+  imports: [ 'sinkDAO? as limitedDAO' ],
 
   methods: [
     function execute(e) {
@@ -1030,7 +1036,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.CitationView' ],
 
-  imports: [ 'agentDAO' ],
+  imports: [ 'agentDAO?' ],
 
   methods: [
     function execute(e) {

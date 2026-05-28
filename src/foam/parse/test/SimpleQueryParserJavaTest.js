@@ -162,6 +162,7 @@ foam.CLASS({
           "firstName STARTSWITH SomeName",
           "StartsWithIC(foam.core.auth.User.firstName, SomeName)",
           "String Test11b: The name starts with the value"
+        );
         assertMatchesQuery(
           "firstName MATCH (3,me)",
           "SomeName",

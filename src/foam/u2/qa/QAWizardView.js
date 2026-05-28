@@ -108,6 +108,14 @@ foam.CLASS({
       documentation: 'True when the current question property has a non-empty value'
     },
     {
+      class: 'Boolean',
+      name: 'currentAnswerValid_',
+      value: true,
+      documentation: `True when the current question has no validateObj error. Next
+        is gated on this so a question-level validator blocks advancing, not just
+        renders a message.`
+    },
+    {
       class: 'Int',
       name: 'candidatesCount',
       documentation: 'Current number of remaining candidate outcomes'
@@ -127,7 +135,8 @@ foam.CLASS({
       name: 'onComplete',
       documentation: 'Optional callback invoked with (data) when the wizard finishes'
     },
-    'valueSub_'
+    'valueSub_',
+    'validSub_'
   ],
 
   methods: [
@@ -139,19 +148,31 @@ foam.CLASS({
       // When the question changes, tear down the old subscription and create a new one.
       this.dynamic(function(currentAnswerName_) {
         if ( self.valueSub_ ) { self.valueSub_.detach(); self.valueSub_ = null; }
-        var name = self.currentAnswerName_;
+        if ( self.validSub_ ) { self.validSub_.detach(); self.validSub_ = null; }
+        var name  = self.currentAnswerName_;
+        var axiom = self.currentQuestionAxiom;
         if ( name && self.data ) {
           var slot = self.data$.dot(name);
           self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function(v) {
             return !!v;
           }));
+          // Track the current question's validateObj result so Next can block on it.
+          // data.slot(validateObj) is the same per-property error slot Section uses.
+          if ( axiom && axiom.validateObj ) {
+            self.validSub_ = self.currentAnswerValid_$.follow(
+              self.data.slot(axiom.validateObj).map(function(err) { return ! err; }));
+          } else {
+            self.currentAnswerValid_ = true;
+          }
         } else {
           self.currentAnswerFilled = false;
+          self.currentAnswerValid_ = true;
         }
       });
 
       this.onDetach(function() {
         if ( self.valueSub_ ) self.valueSub_.detach();
+        if ( self.validSub_ ) self.validSub_.detach();
       });
 
       if ( this.data ) {
@@ -328,8 +349,8 @@ foam.CLASS({
       name: 'next',
       buttonStyle: 'PRIMARY',
       size: 'MEDIUM',
-      isEnabled: function(phase, currentAnswerFilled, pickedOutcomeIndex) {
-        if ( phase == 'QUESTION'  ) return currentAnswerFilled;
+      isEnabled: function(phase, currentAnswerFilled, currentAnswerValid_, pickedOutcomeIndex) {
+        if ( phase == 'QUESTION'  ) return currentAnswerFilled && currentAnswerValid_;
         if ( phase == 'PICK' ) return !! pickedOutcomeIndex || pickedOutcomeIndex === '0';
         return true;
       },

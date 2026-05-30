@@ -64,9 +64,32 @@ foam.CLASS({
       view: { class: 'foam.u2.view.JSONTextView' }
     },
     {
+      class: 'Class',
+      name: 'ofOverride',
+      documentation: `Optional explicit model for typing the table when the bound
+        DAO is abstract or polymorphic — e.g. a relationship whose rows are a
+        concrete subclass. When set, the bound DAO is wrapped in a ProxyDAO of this
+        model so the table columns resolve against it instead of the DAO's abstract
+        'of'. No effect when unset.`,
+      postSet: function() {
+        // Reactive: when ofOverride resolves after the DAO was bound (e.g. derived
+        // from the first loaded row), re-apply the dao adapt so it retypes. Guard on
+        // an explicitly-set dao so daoKey-based configs keep their expression.
+        if ( this.hasOwnProperty('dao') ) this.dao = this.dao;
+      }
+    },
+    {
       class: 'foam.dao.DAOProperty',
       name: 'dao',
       hidden: true,
+      adapt: function(_, dao) {
+        // Retype an abstract/polymorphic DAO to a concrete model when ofOverride is
+        // set, so the table's columns resolve against the concrete model.
+        if ( this.ofOverride && dao && dao.of !== this.ofOverride ) {
+          return foam.dao.ProxyDAO.create({ of: this.ofOverride, delegate: dao });
+        }
+        return dao;
+      },
       expression: function(daoKey, predicate) {
         var dao = this.__context__[daoKey];
         if ( ! dao ) {
@@ -105,7 +128,7 @@ foam.CLASS({
     {
       class: 'Class',
       name: 'of',
-      expression: function(dao$of) { return dao$of; }
+      expression: function(ofOverride, dao$of) { return ofOverride || dao$of; }
     },
     {
       class: 'String',

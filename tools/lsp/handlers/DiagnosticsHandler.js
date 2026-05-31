@@ -414,6 +414,15 @@ foam.CLASS({
        * Scope safety: bail (null) unless there is exactly one top-level model and an
        * unambiguous single insertion target. Multiple `foam.CLASS(`, inline `classes:`,
        * or more than one `properties:`/`messages:` block → ambiguous → no autofix.
+       *
+       * Limitations:
+       * - Diagnostics can appear in multi-model files, but the extract code action is
+       *   intentionally disabled there; inserting `messages:` into the right model
+       *   requires model-boundary parsing, not whole-file regexes.
+       * - Inline inner `classes:` are skipped for the same reason: `messages:` or
+       *   `properties:` could belong to either the outer model or an inner class.
+       * - If the diagnostic range no longer lines up with the quoted literal, no edit is
+       *   returned rather than risking a rewrite at the wrong occurrence.
        */
       var classMatches = text.match(/foam\.CLASS\s*\(/g);
       if ( ! classMatches || classMatches.length !== 1 ) return null;

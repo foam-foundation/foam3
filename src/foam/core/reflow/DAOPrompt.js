@@ -576,7 +576,6 @@ foam.CLASS({
       themeIcon: 'test',
       // TODO:
 //      isEnabled: function(value) { return this.value; },
-      availablePermissions: [ 'command.read.test' ],
       code: async function() {
         // Run run() before testing to ensure output is correct.
         await this.waitForRun();

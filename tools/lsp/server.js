@@ -300,6 +300,23 @@ function start() {
         }
       }
 
+      // For hardcoded display strings, offer "extract to messages: entry"
+      if ( diag.code === 'i18n-hardcoded-display-string' ) {
+        var hsMatch = diag.message.match(/Hardcoded display string "([^"]+)"/);
+        if ( hsMatch ) {
+          var i18nEdit = diagnosticsHandler.buildAddExtractEdit(text, hsMatch[1], uri, diag.range);
+          if ( i18nEdit ) {
+            actions.push({
+              title: "Extract '" + hsMatch[1] + "' to a messages: entry",
+              kind: 'quickfix',
+              isPreferred: true,
+              diagnostics: [diag],
+              edit: i18nEdit
+            });
+          }
+        }
+      }
+
       // For wrong Java import packages, suggest correct ones
       var javaImportMappings = index.getJavaImportMappings();
       var wrongPkgMatch = diag.message.match(/Wrong Java package[^']*'([^']+)'/);

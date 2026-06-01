@@ -188,11 +188,11 @@
             self.notificationDAO.put(self.data).then(_ => {
               self.finished.pub();
               self.ctrl.notify(self.MARK_AS_READ_MSG, '', this.LogLevel.INFO, true);
+              X.myNotificationDAO.cmd(foam.dao.DAO.PURGE_CMD);
             }).catch((e) => {
               self.data.read = false;
               self.ctrl.notify(self.FAILED_MARK_AS_READ_MSG, e.message, this.LogLevel.ERROR, true);
             });
-            X.myNotificationDAO.cmd(foam.dao.DAO.PURGE_CMD);
           }
         }
       },

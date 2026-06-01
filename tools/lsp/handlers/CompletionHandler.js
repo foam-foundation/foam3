@@ -148,12 +148,57 @@ foam.CLASS({
         items.push(this.toCompletionItem(s));
       }
 
+      // Class-aware augmentation: when the cursor is inside a property
+      // object whose `class:` is known (e.g., `{ class: 'String', ▊ }`),
+      // surface that subclass's own Property axioms (issue #5032 — `trim`,
+      // `regex`, `pattern`, ... for String). The grammar's catalog only
+      // covers the universal Property keys; the class-specific extras come
+      // from the registry per call so adding a new Property type instantly
+      // gains its slots without grammar changes.
+      this.augmentWithClassAxioms_(items, text, position);
+
       // Fallback: if grammar found no suggestions, detect context from line text
       if ( items.length === 0 ) {
         items = this.contextFallback(text, position, uri);
       }
 
       return { isIncomplete: items.length > 200, items: this.toLSPItems_(items) };
+    },
+
+    function augmentWithClassAxioms_(items, text, position) {
+      /**
+       * Append class-specific Property axiom keys when the cursor sits inside
+       * a property object that already declares `class: 'X'`. The list is
+       * deduped against the items the grammar already returned (matching by
+       * `<name>` or `<name>: ` label), so this is purely additive — never
+       * duplicates an existing entry.
+       */
+      if ( ! this.isInsidePropertyObject_(text, position) ) return;
+      var classId = this.findCurrentPropertyClassId_(text, position);
+      if ( ! classId ) return;
+
+      // Build a lookup of names already suggested.
+      var seen = {};
+      for ( var i = 0 ; i < items.length ; i++ ) {
+        var label = items[i].label || '';
+        var name = label.replace(/:\s*$/, '');
+        seen[name] = true;
+      }
+
+      var props   = this.index.getProperties(classId);
+      var clsName = classId.replace(/^.*\./, '');
+      for ( var i = 0 ; i < props.length ; i++ ) {
+        var name = props[i].name;
+        if ( seen[name] ) continue;
+        seen[name] = true;
+        items.push(this.CompletionItem.create({
+          label: name + ': ',
+          kind: 14,
+          detail: clsName + ' Property axiom',
+          insertText: name + ': ',
+          sortText: '"' + name.toLowerCase()  // sort below grammar's `!`-prefixed keys
+        }));
+      }
     },
 
     function contextFallback(text, position, opt_uri) {
@@ -246,12 +291,19 @@ foam.CLASS({
       // detect context via grammar (sentinel-based), fall back to regex checks.
       // Suggestions come from the index, not sug() — class IDs are too numerous
       // and the grammar's fallback classRef rule silently matches partials,
-      // suppressing sug() collection.
+      // suppressing sug() collection. Interfaces are sorted ahead of other
+      // class ids when the cursor is inside implements: so the typical
+      // "I want to pick an interface" path is one keystroke away — but the
+      // full class list still surfaces because FOAM allows implements to
+      // reference any class id (e.g., StringFilterView implements
+      // foam.mlang.Expressions, which is a class).
+      var inImplementsContext = ( /implements\s*:\s*\[/.test(lineContext)
+                                  && /['"][^'"]*$/.test(prefix) );
       var inClassRefContext =
         ctx.classRef ||
         /(?:extends|of|view)\s*:\s*['"][^'"]*$/.test(prefix) ||
         (/requires\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix)) ||
-        (/implements\s*:\s*\[/.test(lineContext) && /['"][^'"]*$/.test(prefix));
+        inImplementsContext;
       if ( inClassRefContext ) {
         var partial = this.extractPartial_(prefix).toLowerCase();
         var ids = this.index.getAllClassIds();
@@ -274,36 +326,187 @@ foam.CLASS({
         return this.getJavaImportSuggestions_(replaceRange, this.extractPartial_(prefix));
       }
 
-      // Inside a property object { ... } within properties: [...] → suggest property keys
+      // Inside a property object { ... } within properties: [...] → suggest
+      // property keys. When the property object already declares a `class:`
+      // (e.g., `class: 'String'`), the suggested keys come from that class's
+      // own Property axioms (e.g., String exposes `aliases`, `regex`,
+      // `pattern`, ...) — not the static fallback list. This matches the
+      // behavior of FOAM's Property subclasses, where each subclass adds
+      // class-specific slots on top of the inherited ones.
       if ( this.isInsidePropertyObject_(text, position) ) {
         var partial = prefix.trim().toLowerCase();
-        var propKeys = [
-          'class', 'name', 'of', 'documentation', 'hidden', 'transient',
-          'value', 'factory', 'expression', 'javaCode', 'javaGetter',
-          'javaPostSet', 'javaPreSet', 'javaFactory', 'javaSetter',
-          'aliases', 'label', 'section', 'visibility', 'view',
-          'adapt', 'preSet', 'postSet', 'required', 'width',
-          'placeholder', 'help', 'gridColumns', 'tableCellFormatter',
-          'labelFormatter', 'shortName', 'readPermissionRequired',
-          'writePermissionRequired', 'validateObj', 'tableWidth',
-          'storageTransient', 'networkTransient', 'readOnly',
-          'permissionRequired', 'cloneProperty', 'javaInfoType'
-        ];
+        var classId = this.findCurrentPropertyClassId_(text, position);
+        var keys    = this.propertyAxiomKeys_(classId);
         var items = [];
-        for ( var i = 0 ; i < propKeys.length ; i++ ) {
-          var k = propKeys[i];
-          if ( partial && k.toLowerCase().indexOf(partial) === -1 ) continue;
+        for ( var i = 0 ; i < keys.length ; i++ ) {
+          var entry = keys[i];
+          if ( partial && entry.name.toLowerCase().indexOf(partial) === -1 ) continue;
           items.push({
-            label: k + ': ',
+            label: entry.name + ': ',
             kind: 14,
-            insertText: k + ': ',
-            sortText: '!' + k.toLowerCase()
+            detail: entry.detail || '',
+            insertText: entry.name + ': ',
+            sortText: '!' + entry.name.toLowerCase()
           });
         }
         return items;
       }
 
       return [];
+    },
+
+    function findCurrentPropertyClassId_(text, position) {
+      /**
+       * Walk back from the cursor to the opening `{` of the enclosing
+       * property object, then scan that object for a `class:` slot. Returns
+       * the FOAM class id of the property type (e.g., 'foam.lang.String')
+       * or null if no `class:` is present (FOAM's default is String).
+       *
+       * Brace/string-aware scanning, no regex.
+       */
+      var lines = text.split('\n');
+      var cursorOffset = this.analyzer.positionToOffset(text, position);
+      var openBracePos = this.findEnclosingBracePos_(text, cursorOffset);
+      if ( openBracePos < 0 ) return null;
+
+      // Slice the property object's source up to the cursor — that's all the
+      // user has typed so far. The property's `class:` may appear before the
+      // cursor; if not (the cursor sits before any `class:`), there's no hint.
+      var slice = text.substring(openBracePos + 1, cursorOffset);
+      var classToken = this.extractObjectStringValue_(slice, 'class');
+      if ( ! classToken ) return null;
+
+      // Short property type names resolve through foam.lang.<Name>; dotted
+      // ids resolve directly.
+      if ( classToken.indexOf('.') === -1 ) {
+        var langId = 'foam.lang.' + classToken;
+        if ( this.index.classExists(langId) ) return langId;
+      }
+      return this.index.classExists(classToken) ? classToken : null;
+    },
+
+    function findEnclosingBracePos_(text, cursorOffset) {
+      /**
+       * Walk back from cursorOffset until we hit the unmatched `{` whose
+       * matching `}` would be after the cursor — that's the enclosing
+       * object's opening brace. Skips over strings (', ", `) and over
+       * line/block comments so quoted braces don't fool us.
+       */
+      var depth = 0;
+      for ( var i = cursorOffset - 1 ; i >= 0 ; i-- ) {
+        var c = text.charAt(i);
+        if ( c === '}' ) { depth++; continue; }
+        if ( c === '{' ) {
+          if ( depth === 0 ) return i;
+          depth--;
+          continue;
+        }
+        // Skip strings — walk back to the matching opening quote.
+        if ( c === "'" || c === '"' || c === '`' ) {
+          for ( i-- ; i >= 0 ; i-- ) {
+            if ( text.charAt(i) === c && text.charAt(i - 1) !== '\\' ) break;
+          }
+        }
+      }
+      return -1;
+    },
+
+    function extractObjectStringValue_(slice, key) {
+      /**
+       * Parse a small object-fragment for `<key>: '<value>'` (or "..." or
+       * `...`). Returns the value string or null. Tolerant of nested objects,
+       * commas inside strings, and partial input — designed for cursor-time
+       * use where the object isn't necessarily closed yet.
+       */
+      var depth = 0;
+      var i = 0;
+      var n = slice.length;
+      while ( i < n ) {
+        var c = slice.charAt(i);
+        if ( c === '{' ) { depth++; i++; continue; }
+        if ( c === '}' ) { depth--; i++; continue; }
+        // Skip strings entirely.
+        if ( c === "'" || c === '"' || c === '`' ) {
+          var end = i + 1;
+          while ( end < n && ( slice.charAt(end) !== c || slice.charAt(end - 1) === '\\' ) ) end++;
+          i = end + 1;
+          continue;
+        }
+        // Match `<key>` only at top level (depth === 0) so nested objects
+        // (e.g. view: { class: ... }) don't shadow the outer key.
+        if ( depth === 0 && this.matchesIdentifierAt_(slice, i, key) ) {
+          var keyEnd = i + key.length;
+          // Skip whitespace + colon + whitespace.
+          var j = keyEnd;
+          while ( j < n && /\s/.test(slice.charAt(j)) ) j++;
+          if ( slice.charAt(j) !== ':' ) { i = keyEnd; continue; }
+          j++;
+          while ( j < n && /\s/.test(slice.charAt(j)) ) j++;
+          var quote = slice.charAt(j);
+          if ( quote !== "'" && quote !== '"' ) { i = keyEnd; continue; }
+          var valStart = j + 1;
+          var valEnd = valStart;
+          while ( valEnd < n && slice.charAt(valEnd) !== quote ) valEnd++;
+          return slice.substring(valStart, valEnd);
+        }
+        i++;
+      }
+      return null;
+    },
+
+    function matchesIdentifierAt_(s, i, name) {
+      /** True iff the slice starting at i matches `name` as a whole identifier. */
+      if ( s.substring(i, i + name.length) !== name ) return false;
+      var prev = i > 0 ? s.charAt(i - 1) : '';
+      var next = s.charAt(i + name.length);
+      var wordChar = function(ch) { return ( /[a-zA-Z0-9_$]/ ).test(ch); };
+      if ( prev && wordChar(prev) ) return false;
+      if ( next && wordChar(next) ) return false;
+      return true;
+    },
+
+    function propertyAxiomKeys_(classId) {
+      /**
+       * Build the list of suggestable property-axiom keys for a Property
+       * subclass. Includes the universally-applicable keys plus any
+       * own/inherited String/Long/etc.-specific Property axioms.
+       *
+       * Each entry: { name, detail }.
+       */
+      // Universal keys — common across every Property subclass.
+      var staticKeys = [
+        'class', 'name', 'of', 'documentation', 'hidden', 'transient',
+        'value', 'factory', 'expression', 'javaCode', 'javaGetter',
+        'javaPostSet', 'javaPreSet', 'javaFactory', 'javaSetter',
+        'aliases', 'label', 'section', 'visibility', 'view',
+        'adapt', 'preSet', 'postSet', 'required', 'width',
+        'placeholder', 'help', 'gridColumns', 'tableCellFormatter',
+        'labelFormatter', 'shortName', 'readPermissionRequired',
+        'writePermissionRequired', 'validateObj', 'tableWidth',
+        'storageTransient', 'networkTransient', 'readOnly',
+        'permissionRequired', 'cloneProperty', 'javaInfoType'
+      ];
+
+      var seen = {};
+      var keys = [];
+      for ( var i = 0 ; i < staticKeys.length ; i++ ) {
+        seen[staticKeys[i]] = true;
+        keys.push({ name: staticKeys[i], detail: 'Property axiom' });
+      }
+
+      if ( ! classId ) return keys;
+
+      // Class-specific axioms — the slots THIS Property subclass declares
+      // (e.g., String adds `regex`, `pattern`, `minLength`, `maxLength`).
+      var props = this.index.getProperties(classId);
+      var clsName = classId.replace(/^.*\./, '');
+      for ( var i = 0 ; i < props.length ; i++ ) {
+        var name = props[i].name;
+        if ( seen[name] ) continue;
+        seen[name] = true;
+        keys.push({ name: name, detail: clsName + ' axiom' });
+      }
+      return keys;
     },
 
     function detectContext_(text, position) {
@@ -329,7 +532,8 @@ foam.CLASS({
       var suggestions = this.grammar.collectSuggestionsAt(ins.text, ins.offset);
 
       var ctx = {
-        classRef: false, propertyType: false, columnName: false,
+        classRef: false, interfaceRef: false,
+        propertyType: false, columnName: false,
         exportName: false,
         topKey: false, propKey: false, pomKey: false,
         pomFileName: false, pomJavaFileName: false, pomProjectPath: false,
@@ -338,6 +542,7 @@ foam.CLASS({
       for ( var i = 0 ; i < suggestions.length ; i++ ) {
         var c = suggestions[i].category;
         if ( c === 'class' ) ctx.classRef = true;
+        else if ( c === 'interfaceRef' ) ctx.interfaceRef = true;
         else if ( c === 'property' ) ctx.propertyType = true;
         else if ( c === 'columnName' ) ctx.columnName = true;
         else if ( c === 'exportName' ) ctx.exportName = true;

@@ -17,7 +17,11 @@ foam.CLASS({
     'foam.core.reflow.ErrorView'
   ],
 
-  imports: [ 'block', 'dao as referenceDAO', 'sinkDAO as dao', 'sinkUnlimitedDAO as unlimitedDAO' ],
+  imports: [
+    'block?',
+    'dao as referenceDAO',
+    'sinkDAO as dao',
+    'sinkUnlimitedDAO as unlimitedDAO' ],
 
   exports: [ 'dao' ],
 
@@ -87,8 +91,7 @@ foam.CLASS({
         return n;
       }
     }
-  ],
-
+  ]
 });
 
 
@@ -533,7 +536,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   requires: [
-//    'foam.core.reflow.parse.GroupByParser',
+    'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
@@ -547,12 +550,11 @@ foam.CLASS({
         return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
       }
     },
-    /*
     {
       name: 'parser',
+      transient: true,
       factory: function() { return this.GroupByParser.create(); }
-      },
-      */
+    },
     {
       name: 'sink',
       label: 'Operation',
@@ -630,6 +632,7 @@ foam.CLASS({
         groupLimit cuts off data collection early (during put), while topN properly
         aggregates all data first then limits groups (during eof). Use topN instead.`
     },
+    // TODO: not needed anymore, remove
     {
       name: 'browseEnabled',
       hidden: true,
@@ -676,12 +679,14 @@ foam.CLASS({
       e.startContext({data: this}).
         start().
           style({paddingLeft: '12px'}).
-        add(this.PROP.__).
+          add(this.PROP.__).
           add(this.SINK.__).
           add(this.TOP_N.__).
           add(this.SORT_ORDER.__).
           add(this.INCLUDE_OTHERS.__).
-          add(this.OTHERS_LABEL.__);
+          add(this.OTHERS_LABEL.__).
+        end().
+      endContext();
     }
   ],
 
@@ -842,9 +847,23 @@ foam.CLASS({
       },
       */
     {
+      class: 'FObjectArray',
       name: 'sinks',
+      of: 'foam.core.reflow.AbstractDAOAgent',
+      autoValidate: true,
       factory: function() { return []; },
       preSet: function(o, n) {
+        // TODO:
+        // - this is needed because parsing doesn't put objects in the correct context,
+        // - but then it breaks nested validation because nested objects aren't the correct ones
+        // - remove once parsing contextualizes correctly
+
+        // Don't clone if not necessary. Only necessary if the dao is different.
+        let count = n.filter(o => o && o.dao != this.__subContext__.dao ).length;
+        if ( count == 0 ) {
+          return n;
+        }
+
         if ( foam.Array.isInstance(n) ) {
           n = n.map(o => o && o.__context__ != this.__subContext__ ? o.clone(this.__subContext__) : o);
         }
@@ -944,7 +963,7 @@ foam.CLASS({
   name: 'ControllerDAOAgent',
   extends: 'foam.core.reflow.AbstractDAOAgent',
 
-  imports: [ 'sinkDAO as limitedDAO' ],
+  imports: [ 'sinkDAO? as limitedDAO' ],
 
   methods: [
     function execute(e) {
@@ -1017,7 +1036,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.CitationView' ],
 
-  imports: [ 'agentDAO' ],
+  imports: [ 'agentDAO?' ],
 
   methods: [
     function execute(e) {

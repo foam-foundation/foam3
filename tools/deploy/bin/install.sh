@@ -52,7 +52,7 @@ function usage {
     info "  -T <path>         : Remote location of tarball"
     info "  -E <path>         : Remote directory tarball is extracted to, default to /tmp/tar_extract"
     info "  -N <app-name>     : Application name, also prefix of jar file"
-    info "  -Q <true | false> : Create a unique /mnt point for nfs using the hostname/ip. Defaults to true"
+    info "  -Q <true | false | path> : Persistent mnt path. true uses /mnt/name/HOSTNAME, false uses /mnt/name, path uses exact value. Defaults to true"
     info "  -R <true | false> : Issue systemd restart on succesful deployment, defaults to true"
     info "  -U user name      : Configure to run application under this user (and group)"
     info "  -Y user id        : Confiugre to run application under this user id (and group id)"
@@ -86,10 +86,13 @@ fi
 info "FOAM_ROOT [$FOAM_ROOT]"
 FOAM_HOME=${FOAM_ROOT}-${VERSION}
 MNT_HOME=/mnt/${APP_NAME}
-if [[ ${UNIQUE} = "true" ]]; then
+if [[ -z "${UNIQUE}" || ${UNIQUE} = "false" ]]; then
+    UNIQUE_HOME=${MNT_HOME}
+elif [[ ${UNIQUE} = "true" ]]; then
     UNIQUE_HOME=${MNT_HOME}/$HOSTNAME
 else
-    UNIQUE_HOME=${MNT_HOME}
+    UNIQUE_HOME=${UNIQUE%/}
+    MNT_HOME=$(dirname "${UNIQUE_HOME}")
 fi
 SHARED_HOME=${MNT_HOME}
 FILES_HOME=${MNT_HOME}/files

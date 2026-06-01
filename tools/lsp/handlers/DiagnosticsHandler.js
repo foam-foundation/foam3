@@ -230,7 +230,11 @@ foam.CLASS({
 
       var localTokens = this.collectLocalCssTokens_(model);
 
-      var tokenPattern = /\$([a-zA-Z][a-zA-Z0-9_\-]*)/g;
+      // Match the full chain — `$base`, then 0+ `$suffix` segments — so
+      // ColorToken-installed suffixes like `$primary400$foreground` validate
+      // as a single name rather than splitting into `$primary400` (known)
+      // and `$foreground` (unknown).
+      var tokenPattern = /\$([a-zA-Z][a-zA-Z0-9_\-]*(?:\$[a-zA-Z][a-zA-Z0-9_\-]*)*)/g;
       var tm;
       while ( ( tm = tokenPattern.exec(cssStr) ) !== null ) {
         var tokenName = tm[1];

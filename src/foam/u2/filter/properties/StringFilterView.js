@@ -125,18 +125,26 @@ foam.CLASS({
       name: 'countByContents'
     },
     {
+      class: 'Int',
+      name: 'limit',
+      documentation: `
+        Maximum number of distinct values fetched and displayed.
+        When more than this many distinct values exist, the "limit reached"
+        notice is shown and the user must refine their search.
+      `,
+      value: 21
+    },
+    {
       class: 'String',
       name: 'search',
       postSet: function(_, n) {
         this.isOverLimit = false;
 
-        var pred = this.search && this.search.trim().length > 0
-          ? this.STARTS_WITH(this.property, this.search)
-          : this.TRUE;
+        var pred = this.searchPredicate();
 
-        this.dao.where(pred).select(this.GROUP_BY(this.property, this.COUNT(), 21)).then((results) => {
+        this.dao.where(pred).select(this.GROUP_BY(this.property, this.COUNT(), this.limit)).then((results) => {
           this.countByContents = results.groups;
-          if ( Object.keys(results.groups).length > 20 ) this.isOverLimit = true;
+          if ( Object.keys(results.groups).length >= this.limit ) this.isOverLimit = true;
         });
       }
     },
@@ -201,6 +209,13 @@ foam.CLASS({
   ],
 
   methods: [
+    function searchPredicate() {
+      // Override point for subclasses that need to normalise the search input
+      // (e.g. case-fold currency codes) before the STARTS_WITH check.
+      if ( ! this.search || this.search.trim().length === 0 ) return this.TRUE;
+      return this.STARTS_WITH(this.property, this.search);
+    },
+
     function render() {
       this.onDetach(this.dao$.sub(this.daoUpdate));
       this.daoUpdate();
@@ -316,13 +331,11 @@ foam.CLASS({
       code: function() {
         this.isOverLimit = false;
         this.isLoading = true;
-        var pred = this.search && this.search.trim().length > 0
-          ? this.STARTS_WITH(this.property, this.search)
-          : this.TRUE;
+        var pred = this.searchPredicate();
 
-        this.dao.where(pred).select(this.GROUP_BY(this.property, this.COUNT(), 21)).then((results) => {
+        this.dao.where(pred).select(this.GROUP_BY(this.property, this.COUNT(), this.limit)).then((results) => {
           this.countByContents = results.groups;
-          if ( Object.keys(results.groups).length > 20 ) this.isOverLimit = true;
+          if ( Object.keys(results.groups).length >= this.limit ) this.isOverLimit = true;
           this.isLoading = false;
         });
       }

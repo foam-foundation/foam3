@@ -738,6 +738,7 @@ foam.POM({
     { name: "foam/u2/filter/FilterController",                        flags: "web" },
     { name: "foam/u2/filter/properties/PropertyFilterView",           flags: "web" },
     { name: "foam/u2/filter/properties/StringFilterView",             flags: "web" },
+    { name: "foam/u2/filter/properties/CurrencyFilterView",           flags: "web" },
     { name: "foam/u2/filter/properties/StringArrayFilterView",        flags: "web" },
     { name: "foam/u2/filter/properties/IntegerFilterView",            flags: "web" },
     { name: "foam/u2/filter/properties/FloatFilterView",              flags: "web" },

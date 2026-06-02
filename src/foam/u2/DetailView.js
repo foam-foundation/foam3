@@ -99,6 +99,11 @@ foam.CLASS({
 
         ^ .foam-u2-borders-ExpandableBorder-container p { margin-top: 4px; margin-bottom: 0; }
 
+        ^helpContent {
+          overflow-wrap: anywhere;
+          white-space: pre-wrap;
+        }
+
         // ^ input { width: 90% }
 
         ^ input[type!='checkbox'] { width: auto; }
@@ -166,7 +171,7 @@ foam.CLASS({
               this
                 .start(self.ExpandableBorder, { expanded$: self.helpEnabled$, title: self.HELP })
                   .style({ 'flex-basis': '100%', width: '100%' })
-                  .start('p').add(prop.help).end()
+                  .start('p').addClass(self.myClass('helpContent')).add(prop.help).end()
                 .end();
             });
         }

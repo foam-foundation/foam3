@@ -275,6 +275,10 @@ foam.CLASS({
       flex-direction: column;
       gap: 0.2lh;
     }
+    ^helpContent {
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
   `,
 
   methods: [
@@ -342,7 +346,7 @@ foam.CLASS({
           this
             .start(self.ExpandableBorder, { expanded$: self.helpEnabled$, title: self.HELP })
               .style({ 'flex-basis': '100%', width: '100%' })
-              .start().addClass('p').add(prop.help).end()
+              .start().addClass('p', self.myClass('helpContent')).add(prop.help).end()
             .end();
         });
     }

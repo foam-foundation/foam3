@@ -575,7 +575,18 @@ foam.CLASS({
       documentation: `See JDAO.  Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
       class: 'Boolean',
       name: 'waitReplay',
-      value: true
+      value: true,
+      javaGetter: `
+        if ( getSeqNo() ) return true;
+        if ( getFuid() ) {
+          foam.lang.PropertyInfo pInfo = (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
+          if ( pInfo instanceof foam.lang.AbstractLongPropertyInfo )
+            return true;
+        }
+        if ( waitReplayIsSet_ )
+          return waitReplay_;
+        return true;
+      `
     },
     {
       documentation: `REMOVED.  CSpec DAO loading is now a

@@ -202,7 +202,9 @@ public class Boot {
     }
 
     Agency agency = (Agency) root_.get("threadPool");
-    serviceDAO_.where(EQ(CSpec.LAZY, false)).select(new AbstractSink() {
+    serviceDAO_.where(EQ(CSpec.LAZY, false))
+      .orderBy(CSpec.PRIORITY)
+      .select(new AbstractSink() {
       @Override
       public void put(Object obj, Detachable sub) {
         CSpec sp = (CSpec) obj;

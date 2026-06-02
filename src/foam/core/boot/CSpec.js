@@ -130,6 +130,12 @@ foam.CLASS({
       value: true
     },
     {
+      class: 'Int',
+      name: 'priority',
+      tableWidth: 65,
+      documentation: 'Order non-lazy DAO invocation from low (0) to high.  Essential DAOs such as users, grants, ... should be priority 0 with larger DAOs which take minutes to load should be a higher priority value'
+    },
+    {
       class: 'Boolean',
       name: 'serve',
       tableWidth: 72,

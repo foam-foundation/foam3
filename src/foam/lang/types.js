@@ -904,8 +904,9 @@ foam.CLASS({
     {
       name: 'unitPropValueToString',
       value: async function(x, val, unitPropName, excludeUnit) {
-        if ( unitPropName ) {
-          const unitProp = await x.currencyDAO.find(unitPropName);
+        const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
+        if ( unitPropName && currencyDAO ) {
+          const unitProp = await currencyDAO.find(unitPropName);
           if ( unitProp )
             return unitProp.format(unitProp.floatAmount(val), excludeUnit, false);
         }
@@ -942,8 +943,9 @@ foam.CLASS({
     {
       name: 'unitPropValueToString',
       value: async function(x, val, unitPropName, excludeUnit) {
-        if ( unitPropName ) {
-          const unitProp = await x.currencyDAO.find(unitPropName);
+        const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
+        if ( unitPropName && currencyDAO ) {
+          const unitProp = await currencyDAO.find(unitPropName);
           if ( unitProp )
             return unitProp.format(val, excludeUnit, false);
         }

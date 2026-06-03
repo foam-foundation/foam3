@@ -93,6 +93,10 @@ public class JSONFObjectFormatter
 
   protected boolean calculateDeltaForNestedFObjects_ = true;
 
+  // 2-space indentation per nested property depth
+  protected int          depth_                       = 0;
+  protected static final String INDENT                = "  ";
+
   public JSONFObjectFormatter(X x) {
     super(x);
   }
@@ -144,10 +148,16 @@ public class JSONFObjectFormatter
     if ( array == null ) return;
 
     append('[');
+    depth_++;
+    if ( array.length > 1 ) addInnerNewline();
+
     for ( int i = 0 ; i < array.length ; i++ ) {
       output(array[i]);
       if ( i < array.length - 1 ) append(COMMA);
     }
+
+    depth_--;
+    if ( array.length > 1 ) addInnerNewline();
     append(']');
   }
 
@@ -188,11 +198,17 @@ public class JSONFObjectFormatter
     if ( list == null ) return;
 
     append('[');
+    depth_++;
+    if ( list.size() > 1 ) addInnerNewline();
+
     Iterator iter = list.iterator();
     while ( iter.hasNext() ) {
       output(iter.next());
       if ( iter.hasNext() ) append(COMMA);
     }
+
+    depth_--;
+    if ( list.size() > 1 ) addInnerNewline();
     append(']');
   }
 
@@ -422,6 +438,7 @@ public class JSONFObjectFormatter
     outputFObjectPropertyHeader(parentProp);
 
     append('{');
+    depth_++;
     addInnerNewline();
 
     if ( outputClassNames_ && ( outputDefaultClassNames_ || newInfo != defaultClass ) ) {
@@ -463,6 +480,7 @@ public class JSONFObjectFormatter
       }
     }
 
+    depth_--;
     if ( delta > optional ) {
       addInnerNewline();
       append('}');
@@ -479,6 +497,9 @@ public class JSONFObjectFormatter
   protected void addInnerNewline() {
     if ( multiLineOutput_ ) {
       append('\n');
+      for ( int i = 0 ; i < depth_ ; i++ ) {
+        append(INDENT);
+      }
     }
   }
 
@@ -492,10 +513,16 @@ public class JSONFObjectFormatter
 
   public void output(FObject[] arr, ClassInfo defaultClass, PropertyInfo parentProp) {
     append('[');
+    depth_++;
+    if ( arr.length > 1 ) addInnerNewline();
+
     for ( int i = 0 ; i < arr.length ; i++ ) {
       output(arr[i], defaultClass, parentProp);
       if ( i < arr.length - 1 ) append(COMMA);
     }
+
+    depth_--;
+    if ( arr.length > 1 ) addInnerNewline();
     append(']');
   }
 
@@ -524,7 +551,9 @@ public class JSONFObjectFormatter
     boolean   outputClass = outputClassNames_ && ( outputDefaultClassNames_ || info != defaultClass );
 
     append('{');
+    depth_++;
     addInnerNewline();
+
     if ( outputClass ) {
       outputKey("class");
       append(':');
@@ -539,6 +568,7 @@ public class JSONFObjectFormatter
       if ( outputProp ) props++;
     }
 
+    depth_--;
     if ( props > 0 || outputDefaultClassNames_ ) {
       addInnerNewline();
       append('}');
@@ -603,6 +633,12 @@ public class JSONFObjectFormatter
   public JSONFObjectFormatter setQuoteKeys(boolean quoteKeys) {
     quoteKeys_ = quoteKeys;
     return this;
+  }
+
+  @Override
+  public void reset() {
+    super.reset();
+    depth_ = 0;
   }
 
   public JSONFObjectFormatter setOutputShortNames(boolean outputShortNames) {

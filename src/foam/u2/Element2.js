@@ -2059,7 +2059,7 @@ foam.CLASS({
       expression: function(label, checkboxLabelFormatter) {
         return {
           class: 'foam.u2.CheckBox',
-          label: this.label,
+          label: this.placeholder,
           labelFormatter: checkboxLabelFormatter
         };
       }

@@ -109,12 +109,12 @@ foam.CLASS({
       formatter.output(user, user.getClassInfo());
       json = formatter.builder().toString();
 
-      test ( json.startsWith("{\\n  "), testId+" -- outer opening brace followed by 2-space indented property: " + json);
-      test ( json.endsWith("\\n}"), testId+" -- outer closing brace at column 0: " + json);
-      test ( json.contains("\\n  id:12345"), testId+" -- id property at column 2: " + json);
-      test ( json.contains("address:{\\n    "), testId+" -- nested address opening brace followed by 4-space indented property: " + json);
-      test ( json.contains("\\n    city:\\"TestCity\\""), testId+" -- nested city property at column 4: " + json);
-      test ( json.contains("\\n  }"), testId+" -- nested address closing brace at column 2: " + json);
+      test ( json.startsWith("{\\n  "), testId+" -- outer opening brace followed by 2-space indented property");
+      test ( json.endsWith("\\n}"), testId+" -- outer closing brace at column 0");
+      test ( json.contains("\\n  id:12345"), testId+" -- id property at column 2");
+      test ( json.contains("address:{\\n    "), testId+" -- nested address opening brace followed by 4-space indented property");
+      test ( json.contains("\\n    city:\\"TestCity\\""), testId+" -- nested city property at column 4");
+      test ( json.contains("\\n  }"), testId+" -- nested address closing brace at column 2");
 
       // verify multi-line output still parses round-trip
       try {
@@ -136,10 +136,10 @@ foam.CLASS({
       formatter.output((Object[]) users);
       json = formatter.builder().toString();
 
-      test ( json.startsWith("[\\n  "), testId+" -- array opening bracket followed by 2-space indented element: " + json);
-      test ( json.endsWith("\\n]"), testId+" -- array closing bracket at column 0: " + json);
-      test ( json.contains("\\n  }"), testId+" -- first element closing brace at column 2: " + json);
-      test ( json.contains("},{"), testId+" -- elements separated by comma on same line: " + json);
+      test ( json.startsWith("[\\n  "), testId+" -- array opening bracket followed by 2-space indented element");
+      test ( json.endsWith("\\n]"), testId+" -- array closing bracket at column 0");
+      test ( json.contains("\\n  }"), testId+" -- first element closing brace at column 2");
+      test ( json.contains("},{"), testId+" -- elements separated by comma on same line");
       `
     },
     {

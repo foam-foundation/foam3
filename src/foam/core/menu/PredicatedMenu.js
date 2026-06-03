@@ -64,12 +64,10 @@ foam.CLASS({
     },
 
     function launch(X, menu, e) {
-      debugger;
       return this.findHandler(X).launch(X, menu, e);
     },
 
     function createView(X) {
-      debugger;
       return this.findHandler(X).createView(X);
     },
 

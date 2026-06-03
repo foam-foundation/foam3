@@ -172,7 +172,10 @@ foam.CLASS({
     // =========================================================================
 
     function buildClass_(pkg, name, properties, questions, outcomes, model) {
-      let outputNames   = [];
+      // Seed from an explicit model-level outputNames so a questionnaire with no
+      // outcomes[] can still declare which (already-declared) properties are outputs
+      // the wizard's OUTCOME step renders. Outcome keys are appended below.
+      let outputNames   = ( model.outputNames || [] ).slice();
       let inputNames    = [];
       let props         = [];
       let existingNames = {};

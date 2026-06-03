@@ -459,7 +459,7 @@ foam.CLASS({
           }
         });
       });
-   },
+    },
 
     function reset() {
       this.maxPos          = 0;

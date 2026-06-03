@@ -551,9 +551,9 @@ public class JSONFObjectFormatter
 
     append('{');
     depth_++;
-    addInnerNewline();
 
     if ( outputClass ) {
+      addInnerNewline();
       outputKey("class");
       append(':');
       output(info.getId());

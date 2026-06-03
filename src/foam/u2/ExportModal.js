@@ -180,9 +180,13 @@ foam.CLASS({
 
           .start().show(this.isDataTypeSelected$).addClass(this.myClass('divided-sec'))
             .add(this.slot(function (exportDriver) {
+              // Built in a slot, so this.E() inherits the modal's base context (which may be VIEW).
+              // Force EDIT so the driver's option fields stay interactive.
               return this.E()
               .show(exportDriver && exportDriver.cls_.getAxiomsByClass(foam.lang.Property).some(p => ! p.hidden))
-              .start({class: 'foam.u2.detail.VerticalDetailView', data: exportDriver}).end();
+              .startContext({ controllerMode: foam.u2.ControllerMode.EDIT })
+                .start({class: 'foam.u2.detail.VerticalDetailView', data: exportDriver}).end()
+              .endContext();
            }))
           .end()
           .start()
@@ -193,7 +197,7 @@ foam.CLASS({
               .add(
                 self.slot(function(exportDriverReg$exportAllColumns) {
                   if ( exportDriverReg$exportAllColumns ) {
-                    return self.E().start().startContext({ data: self }).tag(self.EXPORT_ALL_COLUMNS.__).endContext().end();
+                    return self.E().start().startContext({ data: self, controllerMode: foam.u2.ControllerMode.EDIT }).tag(self.EXPORT_ALL_COLUMNS.__).endContext().end();
                   }
                 })
               )

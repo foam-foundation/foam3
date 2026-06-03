@@ -63,13 +63,44 @@ foam.CLASS({
       }
     },
 
+    function clearRouteTail_(X, menu) {
+      if ( X.topMemento_ ) {
+        X.topMemento_.detachTail();
+        X.topMemento_.tailStr = '';
+      }
+
+      if ( X.window && X.window.location.hash.substring(1) !== menu.id ) {
+        X.window.history.replaceState(null, '', '#' + menu.id);
+      }
+    },
+
     function launch(X, menu, e) {
-      debugger;
-      return this.findHandler(X).launch(X, menu, e);
+      var handler = this.findHandler(X);
+      var isFlow = foam.core.menu.FlowMenu &&
+        foam.core.menu.FlowMenu.isInstance(handler);
+
+      if ( ! isFlow ) this.clearRouteTail_(X, menu);
+
+      var ret = handler.launch(X, menu, e);
+      var view = X.stack && X.stack.current;
+
+      if ( view && X.currentProgram && X.currentProgram.clientProgram$ && X.pushMenu ) {
+        view.onDetach(X.currentProgram.clientProgram$.sub(() => {
+          if ( X.currentMenu && X.currentMenu.id !== menu.id ) return;
+          handler = this.findHandler(X);
+          isFlow = foam.core.menu.FlowMenu &&
+            foam.core.menu.FlowMenu.isInstance(handler);
+
+          if ( ! isFlow ) this.clearRouteTail_(X, menu);
+
+          X.pushMenu(menu, true);
+        }));
+      }
+
+      return ret;
     },
 
     function createView(X) {
-      debugger;
       return this.findHandler(X).createView(X);
     },
 

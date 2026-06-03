@@ -10,7 +10,6 @@ import foam.lang.*;
 import foam.lib.json.OutputJSON;
 import foam.util.SafetyUtil;
 import java.lang.reflect.Array;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 /*

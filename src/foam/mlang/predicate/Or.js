@@ -90,7 +90,18 @@ return stmt.toString();`
           }
         }
 
-        this.reduce_(newArgs, FALSE, 'reduceOr');
+        // reduce_ is an O(n^2) pairwise dedup (Nary.reduce_): every arg is
+        // deep-equality-compared against every other. For a query built as a
+        // large OR of distinct clauses (e.g. a join emitting OR(Eq/And, ...)
+        // with thousands of unique values) it does zero useful work — the args
+        // are distinct, nothing collapses — yet costs ~n^2 deep-equals and
+        // dominates the whole select. Skip it past a threshold; OR with a few
+        // redundant args is still correct, just evaluated without the merge.
+        if ( newArgs.length > 10 ) {
+          console.warn('[Or.partialEval] skipping O(n^2) reduce_ dedup for ' + newArgs.length + ' args');
+        } else {
+          this.reduce_(newArgs, FALSE, 'reduceOr');
+        }
 
         if ( newArgs.length === 0 ) return FALSE;
         if ( newArgs.length === 1 ) return newArgs[0];

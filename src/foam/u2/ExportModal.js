@@ -161,7 +161,9 @@ foam.CLASS({
 
       this
       .addClass(this.myClass())
-      .startContext({ data: this })
+      // EXPORT modal is interactive GUI, so if opens up in VIEW context the user can not edit the form. So keeping it in EDIT mode makes more sense.
+      // If we really want to support VIEW context, we can make it configurable.
+      .startContext({ data: this, controllerMode: foam.u2.ControllerMode.EDIT })    
         .start(this.Rows)
           .tag(this.DATA_TYPE.__)
           .start().show(this.isDataTypeSelected$)

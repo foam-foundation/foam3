@@ -108,15 +108,9 @@ public class JSONFObjectFormatter
   }
 
   public void output(String s) {
-    if ( multiLineOutput_ && s.indexOf('\n') >= 0 ) {
-      append("\n\"\"\"");
-      escapeAppend(s);
-      append("\"\"\"");
-    } else {
-      append('"');
-      escapeAppend(s);
-      append('"');
-    }
+    append('"');
+    escapeAppend(s);
+    append('"');
   }
 
   public void escapeAppend(String s) {

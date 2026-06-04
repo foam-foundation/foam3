@@ -347,7 +347,7 @@ foam.CLASS({
                 Blob blob = (Blob) file.getData();
                 InputStream stream = null;
                 if ( blob instanceof  IdentifiedBlob || blob == null ) {
-                  String id = blob == null ? file.getId(): ((IdentifiedBlob) blob).getId();
+                  String id = blob == null ? file.getDigest(): ((IdentifiedBlob) blob).getId();
                   BlobService blobStore = (BlobService) getX().get("blobStore");
                   FileBlob temp = (FileBlob) blobStore.find(id);
                   var os = new ByteArrayOutputStream();

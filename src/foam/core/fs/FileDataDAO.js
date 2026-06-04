@@ -98,7 +98,7 @@ foam.CLASS({
         // save to filesystem
         BlobService blobStore = (BlobService) x.get("blobStore");
         IdentifiedBlob result = (IdentifiedBlob) blobStore.put(blob);
-        file.setId(result.getId());
+        file.setDigest(result.getId());
         file.clearData();
         return getDelegate().put_(x, file);
       } catch (Exception e) {

@@ -53,6 +53,8 @@ foam.POM({
       console.log('  NOTE: --files and --directories are mutually exclusive. If --files are provided, default directories are ignored.');
       console.log('  ./build.sh -TESLint');
       console.log('    Run eslint reporting/check on default directories: src/ tools/');
+      console.log('  ./build.sh -TESLint --config:.eslintrc.js');
+      console.log('    Run eslint reporting/check using a custom config file');
       console.log('  ./build.sh -TESLint --max-warnings:8');
       console.log('    Run eslint reporting/check on default directories: src/ tools/ and reduced \'warning\' output');
       console.log('  ./build.sh -TESLint --dirs:tools');

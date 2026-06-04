@@ -324,3 +324,11 @@ test(cmtHover == null, 'no hover inside a line comment');
 
 // === GRAMMAR-DRIVEN AXIOM POSITIONS ===
 
+
+section('Hover — class own name value shows class info');
+var ownNameText = "foam.CLASS({\n  package: 'foam.parse',\n  name: 'Suggestion'\n})";
+// line 2: "  name: 'Suggestion'" — 'Suggestion' value begins at char 9
+var ownHover = hoverHandler.handle(ownNameText, { line: 2, character: 12 });
+test(ownHover != null, 'hovering the class own name value shows class info');
+test(ownHover && ownHover.contents.value.indexOf('foam.parse.Suggestion') !== -1,
+  'own-name hover shows the full class id');

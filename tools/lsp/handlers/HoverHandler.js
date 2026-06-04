@@ -81,6 +81,20 @@ foam.CLASS({
         }
       }
 
+      // Hovering a class's own `name:` value shows that class (info +
+      // relationships) — same result as hovering a reference to it elsewhere.
+      // Gated on the `name:` line + a match against the model's own name so a
+      // property or variable sharing the name never false-triggers.
+      var selfLine = ( text.split('\n')[position.line] || '' );
+      if ( /^\s*name\s*:/.test(selfLine) ) {
+        var selfModel = this.cache.getModelAt(opt_uri || '', text, position.line);
+        var selfSeg = this.analyzer.getSegmentAtPosition(text, position);
+        if ( selfModel && selfSeg && selfSeg === selfModel.name ) {
+          var selfHover = this.buildClassHover(this.cache.getClassId(selfModel));
+          if ( selfHover ) return selfHover;
+        }
+      }
+
       // Axiom key hover: cursor on `requires:`, `properties:`, `messages:`,
       // `sections:`, `searchColumns:`, etc. — show the description from
       // AxiomCatalog (single source of truth shared with the grammar).

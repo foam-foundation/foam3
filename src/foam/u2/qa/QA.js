@@ -303,7 +303,10 @@ foam.CLASS({
           function isTermConsistent(term) {
             var val = this[term.property];
 
-            // Unanswered question — term is still possible
+            // Unanswered question — term is still possible. Arrays are used by
+            // multi-select questions; handle them before loose numeric checks so
+            // ['0'] is not coerced to 0 and treated as unanswered.
+            if ( Array.isArray(val) ) return val.length === 0;
             if ( val == 0 || val === '' || val === undefined || val === null ) return true;
 
             // Evaluate the mlang term against this object
@@ -311,7 +314,11 @@ foam.CLASS({
           },
 
           function isQuestionAnswered(q) {
-            return this[q.name] !== '' && this[q.name] != 0 && this[q.name] != undefined;
+            var val = this[q.name];
+            // Multi-select questions store answers as arrays. Any non-empty
+            // array means the user selected at least one option, including ['0'].
+            if ( Array.isArray(val) ) return val.length > 0;
+            return val !== '' && val != 0 && val != undefined;
           },
 
           /**

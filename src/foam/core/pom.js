@@ -531,7 +531,8 @@ foam.POM({
     { name: "benchmark/F3FileJournalBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },
-    { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" }
+    { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" },
+    { name: "notification/NotificationGroupingDAOList",               flags: "web" }
   ],
 
   javaFiles: [

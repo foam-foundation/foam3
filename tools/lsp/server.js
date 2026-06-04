@@ -324,11 +324,11 @@ function start() {
             typeHierarchyProvider: true,
             implementationProvider: true,
             typeDefinitionProvider: true,
-            callHierarchyProvider: true,
-            diagnosticProvider: {
-              interFileDependencies: false,
-              workspaceDiagnostics:  false
-            }
+            callHierarchyProvider: true
+            // No diagnosticProvider (pull): diagnostics are PUSHED via
+            // publishDiagnostics on open/change and from the workspace scan.
+            // Advertising pull here too made clients render every diagnostic
+            // twice (push copy + pull copy).
           },
           experimental: {
             workspaceAnalyzer: true

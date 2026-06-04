@@ -135,6 +135,14 @@ foam.CLASS({
       name: 'onComplete',
       documentation: 'Optional callback invoked with (data) when the wizard finishes'
     },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'outcomeView',
+      documentation: `View for the OUTCOME step. Receives the questionnaire as data. When
+        unset, the default TabularSectionView of the OUTPUT_NAMES properties is rendered.
+        A questionnaire that computes its outcome asynchronously can supply a view that
+        shows a loading state and renders the result reactively.`
+    },
     'valueSub_',
     'validSub_'
   ],
@@ -263,22 +271,27 @@ foam.CLASS({
                 .addClass('p')
                 .add(self.NO_CANDIDATES)
               .end();
-            var outputProps = self.getOutputProperties_();
-            this.startContext({ controllerMode: foam.u2.ControllerMode.VIEW })
-            .tag({
-              class: 'foam.u2.detail.VerticalDetailView',
-              of: self.data.cls_,
-              data$: self.data$,
-              sections: [
-                {
-                  name: 'info_output_',
-                  title: '',
-                  view: { class: 'foam.u2.detail.TabularSectionView' },
-                  properties: outputProps.map(p => p.name),
-                }
-              ]
-            })
-            .endContext();
+            this.startContext({ controllerMode: foam.u2.ControllerMode.VIEW });
+            if ( self.outcomeView ) {
+              // Caller-supplied end-step view (e.g. async/loading or richer rendering).
+              this.tag(self.outcomeView, { data$: self.data$ });
+            } else {
+              var outputProps = self.getOutputProperties_();
+              this.tag({
+                class: 'foam.u2.detail.VerticalDetailView',
+                of: self.data.cls_,
+                data$: self.data$,
+                sections: [
+                  {
+                    name: 'info_output_',
+                    title: '',
+                    view: { class: 'foam.u2.detail.TabularSectionView' },
+                    properties: outputProps.map(p => p.name),
+                  }
+                ]
+              });
+            }
+            this.endContext();
           } else if ( phase == 'PICK' ) {
             var candidates = self.data.getCandidates();
             var ranked     = self.data.rankOutcomes(candidates);

@@ -7,55 +7,50 @@
 foam.CLASS({
   package: 'foam.parse.auto',
   name: 'ReferenceSuggester',
-  extends: 'foam.u2.View',
+  extends: 'foam.parse.Suggestion',
+  implements: [ 'foam.mlang.Expressions' ],
 
   documentation: `
     A suggester view for Reference properties in the AQL search bar.
     Shows records from the target DAO using CitationView. SmartView passes
     a 'filter' string (the text typed after the operator) which is used to
-    narrow results. 
+    narrow results.
     For searching, prefers CONTAINS_IC on the model's searchColumns axiom
     (mirroring RichChoiceView); falls back to KEYWORD if none declared.
     Selecting a record inserts its ID.
   `,
 
   requires: [
+    'foam.parse.Suggestion',
     'foam.u2.CitationView'
   ],
 
   properties: [
     'suggestText',
-    { class: 'Class', name: 'of' },
+    { class: 'Class',  name: 'of' },
     { class: 'String', name: 'targetDAOKey' },
     { class: 'String', name: 'filter' },
-    { class: 'Int', name: 'resultLimit', value: 10 }
+    { class: 'Int',    name: 'resultLimit', value: 16 }
   ],
 
   methods: [
-    function render() {
-      this.addClass();
-      var self = this;
+    async function expand(a, delta) {
       var dao  = this.__subContext__[this.targetDAOKey];
       if ( ! dao ) return;
 
-      var filtered = this.filter
+      dao = this.filter
         ? dao.where(this.buildFilterPredicate_(this.filter))
         : dao;
-      
-      let isFirstElement = true;
-      this
-        .start()
-          .select(filtered.limit(self.resultLimit), function(obj) {
-            if ( ! isFirstElement ) {
-              this.start().addClass('foam-parse-auto-SmartView-suggestionSeparator').end();
-            }
-            isFirstElement = false;
-            this.start(self.CitationView, { data: obj })
-              .addClass(self.myClass('row'))
-              .on('click', function() { self.suggestText(obj.id + ' '); })
-            .end();
-          })
-        .end();
+
+      let options = (await dao.limit(this.resultLimit).select()).array;
+
+      options.forEach(o =>
+        a.push(this.Suggestion.create({
+          text:     o.id,
+          label:    o.toSummary(),
+          category: 'value'
+        }))
+      );
     },
 
     function buildFilterPredicate_(filter) {
@@ -71,9 +66,9 @@ foam.CLASS({
 
       var preds = cols
         .map(function(name)    { return self.of.getAxiomByName(name); })
-        .filter(function(p)    { return p; })
+        .filter(p => p)
         .map(function(p)       { return self.columnPredicate_(p, filter); })
-        .filter(function(pred) { return pred; });
+        .filter(p => p);
 
       if ( preds.length > 0 ) return this.OR.apply(this, preds);
 
@@ -93,7 +88,8 @@ foam.CLASS({
       var type = this.effectivePropertyType_(prop);
 
       if ( foam.lang.String.isInstance(type) ) {
-        return this.CONTAINS_IC(prop, filter);
+        return this.STARTS_WITH(prop, filter);
+//        return this.CONTAINS_IC(prop, filter);
       }
       if ( foam.lang.Int.isInstance(type) ) {
         var n = this.parseNumber_(filter);

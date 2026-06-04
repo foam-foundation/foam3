@@ -278,7 +278,14 @@ foam.CLASS({
     {
       name: 'suggestions',
       factory: function() { return {}; },
-      documentation: 'Current suggestions as a map of string keys to Suggestion objects.'
+      documentation: 'Current suggestions as a map of string keys to Suggestion objects.',
+      postSet: function() {
+        this.expandSuggestions();
+      }
+    },
+    {
+      name: 'expandedSuggestions',
+      factory: function() { return []; }
     },
     'field',
     {
@@ -301,12 +308,17 @@ foam.CLASS({
         let self = this;
 
         // Maybe add a suggestion
-        function maybeAdd(/* parser */ p) {
+        function maybeAdd(/* parser */ p, ps) {
           try {
-            if ( p.suggest ) {
+            if ( p.suggest && ps.pos >= self.maxPos ) {
               let s = p.suggest();
               if ( s ) {
+                if ( ps.pos > self.maxPos ) {
+                  self.suggestions = {};
+                  self.maxPos      = ps.pos;
+                }
                 let label = s.tooltip || s.text;
+                // To avoid duplicates
                 if ( ! self.suggestions[label] ) {
                   self.suggestions[label] = s;
                 }
@@ -320,13 +332,7 @@ foam.CLASS({
         // grammar with all the symbols
         return function(p, grammar) {
           // 'this' is the JSPStream
-
-          if ( this.pos > self.maxPos ) {
-            self.suggestions = {};
-            self.maxPos      = this.pos;
-          }
-
-          if ( this.pos == self.maxPos ) maybeAdd(p);
+          maybeAdd(p, this);
 
           let result = p.parse(this, grammar);
 
@@ -408,9 +414,9 @@ foam.CLASS({
       self.overlay_
         .start()
           .addClass(this.myClass('suggestions'))
-          .add(this.dynamic(function (suggestions) {
+          .add(this.dynamic(function (expandedSuggestions) {
             if ( self.element_.parentNode.contains(document.activeElement) || ( self.overlay?.el_().contains(document.activeElement) ) )
-              self.populateSuggestions(this, suggestions);
+              self.populateSuggestions(this, expandedSuggestions);
           }))
         .end();
     },
@@ -418,38 +424,22 @@ foam.CLASS({
     function populateSuggestions(e, suggestions) {
       let self = this;
 
-      function compare(k1, k2) {
-        var o1 = self.suggestions[k1];
-        var o2 = self.suggestions[k2];
-
-        let c = foam.util.compare(o1.category, o2.category);
+      function compare(s1, s2) {
+        let c = foam.util.compare(s1.category, s2.category);
         if ( c ) return c;
-        return foam.util.compare(o1.label || o1.text, o2.label || o2.text);
+        return foam.util.compare(s1.label || s1.text, s2.label || s2.text);
       }
 
       let preview = self.preview;
       let delta   = preview.substring(self.maxPos);
-      let keys    = Object.keys(suggestions);
-      let ss      = keys.sort(compare); // Sort by section then (label or text)
-
-      if ( delta ) ss = ss.filter(k => {
-        let sug = suggestions[k];
-        // Currently custom views handle their own filtering via the 'filter' property.
-        // TODO: for Ajeet, enhancement suggestion by Sarthak:
-        // This should probably check an interface and ignore if the view implements a searchable interface,
-        // dont think its prudent to just assume views will always filter themselves, maybe a todo
-        if ( sug.view ) return true;
-        return sug.matches(delta);
-      });
-
-      let parent = e.parentNode;
+      let ss      = suggestions.sort(compare); // Sort by section then (label or text)
+      let parent  = e.parentNode;
 
       if ( ! ss.length ) { self.overlay_.close(); return; }
       self.overlay_.open();
 
-      e.forEach(ss, function(s, i, a) {
+      e.forEach(ss, function(sug, i, a) {
         if ( i !== 0 ) this.start().addClass(self.myClass('suggestionSeparator')).end();
-        let sug = self.suggestions[s];
         this.tag(sug.view || self.SuggestionView, {
           data: sug,
           showText: sug.showText,
@@ -482,6 +472,27 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'expandSuggestions',
+      isMerged: true,
+      delay: 160,
+      code: async function() {
+        let a     = [];
+        let ss    = this.suggestions;
+        let keys  = Object.keys(ss);
+        let delta = this.preview.substring(this.maxPos);
+
+        for ( let i = 0 ; i < keys.length ; i++ ) {
+          let key = keys[i];
+          let s   = ss[key];
+          s = s.clone(this.__subContext__);
+          s.filter = delta;
+          await s.expand(a, delta);
+        }
+
+        this.expandedSuggestions = a;
+      }
+    },
     {
       name: 'onKeyPress',
       code: function(e) {

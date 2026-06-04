@@ -65,6 +65,11 @@ foam.CLASS({
         this.collectCSSTokens_(text, models[i], tokens);
       }
 
+      // F1: drop non-comment tokens that fall inside comment / documentation
+      // spans. Comment-as-comment coloring (token type 5) is preserved. Spans
+      // come from the grammar (no regex).
+      tokens = this.filterNonCodeTokens_(text, tokens);
+
       // Sort by position (line, then character)
       tokens.sort(function(a, b) {
         return a.line !== b.line ? a.line - b.line : a.char - b.char;
@@ -698,6 +703,30 @@ foam.CLASS({
         prevChar = t.char;
       }
       return { data: data };
+    },
+
+    function filterNonCodeTokens_(text, tokens) {
+      /** Remove non-comment tokens (type !== 5) whose offset lands in a
+       *  comment or documentation-value span. Grammar-driven detection. */
+      var grammar = this.index.getGrammar && this.index.getGrammar();
+      if ( ! grammar || ! grammar.collectRanges ) return tokens;
+      var ranges = grammar.collectRanges(text);
+      var spans = ranges.comment.concat(ranges.documentation);
+      if ( spans.length === 0 ) return tokens;
+      var lineOffsets = [0];
+      for ( var i = 0 ; i < text.length ; i++ ) if ( text[i] === '\n' ) lineOffsets.push(i + 1);
+      var out = [];
+      for ( var t = 0 ; t < tokens.length ; t++ ) {
+        var tok = tokens[t];
+        if ( tok.type === 5 ) { out.push(tok); continue; }   // keep comment tokens
+        var off = ( lineOffsets[tok.line] || 0 ) + tok.char;
+        var inSpan = false;
+        for ( var s = 0 ; s < spans.length ; s++ ) {
+          if ( off >= spans[s].startPos && off < spans[s].endPos ) { inSpan = true; break; }
+        }
+        if ( ! inSpan ) out.push(tok);
+      }
+      return out;
     }
   ]
 });

@@ -71,6 +71,36 @@ foam.CLASS({
       return word;
     },
 
+    function getEnclosingStringContent(text, position) {
+      /**
+       * If the cursor sits inside a quoted string literal on its line, return
+       * the string's content (between the quotes); otherwise null. Used to
+       * stop a word inside a label like 'Reset Password' from resolving to a
+       * type/class — only a string whose WHOLE content is a reference should.
+       */
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var ch = position.character;
+      var quotes = "'\"`";
+      var i = 0;
+      while ( i < line.length ) {
+        if ( quotes.indexOf(line[i]) !== -1 ) {
+          var q = line[i];
+          var start = i + 1;
+          var j = start;
+          while ( j < line.length && line[j] !== q ) {
+            if ( line[j] === '\\' ) j++;
+            j++;
+          }
+          if ( ch > start - 1 && ch <= j ) return line.substring(start, j);
+          i = j + 1;
+        } else {
+          i++;
+        }
+      }
+      return null;
+    },
+
     function getSegmentAtPosition(text, position) {
       /**
        * Get just the single identifier segment under the cursor (stops at dots).

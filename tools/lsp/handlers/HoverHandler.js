@@ -81,6 +81,12 @@ foam.CLASS({
         }
       }
 
+      // Inside a string literal, only the WHOLE string may be a reference. A
+      // sub-word of a label like 'Reset Password' must not resolve to a type
+      // (e.g. foam.lang.Password) — that is data, not a code reference.
+      var strContent = this.analyzer.getEnclosingStringContent(text, position);
+      if ( strContent !== null && word !== strContent.trim() ) return null;
+
       // Hovering a class's own `name:` value shows that class (info +
       // relationships) — same result as hovering a reference to it elsewhere.
       // Gated on the `name:` line + a match against the model's own name so a
@@ -697,17 +703,26 @@ foam.CLASS({
         }
       }
 
-      // 6. Relationships — to / from this class (foam.dao.Relationship axioms).
+      // 6. Relationships — to / from this class (foam.dao.Relationship axioms),
+      //    grouped by direction. The model name and cardinality go in backticks
+      //    so `*:*` renders literally instead of being eaten as markdown italics.
       var rels = this.index.getRelationships ? this.index.getRelationships(classId) : [];
       if ( rels && rels.length > 0 ) {
+        var outs = rels.filter(function(x) { return x.dir === 'out'; });
+        var ins  = rels.filter(function(x) { return x.dir === 'in'; });
         md += '\n**Relationships**\n\n';
-        for ( var r = 0 ; r < rels.length ; r++ ) {
-          var rel = rels[r];
-          var otherShort = rel.other ? rel.other.split('.').pop() : '?';
-          if ( rel.dir === 'out' ) {
-            md += '- → `' + rel.name + '`: ' + otherShort + ' (' + rel.card + ')\n';
-          } else {
-            md += '- ← `' + rel.name + '`: ' + otherShort + '\n';
+        if ( outs.length > 0 ) {
+          md += '*Outgoing*\n';
+          for ( var o = 0 ; o < outs.length ; o++ ) {
+            var oShort = outs[o].other ? outs[o].other.split('.').pop() : '?';
+            md += '- `' + outs[o].name + '` → `' + oShort + '` `' + outs[o].card + '`\n';
+          }
+        }
+        if ( ins.length > 0 ) {
+          md += ( outs.length > 0 ? '\n' : '' ) + '*Incoming*\n';
+          for ( var n = 0 ; n < ins.length ; n++ ) {
+            var iShort = ins[n].other ? ins[n].other.split('.').pop() : '?';
+            md += '- `' + ins[n].name + '` ← `' + iShort + '`\n';
           }
         }
       }

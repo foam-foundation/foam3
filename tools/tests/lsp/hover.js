@@ -332,3 +332,24 @@ var ownHover = hoverHandler.handle(ownNameText, { line: 2, character: 12 });
 test(ownHover != null, 'hovering the class own name value shows class info');
 test(ownHover && ownHover.contents.value.indexOf('foam.parse.Suggestion') !== -1,
   'own-name hover shows the full class id');
+
+section('Hover — string-literal sub-word does not resolve (label vs reference)');
+// 'Reset Password' is a label; 'Password' is a property type but only a sub-word
+var labelText = "foam.CLASS({\n  package: 'x',\n  name: 'Y',\n  methods: [ function f(e) { e.add('Reset Password'); } ]\n})";
+var pwOff = labelText.indexOf('Reset Password') + 'Reset '.length + 2; // inside 'Password'
+function posOfH(t, o) { var l = 0, c = 0; for ( var i = 0 ; i < o ; i++ ) { if ( t[i] === '\n' ) { l++; c = 0; } else c++; } return { line: l, character: c }; }
+var labelHover = hoverHandler.handle(labelText, posOfH(labelText, pwOff));
+test(labelHover == null, "no hover on a sub-word ('Password') of a label string");
+// control: a class id that IS the whole string still hovers
+var idStrText = "foam.CLASS({\n  requires: ['foam.parse.Suggestion']\n})";
+var idStrHover = hoverHandler.handle(idStrText, { line: 1, character: 20 });
+test(idStrHover != null, 'whole-string class reference still hovers');
+
+section('Hover — relationship cardinality renders literally');
+if ( index.classExists('foam.core.auth.Group') ) {
+  var grpSrc = "foam.CLASS({\n  requires: ['foam.core.auth.Group']\n})";
+  var grpHover = hoverHandler.handle(grpSrc, { line: 1, character: 30 });
+  var grpText = ( grpHover && grpHover.contents && grpHover.contents.value ) || '';
+  test(grpText.indexOf('*:*') !== -1 || grpText.indexOf('1:*') !== -1,
+    'cardinality (*:* or 1:*) appears verbatim in relationship hover');
+}

@@ -76,16 +76,16 @@ foam.CLASS({
     {
       name: 'data',
       expression: function(choice) {
-        if ( ! choice ) return undefined;
+        if ( ! choice ) return null;
         if ( choice instanceof Promise ) {
           return choice.then(value => {
-            if ( ! value ) return undefined;
+            if ( ! value ) return null;
             var cls = foam.lookup(value);
-            return cls ? cls.create({}, this) : undefined;
+            return cls ? cls.create({}, this) : null;
           });
         }
         var cls = foam.lookup(choice);
-        return cls ? cls.create({}, this) : undefined;
+        return cls ? cls.create({}, this) : null;
       },
       postSet: async function(o, n) {
         /* ignoreWarning */

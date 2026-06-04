@@ -35,6 +35,7 @@ foam.CLASS({
     {
       name: 'minuteHand',
       hidden: 'true',
+      transient: true,
       factory: function() {
         return this.Hand.create({width:5, color: this.GREEN});
       }
@@ -42,6 +43,7 @@ foam.CLASS({
     {
       name: 'hourHand',
       hidden: 'true',
+      transient: true,
       factory: function() {
         return this.Hand.create({width:7, color: this.YELLOW});
       }
@@ -49,10 +51,12 @@ foam.CLASS({
     {
       name: 'secondHand',
       hidden: 'true',
+      transient: true,
       factory: function() {
         return this.Hand.create({width:3, color: this.RED});
       }
-    }
+    },
+    { name: 'children', transient: true }
   ],
 
   methods: [

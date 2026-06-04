@@ -135,6 +135,7 @@ foam.CLASS({
       var properties = model.properties || [];
       var questions  = model.questions  || [];
       var outcomes   = model.outcomes   || [];
+      var predicates = {};
 
       questions = questions.map(this.normalizeQuestion_.bind(this));
 
@@ -171,10 +172,10 @@ foam.CLASS({
     // =========================================================================
 
     function buildClass_(pkg, name, properties, questions, outcomes, model) {
-      let outputNames = [];
-      let inputNames = [];
-      var props = [];
-      var existingNames = {};
+      let outputNames   = [];
+      let inputNames    = [];
+      let props         = [];
+      let existingNames = {};
 
       // 1. Declared properties (inputs + outputs)
       properties.forEach(function(p) {
@@ -260,12 +261,13 @@ foam.CLASS({
            * the property it references via .arg1.
            */
           function ensureCompiled(outcome) {
-            if ( outcome.terms ) return;
+            if ( outcome.terms || ! outcome.predicate ) return;
 
             var parser = this.SimpleQueryParser.create({ of: this.cls_ });
             var mlang  = parser.parseString(outcome.predicate || '');
             var args   = this.And.isInstance(mlang) ? mlang.args : [mlang];
 
+            outcome.mlang = mlang;
             outcome.terms = args.map(function(term) {
               return {
                 mlang:    term,
@@ -281,13 +283,17 @@ foam.CLASS({
            *   - The term evaluates to true against the current value
            */
           function getCandidates() {
-            var self = this;
-            return this.OUTCOMES.filter(function(outcome) {
-              self.ensureCompiled(outcome);
-              return outcome.terms.every(function(term) {
-                return self.isTermConsistent(term);
-              });
-            });
+            return this.OUTCOMES.filter(outcome => this.isConsistent(outcome));
+          },
+
+          /**
+           * outcome: a question or outcome
+           */
+          function isConsistent(outcome) {
+            if ( ! outcome.predicate ) return true;
+
+            this.ensureCompiled(outcome);
+            return outcome.terms.every(term => this.isTermConsistent(term))
           },
 
           /**
@@ -297,11 +303,30 @@ foam.CLASS({
           function isTermConsistent(term) {
             var val = this[term.property];
 
-            // Unanswered question — term is still possible
-            if ( val === '' || val === undefined || val === null ) return true;
+            // Unanswered question — term is still possible. Arrays are used by
+            // multi-select questions; handle them before loose numeric checks so
+            // ['0'] is not coerced to 0 and treated as unanswered.
+            if ( Array.isArray(val) ) return val.length === 0;
+            if ( val == 0 || val === '' || val === undefined || val === null ) return true;
 
             // Evaluate the mlang term against this object
             return term.mlang.f(this);
+          },
+
+          function isQuestionAnswered(q) {
+            var val = this[q.name];
+            // Multi-select questions store answers as arrays. Any non-empty
+            // array means the user selected at least one option, including ['0'].
+            if ( Array.isArray(val) ) return val.length > 0;
+            return val !== '' && val != 0 && val != undefined;
+          },
+
+          /**
+           * Return an array of two elements [ # of remaining candidates, total number of candidates ] so that
+           * the progress can be determined.
+           */
+          function getProgress() {
+            return [ this.getCandidates().length, this.OUTCOMES.length ];
           },
 
           /**
@@ -316,22 +341,50 @@ foam.CLASS({
             // console.log('************ CANDIDATES:', candidates.length);
             // candidates.forEach(c => console.log(c.reasonCode_, ' / ', c.reasonText, ' / ', c.predicate));
 
-            var self            = this;
-            var questions       = this.QUESTIONS;
-            var bestQ           = null;
-            var bestGain        = -1;
-            var highestPriority = Number.MAX_SAFE_INTEGER; // lower numbers are higher priority
+            let self            = this;
+            let questions       = this.QUESTIONS;
+            let bestQ           = null;
+            let bestGain        = -1;
+            let highestPriority = Number.MAX_SAFE_INTEGER; // lower numbers are higher priority
+            let qMap            = {}; // Map of name -> question
+            let qs              = []; // Array of all consistent questions
 
-            for ( var i = 0 ; i < questions.length ; i++ ) {
-              let q        = questions[i];
-              let priority = q.priority || 100;
+            questions.filter(q => ! this.isQuestionAnswered(q)).map(q => {
+              self.ensureCompiled(q);
 
-              // Skip answered questions
-              if ( self[q.name] !== '' && self[q.name] != 0 && self[q.name] != undefined ) continue;
+              // If it isn't consistent, then it can never become enabled, so we can exclude it
+              if ( ! this.isConsistent(q) ) return;
 
-              var gain = self.computeInfoGain(q, candidates);
+              let e = {
+                name:       q.name,
+                priority:   q.priority || 100,
+                gain:       self.computeInfoGain(q, candidates),
+                q:          q,
+                enabled:    q.mlang ? q.mlang.f(this) : true
+              };
+              qs.push(e);
+              qMap[q.name] = e;
+            });
 
-              if ( gain == 0 ) continue;
+            // Raise gain and lower priority of dependencies to each question
+            // TODO: a more ellegant and efficient method of updating chained dependencies
+            for ( let i = 0 ; i < 10 ; i++ ) qs.forEach(q => {
+              if ( ! q.enabled && q.gain ) {
+                q.q.terms.forEach(t => {
+                  let q2 = qMap[t.property];
+                  if ( ! q2 ) return;
+                  q2.gain = Math.max(q.gain, q2.gain);
+                  q2.priority = Math.min(q.priority-1, q2.priority);
+                });
+              }
+              });
+
+            qs = qs.filter(q => /*q.enabled &&*/ q.gain > 0);
+
+            for ( var i = 0 ; i < qs.length ; i++ ) {
+              let q        = qs[i].q;
+              let priority = qs[i].priority;
+              let gain     = qs[i].gain;
 
               if ( priority > highestPriority ) continue;
 
@@ -342,8 +395,7 @@ foam.CLASS({
               // console.debug('GAIN FOR:', q, '| gain: ', gain);
 
               // Prefer higher gain, then fewer choices, then earlier declaration
-              if ( gain > bestGain ||
-                   ( gain === bestGain && bestQ && q.choices?.length < bestQ.choices?.length )
+              if ( gain > bestGain || ( gain === bestGain && bestQ && q.choices?.length < bestQ.choices?.length )
               ) {
                 bestGain        = gain;
                 bestQ           = q;
@@ -351,7 +403,7 @@ foam.CLASS({
               }
             }
 
-            // console.log('******* NEXT QUESTION:', bestQ?.name);
+            console.log('******* NEXT QUESTION:', bestQ?.name);
 
             // Don't ask questions with zero information gain
             return bestGain > 0 ? this.cls_.getAxiomByName(bestQ.name) : null;
@@ -372,9 +424,8 @@ foam.CLASS({
             var dontCareCount = 0;
 
             // Add don't-care outcomes to every bucket
-            var total = candidates.length;
+            var total   = candidates.length;
             var entropy = 0;
-
 
             // Initialize buckets for each choice
             question.choices?.forEach(function(c) {
@@ -383,7 +434,7 @@ foam.CLASS({
             });
 
             // Count candidates per bucket
-            candidates.forEach((outcome) => {
+            candidates.forEach(outcome => {
               self.ensureCompiled(outcome);
 
               // Find if this outcome has a term referencing this question

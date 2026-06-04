@@ -14,9 +14,12 @@ foam.CLASS({
     Can be used to parse a single property, a list of properties, or an SQL-style order by list.
   `,
 
+  imports: [ 'of' ],
+  /*
   properties: [
     'of'
-  ],
+    ],
+    */
 
   methods: [
     function grammar(alt, literalIC, seq, sug, sym, repeat, optional) {

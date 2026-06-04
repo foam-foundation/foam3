@@ -21,9 +21,13 @@ foam.CLASS({
   requires: [
     'foam.u2.ProgressView',
     'foam.u2.qa.RankedOutcome',
+    'foam.u2.qa.QAOutcomeLog',
+    'foam.log.LogLevel',
     'foam.dao.MDAO',
     'foam.u2.qa.WizardState'
   ],
+
+  imports: ['qaOutcomeLogDAO?'],
 
   messages: [
     { name: 'NO_CANDIDATES', message: 'No candidates eligible. Please check your answers or manually enter an outcome.' },
@@ -104,6 +108,14 @@ foam.CLASS({
       documentation: 'True when the current question property has a non-empty value'
     },
     {
+      class: 'Boolean',
+      name: 'currentAnswerValid_',
+      value: true,
+      documentation: `True when the current question has no validateObj error. Next
+        is gated on this so a question-level validator blocks advancing, not just
+        renders a message.`
+    },
+    {
       class: 'Int',
       name: 'candidatesCount',
       documentation: 'Current number of remaining candidate outcomes'
@@ -123,7 +135,16 @@ foam.CLASS({
       name: 'onComplete',
       documentation: 'Optional callback invoked with (data) when the wizard finishes'
     },
-    'valueSub_'
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'outcomeView',
+      documentation: `View for the OUTCOME step. Receives the questionnaire as data. When
+        unset, the default TabularSectionView of the OUTPUT_NAMES properties is rendered.
+        A questionnaire that computes its outcome asynchronously can supply a view that
+        shows a loading state and renders the result reactively.`
+    },
+    'valueSub_',
+    'validSub_'
   ],
 
   methods: [
@@ -135,23 +156,35 @@ foam.CLASS({
       // When the question changes, tear down the old subscription and create a new one.
       this.dynamic(function(currentAnswerName_) {
         if ( self.valueSub_ ) { self.valueSub_.detach(); self.valueSub_ = null; }
-        var name = self.currentAnswerName_;
+        if ( self.validSub_ ) { self.validSub_.detach(); self.validSub_ = null; }
+        var name  = self.currentAnswerName_;
+        var axiom = self.currentQuestionAxiom;
         if ( name && self.data ) {
           var slot = self.data$.dot(name);
           self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function(v) {
             return !!v;
           }));
+          // Track the current question's validateObj result so Next can block on it.
+          // data.slot(validateObj) is the same per-property error slot Section uses.
+          if ( axiom && axiom.validateObj ) {
+            self.validSub_ = self.currentAnswerValid_$.follow(
+              self.data.slot(axiom.validateObj).map(function(err) { return ! err; }));
+          } else {
+            self.currentAnswerValid_ = true;
+          }
         } else {
           self.currentAnswerFilled = false;
+          self.currentAnswerValid_ = true;
         }
       });
 
       this.onDetach(function() {
         if ( self.valueSub_ ) self.valueSub_.detach();
+        if ( self.validSub_ ) self.validSub_.detach();
       });
 
       if ( this.data ) {
-        this.totalOutcomes = this.data.OUTCOMES.length;
+        this.totalOutcomes = this.data.getProgress()[1];
         this.advance_();
       }
     },
@@ -169,7 +202,29 @@ foam.CLASS({
       var nextAxiom = this.data.selectNextQuestion();
       if ( ! nextAxiom ) {
         await this.rankedOutcomeDAO.removeAll();
-        this.phase = 'PICK';
+        // this.phase = 'PICK';
+        // Auto-pick: highest MATCHING first, then highest SCORE, then first
+        var ranked = this.data.rankOutcomes(candidates);
+        ranked.sort(function(a, b) {
+          if ( b.matching !== a.matching ) return b.matching - a.matching;
+          return b.score - a.score;
+        });
+
+        // ERROR if top 2 are tied on both matching and score (ambiguous); WARN otherwise
+        var tied = ranked.length > 1 &&
+                   ranked[0].matching === ranked[1].matching &&
+                   ranked[0].score    === ranked[1].score;
+        if ( this.qaOutcomeLogDAO ) {
+          this.qaOutcomeLogDAO.put(this.QAOutcomeLog.create({
+            questionnaire:  this.data,
+            rankedOutcomes: ranked,
+            logLevel:       tied ? this.LogLevel.ERROR : this.LogLevel.WARN
+          }));
+        }
+
+        if ( ranked.length > 0 ) this.data.applyOutcome(ranked[0].outcome);
+        this.candidatesCount = ranked.length > 0 ? 1 : 0;
+        this.phase = 'OUTCOME';
         return;
       }
 
@@ -191,6 +246,8 @@ foam.CLASS({
       this.start().addClass(this.myClass('header'))
         .start('span').addClass(this.myClass('candidate-count'))
           .add(this.slot(function(phase, candidatesCount, totalOutcomes) {
+            // Custom outcomeView owns the end step — suppress the framework label too.
+            if ( phase == 'OUTCOME' && self.outcomeView ) return null;
             return phase.labelFormatter(candidatesCount, totalOutcomes);
           }))
         .end()
@@ -216,22 +273,27 @@ foam.CLASS({
                 .addClass('p')
                 .add(self.NO_CANDIDATES)
               .end();
-            var outputProps = self.getOutputProperties_();
-            this.startContext({ controllerMode: foam.u2.ControllerMode.VIEW })
-            .tag({
-              class: 'foam.u2.detail.VerticalDetailView',
-              of: self.data.cls_,
-              data$: self.data$,
-              sections: [
-                {
-                  name: 'info_output_',
-                  title: '',
-                  view: { class: 'foam.u2.detail.TabularSectionView' },
-                  properties: outputProps.map(p => p.name),
-                }
-              ]
-            })
-            .endContext();
+            this.startContext({ controllerMode: foam.u2.ControllerMode.VIEW });
+            if ( self.outcomeView ) {
+              // Caller-supplied end-step view (e.g. async/loading or richer rendering).
+              this.tag(self.outcomeView, { data$: self.data$ });
+            } else {
+              var outputProps = self.getOutputProperties_();
+              this.tag({
+                class: 'foam.u2.detail.VerticalDetailView',
+                of: self.data.cls_,
+                data$: self.data$,
+                sections: [
+                  {
+                    name: 'info_output_',
+                    title: '',
+                    view: { class: 'foam.u2.detail.TabularSectionView' },
+                    properties: outputProps.map(p => p.name),
+                  }
+                ]
+              });
+            }
+            this.endContext();
           } else if ( phase == 'PICK' ) {
             var candidates = self.data.getCandidates();
             var ranked     = self.data.rankOutcomes(candidates);
@@ -293,7 +355,7 @@ foam.CLASS({
         // Unset answer to get correct count again
         this.data[last.name]      = undefined;
         this.currentQuestionAxiom = last;
-        this.candidatesCount      = this.data.getCandidates().length;
+        this.candidatesCount      = this.data.getProgress()[0];
         this.data[last.name]      = oldValue;
         this.phase                = 'QUESTION';
       }
@@ -302,8 +364,8 @@ foam.CLASS({
       name: 'next',
       buttonStyle: 'PRIMARY',
       size: 'MEDIUM',
-      isEnabled: function(phase, currentAnswerFilled, pickedOutcomeIndex) {
-        if ( phase == 'QUESTION'  ) return currentAnswerFilled;
+      isEnabled: function(phase, currentAnswerFilled, currentAnswerValid_, pickedOutcomeIndex) {
+        if ( phase == 'QUESTION'  ) return currentAnswerFilled && currentAnswerValid_;
         if ( phase == 'PICK' ) return !! pickedOutcomeIndex || pickedOutcomeIndex === '0';
         return true;
       },
@@ -379,6 +441,8 @@ foam.ENUM({
       name: 'OUTCOME',
       labelFormatter: function() { return this.MATCH_FOUND; },
       headingFormatter: function(self) {
+        // A custom outcomeView owns the whole end step — no framework heading.
+        if ( self.outcomeView ) return '';
         return self.candidatesCount ? this.ALL_DONE : this.NO_MATCH_FOUND;
       },
       subHeadingFormatter: function(self) {

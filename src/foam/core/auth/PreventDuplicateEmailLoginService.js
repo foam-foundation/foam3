@@ -19,6 +19,7 @@ foam.CLASS({
     'foam.mlang.sink.Count',
     'foam.core.auth.User',
     'foam.core.auth.DuplicateEmailException',
+    'foam.core.auth.LifecycleState',
     'foam.core.theme.Theme',
     'foam.core.theme.Themes',
     'static foam.mlang.MLang.*'
@@ -28,12 +29,13 @@ foam.CLASS({
     {
       name: 'getUser',
       javaCode: `
-
-        // see nspec uniqueUserService which also adds predicate NEQ LifecycleState.DELETED.
         DAO userDAO = ((DAO) getX().get("localUserUserDAO")).where(
-          OR(
-            EQ(User.EMAIL, identifier.toLowerCase()),
-            EQ(User.USER_NAME, identifier)
+          AND(
+            OR(
+              EQ(User.EMAIL, identifier.toLowerCase()),
+              EQ(User.USER_NAME, identifier)
+            ),
+            NEQ(User.LIFECYCLE_STATE, LifecycleState.DELETED)
           )
         );
 

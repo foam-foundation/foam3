@@ -326,13 +326,9 @@ foam.CLASS({
               alt(operator('='), operator('!=')),
               sym('ws'),
               sug(nop(), {
-                view: {
-                  class: 'foam.parse.auto.ReferenceSuggester',
-                  targetDAOKey: prop.targetDAOKey,
-                  of: prop.of
-                },
-                label: prop.label + ' lookup',
-                category: 'value'
+                class: 'foam.parse.auto.ReferenceSuggester',
+                targetDAOKey: prop.targetDAOKey,
+                of: prop.of
               })
             )));
 

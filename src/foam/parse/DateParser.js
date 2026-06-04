@@ -497,6 +497,16 @@ foam.CLASS({
         -1, -1, -1, -1, null);
     },
 
+    // DDMMMYY with separators: DD-MMM-YY, DD/MMM/YY (2-digit year)
+    // v = [DD, sep, MMM, sep, YY]
+    function ddmmmyysepAction(v) {
+      return this.buildDate(this.dateParseMode,
+        this.convertTwoDigitYear(parseInt(v[4])),
+        this.parseMonthName(v[2]),
+        parseInt(v[0]),
+        -1, -1, -1, -1, null);
+    },
+
     // DDMMMYYYY compact: DDMMMYYYY "31JAN2025"
     // v = [DD, MMM, YYYY]
     function ddmmmyyyycompactAction(v) {

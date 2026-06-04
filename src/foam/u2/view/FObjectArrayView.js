@@ -39,7 +39,8 @@ foam.CLASS({
     {
       name: 'valueView',
       expression: function(of) {
-        return { class: 'foam.u2.detail.VerticalDetailView' };
+        return { class: 'foam.u2.view.FObjectView' };
+//        return { class: 'foam.u2.detail.VerticalDetailView' };
         /*
         return {
           class: 'foam.u2.view.CollapseableDetailView',
@@ -60,7 +61,7 @@ foam.CLASS({
     function render() {
       this.SUPER();
       let self = this;
-      this.onDetach(this.data$.sub(() => { 
+      this.onDetach(this.data$.sub(() => {
         if ( ! self.feedback_ ) {
           // Remove any rows that were removed in the array
           let oldData = [...self.data2_];
@@ -68,7 +69,7 @@ foam.CLASS({
             let oldIndex = j;
             let item = oldData[j];
             if ( ! item ) continue;
-            let newIndex = self.data.indexOf(item) 
+            let newIndex = self.data.indexOf(item)
             if ( newIndex === -1 ) {
               self.removeRowWithID(item.$UID)
               continue;
@@ -77,11 +78,11 @@ foam.CLASS({
             if ( self.dataViewMap[item.$UID] && newIndex != oldIndex ) {
               let el = self.dataViewMap[item.$UID];
               el.index = newIndex;
-              // We dont care to update index in data2_ or in the arrayView's childNodes as 
+              // We dont care to update index in data2_ or in the arrayView's childNodes as
               // those will update when the loop has finished
             }
           }
-          //Loop through array and add new elements 
+          //Loop through array and add new elements
           // flip the array around since element only supports insert before
           for ( let i = self.data.length - 1; i >= 0; i--) {
             let row = self.data[i];

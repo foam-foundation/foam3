@@ -25,7 +25,7 @@ foam.CLASS({
       preSet: function(oldValue, newValue) {
         // console.log('PropertyExprView data preSet:', oldValue, '->', newValue);
         if ( this.updatingData_ ) return newValue;
-        
+
         this.updatingData_ = true;
         try {
           if ( ! newValue ) {
@@ -34,7 +34,7 @@ foam.CLASS({
             this.selectedTransformation = null;
             return newValue;
           }
-        
+
           // Check if this is a transformation expression (has delegate)
           if ( newValue.delegate ) {
             // This is a transformation expression
@@ -45,7 +45,7 @@ foam.CLASS({
             this.selectedProperty = newValue;
             this.selectedTransformation = null;
           }
-          
+
           return newValue;
         } finally {
           this.updatingData_ = false;
@@ -103,7 +103,8 @@ foam.CLASS({
               [ foam.mlang.expr.DateToYYYYExpr,        'YYYY'         ],
               [ foam.mlang.expr.DateToWeekExpr,        'Week (YYYY-WWW)' ],
               [ foam.mlang.expr.DateToQuarterExpr,     'Quarter (YYYY-QQ)' ],
-              [ foam.mlang.expr.DateToDayOfYearExpr,   'Day of Year (YYYY-DDD)' ]
+              [ foam.mlang.expr.DateToDayOfYearExpr,   'Day of Year (YYYY-DDD)' ],
+              [ foam.mlang.Days,                       'Days Since'   ],
             ]
           }
         ];
@@ -119,7 +120,7 @@ foam.CLASS({
           this.data = null;
         } else if ( this.selectedTransformation ) {
           // Create transformation expression
-          this.data = this.selectedTransformation.create({ delegate: this.selectedProperty });
+          this.data = this.selectedTransformation.create({ arg1: this.selectedProperty, delegate: this.selectedProperty });
         } else {
           // Just use the property directly
           this.data = this.selectedProperty;
@@ -147,7 +148,7 @@ foam.CLASS({
         .add(this.dynamic(function(selectedProperty, transformationConfig) {
           if ( selectedProperty ) {
             var config = null;
-            
+
             // Find config by checking instanceof against all config entries
             transformationConfig.forEach(function(configEntry) {
               configEntry.classNames.forEach(function(className) {
@@ -157,7 +158,7 @@ foam.CLASS({
                 }
               });
             });
-            
+
             if ( config && config.choices && config.choices.length > 1 ) {
               this
                 .start('br').end()

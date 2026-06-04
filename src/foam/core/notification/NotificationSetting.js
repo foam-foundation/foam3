@@ -131,6 +131,7 @@ foam.CLASS({
       ],
       javaCode: `
         notification = (Notification) notification.fclone();
+        notification.setX(x);
         notification.setUserId(user.getId());
         notification.clearGroupId();
         notification.setBroadcasted(false);

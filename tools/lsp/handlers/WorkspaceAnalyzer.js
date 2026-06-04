@@ -81,10 +81,10 @@ foam.CLASS({
         var filePath = filePaths[i];
         try {
           var content = fs_.readFileSync(filePath, 'utf8');
-          var diagnostics = diag.handle(content);
+          var uri = 'file://' + filePath;
+          var diagnostics = diag.handle(content, uri);  // pass URI so test/demo i18n exemptions apply
 
           if ( diagnostics.length > 0 ) {
-            var uri = 'file://' + filePath;
             fileResults[uri] = diagnostics;
             filesWithIssues++;
 
@@ -94,8 +94,9 @@ foam.CLASS({
               else if ( sev === 2 ) warnings++;
               else infos++;
 
-              // Group by pattern — replace specific class/type names with *
-              var pattern = this.generalizeMessage(diagnostics[d].message);
+              // Group by pattern — coded diagnostics (e.g. i18n rules) collapse
+              // under their code; everything else generalizes class/type names to *
+              var pattern = this.patternFor(diagnostics[d]);
               var key = pattern + '|' + sev;
               if ( ! patternCounts[key] ) {
                 patternCounts[key] = { pattern: pattern, count: 0, severity: sev };
@@ -158,8 +159,8 @@ foam.CLASS({
         var filePath = unique[j];
         try {
           var content = fs_.readFileSync(filePath, 'utf8');
-          var diagnostics = diag.handle(content);
           var uri = 'file://' + filePath;
+          var diagnostics = diag.handle(content, uri);  // pass URI so test/demo i18n exemptions apply
           // ALWAYS include the file in results — empty arrays clear stale
           // diagnostics from a prior save.
           fileResults[uri] = diagnostics;
@@ -197,10 +198,21 @@ foam.CLASS({
       var absPath = path_.resolve(filePath);
       try {
         var content = fs_.readFileSync(absPath, 'utf8');
-        return this.diagnosticsHandler.handle(content);
+        return this.diagnosticsHandler.handle(content, 'file://' + absPath);  // URI → i18n exemptions apply
       } catch (e) {
         return null;
       }
+    },
+
+    function patternFor(diag) {
+      /**
+       * Grouping key for a diagnostic. Diagnostics that carry a stable `code`
+       * (e.g. the i18n rules) group under that code so the audit shows one row
+       * per rule instead of one row per distinct string. Uncoded diagnostics
+       * fall back to generalizeMessage (class/type names wildcarded).
+       */
+      if ( diag && diag.code ) return diag.code;
+      return this.generalizeMessage(diag.message);
     },
 
     function generalizeMessage(message) {

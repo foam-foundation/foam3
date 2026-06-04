@@ -246,6 +246,8 @@ foam.CLASS({
       this.start().addClass(this.myClass('header'))
         .start('span').addClass(this.myClass('candidate-count'))
           .add(this.slot(function(phase, candidatesCount, totalOutcomes) {
+            // Custom outcomeView owns the end step — suppress the framework label too.
+            if ( phase == 'OUTCOME' && self.outcomeView ) return null;
             return phase.labelFormatter(candidatesCount, totalOutcomes);
           }))
         .end()
@@ -439,6 +441,8 @@ foam.ENUM({
       name: 'OUTCOME',
       labelFormatter: function() { return this.MATCH_FOUND; },
       headingFormatter: function(self) {
+        // A custom outcomeView owns the whole end step — no framework heading.
+        if ( self.outcomeView ) return '';
         return self.candidatesCount ? this.ALL_DONE : this.NO_MATCH_FOUND;
       },
       subHeadingFormatter: function(self) {

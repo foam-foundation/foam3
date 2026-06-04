@@ -1168,6 +1168,11 @@ foam.CLASS({
           lineComment, blockComment, P.sym('instantiationCall'), P.notChars('{}')
         ), null, 0)), P.literal('}')),
 
+        balancedBrackets: P.seq(P.literal('['), P.str(P.repeat(P.alt(
+          P.sym('balancedBrackets'), P.sym('balancedBraces'), P.sym('balancedParens'),
+          stringLiteral, backtickString, lineComment, blockComment, P.notChars('[]')
+        ), null, 0)), P.literal(']')),
+
         // === INSTANTIATION RULES (F3) ===
         instCreateCall: P.msg(P.seq(
           P.msg(instReceiverChain, { kind: 'instCreateReceiver' }),
@@ -1176,8 +1181,12 @@ foam.CLASS({
           wsc, P.optional(P.literal(')'))
         ), { kind: 'instCall' }),
 
+        // .tag is anchored on the `.tag(` literal itself — NOT on a receiver.
+        // In real fluent u2 code .tag chains off a method call
+        // (`.addClass(...).tag(this.X, {...})`), so the token before `.tag` is
+        // `)`, not an identifier. The view class is the FIRST argument, which
+        // instTagClass captures; whatever precedes `.tag` is irrelevant.
         instTagCall: P.msg(P.seq(
-          instReceiverChain,
           P.literal('.tag'), wsc, P.literal('('), wsc,
           P.msg(dottedId, { kind: 'instTagClass' }),
           wsc, P.literal(','), wsc,
@@ -1193,8 +1202,19 @@ foam.CLASS({
 
         instEntry: P.alt(
           P.seq(P.msg(identifier, { kind: 'instKey' }), wsc, P.literal(':'), wsc,
-            P.msg(anyValue, { kind: 'instValue' })),
-          P.sym('genericEntry'))
+            P.msg(P.sym('instValueExpr'), { kind: 'instValue' })),
+          P.sym('genericEntry')),
+
+        // A property value: a primary token plus any call/index/member trailers,
+        // so call expressions (this.slot(...)), slots (this.x$), nested objects
+        // and arrays parse as ONE value instead of stopping at `this.slot` and
+        // desyncing the rest of the object literal.
+        instValueExpr: P.seq(
+          P.alt(stringLiteral, number, booleanLiteral, P.sym('functionBody'),
+            P.sym('object'), P.sym('array'), dottedId),
+          P.repeat0(P.alt(P.sym('balancedParens'), P.sym('balancedBrackets'),
+            P.seq(P.literal('.'), dottedId)))
+        )
       };
     }
   ]

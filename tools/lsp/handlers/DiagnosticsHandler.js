@@ -199,6 +199,7 @@ foam.CLASS({
           if ( info.isEnum ) {
             if ( ! isStr ) continue;
             var inner = v.slice(1, -1);
+            if ( inner === '' ) continue;   // empty = unfilled/mid-edit, not an error
             var names = info.enumValues.map(function(x) { return x.name; });
             if ( names.indexOf(inner) === -1 ) {
               this.addDiag_(diagnostics, text, off, len, 2,

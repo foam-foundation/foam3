@@ -706,3 +706,17 @@ var generic = "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); this.do
 test(grammar.collectInstantiations(generic).length === 0,
   'generic calls produce no instantiation records (negative lookahead works)');
 
+
+section('Grammar — chained .tag + call-expression values (F3 regression)');
+// .tag chained off a method call (receiver before .tag is ')') with a slot
+// value and a function-call value — must still detect every call + entry.
+var chainSrc = "foam.CLASS({ methods: [ function f() {" +
+  " this.start().addClass('m')" +
+  "  .tag(this.MetricCard, { value$: this.totalCount$, variant: 'CRITICAL' })" +
+  "  .tag(this.MetricCard, { subText$: this.slot(function(n){ return n + ''; }, this.x$), variant: 'WARN' })" +
+  " .end(); } ] })";
+var chainInsts = grammar.collectInstantiations(chainSrc);
+test(chainInsts.length === 2, 'both chained .tag calls detected (got ' + chainInsts.length + ')');
+var second = chainInsts[1];
+var vEntry = second && second.entries.find(function(e){ return e.key === 'variant'; });
+test(vEntry && vEntry.valueText.indexOf('WARN') !== -1, 'variant captured past a function-call value without desync');

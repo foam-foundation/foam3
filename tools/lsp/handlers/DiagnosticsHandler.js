@@ -113,6 +113,10 @@ foam.CLASS({
       // class: '…'). Positions come straight from parser offsets, no regex.
       this.collectGrammarDiagnostics_(text, diagnostics);
 
+      // Enum / primitive literal values inside X.create({})/.tag(this.X,{}).
+      // Whole-file scan (like validateAddStrings_); detection via the grammar.
+      this.validateInstantiations_(text, diagnostics);
+
       this.prevResults_[uri] = { text: text, modelKeys: prev ? prev.modelKeys : {} };
       return this.toLSPDiagnostics_(diagnostics);
     },
@@ -159,6 +163,57 @@ foam.CLASS({
             var classId = this.cache.getClassId(model);
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
               "Property '" + matched + "' does not exist on " + classId);
+          }
+        }
+      }
+    },
+
+    function validateInstantiations_(text, diagnostics) {
+      /** Validate enum/primitive LITERAL values in X.create({})/.tag(this.X,{}).
+       *  Detection is grammar-driven (collectInstantiations). Comments never
+       *  reach here — the grammar's lineComment arm consumes them before the
+       *  instantiationCall arm. Expressions/slots/identifiers are skipped;
+       *  only quoted strings, numbers, and true/false are checked. */
+      var insts = this.grammar.collectInstantiations(text);
+      for ( var i = 0 ; i < insts.length ; i++ ) {
+        var inst = insts[i];
+        var line = this.analyzer.offsetToPosition(text, inst.callSpan.startPos).line;
+        var classId = this.cache.resolveShortName(this.uri_ || '', text, inst.classText, line) || inst.classText;
+        if ( ! this.index.classExists(classId) ) continue;
+
+        for ( var e = 0 ; e < inst.entries.length ; e++ ) {
+          var entry = inst.entries[e];
+          if ( ! entry.valueText || ! entry.valuePos ) continue;
+          var v = entry.valueText;
+          var c0 = v.charAt(0);
+          var isStr  = c0 === "'" || c0 === '"';
+          var isNum  = c0 === '-' || ( c0 >= '0' && c0 <= '9' );
+          var isBool = v === 'true' || v === 'false';
+          if ( ! isStr && ! isNum && ! isBool ) continue;   // literals only
+
+          var info = this.index.getPropertyInfo(classId, entry.key);
+          if ( ! info.found ) continue;
+          var off = entry.valuePos.startPos;
+          var len = entry.valuePos.endPos - entry.valuePos.startPos;
+
+          if ( info.isEnum ) {
+            if ( ! isStr ) continue;
+            var inner = v.slice(1, -1);
+            var names = info.enumValues.map(function(x) { return x.name; });
+            if ( names.indexOf(inner) === -1 ) {
+              this.addDiag_(diagnostics, text, off, len, 2,
+                "'" + inner + "' is not a valid " + info.enumId + " value. Expected: " + names.join(', '));
+            }
+          } else if ( info.primitiveKind === 'int' || info.primitiveKind === 'float' ) {
+            if ( isStr ) {
+              this.addDiag_(diagnostics, text, off, len, 2,
+                "'" + entry.key + "' expects a numeric value, got a string literal");
+            }
+          } else if ( info.primitiveKind === 'boolean' ) {
+            if ( isStr || isNum ) {
+              this.addDiag_(diagnostics, text, off, len, 2,
+                "'" + entry.key + "' expects a boolean (true/false)");
+            }
           }
         }
       }

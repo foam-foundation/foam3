@@ -85,6 +85,11 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'useMock'
+    },
+    {
+      class: 'Boolean',
+      name: 'unsafe',
+      documentation: 'Trust unverified certificates and hostnames'
     }
   ],
 

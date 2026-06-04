@@ -621,6 +621,62 @@ foam.CLASS({
       });
     },
 
+    function getRelationships(classId) {
+      /** Relationships (foam.dao.Relationship) this class participates in.
+       *  A Relationship installs itself as an axiom on BOTH its source and
+       *  target classes (Relationship.js:235,280), so getAxiomsByClass finds
+       *  every one. Returns [{ dir: 'out'|'in', name, other, card }]. */
+      var cls = this.getClass(classId);
+      if ( ! cls || ! foam.dao.Relationship ) return [];
+      var rels = cls.getAxiomsByClass(foam.dao.Relationship);
+      var out = [];
+      for ( var i = 0 ; i < rels.length ; i++ ) {
+        var r = rels[i];
+        var card = r.cardinality || '1:*';
+        if ( r.sourceModel === classId ) {
+          out.push({ dir: 'out', name: r.forwardName, other: r.targetModel, card: card });
+        }
+        if ( r.targetModel === classId && ! r.oneWay ) {
+          out.push({ dir: 'in', name: r.inverseName, other: r.sourceModel, card: card });
+        }
+      }
+      return out;
+    },
+
+    function getPropertyInfo(classId, propName) {
+      /** General property resolver for value validation/completion. Returns
+       *  { found, propClassName, isEnum, enumId, enumValues, primitiveKind }.
+       *  primitiveKind ∈ {'int','float','boolean', null}. Enum detection is
+       *  independent of the property's class name: a property whose `of`
+       *  resolves to a class with VALUES is treated as an enum. */
+      var info = { found: false, propClassName: null, isEnum: false,
+                   enumId: null, enumValues: [], primitiveKind: null };
+      var cls = this.getClass(classId);
+      if ( ! cls ) return info;
+      var prop = cls.getAxiomByName(propName);
+      if ( ! prop || ! foam.lang.Property.isInstance(prop) ) return info;
+      info.found = true;
+      info.propClassName = ( prop.cls_ && prop.cls_.model_ ) ? prop.cls_.model_.name : null;
+
+      var ofId = prop.of && ( prop.of.id || prop.of );
+      if ( ofId ) {
+        var vals = this.getEnumValues(ofId);
+        if ( vals && vals.length > 0 ) {
+          info.isEnum = true;
+          info.enumId = ofId;
+          info.enumValues = vals;
+        }
+      }
+      if ( ! info.isEnum ) {
+        switch ( info.propClassName ) {
+          case 'Int': case 'Long':   info.primitiveKind = 'int';     break;
+          case 'Float': case 'Double': info.primitiveKind = 'float'; break;
+          case 'Boolean':            info.primitiveKind = 'boolean'; break;
+        }
+      }
+      return info;
+    },
+
     function getClassDoc(classId) {
       /** Build markdown hover content for a class. */
       var cls = this.getClass(classId);

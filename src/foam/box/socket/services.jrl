@@ -25,3 +25,13 @@ p({
     "class": "foam.box.socket.SslContextFactory"
   }
 })
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "unsafeSslContextFactory",
+  "description": "ssl context factory for creating ssl socket, without certificate verification",
+  "lazy":false,
+  "service": {
+    "class": "foam.box.socket.UnsafeSslContextFactory"
+  }
+})

@@ -514,6 +514,7 @@ foam.POM({
     { name: "foam/box/socket/SocketConnectionBoxManager",             flags: "js|java" },
     { name: "foam/box/socket/SocketServer",                           flags: "js|java" },
     { name: "foam/box/socket/SslContextFactory",                      flags: "js|java" },
+    { name: "foam/box/socket/UnsafeSslContextFactory",                flags: "js|java" },
     { name: "foam/dao/BaseClientDAO",                                 flags: "js|java" },
     { name: "foam/dao/BaseNotificationClientDAO",                     flags: "js|java" },
     { name: "foam/dao/MergeBox",                                      flags: "js" },

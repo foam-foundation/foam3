@@ -1181,20 +1181,21 @@ foam.CLASS({
           wsc, P.optional(P.literal(')'))
         ), { kind: 'instCall' }),
 
-        // .tag is anchored on the `.tag(` literal itself — NOT on a receiver.
-        // In real fluent u2 code .tag chains off a method call
-        // (`.addClass(...).tag(this.X, {...})`), so the token before `.tag` is
-        // `)`, not an identifier. The view class is the FIRST argument, which
-        // instTagClass captures; whatever precedes `.tag` is irrelevant.
-        instTagCall: P.msg(P.seq(
-          P.literal('.tag'), wsc, P.literal('('), wsc,
+        // Generic argument-call form: ANY call that passes a class reference
+        // immediately followed by an object literal — `.tag(this.X, {...})`,
+        // `.add(this.X, {...})`, `helper(this.X, {...})`, `[this.X, {...}]`,
+        // etc. The class is the arg before the object; the method name is
+        // irrelevant, so the LSP works it out without per-helper knowledge.
+        // Anchored on `classRef, {` adjacency. Non-class refs are dropped later
+        // by resolution (classExists), so matching broadly is safe.
+        instArgCall: P.msg(P.seq(
           P.msg(dottedId, { kind: 'instTagClass' }),
           wsc, P.literal(','), wsc,
-          repeatList(P.alt(P.sym('instObject'), anyValue)),
+          P.sym('instObject'),
           wsc, P.optional(P.literal(')'))
         ), { kind: 'instCall' }),
 
-        instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instTagCall')),
+        instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instArgCall')),
 
         instObject: P.seq(P.literal('{'), wsc,
           repeatList(P.sym('instEntry')),

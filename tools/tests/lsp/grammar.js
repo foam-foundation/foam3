@@ -720,3 +720,18 @@ test(chainInsts.length === 2, 'both chained .tag calls detected (got ' + chainIn
 var second = chainInsts[1];
 var vEntry = second && second.entries.find(function(e){ return e.key === 'variant'; });
 test(vEntry && vEntry.valueText.indexOf('WARN') !== -1, 'variant captured past a function-call value without desync');
+
+section('Grammar — generic classRef + object detection (F3, not .tag-specific)');
+// Any call passing a class ref followed by an object literal is detected,
+// regardless of the method name.
+var genHelper = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { renderCard(this.MetricCard, { variant: 'WARN' }); } ] })");
+test(genHelper.length === 1 && genHelper[0].classText === 'MetricCard',
+  'arbitrary helper(classRef, {...}) is detected (not just .tag)');
+var addForm = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { this.add(this.MetricCard, { variant: 'X' }); } ] })");
+test(addForm.length === 1, '.add(classRef, {...}) is detected');
+// An object literal with no sibling class ref is NOT an instantiation.
+var noClass = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); } ] })");
+test(noClass.length === 0, 'object-only call (no class arg) is not detected');

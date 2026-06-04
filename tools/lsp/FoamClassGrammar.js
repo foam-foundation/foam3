@@ -82,14 +82,17 @@ foam.CLASS({
       var self = this;
       var map = {
         message:     {}, value:    {}, property: {}, method:  {},
-        pomFileName: {}, classRef: {}
+        pomFileName: {}, classRef: {}, comment:  {}, documentation: {},
+        instCall: {}, instCreateReceiver: {}, instTagClass: {}, instKey: {}, instValue: {}
       };
       // Kinds that allow multiple occurrences per name. Single-occurrence
       // kinds (message, value, property, method, pomFileName) keep their
       // first sighting only — a model defines each name once. Class
       // references DO repeat (requires + extends + ofs + raw strings + …),
       // so collect every position.
-      var MULTI = { classRef: true };
+      var MULTI = { classRef: true, comment: true, documentation: true,
+        instCall: true, instCreateReceiver: true, instTagClass: true,
+        instKey: true, instValue: true };
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
@@ -129,6 +132,100 @@ foam.CLASS({
 
       this.axiomCache_ = { text: text, map: map };
       return map;
+    },
+
+    function collectRanges(text) {
+      /** Comment + documentation-value spans, harvested from the grammar's
+       *  P.msg(comment)/P.msg(documentation) emissions in a single parse.
+       *  Dedupes by startPos (wsc is retried at the same offset during
+       *  backtracking, so a comment can be recorded more than once). */
+      var map = this.collectAxiomPositions(text);
+      function flatten(byName) {
+        var out = [], seen = {};
+        for ( var name in byName ) {
+          var arr = byName[name];
+          if ( ! Array.isArray(arr) ) arr = [arr];
+          for ( var i = 0 ; i < arr.length ; i++ ) {
+            var rec = arr[i];
+            if ( seen[rec.startPos] ) continue;
+            seen[rec.startPos] = true;
+            out.push({ startPos: rec.startPos, endPos: rec.endPos });
+          }
+        }
+        return out;
+      }
+      return { comment: flatten(map.comment), documentation: flatten(map.documentation) };
+    },
+
+    function collectInstantiations(text) {
+      /** Groups instKey/instValue under each instCall (by innermost span) and
+       *  resolves the view class from instCreateReceiver (the receiver) or
+       *  instTagClass (the .tag first arg). Grammar-driven — no regex.
+       *  Returns [{ classText, isTag, callSpan, entries:[{ key, keyPos,
+       *  valueText, valuePos }] }]. */
+      var map = this.collectAxiomPositions(text);
+      function recs(kind) {
+        var byName = map[kind] || {}, out = [];
+        for ( var n in byName ) {
+          var a = byName[n];
+          if ( ! Array.isArray(a) ) a = [a];
+          for ( var i = 0 ; i < a.length ; i++ ) {
+            out.push({ text: n, startPos: a[i].startPos, endPos: a[i].endPos });
+          }
+        }
+        return out;
+      }
+      var calls = recs('instCall'), creators = recs('instCreateReceiver'),
+          tags = recs('instTagClass'), keys = recs('instKey'), vals = recs('instValue');
+      function within(r, span) { return r.startPos >= span.startPos && r.endPos <= span.endPos; }
+      function innermost(r) {
+        var best = null;
+        for ( var c = 0 ; c < calls.length ; c++ ) {
+          if ( within(r, calls[c]) ) {
+            if ( ! best || ( calls[c].endPos - calls[c].startPos ) < ( best.endPos - best.startPos ) ) {
+              best = calls[c];
+            }
+          }
+        }
+        return best;
+      }
+      function firstIn(list, span) {
+        var best = null;
+        for ( var i = 0 ; i < list.length ; i++ ) {
+          if ( within(list[i], span) && ( ! best || list[i].startPos < best.startPos ) ) best = list[i];
+        }
+        return best;
+      }
+      var out = [];
+      for ( var c = 0 ; c < calls.length ; c++ ) {
+        var span = calls[c];
+        var tag = firstIn(tags, span);
+        var creator = firstIn(creators, span);
+        var classText = tag ? tag.text : ( creator ? creator.text : null );
+        if ( ! classText ) continue;
+        if ( classText.indexOf('this.') === 0 ) classText = classText.substring(5);
+        // keys/values that belong to THIS call (innermost containing call)
+        var kIn = keys.filter(function(k) { var ic = innermost(k); return ic && ic.startPos === span.startPos; })
+                      .sort(function(a, b) { return a.startPos - b.startPos; });
+        var vIn = vals.filter(function(v) { var ic = innermost(v); return ic && ic.startPos === span.startPos; })
+                      .sort(function(a, b) { return a.startPos - b.startPos; });
+        var entries = [];
+        for ( var i = 0 ; i < kIn.length ; i++ ) {
+          var val = null;
+          for ( var j = 0 ; j < vIn.length ; j++ ) {
+            if ( vIn[j].startPos > kIn[i].startPos ) { val = vIn[j]; break; }
+          }
+          entries.push({
+            key: kIn[i].text,
+            keyPos: { startPos: kIn[i].startPos, endPos: kIn[i].endPos },
+            valueText: val ? val.text : null,
+            valuePos: val ? { startPos: val.startPos, endPos: val.endPos } : null
+          });
+        }
+        out.push({ classText: classText, isTag: !! tag,
+          callSpan: { startPos: span.startPos, endPos: span.endPos }, entries: entries });
+      }
+      return out;
     },
 
     function findAxiomPosition(text, kind, name) {
@@ -336,9 +433,9 @@ foam.CLASS({
 
       // Whitespace primitives. `ws` is whitespace-only; `wsc` is the
       // whitespace + comments form used between grammar tokens.
-      var lineComment = P.seq(P.literal('//'), P.str(P.repeat(P.notChars('\n\r'), null, 0)),
-        P.alt(P.literal('\r\n'), P.literal('\n'), P.literal('\r')));
-      var blockComment = P.seq(P.literal('/*'), P.str(P.until(P.literal('*/'))));
+      var lineComment = P.msg(P.seq(P.literal('//'), P.str(P.repeat(P.notChars('\n\r'), null, 0)),
+        P.alt(P.literal('\r\n'), P.literal('\n'), P.literal('\r'))), { kind: 'comment' });
+      var blockComment = P.msg(P.seq(P.literal('/*'), P.str(P.until(P.literal('*/')))), { kind: 'comment' });
       var wsChar = P.chars(' \t\n\r');
       var ws  = P.repeat0(wsChar);
       var wsc = P.repeat0(P.alt(wsChar, lineComment, blockComment));
@@ -365,6 +462,18 @@ foam.CLASS({
       var dottedIdentChars = P.alt(alphaNum, P.chars('_.$'));
       var identifier = P.str(P.repeat(identChars, null, 1));
       var dottedId   = P.str(P.repeat(dottedIdentChars, null, 1));
+
+      // === INSTANTIATION (F3) ===
+      // Receiver chain for `X.create(` / `el.tag(`: (this.)? seg (.seg)*
+      // that STOPS before the trailing `.create(` / `.tag(`. Negative
+      // lookahead (P.not) keeps the rule from matching generic calls.
+      var instMethodAhead = P.seq(P.alt(P.literal('create'), P.literal('tag')), wsc, P.literal('('));
+      var classSeg = P.str(P.repeat(identChars, null, 1));
+      var instReceiverChain = P.str(P.seq(
+        P.optional(P.seq(P.literal('this'), P.literal('.'))),
+        classSeg,
+        P.repeat0(P.seq(P.literal('.'), P.seq(P.not(instMethodAhead), classSeg)))
+      ));
 
       // Identifier-as-msg helper. The grammar has many `name: ` slots
       // that must emit a position-tagged msg for downstream handlers
@@ -702,7 +811,8 @@ foam.CLASS({
           wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))
         ),
-        documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc, stringLiteral),
+        documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc,
+          P.msg(stringLiteral, { kind: 'documentation' })),
         abstractEntry: P.seq(key('abstract', topHint('abstract')), wsc, P.literal(':'), wsc, booleanLiteral),
         flagsEntry: P.seq(key('flags', topHint('flags')), wsc, P.literal(':'), wsc, P.sym('array')),
         // actions/listeners/sections — array-of-object axioms. Each gets a
@@ -965,7 +1075,7 @@ foam.CLASS({
             wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
             text: 'documentation', category: 'key' })),
-            wsc, P.literal(':'), wsc, stringLiteral),
+            wsc, P.literal(':'), wsc, P.msg(stringLiteral, { kind: 'documentation' })),
           P.seq(P.sug(P.literal('hidden'), foam.parse.Suggestion.create({
             text: 'hidden', category: 'key' })),
             wsc, P.literal(':'), wsc, booleanLiteral),
@@ -1055,8 +1165,36 @@ foam.CLASS({
 
         balancedBraces: P.seq(P.literal('{'), P.str(P.repeat(P.alt(
           P.sym('balancedBraces'), stringLiteral, backtickString,
-          lineComment, blockComment, P.notChars('{}')
-        ), null, 0)), P.literal('}'))
+          lineComment, blockComment, P.sym('instantiationCall'), P.notChars('{}')
+        ), null, 0)), P.literal('}')),
+
+        // === INSTANTIATION RULES (F3) ===
+        instCreateCall: P.msg(P.seq(
+          P.msg(instReceiverChain, { kind: 'instCreateReceiver' }),
+          P.literal('.create'), wsc, P.literal('('), wsc,
+          repeatList(P.alt(P.sym('instObject'), anyValue)),
+          wsc, P.optional(P.literal(')'))
+        ), { kind: 'instCall' }),
+
+        instTagCall: P.msg(P.seq(
+          instReceiverChain,
+          P.literal('.tag'), wsc, P.literal('('), wsc,
+          P.msg(dottedId, { kind: 'instTagClass' }),
+          wsc, P.literal(','), wsc,
+          repeatList(P.alt(P.sym('instObject'), anyValue)),
+          wsc, P.optional(P.literal(')'))
+        ), { kind: 'instCall' }),
+
+        instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instTagCall')),
+
+        instObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('instEntry')),
+          wsc, P.optional(P.literal('}'))),
+
+        instEntry: P.alt(
+          P.seq(P.msg(identifier, { kind: 'instKey' }), wsc, P.literal(':'), wsc,
+            P.msg(anyValue, { kind: 'instValue' })),
+          P.sym('genericEntry'))
       };
     }
   ]

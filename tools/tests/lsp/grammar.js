@@ -674,3 +674,35 @@ test(/foam.*function\.macro/.test(zedHi.replace(/\s+/g, ' ')) ||
 
 // === Migration coverage: buildLocationAtProperty uses the grammar path ===
 
+section('Grammar — collectRanges comments + documentation (F1)');
+var crText = "foam.CLASS({\n" +
+  "  documentation: 'Hello World',\n" +
+  "  // a line comment FObject\n" +
+  "  methods: [ function f() { /* block FObject */ return 1; } ]\n" +
+  "})";
+var ranges = grammar.collectRanges(crText);
+test(ranges.comment.length >= 2, 'collectRanges finds the line + block comments');
+test(ranges.documentation.length >= 1, 'collectRanges finds the documentation value');
+var docSpan = ranges.documentation[0];
+test(crText.substring(docSpan.startPos, docSpan.endPos).indexOf('Hello World') !== -1,
+  'documentation span covers the value text');
+
+section('Grammar — collectInstantiations (F3)');
+var ciCreate = "foam.CLASS({ methods: [ function f() { " +
+  "var x = this.Health.create({ status: 'UP', port: 8080 }); } ] })";
+var insts = grammar.collectInstantiations(ciCreate);
+test(insts.length >= 1, 'collectInstantiations finds the create call');
+var call = insts.find(function(c) { return ! c.isTag; });
+test(call && call.classText === 'Health', 'create receiver resolved to Health (this. stripped)');
+var statusEntry = call && call.entries.find(function(e) { return e.key === 'status'; });
+test(statusEntry && statusEntry.valueText.indexOf('UP') !== -1, 'status entry value captured');
+
+var ciTag = "foam.CLASS({ methods: [ function f() { " +
+  "this.tag(this.Health, { status: 'DOWN' }); } ] })";
+var tagCall = grammar.collectInstantiations(ciTag).find(function(c) { return c.isTag; });
+test(tagCall && tagCall.classText === 'Health', 'tag first-arg class resolved to Health');
+
+var generic = "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); this.doThing(x); } ] })";
+test(grammar.collectInstantiations(generic).length === 0,
+  'generic calls produce no instantiation records (negative lookahead works)');
+

@@ -68,6 +68,19 @@ foam.CLASS({
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
 
+      // F1: suppress hover inside comments and documentation values. Detection
+      // is grammar-driven via collectRanges (no regex). The documentation KEY
+      // sits before its value span, so axiom-key hover is unaffected.
+      var grammar = this.index.getGrammar && this.index.getGrammar();
+      if ( grammar && grammar.collectRanges ) {
+        var hoverOffset = this.analyzer.positionToOffset(text, position);
+        var ncRanges = grammar.collectRanges(text);
+        if ( this.offsetInRanges_(hoverOffset, ncRanges.comment) ||
+             this.offsetInRanges_(hoverOffset, ncRanges.documentation) ) {
+          return null;
+        }
+      }
+
       // Axiom key hover: cursor on `requires:`, `properties:`, `messages:`,
       // `sections:`, `searchColumns:`, etc. — show the description from
       // AxiomCatalog (single source of truth shared with the grammar).
@@ -205,6 +218,14 @@ foam.CLASS({
       if ( ! model ) return null;
       var requiresMap = this.cache.buildRequiresMap(model);
       return requiresMap[shortName] || null;
+    },
+
+    function offsetInRanges_(off, ranges) {
+      /** True when `off` falls inside any [startPos, endPos) span. */
+      for ( var i = 0 ; i < ranges.length ; i++ ) {
+        if ( off >= ranges[i].startPos && off < ranges[i].endPos ) return true;
+      }
+      return false;
     },
 
     function axiomKeyHover_(text, position) {
@@ -659,6 +680,21 @@ foam.CLASS({
           var group = inherited[g];
           var visibleProps = this.filterUserFacing_(group.properties);
           md += '- `' + group.className + '` — ' + visibleProps.length + ' properties\n';
+        }
+      }
+
+      // 6. Relationships — to / from this class (foam.dao.Relationship axioms).
+      var rels = this.index.getRelationships ? this.index.getRelationships(classId) : [];
+      if ( rels && rels.length > 0 ) {
+        md += '\n**Relationships**\n\n';
+        for ( var r = 0 ; r < rels.length ; r++ ) {
+          var rel = rels[r];
+          var otherShort = rel.other ? rel.other.split('.').pop() : '?';
+          if ( rel.dir === 'out' ) {
+            md += '- → `' + rel.name + '`: ' + otherShort + ' (' + rel.card + ')\n';
+          } else {
+            md += '- ← `' + rel.name + '`: ' + otherShort + '\n';
+          }
         }
       }
 

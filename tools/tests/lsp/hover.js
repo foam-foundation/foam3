@@ -296,5 +296,31 @@ scopeCases.forEach(function(c) {
     label + ' hover mentions "' + needle + '" (got: ' + got.slice(0, 90) + ')');
 });
 
+section('Hover — relationships section (#5091)');
+if ( index.classExists('foam.core.demo.relationship.Professor') ) {
+  var relSrc = "foam.CLASS({\n  requires: ['foam.core.demo.relationship.Professor']\n})";
+  // char 40 lands inside the class id string on line 1
+  var relHover = hoverHandler.handle(relSrc, { line: 1, character: 40 });
+  var relText = ( relHover && relHover.contents && relHover.contents.value ) || '';
+  test(relText.indexOf('Relationship') !== -1, 'Professor hover shows a Relationships section');
+  test(relText.indexOf('courses') !== -1, 'Professor hover lists the forward relationship courses');
+} else {
+  test(true, 'demo relationship classes not loaded — relationship hover fixture skipped');
+}
+
+section('Hover — suppressed in comments + documentation (F1)');
+var docText = "foam.CLASS({\n  documentation: 'see FObject for details'\n})";
+// line 1: "  documentation: 'see FObject..." — 'FObject' begins at char 22
+var docHover = hoverHandler.handle(docText, { line: 1, character: 24 });
+test(docHover == null, 'no hover inside a documentation value');
+// the documentation KEY itself still hovers (char 5 is inside 'documentation')
+var keyHover = hoverHandler.handle(docText, { line: 1, character: 5 });
+test(keyHover != null, 'documentation key still hovers');
+var cmtText = "foam.CLASS({\n  methods: [\n    function f() {\n" +
+  "      // uses FObject here\n      return 1;\n    }\n  ]\n})";
+// line 3: "      // uses FObject here" — 'FObject' begins at char 14
+var cmtHover = hoverHandler.handle(cmtText, { line: 3, character: 16 });
+test(cmtHover == null, 'no hover inside a line comment');
+
 // === GRAMMAR-DRIVEN AXIOM POSITIONS ===
 

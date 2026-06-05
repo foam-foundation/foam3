@@ -120,7 +120,7 @@ foam.CLASS({
     // to add a different Suggestion or Suggestions
     // delta -- the remaining text
     function expand(a, delta) {
-      if ( this.matches(delta) ) a.push(this);
+      if ( this.view || ! this.text || this.matches(delta) ) a.push(this);
     },
     function matches(str) {
       /** Return true iff this suggestions matches the partially typed str input. **/

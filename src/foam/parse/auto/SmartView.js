@@ -313,11 +313,11 @@ foam.CLASS({
             if ( p.suggest && ps.pos >= self.maxPos ) {
               let s = p.suggest();
               if ( s ) {
+                let label = s.tooltip || s.text;
                 if ( ps.pos > self.maxPos ) {
                   self.suggestions = {};
                   self.maxPos      = ps.pos;
                 }
-                let label = s.tooltip || s.text;
                 // To avoid duplicates
                 if ( ! self.suggestions[label] ) {
                   self.suggestions[label] = s;
@@ -331,7 +331,7 @@ foam.CLASS({
         // p is the parser
         // grammar with all the symbols
         return function(p, grammar) {
-          // 'this' is the JSPStream
+          // 'this' is the JSSPStream
           maybeAdd(p, this);
 
           let result = p.parse(this, grammar);
@@ -475,7 +475,7 @@ foam.CLASS({
     {
       name: 'expandSuggestions',
       isMerged: true,
-      delay: 160,
+      delay: 16,
       code: async function() {
         let a     = [];
         let ss    = this.suggestions;

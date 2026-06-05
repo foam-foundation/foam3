@@ -67,6 +67,7 @@ foam.CLASS({
       }
       // Call refresh() everytime the memento's usedStr updates
       this.onDetach(top.usedStr$.sub(refresh));
+      this.SUPER();
     },
 
     // Render the action at the top of the page

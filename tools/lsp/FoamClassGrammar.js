@@ -84,7 +84,7 @@ foam.CLASS({
         message:     {}, value:    {}, property: {}, method:  {},
         pomFileName: {}, classRef: {}, comment:  {}, documentation: {},
         instCall: {}, instCreateReceiver: {}, instTagClass: {}, instClassRef: {},
-        instKey: {}, instValue: {}
+        instKey: {}, instValue: {}, memberRef: {}
       };
       // Kinds that allow multiple occurrences per name. Single-occurrence
       // kinds (message, value, property, method, pomFileName) keep their
@@ -93,7 +93,7 @@ foam.CLASS({
       // so collect every position.
       var MULTI = { classRef: true, comment: true, documentation: true,
         instCall: true, instCreateReceiver: true, instTagClass: true,
-        instClassRef: true, instKey: true, instValue: true };
+        instClassRef: true, instKey: true, instValue: true, memberRef: true };
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
@@ -1168,8 +1168,21 @@ foam.CLASS({
 
         balancedBraces: P.seq(P.literal('{'), P.str(P.repeat(P.alt(
           P.sym('instClassObject'), P.sym('balancedBraces'), stringLiteral, backtickString,
-          lineComment, blockComment, P.sym('instantiationCall'), P.notChars('{}')
+          lineComment, blockComment, P.sym('instantiationCall'), P.sym('thisMemberRef'),
+          P.notChars('{}')
         ), null, 0)), P.literal('}')),
+
+        // `this.Ident` / `self.Ident` member access inside code — the FOAM
+        // idiom for using a required class (or property/method) in render,
+        // init, listeners. Emits the full `this.Ident` span; ReferencesHandler
+        // maps the trailing identifier to a class via requires. Runs after
+        // instantiationCall so `this.X.create(...)` / `.tag(this.X, ...)` are
+        // claimed by their own rules first.
+        thisMemberRef: P.msg(P.seq(
+          P.alt(P.literal('this'), P.literal('self')),
+          P.literal('.'),
+          P.str(P.repeat(identChars, null, 1))
+        ), { kind: 'memberRef' }),
 
         balancedBrackets: P.seq(P.literal('['), P.str(P.repeat(P.alt(
           P.sym('balancedBrackets'), P.sym('balancedBraces'), P.sym('balancedParens'),

@@ -374,12 +374,17 @@ foam.CLASS({
       var isQualified = word.indexOf('.') !== -1;
       if ( isQualified && this.index.classExists(word) ) return word;
 
+      // Cursor on a `this.Short` / `self.Short` usage — resolve the short name
+      // via requires so references work FROM a usage site, not just the decl.
+      var bare = word.replace(/^(?:this|self)\./, '');
+
       var model = this.cache.getModelAt(opt_uri || '', text, position.line);
       if ( model ) {
         var selfId = this.cache.getClassId(model);
-        if ( selfId && ( model.name === word || selfId === word ) ) return selfId;
+        if ( selfId && ( model.name === word || selfId === word || model.name === bare ) ) return selfId;
         var map = this.cache.buildRequiresMap(model);
         if ( map[word] && this.index.classExists(map[word]) ) return map[word];
+        if ( map[bare] && this.index.classExists(map[bare]) ) return map[bare];
       }
 
       var propTypes = this.index.getPropertyTypes();
@@ -485,6 +490,36 @@ foam.CLASS({
           if ( out.length >= 200 ) break;
         }
       }
+
+      // === D. Grammar-emitted usage positions (no regex) ===
+      // Code usages the grammar tags: `this.Short` / `self.Short` member access
+      // (render, init, listeners, const access) via `memberRef`, plus the class
+      // positions inside .create() / .tag() / { class: } instantiations. Each
+      // is mapped to the target through this class's requires short names or a
+      // full-id match. The bare scan in C can't see `.`-preceded usages.
+      try {
+        var g2 = typeof this.index.getGrammar === 'function' ? this.index.getGrammar() : null;
+        if ( g2 ) {
+          var shortSet = {};
+          for ( var s2 = 0 ; s2 < shortNames.length ; s2++ ) shortSet[shortNames[s2]] = true;
+          var pm = g2.collectAxiomPositions(content);
+          var self2 = this;
+          ['memberRef', 'instCreateReceiver', 'instTagClass', 'instClassRef'].forEach(function(kind) {
+            var bucket = ( pm && pm[kind] ) || {};
+            for ( var nm in bucket ) {
+              var stripped = nm.replace(/^(?:this|self)\./, '');
+              var isMatch = shortSet[stripped] || nm === targetClassId || stripped === targetClassId;
+              if ( ! isMatch ) continue;
+              var recs = Array.isArray(bucket[nm]) ? bucket[nm] : [bucket[nm]];
+              for ( var r2 = 0 ; r2 < recs.length && out.length < 200 ; r2++ ) {
+                // point at the short-name segment, not the `this.` prefix
+                var off = recs[r2].startPos + ( nm.length - stripped.length );
+                push(off, stripped.length);
+              }
+            }
+          });
+        }
+      } catch (e) {}
 
       return out.length > 0 ? out : fallback;
     },

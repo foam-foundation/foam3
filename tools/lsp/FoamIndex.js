@@ -23,6 +23,14 @@ foam.CLASS({
       name: 'javaMethodCache_',
       documentation: 'Class ID → array of { name, sig, doc } for Java-only methods.',
       factory: function() { return {}; }
+    },
+    {
+      name: 'symbolIndex_',
+      documentation: 'Flat workspace symbol array — lazy, built on first searchSymbols call. Entries: { name, kind, classId, filePath, containerName }.'
+    },
+    {
+      name: 'grammar_',
+      documentation: 'Cached FoamClassGrammar instance. Building one walks every class id and builds N parser alternatives — share it across handlers.'
     }
   ],
 
@@ -47,6 +55,16 @@ foam.CLASS({
     function getClass(id) {
       /** Resolves a class by ID, returns null if not found. */
       return foam.maybeLookup(id);
+    },
+
+    function getGrammar() {
+      /** Returns a cached FoamClassGrammar bound to this index. Handlers
+       *  that parse source text should reuse this rather than build their
+       *  own — construction walks every class id and builds N parser alts. */
+      if ( ! this.grammar_ ) {
+        this.grammar_ = foam.parse.lsp.FoamClassGrammar.create({ index: this });
+      }
+      return this.grammar_;
     },
 
     function classExists(id) {
@@ -603,6 +621,62 @@ foam.CLASS({
       });
     },
 
+    function getRelationships(classId) {
+      /** Relationships (foam.dao.Relationship) this class participates in.
+       *  A Relationship installs itself as an axiom on BOTH its source and
+       *  target classes (Relationship.js:235,280), so getAxiomsByClass finds
+       *  every one. Returns [{ dir: 'out'|'in', name, other, card }]. */
+      var cls = this.getClass(classId);
+      if ( ! cls || ! foam.dao.Relationship ) return [];
+      var rels = cls.getAxiomsByClass(foam.dao.Relationship);
+      var out = [];
+      for ( var i = 0 ; i < rels.length ; i++ ) {
+        var r = rels[i];
+        var card = r.cardinality || '1:*';
+        if ( r.sourceModel === classId ) {
+          out.push({ dir: 'out', name: r.forwardName, other: r.targetModel, card: card });
+        }
+        if ( r.targetModel === classId && ! r.oneWay ) {
+          out.push({ dir: 'in', name: r.inverseName, other: r.sourceModel, card: card });
+        }
+      }
+      return out;
+    },
+
+    function getPropertyInfo(classId, propName) {
+      /** General property resolver for value validation/completion. Returns
+       *  { found, propClassName, isEnum, enumId, enumValues, primitiveKind }.
+       *  primitiveKind ∈ {'int','float','boolean', null}. Enum detection is
+       *  independent of the property's class name: a property whose `of`
+       *  resolves to a class with VALUES is treated as an enum. */
+      var info = { found: false, propClassName: null, isEnum: false,
+                   enumId: null, enumValues: [], primitiveKind: null };
+      var cls = this.getClass(classId);
+      if ( ! cls ) return info;
+      var prop = cls.getAxiomByName(propName);
+      if ( ! prop || ! foam.lang.Property.isInstance(prop) ) return info;
+      info.found = true;
+      info.propClassName = ( prop.cls_ && prop.cls_.model_ ) ? prop.cls_.model_.name : null;
+
+      var ofId = prop.of && ( prop.of.id || prop.of );
+      if ( ofId ) {
+        var vals = this.getEnumValues(ofId);
+        if ( vals && vals.length > 0 ) {
+          info.isEnum = true;
+          info.enumId = ofId;
+          info.enumValues = vals;
+        }
+      }
+      if ( ! info.isEnum ) {
+        switch ( info.propClassName ) {
+          case 'Int': case 'Long':   info.primitiveKind = 'int';     break;
+          case 'Float': case 'Double': info.primitiveKind = 'float'; break;
+          case 'Boolean':            info.primitiveKind = 'boolean'; break;
+        }
+      }
+      return info;
+    },
+
     function getClassDoc(classId) {
       /** Build markdown hover content for a class. */
       var cls = this.getClass(classId);
@@ -642,6 +716,7 @@ foam.CLASS({
       /** Clear cache for a class and dependents. */
       delete this.cache_[classId];
       delete this.cache_.propertyTypes;
+      this.invalidateSymbolIndex_();
     },
 
     function invalidateAll() {
@@ -683,8 +758,9 @@ foam.CLASS({
     },
 
     function indexPomFiles_(pom, path_, fs_) {
-      /** Index all files from a POM, storing flag metadata per class. */
+      /** Index all files from a POM, storing flag metadata + pom location per class. */
       var location = pom.location || '';
+      var pomFile  = path_.resolve(location, 'pom.js');
       var files = pom.files || [];
 
       for ( var f = 0 ; f < files.length ; f++ ) {
@@ -694,11 +770,11 @@ foam.CLASS({
           return s.split('&');
         }).reduce(function(a, b) { return a.concat(b); }, []) : ['js'];
 
-        this.indexFileClasses_(filePath, fileFlags, fs_);
+        this.indexFileClasses_(filePath, fileFlags, pomFile, file.name, fs_);
       }
     },
 
-    function indexFileClasses_(filePath, fileFlags, fs_) {
+    function indexFileClasses_(filePath, fileFlags, pomFile, pomEntryName, fs_) {
       /**
        * Read a file and index every foam.CLASS/ENUM/INTERFACE/RELATIONSHIP/LIB
        * found, using eval-intercept via FileModelCache. Eval is the runtime's
@@ -733,12 +809,97 @@ foam.CLASS({
           // index under their target class so lookups of the refined type find
           // the refining file.
           var ownId = m.package ? m.package + '.' + m.name : m.name;
-          if ( ownId ) this.fileIndex_[ownId] = { path: filePath, flags: fileFlags };
+          if ( ownId ) this.fileIndex_[ownId] = {
+            path:         filePath,
+            flags:        fileFlags,
+            pomFile:      pomFile,
+            pomEntryName: pomEntryName
+          };
           if ( m.refines && ! this.fileIndex_[m.refines] ) {
-            this.fileIndex_[m.refines] = { path: filePath, flags: fileFlags };
+            this.fileIndex_[m.refines] = {
+              path:         filePath,
+              flags:        fileFlags,
+              pomFile:      pomFile,
+              pomEntryName: pomEntryName
+            };
           }
         }
       } catch ( e ) {}
+    },
+
+    function getPomLocationForClass(classId) {
+      /**
+       * Return { pomFile, line, character } for the POM entry that registers
+       * a class — `{ name: 'Foo', flags: ... }` inside the nearest pom.js.
+       * Used by DefinitionHandler so go-to-definition on a class's own name
+       * jumps to its POM entry instead of staying on the declaration site.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var entry = this.fileIndex_[classId];
+      if ( ! entry || ! entry.pomFile || ! entry.pomEntryName ) return null;
+      var loc = this.findPomEntryLocation_(entry.pomFile, entry.pomEntryName);
+      if ( ! loc ) return null;
+      return { pomFile: entry.pomFile, line: loc.line, character: loc.character };
+    },
+
+    function getClassForPomEntry(pomFile, entryName) {
+      /**
+       * Reverse: given a pom.js file path and a file-entry name (`name: 'Foo'`),
+       * return the registered class id. Used by DefinitionHandler so
+       * go-to-definition on a POM entry jumps to the class file.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var path_ = require('path');
+      var pomDir = path_.dirname(pomFile);
+      var expectedPath = path_.resolve(pomDir, entryName + '.js');
+      for ( var id in this.fileIndex_ ) {
+        var entry = this.fileIndex_[id];
+        var p = typeof entry === 'string' ? entry : entry.path;
+        if ( p === expectedPath ) return id;
+      }
+      return null;
+    },
+
+    function findPomEntryLocation_(pomFile, entryName) {
+      // Find the line + column of the `name: 'entryName'` slot inside the
+      // pom.js. Cached per pom file. The lookup goes through FoamClassGrammar
+      // — same parser the LSP uses everywhere else — so we never re-invent
+      // POM tokenisation with regex.
+      if ( ! this.pomEntryLineCache_ ) this.pomEntryLineCache_ = {};
+      var cache = this.pomEntryLineCache_[pomFile];
+      if ( ! cache ) {
+        try {
+          var text = require('fs').readFileSync(pomFile, 'utf8');
+          cache = this.collectPomNameAxiomPositions_(text);
+        } catch (e) {
+          cache = {};
+        }
+        this.pomEntryLineCache_[pomFile] = cache;
+      }
+      return cache[entryName] || null;
+    },
+
+    function collectPomNameAxiomPositions_(pomText) {
+      // Walk the pom.js as a stream of axiom positions emitted by
+      // FoamClassGrammar (the parser the rest of the LSP uses for hover /
+      // completion / diagnostics). The grammar's pomFileName rule wraps
+      // both quote styles in quotedAny() and emits a position-tagged msg
+      // so collectAxiomPositions returns the file-entry name spans.
+      var byName = {};
+      try {
+        var grammar = this.getGrammar();
+        var map     = grammar.collectAxiomPositions(pomText);
+        var posMap  = map.pomFileName || {};
+        for ( var name in posMap ) {
+          var p = posMap[name];
+          if ( byName[name] !== undefined ) continue;
+          byName[name] = { line: p.line, character: p.col };
+        }
+      } catch (e) {
+        // Grammar failed (mid-edit pom). Leave cache empty rather than
+        // fall back — navigation just doesn't fire until the POM parses.
+      }
+      return byName;
     },
 
     function extractLIBMethodNames_(methodsArr) {
@@ -822,7 +983,7 @@ foam.CLASS({
                 }).reduce(function(a, b) { return a.concat(b); }, []));
 
                 var filePath = path_.resolve(projLocation, file.name + '.js');
-                this.indexFileClasses_(filePath, fileFlags, fs_);
+                this.indexFileClasses_(filePath, fileFlags, projPomPath, file.name, fs_);
               }
             }
 
@@ -1053,6 +1214,698 @@ foam.CLASS({
       }
 
       return null;
+    },
+
+    // ----- Workspace symbol index -----------------------------------------
+    //
+    // Flat array of every class / property / method / action / listener /
+    // enum-value in the workspace, lazy-built and cached. Lets
+    // WorkspaceSymbolHandler answer "find by name" across all kinds, not
+    // just class ids. Uses cls.getOwnAxiomsByClass — no rescan, no regex.
+
+    function buildSymbolIndex_() {
+      if ( this.symbolIndex_ ) return this.symbolIndex_;
+      var out  = [];
+      var ids  = this.getAllClassIds();
+      var self = this;
+
+      function push(name, kind, classId) {
+        if ( ! name ) return;
+        out.push({
+          name:          name,
+          kind:          kind,
+          classId:       classId,
+          containerName: classId,
+          filePath:      self.getFilePath(classId)
+        });
+      }
+
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var id  = ids[i];
+        var cls = this.getClass(id);
+
+        // Class itself (kind: 5=Class, 11=Interface, 10=Enum)
+        var kind = 5;
+        try {
+          if ( this.isInterface(id) )                                kind = 11;
+          else if ( cls && cls.VALUES && cls.VALUES.length >= 0 )    kind = 10;
+        } catch (e) {}
+        push(id.split('.').pop(), kind, id);
+
+        if ( ! cls ) continue;
+
+        try {
+          var props = cls.getOwnAxiomsByClass(foam.lang.Property);
+          for ( var j = 0 ; j < props.length ; j++ ) push(props[j].name, 7, id);
+
+          var methods = cls.getOwnAxiomsByClass(foam.lang.Method);
+          for ( var j = 0 ; j < methods.length ; j++ ) push(methods[j].name, 6, id);
+
+          if ( foam.lang.Action ) {
+            var actions = cls.getOwnAxiomsByClass(foam.lang.Action);
+            for ( var j = 0 ; j < actions.length ; j++ ) push(actions[j].name, 24, id);
+          }
+          if ( foam.lang.Listener ) {
+            var listeners = cls.getOwnAxiomsByClass(foam.lang.Listener);
+            for ( var j = 0 ; j < listeners.length ; j++ ) push(listeners[j].name, 24, id);
+          }
+          if ( cls.VALUES && cls.VALUES.length > 0 ) {
+            for ( var j = 0 ; j < cls.VALUES.length ; j++ ) push(cls.VALUES[j].name, 22, id);
+          }
+        } catch (e) {
+          // tolerate the occasional badly-shaped class without aborting the
+          // whole index build
+        }
+      }
+
+      this.symbolIndex_ = out;
+      return out;
+    },
+
+    function searchSymbols(query, opts) {
+      /**
+       * Substring + ranking search over the workspace symbol index.
+       *
+       * @param query — case-insensitive substring. Empty string returns the
+       *   first `limit` entries (caller asked for "all").
+       * @param opts.limit         — default 500 (was 100 in the inline impl).
+       * @param opts.kind          — optional LSP SymbolKind filter (5/6/7/...).
+       * @param opts.packagePrefix — optional class-id prefix filter
+       *   (e.g. "foam.u2." narrows to UI classes).
+       *
+       * Returns array of { name, kind, classId, filePath, containerName, score }.
+       */
+      opts = opts || {};
+      var limit         = opts.limit || 500;
+      var kindFilter    = opts.kind;
+      var packagePrefix = opts.packagePrefix;
+      var q             = (query || '').toLowerCase();
+
+      var symbols = this.buildSymbolIndex_();
+      var scored  = [];
+
+      for ( var i = 0 ; i < symbols.length ; i++ ) {
+        var s = symbols[i];
+        if ( ! s.filePath )                                      continue;
+        if ( kindFilter    && s.kind !== kindFilter )            continue;
+        if ( packagePrefix && s.classId.indexOf(packagePrefix) !== 0 ) continue;
+
+        if ( ! q ) {
+          scored.push({ s: s, score: 1 });
+          continue;
+        }
+
+        var name = s.name.toLowerCase();
+        var score = 0;
+
+        if ( name === q )                       score = 1000;
+        else if ( name.indexOf(q) === 0 )       score = 700 - (name.length - q.length);
+        else if ( this.camelHumpMatch_(s.name, query) ) score = 500;
+        else if ( name.indexOf(q) !== -1 )      score = 300 - name.indexOf(q);
+
+        if ( score > 0 ) scored.push({ s: s, score: score });
+      }
+
+      scored.sort(function(a, b) {
+        if ( b.score !== a.score ) return b.score - a.score;
+        return a.s.name.length - b.s.name.length;
+      });
+
+      return scored.slice(0, limit).map(function(e) {
+        return {
+          name:          e.s.name,
+          kind:          e.s.kind,
+          classId:       e.s.classId,
+          containerName: e.s.containerName,
+          filePath:      e.s.filePath,
+          score:         e.score
+        };
+      });
+    },
+
+    function camelHumpMatch_(name, query) {
+      // Each query character must match an uppercase letter (or first char) of
+      // name in order. e.g. "FUC" matches "FileUploadConfig".
+      if ( ! query ) return false;
+      var humps = name.replace(/([a-z0-9])([A-Z])/g, '$1$2').split('')
+        .map(function(h) { return h.charAt(0).toUpperCase(); }).join('');
+      // Compare ignoring case: collapse query to upper to match generated humps
+      var Q = query.toUpperCase();
+      var j = 0;
+      for ( var i = 0 ; i < humps.length && j < Q.length ; i++ ) {
+        if ( humps[i] === Q[j] ) j++;
+      }
+      return j === Q.length;
+    },
+
+    function invalidateSymbolIndex_() {
+      // Called by reindexFile when a class is re-registered. Lazy-rebuild on
+      // next searchSymbols call. Cheap to drop, expensive to incrementally
+      // patch — for a small win in correctness we trade a small cost in
+      // workspace-symbol latency right after a save.
+      this.symbolIndex_      = null;
+      this.usageIndex_       = null;
+      this.javaUsageIndex_   = null;
+      this.stringUsageIndex_ = null;
+      this.memberUsageIndex_ = null;
+      // FoamClassGrammar bakes class ids into its parser at build time —
+      // adding or removing a class invalidates the alt() list, so drop the
+      // cached instance too.
+      this.grammar_          = null;
+    },
+
+    function invalidatePomCache(pomFile) {
+      /** Drop a single pom.js's cached entry positions. Called by the server
+       *  when a pom.js is saved — the cache is keyed by pom path, so a
+       *  surgical delete keeps other poms hot. Passing no argument clears
+       *  every pom (full reset). */
+      if ( ! this.pomEntryLineCache_ ) return;
+      if ( pomFile ) delete this.pomEntryLineCache_[pomFile];
+      else this.pomEntryLineCache_ = null;
+    },
+
+    // ----- JS usage index -------------------------------------------------
+    //
+    // For every model in the registry, walk axioms that hold JavaScript
+    // function bodies (methods, actions, listeners, property functions,
+    // templates, init/initE) and extract `this.<ShortName>.` references.
+    // Resolve each short name through the source class's requires axiom
+    // (no regex over the file text — we use the captured model). The
+    // result is a `targetClassId → [{ sourceClassId, kind, axiomName }]`
+    // map answering "where in JS code is this class used?".
+    //
+    // Coarse line precision for now (file-level via getFilePath). The
+    // call-hierarchy handler refines to per-method offsets where it needs
+    // them.
+
+    function getJsUsages(classId) {
+      /** Return [{ sourceClassId, axiomName, kind }] referencing classId in JS. */
+      if ( ! this.usageIndex_ ) this.buildUsageIndex_();
+      return this.usageIndex_.byTarget[classId] || [];
+    },
+
+    function buildUsageIndex_() {
+      var byTarget = {};
+      var ids      = this.getAllClassIds();
+      var self     = this;
+
+      function record(target, source, axiomName, kind) {
+        if ( ! target ) return;
+        var arr = byTarget[target] || (byTarget[target] = []);
+        // Dedup by source+axiom+kind so listing's twice doesn't double-count.
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === source && arr[k].axiomName === axiomName && arr[k].kind === kind ) return;
+        }
+        arr.push({ sourceClassId: source, axiomName: axiomName, kind: kind });
+      }
+
+      // Pattern: `this.<CapitalIdent>` — short name to resolve via requires.
+      var THIS_SHORT = /\bthis\.([A-Z][\w$]*)\b/g;
+
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var sourceId = ids[i];
+        var cls      = this.getClass(sourceId);
+        if ( ! cls || ! cls.model_ ) continue;
+
+        // requires: build short→full map from the model axiom
+        var shortMap = {};
+        var reqs = cls.model_.requires || [];
+        for ( var r = 0 ; r < reqs.length ; r++ ) {
+          var req = reqs[r];
+          if ( typeof req === 'string' ) {
+            var parts = req.split(/\s+as\s+/);
+            var path  = parts[0].trim();
+            var alias = (parts[1] || path.split('.').pop()).trim();
+            shortMap[alias] = path;
+          } else if ( req && req.path ) {
+            shortMap[req.name || req.path.split('.').pop()] = req.path;
+          }
+        }
+        if ( Object.keys(shortMap).length === 0 ) continue;
+
+        // For each function-bearing axiom on the class, scan its source.
+        self.scanFunctions_(cls, function(src, axiomName) {
+          THIS_SHORT.lastIndex = 0;
+          var m;
+          while ( ( m = THIS_SHORT.exec(src) ) !== null ) {
+            var shortName = m[1];
+            var fullId    = shortMap[shortName];
+            if ( ! fullId ) continue;
+            if ( ! self.classExists(fullId) ) continue;
+            record(fullId, sourceId, axiomName, 'usage-js');
+          }
+        });
+      }
+
+      this.usageIndex_ = { byTarget: byTarget };
+    },
+
+    // ----- Member-reference index -----------------------------------------
+    //
+    // Per-class, per-member view of `this.X` reads inside the class's own
+    // function bodies. Answers "where in this class is property
+    // `clearingIdentifier` read?" without scanning unrelated files.
+    //
+    // The index reuses scanFunctions_'s per-axiom walk so we don't pay a
+    // second registry traversal — it just records a different shape of
+    // edges. Member names are resolved against the class's own + inherited
+    // properties and methods (FOAM's getAxiomsByClass — no regex).
+
+    function getMemberUsages(classId, memberName) {
+      if ( ! this.memberUsageIndex_ ) this.buildMemberUsageIndex_();
+      var byMember = this.memberUsageIndex_.byClass[classId];
+      if ( ! byMember ) return [];
+      return byMember[memberName] || [];
+    },
+
+    function buildMemberUsageIndex_() {
+      var byClass = {};
+      var self    = this;
+      var THIS_X  = /\bthis\.(\w+)\b/g;
+
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var classId = ids[i];
+        var cls     = this.getClass(classId);
+        if ( ! cls ) continue;
+
+        // Names that count as "members" — own + inherited, props + methods.
+        var memberNames = {};
+        try {
+          var props = cls.getAxiomsByClass(foam.lang.Property);
+          for ( var p = 0 ; p < props.length ; p++ ) {
+            if ( typeof props[p].name === 'string' ) memberNames[props[p].name] = 'property';
+          }
+        } catch (e) {}
+        try {
+          var methods = cls.getAxiomsByClass(foam.lang.Method);
+          for ( var m = 0 ; m < methods.length ; m++ ) {
+            if ( typeof methods[m].name === 'string' ) memberNames[methods[m].name] = 'method';
+          }
+        } catch (e) {}
+        if ( Object.keys(memberNames).length === 0 ) continue;
+
+        // Use Object.create(null) so member names like `constructor` or
+        // `__proto__` can't collide with Object.prototype slots.
+        var byMember = byClass[classId] || (byClass[classId] = Object.create(null));
+
+        self.scanFunctions_(cls, function(src, axiomName) {
+          THIS_X.lastIndex = 0;
+          var seenInBlock = Object.create(null);
+          var match;
+          while ( ( match = THIS_X.exec(src) ) !== null ) {
+            var name = match[1];
+            if ( ! memberNames[name] ) continue;
+            var key = axiomName + '|' + name;
+            if ( seenInBlock[key] ) continue;
+            seenInBlock[key] = true;
+            if ( ! Array.isArray(byMember[name]) ) byMember[name] = [];
+            byMember[name].push({
+              axiomName:  axiomName,
+              memberKind: memberNames[name],
+              kind:       'usage-member'
+            });
+          }
+        });
+      }
+
+      this.memberUsageIndex_ = { byClass: byClass };
+    },
+
+    // ----- String reference index -----------------------------------------
+    //
+    // FOAM lets one class declare names via `exports:` and others receive
+    // them via `imports:`. The names are plain strings, but they form a
+    // real reference graph callers need to follow:
+    //
+    //   exports: ['currentUser', 'pushMenu']    // ApplicationController
+    //   imports: ['pushMenu']                    // MyView ← uses currentUser
+    //
+    // Same shape applies to DAO names registered as CSpecs in services.jrl
+    // files — `imports: ['userDAO']` is satisfied by a CSpec entry whose
+    // `id` is `userDAO` somewhere in the workspace.
+    //
+    // The string-reference index walks every class's exports/imports axioms
+    // and every services.jrl file (via JrlLoader, the FOAM-native journal
+    // reader), then answers `getStringUsages(name)` — every class that
+    // imports the name + every services.jrl entry that registers it.
+
+    function getStringUsages(name) {
+      if ( ! this.stringUsageIndex_ ) this.buildStringUsageIndex_();
+      return this.stringUsageIndex_.byName[name] || [];
+    },
+
+    function buildStringUsageIndex_() {
+      var byName = {};
+      var self   = this;
+
+      function record(name, entry) {
+        if ( typeof name !== 'string' || ! name ) return;
+        // Strip the `?` optional-marker that FOAM allows on import names.
+        name = name.replace(/\?$/, '');
+        var arr = byName[name] || (byName[name] = []);
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === entry.sourceClassId &&
+               arr[k].axiomName     === entry.axiomName &&
+               arr[k].kind          === entry.kind ) return;
+        }
+        arr.push(entry);
+      }
+
+      // 1. Imports / exports on every class — read via FOAM axiom APIs.
+      var ids = this.getAllClassIds();
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var classId = ids[i];
+        var cls     = this.getClass(classId);
+        if ( ! cls ) continue;
+
+        try {
+          var imports = cls.getOwnAxiomsByClass(foam.lang.Import);
+          for ( var j = 0 ; j < imports.length ; j++ ) {
+            var imp = imports[j];
+            if ( typeof imp.key !== 'string' && typeof imp.name !== 'string' ) continue;
+            // Import key falls back to name (FOAM's standard pattern).
+            var key = imp.key || imp.name;
+            record(key, {
+              sourceClassId: classId,
+              axiomName:     'imports.' + imp.name,
+              kind:          'usage-string'
+            });
+          }
+        } catch (e) {}
+
+        try {
+          var exports = cls.getOwnAxiomsByClass(foam.lang.Export);
+          for ( var j = 0 ; j < exports.length ; j++ ) {
+            var exp = exports[j];
+            if ( typeof exp.exportName !== 'string' && typeof exp.name !== 'string' ) continue;
+            var name = exp.exportName || exp.name;
+            record(name, {
+              sourceClassId: classId,
+              axiomName:     'exports.' + exp.name,
+              kind:          'export'
+            });
+          }
+        } catch (e) {}
+      }
+
+      // 2. CSpec entries in every services.jrl walked via JrlLoader (the
+      // FOAM-native reader). Each registered service gets a 'cspec' entry
+      // keyed by its id — matched against import keys above.
+      try {
+        var jrlLoader = foam.parse.lsp.JrlLoader.create();
+        var fs_       = require('fs');
+        var path_     = require('path');
+        var fileIndex = this.fileIndex_ || {};
+        var seenDirs  = {};
+        var services  = [];
+        for ( var id in fileIndex ) {
+          var entry = fileIndex[id];
+          var p     = typeof entry === 'string' ? entry : entry.path;
+          if ( ! p ) continue;
+          var dir = path_.dirname(p);
+          if ( seenDirs[dir] ) continue;
+          seenDirs[dir] = true;
+          var svc = path_.join(dir, 'services.jrl');
+          if ( fs_.existsSync(svc) ) services.push(svc);
+        }
+        for ( var s = 0 ; s < services.length ; s++ ) {
+          try {
+            var entries = jrlLoader.loadFile(services[s]);
+            for ( var e = 0 ; e < entries.length ; e++ ) {
+              var ent = entries[e];
+              if ( ! ent || typeof ent.id !== 'string' ) continue;
+              record(ent.id, {
+                sourceClassId: null,
+                axiomName:     'services.jrl',
+                kind:          'cspec',
+                file:          services[s]
+              });
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+
+      this.stringUsageIndex_ = { byName: byName };
+    },
+
+    // ----- Java usage index -----------------------------------------------
+    //
+    // FOAM captures every javaCode / javaPostSet / javaFactory / etc. block
+    // as a string on the model object. We don't need to invoke the Java
+    // parser — a single regex over capitalised identifiers, resolved
+    // through the class's javaImports, gives a per-target-class index of
+    // every Java-side reference. Same fact pattern as the JS usage scan,
+    // different axiom slots.
+
+    function getJavaUsages(classId) {
+      if ( ! this.javaUsageIndex_ ) this.buildJavaUsageIndex_();
+      return this.javaUsageIndex_.byTarget[classId] || [];
+    },
+
+    function buildJavaUsageIndex_() {
+      var byTarget = {};
+      var ids      = this.getAllClassIds();
+      var self     = this;
+
+      function record(target, source, axiomName) {
+        if ( ! target ) return;
+        var arr = byTarget[target] || (byTarget[target] = []);
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === source && arr[k].axiomName === axiomName ) return;
+        }
+        arr.push({ sourceClassId: source, axiomName: axiomName, kind: 'usage-java' });
+      }
+
+      var CAP_IDENT = /\b([A-Z][\w]*(?:\.[A-Z][\w]*)*)\b/g;
+
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var sourceId = ids[i];
+        var cls      = this.getClass(sourceId);
+        if ( ! cls ) continue;
+
+        var javaImports = cls.model_ && cls.model_.javaImports || [];
+        if ( javaImports.length === 0 && ! (cls.model_ && cls.model_.package) ) continue;
+
+        var importLookup = {};
+        for ( var x = 0 ; x < javaImports.length ; x++ ) {
+          var imp = javaImports[x];
+          if ( typeof imp !== 'string' ) continue;
+          if ( imp.indexOf('*') !== -1 ) continue;
+          var parts = imp.split('.');
+          importLookup[parts[parts.length - 1]] = imp;
+        }
+
+        self.scanJavaBlocks_(cls, function(src, axiomName) {
+          CAP_IDENT.lastIndex = 0;
+          var m;
+          var seenThisBlock = {};
+          while ( ( m = CAP_IDENT.exec(src) ) !== null ) {
+            var token = m[1];
+            if ( seenThisBlock[token] ) continue;
+            seenThisBlock[token] = true;
+
+            var fullId = null;
+            if ( importLookup[token] && self.classExists(importLookup[token]) ) {
+              fullId = importLookup[token];
+            } else if ( token.indexOf('.') !== -1 && self.classExists(token) ) {
+              fullId = token;
+            } else if ( cls.model_ && cls.model_.package ) {
+              var candidate = cls.model_.package + '.' + token;
+              if ( self.classExists(candidate) ) fullId = candidate;
+            }
+            if ( ! fullId || fullId === sourceId ) continue;
+            record(fullId, sourceId, axiomName);
+          }
+        });
+      }
+
+      this.javaUsageIndex_ = { byTarget: byTarget };
+    },
+
+    function scanJavaBlocks_(cls, visit) {
+      // Visit `visit(javaString, axiomName)` for every Java-bearing slot on
+      // a FOAM class. Walks via FOAM's axiom APIs (getOwnAxiomsByClass)
+      // first — that's the canonical way to read Method / Property axioms.
+      // When the runtime boots without Java refinements (some test contexts),
+      // the axioms drop `javaCode`/`javaPostSet`/etc.; fall back to the raw
+      // input on cls.model_ so the scanner still works.
+      function emit(name, val) {
+        if ( typeof val === 'string' && val.length > 0 ) visit(val, name);
+      }
+
+      var model = cls && cls.model_ || {};
+
+      // Top-level javaCode on the class.
+      emit('javaCode', model.javaCode);
+
+      // Methods — prefer Method axioms, fall back to model.methods raw input.
+      var methodAxioms = [];
+      try { methodAxioms = cls.getOwnAxiomsByClass(foam.lang.Method); } catch (e) {}
+      var rawMethods = model.methods || [];
+      var seenMethodNames = {};
+      for ( var i = 0 ; i < methodAxioms.length ; i++ ) {
+        var ax = methodAxioms[i];
+        var name = ax.name;
+        seenMethodNames[name] = true;
+        if ( typeof ax.javaCode === 'string' && ax.javaCode.length > 0 ) {
+          emit('methods.' + name + '.javaCode', ax.javaCode);
+        } else {
+          // Axiom missing javaCode (no Java refinements loaded) — pull from raw input
+          for ( var j = 0 ; j < rawMethods.length ; j++ ) {
+            var rm = rawMethods[j];
+            if ( rm && typeof rm === 'object' && rm.name === name && typeof rm.javaCode === 'string' ) {
+              emit('methods.' + name + '.javaCode', rm.javaCode);
+              break;
+            }
+          }
+        }
+      }
+      // Pick up any raw-method entries whose Method axiom didn't materialise
+      // (anonymous functions don't always become axioms). Defensive on the
+      // name type — refinement metadata occasionally produces Symbol-typed
+      // names on raw entries.
+      for ( var j = 0 ; j < rawMethods.length ; j++ ) {
+        var rm = rawMethods[j];
+        if ( ! rm || typeof rm !== 'object' || typeof rm.name !== 'string' ) continue;
+        if ( seenMethodNames[rm.name] ) continue;
+        if ( typeof rm.javaCode === 'string' ) {
+          emit('methods.' + rm.name + '.javaCode', rm.javaCode);
+        }
+      }
+
+      // Properties — same pattern. Kept in sync with the known-keys list in
+      // CursorAnalyzer.getBacktickBlockContext, MINUS the slots that FOAM's
+      // Property refinement implements via `expression:` (javaValue and
+      // javaValidateObj). Reading those triggers asJavaValue, which throws
+      // when the underlying value can't be lowered to Java — fine for code
+      // generation, fatal for a passive scan over every Property in the
+      // registry.
+      var javaPropSlots = [
+        'javaCode',      'javaPreSet',  'javaPostSet',   'javaFactory',
+        'javaGetter',    'javaSetter',  'javaAdapt',     'javaCompare',
+        'javaAssertValue', 'javaInit',  'javaToCSV',     'javaToCSVLabel',
+        'javaQueryParser', 'javaJSONParser', 'javaCSVParser',
+        'javaCloneProperty', 'javaDiffProperty', 'javaFormatJSON',
+        'javaCondition',
+        'javaComparePropertyToObject', 'javaComparePropertyToValue',
+        'javaFromCSVLabelMapping'
+      ];
+      var propAxioms = [];
+      try { propAxioms = cls.getOwnAxiomsByClass(foam.lang.Property); } catch (e) {}
+      var seenPropNames = {};
+      for ( var p = 0 ; p < propAxioms.length ; p++ ) {
+        var pax = propAxioms[p];
+        if ( typeof pax.name !== 'string' ) continue;
+        seenPropNames[pax.name] = true;
+        for ( var s = 0 ; s < javaPropSlots.length ; s++ ) {
+          var slot = javaPropSlots[s];
+          // Defensive try/catch: even non-expression slots can fault when
+          // the underlying axiom is partially built.
+          try {
+            var v = pax[slot];
+            if ( typeof v === 'string' && v.length > 0 ) {
+              emit('properties.' + pax.name + '.' + slot, v);
+            }
+          } catch (e) {}
+        }
+      }
+    },
+
+    function scanFunctions_(cls, visit) {
+      // Visit `visit(sourceString, axiomName)` for every JS function on the
+      // class. Reads axioms via FOAM's getOwnAxiomsByClass — Method, Action,
+      // Listener axioms expose `.code` as the live function. Property axioms
+      // expose `factory` / `expression` / `preSet` / etc. Falls back to
+      // model.<slot>[] raw input when an axiom has no `.code` (rare —
+      // anonymous-function entries that don't materialise as axioms).
+      function srcOf(v) {
+        if ( ! v )                                       return '';
+        if ( typeof v === 'function' )                   return v.toString();
+        if ( typeof v === 'string' )                     return v;
+        if ( typeof v === 'object' && typeof v.code === 'function' ) return v.code.toString();
+        return '';
+      }
+
+      var axiomGroups = [
+        { axiomClass: foam.lang.Method,   modelKey: 'methods',   label: 'methods'   },
+        { axiomClass: foam.lang.Listener, modelKey: 'listeners', label: 'listeners' }
+      ];
+      if ( foam.lang.Action ) {
+        axiomGroups.push({ axiomClass: foam.lang.Action, modelKey: 'actions', label: 'actions' });
+      }
+
+      var model = cls && cls.model_ || {};
+
+      // Methods, listeners, actions — FOAM axiom path first.
+      for ( var g = 0 ; g < axiomGroups.length ; g++ ) {
+        var grp = axiomGroups[g];
+        var seen = {};
+        var axioms = [];
+        try { axioms = cls.getOwnAxiomsByClass(grp.axiomClass); } catch (e) {}
+        for ( var i = 0 ; i < axioms.length ; i++ ) {
+          var ax  = axioms[i];
+          var src = srcOf(ax.code);
+          if ( src ) visit(src, grp.label + '.' + ax.name);
+          seen[ax.name] = true;
+        }
+        // Fallback for raw entries not materialised as axioms (rare).
+        var rawArr = model[grp.modelKey];
+        if ( ! Array.isArray(rawArr) ) continue;
+        for ( var i = 0 ; i < rawArr.length ; i++ ) {
+          var item = rawArr[i];
+          var name = (item && item.name) || null;
+          // Defensive: with Java refinements loaded, some raw entries carry
+          // Symbol-typed `name` slots that confuse string concat.
+          if ( typeof name !== 'string' ) continue;
+          if ( ! name || seen[name] ) continue;
+          var src = typeof item === 'function' ? item.toString() : srcOf(item.code);
+          if ( src ) visit(src, grp.label + '.' + name);
+        }
+      }
+
+      // Templates — keep raw-array walk; no dedicated axiom class.
+      var templates = model.templates || [];
+      for ( var i = 0 ; i < templates.length ; i++ ) {
+        var t = templates[i];
+        if ( ! t || typeof t !== 'object' ) continue;
+        var name = t.name || '(anonymous)';
+        var src  = srcOf(t.code);
+        if ( src ) visit(src, 'templates.' + name);
+      }
+
+      // Lifecycle hooks live on the model itself.
+      var lifecycle = ['init', 'initE', 'installInClass', 'installInProto'];
+      for ( var s = 0 ; s < lifecycle.length ; s++ ) {
+        var src = srcOf(model[lifecycle[s]]);
+        if ( src ) visit(src, lifecycle[s]);
+      }
+
+      // Property functions — Property axiom path first.
+      var propFnSlots = ['factory', 'expression', 'preSet', 'postSet', 'value',
+                         'view', 'tableCellFormatter', 'labelFormatter',
+                         'assertValue', 'adapt'];
+      var propAxioms  = [];
+      try { propAxioms = cls.getOwnAxiomsByClass(foam.lang.Property); } catch (e) {}
+      var seenProp = {};
+      for ( var p = 0 ; p < propAxioms.length ; p++ ) {
+        var pax = propAxioms[p];
+        seenProp[pax.name] = true;
+        for ( var s = 0 ; s < propFnSlots.length ; s++ ) {
+          var src = srcOf(pax[propFnSlots[s]]);
+          if ( src ) visit(src, 'properties.' + pax.name + '.' + propFnSlots[s]);
+        }
+      }
+      var rawProps = model.properties || [];
+      for ( var p = 0 ; p < rawProps.length ; p++ ) {
+        var rp = rawProps[p];
+        if ( ! rp || typeof rp !== 'object' || ! rp.name ) continue;
+        if ( seenProp[rp.name] ) continue;
+        for ( var s = 0 ; s < propFnSlots.length ; s++ ) {
+          var src = srcOf(rp[propFnSlots[s]]);
+          if ( src ) visit(src, 'properties.' + rp.name + '.' + propFnSlots[s]);
+        }
+      }
     }
   ]
 });

@@ -279,6 +279,78 @@ test(refOnNameResolved === 'foam.lang.FObject',
 test(refOnNameLocs.length > 10,
   'references on name: value resolves via package+name (' + refOnNameLocs.length + ' refs)');
 
+// === REFERENCES — word-bounded match (no FlowMode-style substring drift) ===
+//
+// `foam.core.reflow.Flow` is a strict prefix of `foam.core.reflow.FlowMode`,
+// so a naive content.indexOf used to send users to the wrong line. Verify
+// every emitted range starts on text that's exactly the target id, with
+// no identifier char following.
+var refHandlerExact = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
+var fobjRefsBound   = refHandlerExact.handle("foam.CLASS({\n  extends: 'foam.lang.FObject'\n});",
+  { line: 1, character: 20 });
+var fsForBound = require('fs');
+var boundOk = true;
+var boundCheckedNonZero = 0;
+for ( var ri = 0 ; ri < fobjRefsBound.length && boundOk ; ri++ ) {
+  var loc = fobjRefsBound[ri];
+  if ( loc.range.start.line === 0 && loc.range.start.character === 0 ) continue;
+  boundCheckedNonZero++;
+  try {
+    var locPath = loc.uri.replace(/^file:\/\//, '');
+    var locText = fsForBound.readFileSync(locPath, 'utf8');
+    var locLines = locText.split('\n');
+    var line = locLines[loc.range.start.line] || '';
+    var slice = line.substring(loc.range.start.character,
+                               loc.range.start.character + 'foam.lang.FObject'.length);
+    var nextCh = line.charAt(loc.range.start.character + 'foam.lang.FObject'.length);
+    if ( slice !== 'foam.lang.FObject' || /\w/.test(nextCh) ) boundOk = false;
+  } catch (e) {}
+}
+// Re-check using the range's own length so short-name matches (FObject via
+// requires) are validated against their own 7-char span, not the 17-char
+// full id. Either the full id or a known short name is acceptable; the
+// next char must not extend the identifier.
+var firstBadInfo = null;
+boundOk = true;
+boundCheckedNonZero = 0;
+var ALLOWED = { 'foam.lang.FObject': true, 'FObject': true };
+for ( var ri2 = 0 ; ri2 < fobjRefsBound.length && ! firstBadInfo ; ri2++ ) {
+  var locx = fobjRefsBound[ri2];
+  if ( locx.range.start.line === 0 && locx.range.start.character === 0 ) continue;
+  boundCheckedNonZero++;
+  try {
+    var lp     = locx.uri.replace(/^file:\/\//, '');
+    var lt     = fsForBound.readFileSync(lp, 'utf8');
+    var ll     = lt.split('\n');
+    var lineS  = ll[locx.range.start.line] || '';
+    var spanLen = locx.range.end.character - locx.range.start.character;
+    var sliceX = lineS.substring(locx.range.start.character,
+                                 locx.range.start.character + spanLen);
+    var nextX  = lineS.charAt(locx.range.start.character + spanLen);
+    if ( ! ALLOWED[sliceX] || /\w/.test(nextX) ) {
+      boundOk = false;
+      firstBadInfo = lp.replace(/^.*\//, '') + ':' + locx.range.start.line + ' slice=' +
+                     JSON.stringify(sliceX) + ' next=' + JSON.stringify(nextX);
+    }
+  } catch (e) {}
+}
+test(boundOk && boundCheckedNonZero >= 1,
+  'references: every emitted non-zero range word-bounds an exact match (checked ' +
+  boundCheckedNonZero + (firstBadInfo ? '; first bad: ' + firstBadInfo : '') + ')');
+
+// Grammar-driven classRef positions: a synthetic file mentioning both
+// `foam.lang.FObject` and `foam.lang.FObjectArray` should yield one
+// classRef hit for FObject (extends slot) and none on the longer id.
+var probe = "foam.CLASS({\n  package: 'demo',\n  name: 'X',\n  extends: 'foam.lang.FObject',\n  properties: [\n    { class: 'FObjectArray', of: 'foam.lang.FObject' }\n  ]\n});";
+var pmap = index.getGrammar().collectAxiomPositions(probe);
+var fobjPositions = (pmap.classRef && pmap.classRef['foam.lang.FObject']) || [];
+test(fobjPositions.length >= 1,
+  'grammar classRef: emits position(s) for foam.lang.FObject in extends/of slots (' + fobjPositions.length + ')');
+test(fobjPositions.every(function(p) {
+  var slice = probe.substring(p.startPos, p.endPos);
+  return slice === 'foam.lang.FObject';
+}), 'grammar classRef: every captured span equals the target id, not a prefix');
+
 // References on a property name should find the prop in the own class +
 // inheriting subclasses that reference it.
 var propRefSrc = [

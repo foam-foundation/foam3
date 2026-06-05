@@ -404,7 +404,7 @@ deep.push("});");
 var deepText = deep.join('\n');
 var deepLines = deepText.split('\n');
 var cursorLine = 6 + 25; // last filler → cursor line right after, offset from pad
-var deepCtx = ca.findCreateContext(deepLines, cursorLine, deepText, index);
+var deepCtx = ca.findCreateContext(deepText, cursorLine, cache, index);
 test(deepCtx === 'foam.u2.Element',
   'findCreateContext: resolves 30+ lines below opening .create( (old limit was 20)');
 
@@ -422,7 +422,7 @@ var strText = [
 ].join('\n');
 var strLines = strText.split('\n');
 // Cursor line 5 is `      foo: 'bar'` — inside the create
-var strCtx = ca.findCreateContext(strLines, 5, strText, index);
+var strCtx = ca.findCreateContext(strText, 5, cache, index);
 test(strCtx === 'foam.u2.Element',
   'findCreateContext: ignores braces inside string literals');
 
@@ -722,6 +722,17 @@ test(innerPositions.method && innerPositions.method.m2,
   'method m2 (bare function form) emits position');
 test(innerPositions.property && innerPositions.property.tail,
   'property "tail" after a methods block with rich inner objects still emits');
+
+// === COMPLETION — ENUM VALUE IN INSTANTIATION (F3) ===
+section('Completion — enum value in instantiation (F3)');
+var compText = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n" +
+  "  methods: [ function f() { this.Health.create({ status: '' }); } ]\n})";
+function posOf(t, o) { var l = 0, c = 0; for ( var i = 0 ; i < o ; i++ ) { if ( t[i] === '\n' ) { l++; c = 0; } else c++; } return { line: l, character: c }; }
+var off = compText.indexOf("status: '") + "status: '".length;  // cursor inside the empty quotes
+var compRes = memberHandler.handle(compText, posOf(compText, off));
+test(compRes && compRes.items.length > 0, 'enum value completion returns items');
+test(compRes.items.some(function(it) { return it.label === 'UP'; }), 'offers HealthStatus value UP');
+test(compRes.items.some(function(it) { return it.label === 'DOWN'; }), 'offers HealthStatus value DOWN');
 
 // === SUMMARY ===
 

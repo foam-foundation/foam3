@@ -194,7 +194,7 @@ var clsCaught = libModels.some(function(m) {
 });
 test(clsCaught, 'parseFileModels still captures sibling foam.CLASS in the same file');
 
-// Syntax-error fallback still finds LIB (Phase 4: LIB added to evalIndividualBlocks_ regex)
+// Syntax-error fallback still finds LIB (LIB added to evalIndividualBlocks_ regex).
 var brokenLibSrc =
   "foam.CLASS({ package: 'test', name: 'BrokenSibling' });\n" +
   "this is not valid JS + syntax\n" +
@@ -245,6 +245,36 @@ for ( var rIdx = 0 ; rIdx < allIds.length ; rIdx++ ) {
 }
 test(relCount >= 1,
   'Unified indexing: RELATIONSHIP classes are indexed (got ' + relCount + ')');
+
+section('FoamIndex — getRelationships (#5091)');
+if ( index.classExists('foam.core.demo.relationship.Course') ) {
+  var courseRels = index.getRelationships('foam.core.demo.relationship.Course');
+  test(courseRels.length >= 1, 'Course participates in at least one relationship');
+  var profRel = courseRels.find(function(r) { return r.name === 'professor'; });
+  test(profRel && profRel.dir === 'in' && profRel.other === 'foam.core.demo.relationship.Professor',
+    'Course has incoming professor from Professor');
+  var profOut = index.getRelationships('foam.core.demo.relationship.Professor')
+    .find(function(r) { return r.name === 'courses'; });
+  test(profOut && profOut.dir === 'out' && profOut.other === 'foam.core.demo.relationship.Course',
+    'Professor has outgoing courses to Course');
+} else {
+  test(Array.isArray(index.getRelationships('foam.lang.FObject')),
+    'getRelationships returns an array (demo relationship classes not loaded — fixture skipped)');
+}
+
+section('FoamIndex — getPropertyInfo (F3 resolver)');
+var statusInfo = index.getPropertyInfo('foam.core.app.Health', 'status');
+test(statusInfo.found, 'Health.status resolves');
+test(statusInfo.isEnum && statusInfo.enumId === 'foam.core.app.HealthStatus',
+  'Health.status is an Enum of HealthStatus');
+test(statusInfo.enumValues.some(function(v) { return v.name === 'UP'; }),
+  'HealthStatus values include UP');
+var portInfo = index.getPropertyInfo('foam.core.app.Health', 'port');
+test(portInfo.found && portInfo.primitiveKind === 'int', 'Health.port is an int primitive');
+var nameInfo = index.getPropertyInfo('foam.core.app.Health', 'hostname');
+test(nameInfo.found && ! nameInfo.isEnum && nameInfo.primitiveKind === null,
+  'Health.hostname is a plain String (no enum, no numeric/boolean kind)');
+test(! index.getPropertyInfo('foam.core.app.Health', 'nope').found, 'unknown prop is not found');
 
 // === MESSAGE + CONSTANT REFERENCES ===
 

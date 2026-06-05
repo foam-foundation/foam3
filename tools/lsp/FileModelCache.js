@@ -10,10 +10,18 @@ foam.CLASS({
 
   documentation: 'Eval-intercept cache for FOAM model files. Captures foam.CLASS/ENUM/INTERFACE objects directly by executing the file with overridden foam.CLASS.',
 
+  requires: [
+    'foam.parse.lsp.CursorAnalyzer'
+  ],
+
   properties: [
     {
       name: 'cache_',
       factory: function() { return {}; }
+    },
+    {
+      name: 'analyzer_',
+      factory: function() { return this.CursorAnalyzer.create(); }
     }
   ],
 
@@ -101,19 +109,56 @@ foam.CLASS({
       return this.getClassId(this.getModelAt(uri || '', text, line));
     },
 
-    function resolveRequiresMap(uri, text, analyzer, opt_line) {
+    function resolveRequiresMap(uri, text, opt_line) {
       /**
        * Single source of truth for requires → { alias: classId } resolution.
-       * Uses the eval-captured model when available (handles 'as' aliases and
-       * object-form entries). Falls back to CursorAnalyzer.parseRequires for
-       * broken/mid-edit files where eval fails.
-       *
-       * Replaces the "model ? cache.buildRequiresMap(model) : analyzer.parseRequires(text)"
-       * pattern that was duplicated across handlers.
+       * Prefers the eval-captured model. When the file fails to eval
+       * (mid-edit SyntaxError, broken body), falls back to the analyzer's
+       * text-regex parse so completion/hover keep working while the user
+       * types. A grammar-driven axiom extractor will replace the regex
+       * fallback in a future pass; until then, this is the single
+       * fallback site.
        */
       var model = this.getModelAt(uri || '', text, opt_line == null ? 0 : opt_line);
       if ( model ) return this.buildRequiresMap(model);
-      return analyzer ? analyzer.parseRequires(text) : {};
+      return this.analyzer_.parseRequires(text);
+    },
+
+    function resolveShortName(uri, text, name, opt_line) {
+      /**
+       * Resolve a short class name (`DetailView`) to a full class id
+       * (`foam.u2.DetailView`). Reads the eval-captured model's requires axiom
+       * when available; otherwise falls back to text-regex via analyzer_
+       * (mid-edit safety net — see resolveRequiresMap comment).
+       */
+      var map = this.resolveRequiresMap(uri, text, opt_line);
+      return map[name] || null;
+    },
+
+    function resolveClassIdFromText(text) {
+      /**
+       * Mid-edit fallback: extract the file's class id (`package.name`) by
+       * regex when no model is available. Used by handlers that need to
+       * stay useful while the user types broken code. Routes through the
+       * analyzer so the single tactical surface lives in CursorAnalyzer.
+       */
+      return this.analyzer_.resolveClassId(text);
+    },
+
+    function resolveImports(uri, text, opt_line) {
+      /** Imports as a flat name array. Mid-edit fallback via analyzer when no model. */
+      var model = this.getModelAt(uri || '', text, opt_line == null ? 0 : opt_line);
+      if ( model ) {
+        var out = [];
+        var imports = model.imports || [];
+        for ( var i = 0 ; i < imports.length ; i++ ) {
+          var imp = imports[i];
+          var name = typeof imp === 'string' ? imp : imp.name;
+          out.push(name.replace(/\?$/, ''));
+        }
+        return out;
+      }
+      return this.analyzer_.parseImports(text);
     },
 
     function parseFileModels(text) {

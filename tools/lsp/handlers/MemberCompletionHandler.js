@@ -51,6 +51,11 @@ foam.CLASS({
       var line = lines[position.line] || '';
       var prefix = line.substring(0, position.character);
 
+      // Value-mode (F3): cursor on an enum-typed property value inside
+      // X.create({…}) / .tag(this.X, {…}). Grammar-driven detection.
+      var instItems = this.instantiationValueItems_(text, position, opt_uri);
+      if ( instItems ) return instItems;
+
       // Detect context: foam.X. ▊ or foam.X.Y. ▊ where foam.X is a LIB
       var libMatch = prefix.match(/(foam(?:\.\w+)+)\.\w*$/);
       if ( libMatch ) {
@@ -68,14 +73,14 @@ foam.CLASS({
       var fullCreateMatch = prefix.match(/([\w.]+)\.create\(\s*\{\s*\w*$/);
       if ( fullCreateMatch ) {
         var classId = fullCreateMatch[1];
-        var resolved = this.analyzer.resolveShortName(text, classId) || classId;
+        var resolved = this.cache.resolveShortName(opt_uri, text, classId, position.line) || classId;
         if ( this.index.classExists(resolved) ) {
           return this.getClassPropertyItems(resolved);
         }
       }
 
       // Detect context: cursor INSIDE a .create({ ... }) block on a separate line
-      var createCtx = this.analyzer.findCreateContext(lines, position.line, text, this.index);
+      var createCtx = this.analyzer.findCreateContext(text, position.line, this.cache, this.index, opt_uri);
       if ( createCtx ) {
         return this.getClassPropertyItems(createCtx);
       }
@@ -113,10 +118,12 @@ foam.CLASS({
       var model = this.cache.getModelAt(opt_uri || '', text, position.line);
       var classId = this.cache.getClassId(model);
 
-      // Fallback: if eval failed (SyntaxError from incomplete code like 'this.'),
-      // resolve classId from regex
+      // Mid-edit fallback: when the file fails to eval (broken body like
+      // `this.` with nothing after it), classId stays null. Route to the
+      // cache's text-regex fallback so completions keep working. A
+      // grammar-driven axiom extractor will replace this fallback.
       if ( ! classId ) {
-        classId = this.analyzer.resolveClassId(text);
+        classId = this.cache.resolveClassIdFromText(text);
       }
 
       var items = [];
@@ -182,17 +189,8 @@ foam.CLASS({
       }
 
       // Imports — model-first (preserves shape), text fallback
-      var importNames = [];
-      if ( model ) {
-        var imports = model.imports || [];
-        for ( var i = 0 ; i < imports.length ; i++ ) {
-          var imp = imports[i];
-          var name = typeof imp === 'string' ? imp : imp.name;
-          importNames.push(name.replace(/\?$/, ''));
-        }
-      } else {
-        importNames = this.analyzer.parseImports(text);
-      }
+      // Imports list (model.imports when available, mid-edit regex fallback otherwise).
+      var importNames = this.cache.resolveImports(opt_uri, text, position.line);
       for ( var i = 0 ; i < importNames.length ; i++ ) {
         items.push({
           label: importNames[i],
@@ -207,9 +205,54 @@ foam.CLASS({
 
     function handleCreateCompletion(text, shortName, position, opt_uri) {
       /** Resolve short name from requires, then suggest its properties. */
-      var fullId = this.analyzer.resolveShortName(text, shortName);
+      var fullId = this.cache.resolveShortName(opt_uri, text, shortName, position ? position.line : 0);
       if ( ! fullId ) return { isIncomplete: false, items: [] };
       return this.getClassPropertyItems(fullId);
+    },
+
+    function instantiationValueItems_(text, position, opt_uri) {
+      /** Enum value completion for a property value inside an instantiation.
+       *  Returns null unless the cursor is on (or just after) an enum-typed
+       *  property's value. */
+      var grammar = this.index.getGrammar && this.index.getGrammar();
+      if ( ! grammar || ! grammar.collectInstantiations ) return null;
+      var off = this.analyzer.positionToOffset(text, position);
+
+      // end-of-line offset (bounds an unclosed/absent value to its own line)
+      var lineEnd = text.indexOf('\n', off);
+      if ( lineEnd === -1 ) lineEnd = text.length;
+
+      var insts = grammar.collectInstantiations(text);
+      var best = null;  // { inst, entry }
+      for ( var i = 0 ; i < insts.length ; i++ ) {
+        var inst = insts[i];
+        for ( var e = 0 ; e < inst.entries.length ; e++ ) {
+          var entry = inst.entries[e];
+          if ( off <= entry.keyPos.endPos ) continue;   // cursor not past this key's colon
+          var regionEnd = entry.valuePos ? entry.valuePos.endPos + 1 : lineEnd;
+          if ( off > regionEnd ) continue;
+          if ( ! best || entry.keyPos.startPos > best.entry.keyPos.startPos ) best = { inst: inst, entry: entry };
+        }
+      }
+      if ( ! best ) return null;
+
+      var classId = this.cache.resolveShortName(opt_uri, text, best.inst.classText, position.line) || best.inst.classText;
+      if ( ! this.index.classExists(classId) ) return null;
+      var info = this.index.getPropertyInfo(classId, best.entry.key);
+      if ( ! info.found || ! info.isEnum ) return null;
+
+      var items = [];
+      for ( var v = 0 ; v < info.enumValues.length ; v++ ) {
+        var val = info.enumValues[v];
+        items.push({
+          label: val.name,
+          kind: 13,  // EnumMember
+          detail: info.enumId + '.' + val.name + ( val.label ? ' — ' + val.label : '' ),
+          documentation: val.label || '',
+          sortText: '!0_' + ( '0000' + val.ordinal ).slice(-4)
+        });
+      }
+      return { isIncomplete: false, items: items };
     },
 
     function getLibMemberItems_(dottedPrefix) {

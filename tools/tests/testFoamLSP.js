@@ -13,19 +13,20 @@
 //
 // Usage: cd <your-project> && node foam3/tools/tests/testFoamLSP.js
 
-// Hard watchdog: fail fast if any single test infinite-loops. 30s is generous
-// given the whole suite normally completes in ~2s after pmake boot.
+// Hard watchdog: fail fast if any single test infinite-loops. 90s comfortably
+// covers pmake boot (~15s) + workspace-wide usage-index builds that the
+// end-to-end usage tests now exercise. Anything beyond this is a real bug.
 //
 // IMPORTANT: guard with `require.main === module` so the timer only arms when
 // this file is run as the test entrypoint. The LSP server's FileModelCache
 // evaluates arbitrary .js files to capture foam.CLASS calls — an unguarded
-// top-level setTimeout here would kill the LSP process 30s after any user
+// top-level setTimeout here would kill the LSP process after any user
 // opens this test file in their editor.
 if ( require.main === module ) {
   setTimeout(function() {
-    console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 30s — possible infinite loop. Aborting.\x1b[0m');
+    console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 90s — possible infinite loop. Aborting.\x1b[0m');
     process.exit(2);
-  }, 30000).unref();
+  }, 90000).unref();
 }
 
 var h = require('./lsp/_harness');
@@ -42,6 +43,12 @@ require('./lsp/diagnostics');
 require('./lsp/navigation');
 require('./lsp/java');
 require('./lsp/jrl');
+require('./lsp/editorFeatures');
+require('./lsp/typeHierarchy');
+require('./lsp/usageIndex');
+require('./lsp/callHierarchy');
+require('./lsp/pomValidation');
+require('./lsp/pomNavigation');
 
 h.section('SUMMARY');
 console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');

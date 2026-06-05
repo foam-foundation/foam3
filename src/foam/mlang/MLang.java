@@ -183,6 +183,22 @@ public class MLang
     return dot;
   }
 
+  public static Expr SUBSTRING(Object o1, int start) {
+    Substring sub = new Substring();
+    sub.setArg1(MLang.prepare(o1));
+    sub.setStart(start);
+    sub.setEnd(-1);
+    return sub;
+  }
+
+  public static Expr SUBSTRING(Object o1, int start, int end) {
+    Substring sub = new Substring();
+    sub.setArg1(MLang.prepare(o1));
+    sub.setStart(start);
+    sub.setEnd(end);
+    return sub;
+  }
+
   public static Expr DOT(Expr o1, Predicate o2) {
     Dot dot = new Dot();
     dot.setArg1(o1);

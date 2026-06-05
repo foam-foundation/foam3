@@ -163,17 +163,34 @@ foam.CLASS({
           "StartsWithIC(foam.core.auth.User.firstName, SomeName)",
           "String Test11b: The name starts with the value"
         );
+        assertQuery(
+          "firstName STARTS WITH SomeName",
+          "StartsWithIC(foam.core.auth.User.firstName, SomeName)",
+          "String Test11b2: The name starts with the value (two-word operator)"
+        );
+        assertMatchesQuery(
+          "firstName MATCH (1,3) = om",
+          "SomeName",
+          true,
+          "String Test11c: MATCH compares a substring range"
+        );
+        assertMatchesQuery(
+          "firstName MATCH 1 = omeName",
+          "SomeName",
+          true,
+          "String Test11d: MATCH compares a substring from a start index"
+        );
+        assertMatchesQuery(
+          "firstName MATCH (1,3) = zz",
+          "SomeName",
+          false,
+          "String Test11e: MATCH fails when substring comparison fails"
+        );
         assertMatchesQuery(
           "firstName MATCH (3,me)",
           "SomeName",
           true,
-          "String Test11c: MATCH finds a substring starting at a one-based position"
-        );
-        assertMatchesQuery(
-          "firstName MATCH (3,zz)",
-          "SomeName",
-          false,
-          "String Test11d: MATCH fails when the substring at the position does not match"
+          "String Test11f: MATCH (pos,str) remains supported"
         );
         // JS Test12: The name exactly matches any of the listed values
         assertQuery(

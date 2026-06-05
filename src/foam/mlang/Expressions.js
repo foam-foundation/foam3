@@ -20,6 +20,7 @@ foam.CLASS({
     'foam.mlang.expr.Add',
     'foam.mlang.expr.Divide',
     'foam.mlang.expr.Dot',
+    'foam.mlang.expr.Substring',
     'foam.mlang.expr.Ref',
     'foam.mlang.expr.MaxFunc',
     'foam.mlang.expr.MinFunc',
@@ -122,6 +123,11 @@ foam.CLASS({
     function ENDS_WITH(a, b) { return this._binary_("EndsWith", a, b); },
     function FUNC(fn) { return this.Func.create({ fn: fn }); },
     function DOT(a, b) { return this._binary_("Dot", a, b); },
+    function SUBSTRING(a, start, opt_end) {
+      foam.assert(a !== undefined, 'a is required.');
+      foam.assert(start !== undefined, 'start is required.');
+      return this.Substring.create({ arg1: a, start: start, end: opt_end === undefined ? -1 : opt_end });
+    },
     function REF(a) { return this._unary_("Ref", a); },
     function DOT_F(a, b) { return this._binary_("DotF", a, b); },
     function ADD() { return this._nary_("Add", arguments); },

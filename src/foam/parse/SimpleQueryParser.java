@@ -13,12 +13,12 @@ import foam.lib.parse.Not;
 import foam.lib.parse.Optional;
 import foam.mlang.Constant;
 import foam.mlang.Expr;
+import foam.mlang.expr.Substring;
 import foam.mlang.predicate.*;
 import foam.util.SafetyUtil;
 
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import static foam.mlang.MLang.*;
 
@@ -28,7 +28,7 @@ import static foam.mlang.MLang.*;
  * predicates based on the properties of the specified ClassInfo.
  *
  * Each property type gets its own set of operators:
- *   String:      =, !=, >=, >, <=, <, :, ~, CONTAINS, STARTSWITH, MATCH(), IN(), NOT IN(), IS EMPTY, IS NOT EMPTY
+ *   String:      =, !=, >=, >, <=, <, :, ~, CONTAINS, STARTSWITH, MATCH, IN(), NOT IN(), IS EMPTY, IS NOT EMPTY
  *   StringArray: =, HAS, !=, IN(), NOT IN()
  *   Number/Long: =, !=, >=, >, <=, <, IN(), NOT IN()
  *   Float/Double:=, !=, >=, >, <=, <, IN RANGE(), NOT IN RANGE()
@@ -218,6 +218,53 @@ public class SimpleQueryParser
       Literal.create(")")
     ));
 
+    // match compare operators for MATCH substring
+    g.addSymbol("matchCompareOp", new Alt(
+      operatorNoSpace(g, ">="),
+      operatorNoSpace(g, ">"),
+      operatorNoSpace(g, "<="),
+      operatorNoSpace(g, "<"),
+      operatorNoSpace(g, "!="),
+      operatorNoSpace(g, "=")
+    ));
+
+    // match substring bounds for MATCH (...): either (start,end) or (start)
+    g.addSymbol("match substring bounds", new Alt(
+      new Seq(
+        g.sym("ws"),
+        g.sym("digits"),
+        g.sym("ws"),
+        Literal.create(","),
+        g.sym("ws"),
+        g.sym("digits"),
+        g.sym("ws"),
+        Literal.create(")")
+      ),
+      new Seq(
+        g.sym("ws"),
+        g.sym("digits"),
+        g.sym("ws"),
+        Literal.create(")")
+      )
+    ));
+
+    // MATCH (start[,end]) <op> <string>
+    g.addSymbol("match substring", new Seq(
+      g.sym("match substring bounds"),
+      g.sym("ws"),
+      g.sym("matchCompareOp"),
+      g.sym("string")
+    ));
+
+    // MATCH <start> <op> <string>
+    g.addSymbol("match start", new Seq(
+      g.sym("ws"),
+      g.sym("digits"),
+      g.sym("ws"),
+      g.sym("matchCompareOp"),
+      g.sym("string")
+    ));
+
     // ── Date symbols ──
     // literal date: YYYY-MM-DD or YYYY-MM or YYYY (with - or / separator)
     g.addSymbol("literal date", new Alt(
@@ -298,6 +345,21 @@ public class SimpleQueryParser
   }
 
   /**
+   * STARTS WITH operator, parsed as a single operator token but allowing
+   * flexible whitespace between words.
+   */
+  private Parser operatorStartsWith(foam.lib.parse.Grammar g) {
+    return new Alt(
+      operator(g, "STARTSWITH"),
+      new Seq1(0,
+        operator(g, "STARTS"),
+        g.sym("ws"),
+        new LiteralIC("WITH")
+      )
+    );
+  }
+
+  /**
    * Parser for IN-style operators: requires opening parenthesis after keyword.
    */
   private Parser operatorIn(foam.lib.parse.Grammar g, String op) {
@@ -369,8 +431,10 @@ public class SimpleQueryParser
       new Seq(operatorNoSpace(g, ":"), g.sym("string")),
       new Seq(operatorNoSpace(g, "~"), g.sym("string")),
       new Seq(operator(g, "CONTAINS"), g.sym("string")),
-      new Seq(operator(g, "STARTSWITH"), g.sym("string")),
+      new Seq(operatorStartsWith(g), g.sym("string")),
+      new Seq(operatorIn(g, "MATCH"), g.sym("match substring")),
       new Seq(operatorIn(g, "MATCH"), g.sym("position match")),
+      new Seq(operator(g, "MATCH"), g.sym("match start")),
       new Seq(operatorIn(g, "IN"), g.sym("stringArray")),
       new Seq(operatorIn(g, "NOT IN"), g.sym("stringArray")),
       new Seq(operator(g, "IS EMPTY")),
@@ -767,6 +831,35 @@ public class SimpleQueryParser
       return match;
     });
 
+    g.addAction("match substring bounds", (val, x) -> {
+      Object[] values = (Object[]) val;
+      Map<String, Object> bounds = new HashMap<>();
+      bounds.put("start", values[1]);
+      bounds.put("end", values.length > 4 ? values[5] : -1);
+      return bounds;
+    });
+
+    g.addAction("match substring", (val, x) -> {
+      Object[] values = (Object[]) val;
+      Map<String, Object> bounds = (Map<String, Object>) values[0];
+      Map<String, Object> match = new HashMap<>();
+      match.put("start", bounds.get("start"));
+      match.put("end", bounds.get("end"));
+      match.put("operator", values[2]);
+      match.put("value", values[3]);
+      return match;
+    });
+
+    g.addAction("match start", (val, x) -> {
+      Object[] values = (Object[]) val;
+      Map<String, Object> match = new HashMap<>();
+      match.put("start", values[1]);
+      match.put("end", -1);
+      match.put("operator", values[3]);
+      match.put("value", values[4]);
+      return match;
+    });
+
     g.addAction("compareStringArray", (val, x) -> {
       Object[] values = (Object[]) val;
       return new Object[] { values[0], values.length > 1 ? values[1] : null };
@@ -861,7 +954,7 @@ public class SimpleQueryParser
       case "STARTSWITH":
         return STARTS_WITH_IC(prop, value);
       case "MATCH":
-        return buildPositionMatchPredicate(prop, value);
+        return buildMatchPredicate(prop, value);
 
       case "IS EMPTY":
         return NOT(HAS(prop));
@@ -874,10 +967,43 @@ public class SimpleQueryParser
     }
   }
 
-  private Predicate buildPositionMatchPredicate(Expr prop, Object value) {
+  private Predicate buildMatchPredicate(Expr prop, Object value) {
     if ( ! ( value instanceof Map ) ) return new False();
 
     Map match = (Map) value;
+
+    // New syntax: MATCH (start[,end]) <op> <string>
+    if ( match.containsKey("operator") ) {
+      Object startValue = match.get("start");
+      Object endValue = match.get("end");
+      Object opValue = match.get("operator");
+      Object stringValue = match.get("value");
+
+      if ( ! ( startValue instanceof Number ) || ! ( opValue instanceof String ) || ! ( stringValue instanceof String ) ) {
+        return new False();
+      }
+
+      int start = ((Number) startValue).intValue();
+      int end = endValue instanceof Number ? ((Number) endValue).intValue() : -1;
+      String cmpOp = opValue.toString().toUpperCase().trim();
+
+      Substring sub = new Substring();
+      sub.setArg1(prop);
+      sub.setStart(start);
+      sub.setEnd(end);
+
+      switch ( cmpOp ) {
+        case "=":  return EQ(sub, stringValue);
+        case "!=": return NEQ(sub, stringValue);
+        case ">=": return GTE(sub, stringValue);
+        case ">":  return GT(sub, stringValue);
+        case "<=": return LTE(sub, stringValue);
+        case "<":  return LT(sub, stringValue);
+        default:   return new False();
+      }
+    }
+
+    // Backwards compatible: MATCH (pos, str) → SUBSTRING(pos-1, pos-1+len(str)) = str
     Object positionValue = match.get("position");
     Object stringValue = match.get("value");
 
@@ -888,11 +1014,15 @@ public class SimpleQueryParser
     int position = ((Number) positionValue).intValue();
     if ( position < 1 || SafetyUtil.isEmpty((String) stringValue) ) return new False();
 
-    String pattern = "^.{" + ( position - 1 ) + "}" + Pattern.quote((String) stringValue) + ".*$";
-    RegExp regExp = new RegExp();
-    regExp.setArg1(prop);
-    regExp.setRegExp(Pattern.compile(pattern));
-    return regExp;
+    int start = position - 1;
+    int end = start + ((String) stringValue).length();
+    if ( start < 0 ) return new False();
+
+    Substring sub = new Substring();
+    sub.setArg1(prop);
+    sub.setStart(start);
+    sub.setEnd(end);
+    return EQ(sub, stringValue);
   }
 
   /**

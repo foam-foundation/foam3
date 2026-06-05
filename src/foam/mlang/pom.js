@@ -83,6 +83,7 @@ foam.POM({
     { name: "sink/Sum",                             flags: "js|java" },
     { name: "sink/Average",                         flags: "js|java" },
     { name: "expr/Dot",                             flags: "js|java" },
+    { name: "expr/Substring",                       flags: "js|java" },
     { name: "predicate/DotF",                       flags: "js|java" },
     { name: "PredicatedExpr",                       flags: "js|java" },
     { name: "ContextObject",                        flags: "js|java" },

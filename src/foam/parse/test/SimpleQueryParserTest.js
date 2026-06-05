@@ -47,8 +47,11 @@ foam.CLASS({
       x.test(this.isValid("firstName:SomeName", 'CONTAINS_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test10: The name contains the value with : operator");
       x.test(this.isValid("firstName~SomeName", 'CONTAINS_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test11: The name contains the value with ~ operator");
       x.test(this.isValid("firstName STARTSWITH SomeName", 'STARTS_WITH_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test11b: The name starts with the value");
-      x.test(this.evaluate("firstName MATCH (3,me)", foam.core.auth.User.create({ firstName: "SomeName" })), "String Test11c: MATCH finds a substring starting at a one-based position");
-      x.test(! this.evaluate("firstName MATCH (3,zz)", foam.core.auth.User.create({ firstName: "SomeName" })), "String Test11d: MATCH fails when the substring at the position does not match");
+      x.test(this.isValid("firstName STARTS WITH SomeName", 'STARTS_WITH_IC(foam.core.auth.User.firstName, "SomeName")'), "String Test11b2: The name starts with the value (two-word operator)");
+      x.test(this.evaluate("firstName MATCH (1,3) = om", foam.core.auth.User.create({ firstName: "SomeName" })), "String Test11c: MATCH compares a substring range");
+      x.test(this.evaluate("firstName MATCH 1 = omeName", foam.core.auth.User.create({ firstName: "SomeName" })), "String Test11d: MATCH compares a substring from a start index");
+      x.test(! this.evaluate("firstName MATCH (1,3) = zz", foam.core.auth.User.create({ firstName: "SomeName" })), "String Test11e: MATCH fails when substring comparison fails");
+      x.test(this.evaluate("firstName MATCH (3,me)", foam.core.auth.User.create({ firstName: "SomeName" })), "String Test11f: MATCH (pos,str) remains supported");
       x.test(this.isValid("firstName IN (SomeName,AnotherName)", 'IN(foam.core.auth.User.firstName, ["SomeName", "AnotherName"])'), "String Test12: The name exactly matches any of the listed values");
       x.test(this.isValid('firstName NOT IN (SomeName,AnotherName)', 'NOT(IN(foam.core.auth.User.firstName, ["SomeName", "AnotherName"]))'), 'String Test13: The name does not exactly match any of the listed values');
       x.test(this.isValid('firstName IS EMPTY', 'NOT(HAS(foam.core.auth.User.firstName))'), 'String Test14: The name is empty');

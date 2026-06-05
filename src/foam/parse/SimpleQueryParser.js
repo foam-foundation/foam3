@@ -23,6 +23,7 @@ foam.CLASS({
     'foam.mlang.predicate.And',
     'foam.mlang.predicate.ContainsIC',
     'foam.mlang.expr.Dot',
+    'foam.mlang.expr.Substring',
     'foam.mlang.predicate.Eq',
     'foam.mlang.predicate.Neq',
     'foam.mlang.predicate.Gt',
@@ -35,7 +36,6 @@ foam.CLASS({
     'foam.mlang.predicate.Not',
     'foam.mlang.predicate.Or',
     'foam.mlang.predicate.StartsWithIC',
-    'foam.mlang.predicate.RegExp',
     'foam.mlang.predicate.False',
     'foam.mlang.predicate.True',
     'foam.parse.Alternate',
@@ -79,6 +79,22 @@ foam.CLASS({
           );
         }
         this.operator = operator;
+
+        // STARTS WITH is treated as a single operator token (like STARTSWITH) but with flexible whitespace
+        let operatorStartsWith = () => {
+          return alt(
+            seq1(0, operator('STARTSWITH')),
+            seq1(0,
+              seq1(2, ' ', sym('ws'), sug(seq(literalIC('STARTS'), sym('ws'), literalIC('WITH')), {
+                text: 'STARTS WITH',
+                category: 'operator'
+              }))
+            ),
+            // allow without leading space, no suggestion
+            seq(literalIC('STARTS'), sym('ws'), literalIC('WITH'))
+          );
+        }
+        this.operatorStartsWith = operatorStartsWith;
         let operatorIn = (str) => {
           return (
             seq1(2, ' ', sym('ws'), sug(seq1(0, literalIC(str), sym('ws'), '('), {
@@ -187,8 +203,10 @@ foam.CLASS({
             seq(operator(':'), sym('string')),
             seq(operator('~'), sym('string')),
             seq(operator('CONTAINS'), sym('string')),
-            seq(operator('STARTSWITH'), sym('string')),
+            seq(operatorStartsWith(), sym('string')),
+            seq(operatorIn('MATCH'), sym('match substring')),
             seq(operatorIn('MATCH'), sym('position match')),
+            seq(operator('MATCH'), sym('match start')),
             seq(operatorIn('IN'), sym('stringArray')),
             seq(operatorIn('NOT IN'), sym('stringArray')),
             seq(operator('IS EMPTY')),
@@ -314,6 +332,25 @@ foam.CLASS({
           strings: repeat(sym('string'), ',', 1),
 
           'position match': seq(sym('ws'), sym('digits'), sym('ws'), ',', sym('string'), sym('ws'), ')')
+          ,
+
+          matchCompareOp: alt(
+            operator('>='),
+            operator('>'),
+            operator('<='),
+            operator('<'),
+            operator('!='),
+            operator('=')
+          ),
+
+          'match substring bounds': alt(
+            seq(sym('ws'), sym('digits'), sym('ws'), ',', sym('ws'), sym('digits'), sym('ws'), ')'),
+            seq(sym('ws'), sym('digits'), sym('ws'), ')')
+          ),
+
+          'match substring': seq(sym('match substring bounds'), sym('ws'), sym('matchCompareOp'), sym('string')),
+
+          'match start': seq(sym('ws'), sym('digits'), sym('ws'), sym('matchCompareOp'), sym('string'))
         };
       }
     },
@@ -490,17 +527,6 @@ foam.CLASS({
             value: v[4]
           };
         }
-        function escapeRegExp(s) {
-          return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-        function buildPositionMatchPattern(v) {
-          var position = parseInt(v.position, 10);
-          var match = v.value;
-
-          if ( ! Number.isInteger(position) || position < 1 || ! match ) return null;
-
-          return '^.{' + ( position - 1 ) + '}' + escapeRegExp(match) + '.*$';
-        }
         let actions    = {
           START: function(v) {
             if ( v && v.partialEval ) v = v.partialEval();
@@ -572,6 +598,31 @@ foam.CLASS({
 
           'position match': function(v) {
             return positionMatchValue(v);
+          },
+
+          'match substring bounds': function(v) {
+            return {
+              start: v[1],
+              end: v.length > 4 ? v[5] : -1
+            };
+          },
+
+          'match substring': function(v) {
+            return {
+              start: v[0].start,
+              end: v[0].end,
+              operator: v[2],
+              value: v[3]
+            };
+          },
+
+          'match start': function(v) {
+            return {
+              start: v[1],
+              end: -1,
+              operator: v[3],
+              value: v[4]
+            };
           },
 
           date: function(v) {
@@ -649,10 +700,28 @@ foam.CLASS({
               case 'STARTSWITH':
                 return self.StartsWithIC.create({ arg1: prop, arg2: value });
               case 'MATCH':
-                let pattern = buildPositionMatchPattern(value);
-                return pattern ?
-                  self.RegExp.create({ arg1: prop, regExp: new RegExp(pattern) }) :
-                  self.False.create();
+                if ( value && value.operator && value.value !== undefined ) {
+                  let sub = self.Substring.create({ arg1: prop, start: value.start, end: value.end });
+                  switch ( value.operator ) {
+                    case '=':  return self.Eq.create({ arg1: sub, arg2: value.value });
+                    case '!=': return self.Neq.create({ arg1: sub, arg2: value.value });
+                    case '>=': return self.Gte.create({ arg1: sub, arg2: value.value });
+                    case '>':  return self.Gt.create({ arg1: sub, arg2: value.value });
+                    case '<=': return self.Lte.create({ arg1: sub, arg2: value.value });
+                    case '<':  return self.Lt.create({ arg1: sub, arg2: value.value });
+                  }
+                  return self.False.create();
+                }
+
+                // Backwards compatible: MATCH (pos, str) → SUBSTRING(pos-1, pos-1+len(str)) = str
+                if ( value && value.position && value.value ) {
+                  let start = value.position - 1;
+                  let end = start + value.value.length;
+                  let sub = self.Substring.create({ arg1: prop, start: start, end: end });
+                  return start >= 0 ? self.Eq.create({ arg1: sub, arg2: value.value }) : self.False.create();
+                }
+
+                return self.False.create();
               case 'IS EMPTY':
                 return self.Not.create({arg1: self.Has.create({ arg1: prop })});
               case 'IS NOT EMPTY':

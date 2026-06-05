@@ -681,4 +681,23 @@ test(addStrDiags("foam.CLASS({ package:'t', name:'LC2', methods:[ function rende
 // Lowercase add on an element var receiver (not a collection) — flagged.
 test(addStrDiags("foam.CLASS({ package:'t', name:'LC3', methods:[ function render(){ var row = this.E(); row.add('total'); } ] })").length === 1, "lowercase .add('total') on an element var flagged");
 
+section('Diagnostics — instantiation enum / primitive values (F3)');
+var badSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+  "    this.Health.create({ status: 'BOGUS', port: 'abc', appName: 'ok' });\n  } ]\n})";
+var badMsgs = diagHandler.handle(badSrc, '').map(function(d) { return d.message || ''; });
+function has(arr, sub) { return arr.some(function(m) { return m.indexOf(sub) !== -1; }); }
+test(has(badMsgs, "not a valid foam.core.app.HealthStatus"), 'bad enum value is flagged');
+test(has(badMsgs, "expects a numeric"), 'string assigned to Int port is flagged');
+
+var okSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+  "    this.Health.create({ status: 'UP', appName: 'svc' });\n  } ]\n})";
+var okMsgs = diagHandler.handle(okSrc, '').map(function(d) { return d.message || ''; });
+test(! has(okMsgs, 'HealthStatus'), 'valid enum value is not flagged');
+
+var exprSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+  "    this.Health.create({ status: this.x, port: someVar });\n  } ]\n})";
+var exprMsgs = diagHandler.handle(exprSrc, '').map(function(d) { return d.message || ''; });
+test(! has(exprMsgs, 'HealthStatus') && ! has(exprMsgs, 'numeric'),
+  'expression values are not flagged (literals only)');
+
 

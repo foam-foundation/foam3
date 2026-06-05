@@ -68,6 +68,39 @@ foam.CLASS({
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
 
+      // F1: suppress hover inside comments and documentation values. Detection
+      // is grammar-driven via collectRanges (no regex). The documentation KEY
+      // sits before its value span, so axiom-key hover is unaffected.
+      var grammar = this.index.getGrammar && this.index.getGrammar();
+      if ( grammar && grammar.collectRanges ) {
+        var hoverOffset = this.analyzer.positionToOffset(text, position);
+        var ncRanges = grammar.collectRanges(text);
+        if ( this.offsetInRanges_(hoverOffset, ncRanges.comment) ||
+             this.offsetInRanges_(hoverOffset, ncRanges.documentation) ) {
+          return null;
+        }
+      }
+
+      // Inside a string literal, only the WHOLE string may be a reference. A
+      // sub-word of a label like 'Reset Password' must not resolve to a type
+      // (e.g. foam.lang.Password) — that is data, not a code reference.
+      var strContent = this.analyzer.getEnclosingStringContent(text, position);
+      if ( strContent !== null && word !== strContent.trim() ) return null;
+
+      // Hovering a class's own `name:` value shows that class (info +
+      // relationships) — same result as hovering a reference to it elsewhere.
+      // Gated on the `name:` line + a match against the model's own name so a
+      // property or variable sharing the name never false-triggers.
+      var selfLine = ( text.split('\n')[position.line] || '' );
+      if ( /^\s*name\s*:/.test(selfLine) ) {
+        var selfModel = this.cache.getModelAt(opt_uri || '', text, position.line);
+        var selfSeg = this.analyzer.getSegmentAtPosition(text, position);
+        if ( selfModel && selfSeg && selfSeg === selfModel.name ) {
+          var selfHover = this.buildClassHover(this.cache.getClassId(selfModel));
+          if ( selfHover ) return selfHover;
+        }
+      }
+
       // Axiom key hover: cursor on `requires:`, `properties:`, `messages:`,
       // `sections:`, `searchColumns:`, etc. — show the description from
       // AxiomCatalog (single source of truth shared with the grammar).
@@ -117,11 +150,8 @@ foam.CLASS({
         if ( resolved ) {
           return this.buildClassHover(resolved);
         }
-        // Fallback to text-based requires parsing
-        resolved = this.analyzer.resolveShortName(text, segment);
-        if ( resolved ) {
-          return this.buildClassHover(resolved);
-        }
+        // No regex fallback — resolveFromModel_ already consults the cached
+        // model's requires axiom. If that misses, there's nothing left to try.
       }
 
       // Try as typed variable (var x = this.Foo.create())
@@ -159,7 +189,7 @@ foam.CLASS({
 
       // Try as property inside .create({}) block — resolve the target class
       var lookupName = segment || word;
-      var createClassId = this.resolveCreateContext_(text, position);
+      var createClassId = this.resolveCreateContext_(text, position, opt_uri);
       if ( createClassId ) {
         var createPropDoc = this.index.getPropertyDoc(createClassId, lookupName);
         if ( createPropDoc ) {
@@ -208,6 +238,14 @@ foam.CLASS({
       if ( ! model ) return null;
       var requiresMap = this.cache.buildRequiresMap(model);
       return requiresMap[shortName] || null;
+    },
+
+    function offsetInRanges_(off, ranges) {
+      /** True when `off` falls inside any [startPos, endPos) span. */
+      for ( var i = 0 ; i < ranges.length ; i++ ) {
+        if ( off >= ranges[i].startPos && off < ranges[i].endPos ) return true;
+      }
+      return false;
     },
 
     function axiomKeyHover_(text, position) {
@@ -665,6 +703,30 @@ foam.CLASS({
         }
       }
 
+      // 6. Relationships — to / from this class (foam.dao.Relationship axioms),
+      //    grouped by direction. The model name and cardinality go in backticks
+      //    so `*:*` renders literally instead of being eaten as markdown italics.
+      var rels = this.index.getRelationships ? this.index.getRelationships(classId) : [];
+      if ( rels && rels.length > 0 ) {
+        var outs = rels.filter(function(x) { return x.dir === 'out'; });
+        var ins  = rels.filter(function(x) { return x.dir === 'in'; });
+        md += '\n**Relationships**\n\n';
+        if ( outs.length > 0 ) {
+          md += '*Outgoing*\n';
+          for ( var o = 0 ; o < outs.length ; o++ ) {
+            var oShort = outs[o].other ? outs[o].other.split('.').pop() : '?';
+            md += '- `' + outs[o].name + '` → `' + oShort + '` `' + outs[o].card + '`\n';
+          }
+        }
+        if ( ins.length > 0 ) {
+          md += ( outs.length > 0 ? '\n' : '' ) + '*Incoming*\n';
+          for ( var n = 0 ; n < ins.length ; n++ ) {
+            var iShort = ins[n].other ? ins[n].other.split('.').pop() : '?';
+            md += '- `' + ins[n].name + '` ← `' + iShort + '`\n';
+          }
+        }
+      }
+
       return { contents: { kind: 'markdown', value: md } };
     },
 
@@ -693,10 +755,9 @@ foam.CLASS({
       return first.replace(/\|/g, '\\|');
     },
 
-    function resolveCreateContext_(text, position) {
+    function resolveCreateContext_(text, position, opt_uri) {
       /** Find if cursor is inside a .create({}) block, return the target class ID. */
-      var lines = text.split('\n');
-      return this.analyzer.findCreateContext(lines, position.line, text, this.index);
+      return this.analyzer.findCreateContext(text, position.line, this.cache, this.index, opt_uri);
     },
 
     function buildCreateHover_(text, position, opt_uri) {
@@ -706,7 +767,7 @@ foam.CLASS({
       var match = line.match(/(?:this\.)?(\w[\w.]*)\.create/);
       if ( ! match ) return null;
       var name = match[1];
-      var resolved = this.analyzer.resolveShortName(text, name);
+      var resolved = this.cache.resolveShortName(opt_uri, text, name, position.line);
       if ( ! resolved && this.index.classExists(name) ) resolved = name;
       if ( ! resolved ) return null;
 

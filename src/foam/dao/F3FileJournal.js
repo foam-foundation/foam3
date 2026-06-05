@@ -57,6 +57,7 @@ foam.CLASS({
         // count number of entries successfully read
         AtomicInteger passCount = new AtomicInteger();
         AtomicInteger failCount = new AtomicInteger();
+        Class         cls       = dao.getOf().getObjClass();
 
         String lastVersion = "";
 
@@ -77,7 +78,11 @@ foam.CLASS({
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
-        AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
+ //       AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
+        // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
+        AssemblyLine assemblyLine = dao.getOf().getObjClass() == foam.core.boot.CSpec.class ?
+          new foam.util.concurrent.SyncAssemblyLine() :
+          new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay")) ;
 
         try ( BufferedReader reader = getReader() ) {
           if ( reader == null ) {
@@ -95,7 +100,7 @@ foam.CLASS({
               continue;
             }
             try {
-              final char operation = entry.charAt(0);
+              final char operation  = entry.charAt(0);
               final String strEntry = entry.subSequence(2, length - 1).toString();
 
               if ( operation == OP_VERSION ) {
@@ -108,7 +113,7 @@ foam.CLASS({
                 FObject obj;
 
                 public void executeJob() {
-                  obj = getParser(parseX).parseString(strEntry, dao.getOf().getObjClass());
+                  obj = getParser(parseX).parseString(strEntry, cls);
                 }
 
                 public void endJob(boolean isLast) {

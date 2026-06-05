@@ -11,10 +11,6 @@ foam.CLASS({
 
   documentation: 'An extension of GroupingDAOList that adds additional actions for Notifications.',
 
-  implements: [
-    'foam.mlang.Expressions'
-  ],
-
   imports: [
     'stack',
     'myNotificationDAO',

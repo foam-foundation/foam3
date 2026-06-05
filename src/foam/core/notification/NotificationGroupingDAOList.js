@@ -28,7 +28,7 @@ foam.CLASS({
   ],
 
   exports: [
-    'notificationDAO'
+    'myNotificationDAO'
   ],
 
   properties: [

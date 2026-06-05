@@ -1,0 +1,1 @@
+p({"class":"foam.core.script.test.ScriptInterpreterLifecycleTest","id":"ScriptInterpreterLifecycleTest","description":"Proves BeanShell releases its namespace (no leak) and JShell pins the X context in a static (leak)"})

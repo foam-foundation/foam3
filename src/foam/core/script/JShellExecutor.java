@@ -26,19 +26,24 @@ import jdk.jshell.spi.ExecutionEnv;
 
 
 public class JShellExecutor {
-  public static final Object[] X_HOLDER      = new X[1];
   public static final Object[] OBJECT_HOLDER = new Object[1];
 
   public Object runExecutor(X x, PrintStream ps, String serviceScript ) throws IOException  {
 
     JShell jShell = createJShell(ps);
 
-    foam.core.script.Script.X_HOLDER[0] = x;
-    String init = "import foam.lang.X; import foam.core.boot.CSpec; X x = foam.core.script.Script.X_HOLDER[0]; ";
+    long token = foam.core.script.Script.X_SEQ.incrementAndGet();
+    foam.core.script.Script.X_REGISTRY.put(token, x);
+    String init = "import foam.lang.X; import foam.core.boot.CSpec; X x = foam.core.script.Script.X_REGISTRY.get(" + token + "L); ";
 
-    execute(x, jShell, init + serviceScript);
-    jShell.eval("foam.core.boot.CSpec.OBJECT_HOLDER[0] = service;");
-    return OBJECT_HOLDER[0];
+    try {
+      execute(x, jShell, init + serviceScript);
+      jShell.eval("foam.core.boot.CSpec.OBJECT_HOLDER[0] = service;");
+      return OBJECT_HOLDER[0];
+    } finally {
+      foam.core.script.Script.X_REGISTRY.remove(token);
+      jShell.close();
+    }
   }
 
   // extracted because IOException is thrown in a way that doesn't make it

@@ -19,7 +19,6 @@ foam.CLASS({
 
   requires: [
     'foam.core.notification.Notification',
-    'foam.dao.ArraySink',
     'foam.u2.memento.WindowHashMemento'
   ],
 

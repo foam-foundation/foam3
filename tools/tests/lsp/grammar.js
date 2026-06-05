@@ -674,3 +674,79 @@ test(/foam.*function\.macro/.test(zedHi.replace(/\s+/g, ' ')) ||
 
 // === Migration coverage: buildLocationAtProperty uses the grammar path ===
 
+section('Grammar — collectRanges comments + documentation (F1)');
+var crText = "foam.CLASS({\n" +
+  "  documentation: 'Hello World',\n" +
+  "  // a line comment FObject\n" +
+  "  methods: [ function f() { /* block FObject */ return 1; } ]\n" +
+  "})";
+var ranges = grammar.collectRanges(crText);
+test(ranges.comment.length >= 2, 'collectRanges finds the line + block comments');
+test(ranges.documentation.length >= 1, 'collectRanges finds the documentation value');
+var docSpan = ranges.documentation[0];
+test(crText.substring(docSpan.startPos, docSpan.endPos).indexOf('Hello World') !== -1,
+  'documentation span covers the value text');
+
+section('Grammar — collectInstantiations (F3)');
+var ciCreate = "foam.CLASS({ methods: [ function f() { " +
+  "var x = this.Health.create({ status: 'UP', port: 8080 }); } ] })";
+var insts = grammar.collectInstantiations(ciCreate);
+test(insts.length >= 1, 'collectInstantiations finds the create call');
+var call = insts.find(function(c) { return ! c.isTag; });
+test(call && call.classText === 'Health', 'create receiver resolved to Health (this. stripped)');
+var statusEntry = call && call.entries.find(function(e) { return e.key === 'status'; });
+test(statusEntry && statusEntry.valueText.indexOf('UP') !== -1, 'status entry value captured');
+
+var ciTag = "foam.CLASS({ methods: [ function f() { " +
+  "this.tag(this.Health, { status: 'DOWN' }); } ] })";
+var tagCall = grammar.collectInstantiations(ciTag).find(function(c) { return c.isTag; });
+test(tagCall && tagCall.classText === 'Health', 'tag first-arg class resolved to Health');
+
+var generic = "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); this.doThing(x); } ] })";
+test(grammar.collectInstantiations(generic).length === 0,
+  'generic calls produce no instantiation records (negative lookahead works)');
+
+
+section('Grammar — chained .tag + call-expression values (F3 regression)');
+// .tag chained off a method call (receiver before .tag is ')') with a slot
+// value and a function-call value — must still detect every call + entry.
+var chainSrc = "foam.CLASS({ methods: [ function f() {" +
+  " this.start().addClass('m')" +
+  "  .tag(this.MetricCard, { value$: this.totalCount$, variant: 'CRITICAL' })" +
+  "  .tag(this.MetricCard, { subText$: this.slot(function(n){ return n + ''; }, this.x$), variant: 'WARN' })" +
+  " .end(); } ] })";
+var chainInsts = grammar.collectInstantiations(chainSrc);
+test(chainInsts.length === 2, 'both chained .tag calls detected (got ' + chainInsts.length + ')');
+var second = chainInsts[1];
+var vEntry = second && second.entries.find(function(e){ return e.key === 'variant'; });
+test(vEntry && vEntry.valueText.indexOf('WARN') !== -1, 'variant captured past a function-call value without desync');
+
+section('Grammar — generic classRef + object detection (F3, not .tag-specific)');
+// Any call passing a class ref followed by an object literal is detected,
+// regardless of the method name.
+var genHelper = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { renderCard(this.MetricCard, { variant: 'WARN' }); } ] })");
+test(genHelper.length === 1 && genHelper[0].classText === 'MetricCard',
+  'arbitrary helper(classRef, {...}) is detected (not just .tag)');
+var addForm = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { this.add(this.MetricCard, { variant: 'X' }); } ] })");
+test(addForm.length === 1, '.add(classRef, {...}) is detected');
+// An object literal with no sibling class ref is NOT an instantiation.
+var noClass = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); } ] })");
+test(noClass.length === 0, 'object-only call (no class arg) is not detected');
+
+section('Grammar — inline ViewSpec { class: X, ... } detection (F3)');
+var vsAdd = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { this.add({ class: 'com.paytic.ui.MetricCard', variant: 'WARN' }); } ] })");
+test(vsAdd.length === 1 && vsAdd[0].classText === 'com.paytic.ui.MetricCard',
+  '{ class: X, ... } in code is detected with the class from the class: key');
+var vsEntry = vsAdd.length === 1 && vsAdd[0].entries.find(function(e){ return e.key === 'variant'; });
+test(vsEntry && vsEntry.valueText.indexOf('WARN') !== -1, 'sibling props captured (class: key excluded)');
+// CRITICAL guard: a property DEFINITION is NOT a ViewSpec instantiation.
+var propDef = grammar.collectInstantiations(
+  "foam.CLASS({ properties: [ { class: 'String', name: 'x', documentation: 'd' } ] })");
+test(propDef.length === 0, "property definition { class: 'String', name: 'x' } is NOT treated as an instantiation");
+var plainObj = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { var o = { a: 1, b: 2 }; } ] })");
+test(plainObj.length === 0, 'plain object with no class: key is not an instantiation');

@@ -51,6 +51,11 @@ foam.CLASS({
       var line = lines[position.line] || '';
       var prefix = line.substring(0, position.character);
 
+      // Value-mode (F3): cursor on an enum-typed property value inside
+      // X.create({…}) / .tag(this.X, {…}). Grammar-driven detection.
+      var instItems = this.instantiationValueItems_(text, position, opt_uri);
+      if ( instItems ) return instItems;
+
       // Detect context: foam.X. ▊ or foam.X.Y. ▊ where foam.X is a LIB
       var libMatch = prefix.match(/(foam(?:\.\w+)+)\.\w*$/);
       if ( libMatch ) {
@@ -203,6 +208,51 @@ foam.CLASS({
       var fullId = this.cache.resolveShortName(opt_uri, text, shortName, position ? position.line : 0);
       if ( ! fullId ) return { isIncomplete: false, items: [] };
       return this.getClassPropertyItems(fullId);
+    },
+
+    function instantiationValueItems_(text, position, opt_uri) {
+      /** Enum value completion for a property value inside an instantiation.
+       *  Returns null unless the cursor is on (or just after) an enum-typed
+       *  property's value. */
+      var grammar = this.index.getGrammar && this.index.getGrammar();
+      if ( ! grammar || ! grammar.collectInstantiations ) return null;
+      var off = this.analyzer.positionToOffset(text, position);
+
+      // end-of-line offset (bounds an unclosed/absent value to its own line)
+      var lineEnd = text.indexOf('\n', off);
+      if ( lineEnd === -1 ) lineEnd = text.length;
+
+      var insts = grammar.collectInstantiations(text);
+      var best = null;  // { inst, entry }
+      for ( var i = 0 ; i < insts.length ; i++ ) {
+        var inst = insts[i];
+        for ( var e = 0 ; e < inst.entries.length ; e++ ) {
+          var entry = inst.entries[e];
+          if ( off <= entry.keyPos.endPos ) continue;   // cursor not past this key's colon
+          var regionEnd = entry.valuePos ? entry.valuePos.endPos + 1 : lineEnd;
+          if ( off > regionEnd ) continue;
+          if ( ! best || entry.keyPos.startPos > best.entry.keyPos.startPos ) best = { inst: inst, entry: entry };
+        }
+      }
+      if ( ! best ) return null;
+
+      var classId = this.cache.resolveShortName(opt_uri, text, best.inst.classText, position.line) || best.inst.classText;
+      if ( ! this.index.classExists(classId) ) return null;
+      var info = this.index.getPropertyInfo(classId, best.entry.key);
+      if ( ! info.found || ! info.isEnum ) return null;
+
+      var items = [];
+      for ( var v = 0 ; v < info.enumValues.length ; v++ ) {
+        var val = info.enumValues[v];
+        items.push({
+          label: val.name,
+          kind: 13,  // EnumMember
+          detail: info.enumId + '.' + val.name + ( val.label ? ' — ' + val.label : '' ),
+          documentation: val.label || '',
+          sortText: '!0_' + ( '0000' + val.ordinal ).slice(-4)
+        });
+      }
+      return { isIncomplete: false, items: items };
     },
 
     function getLibMemberItems_(dottedPrefix) {

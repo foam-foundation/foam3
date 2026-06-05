@@ -723,6 +723,17 @@ test(innerPositions.method && innerPositions.method.m2,
 test(innerPositions.property && innerPositions.property.tail,
   'property "tail" after a methods block with rich inner objects still emits');
 
+// === COMPLETION — ENUM VALUE IN INSTANTIATION (F3) ===
+section('Completion — enum value in instantiation (F3)');
+var compText = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n" +
+  "  methods: [ function f() { this.Health.create({ status: '' }); } ]\n})";
+function posOf(t, o) { var l = 0, c = 0; for ( var i = 0 ; i < o ; i++ ) { if ( t[i] === '\n' ) { l++; c = 0; } else c++; } return { line: l, character: c }; }
+var off = compText.indexOf("status: '") + "status: '".length;  // cursor inside the empty quotes
+var compRes = memberHandler.handle(compText, posOf(compText, off));
+test(compRes && compRes.items.length > 0, 'enum value completion returns items');
+test(compRes.items.some(function(it) { return it.label === 'UP'; }), 'offers HealthStatus value UP');
+test(compRes.items.some(function(it) { return it.label === 'DOWN'; }), 'offers HealthStatus value DOWN');
+
 // === SUMMARY ===
 
 

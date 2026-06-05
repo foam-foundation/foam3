@@ -12,6 +12,7 @@
 var h = require('./_harness');
 var test = h.test, section = h.section;
 var index = h.index, cache = h.cache, cssTokenResolver = h.cssTokenResolver;
+var semanticHandler = h.semanticHandler;
 
 // === FoldingRangeHandler ===
 
@@ -116,3 +117,26 @@ var emptyIndex = foam.parse.lsp.FoamIndex.create();
 var emptyHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: emptyIndex });
 var none = emptyHandler.handle('Anything');
 test(Array.isArray(none), 'WorkspaceSymbol: empty index returns empty array');
+
+
+// === Semantic tokens — none inside comments / docs (F1) ===
+
+section('Semantic tokens — none inside comments / docs (F1)');
+var stText = "foam.CLASS({\n" +                                  // line 0
+  "  requires: ['foam.parse.Suggestion'],\n" +                    // line 1
+  "  documentation: 'this.Suggestion note',\n" +                  // line 2
+  "  methods: [\n" +                                              // line 3
+  "    function f() {\n" +                                        // line 4
+  "      // this.Suggestion in comment\n" +                       // line 5
+  "      return this.Suggestion;\n" +                             // line 6
+  "    }\n  ]\n})";                                               // lines 7-9
+var st = semanticHandler.handle(stText, '');
+function tokenLines(data) {
+  var lines = [], line = 0;
+  for ( var i = 0 ; i < data.length ; i += 5 ) { line += data[i]; lines.push(line); }
+  return lines;
+}
+var lns = tokenLines(st.data);
+test(lns.indexOf(2) === -1, 'no semantic token on the documentation line (2)');
+test(lns.indexOf(5) === -1, 'no semantic token on the comment line (5)');
+test(lns.indexOf(6) !== -1, 'the real this.Suggestion on line 6 is still tokenized');

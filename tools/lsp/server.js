@@ -276,11 +276,19 @@ function start() {
 
   // === Message Dispatch ===
 
+  // Per-request timing. Logs `[LSP] ⏱ <method> <ms>ms` for any request/
+  // notification whose handler runs at least LSP_TIMING_MIN_MS. Override the
+  // threshold with env LSP_TIMING_MS (set to 0 to log every message).
+  var LSP_TIMING_MIN_MS = process.env.LSP_TIMING_MS !== undefined ?
+    Number(process.env.LSP_TIMING_MS) : 5;
+
   function handleMessage(msg) {
     var method = msg.method;
     var params = msg.params;
     var id     = msg.id;
 
+    var timerStart = process.hrtime.bigint();
+    try {
     switch ( method ) {
       case 'initialize':
         respond(id, {
@@ -316,11 +324,11 @@ function start() {
             typeHierarchyProvider: true,
             implementationProvider: true,
             typeDefinitionProvider: true,
-            callHierarchyProvider: true,
-            diagnosticProvider: {
-              interFileDependencies: false,
-              workspaceDiagnostics:  false
-            }
+            callHierarchyProvider: true
+            // No diagnosticProvider (pull): diagnostics are PUSHED via
+            // publishDiagnostics on open/change and from the workspace scan.
+            // Advertising pull here too made clients render every diagnostic
+            // twice (push copy + pull copy).
           },
           experimental: {
             workspaceAnalyzer: true
@@ -496,26 +504,29 @@ function start() {
         break;
 
       case 'foam/analyzeWorkspace':
+        // Non-blocking: analyzeAsync yields between chunks so hover/completion/
+        // diagnostics keep responding while the workspace scan runs.
         try {
-          var results = workspaceAnalyzer.analyze(function(progress) {
+          workspaceAnalyzer.analyzeAsync(function(progress) {
             notify('foam/analyzeProgress', progress);
-          });
-          // Push diagnostics to Problems panel via standard LSP protocol
-          for ( var uri in results.fileResults ) {
-            notify('textDocument/publishDiagnostics', {
-              uri: uri,
-              diagnostics: results.fileResults[uri]
+          }, function(results) {
+            // Push diagnostics to Problems panel via standard LSP protocol
+            for ( var uri in results.fileResults ) {
+              notify('textDocument/publishDiagnostics', {
+                uri: uri,
+                diagnostics: results.fileResults[uri]
+              });
+            }
+            // Also return results for sidebar tree view
+            respond(id, {
+              filesScanned:    results.filesScanned,
+              filesWithIssues: results.filesWithIssues,
+              warnings:        results.warnings,
+              errors:          results.errors,
+              infos:           results.infos,
+              patterns:        results.patterns,
+              fileResults:     results.fileResults
             });
-          }
-          // Also return results for sidebar tree view
-          respond(id, {
-            filesScanned:    results.filesScanned,
-            filesWithIssues: results.filesWithIssues,
-            warnings:        results.warnings,
-            errors:          results.errors,
-            infos:           results.infos,
-            patterns:        results.patterns,
-            fileResults:     results.fileResults
           });
         } catch (e) {
           console.error('[LSP] analyzeWorkspace error:', e.message);
@@ -740,6 +751,12 @@ function start() {
         if ( id !== undefined ) {
           respondError(id, -32601, 'Method not found: ' + method);
         }
+    }
+    } finally {
+      var elapsedMs = Number(process.hrtime.bigint() - timerStart) / 1e6;
+      if ( method && elapsedMs >= LSP_TIMING_MIN_MS ) {
+        console.error('[LSP] ⏱ ' + method + ' ' + elapsedMs.toFixed(1) + 'ms');
+      }
     }
   }
 

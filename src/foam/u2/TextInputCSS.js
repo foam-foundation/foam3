@@ -32,17 +32,17 @@ foam.CLASS({
         width: 100%;
       }
 
-      .foam-u2-TextInputCSS:hover {
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only) {
         border-color: $borderStrong;
       }
 
-      .foam-u2-TextInputCSS:hover::placeholder,
-      .foam-u2-TextInputCSS:hover:-ms-input-placeholder,
-      .foam-u2-TextInputCSS:hover::-ms-input-placeholder {
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only)::placeholder,
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only):-ms-input-placeholder,
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only)::-ms-input-placeholder {
         color: $textTertiary;
       }
 
-      .foam-u2-TextInputCSS:focus-visible {
+      .foam-u2-TextInputCSS:focus-visible:not(:disabled):not(:read-only) {
         outline: none;
         border: 1px solid $borderBrand;
       }

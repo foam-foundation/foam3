@@ -83,7 +83,8 @@ foam.CLASS({
       var map = {
         message:     {}, value:    {}, property: {}, method:  {},
         pomFileName: {}, classRef: {}, comment:  {}, documentation: {},
-        instCall: {}, instCreateReceiver: {}, instTagClass: {}, instKey: {}, instValue: {}
+        instCall: {}, instCreateReceiver: {}, instTagClass: {}, instClassRef: {},
+        instKey: {}, instValue: {}
       };
       // Kinds that allow multiple occurrences per name. Single-occurrence
       // kinds (message, value, property, method, pomFileName) keep their
@@ -92,7 +93,7 @@ foam.CLASS({
       // so collect every position.
       var MULTI = { classRef: true, comment: true, documentation: true,
         instCall: true, instCreateReceiver: true, instTagClass: true,
-        instKey: true, instValue: true };
+        instClassRef: true, instKey: true, instValue: true };
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
@@ -176,7 +177,8 @@ foam.CLASS({
         return out;
       }
       var calls = recs('instCall'), creators = recs('instCreateReceiver'),
-          tags = recs('instTagClass'), keys = recs('instKey'), vals = recs('instValue');
+          tags = recs('instTagClass'), classRefs = recs('instClassRef'),
+          keys = recs('instKey'), vals = recs('instValue');
       function within(r, span) { return r.startPos >= span.startPos && r.endPos <= span.endPos; }
       function innermost(r) {
         var best = null;
@@ -200,8 +202,9 @@ foam.CLASS({
       for ( var c = 0 ; c < calls.length ; c++ ) {
         var span = calls[c];
         var tag = firstIn(tags, span);
+        var classRef = firstIn(classRefs, span);   // { class: 'X', ... } form
         var creator = firstIn(creators, span);
-        var classText = tag ? tag.text : ( creator ? creator.text : null );
+        var classText = tag ? tag.text : ( classRef ? classRef.text : ( creator ? creator.text : null ) );
         if ( ! classText ) continue;
         if ( classText.indexOf('this.') === 0 ) classText = classText.substring(5);
         // keys/values that belong to THIS call (innermost containing call)
@@ -222,7 +225,7 @@ foam.CLASS({
             valuePos: val ? { startPos: val.startPos, endPos: val.endPos } : null
           });
         }
-        out.push({ classText: classText, isTag: !! tag,
+        out.push({ classText: classText, isTag: !! ( tag || classRef ),
           callSpan: { startPos: span.startPos, endPos: span.endPos }, entries: entries });
       }
       return out;
@@ -1164,7 +1167,7 @@ foam.CLASS({
         ), null, 0)), P.literal(')')),
 
         balancedBraces: P.seq(P.literal('{'), P.str(P.repeat(P.alt(
-          P.sym('balancedBraces'), stringLiteral, backtickString,
+          P.sym('instClassObject'), P.sym('balancedBraces'), stringLiteral, backtickString,
           lineComment, blockComment, P.sym('instantiationCall'), P.notChars('{}')
         ), null, 0)), P.literal('}')),
 
@@ -1193,6 +1196,22 @@ foam.CLASS({
           wsc, P.literal(','), wsc,
           P.sym('instObject'),
           wsc, P.optional(P.literal(')'))
+        ), { kind: 'instCall' }),
+
+        // Inline ViewSpec object: `{ class: 'X', prop: ... }` — the class is
+        // named by the `class:` key (required first), siblings are X's props.
+        // Only reached inside code (balancedBraces); property/axiom specs in
+        // `properties:`/`actions:`/etc. arrays are parsed by their own object
+        // rules and never hit this, so `{ class: 'String', name: 'x' }` defs
+        // are untouched.
+        instClassObject: P.msg(P.seq(
+          P.literal('{'), wsc,
+          P.literal('class'), wsc, P.literal(':'), wsc,
+          quotedAny(P.msg(P.str(P.repeat(P.alt(alphaNum, P.chars('._')), null, 1)),
+            { kind: 'instClassRef' })),
+          P.repeat0(P.seq(comma, P.sym('instEntry'))),
+          P.optional(comma),
+          wsc, P.optional(P.literal('}'))
         ), { kind: 'instCall' }),
 
         instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instArgCall')),

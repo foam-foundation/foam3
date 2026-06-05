@@ -735,3 +735,18 @@ test(addForm.length === 1, '.add(classRef, {...}) is detected');
 var noClass = grammar.collectInstantiations(
   "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); } ] })");
 test(noClass.length === 0, 'object-only call (no class arg) is not detected');
+
+section('Grammar — inline ViewSpec { class: X, ... } detection (F3)');
+var vsAdd = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { this.add({ class: 'com.paytic.ui.MetricCard', variant: 'WARN' }); } ] })");
+test(vsAdd.length === 1 && vsAdd[0].classText === 'com.paytic.ui.MetricCard',
+  '{ class: X, ... } in code is detected with the class from the class: key');
+var vsEntry = vsAdd.length === 1 && vsAdd[0].entries.find(function(e){ return e.key === 'variant'; });
+test(vsEntry && vsEntry.valueText.indexOf('WARN') !== -1, 'sibling props captured (class: key excluded)');
+// CRITICAL guard: a property DEFINITION is NOT a ViewSpec instantiation.
+var propDef = grammar.collectInstantiations(
+  "foam.CLASS({ properties: [ { class: 'String', name: 'x', documentation: 'd' } ] })");
+test(propDef.length === 0, "property definition { class: 'String', name: 'x' } is NOT treated as an instantiation");
+var plainObj = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { var o = { a: 1, b: 2 }; } ] })");
+test(plainObj.length === 0, 'plain object with no class: key is not an instantiation');

@@ -750,3 +750,14 @@ test(propDef.length === 0, "property definition { class: 'String', name: 'x' } i
 var plainObj = grammar.collectInstantiations(
   "foam.CLASS({ methods: [ function f() { var o = { a: 1, b: 2 }; } ] })");
 test(plainObj.length === 0, 'plain object with no class: key is not an instantiation');
+
+section('Grammar — this.Short member usages emit memberRef (references)');
+var memSrc = "foam.CLASS({ methods: [ function render() {" +
+  " this.add(this.MetricCard); this.tag(this.MetricCard, { a: 1 }); var x = this.Other.create({}); } ] })";
+var memMap = grammar.collectAxiomPositions(memSrc);
+test(!! (memMap.memberRef && memMap.memberRef['this.MetricCard']),
+  'bare this.MetricCard (render add) emits a memberRef');
+test(!! (memMap.instTagClass && memMap.instTagClass['this.MetricCard']),
+  '.tag(this.MetricCard, {...}) still emits instTagClass');
+test(!! (memMap.instCreateReceiver && memMap.instCreateReceiver['this.Other']),
+  'this.Other.create({}) still emits instCreateReceiver');

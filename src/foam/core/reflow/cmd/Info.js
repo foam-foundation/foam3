@@ -39,6 +39,8 @@ Application:     ${health.appName}
 Version:         ${health.version}
 Address:         ${window.location.origin}
 Port:            ${health.port}
+Processors:      ${health.availableProcessors}
+Runtime:         ${health.runtime}
 User Agent:      ${navigator.userAgent}
 Projects:        ${appConfig.pom}
 Flags:           ${appConfig.flags}

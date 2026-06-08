@@ -9,14 +9,16 @@ package foam.core.partition;
 import foam.core.logger.Loggers;
 import foam.core.script.BeanShellExecutor;
 import foam.dao.*;
+import foam.dao.java.JDAO;
 import foam.lang.*;
-import foam.mlang.order.Comparator;
 import foam.mlang.Expr;
+import foam.mlang.order.Comparator;
 import foam.mlang.predicate.*;
 import foam.mlang.predicate.Predicate;
+import foam.core.fs.Storage;
+import java.io.File;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
-
 
 public class PartitionedDAO
   extends AbstractPartitionedDAO // generated from AbstractPartitionDAO.js
@@ -26,10 +28,16 @@ public class PartitionedDAO
   // protected final ConcurrentHashMap<String, DAO> delegates_ = new ConcurrentHashMap<String, DAO>();
   protected final HashMap<String, SoftReference<DAO>> delegates_ = new HashMap<>();
 
-  public PartitionedDAO(X x, String dirName, Expr partitionProperty) {
+  public PartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty) {
     setX(x);
+    setOf(of);
     setDirName(dirName);
     setPartitionProperty(partitionProperty);
+  }
+
+  public PartitionedDAO(X x, ClassInfo of, String dirName, Expr id, Expr partitionProperty) {
+    this(x, of, dirName, partitionProperty);
+    setIdentityExpr(id);
   }
 
   public synchronized DAO getDelegate(String part) {
@@ -54,38 +62,38 @@ public class PartitionedDAO
   }
 
   public String getPartition(FObject o) {
-    ProgramAware pa = (ProgramAware) o;
-
-    return String.valueOf(pa.getProgramId());
+    return String.valueOf(getPartitionProperty().f(o));
   }
 
   public String getPartition(String id) {
+    String ret = getPartition_(id);
+    System.out.println("****** PARTITION " + id + " -> " + ret);
+    return ret;
+  }
+
+  /** Attempt to extract partition from prefix of a primary key. **/
+  public String getPartition_(String id) {
     var i = id.indexOf('-');
 
     if ( i == -1 ) return null;
 
-    return id.substring(i+1);
+    return id.substring(0, i);
   }
 
   public DAO createDAO(String part) {
     Loggers.logger(getX(), this).info("Creating partiion " + part);
 
-    String plural      = getOf().getPlural().replaceAll(" ","");
-    String journalName = plural.substring(0,1).toLowerCase() + plural.substring(1) + "." + part;
+    String journalName = getDirName() + "_" + part;
 
-    // try {
-      foam.dao.java.JDAO jdao = new foam.dao.java.JDAO(getX(), getOf(), journalName);
-      return jdao;
-      // } catch (java.io.IOException e) {
-      // throw new RuntimeException("Unable to create partition: " + journalName);
-      // }
-/*
-    return new foam.dao.EasyDAO.Builder(x)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName(part + "/threddCardAuthorizations")
-      .setOf(foam.core.auth.Region.getOwnClassInfo())
-      .build();
-*/
+    // TODO: directory creation would be better done by JDAO itself
+    Storage storage = (Storage) getX().get(Storage.class);
+    File    parent  = storage.get(journalName).getParentFile();
+    if ( parent != null && ! parent.isDirectory() && ! parent.mkdirs() ) {
+      throw new RuntimeException("Failed to create directory " + parent);
+    }
+
+    JDAO jdao = new JDAO(getX(), getOf(), journalName);
+    return jdao;
   }
 
   protected DAO getDelegate(X x, FObject obj) {
@@ -102,7 +110,10 @@ public class PartitionedDAO
     String id   = getID(obj);
     String part = null;
 
+    System.out.println("******* PART put " + obj + " " + id);
+
     part = ( id == null ) ? getPartition(obj) : getPartition(id);
+    System.out.println("******* PART put part " + part);
 
     return getDelegate(part).put_(x, obj);
   }
@@ -112,6 +123,10 @@ public class PartitionedDAO
   }
 
   public FObject find_(X x, Object id) {
+    if ( id instanceof FObject ) {
+      id = getID((FObject) id);
+    }
+    // TODO: if id is empty we could skip the find
     return getDelegate((String) id).find_(x, id);
   }
 
@@ -119,7 +134,7 @@ public class PartitionedDAO
     Object part = extractPredicateValue(predicate, (PropertyInfo) getPartitionProperty());
     // TODO: extract partition match or range
     // return sink;
-    return getDelegate(part + "").select_(x, sink, skip, limit, order, predicate);
+    return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
   }
 
   public Object extractPredicateValue(Predicate predicate, PropertyInfo property) {

@@ -13,16 +13,21 @@ p({
 //      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
 //      .setJournalName("regions")
       .setOf(foam.core.auth.Region.getOwnClassInfo())
-      .setDecorator(
-        new foam.core.partition.PartitionedDAO(x, "partitionedRegion", foam.core.auth.Region.COUNTRY_ID))
+      .setDelegate(
+        new foam.core.partition.PartitionedDAO(
+          x,
+          foam.core.auth.Region.getOwnClassInfo(),
+          "partitionedRegion/",
+          foam.core.auth.Region.CODE,
+          foam.core.auth.Region.COUNTRY_ID))
       .build();
   """,
   "client": """
     {
-        "class": "foam.dao.EasyDAO",
-        "serviceName": "service/partitionedRegionDAO",
-        "daoType": "CLIENT",
-        "of": "foam.core.auth.Region"
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/partitionedRegionDAO",
+      "daoType": "CLIENT",
+      "of": "foam.core.auth.Region"
     }
   """
 })

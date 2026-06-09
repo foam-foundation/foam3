@@ -32,6 +32,7 @@ foam.CLASS({
       javaCode: `
         testMigrateRoutesByBucket(x);
         testNeedsMigrationAndArchive(x);
+        testRunEndToEndAndIdempotent(x);
       `
     },
     {
@@ -112,6 +113,53 @@ foam.CLASS({
         Count c2 = (Count) target.getDelegate("2").select(COUNT());
         test( c1.getValue() == 3, "Bucket 1 journal has 3 rows, got " + c1.getValue() );
         test( c2.getValue() == 2, "Bucket 2 journal has 2 rows, got " + c2.getValue() );
+      `
+    },
+    {
+      name: 'testRunEndToEndAndIdempotent',
+      args: 'X x',
+      type: 'Void',
+      javaCode: `
+        X tx = newStorageContext(x);
+        Storage storage = (Storage) tx.get(Storage.class);
+        String legacy = "legacySrc_" + System.nanoTime();
+
+        // Seed legacy single-file journal: bucket 1 x2, bucket 3 x1.
+        DAO writeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy);
+        seedRec(tx, writeDAO, 10L, 1);
+        seedRec(tx, writeDAO, 11L, 1);
+        seedRec(tx, writeDAO, 12L, 3);
+
+        SingleToPartitionMigrator m = new SingleToPartitionMigrator();
+        PartitionedDAO target = newPartitioned(tx);
+
+        m.run(tx, legacy, target);
+
+        test( storage.get(legacy + ".migrated").exists(),
+          "run archived the legacy journal after success" );
+        Count p1 = (Count) target.getDelegate("1").select(COUNT());
+        Count p3 = (Count) target.getDelegate("3").select(COUNT());
+        test( p1.getValue() == 2, "Bucket 1 partition has 2 rows, got " + p1.getValue() );
+        test( p3.getValue() == 1, "Bucket 3 partition has 1 row, got " + p3.getValue() );
+
+        // Idempotent re-run: legacy archived -> no-op, no double-write.
+        m.run(tx, legacy, target);
+        Count p1again = (Count) target.getDelegate("1").select(COUNT());
+        test( p1again.getValue() == 2,
+          "Re-run does not duplicate (still 2 rows), got " + p1again.getValue() );
+
+        // Simulate redeploy: legacy .0 reappears with the SAME records.
+        DAO repoWrite = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy + ".0");
+        seedRec(tx, repoWrite, 10L, 1);
+        seedRec(tx, repoWrite, 11L, 1);
+        seedRec(tx, repoWrite, 12L, 3);
+
+        m.run(tx, legacy, target);
+        Count p1redeploy = (Count) target.getDelegate("1").select(COUNT());
+        test( p1redeploy.getValue() == 2,
+          "Re-migrating same ids upserts (still 2 rows), got " + p1redeploy.getValue() );
+        test( storage.get(legacy + ".0.migrated").exists(),
+          "redeploy .0 journal archived to .0.migrated" );
       `
     },
     {

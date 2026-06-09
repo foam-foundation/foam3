@@ -30,7 +30,17 @@ import static foam.mlang.MLang.COUNT;
 public class SingleToPartitionMigrator {
 
   public Map<String,Long> migrate(X x, DAO source, PartitionedDAO target) {
-    throw new UnsupportedOperationException("not implemented");
+    final Map<String,Long> counts = new HashMap<>();
+    source.select(new AbstractSink() {
+      public void put(Object obj, foam.lang.Detachable sub) {
+        FObject record = (FObject) obj;
+        target.put_(x, record);
+        String part = target.getPartition(record);
+        counts.merge(part, 1L, Long::sum);
+      }
+    });
+    Loggers.logger(x, this).info("Migrated partitions:", counts.toString());
+    return counts;
   }
 
   public boolean needsMigration(Storage storage, String journalName) {

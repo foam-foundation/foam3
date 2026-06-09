@@ -62,6 +62,10 @@ public class SingleToPartitionMigrator {
   private void moveIfExists(Storage storage, String from, String to) {
     File src = storage.get(from);
     if ( src == null || ! src.exists() ) return;
+    // Never archive a directory — when partitions are nested under a dir named
+    // like the legacy journal, that dir shares the journal's base name; only
+    // journal files should be renamed to .migrated.
+    if ( src.isDirectory() ) return;
     File dst = storage.get(to);
     try {
       Files.move(src.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING);

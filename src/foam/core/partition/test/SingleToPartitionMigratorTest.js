@@ -34,6 +34,7 @@ foam.CLASS({
         testNeedsMigrationAndArchive(x);
         testRunEndToEndAndIdempotent(x);
         testRunUsesWritableStorageNotResourceStorage(x);
+        testArchiveSkipsDirectory(x);
       `
     },
     {
@@ -222,6 +223,35 @@ foam.CLASS({
         m.archive(storage, name);
         test( storage.get(name + ".migrated").exists(),
           "re-archive overwrites prior .migrated without error" );
+      `
+    },
+    {
+      name: 'testArchiveSkipsDirectory',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'archive must rename journal files but never a directory that shares the journal base name (the nested-partition dir case).',
+      javaCode: `
+        X tx = newStorageContext(x);
+        Storage storage = (Storage) tx.get(Storage.class);
+        String name = "dirGuard_" + System.nanoTime();
+
+        // A directory named like the journal (stands in for the nested partition dir).
+        File dir = storage.get(name);
+        dir.mkdirs();
+        test( dir.isDirectory(), "precondition: <name> is a directory" );
+
+        // A real repo journal file <name>.0.
+        DAO d = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), name + ".0");
+        seedRec(tx, d, 1L, 5);
+
+        new SingleToPartitionMigrator().archive(storage, name);
+
+        test( storage.get(name).isDirectory(),
+          "archive left the directory in place (did not rename it)" );
+        test( ! storage.get(name + ".migrated").exists(),
+          "archive did NOT create <name>.migrated from the directory" );
+        test( storage.get(name + ".0.migrated").exists(),
+          "archive renamed the repo journal file <name>.0 to .0.migrated" );
       `
     }
   ]

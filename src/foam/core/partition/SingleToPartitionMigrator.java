@@ -34,8 +34,12 @@ public class SingleToPartitionMigrator {
     source.select(new AbstractSink() {
       public void put(Object obj, foam.lang.Detachable sub) {
         FObject record = (FObject) obj;
-        target.put_(x, record);
+        // Route explicitly by the partition property rather than target.put_(),
+        // which derives the partition from getID()/identityExpr — that path
+        // mis-routes a Long-id model to the "null" partition unless the caller
+        // passes Constant(null). Explicit routing is correct for any caller.
         String part = target.getPartition(record);
+        target.getDelegate(part).put_(x, record);
         counts.merge(part, 1L, Long::sum);
       }
     });

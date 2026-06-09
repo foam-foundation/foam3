@@ -86,7 +86,11 @@ public class PartitionedDAO
     String journalName = getDirName() + "_" + part;
 
     // TODO: directory creation would be better done by JDAO itself
-    Storage storage = (Storage) getX().get(Storage.class);
+    // Create the directory in the WRITABLE FileSystemStorage where JDAO writes the
+    // journal, not the Storage.class read storage — the two differ when
+    // resource.journals.dir is set (read journals come from a resource/jar), so
+    // mkdirs on Storage.class would target the wrong root and the write would fail.
+    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
     File    parent  = storage.get(journalName).getParentFile();
     if ( parent != null && ! parent.isDirectory() && ! parent.mkdirs() ) {
       throw new RuntimeException("Failed to create directory " + parent);

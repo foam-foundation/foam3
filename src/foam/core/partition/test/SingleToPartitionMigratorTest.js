@@ -82,13 +82,20 @@ foam.CLASS({
         X tx = newStorageContext(x);
         String src = "ptestSource_" + System.nanoTime();
 
-        DAO writeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src);
-        seedRec(tx, writeDAO, 1L, 1);
-        seedRec(tx, writeDAO, 2L, 1);
-        seedRec(tx, writeDAO, 3L, 1);
-        seedRec(tx, writeDAO, 4L, 2);
-        seedRec(tx, writeDAO, 5L, 2);
+        // Seed the REPO journal (.0) — bucket 1: ids 1,2 ; bucket 2: id 4.
+        // Writing via a JDAO whose filename is "<src>.0" lands records in the file <src>.0,
+        // which a JDAO opened on "<src>" later replays as its read-only repo journal.
+        DAO repoDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src + ".0");
+        seedRec(tx, repoDAO, 1L, 1);
+        seedRec(tx, repoDAO, 2L, 1);
+        seedRec(tx, repoDAO, 4L, 2);
 
+        // Seed the RUNTIME journal "<src>" — bucket 1: id 3 ; bucket 2: id 5.
+        DAO runtimeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src);
+        seedRec(tx, runtimeDAO, 3L, 1);
+        seedRec(tx, runtimeDAO, 5L, 2);
+
+        // A fresh JDAO on "<src>" replays BOTH <src>.0 (repo) and <src> (runtime) — the union.
         DAO source = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src);
         PartitionedDAO target = newPartitioned(tx);
 
@@ -96,9 +103,9 @@ foam.CLASS({
 
         test( counts.size() == 2, "Two partitions written, got " + counts.size() );
         test( counts.get("1") != null && counts.get("1") == 3L,
-          "Bucket 1 has 3 records, got " + counts.get("1") );
+          "Bucket 1 has 3 records (2 from .0 + 1 runtime), got " + counts.get("1") );
         test( counts.get("2") != null && counts.get("2") == 2L,
-          "Bucket 2 has 2 records, got " + counts.get("2") );
+          "Bucket 2 has 2 records (1 from .0 + 1 runtime), got " + counts.get("2") );
 
         Count c1 = (Count) target.getDelegate("1").select(COUNT());
         Count c2 = (Count) target.getDelegate("2").select(COUNT());

@@ -86,8 +86,9 @@ foam.CLASS({
                         .callIf(vals.length > 0, function(){
                           this.forEach(vals, function(val, idx){
                             var color = resolvedColors[idx] || '#b3cde0';
-                            this.start().addClass(self.myClass('block')).style({ background: color })
-                              .add(val > 0 ? val.toLocaleString() : (val === 0 ? '0' : ''))
+                            var value = Number(val) ? Math.round(val * 100) / 100 : val != 0 ? '' : 0;
+                            this.start().addClass(self.myClass('block')).style({ background: color }).attr('title', `${val}`)
+                              .add(value)
                             .end();
                           });
                         })

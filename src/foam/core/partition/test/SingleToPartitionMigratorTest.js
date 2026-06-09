@@ -33,6 +33,7 @@ foam.CLASS({
         testMigrateRoutesByBucket(x);
         testNeedsMigrationAndArchive(x);
         testRunEndToEndAndIdempotent(x);
+        testRunUsesWritableStorageNotResourceStorage(x);
       `
     },
     {
@@ -160,6 +161,36 @@ foam.CLASS({
           "Re-migrating same ids upserts (still 2 rows), got " + p1redeploy.getValue() );
         test( storage.get(legacy + ".0.migrated").exists(),
           "redeploy .0 journal archived to .0.migrated" );
+      `
+    },
+    {
+      name: 'testRunUsesWritableStorageNotResourceStorage',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'In production Storage.class is a read-only ResourceStorage; detect/archive must use the writable FileSystemStorage.class. Puts DIFFERENT storages under the two keys to prove run() archives in the writable one.',
+      javaCode: `
+        String wdir = System.getProperty("java.io.tmpdir") + File.separator + "wmig_" + System.nanoTime();
+        String rdir = System.getProperty("java.io.tmpdir") + File.separator + "rmig_" + System.nanoTime();
+        new File(wdir).mkdirs();
+        new File(rdir).mkdirs();
+        FileSystemStorage writable = new FileSystemStorage(wdir);
+        FileSystemStorage readOnly = new FileSystemStorage(rdir);
+        X tx = x.put(Storage.class, readOnly).put(FileSystemStorage.class, writable);
+
+        String legacy = "splitSrc_" + System.nanoTime();
+        DAO writeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy);
+        seedRec(tx, writeDAO, 20L, 1);
+        seedRec(tx, writeDAO, 21L, 1);
+
+        PartitionedDAO target = newPartitioned(tx);
+        new SingleToPartitionMigrator().run(tx, legacy, target);
+
+        test( writable.get(legacy + ".migrated").exists(),
+          "run archived the legacy journal in the WRITABLE storage" );
+        test( ! readOnly.get(legacy + ".migrated").exists(),
+          "run did NOT touch the read-only storage" );
+        Count p1 = (Count) target.getDelegate("1").select(COUNT());
+        test( p1.getValue() == 2, "Bucket 1 partition has 2 rows, got " + p1.getValue() );
       `
     },
     {

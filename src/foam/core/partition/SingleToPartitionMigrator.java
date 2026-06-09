@@ -84,7 +84,12 @@ public class SingleToPartitionMigrator {
   }
 
   public void run(X x, String legacyJournalName, PartitionedDAO target) {
-    Storage storage = (Storage) x.get(Storage.class);
+    // Use the WRITABLE FileSystemStorage (JOURNAL_HOME), not Storage.class — the
+    // latter is a read-only ResourceStorage when -Dresource.journals.dir is set
+    // (dev/most deploys), which can't detect or rename the runtime journal.
+    // The source read (new JDAO below) still pulls .0 from resources transparently,
+    // so any records shipped in the repo .0 are imported on the first migration.
+    Storage storage = (Storage) x.get(foam.core.fs.FileSystemStorage.class);
     if ( ! needsMigration(storage, legacyJournalName) ) {
       Loggers.logger(x, this).info("No legacy journal to migrate:", legacyJournalName);
       return;

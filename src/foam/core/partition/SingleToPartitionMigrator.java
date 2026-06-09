@@ -44,11 +44,26 @@ public class SingleToPartitionMigrator {
   }
 
   public boolean needsMigration(Storage storage, String journalName) {
-    throw new UnsupportedOperationException("not implemented");
+    File runtime = storage.get(journalName);
+    File repo    = storage.get(journalName + ".0");
+    return ( runtime != null && runtime.exists() )
+        || ( repo != null && repo.exists() );
   }
 
   public void archive(Storage storage, String journalName) {
-    throw new UnsupportedOperationException("not implemented");
+    moveIfExists(storage, journalName,        journalName + ".migrated");
+    moveIfExists(storage, journalName + ".0", journalName + ".0.migrated");
+  }
+
+  private void moveIfExists(Storage storage, String from, String to) {
+    File src = storage.get(from);
+    if ( src == null || ! src.exists() ) return;
+    File dst = storage.get(to);
+    try {
+      Files.move(src.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    } catch ( java.io.IOException e ) {
+      throw new RuntimeException("Failed to archive journal " + from + " -> " + to, e);
+    }
   }
 
   public boolean validate(X x, PartitionedDAO target, Map<String,Long> expected) {

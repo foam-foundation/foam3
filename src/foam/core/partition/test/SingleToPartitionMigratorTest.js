@@ -31,6 +31,7 @@ foam.CLASS({
       name: 'runTest',
       javaCode: `
         testMigrateRoutesByBucket(x);
+        testNeedsMigrationAndArchive(x);
       `
     },
     {
@@ -111,6 +112,37 @@ foam.CLASS({
         Count c2 = (Count) target.getDelegate("2").select(COUNT());
         test( c1.getValue() == 3, "Bucket 1 journal has 3 rows, got " + c1.getValue() );
         test( c2.getValue() == 2, "Bucket 2 journal has 2 rows, got " + c2.getValue() );
+      `
+    },
+    {
+      name: 'testNeedsMigrationAndArchive',
+      args: 'X x',
+      type: 'Void',
+      javaCode: `
+        X tx = newStorageContext(x);
+        Storage storage = (Storage) tx.get(Storage.class);
+        SingleToPartitionMigrator m = new SingleToPartitionMigrator();
+        String name = "archiveSrc_" + System.nanoTime();
+
+        test( ! m.needsMigration(storage, name),
+          "needsMigration false when no legacy journal present" );
+
+        DAO d = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), name);
+        seedRec(tx, d, 1L, 7);
+        test( m.needsMigration(storage, name),
+          "needsMigration true once legacy journal exists" );
+
+        m.archive(storage, name);
+        test( ! m.needsMigration(storage, name),
+          "needsMigration false after archive (renamed to .migrated)" );
+        test( storage.get(name + ".migrated").exists(),
+          "archived runtime journal exists as .migrated" );
+
+        DAO d2 = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), name);
+        seedRec(tx, d2, 2L, 7);
+        m.archive(storage, name);
+        test( storage.get(name + ".migrated").exists(),
+          "re-archive overwrites prior .migrated without error" );
       `
     }
   ]

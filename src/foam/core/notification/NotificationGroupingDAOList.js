@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'NotificationGroupingDAOList',
   extends: 'foam.u2.GroupingDAOList',
 
-  documentation: 'An extension of GroupingDAOList that adds additional actions for Notifications.',
+  documentation: 'An extension of GroupingDAOList that adds a MARK_ALL_AS_READ action',
 
   imports: [
     'stack',
@@ -28,12 +28,8 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'String',
-      name: 'query_',
-      // Pre-set the value because the query property is only set after the user
-      // clicks a tab for the first time BUT the 'Unread' tab will be the first
-      // tab the user sees, so the button should be visible immediately.
-      value: 'Unread'
+      class: 'Boolean',
+      name: 'readTabIsOpen'
     }
   ],
 
@@ -44,29 +40,12 @@ foam.CLASS({
   `,
 
   methods: [
-    // Walk the memento hierarchy to find the WindowHashMemento
-    function topMemento_() {
-      var m = this.memento_;
-      while ( ! this.WindowHashMemento.isInstance(m) && m.parent ) m = m.parent;
-      return m;
-    },
-
-    // Init the memento-related things we need
-    function init() {
-      var self = this, top = this.topMemento_();
-      function refresh() {
-        // Check the memento's usedStr for the query parameter
-        var hit = /[?&]query=([^&]*)/.exec(top.usedStr || '');
-        // Return the value from the query parameter
-        self.query_ = hit ? decodeURIComponent(hit[1]) : '';
-      }
-      // Call refresh() everytime the memento's usedStr updates
-      this.onDetach(top.usedStr$.sub(refresh));
-      this.SUPER();
-    },
-
-    // Render the action at the top of the page
     function render() {
+      // Subscribe to dao changes
+      this.data$proxy.sub('on', this.onDAOUpdate);
+      this.onDAOUpdate();
+
+      // Render the action at the top of the page
       this.onDetach(this.stack.setTrailingContainer(
         this.E()
           .startContext({data: this})
@@ -77,12 +56,31 @@ foam.CLASS({
     }
   ],
 
+    listeners: [
+    {
+      name: 'onDAOUpdate',
+      isFramed: true,
+      code: async function() {
+        // Look for the dao (this will have only the current tab's records)
+        var dao = this.data;
+        if ( ! dao ) return;
+
+        // Get the first record
+        var result = await dao.limit(1).select();
+        if ( result && result.array && result.array.length > 0 ) {
+          // Check if the first record is read or not
+          this.readTabIsOpen = result.array[0].read;
+        }
+      }
+    }
+  ],
+
   actions: [
     {
       name: 'markAllAsRead',
-      isAvailable: function(query_) {
+      isAvailable: function(readTabIsOpen) {
         // Only show the button when we're on the 'Unread' tab
-        return query_ === 'Unread';
+        return ! readTabIsOpen;
       },
       code: async function(X) {
         try {

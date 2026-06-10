@@ -14,12 +14,10 @@ foam.CLASS({
   imports: [
     'stack',
     'myNotificationDAO',
-    'memento_'
   ],
 
   requires: [
     'foam.core.notification.Notification',
-    'foam.u2.memento.WindowHashMemento'
   ],
 
   exports: [

@@ -95,7 +95,7 @@ fi
 ##### Garbage Collection
 # Java <21 The default G1 garbage collector, presently gives the best performance
 # Java 21 onward, Generational Z garbage collector is most performant
-JAVA_OPTS="${JAVA_OPTS} -XX:+UseZGC"
+JAVA_OPTS="${JAVA_OPTS} -XX:+UseZGC -XX:+ZGenerational"
 
 JAVA_OPTS="${JAVA_OPTS} -XX:+UseStringDeduplication"
 # -XX:StringTableSize - explicit adjustment had negative impact.

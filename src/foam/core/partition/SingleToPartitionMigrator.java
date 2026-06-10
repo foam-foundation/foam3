@@ -14,6 +14,7 @@ import foam.dao.java.JDAO;
 import foam.lang.FObject;
 import foam.lang.X;
 import foam.mlang.sink.Count;
+import foam.util.SafetyUtil;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -29,7 +30,7 @@ import static foam.mlang.MLang.COUNT;
  */
 public class SingleToPartitionMigrator {
 
-  public Map<String,Long> migrate(X x, DAO source, PartitionedDAO target) {
+  public Map<String,Long> migrate(X x, DAO source, PartitionedDAO target, Map<String,String> idMap) {
     final Map<String,Long> counts = new HashMap<>();
     source.select(new AbstractSink() {
       public void put(Object obj, foam.lang.Detachable sub) {
@@ -39,13 +40,26 @@ public class SingleToPartitionMigrator {
         // Defer routing to the PartitionedDAO's own put_ / objToPath so the
         // migrator follows whatever partition scheme the DAO defines. Count by
         // the same objToPath the put_ routes on.
-        String part = target.objToPath(record);
-        target.put_(x, record);
+        String part  = target.objToPath(record);
+        String oldId = stringId(record);
+        FObject stored = target.put_(x, record);
+        String newId = stringId(stored);
+        if ( ! SafetyUtil.isEmpty(oldId) && newId != null && ! oldId.equals(newId) ) {
+          idMap.put(oldId, newId);
+        }
         counts.merge(part, 1L, Long::sum);
       }
     });
     Loggers.logger(x, this).info("Migrated partitions:", counts.toString());
     return counts;
+  }
+
+  /** The record's id as a String, or null for non-String-id models. */
+  protected String stringId(FObject record) {
+    foam.lang.PropertyInfo idProp =
+      (foam.lang.PropertyInfo) record.getClassInfo().getAxiomByName("id");
+    if ( idProp == null || ! String.class.equals(idProp.getValueClass()) ) return null;
+    return (String) idProp.get(record);
   }
 
   public boolean needsMigration(Storage storage, String journalName) {
@@ -55,6 +69,20 @@ public class SingleToPartitionMigrator {
     File repo    = storage.get(journalName + ".0");
     return ( runtime != null && runtime.exists() && ! runtime.isDirectory() )
         || ( repo != null && repo.exists() && ! repo.isDirectory() );
+  }
+
+  /** True when the target's partition directory already contains partition
+      journal files. Partition journals are named "<dirName>_<part>" (see
+      PartitionedDAO.createDAO), so only files with that prefix count — the
+      directory may be a shared root holding unrelated journals when dirName
+      has no nested path. */
+  protected boolean hasExistingPartitions(Storage storage, PartitionedDAO target) {
+    File probe = storage.get(target.getDirName() + "_");
+    File dir   = probe == null ? null : probe.getParentFile();
+    if ( dir == null || ! dir.isDirectory() ) return false;
+    final String prefix = probe.getName();
+    File[] files = dir.listFiles((d, name) -> name.startsWith(prefix));
+    return files != null && files.length > 0;
   }
 
   public void archive(Storage storage, String journalName) {
@@ -90,7 +118,12 @@ public class SingleToPartitionMigrator {
     return true;
   }
 
+  /** Migration without reference fixup — for targets no other DAO references. */
   public void run(X x, String legacyJournalName, PartitionedDAO target) {
+    run(x, legacyJournalName, target, null);
+  }
+
+  public void run(X x, String legacyJournalName, PartitionedDAO target, String daoKey) {
     // Use the WRITABLE FileSystemStorage (JOURNAL_HOME), not Storage.class — the
     // latter is a read-only ResourceStorage when -Dresource.journals.dir is set
     // (dev/most deploys), which can't detect or rename the runtime journal.
@@ -102,10 +135,24 @@ public class SingleToPartitionMigrator {
       return;
     }
 
+    // A legacy journal alongside already-populated partition journals means a
+    // previous migration crashed partway (or writes raced the migration).
+    // Re-running would duplicate records under fresh seqNo ids, so fail loudly
+    // and leave everything untouched for manual recovery: either restore the
+    // legacy journal as the source of truth and delete the partition journals,
+    // or delete/archive the legacy journal if the partitions are complete.
+    if ( hasExistingPartitions(storage, target) ) {
+      Loggers.logger(x, this).error(
+        "Partial previous migration detected; NOT migrating.",
+        "legacy", legacyJournalName, "partitionDir", target.getDirName());
+      return;
+    }
+
     DAO source = new JDAO(x, target.getOf(), legacyJournalName);
     long srcCount = ((Count) source.select(COUNT())).getValue();
 
-    Map<String,Long> counts = migrate(x, source, target);
+    Map<String,String> idMap  = new HashMap<>();
+    Map<String,Long>   counts = migrate(x, source, target, idMap);
     long migrated = 0L;
     for ( Long v : counts.values() ) migrated += v;
 
@@ -119,6 +166,22 @@ public class SingleToPartitionMigrator {
     if ( ! validate(x, target, counts) ) {
       Loggers.logger(x, this).warning("Partition validation failed; NOT archiving.");
       return;
+    }
+
+    // Fix references held by other DAOs before archiving — the archived
+    // journal doubles as the completion marker: any crash before this point
+    // leaves the journal in place alongside populated partitions, which the
+    // pre-flight guard reports loudly as a partial migration on the next boot.
+    if ( daoKey != null && ! idMap.isEmpty() ) {
+      try {
+        if ( ! new ReferenceMigrator(daoKey).fixReferences(x, idMap) ) {
+          Loggers.logger(x, this).warning("Reference fixup incomplete; NOT archiving.");
+          return;
+        }
+      } catch ( Throwable t ) {
+        Loggers.logger(x, this).error("Reference fixup failed; NOT archiving.", t);
+        return;
+      }
     }
 
     archive(storage, legacyJournalName);

@@ -203,10 +203,15 @@ public class PartitionedDAO
   }
 
   /** Copy a legacy single-file journal's records into this DAO's per-partition
-      journals, validate, and archive the legacy journal. Delegates to
-      SingleToPartitionMigrator with this DAO as the target. */
+      journals, rewrite references held by other DAOs (discovered via
+      ReferencePropertyInfo when daoKey is given), validate, and archive the
+      legacy journal. Delegates to SingleToPartitionMigrator. */
+  public void migrateFrom(X x, String legacyJournalName, String daoKey) {
+    new SingleToPartitionMigrator().run(x, legacyJournalName, this, daoKey);
+  }
+
   public void migrateFrom(X x, String legacyJournalName) {
-    new SingleToPartitionMigrator().run(x, legacyJournalName, this);
+    migrateFrom(x, legacyJournalName, null);
   }
 
 //  No implementation needed for removeAll_() because it just calls select_().

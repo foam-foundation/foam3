@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'SingleToPartitionMigratorTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'Tests SingleToPartitionMigrator: routing, counts, archive, idempotent re-run.',
+  documentation: 'Tests SingleToPartitionMigrator: routing, counts, archive, idempotent re-run, partial-migration guard.',
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.core.partition.PartitionedDAO',
     'foam.core.partition.SingleToPartitionMigrator',
     'foam.core.partition.test.PartitionStrRecord',
+    'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.java.JDAO',
     'foam.lang.FObject',
@@ -24,6 +25,7 @@ foam.CLASS({
     'foam.mlang.Constant',
     'foam.mlang.sink.Count',
     'java.io.File',
+    'java.util.HashMap',
     'java.util.Map',
     'static foam.mlang.MLang.COUNT'
   ],
@@ -40,6 +42,137 @@ foam.CLASS({
         testCompositeKeyFind(x);
         testMigrateFromStringIdModel(x);
         testNegativePartitionKnownGap(x);
+        testMigratedIdsRoutable(x);
+        testNonNumericSuffixNoCrash(x);
+        testMigrateCapturesIdMap(x);
+        testPartialMigrationGuard(x);
+      `
+    },
+    {
+      name: 'testMigratedIdsRoutable',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'migrateFrom lets the target DAO stamp fresh <partition>-<seqNo> ids on String-id records (no legacy-id preservation), and the stamped ids route back through the outer PartitionedDAO via find_.',
+      javaCode: `
+        X tx = newStorageContext(x);
+        String legacy = "routable_" + System.nanoTime();
+
+        DAO src = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
+        PartitionStrRecord r1 = new PartitionStrRecord(); r1.setId("a"); r1.setBucket(5); r1.setData("d1"); src.put(r1);
+        PartitionStrRecord r2 = new PartitionStrRecord(); r2.setId("7"); r2.setBucket(9); r2.setData("d2"); src.put(r2);
+
+        PartitionedDAO target = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "prt" + System.nanoTime() + "/",
+          new Constant(null), PartitionStrRecord.BUCKET);
+        target.migrateFrom(tx, legacy);
+
+        ArraySink s5 = (ArraySink) target.getDelegate("5").select(new ArraySink());
+        ArraySink s9 = (ArraySink) target.getDelegate("9").select(new ArraySink());
+        test( s5.getArray().size() == 1,
+          "partition 5 holds exactly 1 migrated record, got " + s5.getArray().size() );
+        test( s9.getArray().size() == 1,
+          "partition 9 holds exactly 1 migrated record, got " + s9.getArray().size() );
+        if ( s5.getArray().size() != 1 || s9.getArray().size() != 1 ) return;
+
+        String id5 = (String) PartitionStrRecord.ID.get((FObject) s5.getArray().get(0));
+        String id9 = (String) PartitionStrRecord.ID.get((FObject) s9.getArray().get(0));
+        test( id5 != null && id5.startsWith("5-") && ! "a".equals(id5),
+          "legacy id 'a' restamped to a '5-' seqNo id, got " + id5 );
+        test( id9 != null && id9.startsWith("9-") && ! "7".equals(id9),
+          "legacy id '7' restamped to a '9-' seqNo id, got " + id9 );
+
+        // The stamped composite ids route through the OUTER PartitionedDAO.
+        FObject f5 = target.find_(tx, id5);
+        FObject f9 = target.find_(tx, id9);
+        test( f5 != null && "d1".equals(PartitionStrRecord.DATA.get(f5)),
+          "find_('" + id5 + "') routed by prefix to the bucket-5 record" );
+        test( f9 != null && "d2".equals(PartitionStrRecord.DATA.get(f9)),
+          "find_('" + id9 + "') routed by prefix to the bucket-9 record" );
+      `
+    },
+    {
+      name: 'testPartialMigrationGuard',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'A legacy journal found alongside already-populated partition journals signals a crashed prior migration: run must refuse to import (no duplicates) and must NOT archive the legacy journal.',
+      javaCode: `
+        X tx = newStorageContext(x);
+        Storage storage = (Storage) tx.get(FileSystemStorage.class);
+        String legacy = "partial_" + System.nanoTime();
+
+        PartitionedDAO target = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "pguard" + System.nanoTime() + "/",
+          new Constant(null), PartitionStrRecord.BUCKET);
+
+        // Populate a partition journal directly (stands in for a crashed prior migration).
+        PartitionStrRecord pre = new PartitionStrRecord(); pre.setBucket(5); pre.setData("pre");
+        target.put_(tx, pre);
+
+        // A legacy journal appears alongside the populated partitions.
+        DAO src = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
+        PartitionStrRecord r = new PartitionStrRecord(); r.setId("a"); r.setBucket(5); r.setData("da"); src.put(r);
+
+        target.migrateFrom(tx, legacy);
+
+        test( storage.get(legacy).exists(),
+          "guard left the legacy journal in place (NOT archived)" );
+        test( ! storage.get(legacy + ".migrated").exists(),
+          "guard did not create <legacy>.migrated" );
+        Count c5 = (Count) target.getDelegate("5").select(COUNT());
+        test( c5.getValue() == 1,
+          "guard did not import (partition 5 still has 1 record), got " + c5.getValue() );
+      `
+    },
+    {
+      name: 'testNonNumericSuffixNoCrash',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'Putting a record with a pre-set non-numeric-suffix id ("5-a") through the partitioned DAO neither crashes (getObjId no longer throws) nor changes the id.',
+      javaCode: `
+        X tx = newStorageContext(x);
+        PartitionedDAO p = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "pnn" + System.nanoTime() + "/",
+          new Constant(null), PartitionStrRecord.BUCKET);
+
+        PartitionStrRecord r = new PartitionStrRecord(); r.setId("5-a"); r.setBucket(5); r.setData("d");
+        try {
+          FObject pr = p.put_(tx, r);
+          String id = (String) PartitionStrRecord.ID.get(pr);
+          test( "5-a".equals(id),
+            "pre-set id '5-a' preserved through put_, got " + id );
+        } catch ( Throwable t ) {
+          test( false,
+            "put_ of a pre-set id '5-a' must not throw, got: " + t.getMessage() );
+        }
+      `
+    },
+    {
+      name: 'testMigrateCapturesIdMap',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'migrate fills the supplied idMap with oldId -> newId for every String-id record whose id changed: "a" in bucket 5 and "7" in bucket 9 map to fresh "5-"/"9-" seqNo ids stamped by the target DAO.',
+      javaCode: `
+        X tx = newStorageContext(x);
+        String legacy = "idMapSrc_" + System.nanoTime();
+
+        DAO src = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
+        PartitionStrRecord r1 = new PartitionStrRecord(); r1.setId("a"); r1.setBucket(5); r1.setData("d1"); src.put(r1);
+        PartitionStrRecord r2 = new PartitionStrRecord(); r2.setId("7"); r2.setBucket(9); r2.setData("d2"); src.put(r2);
+
+        PartitionedDAO target = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "pidmap" + System.nanoTime() + "/",
+          new Constant(null), PartitionStrRecord.BUCKET);
+
+        Map<String,String> idMap = new HashMap<>();
+        new SingleToPartitionMigrator().migrate(tx, src, target, idMap);
+
+        test( idMap.size() == 2, "idMap captured 2 id changes, got " + idMap.size() );
+        String na = idMap.get("a");
+        String n7 = idMap.get("7");
+        test( na != null && na.startsWith("5-") && ! "a".equals(na),
+          "idMap maps 'a' to a fresh '5-' id, got " + na );
+        test( n7 != null && n7.startsWith("9-") && ! "7".equals(n7),
+          "idMap maps '7' to a fresh '9-' id, got " + n7 );
       `
     },
     {
@@ -198,7 +331,7 @@ foam.CLASS({
         DAO source = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src);
         PartitionedDAO target = newPartitioned(tx);
 
-        Map<String,Long> counts = new SingleToPartitionMigrator().migrate(tx, source, target);
+        Map<String,Long> counts = new SingleToPartitionMigrator().migrate(tx, source, target, new HashMap<String,String>());
 
         test( counts.size() == 2, "Two partitions written, got " + counts.size() );
         test( counts.get("1") != null && counts.get("1") == 3L,
@@ -245,7 +378,9 @@ foam.CLASS({
         test( p1again.getValue() == 2,
           "Re-run does not duplicate (still 2 rows), got " + p1again.getValue() );
 
-        // Simulate redeploy: legacy .0 reappears with the SAME records.
+        // Simulate redeploy: legacy .0 reappears next to the populated
+        // partitions. The pre-flight guard treats this as a partial migration:
+        // no re-import (would duplicate under fresh seqNo ids), no archive.
         DAO repoWrite = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy + ".0");
         seedRec(tx, repoWrite, 10L, 1);
         seedRec(tx, repoWrite, 11L, 1);
@@ -254,9 +389,9 @@ foam.CLASS({
         m.run(tx, legacy, target);
         Count p1redeploy = (Count) target.getDelegate("1").select(COUNT());
         test( p1redeploy.getValue() == 2,
-          "Re-migrating same ids upserts (still 2 rows), got " + p1redeploy.getValue() );
-        test( storage.get(legacy + ".0.migrated").exists(),
-          "redeploy .0 journal archived to .0.migrated" );
+          "Guard refused re-import (still 2 rows), got " + p1redeploy.getValue() );
+        test( ! storage.get(legacy + ".0.migrated").exists(),
+          "guard left the reappeared .0 journal unarchived for manual recovery" );
       `
     },
     {

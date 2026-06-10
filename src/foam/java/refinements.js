@@ -2381,6 +2381,18 @@ foam.CLASS({
         args: [ { name: 'x', type: 'foam.lang.X' } ],
         body: `return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${foam.String.capitalize(this.name)}());`
       });
+    },
+
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+      info.implements = (info.implements || []).concat('foam.lang.ReferencePropertyInfo');
+      info.method({
+        name: 'getTargetDAOKey',
+        visibility: 'public',
+        type: 'String',
+        body: `return "${this.targetDAOKey}";`
+      });
+      return info;
     }
   ]
 });

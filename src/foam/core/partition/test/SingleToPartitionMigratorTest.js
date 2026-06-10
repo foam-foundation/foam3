@@ -16,8 +16,10 @@ foam.CLASS({
     'foam.core.fs.Storage',
     'foam.core.partition.PartitionedDAO',
     'foam.core.partition.SingleToPartitionMigrator',
+    'foam.core.partition.test.PartitionStrRecord',
     'foam.dao.DAO',
     'foam.dao.java.JDAO',
+    'foam.lang.FObject',
     'foam.lang.X',
     'foam.mlang.Constant',
     'foam.mlang.sink.Count',
@@ -35,6 +37,99 @@ foam.CLASS({
         testRunEndToEndAndIdempotent(x);
         testRunUsesWritableStorageNotResourceStorage(x);
         testArchiveSkipsDirectory(x);
+        testCompositeKeyFind(x);
+        testMigrateFromStringIdModel(x);
+        testNegativePartitionKnownGap(x);
+      `
+    },
+    {
+      name: 'testNegativePartitionKnownGap',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'KNOWN-FAILING on purpose. getPartition_ uses indexOf (first "-") so chained partitions ("<a>-<b>-<key>") peel the outermost first; but a negative partition value ("-116993-1") then extracts "" instead of "-116993". Partition values can be negative, so this must be handled by a future negative-aware fix. Kept failing so that fix is validated when it lands.',
+      javaCode: `
+        PartitionedDAO p = newPartitioned(x);
+        String id = "-116993-1";
+        test( "-116993".equals(p.getPartition(id)),
+          "KNOWN GAP: getPartition('-116993-1') should be '-116993' (negative partition), got '"
+            + p.getPartition(id) + "' under indexOf — fix when negative-aware partition keys land" );
+      `
+    },
+    {
+      name: 'testMigrateFromStringIdModel',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'PartitionedDAO.migrateFrom on a String-id (seqNo) model: source records are frozen and the per-partition seqNo stamps a composite id, so migrate must clone before put_ (regression for the frozen-record crash).',
+      javaCode: `
+        X tx = newStorageContext(x);
+        String legacy = "strLegacy_" + System.nanoTime();
+
+        // Seed a single-file legacy journal with String-id records (2 in bucket 5).
+        DAO src = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
+        PartitionStrRecord r1 = new PartitionStrRecord(); r1.setId("a"); r1.setBucket(5); r1.setData("d1"); src.put(r1);
+        PartitionStrRecord r2 = new PartitionStrRecord(); r2.setId("b"); r2.setBucket(5); r2.setData("d2"); src.put(r2);
+
+        PartitionedDAO target = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "pstrmig/", new Constant(null), PartitionStrRecord.BUCKET);
+
+        // Must not throw "Object is frozen" — migrate clones the selected records.
+        target.migrateFrom(tx, legacy);
+
+        Count c5 = (Count) target.getDelegate("5").select(COUNT());
+        test( c5.getValue() == 2, "migrateFrom landed 2 records in partition 5, got " + c5.getValue() );
+      `
+    },
+    {
+      name: 'testCompositeKeyFind',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'A String-id model auto-gets composite <partition>-<seq> ids; put_ stamps them and find resolves by the partition prefix across partitions.',
+      javaCode: `
+        X tx = newStorageContext(x);
+
+        // Constant(null) identity (as the real wiring uses) so put_ routes by the
+        // partition property, not getID — an unset String id is "" not null, which
+        // would otherwise send objToPath down the id branch and resolve to null.
+        PartitionedDAO p = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", new Constant(null), PartitionStrRecord.BUCKET);
+
+        // ids UNSET -> the per-partition seqNo stamps <bucket>-<seq>. Two in bucket 5, one in bucket 99.
+        PartitionStrRecord a = new PartitionStrRecord(); a.setBucket(5);  a.setData("a"); FObject pa = p.put_(tx, a);
+        PartitionStrRecord b = new PartitionStrRecord(); b.setBucket(5);  b.setData("b"); FObject pb = p.put_(tx, b);
+        PartitionStrRecord c = new PartitionStrRecord(); c.setBucket(99); c.setData("c"); FObject pc = p.put_(tx, c);
+
+        String idA = (String) PartitionStrRecord.ID.get(pa);
+        String idC = (String) PartitionStrRecord.ID.get(pc);
+        test( idA != null && idA.startsWith("5-"),
+          "bucket 5 record got composite id '5-...', got " + idA );
+        test( idC != null && idC.startsWith("99-"),
+          "bucket 99 record got composite id '99-...', got " + idC );
+
+        // partition extraction reads the prefix before the first '-'.
+        test( "5".equals(p.getPartition(idA)), "getPartition('" + idA + "') == 5" );
+        test( "99".equals(p.getPartition(idC)), "getPartition('" + idC + "') == 99" );
+
+        // find by the composite id resolves to the right partition.
+        FObject foundA = p.find_(tx, idA);
+        FObject foundC = p.find_(tx, idC);
+        test( foundA != null && "a".equals(PartitionStrRecord.DATA.get(foundA)),
+          "find(idA) resolved record a" );
+        test( foundC != null && "c".equals(PartitionStrRecord.DATA.get(foundC)),
+          "find(idC) resolved record c in partition 99" );
+
+        // Re-open a fresh PartitionedDAO on the same storage: find must resolve
+        // from the on-disk partition journals (a boot), not the in-memory cache.
+        PartitionedDAO p2 = new PartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", new Constant(null), PartitionStrRecord.BUCKET);
+        FObject reA = p2.find_(tx, idA);
+        FObject reC = p2.find_(tx, idC);
+        test( reA != null && "a".equals(PartitionStrRecord.DATA.get(reA)),
+          "fresh DAO instance resolved idA from the journal" );
+        test( reC != null && "c".equals(PartitionStrRecord.DATA.get(reC)),
+          "fresh DAO instance resolved idC (partition 99) from the journal" );
+
+        // A non-existent composite id in a real partition returns null, not a crash.
+        test( p2.find_(tx, "5-9999") == null, "find of a missing id returns null" );
       `
     },
     {

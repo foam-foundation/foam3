@@ -3,6 +3,7 @@ foam.POM({
 
   files: [
     { name: 'PartitionTestRecord',           flags: 'js&test|java&test' },
+    { name: 'PartitionStrRecord',            flags: 'js&test|java&test' },
     { name: 'SingleToPartitionMigratorTest', flags: 'js&test|java&test' }
   ]
 });

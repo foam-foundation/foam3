@@ -33,13 +33,14 @@ public class SingleToPartitionMigrator {
     final Map<String,Long> counts = new HashMap<>();
     source.select(new AbstractSink() {
       public void put(Object obj, foam.lang.Detachable sub) {
-        FObject record = (FObject) obj;
-        // Route explicitly by the partition property rather than target.put_(),
-        // which derives the partition from getID()/identityExpr — that path
-        // mis-routes a Long-id model to the "null" partition unless the caller
-        // passes Constant(null). Explicit routing is correct for any caller.
-        String part = target.getPartition(record);
-        target.getDelegate(part).put_(x, record);
+        // select() returns frozen objects; clone before put_ since a per-partition
+        // seqNo may stamp a composite id on the record.
+        FObject record = ((FObject) obj).fclone();
+        // Defer routing to the PartitionedDAO's own put_ / objToPath so the
+        // migrator follows whatever partition scheme the DAO defines. Count by
+        // the same objToPath the put_ routes on.
+        String part = target.objToPath(record);
+        target.put_(x, record);
         counts.merge(part, 1L, Long::sum);
       }
     });
@@ -48,10 +49,12 @@ public class SingleToPartitionMigrator {
   }
 
   public boolean needsMigration(Storage storage, String journalName) {
+    // A directory at the journal name (e.g. a sibling PartitionedDAO nesting its
+    // per-partition files under "<name>/") is not a legacy journal to migrate.
     File runtime = storage.get(journalName);
     File repo    = storage.get(journalName + ".0");
-    return ( runtime != null && runtime.exists() )
-        || ( repo != null && repo.exists() );
+    return ( runtime != null && runtime.exists() && ! runtime.isDirectory() )
+        || ( repo != null && repo.exists() && ! repo.isDirectory() );
   }
 
   public void archive(Storage storage, String journalName) {

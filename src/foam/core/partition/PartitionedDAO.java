@@ -71,7 +71,9 @@ public class PartitionedDAO
     return ret;
   }
 
-  /** Attempt to extract partition from prefix of a primary key. **/
+  /** Attempt to extract partition from prefix of a primary key. Uses the FIRST
+      '-' so chained partitions (e.g. "<a>-<b>-<key>") peel the outermost
+      partition first. **/
   public String getPartition_(String id) {
     var i = id.indexOf('-');
 
@@ -97,6 +99,19 @@ public class PartitionedDAO
     }
 
     JDAO jdao = new JDAO(getX(), getOf(), journalName);
+
+    // When the model's id is a String, assign composite <partition>-<seqNo>
+    // ids per partition so find can route by the id prefix (see getPartition_).
+    // Long-id models stay flat (no prefix), preserving non-composite usage.
+    foam.lang.PropertyInfo idProp = (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
+    if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
+      return new foam.core.partition.PartitionedSequenceNumberDAO.Builder(getX())
+        .setPrefix(part + "-")
+        .setProperty("id")
+        .setDelegate(jdao)
+        .build();
+    }
+
     return jdao;
   }
 
@@ -176,6 +191,13 @@ public class PartitionedDAO
     }
 
     return null;
+  }
+
+  /** Copy a legacy single-file journal's records into this DAO's per-partition
+      journals, validate, and archive the legacy journal. Delegates to
+      SingleToPartitionMigrator with this DAO as the target. */
+  public void migrateFrom(X x, String legacyJournalName) {
+    new SingleToPartitionMigrator().run(x, legacyJournalName, this);
   }
 
 //  No implementation needed for removeAll_() because it just calls select_().

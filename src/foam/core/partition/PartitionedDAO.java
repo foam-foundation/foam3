@@ -110,16 +110,16 @@ public class PartitionedDAO
   }
 */
 
+  public String objToPath(FObject obj) {
+    String id = getID(obj);
+
+    if ( id != null ) return getPartition(id);
+
+    return getPartition(obj);
+  }
+
   public FObject put_(X x, FObject obj) {
-    String id   = getID(obj);
-    String part = null;
-
-    System.out.println("******* PART put " + obj + " " + id);
-
-    part = ( id == null ) ? getPartition(obj) : getPartition(id);
-    System.out.println("******* PART put part " + part);
-
-    return getDelegate(part).put_(x, obj);
+    return getDelegate(objToPath(obj)).put_(x, obj);
   }
 
   public FObject remove_(X x, FObject obj) {
@@ -127,11 +127,10 @@ public class PartitionedDAO
   }
 
   public FObject find_(X x, Object id) {
-    if ( id instanceof FObject ) {
-      id = getID((FObject) id);
-    }
+    String part = id instanceof String ? getPartition((String) id) : objToPath((FObject) id);
+
     // TODO: if id is empty we could skip the find
-    return getDelegate((String) id).find_(x, id);
+    return getDelegate(part).find_(x, id);
   }
 
   public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {

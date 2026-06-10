@@ -24,9 +24,15 @@ public class PartitionedDAO
   extends AbstractPartitionedDAO // generated from AbstractPartitionDAO.js
 {
 
+  protected final static String NO_PART = "".intern();
+
   // Doesn't need to be concurrent since the getDelgate() method is synchronized
   // protected final ConcurrentHashMap<String, DAO> delegates_ = new ConcurrentHashMap<String, DAO>();
   protected final HashMap<String, SoftReference<DAO>> delegates_ = new HashMap<>();
+
+  public PartitionedDAO(X x) {
+    setX(x);
+  }
 
   public PartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty) {
     setX(x);
@@ -41,6 +47,8 @@ public class PartitionedDAO
   }
 
   public synchronized DAO getDelegate(String part) {
+    if ( part == null ) part = NO_PART;
+
     synchronized ( part.intern() ) {
       SoftReference<DAO> ref = delegates_.get(part);
 
@@ -119,7 +127,8 @@ public class PartitionedDAO
   }
 
   public FObject put_(X x, FObject obj) {
-    return getDelegate(objToPath(obj)).put_(x, obj);
+    //    return getDelegate(objToPath(obj)).put_(x, obj);
+    return getDelegate(getPartition(obj)).put_(x, obj);
   }
 
   public FObject remove_(X x, FObject obj) {

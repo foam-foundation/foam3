@@ -27,7 +27,7 @@ foam.CLASS({
   properties: [
     {
       class: 'Boolean',
-      name: 'readTabIsOpen'
+      name: 'readTabIsOpen',
     }
   ],
 
@@ -68,6 +68,12 @@ foam.CLASS({
         if ( result && result.array && result.array.length > 0 ) {
           // Check if the first record is read or not
           this.readTabIsOpen = result.array[0].read;
+        }
+
+        // If there are no notifications
+        if ( result && result.array && result.array.length == 0 ) {
+          // Hide the button
+          this.readTabIsOpen = true;
         }
       }
     }

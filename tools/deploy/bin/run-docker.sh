@@ -76,6 +76,12 @@ if [ "$JVM_MEM" != "8g" ]; then
   FLAG_PASSED=true
 fi
 
+# shrc.local baseline settings
+if [ -f "${APP_HOME}/etc/shrc.local" ]; then
+  echo "Sourcing baseline configuration from shrc.local..."
+  . "${APP_HOME}/etc/shrc.local"
+fi
+
 # shrc.custom overrides
 if [ -f "${APP_HOME}/conf/shrc.custom" ]; then
   echo "Sourcing custom configuration from shrc.custom..."

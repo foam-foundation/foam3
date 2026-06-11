@@ -842,8 +842,20 @@ foam.CLASS({
         ),
 
         listenersArray: P.seq(P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.sym('listenerObject'), wsc)),
+          repeatList(P.seq(wsc, P.sym('listenerDef'), wsc)),
           wsc, P.optional(P.literal(']'))),
+        // Listeners come in two forms — the bare named-function form
+        // (`function click(e){...}`, a common idiom) and the object form
+        // (`{ name, code }`). Without the bare-function arm, listenersArray's
+        // object-only rule "succeeds" on just `[` (empty optional list + optional
+        // `]`), leaving `function click(){}], methods:[...]` to be misparsed as
+        // class entries — silently dropping every axiom after the listeners block.
+        // namedFunctionBody also emits the 'method' axiom position so go-to-def /
+        // hover resolve on the listener name (parity with methodDef).
+        listenerDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('listenerObject')
+        ),
         listenerObject: P.seq(P.literal('{'), wsc,
           repeatList(P.sym('listenerObjEntry')),
           wsc, P.optional(P.literal('}'))),

@@ -137,7 +137,8 @@ foam.CLASS({
         }
       }
       `,
-      documentation: 'comma seperated hours. -1 for wildcard.'
+      documentation: 'comma seperated hours. -1 for wildcard.',
+      help: 'Comma seperated list of hours in range 0 through 23. Or -1 for all hours.'
     },
     {
       documentation: 'deprecated, replaced by monthsOfYear',
@@ -215,7 +216,7 @@ foam.CLASS({
       visibility: function(daysOfMonth) {
         if ( daysOfMonth.length > 0 )
           return foam.u2.DisplayMode.HIDDEN;
-        if ( this.controllerMode == foam.u2.ControllerMode.EDIT )
+        if ( this.controllerMode == foam.u2.ControllerMode.EDIT || this.controllerMode == foam.u2.ControllerMode.CREATE )
           return foam.u2.DisplayMode.RW;
         return foam.u2.DisplayMode.RO;
       }
@@ -243,7 +244,7 @@ foam.CLASS({
         if ( weekOfMonth > 0 || ( daysOfWeek.length > 0 && daysOfMonth.length == 0 ) )
           return foam.u2.DisplayMode.HIDDEN;
 
-        if ( this.controllerMode == foam.u2.ControllerMode.EDIT )
+        if ( this.controllerMode == foam.u2.ControllerMode.EDIT || this.controllerMode == foam.u2.ControllerMode.CREATE )
           return foam.u2.DisplayMode.RW;
 
         return foam.u2.DisplayMode.RO;

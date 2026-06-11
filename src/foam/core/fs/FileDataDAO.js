@@ -11,10 +11,15 @@ foam.CLASS({
 
   javaImports: [
     'foam.blob.*',
+    'foam.core.auth.Subject',
+    'foam.core.auth.User',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.Sink',
     'foam.util.SafetyUtil',
+    'foam.util.SecurityUtil',
+    'java.nio.charset.StandardCharsets',
+    'java.security.MessageDigest',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
   ],
@@ -33,6 +38,16 @@ foam.CLASS({
       name: 'put_',
       javaCode: `
       File file = (File) obj;
+
+      // Stamp owner from the authenticated subject when missing. owner is part of
+      // the file id below, so an empty owner would let two users' identical uploads
+      // collide on the same id and fail the update authorization.
+      if ( file.getOwner() == 0 ) {
+        Subject subject = (Subject) x.get("subject");
+        User user = subject == null ? null : subject.getUser();
+        if ( user != null ) file.setOwner(user.getId());
+      }
+
       DAO fileTypeDAO = (DAO) x.get("fileTypeDAO");
       FileType fileType;
       String type = "";
@@ -98,7 +113,16 @@ foam.CLASS({
         // save to filesystem
         BlobService blobStore = (BlobService) x.get("blobStore");
         IdentifiedBlob result = (IdentifiedBlob) blobStore.put(blob);
-        file.setId(result.getId());
+        file.setDigest(result.getId());
+
+        // Derive the file id from owner + filename + content digest so identical
+        // content from different users (or different filenames) lands on distinct
+        // records, while the same user re-uploading the same file stays idempotent.
+        // Blobs remain keyed by digest alone, so content dedup is preserved.
+        String idSeed = file.getOwner() + "/" + file.getFilename() + "/" + result.getId();
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        file.setId(SecurityUtil.ByteArrayToHexString(md.digest(idSeed.getBytes(StandardCharsets.UTF_8))));
+
         file.clearData();
         return getDelegate().put_(x, file);
       } catch (Exception e) {

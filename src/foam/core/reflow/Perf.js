@@ -112,3 +112,173 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'Perf',
+  extends: 'foam.u2.View',
+
+  documentation: `Reflow performance block. Start/Stop captures a PerfReport:
+    snapshots at both ends, FPS via requestAnimationFrame, long tasks via
+    PerformanceObserver (Chrome). The report is the block's structured value.
+    Snapshot action takes a one-shot snapshot without a window. The capture
+    methods are callable headlessly (no rendered view) - see the loadPerf
+    command.`,
+
+  requires: [
+    'foam.core.reflow.PerfReport',
+    'foam.core.reflow.PerfSnapshot'
+  ],
+
+  imports: [ 'window' ],
+
+  css: `
+    ^ { font-size: 13px; }
+    ^ table { border-collapse: collapse; }
+    ^ th { text-align: left; padding: 2px 12px 2px 0; }
+    ^ td { padding: 2px 0; font-variant-numeric: tabular-nums; }
+    ^status { font-weight: bold; padding-bottom: 8px; }
+    ^json { font-family: monospace; white-space: pre; overflow-x: auto; max-height: 240px; }
+  `,
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.PerfReport',
+      name: 'report',
+      factory: function() { return this.PerfReport.create({}, this); }
+    },
+    { class: 'Boolean', name: 'running' },
+    // transient run state, not serialized
+    { class: 'Int',   name: 'frameCount_',      hidden: true, transient: true },
+    { class: 'Float', name: 'frameTotalMs_',    hidden: true, transient: true },
+    { class: 'Float', name: 'worstFrameMs_',    hidden: true, transient: true },
+    { class: 'Float', name: 'lastFrameTime_',   hidden: true, transient: true },
+    { class: 'Int',   name: 'longTaskCount_',   hidden: true, transient: true },
+    { class: 'Float', name: 'longTaskTotalMs_', hidden: true, transient: true },
+    { name: 'observer_', hidden: true, transient: true }
+  ],
+
+  methods: [
+    function render() {
+      var self = this;
+      this.addClass();
+
+      this.start().addClass(this.myClass('status'))
+        .add(this.running$.map(r => r ? 'Capturing…' : 'Idle'))
+      .end();
+
+      this.startContext({ data: this })
+        .add(this.START, this.STOP, this.SNAPSHOT)
+      .endContext();
+
+      this.add(this.dynamic(function(report$elapsedMs) {
+        var r = self.report;
+        if ( ! r.endSnapshot ) return;
+        var fmt = function(n, d) { return n == null ? 'n/a' : Number(n).toFixed(d == undefined ? 1 : d); };
+        var mb  = function(b) { return r.endSnapshot.usedJSHeapSize ? fmt(b / 1048576, 2) + ' MB' : 'n/a'; };
+        this.start('table')
+          .start('tr').start('th').add('Elapsed').end().start('td').add(fmt(r.elapsedMs), ' ms').end().end()
+          .start('tr').start('th').add('Avg FPS').end().start('td').add(fmt(r.avgFps)).end().end()
+          .start('tr').start('th').add('Min FPS (worst frame)').end().start('td').add(fmt(r.minFps)).end().end()
+          .start('tr').start('th').add('Heap delta').end().start('td').add(mb(r.heapDeltaBytes)).end().end()
+          .start('tr').start('th').add('Long tasks').end().start('td').add(r.longTaskCount, ' (', fmt(r.longTaskTotalMs), ' ms)').end().end()
+          .start('tr').start('th').add('Resources loaded').end().start('td').add(r.resourceDeltaCount, ' (', fmt(r.resourceDeltaBytes / 1024), ' KB)').end().end()
+          .start('tr').start('th').add('CPU cores').end().start('td').add(r.endSnapshot.hardwareConcurrency || 'n/a').end().end()
+          .start('tr').start('th').add('Connection').end().start('td').add(r.endSnapshot.connectionType || 'n/a').end().end()
+        .end();
+        this.start().addClass(self.myClass('json'))
+          .add(foam.json.Pretty.stringify(r))
+        .end();
+      }));
+
+      this.onDetach(function() { self.stopCapture_(); });
+    },
+
+    function takeSnapshot_() {
+      return this.PerfSnapshot.create({}, this).capture(this.window.performance, this.window.navigator);
+    },
+
+    function startCapture_() {
+      /** Begin a capture window. Callable headlessly - no rendered view required. **/
+      var self = this;
+      this.frameCount_ = this.frameTotalMs_ = this.worstFrameMs_ = this.lastFrameTime_ = 0;
+      this.longTaskCount_ = this.longTaskTotalMs_ = 0;
+      this.report = this.PerfReport.create({ startSnapshot: this.takeSnapshot_() }, this);
+
+      try {
+        this.observer_ = new PerformanceObserver(function(list) {
+          list.getEntries().forEach(function(e) {
+            self.longTaskCount_++;
+            self.longTaskTotalMs_ += e.duration;
+          });
+        });
+        this.observer_.observe({ entryTypes: ['longtask'] });
+      } catch (e) { /* longtask unsupported (Firefox/Safari) */ }
+
+      this.running = true;
+      this.window.requestAnimationFrame(this.frameTick);
+    },
+
+    function finishCapture_() {
+      /** End the capture window and compute the report. Callable headlessly. **/
+      this.stopCapture_();
+      this.report.endSnapshot = this.takeSnapshot_();
+      this.report.finish({
+        frameCount:      this.frameCount_,
+        frameTotalMs:    this.frameTotalMs_,
+        worstFrameMs:    this.worstFrameMs_,
+        longTaskCount:   this.longTaskCount_,
+        longTaskTotalMs: this.longTaskTotalMs_
+      });
+      return this.report;
+    },
+
+    function stopCapture_() {
+      this.running = false;
+      if ( this.observer_ ) { this.observer_.disconnect(); this.observer_ = null; }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'start',
+      isEnabled: function(running) { return ! running; },
+      code: function() { this.startCapture_(); }
+    },
+    {
+      name: 'stop',
+      isEnabled: function(running) { return running; },
+      code: function() { this.finishCapture_(); }
+    },
+    {
+      name: 'snapshot',
+      label: 'Snapshot',
+      isEnabled: function(running) { return ! running; },
+      code: function() {
+        var s = this.takeSnapshot_();
+        this.report = this.PerfReport.create({ startSnapshot: s, endSnapshot: s }, this);
+        this.report.finish({ frameCount: 0, frameTotalMs: 0, worstFrameMs: 0, longTaskCount: 0, longTaskTotalMs: 0 });
+      }
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'frameTick',
+      code: function() {
+        if ( ! this.running ) return;
+        var t = this.window.performance.now();
+        if ( this.lastFrameTime_ ) {
+          var dt = t - this.lastFrameTime_;
+          this.frameCount_++;
+          this.frameTotalMs_ += dt;
+          if ( dt > this.worstFrameMs_ ) this.worstFrameMs_ = dt;
+        }
+        this.lastFrameTime_ = t;
+        this.window.requestAnimationFrame(this.frameTick);
+      }
+    }
+  ]
+});

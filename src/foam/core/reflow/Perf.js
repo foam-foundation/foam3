@@ -184,7 +184,7 @@ foam.CLASS({
       .end();
 
       this.startContext({ data: this })
-        .add(this.START, this.STOP, this.SNAPSHOT)
+        .add(this.START_CAPTURE, this.STOP_CAPTURE, this.SNAPSHOT)
       .endContext();
 
       this.add(this.dynamic(function(report$elapsedMs) {
@@ -257,12 +257,15 @@ foam.CLASS({
 
   actions: [
     {
-      name: 'start',
+      // 'start'/'stop' would install prototype methods that shadow Element.start()/stop
+      name: 'startCapture',
+      label: 'Start',
       isEnabled: function(running) { return ! running; },
       code: function() { this.startCapture_(); }
     },
     {
-      name: 'stop',
+      name: 'stopCapture',
+      label: 'Stop',
       isEnabled: function(running) { return running; },
       code: function() { this.finishCapture_(); }
     },

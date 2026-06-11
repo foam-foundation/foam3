@@ -41,7 +41,7 @@ foam.CLASS({
         testArchiveSkipsDirectory(x);
         testCompositeKeyFind(x);
         testMigrateFromStringIdModel(x);
-        testNegativePartitionKnownGap(x);
+        testNegativePartition(x);
         testMigratedIdsRoutable(x);
         testNonNumericSuffixNoCrash(x);
         testMigrateCapturesIdMap(x);
@@ -52,7 +52,7 @@ foam.CLASS({
       name: 'testMigratedIdsRoutable',
       args: 'X x',
       type: 'Void',
-      documentation: 'migrateFrom lets the target DAO stamp fresh <partition>-<seqNo> ids on String-id records (no legacy-id preservation), and the stamped ids route back through the outer PartitionedDAO via find_.',
+      documentation: 'migrateFrom lets the target DAO stamp fresh <partition>§<seqNo> ids on String-id records (no legacy-id preservation), and the stamped ids route back through the outer PartitionedDAO via find_.',
       javaCode: `
         X tx = newStorageContext(x);
         String legacy = "routable_" + System.nanoTime();
@@ -76,10 +76,10 @@ foam.CLASS({
 
         String id5 = (String) PartitionStrRecord.ID.get((FObject) s5.getArray().get(0));
         String id9 = (String) PartitionStrRecord.ID.get((FObject) s9.getArray().get(0));
-        test( id5 != null && id5.startsWith("5-") && ! "a".equals(id5),
-          "legacy id 'a' restamped to a '5-' seqNo id, got " + id5 );
-        test( id9 != null && id9.startsWith("9-") && ! "7".equals(id9),
-          "legacy id '7' restamped to a '9-' seqNo id, got " + id9 );
+        test( id5 != null && id5.startsWith("5" + PartitionedDAO.SEPARATOR) && ! "a".equals(id5),
+          "legacy id 'a' restamped to a partition-5 seqNo id, got " + id5 );
+        test( id9 != null && id9.startsWith("9" + PartitionedDAO.SEPARATOR) && ! "7".equals(id9),
+          "legacy id '7' restamped to a partition-9 seqNo id, got " + id9 );
 
         // The stamped composite ids route through the OUTER PartitionedDAO.
         FObject f5 = target.find_(tx, id5);
@@ -127,22 +127,23 @@ foam.CLASS({
       name: 'testNonNumericSuffixNoCrash',
       args: 'X x',
       type: 'Void',
-      documentation: 'Putting a record with a pre-set non-numeric-suffix id ("5-a") through the partitioned DAO neither crashes (getObjId no longer throws) nor changes the id.',
+      documentation: 'Putting a record with a pre-set non-numeric-suffix id ("5§a") through the partitioned DAO neither crashes (getObjId no longer throws) nor changes the id.',
       javaCode: `
         X tx = newStorageContext(x);
         PartitionedDAO p = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "pnn" + System.nanoTime() + "/",
           new Constant(null), PartitionStrRecord.BUCKET);
 
-        PartitionStrRecord r = new PartitionStrRecord(); r.setId("5-a"); r.setBucket(5); r.setData("d");
+        String preset = "5" + PartitionedDAO.SEPARATOR + "a";
+        PartitionStrRecord r = new PartitionStrRecord(); r.setId(preset); r.setBucket(5); r.setData("d");
         try {
           FObject pr = p.put_(tx, r);
           String id = (String) PartitionStrRecord.ID.get(pr);
-          test( "5-a".equals(id),
-            "pre-set id '5-a' preserved through put_, got " + id );
+          test( preset.equals(id),
+            "pre-set id '" + preset + "' preserved through put_, got " + id );
         } catch ( Throwable t ) {
           test( false,
-            "put_ of a pre-set id '5-a' must not throw, got: " + t.getMessage() );
+            "put_ of a pre-set id '" + preset + "' must not throw, got: " + t.getMessage() );
         }
       `
     },
@@ -150,7 +151,7 @@ foam.CLASS({
       name: 'testMigrateCapturesIdMap',
       args: 'X x',
       type: 'Void',
-      documentation: 'migrate fills the supplied idMap with oldId -> newId for every String-id record whose id changed: "a" in bucket 5 and "7" in bucket 9 map to fresh "5-"/"9-" seqNo ids stamped by the target DAO.',
+      documentation: 'migrate fills the supplied idMap with oldId -> newId for every String-id record whose id changed: "a" in bucket 5 and "7" in bucket 9 map to fresh "5§"/"9§" seqNo ids stamped by the target DAO.',
       javaCode: `
         X tx = newStorageContext(x);
         String legacy = "idMapSrc_" + System.nanoTime();
@@ -169,23 +170,23 @@ foam.CLASS({
         test( idMap.size() == 2, "idMap captured 2 id changes, got " + idMap.size() );
         String na = idMap.get("a");
         String n7 = idMap.get("7");
-        test( na != null && na.startsWith("5-") && ! "a".equals(na),
-          "idMap maps 'a' to a fresh '5-' id, got " + na );
-        test( n7 != null && n7.startsWith("9-") && ! "7".equals(n7),
-          "idMap maps '7' to a fresh '9-' id, got " + n7 );
+        test( na != null && na.startsWith("5" + PartitionedDAO.SEPARATOR) && ! "a".equals(na),
+          "idMap maps 'a' to a fresh partition-5 id, got " + na );
+        test( n7 != null && n7.startsWith("9" + PartitionedDAO.SEPARATOR) && ! "7".equals(n7),
+          "idMap maps '7' to a fresh partition-9 id, got " + n7 );
       `
     },
     {
-      name: 'testNegativePartitionKnownGap',
+      name: 'testNegativePartition',
       args: 'X x',
       type: 'Void',
-      documentation: 'KNOWN-FAILING on purpose. getPartition_ uses indexOf (first "-") so chained partitions ("<a>-<b>-<key>") peel the outermost first; but a negative partition value ("-116993-1") then extracts "" instead of "-116993". Partition values can be negative, so this must be handled by a future negative-aware fix. Kept failing so that fix is validated when it lands.',
+      documentation: 'Negative partition values must extract cleanly from composite ids: the SEPARATOR never collides with a minus sign.',
       javaCode: `
         PartitionedDAO p = newPartitioned(x);
-        String id = "-116993-1";
+        String id = "-116993" + PartitionedDAO.SEPARATOR + "1";
         test( "-116993".equals(p.getPartition(id)),
-          "KNOWN GAP: getPartition('-116993-1') should be '-116993' (negative partition), got '"
-            + p.getPartition(id) + "' under indexOf — fix when negative-aware partition keys land" );
+          "getPartition('" + id + "') == '-116993' (negative partition), got '"
+            + p.getPartition(id) + "'" );
       `
     },
     {
@@ -216,7 +217,7 @@ foam.CLASS({
       name: 'testCompositeKeyFind',
       args: 'X x',
       type: 'Void',
-      documentation: 'A String-id model auto-gets composite <partition>-<seq> ids; put_ stamps them and find resolves by the partition prefix across partitions.',
+      documentation: 'A String-id model auto-gets composite <partition>§<seq> ids; put_ stamps them and find resolves by the partition prefix across partitions.',
       javaCode: `
         X tx = newStorageContext(x);
 
@@ -226,19 +227,19 @@ foam.CLASS({
         PartitionedDAO p = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", new Constant(null), PartitionStrRecord.BUCKET);
 
-        // ids UNSET -> the per-partition seqNo stamps <bucket>-<seq>. Two in bucket 5, one in bucket 99.
+        // ids UNSET -> the per-partition seqNo stamps <bucket>§<seq>. Two in bucket 5, one in bucket 99.
         PartitionStrRecord a = new PartitionStrRecord(); a.setBucket(5);  a.setData("a"); FObject pa = p.put_(tx, a);
         PartitionStrRecord b = new PartitionStrRecord(); b.setBucket(5);  b.setData("b"); FObject pb = p.put_(tx, b);
         PartitionStrRecord c = new PartitionStrRecord(); c.setBucket(99); c.setData("c"); FObject pc = p.put_(tx, c);
 
         String idA = (String) PartitionStrRecord.ID.get(pa);
         String idC = (String) PartitionStrRecord.ID.get(pc);
-        test( idA != null && idA.startsWith("5-"),
-          "bucket 5 record got composite id '5-...', got " + idA );
-        test( idC != null && idC.startsWith("99-"),
-          "bucket 99 record got composite id '99-...', got " + idC );
+        test( idA != null && idA.startsWith("5" + PartitionedDAO.SEPARATOR),
+          "bucket 5 record got a composite partition-5 id, got " + idA );
+        test( idC != null && idC.startsWith("99" + PartitionedDAO.SEPARATOR),
+          "bucket 99 record got a composite partition-99 id, got " + idC );
 
-        // partition extraction reads the prefix before the first '-'.
+        // partition extraction reads the segment before the first SEPARATOR.
         test( "5".equals(p.getPartition(idA)), "getPartition('" + idA + "') == 5" );
         test( "99".equals(p.getPartition(idC)), "getPartition('" + idC + "') == 99" );
 
@@ -262,7 +263,7 @@ foam.CLASS({
           "fresh DAO instance resolved idC (partition 99) from the journal" );
 
         // A non-existent composite id in a real partition returns null, not a crash.
-        test( p2.find_(tx, "5-9999") == null, "find of a missing id returns null" );
+        test( p2.find_(tx, "5" + PartitionedDAO.SEPARATOR + "9999") == null, "find of a missing id returns null" );
       `
     },
     {

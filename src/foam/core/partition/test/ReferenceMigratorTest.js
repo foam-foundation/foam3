@@ -130,11 +130,13 @@ foam.CLASS({
       documentation: 'fixupDAO rewrites only refs whose value is a key in the idMap, leaves everything else untouched, and returns true; a missing DAO name returns false.',
       javaCode: `
         Map<String,String> idMap = new HashMap<>();
-        idMap.put("a", "5-a");
+        String mapped   = "5" + PartitionedDAO.SEPARATOR + "a";
+        String unmapped = "5" + PartitionedDAO.SEPARATOR + "b";
+        idMap.put("a", mapped);
 
         DAO refDAO = new MDAO(RefSourceRecord.getOwnClassInfo());
-        RefSourceRecord r1 = new RefSourceRecord(); r1.setId(1L); r1.setTargetRef("a");   refDAO.put(r1);
-        RefSourceRecord r2 = new RefSourceRecord(); r2.setId(2L); r2.setTargetRef("5-b"); refDAO.put(r2);
+        RefSourceRecord r1 = new RefSourceRecord(); r1.setId(1L); r1.setTargetRef("a");      refDAO.put(r1);
+        RefSourceRecord r2 = new RefSourceRecord(); r2.setId(2L); r2.setTargetRef(unmapped); refDAO.put(r2);
         RefSourceRecord r3 = new RefSourceRecord(); r3.setId(3L); r3.setTargetRef("zzz"); refDAO.put(r3);
         X tx = x.put("refSourceDAO", refDAO);
 
@@ -146,11 +148,11 @@ foam.CLASS({
         FObject f1 = refDAO.find(1L);
         FObject f2 = refDAO.find(2L);
         FObject f3 = refDAO.find(3L);
-        test( f1 != null && "5-a".equals(RefSourceRecord.TARGET_REF.get(f1)),
-          "mapped ref 'a' rewritten to '5-a', got "
+        test( f1 != null && mapped.equals(RefSourceRecord.TARGET_REF.get(f1)),
+          "mapped ref 'a' rewritten to '" + mapped + "', got "
             + ( f1 == null ? "<null>" : RefSourceRecord.TARGET_REF.get(f1) ) );
-        test( f2 != null && "5-b".equals(RefSourceRecord.TARGET_REF.get(f2)),
-          "unmapped ref '5-b' left alone, got "
+        test( f2 != null && unmapped.equals(RefSourceRecord.TARGET_REF.get(f2)),
+          "unmapped ref '" + unmapped + "' left alone, got "
             + ( f2 == null ? "<null>" : RefSourceRecord.TARGET_REF.get(f2) ) );
         test( f3 != null && "zzz".equals(RefSourceRecord.TARGET_REF.get(f3)),
           "unmapped ref 'zzz' left alone, got "
@@ -194,8 +196,8 @@ foam.CLASS({
 
         FObject f1 = refDAO.find(1L);
         String ref = f1 == null ? null : (String) RefSourceRecord.TARGET_REF.get(f1);
-        test( ref != null && ! "a".equals(ref) && ref.startsWith("5-"),
-          "migrateFrom rewrote ref 'a' to the stamped '5-' id, got " + ref );
+        test( ref != null && ! "a".equals(ref) && ref.startsWith("5" + PartitionedDAO.SEPARATOR),
+          "migrateFrom rewrote ref 'a' to the stamped partition-5 id, got " + ref );
 
         // The rewritten ref resolves through the partitioned target to the
         // record that WAS "a" (distinct data values prove identity).

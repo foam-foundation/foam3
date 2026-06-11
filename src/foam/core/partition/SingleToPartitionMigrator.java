@@ -73,12 +73,20 @@ public class SingleToPartitionMigrator {
   }
 
   /** True when the target's partition directory already contains partition
-      journal files. Partition journals are named "<dirName>_<part>" (see
-      PartitionedDAO.createDAO), so only files with that prefix count — the
-      directory may be a shared root holding unrelated journals when dirName
-      has no nested path. */
+      journal files. Partition journals are named "<dirName><part>" (see
+      PartitionedDAO.createDAO). A dirName ending in '/' owns its directory,
+      so any file inside counts; a flat dirName shares its parent with
+      unrelated journals, so only files with the dirName's basename as a
+      prefix count. */
   protected boolean hasExistingPartitions(Storage storage, PartitionedDAO target) {
-    File probe = storage.get(target.getDirName() + "_");
+    String dirName = target.getDirName();
+    if ( dirName.endsWith("/") ) {
+      File dir = storage.get(dirName);
+      if ( dir == null || ! dir.isDirectory() ) return false;
+      File[] files = dir.listFiles();
+      return files != null && files.length > 0;
+    }
+    File probe = storage.get(dirName);
     File dir   = probe == null ? null : probe.getParentFile();
     if ( dir == null || ! dir.isDirectory() ) return false;
     final String prefix = probe.getName();

@@ -423,5 +423,5 @@ p({
 "lastRun":"2026-04-14T14:31:13.392Z"
 })
 
-// Sample flow for exercising the perf block and loadPerf command (DOS-3773)
+// Sample flow for exercising the perf block and loadPerf command
 p({class:"foam.core.reflow.Flow","category":"DEMO",name:"perfDemo",description:"Demo flow for the perf block. Load with loadPerf(\"perfDemo\") to measure load performance.",version:1,script:"[\n\t{\n\t\t\"flowName\": \"title\",\n\t\t\"cmd\": \"h1 Perf Demo Flow\"\n\t},\n\t{\n\t\t\"flowName\": \"desc\",\n\t\t\"cmd\": \"markdown This flow demonstrates the **perf** block. Run `loadPerf(\\\"perfDemo\\\")` to measure loading this flow, or use the Start/Stop buttons below to measure interactions.\"\n\t},\n\t{\n\t\t\"flowName\": \"now1\",\n\t\t\"cmd\": \"now\"\n\t},\n\t{\n\t\t\"flowName\": \"perf1\",\n\t\t\"cmd\": \"perf\"\n\t}\n]"})

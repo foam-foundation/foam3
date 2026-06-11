@@ -133,6 +133,20 @@ foam.CLASS({
 
   imports: [ 'window' ],
 
+  messages: [
+    { name: 'CAPTURING_MSG',    message: 'Capturing…' },
+    { name: 'IDLE_MSG',         message: 'Idle' },
+    { name: 'ELAPSED_LABEL',    message: 'Elapsed' },
+    { name: 'AVG_FPS_LABEL',    message: 'Avg FPS' },
+    { name: 'MIN_FPS_LABEL',    message: 'Min FPS (worst frame)' },
+    { name: 'HEAP_DELTA_LABEL', message: 'Heap delta' },
+    { name: 'LONG_TASKS_LABEL', message: 'Long tasks' },
+    { name: 'RESOURCES_LABEL',  message: 'Resources loaded' },
+    { name: 'CPU_CORES_LABEL',  message: 'CPU cores' },
+    { name: 'CONNECTION_LABEL', message: 'Connection' },
+    { name: 'NA_MSG',           message: 'n/a' }
+  ],
+
   css: `
     ^ { font-size: 13px; }
     ^ table { border-collapse: collapse; }
@@ -166,7 +180,7 @@ foam.CLASS({
       this.addClass();
 
       this.start().addClass(this.myClass('status'))
-        .add(this.running$.map(r => r ? 'Capturing…' : 'Idle'))
+        .add(this.running$.map(r => r ? self.CAPTURING_MSG : self.IDLE_MSG))
       .end();
 
       this.startContext({ data: this })
@@ -176,17 +190,17 @@ foam.CLASS({
       this.add(this.dynamic(function(report$elapsedMs) {
         var r = self.report;
         if ( ! r.endSnapshot ) return;
-        var fmt = function(n, d) { return n == null ? 'n/a' : Number(n).toFixed(d == undefined ? 1 : d); };
-        var mb  = function(b) { return r.endSnapshot.usedJSHeapSize ? fmt(b / 1048576, 2) + ' MB' : 'n/a'; };
+        var fmt = function(n, d) { return n == null ? self.NA_MSG : Number(n).toFixed(d == undefined ? 1 : d); };
+        var mb  = function(b) { return r.endSnapshot.usedJSHeapSize ? fmt(b / 1048576, 2) + ' MB' : self.NA_MSG; };
         this.start('table')
-          .start('tr').start('th').add('Elapsed').end().start('td').add(fmt(r.elapsedMs), ' ms').end().end()
-          .start('tr').start('th').add('Avg FPS').end().start('td').add(fmt(r.avgFps)).end().end()
-          .start('tr').start('th').add('Min FPS (worst frame)').end().start('td').add(fmt(r.minFps)).end().end()
-          .start('tr').start('th').add('Heap delta').end().start('td').add(mb(r.heapDeltaBytes)).end().end()
-          .start('tr').start('th').add('Long tasks').end().start('td').add(r.longTaskCount, ' (', fmt(r.longTaskTotalMs), ' ms)').end().end()
-          .start('tr').start('th').add('Resources loaded').end().start('td').add(r.resourceDeltaCount, ' (', fmt(r.resourceDeltaBytes / 1024), ' KB)').end().end()
-          .start('tr').start('th').add('CPU cores').end().start('td').add(r.endSnapshot.hardwareConcurrency || 'n/a').end().end()
-          .start('tr').start('th').add('Connection').end().start('td').add(r.endSnapshot.connectionType || 'n/a').end().end()
+          .start('tr').start('th').add(self.ELAPSED_LABEL).end().start('td').add(fmt(r.elapsedMs), ' ms').end().end()
+          .start('tr').start('th').add(self.AVG_FPS_LABEL).end().start('td').add(fmt(r.avgFps)).end().end()
+          .start('tr').start('th').add(self.MIN_FPS_LABEL).end().start('td').add(fmt(r.minFps)).end().end()
+          .start('tr').start('th').add(self.HEAP_DELTA_LABEL).end().start('td').add(mb(r.heapDeltaBytes)).end().end()
+          .start('tr').start('th').add(self.LONG_TASKS_LABEL).end().start('td').add(r.longTaskCount, ' (', fmt(r.longTaskTotalMs), ' ms)').end().end()
+          .start('tr').start('th').add(self.RESOURCES_LABEL).end().start('td').add(r.resourceDeltaCount, ' (', fmt(r.resourceDeltaBytes / 1024), ' KB)').end().end()
+          .start('tr').start('th').add(self.CPU_CORES_LABEL).end().start('td').add(r.endSnapshot.hardwareConcurrency || self.NA_MSG).end().end()
+          .start('tr').start('th').add(self.CONNECTION_LABEL).end().start('td').add(r.endSnapshot.connectionType || self.NA_MSG).end().end()
         .end();
         this.start().addClass(self.myClass('json'))
           .add(foam.json.Pretty.stringify(r))

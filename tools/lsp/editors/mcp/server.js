@@ -6,8 +6,9 @@
  */
 
 // FOAM LSP MCP Server — exposes the FOAM Language Server as MCP tools
-// for Claude Code. Speaks MCP (NDJSON) on its own stdio, spawns the FOAM
-// LSP (`foam3/tools/lsp-start.js`) as a child, and speaks LSP (Content-
+// for any MCP-speaking coding agent (Claude Code, Codex, Gemini, Cursor,
+// Pi, ...). Speaks MCP (NDJSON) on its own stdio, spawns the FOAM LSP
+// (`foam3/tools/lsp-start.js`) as a child, and speaks LSP (Content-
 // Length-framed JSON-RPC) to it.
 //
 // Environment:

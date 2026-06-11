@@ -227,3 +227,5 @@ p({
     }
    """
 })
+
+p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", linkable: false})

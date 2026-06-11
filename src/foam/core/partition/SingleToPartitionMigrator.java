@@ -30,37 +30,33 @@ import static foam.mlang.MLang.COUNT;
  */
 public class SingleToPartitionMigrator {
 
-  public Map<String,Long> migrate(X x, DAO source, PartitionedDAO target, Map<String,String> idMap) {
-    final Map<String,Long> counts = new HashMap<>();
+  public long migrate(X x, DAO source, PartitionedDAO target, Map<String,String> idMap) {
+    // Lean entirely on the target's put_: it routes the record through every
+    // partition level (PartitionedDAO -> nested DatePartitionedDAO -> JDAO) and
+    // stamps the composite id. The migrator no longer recomputes the partition
+    // itself (that only ever modelled the top level and broke on multi-level
+    // targets); it just counts the records put_ accepts.
+    final foam.lang.PropertyInfo idProp = target.getIdProperty();
+    final boolean strId = idProp != null && String.class.equals(idProp.getValueClass());
+    final long[] migrated = { 0L };
     source.select(new AbstractSink() {
       public void put(Object obj, foam.lang.Detachable sub) {
         // select() returns frozen objects; clone before put_ since a per-partition
         // seqNo may stamp a composite id on the record.
         FObject record = ((FObject) obj).fclone();
-        // Count by the same key put_ routes on — the partition property
-        // (PartitionedDAO.put_). objToPath prefers the id prefix, which
-        // misclassifies legacy plain ids (no '-') and negative ids ('-' at 0),
-        // making validation compare against the wrong partitions.
-        String part  = target.getPartition(record);
-        String oldId = stringId(record);
+        // Only String-id models get restamped (the per-partition seqNo); capture
+        // the id change so references held by other DAOs can be rewritten.
+        String oldId = strId ? (String) idProp.f(record) : null;
         FObject stored = target.put_(x, record);
-        String newId = stringId(stored);
-        if ( ! SafetyUtil.isEmpty(oldId) && newId != null && ! oldId.equals(newId) ) {
+        String newId = strId ? (String) idProp.f(stored) : null;
+        if ( ! SafetyUtil.isEmpty(oldId) && ! oldId.equals(newId) ) {
           idMap.put(oldId, newId);
         }
-        counts.merge(part, 1L, Long::sum);
+        migrated[0]++;
       }
     });
-    Loggers.logger(x, this).info("Migrated partitions:", counts.toString());
-    return counts;
-  }
-
-  /** The record's id as a String, or null for non-String-id models. */
-  protected String stringId(FObject record) {
-    foam.lang.PropertyInfo idProp =
-      (foam.lang.PropertyInfo) record.getClassInfo().getAxiomByName("id");
-    if ( idProp == null || ! String.class.equals(idProp.getValueClass()) ) return null;
-    return (String) idProp.get(record);
+    Loggers.logger(x, this).info("Migrated records:", migrated[0]);
+    return migrated[0];
   }
 
   public boolean needsMigration(Storage storage, String journalName) {
@@ -114,19 +110,6 @@ public class SingleToPartitionMigrator {
     }
   }
 
-  public boolean validate(X x, PartitionedDAO target, Map<String,Long> expected) {
-    for ( Map.Entry<String,Long> e : expected.entrySet() ) {
-      Count c = (Count) target.getDelegate(e.getKey()).select(COUNT());
-      if ( c.getValue() != e.getValue() ) {
-        Loggers.logger(x, this).warning(
-          "Partition validation mismatch for", e.getKey(),
-          "expected", e.getValue(), "got", c.getValue());
-        return false;
-      }
-    }
-    return true;
-  }
-
   /** Migration without reference fixup — for targets no other DAO references. */
   public void run(X x, String legacyJournalName, PartitionedDAO target) {
     run(x, legacyJournalName, target, null);
@@ -160,20 +143,13 @@ public class SingleToPartitionMigrator {
     DAO source = new JDAO(x, target.getOf(), legacyJournalName);
     long srcCount = ((Count) source.select(COUNT())).getValue();
 
-    Map<String,String> idMap  = new HashMap<>();
-    Map<String,Long>   counts = migrate(x, source, target, idMap);
-    long migrated = 0L;
-    for ( Long v : counts.values() ) migrated += v;
+    Map<String,String> idMap    = new HashMap<>();
+    long               migrated = migrate(x, source, target, idMap);
 
     if ( migrated != srcCount ) {
       Loggers.logger(x, this).warning(
         "Migration count mismatch; NOT archiving.",
         "source", srcCount, "migrated", migrated);
-      return;
-    }
-
-    if ( ! validate(x, target, counts) ) {
-      Loggers.logger(x, this).warning("Partition validation failed; NOT archiving.");
       return;
     }
 

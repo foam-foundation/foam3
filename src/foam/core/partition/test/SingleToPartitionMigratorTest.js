@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'SingleToPartitionMigratorTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'Tests SingleToPartitionMigrator: routing, counts, archive, idempotent re-run, partial-migration guard.',
+  documentation: 'Tests SingleToPartitionMigrator: routing, counts, archive, idempotent re-run, partial-migration guard, and multi-level (PADDAO-style) targets.',
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -22,7 +22,6 @@ foam.CLASS({
     'foam.dao.java.JDAO',
     'foam.lang.FObject',
     'foam.lang.X',
-    'foam.mlang.Constant',
     'foam.mlang.sink.Count',
     'java.io.File',
     'java.util.HashMap',
@@ -46,6 +45,54 @@ foam.CLASS({
         testNonNumericSuffixNoCrash(x);
         testMigrateCapturesIdMap(x);
         testPartialMigrationGuard(x);
+        testMigrateMultiLevel(x);
+      `
+    },
+    {
+      name: 'testMigrateMultiLevel',
+      args: 'X x',
+      type: 'Void',
+      documentation: 'A two-level partitioned target (region -> bucket, mirroring PADDAO) migrates by leaning on put_: records route through BOTH levels into the right leaf journal, the id is stamped <region>§<bucket>§<legacy>, and find_ resolves across both levels. The migrator never computes the partition itself, so it works regardless of depth.',
+      javaCode: `
+        X tx = newStorageContext(x);
+        String legacy = "mlsrc_" + System.nanoTime();
+
+        // Legacy single-file journal: region 1 -> {bucket 5 x2, bucket 9 x1}, region 2 -> {bucket 5 x1}.
+        DAO src = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
+        PartitionStrRecord a = new PartitionStrRecord(); a.setId("a"); a.setRegion(1); a.setBucket(5); a.setData("da"); src.put(a);
+        PartitionStrRecord b = new PartitionStrRecord(); b.setId("b"); b.setRegion(1); b.setBucket(5); b.setData("db"); src.put(b);
+        PartitionStrRecord c = new PartitionStrRecord(); c.setId("c"); c.setRegion(1); c.setBucket(9); c.setData("dc"); src.put(c);
+        PartitionStrRecord d = new PartitionStrRecord(); d.setId("d"); d.setRegion(2); d.setBucket(5); d.setData("dd"); src.put(d);
+
+        TwoLevelPartitionedDAO target = new TwoLevelPartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "ml" + System.nanoTime() + "/",
+          PartitionStrRecord.REGION, PartitionStrRecord.BUCKET);
+
+        long migrated = new SingleToPartitionMigrator().migrate(tx, src, target, new HashMap<String,String>());
+        test( migrated == 4, "Four records migrated across two levels, got " + migrated );
+
+        // Leaf counts: outer getDelegate(region) -> nested PartitionedDAO, inner getDelegate(bucket) -> leaf journal.
+        DAO r1b5 = ((PartitionedDAO) target.getDelegate("1")).getDelegate("5");
+        DAO r1b9 = ((PartitionedDAO) target.getDelegate("1")).getDelegate("9");
+        DAO r2b5 = ((PartitionedDAO) target.getDelegate("2")).getDelegate("5");
+        test( ((Count) r1b5.select(COUNT())).getValue() == 2,
+          "region 1 / bucket 5 leaf holds 2, got " + ((Count) r1b5.select(COUNT())).getValue() );
+        test( ((Count) r1b9.select(COUNT())).getValue() == 1,
+          "region 1 / bucket 9 leaf holds 1, got " + ((Count) r1b9.select(COUNT())).getValue() );
+        test( ((Count) r2b5.select(COUNT())).getValue() == 1,
+          "region 2 / bucket 5 leaf holds 1, got " + ((Count) r2b5.select(COUNT())).getValue() );
+
+        // The id is stamped with BOTH levels: <region>§<bucket>§<legacy>.
+        ArraySink s = (ArraySink) r1b9.select(new ArraySink());
+        if ( s.getArray().size() != 1 ) { test( false, "expected 1 record in region 1 / bucket 9" ); return; }
+        String idc = (String) PartitionStrRecord.ID.get((FObject) s.getArray().get(0));
+        test( idc != null && idc.startsWith("1" + PartitionedDAO.SEPARATOR + "9" + PartitionedDAO.SEPARATOR),
+          "id stamped <region>§<bucket>§..., got " + idc );
+
+        // find_ routes through both levels by the composite id.
+        FObject found = target.find_(tx, idc);
+        test( found != null && "dc".equals(PartitionStrRecord.DATA.get(found)),
+          "find_('" + idc + "') routed region->bucket to record c" );
       `
     },
     {
@@ -63,7 +110,7 @@ foam.CLASS({
 
         PartitionedDAO target = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "prt" + System.nanoTime() + "/",
-          new Constant(null), PartitionStrRecord.BUCKET);
+          PartitionStrRecord.BUCKET);
         target.migrateFrom(tx, legacy);
 
         ArraySink s5 = (ArraySink) target.getDelegate("5").select(new ArraySink());
@@ -102,7 +149,7 @@ foam.CLASS({
 
         PartitionedDAO target = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "pguard" + System.nanoTime() + "/",
-          new Constant(null), PartitionStrRecord.BUCKET);
+          PartitionStrRecord.BUCKET);
 
         // Populate a partition journal directly (stands in for a crashed prior migration).
         PartitionStrRecord pre = new PartitionStrRecord(); pre.setBucket(5); pre.setData("pre");
@@ -132,7 +179,7 @@ foam.CLASS({
         X tx = newStorageContext(x);
         PartitionedDAO p = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "pnn" + System.nanoTime() + "/",
-          new Constant(null), PartitionStrRecord.BUCKET);
+          PartitionStrRecord.BUCKET);
 
         String preset = "5" + PartitionedDAO.SEPARATOR + "a";
         PartitionStrRecord r = new PartitionStrRecord(); r.setId(preset); r.setBucket(5); r.setData("d");
@@ -162,7 +209,7 @@ foam.CLASS({
 
         PartitionedDAO target = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "pidmap" + System.nanoTime() + "/",
-          new Constant(null), PartitionStrRecord.BUCKET);
+          PartitionStrRecord.BUCKET);
 
         Map<String,String> idMap = new HashMap<>();
         new SingleToPartitionMigrator().migrate(tx, src, target, idMap);
@@ -204,7 +251,7 @@ foam.CLASS({
         PartitionStrRecord r2 = new PartitionStrRecord(); r2.setId("b"); r2.setBucket(5); r2.setData("d2"); src.put(r2);
 
         PartitionedDAO target = new PartitionedDAO(
-          tx, PartitionStrRecord.getOwnClassInfo(), "pstrmig/", new Constant(null), PartitionStrRecord.BUCKET);
+          tx, PartitionStrRecord.getOwnClassInfo(), "pstrmig/", PartitionStrRecord.BUCKET);
 
         // Must not throw "Object is frozen" — migrate clones the selected records.
         target.migrateFrom(tx, legacy);
@@ -221,11 +268,8 @@ foam.CLASS({
       javaCode: `
         X tx = newStorageContext(x);
 
-        // Constant(null) identity (as the real wiring uses) so put_ routes by the
-        // partition property, not getID — an unset String id is "" not null, which
-        // would otherwise send objToPath down the id branch and resolve to null.
         PartitionedDAO p = new PartitionedDAO(
-          tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", new Constant(null), PartitionStrRecord.BUCKET);
+          tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", PartitionStrRecord.BUCKET);
 
         // ids UNSET -> the per-partition seqNo stamps <bucket>§<seq>. Two in bucket 5, one in bucket 99.
         PartitionStrRecord a = new PartitionStrRecord(); a.setBucket(5);  a.setData("a"); FObject pa = p.put_(tx, a);
@@ -254,7 +298,7 @@ foam.CLASS({
         // Re-open a fresh PartitionedDAO on the same storage: find must resolve
         // from the on-disk partition journals (a boot), not the in-memory cache.
         PartitionedDAO p2 = new PartitionedDAO(
-          tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", new Constant(null), PartitionStrRecord.BUCKET);
+          tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", PartitionStrRecord.BUCKET);
         FObject reA = p2.find_(tx, idA);
         FObject reC = p2.find_(tx, idC);
         test( reA != null && "a".equals(PartitionStrRecord.DATA.get(reA)),
@@ -284,8 +328,8 @@ foam.CLASS({
       args: 'X x, DAO dao, long id, int bucket',
       type: 'Void',
       javaCode: `
-        PartitionTestRecord r = new PartitionTestRecord();
-        r.setId(id);
+        PartitionStrRecord r = new PartitionStrRecord();
+        r.setId(String.valueOf(id));
         r.setBucket(bucket);
         r.setData("d" + id);
         dao.put(r);
@@ -296,14 +340,11 @@ foam.CLASS({
       args: 'X x',
       type: 'PartitionedDAO',
       javaCode: `
-        // Use Constant(null) as identityExpr so put_ routes via getPartition(obj)
-        // (the default IdentityExpr returns a Long which cannot be cast to String).
         return new PartitionedDAO(
           x,
-          PartitionTestRecord.getOwnClassInfo(),
-          "ptest",
-          new Constant(null),
-          PartitionTestRecord.BUCKET);
+          PartitionStrRecord.getOwnClassInfo(),
+          "ptest/",
+          PartitionStrRecord.BUCKET);
       `
     },
     {
@@ -318,27 +359,23 @@ foam.CLASS({
         // Seed the REPO journal (.0) — bucket 1: ids 1,2 ; bucket 2: id 4.
         // Writing via a JDAO whose filename is "<src>.0" lands records in the file <src>.0,
         // which a JDAO opened on "<src>" later replays as its read-only repo journal.
-        DAO repoDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src + ".0");
+        DAO repoDAO = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), src + ".0");
         seedRec(tx, repoDAO, 1L, 1);
         seedRec(tx, repoDAO, 2L, 1);
         seedRec(tx, repoDAO, 4L, 2);
 
         // Seed the RUNTIME journal "<src>" — bucket 1: id 3 ; bucket 2: id 5.
-        DAO runtimeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src);
+        DAO runtimeDAO = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), src);
         seedRec(tx, runtimeDAO, 3L, 1);
         seedRec(tx, runtimeDAO, 5L, 2);
 
         // A fresh JDAO on "<src>" replays BOTH <src>.0 (repo) and <src> (runtime) — the union.
-        DAO source = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), src);
+        DAO source = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), src);
         PartitionedDAO target = newPartitioned(tx);
 
-        Map<String,Long> counts = new SingleToPartitionMigrator().migrate(tx, source, target, new HashMap<String,String>());
+        long migrated = new SingleToPartitionMigrator().migrate(tx, source, target, new HashMap<String,String>());
 
-        test( counts.size() == 2, "Two partitions written, got " + counts.size() );
-        test( counts.get("1") != null && counts.get("1") == 3L,
-          "Bucket 1 has 3 records (2 from .0 + 1 runtime), got " + counts.get("1") );
-        test( counts.get("2") != null && counts.get("2") == 2L,
-          "Bucket 2 has 2 records (1 from .0 + 1 runtime), got " + counts.get("2") );
+        test( migrated == 5, "Five records migrated (3 bucket-1 + 2 bucket-2), got " + migrated );
 
         Count c1 = (Count) target.getDelegate("1").select(COUNT());
         Count c2 = (Count) target.getDelegate("2").select(COUNT());
@@ -356,7 +393,7 @@ foam.CLASS({
         String legacy = "legacySrc_" + System.nanoTime();
 
         // Seed legacy single-file journal: bucket 1 x2, bucket 3 x1.
-        DAO writeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy);
+        DAO writeDAO = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
         seedRec(tx, writeDAO, 10L, 1);
         seedRec(tx, writeDAO, 11L, 1);
         seedRec(tx, writeDAO, 12L, 3);
@@ -382,7 +419,7 @@ foam.CLASS({
         // Simulate redeploy: legacy .0 reappears next to the populated
         // partitions. The pre-flight guard treats this as a partial migration:
         // no re-import (would duplicate under fresh seqNo ids), no archive.
-        DAO repoWrite = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy + ".0");
+        DAO repoWrite = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy + ".0");
         seedRec(tx, repoWrite, 10L, 1);
         seedRec(tx, repoWrite, 11L, 1);
         seedRec(tx, repoWrite, 12L, 3);
@@ -410,7 +447,7 @@ foam.CLASS({
         X tx = x.put(Storage.class, readOnly).put(FileSystemStorage.class, writable);
 
         String legacy = "splitSrc_" + System.nanoTime();
-        DAO writeDAO = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), legacy);
+        DAO writeDAO = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);
         seedRec(tx, writeDAO, 20L, 1);
         seedRec(tx, writeDAO, 21L, 1);
 
@@ -438,7 +475,7 @@ foam.CLASS({
         test( ! m.needsMigration(storage, name),
           "needsMigration false when no legacy journal present" );
 
-        DAO d = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), name);
+        DAO d = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), name);
         seedRec(tx, d, 1L, 7);
         test( m.needsMigration(storage, name),
           "needsMigration true once legacy journal exists" );
@@ -449,7 +486,7 @@ foam.CLASS({
         test( storage.get(name + ".migrated").exists(),
           "archived runtime journal exists as .migrated" );
 
-        DAO d2 = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), name);
+        DAO d2 = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), name);
         seedRec(tx, d2, 2L, 7);
         m.archive(storage, name);
         test( storage.get(name + ".migrated").exists(),
@@ -472,7 +509,7 @@ foam.CLASS({
         test( dir.isDirectory(), "precondition: <name> is a directory" );
 
         // A real repo journal file <name>.0.
-        DAO d = new JDAO(tx, PartitionTestRecord.getOwnClassInfo(), name + ".0");
+        DAO d = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), name + ".0");
         seedRec(tx, d, 1L, 5);
 
         new SingleToPartitionMigrator().archive(storage, name);

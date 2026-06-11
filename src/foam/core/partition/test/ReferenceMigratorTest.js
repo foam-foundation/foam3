@@ -25,7 +25,6 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.ReferencePropertyInfo',
     'foam.lang.X',
-    'foam.mlang.Constant',
     'java.io.File',
     'java.util.HashMap',
     'java.util.List',
@@ -191,7 +190,7 @@ foam.CLASS({
 
         PartitionedDAO target = new PartitionedDAO(
           tx2, PartitionStrRecord.getOwnClassInfo(), "refe2e" + System.nanoTime() + "/",
-          new Constant(null), PartitionStrRecord.BUCKET);
+          PartitionStrRecord.BUCKET);
         target.migrateFrom(tx2, legacy, "partitionRefTargetDAO");
 
         FObject f1 = refDAO.find(1L);

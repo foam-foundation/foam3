@@ -278,3 +278,19 @@ test(! index.getPropertyInfo('foam.core.app.Health', 'nope').found, 'unknown pro
 
 // === MESSAGE + CONSTANT REFERENCES ===
 
+
+// === VIEW-SPEC USAGE INDEX ===
+
+section('FoamIndex.getViewSpecUsers — view-spec usage index');
+var vsNone = index.getViewSpecUsers('nonexistent.NoSuchClass');
+test(Array.isArray(vsNone) && vsNone.length === 0,
+  'getViewSpecUsers: empty array for unknown class');
+if ( index.classExists('foam.u2.view.ReferenceArrayView') && index.classExists('foam.core.auth.Group') ) {
+  // Group.defaultMenu declares `view: { class: 'foam.u2.view.ReferenceArrayView' }`
+  // but does NOT require it — only the view-spec index produces this edge.
+  var vsUsers = index.getViewSpecUsers('foam.u2.view.ReferenceArrayView');
+  test(vsUsers.some(function(u) { return u.sourceClassId === 'foam.core.auth.Group'; }),
+    'getViewSpecUsers: Group.defaultMenu view spec → ReferenceArrayView edge: ' + vsUsers.length);
+  test(vsUsers.every(function(u) { return u.sourceClassId && u.axiomName; }),
+    'getViewSpecUsers: entries carry sourceClassId + axiomName');
+}

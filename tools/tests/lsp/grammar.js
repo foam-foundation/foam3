@@ -848,3 +848,38 @@ test(!! (memMap.instTagClass && memMap.instTagClass['this.MetricCard']),
   '.tag(this.MetricCard, {...}) still emits instTagClass');
 test(!! (memMap.instCreateReceiver && memMap.instCreateReceiver['this.Other']),
   'this.Other.create({}) still emits instCreateReceiver');
+
+// === VIEW-SPEC OBJECT FORM CLASSREF ===
+
+section('FoamClassGrammar — view: { class: ... } object form');
+// The object form must emit a classRef position for the class id, just like
+// the string form `view: 'x.Y'` — find-references / definition / unknown-class
+// diagnostics inside view specs depend on it.
+var viewObjClsId = index.classExists('foam.u2.DetailView') ?
+  'foam.u2.DetailView' : 'foam.lang.FObject';
+var viewObjSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'ViewObjOwner',",
+  "  properties: [",
+  "    {",
+  "      class: 'String',",
+  "      name: 'p1',",
+  "      view: { class: '" + viewObjClsId + "', placeholder: 'x' }",   // L7
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var viewObjMap = axiomGrammar.collectAxiomPositions(viewObjSrc);
+var viewObjHits = ( viewObjMap.classRef && viewObjMap.classRef[viewObjClsId] ) || [];
+test(viewObjHits.length >= 1,
+  'Grammar axiom-pos: view: { class: ... } object form emits classRef (' + viewObjClsId + ')');
+test(viewObjHits.length >= 1 && viewObjHits[0].line === 7,
+  'Grammar axiom-pos: view object classRef on line 7 (got: ' +
+  ( viewObjHits[0] && viewObjHits[0].line ) + ')');
+// String form still works alongside
+var viewStrMap = axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package: 'test', name: 'VS', properties: [ { name: 'p', view: '" + viewObjClsId + "' } ] });"
+);
+test((( viewStrMap.classRef && viewStrMap.classRef[viewObjClsId] ) || []).length >= 1,
+  'Grammar axiom-pos: view string form still emits classRef');

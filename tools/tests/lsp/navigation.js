@@ -711,3 +711,19 @@ if ( anyFilePath ) {
 
 // === LSP #4999 Fix 1: property-type completion inserts full path (except foam.lang.*) ===
 
+
+// === VIEW-SPEC-ONLY REFERENCES ===
+
+section('ReferencesHandler — view-spec-only references');
+if ( index.classExists('foam.u2.view.ReferenceArrayView') && index.classExists('foam.core.auth.Group') ) {
+  // Group references ReferenceArrayView ONLY inside a `view: { class: ... }`
+  // spec (no requires / of) — before the view-spec usage index its file was
+  // never scanned and find-references returned nothing for it.
+  var vsRefHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
+  var vsText = "foam.CLASS({ package: 'x', name: 'T', properties: [ { name: 'p', view: { class: 'foam.u2.view.ReferenceArrayView' } } ] });";
+  var vsCol = vsText.indexOf('foam.u2.view.ReferenceArrayView') + 5;
+  var vsLocs = vsRefHandler.handle(vsText, { line: 0, character: vsCol });
+  test(vsLocs.length > 0, 'references: view-spec class resolves at cursor: ' + vsLocs.length);
+  test(vsLocs.some(function(l) { return l.uri.indexOf('Group.js') !== -1; }),
+    'references: view-spec-only user (Group.js) included via view-spec index');
+}

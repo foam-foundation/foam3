@@ -37,10 +37,11 @@ public class SingleToPartitionMigrator {
         // select() returns frozen objects; clone before put_ since a per-partition
         // seqNo may stamp a composite id on the record.
         FObject record = ((FObject) obj).fclone();
-        // Defer routing to the PartitionedDAO's own put_ / objToPath so the
-        // migrator follows whatever partition scheme the DAO defines. Count by
-        // the same objToPath the put_ routes on.
-        String part  = target.objToPath(record);
+        // Count by the same key put_ routes on — the partition property
+        // (PartitionedDAO.put_). objToPath prefers the id prefix, which
+        // misclassifies legacy plain ids (no '-') and negative ids ('-' at 0),
+        // making validation compare against the wrong partitions.
+        String part  = target.getPartition(record);
         String oldId = stringId(record);
         FObject stored = target.put_(x, record);
         String newId = stringId(stored);

@@ -25,10 +25,6 @@ public class DatePartitionedDAO
     super(x, of, dirName, partitionProperty);
   }
 
-  public DatePartitionedDAO(X x, ClassInfo of, String dirName, Expr id, Expr partitionProperty) {
-    super(x, of, dirName, id, partitionProperty);
-  }
-
   public String getPartition(FObject o) {
     Date d = (Date) getPartitionProperty().f(o);
 

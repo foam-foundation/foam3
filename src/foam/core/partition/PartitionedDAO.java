@@ -40,11 +40,6 @@ public class PartitionedDAO
     setPartitionProperty(partitionProperty);
   }
 
-  public PartitionedDAO(X x, ClassInfo of, String dirName, Expr id, Expr partitionProperty) {
-    this(x, of, dirName, partitionProperty);
-    setIdentityExpr(id);
-  }
-
   public synchronized DAO getDelegate(String part) {
     if ( part == null ) part = NO_PART;
 
@@ -65,7 +60,11 @@ public class PartitionedDAO
   }
 
   public String getID(FObject o) {
-    return (String) getIdentityExpr().f(o);
+    return (String) getIdProperty().f(o);
+  }
+
+  public void setID(FObject o, String id) {
+    getIdProperty().set(o, id);
   }
 
   public String getPartition(FObject o) {
@@ -130,9 +129,22 @@ public class PartitionedDAO
   }
 
   public FObject put_(X x, FObject obj) {
-    // TODO: if they primary key isn't in the correct format then add the partition prefix
-    //    return getDelegate(objToPath(obj)).put_(x, obj);
-    return getDelegate(getPartition(obj)).put_(x, obj);
+    String part = getPartition(obj);
+    String[] a = getID(obj).split(SEPARATOR);
+    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
+    if ( a.length <= getDepth() ) {
+      StringBuilder sb = new StringBuilder();
+      for ( int i = 0 ; i < getDepth()-1 ; i++ ) {
+        sb.append(a[i]);
+        sb.append(SEPARATOR);
+      }
+      sb.append(part);
+      sb.append(SEPARATOR);
+      sb.append(a[a.length-1]);
+      System.err.println("**** PUT2 " + sb.toString());
+      setID(obj, sb.toString());
+    }
+    return getDelegate(part).put_(x, obj);
   }
 
   public FObject remove_(X x, FObject obj) {

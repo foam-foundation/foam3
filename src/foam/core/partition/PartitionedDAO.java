@@ -117,7 +117,7 @@ public class PartitionedDAO
     // When the model's id is a String, assign composite <partition>§<seqNo>
     // ids per partition so find can route by the id prefix (see getPartition_).
     // Long-id models stay flat (no prefix), preserving non-composite usage.
-    foam.lang.PropertyInfo idProp = (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
+    foam.lang.PropertyInfo idProp = getIdProperty();
     if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
       return new foam.core.partition.PartitionedSequenceNumberDAO.Builder(getX())
         .setPrefix(rawPart + SEPARATOR)

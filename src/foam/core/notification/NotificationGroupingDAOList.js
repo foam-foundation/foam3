@@ -65,13 +65,13 @@ foam.CLASS({
 
         // Get the first record
         var result = await dao.limit(1).select();
-        if ( result && result.array && result.array.length > 0 ) {
+        if ( result?.array?.length > 0 ) {
           // Check if the first record is read or not
           this.readTabIsOpen = result.array[0].read;
         }
 
         // If there are no notifications
-        if ( result && result.array && result.array.length == 0 ) {
+        if ( result?.array?.length == 0 ) {
           // Hide the button
           this.readTabIsOpen = true;
         }

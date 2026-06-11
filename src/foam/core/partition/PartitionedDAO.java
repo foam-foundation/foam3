@@ -7,7 +7,6 @@
 package foam.core.partition;
 
 import foam.core.logger.Loggers;
-import foam.core.script.BeanShellExecutor;
 import foam.dao.*;
 import foam.dao.java.JDAO;
 import foam.lang.*;
@@ -81,17 +80,21 @@ public class PartitionedDAO
 
   /** Attempt to extract partition from prefix of a primary key. **/
   public String getPartition_(String id) {
-    var i = id.indexOf('-');
+    String[] a = id.split(SEPARATOR);
 
-    if ( i == -1 ) return null;
+    if ( a.length < getDepth() ) return null;
 
-    return id.substring(0, i);
+    return a[getDepth()-1];
   }
 
   public DAO createDAO(String part) {
     Loggers.logger(getX(), this).info("Creating partiion " + part);
 
-    String journalName = getDirName() + "_" + part;
+    if ( part.startsWith("_") || part.equals("") ) {
+      part = "_" + part;
+    }
+
+    String journalName = getDirName() + part;
 
     // TODO: directory creation would be better done by JDAO itself
     // Create the directory in the WRITABLE FileSystemStorage where JDAO writes the
@@ -127,6 +130,7 @@ public class PartitionedDAO
   }
 
   public FObject put_(X x, FObject obj) {
+    // TODO: if they primary key isn't in the correct format then add the partition prefix
     //    return getDelegate(objToPath(obj)).put_(x, obj);
     return getDelegate(getPartition(obj)).put_(x, obj);
   }
@@ -138,7 +142,8 @@ public class PartitionedDAO
   public FObject find_(X x, Object id) {
     String part = id instanceof String ? getPartition((String) id) : objToPath((FObject) id);
 
-    // TODO: if id is empty we could skip the find
+    if ( part == null ) return null;
+
     return getDelegate(part).find_(x, id);
   }
 

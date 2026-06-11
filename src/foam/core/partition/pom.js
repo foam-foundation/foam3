@@ -6,6 +6,7 @@ foam.POM({
   ],
 
   javaFiles: [
-    { name: "PartitionedDAO" }
+    { name: "PartitionedDAO" },
+    { name: "DatePartitionedDAO" }
   ]
 });

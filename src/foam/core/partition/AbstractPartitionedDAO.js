@@ -19,7 +19,21 @@ foam.CLASS({
     'java.util.concurrent.ConcurrentHashMap'
   ],
 
+  constants: [
+    {
+      name: 'SEPARATOR',
+      type: 'String',
+      documentation: 'Character used to sepatate sections of the primary key.',
+      value: '§'
+    }
+  ],
+
   properties: [
+    {
+      class: 'Int',
+      name: 'depth',
+      javaValue: '1'
+    },
     {
       class: 'String',
       name: 'dirName'

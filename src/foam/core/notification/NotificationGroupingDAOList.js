@@ -20,10 +20,6 @@ foam.CLASS({
     'foam.core.notification.Notification',
   ],
 
-  exports: [
-    'myNotificationDAO'
-  ],
-
   properties: [
     {
       class: 'Boolean',

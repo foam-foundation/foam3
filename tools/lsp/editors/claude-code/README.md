@@ -29,6 +29,7 @@ first tool call in a given Claude Code session pays that cost.
 | `foam_document_symbols` | `uri` | Outline of a file (classes, properties, methods, actions) |
 | `foam_workspace_symbols` | `query` | All FOAM classes matching a name substring |
 | `foam_diagnostics` | `uri` (optional) | Unknown classes, bad `foam.nanos.*` imports, CSS-token violations, invalid getters/setters in javaCode |
+| `foam_code_actions` | `uri`, `line` (optional) | Quick fixes with ready-to-apply edits: extract hardcoded strings to `messages:` (i18n), raw color → `$token`, wrong Java package, did-you-mean class suggestions |
 
 URIs accept: absolute paths, project-relative paths, or `file://` URIs.
 

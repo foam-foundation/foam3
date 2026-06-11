@@ -274,6 +274,18 @@ function toolSchemas() {
       inputSchema: {
         type: 'object', properties: { uri: pos.uri }
       }
+    },
+    {
+      name:        'foam_code_actions',
+      description: 'Quick fixes for FOAM diagnostics in a file: extract hardcoded display strings to messages: entries (i18n), replace raw colors with $css-tokens, correct wrong Java import packages, did-you-mean class suggestions. Returns LSP code actions with ready-to-apply workspace edits. Optionally scope to one 0-based line.',
+      inputSchema: {
+        type:     'object',
+        required: ['uri'],
+        properties: {
+          uri:  pos.uri,
+          line: { type: 'integer', description: 'Optional 0-based line — only return actions for diagnostics touching this line' }
+        }
+      }
     }
   ];
 }
@@ -328,6 +340,24 @@ async function callTool(lsp, projectRoot, name, args) {
     case 'foam_diagnostics': {
       const uri = args.uri ? normalizeUri(args.uri, projectRoot) : null;
       return await lsp.getDiagnostics(uri);
+    }
+    case 'foam_code_actions': {
+      const uri   = normalizeUri(args.uri, projectRoot);
+      const diags = await lsp.getDiagnostics(uri);
+      const list  = Array.isArray(diags) ? diags : [];
+      const scoped = ( args.line === undefined || args.line === null ) ? list :
+        list.filter(function(d) {
+          return d.range &&
+            d.range.start.line <= (args.line | 0) &&
+            (args.line | 0) <= d.range.end.line;
+        });
+      if ( scoped.length === 0 ) return [];
+      const res = await lsp.request('textDocument/codeAction', {
+        textDocument: { uri: uri },
+        range:        scoped[0].range,
+        context:      { diagnostics: scoped }
+      });
+      return res || [];
     }
     default:
       throw new Error('Unknown tool: ' + name);

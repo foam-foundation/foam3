@@ -72,3 +72,13 @@ getDelegates() - return more than 1,
 if only one, then use as is,
 if more than one then decorate the Sink and pass to all DAOs
   Like we do with Or?
+
+put(id = '')
+  1234-
+  1234-2024/01
+  1234-2024/01-1
+
+
+put(id = '1')
+  1234-1
+  1234-2024/01-1

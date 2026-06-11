@@ -24,7 +24,8 @@ foam.CLASS({
       name: 'SEPARATOR',
       type: 'String',
       documentation: 'Character used to sepatate sections of the primary key.',
-      value: '§'
+//      value: '§'
+      value: '~'
     }
   ],
 
@@ -44,11 +45,12 @@ foam.CLASS({
       documentation: 'Name of Property to be partitioned on.'
     },
     {
-      class: 'foam.mlang.ExprProperty',
-      name: 'identityExpr',
-      javaType: 'foam.mlang.Expr',
-      documentation: 'Property for comparing. Defaults to ID. Intented to support models without an id property.',
-      javaFactory: 'return new foam.mlang.IdentityExpr();'
+      class: 'Object',
+      name: 'idProperty',
+      javaType: 'foam.lang.PropertyInfo',
+      javaFactory: `
+        return (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
+      `
     }
   ],
 

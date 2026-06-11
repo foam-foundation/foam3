@@ -7,10 +7,6 @@
 // FOAM LSP Server — JSON-RPC over stdio.
 // Started by LSPMaker.end() after all FOAM models are loaded.
 
-// Pure request-action logic lives in ServerActions.js (unit-testable). The
-// in-closure functions below delegate to it, passing start()'s instances.
-var ServerActions = require('./ServerActions');
-
 function start() {
   // Redirect console.log to stderr — stdout is JSON-RPC channel
   var origLog = console.log;
@@ -41,6 +37,16 @@ function start() {
   var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+
+  var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
+  var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
+  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, diagnosticsHandler: diagnosticsHandler });
+  var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
+  var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
+  var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
+  var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
+  var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
+  var pomValidator           = foam.parse.lsp.handlers.PomValidator.create({ index: index });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -105,20 +111,8 @@ function start() {
     return uri && uri.endsWith('.jrl');
   }
 
-  function getSignatureHelp(text, position, index, opt_uri) {
-    return ServerActions.getSignatureHelp(text, position, index, fileModelCache, opt_uri);
-  }
-
-  function getFoldingRanges(text) {
-    return ServerActions.getFoldingRanges(text);
-  }
-
-  function getCodeActions(text, range, context, index, uri, cssTokenResolver) {
-    return ServerActions.getCodeActions(text, range, context, index, uri, cssTokenResolver, diagnosticsHandler);
-  }
-
-  function findSimilarClasses(target, index, maxResults) {
-    return ServerActions.findSimilarClasses(target, index, maxResults);
+  function isPomFile(uri) {
+    return uri && /pom\.js$/.test(uri);
   }
 
   function pushDiagnostics(uri, text) {
@@ -161,6 +155,14 @@ function start() {
     var doc = documents[uri];
     if ( ! doc ) return;
     fileModelCache.invalidate(uri);
+
+    // POM saves don't go through the foam.CLASS reindex path (POM is excluded
+    // from FOAM_CALL_REGEX). Drop the cached entry positions for this pom so
+    // class→pom navigation reflects the edit on the next request.
+    if ( isPomFile(uri) && typeof index.invalidatePomCache === 'function' ) {
+      var pomPath = uriToPath_(uri);
+      if ( pomPath ) index.invalidatePomCache(pomPath);
+    }
 
     var changedClassIds = [];
     if ( isFoamFile(doc.text) ) {
@@ -274,11 +276,19 @@ function start() {
 
   // === Message Dispatch ===
 
+  // Per-request timing. Logs `[LSP] ⏱ <method> <ms>ms` for any request/
+  // notification whose handler runs at least LSP_TIMING_MIN_MS. Override the
+  // threshold with env LSP_TIMING_MS (set to 0 to log every message).
+  var LSP_TIMING_MIN_MS = process.env.LSP_TIMING_MS !== undefined ?
+    Number(process.env.LSP_TIMING_MS) : 5;
+
   function handleMessage(msg) {
     var method = msg.method;
     var params = msg.params;
     var id     = msg.id;
 
+    var timerStart = process.hrtime.bigint();
+    try {
     switch ( method ) {
       case 'initialize':
         respond(id, {
@@ -310,7 +320,15 @@ function start() {
             },
             codeActionProvider: true,
             documentHighlightProvider: true,
-            renameProvider: { prepareProvider: true }
+            renameProvider: { prepareProvider: true },
+            typeHierarchyProvider: true,
+            implementationProvider: true,
+            typeDefinitionProvider: true,
+            callHierarchyProvider: true
+            // No diagnosticProvider (pull): diagnostics are PUSHED via
+            // publishDiagnostics on open/change and from the workspace scan.
+            // Advertising pull here too made clients render every diagnostic
+            // twice (push copy + pull copy).
           },
           experimental: {
             workspaceAnalyzer: true
@@ -433,7 +451,12 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        // pom.js doesn't match FOAM_CALL_REGEX (POM is excluded), but the
+        // DefinitionHandler has a dedicated pom→class branch that needs to
+        // run. Let pom.js through; other non-FOAM .js files still bail.
+        if ( ! isFoamFile(doc.text) && ! isPomFile(params.textDocument.uri) ) {
+          respond(id, null); break;
+        }
         try {
           var result = definitionHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] definition: success');
@@ -461,35 +484,49 @@ function start() {
         var doc = documents[params.textDocument.uri];
         if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
         try {
-          var result = getSignatureHelp(doc.text, params.position, index, params.textDocument.uri);
-          respond(id, result);
+          respond(id, signatureHelpHandler.handle(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
           console.error('[LSP] signatureHelp error:', e.message);
           respond(id, null);
         }
         break;
 
-      case 'foam/analyzeWorkspace':
+      case 'foam/validatePoms':
+        // Custom request: returns { orphans, missing, duplicates } for the
+        // POM membership audit. Surfaced via foam/analyzeWorkspace too;
+        // also callable on demand.
         try {
-          var results = workspaceAnalyzer.analyze(function(progress) {
+          respond(id, pomValidator.validate());
+        } catch (e) {
+          console.error('[LSP] foam/validatePoms error:', e.message);
+          respondError(id, -32603, e.message);
+        }
+        break;
+
+      case 'foam/analyzeWorkspace':
+        // Non-blocking: analyzeAsync yields between chunks so hover/completion/
+        // diagnostics keep responding while the workspace scan runs.
+        try {
+          workspaceAnalyzer.analyzeAsync(function(progress) {
             notify('foam/analyzeProgress', progress);
-          });
-          // Push diagnostics to Problems panel via standard LSP protocol
-          for ( var uri in results.fileResults ) {
-            notify('textDocument/publishDiagnostics', {
-              uri: uri,
-              diagnostics: results.fileResults[uri]
+          }, function(results) {
+            // Push diagnostics to Problems panel via standard LSP protocol
+            for ( var uri in results.fileResults ) {
+              notify('textDocument/publishDiagnostics', {
+                uri: uri,
+                diagnostics: results.fileResults[uri]
+              });
+            }
+            // Also return results for sidebar tree view
+            respond(id, {
+              filesScanned:    results.filesScanned,
+              filesWithIssues: results.filesWithIssues,
+              warnings:        results.warnings,
+              errors:          results.errors,
+              infos:           results.infos,
+              patterns:        results.patterns,
+              fileResults:     results.fileResults
             });
-          }
-          // Also return results for sidebar tree view
-          respond(id, {
-            filesScanned:    results.filesScanned,
-            filesWithIssues: results.filesWithIssues,
-            warnings:        results.warnings,
-            errors:          results.errors,
-            infos:           results.infos,
-            patterns:        results.patterns,
-            fileResults:     results.fileResults
           });
         } catch (e) {
           console.error('[LSP] analyzeWorkspace error:', e.message);
@@ -498,38 +535,34 @@ function start() {
         break;
 
       case 'workspace/symbol':
-        var query = (params.query || '').toLowerCase();
-        var symbols = [];
-        var ids = index.getAllClassIds();
-        for ( var i = 0 ; i < ids.length && symbols.length < 100 ; i++ ) {
-          if ( ids[i].toLowerCase().indexOf(query) !== -1 ) {
-            var filePath = index.getFilePath(ids[i]);
-            if ( filePath ) {
-              symbols.push({
-                name: ids[i].split('.').pop(),
-                kind: 5,
-                location: {
-                  uri: 'file://' + filePath,
-                  range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                },
-                containerName: ids[i]
-              });
-            }
-          }
+        try {
+          respond(id, workspaceSymbolHandler.handle(params.query));
+        } catch (e) {
+          console.error('[LSP] workspace/symbol error:', e.message);
+          respond(id, []);
         }
-        respond(id, symbols);
         break;
 
       case 'textDocument/foldingRange':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getFoldingRanges(doc.text));
+        try {
+          respond(id, foldingRangeHandler.handle(doc.text));
+        } catch (e) {
+          console.error('[LSP] foldingRange error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/codeAction':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getCodeActions(doc.text, params.range, params.context, index, params.textDocument.uri, cssTokenResolver));
+        try {
+          respond(id, codeActionHandler.handle(doc.text, params.range, params.context, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] codeAction error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/semanticTokens/full':
@@ -602,10 +635,128 @@ function start() {
         }
         break;
 
+      case 'textDocument/prepareTypeHierarchy':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, typeHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] prepareTypeHierarchy error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'typeHierarchy/supertypes':
+        try {
+          respond(id, typeHierarchyHandler.supertypes(params.item));
+        } catch (e) {
+          console.error('[LSP] typeHierarchy/supertypes error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'typeHierarchy/subtypes':
+        try {
+          respond(id, typeHierarchyHandler.subtypes(params.item));
+        } catch (e) {
+          console.error('[LSP] typeHierarchy/subtypes error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/implementation':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        try {
+          respond(id, implementationHandler.handle(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] implementation error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/typeDefinition':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, typeDefinitionHandler.handle(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] typeDefinition error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'textDocument/diagnostic':
+        // LSP 3.17 pull-diagnostic model. Caller asks for the diagnostics
+        // of an arbitrary file without first didOpen-ing it. We read the
+        // file fresh from disk so non-editor clients can query without a
+        // document-open round trip.
+        try {
+          var dUri  = params.textDocument && params.textDocument.uri;
+          if ( ! dUri ) { respond(id, { kind: 'full', items: [] }); break; }
+          var dDoc  = documents[dUri];
+          var dText = dDoc ? dDoc.text : null;
+          if ( ! dText ) {
+            var p = uriToPath_(dUri);
+            if ( p ) {
+              try { dText = require('fs').readFileSync(p, 'utf8'); } catch (re) {}
+            }
+          }
+          if ( ! dText ) { respond(id, { kind: 'full', items: [] }); break; }
+          var items;
+          if ( isJrlFile(dUri) ) {
+            items = jrlHandler.handleDiagnostics(dText, dUri);
+          } else if ( isFoamFile(dText) ) {
+            items = diagnosticsHandler.handle(dText, dUri);
+          } else {
+            items = [];
+          }
+          respond(id, { kind: 'full', items: items });
+        } catch (e) {
+          console.error('[LSP] textDocument/diagnostic error:', e.message);
+          respond(id, { kind: 'full', items: [] });
+        }
+        break;
+
+      case 'textDocument/prepareCallHierarchy':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, callHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] prepareCallHierarchy error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'callHierarchy/incomingCalls':
+        try {
+          respond(id, callHierarchyHandler.incomingCalls(params.item));
+        } catch (e) {
+          console.error('[LSP] callHierarchy/incomingCalls error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'callHierarchy/outgoingCalls':
+        try {
+          respond(id, callHierarchyHandler.outgoingCalls(params.item));
+        } catch (e) {
+          console.error('[LSP] callHierarchy/outgoingCalls error:', e.message);
+          respond(id, []);
+        }
+        break;
+
       default:
         if ( id !== undefined ) {
           respondError(id, -32601, 'Method not found: ' + method);
         }
+    }
+    } finally {
+      var elapsedMs = Number(process.hrtime.bigint() - timerStart) / 1e6;
+      if ( method && elapsedMs >= LSP_TIMING_MIN_MS ) {
+        console.error('[LSP] ⏱ ' + method + ' ' + elapsedMs.toFixed(1) + 'ms');
+      }
     }
   }
 

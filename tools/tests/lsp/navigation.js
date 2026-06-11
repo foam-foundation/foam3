@@ -22,10 +22,11 @@ var TEST_FILES = h.TEST_FILES;
 var passes = h.counters.passes, failures = h.counters.failures;  // legacy references; counters live on h.counters
 var SFV = h.SFV;
 
-// The real server request-action logic (folding / signature-help / code-action
-// / similar-class). Tested directly so the functions server.js dispatches are
-// exercised, not re-implemented inline.
-var ServerActions = require('../../lsp/ServerActions');
+// The real handler classes server.js dispatches (folding / signature-help /
+// code-action / similar-class) — tested directly, not re-implemented inline.
+var foldingRangeHandler_  = foam.parse.lsp.handlers.FoldingRangeHandler.create();
+var signatureHelpHandler_ = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: cache });
+var codeActionHandler_    = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, diagnosticsHandler: diagHandler });
 
 // === LSP #4993 Fix 1: go-to-definition follows FObjectProperty of: ===
 section('DefinitionHandler — property-chain navigation (issue #4993)');
@@ -91,13 +92,13 @@ test(gen2 === "Unknown property type: 'FooBar'", 'generalizeMessage leaves short
 
 // === FOLDING RANGE TESTS ===
 
-section('Folding Ranges (server.js getFoldingRanges via ServerActions)');
+section('Folding Ranges (FoldingRangeHandler — same instance type server.js dispatches)');
 
-// Calls the REAL ServerActions.getFoldingRanges — the same function server.js
-// dispatches — instead of a copy, so a server-side change is caught here.
+// Calls the REAL FoldingRangeHandler — the same class server.js dispatches —
+// instead of a copy, so a server-side change is caught here.
 var foldText = 'foam.CLASS({\n  package: ' + Q + 'test' + Q + ',\n  name: ' + Q + 'Fold' + Q + ',\n  properties: [\n    { class: ' + Q + 'String' + Q + ', name: ' + Q + 'x' + Q + ' },\n    { class: ' + Q + 'Int' + Q + ', name: ' + Q + 'y' + Q + ' }\n  ],\n  methods: [\n    function foo() {},\n    function bar() {}\n  ]\n})';
 
-var foldRanges = ServerActions.getFoldingRanges(foldText);
+var foldRanges = foldingRangeHandler_.handle(foldText);
 test(foldRanges.length === 2, 'Fold ranges found properties and methods: ' + foldRanges.length);
 test(foldRanges[0].startLine === 3, 'Properties fold starts at line 3');
 test(foldRanges[0].endLine === 6, 'Properties fold ends at the closing ] (line 6)');
@@ -106,10 +107,10 @@ test(foldRanges.every(function(r){ return r.kind === 'region'; }), 'Fold ranges 
 
 // requires + properties both fold
 var foldText2 = 'foam.CLASS({\n  requires: [\n    ' + Q + 'foam.u2.Element' + Q + '\n  ],\n  properties: [\n    ' + Q + 'x' + Q + '\n  ]\n})';
-test(ServerActions.getFoldingRanges(foldText2).length === 2, 'Fold ranges found requires and properties');
+test(foldingRangeHandler_.handle(foldText2).length === 2, 'Fold ranges found requires and properties');
 
 // A class with no foldable arrays yields no ranges (edge case).
-test(ServerActions.getFoldingRanges("foam.CLASS({ package:'t', name:'Empty' })").length === 0,
+test(foldingRangeHandler_.handle("foam.CLASS({ package:'t', name:'Empty' })").length === 0,
   'No foldable arrays → no fold ranges');
 
 // === CODE ACTION TESTS ===
@@ -118,25 +119,24 @@ test(ServerActions.getFoldingRanges("foam.CLASS({ package:'t', name:'Empty' })")
 
 // === CODE ACTION TESTS ===
 
-section('Code Actions (server.js getCodeActions / findSimilarClasses via ServerActions)');
+section('Code Actions (CodeActionHandler.handle / findSimilarClasses_)');
 
 // findSimilarClasses — the REAL function. 'foam.core.FObject' should suggest
 // 'foam.lang.FObject' (same short name, different package → score 100).
-var suggestions = ServerActions.findSimilarClasses('foam.core.FObject', index, 3);
+var suggestions = codeActionHandler_.findSimilarClasses_('foam.core.FObject', 3);
 test(suggestions.some(function(s) { return s === 'foam.lang.FObject'; }), 'findSimilarClasses suggests foam.lang.FObject for foam.core.FObject');
 test(suggestions.length <= 3, 'findSimilarClasses respects maxResults');
 
 // getCodeActions end-to-end. A helper to invoke it with one synthetic diagnostic.
 function codeActionsFor(text, diag, uri) {
-  return ServerActions.getCodeActions(text, diag.range, { diagnostics: [diag] },
-    index, uri || 'file:///x.js', cssTokenResolver, diagHandler);
+  return codeActionHandler_.handle(text, diag.range, { diagnostics: [diag] }, uri || 'file:///x.js');
 }
 var DUMMY_RANGE = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
 
 // No diagnostics → no actions.
-test(ServerActions.getCodeActions('', DUMMY_RANGE, { diagnostics: [] }, index, 'file:///x.js', cssTokenResolver, diagHandler).length === 0,
+test(codeActionHandler_.handle('', DUMMY_RANGE, { diagnostics: [] }, 'file:///x.js').length === 0,
   'getCodeActions: empty diagnostics → no actions');
-test(ServerActions.getCodeActions('', DUMMY_RANGE, null, index, 'file:///x.js', cssTokenResolver, diagHandler).length === 0,
+test(codeActionHandler_.handle('', DUMMY_RANGE, null, 'file:///x.js').length === 0,
   'getCodeActions: missing context → no actions (no throw)');
 
 // "Unknown class" → "Did you mean ...?" quickfix(es).
@@ -169,13 +169,13 @@ test(!! i18nFix && i18nFix.isPreferred === true && !! i18nFix.edit && !! i18nFix
 test(codeActionsFor('x', { message: 'Some unrelated warning', range: DUMMY_RANGE }).length === 0,
   'getCodeActions: unrelated diagnostic yields no actions');
 
-// === SIGNATURE HELP (server.js getSignatureHelp via ServerActions) ===
-section('Signature Help (server.js getSignatureHelp via ServerActions)');
+// === SIGNATURE HELP ===
+section('Signature Help (SignatureHelpHandler)');
 
 // Negative: cursor not inside a call → null (callMatch fails).
-test(ServerActions.getSignatureHelp(
+test(signatureHelpHandler_.handle(
   "foam.CLASS({ package:'t', name:'S', methods:[ function go(){} ] })",
-  { line: 0, character: 5 }, index, cache) === null,
+  { line: 0, character: 5 }) === null,
   'getSignatureHelp: cursor not inside a call returns null');
 
 // Positive: redefine a REAL indexed class inline and call one of its
@@ -199,8 +199,8 @@ if ( sigClassId ) {
   var argNames = sigMethod.args.map(function(a){ return a.name; });
   var sHead = "foam.CLASS({ package:'" + sPkg + "', name:'" + sName +
     "', methods:[ function go(){ this." + sigMethod.name + "(";
-  var sig = ServerActions.getSignatureHelp(sHead + "); } ] })",
-    { line: 0, character: sHead.length }, index, cache);
+  var sig = signatureHelpHandler_.handle(sHead + "); } ] })",
+    { line: 0, character: sHead.length });
   test(!! sig && sig.signatures.length === 1,
     'getSignatureHelp: returns a signature for a real method (' + sigClassId + '.' + sigMethod.name + ')');
   test(!! sig && sig.signatures[0].parameters.map(function(p){ return p.label; }).join(',') === argNames.join(','),
@@ -209,16 +209,16 @@ if ( sigClassId ) {
     'getSignatureHelp: activeParameter is 0 at the first argument');
 
   var sHead2 = sHead + 'a, ';
-  var sig2 = ServerActions.getSignatureHelp(sHead2 + '); } ] })',
-    { line: 0, character: sHead2.length }, index, cache);
+  var sig2 = signatureHelpHandler_.handle(sHead2 + '); } ] })',
+    { line: 0, character: sHead2.length });
   test(!! sig2 && sig2.activeParameter === 1,
     'getSignatureHelp: activeParameter advances to 1 after a comma');
 
   // Negative on a real, resolvable class: an unknown method name → null.
   var sBadHead = "foam.CLASS({ package:'" + sPkg + "', name:'" + sName +
     "', methods:[ function go(){ this.zzzNoSuchMethod_(";
-  test(ServerActions.getSignatureHelp(sBadHead + "); } ] })",
-    { line: 0, character: sBadHead.length }, index, cache) === null,
+  test(signatureHelpHandler_.handle(sBadHead + "); } ] })",
+    { line: 0, character: sBadHead.length }) === null,
     'getSignatureHelp: unknown method on a resolvable class returns null');
 } else {
   test(true, 'getSignatureHelp: no >=2-arg method found in index — positive case skipped');

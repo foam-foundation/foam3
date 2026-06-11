@@ -41,6 +41,7 @@ show_help() {
   echo "  vscode              VS Code (builds .vsix and installs)"
   echo "  emacs               Emacs (eglot + lsp-mode)"
   echo "  zed                 Zed IDE (dev extension)"
+  echo "  claude-code         Claude Code (MCP server)"
   echo ""
   echo "Build system:"
   echo "  ./build.sh lsp-install              Same as $0"
@@ -52,6 +53,7 @@ detect_editors() {
   if command -v code &>/dev/null; then found+=("vscode"); fi
   if command -v emacs &>/dev/null; then found+=("emacs"); fi
   if command -v zed &>/dev/null; then found+=("zed"); fi
+  if command -v claude &>/dev/null; then found+=("claude-code"); fi
   echo "${found[@]}"
 }
 
@@ -82,14 +84,24 @@ install_zed() {
   (cd "$EDITORS_DIR/zed-foam3" && ./install.sh)
 }
 
+install_claude_code() {
+  echo -e "${CYAN}==> Claude Code${RESET}"
+  if [ ! -d "$EDITORS_DIR/claude-code" ]; then
+    echo "ERROR: Claude Code integration not found at $EDITORS_DIR/claude-code"
+    return 1
+  fi
+  (cd "$EDITORS_DIR/claude-code" && ./install.sh)
+}
+
 install_editor() {
   case "$1" in
-    vscode|vs-code|code)  install_vscode ;;
-    emacs)                install_emacs ;;
-    zed)                  install_zed ;;
+    vscode|vs-code|code)               install_vscode ;;
+    emacs)                             install_emacs ;;
+    zed)                               install_zed ;;
+    claude|claude-code|claude_code)    install_claude_code ;;
     *)
       echo "Unknown editor: $1"
-      echo "Available: vscode, emacs, zed"
+      echo "Available: vscode, emacs, zed, claude-code"
       return 1
       ;;
   esac
@@ -107,7 +119,7 @@ case "${1:-}" in
     detected=$(detect_editors)
     if [ -z "$detected" ]; then
       echo "No supported editors detected in PATH."
-      echo "Supported: code (VS Code), emacs, zed"
+      echo "Supported: code (VS Code), emacs, zed, claude (Claude Code)"
       exit 1
     fi
     for editor in $detected; do
@@ -123,7 +135,7 @@ case "${1:-}" in
     detected=$(detect_editors)
     if [ -z "$detected" ]; then
       echo "No supported editors detected in PATH."
-      echo "Supported: code (VS Code), emacs, zed"
+      echo "Supported: code (VS Code), emacs, zed, claude (Claude Code)"
       echo ""
       echo "Run with a specific editor: $0 vscode"
       exit 1

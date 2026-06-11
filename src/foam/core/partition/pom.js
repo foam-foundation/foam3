@@ -12,6 +12,7 @@ foam.POM({
 
   javaFiles: [
     { name: "PartitionedDAO" },
+    { name: "DatePartitionedDAO" },
     { name: "ReferenceMigrator" },
     { name: "SingleToPartitionMigrator" }
   ]

@@ -59,3 +59,16 @@ setDecorator:
 
 OR make it decorate the EasyDAO
   - extract the journal name, set the decorator, fix seqNo
+
+/*
+Calendar cal = Calendar.getInstance();
+cal.setTime(legacyDate);
+int month = cal.get(Calendar.MONTH);
+*/
+
+For Date ranges:
+
+getDelegates() - return more than 1,
+if only one, then use as is,
+if more than one then decorate the Sink and pass to all DAOs
+  Like we do with Or?

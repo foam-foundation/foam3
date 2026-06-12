@@ -394,7 +394,7 @@ foam.POM({
     { name: "foam/dao/TTLCachingDAO",                                 flags: "js" },
     { name: "foam/dao/TTLSelectCachingDAO",                           flags: "js|java" },
     { name: "foam/dao/CachingDAO",                                    flags: "js" },
-    { name: "foam/dao/DeDupDAO",                                      flags: "js" },
+    { name: "foam/dao/DeDupDAO",                                      flags: "js|java" },
     { name: "foam/dao/LRUDAOManager",                                 flags: "js" },
     { name: "foam/dao/QueryCachingDAO",                               flags: "js|java" },
     { name: "foam/dao/SequenceNumberDAO",                             flags: "js|java" },

@@ -1420,42 +1420,100 @@ foam.CLASS({
         arr.push({ sourceClassId: source, axiomName: axiomName, kind: kind });
       }
 
-      // Pattern: `this.<CapitalIdent>` — short name to resolve via requires.
-      var THIS_SHORT = /\bthis\.([A-Z][\w$]*)\b/g;
-
-      for ( var i = 0 ; i < ids.length ; i++ ) {
-        var sourceId = ids[i];
-        var cls      = this.getClass(sourceId);
-        if ( ! cls || ! cls.model_ ) continue;
-
-        // requires: build short→full map from the model axiom
-        var shortMap = {};
-        var reqs = cls.model_.requires || [];
-        for ( var r = 0 ; r < reqs.length ; r++ ) {
-          var req = reqs[r];
-          if ( typeof req === 'string' ) {
-            var parts = req.split(/\s+as\s+/);
-            var path  = parts[0].trim();
-            var alias = (parts[1] || path.split('.').pop()).trim();
-            shortMap[alias] = path;
-          } else if ( req && req.path ) {
-            shortMap[req.name || req.path.split('.').pop()] = req.path;
+      function requiresShortMap(classIds) {
+        // Merged short→full requires map across every class defined in one
+        // file — `this.Short` anywhere in the file resolves through any of
+        // its classes' requires.
+        var map = {};
+        for ( var c = 0 ; c < classIds.length ; c++ ) {
+          var cls = self.getClass(classIds[c]);
+          if ( ! cls || ! cls.model_ ) continue;
+          var reqs = cls.model_.requires || [];
+          for ( var r = 0 ; r < reqs.length ; r++ ) {
+            var req = reqs[r];
+            if ( typeof req === 'string' ) {
+              var parts = req.split(/\s+as\s+/);
+              var path  = parts[0].trim();
+              var alias = (parts[1] || path.split('.').pop()).trim();
+              map[alias] = path;
+            } else if ( req && req.path ) {
+              map[req.name || req.path.split('.').pop()] = req.path;
+            }
           }
         }
-        if ( Object.keys(shortMap).length === 0 ) continue;
+        return map;
+      }
 
-        // For each function-bearing axiom on the class, scan its source.
-        self.scanFunctions_(cls, function(src, axiomName) {
-          THIS_SHORT.lastIndex = 0;
-          var m;
-          while ( ( m = THIS_SHORT.exec(src) ) !== null ) {
-            var shortName = m[1];
-            var fullId    = shortMap[shortName];
-            if ( ! fullId ) continue;
-            if ( ! self.classExists(fullId) ) continue;
-            record(fullId, sourceId, axiomName, 'usage-js');
-          }
-        });
+      function resolveAndRecord(name, shortMap, sourceId) {
+        // `name` is a grammar-emitted reference: `this.Short`, `self.Short`,
+        // a bare Short, or a dotted class id. Dotted ids record directly;
+        // short names resolve through the file's requires map.
+        var stripped = name.replace(/^(?:this|self)\./, '');
+        if ( stripped.indexOf('.') !== -1 ) {
+          if ( self.classExists(stripped) ) record(stripped, sourceId, null, 'usage-js');
+          return;
+        }
+        var fullId = shortMap[stripped];
+        if ( fullId && self.classExists(fullId) ) record(fullId, sourceId, null, 'usage-js');
+      }
+
+      // Primary: grammar harvest per source file. collectAxiomPositions
+      // emits every code-side class reference in one parse — `this.Short`
+      // member access (memberRef), `X.create(...)` receivers
+      // (instCreateReceiver), `.tag(this.X, {...})` args (instTagClass),
+      // and `{ class: 'dotted.Id' }` spec objects inside method bodies
+      // (instClassRef). The last one is invisible to any registry scan:
+      // classes that only reference a view via a string spec declare no
+      // requires for it.
+      var GRAMMAR_KINDS = ['memberRef', 'instCreateReceiver', 'instTagClass', 'instClassRef'];
+      var fileToClasses = {};
+      var fileless      = [];
+      for ( var i = 0 ; i < ids.length ; i++ ) {
+        var p = this.getFilePath(ids[i]);
+        if ( p ) ( fileToClasses[p] || (fileToClasses[p] = []) ).push(ids[i]);
+        else fileless.push(ids[i]);
+      }
+
+      var grammar = this.getGrammar();
+      var fs_     = require('fs');
+      for ( var filePath in fileToClasses ) {
+        var classIds = fileToClasses[filePath];
+        var content;
+        try { content = fs_.readFileSync(filePath, 'utf8'); } catch ( e ) { continue; }
+        if ( content.length > 2 * 1024 * 1024 ) continue;
+        var posMap;
+        try { posMap = grammar.collectAxiomPositions(content); } catch ( e ) { continue; }
+        if ( ! posMap ) continue;
+        var shortMap = requiresShortMap(classIds);
+        var sourceId = classIds[0];
+        for ( var k = 0 ; k < GRAMMAR_KINDS.length ; k++ ) {
+          var bucket = posMap[GRAMMAR_KINDS[k]] || {};
+          for ( var nm in bucket ) resolveAndRecord(nm, shortMap, sourceId);
+        }
+      }
+
+      // Fallback: classes with no backing file (registered at runtime, e.g.
+      // test synthetics) can't be grammar-parsed — scan their function
+      // axioms' source from the registry for `this.Short` usages instead.
+      var THIS_SHORT = /\bthis\.([A-Z][\w$]*)\b/g;
+      for ( var i = 0 ; i < fileless.length ; i++ ) {
+        var sourceId2 = fileless[i];
+        var cls       = this.getClass(sourceId2);
+        if ( ! cls || ! cls.model_ ) continue;
+        var shortMap2 = requiresShortMap([sourceId2]);
+        if ( Object.keys(shortMap2).length === 0 ) continue;
+        (function(sId, sMap) {
+          self.scanFunctions_(cls, function(src, axiomName) {
+            THIS_SHORT.lastIndex = 0;
+            var m;
+            while ( ( m = THIS_SHORT.exec(src) ) !== null ) {
+              var fullId = sMap[m[1]];
+              if ( ! fullId ) continue;
+              if ( ! self.classExists(fullId) ) continue;
+              record(fullId, sId, axiomName, 'usage-js');
+            }
+          });
+        })(sourceId2, shortMap2);
       }
 
       this.usageIndex_ = { byTarget: byTarget };

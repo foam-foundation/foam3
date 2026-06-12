@@ -842,8 +842,20 @@ foam.CLASS({
         ),
 
         listenersArray: P.seq(P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.sym('listenerObject'), wsc)),
+          repeatList(P.seq(wsc, P.sym('listenerDef'), wsc)),
           wsc, P.optional(P.literal(']'))),
+        // Listeners come in two forms — the bare named-function form
+        // (`function click(e){...}`, a common idiom) and the object form
+        // (`{ name, code }`). Without the bare-function arm, listenersArray's
+        // object-only rule "succeeds" on just `[` (empty optional list + optional
+        // `]`), leaving `function click(){}], methods:[...]` to be misparsed as
+        // class entries — silently dropping every axiom after the listeners block.
+        // namedFunctionBody also emits the 'method' axiom position so go-to-def /
+        // hover resolve on the listener name (parity with methodDef).
+        listenerDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('listenerObject')
+        ),
         listenerObject: P.seq(P.literal('{'), wsc,
           repeatList(P.sym('listenerObjEntry')),
           wsc, P.optional(P.literal('}'))),
@@ -1071,11 +1083,12 @@ foam.CLASS({
             wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           // view: 'com.acme.MyView' — treat the string form exactly like `of:`
           // so class suggestions (including view classes) surface in viewSpec
-          // positions. The { class: '...' } object form is covered by the
-          // normal propEntry/class rule inside that object.
+          // positions. The `view: { class: '...' }` object form routes through
+          // viewSpecObject so the class id emits a classRef position too.
           P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
             text: 'view', category: 'key' })),
-            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
+            wsc, P.literal(':'), wsc,
+            P.alt(quoted(P.sym('classRef')), P.sym('viewSpecObject'))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
             text: 'documentation', category: 'key' })),
             wsc, P.literal(':'), wsc, P.msg(stringLiteral, { kind: 'documentation' })),
@@ -1226,6 +1239,20 @@ foam.CLASS({
           P.optional(comma),
           wsc, P.optional(P.literal('}'))
         ), { kind: 'instCall' }),
+
+        // Object-form ViewSpec in a property definition:
+        // `view: { class: 'foam.u2.view.X', … }`. Emits a plain classRef for
+        // the class id (find-references / definition / unknown-class
+        // diagnostics) WITHOUT the instCall record instClassObject adds —
+        // property-def specs must not trigger instantiation-value diagnostics.
+        viewSpecObject: P.seq(
+          P.literal('{'), wsc,
+          P.literal('class'), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef')),
+          P.repeat0(P.seq(comma, P.sym('genericEntry'))),
+          P.optional(comma),
+          wsc, P.optional(P.literal('}'))
+        ),
 
         instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instArgCall')),
 

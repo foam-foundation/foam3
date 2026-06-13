@@ -13,7 +13,15 @@ foam.CLASS({
     ^ {
       padding: 4px 0px;
     }
+    ^format {
+      color: $grey400;
+      font-size: smaller;
+    }
   `,
+
+  messages: [
+    { name: 'TYPED_FORMAT', message: 'yyyy-mm-dd' }
+  ],
 
   properties: [
     'suggestText',
@@ -27,7 +35,11 @@ foam.CLASS({
   methods: [
     function render() {
       this.addClass();
-      this.startContext({data: this}).add(this.DATE);
+      // The native picker displays the browser locale (eg. dd/mm/yyyy) but
+      // typed dates are parsed as yyyy-mm-dd, so show the accepted format.
+      this.startContext({data: this})
+        .start().addClass(this.myClass('format')).add(this.TYPED_FORMAT).end()
+        .add(this.DATE);
       this.date$.sub(() => {
         this.suggestText(this.date.toISOString().substring(0,10) + ' ');
       });
@@ -41,6 +53,17 @@ foam.CLASS({
   name: 'DateTimeSuggester',
   extends: 'foam.u2.View',
 
+  css:`
+    ^format {
+      color: $grey400;
+      font-size: smaller;
+    }
+  `,
+
+  messages: [
+    { name: 'TYPED_FORMAT', message: 'yyyy-mm-ddThh:mm' }
+  ],
+
   properties: [
     'suggestText',
     {
@@ -52,7 +75,12 @@ foam.CLASS({
 
   methods: [
     function render() {
-      this.startContext({data: this}).add(this.DATE);
+      this.addClass();
+      // The native picker displays the browser locale (eg. dd/mm/yyyy) but
+      // typed dates are parsed as yyyy-mm-ddThh:mm, so show the accepted format.
+      this.startContext({data: this})
+        .start().addClass(this.myClass('format')).add(this.TYPED_FORMAT).end()
+        .add(this.DATE);
       this.date$.sub(() => {
         this.suggestText(this.date.toISOString() + ' ');
       });

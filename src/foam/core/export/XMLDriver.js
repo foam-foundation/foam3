@@ -16,7 +16,16 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.xml.Outputter',
       name: 'outputter',
-      factory: function() { return foam.xml.Compact; },
+      factory: function() {
+        // Exports are read by people: output dates as ISO strings rather
+        // than the epoch milliseconds the shared Compact outputter emits.
+        return foam.xml.Outputter.create({
+          pretty: false,
+          formatDatesAsNumbers: false,
+          outputDefaultValues: false,
+          outputDefinedValues: false
+        });
+      },
       hidden: true
     }
   ],

@@ -343,6 +343,21 @@ foam.CLASS({
       }
       this.memento.head = columns.join(',');
     },
+
+    function restoreOrderFromMemento_() {
+      // sortBy records the sort in the memento but nothing read it back, so
+      // after a reload the table claimed a sort it wasn't applying and the
+      // first header click was a visual no-op (it re-applied ascending).
+      if ( this.order || ! this.memento || ! this.memento.head ) return;
+
+      var sorted = this.memento.head.split(',').find(c => this.shouldColumnBeSorted(c));
+      if ( ! sorted ) return;
+
+      var prop = this.of.getAxiomByName(this.returnMementoColumnNameDisregardSorting(sorted));
+      if ( ! prop ) return;
+
+      this.order = sorted[sorted.length - 1] === this.DESCENDING_ORDER_CHAR ? this.DESC(prop) : prop;
+    },
     function groupByCol(column) {
       this.groupBy = column;
     },
@@ -364,6 +379,7 @@ foam.CLASS({
     async function render() {
       var view = this;
       var nextViewMemento;
+      this.restoreOrderFromMemento_();
       const asyncRes = await this.filterUnpermitted(view.of.getAxiomsByClass(foam.lang.Property));
       this.allColumns = ! view.of ? [] : [].concat(
         asyncRes.map(a => a.name),

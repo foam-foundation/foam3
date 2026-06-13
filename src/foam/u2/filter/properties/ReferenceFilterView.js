@@ -253,6 +253,7 @@ foam.CLASS({
       }
       this.onDetach(this.daoContents$.sub(this.updateReferenceObjectsArray));
       this.onDetach(this.dao$proxy.listen(this.FnSink.create({ fn: this.daoUpdate })));
+      this.onDetach(this.search$.sub(this.daoUpdate));
       this.daoUpdate();
 
       this.addClass()
@@ -367,7 +368,22 @@ foam.CLASS({
       code: function() {
         this.isOverLimit = false;
         this.isLoading = true;
-        this.dao.select(this.GROUP_BY(this.property, null, 21)).then((results) => {
+        // Only up to 20 groups are loaded, so filtering the loaded options
+        // client-side misses values outside the first page. Apply the search
+        // to the query itself, like StringFilterView does.
+        var search = this.search && this.search.trim();
+        var pred   = search ? this.STARTS_WITH_IC(this.property, search) : this.TRUE;
+        this.dao.where(pred).select(this.GROUP_BY(this.property, null, 21)).then((results) => {
+          if ( search && results.groupKeys.length === 0 ) {
+            // The search text may match display summaries rather than raw
+            // values; fall back to the unfiltered page and let
+            // filteredOptions match against the display strings.
+            return this.dao.select(this.GROUP_BY(this.property, null, 21)).then((unfiltered) => {
+              this.daoContents = unfiltered;
+              if ( Object.keys(unfiltered.groups).length > 20 ) this.isOverLimit = true;
+              this.isLoading = false;
+            });
+          }
           this.daoContents = results; // gets contents from the source dao
           if ( Object.keys(results.groups).length > 20 ) this.isOverLimit = true;
           this.isLoading = false;

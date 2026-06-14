@@ -343,6 +343,32 @@ foam.CLASS({
       }
       this.memento.head = columns.join(',');
     },
+
+    function restoreOrderFromMemento_() {
+      if ( this.order ) return;
+
+      // sortBy records the sort in the memento but nothing read it back, so
+      // after a reload the table claimed a sort it wasn't applying and the
+      // first header click was a visual no-op (it re-applied ascending).
+      var sorted = this.memento && this.memento.head &&
+        this.memento.head.split(',').find(c => this.shouldColumnBeSorted(c));
+      if ( sorted ) {
+        var prop = this.of.getAxiomByName(this.returnMementoColumnNameDisregardSorting(sorted));
+        if ( prop ) {
+          this.order = sorted[sorted.length - 1] === this.DESCENDING_ORDER_CHAR ? this.DESC(prop) : prop;
+          return;
+        }
+      }
+
+      // No saved sort: the DAO returns id-ascending by default, but order was
+      // left unset, so the first click on the id header re-applied ascending
+      // instead of toggling to descending. Seed order with the id column (same
+      // axiom the header passes to sortBy) so the first click goes to descending.
+      if ( this.of && this.of.ID ) {
+        var idProp = this.of.getAxiomByName(this.of.ID.name);
+        if ( idProp ) this.order = idProp;
+      }
+    },
     function groupByCol(column) {
       this.groupBy = column;
     },
@@ -364,6 +390,7 @@ foam.CLASS({
     async function render() {
       var view = this;
       var nextViewMemento;
+      this.restoreOrderFromMemento_();
       const asyncRes = await this.filterUnpermitted(view.of.getAxiomsByClass(foam.lang.Property));
       this.allColumns = ! view.of ? [] : [].concat(
         asyncRes.map(a => a.name),

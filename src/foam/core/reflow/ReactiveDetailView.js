@@ -435,7 +435,12 @@ foam.CLASS({
   `,
 
   properties: [
-    [ 'showActions', true ]
+    [ 'showActions', true ],
+    {
+      class: 'Boolean',
+      name: 'expandSections',
+      documentation: 'When true, sections render expanded instead of the reflow collapsed-by-default style. Settable per block via Block.configViewSpec.'
+    }
   ],
 
   methods: [
@@ -454,7 +459,9 @@ foam.CLASS({
         }
       };
       x.register(cls, 'foam.u2.PropertyBorder');
-      x.register(foam.core.reflow.CollapsedByDefaultSectionView, 'foam.u2.detail.SectionView');
+      if ( ! this.expandSections ) {
+        x.register(foam.core.reflow.CollapsedByDefaultSectionView, 'foam.u2.detail.SectionView');
+      }
       this.__context__ = x;
       this.SUPER();
     }

@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'ReferenceSuggester',
   extends: 'foam.u2.View',
 
+  // buildFilterPredicate_ uses OR/CONTAINS_IC/EQ/KEYWORD; without this mixin
+  // those are undefined and the suggester throws as soon as a filter is typed.
+  implements: [ 'foam.mlang.Expressions' ],
+
   documentation: `
     A suggester view for Reference properties in the AQL search bar.
     Shows records from the target DAO using CitationView. SmartView passes

@@ -28,6 +28,14 @@ foam.CLASS({
     'emoji'
   ],
 
+  // Lets the AQL search bar (ReferenceSuggester) filter currencies by code or
+  // name (eg. `currency = US` -> USD) instead of falling back to KEYWORD,
+  // which currencyDAO does not index.
+  searchColumns: [
+    'id',
+    'name'
+  ],
+
   constants: {
     FORMATTER_CACHE: {}
   },

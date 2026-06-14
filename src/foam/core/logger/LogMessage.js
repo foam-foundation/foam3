@@ -54,6 +54,12 @@ foam.CLASS({
       view: 'foam.u2.view.date.ROMillisecondView',
       tableCellFormatter: function(value, obj, axiom) {
         this.add(new Date(value).toISOString());
+      },
+      // 'created' is stored as epoch millis (Long), so XML export emitted the
+      // raw number. Mirror the tableCellFormatter and output a readable ISO
+      // string instead. (formatDatesAsNumbers only governs real Date values.)
+      toXML: function(value, Outputter) {
+        return value ? new Date(value).toISOString() : value;
       }
     },
     {

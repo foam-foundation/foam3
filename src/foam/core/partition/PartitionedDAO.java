@@ -160,14 +160,14 @@ public class PartitionedDAO
   }
 
   public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    Object part = extractPredicateValue(predicate, (PropertyInfo) getPartitionProperty());
+    Object part = extractPredicateValue(predicate);
     // TODO: extract partition match or range
     // return sink;
     return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
   }
 
-  public Object extractPredicateValue(Predicate predicate, PropertyInfo property) {
-    if ( predicate == null || property == null ) {
+  public Object extractPredicateValue(Predicate predicate) {
+    if ( predicate == null ) {
       return null;
     }
 
@@ -175,7 +175,7 @@ public class PartitionedDAO
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property
-      if ( expr.getArg1() == property ) {
+      if ( expr.getArg1() == getPartitionProperty() ) {
         if ( predicate.getClass() == Eq.class ) {
           return expr.getArg2().f(expr);
         }
@@ -194,7 +194,7 @@ public class PartitionedDAO
 
       // Process each argument in the AND predicate
       for ( Predicate arg : andPredicate.getArgs() ) {
-        Object value = extractPredicateValue(arg, property);
+        Object value = extractPredicateValue(arg);
         if ( value != null ) {
           return value;
         }

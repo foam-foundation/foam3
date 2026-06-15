@@ -42,24 +42,27 @@ public class DatePartitionedDAO
 
 
   public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    Object part = extractPredicateValue(predicate, (PropertyInfo) getPartitionProperty());
+    Object part = extractPredicateValue(predicate);
     // TODO: extract partition match or range
     // return sink;
     return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
   }
 
-  public Object extractPredicateRange(Predicate predicate, PropertyInfo property) {
-    if ( predicate == null || property == null ) {
-      return null;
+  public Date[] extractPredicateRange(Predicate predicate) {
+    if ( predicate == null ) {
+      // TODO: make configurable
+      Date fiveWeeksAgo = new Date(System.currentTimeMillis() - (5L * 7 * 24 * 60 * 60 * 1000));
+      return new Date[] {fiveWeeksAgo, new Date()};
     }
 
     if ( predicate instanceof Binary ) {
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property
-      if ( expr.getArg1() == property ) {
+      if ( expr.getArg1() == getPartitionProperty() ) {
         if ( predicate.getClass() == Eq.class ) {
-          return expr.getArg2().f(expr);
+          Date date = (Date) expr.getArg2().f(expr);
+          return new Date[] { date, date };
         }
         /*
         // For range predicates, you could return a Range object or array
@@ -76,9 +79,10 @@ public class DatePartitionedDAO
 
       // Process each argument in the AND predicate
       for ( Predicate arg : andPredicate.getArgs() ) {
-        Object value = extractPredicateValue(arg, property);
+        Object value = extractPredicateRange(arg);
         if ( value != null ) {
-          return value;
+          Date date = (Date) value;
+          return new Date[] { date, date };
         }
       }
     }

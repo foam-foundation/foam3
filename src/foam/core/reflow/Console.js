@@ -957,7 +957,7 @@ foam.CLASS({
     'window',
     'showNav',
     'isMenuOpen',
-    'llmService as parentLLMService'
+    'llmService? as parentLLMService'
   ],
 
   constants: [
@@ -1061,6 +1061,7 @@ foam.CLASS({
     {
       name: 'llmService',
       factory: function() {
+        if ( ! this.parentLLMService ) return null;
         return this.ConversationalLLMService.create({delegate: this.parentLLMService});
       }
     },

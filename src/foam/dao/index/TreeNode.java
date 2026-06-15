@@ -18,11 +18,11 @@ import static foam.dao.AbstractDAO.decorateSink;
 
 /** AATree implementation. See: https://en.wikipedia.org/wiki/AA_tree **/
 public class TreeNode {
-  protected Object   key;
-  protected Object   value;
-  protected long     size;
+  protected Object   key;   // IDEA: switch to T-Tree would eliminate overhead for Longs but not Strings
+  protected Object   value; // IDEA: Could be an 'int' pointer into an Array
+  protected long     size;  // IDEA: changing to 'int' would restrict to 2B records
   protected byte     level;
-  protected TreeNode left;
+  protected TreeNode left;  // IDEA: Could be int pointers into a TreeNode[]
   protected TreeNode right;
 
   protected final static TreeNode NULL_NODE = new TreeNode(null, null, 0, (byte) 0, null, null);

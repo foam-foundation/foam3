@@ -19,7 +19,7 @@ foam.CLASS({
     'pushDefaultMenu?',
     'theme',
     'toolbar?',
-    'auth?'
+    'auth'
   ],
 
   cssTokens: [
@@ -107,8 +107,7 @@ foam.CLASS({
       });
     },
     function checkLanguageAccess() {
-      // TODO: Change this to the languages permission
-      this.auth.check(this, "*").then(result=>{
+      this.auth.check(this, "languagechoice").then(result=>{
         this.hasLanguagePerm = result;
       })
     },

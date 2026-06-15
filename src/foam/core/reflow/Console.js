@@ -1355,6 +1355,10 @@ foam.CLASS({
     function clearFlow() {
       this.removeAllFlowChildren();
 
+      // Remove stale flowScope bindings so a script replay (undo/redo)
+      // can't resolve a DAO name to a removed block's value.
+      this.refreshFlowScope();
+
       // Select the top-level FLOW object after clearing
       this.selected = this.value;
     },
@@ -1836,7 +1840,7 @@ foam.CLASS({
       }
     },
 
-    function generateScript() {
+    function generateScriptString() {
       this.updateDependencies();
 
       var json = foam.json.Outputter.create({
@@ -1848,7 +1852,11 @@ foam.CLASS({
         propertyPredicate: function(_, p) { return p.name === 'reactions_' || ( ! p.externalTransient && ! p.networkTransient ); }
       });
 
-      this.value.script = json.stringify(this.flowChildren);
+      return json.stringify(this.flowChildren);
+    },
+
+    function generateScript() {
+      this.value.script = this.generateScriptString();
       // console.log('******************** script', this.value.script);
     },
 
@@ -2103,6 +2111,16 @@ foam.CLASS({
 
           var script = this.value.script;
           await this.includeScript(script);
+
+          // The loaded/restored script may not be a generateScript() fixed
+          // point (e.g. hand-written scripts, or scripts saved before a
+          // serialization change). Canonicalize it now WITHOUT recording a
+          // memento; otherwise the merged onFlowChildrenChange regen that
+          // follows every replay registers as a user edit, re-pushing the
+          // just-restored state onto the undo stack and clearing the redo
+          // stack, which leaves undo/redo apparently doing nothing.
+          var canonical = this.generateScriptString().trim();
+          if ( canonical !== this.value.script ) this.mementoMgr.restore(canonical);
 
           this.selected = ( currentBlockName == this.flowName ) ?
             this :

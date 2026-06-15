@@ -700,4 +700,41 @@ var exprMsgs = diagHandler.handle(exprSrc, '').map(function(d) { return d.messag
 test(! has(exprMsgs, 'HealthStatus') && ! has(exprMsgs, 'numeric'),
   'expression values are not flagged (literals only)');
 
+// === i18n detection mechanics — characterization for the .add() finder ===
+// These lock the CURRENT (regex) finding behavior so a future grammar-based
+// rewrite (Approach A) that swaps the finder must reproduce it exactly. They
+// pin the mechanics the existing semantic tests don't: range precision, the
+// whitespace contract, look-alike method names, nested-body descent, quote
+// flavors. Any drift here fails loudly.
+section('DiagnosticsHandler i18n detection mechanics');
+
+// 1. Range precision — the diagnostic range covers the inner content only,
+//    bounded by (not including) the quote characters.
+var rpSrc = "foam.CLASS({ package:'t', name:'RP', methods:[ function render(){ this.add('Upload Complete'); } ] })";
+var rp = diagHandler.handle(rpSrc).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; });
+test(rp.length === 1, 'range: exactly one diagnostic');
+var rpS = rp.length === 1 ? analyzer.positionToOffset(rpSrc, rp[0].range.start) : -1;
+var rpE = rp.length === 1 ? analyzer.positionToOffset(rpSrc, rp[0].range.end)   : -1;
+test(rpS !== -1 && rpSrc.substring(rpS, rpE) === 'Upload Complete', 'range: spans the inner content exactly (no quotes)');
+test(rpS !== -1 && rpSrc[rpS - 1] === "'" && rpSrc[rpE] === "'", 'range: bounded by the surrounding quote chars');
+
+// 2. Whitespace contract. Spaces/newlines AFTER the ( are tolerated; a space
+//    BETWEEN .add and ( is NOT matched (the scanner requires a contiguous '.add(').
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS1', methods:[ function render(){ this.add( 'Spaced Out' ); } ] })").length === 1, "whitespace: .add( 'x' ) with inner spaces flagged");
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS2', methods:[ function render(){ this.add(\n        'Newline Arg'); } ] })").length === 1, 'whitespace: .add( newline + string ) flagged');
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS3', methods:[ function render(){ this.add ('Not Matched'); } ] })").length === 0, 'whitespace: a space between .add and ( is NOT flagged (contiguous .add( required)');
+
+// 3. Look-alike method names must NOT match — only an exact .add( call counts.
+test(addStrDiags("foam.CLASS({ package:'t', name:'AA', methods:[ function render(){ this.addAll('Some Items'); } ] })").length === 0, "look-alike: .addAll('Some Items') not flagged");
+test(addStrDiags("foam.CLASS({ package:'t', name:'RA', methods:[ function render(){ this.readd('Re Add'); } ] })").length === 0, "look-alike: .readd('Re Add') not flagged");
+
+// 4. Nested-body descent — an .add() inside a callback within render is found.
+test(addStrDiags("foam.CLASS({ package:'t', name:'NCB', methods:[ function render(){ this.data.sub(function(){ this.add('Deep Text'); }); } ] })").length === 1, 'nested: .add() inside a callback within render is flagged');
+
+// 5. Double-quoted argument flavor flagged (parity with single-quoted).
+test(addStrDiags("foam.CLASS({ package:'t', name:'DQ2', methods:[ function render(){ this.add(\"Hello World\"); } ] })").length === 1, 'double-quoted: this.add("Hello World") flagged once');
+
+// 6. Escaped-quote argument flagged exactly once (detection, not just extract).
+test(addStrDiags("foam.CLASS({ package:'t', name:'AP2', methods:[ function render(){ this.add('Don\\'t save'); } ] })").length === 1, "escaped quote: this.add('Don\\'t save') flagged once");
+
 

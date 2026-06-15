@@ -302,6 +302,93 @@ test(pmMap.method && pmMap.method.greet && pmMap.method.greet.line === 8,
 test(pmMap.method && pmMap.method.farewell && pmMap.method.farewell.line === 9,
   'Grammar axiom-pos: method farewell at line 9 (object form)');
 
+// === Method-body parsing must not disturb sibling axioms (Approach-A guard) ===
+// The grammar consumes method bodies as opaque balancedBraces. Any change that
+// teaches it to descend into bodies (e.g. an i18n .add() rule) MUST still
+// consume each body exactly — leaving siblings (the next method, later props)
+// findable. These lock that invariant: if a body change over- or under-consumes,
+// the sibling axiom below it goes missing and a test here fails immediately.
+section('Grammar: method bodies do not disturb sibling axioms (Approach-A guard)');
+
+// Synthetic, full control. render()'s body packs every construct a body-descent
+// could trip on: chained .add()/.start(), a nested callback with its own braces,
+// a string literal containing { } and an .add( and an escaped quote, plus line
+// and block comments that also contain .add( and braces. The sibling after() must
+// still be located at its real line.
+var bodyGuardSrc = [
+  "foam.CLASS({",                                                       // 0
+  "  package: 'g',",                                                    // 1
+  "  name: 'BodyGuard',",                                               // 2
+  "  properties: [",                                                    // 3
+  "    { name: 'before' }",                                             // 4
+  "  ],",                                                               // 5
+  "  methods: [",                                                       // 6
+  "    function render() {",                                            // 7
+  "      // line comment with .add('Commented') and a } brace",         // 8
+  "      this.start('div').add('Hello').start('span').add('World').end();", // 9
+  "      var s = 'has } { braces and .add(\\'Nested\\') inside';",      // 10
+  "      this.data.sub(function() { self.add('InCallback'); });",       // 11
+  "      /* block } { .add('Blocked') comment */",                      // 12
+  "    },",                                                             // 13
+  "    function after() { return 1; }",                                 // 14
+  "  ]",                                                                // 15
+  "});"                                                                 // 16
+].join('\n');
+var bgMap = axiomGrammar.collectAxiomPositions(bodyGuardSrc);
+test(bgMap.property && bgMap.property.before && bgMap.property.before.line === 4,
+  'body-guard: property before the method is found at line 4');
+test(bgMap.method && bgMap.method.render && bgMap.method.render.line === 7,
+  'body-guard: render() method found at line 7');
+test(bgMap.method && bgMap.method.after && bgMap.method.after.line === 14,
+  'body-guard: sibling after() still found at line 14 AFTER a gnarly render body');
+
+// Full no-throw parse of the same source — balancedBraces must not bail mid-class.
+var bgPs = foam.parse.StringPStream.create({ str: bodyGuardSrc + String.fromCharCode(26) });
+var bgRes; try { bgRes = grammar.parse(bgPs); } catch ( e ) { bgRes = undefined; }
+test(bgRes !== undefined, 'body-guard: source with a complex method body parses without error');
+
+// Real framework view: ActionView is dense with chained .add()/.addClass().add()
+// in its render()/initCls() bodies. Both methods (which precede the listeners:
+// block) are indexed, proving balancedBraces consumes those .add()-heavy bodies
+// without losing the sibling method. NOTE: ActionView's click/debounce/setConfirm
+// live in listeners:, which collectAxiomPositions does not index as methods (see
+// the bare-function-listener limitation tests below) — so they are intentionally
+// NOT asserted here.
+var avPath = 'foam3/src/foam/u2/ActionView.js';
+if ( fs.existsSync(avPath) ) {
+  var avText = fs.readFileSync(avPath, 'utf8');
+  var avMap  = axiomGrammar.collectAxiomPositions(avText);
+  test(!! (avMap.method.render && avMap.method.initCls),
+    'real view: render + initCls methods both found (sibling recovery across .add()-heavy bodies)');
+  test(!! (avMap.property.label && avMap.property.data),
+    'real view: label/data properties found');
+  test(!! avMap.message.CONFIRM,
+    'real view: CONFIRM message found');
+  var avPs = foam.parse.StringPStream.create({ str: avText + String.fromCharCode(26) });
+  var avRes; try { avRes = grammar.parse(avPs); } catch ( e ) { avRes = undefined; }
+  test(avRes !== undefined, 'real view: ActionView.js parses without error');
+} else {
+  test(true, 'real view: ActionView.js not present — skipped');
+}
+
+// listenersEntry structures BOTH listener forms: the object form
+// ([ { name, code } ]) and the bare named-function form
+// ([ function click(e){...} ], a common FOAM idiom). Neither may derail the
+// parse of axioms that follow, and a bare-function listener is itself indexed
+// as a method position (so go-to-def / hover resolve on the listener name).
+section('Grammar: listener forms — method-position indexing');
+test(Object.keys(axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package:'t', name:'OBJL', listeners:[ { name:'deb', code: function(){ this.add('Z'); } } ], methods:[ function afterL(){ return 1; } ] })"
+).method).indexOf('afterL') !== -1,
+  'object-form listener does NOT break the following methods: block (afterL found)');
+var bflMap = axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package:'t', name:'BFL', listeners:[ function click(e){ this.add('Z'); } ], methods:[ function afterL(){ return 1; } ] })"
+);
+test(Object.keys(bflMap.method).indexOf('afterL') !== -1,
+  'bare-function listener does NOT break the following methods: block (afterL found)');
+test(Object.keys(bflMap.method).indexOf('click') !== -1,
+  'bare-function listener is itself indexed as a method position (click found)');
+
 // === Regression: top-level/property keys with values must NOT abort the parse ===
 // Earlier `topKey()` and `propKey()` only matched the key word, leaving
 // the `: <value>` for the next iteration to choke on. Result: ANY class
@@ -761,3 +848,38 @@ test(!! (memMap.instTagClass && memMap.instTagClass['this.MetricCard']),
   '.tag(this.MetricCard, {...}) still emits instTagClass');
 test(!! (memMap.instCreateReceiver && memMap.instCreateReceiver['this.Other']),
   'this.Other.create({}) still emits instCreateReceiver');
+
+// === VIEW-SPEC OBJECT FORM CLASSREF ===
+
+section('FoamClassGrammar — view: { class: ... } object form');
+// The object form must emit a classRef position for the class id, just like
+// the string form `view: 'x.Y'` — find-references / definition / unknown-class
+// diagnostics inside view specs depend on it.
+var viewObjClsId = index.classExists('foam.u2.DetailView') ?
+  'foam.u2.DetailView' : 'foam.lang.FObject';
+var viewObjSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'ViewObjOwner',",
+  "  properties: [",
+  "    {",
+  "      class: 'String',",
+  "      name: 'p1',",
+  "      view: { class: '" + viewObjClsId + "', placeholder: 'x' }",   // L7
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var viewObjMap = axiomGrammar.collectAxiomPositions(viewObjSrc);
+var viewObjHits = ( viewObjMap.classRef && viewObjMap.classRef[viewObjClsId] ) || [];
+test(viewObjHits.length >= 1,
+  'Grammar axiom-pos: view: { class: ... } object form emits classRef (' + viewObjClsId + ')');
+test(viewObjHits.length >= 1 && viewObjHits[0].line === 7,
+  'Grammar axiom-pos: view object classRef on line 7 (got: ' +
+  ( viewObjHits[0] && viewObjHits[0].line ) + ')');
+// String form still works alongside
+var viewStrMap = axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package: 'test', name: 'VS', properties: [ { name: 'p', view: '" + viewObjClsId + "' } ] });"
+);
+test((( viewStrMap.classRef && viewStrMap.classRef[viewObjClsId] ) || []).length >= 1,
+  'Grammar axiom-pos: view string form still emits classRef');

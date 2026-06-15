@@ -1363,11 +1363,12 @@ foam.CLASS({
       // next searchSymbols call. Cheap to drop, expensive to incrementally
       // patch — for a small win in correctness we trade a small cost in
       // workspace-symbol latency right after a save.
-      this.symbolIndex_      = null;
-      this.usageIndex_       = null;
-      this.javaUsageIndex_   = null;
-      this.stringUsageIndex_ = null;
-      this.memberUsageIndex_ = null;
+      this.symbolIndex_        = null;
+      this.usageIndex_         = null;
+      this.javaUsageIndex_     = null;
+      this.stringUsageIndex_   = null;
+      this.memberUsageIndex_   = null;
+      this.viewSpecUsageIndex_ = null;
       // FoamClassGrammar bakes class ids into its parser at build time —
       // adding or removing a class invalidates the alt() list, so drop the
       // cached instance too.
@@ -1458,6 +1459,94 @@ foam.CLASS({
       }
 
       this.usageIndex_ = { byTarget: byTarget };
+    },
+
+    // ----- View-spec usage index --------------------------------------------
+    //
+    // For every model in the registry, walk own property axioms and scan the
+    // values stored on them (instance_, post-adapt) for spec-object class
+    // references: `view: { class: 'X' }`, `searchView`, `rowView`,
+    // `defaultNewItem`, nested specs (`views: [{ class: 'X' }]`), and any
+    // other slot holding a `{ class: '<dotted.id>' }` object. ViewSpec.adapt
+    // converts the string form to the object form at set time, so the object
+    // shape is the only one stored. Answers "which classes reference X only
+    // inside a view spec?" — those declare no requires/of for X, so no other
+    // index produces the edge and find-references never scans their files.
+
+    function getViewSpecUsers(classId) {
+      /** Return [{ sourceClassId, axiomName }] referencing classId inside axiom spec values. */
+      if ( ! this.viewSpecUsageIndex_ ) this.buildViewSpecUsageIndex_();
+      return this.viewSpecUsageIndex_.byTarget[classId] || [];
+    },
+
+    function buildViewSpecUsageIndex_() {
+      var byTarget = {};
+      var self     = this;
+      var ids      = this.getAllClassIds();
+
+      function record(target, source, axiomName) {
+        var arr = byTarget[target] || (byTarget[target] = []);
+        for ( var k = 0 ; k < arr.length ; k++ ) {
+          if ( arr[k].sourceClassId === source && arr[k].axiomName === axiomName ) return;
+        }
+        arr.push({ sourceClassId: source, axiomName: axiomName });
+      }
+
+      // Only dotted ids count — bare short names ('String', 'Long') are
+      // property types, already navigable through the propEntry/class path.
+      // Recursion is restricted to PLAIN objects/arrays: spec literals stay
+      // plain after ViewSpec.adapt, while FObject instances and other exotic
+      // values carry getters whose evaluation can throw (e.g. DOM access in
+      // a node process) or fire factories.
+      function isPlain(v) {
+        var proto = Object.getPrototypeOf(v);
+        return proto === Object.prototype || proto === null;
+      }
+
+      function scanValue(v, source, axiomName, depth) {
+        if ( depth > 4 || ! v ) return;
+        if ( Array.isArray(v) ) {
+          for ( var i = 0 ; i < v.length ; i++ ) scanValue(v[i], source, axiomName, depth + 1);
+          return;
+        }
+        if ( typeof v !== 'object' || ! isPlain(v) ) return;
+        if ( typeof v.class === 'string' && v.class.indexOf('.') !== -1 &&
+             self.classExists(v.class) ) {
+          record(v.class, source, axiomName);
+        }
+        for ( var key in v ) {
+          var inner = v[key];
+          if ( inner && typeof inner === 'object' ) scanValue(inner, source, axiomName, depth + 1);
+        }
+      }
+
+      var PropertyClass = foam.maybeLookup('foam.lang.Property');
+      if ( PropertyClass ) {
+        for ( var i = 0 ; i < ids.length ; i++ ) {
+          var sourceId = ids[i];
+          var props;
+          try {
+            var cls = this.getClass(sourceId);
+            props = cls && cls.getOwnAxiomsByClass(PropertyClass);
+          } catch ( e ) {}
+          if ( ! props ) continue;
+          // Per-property catch: one axiom whose stored value misbehaves must
+          // not hide the spec edges of its siblings.
+          for ( var j = 0 ; j < props.length ; j++ ) {
+            try {
+              var p     = props[j];
+              var store = p.instance_;
+              if ( ! store ) continue;
+              for ( var f in store ) {
+                var val = store[f];
+                if ( val && typeof val === 'object' ) scanValue(val, sourceId, p.name, 0);
+              }
+            } catch ( e ) {}
+          }
+        }
+      }
+
+      this.viewSpecUsageIndex_ = { byTarget: byTarget };
     },
 
     // ----- Member-reference index -----------------------------------------

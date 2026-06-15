@@ -8,11 +8,12 @@ foam.CLASS({
   package: 'foam.parse.lsp.handlers',
   name: 'CodeActionHandler',
 
-  documentation: 'Quick-fix code actions for FOAM diagnostics: unknown-class suggestions, wrong Java package, raw-color → $token, single-quote conversion.',
+  documentation: 'Quick-fix code actions for FOAM diagnostics: unknown-class suggestions, wrong Java package, raw-color → $token, single-quote conversion, hardcoded-display-string → messages: extraction.',
 
   properties: [
     { name: 'index' },
-    { name: 'cssTokenResolver' }
+    { name: 'cssTokenResolver' },
+    { name: 'diagnosticsHandler' }
   ],
 
   methods: [
@@ -66,6 +67,23 @@ foam.CLASS({
               diagnostics: [diag],
               edit: { changes: this.makeEdit_(uri, diag.range, '$' + token) }
             });
+          }
+        }
+
+        // Hardcoded display string → extract to a messages: entry (i18n)
+        if ( diag.code === 'i18n-hardcoded-display-string' && this.diagnosticsHandler ) {
+          var hsMatch = diag.message.match(/Hardcoded display string "([^"]+)"/);
+          if ( hsMatch ) {
+            var i18nEdit = this.diagnosticsHandler.buildAddExtractEdit(text, hsMatch[1], uri, diag.range);
+            if ( i18nEdit ) {
+              actions.push({
+                title:       "Extract '" + hsMatch[1] + "' to a messages: entry",
+                kind:        'quickfix',
+                isPreferred: true,
+                diagnostics: [diag],
+                edit: i18nEdit
+              });
+            }
           }
         }
 

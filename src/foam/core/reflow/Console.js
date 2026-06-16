@@ -1940,7 +1940,7 @@ foam.CLASS({
     {
       name: 'helpKey',
       isAvailable: function(flowMode, input_) {
-        return flowMode.showsHelpKey && input_.element_ === document.activeElement;
+        return flowMode.showsHelpKey && input_?.element_ === document.activeElement;
       },
       code: function() { this.eval_('help'); },
       keyboardShortcuts: [ 'f1' ]
@@ -1985,7 +1985,7 @@ foam.CLASS({
     },
     {
       name: 'stepUpHistory',
-      isAvailable: function(input_) { return input_.element_ == document.activeElement; },
+      isAvailable: function(input_) { return input_?.element_ == document.activeElement; },
       code: function() {
         this.historyPosition = foam.Number.clamp(0, this.historyPosition+1, this.history_.length);
         this.input = this.history_[this.history_.length - this.historyPosition] ?? '';
@@ -1994,7 +1994,7 @@ foam.CLASS({
     },
     {
       name: 'stepDownHistory',
-      isAvailable: function(input_) { return input_.element_ == document.activeElement; },
+      isAvailable: function(input_) { return input_?.element_ == document.activeElement; },
       code: function() {
         this.historyPosition--;
         this.input = this.history_[this.history_.length - this.historyPosition] ?? '';
@@ -2013,7 +2013,7 @@ foam.CLASS({
     {
       name: 'selectionUp',
       keyboardShortcuts: [ 'shift-arrowup' ],
-      isAvailable: function(input_) { return input_.element_ == document.activeElement; },
+      isAvailable: function(input_) { return input_?.element_ == document.activeElement; },
       code: function() {
         var i = this.flowChildren.findIndex(o => o === this.selected);
         this.setSelectedIndex(i == -1 ? this.flowChildren.length-1 : i-1);
@@ -2022,7 +2022,7 @@ foam.CLASS({
     {
       name: 'selectionDown',
       keyboardShortcuts: [ 'shift-arrowdown' ],
-      isAvailable: function(input_) { return input_.element_ == document.activeElement; },
+      isAvailable: function(input_) { return input_?.element_ == document.activeElement; },
       code: function() {
         var i = this.flowChildren.findIndex(o => o === this.selected);
         this.setSelectedIndex(i+1);

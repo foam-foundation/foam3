@@ -126,9 +126,7 @@ foam.CLASS({
     'action',
     {
       name: 'label',
-      factory: function(action) {
-        return this.translateActionProperty_('label', this.action.label);
-      }
+      factory: function(action) { return this.action.label; }
     },
     {
       name: 'ariaLabel',

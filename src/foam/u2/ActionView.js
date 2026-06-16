@@ -58,7 +58,10 @@ foam.CLASS({
     'foam.u2.dialog.ConfirmationModal'
   ],
 
-  imports: [ 'ctrl?' ],
+  imports: [
+    'ctrl?',
+    'translationService?'
+  ],
 
   exports: ['action'],
 
@@ -123,11 +126,15 @@ foam.CLASS({
     'action',
     {
       name: 'label',
-      factory: function(action) { return this.action.label; }
+      factory: function(action) {
+        return this.translateActionProperty_('label', this.action.label);
+      }
     },
     {
       name: 'ariaLabel',
-      factory: function() { return this.action.ariaLabel; }
+      factory: function() {
+        return this.translateActionProperty_('ariaLabel', this.action.ariaLabel, this.label);
+      }
     },
     {
       class: 'Enum',
@@ -158,7 +165,9 @@ foam.CLASS({
 
   methods: [
     function render() {
-      this.tooltip$.follow(this.action.toolTip$);
+      this.tooltip$.follow(this.action.toolTip$.map(toolTip => {
+        return this.translateActionProperty_('help', toolTip || this.action.help);
+      }));
 
       this.SUPER();
 
@@ -180,6 +189,18 @@ foam.CLASS({
     function initCls() {
       this.addClass();
       this.addClass(this.myClass(this.action.name));
+    },
+
+    // Resolve view-time action text
+    function translateActionProperty_(property, defaultText, fallbackText) {
+      var fallback = fallbackText === undefined ? defaultText : fallbackText;
+      if ( ! this.translationService || ! this.action || ! this.action.sourceCls_ ) return fallback;
+
+      return this.translationService.getTranslation(
+        foam.locale,
+        this.action.sourceCls_.id + '.' + foam.String.constantize(this.action.name) + '.' + property,
+        fallback
+      );
     }
   ],
 
@@ -196,11 +217,12 @@ foam.CLASS({
           } else {
             this.data?.pub('action', this.action.name, this);
             (async () => {
+              var label = this.label || this.action.label;
               this.ctrl.add(this.ConfirmationModal.create({
                 primaryAction: this.action,
                 data: this.data,
-                title: modal.title || this.action.label + ' ' + await this.data.toSummary() + '?'
-              }).add(modal.body || this.CONFIRM_MSG + ' ' + this.action.label.toLowerCase() + ' ' + await this.data.toSummary() + '?'));
+                title: modal.title || label + ' ' + await this.data.toSummary() + '?'
+              }).add(modal.body || this.CONFIRM_MSG + ' ' + label.toLowerCase() + ' ' + await this.data.toSummary() + '?'));
             })();
           }
         } else if ( this.buttonState == this.ButtonState.NO_CONFIRM ) {

@@ -162,7 +162,14 @@ foam.CLASS({
   methods: [
     function render() {
       this.tooltip$.follow(this.action.toolTip$.map(toolTip => {
-        return this.translateActionProperty_('help', toolTip || this.action.help);
+        var fallback = toolTip || this.action.help;
+        if ( ! this.translationService || ! this.action || ! this.action.sourceCls_ ) return fallback;
+
+        return this.translationService.getTranslation(
+          foam.locale,
+          this.action.sourceCls_.id + '.' + foam.String.constantize(this.action.name) + '.help',
+          fallback
+        );
       }));
 
       this.SUPER();
@@ -185,18 +192,6 @@ foam.CLASS({
     function initCls() {
       this.addClass();
       this.addClass(this.myClass(this.action.name));
-    },
-
-    // Resolve view-time action text
-    function translateActionProperty_(property, defaultText, fallbackText) {
-      var fallback = fallbackText === undefined ? defaultText : fallbackText;
-      if ( ! this.translationService || ! this.action || ! this.action.sourceCls_ ) return fallback;
-
-      return this.translationService.getTranslation(
-        foam.locale,
-        this.action.sourceCls_.id + '.' + foam.String.constantize(this.action.name) + '.' + property,
-        fallback
-      );
     }
   ],
 

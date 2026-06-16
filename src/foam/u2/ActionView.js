@@ -130,9 +130,7 @@ foam.CLASS({
     },
     {
       name: 'ariaLabel',
-      factory: function() {
-        return this.translateActionProperty_('ariaLabel', this.action.ariaLabel, this.label);
-      }
+      factory: function() { return this.action.ariaLabel; }
     },
     {
       class: 'Enum',

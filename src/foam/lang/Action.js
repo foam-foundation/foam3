@@ -61,7 +61,7 @@ foam.CLASS({
       class: 'String',
       generateJava: false,
       name: 'ariaLabel',
-      expression: function(name) { return this.label || foam.String.labelize(name); }
+      expression: function(name, label) { return label || foam.String.labelize(name); }
     },
     {
       documentation: 'displayed on :hover',

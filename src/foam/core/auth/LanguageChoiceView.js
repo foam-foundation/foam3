@@ -21,6 +21,7 @@ foam.CLASS({
   ],
 
   imports: [
+    'auth',
     'countryDAO',
     'languageDAO',
     'stack',
@@ -45,8 +46,8 @@ foam.CLASS({
       of: 'foam.core.auth.Language',
       name: 'lastLanguage',
       factory: function() {
-        let language = this.supportedLanguages.find( e => e.toString() === foam.locale )
-        language = language === undefined ? this.defaultLanguage : language
+        let language = this.supportedLanguages.find( e => e.toString() === foam.locale );
+        language = language === undefined ? this.defaultLanguage : language;
         localStorage.setItem('localeLanguage', language.toString());
         return language;
       }
@@ -68,7 +69,14 @@ foam.CLASS({
         })).select()).array;
 
       if ( this.supportedLanguages.length <= 1 ) return;
-
+      var i = this.supportedLanguages.length;
+      while ( i-- ) {
+        var code = this.supportedLanguages[i].code;
+        if ( ! code.includes('-') )
+          code += '-';
+        if ( ! await this.auth.check(this.__subContext__, `language.read.${code}`) )
+          self.supportedLanguages.splice(i, 1);
+      }
       var actionArray = this.supportedLanguages.map( c => {
         var labelSlot = foam.lang.PromiseSlot.create({ value: '', promise: self.formatLabel(c) });
         return self.Action.create({

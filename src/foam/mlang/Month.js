@@ -34,7 +34,7 @@ foam.CLASS({
       name: 'f',
       code: function() {
         var date = new Date();
-        if ( date.getMonath() + numberOfMonths > 12 ) date.setYear(date.getYear()+ Math.floor((date.getMonth()+ numberOfMonths)/12));
+        if ( date.getMonth() + numberOfMonths > 12 ) date.setYear(date.getYear()+ Math.floor((date.getMonth()+ numberOfMonths)/12));
         if ( date.getMonth() + numberOfMonths < 0 ) date.setYear(date.getYear()-1-Math.floor((date.getMonth()- numberOfMonths)/12));
         date.setMonth(date.getMonth()+numberOfMonths);
         date.setDate(1);

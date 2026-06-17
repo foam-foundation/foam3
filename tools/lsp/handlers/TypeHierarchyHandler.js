@@ -77,12 +77,14 @@ foam.CLASS({
       var filePath = this.index.getFilePath(classId);
       if ( ! filePath ) return null;
       var isInterface = this.index.isInterface(classId);
+      var line = this.index.getClassLine(classId);
+      var range = { start: { line: line, character: 0 }, end: { line: line, character: 0 } };
       return {
         name:           classId.split('.').pop(),
         kind:           isInterface ? this.SYMBOL_KIND_INTERFACE : this.SYMBOL_KIND_CLASS,
         uri:            'file://' + filePath,
-        range:          { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-        selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+        range:          range,
+        selectionRange: range,
         detail:         classId,
         data:           { classId: classId }
       };

@@ -49,6 +49,7 @@ require('./lsp/usageIndex');
 require('./lsp/callHierarchy');
 require('./lsp/pomValidation');
 require('./lsp/pomNavigation');
+require('./lsp/mcp');
 
 h.section('SUMMARY');
 console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');

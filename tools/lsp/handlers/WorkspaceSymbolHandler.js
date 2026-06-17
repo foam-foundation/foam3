@@ -27,12 +27,22 @@ foam.CLASS({
       var out   = [];
       for ( var i = 0 ; i < hits.length ; i++ ) {
         var h = hits[i];
+        // Class-level hits (Class/Interface/Enum) sit at the foam.CLASS call;
+        // member hits resolve to their axiom line via the grammar position map
+        // (one parse per file, cached in FoamIndex.getFilePosMap_).
+        var line = 0, character = 0;
+        if ( h.kind === 5 || h.kind === 11 || h.kind === 10 ) {
+          line = this.index.getClassLine(h.classId);
+        } else {
+          var pos = this.index.getSymbolPosition(h.classId, h.name, h.kind);
+          line = pos.line; character = pos.character;
+        }
         out.push({
           name:          h.name,
           kind:          h.kind,
           location: {
             uri:   'file://' + h.filePath,
-            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
+            range: { start: { line: line, character: character }, end: { line: line, character: character } }
           },
           containerName: h.containerName
         });

@@ -59,18 +59,18 @@ foam.CLASS({
     function collectAxiomPositions(text) {
       /**
        * Single-parse axiom-position index driven by the grammar itself.
-       * The `messageNameValue` / `enumValueName` / (future) propertyName /
-       * methodName rules are wrapped in `P.msg({kind: '...'})`. On successful
-       * match their msg is emitted with the parser's start/end position —
-       * exactly the info callers need to go-to-definition or build hover
-       * targets.
+       * The `messageNameValue` / `enumValueName` / `propertyNameValue` /
+       * `methodNameValue` rules are wrapped in `P.msg({kind: '...'})`. On
+       * successful match their msg is emitted with the parser's start/end
+       * position — exactly the info callers need to go-to-definition or build
+       * hover targets.
        *
        * Returns:
        *   {
        *     message:  { NAME: { line, col, startPos, endPos } },
        *     value:    { NAME: { … } },
-       *     property: { name: { … } },       // future
-       *     method:   { name: { … } }        // future
+       *     property: { name: { … } },
+       *     method:   { name: { … } }
        *   }
        *
        * Cached by text identity on the grammar instance.

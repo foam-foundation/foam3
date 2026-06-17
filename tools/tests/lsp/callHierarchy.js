@@ -88,3 +88,22 @@ test(outgoing.some(function(c) { return c.to.name === 'methodB'; }),
   'outgoingCalls: methodA calls methodB');
 test(! outgoing.some(function(c) { return c.to.name === 'methodA'; }),
   'outgoingCalls: self-recursion excluded');
+
+
+// === Real method positions (itemFor_ via grammar position map) ===
+
+section('CallHierarchy — real method positions');
+var realCls = index.getClass('foam.core.controller.ApplicationController');
+if ( realCls && index.getFilePath('foam.core.controller.ApplicationController') ) {
+  var realMethods = realCls.getOwnAxiomsByClass(foam.lang.Method);
+  var named = realMethods.filter(function(m) { return typeof m.name === 'string' && m.name; });
+  if ( named.length ) {
+    var mItem = ch.itemFor_('foam.core.controller.ApplicationController', named[0].name);
+    test(mItem.range.start.line > 0,
+      'itemFor_: real method ' + named[0].name + ' has a non-zero line (@' + mItem.range.start.line + ')');
+  } else {
+    test(true, 'method position test skipped (no named own methods)');
+  }
+} else {
+  test(true, 'method position test skipped (ApplicationController not in file index)');
+}

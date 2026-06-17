@@ -148,12 +148,15 @@ foam.CLASS({
     function itemFor_(classId, memberName) {
       var filePath = this.index.getFilePath(classId);
       var uri      = filePath ? 'file://' + filePath : 'file:///' + classId.replace(/\./g, '/');
+      var pos      = filePath ? this.index.getSymbolPosition(classId, memberName, this.SYMBOL_KIND_METHOD)
+                              : { line: 0, character: 0 };
+      var range    = { start: { line: pos.line, character: pos.character }, end: { line: pos.line, character: pos.character } };
       return {
         name:           memberName,
         kind:           this.SYMBOL_KIND_METHOD,
         uri:            uri,
-        range:          { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-        selectionRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+        range:          range,
+        selectionRange: range,
         detail:         classId,
         data:           { classId: classId, memberName: memberName }
       };

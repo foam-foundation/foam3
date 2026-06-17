@@ -57,6 +57,16 @@ foam.CLASS({
       var classId = this.resolveClassAtCursor_(text, position, word, opt_uri);
       if ( ! classId ) return [];
 
+      return this.referencesForClassId(classId);
+    },
+
+    function referencesForClassId(classId) {
+      /**
+       * Reference locations for a resolved class id — the by-id core shared by
+       * the cursor-driven handle() and name-addressed lookups (foam/byName).
+       * Unions subclasses, implementors, requirers, of-users, and the JS/Java/
+       * string/view-spec usage indexes.
+       */
       // Collect referencing class IDs from every angle. Dedup — a class may
       // both extend and require the target (rare, but keep it honest).
       var seen = {};

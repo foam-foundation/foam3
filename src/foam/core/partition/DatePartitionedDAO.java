@@ -36,10 +36,27 @@ public class DatePartitionedDAO
     return year + "/" + month;
   }
 
-  public synchronized DAO getDelegates(Date start, Date end) {
-    return null;
-  }
+  public String[] getPartitions(Date[] range) {
+    Calendar c1 = Calendar.getInstance();
+    c1.setTime(range[0]);
+    int y1 = c1.get(Calendar.YEAR);
+    int m1 = c1.get(Calendar.MONTH);
 
+    Calendar c2 = Calendar.getInstance();
+    c2.setTime(range[1]);
+    int y2 = c1.get(Calendar.YEAR);
+    int m2 = c1.get(Calendar.MONTH);
+
+    String[] parts = new String[(y2-y1) * 12 + m2 - m1];
+
+    for ( int i = 0, y = y1, m = m1 ; i < parts.length ; i++ ) {
+      parts[i] = getPartition(y + "/" + m);
+      m++;
+      if ( m == 12 ) { m = 0; y++; }
+    }
+
+    return parts;
+  }
 
   public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     Object part = extractPredicateValue(predicate);
@@ -49,45 +66,48 @@ public class DatePartitionedDAO
   }
 
   public Date[] extractPredicateRange(Predicate predicate) {
+    // TODO: make configurable
+    // IDEA: alternatively, send null, null and then fill in default after
+    Date   fiveWeeksAgo = new Date(System.currentTimeMillis() - (5L * 7 * 24 * 60 * 60 * 1000));
+    Date[] range        = new Date[] {fiveWeeksAgo, new Date()};
+
+    extractPredicateRange(range, predicate);
+
+    return range;
+  }
+
+  public void extractPredicateRange(Date[] range, Predicate predicate) {
+    /*
     if ( predicate == null ) {
-      // TODO: make configurable
-      Date fiveWeeksAgo = new Date(System.currentTimeMillis() - (5L * 7 * 24 * 60 * 60 * 1000));
-      return new Date[] {fiveWeeksAgo, new Date()};
+      return;
     }
+    */
 
     if ( predicate instanceof Binary ) {
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property
       if ( expr.getArg1() == getPartitionProperty() ) {
-        if ( predicate.getClass() == Eq.class ) {
-          Date date = (Date) expr.getArg2().f(expr);
-          return new Date[] { date, date };
+        Class cls  = predicate.getClass();
+        Date  date = (Date) expr.getArg2().f(expr);
+
+        // TODO: What do to if only one of < or > is defined?
+        if ( cls == Eq.class ) {
+          range[0] = range[1] = date;
+        } else if ( cls == Gt.class || cls == Gte.class ) {
+          range[0] = date;
+        } else if ( cls == Lt.class || cls == Lte.class ) {
+          range[1] = date;
         }
-        /*
-        // For range predicates, you could return a Range object or array
-        if ( predicate.getClass().equals(Gt.class)  ||
-             predicate.getClass().equals(Gte.class) ||
-             predicate.getClass().equals(Lt.class)  ||
-             predicate.getClass().equals(Lte.class) ) {
-          return expr.getArg2().f(expr);
-        }
-        */
       }
     } else if ( predicate instanceof And ) {
       And andPredicate = (And) predicate;
 
       // Process each argument in the AND predicate
       for ( Predicate arg : andPredicate.getArgs() ) {
-        Object value = extractPredicateRange(arg);
-        if ( value != null ) {
-          Date date = (Date) value;
-          return new Date[] { date, date };
-        }
+        extractPredicateRange(range, arg);
       }
     }
-
-    return null;
   }
 }
 

@@ -136,10 +136,17 @@ function startServer(
   treeProvider: FoamTreeProvider,
   onRunnerReady: (runner: FoamAnalysisRunner) => void
 ) {
+  // GUI-launched VS Code does not inherit the shell PATH, so a bare `node`
+  // command fails with ENOENT when Node lives under nvm or homebrew. Default to
+  // the Node binary bundled with VS Code (run via ELECTRON_RUN_AS_NODE); honour
+  // an explicit foam.nodePath override when the user sets one.
+  const configuredNode = (workspace.getConfiguration('foam').get<string>('nodePath') || '').trim();
+  const env = { ...process.env };
+  if ( ! configuredNode ) env.ELECTRON_RUN_AS_NODE = '1';
   const serverOptions: ServerOptions = {
-    command: 'node',
+    command: configuredNode || process.execPath,
     args: [lspScript, pomPath],
-    options: { cwd }
+    options: { cwd, env }
   };
 
   const clientOptions: LanguageClientOptions = {

@@ -95,6 +95,23 @@ foam.CLASS({
         instCall: true, instCreateReceiver: true, instTagClass: true,
         instClassRef: true, instKey: true, instValue: true, memberRef: true };
 
+      // Line-start offsets, computed once (O(n)), so each msg match resolves
+      // line/col by binary search (O(log n)). Scanning text from offset 0 per
+      // match would be O(startPos) — quadratic over a file with many matches,
+      // and matches dominate the workspace usage scan.
+      var lineStarts = [ 0 ];
+      for ( var ls = 0 ; ls < text.length ; ls++ ) {
+        if ( text.charCodeAt(ls) === 10 ) lineStarts.push(ls + 1);
+      }
+      var posToLineCol = function(pos) {
+        var lo = 0, hi = lineStarts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( lineStarts[mid] <= pos ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, col: pos - lineStarts[lo] };
+      };
+
       var apply = function(p, grammar) {
         var startPos = this.pos;
         var result = p.parse(this, grammar);
@@ -104,12 +121,9 @@ foam.CLASS({
             var endPos = result.pos;
             var name = text.substring(startPos, endPos);
             if ( name ) {
-              var line = 0, col = 0;
-              for ( var i = 0 ; i < startPos ; i++ ) {
-                if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
-              }
+              var lc = posToLineCol(startPos);
               var rec = {
-                line: line, col: col,
+                line: lc.line, col: lc.col,
                 startPos: startPos, endPos: endPos
               };
               if ( MULTI[m.kind] ) {

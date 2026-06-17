@@ -1575,7 +1575,11 @@ foam.CLASS({
       this.stringUsageIndex_   = null;
       this.memberUsageIndex_   = null;
       this.viewSpecUsageIndex_ = null;
-      this.filePosCache_       = null;
+      // filePosCache_ is deliberately NOT dropped here: collectAxiomPositions
+      // output is a pure function of file text, and each entry carries the
+      // file's mtime, so the guard in getFilePosMap_ re-parses only files that
+      // actually changed. Dropping it would force a full-workspace reparse on
+      // the next usage/symbol query after every save.
       // FoamClassGrammar bakes class ids into its parser at build time —
       // adding or removing a class invalidates the alt() list, so drop the
       // cached instance too.
@@ -1681,15 +1685,14 @@ foam.CLASS({
         else fileless.push(ids[i]);
       }
 
-      var grammar = this.getGrammar();
-      var fs_     = require('fs');
       for ( var filePath in fileToClasses ) {
         var classIds = fileToClasses[filePath];
-        var content;
-        try { content = fs_.readFileSync(filePath, 'utf8'); } catch ( e ) { continue; }
-        if ( content.length > 2 * 1024 * 1024 ) continue;
-        var posMap;
-        try { posMap = grammar.collectAxiomPositions(content); } catch ( e ) { continue; }
+        // mtime-cached parse, shared with getSymbolPosition and reused across
+        // rebuilds. collectAxiomPositions output depends only on file text (the
+        // harvested kinds match broadly and are narrowed later by resolution),
+        // so the cache survives invalidateSymbolIndex_ — without it, the first
+        // usage query after any save reparses the whole workspace (~3000 files).
+        var posMap = this.getFilePosMap_(filePath);
         if ( ! posMap ) continue;
         var shortMap = requiresShortMap(classIds);
         var sourceId = classIds[0];

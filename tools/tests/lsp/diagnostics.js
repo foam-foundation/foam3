@@ -555,8 +555,8 @@ var e1 = diagHandler.buildAddExtractEdit(noMsgSrc, 'Upload Complete', 'file:///x
 test(!! e1, 'buildAddExtractEdit returns an edit for a single-class file');
 var edits1 = e1 && e1.changes['file:///x.js'];
 test(!!edits1 && edits1.length === 2, 'edit has two text edits (insert message + rewrite usage)');
-test(!!edits1 && edits1.some(function(t){ return t.newText === 'this.UPLOAD_COMPLETE'; }), 'usage rewritten to this.UPLOAD_COMPLETE');
-test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf("name: 'UPLOAD_COMPLETE'") !== -1 && t.newText.indexOf("message: 'Upload Complete'") !== -1; }), 'inserts a messages entry with constantized name + original text');
+test(!!edits1 && edits1.some(function(t){ return t.newText === 'this.UPLOAD_COMPLETE_MSG'; }), 'usage rewritten to this.UPLOAD_COMPLETE_MSG');
+test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf("name: 'UPLOAD_COMPLETE_MSG'") !== -1 && t.newText.indexOf("message: 'Upload Complete'") !== -1; }), 'inserts a messages entry with _MSG-suffixed name + original text');
 test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf('messages: [') !== -1; }), 'creates a new messages: array when none exists');
 
 // Existing messages array path — entry inserted, no new messages: key
@@ -578,7 +578,7 @@ test(diagHandler.buildAddExtractEdit(twoPropSrc, 'Some Text', 'file:///2p.js') =
 
 // Insertion placement: messages lands right before properties:, after header keys
 function msgInsertOffset(edit, uri, src) {
-  var t = edit.changes[uri].filter(function(e){ return e.newText.indexOf("name: 'UPLOAD_COMPLETE'") !== -1; })[0];
+  var t = edit.changes[uri].filter(function(e){ return e.newText.indexOf("name: 'UPLOAD_COMPLETE_MSG'") !== -1; })[0];
   return analyzer.positionToOffset(src, t.range.start);
 }
 var srcHP = "foam.CLASS({\n  package:'p',\n  name:'HP',\n  requires:['a.B'],\n  properties:[ { name:'x' } ],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
@@ -604,9 +604,26 @@ var secondRange = {
   end:   analyzer.offsetToPosition(twiceSrc, secondInner + 'Repeat Me'.length)
 };
 var eTwice = diagHandler.buildAddExtractEdit(twiceSrc, 'Repeat Me', 'file:///tw.js', secondRange);
-var rwTwice = eTwice && eTwice.changes['file:///tw.js'].filter(function(t){ return t.newText === 'this.REPEAT_ME'; })[0];
+var rwTwice = eTwice && eTwice.changes['file:///tw.js'].filter(function(t){ return t.newText === 'this.REPEAT_ME_MSG'; })[0];
 var rwOff = rwTwice ? analyzer.positionToOffset(twiceSrc, rwTwice.range.start) : -1;
 test(rwOff === secondInner - 1, 'P3: extract rewrites the occurrence at the diagnostic range (the 2nd), not the 1st');
+
+// === _MSG suffix + axiom-collision uniqueness ===
+section('DiagnosticsHandler i18n message-name uniqueness');
+
+// A 'fileName' property installs a FILE_NAME constant; extracting the label
+// 'File Name' must NOT reuse FILE_NAME — the _MSG suffix keeps them apart.
+var collideSrc = "foam.CLASS({\n  package:'t', name:'TextSaveView',\n  properties:[ { name:'fileName' } ],\n  methods:[ function render(){ this.add('File Name'); } ]\n})";
+var eCollide = diagHandler.buildAddExtractEdit(collideSrc, 'File Name', 'file:///c.js');
+var editsC = eCollide && eCollide.changes['file:///c.js'];
+test(!!editsC && editsC.some(function(t){ return t.newText === 'this.FILE_NAME_MSG'; }), 'property constant FILE_NAME does not block the _MSG name; usage -> this.FILE_NAME_MSG');
+test(!!editsC && editsC.every(function(t){ return t.newText.indexOf("name: 'FILE_NAME'") === -1 || t.newText.indexOf("name: 'FILE_NAME_MSG'") !== -1; }), 'extracted message is named FILE_NAME_MSG, not FILE_NAME');
+
+// An existing FOO_MSG message forces a numeric suffix on a second 'Foo'.
+var dupMsgSrc = "foam.CLASS({\n  package:'t', name:'DUP',\n  messages:[ { name:'FOO_MSG', message:'x' } ],\n  methods:[ function render(){ this.add('Foo'); } ]\n})";
+var eDup = diagHandler.buildAddExtractEdit(dupMsgSrc, 'Foo', 'file:///d.js');
+var editsD = eDup && eDup.changes['file:///d.js'];
+test(!!editsD && editsD.some(function(t){ return t.newText === 'this.FOO_MSG2'; }), 'taken FOO_MSG -> numeric suffix FOO_MSG2');
 
 // === P2: WorkspaceAnalyzer threads the file URI (test/demo exemption) ===
 section('WorkspaceAnalyzer i18n URI exemption');
@@ -629,14 +646,14 @@ section('DiagnosticsHandler i18n extract edit — robustness');
 // The messages: block must NOT be inserted inside the method/object.
 var bodyObjSrc = "foam.CLASS({\n  package:'p',\n  name:'BodyObj',\n  methods:[\n    function render(){\n      var cfg = {\n        name: 'inner'\n      };\n      this.add('Body Object Text');\n    }\n  ]\n})";
 var eBO = diagHandler.buildAddExtractEdit(bodyObjSrc, 'Body Object Text', 'file:///bo.js');
-var msgEditBO = eBO && eBO.changes['file:///bo.js'].filter(function(t){ return t.newText.indexOf("name: 'BODY_OBJECT_TEXT'") !== -1; })[0];
+var msgEditBO = eBO && eBO.changes['file:///bo.js'].filter(function(t){ return t.newText.indexOf("name: 'BODY_OBJECT_TEXT_MSG'") !== -1; })[0];
 var insBO = msgEditBO ? analyzer.positionToOffset(bodyObjSrc, msgEditBO.range.start) : -1;
 test(insBO !== -1 && insBO < bodyObjSrc.indexOf('methods:'), 'F1: messages inserted before methods:, not inside the body object');
 
 // F2: an escaped apostrophe must produce a valid message: literal (no double-escaping).
 var aposSrc = "foam.CLASS({\n  package:'p', name:'Apos',\n  methods:[ function render(){ this.add('Don\\'t save'); } ]\n})";
 var eA = diagHandler.buildAddExtractEdit(aposSrc, "Don\\'t save", 'file:///a.js');
-var msgEditA = eA && eA.changes['file:///a.js'].filter(function(t){ return t.newText.indexOf("name: 'DON_T_SAVE'") !== -1; })[0];
+var msgEditA = eA && eA.changes['file:///a.js'].filter(function(t){ return t.newText.indexOf("name: 'DON_T_SAVE_MSG'") !== -1; })[0];
 test(!!msgEditA, 'F2: message entry generated for a string with an escaped apostrophe');
 test(!!msgEditA && msgEditA.newText.indexOf("message: 'Don\\'t save'") !== -1, 'F2: message: literal preserves the original valid escaping');
 test(!!msgEditA && msgEditA.newText.indexOf("Don\\\\'t") === -1, 'F2: no double-backslash escaping');

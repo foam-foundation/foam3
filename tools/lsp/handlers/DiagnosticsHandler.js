@@ -418,12 +418,59 @@ foam.CLASS({
       return text.substring(start, end).indexOf('i18n-ignore') !== -1;
     },
 
-    function constantizeMessageName_(s) {
-      /** 'Upload Complete' -> 'UPLOAD_COMPLETE'; safe FOAM message constant. */
+    function constantizeMessageName_(s, opt_taken) {
+      /** 'Upload Complete' -> 'UPLOAD_COMPLETE_MSG'; safe, unique FOAM message
+       *  constant. The _MSG suffix keeps the generated constant out of the
+       *  property/action namespace — a 'fileName' property already installs a
+       *  FILE_NAME constant, so extracting the label 'File Name' to a bare
+       *  FILE_NAME would clash. opt_taken is the set of names already defined on
+       *  the model; on any remaining clash a numeric suffix is appended until
+       *  free (FILE_NAME_MSG, FILE_NAME_MSG2, ...). */
       var up = String(s).toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
       if ( ! up ) up = 'MESSAGE';
-      if ( /^[0-9]/.test(up) ) up = 'MSG_' + up;
-      return up;
+      if ( /^[0-9]/.test(up) ) up = 'M_' + up;     // an identifier can't start with a digit
+      var base = up + '_MSG';
+      if ( ! opt_taken ) return base;
+      var name = base, n = 2;
+      while ( opt_taken[name] ) name = base + (n++);
+      return name;
+    },
+
+    function collectAxiomConstants_(text, uri) {
+      /** Names already defined as constant-style members on the file's single
+       *  model, so an extracted message name can dodge them. Holds the CONSTANT
+       *  form of every own + inherited property and action (FOAM installs a
+       *  FILE_NAME constant for a 'fileName' property) plus existing message /
+       *  constant names (already constant-cased). */
+      var taken = {};
+      var models = this.cache.getModels(uri || '', text);
+      if ( ! models || ! models.length ) return taken;
+      var model = models[0];
+      var nameOf   = function(x) { return typeof x === 'string' ? x : ( x && x.name ); };
+      var addConst = function(nm) { if ( nm ) taken[foam.String.constantize(nm)] = true; };
+      var addRaw   = function(nm) { if ( nm ) taken[nm] = true; };
+
+      var props = model.properties || [];
+      for ( var i = 0 ; i < props.length ; i++ ) addConst(nameOf(props[i]));
+      var acts = model.actions || [];
+      for ( var i = 0 ; i < acts.length ; i++ ) addConst(nameOf(acts[i]));
+      var msgs = model.messages || [];
+      for ( var i = 0 ; i < msgs.length ; i++ ) addRaw(nameOf(msgs[i]));
+
+      var consts = model.constants;
+      if ( Array.isArray(consts) ) {
+        for ( var i = 0 ; i < consts.length ; i++ ) addRaw(nameOf(consts[i]));
+      } else if ( consts && typeof consts === 'object' ) {
+        for ( var k in consts ) if ( Object.prototype.hasOwnProperty.call(consts, k) ) addRaw(k);
+      }
+
+      // Inherited properties — best effort; getProperties returns [] when the
+      // class isn't registered (incomplete file mid-edit).
+      var inherited = this.index.getProperties(this.cache.getClassId(model));
+      if ( inherited ) {
+        for ( var i = 0 ; i < inherited.length ; i++ ) addConst(inherited[i].name);
+      }
+      return taken;
     },
 
     function findAddLiteral_(text, messageText) {
@@ -502,7 +549,7 @@ foam.CLASS({
         content = messageText;
       }
 
-      var name = this.constantizeMessageName_(content);
+      var name = this.constantizeMessageName_(content, this.collectAxiomConstants_(text, uri));
       var edits = [];
 
       // Rewrite the usage: 'messageText' -> this.NAME

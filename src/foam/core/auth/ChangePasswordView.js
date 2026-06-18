@@ -16,7 +16,8 @@ foam.CLASS({
     'loginView?',
     'stack',
     'theme',
-    'user'
+    'user',
+    'window'
   ],
 
   requires: [
@@ -170,6 +171,7 @@ foam.CLASS({
         if ( X.stack.pos > 0 ) {
           X.stack.jump(X.stack.pos-1);
         } else {
+          this.window.history.replaceState(null, null, this.window.location.origin);
           X.pushDefaultMenu();
         }
       }

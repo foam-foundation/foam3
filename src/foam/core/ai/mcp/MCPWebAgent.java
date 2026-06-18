@@ -15,6 +15,7 @@ import foam.core.http.WebAgent;
 import foam.core.logger.Logger;
 import foam.mlang.MLang;
 import foam.mlang.predicate.Predicate;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.*;
 import java.util.*;
 import jakarta.servlet.http.*;
@@ -46,9 +47,10 @@ public class MCPWebAgent
   implements WebAgent
 {
 
-  protected static final String MCP_VERSION   = "2025-03-26";
-  protected static final int    DEFAULT_LIMIT = 100;
-  protected static final int    MAX_LIMIT     = 1000;
+  protected static final String        MCP_VERSION   = "2025-03-26";
+  protected static final int           DEFAULT_LIMIT = 100;
+  protected static final int           MAX_LIMIT     = 1000;
+  protected static final ObjectMapper  MAPPER        = new ObjectMapper();
 
   // ─── Tool Definitions ─────────────────────────────────────────────────────────
   //
@@ -304,7 +306,12 @@ public class MCPWebAgent
       ArraySink as = (ArraySink) sink;
       List<Object> results = new ArrayList<>();
       for ( Object obj : as.getArray() ) {
-        results.add(fObjectToJSON(x, (FObject) obj));
+        try {
+          results.add(new RawJson(fObjectToJSON(x, (FObject) obj)));
+        } catch ( Throwable t ) {
+          Logger logger = (Logger) x.get("logger");
+          logger.warning("MCPWebAgent", "serialization failed for", obj.getClass().getName(), t.getMessage());
+        }
       }
       response.put("results", results);
       response.put("count",   results.size());
@@ -312,7 +319,7 @@ public class MCPWebAgent
       response.put("limit",   limit);
     } else {
       // For aggregation sinks (Count, GroupBy, etc.), serialize the whole sink
-      response.put("result", fObjectToJSON(x, (FObject) sink));
+      response.put("result", new RawJson(fObjectToJSON(x, (FObject) sink)));
     }
 
     return response;
@@ -417,11 +424,15 @@ public class MCPWebAgent
 
   @SuppressWarnings("unchecked")
   protected Map<String,Object> parseJSON(X x, String json) {
-    JSONParser parser = new JSONParser();
-    parser.setX(x);
-    Object result = parser.parseString(json);
-    if ( result instanceof Map ) return (Map<String,Object>) result;
-    throw new MCPError(-32700, "Parse error: expected JSON object");
+    try {
+      Object result = MAPPER.readValue(json, Object.class);
+      if ( result instanceof Map ) return (Map<String,Object>) result;
+      throw new MCPError(-32700, "Parse error: expected JSON object");
+    } catch (MCPError e) {
+      throw e;
+    } catch (Throwable t) {
+      throw new MCPError(-32700, "Parse error: " + t.getMessage());
+    }
   }
 
   protected String mapToJSONString(Object obj) {
@@ -432,12 +443,13 @@ public class MCPWebAgent
 
   @SuppressWarnings("unchecked")
   protected void writeJSON(StringBuilder sb, Object obj) {
-    if      ( obj == null )            sb.append("null");
-    else if ( obj instanceof Map )   { writeJSONMap(sb, (Map<String,Object>) obj); }
-    else if ( obj instanceof List )  { writeJSONList(sb, (List<?>) obj); }
-    else if ( obj instanceof String )  sb.append('"').append(escapeJSON((String) obj)).append('"');
+    if      ( obj == null )             sb.append("null");
+    else if ( obj instanceof RawJson )  sb.append(((RawJson) obj).json);
+    else if ( obj instanceof Map )    { writeJSONMap(sb, (Map<String,Object>) obj); }
+    else if ( obj instanceof List )   { writeJSONList(sb, (List<?>) obj); }
+    else if ( obj instanceof String )   sb.append('"').append(escapeJSON((String) obj)).append('"');
     else if ( obj instanceof Boolean || obj instanceof Number ) sb.append(obj);
-    else                               sb.append('"').append(escapeJSON(obj.toString())).append('"');
+    else                                sb.append('"').append(escapeJSON(obj.toString())).append('"');
   }
 
   private void writeJSONMap(StringBuilder sb, Map<String,Object> map) {
@@ -484,5 +496,10 @@ public class MCPWebAgent
   static class MCPError extends RuntimeException {
     int code;
     MCPError(int code, String message) { super(message); this.code = code; }
+  }
+
+  static class RawJson {
+    final String json;
+    RawJson(String json) { this.json = json; }
   }
 }

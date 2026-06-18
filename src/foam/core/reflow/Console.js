@@ -1857,16 +1857,16 @@ foam.CLASS({
 
     function generateScript() {
       this.value.script = this.generateScriptString();
-      // console.log('******************** script', this.value.script);
     },
 
     function maybeRegenScript() {
-//      if ( this.feedback_ ) return;
+      // Save/restore feedback_ so we never clear a guard onScriptChange owns mid-load.
+      var prev = this.feedback_;
       this.feedback_ = true;
       try {
         this.generateScript();
       } finally {
-        this.feedback_ = false;
+        this.feedback_ = prev;
       }
     },
 
@@ -2142,6 +2142,8 @@ foam.CLASS({
       isMerged: true,
       delay: 500,
       code: function() {
+        // Skip regen during load: serializing a half-built flow clobbers the real script.
+        if ( this.isLoading_ ) return;
         this.maybeRegenScript();
         this.saveScriptToLocalStorage();
       }

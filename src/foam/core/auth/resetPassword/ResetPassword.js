@@ -75,6 +75,11 @@ foam.CLASS({
       name: 'showSubmitAction',
       value: true,
       hidden: true
+    },
+    {
+      class: 'String',
+      name: 'loadingError',
+      hidden: true
     }
   ],
 

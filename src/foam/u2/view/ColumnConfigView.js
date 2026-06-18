@@ -912,17 +912,18 @@ foam.CLASS({
       }
       return [this.rootProperty[0]];
     },
-    function updateOnSearch(query) {
+    function updateOnSearch(query, parentMatched) {
       this.showOnSearch = false;
       this.expanded = false;
       if ( query.length == 0 ) { this.showOnSearch = true; this.expanded = false; return this.showOnSearch; }
-      this.showOnSearch = foam.Array.isInstance(this.rootProperty) ? this.rootProperty[1].toLowerCase().includes(query) : this.rootProperty.name.toLowerCase().includes(query);
+      var selfMatch = foam.Array.isInstance(this.rootProperty) ? this.rootProperty[1].toLowerCase().includes(query) : this.rootProperty.name.toLowerCase().includes(query);
+      this.showOnSearch = selfMatch || !! parentMatched;
       if ( this.hasSubProperties && this.level < 2 ) {
         this.expanded = false;
         if ( this.subColumnSelectConfig.length == 0 )
           this.subColumnSelectConfig = this.returnSubColumnSelectConfig(this.subProperties, this.level, this.expanded, true);
         for ( var  i = 0 ; i < this.subColumnSelectConfig.length ; i++ ) {
-          if ( this.subColumnSelectConfig[i].updateOnSearch(query) ) {
+          if ( this.subColumnSelectConfig[i].updateOnSearch(query, selfMatch || parentMatched) ) {
             this.expanded = true;
             this.showOnSearch = true;
           }

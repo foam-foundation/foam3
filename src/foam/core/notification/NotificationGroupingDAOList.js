@@ -14,6 +14,7 @@ foam.CLASS({
   imports: [
     'stack',
     'myNotificationDAO',
+    'notificationDAO',
   ],
 
   requires: [
@@ -46,6 +47,7 @@ foam.CLASS({
             .tag(this.MARK_ALL_AS_READ).addClass(this.myClass('button'))
           .endContext()
       ));
+      
       this.SUPER();
     }
   ],
@@ -86,13 +88,16 @@ foam.CLASS({
         try {
           // Clone the unread notifications in myNotificationDAO
           var unreadNotifs = await this.myNotificationDAO.where(this.EQ(this.Notification.READ, false)).select();
-
           // Update the read property for all of 'em
           for ( var notif of unreadNotifs.array ) {
             var clone = notif.clone();
             clone.read = true;
-            await this.myNotificationDAO.put(clone);
+            // We need to put to notificationDAO NOT myNotificationDAO
+            // because of how the permissions are set up
+            await this.notificationDAO.put(clone);
           }
+          // Purge the cache to trigger a refresh
+          this.myNotificationDAO.cmd(foam.dao.DAO.PURGE_CMD);
         } catch (e) {
           console.log(e);
         }

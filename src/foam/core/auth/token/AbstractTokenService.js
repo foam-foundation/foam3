@@ -18,18 +18,25 @@ foam.CLASS({
   javaImports: [
     'foam.dao.DAO',
     'foam.core.auth.token.Token',
-    'java.util.Calendar',
+    'java.util.Date',
     'static foam.mlang.MLang.*'
+  ],
+
+  properties: [
+    {
+      class: 'Duration',
+      name: 'ttl',
+      units: 'ms',
+      documentation: 'The "time to live" of the token.',
+      value: 28800000 // 8 hours
+    }
   ],
 
   methods: [
     {
       name: 'generateExpiryDate',
       type: 'Date',
-      javaCode:
-`Calendar calendar = Calendar.getInstance();
-calendar.add(java.util.Calendar.DAY_OF_MONTH, 1);
-return calendar.getTime();`
+      javaCode: 'return new Date(new Date().getTime() + getTtl());'
     },
     {
       name: 'generateToken',

@@ -920,14 +920,22 @@ foam.CLASS({
       this.showOnSearch = selfMatch || !! parentMatched;
       if ( this.hasSubProperties && this.level < 2 ) {
         this.expanded = false;
-        if ( this.subColumnSelectConfig.length == 0 )
-          this.subColumnSelectConfig = this.returnSubColumnSelectConfig(this.subProperties, this.level, this.expanded, true);
-        for ( var  i = 0 ; i < this.subColumnSelectConfig.length ; i++ ) {
-          if ( this.subColumnSelectConfig[i].updateOnSearch(query, selfMatch || parentMatched) ) {
+        // Snapshot the children locally: subColumnSelectConfig is an expression
+        // keyed on `expanded`, so toggling this.expanded inside the loop would
+        // regenerate fresh child objects (default showOnSearch=true) and discard
+        // the per-child results computed here.
+        var subs = this.subColumnSelectConfig.length == 0
+          ? this.returnSubColumnSelectConfig(this.subProperties, this.level, true, true)
+          : this.subColumnSelectConfig;
+        for ( var  i = 0 ; i < subs.length ; i++ ) {
+          if ( subs[i].updateOnSearch(query, selfMatch || parentMatched) ) {
             this.expanded = true;
             this.showOnSearch = true;
           }
         }
+        // Reassign after expanded is settled so the rendered children are the
+        // same instances we just scored, overriding any expression recompute.
+        this.subColumnSelectConfig = subs;
       }
       return this.showOnSearch;
     },

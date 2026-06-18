@@ -43,15 +43,13 @@ foam.CLASS({
       javaCode: `return this.generateTokenWithParameters(x, user, null);`
     },
     {
-      name: 'isTokenValid',
+      name: 'validateToken',
       javaCode: `
         DAO tokenDAO = (DAO) x.get("localTokenDAO");
         Token tokenResult = (Token) tokenDAO.find(EQ(Token.DATA, token));
-        if ( tokenResult == null )
-          return false;
-        if ( tokenResult.getProcessed() )
-          return false;
-        return true;
+        if ( tokenResult == null ) throw new RuntimeException("INVALID_TOKEN");
+        if ( tokenResult.getProcessed() ) throw new RuntimeException("TOKEN_ALREADY_USED");
+        if ( tokenResult.getExpiry().before(new Date()) ) throw new RuntimeException("TOKEN_EXPIRED");
       `
     }
   ]

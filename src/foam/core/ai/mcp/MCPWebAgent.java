@@ -396,7 +396,7 @@ public class MCPWebAgent
   protected void writeError(PrintWriter out, Object id, int code, String message) {
     out.print(mapToJSONString(Map.of(
       "jsonrpc", "2.0",
-      "id",      id,
+      "id",      id != null ? id : "Unknown Id",
       "error",   Map.of("code", code, "message", message != null ? message : "Internal error")
     )));
     out.flush();

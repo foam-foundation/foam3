@@ -11,6 +11,7 @@ import foam.core.*;
 import foam.dao.*;
 import foam.lib.json.Outputter;
 import foam.lib.json.JSONParser;
+import foam.lib.formatter.JSONFObjectFormatter;
 import foam.core.http.WebAgent;
 import foam.core.logger.Logger;
 import foam.mlang.MLang;
@@ -367,12 +368,14 @@ public class MCPWebAgent
 
   // ─── JSON Serialization ───────────────────────────────────────────────────────
 
-  /** Serialize an FObject to its JSON representation via FOAM's Outputter. */
+  /** Serialize an FObject to its JSON representation, including default values. */
   protected String fObjectToJSON(X x, FObject obj) {
-    StringWriter sw = new StringWriter();
-    Outputter outputter = new Outputter(x, new PrintWriter(sw));
-    outputter.output(obj);
-    return sw.toString();
+    JSONFObjectFormatter fmt = new JSONFObjectFormatter();
+    fmt.setX(x);
+    fmt.setOutputDefaultValues(true);
+    fmt.setQuoteKeys(true);
+    fmt.output(obj, null);
+    return fmt.builder().toString();
   }
 
   /** Parse JSON into an FObject via FOAM's JSONParser. */

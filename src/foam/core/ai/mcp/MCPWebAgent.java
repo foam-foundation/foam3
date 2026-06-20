@@ -51,6 +51,16 @@ public class MCPWebAgent
   protected static final int           MAX_LIMIT     = 1000;
   protected static final ObjectMapper  MAPPER        = new ObjectMapper();
 
+  // Maps tool name → Flow primary key whose first markdown block is the tool description.
+  // Null entry = use the hard-coded description from TOOLS as fallback.
+  protected static final Map<String,String> TOOL_DOC_FLOWS = Map.of(
+    "dao_select", "MCP:dao_select",
+    "dao_find",   "MCP:dao_find",
+    "dao_put",    "MCP:dao_put",
+    "dao_remove", "MCP:dao_remove",
+    "dao_getOf",  "MCP:dao_getOf"
+  );
+
   // ─── Tool Definitions ─────────────────────────────────────────────────────────
   //
   // 5 tools. That's it. The DAO interface + getOf().
@@ -58,11 +68,7 @@ public class MCPWebAgent
 
   protected static final List<Map<String,Object>> TOOLS = List.of(
 
-    tool("dao_select",
-      "Query a DAO. Returns an array of matching objects. "
-      + "To discover available DAOs: dao_select('cSpecDAO', query='served=true'). "
-      + "The results are already scoped to your permissions. "
-      + "Use dao_getOf to learn a DAO's schema before querying.",
+    tool("dao_select", "",
       Map.of("type", "object",
         "properties", Map.of(
           "dao",   Map.of("type", "string", "description", "DAO name (e.g. 'cSpecDAO', 'userDAO')"),
@@ -81,35 +87,28 @@ public class MCPWebAgent
             + "{\"class\":\"foam.mlang.sink.GroupBy\",\"arg1\":\"status\",\"arg2\":{\"class\":\"foam.mlang.sink.Count\"}}")),
         "required", List.of("dao"))),
 
-    tool("dao_find",
-      "Find a single object by its primary key / ID.",
+    tool("dao_find", "",
       Map.of("type", "object",
         "properties", Map.of(
           "dao", Map.of("type", "string", "description", "DAO name"),
           "id",  Map.of("type", "string", "description", "Object ID")),
         "required", List.of("dao", "id"))),
 
-    tool("dao_put",
-      "Create or update an object. The JSON must include 'class' matching "
-      + "the DAO's model type (from dao_getOf). Returns the saved object.",
+    tool("dao_put", "",
       Map.of("type", "object",
         "properties", Map.of(
           "dao",    Map.of("type", "string", "description", "DAO name"),
           "object", Map.of("type", "object", "description", "Object as JSON with 'class' property")),
         "required", List.of("dao", "object"))),
 
-    tool("dao_remove",
-      "Remove an object from a DAO by its primary key / ID.",
+    tool("dao_remove", "",
       Map.of("type", "object",
         "properties", Map.of(
           "dao", Map.of("type", "string", "description", "DAO name"),
           "id",  Map.of("type", "string", "description", "Object ID")),
         "required", List.of("dao", "id"))),
 
-    tool("dao_getOf",
-      "Get the model/schema for a DAO's object type. Returns all properties "
-      + "with their names, types, labels, and documentation. Call this before "
-      + "querying an unfamiliar DAO to understand its structure.",
+    tool("dao_getOf", "",
       Map.of("type", "object",
         "properties", Map.of(
           "dao", Map.of("type", "string", "description", "DAO name")),
@@ -159,7 +158,7 @@ public class MCPWebAgent
   protected Object dispatch(X x, String method, Map<String,Object> params) {
     return switch ( method ) {
       case "initialize" -> handleInitialize();
-      case "tools/list" -> Map.of("tools", TOOLS);
+      case "tools/list" -> handleToolsList(x);
       case "tools/call" -> handleToolCall(x, params);
       default -> throw new MCPError(-32601, "Method not found: " + method);
     };
@@ -171,6 +170,42 @@ public class MCPWebAgent
       "capabilities",    Map.of("tools", Map.of("listChanged", false)),
       "serverInfo",      Map.of("name", "foam-mcp", "version", "1.0.0")
     );
+  }
+
+  @SuppressWarnings("unchecked")
+  protected Map<String,Object> handleToolsList(X x) {
+    List<Map<String,Object>> tools = new ArrayList<>();
+    for ( Map<String,Object> t : TOOLS ) {
+      String name   = (String) t.get("name");
+      String flowId = TOOL_DOC_FLOWS.get(name);
+      String desc = flowId != null ? findFlowMarkdown(x, flowId) : "";
+      tools.add(tool(name, desc != null ? desc : "", (Map<String,Object>) t.get("inputSchema")));
+    }
+    return Map.of("tools", tools);
+  }
+
+  @SuppressWarnings("unchecked")
+  protected String findFlowMarkdown(X x, String flowId) {
+    try {
+      DAO      flowDAO = (DAO) x.get("flowDAO");
+      if ( flowDAO == null ) return null;
+      FObject  flow    = (FObject) flowDAO.find(flowId);
+      if ( flow == null ) return null;
+      PropertyInfo scriptProp = (PropertyInfo) flow.getClassInfo().getAxiomByName("script");
+      String script = (String) scriptProp.get(flow);
+      if ( script == null || script.isBlank() ) return null;
+      List<Map<String,Object>> blocks = MAPPER.readValue(script, List.class);
+      StringBuilder sb = new StringBuilder();
+      for ( Map<String,Object> block : blocks ) {
+        if ( "markdown".equals(block.get("cmd")) ) {
+          Map<String,Object> value = asMap(block.get("value"));
+          String md = (String) value.get("markdown");
+          if ( md != null ) { if ( sb.length() > 0 ) sb.append("\n\n"); sb.append(md); }
+        }
+      }
+      if ( sb.length() > 0 ) return sb.toString();
+    } catch ( Throwable t ) {}
+    return null;
   }
 
   protected Object handleToolCall(X x, Map<String,Object> params) {

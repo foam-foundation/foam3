@@ -21,8 +21,6 @@ import java.io.*;
 import java.util.*;
 import jakarta.servlet.http.*;
 
-// TODO: help text is not available in the JAVA PropertyInfo
-
 /**
  * Model Context Protocol (MCP) server implemented as a FOAM WebAgent.
  *
@@ -506,3 +504,24 @@ public class MCPWebAgent
     RawJson(String json) { this.json = json; }
   }
 }
+
+/*
+
+  // TODO: help text is not available in the JAVA PropertyInfo
+
+  Document Sinks
+
+  Document AQL
+
+  Set session CIDR Whitelist
+
+  Sample .claude.json configuration:
+
+        "my-mcp-server": {
+          "type": "http",
+          "url": "http://localhost:8080/service/mcp",
+          "headers": {
+            "Authorization": "Bearer c1f1406e-bdee-4a2a-8697-56eef2cxxxxxlocalhost:8080"
+          }
+        }
+*/

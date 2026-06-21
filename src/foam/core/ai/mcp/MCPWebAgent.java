@@ -84,7 +84,11 @@ public class MCPWebAgent
             "Optional FOAM Sink as JSON for server-side aggregation. "
             + "Default is ArraySink. Examples: "
             + "{\"class\":\"foam.mlang.sink.Count\"}, "
-            + "{\"class\":\"foam.mlang.sink.GroupBy\",\"arg1\":\"status\",\"arg2\":{\"class\":\"foam.mlang.sink.Count\"}}")),
+            + "{\"class\":\"foam.mlang.sink.GroupBy\",\"arg1\":\"status\",\"arg2\":{\"class\":\"foam.mlang.sink.Count\"}}"),
+          "orderBy", Map.of("type", "object", "description",
+            "Optional sort order. Single field ascending: {\"class\":\"__Property__\",\"forClass_\":\"...\",\"name\":\"field\"}. "
+            + "Descending: {\"class\":\"foam.mlang.order.Desc\",\"arg1\":{...}}. "
+            + "Multiple fields: {\"class\":\"foam.mlang.order.ThenBy\",\"head\":{...},\"tail\":{...}}.")),
         "required", List.of("dao"))),
 
     tool("dao_find", "",
@@ -236,6 +240,15 @@ public class MCPWebAgent
     if ( query != null && ! query.trim().isEmpty() ) {
       Predicate predicate = parseAQL(x, dao.getOf(), query);
       dao = dao.where(predicate);
+    }
+
+    // OrderBy
+    Object orderBySpec = args.get("orderBy");
+    if ( orderBySpec != null ) {
+      FObject comparator = jsonToFObject(x, asMap(orderBySpec));
+      if ( comparator instanceof foam.mlang.order.Comparator ) {
+        dao = dao.orderBy((foam.mlang.order.Comparator) comparator);
+      }
     }
 
     // Pagination
@@ -543,6 +556,8 @@ public class MCPWebAgent
 /*
 
   // TODO: help text is not available in the JAVA PropertyInfo
+
+  OrderBy
 
   Document Sinks
 

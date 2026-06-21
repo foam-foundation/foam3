@@ -557,12 +557,6 @@ public class MCPWebAgent
 
   // TODO: help text is not available in the JAVA PropertyInfo
 
-  OrderBy
-
-  Document Sinks
-
-  Document AQL
-
   Set session CIDR Whitelist
 
   Sample .claude.json configuration:

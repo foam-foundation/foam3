@@ -308,18 +308,19 @@ foam.CLASS({
         // suggests the prefix, followed by innerProp which yields the full
         // Dot chain expr.
         let innerProperty = (prefixNames, innerProp, expr) => {
-          let prefixSeq = [];
+          // One suggestion per path segment, each anchored AFTER the prior segments match,
+          // so an intermediate folder surfaces at its own depth — competing equally with the
+          // scalar siblings at that level. A single whole-prefix suggestion anchored at the
+          // start loses the max-position race to those scalars and never shows.
+          // Each segment's text is just that segment (e.g. "pds0025."), NOT the cumulative
+          // path: the suggestor inserts the text at the current parse position and keeps what
+          // is already typed, so a cumulative text would duplicate the prefix.
+          let parts = [ sym('ws') ];
           for ( let i = 0 ; i < prefixNames.length ; i++ ) {
-            if ( i > 0 ) prefixSeq.push('.');
-            prefixSeq.push(literalIC(prefixNames[i]));
+            parts.push(sug(seq1(0, literalIC(prefixNames[i]), '.'), {text: prefixNames[i] + '.', category: 'property', prependSpaceOnSelect: ( i > 0 ) ? false : undefined }));
           }
-          prefixSeq.push('.');
-          let prefixParser = seq1.apply(null, [0].concat(prefixSeq));
-          return seq1(2,
-            sym('ws'),
-            sug(prefixParser, {text: prefixNames.join('.') + '.', category: 'property'}),
-            sug(literal(innerProp.name, expr), {text: innerProp.name, label: innerProp.label, category: 'property', prependSpaceOnSelect: false })
-          );
+          parts.push(sug(literal(innerProp.name, expr), {text: innerProp.name, label: innerProp.label, category: 'property', prependSpaceOnSelect: false }));
+          return seq1.apply(null, [ parts.length - 1 ].concat(parts));
         };
 
         // process a property and add its predicates to the grammar

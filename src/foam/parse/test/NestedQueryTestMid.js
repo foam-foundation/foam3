@@ -11,6 +11,9 @@ foam.CLASS({
   documentation: 'Test-only mid model for AQL nested FObjectProperty tests.',
 
   properties: [
+    // scalar sibling of the 'leaf' folder — so suggestions must surface the folder
+    // alongside a competing scalar at the same depth (mirrors a range with both).
+    { class: 'String', name: 'tag' },
     {
       class: 'FObjectProperty',
       of: 'foam.parse.test.NestedQueryTestLeaf',

@@ -247,6 +247,22 @@ foam.CLASS({
       x.test(this.evaluateFor(Root, "mid.leaf.code = 7", root2) === true,
         "Nested Test6: nested Int leaf evaluates true");
 
+      // Intermediate folder navigation: after 'mid.' the inner FObjectProperty folder 'leaf'
+      // must surface as a navigation step (so you can drill into it), not just leak at the root.
+      // Suggestion text is the current segment only (relative), so the suggestor appends it to
+      // what's typed instead of duplicating the prefix: at 'mid.' the folder shows as 'leaf.'.
+      let midSugs = this.collectSuggestions(Root, "mid.");
+      x.test(midSugs.indexOf('tag') >= 0,
+        "Nested Test7a: 'mid.' offers the scalar sibling 'tag' (got: " + midSugs.join(',') + ")");
+      x.test(midSugs.indexOf('leaf.') >= 0,
+        "Nested Test7b: 'mid.' offers the inner folder as the bare segment 'leaf.' (got: " + midSugs.join(',') + ")");
+
+      // A folder is navigation-only — never a valid standalone query (must drill to a scalar leaf).
+      x.test(this.buildPredicateFor(Root, "mid") == null,
+        "Nested Test8: a folder ('mid') alone is not a valid query");
+      x.test(this.buildPredicateFor(Root, "mid.leaf") == null,
+        "Nested Test9: a nested folder ('mid.leaf') alone is not a valid query");
+
     },
 
     function buildPredicate(query) {

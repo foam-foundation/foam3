@@ -13,6 +13,9 @@ foam.CLASS({
     'foam.parse.SimpleQueryParser',
     'foam.mlang.predicate.Predicate',
     'foam.core.auth.User',
+    'foam.parse.test.NestedQueryTestRoot',
+    'foam.parse.test.NestedQueryTestMid',
+    'foam.parse.test.NestedQueryTestLeaf',
     'java.util.Calendar',
     'java.util.Date',
     'java.util.TimeZone'
@@ -35,6 +38,7 @@ foam.CLASS({
         testEnumProperties();
         testBooleanProperties();
         testParentheses();
+        testNestedFObjectProperties();
       `
     },
     {
@@ -95,6 +99,34 @@ foam.CLASS({
       javaCode: `
         String result = buildPredicate(query);
         test(result == null, message + " — expected null, got: " + result);
+      `
+    },
+
+    {
+      name: 'testNestedFObjectProperties',
+      javaCode: `
+        SimpleQueryParser parser = new SimpleQueryParser(NestedQueryTestRoot.getOwnClassInfo());
+
+        // Predicate generation: full Dot chain
+        Predicate pred = parser.parseString("mid.leaf.value = hello");
+        String expected = "EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.value, \\"hello\\")";
+        test(
+          pred != null && pred.toString().trim().toLowerCase().equals(expected.toLowerCase()),
+          "Nested Java Test1: 2-level path produces full Dot chain — got: " + ( pred == null ? "null" : pred.toString() )
+        );
+
+        // Evaluation end-to-end
+        NestedQueryTestLeaf leaf = new NestedQueryTestLeaf();
+        leaf.setValue("hello");
+        NestedQueryTestMid mid = new NestedQueryTestMid();
+        mid.setLeaf(leaf);
+        NestedQueryTestRoot root = new NestedQueryTestRoot();
+        root.setMid(mid);
+
+        test(pred != null && pred.f(root), "Nested Java Test2: 2-level path evaluates true for matching object");
+
+        Predicate negPred = parser.parseString("mid.leaf.value = other");
+        test(negPred != null && ! negPred.f(root), "Nested Java Test3: 2-level path evaluates false for non-matching object");
       `
     },
 

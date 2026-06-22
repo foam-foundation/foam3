@@ -132,11 +132,12 @@ public class MCPWebAgent
     resp.setContentType("application/json");
     resp.setHeader("Cache-Control", "no-store");
 
+    Object id = null;
     try {
       String             body   = readBody(req);
       Map<String,Object> rpc    = parseJSON(x, body);
       String             method = (String) rpc.get("method");
-      Object             id     = rpc.get("id");
+      id                        = rpc.get("id");
       Map<String,Object> params = asMap(rpc.get("params"));
 
       // Notifications (no id) — acknowledge silently
@@ -149,10 +150,10 @@ public class MCPWebAgent
       writeResult(out, id, result);
 
     } catch ( MCPError e ) {
-      writeError(out, null, e.code, e.getMessage());
+      writeError(out, id, e.code, e.getMessage());
     } catch ( Throwable t ) {
       logger.error("MCPWebAgent", t);
-      writeError(out, null, -32603, t.getMessage());
+      writeError(out, id, -32603, t.getMessage());
     }
   }
 
@@ -238,7 +239,7 @@ public class MCPWebAgent
     // AQL query → MLang predicate
     String query = (String) args.get("query");
     if ( query != null && ! query.trim().isEmpty() ) {
-      Predicate predicate = parseAQL(x, dao.getOf(), query);
+      Predicate predicate = MLang.AQL(query.trim());
       dao = dao.where(predicate);
     }
 
@@ -370,20 +371,6 @@ public class MCPWebAgent
     }
 
     return response;
-  }
-
-
-  // ─── AQL Parsing ──────────────────────────────────────────────────────────────
-
-  /** Parse an AQL query string into an MLang predicate. */
-  protected Predicate parseAQL(X x, ClassInfo of, String query) {
-    try {
-      // TODO: Wire to FOAM's AQL parser
-      // return AQLParser.parse(x, of, query);
-      throw new UnsupportedOperationException("AQL parser not yet wired");
-    } catch (Throwable t) {
-      throw new MCPError(-32602, "Invalid AQL query: " + query + " — " + t.getMessage());
-    }
   }
 
 

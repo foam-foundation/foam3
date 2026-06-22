@@ -262,6 +262,11 @@ public class MLang
     return dotF;
   }
 
+  public static Predicate AQL(String query) {
+    AQLExpr mql = AQLExpr.create(query);
+    return mql;
+  }
+
   public static Predicate MQL(String query) {
     MQLExpr mql = MQLExpr.create(query);
     return mql;

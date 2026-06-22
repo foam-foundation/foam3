@@ -144,6 +144,7 @@ foam.CLASS({
                       return;
                     }
                   }
+                  obj = null;
                 }
               });
             } catch ( Throwable t ) {

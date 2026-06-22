@@ -303,18 +303,27 @@ foam.CLASS({
         let property            = (prop) => seq1(1, sym('ws'), sug(literalIC(prop.name, prop), {text: prop.name, label: prop.label, category: 'property'}));
 
 
-        let innerProperty = (prop, innerProp) => {
-          // require the user to type the dot before offering innerProp suggestions
-          let expr = foam.mlang.expr.Dot.create({arg1: prop, arg2: innerProp});
+        // prefixNames: full path of names from root to the parent FObject prop
+        // (e.g. ['mid','leaf']). Builds a parser matching "mid.leaf." that
+        // suggests the prefix, followed by innerProp which yields the full
+        // Dot chain expr.
+        let innerProperty = (prefixNames, innerProp, expr) => {
+          let prefixSeq = [];
+          for ( let i = 0 ; i < prefixNames.length ; i++ ) {
+            if ( i > 0 ) prefixSeq.push('.');
+            prefixSeq.push(literalIC(prefixNames[i]));
+          }
+          prefixSeq.push('.');
+          let prefixParser = seq1.apply(null, [0].concat(prefixSeq));
           return seq1(2,
             sym('ws'),
-            sug(seq1(0, literalIC(prop.name), '.'), {text: prop.name + '.', label: prop.label, category: 'property'}),
+            sug(prefixParser, {text: prefixNames.join('.') + '.', category: 'property'}),
             sug(literal(innerProp.name, expr), {text: innerProp.name, label: innerProp.label, category: 'property', prependSpaceOnSelect: false })
           );
         };
 
         // process a property and add its predicates to the grammar
-        function processProp(prop, propertyParser) {
+        function processProp(prop, propertyParser, accExpr, prefixNames, visited) {
           if ( ! prop.searchable ) return;
 
           // Property or Referenced Property, the effective type of the Property
@@ -391,17 +400,22 @@ foam.CLASS({
           else if ( foam.lang.StringArray.isInstance(type) ) {
             propPredicates.push(seq(propertyParser, sym('compareStringArray')));
           } else if ( foam.lang.FObjectProperty.isInstance(type) && prop.name !== 'language' && prop.name !== 'next' ) {
+            if ( visited.has(prop.of) ) return; // cycle guard for self-referential graphs
+            let nextVisited = new Set(visited);
+            nextVisited.add(prop.of);
+            let nextPrefix = prefixNames.concat([prop.name]);
             let innerProps = prop.of.getAxiomsByClass(foam.lang.Property);
             for ( let i = 0 ; i < innerProps.length ; i++ ) {
               let innerProp = innerProps[i];
-              processProp(innerProp, innerProperty(prop, innerProp));
+              let childExpr = foam.mlang.expr.Dot.create({arg1: accExpr, arg2: innerProp});
+              processProp(innerProp, innerProperty(nextPrefix, innerProp, childExpr), childExpr, nextPrefix, nextVisited);
             }
           }
         }
 
         for ( let i = 0 ; i < props.length ; i++ ) {
           let prop = props[i];
-          processProp(prop, property(prop));
+          processProp(prop, property(prop), prop, [], new Set());
         }
 
         // return the properties grammar map

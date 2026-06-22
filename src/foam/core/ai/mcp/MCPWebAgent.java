@@ -12,14 +12,15 @@ import foam.dao.*;
 import foam.lib.json.Outputter;
 import foam.lib.json.JSONParser;
 import foam.lib.formatter.JSONFObjectFormatter;
+import foam.core.boot.CSpec;
 import foam.core.http.WebAgent;
 import foam.core.logger.Logger;
-import foam.mlang.MLang;
 import foam.mlang.predicate.Predicate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.*;
 import java.util.*;
 import jakarta.servlet.http.*;
+import static foam.mlang.MLang.*;
 
 /**
  * Model Context Protocol (MCP) server implemented as a FOAM WebAgent.
@@ -41,6 +42,12 @@ import jakarta.servlet.http.*;
  *
  * Transport: Streamable HTTP (JSON-RPC 2.0 over POST)
  * Protocol: MCP 2025-03-26
+ *
+ * Resources:
+ *   https://modelcontextprotocol.io/docs/learn/server-concepts
+ *   https://www.simple-is-better.org/json-rpc/
+ *   https://www.jsonrpc.org/
+ *   https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json
  */
 public class MCPWebAgent
   implements WebAgent
@@ -239,7 +246,7 @@ public class MCPWebAgent
     // AQL query → MLang predicate
     String query = (String) args.get("query");
     if ( query != null && ! query.trim().isEmpty() ) {
-      Predicate predicate = MLang.AQL(query.trim());
+      Predicate predicate = AQL(query.trim());
       dao = dao.where(predicate);
     }
 
@@ -377,9 +384,22 @@ public class MCPWebAgent
   // ─── DAO Utilities ────────────────────────────────────────────────────────────
 
   protected DAO requireDAO(X x, String name) {
+    CSpec cspec = (CSpec) ((DAO) x.get("AuthenticatedCSpecDAO")).inX(x)
+      .where(AND(
+        EQ(foam.core.boot.CSpec.SERVE, true),
+        CONTAINS(foam.core.boot.CSpec.ID, "DAO")))
+      .find(name);
+
+    // First check that the DAO is served and that the user is authorized to access
+    if ( cspec == null ) throw new MCPError(-32602, "DAO specification not found: " + name);
+
     Object svc = x.get(name);
-    if ( svc instanceof DAO ) return (DAO) svc;
-    throw new MCPError(-32602, "DAO not found: " + name);
+    if ( svc instanceof DAO ) {
+      // The inX() is required to downgrade from the system's to the logged-in users access level
+      DAO dao = (DAO) svc;
+      return dao.inX(x);
+    }
+    throw new MCPError(-32602, "DAO service not found: " + name);
   }
 
   /** Parse an ID string using the DAO's primary key property. */
@@ -541,12 +561,14 @@ public class MCPWebAgent
 }
 
 /*
+  TODO:
+    - pre-filter cSpecDAO to only list served DAOs
+    - help text for properties should be available
+    - enum values should be listed
+    - return syntax errors for AQL
 
-  // TODO: help text is not available in the JAVA PropertyInfo
-
-  Set session CIDR Whitelist
-
-  Sample .claude.json configuration:
+  Usage:
+    Sample .claude.json configuration:
 
         "my-mcp-server": {
           "type": "http",

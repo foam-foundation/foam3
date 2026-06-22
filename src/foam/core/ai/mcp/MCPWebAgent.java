@@ -47,8 +47,8 @@ public class MCPWebAgent
 {
 
   protected static final String        MCP_VERSION   = "2025-03-26";
-  protected static final int           DEFAULT_LIMIT = 100;
-  protected static final int           MAX_LIMIT     = 1000;
+  protected static final int           DEFAULT_LIMIT = 1000;
+  protected static final int           MAX_LIMIT     = 10000;
   protected static final ObjectMapper  MAPPER        = new ObjectMapper();
 
   // Maps tool name → Flow primary key whose first markdown block is the tool description.

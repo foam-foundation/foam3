@@ -238,6 +238,15 @@ foam.CLASS({
       x.test(sugs.indexOf('value') >= 0 && sugs.indexOf('code') >= 0,
         "Nested Test4: suggestions after 'mid.leaf.' include leaf fields (got: " + sugs.join(',') + ")");
 
+      // Int leaf via the same chain — exercises the number compare path nested
+      x.test(this.isValidFor(Root, "mid.leaf.code = 7",
+        'EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.code, 7)'),
+        "Nested Test5: nested Int leaf produces EQ with full Dot chain");
+      let leaf2 = foam.parse.test.NestedQueryTestLeaf.create({value: 'x', code: 7});
+      let root2 = Root.create({mid: foam.parse.test.NestedQueryTestMid.create({leaf: leaf2})});
+      x.test(this.evaluateFor(Root, "mid.leaf.code = 7", root2) === true,
+        "Nested Test6: nested Int leaf evaluates true");
+
     },
 
     function buildPredicate(query) {

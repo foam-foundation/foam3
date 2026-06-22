@@ -109,7 +109,7 @@ foam.CLASS({
 
         // Predicate generation: full Dot chain
         Predicate pred = parser.parseString("mid.leaf.value = hello");
-        String expected = "EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.value, \\"hello\\")";
+        String expected = "EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.value, hello)";
         test(
           pred != null && pred.toString().trim().toLowerCase().equals(expected.toLowerCase()),
           "Nested Java Test1: 2-level path produces full Dot chain — got: " + ( pred == null ? "null" : pred.toString() )

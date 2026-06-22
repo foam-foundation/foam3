@@ -21,6 +21,7 @@ foam.POM({
     { name: "sink/NullSink",                        flags: "js|java" },
     { name: "F",                                    flags: "js|java" },
     { name: "Expr",                                 flags: "js|java" },
+    { name: "LenExpr",                              flags: "js|java" },
     { name: "ExprProperty",                         flags: "js|java" },
     { name: "ExprArrayProperty",                    flags: "js|java" },
     { name: "SinkProperty",                         flags: "js|java" },

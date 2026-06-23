@@ -107,7 +107,8 @@ public class PartitionedDAO
     }
 
     JDAO jdao = new JDAO(getX(), getOf(), journalName);
-    return jdao;
+
+    return new PartitionedSequenceNumberDAO(getX(), part + SEPARATOR, jdao);
   }
 
   protected DAO getDelegate(X x, FObject obj) {

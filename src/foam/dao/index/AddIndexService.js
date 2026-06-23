@@ -15,12 +15,14 @@ foam.CLASS({
 Intended to add indexes to global DAO cspec.
 NOTE: this invokes the ContextFactory, so any lazy: true
 services will be replayed.
+No JS support
 
 Example use:
 p({
   "class": "foam.core.boot.CSpec",
   "name": "someDAOIndexes",
   "lazy": false,
+  "lazyOrder": 100,
   "serviceScript": """
     return new foam.dao.index.AddIndexService.Builder(x)
       .setCSpec("someDAO")
@@ -60,12 +62,6 @@ p({
       name: 'addIndex',
       args: 'foam.lang.PropertyInfo[] indexer',
       type: 'AddIndexService',
-      // code: function start() {
-      //   // how to find mdao from context?
-      //   // does js side support cmd?
-      //   this.mdao && this.mdao.addPropertyIndex.apply(this.mdao, arguments);
-      //   return this;
-      // },
       javaCode: `
         getIndexes().add(indexer);
         return this;

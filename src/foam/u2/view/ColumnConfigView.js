@@ -823,7 +823,7 @@ foam.CLASS({
         if ( ! this.of || ! this.of.getAxiomByName )
           return [];
         if ( prop && prop.of && prop.cls_ && ( foam.lang.FObjectProperty.isInstance(prop) || ( foam.lang.Reference.isInstance(prop) && prop.showSubColumns ) ) )
-          return prop.of.getAxiomsByClass(foam.lang.Property).map(p => { if ( ! foam.dao.DAOProperty.isInstance(p) )  return [p.name, this.columnHandler.returnAxiomHeader(p)] }).filter(e => e != undefined);
+          return prop.of.getAxiomsByClass(foam.lang.Property).map(p => { if ( ! foam.dao.DAOProperty.isInstance(p) && ! p.hidden )  return [p.name, this.columnHandler.returnAxiomHeader(p)] }).filter(e => e != undefined);
         return [];
       }
     },

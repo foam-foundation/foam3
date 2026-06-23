@@ -14,8 +14,23 @@ foam.CLASS({
   documentation: `Post DAO setup, add additional indexes.
 Intended to add indexes to global DAO cspec.
 NOTE: this invokes the ContextFactory, so any lazy: true
-services will be replayed.`,
-  
+services will be replayed.
+
+Example use:
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "someDAOIndexes",
+  "lazy": false,
+  "serviceScript": """
+    return new foam.dao.index.AddIndexService.Builder(x)
+      .setCSpec("someDAO")
+      .build()
+      .addIndex(new foam.lang.PropertyInfo[] { com.foo.SomeDAO.ACTIVITY_TYPE });
+   """
+})
+
+`,
+
   javaImports: [
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',

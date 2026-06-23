@@ -104,3 +104,46 @@ var propText = 'foam.CLASS({\n  package: ' + h.Q + 'x' + h.Q + ',\n  name: ' + h
 var tdef2 = tdefHandler.handle(propText, { line: 4, character: 32 }, 'file:///prop');
 test(tdef2 === null || (tdef2.uri && tdef2.uri.indexOf('file://') === 0),
   'typeDefinition on a property name returns null or a file:// location');
+
+
+// === Real positions (no more hardcoded line:0) ===
+
+section('TypeHierarchy/Implementation — real positions');
+var posItem = tyHandler.itemFor_('foam.core.controller.ApplicationController');
+if ( posItem ) {
+  test(posItem.range.start.line > 0,
+    'itemFor_ range carries a non-zero class line (' + posItem.range.start.line + ')');
+  test(posItem.range.start.line === posItem.selectionRange.start.line,
+    'itemFor_ range and selectionRange agree');
+} else {
+  test(true, 'itemFor_ position test skipped (ApplicationController not in file index)');
+}
+
+
+// === Name-addressing by-id cores (the foam/byName engine) ===
+// These are the class-id-driven paths the MCP uses for symbol-addressed
+// hover/references/implementation/typeHierarchy — independent of cursor
+// position, which is what makes "trace by name" work.
+
+section('Name-addressing by-id cores');
+
+var refHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
+var fobjRefs = refHandler.referencesForClassId('foam.lang.FObject');
+test(Array.isArray(fobjRefs) && fobjRefs.length > 0,
+  'referencesForClassId(FObject) returns usages by class id (' + fobjRefs.length + ')');
+
+// Use a class the harness has fully realized (getClass non-null), not just
+// registered — buildClassHover walks the model so it needs the loaded class.
+var BYID_CLASS = 'foam.core.controller.ApplicationController';
+if ( index.getClass(BYID_CLASS) ) {
+  // buildClassHover returns an LSP hover { contents: { kind, value } }.
+  var byIdHover = h.hoverHandler.buildClassHover(BYID_CLASS);
+  test(byIdHover && byIdHover.contents && typeof byIdHover.contents.value === 'string' &&
+    byIdHover.contents.value.indexOf(BYID_CLASS) !== -1,
+    'buildClassHover returns a hover naming the class (name-addressed hover core)');
+  var byIdItem = tyHandler.itemFor_(BYID_CLASS);
+  test(byIdItem && byIdItem.range.start.line > 0,
+    'itemFor_ carries a real class line for name-addressed typeHierarchy');
+} else {
+  test(true, 'buildClassHover/itemFor_ name-address test skipped (class not loaded)');
+}

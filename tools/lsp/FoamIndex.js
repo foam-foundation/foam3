@@ -31,6 +31,10 @@ foam.CLASS({
     {
       name: 'grammar_',
       documentation: 'Cached FoamClassGrammar instance. Building one walks every class id and builds N parser alternatives — share it across handlers.'
+    },
+    {
+      name: 'filePosCache_',
+      documentation: 'filePath → grammar.collectAxiomPositions(content) map. Lazy, per-file; lets getSymbolPosition resolve a member line with one parse per file. Dropped on reindex via invalidateSymbolIndex_.'
     }
   ],
 
@@ -811,6 +815,7 @@ foam.CLASS({
           var ownId = m.package ? m.package + '.' + m.name : m.name;
           if ( ownId ) this.fileIndex_[ownId] = {
             path:         filePath,
+            line:         m.sourceLine_ || 0,
             flags:        fileFlags,
             pomFile:      pomFile,
             pomEntryName: pomEntryName
@@ -818,6 +823,7 @@ foam.CLASS({
           if ( m.refines && ! this.fileIndex_[m.refines] ) {
             this.fileIndex_[m.refines] = {
               path:         filePath,
+              line:         m.sourceLine_ || 0,
               flags:        fileFlags,
               pomFile:      pomFile,
               pomEntryName: pomEntryName
@@ -1025,6 +1031,206 @@ foam.CLASS({
       if ( ! this.fileIndex_ ) this.buildFileIndex();
       var entry = this.fileIndex_[classId];
       return entry ? entry.path : null;
+    },
+
+    function getClassLine(classId) {
+      /** 0-based line of a class's foam.CLASS/ENUM/INTERFACE call, captured
+       *  from FileModelCache sourceLine_ at index-build time. 0 if unknown. */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var entry = this.fileIndex_[classId];
+      return entry ? ( entry.line || 0 ) : 0;
+    },
+
+    function getFilePosMap_(filePath) {
+      /**
+       * filePath → grammar.collectAxiomPositions(content), cached per file.
+       * One grammar parse yields accurate positions for every axiom (property,
+       * method, value, classRef, ...). Reused by getSymbolPosition so resolving
+       * many members of one class costs a single parse.
+       *
+       * Cache entries carry the file's mtime: an entry is reused only while the
+       * file is unchanged on disk. invalidateSymbolIndex_ drops the cache on
+       * save/reindex, but the mtime guard also catches external edits (git
+       * checkout, other tools) that never trigger a reindex — important when an
+       * agent traces a repo changing underneath it.
+       */
+      if ( ! filePath ) return null;
+      if ( ! this.filePosCache_ ) this.filePosCache_ = {};
+
+      var fs_ = require('fs');
+      var mtime;
+      try { mtime = fs_.statSync(filePath).mtimeMs; }
+      catch ( e ) { return null; }
+
+      var entry = this.filePosCache_[filePath];
+      if ( entry && entry.mtimeMs === mtime ) return entry.posMap;
+
+      var map = null;
+      try {
+        var content = fs_.readFileSync(filePath, 'utf8');
+        if ( content.length <= 2 * 1024 * 1024 ) {
+          map = this.getGrammar().collectAxiomPositions(content);
+        }
+      } catch ( e ) {}
+      this.filePosCache_[filePath] = { mtimeMs: mtime, posMap: map };
+      return map;
+    },
+
+    function getSymbolPosition(classId, memberName, kind) {
+      /**
+       * { uri, line, character } for a class or one of its members. Member
+       * lines come from the grammar position map (single parse per file);
+       * the class line comes from getClassLine. Always returns a valid object
+       * so handlers never special-case null — falls back to the class line.
+       */
+      var filePath = this.getFilePath(classId);
+      var uri      = filePath ? 'file://' + filePath : '';
+      var line     = this.getClassLine(classId);
+      var character = 0;
+
+      if ( memberName && filePath ) {
+        var posMap = this.getFilePosMap_(filePath);
+        var rec = null;
+        if ( posMap ) {
+          // 7=Property, 6=Method, 22=EnumMember, 24=Action/Listener (method-ish).
+          var bucket =
+            kind === 7  ? posMap.property :
+            kind === 22 ? posMap.value    :
+            posMap.method;
+          rec = bucket && bucket[memberName];
+          // 24 (Action/Listener) is not msg-tagged; fall back to method bucket.
+          if ( ! rec && kind === 24 && posMap.method ) rec = posMap.method[memberName];
+        }
+        if ( rec ) {
+          line = rec.line; character = rec.col || 0;
+        } else if ( kind === 6 ) {
+          // Method absent from the .js model — resolve to its Java impl.
+          var jp = this.getJavaMemberPosition_(classId, memberName);
+          if ( jp ) return jp;
+        }
+      }
+      return { uri: uri, line: line, character: character };
+    },
+
+    function getJavaMemberPosition_(classId, memberName) {
+      /**
+       * { uri, line, character } of a method implemented in a sibling .java
+       * (no JS axiom), or null. Walks the inheritance chain so an inherited
+       * Java method resolves to the declaring class's .java. Grammar-based
+       * via JavaParser (scanJavaFile_); lines are 0-based.
+       */
+      var chain = this.getInheritanceChain(classId);
+      for ( var c = 0 ; c < chain.length ; c++ ) {
+        var entry  = this.fileIndex_ && this.fileIndex_[chain[c]];
+        var jsPath = entry && ( typeof entry === 'string' ? entry : entry.path );
+        if ( ! jsPath || ! jsPath.endsWith('.js') ) continue;
+        var methods = this.scanJavaFile_(chain[c]);
+        for ( var i = 0 ; i < methods.length ; i++ ) {
+          if ( methods[i].name === memberName ) {
+            return {
+              uri:       'file://' + jsPath.slice(0, -3) + '.java',
+              line:      methods[i].line || 0,
+              character: 0
+            };
+          }
+        }
+      }
+      return null;
+    },
+
+    function resolveSymbol(name) {
+      /**
+       * Name-addressed lookup for coding agents. Accepts:
+       *   - a full class id            ("foam.u2.DetailView")
+       *   - a short class name         ("DetailView")
+       *   - Class.member               ("DetailView.data", "DAO.find")
+       *   - FullId.member              ("foam.u2.DetailView.data")
+       * Returns { classId, memberName?, uri, line, character, kind } or null.
+       */
+      if ( ! name ) return null;
+
+      var classId = null, memberName = null;
+
+      if ( this.classExists(name) ) {
+        classId = name;
+      } else {
+        var dot = name.lastIndexOf('.');
+        if ( dot > 0 ) {
+          var left  = name.substring(0, dot);
+          var right = name.substring(dot + 1);
+          if ( this.classExists(left) ) {
+            classId = left; memberName = right;
+          } else if ( left.indexOf('.') === -1 ) {
+            var lc = this.findClassByShortName_(left);
+            if ( lc ) { classId = lc; memberName = right; }
+          }
+        }
+        if ( ! classId && name.indexOf('.') === -1 ) {
+          classId = this.findClassByShortName_(name);
+        }
+      }
+      if ( ! classId ) return null;
+
+      var kind;
+      if ( memberName ) {
+        kind = this.memberKind_(classId, memberName);
+        if ( ! kind ) return null;
+      } else {
+        kind = this.isInterface(classId) ? 11 :
+          ( this.getClass(classId) && this.getClass(classId).VALUES ) ? 10 : 5;
+      }
+
+      var pos = this.getSymbolPosition(classId, memberName, kind);
+      return {
+        classId:    classId,
+        memberName: memberName || undefined,
+        uri:        pos.uri,
+        line:       pos.line,
+        character:  pos.character,
+        kind:       kind
+      };
+    },
+
+    function findClassByShortName_(shortName) {
+      /** Resolve a short class name to a full id via the symbol index — an
+       *  exact, class-kind (Class/Interface/Enum) name match. Null if none or
+       *  ambiguous-but-no-exact. */
+      var hits = this.searchSymbols(shortName, { limit: 50 });
+      for ( var i = 0 ; i < hits.length ; i++ ) {
+        var h = hits[i];
+        if ( h.name === shortName && ( h.kind === 5 || h.kind === 11 || h.kind === 10 ) ) {
+          return h.classId;
+        }
+      }
+      return null;
+    },
+
+    function memberKind_(classId, memberName) {
+      /** LSP SymbolKind for a class member, or null if the class has no such
+       *  property/method/action/listener/enum-value. */
+      var cls = this.getClass(classId);
+      if ( ! cls ) return null;
+      try {
+        var props = cls.getAxiomsByClass(foam.lang.Property);
+        for ( var i = 0 ; i < props.length ; i++ ) if ( props[i].name === memberName ) return 7;
+        var methods = cls.getAxiomsByClass(foam.lang.Method);
+        for ( var i = 0 ; i < methods.length ; i++ ) if ( methods[i].name === memberName ) return 6;
+        if ( foam.lang.Action ) {
+          var actions = cls.getAxiomsByClass(foam.lang.Action);
+          for ( var i = 0 ; i < actions.length ; i++ ) if ( actions[i].name === memberName ) return 24;
+        }
+        if ( foam.lang.Listener ) {
+          var listeners = cls.getAxiomsByClass(foam.lang.Listener);
+          for ( var i = 0 ; i < listeners.length ; i++ ) if ( listeners[i].name === memberName ) return 24;
+        }
+        if ( cls.VALUES ) {
+          for ( var i = 0 ; i < cls.VALUES.length ; i++ ) if ( cls.VALUES[i].name === memberName ) return 22;
+        }
+      } catch ( e ) {}
+      // Java-only methods: implemented in the sibling .java, no JS axiom.
+      var jms = this.getJavaMethods(classId);
+      for ( var k = 0 ; k < jms.length ; k++ ) if ( jms[k].name === memberName ) return 6;
+      return null;
     },
 
     function getFileFlags(classId) {
@@ -1369,6 +1575,11 @@ foam.CLASS({
       this.stringUsageIndex_   = null;
       this.memberUsageIndex_   = null;
       this.viewSpecUsageIndex_ = null;
+      // filePosCache_ is deliberately NOT dropped here: collectAxiomPositions
+      // output is a pure function of file text, and each entry carries the
+      // file's mtime, so the guard in getFilePosMap_ re-parses only files that
+      // actually changed. Dropping it would force a full-workspace reparse on
+      // the next usage/symbol query after every save.
       // FoamClassGrammar bakes class ids into its parser at build time —
       // adding or removing a class invalidates the alt() list, so drop the
       // cached instance too.
@@ -1474,15 +1685,14 @@ foam.CLASS({
         else fileless.push(ids[i]);
       }
 
-      var grammar = this.getGrammar();
-      var fs_     = require('fs');
       for ( var filePath in fileToClasses ) {
         var classIds = fileToClasses[filePath];
-        var content;
-        try { content = fs_.readFileSync(filePath, 'utf8'); } catch ( e ) { continue; }
-        if ( content.length > 2 * 1024 * 1024 ) continue;
-        var posMap;
-        try { posMap = grammar.collectAxiomPositions(content); } catch ( e ) { continue; }
+        // mtime-cached parse, shared with getSymbolPosition and reused across
+        // rebuilds. collectAxiomPositions output depends only on file text (the
+        // harvested kinds match broadly and are narrowed later by resolution),
+        // so the cache survives invalidateSymbolIndex_ — without it, the first
+        // usage query after any save reparses the whole workspace (~3000 files).
+        var posMap = this.getFilePosMap_(filePath);
         if ( ! posMap ) continue;
         var shortMap = requiresShortMap(classIds);
         var sourceId = classIds[0];

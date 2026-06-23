@@ -33,13 +33,24 @@ first tool call in a given session pays that cost.
 
 ## Tools
 
+Navigation tools are **name-addressable**: pass `symbol` (a class id like
+`foam.u2.DetailView`, a short class name like `DetailView`, or `Class.member`
+like `foam.u2.DetailView.data`) instead of `uri` + `line` + `character`. This lets an
+agent trace by name without first opening the file to count columns. Results
+come back as compact `path:line:character` text (paths project-relative,
+positions 0-based) rather than raw LSP JSON.
+
 | Tool | Arguments | Returns |
 |---|---|---|
-| `foam_hover` | `uri`, `line`, `character` (0-based) | Class docs, property types, method signatures, short-name resolution |
-| `foam_definition` | `uri`, `line`, `character` | Source location for classes in `extends:`, `requires:`, `of:`, property types |
-| `foam_references` | `uri`, `line`, `character` | Subclasses of a class, implementors of an interface |
-| `foam_document_symbols` | `uri` | Outline of a file (classes, properties, methods, actions) |
-| `foam_workspace_symbols` | `query` | All FOAM classes matching a name substring |
+| `foam_hover` | `symbol` \| `uri`+`line`+`character` | Class docs, property types, method signatures, short-name resolution |
+| `foam_definition` | `symbol` \| `uri`+`line`+`character` | Source location for classes in `extends:`, `requires:`, `of:`, property types |
+| `foam_references` | `symbol` \| `uri`+`line`+`character` | Subclasses, interface implementors, and JS/Java/string usages |
+| `foam_implementation` | `symbol` \| `uri`+`line`+`character` | Concrete implementors of an interface (or direct subclasses) |
+| `foam_type_definition` | `symbol` \| `uri`+`line`+`character` | For a property usage, the property's type class |
+| `foam_type_hierarchy` | `symbol` \| position, `direction` (`subtypes`/`supertypes`/`both`) | Supertypes (extends chain) and/or subtypes (subclasses + implementors) |
+| `foam_call_hierarchy` | `symbol` \| position, `direction` (`incoming`/`outgoing`/`both`) | Method callers and/or callees |
+| `foam_document_symbols` | `uri` | Outline of a file (classes, properties, methods, actions) with lines |
+| `foam_workspace_symbols` | `query` | Ranked class/property/method matches (capped at 60; narrow to see more) |
 | `foam_diagnostics` | `uri` (optional) | Unknown classes, bad `foam.nanos.*` imports, CSS-token violations, invalid getters/setters in javaCode |
 | `foam_code_actions` | `uri`, `line` (optional) | Quick fixes with ready-to-apply edits: extract hardcoded strings to `messages:` (i18n), raw color → `$token`, wrong Java package, did-you-mean class suggestions |
 

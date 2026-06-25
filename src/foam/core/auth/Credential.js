@@ -78,7 +78,7 @@ foam.CLASS({
       includeInDigest: true
     },
     {
-      class: 'String',
+      class: 'Password',
       name: 'password',
       includeInDigest: true
     },

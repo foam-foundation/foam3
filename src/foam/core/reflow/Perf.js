@@ -51,6 +51,24 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
+  name: 'PerfBlockCost',
+
+  documentation: `Per-block runtime cost during a flow load - how much one block added
+    while it executed (wish #1, per-block attribution). DOM is approximate: async
+    work that finishes after the block's await lands in whichever block was running.`,
+
+  properties: [
+    { class: 'String', name: 'flowName' },
+    { class: 'String', name: 'cmd' },
+    { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop' },
+    { class: 'Int',    name: 'domDelta', documentation: 'live nodes added while the block ran' },
+    { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
   name: 'PerfIssue',
 
   documentation: 'One flagged performance problem: a severity, a category and a human detail line.',
@@ -178,6 +196,7 @@ foam.CLASS({
     { class: 'Float', name: 'warnRate', documentation: 'console.warn calls per second' },
     { class: 'Boolean', name: 'profilingSupported', documentation: 'true if the JS Self-Profiling API captured a CPU trace' },
     { class: 'FObjectArray', of: 'foam.core.reflow.PerfHotFrame', name: 'hotFunctions' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.PerfBlockCost', name: 'blockProfile', documentation: 'per-block costs, worst first (loadPerf only)' },
     { class: 'FObjectArray', of: 'foam.core.reflow.PerfIssue', name: 'issues' }
   ],
 
@@ -370,6 +389,15 @@ foam.CLASS({
       L.push('  ' + pad('Warnings', 21)            + this.numStr(this.warnCount, 0));
       L.push('');
 
+      var blocks = this.blockProfile || [];
+      if ( blocks.length ) {
+        L.push('PER-BLOCK COST (worst first)');
+        blocks.forEach(function(b) {
+          L.push('  ' + pad(this.numStr(b.ms, 0) + ' ms', 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
+        }.bind(this));
+        L.push('');
+      }
+
       var hot = this.hotFunctions || [];
       if ( hot.length ) {
         L.push('HOTTEST FUNCTIONS (self-profiled)');
@@ -464,6 +492,7 @@ foam.CLASS({
     { name: 'CAPTURING_MSG',    message: 'Capturing…' },
     { name: 'IDLE_MSG',         message: 'Idle' },
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
+    { name: 'BLOCKS_LABEL',     message: 'Per-block cost (worst first)' },
     { name: 'HOT_FUNCS_LABEL',  message: 'Hottest functions (self-profiled)' },
     { name: 'DEVTOOLS_HINT',    message: 'In-page profiling unavailable (needs the js-profiling document policy). Open DevTools → Performance, or run tron / troff, for a CPU trace.' },
     { name: 'ELAPSED_LABEL',    message: 'Elapsed' },
@@ -547,6 +576,7 @@ foam.CLASS({
         if ( ! r || ! r.endSnapshot ) return;
         self.renderIssues_(this, r);
         self.renderMetrics_(this, r);
+        self.renderBlocks_(this, r);
         self.renderHot_(this, r);
         self.renderEnv_(this, r);
       }));
@@ -618,6 +648,29 @@ foam.CLASS({
       el2.end();
     },
 
+    function renderBlocks_(el, r) {
+      var self   = this;
+      var blocks = r.blockProfile || [];
+      if ( ! blocks.length ) return;
+      el.start().addClass(self.myClass('section-title')).add(self.BLOCKS_LABEL).end();
+      var t = el.start('table');
+      t.start('tr')
+        .start('th').add('Block').end()
+        .start('th').add('Time').end()
+        .start('th').add('+DOM').end()
+        .start('th').add('+Heap').end()
+      .end();
+      blocks.forEach(function(b) {
+        t.start('tr')
+          .start('th').add(b.flowName).end()
+          .start('td').add(r.numStr(b.ms, 0) + ' ms').end()
+          .start('td').add(r.numStr(b.domDelta, 0)).end()
+          .start('td').add(r.byteStr(b.heapDelta)).end()
+        .end();
+      });
+      t.end();
+    },
+
     function renderHot_(el, r) {
       var self = this;
       var hot  = r.hotFunctions || [];
@@ -675,6 +728,9 @@ foam.CLASS({
       this.wrapFetch_();
       this.wrapWarn_();
 
+      // Buffer the Console's per-block load loop writes into (Console.includeScript).
+      if ( this.window ) this.window.__perfCapture__ = [];
+
       // JS Self-Profiling API: sample the call stack so we can name the hottest
       // functions ourselves, no DevTools. Throws unless the js-profiling document
       // policy is set - then we fall back to the DevTools hint.
@@ -690,8 +746,9 @@ foam.CLASS({
     async function finishCapture_() {
       /** End the capture window and compute the report. Callable headlessly.
           Async because the JS Self-Profiling API resolves its trace on stop(). **/
-      var net = this.summarizeNetwork_(this.netCalls_ || []);
-      var hot = await this.stopProfile_();
+      var net    = this.summarizeNetwork_(this.netCalls_ || []);
+      var blocks = this.summarizeBlocks_();   // drain before stopCapture_ nulls the buffer
+      var hot    = await this.stopProfile_();
       this.stopCapture_();
       this.report.endSnapshot = this.takeSnapshot_();
       this.report.finish({
@@ -710,7 +767,25 @@ foam.CLASS({
       });
       this.report.profilingSupported = hot.supported;
       this.report.hotFunctions       = hot.frames;
+      this.report.blockProfile       = blocks;
       return this.report;
+    },
+
+    function summarizeBlocks_() {
+      /** Drain the per-block capture buffer into PerfBlockCost rows, worst first.
+          Trivial blocks (no time, no DOM) are dropped; top 12 kept. **/
+      var raw = ( this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : [];
+      if ( this.window ) this.window.__perfCapture__ = null;
+      var rows = raw
+        .filter(function(b) { return b.ms >= 1 || b.domDelta >= 50 || b.heapDelta >= 1048576; })
+        .sort(function(a, b) { return b.ms - a.ms; })
+        .slice(0, 12)
+        .map(function(b) {
+          return foam.core.reflow.PerfBlockCost.create({
+            flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta
+          });
+        });
+      return rows;
     },
 
     async function stopProfile_() {
@@ -757,6 +832,8 @@ foam.CLASS({
       this.unwrapWarn_();
       // Discard a still-running profiler (e.g. view detached mid-capture).
       if ( this.profiler_ ) { try { this.profiler_.stop(); } catch (e) {} this.profiler_ = null; }
+      // Drop the per-block buffer if capture aborted before summarizeBlocks_ drained it.
+      if ( this.window && this.window.__perfCapture__ ) this.window.__perfCapture__ = null;
     },
 
     function wrapFetch_() {

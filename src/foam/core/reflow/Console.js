@@ -1299,7 +1299,28 @@ foam.CLASS({
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
+        // Per-block attribution for the reflow Perf block: when a capture set
+        // window.__perfCapture__ to an array, record each TOP-LEVEL block's cost.
+        // No-op (single array check) when not capturing.
+        var perfCap_ = ( ! parent && this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : null;
+        var perfT_, perfDom_, perfHeap_;
+        if ( perfCap_ ) {
+          perfT_    = this.window.performance.now();
+          perfDom_  = this.window.document.querySelectorAll('*').length;
+          perfHeap_ = ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0;
+        }
+
         await ctx.eval_(c.cmd, undefined, undefined, parent);
+
+        if ( perfCap_ ) {
+          perfCap_.push({
+            flowName:  ( this.currentBlock && this.currentBlock.flowName ) || c.flowName || c.cmd,
+            cmd:       c.cmd,
+            ms:        this.window.performance.now() - perfT_,
+            domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
+            heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
+          });
+        }
 
         // This occurs if eval_() has an error and creates a BadBlock
         if ( this.BadBlock.isInstance(this.currentBlock.value) ) {

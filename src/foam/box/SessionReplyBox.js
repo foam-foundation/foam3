@@ -66,18 +66,27 @@ foam.CLASS({
           var authResult  = await this.auth.check(null, '*');
 
           if ( this.loginSuccess && ( ! promptlogin || authResult ) ) {
-            if ( this.ctrl ) {
+            try {
               this.ctrl.reload();
-            } else {
-              // Set loginSuccess to false so that if multiple requests are sent with no authentication, window reload is called only once
+            } catch ( e ) {
+              console.error(e, 'WINDOW_RELOAD');
+              // Failed ApplicationController reload, so
+              // - alter loginSuccess state manually to hide the top navigation
+              // - log analytic event and
+              // - force window reload explicitly
               this.loginSuccess = false;
 
-              // Log analytic event and trigger window reload explicitly
+              // Log analytic event
               this.logAnalyticEvent?.({
-                name: 'WINDOW_RELOAD:AuthenticationException',
-                userId: this.subject?.realUser.id
+                name: 'WINDOW_RELOAD',
+                userId: this.subject?.realUser.id,
+                extra: foam.json.stringify({
+                  'ctrl_not_undefined': !! this.ctrl,
+                  'ctrl_has_reload_fn': !! this.ctrl?.reload,
+                  'current_url': globalThis.window.location.href
+                })
               });
-              window.location.reload();
+              globalThis.window.location.reload();
             }
           } else {
             this.requestLogin().then(function() {

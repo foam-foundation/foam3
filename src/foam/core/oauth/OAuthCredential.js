@@ -58,11 +58,15 @@ foam.CLASS({
       documentation: 'Returns the access token, proactively refreshing if within 5 minutes of expiration',
       args: 'Context x',
       javaCode: `
-        if ( getExpiresAt() != null && ! SafetyUtil.isEmpty(getRefreshToken()) ) {
+        if ( getExpiresAt() != null ) {
           Instant expiresAt = getExpiresAt().toInstant();
           Instant fiveMinutesFromNow = Instant.now().plusSeconds(300);
-          if ( expiresAt.isBefore(fiveMinutesFromNow) )
+          if ( expiresAt.isBefore(fiveMinutesFromNow) ) {
+            if ( SafetyUtil.isEmpty(getRefreshToken()) )
+              throw new RuntimeException("Refresh token is missing");
+
             refreshAuth(x);
+          }
         }
 
         return getAccessToken();

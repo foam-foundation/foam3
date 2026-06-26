@@ -748,6 +748,7 @@ foam.CLASS({
           Async because the JS Self-Profiling API resolves its trace on stop(). **/
       var net    = this.summarizeNetwork_(this.netCalls_ || []);
       var blocks = this.summarizeBlocks_();   // drain before stopCapture_ nulls the buffer
+      this.flushLongTasks_();                 // collect buffered longtasks before disconnect
       var hot    = await this.stopProfile_();
       this.stopCapture_();
       this.report.endSnapshot = this.takeSnapshot_();
@@ -788,6 +789,19 @@ foam.CLASS({
       return rows;
     },
 
+    function flushLongTasks_() {
+      /** PerformanceObserver delivers longtask entries in a later task; pull any still
+          buffered before we disconnect, else a long sync task (e.g. a busy loop) is
+          missed and the CPU metrics read 0. **/
+      if ( ! this.observer_ || ! this.observer_.takeRecords ) return;
+      var self = this;
+      this.observer_.takeRecords().forEach(function(e) {
+        self.longTaskCount_++;
+        self.longTaskTotalMs_ += e.duration;
+        if ( e.duration > self.longestTaskMs_ ) self.longestTaskMs_ = e.duration;
+      });
+    },
+
     async function stopProfile_() {
       /** Stop the self-profiler and aggregate samples into hottest frames. **/
       if ( ! this.profiler_ ) return { supported: false, frames: [] };
@@ -802,8 +816,11 @@ foam.CLASS({
     },
 
     function summarizeProfile_(trace) {
-      /** Count self-time per leaf frame across all samples; return top frames. **/
+      /** Count self-time per leaf frame across all samples; return top frames.
+          Drops our own measurement overhead and sub-3% rounding noise. **/
       if ( ! trace || ! trace.samples || ! trace.stacks || ! trace.frames ) return [];
+      // Frames that are this tool measuring itself, not the flow's own cost.
+      var NOISE = { 'Profiler': true, 'querySelectorAll': true, 'now': true, 'takeRecords': true };
       var counts = {}, total = 0;
       trace.samples.forEach(function(s) {
         var stack = trace.stacks[s.stackId];
@@ -821,8 +838,9 @@ foam.CLASS({
           pct:         total > 0 ? 100 * counts[fid] / total : 0
         });
       });
+      frames = frames.filter(function(f) { return ! NOISE[f.name] && f.pct >= 3; });
       frames.sort(function(a, b) { return b.selfSamples - a.selfSamples; });
-      return frames.slice(0, 8);
+      return frames.slice(0, 6);
     },
 
     function stopCapture_() {

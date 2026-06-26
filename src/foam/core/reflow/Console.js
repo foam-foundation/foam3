@@ -1312,16 +1312,6 @@ foam.CLASS({
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
 
-        if ( perfCap_ ) {
-          perfCap_.push({
-            flowName:  ( this.currentBlock && this.currentBlock.flowName ) || c.flowName || c.cmd,
-            cmd:       c.cmd,
-            ms:        this.window.performance.now() - perfT_,
-            domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
-            heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
-          });
-        }
-
         // This occurs if eval_() has an error and creates a BadBlock
         if ( this.BadBlock.isInstance(this.currentBlock.value) ) {
           this.currentBlock.value.block = this.currentBlock;
@@ -1358,6 +1348,19 @@ foam.CLASS({
 
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
+        }
+
+        // Measure AFTER onLoad + children: that is where a block's real work runs
+        // (script autoRun, DAO select, DOM render). eval_ alone only creates the block.
+        // flowName from the script (reliable) since currentBlock may now be a child.
+        if ( perfCap_ ) {
+          perfCap_.push({
+            flowName:  c.flowName || c.cmd,
+            cmd:       c.cmd,
+            ms:        this.window.performance.now() - perfT_,
+            domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
+            heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
+          });
         }
       }
     },

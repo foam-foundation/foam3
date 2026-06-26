@@ -118,6 +118,12 @@ which provide CONTENT_SECURITY_POLICY as init parameters of CSPFilter.`,
           ((HttpServletResponse) response).setHeader("Content-Security-Policy", policy);
         }
 
+        // Enable the JS Self-Profiling API (window.Profiler) so the reflow Perf
+        // block can capture in-page CPU profiles without DevTools. Document-Policy
+        // is document-only (browsers ignore it on sub-resources), same-origin, and
+        // costs nothing unless a profiler is actively sampling.
+        ((HttpServletResponse) response).setHeader("Document-Policy", "js-profiling");
+
         chain.doFilter(request, response);
       `
     },

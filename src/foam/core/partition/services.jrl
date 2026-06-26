@@ -18,7 +18,6 @@ p({
           x,
           foam.core.auth.Region.getOwnClassInfo(),
           "partitionedRegion/",
-          foam.core.auth.Region.CODE,
           foam.core.auth.Region.COUNTRY_ID))
       .build();
   """,

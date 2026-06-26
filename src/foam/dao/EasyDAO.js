@@ -175,6 +175,11 @@ foam.CLASS({
               setMdao(new foam.dao.MDAO(getOf()));
             }
             delegate = getMdao();
+            if ( getDedup() ) {
+              delegate = new foam.dao.DeDupDAO.Builder(getX())
+                .setDelegate(delegate)
+                .build();
+            }
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
@@ -552,8 +557,7 @@ foam.CLASS({
     {
       documentation: 'Enable value de-duplication to save memory when caching',
       class: 'Boolean',
-      name: 'dedup',
-      generateJava: false
+      name: 'dedup'
     },
     {
       documentation: 'Keep a history of all state changes to the DAO',

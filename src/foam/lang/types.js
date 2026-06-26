@@ -1460,8 +1460,14 @@ foam.CLASS({
     },
     {
       name: 'adapt',
-      value: function(_, n) {
+      value: function(_, n, prop) {
         if ( foam.lang.Currency.isInstance(n) ) return n.id;
+        // RefSummary projection shape { id, summary } — cache summary, return id
+        // (mirrors Reference.adapt so CurrencyCode table columns render in projections)
+        if ( n && ! foam.lang.FObject.isInstance(n) && typeof n === 'object' && n.id !== undefined ) {
+          if ( n.summary != undefined ) this[`${(prop || this).name}$summary_`] = n.summary;
+          return n.id;
+        }
         return n;
       }
     },
@@ -1566,8 +1572,14 @@ foam.CLASS({
     },
     {
       name: 'adapt',
-      value: function(_, n) {
+      value: function(_, n, prop) {
         if ( foam.core.auth.Country.isInstance(n) ) return n.code || n.id;
+        // RefSummary projection shape { id, summary } — cache summary, return id
+        // (mirrors Reference.adapt so CountryCode table columns render in projections)
+        if ( n && ! foam.lang.FObject.isInstance(n) && typeof n === 'object' && n.id !== undefined ) {
+          if ( n.summary != undefined ) this[`${(prop || this).name}$summary_`] = n.summary;
+          return n.id;
+        }
         if ( ! foam.String.isInstance(n) ) return n;
 
         let v = n.trim();

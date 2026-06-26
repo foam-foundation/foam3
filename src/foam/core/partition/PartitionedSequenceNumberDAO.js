@@ -9,11 +9,18 @@ foam.CLASS({
   name: 'PartitionedSequenceNumberDAO',
   extends: 'foam.dao.SequenceNumberDAO',
 
+  javaCode: `
+    public PartitionedSequenceNumberDAO(foam.lang.X x, String prefix, foam.dao.DAO delegate) {
+      setX(x);
+      setPrefix(prefix);
+      setDelegate(delegate);
+    }
+  `,
+
   properties: [
     {
       class: 'String',
-      name: 'prefix',
-      value: 'abc-'
+      name: 'prefix'
     }
   ],
 

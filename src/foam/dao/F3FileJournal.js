@@ -18,6 +18,7 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lib.json.JSONParser',
     'foam.core.pm.PM',
+    'foam.util.concurrent.AbstractAssembly',
     'foam.util.concurrent.AssemblyLine',
     'foam.util.SafetyUtil',
     'java.io.BufferedReader',
@@ -88,6 +89,9 @@ foam.CLASS({
           if ( reader == null ) {
             return;
           }
+
+
+
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
             if ( length == 0 ) continue;
@@ -109,7 +113,7 @@ foam.CLASS({
                 continue;
               }
 
-              assemblyLine.enqueue(new foam.util.concurrent.AbstractAssembly() {
+              class F3Assembly extends AbstractAssembly {
                 FObject obj;
 
                 public void executeJob() {
@@ -137,7 +141,7 @@ foam.CLASS({
                   }
                   long pass = passCount.incrementAndGet();
                   // Provide some feedback on long running replays
-                  if ( pass % 10000 == 0 ) {
+                  if ( pass % 100000 == 0 ) {
                     getLogger().info("Replay progress", "processed", pass, "in", Duration.ofMillis(pm.getTime()));
                     if ( Thread.currentThread().isInterrupted() ) {
                       getLogger().info("Replay interrupted");
@@ -145,7 +149,9 @@ foam.CLASS({
                     }
                   }
                 }
-              });
+              } // class
+
+              assemblyLine.enqueue(new F3Assembly());
             } catch ( Throwable t ) {
               getLogger().error("Error replaying journal", dao.getOf().getId(), entry, t);
             }

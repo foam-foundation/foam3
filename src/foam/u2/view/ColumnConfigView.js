@@ -823,7 +823,7 @@ foam.CLASS({
         if ( ! this.of || ! this.of.getAxiomByName )
           return [];
         if ( prop && prop.of && prop.cls_ && ( foam.lang.FObjectProperty.isInstance(prop) || ( foam.lang.Reference.isInstance(prop) && prop.showSubColumns ) ) )
-          return prop.of.getAxiomsByClass(foam.lang.Property).map(p => { if ( ! foam.dao.DAOProperty.isInstance(p) )  return [p.name, this.columnHandler.returnAxiomHeader(p)] }).filter(e => e != undefined);
+          return prop.of.getAxiomsByClass(foam.lang.Property).map(p => { if ( ! foam.dao.DAOProperty.isInstance(p) && ! p.hidden )  return [p.name, this.columnHandler.returnAxiomHeader(p)] }).filter(e => e != undefined);
         return [];
       }
     },
@@ -912,21 +912,30 @@ foam.CLASS({
       }
       return [this.rootProperty[0]];
     },
-    function updateOnSearch(query) {
+    function updateOnSearch(query, parentMatched) {
       this.showOnSearch = false;
       this.expanded = false;
       if ( query.length == 0 ) { this.showOnSearch = true; this.expanded = false; return this.showOnSearch; }
-      this.showOnSearch = foam.Array.isInstance(this.rootProperty) ? this.rootProperty[1].toLowerCase().includes(query) : this.rootProperty.name.toLowerCase().includes(query);
+      var selfMatch = foam.Array.isInstance(this.rootProperty) ? this.rootProperty[1].toLowerCase().includes(query) : this.rootProperty.name.toLowerCase().includes(query);
+      this.showOnSearch = selfMatch || !! parentMatched;
       if ( this.hasSubProperties && this.level < 2 ) {
         this.expanded = false;
-        if ( this.subColumnSelectConfig.length == 0 )
-          this.subColumnSelectConfig = this.returnSubColumnSelectConfig(this.subProperties, this.level, this.expanded, true);
-        for ( var  i = 0 ; i < this.subColumnSelectConfig.length ; i++ ) {
-          if ( this.subColumnSelectConfig[i].updateOnSearch(query) ) {
+        // Snapshot the children locally: subColumnSelectConfig is an expression
+        // keyed on `expanded`, so toggling this.expanded inside the loop would
+        // regenerate fresh child objects (default showOnSearch=true) and discard
+        // the per-child results computed here.
+        var subs = this.subColumnSelectConfig.length == 0
+          ? this.returnSubColumnSelectConfig(this.subProperties, this.level, true, true)
+          : this.subColumnSelectConfig;
+        for ( var  i = 0 ; i < subs.length ; i++ ) {
+          if ( subs[i].updateOnSearch(query, selfMatch || parentMatched) ) {
             this.expanded = true;
             this.showOnSearch = true;
           }
         }
+        // Reassign after expanded is settled so the rendered children are the
+        // same instances we just scored, overriding any expression recompute.
+        this.subColumnSelectConfig = subs;
       }
       return this.showOnSearch;
     },

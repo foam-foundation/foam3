@@ -94,6 +94,14 @@ foam.CLASS({
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }
       } catch (e) {}
+      // Classes that reference the target ONLY inside a view spec
+      // (`view: { class: 'X' }`, searchView, rowView, defaultNewItem, …)
+      // declare no requires/of for it — the view-spec index is the only edge
+      // that puts their files in the scan set.
+      try {
+        var viewUses = this.index.getViewSpecUsers(classId);
+        for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
+      } catch (e) {}
 
       var locations = [];
       for ( var i = 0 ; i < refs.length ; i++ ) {

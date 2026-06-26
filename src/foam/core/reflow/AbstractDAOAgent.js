@@ -873,7 +873,8 @@ foam.CLASS({
         class: 'foam.u2.view.ArrayView',
         valueView: {
           class: 'foam.core.reflow.SinkView',
-          sinksOnly: true
+          sinksOnly: true,
+          choice: 'foam.core.reflow.CountDAOAgent'
         }
       }
     }
@@ -1247,6 +1248,7 @@ foam.CLASS({
     {
       name: 'sink',
       view: 'foam.core.reflow.SinkView',
+      choice: 'foam.core.reflow.CountDAOAgent',
       documentation: 'The sink to delegate to'
     }
   ],

@@ -376,9 +376,11 @@ foam.CLASS({
     function addStructuralIssues(blocks) {
       /** Static scan of a loaded flow's block definitions (no runtime needed):
           name the blocks whose shape is a known performance smell (findings #1, #9).
-          blocks: the parsed flow.script array. **/
-      var self  = this;
-      var found = [];
+          Same-smell blocks are grouped into ONE issue listing their names, so a flow
+          with 20 hidden tables produces one line, not twenty. blocks: the flow.script array. **/
+      var self            = this;
+      var hiddenTables    = [];
+      var leftoverGroupBy = [];
 
       function rendersTable(sel) {
         // A DAOPrompt with no select falls back to the default TableView.
@@ -389,18 +391,24 @@ foam.CLASS({
         if ( ! b ) return;
         var v = b.value;
         if ( v && /DAOPrompt$/.test(v.class || '') ) {
-          if ( b.shown === false && rendersTable(v.select) )
-            found.push(self.PerfIssue.create({ severity: self.PerfSeverity.WARN, category: 'Structure',
-              detail: "Hidden block '" + ( b.flowName || '?' ) + "' renders a full table while shown:false - over a large DAO this builds thousands of wasted DOM nodes." }, self));
+          if ( b.shown === false && rendersTable(v.select) ) hiddenTables.push(b.flowName || '?');
           var sel = v.select;
           if ( sel && /GroupByDAOAgent$/.test(sel.class || '') && sel.prop == null && sel.browseEnabled && sel.groupLimit === -1 )
-            found.push(self.PerfIssue.create({ severity: self.PerfSeverity.WARN, category: 'Structure',
-              detail: "GroupBy block '" + ( b.flowName || '?' ) + "' browses every row with no grouping property - likely leftover scaffolding." }, self));
+            leftoverGroupBy.push(b.flowName || '?');
         }
         if ( b.flowChildren ) b.flowChildren.forEach(walk);
       }
 
       ( blocks || [] ).forEach(walk);
+
+      var found = [];
+      if ( hiddenTables.length )
+        found.push(self.PerfIssue.create({ severity: self.PerfSeverity.WARN, category: 'Structure',
+          detail: hiddenTables.length + ' hidden block(s) render a full table while shown:false (wasted DOM over a large DAO): ' + hiddenTables.join(', ') }, self));
+      if ( leftoverGroupBy.length )
+        found.push(self.PerfIssue.create({ severity: self.PerfSeverity.WARN, category: 'Structure',
+          detail: leftoverGroupBy.length + ' GroupBy block(s) browse every row with no grouping property - likely leftover scaffolding: ' + leftoverGroupBy.join(', ') }, self));
+
       if ( found.length ) this.issues = ( this.issues || [] ).concat(found);
       return this;
     }

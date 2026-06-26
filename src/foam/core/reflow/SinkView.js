@@ -133,6 +133,7 @@ foam.CLASS({
             add(self.CHOICE).
           endContext();
 
+          if ( ! data ) return;
 
           if ( data instanceof Promise ) {
             data.then(d => d.addToE(this));

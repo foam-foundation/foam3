@@ -81,9 +81,9 @@ foam.CLASS({
                 name: 'WINDOW_RELOAD',
                 userId: this.subject?.realUser.id,
                 extra: foam.json.stringify({
-                  'ctrl_not_undefined': !! this.ctrl,
-                  'ctrl_has_reload_fn': !! this.ctrl?.reload,
-                  'current_url': globalThis.window.location.href
+                  'ctrl_checked': !! this.ctrl,
+                  'ctrl_reload_checked': !! this.ctrl?.reload,
+                  'url': globalThis.window.location.href
                 })
               });
               globalThis.window.location.reload();

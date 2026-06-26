@@ -17,10 +17,11 @@ foam.CLASS({
     'auth?',
     'ctrl?',
     'group?',
+    'logAnalyticEvent?',
     'loginSuccess?',
     'requestLogin?',
     'sessionTimer?',
-    'window'
+    'subject?'
   ],
 
   messages: [
@@ -65,17 +66,24 @@ foam.CLASS({
           var authResult  = await this.auth.check(null, '*');
 
           if ( this.loginSuccess && ( ! promptlogin || authResult ) ) {
-            if ( this.ctrl ) this.ctrl.remove();
-            // Set loginSuccess to false so that if multiple requests are sent with no authentication, alert is called only once
-            this.loginSuccess = false;
-//            alert(this.REFRESH_MSG);
-            (this.window || window).location.reload();
-            return;
-          }
+            if ( this.ctrl ) {
+              this.ctrl.reload();
+            } else {
+              // Set loginSuccess to false so that if multiple requests are sent with no authentication, window reload is called only once
+              this.loginSuccess = false;
 
-          this.requestLogin().then(function() {
-            self.clientBox.send(self.envelope);
-          });
+              // Log analytic event and trigger window reload explicitly
+              this.logAnalyticEvent?.({
+                name: 'WINDOW_RELOAD:AuthenticationException',
+                userId: this.subject?.realUser.id
+              });
+              window.location.reload();
+            }
+          } else {
+            this.requestLogin().then(function() {
+              self.clientBox.send(self.envelope);
+            });
+          }
         } else {
           // fetch the soft session limit from group, and then start the timer
           if ( this.group && this.sessionTimer && this.refreshSessionTimer && this.group && this.group.id !== '' && this.group.softSessionLimit !== 0 ) {

@@ -15,42 +15,43 @@ p({
     import foam.dao.DAO;
     import foam.core.oauth.OAuthCredential;
     import foam.core.session.Session;
+    import foam.core.logger.Logger;
     import foam.core.logger.Loggers;
     import java.util.List;
-    
+
     DAO oAuthCredentialDAO = (DAO) x.get("oAuthCredentialDAO");
-    DAO sessionDAO = (DAO) x.get("sessionDAO");
-    
+    DAO sessionDAO = (DAO) x.get("localSessionDAO");
+
     List credentials = ((ArraySink) oAuthCredentialDAO.select(new ArraySink())).getArray();
 
     int count = 0;
     int refreshed = 0;
     int errors = 0;
-    
+
+    Logger logger = Loggers.logger(x, "OAuthTokenRefreshCron");
+
     for ( Object obj : credentials ) {
       OAuthCredential cred = (OAuthCredential) obj;
       count++;
 
-      try {
-        String sessionId = cred.getSessionId();
-        if (sessionId != null) {
-          Session session = (Session) sessionDAO.find(sessionId);
-          if ( session != null && (session.getUserId() == cred.getUser() || session.getAgentId() == cred.getUser()) ) {
-            cred = (OAuthCredential) cred.fclone();
+      Session session = (Session) sessionDAO.find(cred.getSessionId());
+      if ( session != null && (session.getUserId() == cred.getUser() || session.getAgentId() == cred.getUser()) ) {
+        String oldToken = cred.getAccessToken();
 
-            String oldToken = cred.getAccessToken();
-            cred.checkAndRefresh(x);
-            if ( cred.getAccessToken() != null && ! cred.getAccessToken().equals(oldToken) ) {
-              oAuthCredentialDAO.put(cred);
-              refreshed++;
-            }
+        try {
+          cred = (OAuthCredential) cred.fclone();
+          cred.checkAndRefresh(x);
+          if ( cred.getAccessToken() != null && ! cred.getAccessToken().equals(oldToken) ) {
+            oAuthCredentialDAO.put(cred);
+            refreshed++;
           }
+        } catch ( Exception e ) {
+          errors++;
+          logger.error(new Object[] { "Error refreshing OAuth credential for user " + cred.getUser(), e });
+
+          sessionDAO.remove(session);
+          logger.info(new Object[] { "Destroyed expired session : " + (String) session.getId() });
         }
-      } catch ( Exception e ) {
-        errors++;
-        Loggers.logger(x).error(new Object[] {
-          "OAuthTokenRefreshCron: error refreshing OAuth credential for user " + cred.getUser(), e
-        });
       }
     }
 

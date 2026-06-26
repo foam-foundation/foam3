@@ -61,6 +61,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'enabled',
+      order: 3,
       value: true
     },
     {

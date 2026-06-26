@@ -15,9 +15,11 @@ foam.CLASS({
   ],
 
   javaImports: [
+    'foam.core.boot.CSpec',
+    'foam.core.boot.CSpecStatus',
+    'foam.core.pm.PM',
     'foam.lang.FObject',
     'foam.lib.json.JSONParser',
-    'foam.core.pm.PM',
     'foam.util.concurrent.AbstractAssembly',
     'foam.util.concurrent.AssemblyLine',
     'foam.util.SafetyUtil',
@@ -62,7 +64,11 @@ foam.CLASS({
 
         String lastVersion = "";
 
-        getLogger().info("Replay starting");
+        CSpec cspec = (CSpec)getX().get(CSpec.CSPEC_CTX_KEY);
+        if ( cspec != null )
+          cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", "start", getFilename());
+        else
+          getLogger().info("Replay starting");
 
         // Pre-compute the parser X context once per replay. When the target
         // ClassInfo has no backing Java class (getObjClass() is null), thread
@@ -85,6 +91,7 @@ foam.CLASS({
           new foam.util.concurrent.SyncAssemblyLine() :
           new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay")) ;
 
+        boolean threw = false;
         try ( BufferedReader reader = getReader() ) {
           if ( reader == null ) {
             return;
@@ -142,7 +149,11 @@ foam.CLASS({
                   long pass = passCount.incrementAndGet();
                   // Provide some feedback on long running replays
                   if ( pass % 100000 == 0 ) {
-                    getLogger().info("Replay progress", "processed", pass, "in", Duration.ofMillis(pm.getTime()));
+                    String msg = String.format("progress,%1$s,processed,%2$d,in,%3$s", getFilename(), pass, Duration.ofMillis(pm.getTime()));
+                    if ( cspec != null )
+                      cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
+                    else
+                      getLogger().info("Replay", msg);
                     if ( Thread.currentThread().isInterrupted() ) {
                       getLogger().info("Replay interrupted");
                       return;
@@ -156,18 +167,30 @@ foam.CLASS({
               getLogger().error("Error replaying journal", dao.getOf().getId(), entry, t);
             }
           }
+
         } catch ( Throwable t) {
-          getLogger().error("Failed to read journal", dao.getOf().getId(), t);
+          threw = true;
+          if ( cspec != null )
+            cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", getFilename(), "Failed to read journal", dao.getOf().getId(), t);
+          else
+            getLogger().error("Failed to read journal", dao.getOf().getId(), t);
         } finally {
-          setLastReplayVersion(lastVersion);
-          setPassCount(passCount.get());
-          setFailCount(failCount.get());
           assemblyLine.shutdown();
           pm.log(x);
-          if ( getFailCount() == 0 ) {
-            getLogger().info("Replay complete", "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
-          } else {
-            getLogger().warning("Replay complete", "processed", passCount.get(), "of", failCount.get()+passCount.get(), "in", Duration.ofMillis(pm.getTime()));
+          setLastReplayVersion(lastVersion);
+          if ( threw )
+            return;
+          setPassCount(passCount.get());
+          setFailCount(failCount.get());
+          String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
+          if ( cspec != null )
+            cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
+          else {
+            if ( getFailCount() == 0 ) {
+              getLogger().info("Replay", msg);
+            } else {
+              getLogger().warning("Replay", msg);
+            }
           }
         }
       `

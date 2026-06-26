@@ -79,6 +79,11 @@ public class Boot {
     var subContexts = new HashSet<String>();
     for ( int i = 0 ; i < l.size() ; i++ ) {
       CSpec sp = (CSpec) l.get(i);
+      sp = (CSpec) sp.fclone();
+      sp.setX(root_);
+      sp.setCSpecDAO(mdao);
+      sp = (CSpec) mdao.put_(root_, sp);
+
       if ( ! sp.getEnabled() ) {
         logger.info("Disabled", sp.getName());
         continue;
@@ -121,14 +126,6 @@ public class Boot {
         root_.putFactory(sp.getName(), factory);
     }
 
-    serviceDAO_.listen(new AbstractSink() {
-      @Override
-      public void put(Object obj, Detachable sub) {
-        CSpec sp = (CSpec) obj;
-        factories_.get(sp.getName()).invalidate(sp);
-      }
-    }, null);
-
     new ShutdownHook(root_, factories_);
 
     // Use an XFactory so that the root context can contain itself.
@@ -167,7 +164,7 @@ public class Boot {
     // Export the ServiceDAO
     ((ProxyDAO) root_.get("cSpecDAO")).setDelegate(
       new foam.core.auth.AuthorizationDAO.Builder(getX())
-        .setDelegate(serviceDAO_)
+        .setDelegate(mdao)
         .setAuthorizer(new foam.core.auth.AuthorizableAuthorizer("service"))
         .build());
 
@@ -209,18 +206,32 @@ public class Boot {
       public void put(Object obj, Detachable sub) {
         CSpec sp = (CSpec) obj;
         if ( agency == null ) {
-          logger.info("Invoking Service", sp.getName());
+          // logger.info("Invoking Service", cs.getName());
+          sp.updateStatus("Invoking");
           root_.get(sp.getName());
         } else {
           agency.submit(root_, new ContextAgent() {
               public void execute(X x) {
-                logger.info("Invoking Service", sp.getName());
+                // logger.info("Invoking Service", sp.getName());
+                sp.updateStatus("Invoking");
                 x.get(sp.getName());
               }
             }, sp.getName());
         }
       }
     });
+
+    // setup last to reduce invalidation during startup updateStatus calls.
+    serviceDAO_.listen(new AbstractSink() {
+      @Override
+      public void put(Object obj, Detachable sub) {
+        CSpec sp = (CSpec) obj;
+        if ( SafetyUtil.isEmpty(sp.getThreadName()) ||
+             ! sp.getThreadName().equals(Thread.currentThread().getName()) ) {
+          factories_.get(sp.getName()).invalidate(sp);
+        }
+      }
+    }, null);
   }
 
   protected List perfectList(List src) {

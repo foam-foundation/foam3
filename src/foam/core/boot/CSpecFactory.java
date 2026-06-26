@@ -149,7 +149,7 @@ public class CSpecFactory
         }
       }
       // logger.info("Initialized Service", spec_.getName(), ns_ != null ? ns_.getClass().getSimpleName() : "null");
-      spec_.updateStatus(CSpecStatus.READY, "Initialized", ns_ != null ? ns_.getClass().getSimpleName() : "");
+      spec_.updateStatus(CSpecStatus.READY, "Initialized", (ns_ != null && ! ( ns_ instanceof ProxyDAO)) ? ns_.getClass().getSimpleName() : null);
     } catch (Throwable t) {
       // logger.error("Error Initializing Service", spec_.getName(), t);
       spec_.updateStatus("Initializing", t);

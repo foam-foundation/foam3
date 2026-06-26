@@ -266,7 +266,12 @@ foam.CLASS({
     {
       class: 'String',
       name: 'message',
-      storageTransient: true
+      storageTransient: true,
+      view: {
+        class: 'foam.u2.view.ModeAltView',
+        writeView: { class: 'foam.u2.tag.TextArea', rows: 12, cols: 140 },
+        readView:  { class: 'foam.u2.view.PreView' }
+      },
     },
     {
       class: 'foam.dao.DAOProperty',
@@ -451,12 +456,9 @@ foam.CLASS({
               cs = (CSpec) cs.fclone();
               CSpecStatus oldStatus = cs.getStatus();
               cs.setStatus(status);
-
-              // REVIEW: on transition to READY, leave last message
-              // to retain possible replay info - best effort for now.
-              if ( status != CSpecStatus.READY )
-                cs.setMessage(msgSb.toString());
-
+              if ( ! SafetyUtil.isEmpty(cs.getMessage()) )
+                cs.setMessage(cs.getMessage() + "\\n");
+              cs.setMessage(cs.getMessage() + msgSb.toString());
               cs.setThreadName(Thread.currentThread().getName());
               if ( cs.getStatus() == CSpecStatus.INITIAL )
                 cs.setStatus(CSpecStatus.INITIALIZING);

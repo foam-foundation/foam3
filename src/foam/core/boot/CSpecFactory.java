@@ -148,10 +148,8 @@ public class CSpecFactory
           ns = null;
         }
       }
-      // logger.info("Initialized Service", spec_.getName(), ns_ != null ? ns_.getClass().getSimpleName() : "null");
       spec_.updateStatus(CSpecStatus.READY, "Initialized", (ns_ != null && ! ( ns_ instanceof ProxyDAO)) ? ns_.getClass().getSimpleName() : null);
     } catch (Throwable t) {
-      // logger.error("Error Initializing Service", spec_.getName(), t);
       spec_.updateStatus("Initializing", t);
     }
   }
@@ -183,7 +181,6 @@ public class CSpecFactory
     if ( logger == null ) {
       logger = StdoutLogger.instance();
     }
-    // logger.warning("Invalidating Service", spec.getName());
     spec.updateStatus("Invalidating");
     if ( ! SafetyUtil.equals(spec.getService(), spec_.getService())
       || ! SafetyUtil.equals(spec.getServiceClass(), spec_.getServiceClass())
@@ -191,14 +188,11 @@ public class CSpecFactory
     ) {
       if ( ns_ instanceof COREService ) {
         spec_ = spec;
-        // logger.warning("Reloading Service", spec_.getName());
         spec_.updateStatus(CSpecStatus.INITIALIZING, "Reloading");
         try {
           ((COREService) ns_).reload();
-          // logger.info("Reloaded Service", spec_.getName());
           spec_.updateStatus(CSpecStatus.READY, "Reloaded");
         } catch (Throwable t) {
-          // logger.error("Reloading Service", spec_.getName(), t.getMessage(), t);
           spec_.updateStatus("Reloading", t.getMessage(), t);
         }
       } else if ( ns_ instanceof DAO ) {
@@ -210,14 +204,12 @@ public class CSpecFactory
           ((ProxyDAO) ns_).setDelegate(null);
         } else {
           // Clustered MDAOs are not reloadable as replay is handled by medusa.
-          // logger.info("Invalidation of Clustered MDAOs not supported", spec_.getName());
           spec_.updateStatus("Reloading", "Invalidation of Clustered MDAOs not supported");
         }
       } else {
         ns_ = null;
         spec_ = spec;
         if ( ! spec_.getLazy() ) {
-          // logger.info("Invalidate create non-Lazy Service", spec_.getName());
           spec_.updateStatus("Invalidate", "create non-lazy Service");
           create(x_);
         }

@@ -206,13 +206,11 @@ public class Boot {
       public void put(Object obj, Detachable sub) {
         CSpec sp = (CSpec) obj;
         if ( agency == null ) {
-          // logger.info("Invoking Service", cs.getName());
           sp.updateStatus("Invoking");
           root_.get(sp.getName());
         } else {
           agency.submit(root_, new ContextAgent() {
               public void execute(X x) {
-                // logger.info("Invoking Service", sp.getName());
                 sp.updateStatus("Invoking");
                 x.get(sp.getName());
               }

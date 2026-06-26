@@ -315,6 +315,25 @@ foam.CLASS({
       return sign + this.numStr(b, 0) + ' B';
     },
 
+    function severityRank_(sev) {
+      return sev === this.PerfSeverity.BAD ? 2 : sev === this.PerfSeverity.WARN ? 1 : 0;
+    },
+
+    function groupedIssues() {
+      /** Issues bucketed by category, worst-severity group first, BAD before WARN
+          within a group. Shared by the view and toReport so both group identically. **/
+      var self   = this;
+      var groups = {};
+      ( this.issues || [] ).forEach(function(i) {
+        ( groups[i.category] = groups[i.category] || [] ).push(i);
+      });
+      return Object.keys(groups).map(function(c) {
+        var list = groups[c].slice().sort(function(a, b) { return self.severityRank_(b.severity) - self.severityRank_(a.severity); });
+        var rank = list.reduce(function(m, i) { return Math.max(m, self.severityRank_(i.severity)); }, 0);
+        return { category: c, issues: list, rank: rank };
+      }).sort(function(a, b) { return b.rank - a.rank || ( a.category < b.category ? -1 : 1 ); });
+    },
+
     function toReport() {
       /** Copy-friendly plain-text summary: ISSUES, METRICS, ENVIRONMENT. **/
       var L  = [];
@@ -329,9 +348,12 @@ foam.CLASS({
       if ( ! issues.length ) {
         L.push('  ✓ none');
       } else {
-        issues.forEach(function(i) {
-          var bad = i.severity === foam.core.reflow.PerfSeverity.BAD;
-          L.push('  ' + ( bad ? '✗ CRITICAL' : '⚠ WARNING ' ) + '  ' + i.category + ': ' + i.detail);
+        this.groupedIssues().forEach(function(g) {
+          L.push('  ' + g.category.toUpperCase());
+          g.issues.forEach(function(i) {
+            var bad = i.severity === foam.core.reflow.PerfSeverity.BAD;
+            L.push('    ' + ( bad ? '✗ CRITICAL' : '⚠ WARNING ' ) + '  ' + i.detail);
+          });
         });
       }
       L.push('');
@@ -466,7 +488,8 @@ foam.CLASS({
     ^status { font-weight: bold; padding-bottom: 8px; }
 
     ^issues { margin-bottom: 12px; }
-    ^issue { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px; border-radius: 4px; margin-bottom: 4px; }
+    ^issue-group-title { font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; color: #5a6572; margin: 8px 0 3px; }
+    ^issue { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px 4px 14px; border-radius: 4px; margin-bottom: 4px; }
     ^badge { font-weight: bold; white-space: nowrap; min-width: 78px; }
     ^issue-BAD  { background: #fdecec; }
     ^issue-WARN { background: #fef7e6; }
@@ -532,24 +555,28 @@ foam.CLASS({
     },
 
     function renderIssues_(el, r) {
-      var self   = this;
-      var issues = r.issues || [];
-      var box = el.start().addClass(self.myClass('issues'));
-      if ( ! issues.length ) {
+      var self = this;
+      var box  = el.start().addClass(self.myClass('issues'));
+      if ( ! ( r.issues || [] ).length ) {
         box.start().addClass(self.myClass('issue'), self.myClass('issue-OK'))
           .start('span').addClass(self.myClass('badge'), self.myClass('OK')).add('✓ OK').end()
           .start('span').add(self.NO_ISSUES_MSG).end()
         .end();
       } else {
-        issues.forEach(function(i) {
-          var bad   = i.severity === self.PerfSeverity.BAD;
-          var sName = i.severity.name; // 'BAD' | 'WARN'
-          box.start().addClass(self.myClass('issue'), self.myClass('issue-' + sName))
-            .start('span').addClass(self.myClass('badge'), self.myClass(sName))
-              .add( bad ? '✗ CRITICAL' : '⚠ WARNING' )
-            .end()
-            .start('span').add(i.category + ': ' + i.detail).end()
+        r.groupedIssues().forEach(function(g) {
+          box.start().addClass(self.myClass('issue-group-title'))
+            .add(g.category + ' (' + g.issues.length + ')')
           .end();
+          g.issues.forEach(function(i) {
+            var bad   = i.severity === self.PerfSeverity.BAD;
+            var sName = i.severity.name; // 'BAD' | 'WARN'
+            box.start().addClass(self.myClass('issue'), self.myClass('issue-' + sName))
+              .start('span').addClass(self.myClass('badge'), self.myClass(sName))
+                .add( bad ? '✗ CRITICAL' : '⚠ WARNING' )
+              .end()
+              .start('span').add(i.detail).end()
+            .end();
+          });
         });
       }
       box.end();

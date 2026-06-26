@@ -8,7 +8,6 @@ import foam.core.logger.Logger;
 import java.util.List;
 import java.util.Date;
 import foam.core.session.Session;
-import foam.core.oauth.OAuthCredential;
 
 import static foam.mlang.MLang.*;
 
@@ -16,9 +15,6 @@ public class ExpireSessionsCron implements ContextAgent {
 
   private Logger logger;
   private DAO localSessionDAO;
-
-  // OAuth session TTL - 8 hours
-  protected int oauthSessionTtl = 28800000;
 
   @Override
   public void execute(X x) {
@@ -43,13 +39,8 @@ public class ExpireSessionsCron implements ContextAgent {
         session.setLastUsed(now);
       }
 
-      var oauthSession = (OAuthCredential) oAuthCredentialDAO.find(EQ(OAuthCredential.SESSION_ID, session.getId()));
-      if ( session.getLastUsed().getTime() + session.getTtl() <= now.getTime()
-          || ( oauthSession != null && oauthSession.getExpiresAt() != null && oauthSession.getExpiresAt().getTime() <= now.getTime() ) ) {
-        logger.debug("Destroyed expired session : " + (String) session.getId());
-        localSessionDAO.remove(session);
-      } else if ( oauthSession != null && session.getCreated().getTime() + oauthSessionTtl <= now.getTime() ) {
-        logger.debug("Destroyed long-running oauth session : " + (String) session.getId());
+      if ( session.getLastUsed().getTime() + session.getTtl() <= now.getTime() ) {
+        logger.info("Destroyed expired session : " + (String) session.getId());
         localSessionDAO.remove(session);
       }
     }

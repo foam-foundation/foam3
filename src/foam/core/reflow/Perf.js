@@ -510,26 +510,40 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { font-size: 13px; }
-    ^ table { border-collapse: collapse; }
-    ^ th { text-align: left; padding: 2px 16px 2px 0; font-weight: normal; color: #5a6572; }
-    ^ td { padding: 2px 0; font-variant-numeric: tabular-nums; }
-    ^status { font-weight: bold; padding-bottom: 8px; }
+    ^ { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: $textDefault; }
 
-    ^issues { margin-bottom: 12px; }
-    ^issue-group-title { font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; color: #5a6572; margin: 8px 0 3px; }
-    ^issue { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px 4px 14px; border-radius: 4px; margin-bottom: 4px; }
-    ^badge { font-weight: bold; white-space: nowrap; min-width: 78px; }
-    ^issue-BAD  { background: #fdecec; }
-    ^issue-WARN { background: #fef7e6; }
-    ^issue-OK   { background: #eaf7ee; }
-    ^BAD  { color: #c0392b; }
-    ^WARN { color: #b9770e; }
-    ^OK   { color: #1e7e45; }
+    /* toolbar: status pill + actions */
+    ^toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    ^status { font-weight: $font-semi-bold; font-size: 11px; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.02em; }
+    ^status-idle    { background: $grey100; color: $textSecondary; }
+    ^status-running { background: $warn50; color: $warn700; }
 
-    ^section-title { font-weight: bold; margin: 10px 0 4px; }
-    ^env { color: #5a6572; padding-top: 8px; }
-    ^hint { color: #5a6572; font-style: italic; padding: 6px 0 4px; }
+    /* card */
+    ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; }
+    ^card-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 11px; color: $textSecondary; margin-bottom: 8px; }
+
+    /* tables: label left, numbers right + tabular */
+    ^ table { border-collapse: collapse; width: 100%; }
+    ^ th { text-align: left; padding: 3px 16px 3px 0; font-weight: $font-regular; color: $textSecondary; white-space: nowrap; }
+    ^ td { padding: 3px 0; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    ^ tr > th:first-child { width: 99%; }
+
+    /* issues */
+    ^issue-group { margin-bottom: 10px; }
+    ^issue-group:last-child { margin-bottom: 0; }
+    ^issue-group-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 10px; color: $textTertiary; margin: 0 0 4px 2px; }
+    ^issue { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; border-left: 3px solid transparent; }
+    ^issue:last-child { margin-bottom: 0; }
+    ^badge { font-weight: $font-bold; font-size: 11px; white-space: nowrap; min-width: 72px; }
+    ^issue-BAD  { background: $destructive50; border-left-color: $destructive500; }
+    ^issue-WARN { background: $warn50;        border-left-color: $warn500; }
+    ^issue-OK   { background: $success50;     border-left-color: $success500; }
+    ^BAD  { color: $destructive500; }
+    ^WARN { color: $warn700; }
+    ^OK   { color: $success600; }
+
+    ^env  { color: $textSecondary; font-size: 12px; }
+    ^hint { color: $textSecondary; font-style: italic; }
   `,
 
   properties: [
@@ -561,13 +575,16 @@ foam.CLASS({
       var self = this;
       this.addClass();
 
-      this.start().addClass(this.myClass('status'))
-        .add(this.running$.map(r => r ? self.CAPTURING_MSG : self.IDLE_MSG))
+      this.start().addClass(this.myClass('toolbar'))
+        .start().addClass(this.myClass('status'))
+          .enableClass(this.myClass('status-running'), this.running$)
+          .enableClass(this.myClass('status-idle'), this.running$.map(r => ! r))
+          .add(this.running$.map(r => r ? self.CAPTURING_MSG : self.IDLE_MSG))
+        .end()
+        .startContext({ data: this })
+          .add(this.START_CAPTURE, this.STOP_CAPTURE, this.COPY_REPORT)
+        .endContext()
       .end();
-
-      this.startContext({ data: this })
-        .add(this.START_CAPTURE, this.STOP_CAPTURE, this.COPY_REPORT)
-      .endContext();
 
       // Watch report.elapsedMs (a dot-slot): refires both on report reassignment
       // (Start/Stop) and on copyFrom into the same instance (the loadPerf path).
@@ -584,29 +601,39 @@ foam.CLASS({
       this.onDetach(function() { self.stopCapture_(); });
     },
 
+    function card_(el, title) {
+      /** Open a titled card and return it; caller adds content then calls .end(). **/
+      var c = el.start().addClass(this.myClass('card'));
+      if ( title ) c.start().addClass(this.myClass('card-title')).add(title).end();
+      return c;
+    },
+
     function renderIssues_(el, r) {
-      var self = this;
-      var box  = el.start().addClass(self.myClass('issues'));
-      if ( ! ( r.issues || [] ).length ) {
+      var self   = this;
+      var issues = r.issues || [];
+      var box = self.card_(el, 'Issues' + ( issues.length ? ' (' + issues.length + ')' : '' ));
+      if ( ! issues.length ) {
         box.start().addClass(self.myClass('issue'), self.myClass('issue-OK'))
           .start('span').addClass(self.myClass('badge'), self.myClass('OK')).add('✓ OK').end()
           .start('span').add(self.NO_ISSUES_MSG).end()
         .end();
       } else {
         r.groupedIssues().forEach(function(g) {
-          box.start().addClass(self.myClass('issue-group-title'))
+          var grp = box.start().addClass(self.myClass('issue-group'));
+          grp.start().addClass(self.myClass('issue-group-title'))
             .add(g.category + ' (' + g.issues.length + ')')
           .end();
           g.issues.forEach(function(i) {
             var bad   = i.severity === self.PerfSeverity.BAD;
             var sName = i.severity.name; // 'BAD' | 'WARN'
-            box.start().addClass(self.myClass('issue'), self.myClass('issue-' + sName))
+            grp.start().addClass(self.myClass('issue'), self.myClass('issue-' + sName))
               .start('span').addClass(self.myClass('badge'), self.myClass(sName))
                 .add( bad ? '✗ CRITICAL' : '⚠ WARNING' )
               .end()
               .start('span').add(i.detail).end()
             .end();
           });
+          grp.end();
         });
       }
       box.end();
@@ -619,6 +646,8 @@ foam.CLASS({
       var hi  = function(v, w, b) { return v > b ? 'BAD' : v > w ? 'WARN' : 'OK'; };
       var lo  = function(v, w, b) { return v < b ? 'BAD' : v < w ? 'WARN' : 'OK'; };
 
+      var card = self.card_(el, 'Metrics');
+      var el2  = card.start('table');
       var row = function(label, text, sev) {
         var tr = el2.start('tr');
         tr.start('th').add(label).end();
@@ -627,7 +656,6 @@ foam.CLASS({
         td.add(text).end();
         tr.end();
       };
-      var el2 = el.start('table');
       row(self.ELAPSED_LABEL, r.numStr(r.elapsedMs, 0) + ' ms');
       row(self.AVG_FPS_LABEL, r.numStr(r.avgFps, 0) + ' / ' + r.numStr(r.minFps, 0),
         r.frameCount > 0 ? lo(r.minFps, r.MIN_FPS_WARN, r.MIN_FPS_BAD) : null);
@@ -646,19 +674,20 @@ foam.CLASS({
       row(self.WARN_LABEL, r.numStr(r.warnCount, 0),
         hi(r.warnRate, r.WARN_RATE_WARN, Infinity));
       el2.end();
+      card.end();
     },
 
     function renderBlocks_(el, r) {
       var self   = this;
       var blocks = r.blockProfile || [];
       if ( ! blocks.length ) return;
-      el.start().addClass(self.myClass('section-title')).add(self.BLOCKS_LABEL).end();
-      var t = el.start('table');
+      var card = self.card_(el, self.BLOCKS_LABEL);
+      var t = card.start('table');
       t.start('tr')
         .start('th').add('Block').end()
-        .start('th').add('Time').end()
-        .start('th').add('+DOM').end()
-        .start('th').add('+Heap').end()
+        .start('td').add('Time').end()
+        .start('td').add('+DOM').end()
+        .start('td').add('+Heap').end()
       .end();
       blocks.forEach(function(b) {
         t.start('tr')
@@ -669,14 +698,15 @@ foam.CLASS({
         .end();
       });
       t.end();
+      card.end();
     },
 
     function renderHot_(el, r) {
       var self = this;
       var hot  = r.hotFunctions || [];
       if ( hot.length ) {
-        el.start().addClass(self.myClass('section-title')).add(self.HOT_FUNCS_LABEL).end();
-        var t = el.start('table');
+        var card = self.card_(el, self.HOT_FUNCS_LABEL);
+        var t = card.start('table');
         hot.forEach(function(f) {
           var name = f.name + ( f.resource ? '  (' + r.shortUrl_(f.resource) + ')' : '' );
           t.start('tr')
@@ -685,9 +715,12 @@ foam.CLASS({
           .end();
         });
         t.end();
+        card.end();
       } else {
         // No in-page profile - point the user at DevTools / tron-troff instead.
-        el.start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end();
+        self.card_(el, self.HOT_FUNCS_LABEL)
+          .start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end()
+        .end();
       }
     },
 

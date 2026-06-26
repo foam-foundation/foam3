@@ -60,7 +60,7 @@ p({
   methods: [
     {
       name: 'addIndex',
-      args: 'foam.lang.PropertyInfo[] indexer',
+      args: 'foam.lang.Indexer[] indexer',
       type: 'AddIndexService',
       javaCode: `
         getIndexes().add(indexer);

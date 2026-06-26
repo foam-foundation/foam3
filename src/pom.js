@@ -348,6 +348,7 @@ foam.POM({
     { name: "foam/swift/refines/Predicate",                           flags: "swift" },
     { name: "foam/swift/refines/AbstractDAO",                         flags: "swift" },
     { name: "foam/dao/index/AddIndexCommand",                         flags: "java" },
+    { name: "foam/dao/index/AddIndexService",                         flags: "js|java" },
     { name: "foam/dao/index/Plan",                                    flags: "js" },
     { name: "foam/dao/index/Index",                                   flags: "js" },
     { name: "foam/dao/index/ProxyIndex",                              flags: "js" },

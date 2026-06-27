@@ -61,12 +61,8 @@ foam.CLASS({
         if ( getExpiresAt() != null ) {
           Instant expiresAt = getExpiresAt().toInstant();
           Instant fiveMinutesFromNow = Instant.now().plusSeconds(300);
-          if ( expiresAt.isBefore(fiveMinutesFromNow) ) {
-            if ( SafetyUtil.isEmpty(getRefreshToken()) )
-              throw new RuntimeException("Refresh token is missing");
-
+          if ( expiresAt.isBefore(fiveMinutesFromNow) )
             refreshAuth(x);
-          }
         }
 
         return getAccessToken();

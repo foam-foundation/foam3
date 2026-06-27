@@ -20,7 +20,10 @@ foam.CLASS({
   javaImports: [
     'foam.mlang.ArrayConstant',
     'foam.mlang.Constant',
-    'java.util.List'
+    'java.util.Arrays',
+    'java.util.HashSet',
+    'java.util.List',
+    'java.util.Set'
   ],
 
   properties: [
@@ -34,6 +37,12 @@ foam.CLASS({
     {
       name: 'upperCase_',
       hidden: 'true'
+    },
+    {
+      class: 'Object',
+      name: 'arg2AsSet',
+      javaType: 'java.util.Set',
+      transient: true
     }
   ],
 
@@ -45,6 +54,19 @@ foam.CLASS({
         var rhs = this.arg2.f(o);
 
         if ( ! rhs ) return false;
+
+        // Fast path when arg2 is a Constant of Object[]
+        if ( foam.mlang.Constant.isInstance(this.arg2) ) {
+          if ( foam.Array.isInstance(rhs) ) {
+            let set = this.arg2AsSet;
+            if ( set === undefined ) {
+              set = new Set(rhs);
+              this.arg2AsSet = set;
+            }
+
+            return set.has(lhs);
+          }
+        }
 
         for ( var i = 0 ; i < rhs.length ; i++ ) {
           var v = rhs[i];
@@ -87,8 +109,22 @@ return false
       javaCode:
   `
   Object lhs = getArg1().f(obj);
-  // boolean uppercase = lhs.getClass().isEnum(); TODO: Account for ENUMs? (See js)
   Object rhs = getArg2().f(obj);
+
+  // Fast path when arg2 is a Constant of Object[]
+  if ( getArg2() instanceof Constant ) {
+    if ( rhs instanceof Object[] ) {
+      Set set = getArg2AsSet();
+      if ( set == null ) {
+        set = new HashSet(Arrays.asList((Object[]) rhs));
+        setArg2AsSet(set);
+      }
+
+      return set.contains(lhs);
+    }
+  }
+
+  // boolean uppercase = lhs.getClass().isEnum(); TODO: Account for ENUMs? (See js)
 
   if ( rhs instanceof List ) {
     List list = (List) rhs;

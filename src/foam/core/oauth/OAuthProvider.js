@@ -142,6 +142,10 @@ foam.CLASS({
       type: 'Void',
       throws: [ 'java.io.IOException' ],
       javaCode: `
+if ( SafetyUtil.isEmpty(credential.getRefreshToken()) ) {
+    throw new RuntimeException("No refresh token available");
+}
+
 try {
 java.net.URL url = new java.net.URL(getTokenURL());
 java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
@@ -150,10 +154,6 @@ connection.setDoOutput(true);
 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
 String refreshToken = credential.getRefreshToken();
-if ( refreshToken == null || refreshToken.isEmpty() ) {
-  throw new RuntimeException("No refresh token available");
-}
-
 String clientId = getClientId();
 String clientSecret = resolveSecret(x, getClientSecret());
 String requestBody = "grant_type=refresh_token" +
@@ -182,7 +182,7 @@ if (responseCode != 200) {
 // Read the response body into a JsonObject
 java.io.InputStream is = connection.getInputStream();
 jakarta.json.JsonReader jsonReader = jakarta.json.Json.createReader(is);
-jakarta.json.JsonObject responseJson = jsonReader.readObject(); 
+jakarta.json.JsonObject responseJson = jsonReader.readObject();
 
 // Update oauth credential data
 credential.setAccessToken(responseJson.getString("access_token", null));

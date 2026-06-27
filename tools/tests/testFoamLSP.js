@@ -29,26 +29,34 @@ if ( require.main === module ) {
   }, 90000).unref();
 }
 
+// Category files, "building blocks first" so a grammar failure surfaces before
+// the handlers that depend on it. usageIndex (~79s) and navigation (~47s) do
+// full-workspace scans and dominate the run; pass a category list to skip them
+// while iterating on one area:
+//   node foam3/tools/tests/testFoamLSP.js                  # all
+//   node foam3/tools/tests/testFoamLSP.js diagnostics      # just diagnostics
+//   node foam3/tools/tests/testFoamLSP.js hover,completion # comma- or space-separated
+var CATEGORIES = [
+  'foamIndex', 'grammar', 'utilities', 'completion', 'hover', 'diagnostics',
+  'navigation', 'java', 'jrl', 'editorFeatures', 'typeHierarchy', 'usageIndex',
+  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp'
+];
+
+// Resolve the category list BEFORE booting the harness so an unknown name fails
+// instantly instead of after the ~2s pmake boot.
+var requested = process.argv.slice(2).join(',').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+var unknown   = requested.filter(function(c){ return CATEGORIES.indexOf(c) === -1; });
+if ( unknown.length ) {
+  console.error('Unknown categor' + (unknown.length > 1 ? 'ies' : 'y') + ': ' + unknown.join(', '));
+  console.error('Available: ' + CATEGORIES.join(', '));
+  process.exit(2);
+}
+var toRun = requested.length ? CATEGORIES.filter(function(c){ return requested.indexOf(c) !== -1; }) : CATEGORIES;
+
 var h = require('./lsp/_harness');
 
-// Each require() runs its category's tests against the shared harness. Order
-// is roughly "building blocks first" so a failure in the grammar surfaces
-// before the downstream handlers that depend on it.
-require('./lsp/foamIndex');
-require('./lsp/grammar');
-require('./lsp/utilities');
-require('./lsp/completion');
-require('./lsp/hover');
-require('./lsp/diagnostics');
-require('./lsp/navigation');
-require('./lsp/java');
-require('./lsp/jrl');
-require('./lsp/editorFeatures');
-require('./lsp/typeHierarchy');
-require('./lsp/usageIndex');
-require('./lsp/callHierarchy');
-require('./lsp/pomValidation');
-require('./lsp/pomNavigation');
+// Each require() runs its category's tests against the shared harness.
+toRun.forEach(function(c){ require('./lsp/' + c); });
 
 h.section('SUMMARY');
 console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');

@@ -59,18 +59,18 @@ foam.CLASS({
     function collectAxiomPositions(text) {
       /**
        * Single-parse axiom-position index driven by the grammar itself.
-       * The `messageNameValue` / `enumValueName` / (future) propertyName /
-       * methodName rules are wrapped in `P.msg({kind: '...'})`. On successful
-       * match their msg is emitted with the parser's start/end position —
-       * exactly the info callers need to go-to-definition or build hover
-       * targets.
+       * The `messageNameValue` / `enumValueName` / `propertyNameValue` /
+       * `methodNameValue` rules are wrapped in `P.msg({kind: '...'})`. On
+       * successful match their msg is emitted with the parser's start/end
+       * position — exactly the info callers need to go-to-definition or build
+       * hover targets.
        *
        * Returns:
        *   {
        *     message:  { NAME: { line, col, startPos, endPos } },
        *     value:    { NAME: { … } },
-       *     property: { name: { … } },       // future
-       *     method:   { name: { … } }        // future
+       *     property: { name: { … } },
+       *     method:   { name: { … } }
        *   }
        *
        * Cached by text identity on the grammar instance.
@@ -95,6 +95,23 @@ foam.CLASS({
         instCall: true, instCreateReceiver: true, instTagClass: true,
         instClassRef: true, instKey: true, instValue: true, memberRef: true };
 
+      // Line-start offsets, computed once (O(n)), so each msg match resolves
+      // line/col by binary search (O(log n)). Scanning text from offset 0 per
+      // match would be O(startPos) — quadratic over a file with many matches,
+      // and matches dominate the workspace usage scan.
+      var lineStarts = [ 0 ];
+      for ( var ls = 0 ; ls < text.length ; ls++ ) {
+        if ( text.charCodeAt(ls) === 10 ) lineStarts.push(ls + 1);
+      }
+      var posToLineCol = function(pos) {
+        var lo = 0, hi = lineStarts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( lineStarts[mid] <= pos ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, col: pos - lineStarts[lo] };
+      };
+
       var apply = function(p, grammar) {
         var startPos = this.pos;
         var result = p.parse(this, grammar);
@@ -104,12 +121,9 @@ foam.CLASS({
             var endPos = result.pos;
             var name = text.substring(startPos, endPos);
             if ( name ) {
-              var line = 0, col = 0;
-              for ( var i = 0 ; i < startPos ; i++ ) {
-                if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
-              }
+              var lc = posToLineCol(startPos);
               var rec = {
-                line: line, col: col,
+                line: lc.line, col: lc.col,
                 startPos: startPos, endPos: endPos
               };
               if ( MULTI[m.kind] ) {

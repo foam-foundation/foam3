@@ -117,6 +117,7 @@ foam.POM({
     { name: "alarming/test/CandlestickAlarmTest",                                         flags: "js&test|java&test" },
     { name: "oauth/OAuthProvider",                                                        flags: "js|java" },
     { name: "oauth/OAuthCredential",                                                      flags: "js|java" },
+    { name: "oauth/OAuthTokenRefreshCron",                                                flags: "java" },
     { name: "benchmark/AuthorizerBenchmark",                                              flags: "js&test|java&test" },
     { name: "boot/CSpec",                                                                 flags: "js|java" },
     { name: "boot/CSpecAware",                                                            flags: "js|java" },

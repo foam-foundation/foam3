@@ -21,7 +21,6 @@ public class ExpireSessionsCron implements ContextAgent {
     logger = (Logger) x.get("logger");
     localSessionDAO = (DAO) x.get("localSessionDAO");
 
-    DAO oAuthCredentialDAO = (DAO) x.get("oAuthCredentialDAO");
     Date now = new Date();
 
     List<Session> expiredSessions = ((ArraySink) localSessionDAO.select(new ArraySink())).getArray();

@@ -13,7 +13,7 @@ foam.CLASS({
     ^ { 
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 1rem;
       place-content: center;
       height: 100%;
       width: 100%;
@@ -22,11 +22,11 @@ foam.CLASS({
     ^instructions {
       display: inline-block;
       margin: 0 auto;
-      max-width: 640px;
+      max-width: 40rem;
       text-align: left;
     }
     ^instructions li {
-      margin: 8px 0;
+      margin: 0.5rem 0;
     }
   `,
 

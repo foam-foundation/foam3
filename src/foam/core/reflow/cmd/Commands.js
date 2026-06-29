@@ -631,9 +631,9 @@ foam.CLASS({
       }
     },
     async function maybeCallScript(s) {
-        if ( s ) {
-          await eval('(async function() {' + s + '})').call(this)
-        }
+      if ( s ) {
+        await eval('(async function() {' + s + '})').call(this)
+      }
     }
   ]
 });

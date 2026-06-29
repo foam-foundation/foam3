@@ -30,6 +30,7 @@ foam.CLASS({
     { name: 'IDLE_MSG',         message: 'Idle' },
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
     { name: 'BLOCKS_LABEL',     message: 'Per-block cost (worst first)' },
+    { name: 'SERVICE_LABEL',    message: 'Service calls (most-called first)' },
     { name: 'HOT_FUNCS_LABEL',  message: 'Hottest functions (self-profiled)' },
     { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance, or run tron / troff.' },
     { name: 'ELAPSED_LABEL',    message: 'Elapsed' },
@@ -140,6 +141,7 @@ foam.CLASS({
         if ( ! r || ! r.endSnapshot ) return;
         self.renderIssues_(this, r);
         self.renderMetrics_(this, r);
+        self.renderServiceCalls_(this, r);
         self.renderBlocks_(this, r);
         self.renderHot_(this, r);
         self.renderEnv_(this, r);
@@ -233,6 +235,40 @@ foam.CLASS({
       row(self.LARGEST_LABEL, r.byteStr(r.largestRequestBytes), 'largestRequestBytes');
       row(self.WARN_LABEL, r.numStr(r.warnCount, 0), 'warnRate');
       el2.end();
+      card.end();
+    },
+
+    function renderServiceCalls_(el, r) {
+      var self  = this;
+      var calls = r.serviceCalls || [];
+      if ( ! calls.length ) return;
+      // Heat: count vs busiest service, sizes vs biggest payload.
+      var maxCount = 0, maxReq = 0, maxResp = 0;
+      calls.forEach(function(c) {
+        if ( c.count > maxCount )        maxCount = c.count;
+        if ( c.requestBytes > maxReq )   maxReq   = c.requestBytes;
+        if ( c.responseBytes > maxResp ) maxResp  = c.responseBytes;
+      });
+      var card = self.card_(el, self.SERVICE_LABEL);
+      var t = card.start('table');
+      t.start('tr')
+        .start('th').add('Service').end()
+        .start('th').add('Operation').end()
+        .start('td').add('Calls').end()
+        .start('td').add('Req').end()
+        .start('td').add('Resp').end()
+      .end();
+      calls.forEach(function(c) {
+        var tr = t.start('tr');
+        tr.start('th').add(c.service).end();
+        tr.start('th').add(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' )).end();
+        // Only flag repeated calls (count > 1) as hot; a single call is not a smell.
+        self.heatCell_(tr.start('td'), r.numStr(c.count, 0) + '×', c.count > 1 ? self.heatLevel_(c.count, maxCount) : null);
+        self.heatCell_(tr.start('td'), r.sizeStr(c.requestBytes),  self.heatLevel_(c.requestBytes, maxReq));
+        self.heatCell_(tr.start('td'), r.sizeStr(c.responseBytes), self.heatLevel_(c.responseBytes, maxResp));
+        tr.end();
+      });
+      t.end();
       card.end();
     },
 
@@ -363,6 +399,7 @@ foam.CLASS({
         largestRequestBytes:  net.largestRequestBytes,
         repeatedRequestCount: net.repeatedRequestCount,
         repeatedRequests:     net.repeatedRequests,
+        serviceCalls:         net.serviceCalls,
         warnCount:            this.warnCount_
       });
       this.report.profilingSupported = hot.supported;
@@ -454,21 +491,57 @@ foam.CLASS({
     },
 
     function wrapFetch_() {
-      /** Record {url, reqBytes, hash} for each fetch during the window. **/
+      /** Record {url, service, op, sink, reqBytes, respBytes, hash} for each fetch. **/
       var self = this, w = this.window;
       if ( ! w || ! w.fetch ) return;
       this.netCalls_  = [];
       this.origFetch_ = w.fetch;
       var orig = this.origFetch_;
       w.fetch = function(input, init) {
+        var call = null;
         try {
           var url  = ( typeof input === 'string' ) ? input : ( input && input.url ) || '';
           var body = init && init.body;
           var bodyStr = ( typeof body === 'string' ) ? body : '';
-          self.netCalls_.push({ url: url, reqBytes: bodyStr.length, hash: self.hashStr_(url + '|' + bodyStr) });
+          var meta = self.rpcMeta_(url, bodyStr);
+          call = { url: url, service: meta.service, op: meta.op, sink: meta.sink,
+                   reqBytes: bodyStr.length, respBytes: 0, hash: self.hashStr_(url + '|' + bodyStr) };
+          self.netCalls_.push(call);
         } catch (e) { /* never break the real request */ }
-        return orig.apply(this, arguments);
+        var p = orig.apply(this, arguments);
+        if ( call ) {
+          // Response wire size from content-length (cheap, no body read).
+          p.then(function(resp) {
+            try { call.respBytes = parseInt(resp.headers.get('content-length'), 10) || 0; } catch (e) {}
+          }, function() {});
+        }
+        return p;
       };
+    },
+
+    function rpcMeta_(url, bodyStr) {
+      /** Extract {service, op, sink} from a client RPC. service = last URL path segment
+          (PTV3 wires each DAO to /service/<name>); op + sink come from the serialized
+          Envelope.message (RPCMessage name + the sink arg's class). **/
+      var service = '', op = '', sink = '';
+      try {
+        var path = ( url || '' ).split('?')[0].replace(/\/+$/, '');
+        service = path.substring(path.lastIndexOf('/') + 1) || path;
+      } catch (e) {}
+      try {
+        var msg = JSON.parse(bodyStr).message;
+        if ( msg ) {
+          op = ( msg.name || '' ).replace(/_$/, '');   // 'select_' -> 'select'
+          ( msg.args || [] ).some(function(a) {
+            if ( a && typeof a === 'object' && a.class && /Sink$|DAOAgent$|GroupBy$|Count$|Sum$/.test(a.class) ) {
+              sink = a.class.substring(a.class.lastIndexOf('.') + 1);
+              return true;
+            }
+            return false;
+          });
+        }
+      } catch (e) { /* non-JSON / non-RPC body */ }
+      return { service: service, op: op, sink: sink };
     },
 
     function unwrapFetch_() {
@@ -488,27 +561,42 @@ foam.CLASS({
     },
 
     function summarizeNetwork_(calls) {
-      /** Aggregate recorded fetch calls: totals, largest, and repeats by (url,body) hash. **/
-      var byHash = {};
+      /** Aggregate fetch calls: totals, largest, exact-dup repeats by (url,body) hash,
+          and per service+operation+sink groups (the "called N times" table). **/
+      var byHash = {}, byService = {};
       var upload = 0, largest = 0;
       calls.forEach(function(c) {
         upload += c.reqBytes;
         if ( c.reqBytes > largest ) largest = c.reqBytes;
-        var g = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
+
+        var h = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
+        h.count++;
+
+        var key = ( c.service || '?' ) + '|' + ( c.op || '' ) + '|' + ( c.sink || '' );
+        var g = byService[key] || ( byService[key] = { service: c.service || '?', operation: c.op || '', sink: c.sink || '', count: 0, requestBytes: 0, responseBytes: 0 } );
         g.count++;
+        g.requestBytes  += c.reqBytes || 0;
+        g.responseBytes += c.respBytes || 0;
       });
+
       var repeats = [];
       Object.keys(byHash).forEach(function(k) {
         var g = byHash[k];
         if ( g.count > 1 ) repeats.push(foam.core.reflow.perf.PerfRepeatedRequest.create(g));
       });
       repeats.sort(function(a, b) { return b.count - a.count; });
+
+      var services = Object.keys(byService).map(function(k) {
+        return foam.core.reflow.perf.PerfServiceCall.create(byService[k]);
+      }).sort(function(a, b) { return b.count - a.count || b.responseBytes - a.responseBytes; });
+
       return {
         networkCallCount:     calls.length,
         networkUploadBytes:   upload,
         largestRequestBytes:  largest,
         repeatedRequestCount: repeats.length,
-        repeatedRequests:     repeats
+        repeatedRequests:     repeats,
+        serviceCalls:         services
       };
     },
 

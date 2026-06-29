@@ -46,6 +46,7 @@ foam.CLASS({
     { class: 'Long',  name: 'largestRequestBytes', documentation: 'largest single request body' },
     { class: 'Int',   name: 'repeatedRequestCount', documentation: 'distinct (url, body) keys fired more than once' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfRepeatedRequest', name: 'repeatedRequests' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'serviceCalls', documentation: 'all calls grouped by service+operation+sink, most-called first' },
     { class: 'Int',   name: 'warnCount', documentation: 'console.warn calls during the window' },
     { class: 'Float', name: 'warnRate', documentation: 'console.warn calls per second' },
     { class: 'Boolean', name: 'profilingSupported', documentation: 'true if the JS Self-Profiling API captured a CPU trace' },
@@ -91,6 +92,7 @@ foam.CLASS({
       this.largestRequestBytes  = stats.largestRequestBytes || 0;
       this.repeatedRequestCount = stats.repeatedRequestCount || 0;
       this.repeatedRequests     = stats.repeatedRequests || [];
+      this.serviceCalls         = stats.serviceCalls || [];
       this.warnCount            = stats.warnCount || 0;
       this.warnRate             = this.elapsedMs > 0 ? 1000 * this.warnCount / this.elapsedMs : 0;
 
@@ -125,13 +127,18 @@ foam.CLASS({
     },
 
     function byteStr(bytes) {
-      /** Human byte size: bytes -> KB / MB. **/
+      /** Signed human byte size for deltas: +/- KB / MB. **/
       var b = Number(bytes) || 0;
       var sign = b < 0 ? '-' : '+';
-      b = Math.abs(b);
-      if ( b >= 1048576 ) return sign + this.numStr(b / 1048576, 1) + ' MB';
-      if ( b >= 1024 )    return sign + this.numStr(b / 1024, 1) + ' KB';
-      return sign + this.numStr(b, 0) + ' B';
+      return sign + this.sizeStr(Math.abs(b));
+    },
+
+    function sizeStr(bytes) {
+      /** Unsigned human byte size for absolute sizes (request / response). **/
+      var b = Math.abs(Number(bytes) || 0);
+      if ( b >= 1048576 ) return this.numStr(b / 1048576, 1) + ' MB';
+      if ( b >= 1024 )    return this.numStr(b / 1024, 1) + ' KB';
+      return this.numStr(b, 0) + ' B';
     },
 
     function severityRank_(sev) {
@@ -188,6 +195,17 @@ foam.CLASS({
       L.push('  ' + pad('Largest request', 21)     + this.byteStr(this.largestRequestBytes));
       L.push('  ' + pad('Warnings', 21)            + this.numStr(this.warnCount, 0));
       L.push('');
+
+      var calls = this.serviceCalls || [];
+      if ( calls.length ) {
+        L.push('SERVICE CALLS (most-called first)');
+        calls.forEach(function(c) {
+          L.push('  ' + pad(c.count + '×', 5) + pad(c.service, 32) +
+            pad(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ), 26) +
+            '↑' + this.sizeStr(c.requestBytes) + '  ↓' + this.sizeStr(c.responseBytes));
+        }.bind(this));
+        L.push('');
+      }
 
       var blocks = this.blockProfile || [];
       if ( blocks.length ) {

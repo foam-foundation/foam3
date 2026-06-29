@@ -21,6 +21,26 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.perf',
+  name: 'PerfServiceCall',
+
+  documentation: `Aggregated client->server calls grouped by service + operation + sink
+    (e.g. base2Tc33CASUnifiedDAO · select · GroupBy). count > 1 means the same shape of
+    request hit the server repeatedly during the load - the "is this being fetched many
+    times" signal. Bytes are summed over the group's calls.`,
+
+  properties: [
+    { class: 'String', name: 'service',   documentation: 'service/DAO from the request URL path' },
+    { class: 'String', name: 'operation', documentation: 'RPC method: select / find / put / cmd / remove' },
+    { class: 'String', name: 'sink',      documentation: 'sink class for a select (ArraySink / GroupBy / Count / ...)' },
+    { class: 'Int',    name: 'count',     documentation: 'number of calls in this group' },
+    { class: 'Long',   name: 'requestBytes',  documentation: 'summed request-body bytes' },
+    { class: 'Long',   name: 'responseBytes', documentation: 'summed response wire bytes (content-length)' }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.perf',
   name: 'PerfHotFrame',
 
   documentation: `One hot stack frame from the JS Self-Profiling API: a function that

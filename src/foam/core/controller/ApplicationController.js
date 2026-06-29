@@ -492,8 +492,6 @@ foam.CLASS({
         // group required for loginVariables before initMenu
         await self.fetchGroup();
 
-        self.subToNotifications();
-        let ret = await self.initMenu();
         let isAnonymous = false;
         try {
           isAnonymous = await client.auth.isAnonymous();
@@ -519,6 +517,8 @@ foam.CLASS({
           await self.onUserAgentAndGroupLoaded();
         }
 
+        self.subToNotifications();
+
         // add user and agent for backward compatibility
         Object.defineProperty(self, 'user', {
           get: function() {
@@ -536,6 +536,8 @@ foam.CLASS({
             return this.subject.realUser;
           }
         });
+
+        await self.initMenu();
       });
     },
 

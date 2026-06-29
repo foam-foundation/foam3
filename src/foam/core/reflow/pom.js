@@ -7,6 +7,7 @@ foam.POM({
     { name: "example/pom" },
     { name: "canvas/pom" },
     { name: "ai/pom" },
+    { name: "perf/pom" },
     { name: "test/pom", flags: "test" }
   ],
   files: [
@@ -42,7 +43,6 @@ foam.POM({
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
-    { name: 'Perf',                    flags: 'js' },
     { name: 'Pivot',                   flags: 'js|java' },
     { name: 'PivotTableView',          flags: 'js' },
     { name: 'GridBy',                  flags: 'js|java' },

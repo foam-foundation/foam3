@@ -649,7 +649,9 @@ foam.CLASS({
     before a load cannot survive it; this command runs the capture outside the block
     tree and appends a perf block with the results after loadComplete.`,
 
-  requires: [ 'foam.core.reflow.Perf' ],
+  requires: [ 'foam.core.reflow.perf.Perf' ],
+
+  imports: [ 'flowChildren?' ],
 
   properties: [
     [ 'description', 'Load a flow with performance capture' ]
@@ -663,14 +665,11 @@ foam.CLASS({
 
       runner.startCapture_();
       this.flow.loadComplete.sub(foam.events.oneTime(async function() {
+        // Hand the loaded flow's live Block instances to the report so the
+        // StructuralMarker can inspect them (typed), then run the markers.
+        runner.report.sourceBlocks = self.flowChildren;
         var report = await runner.finishCapture_();
         report.label = 'loadPerf: ' + flowName;
-        // Statically scan the loaded flow's blocks and name the offenders
-        // (hidden tables, leftover group-bys) - per-block attribution.
-        try {
-          var loaded = await self.flowDAO.find(flowName);
-          if ( loaded && loaded.script ) report.addStructuralIssues(JSON.parse(loaded.script));
-        } catch (e) { /* malformed script - skip structural scan */ }
         // Append a perf block to the loaded flow and inject the measured report.
         // copyFrom (not assignment) so the new view's report slot fires.
         var blk = await self.eval_('perf', true, true);

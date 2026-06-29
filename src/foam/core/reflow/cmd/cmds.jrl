@@ -195,7 +195,7 @@ p({
   "id": "perf",
   "description": "Insert a performance capture block (FPS, heap, long tasks, system info)",
   "script": """
-    var p = foam.core.reflow.Perf.create({}, this);
+    var p = foam.core.reflow.perf.Perf.create({}, this);
     this.out.add(p);
     this.currentBlock.value = p.report;
     p.report$.sub(() => { this.currentBlock.value = p.report; });

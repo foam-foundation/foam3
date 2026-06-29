@@ -73,7 +73,8 @@ foam.CLASS({
       hidden: true,
       topics: [ 'on' ],
       forwards: [ 'find_', 'select_' ],
-      expression: function(src) {
+      factory: function() {
+        var src   = this.src;
         var cache = this.cache;
         // The PromisedDAO resolves as our delegate when the cache is ready to use
         return this.PromisedDAO.create({

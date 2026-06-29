@@ -651,8 +651,6 @@ foam.CLASS({
 
   requires: [ 'foam.core.reflow.perf.Perf' ],
 
-  imports: [ 'flowChildren?' ],
-
   properties: [
     [ 'description', 'Load a flow with performance capture' ]
   ],
@@ -665,9 +663,6 @@ foam.CLASS({
 
       runner.startCapture_();
       this.flow.loadComplete.sub(foam.events.oneTime(async function() {
-        // Hand the loaded flow's live Block instances to the report so the
-        // StructuralMarker can inspect them (typed), then run the markers.
-        runner.report.sourceBlocks = self.flowChildren;
         var report = await runner.finishCapture_();
         report.label = 'loadPerf: ' + flowName;
         // Append a perf block to the loaded flow and inject the measured report.

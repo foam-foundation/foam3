@@ -5,7 +5,6 @@ foam.POM({
     { name: 'PerfModels',             flags: 'js' },
     { name: 'PerfMarker',             flags: 'js' },
     { name: 'MetricThresholdMarker',  flags: 'js' },
-    { name: 'StructuralMarker',       flags: 'js' },
     { name: 'PerfReport',             flags: 'js' },
     { name: 'Perf',                   flags: 'js' }
   ]

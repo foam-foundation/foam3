@@ -21,8 +21,7 @@ foam.CLASS({
   requires: [
     'foam.core.reflow.perf.PerfIssue',
     'foam.core.reflow.perf.PerfSeverity',
-    'foam.core.reflow.perf.MetricThresholdMarker',
-    'foam.core.reflow.perf.StructuralMarker'
+    'foam.core.reflow.perf.MetricThresholdMarker'
   ],
 
   properties: [
@@ -54,24 +53,12 @@ foam.CLASS({
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'blockProfile', documentation: 'per-block costs, worst first (loadPerf only)' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfIssue', name: 'issues' },
     {
-      name: 'sourceBlocks',
-      documentation: `Live Block instances of the loaded flow, set by loadPerf so the
-        StructuralMarker can inspect them. Transient - not part of the serialized report.`,
-      hidden: true,
-      transient: true,
-      networkTransient: true,
-      storageTransient: true
-    },
-    {
       name: 'markers_',
       documentation: 'The PerfMarkers analyze() runs. Add a check by adding a marker here.',
       hidden: true,
       transient: true,
       factory: function() {
-        return [
-          this.MetricThresholdMarker.create({}, this),
-          this.StructuralMarker.create({}, this)
-        ];
+        return [ this.MetricThresholdMarker.create({}, this) ];
       }
     }
   ],
@@ -113,8 +100,7 @@ foam.CLASS({
 
     function analyze() {
       /** Run every marker over this report and collect their issues. Idempotent -
-          rebuilds issues from scratch, so loadPerf can call it again after setting
-          sourceBlocks to fold in the structural pass. **/
+          rebuilds issues from scratch each call. **/
       var self = this, issues = [];
       this.markers_.forEach(function(m) { issues = issues.concat(m.mark(self) || []); });
       this.issues = issues;

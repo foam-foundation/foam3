@@ -37,7 +37,7 @@ foam.CLASS({
       { metric: 'domNodeDelta', dir: 'high', warn: 5000, bad: 50000, category: 'DOM',
         detail: function(r) { return '+' + r.numStr(r.domNodeDelta, 0) + ' nodes added' +
           ( r.tableCellDelta > 0 ? ' (' + r.numStr(r.tableCellDelta, 0) + ' table cells)' : '' ) +
-          ' - hidden table blocks build their full grid; check shown:false blocks over large DAOs.'; } },
+          ' - large DOM growth during load.'; } },
 
       { metric: 'repeatedRequestCount', dir: 'high', warn: 1, bad: 5, category: 'Network',
         detail: function(r) {

@@ -500,13 +500,20 @@ foam.CLASS({
       w.fetch = function(input, init) {
         var call = null;
         try {
-          var url  = ( typeof input === 'string' ) ? input : ( input && input.url ) || '';
-          var body = init && init.body;
-          var bodyStr = ( typeof body === 'string' ) ? body : '';
-          var meta = self.rpcMeta_(url, bodyStr);
-          call = { url: url, service: meta.service, op: meta.op, sink: meta.sink,
-                   reqBytes: bodyStr.length, respBytes: 0, hash: self.hashStr_(url + '|' + bodyStr) };
+          // foam's HTTPRequest calls fetch(new Request(url, {body})) - so the body is
+          // on the Request object, NOT in init.body. Handle both shapes.
+          var url = ( typeof input === 'string' ) ? input : ( input && input.url ) || '';
+          call = { url: url, service: self.serviceFromUrl_(url), op: '', sink: '',
+                   reqBytes: 0, respBytes: 0, hash: self.hashStr_(url) };
           self.netCalls_.push(call);
+
+          var inlineBody = ( init && typeof init.body === 'string' ) ? init.body : null;
+          if ( inlineBody != null ) {
+            self.recordBody_(call, inlineBody);
+          } else if ( input && typeof input.clone === 'function' ) {
+            // Request body is a stream; clone + read it without disturbing the real call.
+            input.clone().text().then(function(t) { self.recordBody_(call, t || ''); }, function() {});
+          }
         } catch (e) { /* never break the real request */ }
         var p = orig.apply(this, arguments);
         if ( call ) {
@@ -519,29 +526,24 @@ foam.CLASS({
       };
     },
 
-    function rpcMeta_(url, bodyStr) {
-      /** Extract {service, op, sink} from a client RPC. service = last URL path segment
-          (PTV3 wires each DAO to /service/<name>); op + sink come from the serialized
-          Envelope.message (RPCMessage name + the sink arg's class). **/
-      var service = '', op = '', sink = '';
+    function serviceFromUrl_(url) {
+      /** Service/DAO = last path segment (PTV3 wires each DAO to /service/<name>). **/
       try {
         var path = ( url || '' ).split('?')[0].replace(/\/+$/, '');
-        service = path.substring(path.lastIndexOf('/') + 1) || path;
-      } catch (e) {}
-      try {
-        var msg = JSON.parse(bodyStr).message;
-        if ( msg ) {
-          op = ( msg.name || '' ).replace(/_$/, '');   // 'select_' -> 'select'
-          ( msg.args || [] ).some(function(a) {
-            if ( a && typeof a === 'object' && a.class && /Sink$|DAOAgent$|GroupBy$|Count$|Sum$/.test(a.class) ) {
-              sink = a.class.substring(a.class.lastIndexOf('.') + 1);
-              return true;
-            }
-            return false;
-          });
-        }
-      } catch (e) { /* non-JSON / non-RPC body */ }
-      return { service: service, op: op, sink: sink };
+        return path.substring(path.lastIndexOf('/') + 1) || path;
+      } catch (e) { return ''; }
+    },
+
+    function recordBody_(call, bodyStr) {
+      /** Fill a call's request size + dedup hash + parsed {op, sink} from its body. **/
+      call.reqBytes = bodyStr.length;
+      call.hash     = this.hashStr_(call.url + '|' + bodyStr);
+      // Parse on VALUES (method token + sink FQN), which are NOT short-named even when
+      // the Network outputter shortens property keys - so this survives short-name wire format.
+      var mOp = bodyStr.match(/"(select|find|put|remove|cmd)_?"/);
+      if ( mOp ) call.op = mOp[1];
+      var mSink = bodyStr.match(/"(foam\.mlang\.sink\.[A-Za-z]+|foam\.dao\.[A-Za-z]*Sink)"/);
+      if ( mSink ) call.sink = mSink[1].substring(mSink[1].lastIndexOf('.') + 1);
     },
 
     function unwrapFetch_() {

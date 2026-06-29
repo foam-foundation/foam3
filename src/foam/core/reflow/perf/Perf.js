@@ -94,15 +94,6 @@ foam.CLASS({
     ^hint { color: $textSecondary; font-style: italic; }
   `,
 
-  constants: {
-    // Static-resource extensions ignored by the network capture (images / fonts / styles / scripts).
-    ASSET_EXTS: {
-      svg: true, png: true, jpg: true, jpeg: true, gif: true, ico: true, webp: true, bmp: true, avif: true,
-      woff: true, woff2: true, ttf: true, otf: true, eot: true,
-      css: true, js: true, mjs: true, map: true
-    }
-  },
-
   properties: [
     {
       class: 'FObjectProperty',
@@ -512,8 +503,8 @@ foam.CLASS({
           // foam's HTTPRequest calls fetch(new Request(url, {body})) - so the body is
           // on the Request object, NOT in init.body. Handle both shapes.
           var url = ( typeof input === 'string' ) ? input : ( input && input.url ) || '';
-          // Ignore static assets (svg/icons/fonts/css/js) - they are not data calls.
-          if ( self.isAsset_(url) ) return orig.apply(this, arguments);
+          // Only DAO / service calls (/service/<name>); skip assets, pages, everything else.
+          if ( ! self.isServiceCall_(url) ) return orig.apply(this, arguments);
           call = { url: url, service: self.serviceFromUrl_(url), op: '', sink: '',
                    reqBytes: 0, respBytes: 0, hash: self.hashStr_(url) };
           self.netCalls_.push(call);
@@ -545,16 +536,10 @@ foam.CLASS({
       } catch (e) { return ''; }
     },
 
-    function isAsset_(url) {
-      /** True for static-resource fetches (images, fonts, styles, scripts) - not data
-          calls, so excluded from the network metrics and the service-call table.
-          Service RPCs have no file extension (path = /service/<name>) so they pass through. **/
-      try {
-        var path = ( url || '' ).split('?')[0].split('#')[0];
-        var dot  = path.lastIndexOf('.');
-        if ( dot < 0 ) return false;
-        return this.ASSET_EXTS[path.substring(dot + 1).toLowerCase()] === true;
-      } catch (e) { return false; }
+    function isServiceCall_(url) {
+      /** Only DAO / service RPCs count - they are POSTed to /service/<name>. Everything
+          else (static assets, pages, third-party) is ignored. **/
+      return ( url || '' ).indexOf('/service/') >= 0;
     },
 
     function recordBody_(call, bodyStr) {

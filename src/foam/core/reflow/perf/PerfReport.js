@@ -217,7 +217,7 @@ foam.CLASS({
       }
       if ( ! hot.length ) {
         L.push('');
-        L.push('TIP no in-page profile (enable the js-profiling document policy). Open DevTools → Performance, or run tron / troff.');
+        L.push('TIP in-page profiling off - server must send "Document-Policy: js-profiling" (then no DevTools needed). Or capture manually via DevTools → Performance / tron-troff.');
       }
 
       return L.join(nl);

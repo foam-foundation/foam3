@@ -31,7 +31,7 @@ foam.CLASS({
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
     { name: 'BLOCKS_LABEL',     message: 'Per-block cost (worst first)' },
     { name: 'HOT_FUNCS_LABEL',  message: 'Hottest functions (self-profiled)' },
-    { name: 'DEVTOOLS_HINT',    message: 'In-page profiling unavailable (needs the js-profiling document policy). Open DevTools → Performance, or run tron / troff, for a CPU trace.' },
+    { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance, or run tron / troff.' },
     { name: 'ELAPSED_LABEL',    message: 'Elapsed' },
     { name: 'AVG_FPS_LABEL',    message: 'Avg / Min FPS' },
     { name: 'BLOCKED_LABEL',    message: 'Main-thread blocked' },

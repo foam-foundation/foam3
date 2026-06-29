@@ -535,15 +535,25 @@ foam.CLASS({
     },
 
     function recordBody_(call, bodyStr) {
-      /** Fill a call's request size + dedup hash + parsed {op, sink} from its body. **/
+      /** Fill a call's request size + dedup hash + {op, sink} from its body. **/
       call.reqBytes = bodyStr.length;
       call.hash     = this.hashStr_(call.url + '|' + bodyStr);
-      // Parse on VALUES (method token + sink FQN), which are NOT short-named even when
-      // the Network outputter shortens property keys - so this survives short-name wire format.
-      var mOp = bodyStr.match(/"(select|find|put|remove|cmd)_?"/);
-      if ( mOp ) call.op = mOp[1];
-      var mSink = bodyStr.match(/"(foam\.mlang\.sink\.[A-Za-z]+|foam\.dao\.[A-Za-z]*Sink)"/);
-      if ( mSink ) call.sink = mSink[1].substring(mSink[1].lastIndexOf('.') + 1);
+      // Deserialize with FOAM's JSON parser (short-name aware) into real FObjects, then
+      // read the RPC method + sink type. Skip very large bodies - parsing a multi-MB
+      // predicate during the capture we are measuring would skew it (size is the signal there).
+      if ( bodyStr.length > 65536 ) return;
+      try {
+        var env = foam.json.parseString(bodyStr, this.__context__);
+        var msg = env && env.message;
+        if ( ! msg ) return;
+        var op = msg.name || '';
+        if ( op.endsWith('_') ) op = op.slice(0, -1);   // 'select_' -> 'select'
+        call.op = op;
+        var args = msg.args || [];
+        for ( var i = 0 ; i < args.length ; i++ ) {
+          if ( foam.dao.Sink.isInstance(args[i]) ) { call.sink = args[i].cls_.name; break; }
+        }
+      } catch (e) { /* unparseable / unregistered class - leave op/sink blank */ }
     },
 
     function unwrapFetch_() {

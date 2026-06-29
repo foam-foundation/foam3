@@ -51,13 +51,10 @@ foam.CLASS({
         // (like 'block') from the current context.
         s = s.clone(this.__subContext__);
 
-        e.startContext({dao: this.dao})
-          .start()
-            .call(function() {
-              self.addSinkToE(this, s);
-            })
-          .end()
-        .endContext();
+        e.add(this.block.dynamic(function (shown) {
+          if ( shown )
+            this.startContext({dao: self.dao}).start().call(function() { self.addSinkToE(this, s); }).endContext();
+        }));
       }).catch(error => {
         console.error('AbstractDAOAgent execution error:', error);
         e.tag(self.ErrorView, { error: error });
@@ -376,6 +373,13 @@ foam.CLASS({
       this.tableEl = undefined;
     },
     function execute(e) {
+      let self = this;
+      e.add(this.block.dynamic(function (shown) {
+        if ( shown )
+          self.execute_(e);
+      }));
+    },
+    function execute_(e) {
       // TODO: prevent table updates when block is hidden
       var self = this;
       // Tables already listen to underlying daos and are completely reactive by themselves as

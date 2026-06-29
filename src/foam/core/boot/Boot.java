@@ -164,7 +164,7 @@ public class Boot {
     // Export the ServiceDAO
     ((ProxyDAO) root_.get("cSpecDAO")).setDelegate(
       new foam.core.auth.AuthorizationDAO.Builder(getX())
-        .setDelegate(mdao)
+        .setDelegate(serviceDAO_)
         .setAuthorizer(new foam.core.auth.AuthorizableAuthorizer("service"))
         .build());
 

@@ -59,11 +59,10 @@ foam.CLASS({
     ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; }
     ^card-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 11px; color: $textSecondary; margin-bottom: 8px; }
 
-    /* tables: label left, numbers right + tabular */
-    ^ table { border-collapse: collapse; width: 100%; }
-    ^ th { text-align: left; padding: 3px 16px 3px 0; font-weight: $font-regular; color: $textSecondary; white-space: nowrap; }
-    ^ td { padding: 3px 0; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-    ^ tr > th:first-child { width: 99%; }
+    /* tables: shrink to content so label + value sit together; columns evenly gapped */
+    ^ table { border-collapse: collapse; width: auto; }
+    ^ th { text-align: left; padding: 3px 28px 3px 0; font-weight: $font-regular; color: $textSecondary; white-space: nowrap; }
+    ^ td { padding: 3px 0 3px 28px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
     /* issues */
     ^issue-group { margin-bottom: 10px; }

@@ -80,8 +80,14 @@ foam.CLASS({
 
     /* heatmap chips: tint a value so hot numbers pop */
     ^heat { display: inline-block; padding: 1px 7px; border-radius: 4px; }
+    /* metric severity (threshold-based) */
     ^heat-bad  { background: $destructive50; color: $destructive600; font-weight: $font-semi-bold; }
     ^heat-warn { background: $warn50;        color: $warn700; }
+    /* per-block relative gradient (share of the column max): cool g1 -> hot g4 */
+    ^heat-g1 { background: $warn50;         color: $warn700; }
+    ^heat-g2 { background: $warn100;        color: $warn700; }
+    ^heat-g3 { background: $destructive50;  color: $destructive600; font-weight: $font-semi-bold; }
+    ^heat-g4 { background: $destructive100; color: $destructive700; font-weight: $font-semi-bold; }
 
     ^env  { color: $textSecondary; font-size: 12px; }
     ^hint { color: $textSecondary; font-style: italic; }
@@ -157,10 +163,12 @@ foam.CLASS({
     },
 
     function heatLevel_(v, max) {
-      /** Relative heat: a value's share of its column max -> 'bad' / 'warn' / null. **/
+      /** Relative heat gradient: a value's share of its column max -> g4 (hottest) .. g1,
+          or null when negligible. A lone 1 GB block among 100 MB ones lands g4 while the
+          rest stay cool. **/
       if ( ! ( max > 0 ) || v <= 0 ) return null;
       var f = v / max;
-      return f >= 0.6 ? 'bad' : f >= 0.25 ? 'warn' : null;
+      return f >= 0.75 ? 'g4' : f >= 0.5 ? 'g3' : f >= 0.25 ? 'g2' : f >= 0.1 ? 'g1' : null;
     },
 
     function renderIssues_(el, r) {

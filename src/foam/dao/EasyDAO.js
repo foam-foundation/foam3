@@ -1042,6 +1042,9 @@ dao loading, which improves overall startup time.`,
           name: 'innerDAO'
         }
       ],
+      code: function(innerDAO) {
+        return innerDAO;
+      },
       javaCode: `
         return innerDAO;
       `
@@ -1281,7 +1284,10 @@ dao loading, which improves overall startup time.`,
         });
       }
 
-      return dao;
+      // Apply user-specific outer decorators (mirrors the Java delegate
+      // factory). On the client this is where program-aware DAOs get wrapped
+      // in ProgramAwareDAO so they scope and purge on program switch.
+      return this.getOuterDAO(dao);
     },
 
     /** Only relevant if using postgresdao */

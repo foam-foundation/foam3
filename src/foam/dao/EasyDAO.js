@@ -1284,9 +1284,6 @@ dao loading, which improves overall startup time.`,
         });
       }
 
-      // Apply user-specific outer decorators (mirrors the Java delegate
-      // factory). On the client this is where program-aware DAOs get wrapped
-      // in ProgramAwareDAO so they scope and purge on program switch.
       return this.getOuterDAO(dao);
     },
 

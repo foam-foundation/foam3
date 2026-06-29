@@ -268,17 +268,39 @@ foam.CLASS({
       ],
 
       actions: [
-        function update() {
-          var l = this.Locale.create({
-            locale:  this.locale.substring(0, 2),
-            variant: this.locale.substring(3),
-            source:  this.source,
-            target:  this.text
-          });
+        {
+          name: 'update',
+          label: { en: 'Save for selected locale', fr: 'Enregistrer pour la locale sélectionnée' },
+          code: async function() {
+            // TODO: Look into handling theme-specific translations
+            var locale = this.locale.split('-');
+            var selectedLocale = locale[0];
+            var selectedVariant = locale[1] || '';
+            var activeVariant = this.translationService.variant || '';
 
-          this.localeDAO.put(l);
+            // Row saves always target the locale currently selected in the console,
+            // not the app's global foam.locale.
+            var l = this.Locale.create({
+              locale:  selectedLocale,
+              variant: selectedVariant,
+              source:  this.source,
+              target:  this.text
+            });
 
-          this.translationService.localeEntries[this.source] = this.text;
+            try {
+              await this.localeDAO.put(l);
+              // Only update the live app cache when saving for the app's current locale.
+              // Otherwise, just save the selected locale row to localeDAO.
+              if ( selectedLocale === this.translationService.locale &&
+                   selectedVariant === activeVariant ) {
+                this.translationService.localeEntries[this.source] = this.text;
+              }
+              this.notify && this.notify(this.TRANSLATION_SAVED, this.source, 'INFO', true);
+            } catch (e) {
+              this.notify && this.notify(this.TRANSLATION_SAVE_FAILED, e.message || e, 'ERROR', true);
+              throw e;
+            }
+          }
         }
       ]
     }

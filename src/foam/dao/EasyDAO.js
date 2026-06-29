@@ -187,7 +187,7 @@ foam.CLASS({
             }
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
-            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.NSPEC_CTX_KEY, getCSpec()), delegate);
+            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
           }
         }
 

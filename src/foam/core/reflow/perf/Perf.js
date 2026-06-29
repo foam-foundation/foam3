@@ -78,6 +78,11 @@ foam.CLASS({
     ^WARN { color: $warn700; }
     ^OK   { color: $success600; }
 
+    /* heatmap chips: tint a value so hot numbers pop */
+    ^heat { display: inline-block; padding: 1px 7px; border-radius: 4px; }
+    ^heat-bad  { background: $destructive50; color: $destructive600; font-weight: $font-semi-bold; }
+    ^heat-warn { background: $warn50;        color: $warn700; }
+
     ^env  { color: $textSecondary; font-size: 12px; }
     ^hint { color: $textSecondary; font-style: italic; }
   `,
@@ -144,6 +149,20 @@ foam.CLASS({
       return c;
     },
 
+    function heatCell_(td, text, level) {
+      /** Fill a td with a value, tinted as a heat chip ('bad'|'warn') or plain. Ends the td. **/
+      if ( level ) td.start('span').addClass(this.myClass('heat'), this.myClass('heat-' + level)).add(text).end();
+      else td.add(text);
+      td.end();
+    },
+
+    function heatLevel_(v, max) {
+      /** Relative heat: a value's share of its column max -> 'bad' / 'warn' / null. **/
+      if ( ! ( max > 0 ) || v <= 0 ) return null;
+      var f = v / max;
+      return f >= 0.6 ? 'bad' : f >= 0.25 ? 'warn' : null;
+    },
+
     function renderIssues_(el, r) {
       var self   = this;
       var issues = r.issues || [];
@@ -193,8 +212,7 @@ foam.CLASS({
         var tr  = el2.start('tr');
         tr.start('th').add(label).end();
         var td = tr.start('td');
-        if ( sev ) td.addClass(self.myClass(sev.name));
-        td.add(text).end();
+        self.heatCell_(td, text, sev ? ( sev === self.PerfSeverity.BAD ? 'bad' : 'warn' ) : null);
         tr.end();
       };
       row(self.ELAPSED_LABEL, r.numStr(r.elapsedMs, 0) + ' ms');
@@ -214,6 +232,13 @@ foam.CLASS({
       var self   = this;
       var blocks = r.blockProfile || [];
       if ( ! blocks.length ) return;
+      // Column maxes for relative heat (each column shaded against its own worst).
+      var maxMs = 0, maxDom = 0, maxHeap = 0;
+      blocks.forEach(function(b) {
+        if ( b.ms > maxMs )            maxMs   = b.ms;
+        if ( b.domDelta > maxDom )     maxDom  = b.domDelta;
+        if ( b.heapDelta > maxHeap )   maxHeap = b.heapDelta;
+      });
       var card = self.card_(el, self.BLOCKS_LABEL);
       var t = card.start('table');
       t.start('tr')
@@ -223,12 +248,12 @@ foam.CLASS({
         .start('td').add('+Heap').end()
       .end();
       blocks.forEach(function(b) {
-        t.start('tr')
-          .start('th').add(b.flowName).end()
-          .start('td').add(r.numStr(b.ms, 0) + ' ms').end()
-          .start('td').add(r.numStr(b.domDelta, 0)).end()
-          .start('td').add(r.byteStr(b.heapDelta)).end()
-        .end();
+        var tr = t.start('tr');
+        tr.start('th').add(b.flowName).end();
+        self.heatCell_(tr.start('td'), r.numStr(b.ms, 0) + ' ms', self.heatLevel_(b.ms, maxMs));
+        self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0),    self.heatLevel_(b.domDelta, maxDom));
+        self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),     self.heatLevel_(b.heapDelta, maxHeap));
+        tr.end();
       });
       t.end();
       card.end();

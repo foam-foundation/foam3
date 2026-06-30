@@ -293,18 +293,31 @@ foam.CLASS({
         self.heatCell_(tr.start('td'), action, heat);
         tr.end();
 
-        // Expand (only when multiple distinct requests): show each one + its count + query.
-        if ( expandable ) variants.forEach(function(v) {
-          var note = v.count > 1 ? '  · ' + r.numStr(v.count, 0) + '× (cacheable)' : '';
-          t.start('tr').addClass(self.myClass('hot-row')).show(open$)
-            .start('th').add( ( v.query || '(no filter)' ) + note ).end()
+        // Expand (only when multiple distinct requests): nested table, each distinct
+        // request as a row with its own labeled columns so the numbers read clearly.
+        if ( expandable ) {
+          var vt = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
+            .start('td').attrs({ colspan: 6 })
+              .start('div').addClass(self.myClass('detail-title')).add('Requests').end()
+              .start('table').addClass(self.myClass('hot-table'));
+          vt.start('tr')
+            .start('th').add('Filter / query').end()
+            .start('th').add('Calls').end()
+            .start('th').add('Data sent').end()
+            .start('th').add('Data received').end()
             .start('th').add('').end()
-            .start('td').add(r.numStr(v.count, 0)).end()
-            .start('td').add(r.sizeStr(v.requestBytes)).end()
-            .start('td').add(r.sizeStr(v.responseBytes)).end()
-            .start('td').add('').end()
           .end();
-        });
+          variants.forEach(function(v) {
+            vt.start('tr')
+              .start('td').add( v.query || '(no filter)' ).end()
+              .start('td').add(r.numStr(v.count, 0)).end()
+              .start('td').add(r.sizeStr(v.requestBytes)).end()
+              .start('td').add(r.sizeStr(v.responseBytes)).end()
+              .start('td').add( v.count > 1 ? r.numStr(v.count, 0) + '× — cacheable' : '' ).end()
+            .end();
+          });
+          vt.end().end().end();
+        }
       });
       t.end();
       card.end();

@@ -109,10 +109,14 @@ foam.CLASS({
     },
 
     function shortUrl_(url) {
+      /** Drop the host + everything up to /src/ so frames read 'foam/core/.../X.js'
+          instead of the full localhost:8080/foam3/src/... repeated on every row. **/
       if ( ! url ) return '';
-      var q = url.indexOf('?');
-      var u = q >= 0 ? url.substring(0, q) : url;
-      return u.length > 60 ? '…' + u.substring(u.length - 57) : u;
+      var u = url.split('?')[0].split('#')[0];
+      var i = u.indexOf('/src/');
+      if ( i >= 0 ) return u.substring(i + 5);
+      var parts = u.split('/').filter(Boolean);
+      return parts.slice(-2).join('/');
     },
 
     function numStr(n, decimals) {
@@ -145,10 +149,16 @@ foam.CLASS({
       return foam.lang.Duration.duration(Math.round(Number(ms) || 0));
     },
 
-    function frameLabel(f) {
-      /** "fn (resource:line:col)" - line/col locate the fn in a prod one-file bundle. **/
+    function frameLoc(f) {
+      /** "resource:line:col" - locates the fn (in a prod one-file bundle, line/col is what matters). **/
       var loc = f.resource ? this.shortUrl_(f.resource) : '';
       if ( f.line ) loc += ':' + f.line + ( f.column ? ':' + f.column : '' );
+      return loc;
+    },
+
+    function frameLabel(f) {
+      /** "fn (resource:line:col)" for plain-text contexts. **/
+      var loc = this.frameLoc(f);
       return f.name + ( loc ? '  (' + loc + ')' : '' );
     },
 
@@ -212,10 +222,11 @@ foam.CLASS({
         L.push('SERVICE CALLS (most-called first)');
         calls.forEach(function(c) {
           var rep = c.count - ( c.distinct || c.count );
-          var cnt = c.count + '×' + ( rep > 0 ? ' (' + rep + ' identical)' : '' );
-          L.push('  ' + pad(cnt, 18) + pad(c.service, 30) +
+          var cnt = c.count + ( c.count === 1 ? ' call' : ' calls' ) + ( c.count > 1 ? ' · ' + c.distinct + ' unique' : '' );
+          var act = rep > 0 ? 'CACHE (' + rep + ' avoidable)' : '';
+          L.push('  ' + pad(cnt, 20) + pad(c.service, 28) +
             pad(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ), 26) +
-            '↑' + this.sizeStr(c.requestBytes) + '  ↓' + this.sizeStr(c.responseBytes));
+            pad('↑' + this.sizeStr(c.requestBytes) + ' ↓' + this.sizeStr(c.responseBytes), 22) + act);
           // Only break out variants when there is more than one call to drill into.
           if ( c.count > 1 ) ( c.variants || [] ).forEach(function(v) {
             L.push('       ' + pad(v.count + '×', 5) + ( v.query || '' ) + ( v.count > 1 ? '  [identical re-fetch]' : '' ));

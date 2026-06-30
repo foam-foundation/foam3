@@ -20,7 +20,9 @@ foam.CLASS({
   requires: [
     'foam.core.reflow.perf.PerfReport',
     'foam.core.reflow.perf.PerfSnapshot',
-    'foam.core.reflow.perf.PerfSeverity'
+    'foam.core.reflow.perf.PerfSeverity',
+    'foam.u2.Tabs',
+    'foam.u2.Tab'
   ],
 
   imports: [ 'window' ],
@@ -29,8 +31,6 @@ foam.CLASS({
     { name: 'CAPTURING_MSG',    message: 'Capturing…' },
     { name: 'IDLE_MSG',         message: 'Idle' },
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
-    { name: 'BLOCKS_LABEL',     message: 'Per-block cost (worst first)' },
-    { name: 'SERVICE_LABEL',    message: 'Service calls (most-called first)' },
     { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance, or run tron / troff.' },
     { name: 'ELAPSED_LABEL',    message: 'Elapsed' },
     { name: 'AVG_FPS_LABEL',    message: 'Avg / Min FPS' },
@@ -95,6 +95,10 @@ foam.CLASS({
     ^block-row:hover { background: $grey50; }
     ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
     ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
+    ^hot-detailrow > td { padding: 4px 0 8px 22px; }
+    ^hot-table { width: auto; }
+    ^hot-table th { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: $textTertiary; }
+    ^hot-table th, ^hot-table td { text-align: left; padding: 2px 24px 2px 0; font-size: 12px; color: $textSecondary; white-space: nowrap; }
   `,
 
   constants: {
@@ -146,10 +150,13 @@ foam.CLASS({
       this.add(this.dynamic(function(report$elapsedMs) {
         var r = self.report;
         if ( ! r || ! r.endSnapshot ) return;
-        self.renderIssues_(this, r);
-        self.renderMetrics_(this, r);
-        self.renderServiceCalls_(this, r);
-        self.renderBlocks_(this, r);
+        self.renderIssues_(this, r);   // always visible - the summary
+        // Per-block first => default selected tab.
+        this.start(self.Tabs)
+          .start(self.Tab, { label: 'Per-block' }).call(function() { self.renderBlocks_(this, r); }).end()
+          .start(self.Tab, { label: 'Service calls' }).call(function() { self.renderServiceCalls_(this, r); }).end()
+          .start(self.Tab, { label: 'Metrics' }).call(function() { self.renderMetrics_(this, r); }).end()
+        .end();
         self.renderEnv_(this, r);
       }));
 
@@ -221,7 +228,7 @@ foam.CLASS({
           sevByMetric[i.metric] = i.severity;
       });
 
-      var card = self.card_(el, 'Metrics');
+      var card = self.card_(el);
       var el2  = card.start('table');
       var row = function(label, text, metricKey) {
         var sev = metricKey && sevByMetric[metricKey];
@@ -258,14 +265,15 @@ foam.CLASS({
         if ( c.requestBytes > maxReq )   maxReq   = c.requestBytes;
         if ( c.responseBytes > maxResp ) maxResp  = c.responseBytes;
       });
-      var card = self.card_(el, self.SERVICE_LABEL);
+      var card = self.card_(el);
       var t = card.start('table');
       t.start('tr')
         .start('th').add('Service').end()
         .start('th').add('Operation').end()
         .start('td').add('Calls').end()
-        .start('td').add('Req').end()
-        .start('td').add('Resp').end()
+        .start('td').add('Data sent').end()
+        .start('td').add('Data received').end()
+        .start('td').add('Recommended action').end()
       .end();
       calls.forEach(function(c) {
         var rep        = repeatedOf(c);
@@ -273,10 +281,10 @@ foam.CLASS({
         var expandable = c.count > 1;            // something to drill into
         var open$      = foam.lang.SimpleSlot.create({ value: false });
 
-        // count× + breakdown: identical re-fetches (cacheable) vs distinct queries.
-        var label = r.numStr(c.count, 0) + '×';
-        if ( rep > 0 )            label += ' (' + r.numStr(rep, 0) + ' identical)';
-        else if ( c.count > 1 )   label += ' · ' + r.numStr(c.distinct, 0) + ' unique';
+        // "N calls · M unique" so it's clear the rest (N-M) are repeats of those M.
+        var label  = r.numStr(c.count, 0) + ( c.count === 1 ? ' call' : ' calls' );
+        if ( c.count > 1 ) label += ' · ' + r.numStr(c.distinct, 0) + ' unique';
+        var action = rep > 0 ? 'Cache (' + r.numStr(rep, 0) + ' avoidable)' : '—';
 
         var tr = t.start('tr').addClass(self.myClass('block-row'));
         if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
@@ -286,10 +294,11 @@ foam.CLASS({
         .end();
         th.add(c.service).end();
         tr.start('th').add(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' )).end();
-        // Heat only identical re-fetches - those are the cache candidates. Distinct queries are not a smell.
+        // Heat the identical re-fetches (cache candidates); distinct queries are not a smell.
         self.heatCell_(tr.start('td'), label, rep > 0 ? self.heatLevel_(rep, maxRepeated) : null);
         self.heatCell_(tr.start('td'), r.sizeStr(c.requestBytes),  self.heatLevel_(c.requestBytes, maxReq));
         self.heatCell_(tr.start('td'), r.sizeStr(c.responseBytes), self.heatLevel_(c.responseBytes, maxResp));
+        self.heatCell_(tr.start('td'), action, rep > 0 ? self.heatLevel_(rep, maxRepeated) : null);
         tr.end();
 
         // Expand: each distinct request body, its count (>1 = byte-identical re-fetch) and its query.
@@ -301,6 +310,7 @@ foam.CLASS({
             .start('td').add('').end()
             .start('td').add(r.sizeStr(v.requestBytes)).end()
             .start('td').add(r.sizeStr(v.responseBytes)).end()
+            .start('td').add('').end()
           .end();
         });
       });
@@ -319,13 +329,13 @@ foam.CLASS({
         if ( b.domDelta > maxDom )     maxDom  = b.domDelta;
         if ( b.heapDelta > maxHeap )   maxHeap = b.heapDelta;
       });
-      var card = self.card_(el, self.BLOCKS_LABEL);
+      var card = self.card_(el);
       var t = card.start('table');
       t.start('tr')
         .start('th').add('Block').end()
-        .start('td').add('Time').end()
-        .start('td').add('+DOM').end()
-        .start('td').add('+Heap').end()
+        .start('td').add('Time to execute').end()
+        .start('td').add('Elements added').end()
+        .start('td').add('Memory change').end()
       .end();
       blocks.forEach(function(b) {
         var hot        = b.hot || [];
@@ -344,15 +354,25 @@ foam.CLASS({
         self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),     self.heatLevel_(b.heapDelta, maxHeap));
         tr.end();
 
-        // Expandable detail: this block's hottest functions (% within the block + CPU ms).
-        hot.forEach(function(f) {
-          t.start('tr').addClass(self.myClass('hot-row')).show(open$)
-            .start('th').add(r.frameLabel(f)).end()
-            .start('td').add(r.numStr(f.pct, 0) + ' %').end()
-            .start('td').add(r.durStr(f.ms)).end()
-            .start('td').add('').end()
+        // Expandable detail: this block's hottest functions as a Function | Location | Time table.
+        if ( expandable ) {
+          var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
+            .start('td').attrs({ colspan: 4 })
+              .start('table').addClass(self.myClass('hot-table'));
+          ht.start('tr')
+            .start('th').add('Function').end()
+            .start('th').add('Location').end()
+            .start('th').add('Time').end()
           .end();
-        });
+          hot.forEach(function(f) {
+            ht.start('tr')
+              .start('td').add(f.name).end()
+              .start('td').add(r.frameLoc(f)).end()
+              .start('td').add(r.durStr(f.ms) + '  (' + r.numStr(f.pct, 0) + '%)').end()
+            .end();
+          });
+          ht.end().end().end();
+        }
       });
       t.end();
       if ( ! r.profilingSupported ) {
@@ -456,7 +476,7 @@ foam.CLASS({
         .map(function(b) {
           return foam.core.reflow.perf.PerfBlockCost.create({
             flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta,
-            hot: ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end) : []
+            hot: ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : []
           });
         });
     },
@@ -487,10 +507,12 @@ foam.CLASS({
       }
     },
 
-    function framesInWindow_(trace, start, end) {
+    function framesInWindow_(trace, start, end, blockMs) {
       /** Hottest leaf frames among samples whose timestamp falls in [start,end).
-          Returns top 5 (>=5% of the window), with % within the window and CPU ms
-          (selfSamples × sampleInterval). Drops this tool's own measurement frames. **/
+          Returns top 5 (>=5% of the window), with % within the window and CPU ms.
+          ms is the frame's SHARE of the block's wall time (not samples × nominal
+          interval - Chrome samples faster than the 10ms hint, which over-counts).
+          Drops this tool's own measurement frames. **/
       if ( ! trace || ! trace.samples || ! trace.stacks || ! trace.frames ) return [];
       var self = this;
       var NOISE = { 'Profiler': true, 'querySelectorAll': true, 'now': true, 'takeRecords': true };
@@ -513,7 +535,7 @@ foam.CLASS({
           column:      f.column || 0,
           selfSamples: counts[fid],
           pct:         100 * counts[fid] / total,
-          ms:          counts[fid] * self.SAMPLE_INTERVAL_MS
+          ms:          ( counts[fid] / total ) * ( blockMs || 0 )
         });
       });
       frames = frames.filter(function(f) { return ! NOISE[f.name] && f.pct >= 5; });

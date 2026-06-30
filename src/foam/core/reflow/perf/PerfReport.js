@@ -237,15 +237,15 @@ foam.CLASS({
       }
 
       L.push('METRICS');
-      L.push('  ' + pad('Elapsed', 21)             + this.durStr(this.elapsedMs));
-      L.push('  ' + pad('Avg / Min FPS', 21)       + this.numStr(this.avgFps, 0) + ' / ' + this.numStr(this.minFps, 0));
-      L.push('  ' + pad('Main-thread blocked', 21) + this.numStr(this.mainThreadBlockedPct, 0) + ' %');
-      L.push('  ' + pad('Longest task', 21)        + this.durStr(this.longestTaskMs));
-      L.push('  ' + pad('Heap delta', 21)          + this.byteStr(this.heapDeltaBytes));
-      L.push('  ' + pad('DOM nodes added', 21)     + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
-      L.push('  ' + pad('Network calls', 21)       + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');
-      L.push('  ' + pad('Largest request', 21)     + this.byteStr(this.largestRequestBytes));
-      L.push('  ' + pad('Warnings', 21)            + this.numStr(this.warnCount, 0));
+      L.push('  ' + pad('Load time', 22)            + this.durStr(this.elapsedMs));
+      L.push('  ' + pad('Frame rate (avg / min)', 22) + this.numStr(this.avgFps, 0) + ' / ' + this.numStr(this.minFps, 0));
+      L.push('  ' + pad('UI frozen', 22)            + this.numStr(this.mainThreadBlockedPct, 0) + ' %');
+      L.push('  ' + pad('Longest freeze', 22)       + this.durStr(this.longestTaskMs));
+      L.push('  ' + pad('Memory change', 22)        + this.byteStr(this.heapDeltaBytes));
+      L.push('  ' + pad('Page elements added', 22)  + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
+      L.push('  ' + pad('Server calls', 22)         + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');
+      L.push('  ' + pad('Largest request sent', 22) + this.byteStr(this.largestRequestBytes));
+      L.push('  ' + pad('Console warnings', 22)     + this.numStr(this.warnCount, 0));
       L.push('');
 
       var end = this.endSnapshot;

@@ -267,7 +267,9 @@ foam.CLASS({
       calls.forEach(function(c) {
         var rep        = repeatedOf(c);
         var variants   = c.variants || [];
-        var expandable = c.count > 1;            // something to drill into
+        // Only expand when there are DIFFERENT requests to tell apart; a single repeated
+        // request is already explained by "N calls · 1 unique" + the cache action.
+        var expandable = c.distinct > 1;
         var open$      = foam.lang.SimpleSlot.create({ value: false });
 
         // Plain "N calls" unless some are repeats - then "N calls · M unique" (rest are dupes).
@@ -291,13 +293,13 @@ foam.CLASS({
         self.heatCell_(tr.start('td'), action, heat);
         tr.end();
 
-        // Expand: each distinct request body, its count (>1 = byte-identical re-fetch) and its query.
-        variants.forEach(function(v) {
-          var note = v.count > 1 ? ' — identical re-fetch (cacheable)' : '';
+        // Expand (only when multiple distinct requests): show each one + its count + query.
+        if ( expandable ) variants.forEach(function(v) {
+          var note = v.count > 1 ? '  · ' + r.numStr(v.count, 0) + '× (cacheable)' : '';
           t.start('tr').addClass(self.myClass('hot-row')).show(open$)
-            .start('th').add(r.numStr(v.count, 0) + '×  ' + ( v.query || '' ) + note).end()
+            .start('th').add( ( v.query || '(no filter)' ) + note ).end()
             .start('th').add('').end()
-            .start('td').add('').end()
+            .start('td').add(r.numStr(v.count, 0)).end()
             .start('td').add(r.sizeStr(v.requestBytes)).end()
             .start('td').add(r.sizeStr(v.responseBytes)).end()
             .start('td').add('').end()
@@ -654,7 +656,7 @@ foam.CLASS({
         var pred = foam.mlang.predicate.Predicate.isInstance(args[5]) ? args[5] : null;
         var q = pred ? pred.toString() : '';
         if ( ! q && op === 'find' && args[1] != null ) q = 'id=' + args[1];
-        call.query = q ? ( q.length > 140 ? q.substring(0, 137) + '…' : q ) : '(no predicate)';
+        call.query = q ? ( q.length > 140 ? q.substring(0, 137) + '…' : q ) : '';
       } catch (e) { /* unparseable - leave op/sink blank */ }
     },
 

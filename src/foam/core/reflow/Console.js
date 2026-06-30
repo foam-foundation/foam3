@@ -406,13 +406,13 @@ foam.CLASS({
       size: 'SMALL',
       themeIcon: 'health',
       isEnabled: function(data$value$name) { return !! data$value$name; },
-      code: function() {
+      code: async function() {
         // loadPerf reloads the SAVED flow under capture, so unsaved edits would be lost.
         if ( this.data.value.revision ) {
           this.notify('Save the flow first - Benchmark reloads the saved version.', '', this.LogLevel.ERROR, true);
           return;
         }
-        this.data.eval_('loadPerf("' + this.data.value.name + '")');
+        await this.data.benchmarkFlow_();
       }
     },
     {
@@ -1293,6 +1293,24 @@ foam.CLASS({
       if ( flow ) {
         await this.includeScript(flow.script);
       }
+    },
+
+    async function benchmarkFlow_() {
+      /** Purge the loaded flow's DAO caches, then reload it under performance capture.
+          Without the purge, benchmarking an already-open flow measures the WARM cache
+          (few server calls) instead of the real cold-load cost. **/
+      var daos = [], seen = {};
+      function walk(b) {
+        if ( ! b ) return;
+        var d = b.value && b.value.dao;
+        if ( d && d.cmd && ! seen[d.$UID] ) { seen[d.$UID] = true; daos.push(d); }
+        ( b.flowChildren || [] ).forEach(walk);
+      }
+      ( this.flowChildren || [] ).forEach(walk);
+      for ( var i = 0 ; i < daos.length ; i++ ) {
+        try { await daos[i].cmd(foam.dao.DAO.PURGE_CMD); } catch (e) { /* not a caching dao */ }
+      }
+      await this.eval_('loadPerf("' + this.value.name + '")');
     },
 
     async function includeScript(script, parent, skipParse) {

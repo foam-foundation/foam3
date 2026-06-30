@@ -231,9 +231,9 @@ foam.CLASS({
           L.push('  ' + pad(cnt, 20) + pad(c.service, 28) +
             pad(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ), 26) +
             pad('↑' + this.sizeStr(c.requestBytes) + ' ↓' + this.sizeStr(c.responseBytes), 22) + act);
-          // Only break out variants when there is more than one call to drill into.
-          if ( c.count > 1 ) ( c.variants || [] ).forEach(function(v) {
-            L.push('       ' + pad(v.count + '×', 5) + ( v.query || '' ) + ( v.count > 1 ? '  [identical re-fetch]' : '' ));
+          // Only break out variants when there are different requests to tell apart.
+          if ( c.distinct > 1 ) ( c.variants || [] ).forEach(function(v) {
+            L.push('       ' + pad(v.count + '×', 5) + ( v.query || '(no filter)' ) + ( v.count > 1 ? '  (cacheable)' : '' ));
           });
         }.bind(this));
         L.push('');

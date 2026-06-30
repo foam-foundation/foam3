@@ -657,7 +657,7 @@ foam.CLASS({
         // that differ only by ordering or paging are distinguishable in the variant list).
         var parts = [];
         var pred  = foam.mlang.predicate.Predicate.isInstance(args[5]) ? args[5] : null;
-        if ( pred ) parts.push(this.prettyPredicate_(pred));
+        if ( pred && pred.toMQL ) { var mql = pred.toMQL(); if ( mql ) parts.push(mql); }
         if ( args[4] && args[4].cls_ ) parts.push('order by ' + this.prettyOrder_(args[4]));
         if ( typeof args[3] === 'number' && args[3] < 9007199254740991 ) parts.push('limit ' + args[3]);
         if ( typeof args[2] === 'number' && args[2] > 0 ) parts.push('skip ' + args[2]);
@@ -667,37 +667,12 @@ foam.CLASS({
       } catch (e) { /* unparseable - leave op/sink blank */ }
     },
 
-    function prettyPredicate_(p) {
-      /** Render an MLang predicate readably: field names (not FQNs), = / AND / OR / NOT,
-          'is set' / 'is empty'. Walks the parsed FObject (no string regex). **/
-      var self = this;
-      if ( p == null ) return '';
-      if ( Array.isArray(p) ) return '[' + p.map(function(x) { return self.prettyPredicate_(x); }).join(', ') + ']';
-      if ( ! p.cls_ ) return ( typeof p === 'string' ) ? '"' + p + '"' : String(p);
-      var n = p.cls_.name;
-      if ( n === 'Constant' ) { var v = p.value; return ( typeof v === 'string' ) ? '"' + v + '"' : self.prettyPredicate_(v); }
-      var BIN = { Eq: '=', Neq: '≠', Gt: '>', Gte: '≥', Lt: '<', Lte: '≤' };
-      if ( BIN[n] ) return self.prettyPredicate_(p.arg1) + ' ' + BIN[n] + ' ' + self.prettyPredicate_(p.arg2);
-      if ( n === 'And' || n === 'Or' )
-        return ( p.args || [] ).map(function(a) { return self.prettyPredicate_(a); }).join( n === 'And' ? ' AND ' : ' OR ' );
-      if ( n === 'Not' ) {
-        var inner = p.arg1;
-        if ( inner && inner.cls_ && inner.cls_.name === 'Has' ) return self.prettyPredicate_(inner.arg1) + ' is empty';
-        return 'NOT ' + self.prettyPredicate_(inner);
-      }
-      if ( n === 'Has' ) return self.prettyPredicate_(p.arg1) + ' is set';
-      if ( n === 'In' )  return self.prettyPredicate_(p.arg1) + ' in ' + self.prettyPredicate_(p.arg2);
-      if ( n === 'Contains' || n === 'ContainsIC' || n === 'StartsWith' || n === 'EndsWith' )
-        return self.prettyPredicate_(p.arg1) + ' ' + n.toLowerCase() + ' ' + self.prettyPredicate_(p.arg2);
-      if ( p.name ) return p.name;   // property reference -> just the field name
-      return p.toString();           // fallback for any unhandled node
-    },
-
     function prettyOrder_(o) {
-      /** Render an MLang order readably: 'field' (asc), 'field desc', comma-joined for ThenBy. **/
+      /** Render an MLang order readably: 'field' (asc), 'field desc', comma-joined for ThenBy.
+          Uses isInstance (typed) rather than class-name strings. **/
       if ( o == null ) return '';
-      if ( o.cls_ && o.cls_.name === 'Desc' )   return this.prettyOrder_(o.arg1) + ' desc';
-      if ( o.cls_ && o.cls_.name === 'ThenBy' ) return this.prettyOrder_(o.head) + ', ' + this.prettyOrder_(o.tail);
+      if ( foam.mlang.order.Desc.isInstance(o) )   return this.prettyOrder_(o.arg1) + ' desc';
+      if ( foam.mlang.order.ThenBy.isInstance(o) ) return this.prettyOrder_(o.head) + ', ' + this.prettyOrder_(o.tail);
       if ( o.name ) return o.name;   // a property = ascending
       return o.cls_ ? o.toString() : String(o);
     },

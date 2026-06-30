@@ -196,78 +196,92 @@ p({
   "lastDuration": 18,
   "server": false,
   "code": """
-  x.menuDAO.select(function(m) {
+  // One-time seeding script: rerunning can overwrite reviewed translations.
+  // TODO: Skip existing localeDAO rows before writing so this can be rerun safely.
+  // Match ExtractStringAxiom and the enabled plain French Language row.
+  let targetLocale = 'fr';
+  let targetVariant = '';
+  let targetLocaleVariant = 'fr';
+  let locales = [];
+
+  let putLocale = xl => {
+    locales.push(xl);
+  }
+
+  await x.menuDAO.select(function(m) {
 
     let l = foam.i18n.Locale.create({
       "id": m.id+'.label',
-      "locale": "fr",
-      "variant": "CA",
-      "locale_variant": "fr-CA",
+      "locale": targetLocale,
+      "variant": targetVariant,
+      "locale_variant": targetLocaleVariant,
       "source": m.id+'.label',
       "target": m.label +' fr'
     });
-    x.localeDAO.put(l);
+    putLocale(l);
 
     if ( m.handler && m.handler.title ){
       let l2 = foam.i18n.Locale.create({
         "id": m.id+'.handler.title',
-        "locale": "fr",
-        "variant": "CA",
-        "locale_variant": "fr-CA",
+        "locale": targetLocale,
+        "variant": targetVariant,
+        "locale_variant": targetLocaleVariant,
         "source": m.id+'.handler.title',
         "target": m.handler.title +' fr'
       });
-      x.localeDAO.put(l2);
+      putLocale(l2);
     }
 
     if ( m.handler && m.handler.subtitle ){
       let l2 = foam.i18n.Locale.create({
         "id": m.id+'.handler.subtitle',
-        "locale": "fr",
-        "variant": "CA",
-        "locale_variant": "fr-CA",
+        "locale": targetLocale,
+        "variant": targetVariant,
+        "locale_variant": targetLocaleVariant,
         "source": m.id+'.handler.subtitle',
         "target": m.handler.subtitle +' fr'
       });
-      x.localeDAO.put(l2);
+      putLocale(l2);
     }
 
     if ( m.handler && m.handler.config ) {
       if ( m.handler.config.browseTitle ) {
         let l2 = foam.i18n.Locale.create({
           "id": m.id+'.handler.config.browseTitle',
-          "locale": "fr",
-          "variant": "CA",
-          "locale_variant": "fr-CA",
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
           "source": m.id+'.handler.config.browseTitle',
           "target": m.handler.config.browseTitle +' fr'
         });
-        x.localeDAO.put(l2);
+        putLocale(l2);
       }
       if ( m.handler.config.browseSubtitle ) {
         let l2 = foam.i18n.Locale.create({
           "id": m.id+'.handler.config.browseSubtitle',
-          "locale": "fr",
-          "variant": "CA",
-          "locale_variant": "fr-CA",
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
           "source": m.id+'.handler.config.browseSubtitle',
           "target": m.handler.config.browseSubtitle +' fr'
         });
-        x.localeDAO.put(l2);
+        putLocale(l2);
       }
       if ( m.handler.config.createTitle ) {
         let l2 = foam.i18n.Locale.create({
           "id": m.id+'.handler.config.createTitle',
-          "locale": "fr",
-          "variant": "CA",
-          "locale_variant": "fr-CA",
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
           "source": m.id+'.handler.config.createTitle',
           "target": m.handler.config.createTitle +' fr'
         });
-        x.localeDAO.put(l2);
+        putLocale(l2);
       }
     }
   });
+  // Write sequentially to avoid flooding the browser with localeDAO POSTs.
+  for ( let xl of locales ) await x.localeDAO.put(xl);
 """,
   "output": "",
   "notes": "",

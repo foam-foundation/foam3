@@ -431,6 +431,10 @@ foam.CLASS({
     },
     {
       name: 'notificationSub'
+    },
+    {
+      class: 'Boolean',
+      name: 'reloading_'
     }
   ],
 
@@ -488,8 +492,6 @@ foam.CLASS({
         // group required for loginVariables before initMenu
         await self.fetchGroup();
 
-        self.subToNotifications();
-        let ret = await self.initMenu();
         let isAnonymous = false;
         try {
           isAnonymous = await client.auth.isAnonymous();
@@ -515,6 +517,8 @@ foam.CLASS({
           await self.onUserAgentAndGroupLoaded();
         }
 
+        self.subToNotifications();
+
         // add user and agent for backward compatibility
         Object.defineProperty(self, 'user', {
           get: function() {
@@ -532,6 +536,8 @@ foam.CLASS({
             return this.subject.realUser;
           }
         });
+
+        await self.initMenu();
       });
     },
 
@@ -558,6 +564,12 @@ foam.CLASS({
       this.fetchTheme();
       this.onDetach(this.__subContext__.cssTokenOverrideService?.cacheUpdated.sub(() => { foam.u2.CSS.reloadStyles(this.__subContext__) }));
       this.subject = this.client.initSubject;
+    },
+
+    function reload() {
+      if ( this.reloading_ ) return;
+      this.reloading_ = true;
+      this.window.location.reload();
     },
 
     function installLanguage() {
@@ -780,6 +792,11 @@ foam.CLASS({
     },
 
     function requestLogin() {
+      if ( this.reloading_ ) {
+        console.log('ApplicationController is reloading, skipping login request');
+        return;
+      }
+
       var self = this;
       var view =  self.loginView ?? {
         ...({ class: 'foam.u2.borders.BaseUnAuthBorder' }),

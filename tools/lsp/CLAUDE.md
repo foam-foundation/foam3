@@ -14,7 +14,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | File | Purpose | Key Functions |
 |---|---|---|
 | `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()` |
-| `FoamIndex.js` | Query layer over FOAM registry | `getAllClassIds()`, `getProperties()`, `getFilePath()`, `buildFileIndex()` |
+| `FoamIndex.js` | Query layer over FOAM registry | `getAllClassIds()`, `getProperties()`, `getFilePath()`, `getClassLine()`, `getSymbolPosition()`, `resolveSymbol()`, `buildFileIndex()` |
 | `FoamClassGrammar.js` | Grammar parser for completion `sug()` only | Skip-and-match pattern, dynamic `sug()` from registry |
 | `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
 | `TypeTracker.js` | Variable type resolution from `.create()` assignments | `getVariableTypes()` |
@@ -53,7 +53,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 
 | Method | Returns | Source |
 |---|---|---|
-| `getJsUsages(classId)` | classes whose JS function bodies reference `this.<ShortName>` via requires | `cls.getOwnAxiomsByClass(foam.lang.Method/Action/Listener/Property)` + `fn.toString()` regex |
+| `getJsUsages(classId)` | classes whose JS code references the class: `this.<Short>` via requires, `.create()` receivers, `.tag(X, {})` args, `{ class: 'dotted.Id' }` spec strings | Grammar `collectAxiomPositions` per source file (memberRef / instCreateReceiver / instTagClass / instClassRef); registry `fn.toString()` scan only for file-less (runtime-registered) classes |
 | `getJavaUsages(classId)` | classes whose javaCode / javaPostSet / etc. reference the type | Same axiom walk, `javaImports` resolves short→full |
 | `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `JrlLoader.loadFile(...services.jrl)` |
 | `getMemberUsages(classId, memberName)` | per-class `this.X` usages of an own / inherited property or method | Reuses `scanFunctions_` axiom walk |

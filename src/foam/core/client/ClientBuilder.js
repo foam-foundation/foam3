@@ -28,6 +28,10 @@ foam.CLASS({
 
   exports: [ 'sessionID' ],
 
+  constants: [
+    { name: 'CACHE_TIMEOUT', value: 5 * 60 * 1000 } // 5 minutes
+  ],
+
   properties: [
     {
       class: 'String',
@@ -204,8 +208,8 @@ foam.CLASS({
                         };
                         if ( cls === foam.dao.EasyDAO ) {
                           defaults.cache              = true;
-                          defaults.ttlSelectPurgeTime = 15000;    // for select()
-                          defaults.ttlPurgeTime       = 15000;    // for find()
+                          defaults.ttlSelectPurgeTime = self.CACHE_TIMEOUT; // for select()
+                          defaults.ttlPurgeTime       = self.CACHE_TIMEOUT; // for find()
                           defaults.daoType            = 'CLIENT';
                         }
                         for ( var k in defaults ) {

@@ -131,37 +131,80 @@ public class MCPWebAgent
 
   @Override
   public void execute(X x) {
-    HttpServletRequest  req    = x.get(HttpServletRequest.class);
-    HttpServletResponse resp   = x.get(HttpServletResponse.class);
-    PrintWriter         out    = x.get(PrintWriter.class);
-    Logger              logger = (Logger) x.get("logger");
+    HttpServletRequest  req  = x.get(HttpServletRequest.class);
+    HttpServletResponse resp = x.get(HttpServletResponse.class);
+    PrintWriter         out  = x.get(PrintWriter.class);
 
     resp.setContentType("application/json");
     resp.setHeader("Cache-Control", "no-store");
 
-    Object id = null;
     try {
-      String             body   = readBody(req);
-      Map<String,Object> rpc    = parseJSON(x, body);
+      String body   = readBody(req);
+      Object parsed = MAPPER.readValue(body, Object.class);
+
+      if ( parsed instanceof List<?> batch ) {
+        // JSON-RPC batch request — process each, omit responses for notifications
+        List<Object> responses = new ArrayList<>();
+        for ( Object item : batch ) {
+          Map<String,Object> response = processSingle(x, asMap(item));
+          if ( response != null ) responses.add(response);
+        }
+        out.print(mapToJSONString(responses));
+        out.flush();
+      } else {
+        // Single request
+        Map<String,Object> response = processSingle(x, asMap(parsed));
+        if ( response == null ) {
+          resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        } else {
+          out.print(mapToJSONString(response));
+          out.flush();
+        }
+      }
+    } catch ( Throwable t ) {
+      Logger logger = (Logger) x.get("logger");
+
+      logger.error("MCPWebAgent", t);
+      out.print(mapToJSONString(Map.of(
+        "jsonrpc", "2.0",
+        "id",      "unknown",
+        "error",   Map.of("code", -32700, "message", t.getMessage() != null ? t.getMessage() : "Parse error")
+      )));
+      out.flush();
+    }
+  }
+
+  /** Process a single JSON-RPC request map. Returns null for notifications (no id). */
+  @SuppressWarnings("unchecked")
+  protected Map<String,Object> processSingle(X x, Map<String,Object> rpc) {
+    Logger logger = (Logger) x.get("logger");
+    Object id     = rpc.get("id");
+    try {
       String             method = (String) rpc.get("method");
-      id                        = rpc.get("id");
       Map<String,Object> params = asMap(rpc.get("params"));
 
-      // Notifications (no id) — acknowledge silently
-      if ( id == null ) {
-        resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
-        return;
-      }
+      // Notifications (no id) — no response
+      if ( id == null ) return null;
 
       Object result = dispatch(x, method, params);
-      writeResult(out, id, result);
+      return Map.of("jsonrpc", "2.0", "id", id, "result", result);
 
     } catch ( MCPError e ) {
-      writeError(out, id, e.code, e.getMessage());
+      if ( id == null ) return null;
+      return errorResponse(id, e.code, e.getMessage());
     } catch ( Throwable t ) {
       logger.error("MCPWebAgent", t);
-      writeError(out, id, -32603, t.getMessage());
+      if ( id == null ) return null;
+      return errorResponse(id, -32603, t.getMessage() != null ? t.getMessage() : "Internal error");
     }
+  }
+
+  protected Map<String,Object> errorResponse(Object id, int code, String message) {
+    return Map.of(
+      "jsonrpc", "2.0",
+      "id",      id,
+      "error",   Map.of("code", code, "message", message != null ? message : "Internal error")
+    );
   }
 
 
@@ -451,19 +494,6 @@ public class MCPWebAgent
     return Map.of("content", List.of(Map.of("type", "text", "text", text)));
   }
 
-  protected void writeResult(PrintWriter out, Object id, Object result) {
-    out.print(mapToJSONString(Map.of("jsonrpc", "2.0", "id", id, "result", result)));
-    out.flush();
-  }
-
-  protected void writeError(PrintWriter out, Object id, int code, String message) {
-    out.print(mapToJSONString(Map.of(
-      "jsonrpc", "2.0",
-      "id",      id != null ? id : "Unknown Id",
-      "error",   Map.of("code", code, "message", message != null ? message : "Internal error")
-    )));
-    out.flush();
-  }
 
 
   // ─── I/O Utilities ────────────────────────────────────────────────────────────
@@ -476,19 +506,6 @@ public class MCPWebAgent
       while ( (n = reader.read(buf)) != -1 ) sb.append(buf, 0, n);
     }
     return sb.toString();
-  }
-
-  @SuppressWarnings("unchecked")
-  protected Map<String,Object> parseJSON(X x, String json) {
-    try {
-      Object result = MAPPER.readValue(json, Object.class);
-      if ( result instanceof Map ) return (Map<String,Object>) result;
-      throw new MCPError(-32700, "Parse error: expected JSON object");
-    } catch (MCPError e) {
-      throw e;
-    } catch (Throwable t) {
-      throw new MCPError(-32700, "Parse error: " + t.getMessage());
-    }
   }
 
   protected String mapToJSONString(Object obj) {

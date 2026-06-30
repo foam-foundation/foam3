@@ -36,6 +36,11 @@ foam.CLASS({
       name: 'authorizer',
       class: 'FObjectProperty',
       of: 'foam.core.auth.Authorizer'
+    },
+    {
+      documentation: 'Skip checkGlobalRead and perform authorizeOnRead on select. Similar with removeAll',
+      name: 'forceAuthorizeOnReadRemove',
+      class: 'Boolean'
     }
   ],
 
@@ -90,15 +95,27 @@ foam.CLASS({
     {
       name: 'select_',
       javaCode: `
-    if ( ! getAuthorizer().checkGlobalRead(x, predicate) ) predicate = augmentPredicate(x, false, predicate);
-    return super.select_(x, sink, skip, limit, order, predicate);
+      if ( getForceAuthorizeOnReadRemove() ) {
+        Sink s = prepareSink(sink);
+        super.select_(x, new AuthorizationSink(x, getAuthorizer(), s, false), skip, limit, order, predicate);
+        return s;
+      } else {
+        if ( ! getAuthorizer().checkGlobalRead(x, predicate) )
+          predicate = augmentPredicate(x, false, predicate);
+        return super.select_(x, sink, skip, limit, order, predicate);
+      }
  `
     },
     {
       name: 'removeAll_',
       javaCode: `
-    if ( ! getAuthorizer().checkGlobalRemove(x) ) predicate = augmentPredicate(x, true, predicate);
-    this.select_(x, new RemoveSink(x, this), skip, limit, order, predicate);
+      if ( getForceAuthorizeOnReadRemove() ) {
+        super.select_(x, new AuthorizationSink(x, getAuthorizer(), new RemoveSink(x, this), true), skip, limit, order, predicate);
+      } else {
+        if ( ! getAuthorizer().checkGlobalRemove(x) )
+          predicate = augmentPredicate(x, true, predicate);
+        this.select_(x, new RemoveSink(x, this), skip, limit, order, predicate);
+      }
  `
     },
     {

@@ -145,6 +145,13 @@ foam.CLASS({
       return foam.lang.Duration.duration(Math.round(Number(ms) || 0));
     },
 
+    function frameLabel(f) {
+      /** "fn (resource:line:col)" - line/col locate the fn in a prod one-file bundle. **/
+      var loc = f.resource ? this.shortUrl_(f.resource) : '';
+      if ( f.line ) loc += ':' + f.line + ( f.column ? ':' + f.column : '' );
+      return f.name + ( loc ? '  (' + loc + ')' : '' );
+    },
+
     function severityRank_(sev) {
       return sev === this.PerfSeverity.BAD ? 2 : sev === this.PerfSeverity.WARN ? 1 : 0;
     },
@@ -223,7 +230,7 @@ foam.CLASS({
         blocks.forEach(function(b) {
           L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
           ( b.hot || [] ).forEach(function(f) {
-            L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + f.name + ( f.resource ? '  (' + this.shortUrl_(f.resource) + ')' : '' ));
+            L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
           }.bind(this));
         }.bind(this));
         L.push('');

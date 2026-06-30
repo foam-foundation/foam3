@@ -346,9 +346,8 @@ foam.CLASS({
 
         // Expandable detail: this block's hottest functions (% within the block + CPU ms).
         hot.forEach(function(f) {
-          var nm = f.name + ( f.resource ? '  (' + r.shortUrl_(f.resource) + ')' : '' );
           t.start('tr').addClass(self.myClass('hot-row')).show(open$)
-            .start('th').add(nm).end()
+            .start('th').add(r.frameLabel(f)).end()
             .start('td').add(r.numStr(f.pct, 0) + ' %').end()
             .start('td').add(r.durStr(f.ms)).end()
             .start('td').add('').end()
@@ -510,6 +509,8 @@ foam.CLASS({
         return foam.core.reflow.perf.PerfHotFrame.create({
           name:        f.name || '(anonymous)',
           resource:    res || '',
+          line:        f.line || 0,
+          column:      f.column || 0,
           selfSamples: counts[fid],
           pct:         100 * counts[fid] / total,
           ms:          counts[fid] * self.SAMPLE_INTERVAL_MS

@@ -68,6 +68,8 @@ foam.CLASS({
   properties: [
     { class: 'String', name: 'name' },
     { class: 'String', name: 'resource', documentation: 'source URL the frame came from' },
+    { class: 'Int',    name: 'line',   documentation: 'line in the source (locates the fn in a prod one-file bundle)' },
+    { class: 'Int',    name: 'column', documentation: 'column in the source' },
     { class: 'Int',    name: 'selfSamples', documentation: 'samples whose leaf was this frame' },
     { class: 'Float',  name: 'pct', documentation: 'percent of samples within its scope (block)' },
     { class: 'Float',  name: 'ms', documentation: 'estimated CPU time = selfSamples × sampleInterval' }

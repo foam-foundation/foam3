@@ -208,8 +208,8 @@ foam.CLASS({
                         };
                         if ( cls === foam.dao.EasyDAO ) {
                           defaults.cache              = true;
-                          defaults.ttlSelectPurgeTime = this.CACHE_TIMEOUT; // for select()
-                          defaults.ttlPurgeTime       = this.CACHE_TIMEOUT; // for find()
+                          defaults.ttlSelectPurgeTime = self.CACHE_TIMEOUT; // for select()
+                          defaults.ttlPurgeTime       = self.CACHE_TIMEOUT; // for find()
                           defaults.daoType            = 'CLIENT';
                         }
                         for ( var k in defaults ) {

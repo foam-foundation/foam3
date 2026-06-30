@@ -637,6 +637,12 @@ foam.LIB({
 
       return a.toUpperCase().startsWith(b.toUpperCase());
     },
+    function normalize(str) {
+      return str.
+        normalize("NFD").       // match Java behaviour
+        replace(/\p{C}/gu,"").  // remove non-printable
+        replace(/\p{M}/gu,"");  // remove accents/diacritics
+    },
     (function() {
       var map = {};
 

@@ -1042,6 +1042,9 @@ dao loading, which improves overall startup time.`,
           name: 'innerDAO'
         }
       ],
+      code: function(innerDAO) {
+        return innerDAO;
+      },
       javaCode: `
         return innerDAO;
       `
@@ -1281,7 +1284,7 @@ dao loading, which improves overall startup time.`,
         });
       }
 
-      return dao;
+      return this.getOuterDAO(dao);
     },
 
     /** Only relevant if using postgresdao */

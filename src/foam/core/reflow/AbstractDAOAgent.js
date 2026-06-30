@@ -1124,11 +1124,14 @@ foam.CLASS({
       var daoKey   = serviceName.substring(8);
       var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
+      var title = daoKey;
+
       // Probe DAO to find the actual full query being used
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
           url = url + '&q=' + encodeURIComponent(p.toMQL());
+          title = title + ', query=' + p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1139,7 +1142,17 @@ foam.CLASS({
         url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
       }
 
-      this.add('Download As: ');
+      if ( this.block.value.skip ) {
+        url = url + '&skip=' + this.block.value.skip;
+        title = title + ', skip=' + this.block.value.skip;
+      }
+
+      if ( this.block.value.limit > 0 ) {
+        url = url + '&limit=' + this.block.value.limit;
+        title = title + ', limit=' + this.block.value.limit;
+      }
+
+      this.add(`Download ${title}`).tag('br').add('As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
         this.

@@ -65,7 +65,7 @@ p({
         putLocale(xl);
       }
 
-      if ( !!!p.label && !!p.name && ( p.class != "foam.lang.Enum" && p.class != "Enum") ) {
+      if ( !p.label && !!p.name && ( p.class != "foam.lang.Enum" && p.class != "Enum") ) {
         let xl = foam.i18n.Locale.create({
           "id": o.id+'.'+pName+'.label',
           "locale": targetLocale,
@@ -178,7 +178,7 @@ p({
         putLocale(xl);
       }
 
-      if ( !!!p.label && !!p.name ) {
+      if ( !p.label && !!p.name ) {
         let xl = foam.i18n.Locale.create({
           "id": o.id+'.'+pName+'.label',
           "locale": targetLocale,
@@ -376,7 +376,7 @@ p({
         msg+= p.label+'\\n';
       }
 
-      if ( !!!p.label && !!p.name && ( p.class != "foam.lang.Enum" && p.class != "Enum") ) {
+      if ( !p.label && !!p.name && ( p.class != "foam.lang.Enum" && p.class != "Enum") ) {
         let xl = foam.i18n.Locale.create({
           "id": o.id+'.'+pName+'.label',
           "locale": targetLocale,
@@ -498,7 +498,7 @@ p({
         msg+= p.label+'\\n';
       }
 
-      if ( !!!p.label && !!p.name ) {
+      if ( !p.label && !!p.name ) {
         let xl = foam.i18n.Locale.create({
           "id": o.id+'.'+pName+'.label',
           "locale": targetLocale,

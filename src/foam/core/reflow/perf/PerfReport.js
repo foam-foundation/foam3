@@ -205,17 +205,18 @@ foam.CLASS({
       }
       L.push('');
 
-      L.push('METRICS');
-      L.push('  ' + pad('Elapsed', 21)             + this.durStr(this.elapsedMs));
-      L.push('  ' + pad('Avg / Min FPS', 21)       + this.numStr(this.avgFps, 0) + ' / ' + this.numStr(this.minFps, 0));
-      L.push('  ' + pad('Main-thread blocked', 21) + this.numStr(this.mainThreadBlockedPct, 0) + ' %');
-      L.push('  ' + pad('Longest task', 21)        + this.durStr(this.longestTaskMs));
-      L.push('  ' + pad('Heap delta', 21)          + this.byteStr(this.heapDeltaBytes));
-      L.push('  ' + pad('DOM nodes added', 21)     + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
-      L.push('  ' + pad('Network calls', 21)       + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');
-      L.push('  ' + pad('Largest request', 21)     + this.byteStr(this.largestRequestBytes));
-      L.push('  ' + pad('Warnings', 21)            + this.numStr(this.warnCount, 0));
-      L.push('');
+      // Section order matches the UI: Per-block, Service calls, then Metrics.
+      var blocks = this.blockProfile || [];
+      if ( blocks.length ) {
+        L.push('PER-BLOCK COST (worst first)');
+        blocks.forEach(function(b) {
+          L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
+          ( b.hot || [] ).forEach(function(f) {
+            L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
+          }.bind(this));
+        }.bind(this));
+        L.push('');
+      }
 
       var calls = this.serviceCalls || [];
       if ( calls.length ) {
@@ -235,17 +236,17 @@ foam.CLASS({
         L.push('');
       }
 
-      var blocks = this.blockProfile || [];
-      if ( blocks.length ) {
-        L.push('PER-BLOCK COST (worst first)');
-        blocks.forEach(function(b) {
-          L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
-          ( b.hot || [] ).forEach(function(f) {
-            L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
-          }.bind(this));
-        }.bind(this));
-        L.push('');
-      }
+      L.push('METRICS');
+      L.push('  ' + pad('Elapsed', 21)             + this.durStr(this.elapsedMs));
+      L.push('  ' + pad('Avg / Min FPS', 21)       + this.numStr(this.avgFps, 0) + ' / ' + this.numStr(this.minFps, 0));
+      L.push('  ' + pad('Main-thread blocked', 21) + this.numStr(this.mainThreadBlockedPct, 0) + ' %');
+      L.push('  ' + pad('Longest task', 21)        + this.durStr(this.longestTaskMs));
+      L.push('  ' + pad('Heap delta', 21)          + this.byteStr(this.heapDeltaBytes));
+      L.push('  ' + pad('DOM nodes added', 21)     + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
+      L.push('  ' + pad('Network calls', 21)       + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');
+      L.push('  ' + pad('Largest request', 21)     + this.byteStr(this.largestRequestBytes));
+      L.push('  ' + pad('Warnings', 21)            + this.numStr(this.warnCount, 0));
+      L.push('');
 
       var end = this.endSnapshot;
       L.push('ENVIRONMENT');

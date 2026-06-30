@@ -202,7 +202,7 @@ foam.CLASS({
       L.push('  ' + pad('Longest task', 21)        + this.durStr(this.longestTaskMs));
       L.push('  ' + pad('Heap delta', 21)          + this.byteStr(this.heapDeltaBytes));
       L.push('  ' + pad('DOM nodes added', 21)     + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
-      L.push('  ' + pad('Network calls', 21)       + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' repeated)');
+      L.push('  ' + pad('Network calls', 21)       + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');
       L.push('  ' + pad('Largest request', 21)     + this.byteStr(this.largestRequestBytes));
       L.push('  ' + pad('Warnings', 21)            + this.numStr(this.warnCount, 0));
       L.push('');

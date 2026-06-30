@@ -43,7 +43,7 @@ foam.CLASS({
         detail: function(r) {
           var worst = r.repeatedRequests && r.repeatedRequests.length ?
             r.repeatedRequests.reduce(function(a, b) { return b.count > a.count ? b : a; }) : null;
-          return r.numStr(r.repeatedRequestCount, 0) + ' request(s) fired more than once' +
+          return r.numStr(r.repeatedRequestCount, 0) + ' identical re-fetch(es)' +
             ( worst ? ' - worst fetched ' + worst.count + '× (' + r.shortUrl_(worst.url) + ')' : '' ) + ' - cache candidate.';
         } },
 

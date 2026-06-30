@@ -237,7 +237,7 @@ foam.CLASS({
       row(self.LONGEST_LABEL, r.durStr(r.longestTaskMs), 'longestTaskMs');
       row(self.HEAP_LABEL, r.byteStr(r.heapDeltaBytes), 'heapDeltaBytes');
       row(self.DOM_LABEL, r.numStr(r.domNodeDelta, 0) + ( r.tableCellDelta > 0 ? ' (' + r.numStr(r.tableCellDelta, 0) + ' cells)' : '' ), 'domNodeDelta');
-      row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' repeated)', 'repeatedRequestCount');
+      row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' identical)', 'repeatedRequestCount');
       row(self.LARGEST_LABEL, r.byteStr(r.largestRequestBytes), 'largestRequestBytes');
       row(self.WARN_LABEL, r.numStr(r.warnCount, 0), 'warnRate');
       el2.end();
@@ -649,15 +649,18 @@ foam.CLASS({
         g.count++;
         g.requestBytes  += c.reqBytes || 0;
         g.responseBytes += c.respBytes || 0;
-        // Distinct request bodies (by hash) -> variants, each with its own count + query.
-        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: c.reqBytes || 0, responseBytes: c.respBytes || 0, query: c.query || '' } );
+        // Distinct request bodies (by hash) -> variants, each summing its own calls (so the
+        // variants' bytes add up to the group's totals).
+        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: 0, responseBytes: 0, query: c.query || '' } );
         v.count++;
+        v.requestBytes  += c.reqBytes || 0;
+        v.responseBytes += c.respBytes || 0;
       });
 
-      var repeats = [];
+      var repeats = [], redundant = 0;
       Object.keys(byHash).forEach(function(k) {
         var g = byHash[k];
-        if ( g.count > 1 ) repeats.push(foam.core.reflow.perf.PerfRepeatedRequest.create(g));
+        if ( g.count > 1 ) { repeats.push(foam.core.reflow.perf.PerfRepeatedRequest.create(g)); redundant += g.count - 1; }
       });
       repeats.sort(function(a, b) { return b.count - a.count; });
 
@@ -676,7 +679,7 @@ foam.CLASS({
         networkCallCount:     calls.length,
         networkUploadBytes:   upload,
         largestRequestBytes:  largest,
-        repeatedRequestCount: repeats.length,
+        repeatedRequestCount: redundant,   // total identical re-fetches (Σ count-1); matches the service table
         repeatedRequests:     repeats,
         serviceCalls:         services
       };

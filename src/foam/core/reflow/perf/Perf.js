@@ -654,10 +654,36 @@ foam.CLASS({
         // Query descriptor for the expand view: the predicate if any (select_ arg 5),
         // else the id being fetched/written - so two calls can be compared by what they ask for.
         var pred = foam.mlang.predicate.Predicate.isInstance(args[5]) ? args[5] : null;
-        var q = pred ? pred.toString() : '';
-        if ( ! q && op === 'find' && args[1] != null ) q = 'id=' + args[1];
-        call.query = q ? ( q.length > 140 ? q.substring(0, 137) + '…' : q ) : '';
+        var q = pred ? this.prettyPredicate_(pred) : '';
+        if ( ! q && op === 'find' && args[1] != null ) q = 'id = ' + args[1];
+        call.query = q ? ( q.length > 160 ? q.substring(0, 157) + '…' : q ) : '';
       } catch (e) { /* unparseable - leave op/sink blank */ }
+    },
+
+    function prettyPredicate_(p) {
+      /** Render an MLang predicate readably: field names (not FQNs), = / AND / OR / NOT,
+          'is set' / 'is empty'. Walks the parsed FObject (no string regex). **/
+      var self = this;
+      if ( p == null ) return '';
+      if ( Array.isArray(p) ) return '[' + p.map(function(x) { return self.prettyPredicate_(x); }).join(', ') + ']';
+      if ( ! p.cls_ ) return ( typeof p === 'string' ) ? '"' + p + '"' : String(p);
+      var n = p.cls_.name;
+      if ( n === 'Constant' ) { var v = p.value; return ( typeof v === 'string' ) ? '"' + v + '"' : self.prettyPredicate_(v); }
+      var BIN = { Eq: '=', Neq: '≠', Gt: '>', Gte: '≥', Lt: '<', Lte: '≤' };
+      if ( BIN[n] ) return self.prettyPredicate_(p.arg1) + ' ' + BIN[n] + ' ' + self.prettyPredicate_(p.arg2);
+      if ( n === 'And' || n === 'Or' )
+        return ( p.args || [] ).map(function(a) { return self.prettyPredicate_(a); }).join( n === 'And' ? ' AND ' : ' OR ' );
+      if ( n === 'Not' ) {
+        var inner = p.arg1;
+        if ( inner && inner.cls_ && inner.cls_.name === 'Has' ) return self.prettyPredicate_(inner.arg1) + ' is empty';
+        return 'NOT ' + self.prettyPredicate_(inner);
+      }
+      if ( n === 'Has' ) return self.prettyPredicate_(p.arg1) + ' is set';
+      if ( n === 'In' )  return self.prettyPredicate_(p.arg1) + ' in ' + self.prettyPredicate_(p.arg2);
+      if ( n === 'Contains' || n === 'ContainsIC' || n === 'StartsWith' || n === 'EndsWith' )
+        return self.prettyPredicate_(p.arg1) + ' ' + n.toLowerCase() + ' ' + self.prettyPredicate_(p.arg2);
+      if ( p.name ) return p.name;   // property reference -> just the field name
+      return p.toString();           // fallback for any unhandled node
     },
 
     function unwrapFetch_() {

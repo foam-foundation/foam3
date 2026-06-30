@@ -15,7 +15,7 @@ foam.CLASS({
     function render() {
       this.SUPER();
       this.start('div', {
-          tooltip: this.data$.map(d => d ? d.toLocaleDateString(foam.util.getClientLocale(), {
+          tooltip$: this.data$.map(d => d ? d.toLocaleDateString(foam.util.getClientLocale(), {
             day: 'numeric',
             month: 'long',
             year: 'numeric'

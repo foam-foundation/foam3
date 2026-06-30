@@ -653,10 +653,17 @@ foam.CLASS({
         }
         // Query descriptor for the expand view: the predicate if any (select_ arg 5),
         // else the id being fetched/written - so two calls can be compared by what they ask for.
-        var pred = foam.mlang.predicate.Predicate.isInstance(args[5]) ? args[5] : null;
-        var q = pred ? this.prettyPredicate_(pred) : '';
-        if ( ! q && op === 'find' && args[1] != null ) q = 'id = ' + args[1];
-        call.query = q ? ( q.length > 160 ? q.substring(0, 157) + '…' : q ) : '';
+        // Describe the query: predicate + order + non-default limit/skip (so two selects
+        // that differ only by ordering or paging are distinguishable in the variant list).
+        var parts = [];
+        var pred  = foam.mlang.predicate.Predicate.isInstance(args[5]) ? args[5] : null;
+        if ( pred ) parts.push(this.prettyPredicate_(pred));
+        if ( args[4] && args[4].cls_ ) parts.push('order by ' + this.prettyOrder_(args[4]));
+        if ( typeof args[3] === 'number' && args[3] < 9007199254740991 ) parts.push('limit ' + args[3]);
+        if ( typeof args[2] === 'number' && args[2] > 0 ) parts.push('skip ' + args[2]);
+        if ( ! parts.length && op === 'find' && args[1] != null ) parts.push('id = ' + args[1]);
+        var q = parts.join('  ·  ');
+        call.query = q.length > 160 ? q.substring(0, 157) + '…' : q;
       } catch (e) { /* unparseable - leave op/sink blank */ }
     },
 
@@ -684,6 +691,15 @@ foam.CLASS({
         return self.prettyPredicate_(p.arg1) + ' ' + n.toLowerCase() + ' ' + self.prettyPredicate_(p.arg2);
       if ( p.name ) return p.name;   // property reference -> just the field name
       return p.toString();           // fallback for any unhandled node
+    },
+
+    function prettyOrder_(o) {
+      /** Render an MLang order readably: 'field' (asc), 'field desc', comma-joined for ThenBy. **/
+      if ( o == null ) return '';
+      if ( o.cls_ && o.cls_.name === 'Desc' )   return this.prettyOrder_(o.arg1) + ' desc';
+      if ( o.cls_ && o.cls_.name === 'ThenBy' ) return this.prettyOrder_(o.head) + ', ' + this.prettyOrder_(o.tail);
+      if ( o.name ) return o.name;   // a property = ascending
+      return o.cls_ ? o.toString() : String(o);
     },
 
     function unwrapFetch_() {

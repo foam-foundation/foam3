@@ -12,7 +12,8 @@ foam.CLASS({
   imports: [
     'menu',
     // If rendered in a dropdown, close the dropdown after launching menu
-    'dropdown? as parentMenuDropdown'
+    'dropdown? as parentMenuDropdown',
+    'translationService'
   ],
 
   properties: [
@@ -20,7 +21,7 @@ foam.CLASS({
       name: 'label',
       expression: function(menu) {
         if ( menu && menu.label )
-          return ctrl.__subContext__.translationService.getTranslation(foam.locale, menu.id+".label", menu.label);
+          return this.translationService.getTranslation(foam.locale, menu.id+".label", menu.label);
         return '';
       }
     },

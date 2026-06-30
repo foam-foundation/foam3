@@ -12,8 +12,7 @@ foam.CLASS({
   imports: [
     'menu',
     // If rendered in a dropdown, close the dropdown after launching menu
-    'dropdown? as parentMenuDropdown',
-    'translationConsole'
+    'dropdown? as parentMenuDropdown'
   ],
 
   properties: [

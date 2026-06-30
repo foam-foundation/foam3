@@ -31,7 +31,6 @@ foam.CLASS({
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
     { name: 'BLOCKS_LABEL',     message: 'Per-block cost (worst first)' },
     { name: 'SERVICE_LABEL',    message: 'Service calls (most-called first)' },
-    { name: 'HOT_FUNCS_LABEL',  message: 'Hottest functions (self-profiled)' },
     { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance, or run tron / troff.' },
     { name: 'ELAPSED_LABEL',    message: 'Elapsed' },
     { name: 'AVG_FPS_LABEL',    message: 'Avg / Min FPS' },
@@ -92,7 +91,15 @@ foam.CLASS({
 
     ^env  { color: $textSecondary; font-size: 12px; }
     ^hint { color: $textSecondary; font-style: italic; }
+    ^block-row { cursor: pointer; }
+    ^block-row:hover { background: $grey50; }
+    ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
+    ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
   `,
+
+  constants: {
+    SAMPLE_INTERVAL_MS: 10   // JS Self-Profiling sampleInterval; each sample ≈ this many ms of CPU
+  },
 
   properties: [
     {
@@ -143,7 +150,6 @@ foam.CLASS({
         self.renderMetrics_(this, r);
         self.renderServiceCalls_(this, r);
         self.renderBlocks_(this, r);
-        self.renderHot_(this, r);
         self.renderEnv_(this, r);
       }));
 
@@ -225,10 +231,10 @@ foam.CLASS({
         self.heatCell_(td, text, sev ? ( sev === self.PerfSeverity.BAD ? 'bad' : 'warn' ) : null);
         tr.end();
       };
-      row(self.ELAPSED_LABEL, r.numStr(r.elapsedMs, 0) + ' ms');
+      row(self.ELAPSED_LABEL, r.durStr(r.elapsedMs));
       row(self.AVG_FPS_LABEL, r.numStr(r.avgFps, 0) + ' / ' + r.numStr(r.minFps, 0), 'minFps');
       row(self.BLOCKED_LABEL, r.numStr(r.mainThreadBlockedPct, 0) + ' %', 'mainThreadBlockedPct');
-      row(self.LONGEST_LABEL, r.numStr(r.longestTaskMs, 0) + ' ms', 'longestTaskMs');
+      row(self.LONGEST_LABEL, r.durStr(r.longestTaskMs), 'longestTaskMs');
       row(self.HEAP_LABEL, r.byteStr(r.heapDeltaBytes), 'heapDeltaBytes');
       row(self.DOM_LABEL, r.numStr(r.domNodeDelta, 0) + ( r.tableCellDelta > 0 ? ' (' + r.numStr(r.tableCellDelta, 0) + ' cells)' : '' ), 'domNodeDelta');
       row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' repeated)', 'repeatedRequestCount');
@@ -292,38 +298,38 @@ foam.CLASS({
         .start('td').add('+Heap').end()
       .end();
       blocks.forEach(function(b) {
-        var tr = t.start('tr');
-        tr.start('th').add(b.flowName).end();
-        self.heatCell_(tr.start('td'), r.numStr(b.ms, 0) + ' ms', self.heatLevel_(b.ms, maxMs));
+        var hot        = b.hot || [];
+        var expandable = hot.length > 0;
+        var open$      = foam.lang.SimpleSlot.create({ value: false });
+
+        var tr = t.start('tr').addClass(self.myClass('block-row'));
+        if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
+        var th = tr.start('th');
+        th.start('span').addClass(self.myClass('twisty'))
+          .add( expandable ? open$.map(function(o) { return o ? '▾' : '▸'; }) : '' )
+        .end();
+        th.add(b.flowName).end();
+        self.heatCell_(tr.start('td'), r.durStr(b.ms), self.heatLevel_(b.ms, maxMs));
         self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0),    self.heatLevel_(b.domDelta, maxDom));
         self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),     self.heatLevel_(b.heapDelta, maxHeap));
         tr.end();
-      });
-      t.end();
-      card.end();
-    },
 
-    function renderHot_(el, r) {
-      var self = this;
-      var hot  = r.hotFunctions || [];
-      if ( hot.length ) {
-        var card = self.card_(el, self.HOT_FUNCS_LABEL);
-        var t = card.start('table');
+        // Expandable detail: this block's hottest functions (% within the block + CPU ms).
         hot.forEach(function(f) {
-          var name = f.name + ( f.resource ? '  (' + r.shortUrl_(f.resource) + ')' : '' );
-          t.start('tr')
-            .start('th').add(name).end()
+          var nm = f.name + ( f.resource ? '  (' + r.shortUrl_(f.resource) + ')' : '' );
+          t.start('tr').addClass(self.myClass('hot-row')).show(open$)
+            .start('th').add(nm).end()
             .start('td').add(r.numStr(f.pct, 0) + ' %').end()
+            .start('td').add(r.durStr(f.ms)).end()
+            .start('td').add('').end()
           .end();
         });
-        t.end();
-        card.end();
-      } else {
-        // No in-page profile - point the user at DevTools / tron-troff instead.
-        self.card_(el, self.HOT_FUNCS_LABEL)
-          .start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end()
-        .end();
+      });
+      t.end();
+      if ( ! r.profilingSupported ) {
+        card.start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end();
       }
+      card.end();
     },
 
     function renderEnv_(el, r) {
@@ -371,7 +377,7 @@ foam.CLASS({
       // policy is set - then we fall back to the DevTools hint.
       try {
         this.profiler_ = this.window.Profiler ?
-          new this.window.Profiler({ sampleInterval: 10, maxBufferSize: 100000 }) : null;
+          new this.window.Profiler({ sampleInterval: this.SAMPLE_INTERVAL_MS, maxBufferSize: 100000 }) : null;
       } catch (e) { this.profiler_ = null; }
 
       this.running = true;
@@ -382,9 +388,9 @@ foam.CLASS({
       /** End the capture window and compute the report. Callable headlessly.
           Async because the JS Self-Profiling API resolves its trace on stop(). **/
       var net    = this.summarizeNetwork_(this.netCalls_ || []);
-      var blocks = this.summarizeBlocks_();   // drain before stopCapture_ nulls the buffer
-      this.flushLongTasks_();                 // collect buffered longtasks before disconnect
-      var hot    = await this.stopProfile_();
+      var prof   = await this.stopProfile_();          // {supported, trace} - need trace for per-block hot
+      var blocks = this.summarizeBlocks_(prof.trace);  // drains buffer, attributes hot fns per block
+      this.flushLongTasks_();                          // collect buffered longtasks before disconnect
       this.stopCapture_();
       this.report.endSnapshot = this.takeSnapshot_();
       this.report.finish({
@@ -402,27 +408,28 @@ foam.CLASS({
         serviceCalls:         net.serviceCalls,
         warnCount:            this.warnCount_
       });
-      this.report.profilingSupported = hot.supported;
-      this.report.hotFunctions       = hot.frames;
+      this.report.profilingSupported = prof.supported;
       this.report.blockProfile       = blocks;
       return this.report;
     },
 
-    function summarizeBlocks_() {
-      /** Drain the per-block capture buffer into PerfBlockCost rows, worst first.
-          Trivial blocks (no time, no DOM) are dropped; top 12 kept. **/
+    function summarizeBlocks_(trace) {
+      /** Drain the per-block capture buffer into PerfBlockCost rows, worst first, each
+          carrying its hottest functions (profiler samples bucketed into the block's
+          [start,end] window). Trivial blocks are dropped; top 12 kept. **/
+      var self = this;
       var raw = ( this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : [];
       if ( this.window ) this.window.__perfCapture__ = null;
-      var rows = raw
+      return raw
         .filter(function(b) { return b.ms >= 1 || b.domDelta >= 50 || b.heapDelta >= 1048576; })
         .sort(function(a, b) { return b.ms - a.ms; })
         .slice(0, 12)
         .map(function(b) {
           return foam.core.reflow.perf.PerfBlockCost.create({
-            flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta
+            flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta,
+            hot: ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end) : []
           });
         });
-      return rows;
     },
 
     function flushLongTasks_() {
@@ -439,31 +446,34 @@ foam.CLASS({
     },
 
     async function stopProfile_() {
-      /** Stop the self-profiler and aggregate samples into hottest frames. **/
-      if ( ! this.profiler_ ) return { supported: false, frames: [] };
+      /** Stop the self-profiler and return the raw trace (bucketed per block later). **/
+      if ( ! this.profiler_ ) return { supported: false, trace: null };
       try {
         var trace = await this.profiler_.stop();
         this.profiler_ = null;
-        return { supported: true, frames: this.summarizeProfile_(trace) };
+        return { supported: true, trace: trace };
       } catch (e) {
         this.profiler_ = null;
-        return { supported: false, frames: [] };
+        return { supported: false, trace: null };
       }
     },
 
-    function summarizeProfile_(trace) {
-      /** Count self-time per leaf frame across all samples; return top frames.
-          Drops our own measurement overhead and sub-3% rounding noise. **/
+    function framesInWindow_(trace, start, end) {
+      /** Hottest leaf frames among samples whose timestamp falls in [start,end).
+          Returns top 5 (>=5% of the window), with % within the window and CPU ms
+          (selfSamples × sampleInterval). Drops this tool's own measurement frames. **/
       if ( ! trace || ! trace.samples || ! trace.stacks || ! trace.frames ) return [];
-      // Frames that are this tool measuring itself, not the flow's own cost.
+      var self = this;
       var NOISE = { 'Profiler': true, 'querySelectorAll': true, 'now': true, 'takeRecords': true };
       var counts = {}, total = 0;
       trace.samples.forEach(function(s) {
+        if ( s.timestamp < start || s.timestamp >= end ) return;
         var stack = trace.stacks[s.stackId];
         if ( ! stack ) return;
         counts[stack.frameId] = ( counts[stack.frameId] || 0 ) + 1;
         total++;
       });
+      if ( ! total ) return [];
       var frames = Object.keys(counts).map(function(fid) {
         var f   = trace.frames[fid] || {};
         var res = ( f.resourceId != null && trace.resources ) ? trace.resources[f.resourceId] : '';
@@ -471,12 +481,13 @@ foam.CLASS({
           name:        f.name || '(anonymous)',
           resource:    res || '',
           selfSamples: counts[fid],
-          pct:         total > 0 ? 100 * counts[fid] / total : 0
+          pct:         100 * counts[fid] / total,
+          ms:          counts[fid] * self.SAMPLE_INTERVAL_MS
         });
       });
-      frames = frames.filter(function(f) { return ! NOISE[f.name] && f.pct >= 3; });
+      frames = frames.filter(function(f) { return ! NOISE[f.name] && f.pct >= 5; });
       frames.sort(function(a, b) { return b.selfSamples - a.selfSamples; });
-      return frames.slice(0, 6);
+      return frames.slice(0, 5);
     },
 
     function stopCapture_() {

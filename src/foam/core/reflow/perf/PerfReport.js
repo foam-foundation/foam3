@@ -50,8 +50,7 @@ foam.CLASS({
     { class: 'Int',   name: 'warnCount', documentation: 'console.warn calls during the window' },
     { class: 'Float', name: 'warnRate', documentation: 'console.warn calls per second' },
     { class: 'Boolean', name: 'profilingSupported', documentation: 'true if the JS Self-Profiling API captured a CPU trace' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hotFunctions' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'blockProfile', documentation: 'per-block costs, worst first (loadPerf only)' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'blockProfile', documentation: 'per-block costs (with hottest functions), worst first (loadPerf only)' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfIssue', name: 'issues' },
     {
       name: 'markers_',
@@ -141,6 +140,11 @@ foam.CLASS({
       return this.numStr(b, 0) + ' B';
     },
 
+    function durStr(ms) {
+      /** Human duration (ms / s / min / h) via foam.lang.Duration. **/
+      return foam.lang.Duration.duration(Math.round(Number(ms) || 0));
+    },
+
     function severityRank_(sev) {
       return sev === this.PerfSeverity.BAD ? 2 : sev === this.PerfSeverity.WARN ? 1 : 0;
     },
@@ -185,10 +189,10 @@ foam.CLASS({
       L.push('');
 
       L.push('METRICS');
-      L.push('  ' + pad('Elapsed', 21)             + this.numStr(this.elapsedMs, 0) + ' ms');
+      L.push('  ' + pad('Elapsed', 21)             + this.durStr(this.elapsedMs));
       L.push('  ' + pad('Avg / Min FPS', 21)       + this.numStr(this.avgFps, 0) + ' / ' + this.numStr(this.minFps, 0));
       L.push('  ' + pad('Main-thread blocked', 21) + this.numStr(this.mainThreadBlockedPct, 0) + ' %');
-      L.push('  ' + pad('Longest task', 21)        + this.numStr(this.longestTaskMs, 0) + ' ms');
+      L.push('  ' + pad('Longest task', 21)        + this.durStr(this.longestTaskMs));
       L.push('  ' + pad('Heap delta', 21)          + this.byteStr(this.heapDeltaBytes));
       L.push('  ' + pad('DOM nodes added', 21)     + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
       L.push('  ' + pad('Network calls', 21)       + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' repeated)');
@@ -211,16 +215,10 @@ foam.CLASS({
       if ( blocks.length ) {
         L.push('PER-BLOCK COST (worst first)');
         blocks.forEach(function(b) {
-          L.push('  ' + pad(this.numStr(b.ms, 0) + ' ms', 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
-        }.bind(this));
-        L.push('');
-      }
-
-      var hot = this.hotFunctions || [];
-      if ( hot.length ) {
-        L.push('HOTTEST FUNCTIONS (self-profiled)');
-        hot.forEach(function(f) {
-          L.push('  ' + pad(this.numStr(f.pct, 0) + '%', 6) + f.name + ( f.resource ? '  (' + this.shortUrl_(f.resource) + ')' : '' ));
+          L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
+          ( b.hot || [] ).forEach(function(f) {
+            L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + f.name + ( f.resource ? '  (' + this.shortUrl_(f.resource) + ')' : '' ));
+          }.bind(this));
         }.bind(this));
         L.push('');
       }
@@ -233,9 +231,9 @@ foam.CLASS({
                ( end.deviceMemoryGB ? ' · Device memory ' + end.deviceMemoryGB + ' GB' : '' ));
         if ( end.userAgent ) L.push('  UA ' + end.userAgent);
       }
-      if ( ! hot.length ) {
+      if ( ! this.profilingSupported ) {
         L.push('');
-        L.push('TIP in-page profiling off - server must send "Document-Policy: js-profiling" (then no DevTools needed). Or capture manually via DevTools → Performance / tron-troff.');
+        L.push('TIP in-page profiling off - server must send "Document-Policy: js-profiling" (then per-block hot functions fill in, no DevTools). Or capture manually via DevTools → Performance / tron-troff.');
       }
 
       return L.join(nl);

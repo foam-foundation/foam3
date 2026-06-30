@@ -50,7 +50,8 @@ foam.CLASS({
     { class: 'String', name: 'name' },
     { class: 'String', name: 'resource', documentation: 'source URL the frame came from' },
     { class: 'Int',    name: 'selfSamples', documentation: 'samples whose leaf was this frame' },
-    { class: 'Float',  name: 'pct', documentation: 'percent of samples' }
+    { class: 'Float',  name: 'pct', documentation: 'percent of samples within its scope (block)' },
+    { class: 'Float',  name: 'ms', documentation: 'estimated CPU time = selfSamples × sampleInterval' }
   ]
 });
 
@@ -68,7 +69,8 @@ foam.CLASS({
     { class: 'String', name: 'cmd' },
     { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop' },
     { class: 'Int',    name: 'domDelta', documentation: 'live nodes added while the block ran' },
-    { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' }
+    { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled inside this block window' }
   ]
 });
 

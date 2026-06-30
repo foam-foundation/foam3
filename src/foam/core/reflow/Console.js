@@ -1354,10 +1354,13 @@ foam.CLASS({
         // (script autoRun, DAO select, DOM render). eval_ alone only creates the block.
         // flowName from the script (reliable) since currentBlock may now be a child.
         if ( perfCap_ ) {
+          var perfEnd_ = this.window.performance.now();
           perfCap_.push({
             flowName:  c.flowName || c.cmd,
             cmd:       c.cmd,
-            ms:        this.window.performance.now() - perfT_,
+            start:     perfT_,        // absolute timestamps so the Perf block can bucket
+            end:       perfEnd_,      // profiler samples into this block's window
+            ms:        perfEnd_ - perfT_,
             domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
             heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
           });

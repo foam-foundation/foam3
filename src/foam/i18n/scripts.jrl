@@ -4,6 +4,7 @@ p({
   "description": "get all String axiom to translate them",
   "server": false,
   "code": """
+  // Read raw model specs that FOAM has loaded or knows about.
   let used = Object.values(foam.USED)
   let objs = used.concat(Object.values(foam.UNUSED))
   let locales = [];
@@ -16,6 +17,7 @@ p({
   let targetVariant = '';
   let targetLocaleVariant = 'fr';
 
+  // Queue rows first; writing happens after scanning is done.
   let putLocale = xl => {
     locales.push(xl);
   }
@@ -30,7 +32,9 @@ p({
     }
   }
 
+  // Scan every model for strings that can become Locale rows.
   objs.forEach(o => {
+    // Create rows for model messages, keyed by model id and message name.
     !!o.messages && o.messages.forEach(m => {
       let mName = constantizeAxiomName(m);
       if ( ! mName ) return;
@@ -45,6 +49,7 @@ p({
       putLocale(xl);
     })
 
+    // Create rows for property text: labels, defaults, docs, placeholders, and view text.
     !!o.properties && o.properties.forEach(p => {
       let pName = constantizeAxiomName(p);
       if ( ! pName ) return;
@@ -129,6 +134,7 @@ p({
       }
     })
 
+    // Create rows for section titles and subtitles.
     !!o.sections && !!o.sections.forEach(m => {
       let mName = constantizeAxiomName(m);
       if ( ! mName ) return;
@@ -156,6 +162,7 @@ p({
       }
     })
 
+    // Create rows for action labels, or the action name when no label is set.
     !!o.actions && o.actions.forEach(p => {
       let pName = constantizeAxiomName(p);
       if ( ! pName ) return;
@@ -208,8 +215,10 @@ p({
     locales.push(xl);
   }
 
+  // Scan menuDAO rows for visible menu text.
   await x.menuDAO.select(function(m) {
 
+    // Create a row for the menu label.
     let l = foam.i18n.Locale.create({
       "id": m.id+'.label',
       "locale": targetLocale,
@@ -220,6 +229,7 @@ p({
     });
     putLocale(l);
 
+    // Create a row for the menu handler title when present.
     if ( m.handler && m.handler.title ){
       let l2 = foam.i18n.Locale.create({
         "id": m.id+'.handler.title',
@@ -232,6 +242,7 @@ p({
       putLocale(l2);
     }
 
+    // Create a row for the menu handler subtitle when present.
     if ( m.handler && m.handler.subtitle ){
       let l2 = foam.i18n.Locale.create({
         "id": m.id+'.handler.subtitle',
@@ -244,6 +255,7 @@ p({
       putLocale(l2);
     }
 
+    // Create rows for browse/create titles in menu handler config.
     if ( m.handler && m.handler.config ) {
       if ( m.handler.config.browseTitle ) {
         let l2 = foam.i18n.Locale.create({
@@ -290,12 +302,17 @@ p({
 p({
   "class": "foam.core.script.Script",
   "id": "ExtractStringAxiomPerPackage",
-  "description":"get all String axiom to translate them per package",
+  "description":"Like ExtractStringAxiom, but scans only one package (USED only). Writes the Locale rows to localeDAO AND console.logs the extracted source strings. Set the `package` variable below to the package you want, then run.",
   "server": false,
   "code": """
+  // Read loaded model specs, then keep only the package configured below.
   let used = Object.values(foam.USED)
   let objs = used.concat(Object.values(foam.UNUSED))
   let msg  = '';
+  // e.g. to extract every translatable string from the i18n models, set:
+  //   let package = 'foam.i18n';
+  // Other examples: 'foam.u2' (UI views), 'foam.core.script' (Script model).
+  // Only models in this exact package are scanned (subpackages are NOT included).
   let package = 'some.package';
   let locales = [];
   // One-time seeding script: rerunning can overwrite reviewed translations
@@ -306,10 +323,12 @@ p({
   let targetVariant = '';
   let targetLocaleVariant = 'fr';
 
+  // Queue rows first; writing happens after scanning is done.
   let putLocale = xl => {
     locales.push(xl);
   }
 
+  // Convert an axiom name into the source-key segment used by Locale rows.
   let constantizeAxiomName = a => {
     if ( ! a ) return;
     if ( typeof a.name === 'string' && a.name ) return foam.String.constantize(a.name);
@@ -319,9 +338,12 @@ p({
     }
   }
 
+  // Restrict extraction to one package and ignore foam.UNUSED here.
   objs = used.filter(p => p.package == package)
 
+  // Scan each model in the package for strings that can become Locale rows.
   objs.forEach(o => {
+    // Create rows for model messages, keyed by model id and message name.
     !!o.messages && o.messages.forEach(m => {console.log(objs+'mm')
       let mName = constantizeAxiomName(m);
       if ( ! mName ) return;
@@ -337,6 +359,7 @@ p({
       msg+= m.message+'\\n';
     })
 
+    // Create rows for property text and append each extracted value to msg.
     !!o.properties && o.properties.forEach(p => {
       let pName = constantizeAxiomName(p);
       if ( ! pName ) return;
@@ -428,6 +451,7 @@ p({
       }
     })
 
+    // Create rows for section titles and subtitles.
     !!o.sections && !!o.sections.forEach(m => {
       let mName = constantizeAxiomName(m);
       if ( ! mName ) return;
@@ -457,6 +481,7 @@ p({
       }
     })
 
+    // Create rows for action labels, or the action name when no label is set.
     !!o.actions && o.actions.forEach(p => {
       let pName = constantizeAxiomName(p);
       if ( ! pName ) return;
@@ -487,6 +512,7 @@ p({
       }
     })
   })
+  // Write the queued rows and print the extracted text values.
   for ( let xl of locales ) await x.localeDAO.put(xl);
   console.log(msg)
   """

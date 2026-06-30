@@ -407,9 +407,12 @@ foam.CLASS({
       themeIcon: 'health',
       isEnabled: function(data$value$name) { return !! data$value$name; },
       code: function() {
-        // Reload the saved flow under performance capture; appends a perf report block.
-        var name = this.data.value.name;
-        if ( name ) this.data.eval_('loadPerf("' + name + '")');
+        // loadPerf reloads the SAVED flow under capture, so unsaved edits would be lost.
+        if ( this.data.value.revision ) {
+          this.notify('Save the flow first - Benchmark reloads the saved version.', '', this.LogLevel.ERROR, true);
+          return;
+        }
+        this.data.eval_('loadPerf("' + this.data.value.name + '")');
       }
     },
     {

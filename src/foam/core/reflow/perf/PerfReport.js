@@ -167,18 +167,19 @@ foam.CLASS({
     },
 
     function groupedIssues() {
-      /** Issues bucketed by category, worst-severity group first, BAD before WARN
-          within a group. Shared by the view and toReport so both group identically. **/
+      /** Issues bucketed by SEVERITY (Critical first, then Warning) - people triage by how
+          bad it is, not by subsystem; the category travels as a tag on each issue. Shared
+          by the view and toReport so both group identically. **/
       var self   = this;
       var groups = {};
       ( this.issues || [] ).forEach(function(i) {
-        ( groups[i.category] = groups[i.category] || [] ).push(i);
+        var k = i.severity.name;   // 'BAD' | 'WARN' | 'OK'
+        ( groups[k] = groups[k] || [] ).push(i);
       });
-      return Object.keys(groups).map(function(c) {
-        var list = groups[c].slice().sort(function(a, b) { return self.severityRank_(b.severity) - self.severityRank_(a.severity); });
-        var rank = list.reduce(function(m, i) { return Math.max(m, self.severityRank_(i.severity)); }, 0);
-        return { category: c, issues: list, rank: rank };
-      }).sort(function(a, b) { return b.rank - a.rank || ( a.category < b.category ? -1 : 1 ); });
+      var LABELS = { BAD: 'Critical', WARN: 'Warning', OK: 'OK' };
+      return [ 'BAD', 'WARN', 'OK' ]
+        .filter(function(s) { return groups[s] && groups[s].length; })
+        .map(function(s) { return { severity: self.PerfSeverity[s], label: LABELS[s], issues: groups[s] }; });
     },
 
     function toReport() {
@@ -196,10 +197,9 @@ foam.CLASS({
         L.push('  ✓ none');
       } else {
         this.groupedIssues().forEach(function(g) {
-          L.push('  ' + g.category.toUpperCase());
+          L.push('  ' + g.label.toUpperCase() + ' (' + g.issues.length + ')');
           g.issues.forEach(function(i) {
-            var bad = i.severity === foam.core.reflow.perf.PerfSeverity.BAD;
-            L.push('    ' + ( bad ? '✗ CRITICAL' : '⚠ WARNING ' ) + '  ' + i.detail);
+            L.push('    [' + i.category + '] ' + i.detail);
           });
         });
       }
@@ -214,6 +214,9 @@ foam.CLASS({
           ( b.hot || [] ).forEach(function(f) {
             L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
           }.bind(this));
+          ( b.calls || [] ).forEach(function(c) {
+            L.push('       → ' + pad(c.count + '×', 5) + c.service + ' ' + ( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ));
+          });
         }.bind(this));
         L.push('');
       }
@@ -240,7 +243,7 @@ foam.CLASS({
       L.push('  ' + pad('Load time', 22)            + this.durStr(this.elapsedMs));
       L.push('  ' + pad('Frame rate (avg / min)', 22) + this.numStr(this.avgFps, 0) + ' / ' + this.numStr(this.minFps, 0));
       L.push('  ' + pad('UI frozen', 22)            + this.numStr(this.mainThreadBlockedPct, 0) + ' %');
-      L.push('  ' + pad('Longest freeze', 22)       + this.durStr(this.longestTaskMs));
+      L.push('  ' + pad('Longest UI freeze', 22)    + this.durStr(this.longestTaskMs));
       L.push('  ' + pad('Memory change', 22)        + this.byteStr(this.heapDeltaBytes));
       L.push('  ' + pad('Page elements added', 22)  + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
       L.push('  ' + pad('Server calls', 22)         + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');

@@ -91,7 +91,8 @@ foam.CLASS({
     { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop' },
     { class: 'Int',    name: 'domDelta', documentation: 'live nodes added while the block ran' },
     { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled inside this block window' }
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled inside this block window' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made (in its time window)' }
   ]
 });
 

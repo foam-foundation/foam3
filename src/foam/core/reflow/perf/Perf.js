@@ -28,14 +28,12 @@ foam.CLASS({
   imports: [ 'window' ],
 
   messages: [
-    { name: 'CAPTURING_MSG',    message: 'Capturing…' },
-    { name: 'IDLE_MSG',         message: 'Idle' },
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
     { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance, or run tron / troff.' },
     { name: 'ELAPSED_LABEL',    message: 'Load time' },
     { name: 'AVG_FPS_LABEL',    message: 'Frame rate (avg / min)' },
     { name: 'BLOCKED_LABEL',    message: 'UI frozen' },
-    { name: 'LONGEST_LABEL',    message: 'Longest freeze' },
+    { name: 'LONGEST_LABEL',    message: 'Longest UI freeze' },
     { name: 'HEAP_LABEL',       message: 'Memory change' },
     { name: 'DOM_LABEL',        message: 'Page elements added' },
     { name: 'NETWORK_LABEL',    message: 'Server calls' },
@@ -49,11 +47,8 @@ foam.CLASS({
   css: `
     ^ { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: $textDefault; }
 
-    /* toolbar: status pill + actions */
+    /* toolbar */
     ^toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    ^status { font-weight: $font-semi-bold; font-size: 11px; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.02em; }
-    ^status-idle    { background: $grey100; color: $textSecondary; }
-    ^status-running { background: $warn50; color: $warn700; }
 
     /* card */
     ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; max-width: 100%; overflow-x: auto; }
@@ -71,6 +66,7 @@ foam.CLASS({
     ^issue { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; border-left: 3px solid transparent; }
     ^issue:last-child { margin-bottom: 0; }
     ^badge { font-weight: $font-bold; font-size: 11px; white-space: nowrap; min-width: 72px; }
+    ^issue-cat { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; font-weight: $font-semi-bold; color: $textTertiary; white-space: nowrap; min-width: 72px; }
     ^issue-BAD  { background: $destructive50; border-left-color: $destructive500; }
     ^issue-WARN { background: $warn50;        border-left-color: $warn500; }
     ^issue-OK   { background: $success50;     border-left-color: $success500; }
@@ -96,6 +92,7 @@ foam.CLASS({
     ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
     ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
     ^hot-detailrow > td { padding: 4px 0 8px 22px; }
+    ^detail-title { text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; font-weight: $font-semi-bold; color: $textTertiary; margin: 4px 0 2px; }
     ^hot-table { width: auto; }
     ^hot-table th { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: $textTertiary; }
     ^hot-table th, ^hot-table td { text-align: left; padding: 2px 24px 2px 0; font-size: 12px; color: $textSecondary; white-space: nowrap; }
@@ -134,14 +131,10 @@ foam.CLASS({
       var self = this;
       this.addClass();
 
+      // The block is a report (produced by loadPerf); only the copy action is shown.
       this.start().addClass(this.myClass('toolbar'))
-        .start().addClass(this.myClass('status'))
-          .enableClass(this.myClass('status-running'), this.running$)
-          .enableClass(this.myClass('status-idle'), this.running$.map(r => ! r))
-          .add(this.running$.map(r => r ? self.CAPTURING_MSG : self.IDLE_MSG))
-        .end()
         .startContext({ data: this })
-          .add(this.START_CAPTURE, this.STOP_CAPTURE, this.COPY_REPORT)
+          .add(this.COPY_REPORT)
         .endContext()
       .end();
 
@@ -151,10 +144,13 @@ foam.CLASS({
         var r = self.report;
         if ( ! r || ! r.endSnapshot ) return;
         self.renderIssues_(this, r);   // always visible - the summary
+        // Recommended-action count = service-call groups with identical re-fetches.
+        var actions = ( r.serviceCalls || [] ).filter(function(c) { return ( c.count - ( c.distinct || c.count ) ) > 0; }).length;
+        var svcLabel = 'Service calls' + ( actions ? ' · ' + actions + ' to fix' : '' );
         // Per-block first => default selected tab.
         this.start(self.Tabs)
           .start(self.Tab, { label: 'Per-block' }).call(function() { self.renderBlocks_(this, r); }).end()
-          .start(self.Tab, { label: 'Service calls' }).call(function() { self.renderServiceCalls_(this, r); }).end()
+          .start(self.Tab, { label: svcLabel }).call(function() { self.renderServiceCalls_(this, r); }).end()
           .start(self.Tab, { label: 'Metrics' }).call(function() { self.renderMetrics_(this, r); }).end()
         .end();
         self.renderEnv_(this, r);
@@ -196,18 +192,16 @@ foam.CLASS({
           .start('span').add(self.NO_ISSUES_MSG).end()
         .end();
       } else {
+        // Grouped by severity (Critical first, then Warning) - category shown as a tag.
         r.groupedIssues().forEach(function(g) {
+          var sName = g.severity.name; // 'BAD' | 'WARN'
           var grp = box.start().addClass(self.myClass('issue-group'));
-          grp.start().addClass(self.myClass('issue-group-title'))
-            .add(g.category + ' (' + g.issues.length + ')')
+          grp.start().addClass(self.myClass('issue-group-title'), self.myClass(sName))
+            .add(g.label + ' (' + g.issues.length + ')')
           .end();
           g.issues.forEach(function(i) {
-            var bad   = i.severity === self.PerfSeverity.BAD;
-            var sName = i.severity.name; // 'BAD' | 'WARN'
             grp.start().addClass(self.myClass('issue'), self.myClass('issue-' + sName))
-              .start('span').addClass(self.myClass('badge'), self.myClass(sName))
-                .add( bad ? '✗ CRITICAL' : '⚠ WARNING' )
-              .end()
+              .start('span').addClass(self.myClass('issue-cat')).add(i.category).end()
               .start('span').add(i.detail).end()
             .end();
           });
@@ -335,7 +329,8 @@ foam.CLASS({
       .end();
       blocks.forEach(function(b) {
         var hot        = b.hot || [];
-        var expandable = hot.length > 0;
+        var bCalls     = b.calls || [];
+        var expandable = hot.length > 0 || bCalls.length > 0;
         var open$      = foam.lang.SimpleSlot.create({ value: false });
 
         var tr = t.start('tr').addClass(self.myClass('block-row'));
@@ -350,10 +345,11 @@ foam.CLASS({
         self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),     self.heatLevel_(b.heapDelta, maxHeap));
         tr.end();
 
-        // Expandable detail: this block's hottest functions as a Function | Location | Time table.
-        if ( expandable ) {
+        // Expandable detail: hottest functions and the server calls this block made.
+        if ( hot.length ) {
           var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
             .start('td').attrs({ colspan: 4 })
+              .start('div').addClass(self.myClass('detail-title')).add('Hottest functions').end()
               .start('table').addClass(self.myClass('hot-table'));
           ht.start('tr')
             .start('th').add('Function').end()
@@ -368,6 +364,29 @@ foam.CLASS({
             .end();
           });
           ht.end().end().end();
+        }
+        if ( bCalls.length ) {
+          var ct = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
+            .start('td').attrs({ colspan: 4 })
+              .start('div').addClass(self.myClass('detail-title')).add('Server calls').end()
+              .start('table').addClass(self.myClass('hot-table'));
+          ct.start('tr')
+            .start('th').add('Service').end()
+            .start('th').add('Operation').end()
+            .start('th').add('Calls').end()
+            .start('th').add('Sent').end()
+            .start('th').add('Received').end()
+          .end();
+          bCalls.forEach(function(c) {
+            ct.start('tr')
+              .start('td').add(c.service).end()
+              .start('td').add(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' )).end()
+              .start('td').add(r.numStr(c.count, 0)).end()
+              .start('td').add(r.sizeStr(c.requestBytes)).end()
+              .start('td').add(r.sizeStr(c.responseBytes)).end()
+            .end();
+          });
+          ct.end().end().end();
         }
       });
       t.end();
@@ -460,9 +479,10 @@ foam.CLASS({
 
     function summarizeBlocks_(trace) {
       /** Drain the per-block capture buffer into PerfBlockCost rows, worst first, each
-          carrying its hottest functions (profiler samples bucketed into the block's
-          [start,end] window). Trivial blocks are dropped; top 12 kept. **/
-      var self = this;
+          carrying its hottest functions and the server calls it made (both bucketed into
+          the block's [start,end] window). Trivial blocks are dropped; top 12 kept. **/
+      var self     = this;
+      var netCalls = this.netCalls_ || [];
       var raw = ( this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : [];
       if ( this.window ) this.window.__perfCapture__ = null;
       return raw
@@ -470,9 +490,12 @@ foam.CLASS({
         .sort(function(a, b) { return b.ms - a.ms; })
         .slice(0, 12)
         .map(function(b) {
+          var inWindow = b.start == null ? [] :
+            netCalls.filter(function(c) { return c.t >= b.start && c.t < b.end; });
           return foam.core.reflow.perf.PerfBlockCost.create({
             flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta,
-            hot: ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : []
+            hot:   ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : [],
+            calls: self.groupServiceCalls_(inWindow)
           });
         });
     },
@@ -566,7 +589,8 @@ foam.CLASS({
           // Only DAO / service calls (/service/<name>); skip assets, pages, everything else.
           if ( ! self.isServiceCall_(url) ) return orig.apply(this, arguments);
           call = { url: url, service: self.serviceFromUrl_(url), op: '', sink: '',
-                   reqBytes: 0, respBytes: 0, hash: self.hashStr_(url) };
+                   reqBytes: 0, respBytes: 0, hash: self.hashStr_(url),
+                   t: ( w.performance ? w.performance.now() : 0 ) };   // for per-block attribution
           self.netCalls_.push(call);
 
           var inlineBody = ( init && typeof init.body === 'string' ) ? init.body : null;
@@ -650,29 +674,41 @@ foam.CLASS({
       if ( this.origWarn_ ) { this.window.console.warn = this.origWarn_; this.origWarn_ = null; }
     },
 
-    function summarizeNetwork_(calls) {
-      /** Aggregate fetch calls: totals, largest, exact-dup repeats by (url,body) hash,
-          and per service+operation+sink groups (the "called N times" table). **/
-      var byHash = {}, byService = {};
-      var upload = 0, largest = 0;
+    function groupServiceCalls_(calls) {
+      /** Group calls by service+operation+sink into PerfServiceCall[] (with per-body
+          variants), most-called first. Shared by the global table and per-block attribution. **/
+      var byService = {};
       calls.forEach(function(c) {
-        upload += c.reqBytes;
-        if ( c.reqBytes > largest ) largest = c.reqBytes;
-
-        var h = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
-        h.count++;
-
         var key = ( c.service || '?' ) + '|' + ( c.op || '' ) + '|' + ( c.sink || '' );
         var g = byService[key] || ( byService[key] = { service: c.service || '?', operation: c.op || '', sink: c.sink || '', count: 0, requestBytes: 0, responseBytes: 0, variants_: {} } );
         g.count++;
         g.requestBytes  += c.reqBytes || 0;
         g.responseBytes += c.respBytes || 0;
-        // Distinct request bodies (by hash) -> variants, each summing its own calls (so the
-        // variants' bytes add up to the group's totals).
         var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: 0, responseBytes: 0, query: c.query || '' } );
         v.count++;
         v.requestBytes  += c.reqBytes || 0;
         v.responseBytes += c.respBytes || 0;
+      });
+      return Object.keys(byService).map(function(k) {
+        var g = byService[k];
+        var variants = Object.keys(g.variants_).map(function(h) {
+          return foam.core.reflow.perf.PerfRequestVariant.create(g.variants_[h]);
+        }).sort(function(a, b) { return b.count - a.count; });
+        g.distinct = variants.length;
+        g.variants = variants;
+        delete g.variants_;
+        return foam.core.reflow.perf.PerfServiceCall.create(g);
+      }).sort(function(a, b) { return b.count - a.count || b.responseBytes - a.responseBytes; });
+    },
+
+    function summarizeNetwork_(calls) {
+      /** Totals, largest, exact-dup repeats by (url,body) hash, and the grouped service table. **/
+      var byHash = {}, upload = 0, largest = 0;
+      calls.forEach(function(c) {
+        upload += c.reqBytes;
+        if ( c.reqBytes > largest ) largest = c.reqBytes;
+        var h = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
+        h.count++;
       });
 
       var repeats = [], redundant = 0;
@@ -682,24 +718,13 @@ foam.CLASS({
       });
       repeats.sort(function(a, b) { return b.count - a.count; });
 
-      var services = Object.keys(byService).map(function(k) {
-        var g = byService[k];
-        var variants = Object.keys(g.variants_).map(function(h) {
-          return foam.core.reflow.perf.PerfRequestVariant.create(g.variants_[h]);
-        }).sort(function(a, b) { return b.count - a.count; });
-        g.distinct = variants.length;   // unique request bodies
-        g.variants = variants;
-        delete g.variants_;
-        return foam.core.reflow.perf.PerfServiceCall.create(g);
-      }).sort(function(a, b) { return b.count - a.count || b.responseBytes - a.responseBytes; });
-
       return {
         networkCallCount:     calls.length,
         networkUploadBytes:   upload,
         largestRequestBytes:  largest,
         repeatedRequestCount: redundant,   // total identical re-fetches (Σ count-1); matches the service table
         repeatedRequests:     repeats,
-        serviceCalls:         services
+        serviceCalls:         this.groupServiceCalls_(calls)
       };
     },
 
@@ -713,24 +738,13 @@ foam.CLASS({
 
   actions: [
     {
-      // 'start'/'stop' would install prototype methods that shadow Element.start()/stop
-      name: 'startCapture',
-      label: 'Start capture',
-      isEnabled: function(running) { return ! running; },
-      code: function() { this.startCapture_(); }
-    },
-    {
-      name: 'stopCapture',
-      label: 'Stop & report',
-      isEnabled: function(running) { return running; },
-      code: async function() { await this.finishCapture_(); }
-    },
-    {
       name: 'copyReport',
       label: 'Copy report',
       isEnabled: function(running) { return ! running; },
-      code: function() {
+      code: async function() {
         var text = this.report.toReport();
+        // Append the same system info the `info` command shows (shared buildText).
+        try { text += '\n' + await foam.core.reflow.cmd.Info.buildText(this.__context__); } catch (e) { /* info unavailable */ }
         try {
           if ( this.window.navigator.clipboard ) this.window.navigator.clipboard.writeText(text);
         } catch (e) { /* clipboard blocked - report text still available via toReport() */ }

@@ -15,25 +15,27 @@ foam.CLASS({
     [ 'description', 'Display system information' ]
   ],
 
-  methods: [
-    async function execute() {
-      let txt       = await (await fetch('service/health?format=json')).text();
-      let health    = JSON.parse(txt);
-      let appConfig = this.appConfig;
-      let realUser  = this.subject.realUser;
-      let user      = this.subject.user;
-      let flow      = this.flow;
-      let group     = this.group;
-      let theme     = this.theme;
+  static: [
+    {
+      name: 'buildText',
+      documentation: `Build the system-information text from a context. Shared so other
+        features (e.g. the perf block's Copy report) can append the same info.`,
+      code: async function(x) {
+        var txt       = await (await fetch('service/health?format=json')).text();
+        var health    = JSON.parse(txt);
+        var appConfig = x.appConfig || {};
+        var subject   = x.subject || {};
+        var realUser  = subject.realUser || {};
+        var user      = subject.user || {};
+        var flow      = x.flow || {};
+        var group     = x.group;
+        var theme     = x.theme || {};
+        var sum       = function(o) { return o && o.toSummary ? o.toSummary() : ''; };
 
-      // Display the health information
-      this.out.start('div').style({
-        'font-family': 'monospace',
-        'white-space': 'pre'
-      }).add(`
+        return `
 System Information:
 ------------------------------------
-Flow:            ${flow.name || 'Untitled'} v${flow.version}
+Flow:            ${flow.name || 'Untitled'} v${flow.version || ''}
 Hostname:        ${health.hostname}
 Application:     ${health.appName}
 Version:         ${health.version}
@@ -44,9 +46,9 @@ Runtime:         ${health.runtime}
 User Agent:      ${navigator.userAgent}
 Projects:        ${appConfig.pom}
 Flags:           ${appConfig.flags}
-Effective User   (${user.id}) ${user.toSummary()}
-Real User        (${realUser.id}) ${realUser.toSummary()}
-Group:           ${group.toSummary()}
+Effective User   (${user.id}) ${sum(user)}
+Real User        (${realUser.id}) ${sum(realUser)}
+Group:           ${sum(group)}
 SPID:            ${user.spid}
 Theme:           ${theme.id}
 Timezone:        ${Intl.DateTimeFormat().resolvedOptions().timeZone}
@@ -63,7 +65,18 @@ Memory Used:     ${(health.memoryUsed / 1024 / 1024).toFixed(1)} MB
 Memory Used %:   ${health.memoryUsedPercent.toFixed(1)}%
 Client Memory:   ${navigator.deviceMemory} GB
 Active Alarms:   ${health.alarms}
-      `).end();
+`;
+      }
+    }
+  ],
+
+  methods: [
+    async function execute() {
+      var text = await this.cls_.buildText(this.__context__);
+      this.out.start('div').style({
+        'font-family': 'monospace',
+        'white-space': 'pre'
+      }).add(text).end();
     }
   ]
 });

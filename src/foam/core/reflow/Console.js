@@ -400,6 +400,19 @@ foam.CLASS({
       }
     },
     {
+      name: 'benchmark',
+      label: 'Benchmark flow',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'health',
+      isEnabled: function(data$value$name) { return !! data$value$name; },
+      code: function() {
+        // Reload the saved flow under performance capture; appends a perf report block.
+        var name = this.data.value.name;
+        if ( name ) this.data.eval_('loadPerf("' + name + '")');
+      }
+    },
+    {
       name: 'reset',
       label: 'Start a New Flow',
       buttonStyle: foam.u2.ButtonStyle.TERTIARY,

@@ -223,7 +223,7 @@ foam.CLASS({
         L.push('SERVICE CALLS (most-called first)');
         calls.forEach(function(c) {
           var rep = c.count - ( c.distinct || c.count );
-          var cnt = c.count + ( c.count === 1 ? ' call' : ' calls' ) + ( c.count > 1 ? ' · ' + c.distinct + ' unique' : '' );
+          var cnt = c.count + ( c.count === 1 ? ' call' : ' calls' ) + ( rep > 0 ? ' · ' + c.distinct + ' unique' : '' );
           var act = rep > 0 ? 'CACHE (' + rep + ' avoidable)' : '';
           L.push('  ' + pad(cnt, 20) + pad(c.service, 28) +
             pad(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ), 26) +

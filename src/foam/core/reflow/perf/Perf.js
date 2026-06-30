@@ -56,7 +56,7 @@ foam.CLASS({
     ^status-running { background: $warn50; color: $warn700; }
 
     /* card */
-    ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; }
+    ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; max-width: 100%; overflow-x: auto; }
     ^card-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 11px; color: $textSecondary; margin-bottom: 8px; }
 
     /* tables: shrink to content so label + value sit together; columns evenly gapped */
@@ -257,14 +257,9 @@ foam.CLASS({
       if ( ! calls.length ) return;
       // identical re-fetches (cache candidates) = total calls - distinct request bodies.
       var repeatedOf = function(c) { return c.count - ( c.distinct || c.count ); };
-      // Heat the Calls column on identical re-fetches, sizes vs the biggest payload.
-      var maxRepeated = 0, maxReq = 0, maxResp = 0;
-      calls.forEach(function(c) {
-        var rep = repeatedOf(c);
-        if ( rep > maxRepeated )         maxRepeated = rep;
-        if ( c.requestBytes > maxReq )   maxReq   = c.requestBytes;
-        if ( c.responseBytes > maxResp ) maxResp  = c.responseBytes;
-      });
+      // Only the repeated calls are an issue - heat those; sizes are shown plain.
+      var maxRepeated = 0;
+      calls.forEach(function(c) { var rep = repeatedOf(c); if ( rep > maxRepeated ) maxRepeated = rep; });
       var card = self.card_(el);
       var t = card.start('table');
       t.start('tr')
@@ -281,10 +276,11 @@ foam.CLASS({
         var expandable = c.count > 1;            // something to drill into
         var open$      = foam.lang.SimpleSlot.create({ value: false });
 
-        // "N calls · M unique" so it's clear the rest (N-M) are repeats of those M.
+        // Plain "N calls" unless some are repeats - then "N calls · M unique" (rest are dupes).
         var label  = r.numStr(c.count, 0) + ( c.count === 1 ? ' call' : ' calls' );
-        if ( c.count > 1 ) label += ' · ' + r.numStr(c.distinct, 0) + ' unique';
+        if ( rep > 0 ) label += ' · ' + r.numStr(c.distinct, 0) + ' unique';
         var action = rep > 0 ? 'Cache (' + r.numStr(rep, 0) + ' avoidable)' : '—';
+        var heat   = rep > 0 ? self.heatLevel_(rep, maxRepeated) : null;
 
         var tr = t.start('tr').addClass(self.myClass('block-row'));
         if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
@@ -294,11 +290,11 @@ foam.CLASS({
         .end();
         th.add(c.service).end();
         tr.start('th').add(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' )).end();
-        // Heat the identical re-fetches (cache candidates); distinct queries are not a smell.
-        self.heatCell_(tr.start('td'), label, rep > 0 ? self.heatLevel_(rep, maxRepeated) : null);
-        self.heatCell_(tr.start('td'), r.sizeStr(c.requestBytes),  self.heatLevel_(c.requestBytes, maxReq));
-        self.heatCell_(tr.start('td'), r.sizeStr(c.responseBytes), self.heatLevel_(c.responseBytes, maxResp));
-        self.heatCell_(tr.start('td'), action, rep > 0 ? self.heatLevel_(rep, maxRepeated) : null);
+        // Flag only the issue (identical re-fetches); sizes shown plain.
+        self.heatCell_(tr.start('td'), label, heat);
+        self.heatCell_(tr.start('td'), r.sizeStr(c.requestBytes),  null);
+        self.heatCell_(tr.start('td'), r.sizeStr(c.responseBytes), null);
+        self.heatCell_(tr.start('td'), action, heat);
         tr.end();
 
         // Expand: each distinct request body, its count (>1 = byte-identical re-fetch) and its query.

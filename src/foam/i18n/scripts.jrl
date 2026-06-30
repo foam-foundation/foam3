@@ -297,167 +297,197 @@ p({
   let objs = used.concat(Object.values(foam.UNUSED))
   let msg  = '';
   let package = 'some.package';
+  let locales = [];
+  // One-time seeding script: rerunning can overwrite reviewed translations
+  // because Locale ids are locale + variant + source + themeId.
+  // TODO: Skip existing localeDAO rows before writing so this can be rerun safely.
+  // Match the enabled plain French Language row used by TranslationConsole.
+  let targetLocale = 'fr';
+  let targetVariant = '';
+  let targetLocaleVariant = 'fr';
+
+  let putLocale = xl => {
+    locales.push(xl);
+  }
+
+  let constantizeAxiomName = a => {
+    if ( ! a ) return;
+    if ( typeof a.name === 'string' && a.name ) return foam.String.constantize(a.name);
+    if ( typeof a.__copyFrom__ === 'string' && a.__copyFrom__ ) {
+      let parts = a.__copyFrom__.split('.');
+      return parts[parts.length - 1];
+    }
+  }
 
   objs = used.filter(p => p.package == package)
 
   objs.forEach(o => {
     !!o.messages && o.messages.forEach(m => {console.log(objs+'mm')
+      let mName = constantizeAxiomName(m);
+      if ( ! mName ) return;
       let xl = foam.i18n.Locale.create({
-        "id": o.id+'.'+foam.String.constantize(m.name),
-        "locale": 'pt',
-        "variant": 'PT',
-        "locale_variant": 'pt-PT',
-        "source": o.id+'.'+foam.String.constantize(m.name),
-        "target": m.message+' pt',
+        "id": o.id+'.'+mName,
+        "locale": targetLocale,
+        "variant": targetVariant,
+        "locale_variant": targetLocaleVariant,
+        "source": o.id+'.'+mName,
+        "target": m.message+' fr',
       })
-      x.localeDAO.put(xl);
+      putLocale(xl);
       msg+= m.message+'\\n';
     })
 
     !!o.properties && o.properties.forEach(p => {
+      let pName = constantizeAxiomName(p);
+      if ( ! pName ) return;
       if ( !!p.label && typeof p.label != "object" ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "target": p.label+' pt',
+          "id": o.id+'.'+pName+'.label',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.label',
+          "target": p.label+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.label+'\\n';
       }
 
       if ( !!!p.label && !!p.name && ( p.class != "foam.lang.Enum" && p.class != "Enum") ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "target": p.name+' pt',
+          "id": o.id+'.'+pName+'.label',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.label',
+          "target": p.name+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.name+'\\n';
       }
       if ( !!p.value && typeof p.value !== 'function' && p.name !== 'slashReplacement' && p.name !== 'code' && typeof p.value !== 'object' && ( p.class != "foam.lang.Enum" && p.class != "Enum")  ) { //not for object
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.value',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.value',
-          "target": p.value+' pt',
+          "id": o.id+'.'+pName+'.value',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.value',
+          "target": p.value+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.value+'\\n';
       }
       if ( !!p.documentation ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.documentation',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.documentation',
-          "target": p.documentation+' pt',
+          "id": o.id+'.'+pName+'.documentation',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.documentation',
+          "target": p.documentation+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.documentation+'\\n';
       }
       if ( !!p.placeholder ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.placeholder',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.placeholder',
-          "target": p.placeholder+' pt',
+          "id": o.id+'.'+pName+'.placeholder',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.placeholder',
+          "target": p.placeholder+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.placeholder+'\\n';
       }
 
       if ( !!p.view && !!p.view.placeholder  ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.view.placeholder',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.view.placeholder',
-          "target": p.view.placeholder+' pt',
+          "id": o.id+'.'+pName+'.view.placeholder',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.view.placeholder',
+          "target": p.view.placeholder+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.view.placeholder+'\\n';
       }
       if ( !!p.view && !!p.view.label ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.view.label',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.view.label',
-          "target": p.view.label+' pt',
+          "id": o.id+'.'+pName+'.view.label',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.view.label',
+          "target": p.view.label+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.view.label+'\\n';
       }
     })
 
     !!o.sections && !!o.sections.forEach(m => {
+      let mName = constantizeAxiomName(m);
+      if ( ! mName ) return;
       if ( !!m.title ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.SECTION_'+foam.String.constantize(m.name)+'.title',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.SECTION_'+foam.String.constantize(m.name)+'.title',
-          "target": m.title+' pt',
+          "id": o.id+'.SECTION_'+mName+'.title',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.SECTION_'+mName+'.title',
+          "target": m.title+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= m.title+'\\n';
       }
       if ( !!m.subTitle ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.SECTION_'+foam.String.constantize(m.name)+'.subTitle',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.SECTION_'+foam.String.constantize(m.name)+'.subTitle',
-          "target": m.subTitle+' pt',
+          "id": o.id+'.SECTION_'+mName+'.subTitle',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.SECTION_'+mName+'.subTitle',
+          "target": m.subTitle+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= m.subTitle+'\\n';
       }
     })
 
     !!o.actions && o.actions.forEach(p => {
+      let pName = constantizeAxiomName(p);
+      if ( ! pName ) return;
       if ( !!p.label ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "target": p.label+' pt',
+          "id": o.id+'.'+pName+'.label',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.label',
+          "target": p.label+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.label+'\\n';
       }
 
       if ( !!!p.label && !!p.name ) {
         let xl = foam.i18n.Locale.create({
-          "id": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "locale": 'pt',
-          "variant": 'PT',
-          "locale_variant": 'pt-PT',
-          "source": o.id+'.'+foam.String.constantize(p.name)+'.label',
-          "target": p.name+' pt',
+          "id": o.id+'.'+pName+'.label',
+          "locale": targetLocale,
+          "variant": targetVariant,
+          "locale_variant": targetLocaleVariant,
+          "source": o.id+'.'+pName+'.label',
+          "target": p.name+' fr',
         })
-        x.localeDAO.put(xl);
+        putLocale(xl);
         msg+= p.name+'\\n';
       }
     })
   })
+  for ( let xl of locales ) await x.localeDAO.put(xl);
   console.log(msg)
   """
 })

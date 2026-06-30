@@ -33,6 +33,7 @@ foam.CLASS({
     { class: 'String', name: 'operation', documentation: 'RPC method: select / find / put / cmd / remove' },
     { class: 'String', name: 'sink',      documentation: 'sink class for a select (ArraySink / GroupBy / Count / ...)' },
     { class: 'Int',    name: 'count',     documentation: 'number of calls in this group' },
+    { class: 'Int',    name: 'distinct',  documentation: 'unique request bodies; count - distinct = identical re-fetches (cache candidates)' },
     { class: 'Long',   name: 'requestBytes',  documentation: 'summed request-body bytes' },
     { class: 'Long',   name: 'responseBytes', documentation: 'summed response wire bytes (content-length)' }
   ]

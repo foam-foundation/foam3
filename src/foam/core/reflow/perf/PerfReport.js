@@ -204,7 +204,9 @@ foam.CLASS({
       if ( calls.length ) {
         L.push('SERVICE CALLS (most-called first)');
         calls.forEach(function(c) {
-          L.push('  ' + pad(c.count + '×', 5) + pad(c.service, 32) +
+          var rep = c.count - ( c.distinct || c.count );
+          var cnt = c.count + '×' + ( rep > 0 ? ' (' + rep + ' identical)' : '' );
+          L.push('  ' + pad(cnt, 18) + pad(c.service, 30) +
             pad(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ), 26) +
             '↑' + this.sizeStr(c.requestBytes) + '  ↓' + this.sizeStr(c.responseBytes));
         }.bind(this));

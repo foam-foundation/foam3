@@ -248,10 +248,13 @@ foam.CLASS({
       var self  = this;
       var calls = r.serviceCalls || [];
       if ( ! calls.length ) return;
-      // Heat: count vs busiest service, sizes vs biggest payload.
-      var maxCount = 0, maxReq = 0, maxResp = 0;
+      // identical re-fetches (cache candidates) = total calls - distinct request bodies.
+      var repeatedOf = function(c) { return c.count - ( c.distinct || c.count ); };
+      // Heat the Calls column on identical re-fetches, sizes vs the biggest payload.
+      var maxRepeated = 0, maxReq = 0, maxResp = 0;
       calls.forEach(function(c) {
-        if ( c.count > maxCount )        maxCount = c.count;
+        var rep = repeatedOf(c);
+        if ( rep > maxRepeated )         maxRepeated = rep;
         if ( c.requestBytes > maxReq )   maxReq   = c.requestBytes;
         if ( c.responseBytes > maxResp ) maxResp  = c.responseBytes;
       });
@@ -265,11 +268,16 @@ foam.CLASS({
         .start('td').add('Resp').end()
       .end();
       calls.forEach(function(c) {
+        var rep = repeatedOf(c);
+        // count× + breakdown: identical re-fetches (cacheable) vs distinct queries.
+        var label = r.numStr(c.count, 0) + '×';
+        if ( rep > 0 )            label += ' (' + r.numStr(rep, 0) + ' identical)';
+        else if ( c.count > 1 )   label += ' · ' + r.numStr(c.distinct, 0) + ' unique';
         var tr = t.start('tr');
         tr.start('th').add(c.service).end();
         tr.start('th').add(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' )).end();
-        // Only flag repeated calls (count > 1) as hot; a single call is not a smell.
-        self.heatCell_(tr.start('td'), r.numStr(c.count, 0) + '×', c.count > 1 ? self.heatLevel_(c.count, maxCount) : null);
+        // Heat only identical re-fetches - those are the cache candidates. Distinct queries are not a smell.
+        self.heatCell_(tr.start('td'), label, rep > 0 ? self.heatLevel_(rep, maxRepeated) : null);
         self.heatCell_(tr.start('td'), r.sizeStr(c.requestBytes),  self.heatLevel_(c.requestBytes, maxReq));
         self.heatCell_(tr.start('td'), r.sizeStr(c.responseBytes), self.heatLevel_(c.responseBytes, maxResp));
         tr.end();
@@ -562,17 +570,21 @@ foam.CLASS({
       // predicate during the capture we are measuring would skew it (size is the signal there).
       if ( bodyStr.length > 65536 ) return;
       try {
-        var env = foam.json.parseString(bodyStr, this.__context__);
-        var msg = env && env.message;
-        if ( ! msg ) return;
-        var op = msg.name || '';
-        if ( op.endsWith('_') ) op = op.slice(0, -1);   // 'select_' -> 'select'
+        // The RPCMessage is wrapped: Envelope.message -> SessionedMessage.message -> RPCMessage.
+        // Descend the .message chain to the node that carries the method name.
+        var node = JSON.parse(bodyStr);
+        while ( node && node.message && ! node.name ) node = node.message;
+        if ( ! node || ! node.name ) return;
+        // FOAM-parse just that RPCMessage subtree (short-name aware, typed sink; no replyBox).
+        var msg = foam.json.parse(node, null, this.__context__);
+        var op  = ( msg && msg.name ) || node.name;
+        if ( op.endsWith && op.endsWith('_') ) op = op.slice(0, -1);   // 'select_' -> 'select'
         call.op = op;
-        var args = msg.args || [];
+        var args = ( msg && msg.args ) || [];
         for ( var i = 0 ; i < args.length ; i++ ) {
           if ( foam.dao.Sink.isInstance(args[i]) ) { call.sink = args[i].cls_.name; break; }
         }
-      } catch (e) { /* unparseable / unregistered class - leave op/sink blank */ }
+      } catch (e) { /* unparseable - leave op/sink blank */ }
     },
 
     function unwrapFetch_() {
@@ -604,10 +616,11 @@ foam.CLASS({
         h.count++;
 
         var key = ( c.service || '?' ) + '|' + ( c.op || '' ) + '|' + ( c.sink || '' );
-        var g = byService[key] || ( byService[key] = { service: c.service || '?', operation: c.op || '', sink: c.sink || '', count: 0, requestBytes: 0, responseBytes: 0 } );
+        var g = byService[key] || ( byService[key] = { service: c.service || '?', operation: c.op || '', sink: c.sink || '', count: 0, requestBytes: 0, responseBytes: 0, hashes_: {} } );
         g.count++;
         g.requestBytes  += c.reqBytes || 0;
         g.responseBytes += c.respBytes || 0;
+        g.hashes_[c.hash] = true;   // track distinct request bodies in this group
       });
 
       var repeats = [];
@@ -618,7 +631,10 @@ foam.CLASS({
       repeats.sort(function(a, b) { return b.count - a.count; });
 
       var services = Object.keys(byService).map(function(k) {
-        return foam.core.reflow.perf.PerfServiceCall.create(byService[k]);
+        var g = byService[k];
+        g.distinct = Object.keys(g.hashes_).length;   // unique request bodies
+        delete g.hashes_;
+        return foam.core.reflow.perf.PerfServiceCall.create(g);
       }).sort(function(a, b) { return b.count - a.count || b.responseBytes - a.responseBytes; });
 
       return {

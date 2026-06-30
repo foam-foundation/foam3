@@ -268,19 +268,41 @@ foam.CLASS({
         .start('td').add('Resp').end()
       .end();
       calls.forEach(function(c) {
-        var rep = repeatedOf(c);
+        var rep        = repeatedOf(c);
+        var variants   = c.variants || [];
+        var expandable = c.count > 1;            // something to drill into
+        var open$      = foam.lang.SimpleSlot.create({ value: false });
+
         // count× + breakdown: identical re-fetches (cacheable) vs distinct queries.
         var label = r.numStr(c.count, 0) + '×';
         if ( rep > 0 )            label += ' (' + r.numStr(rep, 0) + ' identical)';
         else if ( c.count > 1 )   label += ' · ' + r.numStr(c.distinct, 0) + ' unique';
-        var tr = t.start('tr');
-        tr.start('th').add(c.service).end();
+
+        var tr = t.start('tr').addClass(self.myClass('block-row'));
+        if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
+        var th = tr.start('th');
+        th.start('span').addClass(self.myClass('twisty'))
+          .add( expandable ? open$.map(function(o) { return o ? '▾' : '▸'; }) : '' )
+        .end();
+        th.add(c.service).end();
         tr.start('th').add(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' )).end();
         // Heat only identical re-fetches - those are the cache candidates. Distinct queries are not a smell.
         self.heatCell_(tr.start('td'), label, rep > 0 ? self.heatLevel_(rep, maxRepeated) : null);
         self.heatCell_(tr.start('td'), r.sizeStr(c.requestBytes),  self.heatLevel_(c.requestBytes, maxReq));
         self.heatCell_(tr.start('td'), r.sizeStr(c.responseBytes), self.heatLevel_(c.responseBytes, maxResp));
         tr.end();
+
+        // Expand: each distinct request body, its count (>1 = byte-identical re-fetch) and its query.
+        variants.forEach(function(v) {
+          var note = v.count > 1 ? ' — identical re-fetch (cacheable)' : '';
+          t.start('tr').addClass(self.myClass('hot-row')).show(open$)
+            .start('th').add(r.numStr(v.count, 0) + '×  ' + ( v.query || '' ) + note).end()
+            .start('th').add('').end()
+            .start('td').add('').end()
+            .start('td').add(r.sizeStr(v.requestBytes)).end()
+            .start('td').add(r.sizeStr(v.responseBytes)).end()
+          .end();
+        });
       });
       t.end();
       card.end();
@@ -584,6 +606,12 @@ foam.CLASS({
         for ( var i = 0 ; i < args.length ; i++ ) {
           if ( foam.dao.Sink.isInstance(args[i]) ) { call.sink = args[i].cls_.name; break; }
         }
+        // Query descriptor for the expand view: the predicate if any (select_ arg 5),
+        // else the id being fetched/written - so two calls can be compared by what they ask for.
+        var pred = foam.mlang.predicate.Predicate.isInstance(args[5]) ? args[5] : null;
+        var q = pred ? pred.toString() : '';
+        if ( ! q && op === 'find' && args[1] != null ) q = 'id=' + args[1];
+        call.query = q ? ( q.length > 140 ? q.substring(0, 137) + '…' : q ) : '(no predicate)';
       } catch (e) { /* unparseable - leave op/sink blank */ }
     },
 
@@ -616,11 +644,13 @@ foam.CLASS({
         h.count++;
 
         var key = ( c.service || '?' ) + '|' + ( c.op || '' ) + '|' + ( c.sink || '' );
-        var g = byService[key] || ( byService[key] = { service: c.service || '?', operation: c.op || '', sink: c.sink || '', count: 0, requestBytes: 0, responseBytes: 0, hashes_: {} } );
+        var g = byService[key] || ( byService[key] = { service: c.service || '?', operation: c.op || '', sink: c.sink || '', count: 0, requestBytes: 0, responseBytes: 0, variants_: {} } );
         g.count++;
         g.requestBytes  += c.reqBytes || 0;
         g.responseBytes += c.respBytes || 0;
-        g.hashes_[c.hash] = true;   // track distinct request bodies in this group
+        // Distinct request bodies (by hash) -> variants, each with its own count + query.
+        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: c.reqBytes || 0, responseBytes: c.respBytes || 0, query: c.query || '' } );
+        v.count++;
       });
 
       var repeats = [];
@@ -632,8 +662,12 @@ foam.CLASS({
 
       var services = Object.keys(byService).map(function(k) {
         var g = byService[k];
-        g.distinct = Object.keys(g.hashes_).length;   // unique request bodies
-        delete g.hashes_;
+        var variants = Object.keys(g.variants_).map(function(h) {
+          return foam.core.reflow.perf.PerfRequestVariant.create(g.variants_[h]);
+        }).sort(function(a, b) { return b.count - a.count; });
+        g.distinct = variants.length;   // unique request bodies
+        g.variants = variants;
+        delete g.variants_;
         return foam.core.reflow.perf.PerfServiceCall.create(g);
       }).sort(function(a, b) { return b.count - a.count || b.responseBytes - a.responseBytes; });
 

@@ -209,6 +209,10 @@ foam.CLASS({
           L.push('  ' + pad(cnt, 18) + pad(c.service, 30) +
             pad(( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ), 26) +
             '↑' + this.sizeStr(c.requestBytes) + '  ↓' + this.sizeStr(c.responseBytes));
+          // Only break out variants when there is more than one call to drill into.
+          if ( c.count > 1 ) ( c.variants || [] ).forEach(function(v) {
+            L.push('       ' + pad(v.count + '×', 5) + ( v.query || '' ) + ( v.count > 1 ? '  [identical re-fetch]' : '' ));
+          });
         }.bind(this));
         L.push('');
       }

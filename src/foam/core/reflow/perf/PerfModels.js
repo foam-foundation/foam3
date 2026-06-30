@@ -21,6 +21,23 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.perf',
+  name: 'PerfRequestVariant',
+
+  documentation: `One distinct request body within a service-call group: how many times
+    this exact request was sent (count > 1 = byte-identical re-fetch = cache candidate)
+    and the query/predicate it carried.`,
+
+  properties: [
+    { class: 'Int',    name: 'count' },
+    { class: 'Long',   name: 'requestBytes' },
+    { class: 'Long',   name: 'responseBytes' },
+    { class: 'String', name: 'query', documentation: 'predicate / id the request asked for' }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.perf',
   name: 'PerfServiceCall',
 
   documentation: `Aggregated client->server calls grouped by service + operation + sink
@@ -34,6 +51,7 @@ foam.CLASS({
     { class: 'String', name: 'sink',      documentation: 'sink class for a select (ArraySink / GroupBy / Count / ...)' },
     { class: 'Int',    name: 'count',     documentation: 'number of calls in this group' },
     { class: 'Int',    name: 'distinct',  documentation: 'unique request bodies; count - distinct = identical re-fetches (cache candidates)' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfRequestVariant', name: 'variants', documentation: 'distinct request bodies in this group, most-repeated first' },
     { class: 'Long',   name: 'requestBytes',  documentation: 'summed request-body bytes' },
     { class: 'Long',   name: 'responseBytes', documentation: 'summed response wire bytes (content-length)' }
   ]

@@ -512,9 +512,15 @@ foam.CLASS({
 
         // For anonymous users, we shouldn't reinstall the language
         // because the user's language setting isn't meaningful.
+        // onUserAgentAndGroupLoaded() routes to the initial menu itself; only
+        // fall back to initMenu() when that path is skipped, otherwise the route
+        // is pushed twice and the first (superseded) render poisons document-global
+        // one-shot CSS installs (e.g. reflow Layout) with an unthemed context.
         if ( self?.subject?.realUser && ! isAnonymous ) {
           await self.maybeReinstallLanguage(self.client);
           await self.onUserAgentAndGroupLoaded();
+        } else {
+          await self.initMenu();
         }
 
         self.subToNotifications();
@@ -536,8 +542,6 @@ foam.CLASS({
             return this.subject.realUser;
           }
         });
-
-        await self.initMenu();
       });
     },
 

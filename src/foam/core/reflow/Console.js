@@ -405,8 +405,8 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'health',
-      // Dev/inspect tool - gate on the same permission that guards flow script access.
-      availablePermissions: [ 'foam.core.reflow.flow.section.scriptSection' ],
+      // Show only when the loadPerf command it invokes is runnable (same permission).
+      availablePermissions: [ 'command.read.loadPerf' ],
       isEnabled: function(data$value$name) { return !! data$value$name; },
       code: async function() {
         // loadPerf reloads the SAVED flow under capture, so unsaved edits would be lost.

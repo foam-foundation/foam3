@@ -199,7 +199,8 @@ p({
     this.out.add(p);
     this.currentBlock.value = p.report;
     p.report$.sub(() => { this.currentBlock.value = p.report; });
-   """
+   """,
+  permissionRequired: true
 })
 
 p({
@@ -228,4 +229,4 @@ p({
    """
 })
 
-p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", linkable: false})
+p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", linkable: false, permissionRequired: true})

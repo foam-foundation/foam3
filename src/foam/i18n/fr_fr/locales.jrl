@@ -62,3 +62,12 @@ p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.analytics.Analyt
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.analytics.AnalyticEvent.EXTRA.label", target: "Données supplémentaires" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.analytics.AnalyticEvent.USER_AGENT.label", target: "Agent utilisateur" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.analytics.AnalyticEvent.IP.label", target: "Adresse IP" })
+
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOControllerConfig.CREATE_NEW", target: "Créer " })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOSummaryView.EDIT.label", target: "Modifier" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOSummaryView.COPY.label", target: "Copier" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOSummaryView.DELETE.label", target: "Supprimer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOBrowserView.REFRESH_TABLE.label", target: "Actualiser" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOBrowserView.REFRESH_TABLE.toolTip", target: "Actualiser le tableau" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOCreateView.SAVE.label", target: "Enregistrer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOUpdateView.SAVE.label", target: "Enregistrer" })

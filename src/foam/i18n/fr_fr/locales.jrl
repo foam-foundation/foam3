@@ -71,3 +71,18 @@ p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOBrowserV
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOBrowserView.REFRESH_TABLE.toolTip", target: "Actualiser le tableau" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOCreateView.SAVE.label", target: "Enregistrer" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v2.DAOUpdateView.SAVE.label", target: "Enregistrer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.stack.Stack.BACK.label", target: "Retour" })
+
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DAOView.CREATE.label", target: "Créer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.EDIT.label", target: "Modifier" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.COPY.label", target: "Copier" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.SAVE.label", target: "Enregistrer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.CANCEL_EDIT.label", target: "Annuler" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.DELETE.label", target: "Supprimer" })
+
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.DELETE.label", target: "Supprimer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.CANCEL.label", target: "Annuler" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.TITLE", target: "Supprimer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.CONFIRM_DELETE_1", target: "Voulez-vous vraiment supprimer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.SUCCESS_MSG", target: " supprimé" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.FAIL_MSG", target: "Échec de la suppression" })

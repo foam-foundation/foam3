@@ -1480,9 +1480,6 @@ foam.CLASS({
 
       this.value.script$.sub(this.onScriptChange);
       this.onScriptChange();
-      console.log('[TT]', performance.now().toFixed(0), 'Console render; flowMode=', this.flowMode?.name, 'route=', this.route, 'ctx.tokenSvc=', this.__subContext__?.cssTokenOverrideService?.cached_, 'ctxName=', this.__subContext__?.NAME ?? this.__subContext__?.name, 'isGlobal=', this.__subContext__ === foam.__context__, 'parentEl=', this.parentNode?.cls_?.id);
-      if ( this.__subContext__?.cssTokenOverrideService === undefined )
-        console.trace('[TT] BAD-CTX Console mount');
       var layout = this.start(this.Layout);
 
       // Add the Mode as a CSS Class so we can adjust stying based on the mode

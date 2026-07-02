@@ -167,14 +167,18 @@ foam.CLASS({
       javaCode: `
         KeyStore keyStore = null;
         try {
-          InputStream is = getStorage().getInputStream(storePath);
-          if ( is == null ) {
-            throw new IOException("Failed opening inputstream "+storePath);
-          }
+          if ( ! foam.util.SafetyUtil.isEmpty(getVault()) ) {
+            keyStore = resolveKeyStore(getX(), storePath, getStoreType(), storePass);
+          } else {
+            InputStream is = getStorage().getInputStream(storePath);
+            if ( is == null ) {
+              throw new IOException("Failed opening inputstream "+storePath);
+            }
 
-          keyStore = KeyStore.getInstance(getStoreType());
-          keyStore.load(is, storePass == null ? null : storePass.toCharArray());
-          is.close();
+            keyStore = KeyStore.getInstance(getStoreType());
+            keyStore.load(is, storePass == null ? null : storePass.toCharArray());
+            is.close();
+          }
         } catch ( KeyStoreException e ) {
           getLogger().error(e);
           throw new RuntimeException(e);
@@ -188,6 +192,9 @@ foam.CLASS({
           getLogger().error(e);
           throw new RuntimeException(e);
         } catch ( IOException e ) {
+          getLogger().error(e);
+          throw new RuntimeException(e);
+        } catch ( Exception e ) {
           getLogger().error(e);
           throw new RuntimeException(e);
         }

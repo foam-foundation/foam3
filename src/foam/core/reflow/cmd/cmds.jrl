@@ -203,30 +203,4 @@ p({
   permissionRequired: true
 })
 
-p({
-  "class":"foam.core.reflow.cmd.Command",
-  "id": "tron",
-  "description": "TRace ON - start CPU profiling (console.profile) and set a performance mark",
-  "script": """
-    console.profile('reflow');
-    performance.mark('reflow-tron');
-    log('Profiling started. Open DevTools Performance/Profiler panel to record results. Run troff to stop.');
-   """
-})
-
-p({
-  "class":"foam.core.reflow.cmd.Command",
-  "id": "troff",
-  "description": "TRace OFF - stop CPU profiling and report elapsed time since tron",
-  "script": """
-    console.profileEnd('reflow');
-    try {
-      var m = performance.measure('reflow-trace', 'reflow-tron');
-      log('Profiling stopped. Elapsed since tron: ' + (m && m.duration ? m.duration.toFixed(1) + ' ms' : 'see DevTools'));
-    } catch (e) {
-      log('Profiling stopped (no matching tron mark found).');
-    }
-   """
-})
-
 p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", linkable: false, permissionRequired: true})

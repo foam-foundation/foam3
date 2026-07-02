@@ -7,6 +7,7 @@ foam.POM({
     { name: "example/pom" },
     { name: "canvas/pom" },
     { name: "ai/pom" },
+    { name: "perf/pom" },
     { name: "test/pom", flags: "test" }
   ],
   files: [

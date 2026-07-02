@@ -641,6 +641,44 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
+  name: 'LoadPerf',
+  extends: 'foam.core.reflow.cmd.Load',
+
+  documentation: `Load a flow while capturing performance (elapsed, FPS, heap delta,
+    long tasks). 'load' clears and rebuilds the entire flow, so a perf block placed
+    before a load cannot survive it; this command runs the capture outside the block
+    tree and appends a perf block with the results after loadComplete.`,
+
+  requires: [ 'foam.core.reflow.perf.Perf' ],
+
+  properties: [
+    [ 'description', 'Load a flow with performance capture' ]
+  ],
+
+  methods: [
+    async function execute(flowName) {
+      if ( ! flowName ) return;
+      var self   = this;
+      var runner = this.Perf.create({}, this);
+
+      runner.startCapture_();
+      this.flow.loadComplete.sub(foam.events.oneTime(async function() {
+        var report = await runner.finishCapture_();
+        report.label = 'loadPerf: ' + flowName;
+        // Append a perf block to the loaded flow and inject the measured report.
+        // copyFrom (not assignment) so the new view's report slot fires.
+        var blk = await self.eval_('perf', true, true);
+        blk.value.copyFrom(report);
+      }));
+
+      await this.SUPER(flowName);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
   name: 'Save',
   extends: 'foam.core.reflow.cmd.Command',
 

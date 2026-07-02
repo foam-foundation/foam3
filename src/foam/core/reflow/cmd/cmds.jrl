@@ -189,3 +189,18 @@ p({
   "id": "example",
   "description": "Run an example code snippet"
 })
+
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "perf",
+  "description": "Insert a performance capture block (FPS, heap, long tasks, system info)",
+  "script": """
+    var p = foam.core.reflow.perf.Perf.create({}, this);
+    this.out.add(p);
+    this.currentBlock.value = p.report;
+    p.report$.sub(() => { this.currentBlock.value = p.report; });
+   """,
+  permissionRequired: true
+})
+
+p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", linkable: false, permissionRequired: true})

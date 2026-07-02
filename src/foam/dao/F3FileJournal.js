@@ -70,6 +70,20 @@ foam.CLASS({
         else
           getLogger().info("Replay starting");
 
+        // A journal path that resolves to a directory is not a journal to read
+        // (e.g. a sibling PartitionedDAO nests its per-partition files under a
+        // directory of the same base name). Skip it rather than crash on read.
+        // Only check FileSystemStorage — ResourceStorage.get() can't produce a
+        // File for a jar resource (and a jar has no directory-journals anyway).
+        foam.core.fs.Storage jrlStorage = (foam.core.fs.Storage) getX().get(foam.core.fs.Storage.class);
+        if ( jrlStorage instanceof foam.core.fs.FileSystemStorage ) {
+          java.io.File jrlFile = jrlStorage.get(getFilename());
+          if ( jrlFile != null && jrlFile.isDirectory() ) {
+            getLogger().warning("Journal path is a directory; skipping replay", getFilename());
+            return;
+          }
+        }
+
         // Pre-compute the parser X context once per replay. When the target
         // ClassInfo has no backing Java class (getObjClass() is null), thread
         // the ClassInfo itself through X so the parser can instantiate via

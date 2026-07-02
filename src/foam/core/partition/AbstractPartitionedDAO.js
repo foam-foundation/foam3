@@ -23,8 +23,7 @@ foam.CLASS({
     {
       name: 'SEPARATOR',
       type: 'String',
-      documentation: 'Character used to sepatate sections of the primary key.',
-//      value: '§'
+      documentation: 'Character used to separate sections of the primary key.',
       value: '~'
     }
   ],

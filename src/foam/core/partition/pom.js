@@ -1,6 +1,10 @@
 foam.POM({
   name: "partition",
 
+  projects: [
+    { name: 'test/pom', flags: 'test' }
+  ],
+
   files: [
     { name: "AbstractPartitionedDAO",       flags: "java" },
     { name: "PartitionedSequenceNumberDAO", flags: "java" }
@@ -8,6 +12,8 @@ foam.POM({
 
   javaFiles: [
     { name: "PartitionedDAO" },
-    { name: "DatePartitionedDAO" }
+    { name: "DatePartitionedDAO" },
+    { name: "ReferenceMigrator" },
+    { name: "SingleToPartitionMigrator" }
   ]
 });

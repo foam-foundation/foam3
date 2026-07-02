@@ -1291,6 +1291,7 @@ foam.POM({
     { name: "foam/lang/AbstractBytePropertyInfo" },
     { name: "foam/lang/AbstractFloatPropertyInfo" },
     { name: "foam/lang/XLocator" },
+    { name: "foam/lang/ReferencePropertyInfo" },
     { name: "foam/lang/MergedListener" },
     { name: "foam/lang/ValidatableValidator" },
     { name: "foam/lang/ContextAgentTimerTask" },

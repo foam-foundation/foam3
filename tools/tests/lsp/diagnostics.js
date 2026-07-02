@@ -555,8 +555,8 @@ var e1 = diagHandler.buildAddExtractEdit(noMsgSrc, 'Upload Complete', 'file:///x
 test(!! e1, 'buildAddExtractEdit returns an edit for a single-class file');
 var edits1 = e1 && e1.changes['file:///x.js'];
 test(!!edits1 && edits1.length === 2, 'edit has two text edits (insert message + rewrite usage)');
-test(!!edits1 && edits1.some(function(t){ return t.newText === 'this.UPLOAD_COMPLETE'; }), 'usage rewritten to this.UPLOAD_COMPLETE');
-test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf("name: 'UPLOAD_COMPLETE'") !== -1 && t.newText.indexOf("message: 'Upload Complete'") !== -1; }), 'inserts a messages entry with constantized name + original text');
+test(!!edits1 && edits1.some(function(t){ return t.newText === 'this.UPLOAD_COMPLETE_MSG'; }), 'usage rewritten to this.UPLOAD_COMPLETE_MSG');
+test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf("name: 'UPLOAD_COMPLETE_MSG'") !== -1 && t.newText.indexOf("message: 'Upload Complete'") !== -1; }), 'inserts a messages entry with _MSG-suffixed name + original text');
 test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf('messages: [') !== -1; }), 'creates a new messages: array when none exists');
 
 // Existing messages array path — entry inserted, no new messages: key
@@ -578,7 +578,7 @@ test(diagHandler.buildAddExtractEdit(twoPropSrc, 'Some Text', 'file:///2p.js') =
 
 // Insertion placement: messages lands right before properties:, after header keys
 function msgInsertOffset(edit, uri, src) {
-  var t = edit.changes[uri].filter(function(e){ return e.newText.indexOf("name: 'UPLOAD_COMPLETE'") !== -1; })[0];
+  var t = edit.changes[uri].filter(function(e){ return e.newText.indexOf("name: 'UPLOAD_COMPLETE_MSG'") !== -1; })[0];
   return analyzer.positionToOffset(src, t.range.start);
 }
 var srcHP = "foam.CLASS({\n  package:'p',\n  name:'HP',\n  requires:['a.B'],\n  properties:[ { name:'x' } ],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
@@ -604,9 +604,26 @@ var secondRange = {
   end:   analyzer.offsetToPosition(twiceSrc, secondInner + 'Repeat Me'.length)
 };
 var eTwice = diagHandler.buildAddExtractEdit(twiceSrc, 'Repeat Me', 'file:///tw.js', secondRange);
-var rwTwice = eTwice && eTwice.changes['file:///tw.js'].filter(function(t){ return t.newText === 'this.REPEAT_ME'; })[0];
+var rwTwice = eTwice && eTwice.changes['file:///tw.js'].filter(function(t){ return t.newText === 'this.REPEAT_ME_MSG'; })[0];
 var rwOff = rwTwice ? analyzer.positionToOffset(twiceSrc, rwTwice.range.start) : -1;
 test(rwOff === secondInner - 1, 'P3: extract rewrites the occurrence at the diagnostic range (the 2nd), not the 1st');
+
+// === _MSG suffix + axiom-collision uniqueness ===
+section('DiagnosticsHandler i18n message-name uniqueness');
+
+// A 'fileName' property installs a FILE_NAME constant; extracting the label
+// 'File Name' must NOT reuse FILE_NAME — the _MSG suffix keeps them apart.
+var collideSrc = "foam.CLASS({\n  package:'t', name:'TextSaveView',\n  properties:[ { name:'fileName' } ],\n  methods:[ function render(){ this.add('File Name'); } ]\n})";
+var eCollide = diagHandler.buildAddExtractEdit(collideSrc, 'File Name', 'file:///c.js');
+var editsC = eCollide && eCollide.changes['file:///c.js'];
+test(!!editsC && editsC.some(function(t){ return t.newText === 'this.FILE_NAME_MSG'; }), 'property constant FILE_NAME does not block the _MSG name; usage -> this.FILE_NAME_MSG');
+test(!!editsC && editsC.every(function(t){ return t.newText.indexOf("name: 'FILE_NAME'") === -1 || t.newText.indexOf("name: 'FILE_NAME_MSG'") !== -1; }), 'extracted message is named FILE_NAME_MSG, not FILE_NAME');
+
+// An existing FOO_MSG message forces a numeric suffix on a second 'Foo'.
+var dupMsgSrc = "foam.CLASS({\n  package:'t', name:'DUP',\n  messages:[ { name:'FOO_MSG', message:'x' } ],\n  methods:[ function render(){ this.add('Foo'); } ]\n})";
+var eDup = diagHandler.buildAddExtractEdit(dupMsgSrc, 'Foo', 'file:///d.js');
+var editsD = eDup && eDup.changes['file:///d.js'];
+test(!!editsD && editsD.some(function(t){ return t.newText === 'this.FOO_MSG2'; }), 'taken FOO_MSG -> numeric suffix FOO_MSG2');
 
 // === P2: WorkspaceAnalyzer threads the file URI (test/demo exemption) ===
 section('WorkspaceAnalyzer i18n URI exemption');
@@ -629,14 +646,14 @@ section('DiagnosticsHandler i18n extract edit — robustness');
 // The messages: block must NOT be inserted inside the method/object.
 var bodyObjSrc = "foam.CLASS({\n  package:'p',\n  name:'BodyObj',\n  methods:[\n    function render(){\n      var cfg = {\n        name: 'inner'\n      };\n      this.add('Body Object Text');\n    }\n  ]\n})";
 var eBO = diagHandler.buildAddExtractEdit(bodyObjSrc, 'Body Object Text', 'file:///bo.js');
-var msgEditBO = eBO && eBO.changes['file:///bo.js'].filter(function(t){ return t.newText.indexOf("name: 'BODY_OBJECT_TEXT'") !== -1; })[0];
+var msgEditBO = eBO && eBO.changes['file:///bo.js'].filter(function(t){ return t.newText.indexOf("name: 'BODY_OBJECT_TEXT_MSG'") !== -1; })[0];
 var insBO = msgEditBO ? analyzer.positionToOffset(bodyObjSrc, msgEditBO.range.start) : -1;
 test(insBO !== -1 && insBO < bodyObjSrc.indexOf('methods:'), 'F1: messages inserted before methods:, not inside the body object');
 
 // F2: an escaped apostrophe must produce a valid message: literal (no double-escaping).
 var aposSrc = "foam.CLASS({\n  package:'p', name:'Apos',\n  methods:[ function render(){ this.add('Don\\'t save'); } ]\n})";
 var eA = diagHandler.buildAddExtractEdit(aposSrc, "Don\\'t save", 'file:///a.js');
-var msgEditA = eA && eA.changes['file:///a.js'].filter(function(t){ return t.newText.indexOf("name: 'DON_T_SAVE'") !== -1; })[0];
+var msgEditA = eA && eA.changes['file:///a.js'].filter(function(t){ return t.newText.indexOf("name: 'DON_T_SAVE_MSG'") !== -1; })[0];
 test(!!msgEditA, 'F2: message entry generated for a string with an escaped apostrophe');
 test(!!msgEditA && msgEditA.newText.indexOf("message: 'Don\\'t save'") !== -1, 'F2: message: literal preserves the original valid escaping');
 test(!!msgEditA && msgEditA.newText.indexOf("Don\\\\'t") === -1, 'F2: no double-backslash escaping');
@@ -699,5 +716,42 @@ var exprSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [
 var exprMsgs = diagHandler.handle(exprSrc, '').map(function(d) { return d.message || ''; });
 test(! has(exprMsgs, 'HealthStatus') && ! has(exprMsgs, 'numeric'),
   'expression values are not flagged (literals only)');
+
+// === i18n detection mechanics — characterization for the .add() finder ===
+// These lock the CURRENT (regex) finding behavior so a future grammar-based
+// rewrite (Approach A) that swaps the finder must reproduce it exactly. They
+// pin the mechanics the existing semantic tests don't: range precision, the
+// whitespace contract, look-alike method names, nested-body descent, quote
+// flavors. Any drift here fails loudly.
+section('DiagnosticsHandler i18n detection mechanics');
+
+// 1. Range precision — the diagnostic range covers the inner content only,
+//    bounded by (not including) the quote characters.
+var rpSrc = "foam.CLASS({ package:'t', name:'RP', methods:[ function render(){ this.add('Upload Complete'); } ] })";
+var rp = diagHandler.handle(rpSrc).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; });
+test(rp.length === 1, 'range: exactly one diagnostic');
+var rpS = rp.length === 1 ? analyzer.positionToOffset(rpSrc, rp[0].range.start) : -1;
+var rpE = rp.length === 1 ? analyzer.positionToOffset(rpSrc, rp[0].range.end)   : -1;
+test(rpS !== -1 && rpSrc.substring(rpS, rpE) === 'Upload Complete', 'range: spans the inner content exactly (no quotes)');
+test(rpS !== -1 && rpSrc[rpS - 1] === "'" && rpSrc[rpE] === "'", 'range: bounded by the surrounding quote chars');
+
+// 2. Whitespace contract. Spaces/newlines AFTER the ( are tolerated; a space
+//    BETWEEN .add and ( is NOT matched (the scanner requires a contiguous '.add(').
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS1', methods:[ function render(){ this.add( 'Spaced Out' ); } ] })").length === 1, "whitespace: .add( 'x' ) with inner spaces flagged");
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS2', methods:[ function render(){ this.add(\n        'Newline Arg'); } ] })").length === 1, 'whitespace: .add( newline + string ) flagged');
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS3', methods:[ function render(){ this.add ('Not Matched'); } ] })").length === 0, 'whitespace: a space between .add and ( is NOT flagged (contiguous .add( required)');
+
+// 3. Look-alike method names must NOT match — only an exact .add( call counts.
+test(addStrDiags("foam.CLASS({ package:'t', name:'AA', methods:[ function render(){ this.addAll('Some Items'); } ] })").length === 0, "look-alike: .addAll('Some Items') not flagged");
+test(addStrDiags("foam.CLASS({ package:'t', name:'RA', methods:[ function render(){ this.readd('Re Add'); } ] })").length === 0, "look-alike: .readd('Re Add') not flagged");
+
+// 4. Nested-body descent — an .add() inside a callback within render is found.
+test(addStrDiags("foam.CLASS({ package:'t', name:'NCB', methods:[ function render(){ this.data.sub(function(){ this.add('Deep Text'); }); } ] })").length === 1, 'nested: .add() inside a callback within render is flagged');
+
+// 5. Double-quoted argument flavor flagged (parity with single-quoted).
+test(addStrDiags("foam.CLASS({ package:'t', name:'DQ2', methods:[ function render(){ this.add(\"Hello World\"); } ] })").length === 1, 'double-quoted: this.add("Hello World") flagged once');
+
+// 6. Escaped-quote argument flagged exactly once (detection, not just extract).
+test(addStrDiags("foam.CLASS({ package:'t', name:'AP2', methods:[ function render(){ this.add('Don\\'t save'); } ] })").length === 1, "escaped quote: this.add('Don\\'t save') flagged once");
 
 

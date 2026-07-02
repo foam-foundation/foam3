@@ -141,7 +141,7 @@ In this current implementation setDelegate must be called last.`,
 
             // if CSpec present in X then go through NDiff
             // (set up in EasyDAO's decorator chain)
-            CSpec nspec = (CSpec)getX().get(CSpec.NSPEC_CTX_KEY);
+            CSpec nspec = (CSpec)getX().get(CSpec.CSPEC_CTX_KEY);
 
             String cSpecName = getFilename();
 

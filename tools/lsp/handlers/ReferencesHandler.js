@@ -57,6 +57,16 @@ foam.CLASS({
       var classId = this.resolveClassAtCursor_(text, position, word, opt_uri);
       if ( ! classId ) return [];
 
+      return this.referencesForClassId(classId);
+    },
+
+    function referencesForClassId(classId) {
+      /**
+       * Reference locations for a resolved class id — the by-id core shared by
+       * the cursor-driven handle() and name-addressed lookups (foam/byName).
+       * Unions subclasses, implementors, requirers, of-users, and the JS/Java/
+       * string/view-spec usage indexes.
+       */
       // Collect referencing class IDs from every angle. Dedup — a class may
       // both extend and require the target (rare, but keep it honest).
       var seen = {};
@@ -93,6 +103,14 @@ foam.CLASS({
         for ( var i = 0 ; i < strUses.length ; i++ ) {
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }
+      } catch (e) {}
+      // Classes that reference the target ONLY inside a view spec
+      // (`view: { class: 'X' }`, searchView, rowView, defaultNewItem, …)
+      // declare no requires/of for it — the view-spec index is the only edge
+      // that puts their files in the scan set.
+      try {
+        var viewUses = this.index.getViewSpecUsers(classId);
+        for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
       } catch (e) {}
 
       var locations = [];

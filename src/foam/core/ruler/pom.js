@@ -50,6 +50,7 @@ foam.POM({
     { name: "RuleEngine" },
     { name: "cron/RenewRuleHistoryCron" },
     { name: "test/DummyErroneousPredicate",                            flags: "test" },
-    { name: "test/RulerDAOTest",                                       flags: "test" }
+    { name: "test/RulerDAOTest",                                       flags: "test" },
+    { name: "test/RulerCacheEvictionTest",                             flags: "test" }
   ]
 });

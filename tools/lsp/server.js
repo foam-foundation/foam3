@@ -40,7 +40,7 @@ function start() {
 
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
-  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
+  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, diagnosticsHandler: diagnosticsHandler });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
@@ -101,6 +101,85 @@ function start() {
 
   function notify(method, params) {
     send({ jsonrpc: '2.0', method: method, params: params });
+  }
+
+  function byNameResult(info, op) {
+    // Name-addressed lookup by resolved class id (not cursor position) — the
+    // engine behind foam/byName. info = { classId, memberName?, uri, line,
+    // character, kind }. Returns the same shapes the cursor-driven LSP methods
+    // return, so the MCP reuses one set of shapers for both addressing modes.
+    var classId = info.classId;
+    switch ( op ) {
+      case 'definition':
+        return [ {
+          uri:   info.uri,
+          range: { start: { line: info.line, character: info.character },
+                   end:   { line: info.line, character: info.character } }
+        } ];
+      case 'hover': {
+        // buildMethodHover_ returns a raw markdown string (wrap it);
+        // buildClassHover already returns a { contents: {...} } hover (pass
+        // it through). Don't double-wrap.
+        if ( info.memberName && info.kind === 6 ) {
+          var cls = index.getClass(classId);
+          var methodAxiom = null;
+          if ( cls ) {
+            try {
+              var ms = cls.getAxiomsByClass(foam.lang.Method);
+              for ( var i = 0 ; i < ms.length ; i++ ) {
+                if ( ms[i].name === info.memberName ) { methodAxiom = ms[i]; break; }
+              }
+            } catch (e) {}
+          }
+          if ( methodAxiom ) {
+            var mmd = hoverHandler.buildMethodHover_(methodAxiom, classId);
+            return mmd ? { contents: { kind: 'markdown', value: mmd } } : null;
+          }
+          // Java-only method (no FOAM axiom): hover from its parsed signature.
+          var jms = index.getJavaMethods(classId);
+          for ( var ji = 0 ; ji < jms.length ; ji++ ) {
+            if ( jms[ji].name === info.memberName ) {
+              var jv = '```java\n' + ( jms[ji].sig || jms[ji].name ) + '\n```';
+              if ( jms[ji].doc ) jv += '\n\n' + jms[ji].doc;
+              return { contents: { kind: 'markdown', value: jv } };
+            }
+          }
+        }
+        return hoverHandler.buildClassHover(classId);
+      }
+      case 'references':
+        return referencesHandler.referencesForClassId(classId);
+      case 'implementation': {
+        var targets = index.isInterface(classId) ?
+          index.getImplementors(classId) : index.getSubclasses(classId);
+        var locs = [];
+        for ( var i = 0 ; i < targets.length ; i++ ) {
+          var fp = index.getFilePath(targets[i]);
+          if ( ! fp ) continue;
+          var ln = index.getClassLine(targets[i]);
+          locs.push({ uri: 'file://' + fp,
+            range: { start: { line: ln, character: 0 }, end: { line: ln, character: 0 } } });
+        }
+        return locs;
+      }
+      case 'typeHierarchy': {
+        var item = typeHierarchyHandler.itemFor_(classId);
+        return {
+          supertypes: item ? typeHierarchyHandler.supertypes(item) : [],
+          subtypes:   item ? typeHierarchyHandler.subtypes(item)   : []
+        };
+      }
+      case 'callHierarchy': {
+        if ( ! info.memberName ) return { incoming: [], outgoing: [] };
+        var chItem = callHierarchyHandler.itemFor_(classId, info.memberName);
+        return {
+          incoming: callHierarchyHandler.incomingCalls(chItem),
+          outgoing: callHierarchyHandler.outgoingCalls(chItem)
+        };
+      }
+      default:
+        return null;
+    }
   }
 
   function isFoamFile(text) {
@@ -531,6 +610,21 @@ function start() {
         } catch (e) {
           console.error('[LSP] analyzeWorkspace error:', e.message);
           respondError(id, -32603, e.message);
+        }
+        break;
+
+      case 'foam/byName':
+        // Custom request: name-addressed navigation by class id. params:
+        // { name, op } where op ∈ definition|hover|references|implementation|
+        // typeHierarchy|callHierarchy. Returns the same shapes as the
+        // cursor-driven LSP methods so MCP reuses its shapers. null if the
+        // name can't be resolved.
+        try {
+          var bnInfo = index.resolveSymbol(params && params.name);
+          respond(id, bnInfo ? byNameResult(bnInfo, params && params.op) : null);
+        } catch (e) {
+          console.error('[LSP] foam/byName error:', e.message);
+          respond(id, null);
         }
         break;
 

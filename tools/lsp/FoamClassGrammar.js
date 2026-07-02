@@ -59,18 +59,18 @@ foam.CLASS({
     function collectAxiomPositions(text) {
       /**
        * Single-parse axiom-position index driven by the grammar itself.
-       * The `messageNameValue` / `enumValueName` / (future) propertyName /
-       * methodName rules are wrapped in `P.msg({kind: '...'})`. On successful
-       * match their msg is emitted with the parser's start/end position —
-       * exactly the info callers need to go-to-definition or build hover
-       * targets.
+       * The `messageNameValue` / `enumValueName` / `propertyNameValue` /
+       * `methodNameValue` rules are wrapped in `P.msg({kind: '...'})`. On
+       * successful match their msg is emitted with the parser's start/end
+       * position — exactly the info callers need to go-to-definition or build
+       * hover targets.
        *
        * Returns:
        *   {
        *     message:  { NAME: { line, col, startPos, endPos } },
        *     value:    { NAME: { … } },
-       *     property: { name: { … } },       // future
-       *     method:   { name: { … } }        // future
+       *     property: { name: { … } },
+       *     method:   { name: { … } }
        *   }
        *
        * Cached by text identity on the grammar instance.
@@ -95,6 +95,23 @@ foam.CLASS({
         instCall: true, instCreateReceiver: true, instTagClass: true,
         instClassRef: true, instKey: true, instValue: true, memberRef: true };
 
+      // Line-start offsets, computed once (O(n)), so each msg match resolves
+      // line/col by binary search (O(log n)). Scanning text from offset 0 per
+      // match would be O(startPos) — quadratic over a file with many matches,
+      // and matches dominate the workspace usage scan.
+      var lineStarts = [ 0 ];
+      for ( var ls = 0 ; ls < text.length ; ls++ ) {
+        if ( text.charCodeAt(ls) === 10 ) lineStarts.push(ls + 1);
+      }
+      var posToLineCol = function(pos) {
+        var lo = 0, hi = lineStarts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( lineStarts[mid] <= pos ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, col: pos - lineStarts[lo] };
+      };
+
       var apply = function(p, grammar) {
         var startPos = this.pos;
         var result = p.parse(this, grammar);
@@ -104,12 +121,9 @@ foam.CLASS({
             var endPos = result.pos;
             var name = text.substring(startPos, endPos);
             if ( name ) {
-              var line = 0, col = 0;
-              for ( var i = 0 ; i < startPos ; i++ ) {
-                if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
-              }
+              var lc = posToLineCol(startPos);
               var rec = {
-                line: line, col: col,
+                line: lc.line, col: lc.col,
                 startPos: startPos, endPos: endPos
               };
               if ( MULTI[m.kind] ) {
@@ -842,8 +856,20 @@ foam.CLASS({
         ),
 
         listenersArray: P.seq(P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.sym('listenerObject'), wsc)),
+          repeatList(P.seq(wsc, P.sym('listenerDef'), wsc)),
           wsc, P.optional(P.literal(']'))),
+        // Listeners come in two forms — the bare named-function form
+        // (`function click(e){...}`, a common idiom) and the object form
+        // (`{ name, code }`). Without the bare-function arm, listenersArray's
+        // object-only rule "succeeds" on just `[` (empty optional list + optional
+        // `]`), leaving `function click(){}], methods:[...]` to be misparsed as
+        // class entries — silently dropping every axiom after the listeners block.
+        // namedFunctionBody also emits the 'method' axiom position so go-to-def /
+        // hover resolve on the listener name (parity with methodDef).
+        listenerDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('listenerObject')
+        ),
         listenerObject: P.seq(P.literal('{'), wsc,
           repeatList(P.sym('listenerObjEntry')),
           wsc, P.optional(P.literal('}'))),
@@ -1071,11 +1097,12 @@ foam.CLASS({
             wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           // view: 'com.acme.MyView' — treat the string form exactly like `of:`
           // so class suggestions (including view classes) surface in viewSpec
-          // positions. The { class: '...' } object form is covered by the
-          // normal propEntry/class rule inside that object.
+          // positions. The `view: { class: '...' }` object form routes through
+          // viewSpecObject so the class id emits a classRef position too.
           P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
             text: 'view', category: 'key' })),
-            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
+            wsc, P.literal(':'), wsc,
+            P.alt(quoted(P.sym('classRef')), P.sym('viewSpecObject'))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
             text: 'documentation', category: 'key' })),
             wsc, P.literal(':'), wsc, P.msg(stringLiteral, { kind: 'documentation' })),
@@ -1226,6 +1253,20 @@ foam.CLASS({
           P.optional(comma),
           wsc, P.optional(P.literal('}'))
         ), { kind: 'instCall' }),
+
+        // Object-form ViewSpec in a property definition:
+        // `view: { class: 'foam.u2.view.X', … }`. Emits a plain classRef for
+        // the class id (find-references / definition / unknown-class
+        // diagnostics) WITHOUT the instCall record instClassObject adds —
+        // property-def specs must not trigger instantiation-value diagnostics.
+        viewSpecObject: P.seq(
+          P.literal('{'), wsc,
+          P.literal('class'), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef')),
+          P.repeat0(P.seq(comma, P.sym('genericEntry'))),
+          P.optional(comma),
+          wsc, P.optional(P.literal('}'))
+        ),
 
         instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instArgCall')),
 

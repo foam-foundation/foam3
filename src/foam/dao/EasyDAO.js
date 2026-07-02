@@ -175,6 +175,11 @@ foam.CLASS({
               setMdao(new foam.dao.MDAO(getOf()));
             }
             delegate = getMdao();
+            if ( getDedup() ) {
+              delegate = new foam.dao.DeDupDAO.Builder(getX())
+                .setDelegate(delegate)
+                .build();
+            }
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
@@ -182,7 +187,7 @@ foam.CLASS({
             }
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
-            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.NSPEC_CTX_KEY, getCSpec()), delegate);
+            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
           }
         }
 
@@ -552,8 +557,7 @@ foam.CLASS({
     {
       documentation: 'Enable value de-duplication to save memory when caching',
       class: 'Boolean',
-      name: 'dedup',
-      generateJava: false
+      name: 'dedup'
     },
     {
       documentation: 'Keep a history of all state changes to the DAO',
@@ -1038,6 +1042,9 @@ dao loading, which improves overall startup time.`,
           name: 'innerDAO'
         }
       ],
+      code: function(innerDAO) {
+        return innerDAO;
+      },
       javaCode: `
         return innerDAO;
       `
@@ -1277,7 +1284,7 @@ dao loading, which improves overall startup time.`,
         });
       }
 
-      return dao;
+      return this.getOuterDAO(dao);
     },
 
     /** Only relevant if using postgresdao */

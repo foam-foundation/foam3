@@ -51,13 +51,10 @@ foam.CLASS({
         // (like 'block') from the current context.
         s = s.clone(this.__subContext__);
 
-        e.startContext({dao: this.dao})
-          .start()
-            .call(function() {
-              self.addSinkToE(this, s);
-            })
-          .end()
-        .endContext();
+        e.add(this.block.dynamic(function (shown) {
+          if ( shown )
+            this.startContext({dao: self.dao}).start().call(function() { self.addSinkToE(this, s); }).endContext();
+        }));
       }).catch(error => {
         console.error('AbstractDAOAgent execution error:', error);
         e.tag(self.ErrorView, { error: error });
@@ -376,6 +373,13 @@ foam.CLASS({
       this.tableEl = undefined;
     },
     function execute(e) {
+      let self = this;
+      e.add(this.block.dynamic(function (shown) {
+        if ( shown )
+          self.execute_(e);
+      }));
+    },
+    function execute_(e) {
       // TODO: prevent table updates when block is hidden
       var self = this;
       // Tables already listen to underlying daos and are completely reactive by themselves as
@@ -873,7 +877,8 @@ foam.CLASS({
         class: 'foam.u2.view.ArrayView',
         valueView: {
           class: 'foam.core.reflow.SinkView',
-          sinksOnly: true
+          sinksOnly: true,
+          choice: 'foam.core.reflow.CountDAOAgent'
         }
       }
     }
@@ -1119,11 +1124,14 @@ foam.CLASS({
       var daoKey   = serviceName.substring(8);
       var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
+      var title = daoKey;
+
       // Probe DAO to find the actual full query being used
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
           url = url + '&q=' + encodeURIComponent(p.toMQL());
+          title = title + ', query=' + p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1134,7 +1142,17 @@ foam.CLASS({
         url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
       }
 
-      this.add('Download As: ');
+      if ( this.block.value.skip ) {
+        url = url + '&skip=' + this.block.value.skip;
+        title = title + ', skip=' + this.block.value.skip;
+      }
+
+      if ( this.block.value.limit > 0 ) {
+        url = url + '&limit=' + this.block.value.limit;
+        title = title + ', limit=' + this.block.value.limit;
+      }
+
+      this.add(`Download ${title}`).tag('br').add('As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
         this.
@@ -1247,6 +1265,7 @@ foam.CLASS({
     {
       name: 'sink',
       view: 'foam.core.reflow.SinkView',
+      choice: 'foam.core.reflow.CountDAOAgent',
       documentation: 'The sink to delegate to'
     }
   ],

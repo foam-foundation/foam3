@@ -117,6 +117,8 @@ public class PartitionedDAO
     // When the model's id is a String, assign composite <partition>§<seqNo>
     // ids per partition so find can route by the id prefix (see getPartition_).
     // Long-id models stay flat (no prefix), preserving non-composite usage.
+    // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
+    // String, so wrapping a Long-id model throws ClassCastException on every put_.
     foam.lang.PropertyInfo idProp = getIdProperty();
     if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
       return new foam.core.partition.PartitionedSequenceNumberDAO.Builder(getX())
@@ -179,14 +181,14 @@ public class PartitionedDAO
   }
 
   public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    Object part = extractPredicateValue(predicate, (PropertyInfo) getPartitionProperty());
+    Object part = extractPredicateValue(predicate);
     // TODO: extract partition match or range
     // return sink;
     return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
   }
 
-  public Object extractPredicateValue(Predicate predicate, PropertyInfo property) {
-    if ( predicate == null || property == null ) {
+  public Object extractPredicateValue(Predicate predicate) {
+    if ( predicate == null ) {
       return null;
     }
 
@@ -194,7 +196,7 @@ public class PartitionedDAO
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property
-      if ( expr.getArg1() == property ) {
+      if ( expr.getArg1() == getPartitionProperty() ) {
         if ( predicate.getClass() == Eq.class ) {
           return expr.getArg2().f(expr);
         }
@@ -213,7 +215,7 @@ public class PartitionedDAO
 
       // Process each argument in the AND predicate
       for ( Predicate arg : andPredicate.getArgs() ) {
-        Object value = extractPredicateValue(arg, property);
+        Object value = extractPredicateValue(arg);
         if ( value != null ) {
           return value;
         }

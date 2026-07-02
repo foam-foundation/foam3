@@ -6,8 +6,8 @@ foam.POM({
   ],
 
   files: [
-    { name: "AbstractPartitionedDAO",        flags: "java" },
-    { name: "PartitionedSequenceNumberDAO",  flags: "java" }
+    { name: "AbstractPartitionedDAO",       flags: "java" },
+    { name: "PartitionedSequenceNumberDAO", flags: "java" }
   ],
 
   javaFiles: [

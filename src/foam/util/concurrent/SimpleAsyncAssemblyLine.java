@@ -13,7 +13,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * A simplified asynchronous AssemblyLine.
  *
@@ -21,13 +20,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A dedicated background thread drains a channel calling
  * waitToComplete() and endJob(false) in enqueue order.
  **/
+
 public class SimpleAsyncAssemblyLine
   implements AssemblyLine
 {
   protected X                             x_;
   protected ThreadPoolExecutor            pool_;
   protected ThreadGroup                   threadGroup_;
-  protected LinkedBlockingQueue<Assembly> channel_ = new LinkedBlockingQueue<>();
+  protected LinkedBlockingQueue<Assembly> channel_ = new LinkedBlockingQueue<>(128);
   protected Thread                        endThread_;
   protected String                        name_;
   protected boolean                       shutdown_ = false;
@@ -107,7 +107,10 @@ public class SimpleAsyncAssemblyLine
       }
     });
 
-    channel_.add(job);
+    try {
+      channel_.put(job);
+    } catch (InterruptedException e) {
+    }
   }
 
   public void shutdown() {

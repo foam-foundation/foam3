@@ -52,7 +52,7 @@ foam.CLASS({
       name: 'testMigrateMultiLevel',
       args: 'X x',
       type: 'Void',
-      documentation: 'A two-level partitioned target (region -> bucket, mirroring PADDAO) migrates by leaning on put_: records route through BOTH levels into the right leaf journal, the id is stamped <region>§<bucket>§<legacy>, and find_ resolves across both levels. The migrator never computes the partition itself, so it works regardless of depth.',
+      documentation: 'A two-level partitioned target (region -> bucket, mirroring PADDAO) migrates by leaning on put_: records route through BOTH levels into the right leaf journal, the id is stamped <region>~<bucket>~<legacy>, and find_ resolves across both levels. The migrator never computes the partition itself, so it works regardless of depth.',
       javaCode: `
         X tx = newStorageContext(x);
         String legacy = "mlsrc_" + System.nanoTime();
@@ -82,12 +82,12 @@ foam.CLASS({
         test( ((Count) r2b5.select(COUNT())).getValue() == 1,
           "region 2 / bucket 5 leaf holds 1, got " + ((Count) r2b5.select(COUNT())).getValue() );
 
-        // The id is stamped with BOTH levels: <region>§<bucket>§<legacy>.
+        // The id is stamped with BOTH levels: <region>~<bucket>~<legacy>.
         ArraySink s = (ArraySink) r1b9.select(new ArraySink());
         if ( s.getArray().size() != 1 ) { test( false, "expected 1 record in region 1 / bucket 9" ); return; }
         String idc = (String) PartitionStrRecord.ID.get((FObject) s.getArray().get(0));
         test( idc != null && idc.startsWith("1" + PartitionedDAO.SEPARATOR + "9" + PartitionedDAO.SEPARATOR),
-          "id stamped <region>§<bucket>§..., got " + idc );
+          "id stamped <region>~<bucket>~..., got " + idc );
 
         // find_ routes through both levels by the composite id.
         FObject found = target.find_(tx, idc);
@@ -99,7 +99,7 @@ foam.CLASS({
       name: 'testMigratedIdsRoutable',
       args: 'X x',
       type: 'Void',
-      documentation: 'migrateFrom lets the target DAO stamp fresh <partition>§<seqNo> ids on String-id records (no legacy-id preservation), and the stamped ids route back through the outer PartitionedDAO via find_.',
+      documentation: 'migrateFrom lets the target DAO stamp fresh <partition>~<seqNo> ids on String-id records (no legacy-id preservation), and the stamped ids route back through the outer PartitionedDAO via find_.',
       javaCode: `
         X tx = newStorageContext(x);
         String legacy = "routable_" + System.nanoTime();
@@ -174,7 +174,7 @@ foam.CLASS({
       name: 'testNonNumericSuffixNoCrash',
       args: 'X x',
       type: 'Void',
-      documentation: 'Putting a record with a pre-set non-numeric-suffix id ("5§a") through the partitioned DAO neither crashes (getObjId no longer throws) nor changes the id.',
+      documentation: 'Putting a record with a pre-set non-numeric-suffix id ("5~a") through the partitioned DAO neither crashes (getObjId no longer throws) nor changes the id.',
       javaCode: `
         X tx = newStorageContext(x);
         PartitionedDAO p = new PartitionedDAO(
@@ -198,7 +198,7 @@ foam.CLASS({
       name: 'testMigrateCapturesIdMap',
       args: 'X x',
       type: 'Void',
-      documentation: 'migrate fills the supplied idMap with oldId -> newId for every String-id record whose id changed: "a" in bucket 5 and "7" in bucket 9 map to fresh "5§"/"9§" seqNo ids stamped by the target DAO.',
+      documentation: 'migrate fills the supplied idMap with oldId -> newId for every String-id record whose id changed: "a" in bucket 5 and "7" in bucket 9 map to fresh "5~"/"9~" seqNo ids stamped by the target DAO.',
       javaCode: `
         X tx = newStorageContext(x);
         String legacy = "idMapSrc_" + System.nanoTime();
@@ -264,14 +264,14 @@ foam.CLASS({
       name: 'testCompositeKeyFind',
       args: 'X x',
       type: 'Void',
-      documentation: 'A String-id model auto-gets composite <partition>§<seq> ids; put_ stamps them and find resolves by the partition prefix across partitions.',
+      documentation: 'A String-id model auto-gets composite <partition>~<seq> ids; put_ stamps them and find resolves by the partition prefix across partitions.',
       javaCode: `
         X tx = newStorageContext(x);
 
         PartitionedDAO p = new PartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), "pstr/", PartitionStrRecord.BUCKET);
 
-        // ids UNSET -> the per-partition seqNo stamps <bucket>§<seq>. Two in bucket 5, one in bucket 99.
+        // ids UNSET -> the per-partition seqNo stamps <bucket>~<seq>. Two in bucket 5, one in bucket 99.
         PartitionStrRecord a = new PartitionStrRecord(); a.setBucket(5);  a.setData("a"); FObject pa = p.put_(tx, a);
         PartitionStrRecord b = new PartitionStrRecord(); b.setBucket(5);  b.setData("b"); FObject pb = p.put_(tx, b);
         PartitionStrRecord c = new PartitionStrRecord(); c.setBucket(99); c.setData("c"); FObject pc = p.put_(tx, c);

@@ -78,7 +78,7 @@ public class PartitionedDAO
   }
 
   /** Attempt to extract partition from a SEPARATOR-delimited primary key.
-      Chained partitions (e.g. "<a>§<b>§<key>") read their own segment by
+      Chained partitions (e.g. "<a>~<b>~<key>") read their own segment by
       depth: depth 1 reads <a>, depth 2 reads <b>. **/
   public String getPartition_(String id) {
     String[] a = id.split(SEPARATOR);
@@ -114,7 +114,7 @@ public class PartitionedDAO
 
     JDAO jdao = new JDAO(getX(), getOf(), journalName);
 
-    // When the model's id is a String, assign composite <partition>§<seqNo>
+    // When the model's id is a String, assign composite <partition>~<seqNo>
     // ids per partition so find can route by the id prefix (see getPartition_).
     // Long-id models stay flat (no prefix), preserving non-composite usage.
     // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to

@@ -1573,7 +1573,11 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function(_, n, prop) {
-        if ( foam.core.auth.Country.isInstance(n) ) return n.code || n.id;
+        if ( foam.core.auth.Country.isInstance(n) ) {
+          // Some call sites pass Country objects populated with ISO-3166-1
+          // alpha-3 but not the alpha-2 id/code.
+          return n.code || n.id || n.iso31661Code;
+        }
         // RefSummary projection shape { id, summary } — cache summary, return id
         // (mirrors Reference.adapt so CountryCode table columns render in projections)
         if ( n && ! foam.lang.FObject.isInstance(n) && typeof n === 'object' && n.id !== undefined ) {
@@ -1611,7 +1615,14 @@ foam.CLASS({
     {
       name: 'initObject',
       value: async function(obj) {
-        let c = await this.normalize(this.f(obj), this, obj);
+        var value = this.f(obj);
+        // Skip normalization for empty/default values — the value will be
+        // set later by mappings or other code. Without this guard, the async
+        // DAO lookup races with synchronous property setters: initObject
+        // reads the empty default, starts an async query, then overwrites
+        // the already-set value when the query resolves.
+        if ( ! value ) return;
+        let c = await this.normalize(value, this, obj);
         this.set(obj, c);
       }
     },

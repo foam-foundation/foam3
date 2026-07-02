@@ -11,7 +11,7 @@ foam.CLASS({
 
   documentation: `Reflow performance block. Start/Stop captures a PerfReport:
     snapshots at both ends, FPS via requestAnimationFrame, long tasks via
-    PerformanceObserver, DOM node deltas, fetch calls (count, upload size,
+    PerformanceObserver, DOM node deltas, fetch calls (count, size,
     repeats) and console.warn rate. PerfMarkers score the report into a
     colour-coded issues panel; Copy report yields a plain-text summary.
     The report is the block's structured value. The capture methods are
@@ -29,7 +29,7 @@ foam.CLASS({
 
   messages: [
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
-    { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance, or run tron / troff.' },
+    { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance.' },
     { name: 'ELAPSED_LABEL',    message: 'Load time' },
     { name: 'AVG_FPS_LABEL',    message: 'Frame rate (avg / min)' },
     { name: 'BLOCKED_LABEL',    message: 'UI frozen' },
@@ -115,7 +115,6 @@ foam.CLASS({
     { class: 'Float', name: 'frameTotalMs_',    hidden: true, transient: true },
     { class: 'Float', name: 'worstFrameMs_',    hidden: true, transient: true },
     { class: 'Float', name: 'lastFrameTime_',   hidden: true, transient: true },
-    { class: 'Int',   name: 'longTaskCount_',   hidden: true, transient: true },
     { class: 'Float', name: 'longTaskTotalMs_', hidden: true, transient: true },
     { class: 'Float', name: 'longestTaskMs_',   hidden: true, transient: true },
     { class: 'Int',   name: 'warnCount_',       hidden: true, transient: true },
@@ -430,14 +429,13 @@ foam.CLASS({
       /** Begin a capture window. Callable headlessly - no rendered view required. **/
       var self = this;
       this.frameCount_ = this.frameTotalMs_ = this.worstFrameMs_ = this.lastFrameTime_ = 0;
-      this.longTaskCount_ = this.longTaskTotalMs_ = this.longestTaskMs_ = 0;
+      this.longTaskTotalMs_ = this.longestTaskMs_ = 0;
       this.warnCount_ = 0;
       this.report = this.PerfReport.create({ startSnapshot: this.takeSnapshot_() }, this);
 
       try {
         this.observer_ = new PerformanceObserver(function(list) {
           list.getEntries().forEach(function(e) {
-            self.longTaskCount_++;
             self.longTaskTotalMs_ += e.duration;
             if ( e.duration > self.longestTaskMs_ ) self.longestTaskMs_ = e.duration;
           });
@@ -476,11 +474,9 @@ foam.CLASS({
         frameCount:           this.frameCount_,
         frameTotalMs:         this.frameTotalMs_,
         worstFrameMs:         this.worstFrameMs_,
-        longTaskCount:        this.longTaskCount_,
         longTaskTotalMs:      this.longTaskTotalMs_,
         longestTaskMs:        this.longestTaskMs_,
         networkCallCount:     net.networkCallCount,
-        networkUploadBytes:   net.networkUploadBytes,
         largestRequestBytes:  net.largestRequestBytes,
         repeatedRequestCount: net.repeatedRequestCount,
         repeatedRequests:     net.repeatedRequests,
@@ -522,7 +518,6 @@ foam.CLASS({
       if ( ! this.observer_ || ! this.observer_.takeRecords ) return;
       var self = this;
       this.observer_.takeRecords().forEach(function(e) {
-        self.longTaskCount_++;
         self.longTaskTotalMs_ += e.duration;
         if ( e.duration > self.longestTaskMs_ ) self.longestTaskMs_ = e.duration;
       });
@@ -735,9 +730,8 @@ foam.CLASS({
 
     function summarizeNetwork_(calls) {
       /** Totals, largest, exact-dup repeats by (url,body) hash, and the grouped service table. **/
-      var byHash = {}, upload = 0, largest = 0;
+      var byHash = {}, largest = 0;
       calls.forEach(function(c) {
-        upload += c.reqBytes;
         if ( c.reqBytes > largest ) largest = c.reqBytes;
         var h = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
         h.count++;
@@ -752,7 +746,6 @@ foam.CLASS({
 
       return {
         networkCallCount:     calls.length,
-        networkUploadBytes:   upload,
         largestRequestBytes:  largest,
         repeatedRequestCount: redundant,   // total identical re-fetches (Σ count-1); matches the service table
         repeatedRequests:     repeats,

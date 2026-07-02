@@ -19,7 +19,6 @@ foam.CLASS({
     renders a copy-friendly plain-text summary.`,
 
   requires: [
-    'foam.core.reflow.perf.PerfIssue',
     'foam.core.reflow.perf.PerfSeverity',
     'foam.core.reflow.perf.MetricThresholdMarker'
   ],
@@ -30,19 +29,15 @@ foam.CLASS({
     { class: 'FObjectProperty', of: 'foam.core.reflow.perf.PerfSnapshot', name: 'endSnapshot' },
     { class: 'Float', name: 'elapsedMs' },
     { class: 'Long',  name: 'heapDeltaBytes' },
-    { class: 'Int',   name: 'resourceDeltaCount' },
-    { class: 'Long',  name: 'resourceDeltaBytes' },
     { class: 'Float', name: 'avgFps' },
     { class: 'Float', name: 'minFps', documentation: '1000 / worst observed frame interval' },
     { class: 'Int',   name: 'frameCount' },
-    { class: 'Int',   name: 'longTaskCount', documentation: 'PerformanceObserver longtask entries (Chrome only)' },
     { class: 'Float', name: 'longTaskTotalMs' },
     { class: 'Float', name: 'longestTaskMs', documentation: 'duration of the single worst long task' },
     { class: 'Float', name: 'mainThreadBlockedPct', documentation: 'longTaskTotalMs / elapsedMs * 100 - GC / main-thread-busy proxy' },
     { class: 'Int',   name: 'domNodeDelta', documentation: 'live attached nodes added during the window (flow DOM cost)' },
     { class: 'Int',   name: 'tableCellDelta', documentation: 'u2 div-grid table cells added during the window' },
     { class: 'Int',   name: 'networkCallCount', documentation: 'fetch calls observed during the window' },
-    { class: 'Long',  name: 'networkUploadBytes', documentation: 'sum of request body sizes' },
     { class: 'Long',  name: 'largestRequestBytes', documentation: 'largest single request body' },
     { class: 'Int',   name: 'repeatedRequestCount', documentation: 'distinct (url, body) keys fired more than once' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfRepeatedRequest', name: 'repeatedRequests' },
@@ -68,26 +63,22 @@ foam.CLASS({
       /** Compute derived metrics from start/end snapshots and counters, then analyze.
           stats: {
             frameCount, frameTotalMs, worstFrameMs,
-            longTaskCount, longTaskTotalMs, longestTaskMs,
-            networkCallCount, networkUploadBytes, largestRequestBytes,
+            longTaskTotalMs, longestTaskMs,
+            networkCallCount, largestRequestBytes,
             repeatedRequestCount, repeatedRequests,
             warnCount
           } **/
       this.elapsedMs            = this.endSnapshot.now - this.startSnapshot.now;
       this.heapDeltaBytes       = this.endSnapshot.usedJSHeapSize - this.startSnapshot.usedJSHeapSize;
-      this.resourceDeltaCount   = this.endSnapshot.resourceCount - this.startSnapshot.resourceCount;
-      this.resourceDeltaBytes   = this.endSnapshot.resourceTransferBytes - this.startSnapshot.resourceTransferBytes;
       this.domNodeDelta         = this.endSnapshot.domNodeCount - this.startSnapshot.domNodeCount;
       this.tableCellDelta       = this.endSnapshot.tableCellCount - this.startSnapshot.tableCellCount;
       this.frameCount           = stats.frameCount;
       this.avgFps               = stats.frameTotalMs > 0 ? 1000 * stats.frameCount / stats.frameTotalMs : 0;
       this.minFps               = stats.worstFrameMs > 0 ? 1000 / stats.worstFrameMs : 0;
-      this.longTaskCount        = stats.longTaskCount;
       this.longTaskTotalMs      = stats.longTaskTotalMs;
       this.longestTaskMs        = stats.longestTaskMs || 0;
       this.mainThreadBlockedPct = this.elapsedMs > 0 ? Math.min(100, 100 * stats.longTaskTotalMs / this.elapsedMs) : 0;
       this.networkCallCount     = stats.networkCallCount || 0;
-      this.networkUploadBytes   = stats.networkUploadBytes || 0;
       this.largestRequestBytes  = stats.largestRequestBytes || 0;
       this.repeatedRequestCount = stats.repeatedRequestCount || 0;
       this.repeatedRequests     = stats.repeatedRequests || [];
@@ -261,7 +252,7 @@ foam.CLASS({
       }
       if ( ! this.profilingSupported ) {
         L.push('');
-        L.push('TIP in-page profiling off - server must send "Document-Policy: js-profiling" (then per-block hot functions fill in, no DevTools). Or capture manually via DevTools → Performance / tron-troff.');
+        L.push('TIP in-page profiling off - server must send "Document-Policy: js-profiling" (then per-block hot functions fill in, no DevTools). Or capture manually via DevTools → Performance.');
       }
 
       return L.join(nl);

@@ -122,17 +122,21 @@ foam.INTERFACE({
       args: 'Context x, String keyStoreAlias, String storeType, String passphrase',
       javaThrows: ['Exception'],
       documentation: `
-        Materializes a KeyStore from a vault-stored, base64-encoded keystore
-        binary. The value at keyStoreAlias is fetched via resolveSecret, base64
-        decoded, and loaded as a KeyStore of the given type using passphrase
-        (already resolved by the caller). Only call when a vault is configured.
+        Materializes a KeyStore from a base64-encoded keystore binary. The value
+        at keyStoreAlias is resolved via resolveSecret — from the vault when one
+        is configured, otherwise the literal value — then base64-decoded and
+        loaded as a KeyStore of storeType using passphrase (already resolved by
+        the caller). The resolved value must be a base64-encoded keystore; a
+        plain, non-base64 value will fail to decode.
       `,
       javaCode: `
     String b64 = resolveSecret(x, keyStoreAlias);
     if ( foam.util.SafetyUtil.isEmpty(b64) ) {
       throw new RuntimeException("Empty keystore secret for alias: " + keyStoreAlias);
     }
-    byte[] der = java.util.Base64.getDecoder().decode(b64);
+    // MIME decoder tolerates line-wrapped base64 (openssl base64, GNU base64 without -w0);
+    // truly corrupt bytes still fail loudly at KeyStore.load below.
+    byte[] der = java.util.Base64.getMimeDecoder().decode(b64);
     java.security.KeyStore ks = java.security.KeyStore.getInstance(storeType);
     ks.load(new java.io.ByteArrayInputStream(der),
             passphrase == null ? null : passphrase.toCharArray());

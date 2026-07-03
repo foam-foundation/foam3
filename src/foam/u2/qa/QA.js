@@ -207,6 +207,10 @@ foam.CLASS({
               choices: q.choices
             } } : {} )
           });
+        } else {
+          console.warn('[QACompiler] ' + pkg + '.' + name + ': question "' + q.name +
+            '" collides with a declared property of the same name — its choices and ' +
+            'generated view are dropped (the declared property wins).');
         }
       });
 

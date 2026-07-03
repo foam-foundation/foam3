@@ -79,7 +79,10 @@ foam.CLASS({
 //          mql: seq1(1, key('MQL:', 'Legacy MQL Support'), this.mql)
         } : {}),
 
-        text: seq1(1, key('TEXT:', alt(literalIC('TEXT:'), ':'), 'Full-Text Search'), str(repeat(anyChar(), null, 1)))
+        // The TEXT:/: prefix is optional so plain text that doesn't parse as
+        // a query falls back to a KEYWORD search instead of silently doing
+        // nothing. FULL mode still tries the query branch first.
+        text: seq1(1, opt(key('TEXT:', alt(literalIC('TEXT:'), ':'), 'Full-Text Search')), str(repeat(anyChar(), null, 1)))
       };
     },
 

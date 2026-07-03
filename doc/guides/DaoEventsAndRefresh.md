@@ -34,7 +34,8 @@ event fires on its own (server changed, or you want an on-demand reload).
 
 ## The 3 events
 
-Bus declared once on the base class (`dao/AbstractDAO.js:44`):
+The `on` topic is declared once on the base class (`dao/AbstractDAO.js:44`). A DAO
+publishes against it; subscribers register with `on` (JS) or a listener (Java):
 ```js
 topics: [ { name: 'on', topics: [ 'put', 'remove', 'reset' ] } ]
 ```
@@ -46,7 +47,7 @@ topics: [ { name: 'on', topics: [ 'put', 'remove', 'reset' ] } ]
 | `reset` | bulk / opaque change, re-read from scratch | none |
 
 > `removeAll` fires one `remove` **per row** (`MDAO.removeAll_:205`), not one `reset`.
-> JS uses the `on` topic bus; Java uses a `listeners_` list (`AbstractDAO.js:691-728`).
+> JS subscribes against the `on` topic; Java registers a `listeners_` list (`AbstractDAO.js:691-728`).
 
 ## Subscribe
 

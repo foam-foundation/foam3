@@ -86,3 +86,6 @@ p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.TITLE"
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.CONFIRM_DELETE_1", target: "Voulez-vous vraiment supprimer" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.SUCCESS_MSG", target: " supprimé" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.FAIL_MSG", target: "Échec de la suppression" })
+
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.filter.FilterView.LABEL_FILTER", target: "Filtres" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.filter.FilterView.NO_FILTER", target: "Non Filtres" })

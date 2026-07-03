@@ -67,7 +67,25 @@ foam.CLASS({
 
           if ( this.loginSuccess && ( ! promptlogin || authResult ) ) {
             try {
+              this.logAnalyticEvent?.({
+                name: 'SESSION_EXPIRED_RELOAD',
+                userId: this.subject?.realUser.id,
+                extra: foam.json.stringify({
+                  'promptlogin': promptlogin,
+                  'authResult': authResult,
+                  'url': globalThis.window.location.href
+                })
+              });
               this.ctrl.reload();
+              this.logAnalyticEvent?.({
+                name: 'SESSION_EXPIRED_RELOAD',
+                userId: this.subject?.realUser.id,
+                extra: foam.json.stringify({
+                  'promptlogin': promptlogin,
+                  'authResult': authResult,
+                  'url': globalThis.window.location.href
+                })
+              });
             } catch ( e ) {
               console.error(e, 'WINDOW_RELOAD');
               // Failed ApplicationController reload, so

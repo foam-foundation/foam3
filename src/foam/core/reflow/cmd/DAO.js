@@ -16,7 +16,7 @@ foam.CLASS({
   imports: [ 'createFlowChildName' ],
 
   properties: [
-    [ 'description', 'Perform DAO operation' ],
+    [ 'description', 'Perform DAO operation' ]
   ],
 
   methods: [

@@ -211,7 +211,7 @@ p({
       "deletePredicate":{"class":"foam.mlang.predicate.False"},
       "hideQueryBar": true,
       "summaryView":{
-        "class":"foam.u2.GroupingDAOList",
+        "class":"foam.core.notification.NotificationGroupingDAOList",
         "showEmptyMessage": true,
         "order":{
           "class": "foam.mlang.order.Desc",

@@ -1,0 +1,5 @@
+p({"class":"foam.dao.compaction.test.TestRecord","id":1,"name":"ZeroName1","value":"ZeroVal1"})
+p({"class":"foam.dao.compaction.test.TestRecord","id":2,"name":"ZeroName2","value":"ZeroVal2"})
+p({"class":"foam.dao.compaction.test.TestRecord","id":3,"name":"ZeroName3","value":"ZeroVal3"})
+p({"class":"foam.dao.compaction.test.TestRecord","id":4,"name":"ZeroName4","value":"ZeroVal4"})
+p({"class":"foam.dao.compaction.test.TestRecord","id":5,"name":"ZeroName5","value":"ZeroVal5"})

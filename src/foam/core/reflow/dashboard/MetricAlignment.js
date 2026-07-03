@@ -20,7 +20,7 @@ foam.ENUM({
       name: 'textAlign'
     }
   ],
-  
+
   values: [
     {
       name: 'LEFT',
@@ -29,7 +29,7 @@ foam.ENUM({
       textAlign: 'left'
     },
     {
-      name: 'CENTER', 
+      name: 'CENTER',
       label: 'Center',
       alignmentStyle: 'center',
       textAlign: 'center'

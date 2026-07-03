@@ -15,9 +15,12 @@ foam.CLASS({
   ],
 
   javaImports: [
+    'foam.core.boot.CSpec',
+    'foam.core.boot.CSpecStatus',
+    'foam.core.pm.PM',
     'foam.lang.FObject',
     'foam.lib.json.JSONParser',
-    'foam.core.pm.PM',
+    'foam.util.concurrent.AbstractAssembly',
     'foam.util.concurrent.AssemblyLine',
     'foam.util.SafetyUtil',
     'java.io.BufferedReader',
@@ -57,23 +60,29 @@ foam.CLASS({
         // count number of entries successfully read
         AtomicInteger passCount = new AtomicInteger();
         AtomicInteger failCount = new AtomicInteger();
-
-        // Per-phase timing accumulators. Plain long[] holders are safe
-        // because SyncAssemblyLine runs executeJob/endJob on the caller
-        // thread. Switch to LongAdder if replay ever moves to an async line.
-        final long[] entryNanos     = new long[1];
-        final long[] parseNanos     = new long[1];
-        final long[] findMergeNanos = new long[1];
-        final long[] daoWriteNanos  = new long[1];
-        final long[] opCreate       = new long[1];
-        final long[] opPut          = new long[1];
-        final long[] opPutMerged    = new long[1];
-        final long[] opRemove       = new long[1];
-        long commentsSkipped = 0;
+        Class         cls       = dao.getOf().getObjClass();
 
         String lastVersion = "";
 
-        getLogger().info("Replay starting");
+        CSpec cspec = (CSpec)getX().get(CSpec.CSPEC_CTX_KEY);
+        if ( cspec != null )
+          cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", "start", getFilename());
+        else
+          getLogger().info("Replay starting");
+
+        // A journal path that resolves to a directory is not a journal to read
+        // (e.g. a sibling PartitionedDAO nests its per-partition files under a
+        // directory of the same base name). Skip it rather than crash on read.
+        // Only check FileSystemStorage — ResourceStorage.get() can't produce a
+        // File for a jar resource (and a jar has no directory-journals anyway).
+        foam.core.fs.Storage jrlStorage = (foam.core.fs.Storage) getX().get(foam.core.fs.Storage.class);
+        if ( jrlStorage instanceof foam.core.fs.FileSystemStorage ) {
+          java.io.File jrlFile = jrlStorage.get(getFilename());
+          if ( jrlFile != null && jrlFile.isDirectory() ) {
+            getLogger().warning("Journal path is a directory; skipping replay", getFilename());
+            return;
+          }
+        }
 
         // Pre-compute the parser X context once per replay. When the target
         // ClassInfo has no backing Java class (getObjClass() is null), thread
@@ -90,24 +99,29 @@ foam.CLASS({
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
-        AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
+ //       AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
+        // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
+        AssemblyLine assemblyLine = dao.getOf().getObjClass() == foam.core.boot.CSpec.class ?
+          new foam.util.concurrent.SyncAssemblyLine() :
+          new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay")) ;
 
+        boolean threw = false;
         try ( BufferedReader reader = getReader() ) {
           if ( reader == null ) {
             return;
           }
-          for ( ; ; ) {
-            long entryStart = System.nanoTime();
-            CharSequence entry = getEntry(reader);
-            entryNanos[0] += System.nanoTime() - entryStart;
-            if ( entry == null ) break;
 
+          for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
             if ( length == 0 ) continue;
-            // Fast comment check: every comment starts with '/', which is
-            // never the first char of a data entry ('c', 'p', 'r', 'v').
-            // Superset-safe for the block/line comment regex in AbstractF3FileJournal.
-            if ( entry.charAt(0) == '/' ) { commentsSkipped++; continue; }
+            // Fast comment check: every comment starts with '/', which is never
+            // the first char of a data entry ('c', 'p', 'r', 'v'). getEntry reads
+            // line-by-line and only accumulates OPEN_PUT/CREATE/REMOVE blocks, so
+            // multi-line block comments were never skipped by the COMMENT regex
+            // either (its closing '*/' never lands on the opening line) — this
+            // charAt check is a strict superset of the single-line cases the regex
+            // actually matched, at no per-entry Matcher allocation.
+            if ( entry.charAt(0) == '/' ) continue;
             if ( length < 3 ) {
               // Don't bother reporting lines with just spaces
               if ( entry.toString().trim().length() != 0 ) {
@@ -116,7 +130,7 @@ foam.CLASS({
               continue;
             }
             try {
-              final char operation = entry.charAt(0);
+              final char operation  = entry.charAt(0);
               final String strEntry = entry.subSequence(2, length - 1).toString();
 
               if ( operation == OP_VERSION ) {
@@ -125,13 +139,11 @@ foam.CLASS({
                 continue;
               }
 
-              assemblyLine.enqueue(new foam.util.concurrent.AbstractAssembly() {
+              class F3Assembly extends AbstractAssembly {
                 FObject obj;
 
                 public void executeJob() {
-                  long p0 = System.nanoTime();
-                  obj = getParser(parseX).parseString(strEntry, dao.getOf().getObjClass());
-                  parseNanos[0] += System.nanoTime() - p0;
+                  obj = getParser(parseX).parseString(strEntry, cls);
                 }
 
                 public void endJob(boolean isLast) {
@@ -144,91 +156,62 @@ foam.CLASS({
                     case OP_CREATE: // Workaround: treat c as p so that duplicate IDs
                                     // across journals are merged instead of silently dropped.
                                     // Real fix: make honorCreate configurable at EasyDAO level.
-                    case OP_PUT: {
-                      long f0 = System.nanoTime();
+                    case OP_PUT:
                       foam.lang.FObject old = dao.find(obj.getProperty("id"));
-                      foam.lang.FObject toWrite = old != null ? mergeFObject(old.fclone(), obj) : obj;
-                      findMergeNanos[0] += System.nanoTime() - f0;
-                      long w0 = System.nanoTime();
-                      dao.put(toWrite);
-                      daoWriteNanos[0] += System.nanoTime() - w0;
-                      if ( operation == OP_CREATE ) opCreate[0]++;
-                      else if ( old != null )       opPutMerged[0]++;
-                      else                          opPut[0]++;
+                      dao.put(old != null ? mergeFObject(old.fclone(), obj) : obj);
                       break;
-                    }
 
-                    case OP_REMOVE: {
-                      long w0 = System.nanoTime();
+                    case OP_REMOVE:
                       dao.remove(obj);
-                      daoWriteNanos[0] += System.nanoTime() - w0;
-                      opRemove[0]++;
                       break;
-                    }
                   }
                   long pass = passCount.incrementAndGet();
                   // Provide some feedback on long running replays
-                  if ( pass % 10000 == 0 ) {
-                    getLogger().info("Replay progress", "processed", pass, "in", Duration.ofMillis(pm.getTime()));
+                  if ( pass % 100000 == 0 ) {
+                    String msg = String.format("progress,%1$s,processed,%2$d,in,%3$s", getFilename(), pass, Duration.ofMillis(pm.getTime()));
+                    if ( cspec != null )
+                      cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
+                    else
+                      getLogger().info("Replay", msg);
                     if ( Thread.currentThread().isInterrupted() ) {
                       getLogger().info("Replay interrupted");
                       return;
                     }
                   }
                 }
-              });
+              } // class
+
+              assemblyLine.enqueue(new F3Assembly());
             } catch ( Throwable t ) {
               getLogger().error("Error replaying journal", dao.getOf().getId(), entry, t);
             }
           }
+
         } catch ( Throwable t) {
-          getLogger().error("Failed to read journal", dao.getOf().getId(), t);
+          threw = true;
+          if ( cspec != null )
+            cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", getFilename(), "Failed to read journal", dao.getOf().getId(), t);
+          else
+            getLogger().error("Failed to read journal", dao.getOf().getId(), t);
         } finally {
-          setLastReplayVersion(lastVersion);
-          setPassCount(passCount.get());
-          setFailCount(failCount.get());
           assemblyLine.shutdown();
           pm.log(x);
-          logPhasePm_(x, dao, "getEntry",  entryNanos[0]);
-          logPhasePm_(x, dao, "parse",     parseNanos[0]);
-          logPhasePm_(x, dao, "findMerge", findMergeNanos[0]);
-          logPhasePm_(x, dao, "daoWrite",  daoWriteNanos[0]);
-          if ( getFailCount() == 0 ) {
-            getLogger().info("Replay complete",
-              "processed", passCount.get(),
-              "of", failCount.get()+passCount.get(),
-              "in", Duration.ofMillis(pm.getTime()),
-              "opCreate=" + opCreate[0],
-              "opPut=" + opPut[0],
-              "opPutMerged=" + opPutMerged[0],
-              "opRemove=" + opRemove[0],
-              "commentsSkipped=" + commentsSkipped);
-          } else {
-            getLogger().warning("Replay complete",
-              "processed", passCount.get(),
-              "of", failCount.get()+passCount.get(),
-              "in", Duration.ofMillis(pm.getTime()),
-              "opCreate=" + opCreate[0],
-              "opPut=" + opPut[0],
-              "opPutMerged=" + opPutMerged[0],
-              "opRemove=" + opRemove[0],
-              "commentsSkipped=" + commentsSkipped);
+          setLastReplayVersion(lastVersion);
+          if ( threw )
+            return;
+          setPassCount(passCount.get());
+          setFailCount(failCount.get());
+          String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
+          if ( cspec != null )
+            cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
+          else {
+            if ( getFailCount() == 0 ) {
+              getLogger().info("Replay", msg);
+            } else {
+              getLogger().warning("Replay", msg);
+            }
           }
         }
-      `
-    },
-    {
-      name: 'logPhasePm_',
-      visibility: 'protected',
-      args: 'Context x, foam.dao.DAO dao, String phase, long nanos',
-      javaCode: `
-        // Emit a per-phase PM so replay cost breaks down into its
-        // four contributors (getEntry, parse, findMerge, daoWrite) in
-        // the aggregate replay statistics.
-        if ( nanos <= 0 ) return;
-        PM phasePm = new PM(dao.getOf(), "replay." + getFilename() + ":" + phase);
-        phasePm.setStartTime(phasePm.getStartTime() - nanos / 1_000_000L);
-        phasePm.log(x);
       `
     }
   ]

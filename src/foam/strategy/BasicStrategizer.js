@@ -50,7 +50,7 @@ foam.CLASS({
               )
             );
 
-        if ( strategyPredicate != null  ) {
+        if ( strategyPredicate != null ) {
           predicate = (Predicate) strategyPredicate;
         }
 

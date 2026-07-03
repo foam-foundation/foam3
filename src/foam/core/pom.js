@@ -36,7 +36,8 @@ foam.POM({
     { name: "ai/pom" },
     { name: "bench/pom",                               flags: "test" },
     { name: "test/pom",                                flags: "test" },
-    { name: "theme/pom" }
+    { name: "theme/pom" },
+    { name: "partition/pom",                           flags: "partition" }
   ],
   files: [
     { name: "client/ClientBuilder",                                                       flags: "js" },
@@ -116,9 +117,11 @@ foam.POM({
     { name: "alarming/test/CandlestickAlarmTest",                                         flags: "js&test|java&test" },
     { name: "oauth/OAuthProvider",                                                        flags: "js|java" },
     { name: "oauth/OAuthCredential",                                                      flags: "js|java" },
+    { name: "oauth/OAuthTokenRefreshCron",                                                flags: "java" },
     { name: "benchmark/AuthorizerBenchmark",                                              flags: "js&test|java&test" },
     { name: "boot/CSpec",                                                                 flags: "js|java" },
     { name: "boot/CSpecAware",                                                            flags: "js|java" },
+    { name: "boot/CSpecStatus",                                                           flags: "js|java" },
     // { name: "boot/CSpecCitationView",                                                     flags: "js" },
     { name: "boot/DataManagement",                                                        flags: "web" },
     { name: "boot/DAOCSpecMenu",                                                          flags: "js|java" },
@@ -143,6 +146,7 @@ foam.POM({
     { name: "menu/LinkMenu",                                                              flags: "js" },
     { name: "menu/ListMenu",                                                              flags: "js" },
     { name: "menu/Menu",                                                                  flags: "js|java" },
+    { name: "menu/PredicatedMenu",                                                        flags: "web" },
     { name: "menu/PseudoMenu",                                                            flags: "js|java" },
     { name: "menu/PseudoMenuView",                                                        flags: "web" },
     { name: "menu/MenuBar",                                                               flags: "js" },
@@ -530,7 +534,8 @@ foam.POM({
     { name: "benchmark/F3FileJournalBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },
-    { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" }
+    { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" },
+    { name: "notification/NotificationGroupingDAOList",               flags: "web" }
   ],
 
   javaFiles: [

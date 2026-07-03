@@ -1,0 +1,6 @@
+name = "FOAM Journal"
+grammar = "foam_journal"
+path_suffixes = ["jrl", "0"]
+line_comments = ["// "]
+tab_size = 2
+hard_tabs = false

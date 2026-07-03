@@ -407,7 +407,7 @@ foam.CLASS({
   ],
 
   methods: [
-    function execute(cls) {
+    function execute(cls, simple) {
       let original = cls;
       if ( foam.String.isInstance(cls) ) {
         cls = foam.maybeLookup(cls);
@@ -425,8 +425,17 @@ foam.CLASS({
       if ( foam.lang.InterfaceModel.isInstance(cls.model_) ) {
         this.out.tag(foam.doc.InterfaceView, {data: cls});
       } else {
-        this.out.startContext({conventionalUML: true}).
-          tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        // TODO: a better method of determining if a cls is a QA
+        if ( cls.QUESTIONS ) {
+          this.out.tag(foam.u2.qa.QADocView, {data: cls});
+        }
+
+        if ( simple ) {
+          this.out.tag(foam.doc.PropertyView, {data: cls});
+        } else {
+          this.out.startContext({conventionalUML: true}).
+            tag(foam.doc.SimpleClassView, {data: cls, showUML: true});
+        }
       }
       /*
       this.out.br().add('CLASS:  ', cls.name, ' extends: ');
@@ -468,6 +477,8 @@ foam.CLASS({
       var self = this;
       this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
         if ( q != undefined && (f.id + f.category + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
+        // TODO: use a real TableView instead
+        // FROM flowDAO ORDER BY -category,name COLUMNS category,name,status,description TO CSV
         this.start('tr').
           start('td').add(f.category).end().
           start('td').start(self.Link).add(f.name).on('click', () => self.eval_('load("' + f.name + '")')).end().end().
@@ -620,9 +631,47 @@ foam.CLASS({
       }
     },
     async function maybeCallScript(s) {
-        if ( s ) {
-          await eval('(async function() {' + s + '})').call(this)
-        }
+      if ( s ) {
+        await eval('(async function() {' + s + '})').call(this)
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'LoadPerf',
+  extends: 'foam.core.reflow.cmd.Load',
+
+  documentation: `Load a flow while capturing performance (elapsed, FPS, heap delta,
+    long tasks). 'load' clears and rebuilds the entire flow, so a perf block placed
+    before a load cannot survive it; this command runs the capture outside the block
+    tree and appends a perf block with the results after loadComplete.`,
+
+  requires: [ 'foam.core.reflow.perf.Perf' ],
+
+  properties: [
+    [ 'description', 'Load a flow with performance capture' ]
+  ],
+
+  methods: [
+    async function execute(flowName) {
+      if ( ! flowName ) return;
+      var self   = this;
+      var runner = this.Perf.create({}, this);
+
+      runner.startCapture_();
+      this.flow.loadComplete.sub(foam.events.oneTime(async function() {
+        var report = await runner.finishCapture_();
+        report.label = 'loadPerf: ' + flowName;
+        // Append a perf block to the loaded flow and inject the measured report.
+        // copyFrom (not assignment) so the new view's report slot fires.
+        var blk = await self.eval_('perf', true, true);
+        blk.value.copyFrom(report);
+      }));
+
+      await this.SUPER(flowName);
     }
   ]
 });
@@ -912,6 +961,28 @@ foam.CLASS({
       this.block.del();
       this.currentBlock = b;
 //      console.log(this.block, this.currentBlock, b);
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'Example',
+  extends: 'foam.core.reflow.cmd.Command',
+
+  imports: [ 'block', 'currentBlock' ],
+
+  requires: ['foam.core.reflow.example.Example'],
+
+  methods: [
+    function execute(code) {
+      let example = this.Example.create({ code: code });
+      this.currentBlock.value = example;
+    // this.currentBlock.configViewSpec = {
+    //   propertyWhitelist: {'innerText': { label: 'Code' }}
+    // }
+      this.out.tag(example);
     }
   ]
 });

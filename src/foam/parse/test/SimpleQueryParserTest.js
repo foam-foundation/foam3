@@ -211,6 +211,10 @@ foam.CLASS({
       x.test(this.isValid(" (id=18 OR id<10) ", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 10))'), "Parentheses Test4: The id equal to the value or less than another value with parentheses");
       x.test(this.isValid(" NOT id=17 AND loginEnabled IS TRUE", "AND(NEQ(foam.core.auth.User.id, 17),EQ(foam.core.auth.User.loginEnabled, true))"), "Parentheses Test5: Negate the id equal to the value and login enabled is true with parentheses");
 
+      // Reference properties tests (spid resolves to String via ServiceProvider's ID type)
+      x.test(this.isValid('spid = someProvider', 'EQ(foam.core.auth.User.spid, "someProvider")'), "Reference Test1: String-ID reference with = operator");
+      x.test(this.isValid('spid != someProvider', 'NEQ(foam.core.auth.User.spid, "someProvider")'), "Reference Test2: String-ID reference with != operator");
+      x.test(this.isValid('spid : provider', 'CONTAINS_IC(foam.core.auth.User.spid, "provider")'), "Reference Test3: String-ID reference with CONTAINS operator (fallthrough preserved)");
 
     },
 

@@ -14,9 +14,15 @@ foam.CLASS({
   methods: [
     function render() {
       this.SUPER();
-      this.start().
+      this.start('div', {
+          tooltip$: this.data$.map(d => d ? d.toLocaleDateString(foam.util.getClientLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }) : foam.u2.DateView.DATE_FORMAT)
+        }).
         addClass(this.myClass()).
-        add(this.data$.map(d => d ? d.toLocaleDateString(foam.locale, this.options) : foam.u2.DateView.DATE_FORMAT)).
+        add(this.data$.map(d => d ? d.toLocaleDateString(foam.util.getClientLocale(), this.options) : foam.u2.DateView.DATE_FORMAT)).
       end();
     }
   ]

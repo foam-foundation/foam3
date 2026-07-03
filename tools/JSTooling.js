@@ -26,6 +26,12 @@ foam.POM({
       FOAM_BIN_VERSION = `${VERSION}` + (TIMESTAMP_FOAM_BIN ? `-${TIMESTAMP}` : '');
     }],
 
+    lspInstall: ['lsp-install', 'Install FOAM LSP editor or MCP-agent integration. Editors: lsp-install:vscode, lsp-install:emacs, lsp-install:zed. MCP agents (shared server): lsp-install:claude-code, lsp-install:codex, lsp-install:gemini, lsp-install:cursor, lsp-install:pi.', [], function(args) {
+      var editor = args || '';
+      var script = this.join(__dirname, 'lsp/install.sh');
+      require('child_process').execSync(`${script} ${editor}`, { stdio: 'inherit' });
+    }],
+
     genJS: ['gen-js', 'Build foam-bin.js', ['cleanFOAM', 'genFoamBinVersion'], function() {
       let version = FOAM_BIN_VERSION;
       let flags = this.flag();

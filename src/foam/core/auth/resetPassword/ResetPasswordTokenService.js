@@ -40,6 +40,13 @@ foam.CLASS({
     'java.util.UUID'
   ],
 
+  properties: [
+    {
+      name: 'ttl',
+      value: 86400000 // 24 hours
+    }
+  ],
+
   methods: [
     {
       name: 'generateTokenWithParameters',

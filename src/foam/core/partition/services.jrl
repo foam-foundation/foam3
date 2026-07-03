@@ -1,0 +1,32 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionedRegionDAO",
+  "description": "Test Partitioned Region data.",
+  "serve": true,
+  "authenticate": true,
+  "keywords": [ "partition", "test" ],
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+//      .setSeqNo(true)
+      .setAuthorize(false)
+//      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+//      .setJournalName("regions")
+      .setOf(foam.core.auth.Region.getOwnClassInfo())
+      .setDelegate(
+        new foam.core.partition.PartitionedDAO(
+          x,
+          foam.core.auth.Region.getOwnClassInfo(),
+          "partitionedRegion/",
+          foam.core.auth.Region.COUNTRY_ID))
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/partitionedRegionDAO",
+      "daoType": "CLIENT",
+      "of": "foam.core.auth.Region"
+    }
+  """
+})

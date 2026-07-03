@@ -79,7 +79,8 @@
           [ 'foam.core.menu.ViewMenu',         'View' ],
           [ 'foam.core.menu.SeparatorMenu',    'Separator' ],
           [ 'foam.core.menu.FlowMenu',         'Flow' ],
-          [ 'foam.core.menu.LimitedEditFlowMenu', 'Flow (Limited Edit)' ]
+          [ 'foam.core.menu.LimitedEditFlowMenu', 'Flow (Limited Edit)' ],
+          [ 'foam.core.menu.PredicatedMenu',   'Predicated Menu' ]
         ]
       }
     },
@@ -103,7 +104,7 @@
       displayWidth: 80
     },
     {
-      class: 'String',
+      class: 'GlyphProperty',
       name: 'themeIcon',
       documentation: 'Theme icon associated to the menu item.',
       displayWidth: 80
@@ -125,9 +126,9 @@
       name: 'registrations'
     },
     {
-      documentation: 'Predicate providing arbitrary checks, in addition to the regular menu auth checks.',
       class: 'foam.mlang.predicate.PredicateProperty',
       name: 'readPredicate',
+      documentation: 'Predicate providing arbitrary checks, in addition to the regular menu auth checks.',
       view: {
         class: 'foam.u2.view.JSONTextView'
       },

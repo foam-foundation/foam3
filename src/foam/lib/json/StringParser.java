@@ -15,7 +15,6 @@ import foam.lib.parse.Literal;
 import foam.lib.parse.AnyChar;
 import foam.lib.parse.Seq1;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class StringParser
   implements Parser

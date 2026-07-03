@@ -11,7 +11,6 @@ foam.CLASS({
 
   imports: [
     'auth',
-    'ctrl',
     'subject'
   ],
 
@@ -23,9 +22,35 @@ foam.CLASS({
   `,
 
   messages: [
-    { name: 'MORNING_TITLE',   message: 'Good morning' },
-    { name: 'AFTERNOON_TITLE', message: 'Good afternoon' },
-    { name: 'EVENING_TITLE',   message: 'Good evening' }
+    {
+      name: 'MORNING_TITLE',
+      messageMap: {
+        en: 'Good morning',
+        fr: 'Bonjour'
+      }
+    },
+    {
+      name: 'AFTERNOON_TITLE',
+      messageMap: {
+        en: 'Good afternoon',
+        fr: 'Bonjour'
+      }
+    },
+    {
+      name: 'EVENING_TITLE',
+      messageMap: {
+        en: 'Good evening',
+        fr: 'Bonsoir'
+      }
+    },
+    {
+      name: 'GREETING_WITH_FIRST_NAME',
+      messageMap: {
+        en: '${title}, ${firstName}',
+        fr: '${title}, ${firstName}'
+      },
+      template: true
+    }
   ],
 
   properties: [
@@ -46,11 +71,14 @@ foam.CLASS({
 
   methods: [
     async function render() {
-      this.subject = await ctrl.__subContext__.auth.getCurrentSubject(null);
+      this.auth.getCurrentSubject(null).then(v => {
+        this.subject = v;
+      });
       this.addClass(this.myClass(), 'h200')
         .start()
           .add(this.slot(function(subject$realUser, title) {
-            return title + (this.subject.realUser.firstName ? ', ' + this.subject.realUser.firstName : '') ;
+            var firstName = this.subject.realUser.firstName;
+            return firstName ? this.GREETING_WITH_FIRST_NAME({ title: title, firstName: firstName }) : title;
           }))
         .end();
     }

@@ -418,6 +418,9 @@ foam.POM({
         // javax.security.auth.AuthPermission
         JAVAC_PARAMETERS += ' -Xlint:-deprecation -Xlint:-removal';
       }
+      if ( DEBUG ) {
+        JAVAC_PARAMETERS += ' -g';
+      }
     }],
 
     clientTests: ['client-tests', 'Run all or specified client side test cases. ex: clientTests[:Test1,Test2]', [], function(args) {

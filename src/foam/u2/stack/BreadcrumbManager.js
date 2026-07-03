@@ -21,10 +21,14 @@ foam.CLASS({
       imports: ['window', 'document', 'stack'],
       properties: ['title', 'position', 'parent', 'view'],
       methods: [
-        function go() {
-          this.stack?.jump(this.view.__subContext__.stackPos);
-          this.view.routeToMe();
-          this.parent.pos = this.position;
+        async function go() {
+          try {
+            await this.stack?.jump(this.view.__subContext__.stackPos);
+            this.view.routeToMe();
+            this.parent.pos = this.position;
+          } catch {
+            //no-op
+          }
         }
       ],
       listeners: [

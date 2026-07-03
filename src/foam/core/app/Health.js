@@ -43,32 +43,42 @@ foam.CLASS({
       name: 'hostname',
       class: 'String',
       shortName: 'h',
-      visibility: 'RO',
+      visibility: 'RO'
     },
     {
       documentation: 'Application name',
       name: 'appName',
       shortName: 'n',
       class: 'String',
-      visibility: 'RO',
+      visibility: 'RO'
     },
     {
+      class: 'String',
       name: 'version',
       shortName: 'v',
+      visibility: 'RO'
+    },
+    {
       class: 'String',
-      visibility: 'RO',
+      name: 'runtime',
+      visibility: 'RO'
+    },
+    {
+      class: 'Int',
+      name: 'availableProcessors',
+      visibility: 'RO'
     },
     {
       name: 'address',
       shortName: 'a',
       class: 'String',
-      visibility: 'RO',
+      visibility: 'RO'
     },
     {
       name: 'port',
       shortName: 'p',
       class: 'Int',
-      visibility: 'RO',
+      visibility: 'RO'
     },
     {
       name: 'status',
@@ -255,6 +265,13 @@ foam.CLASS({
     setMemoryMax(runtime.maxMemory());
     setMemoryTotal(runtime.totalMemory());
     setMemoryFree(runtime.freeMemory());
+
+    setAvailableProcessors(runtime.availableProcessors());
+
+    setRuntime(
+      System.getProperty("java.vendor") + " " +
+      System.getProperty("java.vendor.url") + " " +
+      System.getProperty("java.version"));
 
     DAO alarmDAO = (DAO) x.get("alarmDAO");
     alarmDAO = alarmDAO.where(

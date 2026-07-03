@@ -32,13 +32,15 @@ foam.POM({
     remoteOutput: ['', 'remote-output', 'REMOTE_OUTPUT', 'Working directory on remote host to upload to and install from.', '/tmp', arg => REMOTE_OUTPUT = arg],
     remoteUser: ['', 'remote-user', 'REMOTE_USER', 'User with which to connect via ssh/scp to perform the upload and installation.', '', arg => REMOTE_USER = arg],
     sshId: ['', 'ssh-id', 'SSH_ID', 'ssh id from .ssh/ to use for connection. Will default to that specified in .ssh/config when a matching host is found, otherwise to .ssh/id_rsa', '', arg => SSH_ID = arg],
-    sshOpt: ['', 'ssh-opt', 'SSH_OPT', '', () => SSH_ID ? '-i ' + HOME_DIR + '/.ssh/' + SSH_ID : '', arg => SSH_OPT = arg]
+    sshOpt: ['', 'ssh-opt', 'SSH_OPT', '', () => SSH_ID ? '-i ' + HOME_DIR + '/.ssh/' + SSH_ID : '', arg => SSH_OPT = arg],
+    systemdRestart: ['', 'systemd-restart', 'SYSTEMD_RESTART', 'Execute systemd restart on succesful depoyment', true, function(arg) { SYSTEMD_RESTART = arg ? this.bool(arg) : true; }],
+    mntHostname: ['', 'mnt-hostname', 'MNT_HOSTNAME', 'Create a unique NFS mnt point. true uses /mnt/APP_NAME/$HOSTNAME, false uses /mnt/APP_NAME, any other value is used as the mnt path.', true, arg => MNT_HOSTNAME = arg]
   },
 
   tasks: {
     all: ['all', 'Execute all tasks for a remote deployment.', ['pomEnvs', 'validate', 'upload', 'install'], null],
     buildInstallOpts: ['build-install-opts', 'Build up options passed to the install script', ['pomEnvs'], function() {
-      INSTALL_OPTS += ` -A${APP_HOME} -B${BACKUP} -N${APP_NAME} -V${VERSION} -U${USER} -Y${USER_ID}`;
+      INSTALL_OPTS += ` -A${APP_HOME} -B${BACKUP} -N${APP_NAME} -Q${MNT_HOSTNAME} -V${VERSION} -U${USER} -Y${USER_ID} -R${SYSTEMD_RESTART}`;
       if ( WEB_PORT )
         INSTALL_OPTS += ` -W${WEB_PORT}`;
     }],
@@ -87,6 +89,8 @@ foam.POM({
       this.log('  ./build.sh -TStandard,Java,RemoteInstall -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead');
       this.log('  ./build.sh -TStandard,Java,RemoteInstall -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead');
       this.log('    Deploy with SSL/HTTPS support');
+      this.log('  ./build.sh -TStandard,Java,RemoteInstall -Jdemo,https --user:foam user-id:3636 --backup:false --remote-hostname:moosehead --mnt-hostname:false');
+      this.log('    Deploy without a unique NFS mount point.');
     }],
     validate: ['validate', 'Verify required information is available before proceeding with main build tasks', ['pomEnvs'], function() {
       if ( REMOTE_PLATFORM !== 'linux' ) {

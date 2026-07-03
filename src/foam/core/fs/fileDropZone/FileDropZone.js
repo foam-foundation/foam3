@@ -142,7 +142,7 @@ foam.CLASS({
     { name: 'LABEL_MAX_SIZE',      message: 'Max size:' },
     { name: 'ERROR_FILE_TITLE',    message: 'Error' },
     { name: 'ERROR_FILE_TYPE',     message: 'Invalid file type' },
-    { name: 'ERROR_FILE_SIZE',     message: 'File size exceeds ${this.maxSize}MB', template: true },
+    { name: 'ERROR_FILE_SIZE',     message: 'File size exceeds ${size}MB', template: true },
     { name: 'NO_FILES',            message: 'No files' }
   ],
 
@@ -177,10 +177,9 @@ foam.CLASS({
       }
     },
     {
-      class: 'Long',
       name: 'maxSize',
-      value: 15,
-      documentation: 'Dictates maximum file size in MB (Megabyte).'
+      value: { '*': 15 },
+      documentation: `Dictates maximum file size per each file type in MB (Megabyte) e.g,. { 'image/jpeg' : 10 } to restrict maximum jpeg file size to 10MB.`
     },
     {
       name: 'onFilesChanged',
@@ -229,6 +228,13 @@ foam.CLASS({
     async function render() {
       this.SUPER();
       var self = this;
+
+      var sizes = [];
+      Object.keys(self.maxSize).forEach(type => {
+        var typeName = type == '*' ? 'ANY' : self.supportedFormats[type];
+        sizes.push(`${typeName ?? type}: ${self.maxSize[type]}MB`);
+      });
+      if ( sizes.length == 1 && sizes[0].startsWith('ANY: ') ) sizes[0] = sizes[0].substring(5);
 
       if ( Object.keys(this.supportedFormats).length == 0 ) {
         let s = await this.fileTypeDAO.select();
@@ -285,7 +291,7 @@ foam.CLASS({
             .start('p').addClass('p-xs', self.myClass('caption')).add(this.getSupportedTypes(true)).end()
           .end()
           .start()
-            .start('p').addClass('p-xs', this.myClass('caption')).add(this.LABEL_MAX_SIZE + ' ' + this.maxSize + 'MB').end()
+            .start('p').addClass('p-xs', this.myClass('caption')).add(this.LABEL_MAX_SIZE + ' [ ' + sizes.join(', ') + ' ]').end()
           .end()
         .end()
       .end()
@@ -332,7 +338,6 @@ foam.CLASS({
     },
 
     function addFiles(files) {
-      var errors = false;
       for ( var i = 0 ; i < files.length ; i++ ) {
         if ( ! this.validateFile(files[i]) ) continue;
         if ( this.isMultipleFiles ) {
@@ -378,9 +383,10 @@ foam.CLASS({
         this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
         return false;
       }
-      if ( file.size > ( this.maxSize * 1024 * 1024 ) ) {
-        if ( ! errors );
-        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE(), this.LogLevel.ERROR, true);
+
+      var maxSize = this.maxSize[file.type] ?? this.maxSize['*'];
+      if ( maxSize && file.size > ( maxSize * 1024 * 1024 ) ) {
+        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE({size: maxSize}), this.LogLevel.ERROR, true);
         return false;
       }
       var isIncluded = false;

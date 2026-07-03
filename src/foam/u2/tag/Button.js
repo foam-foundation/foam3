@@ -204,24 +204,26 @@ foam.CLASS({
     ^secondary-destructive{
       background-color: $backgroundDestructive;
       border: 1px solid $backgroundDestructiveSecondary;
-      color: $textDestrucitve;
+      color: $textOnDestructive;
     }
 
     ^secondary-destructive svg { fill: currentColor; }
 
     ^secondary-destructive:hover:not(:disabled) {
-      background-color: $buttonSecondaryColor$hover;
+      background-color: $backgroundDestructive$hover;
+      color: $backgroundDestructive$hover$foreground;
     }
 
     ^secondary-destructive:active:not(:disabled) {
-      background-color: $buttonSecondaryColor$hover;
+      background-color: $backgroundDestructive$hover;
       border-color: $destructive500;
+      color: $backgroundDestructive$hover$foreground;
     }
 
     ^secondary-destructive:disabled {
-      background-color: $buttonSecondaryColor$hover;
+      background-color: $backgroundDestructive$disabled;
       border-color: $destructive100;
-      color: $destructive100;
+      color: $backgroundDestructive$disabled$foreground;
     }
 
     /* Tertiary */

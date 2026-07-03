@@ -20,7 +20,6 @@ foam.CLASS({
 
     As a result, log() will log to the Script output,
     but this.log() will log to the block, ie. in the FLOW document itself.
-
   `,
 
   properties: [
@@ -62,7 +61,7 @@ foam.CLASS({
     function run() {
       let self = this;
       with ( this.scope ) {
-        with ( { log: this.log.bind(this) } ) {
+        with ( { x: self.__context__, log: this.log.bind(this), clear: this.clearOutput.bind(this) } ) {
           var ret = eval('(async function() {' + self.code + '})').call(self.block);
           ret.then(v => this.log(v), v => this.log(v)).catch(e => this.log(e.stack));
           return ret;
@@ -79,6 +78,8 @@ foam.CLASS({
       availablePermissions: [ 'command.read.test' ],
       code: async function() {
         var name = this.block.flowName;
+        // TODO: call testResults
+        // escape output correctly
         this.eval_(`test(${name}.output, 'Test script output for ${name}')`);
       }
     }

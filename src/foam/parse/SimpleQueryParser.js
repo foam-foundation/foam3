@@ -291,7 +291,7 @@ foam.CLASS({
     },
     {
       name: 'propertiesGrammar_',
-      value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
+      value: function(action, alt, nop, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
 
         let cls                 = this.of;
@@ -320,9 +320,19 @@ foam.CLASS({
           // Property or Referenced Property, the effective type of the Property
           let type = prop;
 
-          // TODO: It would be better to handle references with a custom view:
-          // which auto-completes based on DAO searches.
           if ( foam.lang.Reference.isInstance(prop) ) {
+            // Delegate to ReferenceSuggester for suggestions after = or !=
+            propPredicates.push(seq(propertyParser, seq1(1,
+              alt(operator('='), operator('!=')),
+              sym('ws'),
+              sug(nop(), {
+                class: 'foam.parse.auto.ReferenceSuggester',
+                targetDAOKey: prop.targetDAOKey,
+                of: prop.of
+              })
+            )));
+
+            // Resolve ID type and fall through to compareNumber/compareString.
             type = prop.of.ID;
             if ( foam.lang.IDAlias.isInstance(type) ) {
               type = prop.of.getAxiomByName(type.propName);
@@ -339,11 +349,26 @@ foam.CLASS({
             propPredicates.push(seq(propertyParser, sym('compareBoolean')));
           }
           else if ( foam.lang.Enum.isInstance(type) ) {
-            let value     = (v) => seq1(1, sym('ws'), sug(literalIC(v), {text: v, category: 'value'}));
+            // Delegate to EnumSuggester for a rich, color/glyph-aware dropdown after = or !=.
+            // Also handles class: 'StateMachine' (extends foam.lang.Enum).
+            propPredicates.push(seq(propertyParser, seq1(1,
+              alt(operator('='), operator('!=')),
+              sym('ws'),
+              sug(nop(), {
+                view: {
+                  class: 'foam.parse.auto.EnumSuggester',
+                  of:    prop.of
+                },
+                label:    prop.label + ' values',
+                category: 'value'
+              })
+            )));
+
+            // Keep per-value literal parsing so the grammar still accepts `status = ACTIVE`,
+            // but drop the per-value sug() to avoid duplicate suggestions (EnumSuggester owns those now).
+            let value     = (v) => seq1(1, sym('ws'), literalIC(v));
             let enumValue = alt.apply(null, prop.of.VALUES.map(v => value(v.name)));
             let enumArray = seq1(0, repeat(seq1(0, enumValue, sym('ws')), ',', 1), sym('ws'),')');
-
-            // TODO: Enums can have assigned colours. If they do, they should be provided to the suggestion.
 
             let compareEnum = action(
               alt(seq(operator('='), enumValue),

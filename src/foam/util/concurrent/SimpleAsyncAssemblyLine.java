@@ -13,7 +13,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * A simplified asynchronous AssemblyLine.
  *
@@ -21,13 +20,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A dedicated background thread drains a channel calling
  * waitToComplete() and endJob(false) in enqueue order.
  **/
+
 public class SimpleAsyncAssemblyLine
   implements AssemblyLine
 {
   protected X                             x_;
   protected ThreadPoolExecutor            pool_;
   protected ThreadGroup                   threadGroup_;
-  protected LinkedBlockingQueue<Assembly> channel_ = new LinkedBlockingQueue<>();
+  protected LinkedBlockingQueue<Assembly> channel_ = new LinkedBlockingQueue<>(128);
   protected Thread                        endThread_;
   protected String                        name_;
   protected boolean                       shutdown_ = false;
@@ -37,7 +37,7 @@ public class SimpleAsyncAssemblyLine
   }
 
   public SimpleAsyncAssemblyLine(X x, String name) {
-    this(x, name, Runtime.getRuntime().availableProcessors());
+    this(x, name, Math.max(1, Runtime.getRuntime().availableProcessors()-1));
   }
 
   public SimpleAsyncAssemblyLine(X x, String name, int numberOfThreads) {
@@ -66,10 +66,12 @@ public class SimpleAsyncAssemblyLine
         }
       }
     );
-    pool_.allowCoreThreadTimeOut(true);
 
     endThread_ = new Thread(threadGroup_, name_ + "-endJob") {
       public void run() {
+        // Carry forward XLocator Context to this thread
+        foam.lang.XLocator.set(x_);
+
         while ( true ) {
           try {
             Assembly job = channel_.take();
@@ -93,6 +95,9 @@ public class SimpleAsyncAssemblyLine
     if ( shutdown_ ) throw new IllegalStateException("Can't enqueue into a shutdown AssemblyLine.");
 
     pool_.execute(() -> {
+      // Carry forward XLocator Context to this thread
+      foam.lang.XLocator.set(x_);
+
       try {
         job.executeJob();
       } catch (Throwable t) {
@@ -102,7 +107,10 @@ public class SimpleAsyncAssemblyLine
       }
     });
 
-    channel_.add(job);
+    try {
+      channel_.put(job);
+    } catch (InterruptedException e) {
+    }
   }
 
   public void shutdown() {

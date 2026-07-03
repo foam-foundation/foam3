@@ -9,6 +9,12 @@ foam.CLASS({
   name: 'DateSuggester',
   extends: 'foam.u2.View',
 
+  css:`
+    ^ {
+      padding: 4px 0px;
+    }
+  `,
+
   properties: [
     'suggestText',
     {
@@ -20,6 +26,7 @@ foam.CLASS({
 
   methods: [
     function render() {
+      this.addClass();
       this.startContext({data: this}).add(this.DATE);
       this.date$.sub(() => {
         this.suggestText(this.date.toISOString().substring(0,10) + ' ');
@@ -120,6 +127,8 @@ foam.CLASS({
   css: `
     ^ {
       color: $textDefault;
+      border-radius: 4px;
+      padding: 4px 8px;
     }
     ^label {
       font-style: normal;
@@ -130,11 +139,17 @@ foam.CLASS({
     ^text {
       color: $textSecondary;
     }
+    ^:hover{
+      background-color: $backgroundBrandTertiary;
+      cursor: pointer;
+    }
 
     ^property { color: $green400; }
     ^operator { color: $orange400; }
     ^value    { color: $blue400; }
     ^format   { color: $grey400; }
+    ^standard { color: $blue400; }
+    ^custom { color: $orange400; }
 
     ^calculation { color: $orange400; }
     ^chart    { color: $blue400; }
@@ -142,6 +157,7 @@ foam.CLASS({
   `,
 
   properties: [
+    { class: 'Boolean', name: 'showText', value: true },
     'suggestText'
   ],
 
@@ -172,6 +188,14 @@ foam.CLASS({
             }
           ).
         end();
+
+      this.renderText();
+    },
+
+    function renderText() {
+      if ( ! this.showText ) return;
+
+      const data  = this.data;
 
       if ( data.label !== data.text ) {
         this.start().
@@ -218,14 +242,6 @@ foam.CLASS({
       overflow-y: auto;
       z-index: 1000;
     }
-    ^suggestions > :not(^suggestionSeparator) {
-      border-radius: 4px;
-      padding: 4px 8px;
-    }
-    ^suggestions > :not(^suggestionSeparator):hover {
-      background-color: $backgroundBrandTertiary;
-      cursor: pointer;
-    }
     ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
     ^error { border: 1px solid red !important; }
   `,
@@ -262,7 +278,14 @@ foam.CLASS({
     {
       name: 'suggestions',
       factory: function() { return {}; },
-      documentation: 'Current suggestions as a map of string keys to Suggestion objects.'
+      documentation: 'Current suggestions as a map of string keys to Suggestion objects.',
+      postSet: function() {
+        this.expandSuggestions();
+      }
+    },
+    {
+      name: 'expandedSuggestions',
+      factory: function() { return []; }
     },
     'field',
     {
@@ -285,12 +308,17 @@ foam.CLASS({
         let self = this;
 
         // Maybe add a suggestion
-        function maybeAdd(/* parser */ p) {
+        function maybeAdd(/* parser */ p, ps) {
           try {
-            if ( p.suggest ) {
+            if ( p.suggest && ps.pos >= self.maxPos ) {
               let s = p.suggest();
               if ( s ) {
                 let label = s.tooltip || s.text;
+                if ( ps.pos > self.maxPos ) {
+                  self.suggestions = {};
+                  self.maxPos      = ps.pos;
+                }
+                // To avoid duplicates
                 if ( ! self.suggestions[label] ) {
                   self.suggestions[label] = s;
                 }
@@ -303,14 +331,8 @@ foam.CLASS({
         // p is the parser
         // grammar with all the symbols
         return function(p, grammar) {
-          // 'this' is the JSPStream
-
-          if ( this.pos > self.maxPos ) {
-            self.suggestions = {};
-            self.maxPos      = this.pos;
-          }
-
-          if ( this.pos == self.maxPos ) maybeAdd(p);
+          // 'this' is the JSSPStream
+          maybeAdd(p, this);
 
           let result = p.parse(this, grammar);
 
@@ -392,9 +414,9 @@ foam.CLASS({
       self.overlay_
         .start()
           .addClass(this.myClass('suggestions'))
-          .add(this.dynamic(function (suggestions) {
+          .add(this.dynamic(function (expandedSuggestions) {
             if ( self.element_.parentNode.contains(document.activeElement) || ( self.overlay?.el_().contains(document.activeElement) ) )
-              self.populateSuggestions(this, suggestions);
+              self.populateSuggestions(this, expandedSuggestions);
           }))
         .end();
     },
@@ -402,38 +424,32 @@ foam.CLASS({
     function populateSuggestions(e, suggestions) {
       let self = this;
 
-      function compare(k1, k2) {
-        var o1 = self.suggestions[k1];
-        var o2 = self.suggestions[k2];
-
-        let c = foam.util.compare(o1.category, o2.category);
+      function compare(s1, s2) {
+        let c = foam.util.compare(s1.category, s2.category);
         if ( c ) return c;
-        return foam.util.compare(o1.label || o1.text, o2.label || o2.text);
+        return foam.util.compare(s1.label || s1.text, s2.label || s2.text);
       }
 
       let preview = self.preview;
       let delta   = preview.substring(self.maxPos);
-      let keys    = Object.keys(suggestions);
-      let ss      = keys.sort(compare); // Sort by section then (label or text)
-
-      if ( delta ) ss = ss.filter(k => suggestions[k].matches(delta));
-
-      let parent = e.parentNode;
+      let ss      = suggestions.sort(compare); // Sort by section then (label or text)
+      let parent  = e.parentNode;
 
       if ( ! ss.length ) { self.overlay_.close(); return; }
       self.overlay_.open();
 
-      e.forEach(ss, function(s, i, a) {
+      e.forEach(ss, function(sug, i, a) {
         if ( i !== 0 ) this.start().addClass(self.myClass('suggestionSeparator')).end();
-        let sug = self.suggestions[s];
         this.tag(sug.view || self.SuggestionView, {
           data: sug,
+          showText: sug.showText,
+          filter: sug.view ? delta.trim() : '',
           suggestText: (text) => {
             self.suggestText.call(self, text, sug);
           }
         });
       });
-   },
+    },
 
     function reset() {
       this.maxPos          = 0;
@@ -456,6 +472,27 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'expandSuggestions',
+      isMerged: true,
+      delay: 16,
+      code: async function() {
+        let a     = [];
+        let ss    = this.suggestions;
+        let keys  = Object.keys(ss);
+        let delta = this.preview.substring(this.maxPos);
+
+        for ( let i = 0 ; i < keys.length ; i++ ) {
+          let key = keys[i];
+          let s   = ss[key];
+          s = s.clone(this.__subContext__);
+          s.filter = delta;
+          await s.expand(a, delta);
+        }
+
+        this.expandedSuggestions = a;
+      }
+    },
     {
       name: 'onKeyPress',
       code: function(e) {

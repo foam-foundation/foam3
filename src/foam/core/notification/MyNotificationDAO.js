@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.mlang.predicate.AbstractPredicate',
     'foam.mlang.predicate.Predicate',
     'foam.core.notification.Notification',
+    'foam.core.notification.ToastState',
     'foam.core.auth.Subject',
     'foam.core.auth.User'
   ],
@@ -34,7 +35,10 @@ foam.CLASS({
         if ( user == null ) return sink;
         return getDelegate().where(MLang.AND(
             MLang.EQ(Notification.USER_ID, user.getId()),
-            MLang.EQ(Notification. IN_APP_ENABLED, true),
+            MLang.OR(
+              MLang.EQ(Notification.IN_APP_ENABLED, true),
+              MLang.EQ(Notification.TOAST_STATE, ToastState.REQUESTED)
+            ),
             MLang.NOT(MLang.IN(Notification.NOTIFICATION_TYPE, user.getDisabledTopics()))
           )).select_(getX(), sink, skip, limit, order, predicate);
       `

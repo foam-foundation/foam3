@@ -669,6 +669,7 @@ public class DateParser {
       grammar.sym("mmmddyyyy-space"),    // MMM dd yyyy (e.g., Jan 02 2025)
       grammar.sym("ddmmmyyyy-space"),    // DD MMM YYYY (e.g., 15 JAN 2025)
       grammar.sym("ddmmmyyyy-sep"),
+      grammar.sym("ddmmmyy-sep"),        // DD-MMM-YY (2-digit year, e.g. 14-MAY-26)
       grammar.sym("yyyyddmmm-sep"),
       grammar.sym("yyyyddmmm-compact"),
       grammar.sym("ddmmmyyyy-compact")
@@ -1276,6 +1277,11 @@ public class DateParser {
       grammar.sym("dayFlexible"), new Chars("-/"), grammar.sym("month3alpha"), new Chars("-/"), grammar.sym("year4")
     ));
 
+    // DDMMMYY with separators - 2-digit year (e.g., 14-MAY-26, 5-JAN-25)
+    grammar.addSymbol("ddmmmyy-sep", new Seq(
+      grammar.sym("dayFlexible"), new Chars("-/"), grammar.sym("month3alpha"), new Chars("-/"), grammar.sym("year2")
+    ));
+
     grammar.addSymbol("ddmmmyyyy-compact", new Seq(
       grammar.sym("day2"), grammar.sym("month3alpha"), grammar.sym("year4")
     ));
@@ -1558,6 +1564,17 @@ public class DateParser {
         Integer.parseInt(dateStr.substring(4, 6)) - 1,
         Integer.parseInt(dateStr.substring(2, 4)),
         val);
+    });
+
+    // DDMMMYY-Sep action: [DD, sep, MMM, sep, YY] — 2-digit year
+    grammar.addAction("ddmmmyy-sep", (val, x) -> {
+      Object[] v = (Object[]) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      return self.buildDate(mode,
+        self.convertTwoDigitYear(Integer.parseInt((String) v[4])),
+        self.parseMonthName((String) v[2]),
+        Integer.parseInt((String) v[0]),
+        -1, -1, -1, -1, null);
     });
 
     // DDMMMYYYY-Sep action: [DD, sep, MMM, sep, YYYY]

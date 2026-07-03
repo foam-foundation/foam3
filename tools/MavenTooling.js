@@ -10,7 +10,9 @@ foam.POM({
   tasks: {
     cleanAll: ['clean-all', 'Remove pom.xml and Java lib directory.', [], function() {
       this.rmfile('pom.xml');
-      this.emptyDir(BUILD_DIR + '/lib');
+      if ( this.existsSync(BUILD_DIR) ) {
+        this.emptyDir(BUILD_DIR + '/lib');
+      }
     }],
 
     maven: ['maven', 'Run Maven', [], function() {

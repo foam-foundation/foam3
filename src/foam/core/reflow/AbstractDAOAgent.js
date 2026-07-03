@@ -17,7 +17,11 @@ foam.CLASS({
     'foam.core.reflow.ErrorView'
   ],
 
-  imports: [ 'block', 'dao as referenceDAO', 'sinkDAO as dao', 'sinkUnlimitedDAO as unlimitedDAO' ],
+  imports: [
+    'block?',
+    'dao as referenceDAO',
+    'sinkDAO as dao',
+    'sinkUnlimitedDAO as unlimitedDAO' ],
 
   exports: [ 'dao' ],
 
@@ -47,13 +51,10 @@ foam.CLASS({
         // (like 'block') from the current context.
         s = s.clone(this.__subContext__);
 
-        e.startContext({dao: this.dao})
-          .start()
-            .call(function() {
-              self.addSinkToE(this, s);
-            })
-          .end()
-        .endContext();
+        e.add(this.block.dynamic(function (shown) {
+          if ( shown )
+            this.startContext({dao: self.dao}).start().call(function() { self.addSinkToE(this, s); }).endContext();
+        }));
       }).catch(error => {
         console.error('AbstractDAOAgent execution error:', error);
         e.tag(self.ErrorView, { error: error });
@@ -75,7 +76,9 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'FObjectProperty',
       name: 'sink',
+      autoValidate: true,
       preSet: function(o, n) {
         // Temporary fix to recontextualize the object after load.
         // TODO: remove once JSON parsing/loading is fixed
@@ -85,8 +88,7 @@ foam.CLASS({
         return n;
       }
     }
-  ],
-
+  ]
 });
 
 
@@ -100,7 +102,7 @@ foam.CLASS({
     'dao as referenceDAO',
     'sinkDAO as dao',
     'sinkUnlimitedDAO as unlimitedDAO',
-    'columns?'
+    'flowColumns? as columns'
   ],
 
   properties: [
@@ -133,7 +135,8 @@ foam.CLASS({
         var expr = this.of.getAxiomByName(propName) || foam.core.column.NestedPropertiesExpression.create({ objClass: this.of, nestedProperty: propName });
         if ( foam.dao.DAOProperty.isInstance(expr) ||
             foam.dao.OneToManyRelationshipProperty.isInstance(expr) ||
-            foam.dao.ManyToManyRelationshipProperty.isInstance(expr) )
+            foam.dao.ManyToManyRelationshipProperty.isInstance(expr) ||
+            foam.lang.Action.isInstance(expr) )
           continue
         if ( expr )
           exprArray.push(expr);
@@ -228,6 +231,8 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
       }
@@ -250,7 +255,7 @@ foam.CLASS({
     function addToE(e) {
       e.startContext({data: this}).start().
         style({display: 'flex'}).
-        add(this.PROP).
+        add(this.PROP.__).
         add(this.PRECISION.__);
     }
   ]
@@ -279,6 +284,8 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertyChoiceView',
@@ -366,6 +373,13 @@ foam.CLASS({
       this.tableEl = undefined;
     },
     function execute(e) {
+      let self = this;
+      e.add(this.block.dynamic(function (shown) {
+        if ( shown )
+          self.execute_(e);
+      }));
+    },
+    function execute_(e) {
       // TODO: prevent table updates when block is hidden
       var self = this;
       // Tables already listen to underlying daos and are completely reactive by themselves as
@@ -420,7 +434,7 @@ foam.CLASS({
             .end()
           .endContext();
         })
-        // Remove memento linking for this table so it doesnt conflict with 
+        // Remove memento linking for this table so it doesnt conflict with
         // other tables in the flow
         .startContext({ memento_: this.Memento.create({obj: this}, this) })
           .start(self.TableView, config)
@@ -526,6 +540,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   requires: [
+    'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
@@ -533,12 +548,20 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
+        return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
       }
     },
     {
+      name: 'parser',
+      transient: true,
+      factory: function() { return this.GroupByParser.create(); }
+    },
+    {
       name: 'sink',
+      label: 'Operation',
       view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' }
     },
     {
@@ -613,6 +636,7 @@ foam.CLASS({
         groupLimit cuts off data collection early (during put), while topN properly
         aggregates all data first then limits groups (during eof). Use topN instead.`
     },
+    // TODO: not needed anymore, remove
     {
       name: 'browseEnabled',
       hidden: true,
@@ -659,13 +683,14 @@ foam.CLASS({
       e.startContext({data: this}).
         start().
           style({paddingLeft: '12px'}).
-          add(this.PROP).
-          add(this.SINK).
+          add(this.PROP.__).
+          add(this.SINK.__).
           add(this.TOP_N.__).
           add(this.SORT_ORDER.__).
           add(this.INCLUDE_OTHERS.__).
           add(this.OTHERS_LABEL.__).
-          callIf(this.block, function() { this.add(self.BROWSE); });
+        end().
+      endContext();
     }
   ],
 
@@ -695,18 +720,20 @@ foam.CLASS({
   properties: [
     {
       name: 'prop',
+      label: 'Property',
+      validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of };
+        return { class: 'foam.core.reflow.PropertyChoiceView', placeholder: '---', forCls: X.data.of };
       }
     },
-    { name: 'sink', view: 'foam.core.reflow.SinkView' }
+    { name: 'sink', label: 'Operation', view: 'foam.core.reflow.SinkView' }
   ],
 
   methods: [
     function value(s) { return this.sink.value(s.sink); },
     function createSink() { return this.DuplicateSink.create({expr: this.prop, sink: this.sink.createSink()}); },
     function addToE(e) {
-      e.startContext({data: this}).start().style({display: 'flex'}).add(this.PROP, this.SINK);
+      e.startContext({data: this}).start().style({display: 'flex'}).add(this.PROP.__, this.SINK.__);
     }
   ]
 });
@@ -722,12 +749,16 @@ foam.CLASS({
   properties: [
     {
       name: 'prop1',
+      label: 'Property 1',
+      validateObj: function(prop1) { if ( ! prop1 ) return 'Required'; },
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
     {
       name: 'prop2',
+      label: 'Property 2',
+      validateObj: function(prop2) { if ( ! prop2 ) return 'Required'; },
       view: function(_, X) {
        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
@@ -743,7 +774,7 @@ foam.CLASS({
       acc:   this.sink.createSink()
     }); },
     function addToE(e) {
-      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.PROP1, this.PROP2, this.SINK);
+      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.PROP1.__, this.PROP2.__, this.SINK);
     }
   ]
 });
@@ -820,9 +851,23 @@ foam.CLASS({
       },
       */
     {
+      class: 'FObjectArray',
       name: 'sinks',
+      of: 'foam.core.reflow.AbstractDAOAgent',
+      autoValidate: true,
       factory: function() { return []; },
       preSet: function(o, n) {
+        // TODO:
+        // - this is needed because parsing doesn't put objects in the correct context,
+        // - but then it breaks nested validation because nested objects aren't the correct ones
+        // - remove once parsing contextualizes correctly
+
+        // Don't clone if not necessary. Only necessary if the dao is different.
+        let count = n.filter(o => o && o.dao != this.__subContext__.dao ).length;
+        if ( count == 0 ) {
+          return n;
+        }
+
         if ( foam.Array.isInstance(n) ) {
           n = n.map(o => o && o.__context__ != this.__subContext__ ? o.clone(this.__subContext__) : o);
         }
@@ -832,7 +877,8 @@ foam.CLASS({
         class: 'foam.u2.view.ArrayView',
         valueView: {
           class: 'foam.core.reflow.SinkView',
-          sinksOnly: true
+          sinksOnly: true,
+          choice: 'foam.core.reflow.CountDAOAgent'
         }
       }
     }
@@ -885,7 +931,7 @@ foam.CLASS({
     },
     function addToE(e) {
       e.startContext({data: this}).start().style({display: 'flex'}).
-        add(' r:', this.RADIUS,' ', this.PROP);
+        add(' r:', this.RADIUS,' ', this.PROP.__);
     }
   ]
 });
@@ -922,7 +968,7 @@ foam.CLASS({
   name: 'ControllerDAOAgent',
   extends: 'foam.core.reflow.AbstractDAOAgent',
 
-  imports: [ 'sinkDAO as limitedDAO' ],
+  imports: [ 'sinkDAO? as limitedDAO' ],
 
   methods: [
     function execute(e) {
@@ -995,7 +1041,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.CitationView' ],
 
-  imports: [ 'agentDAO' ],
+  imports: [ 'agentDAO?' ],
 
   methods: [
     function execute(e) {
@@ -1078,11 +1124,14 @@ foam.CLASS({
       var daoKey   = serviceName.substring(8);
       var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
+      var title = daoKey;
+
       // Probe DAO to find the actual full query being used
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
           url = url + '&q=' + encodeURIComponent(p.toMQL());
+          title = title + ', query=' + p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1093,7 +1142,17 @@ foam.CLASS({
         url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
       }
 
-      this.add('Download As: ');
+      if ( this.block.value.skip ) {
+        url = url + '&skip=' + this.block.value.skip;
+        title = title + ', skip=' + this.block.value.skip;
+      }
+
+      if ( this.block.value.limit > 0 ) {
+        url = url + '&limit=' + this.block.value.limit;
+        title = title + ', limit=' + this.block.value.limit;
+      }
+
+      this.add(`Download ${title}`).tag('br').add('As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
         this.
@@ -1206,6 +1265,7 @@ foam.CLASS({
     {
       name: 'sink',
       view: 'foam.core.reflow.SinkView',
+      choice: 'foam.core.reflow.CountDAOAgent',
       documentation: 'The sink to delegate to'
     }
   ],

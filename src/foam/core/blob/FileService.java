@@ -63,7 +63,7 @@ public class FileService
 
       if ( SafetyUtil.isEmpty(file.getDataString()) ){
         BlobService store = (BlobService) x.get("blobStore");
-        blob = store.find(file.getId());
+        blob = store.find(file.getDigest());
       } else {
         //Replace @version@ with actual foam version
         if ( "text/html".equals(file.getMimeType()) ) {

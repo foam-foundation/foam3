@@ -100,7 +100,6 @@ foam.CLASS({
               e.preventDefault();
               e.stopPropogation();
             })
-            .startContext({ stack: self.subStack })
             .tag(self.OverlayActionListView, {
               data: Object.values(actions),
               lazy: true,
@@ -110,7 +109,6 @@ foam.CLASS({
               buttonStyle: 'TERTIARY',
               icon: 'images/Icon_More_Resting.svg'
             })
-            .endContext();
           })
         .end();
     }

@@ -8,7 +8,7 @@
  * To debug in browser, load with ?java=true flag, then run something like:
  *   c = foam.java.Class.create();
  *   foam.core.auth.Region.buildJavaClass(c);
- *   c.toString();
+ *   c.toJavaSource();
  * from the console.
 **/
 
@@ -1433,6 +1433,19 @@ foam.CLASS({
         ],
         body: `return ${this.of.id}.forOrdinal(ordinal);`
       });
+      info.method({
+        name: 'forValue',
+        visibility: 'public',
+        type: this.of.id,
+        args: [
+          {
+            name: 'value',
+            type: 'String'
+          }
+        ],
+        body: `return ${this.of.id}.forValue(value);`
+      });
+
 
       info.method({
         name: 'forLabel',
@@ -1456,15 +1469,71 @@ foam.CLASS({
           { type: 'foam.lib.json.Outputter', name: 'outputter' },
           { type: 'Object',                  name: 'value' }
         ],
-        body: `outputter.output(getOrdinal(value));`
+        body: `
+        if ( value == null ) { outputter.output(null); return; }
+        ${this.of.id} e = (${this.of.id}) value;
+        String v = e.getValue();
+        if ( v != null && v.length() > 0 ) outputter.output(v);
+        else outputter.output(e.getOrdinal());
+        `
       });
 
       var cast = info.getMethod('cast');
       cast.body = `if ( o instanceof Integer ) return forOrdinal((int) o);
-  if ( o instanceof String ) return Enum.valueOf(${this.of.id}.class, (String) o);
+  if ( o instanceof String ) {
+    ${this.of.id} ret = forValue((String) o);
+    if ( ret == null ) ret = Enum.valueOf(${this.of.id}.class, (String) o);
+    return ret;
+  }
   return (${this.of.id})o;`;
 
       return info;
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'ChoiceValidatorJavaRefinement',
+  refines: 'foam.lang.ChoiceValidator',
+
+  properties: [
+    [ 'javaInfoType', 'foam.lang.AbstractObjectPropertyInfo' ],
+    {
+      class: 'String',
+      name: 'javaValidateObj',
+      expression: function(choiceProperties, minOccurs, maxOccurs) {
+        if ( ! choiceProperties || choiceProperties.length === 0 ) return '';
+
+        var propChecks = choiceProperties.map(function(propName) {
+          return '    if ( ((foam.lang.PropertyInfo) classInfo.getAxiomByName("' + propName + '")).isSet(obj) ) setCount++;';
+        }).join('\n');
+
+        var minCheck = '';
+        if ( minOccurs > 0 ) {
+          minCheck = `
+            if ( setCount < ${minOccurs} ) {
+              throw new IllegalStateException(
+                "Choice constraint violated: at least ${minOccurs} of [${choiceProperties.join(', ')}] must be set, but only " + setCount + " found.");
+            }`;
+        }
+
+        var maxCheck = '';
+        if ( maxOccurs !== -1 ) {
+          maxCheck = `
+            if ( setCount > ${maxOccurs} ) {
+              throw new IllegalStateException(
+                "Choice constraint violated: at most ${maxOccurs} of [${choiceProperties.join(', ')}] may be set, but " + setCount + " found.");
+            }`;
+        }
+
+        return `
+          foam.lang.ClassInfo classInfo = obj.getClassInfo();
+          int setCount = 0;
+          ${propChecks}
+          ${minCheck}${maxCheck}`;
+      }
     }
   ]
 });
@@ -1586,6 +1655,22 @@ ${this.VALUES.map(v => `\tcase ${v.ordinal} -> ${cls.name}.${v.name};`).join('\n
 ${this.VALUES.map(v => `\tcase ${nameLabel(v)} -> ${cls.name}.${v.name};`).join('\n')}
   default -> null;
 };`
+          });
+
+          cls.method({
+            name: 'forValue',
+            type: cls.name,
+            visibility: 'public',
+            static: true,
+            args: [{ name: 'value', type: 'String' }],
+            body: `
+              switch (value) {
+              ${this.VALUES
+                .filter(v => v.value !== undefined && v.value !== null && v.value !== '')
+                .map(v => `  case ${foam.java.asJavaValue(v.value)}: return ${cls.name}.${v.name};`)
+                .join('\n')}
+                default: return null;
+              }`
           });
 
           return cls;
@@ -2296,6 +2381,18 @@ foam.CLASS({
         args: [ { name: 'x', type: 'foam.lang.X' } ],
         body: `return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${foam.String.capitalize(this.name)}());`
       });
+    },
+
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+      info.implements = (info.implements || []).concat('foam.lang.ReferencePropertyInfo');
+      info.method({
+        name: 'getTargetDAOKey',
+        visibility: 'public',
+        type: 'String',
+        body: `return "${this.targetDAOKey}";`
+      });
+      return info;
     }
   ]
 });
@@ -2366,6 +2463,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.java',
@@ -2894,5 +2992,17 @@ foam.CLASS({
         } catch (NumberFormatException e) { /* assume string id */ }
       `
     }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'GlyphPropertyJavaRefinement',
+  refines: 'foam.lang.GlyphProperty',
+  flags: [ 'java' ],
+  javaImports: [ 'foam.lang.Glyph' ],
+
+  properties: [
+    [ 'javaJSONParser', 'foam.lib.json.GlyphPropertyParser.instance()' ],
   ]
 });

@@ -22,6 +22,7 @@ foam.CLASS({
       this.testDDMMYYYYFormats(x);
       this.testYYYYDDMMFormats(x);
       this.testDDMMMYYYYFormats(x);
+      this.testDDMMMYYFormats(x);
       this.testUnixDateToStringFormat(x);
       this.testJSDateToStringFormat(x);
       this.testDateTimeFormats(x);
@@ -1149,6 +1150,72 @@ foam.CLASS({
           x.test(pass, `DD MMM YYYY All Months Test${i + 1}: ${testCase.input} should parse to month ${testCase.month} (STANDARD format)`);
         } catch (e) {
           x.test(false, `DD MMM YYYY All Months Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+    },
+
+    function testDDMMMYYFormats(x) {
+      let parser = this.DateParser.create();
+
+      // DD-MMM-YY with separators: 14-MAY-26 style (2-digit year)
+      let ddmmmyySep = [
+        { input: '14-MAY-26', year: 2026, month: 4, day: 14 },
+        { input: '13-MAY-26', year: 2026, month: 4, day: 13 },
+        { input: '31-JAN-25', year: 2025, month: 0, day: 31 },
+        { input: '03-FEB-25', year: 2025, month: 1, day: 3 },
+        { input: '15/MAR/24', year: 2024, month: 2, day: 15 },
+        { input: '25-DEC-25', year: 2025, month: 11, day: 25 },
+        { input: '01-JAN-00', year: 2000, month: 0, day: 1 },  // year 00 → 2000
+        { input: '29-FEB-24', year: 2024, month: 1, day: 29 }, // Leap year
+        { input: '15/jun/26', year: 2026, month: 5, day: 15 }, // Lowercase
+        { input: '10-Jul-26', year: 2026, month: 6, day: 10 }, // Mixed case
+        { input: '5-JAN-25',  year: 2025, month: 0, day: 5  }, // Single-digit day
+        { input: '2/FEB/25',  year: 2025, month: 1, day: 2  },
+        // Two-digit year pivot: < 50 → 20xx, >= 50 → 19xx
+        { input: '01-JAN-49', year: 2049, month: 0, day: 1 },
+        { input: '01-JAN-50', year: 1950, month: 0, day: 1 }
+      ];
+
+      ddmmmyySep.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input);
+          let pass = result &&
+                     result.getUTCFullYear() === testCase.year &&
+                     result.getUTCMonth()    === testCase.month &&
+                     result.getUTCDate()     === testCase.day &&
+                     result.getUTCHours()    === 12;
+          x.test(pass, `DDMMMYY-Sep Test${i + 1}: ${testCase.input} → ${testCase.year}-${testCase.month + 1}-${testCase.day}`);
+        } catch (e) {
+          x.test(false, `DDMMMYY-Sep Test${i + 1}: ${testCase.input} - ${e.message}`);
+        }
+      });
+
+      // All 12 months with 2-digit year
+      let allMonths = [
+        { input: '15-JAN-26', month: 0  },
+        { input: '15-FEB-26', month: 1  },
+        { input: '15-MAR-26', month: 2  },
+        { input: '15-APR-26', month: 3  },
+        { input: '15-MAY-26', month: 4  },
+        { input: '15-JUN-26', month: 5  },
+        { input: '15-JUL-26', month: 6  },
+        { input: '15-AUG-26', month: 7  },
+        { input: '15-SEP-26', month: 8  },
+        { input: '15-OCT-26', month: 9  },
+        { input: '15-NOV-26', month: 10 },
+        { input: '15-DEC-26', month: 11 }
+      ];
+
+      allMonths.forEach((testCase, i) => {
+        try {
+          let result = parser.parseString(testCase.input);
+          let pass = result &&
+                     result.getUTCFullYear() === 2026 &&
+                     result.getUTCMonth()    === testCase.month &&
+                     result.getUTCDate()     === 15;
+          x.test(pass, `DDMMMYY All Months Test${i + 1}: ${testCase.input} → month ${testCase.month}`);
+        } catch (e) {
+          x.test(false, `DDMMMYY All Months Test${i + 1}: ${testCase.input} - ${e.message}`);
         }
       });
     },

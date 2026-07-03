@@ -28,6 +28,7 @@ foam.CLASS({
   ],
 
   exports: [
+    'allowDuplicates',
     'enableRemoving',
     'mode',
     'updateData',
@@ -104,9 +105,9 @@ foam.CLASS({
       isAvailable: function(mode, enableAdding) {
         return enableAdding && mode === foam.u2.DisplayMode.RW;
       },
-      isEnabled: function(allowDuplicates, data, arrayLength_) {
+      isEnabled: function(allowDuplicates, data, arrayLength_, defaultNewItem) {
         // Disable adding if no duplicates and all uniques already assigned
-        return allowDuplicates || data.length !== arrayLength_;
+        return allowDuplicates || ! (data.length == arrayLength_ || data.includes(defaultNewItem));
       },
       code: function() {
         var newItem = this.defaultNewItem;
@@ -136,6 +137,7 @@ foam.CLASS({
       `,
       imports: [
         'data',
+        'allowDuplicates',
         'enableRemoving',
         'mode',
         'updateData',
@@ -154,13 +156,23 @@ foam.CLASS({
           name: 'value',
           postSet: function(o, n) {
             if ( this.data[this.index] === n ) return;
-            if ( this.arrayView.dataViewMap[o.$UID] ) {
+
+            // Clean up old element mapping
+            if ( o && this.arrayView.dataViewMap[o.$UID] ) {
               delete this.arrayView.dataViewMap[o.$UID];
             }
+
+            // Check for duplication
+            if ( ! this.allowDuplicates && this.data.includes(n) ) {
+              return;
+            }
+
+            // Update data and new mapping
             var data = [...this.data];
             data[this.index] = n;
             if ( ! foam.util.isPrimitive(this.value) )
               this.arrayView.dataViewMap[n.$UID] = this;
+
             // Treat value updates as feedback to prevent rerendering the whole array since the values are already slotted
             this.arrayView.feedback_ = true;
             this.data = data;

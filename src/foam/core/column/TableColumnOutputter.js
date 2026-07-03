@@ -73,10 +73,19 @@ foam.CLASS({
     },
 
     async function valueToString(val) {
+      // JS RefSummary.f() returns a Promise resolving to { id, summary }.
+      if ( val && typeof val.then === 'function' ) {
+        val = await val;
+        if ( val == null ) return '';
+      }
       if ( val.toSummary ) {
         if ( val.toSummary() instanceof Promise )
           return await val.toSummary();
         return val.toSummary();
+      }
+      // (Ref.js) RefSummary returns a plain Map{id, summary} from the server.
+      if ( foam.Object.isInstance(val) && val.summary !== undefined ) {
+        return val.summary;
       }
       return val.toString();
     },

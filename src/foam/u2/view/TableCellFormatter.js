@@ -77,7 +77,7 @@ foam.CLASS({
           class: 'foam.u2.view.FnFormatter',
           f: function(value, obj, axiom) {
             if ( axiom.name !== 'id' && foam.Number.isInstance(value) && axiom.formatValue ) {
-              value = Number(value).toLocaleString(navigator.locale);
+              value = Number(value).toLocaleString(foam.util.getClientLocale());
             }
             this.add(value);
           }
@@ -171,10 +171,11 @@ foam.CLASS({
     {
       class: 'foam.u2.view.TableCellFormatter',
       name: 'tableCellFormatter',
-      value: function(value) {
+      value: function(value, obj, axiom) {
         if ( value ) {
           this
-            .tag(foam.u2.view.ReadOnlyEnumView, { data: value });
+            .startContext({ data: obj })
+            .tag(axiom);
         } else {
           this.start().
             add('-').
@@ -304,14 +305,15 @@ foam.CLASS({
   properties: [
     {
       class: 'Boolean',
-      name: 'projectionSafe'
+      name: 'projectionSafe',
+      value: true
     }
   ],
 
   methods: [
     function format(e, value, obj, axiom) {
       try {
-        obj[axiom.name + '$find'].then(o => e.add(o && o?.toSummary() || value), r => e.add(value));
+        obj[axiom.name + '$summary'].then(o => e.add(o || value), r => e.add(value));
       } catch (x) {
       }
     }
@@ -440,9 +442,15 @@ foam.CLASS({
       value: function(date) {
         // allow the browser to deal with this since we are technically using the user's preference
         if ( date ) {
-          var formattedDate = date.toLocaleDateString(foam.locale);
+          var locale = foam.util.getClientLocale();
+          var formattedDate = date.toLocaleDateString(locale);
+          var tooltipDate = date.toLocaleDateString(locale, {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          });
           this.add(formattedDate);
-          this.tooltip = formattedDate;
+          this.tooltip = tooltipDate;
         }
       }
     },
@@ -467,8 +475,17 @@ foam.CLASS({
       value: function(date, obj, axiom) {
         if ( date ) {
           var formattedDate = axiom.formatLocale(date);
+          var tooltipDate = date.toLocaleString(foam.util.getClientLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short'
+          });
           this.add(formattedDate);
-          this.tooltip = formattedDate;
+          this.tooltip = tooltipDate;
         }
       }
     },
@@ -493,8 +510,18 @@ foam.CLASS({
       value: function(date, obj, axiom) {
         if ( date ) {
           var formattedDate = axiom.formatLocale(date);
+          var tooltipDate = date.toLocaleString(foam.util.getClientLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZone: 'UTC',
+            timeZoneName: 'short'
+          });
           this.add(formattedDate);
-          this.tooltip = formattedDate;
+          this.tooltip = tooltipDate;
         }
       }
     }

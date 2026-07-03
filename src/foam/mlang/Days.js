@@ -19,6 +19,7 @@ foam.CLASS({
 
   javaCode: `
     public static long since(Date d) {
+      if ( d == null ) return 0l;
       LocalDate ld = LocalDate.ofInstant(d.toInstant(), ZoneId.systemDefault());
       return ChronoUnit.DAYS.between(ld, LocalDate.now());
     }
@@ -57,7 +58,7 @@ foam.CLASS({
       name: 'toString',
       type: 'String',
       code: function() { return 'DAYS(\'' + this.arg1.toString() + '\')'; },
-      javaCode: ' return "DAYS(\'" + getArg1() + "\')"; '
+      javaCode: ' return "DAYS(\'" + ( getArg1() == null ? "" : getArg1() ) + "\')"; '
     }
   ]
 });

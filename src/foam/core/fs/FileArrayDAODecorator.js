@@ -51,7 +51,11 @@ foam.CLASS({
     },
 
     async function processFiles(obj) {
+      // FileArrayDAODecorator explicitly extracts FileArray properties from 'obj' to send to a separate file storage service (fileDAO).
+      // These transient FileArray properties on 'obj' are client-side only and generally for UI/UX purposes. There is no need to save
+      // them to fileDAO.
       var props1 = obj.cls_.getAxiomsByClass(foam.core.fs.FileArray);
+      props1 = props1.filter(p => ! ( p.transient || p.networkTransient || p.storageTransient ));
 
       // clone the object if we need to update the file properties
       if ( props1.length > 0 ) obj = obj.clone();
@@ -107,10 +111,13 @@ foam.CLASS({
     // Do recursive look up for fileArrays on inside models
     async function arrayRecursion(obj) {
       // Some obj doesn't have cls_. E.g. primitives or views
-      if ( obj.cls_ == undefined ) return;
+      if ( obj.cls_ == undefined ) return obj;
       obj = await this.processFiles(obj);
       const arr = obj.cls_.getAxiomsByClass(foam.lang.Array);
-      await Promise.all(arr.map(async p => await Promise.all(await p.f(obj).map(async data => data = await this.arrayRecursion(data)))));
+      await Promise.all(arr.map(async p => {
+        const processed = await Promise.all(p.f(obj).map(data => this.arrayRecursion(data)));
+        p.set(obj, processed);
+      }));
       return obj;
     }
   ]

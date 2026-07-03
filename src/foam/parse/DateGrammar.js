@@ -104,6 +104,7 @@ foam.CLASS({
           // Support: DD MMM YYYY (e.g., 15 JAN 2025)
           sym('ddmmmyyyyspace'),
           sym('ddmmmyyyysep'),
+          sym('ddmmmyysep'),        // DD-MMM-YY (2-digit year, e.g. 14-MAY-26)
           sym('yyyyddmmmsep'),
           sym('yyyyddmmmcompact'),  // Try this before ddmmmyyyycompact
           sym('ddmmmyyyycompact')
@@ -589,6 +590,12 @@ foam.CLASS({
         // Supports single-digit days (e.g., 5-JAN-2025)
         ddmmmyyyysep: seq(
           sym('dayFlexible'), chars('-/'), sym('month3alpha'), chars('-/'), sym('year4')
+        ),
+
+        // DDMMMYY with separators: DD-MMM-YY, DD/MMM/YY (2-digit year)
+        // Supports single-digit days (e.g., 5-JAN-25, 14-MAY-26)
+        ddmmmyysep: seq(
+          sym('dayFlexible'), chars('-/'), sym('month3alpha'), chars('-/'), sym('year2')
         ),
 
         // DDMMMYYYY compact: DDMMMYYYY (no separators, like 31JAN2025)

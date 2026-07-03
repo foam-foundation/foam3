@@ -84,6 +84,22 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'digest',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'HIDDEN',
+      readVisibility: 'RO',
+      documentation: `Blob store key (sha256 of the file content). Falls back to id for
+        legacy records created before digest was split out of id.`,
+      javaGetter: `
+        if ( digestIsSet_ ) return digest_;
+        return getId();
+      `,
+      getter: function() {
+        return this.instance_.digest || this.id;
+      }
+    },
+    {
+      class: 'String',
       name: 'filename',
       documentation: 'Filename'
     },
@@ -326,7 +342,7 @@ foam.CLASS({
         return ((InputStreamBlob)blob).getInputStream();
       } else {
         BlobService blobStore = (BlobService) x.get("blobStore");
-        blob = blobStore.find(getId());
+        blob = blobStore.find(getDigest());
         if ( blob != null ) {
           try {
             return new java.io.FileInputStream(((FileBlob) blob).getFile());

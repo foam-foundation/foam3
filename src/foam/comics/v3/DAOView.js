@@ -77,14 +77,14 @@ foam.CLASS({
               let createAction = createMenu;
               if ( ! createAction ) {
                 createAction = self.config.of.getAxiomByName('create');
-                
+
                 if ( createAction && foam.comics.v3.ComicsAction.isInstance(createAction) ) {
-                  createAction = self.CREATE.clone(self).copyFrom({ ...createAction })
+                  createAction = self.CREATE.clone(self).copyFrom(createAction)
                 } else {
                   createAction = self.CREATE;
                 }
               }
-              
+
               this
                 .startContext({ data: self })
                 .tag(createAction, { label$: self.config$.dot('createTitle'), buttonStyle: 'PRIMARY', size: 'LARGE' })
@@ -92,9 +92,9 @@ foam.CLASS({
                 .endContext()
             })))
       });
-      
+
       this
-        .addClass()  
+        .addClass()
         .start(this.config.browseBorder)
         .style({ position: 'relative', 'min-height': this.config.minHeight + 'px'})
             .add(self.slot(function(browseView) {

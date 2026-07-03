@@ -26,7 +26,15 @@
     }
   `,
 
-  messages: [{ name: 'LABEL_SEARCH', message: 'Search...' }],
+   messages: [
+     {
+       name: 'LABEL_SEARCH',
+       messageMap: {
+         en: 'Search...',
+         fr: 'Recherche...'
+       }
+     }
+   ],
 
   properties: [
     ['type', 'search'],

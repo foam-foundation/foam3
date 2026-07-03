@@ -20,12 +20,29 @@ foam.CLASS({
       background: $test1$hover;
       color: $test1$hover$foreground;
     }
+    ^test3 {
+      box-shadow: 0 0 6px $shadowColor !important;
+    }
+    ^test4 {
+      box-shadow: 0 0 4px $shadowColor!important;
+    }
+    ^test5 {
+      box-shadow: 0 0 9px $shadowColor     !important;
+    }
   `,
   cssTokens: [
     {
       class: 'foam.u2.ColorToken',
       name: 'test1',
       value: '$red300' // #E93F48
+    },
+    {
+      // A token whose name ends in a letter, used right before `!important`
+      // with the idiomatic space in between. constantize() inserts an
+      // underscore after a trailing-space-preceding letter, so a swallowed
+      // space turns shadowColor into SHADOW_COLOR_ and the lookup fails.
+      name: 'shadowColor',
+      value: 'red'
     }
   ],
 
@@ -50,6 +67,15 @@ foam.CLASS({
       // });
       var expanded = a.expandCSS(this.cls_, a.code, x);
       x.test(expanded.includes("background: /*$test1*/ #E93F48;"), "color $red300");
+      // Regression: a space between a token and `!important` was swallowed into
+      // the token name, so the token silently failed to resolve. Cover the three
+      // spacings: none, single space, and several spaces.
+      x.test(expanded.includes("box-shadow: 0 0 4px /*$shadowColor*/ red!important;"),
+        "token directly before !important (no space) resolves");
+      x.test(expanded.includes("box-shadow: 0 0 6px /*$shadowColor*/ red!important;"),
+        "token followed by a space and !important resolves");
+      x.test(expanded.includes("box-shadow: 0 0 9px /*$shadowColor*/ red!important;"),
+        "token followed by several spaces and !important resolves");
       // console.log('CSSTokensTest a.expandCSS (initial)', expanded);
       x.installCSS(expanded);
       var color = "$green300"; // #59D374

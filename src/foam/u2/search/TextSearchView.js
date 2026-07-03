@@ -37,7 +37,13 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'LABEL_SEARCH', message: 'Search' }
+    {
+      name: 'LABEL_SEARCH',
+      messageMap: {
+        en: 'Search',
+        fr: 'Recherche'
+      }
+    }
   ],
 
   properties: [

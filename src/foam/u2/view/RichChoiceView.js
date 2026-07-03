@@ -582,6 +582,7 @@ foam.CLASS({
                 .endContext();
           }))
           .add(self.slot(function(sections, filter_) {
+            self.highlightedIndex_ = -1;
             // Check filteredDAO count for each section to respect hideIfEmpty when searching
             var promiseArray = [];
             sections.forEach(function(section) {

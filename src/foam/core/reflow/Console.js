@@ -404,7 +404,7 @@ foam.CLASS({
       label: 'Benchmark flow',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
-      themeIcon: 'health',
+      themeIcon: 'speed',
       // Show only when the loadPerf command it invokes is runnable (same permission).
       availablePermissions: [ 'command.read.loadPerf' ],
       isEnabled: function(data$value$name) { return !! data$value$name; },

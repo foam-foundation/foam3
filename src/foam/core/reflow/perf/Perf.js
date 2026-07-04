@@ -22,13 +22,16 @@ foam.CLASS({
     'foam.core.reflow.perf.PerfSnapshot',
     'foam.core.reflow.perf.PerfSeverity',
     'foam.u2.Tabs',
-    'foam.u2.Tab'
+    'foam.u2.Tab',
+    'foam.log.LogLevel'
   ],
 
-  imports: [ 'window' ],
+  imports: [ 'notify?', 'window' ],
 
   messages: [
     { name: 'NO_ISSUES_MSG',    message: 'No issues flagged' },
+    { name: 'COPIED_MSG',       message: 'Report copied to clipboard' },
+    { name: 'COPY_FAIL_MSG',    message: 'Could not copy report to clipboard' },
     { name: 'DEVTOOLS_HINT',    message: 'In-page profiling is off — the server must send the "Document-Policy: js-profiling" response header (then this fills in automatically, no DevTools needed). Meanwhile capture a CPU trace manually via DevTools → Performance.' },
     { name: 'ELAPSED_LABEL',    message: 'Load time' },
     { name: 'AVG_FPS_LABEL',    message: 'Frame rate (avg / min)' },
@@ -47,8 +50,8 @@ foam.CLASS({
   css: `
     ^ { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: $textDefault; }
 
-    /* toolbar */
-    ^toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    /* copy action pinned to the right end of the tab strip */
+    ^copy-wrap { margin-left: auto; align-self: center; }
 
     /* card */
     ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; max-width: 100%; overflow-x: auto; }
@@ -140,21 +143,21 @@ foam.CLASS({
         var svcLabel   = 'Services' + ( actions ? ' · ' + actions + ' to fix' : '' );
         var issueLabel = 'Issues' + ( ( r.issues || [] ).length ? ' (' + r.issues.length + ')' : '' );
         // Issues first => default selected tab (the summary).
-        this.start(self.Tabs)
+        var tabs = self.Tabs.create({}, this);
+        tabs
           .start(self.Tab, { label: issueLabel }).call(function() { self.renderIssues_(this, r); }).end()
           .start(self.Tab, { label: 'Blocks' }).call(function() { self.renderBlocks_(this, r); }).end()
           .start(self.Tab, { label: svcLabel }).call(function() { self.renderServiceCalls_(this, r); }).end()
-          .start(self.Tab, { label: 'Metrics' }).call(function() { self.renderMetrics_(this, r); }).end()
+          .start(self.Tab, { label: 'Metrics' }).call(function() { self.renderMetrics_(this, r); }).end();
+        // Copy action pinned to the right end of the tab strip.
+        tabs.tabRow.start().addClass(self.myClass('copy-wrap'))
+          .startContext({ data: self })
+            .add(self.COPY_REPORT)
+          .endContext()
         .end();
+        this.add(tabs);
         self.renderEnv_(this, r);
       }));
-
-      // Copy action at the bottom, below the tabs.
-      this.start().addClass(this.myClass('toolbar'))
-        .startContext({ data: this })
-          .add(this.COPY_REPORT)
-        .endContext()
-      .end();
 
       this.onDetach(function() { self.stopCapture_(); });
     },
@@ -766,14 +769,20 @@ foam.CLASS({
     {
       name: 'copyReport',
       label: 'Copy report',
+      buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       isEnabled: function(running) { return ! running; },
       code: async function() {
         var text = this.report.toReport();
         // Append the same system info the `info` command shows (shared buildText).
         try { text += '\n' + await foam.core.reflow.cmd.Info.buildText(this.__context__); } catch (e) { /* info unavailable */ }
         try {
-          if ( this.window.navigator.clipboard ) this.window.navigator.clipboard.writeText(text);
-        } catch (e) { /* clipboard blocked - report text still available via toReport() */ }
+          if ( ! this.window.navigator.clipboard ) throw new Error('clipboard unavailable');
+          await this.window.navigator.clipboard.writeText(text);
+          if ( this.notify ) this.notify(this.COPIED_MSG, '', this.LogLevel.INFO, true);
+        } catch (e) {
+          // clipboard blocked - report text still available via toReport()
+          if ( this.notify ) this.notify(this.COPY_FAIL_MSG, '', this.LogLevel.WARN, true);
+        }
       }
     }
   ],

@@ -130,30 +130,31 @@ foam.CLASS({
       var self = this;
       this.addClass();
 
-      // The block is a report (produced by loadPerf); only the copy action is shown.
-      this.start().addClass(this.myClass('toolbar'))
-        .startContext({ data: this })
-          .add(this.COPY_REPORT)
-        .endContext()
-      .end();
-
       // Watch report.elapsedMs (a dot-slot): refires both on report reassignment
       // (Start/Stop) and on copyFrom into the same instance (the loadPerf path).
       this.add(this.dynamic(function(report$elapsedMs) {
         var r = self.report;
         if ( ! r || ! r.endSnapshot ) return;
-        self.renderIssues_(this, r);   // always visible - the summary
         // Recommended-action count = service-call groups with identical re-fetches.
         var actions = ( r.serviceCalls || [] ).filter(function(c) { return ( c.count - ( c.distinct || c.count ) ) > 0; }).length;
-        var svcLabel = 'Service calls' + ( actions ? ' · ' + actions + ' to fix' : '' );
-        // Per-block first => default selected tab.
+        var svcLabel   = 'Services' + ( actions ? ' · ' + actions + ' to fix' : '' );
+        var issueLabel = 'Issues' + ( ( r.issues || [] ).length ? ' (' + r.issues.length + ')' : '' );
+        // Issues first => default selected tab (the summary).
         this.start(self.Tabs)
-          .start(self.Tab, { label: 'Per-block' }).call(function() { self.renderBlocks_(this, r); }).end()
+          .start(self.Tab, { label: issueLabel }).call(function() { self.renderIssues_(this, r); }).end()
+          .start(self.Tab, { label: 'Blocks' }).call(function() { self.renderBlocks_(this, r); }).end()
           .start(self.Tab, { label: svcLabel }).call(function() { self.renderServiceCalls_(this, r); }).end()
           .start(self.Tab, { label: 'Metrics' }).call(function() { self.renderMetrics_(this, r); }).end()
         .end();
         self.renderEnv_(this, r);
       }));
+
+      // Copy action at the bottom, below the tabs.
+      this.start().addClass(this.myClass('toolbar'))
+        .startContext({ data: this })
+          .add(this.COPY_REPORT)
+        .endContext()
+      .end();
 
       this.onDetach(function() { self.stopCapture_(); });
     },
@@ -184,7 +185,7 @@ foam.CLASS({
     function renderIssues_(el, r) {
       var self   = this;
       var issues = r.issues || [];
-      var box = self.card_(el, 'Issues' + ( issues.length ? ' (' + issues.length + ')' : '' ));
+      var box = self.card_(el);
       if ( ! issues.length ) {
         box.start().addClass(self.myClass('issue'), self.myClass('issue-OK'))
           .start('span').addClass(self.myClass('badge'), self.myClass('OK')).add('✓ OK').end()

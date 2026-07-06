@@ -78,7 +78,7 @@ foam.CLASS({
               });
               this.ctrl.reload();
               this.logAnalyticEvent?.({
-                name: 'SESSION_EXPIRED_RELOAD',
+                name: 'SESSION_EXPIRED_RELOAD_AFTER',
                 userId: this.subject?.realUser.id,
                 extra: foam.json.stringify({
                   'promptlogin': promptlogin,

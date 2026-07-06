@@ -181,10 +181,10 @@ foam.CLASS({
       name: 'createTitle',
       expression: function(of) {
         let ret = this.CREATE_NEW + of.model_.label;
-        this.createTitle = this.translationService.getTranslation(
+        this.createTitle = this.translationService?.getTranslation(
           foam.locale,
           of.id + ".CREATE_TITLE.label",
-          ret);
+          ret) || ret;
         return this.createTitle;
       }
     },

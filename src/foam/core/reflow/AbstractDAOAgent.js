@@ -31,6 +31,13 @@ foam.CLASS({
       transient: true,
       hidden: true,
       factory: function() { return this.referenceDAO?.of; }
+    },
+    {
+      // The current shown-driven render dynamic; detached and replaced on re-execute
+      // so re-executions don't leave stale dynamics rendering into a detached element.
+      name: 'shownDynamic_',
+      transient: true,
+      hidden: true
     }
   ],
 
@@ -51,10 +58,14 @@ foam.CLASS({
         // (like 'block') from the current context.
         s = s.clone(this.__subContext__);
 
-        e.add(this.block.dynamic(function (shown) {
+        // On re-execute detach the previous shown-dynamic so we don't accumulate stale
+        // ones re-adding the sink into a detached `e`.
+        if ( self.shownDynamic_ ) self.shownDynamic_.detach();
+        self.shownDynamic_ = self.block.dynamic(function (shown) {
           if ( shown )
             this.startContext({dao: self.dao}).start().call(function() { self.addSinkToE(this, s); }).endContext();
-        }));
+        });
+        e.add(self.shownDynamic_);
       }).catch(error => {
         console.error('AbstractDAOAgent execution error:', error);
         e.tag(self.ErrorView, { error: error });
@@ -374,10 +385,17 @@ foam.CLASS({
     },
     function execute(e) {
       let self = this;
-      e.add(this.block.dynamic(function (shown) {
+      // On re-execute (e.g. the source DAO rebuilt after a filter change) detach the
+      // previous shown-dynamic and drop the cached table, so we rebind to the new `e`
+      // and the current data. A pure `shown` toggle does not re-run execute(), so the
+      // tableEl cache below still prevents flicker there, and hidden blocks still don't build.
+      if ( this.shownDynamic_ ) this.shownDynamic_.detach();
+      this.tableEl = undefined;
+      this.shownDynamic_ = this.block.dynamic(function (shown) {
         if ( shown )
           self.execute_(e);
-      }));
+      });
+      e.add(this.shownDynamic_);
     },
     function execute_(e) {
       // TODO: prevent table updates when block is hidden

@@ -68,7 +68,7 @@ foam.CLASS({
           if ( this.loginSuccess && ( ! promptlogin || authResult ) ) {
             try {
               this.logAnalyticEvent?.({
-                name: 'SESSION_EXPIRED_RELOAD',
+                name: 'SESSION_EXPIRED_RELOAD_BEFORE',
                 userId: this.subject?.realUser.id,
                 extra: foam.json.stringify({
                   'promptlogin': promptlogin,

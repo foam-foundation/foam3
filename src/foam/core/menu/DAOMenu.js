@@ -133,6 +133,7 @@ foam.CLASS({
       var view = {
         class: 'foam.comics.BrowserView',
         data: X[this.daoKey],
+        manageBreadcrumbs: true,
         createEnabled: this.createEnabled,
         detailView: this.detailView,
         editEnabled: this.editEnabled,

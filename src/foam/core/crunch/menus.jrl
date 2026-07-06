@@ -27,7 +27,8 @@ p({
   "handler": {
     "class":"foam.core.menu.ViewMenu",
     "view": {
-      "class":"foam.u2.crunch.CapabilityStore"
+      "class":"foam.u2.crunch.CapabilityStore",
+      "viewTitle":"Capability Store"
     }
   },
   "parent":"crunch"

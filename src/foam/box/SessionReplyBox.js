@@ -17,10 +17,11 @@ foam.CLASS({
     'auth?',
     'ctrl?',
     'group?',
+    'logAnalyticEvent?',
     'loginSuccess?',
     'requestLogin?',
     'sessionTimer?',
-    'window'
+    'subject?'
   ],
 
   messages: [
@@ -65,17 +66,51 @@ foam.CLASS({
           var authResult  = await this.auth.check(null, '*');
 
           if ( this.loginSuccess && ( ! promptlogin || authResult ) ) {
-            if ( this.ctrl ) this.ctrl.remove();
-            // Set loginSuccess to false so that if multiple requests are sent with no authentication, alert is called only once
-            this.loginSuccess = false;
-//            alert(this.REFRESH_MSG);
-            (this.window || window).location.reload();
-            return;
-          }
+            try {
+              this.logAnalyticEvent?.({
+                name: 'SESSION_EXPIRED_RELOAD_BEFORE',
+                userId: this.subject?.realUser.id,
+                extra: foam.json.stringify({
+                  'promptlogin': promptlogin,
+                  'authResult': authResult,
+                  'url': globalThis.window.location.href
+                })
+              });
+              this.ctrl.reload();
+              this.logAnalyticEvent?.({
+                name: 'SESSION_EXPIRED_RELOAD_AFTER',
+                userId: this.subject?.realUser.id,
+                extra: foam.json.stringify({
+                  'promptlogin': promptlogin,
+                  'authResult': authResult,
+                  'url': globalThis.window.location.href
+                })
+              });
+            } catch ( e ) {
+              console.error(e, 'WINDOW_RELOAD');
+              // Failed ApplicationController reload, so
+              // - alter loginSuccess state manually to hide the top navigation
+              // - log analytic event and
+              // - force window reload explicitly
+              this.loginSuccess = false;
 
-          this.requestLogin().then(function() {
-            self.clientBox.send(self.envelope);
-          });
+              // Log analytic event
+              this.logAnalyticEvent?.({
+                name: 'WINDOW_RELOAD',
+                userId: this.subject?.realUser.id,
+                extra: foam.json.stringify({
+                  'ctrl_checked': !! this.ctrl,
+                  'ctrl_reload_checked': !! this.ctrl?.reload,
+                  'url': globalThis.window.location.href
+                })
+              });
+              globalThis.window.location.reload();
+            }
+          } else {
+            this.requestLogin().then(function() {
+              self.clientBox.send(self.envelope);
+            });
+          }
         } else {
           // fetch the soft session limit from group, and then start the timer
           if ( this.group && this.sessionTimer && this.refreshSessionTimer && this.group && this.group.id !== '' && this.group.softSessionLimit !== 0 ) {

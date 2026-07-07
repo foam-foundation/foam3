@@ -666,6 +666,7 @@ public class DateParser {
     grammar.addSymbol("date-monthname", new Alt(
       grammar.sym("js-date-tostring"),   // JS Date.toString(): "Thu Feb 19 2026 16:20:23 GMT-0400 (Atlantic Standard Time)"
       grammar.sym("unix-date-tostring"), // Unix/Java Date.toString(): "Tue Apr 01 05:17:59 GMT 2025"
+      grammar.sym("mmmddyyyy-space-time"), // MMM dd yyyy hh:mm:ss(AM|PM) (e.g., Jun 30 2026 02:59:02AM) - must precede date-only
       grammar.sym("mmmddyyyy-space"),    // MMM dd yyyy (e.g., Jan 02 2025)
       grammar.sym("ddmmmyyyy-space"),    // DD MMM YYYY (e.g., 15 JAN 2025)
       grammar.sym("ddmmmyyyy-sep"),
@@ -858,10 +859,19 @@ public class DateParser {
     // ========== MMDDYYYY Formats ==========
 
     grammar.addSymbol("mmddyyyy", new Alt(
+      grammar.sym("mmddyyyy-ampm"),  // MM/DD/YYYY hh:mm:ss(AM|PM), e.g. "3/8/2026 12:00:00 AM" - must precede plain sep
       grammar.sym("mmddyyyy-compact"),
       grammar.sym("mmddyyyy-sep"),
       grammar.sym("mmddyy-sep"),
       grammar.sym("mmddyy-compact")
+    ));
+
+    // MM/DD/YYYY with 12-hour clock time: "3/8/2026 12:00:00 AM"
+    // Meridiem optionally space-separated from the seconds
+    grammar.addSymbol("mmddyyyy-ampm", new Seq(
+      grammar.sym("monthFlexible"), new Chars("-/"), grammar.sym("dayFlexible"), new Chars("-/"), grammar.sym("year4"),
+      grammar.sym("datetimesep"), grammar.sym("hour12"), Literal.create(":"), grammar.sym("minute2"),
+      Literal.create(":"), grammar.sym("second2"), new Optional(Literal.create(" ")), grammar.sym("meridiem")
     ));
 
     // MMDDYYYY with separators - supports single-digit month/day (e.g., 7/2/2025)
@@ -1291,6 +1301,23 @@ public class DateParser {
       grammar.sym("month3alpha"), Literal.create(" "), grammar.sym("dayFlexible"), Literal.create(" "), grammar.sym("year4")
     ));
 
+    // MMM dd yyyy hh:mm:ss(AM|PM) with spaces: "Jun 30 2026 02:59:02AM"
+    // 12-hour clock, meridiem fused to the seconds (no space), no timezone
+    grammar.addSymbol("mmmddyyyy-space-time", new Seq(
+      grammar.sym("month3alpha"), Literal.create(" "), grammar.sym("dayFlexible"), Literal.create(" "), grammar.sym("year4"), Literal.create(" "),
+      grammar.sym("hour12"), Literal.create(":"), grammar.sym("minute2"), Literal.create(":"), grammar.sym("second2"), new Optional(Literal.create(" ")), grammar.sym("meridiem")
+    ));
+
+    // 12-hour clock hour: 1-12 or 01-12 (single- or two-digit)
+    grammar.addSymbol("hour12", new Alt(
+      new Join(new Seq(Literal.create("1"), Range.create('0', '2'))),  // 10-12
+      new Join(new Seq(Literal.create("0"), Range.create('1', '9'))),  // 01-09
+      new Join(Range.create('1', '9'))                                 // 1-9 (single digit)
+    ));
+
+    // Meridiem indicator (case-insensitive)
+    grammar.addSymbol("meridiem", new Alt(new LiteralIC("AM"), new LiteralIC("PM")));
+
     // DD MMM YYYY with spaces: "15 JAN 2025" or "5 JAN 2025" - supports single-digit days
     grammar.addSymbol("ddmmmyyyy-space", new Seq(
       grammar.sym("dayFlexible"), Literal.create(" "), grammar.sym("month3alpha"), Literal.create(" "), grammar.sym("year4")
@@ -1417,6 +1444,26 @@ public class DateParser {
         self.parseIntOrDefault(v, 10, -1),
         -1,
         self.extractTimezone(v));
+    });
+
+    // MMDDYYYY 12-hour action: "3/8/2026 12:00:00 AM"
+    // v = [MM, sep, DD, sep, YYYY, datetimesep, HH, ':', MM, ':', SS, optional(' '), meridiem]
+    grammar.addAction("mmddyyyy-ampm", (val, x) -> {
+      Object[] v = (Object[]) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      int hour = Integer.parseInt((String) v[6]);
+      String meridiem = ((String) v[12]).toUpperCase();
+      if ( meridiem.equals("PM") && hour < 12 ) hour += 12;
+      if ( meridiem.equals("AM") && hour == 12 ) hour = 0;
+      return self.buildDate(mode,
+        Integer.parseInt((String) v[4]),
+        Integer.parseInt((String) v[0]) - 1,
+        Integer.parseInt((String) v[2]),
+        hour,
+        Integer.parseInt((String) v[8]),
+        Integer.parseInt((String) v[10]),
+        -1,
+        null);
     });
 
     // MMDDYYYY-Compact action: "01152025"
@@ -1644,6 +1691,25 @@ public class DateParser {
         self.parseMonthName((String) v[0]),
         Integer.parseInt((String) v[2]),
         -1, -1, -1, -1, null);
+    });
+
+    // MMM dd yyyy hh:mm:ss(AM|PM) space action: [MMM, ' ', DD, ' ', YYYY, ' ', HH, ':', MM, ':', SS, optional(' '), meridiem]
+    grammar.addAction("mmmddyyyy-space-time", (val, x) -> {
+      Object[] v = (Object[]) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      int hour = Integer.parseInt((String) v[6]);
+      String meridiem = ((String) v[12]).toUpperCase();
+      if ( meridiem.equals("PM") && hour < 12 ) hour += 12;
+      if ( meridiem.equals("AM") && hour == 12 ) hour = 0;
+      return self.buildDate(mode,
+        Integer.parseInt((String) v[4]),    // year
+        self.parseMonthName((String) v[0]), // month
+        Integer.parseInt((String) v[2]),    // day
+        hour,                                // hour (24h)
+        Integer.parseInt((String) v[8]),    // minute
+        Integer.parseInt((String) v[10]),   // second
+        -1,                                  // ms
+        null);
     });
 
     // DD MMM YYYY space action: [DD, ' ', MMM, ' ', YYYY]

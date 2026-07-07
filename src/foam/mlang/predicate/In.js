@@ -55,21 +55,20 @@ foam.CLASS({
 
         if ( ! rhs ) return false;
 
-        // Fast path when arg2 is a Constant of Object[]. A JS Set only matches
-        // primitives by value; Dates, FObjects and other objects compare by
-        // reference, so restrict the Set path to primitive lhs and fall through
-        // to the foam.util.equals loop below for everything else.
+        // Fast path when arg2 is a Constant of Object[].
+        // DO NOT drop the `+ ''`: a JS Set matches objects by REFERENCE, so an
+        // IN over Date (or any object) values would never match — two Date
+        // instances at the same instant are different references. Stringifying
+        // BOTH sides (the set members and the lookup key) makes membership a
+        // value comparison. Both sides must be stringified or nothing matches
+        // (raw set + stringified key, or vice-versa, silently returns false).
         if ( foam.mlang.Constant.isInstance(this.arg2) && foam.Array.isInstance(rhs) ) {
-          if ( foam.Null.isInstance(lhs)    || foam.String.isInstance(lhs) ||
-               foam.Number.isInstance(lhs)  || foam.Boolean.isInstance(lhs) ) {
-            let set = this.arg2AsSet;
-            if ( set === undefined ) {
-              set = new Set(rhs);
-              this.arg2AsSet = set;
-            }
-
-            return set.has(lhs);
+          let set = this.arg2AsSet;
+          if ( set === undefined ) {
+            set = new Set(rhs.map(function(v){ return v + ''; }));
+            this.arg2AsSet = set;
           }
+          return set.has(lhs + '');
         }
 
         for ( var i = 0 ; i < rhs.length ; i++ ) {

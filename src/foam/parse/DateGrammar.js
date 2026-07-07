@@ -629,11 +629,11 @@ foam.CLASS({
         ),
 
         // 12-hour clock hour: 1-12 or 01-12 (single- or two-digit)
-        hour12: str(alt(
-          seq('1', range('0', '2')),  // 10, 11, 12
-          seq('0', range('1', '9')),  // 01-09
-          range('1', '9')             // 1-9
-        )),
+        hour12: alt(
+          str(seq('1', range('0', '2'))),  // 10, 11, 12
+          str(seq('0', range('1', '9'))),  // 01-09
+          range('1', '9')                  // 1-9
+        ),
 
         // Meridiem indicator (case-insensitive)
         meridiem: alt(literalIC('AM'), literalIC('PM')),

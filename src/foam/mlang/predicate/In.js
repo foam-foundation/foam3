@@ -55,9 +55,13 @@ foam.CLASS({
 
         if ( ! rhs ) return false;
 
-        // Fast path when arg2 is a Constant of Object[]
-        if ( foam.mlang.Constant.isInstance(this.arg2) ) {
-          if ( foam.Array.isInstance(rhs) ) {
+        // Fast path when arg2 is a Constant of Object[]. A JS Set only matches
+        // primitives by value; Dates, FObjects and other objects compare by
+        // reference, so restrict the Set path to primitive lhs and fall through
+        // to the foam.util.equals loop below for everything else.
+        if ( foam.mlang.Constant.isInstance(this.arg2) && foam.Array.isInstance(rhs) ) {
+          if ( foam.Null.isInstance(lhs)    || foam.String.isInstance(lhs) ||
+               foam.Number.isInstance(lhs)  || foam.Boolean.isInstance(lhs) ) {
             let set = this.arg2AsSet;
             if ( set === undefined ) {
               set = new Set(rhs);

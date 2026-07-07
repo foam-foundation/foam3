@@ -99,6 +99,9 @@ foam.CLASS({
           sym('jsdatetostring'),
           // Support: DDD MMM DD HH:MM:SS TZ YYYY (e.g., "Tue Apr 01 05:17:59 GMT 2025")
           sym('unixdatetostring'),
+          // Support: MMM dd yyyy hh:mm:ss(AM|PM) (e.g., Jun 30 2026 02:59:02AM)
+          // Must precede mmmddyyyyspace so the full match wins over the date-only prefix
+          sym('mmmddyyyyspacetime'),
           // Support: MMM dd yyyy (e.g., Jan 02 2025)
           sym('mmmddyyyyspace'),
           // Support: DD MMM YYYY (e.g., 15 JAN 2025)
@@ -199,10 +202,19 @@ foam.CLASS({
         // MMDDYYYY - tries all variants (compact, separated)
         // Covers: MMDDYYYY, MM-DD-YYYY, MM/DD/YYYY with optional time
         mmddyyyy: alt(
+          sym('mmddyyyyampm'),  // MM/DD/YYYY hh:mm:ss(AM|PM), e.g. "3/8/2026 12:00:00 AM" - must precede plain sep
           sym('mmddyyyycompact'),
           sym('mmddyyyysep'),
           sym('mmddyysep'),
           sym('mmddyycompact')
+        ),
+
+        // MM/DD/YYYY with 12-hour clock time: "3/8/2026 12:00:00 AM"
+        // Meridiem optionally space-separated from the seconds
+        mmddyyyyampm: seq(
+          sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year4'),
+          sym('datetimesep'), sym('hour12'), ':', sym('minute2'), ':', sym('second2'),
+          optional(' '), sym('meridiem')
         ),
 
         // MMDDYYYY with separators and optional time
@@ -608,6 +620,23 @@ foam.CLASS({
         mmmddyyyyspace: seq(
           sym('month3alpha'), ' ', sym('dayFlexible'), ' ', sym('year4')
         ),
+
+        // MMM dd yyyy hh:mm:ss(AM|PM) with spaces: "Jun 30 2026 02:59:02AM"
+        // 12-hour clock, meridiem fused to the seconds (no space), no timezone
+        mmmddyyyyspacetime: seq(
+          sym('month3alpha'), ' ', sym('dayFlexible'), ' ', sym('year4'), ' ',
+          sym('hour12'), ':', sym('minute2'), ':', sym('second2'), optional(' '), sym('meridiem')
+        ),
+
+        // 12-hour clock hour: 1-12 or 01-12 (single- or two-digit)
+        hour12: alt(
+          str(seq('1', range('0', '2'))),  // 10, 11, 12
+          str(seq('0', range('1', '9'))),  // 01-09
+          range('1', '9')                  // 1-9
+        ),
+
+        // Meridiem indicator (case-insensitive)
+        meridiem: alt(literalIC('AM'), literalIC('PM')),
 
         // DD MMM YYYY with spaces: "15 JAN 2025" or "5 JAN 2025"
         // Supports single-digit days

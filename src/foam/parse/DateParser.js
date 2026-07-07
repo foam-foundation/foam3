@@ -236,6 +236,24 @@ foam.CLASS({
 
     // MMDDYYYY with separators: MM-DD-YYYY, MM/DD/YYYY with optional time
     // v = [MM, sep, DD, sep, YYYY] or [MM, sep, DD, sep, YYYY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
+    // MMDDYYYY with 12-hour clock: "3/8/2026 12:00:00 AM"
+    // v = [MM, sep, DD, sep, YYYY, datetimesep, HH, ':', MM, ':', SS, optional(' '), meridiem]
+    function mmddyyyyampmAction(v) {
+      var hour = parseInt(v[6]);
+      var meridiem = v[12].toUpperCase();
+      if ( meridiem === 'PM' && hour < 12 ) hour += 12;
+      if ( meridiem === 'AM' && hour === 12 ) hour = 0;
+      return this.buildDate(this.dateParseMode,
+        parseInt(v[4]),
+        parseInt(v[0]) - 1,
+        parseInt(v[2]),
+        hour,
+        parseInt(v[8]),
+        parseInt(v[10]),
+        -1,
+        null);
+    },
+
     function mmddyyyysepAction(v) {
       var ms = -1;
       if ( v[12] !== undefined ) {
@@ -525,6 +543,24 @@ foam.CLASS({
         this.parseMonthName(v[0]),
         parseInt(v[2]),
         -1, -1, -1, -1, null);
+    },
+
+    // MMM dd yyyy hh:mm:ss(AM|PM) with spaces: "Jun 30 2026 02:59:02AM"
+    // v = [MMM, ' ', DD, ' ', YYYY, ' ', HH, ':', MM, ':', SS, optional(' '), meridiem]
+    function mmmddyyyyspacetimeAction(v) {
+      var hour = parseInt(v[6]);
+      var meridiem = v[12].toUpperCase();
+      if ( meridiem === 'PM' && hour < 12 ) hour += 12;
+      if ( meridiem === 'AM' && hour === 12 ) hour = 0;
+      return this.buildDate(this.dateParseMode,
+        parseInt(v[4]),
+        this.parseMonthName(v[0]),
+        parseInt(v[2]),
+        hour,
+        parseInt(v[8]),
+        parseInt(v[10]),
+        -1,
+        null);
     },
 
     // DD MMM YYYY with spaces: "15 JAN 2025"

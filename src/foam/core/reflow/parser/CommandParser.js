@@ -39,7 +39,7 @@ foam.CLASS({
 
         if ( c.parser ) {
           if ( c.parser.aInit ) await c.parser.aInit();
-          console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
+          // console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
           parser = p.seq(parser, c.parser);
         }
 

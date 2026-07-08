@@ -630,7 +630,14 @@ foam.CLASS({
 
         promptLogin = promptLogin && await this.client.auth.check(this, 'auth.promptlogin');
         var authResult =  await this.client.auth.check(this, '*');
-        if ( ! result || ! result.user || promptLogin && ! authResult ) throw new Error();
+
+        // Require authentication and jump to 'catch' block below when
+        // - there is no current subject or user or
+        // - the current user is trapped in 'auth.promptLogin' permission (i.e., anonymous user)
+        if ( ! result || ! result.user || (promptLogin && ! authResult) ) {
+          throw new Error('Authentication required');
+        }
+
         this.fetchGroup();
       } catch (err) {
         if ( ! promptLogin || authResult ) return;

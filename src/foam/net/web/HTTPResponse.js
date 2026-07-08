@@ -75,7 +75,13 @@ foam.CLASS({
           this.copyHeadersEdge_(r);
         }
         this.status = r.status;
+        if ( r.redirected )
+          this.redirect_to_url = r.url;
       }
+    },
+    {
+      class: 'String',
+      name: 'redirect_to_url'
     }
   ],
 

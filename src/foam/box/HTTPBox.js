@@ -205,6 +205,11 @@ foam.CLASS({
         }, function(r) {
           var msg;
           if ( r ) {
+            if ( r.redirect_to_url ) {
+              this.window.location = r.redirect_to_url;
+              return;
+            }
+
             // catch situations in which the load fails for some reason
             // and replace it with a nicely formatted message instead
             // of the browser default.

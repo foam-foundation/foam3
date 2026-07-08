@@ -545,7 +545,7 @@ NOTE: when using the java client, the first call to a newly started instance may
       if ( getSecure() ) {
         SslContextFactory contextFactory = (SslContextFactory) getX().get("sslContextFactory");
         if ( contextFactory != null && contextFactory.getEnableSSL() ) {
-          SSLContext sslContext = contextFactory.getSSLContext();
+          SSLContext sslContext = contextFactory.getSSLContext(getX());
           builder = builder.sslContext(sslContext);
         } else if ( contextFactory == null ) {
           new foam.core.logger.StdoutLogger(getX()).warning("DIG", "sslContextFactory", "not found");

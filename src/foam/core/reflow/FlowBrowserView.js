@@ -158,6 +158,10 @@ foam.CLASS({
             })
           .end()
         .end();
+    },
+
+    function click(obj, id) {
+      this.onEdit(null, null, obj && obj.id ? obj.id : id);
     }
   ],
 
@@ -245,7 +249,11 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'FlowEmbeddedTableView',
   extends: 'foam.u2.view.EmbeddedTableView',
-  imports: ['block', 'detailView'],
+  imports: [
+    'block',
+    'detailView?',
+    'daoController?'
+  ],
 
   properties: [
     {
@@ -284,7 +292,15 @@ foam.CLASS({
         this.block.out.childNodes[1].remove();
       }
       var stack = foam.core.u2.navigation.Stack.create({pos:0}, this.__subContext__);
-      var ctx = this.__subContext__.createSubContext({ stack: stack });
+      // Embedded flow detail views may not sit under a full DAO controller.
+      var daoController = this.daoController || {
+        route: '',
+        routeToMe: function() { this.route = ''; }
+      };
+      var ctx = this.__subContext__.createSubContext({
+        stack: stack,
+        daoController: daoController
+      });
       var detailView = foam.comics.v3.DetailView.create({
         data: this.data,
         config$: this.config$,

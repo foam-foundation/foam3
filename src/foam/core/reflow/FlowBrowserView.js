@@ -160,7 +160,8 @@ foam.CLASS({
     {
       name: 'onCreate',
       on: [
-        'data.create'
+        // Create is published as action.create by foam.lang.Action.call().
+        'data.action.create'
       ],
       code: function() {
         if ( this.block.out.childNodes.length > 1 ) {

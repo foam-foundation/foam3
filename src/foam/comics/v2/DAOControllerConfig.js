@@ -20,6 +20,10 @@ foam.CLASS({
     'foam.mlang.order.Desc'
   ],
 
+  imports: [
+    'translationService'
+  ],
+
   messages: [
     { name: 'VIEW_ALL',   message: 'View all ' },
     { name: 'CREATE_NEW', message: 'Create a New ' }
@@ -175,7 +179,14 @@ foam.CLASS({
     {
       class: 'String',
       name: 'createTitle',
-      expression: function(of) { return this.CREATE_NEW + of.model_.label; }
+      expression: function(of) {
+        let ret = this.CREATE_NEW + of.model_.label;
+        this.createTitle = this.translationService?.getTranslation(
+          foam.locale,
+          of.id + ".CREATE_TITLE.label",
+          ret) || ret;
+        return this.createTitle;
+      }
     },
     {
       class: 'Array',

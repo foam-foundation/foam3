@@ -15,6 +15,11 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.FlowDAOControllerView as DAOControllerView'
+  ],
+
+  imports: [
+    // Embedded flow blocks do not always provide a page-level memento.
+    'memento?'
   ]
 });
 
@@ -167,9 +172,9 @@ foam.CLASS({
         if ( this.block.out.childNodes.length > 1 ) {
           this.block.out.childNodes[1].remove();
         }
-        const view = this.createControllerViewCls.create({
-          dao: this.data.data
-        }, this.__subContext__);
+        // DAOCreateControllerView imports dao from context, so provide it explicitly.
+        const ctx = this.__subContext__.createSubContext({ dao: this.data.data });
+        const view = this.createControllerViewCls.create({}, ctx);
         this.block.out.add(view);
       }
     }
@@ -181,7 +186,11 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'FlowDAOCreateControllerView',
   extends: 'foam.comics.DAOCreateControllerView',
-  imports: ['block'],
+  imports: [
+    'block',
+    // Reflow blocks can render without a notification service in scope.
+    'notify?'
+  ],
 
   css: `
     ^ {
@@ -206,14 +215,6 @@ foam.CLASS({
       code: function() {
         this.remove();
       }
-    },
-    {
-      name: 'save',
-      buttonStyle: 'PRIMARY',
-      code: function() {
-        this.data.save();
-        this.remove();
-      }
     }
   ],
 
@@ -224,7 +225,7 @@ foam.CLASS({
         'data.finished'
       ],
       code: function() {
-        this.notify(this.dao.of.name + this.CREATED, '', this.LogLevel.INFO, true);
+        this.notify?.(this.dao.of.name + this.CREATED, '', this.LogLevel.INFO, true);
         this.remove();
       }
     },
@@ -233,7 +234,7 @@ foam.CLASS({
       on: [ 'data.throwError' ],
       code: function() {
         var self = this;
-        self.notify(self.data.exception.message, '', self.LogLevel.ERROR, true);
+        self.notify?.(self.data.exception.message, '', self.LogLevel.ERROR, true);
       }
     }
   ]

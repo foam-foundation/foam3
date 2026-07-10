@@ -22,7 +22,6 @@
       Function names use a dot-free `ident`, so they can't collide with paths.
     - Excel-like precedence: `-5^2 == -25` (unary `neg` wraps `^`).
     - String literals are QUOTED only ("abc"); bare names are field refs.
-    - Own scalar `numLit` (parent `float` returns a [start,end] range).
 */
 
 foam.CLASS({
@@ -103,7 +102,7 @@ foam.CLASS({
     {
       name: 'extensionGrammar_',
       // NOTE: parameter names must match Parsers members (withArgs injects by name).
-      value: function(alt, seq, seq1, repeat, repeat0, optional, literal, literalIC, str, sym, range) {
+      value: function(alt, seq, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sym, range) {
         const self = this;
         const m    = foam.mlang.Expressions.create();
 
@@ -134,13 +133,17 @@ foam.CLASS({
           EXPR: sym('concat'),
 
           // Excel precedence: concat < +/- < * / < unary neg < ^ < primary
-          concat: rep(sym('addsub'), seq(sym('ws'), '&'), 1),
+          concat: seq(
+            sym('addsub'),
+            opt(seq(binop('&', 'ADD'), sym('addsub')))),
 
-          addsub: seq(sym('muldiv'),
-                      rep0(seq(alt(binop('+', 'ADD'), binop('-', 'SUB')), sym('muldiv')))),
+          addsub: seq(
+            sym('muldiv'),
+            opt(seq(alt(binop('+', 'ADD'), binop('-', 'SUB')), sym('muldiv')))),
 
-          muldiv: seq(sym('unary'),
-                      rep0(seq(alt(binop('*', 'MUL'), binop('/', 'DIV')), sym('unary')))),
+          muldiv: seq(
+            sym('unary'),
+            opt(seq(alt(binop('*', 'MUL'), binop('/', 'DIV')), sym('unary')))),
 
           unary: alt(sym('neg'), sym('power')),
           neg:   seq(seq1(1, sym('ws'), '-'), sym('unary')),              // -5^2 == -25
@@ -149,8 +152,8 @@ foam.CLASS({
           primary: alt(
             sym('expr_paren'),
             sym('funcall'),
-            sym('strLit'),                                   // "quoted" only
-            sym('numLit'),                                   // scalar (parent float is a range)
+            sym('quoted string'),                                   // "quoted" only
+            sym('number'),
             lead(litIC('true',  m.CONSTANT(true))),
             lead(litIC('false', m.CONSTANT(false))),
             sym('field')                                     // bare names -> property refs
@@ -158,20 +161,18 @@ foam.CLASS({
 
           expr_paren: seq1(3, sym('ws'), '(', sym('ws'), sym('EXPR'), sym('ws'), ')'),
 
-          strLit: seq1(1, sym('ws'), sym('quoted string')),  // inherited quoted-string symbol
-
-          numLit: seq1(1, sym('ws'),
-            str(seq(rep(range('0','9'), null, 1),
-                    opt(str(seq('.', rep(range('0','9'), null, 1))))))),
-
           // dot-free identifier for function names
           ident: seq1(1, sym('ws'),
-            str(seq(alt(range('a','z'), range('A','Z'), '_'),
+            substring(seq(alt(range('a','z'), range('A','Z'), '_'),
                     rep0(alt(range('a','z'), range('A','Z'), range('0','9'), '_'))))),
 
           // pure dotted property access; nothing reserved
           fieldname: this.Alternate.create({ args: fields }),
-          field: seq(seq1(1, sym('ws'), sym('fieldname')), rep0(seq1(1, '.', sym('ident')))),
+          field: seq(
+            seq1(1, sym('ws'), sym('fieldname')),
+            opt(sym('subField'))),
+
+          subField: seq('.', sym('ident'), opt(sym('subField'))),
 
           // typed functions first, then the one generic rule for the other ~295
           funcall: alt(sym('fn_IF'), sym('generic_funcall')),
@@ -201,32 +202,26 @@ foam.CLASS({
       var m    = foam.mlang.Expressions.create();
       var NO_PARSE = foam.parse.ParserWithAction.NO_PARSE;
 
-      function foldBinary(v) {                 // left-assoc [first, [[opFn, rhs], ...]]
-        var acc = v[0];
-        (v[1] || []).forEach(function(p) { acc = p[0].call(m, acc, p[1]); });
-        return acc;
+      function binAction(v) {
+        try {
+          return v[1] ? m[v[1][0]].call(m, v[0], v[1][1]) : v[0];
+        } catch (x) {
+          debugger;
+        }
       }
 
       g.addActions({
-        numLit: function(v) { return m.CONSTANT(v.indexOf('.') >= 0 ? parseFloat(v) : parseInt(v, 10)); },
-        strLit: function(v) { return m.CONSTANT(v); },
-
-        concat: function(v) { return v.length === 1 ? v[0] : m.ADD(m, v); },
-        addsub: function(v) { return m.ADD(v[0], v[1]); },
-        muldiv: function(v) { debugger; return v.length == 1 ? v[0] : m[v[1][0]].call(m, v[0], v[1][1]); },
+        concat: binAction,
+        addsub: binAction,
+        muldiv: binAction,
         neg:    function(v) { return m.MUL(m.CONSTANT(-1), v[1]); },
         power:  function(v) {
           return v[1] == null ? v[0]
             : self.FnExpr.create({ name: 'POW', args: [ v[0], v[1][1] ], impl: Math.pow });
         },
 
-        field: function(v) {
-          var expr = v[0];
-          ( v[1] || [] ).forEach(function(part) {
-            expr = m.DOT(expr, self.NamedProperty.create({ propName: part }));
-          });
-          return expr;
-        },
+        field: function(v) { return v[1] ? m.DOT(v[0], v[1]) : v[0]; },
+        subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
 
         // [ 'IF', ws, '(', cond, ',', a, ',', b, ws, ')' ]  ->  cond=v[3], a=v[5], b=v[7]
         fn_IF: function(v) { return m.MUX(v[3], v[5], v[7]); },
@@ -327,21 +322,53 @@ foam.CLASS({
       }
 
       console.log('── test parts ──');
-      exPart('1', 1, 'numLit');
-      exPart('12', 12, 'primary');
-      exPart('"abc"', 'abc', 'strLit');
+      exPart('12', 12, 'number');
+      exPart('13', 13, 'primary');
+      exPart('"abc"', 'abc', 'primary');
+      exPart('"def"', 'def', 'quoted string');
       exPart('true', true, 'primary');
       exPart('false', false, 'primary');
       exPart('3^2', 9, 'power');
       exPart('-2', -2, 'neg');
       exPart('-3^2', -9, 'unary');
-      exPart('2*2', 4, 'muldiv');
+      exPart('1+2', 3, 'addsub');
+      exPart('2-1', 1, 'addsub');
+      exPart('2*3', 6, 'muldiv');
+      exPart('2*4', 8, 'concat');
+      exPart('city', 'city', 'ident');
 
+      /*
+      console.log('── operands ──');
+      exPart('firstName',     'Kevin',   'field');
+      exPart('address.city',  'Toronto', 'field');    // DOT + NamedProperty chain
+      exPart('id',            42,        'primary');
 
-      exPart('(1)', 1, 'expr_paren');
+      console.log('── functions ──');
+      exPart('LEN(firstName)',      5,         'generic_funcall');  // -> STRING_LENGTH
+      exPart('LEFT(firstName, 3)',  'Kev',     'generic_funcall');  // -> FnExpr
+      exPart('UPPER(address.city)', 'TORONTO', 'funcall');          // funcall alt + dotted arg
+
+      console.log('── addsub / muldiv with fields ──');
+      exPart('1 + 2',       3,    'addsub');
+      exPart('balance * 2', 3000, 'addsub');
+
+      console.log('── concat (Add over strings) ──');
+      exPart('firstName & lastName', 'KevinGreer', 'concat');
+      exPart('firstName & "!"',      'Kevin!',     'concat');
+
+      console.log('── IF: cond delegates to the AQL predicate parser ──');
+      exPart('IF(id = 42, firstName, lastName)',    'Kevin', 'fn_IF');
+      exPart('IF(balance > 1000, "high", "low")',   'high',  'fn_IF');
+
+      console.log('── full EXPR ──');
+      exPart('LEFT(firstName, 3) & "."',            'Kev.',  'EXPR');
+      exPart('IF(balance > 1000, balance * 2, 0)',  3000,    'EXPR');
+*/
+ //     exPart('(1)', 1, 'expr_paren');
 
       function ex(s, expected) {
         try {
+          console.log('*****', s, ' -> ?');
           var e   = p.parseExpression(s);
           console.log('*****', s, ' -> ' , e);
           var out = ( e && e.f ) ? e.f(data) : e;

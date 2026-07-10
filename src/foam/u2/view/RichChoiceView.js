@@ -833,8 +833,17 @@ foam.CLASS({
         }
         this.sections.forEach(section => {
           if ( this.of ) {
+            var axiom = this.of.getAxiomByName(this.idProperty);
+            if ( ! axiom ) {
+              console.error('RichChoiceView: idProperty "' + this.idProperty +
+                '" is not an axiom of ' + this.of.id + ', so the preselected ' +
+                'value cannot be resolved and the selection will stay on the ' +
+                'placeholder. Pass a bare property name (e.g. \'name\'), not a ' +
+                'PropertyInfo (e.g. Model.NAME, which stringifies to a qualified path).');
+              return;
+            }
             section.dao.where(
-              this.EQ(this.of.getAxiomByName(this.idProperty), this.data)
+              this.EQ(axiom, this.data)
             ).select().then(result => {
               if ( result.array.length > 0 ) {
                 if ( section.disabled ) return this.clearSelection();

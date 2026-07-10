@@ -430,6 +430,13 @@ foam.CLASS({
         this.sections.forEach((section) => {
           if ( newValue ) {
             if ( section.searchBy.length > 0 ) {
+              section.searchBy.forEach((p) => {
+                if ( typeof p === 'string' ) {
+                  console.warn('RichChoiceView: searchBy expects PropertyInfos ' +
+                    '(e.g. Model.NAME), but got string "' + p + '"; the search ' +
+                    'will not filter by this property.');
+                }
+              });
               var arrOfExpressions = section.searchBy.map((prop) => this.CONTAINS_IC(prop, newValue));
               var pred = this.Or.create({ args: arrOfExpressions });
             }

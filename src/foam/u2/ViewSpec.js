@@ -41,6 +41,11 @@ foam.CLASS({
           if ( FObject.isInstance(ctx) ) ctx = ctx.__subContext__;
 
           if ( ! spec || Str.isInstance(spec) ) {
+            if ( spec && spec.indexOf('.') != -1 ) {
+              console.error('ViewSpec: string "' + spec + '" looks like a class ' +
+                'name but will be rendered as an HTML tag, producing an empty ' +
+                'element. Use { class: \'' + spec + '\' } to instantiate a view class.');
+            }
             return ctx.E(spec, args);
           }
 

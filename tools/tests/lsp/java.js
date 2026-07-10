@@ -646,6 +646,59 @@ for ( var ti = 0 ; ti < streamData.length ; ti += 5 ) {
 test(hasMethodToken,
   'SemanticTokenHandler emits at least one method token (type 8) for `Loggers.logger(...)` inside javaCode');
 
+// === SemanticTokenHandler: comments suppress code tokens inside javaCode ===
+// Strings/keywords/etc. inside a Java /* */ block must NOT get code tokens —
+// semantic tokens override the grammar's comment coloring, so a stray
+// string token repaints commented-out code. Also: a // inside a string
+// literal is not a comment, and multi-line comment tokens are split per
+// line (clients without multilineTokenSupport drop line-crossing tokens).
+section('SemanticTokenHandler: comment suppression inside javaCode');
+
+var scSrc = [
+  'foam.CLASS({',                                  // line 0
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STCommentDemo' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ,
+  'String s = "http://example.com";',              // line 7: // inside string
+  '/*',                                            // lines 8-11: block comment
+  'String dead = "inside comment";',
+  'if ( true ) return;',
+  '*/',
+  'int n = 1;',                                    // line 12
+  BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var scTokens = semanticHandler.handle(scSrc);
+var scLines = scSrc.split('\n');
+var scData = (scTokens && scTokens.data) || [];
+var scBadInComment = 0, scCommentLines = {}, scLineCross = 0, scCommentOnStringLine = 0;
+var scLine = 0, scCol = 0;
+for ( var si = 0 ; si < scData.length ; si += 5 ) {
+  if ( scData[si] > 0 ) { scLine += scData[si]; scCol = scData[si+1]; }
+  else { scCol += scData[si+1]; }
+  var scLen = scData[si+2], scType = scData[si+3];
+  if ( scCol + scLen > scLines[scLine].length ) scLineCross++;
+  if ( scLine >= 8 && scLine <= 11 ) {
+    if ( scType === 5 ) scCommentLines[scLine] = true;
+    else scBadInComment++;
+  }
+  if ( scLine === 7 && scType === 5 ) scCommentOnStringLine++;
+}
+test(scBadInComment === 0,
+  'no code tokens (string/keyword/type/...) inside a Java /* */ block');
+test(scCommentLines[9] && scCommentLines[10],
+  'multi-line comment emits a comment token on each interior line');
+test(scLineCross === 0,
+  'no token crosses a line boundary (multiline tokens are dropped by clients)');
+test(scCommentOnStringLine === 0,
+  '// inside a string literal is not treated as a comment');
+
 // === var-decl type inference (Java 10+ `var` keyword) ===
 // `var <name> = ...` is invisible to the upper-typed `localDecl` rule.
 // JavaParser infers the type from the RHS shape: `new T(...)`, `(T) ...`,

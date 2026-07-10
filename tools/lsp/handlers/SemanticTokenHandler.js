@@ -507,24 +507,57 @@ foam.CLASS({
           searchFrom = baseOffset + 1;
         }
 
-        // Comments
-        var commentRegex = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
-        var cm;
-        while ( ( cm = commentRegex.exec(javaStr) ) !== null ) {
-          addToken(baseOffset + cm.index, cm[0].length, 5);
+        // One JavaGrammar parse per block (foam.parse.lsp.JavaParser)
+        // supplies string spans, comment spans, and the method-call
+        // positions used further down. The grammar consumes strings and
+        // comments in source order — a string opening first swallows any
+        // // inside it, a comment opening first swallows quotes. Comment
+        // spans gate every later emitter: semantic tokens override the
+        // TextMate grammar's comment coloring, so a stray code token
+        // repaints commented-out code.
+        var jParser = self.javaParser_;
+        if ( ! jParser ) {
+          jParser = self.javaParser_ = foam.parse.lsp.JavaParser
+            ? foam.parse.lsp.JavaParser.create() : null;
         }
+        var blockResult = null;
+        try {
+          blockResult = jParser && jParser.parseFile(javaStr);
+        } catch (e) { /* best-effort — degrade to keyword/type-only tokens */ }
 
-        // String literals
-        var strRegex = /"(?:[^"\\]|\\.)*"|'[^']*'/g;
-        var sm;
-        while ( ( sm = strRegex.exec(javaStr) ) !== null ) {
-          addToken(baseOffset + sm.index, sm[0].length, 4);
+        var commentSpans = [];
+        if ( blockResult ) {
+          for ( var sli = 0 ; sli < blockResult.strings.length ; sli++ ) {
+            var lit = blockResult.strings[sli];
+            addToken(baseOffset + lit.start, lit.end - lit.start, 4);
+          }
+          for ( var cmi = 0 ; cmi < blockResult.comments.length ; cmi++ ) {
+            var cmt = blockResult.comments[cmi];
+            commentSpans.push([cmt.start, cmt.end]);
+            // Emit comment tokens per line — clients without
+            // multilineTokenSupport drop tokens that cross a newline.
+            var segStart = cmt.start;
+            for ( var cj = cmt.start ; cj <= cmt.end ; cj++ ) {
+              if ( cj === cmt.end || javaStr[cj] === '\n' ) {
+                if ( cj > segStart ) addToken(baseOffset + segStart, cj - segStart, 5);
+                segStart = cj + 1;
+              }
+            }
+          }
+        }
+        function inComment(idx) {
+          for ( var s = 0 ; s < commentSpans.length ; s++ ) {
+            if ( commentSpans[s][0] > idx ) return false;
+            if ( idx < commentSpans[s][1] ) return true;
+          }
+          return false;
         }
 
         // Java keywords
         JAVA_KEYWORDS.lastIndex = 0;
         var kw;
         while ( ( kw = JAVA_KEYWORDS.exec(javaStr) ) !== null ) {
+          if ( inComment(kw.index) ) continue;
           addToken(baseOffset + kw.index, kw[1].length, 3);
         }
 
@@ -532,6 +565,7 @@ foam.CLASS({
         var numRegex = /\b\d+[lLfFdD]?\b/g;
         var nm;
         while ( ( nm = numRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(nm.index) ) continue;
           addToken(baseOffset + nm.index, nm[0].length, 6);
         }
 
@@ -539,41 +573,32 @@ foam.CLASS({
         var typeRegex = /\b([A-Z][a-zA-Z0-9_]*)\b/g;
         var tm;
         while ( ( tm = typeRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(tm.index) ) continue;
           if ( resolveType(tm[1]) ) {
             addToken(baseOffset + tm.index, tm[1].length, 0);
           }
         }
 
-        // Method-call positions via JavaGrammar parseBlock — emits token
+        // Method-call positions from the same blockResult — emits token
         // type 8 (method) at the methodName offset. Receiver position is
         // already covered above by the type regex when the receiver is an
         // UpperCamelCase type. This catches the otherwise-invisible
         // method names: `Loggers.logger(...)` → `logger` highlighted.
-        try {
-          var jParser = self.javaParser_;
-          if ( ! jParser ) {
-            jParser = self.javaParser_ = foam.parse.lsp.JavaParser
-              ? foam.parse.lsp.JavaParser.create() : null;
+        if ( blockResult ) {
+          // Reconstruct offsets from line/col within javaStr.
+          var blockLineOffsets = [0];
+          for ( var k = 0 ; k < javaStr.length ; k++ ) {
+            if ( javaStr[k] === '\n' ) blockLineOffsets.push(k + 1);
           }
-          if ( jParser ) {
-            // baseLine/baseCol are 0/0 because we re-locate by absolute
-            // offset using lineOffsets — easier than juggling per-block
-            // base positions through the recursive sweep.
-            var blockResult = jParser.parseFile(javaStr);
-            for ( var ci = 0 ; ci < blockResult.calls.length ; ci++ ) {
-              var call = blockResult.calls[ci];
-              // Reconstruct offset from line/col within javaStr.
-              var blockLineOffsets = [0];
-              for ( var k = 0 ; k < javaStr.length ; k++ ) {
-                if ( javaStr[k] === '\n' ) blockLineOffsets.push(k + 1);
-              }
-              if ( call.line >= blockLineOffsets.length ) continue;
-              var methodOffsetInBlock = blockLineOffsets[call.line] + call.col;
-              addToken(baseOffset + methodOffsetInBlock,
-                call.methodName.length, 8);
-            }
+          for ( var ci = 0 ; ci < blockResult.calls.length ; ci++ ) {
+            var call = blockResult.calls[ci];
+            if ( call.line >= blockLineOffsets.length ) continue;
+            var methodOffsetInBlock = blockLineOffsets[call.line] + call.col;
+            if ( inComment(methodOffsetInBlock) ) continue;
+            addToken(baseOffset + methodOffsetInBlock,
+              call.methodName.length, 8);
           }
-        } catch (e) { /* parseBlock is best-effort — fail silently */ }
+        }
 
         // Java variable declarations + usage tracking
         // Track declared variables so we can highlight their usage throughout the block
@@ -582,6 +607,7 @@ foam.CLASS({
         var varDeclRegex = /\b(\w+)\s+([a-z]\w*)\s*[=;]/g;
         var vd;
         while ( ( vd = varDeclRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(vd.index) ) continue;
           var declType = vd[1];
           if ( /^(if|for|while|try|catch|throw|return|new|else|var|int|long|float|double|boolean|byte|short|char|void)$/.test(declType) ) {
             if ( declType === 'var' || /^(int|long|float|double|boolean|byte|short|char)$/.test(declType) ) {
@@ -600,6 +626,7 @@ foam.CLASS({
         var genericDeclRegex = /(\w+)\s*<[^>]*>\s+([a-z]\w*)\s*[=;]/g;
         var gd;
         while ( ( gd = genericDeclRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(gd.index) ) continue;
           var vOffset = gd.index + gd[0].indexOf(gd[2]);
           addToken(baseOffset + vOffset, gd[2].length, 2);
           declaredVars[gd[2]] = true;
@@ -607,6 +634,7 @@ foam.CLASS({
         var forEachRegex = /\bfor\s*\(\s*(\w+)\s+([a-z]\w*)\s*:/g;
         var fe;
         while ( ( fe = forEachRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(fe.index) ) continue;
           var vOffset = fe.index + fe[0].indexOf(fe[2]);
           addToken(baseOffset + vOffset, fe[2].length, 2);
           declaredVars[fe[2]] = true;
@@ -614,6 +642,7 @@ foam.CLASS({
         var catchRegex = /\bcatch\s*\(\s*(\w+)\s+([a-z]\w*)\s*\)/g;
         var ce;
         while ( ( ce = catchRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(ce.index) ) continue;
           var vOffset = ce.index + ce[0].indexOf(ce[2]);
           addToken(baseOffset + vOffset, ce[2].length, 2);
           declaredVars[ce[2]] = true;
@@ -625,6 +654,7 @@ foam.CLASS({
           var vuRegex = new RegExp('\\b' + varName + '\\b', 'g');
           var vu;
           while ( ( vu = vuRegex.exec(javaStr) ) !== null ) {
+            if ( inComment(vu.index) ) continue;
             addToken(baseOffset + vu.index, varName.length, 2);
           }
         }
@@ -633,6 +663,7 @@ foam.CLASS({
         var enumRegex = /\b([A-Z]\w*)\.([A-Z][A-Z0-9_]+)\b/g;
         var em;
         while ( ( em = enumRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(em.index) ) continue;
           var enumFullId = resolveType(em[1]);
           if ( enumFullId ) {
             var enumVals = self.index.getEnumValues(enumFullId);
@@ -650,6 +681,7 @@ foam.CLASS({
         var getSetRegex = /(get|set)([A-Z][a-zA-Z0-9_]*)\s*\(/g;
         var gs;
         while ( ( gs = getSetRegex.exec(javaStr) ) !== null ) {
+          if ( inComment(gs.index) ) continue;
           var propName = gs[2].charAt(0).toLowerCase() + gs[2].substring(1);
           var known = propNames[propName.toLowerCase()];
 

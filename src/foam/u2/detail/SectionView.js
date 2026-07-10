@@ -62,6 +62,10 @@ foam.CLASS({
         if ( ! data ) return null;
         var of = data.cls_;
         var a = of.getAxiomByName(sectionName);
+        if ( ! a ) {
+          console.error('SectionView: no section named "' + sectionName +
+            '" on ' + of.id + '; the section will render empty.');
+        }
         return this.Section.create().fromSectionAxiom(a, of);
       },
       adapt: function(o, n) {

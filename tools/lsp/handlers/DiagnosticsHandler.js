@@ -151,18 +151,25 @@ foam.CLASS({
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 3,
               "Unknown property type: '" + matched + "'");
           }
-        } else if ( r.msg && r.msg.type === 'columnName' ) {
-          // Cross-reference with the enclosing model's property set.
+        } else if ( r.msg && ( r.msg.type === 'tableColumnName' ||
+                               r.msg.type === 'searchColumnName' ) ) {
+          // Cross-reference with the enclosing model's axioms. tableColumns
+          // entries may also name actions — rendered as row buttons
+          // (foam.u2.table.UnstyledTableView filters getAxiomsByClass(Action)
+          // against tableColumns). searchColumns filters properties only.
           var pos = this.analyzer.offsetToPosition(text, r.startPos);
           var model = this.cache.getModelAt('', text, pos.line);
           if ( ! model ) continue;
           var propSet = this.collectPropNames_(model);
           // Column names can be dot paths ('owner.name') — check first segment
           var baseName = matched.split('.')[0];
-          if ( ! propSet[baseName] ) {
+          var isTable = r.msg.type === 'tableColumnName';
+          if ( ! propSet[baseName] &&
+               ! ( isTable && this.collectActionNames_(model)[baseName] ) ) {
             var classId = this.cache.getClassId(model);
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
-              "Property '" + matched + "' does not exist on " + classId);
+              ( isTable ? "Property or action '" : "Property '" ) + matched +
+                "' does not exist on " + classId);
           }
         }
       }
@@ -237,6 +244,27 @@ foam.CLASS({
         if ( name ) propNames[name] = true;
       }
       return propNames;
+    },
+
+    function collectActionNames_(model) {
+      /** Action-name set for a model: registry actions + own raw actions.
+       *  Mirrors collectPropNames_ — parent fallback covers mid-edit models
+       *  not yet in the registry. */
+      var actionNames = {};
+      var classId = this.cache.getClassId(model);
+      var actions = this.index.getActions(classId);
+      for ( var i = 0 ; i < actions.length ; i++ ) actionNames[actions[i].name] = true;
+      if ( actions.length === 0 && model.extends ) {
+        var parentActions = this.index.getActions(model.extends);
+        for ( var i = 0 ; i < parentActions.length ; i++ ) actionNames[parentActions[i].name] = true;
+      }
+      var ownActions = model.actions || [];
+      for ( var i = 0 ; i < ownActions.length ; i++ ) {
+        var a = ownActions[i];
+        var name = typeof a === 'function' ? a.name : a && a.name;
+        if ( name ) actionNames[name] = true;
+      }
+      return actionNames;
     },
 
     function toLSPDiagnostics_(diagnostics) {

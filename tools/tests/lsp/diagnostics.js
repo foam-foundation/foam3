@@ -755,3 +755,27 @@ test(addStrDiags("foam.CLASS({ package:'t', name:'DQ2', methods:[ function rende
 test(addStrDiags("foam.CLASS({ package:'t', name:'AP2', methods:[ function render(){ this.add('Don\\'t save'); } ] })").length === 1, "escaped quote: this.add('Don\\'t save') flagged once");
 
 
+
+// === tableColumns accepts actions (#5169) ===
+// foam.u2.table.UnstyledTableView renders actions listed in tableColumns as
+// row buttons, so an action name there is valid. searchColumns filters on
+// properties only, so an action name there is still flagged.
+section('DiagnosticsHandler tableColumns actions (#5169)');
+
+var colActSrc = "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'ColActDemo',\n" +
+  "  tableColumns: [ 'name', 'reflow', 'bogusCol' ],\n" +
+  "  searchColumns: [ 'name', 'reflow' ],\n" +
+  "  properties: [ { class: 'String', name: 'name' } ],\n" +
+  "  actions: [ { name: 'reflow', code: function() {} } ]\n" +
+  "})";
+var colActDiags = diagHandler.handle(colActSrc);
+test(!colActDiags.some(function(d) { return d.message.indexOf("action 'reflow'") !== -1; }),
+  'tableColumns: own action name NOT flagged');
+test(colActDiags.some(function(d) { return d.message.indexOf("Property or action 'bogusCol'") !== -1; }),
+  'tableColumns: unknown name still flagged (mentions actions)');
+test(colActDiags.some(function(d) { return d.message.indexOf("Property 'reflow'") !== -1; }),
+  'searchColumns: action name IS flagged (properties only)');
+test(!colActDiags.some(function(d) { return d.message.indexOf("'name'") !== -1; }),
+  'both arrays: property name not flagged');

@@ -689,7 +689,7 @@ foam.CLASS({
             },
             datalabels: {
               display: true,
-              color: 'white',
+              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
               font: {
                 weight: 'bold'
               }
@@ -1034,7 +1034,7 @@ foam.CLASS({
             },
             datalabels: {
               display: true,
-              color: 'white',
+              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
               font: {
                 weight: 'bold'
               }

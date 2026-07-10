@@ -135,18 +135,20 @@ foam.CLASS({
           // Excel precedence: concat < +/- < * / < unary neg < ^ < primary
           concat: seq(
             sym('addsub'),
-            opt(seq(binop('&', 'ADD'), sym('addsub')))),
+            opt(seq(binop('&', 'ADD'), sym('concat')))),
 
           addsub: seq(
             sym('muldiv'),
-            opt(seq(alt(binop('+', 'ADD'), binop('-', 'SUB')), sym('muldiv')))),
+            opt(seq(alt(binop('+', 'ADD'), binop('-', 'SUB')), sym('addsub')))),
 
           muldiv: seq(
             sym('unary'),
-            opt(seq(alt(binop('*', 'MUL'), binop('/', 'DIV')), sym('unary')))),
+            opt(seq(alt(binop('*', 'MUL'), binop('/', 'DIV')), sym('muldiv')))),
 
           unary: alt(sym('neg'), sym('power')),
+
           neg:   seq(seq1(1, sym('ws'), '-'), sym('unary')),              // -5^2 == -25
+
           power: seq(sym('primary'), opt(seq(seq1(1, sym('ws'), '^'), sym('unary')))), // right-assoc
 
           primary: alt(
@@ -215,12 +217,14 @@ foam.CLASS({
         addsub: binAction,
         muldiv: binAction,
         neg:    function(v) { return m.MUL(m.CONSTANT(-1), v[1]); },
+        // TODO: convert to Mlang
         power:  function(v) {
           return v[1] == null ? v[0]
             : self.FnExpr.create({ name: 'POW', args: [ v[0], v[1][1] ], impl: Math.pow });
         },
 
         field: function(v) { return v[1] ? m.DOT(v[0], v[1]) : v[0]; },
+        // TODO: supported nested sub-fields
         subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
 
         // [ 'IF', ws, '(', cond, ',', a, ',', b, ws, ')' ]  ->  cond=v[3], a=v[5], b=v[7]
@@ -373,8 +377,13 @@ foam.CLASS({
           console.log('*****', s, ' -> ' , e);
           var out = ( e && e.f ) ? e.f(data) : e;
           var tag = expected === undefined ? ''
-                  : (out === expected ? '  PASS' : '  FAIL (expected ' + JSON.stringify(expected) + ')');
-          console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', JSON.stringify(out) + tag);
+              : (out === expected ? '  PASS' : '  FAIL (expected ' + JSON.stringify(expected) + ')');
+          try {
+            console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', JSON.stringify(out) + tag);
+          } catch (x) {
+            // In case 'out' has circular references and can't be output as JSON
+            console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', out, tag);
+          }
         } catch (err) {
           console.log(pad(s), '-> ERROR:', (err && err.message) || err);
           debugger;
@@ -382,38 +391,64 @@ foam.CLASS({
       }
 
 
-      ex('1', 1);
-      ex('2 + 3', 5);
+
+      console.log('── leaves ──');
+      ex('12', 12);
+      ex('13', 13);
+      ex('"abc"', 'abc');
+      ex('"def"', 'def');
+      ex('true', true);
+      ex('false', false);
+
+      console.log('── power / unary ──');
+      ex('3^2', 9);
+      ex('-2', -2);
+      ex('-3^2', -9);
+      ex('2 ^ -3', 0.125);
+
+      console.log('── mul / add / concat (numeric) ──');
+      ex('2*3', 6);
+      ex('2*4', 8);
+      ex('1+2', 3);
+      ex('2-1', 1);
       ex('2 + 3 * 4', 14);
       ex('(2 + 3) * 4', 20);
       ex('10 / 4', 2.5);
-      ex('-5 ^ 2', -25);          // unary neg wraps ^  (Excel)
-      ex('2 ^ -3', 0.125);
 
-      console.log('── strings & concat (Add) ──');
-      ex('"Hello, " & firstName', 'Hello, Kevin');
-      ex('firstName & " " & lastName', 'Kevin Greer');
-      ex('LEFT(firstName, 3) & "."', 'Kev.');
-      ex('UPPER(lastName)', 'GREER');
-      ex('LEN(firstName)', 5);
+      console.log('── associativity ──');
+      ex('10-2-3', 5);      // right-assoc tail reports 11 until you left-fold
+      ex('100/10/2', 5);    // reports 20
 
       console.log('── fields & dotted access ──');
       ex('id', 42);
+      ex('firstName', 'Kevin');
       ex('balance * 2', 3000);
       ex('address.city', 'Toronto');
+
+      console.log('── functions ──');
+      ex('LEN(firstName)', 5);
+      ex('LEFT(firstName, 3)', 'Kev');
+      ex('UPPER(lastName)', 'GREER');
       ex('UPPER(address.city)', 'TORONTO');
 
-      console.log('── IF: cond delegates to the AQL predicate parser ──');
+      console.log('── concat over strings ──');
+      ex('firstName & lastName', 'KevinGreer');
+      ex('"Hello, " & firstName', 'Hello, Kevin');
+      ex('firstName & "!"', 'Kevin!');             // string after operator: needs lead(quoted string)
+      ex('firstName & " " & lastName', 'Kevin Greer');
+      ex('LEFT(firstName, 3) & "."', 'Kev.');      // same
+
+      console.log('── IF ──');
       ex('IF(balance > 1000, "high", "low")', 'high');
       ex('IF(id = 42, firstName, lastName)', 'Kevin');
       ex('IF(balance > 1000, balance * 2, 0)', 3000);
 
-      console.log('── date fn (value printed, not asserted) ──');
+      console.log('── date fn (printed, not asserted) ──');
       ex('YEARS(born)');
 
-      console.log('── validation: unknown fn / arity should NOT parse ──');
-      ex('BOGUS(1)');             // unknown  -> (no parse)
-      ex('LEFT("x")');            // too few  -> (no parse)
+      console.log('── should NOT parse ──');
+      ex('BOGUS(1)');
+      ex('LEFT("x")');
     }
   ]
 });

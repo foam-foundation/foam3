@@ -182,7 +182,6 @@ foam.CLASS({
             n = val.toE({}, this);
           } else {
             console.log('Unknown slot type: ', typeof val);
-            debugger;
           }
 
           this.element_.parentNode.replaceChild(n.element_, this.element_);

@@ -1377,7 +1377,6 @@ foam.CLASS({
           await this.currentBlock.value?.onLoad?.();
         } catch (error) {
           console.error('Error loading block:', this.currentBlock.flowName, error);
-          debugger;
           this.currentBlock.value = this.BadBlock.create({block: this.currentBlock, /*cmd: c.cmd,*/ script: c, error: error.toString()});
           // Continue processing other blocks even if this one failed
         }

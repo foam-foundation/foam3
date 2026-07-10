@@ -34,6 +34,7 @@ foam.POM({
     { name: "predicate/Unary",                      flags: "js|java" },
     { name: "Absolute",                             flags: "js|java" },
     { name: "Round",                                flags: "js|java" },
+    { name: "expr/Cond",                            flags: "js|java" },
     { name: "Mux",                                  flags: "js|java" },
     { name: "predicate/Binary",                     flags: "js|java" },
     { name: "predicate/Nary",                       flags: "js|java" },

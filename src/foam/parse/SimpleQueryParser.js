@@ -62,6 +62,11 @@ foam.CLASS({
       value: false // TODO: Implement short names support.
     },
     {
+      // For use by sub-classes
+      name: 'extensionGrammar_',
+      value: function() { return {}; }
+    },
+    {
       name: 'baseGrammar_',
       value: function(alt, anyChar, chars, literal, literalIC, nop, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
 
@@ -414,10 +419,12 @@ foam.CLASS({
         let parsers    = this.Parsers.create();
         let base       = foam.Function.withArgs(this.baseGrammar_,       parsers, this);
         let properties = foam.Function.withArgs(this.propertiesGrammar_, parsers, this);
+        let ext        = foam.Function.withArgs(this.extensionGrammar_,  parsers, this);
         let grammar    = {
           __proto__: base,
           propPredicates: properties.propPredicates,
-          rangePropPredicates: properties.rangePropPredicates
+          rangePropPredicates: properties.rangePropPredicates,
+          ...ext
         };
         let self       = this;
         // All dates are actually treated as ranges. These are arrays of Date
@@ -642,6 +649,8 @@ foam.CLASS({
         });
 
         g.addActions(actions);
+        this.addExtActions(g);
+
         return g;
       }
     }
@@ -653,6 +662,9 @@ foam.CLASS({
     },
     function parseString(str, opt_name, opt_apply) {
       return this.grammar_.parseString(str, opt_name, opt_apply);
+    },
+    // Template Method to be used by Sub-classes
+    function addExtActions(grammar) {
     }
   ]
 });

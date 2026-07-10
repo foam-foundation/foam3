@@ -718,8 +718,15 @@ foam.CLASS({
     },
 
     function onSelect(obj) {
+      var id = obj[this.idProperty];
+      if ( id === undefined ) {
+        console.error('RichChoiceView: idProperty "' + this.idProperty +
+          '" did not resolve on the selected object. Pass a bare property name (e.g. \'name\'), not a PropertyInfo (e.g. Model.NAME, which stringifies to a qualified "' +
+          ( typeof this.idProperty === 'string' && this.idProperty.indexOf('.') >= 0 ? this.idProperty : 'package.Model.prop' ) + '" path).');
+        return;
+      }
       this.fullObject_ = obj;
-      this.data = obj[this.idProperty];
+      this.data = id;
       this.isOpen_ = false;
     },
 

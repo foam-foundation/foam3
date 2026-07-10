@@ -22,6 +22,8 @@
       Function names use a dot-free `ident`, so they can't collide with paths.
     - Excel-like precedence: `-5^2 == -25` (unary `neg` wraps `^`).
     - String literals are QUOTED only ("abc"); bare names are field refs.
+    - +,-,*,/,& are left-associative via a flat rep0 tail + left-fold; only `^`
+      stays right-associative (via opt). Nodes remain binary either way.
 */
 
 foam.CLASS({
@@ -133,17 +135,13 @@ foam.CLASS({
           EXPR: sym('concat'),
 
           // Excel precedence: concat < +/- < * / < unary neg < ^ < primary
-          concat: seq(
-            sym('addsub'),
-            opt(seq(binop('&', 'ADD'), sym('concat')))),
+          // Flat rep0 tail over the NEXT-higher rung + left-fold action =>
+          // left-associative (10-2-3 == 5), nodes still binary.
+          concat: seq(sym('addsub'), rep(seq(binop('&', 'ADD'), sym('addsub')))),
 
-          addsub: seq(
-            sym('muldiv'),
-            opt(seq(alt(binop('+', 'ADD'), binop('-', 'SUB')), sym('addsub')))),
+          addsub: seq(sym('muldiv'), rep(seq(alt(binop('+', 'ADD'), binop('-', 'SUB')), sym('muldiv')))),
 
-          muldiv: seq(
-            sym('unary'),
-            opt(seq(alt(binop('*', 'MUL'), binop('/', 'DIV')), sym('muldiv')))),
+          muldiv: seq(sym('unary'),  rep(seq(alt(binop('*', 'MUL'), binop('/', 'DIV')), sym('unary')))),
 
           unary: alt(sym('neg'), sym('power')),
 
@@ -154,8 +152,8 @@ foam.CLASS({
           primary: alt(
             sym('expr_paren'),
             sym('funcall'),
-            sym('quoted string'),                                   // "quoted" only
-            sym('number'),
+            lead(sym('quoted string')),                      // "quoted" only; lead() eats leading ws
+            sym('number'),                                   // parent 'number' already eats its own ws
             lead(litIC('true',  m.CONSTANT(true))),
             lead(litIC('false', m.CONSTANT(false))),
             sym('field')                                     // bare names -> property refs
@@ -187,7 +185,17 @@ foam.CLASS({
 
           generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
           funcname: sym('ident'),
-          args: rep(sym('EXPR'), comma, 0)
+          args: rep(sym('EXPR'), comma, 0),
+
+          expr: alt(
+            sym('paren'),
+            sym('negate'),
+            sym('propPredicates'),
+            sym('rangePropPredicates'),
+            lead(litIC('true',  m.CONSTANT(true))),
+            lead(litIC('false', m.CONSTANT(false)))
+          ),
+
         };
       }
     }
@@ -204,18 +212,20 @@ foam.CLASS({
       var m    = foam.mlang.Expressions.create();
       var NO_PARSE = foam.parse.ParserWithAction.NO_PARSE;
 
-      function binAction(v) {
-        try {
-          return v[1] ? m[v[1][0]].call(m, v[0], v[1][1]) : v[0];
-        } catch (x) {
-          debugger;
-        }
+      // Left-fold a flat operator tail: v = [ first, [ [opName, rhs], ... ] ].
+      // MLangs adapt literal args to Constant, so no manual boxing needed.
+      function fold(v) {
+        var acc = foam.mlang.ExprProperty.prototype.adaptValue(v[0]);
+        v = v[1];
+        for ( let i = 0 ; i < v.length ; i++ )
+          acc = m[v[i][0]].call(m, acc, v[i][1]);
+        return acc;
       }
 
       g.addActions({
-        concat: binAction,
-        addsub: binAction,
-        muldiv: binAction,
+        concat: fold,
+        addsub: fold,
+        muldiv: fold,
         neg:    function(v) { return m.MUL(m.CONSTANT(-1), v[1]); },
         // TODO: convert to Mlang
         power:  function(v) {
@@ -224,11 +234,11 @@ foam.CLASS({
         },
 
         field: function(v) { return v[1] ? m.DOT(v[0], v[1]) : v[0]; },
-        // TODO: supported nested sub-fields
+        // TODO: support nested sub-fields (a.b.c) — currently single-level only
         subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
 
         // [ 'IF', ws, '(', cond, ',', a, ',', b, ws, ')' ]  ->  cond=v[3], a=v[5], b=v[7]
-        fn_IF: function(v) { return m.MUX(v[3], v[5], v[7]); },
+        fn_IF: function(v) { return m.COND(v[3], v[5], v[7]); },
 
         // [ name, ws, '(', args|undefined, ws, ')' ]
         generic_funcall: function(v) {
@@ -325,54 +335,8 @@ foam.CLASS({
         }
       }
 
-      console.log('── test parts ──');
-      exPart('12', 12, 'number');
-      exPart('13', 13, 'primary');
-      exPart('"abc"', 'abc', 'primary');
-      exPart('"def"', 'def', 'quoted string');
-      exPart('true', true, 'primary');
-      exPart('false', false, 'primary');
-      exPart('3^2', 9, 'power');
-      exPart('-2', -2, 'neg');
-      exPart('-3^2', -9, 'unary');
-      exPart('1+2', 3, 'addsub');
-      exPart('2-1', 1, 'addsub');
-      exPart('2*3', 6, 'muldiv');
-      exPart('2*4', 8, 'concat');
-      exPart('city', 'city', 'ident');
-
-      /*
-      console.log('── operands ──');
-      exPart('firstName',     'Kevin',   'field');
-      exPart('address.city',  'Toronto', 'field');    // DOT + NamedProperty chain
-      exPart('id',            42,        'primary');
-
-      console.log('── functions ──');
-      exPart('LEN(firstName)',      5,         'generic_funcall');  // -> STRING_LENGTH
-      exPart('LEFT(firstName, 3)',  'Kev',     'generic_funcall');  // -> FnExpr
-      exPart('UPPER(address.city)', 'TORONTO', 'funcall');          // funcall alt + dotted arg
-
-      console.log('── addsub / muldiv with fields ──');
-      exPart('1 + 2',       3,    'addsub');
-      exPart('balance * 2', 3000, 'addsub');
-
-      console.log('── concat (Add over strings) ──');
-      exPart('firstName & lastName', 'KevinGreer', 'concat');
-      exPart('firstName & "!"',      'Kevin!',     'concat');
-
-      console.log('── IF: cond delegates to the AQL predicate parser ──');
-      exPart('IF(id = 42, firstName, lastName)',    'Kevin', 'fn_IF');
-      exPart('IF(balance > 1000, "high", "low")',   'high',  'fn_IF');
-
-      console.log('── full EXPR ──');
-      exPart('LEFT(firstName, 3) & "."',            'Kev.',  'EXPR');
-      exPart('IF(balance > 1000, balance * 2, 0)',  3000,    'EXPR');
-*/
- //     exPart('(1)', 1, 'expr_paren');
-
       function ex(s, expected) {
         try {
-          console.log('*****', s, ' -> ?');
           var e   = p.parseExpression(s);
           console.log('*****', s, ' -> ' , e);
           var out = ( e && e.f ) ? e.f(data) : e;
@@ -390,7 +354,33 @@ foam.CLASS({
         }
       }
 
+      exPart('true', 1, 'number');
 
+      ex('IF(true, "true", "false")', 1);
+      ex('IF(true, 1, 0)', 1);
+      ex('IF(1 = 2, "true", "false")', 1);
+      ex('IF("abc" = "def", 1, 0)', 1);
+      ex('IF(balance > 1000, "high", "low")', 'high');
+      ex('IF(id = 42, firstName, lastName)', 'Kevin');
+      ex('IF(balance > 1000, balance * 2, 0)', 3000);
+
+      debugger;
+
+      console.log('── test parts ──');
+      exPart('1', 1, 'number');
+      exPart('12', 12, 'primary');
+      exPart('"abc"', 'abc', 'primary');
+      exPart('"def"', 'def', 'quoted string');
+      exPart('true', true, 'primary');
+      exPart('false', false, 'primary');
+      exPart('3^2', 9, 'power');
+      exPart('-2', -2, 'neg');
+      exPart('-3^2', -9, 'unary');
+      exPart('1+2', 3, 'addsub');
+      exPart('2-1', 1, 'addsub');
+      exPart('2*3', 6, 'muldiv');
+      exPart('2*4', 8, 'concat');
+      exPart('city', 'city', 'ident');
 
       console.log('── leaves ──');
       ex('12', 12);
@@ -415,9 +405,9 @@ foam.CLASS({
       ex('(2 + 3) * 4', 20);
       ex('10 / 4', 2.5);
 
-      console.log('── associativity ──');
-      ex('10-2-3', 5);      // right-assoc tail reports 11 until you left-fold
-      ex('100/10/2', 5);    // reports 20
+      console.log('── associativity (left-assoc via fold) ──');
+      ex('10-2-3', 5);      // SUB(SUB(10,2),3)
+      ex('100/10/2', 5);    // DIV(DIV(100,10),2)
 
       console.log('── fields & dotted access ──');
       ex('id', 42);
@@ -434,11 +424,13 @@ foam.CLASS({
       console.log('── concat over strings ──');
       ex('firstName & lastName', 'KevinGreer');
       ex('"Hello, " & firstName', 'Hello, Kevin');
-      ex('firstName & "!"', 'Kevin!');             // string after operator: needs lead(quoted string)
+      ex('firstName & "!"', 'Kevin!');
       ex('firstName & " " & lastName', 'Kevin Greer');
-      ex('LEFT(firstName, 3) & "."', 'Kev.');      // same
+      ex('LEFT(firstName, 3) & "."', 'Kev.');
 
       console.log('── IF ──');
+      ex('IF(true, 1, 0)', 1);
+      ex('IF(false, 1, 0)', 0);
       ex('IF(balance > 1000, "high", "low")', 'high');
       ex('IF(id = 42, firstName, lastName)', 'Kevin');
       ex('IF(balance > 1000, balance * 2, 0)', 3000);
@@ -455,5 +447,3 @@ foam.CLASS({
 
 // auto-run if a context is available
 try { foam.parse.test.AScriptDemo.create().run(); } catch (e) {}
-
-debugger;

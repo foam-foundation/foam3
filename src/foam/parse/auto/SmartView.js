@@ -172,7 +172,10 @@ foam.CLASS({
           addClass(this.myClass('label')).
           callIfElse(data.tooltip,
             function() {
-              this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(data.tooltip).end();
+              this.start('span').style({
+                fontStyle: 'italic',
+                color: foam.CSS.returnTokenValue('$textSecondary', this.cls_, this.__subContext__)
+              }).add(data.tooltip).end();
             },
             function() {
               const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');

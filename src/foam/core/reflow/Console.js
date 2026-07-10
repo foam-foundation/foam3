@@ -1071,7 +1071,7 @@ foam.CLASS({
       text-align: center;
     }
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
-      color: orange !important;
+      color: $orange500 !important;
     }
   `,
 

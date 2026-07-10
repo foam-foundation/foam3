@@ -1468,7 +1468,34 @@ foam.CLASS({
           if ( n.summary != undefined ) this[`${(prop || this).name}$summary_`] = n.summary;
           return n.id;
         }
-        return n;
+        if ( ! foam.String.isInstance(n) ) return n;
+
+        var v = n.trim();
+        if ( ! v ) return v;
+
+        // Normalize numeric variants for ISO 4217 numeric codes (e.g. "36" => "036").
+        if ( /^\d+$/.test(v) ) return v.padStart(3, '0');
+
+        return v.toUpperCase();
+      }
+    },
+    {
+      name: 'postSet',
+      value: function(oldValue, newValue, prop) {
+        if ( ! newValue ) return;
+
+        // Non-numeric currency IDs are already normalized by adapt().
+        if ( foam.String.isInstance(newValue) && Number.isNaN(Number(newValue)) ) return;
+
+        prop.normalize(newValue, prop, this).then(function(normalized) {
+          if ( ! normalized ) return;
+
+          // Avoid stale async overwrite if the property changed again.
+          if ( this[prop.name] !== newValue ) return;
+          if ( normalized === newValue ) return;
+
+          this[prop.name] = normalized;
+        }.bind(this)).catch(function() {});
       }
     },
     {
@@ -1496,7 +1523,10 @@ foam.CLASS({
          **/
         if ( foam.String.isInstance(value) && Number.isNaN(Number(value)) ) return value;
 
-        var currency = await obj.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
+        var dao = obj && obj.__context__ && obj.__context__[prop.targetDAOKey];
+        if ( ! dao ) return value;
+
+        var currency = await dao.find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
 
         if ( currency ) {
           return currency.id;

@@ -541,6 +541,15 @@ foam.CLASS({
         throw new Error(`You must provide an array of sections. See documentation on the 'sections' property in RichTextView.js.`);
       }
 
+      this.sections.forEach(function(section, i) {
+        if ( ! section.dao ) {
+          console.error('RichChoiceView: section ' + i +
+            ( section.heading ? ' ("' + section.heading + '")' : '' ) +
+            ' has no dao. Every section must provide one; opening the ' +
+            'dropdown, searching or resolving a selection will throw.');
+        }
+      });
+
       // If the property that this view is for already has a value when being
       // rendered, the 'data' property on this model will be set to an id for
       // the object being referenced by the Reference property being rendered.

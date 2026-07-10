@@ -18,6 +18,7 @@ foam.CLASS({
     'foam.dao.ArraySink',
     'foam.mlang.Constant',
     'foam.mlang.expr.Add',
+    'foam.mlang.expr.Cond',
     'foam.mlang.expr.Divide',
     'foam.mlang.expr.Dot',
     'foam.mlang.expr.Ref',
@@ -146,6 +147,7 @@ foam.CLASS({
     function ABS(arg1) { return this.Absolute.create({ delegate: arg1 }); },
     function ROUND(arg1, opt_decimals) { return this.Round.create({ arg1: arg1, arg2: opt_Decimals || 0 }); },
     function ARRAY() { return this.ArraySink.create() },
+    function COND(cond, a, b) { return this.Cond.create({ cond: cond, ifExpr: a, elseExpr: b }); },
     function MUX(cond, a, b) { return this.Mux.create({ cond: cond, a: a, b: b }); },
     function SEQ() { return this._nary_("Sequence", arguments); },
     function PROJECTION(exprs) {

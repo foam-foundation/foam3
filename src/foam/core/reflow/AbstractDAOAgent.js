@@ -1127,7 +1127,11 @@ foam.CLASS({
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
         this.start('a').
-          style({ cursor: 'pointer', color: '#0066cc', 'text-decoration': 'underline' }).
+          style({
+            cursor: 'pointer',
+            color: foam.CSS.returnTokenValue('$link', this.cls_, this.__subContext__),
+            'text-decoration': 'underline'
+          }).
           on('click', async function() {
             self.logDownloadSelection('local', modelName, fmt.format);
             await self.downloadLocal(dao, modelName, fmt);

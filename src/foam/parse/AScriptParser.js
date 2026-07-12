@@ -20,11 +20,68 @@
     - `&`, `+`, CONCAT() all build ADD (Add concats strings). No Concat mlang.
     - No `.len`: field access is pure dotted property nav; LEN is a function.
       Function names use a dot-free `ident`, so they can't collide with paths.
-    - Excel-like precedence: `-5^2 == -25` (unary `neg` wraps `^`).
     - String literals are QUOTED only ("abc"); bare names are field refs.
     - +,-,*,/,& are left-associative via a flat rep0 tail + left-fold; only `^`
       stays right-associative (via opt). Nodes remain binary either way.
 */
+
+/** Generate models for AScript Library and register in foam.alib registry. **/
+// To debug Java code-generation in browser, load with ?genjava=true flag
+foam.ALIB = function(ms) {
+  foam.alib = foam.alib || [];
+  ms.forEach(l => {
+    l.aName = l.aName || l.name.toUpperCase();
+
+    // TODO: Generate Model
+    let m = {
+      package: 'foam.mlang.expr',
+      name: l.aName,
+      extends: 'foam.mlang.AbstractExpr',
+      flags: [ 'java' ], // Cause java generation
+      // Make all arguments into ExprProperty's
+      properties: l.args.map(a => { return {...a, class: 'foam.mlang.ExprProperty' }; }),
+      methods: [
+        {
+          name: 'f',
+          code: function(obj) {
+            return l.code.apply(this, l.args.map(a => this[a.name].f(obj)));
+          },
+          javaCode:
+            foam.json.parse(l.args).map(a => `${a.javaType} ${a.name} = (${a.javaType}) get${foam.String.capitalize(a.name)}().f(obj);\n`).join('') +
+            l.javaCode
+        }
+      ]
+    };
+
+    foam.CLASS(m);
+    // foam.alib.push(something);
+  });
+};
+
+
+foam.ALIB([
+  {
+    name: 'lPad',
+    documentation: "Left pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
+    args: [
+      { class: 'String', name: 'str' },
+      { class: 'Int',    name: 'len' },
+      { class: 'String', name: 'ch', value: '0' },
+    ],
+    code: function(str, len, ch) {
+      return foam.core.reflow.lib.lPad(str, len, ch || '0');
+    },
+    javaCode: `
+      if ( str == null ) str = "";
+      if ( ch == null || ch.isEmpty() ) ch = "0";
+      int padLen = len - str.length();
+      if ( padLen <= 0 ) return str;
+      StringBuilder sb = new StringBuilder(padLen);
+      while ( sb.length() < padLen ) sb.append(ch);
+      return sb.substring(0, padLen) + str; // truncate pad to exact width, like padSta rt
+    `
+  }
+]);
 
 foam.CLASS({
   package: 'foam.parse',
@@ -76,13 +133,20 @@ foam.CLASS({
         }
         // TODO: eventually move to a DAO. IF is NOT here (it has a typed parser).
         return {
+          IFS:     { minArgs: 2,             build: function(a) {
+            let clauses = [];
+            for ( let i = 0 ; i < a.length ; i += 2 )
+              clauses.push(foam.mlang.expr.IfsClause.create({cond: a[i], expr: a[i+1]}));
+            return foam.mlang.expr.Ifs.create({clauses: clauses});
+          } },
+          LPAD:    { minArgs: 2, maxArgs: 3, build: function(a) { return foam.mlang.expr.LPAD.create({str: a[0], len: a[1], ch: a[2]}); } },
           LEN:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.STRING_LENGTH(a[0]); } },
           ABS:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.ABS(a[0]); } },
           ROUND:   { minArgs: 1, maxArgs: 2, build: function(a) { return m.ROUND(a[0], a[1]); } }, // mixin bug: opt_Decimals typo
           MIN:     { minArgs: 1, build: function(a) { return m.MIN_FUNC.apply(m, a); } },  // *Func expr, not the sink
           MAX:     { minArgs: 1, build: function(a) { return m.MAX_FUNC.apply(m, a); } },
           SUM:     { minArgs: 1, build: function(a) { return m.ADD.apply(m, a); } },       // per-row n-ary Add
-          CONCAT:  { minArgs: 1, build: function(a) { return m.ADD.apply(m, a); } },       // Add concats
+          CONCAT:  { minArgs: 1, build: function(a) { return m.CONCAT.apply(m, a); } },       // Add concats
           YEARS:   { minArgs: 1, maxArgs: 1, build: function(a) { return m.YEARS(a[0]); } },
           MONTHS:  { minArgs: 1, maxArgs: 1, build: function(a) { return m.MONTHS(a[0]); } },
           DAYS:    { minArgs: 1, maxArgs: 1, build: function(a) { return m.DAYS(a[0]); } },
@@ -132,7 +196,8 @@ foam.CLASS({
 
         return {
           // second entry point; predicate entry (START/'or') is inherited
-          EXPR: sym('concat'),
+//          EXPR: sym('concat'),
+          EXPR: sym('addsub'),
 
           // Excel precedence: concat < +/- < * / < unary neg < ^ < primary
           // Flat rep0 tail over the NEXT-higher rung + left-fold action =>
@@ -154,8 +219,8 @@ foam.CLASS({
             sym('funcall'),
             lead(sym('quoted string')),                      // "quoted" only; lead() eats leading ws
             sym('number'),                                   // parent 'number' already eats its own ws
-            lead(litIC('true',  m.CONSTANT(true))),
-            lead(litIC('false', m.CONSTANT(false))),
+            lead(litIC('true',  m.TRUE)),
+            lead(litIC('false', m.FALSE)),
             sym('field')                                     // bare names -> property refs
           ),
 
@@ -185,15 +250,16 @@ foam.CLASS({
 
           generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
           funcname: sym('ident'),
-          args: rep(sym('EXPR'), comma, 0),
+          // TODO:
+          args: rep(alt(sym('EXPR'), sym('or')), comma, 0),
 
           expr: alt(
             sym('paren'),
             sym('negate'),
             sym('propPredicates'),
             sym('rangePropPredicates'),
-            lead(litIC('true',  m.CONSTANT(true))),
-            lead(litIC('false', m.CONSTANT(false)))
+            lead(litIC('true',  m.TRUE)),
+            lead(litIC('false', m.FALSE))
           ),
 
         };
@@ -223,7 +289,7 @@ foam.CLASS({
       }
 
       g.addActions({
-        concat: fold,
+//        concat: fold,
         addsub: fold,
         muldiv: fold,
         neg:    function(v) { return m.MUL(m.CONSTANT(-1), v[1]); },
@@ -281,6 +347,7 @@ foam.CLASS({
   that has FOAM loaded. Prints parsed MLang + evaluated value + PASS/FAIL.
 */
 
+setTimeout(function() {
 foam.CLASS({
   package: 'foam.parse.test',
   name: 'Address',
@@ -327,8 +394,9 @@ foam.CLASS({
           console.log('*****', s, ' -> ' , e);
           var out = ( e && e.f ) ? e.f(data) : e;
           var tag = expected === undefined ? ''
-                  : (out === expected ? '  PASS' : '  FAIL (expected ' + JSON.stringify(expected) + ')');
+              : (out === expected ? '  PASS' : '  FAIL (expected ' + JSON.stringify(expected) + ')');
           console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', JSON.stringify(out) + tag);
+          if ( out !== expected ) debugger;
         } catch (err) {
           console.log(pad(s), '-> ERROR:', (err && err.message) || err);
           debugger;
@@ -348,12 +416,23 @@ foam.CLASS({
             // In case 'out' has circular references and can't be output as JSON
             console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', out, tag);
           }
+          if ( out !== expected ) debugger;
         } catch (err) {
           console.log(pad(s), '-> ERROR:', (err && err.message) || err);
           debugger;
         }
       }
 
+      ex('LPAD(firstName, 12, "X")');
+      debugger;
+
+      ex('CONCAT(true, false)', 'truefalse');
+      ex('IFS(true, 42)', 42);
+      ex('IFS(balance > 200, "high")', 'high');
+      ex('IFS(balance > 1000, "high", balance > 500, "medium", true, "low")', 'high');
+      ex('CONCAT("abc","def")', "abcdef");
+
+      /*
       exPart('true', 1, 'number');
 
       ex('IF(true, "true", "false")', 1);
@@ -364,8 +443,6 @@ foam.CLASS({
       ex('IF(id = 42, firstName, lastName)', 'Kevin');
       ex('IF(balance > 1000, balance * 2, 0)', 3000);
 
-      debugger;
-
       console.log('── test parts ──');
       exPart('1', 1, 'number');
       exPart('12', 12, 'primary');
@@ -375,12 +452,13 @@ foam.CLASS({
       exPart('false', false, 'primary');
       exPart('3^2', 9, 'power');
       exPart('-2', -2, 'neg');
-      exPart('-3^2', -9, 'unary');
+      exPart('-3^2', 9, 'unary'); // Not Excel compatible
       exPart('1+2', 3, 'addsub');
       exPart('2-1', 1, 'addsub');
       exPart('2*3', 6, 'muldiv');
       exPart('2*4', 8, 'concat');
       exPart('city', 'city', 'ident');
+      */
 
       console.log('── leaves ──');
       ex('12', 12);
@@ -422,11 +500,11 @@ foam.CLASS({
       ex('UPPER(address.city)', 'TORONTO');
 
       console.log('── concat over strings ──');
-      ex('firstName & lastName', 'KevinGreer');
-      ex('"Hello, " & firstName', 'Hello, Kevin');
-      ex('firstName & "!"', 'Kevin!');
-      ex('firstName & " " & lastName', 'Kevin Greer');
-      ex('LEFT(firstName, 3) & "."', 'Kev.');
+      ex('firstName + lastName', 'KevinGreer');
+      ex('"Hello, " + firstName', 'Hello, Kevin');
+      ex('firstName + "!"', 'Kevin!');
+      ex('firstName + " " & lastName', 'Kevin Greer');
+      ex('LEFT(firstName, 3) + "."', 'Kev.');
 
       console.log('── IF ──');
       ex('IF(true, 1, 0)', 1);
@@ -435,15 +513,22 @@ foam.CLASS({
       ex('IF(id = 42, firstName, lastName)', 'Kevin');
       ex('IF(balance > 1000, balance * 2, 0)', 3000);
 
+      console.log('── IFS ──');
+      ex('IFS(1,2,3)', 'high');
+      ex('IFS(balance > 1000, "high", balance > 500, "medium", true, "low")', 'high');
+
       console.log('── date fn (printed, not asserted) ──');
       ex('YEARS(born)');
 
       console.log('── should NOT parse ──');
       ex('BOGUS(1)');
       ex('LEFT("x")');
+
     }
   ]
 });
 
 // auto-run if a context is available
 try { foam.parse.test.AScriptDemo.create().run(); } catch (e) {}
+
+}, 3000);

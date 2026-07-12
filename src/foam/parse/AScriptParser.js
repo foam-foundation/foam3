@@ -25,64 +25,6 @@
       stays right-associative (via opt). Nodes remain binary either way.
 */
 
-/** Generate models for AScript Library and register in foam.alib registry. **/
-// To debug Java code-generation in browser, load with ?genjava=true flag
-foam.ALIB = function(ms) {
-  foam.alib = foam.alib || [];
-  ms.forEach(l => {
-    l.aName = l.aName || l.name.toUpperCase();
-
-    // TODO: Generate Model
-    let m = {
-      package: 'foam.mlang.expr',
-      name: l.aName,
-      extends: 'foam.mlang.AbstractExpr',
-      flags: [ 'java' ], // Cause java generation
-      // Make all arguments into ExprProperty's
-      properties: l.args.map(a => { return {...a, class: 'foam.mlang.ExprProperty' }; }),
-      methods: [
-        {
-          name: 'f',
-          code: function(obj) {
-            return l.code.apply(this, l.args.map(a => this[a.name].f(obj)));
-          },
-          javaCode:
-            foam.json.parse(l.args).map(a => `${a.javaType} ${a.name} = (${a.javaType}) get${foam.String.capitalize(a.name)}().f(obj);\n`).join('') +
-            l.javaCode
-        }
-      ]
-    };
-
-    foam.CLASS(m);
-    // foam.alib.push(something);
-  });
-};
-
-
-foam.ALIB([
-  {
-    name: 'lPad',
-    documentation: "Left pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
-    args: [
-      { class: 'String', name: 'str' },
-      { class: 'Int',    name: 'len' },
-      { class: 'String', name: 'ch', value: '0' },
-    ],
-    code: function(str, len, ch) {
-      return foam.core.reflow.lib.lPad(str, len, ch || '0');
-    },
-    javaCode: `
-      if ( str == null ) str = "";
-      if ( ch == null || ch.isEmpty() ) ch = "0";
-      int padLen = len - str.length();
-      if ( padLen <= 0 ) return str;
-      StringBuilder sb = new StringBuilder(padLen);
-      while ( sb.length() < padLen ) sb.append(ch);
-      return sb.substring(0, padLen) + str; // truncate pad to exact width, like padSta rt
-    `
-  }
-]);
-
 foam.CLASS({
   package: 'foam.parse',
   name: 'FnExpr',
@@ -139,7 +81,7 @@ foam.CLASS({
               clauses.push(foam.mlang.expr.IfsClause.create({cond: a[i], expr: a[i+1]}));
             return foam.mlang.expr.Ifs.create({clauses: clauses});
           } },
-          LPAD:    { minArgs: 2, maxArgs: 3, build: function(a) { return foam.mlang.expr.LPAD.create({str: a[0], len: a[1], ch: a[2]}); } },
+          // lPAD is automatically added by ALIB()
           LEN:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.STRING_LENGTH(a[0]); } },
           ABS:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.ABS(a[0]); } },
           ROUND:   { minArgs: 1, maxArgs: 2, build: function(a) { return m.ROUND(a[0], a[1]); } }, // mixin bug: opt_Decimals typo
@@ -260,8 +202,7 @@ foam.CLASS({
             sym('rangePropPredicates'),
             lead(litIC('true',  m.TRUE)),
             lead(litIC('false', m.FALSE))
-          ),
-
+          )
         };
       }
     }
@@ -321,11 +262,100 @@ foam.CLASS({
 });
 
 
+/** Generate models for AScript Library and register in foam.alib registry. **/
+// To debug Java code-generation in browser, load with ?genjava=true flag
+foam.ALIB = function(ms) {
+  ms.forEach(l => {
+    l.aName = l.aName || l.name.toUpperCase();
+
+    let properties = l.args.map(a => {
+      let m = {...a, class: 'foam.mlang.ExprProperty' };
+
+      // Re-encode default values and Constant expressions
+      if ( a.value ) m.value = foam.mlang.Constant.create({value: a.value});
+
+      return m;
+    });
+
+    // TODO: Generate Model
+    let m = {
+      package: 'foam.mlang.expr',
+      name: l.aName,
+      extends: 'foam.mlang.AbstractExpr',
+      flags: [ 'java' ], // Cause java generation
+      // Make all arguments into ExprProperty's
+      properties: properties,
+      methods: [
+        {
+          name: 'f',
+          code: function(obj) {
+            return l.code.apply(this, l.args.map(a => this[a.name].f(obj)));
+          },
+          javaCode:
+            foam.json.parse(l.args).map(a => `${a.javaType} ${a.name} = (${a.javaType}) get${foam.String.capitalize(a.name)}().f(obj);\n`).join('') +
+            l.javaCode
+        }
+      ]
+    };
+
+    foam.CLASS(m);
+
+    let min = 0;
+    for ( ; min < l.args.length && ! l.args[min].hasOwnProperty('value') ; min++ );
+    foam.parse.AScriptParser.FUNCTIONS[l.aName] = {
+      minArgs: min,
+      maxArgs: l.args.length,
+      build: function(a) {
+        let args = {};
+        for ( let i = 0 ; i < l.args.length ; i++ ) {
+          args[l.args[i].name] = a[i];
+        }
+        return foam.mlang.expr[l.aName].create(args);
+      }
+    }
+  });
+};
 
 
-
-
-
+foam.ALIB([
+  {
+    name: 'lPad',
+    documentation: "Left pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
+    args: [
+      { class: 'String', name: 'str' },
+      { class: 'Int',    name: 'len' },
+      { class: 'String', name: 'ch', value: '0' },
+    ],
+    code: function(str, len, ch) {
+      return foam.core.reflow.lib.lPad(str, len, ch || '0');
+    },
+    javaCode: `
+      if ( str == null ) str = "";
+      if ( ch == null || ch.isEmpty() ) ch = "0";
+      int padLen = len - str.length();
+      if ( padLen <= 0 ) return str;
+      StringBuilder sb = new StringBuilder(padLen);
+      while ( sb.length() < padLen ) sb.append(ch);
+// CLAUDE: this is inefficient because the + will build another StringBuilder, but we already have one two lines above we can use
+      return sb.substring(0, padLen) + str; // truncate pad to exact width, like padStart
+    `
+  },
+  {
+    name: 'rPad',
+    documentation: "Right pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
+    args: [
+      { class: 'String', name: 'str' },
+      { class: 'Int',    name: 'len' },
+      { class: 'String', name: 'ch', value: '0' },
+    ],
+    code: function(str, len, ch) {
+      return foam.core.reflow.lib.rPad(str, len, ch || '0');
+    },
+    javaCode: `
+      // CLAUDE: TODO
+    `
+  }
+]);
 
 
 
@@ -423,8 +453,11 @@ foam.CLASS({
         }
       }
 
-      ex('LPAD(firstName, 12, "X")');
-      debugger;
+      ex('LPAD(firstName, 12, "X")', "XXXXXXXKevin");
+      ex('LPAD(firstName, 12)', "0000000Kevin");
+
+      ex('RPAD(firstName, 12, "X")', "KevinXXXXXXX");
+      ex('RPAD("11111", 12)', "111110000000");
 
       ex('CONCAT(true, false)', 'truefalse');
       ex('IFS(true, 42)', 42);

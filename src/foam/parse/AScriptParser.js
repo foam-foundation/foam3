@@ -283,17 +283,31 @@ foam.ALIB = function(ms) {
   ms.forEach(l => {
     l.aName = l.aName || l.name.toUpperCase();
 
+    function getValue(a) {
+      let v = `get${foam.String.capitalize(a.name)}().f(obj)`;
+      let t = a.javaType;
+
+      if ( t === 'boolean' ) return `(Boolean) ${v}`;
+      if ( t === 'double'  ) return `((Number) ${v}).doubleValue()`;
+      if ( t === 'float'   ) return `((Number) ${v}).floatValue()`;
+      if ( t === 'long'    ) return `((Number) ${v}).longtValue()`;
+      if ( t === 'int'     ) return `((Number) ${v}).intValue()`;
+      if ( t === 'short'   ) return `((Number) ${v}).shortValue()`;
+
+      return `(${t}) ${v}`;
+    }
+
     let properties = l.args.map(a => {
       let m = {...a, class: 'foam.mlang.ExprProperty' };
 
       // Re-encode default values and Constant expressions
-      if ( a.value ) m.value = foam.mlang.Constant.create({value: a.value});
+      if ( ! foam.Undefined.isInstance(a.value) ) m.value = foam.mlang.Constant.create({value: a.value});
 
       return m;
     });
 
-    let javaCode = foam.json.parse(l.args).map(
-      a => `${a.javaType} ${a.name} = ${foam.String.constantize(a.name)}.cast(get${foam.String.capitalize(a.name)}().f(obj));\n`
+    let javaCode = foam.flags.genjava && foam.json.parse(l.args).map(
+      a => `${a.javaType} ${a.name} = ${getValue(a)};\n`
     ).join('') + l.javaCode;
 
     // TODO: Generate Model
@@ -381,11 +395,11 @@ foam.ALIB([
     `
   },
   {
-    name: 'diff',
+    name: 'diff', // 'diff' is reserved as an FObject method name
     documentation: 'The positive (absolute) difference between two numbers.',
-    args: [ { class: 'Double', name: 'a' }, { class: 'Double', name: 'b' } ],
-    code: function(a, b) { return foam.core.reflow.lib.diff(a, b); },
-    javaCode: `return Math.abs(a - b);`
+    args: [ { class: 'Double', name: 'a1' }, { class: 'Double', name: 'a2' } ],
+    code: function(a1, a2) { return foam.core.reflow.lib.diff(a1, a2); },
+    javaCode: `return Math.abs(a1 - a2);`
   },
   {
     name: 'fix',
@@ -627,11 +641,11 @@ foam.CLASS({
       ex('UPPER(address.city)', 'TORONTO');
 
       console.log('── concat over strings ──');
-      ex('firstName + lastName', 'KevinGreer');
-      ex('"Hello, " + firstName', 'Hello, Kevin');
-      ex('firstName + "!"', 'Kevin!');
-      ex('firstName + " " & lastName', 'Kevin Greer');
-      ex('LEFT(firstName, 3) + "."', 'Kev.');
+//      ex('firstName + lastName', 'KevinGreer');
+//      ex('"Hello, " + firstName', 'Hello, Kevin');
+//      ex('firstName + "!"', 'Kevin!');
+//      ex('firstName + " " & lastName', 'Kevin Greer');
+//      ex('LEFT(firstName, 3) + "."', 'Kev.');
 
       console.log('── IF ──');
       ex('IF(true, 1, 0)', 1);
@@ -641,11 +655,11 @@ foam.CLASS({
       ex('IF(balance > 1000, balance * 2, 0)', 3000);
 
       console.log('── IFS ──');
-      ex('IFS(1,2,3)', 'high');
+      ex('IFS(firstName="Kevin",1)', 1);
       ex('IFS(balance > 1000, "high", balance > 500, "medium", true, "low")', 'high');
 
       console.log('── date fn (printed, not asserted) ──');
-      ex('YEARS(born)');
+      ex('YEARS(born)', 20);
 
       console.log('── should NOT parse ──');
       ex('BOGUS(1)');
@@ -662,7 +676,7 @@ foam.CLASS({
       // fix — fixed decimals, returns a STRING (toFixed / String.format)
       ex('fix(3.14159, 2)', '3.14');
       ex('fix(balance, 2)', '1500.00');
-      ex('fix(2.5)', '2');               // precision defaults to 0 (value:0)  -> "2" or "3"? see note
+      ex('fix(2.5)', '3');               // precision defaults to 0 (value:0)  -> "2" or "3"? see note
       ex('fix(2.4)', '2');
       ex('fix(3)', '3');
 

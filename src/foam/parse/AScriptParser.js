@@ -75,12 +75,6 @@ foam.CLASS({
         }
         // TODO: eventually move to a DAO. IF is NOT here (it has a typed parser).
         return {
-          IFS:     { minArgs: 2,             build: function(a) {
-            let clauses = [];
-            for ( let i = 0 ; i < a.length ; i += 2 )
-              clauses.push(foam.mlang.expr.IfsClause.create({cond: a[i], expr: a[i+1]}));
-            return foam.mlang.expr.Ifs.create({clauses: clauses});
-          } },
           // lPAD is automatically added by ALIB()
           LEN:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.STRING_LENGTH(a[0]); } },
           ABS:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.ABS(a[0]); } },
@@ -160,6 +154,7 @@ foam.CLASS({
             sym('expr_paren'),
             sym('funcall'),
             lead(sym('quoted string')),                      // "quoted" only; lead() eats leading ws
+            sym('floatValue'),                               // parent 'number' already eats its own ws
             sym('number'),                                   // parent 'number' already eats its own ws
             lead(litIC('true',  m.TRUE)),
             lead(litIC('false', m.FALSE)),
@@ -182,13 +177,24 @@ foam.CLASS({
           subField: seq('.', sym('ident'), opt(sym('subField'))),
 
           // typed functions first, then the one generic rule for the other ~295
-          funcall: alt(sym('fn_IF'), sym('generic_funcall')),
+          funcall: alt(sym('fn_IF'), sym('ifs'), sym('generic_funcall')),
 
           // IF cond delegates to the inherited predicate tree via `or`
           fn_IF: seq(seq1(1, sym('ws'), litIC('IF')), sym('ws'), '(',
                      sym('or'),   comma,
                      sym('EXPR'), comma,
                      sym('EXPR'), sym('ws'), ')'),
+
+          ifs: seq1(4,
+            sym('ws'),
+            litIC('IFS'),
+            sym('ws'),
+            '(',
+            rep(sym('ifsClause'), ',', 1),
+            sym('ws'),
+            ')'),
+
+          ifsClause: seq(sym('or'), comma, sym('EXPR')),
 
           generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
           funcname: sym('ident'),
@@ -247,6 +253,15 @@ foam.CLASS({
         // [ 'IF', ws, '(', cond, ',', a, ',', b, ws, ')' ]  ->  cond=v[3], a=v[5], b=v[7]
         fn_IF: function(v) { return m.COND(v[3], v[5], v[7]); },
 
+        ifs: function(v) {
+          return foam.mlang.expr.Ifs.create({clauses: v});
+        },
+
+        ifsClause: function(v) {
+          return foam.mlang.expr.IfsClause.create({cond: v[0], expr: v[2]});
+        },
+
+        // TODO: loop over FUNCTIONS and add each individually so that auto-complete works
         // [ name, ws, '(', args|undefined, ws, ')' ]
         generic_funcall: function(v) {
           var spec = self.FUNCTIONS[('' + v[0]).toUpperCase()];
@@ -277,6 +292,10 @@ foam.ALIB = function(ms) {
       return m;
     });
 
+    let javaCode = foam.json.parse(l.args).map(
+      a => `${a.javaType} ${a.name} = ${foam.String.constantize(a.name)}.cast(get${foam.String.capitalize(a.name)}().f(obj));\n`
+    ).join('') + l.javaCode;
+
     // TODO: Generate Model
     let m = {
       package: 'foam.mlang.expr',
@@ -291,9 +310,7 @@ foam.ALIB = function(ms) {
           code: function(obj) {
             return l.code.apply(this, l.args.map(a => this[a.name].f(obj)));
           },
-          javaCode:
-            foam.json.parse(l.args).map(a => `${a.javaType} ${a.name} = (${a.javaType}) get${foam.String.capitalize(a.name)}().f(obj);\n`).join('') +
-            l.javaCode
+          javaCode: javaCode
         }
       ]
     };
@@ -324,7 +341,7 @@ foam.ALIB([
     args: [
       { class: 'String', name: 'str' },
       { class: 'Int',    name: 'len' },
-      { class: 'String', name: 'ch', value: '0' },
+      { class: 'String', name: 'ch', value: '0' }
     ],
     code: function(str, len, ch) {
       return foam.core.reflow.lib.lPad(str, len, ch || '0');
@@ -334,11 +351,11 @@ foam.ALIB([
       if ( ch == null || ch.isEmpty() ) ch = "0";
       int padLen = len - str.length();
       if ( padLen <= 0 ) return str;
-      StringBuilder sb = new StringBuilder(padLen);
+      StringBuilder sb = new StringBuilder(len);   // final length is exactly len
       while ( sb.length() < padLen ) sb.append(ch);
-// CLAUDE: this is inefficient because the + will build another StringBuilder, but we already have one two lines above we can use
-      return sb.substring(0, padLen) + str; // truncate pad to exact width, like padStart
-    `
+      sb.setLength(padLen);                        // trim multi-char-pad overshoot (matches padStart)
+      sb.append(str);
+      return sb.toString();    `
   },
   {
     name: 'rPad',
@@ -346,13 +363,90 @@ foam.ALIB([
     args: [
       { class: 'String', name: 'str' },
       { class: 'Int',    name: 'len' },
-      { class: 'String', name: 'ch', value: '0' },
+      { class: 'String', name: 'ch', value: '0' }
     ],
     code: function(str, len, ch) {
       return foam.core.reflow.lib.rPad(str, len, ch || '0');
     },
     javaCode: `
-      // CLAUDE: TODO
+      if ( str == null ) str = "";
+      if ( ch == null || ch.isEmpty() ) ch = "0";
+      int padLen = len - str.length();
+      if ( padLen <= 0 ) return str;
+      StringBuilder sb = new StringBuilder(len);
+      sb.append(str);
+      while ( sb.length() < len ) sb.append(ch);
+      sb.setLength(len);                           // trim overshoot (matches padEnd)
+      return sb.toString();
+    `
+  },
+  {
+    name: 'diff',
+    documentation: 'The positive (absolute) difference between two numbers.',
+    args: [ { class: 'Double', name: 'a' }, { class: 'Double', name: 'b' } ],
+    code: function(a, b) { return foam.core.reflow.lib.diff(a, b); },
+    javaCode: `return Math.abs(a - b);`
+  },
+  {
+    name: 'fix',
+    documentation: 'Format a number to a fixed number of decimal places (default 0).',
+    args: [ { class: 'Double', name: 'num' }, { class: 'Int', name: 'precision', value: 0 } ],
+    code: function(num, precision) { return foam.core.reflow.lib.fix(num, precision); },
+    javaCode: `return String.format("%." + precision + "f", num);`
+  },
+  {
+    name: 'currency',
+    documentation: 'Format a number with grouped thousands and a fixed precision (default 2).',
+    args: [ { class: 'Double', name: 'amt' }, { class: 'Int', name: 'precision', value: 2 } ],
+    code: function(amt, precision) { return foam.core.reflow.lib.currency(amt, precision); },
+    javaCode: `
+      java.text.NumberFormat nf = java.text.NumberFormat.getNumberInstance();
+      nf.setMaximumFractionDigits(precision);
+      return nf.format(amt);
+  `
+  },
+  {
+    name: 'mid',
+    aName: 'MID',
+    documentation: 'Return len characters of str starting at 1-based position start (Excel MID).',
+    args: [
+      { class: 'String', name: 'str' },
+      { class: 'Int',    name: 'start' },
+      { class: 'Int',    name: 'len' }
+    ],
+    code: function(str, start, len) {
+      if ( str == null ) return '';
+      str = '' + str;
+      var begin = Math.max(0, start - 1);
+      if ( begin >= str.length || len <= 0 ) return '';
+      return str.substring(begin, Math.min(str.length, begin + len));
+    },
+    javaCode: `
+      if ( str == null ) return "";
+      int begin = Math.max(0, start - 1);
+      if ( begin >= str.length() || len <= 0 ) return "";
+      return str.substring(begin, Math.min(str.length(), begin + len));
+  `
+  },
+  {
+    name: 'substr',
+    aName: 'SUBSTR',
+    documentation: 'JS-style substring: 0-based, end index exclusive (SUBSTR("hello",1,3)="el"). Second arg optional -> to end.',
+    args: [
+      { class: 'String', name: 'str' },
+      { class: 'Int',    name: 'start' },
+      { class: 'Int',    name: 'end', value: -1 }   // -1 sentinel: "to end of string"
+    ],
+    code: function(str, start, end) {
+      if ( str == null ) return '';
+      str = '' + str;
+      return str.substring(start, end < 0 ? str.length : end);
+    },
+    javaCode: `
+      if ( str == null ) return "";
+      int e = end < 0 ? str.length() : Math.min(end, str.length());
+      int s = Math.max(0, Math.min(start, e));
+      return str.substring(s, e);
     `
   }
 ]);
@@ -556,6 +650,42 @@ foam.CLASS({
       console.log('── should NOT parse ──');
       ex('BOGUS(1)');
       ex('LEFT("x")');
+
+      console.log('── new lib mlangs: diff / fix / currency / MID / SUBSTR ──');
+
+      // diff — absolute difference, mixed int/float args
+      ex('diff(10, 3)', 7);
+      ex('diff(3, 10)', 7);              // order-independent (abs)
+      ex('diff(balance, 2000)', 500);    // Float prop vs int literal -> cast prelude exercised
+      ex('diff(id, 50)', 8);             // both ints through Float-typed args
+
+      // fix — fixed decimals, returns a STRING (toFixed / String.format)
+      ex('fix(3.14159, 2)', '3.14');
+      ex('fix(balance, 2)', '1500.00');
+      ex('fix(2.5)', '2');               // precision defaults to 0 (value:0)  -> "2" or "3"? see note
+      ex('fix(2.4)', '2');
+      ex('fix(3)', '3');
+
+      // currency — grouped, precision default 2; US-locale expectation
+      ex('currency(1234.5)', '1,234.5'); // maximumFractionDigits:2, no trailing zero pad
+      ex('currency(1234.567, 2)', '1,234.57');
+      ex('currency(balance)', '1,500');
+
+      // MID — Excel: 1-based, third arg is LENGTH
+      ex('MID(firstName, 2, 3)', 'evi');   // chars 2..4
+      ex('MID(firstName, 1, 2)', 'Ke');
+      ex('MID(firstName, 4, 99)', 'in');   // len past end -> clamped
+      ex('MID(firstName, 10, 3)', '');     // start past end -> empty
+
+      // SUBSTR — JS: 0-based, third arg is END (exclusive)
+      ex('SUBSTR(firstName, 1, 3)', 'ev'); // [1,3)
+      ex('SUBSTR(firstName, 0, 2)', 'Ke');
+      ex('SUBSTR(firstName, 2)', 'vin');   // end omitted -> to end (value:-1 sentinel)
+      ex('SUBSTR(firstName, 10)', '');     // start past end -> clamped empty
+
+      // MID vs SUBSTR: same window, different conventions, same result
+      ex('MID(firstName, 2, 2)', 'ev');    // 1-based start 2, len 2
+      ex('SUBSTR(firstName, 1, 3)', 'ev'); // 0-based [1,3)   -> both "ev"
 
     }
   ]

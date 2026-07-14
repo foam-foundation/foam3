@@ -46,6 +46,8 @@ foam.CLASS({
       this.testStrictValidationMode(x);
       this.testLenientValidationMode(x);
       this.testInvalidMonthNameValidation(x);
+      this.testStrictOutOfRange(x);
+      this.testStrictPerCallParam(x);
       this.testJulianDateFormats(x);
       this.testYearConstraintInCompactFormats(x);
     },
@@ -2721,6 +2723,79 @@ foam.CLASS({
       parser.strictValidation = false;
       let result = parser.parseString('15-XYZ-2025');
       x.test(result.getTime() === foam.Date.MAX_DATE.getTime(), 'LenientMode: unparseable returns MAX_DATE');
+    },
+
+    function testStrictOutOfRange(x) {
+      // Out-of-range month/day must be REJECTED in strict mode (no JS Date rollover).
+      let parser = this.DateParser.create();
+      parser.strictValidation = true;
+      try {
+        let bad = [
+          { input: '2025-13-40', desc: 'month 13 and day 40' },
+          { input: '2025-13-01', desc: 'month 13' },
+          { input: '2025-02-30', desc: 'Feb 30' },
+          { input: '2025-04-31', desc: 'Apr 31' }
+        ];
+        bad.forEach((tc, i) => {
+          try {
+            parser.parseDateString(tc.input);
+            x.test(false, `StrictRange Test${i + 1}: "${tc.input}" should throw (${tc.desc})`);
+          } catch (e) {
+            x.test(/out of range/i.test(e.message), `StrictRange Test${i + 1}: "${tc.input}" throws out-of-range (${tc.desc})`);
+          }
+        });
+
+        // Wrong-format-hint that lands month 13 must throw (13/04/2026 read as MM/DD).
+        try {
+          parser.parseDateString('13/04/2026');
+          x.test(false, 'StrictRange: 13/04/2026 as MM/DD should throw (month 13)');
+        } catch (e) {
+          x.test(/out of range/i.test(e.message), 'StrictRange: 13/04/2026 throws (wrong-format-hint caught)');
+        }
+
+        // Valid in-range date still parses in strict mode.
+        try {
+          let ok = parser.parseDateString('2025-02-28');
+          x.test(ok.getUTCMonth() === 1 && ok.getUTCDate() === 28, 'StrictRange: valid 2025-02-28 parses');
+        } catch (e) {
+          x.test(false, 'StrictRange: valid date should not throw - ' + e.message);
+        }
+
+        // 12-hour AM/PM is SUPPORTED (ticket example is stale) - must parse, not reject.
+        try {
+          let dt = parser.parseDateTime('Mar 07 2026 03:00:26AM');
+          x.test(dt.getFullYear() === 2026 && dt.getMonth() === 2, 'StrictRange: 12-hour AM/PM parses (supported)');
+        } catch (e) {
+          x.test(false, 'StrictRange: 12-hour AM/PM should parse - ' + e.message);
+        }
+      } finally {
+        parser.strictValidation = false;
+      }
+    },
+
+    function testStrictPerCallParam(x) {
+      // Per-call strict param must throw WITHOUT flipping the shared flag; lenient default rolls over.
+      let parser = this.DateParser.create();
+      x.test(parser.strictValidation === false, 'PerCall: flag starts false');
+
+      // strict=true rejects out-of-range.
+      try {
+        parser.parseDateString('2025-13-40', null, true);
+        x.test(false, 'PerCall strict=true: 2025-13-40 should throw');
+      } catch (e) {
+        x.test(/out of range/i.test(e.message), 'PerCall strict=true: 2025-13-40 throws');
+      }
+
+      // Flag stays false after a strict call (restored in finally).
+      x.test(parser.strictValidation === false, 'PerCall: flag restored to false after strict call');
+
+      // Lenient default: same input rolls over, no throw.
+      try {
+        let rolled = parser.parseDateString('2025-13-40');
+        x.test(! isNaN(rolled.getTime()), 'PerCall lenient: 2025-13-40 rolls over (no throw)');
+      } catch (e) {
+        x.test(false, 'PerCall lenient: should not throw - ' + e.message);
+      }
     },
 
     function testJulianDateFormats(x) {

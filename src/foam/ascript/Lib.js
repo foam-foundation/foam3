@@ -234,13 +234,15 @@ foam.LIB({
       name: 'INT',
       code: function(num) { /* Round down to the nearest integer (toward -infinity). */ return Math.floor(num); }
     },
+    /*
     {
       name: 'TRUNC',
-      code: function(num, digits) { /* Truncate toward zero to `digits` places (default 0). */
+      code: function(num, digits) { // Truncate toward zero to `digits` places (default 0).
         var f = Math.pow(10, digits || 0);
         return Math.trunc(num * f) / f;
       }
-    },
+},
+         */
     {
       name: 'CEILING',
       code: function(num, significance) { /* Round up to the nearest multiple of significance (default 1). */

@@ -54,7 +54,6 @@ foam.ALANG = function(ms) {
       ]
     };
 
-    console.log("************************************", l.name);
     foam.CLASS(m);
 
     let min = 0;
@@ -120,7 +119,7 @@ foam.ALANG([
     documentation: 'Format a number with grouped thousands and a fixed precision (default 2).',
     args: [ { class: 'Double', name: 'amt' }, { class: 'Int', name: 'precision', value: 2 } ],
     code: function(amt, precision) { return foam.ascript.Lib.CURRENCY(amt, precision); },
-    javaCode: 'return foam.ascript.Lib.CURRENCY(num, precision);'
+    javaCode: 'return foam.ascript.Lib.CURRENCY(amt, precision);'
   },
   {
     name: 'MID',
@@ -153,7 +152,7 @@ foam.ALANG([
     name: 'SUM',
     documentation: 'Adds all numbers in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.SUM.apply(null, arguments);
@@ -168,12 +167,11 @@ foam.ALANG([
       return sum;
     `
   },
-    */
   {
     name: 'AVERAGE',
     documentation: 'Returns the average of numbers in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.AVERAGE.apply(null, arguments);
@@ -194,7 +192,7 @@ foam.ALANG([
     name: 'COUNT',
     documentation: 'Counts the number of numeric values in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.COUNT.apply(null, arguments);
@@ -211,7 +209,7 @@ foam.ALANG([
     name: 'COUNTA',
     documentation: 'Counts non-empty values in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.COUNTA.apply(null, arguments);
@@ -228,7 +226,7 @@ foam.ALANG([
     name: 'MIN',
     documentation: 'Returns the smallest number in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.MIN.apply(null, arguments);
@@ -249,7 +247,7 @@ foam.ALANG([
     name: 'MAX',
     documentation: 'Returns the largest number in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.MAX.apply(null, arguments);
@@ -266,12 +264,13 @@ foam.ALANG([
       return count > 0 ? max : 0;
     `
   },
+    */
   /*
   {
     name: 'PRODUCT',
     documentation: 'Multiplies all numbers in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.PRODUCT.apply(null, arguments);
@@ -291,7 +290,7 @@ foam.ALANG([
     name: 'MEDIAN',
     documentation: 'Returns the median value of numbers in the supplied range.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.MEDIAN.apply(null, arguments);
@@ -361,6 +360,7 @@ foam.ALANG([
     },
     javaCode: `return Math.floor(num);`
   },
+  /*
   {
     name: 'TRUNC',
     documentation: 'Truncates a number to an integer.',
@@ -375,7 +375,8 @@ foam.ALANG([
       double scale = Math.pow(10, digits);
       return Math.truncate(num * scale) / scale;
     `
-  },
+    },
+    */
 
   // ============================================================================
   // BASIC MATH FUNCTIONS
@@ -521,10 +522,7 @@ foam.ALANG([
     code: function(text) {
       return foam.ascript.Lib.PROPER(text);
     },
-    javaCode: `
-      if (text == null || text.isEmpty()) return text;
-      return text.toLowerCase().replaceAll("\\b(.)", m -> m.group(1).toUpperCase());
-    `
+    javaCode: 'return foam.ascript.Lib.PROPER(text);'
   },
   {
     name: 'TRIM',
@@ -535,10 +533,7 @@ foam.ALANG([
     code: function(text) {
       return foam.ascript.Lib.TRIM(text);
     },
-    javaCode: `
-      if (text == null) return "";
-      return text.replaceAll("\\s+", " ").trim();
-    `
+    javaCode: 'return foam.ascript.Lib.TRIM(text);'
   },
   {
     name: 'LEN',
@@ -549,44 +544,38 @@ foam.ALANG([
     code: function(text) {
       return foam.ascript.Lib.LEN(text);
     },
-    javaCode: `return text == null ? 0 : text.length();`
+    javaCode: 'return foam.ascript.Lib.LEN(text);'
   },
   {
     name: 'LEFT',
     documentation: 'Returns the leftmost characters from text.',
     args: [
       { class: 'String', name: 'text' },
-      { class: 'Int', name: 'numChars', value: 1 }
+      { class: 'Int',    name: 'numChars', value: 1 }
     ],
     code: function(text, numChars) {
       return foam.ascript.Lib.LEFT(text, numChars);
     },
-    javaCode: `
-      if (text == null || numChars <= 0) return "";
-      return text.substring(0, Math.min(numChars, text.length()));
-    `
+    javaCode: 'return foam.ascript.Lib.LEFT(text, numChars);'
   },
   {
     name: 'RIGHT',
     documentation: 'Returns the rightmost characters from text.',
     args: [
       { class: 'String', name: 'text' },
-      { class: 'Int', name: 'numChars', value: 1 }
+      { class: 'Int',    name: 'numChars', value: 1 }
     ],
     code: function(text, numChars) {
       return foam.ascript.Lib.RIGHT(text, numChars);
     },
-    javaCode: `
-      if (text == null || numChars <= 0) return "";
-      int start = Math.max(0, text.length() - numChars);
-      return text.substring(start);
-    `
+    javaCode: 'return foam.ascript.Lib.RIGHT(text, numChars);'
   },
+  /*
   {
     name: 'CONCATENATE',
     documentation: 'Joins text strings together.',
     args: [
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(args) {
       return foam.ascript.Lib.CONCATENATE.apply(null, arguments);
@@ -598,14 +587,16 @@ foam.ALANG([
       }
       return sb.toString();
     `
-  },
+    },
+  */
+  /*
   {
     name: 'TEXTJOIN',
     documentation: 'Joins text with a delimiter, optionally ignoring empty values.',
     args: [
       { class: 'String', name: 'delimiter' },
       { class: 'Boolean', name: 'ignoreEmpty' },
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(delimiter, ignoreEmpty, args) {
       return foam.ascript.Lib.TEXTJOIN.apply(null, arguments);
@@ -622,23 +613,20 @@ foam.ALANG([
       }
       return sb.toString();
     `
-  },
+    },
+    */
   {
     name: 'FIND',
     documentation: 'Finds text within text (case-sensitive).',
     args: [
       { class: 'String', name: 'findText' },
       { class: 'String', name: 'withinText' },
-      { class: 'Int', name: 'startNum', value: 1 }
+      { class: 'Int',    name: 'startNum', value: 1 }
     ],
     code: function(findText, withinText, startNum) {
       return foam.ascript.Lib.FIND(findText, withinText, startNum);
     },
-    javaCode: `
-      if (withinText == null || findText == null) return -1;
-      int index = withinText.indexOf(findText, startNum - 1);
-      return index == -1 ? -1 : index + 1;
-    `
+    javaCode: 'return foam.ascript.Lib.FIND(findText, withinText, startNum);'
   },
   {
     name: 'SUBSTITUTE',
@@ -647,38 +635,21 @@ foam.ALANG([
       { class: 'String', name: 'text' },
       { class: 'String', name: 'oldText' },
       { class: 'String', name: 'newText' },
-      { class: 'Int', name: 'instanceNum', value: -1 }
+      { class: 'Int',    name: 'instanceNum', value: -1 }
     ],
     code: function(text, oldText, newText, instanceNum) {
       return foam.ascript.Lib.SUBSTITUTE(text, oldText, newText, instanceNum);
     },
-    javaCode: `
-      if (text == null) return "";
-      if (oldText == null || oldText.isEmpty()) return text;
-      if (instanceNum < 0) return text.replace(oldText, newText);
-      int count = 0;
-      StringBuilder sb = new StringBuilder();
-      int lastIndex = 0;
-      int index = text.indexOf(oldText);
-      while (index != -1) {
-        count++;
-        if (count == instanceNum) {
-          sb.append(text, lastIndex, index).append(newText);
-          lastIndex = index + oldText.length();
-        }
-        index = text.indexOf(oldText, index + 1);
-      }
-      sb.append(text.substring(lastIndex));
-      return sb.toString();
-    `
+    javaCode: 'return foam.ascript.Lib.SUBSTITUTE(text, oldText, newText, instanceNum);'
   },
 
+  /*
   {
     name: 'SWITCH',
     documentation: 'Returns value based on expression match.',
     args: [
-      { class: 'Any', name: 'expression' },
-      { class: 'Any', name: 'args', isVarArgs: true }
+      { class: 'Object', name: 'expression' },
+      { class: 'Object', name: 'args', isVarArgs: true }
     ],
     code: function(expression, args) {
       return foam.ascript.Lib.SWITCH.apply(null, arguments);
@@ -690,7 +661,8 @@ foam.ALANG([
       }
       return args.length % 2 == 1 ? args[args.length - 1] : null;
     `
-  },
+    },
+    */
 
   // ============================================================================
   // TYPE CHECKING FUNCTIONS
@@ -699,7 +671,7 @@ foam.ALANG([
     name: 'ISNUMBER',
     documentation: 'Checks if a value is a number.',
     args: [
-      { class: 'Any', name: 'value' }
+      { class: 'Object', name: 'value' }
     ],
     code: function(value) {
       return foam.ascript.Lib.ISNUMBER(value);
@@ -710,7 +682,7 @@ foam.ALANG([
     name: 'ISTEXT',
     documentation: 'Checks if a value is text.',
     args: [
-      { class: 'Any', name: 'value' }
+      { class: 'Object', name: 'value' }
     ],
     code: function(value) {
       return foam.ascript.Lib.ISTEXT(value);
@@ -721,7 +693,7 @@ foam.ALANG([
     name: 'ISBLANK',
     documentation: 'Checks if a value is empty.',
     args: [
-      { class: 'Any', name: 'value' }
+      { class: 'Object', name: 'value' }
     ],
     code: function(value) {
       return foam.ascript.Lib.ISBLANK(value);

@@ -337,9 +337,10 @@ foam.CLASS({
       return constructedString;
     },
 
-    function addFiles(files) {
+    function addFiles(files, validateFile) {
+      if ( ! validateFile ) validateFile = this.validateFile;
       for ( var i = 0 ; i < files.length ; i++ ) {
-        if ( ! this.validateFile(files[i]) ) continue;
+        if ( ! validateFile.call(this, files[i]) ) continue;
         if ( this.isMultipleFiles ) {
           var f = this.createFile({
             owner:    this.subject.user.id,

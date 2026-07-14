@@ -25,33 +25,6 @@
       stays right-associative (via opt). Nodes remain binary either way.
 */
 
-// TODO: remove
-foam.CLASS({
-  package: 'foam.ascript',
-  name: 'FnExpr',
-  implements: [ 'foam.mlang.Expr' ],
-
-  properties: [
-    'name',
-    { name: 'args', factory: function() { return []; } },
-    { class: 'Function', name: 'impl' }
-  ],
-
-  methods: [
-    function f(o) {
-      return this.impl.apply(null, this.args.map(function(a) {
-        return ( a && a.f ) ? a.f(o) : a;
-      }));
-    },
-    function toString() {
-      return this.name + '(' + this.args.map(function(a) {
-        return a && a.toString ? a.toString() : ('' + a);
-      }).join(', ') + ')';
-    }
-  ]
-});
-
-
 foam.CLASS({
   package: 'foam.ascript',
   name: 'AScriptParser',

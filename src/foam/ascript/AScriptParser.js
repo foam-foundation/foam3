@@ -60,7 +60,7 @@ foam.CLASS({
   documentation: 'Excel-style value expressions sharing SimpleQueryParser literals and predicates.',
 
   requires: [
-    'foam.parse.FnExpr',
+    'foam.ascript.FnExpr',
     'foam.parse.Alternate',
     'foam.parse.Literal',
     'foam.mlang.predicate.NamedProperty'
@@ -105,7 +105,7 @@ foam.CLASS({
     {
       name: 'extensionGrammar_',
       // NOTE: parameter names must match Parsers members (withArgs injects by name).
-      value: function(alt, seq, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sym, range) {
+      value: function(alt, seq, seq0, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sym, range) {
         const self = this;
         const m    = foam.mlang.Expressions.create();
 
@@ -149,7 +149,7 @@ foam.CLASS({
 
           neg:   seq(seq1(1, sym('ws'), '-'), sym('unary')),              // -5^2 == -25
 
-          power: seq(sym('primary'), opt(seq(seq1(1, sym('ws'), '^'), sym('unary')))), // right-assoc
+          power: seq(sym('primary'), opt(seq1(1, seq0(sym('ws'), '^'), sym('unary')))), // right-assoc
 
           primary: alt(
             sym('expr_paren'),
@@ -243,8 +243,9 @@ foam.CLASS({
         neg:    function(v) { return m.MUL(m.CONSTANT(-1), v[1]); },
         // TODO: convert to Mlang
         power:  function(v) {
-          return v[1] == null ? v[0]
-            : self.FnExpr.create({ name: 'POW', args: [ v[0], v[1][1] ], impl: Math.pow });
+          if ( v[1] == null ) return v[0];
+
+          return foam.mlang.expr.POWER.create({num: v[0], power: v[1]});
         },
 
         field: function(v) { return v[1] ? m.DOT(v[0], v[1]) : v[0]; },

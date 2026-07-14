@@ -200,14 +200,6 @@ foam.LIB({
 
     // ─────────────────────────────── Math ───────────────────────────────
     {
-      name: 'ABS',
-      code: function(num) { /* Absolute value. */ return Math.abs(num); }
-    },
-    {
-      name: 'SIGN',
-      code: function(num) { /* Sign of a number (-1, 0, or 1). */ return Math.sign(num); }
-    },
-    {
       name: 'DIFF',
       code: function(a, b) { /* Positive (absolute) difference between two numbers. */ return Math.abs(a - b); }
     },
@@ -264,20 +256,10 @@ foam.LIB({
       }
     },
     {
-      name: 'MOD',
-      code: function(num, divisor) { /* Remainder, taking the sign of the divisor (Excel MOD). */
-        return num - divisor * Math.floor(num / divisor);
-      }
-    },
-    {
       name: 'QUOTIENT',
       code: function(numerator, denominator) { /* Integer portion of a division. */
         return Math.trunc(numerator / denominator);
       }
-    },
-    {
-      name: 'POWER',
-      code: function(num, power) { /* num raised to power. */ return Math.pow(num, power); }
     },
     {
       name: 'SQRT',
@@ -308,36 +290,16 @@ foam.LIB({
       code: function(amt, opt_precision) { /* Format a number with grouping and fixed max precision (default 2). */
         return Number(amt).toLocaleString(
           foam.locale,
-          { maximumFractionDigits: opt_precision == null ? 2 : opt_precision });
+          { maximumFractionDigits: ( opt_precision === null || opt_precision === undefined ) ? 2 : opt_precision });
       }
     },
 
     // ───────────────── Advanced math (category-hidden by default) ─────────────────
     {
-      name: 'LN',
-      code: function(num) { /* Natural logarithm. */ return Math.log(num); }
-    },
-    {
       name: 'LOG',
       code: function(num, base) { /* Logarithm to a base (default 10). */
         return Math.log(num) / Math.log(base == null ? 10 : base);
       }
-    },
-    {
-      name: 'LOG10',
-      code: function(num) { /* Base-10 logarithm. */ return Math.log10(num); }
-    },
-    {
-      name: 'EXP',
-      code: function(num) { /* e raised to num. */ return Math.exp(num); }
-    },
-    {
-      name: 'PI',
-      code: function() { /* The value of pi. */ return Math.PI; }
-    },
-    {
-      name: 'SQRTPI',
-      code: function(num) { /* Square root of (num * pi). */ return Math.sqrt(num * Math.PI); }
     },
     {
       name: 'FACT',
@@ -381,19 +343,6 @@ foam.LIB({
       name: 'RADIANS',
       code: function(degrees) { /* Degrees to radians. */ return degrees * Math.PI / 180; }
     },
-    { name: 'SIN',   code: function(x) { /* Sine. */            return Math.sin(x); } },
-    { name: 'COS',   code: function(x) { /* Cosine. */          return Math.cos(x); } },
-    { name: 'TAN',   code: function(x) { /* Tangent. */         return Math.tan(x); } },
-    { name: 'ASIN',  code: function(x) { /* Arcsine. */         return Math.asin(x); } },
-    { name: 'ACOS',  code: function(x) { /* Arccosine. */       return Math.acos(x); } },
-    { name: 'ATAN',  code: function(x) { /* Arctangent. */      return Math.atan(x); } },
-    { name: 'ATAN2', code: function(x, y) { /* Arctangent of y/x. */ return Math.atan2(y, x); } },
-    { name: 'SINH',  code: function(x) { /* Hyperbolic sine. */    return Math.sinh(x); } },
-    { name: 'COSH',  code: function(x) { /* Hyperbolic cosine. */  return Math.cosh(x); } },
-    { name: 'TANH',  code: function(x) { /* Hyperbolic tangent. */ return Math.tanh(x); } },
-    { name: 'ASINH', code: function(x) { /* Inverse hyperbolic sine. */    return Math.asinh(x); } },
-    { name: 'ACOSH', code: function(x) { /* Inverse hyperbolic cosine. */  return Math.acosh(x); } },
-    { name: 'ATANH', code: function(x) { /* Inverse hyperbolic tangent. */ return Math.atanh(x); } },
 
     // ─────────────────────────── Logical / type ───────────────────────────
     {

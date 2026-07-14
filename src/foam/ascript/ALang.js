@@ -6,10 +6,8 @@
 
 /** Generate models for AScript Library and register in foam.alib registry. **/
 // To debug Java code-generation in browser, load with ?genjava=true flag
-foam.ALIB = function(ms) {
+foam.ALANG = function(ms) {
   ms.forEach(l => {
-    l.aName = l.aName || l.name.toUpperCase();
-
     function getValue(a) {
       let v = `get${foam.String.capitalize(a.name)}().f(obj)`;
       let t = a.javaType;
@@ -40,7 +38,7 @@ foam.ALIB = function(ms) {
     // TODO: Generate Model
     let m = {
       package: 'foam.mlang.expr',
-      name: l.aName,
+      name: l.name,
       extends: 'foam.mlang.AbstractExpr',
       flags: [ 'java' ], // Cause java generation
       // Make all arguments into ExprProperty's
@@ -56,11 +54,12 @@ foam.ALIB = function(ms) {
       ]
     };
 
+    console.log("************************************", l.name);
     foam.CLASS(m);
 
     let min = 0;
     for ( ; min < l.args.length && ! l.args[min].hasOwnProperty('value') ; min++ );
-    foam.ascript.AScriptParser.FUNCTIONS[l.aName] = {
+    foam.ascript.AScriptParser.FUNCTIONS[l.name] = {
       minArgs: min,
       maxArgs: l.args.length,
       build: function(a) {
@@ -68,16 +67,16 @@ foam.ALIB = function(ms) {
         for ( let i = 0 ; i < l.args.length ; i++ ) {
           args[l.args[i].name] = a[i];
         }
-        return foam.mlang.expr[l.aName].create(args);
+        return foam.mlang.expr[l.name].create(args);
       }
     }
   });
 };
 
 
-foam.ALIB([
+foam.ALANG([
   {
-    name: 'lPad',
+    name: 'LPAD',
     documentation: "Left pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
     args: [
       { class: 'String', name: 'str' },
@@ -85,21 +84,12 @@ foam.ALIB([
       { class: 'String', name: 'ch', value: '0' }
     ],
     code: function(str, len, ch) {
-      return foam.core.reflow.lib.lPad(str, len, ch || '0');
+      return foam.ascript.Lib.LPAD(str, len, ch || '0');
     },
-    javaCode: `
-      if ( str == null ) str = "";
-      if ( ch == null || ch.isEmpty() ) ch = "0";
-      int padLen = len - str.length();
-      if ( padLen <= 0 ) return str;
-      StringBuilder sb = new StringBuilder(len);   // final length is exactly len
-      while ( sb.length() < padLen ) sb.append(ch);
-      sb.setLength(padLen);                        // trim multi-char-pad overshoot (matches padStart)
-      sb.append(str);
-      return sb.toString();    `
+    javaCode: 'return foam.ascript.Lib.LPAD(str, len, ch);'
   },
   {
-    name: 'rPad',
+    name: 'RPAD',
     documentation: "Right pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
     args: [
       { class: 'String', name: 'str' },
@@ -107,87 +97,635 @@ foam.ALIB([
       { class: 'String', name: 'ch', value: '0' }
     ],
     code: function(str, len, ch) {
-      return foam.core.reflow.lib.rPad(str, len, ch || '0');
+      return foam.ascript.Lib.RPAD(str, len, ch || '0');
     },
-    javaCode: `
-      if ( str == null ) str = "";
-      if ( ch == null || ch.isEmpty() ) ch = "0";
-      int padLen = len - str.length();
-      if ( padLen <= 0 ) return str;
-      StringBuilder sb = new StringBuilder(len);
-      sb.append(str);
-      while ( sb.length() < len ) sb.append(ch);
-      sb.setLength(len);                           // trim overshoot (matches padEnd)
-      return sb.toString();
-    `
+    javaCode: 'return foam.ascript.Lib.RPAD(str, len, ch);'
   },
   {
-    name: 'diff', // 'diff' is reserved as an FObject method name
+    name: 'DIFF', // 'diff' is reserved as an FObject method name
     documentation: 'The positive (absolute) difference between two numbers.',
     args: [ { class: 'Double', name: 'a1' }, { class: 'Double', name: 'a2' } ],
     code: function(a1, a2) { return foam.core.reflow.lib.diff(a1, a2); },
     javaCode: `return Math.abs(a1 - a2);`
   },
   {
-    name: 'fix',
+    name: 'FIX',
     documentation: 'Format a number to a fixed number of decimal places (default 0).',
     args: [ { class: 'Double', name: 'num' }, { class: 'Int', name: 'precision', value: 0 } ],
-    code: function(num, precision) { return foam.core.reflow.lib.fix(num, precision); },
-    javaCode: `return String.format("%." + precision + "f", num);`
+    code: function(num, precision) { return foam.ascript.Lib.FIX(num, precision); },
+    javaCode: 'return foam.ascript.Lib.FIX(num, precision);'
   },
   {
-    name: 'currency',
+    name: 'CURRENCY',
     documentation: 'Format a number with grouped thousands and a fixed precision (default 2).',
     args: [ { class: 'Double', name: 'amt' }, { class: 'Int', name: 'precision', value: 2 } ],
-    code: function(amt, precision) { return foam.core.reflow.lib.currency(amt, precision); },
-    javaCode: `
-      java.text.NumberFormat nf = java.text.NumberFormat.getNumberInstance();
-      nf.setMaximumFractionDigits(precision);
-      return nf.format(amt);
-  `
+    code: function(amt, precision) { return foam.ascript.Lib.CURRENCY(amt, precision); },
+    javaCode: 'return foam.ascript.Lib.CURRENCY(num, precision);'
   },
   {
-    name: 'mid',
-    aName: 'MID',
+    name: 'MID',
     documentation: 'Return len characters of str starting at 1-based position start (Excel MID).',
     args: [
       { class: 'String', name: 'str' },
       { class: 'Int',    name: 'start' },
       { class: 'Int',    name: 'len' }
     ],
-    code: function(str, start, len) {
-      if ( str == null ) return '';
-      str = '' + str;
-      var begin = Math.max(0, start - 1);
-      if ( begin >= str.length || len <= 0 ) return '';
-      return str.substring(begin, Math.min(str.length, begin + len));
-    },
-    javaCode: `
-      if ( str == null ) return "";
-      int begin = Math.max(0, start - 1);
-      if ( begin >= str.length() || len <= 0 ) return "";
-      return str.substring(begin, Math.min(str.length(), begin + len));
-  `
+    code: function(str, start, len) { return foam.ascript.Lib.MID(str, start, len); },
+    javaCode: 'return foam.ascript.Lib.MID(str, start, len);'
   },
   {
-    name: 'substr',
-    aName: 'SUBSTR',
+    name: 'SUBSTR',
     documentation: 'JS-style substring: 0-based, end index exclusive (SUBSTR("hello",1,3)="el"). Second arg optional -> to end.',
     args: [
       { class: 'String', name: 'str' },
       { class: 'Int',    name: 'start' },
       { class: 'Int',    name: 'end', value: -1 }   // -1 sentinel: "to end of string"
     ],
-    code: function(str, start, end) {
-      if ( str == null ) return '';
-      str = '' + str;
-      return str.substring(start, end < 0 ? str.length : end);
+    code: function(str, start, end) { return foam.ascript.Lib.SUBSTR(str, start, end); },
+    javaCode: 'return foam.ascript.Lib.SUBSTR(str, start, end);'
+  },
+
+  // ============================================================================
+  // MATH & AGGREGATION FUNCTIONS
+  // ============================================================================
+/*
+  {
+    name: 'SUM',
+    documentation: 'Adds all numbers in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.SUM.apply(null, arguments);
     },
     javaCode: `
-      if ( str == null ) return "";
-      int e = end < 0 ? str.length() : Math.min(end, str.length());
-      int s = Math.max(0, Math.min(start, e));
-      return str.substring(s, e);
+      double sum = 0;
+      for (Object arg : args) {
+        if (arg instanceof Number) {
+          sum += ((Number) arg).doubleValue();
+        }
+      }
+      return sum;
     `
+  },
+    */
+  {
+    name: 'AVERAGE',
+    documentation: 'Returns the average of numbers in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.AVERAGE.apply(null, arguments);
+    },
+    javaCode: `
+      double sum = 0;
+      int count = 0;
+      for (Object arg : args) {
+        if (arg instanceof Number) {
+          sum += ((Number) arg).doubleValue();
+          count++;
+        }
+      }
+      return count > 0 ? sum / count : 0;
+    `
+  },
+  {
+    name: 'COUNT',
+    documentation: 'Counts the number of numeric values in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.COUNT.apply(null, arguments);
+    },
+    javaCode: `
+      int count = 0;
+      for (Object arg : args) {
+        if (arg instanceof Number) count++;
+      }
+      return count;
+    `
+  },
+  {
+    name: 'COUNTA',
+    documentation: 'Counts non-empty values in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.COUNTA.apply(null, arguments);
+    },
+    javaCode: `
+      int count = 0;
+      for (Object arg : args) {
+        if (arg != null && !arg.toString().isEmpty()) count++;
+      }
+      return count;
+    `
+  },
+  {
+    name: 'MIN',
+    documentation: 'Returns the smallest number in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.MIN.apply(null, arguments);
+    },
+    javaCode: `
+      double min = Double.MAX_VALUE;
+      int count = 0;
+      for (Object arg : args) {
+        if (arg instanceof Number) {
+          min = Math.min(min, ((Number) arg).doubleValue());
+          count++;
+        }
+      }
+      return count > 0 ? min : 0;
+    `
+  },
+  {
+    name: 'MAX',
+    documentation: 'Returns the largest number in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.MAX.apply(null, arguments);
+    },
+    javaCode: `
+      double max = Double.MIN_VALUE;
+      int count = 0;
+      for (Object arg : args) {
+        if (arg instanceof Number) {
+          max = Math.max(max, ((Number) arg).doubleValue());
+          count++;
+        }
+      }
+      return count > 0 ? max : 0;
+    `
+  },
+  /*
+  {
+    name: 'PRODUCT',
+    documentation: 'Multiplies all numbers in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.PRODUCT.apply(null, arguments);
+    },
+    javaCode: `
+      double product = 1;
+      for (Object arg : args) {
+        if (arg instanceof Number) {
+          product *= ((Number) arg).doubleValue();
+        }
+      }
+      return product;
+    `
+    },
+    */
+  {
+    name: 'MEDIAN',
+    documentation: 'Returns the median value of numbers in the supplied range.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.MEDIAN.apply(null, arguments);
+    },
+    javaCode: `
+      // Implementation would convert to List, sort, and return middle value
+      return 0;
+    `
+  },
+
+  // ============================================================================
+  // ROUNDING FUNCTIONS
+  // ============================================================================
+  {
+    name: 'ROUND',
+    documentation: 'Rounds a number to the specified number of decimal digits.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Int', name: 'digits', value: 0 }
+    ],
+    code: function(num, digits) {
+      return foam.ascript.Lib.ROUND(num, digits);
+    },
+    javaCode: `
+      double scale = Math.pow(10, digits);
+      return Math.round(num * scale) / scale;
+    `
+  },
+  {
+    name: 'ROUNDUP',
+    documentation: 'Rounds a number up to the specified number of decimal digits.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Int', name: 'digits', value: 0 }
+    ],
+    code: function(num, digits) {
+      return foam.ascript.Lib.ROUNDUP(num, digits);
+    },
+    javaCode: `
+      double scale = Math.pow(10, digits);
+      return Math.ceil(num * scale) / scale;
+    `
+  },
+  {
+    name: 'ROUNDDOWN',
+    documentation: 'Rounds a number down to the specified number of decimal digits.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Int', name: 'digits', value: 0 }
+    ],
+    code: function(num, digits) {
+      return foam.ascript.Lib.ROUNDDOWN(num, digits);
+    },
+    javaCode: `
+      double scale = Math.pow(10, digits);
+      return Math.floor(num * scale) / scale;
+    `
+  },
+  {
+    name: 'INT',
+    documentation: 'Rounds a number down to the nearest integer.',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return foam.ascript.Lib.INT(num);
+    },
+    javaCode: `return Math.floor(num);`
+  },
+  {
+    name: 'TRUNC',
+    documentation: 'Truncates a number to an integer.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Int', name: 'digits', value: 0 }
+    ],
+    code: function(num, digits) {
+      return foam.ascript.Lib.TRUNC(num, digits);
+    },
+    javaCode: `
+      double scale = Math.pow(10, digits);
+      return Math.truncate(num * scale) / scale;
+    `
+  },
+
+  // ============================================================================
+  // BASIC MATH FUNCTIONS
+  // ============================================================================
+  {
+    name: 'ABS',
+    documentation: 'Returns the absolute value of a number.',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return Math.abs(num);
+    },
+    javaCode: `return Math.abs(num);`
+  },
+  {
+    name: 'SQRT',
+    documentation: 'Returns the square root of a number.',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return foam.ascript.Lib.SQRT(num);
+    },
+    javaCode: `return Math.sqrt(num);`
+  },
+  {
+    name: 'POWER',
+    documentation: 'Returns a number raised to a power.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Double', name: 'power' }
+    ],
+    code: function(num, power) {
+      return Math.pow(num, power);
+    },
+    javaCode: `return Math.pow(num, power);`
+  },
+  {
+    name: 'MOD',
+    documentation: 'Returns the remainder after division.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Double', name: 'divisor' }
+    ],
+    code: function(num, divisor) {
+      return num % divisor;
+    },
+    javaCode: `return num % divisor;`
+  },
+  {
+    name: 'SIGN',
+    documentation: 'Returns the sign of a number (-1, 0, or 1).',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return Math.sign(num);
+    },
+    javaCode: `return (int) Math.signum(num);`
+  },
+
+  // ============================================================================
+  // LOGARITHM & EXPONENTIAL FUNCTIONS
+  // ============================================================================
+  {
+    name: 'LN',
+    documentation: 'Returns the natural logarithm of a number.',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return Math.log(num);
+    },
+    javaCode: `return Math.log(num);`
+  },
+  {
+    name: 'LOG',
+    documentation: 'Returns the logarithm of a number to a specified base.',
+    args: [
+      { class: 'Double', name: 'num' },
+      { class: 'Double', name: 'base', value: 10 }
+    ],
+    code: function(num, base) {
+      return foam.ascript.Lib.LOG(num, base);
+    },
+    javaCode: `return Math.log(num) / Math.log(base);`
+  },
+  {
+    name: 'LOG10',
+    documentation: 'Returns the base-10 logarithm of a number.',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return Math.log10(num);
+    },
+    javaCode: `return Math.log10(num);`
+  },
+  {
+    name: 'EXP',
+    documentation: 'Returns e raised to the power of a number.',
+    args: [
+      { class: 'Double', name: 'num' }
+    ],
+    code: function(num) {
+      return Math.exp(num);
+    },
+    javaCode: `return Math.exp(num);`
+  },
+
+  // ============================================================================
+  // TEXT FUNCTIONS
+  // ============================================================================
+  {
+    name: 'UPPER',
+    documentation: 'Converts text to uppercase.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) {
+      return foam.ascript.Lib.UPPER(text);
+    },
+    javaCode: `return text == null ? "" : text.toUpperCase();`
+  },
+  {
+    name: 'LOWER',
+    documentation: 'Converts text to lowercase.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) {
+      return foam.ascript.Lib.LOWER(text);
+    },
+    javaCode: `return text == null ? "" : text.toLowerCase();`
+  },
+  {
+    name: 'PROPER',
+    documentation: 'Capitalizes the first letter of each word in text.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) {
+      return foam.ascript.Lib.PROPER(text);
+    },
+    javaCode: `
+      if (text == null || text.isEmpty()) return text;
+      return text.toLowerCase().replaceAll("\\b(.)", m -> m.group(1).toUpperCase());
+    `
+  },
+  {
+    name: 'TRIM',
+    documentation: 'Removes extra spaces from text.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) {
+      return foam.ascript.Lib.TRIM(text);
+    },
+    javaCode: `
+      if (text == null) return "";
+      return text.replaceAll("\\s+", " ").trim();
+    `
+  },
+  {
+    name: 'LEN',
+    documentation: 'Returns the length of text.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) {
+      return foam.ascript.Lib.LEN(text);
+    },
+    javaCode: `return text == null ? 0 : text.length();`
+  },
+  {
+    name: 'LEFT',
+    documentation: 'Returns the leftmost characters from text.',
+    args: [
+      { class: 'String', name: 'text' },
+      { class: 'Int', name: 'numChars', value: 1 }
+    ],
+    code: function(text, numChars) {
+      return foam.ascript.Lib.LEFT(text, numChars);
+    },
+    javaCode: `
+      if (text == null || numChars <= 0) return "";
+      return text.substring(0, Math.min(numChars, text.length()));
+    `
+  },
+  {
+    name: 'RIGHT',
+    documentation: 'Returns the rightmost characters from text.',
+    args: [
+      { class: 'String', name: 'text' },
+      { class: 'Int', name: 'numChars', value: 1 }
+    ],
+    code: function(text, numChars) {
+      return foam.ascript.Lib.RIGHT(text, numChars);
+    },
+    javaCode: `
+      if (text == null || numChars <= 0) return "";
+      int start = Math.max(0, text.length() - numChars);
+      return text.substring(start);
+    `
+  },
+  {
+    name: 'CONCATENATE',
+    documentation: 'Joins text strings together.',
+    args: [
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(args) {
+      return foam.ascript.Lib.CONCATENATE.apply(null, arguments);
+    },
+    javaCode: `
+      StringBuilder sb = new StringBuilder();
+      for (Object arg : args) {
+        if (arg != null) sb.append(arg.toString());
+      }
+      return sb.toString();
+    `
+  },
+  {
+    name: 'TEXTJOIN',
+    documentation: 'Joins text with a delimiter, optionally ignoring empty values.',
+    args: [
+      { class: 'String', name: 'delimiter' },
+      { class: 'Boolean', name: 'ignoreEmpty' },
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(delimiter, ignoreEmpty, args) {
+      return foam.ascript.Lib.TEXTJOIN.apply(null, arguments);
+    },
+    javaCode: `
+      StringBuilder sb = new StringBuilder();
+      boolean first = true;
+      for (Object arg : args) {
+        String s = arg == null ? "" : arg.toString();
+        if (ignoreEmpty && s.isEmpty()) continue;
+        if (!first) sb.append(delimiter);
+        sb.append(s);
+        first = false;
+      }
+      return sb.toString();
+    `
+  },
+  {
+    name: 'FIND',
+    documentation: 'Finds text within text (case-sensitive).',
+    args: [
+      { class: 'String', name: 'findText' },
+      { class: 'String', name: 'withinText' },
+      { class: 'Int', name: 'startNum', value: 1 }
+    ],
+    code: function(findText, withinText, startNum) {
+      return foam.ascript.Lib.FIND(findText, withinText, startNum);
+    },
+    javaCode: `
+      if (withinText == null || findText == null) return -1;
+      int index = withinText.indexOf(findText, startNum - 1);
+      return index == -1 ? -1 : index + 1;
+    `
+  },
+  {
+    name: 'SUBSTITUTE',
+    documentation: 'Replaces text in a string.',
+    args: [
+      { class: 'String', name: 'text' },
+      { class: 'String', name: 'oldText' },
+      { class: 'String', name: 'newText' },
+      { class: 'Int', name: 'instanceNum', value: -1 }
+    ],
+    code: function(text, oldText, newText, instanceNum) {
+      return foam.ascript.Lib.SUBSTITUTE(text, oldText, newText, instanceNum);
+    },
+    javaCode: `
+      if (text == null) return "";
+      if (oldText == null || oldText.isEmpty()) return text;
+      if (instanceNum < 0) return text.replace(oldText, newText);
+      int count = 0;
+      StringBuilder sb = new StringBuilder();
+      int lastIndex = 0;
+      int index = text.indexOf(oldText);
+      while (index != -1) {
+        count++;
+        if (count == instanceNum) {
+          sb.append(text, lastIndex, index).append(newText);
+          lastIndex = index + oldText.length();
+        }
+        index = text.indexOf(oldText, index + 1);
+      }
+      sb.append(text.substring(lastIndex));
+      return sb.toString();
+    `
+  },
+
+  {
+    name: 'SWITCH',
+    documentation: 'Returns value based on expression match.',
+    args: [
+      { class: 'Any', name: 'expression' },
+      { class: 'Any', name: 'args', isVarArgs: true }
+    ],
+    code: function(expression, args) {
+      return foam.ascript.Lib.SWITCH.apply(null, arguments);
+    },
+    javaCode: `
+      // args should come in pairs: value, result, value, result, ...
+      for (int i = 0; i < args.length - 1; i += 2) {
+        if (expression.equals(args[i])) return args[i + 1];
+      }
+      return args.length % 2 == 1 ? args[args.length - 1] : null;
+    `
+  },
+
+  // ============================================================================
+  // TYPE CHECKING FUNCTIONS
+  // ============================================================================
+  {
+    name: 'ISNUMBER',
+    documentation: 'Checks if a value is a number.',
+    args: [
+      { class: 'Any', name: 'value' }
+    ],
+    code: function(value) {
+      return foam.ascript.Lib.ISNUMBER(value);
+    },
+    javaCode: `return value instanceof Number && !(Double.isNaN((Double) value));`
+  },
+  {
+    name: 'ISTEXT',
+    documentation: 'Checks if a value is text.',
+    args: [
+      { class: 'Any', name: 'value' }
+    ],
+    code: function(value) {
+      return foam.ascript.Lib.ISTEXT(value);
+    },
+    javaCode: `return value instanceof String;`
+  },
+  {
+    name: 'ISBLANK',
+    documentation: 'Checks if a value is empty.',
+    args: [
+      { class: 'Any', name: 'value' }
+    ],
+    code: function(value) {
+      return foam.ascript.Lib.ISBLANK(value);
+    },
+    javaCode: `return value == null || (value instanceof String && ((String) value).isEmpty());`
   }
 ]);

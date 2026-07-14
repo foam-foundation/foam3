@@ -105,7 +105,7 @@ foam.ALANG([
     documentation: 'The positive (absolute) difference between two numbers.',
     args: [ { class: 'Double', name: 'a1' }, { class: 'Double', name: 'a2' } ],
     code: function(a1, a2) { return foam.core.reflow.lib.diff(a1, a2); },
-    javaCode: `return Math.abs(a1 - a2);`
+    javaCode: 'return Math.abs(a1 - a2);'
   },
   {
     name: 'FIX',
@@ -309,30 +309,20 @@ foam.ALANG([
     documentation: 'Rounds a number to the specified number of decimal digits.',
     args: [
       { class: 'Double', name: 'num' },
-      { class: 'Int', name: 'digits', value: 0 }
+      { class: 'Int',    name: 'digits', value: 0 }
     ],
-    code: function(num, digits) {
-      return foam.ascript.Lib.ROUND(num, digits);
-    },
-    javaCode: `
-      double scale = Math.pow(10, digits);
-      return Math.round(num * scale) / scale;
-    `
+    code: function(num, digits) { return foam.ascript.Lib.ROUND(num, digits); },
+    javaCode: 'return foam.ascript.Lib.ROUND(num, digits);'
   },
   {
     name: 'ROUNDUP',
     documentation: 'Rounds a number up to the specified number of decimal digits.',
     args: [
       { class: 'Double', name: 'num' },
-      { class: 'Int', name: 'digits', value: 0 }
+      { class: 'Int',    name: 'digits', value: 0 }
     ],
-    code: function(num, digits) {
-      return foam.ascript.Lib.ROUNDUP(num, digits);
-    },
-    javaCode: `
-      double scale = Math.pow(10, digits);
-      return Math.ceil(num * scale) / scale;
-    `
+    code: function(num, digits) { return foam.ascript.Lib.ROUNDUP(num, digits); },
+    javaCode: 'return foam.ascript.Lib.ROUNDUP(num, digits);'
   },
   {
     name: 'ROUNDDOWN',
@@ -341,13 +331,8 @@ foam.ALANG([
       { class: 'Double', name: 'num' },
       { class: 'Int', name: 'digits', value: 0 }
     ],
-    code: function(num, digits) {
-      return foam.ascript.Lib.ROUNDDOWN(num, digits);
-    },
-    javaCode: `
-      double scale = Math.pow(10, digits);
-      return Math.floor(num * scale) / scale;
-    `
+    code: function(num, digits) { return foam.ascript.Lib.ROUNDDOWN(num, digits); },
+    javaCode: 'return foam.ascript.Lib.ROUNDDOWN(num, digits);'
   },
   {
     name: 'INT',
@@ -355,10 +340,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return foam.ascript.Lib.INT(num);
-    },
-    javaCode: `return Math.floor(num);`
+    code: function(num) { return foam.ascript.Lib.INT(num); },
+    javaCode: 'return Math.floor(num);'
   },
   /*
   {
@@ -387,10 +370,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return Math.abs(num);
-    },
-    javaCode: `return Math.abs(num);`
+    code: function(num) { return Math.abs(num); },
+    javaCode: 'return Math.abs(num);'
   },
   {
     name: 'SQRT',
@@ -398,10 +379,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return foam.ascript.Lib.SQRT(num);
-    },
-    javaCode: `return Math.sqrt(num);`
+    code: function(num) { return foam.ascript.Lib.SQRT(num); },
+    javaCode: 'return Math.sqrt(num);'
   },
   {
     name: 'POWER',
@@ -410,10 +389,8 @@ foam.ALANG([
       { class: 'Double', name: 'num' },
       { class: 'Double', name: 'power' }
     ],
-    code: function(num, power) {
-      return Math.pow(num, power);
-    },
-    javaCode: `return Math.pow(num, power);`
+    code: function(num, power) { return Math.pow(num, power); },
+    javaCode: 'return Math.pow(num, power);'
   },
   {
     name: 'MOD',
@@ -422,10 +399,8 @@ foam.ALANG([
       { class: 'Double', name: 'num' },
       { class: 'Double', name: 'divisor' }
     ],
-    code: function(num, divisor) {
-      return num % divisor;
-    },
-    javaCode: `return num % divisor;`
+    code: function(num, divisor) { return num % divisor; },
+    javaCode: 'return num % divisor;'
   },
   {
     name: 'SIGN',
@@ -433,10 +408,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return Math.sign(num);
-    },
-    javaCode: `return (int) Math.signum(num);`
+    code: function(num) { return Math.sign(num); },
+    javaCode: 'return (int) Math.signum(num);'
   },
 
   // ============================================================================
@@ -448,10 +421,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return Math.log(num);
-    },
-    javaCode: `return Math.log(num);`
+    code: function(num) { return Math.log(num); },
+    javaCode: 'return Math.log(num);'
   },
   {
     name: 'LOG',
@@ -460,10 +431,8 @@ foam.ALANG([
       { class: 'Double', name: 'num' },
       { class: 'Double', name: 'base', value: 10 }
     ],
-    code: function(num, base) {
-      return foam.ascript.Lib.LOG(num, base);
-    },
-    javaCode: `return Math.log(num) / Math.log(base);`
+    code: function(num, base) { return foam.ascript.Lib.LOG(num, base); },
+    javaCode: 'return Math.log(num) / Math.log(base);'
   },
   {
     name: 'LOG10',
@@ -471,10 +440,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return Math.log10(num);
-    },
-    javaCode: `return Math.log10(num);`
+    code: function(num) { return Math.log10(num); },
+    javaCode: 'return Math.log10(num);'
   },
   {
     name: 'EXP',
@@ -482,10 +449,8 @@ foam.ALANG([
     args: [
       { class: 'Double', name: 'num' }
     ],
-    code: function(num) {
-      return Math.exp(num);
-    },
-    javaCode: `return Math.exp(num);`
+    code: function(num) { return Math.exp(num); },
+    javaCode: 'return Math.exp(num);'
   },
 
   // ============================================================================
@@ -497,10 +462,8 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
-    code: function(text) {
-      return foam.ascript.Lib.UPPER(text);
-    },
-    javaCode: `return text == null ? "" : text.toUpperCase();`
+    code: function(text) { return foam.ascript.Lib.UPPER(text); },
+    javaCode: 'return foam.ascript.Lib.UPPER(text);'
   },
   {
     name: 'LOWER',
@@ -508,10 +471,8 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
-    code: function(text) {
-      return foam.ascript.Lib.LOWER(text);
-    },
-    javaCode: `return text == null ? "" : text.toLowerCase();`
+    code: function(text) { return foam.ascript.Lib.LOWER(text); },
+    javaCode: 'return foam.ascript.Lib.LOWER(text);'
   },
   {
     name: 'PROPER',
@@ -530,9 +491,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
-    code: function(text) {
-      return foam.ascript.Lib.TRIM(text);
-    },
+    code: function(text) { return foam.ascript.Lib.TRIM(text); },
     javaCode: 'return foam.ascript.Lib.TRIM(text);'
   },
   {
@@ -541,9 +500,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
-    code: function(text) {
-      return foam.ascript.Lib.LEN(text);
-    },
+    code: function(text) { return foam.ascript.Lib.LEN(text); },
     javaCode: 'return foam.ascript.Lib.LEN(text);'
   },
   {
@@ -553,9 +510,7 @@ foam.ALANG([
       { class: 'String', name: 'text' },
       { class: 'Int',    name: 'numChars', value: 1 }
     ],
-    code: function(text, numChars) {
-      return foam.ascript.Lib.LEFT(text, numChars);
-    },
+    code: function(text, numChars) { return foam.ascript.Lib.LEFT(text, numChars); },
     javaCode: 'return foam.ascript.Lib.LEFT(text, numChars);'
   },
   {
@@ -565,9 +520,7 @@ foam.ALANG([
       { class: 'String', name: 'text' },
       { class: 'Int',    name: 'numChars', value: 1 }
     ],
-    code: function(text, numChars) {
-      return foam.ascript.Lib.RIGHT(text, numChars);
-    },
+    code: function(text, numChars) { return foam.ascript.Lib.RIGHT(text, numChars); },
     javaCode: 'return foam.ascript.Lib.RIGHT(text, numChars);'
   },
   /*
@@ -673,10 +626,8 @@ foam.ALANG([
     args: [
       { class: 'Object', name: 'value' }
     ],
-    code: function(value) {
-      return foam.ascript.Lib.ISNUMBER(value);
-    },
-    javaCode: `return value instanceof Number && !(Double.isNaN((Double) value));`
+    code: function(value) { return foam.ascript.Lib.ISNUMBER(value); },
+    javaCode: 'return value instanceof Number && !(Double.isNaN((Double) value));'
   },
   {
     name: 'ISTEXT',
@@ -684,10 +635,8 @@ foam.ALANG([
     args: [
       { class: 'Object', name: 'value' }
     ],
-    code: function(value) {
-      return foam.ascript.Lib.ISTEXT(value);
-    },
-    javaCode: `return value instanceof String;`
+    code: function(value) { return foam.ascript.Lib.ISTEXT(value); },
+    javaCode: 'return value instanceof String;'
   },
   {
     name: 'ISBLANK',
@@ -695,9 +644,7 @@ foam.ALANG([
     args: [
       { class: 'Object', name: 'value' }
     ],
-    code: function(value) {
-      return foam.ascript.Lib.ISBLANK(value);
-    },
-    javaCode: `return value == null || (value instanceof String && ((String) value).isEmpty());`
+    code: function(value) { return foam.ascript.Lib.ISBLANK(value); },
+    javaCode: 'return value == null || (value instanceof String && ((String) value).isEmpty());'
   }
 ]);

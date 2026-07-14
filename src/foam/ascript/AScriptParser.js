@@ -71,18 +71,17 @@ foam.CLASS({
       name: 'FUNCTIONS',
       factory: function() {
         const m = foam.mlang.Expressions.create();
-        function raw(name, impl) {  // long-tail placeholder until backed by MLIB
-          return function(args) { return foam.parse.FnExpr.create({ name: name, args: args, impl: impl }); };
-        }
-        // TODO: eventually move to a DAO. IF is NOT here (it has a typed parser).
+
         return {
           // lPAD is automatically added by ALIB()
           LEN:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.STRING_LENGTH(a[0]); } },
-          ABS:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.ABS(a[0]); } },
-          ROUND:   { minArgs: 1, maxArgs: 2, build: function(a) { return m.ROUND(a[0], a[1]); } }, // mixin bug: opt_Decimals typo
-          MIN:     { minArgs: 1, build: function(a) { return m.MIN_FUNC.apply(m, a); } },  // *Func expr, not the sink
+          // TODO: remove foam.mlang.Absolute
+//          ABS:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.ABS(a[0]); } },
+          // TODO: remove foam.mlang.Round
+//          ROUND:   { minArgs: 1, maxArgs: 2, build: function(a) { return m.ROUND(a[0], a[1]); } }, // mixin bug: opt_Decimals typo
+          MIN:     { minArgs: 1, build: function(a) { return m.MIN_FUNC.apply(m, a); } },
           MAX:     { minArgs: 1, build: function(a) { return m.MAX_FUNC.apply(m, a); } },
-          SUM:     { minArgs: 1, build: function(a) { return m.ADD.apply(m, a); } },       // per-row n-ary Add
+          SUM:     { minArgs: 1, build: function(a) { return m.ADD.apply(m, a); } },
           CONCAT:  { minArgs: 1, build: function(a) { return m.CONCAT.apply(m, a); } },       // Add concats
           YEARS:   { minArgs: 1, maxArgs: 1, build: function(a) { return m.YEARS(a[0]); } },
           MONTHS:  { minArgs: 1, maxArgs: 1, build: function(a) { return m.MONTHS(a[0]); } },
@@ -90,12 +89,6 @@ foam.CLASS({
           HOURS:   { minArgs: 1, maxArgs: 1, build: function(a) { return m.HOURS(a[0]); } },
           MINUTES: { minArgs: 1, maxArgs: 1, build: function(a) { return m.MINUTES(a[0]); } },
           NOW:     { minArgs: 0, maxArgs: 0, build: function( ) { return m.NOW(); } },
-
-          UPPER:   { minArgs: 1, maxArgs: 1, build: raw('UPPER', function(s) { return ('' + s).toUpperCase(); }) },
-          LOWER:   { minArgs: 1, maxArgs: 1, build: raw('LOWER', function(s) { return ('' + s).toLowerCase(); }) },
-          LEFT:    { minArgs: 2, maxArgs: 2, build: raw('LEFT',  function(s, n) { return ('' + s).slice(0, n); }) },
-          RIGHT:   { minArgs: 2, maxArgs: 2, build: raw('RIGHT', function(s, n) { return ('' + s).slice(-n); }) }
-          // ... long tail
         };
       }
     }

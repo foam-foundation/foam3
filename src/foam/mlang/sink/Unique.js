@@ -51,12 +51,12 @@ foam.CLASS({
     function eof() { },
 
     function clone() {
-      // Don't use the default clone because we don't want to copy 'uniqueValues'.
+      // Don't use the default clone because we don't want to copy 'values'.
       return this.cls_.create({ expr: this.expr, delegate: this.delegate });
     },
 
     function toString() {
-      return this.uniqueValues.toString();
+      return this.values.toString();
     }
   ]
 });

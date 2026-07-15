@@ -15,7 +15,7 @@ foam.ALANG = function(ms) {
       if ( t === 'boolean' ) return `(Boolean) ${v}`;
       if ( t === 'double'  ) return `((Number) ${v}).doubleValue()`;
       if ( t === 'float'   ) return `((Number) ${v}).floatValue()`;
-      if ( t === 'long'    ) return `((Number) ${v}).longtValue()`;
+      if ( t === 'long'    ) return `((Number) ${v}).longValue()`;
       if ( t === 'int'     ) return `((Number) ${v}).intValue()`;
       if ( t === 'short'   ) return `((Number) ${v}).shortValue()`;
 
@@ -31,9 +31,9 @@ foam.ALANG = function(ms) {
       return m;
     });
 
-    let javaCode = foam.flags.genjava && foam.json.parse(l.args).map(
+    let javaCode = foam.flags.genjava && (foam.json.parse(l.args).map(
       a => `${a.javaType} ${a.name} = ${getValue(a)};\n`
-    ).join('') + l.javaCode;
+    ).join('') + l.javaCode);
 
     // TODO: Generate Model
     let m = {
@@ -104,7 +104,7 @@ foam.ALANG([
     name: 'DIFF', // 'diff' is reserved as an FObject method name
     documentation: 'The positive (absolute) difference between two numbers.',
     args: [ { class: 'Double', name: 'a1' }, { class: 'Double', name: 'a2' } ],
-    code: function(a1, a2) { return foam.core.reflow.lib.diff(a1, a2); },
+    code: function(a1, a2) { return foam.core.reflow.lib.DIFF(a1, a2); },
     javaCode: 'return Math.abs(a1 - a2);'
   },
   {
@@ -285,7 +285,8 @@ foam.ALANG([
       return product;
     `
     },
-    */
+  */
+  /*
   {
     name: 'MEDIAN',
     documentation: 'Returns the median value of numbers in the supplied range.',
@@ -299,7 +300,8 @@ foam.ALANG([
       // Implementation would convert to List, sort, and return middle value
       return 0;
     `
-  },
+    },
+    */
 
   // ============================================================================
   // ROUNDING FUNCTIONS

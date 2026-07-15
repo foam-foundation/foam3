@@ -7,7 +7,8 @@
 package foam.ascript;
 
 import java.text.DecimalFormat;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -39,7 +40,7 @@ public class Lib {
   }
 
   public static String PROPER(String text) {
-    if (text == null || text.isEmpty()) return text;
+    if (text == null || text.isEmpty()) return "";
 
     Pattern pattern = Pattern.compile("\\b(.)");
     Matcher matcher = pattern.matcher(text.toLowerCase());
@@ -140,7 +141,7 @@ public class Lib {
   }
 
   public static boolean EXACT(String text1, String text2) {
-    return text1.equals(text2);
+    return foam.util.SafetyUtil.compare(text1, text2) == 0;
   }
 
   public static String REVERSE(String text) {
@@ -313,7 +314,7 @@ public class Lib {
   }
 
   public static long LCM(long a, long b) {
-    return Math.abs(a * b) / GCD(a, b);
+    return Math.abs(a / GCD(a, b) * b);
   }
 
   public static double DEGREES(double radians) {
@@ -433,13 +434,14 @@ public class Lib {
   }
 
   public static int DATEDIF(Date startDate, Date endDate, String unit) {
-    long diffMs = endDate.getTime() - startDate.getTime();
     if (unit == null) return 0;
+    LocalDate start = startDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+    LocalDate end   = endDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
     switch (unit.toUpperCase()) {
-      case "Y": return (int)(diffMs / (1000L * 60 * 60 * 24 * 365));
-      case "M": return (int)(diffMs / (1000L * 60 * 60 * 24 * 30));
-      case "D": return (int)(diffMs / (1000L * 60 * 60 * 24));
-      default: return 0;
+      case "Y": return (int) ChronoUnit.YEARS.between(start, end);
+      case "M": return (int) ChronoUnit.MONTHS.between(start, end);
+      case "D": return (int) ChronoUnit.DAYS.between(start, end);
+      default:  return 0;
     }
   }
 

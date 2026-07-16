@@ -66,10 +66,10 @@ foam.CLASS({
           var tag = expected === undefined ? ''
               : (out === expected ? '  PASS' : '  FAIL (expected ' + JSON.stringify(expected) + ')');
           console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', JSON.stringify(out) + tag);
-          if ( out !== expected ) debugger;
+//          if ( out !== expected ) debugger;
         } catch (err) {
           console.log(pad(s), '-> ERROR:', (err && err.message) || err);
-          debugger;
+//          debugger;
         }
       }
 
@@ -86,10 +86,10 @@ foam.CLASS({
             // In case 'out' has circular references and can't be output as JSON
             console.log(pad(s), '->', (e ? e.toString() : '(no parse)'), '=', out, tag);
           }
-          if ( out !== expected ) debugger;
+//          if ( out !== expected ) debugger;
         } catch (err) {
           console.log(pad(s), '-> ERROR:', (err && err.message) || err);
-          debugger;
+//          debugger;
         }
       }
 

@@ -39,6 +39,15 @@ foam.CLASS({
     'foam.mlang.predicate.NamedProperty'
   ],
 
+  static: [
+    function PARSE(of, s) {
+      let p    = foam.ascript.AScriptParser.create({of: of});
+      let expr = p.parseExpression(s);
+
+      return expr;
+    }
+  ],
+
   constants: [
     {
       name: 'FUNCTIONS',

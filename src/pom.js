@@ -428,6 +428,7 @@ foam.POM({
     { name: "foam/glang/pom",                                         flags: "js|java" },
     { name: "foam/parse/QueryParser",                                 flags: "js" },
     { name: "foam/parse/SimpleQueryParser",                           flags: "js" },
+    { name: "foam/ascript/pom",                                       flags: "js|java" },
     { name: "foam/parse/SimpleJavaScriptParser",                      flags: "js" },
     { name: "foam/parse/QueryRouter",                                 flags: "js" },
     { name: "foam/parse/DateGrammar",                                 flags: "js" },
@@ -1487,8 +1488,9 @@ foam.POM({
     { name: "foam/mlang/Expressions" },
     { name: "io/nayuki/qrcodegen/QrCode" },
     { name: "io/nayuki/qrcodegen/QrSegment" },
-    { name: "io/nayuki/qrcodegen/BitBuffer" },
+    { name: "io/nayuki/qrcodegen/BitBuffer" }
   ],
+
   journalFiles: [
     { name: "tests",                                                  flags: "test" },
     { name: "foam/crypto/hash/tests",                                 flags: "test" },

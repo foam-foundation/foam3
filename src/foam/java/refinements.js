@@ -531,7 +531,7 @@ ${isSet} = false;`
       }
 
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + constantize);
+      if ( info ) info.addAxiom(/*cls.name + '.' + */constantize);
     }
   ]
 });
@@ -1019,7 +1019,7 @@ public Object call(foam.lang.X x, Object receiver, Object[] args) {
       });
 
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + methodInfoName);
+      if ( info ) info.addAxiom(/*cls.name + '.' +*/ methodInfoName);
 
     },
     function isStatic() {
@@ -2413,14 +2413,14 @@ foam.CLASS({
       name: 'javaInfoName',
       expression: function(javaName) {
         return foam.String.constantize(this.javaName);
-      },
-    },
+      }
+    }
   ],
 
   methods: [
     function buildJavaClass(cls) {
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + this.javaInfoName);
+      if ( info ) info.addAxiom(/*cls.name + '.' +*/ this.javaInfoName);
 
       cls.field({
         name: this.javaInfoName,

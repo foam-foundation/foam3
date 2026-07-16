@@ -30,7 +30,7 @@ foam.CLASS({
       javaCode: `
         StringBuilder sb = new StringBuilder();
         for ( int i = 0 ; i < getExprs().length ; i++ ) {
-          sb.append(getExprs()[i]);
+          sb.append(getExprs()[i].f(obj));
         }
         return sb.toString();
       `

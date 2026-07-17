@@ -648,5 +648,103 @@ foam.ALANG([
     ],
     code: function(value) { return foam.ascript.Lib.ISBLANK(value); },
     javaCode: 'return value == null || (value instanceof String && ((String) value).isEmpty());'
+  },
+
+  // ============================================================================
+  // DATE FUNCTIONS
+  // ============================================================================
+  {
+    name: 'DATE',
+    documentation: 'Constructs a date from year, 1-based month, and day.',
+    args: [
+      { class: 'Int', name: 'year' },
+      { class: 'Int', name: 'month' },
+      { class: 'Int', name: 'day' }
+    ],
+    code: function(year, month, day) { return foam.ascript.Lib.DATE(year, month, day); },
+    javaCode: 'return foam.ascript.Lib.DATE(year, month, day);'
+  },
+  {
+    name: 'YEAR',
+    documentation: 'Returns the calendar year of a date.',
+    args: [ { class: 'Date', name: 'date' } ],
+    code: function(date) { return foam.ascript.Lib.YEAR(date); },
+    javaCode: 'return foam.ascript.Lib.YEAR(date);'
+  },
+  {
+    name: 'MONTH',
+    documentation: 'Returns the calendar month (1-12) of a date.',
+    args: [ { class: 'Date', name: 'date' } ],
+    code: function(date) { return foam.ascript.Lib.MONTH(date); },
+    javaCode: 'return foam.ascript.Lib.MONTH(date);'
+  },
+  {
+    name: 'DAY',
+    documentation: 'Returns the day of month of a date.',
+    args: [ { class: 'Date', name: 'date' } ],
+    code: function(date) { return foam.ascript.Lib.DAY(date); },
+    javaCode: 'return foam.ascript.Lib.DAY(date);'
+  },
+  {
+    name: 'HOUR',
+    documentation: 'Returns the hour (0-23) of a date.',
+    args: [ { class: 'Date', name: 'date' } ],
+    code: function(date) { return foam.ascript.Lib.HOUR(date); },
+    javaCode: 'return foam.ascript.Lib.HOUR(date);'
+  },
+  {
+    name: 'MINUTE',
+    documentation: 'Returns the minute (0-59) of a date.',
+    args: [ { class: 'Date', name: 'date' } ],
+    code: function(date) { return foam.ascript.Lib.MINUTE(date); },
+    javaCode: 'return foam.ascript.Lib.MINUTE(date);'
+  },
+  {
+    name: 'SECOND',
+    documentation: 'Returns the second (0-59) of a date.',
+    args: [ { class: 'Date', name: 'date' } ],
+    code: function(date) { return foam.ascript.Lib.SECOND(date); },
+    javaCode: 'return foam.ascript.Lib.SECOND(date);'
+  },
+  {
+    name: 'WEEKDAY',
+    documentation: 'Returns the day of week; returnType 1 (default) gives Mon=1..Sun=7, 3 gives Mon=0..Sun=6.',
+    args: [
+      { class: 'Date', name: 'date' },
+      { class: 'Int',  name: 'returnType', value: 1 }
+    ],
+    code: function(date, returnType) { return foam.ascript.Lib.WEEKDAY(date, returnType); },
+    javaCode: 'return foam.ascript.Lib.WEEKDAY(date, returnType);'
+  },
+  {
+    name: 'EDATE',
+    documentation: 'Returns the date the given number of months before or after startDate.',
+    args: [
+      { class: 'Date', name: 'startDate' },
+      { class: 'Int',  name: 'months' }
+    ],
+    code: function(startDate, months) { return foam.ascript.Lib.EDATE(startDate, months); },
+    javaCode: 'return foam.ascript.Lib.EDATE(startDate, months);'
+  },
+  {
+    name: 'EOMONTH',
+    documentation: 'Returns the last day of the month the given number of months before or after startDate.',
+    args: [
+      { class: 'Date', name: 'startDate' },
+      { class: 'Int',  name: 'months' }
+    ],
+    code: function(startDate, months) { return foam.ascript.Lib.EOMONTH(startDate, months); },
+    javaCode: 'return foam.ascript.Lib.EOMONTH(startDate, months);'
+  },
+  {
+    name: 'DATEDIF',
+    documentation: 'Returns the difference between two dates in unit "Y", "M", or "D".',
+    args: [
+      { class: 'Date',   name: 'startDate' },
+      { class: 'Date',   name: 'endDate' },
+      { class: 'String', name: 'unit' }
+    ],
+    code: function(startDate, endDate, unit) { return foam.ascript.Lib.DATEDIF(startDate, endDate, unit); },
+    javaCode: 'return foam.ascript.Lib.DATEDIF(startDate, endDate, unit);'
   }
 ]);

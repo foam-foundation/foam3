@@ -469,7 +469,7 @@ foam.CLASS({
           },
 
           or: function(v) {
-            return self.Or.create({ args: v });
+            return self.Or.create({ args: v }).partialEval();
           },
 
           and: function(v) {

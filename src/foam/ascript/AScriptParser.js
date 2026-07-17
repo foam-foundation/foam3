@@ -212,6 +212,9 @@ foam.CLASS({
       }
 
       g.addActions({
+        expr: function(v) {
+          return v.partialEval ? v.partialEval() : v;
+        },
 //        concat: fold,
         addsub: fold,
         muldiv: fold,

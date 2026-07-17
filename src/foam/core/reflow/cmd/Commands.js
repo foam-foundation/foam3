@@ -623,7 +623,13 @@ foam.CLASS({
         this.maybeCallScript(loaded.preLoadScript);
         this.flow.loadComplete.sub(() => this.maybeCallScript(loaded.postLoadScript));
         this.selected = this.flow;
+        // When the saved script is identical to the current one, copyFrom's set
+        // is suppressed by the propertyChange equality gate, so the Console's
+        // onScriptChange reload never runs and loadComplete never fires. Force
+        // the pub so load/loadPerf on an unchanged flow still re-executes.
+        var sameScript = this.flow.script === loaded.script;
         this.flow.copyFrom(loaded);
+        if ( sameScript ) this.flow.pub('propertyChange', 'script', this.flow.script$);
         // After loading, revert the revision back to 0
         this.flow.loadComplete.sub(foam.events.oneTime(() => {
           this.mementoMgr.clear();

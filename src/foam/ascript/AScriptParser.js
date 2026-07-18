@@ -55,22 +55,39 @@ foam.CLASS({
         const m = foam.mlang.Expressions.create();
 
         return {
-          // lPAD is automatically added by ALIB()
-          LEN:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.STRING_LENGTH(a[0]); } },
-          // TODO: remove foam.mlang.Absolute
-//          ABS:     { minArgs: 1, maxArgs: 1, build: function(a) { return m.ABS(a[0]); } },
-          // TODO: remove foam.mlang.Round
-//          ROUND:   { minArgs: 1, maxArgs: 2, build: function(a) { return m.ROUND(a[0], a[1]); } }, // mixin bug: opt_Decimals typo
-          MIN:     { minArgs: 1, build: function(a) { return m.MIN_FUNC.apply(m, a); } },
-          MAX:     { minArgs: 1, build: function(a) { return m.MAX_FUNC.apply(m, a); } },
-          SUM:     { minArgs: 1, build: function(a) { return m.ADD.apply(m, a); } },
-          CONCAT:  { minArgs: 1, build: function(a) { return m.CONCAT.apply(m, a); } },       // Add concats
-          YEARS:   { minArgs: 1, maxArgs: 1, build: function(a) { return m.YEARS(a[0]); } },
-          MONTHS:  { minArgs: 1, maxArgs: 1, build: function(a) { return m.MONTHS(a[0]); } },
-          DAYS:    { minArgs: 1, maxArgs: 1, build: function(a) { return m.DAYS(a[0]); } },
-          HOURS:   { minArgs: 1, maxArgs: 1, build: function(a) { return m.HOURS(a[0]); } },
-          MINUTES: { minArgs: 1, maxArgs: 1, build: function(a) { return m.MINUTES(a[0]); } },
-          NOW:     { minArgs: 0, maxArgs: 0, build: function( ) { return m.NOW(); } },
+          LEN:     { minArgs: 1, maxArgs: 1,
+            documentation: 'The number of characters in a piece of text. Ex. LEN(name)',
+            build: function(a) { return m.STRING_LENGTH(a[0]); } },
+          MIN:     { minArgs: 1,
+            documentation: 'The smallest of the supplied numbers. Ex. MIN(balance, 0)',
+            build: function(a) { return m.MIN_FUNC.apply(m, a); } },
+          MAX:     { minArgs: 1,
+            documentation: 'The largest of the supplied numbers. Ex. MAX(balance, 0)',
+            build: function(a) { return m.MAX_FUNC.apply(m, a); } },
+          SUM:     { minArgs: 1,
+            documentation: 'Add the supplied numbers together. Ex. SUM(fee, tax, shipping)',
+            build: function(a) { return m.ADD.apply(m, a); } },
+          CONCAT:  { minArgs: 1,
+            documentation: 'Join the supplied values into one piece of text. Ex. CONCAT(firstName, " ", lastName)',
+            build: function(a) { return m.CONCAT.apply(m, a); } },       // Add concats
+          YEARS:   { minArgs: 1, maxArgs: 1,
+            documentation: 'The number of whole years from the given date until now (an age or elapsed duration, not the calendar year — use YEAR for that). Ex. YEARS(born)',
+            build: function(a) { return m.YEARS(a[0]); } },
+          MONTHS:  { minArgs: 1, maxArgs: 1,
+            documentation: 'The number of whole months elapsed from the given date until now (a duration, not the calendar month — use MONTH for that). Ex. MONTHS(startDate)',
+            build: function(a) { return m.MONTHS(a[0]); } },
+          DAYS:    { minArgs: 1, maxArgs: 1,
+            documentation: 'The number of whole days elapsed from the given date until now (a duration). Ex. DAYS(startDate)',
+            build: function(a) { return m.DAYS(a[0]); } },
+          HOURS:   { minArgs: 1, maxArgs: 1,
+            documentation: 'The number of whole hours elapsed from the given date/time until now (a duration). Ex. HOURS(lastSeen)',
+            build: function(a) { return m.HOURS(a[0]); } },
+          MINUTES: { minArgs: 1, maxArgs: 1,
+            documentation: 'The number of whole minutes elapsed from the given date/time until now (a duration). Ex. MINUTES(lastSeen)',
+            build: function(a) { return m.MINUTES(a[0]); } },
+          NOW:     { minArgs: 0, maxArgs: 0,
+            documentation: 'The current date and time. Ex. DAYS(NOW)',
+            build: function( ) { return m.NOW(); } }
         };
       }
     }
@@ -80,7 +97,7 @@ foam.CLASS({
     {
       name: 'extensionGrammar_',
       // NOTE: parameter names must match Parsers members (withArgs injects by name).
-      value: function(alt, seq, seq0, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sym, range) {
+      value: function(alt, seq, seq0, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sug, sym, range) {
         const self = this;
         const m    = foam.mlang.Expressions.create();
 
@@ -108,6 +125,8 @@ foam.CLASS({
 
         return {
           // second entry point; predicate entry (START/'or') is inherited
+          START: sym('EXPR'),
+
 //          EXPR: sym('concat'),
           EXPR: sym('addsub'),
 
@@ -173,8 +192,9 @@ foam.CLASS({
           ifsClause: seq(sym('or'), comma, sym('EXPR')),
 
           generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
-          funcname: sym('ident'),
-          // TODO:
+
+          funcname: seq1(1, sym('ws'), this.generateFuncNames(alt, sug, literalIC)),
+
           args: rep(alt(sym('EXPR'), sym('or')), comma, 0),
 
           expr: alt(
@@ -191,6 +211,15 @@ foam.CLASS({
   ],
 
   methods: [
+    function generateFuncNames(alt, sug, literalIC) {
+      let self = this;
+
+      return alt.apply(alt, Object.keys(this.FUNCTIONS).map(key => {
+        let f = self.FUNCTIONS[key];
+        return sug(literalIC(key), {text: key, category: 'function', label: f.documentation});
+      }));
+    },
+
     function parseExpression(s) {
       var e = this.parseString(s, 'EXPR');
       return e && e.partialEval ? e.partialEval() : e;

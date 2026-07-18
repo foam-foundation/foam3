@@ -61,6 +61,7 @@ foam.ALANG = function(ms) {
     foam.ascript.AScriptParser.FUNCTIONS[l.name] = {
       minArgs: min,
       maxArgs: l.args.length,
+      documentation: l.documentation,
       build: function(a) {
         let args = {};
         for ( let i = 0 ; i < l.args.length ; i++ ) {

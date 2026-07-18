@@ -240,4 +240,4 @@ foam.CLASS({
 // auto-run if a context is available
 try { foam.ascript.AScriptDemo.create().run(); } catch (e) {}
 
-}, 5000);
+}, 3000);

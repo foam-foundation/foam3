@@ -144,16 +144,16 @@ foam.CLASS({
       cursor: pointer;
     }
 
-    ^property { color: $green400; }
-    ^operator { color: $orange400; }
-    ^value    { color: $blue400; }
-    ^format   { color: $grey400; }
-    ^standard { color: $blue400; }
-    ^custom { color: $orange400; }
-
+    ^property    { color: $green400; }
+    ^operator    { color: $orange400; }
+    ^value       { color: $blue400; }
+    ^format      { color: $grey400; }
+    ^standard    { color: $blue400; }
+    ^custom      { color: $orange400; }
+    ^function    { color: $purple400; }
     ^calculation { color: $orange400; }
-    ^chart    { color: $blue400; }
-    ^structure { color: $green400; }
+    ^chart       { color: $blue400; }
+    ^structure   { color: $green400; }
   `,
 
   properties: [

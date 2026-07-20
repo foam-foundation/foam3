@@ -285,12 +285,19 @@ foam.CLASS({
   name: 'DAOCreate',
   extends: 'foam.core.reflow.cmd.Command',
 
-  requires: [ 'foam.core.reflow.DAOCreate' ],
+  requires: [
+    'foam.core.reflow.DAOCreate',
+    'foam.core.reflow.parser.DAOTargetParser'
+  ],
 
   imports: [ 'scope' ],
 
   properties: [
-    [ 'description', 'Add an object to a DAO' ]
+    [ 'description', 'Add a row to a DAO (requires a DAO name)' ],
+    {
+      name: 'parser',
+      factory: function() { return this.DAOTargetParser.create(); }
+    }
   ],
 
   methods: [

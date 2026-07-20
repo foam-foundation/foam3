@@ -210,7 +210,11 @@ foam.CLASS({
     function generateFuncNames(alt, sug, literalIC) {
       let self = this;
 
-      return alt.apply(alt, Object.keys(this.FUNCTIONS).map(key => {
+      // Longest-first so a shorter name doesn't shadow a longer one that shares
+      // its prefix: alt() returns the first match and literalIC('LOG') would match
+      // the start of 'LOG10(' , consuming only 'LOG' and failing the funcall. Same
+      // sort the property-name matcher already applies to `fields`.
+      return alt.apply(alt, Object.keys(this.FUNCTIONS).sort((a, b) => b.length - a.length).map(key => {
         let f = self.FUNCTIONS[key];
         return sug(literalIC(key), {text: key, category: 'function', label: f.documentation});
       }));

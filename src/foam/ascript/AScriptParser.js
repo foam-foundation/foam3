@@ -113,14 +113,10 @@ foam.CLASS({
         // property-name literals (+ constants) as VALUE operands, longest-first
         var fields = [];
         this.of.getAxiomsByClass(foam.lang.Property).forEach(function(p) {
-          fields.push(self.Literal.create({ s: p.name, value: p }));
+          fields.push(sug(literalIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
         });
         this.of.getAxiomsByClass(foam.lang.Constant).forEach(function(c) {
-          fields.push(self.Literal.create({ s: c.name, value: c.value }));
-        });
-        fields.sort(function(a, b) {
-          var c = foam.util.compare(b.s.length, a.s.length);
-          return c ? c : foam.util.compare(a.s, b.s);
+          fields.push(sug(LiteralIC(c.name, c.value), {text: p.name, category: 'constant'}));
         });
 
         return {
@@ -146,6 +142,7 @@ foam.CLASS({
           power: seq(sym('primary'), opt(seq1(1, seq0(sym('ws'), '^'), sym('unary')))), // right-assoc
 
           primary: alt(
+            sym('field'),                                     // bare names -> property refs
             sym('expr_paren'),
             sym('funcall'),
             lead(sym('quoted string')),                      // "quoted" only; lead() eats leading ws
@@ -153,7 +150,6 @@ foam.CLASS({
             sym('number'),                                   // parent 'number' already eats its own ws
             lead(litIC('true',  m.TRUE)),
             lead(litIC('false', m.FALSE)),
-            sym('field')                                     // bare names -> property refs
           ),
 
           expr_paren: seq1(3, sym('ws'), '(', sym('ws'), sym('EXPR'), sym('ws'), ')'),

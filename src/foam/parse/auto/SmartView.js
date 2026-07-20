@@ -265,7 +265,8 @@ foam.CLASS({
       }
     },
     {
-      name: 'parser'
+      name: 'parser',
+      documentation: 'A Parser instance or a factory that returns a Parser or a Promise of a Parser.'
     },
     {
       class: 'Boolean',
@@ -549,7 +550,7 @@ foam.CLASS({
     {
       name: 'onPreviewChange',
       isFramed: true,
-      code: function() {
+      code: async function() {
         this.error = '';
 
         // Parse the preview text with our 'apply' callback so we can rebuild
@@ -558,14 +559,14 @@ foam.CLASS({
 
         let str = this.preview + String.fromCharCode(26) /* EOF */;
         let ps  = foam.parse.StringPStream.create({str: str, apply: this.apply});
-
-        ps = this.parser.parse(ps);
+        let parser = foam.Function.isInstance(this.parser) ? await this.parser() : this.parser;
+        ps = parser.parse(ps);
       }
     },
     {
       name: 'onDataChange',
       isFramed: true,
-      code: function() {
+      code: async function() {
         if ( ! this.data ) { this.error = ''; return; }
 
         this.preview = this.data;
@@ -578,7 +579,8 @@ foam.CLASS({
         let str    = this.data + String.fromCharCode(26) /* EOF */;
         let ps     = foam.parse.StringPStream.create({str: str, apply: apply});
 
-        ps = this.parser.parse(ps);
+        let parser = foam.Function.isInstance(this.parser) ? await this.parser() : this.parser;
+        ps = parser.parse(ps);
 
         if ( ps == null || maxPos < this.data.length ) {
           this.error = 'Error at: ' + (maxPos == this.data.length ? '<end of input>' : this.data.substring(maxPos));

@@ -28,7 +28,22 @@ foam.CLASS({
     { class: 'Code',    name: 'script' },
     { class: 'Boolean', name: 'linkable', value: true },
     { class: 'Boolean', name: 'permissionRequired' },
-    { class: 'Boolean', name: 'hidden', value: false }
+    { class: 'Boolean', name: 'hidden', value: false },
+    {
+      class: 'String',
+      name: 'parserClass',
+      documentation: 'Optional Grammar class id used to autocomplete this command\'s argument (e.g. DAOTargetParser for a DAO name).'
+    },
+    {
+      name: 'parser',
+      transient: true,
+      documentation: 'Argument parser for autocomplete. Subclasses may override with a factory; jrl commands set parserClass instead.',
+      factory: function() {
+        if ( ! this.parserClass ) return null;
+        var cls = foam.maybeLookup(this.parserClass);
+        return cls ? cls.create(null, this) : null;
+      }
+    }
   ],
 
   methods: [
@@ -115,7 +130,7 @@ foam.CLASS({
 
   properties: [
     { name: 'id', value: 'help' },
-    [ 'description', 'Display help' ]
+    [ 'description', 'Help for commands and shortcuts' ]
   ],
 
   methods: [
@@ -172,7 +187,7 @@ foam.CLASS({
 
   properties: [
     { name: 'id', value: 'helpFunctions' },
-    [ 'description', 'Display help for built-in functions.' ]
+    [ 'description', 'Help fn for built-in functions' ]
   ],
 
   methods: [
@@ -209,7 +224,7 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.cells.Cells' ],
 
   properties: [
-    [ 'description', 'Embed spreadsheet' ]
+    [ 'description', 'Cells spreadsheet grid' ]
   ],
 
   methods: [
@@ -250,7 +265,8 @@ foam.CLASS({
   imports: [ 'createFlowChildName' ],
 
   properties: [
-    [ 'description', 'Perform DAO filter operation' ]
+    [ 'description', 'DAO filter for a service' ],
+    [ 'parserClass', 'foam.core.reflow.parser.DAOTargetParser' ]
   ],
 
   methods: [
@@ -325,7 +341,7 @@ foam.CLASS({
   imports: [ 'AuthenticatedCSpecDAO as cSpecDAO', 'commandDAO', 'scope' ],
 
   properties: [
-    [ 'description', 'Display available DAO services', 'uploadAvailable' ]
+    [ 'description', 'DAOs available', 'uploadAvailable' ]
   ],
 
   methods: [
@@ -475,7 +491,7 @@ foam.CLASS({
   imports: [ 'flowDAO' ],
 
   properties: [
-    [ 'description', 'Display saved flows' ]
+    [ 'description', 'Flows available to load' ]
   ],
 
   methods: [
@@ -506,7 +522,7 @@ foam.CLASS({
   imports: [ 'history_' ],
 
   properties: [
-    [ 'description', 'Display previously executed commands' ]
+    [ 'description', 'History of executed commands' ]
   ],
 
   methods: [
@@ -528,7 +544,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.cmd.Command',
 
   properties: [
-    [ 'description', 'Display MQL Help' ]
+    [ 'description', 'Help MQL queries' ]
   ],
 
   methods: [
@@ -580,7 +596,7 @@ foam.CLASS({
   imports: [ ],
 
   properties: [
-    [ 'description', 'Browse Models' ]
+    [ 'description', 'Models explorer' ]
   ],
 
   methods: [
@@ -599,7 +615,7 @@ foam.CLASS({
   imports: [ ],
 
   properties: [
-    [ 'description', 'Blockquote' ]
+    [ 'description', 'Quote block' ]
   ],
 
   methods: [
@@ -665,7 +681,7 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.perf.Perf' ],
 
   properties: [
-    [ 'description', 'Load a flow with performance capture' ]
+    [ 'description', 'Load perf a flow with performance capture' ]
   ],
 
   methods: [
@@ -732,7 +748,7 @@ foam.CLASS({
   imports: [ 'AuthenticatedCSpecDAO as cSpecDAO' ],
 
   properties: [
-    [ 'description', 'Display available services' ]
+    [ 'description', 'Services available' ]
   ],
 
   methods: [
@@ -885,7 +901,7 @@ foam.CLASS({
   ],
 
   properties: [
-    [ 'description', 'Create a button with custom logic' ]
+    [ 'description', 'Button with custom logic' ]
   ],
 
   methods: [
@@ -933,7 +949,7 @@ foam.CLASS({
   ],
 
   properties: [
-    [ 'description', 'Create multiple buttons with custom logic' ],
+    [ 'description', 'Buttons group with custom logic' ],
     'holder_'
   ],
 

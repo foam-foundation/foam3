@@ -46,6 +46,10 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function(_, a, p) {
+        // Fast path: an already-string value needs no adaptation. Skips the
+        // foam.Object.isInstance check and toString() call that every string
+        // set would otherwise incur (hot in bulk data import).
+        if ( typeof a === 'string' ) return a;
         if ( foam.Object.isInstance(a) ) {
           if ( a[foam.locale] !== undefined )
             return a[foam.locale];

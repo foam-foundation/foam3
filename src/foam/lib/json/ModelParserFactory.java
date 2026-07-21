@@ -9,44 +9,18 @@ package foam.lib.json;
 import foam.lang.ClassInfo;
 import foam.lang.PropertyInfo;
 import foam.lib.parse.*;
-import foam.parse.NewlineParser;
-import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 import java.util.List;
 
-class WS
-  implements Parser
-{
-
-  public WS() {
-  }
-  public PStream parse(PStream ps, ParserContext x) {
-    PStream ops = ps;
-
-    while ( ps.valid() ) {
-      char c = ps.head();
-      if ( c == ' '  || c == '\t' || c == '\r' || c == '\n' ) {
-        ps = ps.tail();
-      } else {
-        return ps == ops ? null : ps;
-      }
-    }
-
-    return ps == ops ? null : ps;
-  }
-
-  public String toString() {
-    return "WS";
-  }
-}
-
 public class ModelParserFactory {
   protected final static ConcurrentHashMap<ClassInfo, Parser> parsers_ = new ConcurrentHashMap<ClassInfo, Parser>();
-  protected final static Parser COMMENTS          = CommentParser.create();
-  protected final static Parser OPTIONAL_COMMENTS = new Optional(COMMENTS);
   protected final static Parser UNKNOWN_PROPERTY  = new UnknownPropertyParser();
 
+  // Skip whitespace AND single-line // comments between structural tokens.
+  // A single flat Parser (one virtual dispatch per skip) rather than the old
+  // Repeat0(Alt(Seq0(Literal,Until),WS)) combinator stack — keeps the perf win
+  // while preserving inline-comment tolerance in FObject bodies.
   protected final static Parser SKIP              = new Parser() {
     public PStream parse(PStream ps, ParserContext x) {
       while ( ps.valid() ) {
@@ -85,35 +59,6 @@ public class ModelParserFactory {
     }
   }
 
-  /*
-  public static Parser buildInstance_(ClassInfo info) {
-    List     properties      = info.getAxiomsByClass(PropertyInfo.class);
-    Parser[] propertyParsers = new Parser[properties.size() + 2]; // space for UnknownPropertyParser and Comment Parser
-    Iterator iter            = properties.iterator();
-    int      i               = 0;
-
-    while ( iter.hasNext() ) {
-      PropertyInfo pi = (PropertyInfo) iter.next();
-      // If javaJSONParser: null, then don't add a PropertyParser for this field
-      if ( pi.jsonParser() != null ) {
-        propertyParsers[i] = PropertyParser.create(pi);
-        i++;
-      }
-    }
-
-    // Prevents failure to parse if unknown property found
-    propertyParsers[i] = new UnknownPropertyParser();
-
-    propertyParsers[i+1] = COMMENTS;
-
-    return new Repeat0(
-      new Seq0(OPTIONAL_COMMENTS,
-        Whitespace.instance(), new Alt(propertyParsers)),
-      Literal.create(",")
-    );
-  }
-  */
-
   public static Parser buildInstance_(ClassInfo info) {
     List      properties = info.getAxiomsByClass(PropertyInfo.class);
     Iterator  iter       = properties.iterator();
@@ -127,26 +72,16 @@ public class ModelParserFactory {
       if ( pp == null ) continue;
 
       //      System.err.println("PI " + pi.getName() + " " + pp);
-      // Inlined value parser: skip ws, match ':', skip ws, parse value, set property.
-      // Replaces Seq0(SKIP, Literal(':'), SKIP, valueParser) to eliminate
-      // 4 combinator layers of virtual dispatch per property.
+      // Value parser: skip (ws + comments), match ':', skip, parse value, set
+      // property. SKIP replaces the Seq0(SKIP, Literal(':'), SKIP, valueParser)
+      // combinator layers with one dispatch per skip.
       Parser valueParser = new Parser() {
         public PStream parse(PStream ps, ParserContext x) {
-          // Inline whitespace skip
-          while ( ps.valid() ) {
-            char c = ps.head();
-            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
-            ps = ps.tail();
-          }
+          ps = SKIP.parse(ps, x);
           // Match ':'
           if ( ! ps.valid() || ps.head() != ':' ) return null;
           ps = ps.tail();
-          // Inline whitespace skip
-          while ( ps.valid() ) {
-            char c = ps.head();
-            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
-            ps = ps.tail();
-          }
+          ps = SKIP.parse(ps, x);
           // Parse value and set property
           ps = pp.parse(ps, x);
           if ( ps == null ) return null;
@@ -173,15 +108,9 @@ public class ModelParserFactory {
       final Parser unknownProperty = UNKNOWN_PROPERTY;
 
       public PStream parse(PStream ps, ParserContext x) {
-        boolean first = true;
-
         while ( true ) {
-          // Skip whitespace (inline SKIP — no comment check needed between properties)
-          while ( ps.valid() ) {
-            char c = ps.head();
-            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
-            ps = ps.tail();
-          }
+          // Skip whitespace and // comments before the property name
+          ps = SKIP.parse(ps, x);
 
           // Try property name via PrefixAlt, then unknown property fallback
           PStream result = finalAlt.parse(ps, x);
@@ -191,12 +120,8 @@ public class ModelParserFactory {
           if ( result == null ) break;
           ps = result;
 
-          // Skip trailing whitespace
-          while ( ps.valid() ) {
-            char c = ps.head();
-            if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' ) break;
-            ps = ps.tail();
-          }
+          // Skip trailing whitespace and // comments
+          ps = SKIP.parse(ps, x);
 
           // Inline comma check (replaces Literal(',') delimiter in Repeat0)
           if ( ps.valid() && ps.head() == ',' ) {

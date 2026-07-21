@@ -27,24 +27,31 @@ public class PrefixLogger
 
     return ret;
   }
+  
+  // A null delegate must never turn a logged message into an NPE that masks
+  // back to StdoutLogger so the message still lands somewhere instead of throwing.
+  protected Logger delegate() {
+    Logger d = getDelegate();
+    return d != null ? d : StdoutLogger.instance();
+  }
 
   public void log(Object... args) {
-    getDelegate().log(prefix(args));
+    delegate().log(prefix(args));
   }
 
   public void info(Object... args) {
-    getDelegate().info(prefix(args));
+    delegate().info(prefix(args));
   }
 
   public void warning(Object... args) {
-    getDelegate().warning(prefix(args));
+    delegate().warning(prefix(args));
   }
 
   public void error(Object... args) {
-    getDelegate().error(prefix(args));
+    delegate().error(prefix(args));
   }
 
   public void debug(Object...  args) {
-    getDelegate().debug(prefix(args));
+    delegate().debug(prefix(args));
   }
 }

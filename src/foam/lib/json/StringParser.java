@@ -74,7 +74,7 @@ public class StringParser
     if ( escIdx >= 0 && escIdx < closeIdx ) return null;
 
     // No escapes — bulk extract the string
-    String value = str.substring(pos, closeIdx);
+    String value = str.substring(pos, closeIdx).intern();
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -131,6 +131,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    return ps.setValue(sb.toString());
+    return ps.setValue(sb.toString().intern());
   }
 }

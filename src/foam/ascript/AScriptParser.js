@@ -231,12 +231,17 @@ foam.CLASS({
       var NO_PARSE = foam.parse.ParserWithAction.NO_PARSE;
 
       // Left-fold a flat operator tail: v = [ first, [ [opName, rhs], ... ] ].
-      // MLangs adapt literal args to Constant, so no manual boxing needed.
+      // Box BOTH operands as Exprs: not every arithmetic mlang adapts a raw
+      // literal arg to a Constant (Add/Subtract do, Multiply/Divide do not), so
+      // a nested `x / 3` would serialize a bare `3` the server can't rehydrate
+      // into an Expr[] (top-level partialEval would fix it, but a binary op
+      // nested inside a function is never partialEval'd).
+      function box(x) { return foam.mlang.ExprProperty.prototype.adaptValue(x); }
       function fold(v) {
-        var acc = foam.mlang.ExprProperty.prototype.adaptValue(v[0]);
+        var acc = box(v[0]);
         v = v[1];
         for ( let i = 0 ; i < v.length ; i++ )
-          acc = m[v[i][0]].call(m, acc, v[i][1]);
+          acc = m[v[i][0]].call(m, acc, box(v[i][1]));
         return acc;
       }
 

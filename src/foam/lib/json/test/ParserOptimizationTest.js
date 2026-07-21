@@ -64,16 +64,60 @@ foam.CLASS({
         test(maxVal != null && maxVal == Double.MAX_VALUE,
           "DoubleParser: Double.MAX_VALUE round-trips");
 
-        // ULP bound for an irrational decimal. Current (Double.valueOf) is
-        // exactly the closest double; the arithmetic path may be off by a few
-        // ULPs. 1e-15 is well within a useful tolerance.
+        // Exact: within the long-safe digit range the arithmetic path is
+        // bit-for-bit equal to Double.valueOf (single correctly-rounded
+        // division), verified by a 2M-value random sweep.
         Double oneTenth = (Double) parseDouble(x, "0.1");
-        test(oneTenth != null && Math.abs(oneTenth - 0.1) < 1e-15,
-          "DoubleParser: 0.1 is within 1e-15 of the true value");
+        test(oneTenth != null
+          && Double.doubleToRawLongBits(oneTenth) == Double.doubleToRawLongBits(0.1),
+          "DoubleParser: 0.1 is bit-exact");
 
         // Negative numbers through the full path.
         test(parseDouble(x, "-1234.5678") != null && (double) parseDouble(x, "-1234.5678") == -1234.5678,
           "DoubleParser: negative decimal");
+
+        // ---- Overflow / precision regressions: these values overflow the
+        // long accumulators (>18 digits) or need a correctly-rounded exponent,
+        // so they must go through the Double.valueOf fallback. Each one
+        // produced a silently wrong value on the arithmetic-only path
+        // (e.g. 12345678901234567890 came back NEGATIVE, ~-6.1e18).
+        assertExact(x, "12345678901234567890",
+          "DoubleParser: 20 int digits (long overflow) falls back correctly");
+        assertExact(x, "-98765432109876543210.5",
+          "DoubleParser: negative 20-digit with fraction falls back correctly");
+        assertExact(x, "0.1234567890123456789012345",
+          "DoubleParser: 25 frac digits (fracScale overflow) falls back correctly");
+        assertExact(x, "184467440737095516160.0",
+          "DoubleParser: 2^64*10 (parsed as 0.0 unfixed) falls back correctly");
+        assertExact(x, "4.9e-324",
+          "DoubleParser: min denormal (collapsed to 0.0 via Math.pow unfixed)");
+        assertExact(x, "-6.02e23",
+          "DoubleParser: -6.02e23 (1 ULP off via Math.pow unfixed) is bit-exact");
+        assertExact(x, "1e22",
+          "DoubleParser: 1e22 exponent boundary is bit-exact");
+        assertExact(x, "3.14159e-100",
+          "DoubleParser: small exponent value is bit-exact");
+
+        // Malformed exponent must backtrack, not crash: the Double.valueOf
+        // fallback would throw NumberFormatException on "1e" if the bare
+        // marker were consumed.
+        Object bareExp = parseDouble(x, "1e");
+        test(bareExp != null && (double) (Double) bareExp == 1.0,
+          "DoubleParser: '1e' (no exponent digits) parses as 1.0");
+        Object signExp = parseDouble(x, "2E+");
+        test(signExp != null && (double) (Double) signExp == 2.0,
+          "DoubleParser: '2E+' (sign, no digits) parses as 2.0");
+      `
+    },
+    {
+      name: 'assertExact',
+      args: 'foam.lang.X x, String input, String message',
+      javaCode: `
+        double expect = Double.valueOf(input);
+        Object got    = parseDouble(x, input);
+        test(got != null
+          && Double.doubleToRawLongBits((Double) got) == Double.doubleToRawLongBits(expect),
+          message + " (got=" + got + ", expect=" + expect + ")");
       `
     },
     {
@@ -171,6 +215,18 @@ foam.CLASS({
         FObject bad2 = p.parseString("{class:\\""+klass+"\\",id:\\"a\\" source:\\"bad\\"}");
         test(bad2 == null || ! "bad".equals(((foam.core.test.Test) bad2).getSource()),
           "JSON roundtrip: missing comma between body properties rejected or partial");
+
+        // Inline // comments inside the object body — the pre-optimization
+        // SKIP (Repeat0(Alt(Seq0(Literal("//"), Until(NL)), WS))) tolerated
+        // these; the inlined whitespace-only loops regressed them. Comments
+        // before a property and between the ':' and its value.
+        FObject c1 = p.parseString("{class:\\""+klass+"\\",\\n// before property\\nid:\\"cm\\"}");
+        test(c1 != null && "cm".equals(((foam.core.test.Test) c1).getId()),
+          "JSON roundtrip: // comment before a body property");
+
+        FObject c2 = p.parseString("{class:\\""+klass+"\\",id: // after colon\\n\\"cn\\",source:\\"S2\\"}");
+        test(c2 != null && "cn".equals(((foam.core.test.Test) c2).getId()) && "S2".equals(((foam.core.test.Test) c2).getSource()),
+          "JSON roundtrip: // comment between ':' and the value");
       `
     },
     {

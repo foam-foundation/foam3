@@ -161,6 +161,16 @@ public class Outputter
   }
 
   protected void outputNumber(Number value) {
+    // JSON has no NaN / Infinity literal; value.toString() would emit a bare
+    // `NaN` / `Infinity` token that is invalid JSON and breaks the parser on
+    // read. Emit null for non-finite doubles/floats, matching JSON.stringify.
+    if ( value instanceof Double || value instanceof Float ) {
+      double d = value.doubleValue();
+      if ( Double.isNaN(d) || Double.isInfinite(d) ) {
+        writer_.append("null");
+        return;
+      }
+    }
     // TODO: don't do this, creates extra garbage
     writer_.append(value.toString());
   }

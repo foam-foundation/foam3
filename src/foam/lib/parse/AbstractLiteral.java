@@ -29,12 +29,16 @@ public abstract class AbstractLiteral
     Parser p = (Parser) map__.get(s);
 
     if ( p == null ) {
-      p = new AbstractLiteral(s) {
-        @Override
-        public Object value() {
-          return s;
-        }
-      };
+      if ( s.length() == 1 ) {
+        p = new CharLiteral(s);
+      } else {
+        p = new AbstractLiteral(s) {
+          @Override
+          public Object value() {
+            return s;
+          }
+        };
+      }
       map__.put(s, p);
     }
 

@@ -531,9 +531,7 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'unloadable',
-// TODO: remove, just temporary for testing purposes
-value: true
+      name: 'unloadable'
     },
     {
       documentation: 'Sets the inner dao to a nullDAO',

@@ -412,7 +412,9 @@ foam.CLASS({
       // Search fields have a 'x' icon on the right which clears the field, but for
       // some reason if onPreviewChange runs too quickly then this doesn't work for
       // some unknown reason.
-      this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      if ( this.mode == foam.u2.DisplayMode.RW ) {
+        this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      }
       self.overlay_.parentEl = this.field.el_();
       self.overlay_.write();
       self.overlay_

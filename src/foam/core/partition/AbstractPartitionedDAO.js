@@ -12,7 +12,8 @@ foam.CLASS({
 
   javaImports: [
     'foam.core.script.BeanShellExecutor',
-    'foam.dao.Sink',
+    'foam.dao.index.AddIndexCommand',
+    'foam.dao.*',
     'foam.lang.*',
     'foam.mlang.order.Comparator',
     'foam.mlang.predicate.Predicate',
@@ -20,6 +21,12 @@ foam.CLASS({
   ],
 
   constants: [
+    {
+      name: 'UNLOAD_CMD',
+      type: 'String',
+      documentation: 'Command to cause a PartitionedDAO to unload data.',
+      value: 'UNLOAD_CMD'
+    },
     {
       name: 'SEPARATOR',
       type: 'String',
@@ -50,9 +57,40 @@ foam.CLASS({
       javaFactory: `
         return (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
       `
+    },
+    {
+      class: 'List',
+      name: 'indices'
     }
   ],
 
   methods: [
-  ]
+  ],
+
+  javaCode: `
+  public void unload() {
+    // NOP, implement in sub-classes
+  }
+
+  public void addIndices(DAO dao) {
+    for ( Object index : getIndices() ) {
+      dao.cmd(index);
+    }
+  }
+
+  public Object cmd_(X x, Object cmd) {
+    if ( UNLOAD_CMD.equals(cmd) ) {
+      unload();
+      return true;
+    }
+
+    if ( cmd instanceof AddIndexCommand ) {
+      getIndices().add(cmd);
+      return true;
+    }
+
+    return super.cmd_(x, cmd);
+  }
+
+  `
 });

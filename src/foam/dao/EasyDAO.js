@@ -231,8 +231,7 @@ foam.CLASS({
 
           // auto add index on spid
           DAO dao = (DAO) getMdao();
-          if ( dao != null &&
-               dao instanceof foam.dao.MDAO ) {
+          if ( dao != null && dao instanceof foam.dao.MDAO ) {
             PropertyInfo pInfo = (PropertyInfo) getOf().getAxiomByName("spid");
             if ( pInfo != null ) {
               ((foam.dao.MDAO)dao).addIndex(pInfo);
@@ -459,6 +458,13 @@ foam.CLASS({
       generateJava: false
     },
     {
+      documentation: 'Set maximum polling interval for the caching DAO. Defaults to pollingInterval.',
+      class: 'Int',
+      name: 'maxPollingInterval',
+      units: 'ms',
+      generateJava: false
+    },
+    {
       class: 'FObjectProperty',
       name: 'pollingProperty',
       documentation: 'Set polling property for the caching DAO',
@@ -522,6 +528,10 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'writeOnly'
+    },
+    {
+      class: 'Boolean',
+      name: 'unloadable'
     },
     {
       documentation: 'Sets the inner dao to a nullDAO',
@@ -1009,6 +1019,15 @@ dao loading, which improves overall startup time.`,
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
           if ( getWriteOnly() ) {
             delegate = new foam.dao.WriteOnlyJDAO(x, delegate, getOf(), getJournalName());
+          } else if ( getUnloadable() ) {
+System.err.println("************************************* CREATING UNLOADABLE DAO " + getJournalName());
+            foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
+
+            // TODO: the delgate is lost, should it be sent as a prototype to be cloned?
+            // Setting of delegate must be last as it triggers replay
+            // jdao.setDelegate(delegate);
+
+            delegate = pdao;
           } else {
             foam.dao.java.JDAO jdao = new foam.dao.java.JDAO();
             jdao.setX(x);
@@ -1120,6 +1139,9 @@ dao loading, which improves overall startup time.`,
               pollingInterval: this.pollingInterval,
               pollingProperty: this.pollingProperty
             });
+
+            if ( this.maxPollingInterval )
+              dao.maxPollingInterval = this.maxPollingInterval;
           } else {
             // TTL find cache
             if ( this.ttlPurgeTime > 0 )  {

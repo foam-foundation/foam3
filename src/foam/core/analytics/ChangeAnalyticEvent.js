@@ -16,7 +16,7 @@ foam.CLASS({
       gap: 4px;
       padding: 2px 10px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: $font-medium;
       line-height: 18px;
       border-radius: 12px;
       white-space: nowrap;
@@ -38,7 +38,7 @@ foam.CLASS({
       line-height: 1;
       min-height: 1em;
       width: 100%;
-      font-weight: 600;
+      font-weight: $font-medium;
     }
     ^supportingLabel {
       line-height: 1;
@@ -123,7 +123,9 @@ foam.CLASS({
       name: 'userId',
       label: 'Actor',
       tableCellFormatter: function(value) {
-        this.style({ 'font-weight': '600' });
+        this.style({
+          'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
+        });
         this.__context__.userDAO.find(value).then((result) => {
           if ( ! result ) {
             this.add("Unknown");

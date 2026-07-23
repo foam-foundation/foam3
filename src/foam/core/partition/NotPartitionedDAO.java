@@ -80,6 +80,10 @@ public class NotPartitionedDAO
     return getDelegate().remove_(x, obj);
   }
 
+  public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
+    getDelegate().removeAll_(x, skip, limit, order, predicate);
+  }
+
   public FObject find_(X x, Object id) {
     return getDelegate().find_(x, id);
   }
@@ -89,4 +93,17 @@ public class NotPartitionedDAO
     return getDelegate().select_(x, sink, skip, limit, order, predicate);
   }
 
+  public Object cmd_(X x, Object cmd) {
+    if ( UNLOAD_CMD.equals(cmd) ) {
+      unload();
+      return true;
+    }
+
+    if ( cmd instanceof AddIndexCommand ) {
+      getIndices().add(cmd);
+      return true;
+    }
+
+    return getDelegate().cmd_(x, cmd);
+  }
 }

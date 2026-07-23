@@ -88,6 +88,7 @@ public class NotPartitionedDAO
 
   public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
     getDelegate().removeAll_(x, skip, limit, order, predicate);
+    onReset();
   }
 
   public FObject find_(X x, Object id) {

@@ -1237,14 +1237,20 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer (for multiple lines)' },
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' }
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    { class: 'Boolean', name: 'toggleCustomXScale' },
+    { class: 'Boolean', name: 'toggleCustomYScale' },
+    { class: 'Double', name: 'xAxisMaxScale' },
+    { class: 'Double', name: 'xAxisMinScale' },
+    { class: 'Double', name: 'yAxisMaxScale' },
+    { class: 'Double', name: 'yAxisMinScale' }
   ],
 
   methods: [
     function createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                responsive, maintainAspectRatio, showLegend, legendPosition,
                                showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                               xPropForLabels, yPropForLabels) {
+                               xPropForLabels, yPropForLabels, toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale) {
       var chartJSOptions = {
         responsive: responsive,
         maintainAspectRatio: maintainAspectRatio,
@@ -1279,7 +1285,9 @@ foam.CLASS({
             },
             grid: {
               display: showGridLines
-            }
+            },
+            min: toggleCustomXScale ? xAxisMinScale : undefined,
+            max: toggleCustomXScale ? xAxisMaxScale : undefined
           },
           y: {
             title: {
@@ -1288,7 +1296,9 @@ foam.CLASS({
             },
             grid: {
               display: showGridLines
-            }
+            },
+            min: toggleCustomYScale ? yAxisMinScale : undefined,
+            max: toggleCustomYScale ? yAxisMaxScale : undefined
           }
         }
       };
@@ -1385,7 +1395,7 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale) {
 
       if ( !arg1 || !arg2 ) return null;
 
@@ -1464,7 +1474,7 @@ foam.CLASS({
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   arg1, arg2);
+                                   arg1, arg2, toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale);
     }
 
   }

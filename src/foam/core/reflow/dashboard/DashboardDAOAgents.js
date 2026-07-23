@@ -1118,7 +1118,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 4,
       collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale']
     },
     {
       name: 'colors',
@@ -1243,6 +1243,50 @@ foam.CLASS({
       name: 'showGridLines',
       label: 'Show Grid Lines',
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'toggleCustomXScale',
+      label: 'Custom X Scale',
+      help: 'Toggles custom scale for the X axis'
+    },
+    {
+      class: 'Boolean',
+      name: 'toggleCustomYScale',
+      label: 'Custom Y Scale',
+      help: 'Toggles custom scale for the Y axis'
+    },
+    {
+      class: 'Double',
+      name: 'xAxisMinScale',
+      label: 'X Axis Min',
+      visibility: function(toggleCustomXScale) {
+        return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
+      }
+    },
+    {
+      class: 'Double',
+      name: 'xAxisMaxScale',
+      label: 'X Axis Max',
+      visibility: function(toggleCustomXScale) {
+        return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
+      }
+    },
+    {
+      class: 'Double',
+      name: 'yAxisMinScale',
+      label: 'Y Axis Min',
+      visibility: function(toggleCustomYScale) {
+        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
+      }
+    },
+    {
+      class: 'Double',
+      name: 'yAxisMaxScale',
+      label: 'Y Axis Max',
+      visibility: function(toggleCustomYScale) {
+        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
+      }
     }
   ],
 
@@ -1315,7 +1359,13 @@ foam.CLASS({
           animate: this.animate,
           animationDuration: this.animationDuration,
           alignment: this.alignment,
-          periodCount: this.periodCount
+          periodCount: this.periodCount,
+          toggleCustomXScale: this.toggleCustomXScale,
+          toggleCustomYScale: this.toggleCustomYScale,
+          xAxisMinScale: this.xAxisMinScale,
+          xAxisMaxScale: this.xAxisMaxScale,
+          yAxisMinScale: this.yAxisMinScale,
+          yAxisMaxScale: this.yAxisMaxScale
         });
       }
     },
@@ -1333,7 +1383,7 @@ foam.CLASS({
       this.onDetach(this.dynamic(function(colors, xAxisLabel, yAxisLabel, fill, tension, stepped, showPoints, pointRadius, showGridLines,
                                   maintainAspectRatio, height, showLegend, legendPosition,
                                   showTooltips, showTooltipSum, animate, animationDuration, alignment,
-                                  periodCount) {
+                                  periodCount, toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale) {
         s.colors = colors;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
@@ -1353,6 +1403,12 @@ foam.CLASS({
         s.animationDuration = animationDuration;
         s.alignment = alignment;
         s.periodCount = periodCount;
+        s.toggleCustomXScale = toggleCustomXScale;
+        s.toggleCustomYScale = toggleCustomYScale;
+        s.xAxisMinScale = xAxisMinScale;
+        s.xAxisMaxScale = xAxisMaxScale;
+        s.yAxisMinScale = yAxisMinScale;
+        s.yAxisMaxScale = yAxisMaxScale;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -1398,6 +1454,12 @@ foam.CLASS({
       clone.showTooltipSum$ = this.showTooltipSum$;
       clone.animate$ = this.animate$;
       clone.animationDuration$ = this.animationDuration$;
+      clone.toggleCustomXScale$ = this.toggleCustomXScale$;
+      clone.toggleCustomYScale$ = this.toggleCustomYScale$;
+      clone.xAxisMinScale$ = this.xAxisMinScale$;
+      clone.xAxisMaxScale$ = this.xAxisMaxScale$;
+      clone.yAxisMinScale$ = this.yAxisMinScale$;
+      clone.yAxisMaxScale$ = this.yAxisMaxScale$;
       return clone;
     }
   ]

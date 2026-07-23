@@ -8,6 +8,7 @@ package foam.core.partition;
 
 import foam.core.logger.Loggers;
 import foam.dao.*;
+import foam.dao.index.AddIndexCommand;
 import foam.dao.java.JDAO;
 import foam.lang.*;
 import foam.mlang.Expr;

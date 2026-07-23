@@ -8,6 +8,7 @@ package foam.core.partition;
 
 import foam.core.logger.Loggers;
 import foam.dao.*;
+import foam.dao.index.AddIndexCommand;
 import foam.dao.java.JDAO;
 import foam.lang.*;
 import foam.mlang.Expr;
@@ -73,15 +74,22 @@ public class NotPartitionedDAO
   }
 
   public FObject put_(X x, FObject obj) {
-    return getDelegate().put_(x, obj);
+    FObject ret = getDelegate().put_(x, obj);
+    // Listeners registered via listen_ live on this DAO, not the soft-referenced
+    // delegate (they would be lost on unload), so fire them here.
+    if ( ret != null ) onPut(ret);
+    return ret;
   }
 
   public FObject remove_(X x, FObject obj) {
-    return getDelegate().remove_(x, obj);
+    FObject ret = getDelegate().remove_(x, obj);
+    if ( ret != null ) onRemove(ret);
+    return ret;
   }
 
   public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
     getDelegate().removeAll_(x, skip, limit, order, predicate);
+    onReset();
   }
 
   public FObject find_(X x, Object id) {

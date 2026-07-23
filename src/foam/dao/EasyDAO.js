@@ -184,6 +184,7 @@ foam.CLASS({
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
               delegate = fixedSizeDAO;
+              setUnloadable(false);
             }
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
@@ -1021,7 +1022,7 @@ dao loading, which improves overall startup time.`,
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
           if ( getWriteOnly() ) {
             delegate = new foam.dao.WriteOnlyJDAO(x, delegate, getOf(), getJournalName());
-          } else if ( getUnloadable() ) {
+          } else if ( getUnloadable() &&  getDecorator() == null ) {
 System.err.println("************************************* CREATING UNLOADABLE DAO " + getJournalName());
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
 

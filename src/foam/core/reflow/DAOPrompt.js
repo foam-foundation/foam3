@@ -382,7 +382,13 @@ foam.CLASS({
       section: 'filter',
       onKey: true,
       displayWidth: 60,
-      view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
+      view: function(_, X) {
+        var data = X.data;
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: foam.core.reflow.parser.PropertyParser.create({of: data.dao.of}, X).getSymParser('comparator')
+        };
+      }
     },
     {
       class: 'String',
@@ -391,11 +397,13 @@ foam.CLASS({
       displayWidth: 60,
       onKey: false,
       view: function(_, X) {
+        var data = X.data;
         return {
-          class: 'foam.core.reflow.PropertySuggestedField'
+          class: 'foam.parse.auto.SmartView',
+          parser: foam.core.reflow.parser.PropertyParser.create({of: data.dao.of}, X).getSymParser('propertyList')
         };
       },
-      xxxvalidateObj: function(columns) {
+      validateObj: function(columns) {
         let a = columns.trim().split(',').map(c => c.trim());
 
         for ( let i = 0 ; i < a.length ; i++ ) {
@@ -405,7 +413,7 @@ foam.CLASS({
             let name = names[j];
             if ( ! of ) return 'Inner Property on Non Object: ' + name;
             let p = of.getAxiomByName(name);
-            if ( ! p ) return 'Unknown Property: ' + name;
+            if ( ! p ) { debugger; return 'Unknown Property: ' + name; }
             of = p.of;
           }
         }

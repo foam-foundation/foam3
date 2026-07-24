@@ -1240,10 +1240,10 @@ foam.CLASS({
     { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
     { class: 'Boolean', name: 'toggleCustomXScale' },
     { class: 'Boolean', name: 'toggleCustomYScale' },
-    { class: 'Double', name: 'xAxisMaxScale', value: 9999 },
-    { class: 'Double', name: 'xAxisMinScale', value: 0 },
-    { class: 'Double', name: 'yAxisMaxScale', value: 9999 },
-    { class: 'Double', name: 'yAxisMinScale', value: 0 },
+    { class: 'Double', name: 'xAxisMaxScale' },
+    { class: 'Double', name: 'xAxisMinScale' },
+    { class: 'Double', name: 'yAxisMaxScale' },
+    { class: 'Double', name: 'yAxisMinScale' },
     { class: 'Boolean', name: 'autoSkip' }
   ],
 

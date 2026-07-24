@@ -1261,33 +1261,37 @@ foam.CLASS({
       class: 'Double',
       name: 'xAxisMinScale',
       label: 'X Axis Min',
+      value: 0,
       visibility: function(toggleCustomXScale) {
         return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      }
+      },
     },
     {
       class: 'Double',
       name: 'xAxisMaxScale',
       label: 'X Axis Max',
+      value: 9999,
       visibility: function(toggleCustomXScale) {
         return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      }
+      },
     },
     {
       class: 'Double',
       name: 'yAxisMinScale',
       label: 'Y Axis Min',
+      value: 0,
       visibility: function(toggleCustomYScale) {
         return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      }
+      },
     },
     {
       class: 'Double',
       name: 'yAxisMaxScale',
       label: 'Y Axis Max',
+      value: 9999,
       visibility: function(toggleCustomYScale) {
         return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      }
+      },
     },
     {
       class: 'Boolean',

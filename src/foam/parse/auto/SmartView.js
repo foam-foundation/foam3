@@ -355,7 +355,7 @@ foam.CLASS({
     {
       name: 'prop',
       postSet: function(_, prop) {
-        if (prop?.onKey ) {
+        if ( prop?.onKey ) {
           this.data$.linkFrom(this.preview$);
         }
       }
@@ -567,7 +567,8 @@ foam.CLASS({
     },
     {
       name: 'onDataChange',
-      isFramed: true,
+      isMerged: true,
+      delay: 350,
       code: async function() {
         if ( ! this.data ) { this.error = ''; return; }
 

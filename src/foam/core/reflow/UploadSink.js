@@ -156,7 +156,10 @@ foam.CLASS({
 
       // Increment processing counter (totalRows should be set by parser upfront)
       this.processing++;
-      this.updateStatus();
+      // Throttle progress updates: writing processing/progress fires reactive slots
+      // that the upload UI subscribes to. Firing per-row (millions of times) dominates
+      // bulk-upload cost; updating on the batch boundary keeps the bar responsive.
+      if ( this.processing % 2000 === 0 ) this.updateStatus();
       
       // Custom validation for required fields based on actual source data
       // We use __emptySourceFields__ instead of FOAM's built-in validation because
@@ -183,8 +186,12 @@ foam.CLASS({
         }
       }
 
-      // Include non-required validation errors from FOAM (like format errors)
-      var errors = o.errors_;
+      // Include non-required validation errors from FOAM (like format errors).
+      // getErrors() is the slotless equivalent of o.errors_: the errors_ getter builds
+      // a per-object ExpressionSlot with arg-slot subscriptions, wasted reactive
+      // machinery in a one-shot bulk upload. getErrors() runs the same property
+      // validators synchronously with no slot allocation.
+      var errors = o.getErrors();
       if ( errors ) {
         var nonRequiredErrors = errors.filter(function(e) {
           // Skip FOAM's "Required" errors - we handle those with __emptySourceFields__

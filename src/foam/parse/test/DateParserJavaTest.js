@@ -73,6 +73,8 @@ foam.CLASS({
 
         // Strict Validation Mode Tests
         DateParserTest_StrictValidation_ThrowsForInvalid();
+        DateParserTest_StrictValidation_OutOfRange();
+        DateParserTest_StrictValidation_PerCallParam();
         DateParserTest_StrictValidation_ValidDatesWork();
         DateParserTest_LenientValidation_ReturnsMaxDate();
         DateParserTest_LenientValidation_ValidDatesWork();
@@ -830,6 +832,68 @@ foam.CLASS({
         } catch (RuntimeException e) {
           test(true, "StrictMode parseDateTimeUTC: throws for invalid input");
         }
+      `
+    },
+
+    {
+      name: 'DateParserTest_StrictValidation_OutOfRange',
+      javaCode: `
+        DateParser parser = new DateParser();
+        parser.setStrictValidation(true);
+
+        String[] bad = { "2025-13-40", "2025-13-01", "2025-02-30", "2025-04-31" };
+        for ( int i = 0 ; i < bad.length ; i++ ) {
+          try {
+            parser.parseDateString(bad[i]);
+            test(false, "StrictRange: \\"" + bad[i] + "\\" should throw");
+          } catch (RuntimeException e) {
+            test(e.getMessage().toLowerCase().contains("out of range"), "StrictRange: \\"" + bad[i] + "\\" throws out-of-range");
+          }
+        }
+
+        // Wrong-format-hint landing month 13 must throw.
+        try {
+          parser.parseDateString("13/04/2026");
+          test(false, "StrictRange: 13/04/2026 as MM/DD should throw");
+        } catch (RuntimeException e) {
+          test(e.getMessage().toLowerCase().contains("out of range"), "StrictRange: 13/04/2026 throws (wrong-hint caught)");
+        }
+
+        // Valid in-range date still parses.
+        Date ok = parser.parseDateString("2025-02-28");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(ok);
+        test(cal.get(Calendar.MONTH) == 1 && cal.get(Calendar.DAY_OF_MONTH) == 28, "StrictRange: valid 2025-02-28 parses");
+
+        // 12-hour AM/PM supported (ticket example stale) - must parse.
+        Date dt = parser.parseDateTime("Mar 07 2026 03:00:26AM");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(dt);
+        test(cal2.get(Calendar.YEAR) == 2026 && cal2.get(Calendar.MONTH) == 2, "StrictRange: 12-hour AM/PM parses (supported)");
+
+        parser.setStrictValidation(false);
+      `
+    },
+    {
+      name: 'DateParserTest_StrictValidation_PerCallParam',
+      javaCode: `
+        DateParser parser = new DateParser();
+        test(parser.getStrictValidation() == false, "PerCall: static flag starts false");
+
+        // Per-call strict=true rejects out-of-range without setStrictValidation.
+        try {
+          parser.parseDateString("2025-13-40", null, true);
+          test(false, "PerCall strict=true: 2025-13-40 should throw");
+        } catch (RuntimeException e) {
+          test(e.getMessage().toLowerCase().contains("out of range"), "PerCall strict=true: 2025-13-40 throws");
+        }
+
+        // Static flag untouched by the per-call arg.
+        test(parser.getStrictValidation() == false, "PerCall: static flag still false after per-call strict");
+
+        // Lenient default rolls over, no throw.
+        Date rolled = parser.parseDateString("2025-13-40");
+        test(rolled != null, "PerCall lenient: 2025-13-40 rolls over (no throw)");
       `
     },
 

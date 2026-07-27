@@ -45,6 +45,7 @@ foam.CLASS({
     ^:disabled {
       border-color: $borderLight;
       background-color: $backgroundSecondary;
+      cursor: not-allowed;
     }
     ^:checked {
       background-color: $checkboxColor;

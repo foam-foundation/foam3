@@ -201,7 +201,9 @@ foam.CLASS({
           digits: sym('rawDigits'),
 
           // TODO replace '.' with an internationalized decimal point, or have the input preprocessed
-          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('rawDigits'), optional(str(seq('.', optional(sym('rawDigits')))))))),
+          floatValue: seq1(1, sym('ws'), str(seq(optional('-'), sym('rawDigits'), optional(str(seq('.', optional(sym('rawDigits')))))))),
+
+          float: sym('floatValue'),
 
           numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
 
@@ -467,7 +469,7 @@ foam.CLASS({
           },
 
           or: function(v) {
-            return self.Or.create({ args: v });
+            return self.Or.create({ args: v }).partialEval();
           },
 
           and: function(v) {
@@ -486,8 +488,14 @@ foam.CLASS({
             return v[0] ? v[1] * -1 : v[1];
           },
 
+          // A single float value, like 3.14
+          floatValue: function(v) {
+            return parseFloat(v.trim());
+          },
+
+          // A float range, like [3.13, 3.15]
           float: function(v) {
-            let start = end = parseFloat(v.trim());
+            let start = v, end = v;
             // account for float's precision inconsistencies
             let EPSILON = 0.0000000001; // the built in Number.EPSILON is too small to be useful here
             start -= EPSILON;

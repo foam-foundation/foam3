@@ -9,6 +9,7 @@ package foam.core.ai.mcp;
 import foam.lang.*;
 import foam.core.*;
 import foam.dao.*;
+import foam.lib.*;
 import foam.lib.json.Outputter;
 import foam.lib.json.JSONParser;
 import foam.lib.formatter.JSONFObjectFormatter;
@@ -471,6 +472,11 @@ public class MCPWebAgent
     fmt.setOutputDefaultValues(true);
     fmt.setQuoteKeys(true);
     fmt.output(obj, null);
+    fmt.setPropertyPredicate(
+      new AndPropertyPredicate(new PropertyPredicate[] {
+          new NetworkPropertyPredicate(),
+          new PermissionedPropertyPredicate()
+        }));
     return fmt.builder().toString();
   }
 

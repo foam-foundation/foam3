@@ -83,11 +83,13 @@ foam.CLASS({
             delegate: dao
           });
         }
+        // Avoid this.of empty in below orderBy
+        var of = dao.of;
         if ( predicate ) {
           dao = dao.where(predicate);
         }
         dao = dao.orderBy.apply(dao, this.order.map(p => p.split('-').length > 1 ?
-          this.DESC(this.of.getAxiomByName(p.split('-')[1])) : this.of.getAxiomByName(p.split('-')[0])));
+          this.DESC(of.getAxiomByName(p.split('-')[1])) : of.getAxiomByName(p.split('-')[0])));
         return dao;
       }
     },

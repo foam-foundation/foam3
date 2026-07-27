@@ -106,7 +106,7 @@ foam.CLASS({
       value: function(str, format) {
         // format is the parser symbol name: 'START', 'ddmmyyyy', or 'yyyyddmm'
         if ( ! str || str === '' ) return null;
-        return foam.util.DateUtil.parseDateString(str, format);
+        return foam.util.DateUtil.parseDateString(str, format, true);
       }
     }
   ]
@@ -124,7 +124,7 @@ foam.CLASS({
       value: function(str, format) {
         // format is the parser symbol name: 'START', 'ddmmyyyy', or 'yyyyddmm'
         if ( ! str || str === '' ) return null;
-        return foam.util.DateUtil.parseDateTime(str, format);
+        return foam.util.DateUtil.parseDateTime(str, format, true);
       }
     }
   ]
@@ -142,7 +142,7 @@ foam.CLASS({
       value: function(str, format) {
         // format is the parser symbol name: 'START', 'ddmmyyyy', or 'yyyyddmm'
         if ( ! str || str === '' ) return null;
-        return foam.util.DateUtil.parseDateTimeUTC(str, format);
+        return foam.util.DateUtil.parseDateTimeUTC(str, format, true);
       }
     }
   ]

@@ -186,7 +186,7 @@ public class MLang
   public static Expr DOT(Expr o1, Predicate o2) {
     Dot dot = new Dot();
     dot.setArg1(o1);
-    dot.setArg2(new PredicatedExpr(o2));
+    dot.setArg2(new PredicateExpr(o2));
     return dot;
   }
 

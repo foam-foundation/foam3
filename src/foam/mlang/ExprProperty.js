@@ -33,12 +33,13 @@ foam.CLASS({
 
   methods: [
     function adaptValue(o) {
-      if ( o === null )                           return foam.mlang.Constant.create({ value: null });
-      if ( ! o.f && typeof o === 'function' )     return foam.mlang.predicate.Func.create({ fn: o });
-      if ( typeof o !== 'object' )                return foam.mlang.Constant.create({ value: o });
-      if ( o instanceof Date )                    return foam.mlang.Constant.create({ value: o });
-      if ( Array.isArray(o) )                     return foam.mlang.Constant.create({ value: o });
-      if ( foam.lang.AbstractEnum.isInstance(o) ) return foam.mlang.Constant.create({ value: o });
+      if ( o === null )                                   return foam.mlang.Constant.create({ value: null });
+      if ( ! o.f && typeof o === 'function' )             return foam.mlang.predicate.Func.create({ fn: o });
+      if ( typeof o !== 'object' )                        return foam.mlang.Constant.create({ value: o });
+      if ( o instanceof Date )                            return foam.mlang.Constant.create({ value: o });
+      if ( Array.isArray(o) )                             return foam.mlang.Constant.create({ value: o });
+      if ( foam.lang.AbstractEnum.isInstance(o) )         return foam.mlang.Constant.create({ value: o });
+      if ( foam.mlang.predicate.Predicate.isInstance(o) ) return foam.mlang.PredicateExpr.create({ predicate: o });
       if ( foam.lang.FObject.isInstance(o) ) {
            // TODO: Not all mlang expressions actually implement Expr
            // so we're just going to check for o.f

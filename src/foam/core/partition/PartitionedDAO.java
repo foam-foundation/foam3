@@ -128,6 +128,8 @@ public class PartitionedDAO
         .build();
     }
 
+    addIndices(jdao);
+
     return jdao;
   }
 

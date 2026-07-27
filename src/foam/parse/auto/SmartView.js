@@ -144,16 +144,16 @@ foam.CLASS({
       cursor: pointer;
     }
 
-    ^property { color: $green400; }
-    ^operator { color: $orange400; }
-    ^value    { color: $blue400; }
-    ^format   { color: $grey400; }
-    ^standard { color: $blue400; }
-    ^custom { color: $orange400; }
-
+    ^property    { color: $green400; }
+    ^operator    { color: $orange400; }
+    ^value       { color: $blue400; }
+    ^format      { color: $grey400; }
+    ^standard    { color: $blue400; }
+    ^custom      { color: $orange400; }
+    ^function    { color: $purple400; }
     ^calculation { color: $orange400; }
-    ^chart    { color: $blue400; }
-    ^structure { color: $green400; }
+    ^chart       { color: $blue400; }
+    ^structure   { color: $green400; }
   `,
 
   properties: [
@@ -172,7 +172,10 @@ foam.CLASS({
           addClass(this.myClass('label')).
           callIfElse(data.tooltip,
             function() {
-              this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(data.tooltip).end();
+              this.start('span').style({
+                fontStyle: 'italic',
+                color: foam.CSS.returnTokenValue('$textSecondary', this.cls_, this.__subContext__)
+              }).add(data.tooltip).end();
             },
             function() {
               const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');
@@ -262,7 +265,8 @@ foam.CLASS({
       }
     },
     {
-      name: 'parser'
+      name: 'parser',
+      documentation: 'A Parser instance or a factory that returns a Parser or a Promise of a Parser.'
     },
     {
       class: 'Boolean',
@@ -351,7 +355,7 @@ foam.CLASS({
     {
       name: 'prop',
       postSet: function(_, prop) {
-        if (prop?.onKey ) {
+        if ( prop?.onKey ) {
           this.data$.linkFrom(this.preview$);
         }
       }
@@ -408,7 +412,9 @@ foam.CLASS({
       // Search fields have a 'x' icon on the right which clears the field, but for
       // some reason if onPreviewChange runs too quickly then this doesn't work for
       // some unknown reason.
-      this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      if ( this.mode == foam.u2.DisplayMode.RW ) {
+        this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      }
       self.overlay_.parentEl = this.field.el_();
       self.overlay_.write();
       self.overlay_
@@ -546,7 +552,7 @@ foam.CLASS({
     {
       name: 'onPreviewChange',
       isFramed: true,
-      code: function() {
+      code: async function() {
         this.error = '';
 
         // Parse the preview text with our 'apply' callback so we can rebuild
@@ -555,14 +561,15 @@ foam.CLASS({
 
         let str = this.preview + String.fromCharCode(26) /* EOF */;
         let ps  = foam.parse.StringPStream.create({str: str, apply: this.apply});
-
-        ps = this.parser.parse(ps);
+        let parser = foam.Function.isInstance(this.parser) ? await this.parser() : this.parser;
+        ps = parser.parse(ps);
       }
     },
     {
       name: 'onDataChange',
-      isFramed: true,
-      code: function() {
+      isMerged: true,
+      delay: 350,
+      code: async function() {
         if ( ! this.data ) { this.error = ''; return; }
 
         this.preview = this.data;
@@ -575,7 +582,8 @@ foam.CLASS({
         let str    = this.data + String.fromCharCode(26) /* EOF */;
         let ps     = foam.parse.StringPStream.create({str: str, apply: apply});
 
-        ps = this.parser.parse(ps);
+        let parser = foam.Function.isInstance(this.parser) ? await this.parser() : this.parser;
+        ps = parser.parse(ps);
 
         if ( ps == null || maxPos < this.data.length ) {
           this.error = 'Error at: ' + (maxPos == this.data.length ? '<end of input>' : this.data.substring(maxPos));

@@ -29,7 +29,7 @@ p({"class":"foam.strategy.StrategyReference","id":"7b0ac954-c20a-636e-31e4-2f3be
 p({"class":"foam.strategy.StrategyReference","id":"904ae35f-5c4a-4361-8f0c-7b54a71d5b79","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.expr.PropertyExpr"})
 p({"class":"foam.strategy.StrategyReference","id":"2c1799d7-afa3-4768-92a0-8245b3cd5180","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.Constant"})
 p({"class":"foam.strategy.StrategyReference","id":"6383e97e-f0b3-4f7b-a995-e5ba79c35db8","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.ArrayConstant"})
-p({"class":"foam.strategy.StrategyReference","id":"a8e52e35-d645-4cae-9398-c4fe38afdb17","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.PredicatedExpr"})
+p({"class":"foam.strategy.StrategyReference","id":"a8e52e35-d645-4cae-9398-c4fe38afdb17","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.PredicateExpr"})
 p({"class":"foam.strategy.StrategyReference","id":"0f02abb6-1b7f-4fcd-93aa-90255cf9819e","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.ContextObject"})
 p({"class":"foam.strategy.StrategyReference","id":"7207bfd7-7cf4-4652-9cb9-f3f6feb9aa13","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.CurrentTime"})
 p({"class":"foam.strategy.StrategyReference","id":"3fdc341c-3393-44f2-8969-3a11a730ef3c","desiredModelId":"foam.mlang.Expr","strategy":"foam.mlang.StringLength"})

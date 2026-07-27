@@ -315,7 +315,7 @@ foam.CLASS({
     }
 
     ^container .highlighted.disabled {
-      background-color: initial;
+      background-color: unset;
     }
   `,
 

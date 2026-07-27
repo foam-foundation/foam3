@@ -124,7 +124,7 @@ foam.POM({
         this.execute('genJava');
         // TODO: just compile foam.util.Password.java and foam.util.SecurityUtil.java
       }
-      ADMIN_PASSWORD_HASH = this.execSync(`java -cp "${BUILD_DIR}/lib/\*:${BUILD_DIR}/classes" foam.util.Password ${ADMIN_PASSWORD.trim()}`).toString().trim();
+      ADMIN_PASSWORD_HASH = this.execSync(`java -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" foam.util.Password ${ADMIN_PASSWORD.trim()}`).toString().trim();
     }],
 
     templateMerge: ['template-merge', 'Populate template fields and copy template into final file location', [],

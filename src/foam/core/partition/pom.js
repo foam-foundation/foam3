@@ -14,6 +14,7 @@ foam.POM({
     { name: "PartitionedDAO" },
     { name: "DatePartitionedDAO" },
     { name: "ReferenceMigrator" },
-    { name: "SingleToPartitionMigrator" }
+    { name: "SingleToPartitionMigrator" },
+    { name: "NotPartitionedDAO" },
   ]
 });

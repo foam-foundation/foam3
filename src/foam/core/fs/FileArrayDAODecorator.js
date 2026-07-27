@@ -115,7 +115,20 @@ foam.CLASS({
       obj = await this.processFiles(obj);
       const arr = obj.cls_.getAxiomsByClass(foam.lang.Array);
       await Promise.all(arr.map(async p => {
-        const processed = await Promise.all(p.f(obj).map(data => this.arrayRecursion(data)));
+        const v = p.f(obj);
+        if ( ! Array.isArray(v) ) {
+          // An Array-type axiom whose stored value isn't an array — usually a
+          // value persisted before the property's class was changed to an
+          // Array type (FOAM3 does not migrate persisted values on class
+          // change). Name the property/class/value so the culprit is obvious
+          // instead of the bare "p.f(...).map is not a function".
+          throw new Error(
+            'FileArrayDAODecorator: property "' + p.name + '" on ' + obj.cls_.id +
+            ' has an Array-type axiom (' + p.cls_.id + ') but its value is ' +
+            ( v === null ? 'null' : typeof v ) + ', not an array'
+          );
+        }
+        const processed = await Promise.all(v.map(data => this.arrayRecursion(data)));
         p.set(obj, processed);
       }));
       return obj;

@@ -42,8 +42,8 @@ foam.CLASS({
           } else {
             //          parser = p.seq(parser);
           }
-        } catch (x) {
-          debugger;
+        } catch (e) {
+          console.error('*************** ',e);
         }
 
         this.alt.args.push(parser);

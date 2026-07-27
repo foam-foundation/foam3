@@ -23,6 +23,7 @@ foam.POM({
   ],
 
   javaDependencies: [
-    'mysql:mysql-connector-java:8.0.16'
+    'com.mysql:mysql-connector-j:8.2.0',
+    'com.google.protobuf:protobuf-java:3.25.5'
   ]
 });

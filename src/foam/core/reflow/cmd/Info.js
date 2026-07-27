@@ -12,7 +12,7 @@ foam.CLASS({
   imports: [ 'appConfig', 'flow', 'group', 'subject', 'theme' ],
 
   properties: [
-    [ 'description', 'Display system information' ]
+    [ 'description', 'Info about the system' ]
   ],
 
   static: [

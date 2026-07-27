@@ -50,6 +50,15 @@ public class DateParser {
   public void setStrictValidation(boolean v) { strictValidation_ = v; }
 
   /**
+   * Per-call strict override. Set for the duration of a single parse call.
+   * Instance field is safe because DateUtil creates a fresh DateParser per call.
+   */
+  private boolean callStrict_ = false;
+
+  /** Effective strict = per-call override OR the legacy global flag. */
+  private boolean isStrict() { return callStrict_ || strictValidation_; }
+
+  /**
    * Maximum cache size per method to prevent unbounded growth.
    */
   private static final int MAX_CACHE_SIZE = 10000;
@@ -92,11 +101,9 @@ public class DateParser {
    * Build cache key: use str directly when opt_name is null (common case),
    * otherwise concatenate opt_name:str (rare case).
    */
-  private String buildCacheKey(String str, String opt_name) {
-    if ( opt_name == null || opt_name.isEmpty() ) {
-      return str;
-    }
-    return opt_name + ":" + str;
+  private String buildCacheKey(String str, String opt_name, boolean strict) {
+    String key = ( opt_name == null || opt_name.isEmpty() ) ? str : opt_name + ":" + str;
+    return strict ? "S:" + key : key;
   }
 
   /**
@@ -155,36 +162,46 @@ public class DateParser {
    * @return Parsed Date object
    * @throws RuntimeException if format is unsupported and strictValidation is true
    */
+  public Date parseString(String str, String opt_name, boolean strict) {
+    boolean prevStrict = callStrict_;
+    callStrict_ = strict;
+    try {
+      if ( str == null || str.trim().isEmpty() ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported Date format: empty or null string");
+        }
+        System.err.println("Warning: Invalid date: empty or null string; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      String cacheKey = buildCacheKey(str, opt_name, isStrict());
+      Date cached = cacheGet(stringCache_, cacheKey);
+      if ( cached != null ) return cached;
+
+      StringPStream sps = new StringPStream(str);
+      ParserContext x = new ParserContextImpl();
+      x.set("dateParseMode", DateParseMode.STRING);
+
+      PStream parseResult = grammar_.parse(sps, x, opt_name);
+      if ( parseResult == null || parseResult.value() == null ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported Date format: " + str);
+        }
+        System.err.println("Warning: Invalid date: \"" + str + "\"; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      return cacheSet(stringCache_, cacheKey, (Date) parseResult.value());
+    } finally {
+      callStrict_ = prevStrict;
+    }
+  }
+
   public Date parseString(String str, String opt_name) {
-    if ( str == null || str.trim().isEmpty() ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported Date format: empty or null string");
-      }
-      System.err.println("Warning: Invalid date: empty or null string; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    str = str.trim();
-
-    // Check cache first - use str directly as key when opt_name is null (common case)
-    String cacheKey = buildCacheKey(str, opt_name);
-    Date cached = cacheGet(stringCache_, cacheKey);
-    if ( cached != null ) return cached;
-
-    StringPStream sps = new StringPStream(str);
-    ParserContext x = new ParserContextImpl();
-    x.set("dateParseMode", DateParseMode.STRING);
-
-    PStream parseResult = grammar_.parse(sps, x, opt_name);
-    if ( parseResult == null || parseResult.value() == null ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported Date format: " + str);
-      }
-      System.err.println("Warning: Invalid date: \"" + str + "\"; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    return cacheSet(stringCache_, cacheKey, (Date) parseResult.value());
+    return parseString(str, opt_name, false);
   }
 
   /**
@@ -203,36 +220,46 @@ public class DateParser {
    * @param opt_name Optional grammar symbol name
    * @return Parsed Date object at noon GMT, or MAX_DATE if invalid and strictValidation is false
    */
+  public Date parseDateString(String str, String opt_name, boolean strict) {
+    boolean prevStrict = callStrict_;
+    callStrict_ = strict;
+    try {
+      if ( str == null || str.trim().isEmpty() ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported Date format: empty or null string");
+        }
+        System.err.println("Warning: Invalid date: empty or null string; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      String cacheKey = buildCacheKey(str, opt_name, isStrict());
+      Date cached = cacheGet(dateCache_, cacheKey);
+      if ( cached != null ) return cached;
+
+      StringPStream sps = new StringPStream(str);
+      ParserContext x = new ParserContextImpl();
+      x.set("dateParseMode", DateParseMode.DATE);
+
+      PStream parseResult = grammar_.parse(sps, x, opt_name);
+      if ( parseResult == null || parseResult.value() == null ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported Date format: " + str);
+        }
+        System.err.println("Warning: Invalid date: \"" + str + "\"; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      return cacheSet(dateCache_, cacheKey, (Date) parseResult.value());
+    } finally {
+      callStrict_ = prevStrict;
+    }
+  }
+
   public Date parseDateString(String str, String opt_name) {
-    if ( str == null || str.trim().isEmpty() ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported Date format: empty or null string");
-      }
-      System.err.println("Warning: Invalid date: empty or null string; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    str = str.trim();
-
-    // Check cache first - use str directly as key when opt_name is null (common case)
-    String cacheKey = buildCacheKey(str, opt_name);
-    Date cached = cacheGet(dateCache_, cacheKey);
-    if ( cached != null ) return cached;
-
-    StringPStream sps = new StringPStream(str);
-    ParserContext x = new ParserContextImpl();
-    x.set("dateParseMode", DateParseMode.DATE);
-
-    PStream parseResult = grammar_.parse(sps, x, opt_name);
-    if ( parseResult == null || parseResult.value() == null ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported Date format: " + str);
-      }
-      System.err.println("Warning: Invalid date: \"" + str + "\"; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    return cacheSet(dateCache_, cacheKey, (Date) parseResult.value());
+    return parseDateString(str, opt_name, false);
   }
 
   /**
@@ -253,36 +280,46 @@ public class DateParser {
    * @param opt_name Optional grammar symbol name
    * @return Parsed Date object in local time, or MAX_DATE if invalid and strictValidation is false
    */
+  public Date parseDateTime(String str, String opt_name, boolean strict) {
+    boolean prevStrict = callStrict_;
+    callStrict_ = strict;
+    try {
+      if ( str == null || str.trim().isEmpty() ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported DateTime format: empty or null string");
+        }
+        System.err.println("Warning: Invalid datetime: empty or null string; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      String cacheKey = buildCacheKey(str, opt_name, isStrict());
+      Date cached = cacheGet(dateTimeCache_, cacheKey);
+      if ( cached != null ) return cached;
+
+      StringPStream sps = new StringPStream(str);
+      ParserContext x = new ParserContextImpl();
+      x.set("dateParseMode", DateParseMode.DATETIME);
+
+      PStream parseResult = grammar_.parse(sps, x, opt_name);
+      if ( parseResult == null || parseResult.value() == null ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported DateTime format: " + str);
+        }
+        System.err.println("Warning: Invalid datetime: \"" + str + "\"; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      return cacheSet(dateTimeCache_, cacheKey, (Date) parseResult.value());
+    } finally {
+      callStrict_ = prevStrict;
+    }
+  }
+
   public Date parseDateTime(String str, String opt_name) {
-    if ( str == null || str.trim().isEmpty() ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported DateTime format: empty or null string");
-      }
-      System.err.println("Warning: Invalid datetime: empty or null string; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    str = str.trim();
-
-    // Check cache first - use str directly as key when opt_name is null (common case)
-    String cacheKey = buildCacheKey(str, opt_name);
-    Date cached = cacheGet(dateTimeCache_, cacheKey);
-    if ( cached != null ) return cached;
-
-    StringPStream sps = new StringPStream(str);
-    ParserContext x = new ParserContextImpl();
-    x.set("dateParseMode", DateParseMode.DATETIME);
-
-    PStream parseResult = grammar_.parse(sps, x, opt_name);
-    if ( parseResult == null || parseResult.value() == null ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported DateTime format: " + str);
-      }
-      System.err.println("Warning: Invalid datetime: \"" + str + "\"; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    return cacheSet(dateTimeCache_, cacheKey, (Date) parseResult.value());
+    return parseDateTime(str, opt_name, false);
   }
 
   /**
@@ -303,36 +340,46 @@ public class DateParser {
    * @param opt_name Optional grammar symbol name
    * @return Parsed Date object in UTC, or MAX_DATE if invalid and strictValidation is false
    */
+  public Date parseDateTimeUTC(String str, String opt_name, boolean strict) {
+    boolean prevStrict = callStrict_;
+    callStrict_ = strict;
+    try {
+      if ( str == null || str.trim().isEmpty() ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported DateTime format: empty or null string");
+        }
+        System.err.println("Warning: Invalid datetime: empty or null string; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      str = str.trim();
+
+      // Check cache first - use str directly as key when opt_name is null (common case)
+      String cacheKey = buildCacheKey(str, opt_name, isStrict());
+      Date cached = cacheGet(dateTimeUtcCache_, cacheKey);
+      if ( cached != null ) return cached;
+
+      StringPStream sps = new StringPStream(str);
+      ParserContext x = new ParserContextImpl();
+      x.set("dateParseMode", DateParseMode.DATETIME_UTC);
+
+      PStream parseResult = grammar_.parse(sps, x, opt_name);
+      if ( parseResult == null || parseResult.value() == null ) {
+        if ( isStrict() ) {
+          throw new RuntimeException("Unsupported DateTime format: " + str);
+        }
+        System.err.println("Warning: Invalid datetime: \"" + str + "\"; assuming MAX_DATE.");
+        return MAX_DATE;
+      }
+
+      return cacheSet(dateTimeUtcCache_, cacheKey, (Date) parseResult.value());
+    } finally {
+      callStrict_ = prevStrict;
+    }
+  }
+
   public Date parseDateTimeUTC(String str, String opt_name) {
-    if ( str == null || str.trim().isEmpty() ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported DateTime format: empty or null string");
-      }
-      System.err.println("Warning: Invalid datetime: empty or null string; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    str = str.trim();
-
-    // Check cache first - use str directly as key when opt_name is null (common case)
-    String cacheKey = buildCacheKey(str, opt_name);
-    Date cached = cacheGet(dateTimeUtcCache_, cacheKey);
-    if ( cached != null ) return cached;
-
-    StringPStream sps = new StringPStream(str);
-    ParserContext x = new ParserContextImpl();
-    x.set("dateParseMode", DateParseMode.DATETIME_UTC);
-
-    PStream parseResult = grammar_.parse(sps, x, opt_name);
-    if ( parseResult == null || parseResult.value() == null ) {
-      if ( strictValidation_ ) {
-        throw new RuntimeException("Unsupported DateTime format: " + str);
-      }
-      System.err.println("Warning: Invalid datetime: \"" + str + "\"; assuming MAX_DATE.");
-      return MAX_DATE;
-    }
-
-    return cacheSet(dateTimeUtcCache_, cacheKey, (Date) parseResult.value());
+    return parseDateTimeUTC(str, opt_name, false);
   }
 
   /**
@@ -465,7 +512,7 @@ public class DateParser {
       case "NOV": return 10;
       case "DEC": return 11;
       default:
-        if ( strictValidation_ ) {
+        if ( isStrict() ) {
           throw new RuntimeException("Invalid month name: \"" + monthName + "\"");
         }
         System.err.println("Warning: Invalid month name: \"" + monthName + "\"; assuming January.");
@@ -478,6 +525,18 @@ public class DateParser {
    */
   private Date buildDate(DateParseMode mode, int year, int month, int day,
                          int hour, int minute, int second, int ms, String tz) {
+    // Strict mode: reject out-of-range month/day instead of letting Calendar silently roll over.
+    if ( isStrict() ) {
+      if ( month < 0 || month > 11 )
+        throw new RuntimeException("Date out of range: month " + ( month + 1 ) + " in \"" + year + "-" + ( month + 1 ) + "-" + day + "\"");
+      Calendar dim = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+      dim.clear();
+      dim.set(year, month, 1);
+      int daysInMonth = dim.getActualMaximum(Calendar.DAY_OF_MONTH);
+      if ( day < 1 || day > daysInMonth )
+        throw new RuntimeException("Date out of range: day " + day + " in \"" + year + "-" + ( month + 1 ) + "-" + day + "\"");
+    }
+
     Calendar cal;
     switch (mode) {
       case DATE:

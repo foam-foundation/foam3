@@ -111,12 +111,17 @@ foam.CLASS({
             return;
           }
 
-
-
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
             if ( length == 0 ) continue;
-            if ( COMMENT.matcher(entry).matches() ) continue;
+            // Fast comment check: every comment starts with '/', which is never
+            // the first char of a data entry ('c', 'p', 'r', 'v'). getEntry reads
+            // line-by-line and only accumulates OPEN_PUT/CREATE/REMOVE blocks, so
+            // multi-line block comments were never skipped by the COMMENT regex
+            // either (its closing '*/' never lands on the opening line) — this
+            // charAt check is a strict superset of the single-line cases the regex
+            // actually matched, at no per-entry Matcher allocation.
+            if ( entry.charAt(0) == '/' ) continue;
             if ( length < 3 ) {
               // Don't bother reporting lines with just spaces
               if ( entry.toString().trim().length() != 0 ) {

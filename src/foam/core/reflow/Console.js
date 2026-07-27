@@ -612,6 +612,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
+    ^r .foam-u2-ActionView { min-width: 40px; }
     ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
@@ -1071,7 +1072,7 @@ foam.CLASS({
       text-align: center;
     }
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
-      color: orange !important;
+      color: $orange500 !important;
     }
   `,
 

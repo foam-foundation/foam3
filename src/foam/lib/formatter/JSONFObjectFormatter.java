@@ -130,16 +130,28 @@ public class JSONFObjectFormatter
   public void output(long val) { append(val); }
 
 
-  public void output(float val) { append(val); }
+  public void output(float val) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
-  public void output(double val) { append(val); }
+  public void output(double val) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
   public void output(boolean val) { append(val); }
 
 
-  protected void outputNumber(Number value) { append(value); }
+  protected void outputNumber(Number value) {
+    if ( value instanceof Double || value instanceof Float ) {
+      double d = value.doubleValue();
+      if ( Double.isNaN(d) || Double.isInfinite(d) ) { append("null"); return; }
+    }
+    append(value);
+  }
 
   public void output(String[] arr) { output((Object[]) arr); }
 
@@ -681,11 +693,13 @@ public class JSONFObjectFormatter
   }
 
   public void output(float val, int precision) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }
 
   public void output(double val, int precision) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }

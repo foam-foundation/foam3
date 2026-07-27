@@ -18,7 +18,7 @@ foam.CLASS({
   imports: [
     'cSpecDAO',
     'selected',
-    'flowChildren'
+    'flowChildren?'
   ],
 
   properties: [
@@ -39,7 +39,7 @@ foam.CLASS({
       var flowChoices = [];
       var daoChoices  = [];
 
-      this.flowChildren.forEach( child => {
+      this.flowChildren && this.flowChildren.forEach( child => {
           child.value?.cls_ && child.value.cls_.getAxiomsByClass(foam.dao.DAOProperty).forEach( prop => flowChoices.push(child.flowName + '.' + prop.name) )
       })
 

@@ -1,30 +1,29 @@
 /**
  * @license
- * Copyright 2017 The FOAM Authors. All Rights Reserved.
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
 foam.CLASS({
   package: 'foam.mlang',
-  name: 'PredicatedExpr',
+  name: 'PredicateExpr',
   extends: 'foam.mlang.AbstractExpr',
   implements: [ 'foam.lang.Serializable' ],
 
-  documentation: 'An Expression that evaluates a predicate.',
+  documentation: 'An Expr that wraps a Predicate, allowing it to be used where an Expr is expected.',
 
   properties: [
     {
       class: 'foam.mlang.predicate.PredicateProperty',
-      name: 'arg1'
+      name: 'predicate'
     }
   ],
 
   methods: [
     {
       name: 'f',
-      javaCode: `
-        return getArg1().f(obj);
-      `
+      code: function(obj) { return this.predicate.f(obj); },
+      javaCode: 'return getPredicate().f(obj);'
     }
   ]
 });

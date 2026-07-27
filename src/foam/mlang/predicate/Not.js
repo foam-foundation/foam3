@@ -118,21 +118,28 @@ foam.CLASS({
         .build();
     }
 
-//    Not predicate = (Not) this.fclone();
-    Not predicate = this;
-    if ( predicate.arg1_.getClass().equals(And.class) ) {
-      int len = ( (And) predicate.getArg1() ).args_.length;
-      for ( int i = 0; i < len; i++ ) {
-        ( (And) predicate.getArg1() ).args_[i] = ( new Not.Builder(null).setArg1((( (And) predicate.getArg1() ).args_[i]) ).build().partialEval() );
+    // De Morgan: push the negation into a nested And/Or. Build a fresh negated
+    // args array instead of rewriting arg1_.args_ in place — fclone() is a no-op
+    // on predicates, so an in-place rewrite mutates this shared object. MDAO
+    // tree-index planning (TreeIndex.simplifyPredicate) calls partialEval on
+    // predicates that may be reused across select() calls, and mutating one
+    // corrupts every later reuse, so where(A).where(B) counted differently than
+    // where(AND(A, B)).
+    if ( arg1_.getClass().equals(And.class) ) {
+      Predicate[] args    = ( (And) arg1_ ).getArgs();
+      Predicate[] negated = new Predicate[args.length];
+      for ( int i = 0; i < args.length; i++ ) {
+        negated[i] = new Not.Builder(null).setArg1(args[i]).build().partialEval();
       }
-      return new Or.Builder(null).setArgs(( (And) predicate.getArg1() ).args_).build().partialEval();
+      return new Or.Builder(null).setArgs(negated).build().partialEval();
     }
-    if ( predicate.arg1_.getClass().equals(Or.class) ) {
-      int len = ( (Or) predicate.getArg1() ).args_.length;
-      for ( int i = 0; i < len; i++ ) {
-        ( (Or) predicate.getArg1() ).args_[i] = ( new Not.Builder(null).setArg1((( (Or) predicate.getArg1() ).args_[i]) ).build().partialEval() );
+    if ( arg1_.getClass().equals(Or.class) ) {
+      Predicate[] args    = ( (Or) arg1_ ).getArgs();
+      Predicate[] negated = new Predicate[args.length];
+      for ( int i = 0; i < args.length; i++ ) {
+        negated[i] = new Not.Builder(null).setArg1(args[i]).build().partialEval();
       }
-      return new And.Builder(null).setArgs((( (Or) predicate.getArg1() ).args_)).build().partialEval();
+      return new And.Builder(null).setArgs(negated).build().partialEval();
     }
 
     return this;`

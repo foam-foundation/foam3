@@ -466,6 +466,62 @@ foam.CLASS({
         }) ?? [];
         console.table(a);
       };
+
+      // Synchronous, slotless equivalent of errors_. Runs the same property
+      // validators directly against the object with no ExpressionSlot allocation
+      // or arg-slot subscriptions. Intended for one-shot validation of many
+      // objects (e.g. bulk import) where the reactive errors_ slot is pure
+      // overhead. Returns the same shape as errors_: an array of
+      // [ propertyAxiom, errorMessage ] pairs, or undefined when there are none.
+      proto.getErrors = function() {
+        return self.computeErrors_(this);
+      };
+    },
+
+    function rawValidators_(cls) {
+      // [ property, validateObj ] pairs, cached per class (shared with errors_).
+      var validators = cls.private_.validators__;
+      if ( ! validators ) {
+        validators = [];
+        cls.getAxiomsByClass(foam.lang.Property).forEach(p => {
+          if ( p.validateObj         ) validators.push([p, p.validateObj]);
+          if ( p.internalValidateObj ) validators.push([p, p.internalValidateObj]);
+        });
+        cls.private_.validators__ = validators;
+      }
+      return validators;
+    },
+
+    function computeErrors_(obj) {
+      var cls        = obj.cls_;
+      var validators = cls.private_.slotlessValidators__;
+
+      // Normalize each validator once per class into { prop, args, fn, simple }.
+      // A validateObj is either a bare function (args derived from its parameter
+      // names) or an [ argNames, fn ] pair. "simple" validators depend only on
+      // plain property values; nested slot-path args ($ / dot chains) need the
+      // reactive slot, so those objects fall back to errors_.
+      if ( ! validators ) {
+        validators = this.rawValidators_(cls).map(v => {
+          var prop = v[0], vo = v[1], args, fn;
+          if ( Array.isArray(vo) ) { args = vo[0]; fn = vo[1]; }
+          else { args = foam.Function.argNames(vo); fn = vo; }
+          var simple = args.every(a => a.indexOf('$') < 0 && a.indexOf('.') < 0);
+          return { prop: prop, args: args, fn: fn, simple: simple };
+        });
+        cls.private_.slotlessValidators__ = validators;
+      }
+
+      if ( validators.length === 0 ) return undefined;
+
+      var ret;
+      for ( var i = 0; i < validators.length; i++ ) {
+        var v = validators[i];
+        if ( ! v.simple ) return obj.errors_;
+        var err = v.fn.apply(obj, v.args.map(a => obj[a]));
+        if ( err ) ( ret || ( ret = [] ) ).push([ v.prop, err ]);
+      }
+      return ret;
     },
 
     function toSlot(obj) {
@@ -481,23 +537,10 @@ foam.CLASS({
     },
 
      function createErrorSlot_(obj) {
-      var validators, args = new Set();
+      var args = new Set();
 
-      // Cache validators and args in the obj's cls_ because they can be reused for
-      // all instances of the same class.
-      if ( ! obj.cls_.private_.validators__ ) {
-        validators = []; // [ property, errorSlot ] pairs
-        args = new Set();
-
-        obj.cls_.getAxiomsByClass(foam.lang.Property).forEach(p => {
-          if ( p.validateObj         ) validators.push([p, p.validateObj]);
-          if ( p.internalValidateObj ) validators.push([p, p.internalValidateObj]);
-        });
-
-        obj.cls_.private_.validators__    = validators;
-      } else {
-        validators = obj.cls_.private_.validators__;
-      }
+      // [ property, validateObj ] pairs, cached per class (shared with getErrors).
+      var validators = this.rawValidators_(obj.cls_);
 
       // Upgrade validator functions to slots
       validators = validators.map(v => {

@@ -69,11 +69,14 @@ console.log(slotName.get());    // → 'Steve'   reads through to the live prope
 That's the whole point: `name` is the value, `slotName` is a pointer *to* the value.
 
 The `$` suffix is part of the FOAM modeling syntax — like `CLASS` or `ENUM` — and references
-the property's slot instead of its static value. For every property, FOAM generates a `<property>$`
+the property's slot instead of its static value.
+For every property, FOAM generates a `<property>$`
 accessor whose getter returns a `Slot`, specifically a `PropertySlot` (see `Property.toSlot`
 in `Property.js`), created once and cached. So `person.fname$` is an ordinary object you can
-hold in a variable, pass around, and call methods on. It has three core operations, defined
-on `PropertySlot` — `get`, `set`, `sub`:
+hold in a variable, pass around, and call methods on.
+All FObjects have the `.slot()` method, which returns a slot for the specified name.
+So, `person.fname$` is actually a short-form for `person.slot('fname')`.
+In either case, the slot has three core operations, defined on `PropertySlot` — `get`, `set`, `sub`:
 
 ```javascript
 slotName.get();         // → 'Steve'                       read through the pointer

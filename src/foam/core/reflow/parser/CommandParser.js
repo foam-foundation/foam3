@@ -30,6 +30,7 @@ foam.CLASS({
 
       for ( let i = 0 ; i < cmds.length ; i++ ) {
         let c      = cmds[i];
+        if ( c.hidden ) continue;
         let parser = p.sug(p.literalIC(c.id), {
           text:  c.id,
           label: c.description,

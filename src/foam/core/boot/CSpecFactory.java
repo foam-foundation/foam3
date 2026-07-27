@@ -25,20 +25,20 @@ public class CSpecFactory
   Thread      creatingThread_ = null;
   Object      ns_             = null;
   ThreadLocal tlService_      = new ThreadLocal() {
-      long since = 0L;
-      protected Object initialValue() {
-        since = System.currentTimeMillis();
-        return maybeBuildService();
-      }
+    long since = 0L;
+    protected Object initialValue() {
+      since = System.currentTimeMillis();
+      return maybeBuildService();
+    }
 
-      public Object get() {
-        if ( System.currentTimeMillis() - since > 1000 ) {
-          // invalidate - force initialValue to be called on next get()
-          super.remove();
-        }
-        return super.get();
+    public Object get() {
+      if ( System.currentTimeMillis() - since > 1000 ) {
+        // invalidate - force initialValue to be called on next get()
+        super.remove();
       }
-    };
+      return super.get();
+    }
+  };
 
   public CSpecFactory(ProxyX x, CSpec spec) {
     x_    = x;

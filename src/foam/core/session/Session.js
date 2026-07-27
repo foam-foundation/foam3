@@ -410,6 +410,8 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
           rtn = rtn.put("userAgent", req.getHeader("User-Agent"));
         }
 
+        rtn = rtn.put("facetManager", x.get("facetManager"));
+
         // Cache the context changes of applyTo
         setApplyContext(((OrX) rtn).getX());
         pm.log(x);

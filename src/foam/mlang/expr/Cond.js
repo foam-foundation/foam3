@@ -40,7 +40,7 @@ foam.CLASS({
     {
       name: 'toString',
       code: function() {
-        return foam.String.constantize(this.cls_.name) + `(${this.cond}, ${this.ifExpr}, ${this.elseExpr}`;
+        return foam.String.constantize(this.cls_.name) + `(${this.cond}, ${this.ifExpr}, ${this.elseExpr})`;
       },
       javaCode: 'return String.format("If(%s, %s, %s)", getCond().toString(), getIfExpr().toString(), getElseExpr().toString());'
     },

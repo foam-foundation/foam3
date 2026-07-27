@@ -8,11 +8,13 @@ foam.CLASS({
   package: 'foam.u2.view',
   name: 'CollapseableDetailView',
   extends: 'foam.u2.View',
+
   documentation: `
     A detail view that initially just renders the summary of the object
     with a "Show" button that, when clicked, shows a detail view of that
     object.
   `,
+
   requires: [
     'foam.u2.layout.Cols',
   ],
@@ -51,6 +53,7 @@ foam.CLASS({
       }
     }
   ],
+
   actions: [
     {
       name: 'showAction',
@@ -67,6 +70,7 @@ foam.CLASS({
       code: function() { this.isCollapsed = true; }
     }
   ],
+
   methods: [
     function render() {
       var self = this;

@@ -113,7 +113,7 @@ foam.CLASS({
     async function render() {
       var self = this;
 
-      if ( ! this.choice ) {
+      if ( ! this.choice && ! this.data ) {
         await this.agentDAO.limit(1).select().then(agents => {
           const entities = agents.array;
           this.choice = entities[0]?.value;

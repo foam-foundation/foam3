@@ -21,7 +21,7 @@ foam.CLASS({
     'foam.core.reflow.perf.PerfReport',
     'foam.core.reflow.perf.PerfSnapshot',
     'foam.core.reflow.perf.PerfSeverity',
-    'foam.u2.Tabs',
+    'foam.u2.SegmentedTabs',
     'foam.u2.Tab',
     'foam.log.LogLevel'
   ],
@@ -50,8 +50,9 @@ foam.CLASS({
   css: `
     ^ { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: $textDefault; }
 
-    /* copy action pinned to the right end of the tab strip */
-    ^copy-wrap { margin-left: auto; align-self: center; }
+    /* tab strip: tab-row hugs left; copy action overlays top-right so content below stays full width */
+    ^tab-strip { position: relative; }
+    ^copy-wrap { position: absolute; top: 0; right: 0; }
 
     /* card */
     ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; max-width: 100%; overflow-x: auto; }
@@ -143,19 +144,21 @@ foam.CLASS({
         var svcLabel   = 'Services' + ( actions ? ' · ' + actions + ' to fix' : '' );
         var issueLabel = 'Issues' + ( ( r.issues || [] ).length ? ' (' + r.issues.length + ')' : '' );
         // Issues first => default selected tab (the summary).
-        var tabs = self.Tabs.create({}, this);
+        var tabs = self.SegmentedTabs.create({ fitContent: true }, this);
         tabs
           .start(self.Tab, { label: issueLabel }).call(function() { self.renderIssues_(this, r); }).end()
           .start(self.Tab, { label: 'Blocks' }).call(function() { self.renderBlocks_(this, r); }).end()
           .start(self.Tab, { label: svcLabel }).call(function() { self.renderServiceCalls_(this, r); }).end()
           .start(self.Tab, { label: 'Metrics' }).call(function() { self.renderMetrics_(this, r); }).end();
-        // Copy action pinned to the right end of the tab strip.
-        tabs.tabRow.start().addClass(self.myClass('copy-wrap'))
-          .startContext({ data: self })
-            .add(self.COPY_REPORT)
-          .endContext()
+        // Copy action lives outside the tab track(tab-specific background) so it reads as a button, not a tab.
+        this.start().addClass(self.myClass('tab-strip'))
+          .add(tabs)
+          .start().addClass(self.myClass('copy-wrap'))
+            .startContext({ data: self })
+              .add(self.COPY_REPORT)
+            .endContext()
+          .end()
         .end();
-        this.add(tabs);
         self.renderEnv_(this, r);
       }));
 

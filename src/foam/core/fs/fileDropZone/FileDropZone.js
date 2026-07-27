@@ -140,9 +140,10 @@ foam.CLASS({
     { name: 'LABEL_BROWSE',        message: 'Browse' },
     { name: 'LABEL_SUPPORTED',     message: 'Supported file types:' },
     { name: 'LABEL_MAX_SIZE',      message: 'Max size:' },
-    { name: 'ERROR_FILE_TITLE',    message: 'Error' },
-    { name: 'ERROR_FILE_TYPE',     message: 'Invalid file type' },
-    { name: 'ERROR_FILE_SIZE',     message: 'File size exceeds ${size}MB', template: true },
+    { name: 'ERROR_FILE_TITLE',      message: 'Could not upload "${filename}"', template: true },
+    { name: 'ERROR_FILE_TYPE_DESC',       message: 'Unsupported file type. Supported types: ${types}', template: true },
+    { name: 'ERROR_FILE_SIZE_DESC',       message: 'File size exceeds ${size}MB', template: true },
+    { name: 'ERROR_FILE_DUPLICATE_DESC',  message: 'A file with this name has already been added' },
     { name: 'NO_FILES',            message: 'No files' }
   ],
 
@@ -337,9 +338,10 @@ foam.CLASS({
       return constructedString;
     },
 
-    function addFiles(files) {
+    function addFiles(files, validateFile) {
+      if ( ! validateFile ) validateFile = this.validateFile;
       for ( var i = 0 ; i < files.length ; i++ ) {
-        if ( ! this.validateFile(files[i]) ) continue;
+        if ( ! validateFile.call(this, files[i]) ) continue;
         if ( this.isMultipleFiles ) {
           var f = this.createFile({
             owner:    this.subject.user.id,
@@ -380,13 +382,19 @@ foam.CLASS({
     // Returns true is valid
     function validateFile(file) {
       if ( ! this.isFileType(file) ) {
-        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_TYPE, this.LogLevel.ERROR, true);
+        this.ctrl.notify(
+          this.ERROR_FILE_TITLE({filename: file.name}),
+          this.ERROR_FILE_TYPE_DESC({types: this.getSupportedTypes(true)}),
+          this.LogLevel.ERROR, true);
         return false;
       }
 
       var maxSize = this.maxSize[file.type] ?? this.maxSize['*'];
       if ( maxSize && file.size > ( maxSize * 1024 * 1024 ) ) {
-        this.ctrl.notify(this.ERROR_FILE_TITLE, this.ERROR_FILE_SIZE({size: maxSize}), this.LogLevel.ERROR, true);
+        this.ctrl.notify(
+          this.ERROR_FILE_TITLE({filename: file.name}),
+          this.ERROR_FILE_SIZE_DESC({size: maxSize}),
+          this.LogLevel.ERROR, true);
         return false;
       }
       var isIncluded = false;
@@ -396,7 +404,13 @@ foam.CLASS({
           break;
         }
       }
-      if ( isIncluded ) return false;
+      if ( isIncluded ) {
+        this.ctrl.notify(
+          this.ERROR_FILE_TITLE({filename: file.name}),
+          this.ERROR_FILE_DUPLICATE_DESC,
+          this.LogLevel.ERROR, true);
+        return false;
+      }
       return true;
     },
 

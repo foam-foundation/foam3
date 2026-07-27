@@ -524,7 +524,8 @@ foam.CLASS({
         Undefined: function(o) { this.out('null'); },
         Null:      function(o) { this.out('null'); },
         String:    function(o) { this.outputString(o); },
-        Number:    function(o) { this.out(o); },
+        // JSON has no NaN / Infinity literal; emit null for non-finite numbers.
+        Number:    function(o) { this.out(Number.isFinite(o) ? o : 'null'); },
         Boolean:   function(o) { this.out(o); },
         Date:      function(o) { this.outputDate(o); },
         Function:  function(o) { this.outputFunction(o); },

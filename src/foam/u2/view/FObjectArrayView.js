@@ -134,6 +134,7 @@ foam.CLASS({
       }).end();
     }
   ],
+
   listeners: [
     {
       name: 'removeRowWithID',

@@ -1302,7 +1302,7 @@ foam.CLASS({
         delegate: this.sink ? this.sink.createSink() : null
       });
     },
-        function addToE(e) {
+    function addToE(e) {
       var self = this;
       // TODO: figure out why BROWSE doesn't work after reloading
       e.startContext({data: this}).

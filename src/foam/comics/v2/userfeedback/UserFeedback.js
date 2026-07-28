@@ -13,10 +13,34 @@ foam.CLASS({
     inevitably making its way back to the client who views the feedback
   `,
 
+  javaImports: [
+    'java.util.HashMap',
+    'java.util.Map'
+  ],
+
   javaCode: `
   public UserFeedback(UserFeedbackStatus status, String message) {
     setStatus(status);
     setMessage(message);
+  }
+
+  public UserFeedback(UserFeedbackStatus status, String message, String subMessage) {
+    setStatus(status);
+    setMessage(message);
+    setSubMessage(subMessage);
+  }
+
+  public UserFeedback(UserFeedbackStatus status, String message, String subMessage, String... templateKV) {
+    setStatus(status);
+    setMessage(message);
+    setSubMessage(subMessage);
+    if ( templateKV != null && templateKV.length > 0 && templateKV.length % 2 == 0 ) {
+      Map templateMap = new HashMap();
+      for ( int i = 0; i < templateKV.length; i += 2 ) {
+        templateMap.put(templateKV[i], templateKV[i+1]);
+      }
+      setMessageTemplateMap(templateMap);
+    }
   }
   `,
 
@@ -29,6 +53,15 @@ foam.CLASS({
     {
       class: 'String',
       name: 'message'
+    },
+    {
+      class: 'String',
+      name: 'subMessage'
+    },
+    {
+      // Map of translation message template values for client side translation
+      class: 'Map',
+      name: 'messageTemplateMap'
     },
     {
       class: 'FObjectProperty',

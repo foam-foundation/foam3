@@ -1290,9 +1290,7 @@ foam.CLASS({
             },
             ticks: {
               autoSkip: autoSkip
-            },
-            min: toggleCustomXScale ? xAxisMinScale : undefined,
-            max: toggleCustomXScale ? xAxisMaxScale : undefined
+            }
           },
           y: {
             title: {

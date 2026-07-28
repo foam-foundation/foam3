@@ -13,6 +13,13 @@ foam.CLASS({
     inevitably making its way back to the client who views the feedback
   `,
 
+  javaCode: `
+  public UserFeedback(UserFeedbackStatus status, String message) {
+    setStatus(status);
+    setMessage(message);
+  }
+  `,
+
   properties: [
     {
       class: 'Enum',

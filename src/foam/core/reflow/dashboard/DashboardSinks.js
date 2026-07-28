@@ -1319,15 +1319,12 @@ foam.CLASS({
         if ( timeUnit.displayFormat ) {
           chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
         }
-      } else if ( toggleCustomXScale ) { // If using a custom X scale
-        // We only support category and linear plots as logarithmic plots
-        // do not respect the custom scale and time/timeseries plots are
-        // handled elsewhere.
-        if ( foam.String.isInstance(xPropForLabels) ) {
-          chartJsOptions.scales.x.type = 'category';
-        } else {
-          chartJSOptions.scales.x.type = 'linear';
-        }
+      } else if ( toggleCustomXScale ) { // If using a custom scale...
+        // Figure out what the type the data on the X axis is and set the chart type to match
+        var firstX = datasets[0] && datasets[0].data[0] ? datasets[0].data[0].x : null;
+        chartJSOptions.scales.x.type = foam.String.isInstance(firstX) ? 'category' : 'linear';
+        chartJSOptions.scales.x.min = xAxisMinScale;
+        chartJSOptions.scales.x.max = xAxisMaxScale;
       }
 
       return this.Line2.create({

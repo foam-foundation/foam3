@@ -68,8 +68,14 @@ foam.CLASS({
       });
 
       group.on('dragend', function() {
-        self.data.x = group.x();
-        self.data.y = group.y();
+        // Capture the position before writing: each model write triggers
+        // updateNode() synchronously, which repositions the group from the
+        // half-updated model - reading group.y() after writing data.x
+        // would return the pre-drag y.
+        var x = group.x();
+        var y = group.y();
+        self.data.x = x;
+        self.data.y = y;
         self.data.pinned = true;
         self.onMoved(self.data);
       });

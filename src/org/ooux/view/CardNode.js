@@ -104,6 +104,11 @@ foam.CLASS({
             group.on('transformend', function () {
                 var scaleX = group.scaleX();
                 var scaleY = group.scaleY();
+                // Capture before writing: each model write triggers
+                // updateNode() synchronously, which repositions the group
+                // from the half-updated model.
+                var x      = group.x();
+                var y      = group.y();
                 var model  = self.data;
 
                 group.scale({ x: 1, y: 1 });
@@ -112,8 +117,8 @@ foam.CLASS({
                 model.height = Math.max(
                     self.HEADER_HEIGHT + self.FOOTER_HEIGHT + 20,
                     model.height * scaleY);
-                model.x = group.x();
-                model.y = group.y();
+                model.x = x;
+                model.y = y;
 
                 self.updateNode();
                 self.onMoved(model);

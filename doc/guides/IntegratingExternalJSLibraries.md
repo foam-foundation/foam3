@@ -105,3 +105,24 @@ foam.POM({
 
 ## 4. Verification
 Create a `Demo.js` component to test the integration and ensure it renders correctly within FOAM's component system.
+
+## Non-view libraries (imperative loading)
+
+The JsLib axiom only wraps `render()`/`paintSelf()`, so it does nothing for
+classes that aren't views. For a library consumed by plain logic (e.g.
+dagre in `org.konvajs.graph.DagreLayouter`), wrap the loader in a small
+class and await it imperatively:
+
+    // org.konvajs.graph.DagreLib
+    function load() {
+      return foam.u2.JsLib.create({ src: this.SRC }).installLib();
+    }
+
+    // caller
+    await this.DagreLib.create().load();
+    if ( ! globalThis.dagre ) { /* degrade gracefully */ }
+
+JsLib resolves its promise even when the script fails to load, so the
+caller must check for the global afterwards. As with any CDN script, the
+URL and its sha256 hash must be added to `src/cspdirectives.jrl` under
+`script-src`.

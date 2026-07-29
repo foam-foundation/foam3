@@ -138,11 +138,19 @@ foam.CLASS({
             this.addClass()
                 .start().addClass(this.myClass('sidebar'))
                     .start('h3').add('OOUX Board').end()
-                    .start(this.ADD_OBJECT).end()
-                    .add(this.slot(function (selected, connectMode) {
-                        if ( ! selected ) return this.E();
-                        return this.E().start(self.CONNECT).end();
-                    }))
+                    // View exports 'data' (undefined here), which toE would
+                    // bind as the buttons' action target; scope them to this
+                    // view instead.
+                    .startContext({ data: this })
+                        .start(this.ADD_OBJECT).end()
+                        .add(this.slot(function (selected, connectMode) {
+                            if ( ! selected ) return this.E();
+                            return this.E()
+                                .startContext({ data: self })
+                                    .start(self.CONNECT).end()
+                                .endContext();
+                        }))
+                    .endContext()
                     .start('p').addClass(this.myClass('hint'))
                         .add('Scroll to zoom, drag the canvas to pan.')
                     .end()

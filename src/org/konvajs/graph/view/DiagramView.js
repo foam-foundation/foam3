@@ -70,7 +70,8 @@ foam.CLASS({
     { name: 'layoutPuts_', factory: function() { return {}; } },
     { class: 'Simple',  name: 'layoutTimer_' },
     { class: 'Boolean', name: 'newElements_' },
-    { name: 'warnedEdges_', factory: function() { return {}; } }
+    { name: 'warnedEdges_', factory: function() { return {}; } },
+    { name: 'nodeTweens_', factory: function() { return {}; } }
   ],
 
   methods: [
@@ -120,7 +121,18 @@ foam.CLASS({
       this.onDetach(this.edgeDAO.on.put.sub(function(_, __, ___, obj) {
         if ( self.edgeViews_[obj.id] ) {
           var ev = self.edgeViews_[obj.id];
+          var oldSrc = ev.data.sourceId;
+          var oldTgt = ev.data.targetId;
           ev.data = obj;
+          // Update incidence index if endpoints changed.
+          if ( oldSrc !== obj.sourceId || oldTgt !== obj.targetId ) {
+            delete (self.edgesByNode_[oldSrc] || {})[obj.id];
+            delete (self.edgesByNode_[oldTgt] || {})[obj.id];
+            self.edgesByNode_[obj.sourceId] = self.edgesByNode_[obj.sourceId] || {};
+            self.edgesByNode_[obj.targetId] = self.edgesByNode_[obj.targetId] || {};
+            self.edgesByNode_[obj.sourceId][obj.id] = true;
+            self.edgesByNode_[obj.targetId][obj.id] = true;
+          }
           self.refreshEdge(obj.id);
         } else {
           self.addEdge(obj);
@@ -148,6 +160,12 @@ foam.CLASS({
 
       this.onDetach(function() {
         if ( self.layoutTimer_ ) clearTimeout(self.layoutTimer_);
+        Object.keys(self.nodeTweens_).forEach(id => {
+          if ( self.nodeTweens_[id] ) {
+            self.nodeTweens_[id].destroy();
+          }
+        });
+        self.nodeTweens_ = {};
         Object.keys(self.nodeViews_).forEach(id => self.removeNode(id));
       });
     },
@@ -173,6 +191,11 @@ foam.CLASS({
     function removeNode(id) {
       var nv = this.nodeViews_[id];
       if ( ! nv ) return;
+      // Destroy any pending tween for this node.
+      if ( this.nodeTweens_[id] ) {
+        this.nodeTweens_[id].destroy();
+        delete this.nodeTweens_[id];
+      }
       // Incident edge views go too (their DAO records remain).
       Object.keys(this.edgesByNode_[id] || {}).forEach(eid => this.removeEdge(eid));
       nv.removeNode();
@@ -268,13 +291,27 @@ foam.CLASS({
         if ( ev ) ev.data.points = result.edges[eid].points;
       });
 
+      // For edges absent from result, clear layout-driven points so they fall back
+      // to straight lines.
+      Object.keys(self.edgeViews_).forEach(eid => {
+        if ( ! result.edges[eid] ) {
+          var ev = self.edgeViews_[eid];
+          ev.data.points = null;
+          self.refreshEdge(eid);
+        }
+      });
+
       var pending = 0;
       Object.keys(result.nodes).forEach(id => {
         var nv = self.nodeViews_[id];
         if ( ! nv ) return;
         var pos = result.nodes[id];
         pending++;
-        new Konva.Tween({
+        // Destroy any existing tween for this node.
+        if ( self.nodeTweens_[id] ) {
+          self.nodeTweens_[id].destroy();
+        }
+        var tween = new Konva.Tween({
           node: nv.group,
           x: pos.x,
           y: pos.y,
@@ -284,6 +321,14 @@ foam.CLASS({
           },
           onFinish: function() {
             if ( token !== self.layoutToken_ ) return;
+            // Re-check that the node still exists (not removed mid-tween).
+            if ( ! self.nodeViews_[id] || self.nodeViews_[id] !== nv ) {
+              if ( --pending === 0 && self.newElements_ ) {
+                self.newElements_ = false;
+                self.fitView();
+              }
+              return;
+            }
             // Write back to the model under the pass token so the put
             // listener skips reconcile and doesn't re-schedule.
             self.layoutPuts_[id] = token;
@@ -297,6 +342,7 @@ foam.CLASS({
             }
           }
         }).play();
+        self.nodeTweens_[id] = tween;
       });
 
       if ( pending === 0 ) {

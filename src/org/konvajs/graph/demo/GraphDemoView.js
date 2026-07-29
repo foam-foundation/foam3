@@ -39,13 +39,46 @@ foam.CLASS({
     {
       name: 'nodeDAO',
       factory: function() {
-        return this.EasyDAO.create({ of: 'org.konvajs.graph.GraphNode', daoType: 'MDAO' });
+        var dao = this.EasyDAO.create({ of: 'org.konvajs.graph.GraphNode', daoType: 'MDAO' });
+        var N = this.GraphNode;
+        var states = [ 'normal', 'highlighted', 'processing', 'pseudo', 'temp', 'collapsed' ];
+
+        for ( var i = 0 ; i < 15 ; i++ ) {
+          dao.put(N.create({
+            id: 'n' + i,
+            label: 'Concept ' + i,
+            state: i < states.length ? states[i] : 'normal',
+            color: i % 3 === 0 ? '#e74c3c' : '#3498db'
+          }));
+        }
+        return dao;
       }
     },
     {
       name: 'edgeDAO',
       factory: function() {
-        return this.EasyDAO.create({ of: 'org.konvajs.graph.GraphEdge', daoType: 'MDAO' });
+        var dao = this.EasyDAO.create({ of: 'org.konvajs.graph.GraphEdge', daoType: 'MDAO' });
+        var E = this.GraphEdge;
+        var styles = [ 'arrow', 'plain', 'dash' ];
+
+        for ( var i = 1 ; i < 15 ; i++ ) {
+          dao.put(E.create({
+            id: 'e' + i,
+            label: i % 4 === 0 ? 'relates to' : '',
+            sourceId: 'n' + Math.floor((i - 1) / 2),
+            targetId: 'n' + i,
+            style: styles[i % 3]
+          }));
+        }
+        // Extra cross-links for a denser graph.
+        dao.put(E.create({ id: 'x1', sourceId: 'n2', targetId: 'n9',  style: 'dash',  label: 'informs' }));
+        dao.put(E.create({ id: 'x2', sourceId: 'n4', targetId: 'n11', style: 'plain' }));
+        dao.put(E.create({ id: 'x3', sourceId: 'n1', targetId: 'n14', style: 'arrow', label: 'drives' }));
+        dao.put(E.create({ id: 'x4', sourceId: 'n6', targetId: 'n13', style: 'arrow' }));
+        dao.put(E.create({ id: 'x5', sourceId: 'n3', targetId: 'n10', style: 'plain' }));
+        // Deliberately dangling: proves the warn-once path.
+        dao.put(E.create({ id: 'dangling', sourceId: 'n0', targetId: 'missing' }));
+        return dao;
       }
     },
     { name: 'diagram' }
@@ -55,8 +88,6 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-
-      this.seed();
 
       this.addClass()
         .start().addClass(this.myClass('sidebar'))
@@ -86,41 +117,6 @@ foam.CLASS({
             edgeDAO: this.edgeDAO
           }, this.diagram$)
         .end();
-    },
-
-    function seed() {
-      var N = this.GraphNode, E = this.GraphEdge;
-      var states = [ 'normal', 'highlighted', 'processing', 'pseudo', 'temp', 'collapsed' ];
-      var nodes = [];
-
-      for ( var i = 0 ; i < 15 ; i++ ) {
-        nodes.push(N.create({
-          id: 'n' + i,
-          label: 'Concept ' + i,
-          state: i < states.length ? states[i] : 'normal',
-          color: i % 3 === 0 ? '#e74c3c' : '#3498db'
-        }));
-      }
-      nodes.forEach(n => this.nodeDAO.put(n));
-
-      var styles = [ 'arrow', 'plain', 'dash' ];
-      for ( var i = 1 ; i < 15 ; i++ ) {
-        this.edgeDAO.put(E.create({
-          id: 'e' + i,
-          label: i % 4 === 0 ? 'relates to' : '',
-          sourceId: 'n' + Math.floor((i - 1) / 2),
-          targetId: 'n' + i,
-          style: styles[i % 3]
-        }));
-      }
-      // Extra cross-links for a denser graph.
-      this.edgeDAO.put(E.create({ id: 'x1', sourceId: 'n2', targetId: 'n9',  style: 'dash',  label: 'informs' }));
-      this.edgeDAO.put(E.create({ id: 'x2', sourceId: 'n4', targetId: 'n11', style: 'plain' }));
-      this.edgeDAO.put(E.create({ id: 'x3', sourceId: 'n1', targetId: 'n14', style: 'arrow', label: 'drives' }));
-      this.edgeDAO.put(E.create({ id: 'x4', sourceId: 'n6', targetId: 'n13', style: 'arrow' }));
-      this.edgeDAO.put(E.create({ id: 'x5', sourceId: 'n3', targetId: 'n10', style: 'plain' }));
-      // Deliberately dangling: proves the warn-once path.
-      this.edgeDAO.put(E.create({ id: 'dangling', sourceId: 'n0', targetId: 'missing' }));
     }
   ],
 

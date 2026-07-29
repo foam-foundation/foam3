@@ -8,6 +8,7 @@ foam.POM({
     { name: "Layouter",        flags: "web" },
     { name: "DagreLayouter",   flags: "web" },
     { name: "view/GraphEdgeView", flags: "web" },
-    { name: "view/GraphNodeView", flags: "web" }
+    { name: "view/GraphNodeView", flags: "web" },
+    { name: "view/DiagramView", flags: "web" }
   ]
 });

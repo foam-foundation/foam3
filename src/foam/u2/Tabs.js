@@ -84,6 +84,7 @@ foam.CLASS({
       value: '$textBrandSecondary'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabActiveBackground',
       value: '$backgroundBrandTertiary'
     }
@@ -128,26 +129,32 @@ foam.CLASS({
 
   cssTokens: [
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabInactiveColor',
       value: '$textSecondary'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabActiveColor',
       value: '$textDefault'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabActiveBackground',
       value: '$backgroundDefault'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabHoverBackground',
       value: '$backgroundSecondary'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabRowBackground',
       value: '$backgroundTertiary'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabDividerColor',
       value: '$borderDefault'
     }

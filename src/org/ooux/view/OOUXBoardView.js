@@ -137,31 +137,28 @@ foam.CLASS({
                         .start(this.ADD_OBJECT).end()
                         .start(this.ALIGN_CARDS).end()
                     .endContext()
-                    .add(this.slot(function (diagram) {
-                        if ( ! diagram ) return this.E();
-                        return this.E().add(diagram.slot(function (selected) {
-                            if ( ! self.OOUXObject.isInstance(selected) ) return this.E();
-                            return this.E()
-                                .startContext({ data: self })
-                                    .start(self.CONNECT).end()
-                                .endContext();
-                        }));
+                    // diagram$selected is a deep slot chain: it re-wires
+                    // itself when 'diagram' is assigned, and fires on every
+                    // selection change after that.
+                    .add(this.slot(function (diagram$selected) {
+                        if ( ! self.OOUXObject.isInstance(diagram$selected) ) return this.E();
+                        return this.E()
+                            .startContext({ data: self })
+                                .start(self.CONNECT).end()
+                            .endContext();
                     }))
                     .start('p').addClass(this.myClass('hint'))
                         .add('Scroll to zoom, drag the canvas to pan.')
                     .end()
-                    .add(this.slot(function (diagram) {
-                        if ( ! diagram ) return this.E();
-                        return this.E().add(diagram.slot(function (selected) {
-                            if ( ! self.OOUXObject.isInstance(selected) ) {
-                                return this.E('p')
-                                    .addClass(self.myClass('hint'))
-                                    .add('Select an object to edit its properties.');
-                            }
-                            return this.E().tag(self.SectionedDetailView, {
-                                data$: diagram.selected$
-                            });
-                        }));
+                    .add(this.slot(function (diagram$selected) {
+                        if ( ! self.OOUXObject.isInstance(diagram$selected) ) {
+                            return this.E('p')
+                                .addClass(self.myClass('hint'))
+                                .add('Select an object to edit its properties.');
+                        }
+                        return this.E().tag(self.SectionedDetailView, {
+                            data$: self.diagram.selected$
+                        });
                     }))
                 .end()
 

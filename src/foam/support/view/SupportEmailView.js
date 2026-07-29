@@ -8,6 +8,7 @@ foam.CLASS({
   package:'foam.support.view',
   name:'SupportEmailView',
   extends: 'foam.u2.Controller',
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.u2.dialog.Popup',
@@ -90,17 +91,31 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
+    {
       class: 'Boolean',
       name: 'emptyDAO',
     }
   ],
 
   messages:[
+    { name:'TITLE', message: 'Support Email' },
     { name:'title', message: 'Support Emails Management' },
     { name:'noSupportEmail', message: 'No support email connected' }
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render(){
       var self = this;
       this.subject.user.supportEmails.limit(1).select().then(function(a){

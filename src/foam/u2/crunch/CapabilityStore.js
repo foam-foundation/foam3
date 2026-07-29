@@ -12,6 +12,7 @@ foam.CLASS({
   implements: [
     'foam.mlang.Expressions'
   ],
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.dao.ArrayDAO',
@@ -130,6 +131,13 @@ foam.CLASS({
 
   properties: [
     {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
+    {
       name: 'visibleCapabilityDAO',
       class: 'foam.dao.DAOProperty',
       documentation: `
@@ -196,6 +204,9 @@ foam.CLASS({
 
   methods: [
     function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
       this.crunchService.getAllJunctionsForUser().then(juncs => {
         this.junctions = juncs;
         this.daoUpdate();

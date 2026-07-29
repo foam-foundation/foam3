@@ -20,8 +20,12 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'org.konvajs.graph.GraphEdge',
       name: 'data',
-      postSet: function() { this.applyState(); }
+      postSet: function() {
+        this.listenToData();
+        this.refresh_();
+      }
     },
+    { class: 'Simple', name: 'dataSub_' },
     { class: 'Simple', name: 'group' },
     { class: 'Simple', name: 'line_' },
     { class: 'Simple', name: 'label_' },
@@ -81,8 +85,31 @@ foam.CLASS({
 
       this.group.on('click tap', function() { self.onSelected(self.data); });
 
+      this.listenToData();
+      this.onDetach(function() {
+        if ( self.dataSub_ ) self.dataSub_.detach();
+      });
+
       this.applyState();
       return this.group;
+    },
+
+    function listenToData() {
+      var self = this;
+      if ( this.dataSub_ ) { this.dataSub_.detach(); this.dataSub_ = null; }
+      if ( ! this.data ) return;
+      this.dataSub_ = this.data.propertyChange.sub(function() {
+        self.refresh_();
+      });
+    },
+
+    function refresh_() {
+      if ( ! this.line_ ) return;
+      this.applyState();
+      this.label_.text(this.data.label || '');
+      this.label_.visible(!! this.data.label);
+      var layer = this.group && this.group.getLayer();
+      if ( layer ) layer.batchDraw();
     },
 
     function updateEdge(srcRect, tgtRect) {

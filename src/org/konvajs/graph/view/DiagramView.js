@@ -234,6 +234,7 @@ foam.CLASS({
       delete (this.edgesByNode_[ev.data.sourceId] || {})[id];
       delete (this.edgesByNode_[ev.data.targetId] || {})[id];
       ev.removeEdge();
+      ev.detach();
       delete this.edgeViews_[id];
     },
 

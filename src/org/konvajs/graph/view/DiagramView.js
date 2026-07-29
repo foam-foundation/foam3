@@ -47,6 +47,23 @@ foam.CLASS({
       factory: function() { return this.DagreLayouter.create(); }
     },
     {
+      class: 'String',
+      name: 'nodeViewClass',
+      documentation: `Class id of the node view to instantiate per node.
+        Apps override to render custom nodes (one view class per
+        diagram). The class must follow the GraphNodeView subclass
+        contract.`,
+      value: 'org.konvajs.graph.view.GraphNodeView'
+    },
+    {
+      class: 'Function',
+      name: 'onReady',
+      documentation: `Called as onReady(stage, layer) at the end of
+        initDiagram - the app hook for stage-level overlays such as a
+        Transformer.`,
+      value: function(stage, layer) { }
+    },
+    {
       class: 'FObjectProperty',
       name: 'selected',
       documentation: 'Selected GraphNode or GraphEdge, or null.',
@@ -168,11 +185,13 @@ foam.CLASS({
         self.nodeTweens_ = {};
         Object.keys(self.nodeViews_).forEach(id => self.removeNode(id));
       });
+
+      this.onReady(stage, layer);
     },
 
     function addNode(obj) {
       var self = this;
-      var nv = this.GraphNodeView.create({
+      var nv = this.__subContext__.lookup(this.nodeViewClass).create({
         data: obj,
         onSelected: function(d) { self.selected = d; },
         onMoved: function(d) {
@@ -186,6 +205,12 @@ foam.CLASS({
       }, this);
       this.konvaView.layer.add(nv.createNode());
       this.nodeViews_[obj.id] = nv;
+    },
+
+    function getNodeView(id) {
+      /** The live node view for a node id, or null. Apps use this to
+          reach the Konva group (e.g. to attach a Transformer). **/
+      return this.nodeViews_[id] || null;
     },
 
     function removeNode(id) {

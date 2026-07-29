@@ -569,7 +569,7 @@ foam.CLASS({
       label: 'Property',
       validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
+        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
     {

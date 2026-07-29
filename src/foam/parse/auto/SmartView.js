@@ -340,6 +340,9 @@ foam.CLASS({
 
           let result = p.parse(this, grammar);
 
+          // If we have a successful parse, then ignore suggestions
+          if ( result && result.pos > self.maxPos ) self.suggestions = {};
+
           if ( self.normalize && result && p.suggest ) {
             let s = p.suggest();
             if ( ! s.text ) return result;

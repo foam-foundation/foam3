@@ -24,7 +24,7 @@ foam.CLASS({
   ],
 
   methods: [
-    function grammar(alt, literalIC, seq, sug, sym, repeat, optional) {
+    function grammar(alt, literalIC, seq, seq1, sug, sym, repeat, optional) {
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
 
       const ps = this.of.getAxiomsByClass(foam.lang.Property).filter(p => this.predicate.f(p)).map(p =>
@@ -37,7 +37,7 @@ foam.CLASS({
       );
 
       return {
-        START: sym('property'),
+        START: seq1(0, sym('property'), repeat(' ')),
 
         property: alt.apply(null, ps),
 

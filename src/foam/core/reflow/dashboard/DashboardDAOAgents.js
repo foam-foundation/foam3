@@ -1118,7 +1118,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 4,
       collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration']
     },
     {
       name: 'colors',
@@ -1143,7 +1143,6 @@ foam.CLASS({
     {
       name: 'yProp', 
       label: 'Y Property',
-      visibility: 'HIDDEN', // Property is not needed for Line Charts so we should hide it (removal causes errors)
       view: function(_, X) {
         return { 
           class: 'foam.core.reflow.PropertyChoiceView', 
@@ -1244,60 +1243,6 @@ foam.CLASS({
       name: 'showGridLines',
       label: 'Show Grid Lines',
       value: true
-    },
-    {
-      class: 'Boolean',
-      name: 'toggleCustomXScale',
-      label: 'Custom X Scale',
-      help: 'Toggles custom scale for the X axis'
-    },
-    {
-      class: 'Boolean',
-      name: 'toggleCustomYScale',
-      label: 'Custom Y Scale',
-      help: 'Toggles custom scale for the Y axis'
-    },
-    {
-      class: 'Double',
-      name: 'xAxisMinScale',
-      label: 'X Axis Min',
-      value: 0,
-      visibility: function(toggleCustomXScale) {
-        return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      },
-    },
-    {
-      class: 'Double',
-      name: 'xAxisMaxScale',
-      label: 'X Axis Max',
-      value: 9999,
-      visibility: function(toggleCustomXScale) {
-        return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      },
-    },
-    {
-      class: 'Double',
-      name: 'yAxisMinScale',
-      label: 'Y Axis Min',
-      value: 0,
-      visibility: function(toggleCustomYScale) {
-        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      },
-    },
-    {
-      class: 'Double',
-      name: 'yAxisMaxScale',
-      label: 'Y Axis Max',
-      value: 9999,
-      visibility: function(toggleCustomYScale) {
-        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
-      },
-    },
-    {
-      class: 'Boolean',
-      name: 'autoSkip',
-      label: 'Hide Overlapping Labels',
-      value: true
     }
   ],
 
@@ -1317,7 +1262,7 @@ foam.CLASS({
 
       // Use the aggregationSink if provided, otherwise COUNT (like StackedBar does)
       var valueSink = this.aggregationSink ? this.aggregationSink.createSink() : this.COUNT();
-
+      
       // Choose sink based on whether groupBy is set
       if ( this.groupBy ) {
         // Multi-line chart: Use GridBy-based sink
@@ -1344,14 +1289,7 @@ foam.CLASS({
           animate: this.animate,
           animationDuration: this.animationDuration,
           alignment: this.alignment,
-          periodCount: this.periodCount,
-          toggleCustomXScale: this.toggleCustomXScale,
-          toggleCustomYScale: this.toggleCustomYScale,
-          xAxisMinScale: this.xAxisMinScale,
-          xAxisMaxScale: this.xAxisMaxScale,
-          yAxisMinScale: this.yAxisMinScale,
-          yAxisMaxScale: this.yAxisMaxScale,
-          autoSkip: this.autoSkip
+          periodCount: this.periodCount
         });
       } else {
         // Single-line chart: Use GroupBy-based sink
@@ -1377,14 +1315,7 @@ foam.CLASS({
           animate: this.animate,
           animationDuration: this.animationDuration,
           alignment: this.alignment,
-          periodCount: this.periodCount,
-          toggleCustomXScale: this.toggleCustomXScale,
-          toggleCustomYScale: this.toggleCustomYScale,
-          xAxisMinScale: this.xAxisMinScale,
-          xAxisMaxScale: this.xAxisMaxScale,
-          yAxisMinScale: this.yAxisMinScale,
-          yAxisMaxScale: this.yAxisMaxScale,
-          autoSkip: this.autoSkip
+          periodCount: this.periodCount
         });
       }
     },
@@ -1402,8 +1333,7 @@ foam.CLASS({
       this.onDetach(this.dynamic(function(colors, xAxisLabel, yAxisLabel, fill, tension, stepped, showPoints, pointRadius, showGridLines,
                                   maintainAspectRatio, height, showLegend, legendPosition,
                                   showTooltips, showTooltipSum, animate, animationDuration, alignment,
-                                  periodCount, toggleCustomXScale, toggleCustomYScale,
-                                  xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
+                                  periodCount) {
         s.colors = colors;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
@@ -1423,13 +1353,6 @@ foam.CLASS({
         s.animationDuration = animationDuration;
         s.alignment = alignment;
         s.periodCount = periodCount;
-        s.toggleCustomXScale = toggleCustomXScale;
-        s.toggleCustomYScale = toggleCustomYScale;
-        s.xAxisMinScale = xAxisMinScale;
-        s.xAxisMaxScale = xAxisMaxScale;
-        s.yAxisMinScale = yAxisMinScale;
-        s.yAxisMaxScale = yAxisMaxScale;
-        s.autoSkip = autoSkip;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -1443,9 +1366,8 @@ foam.CLASS({
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            // These lines are changing the alignment in the UI rather than the chart
-            // alignItems: this.alignment$.map(function(a) { return a.alignmentStyle; }),
-            // textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+            alignItems: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+            textAlign: this.alignment$.map(function(a) { return a.textAlign; })
           })
           .tag(this.ReactiveSectionedDetailView, {
             data: this,
@@ -1476,13 +1398,6 @@ foam.CLASS({
       clone.showTooltipSum$ = this.showTooltipSum$;
       clone.animate$ = this.animate$;
       clone.animationDuration$ = this.animationDuration$;
-      clone.toggleCustomXScale$ = this.toggleCustomXScale$;
-      clone.toggleCustomYScale$ = this.toggleCustomYScale$;
-      clone.xAxisMinScale$ = this.xAxisMinScale$;
-      clone.xAxisMaxScale$ = this.xAxisMaxScale$;
-      clone.yAxisMinScale$ = this.yAxisMinScale$;
-      clone.yAxisMaxScale$ = this.yAxisMaxScale$;
-      clone.autoSkip$ = this.autoSkip$;
       return clone;
     }
   ]

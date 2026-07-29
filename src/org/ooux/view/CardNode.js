@@ -7,20 +7,19 @@
 foam.CLASS({
     package: 'org.ooux.view',
     name: 'CardNode',
+    extends: 'org.konvajs.graph.view.GraphNodeView',
 
-    documentation: `A single OOUXObject drawn as a Konva card.
+    documentation: `A single OOUXObject drawn as a Konva card (colored
+      header, white body listing properties, footer). Rendering only: the
+      lifecycle - group creation, drag/click wiring, model subscription -
+      lives in GraphNodeView.
 
-      createNode() builds the group once. Everything after that goes through
-      updateNode(), which mutates the existing Konva nodes in place - the card
-      is never destroyed and rebuilt, so a drag, a selection or a transform in
-      progress survives a model change.
-
-      The node subscribes to its own model, so editing the object anywhere -
-      the sidebar detail view, another client, a script - redraws the card.`,
-
-    requires: [
-        'org.ooux.model.OOUXObject'
-    ],
+      transformend is card-specific policy (cards resize via the board's
+      Transformer, graph nodes don't): a Transformer scales the group
+      rather than resizing it, so bake the scale back into width/height,
+      clamp minimums, and reset the scale. Without this the text and
+      borders would scale too, and the model would never see the new
+      size.`,
 
     constants: {
         HEADER_HEIGHT: 40,
@@ -29,63 +28,16 @@ foam.CLASS({
 
     properties: [
         {
-            class: 'FObjectProperty',
-            of: 'org.ooux.model.OOUXObject',
-            name: 'data',
-            postSet: function (_, data) {
-                // Follow the new model. A put() of a different instance with
-                // the same id replaces 'data', and the old subscription would
-                // otherwise keep listening to an object nothing points at.
-                this.listenToData();
-                this.updateNode();
-            }
-        },
-        {
-            name: 'dataSub_',
-            class: 'Simple'
-        },
-        {
-            name: 'group',
-            class: 'Simple'
-        },
-        {
             name: 'parts_',
             class: 'Simple',
-            documentation: 'The individual Konva shapes, kept for updateNode().'
-        },
-        {
-            class: 'Function',
-            name: 'onMoved',
-            documentation: `Called with the model after a drag or resize. The
-              board uses this to put() the object back, so the change raises a
-              DAO event and survives a DAO that doesn't store by reference.`,
-            value: function (data) { }
-        },
-        {
-            class: 'Function',
-            name: 'onSelected',
-            documentation: 'Called with the model when the card is clicked.',
-            value: function (data) { }
-        },
-        {
-            class: 'Function',
-            name: 'onDragMove',
-            documentation: 'Called with (id, x, y) continuously during a drag so edges can track.',
-            value: function(id, x, y) { }
+            documentation: 'The individual Konva shapes, kept for reconcileShapes().'
         }
     ],
 
     methods: [
-        function createNode() {
+        function buildShapes(group) {
             var self = this;
             var data = this.data;
-
-            var group = new Konva.Group({
-                x: data.x,
-                y: data.y,
-                draggable: true,
-                id: data.id
-            });
 
             var header = new Konva.Rect({
                 width: data.width,
@@ -148,26 +100,7 @@ foam.CLASS({
                 title: title,
                 propText: propText
             };
-            this.group = group;
 
-            group.on('click tap', function () {
-                self.onSelected(self.data);
-            });
-
-            group.on('dragend', function (e) {
-                self.data.x = e.target.x();
-                self.data.y = e.target.y();
-                self.onMoved(self.data);
-            });
-
-            group.on('dragmove', function() {
-                self.onDragMove(self.data.id, group.x(), group.y());
-            });
-
-            // A Transformer scales the group rather than resizing it, so bake
-            // the scale back into width/height and reset it. Without this the
-            // text and borders would scale too, and the model would never see
-            // the new size.
             group.on('transformend', function () {
                 var scaleX = group.scaleX();
                 var scaleY = group.scaleY();
@@ -185,38 +118,13 @@ foam.CLASS({
                 self.updateNode();
                 self.onMoved(model);
             });
-
-            // Redraw whenever the model changes, wherever the change came from.
-            this.listenToData();
-            this.onDetach(function () {
-                if (self.dataSub_) self.dataSub_.detach();
-            });
-
-            return group;
         },
 
-        function listenToData() {
-            var self = this;
-
-            if (this.dataSub_) {
-                this.dataSub_.detach();
-                this.dataSub_ = null;
-            }
-            if (!this.data) return;
-
-            this.dataSub_ = this.data.propertyChange.sub(function () {
-                self.updateNode();
-            });
-        },
-
-        function updateNode() {
-            /** Reconciles the existing Konva nodes with the model. **/
-            if (!this.group) return;
+        function reconcileShapes() {
+            if ( ! this.parts_ ) return;
 
             var data = this.data;
             var p = this.parts_;
-
-            this.group.position({ x: data.x, y: data.y });
 
             p.header.width(data.width);
             p.header.fill(data.color);
@@ -232,9 +140,11 @@ foam.CLASS({
 
             p.footer.width(data.width);
             p.footer.y(data.height - this.FOOTER_HEIGHT);
+        },
 
-            var layer = this.group.getLayer();
-            if (layer) layer.batchDraw();
+        function applyState() {
+            // Selection is shown by the board's Transformer, not card
+            // styling; keep the base from painting graph-style highlights.
         },
 
         function bodyHeight(data) {
@@ -243,15 +153,6 @@ foam.CLASS({
 
         function propertyText(data) {
             return (data.properties || []).map(p => '- ' + p.name).join('\n');
-        },
-
-        function removeNode() {
-            /** Removes the Konva node. Callers must also detach() this object
-              to drop its model subscription. **/
-            if (this.group) {
-                this.group.destroy();
-                this.group = null;
-            }
         }
     ]
 });

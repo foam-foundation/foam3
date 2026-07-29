@@ -158,17 +158,3 @@ foam.INTERFACE({
     'int getOrder() { return 0; }',
   ]
 });
-
-
-foam.CLASS({
-  package: 'foam.lang',
-  name: 'ProxyPropertyInfo',
-
-  properties: [
-    {
-      class: 'Proxy',
-      of: 'foam.lang.PropertyInfo',
-      name: 'delegate',
-    }
-  ]
-});

@@ -7,19 +7,10 @@
 foam.CLASS({
     package: 'org.ooux.model',
     name: 'OOUXRelationship',
+    extends: 'org.konvajs.graph.GraphEdge',
 
-    properties: [
-        {
-            class: 'String',
-            name: 'id',
-            factory: function() { return foam.uuid.randomGUID(); }
-        },
-        {
-            class: 'String',
-            name: 'label',
-            value: 'related to'
-        },
-        { class: 'String', name: 'sourceId' },
-        { class: 'String', name: 'targetId' }
-    ]
+    documentation: `A directed relationship between two OOUXObjects. All
+      structure (id, label, sourceId, targetId, style, state, points) is
+      inherited from GraphEdge. This class exists as the OOUX domain type;
+      later sub-projects add OOUX-specific fields (e.g. a link type).`
 });

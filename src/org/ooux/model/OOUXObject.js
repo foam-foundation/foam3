@@ -7,16 +7,14 @@
 foam.CLASS({
     package: 'org.ooux.model',
     name: 'OOUXObject',
+    extends: 'org.konvajs.graph.GraphNode',
+
+    documentation: `An OOUX object: a GraphNode carrying OOUX-specific
+      fields. id (GUID factory), label, state and pinned are inherited;
+      x/y/width/height/color are re-declared only to override defaults
+      for card-sized rendering.`,
 
     properties: [
-        {
-            class: 'String',
-            name: 'id',
-            documentation: `Must be unique and non-empty: the board's DAO keys
-              on it, and an empty default would make every object overwrite the
-              last one on put().`,
-            factory: function () { return foam.uuid.randomGUID(); }
-        },
         {
             class: 'String',
             name: 'name',
@@ -36,25 +34,9 @@ foam.CLASS({
             name: 'color',
             value: '#3498db' // Default Blue
         },
-        {
-            class: 'Double',
-            name: 'x',
-            value: 100
-        },
-        {
-            class: 'Double',
-            name: 'y',
-            value: 100
-        },
-        {
-            class: 'Double',
-            name: 'width',
-            value: 200
-        },
-        {
-            class: 'Double',
-            name: 'height',
-            value: 150
-        }
+        { class: 'Double', name: 'x',      value: 100 },
+        { class: 'Double', name: 'y',      value: 100 },
+        { class: 'Double', name: 'width',  value: 200 },
+        { class: 'Double', name: 'height', value: 150 }
     ]
 });

@@ -18,6 +18,7 @@ foam.POM({
     { name: 'src/foam/u2/address/pom' },
     { name: 'src/io/c9/ace/pom' },
     { name: 'src/org/konvajs/pom' },
+    { name: 'src/org/konvajs/graph/pom' },
     { name: 'src/org/ooux/pom' },
     { name: 'webroot/pom' },
     { name: 'src/foam/dao/jdbc/pom' },

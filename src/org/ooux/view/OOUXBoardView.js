@@ -192,7 +192,10 @@ foam.CLASS({
 
             // Clicking empty canvas clears the selection.
             stage.on('click tap', function (e) {
-                if (e.target === stage) self.selected = null;
+                if (e.target === stage) {
+                    self.selected = null;
+                    self.connectMode = false;
+                }
             });
 
             this.onDetach(this.objectDAO.on.put.sub(function (_, __, ___, obj) {
@@ -215,6 +218,7 @@ foam.CLASS({
                 self.removeCard(obj.id);
                 if (self.selected && self.selected.id === obj.id) {
                     self.selected = null;
+                    self.connectMode = false;
                 }
                 layer.batchDraw();
             }));

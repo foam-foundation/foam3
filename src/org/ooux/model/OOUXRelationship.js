@@ -5,21 +5,21 @@
  */
 
 foam.CLASS({
-  package: 'org.ooux.model',
-  name: 'OOUXRelationship',
+    package: 'org.ooux.model',
+    name: 'OOUXRelationship',
 
-  properties: [
-    {
-      class: 'String',
-      name: 'id',
-      factory: function() { return foam.uuid.randomGUID(); }
-    },
-    {
-      class: 'String',
-      name: 'label',
-      value: 'related to'
-    },
-    { class: 'String', name: 'sourceId' },
-    { class: 'String', name: 'targetId' }
-  ]
+    properties: [
+        {
+            class: 'String',
+            name: 'id',
+            factory: function() { return foam.uuid.randomGUID(); }
+        },
+        {
+            class: 'String',
+            name: 'label',
+            value: 'related to'
+        },
+        { class: 'String', name: 'sourceId' },
+        { class: 'String', name: 'targetId' }
+    ]
 });

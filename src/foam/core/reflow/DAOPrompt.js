@@ -404,7 +404,7 @@ foam.CLASS({
         };
       },
       validateObj: function(columns) {
-        let a = columns.trim().split(',').map(c => c.trim());
+        let a = columns.trim().split(',').map(c => c.trim()).filter(c => c);
 
         for ( let i = 0 ; i < a.length ; i++ ) {
           let of = this.dao.of;

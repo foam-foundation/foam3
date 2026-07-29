@@ -8,12 +8,21 @@ foam.CLASS({
   package: 'org.konvajs.graph.view',
   name: 'GraphNodeView',
 
-  documentation: `One GraphNode as a draggable Konva group (rect + centered
-    label). CardNode lifecycle: createNode() once, updateNode() reconciles
-    in place, the view subscribes to its model so a change from anywhere
-    redraws. States: normal, highlighted (brand stroke), processing
-    (pulsing opacity), pseudo (grey, strokeless), temp (dashed stroke,
-    '...' label), collapsed (count badge).`,
+  documentation: `One GraphNode as a draggable Konva group. The base class
+    owns the lifecycle: createNode() builds the group once, wires
+    click/drag events, subscribes to the model, and delegates shape
+    construction to buildShapes(); updateNode() reconciles position in
+    place and delegates the rest to reconcileShapes().
+
+    Subclass contract: override buildShapes(group) to create and add your
+    own shapes, reconcileShapes() to reconcile them with 'data', and
+    optionally applyState(). Never override createNode()/updateNode() -
+    they carry the lifecycle every node view relies on.
+
+    Default shapes: rect + centered label. States: normal, highlighted
+    (brand stroke), processing (pulsing opacity), pseudo (grey,
+    strokeless), temp (dashed stroke, '...' label), collapsed (count
+    badge).`,
 
   properties: [
     {
@@ -48,6 +57,40 @@ foam.CLASS({
         draggable: true,
         id: data.id
       });
+      this.group = group;
+
+      this.buildShapes(group);
+
+      group.on('click tap', function() { self.onSelected(self.data); });
+
+      group.on('dragmove', function() {
+        self.onDragMove(self.data.id, group.x(), group.y());
+      });
+
+      group.on('dragend', function() {
+        self.data.x = group.x();
+        self.data.y = group.y();
+        self.data.pinned = true;
+        self.onMoved(self.data);
+      });
+
+      this.listenToData();
+      this.onDetach(function() {
+        if ( self.dataSub_ ) self.dataSub_.detach();
+        self.stopPulse();
+      });
+
+      this.reconcileShapes();
+      return group;
+    },
+
+    function buildShapes(group) {
+      /** Build the node's Konva shapes and add them to the group. Called
+          once from createNode(). Default: rect + centered label +
+          collapsed badge. Subclasses build their own shapes here; the
+          base reconcileShapes()/applyState() no-op safely when rect_ is
+          absent. **/
+      var data = this.data;
 
       this.rect_ = new Konva.Rect({
         width: data.width,
@@ -83,29 +126,6 @@ foam.CLASS({
       group.add(this.rect_);
       group.add(this.text_);
       group.add(this.badge_);
-      this.group = group;
-
-      group.on('click tap', function() { self.onSelected(self.data); });
-
-      group.on('dragmove', function() {
-        self.onDragMove(self.data.id, group.x(), group.y());
-      });
-
-      group.on('dragend', function() {
-        self.data.x = group.x();
-        self.data.y = group.y();
-        self.data.pinned = true;
-        self.onMoved(self.data);
-      });
-
-      this.listenToData();
-      this.onDetach(function() {
-        if ( self.dataSub_ ) self.dataSub_.detach();
-        self.stopPulse();
-      });
-
-      this.applyState();
-      return group;
     },
 
     function listenToData() {
@@ -119,18 +139,26 @@ foam.CLASS({
 
     function updateNode() {
       if ( ! this.group ) return;
+
+      this.group.position({ x: this.data.x, y: this.data.y });
+      this.reconcileShapes();
+
+      var layer = this.group.getLayer();
+      if ( layer ) layer.batchDraw();
+    },
+
+    function reconcileShapes() {
+      /** Reconcile the shapes built by buildShapes() with 'data'. Called
+          from createNode() and every updateNode(). **/
+      if ( ! this.rect_ ) return;
       var data = this.data;
 
-      this.group.position({ x: data.x, y: data.y });
       this.rect_.width(data.width);
       this.rect_.height(data.height);
       this.text_.width(data.width);
       this.text_.height(data.height);
       this.badge_.x(data.width - 18);
       this.applyState();
-
-      var layer = this.group.getLayer();
-      if ( layer ) layer.batchDraw();
     },
 
     function applyState() {

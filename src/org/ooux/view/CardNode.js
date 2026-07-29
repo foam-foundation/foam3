@@ -66,6 +66,12 @@ foam.CLASS({
             name: 'onSelected',
             documentation: 'Called with the model when the card is clicked.',
             value: function (data) { }
+        },
+        {
+            class: 'Function',
+            name: 'onDragMove',
+            documentation: 'Called with (id, x, y) continuously during a drag so edges can track.',
+            value: function(id, x, y) { }
         }
     ],
 
@@ -152,6 +158,10 @@ foam.CLASS({
                 self.data.x = e.target.x();
                 self.data.y = e.target.y();
                 self.onMoved(self.data);
+            });
+
+            group.on('dragmove', function() {
+                self.onDragMove(self.data.id, group.x(), group.y());
             });
 
             // A Transformer scales the group rather than resizing it, so bake

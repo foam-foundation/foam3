@@ -418,5 +418,16 @@ p({
   "parent": "admin"
 })
 
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "graph-demo",
+  "label": "Graph Demo",
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "org.konvajs.graph.demo.GraphDemoView" }
+  },
+  "parent": "admin"
+})
+
 
 

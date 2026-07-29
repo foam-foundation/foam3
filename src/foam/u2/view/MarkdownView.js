@@ -353,12 +353,26 @@ foam.CLASS({
         function codeBlock(v) {
           let self = this;
           let language = v[1] || 'plaintext', text = v[3];
+
+          let renderer = self.codeBlockRenderers[language];
+          if ( renderer ) {
+            return function() {
+              // Only render if the renderer's class is actually in this build.
+              // Falls through to a plain code block if the POM excludes it.
+              if ( this.__context__.maybeLookup(renderer) ) {
+                this.tag({
+                  class:        renderer,
+                  data:         text,
+                  allowScript:  self.allowScript
+                });
+                return;
+              }
+              self.renderPlainCodeBlock(this, language, text);
+            };
+          }
+
           return function() {
-            this.start('pre').
-              addClass(self.myClass('codeBlock')).
-              start('code').
-                addClass('language-' + language).
-                add(text);
+            self.renderPlainCodeBlock(this, language, text);
           };
         },
 
@@ -491,10 +505,38 @@ foam.CLASS({
     {
       class: 'String',
       name: 'data'
+    },
+    {
+      class: 'Map',
+      name: 'codeBlockRenderers',
+      documentation: `Maps a code-fence language to the id of a View that
+        renders it. The View is only used if it's registered in this build,
+        so add-on packages can be excluded from a POM without breaking
+        documents that reference them.`,
+      factory: function() {
+        return { konva: 'org.konvajs.KonvaCodeView' };
+      }
+    },
+    {
+      class: 'Boolean',
+      name: 'allowScript',
+      documentation: `Permits code-fence renderers to execute the fence body as
+        JavaScript. Off by default, and MUST stay off wherever the markdown can
+        come from a user: the script runs with the full FOAM context, so it
+        reaches the session, exported DAOs and services. Only set this on views
+        whose markdown is a hardcoded developer-authored literal.`
     }
   ],
 
   methods: [
+    function renderPlainCodeBlock(e, language, text) {
+      e.start('pre').
+        addClass(this.myClass('codeBlock')).
+        start('code').
+          addClass('language-' + language).
+          add(text);
+    },
+
     function render() {
       this.SUPER();
       var self = this;

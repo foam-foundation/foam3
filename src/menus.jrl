@@ -362,3 +362,61 @@ p({
   },
   "parent":"admin"
 })
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "konva-demo",
+  "label": "Konva Demo",
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "org.konvajs.Demo" }
+  },
+  "parent": "admin"
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ooux-board",
+  "label": "OOUX Board",
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "org.ooux.view.OOUXBoardView" }
+  },
+  "parent": "admin"
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "reflow-konva-demo",
+  "label": "Reflow Konva Data",
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "org.konvajs.ReflowKonvaDemoView" }
+  },
+  "parent": "admin"
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "reflow-konva-dynamic",
+  "label": "Reflow Konva Dynamic",
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "org.konvajs.ReflowKonvaDynamicView" }
+  },
+  "parent": "admin"
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "konva-parser-demos",
+  "label": "Parser Visualization",
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "org.konvajs.ParserDemos" }
+  },
+  "parent": "admin"
+})
+
+
+

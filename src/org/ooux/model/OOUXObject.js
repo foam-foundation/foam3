@@ -27,16 +27,32 @@ foam.CLASS({
         {
             class: 'FObjectArray',
             of: 'org.ooux.model.OOUXProperty',
-            name: 'properties'
+            name: 'properties',
+            view: {
+                // The default row view (FObjectView) is an async class
+                // chooser; its render races the sidebar rebuild on
+                // selection change and crashes. Rows are always
+                // OOUXProperty, so render them directly.
+                class: 'foam.u2.view.FObjectArrayView',
+                valueView: { class: 'foam.u2.detail.VerticalDetailView' }
+            }
         },
         {
             class: 'Color',
             name: 'color',
             value: '#3498db' // Default Blue
         },
-        { class: 'Double', name: 'x',      value: 100 },
-        { class: 'Double', name: 'y',      value: 100 },
-        { class: 'Double', name: 'width',  value: 200 },
-        { class: 'Double', name: 'height', value: 150 }
+        {
+            class: 'String',
+            name: 'label',
+            value: 'Node',
+            hidden: true // Cards render 'name'; label is unused here.
+        },
+        // Position and size are canvas-managed (drag, Transformer, Align);
+        // hidden so the sidebar editor doesn't fight the canvas.
+        { class: 'Double', name: 'x',      value: 100, hidden: true },
+        { class: 'Double', name: 'y',      value: 100, hidden: true },
+        { class: 'Double', name: 'width',  value: 200, hidden: true },
+        { class: 'Double', name: 'height', value: 150, hidden: true }
     ]
 });

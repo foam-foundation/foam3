@@ -105,6 +105,13 @@ foam.CLASS({
             name: 'transformer_',
             class: 'Simple'
         },
+        {
+            name: 'selSub_',
+            class: 'Simple',
+            documentation: `propertyChange subscription on the selected
+              card's model, held so the Transformer can be re-fitted when
+              the model changes (see syncTransformer).`
+        },
         { class: 'Boolean', name: 'connectMode' },
         {
             class: 'String',
@@ -188,6 +195,9 @@ foam.CLASS({
             this.onDetach(this.diagram.selected$.sub(function () {
                 self.onSelectionChange();
             }));
+            this.onDetach(function () {
+                if ( self.selSub_ ) { self.selSub_.detach(); self.selSub_ = null; }
+            });
         },
 
         function onSelectionChange() {
@@ -215,11 +225,27 @@ foam.CLASS({
         function syncTransformer() {
             if ( ! this.transformer_ ) return;
 
-            var sel = this.diagram.selected;
-            var nv  = this.OOUXObject.isInstance(sel) ?
+            var self = this;
+            var sel  = this.diagram.selected;
+            var nv   = this.OOUXObject.isInstance(sel) ?
                 this.diagram.getNodeView(sel.id) : null;
 
             this.transformer_.nodes(nv && nv.group ? [nv.group] : []);
+
+            // A group's bounds come from its children, and Konva only
+            // watches the group's own transform attrs - so sidebar edits
+            // that resize the card's shapes leave the Transformer frame at
+            // the old bounds. Re-fit it on any model change while selected.
+            if ( this.selSub_ ) { this.selSub_.detach(); this.selSub_ = null; }
+            if ( nv && nv.group ) {
+                this.selSub_ = sel.propertyChange.sub(function () {
+                    // Runs after CardNode's own subscription (registered
+                    // earlier), so the shapes are already reconciled.
+                    self.transformer_.forceUpdate();
+                    var layer = self.transformer_.getLayer();
+                    if ( layer ) layer.batchDraw();
+                });
+            }
 
             // Cards are added after the Transformer, so keep its handles
             // above them.

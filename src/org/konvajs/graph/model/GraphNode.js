@@ -37,8 +37,13 @@ foam.CLASS({
     {
       class: 'String',
       name: 'state',
-      value: 'normal'
+      value: 'normal',
+      hidden: true // Transient render state, not user-editable.
     },
-    { class: 'Boolean', name: 'pinned' }
+    {
+      class: 'Boolean',
+      name: 'pinned',
+      hidden: true // Layout bookkeeping, set by drag.
+    }
   ]
 });

@@ -1118,7 +1118,7 @@ foam.CLASS({
       title: 'Display Options',
       order: 4,
       collapsable: true,
-      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip']
+      properties: [ 'alignment', 'maintainAspectRatio', 'height',  'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip']
     },
     {
       name: 'colors',
@@ -1262,8 +1262,11 @@ foam.CLASS({
       name: 'xAxisMinScale',
       label: 'X Axis Min',
       value: 0,
-      visibility: function(toggleCustomXScale) {
-        return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
+      visibility: function(toggleCustomXScale, xProp) {
+        // Only show for non-date/time properties on X-axis
+        var isDateProp = xProp && xProp.delegate &&
+          (foam.lang.Date.isInstance(xProp.delegate) || foam.lang.DateTime.isInstance(xProp.delegate));
+        return ( ! isDateProp && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
     },
     {
@@ -1271,8 +1274,11 @@ foam.CLASS({
       name: 'xAxisMaxScale',
       label: 'X Axis Max',
       value: 9999,
-      visibility: function(toggleCustomXScale) {
-        return toggleCustomXScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.RO;
+      visibility: function(toggleCustomXScale, xProp) {
+        // Only show for non-date/time properties on X-axis
+        var isDateProp = xProp && xProp.delegate &&
+          (foam.lang.Date.isInstance(xProp.delegate) || foam.lang.DateTime.isInstance(xProp.delegate));
+        return ( ! isDateProp && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
     },
     {
@@ -1298,6 +1304,30 @@ foam.CLASS({
       name: 'autoSkip',
       label: 'Hide Overlapping Labels',
       value: true
+    },
+    {
+      class: 'DateTime',
+      name: 'xDateAxisMinScale',
+      label: 'X Axis Min',
+      factory: function() { return new Date( new Date().getTime() - (365 * 24 * 60 * 60 * 1000) ); }, // Default to today - 1yr for now
+      visibility: function(toggleCustomXScale, xProp) {
+        // Only show for date/time properties on X-axis
+        var isDateProp = xProp && xProp.delegate &&
+          (foam.lang.Date.isInstance(xProp.delegate) || foam.lang.DateTime.isInstance(xProp.delegate));
+        return ( isDateProp && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
+    },
+    {
+      class: 'DateTime',
+      name: 'xDateAxisMaxScale',
+      label: 'X Axis Max',
+      factory: function() { return new Date( new Date().getTime() + (365 * 24 * 60 * 60 * 1000) ); }, // Default to today + 1yr for now
+      visibility: function(toggleCustomXScale, xProp) {
+        // Only show for date/time properties on X-axis
+        var isDateProp = xProp && xProp.delegate &&
+          (foam.lang.Date.isInstance(xProp.delegate) || foam.lang.DateTime.isInstance(xProp.delegate));
+        return ( isDateProp && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      }
     }
   ],
 
@@ -1351,7 +1381,9 @@ foam.CLASS({
           xAxisMaxScale: this.xAxisMaxScale,
           yAxisMinScale: this.yAxisMinScale,
           yAxisMaxScale: this.yAxisMaxScale,
-          autoSkip: this.autoSkip
+          autoSkip: this.autoSkip,
+          xDateAxisMinScale: this.xDateAxisMinScale,
+          xDateAxisMaxScale: this.xDateAxisMaxScale
         });
       } else {
         // Single-line chart: Use GroupBy-based sink
@@ -1384,7 +1416,9 @@ foam.CLASS({
           xAxisMaxScale: this.xAxisMaxScale,
           yAxisMinScale: this.yAxisMinScale,
           yAxisMaxScale: this.yAxisMaxScale,
-          autoSkip: this.autoSkip
+          autoSkip: this.autoSkip,
+          xDateAxisMinScale: this.xDateAxisMinScale,
+          xDateAxisMaxScale: this.xDateAxisMaxScale
         });
       }
     },
@@ -1403,7 +1437,7 @@ foam.CLASS({
                                   maintainAspectRatio, height, showLegend, legendPosition,
                                   showTooltips, showTooltipSum, animate, animationDuration, alignment,
                                   periodCount, toggleCustomXScale, toggleCustomYScale,
-                                  xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
+                                  xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale) {
         s.colors = colors;
         s.xAxisLabel = xAxisLabel;
         s.yAxisLabel = yAxisLabel;
@@ -1430,6 +1464,8 @@ foam.CLASS({
         s.yAxisMinScale = yAxisMinScale;
         s.yAxisMaxScale = yAxisMaxScale;
         s.autoSkip = autoSkip;
+        s.xDateAxisMinScale = xDateAxisMinScale;
+        s.xDateAxisMaxScale = xDateAxisMaxScale;
         
         // Force chart to update/redraw
         if ( s.updateChart ) s.updateChart();
@@ -1483,6 +1519,8 @@ foam.CLASS({
       clone.yAxisMinScale$ = this.yAxisMinScale$;
       clone.yAxisMaxScale$ = this.yAxisMaxScale$;
       clone.autoSkip$ = this.autoSkip$;
+      clone.xDateAxisMinScale$ = this.xDateAxisMinScale$;
+      clone.xDateAxisMaxScale$ = this.xDateAxisMaxScale$;
       return clone;
     }
   ]

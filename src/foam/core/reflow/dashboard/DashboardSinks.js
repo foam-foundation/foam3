@@ -1244,7 +1244,9 @@ foam.CLASS({
     { class: 'Double', name: 'xAxisMinScale' },
     { class: 'Double', name: 'yAxisMaxScale' },
     { class: 'Double', name: 'yAxisMinScale' },
-    { class: 'Boolean', name: 'autoSkip' }
+    { class: 'Boolean', name: 'autoSkip' },
+    { class: 'DateTime', name: 'xDateAxisMinScale' },
+    { class: 'DateTime', name: 'xDateAxisMaxScale' }
   ],
 
   methods: [
@@ -1252,7 +1254,7 @@ foam.CLASS({
                                responsive, maintainAspectRatio, showLegend, legendPosition,
                                showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
                                xPropForLabels, yPropForLabels, toggleCustomXScale, toggleCustomYScale,
-                               xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
+                               xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale) {
       var chartJSOptions = {
         responsive: responsive,
         maintainAspectRatio: maintainAspectRatio,
@@ -1317,10 +1319,16 @@ foam.CLASS({
         if ( timeUnit.displayFormat ) {
           chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
         }
+
+        if ( toggleCustomXScale ) {
+          chartJSOptions.scales.x.min = xDateAxisMinScale;
+          chartJSOptions.scales.x.max = xDateAxisMaxScale;
+        }
+
       } else if ( toggleCustomXScale ) { // If using a custom scale...
         // Figure out what the type the data on the X axis is and set the chart type to match
         var firstX = datasets[0] && datasets[0].data[0] ? datasets[0].data[0].x : null;
-        chartJSOptions.scales.x.type = foam.String.isInstance(firstX) ? 'category' : 'linear';
+        chartJSOptions.scales.x.type = Number.isNaN(firstX) ? 'category' : 'linear';
         chartJSOptions.scales.x.min = xAxisMinScale;
         chartJSOptions.scales.x.max = xAxisMaxScale;
       }
@@ -1405,7 +1413,7 @@ foam.CLASS({
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
                         periodCount, width, toggleCustomXScale, toggleCustomYScale,
-                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale) {
 
       if ( !arg1 || !arg2 ) return null;
 
@@ -1485,7 +1493,7 @@ foam.CLASS({
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
                                    arg1, arg2, toggleCustomXScale, toggleCustomYScale,
-                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip);
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale);
     }
 
   }
@@ -1572,7 +1580,7 @@ foam.CLASS({
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
                         periodCount, width, toggleCustomXScale, toggleCustomYScale,
-                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
@@ -1668,7 +1676,7 @@ foam.CLASS({
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
                                    xFunc, yFunc, toggleCustomXScale, toggleCustomYScale,
-                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip);
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale);
       }
     }
 

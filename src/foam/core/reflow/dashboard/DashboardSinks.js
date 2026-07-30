@@ -1237,14 +1237,22 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer (for multiple lines)' },
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' }
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    { class: 'Boolean', name: 'toggleCustomXScale' },
+    { class: 'Boolean', name: 'toggleCustomYScale' },
+    { class: 'Double', name: 'xAxisMaxScale' },
+    { class: 'Double', name: 'xAxisMinScale' },
+    { class: 'Double', name: 'yAxisMaxScale' },
+    { class: 'Double', name: 'yAxisMinScale' },
+    { class: 'Boolean', name: 'autoSkip' }
   ],
 
   methods: [
     function createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                responsive, maintainAspectRatio, showLegend, legendPosition,
                                showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                               xPropForLabels, yPropForLabels) {
+                               xPropForLabels, yPropForLabels, toggleCustomXScale, toggleCustomYScale,
+                               xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
       var chartJSOptions = {
         responsive: responsive,
         maintainAspectRatio: maintainAspectRatio,
@@ -1275,10 +1283,13 @@ foam.CLASS({
           x: {
             title: {
               display: !!xAxisLabel || !!(xPropForLabels && xPropForLabels.label),
-              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : '')
+              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : ''),
             },
             grid: {
               display: showGridLines
+            },
+            ticks: {
+              autoSkip: autoSkip
             }
           },
           y: {
@@ -1288,7 +1299,9 @@ foam.CLASS({
             },
             grid: {
               display: showGridLines
-            }
+            },
+            min: toggleCustomYScale ? yAxisMinScale : undefined,
+            max: toggleCustomYScale ? yAxisMaxScale : undefined
           }
         }
       };
@@ -1304,6 +1317,12 @@ foam.CLASS({
         if ( timeUnit.displayFormat ) {
           chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
         }
+      } else if ( toggleCustomXScale ) { // If using a custom scale...
+        // Figure out what the type the data on the X axis is and set the chart type to match
+        var firstX = datasets[0] && datasets[0].data[0] ? datasets[0].data[0].x : null;
+        chartJSOptions.scales.x.type = foam.String.isInstance(firstX) ? 'category' : 'linear';
+        chartJSOptions.scales.x.min = xAxisMinScale;
+        chartJSOptions.scales.x.max = xAxisMaxScale;
       }
 
       return this.Line2.create({
@@ -1385,7 +1404,8 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
 
       if ( !arg1 || !arg2 ) return null;
 
@@ -1464,7 +1484,8 @@ foam.CLASS({
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   arg1, arg2);
+                                   arg1, arg2, toggleCustomXScale, toggleCustomYScale,
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip);
     }
 
   }
@@ -1550,7 +1571,8 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
@@ -1645,7 +1667,8 @@ foam.CLASS({
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   xFunc, yFunc);
+                                   xFunc, yFunc, toggleCustomXScale, toggleCustomYScale,
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip);
       }
     }
 

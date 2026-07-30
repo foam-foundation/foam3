@@ -272,7 +272,7 @@ for (Object key : getGroups().keySet()) {
 
       const model = {
         package: 'foam.tmp',
-        name: 'GroupBy + foam.next$UID(),
+        name: 'GroupBy' + foam.next$UID(),
         plural: 'Data',
         ids: [ 'row' ],
         properties: [

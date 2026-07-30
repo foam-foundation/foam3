@@ -69,17 +69,19 @@ console.log(slotName.get());    // → 'Steve'   reads through to the live prope
 That's the whole point: `name` is the value, `slotName` is a pointer *to* the value.
 
 The `$` suffix is part of the FOAM modeling syntax — like `CLASS` or `ENUM` — and references
-the property's slot instead of its static value.
-For every property, FOAM generates a `<property>$`
-accessor whose getter returns a `Slot`, specifically a `PropertySlot` (see `Property.toSlot`
-in `Property.js`), created once and cached. So `person.fname$` is an ordinary object you can
-hold in a variable, pass around, and call methods on.
-The `$` accessor is itself a shorthand. Every FOAM model extends the base class `FObject`, so
-`person` — an instance of the `Person` model — is an `FObject`, and inherits `FObject`'s
-`slot()` method, which returns the slot for a property by name. That is all `$` does:
-`person.fname$` is short for `person.slot('fname')`. (Writing the method as `FObject.slot()`
-just names where it's defined; you always call it on an instance — `person.slot(...)`.)
-In either case, the slot has three core operations, defined on `PropertySlot` — `get`, `set`, `sub`:
+the property's slot instead of its static value. For every property, FOAM generates a
+`<property>$` accessor whose getter returns a `Slot`, specifically a `PropertySlot` (see
+`Property.toSlot` in `Property.js`), created once and cached. So `person.fname$` is an ordinary
+object you can hold in a variable, pass around, and call methods on.
+
+> **Why every object has slots: the `FObject` base class.** Every FOAM model extends the base
+> class `FObject`, so `person` — an instance of the `Person` model — *is* an `FObject` and
+> inherits its `slot()` method, which returns the slot for a property by name. That is all `$`
+> does: `person.fname$` is short for `person.slot('fname')`. (Writing the method as
+> `FObject.slot()` only names where it's defined; you always call it on an instance:
+> `person.slot(...)`.)
+
+Either way, the slot has three core operations, defined on `PropertySlot` — `get`, `set`, `sub`:
 
 ```javascript
 slotName.get();         // → 'Steve'                       read through the pointer

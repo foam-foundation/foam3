@@ -62,6 +62,10 @@ if (other instanceof foam.mlang.sink.Sum) {
 
     function setPropertyValues(o, sink, ps) {
       ps[0].set(o, sink.applyPrecision(sink.value));
+    },
+
+    function toString() {
+      return `SUM(${this.arg1}, ${this.value})`;
     }
   ]
 });

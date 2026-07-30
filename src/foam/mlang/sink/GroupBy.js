@@ -28,6 +28,7 @@ foam.CLASS({
     {
       class: 'foam.mlang.SinkProperty',
       name: 'arg2',
+      autoValidate: true,
       javaFactory: 'return foam.mlang.MLang.COUNT();',
       factory: function() { return foam.mlang.sink.Count.create(); }
     },
@@ -204,7 +205,8 @@ for (Object key : getGroups().keySet()) {
     {
       name: 'toString',
       code: function toString() {
-        return 'groupBy(' + this.arg1 + ',' + this.arg2 + ',' + this.groupLimit + ')';
+        // The arg2.toString() is needed because some arg2's like SUM() have a valueOf() which will just return a constant number
+        return 'groupBy(' + this.arg1 + ',' + this.arg2.toString() + ',' + this.groupLimit + ')';
       },
       javaCode: 'return this.getGroups().toString();'
     },
@@ -270,7 +272,7 @@ for (Object key : getGroups().keySet()) {
 
       const model = {
         package: 'foam.tmp',
-        name: 'GroupBy' + foam.next$UID(),
+        name: 'GroupBy + foam.next$UID(),
         plural: 'Data',
         ids: [ 'row' ],
         properties: [
@@ -284,6 +286,10 @@ for (Object key : getGroups().keySet()) {
 
       var props = this.arg2.toProperties ? this.arg2.toProperties() : this.arg2.VALUE ? [ this.arg2.VALUE ] : [];
       model.properties.push.apply(model.properties, props);
+      // TODO: can we use the whole properties objects
+      // TODO: find old name and search and replace results in reflow
+ //     model.name = 'GroupBy' + Math.abs(foam.util.hashCode(model.properties.map(p => p.name)));
+//      model.name = 'GroupBy' + Math.abs(foam.util.hashCode(model.properties));
 
       return model;
     },

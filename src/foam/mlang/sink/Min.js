@@ -91,6 +91,7 @@ if (other instanceof foam.mlang.sink.Min) {
 
     function setPropertyValues(o, sink, ps) {
       ps[0].set(o, sink.applyPrecision(sink.value));
-    }
+    },
+    function toString() { return `MIN(${this.arg1}, ${this.value})`; }
   ]
 });

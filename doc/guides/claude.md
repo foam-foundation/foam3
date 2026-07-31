@@ -237,6 +237,10 @@ Invoice.AMOUNT      // the Property axiom object
 inv.AMOUNT.name     // 'amount'
 ```
 
+For the parts that surprise people — when `postSet` does not fire, why an `expression` can go
+cold, what `transient` cascades into, and why a `javaGetter`-derived value never reaches the
+client — see [PropertyGotchas.md](PropertyGotchas.md).
+
 ---
 
 ## 4. Methods
@@ -606,6 +610,10 @@ Nothing above says anything about *where* the data is stored. That is intentiona
 
 The DAO interface is the complete contract. Code that depends on knowing the underlying storage mechanism forfeits the caching, authorisation, audit logging, and other layers that FOAM composes transparently above any DAO.
 
+That composition has sharp edges: which context an operation runs in, what a decorator wraps,
+when a result is frozen or cached, and how sinks and predicates evaluate. Those are collected in
+[DaoGotchas.md](DaoGotchas.md).
+
 ---
 
 ## 9. Inheritance and Mixins
@@ -719,6 +727,12 @@ Use optional imports (`'myService?'`) when a service might not always be present
 ### Prefer `expression` over `factory` for computed values
 `expression` declares dependencies and auto-invalidates. `factory` only runs once.
 
+One caveat: an `expression` is lazy and its dependency subscriptions are one-shot. With no active
+subscriber at the moment a dependency changes, it clears its cache, detaches, publishes nothing,
+and stays cold until the property is read again. Behind a view that re-reads on every change this
+is invisible; behind a passive consumer it shows a stale value. See
+[PropertyGotchas.md](PropertyGotchas.md).
+
 ### Use `requires` instead of direct class references
 `this.Invoice.create()` uses the context; `com.example.Invoice.create()` bypasses it. Replacements, singletons, and multitons only work through `requires`.
 
@@ -770,6 +784,12 @@ Things the LLM does *not* need to generate: getters, setters, change notificatio
 | Mutating array property directly | Replace: `this.items = [...this.items, newItem]` |
 | `async init()` | FOAM `init()` is synchronous; do async work in an `expression` or separate method |
 | Forgetting to `detach()` listeners | Causes memory leaks; attach subs to `this.onDetach(sub)` |
+| `getDelegate().find(id)` inside a decorator | `getDelegate().find_(x, id)` — the argless form re-enters with the DAO's own context, so the stack runs as system ([DaoGotchas](DaoGotchas.md)) |
+| `getDelegate().select(sink)` in a `select_` override | `select_(x, sink, skip, limit, order, predicate)` — the arity-1 form drops every query argument |
+| Mutating an object returned by `put()`/`find()` | `fclone()` first; the returned instance is frozen |
+| `where(LTE(dateProp, now))` for a deadline sweep | `where(AND(HAS(dateProp), LTE(dateProp, now)))` — an unset Date satisfies `LTE` |
+| `LimitedSink` nested under `GROUP_BY` | `UNIQUE(key, LimitedSink(N))` — the nested form detaches the outer scan and truncates it silently |
+| `.add(prop)` for a permission-gated field | `.add(prop.__)` — the permission check lives in `PropertyBorder`, not the bare view ([PropertyGotchas](PropertyGotchas.md)) |
 
 ---
 
@@ -1258,6 +1278,10 @@ Invoice.AMOUNT      // the Property axiom object
 inv.AMOUNT.name     // 'amount'
 ```
 
+For the parts that surprise people — when `postSet` does not fire, why an `expression` can go
+cold, what `transient` cascades into, and why a `javaGetter`-derived value never reaches the
+client — see [PropertyGotchas.md](PropertyGotchas.md).
+
 ---
 
 ## 4. Methods
@@ -1566,6 +1590,12 @@ Use optional imports (`'myService?'`) when a service might not always be present
 ### Prefer `expression` over `factory` for computed values
 `expression` declares dependencies and auto-invalidates. `factory` only runs once.
 
+One caveat: an `expression` is lazy and its dependency subscriptions are one-shot. With no active
+subscriber at the moment a dependency changes, it clears its cache, detaches, publishes nothing,
+and stays cold until the property is read again. Behind a view that re-reads on every change this
+is invisible; behind a passive consumer it shows a stale value. See
+[PropertyGotchas.md](PropertyGotchas.md).
+
 ### Use `requires` instead of direct class references
 `this.Invoice.create()` uses the context; `com.example.Invoice.create()` bypasses it. Replacements, singletons, and multitons only work through `requires`.
 
@@ -1617,6 +1647,12 @@ Things the LLM does *not* need to generate: getters, setters, change notificatio
 | Mutating array property directly | Replace: `this.items = [...this.items, newItem]` |
 | `async init()` | FOAM `init()` is synchronous; do async work in an `expression` or separate method |
 | Forgetting to `detach()` listeners | Causes memory leaks; attach subs to `this.onDetach(sub)` |
+| `getDelegate().find(id)` inside a decorator | `getDelegate().find_(x, id)` — the argless form re-enters with the DAO's own context, so the stack runs as system ([DaoGotchas](DaoGotchas.md)) |
+| `getDelegate().select(sink)` in a `select_` override | `select_(x, sink, skip, limit, order, predicate)` — the arity-1 form drops every query argument |
+| Mutating an object returned by `put()`/`find()` | `fclone()` first; the returned instance is frozen |
+| `where(LTE(dateProp, now))` for a deadline sweep | `where(AND(HAS(dateProp), LTE(dateProp, now)))` — an unset Date satisfies `LTE` |
+| `LimitedSink` nested under `GROUP_BY` | `UNIQUE(key, LimitedSink(N))` — the nested form detaches the outer scan and truncates it silently |
+| `.add(prop)` for a permission-gated field | `.add(prop.__)` — the permission check lives in `PropertyBorder`, not the bare view ([PropertyGotchas](PropertyGotchas.md)) |
 
 ---
 

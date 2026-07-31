@@ -381,6 +381,7 @@ foam.CLASS({
       name: 'order',
       section: 'filter',
       onKey: true,
+      preSet: function(o, n) { return n.replaceAll(' ', ''); },
       displayWidth: 60,
       view: function(_, X) {
         var data = X.data;
@@ -396,6 +397,7 @@ foam.CLASS({
       section: 'filter',
       displayWidth: 60,
       onKey: false,
+      preSet: function(o, n) { return n.replaceAll(' ', ''); },
       view: function(_, X) {
         var data = X.data;
         return {

@@ -41,12 +41,16 @@ foam.CLASS({
 
         property: alt.apply(null, ps),
 
-        propertyList: repeat(sym('property'), ','),
+        propertyListList: repeat(sym('propertyList'), sym('semiColon')),
+
+        propertyList: repeat(sym('property'), sym('comma')),
 
         comparator: repeat(sym('simpleComparator'), sym('comma')),
 
         simpleComparator: seq(optional(sym('neg')), sym('property')),
 //        simpleComparator: seq(sym('property'), optional(sym('direction')),
+
+        semiColon: sug(';',  {text: ';', label: 'List Sepearator',  prependSpaceOnSelect: false, category: 'operator'}),
 
         comma: sug(',',  {text: ',', label: 'List Operator',  prependSpaceOnSelect: false, category: 'operator'}),
 

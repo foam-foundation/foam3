@@ -60,7 +60,7 @@ Re-homing the object is not a shortcut. Generated `setX` is literally `x_ = x;` 
 
 ### A later wrap is the outer decorator
 
-`EasyDAO` builds its delegate chain inner to outer in code order. `getOuterDAO` runs first (`src/foam/dao/EasyDAO.js:248`), `.setDecorator()` applies next (`:250-260`), and `RulerDAO` applies at `:294`. RulerDAO wraps later, so it is **outer** to whatever `.setDecorator()` installed.
+`EasyDAO` builds its delegate chain inner to outer in code order. `getOuterDAO` runs first (`src/foam/dao/EasyDAO.js:248`), `.setDecorator()` applies next (`:250-260`), and a `RulerDAO` wraps it at `:294`. RulerDAO wraps later, so it is **outer** to whatever `.setDecorator()` installed.
 
 Consequence: a `put()` reaches RulerDAO and evaluates rules **before** any `.setDecorator()` decorator's `put_`. If a decorator needs to set a field the rule engine reads, `.setDecorator()` cannot do it — the value has to be stamped upstream of the served DAO.
 
@@ -74,7 +74,7 @@ return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.L
 
 (`lifecycleAware` at `EasyDAO.js:854`, with `createdAware`, `lastModifiedAware` and `serviceProviderAware` declared alongside it). When true, `build` wraps the decorator automatically — `LifecycleAwareDAO` at `EasyDAO.js:346-347`.
 
-So when auditing a DAO's service definition, never conclude "no `setLifecycleAware(true)` means hard delete" from the builder script alone. Check the `of` model's `implements:` list: `foam.core.auth.User` implements `LifecycleAware` (`src/foam/core/auth/User.js:12-20`), so any plain `EasyDAO` over `User` soft-deletes — `LifecycleAwareDAO.remove_` clones, sets `lifecycleState = DELETED`, and puts (`src/foam/core/auth/LifecycleAwareDAO.js`).
+So when auditing a DAO's service definition, never conclude "no `setLifecycleAware(true)` means hard delete" from the builder script alone. Check the `of` model's `implements:` list: `foam.core.auth.User` implements `LifecycleAware` (`src/foam/core/auth/User.js:12-20`), so any plain `EasyDAO` over `User` soft-deletes — `LifecycleAwareDAO.remove_` marks the object `DELETED` and puts it instead of removing it (`src/foam/core/auth/LifecycleAwareDAO.js:142`).
 
 The same reasoning applies to any application-level `*Aware` decorator wired through the same mechanism. Two corollaries:
 
@@ -275,7 +275,7 @@ The inherited `dao` expression depends on `predicate`, so it rebuilds the `where
 
 **Any `dao.put` in server code, including from a script or a cron, runs that DAO's `RulerDAO` rules for the put's operation.** A record you clone and re-put can have its fields rewritten before it lands.
 
-**Boot-time journal replay does NOT fire rules.** Entries replay straight into the DAO without `RulerDAO`, so a seed record keeps the values written in the file even when the same value written by a live put would be rewritten by a CREATE rule. When you need values to stick exactly as authored, prefer a static seed journal over a runtime clone-and-put script.
+**Journal replay writes below the decorator chain.** `JDAO` replays into its own **delegate** (`src/foam/dao/JDAO.js:31`), and the journal calls `dao.put_(x, obj)` on that delegate (`src/foam/dao/AbstractF3FileJournal.js:300`). Anything wrapped above the JDAO — a `RulerDAO` included — never sees a replayed entry. So a seed record keeps the values written in the file even where the same value written through the served DAO would be rewritten by a CREATE rule. When you need values to stick exactly as authored, prefer a static seed journal over a runtime clone-and-put script.
 
 **Operation semantics.** `foam.core.dao.Operation` is `CREATE`, `UPDATE`, or `CREATE_OR_UPDATE`. A `CREATE` rule fires only on a create — a new or non-existent id — and not on a re-put of an existing id.
 

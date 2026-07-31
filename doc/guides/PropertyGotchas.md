@@ -92,7 +92,7 @@ So `javaCompare: 'return 0;'` on an array property is discarded with no warning.
 
 **`transient: true` sets both `networkTransient` and `storageTransient`** — each defaults to the value of `transient` (`src/foam/lang/EndBoot.js:229,243`). A transient property is therefore neither journaled nor sent over the wire, and each side recomputes it locally.
 
-**`networkTransient` is encode-only.** It suppresses output — `foam.json.Network` will not encode the field (`EndBoot.js:205-206`) — but the JSON **parser** has no networkTransient filter, so an incoming value IS set on the object even when the receiver's own PropertyInfo marks it networkTransient.
+**`networkTransient` is encode-only.** It suppresses output — `foam.json.Network` will not encode the field (`EndBoot.js:205-206`) — but the JSON **parser** has no networkTransient filter — the flag appears nowhere under `src/foam/lib/json` — so an incoming value IS set on the object even when the receiver's own PropertyInfo marks it networkTransient.
 
 That asymmetry is a useful lever: a staging field that must reach the server on a put but never be journaled is `storageTransient: true`, **not** `transient: true` (which also sets `networkTransient` and drops it on the wire). Because decode never filters, the client simply starting to send the field is enough — the server reads it with no recompile.
 
@@ -119,7 +119,7 @@ Two flags, two questions: `transient` means "not stored", `searchable` means "ma
 
 **To expose a computed property to search while keeping it out of journals, use `storageTransient: true` alone.** The literal `transient` flag stays false, so `searchable` stays true and `networkTransient` stays false.
 
-**The `searchable` gate is JS-only.** `SimpleQueryParser.js` skips a non-searchable property, but the Java `SimpleQueryParser.processProperty` has no such check — a real client/server difference in accepted query syntax.
+**The `searchable` gate is JS-only.** `SimpleQueryParser.js` skips a non-searchable property, while the Java parser iterates `getAxiomsByClass(PropertyInfo.class)` and builds its name map with no `searchable` check at all (`src/foam/parse/SimpleQueryParser.java:424-431`) — a real client/server difference in accepted query syntax.
 
 **A subclass override must reset the literal flag.** An override clones the parent axiom, so a parent's literal `transient: true` rides along and keeps forcing `networkTransient` on the child. To narrow a fully-transient parent property to storage-only in one subclass, set BOTH `transient: false` and `storageTransient: true` — `storageTransient: true` alone changes nothing.
 
@@ -232,11 +232,11 @@ So a child view can drive parent state with `this.selection = this.data`, and th
 | `obj.propName` | The current value, non-reactive |
 | `obj.propName$` | The reactive slot |
 
-**`writePermissionRequired` and `readPermissionRequired` are enforced only in `PropertyBorder.createVisibilityFor`** (`src/foam/u2/Element2.js`), where the `<classname>.rw.<propname>` check lives.
+**`writePermissionRequired` and `readPermissionRequired` are enforced only in `createVisibilityFor`** (`src/foam/u2/Element2.js:1850`), where the check runs `auth.check` against `<ClassName>.rw.<propName>` (`:1877`).
 
 Therefore `.add(prop)` never runs the permission gate: the field is read-write for everyone regardless of what the model declares, and no group configuration will change it. `.add(prop.__)` runs it.
 
-**This is a silent bug pattern.** A model can declare `writePermissionRequired: true` and still be globally editable because one caller renders it with the bare axiom. Diagnosing it means knowing that `Property.toE` and `Property.toPropertyView` are two different code paths and only the second checks permissions.
+**This is a silent bug pattern.** A model can declare `writePermissionRequired: true` and still be globally editable because one caller renders it with the bare axiom. Diagnosing it means knowing that `Property.toE` (`Element2.js:1781`) and `Property.toPropertyView` (`:1790`, reached through the `__` getter at `:1763`) are two different code paths, and only the second builds the border that checks permissions.
 
 To render with permissions but without the `PropertyBorder` chrome — inside a tight table cell, say — strip it through the `config` argument rather than dropping back to the bare form:
 
@@ -244,7 +244,7 @@ To render with permissions but without the `PropertyBorder` chrome — inside a 
 .tag(obj.SOME_PROP.__, { config: { label: '', reserveLabelSpace: false } })
 ```
 
-`PropertyBorder.render` clones the property and `copyFrom`s `this.config`. With an empty label and `reserveLabelSpace: false`, the label slot renders `display: contents`, so nothing is shown and no space is reserved — while the view still receives `mode$`, so the auth check fires. The same trick passes `view`, `units`, `helpText` and any other PropertyBorder property.
+`PropertyBorder.render` clones the property and `copyFrom`s `this.config` (`src/foam/u2/PropertyBorder.js:93`). With an empty label and `reserveLabelSpace: false`, the label slot renders `display: contents` (`:165-175`), so nothing is shown and no space is reserved — while the view still receives `mode$`, so the auth check fires. The same trick passes `view`, `units`, `helpText` and any other PropertyBorder property.
 
 | Goal | Use |
 |---|---|

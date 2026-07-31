@@ -136,8 +136,7 @@ foam.CLASS({
             label$:      this.label$,
             ariaLabel$:  this.label$,
             onKey:       this.onKey,
-            mode$:       this.mode$,
-            placeholder: 'Search...'
+            mode$:       this.mode$
           }, this.view$)
           .call(function() {
             return self.property && this.fromProperty?.(self.property);

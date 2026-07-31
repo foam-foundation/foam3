@@ -280,7 +280,11 @@ foam.CLASS({
     function buildRow(e, i, self) {
       var row = self.Row.create({ index: i, value: e });
       e && e.sub && e.sub(self.updateDataWithoutFeedback);
-      row.onDetach(row.sub(self.updateDataWithoutFeedback));
+      row.onDetach(row.sub(
+        'propertyChange',
+        'value',
+        self.updateDataWithoutFeedback
+      ));
       return row;
     },
     function addAction() {

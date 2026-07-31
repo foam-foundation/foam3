@@ -27,7 +27,19 @@ foam.CLASS({
   requires: [
     'foam.core.menu.Menu',
     'foam.core.menu.VerticalMenu',
-    'foam.dao.ArraySink'
+    'foam.dao.ArraySink',
+    'foam.u2.SearchField',
+    'foam.u2.borders.ClearableSearchBorder'
+  ],
+
+  messages: [
+    {
+      name: 'MENU_SEARCH_LABEL',
+      messageMap: {
+        en: 'Menu Search',
+        fr: 'Recherche dans le menu'
+      }
+    }
   ],
 
   cssTokens: [
@@ -127,13 +139,25 @@ foam.CLASS({
       this
       .addClass(this.myClass())
         .callIf(this.theme.showNavSearch, function(){
+          var searchField = self.SearchField.create({
+            data$: self.menuSearch$,
+            onKey: true,
+            ariaLabel: self.MENU_SEARCH_LABEL,
+            autocomplete: false
+          }).attrs({ name: 'menuSearch' });
           this
-          .startContext({ data: this })
             .start()
-            .add(this.MENU_SEARCH)
-              .addClass(this.myClass('search'))
-            .end()
-            .endContext();
+            .addClass(self.myClass('search'))
+              .start(self.ClearableSearchBorder, {
+                textSlot: self.menuSearch$,
+                onClear: function() {
+                  self.menuSearch = '';
+                  searchField.focus();
+                }
+              })
+                .add(searchField)
+              .end()
+            .end();
         })
         .start({
           class: 'foam.u2.view.TreeView',

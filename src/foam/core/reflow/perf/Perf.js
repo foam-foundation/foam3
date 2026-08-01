@@ -789,13 +789,18 @@ foam.CLASS({
       var taken = {};
       calls.slice().sort(function(a, b) { return ( a.t || 0 ) - ( b.t || 0 ); })
         .forEach(function(c) {
-          if ( c.respBytes ) return;                  // header already told us
-          var list = byUrl[abs(c.url)];
-          if ( ! list ) return;
           var k = abs(c.url);
+          var list = byUrl[k];
+          if ( ! list ) return;
           var i = taken[k] || 0;
           if ( i >= list.length ) return;
+          // Consume this call's entry whether or not we need it. Several
+          // operations share one service URL - a short unchunked reply gets its
+          // size from content-length, but it still owns an entry. Skipping the
+          // cursor for it hands its entry to the next unsized call, so a
+          // multi-megabyte chunked select reports the size of a small cmd.
           taken[k] = i + 1;
+          if ( c.respBytes ) return;                  // header already told us
           var e = list[i];
           // transferSize includes headers and is what a network panel shows;
           // encodedBodySize is the body alone. Either beats reporting zero, and

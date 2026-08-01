@@ -161,18 +161,18 @@ foam.CLASS({
           */
           {
             class: 'foam.u2.DAOList',
-            rowView: { class: 'foam.demos.heroes.CitationView' }
+            rowView: { class: 'foam.u2.CitationView' }
           },
           {
             class: 'foam.u2.GroupingDAOList',
-            rowView: { class: 'foam.demos.heroes.CitationView' },
+            rowView: { class: 'foam.u2.CitationView' },
             groupExpr: foam.demos.u2.SampleData.NAME
           }
         ]
       },
       xxxview: {
         class: 'foam.u2.DAOList',
-        rowView: { class: 'foam.demos.heroes.CitationView' }
+        rowView: { class: 'foam.u2.CitationView' }
       }
     },
     {
@@ -573,8 +573,8 @@ foam.CLASS({
       of: 'foam.demos.u2.SampleData',
       view: { class: 'foam.u2.MultiView',
         views: [
-          { class: 'foam.u2.view.TitledArrayView',  valueView: 'foam.demos.heroes.CitationView' },
-          { class: 'foam.u2.view.FObjectArrayView', valueView: 'foam.demos.heroes.CitationView' }
+          { class: 'foam.u2.view.TitledArrayView',  valueView: 'foam.u2.CitationView' },
+          { class: 'foam.u2.view.FObjectArrayView', valueView: 'foam.u2.CitationView' }
         ]
       }
     },

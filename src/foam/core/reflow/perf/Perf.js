@@ -440,6 +440,17 @@ foam.CLASS({
       this.warnCount_ = 0;
       this.report = this.PerfReport.create({ startSnapshot: this.takeSnapshot_() }, this);
 
+      // Resource Timing is how response sizes get resolved at the end of the
+      // window (see resolveResponseSizes_), and its buffer defaults to 250
+      // entries - which a FOAM app fills with script tags before the first
+      // service call is ever made, leaving nothing to match against. Clear it
+      // and raise the ceiling so the capture window is what gets recorded.
+      try {
+        var perf = this.window && this.window.performance;
+        if ( perf && perf.setResourceTimingBufferSize ) perf.setResourceTimingBufferSize(10000);
+        if ( perf && perf.clearResourceTimings ) perf.clearResourceTimings();
+      } catch (e) { /* sizes fall back to content-length */ }
+
       try {
         this.observer_ = new PerformanceObserver(function(list) {
           list.getEntries().forEach(function(e) {
@@ -471,6 +482,7 @@ foam.CLASS({
     async function finishCapture_() {
       /** End the capture window and compute the report. Callable headlessly.
           Async because the JS Self-Profiling API resolves its trace on stop(). **/
+      this.resolveResponseSizes_(this.netCalls_ || []);
       var net    = this.summarizeNetwork_(this.netCalls_ || []);
       var prof   = await this.stopProfile_();          // {supported, trace} - need trace for per-block hot
       var blocks = this.summarizeBlocks_(prof.trace);  // drains buffer, attributes hot fns per block
@@ -620,7 +632,10 @@ foam.CLASS({
         } catch (e) { /* never break the real request */ }
         var p = orig.apply(this, arguments);
         if ( call ) {
-          // Response wire size from content-length (cheap, no body read).
+          // content-length when the server sends one. It usually does not: a
+          // chunked response has no such header, and every FOAM service reply is
+          // chunked - which reported every one of them as 0 bytes. Resource
+          // Timing fills those in at finishCapture_ (see resolveResponseSizes_).
           p.then(function(resp) {
             try { call.respBytes = parseInt(resp.headers.get('content-length'), 10) || 0; } catch (e) {}
           }, function() {});
@@ -733,6 +748,51 @@ foam.CLASS({
         delete g.variants_;
         return foam.core.reflow.perf.PerfServiceCall.create(g);
       }).sort(function(a, b) { return b.count - a.count || b.responseBytes - a.responseBytes; });
+    },
+
+    function resolveResponseSizes_(calls) {
+      /** Fill in response sizes the content-length header could not give us.
+
+        A chunked response carries no content-length, so the header read in
+        wrapFetch_ yields 0 - which is every FOAM service call. Resource Timing
+        knows the real transfer size and costs nothing to read, unlike cloning
+        the body: this runs inside a tool that reports heap, and duplicating a
+        multi-megabyte response would corrupt the number it exists to measure.
+
+        Entries are matched per URL in request order, because the same URL is
+        typically hit several times in one capture. **/
+      var w = this.window, self = this;
+      if ( ! w || ! w.performance || ! w.performance.getEntriesByType ) return;
+
+      var byUrl = {};
+      try {
+        w.performance.getEntriesByType('resource').forEach(function(e) {
+          // Match on the URL rather than initiatorType: a fetch issued through a
+          // wrapper can be reported as xmlhttprequest or with no type at all.
+          if ( ! e.name || ! self.isServiceCall_(e.name) ) return;
+          ( byUrl[e.name] || ( byUrl[e.name] = [] ) ).push(e);
+        });
+      } catch (e) { return; }
+
+      Object.keys(byUrl).forEach(function(u) {
+        byUrl[u].sort(function(a, b) { return a.startTime - b.startTime; });
+      });
+
+      var taken = {};
+      calls.slice().sort(function(a, b) { return ( a.t || 0 ) - ( b.t || 0 ); })
+        .forEach(function(c) {
+          if ( c.respBytes ) return;                  // header already told us
+          var list = byUrl[c.url];
+          if ( ! list ) return;
+          var i = taken[c.url] || 0;
+          if ( i >= list.length ) return;
+          taken[c.url] = i + 1;
+          var e = list[i];
+          // transferSize includes headers and is what a network panel shows;
+          // encodedBodySize is the body alone. Either beats reporting zero, and
+          // both read 0 cross-origin without Timing-Allow-Origin.
+          c.respBytes = e.transferSize || e.encodedBodySize || 0;
+        });
     },
 
     function summarizeNetwork_(calls) {

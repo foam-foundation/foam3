@@ -764,13 +764,21 @@ foam.CLASS({
       var w = this.window, self = this;
       if ( ! w || ! w.performance || ! w.performance.getEntriesByType ) return;
 
+      // Resource Timing always names the absolute URL; fetch is usually called
+      // with a relative one. Key both through the same normalisation or nothing
+      // ever matches and every size stays at its content-length value.
+      function abs(u) {
+        try { return new w.URL(u, w.location && w.location.href).href; } catch (e) { return u; }
+      }
+
       var byUrl = {};
       try {
         w.performance.getEntriesByType('resource').forEach(function(e) {
           // Match on the URL rather than initiatorType: a fetch issued through a
           // wrapper can be reported as xmlhttprequest or with no type at all.
           if ( ! e.name || ! self.isServiceCall_(e.name) ) return;
-          ( byUrl[e.name] || ( byUrl[e.name] = [] ) ).push(e);
+          var k = abs(e.name);
+          ( byUrl[k] || ( byUrl[k] = [] ) ).push(e);
         });
       } catch (e) { return; }
 
@@ -782,11 +790,12 @@ foam.CLASS({
       calls.slice().sort(function(a, b) { return ( a.t || 0 ) - ( b.t || 0 ); })
         .forEach(function(c) {
           if ( c.respBytes ) return;                  // header already told us
-          var list = byUrl[c.url];
+          var list = byUrl[abs(c.url)];
           if ( ! list ) return;
-          var i = taken[c.url] || 0;
+          var k = abs(c.url);
+          var i = taken[k] || 0;
           if ( i >= list.length ) return;
-          taken[c.url] = i + 1;
+          taken[k] = i + 1;
           var e = list[i];
           // transferSize includes headers and is what a network panel shows;
           // encodedBodySize is the body alone. Either beats reporting zero, and

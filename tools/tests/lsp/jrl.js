@@ -589,6 +589,22 @@ test(jei2.getEntryLocations('foam.core.menu.Menu', 'aaa') === null &&
 // Discovery interface exists (auto-discovery path)
 test(Array.isArray(index.getIndexedDirs()), 'FoamIndex.getIndexedDirs returns array');
 
+// Auto-discovery: foam.poms locations are journal dirs (fix for real-workspace bug
+// where journals/ contains no .js sources and was invisible to getIndexedDirs()).
+foam.poms = foam.poms || [];
+foam.poms.push({ location: jrlnavDir });
+try {
+  var jeiAuto = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  var autoFiles = jeiAuto.findJournalFiles_();
+  test(autoFiles.indexOf(path.join(jrlnavDir, 'menus.jrl')) !== -1 &&
+       autoFiles.indexOf(path.join(jrlnavDir, 'services.jrl')) !== -1,
+    'JEI: auto-discovery finds .jrl files in foam.poms locations');
+  test(jeiAuto.getServiceLocations('recipeDAO') !== null,
+    'JEI: auto-discovered recipeDAO service resolves');
+} finally {
+  foam.poms.pop();
+}
+
 // client completion — delegation to nested JRL completion. The inner
 // JSON gets treated as a JRL entry; `"class": "…"` should suggest classes.
 var clientSrc = [

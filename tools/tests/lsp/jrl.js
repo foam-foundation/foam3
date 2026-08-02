@@ -1179,3 +1179,46 @@ test(gm2.entries.length === 1, 'JrlGrammar: unquoted-key single-line entry count
 
 // === SAVE → TARGETED REANALYZE ===
 
+// === JRL NAVIGATION: embedded class refs in string values ===
+
+var servicesPath = path.join(jrlnavDir, 'services.jrl');
+var servicesText = fs.readFileSync(servicesPath, 'utf8');
+var servicesUri  = 'file://' + servicesPath;
+
+// Cursor at indexOf(needle)+plus.
+function posOfIdx(text, needle, plus) {
+  var off = text.indexOf(needle);
+  if ( off === -1 ) throw new Error('fixture drift: ' + needle);
+  off += ( plus || 0 );
+  var pre = text.slice(0, off);
+  return {
+    line: pre.split('\n').length - 1,
+    character: off - pre.lastIndexOf('\n') - 1
+  };
+}
+
+// serviceScript: cursor on `foam.core.menu.Menu` inside
+// `foam.core.menu.Menu.getOwnClassInfo()` — trailing `.getOwnClassInfo`
+// must be stripped during resolution.
+var dScript = navHandler.handleDefinition(
+  servicesText, posOfIdx(servicesText, 'foam.core.menu.Menu.getOwnClassInfo', 5), servicesUri);
+test(dScript && dScript.uri.indexOf('Menu.js') !== -1, 'nav: serviceScript class ref -> Menu.js');
+
+// client backtick-string: `{"of":"foam.core.menu.Menu"}`
+var dClient = navHandler.handleDefinition(
+  servicesText, posOfIdx(servicesText, 'foam.core.menu.Menu"}', 3), servicesUri);
+test(dClient && dClient.uri.indexOf('Menu.js') !== -1, 'nav: client string class ref -> Menu.js');
+
+// Cursor on the method-call tail (past the class id) must NOT navigate.
+var dTail = navHandler.handleDefinition(
+  servicesText,
+  posOfIdx(servicesText, 'getOwnClassInfo', 3), servicesUri);
+test(dTail === null, 'nav: cursor on .getOwnClassInfo tail -> null');
+
+// Dotted menu ids are not classes -> embedded rule stays silent and the
+// schema rule still resolves parent values (regression guard on rule order).
+var menusText2 = fs.readFileSync(path.join(jrlnavDir, 'menus.jrl'), 'utf8');
+var dId = navHandler.handleDefinition(
+  menusText2, valuePos(menusText2, '"id":"cookbook.recipe"'),
+  'file://' + path.join(jrlnavDir, 'menus.jrl'));
+test(dId === null, 'nav: dotted menu id is not a class ref -> null');

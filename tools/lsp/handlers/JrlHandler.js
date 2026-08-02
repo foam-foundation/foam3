@@ -51,6 +51,10 @@ foam.CLASS({
     {
       name: 'journalEntryIndex',
       documentation: 'foam.parse.lsp.JournalEntryIndex; optional — rules are skipped when absent.'
+    },
+    {
+      name: 'jrlGrammar',
+      factory: function() { return foam.parse.lsp.JrlGrammar.create(); }
     }
   ],
 
@@ -1366,6 +1370,13 @@ foam.CLASS({
        * Go-to-definition for JRL entries.
        * Resolves: class names → .js source, property keys → property in class file.
        */
+      // Embedded class-ref rule: dotted class ids inside string values
+      // (serviceScript, client, ...) navigate to the class source. Runs
+      // first because these cursors sit inside strings the entry parser
+      // cannot evaluate. Non-class dotted strings (menu ids) fall through.
+      var embedded = this.resolveEmbeddedClassAt_(text, position);
+      if ( embedded ) return embedded;
+
       var lines = text.split('\n');
       var line = lines[position.line] || '';
       var entry = this.parseJrlEntry_(line);
@@ -1473,6 +1484,49 @@ foam.CLASS({
         };
       });
       return out.length === 1 ? out[0] : out;
+    },
+
+    function resolveEmbeddedClassAt_(text, position) {
+      /**
+       * If the cursor sits on a dotted identifier inside a string
+       * literal (per JrlGrammar's jrlClassRef records), resolve it to a
+       * registered class, stripping trailing segments as needed:
+       * `foam.core.menu.Menu.getOwnClassInfo` -> `foam.core.menu.Menu`.
+       * The cursor must lie within the surviving class-id prefix.
+       */
+      if ( ! this.index ) return null;
+
+      var lines = text.split('\n');
+      if ( position.line >= lines.length ) return null;
+      var offset = 0;
+      for ( var i = 0 ; i < position.line ; i++ ) offset += lines[i].length + 1;
+      offset += position.character;
+
+      var refs = this.jrlGrammar.collectJrlPositions(text).classRefs;
+      for ( var r = 0 ; r < refs.length ; r++ ) {
+        var rec = refs[r];
+        if ( offset < rec.startPos || offset > rec.endPos ) continue;
+
+        var candidate = rec.name;
+        while ( candidate.indexOf('.') !== -1 ) {
+          if ( this.index.classExists(candidate) &&
+               offset <= rec.startPos + candidate.length ) {
+            var filePath = this.index.getFilePath(candidate);
+            if ( filePath ) {
+              return {
+                uri: 'file://' + filePath,
+                range: {
+                  start: { line: 0, character: 0 },
+                  end:   { line: 0, character: 0 }
+                }
+              };
+            }
+          }
+          candidate = candidate.substring(0, candidate.lastIndexOf('.'));
+        }
+        return null; // dotted token under cursor, but not a known class
+      }
+      return null;
     },
 
     function resolveNearestClass_(text, lineNum, opt_uri, entry) {

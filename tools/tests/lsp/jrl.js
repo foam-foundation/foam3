@@ -1053,5 +1053,39 @@ if ( require('fs').existsSync(realJrlPath) ) {
   }
 }
 
+// === JRL GRAMMAR TESTS (jrl go-to-definition feature) ===
+
+section('JrlGrammar');
+var jrlGram = foam.parse.lsp.JrlGrammar.create();
+
+// Two entries; the p( inside the triple-quoted string must NOT count as an
+// entry; the dotted class inside the string MUST be harvested.
+var gsrc = 'p({"class":"foam.core.boot.CSpec","name":"aDAO","serviceScript":"""\n' +
+  'p(x);\n' +
+  'return new foam.dao.EasyDAO.Builder(x)\n' +
+  '  .setOf(foam.core.menu.Menu.getOwnClassInfo())\n' +
+  '  .build();\n' +
+  '"""})\n' +
+  '\n' +
+  'c({"class":"foam.core.menu.Menu","id":"m1"})\n';
+
+var gm = jrlGram.collectJrlPositions(gsrc);
+test(gm.entries.length === 2, 'JrlGrammar: 2 entries, p( inside string ignored: ' + gm.entries.length);
+test(gm.entries[0].line === 0, 'JrlGrammar: first entry line 0: ' + gm.entries[0].line);
+test(gm.entries[1].line === 7, 'JrlGrammar: second entry line 7: ' + gm.entries[1].line);
+test(gm.tripleStrings.length === 1, 'JrlGrammar: one triple-string span: ' + gm.tripleStrings.length);
+test(gsrc.substring(gm.tripleStrings[0].startPos, gm.tripleStrings[0].startPos + 3) === '"""',
+  'JrlGrammar: triple span starts at opening quotes');
+var gnames = gm.classRefs.map(function(r) { return r.name; });
+test(gnames.some(function(n) { return n.indexOf('foam.core.menu.Menu') === 0; }),
+  'JrlGrammar: dotted class ref harvested inside string: ' + gnames.join(','));
+test(gm.classRefs.every(function(r) {
+  return gsrc.substring(r.startPos, r.endPos) === r.name;
+}), 'JrlGrammar: classRef spans align with original text');
+
+// Unquoted-key single-line FOAM format still yields an entry
+var gm2 = jrlGram.collectJrlPositions('c({summaryType:"X",id:-1})\n');
+test(gm2.entries.length === 1, 'JrlGrammar: unquoted-key single-line entry counted');
+
 // === SAVE → TARGETED REANALYZE ===
 

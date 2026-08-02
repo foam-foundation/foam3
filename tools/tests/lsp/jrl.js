@@ -547,6 +547,48 @@ if ( index.classExists('foam.dao.EasyDAO') ) {
   }), 'serviceScript completion: member-access on EasyDAO surfaces registry-derived setters');
 }
 
+// === JOURNAL ENTRY INDEX TESTS ===
+
+section('JournalEntryIndex');
+var jrlnavDir = path.join(__dirname, 'fixtures', 'jrlnav');
+var jei = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [
+    path.join(jrlnavDir, 'menus.jrl'),
+    path.join(jrlnavDir, 'services.jrl'),
+    path.join(jrlnavDir, 'overlay.jrl')
+  ]
+});
+
+var svcLocs = jei.getServiceLocations('recipeDAO');
+test(svcLocs && svcLocs.length === 1 && svcLocs[0].file.indexOf('services.jrl') !== -1,
+  'JEI: recipeDAO service found in services.jrl');
+test(svcLocs && svcLocs[0].line === 0, 'JEI: service location is entry start line: ' + (svcLocs && svcLocs[0].line));
+
+var dupLocs = jei.getEntryLocations('foam.core.menu.Menu', 'cookbook');
+test(dupLocs && dupLocs.length === 2, 'JEI: duplicate id "cookbook" in menus + overlay: ' + (dupLocs && dupLocs.length));
+
+var childLocs = jei.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
+test(childLocs && childLocs.length === 1 && childLocs[0].line === 5,
+  'JEI: cookbook.recipe at menus.jrl line 5: ' + (childLocs && childLocs[0].line));
+
+test(jei.getEntryLocations('foam.core.menu.Menu', 'no.such.menu') === null, 'JEI: unknown entry id → null');
+test(jei.getServiceLocations('noSuchDAO') === null, 'JEI: unknown service → null');
+
+// Invalidation: rewrite a temp journal, invalidate, see the new state.
+var jeiTmp = path.join(require('os').tmpdir(), 'lsp-jrlnav-inval.jrl');
+fs.writeFileSync(jeiTmp, 'p({"class":"foam.core.menu.Menu","id":"aaa"})\n');
+var jei2 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiTmp ] });
+test(jei2.getEntryLocations('foam.core.menu.Menu', 'aaa') !== null, 'JEI: temp journal indexed');
+fs.writeFileSync(jeiTmp, 'p({"class":"foam.core.menu.Menu","id":"bbb"})\n');
+jei2.invalidate();
+test(jei2.getEntryLocations('foam.core.menu.Menu', 'aaa') === null &&
+     jei2.getEntryLocations('foam.core.menu.Menu', 'bbb') !== null,
+  'JEI: invalidate() rebuilds from disk');
+
+// Discovery interface exists (auto-discovery path)
+test(Array.isArray(index.getIndexedDirs()), 'FoamIndex.getIndexedDirs returns array');
+
 // client completion — delegation to nested JRL completion. The inner
 // JSON gets treated as a JRL entry; `"class": "…"` should suggest classes.
 var clientSrc = [

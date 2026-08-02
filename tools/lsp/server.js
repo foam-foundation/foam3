@@ -34,7 +34,11 @@ function start() {
   var referencesHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
   var documentHighlightHandler = foam.parse.lsp.handlers.DocumentHighlightHandler.create();
   var renameHandler = foam.parse.lsp.handlers.RenameHandler.create({ index: index });
-  var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+  var journalEntryIndex = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({
+    index: index,
+    journalEntryIndex: journalEntryIndex
+  });
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
 
@@ -447,6 +451,9 @@ function start() {
 
       case 'textDocument/didSave':
         reindexFile(params.textDocument.uri);
+        if ( params.textDocument.uri && params.textDocument.uri.endsWith('.jrl') ) {
+          journalEntryIndex.invalidate();
+        }
         break;
 
       case 'textDocument/didClose':

@@ -601,6 +601,54 @@ var clientRes = jrlH.handleCompletion(clientSrc, { line: 1, character: 28 });
 test(Array.isArray(clientRes.items),
   'client completion: returns an items array (delegated to JRL completion)');
 
+// === JRL NAVIGATION: handler rules ===
+
+section('JrlNavigation');
+var navHandler = foam.parse.lsp.handlers.JrlHandler.create({
+  index: index,
+  journalEntryIndex: jei
+});
+var menusPath = path.join(jrlnavDir, 'menus.jrl');
+var menusText = fs.readFileSync(menusPath, 'utf8');
+var menusUri  = 'file://' + menusPath;
+
+// Cursor position INSIDE the value of a `"key":"value"` pair.
+function valuePos(text, kv) {
+  var off = text.indexOf(kv);
+  if ( off === -1 ) throw new Error('fixture drift: ' + kv);
+  var valOff = off + kv.indexOf(':') + 2; // first char inside the value quotes
+  var pre = text.slice(0, valOff);
+  return {
+    line: pre.split('\n').length - 1,
+    character: valOff - pre.lastIndexOf('\n') - 1
+  };
+}
+
+// (B) convention rule: daoKey -> services.jrl CSpec entry
+var dDao = navHandler.handleDefinition(menusText, valuePos(menusText, '"daoKey":"recipeDAO"'), menusUri);
+test(dDao && ! Array.isArray(dDao) && dDao.uri.indexOf('services.jrl') !== -1,
+  'nav: daoKey -> services.jrl (single location)');
+test(dDao && dDao.range.start.line === 0, 'nav: daoKey lands on CSpec entry line');
+
+// (A) schema rule: parent (relationship Reference) -> menu entries.
+// "cookbook" is defined twice (menus + overlay) -> array of 2.
+var dPar = navHandler.handleDefinition(menusText, valuePos(menusText, '"parent":"cookbook"'), menusUri);
+test(dPar && Array.isArray(dPar) && dPar.length === 2,
+  'nav: parent -> 2 locations for duplicated id: ' + (dPar && (dPar.length || 'single')));
+test(dPar && dPar.some(function(l) {
+  return l.uri.indexOf('menus.jrl') !== -1 && l.range.start.line === 0;
+}), 'nav: parent locations include menus.jrl entry at line 0');
+
+// Unknown daoKey -> null (quiet failure)
+var badLine = 'p({"class":"foam.comics.v2.DAOControllerConfig","daoKey":"noSuchDAO"})';
+test(navHandler.handleDefinition(badLine, valuePos(badLine, '"daoKey":"noSuchDAO"'), 'file:///tmp/x.jrl') === null,
+  'nav: unknown daoKey -> null');
+
+// Handler without a journalEntryIndex (old wiring) must not throw
+var bareHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+test(bareHandler.handleDefinition(menusText, valuePos(menusText, '"daoKey":"recipeDAO"'), menusUri) === null,
+  'nav: no journalEntryIndex -> graceful null');
+
 // === JRL EMBEDDED BLOCK VARIANTS (triple + escaped) ===
 
 

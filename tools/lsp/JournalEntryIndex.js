@@ -61,14 +61,37 @@ foam.CLASS({
       var fs_ = require('fs');
       var path_ = require('path');
       var files = [];
-      var dirs = ( this.index && this.index.getIndexedDirs() ) || [];
-      for ( var d = 0 ; d < dirs.length ; d++ ) {
-        var names;
-        try { names = fs_.readdirSync(dirs[d]); } catch ( e ) { continue; }
-        for ( var n = 0 ; n < names.length ; n++ ) {
-          if ( names[n].endsWith('.jrl') ) files.push(path_.join(dirs[d], names[n]));
+      var seen = {};
+      var dirs = [];
+
+      // Collect directories from foam.poms locations
+      var poms = ( typeof foam !== 'undefined' && foam.poms ) || [];
+      for ( var p = 0 ; p < poms.length ; p++ ) {
+        var pomDir = poms[p] && poms[p].location;
+        if ( pomDir && ! seen[pomDir] ) {
+          seen[pomDir] = true;
+          dirs.push(pomDir);
         }
       }
+
+      // Collect directories from indexed source files
+      var indexDirs = ( this.index && this.index.getIndexedDirs() ) || [];
+      for ( var d = 0 ; d < indexDirs.length ; d++ ) {
+        if ( ! seen[indexDirs[d]] ) {
+          seen[indexDirs[d]] = true;
+          dirs.push(indexDirs[d]);
+        }
+      }
+
+      // Read .jrl files from each directory
+      for ( var i = 0 ; i < dirs.length ; i++ ) {
+        var names;
+        try { names = fs_.readdirSync(dirs[i]); } catch ( e ) { continue; }
+        for ( var n = 0 ; n < names.length ; n++ ) {
+          if ( names[n].endsWith('.jrl') ) files.push(path_.join(dirs[i], names[n]));
+        }
+      }
+
       return files;
     },
 

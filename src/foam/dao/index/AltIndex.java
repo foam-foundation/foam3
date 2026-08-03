@@ -37,6 +37,18 @@ public class AltIndex
   }
 
   public Object addIndex(Object state, Index i) {
+    // Adding an index bulk-loads the whole DAO into it and every later put
+    // maintains it, and there is no removeIndex to undo either cost. Callers
+    // that cannot know what already exists rely on this being a no-op.
+    if ( covers(i) ) {
+      // Say so - a silently dropped index looks the same as one that was never
+      // requested, and the difference matters when a query turns out slow.
+      foam.lang.X x = foam.lang.XLocator.get();
+      foam.core.logger.Logger logger = x == null ? null : (foam.core.logger.Logger) x.get("logger");
+      if ( logger != null ) logger.info("Index already covered, not added", i.toString());
+      return state;
+    }
+
     delegates_.add(i);
 
     // No data to copy when just adding first index

@@ -121,18 +121,6 @@ public class MDAO
 
   public void addIndex(Index index) {
     synchronized ( writeLock_ ) {
-      // Adding an index bulk-loads the whole DAO into it and every later put
-      // maintains it, and there is no removeIndex to undo either cost. Callers
-      // that cannot know what already exists rely on this being a no-op.
-      if ( index_.covers(index) ) {
-        // Say so - a silently dropped index looks the same as one that was
-        // never requested, and the difference matters when a query is slow.
-        foam.lang.X x = foam.lang.XLocator.get();
-        Logger logger = x == null ? null : (Logger) x.get("logger");
-        if ( logger != null )
-          logger.info("Index already covered, not added", getOf().getId(), index.toString());
-        return;
-      }
       setState(index_.addIndex(state_, index));
     }
   }

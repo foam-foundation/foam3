@@ -60,20 +60,17 @@ public class TreeIndex
   public boolean covers(Index other) {
     if ( ! ( other instanceof TreeIndex ) ) return false;
 
-    TreeIndex mine = this, theirs = (TreeIndex) other;
+    TreeIndex theirs = (TreeIndex) other;
 
-    while ( true ) {
-      if ( ! sameIndexer(mine.indexer_, theirs.indexer_) ) return false;
+    if ( ! sameIndexer(indexer_, theirs.indexer_) ) return false;
 
-      // Their chain ended first, so theirs is a prefix of mine - covered.
-      if ( ended(theirs) ) return true;
+    // Their chain ended first, so theirs is a prefix of mine - covered.
+    if ( ended(theirs) ) return true;
 
-      // Mine ended first, so theirs goes deeper - not covered.
-      if ( ended(mine) ) return false;
+    // Mine ended first, so theirs goes deeper - not covered.
+    if ( ended(this) ) return false;
 
-      mine   = (TreeIndex) mine.tail_;
-      theirs = (TreeIndex) theirs.tail_;
-    }
+    return tail_.covers(theirs.tail_);
   }
 
   /**

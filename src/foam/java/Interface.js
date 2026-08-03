@@ -52,8 +52,7 @@ foam.CLASS({
     {
       class: 'FObjectArray',
       of: 'foam.java.InterfaceMethod',
-      name: 'methods',
-      factory: function() { return []; }
+      name: 'methods'
     },
     {
       name: 'imports',

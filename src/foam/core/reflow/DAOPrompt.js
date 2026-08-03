@@ -381,8 +381,15 @@ foam.CLASS({
       name: 'order',
       section: 'filter',
       onKey: true,
+      preSet: function(o, n) { return n.replaceAll(' ', ''); },
       displayWidth: 60,
-      view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
+      view: function(_, X) {
+        var data = X.data;
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: foam.core.reflow.parser.PropertyParser.create({of: data.dao.of}, X).getSymParser('comparator')
+        };
+      }
     },
     {
       class: 'String',
@@ -390,13 +397,16 @@ foam.CLASS({
       section: 'filter',
       displayWidth: 60,
       onKey: false,
+      preSet: function(o, n) { return n.replaceAll(' ', ''); },
       view: function(_, X) {
+        var data = X.data;
         return {
-          class: 'foam.core.reflow.PropertySuggestedField'
+          class: 'foam.parse.auto.SmartView',
+          parser: foam.core.reflow.parser.PropertyParser.create({of: data.dao.of}, X).getSymParser('propertyList')
         };
       },
-      xxxvalidateObj: function(columns) {
-        let a = columns.trim().split(',').map(c => c.trim());
+      validateObj: function(columns) {
+        let a = columns.trim().split(',').map(c => c.trim()).filter(c => c);
 
         for ( let i = 0 ; i < a.length ; i++ ) {
           let of = this.dao.of;
@@ -405,7 +415,7 @@ foam.CLASS({
             let name = names[j];
             if ( ! of ) return 'Inner Property on Non Object: ' + name;
             let p = of.getAxiomByName(name);
-            if ( ! p ) return 'Unknown Property: ' + name;
+            if ( ! p ) { debugger; return 'Unknown Property: ' + name; }
             of = p.of;
           }
         }

@@ -97,6 +97,7 @@ if (other instanceof foam.mlang.sink.Max) {
 
     function setPropertyValues(o, sink, ps) {
       ps[0].set(o, sink.applyPrecision(sink.value));
-    }
+    },
+    function toString() { return `MAX(${this.arg1}, ${this.value})`; }
   ]
 });

@@ -10,6 +10,7 @@ p({
     class: "foam.core.menu.ViewMenu",
     view: {
       class: "foam.dashboard.view.DashboardView",
+      viewTitle: "Ops Dashboard",
       title: "Ops Dashboard",
       main: true,
       widgets: {
@@ -46,7 +47,7 @@ p({"class":"foam.core.boot.DAOCSpecMenu","id":"admin.data","label":"Data Managem
 p({"class":"foam.core.menu.Menu","id":"admin.export","label":"Export Drivers","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"exportDriverRegistryDAO"}},"parent":"admin"})
 p({"class":"foam.core.menu.Menu","id":"admin.groups","label":"Groups","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"groupDAO"}},"parent":"admin"})
 p({"class":"foam.core.menu.Menu","id":"admin.lang","label":"Languages","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"languageDAO"}},"parent":"admin"})
-p({"class":"foam.core.menu.Menu","id":"admin.natureCodes","label":"Nature Codes","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"natureCodeDAO"}},"parent":"admin"})
+p({"class":"foam.core.menu.Menu","id":"admin.natureCodes","label":"Nature Codes","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"natureCodeDAO","browseTitle":"Nature Codes"}},"parent":"admin"})
 p({
   "class":"foam.core.menu.Menu",
   "id":"admin.logs",
@@ -63,7 +64,7 @@ p({
   },
   "parent":"admin"
 })
-p({"class":"foam.core.menu.Menu","id":"admin.menus","label":"Menus","handler":{"class":"foam.core.menu.DAOMenu","daoKey":"menuDAO","summaryView":{"class":"foam.core.menu.TreeAltView","relationship":"foam.core.menu.MenuMenuChildrenRelationship"}},"parent":"admin"})
+p({"class":"foam.core.menu.Menu","id":"admin.menus","label":"Menus","handler":{"class":"foam.core.menu.DAOMenu","daoKey":"menuDAO","title":"Menus","summaryView":{"class":"foam.core.menu.TreeAltView","relationship":"foam.core.menu.MenuMenuChildrenRelationship"}},"parent":"admin"})
 //p({"class":"foam.core.menu.Menu","id":"admin.menus","label":"Menus","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"menuDAO"}},"parent":"admin"})
 p({
   "class":"foam.core.menu.Menu",
@@ -319,6 +320,7 @@ p({
 p({
   "class":"foam.core.menu.Menu",
   "id":"internal",
+  "label":"Internal",
   "handler": {
     "class":"foam.core.menu.SubMenu",
     "order":-1

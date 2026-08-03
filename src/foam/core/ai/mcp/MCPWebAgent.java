@@ -9,6 +9,7 @@ package foam.core.ai.mcp;
 import foam.lang.*;
 import foam.core.*;
 import foam.dao.*;
+import foam.lib.*;
 import foam.lib.json.Outputter;
 import foam.lib.json.JSONParser;
 import foam.lib.formatter.JSONFObjectFormatter;
@@ -48,6 +49,7 @@ import static foam.mlang.MLang.*;
  *   https://www.simple-is-better.org/json-rpc/
  *   https://www.jsonrpc.org/
  *   https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json
+ *   https://modelcontextprotocol.io/specification/2026-07-28/changelog
  */
 public class MCPWebAgent
   implements WebAgent
@@ -471,6 +473,11 @@ public class MCPWebAgent
     fmt.setOutputDefaultValues(true);
     fmt.setQuoteKeys(true);
     fmt.output(obj, null);
+    fmt.setPropertyPredicate(
+      new AndPropertyPredicate(new PropertyPredicate[] {
+          new NetworkPropertyPredicate(),
+          new PermissionedPropertyPredicate()
+        }));
     return fmt.builder().toString();
   }
 

@@ -93,9 +93,9 @@ foam.CLASS({
       getter: function() { // Changed to a getter so that it will run whenever a change is made
         var m = {};
         const params = new URLSearchParams(window.location.search);
-        params.keys().forEach(element => {
+        for ( const element of params.keys() ) {
           m[element] = params.get(element);
-        });
+        }
         return m;
       }
     },

@@ -155,7 +155,7 @@ foam.CLASS({
           responseType: this.responseType
         });
 
-        if ( resp.success ) return resp;
+        if ( resp.success && ! resp.redirect_to_url ) return resp;
 
         // Use Promise.reject so crappy debuggers don't pause here
         // throw resp;

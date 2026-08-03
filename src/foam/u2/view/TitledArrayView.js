@@ -27,6 +27,7 @@ foam.CLASS({
       css: `
         ^header-row {
           align-items: center;
+          background: $backgroundTertiary;
           cursor: pointer;
           padding: 5px;
         }

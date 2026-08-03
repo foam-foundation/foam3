@@ -502,8 +502,12 @@ foam.CLASS({
         this.columns = this.getColumnNamesFromStorage(localStorage.getItem(this.dao.of.id));
       }
 
-      let default_query = await this.dao.cmd('DEFAULT_QUERY_CMD');
-      if ( default_query ) this.aql = default_query;
+      // TODO: this is a little hackish, should go somewhere else
+      if ( ! this.aql ) {
+        let default_query = await this.dao.cmd('DEFAULT_QUERY_CMD');
+        // Check .aql again since copyFrom() could have been called since the above check
+        if ( default_query && ! this.aql ) this.aql = default_query;
+      }
 
       this.aql$.sub(this.maybeAutoRun);
       this.where$.sub(this.maybeAutoRun);

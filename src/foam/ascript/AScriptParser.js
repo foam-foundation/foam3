@@ -113,7 +113,9 @@ foam.CLASS({
         // property-name literals (+ constants) as VALUE operands, longest-first
         var fields = [];
         this.of.getAxiomsByClass(foam.lang.Property).forEach(function(p) {
-          if ( p.name.indexOf('reaction') ) return; // TODO: do this bet
+          // indexOf returns -1 when absent and 0 at the start, so a bare truthy
+          // test keeps the reaction properties and drops everything else.
+          if ( p.name.startsWith('reaction') ) return;
           fields.push(sug(literalIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
         });
         this.of.getAxiomsByClass(foam.lang.Constant).forEach(function(c) {

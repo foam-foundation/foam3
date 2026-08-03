@@ -21,7 +21,8 @@ public class DatePartitionedDAO
   extends PartitionedDAO
 {
 
-  public final static int DEFAULT_TIME_WINDOW = 5 * 7; // five weeks
+  public final static long DAY                 = 24 * 60 * 60 * 1000; // 1 day in ms
+  public final static int  DEFAULT_TIME_WINDOW = 5 * 7;               // five weeks
 
   // A Sink decorator which allows the delegate Sink to be fed to the select()
   // method of multiple DAOs. If one of the DAOs detaches the isDetached()
@@ -104,16 +105,18 @@ public class DatePartitionedDAO
     return parts;
   }
 
+  /*
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     Object part = extractPredicateValue(predicate);
-    // TODO: extract partition match or range
-    // return sink;
     return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
   }
+  */
 
-  public Sink select2_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+  public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     Date[]   range = extractPredicateRange(predicate);
+    System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
     String[] parts = getPartitions(range);
+    System.err.println("********** DATE PART PARTS " + parts.length);
 
     Sink           s2 = decorateSink(null, sink, skip, limit, order, null);
     DetachableSink s3 = new DetachableSink(s2);
@@ -135,7 +138,7 @@ public class DatePartitionedDAO
 
     extractPredicateRange(range, predicate);
 
-    long window = (long) getTimeWindow() * 24 * 60 * 60 * 1000;
+    long window = (long) getTimeWindow() * DAY;
 
     if ( range[0] == null ) {
       if ( range[1] == null ) {
@@ -183,6 +186,14 @@ public class DatePartitionedDAO
         extractPredicateRange(range, arg);
       }
     }
+  }
+
+  public Object cmd_(X x, Object cmd) {
+    if ( DEFAULT_QUERY_CMD.equals(cmd) ) {
+      return getPartitionProperty() + " > TODAY-" + (getTimeWindow() + 1);
+    }
+
+    return super.cmd_(x, cmd);
   }
 }
 

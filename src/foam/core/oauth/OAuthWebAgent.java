@@ -113,14 +113,12 @@ public class OAuthWebAgent implements WebAgent {
             credential.setUser(user.getId());
             credential.setProvider(provider.getId());
             credential.setAccessToken(accessToken);
+            // calculate expiresAt from token, default to 15 minutes
+            int expiresIn = tokenResponse.getInt("expires_in", 900);
+            Instant expiresAt = Instant.now().plusSeconds(expiresIn);
+            credential.setExpiresAt(Date.from(expiresAt));
             if (refreshToken != null) {
                 credential.setRefreshToken(refreshToken);
-                // calculate expiresAt to check and refresh the token
-                if ( tokenResponse.containsKey("expires_in") ) {
-                    int expiresIn = tokenResponse.getInt("expires_in");
-                    Instant expiresAt = Instant.now().plusSeconds(expiresIn);
-                    credential.setExpiresAt(Date.from(expiresAt));
-                }
             }
             credential.setScopes(scopes);
 

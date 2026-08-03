@@ -91,10 +91,11 @@ public class DatePartitionedDAO
 
     Calendar c2 = Calendar.getInstance();
     c2.setTime(range[1]);
-    int y2 = c1.get(Calendar.YEAR);
-    int m2 = c1.get(Calendar.MONTH);
+    int y2 = c2.get(Calendar.YEAR);
+    int m2 = c2.get(Calendar.MONTH);
 
-    String[] parts = new String[(y2-y1) * 12 + m2 - m1];
+    // System.err.println("***** PART RANGE " + y1 + " / " + m1 + " -- " + y2 + " / " + m2);
+    String[] parts = new String[(y2-y1) * 12 + m2 - m1 + 1];
 
     for ( int i = 0, y = y1, m = m1 ; i < parts.length ; i++ ) {
       parts[i] = getPartition(y + "/" + m);
@@ -114,11 +115,12 @@ public class DatePartitionedDAO
 
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     Date[]   range = extractPredicateRange(predicate);
-    System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
+    //    System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
     String[] parts = getPartitions(range);
-    System.err.println("********** DATE PART PARTS " + parts.length);
+    // System.err.println("********** DATE PART PARTS " + parts.length);
 
-    Sink           s2 = decorateSink(null, sink, skip, limit, order, null);
+    // Predicate is still needed because partitions can still contain data outside of the range
+    Sink           s2 = decorateSink(null, sink, skip, limit, order, predicate);
     DetachableSink s3 = new DetachableSink(s2);
 
     for ( int i = 0 ; i < parts.length ; i++ ) {
@@ -143,15 +145,27 @@ public class DatePartitionedDAO
     if ( range[0] == null ) {
       if ( range[1] == null ) {
         range[0] = new Date(System.currentTimeMillis() - window);
-        range[1] = new Date();
+        range[1] = new Date(System.currentTimeMillis() + 24*3600*1000); // tomorrow
       } else {
         range[0] = new Date(range[1].getTime() - window);
       }
     } else {
-      range[1] = new Date(range[0].getTime() + window);
+      if ( range[1] == null ) {
+        range[1] = new Date(range[0].getTime() + window);
+      }
     }
 
     return range;
+  }
+
+  public Date maxDate(Date d1, Date d2) {
+    if ( d1 == null ) return d2;
+    return d1.compareTo(d2) < 1 ? d2 : d1;
+  }
+
+  public Date minDate(Date d1, Date d2) {
+    if ( d1 == null ) return d2;
+    return d1.compareTo(d2) > 1 ? d2 : d1;
   }
 
   public void extractPredicateRange(Date[] range, Predicate predicate) {
@@ -162,6 +176,7 @@ public class DatePartitionedDAO
     */
 
     if ( predicate instanceof Binary ) {
+      System.err.println("*** BINARY");
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property
@@ -169,13 +184,12 @@ public class DatePartitionedDAO
         Class cls  = predicate.getClass();
         Date  date = (Date) expr.getArg2().f(expr);
 
-        // TODO: What do to if only one of < or > is defined?
         if ( cls == Eq.class ) {
           range[0] = range[1] = date;
         } else if ( cls == Gt.class || cls == Gte.class ) {
-          range[0] = date;
+          range[0] = maxDate(range[0], date);
         } else if ( cls == Lt.class || cls == Lte.class ) {
-          range[1] = date;
+          range[1] = minDate(range[1], date);
         }
       }
     } else if ( predicate instanceof And ) {
@@ -190,32 +204,9 @@ public class DatePartitionedDAO
 
   public Object cmd_(X x, Object cmd) {
     if ( DEFAULT_QUERY_CMD.equals(cmd) ) {
-      return getPartitionProperty() + " > TODAY-" + (getTimeWindow() + 1);
+      return ((PropertyInfo) getPartitionProperty()).getName() + " > TODAY-" + (getTimeWindow() /*+ 1*/); // ???: Should we add a day to be safe
     }
 
     return super.cmd_(x, cmd);
   }
 }
-
-/*
-  FROM OrPlan.java:
-
-  import static foam.dao.AbstractDAO.decorateDedupSink_;
-  import static foam.dao.AbstractDAO.decorateSink;
-
-    public void select(Object state, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    if ( planList_ == null || planList_.isEmpty() )
-      return;
-
-    sink = decorateSink(null, sink, skip, limit, order, null);
-    sink = decorateDedupSink_(sink); // Comes second so that duplicates aren't counted for skip and limit
-
-    int i = 0;
-    for ( SelectPlan plan : planList_ ) {
-      Predicate p = i < predicates_.length ? predicates_[i++] : null;
-      plan.select(state, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, p);
-    }
-    sink.eof();
-  }
-
-*/

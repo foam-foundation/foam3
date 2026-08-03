@@ -73,7 +73,6 @@ public class PartitionedDAO
 
   public String getPartition(String id) {
     String ret = getPartition_(id);
-    System.out.println("****** PARTITION " + id + " -> " + ret);
     return ret;
   }
 

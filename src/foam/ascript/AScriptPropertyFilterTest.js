@@ -24,8 +24,11 @@ foam.CLASS({
         { class: 'Long',   name: 'id' },
         { class: 'String', name: 'alpha' },
         { class: 'String', name: 'countryName' },
-        { class: 'String', name: 'reactions_' },
-        { class: 'String', name: 'reactionError_' }
+        // Named to match the filter without reusing the framework's own
+        // reactions_ / reactionError_, which are typed Map and StringArray -
+        // redeclaring those as String is an axiom type conflict, not a test.
+        { class: 'String', name: 'reactionAlpha' },
+        { class: 'String', name: 'reactionBeta' }
       ]
     }
   ],
@@ -47,10 +50,10 @@ foam.CLASS({
         'A property inside a function parses');
 
       // Reaction properties are bookkeeping, not user-facing columns.
-      x.test( ! this.parse('reactions_'),
-        'reactions_ is excluded from the grammar');
-      x.test( ! this.parse('reactionError_'),
-        'reactionError_ is excluded from the grammar');
+      x.test( ! this.parse('reactionAlpha'),
+        'A reaction-prefixed property is excluded from the grammar');
+      x.test( ! this.parse('reactionBeta'),
+        'Every reaction-prefixed property is excluded, not just the first');
 
       // An unknown name has nothing to match and must not resolve.
       x.test( ! this.parse('nosuchcolumn'),

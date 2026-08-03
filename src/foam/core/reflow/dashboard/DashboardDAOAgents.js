@@ -1176,7 +1176,7 @@ foam.CLASS({
       name: 'periodCount',
       visibility: function(isDateXProp_) {
         // Only show for date/time properties on X-axis
-        return isDateXProp_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return hasDateSource_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -1321,7 +1321,24 @@ foam.CLASS({
       visibility: 'HIDDEN',
       expression: function(xProp) { return this.isDateProp(xProp); }
     },
-    { name: 'sink_', transient: true, visibility: 'HIDDEN' }
+    { name: 'sink_', transient: true, visibility: 'HIDDEN' },
+    {
+      class: 'Boolean',
+      name: 'isDateXProp_',
+      transient: true,
+      visibility: 'HIDDEN',
+      expression: function(xProp) {
+        return !! xProp && ( foam.lang.Date.isInstance(xProp) || foam.lang.DateTime.isInstance(xProp) );
+      }
+    },
+    // Claude says: keeps the delegate aware behaviour for the DAO date filter
+    {
+      class: 'Boolean',
+      name: 'hasDateSource_',
+      transient: true,
+      visibility: 'HIDDEN',
+      expression: function(xProp) { return this.isDateProp(xProp); }
+    },
   ],
 
   methods: [
@@ -1487,6 +1504,12 @@ foam.CLASS({
       }));
       this.onDetach(s.dataXNumMax_$.sub(function() {
         if ( s.dataXNumMax_ != null && ! self.hasOwnProperty('xAxisMaxScale') ) self.xAxisMaxScale = s.dataXNumMax_;
+      }));
+      this.onDetach(s.dataYNumMin_$.sub(function() {
+        if ( s.dataYNumMin_ != null && ! self.hasOwnProperty('yAxisMinScale') ) self.yAxisMinScale = s.dataYNumMin_;
+      }));
+      this.onDetach(s.dataYNumMax_$.sub(function() {
+        if ( s.dataYNumMax_ != null && ! self.hasOwnProperty('yAxisMaxScale') ) self.yAxisMaxScale = s.dataYNumMax_;
       }));
     },
     

@@ -77,6 +77,8 @@ public class MDAO
   protected Object   state_     = null;
   protected Object   writeLock_ = new Object();
   protected Set      unindexed_ = new HashSet();
+  // Signatures of indexes already added, so a repeated add is a no-op.
+  protected Set<String> indexKeys_ = new HashSet<String>();
 
   /**
    * DAO Command to retrieve current MDAO state. Intented
@@ -132,8 +134,51 @@ public class MDAO
     }
   }
 
+  /** Stable key for an index built from an ordered Indexer list.
+
+    Every name is terminated with ',' so that one key is a string prefix of
+    another exactly when its indexer list is a prefix of the other's - the
+    terminator stops "a" from matching a leading "ab".
+  **/
+  protected String indexKey_(boolean unique, Indexer... props) {
+    StringBuilder sb = new StringBuilder(unique ? "u:" : "n:");
+    for ( Indexer p : props ) {
+      sb.append(p instanceof PropertyInfo ? ((PropertyInfo) p).getName() : p.toString());
+      sb.append(',');
+    }
+    return sb.toString();
+  }
+
+  /** Record an index about to be added; false means an equivalent one is present.
+
+    Adding an index bulk-loads the whole DAO into it and every later put then
+    maintains it, and there is no removeIndex to undo either cost. So callers
+    that cannot know what already exists depend on this being a no-op.
+
+    Redundant means prefix, not just equal. planSelect asks every index to plan
+    and keeps the cheapest, and a compound index on (a, b) already answers
+    lookups on a through its leading level - so (a) after (a, b) adds nothing.
+    The reverse is not true: (a, b) after (a) orders within each a group, so it
+    is a genuinely new index and is added.
+  **/
+  protected boolean recordIndex_(String key) {
+    synchronized ( writeLock_ ) {
+      for ( String existing : indexKeys_ ) {
+        if ( existing.startsWith(key) ) return false;
+      }
+      indexKeys_.add(key);
+      return true;
+    }
+  }
+
+  /** Number of distinct indexes added through the Indexer entry points below. **/
+  public int getIndexCount() {
+    synchronized ( writeLock_ ) { return indexKeys_.size(); }
+  }
+
   /** Add an Index which is for a unique value. Use addIndex() if the index is not unique. **/
   public void addUniqueIndex(Indexer... props) {
+    if ( ! recordIndex_(indexKey_(true, props)) ) return;
     Index idx = ValueIndex.instance();
     for ( var i = props.length-1 ; i >= 0 ; i-- ) idx = new TreeIndex(props[i], idx, i != 0);
     addIndex(idx);
@@ -143,6 +188,7 @@ public class MDAO
    * appended to property list to make it unique.
    **/
   public void addIndex(Indexer... props) {
+    if ( ! recordIndex_(indexKey_(false, props)) ) return;
     Index idx = new TreeIndex((Indexer) this.of_.getAxiomByName("id"), true);
     for ( var i = props.length-1 ; i >= 0 ; i-- ) idx = new TreeIndex(props[i], idx, i != 0);
     addIndex(idx);

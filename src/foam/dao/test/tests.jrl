@@ -23,3 +23,8 @@ p({
   class:"foam.dao.test.MDAOCountTest",
   id:"MDAOCountTest"
 })
+p({
+  class:"foam.dao.test.MDAOIndexDedupTest",
+  id:"MDAOIndexDedupTest",
+  description:"Repeated identical addIndex calls must not build duplicate indexes"
+})

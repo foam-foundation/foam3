@@ -25,6 +25,17 @@ public class AltIndex
       addIndex(null, indices[i]);
   }
 
+  /** The number of indexes held, so callers can tell whether an add took. */
+  public int getIndexCount() { return delegates_.size(); }
+
+  /** Covered when any one of the alternatives already covers it. */
+  public boolean covers(Index other) {
+    for ( int i = 0 ; i < delegates_.size() ; i++ ) {
+      if ( delegates_.get(i).covers(other) ) return true;
+    }
+    return false;
+  }
+
   public Object addIndex(Object state, Index i) {
     delegates_.add(i);
 

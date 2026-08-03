@@ -45,6 +45,59 @@ public class TreeIndex
     isPrimary_   = isPrimary;
   }
 
+  public Indexer getIndexer() { return indexer_; }
+
+  public Index getTail() { return tail_; }
+
+  /**
+   * This index covers another when that one's property chain is a prefix of
+   * this one's, so every lookup it could answer this one answers too.
+   *
+   * Two indexers are the same property when their PropertyInfo names match;
+   * anything else falls back to equals, and an indexer we cannot compare
+   * reports not-covered rather than guessing.
+   */
+  public boolean covers(Index other) {
+    if ( ! ( other instanceof TreeIndex ) ) return false;
+
+    TreeIndex mine = this, theirs = (TreeIndex) other;
+
+    while ( true ) {
+      if ( ! sameIndexer(mine.indexer_, theirs.indexer_) ) return false;
+
+      // Their chain ended first, so theirs is a prefix of mine - covered.
+      if ( ended(theirs) ) return true;
+
+      // Mine ended first, so theirs goes deeper - not covered.
+      if ( ended(mine) ) return false;
+
+      mine   = (TreeIndex) mine.tail_;
+      theirs = (TreeIndex) theirs.tail_;
+    }
+  }
+
+  /**
+   * Whether a chain has no more property levels.
+   *
+   * addIndex(Indexer...) appends the primary key to make a non-unique index
+   * unique, so (a) is really (a, id) and (a, b) is (a, b, id). That trailing
+   * level is a tiebreaker, not a property anyone queries on, and counting it
+   * would make (a) look unrelated to (a, b) instead of a prefix of it.
+   */
+  protected static boolean ended(TreeIndex t) {
+    if ( ! ( t.tail_ instanceof TreeIndex ) ) return true;
+    TreeIndex next = (TreeIndex) t.tail_;
+    return next.isPrimary_ && ! ( next.tail_ instanceof TreeIndex );
+  }
+
+  protected static boolean sameIndexer(Indexer a, Indexer b) {
+    if ( a == b ) return true;
+    if ( a == null || b == null ) return false;
+    if ( a instanceof foam.lang.PropertyInfo && b instanceof foam.lang.PropertyInfo )
+      return ((foam.lang.PropertyInfo) a).getName().equals(((foam.lang.PropertyInfo) b).getName());
+    return a.equals(b);
+  }
+
   public Object bulkLoad(FObject[] a) {
     Arrays.parallelSort(a);
     return TreeNode.getNullNode().bulkLoad(tail_, indexer_, 0, a.length-1, a);

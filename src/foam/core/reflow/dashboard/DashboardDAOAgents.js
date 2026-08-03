@@ -1174,7 +1174,7 @@ foam.CLASS({
     // Define visibility for periodCount (from mixin)
     {
       name: 'periodCount',
-      visibility: function(isDateXProp_) {
+      visibility: function(hasDateSource_) {
         // Only show for date/time properties on X-axis
         return hasDateSource_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
@@ -1314,13 +1314,7 @@ foam.CLASS({
         return ( isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
-    { // Taken from Claude
-      class: 'Boolean',
-      name: 'isDateXProp_',
-      transient: true,
-      visibility: 'HIDDEN',
-      expression: function(xProp) { return this.isDateProp(xProp); }
-    },
+    // Taken from Claude
     { name: 'sink_', transient: true, visibility: 'HIDDEN' },
     {
       class: 'Boolean',

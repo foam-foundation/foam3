@@ -1505,7 +1505,6 @@ foam.POM({
     { name: "foam/util/tests",                                        flags: "test" },
     { name: "foam/lang/test/services",                                flags: "test" },
     { name: "foam/parse/test/tests",                                  flags: "test" },
-    { name: "foam/ascript/tests",                                     flags: "test" },
     { name: "foam/dao/tests",                                         flags: "test" },
     { name: "foam/dao/test/tests",                                    flags: "test" },
     { name: "foam/dao/history/test/tests",                            flags: "test" },

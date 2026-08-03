@@ -133,7 +133,7 @@ public class PartitionedDAO
   }
 
   protected DAO getDelegate(X x, FObject obj) {
-    return getDelegate(getID(obj));
+    return getDelegate(getPartition(getID(obj)));
   }
 
 /*

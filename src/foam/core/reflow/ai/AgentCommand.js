@@ -63,7 +63,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'description',
-      value: 'Ask an LLM agent to generate REFLOW commands from a natural language instruction.'
+      value: 'Agent runs FLOW commands from a request'
     },
     {
       class: 'String',

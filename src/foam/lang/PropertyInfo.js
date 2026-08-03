@@ -23,9 +23,7 @@ foam.INTERFACE({
   javaImports: [
     'foam.crypto.hash.Hasher',
     'foam.crypto.sign.Signer',
-    'foam.dao.jdbc.IndexedPreparedStatement',
     'foam.dao.SQLStatement',
-    'foam.lib.parse.Parser',
     'foam.mlang.Expr',
     'foam.mlang.order.Comparator',
     'java.util.Map',
@@ -65,9 +63,9 @@ foam.INTERFACE({
     'Object get(Object obj)',
     'void set(Object obj, Object value)',
     'void clear(Object obj)',
-    'Parser jsonParser()', // Specify parser to use for Java JSON parsing. Set javaJSONParser: 'null' (String literal) to remove parsing support.
-    'Parser queryParser()',
-    'Parser csvParser()',
+    'foam.lib.parse.Parser jsonParser()', // Specify parser to use for Java JSON parsing. Set javaJSONParser: 'null' (String literal) to remove parsing support.
+    'foam.lib.parse.Parser queryParser()',
+    'foam.lib.parse.Parser csvParser()',
     'void toJSON(foam.lib.json.Outputter outputter, Object value) { outputter.output(value); }',
     'void format(foam.lib.formatter.FObjectFormatter outputter, FObject obj)',
     'void formatJSON(foam.lib.formatter.FObjectFormatter formatter, FObject obj) { format(formatter, obj); }',
@@ -136,8 +134,17 @@ foam.INTERFACE({
     'boolean includeInID() { return false; }',
     'boolean isSet(Object obj)',
     'boolean isDefaultValue(Object obj)',
-    'void setStatementValue(IndexedPreparedStatement stmt, FObject o) throws java.sql.SQLException',
-    'void setFromResultSet(java.sql.ResultSet resultSet, int index, FObject o) throws java.sql.SQLException',
+    {
+      name: 'setStatementValue',
+      args: 'foam.dao.jdbc.IndexedPreparedStatement stmt, FObject o',
+      javaThrows: [ 'java.sql.SQLException' ]
+    },
+    {
+      name: 'setFromResultSet',
+      args: 'java.sql.ResultSet resultSet, int index, FObject o',
+      javaThrows: [ 'java.sql.SQLException' ]
+    },
+//    'void setFromResultSet(java.sql.ResultSet resultSet, int index, FObject o) throws java.sql.SQLException',
     'void cloneProperty(FObject source, FObject dest) { set(dest, foam.util.SafetyUtil.deepClone(get(source))); }',
     `void validateObj(foam.lang.X x, foam.lang.FObject obj) {
        /* Template Method: override in subclass if required. */

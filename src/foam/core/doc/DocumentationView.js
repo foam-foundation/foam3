@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.core.doc',
   name: 'DocumentationView',
   extends: 'foam.u2.View',
-  mixins: ['foam.u2.memento.Memorable'],
+  mixins: ['foam.u2.Router'],
 
   css: `
     ^ {
@@ -35,7 +35,18 @@ foam.CLASS({
     }
   `,
 
+  messages: [
+    { name: 'TITLE', message: 'Documentation' }
+  ],
+
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       class: 'String',
       name: 'docKey',
@@ -63,6 +74,12 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render() {
       var self = this;
       var dao = this.__context__[this.daoKey];

@@ -16,7 +16,8 @@ foam.CLASS({
   imports: [ 'createFlowChildName' ],
 
   properties: [
-    [ 'description', 'Perform DAO operation' ]
+    [ 'description', 'DAO data browser' ],
+    [ 'parserClass', 'foam.core.reflow.parser.DAOTargetParser' ]
   ],
 
   methods: [
@@ -44,6 +45,7 @@ foam.CLASS({
   ],
 
   properties: [
+    [ 'description', 'From query on a DAO' ],
     {
       name: 'parser',
       factory: function() { return this.FromParser.create(); }

@@ -371,7 +371,10 @@ foam.CLASS({
                   on('blur', function() { self.reactive = !! self.formula; }).
                   focus().
                 end().add(self.data.slot(self.prop.name), ' ').
-                start('span').style({color: 'red'}).add(error).end().
+                start('span').
+                  style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+                  add(error).
+                end().
               end();
             } else {
               this.add(viewSlot);

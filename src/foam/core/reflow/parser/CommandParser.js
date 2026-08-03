@@ -30,6 +30,7 @@ foam.CLASS({
 
       for ( let i = 0 ; i < cmds.length ; i++ ) {
         let c      = cmds[i];
+        if ( c.hidden ) continue;
         let parser = p.sug(p.literalIC(c.id), {
           text:  c.id,
           label: c.description,
@@ -39,7 +40,7 @@ foam.CLASS({
 
         if ( c.parser ) {
           if ( c.parser.aInit ) await c.parser.aInit();
-          console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
+          // console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
           parser = p.seq(parser, c.parser);
         }
 

@@ -50,10 +50,7 @@ p({
       "class": "foam.core.servlet.ServletMapping",
       "servletObject": {
         "class": "foam.core.servlet.VirtualHostRoutingServlet",
-        "defaultHost":"localhost",
-        "headerParameters": {
-          "Cache-Control": "public,max-age=3600,immutable"
-        }
+        "defaultHost":"localhost"
       },
       "pathSpec": "/welcome"
     }, {

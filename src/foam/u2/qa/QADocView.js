@@ -86,7 +86,10 @@ foam.CLASS({
         if ( list ) {
           this.add(list);
         } else {
-          this.start('span').style({color: 'red'}).add('UNUSED');
+          this.start('span').
+            style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+            add('UNUSED').
+          end();
         }
       }
 

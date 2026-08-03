@@ -20,7 +20,6 @@ import java.util.HashMap;
 public class DatePartitionedDAO
   extends PartitionedDAO
 {
-
   public final static long DAY                 = 24 * 60 * 60 * 1000; // 1 day in ms
   public final static int  DEFAULT_TIME_WINDOW = 5 * 7;               // five weeks
 
@@ -56,7 +55,8 @@ public class DatePartitionedDAO
     public void detach() {
       isDetached_ = true;
     }
-  }
+  } // DetachableSink
+
 
   protected int timeWindow_ = DEFAULT_TIME_WINDOW;
 
@@ -106,13 +106,6 @@ public class DatePartitionedDAO
     return parts;
   }
 
-  /*
-  public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
-    Object part = extractPredicateValue(predicate);
-    return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
-  }
-  */
-
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     Date[]   range = extractPredicateRange(predicate);
     //    System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
@@ -142,17 +135,13 @@ public class DatePartitionedDAO
 
     long window = (long) getTimeWindow() * DAY;
 
-    if ( range[0] == null ) {
-      if ( range[1] == null ) {
-        range[0] = new Date(System.currentTimeMillis() - window);
-        range[1] = new Date(System.currentTimeMillis() + 24*3600*1000); // tomorrow
-      } else {
-        range[0] = new Date(range[1].getTime() - window);
-      }
-    } else {
-      if ( range[1] == null ) {
-        range[1] = new Date(range[0].getTime() + window);
-      }
+    if ( range[0] == null && range[1] == null ) {
+      range[0] = new Date(System.currentTimeMillis() - window);
+      range[1] = new Date(System.currentTimeMillis() + 24*3600*1000); // tomorrow
+    } else if ( range[0] == null ) {
+      range[0] = new Date(range[1].getTime() - window);
+    } else if ( range[1] == null ) {
+      range[1] = new Date(range[0].getTime() + window);
     }
 
     return range;
@@ -169,14 +158,7 @@ public class DatePartitionedDAO
   }
 
   public void extractPredicateRange(Date[] range, Predicate predicate) {
-    /*
-    if ( predicate == null ) {
-      return;
-    }
-    */
-
     if ( predicate instanceof Binary ) {
-      System.err.println("*** BINARY");
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property

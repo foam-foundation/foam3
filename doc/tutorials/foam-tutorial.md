@@ -1311,6 +1311,15 @@ this.add(someViewInstance);             // Adds a view
 - **Action constants** (e.g., `this.SOME_ACTION`) render as buttons with the action's label, and automatically handle enablement and availability based on the action's `isEnabled` and `isAvailable` declarations.
 - **View instances** and **ViewSpecs** are added as child components, fully integrated into the FOAM lifecycle.
 
+> [!NOTE]
+> **Two terms worth pinning down**, since they show up throughout U2/U3:
+>
+> - **View** — a FOAM component that displays or edits data; any class extending `foam.u2.View`, such as `foam.u2.TextField`.
+> - **View instance** — a view you have already created, e.g. `foam.u2.TextField.create({ data$: this.name$ })`.
+> - **ViewSpec** — a lightweight *description* of a view to create rather than the view itself, most often the `{ class: 'foam.u2.TextField', data$: this.name$ }` object literal you saw passed to `start()` and `tag()` above. Given a spec, FOAM instantiates the view for you.
+>
+> Either way the result becomes a child of the current element and takes part in its lifecycle — it renders with the parent, updates reactively, and is detached (and cleaned up) when the parent is. The `foam.u2.View` class itself is covered under [View vs Controller](#view-vs-controller) below.
+
 ### DOM Building Methods at a Glance
 
 | Method | Creates Element? | Adds Content? | Returns |
@@ -1401,79 +1410,33 @@ Use `View` when displaying or editing an existing object. Use `Controller` when 
 
 ## Reactive Slots
 
-One of FOAM's most powerful features is its reactive slot system. A **slot** is a reactive reference to a value — think of it as a live wire that notifies the UI whenever the value changes. You never manually update DOM elements; instead, you bind them to slots and FOAM keeps everything in sync.
+One of FOAM's most powerful features is its reactive slot system. A **slot** is a live reference to a value — a handle that notifies the UI whenever the value changes. You never manually update DOM elements; you bind them to slots and FOAM keeps everything in sync.
 
-### Property Slots
-
-Every FOAM property automatically has a corresponding slot, accessed with the `$` suffix:
+Every property has a slot, reached with the `$` suffix. A few forms cover most day-to-day view code:
 
 ```javascript
-this.name       // the current value (static)
-this.name$      // a slot that tracks changes to this.name (reactive)
-```
+this.name        // the current value — a static snapshot
+this.name$       // the slot — a live handle to the property
 
-When you pass a slot to `add()`, the displayed content updates automatically:
+this.add(this.name$);                                   // reactive text: re-renders when name changes
+this.tag({ class: 'foam.u2.TextField', data$: this.name$ });  // two-way bind: field ↔ property
 
-```javascript
-// In render():
-this.add(this.name$);  // Text updates automatically when this.name changes
-```
-
-### Two-Way Binding
-
-Slots enable two-way data binding between properties and form fields. When you bind a view's `data$` to a property slot, changes flow in both directions — editing the field updates the property, and changing the property updates the field:
-
-```javascript
-this.tag({class: 'foam.u2.TextField', data$: this.name$});
-```
-
-You can also link two slots together explicitly:
-
-```javascript
-slot1.linkFrom(slot2);           // two-way bind
-this.firstName$ = view.data$;    // shorthand for two-way bind
-```
-
-### Subscribing to Changes
-
-You can subscribe to a slot to run code whenever the value changes:
-
-```javascript
-this.name$.sub(function(e, _, __, newVal) {
-  console.log('Name changed to:', newVal);
+// a computed slot — a derived value that recomputes when any dependency changes
+// (argument names ARE the dependencies)
+var fullName = this.slot(function(firstName, lastName) {
+  return firstName + ' ' + lastName;
 });
+this.add(fullName);
 ```
 
-In views, always wrap subscriptions with `onDetach()` to avoid memory leaks when the component is removed:
+When you subscribe to a slot manually, wrap it with `onDetach()` so it's cancelled when the component is removed:
 
 ```javascript
 this.onDetach(this.name$.sub(this.onNameChange));
 ```
 
-### Computed Slots
-
-The `slot()` method creates a **computed slot** — a derived value that automatically recalculates when any of its dependencies change. The argument names in the function declare the dependencies:
-
-```javascript
-// A computed slot that depends on firstName and lastName
-var fullName = this.slot(function(firstName, lastName) {
-  return firstName + ' ' + lastName;
-});
-```
-
-When used with `add()`, computed slots re-render their content whenever any dependency changes. This is particularly useful for building views that react to data:
-
-```javascript
-this.add(this.slot(function(items) {
-  return this.E().forEach(items, function(item) {
-    this.start('div').add(item.name).end();
-  });
-}));
-```
-
-Note the use of `this.E()` — it creates a new empty DOM element (a `<span>` by default). Inside a `slot()` callback you can't append to the current view's element chain, so you create a fresh element with `E()`, build a tree on it, and return it.
-
-The view inside `slot()` automatically re-renders whenever `items` changes. This is the FOAM alternative to imperative DOM updates — you declare what the UI should look like given the current state, and the framework handles the rest.
+> [!NOTE]
+> This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
 
 ## Creating a Recipe Detail View
 

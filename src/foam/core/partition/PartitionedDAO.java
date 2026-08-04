@@ -73,7 +73,6 @@ public class PartitionedDAO
 
   public String getPartition(String id) {
     String ret = getPartition_(id);
-    System.out.println("****** PARTITION " + id + " -> " + ret);
     return ret;
   }
 
@@ -134,7 +133,7 @@ public class PartitionedDAO
   }
 
   protected DAO getDelegate(X x, FObject obj) {
-    return getDelegate(getID(obj));
+    return getDelegate(getPartition(getID(obj)));
   }
 
 /*

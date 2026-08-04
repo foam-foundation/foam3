@@ -77,9 +77,7 @@ object you can hold in a variable, pass around, and call methods on.
 > **Why every object has slots: the `FObject` base class.** Every FOAM model extends the base
 > class `FObject`, so `person` — an instance of the `Person` model — *is* an `FObject` and
 > inherits its `slot()` method, which returns the slot for a property by name. That is all `$`
-> does: `person.fname$` is short for `person.slot('fname')`. (Writing the method as
-> `FObject.slot()` only names where it's defined; you always call it on an instance:
-> `person.slot(...)`.)
+> does: `person.fname$` is short for `person.slot('fname')`.
 
 Either way, the slot has three core operations, defined on `PropertySlot` — `get`, `set`, `sub`:
 
@@ -94,16 +92,26 @@ slotName.sub(listener); // fires when fname changes         observe through the 
 ```javascript
 var subscription = slotName.sub(function(subscription, topic, prop, slot) {
   // fires on each change to fname (not right away — only on the *next* change)
-  console.log('fname is now', slotName.get());  // read the current value from the slot
+  console.log(topic);          // 'propertyChange' — the only event a property slot fires
+  console.log(prop);           // 'fname'          — the *name* of the property that changed
+  console.log(slot.get());     // e.g. 'Alice'     — the new value; `slot` is this same slotName
+  console.log(slotName.get()); // e.g. 'Alice'     — identical: reading through the outer slot
+  console.log(slot.getPrev()); // e.g. 'Steve'     — the previous value
 });
-subscription.detach();   // stop listening; the callback's first arg is this same object
+
+subscription.detach();   // later: stop listening
 ```
 
 The four arguments are pub/sub plumbing — the subscription (call `.detach()` on it to
-unsubscribe, from inside the handler or out), the topic (`'propertyChange'`), the property
-name, and the slot. In practice you ignore most of them and read the value with
-`slotName.get()`. Because the handler only runs on the *next* change, read `get()` first if you
-also need the current value.
+unsubscribe), the topic (always `'propertyChange'` for a slot), the property *name* (a string,
+not the value), and the slot itself, which is the same object as `slotName`. So the value comes
+from `slot.get()` (or equivalently `slotName.get()`), not from `prop`. In practice you ignore
+most of them and just read `slotName.get()`. Because the handler only runs on the *next* change,
+read `get()` first if you also need the current value.
+
+The value `sub()` returns and the callback's first argument are the *same* subscription object —
+which is why both are named `subscription` above. You can detach through either: from outside as
+shown, or from inside the handler (`subscription.detach()`) to stop after a given change.
 
 You will often see this first argument named `sub` in the code, but that reads poorly next to
 the `sub()` call — prefer `subscription`.

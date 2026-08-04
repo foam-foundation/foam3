@@ -125,6 +125,11 @@ public class MDAO
     }
   }
 
+  /** Number of indexes held, counting the primary. **/
+  public int getIndexCount() {
+    synchronized ( writeLock_ ) { return index_.getIndexCount(); }
+  }
+
   // Add Index which skips bulkload
   public void addStoreIndex(Index index) {
     synchronized ( writeLock_ ) {

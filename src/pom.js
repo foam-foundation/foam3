@@ -1166,6 +1166,7 @@ foam.POM({
     { name: "foam/dao/test/JournalDefaultClassNameTest",              flags: "js&test|java&test" },
     { name: "foam/dao/test/OrDAOTest",                                flags: "js&test|java&test" },
     { name: "foam/dao/test/MDAOCountTest",                            flags: "js&test|java&test" },
+    { name: "foam/dao/test/MDAOIndexDedupTest",                       flags: "js&test|java&test" },
     { name: "foam/lib/ExternalPropertyPredicate",                     flags: "js|java" },
     { name: "foam/lib/StorageTransientPropertyPredicate",             flags: "js|java" },
     { name: "foam/lib/ClusterPropertyPredicate",                      flags: "js|java" },

@@ -130,6 +130,13 @@ foam.CLASS({
     {
       name: 'nodeName',
       value: 'nav'
+    },
+    {
+      class: 'Boolean',
+      name: 'searchShown_',
+      value: true,
+      documentation: `Controls menu search visibility. Subclasses may bind it,
+        e.g. this.searchShown_$.follow(this.isMenuOpen$).`
     }
   ],
 
@@ -139,25 +146,7 @@ foam.CLASS({
       this
       .addClass(this.myClass())
         .callIf(this.theme.showNavSearch, function(){
-          var searchField = self.SearchField.create({
-            data$: self.menuSearch$,
-            onKey: true,
-            ariaLabel: self.MENU_SEARCH_LABEL,
-            autocomplete: false
-          }).attrs({ name: 'menuSearch' });
-          this
-            .start()
-            .addClass(self.myClass('search'))
-              .start(self.ClearableSearchBorder, {
-                textSlot: self.menuSearch$,
-                onClear: function() {
-                  self.menuSearch = '';
-                  searchField.focus();
-                }
-              })
-                .add(searchField)
-              .end()
-            .end();
+          self.renderSearch(this);
         })
         .start({
           class: 'foam.u2.view.TreeView',
@@ -177,6 +166,32 @@ foam.CLASS({
           defaultRoot: self.theme.navigationRootMenu
         })
           .addClass(this.myClass('menuList'))
+        .end();
+    },
+
+    function renderSearch(parentEl) {
+      // Menu search wrapped in ClearableSearchBorder. Kept as its own method
+      // so subclasses reuse it instead of copying the block.
+      var self = this;
+      var searchField = this.SearchField.create({
+        data$: this.menuSearch$,
+        onKey: true,
+        ariaLabel: this.MENU_SEARCH_LABEL,
+        autocomplete: false
+      }).attrs({ name: 'menuSearch' });
+      parentEl
+        .start()
+        .show(this.searchShown_$)
+        .addClass(this.myClass('search'))
+          .start(this.ClearableSearchBorder, {
+            textSlot: this.menuSearch$,
+            onClear: function() {
+              self.menuSearch = '';
+              searchField.focus();
+            }
+          })
+            .add(searchField)
+          .end()
         .end();
     },
 

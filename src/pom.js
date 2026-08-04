@@ -260,6 +260,7 @@ foam.POM({
     { name: "foam/u2/view/SearchViewWrapper",                         flags: "web" },
     { name: "foam/u2/view/StringArrayRowView",                        flags: "web" },
     { name: "foam/u2/borders/BrowserSupportBorder",                   flags: "web" },
+    { name: "foam/u2/borders/ClearableSearchBorder",                  flags: "web" },
     { name: "foam/u2/borders/NullBorder",                             flags: "web" },
     { name: "foam/u2/borders/ScrollBorder",                           flags: "web" },
     { name: "foam/u2/borders/CardBorder",                             flags: "web" },

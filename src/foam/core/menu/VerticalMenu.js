@@ -27,7 +27,19 @@ foam.CLASS({
   requires: [
     'foam.core.menu.Menu',
     'foam.core.menu.VerticalMenu',
-    'foam.dao.ArraySink'
+    'foam.dao.ArraySink',
+    'foam.u2.SearchField',
+    'foam.u2.borders.ClearableSearchBorder'
+  ],
+
+  messages: [
+    {
+      name: 'MENU_SEARCH_LABEL',
+      messageMap: {
+        en: 'Menu Search',
+        fr: 'Recherche dans le menu'
+      }
+    }
   ],
 
   cssTokens: [
@@ -118,6 +130,13 @@ foam.CLASS({
     {
       name: 'nodeName',
       value: 'nav'
+    },
+    {
+      class: 'Boolean',
+      name: 'searchShown_',
+      value: true,
+      documentation: `Controls menu search visibility. Subclasses may bind it,
+        e.g. this.searchShown_$.follow(this.isMenuOpen$).`
     }
   ],
 
@@ -127,13 +146,7 @@ foam.CLASS({
       this
       .addClass(this.myClass())
         .callIf(this.theme.showNavSearch, function(){
-          this
-          .startContext({ data: this })
-            .start()
-            .add(this.MENU_SEARCH)
-              .addClass(this.myClass('search'))
-            .end()
-            .endContext();
+          self.renderSearch(this);
         })
         .start({
           class: 'foam.u2.view.TreeView',
@@ -153,6 +166,32 @@ foam.CLASS({
           defaultRoot: self.theme.navigationRootMenu
         })
           .addClass(this.myClass('menuList'))
+        .end();
+    },
+
+    function renderSearch(parentEl) {
+      // Menu search wrapped in ClearableSearchBorder. Kept as its own method
+      // so subclasses reuse it instead of copying the block.
+      var self = this;
+      var searchField = this.SearchField.create({
+        data$: this.menuSearch$,
+        onKey: true,
+        ariaLabel: this.MENU_SEARCH_LABEL,
+        autocomplete: false
+      }).attrs({ name: 'menuSearch' });
+      parentEl
+        .start()
+        .show(this.searchShown_$)
+        .addClass(this.myClass('search'))
+          .start(this.ClearableSearchBorder, {
+            textSlot: this.menuSearch$,
+            onClear: function() {
+              self.menuSearch = '';
+              searchField.focus();
+            }
+          })
+            .add(searchField)
+          .end()
         .end();
     },
 

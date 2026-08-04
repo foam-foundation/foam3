@@ -100,10 +100,18 @@ if [ -d "${EXTRACT_DIR}/etc" ]; then
     info "Installed configuration files to ${APP_HOME}/etc"
 fi
 
-# Create default shrc.custom in conf directory if it doesn't exist
+# Create default shrc.custom in conf directory if it doesn't exist.
+# Size the heap as a percentage of the container's memory limit rather than a
+# fixed -Xmx: a fixed value silently caps the JVM (e.g. 4g) no matter how large
+# the task/instance is. The percentage tracks the cgroup limit, so a 16 GB task
+# gets ~12 GB and a 4 GB task ~3 GB with no per-environment tuning.
+# Initial == Max (both 75%) so the heap is committed up front — FOAM's guidance
+# is -Xms == -Xmx to avoid the long GC pauses that come from growing the heap.
+# Override with an explicit -Xms/-Xmx here or via the JAVA_OPTS env var when a
+# fixed size is needed (run-docker.sh gives both precedence over this default).
 if [ ! -f "${APP_HOME}/conf/shrc.custom" ]; then
     echo '#!/bin/bash' > ${APP_HOME}/conf/shrc.custom
-    echo 'JAVA_OPTS="${JAVA_OPTS} -Xmx4096m"' >> ${APP_HOME}/conf/shrc.custom
+    echo 'JAVA_OPTS="${JAVA_OPTS} -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0"' >> ${APP_HOME}/conf/shrc.custom
     info "Created default ${APP_HOME}/conf/shrc.custom"
 fi
 

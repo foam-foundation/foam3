@@ -443,8 +443,12 @@ public class JSONFObjectFormatter
     // journal swallows and then writes nothing. Output the whole object instead, so
     // re-putting a record under a subclass survives a replay.
     if ( oldFObject != null && newFObject.getClassInfo() != oldFObject.getClassInfo() ) {
+      int mark = builder().length();
       outputFObjectPropertyHeader(parentProp);
       output(newFObject, defaultClass, parentProp);
+      // output() undoes itself when it wrote no properties, so roll the header back
+      // with it rather than leaving a dangling key.
+      if ( builder().length() == mark ) return false;
       return true;
     }
 

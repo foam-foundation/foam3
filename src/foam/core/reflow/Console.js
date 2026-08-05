@@ -932,12 +932,24 @@ foam.ENUM({
 });
 
 
+// Create an Abstract base class for Console because so
+// we can override the 'route' property in the concrete
+// sub-class. You can't override a mixin property because
+// both properties are technically in the same class.
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Console',
+  name: 'AbstractConsole',
   extends: 'foam.u2.Controller',
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ { path: 'foam.u2.Router', priority: 200 } ],
+  abstract: true
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'Console',
+  extends: 'foam.core.reflow.AbstractConsole',
 
   documentation: `
     If you want to embed FLOWs in regular U3 views without all of the editing UI, you can do it like this:

@@ -447,7 +447,7 @@ foam.CLASS({
 
         function link(v) {
           let title = v[1], url = v[3];
-          return function() { this.start('a').attrs({href: url, target: '_blank'}).add(title); };
+          return function() { this.start('a').attrs({href: url}).add(title); };
         },
 
         function strikethrough(v) {

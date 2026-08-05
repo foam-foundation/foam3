@@ -20,6 +20,10 @@ p({
   id:"JournalDefaultClassNameTest"
 })
 p({
+  class:"foam.dao.test.JournalClassChangeTest",
+  id:"JournalClassChangeTest"
+})
+p({
   class:"foam.dao.test.MDAOCountTest",
   id:"MDAOCountTest"
 })

@@ -88,6 +88,10 @@
  *
  *   var results = picker.getCandidates();  // -> [{ name: 'Thai Restaurant', ... }]
  *   picker.applyOutcome(results[0]);       // sets picker.name = 'Thai Restaurant'
+ *
+ * TODO:
+ *   Add paths to question choices so that they can be set by the translationService
+ *   ex.: com.acme.QA.QUESTION_NAME.CHOICE.label = 'Blah Blah in French'
  */
 
 

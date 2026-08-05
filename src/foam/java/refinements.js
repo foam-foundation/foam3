@@ -1733,24 +1733,34 @@ foam.CLASS({
     ['sqlType',         'DATE'],
     ['javaAdapt',
      `
-      // convert the Date to be noon in GMT
-      val = val != null ? new java.util.Date(Math.floorDiv(val.getTime(), 86400000l) * 86400000l + 43200000l) : null;
+      if ( val != null ) {
+        // convert the Date to be noon in GMT
+        long time = val.getTime();
+        // floorDiv, not a truncating divide: dates before 1970 have a negative
+        // time and truncation would land them on the next day's noon
+        long noon = Math.floorDiv(time, 86400000l) * 86400000l + 43200000l;
+
+        // Convert to Noon if not already at Noon
+        if ( time != noon ) {
+          val = new java.util.Date(noon);
+        }
+      }
      `
     ]
   ],
 
-   methods: [
-     function createJavaPropertyInfo_(cls) {
-       var info = this.SUPER(cls);
-       // TODO: cast isn't called on setter
-       var m = info.getMethod('cast');
-       m.body = `
-         return foam.util.DateUtil.adapt(o);
-       `;
+  methods: [
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+      // TODO: cast isn't called on setter
+      var m = info.getMethod('cast');
+      m.body = `
+        return foam.util.DateUtil.adapt(o);
+      `;
 
-       return info;
-     }
-   ]
+      return info;
+    }
+  ]
 });
 
 

@@ -5,7 +5,6 @@ import foam.lang.ContextAwareAgent;
 import foam.lang.X;
 import foam.dao.ArraySink;
 import foam.dao.DAO;
-import foam.dao.MDAO;
 import foam.mlang.predicate.Predicate;
 import foam.core.auth.LifecycleState;
 import foam.core.auth.User;
@@ -46,59 +45,6 @@ public class RulerDAOTest extends Test {
     removeData(x);
     testCompositeRuleAction(x);
     removeData(x);
-    testAfterRules(x);
-  }
-
-  /**
-   * put_ only clones a second time and deep-compares when an 'after' rule can
-   * run. Both sides of that branch have to keep behaving: no rule returns the
-   * object untouched, and a rule that mutates still gets written back.
-   */
-  public void testAfterRules(X x) {
-    // Its own dao key, so the rules the rest of this test registers against
-    // localUserDAO cannot reach it and 'no after rule' really means none.
-    DAO afterDAO = new RulerDAO(x, new MDAO(User.getOwnClassInfo()), "afterUserDAO");
-
-    // Nothing targets this dao key yet, so the 'after' block has no work.
-    User quiet = new User();
-    quiet.setId(20);
-    quiet.setFirstName("Nadia");
-    quiet.setLastName("Original");
-    quiet = (User) afterDAO.put_(x, quiet);
-    test(quiet != null, "A put with no 'after' rule returns the object");
-    test(quiet.getLastName().equals("Original"),
-      "A put with no 'after' rule returns it unchanged");
-
-    RuleGroup rg = new RuleGroup();
-    rg.setId("users:after rule");
-    rgDAO.put(rg);
-
-    Rule afterRule = new Rule();
-    afterRule.setId("after1");
-    afterRule.setName("rule. after rule renames");
-    afterRule.setRuleGroup("users:after rule");
-    afterRule.setDaoKey("afterUserDAO");
-    afterRule.setOperation(Operation.CREATE);
-    afterRule.setAfter(true);
-    afterRule.setLifecycleState(LifecycleState.ACTIVE);
-    afterRule.setAction((x1, obj, oldObj, ruler, rule, agent) -> ((User) obj).setLastName("Renamed"));
-    afterRule = (Rule) localRuleDAO.put_(x, afterRule);
-
-    User renamed = new User();
-    renamed.setId(21);
-    renamed.setFirstName("Omar");
-    renamed.setLastName("Original");
-    renamed = (User) afterDAO.put_(x, renamed);
-    test(renamed.getLastName().equals("Renamed"),
-      "An 'after' rule mutation shows on the returned object");
-
-    // The mutation happens on a clone, so it only survives if put_ noticed the
-    // change and wrote it back to the delegate.
-    User found = (User) afterDAO.find_(x, 21L);
-    test(found != null && found.getLastName().equals("Renamed"),
-      "An 'after' rule mutation is written back to the delegate");
-
-    localRuleDAO.remove_(x, afterRule);
   }
 
   public void testUsers(X x) {

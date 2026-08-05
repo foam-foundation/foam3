@@ -279,6 +279,9 @@ The inherited `dao` expression depends on `predicate`, so it rebuilds the `where
 
 **Operation semantics.** `foam.core.dao.Operation` is `CREATE`, `UPDATE`, or `CREATE_OR_UPDATE`. A `CREATE` rule fires only on a create — a new or non-existent id — and not on a re-put of an existing id.
 
+**A re-put that changes the object's class is journaled as a full object, not a delta.** An existing id takes the delta path (`src/foam/dao/AbstractF3FileJournal.js:298-309`), and a delta between two classes is not computable: the writer walks the new class's properties and compares each against the old object, so a property the old class does not own raises a `ClassCastException`. The journal catches `Throwable`, logs `Failed to format put` and resets its buffer, so before this was guarded the entry vanished — the live DAO held the subclass and the next replay handed back the original class. `maybeOutputDelta` now detects the class change and writes the whole object instead (`src/foam/lib/formatter/JSONFObjectFormatter.java:440-447`).
+
+
 Two levers when a rule keeps overwriting a value you need:
 
 - **Two-put.** Put the record (the CREATE rule clobbers the field), then re-put the same id. The CREATE rule cannot fire on the update, so the second write sticks. Capture the returned object to get the sequence-assigned id.

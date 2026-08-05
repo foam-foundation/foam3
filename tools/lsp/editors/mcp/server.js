@@ -649,7 +649,19 @@ function main() {
         mcpResult(id, {
           protocolVersion: '2024-11-05',
           capabilities:    { tools: {} },
-          serverInfo:      { name: 'foam-lsp', version: '0.2.0' }
+          serverInfo:      { name: 'foam-lsp', version: '0.2.0' },
+          instructions:
+            'For any FOAM class/property/method question (definitions, usages, docs, ' +
+            'hierarchy), use the foam_* tools BEFORE grep or file reads. They query the ' +
+            'live FOAM registry, which resolves what text search cannot: requires:/of:/' +
+            'extends: string references, javaCode usages, .jrl CSpec entries, and ' +
+            'refinements. Tools are name-addressable — pass symbol: "DetailView", a full ' +
+            'class id, or "Class.member"; no file/line needed. Typical chain: ' +
+            'foam_workspace_symbols (find the class) -> foam_hover (docs/types) -> ' +
+            'foam_definition / foam_references (all usages) -> foam_call_hierarchy. ' +
+            'The first call in a session boots the FOAM LSP (~10-15s); later calls are ' +
+            'fast. Results reflect the indexed checkout, not uncommitted edits in other ' +
+            'worktrees — read edited files directly to verify local changes.'
         });
         return;
       }

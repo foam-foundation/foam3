@@ -156,6 +156,8 @@ foam.CLASS({
       type: 'Date',
       documentation: 'Adapts various input types to Date. Delegates to parseDateString for backward compatibility.',
       code: function(o) {
+        // ???: Is this called from anywhere? It isn't compatible with the javaCode because doesn't convert to Noon.
+        // TODO: convert to Noon
         if ( ! o ) return null;
         if ( o instanceof Date ) return o;
         if ( foam.String.isInstance(o) ) {
@@ -169,9 +171,22 @@ foam.CLASS({
         // Backward compatibility adapter method
         if ( o == null ) return null;
 
+        if ( o instanceof String ) {
+          o = parseDateString((String) o, null, false);
+        } else if ( o instanceof Number ) {
+          o = new Date(((Number) o).longValue());
+        }
+
+        if ( DateParser.MAX_DATE.equals(o) )
+          return DateParser.MAX_DATE;
+
         if ( o instanceof Date ) {
           // Normalize Date to noon GMT
           Date inputDate = (Date) o;
+
+          // Don't adapt if already at Noon
+          if ( inputDate.getTime() % 86400000l == 43200000l ) return inputDate;
+
           java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
           cal.setTime(inputDate);
           cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
@@ -181,11 +196,6 @@ foam.CLASS({
           return cal.getTime();
         }
 
-        if ( o instanceof String ) {
-          return parseDateString((String) o, null, false);
-        }
-
-        if ( o instanceof Number ) return new Date(((Number) o).longValue());
         return null;
       `
     },

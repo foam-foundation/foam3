@@ -201,17 +201,17 @@ foam.CLASS({
       value: function (_, d) {
         if ( d === undefined || d === null ) return d;
         var originalDate = d;
-        if ( typeof d === 'number' )
+        if ( typeof d === 'number' ) {
           d = new Date(d);
-
-        if ( typeof d === 'string' ) {
+        } else if ( typeof d === 'string' ) {
           d = foam.util.DateUtil.parseDateString(d);
         }
 
         if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE )
           return d;
 
-        if ( foam.Date.isInstance(d) ) {
+        // Convert to Noon if not already at Noon
+        if ( foam.Date.isInstance(d) && d.getTime() % 86400000 != 43200000 ) {
           // Convert to Noon UTC
           d = new Date(Date.UTC(
             d.getFullYear(),
@@ -1587,7 +1587,7 @@ foam.CLASS({
 })
 
 foam.CLASS({
-  package: 'foam.lang',  
+  package: 'foam.lang',
   name: 'CountryCode',
   extends: 'Reference',
   implements: [ 'foam.mlang.Expressions' ],

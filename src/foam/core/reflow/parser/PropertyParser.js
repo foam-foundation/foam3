@@ -30,6 +30,10 @@ foam.CLASS({
       const ps = this.of.getAxiomsByClass(foam.lang.Property).
         filter(p => ! p.hidden).
         filter(p => this.predicate.f(p)).
+        // Longest name first: alt() takes the first alternative that matches, so
+        // with localDate ahead of localDateUTC the parse stops after localDate
+        // and reports an error at the leftover UTC.
+        sort((a, b) => comparator(a.name, b.name)).
         map(p =>
           sug(literalIC(p.name), {
             text:  p.name,

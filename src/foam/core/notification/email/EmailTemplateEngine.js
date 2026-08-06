@@ -385,6 +385,7 @@ foam.CLASS({
       parserX.set("values", values);
       parserX.set("logger", x.get("logger"));
       parserX.set("alarmDAO", x.get("alarmDAO"));
+      parserX.set("x", x);
       getGrammar().parse(ps, parserX, "");
       return sb;
       `

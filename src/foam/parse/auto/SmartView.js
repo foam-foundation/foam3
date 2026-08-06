@@ -181,6 +181,7 @@ foam.CLASS({
               const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');
               this.
                 style({cursor: 'pointer'}).
+                call(function() { this.tooltip = data.label; }).
                 add(label || data.text);
               self.on('click', () => self.suggestText(data.text));
             }
@@ -198,7 +199,7 @@ foam.CLASS({
     function renderText() {
       if ( ! this.showText ) return;
 
-      const data  = this.data;
+      const data = this.data;
 
       if ( data.label !== data.text ) {
         this.start().

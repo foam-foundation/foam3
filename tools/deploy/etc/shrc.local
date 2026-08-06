@@ -122,7 +122,7 @@ if [ "${DEBUG}" = "1" -o "${DEBUG_DEV}" = "1" ]; then
         # https://www.linkedin.com/pulse/javajvm-logs-monday-jvm-introduction-safepoints-krzysztof-%C5%9Blusarski
         # https://docs.oracle.com/en/java/javase/14/docs/specs/man/java.html
         if [[ $OSTYPE =~ $LINUXOS ]]; then
-            JAVA_OPTS="${JAVA_OPTS} -Xlog:codecache+sweep*=trace,class+unload,class+load,os+thread,safepoint,gc*,gc+ergo=trace,gc+age=trace,gc+phases=trace,gc+humongous=trace,stringdedup*=debug:file=${LOG_HOME}/gc-%t.log:tags,time,uptime,level:filesize=10M,filecount=10"
+            JAVA_OPTS="${JAVA_OPTS} -Xlog:codecache=trace,class+unload,class+load,os+thread,safepoint,gc*,gc+ergo=trace,gc+age=trace,gc+phases=trace,gc+humongous=trace,stringdedup*=debug:file=${LOG_HOME}/gc-%t.log:tags,time,uptime,level:filesize=10M,filecount=10"
         fi
     fi
 fi

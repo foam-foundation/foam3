@@ -1736,7 +1736,9 @@ foam.CLASS({
       if ( val != null ) {
         // convert the Date to be noon in GMT
         long time = val.getTime();
-        long noon = (long) Math.floor(time / 86400000l) * 86400000l + 43200000l;
+        // floorDiv, not a truncating divide: dates before 1970 have a negative
+        // time and truncation would land them on the next day's noon
+        long noon = Math.floorDiv(time, 86400000l) * 86400000l + 43200000l;
 
         // Convert to Noon if not already at Noon
         if ( time != noon ) {

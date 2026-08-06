@@ -144,6 +144,7 @@ foam.POM({
     { name: "menu/LinkMenu",                                                              flags: "js" },
     { name: "menu/ListMenu",                                                              flags: "js" },
     { name: "menu/Menu",                                                                  flags: "js|java" },
+    { name: "menu/PredicatedMenu",                                                        flags: "web" },
     { name: "menu/PseudoMenu",                                                            flags: "js|java" },
     { name: "menu/PseudoMenuView",                                                        flags: "web" },
     { name: "menu/MenuBar",                                                               flags: "js" },

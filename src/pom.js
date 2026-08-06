@@ -254,6 +254,7 @@ foam.POM({
     { name: "foam/u2/CSSTokens",                                      flags: "js|java" },
     { name: "foam/u2/parse/CSSParser",                                flags: "js" },
     { name: "foam/u2/test/CSSTokensJSTest",                           flags: "js&test|java&test" },
+    { name: "foam/u2/test/RORelativeDateTimeViewTest",                flags: "js&test|java&test" },
     { name: "foam/u2/ColorToken",                                     flags: "js|java" },
     { name: "foam/u2/ColorTokenRefinement",                           flags: "genjava" },
     { name: "foam/u2/StyleConfigurator",                              flags: "web" },

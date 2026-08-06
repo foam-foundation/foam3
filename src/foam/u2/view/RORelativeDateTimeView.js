@@ -53,6 +53,13 @@ foam.CLASS({
             self.formatAbsolute_(d) : foam.u2.DateTimeView.DATE_FORMAT)
         }).
         addClass(this.myClass()).
+        // FUTURE: support a fixed-unit option (eg. always "N days ago").
+        // relativeDateString takes no unit argument — it picks the unit
+        // from the value's age — so a unit option needs either a local
+        // formatter here or Intl.RelativeTimeFormat, whose format(n, unit)
+        // gives both the explicit unit and localized plurals. Adopting
+        // Intl inside relativeDateString would localize this view with
+        // no changes here, so deferring the option until that decision.
         add(this.slot(function(data, now_) {
           return data ?
             foam.Date.relativeDateString(data) :

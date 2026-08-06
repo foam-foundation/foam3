@@ -55,9 +55,13 @@ foam.CLASS({
         const m = foam.mlang.Expressions.create();
 
         return {
-          LEN:     { minArgs: 1, maxArgs: 1,
+          /*
+          // TODO: remove STRING_LENGTH, duplicated in ALang
+          LEN:     {
+            minArgs: 1, maxArgs: 1,
             documentation: 'The number of characters in a piece of text. Ex. LEN(name)',
             build: function(a) { return m.STRING_LENGTH(a[0]); } },
+            */
           MIN:     { minArgs: 1,
             documentation: 'The smallest of the supplied numbers. Ex. MIN(balance, 0)',
             build: function(a) { return m.MIN_FUNC.apply(m, a); } },

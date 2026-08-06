@@ -499,7 +499,7 @@ foam.ALANG([
   },
   {
     name: 'LEN',
-    documentation: 'Returns the length of text.',
+    documentation: 'Returns the length of text.  Ex. LEN(name)',
     args: [
       { class: 'String', name: 'text' }
     ],

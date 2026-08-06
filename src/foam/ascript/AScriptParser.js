@@ -87,8 +87,45 @@ foam.CLASS({
             build: function(a) { return m.MINUTES(a[0]); } },
           NOW:     { minArgs: 0, maxArgs: 0,
             documentation: 'The current date and time. Ex. DAYS(NOW)',
-            build: function( ) { return m.NOW(); } }
-        };
+            build: function( ) { return m.NOW(); } },
+
+          // Individual date/time components are available in ALang
+          HHMM: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The time as text "HH:MM", e.g. "14:30". Ex. HHMM(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToHHMMExpr.create({delegate: a[0]}); }
+          },
+          HHMMSS: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The time as text "HH:MM:SS", e.g. "14:30:45". Ex. HHMMSS(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToHHMMSSExpr.create({delegate: a[0]}); }
+          },
+          YYYYMMDD: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The date as text "YYYY/MM/DD", e.g. "2024/03/15". Groups by day. Ex. YYYYMMDD(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToYYYYMMDDExpr.create({delegate: a[0]}); }
+          },
+          YYYYMM: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The year and month as text "YYYY/MM", e.g. "2024/03". Groups by month. Ex. YYYYMM(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToYYYYMMExpr.create({delegate: a[0]}); }
+          },
+          YYYYWWW: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The ISO week as text "YYYY-WWW", e.g. "2024-W03". Groups by week. Ex. YYYYWWW(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToWeekExpr.create({delegate: a[0]}); }
+          },
+          YYYYQQ: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The quarter as text "YYYY-QQ", e.g. "2024-Q1". Groups by quarter. Ex. YYYYQQ(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToQuarterExpr.create({delegate: a[0]}); }
+          },
+          YYYYDDD: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The day of the year as text "YYYY-DDD", e.g. "2024-075". Ex. YYYYDDD(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToDayOfYearExpr.create({delegate: a[0]}); }
+          }
+        }
       }
     }
   ],
@@ -97,12 +134,9 @@ foam.CLASS({
     {
       name: 'extensionGrammar_',
       // NOTE: parameter names must match Parsers members (withArgs injects by name).
-      value: function(alt, seq, seq0, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sug, sym, range) {
+      value: function(alt, seq, seq0, seq1, rep, rep0, opt, lit, litIC, str, substring, sug, sym, range) {
         const self = this;
         const m    = foam.mlang.Expressions.create();
-
-        // local short aliases
-        var rep = repeat, rep0 = repeat0, opt = optional, lit = literal, litIC = literalIC;
 
         // leading-ws helpers so `a + b` parses (each token consumes leading ws;
         // the next token's leading ws swallows trailing space)
@@ -116,10 +150,10 @@ foam.CLASS({
           // indexOf returns -1 when absent and 0 at the start, so a bare truthy
           // test keeps the reaction properties and drops everything else.
           if ( p.name.startsWith('reaction') ) return;
-          fields.push(sug(literalIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
+          fields.push(sug(litIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
         });
         this.of.getAxiomsByClass(foam.lang.Constant).forEach(function(c) {
-          fields.push(sug(LiteralIC(c.name, c.value), {text: p.name, category: 'constant'}));
+          fields.push(sug(litIC(c.name, c.value), {text: c.name, category: 'constant'}));
         });
 
         return {
@@ -192,7 +226,7 @@ foam.CLASS({
 
           generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
 
-          funcname: seq1(1, sym('ws'), this.generateFuncNames(alt, sug, literalIC)),
+          funcname: seq1(1, sym('ws'), this.generateFuncNames(alt, sug, litIC)),
 
           args: rep(alt(sym('EXPR'), sym('or')), comma, 0),
 

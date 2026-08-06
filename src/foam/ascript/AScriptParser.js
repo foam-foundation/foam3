@@ -148,14 +148,20 @@ foam.CLASS({
         function binop(ch, val)  { return seq1(1, sym('ws'), lit(ch, val)); }
         var comma = seq1(1, sym('ws'), ',');
 
-        // property-name literals (+ constants) as VALUE operands, longest-first
+        // property-name literals (+ constants) as VALUE operands, longest-first:
+        // alt() takes the first alternative that matches, so with localDate
+        // ahead of localDateUTC a formula naming the latter parses only its
+        // prefix and then fails on the leftover UTC.
         var fields = [];
-        this.of.getAxiomsByClass(foam.lang.Property).forEach(function(p) {
-          // indexOf returns -1 when absent and 0 at the start, so a bare truthy
-          // test keeps the reaction properties and drops everything else.
-          if ( p.name.startsWith('reaction') ) return;
-          fields.push(sug(litIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
-        });
+        this.of.getAxiomsByClass(foam.lang.Property).
+          slice().
+          sort((a, b) => b.name.length - a.name.length || foam.util.compare(a.name, b.name)).
+          forEach(function(p) {
+            // indexOf returns -1 when absent and 0 at the start, so a bare truthy
+            // test keeps the reaction properties and drops everything else.
+            if ( p.name.startsWith('reaction') ) return;
+            fields.push(sug(litIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
+          });
         this.of.getAxiomsByClass(foam.lang.Constant).forEach(function(c) {
           fields.push(sug(litIC(c.name, c.value), {text: c.name, category: 'constant'}));
         });
@@ -237,11 +243,26 @@ foam.CLASS({
           expr: alt(
             sym('paren'),
             sym('negate'),
+            sym('fieldCompare'),
             sym('propPredicates'),
             sym('rangePropPredicates'),
             lead(litIC('true',  m.TRUE)),
             lead(litIC('false', m.FALSE))
-          )
+          ),
+
+          // A comparison between two properties. It has to come before
+          // propPredicates: the inherited rules take a value on the right and
+          // accept a bare word as one, so `a = b` there compares a against the
+          // text "b" rather than against property b - and reports no error.
+          //
+          // Only matches when the right side is itself a property name, so
+          // `status = ACTIVE` and `amount > 100` still take the inherited path.
+          fieldCompare: seq(
+            sym('field'),
+            alt(binop('>=', 'GTE'), binop('<=', 'LTE'), binop('<>', 'NEQ'),
+                binop('!=', 'NEQ'), binop('=', 'EQ'),
+                binop('>',  'GT'),  binop('<',  'LT')),
+            sym('field'))
         };
       }
     }
@@ -302,6 +323,9 @@ foam.CLASS({
         },
 
         field: function(v) { return v[1] ? m.DOT(v[0], v[1]) : v[0]; },
+
+        // [ left, opName, right ] - both sides are already Exprs from `field`
+        fieldCompare: function(v) { return m[v[1]].call(m, v[0], v[2]); },
         // TODO: support nested sub-fields (a.b.c) — currently single-level only
         subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
 

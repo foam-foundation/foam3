@@ -27,14 +27,17 @@ foam.CLASS({
     function grammar(alt, literalIC, seq, seq1, sug, sym, repeat, optional) {
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
 
-      const ps = this.of.getAxiomsByClass(foam.lang.Property).filter(p => this.predicate.f(p)).map(p =>
-        sug(literalIC(p.name), {
-          text:  p.name,
-          label: p.label,
-          prependSpaceOnSelect: false,
-          category: 'property'
-        })
-      );
+      const ps = this.of.getAxiomsByClass(foam.lang.Property).
+        filter(p => ! p.hidden).
+        filter(p => this.predicate.f(p)).
+        map(p =>
+          sug(literalIC(p.name), {
+            text:  p.name,
+            label: p.label,
+            prependSpaceOnSelect: false,
+            category: 'property'
+          })
+        );
 
       return {
         START: seq1(0, sym('property'), repeat(' ')),

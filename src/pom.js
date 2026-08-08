@@ -423,6 +423,7 @@ foam.POM({
     { name: "foam/dao/RestDAO",                                       flags: "js" },
     { name: "foam/dao/EnabledAwareDAO",                               flags: "js|java" },
     { name: "foam/dao/EnabledAwareDAOTest",                           flags: "js&test|java&test" },
+    { name: "foam/dao/FilteredDAOListenTest",                        flags: "js&test|java&test" },
     { name: "foam/dao/ValidationDAODecorator",                        flags: "js" },
     { name: "foam/dao/ResetDAODecorator",                             flags: "web" },
     { name: "foam/dao/SQL",                                           flags: "sql" },

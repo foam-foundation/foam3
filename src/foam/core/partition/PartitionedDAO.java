@@ -136,12 +136,6 @@ public class PartitionedDAO
     return getDelegate(getPartition(getID(obj)));
   }
 
-/*
-  protected DAO getDelegate(X x, Predicate pred) {
-    return getDelegate();
-  }
-*/
-
   public String objToPath(FObject obj) {
     String id = getID(obj);
 
@@ -153,7 +147,7 @@ public class PartitionedDAO
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
     String[] a = getID(obj).split(SEPARATOR);
-    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
+    //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
       for ( int i = 0 ; i < getDepth()-1 ; i++ ) {
@@ -163,7 +157,7 @@ public class PartitionedDAO
       sb.append(part);
       sb.append(SEPARATOR);
       sb.append(a[a.length-1]);
-      System.err.println("**** PUT2 " + sb.toString());
+      // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
     return getDelegate(part).put_(x, obj);

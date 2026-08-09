@@ -53,6 +53,7 @@ public class DatePartitionedDAO
     }
 
     public void detach() {
+      // System.err.println("***************** DETACHING SINK");
       isDetached_ = true;
     }
   } // DetachableSink
@@ -80,7 +81,8 @@ public class DatePartitionedDAO
     int year  = cal.get(Calendar.YEAR);
     int month = cal.get(Calendar.MONTH);
 
-    return year + "/" + month;
+    // 'month' starts at 0, so move to base 1 to be easier for humans
+    return year + "/" + (month+1);
   }
 
   public String[] getPartitions(Date[] range) {
@@ -94,7 +96,6 @@ public class DatePartitionedDAO
     int y2 = c2.get(Calendar.YEAR);
     int m2 = c2.get(Calendar.MONTH);
 
-    // System.err.println("***** PART RANGE " + y1 + " / " + m1 + " -- " + y2 + " / " + m2);
     String[] parts = new String[(y2-y1) * 12 + m2 - m1 + 1];
 
     for ( int i = 0, y = y1, m = m1 ; i < parts.length ; i++ ) {
@@ -107,8 +108,9 @@ public class DatePartitionedDAO
   }
 
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+    // System.err.println("***** DPD Select " + skip + " " + limit + " " + order + " " + predicate);
     Date[]   range = extractPredicateRange(predicate);
-    //    System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
+    // System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
     String[] parts = getPartitions(range);
     // System.err.println("********** DATE PART PARTS " + parts.length);
 
@@ -119,7 +121,7 @@ public class DatePartitionedDAO
     for ( int i = 0 ; i < parts.length ; i++ ) {
       DAO dao = getDelegate(parts[i]);
 
-      dao.select(s2);
+      dao.select(s3);
       if ( s3.isDetached() ) break;
     }
 

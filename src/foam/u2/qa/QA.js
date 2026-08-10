@@ -310,28 +310,61 @@ foam.CLASS({
           },
 
           /**
+           * True when `name` currently holds a real answer.
+           *
+           * "Answered" means a value was STORED, not that the value looks
+           * truthy. A Boolean answered false, an Int answered 0 and a choice
+           * whose value is '0' are all real answers; judging them by
+           * truthiness made them indistinguishable from "nobody has answered
+           * yet", so they never ruled an outcome out and their questions were
+           * re-asked forever.
+           *
+           * Three storage shapes need three different tests:
+           *
+           *  - factory-backed (Array, StringArray, ...): merely READING one
+           *    runs the factory and stores the result (Property.js
+           *    factoryGetter), so hasOwnProperty would call every multi-select
+           *    answered before it was touched. Judge those by content.
+           *    - expression-backed: the computed value lives in private_ and
+           *    never reaches instance_ (Property.js eFactoryGetter), so
+           *    hasOwnProperty always reports false. A derived value counts as
+           *    known unless it computes to a "cannot derive yet" sentinel.
+           *    Both null and '' are used for that, so accept either.
+           *  - everything else: answered iff a value was explicitly stored.
+           */
+          function isAnswered_(name) {
+            var axiom = this.cls_.getAxiomByName(name);
+            if ( ! axiom ) return false;
+
+            if ( axiom.expression ) {
+              var computed = this[name];
+              return computed !== undefined && computed !== null && computed !== '';
+            }
+
+            if ( axiom.factory ) {
+              var v = this[name];
+              return Array.isArray(v) ? v.length > 0
+                                      : ( v !== undefined && v !== null );
+            }
+
+            return this.hasOwnProperty(name);
+          },
+
+          /**
            * Check if a single predicate term is consistent with current state.
            * Returns true if the property is unanswered or the term matches.
            */
           function isTermConsistent(term) {
-            var val = this[term.property];
+            // Unanswered — the term could still go either way, so it rules
+            // nothing out yet.
+            if ( ! this.isAnswered_(term.property) ) return true;
 
-            // Unanswered question — term is still possible. Arrays are used by
-            // multi-select questions; handle them before loose numeric checks so
-            // ['0'] is not coerced to 0 and treated as unanswered.
-            if ( Array.isArray(val) ) return val.length === 0;
-            if ( val == 0 || val === '' || val === undefined || val === null ) return true;
-
-            // Evaluate the mlang term against this object
+            // Answered — evaluate the mlang term against this object.
             return term.mlang.f(this);
           },
 
           function isQuestionAnswered(q) {
-            var val = this[q.name];
-            // Multi-select questions store answers as arrays. Any non-empty
-            // array means the user selected at least one option, including ['0'].
-            if ( Array.isArray(val) ) return val.length > 0;
-            return val !== '' && val != 0 && val != undefined;
+            return this.isAnswered_(q.name);
           },
 
           /**
@@ -473,13 +506,20 @@ foam.CLASS({
                 var self_ = this;
                 question.choices.forEach(function(c) {
                   var value = foam.Array.isInstance(c) ? c[0] : c;
-                  // Temporarily set the value to test the term
-                  var prev = self_[question.name];
+                  // Temporarily set the value to test the term, then leave NO
+                  // trace. Assigning the old value back is not enough: for an
+                  // unanswered question `prev` is the default ('') computed on
+                  // read, never stored, and assigning it back STORES it — so the
+                  // question would afterwards look answered-with-nothing to
+                  // isAnswered_. Clear it instead when it started unset.
+                  var wasSet = self_.hasOwnProperty(question.name);
+                  var prev   = self_[question.name];
                   self_[question.name] = value;
                   if ( term.mlang.f(self_) ) {
                     buckets[value]++;
                   }
-                  self_[question.name] = prev;
+                  if ( wasSet ) self_[question.name] = prev;
+                  else          self_.clearProperty(question.name);
                 });
               }
             });

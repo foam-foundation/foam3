@@ -7,6 +7,7 @@
 foam.CLASS({
   package: 'foam.core.reflow.parser',
   name: 'DAONameParser',
+
   extends: 'foam.parse.Grammar',
 
   requires: [
@@ -23,18 +24,30 @@ foam.CLASS({
   properties: [ { name: 'alt', factory: function() { return this.Alternate.create(); } } ],
 
   methods: [
+    async function aDAONames() {
+      // The names this grammar offers, as { id, category }. Subclasses override
+      // to widen the set; aInit owns the sorting, so overrides only supply
+      // entries.
+      return (await this.cSpecDAO.where(this.CSpec.SERVED_DAOS).select()).array.map(c => ({
+        id:       c.id,
+        category: c.keywords.indexOf('custom') == -1 ? 'standard' : 'custom'
+      }));
+    },
+
     async function aInit() {
       const p          = this.Parsers.create();
-      const dao        = this.cSpecDAO.where(this.CSpec.SERVED_DAOS);
-      const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
+      // Longest name first: alternatives are tried in order and the first match
+      // wins, so a shorter name sharing a longer one's prefix would otherwise
+      // leave the tail unparsed.
+      const comparator = (a, b) => b.id.length - a.id.length || foam.util.compare(a.id, b.id);
 
-      (await dao.select()).array.sort(comparator).forEach(c => {
+      (await this.aDAONames()).sort(comparator).forEach(c => {
         this.alt.args.push(p.sug(p.literalIC(c.id), {
           text:     c.id,
           showText: false,
           label:    c.id.endsWith('DAO') ? c.id.substring(0, c.id.length-3) : c.id,
           prependSpaceOnSelect: false,
-          category: c.keywords.indexOf('custom') == -1 ? 'standard' : 'custom'}));
+          category: c.category}));
       });
     },
 

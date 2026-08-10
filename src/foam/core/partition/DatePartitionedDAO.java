@@ -60,9 +60,15 @@ public class DatePartitionedDAO
 
 
   protected int timeWindow_ = DEFAULT_TIME_WINDOW;
+  protected DatePartitioningScheme scheme_ = DatePartitioningScheme.YYYYMM;
 
   public DatePartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty) {
     super(x, of, dirName, partitionProperty);
+  }
+
+  public DatePartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty, DatePartitioningScheme scheme) {
+    super(x, of, dirName, partitionProperty);
+    scheme_ = scheme;
   }
 
   public void setTimeWindow(int days) {
@@ -74,15 +80,38 @@ public class DatePartitionedDAO
   }
 
   public String getPartition(FObject o) {
-    Date d = (Date) getPartitionProperty().f(o);
-
+    Date     d  = (Date) getPartitionProperty().f(o);
     Calendar cal = Calendar.getInstance();
     cal.setTime(d);
+
+    if ( this.scheme_ == DatePartitioningScheme.YYYYMM ) {
+      int year  = cal.get(Calendar.YEAR);
+      int month = cal.get(Calendar.MONTH);
+
+      // 'month' starts at 0, so move to base 1 to be easier for humans
+      return year + "/" + (month+1);
+    }
+
+    if ( this.scheme_ == DatePartitioningScheme.YYYYWW ) {
+      int year = cal.get(Calendar.YEAR);
+      int week = cal.get(Calendar.WEEK_OF_YEAR);
+
+      return year + "/" + week;
+    }
+
+    if ( this.scheme_ == DatePartitioningScheme.YYYYDDD ) {
+      int year = cal.get(Calendar.YEAR);
+      int day  = cal.get(Calendar.DAY_OF_YEAR);
+
+      return year + "/" + day;
+    }
+
+    // YYYYMMDD
     int year  = cal.get(Calendar.YEAR);
     int month = cal.get(Calendar.MONTH);
+    int day   = cal.get(Calendar.DAY_OF_MONTH);
 
-    // 'month' starts at 0, so move to base 1 to be easier for humans
-    return year + "/" + (month+1);
+    return year + "/" + (month+1) + "/" + day;
   }
 
   public String[] getPartitions(Date[] range) {

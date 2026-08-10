@@ -395,7 +395,11 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
 
         rtn = rtn.put(foam.core.auth.LocaleSupport.CONTEXT_KEY, foam.core.auth.LocaleSupport.instance().findLanguageLocale(rtn));
 
-        rtn = rtn.put("localLocalSettingDAO", new foam.dao.MDAO(foam.core.session.LocalSetting.getOwnClassInfo()));
+        // Owned by the session, not derived from x, so carry it across a rebuild
+        // rather than handing the user an empty set of local settings.
+        Object localSettings = wasAnonymous ? null : getContext().get("localLocalSettingDAO");
+        rtn = rtn.put("localLocalSettingDAO", localSettings != null ? localSettings :
+          new foam.dao.MDAO(foam.core.session.LocalSetting.getOwnClassInfo()));
 
         rtn = rtn.put("logger",
           new foam.core.logger.PrefixLogger(

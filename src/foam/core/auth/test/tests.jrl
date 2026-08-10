@@ -23,3 +23,7 @@ p({
   class:"foam.core.auth.test.SessionLocalSettingTest",
   id:"SessionLocalSettingTest"
 })
+p({
+  class:"foam.core.auth.test.SessionContextTest",
+  id:"SessionContextTest"
+})

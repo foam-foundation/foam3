@@ -2,41 +2,41 @@ p({
   "class":"foam.core.reflow.ai.LLMCommand",
   "id": "ai",
   "permissionRequired": true,
-  "description": "Issue a direct LLM query."
+  "description": "AI prompt to ask a question"
 })
 p({
   "class":"foam.core.reflow.ai.AgentCommand",
   "id": "agent",
   "dryRun": false,
   "permissionRequired": true,
-  "description": "Issue a request to an LLM agent to execute FLOW commands."
+  "description": "Agent runs FLOW commands from a request"
 })
 p({
    "class":"foam.core.reflow.ai.AgentCommand",
    "id": "!",
    "permissionRequired": true,
    "dryRun": false,
-   "description": "Issue a request to an LLM agent to execute FLOW commands."
+   "description": "Agent shorthand to run FLOW commands"
 })
 p({
    "class":"foam.core.reflow.ai.AgentCommand",
    "id": "?",
    "permissionRequired": true,
    "dryRun": true,
-   "description": "Issue a request to an LLM agent to execute FLOW commands."
+   "description": "Agent shorthand to preview FLOW commands"
 })
 p({
   "class":"foam.core.reflow.ai.AgentCommand",
   "id": "plan",
   "dryRun": true,
   "permissionRequired": true,
-  "description": "Issue a request to an LLM agent to plan FLOW commands."
+  "description": "Plan FLOW commands with an agent"
 })
 p({
   "class":"foam.core.reflow.ai.AskCommand",
   "id": "ask",
   "permissionRequired": true,
-  "description": "Allow LLMs to ask questions and get responses.",
+  "description": "Ask a question and return the response to the agent",
   "hidden": true
 })
 p({

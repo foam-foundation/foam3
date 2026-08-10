@@ -98,8 +98,8 @@ foam.CLASS({
   ],
 
   constants: [
-    { name: 'BELL_IMAGE', value: 'images/bell.png' },
-    { name: 'MENU_ID',    value: 'notifications' },
+    { name: 'BELL_IMAGE',    value: 'images/bell.png' },
+    { name: 'MENU_ID',       value: 'notifications' },
     { name: 'INITIAL_DELAY', value: 10000 }
   ],
 
@@ -114,6 +114,7 @@ foam.CLASS({
       this.onDetach(this.subject.user$.dot('id').sub(this.onDAOUpdate));
 
       var self = this;
+      // TODO: start with INITIAL_DELAY but grow with lack of activity (not needed, handled in CachingDAO)
       this.setTimeout(function() {
         self.onDAOUpdate();
       }, this.INITIAL_DELAY);

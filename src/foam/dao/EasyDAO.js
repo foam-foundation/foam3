@@ -184,10 +184,11 @@ foam.CLASS({
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
               delegate = fixedSizeDAO;
+              setUnloadable(false);
             }
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
-            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.NSPEC_CTX_KEY, getCSpec()), delegate);
+            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
           }
         }
 
@@ -231,8 +232,7 @@ foam.CLASS({
 
           // auto add index on spid
           DAO dao = (DAO) getMdao();
-          if ( dao != null &&
-               dao instanceof foam.dao.MDAO ) {
+          if ( dao != null && dao instanceof foam.dao.MDAO ) {
             PropertyInfo pInfo = (PropertyInfo) getOf().getAxiomByName("spid");
             if ( pInfo != null ) {
               ((foam.dao.MDAO)dao).addIndex(pInfo);
@@ -459,6 +459,13 @@ foam.CLASS({
       generateJava: false
     },
     {
+      documentation: 'Set maximum polling interval for the caching DAO. Defaults to pollingInterval.',
+      class: 'Int',
+      name: 'maxPollingInterval',
+      units: 'ms',
+      generateJava: false
+    },
+    {
       class: 'FObjectProperty',
       name: 'pollingProperty',
       documentation: 'Set polling property for the caching DAO',
@@ -522,6 +529,12 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'writeOnly'
+    },
+    {
+      class: 'Boolean',
+      name: 'unloadable',
+      // TODO: remove, just temporary for testing purposes
+      value: true
     },
     {
       documentation: 'Sets the inner dao to a nullDAO',
@@ -1009,6 +1022,15 @@ dao loading, which improves overall startup time.`,
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
           if ( getWriteOnly() ) {
             delegate = new foam.dao.WriteOnlyJDAO(x, delegate, getOf(), getJournalName());
+          } else if ( getUnloadable() &&  getDecorator() == null ) {
+System.err.println("************************************* CREATING UNLOADABLE DAO " + getJournalName());
+            foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
+
+            // TODO: the delgate is lost, should it be sent as a prototype to be cloned?
+            // Setting of delegate must be last as it triggers replay
+            // jdao.setDelegate(delegate);
+
+            delegate = pdao;
           } else {
             foam.dao.java.JDAO jdao = new foam.dao.java.JDAO();
             jdao.setX(x);
@@ -1042,6 +1064,9 @@ dao loading, which improves overall startup time.`,
           name: 'innerDAO'
         }
       ],
+      code: function(innerDAO) {
+        return innerDAO;
+      },
       javaCode: `
         return innerDAO;
       `
@@ -1117,6 +1142,9 @@ dao loading, which improves overall startup time.`,
               pollingInterval: this.pollingInterval,
               pollingProperty: this.pollingProperty
             });
+
+            if ( this.maxPollingInterval )
+              dao.maxPollingInterval = this.maxPollingInterval;
           } else {
             // TTL find cache
             if ( this.ttlPurgeTime > 0 )  {
@@ -1281,7 +1309,7 @@ dao loading, which improves overall startup time.`,
         });
       }
 
-      return dao;
+      return this.getOuterDAO(dao);
     },
 
     /** Only relevant if using postgresdao */

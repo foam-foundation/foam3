@@ -286,7 +286,7 @@ foam.CLASS({
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: isLimitedEditConsole ? [this.CANCEL] : [this.RESET, this.CANCEL, this.CLEAR],
+                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -397,6 +397,24 @@ foam.CLASS({
       },
       code: function() {
         this.data.eval_('clear');
+      }
+    },
+    {
+      name: 'benchmark',
+      label: 'Benchmark flow',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'speed',
+      // Show only when the loadPerf command it invokes is runnable (same permission).
+      availablePermissions: [ 'command.read.loadPerf' ],
+      isEnabled: function(data$value$name) { return !! data$value$name; },
+      code: async function() {
+        // loadPerf reloads the SAVED flow under capture, so unsaved edits would be lost.
+        if ( this.data.value.revision ) {
+          this.notify('Save the flow first - Benchmark reloads the saved version.', '', this.LogLevel.ERROR, true);
+          return;
+        }
+        await this.data.benchmarkFlow_();
       }
     },
     {
@@ -594,6 +612,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
+    ^r .foam-u2-ActionView { min-width: 40px; }
     ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
@@ -913,12 +932,24 @@ foam.ENUM({
 });
 
 
+// Create an Abstract base class for Console because so
+// we can override the 'route' property in the concrete
+// sub-class. You can't override a mixin property because
+// both properties are technically in the same class.
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Console',
+  name: 'AbstractConsole',
   extends: 'foam.u2.Controller',
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ { path: 'foam.u2.Router', priority: 200 } ],
+  abstract: true
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'Console',
+  extends: 'foam.core.reflow.AbstractConsole',
 
   documentation: `
     If you want to embed FLOWs in regular U3 views without all of the editing UI, you can do it like this:
@@ -1053,7 +1084,7 @@ foam.CLASS({
       text-align: center;
     }
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
-      color: orange !important;
+      color: $orange500 !important;
     }
   `,
 
@@ -1279,6 +1310,24 @@ foam.CLASS({
       }
     },
 
+    async function benchmarkFlow_() {
+      /** Purge the loaded flow's DAO caches, then reload it under performance capture.
+          Without the purge, benchmarking an already-open flow measures the WARM cache
+          (few server calls) instead of the real cold-load cost. **/
+      var daos = [], seen = {};
+      function walk(b) {
+        if ( ! b ) return;
+        var d = b.value && b.value.dao;
+        if ( d && d.cmd && ! seen[d.$UID] ) { seen[d.$UID] = true; daos.push(d); }
+        ( b.flowChildren || [] ).forEach(walk);
+      }
+      ( this.flowChildren || [] ).forEach(walk);
+      for ( var i = 0 ; i < daos.length ; i++ ) {
+        try { await daos[i].cmd(foam.dao.DAO.PURGE_CMD); } catch (e) { /* not a caching dao */ }
+      }
+      await this.eval_('loadPerf("' + this.value.name + '")');
+    },
+
     async function includeScript(script, parent, skipParse) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
@@ -1298,6 +1347,17 @@ foam.CLASS({
         // Update progress counter for all blocks (including nested)
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
+
+        // Per-block attribution for the reflow Perf block: when a capture set
+        // window.__perfCapture__ to an array, record each TOP-LEVEL block's cost.
+        // No-op (single array check) when not capturing.
+        var perfCap_ = ( ! parent && this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : null;
+        var perfT_, perfDom_, perfHeap_;
+        if ( perfCap_ ) {
+          perfT_    = this.window.performance.now();
+          perfDom_  = this.window.document.querySelectorAll('*').length;
+          perfHeap_ = ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0;
+        }
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
 
@@ -1330,13 +1390,28 @@ foam.CLASS({
           await this.currentBlock.value?.onLoad?.();
         } catch (error) {
           console.error('Error loading block:', this.currentBlock.flowName, error);
-          debugger;
           this.currentBlock.value = this.BadBlock.create({block: this.currentBlock, /*cmd: c.cmd,*/ script: c, error: error.toString()});
           // Continue processing other blocks even if this one failed
         }
 
         if ( c.flowChildren ) {
           await this.includeScript(c.flowChildren, this.currentBlock, true);
+        }
+
+        // Measure AFTER onLoad + children: that is where a block's real work runs
+        // (script autoRun, DAO select, DOM render). eval_ alone only creates the block.
+        // flowName from the script (reliable) since currentBlock may now be a child.
+        if ( perfCap_ ) {
+          var perfEnd_ = this.window.performance.now();
+          perfCap_.push({
+            flowName:  c.flowName || c.cmd,
+            cmd:       c.cmd,
+            start:     perfT_,        // absolute timestamps so the Perf block can bucket
+            end:       perfEnd_,      // profiler samples into this block's window
+            ms:        perfEnd_ - perfT_,
+            domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
+            heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
+          });
         }
       }
     },

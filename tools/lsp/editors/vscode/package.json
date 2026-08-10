@@ -23,6 +23,11 @@
           "type": "string",
           "default": "./build.sh",
           "description": "Path to build.sh relative to workspace root"
+        },
+        "foam.nodePath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the Node binary that launches the language server. Leave empty to use the Node bundled with VS Code — this avoids 'spawn node ENOENT' when VS Code is launched from the GUI without a shell PATH (e.g. Node installed via nvm)."
         }
       }
     },

@@ -17,9 +17,12 @@ foam.CLASS({
   ],
 
   requires: [
-    'foam.log.LogLevel',
     'foam.box.RPCErrorMessage',
     'foam.comics.v2.userfeedback.UserFeedbackException',
+    'foam.comics.v2.userfeedback.UserFeedback',
+    'foam.comics.v2.userfeedback.UserFeedbackAlertType',
+    'foam.comics.v2.userfeedback.UserFeedbackStatus',
+    'foam.log.LogLevel',
     'foam.u2.ActionReference',
     'foam.u2.ControllerMode',
     'foam.u2.layout.Cols',
@@ -38,6 +41,7 @@ foam.CLASS({
     'notify',
     'setControllerMode?',
     'stack?',
+    'translationService',
     'controlBorder?',
     'daoController'
   ],
@@ -432,6 +436,7 @@ foam.CLASS({
         return controllerMode == 'EDIT';
       },
       code: function() {
+        var self = this;
         return this.config.dao.put(this.workingData).then(o => {
           if ( ! this.data.equals(o) ) {
             this.data = o;
@@ -440,7 +445,10 @@ foam.CLASS({
             if ( foam.comics.v2.userfeedback.UserFeedbackAware.isInstance(o) && o.userFeedback ) {
               var currentFeedback = o.userFeedback;
               while ( currentFeedback ) {
-                this.notify(currentFeedback.message, '', this.LogLevel.INFO, true);
+                var logLevel = currentFeedback.status == self.UserFeedbackStatus.ERROR ? self.LogLevel.ERROR : self.LogLevel.INFO;
+                var msg = self.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
+                var subMsg = currentFeedback.subMessage && self.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+currentFeedback.subMessage, currentFeedback.subMessage, currentFeedback.messageTemplateMap);
+                self.notify(msg, subMsg, logLevel, true);
                 currentFeedback = currentFeedback.next;
               }
             } else {
@@ -453,14 +461,14 @@ foam.CLASS({
           this.cancelEdit();
         }, e => {
           this.throwError.pub(e);
-          if ( foam.box.RPCErrorMessage.isInstance(e) ) {
+          if ( foam.box.RPCErrorMessage.isInstance(e) )
             e = e.data
-          }
-          if ( this.UserFeedbackException.isInstance(e.exception)  ) {
+          if ( this.UserFeedbackException.isInstance(e.exception) ) {
             e = e.exception;
             var currentFeedback = e.userFeedback;
             let fn = this.notify.bind(this);
-            if ( e.alertType.ordinal == 1 ) {
+            if ( e.alertType == this.UserFeedbackAlertType.ALERT ) {
+              var msg = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
               fn = () => {
                 this.ConfirmationModal.create({
                   title: this.ERROR_MSG,
@@ -469,12 +477,15 @@ foam.CLASS({
                   showCancel: false,
                   closeable: false
                 })
-                  .add(e.userFeedback.message)
+                  .add(msg)
                   .open();
               }
             }
             while ( currentFeedback ) {
-              fn(currentFeedback.message, '', this.LogLevel.ERROR, true);
+              var logLevel = currentFeedback.status == this.UserFeedbackStatus.ERROR ? this.LogLevel.ERROR : this.LogLevel.INFO;
+              var msg = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
+              var subMsg = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+currentFeedback.subMessage, currentFeedback.subMessage, currentFeedback.messageTemplateMap);
+              fn(msg, subMsg, logLevel, true);
 
               currentFeedback = currentFeedback.next;
             }

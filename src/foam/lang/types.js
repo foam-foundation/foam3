@@ -46,6 +46,10 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function(_, a, p) {
+        // Fast path: an already-string value needs no adaptation. Skips the
+        // foam.Object.isInstance check and toString() call that every string
+        // set would otherwise incur (hot in bulk data import).
+        if ( foam.String.isInstance(a) ) return a;
         if ( foam.Object.isInstance(a) ) {
           if ( a[foam.locale] !== undefined )
             return a[foam.locale];
@@ -197,17 +201,17 @@ foam.CLASS({
       value: function (_, d) {
         if ( d === undefined || d === null ) return d;
         var originalDate = d;
-        if ( typeof d === 'number' )
+        if ( typeof d === 'number' ) {
           d = new Date(d);
-
-        if ( typeof d === 'string' ) {
+        } else if ( typeof d === 'string' ) {
           d = foam.util.DateUtil.parseDateString(d);
         }
 
         if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE )
           return d;
 
-        if ( foam.Date.isInstance(d) ) {
+        // Convert to Noon if not already at Noon
+        if ( foam.Date.isInstance(d) && d.getTime() % 86400000 != 43200000 ) {
           // Convert to Noon UTC
           d = new Date(Date.UTC(
             d.getFullYear(),
@@ -1468,7 +1472,34 @@ foam.CLASS({
           if ( n.summary != undefined ) this[`${(prop || this).name}$summary_`] = n.summary;
           return n.id;
         }
-        return n;
+        if ( ! foam.String.isInstance(n) ) return n;
+
+        var v = n.trim();
+        if ( ! v ) return v;
+
+        // Normalize numeric variants for ISO 4217 numeric codes (e.g. "36" => "036").
+        if ( /^\d+$/.test(v) ) return v.padStart(3, '0');
+
+        return v.toUpperCase();
+      }
+    },
+    {
+      name: 'postSet',
+      value: function(oldValue, newValue, prop) {
+        if ( ! newValue ) return;
+
+        // Non-numeric currency IDs are already normalized by adapt().
+        if ( foam.String.isInstance(newValue) && Number.isNaN(Number(newValue)) ) return;
+
+        prop.normalize(newValue, prop, this).then(function(normalized) {
+          if ( ! normalized ) return;
+
+          // Avoid stale async overwrite if the property changed again.
+          if ( this[prop.name] !== newValue ) return;
+          if ( normalized === newValue ) return;
+
+          this[prop.name] = normalized;
+        }.bind(this)).catch(function() {});
       }
     },
     {
@@ -1496,7 +1527,10 @@ foam.CLASS({
          **/
         if ( foam.String.isInstance(value) && Number.isNaN(Number(value)) ) return value;
 
-        var currency = await obj.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
+        var dao = obj && obj.__context__ && obj.__context__[prop.targetDAOKey];
+        if ( ! dao ) return value;
+
+        var currency = await dao.find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
 
         if ( currency ) {
           return currency.id;
@@ -1553,7 +1587,7 @@ foam.CLASS({
 })
 
 foam.CLASS({
-  package: 'foam.lang',  
+  package: 'foam.lang',
   name: 'CountryCode',
   extends: 'Reference',
   implements: [ 'foam.mlang.Expressions' ],
@@ -1573,7 +1607,11 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function(_, n, prop) {
-        if ( foam.core.auth.Country.isInstance(n) ) return n.code || n.id;
+        if ( foam.core.auth.Country.isInstance(n) ) {
+          // Some call sites pass Country objects populated with ISO-3166-1
+          // alpha-3 but not the alpha-2 id/code.
+          return n.code || n.id || n.iso31661Code;
+        }
         // RefSummary projection shape { id, summary } — cache summary, return id
         // (mirrors Reference.adapt so CountryCode table columns render in projections)
         if ( n && ! foam.lang.FObject.isInstance(n) && typeof n === 'object' && n.id !== undefined ) {
@@ -1611,7 +1649,14 @@ foam.CLASS({
     {
       name: 'initObject',
       value: async function(obj) {
-        let c = await this.normalize(this.f(obj), this, obj);
+        var value = this.f(obj);
+        // Skip normalization for empty/default values — the value will be
+        // set later by mappings or other code. Without this guard, the async
+        // DAO lookup races with synchronous property setters: initObject
+        // reads the empty default, starts an async query, then overwrites
+        // the already-set value when the query resolves.
+        if ( ! value ) return;
+        let c = await this.normalize(value, this, obj);
         this.set(obj, c);
       }
     },

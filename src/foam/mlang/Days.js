@@ -43,7 +43,7 @@ foam.CLASS({
       code: function f(obj) {
         var millisecondsPerDay = 24 * 60 * 60 * 1000;
         var from = this.arg1.f(obj);
-        var now = new Date(Date.now());
+        var now  = new Date(Date.now());
         from.setMinutes(from.getMinutes() - from.getTimezoneOffset());
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
 

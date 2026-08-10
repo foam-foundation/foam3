@@ -102,9 +102,9 @@ foam.CLASS({
       section: 'general',
       tableCellFormatter: function(value, obj) {
         if ( value.startsWith('PASSED') ) {
-          this.style({color: 'green'});
+          this.style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)});
         } else if ( value.startsWith('FAILED') ) {
-          this.style({color: 'red'});
+          this.style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)});
         }
         this.add(value);
       },

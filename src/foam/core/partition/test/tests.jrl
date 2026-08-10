@@ -1,0 +1,2 @@
+p({"class":"foam.core.partition.test.SingleToPartitionMigratorTest","id":"SingleToPartitionMigratorTest"})
+p({"class":"foam.core.partition.test.ReferenceMigratorTest","id":"ReferenceMigratorTest"})

@@ -158,6 +158,13 @@ foam.CLASS({
     {
       name: 'MORE_CHOICES',
       message: 'Refine search to see more results'
+    },
+    {
+      name: 'SEARCH_PLACEHOLDER_DEFAULT',
+      messageMap: {
+        en: 'Search...',
+        fr: 'Recherche...'
+      }
     }
   ],
 
@@ -308,7 +315,7 @@ foam.CLASS({
     }
 
     ^container .highlighted.disabled {
-      background-color: initial;
+      background-color: unset;
     }
   `,
 
@@ -444,8 +451,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'searchPlaceholder',
-      documentation: 'Replaces search box placeholder with passed in string.',
-      value: 'Search...'
+      documentation: 'Replaces search box placeholder with passed in string.'
     },
     {
       class: 'String',
@@ -569,13 +575,14 @@ foam.CLASS({
                   .addClass(self.myClass('search'))
                   .tag(self.FILTER_.clone().copyFrom({ view: {
                     class: 'foam.u2.TextField',
-                    placeholder: this.searchPlaceholder || 'Search... ',
+                    placeholder: this.searchPlaceholder || self.SEARCH_PLACEHOLDER_DEFAULT,
                     autofocus: true,
                     onKey: true
                   } }), {}, self.inputField$)
                 .endContext();
           }))
           .add(self.slot(function(sections, filter_) {
+            self.highlightedIndex_ = -1;
             // Check filteredDAO count for each section to respect hideIfEmpty when searching
             var promiseArray = [];
             sections.forEach(function(section) {

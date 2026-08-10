@@ -130,16 +130,28 @@ public class JSONFObjectFormatter
   public void output(long val) { append(val); }
 
 
-  public void output(float val) { append(val); }
+  public void output(float val) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
-  public void output(double val) { append(val); }
+  public void output(double val) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
   public void output(boolean val) { append(val); }
 
 
-  protected void outputNumber(Number value) { append(value); }
+  protected void outputNumber(Number value) {
+    if ( value instanceof Double || value instanceof Float ) {
+      double d = value.doubleValue();
+      if ( Double.isNaN(d) || Double.isInfinite(d) ) { append("null"); return; }
+    }
+    append(value);
+  }
 
   public void output(String[] arr) { output((Object[]) arr); }
 
@@ -425,6 +437,21 @@ public class JSONFObjectFormatter
       return true;
     }
 
+    // A delta between two different classes is not computable: the loop below walks
+    // the new class's properties and compares each against the old object, so a
+    // property the old class does not have throws a ClassCastException, which the
+    // journal swallows and then writes nothing. Output the whole object instead, so
+    // re-putting a record under a subclass survives a replay.
+    if ( oldFObject != null && newFObject.getClassInfo() != oldFObject.getClassInfo() ) {
+      int mark = builder().length();
+      outputFObjectPropertyHeader(parentProp);
+      output(newFObject, defaultClass, parentProp);
+      // output() undoes itself when it wrote no properties, so roll the header back
+      // with it rather than leaving a dangling key.
+      if ( builder().length() == mark ) return false;
+      return true;
+    }
+
     ClassInfo newInfo     = newFObject.getClassInfo();
     String    of          = newInfo.getSimpleName().toLowerCase();
     List      axioms      = getProperties(parentProp, newInfo);
@@ -681,11 +708,13 @@ public class JSONFObjectFormatter
   }
 
   public void output(float val, int precision) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }
 
   public void output(double val, int precision) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }

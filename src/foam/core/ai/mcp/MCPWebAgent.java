@@ -9,17 +9,19 @@ package foam.core.ai.mcp;
 import foam.lang.*;
 import foam.core.*;
 import foam.dao.*;
+import foam.lib.*;
 import foam.lib.json.Outputter;
 import foam.lib.json.JSONParser;
 import foam.lib.formatter.JSONFObjectFormatter;
+import foam.core.boot.CSpec;
 import foam.core.http.WebAgent;
 import foam.core.logger.Logger;
-import foam.mlang.MLang;
 import foam.mlang.predicate.Predicate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.*;
 import java.util.*;
 import jakarta.servlet.http.*;
+import static foam.mlang.MLang.*;
 
 /**
  * Model Context Protocol (MCP) server implemented as a FOAM WebAgent.
@@ -41,6 +43,13 @@ import jakarta.servlet.http.*;
  *
  * Transport: Streamable HTTP (JSON-RPC 2.0 over POST)
  * Protocol: MCP 2025-03-26
+ *
+ * Resources:
+ *   https://modelcontextprotocol.io/docs/learn/server-concepts
+ *   https://www.simple-is-better.org/json-rpc/
+ *   https://www.jsonrpc.org/
+ *   https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json
+ *   https://modelcontextprotocol.io/specification/2026-07-28/changelog
  */
 public class MCPWebAgent
   implements WebAgent
@@ -124,36 +133,80 @@ public class MCPWebAgent
 
   @Override
   public void execute(X x) {
-    HttpServletRequest  req    = x.get(HttpServletRequest.class);
-    HttpServletResponse resp   = x.get(HttpServletResponse.class);
-    PrintWriter         out    = x.get(PrintWriter.class);
-    Logger              logger = (Logger) x.get("logger");
+    HttpServletRequest  req  = x.get(HttpServletRequest.class);
+    HttpServletResponse resp = x.get(HttpServletResponse.class);
+    PrintWriter         out  = x.get(PrintWriter.class);
 
     resp.setContentType("application/json");
     resp.setHeader("Cache-Control", "no-store");
 
     try {
-      String             body   = readBody(req);
-      Map<String,Object> rpc    = parseJSON(x, body);
+      String body   = readBody(req);
+      Object parsed = MAPPER.readValue(body, Object.class);
+
+      if ( parsed instanceof List<?> batch ) {
+        // JSON-RPC batch request — process each, omit responses for notifications
+        List<Object> responses = new ArrayList<>();
+        for ( Object item : batch ) {
+          Map<String,Object> response = processSingle(x, asMap(item));
+          if ( response != null ) responses.add(response);
+        }
+        out.print(mapToJSONString(responses));
+        out.flush();
+      } else {
+        // Single request
+        Map<String,Object> response = processSingle(x, asMap(parsed));
+        if ( response == null ) {
+          resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        } else {
+          out.print(mapToJSONString(response));
+          out.flush();
+        }
+      }
+    } catch ( Throwable t ) {
+      Logger logger = (Logger) x.get("logger");
+
+      logger.error("MCPWebAgent", t);
+      out.print(mapToJSONString(Map.of(
+        "jsonrpc", "2.0",
+        "id",      "unknown",
+        "error",   Map.of("code", -32700, "message", t.getMessage() != null ? t.getMessage() : "Parse error")
+      )));
+      out.flush();
+    }
+  }
+
+  /** Process a single JSON-RPC request map. Returns null for notifications (no id). */
+  @SuppressWarnings("unchecked")
+  protected Map<String,Object> processSingle(X x, Map<String,Object> rpc) {
+    Logger logger = (Logger) x.get("logger");
+    Object id     = rpc.get("id");
+    try {
       String             method = (String) rpc.get("method");
-      Object             id     = rpc.get("id");
       Map<String,Object> params = asMap(rpc.get("params"));
 
-      // Notifications (no id) — acknowledge silently
-      if ( id == null ) {
-        resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
-        return;
-      }
+      // Notifications (no id) — no response
+      if ( id == null ) return null;
 
       Object result = dispatch(x, method, params);
-      writeResult(out, id, result);
+      return Map.of("jsonrpc", "2.0", "id", id, "result", result);
 
     } catch ( MCPError e ) {
-      writeError(out, null, e.code, e.getMessage());
+      if ( id == null ) return null;
+      return errorResponse(id, e.code, e.getMessage());
     } catch ( Throwable t ) {
       logger.error("MCPWebAgent", t);
-      writeError(out, null, -32603, t.getMessage());
+      if ( id == null ) return null;
+      return errorResponse(id, -32603, t.getMessage() != null ? t.getMessage() : "Internal error");
     }
+  }
+
+  protected Map<String,Object> errorResponse(Object id, int code, String message) {
+    return Map.of(
+      "jsonrpc", "2.0",
+      "id",      id,
+      "error",   Map.of("code", code, "message", message != null ? message : "Internal error")
+    );
   }
 
 
@@ -238,7 +291,7 @@ public class MCPWebAgent
     // AQL query → MLang predicate
     String query = (String) args.get("query");
     if ( query != null && ! query.trim().isEmpty() ) {
-      Predicate predicate = parseAQL(x, dao.getOf(), query);
+      Predicate predicate = AQL(query.trim());
       dao = dao.where(predicate);
     }
 
@@ -373,26 +426,25 @@ public class MCPWebAgent
   }
 
 
-  // ─── AQL Parsing ──────────────────────────────────────────────────────────────
-
-  /** Parse an AQL query string into an MLang predicate. */
-  protected Predicate parseAQL(X x, ClassInfo of, String query) {
-    try {
-      // TODO: Wire to FOAM's AQL parser
-      // return AQLParser.parse(x, of, query);
-      throw new UnsupportedOperationException("AQL parser not yet wired");
-    } catch (Throwable t) {
-      throw new MCPError(-32602, "Invalid AQL query: " + query + " — " + t.getMessage());
-    }
-  }
-
-
   // ─── DAO Utilities ────────────────────────────────────────────────────────────
 
   protected DAO requireDAO(X x, String name) {
+    CSpec cspec = (CSpec) ((DAO) x.get("AuthenticatedCSpecDAO")).inX(x)
+      .where(AND(
+        EQ(foam.core.boot.CSpec.SERVE, true),
+        CONTAINS(foam.core.boot.CSpec.ID, "DAO")))
+      .find(name);
+
+    // First check that the DAO is served and that the user is authorized to access
+    if ( cspec == null ) throw new MCPError(-32602, "DAO specification not found: " + name);
+
     Object svc = x.get(name);
-    if ( svc instanceof DAO ) return (DAO) svc;
-    throw new MCPError(-32602, "DAO not found: " + name);
+    if ( svc instanceof DAO ) {
+      // The inX() is required to downgrade from the system's to the logged-in users access level
+      DAO dao = (DAO) svc;
+      return dao.inX(x);
+    }
+    throw new MCPError(-32602, "DAO service not found: " + name);
   }
 
   /** Parse an ID string using the DAO's primary key property. */
@@ -421,6 +473,11 @@ public class MCPWebAgent
     fmt.setOutputDefaultValues(true);
     fmt.setQuoteKeys(true);
     fmt.output(obj, null);
+    fmt.setPropertyPredicate(
+      new AndPropertyPredicate(new PropertyPredicate[] {
+          new NetworkPropertyPredicate(),
+          new PermissionedPropertyPredicate()
+        }));
     return fmt.builder().toString();
   }
 
@@ -444,19 +501,6 @@ public class MCPWebAgent
     return Map.of("content", List.of(Map.of("type", "text", "text", text)));
   }
 
-  protected void writeResult(PrintWriter out, Object id, Object result) {
-    out.print(mapToJSONString(Map.of("jsonrpc", "2.0", "id", id, "result", result)));
-    out.flush();
-  }
-
-  protected void writeError(PrintWriter out, Object id, int code, String message) {
-    out.print(mapToJSONString(Map.of(
-      "jsonrpc", "2.0",
-      "id",      id != null ? id : "Unknown Id",
-      "error",   Map.of("code", code, "message", message != null ? message : "Internal error")
-    )));
-    out.flush();
-  }
 
 
   // ─── I/O Utilities ────────────────────────────────────────────────────────────
@@ -469,19 +513,6 @@ public class MCPWebAgent
       while ( (n = reader.read(buf)) != -1 ) sb.append(buf, 0, n);
     }
     return sb.toString();
-  }
-
-  @SuppressWarnings("unchecked")
-  protected Map<String,Object> parseJSON(X x, String json) {
-    try {
-      Object result = MAPPER.readValue(json, Object.class);
-      if ( result instanceof Map ) return (Map<String,Object>) result;
-      throw new MCPError(-32700, "Parse error: expected JSON object");
-    } catch (MCPError e) {
-      throw e;
-    } catch (Throwable t) {
-      throw new MCPError(-32700, "Parse error: " + t.getMessage());
-    }
   }
 
   protected String mapToJSONString(Object obj) {
@@ -554,12 +585,14 @@ public class MCPWebAgent
 }
 
 /*
+  TODO:
+    - pre-filter cSpecDAO to only list served DAOs
+    - help text for properties should be available
+    - enum values should be listed
+    - return syntax errors for AQL
 
-  // TODO: help text is not available in the JAVA PropertyInfo
-
-  Set session CIDR Whitelist
-
-  Sample .claude.json configuration:
+  Usage:
+    Sample .claude.json configuration:
 
         "my-mcp-server": {
           "type": "http",

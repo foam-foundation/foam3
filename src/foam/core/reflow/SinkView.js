@@ -110,13 +110,15 @@ foam.CLASS({
       return this.cls_.package + '.' + choice;
     },
 
-    function render() {
+    async function render() {
       var self = this;
 
-      this.agentDAO.select().then(agents => {
-        const entities = agents.array;
-        if ( ! this.choice ) this.choice = entities[0]?.value;
-      });
+      if ( ! this.choice && ! this.data ) {
+        await this.agentDAO.limit(1).select().then(agents => {
+          const entities = agents.array;
+          this.choice = entities[0]?.value;
+        });
+      }
 
       if ( ! this.data ) { this.data = undefined; }
 
@@ -131,10 +133,12 @@ foam.CLASS({
             add(self.CHOICE).
           endContext();
 
+          if ( ! data ) return;
 
           if ( data instanceof Promise ) {
             data.then(d => d.addToE(this));
           } else {
+            if ( ! data.addToE ) debugger;
             data.addToE(this);
           }
         }));

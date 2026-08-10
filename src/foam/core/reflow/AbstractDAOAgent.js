@@ -31,6 +31,13 @@ foam.CLASS({
       transient: true,
       hidden: true,
       factory: function() { return this.referenceDAO?.of; }
+    },
+    {
+      // The current shown-driven render dynamic; detached and replaced on re-execute
+      // so re-executions don't leave stale dynamics rendering into a detached element.
+      name: 'shownDynamic_',
+      transient: true,
+      hidden: true
     }
   ],
 
@@ -51,13 +58,14 @@ foam.CLASS({
         // (like 'block') from the current context.
         s = s.clone(this.__subContext__);
 
-        e.startContext({dao: this.dao})
-          .start()
-            .call(function() {
-              self.addSinkToE(this, s);
-            })
-          .end()
-        .endContext();
+        // On re-execute detach the previous shown-dynamic so we don't accumulate stale
+        // ones re-adding the sink into a detached `e`.
+        if ( self.shownDynamic_ ) self.shownDynamic_.detach();
+        self.shownDynamic_ = self.block.dynamic(function (shown) {
+          if ( shown )
+            this.startContext({dao: self.dao}).start().call(function() { self.addSinkToE(this, s); }).endContext();
+        });
+        e.add(self.shownDynamic_);
       }).catch(error => {
         console.error('AbstractDAOAgent execution error:', error);
         e.tag(self.ErrorView, { error: error });
@@ -376,6 +384,20 @@ foam.CLASS({
       this.tableEl = undefined;
     },
     function execute(e) {
+      let self = this;
+      // On re-execute (e.g. the source DAO rebuilt after a filter change) detach the
+      // previous shown-dynamic and drop the cached table, so we rebind to the new `e`
+      // and the current data. A pure `shown` toggle does not re-run execute(), so the
+      // tableEl cache below still prevents flicker there, and hidden blocks still don't build.
+      if ( this.shownDynamic_ ) this.shownDynamic_.detach();
+      this.tableEl = undefined;
+      this.shownDynamic_ = this.block.dynamic(function (shown) {
+        if ( shown )
+          self.execute_(e);
+      });
+      e.add(this.shownDynamic_);
+    },
+    function execute_(e) {
       // TODO: prevent table updates when block is hidden
       var self = this;
       // Tables already listen to underlying daos and are completely reactive by themselves as
@@ -547,7 +569,7 @@ foam.CLASS({
       label: 'Property',
       validateObj: function(prop) { if ( ! prop ) return 'Required'; },
       view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView', placeholder: '---', forCls: X.data.of };
+        return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
     },
     {
@@ -873,7 +895,8 @@ foam.CLASS({
         class: 'foam.u2.view.ArrayView',
         valueView: {
           class: 'foam.core.reflow.SinkView',
-          sinksOnly: true
+          sinksOnly: true,
+          choice: 'foam.core.reflow.CountDAOAgent'
         }
       }
     }
@@ -1104,7 +1127,11 @@ foam.CLASS({
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
         this.start('a').
-          style({ cursor: 'pointer', color: '#0066cc', 'text-decoration': 'underline' }).
+          style({
+            cursor: 'pointer',
+            color: foam.CSS.returnTokenValue('$link', this.cls_, this.__subContext__),
+            'text-decoration': 'underline'
+          }).
           on('click', async function() {
             self.logDownloadSelection('local', modelName, fmt.format);
             await self.downloadLocal(dao, modelName, fmt);
@@ -1119,11 +1146,14 @@ foam.CLASS({
       var daoKey   = serviceName.substring(8);
       var url      = `${location}/service/dig?dao=${daoKey}&cmd=select&sessionId=${this.sessionID}&limit=${this.block.value.limit}`;
 
+      var title = daoKey;
+
       // Probe DAO to find the actual full query being used
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
           url = url + '&q=' + encodeURIComponent(p.toMQL());
+          title = title + ', query=' + p.toMQL();
           throw "just probing";
         };
         await dao.select(sink);
@@ -1134,7 +1164,17 @@ foam.CLASS({
         url = url + '&columns=' + encodeURIComponent(this.block.value.columns);
       }
 
-      this.add('Download As: ');
+      if ( this.block.value.skip ) {
+        url = url + '&skip=' + this.block.value.skip;
+        title = title + ', skip=' + this.block.value.skip;
+      }
+
+      if ( this.block.value.limit > 0 ) {
+        url = url + '&limit=' + this.block.value.limit;
+        title = title + ', limit=' + this.block.value.limit;
+      }
+
+      this.add(`Download ${title}`).tag('br').add('As: ');
       this.formats.forEach((fmt, idx) => {
         if ( idx > 0 ) this.add(', ');
         this.
@@ -1247,6 +1287,7 @@ foam.CLASS({
     {
       name: 'sink',
       view: 'foam.core.reflow.SinkView',
+      choice: 'foam.core.reflow.CountDAOAgent',
       documentation: 'The sink to delegate to'
     }
   ],
@@ -1261,7 +1302,7 @@ foam.CLASS({
         delegate: this.sink ? this.sink.createSink() : null
       });
     },
-        function addToE(e) {
+    function addToE(e) {
       var self = this;
       // TODO: figure out why BROWSE doesn't work after reloading
       e.startContext({data: this}).

@@ -9,11 +9,18 @@ foam.CLASS({
   name: 'PartitionedSequenceNumberDAO',
   extends: 'foam.dao.SequenceNumberDAO',
 
+  javaCode: `
+    public PartitionedSequenceNumberDAO(foam.lang.X x, String prefix, foam.dao.DAO delegate) {
+      setX(x);
+      setPrefix(prefix);
+      setDelegate(delegate);
+    }
+  `,
+
   properties: [
     {
       class: 'String',
-      name: 'prefix',
-      value: 'abc-'
+      name: 'prefix'
     }
   ],
 
@@ -25,11 +32,15 @@ foam.CLASS({
       javaCode: `
         // Called in SequenceNumberDAO.put() to determine the objects' seqno
         String val = (String) getProperty_().get(obj);
-        long number = 0L;
-        if ( val.length() > getPrefix().length() ) {
-          number = Long.parseLong(val.substring(getPrefix().length()));
+        if ( val.length() <= getPrefix().length() ) return 0L;
+        try {
+          return Long.parseLong(val.substring(getPrefix().length()));
+        } catch ( NumberFormatException e ) {
+          // Migrated composite id with a non-numeric legacy suffix
+          // (<part>-<oldId>): treat as set-but-not-sequential so put_
+          // neither restamps it nor bumps the counter.
+          return -1L;
         }
-        return number;
       `
     },
     {

@@ -637,6 +637,12 @@ foam.LIB({
 
       return a.toUpperCase().startsWith(b.toUpperCase());
     },
+    function normalize(str) {
+      return str.
+        normalize("NFD").       // match Java behaviour
+        replace(/\p{C}/gu,"").  // remove non-printable
+        replace(/\p{M}/gu,"");  // remove accents/diacritics
+    },
     (function() {
       var map = {};
 
@@ -1373,7 +1379,7 @@ foam.LIB({
       let tokensToFind = text.match(tokenPattern);
       if ( ! tokensToFind?.length ) return text;
       for ( var i = 0 ; i < tokensToFind.length ; i++ ) {
-        let sanitizedToken = opt_tokenPattern ? tokensToFind[i].match(/\$[^\*\s]*/)[0] : tokensToFind[i] //if using a non-standard token pattern
+        let sanitizedToken = tokensToFind[i].match(/\$[^\*\s]*/)[0] //"$token !important" matches with the space; keep just "$token" so the lookup works
         let replacement = foam.CSS.returnTokenValue(sanitizedToken, cls, ctx);
         foundTokens[tokensToFind[i]] = { sanitizedToken: sanitizedToken, value: replacement}
       }

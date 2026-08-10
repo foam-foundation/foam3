@@ -88,6 +88,10 @@
  *
  *   var results = picker.getCandidates();  // -> [{ name: 'Thai Restaurant', ... }]
  *   picker.applyOutcome(results[0]);       // sets picker.name = 'Thai Restaurant'
+ *
+ * TODO:
+ *   Add paths to question choices so that they can be set by the translationService
+ *   ex.: com.acme.QA.QUESTION_NAME.CHOICE.label = 'Blah Blah in French'
  */
 
 
@@ -190,6 +194,11 @@ foam.CLASS({
         if ( ! existingNames[q.name] ) {
           existingNames[q.name] = true;
           inputNames.push(q.name);
+          if ( q.class && q.choices ) {
+            console.warn('[QACompiler] ' + pkg + '.' + name + ': question "' + q.name +
+              '" sets both class and choices — choices are ignored (the auto choice-view ' +
+              'is only attached when no class is set; supply an explicit view: instead).');
+          }
           props.push({
             ...q,
             class: q.class || 'String',
@@ -202,6 +211,10 @@ foam.CLASS({
               choices: q.choices
             } } : {} )
           });
+        } else {
+          console.warn('[QACompiler] ' + pkg + '.' + name + ': question "' + q.name +
+            '" collides with a declared property of the same name — its choices and ' +
+            'generated view are dropped (the declared property wins).');
         }
       });
 

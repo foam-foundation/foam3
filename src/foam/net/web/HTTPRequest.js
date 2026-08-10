@@ -155,7 +155,13 @@ foam.CLASS({
           responseType: this.responseType
         });
 
-        if ( resp.success ) return resp;
+        if ( resp.success && ! resp.redirect_to_url ) return resp;
+
+        // Nothing reads payload on the failure path, and an unread fetch body
+        // holds its connection open until the Response is garbage collected,
+        // so release the stream here. cancel() rejects if the body already
+        // errored, which is exactly the case we're in, so swallow that.
+        resp.resp.body?.cancel().catch(() => {});
 
         // Use Promise.reject so crappy debuggers don't pause here
         // throw resp;

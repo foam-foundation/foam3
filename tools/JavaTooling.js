@@ -60,7 +60,7 @@ foam.POM({
     testSuites: ['', 'test-suite', 'TEST_SUITES', 'Run all or specified test suites', '', arg => TEST_SUITES = arg],
     testSide: ['', 'test-side', 'TEST_SIDE', 'Specify server or client side testing. Defaults to \'both\'.  ex. --testSide:client.  Choose \'server\' or \'client\'', 'both', arg => TEST_SIDE = arg],
     timezone: ['', 'timezone', 'TIMEZONE', 'Set JVM user.timezone. NOTE: this only affects local deployment. In production the JVM will use the system timezone.', 'GMT', arg => TIMEZOME = arg],
-    webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  WebSocketServer will use PORT+1', '8080', args => WEB_PORT = args ],
+    webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  SocketServer will use PORT+3', '8080', args => WEB_PORT = args ],
     version: ['', 'version', 'VERSION', 'Application version', '1.0.0', args => VERSION = args ]
   },
 
@@ -488,7 +488,10 @@ foam.POM({
 
       // this.info(`Starting CORE ${APP_NAME}`);
       // Acquires environment variables via JAVA_TOOL_OPTIONS (JAVA_OPTS)
-      this.execSync(`java -cp "${BUILD_DIR}/lib/\*:${BUILD_DIR}/classes" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
+      // build/classes precedes build/lib/* so freshly compiled classes always win
+      // over any stale jar sitting in build/lib (e.g. an app/test package left by a
+      // prior run) — otherwise the jar shadows the recompiled classes silently.
+      this.execSync(`java -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
     }],
 
     startCOREAsync: ['start-core-async', 'Start CORE server (CLASSPATH) as an asynchronous/detached child process. When re-run the previous process will be terminated.', ['stopCORE', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs','java'], function() {
@@ -507,7 +510,7 @@ foam.POM({
       if ( BUILD_ONLY ) return;
 
       // this.info(`Starting CORE ${APP_NAME}`);
-      var proc = this.spawn(JAVA, ['-server', '-cp', `${BUILD_DIR}/lib/\*:${BUILD_DIR}/classes`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS], {
+      var proc = this.spawn(JAVA, ['-server', '-cp', `${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS], {
         stdio: 'inherit',
         shell: '/bin/bash',
         detached: true,

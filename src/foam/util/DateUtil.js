@@ -51,10 +51,10 @@ foam.CLASS({
   static: [
     {
       name: 'parseDateTime',
-      args: 'String d, String opt_name',
+      args: 'String d, String opt_name, Boolean strict',
       type: 'Date',
       documentation: 'Parses datetime strings using DateParser in local time. Optional opt_name to specify format.',
-      code: function(d, opt_name) {
+      code: function(d, opt_name, strict) {
         // Handle null/undefined
         if ( d === null || d === undefined ) return d;
 
@@ -64,20 +64,20 @@ foam.CLASS({
         }
 
         var parser = foam.parse.DateParser.create();
-        return parser.parseDateTime(d, opt_name);
+        return parser.parseDateTime(d, opt_name, strict);
       },
       javaCode: `
         // Parses datetime string in local timezone using grammar-based DateParser
         DateParser parser = new DateParser();
-        return parser.parseDateTime(d, opt_name);
+        return parser.parseDateTime(d, opt_name, strict);
       `
     },
     {
       name: 'parseDateTimeUTC',
-      args: 'String d, String opt_name',
+      args: 'String d, String opt_name, Boolean strict',
       type: 'Date',
       documentation: 'Parses datetime strings using DateParser in UTC time. Optional opt_name to specify format.',
-      code: function(d, opt_name) {
+      code: function(d, opt_name, strict) {
         // Handle null/undefined
         if ( d === null || d === undefined ) return d;
 
@@ -87,20 +87,20 @@ foam.CLASS({
         }
 
         var parser = foam.parse.DateParser.create();
-        return parser.parseDateTimeUTC(d, opt_name);
+        return parser.parseDateTimeUTC(d, opt_name, strict);
       },
       javaCode: `
         // Parses datetime string in UTC timezone using grammar-based DateParser
         DateParser parser = new DateParser();
-        return parser.parseDateTimeUTC(d, opt_name);
+        return parser.parseDateTimeUTC(d, opt_name, strict);
       `
     },
     {
       name: 'parseDateString',
-      args: 'String d, String opt_name',
+      args: 'String d, String opt_name, Boolean strict',
       type: 'Date',
       documentation: 'Parses date strings using DateParser. Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats. Optional opt_name to specify format (e.g., "ddmmyyyy").',
-      code: function(d, opt_name) {
+      code: function(d, opt_name, strict) {
         // Handle null/undefined
         if ( d === null || d === undefined ) return d;
 
@@ -110,14 +110,14 @@ foam.CLASS({
         }
 
         var parser = foam.parse.DateParser.create();
-        return parser.parseDateString(d, opt_name);
+        return parser.parseDateString(d, opt_name, strict);
       },
       javaCode: `
         // Parses date string using grammar-based DateParser
         // Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats
         // Optional opt_name to specify format (e.g., "ddmmyyyy")
         DateParser parser = new DateParser();
-        return parser.parseDateString(d, opt_name);
+        return parser.parseDateString(d, opt_name, strict);
       `
     },
     {
@@ -156,6 +156,8 @@ foam.CLASS({
       type: 'Date',
       documentation: 'Adapts various input types to Date. Delegates to parseDateString for backward compatibility.',
       code: function(o) {
+        // ???: Is this called from anywhere? It isn't compatible with the javaCode because doesn't convert to Noon.
+        // TODO: convert to Noon
         if ( ! o ) return null;
         if ( o instanceof Date ) return o;
         if ( foam.String.isInstance(o) ) {
@@ -169,9 +171,22 @@ foam.CLASS({
         // Backward compatibility adapter method
         if ( o == null ) return null;
 
+        if ( o instanceof String ) {
+          o = parseDateString((String) o, null, false);
+        } else if ( o instanceof Number ) {
+          o = new Date(((Number) o).longValue());
+        }
+
+        if ( DateParser.MAX_DATE.equals(o) )
+          return DateParser.MAX_DATE;
+
         if ( o instanceof Date ) {
           // Normalize Date to noon GMT
           Date inputDate = (Date) o;
+
+          // Don't adapt if already at Noon
+          if ( inputDate.getTime() % 86400000l == 43200000l ) return inputDate;
+
           java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
           cal.setTime(inputDate);
           cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
@@ -181,11 +196,6 @@ foam.CLASS({
           return cal.getTime();
         }
 
-        if ( o instanceof String ) {
-          return parseDateString((String) o, null);
-        }
-
-        if ( o instanceof Number ) return new Date(((Number) o).longValue());
         return null;
       `
     },
@@ -470,8 +480,8 @@ foam.CLASS({
      *
      * FOAM's static array doesn't support method overloading - you cannot define
      * two methods with the same name but different parameters. JavaScript doesn't
-     * support method overloading either, so only the 1-parameter versions are needed
-     * in the static array above.
+     * support method overloading either, so only the 3-parameter (strict) versions
+     * are needed in the static array above.
      *
      * However, the original Java code had overloaded methods (1-param and 2-param versions)
      * for backward compatibility with existing code. These Java-only overloads are defined
@@ -479,19 +489,34 @@ foam.CLASS({
      * the FOAM static method definitions.
      */
 
+    // Java method overload for parseDateTime (2-parameter version for backward compatibility)
+    public static Date parseDateTime(String d, String opt_name) {
+      return parseDateTime(d, opt_name, false);
+    }
+
     // Java method overload for parseDateTime (1-parameter version for backward compatibility)
     public static Date parseDateTime(String d) {
-      return parseDateTime(d, null);
+      return parseDateTime(d, null, false);
+    }
+
+    // Java method overload for parseDateTimeUTC (2-parameter version for backward compatibility)
+    public static Date parseDateTimeUTC(String d, String opt_name) {
+      return parseDateTimeUTC(d, opt_name, false);
     }
 
     // Java method overload for parseDateTimeUTC (1-parameter version for backward compatibility)
     public static Date parseDateTimeUTC(String d) {
-      return parseDateTimeUTC(d, null);
+      return parseDateTimeUTC(d, null, false);
+    }
+
+    // Java method overload for parseDateString (2-parameter version for backward compatibility)
+    public static Date parseDateString(String d, String opt_name) {
+      return parseDateString(d, opt_name, false);
     }
 
     // Java method overload for parseDateString (1-parameter version for backward compatibility)
     public static Date parseDateString(String d) {
-      return parseDateString(d, null);
+      return parseDateString(d, null, false);
     }
 
     // Java method overload for format (1-parameter version for backward compatibility)

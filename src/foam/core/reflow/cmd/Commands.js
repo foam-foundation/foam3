@@ -28,7 +28,22 @@ foam.CLASS({
     { class: 'Code',    name: 'script' },
     { class: 'Boolean', name: 'linkable', value: true },
     { class: 'Boolean', name: 'permissionRequired' },
-    { class: 'Boolean', name: 'hidden', value: false }
+    { class: 'Boolean', name: 'hidden', value: false },
+    {
+      class: 'String',
+      name: 'parserClass',
+      documentation: 'Optional Grammar class id used to autocomplete this command\'s argument (e.g. DAOTargetParser for a DAO name).'
+    },
+    {
+      name: 'parser',
+      transient: true,
+      documentation: 'Argument parser for autocomplete. Subclasses may override with a factory; jrl commands set parserClass instead.',
+      factory: function() {
+        if ( ! this.parserClass ) return null;
+        var cls = foam.maybeLookup(this.parserClass);
+        return cls ? cls.create(null, this) : null;
+      }
+    }
   ],
 
   methods: [
@@ -115,7 +130,7 @@ foam.CLASS({
 
   properties: [
     { name: 'id', value: 'help' },
-    [ 'description', 'Display help' ]
+    [ 'description', 'Help for commands and shortcuts' ]
   ],
 
   methods: [
@@ -172,7 +187,7 @@ foam.CLASS({
 
   properties: [
     { name: 'id', value: 'helpFunctions' },
-    [ 'description', 'Display help for built-in functions.' ]
+    [ 'description', 'Help fn for built-in functions' ]
   ],
 
   methods: [
@@ -209,7 +224,7 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.cells.Cells' ],
 
   properties: [
-    [ 'description', 'Embed spreadsheet' ]
+    [ 'description', 'Cells spreadsheet grid' ]
   ],
 
   methods: [
@@ -250,7 +265,8 @@ foam.CLASS({
   imports: [ 'createFlowChildName' ],
 
   properties: [
-    [ 'description', 'Perform DAO filter operation' ]
+    [ 'description', 'DAO filter for a service' ],
+    [ 'parserClass', 'foam.core.reflow.parser.DAOTargetParser' ]
   ],
 
   methods: [
@@ -285,12 +301,19 @@ foam.CLASS({
   name: 'DAOCreate',
   extends: 'foam.core.reflow.cmd.Command',
 
-  requires: [ 'foam.core.reflow.DAOCreate' ],
+  requires: [
+    'foam.core.reflow.DAOCreate',
+    'foam.core.reflow.parser.DAOTargetParser'
+  ],
 
   imports: [ 'scope' ],
 
   properties: [
-    [ 'description', 'Add an object to a DAO' ]
+    [ 'description', 'Add a row to a DAO (requires a DAO name)' ],
+    {
+      name: 'parser',
+      factory: function() { return this.DAOTargetParser.create(); }
+    }
   ],
 
   methods: [
@@ -318,7 +341,7 @@ foam.CLASS({
   imports: [ 'AuthenticatedCSpecDAO as cSpecDAO', 'commandDAO', 'scope' ],
 
   properties: [
-    [ 'description', 'Display available DAO services', 'uploadAvailable' ]
+    [ 'description', 'DAOs available', 'uploadAvailable' ]
   ],
 
   methods: [
@@ -468,7 +491,7 @@ foam.CLASS({
   imports: [ 'flowDAO' ],
 
   properties: [
-    [ 'description', 'Display saved flows' ]
+    [ 'description', 'Flows available to load' ]
   ],
 
   methods: [
@@ -499,7 +522,7 @@ foam.CLASS({
   imports: [ 'history_' ],
 
   properties: [
-    [ 'description', 'Display previously executed commands' ]
+    [ 'description', 'History of executed commands' ]
   ],
 
   methods: [
@@ -521,7 +544,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.cmd.Command',
 
   properties: [
-    [ 'description', 'Display MQL Help' ]
+    [ 'description', 'Help MQL queries' ]
   ],
 
   methods: [
@@ -573,7 +596,7 @@ foam.CLASS({
   imports: [ ],
 
   properties: [
-    [ 'description', 'Browse Models' ]
+    [ 'description', 'Models explorer' ]
   ],
 
   methods: [
@@ -592,7 +615,7 @@ foam.CLASS({
   imports: [ ],
 
   properties: [
-    [ 'description', 'Blockquote' ]
+    [ 'description', 'Quote block' ]
   ],
 
   methods: [
@@ -623,7 +646,13 @@ foam.CLASS({
         this.maybeCallScript(loaded.preLoadScript);
         this.flow.loadComplete.sub(() => this.maybeCallScript(loaded.postLoadScript));
         this.selected = this.flow;
+        // When the saved script is identical to the current one, copyFrom's set
+        // is suppressed by the propertyChange equality gate, so the Console's
+        // onScriptChange reload never runs and loadComplete never fires. Force
+        // the pub so load/loadPerf on an unchanged flow still re-executes.
+        var sameScript = this.flow.script === loaded.script;
         this.flow.copyFrom(loaded);
+        if ( sameScript ) this.flow.pub('propertyChange', 'script', this.flow.script$);
         // After loading, revert the revision back to 0
         this.flow.loadComplete.sub(foam.events.oneTime(() => {
           this.mementoMgr.clear();
@@ -631,9 +660,47 @@ foam.CLASS({
       }
     },
     async function maybeCallScript(s) {
-        if ( s ) {
-          await eval('(async function() {' + s + '})').call(this)
-        }
+      if ( s ) {
+        await eval('(async function() {' + s + '})').call(this)
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.cmd',
+  name: 'LoadPerf',
+  extends: 'foam.core.reflow.cmd.Load',
+
+  documentation: `Load a flow while capturing performance (elapsed, FPS, heap delta,
+    long tasks). 'load' clears and rebuilds the entire flow, so a perf block placed
+    before a load cannot survive it; this command runs the capture outside the block
+    tree and appends a perf block with the results after loadComplete.`,
+
+  requires: [ 'foam.core.reflow.perf.Perf' ],
+
+  properties: [
+    [ 'description', 'Load perf a flow with performance capture' ]
+  ],
+
+  methods: [
+    async function execute(flowName) {
+      if ( ! flowName ) return;
+      var self   = this;
+      var runner = this.Perf.create({}, this);
+
+      runner.startCapture_();
+      this.flow.loadComplete.sub(foam.events.oneTime(async function() {
+        var report = await runner.finishCapture_();
+        report.label = 'loadPerf: ' + flowName;
+        // Append a perf block to the loaded flow and inject the measured report.
+        // copyFrom (not assignment) so the new view's report slot fires.
+        var blk = await self.eval_('perf', true, true);
+        blk.value.copyFrom(report);
+      }));
+
+      await this.SUPER(flowName);
     }
   ]
 });
@@ -681,7 +748,7 @@ foam.CLASS({
   imports: [ 'AuthenticatedCSpecDAO as cSpecDAO' ],
 
   properties: [
-    [ 'description', 'Display available services' ]
+    [ 'description', 'Services available' ]
   ],
 
   methods: [
@@ -834,7 +901,7 @@ foam.CLASS({
   ],
 
   properties: [
-    [ 'description', 'Create a button with custom logic' ]
+    [ 'description', 'Button with custom logic' ]
   ],
 
   methods: [
@@ -882,7 +949,7 @@ foam.CLASS({
   ],
 
   properties: [
-    [ 'description', 'Create multiple buttons with custom logic' ],
+    [ 'description', 'Buttons group with custom logic' ],
     'holder_'
   ],
 

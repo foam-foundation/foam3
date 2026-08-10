@@ -42,9 +42,10 @@ foam.CLASS({
       for ( var i = 0 ; i < targets.length ; i++ ) {
         var filePath = this.index.getFilePath(targets[i]);
         if ( ! filePath ) continue;
+        var line = this.index.getClassLine(targets[i]);
         locations.push({
           uri: 'file://' + filePath,
-          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
+          range: { start: { line: line, character: 0 }, end: { line: line, character: 0 } }
         });
       }
       return locations;

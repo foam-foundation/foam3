@@ -354,7 +354,9 @@ foam.CLASS({
     function format(e, value, obj, axiom) {
       e.start()
         .call(function() {
-          if ( value ) { e.style({color: 'green'}); }
+          if ( value ) {
+            e.style({color: foam.CSS.returnTokenValue('$success500', e.cls_, e.__subContext__)});
+          }
         })
         .add(value ? ' Y' : '-')
       .end();

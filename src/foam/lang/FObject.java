@@ -310,7 +310,7 @@ public interface FObject
           }
         }
       } catch (ClassCastException ignore) {
-        StdoutLogger.instance().debug("FObject.copyFrom", p.getName(), p, p2, obj, ignore.getMessage());
+        // StdoutLogger.instance().debug("FObject.copyFrom", p.getName(), p, p2, obj, ignore.getMessage());
       }
     }
     return this;

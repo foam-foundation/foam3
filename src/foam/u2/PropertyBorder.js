@@ -99,7 +99,12 @@ foam.CLASS({
         prop.name = oldProp.name;
       }
 
-      this.addClass(this.myClass(prop.name));
+      // Prefixed: this class is named after the property, and PropertyBorder's
+      // own classes are named after its parts, so a property called label, view
+      // or select would otherwise take that part's styling for its whole cell -
+      // a `label` property inherits line-height:1 and sits short of its
+      // neighbour in the same row.
+      this.addClass(this.myClass('prop-' + prop.name));
 
       this.SUPER();
 

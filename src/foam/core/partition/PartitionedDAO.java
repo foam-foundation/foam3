@@ -73,11 +73,12 @@ public class PartitionedDAO
 
   public String getPartition(String id) {
     String ret = getPartition_(id);
-    System.out.println("****** PARTITION " + id + " -> " + ret);
     return ret;
   }
 
-  /** Attempt to extract partition from prefix of a primary key. **/
+  /** Attempt to extract partition from a SEPARATOR-delimited primary key.
+      Chained partitions (e.g. "<a>~<b>~<key>") read their own segment by
+      depth: depth 1 reads <a>, depth 2 reads <b>. **/
   public String getPartition_(String id) {
     String[] a = id.split(SEPARATOR);
 
@@ -89,6 +90,10 @@ public class PartitionedDAO
   public DAO createDAO(String part) {
     Loggers.logger(getX(), this).info("Creating partiion " + part);
 
+    // The '_' escape is for the FILENAME only — the id prefix below keeps the
+    // raw partition value so getPartition_(id) round-trips to the same key
+    // getDelegate() caches on.
+    String rawPart = part;
     if ( part.startsWith("_") || part.equals("") ) {
       part = "_" + part;
     }
@@ -107,18 +112,29 @@ public class PartitionedDAO
     }
 
     JDAO jdao = new JDAO(getX(), getOf(), journalName);
+
+    // When the model's id is a String, assign composite <partition>~<seqNo>
+    // ids per partition so find can route by the id prefix (see getPartition_).
+    // Long-id models stay flat (no prefix), preserving non-composite usage.
+    // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
+    // String, so wrapping a Long-id model throws ClassCastException on every put_.
+    foam.lang.PropertyInfo idProp = getIdProperty();
+    if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
+      return new foam.core.partition.PartitionedSequenceNumberDAO.Builder(getX())
+        .setPrefix(rawPart + SEPARATOR)
+        .setProperty("id")
+        .setDelegate(jdao)
+        .build();
+    }
+
+    addIndices(jdao);
+
     return jdao;
   }
 
   protected DAO getDelegate(X x, FObject obj) {
-    return getDelegate(getID(obj));
+    return getDelegate(getPartition(getID(obj)));
   }
-
-/*
-  protected DAO getDelegate(X x, Predicate pred) {
-    return getDelegate();
-  }
-*/
 
   public String objToPath(FObject obj) {
     String id = getID(obj);
@@ -131,7 +147,7 @@ public class PartitionedDAO
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
     String[] a = getID(obj).split(SEPARATOR);
-    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
+    //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
       for ( int i = 0 ; i < getDepth()-1 ; i++ ) {
@@ -141,7 +157,7 @@ public class PartitionedDAO
       sb.append(part);
       sb.append(SEPARATOR);
       sb.append(a[a.length-1]);
-      System.err.println("**** PUT2 " + sb.toString());
+      // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
     return getDelegate(part).put_(x, obj);
@@ -202,6 +218,18 @@ public class PartitionedDAO
     }
 
     return null;
+  }
+
+  /** Copy a legacy single-file journal's records into this DAO's per-partition
+      journals, rewrite references held by other DAOs (discovered via
+      ReferencePropertyInfo when daoKey is given), validate, and archive the
+      legacy journal. Delegates to SingleToPartitionMigrator. */
+  public void migrateFrom(X x, String legacyJournalName, String daoKey) {
+    new SingleToPartitionMigrator().run(x, legacyJournalName, this, daoKey);
+  }
+
+  public void migrateFrom(X x, String legacyJournalName) {
+    migrateFrom(x, legacyJournalName, null);
   }
 
 //  No implementation needed for removeAll_() because it just calls select_().

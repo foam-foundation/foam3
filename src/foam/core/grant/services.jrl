@@ -1,0 +1,79 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "auth",
+  "serve": true,
+  "authenticate": false,
+  "boxClass": "foam.core.auth.AuthServiceSkeleton",
+  "serviceScript": """
+    auth = new foam.core.auth.UserAndGroupAuthService(x);
+    // auth = new com.paytic.http.AvaAuthService.Builder(x).setDelegate(auth).build();
+    auth = new foam.core.auth.CapabilityAuthService.Builder(x).setDelegate(auth).build();
+    auth = new foam.core.auth.EnabledCheckAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    auth = new foam.core.auth.PasswordExpiryAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    auth = new foam.core.auth.twofactor.TwoFactorAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    auth = new foam.core.auth.ResetSpidBeforeLoginAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    
+    auth = new foam.core.auth.PMAuthService.Builder(x)
+      .setLabel("uncached")
+      .setDelegate(auth)
+      .build();
+    auth = new foam.core.auth.CachingAuthService(auth/*, new String[] { "grantDAO", "moduleDAO" }*/);
+
+    // Place above the CachingAuthService because it has its own cache, which is more efficient
+    auth = new foam.core.grant.GrantAuthService.Builder(x)
+      .setExtraDAOsToListenTo(new String[] { "moduleDAO" })
+      .setDelegate(auth)
+      .build();
+
+    auth = new foam.core.auth.SubjectAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    auth = new foam.core.auth.SystemAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    auth = new foam.core.auth.FailedLoginAuthService.Builder(x)
+      .setDelegate(auth)
+      .build();
+    return auth;
+  """,
+  "client":"""
+    {
+      "class": "foam.core.auth.AuthorizeAnonymousClientDecorator",
+      "delegate":
+      {
+        "class":"com.paytic.auth.GrantCachedAuthService",
+        "delegate":{
+          "class":"foam.core.auth.ClientLoginAuthService"
+        }
+      }
+    }
+  """
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"grantDAO",
+  "serve":true,
+  "authenticate": true,
+  "serviceScript":`
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setRuler(true)
+      .setContextualize(true)
+      .setAuthorize(false)
+      .setOf(foam.core.grant.GrantAssignment.getOwnClassInfo())
+      .setFuid(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("grants")
+      .build();
+    `,
+  "client":"{\"of\":\"foam.core.grant.GrantAssignment\"}"
+})

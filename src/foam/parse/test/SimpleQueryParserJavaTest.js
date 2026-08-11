@@ -127,6 +127,29 @@ foam.CLASS({
 
         Predicate negPred = parser.parseString("mid.leaf.value = other");
         test(negPred != null && ! negPred.f(root), "Nested Java Test3: 2-level path evaluates false for non-matching object");
+
+        // Int leaf via the same chain — exercises the number compare path nested
+        Predicate intPred = parser.parseString("mid.leaf.code = 7");
+        String intExpected = "EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.code, 7)";
+        test(
+          intPred != null && intPred.toString().trim().toLowerCase().equals(intExpected.toLowerCase()),
+          "Nested Java Test5: nested Int leaf produces EQ with full Dot chain — got: " + ( intPred == null ? "null" : intPred.toString() )
+        );
+
+        NestedQueryTestLeaf leaf2 = new NestedQueryTestLeaf();
+        leaf2.setValue("x");
+        leaf2.setCode(7);
+        NestedQueryTestMid mid2 = new NestedQueryTestMid();
+        mid2.setLeaf(leaf2);
+        NestedQueryTestRoot root2 = new NestedQueryTestRoot();
+        root2.setMid(mid2);
+        test(intPred != null && intPred.f(root2), "Nested Java Test6: nested Int leaf evaluates true");
+
+        // A folder is navigation-only — never a valid standalone query (must drill to a scalar leaf).
+        Predicate folderPred = parser.parseString("mid");
+        test(folderPred == null, "Nested Java Test8: a folder ('mid') alone is not a valid query — got: " + folderPred);
+        Predicate nestedFolderPred = parser.parseString("mid.leaf");
+        test(nestedFolderPred == null, "Nested Java Test9: a nested folder ('mid.leaf') alone is not a valid query — got: " + nestedFolderPred);
       `
     },
 

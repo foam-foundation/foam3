@@ -202,12 +202,26 @@ foam.CLASS({
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 },
-      toJSON: function (value, outputter) {
+      // Serialize the script as real JSON rather than one escaped string, so
+      // journals and exports show the block structure and nested code /
+      // markdown strings serialize as plain strings (triple-quoted blocks
+      // under a multi-line outputter). Unparseable (hand-edited) script falls
+      // back to the string forms; parsers accept both shapes.
+      toJSON: function(value, outputter) {
+        try { return JSON.parse(value); } catch (e) {}
         // Triple-quoted output does its own escaping, and pre-escaping here
         // would hide the newlines it selects on.
         if ( outputter.multiLineOutput ) return value;
         return outputter.escape(value, true);
-      }
+      },
+      fromJSON: function(value, ctx, prop, json) {
+        return foam.String.isInstance(value) ? value : foam.json.PrettyStrict.stringify(value);
+      },
+      javaJSONParser: 'foam.core.reflow.ScriptParser.instance()',
+      javaFormatJSON: `
+        Object v = foam.core.reflow.ScriptParser.parseData(get_(obj));
+        if ( v == null ) formatter.output(get_(obj)); else formatter.output(v)
+      `
     }
   ],
 

@@ -327,11 +327,17 @@ foam.CLASS({
            *    runs the factory and stores the result (Property.js
            *    factoryGetter), so hasOwnProperty would call every multi-select
            *    answered before it was touched. Judge those by content.
-           *    - expression-backed: the computed value lives in private_ and
+           *  - expression-backed: the computed value lives in private_ and
            *    never reaches instance_ (Property.js eFactoryGetter), so
            *    hasOwnProperty always reports false. A derived value counts as
            *    known unless it computes to a "cannot derive yet" sentinel.
            *    Both null and '' are used for that, so accept either.
+           *    Model an expression that can be unknown as a String, not a
+           *    Boolean: the expression read path skips adapt, so a Boolean
+           *    expression CAN return null — but foam.lang.Boolean's adapt
+           *    (!!v) turns null into a stored false on any setter write
+           *    (clone, copyFrom, journal replay), silently converting
+           *    "unknown" into "answered false". '' survives storage.
            *  - everything else: answered iff a value was explicitly stored.
            */
           function isAnswered_(name) {

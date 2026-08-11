@@ -154,8 +154,9 @@ foam.CLASS({
 
     /**
      * Default Yes/No choices map to string 'TRUE'/'FALSE' so that boolean
-     * questions use the same unanswered-detection as all other questions:
-     * value === '' means not yet answered.
+     * questions present as choices like any other question. Whether a
+     * question has been answered is decided by isAnswered_ (a value was
+     * stored), never by inspecting the value itself.
      */
     function normalizeQuestion_(q) {
       var normalized = Object.assign({}, q);
@@ -292,8 +293,9 @@ foam.CLASS({
           /**
            * Return all outcomes whose predicate terms are consistent with
            * current property and answer values. A term is consistent if:
-           *   - The property it references has not been answered yet (value === '')
-           *   - The term evaluates to true against the current value
+           *   - The property it references has not been answered yet
+           *     (isAnswered_ is false), or
+           *   - The term evaluates to true against the stored value
            */
           function getCandidates() {
             return this.OUTCOMES.filter(outcome => this.isConsistent(outcome));
@@ -572,8 +574,7 @@ foam.CLASS({
               var resolved = 0;
 
               outcome.terms.forEach(function(term) {
-                var val = self[term.property];
-                if ( val !== '' && val !== undefined && val !== null ) {
+                if ( self.isAnswered_(term.property) ) {
                   resolved++;
                   if ( term.mlang.f(self) ) matching++;
                 }

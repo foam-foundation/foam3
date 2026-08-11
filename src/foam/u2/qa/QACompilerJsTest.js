@@ -146,6 +146,26 @@ foam.CLASS({
           'scoring eliminates no outcomes (before: ' + before +
           ' after: ' + candidates(scored) + ')');
 
+        // ---- Ranking judges answered-ness the same way ----------------------
+        // rankOutcomes counts an outcome's answered-and-matching terms. An
+        // unanswered Boolean reads its default false; if that default counted
+        // as an answer, FLAG_FALSE would outscore outcomes built from answers
+        // the user actually gave — and the top-ranked outcome is auto-applied.
+
+        function rankedFor(q, name) {
+          return q.rankOutcomes(q.getCandidates()).filter(function(r) {
+            return r.outcome.name === name;
+          })[0];
+        }
+
+        x.test(rankedFor(qa(), 'FLAG_FALSE').matching === 0,
+          'ranking: an untouched Boolean\'s default false is not a matching term');
+
+        var rankedFalse = qa();
+        rankedFalse.flag = false;
+        x.test(rankedFor(rankedFalse, 'FLAG_FALSE').matching === 1,
+          'ranking: flag stored as false is a matching term');
+
         // ---- Expression sentinel --------------------------------------------
         // Last, because isAnswered_ is the method this behaviour is built on:
         // where it is absent the assertions above have already reported.

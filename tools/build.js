@@ -552,7 +552,7 @@ function pom() {
   function addPom(fn) {
     if ( ! existsSync(fn + '.js') )
       warning('POM not found ' + fn + '.js');
-    else
+    else if ( ! poms.includes(fn) )
       poms.push(fn);
   };
 
@@ -588,7 +588,7 @@ function pom() {
           fn = fn2;
         }
       }
-      if ( fn && ! poms.includes(fn) ) addPom(fn);
+      if ( fn ) addPom(fn);
     });
   }
 

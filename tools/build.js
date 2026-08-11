@@ -552,13 +552,13 @@ function pom() {
   function addPom(fn) {
     if ( ! existsSync(fn + '.js') )
       warning('POM not found ' + fn + '.js');
-    else
+    else if ( ! poms.includes(fn) )
       poms.push(fn);
   };
 
   var root = false;
   POMS && POMS.split(',').forEach(c => {
-    addPom(c && `${PROJECT_HOME}/${c}`);
+    addPom(c && c.startsWith(PROJECT_HOME) ? c : `${PROJECT_HOME}/${c}`);
     root = root || c == 'pom';
   });
   // backward compatibility - hithertoo, only the root directory pom

@@ -100,13 +100,13 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build binary and resources JAR files.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
+    buildJar: ['build-jar', 'Build binary JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
-    buildResourcesJar: ['build-resources-jar', 'Build resource JAR', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
+    buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
       // Build resources JAR (journals, documents, images)
       this.info(`Building resources JAR: ${JAR_RES_NAME}`);
       this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
@@ -377,7 +377,7 @@ foam.POM({
     }],
 
     genJournals: ['gen-journals', 'Concatenate repository journal files into .0 files', [], function() {
-      // Resources (documents) go into the resources JAR
+      // Resources (journals) go into the resources JAR
       JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
 
       this.pmake.bind(this, `-makers=Journal -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -journaldir=${JOURNAL_OUT}`)();

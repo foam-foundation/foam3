@@ -383,7 +383,7 @@ foam.POM({
       this.pmake.bind(this, `-makers=Journal -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -journaldir=${JOURNAL_OUT}`)();
     }],
 
-    jarFOAM: ['jar-foam', 'Copy foam-bin files for inclusion in JAR file.', [], function() {
+    jarFOAM: ['jar-foam', 'Copy foam-bin files for inclusion in JAR file.', ['genJS'], function() {
       // Webroot goes into the binary JAR
       JAR_INCLUDES += ` -C ${BUILD_DIR} webroot `;
 

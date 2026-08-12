@@ -64,9 +64,14 @@ public class NotPartitionedDAO
     String journalName = getDirName();
     Loggers.logger(getX(), this).info("Creating underlying DAO", journalName);
 
-    System.err.println("******************************** CREATING UNLOADABLE DAO " + journalName);
-
-    DAO jdao = new JDAO(getX(), getOf(), journalName);
+    PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), "");
+    DAO jdao;
+    try {
+      reporter.start(journalSize(journalName));
+      jdao = new JDAO(getX().put(PartitionLoadReporter.CTX_KEY, reporter), getOf(), journalName);
+    } finally {
+      reporter.done();
+    }
 
     addIndices(jdao);
 

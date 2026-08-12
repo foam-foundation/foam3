@@ -1023,8 +1023,8 @@ dao loading, which improves overall startup time.`,
           if ( getWriteOnly() ) {
             delegate = new foam.dao.WriteOnlyJDAO(x, delegate, getOf(), getJournalName());
           } else if ( getUnloadable() &&  getDecorator() == null ) {
-System.err.println("************************************* CREATING UNLOADABLE DAO " + getJournalName());
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
+            pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
 
             // TODO: the delgate is lost, should it be sent as a prototype to be cloned?
             // Setting of delegate must be last as it triggers replay

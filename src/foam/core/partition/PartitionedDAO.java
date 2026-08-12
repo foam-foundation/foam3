@@ -111,7 +111,14 @@ public class PartitionedDAO
       throw new RuntimeException("Failed to create directory " + parent);
     }
 
-    JDAO jdao = new JDAO(getX(), getOf(), journalName);
+    PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), rawPart);
+    JDAO jdao;
+    try {
+      reporter.start(journalSize(journalName));
+      jdao = new JDAO(getX().put(PartitionLoadReporter.CTX_KEY, reporter), getOf(), journalName);
+    } finally {
+      reporter.done();
+    }
 
     // When the model's id is a String, assign composite <partition>~<seqNo>
     // ids per partition so find can route by the id prefix (see getPartition_).

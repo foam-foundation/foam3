@@ -31,22 +31,24 @@ foam.CLASS({
 
         // PartitionLoadToastStack.create() is memoized process-wide (manual
         // singleton, not context-scoped -- see the documentation on
-        // PartitionLoadToastStack.js), so whichever instance already exists
-        // must be configured directly rather than via context injection.
+        // PartitionLoadToastStack.js). create(null, subX) resolves the
+        // partitionLoadStatusDAO import from subX on whichever instance
+        // already exists; the import is a ConstantSlot from createSubContext
+        // so it must not be assigned to directly (throws "Tried to mutate
+        // immutable ConstantSlot").
         var stack = this.PartitionLoadToastStack.create(null, subX);
         x.test(this.PartitionLoadToastStack.create() === stack,
             'toast stack is a process-wide singleton');
-        stack.partitionLoadStatusDAO = statusDAO;
         stack.pollInterval = 100;
 
-        // Delegate that resolves after 700ms -- slower than showDelay 400ms,
-        // with enough margin past the 400/500/600ms checkpoints below that
+        // Delegate that resolves after 750ms -- slower than showDelay 400ms,
+        // with enough margin past the 500/600/700ms checkpoints below that
         // the settle-triggered unwatch can't race them.
         var slow = this.PromisedDAO.create({
           promise: new Promise(function(resolve) {
             setTimeout(function() {
               resolve(foam.dao.MDAO.create({ of: foam.core.partition.PartitionLoadStatus }, subX));
-            }, 700);
+            }, 750);
           })
         }, subX);
 
@@ -56,14 +58,14 @@ foam.CLASS({
 
         var p = dao.select();
 
-        await new Promise(function(r) { setTimeout(r, 450); });
+        await new Promise(function(r) { setTimeout(r, 500); });
         x.test(Object.keys(stack.watched_).length === 1,
             'stack watching svcA while op pending past showDelay');
 
         await new Promise(function(r) { setTimeout(r, 100); });
         x.test(stack.rows_.length === 1, 'active status row surfaced as a card row');
 
-        // Fast op mid-flight (slow op still pending until 700ms): must never
+        // Fast op mid-flight (slow op still pending until 750ms): must never
         // watch, and must not disturb the slow op's existing watch refcount.
         var fast = this.PartitionLoadProgressDAO.create({
           delegate: this.MDAO.create({ of: this.PartitionLoadStatus }, subX),
@@ -80,6 +82,10 @@ foam.CLASS({
         x.test(Object.keys(stack.watched_).length === 0, 'unwatched after slow op settles');
       } catch (e) {
         x.test(false, 'unexpected exception: ' + (e && e.message ? e.message : e));
+      } finally {
+        // Undo the process-wide memoization so a later test gets a fresh
+        // stack instead of this one's pollInterval/DAO configuration.
+        this.PartitionLoadToastStack.private_.instance_ = undefined;
       }
     }
   ]

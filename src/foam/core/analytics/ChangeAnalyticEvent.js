@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'ChangeAnalyticEvent',
   extends: 'foam.core.analytics.AnalyticEvent',
 
+  messages: [
+    { name: 'UNKNOWN_USER_MSG', message: 'Admin' }
+  ],
+
   css: `
     ^pill, ^pill-before, ^pill-after, ^pill-custom-color {
       display: inline-flex;
@@ -128,7 +132,7 @@ foam.CLASS({
         });
         this.__context__.userDAO.find(value).then((result) => {
           if ( ! result ) {
-            this.add("Paytic Admin");
+            this.add(this.data.UNKNOWN_USER_MSG);
           } else {
             this.add(result.firstName == "system" ? result.firstName : result.firstName[0] + ". " + result.lastName);
           }

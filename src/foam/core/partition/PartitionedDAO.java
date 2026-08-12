@@ -59,6 +59,10 @@ public class PartitionedDAO
     }
   }
 
+  /** Manual quiesce-then-unload only: an in-flight writer holding an old
+      delegate reference plus a new reader racing getDelegate() to recreate
+      it can briefly double-append to one journal file. Routine/automated
+      eviction needs draining semantics first -- follow-up ticket. */
   public synchronized void unload() {
     Loggers.logger(getX(), this).info("Unloading all partitions.", getDirName());
     delegates_.clear();

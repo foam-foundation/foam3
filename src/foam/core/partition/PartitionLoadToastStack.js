@@ -11,8 +11,8 @@ foam.CLASS({
 
   documentation: `Singleton bottom-right stack of partition-load progress
     cards. DAO decorators watch()/unwatch() service keys; while any key is
-    watched the stack polls partitionLoadStatusDAO every pollInterval ms and
-    renders one card per matching row. Non-blocking by design.
+    watched the stack polls partitionLoadStatusReadDAO every pollInterval ms
+    and renders one card per matching row. Non-blocking by design.
 
     create() is memoized to a single shared instance manually below instead
     of via foam.pattern.Singleton: that axiom's installInClass no-ops (only a
@@ -25,7 +25,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.ProgressView' ],
 
-  imports: [ 'partitionLoadStatusDAO?', 'ctrl?' ],
+  imports: [ 'partitionLoadStatusReadDAO?', 'ctrl?' ],
 
   css: `
     ^ {
@@ -97,13 +97,15 @@ foam.CLASS({
 
     async function refresh_() {
       var keys = Object.keys(this.watched_);
-      if ( ! keys.length || ! this.partitionLoadStatusDAO ) {
+      if ( ! keys.length || ! this.partitionLoadStatusReadDAO ) {
         this.rows_ = [];
         return;
       }
       try {
-        var sink = await this.partitionLoadStatusDAO.select();
-        this.rows_ = sink.array.filter(function(r) { return keys.indexOf(r.serviceName) != -1; });
+        var sink = await this.partitionLoadStatusReadDAO.select();
+        this.rows_ = sink.array.
+          filter(function(r) { return keys.indexOf(r.serviceName) != -1; }).
+          sort(function(a, b) { return a.startTime - b.startTime; });
       } catch (e) {
         // Progress channel never surfaces errors; retry next tick.
       }
@@ -120,6 +122,15 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
+      // The memoized create() (see bottom of file) hands out this same
+      // instance to every caller. If the element is later detached (e.g.
+      // ctrl.add()'d content torn down and rebuilt), invalidate the memo so
+      // the next create() builds a fresh, attachable instance instead of
+      // reusing this dead one.
+      this.onDetach(function() {
+        if ( self.cls_.private_.instance_ === self ) self.cls_.private_.instance_ = undefined;
+        self.attached_ = false;
+      });
       this.addClass().
         attrs({ 'aria-live': 'polite', role: 'status' }).
         add(this.dynamic(function(rows_) {

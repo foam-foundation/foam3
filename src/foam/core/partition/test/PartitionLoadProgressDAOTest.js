@@ -27,12 +27,12 @@ foam.CLASS({
           totalBytes: 1000, bytesRead: 400
         }));
 
-        var subX = x.createSubContext({ partitionLoadStatusDAO: statusDAO });
+        var subX = x.createSubContext({ partitionLoadStatusReadDAO: statusDAO });
 
         // PartitionLoadToastStack.create() is memoized process-wide (manual
         // singleton, not context-scoped -- see the documentation on
         // PartitionLoadToastStack.js). create(null, subX) resolves the
-        // partitionLoadStatusDAO import from subX on whichever instance
+        // partitionLoadStatusReadDAO import from subX on whichever instance
         // already exists; the import is a ConstantSlot from createSubContext
         // so it must not be assigned to directly (throws "Tried to mutate
         // immutable ConstantSlot").

@@ -47,13 +47,14 @@ foam.CLASS({
       var self    = this;
       var stack   = this.PartitionLoadToastStack.create();
       var settled = false;
+      var watched = false;
       var timer   = setTimeout(function() {
-        if ( ! settled ) stack.watch(self.serviceKey);
+        if ( ! settled ) { watched = true; stack.watch(self.serviceKey); }
       }, this.showDelay);
       var settle = function() {
         settled = true;
         clearTimeout(timer);
-        stack.unwatch(self.serviceKey);
+        if ( watched ) stack.unwatch(self.serviceKey);
       };
       p.then(settle, settle);
       return p;

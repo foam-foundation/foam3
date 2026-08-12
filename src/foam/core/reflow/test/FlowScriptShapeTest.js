@@ -75,6 +75,18 @@ foam.CLASS({
         Flow f4 = (Flow) parser.parseString(out);
         test(f4 != null, "formatter output re-parses");
         test(f4 != null && script.equals(f4.getScript()), "formatter round-trip preserves script text");
+
+        // Outputter round-trip (the DIG path): same structured emit via the
+        // property's toJSON, and re-parse back to the same script text.
+        foam.lib.json.Outputter jout = new foam.lib.json.Outputter(x);
+        jout.setMultiLine(true);
+        String jsonOut = jout.stringify(f1);
+        test(jsonOut.contains("\\"script\\":[") || jsonOut.contains("\\"script\\": ["), "outputter: script emitted as a JSON array");
+        test(jsonOut.contains("\\"\\"\\""), "outputter: multiline code emitted as a triple-quoted block");
+
+        Flow f5 = (Flow) parser.parseString(jsonOut);
+        test(f5 != null, "outputter output re-parses");
+        test(f5 != null && script.equals(f5.getScript()), "outputter round-trip preserves script text");
       `
     }
   ]

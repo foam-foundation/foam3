@@ -348,6 +348,11 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       class: 'String',
       name: 'javaFormatJSON',
       value: null
+    },
+    {
+      class: 'String',
+      name: 'javaToJSON',
+      value: null
     }
   ],
 

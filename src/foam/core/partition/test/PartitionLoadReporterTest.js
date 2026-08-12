@@ -37,7 +37,7 @@ foam.CLASS({
 
         r.addChars(100);
         row = (PartitionLoadStatus) status.find("jrn/1");
-        test(row.getBytesRead() < 100L + 1, "immediate addChars throttled (row not yet updated past start)");
+        test(row.getBytesRead() == 0L, "immediate addChars throttled (row still at start value)");
 
         try { Thread.sleep(300); } catch ( InterruptedException e ) {}
         r.addChars(50);

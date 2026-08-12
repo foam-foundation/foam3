@@ -59,6 +59,11 @@ public class PartitionedDAO
     }
   }
 
+  public synchronized void unload() {
+    Loggers.logger(getX(), this).info("Unloading all partitions.", getDirName());
+    delegates_.clear();
+  }
+
   public String getID(FObject o) {
     return (String) getIdProperty().f(o);
   }

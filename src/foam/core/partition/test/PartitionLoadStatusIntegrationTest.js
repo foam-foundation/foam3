@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'PartitionLoadStatusIntegrationTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'End-to-end createDAO path with a listener capturing row lifecycle: PartitionedDAO publishes/removes a status row per partition it creates, and NotPartitionedDAO does the same across an explicit unload + reload (PartitionedDAO.unload() is a NOP inherited from AbstractPartitionedDAO; NotPartitionedDAO is the createDAO path that actually implements unload).',
+  documentation: 'End-to-end createDAO path with a listener capturing row lifecycle: PartitionedDAO and NotPartitionedDAO each publish/remove a status row per partition/journal they create, and republish across an explicit UNLOAD_CMD + reload.',
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -71,9 +71,18 @@ foam.CLASS({
         test(sawService, "status rows carry the DAO serviceName");
         test(pdao.find("5~a1") != null, "record intact after seeding");
 
-        // NotPartitionedDAO.createDAO runs the same reporter wrap; its unload()
-        // is a real implementation (unlike PartitionedDAO's inherited NOP), so
-        // it is the path that exercises an unload + reload cycle.
+        // Unload evicts all cached partitions; the next find() recreates the
+        // partition's DAO from its journal, publishing a status row again.
+        Object cmdResult = pdao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
+        test(Boolean.TRUE.equals(cmdResult), "UNLOAD_CMD returns true");
+
+        int putsBeforeReload = puts.size();
+        test(pdao.find("5~a1") != null, "record intact after unload + reload");
+        test(puts.size() > putsBeforeReload, "reload after UNLOAD_CMD published status rows again");
+
+        // NotPartitionedDAO.createDAO runs the same reporter wrap over the
+        // other createDAO path Task 4 wired; exercise its own unload + reload too.
+        int putsAfterReload = puts.size();
         String npJournal = "partitionLoadIntegTest_np_" + System.currentTimeMillis();
         NotPartitionedDAO npdao = new NotPartitionedDAO(testX, PartitionStrRecord.getOwnClassInfo(), npJournal);
         npdao.setServiceName("integSvcNP");
@@ -83,14 +92,14 @@ foam.CLASS({
         npdao.put(c);
 
         int putsAfterNP = puts.size();
-        test(putsAfterNP > putsAfterSeed, "NotPartitionedDAO creation also published a status row");
+        test(putsAfterNP > putsAfterReload, "NotPartitionedDAO creation also published a status row");
         boolean sawNPService = false;
         for ( PartitionLoadStatus s : puts ) if ( "integSvcNP".equals(s.getServiceName()) ) sawNPService = true;
         test(sawNPService, "NotPartitionedDAO status row carries its own serviceName");
 
         npdao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
-        test(npdao.find("c1") != null, "record intact after unload + reload");
-        test(puts.size() > putsAfterNP, "reload after UNLOAD_CMD published status rows again");
+        test(npdao.find("c1") != null, "NotPartitionedDAO record intact after unload + reload");
+        test(puts.size() > putsAfterNP, "NotPartitionedDAO reload after UNLOAD_CMD published status rows again");
 
         ArraySink remaining = (ArraySink) status.select(new ArraySink());
         test(remaining.getArray().size() == 0, "no rows left after loads complete");

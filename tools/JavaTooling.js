@@ -370,7 +370,9 @@ foam.POM({
     }],
 
     genDocuments: ['gen-documents', 'Capture repository documentation - flow docs', [], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} documents `;
+      // Resources (documents) go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} documents `;
+
       this.pmake(`-makers=Doc -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -documentdir=${DOCUMENT_OUT}`);
     }],
 
@@ -381,7 +383,9 @@ foam.POM({
     }],
 
     genJournals: ['gen-journals', 'Concatenate repository journal files into .0 files', [], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} journals `;
+      // Resources (documents) go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
+
       this.pmake.bind(this, `-makers=Journal -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -journaldir=${JOURNAL_OUT}`)();
     }],
 

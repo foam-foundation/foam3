@@ -99,10 +99,7 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build binary and resources JAR files.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'versions', 'copy', 'genImages', 'genJavaManifest', 'jarFOAM' ], function() {
-      // Webroot goes into the resources JAR
-      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} webroot `;
-
+    buildJar: ['build-jar', 'Build binary and resources JAR files.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
@@ -166,7 +163,7 @@ foam.POM({
         JAVA_OPTS += ` -${SYSTEM_PROPERTY.split(',').join(' -')}`;
     }],
 
-    buildTar: ['build-tar', 'Package files into a TAR archive (both binary and resources JARs)', [()=>TAR=true, 'buildJar'], function() {
+    buildTar: ['build-tar', 'Package files into a TAR archive (both binary and resources JARs)', [()=>TAR=true, 'buildJar', 'buildResourcesJar'], function() {
       this.ensureDir(this.join(BUILD_DIR, 'package'));
       this.info(`Building full tarball with binary and resources JARs: ${TARBALL}`);
       const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
@@ -333,18 +330,14 @@ foam.POM({
       this.pmake.bind(this, `-makers=Image -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR}`)();
     }],
 
-    genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters'], function() {
-      // Resources (journals, documents) go into the resources JAR
-      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
-      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} documents `;
+    genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters', 'genJournals', 'genDocuments'], function() {
       // Compiled classes go into the binary JAR
       JAR_INCLUDES += ` -C ${BUILD_DIR}/classes .`;
 
       var makers = VERBOSE ? 'Verbose,' : '';
       // NOTE: Java and Javac Maker must be run together as they share data through X
       makers += 'Java,Maven,Javac';
-      makers += ',Journal,Doc';
-      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -journaldir=${JOURNAL_OUT} -documentdir=${DOCUMENT_OUT} -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'`)();
+      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'`)();
     }],
 
     deployBin: ['deploy-bin', 'Copy bash files to deployment', [], function() {
@@ -389,7 +382,10 @@ foam.POM({
       this.pmake.bind(this, `-makers=Journal -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -journaldir=${JOURNAL_OUT}`)();
     }],
 
-    jarFOAM: ['jar-foam', 'Copy foam-bin files for inclusion in JAR file.', ['genJava'], function() {
+    jarFOAM: ['jar-foam', 'Copy foam-bin files for inclusion in JAR file.', [], function() {
+      // Webroot goes into the binary JAR
+      JAR_INCLUDES += ` -C ${BUILD_DIR} webroot `;
+
       this.ensureDir(this.join(BUILD_DIR, 'webroot'));
       this.execSync(`cp ${BUILD_DIR}/js/foam-bin-* ${BUILD_DIR}/webroot/`, {stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],

@@ -30,3 +30,27 @@ p({
     }
   """
 })
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionLoadStatusDAO",
+  "description": "In-progress partition load status (ephemeral).",
+  "serve": true,
+  "authenticate": true,
+  "keywords": [ "partition" ],
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.NO_JOURNAL)
+      .setOf(foam.core.partition.PartitionLoadStatus.getOwnClassInfo())
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/partitionLoadStatusDAO",
+      "daoType": "CLIENT",
+      "cache": false,
+      "of": "foam.core.partition.PartitionLoadStatus"
+    }
+  """
+})

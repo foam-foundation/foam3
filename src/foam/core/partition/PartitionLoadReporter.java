@@ -11,8 +11,9 @@ import foam.lang.X;
 
 /**
  * Publishes journal-replay progress for one partition load into
- * partitionLoadStatusDAO. Owned by the single thread running the load;
- * puts are throttled so a fast replay does not storm the status DAO.
+ * partitionLoadStatusDAO. Not thread-safe: owned by the single thread
+ * running the load. Puts are throttled so a fast replay does not storm
+ * the status DAO.
  */
 public class PartitionLoadReporter {
   public final static String CTX_KEY             = "partitionLoadReporter";
@@ -43,7 +44,7 @@ public class PartitionLoadReporter {
     put(true);
   }
 
-  public synchronized void addChars(long n) {
+  public void addChars(long n) {
     read_ += n;
     put(false);
   }

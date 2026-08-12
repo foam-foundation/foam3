@@ -1,2 +1,5 @@
 p({"class":"foam.core.partition.test.SingleToPartitionMigratorTest","id":"SingleToPartitionMigratorTest"})
 p({"class":"foam.core.partition.test.ReferenceMigratorTest","id":"ReferenceMigratorTest"})
+p({"class":"foam.core.partition.test.PartitionLoadReporterTest","id":"PartitionLoadReporterTest"})
+p({"class":"foam.core.partition.test.PartitionLoadReplayTest","id":"PartitionLoadReplayTest"})
+p({"class":"foam.core.partition.test.PartitionLoadStatusIntegrationTest","id":"PartitionLoadStatusIntegrationTest"})

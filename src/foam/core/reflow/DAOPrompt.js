@@ -592,6 +592,7 @@ foam.CLASS({
       toolTip: 'Create a Test from Results',
       section: 'actions',
       themeIcon: 'test',
+      availablePermissions: [ 'command.read.test' ],
       // TODO:
 //      isEnabled: function(value) { return this.value; },
       code: async function() {

@@ -203,6 +203,9 @@ foam.CLASS({
       preSet: function(o, n) { return n.trim(); },
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 },
       toJSON: function (value, outputter) {
+        // Triple-quoted output does its own escaping, and pre-escaping here
+        // would hide the newlines it selects on.
+        if ( outputter.multiLineOutput ) return value;
         return outputter.escape(value, true);
       }
     }

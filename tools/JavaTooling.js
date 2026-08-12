@@ -106,8 +106,10 @@ foam.POM({
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+    }],
 
-      // Build resources JAR (journals, documents, images, webroot)
+    buildResourcesJar: ['build-resources-jar', 'Build resource JAR', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
+      // Build resources JAR (journals, documents, images)
       this.info(`Building resources JAR: ${JAR_RES_NAME}`);
       this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
@@ -189,7 +191,7 @@ foam.POM({
       this.info(`Binary tarball created: ${binaryTarballPath}`);
     }],
 
-    buildResourcesTar: ['build-resources-tar', 'Package resources JAR only into a TAR archive (customer-specific)', [()=>TAR=true, 'buildJar'], function() {
+    buildResourcesTar: ['build-resources-tar', 'Package resources JAR only into a TAR archive (customer-specific)', [()=>TAR=true, 'buildResourcesJar'], function() {
       this.ensureDir(this.join(BUILD_DIR, 'package'));
       const resourcesTarball = APP_NAME + '-resources-' + VERSION + '.tar.gz';
       const resourcesTarballPath = BUILD_DIR + '/package/' + resourcesTarball;

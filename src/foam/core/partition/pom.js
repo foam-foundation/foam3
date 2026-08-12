@@ -11,7 +11,8 @@ foam.POM({
     { name: "AbstractPartitionedDAO",       flags: "java" },
     { name: "PartitionedSequenceNumberDAO", flags: "java" },
     { name: "PartitionLoadStatus",          flags: "js|java" },
-    { name: "PartitionLoadProgressDAO",     flags: "js" }
+    { name: "PartitionLoadProgressDAO",     flags: "js" },
+    { name: "PartitionLoadToastStack",      flags: "js" }
   ],
 
   javaFiles: [

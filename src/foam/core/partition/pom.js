@@ -19,5 +19,6 @@ foam.POM({
     { name: "ReferenceMigrator" },
     { name: "SingleToPartitionMigrator" },
     { name: "NotPartitionedDAO" },
+    { name: "PartitionLoadReporter" },
   ]
 });

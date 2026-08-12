@@ -67,6 +67,15 @@ foam.CLASS({
     {
       class: 'List',
       name: 'indices'
+    },
+    {
+      class: 'String',
+      name: 'serviceName',
+      documentation: 'Name clients correlate load-status rows with. Resolved from the CSpec in X when built by a serviceScript; EasyDAO sets it explicitly otherwise.',
+      javaFactory: `
+        foam.core.boot.CSpec cspec = (foam.core.boot.CSpec) getX().get(foam.core.boot.CSpec.CSPEC_CTX_KEY);
+        return cspec != null ? cspec.getName() : "";
+      `
     }
   ],
 
@@ -96,6 +105,20 @@ foam.CLASS({
     }
 
     return super.cmd_(x, cmd);
+  }
+
+  public long journalSize(String journalName) {
+    try {
+      foam.core.fs.FileSystemStorage fss = (foam.core.fs.FileSystemStorage) getX().get(foam.core.fs.FileSystemStorage.class);
+      long total = 0;
+      java.io.File f = fss.get(journalName);
+      if ( f != null && f.isFile() ) total += f.length();
+      java.io.File f0 = fss.get(journalName + ".0");
+      if ( f0 != null && f0.isFile() ) total += f0.length();
+      return total;
+    } catch ( Throwable t ) {
+      return 0;
+    }
   }
 
   `

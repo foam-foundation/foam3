@@ -8,7 +8,8 @@ foam.POM({
     { name: 'ReferenceMigratorTest',              flags: 'js&test|java&test' },
     { name: 'PartitionLoadReporterTest',          flags: 'js&test|java&test' },
     { name: 'PartitionLoadReplayTest',            flags: 'js&test|java&test' },
-    { name: 'PartitionLoadStatusIntegrationTest', flags: 'js&test|java&test' }
+    { name: 'PartitionLoadStatusIntegrationTest', flags: 'js&test|java&test' },
+    { name: 'PartitionLoadProgressDAOTest',       flags: 'js&test|java&test' }
   ],
 
   javaFiles: [

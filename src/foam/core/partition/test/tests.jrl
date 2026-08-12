@@ -3,3 +3,4 @@ p({"class":"foam.core.partition.test.ReferenceMigratorTest","id":"ReferenceMigra
 p({"class":"foam.core.partition.test.PartitionLoadReporterTest","id":"PartitionLoadReporterTest"})
 p({"class":"foam.core.partition.test.PartitionLoadReplayTest","id":"PartitionLoadReplayTest"})
 p({"class":"foam.core.partition.test.PartitionLoadStatusIntegrationTest","id":"PartitionLoadStatusIntegrationTest"})
+p({"class":"foam.core.partition.test.PartitionLoadProgressDAOTest","id":"PartitionLoadProgressDAOTest", language: 0})

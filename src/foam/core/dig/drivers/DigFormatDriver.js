@@ -143,6 +143,7 @@ foam.CLASS({
       Command   command   = (Command) p.get(Command.class);
       String   id         = p.getParameter("id");
       String   q          = p.getParameter("q");
+      String   aql        = p.getParameter("aql");
       String   cols       = p.getParameter("columns");
       String   limit      = p.getParameter("limit");
       String   skip       = p.getParameter("skip");
@@ -169,6 +170,18 @@ foam.CLASS({
       final ClassInfo cInfoFinal = cInfo;
 
       Predicate pred = new WebAgentQueryParser(cInfo).parse(x, q);
+
+      // 'aql' filters with AQL (foam.parse.SimpleQueryParser) semantics — the
+      // same parser client views use — so a query matches the same rows on
+      // both sides. 'q' stays MQL for existing consumers; both AND together.
+      if ( ! SafetyUtil.isEmpty(aql) ) {
+        Predicate aqlPred = new foam.parse.SimpleQueryParser(cInfo).parseString(aql);
+        if ( aqlPred == null ) {
+          throw new IllegalArgumentException("failed to parse aql [" + aql + "]");
+        }
+        pred = MLang.AND(pred, aqlPred);
+      }
+
       getLogger().debug(pred.toString());
       dao = dao.where(pred);
 

@@ -74,6 +74,7 @@ foam.CLASS({
     'foam.core.crunch.box.CrunchClientBox',
     'foam.core.logger.Logger',
     'foam.core.logger.LoggingDAO',
+    'foam.core.partition.PartitionLoadProgressDAO',
     'foam.core.theme.SubdomainAwareDAO'
   ],
 
@@ -450,6 +451,12 @@ foam.CLASS({
       name: 'cache',
       documentation: 'Enable local in-memory caching of the DAO',
       generateJava: false
+    },
+    {
+      documentation: 'Client-side: show partition-load progress toasts while operations on this DAO wait on a server journal load. Only meaningful with daoType CLIENT and a serviceName.',
+      class: 'Boolean',
+      name: 'loadProgress',
+      flags: ['js']
     },
     {
       documentation: 'Set polling interval for the caching DAO',
@@ -1278,6 +1285,13 @@ dao loading, which improves overall startup time.`,
         dao = this.LoggingDAO.create({
           cSpec: this.cSpec,
           delegate: dao
+        });
+      }
+
+      if ( this.loadProgress && this.serviceName ) {
+        dao = this.PartitionLoadProgressDAO.create({
+          delegate: dao,
+          serviceKey: this.serviceName.replace(/^service\//, '').replace(/^dynamic\//, '')
         });
       }
 

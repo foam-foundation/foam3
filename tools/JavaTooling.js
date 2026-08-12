@@ -86,6 +86,7 @@ foam.POM({
           this.execute('buildTar');
         } else if ( JAR ) {
           this.execute('buildJar');
+          this.execute('buildResourcesJar');
         } else {
           this.execute('genJava');
         }
@@ -409,6 +410,7 @@ foam.POM({
       BOOT_SCRIPT_AUX = 'benchmarkRunnerScript';
 
       this.execute('buildJar');
+      this.execute('buildResourcesJar');
       this.execute('startCORETest', 'benchmark');
     }],
 
@@ -451,6 +453,7 @@ foam.POM({
       this.execute('cleanTest');
       BOOT_SCRIPT_AUX = 'testRunnerScript';
       this.execute('buildJar');
+      this.execute('buildResourcesJar');
       this.execute('startCORETest', 'test');
     }],
 

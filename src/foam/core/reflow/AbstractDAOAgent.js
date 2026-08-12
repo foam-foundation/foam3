@@ -1148,33 +1148,20 @@ foam.CLASS({
 
       var title = daoKey;
 
-      // Send the block's own query text: its 'where' is already MQL ('q') and
-      // its 'aql' has a server-side AQL parser ('aql'), so each filters with
-      // the exact semantics the block used. The predicate probe below is the
-      // fallback for blocks without those properties — its toMQL() round-trip
-      // loses case-insensitive matches (ContainsIC parses back as Contains).
-      var v = this.block.value;
-      if ( v.aql || v.where ) {
-        if ( v.where ) {
-          url = url + '&q=' + encodeURIComponent(v.where);
-          title = title + ', query=' + v.where;
-        }
-        if ( v.aql ) {
-          url = url + '&aql=' + encodeURIComponent(v.aql);
-          title = title + ', query=' + v.aql;
-        }
-      } else {
-        // Probe DAO to find the actual full query being used
-        try {
-          var sink = foam.dao.ArraySink.create();
-          sink.setPredicate = function(p) {
-            url = url + '&q=' + encodeURIComponent(p.toMQL());
-            title = title + ', query=' + p.toMQL();
-            throw "just probing";
-          };
-          await dao.select(sink);
-        } catch (x) {
-        }
+      // Probe DAO to find the actual full query being used. Send the
+      // predicate itself, serialized, so the server filters with the EXACT
+      // predicate this block used — a toMQL() round-trip through the 'q'
+      // parser loses case-insensitive matches (ContainsIC parses back as
+      // Contains). toMQL() stays for the human-readable title only.
+      try {
+        var sink = foam.dao.ArraySink.create();
+        sink.setPredicate = function(p) {
+          url = url + '&predicate=' + encodeURIComponent(foam.json.Network.stringify(p));
+          title = title + ', query=' + p.toMQL();
+          throw "just probing";
+        };
+        await dao.select(sink);
+      } catch (x) {
       }
 
       if ( this.block.value.columns ) {

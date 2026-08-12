@@ -143,7 +143,7 @@ foam.CLASS({
       Command   command   = (Command) p.get(Command.class);
       String   id         = p.getParameter("id");
       String   q          = p.getParameter("q");
-      String   aql        = p.getParameter("aql");
+      String   predicate  = p.getParameter("predicate");
       String   cols       = p.getParameter("columns");
       String   limit      = p.getParameter("limit");
       String   skip       = p.getParameter("skip");
@@ -171,15 +171,15 @@ foam.CLASS({
 
       Predicate pred = new WebAgentQueryParser(cInfo).parse(x, q);
 
-      // 'aql' filters with AQL (foam.parse.SimpleQueryParser) semantics — the
-      // same parser client views use — so a query matches the same rows on
-      // both sides. 'q' stays MQL for existing consumers; both AND together.
-      if ( ! SafetyUtil.isEmpty(aql) ) {
-        Predicate aqlPred = new foam.parse.SimpleQueryParser(cInfo).parseString(aql);
-        if ( aqlPred == null ) {
-          throw new IllegalArgumentException("failed to parse aql [" + aql + "]");
+      // 'predicate' carries a serialized foam.mlang Predicate, used directly —
+      // the exact predicate the caller's view filtered with, no query-language
+      // parsing involved. 'q' stays MQL for existing consumers; both AND together.
+      if ( ! SafetyUtil.isEmpty(predicate) ) {
+        Object po = x.create(foam.lib.json.JSONParser.class).parseString(predicate);
+        if ( ! ( po instanceof Predicate ) ) {
+          throw new IllegalArgumentException("failed to parse predicate [" + predicate + "]");
         }
-        pred = MLang.AND(pred, aqlPred);
+        pred = MLang.AND(pred, (Predicate) po);
       }
 
       getLogger().debug(pred.toString());

@@ -48,7 +48,7 @@ foam.CLASS({
     }
     ^groupHeader {
       color: $textSecondary;
-      font-weight: 600;
+      font-weight: bold;
       margin-bottom: 4px;
     }
     ^more {

@@ -30,6 +30,11 @@ foam.CLASS({
     },
     { class: 'Long', name: 'totalBytes' },
     { class: 'Long', name: 'bytesRead' },
-    { class: 'DateTimeUTC', name: 'startTime' }
+    { class: 'DateTimeUTC', name: 'startTime' },
+    {
+      class: 'Boolean',
+      name: 'queued',
+      documentation: 'True while the row is a placeholder for a partition that will load but whose replay has not started yet.'
+    }
   ]
 });

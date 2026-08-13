@@ -49,6 +49,11 @@ foam.CLASS({
       color: $textSecondary;
       margin-bottom: 4px;
     }
+    ^groupHeader {
+      color: $textSecondary;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
     ^more {
       color: $textTertiary;
       text-align: center;
@@ -119,6 +124,42 @@ foam.CLASS({
       return Math.min(99, Math.floor(row.bytesRead * 100 / Math.max(1, row.totalBytes)));
     },
 
+    function serviceGroups_(rows) {
+      // Aggregate ALL watched rows per serviceName (not just the on-screen
+      // cap-4 slice) so "N of M -- overall P%" stays accurate even when
+      // some of that service's cards are hidden by the cap.
+      var groups = {};
+      rows.forEach(function(r) {
+        var g = groups[r.serviceName] || (groups[r.serviceName] = {
+          total: 0, started: 0, bytesRead: 0, totalBytes: 0
+        });
+        g.total++;
+        if ( ! r.queued ) g.started++;
+        g.bytesRead  += r.bytesRead  || 0;
+        g.totalBytes += r.totalBytes || 0;
+      });
+      return groups;
+    },
+
+    function groupedRows_(rows) {
+      // rows is already startTime-sorted; re-bucket so each service's rows
+      // sit contiguously (first-seen order == earliest start), so one
+      // header covers one uninterrupted block of cards instead of
+      // repeating whenever two services' rows interleave by start time.
+      var order     = [];
+      var byService = {};
+      rows.forEach(function(r) {
+        if ( ! byService[r.serviceName] ) {
+          byService[r.serviceName] = [];
+          order.push(r.serviceName);
+        }
+        byService[r.serviceName].push(r);
+      });
+      var out = [];
+      order.forEach(function(name) { out = out.concat(byService[name]); });
+      return out;
+    },
+
     function render() {
       this.SUPER();
       var self = this;
@@ -135,9 +176,30 @@ foam.CLASS({
         attrs({ 'aria-live': 'polite', role: 'status' }).
         add(this.dynamic(function(rows_) {
           if ( ! rows_ || ! rows_.length ) return;
-          this.forEach(rows_.slice(0, self.MAX_CARDS), function(row) {
-            var pct   = self.pct_(row);
+          var groups      = self.serviceGroups_(rows_);
+          var ordered     = self.groupedRows_(rows_).slice(0, self.MAX_CARDS);
+          var lastService = null;
+          this.forEach(ordered, function(row) {
+            var group = groups[row.serviceName];
+            if ( row.serviceName !== lastService ) {
+              lastService = row.serviceName;
+              if ( group.total > 1 ) {
+                var overallPct = Math.min(99, Math.floor(group.bytesRead * 100 / Math.max(1, group.totalBytes)));
+                this.start().addClass('p-sm', self.myClass('groupHeader'))
+                  .add('partition ' + group.started + ' of ' + group.total + ' — overall ' + overallPct + '%')
+                .end();
+              }
+            }
             var label = row.serviceName + ( row.partition ? ' — ' + row.partition : '' );
+            if ( row.queued ) {
+              this.start().addClass(self.myClass('card'))
+                .start().addClass('p-sm', self.myClass('title'))
+                  .add(label + ' — queued')
+                .end()
+              .end();
+              return;
+            }
+            var pct = self.pct_(row);
             this.start().addClass(self.myClass('card'))
               .start().addClass('p-sm', self.myClass('title'))
                 .add('Loading ' + label + ' — ' + pct + '%')

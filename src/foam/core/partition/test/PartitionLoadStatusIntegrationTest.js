@@ -9,12 +9,13 @@ foam.CLASS({
   name: 'PartitionLoadStatusIntegrationTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'End-to-end createDAO path with a listener capturing row lifecycle: PartitionedDAO and NotPartitionedDAO each publish/remove a status row per partition/journal they create, and republish across an explicit UNLOAD_CMD + reload.',
+  documentation: 'End-to-end createDAO path with a listener capturing row lifecycle: PartitionedDAO and NotPartitionedDAO each publish/remove a status row per partition/journal they create, and republish across an explicit UNLOAD_CMD + reload. Also covers DatePartitionedDAO.select_: a range select over previously-unloaded partitions publishes a queued row per partition before its delegate loads, each queued row is overwritten (not duplicated) once its load starts, all are gone once the select completes, and a repeat select over now-warm partitions publishes nothing.',
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
     'foam.core.fs.Storage',
     'foam.core.partition.AbstractPartitionedDAO',
+    'foam.core.partition.DatePartitionedDAO',
     'foam.core.partition.NotPartitionedDAO',
     'foam.core.partition.PartitionedDAO',
     'foam.core.partition.PartitionLoadStatus',
@@ -26,9 +27,17 @@ foam.CLASS({
     'foam.lang.Detachable',
     'foam.lang.FObject',
     'foam.lang.X',
+    'foam.mlang.predicate.Predicate',
     'java.io.File',
     'java.util.ArrayList',
-    'java.util.List'
+    'java.util.Calendar',
+    'java.util.Date',
+    'java.util.HashSet',
+    'java.util.List',
+    'java.util.Set',
+    'static foam.mlang.MLang.AND',
+    'static foam.mlang.MLang.GTE',
+    'static foam.mlang.MLang.LTE'
   ],
 
   methods: [
@@ -100,6 +109,74 @@ foam.CLASS({
         npdao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
         test(npdao.find("c1") != null, "NotPartitionedDAO record intact after unload + reload");
         test(puts.size() > putsAfterNP, "NotPartitionedDAO reload after UNLOAD_CMD published status rows again");
+
+        // DatePartitionedDAO.select_: a range select over 3 unloaded partitions
+        // should publish a queued row per partition ahead of the delegate loop,
+        // each overwritten (not duplicated) once its own load starts, and none
+        // left once the select completes. A repeat select over the now-warm
+        // partitions should publish nothing new.
+        String dateDir = "partitionLoadIntegTest_date_" + System.currentTimeMillis() + "/";
+        DatePartitionedDAO ddao = new DatePartitionedDAO(
+          testX,
+          PartitionStrRecord.getOwnClassInfo(),
+          dateDir,
+          PartitionStrRecord.DATE);
+        ddao.setServiceName("dateSvc");
+
+        Calendar cal = Calendar.getInstance();
+        cal.clear();
+        cal.set(2026, Calendar.JANUARY, 15);
+        Date jan = cal.getTime();
+        cal.clear();
+        cal.set(2026, Calendar.FEBRUARY, 15);
+        Date feb = cal.getTime();
+        cal.clear();
+        cal.set(2026, Calendar.MARCH, 15);
+        Date mar = cal.getTime();
+
+        PartitionStrRecord rj = new PartitionStrRecord();
+        rj.setId("dj"); rj.setDate(jan);
+        ddao.put(rj);
+        PartitionStrRecord rf = new PartitionStrRecord();
+        rf.setId("df"); rf.setDate(feb);
+        ddao.put(rf);
+        PartitionStrRecord rm = new PartitionStrRecord();
+        rm.setId("dm"); rm.setDate(mar);
+        ddao.put(rm);
+
+        // Evict the cache: without this isLoaded() is already true for all
+        // three partitions and select_ would never publish a queued row.
+        ddao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
+
+        Predicate rangePred = AND(GTE(PartitionStrRecord.DATE, jan), LTE(PartitionStrRecord.DATE, mar));
+
+        int putsBeforeDateSelect    = puts.size();
+        int removesBeforeDateSelect = removes.size();
+        ddao.where(rangePred).select(new ArraySink());
+
+        Set<String> dateIds            = new HashSet<>();
+        boolean     sawQueued          = false;
+        boolean     sawActiveOverwrite = false;
+        for ( int i = putsBeforeDateSelect ; i < puts.size() ; i++ ) {
+          PartitionLoadStatus s = puts.get(i);
+          if ( ! "dateSvc".equals(s.getServiceName()) ) continue;
+          dateIds.add(s.getId());
+          if ( s.getQueued() ) {
+            sawQueued = true;
+            test(s.getTotalBytes() >= 0, "queued row carries a non-negative totalBytes");
+          } else {
+            sawActiveOverwrite = true;
+          }
+        }
+        test(sawQueued, "select_ published at least one queued row ahead of the delegate loop");
+        test(sawActiveOverwrite, "a queued row was overwritten by an active (non-queued) put once its load started");
+        test(dateIds.size() == 3, "queued-row publish touched exactly the 3 seeded partitions (got " + dateIds.size() + ")");
+        test(removes.size() > removesBeforeDateSelect, "each loaded partition removed its row on completion");
+
+        // Warm partitions: repeating the same select must publish nothing new.
+        int putsBeforeWarmSelect = puts.size();
+        ddao.where(rangePred).select(new ArraySink());
+        test(puts.size() == putsBeforeWarmSelect, "warm-partition select published no new status rows");
 
         ArraySink remaining = (ArraySink) status.select(new ArraySink());
         test(remaining.getArray().size() == 0, "no rows left after loads complete");

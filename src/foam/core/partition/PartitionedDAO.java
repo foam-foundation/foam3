@@ -68,6 +68,15 @@ public class PartitionedDAO
     delegates_.clear();
   }
 
+  /** Cheap cache peek: true when a live (non-garbage-collected) delegate is
+      already cached for this partition. No creation; same lock as
+      getDelegate() since delegates_ is a plain (non-concurrent) HashMap. */
+  public synchronized boolean isLoaded(String part) {
+    if ( part == null ) part = NO_PART;
+    SoftReference<DAO> ref = delegates_.get(part);
+    return ref != null && ref.get() != null;
+  }
+
   public String getID(FObject o) {
     return (String) getIdProperty().f(o);
   }
@@ -96,18 +105,22 @@ public class PartitionedDAO
     return a[getDepth()-1];
   }
 
-  public DAO createDAO(String part) {
-    Loggers.logger(getX(), this).info("Creating partiion " + part);
-
-    // The '_' escape is for the FILENAME only — the id prefix below keeps the
-    // raw partition value so getPartition_(id) round-trips to the same key
-    // getDelegate() caches on.
-    String rawPart = part;
+  /** Filename-escaped journal name for a raw partition value, exactly as
+      createDAO builds it for the JDAO -- the '_' escape is for the FILENAME
+      only; callers needing the id-prefix / cache key should keep using the
+      raw, unescaped part (see getPartition_'s round-trip). */
+  protected String journalNameFor(String part) {
     if ( part.startsWith("_") || part.equals("") ) {
       part = "_" + part;
     }
+    return getDirName() + part;
+  }
 
-    String journalName = getDirName() + part;
+  public DAO createDAO(String part) {
+    Loggers.logger(getX(), this).info("Creating partiion " + part);
+
+    String rawPart     = part;
+    String journalName = journalNameFor(part);
 
     // TODO: directory creation would be better done by JDAO itself
     // Create the directory in the WRITABLE FileSystemStorage where JDAO writes the

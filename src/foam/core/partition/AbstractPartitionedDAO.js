@@ -115,7 +115,26 @@ foam.CLASS({
       if ( f != null && f.isFile() ) total += f.length();
       java.io.File f0 = fss.get(journalName + ".0");
       if ( f0 != null && f0.isFile() ) total += f0.length();
+      if ( total > 0 ) return total;
+
+      // FileSystemStorage has no bytes for this name -- journals can be
+      // served read-only from a resource jar (resource.journals.dir). The
+      // read Storage may be a ResourceStorage, whose get() throws for jar
+      // entries, so size it off the stream it hands back instead.
+      foam.core.fs.Storage rs = (foam.core.fs.Storage) getX().get(foam.core.fs.Storage.class);
+      if ( rs != null && rs != fss ) {
+        total += streamSize(rs, journalName);
+        total += streamSize(rs, journalName + ".0");
+      }
       return total;
+    } catch ( Throwable t ) {
+      return 0;
+    }
+  }
+
+  protected long streamSize(foam.core.fs.Storage storage, String name) {
+    try ( java.io.InputStream is = storage.getInputStream(name) ) {
+      return is != null ? is.available() : 0;
     } catch ( Throwable t ) {
       return 0;
     }

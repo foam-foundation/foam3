@@ -13,9 +13,11 @@ import foam.mlang.Expr;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.*;
 import foam.mlang.predicate.Predicate;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 public class DatePartitionedDAO
   extends PartitionedDAO
@@ -128,7 +130,10 @@ public class DatePartitionedDAO
     String[] parts = new String[(y2-y1) * 12 + m2 - m1 + 1];
 
     for ( int i = 0, y = y1, m = m1 ; i < parts.length ; i++ ) {
-      parts[i] = getPartition(y + "/" + m);
+      // 'm' is Calendar.MONTH (0-based); getPartition(FObject) emits 1-based
+      // month partitions ("year/(month+1)" above), so match that here or a
+      // range select never finds the partitions records were written to.
+      parts[i] = getPartition(y + "/" + (m+1));
       m++;
       if ( m == 12 ) { m = 0; y++; }
     }
@@ -147,16 +152,66 @@ public class DatePartitionedDAO
     Sink           s2 = decorateSink(null, sink, skip, limit, order, predicate);
     DetachableSink s3 = new DetachableSink(s2);
 
-    for ( int i = 0 ; i < parts.length ; i++ ) {
-      DAO dao = getDelegate(parts[i]);
+    List<String> queuedIds = publishQueued(x, parts);
+    try {
+      for ( int i = 0 ; i < parts.length ; i++ ) {
+        DAO dao = getDelegate(parts[i]);
 
-      dao.select(s3);
-      if ( s3.isDetached() ) break;
+        dao.select(s3);
+        if ( s3.isDetached() ) break;
+      }
+
+      s2.eof();
+    } finally {
+      clearQueued(x, queuedIds);
     }
 
-    s2.eof();
-
     return sink;
+  }
+
+  /** Publish a queued status row for each not-yet-loaded partition this
+      select is about to iterate, so PartitionLoadToastStack can show
+      "N of M" before the (synchronous, per-partition) load actually reaches
+      them. Returns the ids published so the caller can clean up stragglers. */
+  protected List<String> publishQueued(X x, String[] parts) {
+    DAO status = (DAO) x.get("partitionLoadStatusDAO");
+    if ( status == null ) return new ArrayList<>();
+
+    List<String> ids = new ArrayList<>();
+    for ( String part : parts ) {
+      if ( isLoaded(part) ) continue;
+
+      String journalName = journalNameFor(part);
+      PartitionLoadStatus s = new PartitionLoadStatus();
+      s.setId(journalName);
+      s.setServiceName(getServiceName());
+      s.setPartition(part);
+      s.setTotalBytes(journalSize(journalName));
+      s.setQueued(true);
+      status.put(s);
+      ids.add(journalName);
+    }
+    return ids;
+  }
+
+  /** Remove queued rows this select published but never reached (early
+      detach, or another caller loaded the partition first). A row a real
+      load has since taken over (queued == false) is left alone -- its own
+      PartitionLoadReporter.done() removes it. */
+  protected void clearQueued(X x, List<String> ids) {
+    if ( ids.isEmpty() ) return;
+
+    DAO status = (DAO) x.get("partitionLoadStatusDAO");
+    if ( status == null ) return;
+
+    for ( String id : ids ) {
+      PartitionLoadStatus existing = (PartitionLoadStatus) status.find(id);
+      if ( existing != null && existing.getQueued() ) {
+        PartitionLoadStatus s = new PartitionLoadStatus();
+        s.setId(id);
+        status.remove(s);
+      }
+    }
   }
 
   public Date[] extractPredicateRange(Predicate predicate) {

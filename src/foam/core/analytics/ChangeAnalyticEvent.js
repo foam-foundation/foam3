@@ -143,20 +143,21 @@ foam.CLASS({
       name: 'name',
       hidden: true // Hidden because changeDesc displays it
     },
-    { // Taken from Claude
+    {
       class: 'String',
-      name: 'changeDesc', // Combination of name and field describing what was changed
+      name: 'changeDesc',
       label: 'Change',
       storageTransient: true,
+      documentation: 'Combination of name and field describing what was changed',
       expression: function(field, name) {
         return field + " · " + name;
       },
       javaGetter: `
-        return getField() + "|" + getName();
+        return getField() + " · " + getName();
       `,
       tableCellFormatter: function(value, obj) {
         var cls    = foam.String.cssClassize(obj.cls_.id);
-        var parts  = ( value || '' ).split('|');
+        var parts  = ( value || '' ).split(' · ');
         this.start().addClass(cls + '-label').add(parts[0] || '').end();
         this.start().addClass(cls + '-supportingLabel').add(parts[1] || '').end();
       }

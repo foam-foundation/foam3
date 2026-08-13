@@ -457,6 +457,19 @@ foam.ALANG([
   },
 
   // ============================================================================
+  // CONVERSION FUNCTIONS
+  // ============================================================================
+  {
+    name: 'VALUE',
+    documentation: 'Converts a String representation of a number to a number.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) { return foam.ascript.Lib.VALUE(text); },
+    javaCode: 'return foam.ascript.Lib.VALUE(text);'
+  },
+
+  // ============================================================================
   // TEXT FUNCTIONS
   // ============================================================================
   {

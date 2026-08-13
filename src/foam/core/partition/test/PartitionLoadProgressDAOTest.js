@@ -27,7 +27,7 @@ foam.CLASS({
           totalBytes: 1000, bytesRead: 400
         }));
 
-        var subX = x.createSubContext({ partitionLoadStatusReadDAO: statusDAO });
+        var subX = x.createSubContext({ partitionLoadStatusDAO: statusDAO });
 
         // partitionLoadToastStack is a context-scoped service (services.jrl,
         // lazyClient: false), not a process-wide singleton -- build one

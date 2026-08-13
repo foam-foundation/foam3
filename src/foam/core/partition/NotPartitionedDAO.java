@@ -30,6 +30,7 @@ public class NotPartitionedDAO
   extends AbstractPartitionedDAO
 {
   protected SoftReference<DAO> delegate_ = null;
+  protected EasyDAO easy_;
 
   public NotPartitionedDAO(X x) {
     setX(x);
@@ -39,6 +40,11 @@ public class NotPartitionedDAO
     setX(x);
     setOf(of);
     setDirName(journalName);
+  }
+
+  /** Set by EasyDAO so createDAO() can rebuild the same journalled chain on every reload. */
+  public void setEasyDAO(EasyDAO easy) {
+    easy_ = easy;
   }
 
   public synchronized DAO getDelegate() {
@@ -68,7 +74,10 @@ public class NotPartitionedDAO
     DAO jdao;
     try {
       reporter.start(journalSize(journalName));
-      jdao = new JDAO(getX().put(PartitionLoadReporter.CTX_KEY, reporter), getOf(), journalName);
+      X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
+      jdao = easy_ != null ?
+        easy_.createJournalledDelegate(loadX) :
+        new JDAO(loadX, getOf(), journalName);
     } finally {
       reporter.done();
     }

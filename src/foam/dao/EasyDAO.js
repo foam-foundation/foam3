@@ -1035,7 +1035,7 @@ dao loading, which improves overall startup time.`,
           } else if ( getUnloadable() && ! getDedup() ) {
             // getJournalDelegate() only replaces the journal delegate; the decorator,
             // ServiceProviderAwareDAO, and SequenceNumberDAO wrappers are all applied
-            // outside it (see the `delegate` property factory above) and survive
+            // outside it (see the 'delegate' property factory above) and survive
             // unload/reload untouched. Dedup is excluded because this branch discards
             // the "delegate" parameter (built above with the DeDupDAO wrapper) in favor
             // of NotPartitionedDAO's own lazily-created bare MDAO (see createDAO()), so

@@ -11,7 +11,7 @@ foam.CLASS({
 
   documentation: `Bottom-right stack of partition-load progress cards. DAO
     decorators watch()/unwatch() service keys; while any key is watched the
-    stack polls partitionLoadStatusReadDAO every pollInterval ms and renders
+    stack polls partitionLoadStatusDAO every pollInterval ms and renders
     one card per matching row. Non-blocking by design.
 
     Registered as a client-only CSpec service (partitionLoadToastStack in
@@ -22,7 +22,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.ProgressView' ],
 
-  imports: [ 'partitionLoadStatusReadDAO?', 'ctrl?' ],
+  imports: [ 'partitionLoadStatusDAO?', 'ctrl?' ],
 
   css: `
     ^ {
@@ -99,12 +99,12 @@ foam.CLASS({
 
     async function refresh_() {
       var keys = Object.keys(this.watched_);
-      if ( ! keys.length || ! this.partitionLoadStatusReadDAO ) {
+      if ( ! keys.length || ! this.partitionLoadStatusDAO ) {
         this.rows_ = [];
         return;
       }
       try {
-        var sink = await this.partitionLoadStatusReadDAO.select();
+        var sink = await this.partitionLoadStatusDAO.select();
         this.rows_ = sink.array.
           filter(function(r) { return keys.indexOf(r.serviceName) != -1; }).
           sort(function(a, b) { return a.startTime - b.startTime; });

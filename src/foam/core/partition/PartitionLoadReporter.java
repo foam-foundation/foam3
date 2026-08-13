@@ -6,6 +6,7 @@
 
 package foam.core.partition;
 
+import foam.core.logger.Loggers;
 import foam.dao.DAO;
 import foam.lang.X;
 
@@ -36,7 +37,20 @@ public class PartitionLoadReporter {
   }
 
   protected DAO dao() {
-    return (DAO) x_.get("partitionLoadStatusDAO");
+    DAO d = (DAO) x_.get("partitionLoadStatusDAO");
+    // Two layers to unwrap before reaching the writable delegate this
+    // server-side reporter needs: CSpecFactory.setCoreService wraps every
+    // DAO-typed service in its own plain `new ProxyDAO()` shell before
+    // registering it in X (foam3/src/foam/core/boot/CSpecFactory.java:220-238)
+    // -- exact-class check so we don't also unwrap EasyDAO, itself a
+    // ProxyDAO subclass -- and partitionLoadStatusDAO's serviceScript
+    // (services.jrl) itself returns a ReadOnlyDAO so remote clients can't
+    // write.
+    if ( d != null && d.getClass() == foam.dao.ProxyDAO.class ) {
+      d = ((foam.dao.ProxyDAO) d).getDelegate();
+    }
+    while ( d instanceof foam.dao.ReadOnlyDAO ) d = ((foam.dao.ProxyDAO) d).getDelegate();
+    return d;
   }
 
   public void start(long totalBytes) {
@@ -68,7 +82,13 @@ public class PartitionLoadReporter {
     s.setTotalBytes(total_);
     s.setBytesRead(read_);
     s.setStartTime(start_);
-    dao.put(s);
+    try {
+      dao.put(s);
+    } catch ( Throwable t ) {
+      // Best-effort progress channel -- must never break the replay it's
+      // reporting on, whatever partitionLoadStatusDAO gets wrapped in later.
+      Loggers.logger(x_, this).warning("Failed to publish partition-load status row", t);
+    }
   }
 
   public void done() {
@@ -77,6 +97,10 @@ public class PartitionLoadReporter {
 
     PartitionLoadStatus s = new PartitionLoadStatus();
     s.setId(id_);
-    dao.remove(s);
+    try {
+      dao.remove(s);
+    } catch ( Throwable t ) {
+      Loggers.logger(x_, this).warning("Failed to clear partition-load status row", t);
+    }
   }
 }

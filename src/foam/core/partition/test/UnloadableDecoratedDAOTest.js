@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'UnloadableDecoratedDAOTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'A SINGLE_JOURNAL EasyDAO with both setUnloadable(true) and a decorator set must still get the NotPartitionedDAO wrapper (regression for the getDecorator() == null exclusion), and the decorator plus seqNo stamping must survive an unload/reload cycle.',
+  documentation: 'A SINGLE_JOURNAL EasyDAO with both setUnloadable(true) and a decorator set must still get the NotPartitionedDAO wrapper (regression for the getDecorator() == null exclusion), and the decorator plus seqNo stamping must survive an unload/reload cycle. Also covers a dedup EasyDAO: it must now get the wrapper too, and its DeDupDAO must still be live in the rebuilt chain after reload, with getMdao() tracking the reloaded store.',
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -76,6 +76,40 @@ foam.CLASS({
         long id4 = ((Long) UnloadableDecoratedRecord.ID.get(p4)).longValue();
         test( id4 == id3 + 1,
           "seqNo continues after reload, got " + id4 + " expected " + (id3 + 1) );
+
+        // A dedup EasyDAO used to be excluded from the unloadable branch entirely
+        // (getUnloadable() && !getDedup()), so it never got the NotPartitionedDAO
+        // wrapper at all. It now rebuilds its inner chain (mdao + DeDupDAO + JDAO)
+        // from scratch via EasyDAO#createJournalledDelegate() on every reload, so
+        // dedup must still work after an unload/reload cycle.
+        String dedupJournalName = "unloadableDedup_" + System.nanoTime();
+        DAO dedupDao = new EasyDAO.Builder(tx)
+          .setAuthorize(false)
+          .setOf(UnloadableDecoratedRecord.getOwnClassInfo())
+          .setJournalType(JournalType.SINGLE_JOURNAL)
+          .setJournalName(dedupJournalName)
+          .setUnloadable(true)
+          .setDedup(true)
+          .build();
+        EasyDAO dedupEasyDao = (EasyDAO) dedupDao;
+
+        UnloadableDecoratedRecord dr = new UnloadableDecoratedRecord();
+        dr.setId(1);
+        dr.setData(new String("dedup-data"));
+        FObject putDr = dedupDao.put(dr);
+        test( UnloadableDecoratedRecord.DATA.get(putDr) == "dedup-data",
+          "dedup interns the data string on the initial put" );
+
+        Object dedupUnloadResult = dedupDao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
+        test( Boolean.TRUE.equals(dedupUnloadResult),
+          "dedup EasyDAO now also gets the NotPartitionedDAO wrapper (unloadable no longer excludes dedup)" );
+
+        FObject reloadedDr = dedupDao.find_(tx, 1L);
+        test( reloadedDr != null && UnloadableDecoratedRecord.DATA.get(reloadedDr) == "dedup-data",
+          "rebuilt chain still dedups after reload: journal replay ran back through DeDupDAO" );
+
+        test( dedupEasyDao.getMdao() != null && dedupEasyDao.getMdao().find_(tx, 1L) != null,
+          "easy.getMdao() alias tracks the live (reloaded) store after unload/reload" );
       `
     },
     {

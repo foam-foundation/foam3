@@ -30,6 +30,7 @@ public class NotPartitionedDAO
   extends AbstractPartitionedDAO
 {
   protected SoftReference<DAO> delegate_ = null;
+  protected EasyDAO easy_;
 
   public NotPartitionedDAO(X x) {
     setX(x);
@@ -39,6 +40,11 @@ public class NotPartitionedDAO
     setX(x);
     setOf(of);
     setDirName(journalName);
+  }
+
+  /** Set by EasyDAO so createDAO() can rebuild the same journalled chain on every reload. */
+  public void setEasyDAO(EasyDAO easy) {
+    easy_ = easy;
   }
 
   public synchronized DAO getDelegate() {
@@ -64,9 +70,9 @@ public class NotPartitionedDAO
     String journalName = getDirName();
     Loggers.logger(getX(), this).info("Creating underlying DAO", journalName);
 
-    System.err.println("******************************** CREATING UNLOADABLE DAO " + journalName);
-
-    DAO jdao = new JDAO(getX(), getOf(), journalName);
+    DAO jdao = easy_ != null ?
+      easy_.createJournalledDelegate(getX()) :
+      new JDAO(getX(), getOf(), journalName);
 
     addIndices(jdao);
 

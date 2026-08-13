@@ -10,7 +10,8 @@ foam.CLASS({
   extends: 'foam.core.analytics.AnalyticEvent',
 
   messages: [
-    { name: 'UNKNOWN_USER_MSG', message: 'Admin' }
+    { name: 'UNKNOWN_USER_MSG', message: 'Admin' },
+    { name: 'SYSTEM_USER_MSG',  message: 'System' }
   ],
 
   css: `
@@ -130,13 +131,17 @@ foam.CLASS({
         this.style({
           'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
         });
-        this.__context__.userDAO.find(value).then((result) => {
-          if ( ! result ) {
-            this.add(this.data.UNKNOWN_USER_MSG);
-          } else {
-            this.add(result.firstName == "system" ? result.firstName : result.firstName[0] + ". " + result.lastName);
-          }
-        });
+        if ( value == 0 ) { // Can skip DAO lookup if it's the system user
+          this.add(this.data.SYSTEM_USER_MSG);
+        } else {
+          this.__context__.userDAO.find(value).then((result) => {
+            if ( ! result ) {
+              this.add(this.data.UNKNOWN_USER_MSG);
+            } else {
+              this.add(result.firstName[0] + ". " + result.lastName);
+            }
+          });
+        }
       }
     },
     {

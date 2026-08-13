@@ -10,7 +10,8 @@ foam.CLASS({
   extends: 'foam.core.analytics.AnalyticEvent',
 
   messages: [
-    { name: 'UNKNOWN_USER_MSG', message: 'Admin' }
+    { name: 'UNKNOWN_USER_MSG', message: 'Admin' },
+    { name: 'SYSTEM_USER_MSG',  message: 'System' }
   ],
 
   css: `
@@ -131,10 +132,12 @@ foam.CLASS({
           'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
         });
         this.__context__.userDAO.find(value).then((result) => {
-          if ( ! result ) {
+          if ( value == 0 ) {
+            this.add(this.data.SYSTEM_USER_MSG);
+          } else if ( ! result ) {
             this.add(this.data.UNKNOWN_USER_MSG);
           } else {
-            this.add(result.firstName == "system" ? result.firstName : result.firstName[0] + ". " + result.lastName);
+            this.add(result.firstName[0] + ". " + result.lastName);
           }
         });
       }

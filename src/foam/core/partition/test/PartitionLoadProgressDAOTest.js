@@ -29,17 +29,14 @@ foam.CLASS({
 
         var subX = x.createSubContext({ partitionLoadStatusReadDAO: statusDAO });
 
-        // PartitionLoadToastStack.create() is memoized process-wide (manual
-        // singleton, not context-scoped -- see the documentation on
-        // PartitionLoadToastStack.js). create(null, subX) resolves the
-        // partitionLoadStatusReadDAO import from subX on whichever instance
-        // already exists; the import is a ConstantSlot from createSubContext
-        // so it must not be assigned to directly (throws "Tried to mutate
-        // immutable ConstantSlot").
+        // partitionLoadToastStack is a context-scoped service (services.jrl,
+        // lazyClient: false), not a process-wide singleton -- build one
+        // instance and place it in the sub-context so every decorator
+        // created in that context imports the same instance, mirroring how
+        // the real app resolves it via CSpec + imports.
         var stack = this.PartitionLoadToastStack.create(null, subX);
-        x.test(this.PartitionLoadToastStack.create() === stack,
-            'toast stack is a process-wide singleton');
         stack.pollInterval = 100;
+        subX = subX.createSubContext({ partitionLoadToastStack: stack });
 
         // Delegate that resolves after 750ms -- slower than showDelay 400ms,
         // with enough margin past the 500/600/700ms checkpoints below that
@@ -71,6 +68,8 @@ foam.CLASS({
           delegate: this.MDAO.create({ of: this.PartitionLoadStatus }, subX),
           serviceKey: 'svcA', showDelay: 400
         }, subX);
+        x.test(dao.partitionLoadToastStack === fast.partitionLoadToastStack,
+            'both decorators reach the same context instance');
         await fast.select();
 
         await new Promise(function(r) { setTimeout(r, 100); });
@@ -82,10 +81,6 @@ foam.CLASS({
         x.test(Object.keys(stack.watched_).length === 0, 'unwatched after slow op settles');
       } catch (e) {
         x.test(false, 'unexpected exception: ' + (e && e.message ? e.message : e));
-      } finally {
-        // Undo the process-wide memoization so a later test gets a fresh
-        // stack instead of this one's pollInterval/DAO configuration.
-        this.PartitionLoadToastStack.private_.instance_ = undefined;
       }
     }
   ]

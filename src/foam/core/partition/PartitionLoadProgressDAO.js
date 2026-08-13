@@ -12,9 +12,11 @@ foam.CLASS({
   documentation: `Client-side decorator. While any operation on this DAO is
     pending past showDelay, asks the PartitionLoadToastStack to watch this
     DAO's serviceKey; the stack shows progress cards for matching
-    partition-load status rows. Unwatches when the operation settles.`,
+    partition-load status rows. Unwatches when the operation settles.
+    partitionLoadToastStack is an optional import -- if no such service is
+    registered in this context, tracking is a no-op passthrough.`,
 
-  requires: [ 'foam.core.partition.PartitionLoadToastStack' ],
+  imports: [ 'partitionLoadToastStack?' ],
 
   properties: [
     {
@@ -44,8 +46,9 @@ foam.CLASS({
 
     function track_(p) {
       if ( ! this.serviceKey || ! p || ! p.then ) return p;
+      var stack = this.partitionLoadToastStack;
+      if ( ! stack ) return p;
       var self    = this;
-      var stack   = this.PartitionLoadToastStack.create();
       var settled = false;
       var watched = false;
       var timer   = setTimeout(function() {

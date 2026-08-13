@@ -9,19 +9,16 @@ foam.CLASS({
   name: 'PartitionLoadToastStack',
   extends: 'foam.u2.View',
 
-  documentation: `Singleton bottom-right stack of partition-load progress
-    cards. DAO decorators watch()/unwatch() service keys; while any key is
-    watched the stack polls partitionLoadStatusReadDAO every pollInterval ms
-    and renders one card per matching row. Non-blocking by design.
+  documentation: `Bottom-right stack of partition-load progress cards. DAO
+    decorators watch()/unwatch() service keys; while any key is watched the
+    stack polls partitionLoadStatusReadDAO every pollInterval ms and renders
+    one card per matching row. Non-blocking by design.
 
-    create() is memoized to a single shared instance manually below instead
-    of via foam.pattern.Singleton: that axiom's installInClass no-ops (only a
-    console.error, no throw) whenever the class carries any foam.lang.Import
-    axiom, own or inherited -- and foam.u2.Element, an ancestor of every
-    View, always declares imports, so no View subclass can ever install it
-    (see foam.pattern.Singleton.hasImports/installInClass). Task 6's decorator
-    depends on every .create() call sharing one watched_ refcount map, so a
-    real memoized create() is required, not the no-op axiom.`,
+    Registered as a client-only CSpec service (partitionLoadToastStack in
+    services.jrl, lazyClient: false) rather than a hand-rolled singleton, so
+    every decorator that imports it resolves the same context-scoped
+    instance and shares one watched_ refcount map. See
+    PartitionLoadProgressDAO's optional 'partitionLoadToastStack?' import.`,
 
   requires: [ 'foam.u2.ProgressView' ],
 
@@ -163,13 +160,11 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-      // The memoized create() (see bottom of file) hands out this same
-      // instance to every caller. If the element is later detached (e.g.
-      // ctrl.add()'d content torn down and rebuilt), invalidate the memo so
-      // the next create() builds a fresh, attachable instance instead of
-      // reusing this dead one.
+      // If the element is later detached (e.g. ctrl.add()'d content torn
+      // down and rebuilt), clear attached_ so refresh_() re-adds it next
+      // time watched rows appear -- the instance itself is unchanged since
+      // it's resolved via context import, not re-created per attach.
       this.onDetach(function() {
-        if ( self.cls_.private_.instance_ === self ) self.cls_.private_.instance_ = undefined;
         self.attached_ = false;
       });
       this.addClass().
@@ -216,14 +211,3 @@ foam.CLASS({
     }
   ]
 });
-
-// foam.pattern.Singleton can't be used here -- see documentation above.
-// Memoize create() by hand, using the same cls.private_.instance_ slot
-// Singleton itself would use.
-(function() {
-  var cls  = foam.core.partition.PartitionLoadToastStack;
-  var base = cls.create;
-  cls.create = function(args, X) {
-    return cls.private_.instance_ || ( cls.private_.instance_ = base.call(cls, args, X) );
-  };
-})();

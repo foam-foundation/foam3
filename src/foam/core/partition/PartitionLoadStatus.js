@@ -21,7 +21,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'serviceName',
-      documentation: 'CSpec name (or EasyDAO name for dynamic DAOs) clients match against.'
+      documentation: 'CSpec name (or EasyDAO name when no CSpec is bound) clients match against.'
     },
     {
       class: 'String',

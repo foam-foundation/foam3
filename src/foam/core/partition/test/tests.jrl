@@ -4,3 +4,4 @@ p({"class":"foam.core.partition.test.PartitionLoadReporterTest","id":"PartitionL
 p({"class":"foam.core.partition.test.PartitionLoadReplayTest","id":"PartitionLoadReplayTest"})
 p({"class":"foam.core.partition.test.PartitionLoadStatusIntegrationTest","id":"PartitionLoadStatusIntegrationTest"})
 p({"class":"foam.core.partition.test.PartitionLoadProgressDAOTest","id":"PartitionLoadProgressDAOTest", language: 0})
+p({"class":"foam.core.partition.test.UnloadableDecoratedDAOTest","id":"UnloadableDecoratedDAOTest"})

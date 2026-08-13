@@ -232,11 +232,21 @@ foam.CLASS({
             .build();
 
           // auto add index on spid
-          DAO dao = (DAO) getMdao();
-          if ( dao != null && dao instanceof foam.dao.MDAO ) {
+          // Route through delegate.cmd_() rather than grabbing getMdao() directly: with an
+          // unloadable NotPartitionedDAO in the chain, getMdao() is an orphaned instance
+          // discarded on reload, but AbstractPartitionedDAO.cmd_() records the
+          // AddIndexCommand and NotPartitionedDAO#createDAO() replays it on every reload.
+          if ( getMdao() != null ) {
             PropertyInfo pInfo = (PropertyInfo) getOf().getAxiomByName("spid");
             if ( pInfo != null ) {
-              ((foam.dao.MDAO)dao).addIndex(pInfo);
+              AddIndexCommand cmd = new AddIndexCommand();
+              cmd.setIndexers(new Indexer[] { pInfo });
+              Object result = delegate.cmd_(getX(), cmd);
+              if ( result == null ||
+                  ! ( result instanceof Boolean ) ||
+                  ((Boolean) result).booleanValue() != true ) {
+                logger.warning(getName(), "Index not added, no access to MDAO", pInfo);
+              }
             } else {
               logger.warning(getName(), "Index not added. Property not found. spid");
             }
@@ -1029,7 +1039,15 @@ dao loading, which improves overall startup time.`,
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
           if ( getWriteOnly() ) {
             delegate = new foam.dao.WriteOnlyJDAO(x, delegate, getOf(), getJournalName());
-          } else if ( getUnloadable() &&  getDecorator() == null ) {
+          } else if ( getUnloadable() && ! getDedup() ) {
+            // getJournalDelegate() only replaces the journal delegate; the decorator,
+            // ServiceProviderAwareDAO, and SequenceNumberDAO wrappers are all applied
+            // outside it (see the `delegate` property factory above) and survive
+            // unload/reload untouched. Dedup is excluded because this branch discards
+            // the "delegate" parameter (built above with the DeDupDAO wrapper) in favor
+            // of NotPartitionedDAO's own lazily-created bare MDAO (see createDAO()), so
+            // a dedup EasyDAO would silently never get its DeDupDAO wrapper at all.
+            // FixedSizeDAO already self-excludes via setUnloadable(false) above.
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
             pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
 

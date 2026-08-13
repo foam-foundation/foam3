@@ -37,20 +37,10 @@ public class PartitionLoadReporter {
   }
 
   protected DAO dao() {
-    DAO d = (DAO) x_.get("partitionLoadStatusDAO");
-    // Two layers to unwrap before reaching the writable delegate this
-    // server-side reporter needs: CSpecFactory.setCoreService wraps every
-    // DAO-typed service in its own plain `new ProxyDAO()` shell before
-    // registering it in X (foam3/src/foam/core/boot/CSpecFactory.java:220-238)
-    // -- exact-class check so we don't also unwrap EasyDAO, itself a
-    // ProxyDAO subclass -- and partitionLoadStatusDAO's serviceScript
-    // (services.jrl) itself returns a ReadOnlyDAO so remote clients can't
-    // write.
-    if ( d != null && d.getClass() == foam.dao.ProxyDAO.class ) {
-      d = ((foam.dao.ProxyDAO) d).getDelegate();
-    }
-    while ( d instanceof foam.dao.ReadOnlyDAO ) d = ((foam.dao.ProxyDAO) d).getDelegate();
-    return d;
+    // The service itself is open server-side; read-only protection lives in
+    // the CLIENT stanza (a ReadOnlyDAO decorator on the client EasyDAO), so
+    // server-side writers use the resolved service directly.
+    return (DAO) x_.get("partitionLoadStatusDAO");
   }
 
   public void start(long totalBytes) {

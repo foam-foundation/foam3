@@ -9,7 +9,10 @@ foam.POM({
     { name: "DatePartitioningScheme",       flags: "java" },
     { name: "All",                          flags: "js|java" },
     { name: "AbstractPartitionedDAO",       flags: "java" },
-    { name: "PartitionedSequenceNumberDAO", flags: "java" }
+    { name: "PartitionedSequenceNumberDAO", flags: "java" },
+    { name: "PartitionLoadStatus",          flags: "js|java" },
+    { name: "PartitionLoadProgressDAO",     flags: "js" },
+    { name: "PartitionLoadToastStack",      flags: "js" }
   ],
 
   javaFiles: [
@@ -18,5 +21,6 @@ foam.POM({
     { name: "ReferenceMigrator" },
     { name: "SingleToPartitionMigrator" },
     { name: "NotPartitionedDAO" },
+    { name: "PartitionLoadReporter" },
   ]
 });

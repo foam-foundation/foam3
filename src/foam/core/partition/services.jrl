@@ -30,3 +30,40 @@ p({
     }
   """
 })
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionLoadStatusDAO",
+  "description": "In-progress partition load status (ephemeral), server-writable. Not served -- PartitionLoadReporter is the only writer. Remote clients read via partitionLoadStatusReadDAO.",
+  "authenticate": true,
+  "keywords": [ "partition" ],
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.NO_JOURNAL)
+      .setOf(foam.core.partition.PartitionLoadStatus.getOwnClassInfo())
+      .build();
+  """
+})
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionLoadStatusReadDAO",
+  "description": "Read-only client view of in-progress partition load status. Wraps partitionLoadStatusDAO in ReadOnlyDAO so remote clients can select/find but put/remove/cmd are rejected server-side.",
+  "serve": true,
+  "authenticate": true,
+  "keywords": [ "partition" ],
+  "serviceScript": """
+    return new foam.dao.ReadOnlyDAO.Builder(x)
+      .setDelegate((foam.dao.DAO) x.get("partitionLoadStatusDAO"))
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/partitionLoadStatusReadDAO",
+      "daoType": "CLIENT",
+      "cache": false,
+      "loadProgress": false,
+      "of": "foam.core.partition.PartitionLoadStatus"
+    }
+  """
+})

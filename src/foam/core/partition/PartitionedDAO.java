@@ -59,6 +59,15 @@ public class PartitionedDAO
     }
   }
 
+  /** Manual quiesce-then-unload only: an in-flight writer holding an old
+      delegate reference plus a new reader racing getDelegate() to recreate
+      it can briefly double-append to one journal file. Routine/automated
+      eviction needs draining semantics first -- follow-up ticket. */
+  public synchronized void unload() {
+    Loggers.logger(getX(), this).info("Unloading all partitions.", getDirName());
+    delegates_.clear();
+  }
+
   public String getID(FObject o) {
     return (String) getIdProperty().f(o);
   }
@@ -111,7 +120,14 @@ public class PartitionedDAO
       throw new RuntimeException("Failed to create directory " + parent);
     }
 
-    JDAO jdao = new JDAO(getX(), getOf(), journalName);
+    PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), rawPart);
+    JDAO jdao;
+    try {
+      reporter.start(journalSize(journalName));
+      jdao = new JDAO(getX().put(PartitionLoadReporter.CTX_KEY, reporter), getOf(), journalName);
+    } finally {
+      reporter.done();
+    }
 
     // When the model's id is a String, assign composite <partition>~<seqNo>
     // ids per partition so find can route by the id prefix (see getPartition_).

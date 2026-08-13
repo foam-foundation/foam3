@@ -215,7 +215,7 @@ foam.CLASS({
           subField: seq('.', sym('ident'), opt(sym('subField'))),
 
           // typed functions first, then the one generic rule for the other ~295
-          funcall: alt(sym('fn_IF'), sym('ifs'), sym('generic_funcall')),
+          funcall: alt(sym('fn_IF'), sym('ifs'), sym('switch'), sym('generic_funcall')),
 
           // IF cond delegates to the inherited predicate tree via `or`
           fn_IF: seq(seq1(1, sym('ws'), litIC('IF')), sym('ws'), '(',
@@ -233,6 +233,15 @@ foam.CLASS({
             ')'),
 
           ifsClause: seq(sym('or'), comma, sym('EXPR')),
+
+          switch: seq1(4,
+            sym('ws'),
+            litIC('SWITCH'),
+            sym('ws'),
+            '(',
+            rep(sym('EXPR'), ',', 1),
+            sym('ws'),
+            ')'),
 
           generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
 
@@ -338,6 +347,10 @@ foam.CLASS({
 
         ifsClause: function(v) {
           return foam.mlang.expr.IfsClause.create({cond: v[0], expr: v[2]});
+        },
+
+        switch: function(v) {
+          return foam.mlang.expr.Switch.create({expr: v[0], exprs: v.slice(1)});
         },
 
         // TODO: loop over FUNCTIONS and add each individually so that auto-complete works

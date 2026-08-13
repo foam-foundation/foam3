@@ -35,6 +35,7 @@ foam.POM({
     { name: "expr/Cond",                            flags: "js|java" },
     { name: "expr/Concat",                          flags: "js|java" },
     { name: "expr/Ifs",                             flags: "js|java" },
+    { name: "expr/Switch",                          flags: "js|java" },
     { name: "Mux",                                  flags: "js|java" },
     { name: "predicate/Binary",                     flags: "js|java" },
     { name: "predicate/Nary",                       flags: "js|java" },

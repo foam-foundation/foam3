@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'ChangeAnalyticEvent',
   extends: 'foam.core.analytics.AnalyticEvent',
 
+  messages: [
+    { name: 'UNKNOWN_USER_MSG', message: 'Admin' }
+  ],
+
   css: `
     ^pill, ^pill-before, ^pill-after, ^pill-custom-color {
       display: inline-flex;
@@ -53,7 +57,7 @@ foam.CLASS({
       class: 'String',
       name: 'field',
       documentation: 'The property that was changed.',
-      hidden: true
+      hidden: true // Hidden because changeDesc displays it
     },
     {
       class: 'String',
@@ -128,7 +132,7 @@ foam.CLASS({
         });
         this.__context__.userDAO.find(value).then((result) => {
           if ( ! result ) {
-            this.add("Unknown");
+            this.add(this.data.UNKNOWN_USER_MSG);
           } else {
             this.add(result.firstName == "system" ? result.firstName : result.firstName[0] + ". " + result.lastName);
           }
@@ -137,10 +141,25 @@ foam.CLASS({
     },
     {
       name: 'name',
-      label: 'Change', // Name of event = change that occurred
+      hidden: true // Hidden because changeDesc displays it
+    },
+    {
+      class: 'String',
+      name: 'changeDesc',
+      label: 'Change',
+      storageTransient: true,
+      documentation: 'Combination of name and field describing what was changed',
+      expression: function(field, name) {
+        return field + " · " + name;
+      },
+      javaGetter: `
+        return getField() + " · " + getName();
+      `,
       tableCellFormatter: function(value, obj) {
-        this.start().addClass(foam.String.cssClassize(obj.cls_.id) + '-label').add(obj.field).end();
-        this.start().addClass(foam.String.cssClassize(obj.cls_.id) + '-supportingLabel').add(value).end();
+        var cls    = foam.String.cssClassize(obj.cls_.id);
+        var parts  = ( value || '' ).split(' · ');
+        this.start().addClass(cls + '-label').add(parts[0] || '').end();
+        this.start().addClass(cls + '-supportingLabel').add(parts[1] || '').end();
       }
     }
   ]

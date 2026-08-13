@@ -463,10 +463,11 @@ foam.CLASS({
       generateJava: false
     },
     {
-      documentation: 'Client-side: show partition-load progress toasts while operations on this DAO wait on a server journal load. Only meaningful with daoType CLIENT and a serviceName.',
+      documentation: 'Client-side: show partition-load progress toasts while operations on this DAO wait on a server journal load. On by default (matching unloadable-by-default server DAOs); set false in a client stanza to opt out. Only meaningful with daoType CLIENT and a serviceName.',
       class: 'Boolean',
       name: 'loadProgress',
-      flags: ['js']
+      flags: ['js'],
+      value: true
     },
     {
       documentation: 'Set polling interval for the caching DAO',

@@ -62,6 +62,7 @@ p({
       "serviceName": "service/partitionLoadStatusReadDAO",
       "daoType": "CLIENT",
       "cache": false,
+      "loadProgress": false,
       "of": "foam.core.partition.PartitionLoadStatus"
     }
   """

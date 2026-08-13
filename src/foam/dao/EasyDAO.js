@@ -1126,6 +1126,14 @@ dao loading, which improves overall startup time.`,
         return innerDAO;
       `
     },
+    function loadProgressServiceKey() {
+      // Key the load-progress decorator matches against PartitionLoadStatus
+      // serviceName rows. The 'service/' prefix is the box URL convention;
+      // the remainder is the CSpec name. Applications that serve DAOs under
+      // additional URL prefixes refine this to strip theirs.
+      return this.serviceName.replace(/^service\//, '');
+    },
+
     function delegateFactory() {
       /**
         <p>On initialization, the EasyDAO creates an appropriate chain of
@@ -1339,7 +1347,7 @@ dao loading, which improves overall startup time.`,
       if ( this.loadProgress && this.serviceName ) {
         dao = this.PartitionLoadProgressDAO.create({
           delegate: dao,
-          serviceKey: this.serviceName.replace(/^service\//, '').replace(/^dynamic\//, '')
+          serviceKey: this.loadProgressServiceKey()
         });
       }
 

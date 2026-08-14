@@ -50,6 +50,15 @@ foam.ALANG = function(ms) {
             return l.code.apply(this, l.args.map(a => this[a.name].f(obj)));
           },
           javaCode: javaCode
+        },
+        {
+          name: 'toString',
+          code: function() {
+            return l.name + '(' + l.args.map(a => this[a.name]).join(',') + ')';
+          },
+          javaCode: `
+            return "${l.name}(" + ${l.args.map(a => 'get' + foam.String.capitalize(a.name) + '()').join('+ "," + ')} + ")";
+          `
         }
       ]
     };

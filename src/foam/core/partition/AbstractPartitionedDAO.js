@@ -10,6 +10,8 @@ foam.CLASS({
   extends: 'foam.dao.AbstractDAO',
   abstract: true,
 
+  implements: [ 'foam.core.boot.CSpecAware' ],
+
   javaImports: [
     'foam.core.script.BeanShellExecutor',
     'foam.dao.index.AddIndexCommand',
@@ -71,10 +73,13 @@ foam.CLASS({
     {
       class: 'String',
       name: 'serviceName',
-      documentation: 'Name clients correlate load-status rows with. Resolved from the CSpec in X when built by a serviceScript; EasyDAO sets it explicitly otherwise.',
+      documentation: `Name clients correlate load-status rows with. Read from
+        the cSpec that CSpecFactory.initService stamps while walking the
+        service's delegate chain (CSpecAware) -- the construction-time X can't
+        be used, initService replaces it. EasyDAO/DDAO set it explicitly for
+        DAOs built outside a CSpec.`,
       javaFactory: `
-        foam.core.boot.CSpec cspec = (foam.core.boot.CSpec) getX().get(foam.core.boot.CSpec.CSPEC_CTX_KEY);
-        return cspec != null ? cspec.getName() : "";
+        return getCSpec() != null ? getCSpec().getName() : "";
       `
     }
   ],

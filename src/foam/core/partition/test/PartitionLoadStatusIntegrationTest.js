@@ -106,6 +106,17 @@ foam.CLASS({
         test("5~3".equals(s3.getId()), "post-reload stamp continues the sequence, no overwrite (got " + s3.getId() + ")");
         test(pdao.find("5~1") != null && pdao.find("5~2") != null && pdao.find("5~3") != null, "all stamped rows coexist after reload");
 
+        // serviceName resolution: partitioned DAOs are CSpecAware, so the
+        // CSpecFactory.initService chain walk stamps their cSpec after
+        // construction (the construction-time X is replaced by initService
+        // and can't be read). serviceName must resolve from that stamp.
+        DatePartitionedDAO scriptBuilt = new DatePartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), "cspecPropTest_" + System.currentTimeMillis() + "/", PartitionStrRecord.DATE);
+        foam.core.boot.CSpec spec = new foam.core.boot.CSpec();
+        spec.setName("propagatedSvc");
+        scriptBuilt.setCSpec(spec);
+        test("propagatedSvc".equals(scriptBuilt.getServiceName()), "serviceName resolves from the initService-stamped cSpec (got '" + scriptBuilt.getServiceName() + "')");
+
         // NotPartitionedDAO.createDAO runs the same reporter wrap over the
         // other createDAO path Task 4 wired; exercise its own unload + reload too.
         int putsAfterReload = puts.size();

@@ -59,7 +59,6 @@ foam.CLASS({
       var delimiter = this.translationService.getTranslation(foam.locale, 'Currency.delimiter', this.curr_?.delimiter ?? ',');
       if ( delimiter == '.' )
         delimiter = '\\.';
-      var decimal   = this.translationService.getTranslation(foam.locale, 'Currency.decimalCharacter', this.curr_?.decimalCharacter ?? '.');
 
       const delim = new RegExp(delimiter, 'g');
       let plainText = text.replace(delim, '');

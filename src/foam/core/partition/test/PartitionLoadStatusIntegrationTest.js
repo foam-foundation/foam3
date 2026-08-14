@@ -89,6 +89,23 @@ foam.CLASS({
         test(pdao.find("5~a1") != null, "record intact after unload + reload");
         test(puts.size() > putsBeforeReload, "reload after UNLOAD_CMD published status rows again");
 
+        // Sequence continuation across unload/reload: the per-partition counter
+        // must rescan the replayed journal for the highest stamped suffix --
+        // restarting at 1 would re-stamp existing ids and overwrite rows.
+        PartitionStrRecord s1 = new PartitionStrRecord();
+        s1.setBucket(5);
+        pdao.put(s1);
+        PartitionStrRecord s2 = new PartitionStrRecord();
+        s2.setBucket(5);
+        pdao.put(s2);
+        test("5~1".equals(s1.getId()) && "5~2".equals(s2.getId()), "empty ids stamped sequentially (got " + s1.getId() + ", " + s2.getId() + ")");
+        pdao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
+        PartitionStrRecord s3 = new PartitionStrRecord();
+        s3.setBucket(5);
+        pdao.put(s3);
+        test("5~3".equals(s3.getId()), "post-reload stamp continues the sequence, no overwrite (got " + s3.getId() + ")");
+        test(pdao.find("5~1") != null && pdao.find("5~2") != null && pdao.find("5~3") != null, "all stamped rows coexist after reload");
+
         // NotPartitionedDAO.createDAO runs the same reporter wrap over the
         // other createDAO path Task 4 wired; exercise its own unload + reload too.
         int putsAfterReload = puts.size();

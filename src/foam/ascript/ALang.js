@@ -50,6 +50,15 @@ foam.ALANG = function(ms) {
             return l.code.apply(this, l.args.map(a => this[a.name].f(obj)));
           },
           javaCode: javaCode
+        },
+        {
+          name: 'toString',
+          code: function() {
+            return l.name + '(' + l.args.map(a => this[a.name]).join(',') + ')';
+          },
+          javaCode: `
+            return "${l.name}(" + ${l.args.map(a => 'get' + foam.String.capitalize(a.name) + '()').join('+ "," + ')} + ")";
+          `
         }
       ]
     };
@@ -454,6 +463,19 @@ foam.ALANG([
     ],
     code: function(num) { return Math.exp(num); },
     javaCode: 'return Math.exp(num);'
+  },
+
+  // ============================================================================
+  // CONVERSION FUNCTIONS
+  // ============================================================================
+  {
+    name: 'VALUE',
+    documentation: 'Converts a String representation of a number to a number.',
+    args: [
+      { class: 'String', name: 'text' }
+    ],
+    code: function(text) { return foam.ascript.Lib.VALUE(text); },
+    javaCode: 'return foam.ascript.Lib.VALUE(text);'
   },
 
   // ============================================================================

@@ -21,24 +21,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'prefix'
-    },
-    {
-      name: 'value_',
-      documentation: `The base factory MAXes the raw id property, which here is
-        a composite String (never a Number), so after a partition unload/reload
-        it restarted at 1 and re-stamped ids that already exist -- silently
-        overwriting rows instead of appending. Rescan the replayed partition
-        for the highest numeric suffix instead.`,
-      javaFactory: `
-        final long[] max = { 0 };
-        getDelegate().select(new foam.dao.AbstractSink() {
-          public void put(Object obj, foam.lang.Detachable sub) {
-            long v = getObjId(obj);
-            if ( v > max[0] ) max[0] = v;
-          }
-        });
-        return max[0] + 1;
-      `
     }
   ],
 

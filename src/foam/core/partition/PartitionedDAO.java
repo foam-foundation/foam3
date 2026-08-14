@@ -170,31 +170,37 @@ public class PartitionedDAO
     }
 
     PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), rawPart);
-    JDAO jdao;
     try {
       reporter.start(journalSize(journalName));
-      jdao = new JDAO(getX().put(PartitionLoadReporter.CTX_KEY, reporter), getOf(), journalName);
+      X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
+
+      // When the model's id is a String, assign composite <partition>~<seqNo>
+      // ids per partition so find can route by the id prefix (see getPartition_).
+      // Long-id models stay flat (no prefix), preserving non-composite usage.
+      // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
+      // String, so wrapping a Long-id model throws ClassCastException on every put_.
+      foam.lang.PropertyInfo idProp = getIdProperty();
+      if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
+        // The sequence wrapper sits INSIDE the JDAO: journal replay flows
+        // through SequenceNumberDAO.put_, which advances the counter past
+        // every already-stamped id, so the sequence resumes correctly after
+        // an unload/reload or restart with no rescan. Writes stay correct
+        // because the journal formats the object AFTER the delegate stamps
+        // it (AbstractF3FileJournal.put executes dao.put_ under lock first).
+        DAO seq = new foam.core.partition.PartitionedSequenceNumberDAO.Builder(loadX)
+          .setPrefix(rawPart + SEPARATOR)
+          .setProperty("id")
+          .setDelegate(new foam.dao.MDAO(getOf()))
+          .build();
+        return new JDAO(loadX, seq, journalName);
+      }
+
+      JDAO jdao = new JDAO(loadX, getOf(), journalName);
+      addIndices(jdao);
+      return jdao;
     } finally {
       reporter.done();
     }
-
-    // When the model's id is a String, assign composite <partition>~<seqNo>
-    // ids per partition so find can route by the id prefix (see getPartition_).
-    // Long-id models stay flat (no prefix), preserving non-composite usage.
-    // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
-    // String, so wrapping a Long-id model throws ClassCastException on every put_.
-    foam.lang.PropertyInfo idProp = getIdProperty();
-    if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
-      return new foam.core.partition.PartitionedSequenceNumberDAO.Builder(getX())
-        .setPrefix(rawPart + SEPARATOR)
-        .setProperty("id")
-        .setDelegate(jdao)
-        .build();
-    }
-
-    addIndices(jdao);
-
-    return jdao;
   }
 
   protected DAO getDelegate(X x, FObject obj) {

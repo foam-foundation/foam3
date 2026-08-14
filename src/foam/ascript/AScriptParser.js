@@ -146,6 +146,7 @@ foam.CLASS({
         // the next token's leading ws swallows trailing space)
         function lead(p)         { return seq1(1, sym('ws'), p); }
         function binop(ch, val)  { return seq1(1, sym('ws'), lit(ch, val)); }
+        function keyword(s, l)   { return sug(litIC(s), {text: s, label: l, category: 'function'}); }
         var comma = seq1(1, sym('ws'), ',');
 
         // property-name literals (+ constants) as VALUE operands, longest-first:
@@ -218,32 +219,30 @@ foam.CLASS({
           funcall: alt(sym('fn_IF'), sym('ifs'), sym('switch'), sym('generic_funcall')),
 
           // IF cond delegates to the inherited predicate tree via `or`
-          fn_IF: seq(seq1(1, sym('ws'), litIC('IF')), sym('ws'), '(',
-                     sym('or'),   comma,
-                     sym('EXPR'), comma,
-                     sym('EXPR'), sym('ws'), ')'),
+          fn_IF: seq(
+            sym('ws'),
+            keyword('IF(', 'IF(predicate, true value, false value)'),
+            sym('or'),   comma,
+            sym('EXPR'), comma,
+            sym('EXPR'), sym('ws'), ')'),
 
-          ifs: seq1(4,
+          ifs: seq1(2,
             sym('ws'),
-            litIC('IFS'),
-            sym('ws'),
-            '(',
+            keyword('IFS(', 'IFS(predicate, value, ..., predicate, value)'),
             rep(sym('ifsClause'), ',', 1),
             sym('ws'),
             ')'),
 
           ifsClause: seq(sym('or'), comma, sym('EXPR')),
 
-          switch: seq1(4,
+          switch: seq1(2,
             sym('ws'),
-            litIC('SWITCH'),
-            sym('ws'),
-            '(',
+            keyword('SWITCH(', 'SWITCH(expression, key, value, ... key, value, [default])'),
             rep(sym('EXPR'), ',', 1),
             sym('ws'),
             ')'),
 
-          generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
+          generic_funcall: seq(sym('funcname'), opt(sym('args')), sym('ws'), ')'),
 
           funcname: seq1(1, sym('ws'), this.generateFuncNames(alt, sug, litIC)),
 
@@ -287,7 +286,7 @@ foam.CLASS({
       // sort the property-name matcher already applies to `fields`.
       return alt.apply(alt, Object.keys(this.FUNCTIONS).sort((a, b) => b.length - a.length).map(key => {
         let f = self.FUNCTIONS[key];
-        return sug(literalIC(key), {text: key, category: 'function', label: f.documentation});
+        return sug(literalIC(key + '('), {text: key.toUpperCase() + '(', category: 'function', label: f.documentation});
       }));
     },
 
@@ -338,8 +337,7 @@ foam.CLASS({
         // TODO: support nested sub-fields (a.b.c) — currently single-level only
         subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
 
-        // [ 'IF', ws, '(', cond, ',', a, ',', b, ws, ')' ]  ->  cond=v[3], a=v[5], b=v[7]
-        fn_IF: function(v) { return m.COND(v[3], v[5], v[7]); },
+        fn_IF: function(v) { return m.COND(v[2], v[4], v[6]); },
 
         ifs: function(v) {
           return foam.mlang.expr.Ifs.create({clauses: v});
@@ -356,9 +354,9 @@ foam.CLASS({
         // TODO: loop over FUNCTIONS and add each individually so that auto-complete works
         // [ name, ws, '(', args|undefined, ws, ')' ]
         generic_funcall: function(v) {
-          var spec = self.FUNCTIONS[('' + v[0]).toUpperCase()];
+          var spec = self.FUNCTIONS[v[0].substring(0, v[0].length-1)];
           if ( ! spec ) return NO_PARSE;                     // unknown function
-          var args = v[3] || [];
+          var args = v[1] || [];
           if ( spec.minArgs != null && args.length < spec.minArgs ) return NO_PARSE;
           if ( spec.maxArgs != null && args.length > spec.maxArgs ) return NO_PARSE;
           return spec.build(args);

@@ -28,6 +28,10 @@ public class PartitionedDAO
   // Doesn't need to be concurrent since the getDelgate() method synchronizes on it explicitly
   protected final HashMap<String, SoftReference<DAO>> delegates_ = new HashMap<>();
 
+  // Partitions currently mid-replay in getDelegate(). Concurrent so peeks
+  // (isLoading, publishQueued) never wait on a partition lock during a load.
+  protected final java.util.Set<String> loading_ = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
   public PartitionedDAO(X x) {
     setX(x);
   }
@@ -57,9 +61,14 @@ public class PartitionedDAO
       if ( dao == null ) {
         if ( ref != null )
           Loggers.logger(getX(), this).info("This DAO Partition was garbage collected. A new DAO will be created and cached:", part);
-        dao = createDAO(part);
-        synchronized ( delegates_ ) {
-          delegates_.put(part, new SoftReference<>(dao));
+        loadingStarted(part);
+        try {
+          dao = createDAO(part);
+          synchronized ( delegates_ ) {
+            delegates_.put(part, new SoftReference<>(dao));
+          }
+        } finally {
+          loadingEnded(part);
         }
       }
 
@@ -67,21 +76,40 @@ public class PartitionedDAO
     }
   }
 
+  public void loadingStarted(String part) {
+    loading_.add(part);
+  }
+
+  public void loadingEnded(String part) {
+    loading_.remove(part);
+  }
+
+  /** True while createDAO() (journal replay) is running for this partition. */
+  public boolean isLoading(String part) {
+    return loading_.contains(part);
+  }
+
   /** Manual quiesce-then-unload only: an in-flight writer holding an old
       delegate reference plus a new reader racing getDelegate() to recreate
       it can briefly double-append to one journal file. Routine/automated
       eviction needs draining semantics first -- follow-up ticket. */
-  public synchronized void unload() {
+  public void unload() {
     Loggers.logger(getX(), this).info("Unloading all partitions.", getDirName());
-    delegates_.clear();
+    synchronized ( delegates_ ) {
+      delegates_.clear();
+    }
   }
 
   /** Cheap cache peek: true when a live (non-garbage-collected) delegate is
-      already cached for this partition. No creation; same lock as
-      getDelegate() since delegates_ is a plain (non-concurrent) HashMap. */
-  public synchronized boolean isLoaded(String part) {
+      already cached for this partition. No creation; guarded by the
+      delegates_ monitor, same as getDelegate(), so it never waits on a
+      partition lock while another thread replays. */
+  public boolean isLoaded(String part) {
     if ( part == null ) part = NO_PART;
-    SoftReference<DAO> ref = delegates_.get(part);
+    SoftReference<DAO> ref;
+    synchronized ( delegates_ ) {
+      ref = delegates_.get(part);
+    }
     return ref != null && ref.get() != null;
   }
 

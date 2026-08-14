@@ -82,63 +82,32 @@ public class DatePartitionedDAO
   }
 
   public String getPartition(FObject o) {
-    Date     d  = (Date) getPartitionProperty().f(o);
+    Date     d   = (Date) getPartitionProperty().f(o);
     Calendar cal = Calendar.getInstance();
     cal.setTime(d);
 
-    if ( this.scheme_ == DatePartitioningScheme.YYYYMM ) {
-      int year  = cal.get(Calendar.YEAR);
-      int month = cal.get(Calendar.MONTH);
-
-      // 'month' starts at 0, so move to base 1 to be easier for humans
-      return year + "/" + (month+1);
-    }
-
-    if ( this.scheme_ == DatePartitioningScheme.YYYYWW ) {
-      int year = cal.get(Calendar.YEAR);
-      int week = cal.get(Calendar.WEEK_OF_YEAR);
-
-      return year + "/" + week;
-    }
-
-    if ( this.scheme_ == DatePartitioningScheme.YYYYDDD ) {
-      int year = cal.get(Calendar.YEAR);
-      int day  = cal.get(Calendar.DAY_OF_YEAR);
-
-      return year + "/" + day;
-    }
-
-    // YYYYMMDD
-    int year  = cal.get(Calendar.YEAR);
-    int month = cal.get(Calendar.MONTH);
-    int day   = cal.get(Calendar.DAY_OF_MONTH);
-
-    return year + "/" + (month+1) + "/" + day;
+    return scheme_.getPartition(cal);
   }
 
   public String[] getPartitions(Date[] range) {
-    Calendar c1 = Calendar.getInstance();
-    c1.setTime(range[0]);
-    int y1 = c1.get(Calendar.YEAR);
-    int m1 = c1.get(Calendar.MONTH);
+    Calendar cal = Calendar.getInstance();
+    cal.setTime(range[0]);
+    Calendar end = Calendar.getInstance();
+    end.setTime(range[1]);
 
-    Calendar c2 = Calendar.getInstance();
-    c2.setTime(range[1]);
-    int y2 = c2.get(Calendar.YEAR);
-    int m2 = c2.get(Calendar.MONTH);
-
-    String[] parts = new String[(y2-y1) * 12 + m2 - m1 + 1];
-
-    for ( int i = 0, y = y1, m = m1 ; i < parts.length ; i++ ) {
-      // 'm' is Calendar.MONTH (0-based); getPartition(FObject) emits 1-based
-      // month partitions ("year/(month+1)" above), so match that here or a
-      // range select never finds the partitions records were written to.
-      parts[i] = getPartition(y + "/" + (m+1));
-      m++;
-      if ( m == 12 ) { m = 0; y++; }
+    String       last  = scheme_.getPartition(end);
+    List<String> parts = new ArrayList<>();
+    while ( true ) {
+      String p = scheme_.getPartition(cal);
+      parts.add(p);
+      // Equality with the range-end partition is the normal exit; the
+      // calendar check bounds a contradictory (inverted) range, which
+      // otherwise never reaches equality.
+      if ( p.equals(last) || cal.after(end) ) break;
+      scheme_.step(cal);
     }
 
-    return parts;
+    return parts.toArray(new String[0]);
   }
 
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
@@ -179,7 +148,10 @@ public class DatePartitionedDAO
 
     List<String> ids = new ArrayList<>();
     for ( String part : parts ) {
-      if ( isLoaded(part) ) continue;
+      // A partition another caller is replaying right now already has a live
+      // progress row -- re-marking it queued would clobber that row and our
+      // clearQueued would then remove it mid-load.
+      if ( isLoaded(part) || isLoading(part) ) continue;
 
       String journalName = journalNameFor(part);
       PartitionLoadStatus s = new PartitionLoadStatus();

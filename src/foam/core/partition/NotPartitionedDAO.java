@@ -54,8 +54,13 @@ public class NotPartitionedDAO
       if ( delegate_ != null )
         Loggers.logger(getX(), this).info("DAO was garbage collected. A new DAO will be created and cached.", getDirName());
 
-      dao = createDAO();
-      delegate_ = new SoftReference<>(dao);
+      loadingStarted("");
+      try {
+        dao = createDAO();
+        delegate_ = new SoftReference<>(dao);
+      } finally {
+        loadingEnded("");
+      }
     }
 
     return dao;

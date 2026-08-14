@@ -87,6 +87,18 @@ foam.CLASS({
     // NOP, implement in sub-classes
   }
 
+  /** Partition-load lifecycle hooks: getDelegate() implementations fire them
+      around createDAO() (journal replay); cache hits never fire them.
+      Override to add partition-implementation-specific handling (loading
+      sets, status rows, metrics). */
+  public void loadingStarted(String part) {
+    // NOP, implement in sub-classes
+  }
+
+  public void loadingEnded(String part) {
+    // NOP, implement in sub-classes
+  }
+
   public void addIndices(DAO dao) {
     for ( Object index : getIndices() ) {
       dao.cmd(index);

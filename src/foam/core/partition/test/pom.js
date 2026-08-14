@@ -7,6 +7,7 @@ foam.POM({
     { name: 'UnloadableDecoratedRecord',          flags: 'js&test|java&test' },
     { name: 'SingleToPartitionMigratorTest',      flags: 'js&test|java&test' },
     { name: 'ReferenceMigratorTest',              flags: 'js&test|java&test' },
+    { name: 'DatePartitioningSchemeTest',         flags: 'js&test|java&test' },
     { name: 'PartitionLoadReporterTest',          flags: 'js&test|java&test' },
     { name: 'PartitionLoadReplayTest',            flags: 'js&test|java&test' },
     { name: 'PartitionLoadStatusIntegrationTest', flags: 'js&test|java&test' },

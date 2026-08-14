@@ -96,9 +96,6 @@ foam.CLASS({
           parseX = x;
         }
 
-        final foam.core.partition.PartitionLoadReporter progress =
-          (foam.core.partition.PartitionLoadReporter) x.get(foam.core.partition.PartitionLoadReporter.CTX_KEY);
-
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
@@ -116,7 +113,6 @@ foam.CLASS({
 
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
-            if ( progress != null ) progress.addChars(length + 1);
             if ( length == 0 ) continue;
             // Fast comment check: every comment starts with '/', which is never
             // the first char of a data entry ('c', 'p', 'r', 'v'). getEntry reads

@@ -46,7 +46,9 @@ foam.CLASS({
         reporter.start(0L);
         new JDAO(testX.put(PartitionLoadReporter.CTX_KEY, reporter), PartitionStrRecord.getOwnClassInfo(), jrn);
 
-        test(reporter.getBytesRead() > 0, "replay accumulated chars into reporter (got " + reporter.getBytesRead() + ")");
+        long fileLen = ((foam.core.fs.FileSystemStorage) tx.get(foam.core.fs.FileSystemStorage.class)).get(jrn).length();
+        test(fileLen > 0, "journal written (len " + fileLen + ")");
+        test(reporter.getBytesRead() == fileLen, "stream counting is byte-exact: read " + reporter.getBytesRead() + " of file " + fileLen);
 
         // No reporter in X: replay still works, nothing accumulates anywhere
         JDAO plain = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), jrn);

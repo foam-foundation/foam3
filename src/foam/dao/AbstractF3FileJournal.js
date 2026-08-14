@@ -224,6 +224,12 @@ try {
     getLogger().warning("File not found", "for reading");
     return null;
   }
+  // When a partition-load reporter rides the context, count raw bytes at the
+  // stream for byte-exact replay progress (newlines and multi-byte characters
+  // included).
+  foam.core.partition.PartitionLoadReporter progress =
+    (foam.core.partition.PartitionLoadReporter) getX().get(foam.core.partition.PartitionLoadReporter.CTX_KEY);
+  if ( progress != null ) is = progress.countingStream(is);
   // Setting a larger buffer size increases performance by 10-15%
   return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 2);
 } catch ( Throwable t ) {

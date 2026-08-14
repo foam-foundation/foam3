@@ -51,6 +51,10 @@ foam.CLASS({
       font-weight: bold;
       margin-bottom: 4px;
     }
+    ^indeterminate {
+      width: 100%;
+      height: 8px;
+    }
     ^more {
       color: $textTertiary;
       text-align: center;
@@ -58,6 +62,15 @@ foam.CLASS({
   `,
 
   constants: [ { name: 'MAX_CARDS', value: 4 } ],
+
+  messages: [
+    { name: 'LOADING',   messageMap: { en: 'Loading',   fr: 'Chargement' } },
+    { name: 'QUEUED',    messageMap: { en: 'queued',    fr: 'en file' } },
+    { name: 'PARTITION', messageMap: { en: 'partition', fr: 'partition' } },
+    { name: 'OF',        messageMap: { en: 'of',        fr: 'sur' } },
+    { name: 'OVERALL',   messageMap: { en: 'overall',   fr: 'global' } },
+    { name: 'MORE',      messageMap: { en: 'more',      fr: 'autres' } }
+  ],
 
   properties: [
     {
@@ -118,7 +131,9 @@ foam.CLASS({
     },
 
     function pct_(row) {
-      return Math.min(99, Math.floor(row.bytesRead * 100 / Math.max(1, row.totalBytes)));
+      // Unknown journal size (unreadable storage): no honest percent exists.
+      if ( row.totalBytes <= 0 ) return null;
+      return Math.min(99, Math.floor(row.bytesRead * 100 / row.totalBytes));
     },
 
     function serviceGroups_(rows) {
@@ -179,9 +194,12 @@ foam.CLASS({
             if ( row.serviceName !== lastService ) {
               lastService = row.serviceName;
               if ( group.total > 1 ) {
-                var overallPct = Math.min(99, Math.floor(group.bytesRead * 100 / Math.max(1, group.totalBytes)));
+                var header = self.PARTITION + ' ' + group.started + ' ' + self.OF + ' ' + group.total;
+                if ( group.totalBytes > 0 ) {
+                  header += ' — ' + self.OVERALL + ' ' + Math.min(99, Math.floor(group.bytesRead * 100 / group.totalBytes)) + '%';
+                }
                 this.start().addClass('p-sm', self.myClass('groupHeader'))
-                  .add('partition ' + group.started + ' of ' + group.total + ' — overall ' + overallPct + '%')
+                  .add(header)
                 .end();
               }
             }
@@ -189,22 +207,28 @@ foam.CLASS({
             if ( row.queued ) {
               this.start().addClass(self.myClass('card'))
                 .start().addClass('p-sm', self.myClass('title'))
-                  .add(label + ' — queued')
+                  .add(label + ' — ' + self.QUEUED)
                 .end()
               .end();
               return;
             }
             var pct = self.pct_(row);
-            this.start().addClass(self.myClass('card'))
+            var card = this.start().addClass(self.myClass('card'))
               .start().addClass('p-sm', self.myClass('title'))
-                .add('Loading ' + label + ' — ' + pct + '%')
-              .end()
-              .start(self.ProgressView, { data: pct }).end()
-            .end();
+                .add(pct == null ? self.LOADING + ' ' + label : self.LOADING + ' ' + label + ' — ' + pct + '%')
+              .end();
+            if ( pct == null ) {
+              // No max/value attributes: the progress element renders its
+              // native indeterminate animation.
+              card.start('progress').addClass(self.myClass('indeterminate')).end();
+            } else {
+              card.start(self.ProgressView, { data: pct }).end();
+            }
+            card.end();
           });
           if ( rows_.length > self.MAX_CARDS ) {
             this.start().addClass('p-sm', self.myClass('more'))
-              .add('+' + (rows_.length - self.MAX_CARDS) + ' more')
+              .add('+' + (rows_.length - self.MAX_CARDS) + ' ' + self.MORE)
             .end();
           }
         }));

@@ -48,9 +48,28 @@ public class PartitionLoadReporter {
     put(true);
   }
 
-  public void addChars(long n) {
+  public void addBytes(long n) {
     read_ += n;
     put(false);
+  }
+
+  /** Wraps a journal input stream so every byte read is accumulated into
+      this reporter -- byte-exact progress including newlines and multi-byte
+      characters, with no per-entry accounting in the replay loop. */
+  public java.io.InputStream countingStream(java.io.InputStream in) {
+    PartitionLoadReporter self = this;
+    return new java.io.FilterInputStream(in) {
+      public int read() throws java.io.IOException {
+        int b = super.read();
+        if ( b != -1 ) self.addBytes(1);
+        return b;
+      }
+      public int read(byte[] buf, int off, int len) throws java.io.IOException {
+        int n = super.read(buf, off, len);
+        if ( n > 0 ) self.addBytes(n);
+        return n;
+      }
+    };
   }
 
   public long getBytesRead() {

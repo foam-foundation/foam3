@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'PartitionLoadReporterTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'Tests PartitionLoadReporter directly: start() puts a row, addChars() throttles then accumulates, done() removes the row and is idempotent.',
+  documentation: 'Tests PartitionLoadReporter directly: start() puts a row, addBytes() throttles then accumulates, done() removes the row and is idempotent.',
 
   javaImports: [
     'foam.core.partition.PartitionLoadReporter',
@@ -35,14 +35,14 @@ foam.CLASS({
         test(row != null && "myDAO".equals(row.getServiceName()), "row carries serviceName");
         test(row != null && "2026/7".equals(row.getPartition()), "row carries partition");
 
-        r.addChars(100);
+        r.addBytes(100);
         row = (PartitionLoadStatus) status.find("jrn/1");
-        test(row.getBytesRead() == 0L, "immediate addChars throttled (row still at start value)");
+        test(row.getBytesRead() == 0L, "immediate addBytes throttled (row still at start value)");
 
         try { Thread.sleep(300); } catch ( InterruptedException e ) {}
-        r.addChars(50);
+        r.addBytes(50);
         row = (PartitionLoadStatus) status.find("jrn/1");
-        test(row.getBytesRead() == 150L, "post-throttle addChars updates row with accumulated total");
+        test(row.getBytesRead() == 150L, "post-throttle addBytes updates row with accumulated total");
         test(r.getBytesRead() == 150L, "getBytesRead reflects accumulation");
 
         r.done();

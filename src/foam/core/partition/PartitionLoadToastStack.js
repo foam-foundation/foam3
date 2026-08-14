@@ -124,9 +124,14 @@ foam.CLASS({
       } catch (e) {
         // Progress channel never surfaces errors; retry next tick.
       }
-      if ( this.rows_.length && ! this.attached_ && this.ctrl ) {
+      // The service is instantiated in the client context (eager CSpec),
+      // which is the PARENT of ApplicationController's subcontext -- the
+      // 'ctrl' export lives in the child, so the import resolves undefined
+      // here. Fall back to the application's browser global.
+      var c = this.ctrl || globalThis.ctrl;
+      if ( this.rows_.length && ! this.attached_ && c ) {
         this.attached_ = true;
-        this.ctrl.add(this);
+        c.add(this);
       }
     },
 

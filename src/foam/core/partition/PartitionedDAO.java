@@ -40,7 +40,7 @@ public class PartitionedDAO
     setPartitionProperty(partitionProperty);
   }
 
-  public synchronized DAO getDelegate(String part) {
+  public DAO getDelegate(String part) {
     if ( part == null ) part = NO_PART;
 
     synchronized ( part.intern() ) {

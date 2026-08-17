@@ -93,11 +93,12 @@ foam.CLASS({
     ^hint { color: $textSecondary; font-style: italic; }
     ^block-row { cursor: pointer; }
     ^block-row:hover { background: $grey50; }
-    /* nesting depth of a block row: children sit under the block they ran inside */
-    ^d1 { padding-left: 18px; }
-    ^d2 { padding-left: 36px; }
-    ^d3 { padding-left: 54px; }
-    ^d4 { padding-left: 72px; }
+    /* Nesting depth of a block row: children sit under the block they ran inside.
+       Qualified by th so these beat the padding shorthand on '^ th' above. */
+    ^ th^d1 { padding-left: 18px; }
+    ^ th^d2 { padding-left: 36px; }
+    ^ th^d3 { padding-left: 54px; }
+    ^ th^d4 { padding-left: 72px; }
     ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
     ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
     ^hot-detailrow > td { padding: 4px 0 8px 22px; }

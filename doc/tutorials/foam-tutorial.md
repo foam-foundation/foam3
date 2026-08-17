@@ -8,6 +8,10 @@
   - [Application Structure](#application-structure)
   - [FOAM Model - Recipe.js](#foam-model---recipejs)
     - [Understanding FOAM Models](#understanding-foam-models)
+      - [Context (the `X` object)](#context-the-x-object)
+      - [`requires` — classes this model will instantiate](#requires--classes-this-model-will-instantiate)
+      - [`imports` — services/values pulled *from* the context](#imports--servicesvalues-pulled-from-the-context)
+      - [`requires` vs `imports` at a glance](#requires-vs-imports-at-a-glance)
   - [FOAM Journals](#foam-journals)
     - [FOAM DAO Service](#foam-dao-service)
     - [Menu Navigation](#menu-navigation)
@@ -52,10 +56,6 @@
   - [CSS Scoping with `^`](#css-scoping-with-%5E)
   - [View vs Controller](#view-vs-controller)
   - [Reactive Slots](#reactive-slots)
-    - [Property Slots](#property-slots)
-    - [Two-Way Binding](#two-way-binding)
-    - [Subscribing to Changes](#subscribing-to-changes)
-    - [Computed Slots](#computed-slots)
   - [Creating a Recipe Detail View](#creating-a-recipe-detail-view)
   - [Faceted Views and Menu Configuration](#faceted-views-and-menu-configuration)
   - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
@@ -391,6 +391,111 @@ foam.CLASS({
 | `methods` | Instance functions; can have both `code` (JS) and `javaCode` |
 | `listeners` | Methods pre-bound to `this`; safe to use as callbacks |
 | `actions` | User-triggered operations with UI integration |
+
+Three of these sections — `requires`, `imports`, and `exports` — only make sense once you understand **context**, so we'll cover that next before returning to the rest.
+
+#### Context (the `X` object)
+
+In FOAM, every object lives in a **context** — conventionally called `X` (and reachable on any object as `this.__context__`). Think of it as a scoped registry / dependency-injection container that travels with the object. It holds:
+
+- registered services and singletons (DAOs, the current user, etc.),
+- a class lookup, so names like `'foam.dao.ArraySink'` can be resolved to actual classes,
+- and it's *hierarchical* — a child object's context inherits from its parent's, and can add to or override it.
+
+So context answers two questions at once: **"where do I look up classes"** and **"where do I get shared services from."** `requires`, `imports`, and `exports` are all just declarations about how a class interacts with that context.
+
+#### `requires` — classes this model will instantiate
+
+`requires` declares the **classes** you intend to create instances of. It does two things:
+
+1. Resolves each fully-qualified name against the context's class registry.
+2. Gives you a short alias on `this`, so you can construct it *context-aware* — the new instance automatically inherits your context.
+
+```javascript
+requires: ['foam.dao.ArraySink', 'com.foamdev.cook.RecipeStep'],
+methods: [
+  function foo() {
+    var sink = this.ArraySink.create();        // short name, created in this.__context__
+    var step = this.RecipeStep.create({ ... }); // inherits this object's context automatically
+  }
+]
+```
+
+Without `requires` you'd have to reference the full path and wire the context in by hand. So: **`requires` = "classes I will `.create()`."**
+
+#### `imports` — services/values pulled *from* the context
+
+`imports` declares **existing values or services** you expect to already be present in the context, injected by whoever created you. You don't construct them — you consume them.
+
+```javascript
+imports: ['recipeDAO', 'currentUser'],
+methods: [
+  function bar() {
+    this.recipeDAO.select(...);    // a DAO someone exported into the context
+    var u = this.currentUser;      // a value provided by an ancestor
+  }
+]
+```
+
+So: **`imports` = "services/values I expect to be handed to me via context."** Its counterpart is `exports` — a parent puts things *into* the context (`exports: ['selectedRecipe']`) so its children can `import` them. `exports` is the supply side; `imports` is the demand side of the same context.
+
+#### `requires` vs `imports` at a glance
+
+| | `requires` | `imports` |
+|---|---|---|
+| What it names | Classes | Instances / values / services |
+| What you do with it | `.create()` new instances | Use what already exists |
+| Direction | You build it | It's injected into you |
+| Analogy | Import a *type* so you can `new` it | Constructor-injected dependency |
+
+A quick mental model: `requires` is like importing a *type* so you can instantiate it; `imports` is like receiving a *dependency* someone else already built and placed in your context.
+
+<details>
+<summary><b>Coming from Node.js / React?</b> A quick bridge for these three sections.</summary>
+
+<br>
+
+**`requires` ≈ Node's `require`.** Both take a name, resolve it, and hand you a local
+binding you can use by a short name. The difference is *what* they resolve against and
+*what the binding does*:
+
+|  | Node `require('x')` | FOAM `requires: ['...X']` |
+|---|---|---|
+| Resolves against | The module cache, keyed by file path | The **context's** class registry, keyed by name |
+| You get back | The module's exports (a static value) | An alias on `this` whose `.create()` makes **context-aware** instances |
+| Overridable? | No — one module per path, globally | Yes — a context can override/refine what a name resolves to |
+
+So `this.RecipeStep.create()` isn't just "the required class" — each instance it builds
+automatically inherits your object's context, which plain `require` has no notion of.
+
+**`imports` / `exports` ≈ React Context.** This is the closer analogy, and the one worth
+internalizing:
+
+- `exports: ['selectedRecipe']` is a `<RecipeContext.Provider value={selectedRecipe}>` —
+  a parent supplying a value down the tree.
+- `imports: ['selectedRecipe']` is `const selectedRecipe = useContext(RecipeContext)` —
+  a descendant consuming what an ancestor provided. You don't build it; it's injected.
+
+Supply-side vs. demand-side of the same tree — exactly like `<Provider>` vs. `useContext`.
+
+One caveat so the analogy doesn't mislead: React has *many* separate `Context` objects,
+each with its own `useContext(X)`. FOAM has **one** unified context container holding
+everything — services, singletons, and the class registry — keyed by name. Think "a single
+React context whose value is a big service registry" rather than React's many-small-contexts
+style. (And the class-registry half has no React equivalent at all — that part is the Node
+`require` side of the analogy.)
+
+</details>
+
+> [!NOTE]
+> **The theory behind context.** What FOAM calls *context* is a first-class form of
+> **dynamic scoping**: a name like `recipeDAO` is resolved by walking the runtime chain of
+> *who created whom*, not by where the code is written (that latter, textual rule is
+> *lexical* scoping — what `let`/`const`/closures use). This is a sixty-year-old idea that
+> traces back to early Lisp. If you enjoy connecting framework features to the computer
+> science they grow from, see
+> [**Context & Dynamic Scoping**](../foundations/01-context-and-dynamic-scoping.md) in the
+> [FOAM Foundations](../foundations/README.md) series.
 
 We will explore each of these concepts in detail as we develop our Recipe application. For a comprehensive reference, see [FOAM Model Reference](#foam-model-reference) in the Appendix.
 

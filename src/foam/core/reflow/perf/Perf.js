@@ -93,6 +93,11 @@ foam.CLASS({
     ^hint { color: $textSecondary; font-style: italic; }
     ^block-row { cursor: pointer; }
     ^block-row:hover { background: $grey50; }
+    /* nesting depth of a block row: children sit under the block they ran inside */
+    ^d1 { padding-left: 18px; }
+    ^d2 { padding-left: 36px; }
+    ^d3 { padding-left: 54px; }
+    ^d4 { padding-left: 72px; }
     ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
     ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
     ^hot-detailrow > td { padding: 4px 0 8px 22px; }
@@ -125,6 +130,7 @@ foam.CLASS({
     { name: 'capture_',   hidden: true, transient: true },
     { name: 'observer_',  hidden: true, transient: true },
     { name: 'netCalls_',  hidden: true, transient: true },
+    { name: 'bodyReads_', hidden: true, transient: true },
     { name: 'origFetch_', hidden: true, transient: true },
     { name: 'origWarn_',  hidden: true, transient: true },
     { name: 'profiler_',  hidden: true, transient: true }
@@ -140,8 +146,8 @@ foam.CLASS({
       this.add(this.dynamic(function(report$elapsedMs) {
         var r = self.report;
         if ( ! r || ! r.endSnapshot ) return;
-        // Recommended-action count = service-call groups with identical re-fetches.
-        var actions = ( r.serviceCalls || [] ).filter(function(c) { return ( c.count - ( c.distinct || c.count ) ) > 0; }).length;
+        // Recommended-action count = service-call groups with avoidable re-fetches.
+        var actions = ( r.serviceCalls || [] ).filter(function(c) { return c.avoidable() > 0; }).length;
         var svcLabel   = 'Services' + ( actions ? ' · ' + actions + ' to fix' : '' );
         var issueLabel = 'Issues' + ( ( r.issues || [] ).length ? ' (' + r.issues.length + ')' : '' );
         // Issues first => default selected tab (the summary).
@@ -245,7 +251,7 @@ foam.CLASS({
       row(self.LONGEST_LABEL, r.durStr(r.longestTaskMs), 'longestTaskMs');
       row(self.HEAP_LABEL, r.byteStr(r.heapDeltaBytes), 'heapDeltaBytes');
       row(self.DOM_LABEL, r.numStr(r.domNodeDelta, 0) + ( r.tableCellDelta > 0 ? ' (' + r.numStr(r.tableCellDelta, 0) + ' cells)' : '' ), 'domNodeDelta');
-      row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' identical)', 'repeatedRequestCount');
+      row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' repeated reads)', 'repeatedRequestCount');
       row(self.LARGEST_LABEL, r.byteStr(r.largestRequestBytes), 'largestRequestBytes');
       row(self.WARN_LABEL, r.numStr(r.warnCount, 0), 'warnRate');
       el2.end();
@@ -256,8 +262,8 @@ foam.CLASS({
       var self  = this;
       var calls = r.serviceCalls || [];
       if ( ! calls.length ) return;
-      // identical re-fetches (cache candidates) = total calls - distinct request bodies.
-      var repeatedOf = function(c) { return c.count - ( c.distinct || c.count ); };
+      // identical re-fetches a cache would remove - reads only (PerfServiceCall.avoidable).
+      var repeatedOf = function(c) { return c.avoidable(); };
       // Only the repeated calls are an issue - heat those; sizes are shown plain.
       var maxRepeated = 0;
       calls.forEach(function(c) { var rep = repeatedOf(c); if ( rep > maxRepeated ) maxRepeated = rep; });
@@ -334,13 +340,17 @@ foam.CLASS({
       var self   = this;
       var blocks = r.blockProfile || [];
       if ( ! blocks.length ) return;
-      // Column maxes for relative heat (each column shaded against its own worst).
-      var maxMs = 0, maxDom = 0, maxHeap = 0;
-      blocks.forEach(function(b) {
-        if ( b.ms > maxMs )            maxMs   = b.ms;
-        if ( b.domDelta > maxDom )     maxDom  = b.domDelta;
-        if ( b.heapDelta > maxHeap )   maxHeap = b.heapDelta;
-      });
+      // Column maxes for relative heat, taken over the whole tree so a hot child reads
+      // hot beside its parent (each column shaded against its own worst).
+      var max = { ms: 0, dom: 0, heap: 0 };
+      ( function scan(list) {
+        list.forEach(function(b) {
+          if ( b.ms > max.ms )          max.ms   = b.ms;
+          if ( b.domDelta > max.dom )   max.dom  = b.domDelta;
+          if ( b.heapDelta > max.heap ) max.heap = b.heapDelta;
+          scan(b.children || []);
+        });
+      } )(blocks);
       var card = self.card_(el);
       var t = card.start('table');
       t.start('tr')
@@ -349,29 +359,48 @@ foam.CLASS({
         .start('td').add('Elements added').end()
         .start('td').add('Memory change').end()
       .end();
+      self.blockRows_(t, r, blocks, 0, null, max);
+      t.end();
+      if ( ! r.profilingSupported ) {
+        card.start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end();
+      }
+      card.end();
+    },
+
+    function blockRows_(t, r, blocks, depth, vis$, max) {
+      /** One level of block rows, each followed by its detail tables and the blocks that
+          ran inside it, indented. A row shows only while every ancestor is open, so
+          expanding a parent reveals one level at a time. **/
+      var self = this;
       blocks.forEach(function(b) {
         var hot        = b.hot || [];
         var bCalls     = b.calls || [];
-        var expandable = hot.length > 0 || bCalls.length > 0;
+        var kids       = b.children || [];
+        var expandable = hot.length > 0 || bCalls.length > 0 || kids.length > 0;
         var open$      = foam.lang.SimpleSlot.create({ value: false });
+        var inner$     = vis$ ? self.bothSlot_(vis$, open$) : open$;
+        // A block's window covers the blocks that ran inside it, so its functions and
+        // calls include theirs. Say so rather than pretend the numbers are exclusive.
+        var scope      = kids.length ? ' (including nested blocks)' : '';
 
         var tr = t.start('tr').addClass(self.myClass('block-row'));
+        if ( vis$ ) tr.show(vis$);
         if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
-        var th = tr.start('th');
+        var th = tr.start('th').addClass(self.myClass('d' + Math.min(depth, 4)));
         th.start('span').addClass(self.myClass('twisty'))
           .add( expandable ? open$.map(function(o) { return o ? '▾' : '▸'; }) : '' )
         .end();
         th.add(b.flowName).end();
-        self.heatCell_(tr.start('td'), r.durStr(b.ms), self.heatLevel_(b.ms, maxMs));
-        self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0),    self.heatLevel_(b.domDelta, maxDom));
-        self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),     self.heatLevel_(b.heapDelta, maxHeap));
+        self.heatCell_(tr.start('td'), r.durStr(b.ms),          self.heatLevel_(b.ms, max.ms));
+        self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0), self.heatLevel_(b.domDelta, max.dom));
+        self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),  self.heatLevel_(b.heapDelta, max.heap));
         tr.end();
 
         // Expandable detail: hottest functions and the server calls this block made.
         if ( hot.length ) {
-          var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
+          var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(inner$)
             .start('td').attrs({ colspan: 4 })
-              .start('div').addClass(self.myClass('detail-title')).add('Hottest functions').end()
+              .start('div').addClass(self.myClass('detail-title')).add('Hottest functions' + scope).end()
               .start('table').addClass(self.myClass('hot-table'));
           ht.start('tr')
             .start('th').add('Function').end()
@@ -388,9 +417,9 @@ foam.CLASS({
           ht.end().end().end();
         }
         if ( bCalls.length ) {
-          var ct = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
+          var ct = t.start('tr').addClass(self.myClass('hot-detailrow')).show(inner$)
             .start('td').attrs({ colspan: 4 })
-              .start('div').addClass(self.myClass('detail-title')).add('Server calls').end()
+              .start('div').addClass(self.myClass('detail-title')).add('Server calls' + scope).end()
               .start('table').addClass(self.myClass('hot-table'));
           ct.start('tr')
             .start('th').add('Service').end()
@@ -410,12 +439,16 @@ foam.CLASS({
           });
           ct.end().end().end();
         }
+        if ( kids.length ) self.blockRows_(t, r, kids, depth + 1, inner$, max);
       });
-      t.end();
-      if ( ! r.profilingSupported ) {
-        card.start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end();
-      }
-      card.end();
+    },
+
+    function bothSlot_(a$, b$) {
+      /** True only while both are - chains a row's visibility down the block tree. **/
+      return foam.lang.ExpressionSlot.create({
+        args: [ a$, b$ ],
+        code: function(a, b) { return !! ( a && b ); }
+      });
     },
 
     function renderEnv_(el, r) {
@@ -485,6 +518,7 @@ foam.CLASS({
     async function finishCapture_() {
       /** End the capture window and compute the report. Callable headlessly.
           Async because the JS Self-Profiling API resolves its trace on stop(). **/
+      await this.settleBodies_();
       this.resolveResponseSizes_(this.netCalls_ || []);
       var net    = this.summarizeNetwork_(this.netCalls_ || []);
       var prof   = await this.stopProfile_();          // {supported, trace} - need trace for per-block hot
@@ -511,14 +545,20 @@ foam.CLASS({
     },
 
     function summarizeBlocks_(trace) {
-      /** Drain the per-block capture buffer into PerfBlockCost rows, worst first, each
-          carrying its hottest functions and the server calls it made (both bucketed into
-          the block's [start,end] window). Trivial blocks are dropped; top 12 kept. **/
-      var self     = this;
-      var netCalls = this.netCalls_ || [];
+      /** Drain the per-block capture buffer into a PerfBlockCost tree. **/
       var raw = Array.isArray(this.capture_) ? this.capture_ : [];
       this.capture_ = null;
-      return raw
+      return this.blockCosts_(raw, trace);
+    },
+
+    function blockCosts_(rows, trace) {
+      /** One level of the block tree as PerfBlockCost rows, worst first, each carrying its
+          hottest functions, the server calls it made (both bucketed into the block's
+          [start,end] window, so a parent's include its children's) and the blocks that ran
+          inside it. Trivial blocks are dropped; top 12 kept per level. **/
+      var self     = this;
+      var netCalls = this.netCalls_ || [];
+      return ( rows || [] )
         .filter(function(b) { return b.ms >= 1 || b.domDelta >= 50 || b.heapDelta >= 1048576; })
         .sort(function(a, b) { return b.ms - a.ms; })
         .slice(0, 12)
@@ -527,10 +567,21 @@ foam.CLASS({
             netCalls.filter(function(c) { return c.t >= b.start && c.t < b.end; });
           return foam.core.reflow.perf.PerfBlockCost.create({
             flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta,
-            hot:   ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : [],
-            calls: self.groupServiceCalls_(inWindow)
+            hot:      ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : [],
+            calls:    self.groupServiceCalls_(inWindow),
+            children: self.blockCosts_(b.children, trace)
           });
         });
+    },
+
+    async function settleBodies_() {
+      /** Wait for the request-body reads wrapFetch_ started. Each reads a clone of an
+          in-memory body and resolves promptly, but in a later microtask - without this
+          the last calls of a load are summarized before their body is parsed and land
+          with a blank operation and zero bytes sent. **/
+      var reads = this.bodyReads_ || [];
+      this.bodyReads_ = [];
+      if ( reads.length ) await Promise.all(reads);
     },
 
     function flushLongTasks_() {
@@ -610,6 +661,7 @@ foam.CLASS({
       var self = this, w = this.window;
       if ( ! w || ! w.fetch ) return;
       this.netCalls_  = [];
+      this.bodyReads_ = [];
       this.origFetch_ = w.fetch;
       var orig = this.origFetch_;
       w.fetch = function(input, init) {
@@ -630,7 +682,9 @@ foam.CLASS({
             self.recordBody_(call, inlineBody);
           } else if ( input && typeof input.clone === 'function' ) {
             // Request body is a stream; clone + read it without disturbing the real call.
-            input.clone().text().then(function(t) { self.recordBody_(call, t || ''); }, function() {});
+            // Tracked so the capture can settle these before it summarizes (settleBodies_).
+            self.bodyReads_.push(
+              input.clone().text().then(function(t) { self.recordBody_(call, t || ''); }, function() {}));
           }
         } catch (e) { /* never break the real request */ }
         var p = orig.apply(this, arguments);
@@ -679,8 +733,11 @@ foam.CLASS({
         var msg = foam.json.parse(node, null, this.__context__);
         var op  = ( msg && msg.name ) || node.name;
         if ( op.endsWith && op.endsWith('_') ) op = op.slice(0, -1);   // 'select_' -> 'select'
-        call.op = op;
         var args = ( msg && msg.args ) || [];
+        // 'cmd' alone says nothing: name the command that was sent, so a purge reads
+        // apart from a reset instead of every control message sharing one row.
+        if ( op === 'cmd' ) op += ' · ' + this.cmdName_(args[1]);
+        call.op = op;
         for ( var i = 0 ; i < args.length ; i++ ) {
           if ( foam.dao.Sink.isInstance(args[i]) ) { call.sink = args[i].cls_.name; break; }
         }
@@ -698,6 +755,15 @@ foam.CLASS({
         var q = parts.join('  ·  ');
         call.query = q.length > 160 ? q.substring(0, 157) + '…' : q;
       } catch (e) { /* unparseable - leave op/sink blank */ }
+    },
+
+    function cmdName_(cmd) {
+      /** Readable name for a DAO cmd payload: the constant for a string command
+          (PURGE_CMD, RESET_CMD, LAST_CMD), the class name for an object one. **/
+      if ( cmd == null ) return '?';
+      if ( foam.String.isInstance(cmd) )      return cmd;
+      if ( foam.lang.FObject.isInstance(cmd) ) return cmd.cls_.name;
+      return String(cmd);
     },
 
     function prettyOrder_(o) {
@@ -814,9 +880,13 @@ foam.CLASS({
 
     function summarizeNetwork_(calls) {
       /** Totals, largest, exact-dup repeats by (url,body) hash, and the grouped service table. **/
+      var CACHEABLE = foam.core.reflow.perf.PerfServiceCall.CACHEABLE_OPS;
       var byHash = {}, largest = 0;
       calls.forEach(function(c) {
         if ( c.reqBytes > largest ) largest = c.reqBytes;
+        // Only a repeated READ is data loaded twice; a repeated control message or write
+        // is work the caller asked for. Same rule the service table recommends on.
+        if ( ! CACHEABLE[c.op] ) return;
         var h = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
         h.count++;
       });

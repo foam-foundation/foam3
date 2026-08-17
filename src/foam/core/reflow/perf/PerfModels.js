@@ -54,6 +54,20 @@ foam.CLASS({
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfRequestVariant', name: 'variants', documentation: 'distinct request bodies in this group, most-repeated first' },
     { class: 'Long',   name: 'requestBytes',  documentation: 'summed request-body bytes' },
     { class: 'Long',   name: 'responseBytes', documentation: 'summed response wire bytes (content-length)' }
+  ],
+
+  constants: {
+    CACHEABLE_OPS: { select: true, find: true }
+  },
+
+  methods: [
+    function avoidable() {
+      /** Identical re-fetches a cache would remove. Only reads qualify: sending the same
+          control message (cmd) or the same write twice is the caller asking for the work
+          to happen twice, not a cache miss. **/
+      if ( ! foam.core.reflow.perf.PerfServiceCall.CACHEABLE_OPS[this.operation] ) return 0;
+      return this.count - ( this.distinct || this.count );
+    }
   ]
 });
 
@@ -92,7 +106,8 @@ foam.CLASS({
     { class: 'Int',    name: 'domDelta', documentation: 'live nodes added while the block ran' },
     { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled inside this block window' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made (in its time window)' }
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made (in its time window)' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'children', documentation: 'blocks that ran inside this one, worst first; their cost is part of this row total' }
   ]
 });
 

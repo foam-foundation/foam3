@@ -39,7 +39,7 @@ foam.CLASS({
     { class: 'Int',   name: 'tableCellDelta', documentation: 'u2 div-grid table cells added during the window' },
     { class: 'Int',   name: 'networkCallCount', documentation: 'fetch calls observed during the window' },
     { class: 'Long',  name: 'largestRequestBytes', documentation: 'largest single request body' },
-    { class: 'Int',   name: 'repeatedRequestCount', documentation: 'distinct (url, body) keys fired more than once' },
+    { class: 'Int',   name: 'repeatedRequestCount', documentation: 'identical re-fetches of a read (url + body sent more than once); control messages and writes excluded - repeating those is requested work, not a cache miss' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfRepeatedRequest', name: 'repeatedRequests' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'serviceCalls', documentation: 'all calls grouped by service+operation+sink, most-called first' },
     { class: 'Int',   name: 'warnCount', documentation: 'console.warn calls during the window' },
@@ -199,16 +199,19 @@ foam.CLASS({
       // Section order matches the UI: Per-block, Service calls, then Metrics.
       var blocks = this.blockProfile || [];
       if ( blocks.length ) {
-        L.push('PER-BLOCK COST (worst first)');
-        blocks.forEach(function(b) {
-          L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + b.flowName);
-          ( b.hot || [] ).forEach(function(f) {
-            L.push('       ' + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
+        L.push('PER-BLOCK COST (worst first, nested blocks indented)');
+        ( function emit(list, indent) {
+          list.forEach(function(b) {
+            L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + indent + b.flowName);
+            ( b.hot || [] ).forEach(function(f) {
+              L.push('       ' + indent + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
+            }.bind(this));
+            ( b.calls || [] ).forEach(function(c) {
+              L.push('       ' + indent + '→ ' + pad(c.count + '×', 5) + c.service + ' ' + ( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ));
+            });
+            emit.call(this, b.children || [], indent + '  ');
           }.bind(this));
-          ( b.calls || [] ).forEach(function(c) {
-            L.push('       → ' + pad(c.count + '×', 5) + c.service + ' ' + ( c.operation || '' ) + ( c.sink ? ' · ' + c.sink : '' ));
-          });
-        }.bind(this));
+        } ).call(this, blocks, '');
         L.push('');
       }
 
@@ -216,7 +219,7 @@ foam.CLASS({
       if ( calls.length ) {
         L.push('SERVICE CALLS (most-called first)');
         calls.forEach(function(c) {
-          var rep = c.count - ( c.distinct || c.count );
+          var rep = c.avoidable();
           var cnt = c.count + ( c.count === 1 ? ' call' : ' calls' ) + ( rep > 0 ? ' · ' + c.distinct + ' unique' : '' );
           var act = rep > 0 ? 'CACHE (' + rep + ' avoidable)' : '';
           L.push('  ' + pad(cnt, 20) + pad(c.service, 28) +
@@ -237,7 +240,7 @@ foam.CLASS({
       L.push('  ' + pad('Longest UI freeze', 22)    + this.durStr(this.longestTaskMs));
       L.push('  ' + pad('Memory change', 22)        + this.byteStr(this.heapDeltaBytes));
       L.push('  ' + pad('Page elements added', 22)  + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
-      L.push('  ' + pad('Server calls', 22)         + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' identical)');
+      L.push('  ' + pad('Server calls', 22)         + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' repeated reads)');
       L.push('  ' + pad('Largest request sent', 22) + this.byteStr(this.largestRequestBytes));
       L.push('  ' + pad('Console warnings', 22)     + this.numStr(this.warnCount, 0));
       L.push('');

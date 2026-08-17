@@ -202,7 +202,9 @@ foam.CLASS({
         L.push('PER-BLOCK COST (worst first, nested blocks indented)');
         ( function emit(list, indent) {
           list.forEach(function(b) {
-            L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + indent + b.flowName);
+            var kids = ( b.children || [] ).length;
+            L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + indent + b.flowName +
+              ( kids ? '  (self ' + this.durStr(b.selfMs) + ', ' + kids + ' inside)' : '' ));
             ( b.hot || [] ).forEach(function(f) {
               L.push('       ' + indent + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
             }.bind(this));

@@ -93,12 +93,15 @@ foam.CLASS({
     ^hint { color: $textSecondary; font-style: italic; }
     ^block-row { cursor: pointer; }
     ^block-row:hover { background: $grey50; }
-    /* Nesting depth of a block row: children sit under the block they ran inside.
-       Qualified by th so these beat the padding shorthand on '^ th' above. */
-    ^ th^d1 { padding-left: 18px; }
-    ^ th^d2 { padding-left: 36px; }
-    ^ th^d3 { padding-left: 54px; }
-    ^ th^d4 { padding-left: 72px; }
+    /* Nesting: one rail per level in the name cell, and the block's detail tables
+       indented to the same level so they read as belonging to the row above.
+       Detail rules are qualified past '^hot-detailrow > td' to win on specificity. */
+    ^rail { display: inline-block; width: 22px; height: 1.1em; vertical-align: -0.2em; border-left: 1px solid $borderLight; }
+    ^inside { margin-left: 8px; font-size: 11px; font-weight: $font-regular; color: $textTertiary; }
+    ^hot-detailrow > td^d1 { padding-left: 44px; }
+    ^hot-detailrow > td^d2 { padding-left: 66px; }
+    ^hot-detailrow > td^d3 { padding-left: 88px; }
+    ^hot-detailrow > td^d4 { padding-left: 110px; }
     ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
     ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
     ^hot-detailrow > td { padding: 4px 0 8px 22px; }
@@ -380,19 +383,29 @@ foam.CLASS({
         var expandable = hot.length > 0 || bCalls.length > 0 || kids.length > 0;
         var open$      = foam.lang.SimpleSlot.create({ value: false });
         var inner$     = vis$ ? self.bothSlot_(vis$, open$) : open$;
-        // A block's window covers the blocks that ran inside it, so its functions and
-        // calls include theirs. Say so rather than pretend the numbers are exclusive.
-        var scope      = kids.length ? ' (including nested blocks)' : '';
+        var dCls       = self.myClass('d' + Math.min(depth, 4));
+        // A wrapper's time is its children's; say what it spent on its own so the rows
+        // that actually cost something stand out from the ones that only hold them.
+        var ownTime    = kids.length ? ' · self ' + r.durStr(b.selfMs) : '';
 
         var tr = t.start('tr').addClass(self.myClass('block-row'));
         if ( vis$ ) tr.show(vis$);
         if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
-        var th = tr.start('th').addClass(self.myClass('d' + Math.min(depth, 4)));
+        var th = tr.start('th');
+        // One rail per level of nesting: the guides survive the detail tables that sit
+        // between a block and the blocks it contains.
+        for ( var i = 0 ; i < depth ; i++ ) th.start('span').addClass(self.myClass('rail')).end();
         th.start('span').addClass(self.myClass('twisty'))
           .add( expandable ? open$.map(function(o) { return o ? '▾' : '▸'; }) : '' )
         .end();
-        th.add(b.flowName).end();
-        self.heatCell_(tr.start('td'), r.durStr(b.ms),          self.heatLevel_(b.ms, max.ms));
+        th.add(b.flowName);
+        if ( kids.length ) {
+          th.start('span').addClass(self.myClass('inside'))
+            .add(kids.length + ( kids.length === 1 ? ' block inside' : ' blocks inside' ))
+          .end();
+        }
+        th.end();
+        self.heatCell_(tr.start('td'), r.durStr(b.ms) + ownTime, self.heatLevel_(b.ms, max.ms));
         self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0), self.heatLevel_(b.domDelta, max.dom));
         self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),  self.heatLevel_(b.heapDelta, max.heap));
         tr.end();
@@ -400,8 +413,8 @@ foam.CLASS({
         // Expandable detail: hottest functions and the server calls this block made.
         if ( hot.length ) {
           var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(inner$)
-            .start('td').attrs({ colspan: 4 })
-              .start('div').addClass(self.myClass('detail-title')).add('Hottest functions' + scope).end()
+            .start('td').addClass(dCls).attrs({ colspan: 4 })
+              .start('div').addClass(self.myClass('detail-title')).add('Hottest functions').end()
               .start('table').addClass(self.myClass('hot-table'));
           ht.start('tr')
             .start('th').add('Function').end()
@@ -419,8 +432,8 @@ foam.CLASS({
         }
         if ( bCalls.length ) {
           var ct = t.start('tr').addClass(self.myClass('hot-detailrow')).show(inner$)
-            .start('td').attrs({ colspan: 4 })
-              .start('div').addClass(self.myClass('detail-title')).add('Server calls' + scope).end()
+            .start('td').addClass(dCls).attrs({ colspan: 4 })
+              .start('div').addClass(self.myClass('detail-title')).add('Server calls').end()
               .start('table').addClass(self.myClass('hot-table'));
           ct.start('tr')
             .start('th').add('Service').end()
@@ -553,10 +566,11 @@ foam.CLASS({
     },
 
     function blockCosts_(rows, trace) {
-      /** One level of the block tree as PerfBlockCost rows, worst first, each carrying its
-          hottest functions, the server calls it made (both bucketed into the block's
-          [start,end] window, so a parent's include its children's) and the blocks that ran
-          inside it. Trivial blocks are dropped; top 12 kept per level. **/
+      /** One level of the block tree as PerfBlockCost rows, worst first, each carrying the
+          blocks that ran inside it plus the functions and server calls of its OWN time -
+          a nested block's work belongs to that block, so a wrapper that only holds
+          children reports no functions and no calls instead of repeating theirs.
+          Trivial blocks are dropped; top 12 kept per level. **/
       var self     = this;
       var netCalls = this.netCalls_ || [];
       return ( rows || [] )
@@ -564,15 +578,39 @@ foam.CLASS({
         .sort(function(a, b) { return b.ms - a.ms; })
         .slice(0, 12)
         .map(function(b) {
-          var inWindow = b.start == null ? [] :
-            netCalls.filter(function(c) { return c.t >= b.start && c.t < b.end; });
+          var kids = self.blockCosts_(b.children, trace);
+          // Only the children that survived the filter own their window; a dropped
+          // child's work rolls up here, where it is still visible.
+          var kept   = self.keptWindows_(b.children, kids);
+          var selfMs = Math.max(0, b.ms - kept.reduce(function(s, w) { return s + ( w[1] - w[0] ); }, 0));
+          var mine   = b.start == null ? [] : netCalls.filter(function(c) {
+            return c.t >= b.start && c.t < b.end && ! self.inAny_(kept, c.t);
+          });
           return foam.core.reflow.perf.PerfBlockCost.create({
-            flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta,
-            hot:      ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : [],
-            calls:    self.groupServiceCalls_(inWindow),
-            children: self.blockCosts_(b.children, trace)
+            flowName: b.flowName, cmd: b.cmd, ms: b.ms, selfMs: selfMs,
+            domDelta: b.domDelta, heapDelta: b.heapDelta,
+            hot:      ( trace && b.start != null && selfMs >= 1 ) ?
+              self.framesInWindow_(trace, b.start, b.end, selfMs, kept) : [],
+            calls:    self.groupServiceCalls_(mine),
+            children: kids
           });
         });
+    },
+
+    function keptWindows_(rawChildren, kids) {
+      /** [start,end] of each recorded child that made it into the report, matched by name
+          and start so a filtered-out child keeps rolling up into its parent. **/
+      var byKey = {};
+      kids.forEach(function(k) { byKey[k.flowName] = true; });
+      return ( rawChildren || [] )
+        .filter(function(c) { return byKey[c.flowName] && c.start != null; })
+        .map(function(c) { return [ c.start, c.end ]; });
+    },
+
+    function inAny_(windows, t) {
+      for ( var i = 0 ; i < windows.length ; i++ )
+        if ( t >= windows[i][0] && t < windows[i][1] ) return true;
+      return false;
     },
 
     async function settleBodies_() {
@@ -610,18 +648,21 @@ foam.CLASS({
       }
     },
 
-    function framesInWindow_(trace, start, end, blockMs) {
-      /** Hottest leaf frames among samples whose timestamp falls in [start,end).
+    function framesInWindow_(trace, start, end, blockMs, opt_exclude) {
+      /** Hottest leaf frames among samples whose timestamp falls in [start,end) and outside
+          every excluded window (a nested block's samples belong to that block).
           Returns top 5 (>=5% of the window), with % within the window and CPU ms.
           ms is the frame's SHARE of the block's wall time (not samples × nominal
           interval - Chrome samples faster than the 10ms hint, which over-counts).
           Drops this tool's own measurement frames. **/
       if ( ! trace || ! trace.samples || ! trace.stacks || ! trace.frames ) return [];
       var self = this;
+      var excl = opt_exclude || [];
       var NOISE = { 'Profiler': true, 'querySelectorAll': true, 'now': true, 'takeRecords': true };
       var counts = {}, total = 0;
       trace.samples.forEach(function(s) {
         if ( s.timestamp < start || s.timestamp >= end ) return;
+        if ( self.inAny_(excl, s.timestamp) ) return;
         var stack = trace.stacks[s.stackId];
         if ( ! stack ) return;
         counts[stack.frameId] = ( counts[stack.frameId] || 0 ) + 1;

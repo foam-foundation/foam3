@@ -102,11 +102,12 @@ foam.CLASS({
   properties: [
     { class: 'String', name: 'flowName' },
     { class: 'String', name: 'cmd' },
-    { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop' },
+    { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop, its nested blocks included' },
+    { class: 'Float',  name: 'selfMs', documentation: 'ms minus the blocks that ran inside it - the work this block did itself' },
     { class: 'Int',    name: 'domDelta', documentation: 'live nodes added while the block ran' },
     { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled inside this block window' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made (in its time window)' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled in this block\'s own time, nested blocks excluded' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made itself; a nested block\'s calls belong to that block' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'children', documentation: 'blocks that ran inside this one, worst first; their cost is part of this row total' }
   ]
 });

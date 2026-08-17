@@ -680,6 +680,8 @@ foam.CLASS({
 
   requires: [ 'foam.core.reflow.perf.Perf' ],
 
+  imports: [ 'perfCapture_' ],
+
   properties: [
     [ 'description', 'Load perf a flow with performance capture' ]
   ],
@@ -687,11 +689,28 @@ foam.CLASS({
   methods: [
     async function execute(flowName) {
       if ( ! flowName ) return;
-      var self   = this;
-      var runner = this.Perf.create({}, this);
+      var self = this;
+      // An unresolvable name loads nothing (Load.execute returns silently), and no load
+      // means no loadComplete - so capturing here would wrap fetch and console.warn for
+      // the rest of the session. Checked before startCapture_ so it isn't measured.
+      if ( ! await this.flowDAO.find(flowName) ) return;
+
+      var runner    = this.Perf.create({}, this);
+      var finishing = false;
 
       runner.startCapture_();
+      // Per-block costs are recorded by the Console's load loop, which has no handle
+      // on this capture - hand it the buffer for the duration of the load. The Console
+      // clears it when the load ends (onScriptChange).
+      this.perfCapture_ = runner.capture_;
+      // That clear is the one signal a load emits whether it passed or threw: a load
+      // that throws never pubs loadComplete, leaving the wrappers below installed.
+      // Subscribed after the set above so it can't fire on our own write.
+      this.perfCapture_$.sub(foam.events.oneTime(function() {
+        if ( ! finishing ) runner.stopCapture_();
+      }));
       this.flow.loadComplete.sub(foam.events.oneTime(async function() {
+        finishing = true;   // set before the first await: the clear lands in between
         var report = await runner.finishCapture_();
         report.label = 'loadPerf: ' + flowName;
         // Append a perf block to the loaded flow and inject the measured report.

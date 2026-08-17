@@ -122,6 +122,7 @@ foam.CLASS({
     { class: 'Float', name: 'longTaskTotalMs_', hidden: true, transient: true },
     { class: 'Float', name: 'longestTaskMs_',   hidden: true, transient: true },
     { class: 'Int',   name: 'warnCount_',       hidden: true, transient: true },
+    { name: 'capture_',   hidden: true, transient: true },
     { name: 'observer_',  hidden: true, transient: true },
     { name: 'netCalls_',  hidden: true, transient: true },
     { name: 'origFetch_', hidden: true, transient: true },
@@ -464,8 +465,10 @@ foam.CLASS({
       this.wrapFetch_();
       this.wrapWarn_();
 
-      // Buffer the Console's per-block load loop writes into (Console.includeScript).
-      if ( this.window ) this.window.__perfCapture__ = [];
+      // Buffer for the Console's per-block load loop. The loadPerf command hands it
+      // to the Console that runs the load (Console.perfCapture_); nothing else can
+      // reach it, so a stale perf block detaching mid-load cannot disturb it.
+      this.capture_ = [];
 
       // JS Self-Profiling API: sample the call stack so we can name the hottest
       // functions ourselves, no DevTools. Throws unless the js-profiling document
@@ -513,8 +516,8 @@ foam.CLASS({
           the block's [start,end] window). Trivial blocks are dropped; top 12 kept. **/
       var self     = this;
       var netCalls = this.netCalls_ || [];
-      var raw = ( this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : [];
-      if ( this.window ) this.window.__perfCapture__ = null;
+      var raw = Array.isArray(this.capture_) ? this.capture_ : [];
+      this.capture_ = null;
       return raw
         .filter(function(b) { return b.ms >= 1 || b.domDelta >= 50 || b.heapDelta >= 1048576; })
         .sort(function(a, b) { return b.ms - a.ms; })
@@ -599,7 +602,7 @@ foam.CLASS({
       // Discard a still-running profiler (e.g. view detached mid-capture).
       if ( this.profiler_ ) { try { this.profiler_.stop(); } catch (e) {} this.profiler_ = null; }
       // Drop the per-block buffer if capture aborted before summarizeBlocks_ drained it.
-      if ( this.window && this.window.__perfCapture__ ) this.window.__perfCapture__ = null;
+      this.capture_ = null;
     },
 
     function wrapFetch_() {

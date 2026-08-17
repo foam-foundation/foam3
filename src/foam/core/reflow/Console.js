@@ -1016,6 +1016,7 @@ foam.CLASS({
     'moveFlowChild',
     'moveFlowChildAfter',
     'out',
+    'perfCapture_',
     'save',
     'scope',
     'scrollToBottom',
@@ -1228,6 +1229,15 @@ foam.CLASS({
       value: 0
     },
     {
+      name: 'perfCapture_',
+      hidden: true,
+      transient: true,
+      documentation: `Per-block cost rows for the load in progress: the loadPerf command
+        points this at the capturing Perf's buffer, and onScriptChange drops it when the
+        load ends. Held per Console rather than on window so a perf block detaching
+        mid-load (clearFlow) cannot reach another capture's buffer.`
+    },
+    {
       class: 'Int',
       name: 'loadingPercentage_',
       hidden: true,
@@ -1348,10 +1358,10 @@ foam.CLASS({
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
-        // Per-block attribution for the reflow Perf block: when a capture set
-        // window.__perfCapture__ to an array, record each TOP-LEVEL block's cost.
+        // Per-block attribution for the reflow Perf block: when a capture pointed
+        // perfCapture_ at its buffer, record each TOP-LEVEL block's cost.
         // No-op (single array check) when not capturing.
-        var perfCap_ = ( ! parent && this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : null;
+        var perfCap_ = ( ! parent && Array.isArray(this.perfCapture_) ) ? this.perfCapture_ : null;
         var perfT_, perfDom_, perfHeap_;
         if ( perfCap_ ) {
           perfT_    = this.window.performance.now();
@@ -2204,6 +2214,10 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+
+          // A capture collects the load it armed and no more: dropping the buffer
+          // here bounds it to one load even when includeScript throws.
+          this.perfCapture_ = null;
 
           // Reset progress counters
           this.loadingProgress_ = 0;

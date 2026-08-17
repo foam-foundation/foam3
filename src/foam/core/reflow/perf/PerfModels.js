@@ -109,6 +109,16 @@ foam.CLASS({
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled in this block\'s own time, nested blocks excluded' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made itself; a nested block\'s calls belong to that block' },
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'children', documentation: 'blocks that ran inside this one, worst first; their cost is part of this row total' }
+  ],
+
+  methods: [
+    function subtitle() {
+      /** The command, when the block's name alone identifies nothing. Auto-named blocks
+          come through as '1', '2', '3', so the report would otherwise list rows no reader
+          can place. Empty when the name already says what the block is. **/
+      if ( ! this.cmd || ! /^\d*$/.test(this.flowName) ) return '';
+      return this.cmd.length > 48 ? this.cmd.substring(0, 45) + '…' : this.cmd;
+    }
   ]
 });
 

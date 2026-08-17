@@ -112,7 +112,8 @@ foam.CLASS({
   `,
 
   constants: {
-    SAMPLE_INTERVAL_MS: 10   // JS Self-Profiling sampleInterval; each sample ≈ this many ms of CPU
+    SAMPLE_INTERVAL_MS: 10,  // JS Self-Profiling sampleInterval; each sample ≈ this many ms of CPU
+    HOT_MIN_MS:         20   // own time a block needs before its hottest functions mean anything
   },
 
   properties: [
@@ -256,7 +257,7 @@ foam.CLASS({
       row(self.HEAP_LABEL, r.byteStr(r.heapDeltaBytes), 'heapDeltaBytes');
       row(self.DOM_LABEL, r.numStr(r.domNodeDelta, 0) + ( r.tableCellDelta > 0 ? ' (' + r.numStr(r.tableCellDelta, 0) + ' cells)' : '' ), 'domNodeDelta');
       row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' repeated reads)', 'repeatedRequestCount');
-      row(self.LARGEST_LABEL, r.byteStr(r.largestRequestBytes), 'largestRequestBytes');
+      row(self.LARGEST_LABEL, r.sizeStr(r.largestRequestBytes), 'largestRequestBytes');
       row(self.WARN_LABEL, r.numStr(r.warnCount, 0), 'warnRate');
       el2.end();
       card.end();
@@ -399,6 +400,8 @@ foam.CLASS({
           .add( expandable ? open$.map(function(o) { return o ? '▾' : '▸'; }) : '' )
         .end();
         th.add(b.flowName);
+        var sub = b.subtitle();
+        if ( sub ) th.start('span').addClass(self.myClass('inside')).add(sub).end();
         if ( kids.length ) {
           th.start('span').addClass(self.myClass('inside'))
             .add(kids.length + ( kids.length === 1 ? ' block inside' : ' blocks inside' ))
@@ -589,7 +592,9 @@ foam.CLASS({
           return foam.core.reflow.perf.PerfBlockCost.create({
             flowName: b.flowName, cmd: b.cmd, ms: b.ms, selfMs: selfMs,
             domDelta: b.domDelta, heapDelta: b.heapDelta,
-            hot:      ( trace && b.start != null && selfMs >= 1 ) ?
+            // Below HOT_MIN_MS a block's own time is a couple of profiler samples, and
+            // "100% 2ms setAttribute" reads as a finding when it is noise.
+            hot:      ( trace && b.start != null && selfMs >= self.HOT_MIN_MS ) ?
               self.framesInWindow_(trace, b.start, b.end, selfMs, kept) : [],
             calls:    self.groupServiceCalls_(mine),
             children: kids
@@ -781,7 +786,11 @@ foam.CLASS({
         if ( op === 'cmd' ) op += ' · ' + this.cmdName_(args[1]);
         call.op = op;
         for ( var i = 0 ; i < args.length ; i++ ) {
-          if ( foam.dao.Sink.isInstance(args[i]) ) { call.sink = args[i].cls_.name; break; }
+          if ( foam.dao.Sink.isInstance(args[i]) ) {
+            call.sink      = args[i].cls_.name;
+            call.sinkProps = this.sinkProps_(args[i]);
+            break;
+          }
         }
         // Query descriptor for the expand view: the predicate if any (select_ arg 5),
         // else the id being fetched/written - so two calls can be compared by what they ask for.
@@ -797,6 +806,40 @@ foam.CLASS({
         var q = parts.join('  ·  ');
         call.query = q.length > 160 ? q.substring(0, 157) + '…' : q;
       } catch (e) { /* unparseable - leave op/sink blank */ }
+    },
+
+    function sinkProps_(sink) {
+      /** The sink's set properties as short strings. Groups key on the sink CLASS, so two
+          calls that ask the same question of differently configured sinks land in one
+          group; these are what tagVariants_ uses to tell their rows apart. **/
+      var out = {}, inst = ( sink && sink.instance_ ) || {};
+      Object.keys(inst).forEach(function(k) {
+        if ( k.endsWith('_') ) return;
+        var v = inst[k];
+        if ( v == null || foam.dao.Sink.isInstance(v) ) return;
+        var s = foam.lang.FObject.isInstance(v) ? ( v.name || v.cls_.name ) : String(v);
+        if ( s && s.length <= 40 ) out[k] = s;
+      });
+      return out;
+    },
+
+    function tagVariants_(variants) {
+      /** Append the sink settings that DIFFER across a group's variants to each variant's
+          query text. Without it two calls with the same predicate but different sink
+          configuration print as the same line while counting as distinct requests. **/
+      if ( variants.length < 2 ) return;
+      var keys = {};
+      variants.forEach(function(v) { Object.keys(v.sinkProps || {}).forEach(function(k) { keys[k] = true; }); });
+      var differing = Object.keys(keys).filter(function(k) {
+        var first = ( variants[0].sinkProps || {} )[k];
+        return variants.some(function(v) { return ( v.sinkProps || {} )[k] !== first; });
+      });
+      if ( ! differing.length ) return;
+      variants.forEach(function(v) {
+        var props = v.sinkProps || {};
+        var txt = differing.map(function(k) { return k + '=' + ( props[k] == null ? '—' : props[k] ); }).join(' ');
+        v.query = v.query ? v.query + '  ·  ' + txt : txt;
+      });
     },
 
     function cmdName_(cmd) {
@@ -837,6 +880,7 @@ foam.CLASS({
     function groupServiceCalls_(calls) {
       /** Group calls by service+operation+sink into PerfServiceCall[] (with per-body
           variants), most-called first. Shared by the global table and per-block attribution. **/
+      var self = this;
       var byService = {};
       calls.forEach(function(c) {
         var key = ( c.service || '?' ) + '|' + ( c.op || '' ) + '|' + ( c.sink || '' );
@@ -844,16 +888,22 @@ foam.CLASS({
         g.count++;
         g.requestBytes  += c.reqBytes || 0;
         g.responseBytes += c.respBytes || 0;
-        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: 0, responseBytes: 0, query: c.query || '' } );
+        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: 0, responseBytes: 0, query: c.query || '', sinkProps: c.sinkProps || {} } );
         v.count++;
         v.requestBytes  += c.reqBytes || 0;
         v.responseBytes += c.respBytes || 0;
       });
       return Object.keys(byService).map(function(k) {
         var g = byService[k];
-        var variants = Object.keys(g.variants_).map(function(h) {
-          return foam.core.reflow.perf.PerfRequestVariant.create(g.variants_[h]);
-        }).sort(function(a, b) { return b.count - a.count; });
+        // Label before the models are built: tagVariants_ compares the whole set.
+        var rows = Object.keys(g.variants_).map(function(h) { return g.variants_[h]; })
+          .sort(function(a, b) { return b.count - a.count; });
+        self.tagVariants_(rows);
+        var variants = rows.map(function(v) {
+          return foam.core.reflow.perf.PerfRequestVariant.create({
+            count: v.count, requestBytes: v.requestBytes, responseBytes: v.responseBytes, query: v.query
+          });
+        });
         g.distinct = variants.length;
         g.variants = variants;
         delete g.variants_;

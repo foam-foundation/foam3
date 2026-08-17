@@ -203,7 +203,9 @@ foam.CLASS({
         ( function emit(list, indent) {
           list.forEach(function(b) {
             var kids = ( b.children || [] ).length;
+            var sub  = b.subtitle();
             L.push('  ' + pad(this.durStr(b.ms), 9) + pad('+' + this.numStr(b.domDelta, 0) + ' dom', 14) + pad(this.byteStr(b.heapDelta), 12) + indent + b.flowName +
+              ( sub ? '  [' + sub + ']' : '' ) +
               ( kids ? '  (self ' + this.durStr(b.selfMs) + ', ' + kids + ' inside)' : '' ));
             ( b.hot || [] ).forEach(function(f) {
               L.push('       ' + indent + pad(this.numStr(f.pct, 0) + '%', 6) + pad(this.durStr(f.ms), 9) + this.frameLabel(f));
@@ -243,7 +245,7 @@ foam.CLASS({
       L.push('  ' + pad('Memory change', 22)        + this.byteStr(this.heapDeltaBytes));
       L.push('  ' + pad('Page elements added', 22)  + this.numStr(this.domNodeDelta, 0) + ( this.tableCellDelta > 0 ? ' (' + this.numStr(this.tableCellDelta, 0) + ' table cells)' : '' ));
       L.push('  ' + pad('Server calls', 22)         + this.numStr(this.networkCallCount, 0) + ' (' + this.numStr(this.repeatedRequestCount, 0) + ' repeated reads)');
-      L.push('  ' + pad('Largest request sent', 22) + this.byteStr(this.largestRequestBytes));
+      L.push('  ' + pad('Largest request sent', 22) + this.sizeStr(this.largestRequestBytes));
       L.push('  ' + pad('Console warnings', 22)     + this.numStr(this.warnCount, 0));
       L.push('');
 

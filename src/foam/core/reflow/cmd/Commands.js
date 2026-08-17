@@ -690,6 +690,9 @@ foam.CLASS({
     async function execute(flowName) {
       if ( ! flowName ) return;
       var self = this;
+      // SUPER is bound for the synchronous frame only (Method.js restores it in a
+      // finally), so hold it before the find below yields.
+      var SUPER = this.SUPER;
       // An unresolvable name loads nothing (Load.execute returns silently), and no load
       // means no loadComplete - so capturing here would wrap fetch and console.warn for
       // the rest of the session. Checked before startCapture_ so it isn't measured.
@@ -719,7 +722,7 @@ foam.CLASS({
         blk.value.copyFrom(report);
       }));
 
-      await this.SUPER(flowName);
+      await SUPER.call(this, flowName);
     }
   ]
 });

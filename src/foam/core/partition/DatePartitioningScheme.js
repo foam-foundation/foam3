@@ -20,6 +20,6 @@ foam.ENUM({
     },
     {
       name: 'YYYYMMDD'
-    },
+    }
   ]
 });

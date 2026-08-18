@@ -60,6 +60,26 @@ function start() {
     processBuffer();
   });
 
+  // Exit when the client closes our stdin — otherwise a dead parent leaves
+  // this process orphaned forever (and writes to its closed pipes EPIPE).
+  process.stdin.on('end', function() {
+    process.exit(0);
+  });
+
+  // LSP spec: initialize.processId is the client's pid; the server should
+  // exit when that process dies. Covers parents killed with SIGKILL, where
+  // stdin 'end' may never be observed before the next write EPIPEs.
+  function watchClientProcess(pid) {
+    if ( typeof pid !== 'number' ) return;
+    setInterval(function() {
+      try {
+        process.kill(pid, 0);
+      } catch (e) {
+        process.exit(0);
+      }
+    }, 30000).unref();
+  }
+
   function processBuffer() {
     while ( true ) {
       var headerEnd = rawBuffer.indexOf('\r\n\r\n');
@@ -370,6 +390,7 @@ function start() {
     try {
     switch ( method ) {
       case 'initialize':
+        watchClientProcess(params && params.processId);
         respond(id, {
           capabilities: {
             textDocumentSync: {

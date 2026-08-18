@@ -23,6 +23,11 @@ process.on('unhandledRejection', function(e) {
   console.error('[LSP] Ignoring unhandled rejection:', e.message || e);
 });
 process.on('uncaughtException', function(e) {
+  // Our pipes are gone (parent died). Logging below would EPIPE again and
+  // re-enter this handler forever — a 100% CPU spin. Exit instead.
+  if ( e && ( e.code === 'EPIPE' || e.code === 'ERR_STREAM_DESTROYED' ) ) {
+    process.exit(0);
+  }
   // Ignore web-only errors (document, window, etc.)
   if ( e.message && ( e.message.includes('document') || e.message.includes('window') ) ) {
     console.error('[LSP] Ignoring web-only error:', e.message);

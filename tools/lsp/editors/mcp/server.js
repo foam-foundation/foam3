@@ -689,9 +689,19 @@ function main() {
 
   rl.on('close', function() {
     log('stdin closed, shutting down');
+    shutdown();
+  });
+
+  // stdin 'close' only covers a graceful client exit. When the MCP host
+  // terminates us with a signal, reap the LSP child too — otherwise it's
+  // orphaned and lives forever.
+  function shutdown() {
     if ( lsp.child && ! lsp.child.killed ) lsp.child.kill();
     process.exit(0);
-  });
+  }
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT',  shutdown);
+  process.on('SIGHUP',  shutdown);
 }
 
 // --- exports (for tests) + entrypoint guard ------------------------------

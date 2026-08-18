@@ -93,8 +93,9 @@ foam.CLASS({
       name: 'tableWidth'
     },
     {
-      class: 'Boolean',
-      documentation: 'When true, table cells for this column render a copy-to-clipboard button.',
+      documentation: `When truthy, table cells for this column render a copy-to-clipboard
+        button. true copies the displayed cell text; a function(value, obj) returning a
+        string copies its result instead — use for cells that render icons or objects.`,
       name: 'copyable'
     },
     {

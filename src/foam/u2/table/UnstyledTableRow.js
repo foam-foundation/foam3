@@ -234,8 +234,12 @@ foam.CLASS({
               // open-detail-view handler.
               e.stopPropagation();
               e.preventDefault();
+              if ( foam.Function.isInstance(prop.copyable) ) {
+                self.copy(String(prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned)));
+                return;
+              }
               var node = cell.el_();
-              self.copy(node ? node.innerText.trim() : String(prop.f ? prop.f(objReturned) : ''));
+              self.copy(node ? node.innerText.trim() : '');
             })
             .start('img')
               .attrs({ src: '/images/copy-icon.svg', alt: '' })

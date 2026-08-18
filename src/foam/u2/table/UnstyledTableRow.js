@@ -136,6 +136,9 @@ foam.CLASS({
       gap: 4px;
     }
     ^copyable-cell > span {
+      /* min-width 0 lets the flex item shrink below its content width,
+         so the ellipsis engages and the button stays inside the cell. */
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -237,7 +240,7 @@ foam.CLASS({
               e.stopPropagation();
               e.preventDefault();
               if ( foam.Function.isInstance(prop.copyable) ) {
-                self.copy(String(prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned)));
+                self.copy(String(prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned) ?? ''));
                 return;
               }
               var node = cell.el_();

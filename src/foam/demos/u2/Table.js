@@ -22,8 +22,15 @@ foam.CLASS({
 
   properties: [
     { class: 'Int',    name: 'id', hidden: true },
-    { class: 'String', name: 'firstName' },
-    { class: 'String', name: 'lastName' },
+    // copyable: true renders a copy button in each cell copying the displayed text
+    { class: 'String', name: 'firstName', copyable: true },
+    // copyable as a function(value, obj) copies its returned string instead;
+    // use for columns whose cells render icons or objects
+    {
+      class: 'String',
+      name: 'lastName',
+      copyable: function(value, obj) { return obj.lastName + ', ' + obj.firstName; }
+    },
     { class: 'Int',    name: 'age' }
   ],
 

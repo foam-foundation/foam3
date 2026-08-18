@@ -8,19 +8,23 @@ foam.CLASS({
   package: 'foam.parse.lsp',
   name: 'JournalEntryIndex',
 
-  documentation: `Workspace-wide index of journal (.jrl) entries:
+  documentation: `Workspace-wide lookup of journal (.jrl) entries:
     which journal file (and line) defines each service name and each
     per-model entry id. Backs JrlHandler's cross-reference
     go-to-definition (daoKey -> services.jrl, parent -> menu entry).
 
     Positions come from JrlGrammar (parser combinators); entry
-    SEMANTICS come from evaluating the journal with p/c/r interceptors
-    (JrlLoader's pattern), aligned to grammar records by document
-    order. Triple-quoted FOAM strings are spliced out before eval —
-    they are not valid JavaScript.
+    SEMANTICS come from evaluating each entry with p/c/r interceptors
+    (JrlLoader's pattern). Each entry is evaluated ALONE, sliced on
+    the grammar's entry starts, so a malformed entry costs only
+    itself, never the whole file. Triple-quoted FOAM strings are
+    spliced out before eval — they are not valid JavaScript.
 
-    Lazy: built on first query, dropped by invalidate() (wired to
-    .jrl saves in server.js).`,
+    Query-driven, not build-the-world: a lookup reads each journal's
+    raw text and skips the (expensive) parse entirely unless the text
+    can contain the key. Per-file parses are cached by mtime+size;
+    invalidate() (wired to .jrl saves in server.js) drops the caches
+    so the next query re-reads from disk.`,
 
   requires: [ 'foam.parse.lsp.JrlGrammar' ],
 
@@ -38,23 +42,42 @@ foam.CLASS({
       name: 'grammar',
       factory: function() { return this.JrlGrammar.create(); }
     },
-    { name: 'maps_', value: null }
+    {
+      name: 'fileList_',
+      documentation: 'Cached discovery result; null until first query.',
+      value: null
+    },
+    {
+      name: 'fileCache_',
+      documentation: 'path -> { mtimeMs, size, recs } parsed-entry cache.',
+      factory: function() { return {}; }
+    }
   ],
 
   methods: [
-    function invalidate() { this.maps_ = null; },
+    function invalidate() {
+      this.fileList_  = null;
+      this.fileCache_ = {};
+    },
 
     function getServiceLocations(name) {
-      this.ensureBuilt_();
-      var a = this.maps_.serviceByName[name];
-      return a && a.length ? a : null;
+      return this.lookup_([ name ], function(rec, isServices) {
+        return isServices && rec.key === name;
+      });
     },
 
     function getEntryLocations(modelId, key) {
-      this.ensureBuilt_();
-      var m = this.maps_.entriesByModel[modelId];
-      var a = m && m[key];
-      return a && a.length ? a : null;
+      // Pre-gate on both: a matching entry stores its class id and its
+      // key as literal text, so both strings must appear in the file.
+      return this.lookup_([ key, modelId ], function(rec) {
+        return rec.clsId === modelId && rec.key === key;
+      });
+    },
+
+    function files_() {
+      if ( this.journalFiles.length ) return this.journalFiles;
+      if ( ! this.fileList_ ) this.fileList_ = this.findJournalFiles_();
+      return this.fileList_;
     },
 
     function findJournalFiles_() {
@@ -95,6 +118,93 @@ foam.CLASS({
       return files;
     },
 
+    function lookup_(needles, match) {
+      var path_ = require('path');
+      for ( var n = 0 ; n < needles.length ; n++ ) {
+        if ( typeof needles[n] !== 'string' || ! needles[n] ) return null;
+      }
+      var files = this.files_();
+      var out = [];
+      for ( var f = 0 ; f < files.length ; f++ ) {
+        var recs = this.fileRecords_(files[f], needles);
+        if ( ! recs ) continue;
+        var isServices = path_.basename(files[f]) === 'services.jrl';
+        for ( var i = 0 ; i < recs.length ; i++ ) {
+          if ( match(recs[i], isServices) ) {
+            out.push({ file: files[f], line: recs[i].line });
+          }
+        }
+      }
+      return out.length ? out : null;
+    },
+
+    function fileRecords_(file, needles) {
+      /**
+       * Parsed records for one journal, cached by mtime+size. On a
+       * cache miss the raw text is pre-gated on the lookup needles
+       * before any parsing: a journal that cannot contain the key is
+       * never parsed (substring scan is orders of magnitude cheaper
+       * than a grammar parse). Returns null when gated out or
+       * unreadable.
+       */
+      var fs_ = require('fs');
+      var st;
+      try { st = fs_.statSync(file); } catch ( e ) {
+        delete this.fileCache_[file];
+        return null;
+      }
+      var c = this.fileCache_[file];
+      if ( c && c.mtimeMs === st.mtimeMs && c.size === st.size ) return c.recs;
+      delete this.fileCache_[file];
+
+      var content;
+      try { content = fs_.readFileSync(file, 'utf8'); } catch ( e ) { return null; }
+      for ( var n = 0 ; n < needles.length ; n++ ) {
+        if ( content.indexOf(needles[n]) === -1 ) return null;
+      }
+
+      var recs = this.parseFile_(content);
+      this.fileCache_[file] = { mtimeMs: st.mtimeMs, size: st.size, recs: recs };
+      return recs;
+    },
+
+    function parseFile_(content) {
+      /**
+       * Grammar positions -> per-entry eval. Slicing each entry on the
+       * grammar's own entry starts isolates syntax errors: ops[0] of a
+       * slice IS that slice's entry, and a slice that fails to compile
+       * drops only its own entry.
+       */
+      var recs = [];
+      var pos = this.grammar.collectJrlPositions(content);
+      for ( var i = 0 ; i < pos.entries.length ; i++ ) {
+        var start = pos.entries[i].startPos;
+        var end   = i + 1 < pos.entries.length ?
+          pos.entries[i + 1].startPos : content.length;
+
+        var spans = [];
+        for ( var t = 0 ; t < pos.tripleStrings.length ; t++ ) {
+          var s = pos.tripleStrings[t];
+          if ( s.startPos >= start && s.endPos <= end ) {
+            spans.push({ startPos: s.startPos - start, endPos: s.endPos - start });
+          }
+        }
+
+        var ops = this.parseEntriesOrdered_(
+          this.sanitizeContent_(content.substring(start, end), spans));
+        if ( ! ops.length || ops[0].op === 'r' ) continue;
+        var obj = ops[0].obj;
+        if ( ! obj || typeof obj !== 'object' ) continue;
+
+        var clsId = typeof obj['class'] === 'string' ? obj['class'] : null;
+        var key = this.entryKey_(clsId, obj);
+        if ( key === null ) continue;
+
+        recs.push({ clsId: clsId, key: key, line: pos.entries[i].line });
+      }
+      return recs;
+    },
+
     function sanitizeContent_(content, tripleSpans) {
       /**
        * Replace """...""" spans (positions from JrlGrammar) with an
@@ -115,9 +225,9 @@ foam.CLASS({
     function parseEntriesOrdered_(content) {
       /**
        * Evaluate journal content with p/c/r interceptors, collecting
-       * ops IN DOCUMENT ORDER without de-duplication, so ops[i]
-       * corresponds to the grammar's entries[i]. (JrlLoader.loadString
-       * de-dupes by id, which would break the alignment.)
+       * ops IN DOCUMENT ORDER without de-duplication. Callers pass a
+       * single-entry slice, so ops[0] is that entry; a SyntaxError
+       * yields no ops at all (the slice never compiled).
        */
       var ops = [];
       function put(o)    { ops.push({ op: 'p', obj: o }); }
@@ -125,7 +235,7 @@ foam.CLASS({
       try {
         var fn = new Function('p', 'c', 'r', content);
         fn(put, put, remove);
-      } catch ( e ) { /* malformed journal: whatever was collected */ }
+      } catch ( e ) { /* malformed entry: whatever was collected */ }
       return ops;
     },
 
@@ -140,55 +250,6 @@ foam.CLASS({
       var v = obj[idName];
       if ( typeof v !== 'string' && typeof v !== 'number' ) v = obj.name;
       return ( typeof v === 'string' || typeof v === 'number' ) ? String(v) : null;
-    },
-
-    function ensureBuilt_() {
-      if ( this.maps_ ) return;
-      var fs_ = require('fs');
-      var path_ = require('path');
-      var maps = { serviceByName: {}, entriesByModel: {} };
-      var files = this.journalFiles.length ? this.journalFiles : this.findJournalFiles_();
-
-      for ( var f = 0 ; f < files.length ; f++ ) {
-        var file = files[f];
-        var content;
-        try { content = fs_.readFileSync(file, 'utf8'); } catch ( e ) { continue; }
-
-        var pos = this.grammar.collectJrlPositions(content);
-        var ops = this.parseEntriesOrdered_(
-          this.sanitizeContent_(content, pos.tripleStrings));
-
-        // Alignment guard: ops[i] <-> pos.entries[i] only holds when the
-        // eval saw every entry the grammar saw. Otherwise skip the file
-        // rather than index wrong positions.
-        if ( ops.length !== pos.entries.length ) continue;
-
-        var isServices = path_.basename(file) === 'services.jrl';
-
-        for ( var i = 0 ; i < ops.length ; i++ ) {
-          if ( ops[i].op === 'r' ) continue;
-          var obj = ops[i].obj;
-          if ( ! obj || typeof obj !== 'object' ) continue;
-
-          var clsId = typeof obj['class'] === 'string' ? obj['class'] : null;
-          var key = this.entryKey_(clsId, obj);
-          if ( key === null ) continue;
-
-          var loc = { file: file, line: pos.entries[i].line };
-
-          if ( clsId ) {
-            var byKey = maps.entriesByModel[clsId] ||
-              ( maps.entriesByModel[clsId] = {} );
-            ( byKey[key] || ( byKey[key] = [] ) ).push(loc);
-          }
-          if ( isServices ) {
-            ( maps.serviceByName[key] ||
-              ( maps.serviceByName[key] = [] ) ).push(loc);
-          }
-        }
-      }
-
-      this.maps_ = maps;
     }
   ]
 });

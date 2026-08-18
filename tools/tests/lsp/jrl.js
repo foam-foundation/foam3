@@ -586,6 +586,58 @@ test(jei2.getEntryLocations('foam.core.menu.Menu', 'aaa') === null &&
      jei2.getEntryLocations('foam.core.menu.Menu', 'bbb') !== null,
   'JEI: invalidate() rebuilds from disk');
 
+// Per-entry eval: one malformed entry drops only itself, not the file
+// (PR #5296 review: a file-wide eval lost every entry in regions.jrl,
+// rules.jrl, etc. on a single syntax slip).
+var jeiBroken = path.join(require('os').tmpdir(), 'lsp-jrlnav-broken.jrl');
+fs.writeFileSync(jeiBroken, [
+  'p({"class":"foam.core.menu.Menu","id":"good1"})',
+  'p({"class":"foam.core.menu.Menu","id":"bad"',
+  'p({"class":"foam.core.menu.Menu","id":"good2"})',
+  ''
+].join('\n'));
+var jei3 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiBroken ] });
+var g1 = jei3.getEntryLocations('foam.core.menu.Menu', 'good1');
+var g2 = jei3.getEntryLocations('foam.core.menu.Menu', 'good2');
+test(g1 && g1.length === 1 && g1[0].line === 0,
+  'JEI: entry before malformed neighbour still indexed');
+test(g2 && g2.length === 1 && g2[0].line === 2,
+  'JEI: entry after malformed neighbour still indexed: line ' + (g2 && g2[0].line));
+test(jei3.getEntryLocations('foam.core.menu.Menu', 'bad') === null,
+  'JEI: malformed entry itself is dropped');
+
+// Pre-gate: a journal whose raw text cannot contain the key is never
+// parsed (PR #5296 review: parsing every journal froze large workspaces).
+// White-box: fileCache_ only gains an entry when a file is parsed.
+var jei4 = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [
+    path.join(jrlnavDir, 'menus.jrl'),
+    path.join(jrlnavDir, 'services.jrl')
+  ]
+});
+jei4.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
+test(!! jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')] &&
+     !  jei4.fileCache_[path.join(jrlnavDir, 'services.jrl')],
+  'JEI: pre-gate parses only journals containing the key');
+
+// Repeat query is served from the mtime/size-validated per-file cache.
+var cachedRecs = jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')].recs;
+jei4.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
+test(jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')].recs === cachedRecs,
+  'JEI: repeat query served from cache (no re-parse)');
+
+// External change (no invalidate()): mtime/size revalidation re-reads.
+var jeiExt = path.join(require('os').tmpdir(), 'lsp-jrlnav-ext.jrl');
+fs.writeFileSync(jeiExt, 'p({"class":"foam.core.menu.Menu","id":"before"})\n');
+var jei5 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiExt ] });
+test(jei5.getEntryLocations('foam.core.menu.Menu', 'before') !== null,
+  'JEI: external-change temp journal indexed');
+fs.writeFileSync(jeiExt, 'p({"class":"foam.core.menu.Menu","id":"afterwards"})\n');
+test(jei5.getEntryLocations('foam.core.menu.Menu', 'afterwards') !== null &&
+     jei5.getEntryLocations('foam.core.menu.Menu', 'before') === null,
+  'JEI: changed file re-read via mtime/size check without invalidate()');
+
 // Discovery interface exists (auto-discovery path)
 test(Array.isArray(index.getIndexedDirs()), 'FoamIndex.getIndexedDirs returns array');
 

@@ -49,13 +49,8 @@ foam.CLASS({
             }
             return stringArr.join(' ');
           }
-          if ( foam.lang.UnitValue.isInstance(prop) ) {
-            if ( unitPropName ) {
-              if ( prop.unitPropValueToString ) {
-                return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
-              }
-              return val.toString();
-            }
+          if ( prop.unitPropValueToString && unitPropName ) {
+            return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
           }
           if ( foam.lang.DateTime.isInstance(prop) ) {
             return this.dateTimeToString(val);
@@ -109,7 +104,7 @@ foam.CLASS({
         for ( var value of values ) {
           var stringArrayForValue = [];
           for ( var i = 0 ; i < lengthOfPrimaryPropsRequested ; i++ ) {
-            if ( foam.lang.UnitValue.isInstance(props[i]) ) {
+            if ( props[i].unitPropValueToString ) {
               var indexOfUnitProp = props.findIndex(p => p.name === props[i].unitPropName);
               if ( indexOfUnitProp !== -1 ) {
                 stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], value[indexOfUnitProp], addUnitPropValueToStr));

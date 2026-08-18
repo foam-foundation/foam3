@@ -284,15 +284,44 @@ class FoamLSPClient {
     this.diagnosticsByUri  = new Map();       // uri -> diagnostics[]
     this.buffer            = Buffer.alloc(0);
     this.isReady           = false;
-    this._whenReady        = new Promise(function(resolve, reject) {
+    this.child             = null;
+    this.lastUsed          = Date.now();
+    this._resetReady();
+
+    // Idle reaper: the LSP holds the whole FOAM registry in memory, which is
+    // wasted on a session that stopped calling foam tools. Kill the child
+    // after FOAM_LSP_IDLE_MS without use (default 30 min); the exit handler
+    // resets state so the next tool call boots a fresh one.
+    const idleMs = Number(process.env.FOAM_LSP_IDLE_MS) || 30 * 60 * 1000;
+    setInterval(function() {
+      if ( this.child && this.isReady && this.pending.size === 0 &&
+           Date.now() - this.lastUsed > idleMs ) {
+        log('LSP idle for ' + Math.round(idleMs / 60000) + 'min — stopping (next call reboots it)');
+        this.child.kill();
+      }
+    }.bind(this), Math.min(60000, idleMs)).unref();
+  }
+
+  _resetReady() {
+    this._whenReady = new Promise(function(resolve, reject) {
       this._resolveReady = resolve;
       this._rejectReady  = reject;
     }.bind(this));
+    // Silence unhandledRejection when a boot fails with no awaiter;
+    // awaiters still observe the rejection.
+    this._whenReady.catch(function() {});
   }
 
-  whenReady() { return this._whenReady; }
+  // Lazy boot: the LSP costs ~10-15s and a large registry to start, and many
+  // MCP sessions never call a foam tool. Spawn on first use, not at startup.
+  whenReady() {
+    this.lastUsed = Date.now();
+    if ( ! this.child ) this.start();
+    return this._whenReady;
+  }
 
   start() {
+    if ( this.child ) return;
     const entry = path.join(this.projectRoot, 'foam3/tools/lsp-start.js');
     if ( ! fs.existsSync(entry) ) {
       this._rejectReady(new Error('FOAM LSP entry not found at ' + entry));
@@ -318,6 +347,18 @@ class FoamLSPClient {
       if ( ! this.isReady ) {
         this._rejectReady(new Error('LSP exited during init (code=' + code + ')'));
       }
+      // Reset to the pre-boot state so the next tool call respawns a fresh
+      // LSP (idle reap, crash, or kill — all recover the same way).
+      this.child   = null;
+      this.isReady = false;
+      this.buffer  = Buffer.alloc(0);
+      this.openedUris.clear();
+      this.diagnosticsByUri.clear();
+      for ( const p of this.pending.values() ) {
+        p.reject(new Error('LSP exited (code=' + code + ', signal=' + signal + ')'));
+      }
+      this.pending.clear();
+      this._resetReady();
     }.bind(this));
 
     // Kick off initialize.
@@ -342,6 +383,9 @@ class FoamLSPClient {
     }.bind(this)).catch(function(e) {
       log('LSP initialize failed:', e.message);
       this._rejectReady(e);
+      // Reap the half-booted child; its exit handler resets state so a
+      // later tool call can retry from scratch.
+      if ( this.child && ! this.child.killed ) this.child.kill();
     }.bind(this));
   }
 
@@ -387,6 +431,7 @@ class FoamLSPClient {
   }
 
   _sendRaw(message) {
+    if ( ! this.child ) throw new Error('LSP not running');
     const body   = JSON.stringify(message);
     const buf    = Buffer.from(body, 'utf8');
     const header = 'Content-Length: ' + buf.length + '\r\n\r\n';
@@ -622,9 +667,8 @@ function main() {
   const projectRoot = process.env.FOAM_PROJECT_ROOT || process.cwd();
   log('project root:', projectRoot);
 
+  // No eager boot — whenReady() spawns the LSP on the first foam tool call.
   const lsp = new FoamLSPClient(projectRoot);
-  lsp.start();                              // fire-and-forget; tool calls await whenReady()
-  lsp.whenReady().catch(function() {});     // prevent unhandled rejection
 
   const tools = toolSchemas();
 

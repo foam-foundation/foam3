@@ -182,7 +182,9 @@ foam.CLASS({
     function render() {
       var self = this;
       this.propName = this.columnHandler.propertyNamesForColumnArray(this.col);
-      [prop, objReturned] = this.getCellData(this.data, this.col, this.nestedPropertiesObjsMap);
+      // var keeps these per-cell: without it they leak to globals shared by
+      // every cell, and the copy-button click handler reads them after render.
+      var [prop, objReturned] = this.getCellData(this.data, this.col, this.nestedPropertiesObjsMap);
 
       // Added to maintain support for ScrollTableView that does not support resizable columns
       if ( this.colWidthUpdated$ && this.selectedColumnsWidth$ ) {

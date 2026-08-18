@@ -442,6 +442,7 @@ foam.CLASS({
     {
       class: 'EMail',
       name: 'email',
+      copyable: true,
       label: {
         'en' :'Email Address',
         'fr' :'Adresse Email'
@@ -461,6 +462,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'emailVerified',
+      copyable: function(value, email, obj) { return value ? 'yes, ' + email.toString() + ' verified' : 'no, ' + email.toString().toLowerCase() + ' not verified'; },
       includeInDigest: false,
       documentation: 'Determines whether the email address of the User is valid.',
       section: 'userInformation',

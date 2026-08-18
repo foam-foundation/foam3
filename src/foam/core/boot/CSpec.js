@@ -117,7 +117,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'name',
-      copyable: true,
       displayWidth: '60',
       tableWidth: 460
     },
@@ -138,11 +137,6 @@ foam.CLASS({
       class: 'Boolean',
       name: 'lazy',
       tableWidth: 65,
-      copyable: function(value, obj) {
-        return value
-          ? 'yes, ' + obj.name + ' is lazy'
-          : 'no, '  + obj.name + ' is not lazy';
-      },
       value: true
     },
     {

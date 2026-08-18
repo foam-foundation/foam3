@@ -280,7 +280,7 @@ class FoamLSPClient {
     this.projectRoot       = projectRoot;
     this.nextId            = 1;
     this.pending           = new Map();       // id -> { resolve, reject }
-    this.openedUris        = new Set();
+    this.openedUris        = new Map();       // uri -> { mtimeMs, version }
     this.diagnosticsByUri  = new Map();       // uri -> diagnostics[]
     this.buffer            = Buffer.alloc(0);
     this.isReady           = false;
@@ -337,7 +337,11 @@ class FoamLSPClient {
 
     this.child = spawn('node', [entry], {
       cwd:   this.projectRoot,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      // Stale-index guard: the LSP exits when git HEAD changes (branch
+      // switch); our exit handler resets state and the next tool call
+      // boots a fresh index. Safe for us — we have no restart UX cost.
+      env:   Object.assign({}, process.env, { FOAM_LSP_EXIT_ON_HEAD_CHANGE: '1' })
     });
 
     this.child.stdout.on('data', this._onStdout.bind(this));
@@ -469,20 +473,41 @@ class FoamLSPClient {
 
   async ensureOpen(uri) {
     await this.whenReady();
-    if ( this.openedUris.has(uri) ) return;
     const fsPath = uriToPath(uri);
+    let st;
+    try { st = fs.statSync(fsPath); }
+    catch (e) { throw new Error('file not found: ' + fsPath); }
+
+    const entry = this.openedUris.get(uri);
+    if ( entry && entry.mtimeMs === st.mtimeMs ) return;
+
     let text;
     try { text = fs.readFileSync(fsPath, 'utf8'); }
     catch (e) { throw new Error('file not found: ' + fsPath); }
-    this._notify('textDocument/didOpen', {
-      textDocument: {
-        uri:        uri,
-        languageId: 'javascript',
-        version:    1,
-        text:       text
-      }
+
+    if ( ! entry ) {
+      this._notify('textDocument/didOpen', {
+        textDocument: {
+          uri:        uri,
+          languageId: 'javascript',
+          version:    1,
+          text:       text
+        }
+      });
+      this.openedUris.set(uri, { mtimeMs: st.mtimeMs, version: 1 });
+      return;
+    }
+
+    // File changed on disk since we opened it (git checkout, pull, editor
+    // save) — refresh the server's copy, then didSave so it re-registers the
+    // file's classes in the live FOAM registry, not just the text cache.
+    entry.version++;
+    entry.mtimeMs = st.mtimeMs;
+    this._notify('textDocument/didChange', {
+      textDocument:   { uri: uri, version: entry.version },
+      contentChanges: [{ text: text }]
     });
-    this.openedUris.add(uri);
+    this._notify('textDocument/didSave', { textDocument: { uri: uri } });
   }
 
   async getDiagnostics(uri) {

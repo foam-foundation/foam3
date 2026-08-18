@@ -94,6 +94,11 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      documentation: 'When true, table cells for this column render a copy-to-clipboard button.',
+      name: 'copyable'
+    },
+    {
+      class: 'Boolean',
       name: 'projectionSafe',
       value: true
     },

@@ -121,10 +121,36 @@ foam.CLASS({
   name: 'UnstyledTableRowComponent',
   extends: 'foam.u2.table.TableComponentView',
 
+  mixins: ['foam.u2.util.ClipboardAccess'],
+
   imports: [
     'colWidthUpdated',
     'props',
     'selectedColumnsWidth?'
+  ],
+
+  css: `
+    ^copy-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0 4px;
+      vertical-align: middle;
+    }
+    ^copy-button img {
+      width: 14px;
+      height: 14px;
+    }
+    /* Only hide the copy button behind hover on devices that can hover;
+       on touch devices it stays visible. */
+    @media (hover: hover) {
+      ^copy-button { opacity: 0; }
+      ^:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+    }
+  `,
+
+  messages: [
+    { name: 'COPY', message: 'Copy' }
   ],
 
   properties: [
@@ -159,17 +185,42 @@ foam.CLASS({
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
+        .addClass()
         .style({ flex: this.slot(function(colWidth) {
             return colWidth ? `1 0 ${colWidth}px` : `1 0 ${this.table.MIN_COLUMN_WIDTH_FALLBACK}px`;
           })
         })
         .call(function() {
+          // When the column is copyable, format into a span so the copy
+          // button can read back exactly the displayed cell text.
+          var cell = prop.copyable ? this.start('span') : this;
           prop.tableCellFormatter.format(
-            this,
+            cell,
             prop.f ? prop.f(objReturned) : null,
             objReturned,
             prop
           );
+          if ( ! prop.copyable ) return;
+          cell.end();
+          this.start('button')
+            .addClass(self.myClass('copy-button'))
+            .attrs({
+              type: 'button',
+              title: self.COPY,
+              'aria-label': self.COPY + ' ' + (prop.columnLabel || prop.label || prop.name)
+            })
+            .on('click', function(e) {
+              // Keep the click from also triggering the row's
+              // open-detail-view handler.
+              e.stopPropagation();
+              e.preventDefault();
+              var node = cell.el_();
+              self.copy(node ? node.innerText.trim() : String(prop.f ? prop.f(objReturned) : ''));
+            })
+            .start('img')
+              .attrs({ src: '/images/copy-icon.svg', alt: '' })
+            .end()
+          .end();
         })
         .endContext();
     }

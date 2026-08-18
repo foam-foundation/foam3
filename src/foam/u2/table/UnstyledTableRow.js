@@ -130,12 +130,22 @@ foam.CLASS({
   ],
 
   css: `
+    ^copyable-cell {
+      align-items: center;
+      display: flex;
+      gap: 4px;
+    }
+    ^copyable-cell > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     ^copy-button {
       background: none;
       border: none;
       cursor: pointer;
+      flex-shrink: 0;
+      margin-left: auto;
       padding: 0 4px;
-      vertical-align: middle;
     }
     ^copy-button img {
       width: 14px;
@@ -191,18 +201,28 @@ foam.CLASS({
           })
         })
         .call(function() {
-          // When the column is copyable, format into a span so the copy
-          // button can read back exactly the displayed cell text.
-          var cell = prop.copyable ? this.start('span') : this;
+          if ( ! prop.copyable ) {
+            prop.tableCellFormatter.format(
+              this,
+              prop.f ? prop.f(objReturned) : null,
+              objReturned,
+              prop
+            );
+            return;
+          }
+          // When the column is copyable, format into a span inside a flex
+          // wrapper so the copy button can read back exactly the displayed
+          // cell text and sit at the far right of the cell.
+          var wrapper = this.start('div').addClass(self.myClass('copyable-cell'));
+          var cell = wrapper.start('span');
           prop.tableCellFormatter.format(
             cell,
             prop.f ? prop.f(objReturned) : null,
             objReturned,
             prop
           );
-          if ( ! prop.copyable ) return;
           cell.end();
-          this.start('button')
+          wrapper.start('button')
             .addClass(self.myClass('copy-button'))
             .attrs({
               type: 'button',
@@ -221,6 +241,7 @@ foam.CLASS({
               .attrs({ src: '/images/copy-icon.svg', alt: '' })
             .end()
           .end();
+          wrapper.end();
         })
         .endContext();
     }

@@ -93,6 +93,15 @@ foam.CLASS({
       name: 'tableWidth'
     },
     {
+      documentation: `When truthy, table cells for this column render a copy-to-clipboard
+        button. true copies the displayed cell text; a function(value, obj) returning a
+        string copies its result instead — use for cells that render icons or objects.
+        The function only sees properties the table queried for its visible columns
+        (projection), so reading another property returns its unset default unless that
+        property is also a column.`,
+      name: 'copyable'
+    },
+    {
       class: 'Boolean',
       name: 'projectionSafe',
       value: true

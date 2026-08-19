@@ -35,8 +35,11 @@ foam.CLASS({
   extends: 'foam.core.menu.AbstractMenu',
 
   documentation: `
-    A DAOMenu which can accept a DAOControllerConfig and uses
-    the v2 DAOController
+    A conditional menu handler that dispatches to one of several handlers at
+    runtime. Holds a list of options, each pairing a predicate with a handler.
+    On launch, the options' predicates are evaluated in order against the
+    context and the first option whose predicate passes provides the handler;
+    the final option acts as an unconditional fallback.
   `,
 
   requires: [

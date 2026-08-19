@@ -112,7 +112,7 @@ function start() {
           process.exit(0);
         }
       }
-    }, Number(process.env.FOAM_LSP_HEAD_POLL_MS) || 10000).unref();
+    }, Math.max(1000, Number(process.env.FOAM_LSP_HEAD_POLL_MS) || 10000)).unref();
   }
 
   // LSP spec: initialize.processId is the client's pid; the server should

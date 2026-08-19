@@ -476,7 +476,16 @@ class FoamLSPClient {
     const fsPath = uriToPath(uri);
     let st;
     try { st = fs.statSync(fsPath); }
-    catch (e) { throw new Error('file not found: ' + fsPath); }
+    catch (e) {
+      // File gone from disk (deleted, or branch switched away): close our
+      // copy so the server drops its document and a later recreate starts
+      // from a clean didOpen.
+      if ( this.openedUris.has(uri) ) {
+        this.openedUris.delete(uri);
+        this._notify('textDocument/didClose', { textDocument: { uri: uri } });
+      }
+      throw new Error('file not found: ' + fsPath);
+    }
 
     const entry = this.openedUris.get(uri);
     if ( entry && entry.mtimeMs === st.mtimeMs ) return;

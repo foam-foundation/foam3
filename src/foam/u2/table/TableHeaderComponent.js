@@ -19,6 +19,19 @@ foam.CLASS({
     { name: 'TOOLTIP', message: 'Drag to Resize' }
   ],
 
+  constants: [
+    {
+      type: 'Int',
+      name: 'EDGE_AUTO_GROW_ZONE',
+      value: 32
+    },
+    {
+      type: 'Int',
+      name: 'EDGE_AUTO_GROW_STEP',
+      value: 6
+    }
+  ],
+
   properties: [
     {
       class: 'Boolean',
@@ -56,7 +69,9 @@ foam.CLASS({
     'oldX_',
     'oldCW_',
     ['isDragging_', false],
-    'dragImg_'
+    'lastPointerX_',
+    ['autoGrowExtra_', 0],
+    ['autoGrowing_', false]
   ],
 
   methods: [
@@ -69,9 +84,6 @@ foam.CLASS({
       var isFirstLevelProperty = this.columnHandler.canColumnBeTreatedAsAnAxiom(this.col) ? true : this.col.indexOf('.') === -1;
       
       if ( ! prop ) return;
-
-      this.dragImg_ = document.createElement('img');
-      this.dragImg_.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
       var colData = this.columnConfigToPropertyConverter.returnColumnHeader(this.data.of, this.col);
       var colHeader = ( colData.colPath.length > 1 ? '../'  : '' ) + ( colData.colLabel || colData.colPath.slice(-1)[0] );
@@ -128,44 +140,90 @@ foam.CLASS({
           .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY', themeIcon: 'drag', size: 'SMALL' })
             .addClass(this.data.myClass('resizeButton'))
             .enableClass(this.data.myClass('resizeCursor'), this.showResize$)
-            .attrs({ draggable: 'true' })
-            .on('dragstart', self.dragStart.bind(self))
-            .on('drag', self.drag.bind(self))
-            .on('dragend', self.dragEnd.bind(self))
+            .on('pointerdown', self.pointerDown)
+            .on('pointermove', self.pointerMove)
+            .on('pointerup', self.pointerUp)
+            .on('pointercancel', self.pointerUp)
             .show(this.showResize$)
           .end()
         .endContext();
+
+      // Keep the col-resize cursor for the whole table while a drag is live —
+      // with pointer capture the cursor otherwise follows whatever element
+      // the pointer happens to be over. Subscribed on this header's lifetime,
+      // not the wrapper's, so recreated headers don't accumulate subs.
+      if ( view.tableEl_ ) {
+        this.onDetach(this.isDragging_$.sub(function() {
+          view.tableEl_.enableClass(view.myClass('resizing'), self.isDragging_);
+        }));
+      }
+    },
+
+    function updateDragWidth() {
+      var w = this.oldCW_ + ( this.lastPointerX_ - this.oldX_ ) + this.autoGrowExtra_;
+      this.colWidth = Math.max(w, this.data.MIN_COLUMN_WIDTH_FALLBACK);
+    },
+
+    function inEdgeZone_() {
+      var limit   = window.innerWidth;
+      var wrapper = this.data.tableEl_ && this.data.tableEl_.el_();
+      if ( wrapper ) limit = Math.min(limit, wrapper.getBoundingClientRect().right);
+      return this.lastPointerX_ >= limit - this.EDGE_AUTO_GROW_ZONE;
     }
   ],
 
   listeners: [
     {
-      name: 'dragStart',
+      name: 'pointerDown',
       code: function(evt) {
-        this.isDragging_ = true;
-        evt.dataTransfer.effectAllowed = 'none';
-        evt.dataTransfer.dropEffect = 'none';
-        evt.dataTransfer.setDragImage(this.dragImg_, 0, 0);
-        this.oldX_ = evt.clientX;
-        this.oldCW_ = this.colWidth || this.data.MIN_COLUMN_WIDTH_FALLBACK;
+        if ( evt.button !== 0 ) return;
+        this.isDragging_    = true;
+        this.oldX_          = evt.clientX;
+        this.lastPointerX_  = evt.clientX;
+        this.oldCW_         = this.colWidth || this.data.MIN_COLUMN_WIDTH_FALLBACK;
+        this.autoGrowExtra_ = 0;
+        evt.currentTarget.setPointerCapture(evt.pointerId);
+        // Also suppresses text selection while dragging.
+        evt.preventDefault();
       }
     },
     {
-      name: 'drag',
+      name: 'pointerMove',
       code: function(evt) {
-        evt.preventDefault();
-        var w = this.oldCW_ + evt.clientX - this.oldX_;
-        if ( w > this.data.MIN_COLUMN_WIDTH_FALLBACK ) {
-          this.colWidth = w;
+        if ( ! this.isDragging_ ) return;
+        this.lastPointerX_ = evt.clientX;
+        this.updateDragWidth();
+        // The pointer can't travel past the right edge of the table/window,
+        // so a column ending near that edge (typically the last one) could
+        // otherwise only be widened by a few pixels per drag. While the
+        // pointer is parked in the edge zone, keep growing the column on a
+        // frame timer and scroll the wrapper to keep the handle in view.
+        if ( ! this.autoGrowing_ && this.inEdgeZone_() ) {
+          this.autoGrowing_ = true;
+          window.requestAnimationFrame(this.autoGrowTick);
         }
       }
     },
     {
-      name: 'dragEnd',
+      name: 'pointerUp',
       code: function(evt) {
-        this.drag(evt);
+        if ( ! this.isDragging_ ) return;
         this.isDragging_ = false;
         this.showResize = false;
+      }
+    },
+    {
+      name: 'autoGrowTick',
+      code: function() {
+        if ( ! this.isDragging_ || ! this.inEdgeZone_() ) {
+          this.autoGrowing_ = false;
+          return;
+        }
+        this.autoGrowExtra_ += this.EDGE_AUTO_GROW_STEP;
+        this.updateDragWidth();
+        var wrapper = this.data.tableEl_ && this.data.tableEl_.el_();
+        if ( wrapper ) wrapper.scrollLeft += this.EDGE_AUTO_GROW_STEP;
+        window.requestAnimationFrame(this.autoGrowTick);
       }
     },
     function onMouseEnter() {

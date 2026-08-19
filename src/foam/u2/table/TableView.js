@@ -170,10 +170,18 @@
       padding: 4px;
       position: sticky;
       right: 4px;
+      touch-action: none;
     }
 
     ^resizeButton.foam-u2-ActionView:hover:not(:disabled), ^resizeCursor {
       cursor: col-resize;
+    }
+
+    /* While a column resize drag is live the pointer is captured by the
+       handle, but the visible cursor still follows the hovered element —
+       force col-resize everywhere in the table for the drag's duration. */
+    ^resizing, ^resizing * {
+      cursor: col-resize !important;
     }
 
     ^resizeButton.foam-u2-ActionView svg{

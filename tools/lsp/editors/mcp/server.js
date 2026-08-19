@@ -335,6 +335,10 @@ class FoamLSPClient {
     });
 
     this.child.stdout.on('data', this._onStdout.bind(this));
+    // A write can race the child's death (idle reap, crash): stdin then
+    // emits a stream 'error' which, unhandled, would crash the wrapper.
+    // The 'exit' handler already rejects the in-flight requests.
+    this.child.stdin.on('error', function() {});
     this.child.stderr.on('data', function(chunk) {
       // Forward LSP stderr to our stderr with a prefix; never touch stdout.
       const text = chunk.toString('utf8');

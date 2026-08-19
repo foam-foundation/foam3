@@ -131,7 +131,7 @@ foam.CLASS({
         this.style({
           'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
         });
-          this.__context__.userDAO.find(value).then((result) => {
+        this.__context__.userDAO.find(value).then((result) => {
           if ( ! result ) {
             this.add(this.data.UNKNOWN_USER_MSG);
           } else {

@@ -131,17 +131,13 @@ foam.CLASS({
         this.style({
           'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
         });
-        if ( value == 0 ) { // Can skip DAO lookup if it's the system user
-          this.add(this.data.SYSTEM_USER_MSG);
-        } else {
-          this.__context__.userDAO.find(value).then((result) => {
-            if ( ! result ) {
-              this.add(this.data.UNKNOWN_USER_MSG);
-            } else {
-              this.add(result.firstName[0] + ". " + result.lastName);
-            }
-          });
-        }
+        this.__context__.userDAO.find(value).then((result) => {
+          if ( ! result ) {
+            this.add(this.data.UNKNOWN_USER_MSG);
+          } else {
+            this.add(result.firstName == "system" ? this.data.SYSTEM_USER_MSG : result.firstName[0] + ". " + result.lastName);
+          }
+        });
       }
     },
     {

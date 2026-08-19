@@ -773,7 +773,7 @@ foam.CLASS({
       for ( menuId in menuArray ) {
         menu = await dao.find(menuArray[menuId]);
         if ( menu ) break;
-      };
+      }
       return menu;
     },
 
@@ -788,7 +788,7 @@ foam.CLASS({
     },
 
     async function pushDefaultMenu() {
-      var defaultMenu = await this.findDefaultMenu(this.client.menuDAO);
+      var defaultMenu = await this.findFirstMenuIHavePermissionFor(this.client.menuDAO);
       defaultMenu = defaultMenu != null ? defaultMenu : '';
       if ( defaultMenu ) {
         if ( defaultMenu.authorizationStatus === this.AuthorizationStatus.AUTHENTICATED ) {

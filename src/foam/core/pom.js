@@ -541,6 +541,7 @@ foam.POM({
   ],
 
   javaFiles: [
+    { name: "alarming/test/OMAlarmTest",                              flags: "test" },
     { name: "pm/DAOPMLogger" },
     { name: "pm/PipelinePMLocator" },
     { name: "pm/PMInfoMDAO" },

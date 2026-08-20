@@ -22,7 +22,9 @@ foam.CLASS({
 
     Query-driven, not build-the-world: a lookup reads each journal's
     raw text and skips the (expensive) parse entirely unless the text
-    can contain the key. Per-file parses are cached by mtime+size;
+    can contain the key. Service lookups only ever touch services.jrl
+    files, and journals over maxFileSize are ignored outright (they
+    are data, not config). Per-file parses are cached by mtime+size;
     invalidate() (wired to .jrl saves in server.js) drops the caches
     so the next query re-reads from disk.`,
 
@@ -43,6 +45,15 @@ foam.CLASS({
       factory: function() { return this.JrlGrammar.create(); }
     },
     {
+      class: 'Int',
+      name: 'maxFileSize',
+      documentation: `Journals larger than this (bytes) are never read or
+        parsed. Config journals (menus, services, rules, regions) are
+        tens-to-hundreds of KB; multi-MB .jrl files are data journals
+        that go-to-definition never targets.`,
+      value: 1048576
+    },
+    {
       name: 'fileList_',
       documentation: 'Cached discovery result; null until first query.',
       value: null
@@ -61,9 +72,12 @@ foam.CLASS({
     },
 
     function getServiceLocations(name) {
-      return this.lookup_([ name ], function(rec, isServices) {
-        return isServices && rec.key === name;
-      });
+      // servicesOnly: only services.jrl can answer, so no other file is
+      // ever read or parsed for this lookup (daoKey names appear as data
+      // inside unrelated journals).
+      return this.lookup_([ name ], function(rec) {
+        return rec.key === name;
+      }, true);
     },
 
     function getEntryLocations(modelId, key) {
@@ -118,7 +132,7 @@ foam.CLASS({
       return files;
     },
 
-    function lookup_(needles, match) {
+    function lookup_(needles, match, servicesOnly) {
       var path_ = require('path');
       for ( var n = 0 ; n < needles.length ; n++ ) {
         if ( typeof needles[n] !== 'string' || ! needles[n] ) return null;
@@ -126,11 +140,13 @@ foam.CLASS({
       var files = this.files_();
       var out = [];
       for ( var f = 0 ; f < files.length ; f++ ) {
+        if ( servicesOnly && path_.basename(files[f]) !== 'services.jrl' ) {
+          continue;
+        }
         var recs = this.fileRecords_(files[f], needles);
         if ( ! recs ) continue;
-        var isServices = path_.basename(files[f]) === 'services.jrl';
         for ( var i = 0 ; i < recs.length ; i++ ) {
-          if ( match(recs[i], isServices) ) {
+          if ( match(recs[i]) ) {
             out.push({ file: files[f], line: recs[i].line });
           }
         }
@@ -144,12 +160,16 @@ foam.CLASS({
        * cache miss the raw text is pre-gated on the lookup needles
        * before any parsing: a journal that cannot contain the key is
        * never parsed (substring scan is orders of magnitude cheaper
-       * than a grammar parse). Returns null when gated out or
-       * unreadable.
+       * than a grammar parse). Returns null when gated out, oversized
+       * or unreadable.
        */
       var fs_ = require('fs');
       var st;
       try { st = fs_.statSync(file); } catch ( e ) {
+        delete this.fileCache_[file];
+        return null;
+      }
+      if ( st.size > this.maxFileSize ) {
         delete this.fileCache_[file];
         return null;
       }

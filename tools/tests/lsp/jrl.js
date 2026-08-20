@@ -627,6 +627,37 @@ jei4.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
 test(jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')].recs === cachedRecs,
   'JEI: repeat query served from cache (no re-parse)');
 
+// Service lookups only touch services.jrl: menus.jrl contains the
+// string "recipeDAO" (as a daoKey value) but must not be parsed for a
+// service lookup (PR #5296 review round 2).
+var jei6 = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [
+    path.join(jrlnavDir, 'menus.jrl'),
+    path.join(jrlnavDir, 'services.jrl')
+  ]
+});
+var svcOnly = jei6.getServiceLocations('recipeDAO');
+test(svcOnly && svcOnly.length === 1 &&
+     !! jei6.fileCache_[path.join(jrlnavDir, 'services.jrl')] &&
+     !  jei6.fileCache_[path.join(jrlnavDir, 'menus.jrl')],
+  'JEI: service lookup never parses non-services journals');
+
+// Size cap: journals over maxFileSize are never read or parsed.
+var jeiBig = path.join(require('os').tmpdir(), 'lsp-jrlnav-big.jrl');
+fs.writeFileSync(jeiBig, 'p({"class":"foam.core.menu.Menu","id":"biggie"})\n');
+var jei7 = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [ jeiBig ],
+  maxFileSize: 16
+});
+test(jei7.getEntryLocations('foam.core.menu.Menu', 'biggie') === null &&
+     ! jei7.fileCache_[jeiBig],
+  'JEI: oversized journal skipped without parsing');
+var jei8 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiBig ] });
+test(jei8.getEntryLocations('foam.core.menu.Menu', 'biggie') !== null,
+  'JEI: same journal indexed under the default size cap');
+
 // External change (no invalidate()): mtime/size revalidation re-reads.
 var jeiExt = path.join(require('os').tmpdir(), 'lsp-jrlnav-ext.jrl');
 fs.writeFileSync(jeiExt, 'p({"class":"foam.core.menu.Menu","id":"before"})\n');

@@ -22,7 +22,10 @@ foam.CLASS({
 
   documentation: `
     Set a ViewFactory to be:
-      1. a string containing a class name (ex. 'com.acme.MyView')
+      1. a string containing a class name (ex. 'com.acme.MyView') — valid as a
+         ViewSpec property value only: the property's adapt wraps it in
+         { class: ... }. A string passed directly to createView() is treated
+         as an HTML tag name (ex. 'div'), not a class name.
       2. a JSON representation of a View (ex. { class: 'com.acme.MyView', arg1: value1, arg2: value2 })
       3. a Class object (ex. com.acme.MyView)
       4. a factory function(args, context), (ex. function(args, context) { return com.acme.MyView.create(args, context); }

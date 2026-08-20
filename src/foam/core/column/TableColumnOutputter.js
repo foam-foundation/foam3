@@ -107,7 +107,10 @@ foam.CLASS({
             if ( props[i].unitPropValueToString ) {
               var indexOfUnitProp = props.findIndex(p => p.name === props[i].unitPropName);
               if ( indexOfUnitProp !== -1 ) {
-                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], value[indexOfUnitProp], addUnitPropValueToStr));
+                var unitPropValue = value[indexOfUnitProp];
+                // Reference-typed unit props (e.g. CurrencyCode) project as RefSummary {id, summary} maps
+                if ( unitPropValue && typeof unitPropValue === 'object' ) unitPropValue = unitPropValue.id;
+                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], unitPropValue, addUnitPropValueToStr));
                 continue;
               }
             }

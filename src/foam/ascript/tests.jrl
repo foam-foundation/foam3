@@ -1,0 +1,6 @@
+p({
+  class:"foam.ascript.AScriptPropertyFilterTest",
+  id:"AScriptPropertyFilterTest",
+  description:"Ordinary properties parse; reaction properties are excluded",
+  language: 0
+})

@@ -126,8 +126,7 @@ public class RuleEngine extends ContextAwareSupport {
       }
 
       logger.error(message, e);
-      // TODO: this breaks CI, enable when all test cases passing
-      // throw new RuntimeException(message, e);
+      throw new RuntimeException(message, e);
     }
 
     return locked;

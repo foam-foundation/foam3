@@ -20,6 +20,15 @@ p({
   id:"JournalDefaultClassNameTest"
 })
 p({
+  class:"foam.dao.test.JournalClassChangeTest",
+  id:"JournalClassChangeTest"
+})
+p({
   class:"foam.dao.test.MDAOCountTest",
   id:"MDAOCountTest"
+})
+p({
+  class:"foam.dao.test.MDAOIndexDedupTest",
+  id:"MDAOIndexDedupTest",
+  description:"An index covered by an existing one must not be added"
 })

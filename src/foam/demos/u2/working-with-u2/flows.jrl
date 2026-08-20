@@ -1,13 +1,13 @@
 p({
 "class":"foam.core.reflow.Flow",
 "name":"PropertyBorder",
+"category":"demos",
 "label":"Property Border Demo",
-"version":18,
-"category": "demos",
+"version":23,
 "script":
 """[
 	{
-
+		
 		"flowName": "script1",
 		"cmd": "script",
 		"value": {
@@ -22,12 +22,12 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "intro",
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "## PropertyBorder\\u000a`foam.u2.PropertyBorder` wraps a single property's input view with its label, supporting label, validation message, units, and optional-toggle. It is what `SectionView` renders for every property in a `DetailView` — but you can also use it directly for fine-grained control over individual fields.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000afoam.u2.AbstractPropertyBorder  (abstract view: Provides all basic functionality)\\u000a  └── foam.u2.PropertyBorder    (default: renders a set of labels above and validation below the view)\\u000a  └── foam.u2.DetailView.PropertyBorder    (specific in foam.u2.DetailView: offers a single line propertyBorder)\\u000a```\\u000a\\u000a`AbstractPropertyBorder` does all the logic (visibility, error slots, labelFormatter). `PropertyBorder` provides the default vertical layout and CSS.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `prop` | Property axiom | **Required.** The axiom to render (e.g. `MyModel.MY_PROP`). |\\u000a| `data` | FObject | The model instance. Bound to the inner view. |\\u000a| `config` | Map | Override any property attribute for this render only. Does **not** mutate the original property. |\\u000a| `viewArgs` | Map | Extra args forwarded directly to the underlying property view. |\\u000a\\u000a### Context Export\\u000a\\u000a`AbstractPropertyBorder` declares:\\u000a\\u000a```javascript\\u000aexports: [ 'data as objData' ]\\u000a```\\u000aChild views that need the parent FObject (e.g. `CurrencyView` resolving the currency sibling) receive it automatically as `objData`. In custom property views **outside** a PropertyBorder or if you choose to write your own view you must provide this yourself.\\u000a\\u000a##### NOTE:\\u000aThroughout this  demo you will see \\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000aThis is required when you use PropertyBorders without any data in the context. In most FOAM applications this is rarely the case but if you have data linking issues with your properties, this might be the cause.\\u000a"
+			"markdown": "## PropertyBorder\\u000a`foam.u2.PropertyBorder` wraps a single property's input view with its label, supporting label, validation message, units, and optional-toggle. It is what `SectionView` renders for every property in a `DetailView` — but you can also use it directly for fine-grained control over individual fields.\\u000a\\u000a### Demo setup — predefined models\\u000a  \\u000aSo the examples can focus on `PropertyBorder` instead of on modelling, this flow **predefines two FOAM models in the script block at the very top of the flow**. That block runs automatically (`autoRun`) and is hidden in preview, so you won't see it render:\\u000a\\u000a- **`foam.u2.demos.DemoAddress`** — a small address model (`type`, `street`, `city`, `country`) used to illustrate nested and array fields.\\u000a- **`foam.u2.demos.DemoContact`** — a richer contact model with three sections (Identity, Contact Info, Preferences) that exercises `gridColumns`, `visibility`, `labelFormatter`, `optionalBorder`, units, validation, and an `FObjectArray` of `DemoAddress`.\\u000a\\u000a> 💡 To read the full model definitions, select that first block and turn off Preview (edit mode). Every example below refers to these two models.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000afoam.u2.AbstractPropertyBorder  (abstract view: Provides all basic functionality)\\u000a  └── foam.u2.PropertyBorder    (default: renders a set of labels above and validation below the view)\\u000a  └── foam.u2.DetailView.PropertyBorder    (specific in foam.u2.DetailView: offers a single line propertyBorder)\\u000a```\\u000a\\u000a`AbstractPropertyBorder` does all the logic (visibility, error slots, labelFormatter). `PropertyBorder` provides the default vertical layout and CSS.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `prop` | Property axiom | **Required.** The axiom to render (e.g. `MyModel.MY_PROP`). |\\u000a| `data` | FObject | The model instance. Bound to the inner view. |\\u000a| `config` | Map | Override any property attribute for this render only. Does **not** mutate the original property. |\\u000a| `viewArgs` | Map | Extra args forwarded directly to the underlying property view. |\\u000a\\u000a### Context Export\\u000a\\u000a`AbstractPropertyBorder` declares:\\u000a\\u000a```javascript\\u000aexports: [ 'data as objData' ]\\u000a```\\u000aChild views that need the parent FObject (e.g. `CurrencyView` resolving the currency sibling) receive it automatically as `objData`. In custom property views **outside** a PropertyBorder or if you choose to write your own view you must provide this yourself.\\u000a\\u000a##### NOTE:\\u000aThroughout this  demo you will see \\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000aThis is required when you use PropertyBorders without any data in the context. In most FOAM applications this is rarely the case but if you have data linking issues with your properties, this might be the cause.\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -35,7 +35,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "shorthandDoc",
 		"cmd": "markdown",
 		"value": {
@@ -48,12 +48,18 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "shorthandExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a// <Class>.<AXIOM_NAME>.__\\u000astart().startContext({ data: contact })\\u000a  .add(DC.NAME.__)\\u000a.endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a// <Class>.<AXIOM_NAME>.__\\u000astart().startContext({ data: contact })\\u000a  .add(DC.NAME.__)\\u000a.endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -61,7 +67,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "configDoc",
 		"cmd": "markdown",
 		"value": {
@@ -74,12 +80,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "configExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({ name: 'Jane Doe' });\\u000astart().startContext({ data: contact })\\u000a  .add(\\"Original Property:\\")\\u000a  .tag(DC.EMAIL.__)\\u000a  .tag(DC.NOTES.__)\\u000a  .br()\\u000a  .add(\\"Overriden Property\\")\\u000a  .tag(DC.EMAIL.__, { config: { label: 'Work Email', placeholder: 'name@company.com' } })\\u000a  .tag(DC.NOTES.__, { viewArgs: { rows: 2}})\\u000a.endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({ name: 'Jane Doe' });\\u000astart().startContext({ data: contact })\\u000a  .add(\\"Original Property:\\")\\u000a  .tag(DC.EMAIL.__)\\u000a  .tag(DC.NOTES.__)\\u000a  .br()\\u000a  .add(\\"Overriden Property\\")\\u000a  .tag(DC.EMAIL.__, { config: { label: 'Work Email', placeholder: 'name@company.com' } })\\u000a  .tag(DC.NOTES.__, { viewArgs: { rows: 2}})\\u000a.endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -87,7 +99,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "unitsDoc",
 		"cmd": "markdown",
 		"value": {
@@ -100,12 +112,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "unitsExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({ name: 'Jane Doe', email: 'jane@example.com', age: 32 });\\u000a// AGE has units: 'years' defined on the property\\u000astart('p').add('AGE with units:').end();\\u000astart().startContext({ data: contact }).add(DC.AGE.__).endContext().end();\\u000a// EMAIL has supportingLabel: 'Used for login and notifications'\\u000astart('p').add('EMAIL with supportingLabel:').end();\\u000astart().startContext({ data: contact }).add(DC.EMAIL.__).endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({ name: 'Jane Doe', email: 'jane@example.com', age: 32 });\\u000a// AGE has units: 'years' defined on the property\\u000astart('p').add('AGE with units:').end();\\u000astart().startContext({ data: contact }).add(DC.AGE.__).endContext().end();\\u000a// EMAIL has supportingLabel: 'Used for login and notifications'\\u000astart('p').add('EMAIL with supportingLabel:').end();\\u000astart().startContext({ data: contact }).add(DC.EMAIL.__).endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -113,7 +131,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "validationDoc",
 		"cmd": "markdown",
 		"value": {
@@ -126,12 +144,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "validationExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000a// Empty contact — NAME has required: true that returns 'Required.'\\u000a// The error will show in default color; type one char to see the error change colours and then disappear once the value is valid\\u000avar empty = DC.create();\\u000astart().startContext({ data: empty }).add(DC.NAME.__).endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000a// Empty contact — NAME has required: true that returns 'Required.'\\u000a// The error will show in default color; type one char to see the error change colours and then disappear once the value is valid\\u000avar empty = DC.create();\\u000astart().startContext({ data: empty }).add(DC.NAME.__).endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -139,7 +163,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "optionalDoc",
 		"cmd": "markdown",
 		"value": {
@@ -153,12 +177,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "optionalExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000a// PHONE has optionalBorder: true — click the toggle next to the label\\u000avar contact = DC.create({ phone: '+1 416 555 0199' });\\u000astart().startContext({ data: contact }).add(DC.PHONE.__).endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000a// PHONE has optionalBorder: true — click the toggle next to the label\\u000avar contact = DC.create({ phone: '+1 416 555 0199' });\\u000astart().startContext({ data: contact }).add(DC.PHONE.__).endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -167,7 +197,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "controllerDoc",
 		"cmd": "markdown",
 		"value": {
@@ -180,12 +210,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "controllerExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar CM = foam.u2.ControllerMode;\\u000avar contact = DC.create({ name: 'Jane Doe' });\\u000astart('div').style({ display: 'flex', gap: '2rem' })\\u000a  .start('div')\\u000a    .start('p').addClass('p-label').add('RW (default)').end()\\u000a    .startContext({ data: contact })\\u000a      .add(DC.NAME.__)\\u000a    .endContext()\\u000a  .end()\\u000a  .start('div')\\u000a    .start('p').addClass('p-label').add('VIEW mode').end()\\u000a    .startContext({ data: contact, controllerMode: CM.VIEW })\\u000a      .add(DC.NAME.__)\\u000a    .endContext()\\u000a  .end()\\u000a.end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar CM = foam.u2.ControllerMode;\\u000avar contact = DC.create({ name: 'Jane Doe' });\\u000astart('div').style({ display: 'flex', gap: '2rem' })\\u000a  .start('div')\\u000a    .start('p').addClass('p-label').add('RW (default)').end()\\u000a    .startContext({ data: contact })\\u000a      .add(DC.NAME.__)\\u000a    .endContext()\\u000a  .end()\\u000a  .start('div')\\u000a    .start('p').addClass('p-label').add('VIEW mode').end()\\u000a    .startContext({ data: contact, controllerMode: CM.VIEW })\\u000a      .add(DC.NAME.__)\\u000a    .endContext()\\u000a  .end()\\u000a.end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -193,7 +229,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "labelFormatterDoc",
 		"cmd": "markdown",
 		"value": {
@@ -206,12 +242,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "labelFormatterExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000a// ORGANIZATION has a labelFormatter that maps over contactType$.\\u000a// Change Contact Type to watch the Organization label update reactively.\\u000avar contact = DC.create({ contactType: 'BUSINESS', organization: 'Acme Corp' });\\u000astart().startContext({ data: contact })\\u000a  .add(DC.CONTACT_TYPE.__)\\u000a  .br()\\u000a  .add(DC.ORGANIZATION.__)\\u000a.endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000a// ORGANIZATION has a labelFormatter that maps over contactType$.\\u000a// Change Contact Type to watch the Organization label update reactively.\\u000avar contact = DC.create({ contactType: 'BUSINESS', organization: 'Acme Corp' });\\u000astart().startContext({ data: contact })\\u000a  .add(DC.CONTACT_TYPE.__)\\u000a  .br()\\u000a  .add(DC.ORGANIZATION.__)\\u000a.endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -219,14 +261,14 @@ p({
 		"padding_st": "0 16px"
 	}
 ]""",
-"lastModified":"2026-04-29T19:31:32.345Z"
+"lastModified":"2026-08-03T19:33:39.140Z"
 })
 
 p({
 "class":"foam.core.reflow.Flow",
 "name":"SectionedDetailView",
 "category": "demos",
-"version":36,
+"version":37,
 "script":"""[
 	{
 
@@ -234,7 +276,7 @@ p({
 		"cmd": "script",
 		"value": {
 			"class": "foam.core.reflow.Script",
-			"code": "foam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoAddress',\\u000a  label: 'Address',\\u000a\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'type',\\u000a      label: 'Type',\\u000a      gridColumns: 4,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['HOME', 'Home'], ['WORK', 'Work'], ['OTHER', 'Other']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'street' },\\u000a    { class: 'String', name: 'city', onKey: true},\\u000a    { class: 'String', name: 'country' }\\u000a  ]\\u000a});\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContact',\\u000a\\u000a  tableColumns: ['name', 'email', 'contactType'],\\u000a\\u000a  sections: [\\u000a    { name: 'identity',    title: 'Identity',     order: 1 },\\u000a    { name: 'contactInfo', title: 'Contact Info', order: 2 },\\u000a    { name: 'preferences', title: 'Preferences',  order: 3 }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'Long', name: 'id', hidden: true },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'name',\\u000a      label: 'Full Name',\\u000a      placeholder: 'Enter full name',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      required: true,\\u000a      minLength: 3\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'organization',\\u000a      section: 'identity',\\u000a      gridColumns: 8,\\u000a      labelFormatter: function(data) {\\u000a        this.add(data.contactType$.map(function(contactType) {\\u000a          return contactType === 'BUSINESS' ? 'Organization Name' : 'Employer';\\u000a        }));\\u000a      },\\u000a      visibility: function(contactType) {\\u000a        return contactType\\u000a          ? foam.u2.DisplayMode.RW\\u000a          : foam.u2.DisplayMode.HIDDEN;\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'email',\\u000a      label: 'Email',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Used for login and notifications'\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'phone',\\u000a      label: 'Phone',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6\\u000a    },\\u000a    {\\u000a      class: 'FObjectArray',\\u000a      of: 'foam.u2.demos.DemoAddress',\\u000a      name: 'addresses',\\u000a      label: 'Addresses',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 12,\\u000a      view: function(_, X) {\\u000a        return {\\u000a          class: 'foam.u2.view.TitledArrayView',\\u000a          valueView: {\\u000a            class: 'foam.u2.detail.VerticalDetailView',\\u000a            of: 'foam.u2.demos.DemoAddress',\\u000a            propertyWhitelist: {\\u000a              'type':    { gridColumns: 4 },\\u000a              'street':  { gridColumns: 8 },\\u000a              'city':    { gridColumns: 6 },\\u000a              'country': { gridColumns: 6 }\\u000a            }\\u000a          }\\u000a        };\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'Int',\\u000a      name: 'age',\\u000a      label: 'Age',\\u000a      units: 'years',\\u000a      section: 'preferences',\\u000a      gridColumns: 4\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'notes',\\u000a      label: 'Notes',\\u000a      section: 'preferences',\\u000a      gridColumns: 12,\\u000a      view: { class: 'foam.u2.tag.TextArea', rows: 3 }\\u000a    },\\u000a    {\\u000a      class: 'Boolean',\\u000a      name: 'active',\\u000a      label: 'Active',\\u000a      section: 'preferences',\\u000a      gridColumns: 4,\\u000a      value: true\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000a",
+			"code": "foam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoAddress',\\u000a  label: 'Address',\\u000a\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'type',\\u000a      label: 'Type',\\u000a      gridColumns: 4,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['HOME', 'Home'], ['WORK', 'Work'], ['OTHER', 'Other']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'street' },\\u000a    { class: 'String', name: 'city', onKey: true},\\u000a    { class: 'String', name: 'country' }\\u000a  ]\\u000a});\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContact',\\u000a\\u000a  tableColumns: ['name', 'email', 'contactType'],\\u000a\\u000a  sections: [\\u000a    { name: 'identity',    title: 'Identity',     order: 1 },\\u000a    { name: 'contactInfo', title: 'Contact Info', order: 2 },\\u000a    { name: 'preferences', title: 'Preferences',  order: 3 }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'Long', name: 'id', hidden: true },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'name',\\u000a      label: 'Full Name',\\u000a      placeholder: 'Enter full name',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      required: true,\\u000a      minLength: 3\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'organization',\\u000a      section: 'identity',\\u000a      gridColumns: 8,\\u000a      labelFormatter: function(data) {\\u000a        this.add(data.contactType$.map(function(contactType) {\\u000a          return contactType === 'BUSINESS' ? 'Organization Name' : 'Employer';\\u000a        }));\\u000a      },\\u000a      visibility: function(contactType) {\\u000a        return contactType\\u000a          ? foam.u2.DisplayMode.RW\\u000a          : foam.u2.DisplayMode.HIDDEN;\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'email',\\u000a      label: 'Email',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Used for login and notifications'\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'phone',\\u000a      label: 'Phone',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Include country code'\\u000a    },\\u000a    {\\u000a      class: 'FObjectArray',\\u000a      of: 'foam.u2.demos.DemoAddress',\\u000a      name: 'addresses',\\u000a      label: 'Addresses',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 12,\\u000a      view: function(_, X) {\\u000a        return {\\u000a          class: 'foam.u2.view.TitledArrayView',\\u000a          valueView: {\\u000a            class: 'foam.u2.detail.VerticalDetailView',\\u000a            of: 'foam.u2.demos.DemoAddress',\\u000a            propertyWhitelist: {\\u000a              'type':    { gridColumns: 4 },\\u000a              'street':  { gridColumns: 8 },\\u000a              'city':    { gridColumns: 6 },\\u000a              'country': { gridColumns: 6 }\\u000a            }\\u000a          }\\u000a        };\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'Int',\\u000a      name: 'age',\\u000a      label: 'Age',\\u000a      units: 'years',\\u000a      section: 'preferences',\\u000a      gridColumns: 4\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'notes',\\u000a      label: 'Notes',\\u000a      section: 'preferences',\\u000a      gridColumns: 12,\\u000a      view: { class: 'foam.u2.tag.TextArea', rows: 3 }\\u000a    },\\u000a    {\\u000a      class: 'Boolean',\\u000a      name: 'active',\\u000a      label: 'Active',\\u000a      section: 'preferences',\\u000a      gridColumns: 4,\\u000a      value: true\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000a",
 			"autoRun": true
 		},
 		"border": {
@@ -249,7 +291,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "## AbstractSectionedDetailView\\u000a`foam.u2.detail.<Some>DetailView` organises a model's properties into named, ordered **sections**, rendering each as a bordered card. It is FOAM's standard form view — used in DAO browsers, wizards, and detail panels.\\u000a\\u000aThe views work in two steps:\\u000a-  `foam.u2.detail.<Some>DetailView` act as the layout/ordering controllers for FObjects\\u000a-  These views then use `foam.u2.detail.SectionView` or some subclass of that in order to render the individual sections and the axioms contained in them.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000aIndividual section views:\\u000afoam.u2.detail.SectionView                  (renders a single section's properties)\\u000a  └── foam.u2.detail.TabularSectionView     (renders a section with each property in a row, uses tableCellFormatter for properties)\\u000a\\u000aModel level section views:\\u000afoam.u2.detail.AbstractSectionedDetailView  (abstract base; holds common logic)\\u000a  ├── foam.u2.detail.SectionedDetailView    (one card per section in a grid/list)\\u000a  └── foam.u2.detail.VerticalDetailView     (sections stacked vertically, no cards)\\u000a  └── foam.u2.detail.TabbedDetailView       (sections rendered as Tabs)\\u000a```\\u000a\\u000a`AbstractSectionedDetailView` auto-discovers sections from the model, sorts them by `order`, filters hidden sections, and wires reactivity. The two concrete subclasses differ only in layout.\\u000a\\u000a### Shared Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | FObject | Model instance being rendered. |\\u000a| `of` | Class | Model class; inferred from `data` if omitted. |\\u000a| `useSections` | StringArray | Whitelist of section names to render (in that order). |\\u000a| `showTitle` | Boolean | Show/hide section title headers (default `true`). |\\u000a| `hideActions` | Boolean | Show/hide model actions |\\u000a| `propertyWhitelist` | Map/Array | Limit which properties appear and override their attributes. |\\u000a| `sections` | Array | List of sections defined on the model. Can be overridden if default sections are not desirable |\\u000a\\u000a#### Why use these:\\u000a\\u000aYou might say why not make a layout custom to the models we need to display, especially given how easy it is to do with the PropertyBorders. There are a few reasons for this. \\u000a\\u000a- This approach of a generic view for every FObject allows for rapid prototyping for devs and allows building features without overhead while UX can be streamlined in complete isolation.\\u000a- The `<Some>DetailViews` add responsive behaviour that make the default views suitable for all screen sizes. Usually this functionality would need a lot of CSS code for every custom view and is something that is often forgotten. You can see this in action my resizing your window through this demo.\\u000a- As you will see in the following document, there are so many ways to customize these default views that it is often more work to make custom views for anything but the most important models in your app.\\u000a\\u000a##### NOTE:\\u000aThroughout this demo you will see\\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000aThis is required when you use these views without any data already in the context.\\u000a"
+			"markdown": "## Sectioned Detail Views\\u000a\\u000aA **detail view** turns a model instance into a form. The `foam.u2.detail.*DetailView` family goes one step further: it groups a model's properties into named, ordered **sections** and renders each section as its own bordered card. This is FOAM's standard form view — the same machinery behind DAO browsers, wizards, and detail panels — so learning it once covers most data-entry UI in the app.\\u000a\\u000aRendering happens in two layers:\\u000a\\u000a- A **model-level** view — `SectionedDetailView`, `VerticalDetailView`, or `TabbedDetailView` — reads the FObject, discovers its sections, orders them, and lays them out.\\u000a- For each section, that view delegates to a **section-level** view — `SectionView` or a subclass — which renders that section's individual properties.\\u000a\\u000aEverything below is a subclass or a configuration of these two layers.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000aIndividual section views:\\u000afoam.u2.detail.SectionView                  (renders a single section's properties)\\u000a  └── foam.u2.detail.TabularSectionView     (one property per row, via tableCellFormatter)\\u000a\\u000aModel-level section views:\\u000afoam.u2.detail.AbstractSectionedDetailView  (abstract base; holds the common logic)\\u000a  ├── foam.u2.detail.SectionedDetailView    (one card per section, in a grid/list)\\u000a  ├── foam.u2.detail.VerticalDetailView     (sections stacked vertically, no cards)\\u000a  └── foam.u2.detail.TabbedDetailView       (sections rendered as tabs)\\u000a```\\u000a\\u000a`AbstractSectionedDetailView` auto-discovers sections from the model, sorts them by `order`, filters out hidden ones, and wires up reactivity. The concrete subclasses differ only in how they lay the sections out.\\u000a\\u000a### Shared Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | FObject | Model instance being rendered. |\\u000a| `of` | Class | Model class; inferred from `data` if omitted. |\\u000a| `useSections` | StringArray | Whitelist of section names to render, in that order. |\\u000a| `showTitle` | Boolean | Show/hide section title headers (default `true`). |\\u000a| `hideActions` | Boolean | Show/hide the model's actions. |\\u000a| `propertyWhitelist` | Map/Array | Limit which properties appear and override their attributes. |\\u000a| `sections` | Array | The sections defined on the model; override when the defaults don't fit. |\\u000a\\u000a#### Why use these instead of a custom view?\\u000a\\u000aWith `PropertyBorder`s it is easy to hand-build a layout for one model, so why reach for a generic view? A few reasons:\\u000a\\u000a- **Rapid prototyping.** A generic view for every FObject lets you ship a working form with no layout code, while the UX is refined separately.\\u000a- **Responsive by default.** The `*DetailView`s adapt to any screen size out of the box — behaviour a custom view usually needs a lot of CSS for, and that is easy to forget. Resize your window during this demo to see it.\\u000a- **Cheaper than it looks.** As the rest of this document shows, these views are so configurable that a custom view is usually more work — worth it only for your most important models.\\u000a\\u000a##### NOTE:\\u000aThroughout this demo you will see\\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000a\\u000aThis is required when you use these views without any data already in the context.\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -262,7 +304,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "### Defining Sections on a Model\\u000a\\u000aSections are declared in the model's `sections` array. Each entry is a **SectionAxiom** with these key properties:\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `name` | String | Unique identifier for the model. |\\u000a| `title` | String/Function | Section heading (auto-labelize'd from `name` if omitted). Set to '' to exclude. |\\u000a| `subTitle` | String/Function | Optional subtitle rendered below the title. |\\u000a| `order` | Int | Sort order (lower = first). Defaults to `Number.MAX_SAFE_INTEGER`. |\\u000a| `isAvailable` | Function | Visibility gate: `function(prop1) { return bool }`. Dynamically responds to changes when the proeprties specified in the argument list change. |\\u000a| `collapsable` | Boolean | Show collapse/expand toggle in the title bar (default `false`). |\\u000a| `gridColumns` | Value | Section card width in the outer Grid (default full-width). |\\u000a| `view` | ViewSpec | The view this section uses. |\\u000a\\u000aProperties are assigned to a section via the `section` attribute:\\u000a\\u000a```javascript\\u000afoam.CLASS({\\u000a  name: 'MyModel',\\u000a  sections: [\\u000a    { name: 'basics',  title: 'Basic Info', order: 1 },\\u000a    { \\u000a       name: 'details',\\u000a       title: 'Details',\\u000a       order: 2,\\u000a       view: { class: 'foam.u2.detail.TabularSectionView' }\\u000a    }\\u000a  ],\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  section: 'basics'  },\\u000a    { class: 'String', name: 'notes', section: 'details' }\\u000a  ]\\u000a});\\u000a```\\u000a\\u000aProperties without a `section` attribute are grouped into an anonymous default section rendered first.\\u000a"
+			"markdown": "### Defining Sections on a Model\\u000a\\u000aIn FOAM, an *axiom* is any declared feature of a model — a property, method, action, listener, or section — the pieces a model is assembled from. Sections live in the model's `sections` array, and each entry is a **SectionAxiom**: the axiom that defines one section. Its key properties:\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `name` | String | Unique identifier for the model. |\\u000a| `title` | String/Function | Section heading (auto-labelize'd from `name` if omitted). Set to '' to exclude. |\\u000a| `subTitle` | String/Function | Optional subtitle rendered below the title. |\\u000a| `order` | Int | Sort order (lower = first). Defaults to `Number.MAX_SAFE_INTEGER`. |\\u000a| `isAvailable` | Function | Visibility gate: `function(prop1) { return bool }`. Dynamically responds to changes when the proeprties specified in the argument list change. |\\u000a| `collapsable` | Boolean | Show collapse/expand toggle in the title bar (default `false`). |\\u000a| `gridColumns` | Int | How many of the 12 grid columns this section's card spans, so sections can sit side by side on wide screens (default: full width). |\\u000a| `view` | ViewSpec | The section-level view that renders this section's properties — e.g. `SectionView` (default) or `TabularSectionView` for a one-property-per-row layout. |\\u000a\\u000aProperties are assigned to a section via the `section` attribute:\\u000a\\u000a```javascript\\u000afoam.CLASS({\\u000a  name: 'MyModel',\\u000a  sections: [\\u000a    { name: 'basics',  title: 'Basic Info', order: 1 },\\u000a    { \\u000a       name: 'details',\\u000a       title: 'Details',\\u000a       order: 2,\\u000a       view: { class: 'foam.u2.detail.TabularSectionView' }\\u000a    }\\u000a  ],\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  section: 'basics'  },\\u000a    { class: 'String', name: 'notes', section: 'details' }\\u000a  ]\\u000a});\\u000a```\\u000a\\u000aProperties without a `section` attribute are grouped into an anonymous default section rendered first.\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -278,6 +320,7 @@ p({
 			"code": "// DemoContact has 3 sections: identity, contactInfo, preferences\\u000a// Properties are assigned to sections via section: 'sectionName'\\u000a// SectionedDetailView auto-discovers and renders them as cards\\u000avar DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000astart().startContext({ data: contact })\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: contact })\\u000a.endContext().end();"
 		},
 		"border": {
+			"title": "Live example: DemoContact in a SectionedDetailView",
 			"oldTitleStyle_": "h300"
 		},
 		"padding_st": "16px"
@@ -288,7 +331,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "### SectionedDetailView\\u000a\\u000a`SectionedDetailView` renders each section as a **card** inside a responsive grid. Each card gets a title and a `CardBorder` wrapper by default.\\u000a\\u000a#### Additional Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `borders` | Map | Per-section border spec: `{ sectionName: { class: 'foam.u2.borders.CardBorder' } }`. |\\u000a| `showTitle` | Boolean | Show section title heading (default `true`). |\\u000a\\u000a#### Customising Section Borders\\u000a\\u000aOverride the border for any individual section:\\u000a\\u000a```javascript\\u000atag({\\u000a  class: 'foam.u2.detail.SectionedDetailView',\\u000a  data: myInstance,\\u000a  borders: {\\u000a    identity: { class: 'foam.u2.borders.NullBorder' }  // borderless for this section\\u000a  }\\u000a})\\u000a```\\u000a\\u000aPass `{}` or omit the key for the default `CardBorder`. Most borders can be found in `foam.u2.borders.*`\\u000a\\u000a#### Title Visibility\\u000a\\u000aPass `showTitle: false` to hide all section headings. Useful when the surrounding UI already provides context. Try setting this parameter in the example below.\\u000a"
+			"markdown": "### SectionedDetailView\\u000a\\u000a`SectionedDetailView` renders each section as a **card** inside a responsive grid. Each card gets a title and a `CardBorder` wrapper by default.\\u000a\\u000a#### Additional Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `borders` | Map | Per-section border spec: `{ sectionName: { class: 'foam.u2.borders.CardBorder' } }`. |\\u000a| `showTitle` | Boolean | Show section title heading (default `true`). |\\u000a\\u000a#### Customising Section Borders\\u000a\\u000aOverride the border for a section by keying the `borders` map on its **section name** — `identity` below is one of `DemoContact`'s sections:\\u000a\\u000a```javascript\\u000atag({\\u000a  class: 'foam.u2.detail.SectionedDetailView',\\u000a  data: myInstance,\\u000a  borders: {\\u000a    identity: { class: 'foam.u2.borders.NullBorder' }  // borderless for this section\\u000a  }\\u000a})\\u000a```\\u000a\\u000aPass `{}` or omit the key for the default `CardBorder`. Most borders can be found in `foam.u2.borders.*`\\u000a\\u000a#### Title Visibility\\u000a\\u000aPass `showTitle: false` to hide all section headings. Useful when the surrounding UI already provides context. Try setting this parameter in the example below.\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -301,7 +344,7 @@ p({
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a// Full SectionedDetailView — 3 section cards in a grid\\u000astart().startContext({ data: contact })\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      data: contact,\\u000a      borders: {\\u000a          identity: {\\u000a              class: 'foam.u2.borders.BackgroundCard',\\u000a              padding: '2rem',\\u000a              backgroundColor: '#ccc'\\u000a          }\\u000a      }\\u000a  })\\u000a.endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a// Full SectionedDetailView — 3 section cards in a grid\\u000astart().startContext({ data: contact })\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      data: contact,\\u000a      showTitle: true,  // flip to false to hide all section headings\\u000a      borders: {\\u000a          identity: {\\u000a              class: 'foam.u2.borders.BackgroundCard',\\u000a              padding: '2rem',\\u000a              backgroundColor: '#ccc'\\u000a          }\\u000a      }\\u000a  })\\u000a.endContext().end();"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -314,7 +357,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "### VerticalDetailView\\u000a\\u000a`VerticalDetailView` stacks sections **vertically** without card wrapping. It is lighter-weight than `SectionedDetailView` and is used inside `TitledArrayView` rows, wizard steps, and anywhere a flat layout is preferred.\\u000a\\u000a#### Additional Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `config` | Map | Property attribute overrides applied to every property. Same as `PropertyBorder.config` — clones without mutating the model. |\\u000a| `centered` | Boolean | Centre section content (default `false`). |\\u000a\\u000a#### Per-render Property Overrides\\u000a\\u000a```javascript\\u000atag({\\u000a  class: 'foam.u2.detail.VerticalDetailView',\\u000a  data: myInstance,\\u000a  config: { name: { gridColumns: 12 } } // Scroll up and note that the name property was only half the width (in desktop). The total grid columns available on desktop are 12. \\u000a})\\u000a```\\u000a"
+			"markdown": "### VerticalDetailView\\u000a\\u000a`VerticalDetailView` renders the same sections as `SectionedDetailView` — same auto-discovery, ordering, and titles (it shares the `AbstractSectionedDetailView` base) — but drops the per-section **card**. Instead of a grid of bordered panels, the sections are stacked one above the other, so the form reads as a single continuous column rather than a set of tiles.\\u000a\\u000aIt is *lighter-weight* in two senses: visually (no `CardBorder` chrome or grid gutters) and structurally (fewer wrapping elements). That is what you want when the view sits **inside something that already supplies its own frame**:\\u000a\\u000a- **`TitledArrayView` rows** — each entry of an editable array (like the addresses list on `DemoContact` earlier) is itself a small form; a card per row, nested inside the array's own border, would be one box too many.\\u000a- **Wizard steps** — the step already *is* the visual container, so its fields simply stack inside it.\\u000a- **Flat layouts** — anywhere the surrounding UI provides the spacing and framing and you just need the fields laid out in order.\\u000a\\u000aOnly the card wrapper is gone: `sections`, `order`, `isAvailable`, `useSections`, and `showTitle` all behave exactly as they do in `SectionedDetailView`.\\u000a\\u000a#### Additional Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `config` | Map | Property attribute overrides applied to every property. Same as `PropertyBorder.config` — clones without mutating the model. |\\u000a| `centered` | Boolean | Centre section content (default `false`). |\\u000a\\u000a#### Per-render Property Overrides\\u000a\\u000a```javascript\\u000atag({\\u000a  class: 'foam.u2.detail.VerticalDetailView',\\u000a  data: myInstance,\\u000a  config: { name: { gridColumns: 12 } } // Scroll up and note that the name property was only half the width (in desktop). The total grid columns available on desktop are 12. \\u000a})\\u000a```\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -496,7 +539,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "### What if I cant edit the model \\u000a\\u000aNo worries! Sometimes you may not want to add a section to a model (one-off section for a particular menu, wizard screen etc).\\u000aFOAM allows you to define sections on the fly while describing your `<Some>DetailView`. This is a function of the `AbstractDetailView` so this can be done with any DetailView that extends it.\\u000a\\u000a"
+			"markdown": "### What if I cant edit the model \\u000a\\u000aNo worries! Sometimes you may not want to add a section to a model (one-off section for a particular menu, wizard screen etc).\\u000aFOAM allows you to define sections on the fly while describing your `<Some>DetailView`. This is a function of the `AbstractDetailView` so this can be done with any DetailView that extends it.\\u000a\\u000a**Heads-up:** a section's `title` / `subTitle` can be a function, but the two DetailViews call it with **different arguments**. `SectionedDetailView` binds the function's argument names to the model's **properties** — so `function(name)` here receives `data.name`. `VerticalDetailView` (via `SectionView`) instead passes `function(evaluateMessage, data)`, where `evaluateMessage('... ${prop} ...')` interpolates model values. Because no single signature works in both, a **title function is view-specific** — use a plain string title if you need one that renders identically in every view.\\u000a\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -509,7 +552,7 @@ p({
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "/* \\u000afoam.u2.demos.DemoContact has the following properties that already belong to \\u000adifferent sections: \\u000a- name: identity section\\u000a- email: contactInfo section\\u000a- active: preferences section\\u000a\\u000aIt is reasonable to expect a management screen to maybe show these three properties in a section so that a user can manage contacts at a glance.\\u000a*/\\u000avar instance = foam.u2.demos.DemoContact.create({\\u000a  name: 'John Doe',\\u000a  email: 'john@example.com',\\u000a  age: 32,\\u000a  phone: '123456'\\u000a});\\u000astart()\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      // When defining your own sections, `of` must be provided\\u000a      of: 'foam.u2.demos.DemoContact',\\u000a      data: instance,\\u000a      sections: [\\u000a         /* \\u000a         Define your own set of sections that are only used for this view\\u000a         This is the same sectionAxiom that we define on models so all the same\\u000a         features are available here\\u000a        */\\u000a        {\\u000a          name: 'myCustomManagementSection_',\\u000a          properties: ['name', 'email', 'active'],\\u000a          title: function(name) { return `Manage Contact - ${name}` }\\u000a        }    \\u000a      ]\\u000a  }).end();"
+			"code": "/* \\u000afoam.u2.demos.DemoContact has the following properties that already belong to \\u000adifferent sections: \\u000a- name: identity section\\u000a- email: contactInfo section\\u000a- active: preferences section\\u000a\\u000aIt is reasonable to expect a management screen to maybe show these three properties in a section so that a user can manage contacts at a glance.\\u000a*/\\u000avar instance = foam.u2.demos.DemoContact.create({\\u000a  name: 'John Doe',\\u000a  email: 'john@example.com',\\u000a  age: 32,\\u000a  phone: '123456'\\u000a});\\u000astart()\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      // When defining your own sections, `of` must be provided\\u000a      of: 'foam.u2.demos.DemoContact',\\u000a      data: instance,\\u000a      sections: [\\u000a         /* \\u000a         Define your own set of sections that are only used for this view\\u000a         This is the same sectionAxiom that we define on models so all the same\\u000a         features are available here\\u000a        */\\u000a        {\\u000a          name: 'myCustomManagementSection_',\\u000a          properties: ['name', 'email', 'active'],\\u000a          title: function(name) { return 'Manage Contact - ' + name; }\\u000a        }    \\u000a      ]\\u000a  }).end();"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"

@@ -1148,11 +1148,15 @@ foam.CLASS({
 
       var title = daoKey;
 
-      // Probe DAO to find the actual full query being used
+      // Probe DAO to find the actual full query being used. Send the
+      // predicate itself, serialized, so the server filters with the EXACT
+      // predicate this block used — a toMQL() round-trip through the 'q'
+      // parser loses case-insensitive matches (ContainsIC parses back as
+      // Contains). toMQL() stays for the human-readable title only.
       try {
         var sink = foam.dao.ArraySink.create();
         sink.setPredicate = function(p) {
-          url = url + '&q=' + encodeURIComponent(p.toMQL());
+          url = url + '&predicate=' + encodeURIComponent(foam.json.Network.stringify(p));
           title = title + ', query=' + p.toMQL();
           throw "just probing";
         };

@@ -54,6 +54,20 @@ foam.CLASS({
     { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfRequestVariant', name: 'variants', documentation: 'distinct request bodies in this group, most-repeated first' },
     { class: 'Long',   name: 'requestBytes',  documentation: 'summed request-body bytes' },
     { class: 'Long',   name: 'responseBytes', documentation: 'summed response wire bytes (content-length)' }
+  ],
+
+  constants: {
+    CACHEABLE_OPS: { select: true, find: true }
+  },
+
+  methods: [
+    function avoidable() {
+      /** Identical re-fetches a cache would remove. Only reads qualify: sending the same
+          control message (cmd) or the same write twice is the caller asking for the work
+          to happen twice, not a cache miss. **/
+      if ( ! foam.core.reflow.perf.PerfServiceCall.CACHEABLE_OPS[this.operation] ) return 0;
+      return this.count - ( this.distinct || this.count );
+    }
   ]
 });
 
@@ -88,11 +102,23 @@ foam.CLASS({
   properties: [
     { class: 'String', name: 'flowName' },
     { class: 'String', name: 'cmd' },
-    { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop' },
+    { class: 'Float',  name: 'ms', documentation: 'wall time the block held the load loop, its nested blocks included' },
+    { class: 'Float',  name: 'selfMs', documentation: 'ms minus the blocks that ran inside it - the work this block did itself' },
     { class: 'Int',    name: 'domDelta', documentation: 'live nodes added while the block ran' },
     { class: 'Long',   name: 'heapDelta', documentation: 'heap growth while the block ran, bytes' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled inside this block window' },
-    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made (in its time window)' }
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfHotFrame', name: 'hot', documentation: 'hottest functions sampled in this block\'s own time, nested blocks excluded' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfServiceCall', name: 'calls', documentation: 'server calls this block made itself; a nested block\'s calls belong to that block' },
+    { class: 'FObjectArray', of: 'foam.core.reflow.perf.PerfBlockCost', name: 'children', documentation: 'blocks that ran inside this one, worst first; their cost is part of this row total' }
+  ],
+
+  methods: [
+    function subtitle() {
+      /** The command, when the block's name alone identifies nothing. Auto-named blocks
+          come through as '1', '2', '3', so the report would otherwise list rows no reader
+          can place. Empty when the name already says what the block is. **/
+      if ( ! this.cmd || ! /^\d*$/.test(this.flowName) ) return '';
+      return this.cmd.length > 48 ? this.cmd.substring(0, 45) + '…' : this.cmd;
+    }
   ]
 });
 

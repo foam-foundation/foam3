@@ -20,6 +20,7 @@ foam.POM({
   projects: [
     { name: "app/pom" },
     { name: "auth/pom" },
+    { name: "grant/pom" },
     { name: "browser/pom" },
     { name: "reflow/pom" },
     { name: "er/pom" },
@@ -540,6 +541,7 @@ foam.POM({
   ],
 
   javaFiles: [
+    { name: "alarming/test/OMAlarmTest",                              flags: "test" },
     { name: "pm/DAOPMLogger" },
     { name: "pm/PipelinePMLocator" },
     { name: "pm/PMInfoMDAO" },

@@ -83,9 +83,14 @@ public class Lib {
   }
 
   public static String SUBSTR(String text, Integer start, Integer end) {
-    String s = text == null ? "" : text;
-    int st = start == null ? 0 : start;
-    int e = (end == null || end < 0) ? s.length() : end;
+    String s  = text == null  ? "" : text;
+    int    st = start == null ? 0 : start;
+
+    if ( st >= text.length() ) return "";
+
+    int    e  = (end == null || end < 0) ? s.length() : end;
+
+
     st = Math.max(0, Math.min(st, e));
     return s.substring(st, e);
   }

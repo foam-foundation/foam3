@@ -33,11 +33,18 @@ if [ -z "`echo "${JAVA_OPTS}" | grep "user.timezone"`" ]; then
 fi
 
 # memory - heap
-if [ -z "`echo "${JAVA_OPTS}" | grep "Xms"`" ]; then
+# Only apply the fixed defaults when nothing else has sized the heap. Skip them
+# for absolute (-Xms/-Xmx) AND percentage-based (-XX:*RAMPercentage) settings.
+# Both guards check for either RAMPercentage flag so percentage sizing is treated
+# as a unit: setting one skips both fixed defaults, so a percentage ceiling is
+# never paired with a fixed -Xms2048m floor (keeps the initial == max intent).
+# Without this, a percentage-based shrc.custom is silently overridden here by
+# -Xmx4096m, since an explicit -Xmx beats -XX:MaxRAMPercentage.
+if [ -z "`echo "${JAVA_OPTS}" | grep -E "Xms|RAMPercentage"`" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Xms2048m"
 fi
 
-if [ -z "`echo "${JAVA_OPTS}" | grep "Xmx"`" ]; then
+if [ -z "`echo "${JAVA_OPTS}" | grep -E "Xmx|RAMPercentage"`" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Xmx4096m"
 fi
 
@@ -115,7 +122,7 @@ if [ "${DEBUG}" = "1" -o "${DEBUG_DEV}" = "1" ]; then
         # https://www.linkedin.com/pulse/javajvm-logs-monday-jvm-introduction-safepoints-krzysztof-%C5%9Blusarski
         # https://docs.oracle.com/en/java/javase/14/docs/specs/man/java.html
         if [[ $OSTYPE =~ $LINUXOS ]]; then
-            JAVA_OPTS="${JAVA_OPTS} -Xlog:codecache+sweep*=trace,class+unload,class+load,os+thread,safepoint,gc*,gc+ergo=trace,gc+age=trace,gc+phases=trace,gc+humongous=trace,stringdedup*=debug:file=${LOG_HOME}/gc-%t.log:tags,time,uptime,level:filesize=10M,filecount=10"
+            JAVA_OPTS="${JAVA_OPTS} -Xlog:codecache=trace,class+unload,class+load,os+thread,safepoint,gc*,gc+ergo=trace,gc+age=trace,gc+phases=trace,gc+humongous=trace,stringdedup*=debug:file=${LOG_HOME}/gc-%t.log:tags,time,uptime,level:filesize=10M,filecount=10"
         fi
     fi
 fi

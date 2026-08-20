@@ -548,6 +548,13 @@ foam.CLASS({
             ' has no dao. Every section must provide one; opening the ' +
             'dropdown, searching or resolving a selection will throw.');
         }
+        section.searchBy.forEach(function(p) {
+          if ( typeof p === 'string' ) {
+            console.warn('RichChoiceView: searchBy expects PropertyInfos ' +
+              '(e.g. Model.NAME), but got string "' + p + '"; the search ' +
+              'will not filter by this property.');
+          }
+        });
       });
 
       // If the property that this view is for already has a value when being

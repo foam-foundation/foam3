@@ -493,7 +493,7 @@ foam.CLASS({
     },
         */
 
-    function init() {
+    async function init() {
       this.SUPER();
 
       if ( ! this.dao || ! this.dao.of ) return;
@@ -501,6 +501,14 @@ foam.CLASS({
       if ( ! this.columns ) {
         this.columns = this.getColumnNamesFromStorage(localStorage.getItem(this.dao.of.id));
       }
+
+      // TODO: this is a little hackish, should go somewhere else
+      if ( ! this.aql ) {
+        let default_query = await this.dao.cmd('DEFAULT_QUERY_CMD');
+        // Check .aql again since copyFrom() could have been called since the above check
+        if ( default_query && ! this.aql ) this.aql = default_query;
+      }
+
       this.aql$.sub(this.maybeAutoRun);
       this.where$.sub(this.maybeAutoRun);
       this.order$.sub(this.maybeAutoRun);
@@ -584,6 +592,7 @@ foam.CLASS({
       toolTip: 'Create a Test from Results',
       section: 'actions',
       themeIcon: 'test',
+      availablePermissions: [ 'command.read.test' ],
       // TODO:
 //      isEnabled: function(value) { return this.value; },
       code: async function() {

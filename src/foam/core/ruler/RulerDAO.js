@@ -191,16 +191,19 @@ try {
 
 if ( ret != null ) {
   ret = ret.fclone();
-  FObject before = ret.fclone();
-  if ( oldObj == null ) {
-    applyRules(x, ret, oldObj, getCreateAfter());
-  } else {
-    applyRules(x, ret, oldObj, getUpdateAfter());
-  }
 
-  // Test for changes during 'after' rule
-  if ( ! before.equals(ret) ) {
-    ret = getDelegate().put_(x, ret);
+  // The second clone and the deep compare below only pay off if an 'after'
+  // rule can run and change something. Most DAOs have none, and then the
+  // snapshot is compared against an object nothing has touched.
+  Predicate after = oldObj == null ? getCreateAfter() : getUpdateAfter();
+  if ( hasRules(after) ) {
+    FObject before = ret.fclone();
+    applyRules(x, ret, oldObj, after);
+
+    // Test for changes during 'after' rule
+    if ( ! before.equals(ret) ) {
+      ret = getDelegate().put_(x, ret);
+    }
   }
 }
 
@@ -221,6 +224,18 @@ FObject ret =  getDelegate().remove_(x, obj);
 applyRules(x, ret, oldObj, getRemoveAfter());
 applyRules(x, ret, oldObj, getRemoveAsync());
 return ret;`
+    },
+    {
+      name: 'hasRules',
+      type: 'boolean',
+      args: 'Predicate pred',
+      documentation: `Whether applyRules has anything to run for pred.
+
+        Reads the same cached list applyRules iterates. A group key only exists
+        once a rule lands in it, so an empty list means no rule can run, and a
+        caller can skip setup that only an executing rule justifies.`,
+      javaCode: `List<RuleGroup> groups = getRuleGroups().get(pred);
+return groups != null && ! groups.isEmpty();`
     },
     {
       name: 'applyRules',

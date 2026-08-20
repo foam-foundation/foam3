@@ -161,8 +161,16 @@ foam.CLASS({
         var axiom = self.currentQuestionAxiom;
         if ( name && self.data ) {
           var slot = self.data$.dot(name);
-          self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function(v) {
-            return !!v;
+          // Ask the questionnaire whether the question is answered rather than
+          // testing the value for truthiness. A numeric answer of 0, a Boolean
+          // answered false and a choice whose value is '0' are real answers that
+          // `!!v` rejects, so Next stayed disabled and they could not be
+          // submitted at all. An empty multi-select has the opposite problem:
+          // `!![]` is true, so Next enabled with nothing selected and clicking it
+          // re-served the same question. Keep mapping off the value slot so the
+          // subscription still fires on every change, including clearProperty.
+          self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function() {
+            return self.data.isAnswered_(name);
           }));
           // Track the current question's validateObj result so Next can block on it.
           // data.slot(validateObj) is the same per-property error slot Section uses.

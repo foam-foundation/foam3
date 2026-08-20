@@ -853,19 +853,21 @@ foam.CLASS({
       }
     },
     {
-      class: 'String',
+      class: 'FObjectArray',
+      of: 'foam.time.DayOfWeek',
       name: 'dayOfWeekView',
       view: {
         class: 'foam.u2.view.DayOfWeekView'
       }
     },
     {
-      class: 'String',
+      class: 'FObjectArray',
+      of: 'foam.time.DayOfMonth',
       name: 'dayOfMonthView',
       view: {
-        class: 'foam.u2.view.DayOfMonthView'}
-      
-    },
+        class: 'foam.u2.view.DayOfMonthView'
+      }
+    }
   ],
 
   methods: [

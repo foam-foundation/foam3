@@ -27,8 +27,9 @@ foam.CLASS({
     },
     {
       type: 'Int',
-      name: 'EDGE_AUTO_GROW_STEP',
-      value: 6
+      name: 'EDGE_AUTO_GROW_RATE',
+      documentation: 'Auto-grow speed in px per second, independent of display refresh rate.',
+      value: 360
     }
   ],
 
@@ -70,6 +71,7 @@ foam.CLASS({
     'oldCW_',
     ['isDragging_', false],
     'lastPointerX_',
+    'lastTickTs_',
     ['autoGrowExtra_', 0],
     ['autoGrowing_', false]
   ],
@@ -160,7 +162,7 @@ foam.CLASS({
     },
 
     function updateDragWidth() {
-      var w = this.oldCW_ + ( this.lastPointerX_ - this.oldX_ ) + this.autoGrowExtra_;
+      var w = Math.round(this.oldCW_ + ( this.lastPointerX_ - this.oldX_ ) + this.autoGrowExtra_);
       this.colWidth = Math.max(w, this.data.MIN_COLUMN_WIDTH_FALLBACK);
     },
 
@@ -200,6 +202,7 @@ foam.CLASS({
         // frame timer and scroll the wrapper to keep the handle in view.
         if ( ! this.autoGrowing_ && this.inEdgeZone_() ) {
           this.autoGrowing_ = true;
+          this.lastTickTs_ = null;
           window.requestAnimationFrame(this.autoGrowTick);
         }
       }
@@ -214,15 +217,21 @@ foam.CLASS({
     },
     {
       name: 'autoGrowTick',
-      code: function() {
+      code: function(ts) {
         if ( ! this.isDragging_ || ! this.inEdgeZone_() ) {
           this.autoGrowing_ = false;
           return;
         }
-        this.autoGrowExtra_ += this.EDGE_AUTO_GROW_STEP;
-        this.updateDragWidth();
-        var wrapper = this.data.tableEl_ && this.data.tableEl_.el_();
-        if ( wrapper ) wrapper.scrollLeft += this.EDGE_AUTO_GROW_STEP;
+        // Growth is time-based (px/s scaled by the frame delta), so the
+        // speed is the same on any display refresh rate.
+        if ( this.lastTickTs_ != null ) {
+          var grow = this.EDGE_AUTO_GROW_RATE * ( ts - this.lastTickTs_ ) / 1000;
+          this.autoGrowExtra_ += grow;
+          this.updateDragWidth();
+          var wrapper = this.data.tableEl_ && this.data.tableEl_.el_();
+          if ( wrapper ) wrapper.scrollLeft += grow;
+        }
+        this.lastTickTs_ = ts;
         window.requestAnimationFrame(this.autoGrowTick);
       }
     },

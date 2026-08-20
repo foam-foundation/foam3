@@ -185,6 +185,11 @@ foam.CLASS({
     },
 
     async function configLink() {
+      // An empty reference has nothing to link or warn about.
+      if ( ! this.data ) {
+        this.enableLink = false;
+        return;
+      }
       const dao = this.ctrl.__subContext__[this.prop.targetDAOKey];
       if ( dao ) {
         this.obj = await dao.find(this.data);

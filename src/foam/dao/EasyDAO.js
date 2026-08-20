@@ -140,11 +140,6 @@ foam.CLASS({
       javaPostSet: 'if ( val != null ) setName(val.getName());',
     },
     {
-      documentation: 'Hold Last usuable dao in decorator chain. For example, an MDAO wrapped in FixedSizeDAO should always go through the FixedSizeDAO and not update the MDAO directly.',
-      name: 'lastDao',
-      class: 'foam.dao.DAOProperty'
-    },
-    {
       /** This is set automatically when you create an EasyDAO.
         @private */
       name: 'delegate',
@@ -191,10 +186,6 @@ foam.CLASS({
             // code in JDAO.js is looking for cSpecName set in a subX
             delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
           }
-        }
-
-        if ( getMdao() != null && getLastDao() == null ) {
-          setLastDao(delegate);
         }
 
         delegate = getClusterDelegate(delegate);
@@ -554,7 +545,7 @@ foam.CLASS({
       // Unloadable-by-default is intended: SINGLE_JOURNAL EasyDAOs get memory
       // management via lazy journal reload (NotPartitionedDAO) unless explicitly
       // opted out; wrappers that can't safely rebuild (e.g. fixedSize) exclude themselves.
-      value: true
+      value: false
     },
     {
       documentation: 'Sets the inner dao to a nullDAO',
@@ -1533,17 +1524,7 @@ dao loading, which improves overall startup time.`,
         if ( obj === 'serviceName?' ) return this.serviceName;
 
         return this.delegate.cmd_(x, obj);
-      },
-      javaCode: `
-      // Used by Medusa to get the real MDAO to update
-      if ( foam.dao.DAO.LAST_CMD.equals(obj) ) {
-        DAO dao = getLastDao();
-        if ( dao != null ) {
-          return dao;
-        }
       }
-      return getDelegate().cmd_(x, obj);
-      `
     },
     {
       name: 'append',

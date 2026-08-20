@@ -30,6 +30,18 @@ foam.CLASS({
       name: 'EDGE_AUTO_GROW_RATE',
       documentation: 'Auto-grow speed in px per second, independent of display refresh rate.',
       value: 360
+    },
+    {
+      type: 'Int',
+      name: 'MAX_TICK_MS',
+      documentation: 'Upper bound on one auto-grow frame delta. rAF pauses while the tab is hidden, so an unclamped delta on refocus would apply seconds of growth in one tick.',
+      value: 100
+    },
+    {
+      type: 'Int',
+      name: 'KEYBOARD_RESIZE_STEP',
+      documentation: 'Width change in px per arrow-key press on a focused resize handle; shift multiplies by 5.',
+      value: 10
     }
   ],
 
@@ -73,7 +85,10 @@ foam.CLASS({
     'lastPointerX_',
     'lastTickTs_',
     ['autoGrowExtra_', 0],
-    ['autoGrowing_', false]
+    ['autoGrowing_', false],
+    'pointerId_',
+    'overlayEl_',
+    'docKeyHandler_'
   ],
 
   methods: [
@@ -146,24 +161,51 @@ foam.CLASS({
             .on('pointermove', self.pointerMove)
             .on('pointerup', self.pointerUp)
             .on('pointercancel', self.pointerUp)
-            .show(this.showResize$)
+            // Fires instead of pointerup when the capturing element is
+            // removed mid-drag (header rebuild on a column change).
+            .on('lostpointercapture', self.pointerUp)
+            // Keyboard access: reveal on focus, ArrowLeft/ArrowRight resize.
+            .on('focus', function() { self.showResize = true; })
+            .on('blur', function() { if ( ! self.isDragging_ ) self.showResize = false; })
+            .on('keydown', self.onHandleKeyDown)
+            // Hidden via opacity, not display, so the handle stays in the
+            // tab order and can be revealed by keyboard focus.
+            .enableClass(view.myClass('resizeHidden'), this.showResize$, true)
           .end()
         .endContext();
 
-      // Keep the col-resize cursor for the whole table while a drag is live —
-      // with pointer capture the cursor otherwise follows whatever element
-      // the pointer happens to be over. Subscribed on this header's lifetime,
-      // not the wrapper's, so recreated headers don't accumulate subs.
-      if ( view.tableEl_ ) {
-        this.onDetach(this.isDragging_$.sub(function() {
-          view.tableEl_.enableClass(view.myClass('resizing'), self.isDragging_);
-        }));
-      }
+      // A header can be torn down mid-drag (columns_ rebuild); release
+      // everything the drag holds.
+      this.onDetach(function() { self.endDrag_(); });
     },
 
     function updateDragWidth() {
       var w = Math.round(this.oldCW_ + ( this.lastPointerX_ - this.oldX_ ) + this.autoGrowExtra_);
-      this.colWidth = Math.max(w, this.data.MIN_COLUMN_WIDTH_FALLBACK);
+      // Assign only above the fallback, never clamp to it: models configure
+      // tableWidth below the fallback, and a clamp would snap those to the
+      // fallback on the first pixel of drag and persist it to columnStorage.
+      if ( w > this.data.MIN_COLUMN_WIDTH_FALLBACK ) this.colWidth = w;
+    },
+
+    function nudgeWidth_(delta) {
+      var min  = this.data.MIN_COLUMN_WIDTH_FALLBACK;
+      var base = this.colWidth || min;
+      // A column configured narrower than the fallback keeps its own floor.
+      this.colWidth = Math.max(base + delta, Math.min(base, min));
+    },
+
+    function endDrag_() {
+      this.isDragging_ = false;
+      this.autoGrowing_ = false;
+      this.showResize = false;
+      if ( this.overlayEl_ ) {
+        this.overlayEl_.remove();
+        this.overlayEl_ = null;
+      }
+      if ( this.docKeyHandler_ ) {
+        document.removeEventListener('keydown', this.docKeyHandler_);
+        this.docKeyHandler_ = null;
+      }
     },
 
     function inEdgeZone_() {
@@ -178,8 +220,11 @@ foam.CLASS({
     {
       name: 'pointerDown',
       code: function(evt) {
-        if ( evt.button !== 0 ) return;
+        // isDragging_ guard: a second (touch) pointer must not reset the
+        // baselines of a drag in progress.
+        if ( evt.button !== 0 || this.isDragging_ ) return;
         this.isDragging_    = true;
+        this.pointerId_     = evt.pointerId;
         this.oldX_          = evt.clientX;
         this.lastPointerX_  = evt.clientX;
         this.oldCW_         = this.colWidth || this.data.MIN_COLUMN_WIDTH_FALLBACK;
@@ -187,20 +232,40 @@ foam.CLASS({
         evt.currentTarget.setPointerCapture(evt.pointerId);
         // Also suppresses text selection while dragging.
         evt.preventDefault();
+
+        // Full-viewport overlay carries the col-resize cursor for the drag's
+        // duration: with pointer capture the visible cursor follows the
+        // hovered element, and a drag roams outside the table.
+        var overlay = document.createElement('div');
+        overlay.className = this.data.myClass('drag-overlay');
+        document.body.appendChild(overlay);
+        this.overlayEl_ = overlay;
+
+        // Escape cancels the drag and restores the width it started with.
+        this.docKeyHandler_ = this.onDocKeyDown;
+        document.addEventListener('keydown', this.docKeyHandler_);
       }
     },
     {
       name: 'pointerMove',
       code: function(evt) {
-        if ( ! this.isDragging_ ) return;
+        if ( ! this.isDragging_ || evt.pointerId !== this.pointerId_ ) return;
+        var dx = evt.clientX - this.lastPointerX_;
         this.lastPointerX_ = evt.clientX;
         this.updateDragWidth();
+        // Leftward movement means the user is shrinking — never auto-grow
+        // against that, even inside the edge zone (a column straddling the
+        // wrapper's right edge STARTS its drag in the zone).
+        if ( dx < 0 ) {
+          this.autoGrowing_ = false;
+          return;
+        }
         // The pointer can't travel past the right edge of the table/window,
         // so a column ending near that edge (typically the last one) could
         // otherwise only be widened by a few pixels per drag. While the
         // pointer is parked in the edge zone, keep growing the column on a
         // frame timer and scroll the wrapper to keep the handle in view.
-        if ( ! this.autoGrowing_ && this.inEdgeZone_() ) {
+        if ( ! this.autoGrowing_ && dx > 0 && this.inEdgeZone_() ) {
           this.autoGrowing_ = true;
           this.lastTickTs_ = null;
           window.requestAnimationFrame(this.autoGrowTick);
@@ -210,29 +275,56 @@ foam.CLASS({
     {
       name: 'pointerUp',
       code: function(evt) {
-        if ( ! this.isDragging_ ) return;
-        this.isDragging_ = false;
-        this.showResize = false;
+        if ( ! this.isDragging_ || evt.pointerId !== this.pointerId_ ) return;
+        this.endDrag_();
       }
     },
     {
       name: 'autoGrowTick',
       code: function(ts) {
-        if ( ! this.isDragging_ || ! this.inEdgeZone_() ) {
+        if ( ! this.isDragging_ || ! this.autoGrowing_ || ! this.inEdgeZone_() ) {
           this.autoGrowing_ = false;
           return;
         }
         // Growth is time-based (px/s scaled by the frame delta), so the
         // speed is the same on any display refresh rate.
         if ( this.lastTickTs_ != null ) {
-          var grow = this.EDGE_AUTO_GROW_RATE * ( ts - this.lastTickTs_ ) / 1000;
+          var dt   = Math.min(ts - this.lastTickTs_, this.MAX_TICK_MS);
+          var grow = this.EDGE_AUTO_GROW_RATE * dt / 1000;
           this.autoGrowExtra_ += grow;
           this.updateDragWidth();
           var wrapper = this.data.tableEl_ && this.data.tableEl_.el_();
-          if ( wrapper ) wrapper.scrollLeft += grow;
+          // 'instant' sidesteps the wrapper's scroll-behavior: smooth, which
+          // would restart a smooth-scroll animation on every frame's write
+          // and rubber-band behind the growth.
+          if ( wrapper ) wrapper.scrollBy({ left: grow, behavior: 'instant' });
         }
         this.lastTickTs_ = ts;
         window.requestAnimationFrame(this.autoGrowTick);
+      }
+    },
+    {
+      name: 'onDocKeyDown',
+      code: function(evt) {
+        if ( evt.key !== 'Escape' || ! this.isDragging_ ) return;
+        this.colWidth = this.oldCW_;
+        this.endDrag_();
+      }
+    },
+    {
+      name: 'onHandleKeyDown',
+      code: function(evt) {
+        if ( this.isDragging_ ) return;
+        var step = this.KEYBOARD_RESIZE_STEP * ( evt.shiftKey ? 5 : 1 );
+        if ( evt.key === 'ArrowRight' ) {
+          this.nudgeWidth_(step);
+          evt.preventDefault();
+        } else if ( evt.key === 'ArrowLeft' ) {
+          this.nudgeWidth_(-step);
+          evt.preventDefault();
+        } else if ( evt.key === 'Escape' ) {
+          evt.target.blur();
+        }
       }
     },
     function onMouseEnter() {

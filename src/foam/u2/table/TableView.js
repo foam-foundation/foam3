@@ -177,16 +177,21 @@
       cursor: col-resize;
     }
 
-    /* While a column resize drag is live the pointer is captured by the
-       handle, but the visible cursor still follows the hovered element.
-       Each cursor rule the table installs is re-declared under ^resizing
-       at higher specificity: ^tr * outranks the row copy button,
-       ^th:hover and ^clickable^tr:hover outrank their base rules. */
-    ^resizing, ^resizing *,
-    ^resizing ^tr *,
-    ^resizing ^th:hover,
-    ^resizing ^tbody ^clickable^tr:hover {
+    /* Full-viewport overlay mounted on body for a drag's duration: it wins
+       the cursor by hit-test (pointer capture still routes events to the
+       handle), needs no per-rule specificity overrides, and covers areas
+       outside the table that a captured drag can roam over. */
+    ^drag-overlay {
       cursor: col-resize;
+      inset: 0;
+      position: fixed;
+      z-index: 1000;
+    }
+
+    /* Hidden via opacity, not display, so the handle stays in the tab
+       order and can be revealed by keyboard focus. */
+    ^resizeHidden {
+      opacity: 0;
     }
 
     ^resizeButton.foam-u2-ActionView svg{

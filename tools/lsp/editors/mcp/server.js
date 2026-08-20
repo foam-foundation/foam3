@@ -482,7 +482,6 @@ class FoamLSPClient {
       // from a clean didOpen.
       if ( this.openedUris.has(uri) ) {
         this.openedUris.delete(uri);
-        this.diagnosticsByUri.delete(uri);
         this._notify('textDocument/didClose', { textDocument: { uri: uri } });
       }
       throw new Error('file not found: ' + fsPath);
@@ -490,6 +489,13 @@ class FoamLSPClient {
 
     const entry = this.openedUris.get(uri);
     if ( entry && entry.mtimeMs === st.mtimeMs ) return;
+
+    // The document is about to (re)load — open, refresh, or reopen after a
+    // delete (the server answers didClose with an empty publish, so the map
+    // re-fills even after a delete there). Drop the cached list here, the one
+    // spot all three paths pass, so getDiagnostics waits for the list the
+    // server publishes for the NEW text.
+    this.diagnosticsByUri.delete(uri);
 
     let text;
     try { text = fs.readFileSync(fsPath, 'utf8'); }
@@ -513,9 +519,6 @@ class FoamLSPClient {
     // file's classes in the live FOAM registry, not just the text cache.
     entry.version++;
     entry.mtimeMs = st.mtimeMs;
-    // Drop the stale diagnostics so getDiagnostics waits for the list the
-    // server publishes for the NEW text instead of answering from the old.
-    this.diagnosticsByUri.delete(uri);
     this._notify('textDocument/didChange', {
       textDocument:   { uri: uri, version: entry.version },
       contentChanges: [{ text: text }]

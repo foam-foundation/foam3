@@ -732,6 +732,7 @@ foam.CLASS({
         console.error('RichChoiceView: idProperty "' + this.idProperty +
           '" did not resolve on the selected object. Pass a bare property name (e.g. \'name\'), not a PropertyInfo (e.g. Model.NAME, which stringifies to a qualified "' +
           ( typeof this.idProperty === 'string' && this.idProperty.indexOf('.') >= 0 ? this.idProperty : 'package.Model.prop' ) + '" path).');
+        this.isOpen_ = false;
         return;
       }
       this.fullObject_ = obj;

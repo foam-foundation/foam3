@@ -82,6 +82,8 @@ foam.CLASS({
       var propertyNamesToQuery = props.filter(p => foam.lang.Property.isInstance(p.property)).map(p => p.fullPropertyName);
       props.forEach(p => {
         var propPrefix = ! p.fullPropertyName.includes('.') ? '' : this.getNestedPropertyNameExcludingLastProperty(p.fullPropertyName) + '.';
+        // Any money column that formats via a unit prop (UnitValue, DoubleUnitValue)
+        // needs that unit prop fetched too, or export falls back to the raw double
         if ( p.property.unitPropValueToString && p.property.unitPropName )
           propertyNamesToQuery.push(propPrefix + p.property.unitPropName);
         for (var i = 0 ; i < p.property.dependsOnPropertiesWithNames.length ; i++ ) {

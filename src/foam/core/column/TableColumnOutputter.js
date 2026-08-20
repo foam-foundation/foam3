@@ -108,7 +108,8 @@ foam.CLASS({
               var indexOfUnitProp = props.findIndex(p => p.name === props[i].unitPropName);
               if ( indexOfUnitProp !== -1 ) {
                 var unitPropValue = value[indexOfUnitProp];
-                // Reference-typed unit props (e.g. CurrencyCode) project as RefSummary {id, summary} maps
+                // Reference-typed unit props (e.g. CurrencyCode) project as RefSummary
+                // {id, summary} maps, not code strings; currencyDAO.find needs the id
                 if ( unitPropValue && typeof unitPropValue === 'object' ) unitPropValue = unitPropValue.id;
                 stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], unitPropValue, addUnitPropValueToStr));
                 continue;

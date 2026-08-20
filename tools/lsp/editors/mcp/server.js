@@ -329,6 +329,12 @@ class FoamLSPClient {
     }
     log('spawning LSP:', 'node', entry, '(cwd=' + this.projectRoot + ')');
 
+    // When the child dies mid-boot, the exit handler rejects the ready
+    // promise and swaps in a fresh one for the NEXT boot — and only then
+    // does the initialize .catch below fire. Settle the promise THIS boot
+    // owns, not whatever is current at that point.
+    const rejectBoot = this._rejectReady;
+
     this.child = spawn('node', [entry], {
       cwd:   this.projectRoot,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -386,7 +392,7 @@ class FoamLSPClient {
       this._resolveReady(initResult);
     }.bind(this)).catch(function(e) {
       log('LSP initialize failed:', e.message);
-      this._rejectReady(e);
+      rejectBoot(e);
       // Reap the half-booted child; its exit handler resets state so a
       // later tool call can retry from scratch.
       if ( this.child && ! this.child.killed ) this.child.kill();

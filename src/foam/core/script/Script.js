@@ -526,54 +526,57 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
     },
     {
       name: 'poll',
+      documentation: 'Returns a promise which resolves when the script reaches a terminal status, so callers (the run action) can signal completion.',
       code: function() {
         var delay = Math.min(4000, Math.max(500, this.lastDuration));
         var self  = this;
-        function check() {
-          var dao = self.__context__[self.daoKey];
-          dao.cmd(foam.dao.DAO.PURGE_CMD); // In case DAO is decorated with a TTLCachingDAO (which it is)
-          dao.find(self.id).then(function(script) {
-            // console.log('***************** POLL', script.status, delay);
-            if ( script.status === self.ScriptStatus.UNSCHEDULED || script.status === self.ScriptStatus.ERROR ) {
-              self.copyFrom(script);
+        return new Promise(function(resolve) {
+          function check() {
+            var dao = self.__context__[self.daoKey];
+            dao.cmd(foam.dao.DAO.PURGE_CMD); // In case DAO is decorated with a TTLCachingDAO (which it is)
+            dao.find(self.id).then(function(script) {
+              // console.log('***************** POLL', script.status, delay);
+              if ( script.status === self.ScriptStatus.UNSCHEDULED || script.status === self.ScriptStatus.ERROR ) {
+                self.copyFrom(script);
 
-              if ( self.notify ) {
-p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targetId:"scriptparameter.create"})
-                // create notification
-                var notification = self.ScriptRunNotification.create({
-                  userId: self.subject && self.subject.realUser ?
-                    self.subject.realUser.id : self.user.id,
-                  scriptId: script.id,
-                  notificationType: 'Script Execution',
-                  body: `Status: ${script.status}
-                    Script Output: ${script.length > self.MAX_NOTIFICATION_OUTPUT_CHARS ?
-                      script.output.substring(0, self.MAX_NOTIFICATION_OUTPUT_CHARS) + '...' :
-                      script.output }
-                    LastDuration: ${script.lastDuration}`
-                });
-                self.notificationDAO.put(notification);
-              }
-              var notification = self.Notification.create();
-              notification.userId = self.subject && self.subject.realUser ?
-                self.subject.realUser.id : self.user.id;
-              notification.severity = foam.log.LogLevel.INFO;
-              if ( script.status === self.ScriptStatus.UNSCHEDULED ) {
-                notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_COMPLETED;
+                if ( self.notify ) {
+                  // create notification
+                  var notification = self.ScriptRunNotification.create({
+                    userId: self.subject && self.subject.realUser ?
+                      self.subject.realUser.id : self.user.id,
+                    scriptId: script.id,
+                    notificationType: 'Script Execution',
+                    body: `Status: ${script.status}
+                      Script Output: ${script.length > self.MAX_NOTIFICATION_OUTPUT_CHARS ?
+                        script.output.substring(0, self.MAX_NOTIFICATION_OUTPUT_CHARS) + '...' :
+                        script.output }
+                      LastDuration: ${script.lastDuration}`
+                  });
+                  self.notificationDAO.put(notification);
+                }
+                var notification = self.Notification.create();
+                notification.userId = self.subject && self.subject.realUser ?
+                  self.subject.realUser.id : self.user.id;
+                notification.severity = foam.log.LogLevel.INFO;
+                if ( script.status === self.ScriptStatus.UNSCHEDULED ) {
+                  notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_COMPLETED;
+                } else {
+                  notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_FAILED;
+                  notification.severity = foam.log.LogLevel.WARN;
+                }
+                notification.toastState = self.ToastState.REQUESTED;
+                notification.transient = true;
+                self.__subContext__.myNotificationDAO.put(notification);
+                resolve();
               } else {
-                notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_FAILED;
-                notification.severity = foam.log.LogLevel.WARN;
+                delay = Math.min(4000, delay * 1.5);
+                self.setTimeout(check, delay);
               }
-              notification.toastState = self.ToastState.REQUESTED;
-              notification.transient = true;
-              self.__subContext__.myNotificationDAO.put(notification);
-            } else {
-              delay = Math.min(4000, delay * 1.5);
-              self.setTimeout(check, delay);
-            }
-          });
-        }
+            });
+          }
 
-        self.setTimeout(check, delay);
+          self.setTimeout(check, delay);
+        });
       }
     },
     {
@@ -653,10 +656,13 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
           notification.severity = foam.log.LogLevel.INFO;
           notification.transient = true;
           self.__subContext__.myNotificationDAO.put(notification);
-          this.__context__[this.daoKey].put(this).then(function(script) {
+          // Return the promise chain so Action.call() only publishes the
+          // 'action' topic once the run completes, which is what triggers
+          // detail views to reload the record.
+          return this.__context__[this.daoKey].put(this).then(function(script) {
             self.copyFrom(script);
             if ( script.status === self.ScriptStatus.SCHEDULED || script.status === self.ScriptStatus.RUNNING ) {
-              self.poll();
+              return self.poll();
             }
           }).catch(function(e) {
             var notification = self.Notification.create();
@@ -680,10 +686,10 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
           this.__subContext__.myNotificationDAO.put(notification);
 
           this.status = this.ScriptStatus.RUNNING;
-          this.runScript().then(
+          return this.runScript().then(
             () => {
               this.status = this.ScriptStatus.UNSCHEDULED;
-              this.__context__[this.daoKey].put(this);
+              var saved = this.__context__[this.daoKey].put(this);
               var notification = this.Notification.create();
               notification.userId = this.subject && this.subject.realUser ?
                 this.subject.realUser.id : this.subject.user.id;
@@ -692,6 +698,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
               notification.severity = foam.log.LogLevel.INFO;
               notification.transient = true;
               this.__subContext__.myNotificationDAO.put(notification);
+              return saved;
            },
             (e) => {
               var notification = this.Notification.create();
@@ -707,7 +714,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
               this.output += '\n' + e.stack;
               console.log(e);
               this.status = this.ScriptStatus.ERROR;
-              this.__context__[this.daoKey].put(this);
+              return this.__context__[this.daoKey].put(this);
             }
           );
         }

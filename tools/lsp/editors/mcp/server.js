@@ -482,6 +482,7 @@ class FoamLSPClient {
       // from a clean didOpen.
       if ( this.openedUris.has(uri) ) {
         this.openedUris.delete(uri);
+        this.diagnosticsByUri.delete(uri);
         this._notify('textDocument/didClose', { textDocument: { uri: uri } });
       }
       throw new Error('file not found: ' + fsPath);
@@ -512,6 +513,9 @@ class FoamLSPClient {
     // file's classes in the live FOAM registry, not just the text cache.
     entry.version++;
     entry.mtimeMs = st.mtimeMs;
+    // Drop the stale diagnostics so getDiagnostics waits for the list the
+    // server publishes for the NEW text instead of answering from the old.
+    this.diagnosticsByUri.delete(uri);
     this._notify('textDocument/didChange', {
       textDocument:   { uri: uri, version: entry.version },
       contentChanges: [{ text: text }]

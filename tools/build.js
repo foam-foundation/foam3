@@ -477,6 +477,7 @@ TOOLING_OPTIONS = addOptions({
 
 OPTIONS = addOptions({
   buildDir: [ '', 'build-dir', 'BUILD_DIR', 'Build directory, relative to project root','build', arg => BUILD_DIR = arg ],
+  deployment: ['', 'deployment', 'DEPLOYMENT', 'Additional deployment directory', 'deployment', arg => DEPLOYMENT = arg ],
   dryRun: [ '', 'dry-run', 'DRY_RUN', 'Run build in dry-run mode which just lists tasks that would have run.', false, function(arg) { DRY_RUN = arg ? bool(arg) : true; } ],
   envs: [ 'E', 'envs', '', 'Set environment variables. Example: -EJAVA_OPTS:-Xmx8g,APP_NAME:demo or -EJAVA_OPTS:"-Xms12g -Xmx12g"', '',
           arg => {
@@ -521,7 +522,7 @@ OPTIONS = addOptions({
 // explicitly add journal to POM list, intented to be called
 // after pom() has setup the initial list
 function addJournal(name, where) {
-  let fn = null;
+  var fn = null;
 
   // Explicit source selection when provided
   if ( where === 'foam3' ) {
@@ -532,10 +533,26 @@ function addJournal(name, where) {
     // Default behaviour: prefer project, then fall back to foam3
     fn = name && `${PROJECT_HOME}/deployment/${name}/pom`;
     if ( ! existsSync(fn + '.js') ) {
-      let fn2 = `${FOAM_DIR}/deployment/${name}/pom`;
+      var fn2 = `${FOAM_DIR}/deployment/${name}/pom`;
       if ( ! existsSync(fn2 + '.js') ) {
-        error('POM not found ' + fn + '.js');
-        fn = null;
+        if ( `${DEPLOYMENT}` !== 'deployment' ) {
+          // log('addJournal', `DEPLOYMENT=${DEPLOYMENT}`);
+          fn2 = `${PROJECT_HOME}/${DEPLOYMENT}/${name}/pom`;
+          if ( ! existsSync(fn2 + '.js') ) {
+            fn2 = `${FOAM_DIR}/${DEPLOYMENT}/${name}/pom`;
+            if ( ! existsSync(fn2 + '.js') ) {
+              error('POM not found ' + fn + '.js');
+              fn = null;
+            } else {
+              fn = fn2;
+            }
+          } else {
+            fn = fn2;
+          }
+        } else {
+          error('POM not found ' + fn + '.js');
+          fn = null;
+        }
       } else {
         fn = fn2;
       }
@@ -578,12 +595,31 @@ function pom() {
   if ( globalThis['JOURNALS'] ) {
     JOURNALS.split(',').forEach(c => {
       if ( ! c ) return;
-      let fn = `${PROJECT_HOME}/deployment/${c}/pom`;
+      var fn = `${PROJECT_HOME}/deployment/${c}/pom`;
       if ( ! existsSync(fn + '.js') ) {
-        let fn2 = `${PROJECT_HOME}/foam3/deployment/${c}/pom`;
+        log('[pom] pom not found ',fn);
+        var fn2 = `${PROJECT_HOME}/foam3/deployment/${c}/pom`;
         if ( ! existsSync(fn2 + '.js') ) {
-          error('POM not found ' + fn + '.js');
-          fn = null;
+          if ( `${DEPLOYMENT}` !== 'deployment' ) {
+            // log('[pom]', `DEPLOYMENT=${DEPLOYMENT}`);
+            fn2 = `${PROJECT_HOME}/${DEPLOYMENT}/${c}/pom`;
+            if ( ! existsSync(fn2 + '.js') ) {
+              log('[pom] pom not found ',fn2);
+              fn2 = `${PROJECT_HOME}/foam3/${DEPLOYMENT}/${c}/pom`;
+              if ( ! existsSync(fn2 + '.js') ) {
+                log('[pom] pom not found (last)',fn2);
+                error('POM not found ' + fn + '.js');
+                fn = null;
+              } else {
+                fn = fn2;
+              }
+            } else {
+              fn = fn2;
+            }
+          } else {
+            error('POM not found ' + fn + '.js');
+            fn = null;
+          }
         } else {
           fn = fn2;
         }

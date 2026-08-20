@@ -541,7 +541,13 @@ foam.CLASS({
         throw new Error(`You must provide an array of sections. See documentation on the 'sections' property in RichTextView.js.`);
       }
 
-      this.sections.forEach(function(section) {
+      this.sections.forEach(function(section, i) {
+        if ( ! section.dao ) {
+          console.error('RichChoiceView: section ' + i +
+            ( section.heading ? ' ("' + section.heading + '")' : '' ) +
+            ' has no dao. Every section must provide one; opening the ' +
+            'dropdown, searching or resolving a selection will throw.');
+        }
         section.searchBy.forEach(function(p) {
           if ( typeof p === 'string' ) {
             console.warn('RichChoiceView: searchBy expects PropertyInfos ' +
@@ -728,8 +734,16 @@ foam.CLASS({
     },
 
     function onSelect(obj) {
+      var id = obj[this.idProperty];
+      if ( id === undefined ) {
+        console.error('RichChoiceView: idProperty "' + this.idProperty +
+          '" did not resolve on the selected object. Pass a bare property name (e.g. \'name\'), not a PropertyInfo (e.g. Model.NAME, which stringifies to a qualified "' +
+          ( typeof this.idProperty === 'string' && this.idProperty.indexOf('.') >= 0 ? this.idProperty : 'package.Model.prop' ) + '" path).');
+        this.isOpen_ = false;
+        return;
+      }
       this.fullObject_ = obj;
-      this.data = obj[this.idProperty];
+      this.data = id;
       this.isOpen_ = false;
     },
 
@@ -834,10 +848,19 @@ foam.CLASS({
           this.clearSelection();
           return;
         }
+        var axiom = this.of && this.of.getAxiomByName(this.idProperty);
+        if ( this.of && ! axiom ) {
+          console.error('RichChoiceView: idProperty "' + this.idProperty +
+            '" is not an axiom of ' + this.of.id + ', so the preselected ' +
+            'value cannot be resolved and the selection will stay on the ' +
+            'placeholder. Pass a bare property name (e.g. \'name\'), not a ' +
+            'PropertyInfo (e.g. Model.NAME, which stringifies to a qualified path).');
+          return;
+        }
         this.sections.forEach(section => {
           if ( this.of ) {
             section.dao.where(
-              this.EQ(this.of.getAxiomByName(this.idProperty), this.data)
+              this.EQ(axiom, this.data)
             ).select().then(result => {
               if ( result.array.length > 0 ) {
                 if ( section.disabled ) return this.clearSelection();

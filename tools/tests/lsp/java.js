@@ -699,6 +699,45 @@ test(scLineCross === 0,
 test(scCommentOnStringLine === 0,
   '// inside a string literal is not treated as a comment');
 
+// === SemanticTokenHandler: strings suppress code tokens inside javaCode ===
+// PR #5193 review: keywords inside a string literal were still emitted as
+// keyword tokens (type 3) painted over the string token (type 4) — e.g.
+// "if you return null while true" got 5 keyword tokens. String spans gate
+// the emitters the same way comment spans do.
+section('SemanticTokenHandler: string suppression inside javaCode');
+
+var ssSrc = [
+  'foam.CLASS({',                                       // line 0
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STStringDemo' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ,
+  'String s = "if you return null while true 42";',     // line 7
+  BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var ssTokens = semanticHandler.handle(ssSrc);
+var ssData = (ssTokens && ssTokens.data) || [];
+var ssBadInString = 0, ssStringTok = 0;
+var ssLine = 0, ssCol = 0;
+var ssStrStart = 'String s = '.length;                  // string literal starts at col 11
+for ( var ssi = 0 ; ssi < ssData.length ; ssi += 5 ) {
+  if ( ssData[ssi] > 0 ) { ssLine += ssData[ssi]; ssCol = ssData[ssi+1]; }
+  else { ssCol += ssData[ssi+1]; }
+  var ssType = ssData[ssi+3];
+  if ( ssLine !== 7 ) continue;
+  if ( ssType === 4 ) { ssStringTok++; continue; }
+  if ( ssCol >= ssStrStart ) ssBadInString++;
+}
+test(ssStringTok === 1, 'string literal itself emits one string token');
+test(ssBadInString === 0,
+  'no keyword/number/type tokens inside a string literal (review finding)');
+
 // === var-decl type inference (Java 10+ `var` keyword) ===
 // `var <name> = ...` is invisible to the upper-typed `localDecl` rule.
 // JavaParser infers the type from the RHS shape: `new T(...)`, `(T) ...`,

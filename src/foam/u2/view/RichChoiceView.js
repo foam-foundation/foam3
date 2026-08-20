@@ -430,13 +430,6 @@ foam.CLASS({
         this.sections.forEach((section) => {
           if ( newValue ) {
             if ( section.searchBy.length > 0 ) {
-              section.searchBy.forEach((p) => {
-                if ( typeof p === 'string' ) {
-                  console.warn('RichChoiceView: searchBy expects PropertyInfos ' +
-                    '(e.g. Model.NAME), but got string "' + p + '"; the search ' +
-                    'will not filter by this property.');
-                }
-              });
               var arrOfExpressions = section.searchBy.map((prop) => this.CONTAINS_IC(prop, newValue));
               var pred = this.Or.create({ args: arrOfExpressions });
             }
@@ -547,6 +540,16 @@ foam.CLASS({
       if ( ! Array.isArray(this.sections) || this.sections.length === 0 ) {
         throw new Error(`You must provide an array of sections. See documentation on the 'sections' property in RichTextView.js.`);
       }
+
+      this.sections.forEach(function(section) {
+        section.searchBy.forEach(function(p) {
+          if ( typeof p === 'string' ) {
+            console.warn('RichChoiceView: searchBy expects PropertyInfos ' +
+              '(e.g. Model.NAME), but got string "' + p + '"; the search ' +
+              'will not filter by this property.');
+          }
+        });
+      });
 
       // If the property that this view is for already has a value when being
       // rendered, the 'data' property on this model will be set to an id for

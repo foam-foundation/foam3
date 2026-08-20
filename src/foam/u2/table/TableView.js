@@ -178,10 +178,15 @@
     }
 
     /* While a column resize drag is live the pointer is captured by the
-       handle, but the visible cursor still follows the hovered element —
-       force col-resize everywhere in the table for the drag's duration. */
-    ^resizing, ^resizing * {
-      cursor: col-resize !important;
+       handle, but the visible cursor still follows the hovered element.
+       Each cursor rule the table installs is re-declared under ^resizing
+       at higher specificity: ^tr * outranks the row copy button,
+       ^th:hover and ^clickable^tr:hover outrank their base rules. */
+    ^resizing, ^resizing *,
+    ^resizing ^tr *,
+    ^resizing ^th:hover,
+    ^resizing ^tbody ^clickable^tr:hover {
+      cursor: col-resize;
     }
 
     ^resizeButton.foam-u2-ActionView svg{

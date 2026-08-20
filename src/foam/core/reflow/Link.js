@@ -13,7 +13,7 @@ foam.CLASS({
 
   imports: [
     'eval_',
-    'flowDAO'
+    'flowDAO?'
   ],
 
   properties: [
@@ -31,15 +31,17 @@ foam.CLASS({
       this.dynamic(async function (href) {
         if ( ! href ) return;
 
-        let flow = await self.flowDAO.find(href);
+        if ( this.flowDAO ) {
+          let flow = await self.flowDAO.find(href);
 
-        if ( flow ) {
-          // Just load flows directly rather than changing the window hash
-          // This avoids changing the FLOW_MODE and it lets flows be accessed
-          // directly by their name rather than their URL
-          self.on('click', () => {
+          if ( flow ) {
+            // Just load flows directly rather than changing the window hash
+            // This avoids changing the FLOW_MODE and it lets flows be accessed
+            // directly by their name rather than their URL
+            self.on('click', () => {
             this.eval_(`load("${href}")`);
-          });
+            });
+          }
         }
         self.element_.setAttribute('href', href);
       });

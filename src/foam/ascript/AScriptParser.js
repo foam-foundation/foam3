@@ -55,9 +55,13 @@ foam.CLASS({
         const m = foam.mlang.Expressions.create();
 
         return {
-          LEN:     { minArgs: 1, maxArgs: 1,
+          /*
+          // TODO: remove STRING_LENGTH, duplicated in ALang
+          LEN:     {
+            minArgs: 1, maxArgs: 1,
             documentation: 'The number of characters in a piece of text. Ex. LEN(name)',
             build: function(a) { return m.STRING_LENGTH(a[0]); } },
+            */
           MIN:     { minArgs: 1,
             documentation: 'The smallest of the supplied numbers. Ex. MIN(balance, 0)',
             build: function(a) { return m.MIN_FUNC.apply(m, a); } },
@@ -87,8 +91,45 @@ foam.CLASS({
             build: function(a) { return m.MINUTES(a[0]); } },
           NOW:     { minArgs: 0, maxArgs: 0,
             documentation: 'The current date and time. Ex. DAYS(NOW)',
-            build: function( ) { return m.NOW(); } }
-        };
+            build: function( ) { return m.NOW(); } },
+
+          // Individual date/time components are available in ALang
+          HHMM: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The time as text "HH:MM", e.g. "14:30". Ex. HHMM(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToHHMMExpr.create({delegate: a[0]}); }
+          },
+          HHMMSS: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The time as text "HH:MM:SS", e.g. "14:30:45". Ex. HHMMSS(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToHHMMSSExpr.create({delegate: a[0]}); }
+          },
+          YYYYMMDD: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The date as text "YYYY/MM/DD", e.g. "2024/03/15". Groups by day. Ex. YYYYMMDD(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToYYYYMMDDExpr.create({delegate: a[0]}); }
+          },
+          YYYYMM: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The year and month as text "YYYY/MM", e.g. "2024/03". Groups by month. Ex. YYYYMM(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToYYYYMMExpr.create({delegate: a[0]}); }
+          },
+          YYYYWWW: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The ISO week as text "YYYY-WWW", e.g. "2024-W03". Groups by week. Ex. YYYYWWW(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToWeekExpr.create({delegate: a[0]}); }
+          },
+          YYYYQQ: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The quarter as text "YYYY-QQ", e.g. "2024-Q1". Groups by quarter. Ex. YYYYQQ(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToQuarterExpr.create({delegate: a[0]}); }
+          },
+          YYYYDDD: {
+            minArgs: 1, maxArgs: 1,
+            documentation: 'The day of the year as text "YYYY-DDD", e.g. "2024-075". Ex. YYYYDDD(createdAt)',
+            build: function(a) { return foam.mlang.expr.DateToDayOfYearExpr.create({delegate: a[0]}); }
+          }
+        }
       }
     }
   ],
@@ -97,26 +138,33 @@ foam.CLASS({
     {
       name: 'extensionGrammar_',
       // NOTE: parameter names must match Parsers members (withArgs injects by name).
-      value: function(alt, seq, seq0, seq1, repeat, repeat0, optional, literal, literalIC, str, substring, sug, sym, range) {
+      value: function(alt, seq, seq0, seq1, rep, rep0, opt, lit, litIC, str, substring, sug, sym, range) {
         const self = this;
         const m    = foam.mlang.Expressions.create();
-
-        // local short aliases
-        var rep = repeat, rep0 = repeat0, opt = optional, lit = literal, litIC = literalIC;
 
         // leading-ws helpers so `a + b` parses (each token consumes leading ws;
         // the next token's leading ws swallows trailing space)
         function lead(p)         { return seq1(1, sym('ws'), p); }
         function binop(ch, val)  { return seq1(1, sym('ws'), lit(ch, val)); }
+        function keyword(s, l)   { return sug(litIC(s), {text: s, label: l, category: 'function'}); }
         var comma = seq1(1, sym('ws'), ',');
 
-        // property-name literals (+ constants) as VALUE operands, longest-first
+        // property-name literals (+ constants) as VALUE operands, longest-first:
+        // alt() takes the first alternative that matches, so with localDate
+        // ahead of localDateUTC a formula naming the latter parses only its
+        // prefix and then fails on the leftover UTC.
         var fields = [];
-        this.of.getAxiomsByClass(foam.lang.Property).forEach(function(p) {
-          fields.push(sug(literalIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
-        });
+        this.of.getAxiomsByClass(foam.lang.Property).
+          slice().
+          sort((a, b) => b.name.length - a.name.length || foam.util.compare(a.name, b.name)).
+          forEach(function(p) {
+            // indexOf returns -1 when absent and 0 at the start, so a bare truthy
+            // test keeps the reaction properties and drops everything else.
+            if ( p.name.startsWith('reaction') ) return;
+            fields.push(sug(litIC(p.name, p), {text: p.name, label: p.label, category: 'property'}));
+          });
         this.of.getAxiomsByClass(foam.lang.Constant).forEach(function(c) {
-          fields.push(sug(LiteralIC(c.name, c.value), {text: p.name, category: 'constant'}));
+          fields.push(sug(litIC(c.name, c.value), {text: c.name, category: 'constant'}));
         });
 
         return {
@@ -168,39 +216,61 @@ foam.CLASS({
           subField: seq('.', sym('ident'), opt(sym('subField'))),
 
           // typed functions first, then the one generic rule for the other ~295
-          funcall: alt(sym('fn_IF'), sym('ifs'), sym('generic_funcall')),
+          funcall: alt(sym('fn_IF'), sym('ifs'), sym('switch'), sym('generic_funcall')),
 
           // IF cond delegates to the inherited predicate tree via `or`
-          fn_IF: seq(seq1(1, sym('ws'), litIC('IF')), sym('ws'), '(',
-                     sym('or'),   comma,
-                     sym('EXPR'), comma,
-                     sym('EXPR'), sym('ws'), ')'),
+          fn_IF: seq(
+            sym('ws'),
+            keyword('IF(', 'IF(predicate, true value, false value)'),
+            sym('or'),   comma,
+            sym('EXPR'), comma,
+            sym('EXPR'), sym('ws'), ')'),
 
-          ifs: seq1(4,
+          ifs: seq1(2,
             sym('ws'),
-            litIC('IFS'),
-            sym('ws'),
-            '(',
+            keyword('IFS(', 'IFS(predicate, value, ..., predicate, value)'),
             rep(sym('ifsClause'), ',', 1),
             sym('ws'),
             ')'),
 
           ifsClause: seq(sym('or'), comma, sym('EXPR')),
 
-          generic_funcall: seq(sym('funcname'), sym('ws'), '(', opt(sym('args')), sym('ws'), ')'),
+          switch: seq1(2,
+            sym('ws'),
+            keyword('SWITCH(', 'SWITCH(expression, key, value, ... key, value, [default])'),
+            rep(sym('EXPR'), ',', 1),
+            sym('ws'),
+            ')'),
 
-          funcname: seq1(1, sym('ws'), this.generateFuncNames(alt, sug, literalIC)),
+          generic_funcall: seq(sym('funcname'), opt(sym('args')), sym('ws'), ')'),
+
+          funcname: seq1(1, sym('ws'), this.generateFuncNames(alt, sug, litIC)),
 
           args: rep(alt(sym('EXPR'), sym('or')), comma, 0),
 
           expr: alt(
             sym('paren'),
             sym('negate'),
+            sym('fieldCompare'),
             sym('propPredicates'),
             sym('rangePropPredicates'),
             lead(litIC('true',  m.TRUE)),
             lead(litIC('false', m.FALSE))
-          )
+          ),
+
+          // A comparison between two properties. It has to come before
+          // propPredicates: the inherited rules take a value on the right and
+          // accept a bare word as one, so `a = b` there compares a against the
+          // text "b" rather than against property b - and reports no error.
+          //
+          // Only matches when the right side is itself a property name, so
+          // `status = ACTIVE` and `amount > 100` still take the inherited path.
+          fieldCompare: seq(
+            sym('field'),
+            alt(binop('>=', 'GTE'), binop('<=', 'LTE'), binop('<>', 'NEQ'),
+                binop('!=', 'NEQ'), binop('=', 'EQ'),
+                binop('>',  'GT'),  binop('<',  'LT')),
+            sym('field'))
         };
       }
     }
@@ -216,7 +286,7 @@ foam.CLASS({
       // sort the property-name matcher already applies to `fields`.
       return alt.apply(alt, Object.keys(this.FUNCTIONS).sort((a, b) => b.length - a.length).map(key => {
         let f = self.FUNCTIONS[key];
-        return sug(literalIC(key), {text: key, category: 'function', label: f.documentation});
+        return sug(literalIC(key + '('), {text: key.toUpperCase() + '(', category: 'function', label: f.documentation});
       }));
     },
 
@@ -261,11 +331,13 @@ foam.CLASS({
         },
 
         field: function(v) { return v[1] ? m.DOT(v[0], v[1]) : v[0]; },
+
+        // [ left, opName, right ] - both sides are already Exprs from `field`
+        fieldCompare: function(v) { return m[v[1]].call(m, v[0], v[2]); },
         // TODO: support nested sub-fields (a.b.c) — currently single-level only
         subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
 
-        // [ 'IF', ws, '(', cond, ',', a, ',', b, ws, ')' ]  ->  cond=v[3], a=v[5], b=v[7]
-        fn_IF: function(v) { return m.COND(v[3], v[5], v[7]); },
+        fn_IF: function(v) { return m.COND(v[2], v[4], v[6]); },
 
         ifs: function(v) {
           return foam.mlang.expr.Ifs.create({clauses: v});
@@ -275,12 +347,16 @@ foam.CLASS({
           return foam.mlang.expr.IfsClause.create({cond: v[0], expr: v[2]});
         },
 
+        switch: function(v) {
+          return foam.mlang.expr.Switch.create({expr: v[0], exprs: v.slice(1)});
+        },
+
         // TODO: loop over FUNCTIONS and add each individually so that auto-complete works
         // [ name, ws, '(', args|undefined, ws, ')' ]
         generic_funcall: function(v) {
-          var spec = self.FUNCTIONS[('' + v[0]).toUpperCase()];
+          var spec = self.FUNCTIONS[v[0].substring(0, v[0].length-1)];
           if ( ! spec ) return NO_PARSE;                     // unknown function
-          var args = v[3] || [];
+          var args = v[1] || [];
           if ( spec.minArgs != null && args.length < spec.minArgs ) return NO_PARSE;
           if ( spec.maxArgs != null && args.length > spec.maxArgs ) return NO_PARSE;
           return spec.build(args);

@@ -28,6 +28,12 @@ foam.CLASS({
       value: 'UNLOAD_CMD'
     },
     {
+      name: 'DEFAULT_QUERY_CMD',
+      type: 'String',
+      documentation: 'Command to return AQL of default query, if present.',
+      value: 'DEFAULT_QUERY_CMD'
+    },
+    {
       name: 'SEPARATOR',
       type: 'String',
       documentation: 'Character used to separate sections of the primary key.',

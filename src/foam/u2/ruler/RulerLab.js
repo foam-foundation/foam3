@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'RulerLab',
   extends: 'foam.u2.Controller',
   implements: [ 'foam.mlang.Expressions' ],
-  mixins: ['foam.u2.memento.Memorable'],
+  mixins: ['foam.u2.Router'],
   imports: [
     'cSpecDAO',
     'ruleDAO',
@@ -45,7 +45,18 @@ foam.CLASS({
     }
   `,
 
+  messages: [
+    { name: 'TITLE', message: 'Ruler' }
+  ],
+
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       class: 'foam.dao.DAOProperty',
       name: 'daoDAO',
@@ -101,6 +112,12 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render () {
       let self = this;
       this.onDetach(this.daoKeyRuleDAO$.sub(async () => {

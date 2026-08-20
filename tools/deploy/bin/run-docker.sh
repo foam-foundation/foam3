@@ -70,6 +70,19 @@ if [ -z "${JAVA_OPTS}" ]; then
   JAVA_OPTS=""
 fi
 
+# --- Memory configuration -------------------------------------------------
+# Capture any -Xmx/-Xms passed in via the environment BEFORE sourcing the config
+# files. shrc.custom is sourced below and may append its own -Xmx; capturing the
+# env value first lets us re-assert it afterwards so a value passed in from the
+# deploy/task definition wins instead of being clobbered by the later source.
+# Precedence, highest first:  -M flag  >  JAVA_OPTS env  >  shrc.custom  >  8g.
+ENV_MEM_OPTS=""
+for _tok in ${JAVA_OPTS}; do
+  case "${_tok}" in
+    -Xmx*|-Xms*) ENV_MEM_OPTS="${ENV_MEM_OPTS} ${_tok}" ;;
+  esac
+done
+
 # Track if -M flag used
 FLAG_PASSED=false
 if [ "$JVM_MEM" != "8g" ]; then
@@ -88,18 +101,24 @@ if [ -f "${APP_HOME}/conf/shrc.custom" ]; then
   . "${APP_HOME}/conf/shrc.custom"
 fi
 
-# Determine final memory allocation
+# Determine final memory allocation. For an explicit override (-M or env) strip
+# any -Xmx/-Xms/RAMPercentage already added (e.g. by shrc.custom) so the final
+# command line carries exactly one, unambiguous memory directive.
+_strip_mem='s/-Xm[xs][^[:space:]]*//g; s/-XX:(Max|Min|Initial)RAMPercentage=[^[:space:]]*//g'
 if [ "$FLAG_PASSED" = true ]; then
-  echo "Script flag -M detected. Forcing memory limit: ${JVM_MEM}"
-  # Append it so it overrides anything inside shrc.custom
-  JAVA_OPTS="${JAVA_OPTS} -Xms${JVM_MEM} -Xmx${JVM_MEM}"
+  echo "Memory: -M flag -> ${JVM_MEM}"
+  JAVA_OPTS="$(echo "${JAVA_OPTS}" | sed -E "${_strip_mem}") -Xms${JVM_MEM} -Xmx${JVM_MEM}"
 
-elif [[ ! "$JAVA_OPTS" =~ "-Xmx" && ! "$JAVA_OPTS" =~ "-Xms" ]]; then
-  echo "No memory configuration found in shrc.custom. Applying baseline default: 8g"
-  JAVA_OPTS="${JAVA_OPTS} -Xms8g -Xmx8g"
+elif [ -n "${ENV_MEM_OPTS}" ]; then
+  echo "Memory: JAVA_OPTS environment ->${ENV_MEM_OPTS}"
+  JAVA_OPTS="$(echo "${JAVA_OPTS}" | sed -E "${_strip_mem}")${ENV_MEM_OPTS}"
+
+elif [[ "$JAVA_OPTS" =~ -Xmx || "$JAVA_OPTS" =~ -Xms || "$JAVA_OPTS" =~ RAMPercentage ]]; then
+  echo "Memory: using configuration from shrc.custom."
 
 else
-  echo "Using memory configuration defined in shrc.custom."
+  echo "Memory: no configuration found. Applying baseline default: 8g"
+  JAVA_OPTS="${JAVA_OPTS} -Xms8g -Xmx8g"
 fi
 
 JAVA_OPTS="${JAVA_OPTS} -DAPP_HOME=${APP_HOME}"

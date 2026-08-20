@@ -75,15 +75,9 @@ foam.CLASS({
   name: 'PropertyChoiceView',
   extends: 'foam.u2.View',
 
-  requires: [ 'foam.core.reflow.PropertyChoiceView_' ],
-
   properties: [
     'forCls',
     'propName',
-    {
-      name: 'placeholder',
-      value: 'Choose Property'
-    },
     {
       name: 'predicate',
       class: 'foam.mlang.predicate.PredicateProperty',
@@ -106,7 +100,7 @@ foam.CLASS({
       this.data$.relateTo(
         this.propName$,
         function propToName(p) { return p ? p.name : ''; },
-        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n) : null; }
+        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n.trim()) : null; }
       );
 
       this.tag(foam.parse.auto.SmartView, {

@@ -7,14 +7,21 @@
 foam.CLASS({
   package: 'foam.comics.v2.userfeedback',
   name: 'UserFeedbackException',
-
   extends: 'foam.lang.ClientRuntimeException',
+  implements: [ 'foam.comics.v2.userfeedback.UserFeedbackAware' ],
 
   documentation: `
     In cases where the object is not returned to client user after a request,
     a UserFeedbackException will be thrown which will chain the message at the time
     of the exception to the other feedback messages the object has collected on its
     path to the DAO
+  `,
+
+  javaCode: `
+  public UserFeedbackException(UserFeedback feedback, UserFeedbackAlertType alertType) {
+    setUserFeedback(feedback);
+    setAlertType(alertType);
+  }
   `,
 
   properties: [

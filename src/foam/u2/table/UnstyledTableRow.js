@@ -121,10 +121,49 @@ foam.CLASS({
   name: 'UnstyledTableRowComponent',
   extends: 'foam.u2.table.TableComponentView',
 
+  mixins: ['foam.u2.util.ClipboardAccess'],
+
   imports: [
     'colWidthUpdated',
     'props',
     'selectedColumnsWidth?'
+  ],
+
+  css: `
+    ^copyable-cell {
+      align-items: center;
+      display: flex;
+      gap: 4px;
+    }
+    ^copyable-cell > span {
+      /* min-width 0 lets the flex item shrink below its content width,
+         so the ellipsis engages and the button stays inside the cell. */
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    ^copy-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-left: auto;
+      padding: 0 4px;
+    }
+    ^copy-button img {
+      width: 14px;
+      height: 14px;
+    }
+    /* Only hide the copy button behind hover on devices that can hover;
+       on touch devices it stays visible. */
+    @media (hover: hover) {
+      ^copy-button { opacity: 0; }
+      ^:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+    }
+  `,
+
+  messages: [
+    { name: 'COPY', message: 'Copy' }
   ],
 
   properties: [
@@ -146,7 +185,9 @@ foam.CLASS({
     function render() {
       var self = this;
       this.propName = this.columnHandler.propertyNamesForColumnArray(this.col);
-      [prop, objReturned] = this.getCellData(this.data, this.col, this.nestedPropertiesObjsMap);
+      // var keeps these per-cell: without it they leak to globals shared by
+      // every cell, and the copy-button click handler reads them after render.
+      var [prop, objReturned] = this.getCellData(this.data, this.col, this.nestedPropertiesObjsMap);
 
       // Added to maintain support for ScrollTableView that does not support resizable columns
       if ( this.colWidthUpdated$ && this.selectedColumnsWidth$ ) {
@@ -159,17 +200,57 @@ foam.CLASS({
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
+        .addClass()
         .style({ flex: this.slot(function(colWidth) {
             return colWidth ? `1 0 ${colWidth}px` : `1 0 ${this.table.MIN_COLUMN_WIDTH_FALLBACK}px`;
           })
         })
         .call(function() {
+          if ( ! prop.copyable ) {
+            prop.tableCellFormatter.format(
+              this,
+              prop.f ? prop.f(objReturned) : null,
+              objReturned,
+              prop
+            );
+            return;
+          }
+          // When the column is copyable, format into a span inside a flex
+          // wrapper so the copy button can read back exactly the displayed
+          // cell text and sit at the far right of the cell.
+          var wrapper = this.start('div').addClass(self.myClass('copyable-cell'));
+          var cell = wrapper.start('span');
           prop.tableCellFormatter.format(
-            this,
+            cell,
             prop.f ? prop.f(objReturned) : null,
             objReturned,
             prop
           );
+          cell.end();
+          wrapper.start('button')
+            .addClass(self.myClass('copy-button'))
+            .attrs({
+              type: 'button',
+              title: self.COPY,
+              'aria-label': self.COPY + ' ' + (prop.columnLabel || prop.label || prop.name)
+            })
+            .on('click', function(e) {
+              // Keep the click from also triggering the row's
+              // open-detail-view handler.
+              e.stopPropagation();
+              e.preventDefault();
+              if ( foam.Function.isInstance(prop.copyable) ) {
+                self.copy(String(prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned) ?? ''));
+                return;
+              }
+              var node = cell.el_();
+              self.copy(node ? node.innerText.trim() : '');
+            })
+            .start('img')
+              .attrs({ src: '/images/copy-icon.svg', alt: '' })
+            .end()
+          .end();
+          wrapper.end();
         })
         .endContext();
     }

@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
- foam.CLASS({
+foam.CLASS({
   package: 'foam.mlang.predicate',
   name: 'AuthPermissionPredicate',
 
@@ -20,6 +20,10 @@
     'foam.core.logger.Loggers'
   ],
 
+  imports: [
+    'auth?'
+  ],
+
   properties: [
     {
       name: 'permission',
@@ -30,6 +34,13 @@
   methods: [
     {
       name: 'f',
+      code: function() {
+        try {
+          return this.auth?.check(null, this.permission);
+        } catch(e) {
+          return false;
+        }
+      },
       javaCode: `
         X x = (X) obj;
         try {

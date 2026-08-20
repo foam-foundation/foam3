@@ -25,8 +25,7 @@ public class PartitionedDAO
 
   protected final static String NO_PART = "".intern();
 
-  // Doesn't need to be concurrent since the getDelgate() method is synchronized
-  // protected final ConcurrentHashMap<String, DAO> delegates_ = new ConcurrentHashMap<String, DAO>();
+  // Doesn't need to be concurrent since the getDelgate() method synchronizes on it explicitly
   protected final HashMap<String, SoftReference<DAO>> delegates_ = new HashMap<>();
 
   public PartitionedDAO(X x) {
@@ -40,11 +39,18 @@ public class PartitionedDAO
     setPartitionProperty(partitionProperty);
   }
 
-  public synchronized DAO getDelegate(String part) {
+  public DAO getDelegate(String part) {
     if ( part == null ) part = NO_PART;
 
+    // Sync on the part name instead of using a global lock to improve concurrency
+    // This might become a problem in the future if we try to load too many at once.
+    // A simpler and safer but maybe slower solution would be to just synchronize the
+    // whole method.
     synchronized ( part.intern() ) {
-      SoftReference<DAO> ref = delegates_.get(part);
+      SoftReference<DAO> ref;
+      synchronized ( delegates_ ) {
+        ref = delegates_.get(part);
+      }
 
       DAO dao = ref != null ? ref.get() : null;
 
@@ -52,7 +58,9 @@ public class PartitionedDAO
         if ( ref != null )
           Loggers.logger(getX(), this).info("This DAO Partition was garbage collected. A new DAO will be created and cached:", part);
         dao = createDAO(part);
-        delegates_.put(part, new SoftReference<>(dao));
+        synchronized ( delegates_ ) {
+          delegates_.put(part, new SoftReference<>(dao));
+        }
       }
 
       return dao;
@@ -73,7 +81,6 @@ public class PartitionedDAO
 
   public String getPartition(String id) {
     String ret = getPartition_(id);
-    System.out.println("****** PARTITION " + id + " -> " + ret);
     return ret;
   }
 
@@ -134,14 +141,8 @@ public class PartitionedDAO
   }
 
   protected DAO getDelegate(X x, FObject obj) {
-    return getDelegate(getID(obj));
+    return getDelegate(getPartition(getID(obj)));
   }
-
-/*
-  protected DAO getDelegate(X x, Predicate pred) {
-    return getDelegate();
-  }
-*/
 
   public String objToPath(FObject obj) {
     String id = getID(obj);
@@ -154,7 +155,7 @@ public class PartitionedDAO
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
     String[] a = getID(obj).split(SEPARATOR);
-    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
+    //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
       for ( int i = 0 ; i < getDepth()-1 ; i++ ) {
@@ -164,7 +165,7 @@ public class PartitionedDAO
       sb.append(part);
       sb.append(SEPARATOR);
       sb.append(a[a.length-1]);
-      System.err.println("**** PUT2 " + sb.toString());
+      // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
     return getDelegate(part).put_(x, obj);

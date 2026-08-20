@@ -115,6 +115,7 @@ foam.CLASS({
   package: 'foam.doc',
   name: 'ModelBrowser',
   extends: 'foam.u2.Controller',
+  mixins: ['foam.u2.Router'],
   documentation: 'Show UML & properties for passed in models',
 
   requires: [
@@ -133,6 +134,10 @@ foam.CLASS({
   imports: [ 'params' ],
 
   exports: [ 'conventionalUML', 'modelDAO', 'package', 'path as browserPath', 'query' ],
+
+  messages: [
+    { name: 'TITLE', message: 'UML API Models' }
+  ],
 
   css: `
     ^ {
@@ -163,6 +168,13 @@ foam.CLASS({
   `,
 
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       class: 'String',
       name: 'query',
@@ -229,6 +241,12 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render() {
       this.SUPER();
       var self = this;

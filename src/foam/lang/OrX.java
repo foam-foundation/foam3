@@ -78,4 +78,8 @@ public class OrX
     if ( o == null ) return parent_.cd(path);
     return o;
   }
+
+  public String toString() {
+    return "OrX(" + parent_ + ", " + getX() + ")";
+  }
 }

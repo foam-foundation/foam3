@@ -523,7 +523,6 @@ OPTIONS = addOptions({
 // after pom() has setup the initial list
 function addJournal(name, where) {
   var fn = null;
-  log(`[addJournal] DEPLOYMENT=${DEPLOYMENT}`);
 
   // Explicit source selection when provided
   if ( where === 'foam3' ) {

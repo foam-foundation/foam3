@@ -54,8 +54,13 @@ public class NotPartitionedDAO
       if ( delegate_ != null )
         Loggers.logger(getX(), this).info("DAO was garbage collected. A new DAO will be created and cached.", getDirName());
 
-      dao = createDAO();
-      delegate_ = new SoftReference<>(dao);
+      loadingStarted("");
+      try {
+        dao = createDAO();
+        delegate_ = new SoftReference<>(dao);
+      } finally {
+        loadingEnded("");
+      }
     }
 
     return dao;
@@ -70,9 +75,17 @@ public class NotPartitionedDAO
     String journalName = getDirName();
     Loggers.logger(getX(), this).info("Creating underlying DAO", journalName);
 
-    DAO jdao = easy_ != null ?
-      easy_.createJournalledDelegate(getX()) :
-      new JDAO(getX(), getOf(), journalName);
+    PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), "");
+    DAO jdao;
+    try {
+      reporter.start(journalSize(journalName));
+      X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
+      jdao = easy_ != null ?
+        easy_.createJournalledDelegate(loadX) :
+        new JDAO(loadX, getOf(), journalName);
+    } finally {
+      reporter.done();
+    }
 
     addIndices(jdao);
 

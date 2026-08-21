@@ -74,6 +74,7 @@ foam.CLASS({
     'foam.core.crunch.box.CrunchClientBox',
     'foam.core.logger.Logger',
     'foam.core.logger.LoggingDAO',
+    'foam.core.partition.PartitionLoadProgressDAO',
     'foam.core.theme.SubdomainAwareDAO'
   ],
 
@@ -451,6 +452,13 @@ foam.CLASS({
       name: 'cache',
       documentation: 'Enable local in-memory caching of the DAO',
       generateJava: false
+    },
+    {
+      documentation: 'Client-side: show partition-load progress toasts while operations on this DAO wait on a server journal load. On by default (matching unloadable-by-default server DAOs); set false in a client stanza to opt out. Only meaningful with daoType CLIENT and a serviceName.',
+      class: 'Boolean',
+      name: 'loadProgress',
+      flags: ['js'],
+      value: true
     },
     {
       documentation: 'Set polling interval for the caching DAO',
@@ -1034,6 +1042,7 @@ dao loading, which improves overall startup time.`,
             // (see NotPartitionedDAO.createDAO()), so dedup is included this time.
             // FixedSizeDAO already self-excludes via setUnloadable(false) above.
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
+            pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
             pdao.setEasyDAO(this);
             delegate = pdao;
           } else if ( getFixedSize() != null ) {
@@ -1108,6 +1117,14 @@ dao loading, which improves overall startup time.`,
         return innerDAO;
       `
     },
+    function loadProgressServiceKey() {
+      // Key the load-progress decorator matches against PartitionLoadStatus
+      // serviceName rows. The 'service/' prefix is the box URL convention;
+      // the remainder is the CSpec name. Applications that serve DAOs under
+      // additional URL prefixes refine this to strip theirs.
+      return this.serviceName.replace(/^service\//, '');
+    },
+
     function delegateFactory() {
       /**
         <p>On initialization, the EasyDAO creates an appropriate chain of
@@ -1315,6 +1332,13 @@ dao loading, which improves overall startup time.`,
         dao = this.LoggingDAO.create({
           cSpec: this.cSpec,
           delegate: dao
+        });
+      }
+
+      if ( this.loadProgress && this.serviceName ) {
+        dao = this.PartitionLoadProgressDAO.create({
+          delegate: dao,
+          serviceKey: this.loadProgressServiceKey()
         });
       }
 

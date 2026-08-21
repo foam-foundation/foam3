@@ -310,6 +310,8 @@ foam.CLASS({
             this.br().add(axiom.__);
             return;
           }
+          console.warn('DetailView: route "' + route + '" is not an axiom of ' +
+            self.of.id + '; rendering the full detail view instead.');
         }
 
         self.renderDetailView();

@@ -66,6 +66,55 @@ function start() {
     process.exit(0);
   });
 
+  // --- git HEAD watch (opt-in) ---------------------------------------------
+  // The registry reflects the boot-time checkout. A branch switch rewrites
+  // files wholesale with no didSave, so answers silently go stale. When the
+  // client sets FOAM_LSP_EXIT_ON_HEAD_CHANGE (the MCP wrapper does — it
+  // reboots us lazily on the next tool call), exit as soon as a watched
+  // repo's HEAD changes. Editors don't set it: a didSave-driven refresh plus
+  // a visible restart is better UX than a surprise server exit.
+  // HEAD content only changes on checkout/switch/rebase — not on commit —
+  // so normal work never triggers this.
+  var fs_   = require('fs');
+  var path_ = require('path');
+
+  function resolveHeadPath(root) {
+    // .git is a directory in a normal checkout, but a "gitdir: <path>" file
+    // in worktrees and submodules.
+    var dotGit = path_.join(root, '.git');
+    try {
+      var gitdir = dotGit;
+      if ( fs_.statSync(dotGit).isFile() ) {
+        var m = fs_.readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)\s*$/m);
+        if ( ! m ) return null;
+        gitdir = path_.resolve(root, m[1].trim());
+      }
+      var head = path_.join(gitdir, 'HEAD');
+      fs_.accessSync(head);
+      return head;
+    } catch (e) { return null; }
+  }
+
+  function readHead(p) {
+    try { return fs_.readFileSync(p, 'utf8'); } catch (e) { return ''; }
+  }
+
+  if ( process.env.FOAM_LSP_EXIT_ON_HEAD_CHANGE ) {
+    // Watch the project repo and the foam3 submodule (same layout assumption
+    // as the rest of the tooling: foam3/ under the project root).
+    var headPaths = [ process.cwd(), path_.join(process.cwd(), 'foam3') ].
+      map(resolveHeadPath).filter(function(p) { return p; });
+    var headBaseline = headPaths.map(readHead);
+    setInterval(function() {
+      for ( var i = 0 ; i < headPaths.length ; i++ ) {
+        if ( readHead(headPaths[i]) !== headBaseline[i] ) {
+          console.error('[LSP] git HEAD changed (' + headPaths[i] + ') — exiting so the client boots a fresh index');
+          process.exit(0);
+        }
+      }
+    }, Math.max(1000, Number(process.env.FOAM_LSP_HEAD_POLL_MS) || 10000)).unref();
+  }
+
   // LSP spec: initialize.processId is the client's pid; the server should
   // exit when that process dies. Covers parents killed with SIGKILL, where
   // stdin 'end' may never be observed before the next write EPIPEs.

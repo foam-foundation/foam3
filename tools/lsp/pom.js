@@ -11,6 +11,7 @@ foam.POM({
     { name: 'CursorAnalyzer', flags: 'js' },
     { name: 'CSSTokenResolver', flags: 'js' },
     { name: 'JrlLoader', flags: 'js' },
+    { name: 'I18nProviders', flags: 'js' },
     { name: 'JavaGrammar', flags: 'js' },
     { name: 'JavaParser', flags: 'js' },
     { name: 'AxiomCatalog', flags: 'js' }

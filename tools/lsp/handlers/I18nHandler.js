@@ -13,13 +13,20 @@ foam.CLASS({
   requires: [
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
-    'foam.parse.lsp.CursorAnalyzer'
+    'foam.parse.lsp.CursorAnalyzer',
+    'foam.parse.lsp.HttpChatProvider'
   ],
 
   properties: [
     { class: 'FObjectProperty', of: 'foam.parse.lsp.FoamIndex',       name: 'index',    factory: function() { return this.FoamIndex.create(); } },
     { class: 'FObjectProperty', of: 'foam.parse.lsp.FileModelCache',  name: 'cache',    factory: function() { return this.FileModelCache.create(); } },
     { class: 'FObjectProperty', of: 'foam.parse.lsp.CursorAnalyzer',  name: 'analyzer', factory: function() { return this.CursorAnalyzer.create(); } },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.HttpChatProvider',
+      name: 'provider',
+      documentation: 'Translation backend (Task 5). Optional — no provider means translationReady stays false and refreshAvailability() is a no-op.'
+    },
     {
       class: 'StringArray',
       name: 'targetLanguages',
@@ -44,6 +51,20 @@ foam.CLASS({
   ],
 
   methods: [
+    async function refreshAvailability() {
+      /**
+       * Probe `provider` and update translationReady/activeModel from the
+       * result. No provider wired → translationReady false, no probe (a
+       * handler under test with no HttpChatProvider stays silent rather
+       * than throwing). Called at server boot as a fire-and-forget probe
+       * (server.js) — never awaited by the initialize response.
+       */
+      if ( ! this.provider ) { this.translationReady = false; return; }
+      var r = await this.provider.detect();
+      this.translationReady = !! r.available;
+      this.activeModel      = r.model || '';
+    },
+
     // MOVED VERBATIM from DiagnosticsHandler:
     //   constantizeMessageName_, collectAxiomConstants_, findAddLiteral_,
     //   literalSpanFromRange_, buildAddExtractEdit, findNewMessagesInsertion_

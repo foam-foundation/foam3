@@ -32,6 +32,22 @@ buildlib.error = function() { /* suppress fatal errors during boot */ };
 var pomPath = path.resolve(process.cwd(), 'pom');
 pmake.bind(buildlib, '-makers=LSP -pom=' + pomPath)();
 
+// The LSP maker's end() hook (LSPMaker.js) calls server.js's start() as a
+// side effect of loading the LSP source files for class registration —
+// start() wires process.stdin.on('end', ...) -> process.exit(0), correct
+// for a real LSP process (exit when the client's pipe closes) but fatal
+// here: this harness's stdin is never an attached client, so it hits EOF
+// on the very first event-loop turn once anything yields to it (an
+// `await`), and process.exit(0) fires before the awaited work — e.g. a
+// fetch in the i18n category's mock-server tests — gets a chance to
+// finish. Every purely-synchronous category finishes (and calls its own
+// process.exit via testFoamLSP.js) before the loop ever turns, so this
+// went unnoticed until an async category existed. Strip the listeners
+// server.js installed so this process's stdin is inert.
+process.stdin.removeAllListeners('data');
+process.stdin.removeAllListeners('end');
+process.stdin.pause();
+
 // Test counters + helpers
 var counters = { passes: 0, failures: 0 };
 

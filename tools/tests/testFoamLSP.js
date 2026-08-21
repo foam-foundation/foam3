@@ -57,8 +57,21 @@ var toRun = requested.length ? CATEGORIES.filter(function(c){ return requested.i
 var h = require('./lsp/_harness');
 
 // Each require() runs its category's tests against the shared harness.
-toRun.forEach(function(c){ require('./lsp/' + c); });
+// Categories are synchronous by default; a category that needs async work
+// (e.g. mock-http-server tests) exports { done: <promise> } — collected
+// below so SUMMARY can't print/exit before that work finishes. Sync
+// categories export no `done` (module.exports defaults to {}), so they're
+// filtered out and change nothing about how they run.
+var pending = [];
+toRun.forEach(function(c){
+  var mod = require('./lsp/' + c);
+  if ( mod && mod.done && typeof mod.done.then === 'function' ) pending.push(mod.done);
+});
 
-h.section('SUMMARY');
-console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');
-process.exit(h.counters.failures > 0 ? 1 : 0);
+function printSummaryAndExit() {
+  h.section('SUMMARY');
+  console.error(h.counters.passes + ' passed, ' + h.counters.failures + ' failed');
+  process.exit(h.counters.failures > 0 ? 1 : 0);
+}
+
+Promise.all(pending).then(printSummaryAndExit);

@@ -244,3 +244,56 @@ try {
 } finally {
   fsMod.unlinkSync(tmpJrl);
 }
+
+section('HttpChatProvider — detection + translation (mock server)');
+var http = require('http');
+var mock = http.createServer(function(req, res) {
+  var body = '';
+  req.on('data', function(c) { body += c; });
+  req.on('end', function() {
+    if ( req.url === '/v1/models' ) {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ data: [{ id: 'translategemma:4b' }] }));
+    } else if ( req.url === '/v1/chat/completions' ) {
+      var prompt = JSON.parse(body).messages[0].content;
+      // Echo the source text back wrapped, proving placeholder sentinels round-trip.
+      var src = prompt.split('\n\n').pop();
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ choices: [{ message: { content: 'FR<' + src + '>' } }] }));
+    } else { res.statusCode = 404; res.end(); }
+  });
+});
+
+// The harness runs categories synchronously, so this category exports its
+// async work as `done` — see testFoamLSP.js, which Promise.all()s every
+// category's `done` (undefined for the sync ones) before printing SUMMARY.
+// try/finally guarantees the mock server is closed even if an assertion
+// throws (it shouldn't — test() records rather than throws — but detect()/
+// translate() bugs could), and the outer catch keeps `done` resolving even
+// on an unexpected throw so one broken test can't hang the whole suite.
+var done = (async function() {
+  try {
+    await new Promise(function(res) { mock.listen(0, '127.0.0.1', res); });
+    var base = 'http://127.0.0.1:' + mock.address().port;
+    var prov = foam.parse.lsp.HttpChatProvider.create({ endpoints: [base], model: 'translategemma:4b' });
+
+    var det = await prov.detect();
+    test(det.available === true && det.model === 'translategemma:4b', 'detect finds model via /v1/models');
+
+    var prov404 = foam.parse.lsp.HttpChatProvider.create({ endpoints: ['http://127.0.0.1:1'], model: 'x' });
+    var det404 = await prov404.detect();
+    test(det404.available === false, 'unreachable endpoint → available:false (no throw)');
+
+    var r = await prov.translate(['Hello ${name}, save?'], 'fr', 'test UI');
+    test(r.length === 1 && r[0].translation.indexOf('${name}') !== -1,
+      'placeholder ${name} survives the round trip');
+    test(/^FR</.test(r[0].translation) === true || r[0].translation.indexOf('FR<') !== -1,
+      'translation came from the mock model');
+  } catch (e) {
+    test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
+  } finally {
+    mock.close();
+  }
+})();
+
+module.exports = { done: done };

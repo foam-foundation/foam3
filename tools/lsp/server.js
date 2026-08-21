@@ -27,6 +27,11 @@ function start() {
   var hoverHandler       = foam.parse.lsp.handlers.HoverHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker, cssTokenResolver: cssTokenResolver });
   var definitionHandler  = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
   var i18nHandler        = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: fileModelCache });
+  // Translation provider: created here (server-start scope) so `provider` is
+  // reachable from the 'initialize' case below, where config actually
+  // arrives (initOpts is message-scoped, not available yet at this point).
+  var provider = foam.parse.lsp.HttpChatProvider.create();
+  i18nHandler.provider = provider;
   var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
   var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ cache: fileModelCache });
   var memberHandler      = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker });
@@ -460,6 +465,24 @@ function start() {
             }
           } catch (e) { console.error('[LSP] i18n language derivation failed:', e.message); }
         }
+
+        // Translation provider config: explicit initOpts wins, then env vars,
+        // then HttpChatProvider's own built-in defaults (untouched when
+        // neither is set).
+        if ( initOpts.endpoint ) {
+          provider.endpoints = [ initOpts.endpoint ];
+        } else if ( process.env.OLLAMA_HOST ) {
+          provider.endpoints = [ process.env.OLLAMA_HOST ];
+        }
+        if ( initOpts.model ) {
+          provider.model = initOpts.model;
+        } else if ( process.env.OLLAMA_TRANSLATION_MODEL ) {
+          provider.model = process.env.OLLAMA_TRANSLATION_MODEL;
+        }
+        // Boot probe — fire-and-forget. Never await: an unreachable/slow
+        // translation endpoint must not delay the initialize response.
+        i18nHandler.refreshAvailability().catch(function() {});
+
         respond(id, {
           capabilities: {
             textDocumentSync: {

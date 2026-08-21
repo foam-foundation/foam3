@@ -67,7 +67,8 @@ foam.CLASS({
         plainText.substring(1) :
         plainText;
       var val = this.SUPER(plainText);
-      return this.useMinorUnits ? Math.round(val * 100) : val;
+      var scale = Math.pow(10, this.precision);
+      return this.useMinorUnits ? Math.round(val * scale) : Math.round(val * scale) / scale;
     },
 
     function formatNumber(val) {

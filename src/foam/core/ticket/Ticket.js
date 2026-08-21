@@ -82,6 +82,20 @@ foam.CLASS({
     'created'
   ],
 
+  // Two status common to all tickets.
+  constants: [
+    {
+      name: 'STATUS_OPEN',
+      type: 'String',
+      value: 'OPEN'
+    },
+    {
+      name: 'STATUS_CLOSED',
+      type: 'String',
+      value: 'CLOSED'
+    }
+  ],
+
   messages: [
     {
       name: 'SUCCESS_ASSIGNED',

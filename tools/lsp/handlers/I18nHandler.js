@@ -19,7 +19,28 @@ foam.CLASS({
   properties: [
     { class: 'FObjectProperty', of: 'foam.parse.lsp.FoamIndex',       name: 'index',    factory: function() { return this.FoamIndex.create(); } },
     { class: 'FObjectProperty', of: 'foam.parse.lsp.FileModelCache',  name: 'cache',    factory: function() { return this.FileModelCache.create(); } },
-    { class: 'FObjectProperty', of: 'foam.parse.lsp.CursorAnalyzer',  name: 'analyzer', factory: function() { return this.CursorAnalyzer.create(); } }
+    { class: 'FObjectProperty', of: 'foam.parse.lsp.CursorAnalyzer',  name: 'analyzer', factory: function() { return this.CursorAnalyzer.create(); } },
+    {
+      class: 'StringArray',
+      name: 'targetLanguages',
+      documentation: 'Languages the workspace wants every message translated into, e.g. [\'fr\', \'de\']. Missing-language scanning is a no-op while this is empty.'
+    },
+    {
+      class: 'String',
+      name: 'sourceLanguage',
+      value: 'en',
+      documentation: 'Language the bare `message:` value is written in — seeds messageMap.en when a map is created.'
+    },
+    {
+      class: 'Boolean',
+      name: 'translationReady',
+      documentation: 'True once the translation provider probe (Task 5) has confirmed a model is reachable. Missing-language scanning and the translate code action are both gated on this — no provider, no unsolicited scan/action noise.'
+    },
+    {
+      class: 'String',
+      name: 'activeModel',
+      documentation: 'Name of the translation model currently in use (e.g. \'translategemma:4b\'), surfaced in code-action titles so the user knows what will run.'
+    }
   ],
 
   methods: [
@@ -123,6 +144,163 @@ foam.CLASS({
        *  escaping the quote before the backslash would double-escape the
        *  backslash introduced by the quote step. */
       return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+    },
+
+    function scanMissingLanguages(uri, text) {
+      /**
+       * Find every `messages:` entry in `text` missing a translation for one
+       * of `targetLanguages`. Reads the model objects (not regex) for the
+       * truth about what's already in messageMap — text is only used to
+       * locate the `name:` literal's position for the diagnostic range.
+       * Gated on translationReady + a non-empty targetLanguages: with no
+       * provider confirmed reachable (Task 5), scanning is unsolicited noise.
+       * Returns [{ name, missing: [lang, ...], range }] — never null.
+       */
+      if ( ! this.translationReady ) return [];
+      var langs = this.targetLanguages || [];
+      if ( ! langs.length ) return [];
+      var out = [];
+      var models = this.cache.getModels(uri || '', text);
+      if ( ! models ) return out;
+      for ( var m = 0 ; m < models.length ; m++ ) {
+        var msgs = models[m].messages || [];
+        for ( var i = 0 ; i < msgs.length ; i++ ) {
+          var msg = msgs[i];
+          if ( ! msg || ! msg.name ) continue;
+          var map = msg.messageMap || {};
+          var missing = langs.filter(function(l) { return ! map[l]; });
+          if ( ! missing.length ) continue;
+          // Position: the name literal of this entry in source text.
+          var re = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(msg.name) + "['\"]");
+          var pm = re.exec(text);
+          if ( ! pm ) continue;
+          out.push({
+            name:    msg.name,
+            missing: missing,
+            range: {
+              start: this.analyzer.offsetToPosition(text, pm.index),
+              end:   this.analyzer.offsetToPosition(text, pm.index + pm[0].length)
+            }
+          });
+        }
+      }
+      return out;
+    },
+
+    function findEntrySpan_(text, messageName) {
+      /**
+       * Locate the `{ name: '<messageName>', ... }` messages: entry in `text`
+       * unambiguously. Returns { start, end } (end exclusive, past the entry's
+       * closing `}`) or null when the name can't be found, is found more than
+       * once (ambiguous — could be editing the wrong occurrence), or the file
+       * has more than one top-level model / nested `classes:` (same whole-
+       * file guards buildAddExtractEdit uses — model-boundary-aware insertion
+       * needs real parsing, not a regex).
+       */
+      var classMatches = text.match(/foam\.CLASS\s*\(/g);
+      if ( ! classMatches || classMatches.length !== 1 ) return null;
+      if ( /\bclasses\s*:\s*\[/.test(text) ) return null;
+
+      var nameReG = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(messageName) + "['\"]", 'g');
+      if ( (text.match(nameReG) || []).length !== 1 ) return null;   // not found, or ambiguous
+      var nameRe = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(messageName) + "['\"]");
+      var nm = nameRe.exec(text);
+      if ( ! nm ) return null;
+
+      // Walk backward from the name literal to the entry's opening `{`.
+      var start = -1;
+      for ( var i = nm.index ; i >= 0 ; i-- ) {
+        if ( text[i] === '{' ) { start = i; break; }
+      }
+      if ( start === -1 ) return null;
+
+      // Depth-tracked scan forward for the matching `}`. String contents are
+      // skipped whole (same technique as DiagnosticsHandler.findInnerClassRange_)
+      // so a brace inside a quoted value never miscounts depth.
+      var depth = 0, end = -1;
+      for ( var i = start ; i < text.length ; i++ ) {
+        var ch = text[i];
+        if ( ch === '{' ) depth++;
+        else if ( ch === '}' ) { depth--; if ( depth === 0 ) { end = i + 1; break; } }
+        else if ( ch === "'" || ch === '"' || ch === '`' ) {
+          for ( i++ ; i < text.length ; i++ ) {
+            if ( text[i] === '\\' ) { i++; continue; }
+            if ( text[i] === ch ) break;
+          }
+        }
+      }
+      if ( end === -1 ) return null;
+      return { start: start, end: end };
+    },
+
+    function buildMessageMapEdit(text, messageName, translations, uri) {
+      /**
+       * Build the WorkspaceEdit that adds `translations` (e.g. { fr: '...' })
+       * to the `messageName` entry's messageMap. Two shapes:
+       *   - entry has no messageMap yet → insert `, messageMap: { <sourceLanguage>:
+       *     <message literal>, lang: '...', ... }` right after the entry's
+       *     `message:` value. The source-language key reuses the entry's own
+       *     message literal verbatim (already validly escaped) — same
+       *     rawLiteral principle as buildAddExtractEdit.
+       *   - entry already has a messageMap → append the missing `lang: '...'`
+       *     pairs before that map's closing `}`.
+       * Returns { changes: { [uri]: [edit] } } or null — see findEntrySpan_
+       * for the ambiguity bail-outs (malformed/duplicate/multi-model), plus a
+       * malformed entry (no `message:` value and no messageMap to extend).
+       *
+       * Limitation: like findEntrySpan_, this trusts messageMap: { ... } to be
+       * a plain object literal — a computed/spread messageMap would still
+       * "work" (regex just needs the literal `messageMap: {`) but nothing in
+       * this codebase writes one, and no fixture exercises it.
+       */
+      var span = this.findEntrySpan_(text, messageName);
+      if ( ! span ) return null;
+      var entrySpan = text.substring(span.start, span.end);
+
+      var mapParts = [];
+      for ( var lang in translations ) {
+        if ( ! Object.prototype.hasOwnProperty.call(translations, lang) ) continue;
+        mapParts.push(lang + ": '" + this.escapeJsString_(translations[lang]) + "'");
+      }
+      if ( ! mapParts.length ) return null;
+
+      var mapM = /messageMap\s*:\s*\{/.exec(entrySpan);
+      var insertOffset, newText;
+
+      if ( mapM ) {
+        // Existing map: find its closing `}` (depth-tracked, string-aware —
+        // same technique as findEntrySpan_) and insert just before it.
+        var mapOpenRel = mapM.index + mapM[0].length - 1;   // position of the map's '{'
+        var depth = 0, mapEndRel = -1;
+        for ( var i = mapOpenRel ; i < entrySpan.length ; i++ ) {
+          var ch = entrySpan[i];
+          if ( ch === '{' ) depth++;
+          else if ( ch === '}' ) { depth--; if ( depth === 0 ) { mapEndRel = i; break; } }
+          else if ( ch === "'" || ch === '"' || ch === '`' ) {
+            for ( i++ ; i < entrySpan.length ; i++ ) {
+              if ( entrySpan[i] === '\\' ) { i++; continue; }
+              if ( entrySpan[i] === ch ) break;
+            }
+          }
+        }
+        if ( mapEndRel === -1 ) return null;
+        insertOffset = span.start + mapEndRel;
+        newText = ', ' + mapParts.join(', ');
+      } else {
+        // No map yet: insert right after the entry's `message:` value.
+        var msgM = /message\s*:\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/.exec(entrySpan);
+        if ( ! msgM ) return null;
+        var literalEndRel = msgM.index + msgM[0].length;    // just past the closing quote
+        var rawLiteral = entrySpan.substring(msgM.index + msgM[0].indexOf(msgM[1]), literalEndRel);
+        insertOffset = span.start + literalEndRel;
+        newText = ', messageMap: { ' + this.sourceLanguage + ': ' + rawLiteral + ', ' + mapParts.join(', ') + ' }';
+      }
+
+      var p = this.analyzer.offsetToPosition(text, insertOffset);
+      var edits = [{ range: { start: p, end: p }, newText: newText }];
+      var changes = {};
+      changes[uri] = edits;
+      return { changes: changes };
     },
 
     function buildAddExtractEdit(text, messageText, uri, opt_range, opt_opts) {

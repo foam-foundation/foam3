@@ -64,6 +64,12 @@ foam.CLASS({
       name: 'cssTokenResolver'
     },
     {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.handlers.I18nHandler',
+      name: 'i18nHandler',
+      documentation: 'Optional (no factory — null unless wired by server.js). When set, handle() emits an i18n-missing-language HINT for every messageMap gap scanMissingLanguages() finds; null-safe no-op otherwise.'
+    },
+    {
       name: 'validTypes_',
       factory: function() {
         var types = {};
@@ -107,6 +113,22 @@ foam.CLASS({
       // Hardcoded display strings in .add() — scanned once over the whole file
       // (not per model) so multi-class files locate each occurrence natively.
       this.validateAddStrings_(text, diagnostics);
+
+      // Missing-language messageMap gaps — same whole-file scoping as
+      // validateAddStrings_. i18nHandler is optional/null-safe (server.js
+      // wires it; tests that don't need it just skip this block).
+      if ( this.i18nHandler && ! this.isI18nExemptUri_(this.uri_) ) {
+        var miss = this.i18nHandler.scanMissingLanguages(this.uri_, text);
+        for ( var mi = 0 ; mi < miss.length ; mi++ ) {
+          diagnostics.push(this.Diagnostic.create({
+            range:    miss[mi].range,
+            severity: this.Diagnostic.HINT,
+            code:     'i18n-missing-language',
+            message:  'Message "' + miss[mi].name + '" has no ' + miss[mi].missing.join(', ') +
+                      ' translation in its messageMap.'
+          }));
+        }
+      }
 
       // Parser-emitted diagnostics — single grammar pass covers all class-ref
       // and property-type positions (extends/requires/of/implements and

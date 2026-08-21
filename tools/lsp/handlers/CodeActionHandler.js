@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.parse.lsp.handlers',
   name: 'CodeActionHandler',
 
-  documentation: 'Quick-fix code actions for FOAM diagnostics: unknown-class suggestions, wrong Java package, raw-color → $token, single-quote conversion, hardcoded-display-string → messages: extraction.',
+  documentation: 'Quick-fix code actions for FOAM diagnostics: unknown-class suggestions, wrong Java package, raw-color → $token, single-quote conversion, hardcoded-display-string → messages: extraction, missing-language messageMap translation.',
 
   properties: [
     { name: 'index' },
@@ -92,6 +92,35 @@ foam.CLASS({
                 kind:        'quickfix',
                 diagnostics: [diag],
                 edit:        i18nEditB
+              });
+            }
+          }
+        }
+
+        // Missing-language messageMap gap → translate via the active provider
+        // (edit-less command this task; Task 6 wires foam.i18n.translateMessage).
+        if ( diag.code === 'i18n-missing-language' && this.i18nHandler && this.i18nHandler.translationReady ) {
+          var nameM = diag.message.match(/Message "([^"]+)" has no ([^ ]+(?:, [^ ]+)*) translation/);
+          if ( nameM ) {
+            var langsD = nameM[2].split(', ');
+            for ( var li = 0 ; li < langsD.length ; li++ ) {
+              actions.push({
+                title: "Translate '" + nameM[1] + "' to " + langsD[li] + ' via ' + this.i18nHandler.activeModel,
+                kind:  'quickfix',
+                diagnostics: [diag],
+                command: {
+                  title:     'Translate',
+                  command:   'foam.i18n.translateMessage',
+                  arguments: [{ uri: uri, messageName: nameM[1], languages: [langsD[li]] }]
+                }
+              });
+            }
+            if ( langsD.length > 1 ) {
+              actions.push({
+                title: "Translate '" + nameM[1] + "' to all missing languages via " + this.i18nHandler.activeModel,
+                kind:  'quickfix', diagnostics: [diag],
+                command: { title: 'Translate', command: 'foam.i18n.translateMessage',
+                           arguments: [{ uri: uri, messageName: nameM[1], languages: langsD }] }
               });
             }
           }

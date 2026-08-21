@@ -67,6 +67,40 @@ function relPath(uri, projectRoot) {
   return p;
 }
 
+// --- Disk-apply helper (foam_i18n_translate / foam_i18n_apply) -----------
+
+// Writes a WorkspaceEdit (`{ changes: { uri: [ { range, newText } ] } }`)
+// straight to disk — these two tools apply their own edits rather than
+// asking an editor client (there may not be one; this runs headless from an
+// MCP host). Edits within one file are applied in DESCENDING start-offset
+// order so an earlier edit's offsets are never invalidated by inserting text
+// at a later one first. Safe to merge multiple messages: entries' edits into
+// one file's list precisely because each is a single non-overlapping
+// insertion (see I18nHandler.translateMessages / applyTranslations) — sorting
+// descending here is a second layer of safety on top of that, not a
+// substitute for it.
+function applyWorkspaceEdit(edit) {
+  const changed = [];
+  const changes = ( edit && edit.changes ) || {};
+  for ( const uri of Object.keys(changes) ) {
+    const p = uriToPath(uri);
+    let text = fs.readFileSync(p, 'utf8');
+    const offs = changes[uri].map(function(e) {
+      return { start: posToOffset(text, e.range.start), end: posToOffset(text, e.range.end), newText: e.newText };
+    }).sort(function(a, b) { return b.start - a.start; });
+    for ( const e of offs ) text = text.slice(0, e.start) + e.newText + text.slice(e.end);
+    fs.writeFileSync(p, text);
+    changed.push(p);
+  }
+  return changed;
+}
+function posToOffset(text, pos) {
+  let off = 0;
+  const lines = text.split('\n');
+  for ( let i = 0 ; i < pos.line ; i++ ) off += lines[i].length + 1;
+  return off + pos.character;
+}
+
 // --- LSP SymbolKind names (compact output) -------------------------------
 
 const KIND_NAMES = {
@@ -267,6 +301,31 @@ function toolSchemas() {
         properties: {
           uri:  target.uri,
           line: { type: 'integer', description: 'Optional 0-based line — only return actions for diagnostics touching this line' }
+        }
+      }
+    },
+    {
+      name:        'foam_i18n_translate',
+      description: 'Translate FOAM messages: entries missing configured languages. With a local model running (Ollama/LM Studio), translates and applies the edit directly. Without one, returns a needs-translations payload — translate the strings yourself (preserve ${...}, {0}, HTML tags exactly) and call foam_i18n_apply.',
+      inputSchema: {
+        type:     'object',
+        required: ['file'],
+        properties: {
+          file:        { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
+          messageName: { type: 'string', description: 'Optional — translate only this messages: entry name. Omit to translate every entry in the file missing a configured language.' },
+          languages:   { type: 'array', items: { type: 'string' }, description: 'Optional — target language codes (e.g. ["fr","de"]). Omit to use the workspace-configured target languages.' }
+        }
+      }
+    },
+    {
+      name:        'foam_i18n_apply',
+      description: "Apply translations produced after a needs-translations response from foam_i18n_translate. Input: { file, translations: { MESSAGE_NAME: { fr: '...' } } }. Validates placeholder survival; rejects the whole call listing offending strings if any placeholder was lost.",
+      inputSchema: {
+        type:     'object',
+        required: ['file', 'translations'],
+        properties: {
+          file:         { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
+          translations: { type: 'object', description: 'Map of message name -> { languageCode: translatedText }, e.g. { UPLOAD_COMPLETE_MSG: { fr: "Envoi terminé" } }' }
         }
       }
     }
@@ -695,6 +754,52 @@ async function callTool(lsp, projectRoot, name, args) {
       });
       return shapeCodeActions(res);
     }
+    case 'foam_i18n_translate': {
+      const uri = normalizeUri(args.file, projectRoot);
+      await lsp.ensureOpen(uri);
+      const status = await lsp.request('foam/i18nStatus', {});
+      if ( ! status || ! status.available ) {
+        // No local model reachable — hand the agent the source strings and
+        // let IT translate (any coding agent already speaks translation),
+        // then come back through foam_i18n_apply. dryRun:true skips the
+        // provider round trip entirely on the LSP side.
+        const dry = await lsp.request('foam/i18nTranslate', {
+          uri: uri, messageName: args.messageName, languages: args.languages, dryRun: true
+        });
+        return JSON.stringify({
+          status:          'needs-translations',
+          strings:         ( dry && dry.strings ) || {},
+          targetLanguages: ( dry && dry.targetLanguages ) ||
+            ( status && status.targetLanguages ) || [],
+          instructions: 'Translate each string into each target language, preserving ${...} ' +
+            'placeholders, {0} tokens, and HTML tags EXACTLY. Then call foam_i18n_apply with ' +
+            '{ file, translations: { NAME: { fr: "..." } } }.'
+        });
+      }
+      const res = await lsp.request('foam/i18nTranslate', {
+        uri: uri, messageName: args.messageName, languages: args.languages
+      });
+      applyWorkspaceEdit(res.edit);
+      // Count EDITS actually produced, not Object.keys(res.translated) — a
+      // message whose requested languages were all already present gets
+      // translated (a provider call happened) but no edit (buildMessageMapEdit
+      // returns null for it), and "N messages translated" should mean N
+      // messages whose file content changed.
+      const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
+      const count = edits.length;
+      const langs = ( args.languages && args.languages.length ) ? args.languages : ( status.targetLanguages || [] );
+      const warn  = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
+      return relPath(uri, projectRoot) + ': ' + count + ' messages translated to ' +
+        langs.join(', ') + ' via ' + status.model + '. Warnings: ' + warn;
+    }
+    case 'foam_i18n_apply': {
+      const uri = normalizeUri(args.file, projectRoot);
+      await lsp.ensureOpen(uri);
+      const res = await lsp.request('foam/i18nApply', { uri: uri, translations: args.translations || {} });
+      applyWorkspaceEdit(res.edit);
+      const warn = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
+      return relPath(uri, projectRoot) + ': translations applied. Warnings: ' + warn;
+    }
     default:
       throw new Error('Unknown tool: ' + name);
   }
@@ -805,7 +910,8 @@ module.exports = {
   normalizeUri, uriToPath, relPath, kindName, severityName,
   shapeLocations, shapeHover, shapeDocumentSymbols, shapeWorkspaceSymbols,
   shapeDiagnostics, shapeItems, shapeCodeActions,
-  toolSchemas, resolvePos, callTool, FoamLSPClient
+  toolSchemas, resolvePos, callTool, FoamLSPClient,
+  applyWorkspaceEdit, posToOffset
 };
 
 if ( require.main === module ) main();

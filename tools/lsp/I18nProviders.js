@@ -247,7 +247,14 @@ foam.CLASS({
        * the model failed to preserve as a warning.
        */
       var tokenMap = [];
-      var pattern = /\$\{[^}]+\}|\{\d+\}|%[sdifjoO]|<\/?[A-Za-z][^>]*>|&[A-Za-z0-9#]+;/g;
+      // this.PLACEHOLDER_PATTERN (constants: below) is shared with
+      // I18nHandler.applyTranslations, which re-derives the same sentinel
+      // spans from a translation to verify none were lost — one regex, so
+      // the two can't drift apart. A fresh RegExp per call: the shared
+      // pattern carries the 'g' flag, and a global regex's lastIndex is
+      // stateful across .test()/.exec() calls — reusing the constant's own
+      // instance here would corrupt a concurrent caller's match position.
+      var pattern = new RegExp(this.PLACEHOLDER_PATTERN.source, 'g');
 
       var protectedText = text.replace(pattern, function(value) {
         var token = '__FOAM_I18N_TOKEN_' + tokenMap.length + '__';
@@ -340,6 +347,13 @@ foam.CLASS({
   ],
 
   constants: {
+    // No 'g' flag here on purpose — a global regex carries mutable
+    // lastIndex state across calls, which .test() in a validation loop
+    // (I18nHandler.applyTranslations) would corrupt. Callers that need a
+    // 'g' matcher (protectText_ above) build their own RegExp from
+    // .source rather than sharing this instance.
+    PLACEHOLDER_PATTERN: /\$\{[^}]+\}|\{\d+\}|%[sdifjoO]|<\/?[A-Za-z][^>]*>|&[A-Za-z0-9#]+;/,
+
     LANGUAGE_NAMES: {
       en: 'English',
       fr: 'French',

@@ -772,6 +772,73 @@ function start() {
         }
         break;
 
+      // Custom i18n methods (thin: parse args, read document text like
+      // workspace/executeCommand does above, call I18nHandler, respond).
+      // All three are async-dispatched the same way — a promise chain with
+      // exactly one respond()/respondError() at its end — because
+      // refreshAvailability/translateInto_ are network round trips
+      // (foam/i18nStatus, foam/i18nTranslate) or because staying consistent
+      // with the other two beats a needlessly-sync foam/i18nApply. Each gets
+      // the same last-resort .catch() as workspace/executeCommand above: if
+      // respond()/respondError() itself throws (e.g. EPIPE, client already
+      // gone), that throw happens INSIDE a .catch handler here — unlike a
+      // synchronous case's throw, that would otherwise become an unhandled
+      // rejection rather than propagating normally, which could take the
+      // whole server down.
+      case 'foam/i18nStatus':
+        Promise.resolve().then(function() {
+          return i18nHandler.refreshAvailability();
+        }).then(function() {
+          respond(id, {
+            available:       i18nHandler.translationReady,
+            model:           i18nHandler.activeModel,
+            endpoint:        ( provider.lastResult_ && provider.lastResult_.endpoint ) || '',
+            targetLanguages: i18nHandler.targetLanguages || []
+          });
+        }).catch(function(e) {
+          console.error('[LSP] foam/i18nStatus error:', e.message);
+          respondError(id, -32603, e.message);
+        }).catch(function(e) {
+          console.error('[LSP] foam/i18nStatus reporting failed:', e.message);
+        });
+        break;
+
+      case 'foam/i18nTranslate': {
+        var trArgs = params || {};
+        Promise.resolve().then(function() {
+          var tdoc = documents[trArgs.uri];
+          var ttext = tdoc ? tdoc.text : require('fs').readFileSync(uriToPath_(trArgs.uri), 'utf8');
+          return trArgs.dryRun ?
+            i18nHandler.dryRunTranslateStrings(trArgs.uri, ttext, trArgs.messageName, trArgs.languages) :
+            i18nHandler.translateMessages(trArgs.uri, ttext, trArgs.messageName, trArgs.languages);
+        }).then(function(r) {
+          respond(id, r);
+        }).catch(function(e) {
+          console.error('[LSP] foam/i18nTranslate error:', e.message);
+          respondError(id, -32603, e.message);
+        }).catch(function(e) {
+          console.error('[LSP] foam/i18nTranslate reporting failed:', e.message);
+        });
+        break;
+      }
+
+      case 'foam/i18nApply': {
+        var apArgs = params || {};
+        Promise.resolve().then(function() {
+          var adoc = documents[apArgs.uri];
+          var atext = adoc ? adoc.text : require('fs').readFileSync(uriToPath_(apArgs.uri), 'utf8');
+          return i18nHandler.applyTranslations(atext, apArgs.uri, apArgs.translations || {});
+        }).then(function(edit) {
+          respond(id, { edit: edit, warnings: [] });
+        }).catch(function(e) {
+          console.error('[LSP] foam/i18nApply error:', e.message);
+          respondError(id, -32603, e.message);
+        }).catch(function(e) {
+          console.error('[LSP] foam/i18nApply reporting failed:', e.message);
+        });
+        break;
+      }
+
       case 'workspace/symbol':
         try {
           respond(id, workspaceSymbolHandler.handle(params.query));

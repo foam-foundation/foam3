@@ -13,7 +13,8 @@ foam.CLASS({
   requires: [
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
-    'foam.parse.lsp.CursorAnalyzer'
+    'foam.parse.lsp.CursorAnalyzer',
+    'foam.parse.lsp.HttpChatProvider'
   ],
 
   properties: [
@@ -139,6 +140,154 @@ foam.CLASS({
         for ( var w = 0 ; w < langWarnings.length ; w++ ) warnings.push(lang + ': ' + langWarnings[w]);
       }
       return { translations: translations, warnings: warnings };
+    },
+
+    function extractPlaceholders_(text) {
+      /** Every `${...}`/`{0}`/`%s`/HTML-tag/entity sentinel literally present
+       *  in `text`, in order — the same PLACEHOLDER_PATTERN HttpChatProvider
+       *  protects before a string ever reaches a translation model. A fresh
+       *  RegExp per call (built from .source): the shared constant carries
+       *  no 'g' flag precisely so a stateful global-regex instance can never
+       *  leak lastIndex between unrelated callers (see I18nProviders.js). */
+      var re = new RegExp(this.HttpChatProvider.PLACEHOLDER_PATTERN.source, 'g');
+      var out = [], m;
+      while ( ( m = re.exec(text) ) !== null ) out.push(m[0]);
+      return out;
+    },
+
+    function resolveTranslateTargets_(uri, text, opt_messageName) {
+      /** Message names foam/i18nTranslate should act on: the one named
+       *  message when given, else every messages: entry in the file
+       *  currently missing a targetLanguages translation. */
+      if ( opt_messageName ) return [ opt_messageName ];
+      return this.scanMissingLanguages(uri, text).map(function(s) { return s.name; });
+    },
+
+    async function dryRunTranslateStrings(uri, text, opt_messageName, opt_languages) {
+      /**
+       * foam/i18nTranslate's dryRun:true branch — no provider call, no
+       * network. Just the source strings + target languages an MCP client
+       * (or any agent) needs to translate itself and hand back to
+       * foam/i18nApply when no local model is reachable. Returns
+       * { strings: { NAME: 'source text' }, targetLanguages }.
+       */
+      var langs = ( opt_languages && opt_languages.length ) ? opt_languages : ( this.targetLanguages || [] );
+      var names = this.resolveTranslateTargets_(uri, text, opt_messageName);
+      var strings = {};
+      for ( var i = 0 ; i < names.length ; i++ ) {
+        var src = this.findMessageText_(uri, text, names[i]);
+        if ( src !== null ) strings[names[i]] = src;
+      }
+      return { strings: strings, targetLanguages: langs };
+    },
+
+    async function translateMessages(uri, text, opt_messageName, opt_languages) {
+      /**
+       * foam/i18nTranslate's non-dry branch. Translates every target message
+       * (one, or — messageName omitted — every scanMissingLanguages hit) and
+       * merges every message's edit into ONE WorkspaceEdit. Returns
+       * { edit, warnings, translated: { NAME: { lang: '...' } } }. Does NOT
+       * touch disk — the caller (server.js) just returns the edit; applying
+       * it is the client's (or the MCP wrapper's) job.
+       *
+       * Every buildMessageMapEdit call re-anchors against the SAME `text`
+       * passed in here — never a running total that shifts as edits
+       * accumulate — so each message's insertion offset stays valid against
+       * the ORIGINAL text. That's safe to merge into one edits array only
+       * because distinct messages: entries can never overlap (findEntrySpan_'s
+       * ambiguity guards), so no two messages' insertion points can
+       * interleave; the MCP disk-apply helper additionally applies every
+       * edit in descending-offset order as a second layer of safety.
+       *
+       * Messages are translated SEQUENTIALLY (not Promise.all) — a local
+       * model server processes one chat-completions request at a time
+       * anyway, and it keeps warning attribution per-message simple. A
+       * message whose source text can no longer be located (file changed
+       * since scan) is skipped, not fatal to the rest of the batch — the
+       * same "gone since offered" tolerance scanMissingLanguages results
+       * already carry, unlike applyTranslations' placeholder check, which
+       * is all-or-nothing by design.
+       */
+      var langs = ( opt_languages && opt_languages.length ) ? opt_languages : ( this.targetLanguages || [] );
+      var names = this.resolveTranslateTargets_(uri, text, opt_messageName);
+      var edits = [], warnings = [], translated = {};
+      for ( var i = 0 ; i < names.length ; i++ ) {
+        var name = names[i];
+        var source = this.findMessageText_(uri, text, name);
+        if ( source === null ) continue;
+        var result = await this.translateInto_(source, langs);
+        translated[name] = result.translations;
+        for ( var w = 0 ; w < result.warnings.length ; w++ ) warnings.push(name + ': ' + result.warnings[w]);
+        var mapEdit = this.buildMessageMapEdit(text, name, result.translations, uri);
+        if ( mapEdit ) edits = edits.concat(mapEdit.changes[uri]);
+      }
+      var changes = {};
+      changes[uri] = edits;
+      return { edit: { changes: changes }, warnings: warnings, translated: translated };
+    },
+
+    function applyTranslations(text, uri, translations) {
+      /**
+       * foam/i18nApply's builder: validate, then build the merged
+       * WorkspaceEdit for a translations payload an agent produced itself
+       * (the needs-translations round trip) — { NAME: { lang: '...' } }.
+       *
+       * Validation (the whole point of this method existing separately from
+       * buildMessageMapEdit): every placeholder-pattern token
+       * (extractPlaceholders_) present in messageName's CURRENT source
+       * `message:` text must appear VERBATIM in every translation offered
+       * for it. An agent-produced translation is untrusted the same way a
+       * model's is — losing `${name}` silently breaks the rendered UI.
+       * All-or-nothing across the WHOLE payload: any offending message name
+       * throws (listing every offender, not just the first) before ANY edit
+       * is built — never a partial apply. A message name that can no longer
+       * be located (source changed since the payload was generated) is
+       * also an offender — it can't be validated, so it can't be trusted.
+       *
+       * Edits for the surviving (in this all-or-nothing method, that means
+       * ALL) message names are merged into one WorkspaceEdit exactly like
+       * translateMessages — same non-overlap argument applies.
+       *
+       * Returns { changes: { [uri]: [edit, ...] } } — edits may be empty
+       * when every requested language was already present (buildMessageMapEdit
+       * returns null per name in that case; never an error, matching that
+       * method's existing no-op contract). Throws (does not return null) on
+       * a placeholder-validation failure — the caller has a specific offender
+       * list to report, unlike the "ambiguous file" null of buildMessageMapEdit.
+       */
+      var offenders = [];
+      for ( var messageName in translations ) {
+        if ( ! Object.prototype.hasOwnProperty.call(translations, messageName) ) continue;
+        var source = this.findMessageText_(uri, text, messageName);
+        if ( source === null ) { offenders.push(messageName); continue; }
+        var required = this.extractPlaceholders_(source);
+        if ( ! required.length ) continue;
+        var langs = translations[messageName] || {};
+        var lost = false;
+        for ( var lang in langs ) {
+          if ( ! Object.prototype.hasOwnProperty.call(langs, lang) ) continue;
+          var value = langs[lang];
+          for ( var p = 0 ; p < required.length ; p++ ) {
+            if ( String(value).indexOf(required[p]) === -1 ) { lost = true; break; }
+          }
+          if ( lost ) break;
+        }
+        if ( lost ) offenders.push(messageName);
+      }
+      if ( offenders.length ) {
+        throw new Error('Translation dropped a placeholder present in the source message for: ' +
+          offenders.join(', '));
+      }
+
+      var edits = [];
+      for ( var name in translations ) {
+        if ( ! Object.prototype.hasOwnProperty.call(translations, name) ) continue;
+        var mapEdit = this.buildMessageMapEdit(text, name, translations[name], uri);
+        if ( mapEdit ) edits = edits.concat(mapEdit.changes[uri]);
+      }
+      var changes = {};
+      changes[uri] = edits;
+      return { changes: changes };
     },
 
     function findMessageText_(uri, text, messageName) {

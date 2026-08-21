@@ -204,6 +204,54 @@ var REGION_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Region',\n  message
 test(i18nT.buildMessageMapEdit(REGION_SRC, 'HI', { 'fr-CA': 'Allo' }, 'file:///t/Region.js') === null,
   'an already-present quoted key is recognized → no duplicate key appended');
 
+section('I18nHandler — applyTranslations (placeholder validation)');
+
+// A ${...} sentinel (not the bare {name} FOAM already uses elsewhere in this
+// file) — the one PLACEHOLDER_PATTERN (shared with HttpChatProvider) actually
+// protects.
+var PH_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Greet2',\n  messages: [\n" +
+  "    { name: 'HI_NAME', message: 'Hi ${name}' }\n  ]\n});\n";
+
+var lostErr = null;
+try {
+  i18nT.applyTranslations(PH_SRC, 'file:///t/Greet2.js', { HI_NAME: { fr: 'Bonjour' } });
+} catch (e) { lostErr = e; }
+test(lostErr && lostErr.message.indexOf('HI_NAME') !== -1,
+  'applyTranslations: translation missing ${name} throws, listing the offending message name');
+
+var okEdit = i18nT.applyTranslations(PH_SRC, 'file:///t/Greet2.js', { HI_NAME: { fr: 'Bonjour ${name}' } });
+test(!! okEdit && okEdit.changes['file:///t/Greet2.js'].length === 1,
+  'applyTranslations: a translation that preserves the placeholder builds an edit');
+var okNew = okEdit.changes['file:///t/Greet2.js'][0].newText;
+test(/messageMap: \{ en: 'Hi \$\{name\}', fr: 'Bonjour \$\{name\}' \}/.test(okNew),
+  'applyTranslations: edit shape matches buildMessageMapEdit (seeds en, adds fr)');
+
+// Multi-message payload: both entries validate (neither has a placeholder),
+// both edits must merge into ONE WorkspaceEdit for the file.
+var multiApply = i18nT.applyTranslations(MSGS, 'file:///t/HasMsgs.js',
+  { DONE: { fr: 'Terminé' }, PART: { fr: 'Partie' } });
+test(multiApply.changes['file:///t/HasMsgs.js'].length === 2,
+  'applyTranslations: two validated message names merge into ONE WorkspaceEdit (two edits, one file)');
+
+// A message name that can no longer be located can't be validated, so it is
+// treated as an offender too — never silently skipped into a partial apply.
+var unknownNameErr = null;
+try {
+  i18nT.applyTranslations(MSGS, 'file:///t/HasMsgs.js', { NOPE: { fr: 'x' } });
+} catch (e) { unknownNameErr = e; }
+test(unknownNameErr && unknownNameErr.message.indexOf('NOPE') !== -1,
+  'applyTranslations: an unknown message name is an offender (cannot validate placeholders)');
+
+// All-or-nothing: ONE offending name among several rejects the WHOLE call —
+// the good entry (DONE) gets no edit either.
+var mixedErr = null;
+try {
+  i18nT.applyTranslations(PH_SRC + "\n" + MSGS, 'file:///t/Mixed.js',
+    { HI_NAME: { fr: 'Bonjour' }, DONE: { fr: 'Terminé' } });
+} catch (e) { mixedErr = e; }
+test(mixedErr && mixedErr.message.indexOf('HI_NAME') !== -1,
+  'applyTranslations: all-or-nothing — one offending name rejects the whole payload, listing it');
+
 section('CodeActionHandler — action D (translate missing-language HINT)');
 var caH = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nT });
 var missDiagFr = {
@@ -606,5 +654,114 @@ var cmdDone = (async function() {
   }
 })();
 
-// Both async blocks are independent; the entrypoint awaits this one promise.
-module.exports = { done: Promise.all([ done, cmdDone ]) };
+// foam/i18nTranslate's server-side builders (dryRunTranslateStrings,
+// translateMessages) — own async block/catch, same reasoning as cmdDone:
+// isolate this from the mock-HTTP-server block above so one hiccup there
+// can't silently skip every assertion here.
+var srvDone = (async function() {
+  try {
+    section('I18nHandler — dryRunTranslateStrings + translateMessages (foam/i18nTranslate builders)');
+    var stubProvider2 = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        return texts.map(function(t) { return { input: t, translation: '[' + lang + ']' + t, warnings: [] }; });
+      }
+    };
+    var i18nSrv = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr'], translationReady: true, activeModel: 'stub' });
+    i18nSrv.provider = stubProvider2;
+
+    // dryRun, messageName omitted: scans ALL missing (DONE, PART; SAVED
+    // already has fr) — no translate() call, no provider network activity.
+    var dry = await i18nSrv.dryRunTranslateStrings('file:///t/HasMsgs.js', MSGS, undefined, undefined);
+    test(dry.strings.DONE === 'Done' && dry.strings.PART === 'Part' && dry.strings.SAVED === undefined,
+      'dryRunTranslateStrings: messageName omitted collects every scanMissingLanguages source string');
+    test(dry.targetLanguages.length === 1 && dry.targetLanguages[0] === 'fr',
+      'dryRunTranslateStrings: falls back to targetLanguages when languages arg is omitted');
+
+    var dryOne = await i18nSrv.dryRunTranslateStrings('file:///t/HasMsgs.js', MSGS, 'DONE', ['de']);
+    test(Object.keys(dryOne.strings).length === 1 && dryOne.strings.DONE === 'Done' &&
+      dryOne.targetLanguages[0] === 'de',
+      'dryRunTranslateStrings: explicit messageName + languages override the scan/targetLanguages defaults');
+
+    // translateMessages, messageName omitted: loops ALL scan results and
+    // merges every message's edit into ONE WorkspaceEdit for the file.
+    var multi = await i18nSrv.translateMessages('file:///t/HasMsgs.js', MSGS, undefined, undefined);
+    test(multi.edit.changes['file:///t/HasMsgs.js'].length === 2,
+      'translateMessages: messageName omitted merges both missing-language messages into ONE WorkspaceEdit');
+    test(multi.translated.DONE && multi.translated.DONE.fr === '[fr]Done' &&
+      multi.translated.PART && multi.translated.PART.fr === '[fr]Part',
+      "translateMessages: translated carries every requested message name's result");
+
+    // Single messageName still works the same way (no scan involved).
+    var single = await i18nSrv.translateMessages('file:///t/HasMsgs.js', MSGS, 'DONE', ['fr']);
+    test(single.edit.changes['file:///t/HasMsgs.js'].length === 1,
+      'translateMessages: explicit messageName translates just that one entry');
+  } catch (e) {
+    test(false, 'I18nHandler server-method test threw: ' + e.message);
+  }
+})();
+
+// MCP wrapper's two-phase i18n tools — requires editors/mcp/server.js the
+// same way tools/tests/lsp/mcp.js does: loading the module never spawns the
+// LSP (main() is guarded by require.main === module), so these run against
+// hand-written `lsp` stubs instead of a real child process.
+var mcpDone = (async function() {
+  try {
+    section('MCP — foam_i18n two-phase');
+    var mcp = require('../../lsp/editors/mcp/server');
+    var os2 = require('os');
+    var tmpFile = h.path.join(os2.tmpdir(), 'I18nMcpTarget.js');
+    h.fs.writeFileSync(tmpFile, MSGS);
+
+    try {
+      // Phase-1 fallback: provider down → needs-translations payload.
+      var lspDown = { ensureOpen: async function() {},
+        request: async function(method, params) {
+          if ( method === 'foam/i18nStatus' )    return { available: false, targetLanguages: ['fr'] };
+          if ( method === 'foam/i18nTranslate' ) return { strings: { DONE: 'Done', PART: 'Part' }, targetLanguages: ['fr'] };
+          throw new Error('unexpected: ' + method);
+        } };
+      var out1 = await mcp.callTool(lspDown, os2.tmpdir(), 'foam_i18n_translate', { file: tmpFile });
+      var payload = JSON.parse(out1);
+      test(payload.status === 'needs-translations' && payload.strings.DONE === 'Done',
+        'no provider → needs-translations payload with source strings');
+      test(payload.instructions && payload.instructions.indexOf('foam_i18n_apply') !== -1,
+        'needs-translations payload carries the instructions string verbatim');
+      test(payload.targetLanguages.length === 1 && payload.targetLanguages[0] === 'fr',
+        'needs-translations payload carries targetLanguages');
+
+      // Phase 2: apply writes disk via the returned edit. The insertion
+      // position is computed programmatically (right after `message: 'Done'`
+      // in MSGS) rather than a hand-counted line/character literal.
+      var marker = "message: 'Done'";
+      var markerIdx = MSGS.indexOf(marker);
+      test(markerIdx !== -1, 'sanity: MSGS fixture still contains the DONE message literal');
+      var beforeLines = MSGS.slice(0, markerIdx + marker.length).split('\n');
+      var insertPos = { line: beforeLines.length - 1, character: beforeLines[beforeLines.length - 1].length };
+
+      var editForApply = { changes: {} };
+      editForApply.changes['file://' + tmpFile] = [
+        { range: { start: insertPos, end: insertPos },
+          newText: ", messageMap: { en: 'Done', fr: 'Terminé' }" } ];
+      var lspApply = { ensureOpen: async function() {},
+        request: async function(method) {
+          if ( method === 'foam/i18nApply' ) return { edit: editForApply, warnings: [] };
+          throw new Error('unexpected: ' + method);
+        } };
+      var out2 = await mcp.callTool(lspApply, os2.tmpdir(), 'foam_i18n_apply',
+        { file: tmpFile, translations: { DONE: { fr: 'Terminé' } } });
+      test(typeof out2 === 'string' && out2.indexOf('Warnings: none') !== -1,
+        'apply tool returns a text summary');
+      test(h.fs.readFileSync(tmpFile, 'utf8').indexOf("fr: 'Terminé'") !== -1,
+        'apply tool wrote the edit to disk');
+    } finally {
+      h.fs.unlinkSync(tmpFile);
+    }
+  } catch (e) {
+    test(false, 'MCP i18n two-phase test threw: ' + e.message);
+  }
+})();
+
+// All async blocks are independent; the entrypoint awaits this one promise.
+module.exports = { done: Promise.all([ done, cmdDone, srvDone, mcpDone ]) };

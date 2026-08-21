@@ -158,9 +158,16 @@ foam.CLASS({
     function resolveTranslateTargets_(uri, text, opt_messageName) {
       /** Message names foam/i18nTranslate should act on: the one named
        *  message when given, else every messages: entry in the file
-       *  currently missing a targetLanguages translation. */
+       *  currently missing a targetLanguages translation. Goes through the
+       *  UNGATED scanMissingLanguages_, not the translationReady-gated
+       *  scanMissingLanguages — an explicit foam/i18nTranslate call
+       *  (dry-run or real) is not the unsolicited diagnostic/code-action
+       *  noise that gate exists to suppress, and the dry-run path is
+       *  specifically what runs WHEN translationReady is false (no local
+       *  model — hand the agent the strings itself). Gating this would make
+       *  the needs-translations payload permanently empty. */
       if ( opt_messageName ) return [ opt_messageName ];
-      return this.scanMissingLanguages(uri, text).map(function(s) { return s.name; });
+      return this.scanMissingLanguages_(uri, text).map(function(s) { return s.name; });
     },
 
     async function dryRunTranslateStrings(uri, text, opt_messageName, opt_languages) {
@@ -423,15 +430,36 @@ foam.CLASS({
 
     function scanMissingLanguages(uri, text) {
       /**
+       * DiagnosticsHandler/CodeActionHandler entry point — same as
+       * scanMissingLanguages_ below, PLUS gated on translationReady: with no
+       * provider confirmed reachable (Task 5), an unsolicited HINT diagnostic
+       * or code action would be noise the user can't act on yet. Returns
+       * [{ name, missing: [lang, ...], range }] — never null.
+       *
+       * foam/i18nTranslate's dryRun path (resolveTranslateTargets_) does NOT
+       * go through this gate — it calls scanMissingLanguages_ directly. An
+       * explicit tool call asking "what needs translating" is not the
+       * unsolicited noise this gate exists to suppress; translationReady
+       * being false is exactly the situation dryRun exists to handle (no
+       * local model — hand the agent the strings itself).
+       */
+      if ( ! this.translationReady ) return [];
+      return this.scanMissingLanguages_(uri, text);
+    },
+
+    function scanMissingLanguages_(uri, text) {
+      /**
        * Find every `messages:` entry in `text` missing a translation for one
        * of `targetLanguages`. Reads the model objects (not regex) for the
        * truth about what's already in messageMap — text is only used to
        * locate the `name:` literal's position for the diagnostic range.
-       * Gated on translationReady + a non-empty targetLanguages: with no
-       * provider confirmed reachable (Task 5), scanning is unsolicited noise.
-       * Returns [{ name, missing: [lang, ...], range }] — never null.
+       * UNGATED on translationReady (see scanMissingLanguages above for the
+       * gated entry point diagnostics/code actions use) — still gated on a
+       * non-empty targetLanguages, which has nothing to do with provider
+       * availability: no target languages configured means there is
+       * nothing to scan for, regardless of caller. Returns
+       * [{ name, missing: [lang, ...], range }] — never null.
        */
-      if ( ! this.translationReady ) return [];
       var langs = this.targetLanguages || [];
       if ( ! langs.length ) return [];
       var out = [];

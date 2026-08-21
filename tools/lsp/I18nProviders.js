@@ -250,10 +250,12 @@ foam.CLASS({
       // this.PLACEHOLDER_PATTERN (constants: below) is shared with
       // I18nHandler.applyTranslations, which re-derives the same sentinel
       // spans from a translation to verify none were lost — one regex, so
-      // the two can't drift apart. A fresh RegExp per call: the shared
-      // pattern carries the 'g' flag, and a global regex's lastIndex is
-      // stateful across .test()/.exec() calls — reusing the constant's own
-      // instance here would corrupt a concurrent caller's match position.
+      // the two can't drift apart. The constant is deliberately NON-global
+      // (no 'g' flag) so a .test()-based caller (applyTranslations) can
+      // never be corrupted by another caller's stale lastIndex. THIS site
+      // needs a 'g' matcher (text.replace() below matches every occurrence),
+      // so it builds its own RegExp from .source rather than mutating —
+      // or being handed — the shared instance.
       var pattern = new RegExp(this.PLACEHOLDER_PATTERN.source, 'g');
 
       var protectedText = text.replace(pattern, function(value) {

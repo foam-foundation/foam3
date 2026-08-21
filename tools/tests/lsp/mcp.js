@@ -143,23 +143,28 @@ test(mcp.posToOffset('abc\ndef\nghi', { line: 1, character: 2 }) === 6,
 test(mcp.posToOffset('abc\ndef', { line: 0, character: 0 }) === 0,
   'posToOffset: line 0 char 0 is offset 0');
 
-var awTmp = pathMod.join(osMod.tmpdir(), 'mcp-applyWorkspaceEdit-target.js');
-fsMod.writeFileSync(awTmp, "line0\nline1 TARGET line1\nline2\n");
-var awUri = 'file://' + awTmp;
-// Two non-overlapping edits on the SAME line, given in ASCENDING start
-// order — applyWorkspaceEdit must sort them descending internally so the
-// earlier edit's offset survives the later one being applied first.
-var awEdit = { changes: {} };
-awEdit.changes[awUri] = [
-  { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, newText: '[A]' },
-  { range: { start: { line: 1, character: 6 }, end: { line: 1, character: 12 } }, newText: '[REPLACED]' }
-];
-var changedPaths = mcp.applyWorkspaceEdit(awEdit);
-test(changedPaths.length === 1 && changedPaths[0] === awTmp,
-  'applyWorkspaceEdit: returns the changed file path');
-var awResult = fsMod.readFileSync(awTmp, 'utf8');
-test(awResult.indexOf('[A]line1 [REPLACED] line1') !== -1,
-  'applyWorkspaceEdit: both edits land correctly despite ascending input order (descending apply)');
-fsMod.unlinkSync(awTmp);
+// pid-suffixed so a concurrent run (or a leftover from a prior crashed run)
+// never collides on the same tmp path.
+var awTmp = pathMod.join(osMod.tmpdir(), 'mcp-applyWorkspaceEdit-target-' + process.pid + '.js');
+try {
+  fsMod.writeFileSync(awTmp, "line0\nline1 TARGET line1\nline2\n");
+  var awUri = 'file://' + awTmp;
+  // Two non-overlapping edits on the SAME line, given in ASCENDING start
+  // order — applyWorkspaceEdit must sort them descending internally so the
+  // earlier edit's offset survives the later one being applied first.
+  var awEdit = { changes: {} };
+  awEdit.changes[awUri] = [
+    { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, newText: '[A]' },
+    { range: { start: { line: 1, character: 6 }, end: { line: 1, character: 12 } }, newText: '[REPLACED]' }
+  ];
+  var changedPaths = mcp.applyWorkspaceEdit(awEdit);
+  test(changedPaths.length === 1 && changedPaths[0] === awTmp,
+    'applyWorkspaceEdit: returns the changed file path');
+  var awResult = fsMod.readFileSync(awTmp, 'utf8');
+  test(awResult.indexOf('[A]line1 [REPLACED] line1') !== -1,
+    'applyWorkspaceEdit: both edits land correctly despite ascending input order (descending apply)');
+} finally {
+  fsMod.unlinkSync(awTmp);
+}
 
 test(mcp.applyWorkspaceEdit({}).length === 0, 'applyWorkspaceEdit: no changes → no-op, empty result');

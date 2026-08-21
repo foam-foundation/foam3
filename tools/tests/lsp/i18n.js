@@ -684,6 +684,19 @@ var srvDone = (async function() {
       dryOne.targetLanguages[0] === 'de',
       'dryRunTranslateStrings: explicit messageName + languages override the scan/targetLanguages defaults');
 
+    // CRITICAL regression: the MCP wrapper's foam_i18n_translate hits the
+    // dryRun branch EXACTLY WHEN foam/i18nStatus said translationReady is
+    // false (no local model reachable) — that is the one situation dryRun
+    // exists to handle. If messageName-omitted dryRun routed through the
+    // translationReady-gated scanMissingLanguages, this would always return
+    // an empty strings object in exactly the case that matters, silently
+    // breaking the whole needs-translations payload.
+    var i18nOffline = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr'], translationReady: false });
+    var dryOffline = await i18nOffline.dryRunTranslateStrings('file:///t/HasMsgs.js', MSGS, undefined, undefined);
+    test(dryOffline.strings.DONE === 'Done' && dryOffline.strings.PART === 'Part',
+      'dryRunTranslateStrings: messageName omitted works with translationReady FALSE — not gated like scanMissingLanguages');
+
     // translateMessages, messageName omitted: loops ALL scan results and
     // merges every message's edit into ONE WorkspaceEdit for the file.
     var multi = await i18nSrv.translateMessages('file:///t/HasMsgs.js', MSGS, undefined, undefined);
@@ -711,7 +724,8 @@ var mcpDone = (async function() {
     section('MCP — foam_i18n two-phase');
     var mcp = require('../../lsp/editors/mcp/server');
     var os2 = require('os');
-    var tmpFile = h.path.join(os2.tmpdir(), 'I18nMcpTarget.js');
+    // pid-suffixed so a concurrent run never collides on the same tmp path.
+    var tmpFile = h.path.join(os2.tmpdir(), 'I18nMcpTarget-' + process.pid + '.js');
     h.fs.writeFileSync(tmpFile, MSGS);
 
     try {

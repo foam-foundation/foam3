@@ -14,11 +14,21 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
+      name: 'name',
+      documentation: 'Name of the License'
+    },
+    {
+      class: 'String',
+      name: 'description',
+      documentation: 'Description of what this License governs, who it applies to, variations of it, etc.'
+    },
+    {
+      class: 'String',
       name: 'daoKey',
       documentation: 'DAO this License applies to'
     },
     {
-      class: 'Int',
+      class: 'Long',
       name: 'quota',
       documentation: 'Maximum number of "things" that can be active at a time'
     },
@@ -34,7 +44,7 @@ foam.CLASS({
       documentation: 'Current status of the License (COMPLIANT or VIOLATED)'
     },
     {
-      class: 'Int',
+      class: 'Long',
       name: 'count',
       documentation: 'Current number of active "things". Updated when daoKey puts or removes'
     }

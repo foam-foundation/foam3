@@ -441,6 +441,21 @@ function start() {
     switch ( method ) {
       case 'initialize':
         watchClientProcess(params && params.processId);
+        var initOpts = ( params.initializationOptions && params.initializationOptions.foam &&
+                         params.initializationOptions.foam.i18n ) || {};
+        if ( initOpts.sourceLanguage ) i18nHandler.sourceLanguage = initOpts.sourceLanguage;
+        if ( Array.isArray(initOpts.languages) && initOpts.languages.length ) {
+          i18nHandler.targetLanguages = initOpts.languages;
+        } else {
+          try {
+            var wsRoot = params.rootUri ? decodeURIComponent(params.rootUri.replace('file://', '')) : process.cwd();
+            var localesPath = require('path').join(wsRoot, 'journals', 'locales.jrl');
+            if ( require('fs').existsSync(localesPath) ) {
+              i18nHandler.targetLanguages = i18nHandler.deriveLanguagesFromJournals(
+                foam.parse.lsp.JrlLoader.create(), [ localesPath ]);
+            }
+          } catch (e) { console.error('[LSP] i18n language derivation failed:', e.message); }
+        }
         respond(id, {
           capabilities: {
             textDocumentSync: {

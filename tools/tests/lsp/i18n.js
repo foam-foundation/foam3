@@ -220,3 +220,17 @@ test(realActs[0].command && realActs[0].command.command === 'foam.i18n.translate
   realActs[0].command.arguments[0].messageName === 'DONE' &&
   realActs[0].command.arguments[0].languages.length === 1 && realActs[0].command.arguments[0].languages[0] === 'fr',
   'the real end-to-end action carries the correct command payload');
+
+section('I18nHandler — language derivation from locale journals');
+var jrlLoader = foam.parse.lsp.JrlLoader.create();
+var os = require('os'), fsMod = require('fs'), pathMod = require('path');
+var tmpJrl = pathMod.join(os.tmpdir(), 'lsp-i18n-test-locales.jrl');
+fsMod.writeFileSync(tmpJrl,
+  'p({class:"foam.i18n.Locale",locale:"fr",source:"a.B.X",target:"y"})\n' +
+  'p({class:"foam.i18n.Locale",locale:"fr",source:"a.B.Y",target:"z"})\n' +
+  'p({class:"foam.i18n.Locale",locale:"en",variant:"US",source:"a.B.Z",target:"w"})\n' +
+  'p({class:"foam.i18n.Locale",locale:"es",source:"a.B.W",target:"v"})\n');
+var langs = i18nT.deriveLanguagesFromJournals(jrlLoader, [tmpJrl]);
+test(langs.length === 2 && langs[0] === 'es' && langs[1] === 'fr',
+  'derives distinct non-source locales sorted (es, fr), en/variant excluded');
+fsMod.unlinkSync(tmpJrl);

@@ -527,6 +527,28 @@ foam.CLASS({
       if ( ! clsOpen ) return null;
       var o = clsOpen.index + clsOpen[0].length;
       return { offset: o, newText: '\n  messages: [\n    ' + entry + '\n  ],' };
+    },
+
+    function deriveLanguagesFromJournals(jrlLoader, filePaths) {
+      /**
+       * Fallback target-language list when no explicit config is given:
+       * every distinct `locale` value already present across foam.i18n.Locale
+       * rows in filePaths (typically journals/locales.jrl) — the languages
+       * the workspace already has translations for. A variant row like
+       * { locale: 'en', variant: 'US' } counts as base code 'en', not a
+       * separate language. sourceLanguage (not a hardcoded 'en') is
+       * excluded — it's the language messages are written in, not a
+       * translation target. Returns a distinct, sorted array.
+       */
+      var objects = jrlLoader.loadFiles(filePaths);
+      var locales = jrlLoader.filterByClass(objects, 'foam.i18n.Locale');
+      var seen = {};
+      for ( var i = 0 ; i < locales.length ; i++ ) {
+        var code = locales[i].locale;
+        if ( ! code || code === this.sourceLanguage ) continue;
+        seen[code] = true;
+      }
+      return Object.keys(seen).sort();
     }
   ]
 });

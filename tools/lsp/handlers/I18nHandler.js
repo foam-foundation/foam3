@@ -117,7 +117,15 @@ foam.CLASS({
       return { start: open, end: innerEnd + 1, content: text.substring(innerStart, innerEnd) };
     },
 
-    function buildAddExtractEdit(text, messageText, uri, opt_range) {
+    function escapeJsString_(s) {
+      /** Escape a raw (unquoted) translation string for embedding inside a
+       *  single-quoted JS string literal. Backslashes MUST be escaped first —
+       *  escaping the quote before the backslash would double-escape the
+       *  backslash introduced by the quote step. */
+      return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+    },
+
+    function buildAddExtractEdit(text, messageText, uri, opt_range, opt_opts) {
       /**
        * Build the "extract to messages: entry" WorkspaceEdit for a hardcoded
        * .add('<messageText>') string: rewrite the usage to `this.<NAME>` and add
@@ -127,6 +135,13 @@ foam.CLASS({
        * opt_range (the triggering diagnostic's LSP range) pins the rewrite to the
        * exact occurrence — without it, a repeated identical string would rewrite the
        * first match. Falls back to the first .add() match only when no range is given.
+       *
+       * opt_opts = { withMessageMap: boolean, translations: Object|null }. With
+       * neither set, the entry is the plain `{ name, message }` shape. With
+       * withMessageMap (or translations, which implies it), the entry gains a
+       * `messageMap` keyed by language: 'en' reuses the verbatim source literal;
+       * any opt_opts.translations entries (e.g. { fr: '...' }) are added as
+       * escaped string literals. Source language is hard-coded 'en' here.
        *
        * Scope safety: bail (null) unless there is exactly one top-level model and an
        * unambiguous single insertion target. Multiple `foam.CLASS(`, inline `classes:`,
@@ -179,7 +194,20 @@ foam.CLASS({
       // valid escaping) for the message: value — re-escaping the raw captured content
       // would double-escape an existing `\'` and produce invalid JS.
       var rawLiteral = text.substring(usage.start, usage.end);
-      var entry = "{ name: '" + name + "', message: " + rawLiteral + " }";
+      var opts = opt_opts || {};
+      var entry = "{ name: '" + name + "', message: " + rawLiteral;
+      if ( opts.withMessageMap || opts.translations ) {
+        // en reuses the verbatim source literal (already validly escaped);
+        // model translations are raw strings and need single-quote escaping.
+        var mapParts = [ 'en: ' + rawLiteral ];
+        var tr = opts.translations || {};
+        for ( var lang in tr ) {
+          if ( ! Object.prototype.hasOwnProperty.call(tr, lang) ) continue;
+          mapParts.push(lang + ": '" + this.escapeJsString_(tr[lang]) + "'");
+        }
+        entry += ', messageMap: { ' + mapParts.join(', ') + ' }';
+      }
+      entry += ' }';
       var msgArr = /messages\s*:\s*\[/.exec(text);
       if ( msgArr ) {
         var insAt = msgArr.index + msgArr[0].length;          // just after '['

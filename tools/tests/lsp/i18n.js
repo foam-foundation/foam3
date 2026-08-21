@@ -29,3 +29,24 @@ test(edits && edits.some(function(e) { return /messages: \[/.test(e.newText); })
 // Ambiguity bail-outs survive the move
 test(i18n.buildAddExtractEdit(SRC + SRC, 'Upload complete', 'file:///t/Two.js') === null,
   'two foam.CLASS blocks → null (no autofix)');
+
+section('I18nHandler — extract variant B (withMessageMap)');
+var editB = i18n.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { withMessageMap: true });
+var editsB = editB && editB.changes['file:///t/E.js'];
+var insB = editsB && editsB.filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insB && /messageMap: \{ en: 'Upload complete' \}/.test(insB.newText),
+  'variant B entry carries messageMap: { en: ... }');
+
+var editC = i18n.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { translations: { fr: 'Téléversement terminé' } });
+var insC = editC.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insC && /en: 'Upload complete'/.test(insC.newText) && /fr: 'Téléversement terminé'/.test(insC.newText),
+  'translations option produces en + fr keys');
+
+// Translation containing a single quote must be escaped, not break the entry
+var editQ = i18n.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { translations: { fr: "l'envoi terminé" } });
+var insQ = editQ.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insQ && insQ.newText.indexOf("l\\'envoi termin") !== -1,
+  'quote inside translation is escaped');

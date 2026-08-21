@@ -84,6 +84,16 @@ foam.CLASS({
                 edit: i18nEdit
               });
             }
+
+            var i18nEditB = this.i18nHandler.buildAddExtractEdit(text, hsMatch[1], uri, diag.range, { withMessageMap: true });
+            if ( i18nEditB ) {
+              actions.push({
+                title:       "Extract '" + hsMatch[1] + "' to messages: with messageMap",
+                kind:        'quickfix',
+                diagnostics: [diag],
+                edit:        i18nEditB
+              });
+            }
           }
         }
 

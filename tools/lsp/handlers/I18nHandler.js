@@ -539,8 +539,16 @@ foam.CLASS({
        * separate language. sourceLanguage (not a hardcoded 'en') is
        * excluded — it's the language messages are written in, not a
        * translation target. Returns a distinct, sorted array.
+       *
+       * Per-file loadFile() + concat, NOT loadFiles() — loadFiles() keys
+       * rows by class+index, so a second file's rows silently overwrite the
+       * first file's rows at the same index (same trap CSSTokenResolver's
+       * loadFromJournals avoids the same way).
        */
-      var objects = jrlLoader.loadFiles(filePaths);
+      var objects = [];
+      for ( var f = 0 ; f < filePaths.length ; f++ ) {
+        objects = objects.concat(jrlLoader.loadFile(filePaths[f]));
+      }
       var locales = jrlLoader.filterByClass(objects, 'foam.i18n.Locale');
       var seen = {};
       for ( var i = 0 ; i < locales.length ; i++ ) {

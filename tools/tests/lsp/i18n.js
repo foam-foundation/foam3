@@ -230,7 +230,17 @@ fsMod.writeFileSync(tmpJrl,
   'p({class:"foam.i18n.Locale",locale:"fr",source:"a.B.Y",target:"z"})\n' +
   'p({class:"foam.i18n.Locale",locale:"en",variant:"US",source:"a.B.Z",target:"w"})\n' +
   'p({class:"foam.i18n.Locale",locale:"es",source:"a.B.W",target:"v"})\n');
-var langs = i18nT.deriveLanguagesFromJournals(jrlLoader, [tmpJrl]);
-test(langs.length === 2 && langs[0] === 'es' && langs[1] === 'fr',
-  'derives distinct non-source locales sorted (es, fr), en/variant excluded');
-fsMod.unlinkSync(tmpJrl);
+try {
+  var langs = i18nT.deriveLanguagesFromJournals(jrlLoader, [tmpJrl]);
+  test(langs.length === 2 && langs[0] === 'es' && langs[1] === 'fr',
+    'derives distinct non-source locales sorted (es, fr), en/variant excluded');
+
+  // Exclusion must follow the instance's sourceLanguage, not a hardcoded 'en' —
+  // i18nT above uses the default ('en'), which can't tell the two apart.
+  var frSrc = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache, sourceLanguage: 'fr' });
+  var frLangs = frSrc.deriveLanguagesFromJournals(jrlLoader, [tmpJrl]);
+  test(frLangs.length === 2 && frLangs[0] === 'en' && frLangs[1] === 'es',
+    'exclusion follows sourceLanguage, not a hardcoded en');
+} finally {
+  fsMod.unlinkSync(tmpJrl);
+}

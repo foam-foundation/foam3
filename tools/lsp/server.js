@@ -441,14 +441,18 @@ function start() {
     switch ( method ) {
       case 'initialize':
         watchClientProcess(params && params.processId);
-        var initOpts = ( params.initializationOptions && params.initializationOptions.foam &&
+        var initOpts = ( params && params.initializationOptions && params.initializationOptions.foam &&
                          params.initializationOptions.foam.i18n ) || {};
         if ( initOpts.sourceLanguage ) i18nHandler.sourceLanguage = initOpts.sourceLanguage;
+        // An explicit-but-empty languages: [] is treated the same as unset —
+        // falls through to journal derivation below — rather than as "no
+        // languages wanted", so an empty config array never suppresses the
+        // locales.jrl fallback.
         if ( Array.isArray(initOpts.languages) && initOpts.languages.length ) {
           i18nHandler.targetLanguages = initOpts.languages;
         } else {
           try {
-            var wsRoot = params.rootUri ? decodeURIComponent(params.rootUri.replace('file://', '')) : process.cwd();
+            var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd();
             var localesPath = require('path').join(wsRoot, 'journals', 'locales.jrl');
             if ( require('fs').existsSync(localesPath) ) {
               i18nHandler.targetLanguages = i18nHandler.deriveLanguagesFromJournals(

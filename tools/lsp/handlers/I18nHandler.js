@@ -190,47 +190,110 @@ foam.CLASS({
     function findEntrySpan_(text, messageName) {
       /**
        * Locate the `{ name: '<messageName>', ... }` messages: entry in `text`
-       * unambiguously. Returns { start, end } (end exclusive, past the entry's
-       * closing `}`) or null when the name can't be found, is found more than
-       * once (ambiguous — could be editing the wrong occurrence), or the file
-       * has more than one top-level model / nested `classes:` (same whole-
-       * file guards buildAddExtractEdit uses — model-boundary-aware insertion
-       * needs real parsing, not a regex).
+       * unambiguously. Scans FORWARD from the `messages: [` array's own `[`
+       * — never backward from the name match — tracking bracket depth while
+       * skipping over quoted content whole (so a decoy `{`/`}` inside a
+       * string value, e.g. `message: 'a { b'`, can never be mistaken for a
+       * structural brace: an entry span is only ever recorded by watching
+       * depth return to the array's own level, never by proximity to the
+       * name match). This also means a `messageMap: {...}` nested inside the
+       * entry is handled for free — it's just deeper nesting under the same
+       * counter, not a separate pass.
+       *
+       * Returns { start, end } (end exclusive, past the entry's closing `}`)
+       * or null when: there's no `messages: [` array, the name isn't found
+       * as a `name:` key inside exactly one top-level entry (not found, or
+       * ambiguous — two entries share the name, or the messages: array
+       * itself is duplicated), or the file has more than one top-level
+       * model / nested `classes:` (same whole-file guards buildAddExtractEdit
+       * uses — model-boundary-aware insertion needs real parsing, not a
+       * regex).
        */
       var classMatches = text.match(/foam\.CLASS\s*\(/g);
       if ( ! classMatches || classMatches.length !== 1 ) return null;
       if ( /\bclasses\s*:\s*\[/.test(text) ) return null;
+      if ( ( text.match(/\bmessages\s*:\s*\[/g) || [] ).length > 1 ) return null;
 
-      var nameReG = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(messageName) + "['\"]", 'g');
-      if ( (text.match(nameReG) || []).length !== 1 ) return null;   // not found, or ambiguous
-      var nameRe = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(messageName) + "['\"]");
-      var nm = nameRe.exec(text);
-      if ( ! nm ) return null;
+      var arrM = /messages\s*:\s*\[/.exec(text);
+      if ( ! arrM ) return null;
 
-      // Walk backward from the name literal to the entry's opening `{`.
-      var start = -1;
-      for ( var i = nm.index ; i >= 0 ; i-- ) {
-        if ( text[i] === '{' ) { start = i; break; }
-      }
-      if ( start === -1 ) return null;
-
-      // Depth-tracked scan forward for the matching `}`. String contents are
-      // skipped whole (same technique as DiagnosticsHandler.findInnerClassRange_)
-      // so a brace inside a quoted value never miscounts depth.
-      var depth = 0, end = -1;
-      for ( var i = start ; i < text.length ; i++ ) {
+      // String-aware bracket walk starting AT the array's own '['. A
+      // top-level entry's opening '{' is seen while depth === 1 (directly
+      // inside the array, before it's counted); its matching '}' is the one
+      // that returns depth from 2 back to 1.
+      var entries = [];
+      var depth = 0, entryStart = -1;
+      for ( var i = arrM.index + arrM[0].length - 1 ; i < text.length ; i++ ) {
         var ch = text[i];
-        if ( ch === '{' ) depth++;
-        else if ( ch === '}' ) { depth--; if ( depth === 0 ) { end = i + 1; break; } }
-        else if ( ch === "'" || ch === '"' || ch === '`' ) {
+        if ( ch === '[' || ch === '{' ) {
+          depth++;
+          if ( ch === '{' && depth === 2 ) entryStart = i;
+        } else if ( ch === ']' || ch === '}' ) {
+          if ( ch === '}' && depth === 2 ) entries.push({ start: entryStart, end: i + 1 });
+          depth--;
+          if ( depth === 0 ) break;   // array closed
+        } else if ( ch === "'" || ch === '"' || ch === '`' ) {
           for ( i++ ; i < text.length ; i++ ) {
             if ( text[i] === '\\' ) { i++; continue; }
             if ( text[i] === ch ) break;
           }
         }
       }
-      if ( end === -1 ) return null;
-      return { start: start, end: end };
+
+      var nameRe = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(messageName) + "['\"]");
+      var matches = [];
+      for ( var e = 0 ; e < entries.length ; e++ ) {
+        if ( nameRe.test(text.substring(entries[e].start, entries[e].end)) ) matches.push(entries[e]);
+      }
+      if ( matches.length !== 1 ) return null;   // not found, or ambiguous
+      return matches[0];
+    },
+
+    function stripStrings_(s) {
+      /** Replace every quoted literal's content with spaces (quotes and
+       *  length kept, so offsets stay valid) so a later key/regex scan can't
+       *  be fooled by a colon or comma embedded in a translation value. */
+      var out = '', i = 0, n = s.length;
+      while ( i < n ) {
+        var ch = s[i];
+        if ( ch === "'" || ch === '"' || ch === '`' ) {
+          out += ch; i++;
+          while ( i < n ) {
+            if ( s[i] === '\\' ) { out += '  '; i += 2; continue; }
+            if ( s[i] === ch ) { out += ch; i++; break; }
+            out += ' '; i++;
+          }
+          continue;
+        }
+        out += ch; i++;
+      }
+      return out;
+    },
+
+    function mapKeys_(mapContent) {
+      /** Top-level `lang:` keys already present in a messageMap's content
+       *  (the substring between its `{`/`}`, exclusive). String-aware via
+       *  stripStrings_ — a translation value containing ": " or ", " can't
+       *  be mistaken for another key. */
+      var masked = this.stripStrings_(mapContent);
+      var keys = {}, keyRe = /(^|,)\s*([A-Za-z_$][\w$]*)\s*:/g, m;
+      while ( ( m = keyRe.exec(masked) ) !== null ) keys[m[2]] = true;
+      return keys;
+    },
+
+    function translationParts_(translations, skip) {
+      /** Build `lang: 'escaped'` parts for every translations[lang] whose
+       *  key isn't in `skip` — the spec says append/seed MISSING keys only,
+       *  so a language already in the map (existing-map branch) or the
+       *  entry's own sourceLanguage (no-map branch, already seeded from the
+       *  message literal) is never duplicated. */
+      var parts = [];
+      for ( var lang in translations ) {
+        if ( ! Object.prototype.hasOwnProperty.call(translations, lang) ) continue;
+        if ( skip && skip[lang] ) continue;
+        parts.push(lang + ": '" + this.escapeJsString_(translations[lang]) + "'");
+      }
+      return parts;
     },
 
     function buildMessageMapEdit(text, messageName, translations, uri) {
@@ -241,12 +304,15 @@ foam.CLASS({
        *     <message literal>, lang: '...', ... }` right after the entry's
        *     `message:` value. The source-language key reuses the entry's own
        *     message literal verbatim (already validly escaped) — same
-       *     rawLiteral principle as buildAddExtractEdit.
-       *   - entry already has a messageMap → append the missing `lang: '...'`
-       *     pairs before that map's closing `}`.
+       *     rawLiteral principle as buildAddExtractEdit. A `translations`
+       *     entry for sourceLanguage itself is dropped (already seeded).
+       *   - entry already has a messageMap → append only the `lang: '...'`
+       *     pairs not already present before that map's closing `}`; if
+       *     every requested language is already there, returns null (no
+       *     no-op edit).
        * Returns { changes: { [uri]: [edit] } } or null — see findEntrySpan_
-       * for the ambiguity bail-outs (malformed/duplicate/multi-model), plus a
-       * malformed entry (no `message:` value and no messageMap to extend).
+       * for the ambiguity bail-outs (malformed/duplicate/multi-model), plus
+       * a malformed entry (no `message:` value and no messageMap to extend).
        *
        * Limitation: like findEntrySpan_, this trusts messageMap: { ... } to be
        * a plain object literal — a computed/spread messageMap would still
@@ -257,13 +323,6 @@ foam.CLASS({
       if ( ! span ) return null;
       var entrySpan = text.substring(span.start, span.end);
 
-      var mapParts = [];
-      for ( var lang in translations ) {
-        if ( ! Object.prototype.hasOwnProperty.call(translations, lang) ) continue;
-        mapParts.push(lang + ": '" + this.escapeJsString_(translations[lang]) + "'");
-      }
-      if ( ! mapParts.length ) return null;
-
       var mapM = /messageMap\s*:\s*\{/.exec(entrySpan);
       var insertOffset, newText;
 
@@ -272,28 +331,37 @@ foam.CLASS({
         // same technique as findEntrySpan_) and insert just before it.
         var mapOpenRel = mapM.index + mapM[0].length - 1;   // position of the map's '{'
         var depth = 0, mapEndRel = -1;
-        for ( var i = mapOpenRel ; i < entrySpan.length ; i++ ) {
-          var ch = entrySpan[i];
+        for ( var j = mapOpenRel ; j < entrySpan.length ; j++ ) {
+          var ch = entrySpan[j];
           if ( ch === '{' ) depth++;
-          else if ( ch === '}' ) { depth--; if ( depth === 0 ) { mapEndRel = i; break; } }
+          else if ( ch === '}' ) { depth--; if ( depth === 0 ) { mapEndRel = j; break; } }
           else if ( ch === "'" || ch === '"' || ch === '`' ) {
-            for ( i++ ; i < entrySpan.length ; i++ ) {
-              if ( entrySpan[i] === '\\' ) { i++; continue; }
-              if ( entrySpan[i] === ch ) break;
+            for ( j++ ; j < entrySpan.length ; j++ ) {
+              if ( entrySpan[j] === '\\' ) { j++; continue; }
+              if ( entrySpan[j] === ch ) break;
             }
           }
         }
         if ( mapEndRel === -1 ) return null;
+        var existingKeys = this.mapKeys_(entrySpan.substring(mapOpenRel + 1, mapEndRel));
+        var mapParts = this.translationParts_(translations, existingKeys);
+        if ( ! mapParts.length ) return null;   // every requested language already present
         insertOffset = span.start + mapEndRel;
         newText = ', ' + mapParts.join(', ');
       } else {
-        // No map yet: insert right after the entry's `message:` value.
-        var msgM = /message\s*:\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/.exec(entrySpan);
+        // No map yet: insert right after the entry's `message:` value. Left
+        // boundary guard (`(?:^|[{,\s])`) keeps a property like
+        // `submessage:` from being mistaken for `message:`.
+        var msgM = /(?:^|[{,\s])message\s*:\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/.exec(entrySpan);
         if ( ! msgM ) return null;
         var literalEndRel = msgM.index + msgM[0].length;    // just past the closing quote
         var rawLiteral = entrySpan.substring(msgM.index + msgM[0].indexOf(msgM[1]), literalEndRel);
+        var skip = {};
+        skip[this.sourceLanguage] = true;
+        var seededParts = this.translationParts_(translations, skip);
         insertOffset = span.start + literalEndRel;
-        newText = ', messageMap: { ' + this.sourceLanguage + ': ' + rawLiteral + ', ' + mapParts.join(', ') + ' }';
+        newText = ', messageMap: { ' + this.sourceLanguage + ': ' + rawLiteral +
+          ( seededParts.length ? ', ' + seededParts.join(', ') : '' ) + ' }';
       }
 
       var p = this.analyzer.offsetToPosition(text, insertOffset);

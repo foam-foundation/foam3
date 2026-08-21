@@ -85,6 +85,68 @@ test(mmEdit2 && /, fr: 'Partie'/.test(mmEdit2.changes['file:///t/HasMsgs.js'][0]
 test(i18nT.buildMessageMapEdit(MSGS + MSGS, 'DONE', { fr: 'x' }, 'file:///t/D.js') === null,
   'ambiguous file → null');
 
+section('I18nHandler — buildMessageMapEdit adversarial fixtures (depth/brace machinery)');
+
+// (a) brace inside a message value, name AFTER message — this exact ordering
+// is what the old backward-walk-from-name implementation got wrong: walking
+// backward from 'GREET' hits the '{' inside "Hi {name}" before the entry's
+// real opening '{'. The forward-from-array-start scan can't make that mistake.
+var GREET_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Greet',\n  messages: [\n" +
+  "    { message: 'Hi {name}', name: 'GREET' }\n  ]\n});\n";
+var mmGreet = i18nT.buildMessageMapEdit(GREET_SRC, 'GREET', { fr: 'Bonjour {nom}' }, 'file:///t/Greet.js');
+test(!! mmGreet, 'brace-in-message-value + name-after-message: entry still located correctly');
+var greetNew = mmGreet.changes['file:///t/Greet.js'][0].newText;
+test(/messageMap: \{ en: 'Hi \{name\}', fr: 'Bonjour \{nom\}' \}/.test(greetNew),
+  'seeded en literal keeps its brace verbatim');
+
+// (b) brace inside a translation value, appended to an already-existing map
+var mmBraceAppend = i18nT.buildMessageMapEdit(MSGS, 'PART', { fr: 'Une part {x}' }, 'file:///t/HasMsgs.js');
+test(mmBraceAppend && /, fr: 'Une part \{x\}'/.test(mmBraceAppend.changes['file:///t/HasMsgs.js'][0].newText),
+  'brace inside an appended translation value is kept verbatim; entry boundaries stay intact');
+
+// (c) apostrophe in a translation — exercises escapeJsString_ through THIS
+// path (buildAddExtractEdit's apostrophe test above covers a different path)
+var mmApos = i18nT.buildMessageMapEdit(MSGS, 'DONE', { fr: "c'est fini" }, 'file:///t/HasMsgs.js');
+test(mmApos && mmApos.changes['file:///t/HasMsgs.js'][0].newText.indexOf("c\\'est fini") !== -1,
+  'apostrophe in a buildMessageMapEdit translation is escaped');
+
+// (d) double-quoted message: "..." literal — quote style is preserved verbatim
+var DQ_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'DQ',\n  messages: [\n" +
+  "    { name: 'HELLO', message: \"Hello there\" }\n  ]\n});\n";
+var mmDQ = i18nT.buildMessageMapEdit(DQ_SRC, 'HELLO', { fr: 'Bonjour' }, 'file:///t/DQ.js');
+test(mmDQ && /messageMap: \{ en: "Hello there", fr: 'Bonjour' \}/.test(mmDQ.changes['file:///t/DQ.js'][0].newText),
+  'double-quoted message: literal is reused verbatim for the seeded source key');
+
+// (e) two languages requested in one call
+var mmTwoLang = i18nT.buildMessageMapEdit(MSGS, 'DONE', { fr: 'Terminé', de: 'Fertig' }, 'file:///t/HasMsgs.js');
+var twoLangNew = mmTwoLang && mmTwoLang.changes['file:///t/HasMsgs.js'][0].newText;
+test(twoLangNew && /fr: 'Terminé'/.test(twoLangNew) && /de: 'Fertig'/.test(twoLangNew),
+  'two languages requested in one call both land in the seeded map');
+
+// (f) unbalanced brace inside a message value — must never corrupt the span
+var UNBAL_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Unbal',\n  messages: [\n" +
+  "    { name: 'BAD', message: 'a { b' }\n  ]\n});\n";
+var mmUnbal = i18nT.buildMessageMapEdit(UNBAL_SRC, 'BAD', { fr: 'x' }, 'file:///t/Unbal.js');
+test(mmUnbal && /messageMap: \{ en: 'a \{ b', fr: 'x' \}/.test(mmUnbal.changes['file:///t/Unbal.js'][0].newText),
+  'unbalanced brace inside a string value never corrupts entry-span detection — string content is skipped whole');
+
+section('I18nHandler — buildMessageMapEdit reconciles against already-present keys');
+
+// existing-map branch: language already present is skipped, not duplicated
+test(i18nT.buildMessageMapEdit(MSGS, 'SAVED', { fr: 'Nouveau texte' }, 'file:///t/HasMsgs.js') === null,
+  'existing-map branch: requested language already present → nothing to add → null (no no-op edit)');
+
+var mmMixed = i18nT.buildMessageMapEdit(MSGS, 'SAVED', { fr: 'Nouveau', de: 'Neu' }, 'file:///t/HasMsgs.js');
+var mixedNew = mmMixed && mmMixed.changes['file:///t/HasMsgs.js'][0].newText;
+test(mixedNew && /de: 'Neu'/.test(mixedNew) && mixedNew.indexOf('Nouveau') === -1,
+  'existing-map branch appends only the language not already present, ignoring the duplicate fr request');
+
+// no-map branch: a translations.<sourceLanguage> entry never duplicates the seed
+var mmSeedDup = i18nT.buildMessageMapEdit(MSGS, 'DONE', { en: 'Something else', fr: 'Terminé' }, 'file:///t/HasMsgs.js');
+var seedDupNew = mmSeedDup.changes['file:///t/HasMsgs.js'][0].newText;
+test(/messageMap: \{ en: 'Done', fr: 'Terminé' \}/.test(seedDupNew) && seedDupNew.indexOf('Something else') === -1,
+  'no-map branch: a translations.en entry never duplicates/overrides the message-literal seed');
+
 section('CodeActionHandler — action D (translate missing-language HINT)');
 var caH = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nT });
 var missDiagFr = {
@@ -136,3 +198,25 @@ var noMissDiags = diagHNoI18n.handle(MSGS, 'file:///t/HasMsgs.js').filter(functi
   return d.code === 'i18n-missing-language';
 });
 test(noMissDiags.length === 0, 'no i18nHandler wired → no HINT diagnostics (null-safe)');
+
+section('Integration — real DiagnosticsHandler HINT feeds real CodeActionHandler action D');
+// Every other action-D test above hand-writes a fake diagnostic object that
+// COPIES DiagnosticsHandler's message format. This test instead runs the
+// real emitter and feeds its real output into the real consumer, proving
+// the message ↔ regex contract holds end-to-end (not just against a
+// hand-maintained copy of the format on each side).
+var diagHReal = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: cache, i18nHandler: i18nT });
+var realMissDiags = diagHReal.handle(MSGS, 'file:///t/HasMsgs.js').filter(function(d) {
+  return d.code === 'i18n-missing-language';
+});
+test(realMissDiags.length === 2, 'real DiagnosticsHandler emits one HINT per missing-language entry');
+var realDoneDiag = realMissDiags.filter(function(d) { return d.message.indexOf('"DONE"') !== -1; })[0];
+test(!! realDoneDiag, 'a real DONE HINT is present among the emitted diagnostics');
+
+var caReal = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nT });
+var realActs = caReal.handle(MSGS, realDoneDiag.range, { diagnostics: [realDoneDiag] }, 'file:///t/HasMsgs.js');
+test(realActs.length === 1, 'a real end-to-end HINT produces exactly one translate action (single missing language)');
+test(realActs[0].command && realActs[0].command.command === 'foam.i18n.translateMessage' &&
+  realActs[0].command.arguments[0].messageName === 'DONE' &&
+  realActs[0].command.arguments[0].languages.length === 1 && realActs[0].command.arguments[0].languages[0] === 'fr',
+  'the real end-to-end action carries the correct command payload');

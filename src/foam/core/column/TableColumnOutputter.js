@@ -50,6 +50,9 @@ foam.CLASS({
             return stringArr.join(' ');
           }
           if ( prop.unitPropValueToString && unitPropName ) {
+            // 'Add Units' unchecked: bare spreadsheet-parseable number
+            if ( ! addUnitPropValueToStr && prop.unitPropValueToPlainString )
+              return await prop.unitPropValueToPlainString(x, val, unitPropName);
             return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
           }
           if ( foam.lang.DateTime.isInstance(prop) ) {
@@ -132,9 +135,9 @@ foam.CLASS({
     },
     {
       name: 'objectToTable',
-      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested) {
+      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested, addUnitPropValueToStr) {
         var values = await this.objToArrayOfStringValues(x, of, propNames, obj);
-        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested);
+        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested, addUnitPropValueToStr);
       }
     },
     {

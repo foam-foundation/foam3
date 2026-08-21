@@ -531,9 +531,12 @@ foam.CLASS({
        * opt_opts = { withMessageMap: boolean, translations: Object|null }. With
        * neither set, the entry is the plain `{ name, message }` shape. With
        * withMessageMap (or translations, which implies it), the entry gains a
-       * `messageMap` keyed by language: 'en' reuses the verbatim source literal;
-       * any opt_opts.translations entries (e.g. { fr: '...' }) are added as
-       * escaped string literals. Source language is hard-coded 'en' here.
+       * `messageMap` keyed by language: the sourceLanguage key reuses the
+       * verbatim source literal; any opt_opts.translations entries (e.g.
+       * { fr: '...' }) are added as escaped string literals. The seeded key
+       * follows this.sourceLanguage, same as buildMessageMapEdit's no-map
+       * branch — a workspace whose messages are written in French seeds `fr`
+       * and keeps an `en` translation instead of silently dropping it.
        *
        * Scope safety: bail (null) unless there is exactly one top-level model and an
        * unambiguous single insertion target. Multiple `foam.CLASS(`, inline `classes:`,
@@ -589,12 +592,17 @@ foam.CLASS({
       var opts = opt_opts || {};
       var entry = "{ name: '" + name + "', message: " + rawLiteral;
       if ( opts.withMessageMap || opts.translations ) {
-        // en reuses the verbatim source literal (already validly escaped);
-        // model translations are raw strings that need escaping and, for a
-        // regional code, a quoted key — both handled by translationParts_,
-        // which also drops a redundant 'en' translation (already seeded).
-        var mapParts = [ 'en: ' + rawLiteral ]
-          .concat(this.translationParts_(opts.translations || {}, { en: true }));
+        // The source-language key reuses the verbatim source literal (already
+        // validly escaped); model translations are raw strings that need
+        // escaping and, for a regional code, a quoted key — both handled by
+        // translationParts_, which also drops a translation for the language
+        // just seeded. The skip follows sourceLanguage rather than a literal
+        // 'en' so a French-source workspace drops `fr` (seeded) and keeps
+        // `en` (a real translation target).
+        var seedSkip = {};
+        seedSkip[this.sourceLanguage] = true;
+        var mapParts = [ this.messageMapKey_(this.sourceLanguage) + ': ' + rawLiteral ]
+          .concat(this.translationParts_(opts.translations || {}, seedSkip));
         entry += ', messageMap: { ' + mapParts.join(', ') + ' }';
       }
       entry += ' }';

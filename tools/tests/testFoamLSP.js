@@ -13,9 +13,11 @@
 //
 // Usage: cd <your-project> && node foam3/tools/tests/testFoamLSP.js
 
-// Hard watchdog: fail fast if any single test infinite-loops. 90s comfortably
-// covers pmake boot (~15s) + workspace-wide usage-index builds that the
-// end-to-end usage tests now exercise. Anything beyond this is a real bug.
+// Hard watchdog: fail fast if any single test infinite-loops. 240s covers the
+// ~80s of sync categories (pmake boot + workspace-wide usageIndex and
+// navigation full-workspace scans) PLUS the awaited async i18n categories
+// (mock HTTP servers, provider timeouts, TTL waits) that now run after them
+// via the Promise.all extension. Anything beyond this is a real bug.
 //
 // IMPORTANT: guard with `require.main === module` so the timer only arms when
 // this file is run as the test entrypoint. The LSP server's FileModelCache
@@ -24,9 +26,9 @@
 // opens this test file in their editor.
 if ( require.main === module ) {
   setTimeout(function() {
-    console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 90s — possible infinite loop. Aborting.\x1b[0m');
+    console.error('\n\x1b[31m✘ WATCHDOG: tests exceeded 240s — possible infinite loop. Aborting.\x1b[0m');
     process.exit(2);
-  }, 90000).unref();
+  }, 240000).unref();
 }
 
 // Category files, "building blocks first" so a grammar failure surfaces before

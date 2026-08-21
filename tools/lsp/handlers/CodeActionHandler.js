@@ -98,11 +98,17 @@ foam.CLASS({
             // Variant C: extract AND fill the messageMap with real
             // translations. Gated like action D — no reachable model or no
             // configured languages means the action would only ever fail, so
-            // it isn't offered. Unlike A/B this carries no precomputed edit:
-            // translating is async, so the edit is built when the command
-            // runs (I18nHandler.executeCommand), re-anchored against the
-            // file's text as it is at that moment.
-            if ( this.i18nHandler.translationReady &&
+            // it isn't offered. The `i18nEditB` gate adds the third
+            // prerequisite: C runs the SAME builder B just ran, so if B came
+            // back null (ambiguous file — multiple models, inline classes)
+            // then C is a dead end that would only fail AFTER the network
+            // round trip. No prerequisite, no action.
+            //
+            // Unlike A/B this carries no precomputed edit: translating is
+            // async, so the edit is built when the command runs
+            // (I18nHandler.executeCommand), re-anchored against the file's
+            // text as it is at that moment.
+            if ( i18nEditB && this.i18nHandler.translationReady &&
                  ( this.i18nHandler.targetLanguages || [] ).length ) {
               var langsC = this.i18nHandler.targetLanguages;
               actions.push({

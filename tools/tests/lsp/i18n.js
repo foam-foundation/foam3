@@ -80,6 +80,16 @@ var insRegion = editRegion.changes['file:///t/E.js'].filter(function(e) { return
 test(insRegion && insRegion.newText.indexOf("'fr-CA': 'Téléversement terminé'") !== -1,
   'variant C/B key for a regional code is quoted');
 
+// The seeded key follows sourceLanguage, not a literal 'en' — otherwise a
+// French-source workspace seeds a wrong `en` key AND drops the real English
+// translation as a duplicate of the seed.
+var i18nFrSrc = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache, sourceLanguage: 'fr' });
+var editFrSrc = i18nFrSrc.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { translations: { en: 'Upload done', fr: 'ignored — fr is the seeded source' } });
+var insFrSrc = editFrSrc.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insFrSrc && /messageMap: \{ fr: 'Upload complete', en: 'Upload done' \}/.test(insFrSrc.newText),
+  'seeded key follows sourceLanguage; the non-source translation is kept, the source-language one dropped');
+
 section('I18nHandler — scanMissingLanguages');
 var i18nT = foam.parse.lsp.handlers.I18nHandler.create({
   index: index, cache: cache,
@@ -257,6 +267,18 @@ var actsCOff = caCOff.handle(SRC, hardDiag.range, { diagnostics: [hardDiag] }, '
 test(actsCOff.every(function(a) { return ! a.command; }),
   'translationReady false → variant C is not listed');
 test(actsCOff.length === 2, 'variants A and B still list without a translation provider');
+
+// Ambiguity: two models in one file suppress A and B (buildAddExtractEdit
+// returns null), so C — which runs the same builder after a network round
+// trip — must not be offered either. A listed action that is guaranteed to
+// fail once clicked is worse than no action.
+var TWO_MODEL_SRC = SRC + SRC;
+var ambigDiag = diagHC.handle(TWO_MODEL_SRC, 'file:///t/Two.js').filter(function(d) {
+  return d.code === 'i18n-hardcoded-display-string';
+})[0];
+var actsAmbig = caC.handle(TWO_MODEL_SRC, ambigDiag.range, { diagnostics: [ambigDiag] }, 'file:///t/Two.js');
+test(actsAmbig.length === 0,
+  'ambiguous file: A/B unbuildable → variant C is not offered either (no dead-end action)');
 
 var i18nNoLangs = foam.parse.lsp.handlers.I18nHandler.create({
   index: index, cache: cache, translationReady: true, activeModel: 'stub' });   // targetLanguages empty
@@ -472,11 +494,22 @@ var done = (async function() {
     var reconfDet = await reconfProv.detect();
     test(reconfDet.available === false,
       'reassigning endpoints clears the cached positive result (no stale availability)');
+  } catch (e) {
+    test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
+  } finally {
+    mock.close();
+    tagMock.close();
+    negMock.close();
+  }
+})();
 
-    // --- executeCommand -------------------------------------------------
-    // Driven with a STUB provider (plain object with detect/translate), so
-    // these tests exercise the command's own edit-building and error
-    // contracts without an HTTP round trip.
+// executeCommand is async but needs NO network — it runs against a stub
+// provider. It gets its own async block (and its own catch) rather than
+// riding along in the mock-server one above: sharing that try means any
+// mock-server hiccup collapses into a single generic assertion and silently
+// skips every command-contract test after it.
+var cmdDone = (async function() {
+  try {
     section('I18nHandler — executeCommand');
     var stubProvider = {
       detect: async function() { return { available: true, model: 'stub' }; },
@@ -569,12 +602,9 @@ var done = (async function() {
     } catch (e) { noProvErr = e; }
     test(noProvErr && /provider/.test(noProvErr.message), 'no provider wired → throws instead of building an edit');
   } catch (e) {
-    test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
-  } finally {
-    mock.close();
-    tagMock.close();
-    negMock.close();
+    test(false, 'I18nHandler executeCommand test threw: ' + e.message);
   }
 })();
 
-module.exports = { done: done };
+// Both async blocks are independent; the entrypoint awaits this one promise.
+module.exports = { done: Promise.all([ done, cmdDone ]) };

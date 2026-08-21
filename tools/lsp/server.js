@@ -838,6 +838,11 @@ function start() {
         }).catch(function(e) {
           notify('window/showMessage', { type: 1 /* Error */, message: 'FOAM i18n: ' + e.message });
           respond(id, null);   // executeCommand's result is unspecified; errors surface via showMessage
+        }).catch(function(e) {
+          // Last resort: the reporting itself failed — a client that died
+          // mid-command makes the stdout write throw (EPIPE), and an
+          // unhandled rejection would take the whole server down with it.
+          console.error('[LSP] executeCommand reporting failed:', e.message);
         });
         break;
       }

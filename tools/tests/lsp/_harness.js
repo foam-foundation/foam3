@@ -76,6 +76,7 @@ var cssTokenResolver  = foam.parse.lsp.CSSTokenResolver.create();
 cssTokenResolver.loadFromRegistry();
 var hoverHandler      = foam.parse.lsp.handlers.HoverHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
 var diagHandler       = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index });
+var i18nHandler       = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache });
 var defHandler        = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
 var semanticHandler   = foam.parse.lsp.handlers.SemanticTokenHandler.create({ index: index, cache: cache, typeTracker: typeTracker });
 
@@ -97,6 +98,7 @@ module.exports = {
   cssTokenResolver:  cssTokenResolver,
   hoverHandler:      hoverHandler,
   diagHandler:       diagHandler,
+  i18nHandler:       i18nHandler,
   defHandler:        defHandler,
   semanticHandler:   semanticHandler,
 

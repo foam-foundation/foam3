@@ -13,7 +13,7 @@ foam.CLASS({
   properties: [
     { name: 'index' },
     { name: 'cssTokenResolver' },
-    { name: 'diagnosticsHandler' }
+    { name: 'i18nHandler' }
   ],
 
   methods: [
@@ -71,10 +71,10 @@ foam.CLASS({
         }
 
         // Hardcoded display string → extract to a messages: entry (i18n)
-        if ( diag.code === 'i18n-hardcoded-display-string' && this.diagnosticsHandler ) {
+        if ( diag.code === 'i18n-hardcoded-display-string' && this.i18nHandler ) {
           var hsMatch = diag.message.match(/Hardcoded display string "([^"]+)"/);
           if ( hsMatch ) {
-            var i18nEdit = this.diagnosticsHandler.buildAddExtractEdit(text, hsMatch[1], uri, diag.range);
+            var i18nEdit = this.i18nHandler.buildAddExtractEdit(text, hsMatch[1], uri, diag.range);
             if ( i18nEdit ) {
               actions.push({
                 title:       "Extract '" + hsMatch[1] + "' to a messages: entry",

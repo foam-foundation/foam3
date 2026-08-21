@@ -222,7 +222,7 @@ Passed via LSP `initializationOptions.foam.i18n` (all optional):
 
 | Key | Default | Notes |
 |---|---|---|
-| `languages` | every distinct `locale` in `journals/locales.jrl` | Target language codes, e.g. `['fr', 'de']` |
+| `languages` | every distinct `locale` in `journals/locales.jrl`, excluding `sourceLanguage` | Target language codes, e.g. `['fr', 'de']` |
 | `sourceLanguage` | `'en'` | Language the bare `message:` value is written in |
 | `endpoint` | `http://127.0.0.1:11434`, `http://127.0.0.1:1234` | Also settable via the `OLLAMA_HOST` env var |
 | `model` | `translategemma:4b` | Also settable via the `OLLAMA_TRANSLATION_MODEL` env var |

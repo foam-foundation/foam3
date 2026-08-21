@@ -110,6 +110,45 @@ var i18nOff = foam.parse.lsp.handlers.I18nHandler.create({
 test(i18nOff.scanMissingLanguages('file:///t/HasMsgs.js', MSGS).length === 0,
   'no provider → no scan results (gating)');
 
+section('I18nHandler — scanMissingLanguages_ whole-file guard (finding B)');
+// Two foam.CLASS blocks / two messages: arrays — findEntrySpan_ and
+// buildAddExtractEdit already refuse this shape (ambiguous insertion
+// target). Before the fix, scanMissingLanguages_ had no matching guard, so
+// it happily surfaced HINTs (editor lane) / dry-run strings (MCP lane) for
+// entries the builders would then refuse to write an edit for — a dead end
+// either way.
+var TWO_MODEL_MSGS = MSGS + MSGS;
+test(i18nT.scanMissingLanguages_('file:///t/TwoMsgs.js', TWO_MODEL_MSGS).length === 0,
+  'multi-model file: scanMissingLanguages_ returns [] instead of offering dead-end HINTs');
+test(i18nT.scanMissingLanguages('file:///t/TwoMsgs.js', TWO_MODEL_MSGS).length === 0,
+  'multi-model file: the gated public scanMissingLanguages also returns []');
+var diagMultiModel = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: cache, i18nHandler: i18nT })
+  .handle(TWO_MODEL_MSGS, 'file:///t/TwoMsgs.js').filter(function(d) { return d.code === 'i18n-missing-language'; });
+test(diagMultiModel.length === 0, 'multi-model file: end-to-end, no i18n-missing-language HINT diagnostics are emitted at all');
+// The dry-run MCP lane's guard (dryRunTranslateStrings, via
+// resolveTranslateTargets_ -> scanMissingLanguages_ directly, not the gated
+// scanMissingLanguages) is exercised in the async 'srvDone' block below,
+// alongside the rest of the dryRunTranslateStrings coverage.
+
+section('I18nHandler — scanMissingLanguages_ HINT anchor scoping (finding F)');
+// A property sharing a message's name, declared BEFORE the messages: array,
+// used to win the unscoped whole-file "first match" search for `name: 'DONE'`
+// — misplacing the HINT squiggle on the property instead of the message
+// entry. Scoping the search to start at `messages: [` fixes it.
+var SHADOW_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Shadow',\n  properties: [\n" +
+  "    { class: 'String', name: 'DONE', value: 'not the message' }\n  ],\n  messages: [\n" +
+  "    { name: 'DONE', message: 'Done' }\n  ]\n});\n";
+var scanShadow = i18nT.scanMissingLanguages_('file:///t/Shadow.js', SHADOW_SRC);
+test(scanShadow.length === 1, 'shadow fixture: exactly one missing-language hit (the DONE message entry)');
+var msgsArrOffset   = SHADOW_SRC.indexOf('messages: [');
+var expectedNameIdx = SHADOW_SRC.indexOf("name: 'DONE'", msgsArrOffset);
+var propNameIdx     = SHADOW_SRC.indexOf("name: 'DONE'");
+test(expectedNameIdx > propNameIdx, 'sanity: the fixture\'s decoy property name: comes before the real messages: entry');
+var expectedPos = h.analyzer.offsetToPosition(SHADOW_SRC, expectedNameIdx);
+test(scanShadow.length === 1 && scanShadow[0].range.start.line === expectedPos.line &&
+  scanShadow[0].range.start.character === expectedPos.character,
+  'HINT anchor points at the messages: entry\'s own name:, not the earlier decoy property');
+
 section('I18nHandler — buildMessageMapEdit');
 var mmEdit = i18nT.buildMessageMapEdit(MSGS, 'DONE', { fr: 'Terminé' }, 'file:///t/HasMsgs.js');
 test(!! mmEdit, 'edit produced for entry without map');
@@ -204,6 +243,68 @@ var REGION_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Region',\n  message
 test(i18nT.buildMessageMapEdit(REGION_SRC, 'HI', { 'fr-CA': 'Allo' }, 'file:///t/Region.js') === null,
   'an already-present quoted key is recognized → no duplicate key appended');
 
+section('I18nHandler — buildMessageMapEdit existing-map edge cases (finding A)');
+
+// Merge a single-edit WorkspaceEdit into its source text via the same
+// position->offset math the real client/MCP applier uses, so these tests
+// assert against the ACTUAL resulting source, not just the raw newText.
+function applyOneEdit_(text, editObj, uri) {
+  var e = editObj.changes[uri][0];
+  var start = h.analyzer.positionToOffset(text, e.range.start);
+  var end   = h.analyzer.positionToOffset(text, e.range.end);
+  return text.slice(0, start) + e.newText + text.slice(end);
+}
+
+// (a) empty map — `messageMap: {}`. Before the fix this produced
+// `{ , fr: 'y' }` (leading comma with nothing before it): a syntax error.
+var EMPTY_MAP_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'EmptyMap',\n  messages: [\n" +
+  "    { name: 'EMP', message: 'x', messageMap: {} }\n  ]\n});\n";
+var mmEmpty = i18nT.buildMessageMapEdit(EMPTY_MAP_SRC, 'EMP', { fr: 'y' }, 'file:///t/EmptyMap.js');
+test(!! mmEmpty, 'empty messageMap: {} still produces an edit');
+test(mmEmpty && mmEmpty.changes['file:///t/EmptyMap.js'][0].newText === " fr: 'y' ",
+  'empty map: inserted text is space-padded on both sides, no leading comma');
+var emptyMerged = mmEmpty && applyOneEdit_(EMPTY_MAP_SRC, mmEmpty, 'file:///t/EmptyMap.js');
+test(!! emptyMerged && emptyMerged.indexOf("messageMap: { fr: 'y' }") !== -1,
+  'empty map: merged source reads exactly messageMap: { fr: \'y\' } — valid JS, {} becomes a single-entry map');
+var emptyMMMatch = emptyMerged && /messageMap:\s*(\{[^}]*\})/.exec(emptyMerged);
+var emptyMMObj   = emptyMMMatch && new Function('return ' + emptyMMMatch[1])();
+test(!! emptyMMObj && emptyMMObj.fr === 'y',
+  'empty map: the rewritten messageMap literal is syntactically valid JS (eval-checked), fr present');
+
+// (b) trailing comma — `messageMap: { en: 'x', }`. Before the fix this
+// produced `{ en: 'x', , fr: 'y' }` (double comma): also a syntax error.
+var TRAIL_COMMA_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'TrailComma',\n  messages: [\n" +
+  "    { name: 'TC', message: 'x', messageMap: { en: 'x', } }\n  ]\n});\n";
+var mmTrail = i18nT.buildMessageMapEdit(TRAIL_COMMA_SRC, 'TC', { fr: 'y' }, 'file:///t/TrailComma.js');
+test(!! mmTrail, 'trailing-comma messageMap still produces an edit');
+test(mmTrail && mmTrail.changes['file:///t/TrailComma.js'][0].newText === " fr: 'y'",
+  'trailing-comma map: inserted text has a single leading space, no leading comma (the existing comma already separates)');
+var trailMerged = mmTrail && applyOneEdit_(TRAIL_COMMA_SRC, mmTrail, 'file:///t/TrailComma.js');
+test(!! trailMerged && trailMerged.indexOf("messageMap: { en: 'x', fr: 'y' }") !== -1,
+  'trailing-comma map: merged source reads exactly messageMap: { en: \'x\', fr: \'y\' } — no double comma');
+var trailMMMatch = trailMerged && /messageMap:\s*(\{[^}]*\})/.exec(trailMerged);
+var trailMMObj   = trailMMMatch && new Function('return ' + trailMMMatch[1])();
+test(!! trailMMObj && trailMMObj.en === 'x' && trailMMObj.fr === 'y',
+  'trailing-comma map: the rewritten messageMap literal is syntactically valid JS (eval-checked), en+fr present');
+
+// (c) regression guard: the ordinary append case (no trailing comma, real
+// content already present) must be untouched by the new branching.
+var mmNormalStillWorks = i18nT.buildMessageMapEdit(MSGS, 'PART', { fr: 'Partie' }, 'file:///t/HasMsgs.js');
+test(mmNormalStillWorks && /, fr: 'Partie'/.test(mmNormalStillWorks.changes['file:///t/HasMsgs.js'][0].newText),
+  'ordinary existing-map append (no trailing comma) is unaffected by the edge-case fix');
+
+section('I18nHandler — messageMapKey_ sanitizes quoted-form language codes (finding D)');
+test(i18nT.messageMapKey_('fr') === 'fr', 'a plain identifier language code stays bare');
+test(i18nT.messageMapKey_('fr-CA') === "'fr-CA'", 'a regional code still quotes normally');
+var badKeyErr = null;
+try { i18nT.messageMapKey_("fr'); alert(1); //"); } catch (e) { badKeyErr = e; }
+test(!! badKeyErr && badKeyErr.message.indexOf("fr'); alert(1); //") !== -1,
+  'a language code with characters unsafe inside a quoted key throws, naming the offending code');
+var badKeyErr2 = null;
+try { i18nT.buildMessageMapEdit(MSGS, 'DONE', { "x\" + evil + \"": 'y' }, 'file:///t/HasMsgs.js'); }
+catch (e) { badKeyErr2 = e; }
+test(!! badKeyErr2, 'an unsafe language code reaching buildMessageMapEdit through a translations payload throws too');
+
 section('I18nHandler — applyTranslations (placeholder validation)');
 
 // A ${...} sentinel (not the bare {name} FOAM already uses elsewhere in this
@@ -287,6 +388,18 @@ test(actsMulti[2].command.arguments[0].languages.length === 2 &&
 var caOff = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nOff });
 var actsOff = caOff.handle(MSGS, missDiagFr.range, { diagnostics: [missDiagFr] }, 'file:///t/HasMsgs.js');
 test(actsOff.length === 0, 'translationReady false → zero translate actions');
+
+// finding G2: action D's gate was translationReady-only — languages come
+// from the diagnostic message text, not targetLanguages, so nothing stopped
+// it offering a "translate" action against a hand-built (or stale, editor-
+// cached) diagnostic even once targetLanguages had been reconfigured to
+// empty. Mirrors variant C's existing targetLanguages gate below.
+var i18nDNoLangs = foam.parse.lsp.handlers.I18nHandler.create({
+  index: index, cache: cache, translationReady: true, activeModel: 'translategemma:4b' });   // targetLanguages empty
+var caDNoLangs = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nDNoLangs });
+var actsDNoLangs = caDNoLangs.handle(MSGS, missDiagFr.range, { diagnostics: [missDiagFr] }, 'file:///t/HasMsgs.js');
+test(actsDNoLangs.length === 0,
+  'action D: no target languages configured → zero translate actions even with a ready provider');
 
 section('CodeActionHandler — variant C (extract + translate)');
 // Drive variant C off a REAL hardcoded-display-string diagnostic so the
@@ -684,6 +797,13 @@ var srvDone = (async function() {
       dryOne.targetLanguages[0] === 'de',
       'dryRunTranslateStrings: explicit messageName + languages override the scan/targetLanguages defaults');
 
+    // finding B: the multi-model whole-file guard applies to the dry-run MCP
+    // lane too (resolveTranslateTargets_ -> scanMissingLanguages_ directly),
+    // not just the gated diagnostic-facing scanMissingLanguages.
+    var dryMultiModel = await i18nSrv.dryRunTranslateStrings('file:///t/TwoMsgs.js', MSGS + MSGS, undefined, undefined);
+    test(Object.keys(dryMultiModel.strings).length === 0,
+      'dryRunTranslateStrings: multi-model file surfaces nothing to translate, not a dead-end payload');
+
     // CRITICAL regression: the MCP wrapper's foam_i18n_translate hits the
     // dryRun branch EXACTLY WHEN foam/i18nStatus said translationReady is
     // false (no local model reachable) — that is the one situation dryRun
@@ -745,6 +865,25 @@ var mcpDone = (async function() {
       test(payload.targetLanguages.length === 1 && payload.targetLanguages[0] === 'fr',
         'needs-translations payload carries targetLanguages');
 
+      // finding E: provider down AND nothing actually needs translating
+      // (e.g. messageName pinned to an already-fully-translated entry) must
+      // not return an empty needs-translations payload with the full
+      // boilerplate instructions — there is nothing for the agent to do
+      // with that. A dedicated status says so instead.
+      var lspDownEmpty = { ensureOpen: async function() {},
+        request: async function(method) {
+          if ( method === 'foam/i18nStatus' )    return { available: false, targetLanguages: ['fr'] };
+          if ( method === 'foam/i18nTranslate' ) return { strings: {}, targetLanguages: ['fr'] };
+          throw new Error('unexpected: ' + method);
+        } };
+      var outEmpty = await mcp.callTool(lspDownEmpty, os2.tmpdir(), 'foam_i18n_translate',
+        { file: tmpFile, messageName: 'SAVED' });
+      var payloadEmpty = JSON.parse(outEmpty);
+      test(payloadEmpty.status === 'nothing-to-translate',
+        'provider down + nothing to translate → nothing-to-translate status, not an empty needs-translations payload');
+      test(Object.keys(payloadEmpty).length === 1,
+        'nothing-to-translate payload carries no leftover empty strings/instructions fields');
+
       // Phase 2: apply writes disk via the returned edit. The insertion
       // position is computed programmatically (right after `message: 'Done'`
       // in MSGS) rather than a hand-counted line/character literal.
@@ -769,6 +908,25 @@ var mcpDone = (async function() {
         'apply tool returns a text summary');
       test(h.fs.readFileSync(tmpFile, 'utf8').indexOf("fr: 'Terminé'") !== -1,
         'apply tool wrote the edit to disk');
+
+      // finding C: applyTranslations can legally produce zero edits (every
+      // requested language already present for every message name in the
+      // payload) — the apply tool must say so and NOT write to disk, rather
+      // than unconditionally claiming "translations applied".
+      var editForApplyEmpty = { changes: {} };
+      editForApplyEmpty.changes['file://' + tmpFile] = [];
+      var lspApplyEmpty = { ensureOpen: async function() {},
+        request: async function(method) {
+          if ( method === 'foam/i18nApply' ) return { edit: editForApplyEmpty, warnings: [] };
+          throw new Error('unexpected: ' + method);
+        } };
+      var beforeApplyEmpty = h.fs.readFileSync(tmpFile, 'utf8');
+      var out3 = await mcp.callTool(lspApplyEmpty, os2.tmpdir(), 'foam_i18n_apply',
+        { file: tmpFile, translations: { SAVED: { fr: 'Enregistré' } } });
+      test(typeof out3 === 'string' && out3.indexOf('nothing to apply') !== -1,
+        'apply tool: zero edits → nothing-to-apply message, not a false "applied" success claim');
+      test(h.fs.readFileSync(tmpFile, 'utf8') === beforeApplyEmpty,
+        'apply tool: zero-edit response never writes to disk');
     } finally {
       h.fs.unlinkSync(tmpFile);
     }

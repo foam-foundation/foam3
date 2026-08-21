@@ -173,7 +173,7 @@ provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
 **Config** — `server.js:477-509` reads `initializationOptions.foam.i18n`:
 - `languages` — target language codes. Falls back to every distinct `locale`
   in `journals/locales.jrl` (`I18nHandler.deriveLanguagesFromJournals`,
-  `handlers/I18nHandler.js:861-889`) when unset or `[]`.
+  `handlers/I18nHandler.js:930-958`) when unset or `[]`.
 - `sourceLanguage` — language the bare `message:` value is written in
   (default `'en'`); seeds `messageMap[sourceLanguage]` when a map is created.
 - `endpoint` / `model` — provider config; `OLLAMA_HOST` / `OLLAMA_TRANSLATION_MODEL`
@@ -182,20 +182,26 @@ provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
 **Provider** — `HttpChatProvider` (`I18nProviders.js`) is OpenAI-compatible
 (`/v1/models` + `/v1/chat/completions`): Ollama, LM Studio, llama.cpp, vLLM
 all work. `detect()` caches a positive result for the session and a negative
-one for `negativeCacheTtlMs` (60s default) so a down server isn't hammered but
-a server started mid-session is noticed soon after (`I18nProviders.js:74-136`).
+one for `negativeCacheTtlMs` (60s default) so a down server isn't hammered
+(`I18nProviders.js:74-136`). Whether a server started mid-session is noticed
+soon after depends on the lane: the MCP lane re-probes on every call
+(`foam/i18nStatus` → `refreshAvailability()`, `server.js:788-792`), so it's
+noticed within `negativeCacheTtlMs`. The editor lane probes exactly once, at
+boot (`server.js:512`) — a model that comes up mid-session is never noticed
+without a restart; see the README's Troubleshooting section for the same
+restart advice from the user's side.
 Placeholder sentinels (`${...}`, `{0}`, `%s`, HTML tags/entities —
-`PLACEHOLDER_PATTERN`, `I18nProviders.js:357`) are token-protected before the
+`PLACEHOLDER_PATTERN`, `I18nProviders.js:361`) are token-protected before the
 prompt and restored after, with a warning on any sentinel a model drops.
 
 **Gating** — `translationReady` (`I18nHandler.js:41-42`) is set by
 `refreshAvailability()` probing `provider.detect()`, fired at boot as
 fire-and-forget (`server.js:512`, never awaited by `initialize`). It gates:
-- `scanMissingLanguages()` (`I18nHandler.js:431-448`) — the public,
+- `scanMissingLanguages()` (`I18nHandler.js:442-459`) — the public,
   diagnostic/code-action-facing entry point; no confirmed provider means no
   unsolicited HINT/action noise.
 - Code action C ("extract + translate") and D ("translate missing") in
-  `CodeActionHandler.js:111-112,132` — both also require non-empty
+  `CodeActionHandler.js:111-112,140-141` — both also require non-empty
   `targetLanguages`.
 
 The *internal* `scanMissingLanguages_()` (trailing underscore) is UNGATED —
@@ -221,7 +227,7 @@ and `translationReady === false` is exactly the situation dry-run exists for
   source survives in every offered translation before building any edit
   (`server.js:825-840`, `handlers/I18nHandler.js:236-298`).
 
-**MCP two-phase dance** (`editors/mcp/server.js:757-802`) — `foam_i18n_translate`
+**MCP two-phase dance** (`editors/mcp/server.js:757-819`) — `foam_i18n_translate`
 calls `foam/i18nStatus` first:
 - provider up → calls `foam/i18nTranslate` for real, writes the resulting edit
   straight to disk (`applyWorkspaceEdit`, `editors/mcp/server.js:82-96` — no
@@ -231,10 +237,16 @@ calls `foam/i18nStatus` first:
   for the calling agent to translate itself, which it then hands back via
   `foam_i18n_apply` → `foam/i18nApply` → same placeholder-validated edit,
   applied to disk the same way.
+- Both tools report honestly when there's nothing to do, rather than a blanket
+  success: `foam_i18n_translate` returns `{ status: 'nothing-to-translate' }`
+  when the dry-run scan found no missing strings, and `foam_i18n_apply`
+  returns a "nothing to apply" message (no disk write) when every requested
+  language was already present — `applyTranslations` legally builds zero
+  edits in that case.
 
 ## Metrics
-- ~3800 lines of LSP code
-- 123 automated tests
+- ~19,800 lines of LSP code
+- ~1,200 assertions across the automated test suite
 - 4310 classes indexed
 - 76 property types
 - Boot time: ~10-15s

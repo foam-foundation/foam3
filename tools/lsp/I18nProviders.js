@@ -249,13 +249,15 @@ foam.CLASS({
       var tokenMap = [];
       // this.PLACEHOLDER_PATTERN (constants: below) is shared with
       // I18nHandler.applyTranslations, which re-derives the same sentinel
-      // spans from a translation to verify none were lost — one regex, so
-      // the two can't drift apart. The constant is deliberately NON-global
-      // (no 'g' flag) so a .test()-based caller (applyTranslations) can
-      // never be corrupted by another caller's stale lastIndex. THIS site
-      // needs a 'g' matcher (text.replace() below matches every occurrence),
-      // so it builds its own RegExp from .source rather than mutating —
-      // or being handed — the shared instance.
+      // spans from a translation (via extractPlaceholders_'s exec-in-a-loop,
+      // then indexOf against each offered translation) to verify none were
+      // lost — one regex, so the two can't drift apart. The constant is
+      // deliberately NON-global (no 'g' flag) so a caller building its own
+      // 'g' RegExp from .source (as extractPlaceholders_ and THIS site both
+      // do) can never be corrupted by another caller's stale lastIndex on
+      // the shared instance. THIS site needs a 'g' matcher (text.replace()
+      // below matches every occurrence), so it builds its own RegExp from
+      // .source rather than mutating — or being handed — the shared instance.
       var pattern = new RegExp(this.PLACEHOLDER_PATTERN.source, 'g');
 
       var protectedText = text.replace(pattern, function(value) {
@@ -350,10 +352,12 @@ foam.CLASS({
 
   constants: {
     // No 'g' flag here on purpose — a global regex carries mutable
-    // lastIndex state across calls, which .test() in a validation loop
-    // (I18nHandler.applyTranslations) would corrupt. Callers that need a
-    // 'g' matcher (protectText_ above) build their own RegExp from
-    // .source rather than sharing this instance.
+    // lastIndex state across calls, which would corrupt a caller matching
+    // repeatedly against this shared instance (e.g. I18nHandler's
+    // extractPlaceholders_, which exec()s it in a loop to validate every
+    // placeholder in a translation via indexOf). Callers that need a 'g'
+    // matcher (protectText_ above, extractPlaceholders_) build their own
+    // RegExp from .source rather than sharing this instance.
     PLACEHOLDER_PATTERN: /\$\{[^}]+\}|\{\d+\}|%[sdifjoO]|<\/?[A-Za-z][^>]*>|&[A-Za-z0-9#]+;/,
 
     LANGUAGE_NAMES: {

@@ -766,9 +766,18 @@ async function callTool(lsp, projectRoot, name, args) {
         const dry = await lsp.request('foam/i18nTranslate', {
           uri: uri, messageName: args.messageName, languages: args.languages, dryRun: true
         });
+        const strings = ( dry && dry.strings ) || {};
+        // Nothing needs translating (every target language is already
+        // present — messageName pinned to an already-complete entry, or a
+        // scan that found nothing missing): an empty needs-translations
+        // payload with the full instructions text reads as "go translate
+        // nothing", which is not actionable. Say so plainly instead.
+        if ( Object.keys(strings).length === 0 ) {
+          return JSON.stringify({ status: 'nothing-to-translate' });
+        }
         return JSON.stringify({
           status:          'needs-translations',
-          strings:         ( dry && dry.strings ) || {},
+          strings:         strings,
           targetLanguages: ( dry && dry.targetLanguages ) ||
             ( status && status.targetLanguages ) || [],
           instructions: 'Translate each string into each target language, preserving ${...} ' +
@@ -796,9 +805,19 @@ async function callTool(lsp, projectRoot, name, args) {
       const uri = normalizeUri(args.file, projectRoot);
       await lsp.ensureOpen(uri);
       const res = await lsp.request('foam/i18nApply', { uri: uri, translations: args.translations || {} });
+      // applyTranslations legally produces zero edits — every requested
+      // language was already present for every message name in the payload
+      // (buildMessageMapEdit's no-op contract). Reporting "applied" then
+      // would be a false success claim (and there is nothing to write to
+      // disk, so skip applyWorkspaceEdit entirely rather than write nothing
+      // and call it done).
+      const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
+      if ( edits.length === 0 ) {
+        return relPath(uri, projectRoot) + ': nothing to apply — all languages already present.';
+      }
       applyWorkspaceEdit(res.edit);
       const warn = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
-      return relPath(uri, projectRoot) + ': translations applied. Warnings: ' + warn;
+      return relPath(uri, projectRoot) + ': ' + edits.length + ' entries updated. Warnings: ' + warn;
     }
     default:
       throw new Error('Unknown tool: ' + name);

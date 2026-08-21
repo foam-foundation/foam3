@@ -129,7 +129,16 @@ foam.CLASS({
 
         // Missing-language messageMap gap → translate via the active provider
         // (edit-less command this task; Task 6 wires foam.i18n.translateMessage).
-        if ( diag.code === 'i18n-missing-language' && this.i18nHandler && this.i18nHandler.translationReady ) {
+        // Gated on non-empty targetLanguages too, like variant C above — a
+        // diagnostic object handed straight to handle() (a stale one from an
+        // editor, a hand-built test fixture) could still carry
+        // 'i18n-missing-language' after targetLanguages was reconfigured to
+        // empty, and this handler's languages come from the diagnostic
+        // message text, not from targetLanguages, so nothing else would stop
+        // it (foam3#5283 review finding G2 — the doc claimed this gate
+        // already existed; it didn't).
+        if ( diag.code === 'i18n-missing-language' && this.i18nHandler && this.i18nHandler.translationReady &&
+             ( this.i18nHandler.targetLanguages || [] ).length ) {
           var nameM = diag.message.match(/Message "([^"]+)" has no ([^ ]+(?:, [^ ]+)*) translation/);
           if ( nameM ) {
             var langsD = nameM[2].split(', ');

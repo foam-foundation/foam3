@@ -424,8 +424,19 @@ foam.CLASS({
     function messageMapKey_(lang) {
       /** A messageMap key as it must appear in source: bare when the language
        *  code is a valid JS identifier ('fr'), quoted when it isn't ('fr-CA',
-       *  'zh-Hant') — an unquoted `fr-CA:` is a syntax error. */
-      return /^[A-Za-z_$][\w$]*$/.test(lang) ? lang : "'" + lang + "'";
+       *  'zh-Hant') — an unquoted `fr-CA:` is a syntax error. The quoted-form
+       *  fallback is validated (unlike a translation VALUE, which is always
+       *  escaped via escapeJsString_): a language code reaching this method
+       *  can come from workspace config or an agent-supplied translations
+       *  payload (applyTranslations), so an embedded quote/backslash there
+       *  would break out of the emitted string literal rather than just
+       *  mistranslate. Throws, naming the offending code, rather than
+       *  writing unsafe source. */
+      if ( /^[A-Za-z_$][\w$]*$/.test(lang) ) return lang;
+      if ( ! /^[A-Za-z0-9@_$-]+$/.test(lang) ) {
+        throw new Error('Invalid language code for a messageMap key: "' + lang + '"');
+      }
+      return "'" + lang + "'";
     },
 
     function scanMissingLanguages(uri, text) {
@@ -459,12 +470,28 @@ foam.CLASS({
        * availability: no target languages configured means there is
        * nothing to scan for, regardless of caller. Returns
        * [{ name, missing: [lang, ...], range }] — never null.
+       *
+       * Whole-file guard (isMultiModelFile_): a multi-model file offers no
+       * single unambiguous `messages: [` array or entry span for the
+       * builders (findEntrySpan_, buildAddExtractEdit) to write into — this
+       * scanner used to have no such guard, so it would surface a HINT
+       * (editor lane) or dry-run strings (MCP lane) for work the builders
+       * then refused, a dead end either way (foam3#5283 review finding B).
        */
+      if ( this.isMultiModelFile_(text) ) return [];
       var langs = this.targetLanguages || [];
       if ( ! langs.length ) return [];
       var out = [];
       var models = this.cache.getModels(uri || '', text);
       if ( ! models ) return out;
+      // Position search is scoped to start at the `messages: [` array's own
+      // `[` (never the whole file) — a same-named `name:` key elsewhere in
+      // the file (e.g. a property sharing a message's name) would otherwise
+      // be matched first and misplace the HINT squiggle at the wrong spot
+      // (foam3#5283 review finding F). isMultiModelFile_ above already
+      // guarantees at most one `messages: [` array exists.
+      var arrM = /messages\s*:\s*\[/.exec(text);
+      var searchFrom = arrM ? arrM.index : 0;
       for ( var m = 0 ; m < models.length ; m++ ) {
         var msgs = models[m].messages || [];
         for ( var i = 0 ; i < msgs.length ; i++ ) {
@@ -475,19 +502,42 @@ foam.CLASS({
           if ( ! missing.length ) continue;
           // Position: the name literal of this entry in source text.
           var re = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(msg.name) + "['\"]");
-          var pm = re.exec(text);
+          var pm = re.exec(text.slice(searchFrom));
           if ( ! pm ) continue;
+          var absIndex = searchFrom + pm.index;
           out.push({
             name:    msg.name,
             missing: missing,
             range: {
-              start: this.analyzer.offsetToPosition(text, pm.index),
-              end:   this.analyzer.offsetToPosition(text, pm.index + pm[0].length)
+              start: this.analyzer.offsetToPosition(text, absIndex),
+              end:   this.analyzer.offsetToPosition(text, absIndex + pm[0].length)
             }
           });
         }
       }
       return out;
+    },
+
+    function isMultiModelFile_(text) {
+      /**
+       * True when `text` can't be treated as a single flat model for
+       * regex-based structural edits: more than one top-level `foam.CLASS(`,
+       * an inline nested `classes:` block, or a duplicated `messages:` array
+       * — any of these make "the messages: array" or "the entry" ambiguous
+       * without real parsing. Shared by findEntrySpan_, buildAddExtractEdit,
+       * and scanMissingLanguages_ so all three refuse the same file shapes
+       * consistently (foam3#5283 review finding B — before this, the scanner
+       * offered HINTs/dry-run strings for files the builders would then
+       * refuse to edit, a dead end for both the editor and MCP lanes).
+       * buildAddExtractEdit additionally refuses a duplicated `properties:`
+       * block, which is specific to where IT inserts and isn't part of this
+       * shared check.
+       */
+      var classMatches = text.match(/foam\.CLASS\s*\(/g);
+      if ( ! classMatches || classMatches.length !== 1 ) return true;
+      if ( /\bclasses\s*:\s*\[/.test(text) ) return true;
+      if ( ( text.match(/\bmessages\s*:\s*\[/g) || [] ).length > 1 ) return true;
+      return false;
     },
 
     function findEntrySpan_(text, messageName) {
@@ -508,14 +558,10 @@ foam.CLASS({
        * as a `name:` key inside exactly one top-level entry (not found, or
        * ambiguous — two entries share the name, or the messages: array
        * itself is duplicated), or the file has more than one top-level
-       * model / nested `classes:` (same whole-file guards buildAddExtractEdit
-       * uses — model-boundary-aware insertion needs real parsing, not a
-       * regex).
+       * model / nested `classes:` (isMultiModelFile_ above — model-boundary-
+       * aware insertion needs real parsing, not a regex).
        */
-      var classMatches = text.match(/foam\.CLASS\s*\(/g);
-      if ( ! classMatches || classMatches.length !== 1 ) return null;
-      if ( /\bclasses\s*:\s*\[/.test(text) ) return null;
-      if ( ( text.match(/\bmessages\s*:\s*\[/g) || [] ).length > 1 ) return null;
+      if ( this.isMultiModelFile_(text) ) return null;
 
       var arrM = /messages\s*:\s*\[/.exec(text);
       if ( ! arrM ) return null;
@@ -662,11 +708,37 @@ foam.CLASS({
           }
         }
         if ( mapEndRel === -1 ) return null;
-        var existingKeys = this.mapKeys_(entrySpan.substring(mapOpenRel + 1, mapEndRel));
+        var mapContent = entrySpan.substring(mapOpenRel + 1, mapEndRel);
+        var existingKeys = this.mapKeys_(mapContent);
         var mapParts = this.translationParts_(translations, existingKeys);
         if ( ! mapParts.length ) return null;   // every requested language already present
-        insertOffset = span.start + mapEndRel;
-        newText = ', ' + mapParts.join(', ');
+
+        // What's already between the braces decides how the insertion joins
+        // it — naively prepending ', ' before the closing `}` writes invalid
+        // JS for the two shapes below (foam3#5283 review finding A):
+        //   `{}` (or whitespace-only)  -> ', fr: ...'  would read '{ , fr: ... }'
+        //   `{ en: 'x', }` (trailing comma) -> ', fr: ...' would read '{ en: 'x', , fr: ... }'
+        // stripStrings_ masks quoted values (so a translation ending in a
+        // literal ',' can't be mistaken for a structural trailing comma)
+        // while keeping length/quote chars, so trailing-whitespace/char
+        // detection on the masked text maps back to real offsets in mapContent.
+        var maskedContent  = this.stripStrings_(mapContent);
+        var trimmedMasked  = maskedContent.replace(/\s+$/, '');
+        if ( trimmedMasked.length === 0 ) {
+          // Empty or whitespace-only map: no existing entries to join onto —
+          // pad with spaces so `{}` becomes `{ fr: '...' }`, not `{fr: '...'}`.
+          insertOffset = span.start + mapEndRel;
+          newText = ' ' + mapParts.join(', ') + ' ';
+        } else if ( trimmedMasked[trimmedMasked.length - 1] === ',' ) {
+          // Trailing comma already present: insert right after it (before any
+          // trailing whitespace) with no comma of our own — the existing one
+          // already separates the new pair from the last existing one.
+          insertOffset = span.start + mapOpenRel + 1 + trimmedMasked.length;
+          newText = ' ' + mapParts.join(', ');
+        } else {
+          insertOffset = span.start + mapEndRel;
+          newText = ', ' + mapParts.join(', ');
+        }
       } else {
         // No map yet: insert right after the entry's `message:` value. Left
         // boundary guard (`(?:^|[{,\s])`) keeps a property like
@@ -728,12 +800,9 @@ foam.CLASS({
        * - If the diagnostic range no longer lines up with the quoted literal, no edit is
        *   returned rather than risking a rewrite at the wrong occurrence.
        */
-      var classMatches = text.match(/foam\.CLASS\s*\(/g);
-      if ( ! classMatches || classMatches.length !== 1 ) return null;
       // Ambiguous nesting → the "first" messages:/properties: may belong to an inner class.
-      if ( /\bclasses\s*:\s*\[/.test(text) ) return null;
+      if ( this.isMultiModelFile_(text) ) return null;
       if ( ( text.match(/\bproperties\s*:\s*\[/g) || [] ).length > 1 ) return null;
-      if ( ( text.match(/\bmessages\s*:\s*\[/g)   || [] ).length > 1 ) return null;
 
       // With a range, read the literal (and its content) straight from source — the
       // range is authoritative and handles embedded quotes; the passed messageText may

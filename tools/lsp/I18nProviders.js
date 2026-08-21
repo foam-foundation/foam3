@@ -16,21 +16,29 @@ foam.CLASS({
     Talks to any local server exposing /v1/models + /v1/chat/completions —
     covers Ollama, LM Studio, llama.cpp, vLLM. Detection results are cached:
     a positive result for the whole session (the model isn't going to
-    disappear mid-session), a negative result for 60s (the user may still be
-    starting the server) so a missing model doesn't wedge translationReady
-    false forever without hammering the endpoint on every request either.`,
+    disappear mid-session), a negative result for negativeCacheTtlMs (the
+    user may still be starting the server) so a missing model doesn't wedge
+    translationReady false forever without hammering the endpoint on every
+    request either. Reconfiguring endpoints or model clears the cache.`,
 
   properties: [
     {
       class: 'StringArray',
       name: 'endpoints',
-      documentation: 'Base URLs probed in order by detect(). First one that answers /v1/models with this.model listed wins.',
-      factory: function() { return [ 'http://127.0.0.1:11434', 'http://127.0.0.1:1234' ]; }
+      documentation: 'Base URLs probed in order by detect(). First one that answers /v1/models with this.model listed wins. Each entry is normalized on set (see normalizeEndpoint_): a scheme-less host (Ollama\'s own documented OLLAMA_HOST format, e.g. "127.0.0.1:11434") gets http:// prepended, and trailing slashes are stripped.',
+      factory: function() { return [ 'http://127.0.0.1:11434', 'http://127.0.0.1:1234' ]; },
+      adapt: function(_, v) {
+        if ( ! Array.isArray(v) ) return v;
+        var self = this;
+        return v.map(function(h) { return self.normalizeEndpoint_(h); });
+      },
+      postSet: function() { this.clearCache_(); }
     },
     {
       class: 'String',
       name: 'model',
-      value: 'translategemma:4b'
+      value: 'translategemma:4b',
+      postSet: function() { this.clearCache_(); }
     },
     {
       class: 'String',
@@ -43,12 +51,22 @@ foam.CLASS({
       value: 30000
     },
     {
+      class: 'Int',
+      name: 'negativeCacheTtlMs',
+      documentation: 'How long a negative detect() result is honoured before re-probing. A property (not a literal) so tests can exercise TTL expiry without a real 60s sleep.',
+      value: 60000
+    },
+    {
       name: 'lastProbe_',
-      documentation: 'Date.now() timestamp of the last detect() probe — drives the 60s negative-cache TTL.'
+      documentation: 'Date.now() timestamp of the last detect() probe — drives the negativeCacheTtlMs negative-cache TTL. Cleared on endpoints/model reconfiguration.'
     },
     {
       name: 'lastResult_',
-      documentation: 'Cached { available, model, endpoint } from the last detect() probe.'
+      documentation: 'Cached { available, model, endpoint } from the last detect() probe. Cleared on endpoints/model reconfiguration.'
+    },
+    {
+      name: 'resolvedModel_',
+      documentation: 'The exact model id from the endpoint\'s /v1/models listing that matched this.model on the last successful detect() — e.g. "translategemma:4b-q4_0" for a configured "translategemma:4b". Ollama (and OpenAI-compatible servers generally) resolve chat requests by exact id, so translate() POSTs this, not the configured prefix. Cleared on endpoints/model reconfiguration.'
     }
   ],
 
@@ -60,16 +78,18 @@ foam.CLASS({
        * endpoint (connection refused, timeout, non-2xx, bad JSON) is just
        * skipped and the next endpoint tried. Returns
        * { available, model, endpoint }; endpoint is '' when none matched.
+       * `model` is the RESOLVED listing id (e.g. 'translategemma:4b-q4_0'),
+       * not necessarily the configured this.model — see resolvedModel_.
        *
        * Caching: a cached positive result is returned for the rest of the
        * session (no re-probing once a model is confirmed up). A cached
-       * negative result is only honoured for 60s — long enough to avoid
-       * hammering a down server on every call, short enough that starting
-       * the server after the LSP boots is noticed within a minute.
+       * negative result is only honoured for negativeCacheTtlMs — long
+       * enough to avoid hammering a down server on every call, short enough
+       * that starting the server after the LSP boots is noticed soon after.
        */
       if ( this.lastResult_ ) {
         if ( this.lastResult_.available ) return this.lastResult_;
-        if ( Date.now() - this.lastProbe_ < 60000 ) return this.lastResult_;
+        if ( Date.now() - this.lastProbe_ < this.negativeCacheTtlMs ) return this.lastResult_;
       }
 
       var self = this;
@@ -84,13 +104,22 @@ foam.CLASS({
           var models = ( json && json.data ) || [];
           // Substring match — Ollama model ids carry a tag/quant suffix
           // (e.g. 'translategemma:4b-q4_0') that an exact match would miss.
-          var found = models.some(function(m) {
-            return m && typeof m.id === 'string' && m.id.indexOf(self.model) !== -1;
-          });
-          if ( found ) {
-            var result = { available: true, model: this.model, endpoint: endpoint };
-            this.lastProbe_  = Date.now();
-            this.lastResult_ = result;
+          // Capture the MATCHED listing id (find, not some) — Ollama's chat
+          // endpoint resolves by exact id, so the configured prefix alone
+          // would 404 once the server actually runs a tagged variant.
+          var matched = null;
+          for ( var j = 0 ; j < models.length ; j++ ) {
+            var m = models[j];
+            if ( m && typeof m.id === 'string' && m.id.indexOf(self.model) !== -1 ) {
+              matched = m.id;
+              break;
+            }
+          }
+          if ( matched ) {
+            var result = { available: true, model: matched, endpoint: endpoint };
+            this.lastProbe_     = Date.now();
+            this.lastResult_    = result;
+            this.resolvedModel_ = matched;
             return result;
           }
         } catch (e) {
@@ -98,6 +127,8 @@ foam.CLASS({
         }
       }
 
+      console.error('[HttpChatProvider] no translation model reachable — tried ' +
+        this.endpoints.join(', ') + ' for model "' + this.model + '"');
       var negative = { available: false, model: this.model, endpoint: '' };
       this.lastProbe_  = Date.now();
       this.lastResult_ = negative;
@@ -116,6 +147,13 @@ foam.CLASS({
        * before the string ever reaches the model and restored afterward —
        * a model that drops or mistranslates a sentinel produces a warning
        * rather than a silently broken translation.
+       *
+       * All-or-nothing: on the first per-string failure (non-2xx response,
+       * missing content, etc.) this THROWS and any translations already
+       * completed for earlier strings in this call are discarded — there is
+       * no partial-success return. This matches the LSP command's
+       * error-handling contract (no partial edits get built from a partial
+       * batch); callers rely on it.
        */
       var det = await this.detect();
       if ( ! det.available ) {
@@ -142,7 +180,7 @@ foam.CLASS({
           method:  'POST',
           headers: { 'content-type': 'application/json' },
           body:    JSON.stringify({
-            model:       this.model,
+            model:       this.resolvedModel_,
             messages:    [ { role: 'user', content: prompt } ],
             temperature: 0,
             stream:      false
@@ -172,6 +210,31 @@ foam.CLASS({
       }
 
       return out;
+    },
+
+    function normalizeEndpoint_(host) {
+      /**
+       * Ported from the TS source's normalizeHost, extended: Ollama's own
+       * documented OLLAMA_HOST format is scheme-less (e.g. '127.0.0.1:11434'
+       * or just a bare host) — fetch() throws a TypeError on that (no
+       * protocol), which detect()'s per-endpoint try/catch silently
+       * swallows as "unreachable". Prepend http:// when no scheme is
+       * present. Also strips trailing slashes so '.../v1/models' doesn't
+       * end up as '...//v1/models' (404s against most servers).
+       */
+      if ( ! host ) return host;
+      var h = String(host).replace(/\/+$/, '');
+      if ( ! /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(h) ) h = 'http://' + h;
+      return h;
+    },
+
+    function clearCache_() {
+      /** Reconfiguring endpoints/model invalidates any cached detect()
+       *  result — a stale positive/negative from the OLD config must not
+       *  survive into the new one. */
+      this.lastProbe_     = undefined;
+      this.lastResult_    = undefined;
+      this.resolvedModel_ = undefined;
     },
 
     function protectText_(text) {

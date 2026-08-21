@@ -247,11 +247,17 @@ try {
 
 section('HttpChatProvider — detection + translation (mock server)');
 var http = require('http');
+
+// Main mock: lists the exact configured model id. Counts /v1/models hits so
+// the positive-cache test (below) can prove a cached detect() makes zero
+// new requests.
+var modelsRequestCount = 0;
 var mock = http.createServer(function(req, res) {
   var body = '';
   req.on('data', function(c) { body += c; });
   req.on('end', function() {
     if ( req.url === '/v1/models' ) {
+      modelsRequestCount++;
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ data: [{ id: 'translategemma:4b' }] }));
     } else if ( req.url === '/v1/chat/completions' ) {
@@ -264,17 +270,63 @@ var mock = http.createServer(function(req, res) {
   });
 });
 
+// Tag-suffix mock: lists a TAGGED variant of the configured model
+// ('translategemma:4b-q4_0' vs configured 'translategemma:4b') — Ollama
+// resolves chat requests by exact id, so detect() must resolve and
+// translate() must POST the listed id, not the configured prefix.
+var lastChatModel = null;
+var tagMock = http.createServer(function(req, res) {
+  var body = '';
+  req.on('data', function(c) { body += c; });
+  req.on('end', function() {
+    if ( req.url === '/v1/models' ) {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ data: [{ id: 'translategemma:4b-q4_0' }] }));
+    } else if ( req.url === '/v1/chat/completions' ) {
+      var reqBody = JSON.parse(body);
+      lastChatModel = reqBody.model;
+      var src = reqBody.messages[0].content.split('\n\n').pop();
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ choices: [{ message: { content: 'FR<' + src + '>' } }] }));
+    } else { res.statusCode = 404; res.end(); }
+  });
+});
+
+// Negative-cache mock: does NOT list the configured model on its first
+// /v1/models hit (server reachable, model legitimately absent — simulates
+// "still starting up"), then lists it from the second hit on. Proves both
+// halves of the negative-cache contract: an immediate re-detect() inside
+// the TTL window makes no new request, and a re-detect() after the TTL
+// re-probes (and this time finds the now-present model).
+var negRequestCount = 0;
+var negMock = http.createServer(function(req, res) {
+  req.on('data', function() {});
+  req.on('end', function() {
+    if ( req.url === '/v1/models' ) {
+      negRequestCount++;
+      res.setHeader('content-type', 'application/json');
+      var id = negRequestCount === 1 ? 'some-other-model' : 'translategemma:4b';
+      res.end(JSON.stringify({ data: [{ id: id }] }));
+    } else { res.statusCode = 404; res.end(); }
+  });
+});
+
 // The harness runs categories synchronously, so this category exports its
 // async work as `done` — see testFoamLSP.js, which Promise.all()s every
 // category's `done` (undefined for the sync ones) before printing SUMMARY.
-// try/finally guarantees the mock server is closed even if an assertion
+// try/finally guarantees every mock server is closed even if an assertion
 // throws (it shouldn't — test() records rather than throws — but detect()/
 // translate() bugs could), and the outer catch keeps `done` resolving even
 // on an unexpected throw so one broken test can't hang the whole suite.
 var done = (async function() {
   try {
     await new Promise(function(res) { mock.listen(0, '127.0.0.1', res); });
-    var base = 'http://127.0.0.1:' + mock.address().port;
+    await new Promise(function(res) { tagMock.listen(0, '127.0.0.1', res); });
+    await new Promise(function(res) { negMock.listen(0, '127.0.0.1', res); });
+    var base    = 'http://127.0.0.1:' + mock.address().port;
+    var tagBase = 'http://127.0.0.1:' + tagMock.address().port;
+    var negBase = 'http://127.0.0.1:' + negMock.address().port;
+
     var prov = foam.parse.lsp.HttpChatProvider.create({ endpoints: [base], model: 'translategemma:4b' });
 
     var det = await prov.detect();
@@ -287,12 +339,63 @@ var done = (async function() {
     var r = await prov.translate(['Hello ${name}, save?'], 'fr', 'test UI');
     test(r.length === 1 && r[0].translation.indexOf('${name}') !== -1,
       'placeholder ${name} survives the round trip');
-    test(/^FR</.test(r[0].translation) === true || r[0].translation.indexOf('FR<') !== -1,
-      'translation came from the mock model');
+    test(r[0].translation.indexOf('FR<') !== -1, 'translation came from the mock model');
+
+    // Endpoint normalization (Important 2): scheme-less host + trailing slash.
+    var normProv = foam.parse.lsp.HttpChatProvider.create({
+      endpoints: [ base.replace(/^http:\/\//, '') + '/' ], model: 'translategemma:4b'
+    });
+    var normDet = await normProv.detect();
+    test(normDet.available === true,
+      'scheme-less endpoint (bare host:port, Ollama\'s own OLLAMA_HOST format) + trailing slash both normalize and detect works');
+
+    // (a) Positive cache: a second detect() after a positive makes zero new requests.
+    var countAfterFirst = modelsRequestCount;
+    await prov.detect();
+    test(modelsRequestCount === countAfterFirst,
+      'positive cache: second detect() makes zero new /v1/models requests');
+
+    // (b) Negative cache + TTL re-probe, without a real 60s sleep — the
+    // provider's negativeCacheTtlMs is a property just for this.
+    var TTL = 200;
+    var negProv = foam.parse.lsp.HttpChatProvider.create({
+      endpoints: [ negBase ], model: 'translategemma:4b', negativeCacheTtlMs: TTL
+    });
+    var negDet1 = await negProv.detect();
+    test(negDet1.available === false && negRequestCount === 1,
+      'negative cache: first detect() probes once, model not yet listed → available:false');
+    var negDet2 = await negProv.detect();
+    test(negDet2.available === false && negRequestCount === 1,
+      'negative cache: re-detect() inside the TTL window makes zero new requests');
+    await new Promise(function(res) { setTimeout(res, TTL + 100); });
+    var negDet3 = await negProv.detect();
+    test(negDet3.available === true && negRequestCount === 2,
+      'negative cache: re-detect() after the TTL window re-probes and picks up the now-listed model');
+
+    // (c) Tag-suffix resolution (Important 1): detect() resolves the listed
+    // id, and translate() POSTs that resolved id — not the configured prefix.
+    var tagProv = foam.parse.lsp.HttpChatProvider.create({ endpoints: [tagBase], model: 'translategemma:4b' });
+    var tagDet = await tagProv.detect();
+    test(tagDet.available === true && tagDet.model === 'translategemma:4b-q4_0',
+      'tag-suffix: detect() resolves the listed tagged id, not the configured prefix');
+    await tagProv.translate(['hi'], 'fr', 'test UI');
+    test(lastChatModel === 'translategemma:4b-q4_0',
+      'tag-suffix: translate() POSTs the resolved tagged id (locks Important 1)');
+
+    // (5) Reconfiguration clears the cache — a stale result from the OLD
+    // endpoints/model must not survive a live config change.
+    var reconfProv = foam.parse.lsp.HttpChatProvider.create({ endpoints: [base], model: 'translategemma:4b' });
+    await reconfProv.detect();
+    reconfProv.endpoints = [ 'http://127.0.0.1:1' ];
+    var reconfDet = await reconfProv.detect();
+    test(reconfDet.available === false,
+      'reassigning endpoints clears the cached positive result (no stale availability)');
   } catch (e) {
     test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
   } finally {
     mock.close();
+    tagMock.close();
+    negMock.close();
   }
 })();
 

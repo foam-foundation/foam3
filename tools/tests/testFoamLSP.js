@@ -74,4 +74,13 @@ function printSummaryAndExit() {
   process.exit(h.counters.failures > 0 ? 1 : 0);
 }
 
-Promise.all(pending).then(printSummaryAndExit);
+// .catch guard: a category whose own async code forgets to catch its
+// rejection (unlike i18n.js, which never lets `done` reject) must not take
+// the whole run down silently — record it as a failure via the harness
+// counter and still print SUMMARY / exit non-zero, same as any other FAIL.
+Promise.all(pending).then(printSummaryAndExit, function(err) {
+  h.counters.failures++;
+  console.error('  \x1b[31m✘ FAIL:\x1b[0m an async test category rejected — ' +
+    ( err && err.stack ? err.stack : err ));
+  printSummaryAndExit();
+});

@@ -60,7 +60,7 @@ foam.POM({
     testSuites: ['', 'test-suite', 'TEST_SUITES', 'Run all or specified test suites', '', arg => TEST_SUITES = arg],
     testSide: ['', 'test-side', 'TEST_SIDE', 'Specify server or client side testing. Defaults to \'both\'.  ex. --testSide:client.  Choose \'server\' or \'client\'', 'both', arg => TEST_SIDE = arg],
     timezone: ['', 'timezone', 'TIMEZONE', 'Set JVM user.timezone. NOTE: this only affects local deployment. In production the JVM will use the system timezone.', 'GMT', arg => TIMEZOME = arg],
-    webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  WebSocketServer will use PORT+1', '8080', args => WEB_PORT = args ],
+    webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  SocketServer will use PORT+3', '8080', args => WEB_PORT = args ],
     version: ['', 'version', 'VERSION', 'Application version', '1.0.0', args => VERSION = args ]
   },
 
@@ -86,6 +86,7 @@ foam.POM({
           this.execute('buildTar');
         } else if ( JAR ) {
           this.execute('buildJar');
+          this.execute('buildResourcesJar');
         } else {
           this.execute('genJava');
         }
@@ -99,15 +100,14 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build binary and resources JAR files.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'versions', 'copy', 'genImages', 'genJavaManifest', 'jarFOAM' ], function() {
-      // Webroot goes into the resources JAR
-      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} webroot `;
-
+    buildJar: ['build-jar', 'Build binary JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
+    }],
 
-      // Build resources JAR (journals, documents, images, webroot)
+    buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
+      // Build resources JAR (journals, documents, images)
       this.info(`Building resources JAR: ${JAR_RES_NAME}`);
       this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
@@ -164,7 +164,7 @@ foam.POM({
         JAVA_OPTS += ` -${SYSTEM_PROPERTY.split(',').join(' -')}`;
     }],
 
-    buildTar: ['build-tar', 'Package files into a TAR archive (both binary and resources JARs)', [()=>TAR=true, 'buildJar'], function() {
+    buildTar: ['build-tar', 'Package files into a TAR archive (both binary and resources JARs)', [()=>TAR=true, 'buildJar', 'buildResourcesJar'], function() {
       this.ensureDir(this.join(BUILD_DIR, 'package'));
       this.info(`Building full tarball with binary and resources JARs: ${TARBALL}`);
       const toolsDeploy = this.join(FOAM_TOOLS_DIR, 'deploy');
@@ -189,7 +189,7 @@ foam.POM({
       this.info(`Binary tarball created: ${binaryTarballPath}`);
     }],
 
-    buildResourcesTar: ['build-resources-tar', 'Package resources JAR only into a TAR archive (customer-specific)', [()=>TAR=true, 'buildJar'], function() {
+    buildResourcesTar: ['build-resources-tar', 'Package resources JAR only into a TAR archive (customer-specific)', [()=>TAR=true, 'buildResourcesJar'], function() {
       this.ensureDir(this.join(BUILD_DIR, 'package'));
       const resourcesTarball = APP_NAME + '-resources-' + VERSION + '.tar.gz';
       const resourcesTarballPath = BUILD_DIR + '/package/' + resourcesTarball;
@@ -331,18 +331,14 @@ foam.POM({
       this.pmake.bind(this, `-makers=Image -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR}`)();
     }],
 
-    genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters'], function() {
-      // Resources (journals, documents) go into the resources JAR
-      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
-      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} documents `;
+    genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters', 'genJournals', 'genDocuments'], function() {
       // Compiled classes go into the binary JAR
       JAR_INCLUDES += ` -C ${BUILD_DIR}/classes .`;
 
       var makers = VERBOSE ? 'Verbose,' : '';
       // NOTE: Java and Javac Maker must be run together as they share data through X
       makers += 'Java,Maven,Javac';
-      makers += ',Journal,Doc';
-      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -journaldir=${JOURNAL_OUT} -documentdir=${DOCUMENT_OUT} -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'`)();
+      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'`)();
     }],
 
     deployBin: ['deploy-bin', 'Copy bash files to deployment', [], function() {
@@ -368,7 +364,9 @@ foam.POM({
     }],
 
     genDocuments: ['gen-documents', 'Capture repository documentation - flow docs', [], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} documents `;
+      // Resources (documents) go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} documents `;
+
       this.pmake(`-makers=Doc -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -documentdir=${DOCUMENT_OUT}`);
     }],
 
@@ -379,11 +377,16 @@ foam.POM({
     }],
 
     genJournals: ['gen-journals', 'Concatenate repository journal files into .0 files', [], function() {
-      JAR_INCLUDES += ` -C ${BUILD_DIR} journals `;
+      // Resources (journals) go into the resources JAR
+      JAR_RES_INCLUDES += ` -C ${BUILD_DIR} journals `;
+
       this.pmake.bind(this, `-makers=Journal -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -journaldir=${JOURNAL_OUT}`)();
     }],
 
-    jarFOAM: ['jar-foam', 'Copy foam-bin files for inclusion in JAR file.', ['genJava'], function() {
+    jarFOAM: ['jar-foam', 'Copy foam-bin files for inclusion in JAR file.', ['genJS'], function() {
+      // Webroot goes into the binary JAR
+      JAR_INCLUDES += ` -C ${BUILD_DIR} webroot `;
+
       this.ensureDir(this.join(BUILD_DIR, 'webroot'));
       this.execSync(`cp ${BUILD_DIR}/js/foam-bin-* ${BUILD_DIR}/webroot/`, {stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
@@ -407,6 +410,7 @@ foam.POM({
       BOOT_SCRIPT_AUX = 'benchmarkRunnerScript';
 
       this.execute('buildJar');
+      this.execute('buildResourcesJar');
       this.execute('startCORETest', 'benchmark');
     }],
 
@@ -417,6 +421,9 @@ foam.POM({
       if ( Number(JAVA_RELEASE) >= 25 ) {
         // javax.security.auth.AuthPermission
         JAVAC_PARAMETERS += ' -Xlint:-deprecation -Xlint:-removal';
+      }
+      if ( DEBUG ) {
+        JAVAC_PARAMETERS += ' -g';
       }
     }],
 
@@ -446,6 +453,7 @@ foam.POM({
       this.execute('cleanTest');
       BOOT_SCRIPT_AUX = 'testRunnerScript';
       this.execute('buildJar');
+      this.execute('buildResourcesJar');
       this.execute('startCORETest', 'test');
     }],
 
@@ -485,7 +493,10 @@ foam.POM({
 
       // this.info(`Starting CORE ${APP_NAME}`);
       // Acquires environment variables via JAVA_TOOL_OPTIONS (JAVA_OPTS)
-      this.execSync(`java -cp "${BUILD_DIR}/lib/\*:${BUILD_DIR}/classes" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
+      // build/classes precedes build/lib/* so freshly compiled classes always win
+      // over any stale jar sitting in build/lib (e.g. an app/test package left by a
+      // prior run) — otherwise the jar shadows the recompiled classes silently.
+      this.execSync(`java -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
     }],
 
     startCOREAsync: ['start-core-async', 'Start CORE server (CLASSPATH) as an asynchronous/detached child process. When re-run the previous process will be terminated.', ['stopCORE', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs','java'], function() {
@@ -504,7 +515,7 @@ foam.POM({
       if ( BUILD_ONLY ) return;
 
       // this.info(`Starting CORE ${APP_NAME}`);
-      var proc = this.spawn(JAVA, ['-server', '-cp', `${BUILD_DIR}/lib/\*:${BUILD_DIR}/classes`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS], {
+      var proc = this.spawn(JAVA, ['-server', '-cp', `${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS], {
         stdio: 'inherit',
         shell: '/bin/bash',
         detached: true,

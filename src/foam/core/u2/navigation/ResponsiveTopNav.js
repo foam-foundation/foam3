@@ -18,7 +18,8 @@ foam.CLASS({
     'menuDAO',
     'pushDefaultMenu?',
     'theme',
-    'toolbar?'
+    'toolbar?',
+    'auth'
   ],
 
   cssTokens: [
@@ -92,6 +93,10 @@ foam.CLASS({
     {
       name: 'nodeName',
       value: 'header'
+    },
+    {
+      class: 'Boolean',
+      name: 'hasLanguagePerm'
     }
   ],
 
@@ -101,9 +106,15 @@ foam.CLASS({
         this.notifications = bb;
       });
     },
+    function checkLanguageAccess() {
+      this.auth.check(this, "languagechoice").then(result=>{
+        this.hasLanguagePerm = result;
+      })
+    },
     function render() {
       var self = this;
       this.checkNotificationAccess();
+      this.checkLanguageAccess();
       this
         .show(this.loginSuccess$)
         .addClass(this.myClass())
@@ -134,11 +145,15 @@ foam.CLASS({
                 buttonStyle: 'UNSTYLED'
               }).show(notifications).end();
             }))
-            .tag({ class: 'foam.core.auth.LanguageChoiceView' })
+            .add(self.slot(function(hasLanguagePerm) {
+              // Only render the LanguageChoiceView if the user has the correct permission(s)
+              if ( hasLanguagePerm ) {
+                return this.E().tag({ class: 'foam.core.auth.LanguageChoiceView' });
+              } else {
+                return this.E();
+              }
+            }))
             .tag({ class: 'foam.core.u2.navigation.UserInfoNavigationView' });
-          } else {
-            return this.E()
-              .tag({ class: 'foam.core.auth.LanguageChoiceView' });
           }
         }));
     }

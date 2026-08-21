@@ -161,7 +161,9 @@ foam.CLASS({
 
       this
       .addClass(this.myClass())
-      .startContext({ data: this })
+      // EXPORT modal is interactive GUI, so if opens up in VIEW context the user can not edit the form. So keeping it in EDIT mode makes more sense.
+      // If we really want to support VIEW context, we can make it configurable.
+      .startContext({ data: this, controllerMode: foam.u2.ControllerMode.EDIT })    
         .start(this.Rows)
           .tag(this.DATA_TYPE.__)
           .start().show(this.isDataTypeSelected$)
@@ -178,9 +180,13 @@ foam.CLASS({
 
           .start().show(this.isDataTypeSelected$).addClass(this.myClass('divided-sec'))
             .add(this.slot(function (exportDriver) {
+              // Built in a slot, so this.E() inherits the modal's base context (which may be VIEW).
+              // Force EDIT so the driver's option fields stay interactive.
               return this.E()
               .show(exportDriver && exportDriver.cls_.getAxiomsByClass(foam.lang.Property).some(p => ! p.hidden))
-              .start({class: 'foam.u2.detail.VerticalDetailView', data: exportDriver}).end();
+              .startContext({ controllerMode: foam.u2.ControllerMode.EDIT })
+                .start({class: 'foam.u2.detail.VerticalDetailView', data: exportDriver}).end()
+              .endContext();
            }))
           .end()
           .start()
@@ -191,7 +197,7 @@ foam.CLASS({
               .add(
                 self.slot(function(exportDriverReg$exportAllColumns) {
                   if ( exportDriverReg$exportAllColumns ) {
-                    return self.E().start().startContext({ data: self }).tag(self.EXPORT_ALL_COLUMNS.__).endContext().end();
+                    return self.E().start().startContext({ data: self, controllerMode: foam.u2.ControllerMode.EDIT }).tag(self.EXPORT_ALL_COLUMNS.__).endContext().end();
                   }
                 })
               )

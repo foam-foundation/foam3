@@ -126,11 +126,18 @@ foam.CLASS({
   name: 'SegmentedTabs',
   extends: 'foam.u2.UnstyledTabs',
 
-  cssTokens: [
+  properties: [
     {
-      class: 'foam.u2.ColorToken',
-      name: 'tabPrimaryColor',
-      value: '$textBrand'
+      class: 'Boolean',
+      name: 'fitContent',
+      documentation: 'When true, the tab row shrinks to fit its tabs (left-aligned) instead of stretching full-width with equal-width tabs'
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      this.enableClass(this.myClass('fit'), this.fitContent$);
     }
   ],
 
@@ -155,12 +162,10 @@ foam.CLASS({
     ^tabRow {
       flex: 0 0 auto;
       border-radius: var(--tabRow-radius, 0.4rem);
-      border: 1px solid $borderLight;
       gap: 8px;
       padding: var(--tabRow-padding, 0.4rem);
       white-space: nowrap;
-      background-color: $backgroundDefault;
-      // box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
+      background-color: $backgroundTertiary;
       align-self: center;
       display: grid;
       grid-auto-flow: column;
@@ -169,24 +174,30 @@ foam.CLASS({
       overflow: auto;
     }
     ^tab {
-      border-radius: 3px;
       align-items: center;
       background: none;
       border-radius: max(calc(var(--tabRow-radius, 0.4rem) - var(--tabRow-padding, 0.4rem)), 0.2rem);
-      color: $tabPrimaryColor;
+      color: $textSecondary;
       display: flex;
       justify-content: center;
       padding: 8px 12px;
       flex: 1 1 0;
     }
     ^tab:hover {
-      background: $tabPrimaryColor$hover;
-      color: $tabPrimaryColor$foreground;
+      background: $backgroundSecondary;
+      color: $textDefault;
       cursor: pointer;
     }
     ^tab.selected {
-      color: $tabPrimaryColor$foreground;
-      background-color: $tabPrimaryColor;
+      color: $textDefault;
+      font-weight: $font-medium;
+      background-color: $backgroundDefault;
+      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    ^fit ^tabRow {
+      width: auto;
+      grid-auto-columns: auto;
+      align-self: flex-start;
     }
   `
 });

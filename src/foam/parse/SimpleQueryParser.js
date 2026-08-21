@@ -62,6 +62,11 @@ foam.CLASS({
       value: false // TODO: Implement short names support.
     },
     {
+      // For use by sub-classes
+      name: 'extensionGrammar_',
+      value: function() { return {}; }
+    },
+    {
       name: 'baseGrammar_',
       value: function(alt, anyChar, chars, literal, literalIC, nop, notChars, optional, range, repeat, repeat0, seq, seq1, str, sug, sym) {
 
@@ -196,7 +201,9 @@ foam.CLASS({
           digits: sym('rawDigits'),
 
           // TODO replace '.' with an internationalized decimal point, or have the input preprocessed
-          float: seq1(1, sym('ws'), str(seq(optional('-'), sym('rawDigits'), optional(str(seq('.', optional(sym('rawDigits')))))))),
+          floatValue: seq1(1, sym('ws'), str(seq(optional('-'), sym('rawDigits'), optional(str(seq('.', optional(sym('rawDigits')))))))),
+
+          float: sym('floatValue'),
 
           numberArray: seq1(1, sym('ws'), sym('numbers'), sym('ws'), ')'),
 
@@ -326,13 +333,9 @@ foam.CLASS({
               alt(operator('='), operator('!=')),
               sym('ws'),
               sug(nop(), {
-                view: {
-                  class: 'foam.parse.auto.ReferenceSuggester',
-                  targetDAOKey: prop.targetDAOKey,
-                  of: prop.of
-                },
-                label: prop.label + ' lookup',
-                category: 'value'
+                class: 'foam.parse.auto.ReferenceSuggester',
+                targetDAOKey: prop.targetDAOKey,
+                of: prop.of
               })
             )));
 
@@ -418,10 +421,12 @@ foam.CLASS({
         let parsers    = this.Parsers.create();
         let base       = foam.Function.withArgs(this.baseGrammar_,       parsers, this);
         let properties = foam.Function.withArgs(this.propertiesGrammar_, parsers, this);
+        let ext        = foam.Function.withArgs(this.extensionGrammar_,  parsers, this);
         let grammar    = {
           __proto__: base,
           propPredicates: properties.propPredicates,
-          rangePropPredicates: properties.rangePropPredicates
+          rangePropPredicates: properties.rangePropPredicates,
+          ...ext
         };
         let self       = this;
         // All dates are actually treated as ranges. These are arrays of Date
@@ -464,7 +469,7 @@ foam.CLASS({
           },
 
           or: function(v) {
-            return self.Or.create({ args: v });
+            return self.Or.create({ args: v }).partialEval();
           },
 
           and: function(v) {
@@ -483,8 +488,14 @@ foam.CLASS({
             return v[0] ? v[1] * -1 : v[1];
           },
 
+          // A single float value, like 3.14
+          floatValue: function(v) {
+            return parseFloat(v.trim());
+          },
+
+          // A float range, like [3.13, 3.15]
           float: function(v) {
-            let start = end = parseFloat(v.trim());
+            let start = v, end = v;
             // account for float's precision inconsistencies
             let EPSILON = 0.0000000001; // the built in Number.EPSILON is too small to be useful here
             start -= EPSILON;
@@ -646,6 +657,8 @@ foam.CLASS({
         });
 
         g.addActions(actions);
+        this.addExtActions(g);
+
         return g;
       }
     }
@@ -657,6 +670,9 @@ foam.CLASS({
     },
     function parseString(str, opt_name, opt_apply) {
       return this.grammar_.parseString(str, opt_name, opt_apply);
+    },
+    // Template Method to be used by Sub-classes
+    function addExtActions(grammar) {
     }
   ]
 });

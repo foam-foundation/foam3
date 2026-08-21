@@ -156,7 +156,10 @@ foam.CLASS({
 
       // Increment processing counter (totalRows should be set by parser upfront)
       this.processing++;
-      this.updateStatus();
+      // Throttle progress updates: writing processing/progress fires reactive slots
+      // that the upload UI subscribes to. Firing per-row (millions of times) dominates
+      // bulk-upload cost; updating on the batch boundary keeps the bar responsive.
+      if ( this.processing % 2000 === 0 ) this.updateStatus();
       
       // Custom validation for required fields based on actual source data
       // We use __emptySourceFields__ instead of FOAM's built-in validation because
@@ -183,8 +186,12 @@ foam.CLASS({
         }
       }
 
-      // Include non-required validation errors from FOAM (like format errors)
-      var errors = o.errors_;
+      // Include non-required validation errors from FOAM (like format errors).
+      // getErrors() is the slotless equivalent of o.errors_: the errors_ getter builds
+      // a per-object ExpressionSlot with arg-slot subscriptions, wasted reactive
+      // machinery in a one-shot bulk upload. getErrors() runs the same property
+      // validators synchronously with no slot allocation.
+      var errors = o.getErrors();
       if ( errors ) {
         var nonRequiredErrors = errors.filter(function(e) {
           // Skip FOAM's "Required" errors - we handle those with __emptySourceFields__
@@ -278,14 +285,18 @@ foam.CLASS({
       
       // Generate validation error summary if there were any errors
       if ( Object.keys(this.validationErrorMap).length > 0 ) {
-        this.output += '<br><div style="border: 1px solid #ff9800; padding: 10px; background: #fff3e0; border-radius: 4px;">';
-        this.output += '<h3 style="color: #e65100; margin-top: 0;">Validation Error Summary</h3>';
-        this.output += '<p style="color: #333;">Total rows processed: ' + this.processing + '</p>';
-        this.output += '<p style="color: #333;">Rows with errors: ' + (this.processing - this.matchedRows) + '</p>';
+        var warn = foam.CSS.returnTokenValue('$warn500', this.cls_, this.__subContext__);
+        var warnBackground = foam.CSS.returnTokenValue('$warn50', this.cls_, this.__subContext__);
+        var warnText = foam.CSS.returnTokenValue('$warn700', this.cls_, this.__subContext__);
+        var text = foam.CSS.returnTokenValue('$textDefault', this.cls_, this.__subContext__);
+        this.output += '<br><div style="border: 1px solid ' + warn + '; padding: 10px; background: ' + warnBackground + '; border-radius: 4px;">';
+        this.output += '<h3 style="color: ' + warnText + '; margin-top: 0;">Validation Error Summary</h3>';
+        this.output += '<p style="color: ' + text + ';">Total rows processed: ' + this.processing + '</p>';
+        this.output += '<p style="color: ' + text + ';">Rows with errors: ' + (this.processing - this.matchedRows) + '</p>';
         
         // Group and display errors
-        this.output += '<h4 style="color: #e65100;">Error Details:</h4>';
-        this.output += '<ul style="color: #333;">';
+        this.output += '<h4 style="color: ' + warnText + ';">Error Details:</h4>';
+        this.output += '<ul style="color: ' + text + ';">';
         
         var sortedErrors = Object.values(this.validationErrorMap).sort((a, b) => b.count - a.count);
         for ( var i = 0; i < sortedErrors.length; i++ ) {

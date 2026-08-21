@@ -87,6 +87,10 @@ foam.CLASS({
       javaType: 'KeyManager[]',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'storePath',
           type: 'String'
         },
@@ -101,7 +105,7 @@ foam.CLASS({
         KeyStore keyStore = null;
 
         try {
-          keyStore = getKeystore(storePath, storePass);
+          keyStore = getKeystore(x, storePath, storePass);
           factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
           factory.init(keyStore, storePass == null ? null : storePass.toCharArray());
         } catch ( UnrecoverableKeyException e ) {
@@ -123,6 +127,10 @@ foam.CLASS({
       javaType: 'TrustManager[]',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'storePath',
           type: 'String'
         },
@@ -137,7 +145,7 @@ foam.CLASS({
         KeyStore keyStore = null;
 
         try {
-          keyStore = getKeystore(storePath, storePass);
+          keyStore = getKeystore(x, storePath, storePass);
           factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
           factory.init(keyStore);
         } catch ( KeyStoreException e ) {
@@ -156,6 +164,10 @@ foam.CLASS({
       javaType: 'KeyStore',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'storePath',
           type: 'String'
         },
@@ -167,14 +179,18 @@ foam.CLASS({
       javaCode: `
         KeyStore keyStore = null;
         try {
-          InputStream is = getStorage().getInputStream(storePath);
-          if ( is == null ) {
-            throw new IOException("Failed opening inputstream "+storePath);
-          }
+          if ( ! foam.util.SafetyUtil.isEmpty(getVault()) ) {
+            keyStore = resolveKeyStore(x, storePath, getStoreType(), storePass);
+          } else {
+            InputStream is = getStorage().getInputStream(storePath);
+            if ( is == null ) {
+              throw new IOException("Failed opening inputstream "+storePath);
+            }
 
-          keyStore = KeyStore.getInstance(getStoreType());
-          keyStore.load(is, storePass == null ? null : storePass.toCharArray());
-          is.close();
+            keyStore = KeyStore.getInstance(getStoreType());
+            keyStore.load(is, storePass == null ? null : storePass.toCharArray());
+            is.close();
+          }
         } catch ( KeyStoreException e ) {
           getLogger().error(e);
           throw new RuntimeException(e);
@@ -190,6 +206,9 @@ foam.CLASS({
         } catch ( IOException e ) {
           getLogger().error(e);
           throw new RuntimeException(e);
+        } catch ( Exception e ) {
+          getLogger().error(e);
+          throw new RuntimeException(e);
         }
         return keyStore;
       `
@@ -197,14 +216,20 @@ foam.CLASS({
     {
       name: 'getSSLContext',
       javaType: 'SSLContext',
+      args: [
+        {
+          name: 'x',
+          type: 'Context'
+        }
+      ],
       javaCode: `
         // getLogger().debug("getSSLContext");
         SSLContext sslContext = null;
         try {
           sslContext = SSLContext.getInstance(getProtocol());
           sslContext.init(
-            getKeyManagers(getKeyStorePath(), resolveSecret(getX(), getKeyStorePass())),
-            getTrustManagers(getTrustStorePath(), resolveSecret(getX(), getTrustStorePass())),
+            getKeyManagers(x, getKeyStorePath(), resolveSecret(x, getKeyStorePass())),
+            getTrustManagers(x, getTrustStorePath(), resolveSecret(x, getTrustStorePass())),
             null
           );
         } catch ( NoSuchAlgorithmException e ) {
@@ -222,6 +247,10 @@ foam.CLASS({
       javaType: 'SSLContext',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'keyAlias',
           type: 'String'
         }
@@ -229,7 +258,7 @@ foam.CLASS({
       javaCode: `
         SSLContext sslContext = null;
         try {
-          KeyManager[] keyManagers = getKeyManagers(getKeyStorePath(), resolveSecret(getX(), getKeyStorePass()));
+          KeyManager[] keyManagers = getKeyManagers(x, getKeyStorePath(), resolveSecret(x, getKeyStorePass()));
           if ( keyManagers == null || keyManagers.length < 1 ) return sslContext;
 
           sslContext = SSLContext.getInstance(getProtocol());
@@ -271,7 +300,7 @@ foam.CLASS({
                 return k;
               }
             }).toArray(KeyManager[]::new),
-            getTrustManagers(getTrustStorePath(), resolveSecret(getX(), getTrustStorePass())),
+            getTrustManagers(x, getTrustStorePath(), resolveSecret(x, getTrustStorePass())),
               null);
 
         } catch ( NoSuchAlgorithmException e ) {

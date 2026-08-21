@@ -23,6 +23,85 @@ foam.CLASS({
       await this.testCSSDiagnostics(x);
       await this.testBacktickBlockContext(x);
       await this.testCSSContext(x);
+      await this.testFoldingRangeHandler(x);
+      await this.testCodeActionHandler(x);
+      await this.testSignatureHelpHandler(x);
+      await this.testWorkspaceSymbolHandler(x);
+    },
+
+    // ========== FoldingRangeHandler ==========
+
+    async function testFoldingRangeHandler(x) {
+      var handler = foam.parse.lsp.handlers.FoldingRangeHandler.create();
+
+      var text = "foam.CLASS({\n  properties: [\n    { name: 'a' },\n    { name: 'b' }\n  ]\n});";
+      var ranges = handler.handle(text);
+      x.test(ranges.length === 1, 'FoldingRange: one fold for properties:[]');
+      x.test(ranges.length === 1 && ranges[0].startLine === 1, 'FoldingRange: starts at properties: line');
+      x.test(ranges.length === 1 && ranges[0].endLine === 4, 'FoldingRange: ends at closing ]');
+
+      var ranges2 = handler.handle('function foo() {}');
+      x.test(ranges2.length === 0, 'FoldingRange: returns empty for plain JS');
+
+      var text3 = "foam.CLASS({\n  requires: ['foo'],\n  methods: [\n    function a() {}\n  ]\n});";
+      var ranges3 = handler.handle(text3);
+      x.test(ranges3.length >= 2, 'FoldingRange: multiple folds for multiple array axioms');
+    },
+
+    // ========== CodeActionHandler ==========
+
+    async function testCodeActionHandler(x) {
+      var index = foam.parse.lsp.FoamIndex.create();
+      var resolver = foam.parse.lsp.CSSTokenResolver.create();
+      var handler = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: resolver });
+
+      var noDiagRange = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
+      var actions = handler.handle('', noDiagRange, { diagnostics: [] }, 'file:///x');
+      x.test(actions.length === 0, 'CodeAction: returns empty when no diagnostics');
+
+      var actions2 = handler.handle('', noDiagRange, null, 'file:///x');
+      x.test(actions2.length === 0, 'CodeAction: returns empty when context is null');
+
+      var dqDiag = {
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 7 } },
+        message: 'Use single quotes for FOAM class references: \'foo.X\''
+      };
+      var actions3 = handler.handle('"foo.X"', dqDiag.range, { diagnostics: [dqDiag] }, 'file:///x');
+      x.test(
+        actions3.some(function(a) { return a.title.indexOf('Convert to single quotes') === 0; }),
+        'CodeAction: offers single-quote conversion for double-quoted class ref'
+      );
+    },
+
+    // ========== SignatureHelpHandler ==========
+
+    async function testSignatureHelpHandler(x) {
+      var index = foam.parse.lsp.FoamIndex.create();
+      var cache = foam.parse.lsp.FileModelCache.create();
+      var handler = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: cache });
+
+      var r = handler.handle('var x = 1;', { line: 0, character: 5 }, '');
+      x.test(r === null, 'SignatureHelp: returns null when not inside a method call');
+
+      // Inside parens but with no model/method available — graceful null.
+      var r2 = handler.handle('foam.CLASS({\n  methods: [ function foo(a, b) {} ]\n});\nfoo(', { line: 3, character: 4 }, '');
+      x.test(r2 === null || r2.signatures != null, 'SignatureHelp: returns null or a signature shape, never throws');
+    },
+
+    // ========== WorkspaceSymbolHandler ==========
+
+    async function testWorkspaceSymbolHandler(x) {
+      var index = foam.parse.lsp.FoamIndex.create();
+      var handler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
+
+      // Empty index → no symbols, but no crash.
+      var none = handler.handle('AnyQuery');
+      x.test(Array.isArray(none), 'WorkspaceSymbol: returns array even with empty index');
+      x.test(none.length === 0, 'WorkspaceSymbol: empty index returns no symbols');
+
+      // Respects default cap.
+      var def = handler.handle('');
+      x.test(def.length <= 100, 'WorkspaceSymbol: respects default 100 cap');
     },
 
     // ========== CompletionHandler ==========

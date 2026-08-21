@@ -74,6 +74,7 @@ foam.CLASS({
     'foam.core.crunch.box.CrunchClientBox',
     'foam.core.logger.Logger',
     'foam.core.logger.LoggingDAO',
+    'foam.core.partition.PartitionLoadProgressDAO',
     'foam.core.theme.SubdomainAwareDAO'
   ],
 
@@ -139,11 +140,6 @@ foam.CLASS({
       javaPostSet: 'if ( val != null ) setName(val.getName());',
     },
     {
-      documentation: 'Hold Last usuable dao in decorator chain. For example, an MDAO wrapped in FixedSizeDAO should always go through the FixedSizeDAO and not update the MDAO directly.',
-      name: 'lastDao',
-      class: 'foam.dao.DAOProperty'
-    },
-    {
       /** This is set automatically when you create an EasyDAO.
         @private */
       name: 'delegate',
@@ -175,19 +171,21 @@ foam.CLASS({
               setMdao(new foam.dao.MDAO(getOf()));
             }
             delegate = getMdao();
+            if ( getDedup() ) {
+              delegate = new foam.dao.DeDupDAO.Builder(getX())
+                .setDelegate(delegate)
+                .build();
+            }
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
               delegate = fixedSizeDAO;
+              setUnloadable(false);
             }
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
-            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.NSPEC_CTX_KEY, getCSpec()), delegate);
+            delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
           }
-        }
-
-        if ( getMdao() != null && getLastDao() == null ) {
-          setLastDao(delegate);
         }
 
         delegate = getClusterDelegate(delegate);
@@ -225,12 +223,21 @@ foam.CLASS({
             .build();
 
           // auto add index on spid
-          DAO dao = (DAO) getMdao();
-          if ( dao != null &&
-               dao instanceof foam.dao.MDAO ) {
+          // Route through delegate.cmd_() rather than grabbing getMdao() directly: with an
+          // unloadable NotPartitionedDAO in the chain, getMdao() is an orphaned instance
+          // discarded on reload, but AbstractPartitionedDAO.cmd_() records the
+          // AddIndexCommand and NotPartitionedDAO#createDAO() replays it on every reload.
+          if ( getMdao() != null ) {
             PropertyInfo pInfo = (PropertyInfo) getOf().getAxiomByName("spid");
             if ( pInfo != null ) {
-              ((foam.dao.MDAO)dao).addIndex(pInfo);
+              AddIndexCommand cmd = new AddIndexCommand();
+              cmd.setIndexers(new Indexer[] { pInfo });
+              Object result = delegate.cmd_(getX(), cmd);
+              if ( result == null ||
+                  ! ( result instanceof Boolean ) ||
+                  ((Boolean) result).booleanValue() != true ) {
+                logger.warning(getName(), "Index not added, no access to MDAO", pInfo);
+              }
             } else {
               logger.warning(getName(), "Index not added. Property not found. spid");
             }
@@ -447,9 +454,23 @@ foam.CLASS({
       generateJava: false
     },
     {
+      documentation: 'Client-side: show partition-load progress toasts while operations on this DAO wait on a server journal load. On by default (matching unloadable-by-default server DAOs); set false in a client stanza to opt out. Only meaningful with daoType CLIENT and a serviceName.',
+      class: 'Boolean',
+      name: 'loadProgress',
+      flags: ['js'],
+      value: true
+    },
+    {
       documentation: 'Set polling interval for the caching DAO',
       class: 'Int',
       name: 'pollingInterval',
+      units: 'ms',
+      generateJava: false
+    },
+    {
+      documentation: 'Set maximum polling interval for the caching DAO. Defaults to pollingInterval.',
+      class: 'Int',
+      name: 'maxPollingInterval',
       units: 'ms',
       generateJava: false
     },
@@ -519,6 +540,14 @@ foam.CLASS({
       name: 'writeOnly'
     },
     {
+      class: 'Boolean',
+      name: 'unloadable',
+      // Unloadable-by-default is intended: SINGLE_JOURNAL EasyDAOs get memory
+      // management via lazy journal reload (NotPartitionedDAO) unless explicitly
+      // opted out; wrappers that can't safely rebuild (e.g. fixedSize) exclude themselves.
+      value: false
+    },
+    {
       documentation: 'Sets the inner dao to a nullDAO',
       class: 'Boolean',
       name: 'nullify'
@@ -552,8 +581,7 @@ foam.CLASS({
     {
       documentation: 'Enable value de-duplication to save memory when caching',
       class: 'Boolean',
-      name: 'dedup',
-      generateJava: false
+      name: 'dedup'
     },
     {
       documentation: 'Keep a history of all state changes to the DAO',
@@ -575,7 +603,18 @@ foam.CLASS({
       documentation: `See JDAO.  Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
       class: 'Boolean',
       name: 'waitReplay',
-      value: true
+      value: true,
+      javaGetter: `
+        if ( getSeqNo() ) return true;
+        if ( getFuid() ) {
+          foam.lang.PropertyInfo pInfo = (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
+          if ( pInfo instanceof foam.lang.AbstractLongPropertyInfo )
+            return true;
+        }
+        if ( waitReplayIsSet_ )
+          return waitReplay_;
+        return true;
+      `
     },
     {
       documentation: `REMOVED.  CSpec DAO loading is now a
@@ -994,19 +1033,63 @@ dao loading, which improves overall startup time.`,
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
           if ( getWriteOnly() ) {
             delegate = new foam.dao.WriteOnlyJDAO(x, delegate, getOf(), getJournalName());
+          } else if ( getUnloadable() ) {
+            // getJournalDelegate() only replaces the journal delegate; the decorator,
+            // ServiceProviderAwareDAO, and SequenceNumberDAO wrappers are all applied
+            // outside it (see the 'delegate' property factory above) and survive
+            // unload/reload untouched. The inner chain (mdao, optionally dedup, JDAO)
+            // is rebuilt from scratch via createJournalledDelegate() on every reload
+            // (see NotPartitionedDAO.createDAO()), so dedup is included this time.
+            // FixedSizeDAO already self-excludes via setUnloadable(false) above.
+            foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
+            pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
+            pdao.setEasyDAO(this);
+            delegate = pdao;
+          } else if ( getFixedSize() != null ) {
+            // FixedSizeDAO already wraps the mdao/dedup chain above (see the
+            // 'delegate' property factory); wrap that existing chain in the
+            // journal rather than rebuilding it, or the size cap would be lost.
+            delegate = wrapInJDAO(x, delegate);
           } else {
-            foam.dao.java.JDAO jdao = new foam.dao.java.JDAO();
-            jdao.setX(x);
-            jdao.setFilename(getJournalName());
-            jdao.setCluster(getCluster() && !getSaf());
-            jdao.setWaitReplay(getWaitReplay());
-            jdao.setNdiff(getNdiff());
-            // Setting of delegate must be last as it triggers replay
-            jdao.setDelegate(delegate);
-            delegate = jdao;
+            delegate = createJournalledDelegate(x);
           }
         }
         return delegate;
+      `
+    },
+    {
+      name: 'createJournalledDelegate',
+      documentation: 'Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO (aliased via setMdao so getMdao() tracks the live store), optionally wrapped in DeDupDAO, then wrapped in a JDAO over getJournalName(). Used for the initial non-unloadable, non-fixedSize construction, and by NotPartitionedDAO#createDAO() to rebuild the chain on every unload/reload.',
+      args: 'X x',
+      type: 'foam.dao.DAO',
+      javaCode: `
+        setMdao(new foam.dao.MDAO(getOf()));
+        foam.dao.DAO delegate = getMdao();
+
+        if ( getDedup() ) {
+          delegate = new foam.dao.DeDupDAO.Builder(x)
+            .setDelegate(delegate)
+            .build();
+        }
+
+        return wrapInJDAO(x, delegate);
+      `
+    },
+    {
+      name: 'wrapInJDAO',
+      documentation: 'Wraps delegate in a JDAO over getJournalName(), applying the cluster/waitReplay/ndiff settings shared by every SINGLE_JOURNAL construction path.',
+      args: 'X x, foam.dao.DAO delegate',
+      type: 'foam.dao.DAO',
+      javaCode: `
+        foam.dao.java.JDAO jdao = new foam.dao.java.JDAO();
+        jdao.setX(x);
+        jdao.setFilename(getJournalName());
+        jdao.setCluster(getCluster() && !getSaf());
+        jdao.setWaitReplay(getWaitReplay());
+        jdao.setNdiff(getNdiff());
+        // Setting of delegate must be last as it triggers replay
+        jdao.setDelegate(delegate);
+        return jdao;
       `
     },
     {
@@ -1027,10 +1110,21 @@ dao loading, which improves overall startup time.`,
           name: 'innerDAO'
         }
       ],
+      code: function(innerDAO) {
+        return innerDAO;
+      },
       javaCode: `
         return innerDAO;
       `
     },
+    function loadProgressServiceKey() {
+      // Key the load-progress decorator matches against PartitionLoadStatus
+      // serviceName rows. The 'service/' prefix is the box URL convention;
+      // the remainder is the CSpec name. Applications that serve DAOs under
+      // additional URL prefixes refine this to strip theirs.
+      return this.serviceName.replace(/^service\//, '');
+    },
+
     function delegateFactory() {
       /**
         <p>On initialization, the EasyDAO creates an appropriate chain of
@@ -1102,6 +1196,9 @@ dao loading, which improves overall startup time.`,
               pollingInterval: this.pollingInterval,
               pollingProperty: this.pollingProperty
             });
+
+            if ( this.maxPollingInterval )
+              dao.maxPollingInterval = this.maxPollingInterval;
           } else {
             // TTL find cache
             if ( this.ttlPurgeTime > 0 )  {
@@ -1238,6 +1335,13 @@ dao loading, which improves overall startup time.`,
         });
       }
 
+      if ( this.loadProgress && this.serviceName ) {
+        dao = this.PartitionLoadProgressDAO.create({
+          delegate: dao,
+          serviceKey: this.loadProgressServiceKey()
+        });
+      }
+
       var self = this;
 
       if ( decorated ) decorated.dao = dao;
@@ -1266,7 +1370,7 @@ dao loading, which improves overall startup time.`,
         });
       }
 
-      return dao;
+      return this.getOuterDAO(dao);
     },
 
     /** Only relevant if using postgresdao */
@@ -1420,17 +1524,7 @@ dao loading, which improves overall startup time.`,
         if ( obj === 'serviceName?' ) return this.serviceName;
 
         return this.delegate.cmd_(x, obj);
-      },
-      javaCode: `
-      // Used by Medusa to get the real MDAO to update
-      if ( foam.dao.DAO.LAST_CMD.equals(obj) ) {
-        DAO dao = getLastDao();
-        if ( dao != null ) {
-          return dao;
-        }
       }
-      return getDelegate().cmd_(x, obj);
-      `
     },
     {
       name: 'append',

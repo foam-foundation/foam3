@@ -1072,8 +1072,7 @@ foam.CLASS({
         boolean anonymous = ((AuthService)x.get("auth")).isUserAnonymous(x, getId());
 
         // check if user login enabled
-        if ( ! getLoginEnabled() &&
-             ! anonymous ) {
+        if ( ! getLoginEnabled() && ! anonymous ) {
           throw new AccessDeniedException();
         }
 

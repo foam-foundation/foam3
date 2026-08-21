@@ -18,33 +18,38 @@ foam.CLASS({
   javaImports: [
     'foam.dao.DAO',
     'foam.core.auth.token.Token',
-    'java.util.Calendar',
+    'java.util.Date',
     'static foam.mlang.MLang.*'
+  ],
+
+  properties: [
+    {
+      class: 'Duration',
+      name: 'ttl',
+      units: 'ms',
+      documentation: 'The "time to live" of the token.',
+      value: 28800000 // 8 hours
+    }
   ],
 
   methods: [
     {
       name: 'generateExpiryDate',
       type: 'Date',
-      javaCode:
-`Calendar calendar = Calendar.getInstance();
-calendar.add(java.util.Calendar.DAY_OF_MONTH, 1);
-return calendar.getTime();`
+      javaCode: 'return new Date(new Date().getTime() + getTtl());'
     },
     {
       name: 'generateToken',
       javaCode: `return this.generateTokenWithParameters(x, user, null);`
     },
     {
-      name: 'isTokenValid',
+      name: 'validateToken',
       javaCode: `
         DAO tokenDAO = (DAO) x.get("localTokenDAO");
         Token tokenResult = (Token) tokenDAO.find(EQ(Token.DATA, token));
-        if ( tokenResult == null )
-          return false;
-        if ( tokenResult.getProcessed() )
-          return false;
-        return true;
+        if ( tokenResult == null ) throw new RuntimeException("INVALID_TOKEN");
+        if ( tokenResult.getProcessed() ) throw new RuntimeException("TOKEN_ALREADY_USED");
+        if ( tokenResult.getExpiry().before(new Date()) ) throw new RuntimeException("TOKEN_EXPIRED");
       `
     }
   ]

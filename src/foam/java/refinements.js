@@ -531,7 +531,7 @@ ${isSet} = false;`
       }
 
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + constantize);
+      if ( info ) info.addAxiom(/*cls.name + '.' + */constantize);
     }
   ]
 });
@@ -1019,7 +1019,7 @@ public Object call(foam.lang.X x, Object receiver, Object[] args) {
       });
 
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + methodInfoName);
+      if ( info ) info.addAxiom(/*cls.name + '.' +*/ methodInfoName);
 
     },
     function isStatic() {
@@ -1733,24 +1733,34 @@ foam.CLASS({
     ['sqlType',         'DATE'],
     ['javaAdapt',
      `
-      // convert the Date to be noon in GMT
-      val = val != null ? new java.util.Date(val.getTime() / 86400000l * 86400000l + 43200000l) : null;
+      if ( val != null ) {
+        // convert the Date to be noon in GMT
+        long time = val.getTime();
+        // floorDiv, not a truncating divide: dates before 1970 have a negative
+        // time and truncation would land them on the next day's noon
+        long noon = Math.floorDiv(time, 86400000l) * 86400000l + 43200000l;
+
+        // Convert to Noon if not already at Noon
+        if ( time != noon ) {
+          val = new java.util.Date(noon);
+        }
+      }
      `
     ]
   ],
 
-   methods: [
-     function createJavaPropertyInfo_(cls) {
-       var info = this.SUPER(cls);
-       // TODO: cast isn't called on setter
-       var m = info.getMethod('cast');
-       m.body = `
-         return foam.util.DateUtil.adapt(o);
-       `;
+  methods: [
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+      // TODO: cast isn't called on setter
+      var m = info.getMethod('cast');
+      m.body = `
+        return foam.util.DateUtil.adapt(o);
+      `;
 
-       return info;
-     }
-   ]
+      return info;
+    }
+  ]
 });
 
 
@@ -2381,6 +2391,18 @@ foam.CLASS({
         args: [ { name: 'x', type: 'foam.lang.X' } ],
         body: `return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${foam.String.capitalize(this.name)}());`
       });
+    },
+
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+      info.implements = (info.implements || []).concat('foam.lang.ReferencePropertyInfo');
+      info.method({
+        name: 'getTargetDAOKey',
+        visibility: 'public',
+        type: 'String',
+        body: `return "${this.targetDAOKey}";`
+      });
+      return info;
     }
   ]
 });
@@ -2401,14 +2423,14 @@ foam.CLASS({
       name: 'javaInfoName',
       expression: function(javaName) {
         return foam.String.constantize(this.javaName);
-      },
-    },
+      }
+    }
   ],
 
   methods: [
     function buildJavaClass(cls) {
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + this.javaInfoName);
+      if ( info ) info.addAxiom(/*cls.name + '.' +*/ this.javaInfoName);
 
       cls.field({
         name: this.javaInfoName,
@@ -2972,7 +2994,7 @@ foam.CLASS({
           var numericCode = Long.parseLong(val);
           foam.lang.X x = foam.lang.XLocator.get();
           var curr = (foam.lang.Currency) ((foam.dao.DAO) x.get("currencyDAO"))
-            .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, val));
+            .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, numericCode));
           if ( curr != null )
             val = curr.getId();
           else

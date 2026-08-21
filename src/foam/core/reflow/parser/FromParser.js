@@ -14,9 +14,11 @@ foam.CLASS({
     'foam.core.reflow.parser.DAONameParser',
     'foam.core.reflow.parser.SinkParser',
     'foam.core.reflow.parser.PropertyParser',
-    'foam.parse.Parsers',
+//    'foam.parse.Parsers',
     'foam.parse.SimpleQueryParser'
   ],
+
+  exports: [ 'sinkParser', 'propertyParser', 'dao', 'of' ],
 
   properties: [
     {
@@ -26,7 +28,15 @@ foam.CLASS({
     {
       name: 'sinkParser',
       factory: function() { return this.SinkParser.create(); }
-    }
+    },
+    'dao',
+    {
+      name: 'of',
+      expression: function(dao) {
+        return dao?.of;
+      }
+    },
+    'propertyParser'
   ],
 
   methods: [
@@ -117,19 +127,24 @@ foam.CLASS({
       if ( a[4] ) m.aql      = a[4];
       if ( a[5] ) m.order    = a[5];
       if ( a[6] ) m.columns  = a[6];
-      if ( a[7] ) m.select   = foam.lookup(a[7].value).create();
+      if ( a[7] ) {
+        debugger;
+        m.select   = a[7]; // foam.lookup(a[7].value).create({}, this);
+      }
       if ( a[8] ) m.label    = a[8];
 
-      debugger;
       return m;
     },
 
     function daoAction(daoName) {
-      let dao = this.__context__[daoName];
+      this.dao = this.__context__[daoName];
+      let of = this.dao?.of;
 
-      this.getSymbol('query').args[0]   = this.SimpleQueryParser.create({of: dao.of});
-      this.getSymbol('order').args[0]   = this.PropertyParser.create({of: dao.of}).getSymParser('comparator');
-      this.getSymbol('columns').args[0] = this.PropertyParser.create({of: dao.of}).getSymParser('propertyList');
+      this.propertyParser = this.PropertyParser.create({of: of});
+
+      this.getSymbol('query').args[0]   = this.SimpleQueryParser.create({of: of});
+      this.getSymbol('order').args[0]   = this.propertyParser.getSymParser('comparator');
+      this.getSymbol('columns').args[0] = this.propertyParser.getSymParser('propertyList');
 
       return daoName;
     }

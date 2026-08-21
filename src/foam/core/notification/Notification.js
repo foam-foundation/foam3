@@ -230,7 +230,8 @@ foam.CLASS({
       },
       javaFactory: `
         return foam.mlang.MLang.TRUE;
-      `
+      `,
+      javaCloneProperty: 'set(dest, get(source));'
     },
     {
       class: 'Map',

@@ -182,7 +182,6 @@ foam.CLASS({
             n = val.toE({}, this);
           } else {
             console.log('Unknown slot type: ', typeof val);
-            debugger;
           }
 
           this.element_.parentNode.replaceChild(n.element_, this.element_);
@@ -1643,9 +1642,9 @@ foam.CLASS({
   ],
 
   properties: [
-  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH', 
+  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH',
   // ensuring model and DOM attribute synchronization.
-  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in 
+  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in
   // subclasses
     ...[
       [
@@ -2059,7 +2058,7 @@ foam.CLASS({
       expression: function(label, checkboxLabelFormatter) {
         return {
           class: 'foam.u2.CheckBox',
-          label: this.help,
+          label: this.placeholder,
           labelFormatter: checkboxLabelFormatter
         };
       }
@@ -2114,7 +2113,7 @@ foam.CLASS({
   properties: [
     {
       name: 'view',
-      value: { class: 'foam.u2.view.FObjectPropertyView' },
+      value: { class: 'foam.u2.view.FObjectPropertyView' }
     },
     {
       name: 'validationTextVisible',

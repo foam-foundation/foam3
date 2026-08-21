@@ -36,15 +36,20 @@ test(pos.line === 1 && pos.character === 0, 'offsetToPosition: line 1 start');
 var offset = analyzer.positionToOffset(testText, { line: 1, character: 3 });
 test(offset === 9, 'positionToOffset: line1 char3 = offset 9, got: ' + offset);
 
-// resolveClassId
+// classId resolution (grammar/eval-intercept based — no more analyzer.resolveClassId regex)
 var classText = 'foam.CLASS({ package: ' + Q + 'foam.parse' + Q + ', name: ' + Q + 'Suggestion' + Q + ' })';
-test(analyzer.resolveClassId(classText) === 'foam.parse.Suggestion', 'resolveClassId extracts class ID');
+test(cache.getClassIdAt('test:///x', classText, 0) === 'foam.parse.Suggestion',
+  'cache.getClassIdAt extracts class id from captured model');
 
-// parseRequires
-var reqText = 'foam.CLASS({ requires: [' + Q + 'foam.u2.DetailView' + Q + ', ' + Q + 'foam.u2.Element as El' + Q + '] })';
-var reqMap = analyzer.parseRequires(reqText);
-test(reqMap['DetailView'] === 'foam.u2.DetailView', 'parseRequires: DetailView');
-test(reqMap['El'] === 'foam.u2.Element', 'parseRequires: alias El');
+// requires resolution via cache.resolveRequiresMap (was analyzer.parseRequires regex)
+var reqText = 'foam.CLASS({ package: ' + Q + 'x' + Q + ', name: ' + Q + 'Y' + Q + ', requires: [' + Q + 'foam.u2.DetailView' + Q + ', ' + Q + 'foam.u2.Element as El' + Q + '] })';
+var reqMap = cache.resolveRequiresMap('test:///req', reqText, 0);
+test(reqMap['DetailView'] === 'foam.u2.DetailView', 'cache.resolveRequiresMap: DetailView');
+test(reqMap['El'] === 'foam.u2.Element', 'cache.resolveRequiresMap: alias El');
+test(cache.resolveShortName('test:///req', reqText, 'DetailView', 0) === 'foam.u2.DetailView',
+  'cache.resolveShortName: DetailView → foam.u2.DetailView');
+test(cache.resolveShortName('test:///req', reqText, 'Nonexistent', 0) === null,
+  'cache.resolveShortName: unknown short name returns null');
 
 // getMethodSignature
 var mockMethod = { name: 'start', code: function start(spec, args) {} };

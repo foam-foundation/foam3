@@ -23,10 +23,11 @@ foam.POM({
     files: ['', 'files', 'FILES', 'Commad seperated list of files to inspect.', '', arg => FILES = arg],
     maxWarnings: ['', 'max-warnings', 'MAX_WARNINGS', 'Number of warnings reported before truncating output', 0, arg => MAX_WARNINGS = arg],
     format: ['', 'format', 'FORMAT', 'Generate detailed report. ex: \'stylish\'', '', arg => FORMAT= arg],
-    source: ['', 'source', 'SOURCE', 'File or directory list spaced formatted for passin gto eslint.', function() {
+    source: ['', 'source', 'SOURCE', 'File or directory list spaced formatted for passing to eslint.', function() {
       if ( FILES ) return FILES.replaceAll(',', ' ');
       return DIRECTORIES.replaceAll(',', ' ');
-    }, arg => SOURCE = arg]
+    }, arg => SOURCE = arg],
+    config: ['', 'config', 'CONFIG', 'Specify eslint config file. Default to \'.eslintrc.js\'.', '.eslintrc.js', arg => CONFIG = arg]
   },
 
   tasks: {
@@ -34,7 +35,7 @@ foam.POM({
     check : ['check', 'Run ESLint \'check\' operation.', [], function() {
       try {
         this.log(`Running eslint \'check\' against ${SOURCE} ${ESLINT_OPTS ? 'with'+ESLINT_OPTS : ''}`);
-        this.execSync(`npx eslint ${SOURCE} --ext .js ${ESLINT_OPTS}`, { stdio: 'inherit' });
+        this.execSync(`npx eslint -c ${CONFIG} ${SOURCE} --ext .js ${ESLINT_OPTS}`, { stdio: 'inherit' });
       } catch(e) {
         // nop - already reported
       }
@@ -42,7 +43,7 @@ foam.POM({
     fix: ['fix', 'Run ESLint \'fix\' operation to correct warnings', [], function() {
       try {
         this.log(`Running eslint \'fix\' against ${SOURCE}`);
-        this.execSync(`npx eslint ${SOURCE} --ext .js --fix`, { stdio: 'inherit' });
+        this.execSync(`npx eslint -c ${CONFIG} ${SOURCE} --ext .js --fix`, { stdio: 'inherit' });
       } catch(e) {
         // nop - already reported
       }
@@ -52,6 +53,8 @@ foam.POM({
       console.log('  NOTE: --files and --directories are mutually exclusive. If --files are provided, default directories are ignored.');
       console.log('  ./build.sh -TESLint');
       console.log('    Run eslint reporting/check on default directories: src/ tools/');
+      console.log('  ./build.sh -TESLint --config:.eslintrc.js');
+      console.log('    Run eslint reporting/check using a custom config file');
       console.log('  ./build.sh -TESLint --max-warnings:8');
       console.log('    Run eslint reporting/check on default directories: src/ tools/ and reduced \'warning\' output');
       console.log('  ./build.sh -TESLint --dirs:tools');

@@ -390,3 +390,368 @@ test(missing[0].message.indexOf('$primary400') === -1,
 
 // === HOVER ON ^selector IN CSS BLOCK ===
 
+// NOTE: declarative property/action `label:` strings are intentionally NOT flagged.
+// They are auto-extracted + translated by foam/i18n/scripts.jrl (keyed by the
+// property/action name, with the authored string as the default), so they are
+// already i18n-ready. Only imperative render text (.add('...'), below) is invisible
+// to that extraction and needs an explicit messages: entry.
+
+// === i18n in-body .add() WARNING tests (Step 2) ===
+section('DiagnosticsHandler i18n add() strings');
+
+function addStrDiags(src) {
+  return diagHandler.handle(src).filter(function(d) {
+    return d.code === 'i18n-hardcoded-display-string';
+  });
+}
+
+// .add('prose') in a method → one WARNING (severity 2)
+var addProse = "foam.CLASS({\n  package:'test', name:'AP',\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
+var apd = addStrDiags(addProse);
+test(apd.length === 1, 'Hardcoded .add() string flagged once');
+test(apd.length === 1 && apd[0].severity === 2, '.add() string diagnostic is WARNING severity (2)');
+
+// .add(dynamic expression) → zero
+var addDyn = "foam.CLASS({\n  package:'test', name:'AD',\n  methods:[ function render(){ this.add(this.data.name); } ]\n})";
+test(addStrDiags(addDyn).length === 0, '.add(dynamic expression) not flagged');
+
+// .addClass('container') → zero (not .add()
+var addClass = "foam.CLASS({\n  package:'test', name:'AC',\n  methods:[ function render(){ this.addClass('container'); } ]\n})";
+test(addStrDiags(addClass).length === 0, '.addClass() not flagged');
+
+// .start('span').add('Hello World') → one (only the .add text; .start tag ignored)
+var chained = "foam.CLASS({\n  package:'test', name:'CH',\n  methods:[ function render(){ this.start('span').add('Hello World').end(); } ]\n})";
+test(addStrDiags(chained).length === 1, "chained .start('span').add('Hello World') flags only the add() text");
+
+// template literal with interpolation → zero (dynamic)
+var interp = "foam.CLASS({\n  package:'test', name:'IN',\n  methods:[ function render(){ this.add(`Total ${this.n}`); } ]\n})";
+test(addStrDiags(interp).length === 0, '.add(`...${}...`) interpolated not flagged');
+
+// all-caps code → zero
+var addCode = "foam.CLASS({\n  package:'test', name:'ACd',\n  methods:[ function render(){ this.add('OK'); } ]\n})";
+test(addStrDiags(addCode).length === 0, ".add('OK') all-caps not flagged");
+
+// Real offender file: SmartUploadView has many in-body .add('...') strings
+var supPath = 'src/com/paytic/flow/fileupload/SmartUploadView.js';
+if ( fs.existsSync(supPath) ) {
+  var supText = fs.readFileSync(supPath, 'utf8');
+  var supDiags = diagHandler.handle(supText).filter(function(d) {
+    return d.code === 'i18n-hardcoded-display-string';
+  });
+  test(supDiags.length >= 3, 'SmartUploadView.js produces multiple i18n-hardcoded-display-string WARNINGs');
+} else {
+  test(true, 'SmartUploadView.js not present — real-file smoke skipped');
+}
+
+// === Step 3: noise control ===
+section('DiagnosticsHandler i18n noise control');
+
+function anyI18nDiags(src, uri) {
+  return diagHandler.handle(src, uri).filter(function(d) {
+    return d.code === 'i18n-hardcoded-display-string';
+  });
+}
+
+// CSS-ish values passed to .add() → not flagged (allowlist)
+var cssUnit = "foam.CLASS({\n  package:'test', name:'CU',\n  methods:[ function render(){ this.add('10px'); this.add('100%'); this.add('#fff'); } ]\n})";
+test(anyI18nDiags(cssUnit).length === 0, 'CSS units / hex values not flagged');
+
+// Inline // i18n-ignore on the same line suppresses
+var ignored = "foam.CLASS({\n  package:'test', name:'IG',\n  methods:[ function render(){ this.add('Real Text'); // i18n-ignore\n } ]\n})";
+test(anyI18nDiags(ignored).length === 0, 'Inline // i18n-ignore suppresses the diagnostic');
+
+// Same string WITHOUT the comment is still flagged (control)
+var notIgnored = "foam.CLASS({\n  package:'test', name:'NIG',\n  methods:[ function render(){ this.add('Real Text'); } ]\n})";
+test(anyI18nDiags(notIgnored).length === 1, 'Without i18n-ignore the string is still flagged');
+
+// Test/demo files are exempt (by uri)
+var exSrc = "foam.CLASS({\n  package:'test', name:'EX',\n  methods:[ function render(){ this.add('First Name'); } ]\n})";
+test(anyI18nDiags(exSrc, 'file:///app/src/foo/FooTest.js').length === 0, 'Test file (uri) is exempt');
+test(anyI18nDiags(exSrc, 'file:///app/src/foo/demos/Foo.js').length === 0, 'Demos file (uri) is exempt');
+test(anyI18nDiags(exSrc, 'file:///app/src/foo/Foo.js').length === 1, 'Non-test file still flagged (control)');
+
+// === Step 5: WorkspaceAnalyzer groups i18n diagnostics by code ===
+section('WorkspaceAnalyzer i18n grouping');
+var wsa = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+var p1 = wsa.patternFor({ code: 'i18n-hardcoded-display-string', message: 'Hardcoded display string "Upload Complete" — define it as a messages: entry.' });
+var p2 = wsa.patternFor({ code: 'i18n-hardcoded-display-string', message: 'Hardcoded display string "Processing..." — define it as a messages: entry.' });
+test(p1 === p2, 'Two different hardcoded strings collapse to one pattern (grouped by code)');
+test(p1 === 'i18n-hardcoded-display-string', 'i18n pattern key is the diagnostic code');
+var pu = wsa.patternFor({ message: "Unknown class in requires: 'foam.core.auth.User'" });
+test(pu.indexOf('*') !== -1, 'Non-coded diagnostics still grouped by generalizeMessage (wildcarded)');
+
+// === Regression: re-find must anchor to .add(, not match a same-text messages entry ===
+section('DiagnosticsHandler i18n re-find precision');
+
+// A messages entry and an .add() call share the exact same text. The WARNING must
+// point at the .add( occurrence, NOT the (correct) messages entry above it — which
+// is the case once "extract to messages" has already run on an identical string.
+var dupSrc = "foam.CLASS({\n  package:'t', name:'DUP',\n" +
+  "  messages:[ { name:'FORGOT_PASSWORD', message:'Forgot password?' } ],\n" +
+  "  methods:[ function render(){ this.add('Forgot password?'); } ]\n})";
+var dd = diagHandler.handle(dupSrc).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; });
+test(dd.length === 1, 're-find: exactly one WARNING when text duplicates a messages entry');
+var dOff = dd.length === 1 ? analyzer.positionToOffset(dupSrc, dd[0].range.start) : -1;
+var addInner = dupSrc.indexOf("this.add('Forgot password?')") + "this.add('".length;
+test(dOff === addInner, 're-find: WARNING lands on the .add() argument, not the messages entry');
+
+// === Comments + multi-class scoping (review P2/P3) ===
+section('DiagnosticsHandler i18n comments + multi-class');
+
+// P2: commented-out .add() must NOT be flagged (line comment)
+var lineCommented = "foam.CLASS({\n  package:'t', name:'CM',\n  methods:[ function render(){\n    // this.add('Commented Out Text');\n    this.add('Live Text');\n  } ]\n})";
+var cmd = addStrDiags(lineCommented);
+test(cmd.length === 1, 'P2: line-commented .add() not flagged; live one is');
+test(cmd.length === 1 && cmd[0].message.indexOf('Live Text') !== -1, 'P2: only the live .add() string is flagged');
+
+// P2: block-commented .add() must NOT be flagged
+var blockCommented = "foam.CLASS({\n  package:'t', name:'BC',\n  methods:[ function render(){ /* this.add('Block Comment Text'); */ this.add('Real One'); } ]\n})";
+var bcd = addStrDiags(blockCommented);
+test(bcd.length === 1 && bcd[0].message.indexOf('Real One') !== -1, 'P2: block-commented .add() not flagged');
+
+// P2: // inside a string is NOT treated as a comment
+var urlish = "foam.CLASS({\n  package:'t', name:'URL',\n  methods:[ function render(){ this.add('Visit Our Site'); } ]\n})";
+test(addStrDiags(urlish).length === 1, 'P2: control — non-commented .add() still flagged');
+
+// P3: earlier class's i18n-ignore must NOT suppress a later class's identical string
+var multiIgnore = "foam.CLASS({ package:'t', name:'A', methods:[ function render(){ this.add('Shared Phrase'); // i18n-ignore\n } ] })\n" +
+  "foam.CLASS({ package:'t', name:'B', methods:[ function render(){ this.add('Shared Phrase'); } ] })";
+var mid = addStrDiags(multiIgnore);
+test(mid.length === 1, 'P3: ignored earlier occurrence does not suppress the later one');
+test(mid.length === 1 && analyzer.positionToOffset(multiIgnore, mid[0].range.start) > multiIgnore.indexOf("name:'B'"), 'P3: surviving WARNING is the later (class B) occurrence');
+
+// P3: same string in two classes (neither ignored) → flagged in BOTH, at distinct offsets
+var multiBoth = "foam.CLASS({ package:'t', name:'A', methods:[ function render(){ this.add('Save Now'); } ] })\n" +
+  "foam.CLASS({ package:'t', name:'B', methods:[ function render(){ this.add('Save Now'); } ] })";
+var mbd = addStrDiags(multiBoth);
+test(mbd.length === 2, 'P3: same string in two classes flagged in both');
+test(mbd.length === 2 && analyzer.positionToOffset(multiBoth, mbd[0].range.start) !== analyzer.positionToOffset(multiBoth, mbd[1].range.start), 'P3: the two WARNINGs are at distinct offsets');
+
+// === Non-UI .add() must not be flagged (collection adds + Java blocks) ===
+section('DiagnosticsHandler i18n non-UI adds');
+
+// JS collection/permission add with a dotted key → not display text
+var permSrc = "foam.CLASS({\n  package:'t', name:'Perm',\n  methods:[ function init(){ this.permSet.add('superuser.enable'); } ]\n})";
+test(addStrDiags(permSrc).length === 0, 'dotted key add(superuser.enable) not flagged');
+
+// .add(...) inside a javaCode string block → not real JS render text
+var javaSrc = "foam.CLASS({\n  package:'t', name:'JavaUser',\n  methods:[ { name:'foo', javaCode: 'list.add(\"Metric Type\");' } ]\n})";
+test(addStrDiags(javaSrc).length === 0, '.add() inside a javaCode string not flagged');
+
+// .add(...) inside a backtick template (e.g. embedded code) → not flagged
+var tmplSrc = "foam.CLASS({\n  package:'t', name:'Tmpl',\n  properties:[ { name:'doc', value: `set.add('Some Backtick Text');` } ]\n})";
+test(addStrDiags(tmplSrc).length === 0, '.add() inside a backtick string not flagged');
+
+// Controls: real u2 display text still flagged, incl. ellipsis (dots but no identifier)
+test(addStrDiags("foam.CLASS({ package:'t', name:'U2a', methods:[ function render(){ this.add('Upload Complete'); } ] })").length === 1, 'control: real .add() display string still flagged');
+test(addStrDiags("foam.CLASS({ package:'t', name:'U2b', methods:[ function render(){ this.add('Processing...'); } ] })").length === 1, "control: ellipsis 'Processing...' still flagged");
+
+// === Step 4: extract-to-message code action edit ===
+section('DiagnosticsHandler i18n extract edit');
+
+// New messages array path
+var noMsgSrc = "foam.CLASS({\n  package:'test', name:'EX1',\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
+var e1 = diagHandler.buildAddExtractEdit(noMsgSrc, 'Upload Complete', 'file:///x.js');
+test(!! e1, 'buildAddExtractEdit returns an edit for a single-class file');
+var edits1 = e1 && e1.changes['file:///x.js'];
+test(!!edits1 && edits1.length === 2, 'edit has two text edits (insert message + rewrite usage)');
+test(!!edits1 && edits1.some(function(t){ return t.newText === 'this.UPLOAD_COMPLETE_MSG'; }), 'usage rewritten to this.UPLOAD_COMPLETE_MSG');
+test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf("name: 'UPLOAD_COMPLETE_MSG'") !== -1 && t.newText.indexOf("message: 'Upload Complete'") !== -1; }), 'inserts a messages entry with _MSG-suffixed name + original text');
+test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf('messages: [') !== -1; }), 'creates a new messages: array when none exists');
+
+// Existing messages array path — entry inserted, no new messages: key
+var withMsgSrc = "foam.CLASS({\n  package:'test', name:'EX2',\n  messages:[ { name:'FOO', message:'Foo' } ],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
+var e2 = diagHandler.buildAddExtractEdit(withMsgSrc, 'Upload Complete', 'file:///y.js');
+var edits2 = e2 && e2.changes['file:///y.js'];
+test(!!edits2 && edits2.length === 2, 'existing-array path also produces two edits');
+test(!!edits2 && edits2.every(function(t){ return t.newText.indexOf('messages:') === -1; }), 'does not inject a second messages: key when one exists');
+
+// Multi-class file → null (avoid inserting into the wrong class)
+var multiSrc = "foam.CLASS({ package:'test', name:'A' })\nfoam.CLASS({ package:'test', name:'B', methods:[ function render(){ this.add('Upload Complete'); } ] })";
+test(diagHandler.buildAddExtractEdit(multiSrc, 'Upload Complete', 'file:///z.js') === null, 'multi-class file returns null (no autofix)');
+
+// Nested/inner class → ambiguous insertion scope → null (no autofix)
+var nestedClassesSrc = "foam.CLASS({\n  package:'t', name:'Outer',\n  classes:[ { name:'Inner', messages:[ { name:'X', message:'x' } ], properties:[ { name:'y' } ] } ],\n  methods:[ function render(){ this.add('Outer Text'); } ]\n})";
+test(diagHandler.buildAddExtractEdit(nestedClassesSrc, 'Outer Text', 'file:///n.js') === null, 'inner classes: present → ambiguous → no autofix');
+var twoPropSrc = "foam.CLASS({\n  package:'t', name:'TwoProp',\n  properties:[ { name:'a' } ],\n  sections:[ { name:'s' } ],\n  methods:[ function render(){ this.add('Some Text'); var v = { properties:[ {name:'b'} ] }; } ]\n})";
+test(diagHandler.buildAddExtractEdit(twoPropSrc, 'Some Text', 'file:///2p.js') === null, 'multiple properties: blocks → ambiguous → no autofix');
+
+// Insertion placement: messages lands right before properties:, after header keys
+function msgInsertOffset(edit, uri, src) {
+  var t = edit.changes[uri].filter(function(e){ return e.newText.indexOf("name: 'UPLOAD_COMPLETE_MSG'") !== -1; })[0];
+  return analyzer.positionToOffset(src, t.range.start);
+}
+var srcHP = "foam.CLASS({\n  package:'p',\n  name:'HP',\n  requires:['a.B'],\n  properties:[ { name:'x' } ],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
+var eHP = diagHandler.buildAddExtractEdit(srcHP, 'Upload Complete', 'file:///hp.js');
+var offHP = msgInsertOffset(eHP, 'file:///hp.js', srcHP);
+test(offHP > srcHP.indexOf("requires:"), 'new messages inserted AFTER header keys (requires)');
+test(offHP <= srcHP.indexOf('properties:'), 'new messages inserted right BEFORE properties:');
+
+// No properties: inserted after the last header key, before methods
+var srcNP = "foam.CLASS({\n  package:'p',\n  name:'NP',\n  requires:['a.B'],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
+var eNP = diagHandler.buildAddExtractEdit(srcNP, 'Upload Complete', 'file:///np.js');
+var offNP = msgInsertOffset(eNP, 'file:///np.js', srcNP);
+test(offNP > srcNP.indexOf("requires:['a.B']") , 'no-properties: messages inserted after requires array');
+test(offNP < srcNP.indexOf('methods:'), 'no-properties: messages inserted before methods:');
+
+// P3: extract must edit the occurrence at the diagnostic range, not the first match
+var twiceSrc = "foam.CLASS({\n  package:'t', name:'TWICE',\n  methods:[ function render(){ this.add('Repeat Me'); this.add('Repeat Me'); } ]\n})";
+var firstIdx2 = twiceSrc.indexOf("this.add('Repeat Me')");
+var secondIdx2 = twiceSrc.indexOf("this.add('Repeat Me')", firstIdx2 + 1);
+var secondInner = secondIdx2 + "this.add('".length;
+var secondRange = {
+  start: analyzer.offsetToPosition(twiceSrc, secondInner),
+  end:   analyzer.offsetToPosition(twiceSrc, secondInner + 'Repeat Me'.length)
+};
+var eTwice = diagHandler.buildAddExtractEdit(twiceSrc, 'Repeat Me', 'file:///tw.js', secondRange);
+var rwTwice = eTwice && eTwice.changes['file:///tw.js'].filter(function(t){ return t.newText === 'this.REPEAT_ME_MSG'; })[0];
+var rwOff = rwTwice ? analyzer.positionToOffset(twiceSrc, rwTwice.range.start) : -1;
+test(rwOff === secondInner - 1, 'P3: extract rewrites the occurrence at the diagnostic range (the 2nd), not the 1st');
+
+// === _MSG suffix + axiom-collision uniqueness ===
+section('DiagnosticsHandler i18n message-name uniqueness');
+
+// A 'fileName' property installs a FILE_NAME constant; extracting the label
+// 'File Name' must NOT reuse FILE_NAME — the _MSG suffix keeps them apart.
+var collideSrc = "foam.CLASS({\n  package:'t', name:'TextSaveView',\n  properties:[ { name:'fileName' } ],\n  methods:[ function render(){ this.add('File Name'); } ]\n})";
+var eCollide = diagHandler.buildAddExtractEdit(collideSrc, 'File Name', 'file:///c.js');
+var editsC = eCollide && eCollide.changes['file:///c.js'];
+test(!!editsC && editsC.some(function(t){ return t.newText === 'this.FILE_NAME_MSG'; }), 'property constant FILE_NAME does not block the _MSG name; usage -> this.FILE_NAME_MSG');
+test(!!editsC && editsC.every(function(t){ return t.newText.indexOf("name: 'FILE_NAME'") === -1 || t.newText.indexOf("name: 'FILE_NAME_MSG'") !== -1; }), 'extracted message is named FILE_NAME_MSG, not FILE_NAME');
+
+// An existing FOO_MSG message forces a numeric suffix on a second 'Foo'.
+var dupMsgSrc = "foam.CLASS({\n  package:'t', name:'DUP',\n  messages:[ { name:'FOO_MSG', message:'x' } ],\n  methods:[ function render(){ this.add('Foo'); } ]\n})";
+var eDup = diagHandler.buildAddExtractEdit(dupMsgSrc, 'Foo', 'file:///d.js');
+var editsD = eDup && eDup.changes['file:///d.js'];
+test(!!editsD && editsD.some(function(t){ return t.newText === 'this.FOO_MSG2'; }), 'taken FOO_MSG -> numeric suffix FOO_MSG2');
+
+// === P2: WorkspaceAnalyzer threads the file URI (test/demo exemption) ===
+section('WorkspaceAnalyzer i18n URI exemption');
+var os = require('os');
+var tmpExempt = path.join(os.tmpdir(), 'WidgetTest.js');
+var tmpReal   = path.join(os.tmpdir(), 'Widget.js');
+fs.writeFileSync(tmpExempt, "foam.CLASS({ package:'t', name:'WidgetTest', methods:[ function render(){ this.add('Should Be Exempt'); } ] })");
+fs.writeFileSync(tmpReal,   "foam.CLASS({ package:'t', name:'Widget', methods:[ function render(){ this.add('Should Be Flagged'); } ] })");
+function i18nOf(arr){ return (arr || []).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; }); }
+test(i18nOf(wsa.analyzeSingleFile(tmpExempt)).length === 0, 'P2: analyzeSingleFile exempts *Test.js by URI');
+test(i18nOf(wsa.analyzeSingleFile(tmpReal)).length === 1, 'P2: analyzeSingleFile flags a non-exempt file (control)');
+test(i18nOf(wsa.analyzeFiles([tmpExempt]).fileResults['file://' + tmpExempt]).length === 0, 'P2: analyzeFiles exempts *Test.js by URI');
+fs.unlinkSync(tmpExempt);
+fs.unlinkSync(tmpReal);
+
+// === Review round 4: insertion scope, escaping, string-literal scanning ===
+section('DiagnosticsHandler i18n extract edit — robustness');
+
+// F1: no properties:, but a method body has a line-start `name:` object literal.
+// The messages: block must NOT be inserted inside the method/object.
+var bodyObjSrc = "foam.CLASS({\n  package:'p',\n  name:'BodyObj',\n  methods:[\n    function render(){\n      var cfg = {\n        name: 'inner'\n      };\n      this.add('Body Object Text');\n    }\n  ]\n})";
+var eBO = diagHandler.buildAddExtractEdit(bodyObjSrc, 'Body Object Text', 'file:///bo.js');
+var msgEditBO = eBO && eBO.changes['file:///bo.js'].filter(function(t){ return t.newText.indexOf("name: 'BODY_OBJECT_TEXT_MSG'") !== -1; })[0];
+var insBO = msgEditBO ? analyzer.positionToOffset(bodyObjSrc, msgEditBO.range.start) : -1;
+test(insBO !== -1 && insBO < bodyObjSrc.indexOf('methods:'), 'F1: messages inserted before methods:, not inside the body object');
+
+// F2: an escaped apostrophe must produce a valid message: literal (no double-escaping).
+var aposSrc = "foam.CLASS({\n  package:'p', name:'Apos',\n  methods:[ function render(){ this.add('Don\\'t save'); } ]\n})";
+var eA = diagHandler.buildAddExtractEdit(aposSrc, "Don\\'t save", 'file:///a.js');
+var msgEditA = eA && eA.changes['file:///a.js'].filter(function(t){ return t.newText.indexOf("name: 'DON_T_SAVE_MSG'") !== -1; })[0];
+test(!!msgEditA, 'F2: message entry generated for a string with an escaped apostrophe');
+test(!!msgEditA && msgEditA.newText.indexOf("message: 'Don\\'t save'") !== -1, 'F2: message: literal preserves the original valid escaping');
+test(!!msgEditA && msgEditA.newText.indexOf("Don\\\\'t") === -1, 'F2: no double-backslash escaping');
+
+// F3 (already fixed last round): .add() inside a string literal must not be flagged.
+var docStrSrc = "foam.CLASS({\n  package:'p', name:'Doc',\n  properties:[ { name:'x', documentation: \"see this.add('Upload Complete') in render\" } ],\n  methods:[ function render(){} ]\n})";
+test(addStrDiags(docStrSrc).length === 0, 'F3: .add() inside a documentation string literal is not flagged');
+
+// === Review round 5: single-word collection adds + double-quote literals ===
+section('DiagnosticsHandler i18n round 5');
+
+// P2: a Set/collection .add() (receiver paired with new Set + .delete) is not display text
+var collSrc = "foam.CLASS({\n  package:'t', name:'Coll',\n  methods:[ { name:'ps', code: function(){ const set = new Set(); set.add('scheduled'); set.delete('scheduled'); } } ]\n})";
+test(addStrDiags(collSrc).length === 0, "collection set.add('scheduled') (new Set + delete) not flagged");
+// control: a capitalized single word is display text → still flagged
+test(addStrDiags("foam.CLASS({ package:'t', name:'C2', methods:[ function render(){ this.add('Welcome'); } ] })").length === 1, 'control: capitalized single word still flagged');
+// control: a multi-word lowercase phrase is still display text → flagged
+test(addStrDiags("foam.CLASS({ package:'t', name:'C3', methods:[ function render(){ this.add('please wait'); } ] })").length === 1, 'control: multi-word lowercase phrase still flagged');
+
+// Medium: a display string containing double quotes must extract without corruption.
+var dqSrc = "foam.CLASS({\n  package:'t', name:'DQ',\n  methods:[ function render(){ this.add('Say \"Hi\"'); } ]\n})";
+var dqDiags = diagHandler.handle(dqSrc).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; });
+test(dqDiags.length === 1, 'double-quote-containing display string flagged once');
+// Simulate the server passing a message-truncated text ('Say ') BUT the real diag range.
+var eDQ = dqDiags.length === 1 ? diagHandler.buildAddExtractEdit(dqSrc, 'Say ', 'file:///dq.js', dqDiags[0].range) : null;
+var rwDQ = eDQ && eDQ.changes['file:///dq.js'].filter(function(t){ return t.newText.indexOf('this.') === 0; })[0];
+var rwStr = rwDQ ? dqSrc.substring(analyzer.positionToOffset(dqSrc, rwDQ.range.start), analyzer.positionToOffset(dqSrc, rwDQ.range.end)) : '';
+test(rwStr === "'Say \"Hi\"'", 'Medium: rewrite span covers the full literal incl. embedded double quotes');
+var msgDQ = eDQ && eDQ.changes['file:///dq.js'].filter(function(t){ return t.newText.indexOf('message:') !== -1; })[0];
+test(!!msgDQ && msgDQ.newText.indexOf("message: 'Say \"Hi\"'") !== -1, 'Medium: message entry uses the full source literal');
+
+// === Review round 6: lowercase display copy must NOT be suppressed ===
+section('DiagnosticsHandler i18n round 6');
+
+// Real cases: chained .add() of lowercase UI copy (from:, to:, type) — must be flagged.
+var lcChain = "foam.CLASS({\n  package:'t', name:'LC',\n  methods:[ function render(){ return this.E().start('strong').add('from:').end().start('td').add('type').end(); } ]\n})";
+test(addStrDiags(lcChain).length === 2, "lowercase chained display copy ('from:', 'type') is flagged");
+
+// Lowercase display on this.add (view receiver) — still flagged.
+test(addStrDiags("foam.CLASS({ package:'t', name:'LC2', methods:[ function render(){ this.add('please'); } ] })").length === 1, "lowercase display on this.add('please') flagged");
+
+// Lowercase add on an element var receiver (not a collection) — flagged.
+test(addStrDiags("foam.CLASS({ package:'t', name:'LC3', methods:[ function render(){ var row = this.E(); row.add('total'); } ] })").length === 1, "lowercase .add('total') on an element var flagged");
+
+section('Diagnostics — instantiation enum / primitive values (F3)');
+var badSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+  "    this.Health.create({ status: 'BOGUS', port: 'abc', appName: 'ok' });\n  } ]\n})";
+var badMsgs = diagHandler.handle(badSrc, '').map(function(d) { return d.message || ''; });
+function has(arr, sub) { return arr.some(function(m) { return m.indexOf(sub) !== -1; }); }
+test(has(badMsgs, "not a valid foam.core.app.HealthStatus"), 'bad enum value is flagged');
+test(has(badMsgs, "expects a numeric"), 'string assigned to Int port is flagged');
+
+var okSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+  "    this.Health.create({ status: 'UP', appName: 'svc' });\n  } ]\n})";
+var okMsgs = diagHandler.handle(okSrc, '').map(function(d) { return d.message || ''; });
+test(! has(okMsgs, 'HealthStatus'), 'valid enum value is not flagged');
+
+var exprSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+  "    this.Health.create({ status: this.x, port: someVar });\n  } ]\n})";
+var exprMsgs = diagHandler.handle(exprSrc, '').map(function(d) { return d.message || ''; });
+test(! has(exprMsgs, 'HealthStatus') && ! has(exprMsgs, 'numeric'),
+  'expression values are not flagged (literals only)');
+
+// === i18n detection mechanics — characterization for the .add() finder ===
+// These lock the CURRENT (regex) finding behavior so a future grammar-based
+// rewrite (Approach A) that swaps the finder must reproduce it exactly. They
+// pin the mechanics the existing semantic tests don't: range precision, the
+// whitespace contract, look-alike method names, nested-body descent, quote
+// flavors. Any drift here fails loudly.
+section('DiagnosticsHandler i18n detection mechanics');
+
+// 1. Range precision — the diagnostic range covers the inner content only,
+//    bounded by (not including) the quote characters.
+var rpSrc = "foam.CLASS({ package:'t', name:'RP', methods:[ function render(){ this.add('Upload Complete'); } ] })";
+var rp = diagHandler.handle(rpSrc).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; });
+test(rp.length === 1, 'range: exactly one diagnostic');
+var rpS = rp.length === 1 ? analyzer.positionToOffset(rpSrc, rp[0].range.start) : -1;
+var rpE = rp.length === 1 ? analyzer.positionToOffset(rpSrc, rp[0].range.end)   : -1;
+test(rpS !== -1 && rpSrc.substring(rpS, rpE) === 'Upload Complete', 'range: spans the inner content exactly (no quotes)');
+test(rpS !== -1 && rpSrc[rpS - 1] === "'" && rpSrc[rpE] === "'", 'range: bounded by the surrounding quote chars');
+
+// 2. Whitespace contract. Spaces/newlines AFTER the ( are tolerated; a space
+//    BETWEEN .add and ( is NOT matched (the scanner requires a contiguous '.add(').
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS1', methods:[ function render(){ this.add( 'Spaced Out' ); } ] })").length === 1, "whitespace: .add( 'x' ) with inner spaces flagged");
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS2', methods:[ function render(){ this.add(\n        'Newline Arg'); } ] })").length === 1, 'whitespace: .add( newline + string ) flagged');
+test(addStrDiags("foam.CLASS({ package:'t', name:'WS3', methods:[ function render(){ this.add ('Not Matched'); } ] })").length === 0, 'whitespace: a space between .add and ( is NOT flagged (contiguous .add( required)');
+
+// 3. Look-alike method names must NOT match — only an exact .add( call counts.
+test(addStrDiags("foam.CLASS({ package:'t', name:'AA', methods:[ function render(){ this.addAll('Some Items'); } ] })").length === 0, "look-alike: .addAll('Some Items') not flagged");
+test(addStrDiags("foam.CLASS({ package:'t', name:'RA', methods:[ function render(){ this.readd('Re Add'); } ] })").length === 0, "look-alike: .readd('Re Add') not flagged");
+
+// 4. Nested-body descent — an .add() inside a callback within render is found.
+test(addStrDiags("foam.CLASS({ package:'t', name:'NCB', methods:[ function render(){ this.data.sub(function(){ this.add('Deep Text'); }); } ] })").length === 1, 'nested: .add() inside a callback within render is flagged');
+
+// 5. Double-quoted argument flavor flagged (parity with single-quoted).
+test(addStrDiags("foam.CLASS({ package:'t', name:'DQ2', methods:[ function render(){ this.add(\"Hello World\"); } ] })").length === 1, 'double-quoted: this.add("Hello World") flagged once');
+
+// 6. Escaped-quote argument flagged exactly once (detection, not just extract).
+test(addStrDiags("foam.CLASS({ package:'t', name:'AP2', methods:[ function render(){ this.add('Don\\'t save'); } ] })").length === 1, "escaped quote: this.add('Don\\'t save') flagged once");
+
+

@@ -310,7 +310,7 @@ public interface FObject
           }
         }
       } catch (ClassCastException ignore) {
-        StdoutLogger.instance().debug("FObject.copyFrom", p.getName(), p, p2, obj, ignore.getMessage());
+        // StdoutLogger.instance().debug("FObject.copyFrom", p.getName(), p, p2, obj, ignore.getMessage());
       }
     }
     return this;
@@ -374,6 +374,21 @@ public interface FObject
       }
     }
     return this;
+  }
+
+  default FObject fcloneIn(X x) {
+    try {
+      FObject ret = getClass().newInstance();
+      ret.setX(x);
+      List<PropertyInfo> props = getClassInfo().getAxiomsByClass(PropertyInfo.class);
+      for ( PropertyInfo prop : props ) {
+        if ( ! prop.isSet(this) ) continue;
+        prop.cloneProperty(this, ret);
+      }
+      return ret;
+    } catch (IllegalAccessException | InstantiationException e) {
+      return this;
+    }
   }
 
   default FObject fclone() {

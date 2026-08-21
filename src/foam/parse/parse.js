@@ -115,6 +115,13 @@ foam.CLASS({
   ],
 
   methods: [
+    // An optionally async function which adds Suggestions to an array.
+    // In the normal case it just adds 'this', but if gives the Suggestion
+    // to add a different Suggestion or Suggestions
+    // delta -- the remaining text
+    function expand(a, delta) {
+      if ( this.view || ! this.text || this.matches(delta) ) a.push(this);
+    },
     function matches(str) {
       /** Return true iff this suggestions matches the partially typed str input. **/
 

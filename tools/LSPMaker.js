@@ -15,6 +15,12 @@ exports.init = function() {
   flags.loadFiles = true;
   flags.java      = true;
   flags.js        = true;
+  // genjava gates the Java refinements that add javaCode / javaPostSet /
+  // javaFactory / etc. to Method and Property (foam/src/pom.js:172).
+  // Without it those slots are stripped during axiom normalisation and
+  // the LSP can't see Java content on model objects. We're not generating
+  // .java files here — just loading the refinements.
+  flags.genjava   = true;
 };
 
 exports.end = function() {

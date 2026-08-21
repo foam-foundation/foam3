@@ -524,8 +524,8 @@ foam.CLASS({
        *
        * Handles empty values deterministically. Partial values are subject
        * to the grammar's permissive classRef fallback — callers should
-       * combine with regex checks where needed (Phase 1 compromise; Phase 6
-       * removes the permissive fallback and makes this authoritative).
+       * combine with regex checks where needed (tactical compromise; a
+       * grammar-driven extractor will remove the permissive fallback).
        */
       var sentinel = this.CursorSentinel.create();
       var ins = sentinel.insertAt(text, position);
@@ -574,7 +574,7 @@ foam.CLASS({
        * flag value, Java dep). The helpers below produce the actual items.
        *
        * Regex fallbacks remain only where the grammar may fail (mid-edit
-       * files); once Phase 6 lands proper recovery, those go away.
+       * files); once the grammar-driven extractor lands, those go away.
        */
       var partial = this.extractPartial_(prefix);
       var ctx = this.detectContext_(text, position);

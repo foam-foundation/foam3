@@ -1,5 +1,5 @@
 p({"class":"foam.core.auth.Language", "code":"en", "name":"English"})
 p({"class":"foam.core.auth.Language", "code":"en", "name":"English", "variant":"US"})
-p({"class":"foam.core.auth.Language", "code":"fr", "name":"French", "nativeName":"Français", "enabled":false})
+p({"class":"foam.core.auth.Language", "code":"fr", "name":"French", "nativeName":"Français", "enabled":true})
 p({"class":"foam.core.auth.Language", "code":"pt", "name":"Portuguese", "nativeName":"Português", "enabled":false})
 p({"class":"foam.core.auth.Language", "code":"pt", "name":"Portuguese", "nativeName":"Português", "variant":"BR"})

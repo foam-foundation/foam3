@@ -21,6 +21,15 @@ foam.CLASS({
 
   imports: [ 'softSelected' ],
 
+  css: `
+    ^dependent {
+      border: 1px solid orange !important;
+    }
+    ^error {
+      color: $textDestructive;
+    }
+  `,
+
   properties: [
     {
       name: 'flowParent',
@@ -30,6 +39,21 @@ foam.CLASS({
     {
       class: 'String',
       name: 'flowName',
+    },
+    {
+      class: 'String',
+      name: 'error',
+      reactive: false,
+      transient: true,
+      hidden: true,
+      visibility: 'RO',
+      expression: function(value$reactionError_) {
+        // console.log('************** Flowable error:', value$reactionError_);
+        return value$reactionError_;
+      },
+      visibility: function(error) {
+        return error ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RO;
+      }
     },
     {
       class: 'Array',
@@ -44,9 +68,12 @@ foam.CLASS({
         e.parentNode.enableClass('locked', this.locked$);
         e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
 
-        let isDependent = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1 ? 'orange' : '');
+        let dependent$ = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1);
+
+        e.enableClass(this.myClass('error'), this.error$);
+        e.parentNode.enableClass(this.myClass('dependent'), dependent$);
+        e.tooltip$ = this.error$;
         e.add(this.flowName$);
-        e.style({color: isDependent});
       }
     },
     {
@@ -133,10 +160,10 @@ foam.CLASS({
     },
 
     function removeAllFlowChildren() {
-        this.flowChildren.forEach(c => {
-          this.removeFlowChild_(c);
-          this.detachFlowChild(c);
-        });
+      this.flowChildren.forEach(c => {
+        this.removeFlowChild_(c);
+        this.detachFlowChild(c);
+      });
       this.flowChildren = [];
     }
   ]
@@ -259,7 +286,7 @@ foam.CLASS({
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: isLimitedEditConsole ? [this.CANCEL] : [this.RESET, this.CANCEL, this.CLEAR],
+                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -370,6 +397,24 @@ foam.CLASS({
       },
       code: function() {
         this.data.eval_('clear');
+      }
+    },
+    {
+      name: 'benchmark',
+      label: 'Benchmark flow',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'speed',
+      // Show only when the loadPerf command it invokes is runnable (same permission).
+      availablePermissions: [ 'command.read.loadPerf' ],
+      isEnabled: function(data$value$name) { return !! data$value$name; },
+      code: async function() {
+        // loadPerf reloads the SAVED flow under capture, so unsaved edits would be lost.
+        if ( this.data.value.revision ) {
+          this.notify('Save the flow first - Benchmark reloads the saved version.', '', this.LogLevel.ERROR, true);
+          return;
+        }
+        await this.data.benchmarkFlow_();
       }
     },
     {
@@ -507,276 +552,6 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Block',
-  extends: 'foam.u2.Accordion',
-  implements: [ 'foam.core.reflow.Flowable' ],
-  mixins: [ 'foam.u2.StyleConfigurator' ],
-
-  requires: [ 'foam.u2.WrapperNode' ],
-
-  imports: [ 'data', 'showPrompts', 'addToScope', 'selected' ],
-
-  exports: [ 'addValue', 'log', 'out', 'as block' ],
-
-  css: `
-    ^ {
-      padding: 4px;
-    }
-    ^:not(^hidePrompts) {
-      border-bottom: 1px solid $borderLight;
-    }
-    ^output {
-      overflow-x: auto;
-    }
-    ^hidePrompts ^toolbar {
-      display: none;
-    }
-    ^prompt {
-      display: flex;
-      font-weight: bold;
-      height: 20px;
-      align-items: center;
-    }
-    ^ span .property-cmd { width: inherit; }
-    ^ .foam-u2-TextField-cmd, ^ .foam-u2-ReadWriteView .foam-u2-TextField {
-      border: none;
-      height: 20px;
-    }
-    div.foam-core-reflow-Console-CONSOLE ^.block:hover:not(:has(.block:hover)) {
-      background: $backgroundSecondary; }
-    }
-    ^ .foam-u2-ReadWriteView { padding-right: 8px; }
-    ^content {
-      overflow-x: auto;
-      width: 100%;
-      height: fit-content;
-      overflow-y: hidden;
-    }
-    ^.expanded > ^toolbar {
-      padding: 0 0 0.8rem 16px;
-    }
-    ^content:has(> .foam-u2-Element-hidden) {
-      display: none;
-    }
-    ^hidePrompts:has(> ^content > .foam-u2-Element-hidden) {
-      display: none;
-    }
-  `,
-
-  sections: [
-    {
-      name: 'general',
-      order: 100,
-      properties: ['flowName', 'cmd', 'shown']
-    },
-    {
-      name: 'titleSettings',
-      order: 200,
-      properties: ['border']
-    }
-  ],
-
-  properties: [
-    {
-      name: 'flowName',
-      reactive: false,
-      label: 'Block Name',
-      supportingLabel: 'Used to as the name for this block and as the variable name in the scope'
-    },
-    {
-      class: 'String',
-      name: 'cmd',
-      visibility: 'RO',
-      displayWidth: 80
-    },
-    [ 'value', null ],
-    {
-      name: 'out',
-      hidden: true
-    },
-    {
-      class: 'Boolean',
-      name: 'shown',
-      hidden: false
-    },
-    {
-      class: 'Boolean',
-      name: 'allowLimitedEdit',
-      documentation: 'When true, Block configuration remains accessible in LIMIT_EDIT_CONSOLE mode.'
-    },
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'border',
-      label: 'Border Properties',
-      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
-      label: '',
-      factory: function() { return {}; },
-      preSet: function(_, n) {
-        // Dont save the class so that the ViewSpec doesn't convert to a view
-        // The fromJSON should handle this but the scripts dont store the class
-        // so parsing ignores all the fromJSON
-        if ( n.class ) delete n.class;
-        return n;
-      },
-      view: function (_, X) {
-        return {
-          class: 'foam.u2.view.ViewConfiguratorView',
-          data_$: X.data$.dot('borderEl_'),
-          allowClassChange: false
-        };
-      }
-    },
-    {
-      class: 'Class',
-      name: 'borderClass',
-      hidden: true,
-      label: 'Border Type',
-      documentation: `DEPRECATED: USE STYLE CONFIGURATOR INSTEAD.`,
-    },
-    {
-      name: 'borderEl_',
-      hidden: true
-    },
-    { name: 'togglerPosition', value: 'right', hidden: true },
-    { name: 'expanded', value: true, hidden: true },
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'configViewSpec',
-      hidden: true,
-      documentation: `Passed on to the ReactiveSectionedDetailView as config, see AbstractSectionedDetailView to learn more about configuring detail views`
-    }
-  ],
-
-  methods: [
-    function init() {
-      let self = this;
-      this.SUPER();
-      this.content.tag(foam.u2.borders.TitleBorder, { ...this.border }, self.borderEl_$);
-      this.out = this.WrapperNode.create({ parentNode: this.content }, this);
-      self.borderEl_.add(this.out);
-      // Since border's properties will be copied over after in includeScript, set it here
-      this.onDetach(this.border$.sub(() => {
-        this.borderEl_.copyFrom(this.border);
-        this.maybeMigrate();
-      }));
-    },
-
-    function setTitle(title) {
-      if ( this.borderEl_ ) {
-        this.borderEl_.title = title;
-      } else {
-        this.border.title = title;
-      }
-    },
-
-    function render() {
-      this.on('click', this.onClick);
-      this.addClass('block');
-      this.enableClass(this.myClass('hidePrompts'), this.showPrompts$.not());
-      this.title.add(this.flowName$);
-      this.rightSection.tag(this.DEL, { label: ''});
-      this.SUPER();
-      this.initCSSProps(this.content);
-      if ( ! this.padding_st )
-        this.padding_st = '16px';
-    },
-
-    function addValue(o, skipOutput) {
-      if ( ! skipOutput ) this.out.add(o);
-      this.value = o;
-    },
-
-    function addFlowChild_(c) {
-      this.addToScope(c);
-      this.out.add(c);
-    },
-
-    function removeFlowChild_(c) {
-      c.remove();
-    },
-
-    function log(...args) {
-      if ( args.length == 0 ) return;
-      if ( this.seen ) this.out.tag('br');
-      this.seen = true;
-      this.out.add(args.join(' '));
-    },
-
-    function outputJSON(json) {
-      json.outputFObject_(this, this.cls_, [
-        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
-        this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
-      ]);
-    }
-  ],
-
-  actions: [
-    {
-      name: 'del',
-      label: 'Delete',
-      themeIcon: 'close',
-      buttonStyle: 'TERTIARY',
-      size: 'SMALL',
-      code: function() {
-        this.deleted_ = true;
-        this.flowParent && this.flowParent.removeFlowChild(this);
-      }
-    }
-  ],
-
-  listeners: [
-    function maybeMigrate() {
-      // Legacy support
-      if ( this.borderClass && this.borderClass !== foam.u2.borders.TitleBorder ) {
-        switch ( this.borderClass ) {
-          case foam.u2.borders.CardBorder:
-            this.border_st = 'solid 1px $borderDefault';
-            this.padding_st = '16px';
-            break;
-          case foam.u2.borders.BackgroundCard:
-            this.background_st = this.border.backgroundColor || '$backgroundSecondary';
-            this.padding_st = this.border.padding || '2.4rem';
-            break;
-          case foam.u2.borders.SpacingBorder:
-            this.padding_st = this.border.padding || '1rem';
-            break;
-        }
-        // After migration clear the borderClass so it is never run again on this block;
-        this.borderClass = null;
-      }
-    },
-    {
-      name: 'pubUpdate',
-      on: ['this.propertyChange.borderClass', 'this.propertyChange.border'],
-      code: function() {
-        this.flowUpdated.pub();
-      }
-    },
-    {
-      name: 'replaceBorder',
-      isFramed: true,
-      code: function() {
-        if ( ! this.WrapperNode.isInstance(this.out) ) return;
-        let el = foam.u2.borders.TitleBorder.create({...(this.border || {})}, this);
-        this.borderEl_.parentNode.add(el);
-        this.out.moveTo(el);
-        this.borderEl_.remove();
-        this.borderEl_ = el;
-      }
-    },
-    {
-      name: 'onClick',
-      code: function(e) {
-        this.selected = this;
-        e.stopPropagation();
-      }
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'Layout',
   extends: 'foam.u2.Element',
 
@@ -837,6 +612,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
+    ^r .foam-u2-ActionView { min-width: 40px; }
     ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
@@ -1156,12 +932,24 @@ foam.ENUM({
 });
 
 
+// Create an Abstract base class for Console because so
+// we can override the 'route' property in the concrete
+// sub-class. You can't override a mixin property because
+// both properties are technically in the same class.
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Console',
+  name: 'AbstractConsole',
   extends: 'foam.u2.Controller',
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ { path: 'foam.u2.Router', priority: 200 } ],
+  abstract: true
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'Console',
+  extends: 'foam.core.reflow.AbstractConsole',
 
   documentation: `
     If you want to embed FLOWs in regular U3 views without all of the editing UI, you can do it like this:
@@ -1172,6 +960,7 @@ foam.CLASS({
 
   requires: [
     'foam.core.ai.ConversationalLLMService',
+    'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
     'foam.core.reflow.Flow',
     'foam.core.reflow.FlowMode',
@@ -1217,6 +1006,7 @@ foam.CLASS({
     'createFlowChildName',
     'currentBlock',
     'eval_',
+    'findFlowChildByName',
     'flowChildren',
     'history_',
     'llmService',
@@ -1226,6 +1016,7 @@ foam.CLASS({
     'moveFlowChild',
     'moveFlowChildAfter',
     'out',
+    'perfCapture_',
     'save',
     'scope',
     'scrollToBottom',
@@ -1253,10 +1044,6 @@ foam.CLASS({
       width: 100%;
       position: relative;
       overflow-anchor: none;
-    }
-    ^error {
-      background: $backgroundDestructiveTertiary!important;
-      color: $textDestructive;
     }
     ^loading-indicator {
       position: absolute;
@@ -1298,7 +1085,7 @@ foam.CLASS({
       text-align: center;
     }
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
-      color: orange !important;
+      color: $orange500 !important;
     }
   `,
 
@@ -1442,6 +1229,15 @@ foam.CLASS({
       value: 0
     },
     {
+      name: 'perfCapture_',
+      hidden: true,
+      transient: true,
+      documentation: `Per-block cost rows for the load in progress: the loadPerf command
+        points this at the capturing Perf's buffer, and onScriptChange drops it when the
+        load ends. Held per Console rather than on window so a perf block detaching
+        mid-load (clearFlow) cannot reach another capture's buffer.`
+    },
+    {
       class: 'Int',
       name: 'loadingPercentage_',
       hidden: true,
@@ -1524,7 +1320,25 @@ foam.CLASS({
       }
     },
 
-    async function includeScript(script, parent, skipParse) {
+    async function benchmarkFlow_() {
+      /** Purge the loaded flow's DAO caches, then reload it under performance capture.
+          Without the purge, benchmarking an already-open flow measures the WARM cache
+          (few server calls) instead of the real cold-load cost. **/
+      var daos = [], seen = {};
+      function walk(b) {
+        if ( ! b ) return;
+        var d = b.value && b.value.dao;
+        if ( d && d.cmd && ! seen[d.$UID] ) { seen[d.$UID] = true; daos.push(d); }
+        ( b.flowChildren || [] ).forEach(walk);
+      }
+      ( this.flowChildren || [] ).forEach(walk);
+      for ( var i = 0 ; i < daos.length ; i++ ) {
+        try { await daos[i].cmd(foam.dao.DAO.PURGE_CMD); } catch (e) { /* not a caching dao */ }
+      }
+      await this.eval_('loadPerf("' + this.value.name + '")');
+    },
+
+    async function includeScript(script, parent, skipParse, perfParent) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
@@ -1544,7 +1358,36 @@ foam.CLASS({
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
+        // Per-block attribution for the reflow Perf block: when a capture pointed
+        // perfCapture_ at its buffer, record this block's cost. A nested call writes
+        // into the row of the block it ran inside, so the report keeps the block tree.
+        // No-op (single array check) when not capturing.
+        var perfSink_ = perfParent ? perfParent.children :
+          ( Array.isArray(this.perfCapture_) ? this.perfCapture_ : null );
+        var perfRow_ = null, perfT_, perfDom_, perfHeap_;
+        if ( perfSink_ ) {
+          perfT_    = this.window.performance.now();
+          perfDom_  = this.window.document.querySelectorAll('*').length;
+          perfHeap_ = ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0;
+          // Pushed before the block runs so children have a row to attach to; the
+          // costs land on it once the block and its children are done.
+          // flowName from the script (reliable) since currentBlock may become a child.
+          perfRow_ = { flowName: c.flowName || c.cmd, cmd: c.cmd, start: perfT_, children: [] };
+          perfSink_.push(perfRow_);
+        }
+
         await ctx.eval_(c.cmd, undefined, undefined, parent);
+
+        // This occurs if eval_() has an error and creates a BadBlock
+        if ( this.BadBlock.isInstance(this.currentBlock.value) ) {
+          this.currentBlock.value.block = this.currentBlock;
+          this.currentBlock.value.cmd = c.cmd;
+          try {
+            let json = JSON.parse(script);
+            this.currentBlock.value.script = JSON.stringify(json[i], null, '\t');
+          } catch (x) {
+          }
+        }
 
         let args = { ...c };
         if ( args.value )
@@ -1564,18 +1407,24 @@ foam.CLASS({
           await this.currentBlock.value?.onLoad?.();
         } catch (error) {
           console.error('Error loading block:', this.currentBlock.flowName, error);
+          this.currentBlock.value = this.BadBlock.create({block: this.currentBlock, /*cmd: c.cmd,*/ script: c, error: error.toString()});
           // Continue processing other blocks even if this one failed
         }
 
         if ( c.flowChildren ) {
-          await this.includeScript(c.flowChildren, this.currentBlock, true);
+          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_);
+        }
+
+        // Measure AFTER onLoad + children: that is where a block's real work runs
+        // (script autoRun, DAO select, DOM render). eval_ alone only creates the block.
+        if ( perfRow_ ) {
+          var perfEnd_ = this.window.performance.now();
+          perfRow_.end       = perfEnd_;   // absolute timestamps so the Perf block can
+          perfRow_.ms        = perfEnd_ - perfT_;   // bucket profiler samples per block
+          perfRow_.domDelta  = this.window.document.querySelectorAll('*').length - perfDom_;
+          perfRow_.heapDelta = ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_;
         }
       }
-      /*
-      if ( ! parent ){
-        await this.eval_('postLoad', null, true);
-        }
-        */
     },
 
     function countBlocks(blocks) {
@@ -1591,6 +1440,10 @@ foam.CLASS({
 
     function clearFlow() {
       this.removeAllFlowChildren();
+
+      // Remove stale flowScope bindings so a script replay (undo/redo)
+      // can't resolve a DAO name to a removed block's value.
+      this.refreshFlowScope();
 
       // Select the top-level FLOW object after clearing
       this.selected = this.value;
@@ -1857,11 +1710,9 @@ foam.CLASS({
           } else {
             console.log(x);
             block.flowName = this.createFlowChildName('error');
-            block.value = foam.lang.StringHolder.create({value: x.toString() + ', ' + originalCmd});
-            block.treeRowRenderer = function(e) {
-              e.parentNode.addClass(self.myClass('error'));
-              e.add(this.flowName);
-            };
+//            block.value = foam.lang.StringHolder.create({value: x.toString() + ', ' + originalCmd});
+            block.value = this.BadBlock.create({block: block, error: x.message});
+            block.error = x.message;
           }
         }
 
@@ -2075,7 +1926,7 @@ foam.CLASS({
       }
     },
 
-    function generateScript() {
+    function generateScriptString() {
       this.updateDependencies();
 
       var json = foam.json.Outputter.create({
@@ -2087,17 +1938,21 @@ foam.CLASS({
         propertyPredicate: function(_, p) { return p.name === 'reactions_' || ( ! p.externalTransient && ! p.networkTransient ); }
       });
 
-      this.value.script = json.stringify(this.flowChildren);
-      // console.log('******************** script', this.value.script);
+      return json.stringify(this.flowChildren);
+    },
+
+    function generateScript() {
+      this.value.script = this.generateScriptString();
     },
 
     function maybeRegenScript() {
-//      if ( this.feedback_ ) return;
+      // Save/restore feedback_ so we never clear a guard onScriptChange owns mid-load.
+      var prev = this.feedback_;
       this.feedback_ = true;
       try {
         this.generateScript();
       } finally {
-        this.feedback_ = false;
+        this.feedback_ = prev;
       }
     },
 
@@ -2343,6 +2198,16 @@ foam.CLASS({
           var script = this.value.script;
           await this.includeScript(script);
 
+          // The loaded/restored script may not be a generateScript() fixed
+          // point (e.g. hand-written scripts, or scripts saved before a
+          // serialization change). Canonicalize it now WITHOUT recording a
+          // memento; otherwise the merged onFlowChildrenChange regen that
+          // follows every replay registers as a user edit, re-pushing the
+          // just-restored state onto the undo stack and clearing the redo
+          // stack, which leaves undo/redo apparently doing nothing.
+          var canonical = this.generateScriptString().trim();
+          if ( canonical !== this.value.script ) this.mementoMgr.restore(canonical);
+
           this.selected = ( currentBlockName == this.flowName ) ?
             this :
             ( this.findFlowChildByName(currentBlockName) || this );
@@ -2350,6 +2215,10 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+
+          // A capture collects the load it armed and no more: dropping the buffer
+          // here bounds it to one load even when includeScript throws.
+          this.perfCapture_ = null;
 
           // Reset progress counters
           this.loadingProgress_ = 0;
@@ -2363,6 +2232,8 @@ foam.CLASS({
       isMerged: true,
       delay: 500,
       code: function() {
+        // Skip regen during load: serializing a half-built flow clobbers the real script.
+        if ( this.isLoading_ ) return;
         this.maybeRegenScript();
         this.saveScriptToLocalStorage();
       }

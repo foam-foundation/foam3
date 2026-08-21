@@ -302,6 +302,93 @@ test(pmMap.method && pmMap.method.greet && pmMap.method.greet.line === 8,
 test(pmMap.method && pmMap.method.farewell && pmMap.method.farewell.line === 9,
   'Grammar axiom-pos: method farewell at line 9 (object form)');
 
+// === Method-body parsing must not disturb sibling axioms (Approach-A guard) ===
+// The grammar consumes method bodies as opaque balancedBraces. Any change that
+// teaches it to descend into bodies (e.g. an i18n .add() rule) MUST still
+// consume each body exactly — leaving siblings (the next method, later props)
+// findable. These lock that invariant: if a body change over- or under-consumes,
+// the sibling axiom below it goes missing and a test here fails immediately.
+section('Grammar: method bodies do not disturb sibling axioms (Approach-A guard)');
+
+// Synthetic, full control. render()'s body packs every construct a body-descent
+// could trip on: chained .add()/.start(), a nested callback with its own braces,
+// a string literal containing { } and an .add( and an escaped quote, plus line
+// and block comments that also contain .add( and braces. The sibling after() must
+// still be located at its real line.
+var bodyGuardSrc = [
+  "foam.CLASS({",                                                       // 0
+  "  package: 'g',",                                                    // 1
+  "  name: 'BodyGuard',",                                               // 2
+  "  properties: [",                                                    // 3
+  "    { name: 'before' }",                                             // 4
+  "  ],",                                                               // 5
+  "  methods: [",                                                       // 6
+  "    function render() {",                                            // 7
+  "      // line comment with .add('Commented') and a } brace",         // 8
+  "      this.start('div').add('Hello').start('span').add('World').end();", // 9
+  "      var s = 'has } { braces and .add(\\'Nested\\') inside';",      // 10
+  "      this.data.sub(function() { self.add('InCallback'); });",       // 11
+  "      /* block } { .add('Blocked') comment */",                      // 12
+  "    },",                                                             // 13
+  "    function after() { return 1; }",                                 // 14
+  "  ]",                                                                // 15
+  "});"                                                                 // 16
+].join('\n');
+var bgMap = axiomGrammar.collectAxiomPositions(bodyGuardSrc);
+test(bgMap.property && bgMap.property.before && bgMap.property.before.line === 4,
+  'body-guard: property before the method is found at line 4');
+test(bgMap.method && bgMap.method.render && bgMap.method.render.line === 7,
+  'body-guard: render() method found at line 7');
+test(bgMap.method && bgMap.method.after && bgMap.method.after.line === 14,
+  'body-guard: sibling after() still found at line 14 AFTER a gnarly render body');
+
+// Full no-throw parse of the same source — balancedBraces must not bail mid-class.
+var bgPs = foam.parse.StringPStream.create({ str: bodyGuardSrc + String.fromCharCode(26) });
+var bgRes; try { bgRes = grammar.parse(bgPs); } catch ( e ) { bgRes = undefined; }
+test(bgRes !== undefined, 'body-guard: source with a complex method body parses without error');
+
+// Real framework view: ActionView is dense with chained .add()/.addClass().add()
+// in its render()/initCls() bodies. Both methods (which precede the listeners:
+// block) are indexed, proving balancedBraces consumes those .add()-heavy bodies
+// without losing the sibling method. NOTE: ActionView's click/debounce/setConfirm
+// live in listeners:, which collectAxiomPositions does not index as methods (see
+// the bare-function-listener limitation tests below) — so they are intentionally
+// NOT asserted here.
+var avPath = 'foam3/src/foam/u2/ActionView.js';
+if ( fs.existsSync(avPath) ) {
+  var avText = fs.readFileSync(avPath, 'utf8');
+  var avMap  = axiomGrammar.collectAxiomPositions(avText);
+  test(!! (avMap.method.render && avMap.method.initCls),
+    'real view: render + initCls methods both found (sibling recovery across .add()-heavy bodies)');
+  test(!! (avMap.property.label && avMap.property.data),
+    'real view: label/data properties found');
+  test(!! avMap.message.CONFIRM,
+    'real view: CONFIRM message found');
+  var avPs = foam.parse.StringPStream.create({ str: avText + String.fromCharCode(26) });
+  var avRes; try { avRes = grammar.parse(avPs); } catch ( e ) { avRes = undefined; }
+  test(avRes !== undefined, 'real view: ActionView.js parses without error');
+} else {
+  test(true, 'real view: ActionView.js not present — skipped');
+}
+
+// listenersEntry structures BOTH listener forms: the object form
+// ([ { name, code } ]) and the bare named-function form
+// ([ function click(e){...} ], a common FOAM idiom). Neither may derail the
+// parse of axioms that follow, and a bare-function listener is itself indexed
+// as a method position (so go-to-def / hover resolve on the listener name).
+section('Grammar: listener forms — method-position indexing');
+test(Object.keys(axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package:'t', name:'OBJL', listeners:[ { name:'deb', code: function(){ this.add('Z'); } } ], methods:[ function afterL(){ return 1; } ] })"
+).method).indexOf('afterL') !== -1,
+  'object-form listener does NOT break the following methods: block (afterL found)');
+var bflMap = axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package:'t', name:'BFL', listeners:[ function click(e){ this.add('Z'); } ], methods:[ function afterL(){ return 1; } ] })"
+);
+test(Object.keys(bflMap.method).indexOf('afterL') !== -1,
+  'bare-function listener does NOT break the following methods: block (afterL found)');
+test(Object.keys(bflMap.method).indexOf('click') !== -1,
+  'bare-function listener is itself indexed as a method position (click found)');
+
 // === Regression: top-level/property keys with values must NOT abort the parse ===
 // Earlier `topKey()` and `propKey()` only matched the key word, leaving
 // the `: <value>` for the next iteration to choke on. Result: ANY class
@@ -674,3 +761,125 @@ test(/foam.*function\.macro/.test(zedHi.replace(/\s+/g, ' ')) ||
 
 // === Migration coverage: buildLocationAtProperty uses the grammar path ===
 
+section('Grammar — collectRanges comments + documentation (F1)');
+var crText = "foam.CLASS({\n" +
+  "  documentation: 'Hello World',\n" +
+  "  // a line comment FObject\n" +
+  "  methods: [ function f() { /* block FObject */ return 1; } ]\n" +
+  "})";
+var ranges = grammar.collectRanges(crText);
+test(ranges.comment.length >= 2, 'collectRanges finds the line + block comments');
+test(ranges.documentation.length >= 1, 'collectRanges finds the documentation value');
+var docSpan = ranges.documentation[0];
+test(crText.substring(docSpan.startPos, docSpan.endPos).indexOf('Hello World') !== -1,
+  'documentation span covers the value text');
+
+section('Grammar — collectInstantiations (F3)');
+var ciCreate = "foam.CLASS({ methods: [ function f() { " +
+  "var x = this.Health.create({ status: 'UP', port: 8080 }); } ] })";
+var insts = grammar.collectInstantiations(ciCreate);
+test(insts.length >= 1, 'collectInstantiations finds the create call');
+var call = insts.find(function(c) { return ! c.isTag; });
+test(call && call.classText === 'Health', 'create receiver resolved to Health (this. stripped)');
+var statusEntry = call && call.entries.find(function(e) { return e.key === 'status'; });
+test(statusEntry && statusEntry.valueText.indexOf('UP') !== -1, 'status entry value captured');
+
+var ciTag = "foam.CLASS({ methods: [ function f() { " +
+  "this.tag(this.Health, { status: 'DOWN' }); } ] })";
+var tagCall = grammar.collectInstantiations(ciTag).find(function(c) { return c.isTag; });
+test(tagCall && tagCall.classText === 'Health', 'tag first-arg class resolved to Health');
+
+var generic = "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); this.doThing(x); } ] })";
+test(grammar.collectInstantiations(generic).length === 0,
+  'generic calls produce no instantiation records (negative lookahead works)');
+
+
+section('Grammar — chained .tag + call-expression values (F3 regression)');
+// .tag chained off a method call (receiver before .tag is ')') with a slot
+// value and a function-call value — must still detect every call + entry.
+var chainSrc = "foam.CLASS({ methods: [ function f() {" +
+  " this.start().addClass('m')" +
+  "  .tag(this.MetricCard, { value$: this.totalCount$, variant: 'CRITICAL' })" +
+  "  .tag(this.MetricCard, { subText$: this.slot(function(n){ return n + ''; }, this.x$), variant: 'WARN' })" +
+  " .end(); } ] })";
+var chainInsts = grammar.collectInstantiations(chainSrc);
+test(chainInsts.length === 2, 'both chained .tag calls detected (got ' + chainInsts.length + ')');
+var second = chainInsts[1];
+var vEntry = second && second.entries.find(function(e){ return e.key === 'variant'; });
+test(vEntry && vEntry.valueText.indexOf('WARN') !== -1, 'variant captured past a function-call value without desync');
+
+section('Grammar — generic classRef + object detection (F3, not .tag-specific)');
+// Any call passing a class ref followed by an object literal is detected,
+// regardless of the method name.
+var genHelper = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { renderCard(this.MetricCard, { variant: 'WARN' }); } ] })");
+test(genHelper.length === 1 && genHelper[0].classText === 'MetricCard',
+  'arbitrary helper(classRef, {...}) is detected (not just .tag)');
+var addForm = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { this.add(this.MetricCard, { variant: 'X' }); } ] })");
+test(addForm.length === 1, '.add(classRef, {...}) is detected');
+// An object literal with no sibling class ref is NOT an instantiation.
+var noClass = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { foo.bar({ a: 1 }); } ] })");
+test(noClass.length === 0, 'object-only call (no class arg) is not detected');
+
+section('Grammar — inline ViewSpec { class: X, ... } detection (F3)');
+var vsAdd = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { this.add({ class: 'com.paytic.ui.MetricCard', variant: 'WARN' }); } ] })");
+test(vsAdd.length === 1 && vsAdd[0].classText === 'com.paytic.ui.MetricCard',
+  '{ class: X, ... } in code is detected with the class from the class: key');
+var vsEntry = vsAdd.length === 1 && vsAdd[0].entries.find(function(e){ return e.key === 'variant'; });
+test(vsEntry && vsEntry.valueText.indexOf('WARN') !== -1, 'sibling props captured (class: key excluded)');
+// CRITICAL guard: a property DEFINITION is NOT a ViewSpec instantiation.
+var propDef = grammar.collectInstantiations(
+  "foam.CLASS({ properties: [ { class: 'String', name: 'x', documentation: 'd' } ] })");
+test(propDef.length === 0, "property definition { class: 'String', name: 'x' } is NOT treated as an instantiation");
+var plainObj = grammar.collectInstantiations(
+  "foam.CLASS({ methods: [ function f() { var o = { a: 1, b: 2 }; } ] })");
+test(plainObj.length === 0, 'plain object with no class: key is not an instantiation');
+
+section('Grammar — this.Short member usages emit memberRef (references)');
+var memSrc = "foam.CLASS({ methods: [ function render() {" +
+  " this.add(this.MetricCard); this.tag(this.MetricCard, { a: 1 }); var x = this.Other.create({}); } ] })";
+var memMap = grammar.collectAxiomPositions(memSrc);
+test(!! (memMap.memberRef && memMap.memberRef['this.MetricCard']),
+  'bare this.MetricCard (render add) emits a memberRef');
+test(!! (memMap.instTagClass && memMap.instTagClass['this.MetricCard']),
+  '.tag(this.MetricCard, {...}) still emits instTagClass');
+test(!! (memMap.instCreateReceiver && memMap.instCreateReceiver['this.Other']),
+  'this.Other.create({}) still emits instCreateReceiver');
+
+// === VIEW-SPEC OBJECT FORM CLASSREF ===
+
+section('FoamClassGrammar — view: { class: ... } object form');
+// The object form must emit a classRef position for the class id, just like
+// the string form `view: 'x.Y'` — find-references / definition / unknown-class
+// diagnostics inside view specs depend on it.
+var viewObjClsId = index.classExists('foam.u2.DetailView') ?
+  'foam.u2.DetailView' : 'foam.lang.FObject';
+var viewObjSrc = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'ViewObjOwner',",
+  "  properties: [",
+  "    {",
+  "      class: 'String',",
+  "      name: 'p1',",
+  "      view: { class: '" + viewObjClsId + "', placeholder: 'x' }",   // L7
+  "    }",
+  "  ]",
+  "});"
+].join('\n');
+var viewObjMap = axiomGrammar.collectAxiomPositions(viewObjSrc);
+var viewObjHits = ( viewObjMap.classRef && viewObjMap.classRef[viewObjClsId] ) || [];
+test(viewObjHits.length >= 1,
+  'Grammar axiom-pos: view: { class: ... } object form emits classRef (' + viewObjClsId + ')');
+test(viewObjHits.length >= 1 && viewObjHits[0].line === 7,
+  'Grammar axiom-pos: view object classRef on line 7 (got: ' +
+  ( viewObjHits[0] && viewObjHits[0].line ) + ')');
+// String form still works alongside
+var viewStrMap = axiomGrammar.collectAxiomPositions(
+  "foam.CLASS({ package: 'test', name: 'VS', properties: [ { name: 'p', view: '" + viewObjClsId + "' } ] });"
+);
+test((( viewStrMap.classRef && viewStrMap.classRef[viewObjClsId] ) || []).length >= 1,
+  'Grammar axiom-pos: view string form still emits classRef');

@@ -194,7 +194,7 @@ var clsCaught = libModels.some(function(m) {
 });
 test(clsCaught, 'parseFileModels still captures sibling foam.CLASS in the same file');
 
-// Syntax-error fallback still finds LIB (Phase 4: LIB added to evalIndividualBlocks_ regex)
+// Syntax-error fallback still finds LIB (LIB added to evalIndividualBlocks_ regex).
 var brokenLibSrc =
   "foam.CLASS({ package: 'test', name: 'BrokenSibling' });\n" +
   "this is not valid JS + syntax\n" +
@@ -246,5 +246,112 @@ for ( var rIdx = 0 ; rIdx < allIds.length ; rIdx++ ) {
 test(relCount >= 1,
   'Unified indexing: RELATIONSHIP classes are indexed (got ' + relCount + ')');
 
+section('FoamIndex — getRelationships (#5091)');
+if ( index.classExists('foam.core.demo.relationship.Course') ) {
+  var courseRels = index.getRelationships('foam.core.demo.relationship.Course');
+  test(courseRels.length >= 1, 'Course participates in at least one relationship');
+  var profRel = courseRels.find(function(r) { return r.name === 'professor'; });
+  test(profRel && profRel.dir === 'in' && profRel.other === 'foam.core.demo.relationship.Professor',
+    'Course has incoming professor from Professor');
+  var profOut = index.getRelationships('foam.core.demo.relationship.Professor')
+    .find(function(r) { return r.name === 'courses'; });
+  test(profOut && profOut.dir === 'out' && profOut.other === 'foam.core.demo.relationship.Course',
+    'Professor has outgoing courses to Course');
+} else {
+  test(Array.isArray(index.getRelationships('foam.lang.FObject')),
+    'getRelationships returns an array (demo relationship classes not loaded — fixture skipped)');
+}
+
+section('FoamIndex — getPropertyInfo (F3 resolver)');
+var statusInfo = index.getPropertyInfo('foam.core.app.Health', 'status');
+test(statusInfo.found, 'Health.status resolves');
+test(statusInfo.isEnum && statusInfo.enumId === 'foam.core.app.HealthStatus',
+  'Health.status is an Enum of HealthStatus');
+test(statusInfo.enumValues.some(function(v) { return v.name === 'UP'; }),
+  'HealthStatus values include UP');
+var portInfo = index.getPropertyInfo('foam.core.app.Health', 'port');
+test(portInfo.found && portInfo.primitiveKind === 'int', 'Health.port is an int primitive');
+var nameInfo = index.getPropertyInfo('foam.core.app.Health', 'hostname');
+test(nameInfo.found && ! nameInfo.isEnum && nameInfo.primitiveKind === null,
+  'Health.hostname is a plain String (no enum, no numeric/boolean kind)');
+test(! index.getPropertyInfo('foam.core.app.Health', 'nope').found, 'unknown prop is not found');
+
 // === MESSAGE + CONSTANT REFERENCES ===
 
+
+// === VIEW-SPEC USAGE INDEX ===
+
+section('FoamIndex.getViewSpecUsers — view-spec usage index');
+var vsNone = index.getViewSpecUsers('nonexistent.NoSuchClass');
+test(Array.isArray(vsNone) && vsNone.length === 0,
+  'getViewSpecUsers: empty array for unknown class');
+if ( index.classExists('foam.u2.view.ReferenceArrayView') && index.classExists('foam.core.auth.Group') ) {
+  // Group.defaultMenu declares `view: { class: 'foam.u2.view.ReferenceArrayView' }`
+  // but does NOT require it — only the view-spec index produces this edge.
+  var vsUsers = index.getViewSpecUsers('foam.u2.view.ReferenceArrayView');
+  test(vsUsers.some(function(u) { return u.sourceClassId === 'foam.core.auth.Group'; }),
+    'getViewSpecUsers: Group.defaultMenu view spec → ReferenceArrayView edge: ' + vsUsers.length);
+  test(vsUsers.every(function(u) { return u.sourceClassId && u.axiomName; }),
+    'getViewSpecUsers: entries carry sourceClassId + axiomName');
+}
+
+// === POSITIONS + NAME RESOLUTION (tracing) ===
+
+section('FoamIndex — getClassLine / getSymbolPosition / resolveSymbol');
+var POS_CLASS = 'foam.core.controller.ApplicationController';
+if ( index.classExists(POS_CLASS) && index.getFilePath(POS_CLASS) ) {
+  var clsLine = index.getClassLine(POS_CLASS);
+  test(clsLine > 0, 'getClassLine: ApplicationController has a non-zero class line (' + clsLine + ')');
+
+  var rs = index.resolveSymbol(POS_CLASS);
+  test(rs && rs.classId === POS_CLASS && rs.kind === 5,
+    'resolveSymbol: full class id resolves to a class');
+  test(rs && rs.uri.indexOf('file://') === 0 && rs.line === clsLine,
+    'resolveSymbol: class uri is file:// and line matches getClassLine');
+
+  var rsShort = index.resolveSymbol('ApplicationController');
+  test(rsShort && rsShort.classId === POS_CLASS,
+    'resolveSymbol: short class name resolves to full id');
+
+  var acCls = index.getClass(POS_CLASS);
+  var ownProps = acCls.getOwnAxiomsByClass(foam.lang.Property);
+  if ( ownProps.length ) {
+    var pName = ownProps[0].name;
+    var rsMember = index.resolveSymbol(POS_CLASS + '.' + pName);
+    test(rsMember && rsMember.classId === POS_CLASS && rsMember.memberName === pName && rsMember.kind === 7,
+      'resolveSymbol: Class.property resolves with property kind (' + pName + ')');
+    var sp = index.getSymbolPosition(POS_CLASS, pName, 7);
+    test(sp && sp.uri.indexOf('file://') === 0 && sp.line > 0,
+      'getSymbolPosition: returns a file:// uri and a non-zero line (@' + (sp && sp.line) + ')');
+  }
+
+  test(index.resolveSymbol('no.such.Class.member') === null,
+    'resolveSymbol: unknown name returns null');
+} else {
+  test(true, 'position/resolveSymbol tests skipped (ApplicationController not in file index)');
+}
+
+// === JAVA-IMPLEMENTED SYMBOL RESOLUTION ===
+// Methods that live only in a sibling .java (no JS axiom) must still resolve —
+// definition/hover should land on the .java file, not fall back to the .js.
+
+section('FoamIndex — Java-only method resolution');
+var JAVA_CLASS = 'foam.lang.FObject';
+if ( index.classExists(JAVA_CLASS) && index.getFilePath(JAVA_CLASS) ) {
+  var javaMethods = index.getJavaMethods(JAVA_CLASS);
+  if ( javaMethods.length ) {
+    var jName = javaMethods[0].name;
+    var jKind = index.memberKind_(JAVA_CLASS, jName);
+    test(jKind === 6,
+      'memberKind_: a Java-only method resolves as a method (' + jName + ')');
+    var rsJava = index.resolveSymbol(JAVA_CLASS + '.' + jName);
+    test(rsJava && rsJava.classId === JAVA_CLASS && rsJava.memberName === jName && rsJava.kind === 6,
+      'resolveSymbol: Class.javaMethod resolves to the class + method kind');
+    test(rsJava && rsJava.uri.endsWith('.java'),
+      'resolveSymbol: a Java-only method resolves to a .java uri (' + ( rsJava && rsJava.uri.split('/').pop() ) + ')');
+  } else {
+    test(true, 'Java-only method tests skipped (no Java-only methods scanned for FObject)');
+  }
+} else {
+  test(true, 'Java-only method tests skipped (FObject not in file index)');
+}

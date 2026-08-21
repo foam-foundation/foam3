@@ -38,6 +38,16 @@ function start() {
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
 
+  var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
+  var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
+  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, diagnosticsHandler: diagnosticsHandler });
+  var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
+  var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
+  var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
+  var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
+  var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
+  var pomValidator           = foam.parse.lsp.handlers.PomValidator.create({ index: index });
+
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
 
@@ -49,6 +59,75 @@ function start() {
     rawBuffer = Buffer.concat([rawBuffer, chunk]);
     processBuffer();
   });
+
+  // Exit when the client closes our stdin — otherwise a dead parent leaves
+  // this process orphaned forever (and writes to its closed pipes EPIPE).
+  process.stdin.on('end', function() {
+    process.exit(0);
+  });
+
+  // --- git HEAD watch (opt-in) ---------------------------------------------
+  // The registry reflects the boot-time checkout. A branch switch rewrites
+  // files wholesale with no didSave, so answers silently go stale. When the
+  // client sets FOAM_LSP_EXIT_ON_HEAD_CHANGE (the MCP wrapper does — it
+  // reboots us lazily on the next tool call), exit as soon as a watched
+  // repo's HEAD changes. Editors don't set it: a didSave-driven refresh plus
+  // a visible restart is better UX than a surprise server exit.
+  // HEAD content only changes on checkout/switch/rebase — not on commit —
+  // so normal work never triggers this.
+  var fs_   = require('fs');
+  var path_ = require('path');
+
+  function resolveHeadPath(root) {
+    // .git is a directory in a normal checkout, but a "gitdir: <path>" file
+    // in worktrees and submodules.
+    var dotGit = path_.join(root, '.git');
+    try {
+      var gitdir = dotGit;
+      if ( fs_.statSync(dotGit).isFile() ) {
+        var m = fs_.readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)\s*$/m);
+        if ( ! m ) return null;
+        gitdir = path_.resolve(root, m[1].trim());
+      }
+      var head = path_.join(gitdir, 'HEAD');
+      fs_.accessSync(head);
+      return head;
+    } catch (e) { return null; }
+  }
+
+  function readHead(p) {
+    try { return fs_.readFileSync(p, 'utf8'); } catch (e) { return ''; }
+  }
+
+  if ( process.env.FOAM_LSP_EXIT_ON_HEAD_CHANGE ) {
+    // Watch the project repo and the foam3 submodule (same layout assumption
+    // as the rest of the tooling: foam3/ under the project root).
+    var headPaths = [ process.cwd(), path_.join(process.cwd(), 'foam3') ].
+      map(resolveHeadPath).filter(function(p) { return p; });
+    var headBaseline = headPaths.map(readHead);
+    setInterval(function() {
+      for ( var i = 0 ; i < headPaths.length ; i++ ) {
+        if ( readHead(headPaths[i]) !== headBaseline[i] ) {
+          console.error('[LSP] git HEAD changed (' + headPaths[i] + ') — exiting so the client boots a fresh index');
+          process.exit(0);
+        }
+      }
+    }, Math.max(1000, Number(process.env.FOAM_LSP_HEAD_POLL_MS) || 10000)).unref();
+  }
+
+  // LSP spec: initialize.processId is the client's pid; the server should
+  // exit when that process dies. Covers parents killed with SIGKILL, where
+  // stdin 'end' may never be observed before the next write EPIPEs.
+  function watchClientProcess(pid) {
+    if ( typeof pid !== 'number' ) return;
+    setInterval(function() {
+      try {
+        process.kill(pid, 0);
+      } catch (e) {
+        process.exit(0);
+      }
+    }, 30000).unref();
+  }
 
   function processBuffer() {
     while ( true ) {
@@ -93,6 +172,85 @@ function start() {
     send({ jsonrpc: '2.0', method: method, params: params });
   }
 
+  function byNameResult(info, op) {
+    // Name-addressed lookup by resolved class id (not cursor position) — the
+    // engine behind foam/byName. info = { classId, memberName?, uri, line,
+    // character, kind }. Returns the same shapes the cursor-driven LSP methods
+    // return, so the MCP reuses one set of shapers for both addressing modes.
+    var classId = info.classId;
+    switch ( op ) {
+      case 'definition':
+        return [ {
+          uri:   info.uri,
+          range: { start: { line: info.line, character: info.character },
+                   end:   { line: info.line, character: info.character } }
+        } ];
+      case 'hover': {
+        // buildMethodHover_ returns a raw markdown string (wrap it);
+        // buildClassHover already returns a { contents: {...} } hover (pass
+        // it through). Don't double-wrap.
+        if ( info.memberName && info.kind === 6 ) {
+          var cls = index.getClass(classId);
+          var methodAxiom = null;
+          if ( cls ) {
+            try {
+              var ms = cls.getAxiomsByClass(foam.lang.Method);
+              for ( var i = 0 ; i < ms.length ; i++ ) {
+                if ( ms[i].name === info.memberName ) { methodAxiom = ms[i]; break; }
+              }
+            } catch (e) {}
+          }
+          if ( methodAxiom ) {
+            var mmd = hoverHandler.buildMethodHover_(methodAxiom, classId);
+            return mmd ? { contents: { kind: 'markdown', value: mmd } } : null;
+          }
+          // Java-only method (no FOAM axiom): hover from its parsed signature.
+          var jms = index.getJavaMethods(classId);
+          for ( var ji = 0 ; ji < jms.length ; ji++ ) {
+            if ( jms[ji].name === info.memberName ) {
+              var jv = '```java\n' + ( jms[ji].sig || jms[ji].name ) + '\n```';
+              if ( jms[ji].doc ) jv += '\n\n' + jms[ji].doc;
+              return { contents: { kind: 'markdown', value: jv } };
+            }
+          }
+        }
+        return hoverHandler.buildClassHover(classId);
+      }
+      case 'references':
+        return referencesHandler.referencesForClassId(classId);
+      case 'implementation': {
+        var targets = index.isInterface(classId) ?
+          index.getImplementors(classId) : index.getSubclasses(classId);
+        var locs = [];
+        for ( var i = 0 ; i < targets.length ; i++ ) {
+          var fp = index.getFilePath(targets[i]);
+          if ( ! fp ) continue;
+          var ln = index.getClassLine(targets[i]);
+          locs.push({ uri: 'file://' + fp,
+            range: { start: { line: ln, character: 0 }, end: { line: ln, character: 0 } } });
+        }
+        return locs;
+      }
+      case 'typeHierarchy': {
+        var item = typeHierarchyHandler.itemFor_(classId);
+        return {
+          supertypes: item ? typeHierarchyHandler.supertypes(item) : [],
+          subtypes:   item ? typeHierarchyHandler.subtypes(item)   : []
+        };
+      }
+      case 'callHierarchy': {
+        if ( ! info.memberName ) return { incoming: [], outgoing: [] };
+        var chItem = callHierarchyHandler.itemFor_(classId, info.memberName);
+        return {
+          incoming: callHierarchyHandler.incomingCalls(chItem),
+          outgoing: callHierarchyHandler.outgoingCalls(chItem)
+        };
+      }
+      default:
+        return null;
+    }
+  }
+
   function isFoamFile(text) {
     return foam.parse.lsp.CursorAnalyzer.FOAM_CALL_REGEX.test(text);
   }
@@ -101,264 +259,8 @@ function start() {
     return uri && uri.endsWith('.jrl');
   }
 
-  function getSignatureHelp(text, position, index, opt_uri) {
-    /**
-     * Provides parameter hints when cursor is inside parentheses of a method call.
-     * E.g., this.myClass(|) → shows parameters for myClass
-     * Also handles this.X.create({ → shows class properties
-     */
-    var lines = text.split('\n');
-    var line = lines[position.line] || '';
-    var prefix = line.substring(0, position.character);
-
-    // Find the method name by scanning back from cursor to find '('
-    // Then find the word before '('
-    var callMatch = prefix.match(/(?:this\.)?(\w+)\s*\(\s*[^)]*$/);
-    if ( ! callMatch ) return null;
-
-    var methodName = callMatch[1];
-
-    // Resolve the current class using FileModelCache for multi-class support
-    var model = fileModelCache.getModelAt(opt_uri || '', text, position.line);
-    if ( ! model ) return null;
-    var classId = fileModelCache.getClassId(model);
-
-    // Find the method in the class
-    var methods = index.getMethods(classId);
-    var method = null;
-    for ( var i = 0 ; i < methods.length ; i++ ) {
-      if ( methods[i].name === methodName ) { method = methods[i]; break; }
-    }
-
-    if ( ! method ) return null;
-
-    // Build parameter list
-    var params = [];
-    if ( method.args && method.args.length > 0 ) {
-      for ( var i = 0 ; i < method.args.length ; i++ ) {
-        var a = method.args[i];
-        params.push({
-          label: a.name,
-          documentation: a.type ? 'Type: ' + a.type : ''
-        });
-      }
-    } else if ( method.code ) {
-      var match = method.code.toString().match(/function\s*\w*\s*\(([^)]*)\)/);
-      if ( match && match[1].trim() ) {
-        var paramNames = match[1].split(',').map(function(p) { return p.trim(); });
-        for ( var i = 0 ; i < paramNames.length ; i++ ) {
-          params.push({ label: paramNames[i] });
-        }
-      }
-    }
-
-    if ( params.length === 0 ) return null;
-
-    // Build signature label
-    var sig = methodName + '(' + params.map(function(p) { return p.label; }).join(', ') + ')';
-
-    // Determine active parameter by counting commas before cursor
-    var afterParen = prefix.substring(prefix.lastIndexOf('(') + 1);
-    var activeParam = (afterParen.match(/,/g) || []).length;
-
-    return {
-      signatures: [{
-        label: sig,
-        documentation: method.documentation || '',
-        parameters: params
-      }],
-      activeSignature: 0,
-      activeParameter: Math.min(activeParam, params.length - 1)
-    };
-  }
-
-  function getFoldingRanges(text) {
-    /**
-     * Finds foldable sections: properties, methods, requires, imports,
-     * exports, javaImports, actions, listeners arrays.
-     */
-    var ranges = [];
-    var keywords = ['properties', 'methods', 'requires', 'imports', 'exports', 'javaImports', 'actions', 'listeners'];
-    var lines = text.split('\n');
-
-    for ( var k = 0 ; k < keywords.length ; k++ ) {
-      var kw = keywords[k];
-      var pattern = new RegExp(kw + '\\s*:\\s*\\[');
-
-      for ( var i = 0 ; i < lines.length ; i++ ) {
-        if ( ! pattern.test(lines[i]) ) continue;
-
-        // Find the matching ] using balanced bracket tracking
-        var depth = 0;
-        var foundOpen = false;
-        var endLine = -1;
-        for ( var j = i ; j < lines.length ; j++ ) {
-          var line = lines[j];
-          for ( var c = 0 ; c < line.length ; c++ ) {
-            if ( line[c] === '[' ) { depth++; foundOpen = true; }
-            else if ( line[c] === ']' ) {
-              depth--;
-              if ( foundOpen && depth === 0 ) {
-                endLine = j;
-                break;
-              }
-            }
-          }
-          if ( endLine !== -1 ) break;
-        }
-
-        if ( endLine > i ) {
-          ranges.push({
-            startLine: i,
-            endLine: endLine,
-            kind: 'region'
-          });
-        }
-      }
-    }
-
-    return ranges;
-  }
-
-  function getCodeActions(text, range, context, index, uri, cssTokenResolver) {
-    /**
-     * Provides code actions for diagnostics:
-     * - "Did you mean X?" for unknown class references
-     * - "Replace with correct import" for wrong Java packages
-     * - "Replace '#abc' with '$token'" for raw color values with a matching token
-     */
-    var actions = [];
-    if ( ! context || ! context.diagnostics ) return actions;
-
-    for ( var i = 0 ; i < context.diagnostics.length ; i++ ) {
-      var diag = context.diagnostics[i];
-
-      // For "Unknown class" diagnostics, suggest similar names
-      var unknownMatch = diag.message.match(/Unknown class[^']*'([^']+)'/);
-      if ( unknownMatch ) {
-        var unknownId = unknownMatch[1];
-        var suggestions = findSimilarClasses(unknownId, index, 3);
-        for ( var s = 0 ; s < suggestions.length ; s++ ) {
-          actions.push({
-            title: "Did you mean '" + suggestions[s] + "'?",
-            kind: 'quickfix',
-            diagnostics: [diag],
-            edit: {
-              changes: {
-                [uri]: [{
-                  range: diag.range,
-                  newText: suggestions[s]
-                }]
-              }
-            }
-          });
-        }
-      }
-
-      // For "Use single quotes" hints, offer a one-click fix that rewrites
-      // the entire matched span ("foo.X") to single-quoted form ('foo.X').
-      var dqMatch = diag.message.match(/Use single quotes for FOAM class references:\s*'([^']+)'/);
-      if ( dqMatch ) {
-        var inner = dqMatch[1];
-        actions.push({
-          title: "Convert to single quotes: '" + inner + "'",
-          kind: 'quickfix',
-          isPreferred: true,
-          diagnostics: [diag],
-          edit: {
-            changes: {
-              [uri]: [{
-                range: diag.range,
-                newText: "'" + inner + "'"
-              }]
-            }
-          }
-        });
-      }
-
-      // For raw color diagnostics, offer a $token replacement if available.
-      // Matches both new message ("raw color 'X'") and legacy phrasing.
-      var rawColorMatch = diag.message.match(/raw color[^']*'([^']+)'/);
-      if ( rawColorMatch && cssTokenResolver ) {
-        var raw = rawColorMatch[1];
-        var token = cssTokenResolver.findTokenForValue(raw);
-        if ( token ) {
-          actions.push({
-            title: "Replace '" + raw + "' with '$" + token + "'",
-            kind: 'quickfix',
-            isPreferred: true,
-            diagnostics: [diag],
-            edit: {
-              changes: {
-                [uri]: [{
-                  range: diag.range,
-                  newText: '$' + token
-                }]
-              }
-            }
-          });
-        }
-      }
-
-      // For wrong Java import packages, suggest correct ones
-      var javaImportMappings = index.getJavaImportMappings();
-      var wrongPkgMatch = diag.message.match(/Wrong Java package[^']*'([^']+)'/);
-      if ( wrongPkgMatch ) {
-        var wrongPkg = wrongPkgMatch[1];
-        if ( javaImportMappings[wrongPkg] ) {
-          actions.push({
-            title: "Replace with '" + javaImportMappings[wrongPkg] + "'",
-            kind: 'quickfix',
-            isPreferred: true,
-            diagnostics: [diag],
-            edit: {
-              changes: {
-                [uri]: [{
-                  range: diag.range,
-                  newText: javaImportMappings[wrongPkg]
-                }]
-              }
-            }
-          });
-        }
-      }
-    }
-
-    return actions;
-  }
-
-  function findSimilarClasses(target, index, maxResults) {
-    /** Simple fuzzy match: find classes whose short name is close to target's short name. */
-    var targetShort = target.split('.').pop().toLowerCase();
-    var ids = index.getAllClassIds();
-    var scored = [];
-
-    for ( var i = 0 ; i < ids.length ; i++ ) {
-      var shortName = ids[i].split('.').pop().toLowerCase();
-      if ( shortName === targetShort ) {
-        // Exact short name match but different package — high score
-        scored.push({ id: ids[i], score: 100 });
-      } else if ( shortName.indexOf(targetShort) !== -1 || targetShort.indexOf(shortName) !== -1 ) {
-        scored.push({ id: ids[i], score: 50 });
-      } else {
-        // Levenshtein-like: count common chars
-        var common = 0;
-        for ( var c = 0 ; c < targetShort.length ; c++ ) {
-          if ( shortName.indexOf(targetShort[c]) !== -1 ) common++;
-        }
-        var similarity = common / Math.max(targetShort.length, shortName.length);
-        if ( similarity > 0.6 ) {
-          scored.push({ id: ids[i], score: Math.round(similarity * 40) });
-        }
-      }
-    }
-
-    scored.sort(function(a, b) { return b.score - a.score; });
-    var results = [];
-    for ( var i = 0 ; i < Math.min(scored.length, maxResults) ; i++ ) {
-      results.push(scored[i].id);
-    }
-    return results;
+  function isPomFile(uri) {
+    return uri && /pom\.js$/.test(uri);
   }
 
   function pushDiagnostics(uri, text) {
@@ -401,6 +303,14 @@ function start() {
     var doc = documents[uri];
     if ( ! doc ) return;
     fileModelCache.invalidate(uri);
+
+    // POM saves don't go through the foam.CLASS reindex path (POM is excluded
+    // from FOAM_CALL_REGEX). Drop the cached entry positions for this pom so
+    // class→pom navigation reflects the edit on the next request.
+    if ( isPomFile(uri) && typeof index.invalidatePomCache === 'function' ) {
+      var pomPath = uriToPath_(uri);
+      if ( pomPath ) index.invalidatePomCache(pomPath);
+    }
 
     var changedClassIds = [];
     if ( isFoamFile(doc.text) ) {
@@ -514,13 +424,22 @@ function start() {
 
   // === Message Dispatch ===
 
+  // Per-request timing. Logs `[LSP] ⏱ <method> <ms>ms` for any request/
+  // notification whose handler runs at least LSP_TIMING_MIN_MS. Override the
+  // threshold with env LSP_TIMING_MS (set to 0 to log every message).
+  var LSP_TIMING_MIN_MS = process.env.LSP_TIMING_MS !== undefined ?
+    Number(process.env.LSP_TIMING_MS) : 5;
+
   function handleMessage(msg) {
     var method = msg.method;
     var params = msg.params;
     var id     = msg.id;
 
+    var timerStart = process.hrtime.bigint();
+    try {
     switch ( method ) {
       case 'initialize':
+        watchClientProcess(params && params.processId);
         respond(id, {
           capabilities: {
             textDocumentSync: {
@@ -550,7 +469,15 @@ function start() {
             },
             codeActionProvider: true,
             documentHighlightProvider: true,
-            renameProvider: { prepareProvider: true }
+            renameProvider: { prepareProvider: true },
+            typeHierarchyProvider: true,
+            implementationProvider: true,
+            typeDefinitionProvider: true,
+            callHierarchyProvider: true
+            // No diagnosticProvider (pull): diagnostics are PUSHED via
+            // publishDiagnostics on open/change and from the workspace scan.
+            // Advertising pull here too made clients render every diagnostic
+            // twice (push copy + pull copy).
           },
           experimental: {
             workspaceAnalyzer: true
@@ -673,7 +600,12 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        // pom.js doesn't match FOAM_CALL_REGEX (POM is excluded), but the
+        // DefinitionHandler has a dedicated pom→class branch that needs to
+        // run. Let pom.js through; other non-FOAM .js files still bail.
+        if ( ! isFoamFile(doc.text) && ! isPomFile(params.textDocument.uri) ) {
+          respond(id, null); break;
+        }
         try {
           var result = definitionHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] definition: success');
@@ -701,35 +633,49 @@ function start() {
         var doc = documents[params.textDocument.uri];
         if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
         try {
-          var result = getSignatureHelp(doc.text, params.position, index, params.textDocument.uri);
-          respond(id, result);
+          respond(id, signatureHelpHandler.handle(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
           console.error('[LSP] signatureHelp error:', e.message);
           respond(id, null);
         }
         break;
 
-      case 'foam/analyzeWorkspace':
+      case 'foam/validatePoms':
+        // Custom request: returns { orphans, missing, duplicates } for the
+        // POM membership audit. Surfaced via foam/analyzeWorkspace too;
+        // also callable on demand.
         try {
-          var results = workspaceAnalyzer.analyze(function(progress) {
+          respond(id, pomValidator.validate());
+        } catch (e) {
+          console.error('[LSP] foam/validatePoms error:', e.message);
+          respondError(id, -32603, e.message);
+        }
+        break;
+
+      case 'foam/analyzeWorkspace':
+        // Non-blocking: analyzeAsync yields between chunks so hover/completion/
+        // diagnostics keep responding while the workspace scan runs.
+        try {
+          workspaceAnalyzer.analyzeAsync(function(progress) {
             notify('foam/analyzeProgress', progress);
-          });
-          // Push diagnostics to Problems panel via standard LSP protocol
-          for ( var uri in results.fileResults ) {
-            notify('textDocument/publishDiagnostics', {
-              uri: uri,
-              diagnostics: results.fileResults[uri]
+          }, function(results) {
+            // Push diagnostics to Problems panel via standard LSP protocol
+            for ( var uri in results.fileResults ) {
+              notify('textDocument/publishDiagnostics', {
+                uri: uri,
+                diagnostics: results.fileResults[uri]
+              });
+            }
+            // Also return results for sidebar tree view
+            respond(id, {
+              filesScanned:    results.filesScanned,
+              filesWithIssues: results.filesWithIssues,
+              warnings:        results.warnings,
+              errors:          results.errors,
+              infos:           results.infos,
+              patterns:        results.patterns,
+              fileResults:     results.fileResults
             });
-          }
-          // Also return results for sidebar tree view
-          respond(id, {
-            filesScanned:    results.filesScanned,
-            filesWithIssues: results.filesWithIssues,
-            warnings:        results.warnings,
-            errors:          results.errors,
-            infos:           results.infos,
-            patterns:        results.patterns,
-            fileResults:     results.fileResults
           });
         } catch (e) {
           console.error('[LSP] analyzeWorkspace error:', e.message);
@@ -737,39 +683,50 @@ function start() {
         }
         break;
 
-      case 'workspace/symbol':
-        var query = (params.query || '').toLowerCase();
-        var symbols = [];
-        var ids = index.getAllClassIds();
-        for ( var i = 0 ; i < ids.length && symbols.length < 100 ; i++ ) {
-          if ( ids[i].toLowerCase().indexOf(query) !== -1 ) {
-            var filePath = index.getFilePath(ids[i]);
-            if ( filePath ) {
-              symbols.push({
-                name: ids[i].split('.').pop(),
-                kind: 5,
-                location: {
-                  uri: 'file://' + filePath,
-                  range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
-                },
-                containerName: ids[i]
-              });
-            }
-          }
+      case 'foam/byName':
+        // Custom request: name-addressed navigation by class id. params:
+        // { name, op } where op ∈ definition|hover|references|implementation|
+        // typeHierarchy|callHierarchy. Returns the same shapes as the
+        // cursor-driven LSP methods so MCP reuses its shapers. null if the
+        // name can't be resolved.
+        try {
+          var bnInfo = index.resolveSymbol(params && params.name);
+          respond(id, bnInfo ? byNameResult(bnInfo, params && params.op) : null);
+        } catch (e) {
+          console.error('[LSP] foam/byName error:', e.message);
+          respond(id, null);
         }
-        respond(id, symbols);
+        break;
+
+      case 'workspace/symbol':
+        try {
+          respond(id, workspaceSymbolHandler.handle(params.query));
+        } catch (e) {
+          console.error('[LSP] workspace/symbol error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/foldingRange':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getFoldingRanges(doc.text));
+        try {
+          respond(id, foldingRangeHandler.handle(doc.text));
+        } catch (e) {
+          console.error('[LSP] foldingRange error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/codeAction':
         var doc = documents[params.textDocument.uri];
         if ( ! doc ) { respond(id, []); break; }
-        respond(id, getCodeActions(doc.text, params.range, params.context, index, params.textDocument.uri, cssTokenResolver));
+        try {
+          respond(id, codeActionHandler.handle(doc.text, params.range, params.context, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] codeAction error:', e.message);
+          respond(id, []);
+        }
         break;
 
       case 'textDocument/semanticTokens/full':
@@ -842,10 +799,128 @@ function start() {
         }
         break;
 
+      case 'textDocument/prepareTypeHierarchy':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, typeHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] prepareTypeHierarchy error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'typeHierarchy/supertypes':
+        try {
+          respond(id, typeHierarchyHandler.supertypes(params.item));
+        } catch (e) {
+          console.error('[LSP] typeHierarchy/supertypes error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'typeHierarchy/subtypes':
+        try {
+          respond(id, typeHierarchyHandler.subtypes(params.item));
+        } catch (e) {
+          console.error('[LSP] typeHierarchy/subtypes error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/implementation':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        try {
+          respond(id, implementationHandler.handle(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] implementation error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/typeDefinition':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, typeDefinitionHandler.handle(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] typeDefinition error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'textDocument/diagnostic':
+        // LSP 3.17 pull-diagnostic model. Caller asks for the diagnostics
+        // of an arbitrary file without first didOpen-ing it. We read the
+        // file fresh from disk so non-editor clients can query without a
+        // document-open round trip.
+        try {
+          var dUri  = params.textDocument && params.textDocument.uri;
+          if ( ! dUri ) { respond(id, { kind: 'full', items: [] }); break; }
+          var dDoc  = documents[dUri];
+          var dText = dDoc ? dDoc.text : null;
+          if ( ! dText ) {
+            var p = uriToPath_(dUri);
+            if ( p ) {
+              try { dText = require('fs').readFileSync(p, 'utf8'); } catch (re) {}
+            }
+          }
+          if ( ! dText ) { respond(id, { kind: 'full', items: [] }); break; }
+          var items;
+          if ( isJrlFile(dUri) ) {
+            items = jrlHandler.handleDiagnostics(dText, dUri);
+          } else if ( isFoamFile(dText) ) {
+            items = diagnosticsHandler.handle(dText, dUri);
+          } else {
+            items = [];
+          }
+          respond(id, { kind: 'full', items: items });
+        } catch (e) {
+          console.error('[LSP] textDocument/diagnostic error:', e.message);
+          respond(id, { kind: 'full', items: [] });
+        }
+        break;
+
+      case 'textDocument/prepareCallHierarchy':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        try {
+          respond(id, callHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] prepareCallHierarchy error:', e.message);
+          respond(id, null);
+        }
+        break;
+
+      case 'callHierarchy/incomingCalls':
+        try {
+          respond(id, callHierarchyHandler.incomingCalls(params.item));
+        } catch (e) {
+          console.error('[LSP] callHierarchy/incomingCalls error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'callHierarchy/outgoingCalls':
+        try {
+          respond(id, callHierarchyHandler.outgoingCalls(params.item));
+        } catch (e) {
+          console.error('[LSP] callHierarchy/outgoingCalls error:', e.message);
+          respond(id, []);
+        }
+        break;
+
       default:
         if ( id !== undefined ) {
           respondError(id, -32601, 'Method not found: ' + method);
         }
+    }
+    } finally {
+      var elapsedMs = Number(process.hrtime.bigint() - timerStart) / 1e6;
+      if ( method && elapsedMs >= LSP_TIMING_MIN_MS ) {
+        console.error('[LSP] ⏱ ' + method + ' ' + elapsedMs.toFixed(1) + 'ms');
+      }
     }
   }
 

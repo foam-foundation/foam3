@@ -1,20 +1,19 @@
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "testresults",
-  "description": "Insert an Test Results Summary",
+  "description": "Test results summary",
   "script": """
     var results = foam.core.reflow.float.TestResults.create({}, this);
     this.block.value = results;
     this.block.flowName = 'testResults';
     this.out.tag(foam.core.reflow.float.TestResultsView, {data: results});
-  """,
-  permissionRequired: true
+  """
 })
 
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "test",
-  "description": "Insert an Expectation Test",
+  "description": "Test an expectation",
   "help": "",
   "script": """
     var results = this.__context__.scope.testResults;
@@ -47,6 +46,5 @@ p({
       // Listen for block detach to clean up the test from testResults
       this.block.onDetach(() => results?.dao?.remove(test));
     }
-  """,
-  permissionRequired: true
+  """
 })

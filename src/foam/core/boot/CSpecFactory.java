@@ -25,20 +25,20 @@ public class CSpecFactory
   Thread      creatingThread_ = null;
   Object      ns_             = null;
   ThreadLocal tlService_      = new ThreadLocal() {
-      long since = 0L;
-      protected Object initialValue() {
-        since = System.currentTimeMillis();
-        return maybeBuildService();
-      }
+    long since = 0L;
+    protected Object initialValue() {
+      since = System.currentTimeMillis();
+      return maybeBuildService();
+    }
 
-      public Object get() {
-        if ( System.currentTimeMillis() - since > 1000 ) {
-          // invalidate - force initialValue to be called on next get()
-          super.remove();
-        }
-        return super.get();
+    public Object get() {
+      if ( System.currentTimeMillis() - since > 1000 ) {
+        // invalidate - force initialValue to be called on next get()
+        super.remove();
       }
-    };
+      return super.get();
+    }
+  };
 
   public CSpecFactory(ProxyX x, CSpec spec) {
     x_    = x;
@@ -74,15 +74,20 @@ public class CSpecFactory
     }
 
     try {
-      logger.info("Creating Service", spec_.getName());
-      var service = spec_.createService(nx.put(CSpec.class, spec_).put("logger", logger), null);
+      // logger.info("Creating Service", spec_.getName());
+      spec_.updateStatus("Creating");
+      var service = spec_.createService(nx.put(CSpec.class, spec_).put("logger", logger).put(CSpec.CSPEC_CTX_KEY, spec_), null);
       if (service == null) {
-        throw new RuntimeException("createService returned null");
+        RuntimeException t = new RuntimeException("createService returned null");
+        spec_.updateStatus("Creating", "returned null", t);
+        throw t;
       }
       setCoreService(service);
-      logger.info("Created Service", spec_.getName());
+      // logger.info("Created Service", spec_.getName());
+      spec_.updateStatus("Created");
     } catch (Throwable t) {
-      logger.error("Error Creating Service", spec_.getName(), t);
+      // logger.error("Error Creating Service", spec_.getName(), t);
+      spec_.updateStatus("Creating", t);
     } finally {
       pm.log(nx);
       creatingThread_ = null;
@@ -116,17 +121,20 @@ public class CSpecFactory
                ! spec_.getLazy() /* already in agency */ ||
                spec_.getName().toLowerCase().contains("pool") ||
                spec_.getClass().getName().toLowerCase().contains("agency") ) {
-            logger.info("Starting Service", spec_.getName(), ns.getClass().getName());
+            // logger.info("Starting Service", spec_.getName(), ns.getClass().getName());
+            spec_.updateStatus("Starting", ns.getClass().getName());
             ((COREService) ns).start();
           } else {
             final COREService cs = (COREService) ns;
             agency.submit(nx, new ContextAgent() {
               public void execute(X x) {
                 StdoutLogger.instance().info("Starting Service", spec_.getName(), cs.getClass().getName());
+                spec_.updateStatus("Starting", cs.getClass().getName());
                 try {
                   cs.start();
                 } catch (Throwable t) {
                   StdoutLogger.instance().error("Error Starting Service", spec_.getName(), t);
+                  spec_.updateStatus("Starting", cs.getClass().getName(), t);
                 }
               }
             }, spec_.getName());
@@ -140,9 +148,9 @@ public class CSpecFactory
           ns = null;
         }
       }
-      logger.info("Initialized Service", spec_.getName(), ns_ != null ? ns_.getClass().getSimpleName() : "null");
+      spec_.updateStatus(CSpecStatus.READY, "Initialized", (ns_ != null && ! ( ns_ instanceof ProxyDAO)) ? ns_.getClass().getSimpleName() : null);
     } catch (Throwable t) {
-      logger.error("Error Initializing Service", spec_.getName(), t);
+      spec_.updateStatus("Initializing", t);
     }
   }
 
@@ -173,19 +181,19 @@ public class CSpecFactory
     if ( logger == null ) {
       logger = StdoutLogger.instance();
     }
-    logger.warning("Invalidating Service", spec.getName());
+    spec.updateStatus("Invalidating");
     if ( ! SafetyUtil.equals(spec.getService(), spec_.getService())
       || ! SafetyUtil.equals(spec.getServiceClass(), spec_.getServiceClass())
       || ! SafetyUtil.equals(spec.getServiceScript(), spec_.getServiceScript())
     ) {
       if ( ns_ instanceof COREService ) {
         spec_ = spec;
-        logger.warning("Reloading Service", spec_.getName());
+        spec_.updateStatus(CSpecStatus.INITIALIZING, "Reloading");
         try {
           ((COREService) ns_).reload();
-          logger.info("Reloaded Service", spec_.getName());
+          spec_.updateStatus(CSpecStatus.READY, "Reloaded");
         } catch (Throwable t) {
-          logger.error("Reloading Service", spec_.getName(), t.getMessage(), t);
+          spec_.updateStatus("Reloading", t.getMessage(), t);
         }
       } else if ( ns_ instanceof DAO ) {
         boolean cluster = "true".equals(System.getProperty("CLUSTER", "false"));
@@ -196,13 +204,13 @@ public class CSpecFactory
           ((ProxyDAO) ns_).setDelegate(null);
         } else {
           // Clustered MDAOs are not reloadable as replay is handled by medusa.
-          logger.info("Invalidation of Clustered MDAOs not supported", spec_.getName());
+          spec_.updateStatus("Reloading", "Invalidation of Clustered MDAOs not supported");
         }
       } else {
         ns_ = null;
         spec_ = spec;
         if ( ! spec_.getLazy() ) {
-          logger.info("Invalidate create non-Lazy Service", spec_.getName());
+          spec_.updateStatus("Invalidate", "create non-lazy Service");
           create(x_);
         }
       }

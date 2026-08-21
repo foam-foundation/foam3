@@ -37,8 +37,21 @@ foam.CLASS({
 
   methods: [
     function handle(text, position, opt_uri) {
-      if ( ! this.analyzer.isFoamFile(text) ) return null;
       var uri = opt_uri || '';
+
+      // POM ↔ class jumps. In a pom.js file, go-to-def on a file-entry
+      // name navigates to the class file. In a class file, go-to-def on
+      // the class's own `name:` value navigates to its POM entry.
+      if ( this.isPomFile_(uri) ) {
+        var pomJump = this.handlePomToClass_(text, position, uri);
+        if ( pomJump ) return pomJump;
+        return null;
+      }
+
+      var classToPomJump = this.handleClassToPom_(text, position, uri);
+      if ( classToPomJump ) return classToPomJump;
+
+      if ( ! this.analyzer.isFoamFile(text) ) return null;
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
@@ -136,14 +149,80 @@ foam.CLASS({
           }
         }
 
-        // Try as short name from requires
-        var resolved = this.analyzer.resolveShortName(text, segment);
+        // Try as short name from requires (via the captured model — no regex).
+        var resolved = this.cache.resolveShortName(uri, text, segment, position.line);
         if ( resolved ) {
           filePath = this.index.getFilePath(resolved);
           if ( filePath ) return this.buildLocation(filePath, resolved);
         }
       }
 
+      return null;
+    },
+
+    function isPomFile_(uri) {
+      return /\bpom\.js$/.test(uri || '');
+    },
+
+    function handlePomToClass_(text, position, uri) {
+      // Cursor inside a pom.js — if it lands on `name: 'X'` jump to X.js.
+      var lines  = text.split('\n');
+      var line   = lines[position.line] || '';
+      // Match `name: 'foo'` or `name: "foo"` (FOAM POM convention).
+      var nameRe = /\bname\s*:\s*(['"])([^'"]+)\1/g;
+      var m;
+      while ( ( m = nameRe.exec(line) ) !== null ) {
+        var valStart = m.index + m[0].lastIndexOf(m[2]);
+        var valEnd   = valStart + m[2].length;
+        if ( position.character >= valStart && position.character <= valEnd ) {
+          var pomPath  = uri.indexOf('file://') === 0 ? decodeURIComponent(uri.slice(7)) : uri;
+          var classId  = this.index.getClassForPomEntry(pomPath, m[2]);
+          if ( classId ) {
+            var filePath = this.index.getFilePath(classId);
+            if ( filePath ) return this.buildLocation(filePath, classId);
+          }
+          // Fall back to opening the .js file even without a registered class.
+          var path_    = require('path');
+          var jsPath   = path_.resolve(path_.dirname(pomPath), m[2] + '.js');
+          var fs_      = require('fs');
+          if ( fs_.existsSync(jsPath) ) {
+            return { uri: 'file://' + jsPath, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } };
+          }
+          return null;
+        }
+      }
+      return null;
+    },
+
+    function handleClassToPom_(text, position, uri) {
+      // Cursor inside a class file — if it lands on the class's own
+      // `name: 'X'` axiom value, jump to the POM entry that registers it.
+      var lines = text.split('\n');
+      var line  = lines[position.line] || '';
+      var nameRe = /\bname\s*:\s*(['"])([^'"]+)\1/g;
+      var m;
+      while ( ( m = nameRe.exec(line) ) !== null ) {
+        var valStart = m.index + m[0].lastIndexOf(m[2]);
+        var valEnd   = valStart + m[2].length;
+        if ( position.character >= valStart && position.character <= valEnd ) {
+          var model = this.cache.getModelAt(uri, text, position.line);
+          if ( ! model ) return null;
+          var ownClassId = this.cache.getClassId(model);
+          if ( ! ownClassId ) return null;
+          // Only fire when the cursor matched THIS class's name axiom, not a
+          // nested property's name string.
+          if ( model.name !== m[2] ) return null;
+          var loc = this.index.getPomLocationForClass(ownClassId);
+          if ( ! loc ) return null;
+          return {
+            uri: 'file://' + loc.pomFile,
+            range: {
+              start: { line: loc.line, character: loc.character },
+              end:   { line: loc.line, character: loc.character + m[2].length }
+            }
+          };
+        }
+      }
       return null;
     },
 

@@ -186,6 +186,12 @@ an operation which will eventually set a completed flag.
         logger.error(e);
       } finally {
         Process process = (Process) getProcess();
+        if ( process == null ) {
+          logger.warning("No process to destroy (browser launch failed).");
+          destroyed(x);
+          setProcess(null);
+          return;
+        }
         ProcessHandle processHandle = process.toHandle();
         ProcessHandle.Info processInfo = processHandle.info();
         logger.info("pid", processHandle.pid());

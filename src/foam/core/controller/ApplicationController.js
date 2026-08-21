@@ -431,6 +431,10 @@ foam.CLASS({
     },
     {
       name: 'notificationSub'
+    },
+    {
+      class: 'Boolean',
+      name: 'reloading_'
     }
   ],
 
@@ -488,8 +492,6 @@ foam.CLASS({
         // group required for loginVariables before initMenu
         await self.fetchGroup();
 
-        self.subToNotifications();
-        let ret = await self.initMenu();
         let isAnonymous = false;
         try {
           isAnonymous = await client.auth.isAnonymous();
@@ -510,10 +512,18 @@ foam.CLASS({
 
         // For anonymous users, we shouldn't reinstall the language
         // because the user's language setting isn't meaningful.
+        // onUserAgentAndGroupLoaded() routes to the initial menu itself; only
+        // fall back to initMenu() when that path is skipped, otherwise the route
+        // is pushed twice and the first (superseded) render poisons document-global
+        // one-shot CSS installs (e.g. reflow Layout) with an unthemed context.
         if ( self?.subject?.realUser && ! isAnonymous ) {
           await self.maybeReinstallLanguage(self.client);
           await self.onUserAgentAndGroupLoaded();
+        } else {
+          await self.initMenu();
         }
+
+        self.subToNotifications();
 
         // add user and agent for backward compatibility
         Object.defineProperty(self, 'user', {
@@ -558,6 +568,12 @@ foam.CLASS({
       this.fetchTheme();
       this.onDetach(this.__subContext__.cssTokenOverrideService?.cacheUpdated.sub(() => { foam.u2.CSS.reloadStyles(this.__subContext__) }));
       this.subject = this.client.initSubject;
+    },
+
+    function reload() {
+      if ( this.reloading_ ) return;
+      this.reloading_ = true;
+      this.window.location.reload();
     },
 
     function installLanguage() {
@@ -630,7 +646,14 @@ foam.CLASS({
 
         promptLogin = promptLogin && await this.client.auth.check(this, 'auth.promptlogin');
         var authResult =  await this.client.auth.check(this, '*');
-        if ( ! result || ! result.user || promptLogin && ! authResult ) throw new Error();
+
+        // Require authentication and jump to 'catch' block below when
+        // - there is no current subject or user or
+        // - the current user is trapped in 'auth.promptLogin' permission (i.e., anonymous user)
+        if ( ! result || ! result.user || (promptLogin && ! authResult) ) {
+          throw new Error('Authentication required');
+        }
+
         this.fetchGroup();
       } catch (err) {
         if ( ! promptLogin || authResult ) return;
@@ -750,7 +773,7 @@ foam.CLASS({
       for ( menuId in menuArray ) {
         menu = await dao.find(menuArray[menuId]);
         if ( menu ) break;
-      };
+      }
       return menu;
     },
 
@@ -765,7 +788,7 @@ foam.CLASS({
     },
 
     async function pushDefaultMenu() {
-      var defaultMenu = await this.findDefaultMenu(this.client.menuDAO);
+      var defaultMenu = await this.findFirstMenuIHavePermissionFor(this.client.menuDAO);
       defaultMenu = defaultMenu != null ? defaultMenu : '';
       if ( defaultMenu ) {
         if ( defaultMenu.authorizationStatus === this.AuthorizationStatus.AUTHENTICATED ) {
@@ -780,6 +803,11 @@ foam.CLASS({
     },
 
     function requestLogin() {
+      if ( this.reloading_ ) {
+        console.log('ApplicationController is reloading, skipping login request');
+        return;
+      }
+
       var self = this;
       var view =  self.loginView ?? {
         ...({ class: 'foam.u2.borders.BaseUnAuthBorder' }),

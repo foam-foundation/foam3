@@ -94,6 +94,30 @@ foam.CLASS({
                 edit:        i18nEditB
               });
             }
+
+            // Variant C: extract AND fill the messageMap with real
+            // translations. Gated like action D — no reachable model or no
+            // configured languages means the action would only ever fail, so
+            // it isn't offered. Unlike A/B this carries no precomputed edit:
+            // translating is async, so the edit is built when the command
+            // runs (I18nHandler.executeCommand), re-anchored against the
+            // file's text as it is at that moment.
+            if ( this.i18nHandler.translationReady &&
+                 ( this.i18nHandler.targetLanguages || [] ).length ) {
+              var langsC = this.i18nHandler.targetLanguages;
+              actions.push({
+                title: "Extract '" + hsMatch[1] + "' + translate to " + langsC.join(', ') +
+                       ' via ' + this.i18nHandler.activeModel,
+                kind:  'quickfix',
+                diagnostics: [diag],
+                command: {
+                  title:     'Extract and translate',
+                  command:   'foam.i18n.extractAndTranslate',
+                  arguments: [{ uri: uri, diagnosticRange: diag.range,
+                                messageText: hsMatch[1], languages: langsC }]
+                }
+              });
+            }
           }
         }
 

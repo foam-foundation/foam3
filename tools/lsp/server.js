@@ -178,6 +178,22 @@ function start() {
     send({ jsonrpc: '2.0', method: method, params: params });
   }
 
+  // === Outbound server -> client requests (workspace/applyEdit) ===
+  // Every other message this server sends is either a response to the client
+  // or a notification; applyEdit is the one place the server asks the client
+  // for something and needs the answer back. Ids start high so they can never
+  // collide with a client-issued id, and handleMessage settles the promise
+  // when the matching response arrives.
+  var outboundId = 1000000;
+  var pendingOutbound = {};
+  function request(method, params) {
+    return new Promise(function(resolve, reject) {
+      var id = outboundId++;
+      pendingOutbound[id] = { resolve: resolve, reject: reject };
+      send({ jsonrpc: '2.0', id: id, method: method, params: params });
+    });
+  }
+
   function byNameResult(info, op) {
     // Name-addressed lookup by resolved class id (not cursor position) — the
     // engine behind foam/byName. info = { classId, memberName?, uri, line,
@@ -441,6 +457,18 @@ function start() {
     var params = msg.params;
     var id     = msg.id;
 
+    // A RESPONSE to one of our own outbound requests: it carries an id but no
+    // method (a client REQUEST carries both, so the method check keeps this
+    // from ever swallowing one). Settle the waiting promise and stop — there
+    // is nothing to dispatch and nothing to respond to.
+    if ( id !== undefined && method === undefined && pendingOutbound[id] ) {
+      var pending = pendingOutbound[id];
+      delete pendingOutbound[id];
+      if ( msg.error ) pending.reject(new Error(msg.error.message));
+      else             pending.resolve(msg.result);
+      return;
+    }
+
     var timerStart = process.hrtime.bigint();
     try {
     switch ( method ) {
@@ -511,6 +539,9 @@ function start() {
               full: true
             },
             codeActionProvider: true,
+            executeCommandProvider: {
+              commands: ['foam.i18n.extractAndTranslate', 'foam.i18n.translateMessage']
+            },
             documentHighlightProvider: true,
             renameProvider: { prepareProvider: true },
             typeHierarchyProvider: true,
@@ -771,6 +802,45 @@ function start() {
           respond(id, []);
         }
         break;
+
+      // The one promise-aware case: translating is a network round trip, so
+      // the edit can't be built inside this synchronous dispatch. The command
+      // resolves with the edit, the client is asked to apply it, and only
+      // then does the request get its (unspecified, per LSP) result. Errors —
+      // provider down, anchor gone, client refused the edit — are surfaced to
+      // the user as a message, never as a silent no-op.
+      case 'workspace/executeCommand': {
+        var cmdArgs = ( params.arguments && params.arguments[0] ) || {};
+        // Reading the text starts inside the promise chain so a bad/deleted
+        // uri (readFileSync throwing) lands in the same catch as any other
+        // failure instead of leaving the request unanswered.
+        Promise.resolve().then(function() {
+          var cdoc = documents[cmdArgs.uri];
+          cmdArgs.text = cdoc ? cdoc.text : require('fs').readFileSync(uriToPath_(cmdArgs.uri), 'utf8');
+          return i18nHandler.executeCommand(params.command, cmdArgs);
+        }).then(function(r) {
+          return request('workspace/applyEdit', { label: 'FOAM i18n translate', edit: r.edit })
+            .then(function(applyResult) {
+              // The client answers an applyEdit it declined with applied:false
+              // rather than an error response, so a refusal has to be checked
+              // for explicitly — otherwise it reads as success and the user is
+              // told nothing while the file stayed unchanged.
+              if ( applyResult && applyResult.applied === false ) {
+                throw new Error('the editor did not apply the edit' +
+                  ( applyResult.failureReason ? ' (' + applyResult.failureReason + ')' : '' ));
+              }
+              if ( r.warnings && r.warnings.length ) {
+                notify('window/showMessage', { type: 2 /* Warning */,
+                  message: 'Translation applied with warnings: ' + r.warnings.join('; ') });
+              }
+              respond(id, null);
+            });
+        }).catch(function(e) {
+          notify('window/showMessage', { type: 1 /* Error */, message: 'FOAM i18n: ' + e.message });
+          respond(id, null);   // executeCommand's result is unspecified; errors surface via showMessage
+        });
+        break;
+      }
 
       case 'textDocument/semanticTokens/full':
         var doc = documents[params.textDocument.uri];

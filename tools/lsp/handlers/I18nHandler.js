@@ -13,8 +13,7 @@ foam.CLASS({
   requires: [
     'foam.parse.lsp.FoamIndex',
     'foam.parse.lsp.FileModelCache',
-    'foam.parse.lsp.CursorAnalyzer',
-    'foam.parse.lsp.HttpChatProvider'
+    'foam.parse.lsp.CursorAnalyzer'
   ],
 
   properties: [
@@ -22,10 +21,8 @@ foam.CLASS({
     { class: 'FObjectProperty', of: 'foam.parse.lsp.FileModelCache',  name: 'cache',    factory: function() { return this.FileModelCache.create(); } },
     { class: 'FObjectProperty', of: 'foam.parse.lsp.CursorAnalyzer',  name: 'analyzer', factory: function() { return this.CursorAnalyzer.create(); } },
     {
-      class: 'FObjectProperty',
-      of: 'foam.parse.lsp.HttpChatProvider',
       name: 'provider',
-      documentation: 'Translation backend (Task 5). Optional — no provider means translationReady stays false and refreshAvailability() is a no-op.'
+      documentation: 'Translation backend — normally a foam.parse.lsp.HttpChatProvider, but typed as a plain property (not FObjectProperty) because only the structural contract matters here: any object exposing detect() and translate(texts, targetCode, context) works, which is what lets tests drive executeCommand with a stub instead of an HTTP server. Optional — no provider means translationReady stays false, refreshAvailability() is a no-op, and executeCommand throws rather than building an untranslated edit.'
     },
     {
       class: 'StringArray',
@@ -63,6 +60,104 @@ foam.CLASS({
       var r = await this.provider.detect();
       this.translationReady = !! r.available;
       this.activeModel      = r.model || '';
+    },
+
+    async function executeCommand(command, args) {
+      /**
+       * Run one of the two i18n translate commands the code actions hand to
+       * the client, and return the edit the server should apply.
+       *   args: { uri, text, diagnosticRange?, messageText?, messageName?, languages }
+       * Returns { edit: <WorkspaceEdit>, warnings: [string] }, or THROWS with
+       * a user-facing reason — the server surfaces it via window/showMessage
+       * and applies nothing.
+       *
+       * `text` is the file's CURRENT content (the server reads it from the
+       * open-document map, or off disk). The edit is re-anchored against that
+       * text here rather than reusing offsets computed back when the action
+       * was offered, because the user may have typed in between. A builder
+       * returning null means the anchor is gone or ambiguous → error, no edit.
+       *
+       * All-or-nothing: every requested language is translated BEFORE any
+       * edit is built, so a provider failure on the second language throws
+       * and leaves the file untouched instead of committing the first.
+       */
+      var a         = args || {};
+      var langs     = a.languages || [];
+      var relocated = 'The string could not be re-located — the file changed since the action was offered.';
+
+      if ( command === 'foam.i18n.extractAndTranslate' ) {
+        var extracted   = await this.translateInto_(a.messageText, langs);
+        var extractEdit = this.buildAddExtractEdit(a.text, a.messageText, a.uri, a.diagnosticRange,
+          { translations: extracted.translations });
+        if ( ! extractEdit ) throw new Error(relocated);
+        return { edit: extractEdit, warnings: extracted.warnings };
+      }
+
+      if ( command === 'foam.i18n.translateMessage' ) {
+        var source = this.findMessageText_(a.uri, a.text, a.messageName);
+        if ( source === null ) {
+          throw new Error('Message "' + a.messageName + '" could not be re-located — ' +
+            'the file changed since the action was offered.');
+        }
+        var translated = await this.translateInto_(source, langs);
+        var mapEdit    = this.buildMessageMapEdit(a.text, a.messageName, translated.translations, a.uri);
+        if ( ! mapEdit ) throw new Error(relocated);
+        return { edit: mapEdit, warnings: translated.warnings };
+      }
+
+      throw new Error('Unknown command: ' + command);
+    },
+
+    async function translateInto_(text, languages) {
+      /**
+       * Translate one source string into every language in `languages`, one
+       * provider call per language. Returns { translations: { lang: string },
+       * warnings: [string] } with each warning prefixed by its language (a
+       * batch for two languages otherwise reports indistinguishable ones).
+       *
+       * Throws — building no edit — when there is no provider, nothing to
+       * translate, no target language, the model answers with no usable
+       * translation, or the provider itself rejects (its documented
+       * all-or-nothing contract; partially completed languages are dropped).
+       */
+      if ( ! this.provider ) throw new Error('No translation provider is configured.');
+      if ( ! text )          throw new Error('There is no source text to translate.');
+      if ( ! languages.length ) throw new Error('No target languages are configured.');
+
+      var translations = {}, warnings = [];
+      for ( var i = 0 ; i < languages.length ; i++ ) {
+        var lang = languages[i];
+        // Third argument is the provider's domain hint — it steers the model
+        // toward UI-label phrasing instead of prose.
+        var results = await this.provider.translate([ text ], lang, 'application UI label');
+        var result  = results && results[0];
+        if ( ! result || ! result.translation ) {
+          throw new Error('The translation model returned no ' + lang + ' translation.');
+        }
+        translations[lang] = result.translation;
+        var langWarnings = result.warnings || [];
+        for ( var w = 0 ; w < langWarnings.length ; w++ ) warnings.push(lang + ': ' + langWarnings[w]);
+      }
+      return { translations: translations, warnings: warnings };
+    },
+
+    function findMessageText_(uri, text, messageName) {
+      /** The CURRENT `message:` text of the named messages: entry, read from
+       *  the model objects (the same source scanMissingLanguages trusts), not
+       *  from a regex. Returns null when the file no longer defines that
+       *  entry, or when its message isn't a plain string — either way the
+       *  caller reports a re-anchor failure rather than translating a guess. */
+      var models = this.cache.getModels(uri || '', text);
+      if ( ! models ) return null;
+      for ( var m = 0 ; m < models.length ; m++ ) {
+        var msgs = models[m].messages || [];
+        for ( var i = 0 ; i < msgs.length ; i++ ) {
+          if ( msgs[i] && msgs[i].name === messageName ) {
+            return typeof msgs[i].message === 'string' ? msgs[i].message : null;
+          }
+        }
+      }
+      return null;
     },
 
     // MOVED VERBATIM from DiagnosticsHandler:
@@ -163,8 +258,18 @@ foam.CLASS({
       /** Escape a raw (unquoted) translation string for embedding inside a
        *  single-quoted JS string literal. Backslashes MUST be escaped first —
        *  escaping the quote before the backslash would double-escape the
-       *  backslash introduced by the quote step. */
-      return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+       *  backslash introduced by the quote step. Both line terminators are
+       *  escaped: a raw CR is as illegal inside a single-quoted literal as a
+       *  raw LF, and a model that answers with CRLF is not exotic. */
+      return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+    },
+
+    function messageMapKey_(lang) {
+      /** A messageMap key as it must appear in source: bare when the language
+       *  code is a valid JS identifier ('fr'), quoted when it isn't ('fr-CA',
+       *  'zh-Hant') — an unquoted `fr-CA:` is a syntax error. */
+      return /^[A-Za-z_$][\w$]*$/.test(lang) ? lang : "'" + lang + "'";
     },
 
     function scanMissingLanguages(uri, text) {
@@ -292,13 +397,26 @@ foam.CLASS({
     },
 
     function mapKeys_(mapContent) {
-      /** Top-level `lang:` keys already present in a messageMap's content
-       *  (the substring between its `{`/`}`, exclusive). String-aware via
-       *  stripStrings_ — a translation value containing ": " or ", " can't
-       *  be mistaken for another key. */
+      /** Top-level keys already present in a messageMap's content (the
+       *  substring between its `{`/`}`, exclusive), bare (`fr:`) and quoted
+       *  (`'fr-CA':`) alike — this tool emits the quoted form for regional
+       *  codes, so it has to recognize its own output or a second translate
+       *  of the same language would append a duplicate key.
+       *
+       *  String-aware via stripStrings_ — a translation value containing
+       *  ": " or ", " can't be mistaken for another key. For the quoted form
+       *  the masked text keeps the quotes and the run length (content
+       *  blanked), so the match locates the key's span and the real name is
+       *  read back from the unmasked content at that same offset. */
       var masked = this.stripStrings_(mapContent);
-      var keys = {}, keyRe = /(^|,)\s*([A-Za-z_$][\w$]*)\s*:/g, m;
-      while ( ( m = keyRe.exec(masked) ) !== null ) keys[m[2]] = true;
+      var keys = {}, m;
+      var bareRe = /(^|,)\s*([A-Za-z_$][\w$]*)\s*:/g;
+      while ( ( m = bareRe.exec(masked) ) !== null ) keys[m[2]] = true;
+      var quotedRe = /(^|,)\s*(['"])( *)\2\s*:/g;
+      while ( ( m = quotedRe.exec(masked) ) !== null ) {
+        var start = m.index + m[0].indexOf(m[2]) + 1;   // just past the opening quote
+        keys[mapContent.substring(start, start + m[3].length)] = true;
+      }
       return keys;
     },
 
@@ -307,12 +425,14 @@ foam.CLASS({
        *  key isn't in `skip` — the spec says append/seed MISSING keys only,
        *  so a language already in the map (existing-map branch) or the
        *  entry's own sourceLanguage (no-map branch, already seeded from the
-       *  message literal) is never duplicated. */
+       *  message literal) is never duplicated. Both messageMap builders emit
+       *  their language keys through here, so key quoting and value escaping
+       *  are decided in exactly one place. */
       var parts = [];
       for ( var lang in translations ) {
         if ( ! Object.prototype.hasOwnProperty.call(translations, lang) ) continue;
         if ( skip && skip[lang] ) continue;
-        parts.push(lang + ": '" + this.escapeJsString_(translations[lang]) + "'");
+        parts.push(this.messageMapKey_(lang) + ": '" + this.escapeJsString_(translations[lang]) + "'");
       }
       return parts;
     },
@@ -326,7 +446,8 @@ foam.CLASS({
        *     `message:` value. The source-language key reuses the entry's own
        *     message literal verbatim (already validly escaped) — same
        *     rawLiteral principle as buildAddExtractEdit. A `translations`
-       *     entry for sourceLanguage itself is dropped (already seeded).
+       *     entry for sourceLanguage itself is dropped (already seeded); if
+       *     that leaves nothing to add, returns null.
        *   - entry already has a messageMap → append only the `lang: '...'`
        *     pairs not already present before that map's closing `}`; if
        *     every requested language is already there, returns null (no
@@ -380,9 +501,13 @@ foam.CLASS({
         var skip = {};
         skip[this.sourceLanguage] = true;
         var seededParts = this.translationParts_(translations, skip);
+        // Symmetric with the existing-map branch's "already present" bail-out:
+        // translations holding nothing but sourceLanguage leaves nothing to
+        // add, and seeding a source-language-only map would be a no-op edit.
+        if ( ! seededParts.length ) return null;
         insertOffset = span.start + literalEndRel;
-        newText = ', messageMap: { ' + this.sourceLanguage + ': ' + rawLiteral +
-          ( seededParts.length ? ', ' + seededParts.join(', ') : '' ) + ' }';
+        newText = ', messageMap: { ' + this.messageMapKey_(this.sourceLanguage) + ': ' + rawLiteral +
+          ', ' + seededParts.join(', ') + ' }';
       }
 
       var p = this.analyzer.offsetToPosition(text, insertOffset);
@@ -465,13 +590,11 @@ foam.CLASS({
       var entry = "{ name: '" + name + "', message: " + rawLiteral;
       if ( opts.withMessageMap || opts.translations ) {
         // en reuses the verbatim source literal (already validly escaped);
-        // model translations are raw strings and need single-quote escaping.
-        var mapParts = [ 'en: ' + rawLiteral ];
-        var tr = opts.translations || {};
-        for ( var lang in tr ) {
-          if ( ! Object.prototype.hasOwnProperty.call(tr, lang) ) continue;
-          mapParts.push(lang + ": '" + this.escapeJsString_(tr[lang]) + "'");
-        }
+        // model translations are raw strings that need escaping and, for a
+        // regional code, a quoted key — both handled by translationParts_,
+        // which also drops a redundant 'en' translation (already seeded).
+        var mapParts = [ 'en: ' + rawLiteral ]
+          .concat(this.translationParts_(opts.translations || {}, { en: true }));
         entry += ', messageMap: { ' + mapParts.join(', ') + ' }';
       }
       entry += ' }';

@@ -51,6 +51,35 @@ var insQ = editQ.changes['file:///t/E.js'].filter(function(e) { return /messages
 test(insQ && insQ.newText.indexOf("l\\'envoi termin") !== -1,
   'quote inside translation is escaped');
 
+// Variant A (no options) must stay the plain { name, message } shape — the
+// messageMap belongs to variant B/C only.
+test(edits && edits.every(function(e) { return e.newText.indexOf('messageMap') === -1; }),
+  'variant A entry carries no messageMap');
+
+// A backslash in a model translation ('C:\chemin') must be DOUBLED, or the
+// emitted literal reads as an escape sequence in the generated source.
+var editBS = i18n.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { translations: { fr: 'C:\\chemin' } });
+var insBS = editBS.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insBS && insBS.newText.indexOf("fr: 'C:\\\\chemin'") !== -1,
+  'backslash inside a translation is doubled');
+
+// A carriage return needs escaping for the same reason a newline does — a raw
+// CR inside a single-quoted literal is a syntax error.
+var editCR = i18n.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { translations: { fr: 'a\r\nb' } });
+var insCR = editCR.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insCR && insCR.newText.indexOf("fr: 'a\\r\\nb'") !== -1,
+  'carriage return inside a translation is escaped');
+
+// A regional code ('fr-CA') is not a valid JS identifier — it must be emitted
+// as a quoted key or the generated messageMap does not parse.
+var editRegion = i18n.buildAddExtractEdit(SRC, 'Upload complete', 'file:///t/E.js', null,
+  { translations: { 'fr-CA': 'Téléversement terminé' } });
+var insRegion = editRegion.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+test(insRegion && insRegion.newText.indexOf("'fr-CA': 'Téléversement terminé'") !== -1,
+  'variant C/B key for a regional code is quoted');
+
 section('I18nHandler — scanMissingLanguages');
 var i18nT = foam.parse.lsp.handlers.I18nHandler.create({
   index: index, cache: cache,
@@ -147,6 +176,24 @@ var seedDupNew = mmSeedDup.changes['file:///t/HasMsgs.js'][0].newText;
 test(/messageMap: \{ en: 'Done', fr: 'Terminé' \}/.test(seedDupNew) && seedDupNew.indexOf('Something else') === -1,
   'no-map branch: a translations.en entry never duplicates/overrides the message-literal seed');
 
+// no-map branch, symmetric with the existing-map branch above: translations
+// holding ONLY the source language leaves nothing to add, so seeding an
+// en-only map would be a pointless edit.
+test(i18nT.buildMessageMapEdit(MSGS, 'DONE', { en: 'Something else' }, 'file:///t/HasMsgs.js') === null,
+  'no-map branch: only-sourceLanguage translations → nothing to add → null (no en-only map edit)');
+
+// Regional codes round-trip: emitted quoted, and recognized as already
+// present on the next call so they are never appended twice.
+var mmRegion = i18nT.buildMessageMapEdit(MSGS, 'DONE', { 'fr-CA': 'Terminé' }, 'file:///t/HasMsgs.js');
+var regionNew = mmRegion && mmRegion.changes['file:///t/HasMsgs.js'][0].newText;
+test(regionNew && regionNew.indexOf("'fr-CA': 'Terminé'") !== -1,
+  'regional code is emitted as a quoted messageMap key');
+
+var REGION_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Region',\n  messages: [\n" +
+  "    { name: 'HI', message: 'Hi', messageMap: { en: 'Hi', 'fr-CA': 'Salut' } }\n  ]\n});\n";
+test(i18nT.buildMessageMapEdit(REGION_SRC, 'HI', { 'fr-CA': 'Allo' }, 'file:///t/Region.js') === null,
+  'an already-present quoted key is recognized → no duplicate key appended');
+
 section('CodeActionHandler — action D (translate missing-language HINT)');
 var caH = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nT });
 var missDiagFr = {
@@ -182,6 +229,41 @@ test(actsMulti[2].command.arguments[0].languages.length === 2 &&
 var caOff = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nOff });
 var actsOff = caOff.handle(MSGS, missDiagFr.range, { diagnostics: [missDiagFr] }, 'file:///t/HasMsgs.js');
 test(actsOff.length === 0, 'translationReady false → zero translate actions');
+
+section('CodeActionHandler — variant C (extract + translate)');
+// Drive variant C off a REAL hardcoded-display-string diagnostic so the
+// action's range lines up with the literal the same way it does in an editor.
+var diagHC = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: cache, i18nHandler: i18nT });
+var hardDiag = diagHC.handle(SRC, 'file:///t/ExtractMe.js').filter(function(d) {
+  return d.code === 'i18n-hardcoded-display-string';
+})[0];
+test(!! hardDiag, 'a real hardcoded-display-string diagnostic is emitted for the fixture');
+
+var caC   = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nT });
+var actsC = caC.handle(SRC, hardDiag.range, { diagnostics: [hardDiag] }, 'file:///t/ExtractMe.js');
+var cAct  = actsC.filter(function(a) { return a.command && a.command.command === 'foam.i18n.extractAndTranslate'; })[0];
+test(actsC.length === 3, 'hardcoded string offers three actions: A (plain), B (messageMap), C (translate)');
+test(cAct && cAct.title === "Extract 'Upload complete' + translate to fr via translategemma:4b",
+  'variant C title names the string, the target languages, and the active model');
+test(cAct && ! cAct.edit, 'variant C carries no precomputed edit — the command re-anchors at execution time');
+var cArgs = cAct && cAct.command.arguments[0];
+test(cArgs && cArgs.messageText === 'Upload complete' && cArgs.uri === 'file:///t/ExtractMe.js' &&
+  cArgs.languages.length === 1 && cArgs.languages[0] === 'fr' &&
+  cArgs.diagnosticRange && typeof cArgs.diagnosticRange.start.line === 'number',
+  'variant C command payload carries uri, messageText, languages, and the diagnostic range');
+
+var caCOff   = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nOff });
+var actsCOff = caCOff.handle(SRC, hardDiag.range, { diagnostics: [hardDiag] }, 'file:///t/ExtractMe.js');
+test(actsCOff.every(function(a) { return ! a.command; }),
+  'translationReady false → variant C is not listed');
+test(actsCOff.length === 2, 'variants A and B still list without a translation provider');
+
+var i18nNoLangs = foam.parse.lsp.handlers.I18nHandler.create({
+  index: index, cache: cache, translationReady: true, activeModel: 'stub' });   // targetLanguages empty
+var actsCNoLangs = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nNoLangs })
+  .handle(SRC, hardDiag.range, { diagnostics: [hardDiag] }, 'file:///t/ExtractMe.js');
+test(actsCNoLangs.every(function(a) { return ! a.command; }),
+  'no target languages → variant C is not listed even with a ready provider');
 
 section('DiagnosticsHandler — i18n-missing-language HINT emission');
 var diagH = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: cache, i18nHandler: i18nT });
@@ -390,6 +472,102 @@ var done = (async function() {
     var reconfDet = await reconfProv.detect();
     test(reconfDet.available === false,
       'reassigning endpoints clears the cached positive result (no stale availability)');
+
+    // --- executeCommand -------------------------------------------------
+    // Driven with a STUB provider (plain object with detect/translate), so
+    // these tests exercise the command's own edit-building and error
+    // contracts without an HTTP round trip.
+    section('I18nHandler — executeCommand');
+    var stubProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        return texts.map(function(t) { return { input: t, translation: '[' + lang + ']' + t, warnings: [] }; });
+      }
+    };
+    var i18nCmd = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr'], translationReady: true, activeModel: 'stub' });
+    i18nCmd.provider = stubProvider;
+
+    var r1 = await i18nCmd.executeCommand('foam.i18n.extractAndTranslate',
+      { uri: 'file:///t/E.js', text: SRC, messageText: 'Upload complete', languages: ['fr'] });
+    var ins1 = r1.edit.changes['file:///t/E.js'].filter(function(e) { return /messages/.test(e.newText); })[0];
+    test(/fr: '\[fr\]Upload complete'/.test(ins1.newText), 'extractAndTranslate builds translated messageMap');
+    test(r1.warnings.length === 0, 'a clean translation reports no warnings');
+
+    var r2 = await i18nCmd.executeCommand('foam.i18n.translateMessage',
+      { uri: 'file:///t/M.js', text: MSGS, messageName: 'DONE', languages: ['fr'] });
+    test(/fr: '\[fr\]Done'/.test(r2.edit.changes['file:///t/M.js'][0].newText),
+      'translateMessage translates the entry message text');
+
+    var threw = false;
+    try {
+      await i18nCmd.executeCommand('foam.i18n.translateMessage',
+        { uri: 'file:///t/M.js', text: MSGS, messageName: 'NOPE', languages: ['fr'] });
+    } catch (e) { threw = true; }
+    test(threw, 'unknown message name → throws (surfaced as showMessage, no edit)');
+
+    // Re-anchoring: the command re-runs the builder against the CURRENT text,
+    // so a string that has since been edited away must fail loudly rather
+    // than write an edit at the wrong offset.
+    var reanchorErr = null;
+    try {
+      await i18nCmd.executeCommand('foam.i18n.extractAndTranslate',
+        { uri: 'file:///t/E.js', text: SRC.replace('Upload complete', 'Something else'),
+          messageText: 'Upload complete', languages: ['fr'] });
+    } catch (e) { reanchorErr = e; }
+    test(reanchorErr && reanchorErr.message ===
+      'The string could not be re-located — the file changed since the action was offered.',
+      're-anchor failure throws the file-changed error, no edit');
+
+    // All-or-nothing: a provider failure must propagate, never yield a
+    // partial edit built from the languages that did succeed.
+    var partialProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        if ( lang === 'de' ) throw new Error('model exploded');
+        return texts.map(function(t) { return { input: t, translation: '[' + lang + ']' + t, warnings: [] }; });
+      }
+    };
+    var i18nFail = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr', 'de'], translationReady: true, activeModel: 'stub' });
+    i18nFail.provider = partialProvider;
+    var failErr = null, failResult = null;
+    try {
+      failResult = await i18nFail.executeCommand('foam.i18n.translateMessage',
+        { uri: 'file:///t/M.js', text: MSGS, messageName: 'DONE', languages: ['fr', 'de'] });
+    } catch (e) { failErr = e; }
+    test(failErr && failErr.message === 'model exploded' && failResult === null,
+      'a translate() rejection propagates — no partial edit from the languages that succeeded');
+
+    // Provider warnings (e.g. a dropped placeholder) reach the caller so the
+    // server can surface them alongside the applied edit.
+    var warnProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        return texts.map(function(t) { return { input: t, translation: 'x', warnings: ['placeholder ${n} lost'] }; });
+      }
+    };
+    var i18nWarn = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr'], translationReady: true, activeModel: 'stub' });
+    i18nWarn.provider = warnProvider;
+    var rw = await i18nWarn.executeCommand('foam.i18n.translateMessage',
+      { uri: 'file:///t/M.js', text: MSGS, messageName: 'DONE', languages: ['fr'] });
+    test(rw.warnings.length === 1 && rw.warnings[0].indexOf('placeholder ${n} lost') !== -1,
+      'provider warnings are returned alongside the edit');
+
+    var unknownErr = null;
+    try {
+      await i18nCmd.executeCommand('foam.i18n.nope', { uri: 'file:///t/E.js', text: SRC, languages: ['fr'] });
+    } catch (e) { unknownErr = e; }
+    test(unknownErr && /Unknown command/.test(unknownErr.message), 'an unknown command throws');
+
+    var noProv = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache });
+    var noProvErr = null;
+    try {
+      await noProv.executeCommand('foam.i18n.translateMessage',
+        { uri: 'file:///t/M.js', text: MSGS, messageName: 'DONE', languages: ['fr'] });
+    } catch (e) { noProvErr = e; }
+    test(noProvErr && /provider/.test(noProvErr.message), 'no provider wired → throws instead of building an edit');
   } catch (e) {
     test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
   } finally {

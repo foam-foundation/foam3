@@ -166,18 +166,51 @@ foam.CLASS({
       return out;
     },
 
-    function resolveTranslateTargets_(uri, text, opt_messageName) {
+    function missingLanguagesFor_(uri, text, messageName, languages) {
+      /** Which of `languages` the named entry's messageMap does NOT already
+       *  carry. [] when the entry is fully translated — and also [] when the
+       *  entry can't be found at all, since there is nothing to translate for
+       *  a name the file doesn't define. Same source of truth as
+       *  scanMissingLanguages_ (the model objects, not a regex). */
+      var langs = languages || [];
+      if ( ! langs.length ) return [];
+      var models = this.cache.getModels(uri || '', text);
+      if ( ! models ) return [];
+      for ( var m = 0 ; m < models.length ; m++ ) {
+        var msgs = models[m].messages || [];
+        for ( var i = 0 ; i < msgs.length ; i++ ) {
+          if ( ! msgs[i] || msgs[i].name !== messageName ) continue;
+          var map = msgs[i].messageMap || {};
+          return langs.filter(function(l) { return ! map[l]; });
+        }
+      }
+      return [];
+    },
+
+    function resolveTranslateTargets_(uri, text, opt_messageName, opt_languages) {
       /** Message names foam/i18nTranslate should act on: the one named
-       *  message when given, else every messages: entry in the file
-       *  currently missing a targetLanguages translation. Goes through the
+       *  message when given AND still missing at least one of the requested
+       *  languages, else every messages: entry in the file currently missing
+       *  a targetLanguages translation. Goes through the
        *  UNGATED scanMissingLanguages_, not the translationReady-gated
        *  scanMissingLanguages — an explicit foam/i18nTranslate call
        *  (dry-run or real) is not the unsolicited diagnostic/code-action
        *  noise that gate exists to suppress, and the dry-run path is
        *  specifically what runs WHEN translationReady is false (no local
        *  model — hand the agent the strings itself). Gating this would make
-       *  the needs-translations payload permanently empty. */
-      if ( opt_messageName ) return [ opt_messageName ];
+       *  the needs-translations payload permanently empty.
+       *
+       *  The pinned-name path applies the SAME missing-language filter the
+       *  scan applies to every other entry (missingLanguagesFor_): pinning a
+       *  name to an already-complete entry used to return it regardless, so
+       *  dryRunTranslateStrings handed back a source string with nothing to
+       *  do with it, and translateMessages paid for a provider round trip
+       *  whose edit buildMessageMapEdit then legally refused to build
+       *  (foam3#5283 review finding, "wasteful payload"). */
+      if ( opt_messageName ) {
+        return this.missingLanguagesFor_(uri, text, opt_messageName, opt_languages).length ?
+          [ opt_messageName ] : [];
+      }
       return this.scanMissingLanguages_(uri, text).map(function(s) { return s.name; });
     },
 
@@ -190,7 +223,7 @@ foam.CLASS({
        * { strings: { NAME: 'source text' }, targetLanguages }.
        */
       var langs = ( opt_languages && opt_languages.length ) ? opt_languages : ( this.targetLanguages || [] );
-      var names = this.resolveTranslateTargets_(uri, text, opt_messageName);
+      var names = this.resolveTranslateTargets_(uri, text, opt_messageName, langs);
       var strings = {};
       for ( var i = 0 ; i < names.length ; i++ ) {
         var src = this.findMessageText_(uri, text, names[i]);
@@ -227,7 +260,7 @@ foam.CLASS({
        * is all-or-nothing by design.
        */
       var langs = ( opt_languages && opt_languages.length ) ? opt_languages : ( this.targetLanguages || [] );
-      var names = this.resolveTranslateTargets_(uri, text, opt_messageName);
+      var names = this.resolveTranslateTargets_(uri, text, opt_messageName, langs);
       var edits = [], warnings = [], translated = {};
       for ( var i = 0 ; i < names.length ; i++ ) {
         var name = names[i];

@@ -869,9 +869,11 @@ var cmdDone = (async function() {
 var srvDone = (async function() {
   try {
     section('I18nHandler — dryRunTranslateStrings + translateMessages (foam/i18nTranslate builders)');
+    var stubCalls2 = 0;
     var stubProvider2 = {
       detect: async function() { return { available: true, model: 'stub' }; },
       translate: async function(texts, lang) {
+        stubCalls2++;
         return texts.map(function(t) { return { input: t, translation: '[' + lang + ']' + t, warnings: [] }; });
       }
     };
@@ -891,6 +893,27 @@ var srvDone = (async function() {
     test(Object.keys(dryOne.strings).length === 1 && dryOne.strings.DONE === 'Done' &&
       dryOne.targetLanguages[0] === 'de',
       'dryRunTranslateStrings: explicit messageName + languages override the scan/targetLanguages defaults');
+
+    // A pinned messageName whose entry is ALREADY complete (SAVED carries fr)
+    // has nothing to translate. The pinned path used to skip the
+    // missing-language filter every other entry goes through, so the dry run
+    // handed back a source string the agent could do nothing with, and the
+    // real path paid for a provider round trip whose edit buildMessageMapEdit
+    // then legally refused to build.
+    var dryComplete = await i18nSrv.dryRunTranslateStrings('file:///t/HasMsgs.js', MSGS, 'SAVED', undefined);
+    test(Object.keys(dryComplete.strings).length === 0,
+      'dryRunTranslateStrings: messageName pinned to a fully-translated entry returns an EMPTY strings map');
+    var dryCompleteOther = await i18nSrv.dryRunTranslateStrings('file:///t/HasMsgs.js', MSGS, 'SAVED', ['de']);
+    test(dryCompleteOther.strings.SAVED === 'Saved',
+      'dryRunTranslateStrings: the same entry still reports its source string for a language it is missing (de)');
+
+    var callsBeforeComplete = stubCalls2;
+    var translatedComplete  = await i18nSrv.translateMessages('file:///t/HasMsgs.js', MSGS, 'SAVED', ['fr']);
+    test(translatedComplete.edit.changes['file:///t/HasMsgs.js'].length === 0 &&
+      Object.keys(translatedComplete.translated).length === 0,
+      'translateMessages: a fully-translated pinned entry produces no edit and no translated entry');
+    test(stubCalls2 === callsBeforeComplete,
+      'translateMessages: a fully-translated pinned entry makes ZERO provider calls (no wasted round trip)');
 
     // finding B: the multi-model whole-file guard applies to the dry-run MCP
     // lane too (resolveTranslateTargets_ -> scanMissingLanguages_ directly),
@@ -965,6 +988,15 @@ var mcpDone = (async function() {
       // not return an empty needs-translations payload with the full
       // boilerplate instructions — there is nothing for the agent to do
       // with that. A dedicated status says so instead.
+      //
+      // The `{ strings: {} }` reply stubbed below is what the REAL
+      // foam/i18nTranslate returns for this call: 'SAVED' in the MSGS fixture
+      // already has its fr translation, and resolveTranslateTargets_ now
+      // applies the missing-language filter to the pinned-name path too
+      // (asserted directly against the handler in the srvDone block above:
+      // "messageName pinned to a fully-translated entry returns an EMPTY
+      // strings map"). Before that fix this stub described a reply the
+      // server never actually sent.
       var lspDownEmpty = { ensureOpen: async function() {},
         request: async function(method) {
           if ( method === 'foam/i18nStatus' )    return { available: false, targetLanguages: ['fr'] };

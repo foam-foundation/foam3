@@ -51,9 +51,11 @@ test(c.enabled('hover') === true, 'defaults intact after unknown key');
 
 section('FeatureConfig — unknown key via initOptions warns once, ignored');
 
-// Reset the file back to something benign so this section isolates the
-// initOptions path — otherwise the leftover notAFlag file-warning above
-// would make the `warnings.some(...)` check pass for the wrong reason.
+// Reset the file back to something benign so this section's warnings are
+// only about the initOptions path under test — otherwise the leftover
+// notAFlag file from the previous section would add its own unrelated
+// warning here (harmless to the assertion below, which only checks for
+// 'alsoNotAFlag', but muddies what this section is meant to demonstrate).
 fs.writeFileSync(path.join(dir, 'foam-lsp.json'), JSON.stringify({}));
 c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { alsoNotAFlag: true } } });
 test(c.warnings.some(function(w) { return w.indexOf('alsoNotAFlag') !== -1; }), 'unknown initOptions key warned');
@@ -75,6 +77,15 @@ section('FeatureConfig — valid JSON that is not an object warns + falls back t
 fs.writeFileSync(path.join(dir, 'foam-lsp.json'), '[1,2]');
 c = FeatureConfig.load({ rootPath: dir });
 test(c.warnings.length === 1 && c.enabled('completion') === true, 'non-object JSON -> defaults + warning');
+
+section('FeatureConfig — JSON literal null warns + falls back to defaults');
+
+// `null` parses successfully (unlike '{ nope') but is not an object either
+// (unlike '[1,2]', it can't even be told apart from "parse failed" by a
+// `parsed !== null` check) — must land in the same non-object warn path.
+fs.writeFileSync(path.join(dir, 'foam-lsp.json'), 'null');
+c = FeatureConfig.load({ rootPath: dir });
+test(c.warnings.length === 1 && c.enabled('completion') === true, 'null literal -> defaults + warning');
 
 section('FeatureConfig — i18n section merges through the same layers');
 

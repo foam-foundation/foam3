@@ -82,14 +82,20 @@ function load(opts) {
       }
     }
     if ( raw !== null ) {
-      var parsed = null;
+      var parsed;
+      var parseOk = true;
       try {
         parsed = JSON.parse(raw);
       } catch (parseErr) {
+        parseOk = false;
         warnings.push('Failed to parse foam-lsp.json: ' + parseErr.message);
       }
-      if ( parsed !== null ) {
-        if ( typeof parsed === 'object' && ! Array.isArray(parsed) ) {
+      // Branch on parseOk, not `parsed !== null` — the literal JSON value
+      // `null` parses successfully to `null`, which is itself not an
+      // object, so it must fall into the same "not an object" warn path as
+      // an array/number/string/boolean, not be skipped as if parsing failed.
+      if ( parseOk ) {
+        if ( parsed !== null && typeof parsed === 'object' && ! Array.isArray(parsed) ) {
           applyFeatures(features, parsed.features, warnings);
           applyI18n(i18n, parsed.i18n);
         } else {

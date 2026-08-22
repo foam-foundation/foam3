@@ -103,7 +103,17 @@ foam.CLASS({
   documentation: 'U3 Text Node',
 
   properties: [
-    { class: 'String', name: 'text' },
+    {
+      class: 'String',
+      name: 'text',
+      adapt: function(o, v, prop) {
+        if ( foam.String.isInstance(v) ) return v;
+        // The String adapt reads an object as a locale map, which a Date has no
+        // key in, so it would adapt to undefined and this node would be empty.
+        if ( foam.Date.isInstance(v) ) return foam.util.DateUtil.format(v);
+        return foam.lang.String.ADAPT.value.call(this, o, v, prop);
+      }
+    },
     {
       name: 'element_',
       factory: function() { return this.document.createTextNode(this.text); }

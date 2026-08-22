@@ -37,21 +37,6 @@ foam.CLASS({
     function applyPrecision(val) {
       if ( this.precision < 0 || typeof val !== 'number' ) return val;
      return Number(val).toFixed(this.precision);
-    },
-
-    function addValueToE(e, value) {
-      // A Date can't be added as text: foam.u2.Text's String property adapts a
-      // Date to undefined, so e.add(date) renders nothing. Format through the
-      // property's own tableCellFormatter so a Date and a DateTime each display
-      // the way their table cell does.
-      var prop = this.arg1;
-      if ( foam.Date.isInstance(value) && prop && prop.tableCellFormatter ) {
-        e.add(e.E('span').call(function() {
-          prop.tableCellFormatter.format(this, value, null, prop);
-        }));
-        return;
-      }
-      e.add(value);
     }
   ]
 });

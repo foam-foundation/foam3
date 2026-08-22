@@ -94,6 +94,85 @@ fs.writeFileSync(path.join(dir, 'foam-lsp.json'),
 c = FeatureConfig.load({ rootPath: dir, initOptions: { i18n: { model: 'm2' } } });
 test(c.i18n.model === 'm2' && (c.i18n.languages || [])[0] === 'fr', 'i18n per-key precedence');
 
+section('hints.i18nMissingLanguage — gates the HINT and the two translate actions');
+
+// Handler-level, no server boot needed: both consumers take the config as a
+// plain property, so the flag is exercised by constructing them directly.
+//
+// The fixture carries BOTH i18n diagnostics — a `messages:` entry with no
+// messageMap (missing fr) and a hardcoded .add() string — so the hardcoded
+// WARNING and its plain extract action double as the control: they must
+// SURVIVE the flag being off. That is what proves this flag is narrow and
+// not just "all i18n output".
+var HINTS_SRC = [
+  'foam.CLASS({',
+  "  package: 'test.cfg',",
+  "  name: 'CfgHintTarget',",
+  '  messages: [',
+  "    { name: 'DONE', message: 'Done' }",
+  '  ],',
+  '  methods: [',
+  '    function render() {',
+  "      this.start().add('Save changes').end();",
+  '    }',
+  '  ]',
+  '});',
+  ''
+].join('\n');
+var hintsUri = 'file:///t/CfgHintTarget.js';
+
+// translationReady/activeModel stand in for a probed provider (the real probe
+// is HTTP; I18nHandler only reads these two flags), so the translate actions
+// clear their OTHER preconditions and the flag is the only variable left.
+function hintsI18nHandler() {
+  return foam.parse.lsp.handlers.I18nHandler.create({
+    index: h.index, cache: h.cache,
+    targetLanguages: ['fr'], translationReady: true, activeModel: 'stub-model'
+  });
+}
+function hintsConfig(on) {
+  return FeatureConfig.load({ initOptions: { features: { 'hints.i18nMissingLanguage': on } } });
+}
+function hintsDiags(on) {
+  return foam.parse.lsp.handlers.DiagnosticsHandler.create({
+    index: h.index, cache: h.cache,
+    i18nHandler: hintsI18nHandler(), featureConfig: hintsConfig(on)
+  }).handle(HINTS_SRC, hintsUri);
+}
+function codesOf(ds) { return ds.map(function(d) { return d.code; }); }
+
+var hintsOnDiags  = hintsDiags(true);
+var hintsOffDiags = hintsDiags(false);
+test(codesOf(hintsOnDiags).indexOf('i18n-missing-language') !== -1,
+  'control: flag on → the missing-fr HINT is emitted');
+test(codesOf(hintsOffDiags).indexOf('i18n-missing-language') === -1,
+  'hints.i18nMissingLanguage: false suppresses the missing-language HINT');
+test(codesOf(hintsOffDiags).indexOf('i18n-hardcoded-display-string') !== -1,
+  'the flag is narrow — the hardcoded-string WARNING survives it');
+
+// Both code-action runs are fed the SAME diagnostics (the flag-on set, which
+// carries both codes), so any difference in the offered actions comes from
+// the flag and not from a thinner diagnostic list.
+function hintsActions(on) {
+  return foam.parse.lsp.handlers.CodeActionHandler.create({
+    index: h.index, cssTokenResolver: h.cssTokenResolver,
+    i18nHandler: hintsI18nHandler(), featureConfig: hintsConfig(on)
+  }).handle(HINTS_SRC, null, { diagnostics: hintsOnDiags }, hintsUri);
+}
+function titles(as) { return as.map(function(a) { return a.title; }); }
+var isActionC = function(t) { return /\+ translate to/.test(t); };            // extract AND translate
+var isActionD = function(t) { return /^Translate '/.test(t); };              // translate missing language
+var isActionA = function(t) { return /to a messages: entry$/.test(t); };     // plain extract (control)
+
+var actionsOn  = titles(hintsActions(true));
+var actionsOff = titles(hintsActions(false));
+test(actionsOn.some(isActionC), 'control: flag on → action C (extract + translate) is offered');
+test(actionsOn.some(isActionD), 'control: flag on → action D (translate missing language) is offered');
+test(! actionsOff.some(isActionC), 'hints.i18nMissingLanguage: false withdraws action C');
+test(! actionsOff.some(isActionD), 'hints.i18nMissingLanguage: false withdraws action D');
+test(actionsOff.some(isActionA),
+  'the flag withdraws only the translate offers — plain extraction stays available');
+
 // --- server.js wiring, driven in-process --------------------------------
 // The merge above is pure; what it CONTROLS is not. Capability gating lives
 // in the initialize response and the diagnostics guards live on the
@@ -124,7 +203,7 @@ var TARGET_MODEL = [
 
 var bootDone = h.withServerLane(async function() {
   var origWrite = process.stdout.write;
-  var tmpFile   = null;
+  var wsDir     = null;   // declared here so the finally can remove it whatever fails
   try {
     // --- capture the server's stdout as parsed JSON-RPC messages ----------
     var frames = [];
@@ -179,8 +258,8 @@ var bootDone = h.withServerLane(async function() {
     // The workspace root doubles as the foam-lsp.json lookup dir, so point it
     // at an empty temp dir — this test is about the initOptions layer, and a
     // foam-lsp.json in the real checkout must not be able to change its result.
-    var wsDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'flsp-ws-'));
-    tmpFile    = path.join(wsDir, 'CfgToggleTarget.js');
+    wsDir      = fs.mkdtempSync(path.join(os.tmpdir(), 'flsp-ws-'));
+    var tmpFile = path.join(wsDir, 'CfgToggleTarget.js');
     fs.writeFileSync(tmpFile, TARGET_MODEL);
     var uri    = 'file://' + tmpFile;
     var wsUri  = 'file://' + wsDir;
@@ -245,7 +324,9 @@ var bootDone = h.withServerLane(async function() {
     process.stdin.removeAllListeners('data');
     process.stdin.removeAllListeners('end');
     process.stdin.pause();
-    if ( tmpFile ) { try { fs.unlinkSync(tmpFile); } catch (e) {} }
+    // The whole mkdtemp'd workspace goes, not just the file inside it —
+    // wsDir is created per run, so leaving it behind litters the temp dir.
+    if ( wsDir ) { try { fs.rmSync(wsDir, { recursive: true, force: true }); } catch (e) {} }
   }
 });
 

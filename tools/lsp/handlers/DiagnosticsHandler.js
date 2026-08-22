@@ -106,7 +106,12 @@ foam.CLASS({
         var m = models[i];
         var modelKey = (this.cache.getClassId(m)) + '_' + (m.sourceLine_ || 0);
 
-        // Incremental: reuse previous diagnostics if model hasn't changed
+        // Incremental: reuse previous diagnostics if model hasn't changed.
+        // The key is (model, text) only — NOT featureConfig. Safe today
+        // because the config is restart-scoped (loaded once at initialize and
+        // never mutated after); if a didChangeConfiguration reload is ever
+        // added, this cache must be cleared on it or a toggled-off check will
+        // keep reporting from cached results.
         if ( prev && prev.modelKeys && prev.modelKeys[modelKey] && prev.text === text ) {
           var cached = prev.modelKeys[modelKey];
           for ( var j = 0 ; j < cached.length ; j++ ) diagnostics.push(cached[j]);

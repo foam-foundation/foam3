@@ -15,8 +15,10 @@ function start() {
   // Feature toggles. The real merge needs the client's initializationOptions
   // and the workspace root, neither of which exists until 'initialize' — so
   // handlers are built against an all-defaults config here and re-pointed at
-  // the merged one there. Nothing can arrive on the wire before 'initialize',
-  // so no request is ever served under the placeholder.
+  // the merged one there. By protocol the client sends 'initialize' first and
+  // waits for the response, so the placeholder is normally never consulted;
+  // it exists so a client that skips or reorders it fails OPEN (every feature
+  // on) instead of dereferencing null.
   var FeatureConfig = require('./FeatureConfig');
   var featureConfig = FeatureConfig.load({});
 
@@ -498,8 +500,11 @@ function start() {
         // this client's initializationOptions.foam. Handlers were created at
         // start()-scope with the all-defaults config; hand them the merged one
         // now that the client's layer has actually arrived.
+        // One workspace root for the whole case: it locates foam-lsp.json here
+        // and journals/locales.jrl further down.
+        var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd();
         featureConfig = FeatureConfig.load({
-          rootPath:    params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd(),
+          rootPath:    wsRoot,
           initOptions: params && params.initializationOptions && params.initializationOptions.foam
         });
         featureConfig.warnings.forEach(function(w) { console.error('[LSP] config: ' + w); });
@@ -520,7 +525,6 @@ function start() {
           i18nHandler.targetLanguages = i18nOpts.languages;
         } else {
           try {
-            var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd();
             var localesPath = require('path').join(wsRoot, 'journals', 'locales.jrl');
             if ( require('fs').existsSync(localesPath) ) {
               i18nHandler.targetLanguages = i18nHandler.deriveLanguagesFromJournals(

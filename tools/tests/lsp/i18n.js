@@ -1082,6 +1082,61 @@ var mcpDone = (async function() {
         'apply tool: zero edits → nothing-to-apply message, not a false "applied" success claim');
       test(h.fs.readFileSync(tmpFile, 'utf8') === beforeApplyEmpty,
         'apply tool: zero-edit response never writes to disk');
+
+      // Provider-PRESENT branch of foam_i18n_translate: status says available,
+      // so the tool skips the needs-translations dance, calls
+      // foam/i18nTranslate for real, and writes the returned edit to disk
+      // itself (there is no editor client in a headless MCP host).
+      var liveText = h.fs.readFileSync(tmpFile, 'utf8');
+      var partMark = "message: 'Part'";
+      var partIdx  = liveText.indexOf(partMark);
+      test(partIdx !== -1, 'sanity: the PART message literal is on disk for the provider-up case');
+      var partLines = liveText.slice(0, partIdx + partMark.length).split('\n');
+      var partPos   = { line: partLines.length - 1, character: partLines[partLines.length - 1].length };
+      var liveEdit  = { changes: {} };
+      liveEdit.changes['file://' + tmpFile] = [
+        { range: { start: partPos, end: partPos },
+          newText: ", messageMap: { en: 'Part', fr: 'Partie' }" } ];
+      var seenTranslate = null;
+      var lspUp = { ensureOpen: async function() {},
+        request: async function(method, params) {
+          if ( method === 'foam/i18nStatus' ) return { available: true, model: 'stub-model', targetLanguages: ['fr'] };
+          if ( method === 'foam/i18nTranslate' ) {
+            seenTranslate = params;
+            return { edit: liveEdit, warnings: [], translated: { PART: { fr: 'Partie' } } };
+          }
+          throw new Error('unexpected: ' + method);
+        } };
+      var outUp = await mcp.callTool(lspUp, os2.tmpdir(), 'foam_i18n_translate',
+        { file: tmpFile, messageName: 'PART' });
+      test(seenTranslate && ! seenTranslate.dryRun && seenTranslate.messageName === 'PART',
+        'provider up: foam/i18nTranslate is called for REAL (no dryRun) with the pinned messageName');
+      test(h.fs.readFileSync(tmpFile, 'utf8').indexOf("fr: 'Partie'") !== -1,
+        'provider up: the returned WorkspaceEdit is written straight to disk');
+      test(typeof outUp === 'string' && outUp.indexOf('1 messages translated to fr via stub-model') !== -1 &&
+        outUp.indexOf('Warnings: none') !== -1,
+        'provider up: the summary counts the edit, names the languages and the model');
+
+      // Honest counting: a response that translated a name but produced NO
+      // edit (every requested language already present) must report 0, not 1
+      // — the count comes from the edits, not from Object.keys(translated).
+      var emptyLiveEdit = { changes: {} };
+      emptyLiveEdit.changes['file://' + tmpFile] = [];
+      var lspUpNoEdit = { ensureOpen: async function() {},
+        request: async function(method) {
+          if ( method === 'foam/i18nStatus' ) return { available: true, model: 'stub-model', targetLanguages: ['fr'] };
+          if ( method === 'foam/i18nTranslate' ) {
+            return { edit: emptyLiveEdit, warnings: [], translated: { SAVED: { fr: 'Enregistré' } } };
+          }
+          throw new Error('unexpected: ' + method);
+        } };
+      var beforeNoEdit = h.fs.readFileSync(tmpFile, 'utf8');
+      var outNoEdit = await mcp.callTool(lspUpNoEdit, os2.tmpdir(), 'foam_i18n_translate',
+        { file: tmpFile, messageName: 'SAVED' });
+      test(outNoEdit.indexOf('0 messages translated') !== -1,
+        'provider up: a translated-but-uneditable response reports 0 messages, not a false 1');
+      test(h.fs.readFileSync(tmpFile, 'utf8') === beforeNoEdit,
+        'provider up: a zero-edit response leaves the file byte-identical');
     } finally {
       h.fs.unlinkSync(tmpFile);
     }
@@ -1090,5 +1145,150 @@ var mcpDone = (async function() {
   }
 })();
 
+// server.js's workspace/executeCommand lane, driven in-process: the harness
+// already booted one server instance (and then made its stdin inert — see
+// _harness.js), so this block boots a SECOND instance from the same module
+// and talks to it over the real JSON-RPC framing: messages go in by emitting
+// 'data' on process.stdin (the listener start() just installed), replies come
+// back through a temporarily patched process.stdout.write. That is the only
+// way to exercise the outbound-request half of the lane — request()/
+// pendingOutbound live inside start()'s closure and are reachable no other
+// way — so the applyEdit round trip, the declined-edit path, and response-by-
+// id matching all go untested otherwise.
+var laneMock = http.createServer(function(req, res) {
+  var body = '';
+  req.on('data', function(c) { body += c; });
+  req.on('end', function() {
+    res.setHeader('content-type', 'application/json');
+    if ( req.url === '/v1/models' ) {
+      res.end(JSON.stringify({ data: [{ id: 'translategemma:4b' }] }));
+    } else if ( req.url === '/v1/chat/completions' ) {
+      var src = JSON.parse(body).messages[0].content.split('\n\n').pop();
+      res.end(JSON.stringify({ choices: [{ message: { content: 'FR<' + src + '>' } }] }));
+    } else { res.statusCode = 404; res.end(); }
+  });
+});
+
+var laneDone = (async function() {
+  var origWrite = process.stdout.write;
+  var laneTmp   = null;
+  try {
+    section('server.js — workspace/executeCommand lane (in-process JSON-RPC)');
+
+    // --- capture the server's stdout as parsed JSON-RPC messages -----------
+    var frames  = [];
+    var inBuf   = Buffer.alloc(0);
+    function drain() {
+      while ( true ) {
+        var headerEnd = inBuf.indexOf('\r\n\r\n');
+        if ( headerEnd === -1 ) return;
+        var m = /Content-Length:\s*(\d+)/i.exec(inBuf.slice(0, headerEnd).toString('utf8'));
+        if ( ! m ) { inBuf = inBuf.slice(headerEnd + 4); continue; }
+        var len = parseInt(m[1], 10), bodyStart = headerEnd + 4;
+        if ( inBuf.length < bodyStart + len ) return;
+        var body = inBuf.slice(bodyStart, bodyStart + len).toString('utf8');
+        inBuf = inBuf.slice(bodyStart + len);
+        try { frames.push(JSON.parse(body)); } catch (e) {}
+      }
+    }
+    process.stdout.write = function(chunk) {
+      inBuf = Buffer.concat([ inBuf, Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8') ]);
+      drain();
+      return true;
+    };
+
+    function sendToServer(msg) {
+      var json = JSON.stringify(msg);
+      process.stdin.emit('data', Buffer.from(
+        'Content-Length: ' + Buffer.byteLength(json) + '\r\n\r\n' + json, 'utf8'));
+    }
+    function waitFor(pred, what) {
+      return new Promise(function(resolve, reject) {
+        var deadline = Date.now() + 20000;
+        (function poll() {
+          for ( var i = 0 ; i < frames.length ; i++ ) if ( pred(frames[i]) ) return resolve(frames[i]);
+          if ( Date.now() > deadline ) return reject(new Error('timed out waiting for ' + what));
+          setTimeout(poll, 10);
+        })();
+      });
+    }
+
+    await new Promise(function(res) { laneMock.listen(0, '127.0.0.1', res); });
+    var laneBase = 'http://127.0.0.1:' + laneMock.address().port;
+
+    laneTmp = h.path.join(require('os').tmpdir(), 'LspLaneTarget-' + process.pid + '.js');
+    h.fs.writeFileSync(laneTmp, MSGS);
+    var laneUri = 'file://' + laneTmp;
+
+    require('../../lsp/server').start();
+
+    sendToServer({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+      initializationOptions: { foam: { i18n: {
+        languages: ['fr'], endpoint: laneBase, model: 'translategemma:4b' } } } } });
+    var initRes = await waitFor(function(f) { return f.id === 1 && f.result; }, 'the initialize response');
+    test(initRes.result.capabilities.executeCommandProvider.commands.indexOf('foam.i18n.translateMessage') !== -1,
+      'the server advertises the i18n commands in executeCommandProvider');
+
+    // --- (1) happy path: applyEdit accepted -------------------------------
+    sendToServer({ jsonrpc: '2.0', id: 2, method: 'workspace/executeCommand', params: {
+      command: 'foam.i18n.translateMessage',
+      arguments: [ { uri: laneUri, messageName: 'DONE', languages: ['fr'] } ] } });
+    var applyReq = await waitFor(function(f) { return f.method === 'workspace/applyEdit'; },
+      'the outbound workspace/applyEdit request');
+    test(typeof applyReq.id === 'number' && applyReq.id >= 1000000,
+      'the outbound request carries a server-issued id from the reserved 1000000+ range');
+    var laneEdits = applyReq.params.edit.changes[laneUri];
+    // The mock echoes the prompt's last paragraph back wrapped in FR<...>, so
+    // the fr value is the model's answer for THIS message's source text
+    // ('Done'), seeded alongside the verbatim en literal.
+    test(!! laneEdits && laneEdits.length === 1 &&
+      /messageMap: \{ en: 'Done', fr: '[^']*FR</.test(laneEdits[0].newText) &&
+      /Done>/.test(laneEdits[0].newText),
+      'the applyEdit request carries the translated messageMap edit for the named message');
+    var doneBefore = frames.some(function(f) { return f.id === 2; });
+    test(! doneBefore, 'the command does NOT respond before the client answers the applyEdit request');
+    sendToServer({ jsonrpc: '2.0', id: applyReq.id, result: { applied: true } });
+    var cmdRes = await waitFor(function(f) { return f.id === 2 && ! f.method; }, 'the executeCommand response');
+    test(cmdRes.result === null,
+      'answering the applyEdit by id settles the command (result null, per the unspecified-result contract)');
+
+    // --- (2) declined edit: applied:false ---------------------------------
+    var beforeDecline = frames.length;
+    sendToServer({ jsonrpc: '2.0', id: 3, method: 'workspace/executeCommand', params: {
+      command: 'foam.i18n.translateMessage',
+      arguments: [ { uri: laneUri, messageName: 'PART', languages: ['fr'] } ] } });
+    var applyReq2 = await waitFor(function(f) {
+      return f.method === 'workspace/applyEdit' && f.id !== applyReq.id; }, 'the second applyEdit request');
+    test(applyReq2.id === applyReq.id + 1,
+      'outbound ids increment per request, so two in-flight edits can never be confused');
+    sendToServer({ jsonrpc: '2.0', id: applyReq2.id, result: { applied: false, failureReason: 'busy' } });
+    var declineMsg = await waitFor(function(f) {
+      return f.method === 'window/showMessage' && /did not apply/.test(f.params.message); },
+      'the showMessage for the declined edit');
+    test(declineMsg.params.type === 1 && declineMsg.params.message.indexOf('busy') !== -1,
+      'a declined edit is reported to the user as an error naming the failure reason');
+    var cmdRes2 = await waitFor(function(f) { return f.id === 3 && ! f.method; },
+      'the declined command response');
+    test(cmdRes2.result === null && frames.length > beforeDecline,
+      'a declined edit still answers the request (no hung command) and does not crash the server');
+
+    // --- (3) the file itself is never touched server-side ------------------
+    test(h.fs.readFileSync(laneTmp, 'utf8') === MSGS,
+      'the server builds edits but never writes the file itself — applying is the client\'s job');
+  } catch (e) {
+    test(false, 'server executeCommand lane test threw: ' + e.message);
+  } finally {
+    process.stdout.write = origWrite;
+    // Undo what this block's start() installed, for the same reason
+    // _harness.js strips them at boot: an inert stdin here would otherwise
+    // hit EOF and process.exit(0) out from under the other async blocks.
+    process.stdin.removeAllListeners('data');
+    process.stdin.removeAllListeners('end');
+    process.stdin.pause();
+    if ( laneMock.listening ) laneMock.close();
+    if ( laneTmp ) { try { h.fs.unlinkSync(laneTmp); } catch (e) {} }
+  }
+})();
+
 // All async blocks are independent; the entrypoint awaits this one promise.
-module.exports = { done: Promise.all([ done, cmdDone, srvDone, mcpDone ]) };
+module.exports = { done: Promise.all([ done, cmdDone, srvDone, mcpDone, laneDone ]) };

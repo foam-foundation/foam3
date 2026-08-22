@@ -181,10 +181,15 @@ provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
 
 **Provider** — `HttpChatProvider` (`I18nProviders.js`) is OpenAI-compatible
 (`/v1/models` + `/v1/chat/completions`): Ollama, LM Studio, llama.cpp, vLLM
-all work. `detect()` caches a positive result for the session and a negative
-one for `negativeCacheTtlMs` (60s default) so a down server isn't hammered
-(`I18nProviders.js:74-136`). Whether a server started mid-session is noticed
-soon after depends on the lane: the MCP lane re-probes on every call
+all work. `detect()` caches a positive result until something disproves it and
+a negative one for `negativeCacheTtlMs` (60s default) so a down server isn't
+hammered (`I18nProviders.js:74-136`). What disproves a positive: a `translate()`
+whose `fetch` REJECTS (connection refused, DNS, timeout) clears the cache so
+the next `detect()` re-probes — a provider that dies mid-session would
+otherwise keep every lane on the "available" path until an LSP restart. A
+non-2xx answer does not clear it: that server is up, only the request failed.
+Whether a server *started* mid-session is noticed soon after depends on the
+lane: the MCP lane re-probes on every call
 (`foam/i18nStatus` → `refreshAvailability()`, `server.js:788-792`), so it's
 noticed within `negativeCacheTtlMs`. The editor lane probes exactly once, at
 boot (`server.js:512`) — a model that comes up mid-session is never noticed
@@ -209,7 +214,21 @@ The *internal* `scanMissingLanguages_()` (trailing underscore) is UNGATED —
 `resolveTranslateTargets_`, `I18nHandler.js:158-171`) because "what needs
 translating" from an explicit tool call isn't the noise the gate suppresses,
 and `translationReady === false` is exactly the situation dry-run exists for
-(no local model — hand the agent the strings instead).
+(no local model — hand the agent the strings instead). A pinned
+`messageName` skips the scan but not its missing-language filter
+(`missingLanguagesFor_`): an entry that already carries every requested
+language resolves to no targets at all, so the dry run reports an empty
+`strings` map and the real path makes no provider call.
+
+**Only entries an edit can follow are offered.** `scanMissingLanguages_`
+drops any entry `buildMessageMapEdit` could not write — today that means a
+`message:` written as a template literal (backticks), whose no-map branch
+matches `'`/`"` only. The model objects the scanner reads report a template
+literal as a plain string, so without the source-level check
+(`messageMapEditable_`) the HINT and action D were offered and then failed on
+click with "the file changed since the action was offered". An entry that
+already has a `messageMap` stays eligible whatever its quoting — that takes
+the append branch, which never reads the message literal.
 
 **Commands / custom methods**:
 - `workspace/executeCommand` — `foam.i18n.extractAndTranslate` (action C) and

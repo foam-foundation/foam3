@@ -87,7 +87,18 @@ foam.CLASS({
       var relocated = 'The string could not be re-located — the file changed since the action was offered.';
 
       if ( command === 'foam.i18n.extractAndTranslate' ) {
-        var extracted   = await this.translateInto_(a.messageText, langs);
+        // Translate the literal as it reads IN SOURCE, not a.messageText:
+        // the code action derives messageText by re-parsing the diagnostic's
+        // own message with /Hardcoded display string "([^"]+)"/, which stops
+        // at the first embedded double quote — `Say "Hi"` arrives here as
+        // `Say `. buildAddExtractEdit already ignores messageText whenever a
+        // range is given (it reads the literal from the range), so without
+        // this the entry would pair a correct `en:` seed with a translation
+        // of half the string. Same span logic, one call earlier.
+        var srcSpan = a.diagnosticRange ? this.literalSpanFromRange_(a.text, a.diagnosticRange) : null;
+        if ( a.diagnosticRange && ! srcSpan ) throw new Error(relocated);
+        var sourceText  = srcSpan ? srcSpan.content : a.messageText;
+        var extracted   = await this.translateInto_(sourceText, langs);
         var extractEdit = this.buildAddExtractEdit(a.text, a.messageText, a.uri, a.diagnosticRange,
           { translations: extracted.translations });
         if ( ! extractEdit ) throw new Error(relocated);

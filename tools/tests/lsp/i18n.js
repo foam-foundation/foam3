@@ -688,6 +688,38 @@ var cmdDone = (async function() {
     test(/fr: '\[fr\]Upload complete'/.test(ins1.newText), 'extractAndTranslate builds translated messageMap');
     test(r1.warnings.length === 0, 'a clean translation reports no warnings');
 
+    // A literal containing a double quote: the diagnostic message embeds the
+    // string in double quotes, so CodeActionHandler's
+    // /Hardcoded display string "([^"]+)"/ re-parse TRUNCATES it at the
+    // embedded quote ('Say ' for 'Say "Hi" now'). Variants A/B are immune —
+    // buildAddExtractEdit re-reads the literal from the diagnostic range —
+    // but variant C used to translate the truncated text, pairing a correct
+    // `en:` seed with a French translation of half the string.
+    var DQ_INNER_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'DqInner',\n" +
+      "  methods: [\n    function render() {\n      this.add('Say \"Hi\" now');\n    }\n  ]\n});\n";
+    var dqUri  = 'file:///t/DqInner.js';
+    var dqDiag = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: cache, i18nHandler: i18nCmd })
+      .handle(DQ_INNER_SRC, dqUri).filter(function(d) { return d.code === 'i18n-hardcoded-display-string'; })[0];
+    test(!! dqDiag, 'embedded-quote fixture emits a hardcoded-display-string diagnostic');
+    var dqActs = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, i18nHandler: i18nCmd })
+      .handle(DQ_INNER_SRC, dqDiag.range, { diagnostics: [dqDiag] }, dqUri);
+    var dqAct  = dqActs.filter(function(a) { return a.command && a.command.command === 'foam.i18n.extractAndTranslate'; })[0];
+    test(!! dqAct && dqAct.command.arguments[0].messageText === 'Say ',
+      'variant C payload carries the TRUNCATED messageText (the diagnostic-message re-parse stops at the embedded quote)');
+    var rDq = await i18nCmd.executeCommand('foam.i18n.extractAndTranslate', {
+      uri: dqUri, text: DQ_INNER_SRC,
+      messageText:     dqAct.command.arguments[0].messageText,
+      diagnosticRange: dqAct.command.arguments[0].diagnosticRange,
+      languages:       ['fr']
+    });
+    var insDq = rDq.edit.changes[dqUri].filter(function(e) { return /messages/.test(e.newText); })[0].newText;
+    test(insDq.indexOf('fr: \'[fr]Say "Hi" now\'') !== -1,
+      'extractAndTranslate translates the FULL literal read back from the range, not the truncated messageText');
+    test(insDq.indexOf("fr: '[fr]Say '") === -1,
+      'the truncated half-string is never what gets translated');
+    test(insDq.indexOf('en: \'Say "Hi" now\'') !== -1,
+      'the en: seed still reuses the verbatim source literal (en and fr describe the same string)');
+
     var r2 = await i18nCmd.executeCommand('foam.i18n.translateMessage',
       { uri: 'file:///t/M.js', text: MSGS, messageName: 'DONE', languages: ['fr'] });
     test(/fr: '\[fr\]Done'/.test(r2.edit.changes['file:///t/M.js'][0].newText),

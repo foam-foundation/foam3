@@ -87,7 +87,7 @@ if (other instanceof foam.mlang.sink.Max) {
     },
     function toSummary() { return this.applyPrecision(this.value); },
     function valueOf() { return this.applyPrecision(this.value); },
-    function addToE(e) { e.add(this.applyPrecision(this.value)); },
+    function addToE(e) { this.addValueToE(e, this.applyPrecision(this.value)); },
 
     function toProperties() {
       var name = 'max_' + this.arg1.name;

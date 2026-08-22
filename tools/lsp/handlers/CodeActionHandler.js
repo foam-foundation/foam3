@@ -111,8 +111,17 @@ foam.CLASS({
             if ( i18nEditB && this.i18nHandler.translationReady &&
                  ( this.i18nHandler.targetLanguages || [] ).length ) {
               var langsC = this.i18nHandler.targetLanguages;
+              // Title text: re-derive the FULL literal from the diagnostic
+              // range the same way the command itself already does
+              // (I18nHandler.executeCommand, ~:98) — hsMatch[1] is the
+              // regex-derived messageText, which stops at the first embedded
+              // double quote (`Say "Hi"` arrives here as `Say `). Falls back
+              // to hsMatch[1] when the span can't be re-located (mirrors the
+              // command's own fallback to a.messageText).
+              var srcSpanC     = this.i18nHandler.literalSpanFromRange_(text, diag.range);
+              var displayTextC = srcSpanC ? srcSpanC.content : hsMatch[1];
               actions.push({
-                title: "Extract '" + hsMatch[1] + "' + translate to " + langsC.join(', ') +
+                title: "Extract '" + displayTextC + "' + translate to " + langsC.join(', ') +
                        ' via ' + this.i18nHandler.activeModel,
                 kind:  'quickfix',
                 diagnostics: [diag],

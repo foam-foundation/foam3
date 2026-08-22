@@ -861,6 +861,8 @@ var cmdDone = (async function() {
     var dqAct  = dqActs.filter(function(a) { return a.command && a.command.command === 'foam.i18n.extractAndTranslate'; })[0];
     test(!! dqAct && dqAct.command.arguments[0].messageText === 'Say ',
       'variant C payload carries the TRUNCATED messageText (the diagnostic-message re-parse stops at the embedded quote)');
+    test(!! dqAct && dqAct.title.indexOf('Say "Hi" now') !== -1 && dqAct.title.indexOf("Extract 'Say '") === -1,
+      'variant C TITLE shows the FULL literal text (re-derived from the range), not the truncated messageText');
     var rDq = await i18nCmd.executeCommand('foam.i18n.extractAndTranslate', {
       uri: dqUri, text: DQ_INNER_SRC,
       messageText:     dqAct.command.arguments[0].messageText,

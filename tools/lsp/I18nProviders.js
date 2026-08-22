@@ -16,11 +16,12 @@ foam.CLASS({
     Talks to any local server exposing /v1/models + /v1/chat/completions —
     covers Ollama, LM Studio, llama.cpp, vLLM. Detection results are cached:
     a positive result until something proves it wrong (a translate() call
-    whose fetch rejects at the network level clears it), a negative result
-    for negativeCacheTtlMs (the user may still be starting the server) so a
-    missing model doesn't wedge translationReady false forever without
-    hammering the endpoint on every request either. Reconfiguring endpoints
-    or model clears the cache.`,
+    whose fetch OR body read rejects at the network level clears it — a 2xx
+    response whose connection then drops mid-body counts the same as the
+    fetch itself never landing), a negative result for negativeCacheTtlMs
+    (the user may still be starting the server) so a missing model doesn't
+    wedge translationReady false forever without hammering the endpoint on
+    every request either. Reconfiguring endpoints or model clears the cache.`,
 
   properties: [
     {
@@ -178,7 +179,7 @@ foam.CLASS({
           context:        context
         });
 
-        var res;
+        var res, json;
         try {
           res = await fetch(det.endpoint + '/v1/chat/completions', {
             method:  'POST',
@@ -191,17 +192,27 @@ foam.CLASS({
             }),
             signal: AbortSignal.timeout(this.timeoutMs)
           });
+          // Body read lives INSIDE this try too: a server that answered
+          // headers and then died mid-body (connection drop, or the abort
+          // timeout firing while still streaming the response) rejects here,
+          // not at the fetch() call above — the same "provider is no longer
+          // answering" case the fetch-rejection branch below exists for.
+          // Only for a 2xx response — a non-2xx body is read separately
+          // below and must NOT clear the cache (see the comment in the catch).
+          if ( res.ok ) json = await res.json();
         } catch (e) {
-          // A fetch REJECTION is network-level: connection refused, DNS gone,
-          // timeout — the server we detected is no longer answering. Since a
-          // positive detect() is cached for the whole session, leaving it in
-          // place would keep every later caller on the "provider is up" path
-          // (foam/i18nStatus reports available, the MCP tool takes the
-          // one-call branch instead of degrading to a needs-translations
-          // payload) until the LSP restarts. Drop the cache so the next
-          // detect() re-probes for real. A non-2xx response or a malformed
-          // body is NOT this case — the server answered, so the cached
-          // positive is still true and only this request failed.
+          // A fetch REJECTION, or a body-read failure right after a 2xx
+          // response, is network-level: connection refused, DNS gone,
+          // timeout, or the connection dying mid-body — the server we
+          // detected is no longer answering (or stopped answering partway
+          // through). Since a positive detect() is cached for the whole
+          // session, leaving it in place would keep every later caller on
+          // the "provider is up" path (foam/i18nStatus reports available,
+          // the MCP tool takes the one-call branch instead of degrading to a
+          // needs-translations payload) until the LSP restarts. Drop the
+          // cache so the next detect() re-probes for real. A non-2xx
+          // response is NOT this case — the server answered in full, so the
+          // cached positive is still true and only this request failed.
           this.clearCache_();
           throw e;
         }
@@ -211,7 +222,6 @@ foam.CLASS({
           throw new Error('Translation request failed (' + res.status + ' ' + res.statusText + '): ' + body);
         }
 
-        var json = await res.json();
         var content = json && json.choices && json.choices[0] &&
           json.choices[0].message && json.choices[0].message.content;
         if ( typeof content !== 'string' ) {

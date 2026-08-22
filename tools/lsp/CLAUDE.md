@@ -184,10 +184,12 @@ provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
 all work. `detect()` caches a positive result until something disproves it and
 a negative one for `negativeCacheTtlMs` (60s default) so a down server isn't
 hammered (`I18nProviders.js:74-136`). What disproves a positive: a `translate()`
-whose `fetch` REJECTS (connection refused, DNS, timeout) clears the cache so
-the next `detect()` re-probes — a provider that dies mid-session would
-otherwise keep every lane on the "available" path until an LSP restart. A
-non-2xx answer does not clear it: that server is up, only the request failed.
+whose `fetch` REJECTS (connection refused, DNS, timeout) — OR whose body read
+rejects right after a 2xx response (the connection drops mid-body, or the
+abort timeout fires while still reading) — clears the cache so the next
+`detect()` re-probes — a provider that dies mid-session would otherwise keep
+every lane on the "available" path until an LSP restart. A non-2xx answer
+does not clear it: that server is up, only the request failed.
 Whether a server *started* mid-session is noticed soon after depends on the
 lane: the MCP lane re-probes on every call
 (`foam/i18nStatus` → `refreshAvailability()`, `server.js:788-792`), so it's

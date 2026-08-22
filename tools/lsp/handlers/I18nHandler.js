@@ -580,14 +580,22 @@ foam.CLASS({
        * An entry that ALREADY has a messageMap is editable regardless of its
        * message: quoting — that takes the append branch, which never reads
        * the message literal at all.
+       *
+       * The no-map check must match buildMessageMapEdit's own regex exactly
+       * (not just a prefix of it): a prefix match on `message\s*:\s*['"]`
+       * accepts an UNTERMINATED literal (no closing quote — e.g. a file
+       * mid-edit) that the builder's complete-literal regex then fails to
+       * match, which is the same offered-then-fails-on-click gap this method
+       * exists to close for the backtick case.
        */
       var span = this.findEntrySpan_(text, messageName);
       if ( ! span ) return false;           // ambiguous/unlocatable — the builders refuse it too
       var entry = text.substring(span.start, span.end);
       if ( /messageMap\s*:\s*\{/.test(entry) ) return true;
-      // Same left-boundary guard as buildMessageMapEdit's no-map branch, so
-      // `submessage:` can't be mistaken for `message:`.
-      return /(?:^|[{,\s])message\s*:\s*['"]/.test(entry);
+      // Same left-boundary guard AND same complete-literal shape as
+      // buildMessageMapEdit's no-map branch (~:818) — an unterminated quote
+      // fails this the same way it fails the builder.
+      return /(?:^|[{,\s])message\s*:\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/.test(entry);
     },
 
     function isMultiModelFile_(text) {

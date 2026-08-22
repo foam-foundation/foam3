@@ -177,6 +177,30 @@ test(scanTickMap.length === 1 && scanTickMap[0].name === 'TM',
 test(!! i18nT.buildMessageMapEdit(BACKTICK_MAP_SRC, 'TM', { fr: 'Salut' }, 'file:///t/TickMap.js'),
   'sanity: that entry really is editable — the append branch produces an edit');
 
+section('I18nHandler — messageMapEditable_ requires a COMPLETE literal, not just an opening quote');
+// messageMapEditable_'s no-map check used to be a bare prefix regex
+// (message\s*:\s*['"]) — true the instant a quote follows `message:`, with
+// no requirement that it ever closes — while buildMessageMapEdit's own
+// no-map branch (~:818) requires a full closing-quote-matched literal. An
+// unterminated `message:` literal (a mid-edit file) used to pass this guard
+// and then fail the builder on click, the same "offered, then fails" gap the
+// backtick case above closes for template literals.
+//
+// This can't be driven end-to-end through a real fixture: an actually
+// unterminated quote in source text also breaks findEntrySpan_'s own
+// bracket/quote walk (it shares the identical escape-aware quote-matching
+// logic), so the entry is never located at all — already excluded via the
+// "no span" branch, never reaching the regex this test targets. Stubbing
+// findEntrySpan_ isolates the regex line directly, per the same fallback
+// the backtick tests above didn't need.
+var i18nStub = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache });
+var UNTERMINATED_ENTRY = "{ name: 'BAD', message: 'oops }";
+i18nStub.findEntrySpan_ = function() { return { start: 0, end: UNTERMINATED_ENTRY.length }; };
+test(/(?:^|[{,\s])message\s*:\s*['"]/.test(UNTERMINATED_ENTRY) === true,
+  'sanity: the fixture DOES satisfy the old bare-prefix check (that was the bug)');
+test(i18nStub.messageMapEditable_(UNTERMINATED_ENTRY, 'BAD') === false,
+  'an unterminated message: literal is excluded — messageMapEditable_ now requires the same complete-literal match buildMessageMapEdit does');
+
 section('I18nHandler — buildMessageMapEdit');
 var mmEdit = i18nT.buildMessageMapEdit(MSGS, 'DONE', { fr: 'Terminé' }, 'file:///t/HasMsgs.js');
 test(!! mmEdit, 'edit produced for entry without map');
@@ -629,6 +653,25 @@ var errMock = http.createServer(function(req, res) {
   });
 });
 
+// Body-death mock: chat-completions answers 200 with headers promising more
+// bytes than it actually sends, then the socket is destroyed mid-body — the
+// server answered (2xx), died only while the BODY was still being read.
+// Before the fix this landed in res.json() outside any try, so it never
+// cleared the cache; here it must, same as a fetch()-level rejection.
+var bodyDieMock = http.createServer(function(req, res) {
+  req.on('data', function() {});
+  req.on('end', function() {
+    if ( req.url === '/v1/models' ) {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ data: [{ id: 'translategemma:4b' }] }));
+    } else {
+      res.writeHead(200, { 'content-type': 'application/json', 'content-length': '1000' });
+      res.write('{"choices":[{"mess');
+      res.socket.destroy();
+    }
+  });
+});
+
 // The harness runs categories synchronously, so this category exports its
 // async work as `done` — see testFoamLSP.js, which Promise.all()s every
 // category's `done` (undefined for the sync ones) before printing SUMMARY.
@@ -744,6 +787,26 @@ var done = (async function() {
     test(errErr && /500/.test(errErr.message), 'model error: a non-2xx chat response throws');
     test(errProv.lastResult_ && errProv.lastResult_.available === true,
       'model error: a non-2xx response leaves the cached positive detection intact (the server is up)');
+
+    // (8) Body-read death: the server answers 2xx headers, then the
+    // connection dies while the body is still being read. This must clear
+    // the cache exactly like the fetch()-level death in (6) — before the
+    // fix, res.json() ran outside the try/catch that clears it, so this
+    // failure mode silently left a dead server cached as "available".
+    await new Promise(function(res) { bodyDieMock.listen(0, '127.0.0.1', res); });
+    var bodyDieProv = foam.parse.lsp.HttpChatProvider.create({
+      endpoints: [ 'http://127.0.0.1:' + bodyDieMock.address().port ],
+      model: 'translategemma:4b', timeoutMs: 2000 });
+    var bodyDieDet1 = await bodyDieProv.detect();
+    test(bodyDieDet1.available === true, 'body-read death: detect() is positive while the server is up');
+    var bodyDieErr = null;
+    try { await bodyDieProv.translate(['hi'], 'fr', 'test UI'); } catch (e) { bodyDieErr = e; }
+    test(!! bodyDieErr, 'body-read death: translate() against a connection that dies mid-body rejects');
+    test(bodyDieProv.lastResult_ === undefined,
+      'body-read death: a body-read failure after a 2xx response ALSO clears the cached positive detect() result');
+    var bodyDieDet2 = await bodyDieProv.detect();
+    test(bodyDieDet2.available === true,
+      'body-read death: the next detect() re-probes for real — /v1/models is unaffected, so it finds the model again');
   } catch (e) {
     test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
   } finally {
@@ -752,6 +815,7 @@ var done = (async function() {
     negMock.close();
     if ( dieMock.listening ) dieMock.close();
     if ( errMock.listening ) errMock.close();
+    if ( bodyDieMock.listening ) bodyDieMock.close();
   }
 })();
 
@@ -1221,6 +1285,13 @@ var laneDone = (async function() {
     var laneUri = 'file://' + laneTmp;
 
     require('../../lsp/server').start();
+    // start() installs a process.stdin.on('end') → process.exit(0) handler
+    // for real editor-lane use, where EOF on stdin means the client hung up.
+    // In-process here, stdin is the whole test runner's — an EOF during this
+    // block would exit the ENTIRE run with code 0 (green report, every test
+    // after this one silently skipped). This test never wants exit-on-EOF;
+    // remove it immediately rather than waiting for the `finally` below.
+    process.stdin.removeAllListeners('end');
 
     sendToServer({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
       initializationOptions: { foam: { i18n: {

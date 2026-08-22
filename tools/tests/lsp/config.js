@@ -49,15 +49,36 @@ c = FeatureConfig.load({ rootPath: dir });
 test(c.warnings.some(function(w) { return w.indexOf('notAFlag') !== -1; }), 'unknown key warned');
 test(c.enabled('hover') === true, 'defaults intact after unknown key');
 
+section('FeatureConfig — unknown key via initOptions warns once, ignored');
+
+// Reset the file back to something benign so this section isolates the
+// initOptions path — otherwise the leftover notAFlag file-warning above
+// would make the `warnings.some(...)` check pass for the wrong reason.
+fs.writeFileSync(path.join(dir, 'foam-lsp.json'), JSON.stringify({}));
+c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { alsoNotAFlag: true } } });
+test(c.warnings.some(function(w) { return w.indexOf('alsoNotAFlag') !== -1; }), 'unknown initOptions key warned');
+test(c.enabled('hover') === true, 'defaults intact after unknown initOptions key');
+
+section('FeatureConfig — non-boolean feature value coerces to false');
+
+c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { hover: 'yes' } } });
+test(c.enabled('hover') === false, 'non-boolean value coerces to false, not truthy-passthrough');
+
 section('FeatureConfig — malformed JSON warns + falls back to defaults');
 
 fs.writeFileSync(path.join(dir, 'foam-lsp.json'), '{ nope');
 c = FeatureConfig.load({ rootPath: dir });
 test(c.warnings.length === 1 && c.enabled('completion') === true, 'malformed -> defaults + warning');
 
+section('FeatureConfig — valid JSON that is not an object warns + falls back to defaults');
+
+fs.writeFileSync(path.join(dir, 'foam-lsp.json'), '[1,2]');
+c = FeatureConfig.load({ rootPath: dir });
+test(c.warnings.length === 1 && c.enabled('completion') === true, 'non-object JSON -> defaults + warning');
+
 section('FeatureConfig — i18n section merges through the same layers');
 
 fs.writeFileSync(path.join(dir, 'foam-lsp.json'),
   JSON.stringify({ i18n: { languages: ['fr'], model: 'm1' } }));
 c = FeatureConfig.load({ rootPath: dir, initOptions: { i18n: { model: 'm2' } } });
-test(c.i18n.model === 'm2' && c.i18n.languages[0] === 'fr', 'i18n per-key precedence');
+test(c.i18n.model === 'm2' && (c.i18n.languages || [])[0] === 'fr', 'i18n per-key precedence');

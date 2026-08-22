@@ -65,17 +65,36 @@ function load(opts) {
   var i18n = {};
   var warnings = [];
 
-  // Layer 2: foam-lsp.json at the workspace root.
+  // Layer 2: foam-lsp.json at the workspace root. Read and parse share one
+  // try so a missing file (ENOENT) stays silent — the common case, a
+  // workspace with no config — while any OTHER read failure (EACCES,
+  // EISDIR, ...) gets its own warning distinct from a parse failure: both
+  // are "layer 2 contributed nothing", but only one of them means "there's
+  // a real file here the admin should look at".
   if ( opts.rootPath ) {
     var configPath = path.join(opts.rootPath, 'foam-lsp.json');
-    if ( fs.existsSync(configPath) ) {
+    var raw = null;
+    try {
+      raw = fs.readFileSync(configPath, 'utf8');
+    } catch (readErr) {
+      if ( readErr.code !== 'ENOENT' ) {
+        warnings.push('Failed to read foam-lsp.json: ' + readErr.message);
+      }
+    }
+    if ( raw !== null ) {
+      var parsed = null;
       try {
-        var raw = fs.readFileSync(configPath, 'utf8');
-        var parsed = JSON.parse(raw);
-        applyFeatures(features, parsed.features, warnings);
-        applyI18n(i18n, parsed.i18n);
-      } catch (e) {
-        warnings.push('Failed to parse foam-lsp.json: ' + e.message);
+        parsed = JSON.parse(raw);
+      } catch (parseErr) {
+        warnings.push('Failed to parse foam-lsp.json: ' + parseErr.message);
+      }
+      if ( parsed !== null ) {
+        if ( typeof parsed === 'object' && ! Array.isArray(parsed) ) {
+          applyFeatures(features, parsed.features, warnings);
+          applyI18n(i18n, parsed.i18n);
+        } else {
+          warnings.push('foam-lsp.json must be a JSON object; ignoring contents');
+        }
       }
     }
   }

@@ -143,6 +143,18 @@ test(mcp.posToOffset('abc\ndef\nghi', { line: 1, character: 2 }) === 6,
 test(mcp.posToOffset('abc\ndef', { line: 0, character: 0 }) === 0,
   'posToOffset: line 0 char 0 is offset 0');
 
+// Out-of-range positions clamp to the end of the document instead of throwing
+// on `lines[i].length` of undefined — one stale range (an edit built against
+// text that has since shrunk) must not take down a whole apply.
+var oorThrew = false, oorOff = -1;
+try { oorOff = mcp.posToOffset('abc\ndef', { line: 99, character: 0 }); } catch ( e ) { oorThrew = true; }
+test(! oorThrew && oorOff === 'abc\ndef'.length,
+  'posToOffset: a line past the end of the document clamps to the document end, no throw');
+test(mcp.posToOffset('abc\ndef', { line: 1, character: 99 }) === 'abc\ndef'.length,
+  'posToOffset: a character past the end of the line clamps to the document end');
+test(mcp.posToOffset('abc\ndef', { line: -1, character: 0 }) === 0,
+  'posToOffset: a negative line clamps to the start of the document');
+
 // pid-suffixed so a concurrent run (or a leftover from a prior crashed run)
 // never collides on the same tmp path.
 var awTmp = pathMod.join(osMod.tmpdir(), 'mcp-applyWorkspaceEdit-target-' + process.pid + '.js');

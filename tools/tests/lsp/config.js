@@ -294,6 +294,51 @@ var bootDone = h.withServerLane(async function() {
     test(offMsgs.some(function(m) { return /Wrong Java package/.test(m); }),
       'diagnostics.java (left on) still reports the wrong-package javaImport');
 
+    section('server.js — boot progress via workDoneProgress');
+
+    // Ordering is checked against positions in the raw `frames` array (this
+    // phase's boot only — bootServer() reset it to [] just before phase 1),
+    // not against timing, since everything the initialize handler sends is
+    // synchronous within one JS tick.
+    var initRespIdx = frames.indexOf(offRes);
+    var createFrame = frames.filter(function(f) {
+      return f.method === 'window/workDoneProgress/create' &&
+             f.params && f.params.token === 'foam-boot';
+    })[0];
+    test(!! createFrame, 'window/workDoneProgress/create is sent for token foam-boot');
+    test(!! createFrame && createFrame.id >= 1000000,
+      'the create request id comes from the outbound id space (>= 1000000)');
+    test(!! createFrame && frames.indexOf(createFrame) > initRespIdx,
+      'workDoneProgress/create is sent after the initialize response, not before');
+
+    var progressFrames = frames.filter(function(f) {
+      return f.method === '$/progress' && f.params && f.params.token === 'foam-boot';
+    });
+    var kinds = progressFrames.map(function(f) { return f.params.value.kind; });
+    test(kinds.length >= 2, 'at least a begin and an end $/progress frame arrive');
+    test(kinds[0] === 'begin', 'the sequence opens with kind begin');
+    test(kinds[kinds.length - 1] === 'end', 'the sequence closes with kind end');
+    test(kinds.slice(1, -1).every(function(k) { return k === 'report'; }),
+      'every frame between begin and end is a report');
+
+    var beginFrame = progressFrames[0];
+    test(!! beginFrame && beginFrame.params.value.title === 'FOAM LSP',
+      'begin carries title "FOAM LSP"');
+    test(!! beginFrame && typeof beginFrame.params.value.message === 'string' &&
+      beginFrame.params.value.message.length > 0, 'begin carries a loading message');
+
+    var reportFrame = progressFrames.filter(function(f) {
+      return f.params.value.kind === 'report';
+    })[0];
+    test(!! reportFrame && /indexing \d+ classes/.test(reportFrame.params.value.message || ''),
+      'a report frame names the indexed class count');
+
+    var progressIdxs = progressFrames.map(function(f) { return frames.indexOf(f); });
+    test(progressIdxs.length > 0 && Math.min.apply(null, progressIdxs) > initRespIdx,
+      'the whole progress sequence arrives after the initialize response');
+    test(progressIdxs.length > 0 && Math.max.apply(null, progressIdxs) < frames.indexOf(offDiag),
+      'the whole progress sequence completes before the first publishDiagnostics');
+
     section('server.js — the same file with every flag at its default');
 
     bootServer();

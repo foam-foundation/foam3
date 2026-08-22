@@ -619,6 +619,24 @@ function start() {
           },
           serverInfo: { name: 'foam-lsp', version: '0.2.0' }
         });
+
+        // Boot progress — sent AFTER the response above, never before: a
+        // client hasn't agreed to workDoneProgress until it sees that
+        // response, so notifying earlier is a protocol violation. By the
+        // time we get here the model load + buildFileIndex() at the top of
+        // start() already ran, so there's no more boot work left to report
+        // against — this is a courtesy status for the client's spinner, not
+        // a gate on anything. `request()` is fired without awaiting its
+        // result: some clients reject workDoneProgress/create, and that must
+        // never hold up the (already-finished) boot.
+        var bootProgressToken = 'foam-boot';
+        request('window/workDoneProgress/create', { token: bootProgressToken })
+          .catch(function(e) { console.error('[LSP] workDoneProgress/create rejected: ' + (e && e.message)); });
+        notify('$/progress', { token: bootProgressToken,
+          value: { kind: 'begin', title: 'FOAM LSP', message: 'loading models…' } });
+        notify('$/progress', { token: bootProgressToken,
+          value: { kind: 'report', message: 'indexing ' + index.getAllClassIds().length + ' classes' } });
+        notify('$/progress', { token: bootProgressToken, value: { kind: 'end' } });
         break;
 
       case 'initialized':

@@ -576,6 +576,31 @@ var negMock = http.createServer(function(req, res) {
   });
 });
 
+// Provider-death mock: a perfectly healthy server that the test CLOSES mid-way,
+// so a later translate() hits a dead endpoint (connection refused) with a
+// positive detect() result already cached.
+var dieMock = http.createServer(function(req, res) {
+  req.on('data', function() {});
+  req.on('end', function() {
+    res.setHeader('content-type', 'application/json');
+    if ( req.url === '/v1/models' ) res.end(JSON.stringify({ data: [{ id: 'translategemma:4b' }] }));
+    else                            res.end(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }));
+  });
+});
+
+// Model-error mock: server reachable and listing the model, but every
+// chat-completions call answers 500. The server is UP — a failure here must
+// NOT invalidate the cached positive detection.
+var errMock = http.createServer(function(req, res) {
+  req.on('data', function() {});
+  req.on('end', function() {
+    if ( req.url === '/v1/models' ) {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ data: [{ id: 'translategemma:4b' }] }));
+    } else { res.statusCode = 500; res.end('model exploded'); }
+  });
+});
+
 // The harness runs categories synchronously, so this category exports its
 // async work as `done` — see testFoamLSP.js, which Promise.all()s every
 // category's `done` (undefined for the sync ones) before printing SUMMARY.
@@ -655,12 +680,50 @@ var done = (async function() {
     var reconfDet = await reconfProv.detect();
     test(reconfDet.available === false,
       'reassigning endpoints clears the cached positive result (no stale availability)');
+
+    // (6) Provider death mid-session. The positive detect() cache has no TTL,
+    // so nothing else would ever notice: foam/i18nStatus keeps reporting
+    // available, foam_i18n_translate keeps taking the one-call path, and every
+    // translate() throws instead of degrading to a needs-translations payload
+    // — until the LSP restarts. A network-level fetch rejection now clears it.
+    await new Promise(function(res) { dieMock.listen(0, '127.0.0.1', res); });
+    var dieBase = 'http://127.0.0.1:' + dieMock.address().port;
+    var dieProv = foam.parse.lsp.HttpChatProvider.create({
+      endpoints: [ dieBase ], model: 'translategemma:4b', timeoutMs: 2000 });
+    var dieDet1 = await dieProv.detect();
+    test(dieDet1.available === true, 'provider death: detect() is positive while the server is up');
+    if ( dieMock.closeAllConnections ) dieMock.closeAllConnections();
+    await new Promise(function(res) { dieMock.close(res); });
+    var dieErr = null;
+    try { await dieProv.translate(['hi'], 'fr', 'test UI'); } catch (e) { dieErr = e; }
+    test(!! dieErr, 'provider death: translate() against the now-dead endpoint rejects');
+    test(dieProv.lastResult_ === undefined,
+      'provider death: the network-level failure cleared the cached positive detect() result');
+    var dieDet2 = await dieProv.detect();
+    test(dieDet2.available === false,
+      'provider death: the next detect() re-probes for real and reports available:false');
+
+    // (7) The complement: a server that ANSWERS (500 from chat/completions) is
+    // still up, so the failure is the model's, not the endpoint's — the cached
+    // positive detection must survive, or every model hiccup would cost a
+    // pointless re-probe of a server known to be alive.
+    await new Promise(function(res) { errMock.listen(0, '127.0.0.1', res); });
+    var errProv = foam.parse.lsp.HttpChatProvider.create({
+      endpoints: [ 'http://127.0.0.1:' + errMock.address().port ], model: 'translategemma:4b', timeoutMs: 2000 });
+    await errProv.detect();
+    var errErr = null;
+    try { await errProv.translate(['hi'], 'fr', 'test UI'); } catch (e) { errErr = e; }
+    test(errErr && /500/.test(errErr.message), 'model error: a non-2xx chat response throws');
+    test(errProv.lastResult_ && errProv.lastResult_.available === true,
+      'model error: a non-2xx response leaves the cached positive detection intact (the server is up)');
   } catch (e) {
     test(false, 'HttpChatProvider mock-server test threw: ' + e.message);
   } finally {
     mock.close();
     tagMock.close();
     negMock.close();
+    if ( dieMock.listening ) dieMock.close();
+    if ( errMock.listening ) errMock.close();
   }
 })();
 

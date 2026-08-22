@@ -15,11 +15,12 @@ foam.CLASS({
   documentation: `OpenAI-compatible chat-completions translation provider.
     Talks to any local server exposing /v1/models + /v1/chat/completions —
     covers Ollama, LM Studio, llama.cpp, vLLM. Detection results are cached:
-    a positive result for the whole session (the model isn't going to
-    disappear mid-session), a negative result for negativeCacheTtlMs (the
-    user may still be starting the server) so a missing model doesn't wedge
-    translationReady false forever without hammering the endpoint on every
-    request either. Reconfiguring endpoints or model clears the cache.`,
+    a positive result until something proves it wrong (a translate() call
+    whose fetch rejects at the network level clears it), a negative result
+    for negativeCacheTtlMs (the user may still be starting the server) so a
+    missing model doesn't wedge translationReady false forever without
+    hammering the endpoint on every request either. Reconfiguring endpoints
+    or model clears the cache.`,
 
   properties: [
     {
@@ -81,8 +82,9 @@ foam.CLASS({
        * `model` is the RESOLVED listing id (e.g. 'translategemma:4b-q4_0'),
        * not necessarily the configured this.model — see resolvedModel_.
        *
-       * Caching: a cached positive result is returned for the rest of the
-       * session (no re-probing once a model is confirmed up). A cached
+       * Caching: a cached positive result is returned without re-probing
+       * until translate() proves the endpoint dead (its fetch rejecting
+       * clears the cache — see translate() below). A cached
        * negative result is only honoured for negativeCacheTtlMs — long
        * enough to avoid hammering a down server on every call, short enough
        * that starting the server after the LSP boots is noticed soon after.
@@ -176,17 +178,33 @@ foam.CLASS({
           context:        context
         });
 
-        var res = await fetch(det.endpoint + '/v1/chat/completions', {
-          method:  'POST',
-          headers: { 'content-type': 'application/json' },
-          body:    JSON.stringify({
-            model:       this.resolvedModel_,
-            messages:    [ { role: 'user', content: prompt } ],
-            temperature: 0,
-            stream:      false
-          }),
-          signal: AbortSignal.timeout(this.timeoutMs)
-        });
+        var res;
+        try {
+          res = await fetch(det.endpoint + '/v1/chat/completions', {
+            method:  'POST',
+            headers: { 'content-type': 'application/json' },
+            body:    JSON.stringify({
+              model:       this.resolvedModel_,
+              messages:    [ { role: 'user', content: prompt } ],
+              temperature: 0,
+              stream:      false
+            }),
+            signal: AbortSignal.timeout(this.timeoutMs)
+          });
+        } catch (e) {
+          // A fetch REJECTION is network-level: connection refused, DNS gone,
+          // timeout — the server we detected is no longer answering. Since a
+          // positive detect() is cached for the whole session, leaving it in
+          // place would keep every later caller on the "provider is up" path
+          // (foam/i18nStatus reports available, the MCP tool takes the
+          // one-call branch instead of degrading to a needs-translations
+          // payload) until the LSP restarts. Drop the cache so the next
+          // detect() re-probes for real. A non-2xx response or a malformed
+          // body is NOT this case — the server answered, so the cached
+          // positive is still true and only this request failed.
+          this.clearCache_();
+          throw e;
+        }
 
         if ( ! res.ok ) {
           var body = await res.text().catch(function() { return ''; });

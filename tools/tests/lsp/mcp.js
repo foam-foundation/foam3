@@ -150,8 +150,11 @@ var oorThrew = false, oorOff = -1;
 try { oorOff = mcp.posToOffset('abc\ndef', { line: 99, character: 0 }); } catch ( e ) { oorThrew = true; }
 test(! oorThrew && oorOff === 'abc\ndef'.length,
   'posToOffset: a line past the end of the document clamps to the document end, no throw');
-test(mcp.posToOffset('abc\ndef', { line: 1, character: 99 }) === 'abc\ndef'.length,
-  'posToOffset: a character past the end of the line clamps to the document end');
+// A non-final line, so the wrong-axis bug (clamping to the DOCUMENT end
+// instead of the LINE end) is distinguishable: 'abc' ends at offset 3, well
+// short of the document's end.
+test(mcp.posToOffset('abc\ndef\nghi', { line: 0, character: 99 }) === 3,
+  'posToOffset: a character past the end of a non-final line clamps to that LINE\'s end, not the document end');
 test(mcp.posToOffset('abc\ndef', { line: -1, character: 0 }) === 0,
   'posToOffset: a negative line clamps to the start of the document');
 

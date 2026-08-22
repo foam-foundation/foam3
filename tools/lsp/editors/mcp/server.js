@@ -97,14 +97,18 @@ function applyWorkspaceEdit(edit) {
 // A position past the end of the document clamps to the end of the document
 // rather than throwing: `lines[i].length` on an out-of-range line is a
 // TypeError on undefined, which would take down a whole foam_i18n_apply over
-// one stale range (an edit built against text that has since shrunk).
+// one stale range (an edit built against text that has since shrunk). Per
+// the LSP spec, a character past the end of a (non-final) line clamps to
+// that LINE's end, not the document's — otherwise an oversized character on
+// an early line would swallow every line after it.
 function posToOffset(text, pos) {
   const lines = text.split('\n');
   const line  = Math.max(pos.line, 0);
   if ( line >= lines.length ) return text.length;   // past the last line → end of document
   let off = 0;
   for ( let i = 0 ; i < line ; i++ ) off += lines[i].length + 1;
-  return Math.min(off + Math.max(pos.character, 0), text.length);
+  const lineEnd = off + lines[line].length;
+  return Math.min(off + Math.max(pos.character, 0), lineEnd);
 }
 
 // --- LSP SymbolKind names (compact output) -------------------------------

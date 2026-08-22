@@ -173,14 +173,18 @@ a new `i18n-missing-language` HINT (`DiagnosticsHandler.js:120-131`) flags
 offers a fix. All translation logic lives in `I18nHandler.js`; the HTTP
 provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
 
-**Config** — `server.js:477-509` reads `initializationOptions.foam.i18n`:
+**Config** — the i18n settings come from `featureConfig.i18n`, the merge of
+`foam-lsp.json` at the workspace root and `initializationOptions.foam.i18n`
+(`FeatureConfig.js`); `server.js`'s `initialize` case applies it:
 - `languages` — target language codes. Falls back to every distinct `locale`
   in `journals/locales.jrl` (`I18nHandler.deriveLanguagesFromJournals`,
   `handlers/I18nHandler.js:930-958`) when unset or `[]`.
 - `sourceLanguage` — language the bare `message:` value is written in
   (default `'en'`); seeds `messageMap[sourceLanguage]` when a map is created.
 - `endpoint` / `model` — provider config; `OLLAMA_HOST` / `OLLAMA_TRANSLATION_MODEL`
-  env vars are the fallback when initOpts don't set them (`server.js:500-509`).
+  env vars are the fallback when the merged config doesn't set them. Those two
+  env fallbacks and the locales.jrl derivation stay in `server.js` on purpose —
+  `FeatureConfig` merges its three declared layers and reads nothing else.
 
 **Provider** — `HttpChatProvider` (`I18nProviders.js`) is OpenAI-compatible
 (`/v1/models` + `/v1/chat/completions`): Ollama, LM Studio, llama.cpp, vLLM
@@ -211,8 +215,9 @@ fire-and-forget (`server.js:512`, never awaited by `initialize`). It gates:
   diagnostic/code-action-facing entry point; no confirmed provider means no
   unsolicited HINT/action noise.
 - Code action C ("extract + translate") and D ("translate missing") in
-  `CodeActionHandler.js:111-112,140-141` — both also require non-empty
-  `targetLanguages`.
+  `CodeActionHandler.js` — both also require non-empty `targetLanguages` and
+  the `hints.i18nMissingLanguage` feature flag (turning the hints off is how a
+  user says "stop offering me machine translation").
 
 The *internal* `scanMissingLanguages_()` (trailing underscore) is UNGATED —
 `foam/i18nTranslate`'s dry-run path calls it directly (via

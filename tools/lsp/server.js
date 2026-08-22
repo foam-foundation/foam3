@@ -12,6 +12,14 @@ function start() {
   var origLog = console.log;
   console.log = function() { console.error.apply(console, arguments); };
 
+  // Feature toggles. The real merge needs the client's initializationOptions
+  // and the workspace root, neither of which exists until 'initialize' — so
+  // handlers are built against an all-defaults config here and re-pointed at
+  // the merged one there. Nothing can arrive on the wire before 'initialize',
+  // so no request is ever served under the placeholder.
+  var FeatureConfig = require('./FeatureConfig');
+  var featureConfig = FeatureConfig.load({});
+
   var index = globalThis.__foamLSPIndex__ || foam.parse.lsp.FoamIndex.create();
   if ( ! globalThis.__foamLSPIndex__ ) index.buildFileIndex();
   var grammar = foam.parse.lsp.FoamClassGrammar.create({ index: index });
@@ -29,10 +37,10 @@ function start() {
   var i18nHandler        = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: fileModelCache });
   // Translation provider: created here (server-start scope) so `provider` is
   // reachable from the 'initialize' case below, where config actually
-  // arrives (initOpts is message-scoped, not available yet at this point).
+  // arrives (the client's options are message-scoped, not available here).
   var provider = foam.parse.lsp.HttpChatProvider.create();
   i18nHandler.provider = provider;
-  var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
+  var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ cache: fileModelCache });
   var memberHandler      = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker });
 
@@ -50,7 +58,7 @@ function start() {
 
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
-  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
+  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
@@ -486,15 +494,30 @@ function start() {
     switch ( method ) {
       case 'initialize':
         watchClientProcess(params && params.processId);
-        var initOpts = ( params && params.initializationOptions && params.initializationOptions.foam &&
-                         params.initializationOptions.foam.i18n ) || {};
-        if ( initOpts.sourceLanguage ) i18nHandler.sourceLanguage = initOpts.sourceLanguage;
+        // Feature toggles: defaults < foam-lsp.json at the workspace root <
+        // this client's initializationOptions.foam. Handlers were created at
+        // start()-scope with the all-defaults config; hand them the merged one
+        // now that the client's layer has actually arrived.
+        featureConfig = FeatureConfig.load({
+          rootPath:    params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd(),
+          initOptions: params && params.initializationOptions && params.initializationOptions.foam
+        });
+        featureConfig.warnings.forEach(function(w) { console.error('[LSP] config: ' + w); });
+        diagnosticsHandler.featureConfig = featureConfig;
+        codeActionHandler.featureConfig  = featureConfig;
+
+        // i18n settings ride the same merge (featureConfig.i18n), but the
+        // env-var and locales.jrl fallbacks below stay here: FeatureConfig
+        // merges the three declared layers only — it never reads the
+        // environment or the journals.
+        var i18nOpts = featureConfig.i18n;
+        if ( i18nOpts.sourceLanguage ) i18nHandler.sourceLanguage = i18nOpts.sourceLanguage;
         // An explicit-but-empty languages: [] is treated the same as unset —
         // falls through to journal derivation below — rather than as "no
         // languages wanted", so an empty config array never suppresses the
         // locales.jrl fallback.
-        if ( Array.isArray(initOpts.languages) && initOpts.languages.length ) {
-          i18nHandler.targetLanguages = initOpts.languages;
+        if ( Array.isArray(i18nOpts.languages) && i18nOpts.languages.length ) {
+          i18nHandler.targetLanguages = i18nOpts.languages;
         } else {
           try {
             var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd();
@@ -506,16 +529,16 @@ function start() {
           } catch (e) { console.error('[LSP] i18n language derivation failed:', e.message); }
         }
 
-        // Translation provider config: explicit initOpts wins, then env vars,
+        // Translation provider config: explicit config wins, then env vars,
         // then HttpChatProvider's own built-in defaults (untouched when
         // neither is set).
-        if ( initOpts.endpoint ) {
-          provider.endpoints = [ initOpts.endpoint ];
+        if ( i18nOpts.endpoint ) {
+          provider.endpoints = [ i18nOpts.endpoint ];
         } else if ( process.env.OLLAMA_HOST ) {
           provider.endpoints = [ process.env.OLLAMA_HOST ];
         }
-        if ( initOpts.model ) {
-          provider.model = initOpts.model;
+        if ( i18nOpts.model ) {
+          provider.model = i18nOpts.model;
         } else if ( process.env.OLLAMA_TRANSLATION_MODEL ) {
           provider.model = process.env.OLLAMA_TRANSLATION_MODEL;
         }
@@ -530,48 +553,63 @@ function start() {
           i18nHandler.refreshAvailability().catch(function() {});
         }
 
-        respond(id, {
-          capabilities: {
-            textDocumentSync: {
-              openClose: true,
-              change: 1,
-              save: { includeText: false }
-            },
-            completionProvider: {
-              triggerCharacters: ["'", '"', '.', ':', '$'],
-              resolveProvider: false
-            },
-            hoverProvider: true,
-            definitionProvider: true,
-            referencesProvider: true,
-            documentSymbolProvider: true,
-            signatureHelpProvider: {
-              triggerCharacters: ['(', ',']
-            },
-            workspaceSymbolProvider: true,
-            foldingRangeProvider: true,
-            semanticTokensProvider: {
-              legend: {
-                tokenTypes: ['type', 'class', 'variable', 'keyword', 'string', 'comment', 'number', 'operator', 'method'],
-                tokenModifiers: ['declaration', 'readonly']
-              },
-              full: true
-            },
-            codeActionProvider: true,
-            executeCommandProvider: {
-              commands: ['foam.i18n.extractAndTranslate', 'foam.i18n.translateMessage']
-            },
-            documentHighlightProvider: true,
-            renameProvider: { prepareProvider: true },
-            typeHierarchyProvider: true,
-            implementationProvider: true,
-            typeDefinitionProvider: true,
-            callHierarchyProvider: true
-            // No diagnosticProvider (pull): diagnostics are PUSHED via
-            // publishDiagnostics on open/change and from the workspace scan.
-            // Advertising pull here too made clients render every diagnostic
-            // twice (push copy + pull copy).
+        // Capabilities the client can turn off are ADDED below rather than
+        // set to false: a client that never sees the capability never sends
+        // the request, so the feature costs nothing at all — where `false`
+        // still leaves some clients probing, and leaves the dispatch case as
+        // the only thing standing between a request and the handler.
+        var caps = {
+          textDocumentSync: {
+            openClose: true,
+            change: 1,
+            save: { includeText: false }
           },
+          definitionProvider: true,
+          referencesProvider: true,
+          documentSymbolProvider: true,
+          workspaceSymbolProvider: true,
+          codeActionProvider: true,
+          executeCommandProvider: {
+            commands: ['foam.i18n.extractAndTranslate', 'foam.i18n.translateMessage']
+          },
+          documentHighlightProvider: true,
+          renameProvider: { prepareProvider: true },
+          typeHierarchyProvider: true,
+          implementationProvider: true,
+          typeDefinitionProvider: true,
+          callHierarchyProvider: true
+          // No diagnosticProvider (pull): diagnostics are PUSHED via
+          // publishDiagnostics on open/change and from the workspace scan.
+          // Advertising pull here too made clients render every diagnostic
+          // twice (push copy + pull copy).
+          //
+          // executeCommandProvider stays unconditional: its commands are
+          // invoked from code actions the server itself offered, and each
+          // command guards its own preconditions.
+        };
+        if ( featureConfig.enabled('completion') ) {
+          caps.completionProvider = {
+            triggerCharacters: ["'", '"', '.', ':', '$'],
+            resolveProvider: false
+          };
+        }
+        if ( featureConfig.enabled('hover') ) caps.hoverProvider = true;
+        if ( featureConfig.enabled('signatureHelp') ) {
+          caps.signatureHelpProvider = { triggerCharacters: ['(', ','] };
+        }
+        if ( featureConfig.enabled('folding') ) caps.foldingRangeProvider = true;
+        if ( featureConfig.enabled('semanticTokens') ) {
+          caps.semanticTokensProvider = {
+            legend: {
+              tokenTypes: ['type', 'class', 'variable', 'keyword', 'string', 'comment', 'number', 'operator', 'method'],
+              tokenModifiers: ['declaration', 'readonly']
+            },
+            full: true
+          };
+        }
+
+        respond(id, {
+          capabilities: caps,
           experimental: {
             workspaceAnalyzer: true
           },

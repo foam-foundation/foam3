@@ -149,6 +149,34 @@ test(scanShadow.length === 1 && scanShadow[0].range.start.line === expectedPos.l
   scanShadow[0].range.start.character === expectedPos.character,
   'HINT anchor points at the messages: entry\'s own name:, not the earlier decoy property');
 
+section('I18nHandler — backtick message: literals are never offered a translate action');
+// buildMessageMapEdit's no-map branch matches '/" quoted message: values only,
+// while the model objects the scanner reads report a template literal as a
+// plain string — so a backtick message used to earn a HINT and action D that
+// failed on click with "the file changed since the action was offered".
+var BACKTICK_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'Tick',\n  messages: [\n" +
+  "    { name: 'TICK', message: `Backtick message` },\n" +
+  "    { name: 'PLAIN', message: 'Plain message' }\n  ]\n});\n";
+var scanTick = i18nT.scanMissingLanguages_('file:///t/Tick.js', BACKTICK_SRC);
+test(scanTick.length === 1 && scanTick[0].name === 'PLAIN',
+  'backtick message: entry is skipped by the scan; the quoted sibling is still flagged');
+test(i18nT.buildMessageMapEdit(BACKTICK_SRC, 'TICK', { fr: 'x' }, 'file:///t/Tick.js') === null,
+  'sanity: the edit builder genuinely cannot write a backtick message: entry — hence the scan skip');
+var diagTick = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: cache, i18nHandler: i18nT })
+  .handle(BACKTICK_SRC, 'file:///t/Tick.js').filter(function(d) { return d.code === 'i18n-missing-language'; });
+test(diagTick.length === 1 && diagTick[0].message.indexOf('"PLAIN"') !== -1,
+  'end-to-end: exactly one HINT is emitted, and it is for the quoted entry');
+
+// A backtick message WITH an existing messageMap is still fair game — that
+// takes buildMessageMapEdit's append branch, which never reads the literal.
+var BACKTICK_MAP_SRC = "foam.CLASS({\n  package: 'test',\n  name: 'TickMap',\n  messages: [\n" +
+  "    { name: 'TM', message: `Hi`, messageMap: { en: 'Hi' } }\n  ]\n});\n";
+var scanTickMap = i18nT.scanMissingLanguages_('file:///t/TickMap.js', BACKTICK_MAP_SRC);
+test(scanTickMap.length === 1 && scanTickMap[0].name === 'TM',
+  'backtick message WITH an existing messageMap is still scanned (append branch can write it)');
+test(!! i18nT.buildMessageMapEdit(BACKTICK_MAP_SRC, 'TM', { fr: 'Salut' }, 'file:///t/TickMap.js'),
+  'sanity: that entry really is editable — the append branch produces an edit');
+
 section('I18nHandler — buildMessageMapEdit');
 var mmEdit = i18nT.buildMessageMapEdit(MSGS, 'DONE', { fr: 'Terminé' }, 'file:///t/HasMsgs.js');
 test(!! mmEdit, 'edit produced for entry without map');

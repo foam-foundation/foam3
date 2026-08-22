@@ -544,6 +544,7 @@ foam.CLASS({
           var map = msg.messageMap || {};
           var missing = langs.filter(function(l) { return ! map[l]; });
           if ( ! missing.length ) continue;
+          if ( ! this.messageMapEditable_(text, msg.name) ) continue;
           // Position: the name literal of this entry in source text.
           var re = new RegExp("name\\s*:\\s*['\"]" + this.escapeRegex_(msg.name) + "['\"]");
           var pm = re.exec(text.slice(searchFrom));
@@ -560,6 +561,33 @@ foam.CLASS({
         }
       }
       return out;
+    },
+
+    function messageMapEditable_(text, messageName) {
+      /**
+       * True when buildMessageMapEdit could actually write this entry, so the
+       * scanner only ever surfaces entries an edit can follow.
+       *
+       * The one shape that fails: a `message:` written as a TEMPLATE literal
+       * (backticks). The model objects the scanner reads report it as a plain
+       * string — indistinguishable there — but buildMessageMapEdit's no-map
+       * branch matches `'`/`"` only, so the HINT (and code action D behind
+       * it) led straight to "the file changed since the action was offered".
+       * Teaching the edit builder backticks would mean re-escaping a template
+       * literal into a quoted one; refusing to offer the action is the
+       * smaller, safer answer.
+       *
+       * An entry that ALREADY has a messageMap is editable regardless of its
+       * message: quoting — that takes the append branch, which never reads
+       * the message literal at all.
+       */
+      var span = this.findEntrySpan_(text, messageName);
+      if ( ! span ) return false;           // ambiguous/unlocatable — the builders refuse it too
+      var entry = text.substring(span.start, span.end);
+      if ( /messageMap\s*:\s*\{/.test(entry) ) return true;
+      // Same left-boundary guard as buildMessageMapEdit's no-map branch, so
+      // `submessage:` can't be mistaken for `message:`.
+      return /(?:^|[{,\s])message\s*:\s*['"]/.test(entry);
     },
 
     function isMultiModelFile_(text) {

@@ -462,6 +462,57 @@ try {
 }
 
 
+// === memberScanLocations_ — dedup when multiple classes share a file ===
+//
+// Same dup shape as referencesForClassId's fix, but for the member scan:
+// filesToScan can list several class ids (the defining class + a subclass +
+// a requirer) that all resolve to the SAME source file, and each id is
+// scanned unconditionally — every real call-site row then repeats once per
+// class id that maps to that file.
+
+section('memberScanLocations_ — dedup when multiple classes share a file');
+
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'member-dedup-'));
+  var f = path.join(dir, 'Pair.js');
+  // TwoA extends lsptest.dedup.Base and TwoB requires it — BOTH ids resolve
+  // to this one file, which without dedup is scanned once per id, doubling
+  // every `.payload` row.
+  fs.writeFileSync(f, [
+    "foam.CLASS({ package: 'lsptest.dedup', name: 'TwoA', extends: 'lsptest.dedup.Base',",
+    "  methods: [ function m() { return this.payload; } ] });",
+    "foam.CLASS({ package: 'lsptest.dedup', name: 'TwoB',",
+    "  requires: [ 'lsptest.dedup.Base' ],",
+    "  methods: [ function n() { var b = this.Base.create(); return b.payload; } ] });"
+  ].join('\n'));
+
+  foam.CLASS({ package: 'lsptest.dedup', name: 'Base', properties: [ 'payload' ] });
+  foam.CLASS({ package: 'lsptest.dedup', name: 'TwoA', extends: 'lsptest.dedup.Base' });
+  foam.CLASS({ package: 'lsptest.dedup', name: 'TwoB', requires: [ 'lsptest.dedup.Base' ] });
+
+  // Point all three classes' fileIndex entries at the one fixture file:
+  index.fileIndex_ = index.fileIndex_ || {};
+  index.fileIndex_['lsptest.dedup.Base'] = { path: f, line: 0 };
+  index.fileIndex_['lsptest.dedup.TwoA'] = { path: f, line: 0 };
+  index.fileIndex_['lsptest.dedup.TwoB'] = { path: f, line: 2 };
+
+  var dedupMemberHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var locs = dedupMemberHandler.memberScanLocations_('lsptest.dedup.Base', 'payload');
+  var keys = {};
+  var dups = 0;
+  for ( var i = 0 ; i < locs.length ; i++ ) {
+    var k = locs[i].uri + ':' + locs[i].range.start.line + ':' + locs[i].range.start.character;
+    if ( keys[k] ) dups++;
+    keys[k] = true;
+  }
+  test(locs.length > 0, 'memberScanLocations_: member scan found rows in the fixture');
+  test(dups === 0, 'memberScanLocations_: no duplicate member rows for a shared file, found ' + dups + ' dups');
+})();
+
+
 // === logLspError helper ===
 //
 // Single logging idiom for degraded-but-not-fatal LSP failures — every

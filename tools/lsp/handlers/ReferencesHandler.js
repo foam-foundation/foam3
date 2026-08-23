@@ -230,7 +230,18 @@ foam.CLASS({
       for ( var i = 0 ; i < filesToScan.length ; i++ ) {
         this.scanPropertyRefs_(filesToScan[i], word, locations);
       }
-      return locations;
+      // Dedup by position: ids are deduped above, but several ids can map to
+      // ONE file, which then gets scanned once per id and repeats every row.
+      var out = [];
+      var seenLoc = {};
+      for ( var i = 0 ; i < locations.length ; i++ ) {
+        var loc = locations[i];
+        var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
+        if ( seenLoc[key] ) continue;
+        seenLoc[key] = true;
+        out.push(loc);
+      }
+      return out;
     },
 
     function axiomReferences_(text, position, word, opt_uri) {

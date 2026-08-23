@@ -844,7 +844,9 @@ foam.CLASS({
             };
           }
         }
-      } catch ( e ) {}
+      } catch ( e ) {
+        require('./logError').logLspError('indexFileClasses ' + filePath, e);
+      }
     },
 
     function getPomLocationForClass(classId) {
@@ -1009,9 +1011,13 @@ foam.CLASS({
 
             var subPom = { path: projPomPath, location: projLocation };
             this.walkSkippedProjects_(subPom, path_, fs_, visited);
-          } catch (e) {}
+          } catch (e) {
+            require('./logError').logLspError('POM sub-project walk ' + (projPomPath || ''), e);
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        require('./logError').logLspError('POM walk', e);
+      }
     },
 
     function parsePomProjects_(content) {
@@ -1024,7 +1030,9 @@ foam.CLASS({
       try {
         var ctx = { foam: { POM: function(m) { captured = m.projects || null; } } };
         with ( ctx ) { eval(content); }
-      } catch ( e ) {}
+      } catch ( e ) {
+        require('./logError').logLspError('POM eval (projects)', e);
+      }
       return captured;
     },
 
@@ -1037,7 +1045,9 @@ foam.CLASS({
       try {
         var ctx = { foam: { POM: function(m) { captured = m.files || null; } } };
         with ( ctx ) { eval(content); }
-      } catch ( e ) {}
+      } catch ( e ) {
+        require('./logError').logLspError('POM eval (files)', e);
+      }
       return captured;
     },
 
@@ -2218,9 +2228,13 @@ foam.CLASS({
                 file:          services[s]
               });
             }
-          } catch (e) {}
+          } catch (e) {
+            require('./logError').logLspError('services.jrl cspec scan ' + services[s], e);
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        require('./logError').logLspError('cspec scan', e);
+      }
 
       this.stringUsageIndex_ = { byName: byName };
     },

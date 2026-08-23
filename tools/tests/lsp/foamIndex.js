@@ -355,3 +355,33 @@ if ( index.classExists(JAVA_CLASS) && index.getFilePath(JAVA_CLASS) ) {
 } else {
   test(true, 'Java-only method tests skipped (FObject not in file index)');
 }
+
+// === SWALLOWED CATCH TRACES (Task 5) ===
+// indexFileClasses_/POM walk/cspec scan must leave a [foam-lsp] trace on
+// failure instead of silently dropping the file — same fallback, new trace.
+
+section('FoamIndex — swallowed catches leave a trace');
+
+// --- indexFileClasses_ logs instead of silently dropping a file ---
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'foamindex-catch-'));
+  var bad = path.join(dir, 'Broken.js');
+  // FileModelCache.parseFileModels swallows a plain syntax error internally
+  // (returns [] without throwing), so force the throw past that layer: the
+  // eval-intercept executes the object literal, so a throwing getter fires
+  // while indexFileClasses_'s own model-walk loop is still running.
+  fs.writeFileSync(bad, "foam.CLASS({ get name() { throw new Error('boom'); } });");
+
+  var captured = [];
+  var orig = console.error;
+  console.error = function(msg) { captured.push(msg); };
+  try {
+    index.indexFileClasses_(bad, [], 'pom.js', 'Broken', fs);
+  } finally {
+    console.error = orig;
+  }
+  test(captured.some(function(m) {
+    return typeof m === 'string' && m.indexOf('[foam-lsp]') === 0 && m.indexOf('Broken.js') !== -1;
+  }), 'indexFileClasses_ failure leaves a [foam-lsp] trace naming the file, got: ' + JSON.stringify(captured));
+})();

@@ -18,6 +18,15 @@ import { FoamAnalysisRunner } from './FoamAnalysisRunner';
 
 let client: LanguageClient;
 
+// The real body of the foam.showStatusMenu command. It can only be built
+// inside startServer (it needs the status bar item, the output channel and
+// startClient), but the command itself is registered synchronously in
+// activate() — the status bar item and the command-palette entry both exist
+// from the moment activation finishes, so a user who clicks during the 100ms
+// start delay must get a message rather than "command 'foam.showStatusMenu'
+// not found".
+let statusMenuHandler: (() => Promise<void>) | null = null;
+
 // The package.json setting ids under foam.features.* MUST match
 // FeatureConfig.DEFAULTS (tools/lsp/FeatureConfig.js:23-33) exactly. Reading
 // them back out of the extension's own manifest (rather than hand-maintaining
@@ -165,6 +174,19 @@ export function activate(context: ExtensionContext) {
     })
   );
 
+  // Register the status-bar quick-pick command SYNCHRONOUSLY, here — not
+  // inside startServer, which only runs after the 100ms deferral below. The
+  // status bar item and the palette entry are both reachable before then.
+  context.subscriptions.push(
+    commands.registerCommand('foam.showStatusMenu', async () => {
+      if ( !statusMenuHandler ) {
+        window.showInformationMessage('FOAM LSP is still starting — try again in a moment.');
+        return;
+      }
+      await statusMenuHandler();
+    })
+  );
+
   // Register "FOAM: New Class" — prompts for a name, resolves a target
   // folder, then hands off to the server's foam.scaffold.newClass command.
   // The server builds the WorkspaceEdit (new file + pom.js registration);
@@ -179,10 +201,13 @@ export function activate(context: ExtensionContext) {
       const name = await window.showInputBox({
         prompt: 'FOAM class name',
         placeHolder: 'MyNewClass',
+        // Must match the server's own check (ScaffoldHandler.newClass) exactly
+        // — a name this box accepts but the server rejects turns a typo into a
+        // round trip and an error toast instead of inline validation.
         validateInput: (v: string) =>
-          /^[A-Z][A-Za-z0-9]*$/.test(v) ?
+          /^[A-Z][A-Za-z0-9_$]*$/.test(v) ?
             null :
-            'Must start with an uppercase letter and contain only letters and digits.'
+            'Must start with an uppercase letter and use letters, digits, _ or $ only.'
       });
       if ( !name ) return;
 
@@ -191,18 +216,18 @@ export function activate(context: ExtensionContext) {
       if ( activeUri && activeUri.scheme === 'file' ) {
         dir = path.dirname(activeUri.fsPath);
       } else {
+        // No active editor: use the FIRST workspace folder, with no picker.
+        // A picker would be a lie in a multi-root workspace — the server's
+        // containment root is rootUri, which is folder #1 only, so picking
+        // folder #2 is always refused as "outside the workspace". Follow-up:
+        // have the server accept workspaceFolders as containment roots, at
+        // which point the picker can come back and mean something.
         const wsFolders = workspace.workspaceFolders;
         if ( !wsFolders || wsFolders.length === 0 ) {
           window.showWarningMessage('No workspace folder open.');
           return;
         }
-        if ( wsFolders.length === 1 ) {
-          dir = wsFolders[0].uri.fsPath;
-        } else {
-          const picked = await window.showWorkspaceFolderPick();
-          if ( !picked ) return;
-          dir = picked.uri.fsPath;
-        }
+        dir = wsFolders[0].uri.fsPath;
       }
 
       try {
@@ -262,41 +287,48 @@ function startServer(
   // doesn't cover it, since state stays non-Running for the whole gap either way).
   let restarting = false;
 
-  // Quick-pick menu bound to the status bar item — offers the two actions
-  // that matter once the server is running: restart it, or look at its log.
-  // Registered once here (startServer runs exactly once, from activate's
-  // deferred setTimeout below) so restarting the CLIENT never re-registers
-  // this command.
-  context.subscriptions.push(
-    commands.registerCommand('foam.showStatusMenu', async () => {
-      const pick = await window.showQuickPick(
-        ['Restart FOAM LSP', 'Show Output'],
-        { placeHolder: 'FOAM Language Server' }
-      );
-      if ( pick === 'Restart FOAM LSP' ) {
-        if ( restarting ) return;
-        if ( !client || client.state !== State.Running ) {
-          window.showInformationMessage('FOAM LSP is still starting — try again once it\'s ready.');
-          return;
-        }
-        restarting = true;
-        try {
-          outputChannel.appendLine('Restarting FOAM LSP server...');
-          status.text = '$(loading~spin) FOAM: Indexing...';
+  // Body of the status-bar quick-pick — offers the two actions that matter:
+  // restart the server, or look at its log. Installed once here (startServer
+  // runs exactly once, from activate's deferred setTimeout) so restarting the
+  // CLIENT never rebuilds it; the command itself was registered back in
+  // activate(), which is what makes it callable before this point.
+  statusMenuHandler = async () => {
+    const pick = await window.showQuickPick(
+      ['Restart FOAM LSP', 'Show Output'],
+      { placeHolder: 'FOAM Language Server' }
+    );
+    if ( pick === 'Restart FOAM LSP' ) {
+      if ( restarting ) return;
+      // Three cases, and only the middle one is a refusal. A client whose
+      // start() FAILED stays in Stopped forever, so the old
+      // `state !== Running → refuse` turned the one situation where a restart
+      // is most wanted into a permanent dead end that only a window reload
+      // could clear. Stopped (or no client at all) now goes straight to
+      // startClient(); the `client !== c` guards inside it make a superseded
+      // start harmless.
+      if ( client && client.state === State.Starting ) {
+        window.showInformationMessage('FOAM LSP is still starting — try again once it\'s ready.');
+        return;
+      }
+      restarting = true;
+      try {
+        outputChannel.appendLine('Restarting FOAM LSP server...');
+        status.text = '$(loading~spin) FOAM: Indexing...';
+        if ( client && client.state === State.Running ) {
           try {
             await client.stop();
           } catch (e: any) {
             outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
           }
-          startClient();
-        } finally {
-          restarting = false;
         }
-      } else if ( pick === 'Show Output' ) {
-        outputChannel.show();
+        startClient();
+      } finally {
+        restarting = false;
       }
-    })
-  );
+    } else if ( pick === 'Show Output' ) {
+      outputChannel.show();
+    }
+  };
 
   // Builds and starts the LanguageClient. Split out from the one-time setup
   // above so "Restart FOAM LSP" can call it again without recreating the

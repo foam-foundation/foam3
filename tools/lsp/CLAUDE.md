@@ -51,8 +51,8 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `TypeDefinitionHandler.js` | `textDocument/typeDefinition` | For a property usage, jump to the property's class (e.g. `foam.lang.Long`) |
 | `CallHierarchyHandler.js` | `textDocument/prepareCallHierarchy` + `callHierarchy/{incomingCalls,outgoingCalls}` | Who calls / who's called for any FOAM method |
 | `PomValidator.js` | `foam/validatePoms` | Orphan files, missing POM entries, duplicate registrations |
-| `CodeLensHandler.js` | `textDocument/codeLens` | Two independent, feature-toggled lenses: `codeLens.i18n` (missing-translation counts, delegates to `I18nHandler.scanMissingLanguages`) and `codeLens.hierarchy` (subclass counts, informational — empty `command`, not clickable). Both bail on a multi-model file. |
-| `ScaffoldHandler.js` | `workspace/executeCommand` `foam.scaffold.newClass` | Builds a `WorkspaceEdit` (new class file + pom.js `files:` append) from `{ dir, name }`. Nothing written to disk server-side — the client applies the edit. No `featureConfig` — the command only runs when explicitly invoked. |
+| `CodeLensHandler.js` | `textDocument/codeLens` | Two independent, feature-toggled lenses: `codeLens.i18n` (missing-translation counts, delegates to `I18nHandler.scanMissingLanguages` — so it inherits that entry point's `translationReady` gate AND its test/demo/mock URI exemption; also requires `hints.i18nMissingLanguage`, since clicking translates) and `codeLens.hierarchy` (subclass counts, informational — empty `command`, not clickable). Both bail on a multi-model file. |
+| `ScaffoldHandler.js` | `workspace/executeCommand` `foam.scaffold.newClass` | Builds a `WorkspaceEdit` (new class file + pom.js `files:` append) from `{ dir, name }`. Nothing written to disk server-side — the client applies the edit. No `featureConfig` — the command only runs when explicitly invoked. Containment: `wsRoot` and the target dir are both `fs.realpathSync`'d before comparison (a lexical compare let `ln -s / <ws>/escape` target `/etc`), and with `requireWsRoot` set and no `rootUri` from the client it refuses outright rather than inheriting `process.cwd()`. The derived package is validated as a dotted identifier path — a folder named `it's` is refused, not emitted into `package: '…'`. |
 
 ### Workspace usage indexes
 `FoamIndex` lazy-builds four byTarget maps on first request:
@@ -182,10 +182,21 @@ highest precedence:
 An unknown key at any layer (a typo, a renamed flag) is dropped with a
 `console.error('[LSP] config: Unknown feature flag "X" ignored')` warning
 rather than silently accepted — a typo that would otherwise just never take
-effect gets flagged instead.
+effect gets flagged instead. Three more things are said out loud for the same
+reason:
+- an unknown key inside the `i18n:` section (`langauges`, `endpiont`) is
+  dropped and warned the same way, against `FeatureConfig.I18N_KEYS`;
+- a non-boolean feature value still coerces to `false` (`=== true`, so the
+  string `"false"` can never turn a flag ON) but the coercion is now warned
+  about, naming the flag and the discarded value — `"true"` and `1` are both
+  easy to write by hand in JSON and both mean OFF;
+- `enabled(flag)` called with a name that isn't in `DEFAULTS` logs once via
+  `console.error`. That one is a MISUSE guard for future handlers, not user
+  config: only a typo in our own code reaches it, and it would otherwise
+  answer a silent, permanent `false` — a feature that quietly never runs.
 
 **Restart-only, by design.** Feature flags are read once, at `initialize`
-(`server.js:511`). There is no live-reload: editing `foam-lsp.json`, flipping
+(`server.js:519`). There is no live-reload: editing `foam-lsp.json`, flipping
 a VS Code setting, or changing Zed's `initialization_options` does nothing
 until the server restarts. This mirrors the existing i18n provider-detection
 rule (probed once at boot) rather than adding a second reload mechanism.
@@ -193,19 +204,19 @@ rule (probed once at boot) rather than adding a second reload mechanism.
 `caps.*Provider` flags in the `initialize` response are only ever ADDED when
 a feature is on, never sent as `false` — a client that never sees the
 capability never sends the request, so a disabled feature costs nothing at
-all (`server.js:563-567`).
+all (`server.js:613-635`).
 
 | Flag | Default | Gates |
 |---|---|---|
 | `diagnostics.java` | `true` | Java-block validation diagnostics |
 | `diagnostics.i18n` | `true` | Hardcoded-display-string diagnostic |
-| `hints.i18nMissingLanguage` | `true` | Missing-translation HINT + its code actions |
+| `hints.i18nMissingLanguage` | `true` | Every unsolicited offer to machine-translate: the missing-translation HINT, code actions C/D, AND the `codeLens.i18n` lens (clicking it translates) |
 | `completion` | `true` | `completionProvider` capability |
 | `hover` | `true` | `hoverProvider` capability |
 | `semanticTokens` | `true` | `semanticTokensProvider` capability |
 | `signatureHelp` | `true` | `signatureHelpProvider` capability |
 | `folding` | `true` | `foldingRangeProvider` capability |
-| `codeLens.i18n` | `true` | i18n lens in `CodeLensHandler` |
+| `codeLens.i18n` | `true` | i18n lens in `CodeLensHandler` — requires `hints.i18nMissingLanguage` as well, since the lens is itself a translate offer |
 | `codeLens.hierarchy` | `false` | Subclass-count lens in `CodeLensHandler` — OFF by default: it's informational-only (no click action yet) and adds a lens to every class file |
 
 `i18n.*` config (`languages`, `sourceLanguage`, `endpoint`, `model`) rides the
@@ -235,8 +246,8 @@ apply on the MCP lane too, since those live inside the handler logic
 
 Turns two existing i18n surfaces into translate-capable ones: the hardcoded-
 display-string extraction diagnostic (`i18n-hardcoded-display-string`,
-`DiagnosticsHandler.js:339`) gains a "translate while extracting" variant, and
-a new `i18n-missing-language` HINT (`DiagnosticsHandler.js:120-131`) flags
+`DiagnosticsHandler.js:359-362`) gains a "translate while extracting" variant, and
+a new `i18n-missing-language` HINT (`DiagnosticsHandler.js:140-150`) flags
 `messages:` entries whose `messageMap` is missing a configured language and
 offers a fix. All translation logic lives in `I18nHandler.js`; the HTTP
 provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
@@ -246,7 +257,7 @@ provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
 (`FeatureConfig.js`); `server.js`'s `initialize` case applies it:
 - `languages` — target language codes. Falls back to every distinct `locale`
   in `journals/locales.jrl` (`I18nHandler.deriveLanguagesFromJournals`,
-  `handlers/I18nHandler.js:930-958`) when unset or `[]`.
+  `handlers/I18nHandler.js:1036-1064`) when unset or `[]`.
 - `sourceLanguage` — language the bare `message:` value is written in
   (default `'en'`); seeds `messageMap[sourceLanguage]` when a map is created.
 - `endpoint` / `model` — provider config; `OLLAMA_HOST` / `OLLAMA_TRANSLATION_MODEL`
@@ -267,29 +278,39 @@ every lane on the "available" path until an LSP restart. A non-2xx answer
 does not clear it: that server is up, only the request failed.
 Whether a server *started* mid-session is noticed soon after depends on the
 lane: the MCP lane re-probes on every call
-(`foam/i18nStatus` → `refreshAvailability()`, `server.js:788-792`), so it's
+(`foam/i18nStatus` → `refreshAvailability()`, `server.js:911-927`), so it's
 noticed within `negativeCacheTtlMs`. The editor lane probes exactly once, at
-boot (`server.js:512`) — a model that comes up mid-session is never noticed
+boot (`server.js:573`) — a model that comes up mid-session is never noticed
 without a restart; see the README's Troubleshooting section for the same
 restart advice from the user's side.
 Placeholder sentinels (`${...}`, `{0}`, `%s`, HTML tags/entities —
-`PLACEHOLDER_PATTERN`, `I18nProviders.js:361`) are token-protected before the
+`PLACEHOLDER_PATTERN`, `I18nProviders.js:389`) are token-protected before the
 prompt and restored after, with a warning on any sentinel a model drops.
 
-**Gating** — `translationReady` (`I18nHandler.js:41-42`) is set by
+**Gating** — `translationReady` (`I18nHandler.js:40-42`) is set by
 `refreshAvailability()` probing `provider.detect()`, fired at boot as
-fire-and-forget (`server.js:512`, never awaited by `initialize`). It gates:
-- `scanMissingLanguages()` (`I18nHandler.js:442-459`) — the public,
-  diagnostic/code-action-facing entry point; no confirmed provider means no
-  unsolicited HINT/action noise.
+fire-and-forget (`server.js:573`, never awaited by `initialize`). It gates:
+- `scanMissingLanguages()` (`I18nHandler.js:506-529`) — the public,
+  diagnostic/code-action/code-lens-facing entry point; no confirmed provider
+  means no unsolicited HINT/action/lens noise.
 - Code action C ("extract + translate") and D ("translate missing") in
   `CodeActionHandler.js` — both also require non-empty `targetLanguages` and
   the `hints.i18nMissingLanguage` feature flag (turning the hints off is how a
   user says "stop offering me machine translation").
 
-The *internal* `scanMissingLanguages_()` (trailing underscore) is UNGATED —
-`foam/i18nTranslate`'s dry-run path calls it directly (via
-`resolveTranslateTargets_`, `I18nHandler.js:158-171`) because "what needs
+The **test/demo/mock URI exemption lives on that same public entry point**
+(`isI18nExemptUri_`, `I18nHandler.js:486-503`), not in each consumer. It was
+originally only in `DiagnosticsHandler`, so a demo file got no
+missing-language HINT and yet still got a clickable "N translations missing"
+CodeLens that really translated it when clicked. One check at the source is
+what makes DiagnosticsHandler, CodeActionHandler and CodeLensHandler agree.
+`DiagnosticsHandler` keeps its own copy of the same predicate for
+`validateAddStrings_` — a different scan, with the same exemption, that never
+goes through `I18nHandler`.
+
+The *internal* `scanMissingLanguages_()` (trailing underscore) is UNGATED on
+both counts — `foam/i18nTranslate`'s dry-run path calls it directly (via
+`resolveTranslateTargets_`, `I18nHandler.js:190-214`) because "what needs
 translating" from an explicit tool call isn't the noise the gate suppresses,
 and `translationReady === false` is exactly the situation dry-run exists for
 (no local model — hand the agent the strings instead). A pinned
@@ -311,20 +332,20 @@ the append branch, which never reads the message literal.
 **Commands / custom methods**:
 - `workspace/executeCommand` — `foam.i18n.extractAndTranslate` (action C) and
   `foam.i18n.translateMessage` (action D), both routed to
-  `I18nHandler.executeCommand()` (`server.js:879-915`); the built edit is sent
-  to the client via outbound `workspace/applyEdit` (`server.js:889`), never
+  `I18nHandler.executeCommand()` (`server.js:1048-1074`); the built edit is sent
+  to the client via outbound `workspace/applyEdit` (`server.js:1056`), never
   applied server-side.
 - `foam/i18nStatus` — probe + report `{ available, model, endpoint, targetLanguages }`
-  (`server.js:788-804`).
+  (`server.js:911-927`).
 - `foam/i18nTranslate` — `{ uri, messageName?, languages?, dryRun? }`; real
   branch calls `translateMessages()`, `dryRun:true` calls
-  `dryRunTranslateStrings()` (no network) — `server.js:806-823`.
+  `dryRunTranslateStrings()` (no network) — `server.js:929-946`.
 - `foam/i18nApply` — `{ uri, translations: { NAME: { lang: '...' } } }`, routes
   to `applyTranslations()`, which validates every placeholder in the current
   source survives in every offered translation before building any edit
-  (`server.js:825-840`, `handlers/I18nHandler.js:236-298`).
+  (`server.js:948-963`, `handlers/I18nHandler.js:280-342`).
 
-**MCP two-phase dance** (`editors/mcp/server.js:757-819`) — `foam_i18n_translate`
+**MCP two-phase dance** (`editors/mcp/server.js:767-812`) — `foam_i18n_translate`
 calls `foam/i18nStatus` first:
 - provider up → calls `foam/i18nTranslate` for real, writes the resulting edit
   straight to disk (`applyWorkspaceEdit`, `editors/mcp/server.js:82-96` — no

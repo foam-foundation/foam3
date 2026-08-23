@@ -37,12 +37,12 @@
         "foam.features.diagnostics.i18n": {
           "type": "boolean",
           "default": true,
-          "description": "Diagnostics for i18n issues (hardcoded display strings, missing translations)."
+          "description": "Diagnostics for hardcoded display strings passed to .add(). Missing translations are a separate flag: foam.features.hints.i18nMissingLanguage."
         },
         "foam.features.hints.i18nMissingLanguage": {
           "type": "boolean",
           "default": true,
-          "description": "Hint diagnostics + quick fixes for message: entries missing a configured target language."
+          "description": "Offers to machine-translate: hint diagnostics, quick fixes, and the CodeLens for message: entries missing a configured target language. Turning this off withdraws all three."
         },
         "foam.features.completion": {
           "type": "boolean",
@@ -72,7 +72,7 @@
         "foam.features.codeLens.i18n": {
           "type": "boolean",
           "default": true,
-          "description": "CodeLens annotations for i18n messages."
+          "description": "CodeLens naming how many translations a messages: entry is missing. Also requires foam.features.hints.i18nMissingLanguage, since clicking the lens translates."
         },
         "foam.features.codeLens.hierarchy": {
           "type": "boolean",

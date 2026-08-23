@@ -729,6 +729,34 @@ if ( anyFilePath ) {
   test(res.filesFailed === 1, 'the throwing file counts as failed, got ' + res.filesFailed);
 })();
 
+// analyze(): the progress-loop path (scanFileInto_ / newAcc_ / finalizeAcc_)
+// gets the same success-only treatment as analyzeFiles above. analyze() takes
+// no explicit file list — it derives one from collectFilePaths_(), which reads
+// the (fully-built) shared index. Stub collectFilePaths_ on a throwaway
+// analyzer instance so this run sees exactly our two fixture files without
+// touching the shared index used by every other test in this file.
+(function() {
+  var os = require('os');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wsa-failed-progress-'));
+  var good = path.join(dir, 'Good.js');
+  fs.writeFileSync(good, "foam.CLASS({ package: 'x', name: 'Good', properties: [ 'a' ] });");
+  var missing = path.join(dir, 'Gone.js');   // never written -> readFileSync throws
+
+  var progressAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+  progressAnalyzer.collectFilePaths_ = function() { return [ good, missing ]; };
+
+  var origErr = console.error;
+  console.error = function() {};
+  var res;
+  try {
+    res = progressAnalyzer.analyze();
+  } finally {
+    console.error = origErr;
+  }
+  test(res.filesScanned === 1, 'analyze(): only the readable file counts as scanned, got ' + res.filesScanned);
+  test(res.filesFailed === 1, 'analyze(): the throwing file counts as failed, got ' + res.filesFailed);
+})();
+
 // === LSP #4999 Fix 1: property-type completion inserts full path (except foam.lang.*) ===
 
 

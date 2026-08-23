@@ -60,7 +60,9 @@ foam.CLASS({
           type: 'button',
           title: this.COPY,
           'aria-label': this.label ?
-            this.COPY_LABEL.replace('{label}', this.label) :
+            // Function replacement: a string replacement would interpret $-
+            // patterns ($$, $&) appearing in the label.
+            this.COPY_LABEL.replace('{label}', () => this.label) :
             this.COPY
         })
         .on('click', function(e) {
@@ -68,7 +70,7 @@ foam.CLASS({
           // row's open-detail-view click.
           e.stopPropagation();
           e.preventDefault();
-          self.copy(String(self.textProvider() ?? ''));
+          self.copy(String((self.textProvider ? self.textProvider() : '') ?? ''));
         })
         .start('img')
           .attrs({ src: '/images/copy-icon.svg', alt: '' })

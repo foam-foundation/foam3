@@ -14,11 +14,12 @@ foam.CLASS({
   documentation: `Wraps arbitrary content with a copy-to-clipboard button, for
     custom views that render copyable text outside a property view:
 
-      this.start(this.CopyBorder).add('ARN: ').add(this.data.arn$).end()
+      this.start(this.CopyBorder).add(this.data.arn$).end()
 
     With no copyText set, the button copies the wrapped content's rendered
-    text. Set copyText (or bind a slot via copyText$) to copy an explicit
-    value instead, for content that renders icons or formatting:
+    text — everything inside the border, so keep labels or prefixes outside
+    it. Set copyText (or bind a slot via copyText$) to copy an explicit value
+    instead, for content that renders icons or formatting:
 
       this.start(this.CopyBorder, { copyText$: this.data.arn$ }).
         tag(SomeIconView).end()
@@ -59,6 +60,7 @@ foam.CLASS({
 
   methods: [
     function render() {
+      this.SUPER();
       var self = this;
       this.
         addClass().

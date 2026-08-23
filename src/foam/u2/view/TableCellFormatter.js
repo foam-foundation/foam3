@@ -99,7 +99,10 @@ foam.CLASS({
         instead — use for cells that render icons or objects.
         In tables the function only sees properties the table queried for its visible
         columns (projection), so reading another property returns its unset default
-        unless that property is also a column; in detail views it sees the full object.`,
+        unless that property is also a column; in detail views it sees the full object.
+        In detail views, true reads the read-only view's rendered text — a property
+        whose explicit view stays an input in read-only mode (e.g. foam.u2.TextField)
+        renders no text to read, so use the function form there.`,
       name: 'copyable'
     },
     {

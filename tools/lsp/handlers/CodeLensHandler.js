@@ -16,27 +16,28 @@ foam.CLASS({
                             language, offering foam.i18n.translateMessage
                             for the missing languages. Delegates entirely to
                             I18nHandler.scanMissingLanguages (already gated
-                            on translationReady and the multi-model guard) —
-                            this handler adds no scanning of its own.
+                            on translationReady and its own multi-model
+                            guard) — this handler adds no scanning of its own.
       codeLens.hierarchy  — one lens per class naming its direct-subclass
-                            and reference counts, read straight from
-                            FoamIndex/ReferencesHandler. Informational only
-                            (command: '' — no client-side navigation command
-                            exists yet for it), so resolveProvider stays
-                            false.
+                            count, read straight from FoamIndex.getSubclasses.
+                            Informational BY DESIGN, not a placeholder:
+                            command is '' because no client-side navigation
+                            command exists to jump to a subclass list yet.
+                            Follow-up shape: gate an editor.action.showReferences
+                            (or equivalent) command behind the client's
+                            declared command-execution capability, since it
+                            would no-op outside VS Code.
 
-    Both lenses share the same multi-model bail-out as I18nHandler's own
-    scanners (isMultiModelFile_): a file with more than one foam.CLASS(),
-    a nested classes: block, or a duplicated messages: array has no single
-    unambiguous class/messages position to anchor a lens on.
+    Both lenses bail out on a multi-model file (more than one top-level
+    foam.CLASS()-family call) — there's no single unambiguous class to
+    anchor a hierarchy lens on, and I18nHandler.scanMissingLanguages already
+    refuses the same shape internally for the same reason. This handler's
+    own guard reads it straight off FileModelCache's parsed models (no
+    regex, no dependency on i18nHandler being wired at all).
   `,
 
   requires: [
-    'foam.parse.lsp.FoamIndex',
-    'foam.parse.lsp.FileModelCache',
-    'foam.parse.lsp.CursorAnalyzer',
-    'foam.parse.lsp.handlers.I18nHandler',
-    'foam.parse.lsp.handlers.ReferencesHandler'
+    'foam.parse.lsp.CursorAnalyzer'
   ],
 
   properties: [
@@ -62,15 +63,9 @@ foam.CLASS({
       name: 'i18nHandler',
       documentation: 'Optional (server.js wires it). Null-safe: with no ' +
         'i18nHandler the i18n lens is simply never offered, same as ' +
-        'DiagnosticsHandler treats a missing one.'
-    },
-    {
-      class: 'FObjectProperty',
-      of: 'foam.parse.lsp.handlers.ReferencesHandler',
-      name: 'referencesHandler',
-      documentation: 'Optional (server.js wires it). Null-safe: with no ' +
-        'referencesHandler the hierarchy lens still reports subclasses ' +
-        '(FoamIndex-only) with a 0 reference count rather than throwing.'
+        'DiagnosticsHandler treats a missing one. The multi-model guard in ' +
+        'handle() does NOT depend on this — it is independent of whether ' +
+        'i18nHandler is wired.'
     },
     {
       name: 'featureConfig',
@@ -95,17 +90,25 @@ foam.CLASS({
       var wantHierarchy = this.featureOn_('codeLens.hierarchy');
       if ( ! wantI18n && ! wantHierarchy ) return [];
 
-      // Shared whole-file guard: a multi-model file (more than one
-      // foam.CLASS(), a nested classes: block, or a duplicated messages:
-      // array) has no single unambiguous class-name or messages: position
-      // for either lens to anchor on — same reasoning as
-      // I18nHandler.scanMissingLanguages_'s own guard, reused rather than
-      // reimplemented.
-      if ( this.i18nHandler && this.i18nHandler.isMultiModelFile_(text) ) return [];
+      // Multi-model guard, independent of i18nHandler: more than one model
+      // in the file (two foam.CLASS() blocks, an ENUM alongside a CLASS,
+      // etc.) means no single class is THE class this file's lens should
+      // anchor on. Read straight off FileModelCache's already-parsed models
+      // — no regex, and no dependency on i18nHandler being wired (a
+      // hierarchy-only caller with no i18nHandler must still get this).
+      // I18nHandler.scanMissingLanguages_ separately guards its own
+      // messages:-array-specific ambiguity (nested classes:, duplicated
+      // messages: arrays) — that's a finer-grained i18n concern this check
+      // doesn't need to replicate, since a duplicated messages: array or
+      // nested classes: block inside a SINGLE foam.CLASS() call doesn't
+      // create a second model here and doesn't affect where a hierarchy
+      // lens anchors.
+      var models = this.cache.getModels(uri, text);
+      if ( models.length > 1 ) return [];
 
       var lenses = [];
       if ( wantI18n ) this.addI18nLenses_(uri, text, lenses);
-      if ( wantHierarchy ) this.addHierarchyLenses_(uri, text, lenses);
+      if ( wantHierarchy ) this.addHierarchyLenses_(models, lenses);
       return lenses;
     },
 
@@ -136,15 +139,23 @@ foam.CLASS({
       }
     },
 
-    function addHierarchyLenses_(uri, text, lenses) {
+    function addHierarchyLenses_(models, lenses) {
       /**
        * One lens per model in the file, anchored at the model's own
-       * foam.CLASS() line (FileModelCache's sourceLine_ — no new regex).
-       * Informational only: no client-side command exists yet to act on a
-       * subclass/reference count, so `command` is the empty string, which
-       * LSP clients render as a non-actionable label.
+       * foam.CLASS() line (FileModelCache's sourceLine_ — no new regex),
+       * naming its direct-subclass count (FoamIndex.getSubclasses — a
+       * couple of ms). Deliberately NOT a reference count: referencing this
+       * class through ReferencesHandler.referencesForClassId union-scans
+       * four workspace usage indexes and was measured at 1.9-16.8s on a
+       * heavily-referenced class — synchronous on the RPC loop and re-paid
+       * on every save (those indexes invalidate on reindex), unacceptable
+       * for something that runs on every codeLens request.
+       *
+       * Informational BY DESIGN: `command` is '' because no client-side
+       * command exists yet to act on a subclass count. Follow-up shape: a
+       * client-capability-gated editor.action.showReferences (or
+       * equivalent) — see the class doc.
        */
-      var models = this.cache.getModels(uri, text);
       for ( var i = 0 ; i < models.length ; i++ ) {
         var model   = models[i];
         var classId = this.cache.getClassId(model);
@@ -152,8 +163,6 @@ foam.CLASS({
 
         var line       = model.sourceLine_ || 0;
         var subclasses = this.index.getSubclasses(classId);
-        var refs       = this.referencesHandler ?
-          this.referencesHandler.referencesForClassId(classId) : [];
 
         lenses.push({
           range: {
@@ -161,8 +170,7 @@ foam.CLASS({
             end:   { line: line, character: 0 }
           },
           command: {
-            title: subclasses.length + ' subclass' + ( subclasses.length === 1 ? '' : 'es' ) +
-              ' · ' + refs.length + ' ref' + ( refs.length === 1 ? '' : 's' ),
+            title:   subclasses.length + ' subclass' + ( subclasses.length === 1 ? '' : 'es' ),
             command: ''
           }
         });

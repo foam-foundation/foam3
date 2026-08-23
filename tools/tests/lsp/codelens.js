@@ -15,6 +15,15 @@ var index = h.index, cache = h.cache;
 
 var FeatureConfig = require('../../lsp/FeatureConfig');
 
+// Real, top-level foam.CLASS() registrations (this file is a plain Node
+// module, not a sandboxed fixture eval, so these actually register in the
+// shared runtime the harness booted) — gives the hierarchy lens tests a
+// KNOWN subclass count to assert on, instead of a real-but-unpinned class
+// like foam.u2.View whose count only proves the code against itself.
+foam.CLASS({ package: 'test.codelens.hier', name: 'HierBase' });
+foam.CLASS({ package: 'test.codelens.hier', name: 'HierSubA', extends: 'test.codelens.hier.HierBase' });
+foam.CLASS({ package: 'test.codelens.hier', name: 'HierSubB', extends: 'test.codelens.hier.HierBase' });
+
 function config(overrides) {
   return FeatureConfig.load({ initOptions: { features: overrides || {} } });
 }
@@ -87,18 +96,17 @@ test(notReadyHandler.handle(MSGS_ONE, uri).length === 0,
 
 section('CodeLensHandler — hierarchy lens: off by default');
 
-// package/name deliberately match the REAL foam.u2.View class already
-// loaded by this test run's pmake boot — getSubclasses/referencesForClassId
-// read the live registry by classId, not this fixture's (empty) body, so
-// the resolved classId must be a class the registry actually knows about.
+// package/name match REAL classes registered at the top of this file
+// (test.codelens.hier.HierBase + two subclasses) — getSubclasses reads the
+// live registry by classId, not this fixture's (empty) body.
 var HIER_SRC = [
   "foam.CLASS({",
-  "  package: 'foam.u2',",
-  "  name: 'View'",
+  "  package: 'test.codelens.hier',",
+  "  name: 'HierBase'",
   "});",
   ""
 ].join('\n');
-var hierUri = 'file:///t/View.js';
+var hierUri = 'file:///t/HierBase.js';
 
 var offHandler = foam.parse.lsp.handlers.CodeLensHandler.create({
   index: index, cache: cache,
@@ -108,34 +116,65 @@ var offHandler = foam.parse.lsp.handlers.CodeLensHandler.create({
 test(offHandler.handle(HIER_SRC, hierUri).length === 0,
   'codeLens.hierarchy left at its default (false) -> no hierarchy lens even for a class with real subclasses');
 
-section('CodeLensHandler — hierarchy lens: on -> N subclasses · M refs from real index counts');
+section('CodeLensHandler — hierarchy lens: on -> "N subclasses" from a controlled fixture');
 
-var referencesHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
 var onHandler = foam.parse.lsp.handlers.CodeLensHandler.create({
-  index: index, cache: cache, referencesHandler: referencesHandler,
+  index: index, cache: cache,
   i18nHandler: i18nHandlerFor(['fr']),
   featureConfig: config({ 'codeLens.i18n': false, 'codeLens.hierarchy': true })
 });
 var hierLenses = onHandler.handle(HIER_SRC, hierUri);
 test(hierLenses.length === 1, 'one hierarchy lens for the single class');
+test(!! hierLenses[0] && hierLenses[0].command.title === '2 subclasses',
+  'title is the literal, known subclass count (HierSubA + HierSubB) — no reference count');
+test(!! hierLenses[0] && hierLenses[0].command.command === '',
+  'hierarchy lens is informational by design — empty command, no navigation yet');
+// HIER_SRC's single foam.CLASS() call is the first (and only) call in the
+// text, so FileModelCache.findCallLine always resolves it to line 0 — see
+// FileModelCache.js:315 ("For single-class files sourceLine_ is always 0").
+test(!! hierLenses[0] && hierLenses[0].range.start.line === 0 && hierLenses[0].range.end.line === 0,
+  'range anchored at the class\'s own foam.CLASS() line (exact line, model.sourceLine_)');
 
-var expectedSubs = index.getSubclasses('foam.u2.View').length;
-var expectedRefs = referencesHandler.referencesForClassId('foam.u2.View').length;
-var expectedTitle = expectedSubs + ' subclass' + (expectedSubs === 1 ? '' : 'es') +
-  ' · ' + expectedRefs + ' ref' + (expectedRefs === 1 ? '' : 's');
-test(!! hierLenses[0] && hierLenses[0].command.title === expectedTitle,
-  'title matches real index counts for foam.u2.View (' + expectedTitle + ')');
-test(expectedSubs > 0, 'control: foam.u2.View actually has subclasses in the live index');
+section('CodeLensHandler — hierarchy lens: pluralization (zero subclasses)');
+
+var singleSubHandler = foam.parse.lsp.handlers.CodeLensHandler.create({
+  index: index, cache: cache,
+  featureConfig: config({ 'codeLens.hierarchy': true })
+});
+var SUB_A_SRC = [
+  "foam.CLASS({",
+  "  package: 'test.codelens.hier',",
+  "  name: 'HierSubA'",
+  "});",
+  ""
+].join('\n');
+var singleSubLenses = singleSubHandler.handle(SUB_A_SRC, 'file:///t/HierSubA.js');
+test(!! singleSubLenses[0] && singleSubLenses[0].command.title === '0 subclasses',
+  'a leaf class (no subclasses of its own) reads "0 subclasses", not "0 subclass"');
 
 section('CodeLensHandler — multi-model file → no lenses');
 
 var TWO_MODEL = MSGS_ONE + MSGS_ONE;
 var bothOnHandler = foam.parse.lsp.handlers.CodeLensHandler.create({
-  index: index, cache: cache, referencesHandler: referencesHandler,
+  index: index, cache: cache,
   i18nHandler: i18nHandlerFor(['fr']),
   featureConfig: config({ 'codeLens.hierarchy': true })
 });
 test(bothOnHandler.handle(TWO_MODEL, uri).length === 0,
-  'multi-model file suppresses both lens types (isMultiModelFile_ guard)');
+  'multi-model file suppresses both lens types (models.length > 1 guard)');
+
+section('CodeLensHandler — multi-model guard is independent of i18nHandler');
+
+// No i18nHandler wired at all (undefined) — only the hierarchy lens is even
+// requested — proves the guard reads the file shape itself (cache.getModels)
+// rather than delegating to i18nHandler.isMultiModelFile_, which would have
+// silently let an ambiguous file through with no i18nHandler to ask.
+var noI18nHandler = foam.parse.lsp.handlers.CodeLensHandler.create({
+  index: index, cache: cache,
+  featureConfig: config({ 'codeLens.hierarchy': true })
+});
+test(noI18nHandler.i18nHandler == null, 'control: this handler has no i18nHandler wired');
+test(noI18nHandler.handle(TWO_MODEL, uri).length === 0,
+  'i18nHandler null + hierarchy on + two-class file -> no lenses (guard does not depend on i18nHandler)');
 
 module.exports = {};

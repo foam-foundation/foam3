@@ -61,7 +61,7 @@ function start() {
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
   var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
-  var codeLensHandler        = foam.parse.lsp.handlers.CodeLensHandler.create({ index: index, cache: fileModelCache, i18nHandler: i18nHandler, referencesHandler: referencesHandler, featureConfig: featureConfig });
+  var codeLensHandler        = foam.parse.lsp.handlers.CodeLensHandler.create({ index: index, cache: fileModelCache, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });

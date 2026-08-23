@@ -575,6 +575,7 @@ foam.POM({
     { name: "foam/u2/tag/Button",                                     flags: "web" },
     { name: "foam/u2/util/NumberShortener",                           flags: "web" },
     { name: "foam/u2/util/ClipboardAccess",                           flags: "web" },
+    { name: "foam/u2/util/CopyButton",                                flags: "web" },
     { name: "foam/u2/TextField",                                      flags: "web" },
     { name: "foam/u2/SearchField",                                    flags: "web" },
     { name: "foam/u2/TextInputCSS",                                   flags: "web" },

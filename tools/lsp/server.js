@@ -528,6 +528,10 @@ function start() {
         diagnosticsHandler.featureConfig = featureConfig;
         codeActionHandler.featureConfig  = featureConfig;
         codeLensHandler.featureConfig    = featureConfig;
+        // Not a feature toggle: the scaffold command WRITES, and its dir
+        // argument comes from whoever invoked it (an editor prompt, an agent
+        // over MCP). wsRoot is the boundary it refuses to scaffold outside of.
+        scaffoldHandler.wsRoot           = wsRoot;
 
         // i18n settings ride the same merge (featureConfig.i18n), but the
         // env-var and locales.jrl fallbacks below stay here: FeatureConfig
@@ -1004,9 +1008,10 @@ function start() {
         if ( params.command === 'foam.scaffold.newClass' ) {
           // Unlike the i18n commands this one carries no uri and reads no
           // open document: everything it needs is { dir, name } plus what it
-          // reads off disk itself. Its result IS specified (the caller shows
-          // `warning` and opens `created`), so it answers with the summary
-          // rather than null.
+          // reads off disk itself. On success it answers with the summary
+          // rather than null, because the caller acts on it (opens `created`,
+          // shows `warning`); on failure it answers null like the i18n path
+          // and the reason travels as a showMessage error.
           Promise.resolve().then(function() {
             var scaffold = scaffoldHandler.newClass(cmdArgs);
             return request('workspace/applyEdit',

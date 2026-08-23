@@ -27,11 +27,12 @@ foam.CLASS({
     hardcoded:
 
       license header — copied VERBATIM from the leading block comment of the
-        first sibling .js file in the same folder that has one. Nothing
-        product-specific is baked into this public code: a foam3 folder
-        yields the FOAM Authors header, a downstream product folder yields
-        that product's header. No sibling with a leading block comment → no
-        header at all, plus a warning (inventing one would be worse than
+        first sibling .js file in the same folder whose comment reads as a
+        LICENSE (see harvestHeader_). Nothing product-specific is baked into
+        this public code: a foam3 folder yields the FOAM Authors header, a
+        downstream product folder yields that product's header. No such
+        sibling → no header at all, plus a warning (inventing one, or
+        promoting a class doc-comment to "license", would be worse than
         omitting it).
 
       package — the path below the last 'src' segment, dotted
@@ -63,6 +64,17 @@ foam.CLASS({
       of: 'foam.parse.lsp.CursorAnalyzer',
       name: 'analyzer',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      class: 'String',
+      name: 'wsRoot',
+      documentation: 'Workspace root path; server.js sets it from rootUri at ' +
+        'initialize. When set, newClass refuses a dir outside it — the command ' +
+        'is reachable from agent/MCP callers, not just an editor prompt, and ' +
+        'writing a file (plus climbing to a pom.js) anywhere on the filesystem ' +
+        'is not something a workspace language server should do. Empty/unset ' +
+        'means NO containment check at all, which is how handler-level tests ' +
+        'use it — a bare create() scaffolds into any folder it is given.'
     }
   ],
 
@@ -72,8 +84,8 @@ foam.CLASS({
        * Build the WorkspaceEdit + result summary for { dir, name }.
        * THROWS (with a user-facing message) for the cases where there is
        * nothing sane to build at all: a missing/invalid name, a directory
-       * that isn't one, or a file that already exists — scaffolding must
-       * never overwrite existing source.
+       * that isn't one or that lies outside the workspace, or a file that
+       * already exists — scaffolding must never overwrite existing source.
        */
       var fs   = require('fs');
       var path = require('path');
@@ -88,19 +100,28 @@ foam.CLASS({
       try { isDir = fs.statSync(a.dir).isDirectory(); } catch (e) { isDir = false; }
       if ( ! isDir ) throw new Error('Not a folder: ' + a.dir);
 
-      var filePath = path.join(a.dir, a.name + '.js');
-      if ( fs.existsSync(filePath) ) throw new Error(a.name + '.js already exists in ' + a.dir);
+      // Resolve ONCE, here, so every path derived below — the file:// uris,
+      // the pom walk-up, the package segments — is built from the same
+      // absolute path. A relative dir would otherwise yield a uri like
+      // file://a/b/X.js, whose 'a' parses as a URI authority, while the pom
+      // edit's uri (built from an already-resolved pom path) came out
+      // absolute: one WorkspaceEdit naming two different filesystems.
+      var dir = path.resolve(a.dir);
+      this.assertInWorkspace_(dir);
+
+      var filePath = path.join(dir, a.name + '.js');
+      if ( fs.existsSync(filePath) ) throw new Error(a.name + '.js already exists in ' + dir);
 
       var warnings = [];
 
-      var header = this.harvestHeader_(a.dir);
+      var header = this.harvestHeader_(dir);
       if ( ! header ) {
         warnings.push('no license header was copied — no other .js file in this folder ' +
-          'starts with a block comment');
+          'starts with a license block comment');
       }
 
-      var pomPath = this.findNearestPom_(a.dir);
-      var pkg     = this.derivePackage_(a.dir, pomPath ? path.dirname(pomPath) : null);
+      var pomPath = this.findNearestPom_(dir);
+      var pkg     = this.derivePackage_(dir, pomPath ? path.dirname(pomPath) : null);
 
       var content = ( header ? header + '\n\n' : '' ) +
         'foam.CLASS({\n' +
@@ -140,16 +161,43 @@ foam.CLASS({
       return { edit: { documentChanges: documentChanges }, result: result };
     },
 
+    function assertInWorkspace_(resolvedDir) {
+      /**
+       * Refuse a target folder outside `wsRoot`. No wsRoot (a bare handler in
+       * a test) means no check — see the property's documentation. The
+       * comparison is between resolved paths, and `rel` empty means the
+       * folder IS the root, which is inside it.
+       */
+      if ( ! this.wsRoot ) return;
+      var path = require('path');
+      var root = path.resolve(this.wsRoot);
+      var rel  = path.relative(root, resolvedDir);
+      if ( rel === '..' || rel.indexOf('..' + path.sep) === 0 || path.isAbsolute(rel) ) {
+        throw new Error(resolvedDir + ' is outside the workspace (' + root + ').');
+      }
+    },
+
     function harvestHeader_(dir) {
       /**
        * The leading block comment of the first sibling .js file (name-sorted,
-       * for a deterministic answer) that has one, verbatim — comment markers
-       * included. Files are scanned in order and the scan stops at the first
-       * hit, so in a normal folder exactly one file is read. Returns null
-       * when the folder has no .js file with a leading block comment.
+       * for a deterministic answer) that carries a LICENSE, verbatim —
+       * comment markers included. Files are scanned in order and the scan
+       * stops at the first qualifying hit, so in a normal folder exactly one
+       * file is read.
+       *
+       * "Carries a license" is decided by LICENSE_RE rather than "is the
+       * first block comment", because a leading block comment is just as
+       * often a class doc-comment ("FOAM State Machine (FSM) Implementation
+       * …" and friends exist in this codebase) — copying one of those into a
+       * new file as its "license header" is silently wrong in a way nobody
+       * reviews. A folder whose only block comments are doc-comments takes
+       * the no-header warning path instead.
+       *
+       * Returns null when no .js file in the folder qualifies.
        */
       var fs   = require('fs');
       var path = require('path');
+      var LICENSE_RE = /@license|Copyright|CONFIDENTIAL|All Rights Reserved/i;
       var names;
       try { names = fs.readdirSync(dir); } catch (e) { return null; }
       names = names.filter(function(n) { return /\.js$/.test(n); }).sort();
@@ -157,19 +205,27 @@ foam.CLASS({
         var text;
         try { text = fs.readFileSync(path.join(dir, names[i]), 'utf8'); } catch (e) { continue; }
         var m = /^\s*(\/\*[\s\S]*?\*\/)/.exec(text);
-        if ( m ) return m[1];
+        if ( m && LICENSE_RE.test(m[1]) ) return m[1];
       }
       return null;
     },
 
     function findNearestPom_(dir) {
-      /** Nearest pom.js at or above `dir`, or null at the filesystem root. */
+      /**
+       * Nearest pom.js at or above `dir`, or null. The walk stops at
+       * `wsRoot` when one is set (the folder is already known to be inside
+       * it), so a workspace with no pom of its own can never reach out and
+       * edit some unrelated pom.js further up the filesystem; with no
+       * wsRoot it climbs to the filesystem root.
+       */
       var fs   = require('fs');
       var path = require('path');
       var cur  = path.resolve(dir);
+      var stop = this.wsRoot ? path.resolve(this.wsRoot) : null;
       for (;;) {
         var candidate = path.join(cur, 'pom.js');
         if ( fs.existsSync(candidate) ) return candidate;
+        if ( stop && cur === stop ) return null;
         var parent = path.dirname(cur);
         if ( parent === cur ) return null;
         cur = parent;
@@ -320,10 +376,14 @@ foam.CLASS({
 
       if ( span.lastCode === -1 ) {
         // Empty array: open a line for the entry, indented one step past the
-        // line the closing bracket sits on.
+        // line the closing bracket sits on. The newline+indent already
+        // sitting in front of that bracket is REUSED rather than re-emitted
+        // — writing our own would leave a whitespace-only line behind it.
+        // A one-line `files: []` has no such newline, so there it is added.
         var closeIndent = this.lineIndent_(text, span.close);
+        var multiline   = text.substring(span.open + 1, span.close).indexOf('\n') !== -1;
         insertAt = span.open + 1;
-        newText  = '\n' + closeIndent + '  ' + entry + '\n' + closeIndent;
+        newText  = '\n' + closeIndent + '  ' + entry + ( multiline ? '' : '\n' + closeIndent );
       } else {
         var entryIndent = this.lineIndent_(text, span.lastCode);
         insertAt = span.lastCode + 1;

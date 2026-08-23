@@ -519,7 +519,15 @@ function start() {
         // now that the client's layer has actually arrived.
         // One workspace root for the whole case: it locates foam-lsp.json here
         // and journals/locales.jrl further down.
-        var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd();
+        //
+        // A client that sends no rootUri leaves this NULL rather than falling
+        // back to process.cwd(). The cwd of an editor-spawned server is an
+        // implementation detail of whoever spawned it — using it would give
+        // ScaffoldHandler an arbitrary, invisible containment boundary, and
+        // would read a foam-lsp.json belonging to some unrelated folder. Null
+        // simply means those root-relative layers contribute nothing, and
+        // scaffolding refuses outright (see scaffoldHandler.wsRoot below).
+        var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : null;
         featureConfig = FeatureConfig.load({
           rootPath:    wsRoot,
           initOptions: params && params.initializationOptions && params.initializationOptions.foam
@@ -531,7 +539,11 @@ function start() {
         // Not a feature toggle: the scaffold command WRITES, and its dir
         // argument comes from whoever invoked it (an editor prompt, an agent
         // over MCP). wsRoot is the boundary it refuses to scaffold outside of.
-        scaffoldHandler.wsRoot           = wsRoot;
+        // requireWsRoot flips the handler from its bare-test default ("no
+        // wsRoot, no containment check") to the server's rule: inside a client
+        // session a missing root means REFUSE, never "scaffold anywhere".
+        scaffoldHandler.requireWsRoot    = true;
+        scaffoldHandler.wsRoot           = wsRoot || '';
 
         // i18n settings ride the same merge (featureConfig.i18n), but the
         // env-var and locales.jrl fallbacks below stay here: FeatureConfig
@@ -545,7 +557,7 @@ function start() {
         // locales.jrl fallback.
         if ( Array.isArray(i18nOpts.languages) && i18nOpts.languages.length ) {
           i18nHandler.targetLanguages = i18nOpts.languages;
-        } else {
+        } else if ( wsRoot ) {
           try {
             var localesPath = require('path').join(wsRoot, 'journals', 'locales.jrl');
             if ( require('fs').existsSync(localesPath) ) {
@@ -651,21 +663,43 @@ function start() {
 
         // Boot progress — sent AFTER the response above, never before: a
         // client hasn't agreed to workDoneProgress until it sees that
-        // response, so notifying earlier is a protocol violation. By the
-        // time we get here the model load + buildFileIndex() at the top of
-        // start() already ran, so there's no more boot work left to report
-        // against — this is a courtesy status for the client's spinner, not
-        // a gate on anything. `request()` is fired without awaiting its
-        // result: some clients reject workDoneProgress/create, and that must
-        // never hold up the (already-finished) boot.
-        var bootProgressToken = 'foam-boot';
-        request('window/workDoneProgress/create', { token: bootProgressToken })
-          .catch(function(e) { console.error('[LSP] workDoneProgress/create rejected: ' + (e && e.message)); });
-        notify('$/progress', { token: bootProgressToken,
-          value: { kind: 'begin', title: 'FOAM LSP', message: 'loading models…' } });
-        notify('$/progress', { token: bootProgressToken,
-          value: { kind: 'report', message: 'indexing ' + index.getAllClassIds().length + ' classes' } });
-        notify('$/progress', { token: bootProgressToken, value: { kind: 'end' } });
+        // response, so notifying earlier is a protocol violation.
+        //
+        // Two gates, and both are the protocol's, not ours:
+        //   1. The client must have DECLARED window.workDoneProgress. One that
+        //      never did has nowhere to route these frames, so it gets nothing
+        //      at all — not even the create request.
+        //   2. The token only becomes ours to use once the client ACCEPTS the
+        //      create request, so every $/progress frame lives inside its
+        //      .then(). A rejected create means no frames whatsoever (the
+        //      .catch only logs) — emitting on a token the client refused is
+        //      exactly the violation the create request exists to prevent.
+        //
+        // RULING — these frames are near-instant BY DESIGN and that is not a
+        // bug to fix here. The model load and buildFileIndex() at the top of
+        // start() both complete before `initialize` is even dispatched, so by
+        // the time this runs there is no remaining boot work to report against.
+        // The report frame therefore carries the indexed class count as a boot
+        // SUMMARY, not as progress against work still to come. The real boot
+        // UX in VS Code is the extension's own status bar item
+        // ($(loading~spin) FOAM: Indexing… → $(check) FOAM: Ready), which
+        // spans the whole spawn-to-ready window this sequence cannot.
+        var clientWindowCaps = params && params.capabilities && params.capabilities.window;
+        if ( clientWindowCaps && clientWindowCaps.workDoneProgress ) {
+          var bootProgressToken = 'foam-boot';
+          var bootClassCount    = index.getAllClassIds().length;
+          request('window/workDoneProgress/create', { token: bootProgressToken })
+            .then(function() {
+              notify('$/progress', { token: bootProgressToken,
+                value: { kind: 'begin', title: 'FOAM LSP', message: 'loading models…' } });
+              notify('$/progress', { token: bootProgressToken,
+                value: { kind: 'report', message: 'indexing ' + bootClassCount + ' classes' } });
+              notify('$/progress', { token: bootProgressToken, value: { kind: 'end' } });
+            })
+            .catch(function(e) {
+              console.error('[LSP] workDoneProgress/create rejected: ' + (e && e.message));
+            });
+        }
         break;
 
       case 'initialized':

@@ -61,10 +61,73 @@ c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { alsoNotAFlag:
 test(c.warnings.some(function(w) { return w.indexOf('alsoNotAFlag') !== -1; }), 'unknown initOptions key warned');
 test(c.enabled('hover') === true, 'defaults intact after unknown initOptions key');
 
-section('FeatureConfig — non-boolean feature value coerces to false');
+section('FeatureConfig — non-boolean feature value coerces to false, and says so');
 
+// The coercion is deliberate (a truthy passthrough would make the string
+// "false" turn a flag ON), but silent coercion is what made it surprising:
+// `"true"` and `1` are both easy to write by hand in JSON and both land on
+// false. The warning names the flag AND the value that was thrown away.
 c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { hover: 'yes' } } });
 test(c.enabled('hover') === false, 'non-boolean value coerces to false, not truthy-passthrough');
+test(c.warnings.some(function(w) { return /non-boolean value for "hover"/.test(w); }),
+  'the coercion is warned about, not silent');
+test(c.warnings.some(function(w) { return w.indexOf('"yes"') !== -1; }),
+  'the warning quotes the offending value');
+
+c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { hover: 'true' } } });
+test(c.enabled('hover') === false && c.warnings.length === 1,
+  'the string "true" is the trap this warning exists for — false, with a warning');
+
+c = FeatureConfig.load({ rootPath: dir, initOptions: { features: { hover: false } } });
+test(c.enabled('hover') === false && c.warnings.length === 0,
+  'a real boolean false is not a warning (control)');
+
+section('FeatureConfig — unknown i18n keys warn + are dropped');
+
+// Same treatment the boolean flags already got. An unrecognised i18n key
+// carried forward would reach server.js as a value nothing reads — which
+// looks, from the user's side, like their setting was ignored for no reason.
+fs.writeFileSync(path.join(dir, 'foam-lsp.json'),
+  JSON.stringify({ i18n: { langauges: ['fr'], model: 'm1' } }));
+c = FeatureConfig.load({ rootPath: dir });
+test(c.warnings.some(function(w) { return w.indexOf('langauges') !== -1; }),
+  'a typo\'d i18n key from foam-lsp.json is warned about');
+test(c.i18n.langauges === undefined, 'the typo\'d key is not carried into the merged i18n');
+test(c.i18n.model === 'm1', 'the sibling key on the same layer still applies');
+
+fs.writeFileSync(path.join(dir, 'foam-lsp.json'), JSON.stringify({}));
+c = FeatureConfig.load({ rootPath: dir, initOptions: { i18n: { endpiont: 'http://x' } } });
+test(c.warnings.some(function(w) { return w.indexOf('endpiont') !== -1; }),
+  'a typo\'d i18n key from initOptions is warned about too');
+test(c.i18n.endpiont === undefined, 'and dropped');
+
+c = FeatureConfig.load({ rootPath: dir, initOptions: { i18n: {
+  languages: ['fr'], endpoint: 'http://x', model: 'm', sourceLanguage: 'en' } } });
+test(c.warnings.length === 0, 'every known i18n key passes without a warning (control)');
+
+section('FeatureConfig — enabled() on a name that is not a flag warns once');
+
+// Misuse guard for FUTURE handlers, not for user config: only a caller typo
+// in our own code can reach it, and it would otherwise answer a silent,
+// permanent false — a feature that quietly never runs.
+c = FeatureConfig.load({ rootPath: os.tmpdir() + '/no-such-dir-xyz' });
+var errs = [];
+var origErr = console.error;
+var misuseAnswer;
+// Nothing that reports a result may run while console.error is swapped out —
+// the harness's own test() writes its ✓/✘ lines through console.error, so a
+// test() call inside this window would land in `errs` and be counted as a
+// warning the config emitted.
+console.error = function(m) { errs.push(String(m)); };
+try {
+  misuseAnswer = c.enabled('codelens.i18n');
+  c.enabled('codelens.i18n');
+} finally {
+  console.error = origErr;
+}
+test(misuseAnswer === false, 'a misspelled flag still answers false');
+test(errs.length === 1, 'the misuse is reported exactly once, not once per call');
+test(errs.length === 1 && errs[0].indexOf('codelens.i18n') !== -1, 'and it names the bad flag');
 
 section('FeatureConfig — malformed JSON warns + falls back to defaults');
 
@@ -264,11 +327,28 @@ var bootDone = h.withServerLane(async function() {
     var uri    = 'file://' + tmpFile;
     var wsUri  = 'file://' + wsDir;
 
+    // Every boot-progress frame on the token this server uses. Declared once
+    // — three separate phases below ask "did anything arrive on foam-boot?",
+    // and each has a different right answer.
+    function isBootProgress(f) {
+      return f.method === '$/progress' && f.params && f.params.token === 'foam-boot';
+    }
+    function bootCreateFrames() {
+      return frames.filter(function(f) {
+        return f.method === 'window/workDoneProgress/create' &&
+               f.params && f.params.token === 'foam-boot';
+      });
+    }
+
     section('server.js — feature flags off gate capabilities and diagnostics');
 
     bootServer();
     sendToServer({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
       rootUri: wsUri,
+      // A client that DECLARES window.workDoneProgress — the only kind that
+      // may be sent these frames at all. Phase 3 below is the same boot
+      // without the declaration.
+      capabilities: { window: { workDoneProgress: true } },
       initializationOptions: { foam: { features: {
         hover: false, semanticTokens: false, signatureHelp: false,
         folding: false, 'diagnostics.i18n': false,
@@ -285,38 +365,33 @@ var bootDone = h.withServerLane(async function() {
     test(!! offCaps.executeCommandProvider,
       'executeCommandProvider is unconditional — commands guard themselves');
 
-    sendToServer({ jsonrpc: '2.0', method: 'textDocument/didOpen', params: {
-      textDocument: { uri: uri, languageId: 'javascript', version: 1, text: TARGET_MODEL } } });
-    var offDiag = await waitFor(function(f) {
-      return f.method === 'textDocument/publishDiagnostics' && f.params.uri === uri;
-    }, 'publishDiagnostics with diagnostics.i18n off');
-    var offCodes = offDiag.params.diagnostics.map(function(d) { return d.code; });
-    var offMsgs  = offDiag.params.diagnostics.map(function(d) { return d.message; });
-    test(offCodes.indexOf('i18n-hardcoded-display-string') === -1,
-      'diagnostics.i18n: false suppresses the hardcoded-display-string WARNING');
-    test(offMsgs.some(function(m) { return /Wrong Java package/.test(m); }),
-      'diagnostics.java (left on) still reports the wrong-package javaImport');
-
     section('server.js — boot progress via workDoneProgress');
 
     // Ordering is checked against positions in the raw `frames` array (this
     // phase's boot only — bootServer() reset it to [] just before phase 1),
-    // not against timing, since everything the initialize handler sends is
-    // synchronous within one JS tick.
+    // not against timing.
     var initRespIdx = frames.indexOf(offRes);
-    var createFrame = frames.filter(function(f) {
+    var createFrame = await waitFor(function(f) {
       return f.method === 'window/workDoneProgress/create' &&
              f.params && f.params.token === 'foam-boot';
-    })[0];
-    test(!! createFrame, 'window/workDoneProgress/create is sent for token foam-boot');
-    test(!! createFrame && createFrame.id >= 1000000,
+    }, 'the workDoneProgress/create request');
+    test(createFrame.id >= 1000000,
       'the create request id comes from the outbound id space (>= 1000000)');
-    test(!! createFrame && frames.indexOf(createFrame) > initRespIdx,
+    test(frames.indexOf(createFrame) > initRespIdx,
       'workDoneProgress/create is sent after the initialize response, not before');
 
-    var progressFrames = frames.filter(function(f) {
-      return f.method === '$/progress' && f.params && f.params.token === 'foam-boot';
-    });
+    // The single most important frame-ordering rule here: the token is not
+    // ours to use until the client ANSWERS the create request, so nothing may
+    // have arrived on it yet. This is what the create request is for.
+    test(frames.filter(isBootProgress).length === 0,
+      'no $/progress frame arrives before the client answers workDoneProgress/create');
+
+    sendToServer({ jsonrpc: '2.0', id: createFrame.id, result: null });
+    await waitFor(function(f) {
+      return isBootProgress(f) && f.params.value.kind === 'end';
+    }, 'the end $/progress frame');
+
+    var progressFrames = frames.filter(isBootProgress);
     var kinds = progressFrames.map(function(f) { return f.params.value.kind; });
     test(kinds.length >= 2, 'at least a begin and an end $/progress frame arrive');
     test(kinds[0] === 'begin', 'the sequence opens with kind begin');
@@ -330,6 +405,9 @@ var bootDone = h.withServerLane(async function() {
     test(!! beginFrame && typeof beginFrame.params.value.message === 'string' &&
       beginFrame.params.value.message.length > 0, 'begin carries a loading message');
 
+    // The report frame is a boot SUMMARY, not progress against remaining work
+    // — indexing finished before initialize was even dispatched. Asserting the
+    // class count is in it pins that intent.
     var reportFrame = progressFrames.filter(function(f) {
       return f.params.value.kind === 'report';
     })[0];
@@ -337,10 +415,54 @@ var bootDone = h.withServerLane(async function() {
       'a report frame names the indexed class count');
 
     var progressIdxs = progressFrames.map(function(f) { return frames.indexOf(f); });
-    test(progressIdxs.length > 0 && Math.min.apply(null, progressIdxs) > initRespIdx,
-      'the whole progress sequence arrives after the initialize response');
-    test(progressIdxs.length > 0 && Math.max.apply(null, progressIdxs) < frames.indexOf(offDiag),
-      'the whole progress sequence completes before the first publishDiagnostics');
+    test(progressIdxs.length > 0 && Math.min.apply(null, progressIdxs) > frames.indexOf(createFrame),
+      'the whole progress sequence arrives after the create request');
+
+    sendToServer({ jsonrpc: '2.0', method: 'textDocument/didOpen', params: {
+      textDocument: { uri: uri, languageId: 'javascript', version: 1, text: TARGET_MODEL } } });
+    var offDiag = await waitFor(function(f) {
+      return f.method === 'textDocument/publishDiagnostics' && f.params.uri === uri;
+    }, 'publishDiagnostics with diagnostics.i18n off');
+    var offCodes = offDiag.params.diagnostics.map(function(d) { return d.code; });
+    var offMsgs  = offDiag.params.diagnostics.map(function(d) { return d.message; });
+    test(offCodes.indexOf('i18n-hardcoded-display-string') === -1,
+      'diagnostics.i18n: false suppresses the hardcoded-display-string WARNING');
+    test(offMsgs.some(function(m) { return /Wrong Java package/.test(m); }),
+      'diagnostics.java (left on) still reports the wrong-package javaImport');
+
+    section('server.js — a client without window.workDoneProgress gets nothing');
+
+    // Not "no frames on an unaccepted token" — no CREATE REQUEST EITHER. A
+    // client that never declared the capability has nowhere to route any of
+    // this, so asking it to make a token is itself the protocol violation.
+    bootServer();
+    sendToServer({ jsonrpc: '2.0', id: 10, method: 'initialize', params: {
+      rootUri: wsUri, capabilities: { window: {} } } });
+    await waitFor(function(f) { return f.id === 10 && f.result; }, 'the no-capability initialize response');
+    // The initialize handler emits everything it is going to emit inside one
+    // synchronous dispatch, so once its response is in hand a single further
+    // turn of the loop is enough to catch anything it queued behind it.
+    await new Promise(function(r) { setTimeout(r, 50); });
+    test(bootCreateFrames().length === 0,
+      'no window/workDoneProgress/create for a client that did not declare the capability');
+    test(frames.filter(isBootProgress).length === 0,
+      'no $/progress frames either');
+
+    section('server.js — a client that REJECTS create gets no progress frames');
+
+    bootServer();
+    sendToServer({ jsonrpc: '2.0', id: 11, method: 'initialize', params: {
+      rootUri: wsUri, capabilities: { window: { workDoneProgress: true } } } });
+    await waitFor(function(f) { return f.id === 11 && f.result; }, 'the rejecting-client initialize response');
+    var rejectCreate = await waitFor(function(f) {
+      return f.method === 'window/workDoneProgress/create' &&
+             f.params && f.params.token === 'foam-boot';
+    }, 'the create request to reject');
+    sendToServer({ jsonrpc: '2.0', id: rejectCreate.id,
+      error: { code: -32601, message: 'workDoneProgress/create not supported' } });
+    await new Promise(function(r) { setTimeout(r, 50); });
+    test(frames.filter(isBootProgress).length === 0,
+      'a rejected create yields no $/progress frames at all (the .catch only logs)');
 
     section('server.js — the same file with every flag at its default');
 

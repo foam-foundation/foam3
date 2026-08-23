@@ -812,5 +812,29 @@ for ( var ai3 = 0 ; ai3 < genLines.length ; ai3++ ) {
   }
 }
 
+// --- resolveJavaTypeName vs JavaImport objects (refines path) ---
+(function() {
+  foam.CLASS({ package: 'lsptestc', name: 'Pelican', properties: [ 'x' ] });
+  foam.CLASS({
+    package: 'lsptestc', name: 'PelicanUser',
+    javaImports: [ 'lsptestc.Pelican' ]
+  });
+  var cls = foam.lookup('lsptestc.PelicanUser');
+  // Simulate SemanticTokenHandler's effectiveModel for a refines file:
+  // registry javaImports (JavaImport objects after java refinements boot,
+  // raw strings otherwise) — force the object form so the same-package
+  // fallback can't mask a broken import path.
+  var model = { javaImports: [ { name: 'javaimport_lsptestc.Pelican', import: 'lsptestc.Pelican' } ],
+                package: 'other.pkg' };
+  var resolved;
+  try {
+    resolved = analyzer.resolveJavaTypeName('Pelican', model, index);
+  } catch (e) {
+    test(false, 'resolveJavaTypeName threw on registry javaImports: ' + e.message);
+  }
+  test(resolved === 'lsptestc.Pelican',
+    'resolveJavaTypeName resolves via registry-form javaImports, got ' + resolved);
+})();
+
 // === MESSAGE AXIOM: hover + go-to-definition ===
 

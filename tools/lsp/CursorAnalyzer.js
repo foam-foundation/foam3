@@ -601,7 +601,9 @@ foam.CLASS({
        */
       if ( index.classExists(typeName) ) return typeName;
 
-      var imports = model ? model.javaImports || [] : [];
+      var imports = model && index && typeof index.javaImportPaths === 'function' ?
+        index.javaImportPaths({ model_: model }) :
+        ( model ? (model.javaImports || []).filter(function(x) { return typeof x === 'string'; }) : [] );
       for ( var i = 0 ; i < imports.length ; i++ ) {
         var imp = imports[i];
         if ( imp.endsWith('.' + typeName) || imp.endsWith('.*') ) {

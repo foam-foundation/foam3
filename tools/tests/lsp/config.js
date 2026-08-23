@@ -430,6 +430,34 @@ var bootDone = h.withServerLane(async function() {
     test(offMsgs.some(function(m) { return /Wrong Java package/.test(m); }),
       'diagnostics.java (left on) still reports the wrong-package javaImport');
 
+    section('server.js — codeLensProvider tracks the lens COUPLING, not just codeLens.i18n');
+
+    // codeLens.i18n on, but hints.i18nMissingLanguage off (which withdraws the
+    // i18n lens) and codeLens.hierarchy at its false default: both lenses are
+    // dead, so advertising the capability would buy a textDocument/codeLens
+    // round trip per open file, every one answered with [].
+    bootServer();
+    sendToServer({ jsonrpc: '2.0', id: 8, method: 'initialize', params: {
+      rootUri: wsUri,
+      initializationOptions: { foam: { features: {
+        'hints.i18nMissingLanguage': false } } } } });   // codeLens.i18n left at its default (on)
+    var deadLensRes = await waitFor(function(f) { return f.id === 8 && f.result; },
+      'the dead-lens initialize response');
+    test(deadLensRes.result.capabilities.codeLensProvider === undefined,
+      'codeLens.i18n on but hints off + hierarchy off omits codeLensProvider');
+
+    // Same flags, hierarchy turned on — the capability comes back, proving the
+    // omission above came from the coupling and not from something else.
+    bootServer();
+    sendToServer({ jsonrpc: '2.0', id: 9, method: 'initialize', params: {
+      rootUri: wsUri,
+      initializationOptions: { foam: { features: {
+        'hints.i18nMissingLanguage': false, 'codeLens.hierarchy': true } } } } });
+    var hierOnlyRes = await waitFor(function(f) { return f.id === 9 && f.result; },
+      'the hierarchy-only initialize response');
+    test(!! hierOnlyRes.result.capabilities.codeLensProvider,
+      'the hierarchy lens alone still earns codeLensProvider (control)');
+
     section('server.js — a client without window.workDoneProgress gets nothing');
 
     // Not "no frames on an unaccepted token" — no CREATE REQUEST EITHER. A

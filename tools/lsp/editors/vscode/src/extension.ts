@@ -320,6 +320,18 @@ function startServer(
           } catch (e: any) {
             outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
           }
+        } else if ( client ) {
+          // Stopped (including a client whose start() failed): stop() is not
+          // the right call, but the instance still holds listeners and an
+          // output-channel registration, and startClient() is about to
+          // replace it in the module-level `client`. Nothing else ever
+          // disposes it — this handler is the only path that supersedes a
+          // client without stopping it — so one leaks per restart otherwise.
+          try {
+            client.dispose();
+          } catch (e: any) {
+            outputChannel.appendLine('Error disposing the stopped FOAM LSP client: ' + e.message);
+          }
         }
         startClient();
       } finally {

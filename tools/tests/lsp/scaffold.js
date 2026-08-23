@@ -541,6 +541,29 @@ var spaceDir = mkdir(path.join(quoteWs, 'src', 'two words'));
 test(throws(function() { quoteHandler.newClass({ dir: spaceDir, name: 'Spaced' }); }),
   'a folder name with a space is refused too');
 
+// A flat character-class check would wave this through: '3' is a legal
+// package CHARACTER but a segment may not START with a digit, in FOAM as in
+// Java. The check is per dot-separated segment for exactly this reason.
+var digitDir = mkdir(path.join(quoteWs, 'src', '3d'));
+test(throws(function() { quoteHandler.newClass({ dir: digitDir, name: 'Digit' }); }),
+  'a folder named "3d" is refused — a package segment cannot start with a digit');
+test(/not a legal package/.test(( function() {
+  try { quoteHandler.newClass({ dir: digitDir, name: 'Digit' }); return ''; }
+  catch (e) { return e.message; }
+})()), 'and the error says so in words, naming the folder');
+
+// The same trap one level down: the SECOND segment is the offender here, so a
+// check that only looked at the first (or at the string as a whole) misses it.
+var nestedDigitDir = mkdir(path.join(quoteWs, 'src', 'foam', '2fa'));
+test(throws(function() { quoteHandler.newClass({ dir: nestedDigitDir, name: 'Nested' }); }),
+  'a digit-leading segment anywhere in the path is refused (foam.2fa)');
+
+// Digits are fine once a segment has started.
+var digitTailDir = mkdir(path.join(quoteWs, 'src', 'foam', 'v2'));
+test(( contentOf(quoteHandler.newClass({ dir: digitTailDir, name: 'Tail' }),
+  path.join(digitTailDir, 'Tail.js')) || '' ).indexOf("package: 'foam.v2'") !== -1,
+  'control: a digit inside a segment is legal (foam.v2)');
+
 var okDir = mkdir(path.join(quoteWs, 'src', 'foam', 'fine_$1'));
 test(( contentOf(quoteHandler.newClass({ dir: okDir, name: 'Fine' }),
   path.join(okDir, 'Fine.js')) || '' ).indexOf("package: 'foam.fine_$1'") !== -1,
@@ -602,12 +625,20 @@ var laneDone = h.withServerLane(async function() {
 
     // Only one server instance may hold the stdin 'data' listener, and the
     // 'end' -> process.exit(0) listener start() installs would kill the whole
-    // run on the runner's own stdin EOF.
-    process.stdin.removeAllListeners('data');
-    require('../../lsp/server').start();
-    process.stdin.removeAllListeners('end');
-    frames = [];
-    inBuf  = Buffer.alloc(0);
+    // run on the runner's own stdin EOF. Factored out because the last
+    // section below needs a SECOND instance, initialized differently (no
+    // rootUri) — handler state like scaffoldHandler.wsRoot is set at
+    // initialize and never reset, so re-initializing the same instance would
+    // not reproduce a rootUri-less session.
+    function bootServer() {
+      process.stdin.removeAllListeners('data');
+      require('../../lsp/server').start();
+      process.stdin.removeAllListeners('end');
+      frames = [];
+      inBuf  = Buffer.alloc(0);
+    }
+
+    bootServer();
 
     // A workspace with a pom and a target folder inside it, so the happy path
     // exercises all three documentChanges AND the wsRoot the server sets.
@@ -682,6 +713,42 @@ var laneDone = h.withServerLane(async function() {
       'the server refuses a dir outside the workspace root it was initialized with');
     test(! frames.slice(mark).some(function(f) { return f.method === 'workspace/applyEdit'; }),
       'a refused dir produces no applyEdit at all');
+
+    // --- no rootUri at all -------------------------------------------------
+    section('server.js — a client that opened no folder cannot scaffold');
+
+    // This section exists to pin TWO server.js lines that otherwise revert
+    // green, because handler-level tests can't see either of them:
+    //   - `var wsRoot = ... : null` — restoring the old `: process.cwd()`
+    //     fallback makes the refusal below come back worded "is outside the
+    //     workspace (<cwd>)" instead, so the message assertion fails.
+    //   - `scaffoldHandler.requireWsRoot = true` — deleting it leaves an empty
+    //     wsRoot meaning "no containment check", so the command SUCCEEDS and
+    //     both the message wait and the no-applyEdit assertion fail.
+    // A temp dir well outside the runner's cwd is the target on purpose: it is
+    // what makes the two mutations produce visibly different failures.
+    bootServer();
+    sendToServer({ jsonrpc: '2.0', id: 5, method: 'initialize', params: {
+      initializationOptions: {} } });          // NO rootUri — an editor with no folder open
+    await waitFor(function(f) { return f.id === 5 && f.result; },
+      'the initialize response for a rootUri-less session');
+
+    mark = frames.length;
+    sendToServer({ jsonrpc: '2.0', id: 6, method: 'workspace/executeCommand', params: {
+      command: 'foam.scaffold.newClass',
+      arguments: [ { dir: fs.realpathSync(os.tmpdir()), name: 'Rootless' } ] } });
+    var rootlessErr = await waitFor(function(f) {
+      return f.method === 'window/showMessage' && f.params.type === 1;
+    }, 'the error showMessage for a rootUri-less scaffold', mark);
+    test(/requires a workspace root/i.test(rootlessErr.params.message),
+      'no rootUri: the refusal names the missing workspace root (not "outside the workspace")');
+    test(! /outside the workspace/.test(rootlessErr.params.message),
+      'and it is NOT the containment message — cwd is never adopted as a root');
+    test(! frames.slice(mark).some(function(f) { return f.method === 'workspace/applyEdit'; }),
+      'no rootUri: nothing is offered to the client at all');
+    var rootlessRes = await waitFor(function(f) { return f.id === 6 && 'result' in f; },
+      'the rootUri-less command response', mark);
+    test(rootlessRes.result === null, 'and the request is still answered (with null)');
   } catch (e) {
     test(false, 'scaffold server lane threw: ' + ( e && e.stack ? e.stack : e ));
   } finally {

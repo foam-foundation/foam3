@@ -314,14 +314,25 @@ foam.CLASS({
     function assertPackageWritable_(pkg, dir) {
       /**
        * `pkg` back, or a throw naming the folder when it isn't a legal FOAM
-       * package. Letters, digits, _ and $ per segment, joined by dots — the
-       * same alphabet the class-name check in newClass accepts, plus the dot
-       * separator. Anything else (a quote, a space, a dash, a backslash)
+       * package. Checked SEGMENT BY SEGMENT, not as one flat character class:
+       * a whole-string /^[A-Za-z0-9_$.]+$/ would wave through '3d' (a package
+       * segment may not start with a digit, any more than a Java one may),
+       * '.foam', 'foam.' and 'foam..demo' — all of which pass a character
+       * test and none of which is a legal dotted identifier path. Each
+       * segment must be an identifier: /^[A-Za-z_$][A-Za-z0-9_$]*$/, the same
+       * alphabet the class-name check in newClass accepts.
+       *
+       * Anything else (a quote, a space, a dash, a backslash, a leading digit)
        * cannot be written into `package: '…'` safely OR meaningfully.
        */
-      if ( pkg && /^[A-Za-z0-9_$.]+$/.test(pkg) ) return pkg;
+      var segments = String(pkg).split('.');
+      var legal = !! pkg && segments.every(function(s) {
+        return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(s);
+      });
+      if ( legal ) return pkg;
       throw new Error('Cannot derive a FOAM package from ' + dir + ' — "' + pkg +
-        '" is not a legal package (letters, digits, _ and $ only, dot-separated). ' +
+        '" is not a legal package. Each dot-separated segment must start with a ' +
+        'letter, _ or $ and continue with letters, digits, _ or $. ' +
         'Rename the folder, or scaffold into one below a src/ directory.');
     },
 

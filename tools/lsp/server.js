@@ -649,7 +649,15 @@ function start() {
             full: true
           };
         }
-        if ( featureConfig.enabled('codeLens.i18n') || featureConfig.enabled('codeLens.hierarchy') ) {
+        // The i18n lens needs BOTH its own flag and hints.i18nMissingLanguage
+        // (see CodeLensHandler.handle — the lens is a translate offer, and the
+        // hints flag is how a user withdraws those). Mirroring that coupling
+        // here matters: advertising codeLensProvider for a config where both
+        // lenses are effectively dead buys a textDocument/codeLens round trip
+        // per open file, every one of them answered with [].
+        var i18nLensLive = featureConfig.enabled('codeLens.i18n') &&
+                           featureConfig.enabled('hints.i18nMissingLanguage');
+        if ( i18nLensLive || featureConfig.enabled('codeLens.hierarchy') ) {
           caps.codeLensProvider = { resolveProvider: false };
         }
 

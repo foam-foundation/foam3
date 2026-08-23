@@ -290,20 +290,25 @@ prompt and restored after, with a warning on any sentinel a model drops.
 **Gating** — `translationReady` (`I18nHandler.js:40-42`) is set by
 `refreshAvailability()` probing `provider.detect()`, fired at boot as
 fire-and-forget (`server.js:573`, never awaited by `initialize`). It gates:
-- `scanMissingLanguages()` (`I18nHandler.js:506-529`) — the public,
-  diagnostic/code-action/code-lens-facing entry point; no confirmed provider
-  means no unsolicited HINT/action/lens noise.
+- `scanMissingLanguages()` (`I18nHandler.js:506-534`) — the public entry point,
+  with exactly TWO direct callers: `DiagnosticsHandler` (the
+  `i18n-missing-language` HINT) and `CodeLensHandler` (the "N translations
+  missing" lens). No confirmed provider means no unsolicited HINT/lens noise.
 - Code action C ("extract + translate") and D ("translate missing") in
   `CodeActionHandler.js` — both also require non-empty `targetLanguages` and
   the `hints.i18nMissingLanguage` feature flag (turning the hints off is how a
-  user says "stop offering me machine translation").
+  user says "stop offering me machine translation"). `CodeActionHandler` does
+  NOT call `scanMissingLanguages` itself: action D is diagnostic-driven, offered
+  off the HINT that scan already produced, so it inherits the gates at one
+  remove.
 
 The **test/demo/mock URI exemption lives on that same public entry point**
 (`isI18nExemptUri_`, `I18nHandler.js:486-503`), not in each consumer. It was
 originally only in `DiagnosticsHandler`, so a demo file got no
 missing-language HINT and yet still got a clickable "N translations missing"
 CodeLens that really translated it when clicked. One check at the source is
-what makes DiagnosticsHandler, CodeActionHandler and CodeLensHandler agree.
+what makes both direct callers agree — and, because action D rides the HINT,
+what keeps the code actions out of demo files too.
 `DiagnosticsHandler` keeps its own copy of the same predicate for
 `validateAddStrings_` — a different scan, with the same exemption, that never
 goes through `I18nHandler`.

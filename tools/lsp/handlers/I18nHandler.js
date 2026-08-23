@@ -537,12 +537,18 @@ foam.CLASS({
 
     function scanMissingLanguages(uri, text) {
       /**
-       * DiagnosticsHandler/CodeActionHandler/CodeLensHandler entry point —
-       * same as scanMissingLanguages_ below, PLUS two gates every unsolicited
+       * The entry point for the two DIRECT consumers — DiagnosticsHandler
+       * (the i18n-missing-language HINT) and CodeLensHandler (the
+       * "N translations missing" lens). CodeActionHandler is NOT one of them:
+       * actions C/D are diagnostic-driven, offered off the HINT this scan
+       * produced, so they inherit both gates below at one remove rather than
+       * calling here themselves.
+       *
+       * Same as scanMissingLanguages_ below, PLUS two gates every unsolicited
        * consumer must inherit:
        *   - translationReady: with no provider confirmed reachable (Task 5),
-       *     an unsolicited HINT, code action or lens would be noise the user
-       *     can't act on yet.
+       *     an unsolicited HINT or lens would be noise the user can't act on
+       *     yet (and no HINT means no action C/D either).
        *   - isI18nExemptUri_: test/demo/mock sources are not translated, so
        *     offering to translate them is pure noise there.
        * Returns [{ name, missing: [lang, ...], range }] — never null.

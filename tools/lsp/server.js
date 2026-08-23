@@ -68,6 +68,10 @@ function start() {
   var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
   var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
   var pomValidator           = foam.parse.lsp.handlers.PomValidator.create({ index: index });
+  // No featureConfig: scaffolding has no toggle. It only ever runs because
+  // the user explicitly invoked the command, so there is nothing to suppress
+  // — unlike the lenses/diagnostics, which the server offers unasked.
+  var scaffoldHandler        = foam.parse.lsp.handlers.ScaffoldHandler.create();
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -207,6 +211,18 @@ function start() {
       pendingOutbound[id] = { resolve: resolve, reject: reject };
       send({ jsonrpc: '2.0', id: id, method: method, params: params });
     });
+  }
+
+  function throwIfDeclined_(applyResult) {
+    // The client answers an applyEdit it declined with applied:false rather
+    // than an error response, so a refusal has to be checked for explicitly —
+    // otherwise it reads as success and the user is told nothing while the
+    // file stayed unchanged. Shared by every executeCommand that applies an
+    // edit, so all of them report a refusal the same way.
+    if ( applyResult && applyResult.applied === false ) {
+      throw new Error('the editor did not apply the edit' +
+        ( applyResult.failureReason ? ' (' + applyResult.failureReason + ')' : '' ));
+    }
   }
 
   function byNameResult(info, op) {
@@ -576,7 +592,11 @@ function start() {
           workspaceSymbolProvider: true,
           codeActionProvider: true,
           executeCommandProvider: {
-            commands: ['foam.i18n.extractAndTranslate', 'foam.i18n.translateMessage']
+            commands: [
+              'foam.i18n.extractAndTranslate',
+              'foam.i18n.translateMessage',
+              'foam.scaffold.newClass'
+            ]
           },
           documentHighlightProvider: true,
           renameProvider: { prepareProvider: true },
@@ -968,14 +988,46 @@ function start() {
         }
         break;
 
-      // The one promise-aware case: translating is a network round trip, so
-      // the edit can't be built inside this synchronous dispatch. The command
-      // resolves with the edit, the client is asked to apply it, and only
-      // then does the request get its (unspecified, per LSP) result. Errors —
-      // provider down, anchor gone, client refused the edit — are surfaced to
-      // the user as a message, never as a silent no-op.
+      // The promise-aware case. Two commands ride it:
+      //   foam.i18n.*          — translating is a network round trip, so the
+      //                          edit can't be built inside this synchronous
+      //                          dispatch.
+      //   foam.scaffold.newClass — builds its edit synchronously, but takes
+      //                          the same applyEdit-then-answer path so the
+      //                          new file and its pom entry land through the
+      //                          client (one undo step, no server-side write).
+      // Errors — provider down, anchor gone, client refused the edit — are
+      // surfaced to the user as a message, never as a silent no-op.
       case 'workspace/executeCommand': {
         var cmdArgs = ( params.arguments && params.arguments[0] ) || {};
+
+        if ( params.command === 'foam.scaffold.newClass' ) {
+          // Unlike the i18n commands this one carries no uri and reads no
+          // open document: everything it needs is { dir, name } plus what it
+          // reads off disk itself. Its result IS specified (the caller shows
+          // `warning` and opens `created`), so it answers with the summary
+          // rather than null.
+          Promise.resolve().then(function() {
+            var scaffold = scaffoldHandler.newClass(cmdArgs);
+            return request('workspace/applyEdit',
+              { label: 'FOAM: New Class', edit: scaffold.edit })
+              .then(function(applyResult) {
+                throwIfDeclined_(applyResult);
+                if ( scaffold.result.warning ) {
+                  notify('window/showMessage', { type: 2 /* Warning */,
+                    message: 'FOAM: New Class — ' + scaffold.result.warning });
+                }
+                respond(id, scaffold.result);
+              });
+          }).catch(function(e) {
+            notify('window/showMessage', { type: 1 /* Error */, message: 'FOAM: New Class: ' + e.message });
+            respond(id, null);
+          }).catch(function(e) {
+            console.error('[LSP] executeCommand reporting failed:', e.message);
+          });
+          break;
+        }
+
         // Reading the text starts inside the promise chain so a bad/deleted
         // uri (readFileSync throwing) lands in the same catch as any other
         // failure instead of leaving the request unanswered.
@@ -986,14 +1038,7 @@ function start() {
         }).then(function(r) {
           return request('workspace/applyEdit', { label: 'FOAM i18n translate', edit: r.edit })
             .then(function(applyResult) {
-              // The client answers an applyEdit it declined with applied:false
-              // rather than an error response, so a refusal has to be checked
-              // for explicitly — otherwise it reads as success and the user is
-              // told nothing while the file stayed unchanged.
-              if ( applyResult && applyResult.applied === false ) {
-                throw new Error('the editor did not apply the edit' +
-                  ( applyResult.failureReason ? ' (' + applyResult.failureReason + ')' : '' ));
-              }
+              throwIfDeclined_(applyResult);
               if ( r.warnings && r.warnings.length ) {
                 notify('window/showMessage', { type: 2 /* Warning */,
                   message: 'Translation applied with warnings: ' + r.warnings.join('; ') });

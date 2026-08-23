@@ -75,6 +75,17 @@ foam.CLASS({
         'is not something a workspace language server should do. Empty/unset ' +
         'means NO containment check at all, which is how handler-level tests ' +
         'use it — a bare create() scaffolds into any folder it is given.'
+    },
+    {
+      class: 'Boolean',
+      name: 'requireWsRoot',
+      documentation: 'Set by server.js at initialize. Inside a client session ' +
+        'an empty wsRoot means the client sent no rootUri — and the answer to ' +
+        '"no workspace root" is REFUSE, not "scaffold anywhere". Falling back ' +
+        'to process.cwd() (what server.js used to do) would give the ' +
+        'containment check an arbitrary boundary the user never chose and ' +
+        'cannot see. Left false for bare handler-level tests, where an empty ' +
+        'wsRoot legitimately means "no containment check".'
     }
   ],
 
@@ -106,7 +117,13 @@ foam.CLASS({
       // file://a/b/X.js, whose 'a' parses as a URI authority, while the pom
       // edit's uri (built from an already-resolved pom path) came out
       // absolute: one WorkspaceEdit naming two different filesystems.
-      var dir = path.resolve(a.dir);
+      //
+      // realpath, not just resolve: the containment check below compares real
+      // paths (a symlink otherwise walks straight out of the workspace), and
+      // everything downstream must live in the same space as the check that
+      // approved it — including the pom walk-up, whose stop-at-root
+      // comparison is likewise lexical.
+      var dir = this.realPath_(a.dir);
       this.assertInWorkspace_(dir);
 
       var filePath = path.join(dir, a.name + '.js');
@@ -161,19 +178,46 @@ foam.CLASS({
       return { edit: { documentChanges: documentChanges }, result: result };
     },
 
+    function realPath_(p) {
+      /**
+       * fs.realpathSync(p), or the plain resolved path when it can't be
+       * resolved (p doesn't exist, or a permission error mid-walk). Every
+       * caller here has already established that its path exists, so the
+       * fallback is a safety net rather than a normal branch — and falling
+       * back to the lexical path keeps the old (still lexically correct)
+       * behaviour instead of throwing something the user can't act on.
+       */
+      var fs   = require('fs');
+      var path = require('path');
+      try { return fs.realpathSync(p); } catch (e) { return path.resolve(p); }
+    },
+
     function assertInWorkspace_(resolvedDir) {
       /**
-       * Refuse a target folder outside `wsRoot`. No wsRoot (a bare handler in
-       * a test) means no check — see the property's documentation. The
-       * comparison is between resolved paths, and `rel` empty means the
-       * folder IS the root, which is inside it.
+       * Refuse a target folder outside `wsRoot`. No wsRoot means no check when
+       * this is a bare handler in a test, but REFUSAL once requireWsRoot is
+       * set — see both properties' documentation.
+       *
+       * Both sides are run through fs.realpathSync first. The comparison
+       * itself is lexical (path.relative), but everything DOWNSTREAM of it —
+       * statSync, readdirSync, the client's own file write — follows
+       * symlinks. Comparing lexical paths while acting on resolved ones is
+       * the whole bug: `ln -s / <ws>/escape` makes <ws>/escape/etc lexically
+       * inside the workspace and really /etc. Resolving first closes that,
+       * and `rel` empty still means the folder IS the root, which is inside
+       * it.
        */
+      if ( this.requireWsRoot && ! this.wsRoot ) {
+        throw new Error('Scaffolding requires a workspace root — this editor session ' +
+          'opened no folder (no rootUri), so there is nothing to scaffold inside.');
+      }
       if ( ! this.wsRoot ) return;
       var path = require('path');
-      var root = path.resolve(this.wsRoot);
-      var rel  = path.relative(root, resolvedDir);
+      var root = this.realPath_(this.wsRoot);
+      var dir  = this.realPath_(resolvedDir);
+      var rel  = path.relative(root, dir);
       if ( rel === '..' || rel.indexOf('..' + path.sep) === 0 || path.isAbsolute(rel) ) {
-        throw new Error(resolvedDir + ' is outside the workspace (' + root + ').');
+        throw new Error(dir + ' is outside the workspace (' + root + ').');
       }
     },
 
@@ -217,11 +261,16 @@ foam.CLASS({
        * it), so a workspace with no pom of its own can never reach out and
        * edit some unrelated pom.js further up the filesystem; with no
        * wsRoot it climbs to the filesystem root.
+       *
+       * Both ends are realpath'd for the same reason assertInWorkspace_ does
+       * it: a lexical `cur === stop` never matches when either side reaches
+       * the workspace through a symlink, and the walk would then sail past
+       * the root it was supposed to stop at.
        */
       var fs   = require('fs');
       var path = require('path');
-      var cur  = path.resolve(dir);
-      var stop = this.wsRoot ? path.resolve(this.wsRoot) : null;
+      var cur  = this.realPath_(dir);
+      var stop = this.wsRoot ? this.realPath_(this.wsRoot) : null;
       for (;;) {
         var candidate = path.join(cur, 'pom.js');
         if ( fs.existsSync(candidate) ) return candidate;
@@ -238,16 +287,42 @@ foam.CLASS({
        * segment (last, not first, so a nested source root like
        * <repo>/foam3/src/foam/demo wins over an outer one), else the path
        * below the pom's own directory, else the folder's own name.
+       *
+       * The answer is VALIDATED before it is returned, because newClass drops
+       * it into a single-quoted JS string literal. A folder named `it's`
+       * would otherwise emit `package: 'it's.views'` — a syntax error in the
+       * file we just told the user we created. Refusing beats escaping here:
+       * a FOAM package is a dotted Java-style identifier path, so `it's` is
+       * not a package this scaffold could legitimately write under any
+       * quoting, and a clear refusal names the folder to rename.
        */
       var path = require('path');
       var segs = path.resolve(dir).split(path.sep).filter(Boolean);
       var idx  = segs.lastIndexOf('src');
-      if ( idx !== -1 && idx < segs.length - 1 ) return segs.slice(idx + 1).join('.');
+      if ( idx !== -1 && idx < segs.length - 1 ) {
+        return this.assertPackageWritable_(segs.slice(idx + 1).join('.'), dir);
+      }
       if ( opt_pomDir ) {
         var rel = path.relative(opt_pomDir, dir);
-        if ( rel && rel.indexOf('..') !== 0 ) return rel.split(path.sep).join('.');
+        if ( rel && rel.indexOf('..') !== 0 ) {
+          return this.assertPackageWritable_(rel.split(path.sep).join('.'), dir);
+        }
       }
-      return segs[segs.length - 1] || '';
+      return this.assertPackageWritable_(segs[segs.length - 1] || '', dir);
+    },
+
+    function assertPackageWritable_(pkg, dir) {
+      /**
+       * `pkg` back, or a throw naming the folder when it isn't a legal FOAM
+       * package. Letters, digits, _ and $ per segment, joined by dots — the
+       * same alphabet the class-name check in newClass accepts, plus the dot
+       * separator. Anything else (a quote, a space, a dash, a backslash)
+       * cannot be written into `package: '…'` safely OR meaningfully.
+       */
+      if ( pkg && /^[A-Za-z0-9_$.]+$/.test(pkg) ) return pkg;
+      throw new Error('Cannot derive a FOAM package from ' + dir + ' — "' + pkg +
+        '" is not a legal package (letters, digits, _ and $ only, dot-separated). ' +
+        'Rename the folder, or scaffold into one below a src/ directory.');
     },
 
     function findFilesArraySpan_(text) {

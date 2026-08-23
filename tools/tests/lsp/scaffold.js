@@ -23,7 +23,12 @@ var handler = foam.parse.lsp.handlers.ScaffoldHandler.create();
 var roots_ = [];
 
 function tmpRoot() {
-  var d = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'foam-scaffold-'));
+  // Hyphen-free prefix on purpose: one case below scaffolds into the root
+  // folder ITSELF, where derivePackage_ falls back to the folder's own name —
+  // and a package is now validated as a dotted identifier path, so a
+  // 'foam-scaffold-XXXX' folder name would be (correctly) refused as an
+  // illegal package rather than exercising the containment rule under test.
+  var d = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'foamscaffold'));
   roots_.push(d);
   return d;
 }
@@ -459,6 +464,87 @@ var capped   = foam.parse.lsp.handlers.ScaffoldHandler.create({ wsRoot: noPomWs 
   .newClass({ dir: noPomDir, name: 'Capped' });
 test(capped.result.pomUpdated === false && /pom/i.test(capped.result.warning || ''),
   'containment: a workspace with no pom.js of its own does not adopt one from above');
+
+// =========================================================================
+section('ScaffoldHandler — containment survives a symlink');
+
+// The bypass this closes: the check compared LEXICAL paths (path.resolve)
+// while everything downstream of it — statSync, readdirSync, the client's own
+// file write — follows symlinks. So `ln -s <outside> <ws>/escape` gave a dir
+// that is lexically inside the workspace and really outside it, and the
+// scaffold happily targeted the real destination. Resolving both sides with
+// fs.realpathSync before comparing is what makes the check agree with the
+// filesystem the write actually lands on.
+var symWs      = tmpRoot();
+mkdir(path.join(symWs, 'src'));
+var symOutside = mkdir(path.join(tmpRoot(), 'secrets'));
+var escapePath = path.join(symWs, 'escape');
+var symlinkOk  = true;
+try { fs.symlinkSync(symOutside, escapePath, 'dir'); } catch (e) { symlinkOk = false; }
+
+if ( symlinkOk ) {
+  var symHandler = foam.parse.lsp.handlers.ScaffoldHandler.create({ wsRoot: symWs });
+  test(fs.statSync(escapePath).isDirectory(),
+    'control: the symlink stats as a directory, so the isDir gate lets it through');
+  test(path.resolve(escapePath).indexOf(path.resolve(symWs)) === 0,
+    'control: lexically the symlink IS inside the workspace — this is the bypass');
+  test(throws(function() { symHandler.newClass({ dir: escapePath, name: 'Escaped' }); }),
+    'a symlinked folder pointing outside the workspace is refused');
+
+  // A symlink that stays INSIDE must still work — the fix must not turn every
+  // symlink into a refusal (a workspace reached through /var -> /private/var,
+  // as on macOS, is the everyday case).
+  var symInsideTarget = mkdir(path.join(symWs, 'src', 'real'));
+  var symInsideLink   = path.join(symWs, 'src', 'link');
+  fs.symlinkSync(symInsideTarget, symInsideLink, 'dir');
+  var viaLink = symHandler.newClass({ dir: symInsideLink, name: 'ViaLink' });
+  test(!! contentOf(viaLink, path.join(symInsideTarget, 'ViaLink.js')),
+    'a symlink INSIDE the workspace still scaffolds — at its real path');
+} else {
+  test(true, 'symlink containment: skipped (this filesystem refuses symlinks)');
+}
+
+// =========================================================================
+section('ScaffoldHandler — no workspace root at all (requireWsRoot)');
+
+// server.js used to fall back to process.cwd() when the client sent no
+// rootUri, which handed the containment check an arbitrary boundary the user
+// never chose and cannot see. It now leaves wsRoot empty and sets
+// requireWsRoot, and the answer to "no workspace root" is REFUSE — not
+// "scaffold anywhere".
+var rootlessDir = mkdir(path.join(tmpRoot(), 'anywhere'));
+var rootless    = foam.parse.lsp.handlers.ScaffoldHandler.create({ requireWsRoot: true });
+test(throws(function() { rootless.newClass({ dir: rootlessDir, name: 'Rootless' }); }),
+  'requireWsRoot with an empty wsRoot refuses outright');
+test(/workspace root/i.test(( function() {
+  try { rootless.newClass({ dir: rootlessDir, name: 'Rootless' }); return ''; }
+  catch (e) { return e.message; }
+})()), 'and says why — the message names the missing workspace root');
+test(!! contentOf(handler.newClass({ dir: rootlessDir, name: 'Rootless' }),
+  path.join(rootlessDir, 'Rootless.js')),
+  'control: the same folder scaffolds fine for a bare handler (requireWsRoot false)');
+
+// =========================================================================
+section('ScaffoldHandler — a folder name that cannot be a package is refused');
+
+// derivePackage_ drops its answer into `package: '<pkg>'`, a single-quoted JS
+// string literal. A folder named `it's` would emit package: 'it's.…' — a
+// syntax error in the file we just told the user we created. Refusing beats
+// escaping: `it's` is not a legal FOAM package under any quoting.
+var quoteWs  = tmpRoot();
+var quoteDir = mkdir(path.join(quoteWs, 'src', "it's"));
+var quoteHandler = foam.parse.lsp.handlers.ScaffoldHandler.create({ wsRoot: quoteWs });
+test(throws(function() { quoteHandler.newClass({ dir: quoteDir, name: 'Quoted' }); }),
+  'a folder whose name carries an apostrophe is refused, not silently mis-quoted');
+
+var spaceDir = mkdir(path.join(quoteWs, 'src', 'two words'));
+test(throws(function() { quoteHandler.newClass({ dir: spaceDir, name: 'Spaced' }); }),
+  'a folder name with a space is refused too');
+
+var okDir = mkdir(path.join(quoteWs, 'src', 'foam', 'fine_$1'));
+test(( contentOf(quoteHandler.newClass({ dir: okDir, name: 'Fine' }),
+  path.join(okDir, 'Fine.js')) || '' ).indexOf("package: 'foam.fine_$1'") !== -1,
+  'control: letters, digits, _ and $ are all legal package characters');
 
 // --- cleanup --------------------------------------------------------------
 roots_.forEach(function(d) {

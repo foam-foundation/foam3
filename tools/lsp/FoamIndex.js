@@ -10,6 +10,20 @@ foam.CLASS({
 
   documentation: 'Query layer over the FOAM runtime class registry for LSP handlers.',
 
+  constants: {
+    JAVA_EMBED_KEYS_: {
+      javaCode: true, javaFactory: true, javaGetter: true, javaSetter: true,
+      javaPreSet: true, javaPostSet: true, javaAdapt: true, javaCompare: true,
+      javaComparePropertyToObject: true, javaComparePropertyToValue: true,
+      javaCloneProperty: true, javaDiffProperty: true,
+      javaFormatJSON: true, javaJSONParser: true, javaCSVParser: true,
+      javaQueryParser: true, javaToCSV: true, javaToCSVLabel: true,
+      javaFromCSVLabelMapping: true, javaAssertValue: true,
+      javaValidateObj: true, javaCondition: true, javaValue: true,
+      javaImports: true, code: true, serviceScript: true
+    }
+  },
+
   properties: [
     {
       name: 'cache_',
@@ -1906,6 +1920,133 @@ foam.CLASS({
     // and every services.jrl file (via JrlLoader, the FOAM-native journal
     // reader), then answers `getStringUsages(name)` — every class that
     // imports the name + every services.jrl entry that registers it.
+
+    function scanJrlClassRefs(text) {
+      /**
+       * Registry-verified class references in .jrl text, offset-based.
+       * Single shared implementation behind JrlHandler's semantic tokens and
+       * the jrl usage index (#5264). Kinds: 'classValue' ("class":"…" values,
+       * top level), 'javaEmbed' (dotted ids inside serviceScript/javaCode/…
+       * blocks, longest registered prefix), 'jsonEmbed' ("class":"…" inside
+       * embedded client JSON, literal or escaped).
+       */
+      var out = [];
+
+      // 1. "class":"…" / class:'…' values, line-by-line; // lines skipped.
+      var lineStart = 0;
+      var lines = text.split('\n');
+      for ( var lineNum = 0 ; lineNum < lines.length ; lineNum++ ) {
+        var line = lines[lineNum];
+        if ( line.trim() && ! /^\s*\/\//.test(line) ) {
+          var classRegex = /(?:"class"|(?<=[{,])\s*class)\s*:\s*(?:"([^"]+)"|'([^']+)')/g;
+          var cm;
+          while ( ( cm = classRegex.exec(line) ) !== null ) {
+            var classVal = cm[1] || cm[2];
+            if ( classVal && this.classExists(classVal) ) {
+              var valIdx = line.indexOf(classVal, cm.index);
+              if ( valIdx !== -1 ) {
+                out.push({ classId: classVal, offset: lineStart + valIdx, length: classVal.length, kind: 'classValue' });
+              }
+            }
+          }
+        }
+        lineStart += line.length + 1;
+      }
+
+      // 2. Embedded value blocks (serviceScript/javaCode/… and client JSON).
+      var blocks = this.findEmbeddedBlocks_(text);
+      for ( var i = 0 ; i < blocks.length ; i++ ) {
+        var b = blocks[i];
+        var content = text.substring(b.contentStart, b.contentEnd);
+        if ( this.JAVA_EMBED_KEYS_[b.key] ) {
+          var dottedRe = /\b([a-z][\w$]*(?:\.[a-zA-Z_][\w$]*)+)\b/g;
+          var dm;
+          while ( ( dm = dottedRe.exec(content) ) !== null ) {
+            var hit = this.resolveRegisteredPrefix_(dm[1]);
+            if ( ! hit ) continue;
+            out.push({ classId: dm[1].substring(0, hit.length), offset: b.contentStart + dm.index, length: hit.length, kind: 'javaEmbed' });
+          }
+        } else if ( b.key === 'client' ) {
+          var litRe = /"class"\s*:\s*"([^"\n]+)"/g;
+          var lm;
+          while ( ( lm = litRe.exec(content) ) !== null ) {
+            var cid = lm[1];
+            if ( ! this.classExists(cid) ) continue;
+            var vIdx = content.indexOf(cid, lm.index);
+            if ( vIdx !== -1 ) out.push({ classId: cid, offset: b.contentStart + vIdx, length: cid.length, kind: 'jsonEmbed' });
+          }
+          var escRe = /\\"class\\"\s*:\s*\\"([^"\\\n]+)\\"/g;
+          var em;
+          while ( ( em = escRe.exec(content) ) !== null ) {
+            var ecid = em[1];
+            if ( ! this.classExists(ecid) ) continue;
+            var eIdx = content.indexOf(ecid, em.index);
+            if ( eIdx !== -1 ) out.push({ classId: ecid, offset: b.contentStart + eIdx, length: ecid.length, kind: 'jsonEmbed' });
+          }
+        }
+      }
+      return out;
+    },
+
+    function findEmbeddedBlocks_(text) {
+      /**
+       * Scan the full text for every triple-quote and backtick embedded
+       * value. Returns array of { key, contentStart, contentEnd, delim }
+       * where delim is '"""' or '`'. Skips `//` line comments.
+       *
+       * Approach: find `"key":` then the opening delimiter right after.
+       * Matches BOTH quoted-key (`"javaCode"`) and unquoted-key (`javaCode`).
+       */
+      var out = [];
+      var keyDelimRe = /(?:"([a-zA-Z_][\w$]*)"|([a-zA-Z_][\w$]*))\s*:\s*("""|`)/g;
+      var m;
+      while ( ( m = keyDelimRe.exec(text) ) !== null ) {
+        var key = m[1] || m[2];
+        if ( ! key ) continue;
+        var delim = m[3];
+        var openStart = m.index + m[0].length - delim.length;
+        var contentStart = openStart + delim.length;
+        var contentEnd = text.indexOf(delim, contentStart);
+        if ( contentEnd === -1 ) break;
+        out.push({ key: key, contentStart: contentStart, contentEnd: contentEnd, delim: delim });
+        keyDelimRe.lastIndex = contentEnd + delim.length;
+      }
+
+      // Escaped-in-double-quote form: `"client": "…"` where inner quotes
+      // are `\"`. Only honor `client` (FObject JSON); serviceScript also
+      // uses this form but we leave Java highlighting to grammar injection
+      // there since escaping makes it hard to detect reliably.
+      var escRe = /"(client)"\s*:\s*"(?!"")((?:\\.|[^"\\\n])*)"/g;
+      var em;
+      while ( ( em = escRe.exec(text) ) !== null ) {
+        var vStart = em.index + em[0].length - em[2].length - 1;
+        out.push({
+          key: em[1],
+          contentStart: vStart + 1,
+          contentEnd: vStart + 1 + em[2].length,
+          delim: '"',
+          escaped: true
+        });
+      }
+      return out;
+    },
+
+    function resolveRegisteredPrefix_(dottedId) {
+      /**
+       * Given `foo.X.Builder`, return the longest prefix that exists in the
+       * FOAM registry. Returns { length } (char length of the matched
+       * prefix) or null.
+       */
+      if ( ! dottedId ) return null;
+      var cand = dottedId;
+      while ( cand ) {
+        if ( this.classExists(cand) ) return { length: cand.length };
+        var dot = cand.lastIndexOf('.');
+        if ( dot === -1 ) return null;
+        cand = cand.substring(0, dot);
+      }
+      return null;
+    },
 
     function getStringUsages(name) {
       if ( ! this.stringUsageIndex_ ) this.buildStringUsageIndex_();

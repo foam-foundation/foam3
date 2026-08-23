@@ -455,9 +455,10 @@ foam.CLASS({
                       this.addClass(view.myClass('th-editColumns'))
                       .on('click', function(e) {
                         editColumnView.parentId = this.id;
-                        editColumnView.updatePosition(); // Update position on click
-                        if ( ! editColumnView.selectColumnsExpanded )
-                          editColumnView.selectColumnsExpanded = ! editColumnView.selectColumnsExpanded;
+                        editColumnView.triggerEl = this;
+                        editColumnView.dropdownX = e.clientX;
+                        editColumnView.dropdownY = e.clientY;
+                        editColumnView.selectColumnsExpanded = ! editColumnView.selectColumnsExpanded;
                       }).
                       tag(view.Image, { data: '/images/Icon_More_Resting.svg' }).
                       addClass(view.myClass('vertDots')).

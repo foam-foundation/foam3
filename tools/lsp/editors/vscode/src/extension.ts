@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { ExtensionContext, workspace, window, commands, RelativePattern } from 'vscode';
+import { ExtensionContext, workspace, window, commands, Uri, StatusBarItem, RelativePattern } from 'vscode';
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -16,6 +16,45 @@ import { FoamTreeProvider } from './FoamTreeProvider';
 import { FoamAnalysisRunner } from './FoamAnalysisRunner';
 
 let client: LanguageClient;
+
+// Mirrors FeatureConfig.DEFAULTS keys (tools/lsp/FeatureConfig.js:23-33) — the
+// package.json setting ids under foam.features.* MUST match these exactly.
+const FLAG_KEYS = [
+  'diagnostics.java',
+  'diagnostics.i18n',
+  'hints.i18nMissingLanguage',
+  'completion',
+  'hover',
+  'semanticTokens',
+  'signatureHelp',
+  'folding',
+  'codeLens.i18n',
+  'codeLens.hierarchy'
+];
+
+// Forwards only EXPLICITLY-set foam.* settings to the server as
+// initializationOptions. A value left at its package.json default is not
+// sent at all, so the server's own FeatureConfig.DEFAULTS (and foam-lsp.json)
+// stay authoritative for anyone who never touched the setting — only a user
+// who actually opened Settings and changed something overrides them.
+function explicitFoamSettings(): any {
+  const cfg = workspace.getConfiguration('foam');
+  const features: Record<string, boolean> = {};
+  for ( const key of FLAG_KEYS ) {
+    const info = cfg.inspect<boolean>('features.' + key);
+    const v = info?.workspaceFolderValue ?? info?.workspaceValue ?? info?.globalValue;
+    if ( v !== undefined ) features[key] = v;
+  }
+
+  const i18n: Record<string, unknown> = {};
+  for ( const key of ['languages', 'endpoint', 'model', 'sourceLanguage'] ) {
+    const info = cfg.inspect<unknown>('i18n.' + key);
+    const v = info?.workspaceFolderValue ?? info?.workspaceValue ?? info?.globalValue;
+    if ( v !== undefined ) i18n[key] = v;
+  }
+
+  return { foam: { features: features, i18n: i18n } };
+}
 
 export function activate(context: ExtensionContext) {
   const outputChannel = window.createOutputChannel('FOAM Language Server');
@@ -121,6 +160,67 @@ export function activate(context: ExtensionContext) {
     })
   );
 
+  // Register "FOAM: New Class" — prompts for a name, resolves a target
+  // folder, then hands off to the server's foam.scaffold.newClass command.
+  // The server builds the WorkspaceEdit (new file + pom.js registration);
+  // this command only prompts, sends the request, and reacts to the result.
+  context.subscriptions.push(
+    commands.registerCommand('foam.newClass', async () => {
+      if ( !client ) {
+        window.showWarningMessage('FOAM LSP server not ready yet.');
+        return;
+      }
+
+      const name = await window.showInputBox({
+        prompt: 'FOAM class name',
+        placeHolder: 'MyNewClass',
+        validateInput: (v: string) =>
+          /^[A-Z][A-Za-z0-9]*$/.test(v) ?
+            null :
+            'Must start with an uppercase letter and contain only letters and digits.'
+      });
+      if ( !name ) return;
+
+      let dir: string | undefined;
+      const activeUri = window.activeTextEditor?.document.uri;
+      if ( activeUri && activeUri.scheme === 'file' ) {
+        dir = path.dirname(activeUri.fsPath);
+      } else {
+        const wsFolders = workspace.workspaceFolders;
+        if ( !wsFolders || wsFolders.length === 0 ) {
+          window.showWarningMessage('No workspace folder open.');
+          return;
+        }
+        if ( wsFolders.length === 1 ) {
+          dir = wsFolders[0].uri.fsPath;
+        } else {
+          const picked = await window.showWorkspaceFolderPick();
+          if ( !picked ) return;
+          dir = picked.uri.fsPath;
+        }
+      }
+
+      try {
+        const response: any = await client.sendRequest('workspace/executeCommand', {
+          command: 'foam.scaffold.newClass',
+          arguments: [{ dir, name }]
+        });
+        // A failure response is null — the reason already arrived as a
+        // window/showMessage error from the server, nothing more to do here.
+        if ( !response ) return;
+        if ( response.warning ) {
+          window.showWarningMessage('FOAM: New Class — ' + response.warning);
+        }
+        if ( response.created ) {
+          const doc = await workspace.openTextDocument(Uri.parse(response.created));
+          await window.showTextDocument(doc);
+        }
+      } catch (e: any) {
+        window.showErrorMessage('FOAM: New Class failed: ' + e.message);
+      }
+    })
+  );
+
   // Defer server start to not block activation
   setTimeout(() => {
     startServer(context, outputChannel, lspScript, pomPath, workspaceRoot, treeProvider, (r) => { runner = r; });
@@ -136,66 +236,135 @@ function startServer(
   treeProvider: FoamTreeProvider,
   onRunnerReady: (runner: FoamAnalysisRunner) => void
 ) {
-  // GUI-launched VS Code does not inherit the shell PATH, so a bare `node`
-  // command fails with ENOENT when Node lives under nvm or homebrew. Default to
-  // the Node binary bundled with VS Code (run via ELECTRON_RUN_AS_NODE); honour
-  // an explicit foam.nodePath override when the user sets one.
-  const configuredNode = (workspace.getConfiguration('foam').get<string>('nodePath') || '').trim();
-  const env = { ...process.env };
-  if ( ! configuredNode ) env.ELECTRON_RUN_AS_NODE = '1';
-  const serverOptions: ServerOptions = {
-    command: configuredNode || process.execPath,
-    args: [lspScript, pomPath],
-    options: { cwd, env }
-  };
-
-  const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      { scheme: 'file', language: 'javascript' },
-      { scheme: 'file', language: 'foam-journal' }
-    ],
-    synchronize: {
-      fileEvents: [
-        workspace.createFileSystemWatcher('**/*.js'),
-        workspace.createFileSystemWatcher('**/*.jrl'),
-        workspace.createFileSystemWatcher('**/pom.js')
-      ]
-    },
-    outputChannel: outputChannel as any
-  };
-
-  client = new LanguageClient('foam-lsp', 'FOAM Language Server', serverOptions, clientOptions);
-
-  const status = window.createStatusBarItem();
+  const status: StatusBarItem = window.createStatusBarItem();
   status.text = '$(loading~spin) FOAM: Indexing...';
+  status.command = 'foam.showStatusMenu';
   status.show();
+  context.subscriptions.push(status);
 
-  // Restart plumbing: manual command + auto-restart when the server's own
-  // source changes on disk. The server runs from the workspace (tools/lsp/**),
-  // not from the VSIX, so a pulled or edited handler would otherwise keep
-  // serving stale behavior until the whole window reloads.
-  let restarting = false;
-  async function restartServer(reason: string) {
-    if ( !client || restarting ) return;
-    restarting = true;
-    status.text = '$(loading~spin) FOAM: Restarting...';
+  // Quick-pick menu bound to the status bar item — offers the two actions
+  // that matter once the server is running: restart it, or look at its log.
+  // Registered once here (startServer runs exactly once, from activate's
+  // deferred setTimeout below) so restarting the CLIENT never re-registers
+  // this command.
+  context.subscriptions.push(
+    commands.registerCommand('foam.showStatusMenu', async () => {
+      const pick = await window.showQuickPick(
+        ['Restart FOAM LSP', 'Show Output'],
+        { placeHolder: 'FOAM Language Server' }
+      );
+      if ( pick === 'Restart FOAM LSP' ) {
+        outputChannel.appendLine('Restarting FOAM LSP server...');
+        status.text = '$(loading~spin) FOAM: Indexing...';
+        try {
+          if ( client ) await client.stop();
+        } catch (e: any) {
+          outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
+        }
+        startClient();
+      } else if ( pick === 'Show Output' ) {
+        outputChannel.show();
+      }
+    })
+  );
+
+  // Builds and starts the LanguageClient. Split out from the one-time setup
+  // above so "Restart FOAM LSP" can call it again without recreating the
+  // status bar item or re-registering commands.
+  function startClient() {
+    // GUI-launched VS Code does not inherit the shell PATH, so a bare `node`
+    // command fails with ENOENT when Node lives under nvm or homebrew. Default to
+    // the Node binary bundled with VS Code (run via ELECTRON_RUN_AS_NODE); honour
+    // an explicit foam.nodePath override when the user sets one.
+    const configuredNode = (workspace.getConfiguration('foam').get<string>('nodePath') || '').trim();
+    const env = { ...process.env };
+    if ( ! configuredNode ) env.ELECTRON_RUN_AS_NODE = '1';
+    const serverOptions: ServerOptions = {
+      command: configuredNode || process.execPath,
+      args: [lspScript, pomPath],
+      options: { cwd, env }
+    };
+
+    const clientOptions: LanguageClientOptions = {
+      documentSelector: [
+        { scheme: 'file', language: 'javascript' },
+        { scheme: 'file', language: 'foam-journal' }
+      ],
+      synchronize: {
+        fileEvents: [
+          workspace.createFileSystemWatcher('**/*.js'),
+          workspace.createFileSystemWatcher('**/*.jrl'),
+          workspace.createFileSystemWatcher('**/pom.js')
+        ]
+      },
+      outputChannel: outputChannel as any,
+      initializationOptions: explicitFoamSettings()
+    };
+
+    client = new LanguageClient('foam-lsp', 'FOAM Language Server', serverOptions, clientOptions);
+    context.subscriptions.push(client);
+
+    status.text = '$(loading~spin) FOAM: Indexing...';
     status.show();
-    outputChannel.appendLine('Restarting FOAM LSP (' + reason + ')');
-    try {
-      await client.restart();
-      outputChannel.appendLine('FOAM LSP restarted');
+
+    outputChannel.appendLine('Starting FOAM LSP server...');
+
+    client.start().then(() => {
+      outputChannel.appendLine('FOAM LSP server ready');
       status.text = '$(check) FOAM: Ready';
-      setTimeout(() => status.hide(), 5000);
-    } catch (e: any) {
-      outputChannel.appendLine('FOAM LSP restart failed: ' + e.message);
+
+      // One-shot i18n status probe — appends the active translation model
+      // name to the status bar when a provider is available. Fire-and-forget:
+      // a failed/absent provider just leaves the plain "Ready" text.
+      client.sendRequest('foam/i18nStatus', {}).then((s: any) => {
+        if ( s && s.available && s.model ) {
+          status.text = '$(check) FOAM: Ready · ' + s.model;
+        }
+      }, () => { /* no provider — status stays plain "Ready" */ });
+
+      // Set up analysis runner now that client is ready
+      const runner = new FoamAnalysisRunner(client, treeProvider);
+      onRunnerReady(runner);
+
+      // Handle progress notifications from workspace analysis
+      client.onNotification('foam/analyzeProgress', (params: any) => {
+        runner.handleProgress(params);
+      });
+
+      // Auto-run workspace analysis on startup (after a short delay for boot to settle)
+      setTimeout(async () => {
+        outputChannel.appendLine('Auto-running workspace analysis...');
+        try {
+          await runner.run();
+          outputChannel.appendLine('Startup analysis complete.');
+        } catch (e: any) {
+          outputChannel.appendLine('Startup analysis failed: ' + e.message);
+        }
+      }, 2000);
+    }).catch((err: Error) => {
+      outputChannel.appendLine('FOAM LSP failed: ' + err.message);
       status.text = '$(error) FOAM: Error';
-    } finally {
-      restarting = false;
+    });
+  }
+
+  // Restart plumbing shared with the manual quick-pick above: auto-restart
+  // when the server's own source changes on disk. The server runs from the
+  // workspace (tools/lsp/**), not from the VSIX, so a pulled or edited
+  // handler would otherwise keep serving stale behavior until the whole
+  // window reloads.
+  async function autoRestartServer(reason: string) {
+    outputChannel.appendLine('Restarting FOAM LSP (' + reason + ')');
+    status.text = '$(loading~spin) FOAM: Indexing...';
+    try {
+      if ( client ) await client.stop();
+    } catch (e: any) {
+      outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
     }
+    startClient();
   }
 
   context.subscriptions.push(
-    commands.registerCommand('foam.restartServer', () => restartServer('manual'))
+    commands.registerCommand('foam.restartServer', () => autoRestartServer('manual'))
   );
 
   const serverWatcher = workspace.createFileSystemWatcher(
@@ -206,45 +375,14 @@ function startServer(
   const scheduleRestart = (uri: { fsPath: string }) => {
     if ( restartTimer ) clearTimeout(restartTimer);
     restartTimer = setTimeout(
-      () => restartServer('changed: ' + path.basename(uri.fsPath)), 1500);
+      () => autoRestartServer('changed: ' + path.basename(uri.fsPath)), 1500);
   };
   serverWatcher.onDidChange(scheduleRestart);
   serverWatcher.onDidCreate(scheduleRestart);
   serverWatcher.onDidDelete(scheduleRestart);
   context.subscriptions.push(serverWatcher);
 
-  outputChannel.appendLine('Starting FOAM LSP server...');
-
-  client.start().then(() => {
-    outputChannel.appendLine('FOAM LSP server ready');
-    status.text = '$(check) FOAM: Ready';
-    setTimeout(() => status.hide(), 5000);
-
-    // Set up analysis runner now that client is ready
-    const runner = new FoamAnalysisRunner(client, treeProvider);
-    onRunnerReady(runner);
-
-    // Handle progress notifications from workspace analysis
-    client.onNotification('foam/analyzeProgress', (params: any) => {
-      runner.handleProgress(params);
-    });
-
-    // Auto-run workspace analysis on startup (after a short delay for boot to settle)
-    setTimeout(async () => {
-      outputChannel.appendLine('Auto-running workspace analysis...');
-      try {
-        await runner.run();
-        outputChannel.appendLine('Startup analysis complete.');
-      } catch (e: any) {
-        outputChannel.appendLine('Startup analysis failed: ' + e.message);
-      }
-    }, 2000);
-  }).catch((err: Error) => {
-    outputChannel.appendLine('FOAM LSP failed: ' + err.message);
-    status.text = '$(error) FOAM: Error';
-  });
-
-  context.subscriptions.push(client);
+  startClient();
 }
 
 export function deactivate(): Thenable<void> | undefined {

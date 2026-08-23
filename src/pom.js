@@ -267,6 +267,7 @@ foam.POM({
     { name: "foam/u2/borders/TopBorderCard",                          flags: "web" },
     { name: "foam/u2/borders/BackgroundCard",                         flags: "web" },
     { name: "foam/u2/borders/BreadcrumbBorder",                       flags: "web" },
+    { name: "foam/u2/borders/CopyBorder",                             flags: "web" },
     { name: "foam/u2/borders/ExpandableBorder",                       flags: "web" },
     { name: "foam/u2/borders/SpacingBorder",                          flags: "web" },
     { name: "foam/u2/borders/SplitScreenBorder",                      flags: "web" },

@@ -61,6 +61,7 @@ function start() {
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
   var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
+  var codeLensHandler        = foam.parse.lsp.handlers.CodeLensHandler.create({ index: index, cache: fileModelCache, i18nHandler: i18nHandler, referencesHandler: referencesHandler, featureConfig: featureConfig });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
@@ -510,6 +511,7 @@ function start() {
         featureConfig.warnings.forEach(function(w) { console.error('[LSP] config: ' + w); });
         diagnosticsHandler.featureConfig = featureConfig;
         codeActionHandler.featureConfig  = featureConfig;
+        codeLensHandler.featureConfig    = featureConfig;
 
         // i18n settings ride the same merge (featureConfig.i18n), but the
         // env-var and locales.jrl fallbacks below stay here: FeatureConfig
@@ -610,6 +612,9 @@ function start() {
             },
             full: true
           };
+        }
+        if ( featureConfig.enabled('codeLens.i18n') || featureConfig.enabled('codeLens.hierarchy') ) {
+          caps.codeLensProvider = { resolveProvider: false };
         }
 
         respond(id, {
@@ -937,6 +942,17 @@ function start() {
           respond(id, foldingRangeHandler.handle(doc.text));
         } catch (e) {
           console.error('[LSP] foldingRange error:', e.message);
+          respond(id, []);
+        }
+        break;
+
+      case 'textDocument/codeLens':
+        var doc = documents[params.textDocument.uri];
+        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        try {
+          respond(id, codeLensHandler.handle(doc.text, params.textDocument.uri));
+        } catch (e) {
+          console.error('[LSP] codeLens error:', e.message);
           respond(id, []);
         }
         break;

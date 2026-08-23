@@ -271,13 +271,16 @@ var bootDone = h.withServerLane(async function() {
       rootUri: wsUri,
       initializationOptions: { foam: { features: {
         hover: false, semanticTokens: false, signatureHelp: false,
-        folding: false, 'diagnostics.i18n': false } } } } });
+        folding: false, 'diagnostics.i18n': false,
+        'codeLens.i18n': false, 'codeLens.hierarchy': false } } } } });
     var offRes = await waitFor(function(f) { return f.id === 1 && f.result; }, 'the initialize response');
     var offCaps = offRes.result.capabilities;
     test(offCaps.hoverProvider === undefined,          'hover: false omits hoverProvider');
     test(offCaps.semanticTokensProvider === undefined, 'semanticTokens: false omits semanticTokensProvider');
     test(offCaps.signatureHelpProvider === undefined,  'signatureHelp: false omits signatureHelpProvider');
     test(offCaps.foldingRangeProvider === undefined,   'folding: false omits foldingRangeProvider');
+    test(offCaps.codeLensProvider === undefined,
+      'codeLens.i18n: false + codeLens.hierarchy: false (its own default) omits codeLensProvider');
     test(!! offCaps.completionProvider, 'a flag left at its default keeps its capability (completion)');
     test(!! offCaps.executeCommandProvider,
       'executeCommandProvider is unconditional — commands guard themselves');
@@ -350,6 +353,8 @@ var bootDone = h.withServerLane(async function() {
     test(onCaps.hoverProvider === true && !! onCaps.semanticTokensProvider &&
          !! onCaps.signatureHelpProvider && onCaps.foldingRangeProvider === true,
       'defaults keep every provider phase 1 omitted — the omission came from the flag');
+    test(!! onCaps.codeLensProvider,
+      'codeLens.i18n at its default (on) keeps codeLensProvider even with codeLens.hierarchy left off');
 
     sendToServer({ jsonrpc: '2.0', method: 'textDocument/didOpen', params: {
       textDocument: { uri: uri, languageId: 'javascript', version: 1, text: TARGET_MODEL } } });

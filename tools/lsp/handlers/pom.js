@@ -23,6 +23,7 @@ foam.POM({
     { name: 'ImplementationHandler', flags: 'js' },
     { name: 'TypeDefinitionHandler', flags: 'js' },
     { name: 'CallHierarchyHandler', flags: 'js' },
-    { name: 'PomValidator', flags: 'js' }
+    { name: 'PomValidator', flags: 'js' },
+    { name: 'CodeLensHandler', flags: 'js' }
   ]
 });

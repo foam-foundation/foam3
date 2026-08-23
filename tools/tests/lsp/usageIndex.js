@@ -419,3 +419,44 @@ try {
 } catch (err) {
   test(false, 'ArraySink acceptance threw: ' + err.message);
 }
+
+
+// === memberReferencesForClassId — property call-site LINES (byName path) ===
+//
+// foam/byName `references` ignored memberName: Class.member returned class
+// references, never the member's call-site lines (#5265-adjacent blind spot,
+// verified 2026-08-23: byNameResult had no member branch). The by-id core of
+// propertyReferences_ now serves it. Truth is self-derived: the expected
+// line is found by scanning the real source file, so upstream churn moves
+// the expectation instead of breaking it.
+
+section('memberReferencesForClassId — property call-site lines (byName member path)');
+
+try {
+  var mrHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+
+  var mrLocs = mrHandler.memberReferencesForClassId('foam.dao.ArraySink', 'array');
+  test(Array.isArray(mrLocs) && mrLocs.length > 0,
+    'memberReferencesForClassId(ArraySink, array): returns locations');
+
+  var mrFs    = require('fs');
+  var mrPath  = index.getFilePath('foam.dao.ArraySink');
+  var mrLines = mrFs.readFileSync(mrPath, 'utf8').split('\n');
+  var mrPushLine = -1;
+  for ( var mi = 0 ; mi < mrLines.length ; mi++ ) {
+    if ( mrLines[mi].indexOf('this.array.push') !== -1 ) { mrPushLine = mi; break; }
+  }
+  test(mrPushLine !== -1, 'fixture: ArraySink.js still has a this.array.push call site');
+  test((mrLocs || []).some(function(l) {
+    return l.uri === 'file://' + mrPath && l.range.start.line === mrPushLine;
+  }), 'usage LINE matched: this.array.push call site at line ' + mrPushLine + ' (not the declaration)');
+
+  // Not an own property/message/constant: null so the caller falls back to
+  // class references (methods keep going through callHierarchy).
+  test(mrHandler.memberReferencesForClassId('foam.dao.ArraySink', 'noSuchMember') === null,
+    'unknown member returns null (falls back to class references)');
+} catch (err) {
+  test(false, 'member references section threw: ' + err.message);
+}

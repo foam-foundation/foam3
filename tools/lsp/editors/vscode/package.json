@@ -176,6 +176,16 @@
           "when": "view == foamAnalysis",
           "group": "navigation"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "foam.newClass",
+          "when": "foam.isFoamWorkspace"
+        },
+        {
+          "command": "foam.showStatusMenu",
+          "when": "foam.isFoamWorkspace"
+        }
       ]
     }
   },

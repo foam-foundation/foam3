@@ -709,6 +709,26 @@ if ( anyFilePath ) {
     'analyzeFiles returns fileResults map');
 }
 
+// analyzeFiles: a file that throws (missing path) is filesFailed, not filesScanned
+(function() {
+  var os = require('os');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wsa-failed-'));
+  var good = path.join(dir, 'Good.js');
+  fs.writeFileSync(good, "foam.CLASS({ package: 'x', name: 'Good', properties: [ 'a' ] });");
+  var missing = path.join(dir, 'Gone.js');   // never written -> readFileSync throws
+
+  var origErr = console.error;
+  console.error = function() {};
+  var res;
+  try {
+    res = analyzer.analyzeFiles([ good, missing ]);
+  } finally {
+    console.error = origErr;
+  }
+  test(res.filesScanned === 1, 'only the readable file counts as scanned, got ' + res.filesScanned);
+  test(res.filesFailed === 1, 'the throwing file counts as failed, got ' + res.filesFailed);
+})();
+
 // === LSP #4999 Fix 1: property-type completion inserts full path (except foam.lang.*) ===
 
 

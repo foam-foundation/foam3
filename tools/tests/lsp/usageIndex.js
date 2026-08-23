@@ -303,3 +303,36 @@ try {
 } catch (err) {
   test(false, 'dedup section threw: ' + err.message);
 }
+
+
+// === referencesForClassId — index failures logged, not swallowed ===
+//
+// The four usage-index lookups were wrapped in bare catch(e){} — a broken
+// index was indistinguishable from "no usages" (how #5265 shipped unseen).
+
+section('referencesForClassId — index failures are logged');
+
+var lcOrigErr = console.error;
+try {
+  var lcHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+
+  var lcOrig = index.getJavaUsages;
+  index.getJavaUsages = function() { throw new Error('boom-java-index'); };
+  var lcMsgs = [];
+  console.error = function(m) { lcMsgs.push(String(m)); };
+
+  var lcLocs = lcHandler.referencesForClassId('foam.dao.ArraySink');
+
+  console.error = lcOrigErr;
+  index.getJavaUsages = lcOrig;
+
+  test(Array.isArray(lcLocs) && lcLocs.length > 0,
+    'throwing index still returns the other indexes\' locations');
+  test(lcMsgs.some(function(m) { return m.indexOf('boom-java-index') !== -1 && m.indexOf('foam.dao.ArraySink') !== -1; }),
+    'index failure logged with error message and target class');
+} catch (err) {
+  console.error = lcOrigErr;
+  test(false, 'logged-catch section threw: ' + err.message);
+}

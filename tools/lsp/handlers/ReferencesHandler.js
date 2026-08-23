@@ -89,11 +89,15 @@ foam.CLASS({
       try {
         var jsUses = this.index.getJsUsages(classId);
         for ( var i = 0 ; i < jsUses.length ; i++ ) add(jsUses[i].sourceClassId);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getJsUsages failed for ' + classId + ': ' + e.message);
+      }
       try {
         var javaUses = this.index.getJavaUsages(classId);
         for ( var i = 0 ; i < javaUses.length ; i++ ) add(javaUses[i].sourceClassId);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getJavaUsages failed for ' + classId + ': ' + e.message);
+      }
       // Class-name strings ARE valid context keys too (e.g. CSpec id matches
       // the dotted class id of its result type) — pick those up via the
       // string-reference index keyed on either the short name or the full id.
@@ -103,7 +107,9 @@ foam.CLASS({
         for ( var i = 0 ; i < strUses.length ; i++ ) {
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getStringUsages failed for ' + classId + ': ' + e.message);
+      }
       // Classes that reference the target ONLY inside a view spec
       // (`view: { class: 'X' }`, searchView, rowView, defaultNewItem, …)
       // declare no requires/of for it — the view-spec index is the only edge
@@ -111,7 +117,9 @@ foam.CLASS({
       try {
         var viewUses = this.index.getViewSpecUsers(classId);
         for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getViewSpecUsers failed for ' + classId + ': ' + e.message);
+      }
 
       // Dedup by position: a file defining several classes is scanned once
       // per class, so identical rows repeat without this. Order-preserving.

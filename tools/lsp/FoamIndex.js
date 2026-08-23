@@ -1090,13 +1090,21 @@ foam.CLASS({
       if ( entry && entry.mtimeMs === mtime ) return entry.posMap;
 
       var map = null;
+      var failed = false;
       try {
         var content = fs_.readFileSync(filePath, 'utf8');
         if ( content.length <= 2 * 1024 * 1024 ) {
           map = this.getGrammar().collectAxiomPositions(content);
         }
-      } catch ( e ) {}
-      this.filePosCache_[filePath] = { mtimeMs: mtime, posMap: map };
+      } catch ( e ) {
+        failed = true;
+        require('./logError').logLspError('grammar position parse ' + filePath, e);
+      }
+      // A failed parse is transient state, not a fact about the file: caching
+      // null against mtime would pin every member of this file to line 0
+      // until the next edit. Oversized files DO cache null — that skip is
+      // deliberate and permanent for the mtime.
+      if ( ! failed ) this.filePosCache_[filePath] = { mtimeMs: mtime, posMap: map };
       return map;
     },
 

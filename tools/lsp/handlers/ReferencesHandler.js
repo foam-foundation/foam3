@@ -584,9 +584,11 @@ foam.CLASS({
         }
         if ( path === targetClassId && alias ) out[alias] = true;
       }
-      var ji = cls.model_.javaImports || [];
+      // Normalized by FoamIndex.javaImportPaths — never unwrap shapes here.
+      var ji = typeof this.index.javaImportPaths === 'function' ?
+        this.index.javaImportPaths(cls) : [];
       for ( var i = 0 ; i < ji.length ; i++ ) {
-        var imp = typeof ji[i] === 'string' ? ji[i] : ( ji[i] && ji[i].path );
+        var imp = ji[i];
         if ( imp === targetClassId ) {
           var sh = imp.split('.').pop();
           if ( sh ) out[sh] = true;

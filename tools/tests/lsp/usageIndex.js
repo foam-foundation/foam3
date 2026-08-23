@@ -276,3 +276,30 @@ try {
 } catch (err) {
   test(false, 'ReferencesHandler threw: ' + err.message + ' :: ' + (err.stack || '').split('\n').slice(0,3).join(' | '));
 }
+
+
+// === referencesForClassId — no duplicate rows + javaCode consumer file ===
+//
+// Dup cause: a file defining multiple classes gets a full-file
+// buildLocations_ scan once per defined class (live measurement 2026-08-23:
+// Commands.js:338:15 repeated for foam.core.boot.CSpec).
+
+section('referencesForClassId — dedup + java consumer locations');
+
+try {
+  var dedupHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+
+  // T2c: no repeated uri:line:char row for a class defined among multi-class files.
+  var cspecLocs = dedupHandler.referencesForClassId('foam.core.boot.CSpec');
+  var locSeen = {}, dupCount = 0;
+  for ( var li = 0 ; li < cspecLocs.length ; li++ ) {
+    var lk = cspecLocs[li].uri + ':' + cspecLocs[li].range.start.line + ':' + cspecLocs[li].range.start.character;
+    if ( locSeen[lk] ) dupCount++;
+    locSeen[lk] = true;
+  }
+  test(dupCount === 0, 'referencesForClassId(CSpec): no duplicate uri:line:char rows (dups: ' + dupCount + ')');
+} catch (err) {
+  test(false, 'dedup section threw: ' + err.message);
+}

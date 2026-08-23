@@ -113,10 +113,19 @@ foam.CLASS({
         for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
       } catch (e) {}
 
+      // Dedup by position: a file defining several classes is scanned once
+      // per class, so identical rows repeat without this. Order-preserving.
       var locations = [];
+      var seenLoc   = {};
       for ( var i = 0 ; i < refs.length ; i++ ) {
         var locs = this.buildLocations_(refs[i], classId);
-        for ( var j = 0 ; j < locs.length ; j++ ) locations.push(locs[j]);
+        for ( var j = 0 ; j < locs.length ; j++ ) {
+          var loc = locs[j];
+          var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
+          if ( seenLoc[key] ) continue;
+          seenLoc[key] = true;
+          locations.push(loc);
+        }
       }
       return locations;
     },

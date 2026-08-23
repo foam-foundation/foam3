@@ -51,6 +51,8 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `TypeDefinitionHandler.js` | `textDocument/typeDefinition` | For a property usage, jump to the property's class (e.g. `foam.lang.Long`) |
 | `CallHierarchyHandler.js` | `textDocument/prepareCallHierarchy` + `callHierarchy/{incomingCalls,outgoingCalls}` | Who calls / who's called for any FOAM method |
 | `PomValidator.js` | `foam/validatePoms` | Orphan files, missing POM entries, duplicate registrations |
+| `CodeLensHandler.js` | `textDocument/codeLens` | Two independent, feature-toggled lenses: `codeLens.i18n` (missing-translation counts, delegates to `I18nHandler.scanMissingLanguages`) and `codeLens.hierarchy` (subclass counts, informational — empty `command`, not clickable). Both bail on a multi-model file. |
+| `ScaffoldHandler.js` | `workspace/executeCommand` `foam.scaffold.newClass` | Builds a `WorkspaceEdit` (new class file + pom.js `files:` append) from `{ dir, name }`. Nothing written to disk server-side — the client applies the edit. No `featureConfig` — the command only runs when explicitly invoked. |
 
 ### Workspace usage indexes
 `FoamIndex` lazy-builds four byTarget maps on first request:
@@ -162,6 +164,72 @@ watchdog is 240s (up from a sync-only 80s baseline) to cover it
 - `collectRanges(text)` → `{comment, documentation}` spans (`P.msg({kind:'comment'|'documentation'})`). Drives comment/doc suppression in `HoverHandler` (no hover inside) and `SemanticTokenHandler` (no non-comment tokens inside).
 - `collectInstantiations(text)` → grouped `X.create({…})` / `.tag(this.X,{…})` calls with receiver class + key/value spans (`instCall`/`instCreateReceiver`/`instTagClass`/`instKey`/`instValue` kinds). The receiver chain uses `P.not` negative lookahead so only real create/tag calls match — generic `foo.bar(...)` emits nothing. Drives enum value completion (`MemberCompletionHandler`) and value diagnostics (`DiagnosticsHandler`).
 - `FoamIndex.getRelationships(classId)` (relationship hover, #5091) and `FoamIndex.getPropertyInfo(classId, prop)` (enum/primitive value resolution, #5093) back the index-side lookups.
+
+## Feature toggles (FeatureConfig)
+
+`FeatureConfig.js` is a plain Node module (not `foam.CLASS` — `server.js` and
+its handlers are plain Node consumers, so it stays a bare `require()` with no
+FOAM boot cost) that merges three layers into one config object, lowest to
+highest precedence:
+
+1. **`DEFAULTS`** (`FeatureConfig.js`) — baked-in fallback for every flag.
+2. **`foam-lsp.json`** at the workspace root — optional; a missing file is
+   silent, malformed JSON gets one warning and that layer is skipped.
+3. **`initializationOptions.foam`** from the LSP client (VS Code settings,
+   Zed's `lsp.<id>.initialization_options`, or any other client) — highest
+   precedence, applied at `initialize`.
+
+An unknown key at any layer (a typo, a renamed flag) is dropped with a
+`console.error('[LSP] config: Unknown feature flag "X" ignored')` warning
+rather than silently accepted — a typo that would otherwise just never take
+effect gets flagged instead.
+
+**Restart-only, by design.** Feature flags are read once, at `initialize`
+(`server.js:511`). There is no live-reload: editing `foam-lsp.json`, flipping
+a VS Code setting, or changing Zed's `initialization_options` does nothing
+until the server restarts. This mirrors the existing i18n provider-detection
+rule (probed once at boot) rather than adding a second reload mechanism.
+
+`caps.*Provider` flags in the `initialize` response are only ever ADDED when
+a feature is on, never sent as `false` — a client that never sees the
+capability never sends the request, so a disabled feature costs nothing at
+all (`server.js:563-567`).
+
+| Flag | Default | Gates |
+|---|---|---|
+| `diagnostics.java` | `true` | Java-block validation diagnostics |
+| `diagnostics.i18n` | `true` | Hardcoded-display-string diagnostic |
+| `hints.i18nMissingLanguage` | `true` | Missing-translation HINT + its code actions |
+| `completion` | `true` | `completionProvider` capability |
+| `hover` | `true` | `hoverProvider` capability |
+| `semanticTokens` | `true` | `semanticTokensProvider` capability |
+| `signatureHelp` | `true` | `signatureHelpProvider` capability |
+| `folding` | `true` | `foldingRangeProvider` capability |
+| `codeLens.i18n` | `true` | i18n lens in `CodeLensHandler` |
+| `codeLens.hierarchy` | `false` | Subclass-count lens in `CodeLensHandler` — OFF by default: it's informational-only (no click action yet) and adds a lens to every class file |
+
+`i18n.*` config (`languages`, `sourceLanguage`, `endpoint`, `model`) rides the
+same three-layer merge but is a separate top-level key (`featureConfig.i18n`)
+from the boolean `features` map — see "i18n translation" below for what each
+key does. `FeatureConfig` deliberately reads nothing else: env vars
+(`OLLAMA_HOST`, `OLLAMA_TRANSLATION_MODEL`) and the `journals/locales.jrl`
+fallback stay in `server.js` (Ruling R1 in `FeatureConfig.js`).
+
+**Design ruling — the MCP/agent lane is deliberately ungated at the
+capability level.** `editors/mcp/server.js` never sends
+`initializationOptions` when it spawns the LSP, and never reads
+`featureConfig` at all — the MCP tool list (`foam_hover`, `foam_diagnostics`,
+`foam_i18n_translate`, …) is static and independent of which `caps.*Provider`
+flags the LSP would have advertised to an editor client. A coding agent
+always gets the full toolset, regardless of `foam-lsp.json` or any client
+settings a human editor happens to have. This is intentional, not an
+oversight: the flags exist to let a human tune their own editor's noise
+(fewer squiggles, no hierarchy lens cluttering a file), not to restrict what
+an agent can ask the server to do. Guards that protect a *shared* resource
+rather than tune per-client noise — `hints.i18nMissingLanguage` gating
+translation code actions, `translationReady` gating unsolicited scans — still
+apply on the MCP lane too, since those live inside the handler logic
+(`I18nHandler`, `CodeActionHandler`) rather than in capability advertisement.
 
 ## i18n translation (#5283)
 

@@ -90,13 +90,13 @@ foam.CLASS({
         var jsUses = this.index.getJsUsages(classId);
         for ( var i = 0 ; i < jsUses.length ; i++ ) add(jsUses[i].sourceClassId);
       } catch (e) {
-        console.error('[foam-lsp] getJsUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getJsUsages for ' + classId, e);
       }
       try {
         var javaUses = this.index.getJavaUsages(classId);
         for ( var i = 0 ; i < javaUses.length ; i++ ) add(javaUses[i].sourceClassId);
       } catch (e) {
-        console.error('[foam-lsp] getJavaUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getJavaUsages for ' + classId, e);
       }
       // Class-name strings ARE valid context keys too (e.g. CSpec id matches
       // the dotted class id of its result type) — pick those up via the
@@ -108,7 +108,7 @@ foam.CLASS({
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }
       } catch (e) {
-        console.error('[foam-lsp] getStringUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getStringUsages for ' + classId, e);
       }
       // Classes that reference the target ONLY inside a view spec
       // (`view: { class: 'X' }`, searchView, rowView, defaultNewItem, …)
@@ -118,7 +118,7 @@ foam.CLASS({
         var viewUses = this.index.getViewSpecUsers(classId);
         for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
       } catch (e) {
-        console.error('[foam-lsp] getViewSpecUsers failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getViewSpecUsers for ' + classId, e);
       }
 
       // Dedup by position: a file defining several classes is scanned once
@@ -528,7 +528,9 @@ foam.CLASS({
             push(hits[i].startPos, targetClassId.length);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        require('../logError').logLspError('grammar classRef scan for ' + targetClassId, e);
+      }
 
       // === B. Word-bounded full-id text scan ===
       var escapedFull = targetClassId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -582,7 +584,9 @@ foam.CLASS({
             }
           });
         }
-      } catch (e) {}
+      } catch (e) {
+        require('../logError').logLspError('short-name axiom scan for ' + targetClassId, e);
+      }
 
       return out.length > 0 ? out : fallback;
     },

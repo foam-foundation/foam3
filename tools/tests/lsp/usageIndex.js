@@ -460,3 +460,26 @@ try {
 } catch (err) {
   test(false, 'member references section threw: ' + err.message);
 }
+
+
+// === logLspError helper ===
+//
+// Single logging idiom for degraded-but-not-fatal LSP failures — every
+// catch-and-fallback site routes through this so a broken feature is never
+// silently indistinguishable from an empty result.
+
+section('logLspError helper');
+
+(function() {
+  var leLogLspError = require('../../lsp/logError').logLspError;
+  var leOrigErr = console.error;
+  var leCaptured = [];
+  console.error = function(msg) { leCaptured.push(msg); };
+  try {
+    leLogLspError('test op for X', new Error('boom'));
+  } finally {
+    console.error = leOrigErr;
+  }
+  test(leCaptured.length === 1 && leCaptured[0] === '[foam-lsp] test op for X: boom',
+    'logLspError formats [foam-lsp] context: message');
+})();

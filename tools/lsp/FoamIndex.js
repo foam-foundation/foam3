@@ -2114,7 +2114,10 @@ foam.CLASS({
           if ( SKIP[name] || name.charAt(0) === '.' ) continue;
           var p = path_.join(dir, name);
           var st;
-          try { st = fs_.statSync(p); } catch (e) { continue; }
+          try { st = fs_.lstatSync(p); } catch (e) { continue; }
+          // Never follow directory symlinks — foam3's root has `foam3 -> .`,
+          // which would recurse forever and double-index every journal.
+          if ( st.isSymbolicLink() ) continue;
           if ( st.isDirectory() )                                      walk(p);
           else if ( name.length > 4 && name.lastIndexOf('.jrl') === name.length - 4 ) out.push(p);
         }

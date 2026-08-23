@@ -202,6 +202,8 @@ foam.CLASS({
   name: 'PropertyBorder',
   extends: 'foam.u2.AbstractPropertyBorder',
 
+  requires: ['foam.u2.util.CopyButton'],
+
   css: `
     ^ {
       display: flex;
@@ -280,6 +282,16 @@ foam.CLASS({
       flex-direction: column;
       gap: 0.2lh;
     }
+    ^copy-button {
+      flex-shrink: 0;
+    }
+    /* Only hide the copy button behind hover on devices that can hover;
+       on touch devices it stays visible. Override ^copy-button { opacity: 1 }
+       to make it always visible. */
+    @media (hover: hover) {
+      ^copy-button { opacity: 0; }
+      ^propHolder:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+    }
   `,
 
   methods: [
@@ -304,10 +316,29 @@ foam.CLASS({
         end().
         start().
           addClass(this.myClass('propHolder')).
-          start('span').
-            addClass(this.myClass('propHolderInner')).
-            call(this.layoutView, [self, prop, viewSlot]).
-          end().
+          call(function() {
+            var inner = this.start('span').
+              addClass(self.myClass('propHolderInner')).
+              call(self.layoutView, [self, prop, viewSlot]);
+            inner.end();
+            if ( ! prop.copyable ) return;
+            // Copy button for copyable properties, read-only display only:
+            // editable inputs keep their value in .value, not innerText, and
+            // a copy affordance next to an input reads as a form control.
+            this.start(self.CopyButton, {
+              label: prop.label || prop.name,
+              textProvider: function() {
+                if ( foam.Function.isInstance(prop.copyable) ) {
+                  return prop.copyable.call(self.data, prop.f ? prop.f(self.data) : null, self.data);
+                }
+                var node = inner.el_();
+                return node ? node.innerText.trim() : '';
+              }
+            }).
+              addClass(self.myClass('copy-button')).
+              show(modeSlot.map(m => m == foam.u2.DisplayMode.RO)).
+            end();
+          }).
           callIf(prop.help, function() {
             this.start().addClass(self.myClass('helper-icon'))
               .start('', { tooltip: prop.help.length < 60 ? prop.help : self.LEARN_MORE })

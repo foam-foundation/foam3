@@ -1053,5 +1053,47 @@ if ( require('fs').existsSync(realJrlPath) ) {
   }
 }
 
+// === jrl usage index — fixture files (issue #5264, Tier 1) ===
+//
+// buildJrlUsageIndex_ takes an explicit file list here so fixtures carry
+// no workspace assumptions; invalidate afterwards so later tests see the
+// real workspace index, not the fixture one.
+
+section('jrl usage index — fixture files (issue #5264)');
+
+try {
+  var jOs     = require('os');
+  var jTmpJrl = path.join(jOs.tmpdir(), 'foam-lsp-jrl-fixture-' + process.pid + '.jrl');
+  fs.writeFileSync(jTmpJrl,
+    'p({"class":"foam.core.boot.CSpec","id":"fixtureSvc",\n' +      // line 0
+    '  "serviceScript":"""\n' +                                      // line 1
+    '    return new foam.dao.ArraySink();\n' +                       // line 2
+    '  """})\n' +                                                    // line 3
+    '// p({"class":"foam.core.boot.CSpec","id":"commented"})\n' +    // line 4
+    'p({"class":"no.such.Klass","id":"junk"})\n');                   // line 5
+
+  index.buildJrlUsageIndex_([ jTmpJrl ]);
+
+  var jCspec = index.getJrlUsages('foam.core.boot.CSpec');
+  // T1a: "class":"…" value indexed with exact position.
+  test(jCspec.some(function(r) { return r.file === jTmpJrl && r.line === 0 && r.kind === 'usage-jrl'; }),
+    'fixture: "class":"foam.core.boot.CSpec" indexed at line 0');
+  test(! jCspec.some(function(r) { return r.file === jTmpJrl && r.line === 4; }),
+    'fixture: // comment line not indexed');
+
+  // T1b: class id inside a serviceScript body indexed (embedded-block path).
+  test(index.getJrlUsages('foam.dao.ArraySink').some(function(r) { return r.file === jTmpJrl && r.line === 2; }),
+    'fixture: serviceScript-embedded foam.dao.ArraySink indexed at its line');
+
+  // T1c: unregistered id never indexed (registry-verified).
+  test(index.getJrlUsages('no.such.Klass').length === 0,
+    'fixture: unregistered class id not indexed');
+
+  fs.unlinkSync(jTmpJrl);
+  index.invalidateSymbolIndex_();
+} catch (err) {
+  test(false, 'jrl fixture index threw: ' + err.message);
+}
+
 // === SAVE → TARGETED REANALYZE ===
 

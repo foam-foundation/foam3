@@ -1589,6 +1589,7 @@ foam.CLASS({
       this.stringUsageIndex_   = null;
       this.memberUsageIndex_   = null;
       this.viewSpecUsageIndex_ = null;
+      this.jrlUsageIndex_      = null;
       // filePosCache_ is deliberately NOT dropped here: collectAxiomPositions
       // output is a pure function of file text, and each entry carries the
       // file's mtime, so the guard in getFilePosMap_ re-parses only files that
@@ -2046,6 +2047,80 @@ foam.CLASS({
         cand = cand.substring(0, dot);
       }
       return null;
+    },
+
+    function getJrlUsages(classId) {
+      /** Journal references (#5264): [{ file, line, character, length, kind: 'usage-jrl' }].
+          Full-id matching only — short names inside serviceScript bodies via
+          embedded imports are out of scope (grep covers those). */
+      if ( ! this.jrlUsageIndex_ ) this.buildJrlUsageIndex_();
+      return this.jrlUsageIndex_.byTarget[classId] || [];
+    },
+
+    function buildJrlUsageIndex_(opt_files) {
+      var fs_      = require('fs');
+      var byTarget = {};
+      var files    = opt_files || this.findWorkspaceJrlFiles_();
+
+      for ( var f = 0 ; f < files.length ; f++ ) {
+        var text;
+        try {
+          if ( fs_.statSync(files[f]).size > 2 * 1024 * 1024 ) {
+            console.error('[foam-lsp] jrl usage index: skipping >2MB journal ' + files[f]);
+            continue;
+          }
+          text = fs_.readFileSync(files[f], 'utf8');
+        } catch (e) { continue; }
+
+        var refs = this.scanJrlClassRefs(text);
+        if ( ! refs.length ) continue;
+
+        var lineOffs = [ 0 ];
+        for ( var c = 0 ; c < text.length ; c++ ) {
+          if ( text.charCodeAt(c) === 10 ) lineOffs.push(c + 1);
+        }
+        for ( var r = 0 ; r < refs.length ; r++ ) {
+          var ref = refs[r];
+          var lo = 0, hi = lineOffs.length - 1;
+          while ( lo < hi ) {
+            var mid = (lo + hi + 1) >> 1;
+            if ( lineOffs[mid] <= ref.offset ) lo = mid; else hi = mid - 1;
+          }
+          var arr = byTarget[ref.classId] || (byTarget[ref.classId] = []);
+          arr.push({
+            file:      files[f],
+            line:      lo,
+            character: ref.offset - lineOffs[lo],
+            length:    ref.length,
+            kind:      'usage-jrl'
+          });
+        }
+      }
+      this.jrlUsageIndex_ = { byTarget: byTarget };
+    },
+
+    function findWorkspaceJrlFiles_() {
+      /** Every *.jrl under the workspace root; node_modules, build and
+          dot-directories skipped. */
+      var fs_   = require('fs');
+      var path_ = require('path');
+      var SKIP  = { node_modules: true, build: true };
+      var out   = [];
+      function walk(dir) {
+        var names;
+        try { names = fs_.readdirSync(dir); } catch (e) { return; }
+        for ( var i = 0 ; i < names.length ; i++ ) {
+          var name = names[i];
+          if ( SKIP[name] || name.charAt(0) === '.' ) continue;
+          var p = path_.join(dir, name);
+          var st;
+          try { st = fs_.statSync(p); } catch (e) { continue; }
+          if ( st.isDirectory() )                                      walk(p);
+          else if ( name.length > 4 && name.lastIndexOf('.jrl') === name.length - 4 ) out.push(p);
+        }
+      }
+      walk(process.cwd());
+      return out;
     },
 
     function getStringUsages(name) {

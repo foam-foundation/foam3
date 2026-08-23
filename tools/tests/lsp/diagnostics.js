@@ -754,4 +754,42 @@ test(addStrDiags("foam.CLASS({ package:'t', name:'DQ2', methods:[ function rende
 // 6. Escaped-quote argument flagged exactly once (detection, not just extract).
 test(addStrDiags("foam.CLASS({ package:'t', name:'AP2', methods:[ function render(){ this.add('Don\\'t save'); } ] })").length === 1, "escaped quote: this.add('Don\\'t save') flagged once");
 
+// --- cssTokens map + pair forms are recognized (CSSTokenModelRefinement adapt) ---
+(function() {
+  var mapForm = [
+    "foam.CLASS({",
+    "  package: 'lsptest.css', name: 'MapForm',",
+    "  cssTokens: { brandInk: '#123456' },",
+    "  css: '^ { color: $brandInk; }'",
+    "});"
+  ].join('\n');
+  var pairForm = [
+    "foam.CLASS({",
+    "  package: 'lsptest.css', name: 'PairForm',",
+    "  cssTokens: [ ['brandPaper', '#fefefe'] ],",
+    "  css: '^ { background: $brandPaper; }'",
+    "});"
+  ].join('\n');
+  var objForm = [
+    "foam.CLASS({",
+    "  package: 'lsptest.css', name: 'ObjForm',",
+    "  cssTokens: [ { name: 'brandEdge', value: '#000001' } ],",
+    "  css: '^ { border-color: $brandEdge; } .x { color: $noSuchToken; }'",
+    "});"
+  ].join('\n');
+
+  function unknownTokenDiags(text, name) {
+    var diags = diagWithTokens.handle(text, 'file:///tmp/lsptest-css-' + name + '.js');
+    return diags.filter(function(d) { return d.message.indexOf('Unknown CSS token') !== -1; });
+  }
+
+  test(unknownTokenDiags(mapForm, 'map').length === 0,
+    'map-form cssTokens recognized — no false Unknown CSS token');
+  test(unknownTokenDiags(pairForm, 'pair').length === 0,
+    'pair-form cssTokens recognized — no false Unknown CSS token');
+  var objDiags = unknownTokenDiags(objForm, 'obj');
+  test(objDiags.length === 1 && objDiags[0].message.indexOf('noSuchToken') !== -1,
+    'object form still validates AND genuinely unknown tokens still flagged');
+})();
+
 

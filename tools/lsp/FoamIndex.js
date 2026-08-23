@@ -2234,6 +2234,25 @@ foam.CLASS({
     // every Java-side reference. Same fact pattern as the JS usage scan,
     // different axiom slots.
 
+    function javaImportPaths(cls) {
+      /**
+       * The class's javaImports as plain path strings, whichever form the
+       * model holds: raw strings (FileModelCache / pre-refinement) or
+       * foam.java.JavaImport objects ({ import: 'full.path', name: generated
+       * 'javaimport_'+import label }) — what a real boot's java refinements
+       * produce. Single normalization point: do NOT unwrap javaImports
+       * shapes anywhere else.
+       */
+      var ji  = cls && cls.model_ && cls.model_.javaImports || [];
+      var out = [];
+      for ( var i = 0 ; i < ji.length ; i++ ) {
+        var e = ji[i];
+        if ( typeof e === 'string' )                  out.push(e);
+        else if ( e && typeof e.import === 'string' ) out.push(e.import);
+      }
+      return out;
+    },
+
     function getJavaUsages(classId) {
       if ( ! this.javaUsageIndex_ ) this.buildJavaUsageIndex_();
       return this.javaUsageIndex_.byTarget[classId] || [];
@@ -2260,13 +2279,12 @@ foam.CLASS({
         var cls      = this.getClass(sourceId);
         if ( ! cls ) continue;
 
-        var javaImports = cls.model_ && cls.model_.javaImports || [];
+        var javaImports = this.javaImportPaths(cls);
         if ( javaImports.length === 0 && ! (cls.model_ && cls.model_.package) ) continue;
 
         var importLookup = {};
         for ( var x = 0 ; x < javaImports.length ; x++ ) {
           var imp = javaImports[x];
-          if ( typeof imp !== 'string' ) continue;
           if ( imp.indexOf('*') !== -1 ) continue;
           var parts = imp.split('.');
           importLookup[parts[parts.length - 1]] = imp;

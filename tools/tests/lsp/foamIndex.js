@@ -417,3 +417,16 @@ section('FoamIndex — failed grammar parse must not be cached against mtime');
   test(calls === 2, 'failed parse retried on next request, calls=' + calls);
   test(second && typeof second === 'object', 'retry succeeds and returns a posMap');
 })();
+
+// --- getOfUsers matches adapted (object-form) `of` values ---
+(function() {
+  foam.CLASS({ package: 'lsptest.of', name: 'Target' });
+  foam.CLASS({
+    package: 'lsptest.of', name: 'Holder',
+    properties: [ { class: 'FObjectProperty', of: 'lsptest.of.Target', name: 'target' } ]
+  });
+  delete index.cache_['of_lsptest.of.Target'];
+  var users = index.getOfUsers('lsptest.of.Target');
+  test(users.indexOf('lsptest.of.Holder') !== -1,
+    'of-user found regardless of adapted of shape, got ' + JSON.stringify(users));
+})();

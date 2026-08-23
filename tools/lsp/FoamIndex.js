@@ -446,7 +446,11 @@ foam.CLASS({
           var props = cls.model_.properties;
           for ( var j = 0 ; j < props.length ; j++ ) {
             var p = props[j];
-            if ( p && typeof p === 'object' && p.of === classId ) {
+            if ( ! p || typeof p !== 'object' ) continue;
+            // `of` may be the declared string OR an adapted class object
+            // whose id carries the dotted name — match either.
+            var ofId = typeof p.of === 'string' ? p.of : ( p.of && p.of.id );
+            if ( ofId === classId ) {
               result.push(ids[i]);
               break;
             }

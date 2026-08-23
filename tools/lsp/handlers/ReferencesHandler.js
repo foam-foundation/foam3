@@ -104,6 +104,11 @@ foam.CLASS({
       try {
         var shortName = classId.split('.').pop();
         var strUses   = this.index.getStringUsages(shortName);
+        // CSpec entries key by full dotted id — probe both, as the comment
+        // above always claimed.
+        if ( shortName !== classId ) {
+          strUses = strUses.concat(this.index.getStringUsages(classId));
+        }
         for ( var i = 0 ; i < strUses.length ; i++ ) {
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }

@@ -161,7 +161,7 @@ foam.CLASS({
           });
         }
       } catch (e) {
-        console.error('[foam-lsp] getJrlUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getJrlUsages for ' + classId, e);
       }
       return locations;
     },

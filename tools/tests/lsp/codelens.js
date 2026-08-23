@@ -177,4 +177,71 @@ test(noI18nHandler.i18nHandler == null, 'control: this handler has no i18nHandle
 test(noI18nHandler.handle(TWO_MODEL, uri).length === 0,
   'i18nHandler null + hierarchy on + two-class file -> no lenses (guard does not depend on i18nHandler)');
 
+section('CodeLensHandler — i18n lens honours hints.i18nMissingLanguage');
+
+// hints.i18nMissingLanguage is the broad "stop offering me machine
+// translation" switch: it already withdraws the missing-language HINT and
+// code actions C/D. A clickable "1 translation missing" lens that runs the
+// translator on click is the same kind of offer, so the flag must withdraw it
+// too. The hierarchy lens is the control — nothing about a subclass count is
+// a translation offer, so it must SURVIVE the flag being off.
+var hintsOffI18n = foam.parse.lsp.handlers.CodeLensHandler.create({
+  index: index, cache: cache,
+  i18nHandler: i18nHandlerFor(['fr']),
+  featureConfig: config({ 'hints.i18nMissingLanguage': false })   // codeLens.i18n left ON (its default)
+});
+test(hintsOffI18n.handle(MSGS_ONE, uri).length === 0,
+  'hints.i18nMissingLanguage: false withdraws the i18n lens even with codeLens.i18n on');
+
+var hintsOffHier = foam.parse.lsp.handlers.CodeLensHandler.create({
+  index: index, cache: cache,
+  i18nHandler: i18nHandlerFor(['fr']),
+  featureConfig: config({ 'hints.i18nMissingLanguage': false, 'codeLens.hierarchy': true })
+});
+var hintsOffHierLenses = hintsOffHier.handle(HIER_SRC, hierUri);
+test(hintsOffHierLenses.length === 1 && hintsOffHierLenses[0].command.title === '2 subclasses',
+  'the flag is narrow — the hierarchy lens is unaffected');
+
+section('CodeLensHandler — test/demo/mock files are exempt (inherited from I18nHandler)');
+
+// The bug this closes: DiagnosticsHandler gated its missing-language HINT on
+// the exempt-URI check, but the lens had no such check — so a demo file got
+// no HINT and yet still got a clickable lens that really translated it. The
+// check now lives in I18nHandler.scanMissingLanguages, so every consumer
+// inherits one answer.
+var exemptLens = foam.parse.lsp.handlers.CodeLensHandler.create({
+  index: index, cache: cache,
+  i18nHandler: i18nHandlerFor(['fr']),
+  featureConfig: config()
+});
+test(exemptLens.handle(MSGS_ONE, 'file:///app/src/foo/HasMsgsTest.js').length === 0,
+  'no i18n lens in a *Test.js file');
+test(exemptLens.handle(MSGS_ONE, 'file:///app/src/foo/demos/HasMsgs.js').length === 0,
+  'no i18n lens in a demos/ file');
+test(exemptLens.handle(MSGS_ONE, 'file:///app/src/foo/MockHasMsgs.js').length === 0,
+  'no i18n lens in a Mock*.js file');
+test(exemptLens.handle(MSGS_ONE, 'file:///app/src/foo/HasMsgs.js').length === 1,
+  'a normal product file still gets the lens (control)');
+
+// The other consumer of the same scan, asserted through the same handler
+// instance so the exemption is demonstrably ONE rule and not two copies.
+var exemptScanner = i18nHandlerFor(['fr']);
+test(exemptScanner.scanMissingLanguages('file:///app/src/foo/HasMsgsTest.js', MSGS_ONE).length === 0,
+  'the gated scan itself returns nothing for an exempt uri');
+test(exemptScanner.scanMissingLanguages('file:///app/src/foo/HasMsgs.js', MSGS_ONE).length === 1,
+  'and everything for a non-exempt one (control)');
+// The UNGATED internal entry point keeps working — foam/i18nTranslate's
+// dry-run path calls it directly, and an agent asked to translate a demo file
+// has been ASKED, not guessed at.
+test(exemptScanner.scanMissingLanguages_('file:///app/src/foo/HasMsgsTest.js', MSGS_ONE).length === 1,
+  'scanMissingLanguages_ (the explicit-tool-call path) is NOT exempted');
+
+var exemptDiags = foam.parse.lsp.handlers.DiagnosticsHandler.create({
+  index: index, cache: cache,
+  i18nHandler: i18nHandlerFor(['fr']), featureConfig: config()
+}).handle(MSGS_ONE, 'file:///app/src/foo/HasMsgsTest.js')
+  .map(function(d) { return d.code; });
+test(exemptDiags.indexOf('i18n-missing-language') === -1,
+  'DiagnosticsHandler still exempt after the check moved to I18nHandler');
+
 module.exports = {};

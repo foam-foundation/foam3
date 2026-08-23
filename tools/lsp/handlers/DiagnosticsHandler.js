@@ -131,8 +131,13 @@ foam.CLASS({
       // Missing-language messageMap gaps — same whole-file scoping as
       // validateAddStrings_. i18nHandler is optional/null-safe (server.js
       // wires it; tests that don't need it just skip this block).
-      if ( this.i18nHandler && this.featureOn_('hints.i18nMissingLanguage') &&
-           ! this.isI18nExemptUri_(this.uri_) ) {
+      //
+      // No isI18nExemptUri_ check here: I18nHandler.scanMissingLanguages
+      // applies the same exemption itself, so every consumer of that scan
+      // (this handler, CodeActionHandler, CodeLensHandler) inherits one
+      // answer. The local copy below still guards validateAddStrings_, which
+      // is a different scan that never goes through I18nHandler.
+      if ( this.i18nHandler && this.featureOn_('hints.i18nMissingLanguage') ) {
         var miss = this.i18nHandler.scanMissingLanguages(this.uri_, text);
         for ( var mi = 0 ; mi < miss.length ; mi++ ) {
           diagnostics.push(this.Diagnostic.create({

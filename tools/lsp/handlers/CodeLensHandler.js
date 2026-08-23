@@ -16,8 +16,12 @@ foam.CLASS({
                             language, offering foam.i18n.translateMessage
                             for the missing languages. Delegates entirely to
                             I18nHandler.scanMissingLanguages (already gated
-                            on translationReady and its own multi-model
-                            guard) — this handler adds no scanning of its own.
+                            on translationReady, the test/demo/mock URI
+                            exemption, and its own multi-model guard) — this
+                            handler adds no scanning of its own. ALSO requires
+                            hints.i18nMissingLanguage: that flag means "stop
+                            offering me machine translation", and a lens whose
+                            click translates is such an offer.
       codeLens.hierarchy  — one lens per class naming its direct-subclass
                             count, read straight from FoamIndex.getSubclasses.
                             Informational BY DESIGN, not a placeholder:
@@ -86,7 +90,16 @@ foam.CLASS({
       if ( ! this.analyzer.isFoamFile(text) ) return [];
 
       var uri = opt_uri || '';
-      var wantI18n      = !! this.i18nHandler && this.featureOn_('codeLens.i18n');
+      // TWO flags for the i18n lens, not one. codeLens.i18n is "do I want this
+      // lens", but hints.i18nMissingLanguage is the broader "stop offering me
+      // machine translation" switch (it already withdraws the missing-language
+      // HINT and code actions C/D). A clickable "2 translations missing" lens
+      // that runs the translator on click is exactly such an offer, so turning
+      // the hints off must withdraw it too — otherwise the switch leaks. The
+      // hierarchy lens is untouched by it: nothing about subclass counts is a
+      // translation offer.
+      var wantI18n      = !! this.i18nHandler && this.featureOn_('codeLens.i18n') &&
+                          this.featureOn_('hints.i18nMissingLanguage');
       var wantHierarchy = this.featureOn_('codeLens.hierarchy');
       if ( ! wantI18n && ! wantHierarchy ) return [];
 

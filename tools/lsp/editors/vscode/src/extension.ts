@@ -321,14 +321,20 @@ function startServer(
             outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
           }
         } else if ( client ) {
-          // Stopped (including a client whose start() failed): stop() is not
-          // the right call, but the instance still holds listeners and an
-          // output-channel registration, and startClient() is about to
-          // replace it in the module-level `client`. Nothing else ever
-          // disposes it — this handler is the only path that supersedes a
-          // client without stopping it — so one leaks per restart otherwise.
+          // Public State.Stopped covers four internal states, and dispose()
+          // behaves differently across them (vscode-languageclient v9,
+          // client.js: dispose -> stop -> shutdown):
+          //   - internal Stopped/Initial: shutdown() returns immediately and
+          //     reclaims nothing, so this call is a cheap no-op.
+          //   - internal StartFailed (the failed-start case this branch exists
+          //     for): shutdown() falls through to `throw new Error('Client is
+          //     not running and can't be stopped')`.
+          // MUST be awaited. dispose() returns Promise<void>, so a bare call
+          // in a sync try/catch cannot catch that throw — it would surface as
+          // an unhandled rejection in the extension host, on the very path a
+          // user reaches by clicking Restart after a failed start.
           try {
-            client.dispose();
+            await client.dispose();
           } catch (e: any) {
             outputChannel.appendLine('Error disposing the stopped FOAM LSP client: ' + e.message);
           }

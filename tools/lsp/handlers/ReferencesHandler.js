@@ -135,6 +135,29 @@ foam.CLASS({
           locations.push(loc);
         }
       }
+
+      // Journal references (#5264): jrl positions come straight from the
+      // index — no class file to scan, so they bypass buildLocations_ and
+      // feed the same position dedup.
+      try {
+        var jrlUses = this.index.getJrlUsages(classId);
+        for ( var i = 0 ; i < jrlUses.length ; i++ ) {
+          var ju   = jrlUses[i];
+          var jUri = 'file://' + ju.file;
+          var jKey = jUri + ':' + ju.line + ':' + ju.character;
+          if ( seenLoc[jKey] ) continue;
+          seenLoc[jKey] = true;
+          locations.push({
+            uri: jUri,
+            range: {
+              start: { line: ju.line, character: ju.character },
+              end:   { line: ju.line, character: ju.character + ju.length }
+            }
+          });
+        }
+      } catch (e) {
+        console.error('[foam-lsp] getJrlUsages failed for ' + classId + ': ' + e.message);
+      }
       return locations;
     },
 

@@ -1095,5 +1095,40 @@ try {
   test(false, 'jrl fixture index threw: ' + err.message);
 }
 
+
+// === jrl references — real workspace acceptance (issue #5264, Tier 2) ===
+
+section('jrl references — real workspace acceptance (issue #5264)');
+
+try {
+  // T2a: index level — CSpec rows include services.jrl (issue names
+  // foam3/src/services.jrl; assert file, not a pinned line — the file churns).
+  var realCspec = index.getJrlUsages('foam.core.boot.CSpec');
+  test(realCspec.some(function(r) { return r.file.indexOf('services.jrl') !== -1; }),
+    'issue #5264 repro: CSpec jrl rows include a services.jrl');
+
+  // T2b: handler level — .jrl locations in the references output.
+  var jrlRefHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var cspecLocs = jrlRefHandler.referencesForClassId('foam.core.boot.CSpec');
+  test(cspecLocs.some(function(l) { return l.uri.indexOf('services.jrl') !== -1; }),
+    'referencesForClassId(CSpec): includes services.jrl locations');
+
+  // T2c: a serviceScript-only class stops reading as dead.
+  // PROVENANCE: foam.core.geocode.GoogleMapsAddressParser chosen because its
+  // only occurrence outside its own definition is src/services.jrl:284
+  // (`return new foam.core.geocode.GoogleMapsAddressParser.Builder(x).build();`).
+  // Grep evidence 2026-08-23:
+  //   grep -rln "GoogleMapsAddressParser" src/foam --include="*.js"
+  //     → src/foam/core/pom.js (registration) + its own model file, nothing else
+  //   grep -n "GoogleMapsAddressParser" src/services.jrl → line 284 only.
+  var deadLocs = jrlRefHandler.referencesForClassId('foam.core.geocode.GoogleMapsAddressParser');
+  test(deadLocs.some(function(l) { return l.uri.indexOf('.jrl') !== -1; }),
+    'serviceScript-only class has journal references (was: No results)');
+} catch (err) {
+  test(false, 'jrl references acceptance threw: ' + err.message);
+}
+
 // === SAVE → TARGETED REANALYZE ===
 

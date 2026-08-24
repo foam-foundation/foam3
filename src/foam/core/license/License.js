@@ -11,10 +11,13 @@ foam.CLASS({
 
   implements: [ 'foam.core.auth.ServiceProviderAware' ],
 
+  ids: [ 'daoKey', 'spid' ],
+
   properties: [
     {
       class: 'String',
       name: 'name',
+      required: true,
       documentation: 'Name of the License'
     },
     {
@@ -23,14 +26,32 @@ foam.CLASS({
       documentation: 'Description of what this License governs, who it applies to, variations of it, etc.'
     },
     {
-      class: 'String',
+      class: 'Reference',
       name: 'daoKey',
-      documentation: 'DAO this License applies to'
+      of: 'foam.core.boot.CSpec',
+      targetDAOKey: 'cSpecDAO',
+      label: 'DAO',
+      required: true,
+      documentation: 'Name of the DAO this License applies to',
+      view: function(_, X) {
+        var E = foam.mlang.Expressions.create();
+        return {
+          class: 'foam.u2.view.RichChoiceView',
+          search: true,
+          sections: [
+            {
+              dao: X.cSpecDAO.where(E.ENDS_WITH(foam.core.boot.CSpec.ID, 'DAO'))
+            }
+          ]
+        };
+      },
+      tableWidth: 125
     },
     {
       class: 'Long',
       name: 'quota',
-      documentation: 'Maximum number of "things" that can be active at a time'
+      required: true,
+      documentation: 'Maximum number of "things" that can be active at a time',
     },
     {
       class: 'Boolean',
@@ -41,12 +62,26 @@ foam.CLASS({
       class: 'Enum',
       of: 'foam.core.license.LicenseStatus',
       name: 'status',
-      documentation: 'Current status of the License (COMPLIANT or VIOLATED)'
+      value: 'INITIATED',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
+      documentation: 'Current status of the License (COMPLIANT, VIOLATED, or INITIATED)'
     },
     {
       class: 'Long',
       name: 'count',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
       documentation: 'Current number of active "things". Updated when daoKey puts or removes'
+    }
+  ],
+
+  methods: [
+    { // Override toSummary() to display the License's name rather than its Id in DetailView
+      name: 'toSummary',
+      type: 'String',
+      code: function() { return this.name; },
+      javaCode: ' return getName(); '
     }
   ]
 });

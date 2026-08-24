@@ -1,0 +1,17 @@
+p({
+  class: "foam.core.menu.Menu",
+  id: "licenses",
+  label :"Licenses",
+  handler: {
+    class: "foam.core.menu.DAOMenu2",
+    config: {
+      class: "foam.comics.v2.DAOControllerConfig",
+      daoKey: "licenseDAO",
+      browseTitle: "License",
+      exportPredicate: {"class":"foam.mlang.predicate.False"},
+      importPredicate: {"class":"foam.mlang.predicate.False"},
+      detailView: {"class":"foam.u2.detail.TabbedDetailView"}
+    }
+  },
+  parent: "controlCenter"
+})

@@ -24,6 +24,14 @@ foam.ENUM({
       documentation: 'License has been violated (count exceeds quota)',
       color: '$destructive500',
       background: '$destructive50'
+    },
+    {
+      name: 'INITIATED',
+      label: { en: 'Initiated', fr: 'Initié' },
+      ordinal: 2,
+      documentation: 'License has been newly created (count is unknown)',
+      color: '$grey700',
+      background: '$grey100'
     }
   ]
 });

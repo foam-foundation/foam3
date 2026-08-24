@@ -264,7 +264,10 @@ foam.CLASS({
         // return early, so no comment lines land in the file.
         User journalUser = new User();
         journalUser.setId(1L);
-        FileSystemStorage journalFs = new FileSystemStorage();
+        // Rooted at the temp dir: the default root is the working directory,
+        // which would leave journal files in the repo.
+        FileSystemStorage journalFs =
+          new FileSystemStorage(System.getProperty("java.io.tmpdir"));
         X jx = getX().
           put(FileSystemStorage.class, journalFs).
           put(Storage.class, journalFs).

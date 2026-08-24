@@ -213,6 +213,13 @@ foam.CLASS({
         javaWrapField/javaUnwrapValue convert at the boundary.`
     },
     {
+      class: 'Boolean',
+      name: 'javaFieldNullFlag',
+      documentation: `Generate a companion boolean field recording whether the
+        value is null, for backing types that have no spare value to reserve as
+        a sentinel. Templates reach it as %NULL%.`
+    },
+    {
       class: 'String',
       name: 'javaFieldInitializer',
       documentation: 'Initializer for the backing field when javaFieldType is set.'
@@ -436,6 +443,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           ],
           body: this.javaObjToJSON.
             replace(/%MODEL%/g, cls.id).
+            replace(/%NULLFIELD%/g, this.name + 'IsNull_').
             replace(/%FIELD%/g, this.name)
         });
       }
@@ -443,12 +451,16 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       return info;
     },
 
-    function javaWrapField_(fieldExpr) {
-      return this.javaWrapField ? this.javaWrapField.replace(/%FIELD%/g, fieldExpr) : fieldExpr;
+    function javaFieldTemplate_(tpl, valExpr) {
+      return tpl.
+        replace(/%VALUE%/g, valExpr || '').
+        replace(/%FIELD%/g, this.name + '_').
+        replace(/%NULL%/g,  this.name + 'IsNull_');
     },
 
-    function javaUnwrapValue_(valExpr) {
-      return this.javaUnwrapValue ? this.javaUnwrapValue.replace(/%VALUE%/g, valExpr) : valExpr;
+    function javaWrapField_(fieldExpr) {
+      return this.javaWrapField ?
+        this.javaFieldTemplate_(this.javaWrapField) : fieldExpr;
     },
 
     function generateSetter_() {
@@ -480,7 +492,11 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
         setter += `${this.javaType} oldVal = ` + this.javaWrapField_(`${this.name}_`) + `;\n`;
       }
-      setter += `${this.name}_ = ` + this.javaUnwrapValue_('val') + `;\n`;
+      if ( this.javaUnwrapValue ) {
+        setter += this.javaFieldTemplate_(this.javaUnwrapValue, 'val') + `\n`;
+      } else {
+        setter += `${this.name}_ = val;\n`;
+      }
       setter += `${this.name}IsSet_ = true;\n`;
 
       // add post-set function
@@ -506,6 +522,15 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var constantize = foam.String.constantize(this.name);
       var isSet       = this.name + 'IsSet_';
       var factoryName = capitalized + 'Factory_';
+
+      if ( this.javaFieldType && this.javaFieldNullFlag ) {
+        cls.field({
+          name: this.name + 'IsNull_',
+          type: 'boolean',
+          visibility: 'protected',
+          initializer: 'true;'
+        });
+      }
 
       cls.
         field({
@@ -1790,15 +1815,13 @@ foam.CLASS({
   properties: [
     ['javaType',             'java.util.Date' ],
     ['javaFieldType',        'long'],
-    ['javaFieldInitializer', 'Long.MIN_VALUE;'],
-    ['javaWrapField',        '(%FIELD% == Long.MIN_VALUE ? null : new java.util.Date(%FIELD%))'],
+    ['javaFieldNullFlag',    true],
+    ['javaFieldInitializer', '0L;'],
+    ['javaWrapField',        '(%NULL% ? null : new java.util.Date(%FIELD%))'],
     ['javaFormat',           `
-      if ( ((%MODEL%) obj).%FIELD%IsSet_ ) {
-        long millis = ((%MODEL%) obj).%FIELD%_;
-        if ( millis != Long.MIN_VALUE ) {
-          formatter.output(millis);
-          return;
-        }
+      if ( ((%MODEL%) obj).%FIELD%IsSet_ && ! ((%MODEL%) obj).%NULLFIELD% ) {
+        formatter.output(((%MODEL%) obj).%FIELD%_);
+        return;
       }
       formatter.output(get_(obj));
     `],
@@ -1807,14 +1830,16 @@ foam.CLASS({
         toJSON(outputter, get(obj));
         return;
       }
-      long millis = ((%MODEL%) obj).%FIELD%_;
-      if ( millis == Long.MIN_VALUE ) {
+      if ( ((%MODEL%) obj).%NULLFIELD% ) {
         outputter.output(null);
         return;
       }
-      outputter.outputDateValue(millis);
+      outputter.outputDateValue(((%MODEL%) obj).%FIELD%_);
     `],
-    ['javaUnwrapValue',      '(%VALUE% == null ? Long.MIN_VALUE : %VALUE%.getTime())'],
+    ['javaUnwrapValue',      `
+      %NULL% = ( %VALUE% == null );
+      %FIELD% = ( %VALUE% == null ? 0L : %VALUE%.getTime() );
+    `],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],

@@ -48,7 +48,8 @@ foam.INTERFACE({
       includeInDigest: true,
       section: 'renewableSection',
       javaSetter: `
-      expiry_ = val == null ? Long.MIN_VALUE : val.getTime();
+      expiryIsNull_ = ( val == null );
+      expiry_ = ( val == null ? 0L : val.getTime() );
       expiryIsSet_ = true;
       reset();
       `

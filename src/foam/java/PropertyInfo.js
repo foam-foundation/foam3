@@ -358,6 +358,7 @@ foam.CLASS({
           if ( this.property.javaFormat ) {
             body = this.property.javaFormat.
               replace(/%MODEL%/g, fullName).
+              replace(/%NULLFIELD%/g, this.propName + 'IsNull_').
               replace(/%FIELD%/g, this.propName);
           }
 

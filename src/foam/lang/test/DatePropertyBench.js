@@ -30,6 +30,10 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.MDAO',
     'foam.lib.json.JSONParser',
+    'foam.core.auth.Subject',
+    'foam.core.fs.FileSystemStorage',
+    'foam.core.fs.Storage',
+    'foam.core.auth.User',
     'foam.dao.F3FileJournal',
     'foam.lib.formatter.JSONFObjectFormatter',
     'foam.lib.json.Outputter',
@@ -38,6 +42,7 @@ foam.CLASS({
     'foam.mlang.sink.GroupBy',
     'java.lang.management.GarbageCollectorMXBean',
     'java.lang.management.ManagementFactory',
+    'foam.lang.X',
     'java.util.ArrayList',
     'java.util.Date',
     'java.util.List',
@@ -253,25 +258,37 @@ foam.CLASS({
         // ---- op 12: journal write — real file IO, formatter, and the DAO put
         // the journal performs under lock. Unique filename so a rerun never
         // appends onto the previous run's file.
+        // The journal writes through FileSystemStorage and replays through
+        // Storage, so both keys have to be present. It also reads
+        // x.get("subject") to attribute writes; user id 1 makes writeComment_
+        // return early, so no comment lines land in the file.
+        User journalUser = new User();
+        journalUser.setId(1L);
+        FileSystemStorage journalFs = new FileSystemStorage();
+        X jx = getX().
+          put(FileSystemStorage.class, journalFs).
+          put(Storage.class, journalFs).
+          put("subject", new Subject.Builder(getX()).setUser(journalUser).build());
+
         String jname = "datepropbench-" + System.currentTimeMillis();
         DAO journalDao = new MDAO(DateTimeTestModel.getOwnClassInfo());
-        F3FileJournal journal = new F3FileJournal.Builder(getX())
+        F3FileJournal journal = new F3FileJournal.Builder(jx)
           .setFilename(jname)
           .build();
         startPhase();
         for ( int i = 0 ; i < journalN ; i++ ) {
-          journal.put(getX(), "", journalDao, list.get(i));
+          journal.put(jx, "", journalDao, list.get(i));
         }
         journal.getWriter().flush();
         endPhase("journalWrite", "records=" + journalN);
 
         // ---- op 13: journal replay — read the file back and rebuild a DAO ----
         DAO replayDao = new MDAO(DateTimeTestModel.getOwnClassInfo());
-        F3FileJournal reader = new F3FileJournal.Builder(getX())
+        F3FileJournal reader = new F3FileJournal.Builder(jx)
           .setFilename(jname)
           .build();
         startPhase();
-        reader.replay(getX(), replayDao);
+        reader.replay(jx, replayDao);
         long replayed = ((Count) replayDao.select(COUNT())).getValue();
         endPhase("journalReplay", "rows=" + replayed);
 

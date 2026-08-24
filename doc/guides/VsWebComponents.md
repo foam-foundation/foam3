@@ -31,7 +31,7 @@ Both FOAM and Web Components have roots in Google's engineering culture of the e
 
 **Polymer**, Google's library built on top of those emerging standards, was announced in 2013. It polyfilled Web Component APIs across browsers and added a declarative property system, two-way data binding, and a component-definition API that deliberately resembled `foam.CLASS({...})`.
 
-**FOAM** (Feature Oriented Active Modeller) was also developed at Google during this same period by Kevin Greer. In its early iterations, Polymer was partially based on FOAM — borrowing ideas about declarative property definitions with type metadata, observers, and reactive change propagation. The conceptual kinship is unmistakable: compare Polymer 1.x's property declarations
+**FOAM** (Feature Oriented Active Modeller) was also developed at Google during this same period by Kevin Greer and the FOAM team. In its early iterations, Polymer was partially based on FOAM — borrowing ideas about declarative property definitions with type metadata, observers, and reactive change propagation. The conceptual kinship is unmistakable: compare Polymer 1.x's property declarations
 
 ```javascript
 // Polymer 1.x
@@ -60,6 +60,12 @@ foam.CLASS({
 Both frameworks were wrestling with the same problem: how to bring rich, reactive, observable properties to web components through a single declarative description.
 
 The two efforts then diverged in almost every important dimension: scope, implementation strategy, and ambition.
+
+**Polymer was not the only Google project to do this.** Another team at Google building Lovefield — a relational query layer for web applications — encountered FOAM's DAO system and saw exactly what they needed. Lovefield 1.0 was essentially FOAM1 with everything except the bare models and DAO layer removed. Like Polymer, it extracted one part of FOAM and shipped it as an independent library.
+
+The result of both extractions illustrates the point made at the top of this document. Given a Polymer + Lovefield application, a developer still has the UI component system and the data query layer — but still lacks reactive properties that work across tiers, serialisation, validation, server-side Java or Swift generation, REST marshaling, and the glue code connecting all of these to each other. Polymer and Lovefield together do not sum to FOAM; they sum to two of FOAM's sub-systems with all of the integration burden left to the application developer.
+
+Two separate teams at the same company, working in the same engineering culture, independently looked at FOAM and extracted the one part relevant to their immediate mandate. Both produced useful libraries. Neither extracted the thing that makes FOAM valuable — the fact that a single model declaration is the source of truth for all of those sub-systems simultaneously, with no integration code required between them.
 
 ## Where the Paths Diverged
 
@@ -332,6 +338,16 @@ A property added to a model is simultaneously a form field, a database column, a
 this.start('sl-button').attr('variant', 'primary').add('Save').end();
 ```
 
+FOAM does have its own element registration system — but it operates at the FOAM level rather than the browser level. Any FOAM view can be registered as the handler for a given tag name within FOAM's rendering context:
+
+```javascript
+foam.__context__.registerElement(foam.core.reflow.ImageTag, 'img');
+```
+
+After this registration, any `this.start('img')` call inside a FOAM view creates an instance of `foam.core.reflow.ImageTag` rather than a plain `<img>` element. FOAM uses this internally in its REFLOW environment, for example, to replace the default `<img>` tag with an enhanced version that can load images from other blocks in the same FLOW document — adding features that a plain `<img>` cannot provide — while keeping all existing view code that writes `start('img')` unchanged.
+
+This is analogous to what `customElements.define()` does for the browser, but scoped to FOAM's own rendering layer. It gives FOAM the same ability to transparently substitute behaviour behind familiar tag names, without touching the browser's element registry.
+
 ## Lifecycle Comparison
 
 | Event | Bare Web Components | Lit | FOAM |
@@ -347,9 +363,17 @@ FOAM's reactive slot graph drives updates precisely where needed — without lif
 
 - You need components that work inside multiple frameworks, or no framework at all
 - You are building a design system consumed across an organisation regardless of stack
-- You want the smallest possible JavaScript payload
+- Your application is genuinely small — a few components with no generic views, no serialisation, no REST client, no validation framework (see note below)
 - You are extending the HTML vocabulary with genuinely new element semantics
 - Standards compliance and long-term platform alignment are priorities
+
+> **On payload size.** The instinct to reach for a framework-less approach to minimise download size deserves scrutiny. A framework-less application is not code-free — it still needs `DetailView`, `TableView`, controllers, serialisation, REST clients, and validation, all written by hand. Once an application reaches a modest size, the custom implementations of these cross-cutting concerns outweigh the cost of the framework that would have generated them. The FOAM implementation of Gmail was 100× smaller than the conventional version.
+>
+> There is a useful analogy from economics. Whether you process a raw resource near its source or near its consumer depends on whether processing *shrinks* or *expands* the material. Trees shrink dramatically when milled into lumber, so sawmills are built in or near forests. Crude oil expands significantly when refined into its end products, so refineries are built on the outskirts of cities, close to consumers — not at the wellhead.
+>
+> FOAM models are crude oil. A compact model declaration expands by roughly 50× when FOAM generates getters, setters, validation, serialisation, UI, reactive bindings, and storage adapters from it at runtime. The economical approach is therefore to ship the small model and perform the expansion in the browser, where the result is consumed — exactly what FOAM does. The alternative — running server-side transpilers and bundlers that expand code before it is shipped — is the equivalent of refining oil at the wellhead and then transporting the expanded volume to consumers. It is precisely backwards.
+>
+> If your application is too small to recoup the framework's fixed cost, payload size was probably not a constraint in the first place.
 
 ## When to Choose FOAM
 

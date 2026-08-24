@@ -107,6 +107,7 @@ foam.CLASS({
         int  n          = Integer.getInteger("bench.n", 1000000);
         int  passes     = Integer.getInteger("bench.getterPasses", 10);
         int  serializeN = Integer.getInteger("bench.serializeN", 100000);
+        int  selectRepeats = Integer.getInteger("bench.selectRepeats", 3);
         long base       = 1600000000000L;
         // Spread the records over ~24 months so the GROUP_BY phases build a
         // realistic number of buckets instead of one.
@@ -114,6 +115,7 @@ foam.CLASS({
 
         System.out.println("BENCH n=" + n + " getterPasses=" + passes
           + " serializeN=" + serializeN
+          + " selectRepeats=" + selectRepeats
           + " dateProps=3"
           + " maxHeapMB=" + ( Runtime.getRuntime().maxMemory() / 1048576 ));
 
@@ -177,10 +179,14 @@ foam.CLASS({
           + ( ( heapDao - heapList ) / 1048576 ));
 
         // ---- op 5: date-ordered select ----
-        startPhase();
-        ArraySink ordered = (ArraySink) dao.select_(getX(), new ArraySink(), 0,
-          Long.MAX_VALUE, DateTimeTestModel.REGULAR_DATE, null);
-        endPhase("orderedSelect", "rows=" + ordered.getArray().size());
+        // Repeated: one pass is too noisy to read a direction from.
+        ArraySink ordered = null;
+        for ( int r = 0 ; r < selectRepeats ; r++ ) {
+          startPhase();
+          ordered = (ArraySink) dao.select_(getX(), new ArraySink(), 0,
+            Long.MAX_VALUE, DateTimeTestModel.REGULAR_DATE, null);
+          endPhase("orderedSelect", "iter=" + r + " rows=" + ordered.getArray().size());
+        }
 
         // ---- op 6: date range predicate select ----
         Date from = new Date(base);

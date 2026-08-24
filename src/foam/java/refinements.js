@@ -357,6 +357,14 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
     },
     {
       class: 'String',
+      name: 'javaObjToJSON',
+      documentation: `Body of PropertyInfo.objToJSON, the Outputter counterpart
+        of javaFormatJSON. Both are handed the object rather than a value, so a
+        property can serialize itself without the caller materializing it.`,
+      value: null
+    },
+    {
+      class: 'String',
       name: 'javaInnerGetter',
       factory: function() { return `return ${this.name}_;`; }
     },
@@ -1766,6 +1774,25 @@ foam.CLASS({
       }
      `
     ],
+    ['javaFormatJSON', `
+      if ( isSet(obj) && ! foam.util.DateUtil.isNullDateLong(get__(obj)) ) {
+        formatter.output(get__(obj));
+        return;
+      }
+      formatter.output(get_(obj))
+    `],
+    ['javaObjToJSON', `
+      if ( ! isSet(obj) ) {
+        toJSON(outputter, get(obj));
+        return;
+      }
+      long millis = get__(obj);
+      if ( foam.util.DateUtil.isNullDateLong(millis) ) {
+        outputter.output(null);
+        return;
+      }
+      outputter.outputDateValue(millis)
+    `],
     {
       name: 'javaInnerGetter',
       factory: function() { return `return foam.util.DateUtil.longToNullableDate(${this.name}_);`; }
@@ -1794,58 +1821,6 @@ foam.CLASS({
         return foam.util.DateUtil.adapt(o);
       `;
 
-      // Both serializers walk every PropertyInfo on the class, so those call
-      // sites are megamorphic: the JIT can't inline them and a Date the getter
-      // builds escapes as a call argument instead of being scalar-replaced.
-      // Writing the backing long directly keeps a date write allocation-free.
-      var model = cls.id;
-      var field = this.name;
-
-      info.method({
-        name: 'objToJSON',
-        visibility: 'public',
-        type: 'void',
-        args: [
-          { name: 'outputter', type: 'foam.lib.json.Outputter' },
-          { name: 'obj',       type: 'foam.lang.FObject' }
-        ],
-        body: `
-          if ( ! ((${model}) obj).${field}IsSet_ ) {
-            toJSON(outputter, get(obj));
-            return;
-          }
-          long millis = ((${model}) obj).${field}_;
-          if ( foam.util.DateUtil.isNullDateLong(millis) ) {
-            outputter.output(null);
-            return;
-          }
-          outputter.outputDateValue(millis);
-        `
-      });
-
-      // A property that sets javaFormatJSON has chosen its own serialized
-      // form, and that has to win. The generator already emits its body, so
-      // adding one here would duplicate the method and silently replace the
-      // format the property asked for.
-      if ( ! this.javaFormatJSON ) {
-        info.method({
-          name: 'formatJSON',
-          visibility: 'public',
-          type: 'void',
-          args: [
-            { name: 'formatter', type: 'foam.lib.formatter.FObjectFormatter' },
-            { name: 'obj',       type: 'foam.lang.FObject' }
-          ],
-          body: `
-            if ( ((${model}) obj).${field}IsSet_ &&
-                 ! foam.util.DateUtil.isNullDateLong(((${model}) obj).${field}_) ) {
-              formatter.output(((${model}) obj).${field}_);
-              return;
-            }
-            formatter.output(get_(obj));
-          `
-        });
-      }
 
       return info;
     }

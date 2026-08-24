@@ -79,6 +79,7 @@ public abstract class AbstractDatePropertyInfo
   }
 
   protected abstract java.util.Date get_(Object o);
+  protected abstract long           get__(Object o);
   protected abstract java.util.Date cast(Object key);
 
 //  public foam.lib.parse.Parser jsonParser() {
@@ -86,10 +87,11 @@ public abstract class AbstractDatePropertyInfo
 //  }
 
   public int compare(Object o1, Object o2) {
-    return foam.util.SafetyUtil.compare(get_(o1), get_(o2));
+    return foam.util.SafetyUtil.compare(get__(o1), get__(o2));
   }
 
   public int comparePropertyToObject(Object key, Object o) {
+    // TODO: call get__() instead to make more efficient
     return foam.util.SafetyUtil.compare(cast(key), get_(o));
   }
 

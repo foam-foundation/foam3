@@ -47,7 +47,7 @@ foam.INTERFACE({
       documentation: `Datetime of when capability is no longer valid. Explicitly set, or calculated from period and periodTimeUnit`,
       includeInDigest: true,
       section: 'renewableSection',
-      javaPosSet: 'reset();'
+      javaPostSet: 'reset();'
     },
     {
       name: 'expiryPeriod',

@@ -117,6 +117,12 @@ This turned out to be exactly the trajectory that the Polymer team itself eventu
 
 The original intention was not to build a UI framework at all. The plan was to find a suitable third-party library and integrate it with FOAM's model system. That plan failed — not because the libraries were poor, but because every library that existed made an assumption that turned out to be incompatible with FOAM's design.
 
+Before examining that assumption, it is worth understanding the economic rationale that shaped the design requirement. It would always have been possible to code-generate views — produce a bespoke `InvoiceDetailView`, `CustomerTableView`, and `OrderController` for each model, then ship all of that generated code to the browser. But this is the lumber mill approach: expand the material at the source and ship the expanded volume. A large application with hundreds of models would produce hundreds of generated view files, resulting in a massive download even before any application logic was included.
+
+FOAM's approach is the refinery approach: ship the crude oil and expand it at the point of consumption. A single `DetailView` introspects any model at runtime and composes the appropriate fields into existence on the client. A single `TableView` renders any DAO. One implementation, every model, zero per-model generated view code. The model declaration — compact, expressive, a fraction of the size of its expanded form — is what travels over the wire. The 50× expansion happens in the browser, where the result is immediately consumed.
+
+This is why a third-party UI library could not be used: to support this runtime-composition approach, the library itself had to be designed around programmatic generation rather than static authorship.
+
 ### RISC-y APIs
 
 To understand why, consider the evolution of CPU instruction sets. (This principle is explored in depth in [RISCyAPIs.md](RISCyAPIs.md).)

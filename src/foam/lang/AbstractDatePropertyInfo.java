@@ -111,7 +111,7 @@ public abstract class AbstractDatePropertyInfo
   }
 
   public boolean isDefaultValue(Object o) {
-    return foam.util.SafetyUtil.compare(get_(o), null) == 0;
+    return get__(o) == Long.MIN_VALUE;
   }
 
   public void format(foam.lib.formatter.FObjectFormatter formatter, foam.lang.FObject obj) {

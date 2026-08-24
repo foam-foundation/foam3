@@ -109,8 +109,10 @@ foam.CLASS({
       adapt: function(o, v, prop) {
         if ( foam.String.isInstance(v) ) return v;
         // The String adapt reads an object as a locale map, which a Date has no
-        // key in, so it would adapt to undefined and this node would be empty.
-        if ( foam.Date.isInstance(v) ) return foam.util.DateUtil.format(v);
+        // key in, and treats a false Boolean as empty, so either one would
+        // leave this node blank.
+        if ( foam.Date.isInstance(v) )    return foam.util.DateUtil.format(v);
+        if ( foam.Boolean.isInstance(v) ) return String(v);
         return foam.lang.String.ADAPT.value.call(this, o, v, prop);
       }
     },
@@ -175,7 +177,7 @@ foam.CLASS({
           if ( val === undefined || val === null ) {
             n = foam.u2.Text.create({}, this);
           } else if ( this.isLiteral(val) ) {
-            n = foam.u2.Text.create({text: '' + val}, this);
+            n = foam.u2.Text.create({text: val}, this);
           } else if ( foam.u2.Element.isInstance(val) ) {
             n = val;
           } else if ( foam.Array.isInstance(val) ) {
@@ -1370,7 +1372,7 @@ foam.CLASS({
         }
         */
       if ( this.isLiteral(c) ) {
-        c = foam.u2.Text.create({text: '' + c});
+        c = foam.u2.Text.create({text: c});
         this.childNodes.push(c);
         c.parentNode = parentNode;
         this.appendChild_(c.element_);

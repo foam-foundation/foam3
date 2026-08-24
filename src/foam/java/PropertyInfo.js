@@ -160,17 +160,7 @@ foam.CLASS({
     { name: 'toCSV',               factory: function() { return this.property.javaToCSV; } },
     { name: 'toCSVLabel',          factory: function() { return this.property.javaToCSVLabel; } },
     { name: 'fromCSVLabelMapping', factory: function() { return this.property.javaFromCSVLabelMapping; } },
-    {
-      name: 'formatJSON',
-      factory: function() {
-        var body = this.property.javaFormatJSON;
-        if ( ! body ) return body;
-        var cls = this.sourceCls;
-        return body.
-          replace(/%MODEL%/g, cls.package ? cls.package + '.' + cls.name : cls.name).
-          replace(/%FIELD%/g, this.propName);
-      }
-    },
+    { name: 'formatJSON',          factory: function() { return this.property.javaFormatJSON; } },
     {
       name: 'propClassName',
       expression: function (propType) {

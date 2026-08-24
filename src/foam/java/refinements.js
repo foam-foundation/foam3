@@ -357,13 +357,6 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
     },
     {
       class: 'String',
-      name: 'javaObjToJSON',
-      documentation: `Body of the PropertyInfo's objToJSON override, for property
-        classes that can write their value without materializing the exposed
-        type. %MODEL% is the declaring class, %FIELD% the property name.`
-    },
-    {
-      class: 'String',
       name: 'javaInnerGetter',
       factory: function() { return `return ${this.name}_;`; }
     },
@@ -410,21 +403,6 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
         type: 'String',
         body: 'return "' + cls.id + '.' + this.name + '";'
       });
-
-      if ( this.javaObjToJSON && ! foam.java.Interface.isInstance(cls) ) {
-        info.method({
-          name: 'objToJSON',
-          visibility: 'public',
-          type: 'void',
-          args: [
-            { name: 'outputter', type: 'foam.lib.json.Outputter' },
-            { name: 'obj',       type: 'foam.lang.FObject' }
-          ],
-          body: this.javaObjToJSON.
-            replace(/%MODEL%/g, cls.id).
-            replace(/%FIELD%/g, this.name)
-        });
-      }
 
       return info;
     },
@@ -1796,25 +1774,6 @@ foam.CLASS({
       name: 'javaInnerSetter',
       factory: function() { return `${this.name}_ = foam.util.DateUtil.nullableDateToLong(val);`; }
     },
-    ['javaFormatJSON', `
-      if ( ((%MODEL%) obj).%FIELD%IsSet_ && ((%MODEL%) obj).%FIELD%_ != Long.MIN_VALUE ) {
-        formatter.output(((%MODEL%) obj).%FIELD%_);
-        return;
-      }
-      formatter.output(get_(obj))
-    `],
-    ['javaObjToJSON', `
-      if ( ! ((%MODEL%) obj).%FIELD%IsSet_ ) {
-        toJSON(outputter, get(obj));
-        return;
-      }
-      long millis = ((%MODEL%) obj).%FIELD%_;
-      if ( millis == Long.MIN_VALUE ) {
-        outputter.output(null);
-        return;
-      }
-      outputter.outputDateValue(millis);
-    `]
   ],
 
   methods: [
@@ -1825,6 +1784,59 @@ foam.CLASS({
       m.body = `
         return foam.util.DateUtil.adapt(o);
       `;
+
+      // Both serializers walk every PropertyInfo on the class, so those call
+      // sites are megamorphic: the JIT can't inline them and a Date the getter
+      // builds escapes as a call argument instead of being scalar-replaced.
+      // Writing the backing long directly keeps a date write allocation-free.
+      var model = cls.id;
+      var field = this.name;
+
+      info.method({
+        name: 'objToJSON',
+        visibility: 'public',
+        type: 'void',
+        args: [
+          { name: 'outputter', type: 'foam.lib.json.Outputter' },
+          { name: 'obj',       type: 'foam.lang.FObject' }
+        ],
+        body: `
+          if ( ! ((${model}) obj).${field}IsSet_ ) {
+            toJSON(outputter, get(obj));
+            return;
+          }
+          long millis = ((${model}) obj).${field}_;
+          if ( millis == Long.MIN_VALUE ) {
+            outputter.output(null);
+            return;
+          }
+          outputter.outputDateValue(millis);
+        `
+      });
+
+      // A property that sets javaFormatJSON has its own wire format (ROLSIRT
+      // emits ISO strings for the Visa RTSI models), and that must win — the
+      // generator already emits its body, so adding one here would both
+      // duplicate the method and change the format.
+      if ( ! this.javaFormatJSON ) {
+        info.method({
+          name: 'formatJSON',
+          visibility: 'public',
+          type: 'void',
+          args: [
+            { name: 'formatter', type: 'foam.lib.formatter.FObjectFormatter' },
+            { name: 'obj',       type: 'foam.lang.FObject' }
+          ],
+          body: `
+            if ( ((${model}) obj).${field}IsSet_ &&
+                 ((${model}) obj).${field}_ != Long.MIN_VALUE ) {
+              formatter.output(((${model}) obj).${field}_);
+              return;
+            }
+            formatter.output(get_(obj));
+          `
+        });
+      }
 
       return info;
     }

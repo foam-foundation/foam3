@@ -160,7 +160,18 @@ foam.CLASS({
     { name: 'toCSV',               factory: function() { return this.property.javaToCSV; } },
     { name: 'toCSVLabel',          factory: function() { return this.property.javaToCSVLabel; } },
     { name: 'fromCSVLabelMapping', factory: function() { return this.property.javaFromCSVLabelMapping; } },
-    { name: 'formatJSON',          factory: function() { return this.property.javaFormatJSON; } },
+    {
+      name: 'formatJSON',
+      factory: function() {
+        var body = this.property.javaFormatJSON;
+        if ( ! body ) return body;
+        var cls = this.sourceCls;
+        return body.
+          replace(/%MODEL%/g, cls.package ? cls.package + '.' + cls.name : cls.name).
+          replace(/%NULLFIELD%/g, this.propName + 'IsNull_').
+          replace(/%FIELD%/g, this.propName);
+      }
+    },
     {
       name: 'propClassName',
       expression: function (propType) {
@@ -354,13 +365,6 @@ foam.CLASS({
         // TODO: We could reduce the amount a Enum PropertyInfo code we output
         if ( this.extends != 'foam.lang.AbstractEnumPropertyInfo' ) {
           var body = 'formatter.output(get_(obj));';
-
-          if ( this.property.javaFormat ) {
-            body = this.property.javaFormat.
-              replace(/%MODEL%/g, fullName).
-              replace(/%NULLFIELD%/g, this.propName + 'IsNull_').
-              replace(/%FIELD%/g, this.propName);
-          }
 
           // Double extends Float, so just checking for Float catches both
           if ( foam.lang.Float.isInstance(this.property) && this.precision ) {

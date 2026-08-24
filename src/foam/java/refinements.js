@@ -226,13 +226,6 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'javaFormat',
-      documentation: `Body of the PropertyInfo's format override (the
-        FObjectFormatter stack, which the journal writes through). Same
-        %MODEL% / %FIELD% substitution as javaObjToJSON.`
-    },
-    {
-      class: 'String',
       name: 'javaObjToJSON',
       documentation: `Body of the PropertyInfo's objToJSON override, for property
         classes whose backing field can be written to JSON without materializing
@@ -1818,12 +1811,12 @@ foam.CLASS({
     ['javaFieldNullFlag',    true],
     ['javaFieldInitializer', '0L;'],
     ['javaWrapField',        '(%NULL% ? null : new java.util.Date(%FIELD%))'],
-    ['javaFormat',           `
+    ['javaFormatJSON',       `
       if ( ((%MODEL%) obj).%FIELD%IsSet_ && ! ((%MODEL%) obj).%NULLFIELD% ) {
         formatter.output(((%MODEL%) obj).%FIELD%_);
         return;
       }
-      formatter.output(get_(obj));
+      formatter.output(get_(obj))
     `],
     ['javaObjToJSON',        `
       if ( ! ((%MODEL%) obj).%FIELD%IsSet_ ) {

@@ -247,10 +247,10 @@ foam.CLASS({
     {
       name: 'expiry',
       javaSetter: `
-      expiry_ = val;
+      expiry_ = val == null ? Long.MIN_VALUE : val.getTime();
       expiryIsSet_ = true;
       reset();
-      if ( expiry_ != null &&
+      if ( expiry_ != Long.MIN_VALUE &&
            ! getIsRenewable() ) {
         setStatus(CapabilityJunctionStatus.EXPIRED);
       }

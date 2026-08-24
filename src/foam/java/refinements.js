@@ -207,6 +207,28 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'javaFieldType',
+      documentation: `Storage type of the generated backing field when it
+        differs from javaType. Getter/setter signatures still use javaType;
+        javaWrapField/javaUnwrapValue convert at the boundary.`
+    },
+    {
+      class: 'String',
+      name: 'javaFieldInitializer',
+      documentation: 'Initializer for the backing field when javaFieldType is set.'
+    },
+    {
+      class: 'String',
+      name: 'javaWrapField',
+      documentation: 'Expression template converting the backing field (%FIELD%) to a javaType value.'
+    },
+    {
+      class: 'String',
+      name: 'javaUnwrapValue',
+      documentation: 'Expression template converting a javaType value (%VALUE%) to the backing field type.'
+    },
+    {
+      class: 'String',
       name: 'javaJSONParser',
       // Set to the String literal 'null' if no JSONParser desired
       value: 'foam.lib.json.AnyParser.instance()'
@@ -391,6 +413,14 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       return info;
     },
 
+    function javaWrapField_(fieldExpr) {
+      return this.javaWrapField ? this.javaWrapField.replace(/%FIELD%/g, fieldExpr) : fieldExpr;
+    },
+
+    function javaUnwrapValue_(valExpr) {
+      return this.javaUnwrapValue ? this.javaUnwrapValue.replace(/%VALUE%/g, valExpr) : valExpr;
+    },
+
     function generateSetter_() {
       // return user defined setter
       if ( this.javaSetter ) {
@@ -418,9 +448,9 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       // set value
       // Don't include oldVal if not used
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
-        setter += `${this.javaType} oldVal = ${this.name}_;\n`;
+        setter += `${this.javaType} oldVal = ` + this.javaWrapField_(`${this.name}_`) + `;\n`;
       }
-      setter += `${this.name}_ = val;\n`;
+      setter += `${this.name}_ = ` + this.javaUnwrapValue_('val') + `;\n`;
       setter += `${this.name}IsSet_ = true;\n`;
 
       // add post-set function
@@ -450,8 +480,9 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       cls.
         field({
           name: privateName,
-          type: this.javaType,
-          visibility: 'protected'
+          type: this.javaFieldType || this.javaType,
+          visibility: 'protected',
+          initializer: this.javaFieldType ? this.javaFieldInitializer : undefined
         }).
         field({
           name: isSet,
@@ -470,7 +501,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
                 '  set' + capitalized + '(' + factoryName + '());\n' :
                 ' return ' + this.javaValue + ';\n' ) +
             '}\n' +
-            'return ' + privateName + ';')
+            'return ' + this.javaWrapField_(privateName) + ';')
         }).
         method({
           name: 'set' + capitalized,
@@ -1727,7 +1758,11 @@ foam.CLASS({
   mixins: [ 'foam.java.JavaCompareImplementor' ],
 
   properties: [
-    ['javaType',        'java.util.Date' ],
+    ['javaType',             'java.util.Date' ],
+    ['javaFieldType',        'long'],
+    ['javaFieldInitializer', 'Long.MIN_VALUE;'],
+    ['javaWrapField',        '(%FIELD% == Long.MIN_VALUE ? null : new java.util.Date(%FIELD%))'],
+    ['javaUnwrapValue',      '(%VALUE% == null ? Long.MIN_VALUE : %VALUE%.getTime())'],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],

@@ -73,7 +73,7 @@ foam.CLASS({
       }).
 
       style({ 'min-width': this.table.tableWidth_$ });
-      // var keeps these per-group: without it they leak to globals shared by
+      // var keeps these per-group:- without it they leak to globals shared by
       // every group and table cell, breaking any reader that runs after render.
       var [prop, objReturned] = this.getCellData(objForCurrentProperty, this.table.groupBy, nestedPropertiesObjsMap);
       this.start().addClass(self.table.myClass('group-content'),'h500')

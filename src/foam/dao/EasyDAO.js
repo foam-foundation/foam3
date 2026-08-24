@@ -589,6 +589,11 @@ foam.CLASS({
       `
     },
     {
+      documentation: 'Write journal entries multi-line: nested structures indented and multiline strings as triple-quoted blocks. Enable per DAO for journals a human reads or diffs (scripts, flows).',
+      class: 'Boolean',
+      name: 'multiLineOutput'
+    },
+    {
       documentation: `See JDAO.  Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
       class: 'Boolean',
       name: 'waitReplay',
@@ -1038,6 +1043,7 @@ System.err.println("************************************* CREATING UNLOADABLE DA
             jdao.setCluster(getCluster() && !getSaf());
             jdao.setWaitReplay(getWaitReplay());
             jdao.setNdiff(getNdiff());
+            jdao.setMultiLineOutput(getMultiLineOutput());
             // Setting of delegate must be last as it triggers replay
             jdao.setDelegate(delegate);
             delegate = jdao;

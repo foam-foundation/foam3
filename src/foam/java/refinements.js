@@ -1806,7 +1806,7 @@ foam.CLASS({
             return;
           }
           long millis = ((${model}) obj).${field}_;
-          if ( millis == Long.MIN_VALUE ) {
+          if ( foam.util.DateUtil.isNullDateLong(millis) ) {
             outputter.output(null);
             return;
           }
@@ -1814,10 +1814,10 @@ foam.CLASS({
         `
       });
 
-      // A property that sets javaFormatJSON has its own wire format (ROLSIRT
-      // emits ISO strings for the Visa RTSI models), and that must win — the
-      // generator already emits its body, so adding one here would both
-      // duplicate the method and change the format.
+      // A property that sets javaFormatJSON has chosen its own serialized
+      // form, and that has to win. The generator already emits its body, so
+      // adding one here would duplicate the method and silently replace the
+      // format the property asked for.
       if ( ! this.javaFormatJSON ) {
         info.method({
           name: 'formatJSON',
@@ -1829,7 +1829,7 @@ foam.CLASS({
           ],
           body: `
             if ( ((${model}) obj).${field}IsSet_ &&
-                 ((${model}) obj).${field}_ != Long.MIN_VALUE ) {
+                 ! foam.util.DateUtil.isNullDateLong(((${model}) obj).${field}_) ) {
               formatter.output(((${model}) obj).${field}_);
               return;
             }

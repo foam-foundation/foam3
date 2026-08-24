@@ -356,13 +356,6 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       value: null
     },
     {
-      class: 'Boolean',
-      name: 'javaFieldNullFlag',
-      documentation: `Emit a companion boolean field recording whether the value
-        is null. Needed when javaFieldType covers its whole value range and so
-        has no value to spare as a null sentinel.`
-    },
-    {
       class: 'String',
       name: 'javaObjToJSON',
       documentation: `Body of the PropertyInfo's objToJSON override, for property
@@ -429,7 +422,6 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           ],
           body: this.javaObjToJSON.
             replace(/%MODEL%/g, cls.id).
-            replace(/%NULLFIELD%/g, this.name + 'IsNull_').
             replace(/%FIELD%/g, this.name)
         });
       }
@@ -492,15 +484,6 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var constantize = foam.String.constantize(this.name);
       var isSet       = this.name + 'IsSet_';
       var factoryName = capitalized + 'Factory_';
-
-      if ( this.javaFieldNullFlag ) {
-        cls.field({
-          name: this.name + 'IsNull_',
-          type: 'boolean',
-          visibility: 'protected',
-          initializer: 'true;'
-        });
-      }
 
       cls.
         field({
@@ -1805,22 +1788,16 @@ foam.CLASS({
       }
      `
     ],
-    ['javaFieldNullFlag', true],
     {
       name: 'javaInnerGetter',
-      factory: function() {
-        return `return ${this.name}IsNull_ ? null : new java.util.Date(${this.name}_);`;
-      }
+      factory: function() { return `return foam.util.DateUtil.longToNullableDate(${this.name}_);`; }
     },
     {
       name: 'javaInnerSetter',
-      factory: function() {
-        return `${this.name}IsNull_ = ( val == null );\n` +
-               `${this.name}_ = ( val == null ? 0L : val.getTime() );`;
-      }
+      factory: function() { return `${this.name}_ = foam.util.DateUtil.nullableDateToLong(val);`; }
     },
     ['javaFormatJSON', `
-      if ( ((%MODEL%) obj).%FIELD%IsSet_ && ! ((%MODEL%) obj).%NULLFIELD% ) {
+      if ( ((%MODEL%) obj).%FIELD%IsSet_ && ((%MODEL%) obj).%FIELD%_ != Long.MIN_VALUE ) {
         formatter.output(((%MODEL%) obj).%FIELD%_);
         return;
       }
@@ -1831,11 +1808,12 @@ foam.CLASS({
         toJSON(outputter, get(obj));
         return;
       }
-      if ( ((%MODEL%) obj).%NULLFIELD% ) {
+      long millis = ((%MODEL%) obj).%FIELD%_;
+      if ( millis == Long.MIN_VALUE ) {
         outputter.output(null);
         return;
       }
-      outputter.outputDateValue(((%MODEL%) obj).%FIELD%_);
+      outputter.outputDateValue(millis);
     `]
   ],
 

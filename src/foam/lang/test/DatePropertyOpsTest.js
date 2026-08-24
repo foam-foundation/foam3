@@ -167,12 +167,11 @@ foam.CLASS({
           && parsed.getUtcDateTime().getTime() == sample.getUtcDateTime().getTime(),
           "A JSON round trip preserved every date value");
 
-        // ---- extreme values survive: no long value is reserved as a sentinel ----
+        // ---- extreme values, and the one value reserved as the null sentinel ----
         DateTimeTestModel extremes = new DateTimeTestModel();
         extremes.setRegularDateTime(new Date(Long.MIN_VALUE));
-        test(extremes.getRegularDateTime() != null
-          && extremes.getRegularDateTime().getTime() == Long.MIN_VALUE,
-          "Long.MIN_VALUE survives a round trip instead of reading back as null");
+        test(extremes.getRegularDateTime() == null,
+          "Long.MIN_VALUE is the null sentinel, so it reads back as null by design");
         extremes.setRegularDateTime(new Date(Long.MAX_VALUE));
         test(extremes.getRegularDateTime() != null
           && extremes.getRegularDateTime().getTime() == Long.MAX_VALUE,

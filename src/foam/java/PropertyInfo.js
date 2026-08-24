@@ -168,7 +168,6 @@ foam.CLASS({
         var cls = this.sourceCls;
         return body.
           replace(/%MODEL%/g, cls.package ? cls.package + '.' + cls.name : cls.name).
-          replace(/%NULLFIELD%/g, this.propName + 'IsNull_').
           replace(/%FIELD%/g, this.propName);
       }
     },

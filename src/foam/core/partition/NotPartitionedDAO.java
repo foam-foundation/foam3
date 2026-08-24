@@ -30,6 +30,7 @@ public class NotPartitionedDAO
   extends AbstractPartitionedDAO
 {
   protected SoftReference<DAO> delegate_ = null;
+  protected EasyDAO easy_;
 
   public NotPartitionedDAO(X x) {
     setX(x);
@@ -41,6 +42,11 @@ public class NotPartitionedDAO
     setDirName(journalName);
   }
 
+  /** Set by EasyDAO so createDAO() can rebuild the same journalled chain on every reload. */
+  public void setEasyDAO(EasyDAO easy) {
+    easy_ = easy;
+  }
+
   public synchronized DAO getDelegate() {
     DAO dao = delegate_ != null ? delegate_.get() : null;
 
@@ -48,8 +54,13 @@ public class NotPartitionedDAO
       if ( delegate_ != null )
         Loggers.logger(getX(), this).info("DAO was garbage collected. A new DAO will be created and cached.", getDirName());
 
-      dao = createDAO();
-      delegate_ = new SoftReference<>(dao);
+      loadingStarted("");
+      try {
+        dao = createDAO();
+        delegate_ = new SoftReference<>(dao);
+      } finally {
+        loadingEnded("");
+      }
     }
 
     return dao;
@@ -64,9 +75,17 @@ public class NotPartitionedDAO
     String journalName = getDirName();
     Loggers.logger(getX(), this).info("Creating underlying DAO", journalName);
 
-    System.err.println("******************************** CREATING UNLOADABLE DAO " + journalName);
-
-    DAO jdao = new JDAO(getX(), getOf(), journalName);
+    PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), "");
+    DAO jdao;
+    try {
+      reporter.start(journalSize(journalName));
+      X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
+      jdao = easy_ != null ?
+        easy_.createJournalledDelegate(loadX) :
+        new JDAO(loadX, getOf(), journalName);
+    } finally {
+      reporter.done();
+    }
 
     addIndices(jdao);
 

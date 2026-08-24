@@ -1,5 +1,3 @@
-Claude Prompt: Write an introduction document to FOAM for a developer who knows nothing about it.
-
 # Introduction to FOAM for Developers
 
 ## What is FOAM?

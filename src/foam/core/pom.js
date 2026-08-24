@@ -48,6 +48,7 @@ foam.POM({
     { name: "column/CSVTableOutputter",                                                   flags: "js" },
     { name: "column/NestedPropertiesExpression",                                          flags: "js|java" },
     { name: "column/TableColumnOutputter",                                                flags: "js|java" },
+    { name: "column/test/TableColumnOutputterJSTest",                                     flags: "js&test|java&test" },
     { name: "controller/AppStyles",                                                       flags: "web" },
     { name: "controller/Fonts",                                                           flags: "web" },
     { name: "logger/DAOLogger",                                                           flags: "js|java" },
@@ -541,6 +542,7 @@ foam.POM({
   ],
 
   javaFiles: [
+    { name: "alarming/test/OMAlarmTest",                              flags: "test" },
     { name: "pm/DAOPMLogger" },
     { name: "pm/PipelinePMLocator" },
     { name: "pm/PMInfoMDAO" },

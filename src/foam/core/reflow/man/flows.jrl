@@ -1,6 +1,7 @@
 p({
 "class":"foam.core.reflow.Flow",
 "name":"manual:REFLOW",
+"category":"MANUAL",
 "accessLevel":"1",
 "version":34,
 "preLoadScript":"",

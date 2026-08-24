@@ -44,6 +44,7 @@ foam.CLASS({
 
   cssTokens: [
     {
+      class: 'foam.u2.ColorToken',
       name: 'menuBackground',
       value: '$backgroundDefault'
     },

@@ -11,6 +11,10 @@ foam.CLASS({
 
   documentation: 'View for formatting currency values. Supports both UnitValue (Long/cents) and DoubleUnitValue (Double/dollars).',
 
+  imports: [
+    'translationService'
+  ],
+
   properties: [
     ['precision', 2],
     {
@@ -52,14 +56,19 @@ foam.CLASS({
     },
 
     function textToData(text) {
-      const delim = new RegExp((this.curr_?.delimiter ?? ','), 'g');
-      let plainText = text.replace(delim, '')
+      var delimiter = this.translationService.getTranslation(foam.locale, 'Currency.delimiter', this.curr_?.delimiter ?? ',');
+      if ( delimiter == '.' )
+        delimiter = '\\.';
+
+      const delim = new RegExp(delimiter, 'g');
+      let plainText = text.replace(delim, '');
       plainText =
         ! this.hideSymbol && this.curr_.symbol && plainText.startsWith(this.curr_.symbol) ?
         plainText.substring(1) :
         plainText;
       var val = this.SUPER(plainText);
-      return this.useMinorUnits ? Math.round(val * 100) : val;
+      var scale = Math.pow(10, this.precision);
+      return this.useMinorUnits ? Math.round(val * scale) : Math.round(val * scale) / scale;
     },
 
     function formatNumber(val) {

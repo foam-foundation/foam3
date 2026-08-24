@@ -49,13 +49,11 @@ foam.CLASS({
             }
             return stringArr.join(' ');
           }
-          if ( foam.lang.UnitValue.isInstance(prop) ) {
-            if ( unitPropName ) {
-              if ( prop.unitPropValueToString ) {
-                return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
-              }
-              return val.toString();
-            }
+          if ( prop.unitPropValueToString && unitPropName ) {
+            // 'Add Units' unchecked: bare spreadsheet-parseable number
+            if ( ! addUnitPropValueToStr && prop.unitPropValueToPlainString )
+              return await prop.unitPropValueToPlainString(x, val, unitPropName);
+            return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
           }
           if ( foam.lang.DateTime.isInstance(prop) ) {
             return this.dateTimeToString(val);
@@ -109,10 +107,14 @@ foam.CLASS({
         for ( var value of values ) {
           var stringArrayForValue = [];
           for ( var i = 0 ; i < lengthOfPrimaryPropsRequested ; i++ ) {
-            if ( foam.lang.UnitValue.isInstance(props[i]) ) {
+            if ( props[i].unitPropValueToString ) {
               var indexOfUnitProp = props.findIndex(p => p.name === props[i].unitPropName);
               if ( indexOfUnitProp !== -1 ) {
-                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], value[indexOfUnitProp], addUnitPropValueToStr));
+                var unitPropValue = value[indexOfUnitProp];
+                // Reference-typed unit props (e.g. CurrencyCode) project as RefSummary
+                // {id, summary} maps, not code strings; currencyDAO.find needs the id
+                if ( unitPropValue && typeof unitPropValue === 'object' ) unitPropValue = unitPropValue.id;
+                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], unitPropValue, addUnitPropValueToStr));
                 continue;
               }
             }
@@ -133,9 +135,9 @@ foam.CLASS({
     },
     {
       name: 'objectToTable',
-      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested) {
+      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested, addUnitPropValueToStr) {
         var values = await this.objToArrayOfStringValues(x, of, propNames, obj);
-        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested);
+        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested, addUnitPropValueToStr);
       }
     },
     {

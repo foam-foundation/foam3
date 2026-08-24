@@ -122,7 +122,7 @@ foam.CLASS({
 
 //  imports: [ 'suggestText' ],
 
-  constants: { MAX_WIDTH: 60 }, // Max label width in characters
+  constants: { MAX_WIDTH: 50 }, // Max label width in characters
 
   css: `
     ^ {
@@ -166,6 +166,36 @@ foam.CLASS({
       const self  = this;
       const data  = this.data;
 
+      function summary(s) {
+        let trim = false;
+
+        let i = s.indexOf('.');
+
+        if ( i > 15 ) {
+          s = s.substring(0, i);
+          trim = true;
+        }
+
+        i = s.indexOf(', ');
+
+        if ( i > 15 ) {
+          s = s.substring(0, i);
+          trim = true;
+        }
+
+        if ( s.length > self.MAX_WIDTH ) {
+          s = s.substring(0, self.MAX_WIDTH);
+          i = s.lastIndexOf(' ');
+          if ( i > s.length - 10)
+            s = s.substring(0, i);
+          trim = true;
+        }
+
+        if ( trim ) s = s + ' ...';
+
+        return s;
+      }
+
       this.
         addClass().
         start().
@@ -178,7 +208,8 @@ foam.CLASS({
               }).add(data.tooltip).end();
             },
             function() {
-              const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');
+
+              const label = summary(data.label);
               this.
                 style({cursor: 'pointer'}).
                 call(function() { this.tooltip = data.label; }).

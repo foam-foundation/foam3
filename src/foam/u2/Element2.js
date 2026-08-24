@@ -1360,7 +1360,7 @@ foam.CLASS({
         }
         */
       if ( this.isLiteral(c) ) {
-        c = foam.u2.Text.create({text: c});
+        c = foam.u2.Text.create({text: '' + c});
         this.childNodes.push(c);
         c.parentNode = parentNode;
         this.appendChild_(c.element_);

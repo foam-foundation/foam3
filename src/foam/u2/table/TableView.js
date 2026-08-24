@@ -170,10 +170,28 @@
       padding: 4px;
       position: sticky;
       right: 4px;
+      touch-action: none;
     }
 
     ^resizeButton.foam-u2-ActionView:hover:not(:disabled), ^resizeCursor {
       cursor: col-resize;
+    }
+
+    /* Full-viewport overlay mounted on body for a drag's duration: it wins
+       the cursor by hit-test (pointer capture still routes events to the
+       handle), needs no per-rule specificity overrides, and covers areas
+       outside the table that a captured drag can roam over. */
+    ^drag-overlay {
+      cursor: col-resize;
+      inset: 0;
+      position: fixed;
+      z-index: 1000;
+    }
+
+    /* Hidden via opacity, not display, so the handle stays in the tab
+       order and can be revealed by keyboard focus. */
+    ^resizeHidden {
+      opacity: 0;
     }
 
     ^resizeButton.foam-u2-ActionView svg{

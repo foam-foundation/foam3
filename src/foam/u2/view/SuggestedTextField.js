@@ -74,8 +74,13 @@
       of: 'foam.u2.Autocompleter',
       name: 'autocompleter',
       factory: function() {
-        if ( ! this.daoKey ) console.error('No daokey');
-        return this.Autocompleter.create({ dao: this.__subContext__[this.daoKey] })
+        var dao = this.__subContext__[this.daoKey];
+        if ( ! dao ) {
+          console.error('SuggestedTextField: daoKey "' + this.daoKey +
+            '" did not resolve to a DAO in the context; autocomplete will ' +
+            'return no suggestions.');
+        }
+        return this.Autocompleter.create({ dao: dao })
       }
     },
     {

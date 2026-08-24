@@ -280,19 +280,48 @@ class FoamLSPClient {
     this.projectRoot       = projectRoot;
     this.nextId            = 1;
     this.pending           = new Map();       // id -> { resolve, reject }
-    this.openedUris        = new Set();
+    this.openedUris        = new Map();       // uri -> { mtimeMs, version }
     this.diagnosticsByUri  = new Map();       // uri -> diagnostics[]
     this.buffer            = Buffer.alloc(0);
     this.isReady           = false;
-    this._whenReady        = new Promise(function(resolve, reject) {
+    this.child             = null;
+    this.lastUsed          = Date.now();
+    this._resetReady();
+
+    // Idle reaper: the LSP holds the whole FOAM registry in memory, which is
+    // wasted on a session that stopped calling foam tools. Kill the child
+    // after FOAM_LSP_IDLE_MS without use (default 30 min); the exit handler
+    // resets state so the next tool call boots a fresh one.
+    const idleMs = Number(process.env.FOAM_LSP_IDLE_MS) || 30 * 60 * 1000;
+    setInterval(function() {
+      if ( this.child && this.isReady && this.pending.size === 0 &&
+           Date.now() - this.lastUsed > idleMs ) {
+        log('LSP idle for ' + Math.round(idleMs / 60000) + 'min — stopping (next call reboots it)');
+        this.child.kill();
+      }
+    }.bind(this), Math.min(60000, idleMs)).unref();
+  }
+
+  _resetReady() {
+    this._whenReady = new Promise(function(resolve, reject) {
       this._resolveReady = resolve;
       this._rejectReady  = reject;
     }.bind(this));
+    // Silence unhandledRejection when a boot fails with no awaiter;
+    // awaiters still observe the rejection.
+    this._whenReady.catch(function() {});
   }
 
-  whenReady() { return this._whenReady; }
+  // Lazy boot: the LSP costs ~10-15s and a large registry to start, and many
+  // MCP sessions never call a foam tool. Spawn on first use, not at startup.
+  whenReady() {
+    this.lastUsed = Date.now();
+    if ( ! this.child ) this.start();
+    return this._whenReady;
+  }
 
   start() {
+    if ( this.child ) return;
     const entry = path.join(this.projectRoot, 'foam3/tools/lsp-start.js');
     if ( ! fs.existsSync(entry) ) {
       this._rejectReady(new Error('FOAM LSP entry not found at ' + entry));
@@ -300,12 +329,26 @@ class FoamLSPClient {
     }
     log('spawning LSP:', 'node', entry, '(cwd=' + this.projectRoot + ')');
 
+    // When the child dies mid-boot, the exit handler rejects the ready
+    // promise and swaps in a fresh one for the NEXT boot — and only then
+    // does the initialize .catch below fire. Settle the promise THIS boot
+    // owns, not whatever is current at that point.
+    const rejectBoot = this._rejectReady;
+
     this.child = spawn('node', [entry], {
       cwd:   this.projectRoot,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      // Stale-index guard: the LSP exits when git HEAD changes (branch
+      // switch); our exit handler resets state and the next tool call
+      // boots a fresh index. Safe for us — we have no restart UX cost.
+      env:   Object.assign({}, process.env, { FOAM_LSP_EXIT_ON_HEAD_CHANGE: '1' })
     });
 
     this.child.stdout.on('data', this._onStdout.bind(this));
+    // A write can race the child's death (idle reap, crash): stdin then
+    // emits a stream 'error' which, unhandled, would crash the wrapper.
+    // The 'exit' handler already rejects the in-flight requests.
+    this.child.stdin.on('error', function() {});
     this.child.stderr.on('data', function(chunk) {
       // Forward LSP stderr to our stderr with a prefix; never touch stdout.
       const text = chunk.toString('utf8');
@@ -318,6 +361,18 @@ class FoamLSPClient {
       if ( ! this.isReady ) {
         this._rejectReady(new Error('LSP exited during init (code=' + code + ')'));
       }
+      // Reset to the pre-boot state so the next tool call respawns a fresh
+      // LSP (idle reap, crash, or kill — all recover the same way).
+      this.child   = null;
+      this.isReady = false;
+      this.buffer  = Buffer.alloc(0);
+      this.openedUris.clear();
+      this.diagnosticsByUri.clear();
+      for ( const p of this.pending.values() ) {
+        p.reject(new Error('LSP exited (code=' + code + ', signal=' + signal + ')'));
+      }
+      this.pending.clear();
+      this._resetReady();
     }.bind(this));
 
     // Kick off initialize.
@@ -341,7 +396,10 @@ class FoamLSPClient {
       this._resolveReady(initResult);
     }.bind(this)).catch(function(e) {
       log('LSP initialize failed:', e.message);
-      this._rejectReady(e);
+      rejectBoot(e);
+      // Reap the half-booted child; its exit handler resets state so a
+      // later tool call can retry from scratch.
+      if ( this.child && ! this.child.killed ) this.child.kill();
     }.bind(this));
   }
 
@@ -387,6 +445,7 @@ class FoamLSPClient {
   }
 
   _sendRaw(message) {
+    if ( ! this.child ) throw new Error('LSP not running');
     const body   = JSON.stringify(message);
     const buf    = Buffer.from(body, 'utf8');
     const header = 'Content-Length: ' + buf.length + '\r\n\r\n';
@@ -414,20 +473,57 @@ class FoamLSPClient {
 
   async ensureOpen(uri) {
     await this.whenReady();
-    if ( this.openedUris.has(uri) ) return;
     const fsPath = uriToPath(uri);
+    let st;
+    try { st = fs.statSync(fsPath); }
+    catch (e) {
+      // File gone from disk (deleted, or branch switched away): close our
+      // copy so the server drops its document and a later recreate starts
+      // from a clean didOpen.
+      if ( this.openedUris.has(uri) ) {
+        this.openedUris.delete(uri);
+        this._notify('textDocument/didClose', { textDocument: { uri: uri } });
+      }
+      throw new Error('file not found: ' + fsPath);
+    }
+
+    const entry = this.openedUris.get(uri);
+    if ( entry && entry.mtimeMs === st.mtimeMs ) return;
+
+    // The document is about to (re)load — open, refresh, or reopen after a
+    // delete (the server answers didClose with an empty publish, so the map
+    // re-fills even after a delete there). Drop the cached list here, the one
+    // spot all three paths pass, so getDiagnostics waits for the list the
+    // server publishes for the NEW text.
+    this.diagnosticsByUri.delete(uri);
+
     let text;
     try { text = fs.readFileSync(fsPath, 'utf8'); }
     catch (e) { throw new Error('file not found: ' + fsPath); }
-    this._notify('textDocument/didOpen', {
-      textDocument: {
-        uri:        uri,
-        languageId: 'javascript',
-        version:    1,
-        text:       text
-      }
+
+    if ( ! entry ) {
+      this._notify('textDocument/didOpen', {
+        textDocument: {
+          uri:        uri,
+          languageId: 'javascript',
+          version:    1,
+          text:       text
+        }
+      });
+      this.openedUris.set(uri, { mtimeMs: st.mtimeMs, version: 1 });
+      return;
+    }
+
+    // File changed on disk since we opened it (git checkout, pull, editor
+    // save) — refresh the server's copy, then didSave so it re-registers the
+    // file's classes in the live FOAM registry, not just the text cache.
+    entry.version++;
+    entry.mtimeMs = st.mtimeMs;
+    this._notify('textDocument/didChange', {
+      textDocument:   { uri: uri, version: entry.version },
+      contentChanges: [{ text: text }]
     });
-    this.openedUris.add(uri);
+    this._notify('textDocument/didSave', { textDocument: { uri: uri } });
   }
 
   async getDiagnostics(uri) {
@@ -622,9 +718,8 @@ function main() {
   const projectRoot = process.env.FOAM_PROJECT_ROOT || process.cwd();
   log('project root:', projectRoot);
 
+  // No eager boot — whenReady() spawns the LSP on the first foam tool call.
   const lsp = new FoamLSPClient(projectRoot);
-  lsp.start();                              // fire-and-forget; tool calls await whenReady()
-  lsp.whenReady().catch(function() {});     // prevent unhandled rejection
 
   const tools = toolSchemas();
 
@@ -689,9 +784,19 @@ function main() {
 
   rl.on('close', function() {
     log('stdin closed, shutting down');
+    shutdown();
+  });
+
+  // stdin 'close' only covers a graceful client exit. When the MCP host
+  // terminates us with a signal, reap the LSP child too — otherwise it's
+  // orphaned and lives forever.
+  function shutdown() {
     if ( lsp.child && ! lsp.child.killed ) lsp.child.kill();
     process.exit(0);
-  });
+  }
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT',  shutdown);
+  process.on('SIGHUP',  shutdown);
 }
 
 // --- exports (for tests) + entrypoint guard ------------------------------

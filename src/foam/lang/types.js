@@ -916,6 +916,21 @@ foam.CLASS({
         }
         return val;
       }
+    },
+    {
+      name: 'unitPropValueToPlainString',
+      documentation: `
+        Export with 'Add Units' unchecked: plain number at the currency's
+        precision so spreadsheets can parse and sum the column.
+      `,
+      value: async function(x, val, unitPropName) {
+        const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
+        if ( unitPropName && currencyDAO ) {
+          const unitProp = await currencyDAO.find(unitPropName);
+          if ( unitProp ) return unitProp.formatPrecision(val);
+        }
+        return val;
+      }
     }
   ]
 });
@@ -952,6 +967,26 @@ foam.CLASS({
           const unitProp = await currencyDAO.find(unitPropName);
           if ( unitProp )
             return unitProp.format(val, excludeUnit, false);
+        }
+        return val;
+      }
+    },
+    {
+      name: 'unitPropValueToPlainString',
+      documentation: `
+        Export with 'Add Units' unchecked: plain number at the currency's
+        precision so spreadsheets can parse and sum the column.
+        toFixed also collapses float noise; the '-' is stripped off -0.00.
+      `,
+      value: async function(x, val, unitPropName) {
+        const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
+        if ( unitPropName && currencyDAO ) {
+          const unitProp = await currencyDAO.find(unitPropName);
+          if ( unitProp ) {
+            var s = Number(val).toFixed(unitProp.precision);
+            if ( parseFloat(s) === 0 ) s = s.replace('-', '');
+            return s;
+          }
         }
         return val;
       }

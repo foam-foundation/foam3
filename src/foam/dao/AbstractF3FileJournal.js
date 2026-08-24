@@ -225,6 +225,7 @@ try {
     getLogger().warning("File not found", "for reading");
     return null;
   }
+  is = decorateReplayStream(is);
   // Setting a larger buffer size increases performance by 10-15%
   return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 2);
 } catch ( Throwable t ) {
@@ -263,6 +264,16 @@ try {
   ],
 
   methods: [
+    {
+      name: 'decorateReplayStream',
+      documentation: `Extension point: wrap the InputStream a replay reads
+        from (progress counting, decompression, ...). NOP by default --
+        override or refine to install a wrapper (see
+        foam.core.partition.F3FileJournalRefinement).`,
+      args: 'java.io.InputStream is',
+      type: 'java.io.InputStream',
+      javaCode: 'return is;'
+    },
     {
       name: 'writeVersion',
       type: 'Void',

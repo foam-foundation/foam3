@@ -206,6 +206,12 @@ foam.CLASS({
       }
     },
     {
+      name: 'javaFieldType',
+      factory: function() {
+        return this.javaType
+      }
+    },
+    {
       class: 'String',
       name: 'javaJSONParser',
       // Set to the String literal 'null' if no JSONParser desired
@@ -348,6 +354,16 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       class: 'String',
       name: 'javaFormatJSON',
       value: null
+    },
+    {
+      class: 'String',
+      name: 'javaInnerGetter',
+      factory: function() { return `return ${this.name}_;`; }
+    },
+    {
+      class: 'String',
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = val;`; }
     }
   ],
 
@@ -420,7 +436,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
         setter += `${this.javaType} oldVal = ${this.name}_;\n`;
       }
-      setter += `${this.name}_ = val;\n`;
+      setter += this.javaInnerSetter + '\n';
       setter += `${this.name}IsSet_ = true;\n`;
 
       // add post-set function
@@ -450,7 +466,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       cls.
         field({
           name: privateName,
-          type: this.javaType,
+          type: this.javaFieldType,
           visibility: 'protected'
         }).
         field({
@@ -468,9 +484,8 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           body: this.javaGetter || ('if ( ! ' + isSet + ' ) {\n' +
             ( this.javaFactory ?
                 '  set' + capitalized + '(' + factoryName + '());\n' :
-                ' return ' + this.javaValue + ';\n' ) +
-            '}\n' +
-            'return ' + privateName + ';')
+                ' return ' + this.javaValue + ';\n' ) + '}\n' + this.javaInnerGetter )
+
         }).
         method({
           name: 'set' + capitalized,
@@ -1690,6 +1705,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1699,6 +1715,7 @@ foam.CLASS({
   methods: [
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
+
       var m = info.getMethod('cast');
       m.body = `
         try {
@@ -1711,7 +1728,8 @@ foam.CLASS({
           return (java.util.Date) o;
         } catch ( Throwable t ) {
           throw new RuntimeException(t);
-        }`;
+        }
+      `;
 
       return info;
     }
@@ -1728,6 +1746,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
@@ -1746,7 +1765,15 @@ foam.CLASS({
         }
       }
      `
-    ]
+    ],
+    {
+      name: 'javaInnerGetter',
+      factory: function() { return `return foam.util.DateUtil.longToNullableDate(${this.name}_);`; }
+    },
+    {
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = foam.util.DateUtil.nullableDateToLong(val);`; }
+    }
   ],
 
   methods: [

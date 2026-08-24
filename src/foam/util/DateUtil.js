@@ -50,6 +50,18 @@ foam.CLASS({
 
   static: [
     {
+      name: 'nullableDateToLong',
+      args: 'Date d',
+      type: 'long',
+      javaCode: 'return d == null ? Long.MIN_VALUE : d.getTime();'
+    },
+    {
+      name: 'longToNullableDate',
+      args: 'long l',
+      type: 'Date',
+      javaCode: 'return l == Long.MIN_VALUE ? null : new Date(l);'
+    },
+    {
       name: 'parseDateTime',
       args: 'String d, String opt_name, Boolean strict',
       type: 'Date',

@@ -1779,6 +1779,15 @@ foam.CLASS({
   methods: [
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
+
+      info.method({
+        name: 'get__',
+        type: 'long',
+        visibility: 'public',
+        args: [{ name: 'o', type: 'Object' }],
+        body: 'return ((' + cls.id + ') o).' + this.name + '_;'
+      });
+
       // TODO: cast isn't called on setter
       var m = info.getMethod('cast');
       m.body = `

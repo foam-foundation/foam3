@@ -91,8 +91,7 @@ public abstract class AbstractDatePropertyInfo
   }
 
   public int comparePropertyToObject(Object key, Object o) {
-    // TODO: call get__() instead to make more efficient
-    return foam.util.SafetyUtil.compare(cast(key), get_(o));
+    return foam.util.SafetyUtil.compare(cast(key).getTime(), get__(o));
   }
 
   public int comparePropertyToValue(Object key, Object value) {

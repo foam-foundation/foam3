@@ -355,6 +355,12 @@ foam.CLASS({
         if ( this.extends != 'foam.lang.AbstractEnumPropertyInfo' ) {
           var body = 'formatter.output(get_(obj));';
 
+          if ( this.property.javaFormat ) {
+            body = this.property.javaFormat.
+              replace(/%MODEL%/g, fullName).
+              replace(/%FIELD%/g, this.propName);
+          }
+
           // Double extends Float, so just checking for Float catches both
           if ( foam.lang.Float.isInstance(this.property) && this.precision ) {
             var precision = this.precision;

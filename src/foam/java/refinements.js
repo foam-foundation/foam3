@@ -219,6 +219,21 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'javaFormat',
+      documentation: `Body of the PropertyInfo's format override (the
+        FObjectFormatter stack, which the journal writes through). Same
+        %MODEL% / %FIELD% substitution as javaObjToJSON.`
+    },
+    {
+      class: 'String',
+      name: 'javaObjToJSON',
+      documentation: `Body of the PropertyInfo's objToJSON override, for property
+        classes whose backing field can be written to JSON without materializing
+        the exposed type. %MODEL% is the declaring class, %FIELD% the backing
+        field name.`
+    },
+    {
+      class: 'String',
       name: 'javaWrapField',
       documentation: 'Expression template converting the backing field (%FIELD%) to a javaType value.'
     },
@@ -409,6 +424,21 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
         type: 'String',
         body: 'return "' + cls.id + '.' + this.name + '";'
       });
+
+      if ( this.javaObjToJSON && ! foam.java.Interface.isInstance(cls) ) {
+        info.method({
+          name: 'objToJSON',
+          visibility: 'public',
+          type: 'void',
+          args: [
+            { name: 'outputter', type: 'foam.lib.json.Outputter' },
+            { name: 'obj',       type: 'foam.lang.FObject' }
+          ],
+          body: this.javaObjToJSON.
+            replace(/%MODEL%/g, cls.id).
+            replace(/%FIELD%/g, this.name)
+        });
+      }
 
       return info;
     },
@@ -1762,6 +1792,28 @@ foam.CLASS({
     ['javaFieldType',        'long'],
     ['javaFieldInitializer', 'Long.MIN_VALUE;'],
     ['javaWrapField',        '(%FIELD% == Long.MIN_VALUE ? null : new java.util.Date(%FIELD%))'],
+    ['javaFormat',           `
+      if ( ((%MODEL%) obj).%FIELD%IsSet_ ) {
+        long millis = ((%MODEL%) obj).%FIELD%_;
+        if ( millis != Long.MIN_VALUE ) {
+          formatter.output(millis);
+          return;
+        }
+      }
+      formatter.output(get_(obj));
+    `],
+    ['javaObjToJSON',        `
+      if ( ! ((%MODEL%) obj).%FIELD%IsSet_ ) {
+        toJSON(outputter, get(obj));
+        return;
+      }
+      long millis = ((%MODEL%) obj).%FIELD%_;
+      if ( millis == Long.MIN_VALUE ) {
+        outputter.output(null);
+        return;
+      }
+      outputter.outputDateValue(millis);
+    `],
     ['javaUnwrapValue',      '(%VALUE% == null ? Long.MIN_VALUE : %VALUE%.getTime())'],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],

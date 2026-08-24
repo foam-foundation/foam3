@@ -30,8 +30,11 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.MDAO',
     'foam.lib.json.JSONParser',
+    'foam.dao.F3FileJournal',
+    'foam.lib.formatter.JSONFObjectFormatter',
     'foam.lib.json.Outputter',
     'foam.mlang.expr.DateToYYYYMMExpr',
+    'foam.mlang.sink.Count',
     'foam.mlang.sink.GroupBy',
     'java.lang.management.GarbageCollectorMXBean',
     'java.lang.management.ManagementFactory',
@@ -108,6 +111,7 @@ foam.CLASS({
         int  passes     = Integer.getInteger("bench.getterPasses", 10);
         int  serializeN = Integer.getInteger("bench.serializeN", 100000);
         int  selectRepeats = Integer.getInteger("bench.selectRepeats", 3);
+        int  journalN   = Integer.getInteger("bench.journalN", 100000);
         long base       = 1600000000000L;
         // Spread the records over ~24 months so the GROUP_BY phases build a
         // realistic number of buckets instead of one.
@@ -116,6 +120,7 @@ foam.CLASS({
         System.out.println("BENCH n=" + n + " getterPasses=" + passes
           + " serializeN=" + serializeN
           + " selectRepeats=" + selectRepeats
+          + " journalN=" + journalN
           + " dateProps=3"
           + " maxHeapMB=" + ( Runtime.getRuntime().maxMemory() / 1048576 ));
 
@@ -222,7 +227,18 @@ foam.CLASS({
         }
         endPhase("jsonOutput", "records=" + serializeN + " chars=" + jsonChars);
 
-        // ---- op 10: JSON parse (journal replay path) ----
+        // ---- op 10: formatter output (the stack the journal writes through) ----
+        JSONFObjectFormatter fmt = new JSONFObjectFormatter();
+        startPhase();
+        long fmtChars = 0;
+        for ( int i = 0 ; i < serializeN ; i++ ) {
+          fmt.reset();
+          fmt.output(list.get(i));
+          fmtChars += fmt.builder().length();
+        }
+        endPhase("formatterOutput", "records=" + serializeN + " chars=" + fmtChars);
+
+        // ---- op 11: JSON parse (journal replay path) ----
         String[] wire = new String[serializeN];
         for ( int i = 0 ; i < serializeN ; i++ ) wire[i] = out.stringify(list.get(i));
         startPhase();
@@ -233,6 +249,31 @@ foam.CLASS({
           parsedAcc += o.getRegularDate().getTime();
         }
         endPhase("jsonParse", "records=" + serializeN + " checksum=" + parsedAcc);
+
+        // ---- op 12: journal write — real file IO, formatter, and the DAO put
+        // the journal performs under lock. Unique filename so a rerun never
+        // appends onto the previous run's file.
+        String jname = "datepropbench-" + System.currentTimeMillis();
+        DAO journalDao = new MDAO(DateTimeTestModel.getOwnClassInfo());
+        F3FileJournal journal = new F3FileJournal.Builder(getX())
+          .setFilename(jname)
+          .build();
+        startPhase();
+        for ( int i = 0 ; i < journalN ; i++ ) {
+          journal.put(getX(), "", journalDao, list.get(i));
+        }
+        journal.getWriter().flush();
+        endPhase("journalWrite", "records=" + journalN);
+
+        // ---- op 13: journal replay — read the file back and rebuild a DAO ----
+        DAO replayDao = new MDAO(DateTimeTestModel.getOwnClassInfo());
+        F3FileJournal reader = new F3FileJournal.Builder(getX())
+          .setFilename(jname)
+          .build();
+        startPhase();
+        reader.replay(getX(), replayDao);
+        long replayed = ((Count) replayDao.select(COUNT())).getValue();
+        endPhase("journalReplay", "rows=" + replayed);
 
         // Correctness guards: each phase saw the whole data set and read back
         // the values it was given.
@@ -248,6 +289,14 @@ foam.CLASS({
         test(cloneMismatches == 0,
           "fclone preserved every date value (" + cloneMismatches + " mismatches)");
         test(parsedAcc != 0, "jsonParse read dates back");
+        test(replayed == journalN,
+          "journal replay rebuilt every record. expected: " + journalN + ", found: " + replayed);
+        DateTimeTestModel fromJournal = (DateTimeTestModel) replayDao.find(1L);
+        test(fromJournal != null
+          && fromJournal.getRegularDate().getTime() == list.get(0).getRegularDate().getTime()
+          && fromJournal.getRegularDateTime().getTime() == list.get(0).getRegularDateTime().getTime()
+          && fromJournal.getUtcDateTime().getTime() == list.get(0).getUtcDateTime().getTime(),
+          "journal round trip preserved every date value");
         test(sum != 0, "getter checksum non-zero");
       `
     }

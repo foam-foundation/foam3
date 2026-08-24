@@ -67,6 +67,7 @@ foam.INTERFACE({
     'foam.lib.parse.Parser queryParser()',
     'foam.lib.parse.Parser csvParser()',
     'void toJSON(foam.lib.json.Outputter outputter, Object value) { outputter.output(value); }',
+    'void objToJSON(foam.lib.json.Outputter outputter, FObject obj) { toJSON(outputter, get(obj)); }',
     'void format(foam.lib.formatter.FObjectFormatter outputter, FObject obj)',
     'void formatJSON(foam.lib.formatter.FObjectFormatter formatter, FObject obj) { format(formatter, obj); }',
     'void toCSV(X x, Object obj, foam.lib.csv.CSVOutputter outputter) { outputter.outputValue(obj != null ? get(obj) : null); }',

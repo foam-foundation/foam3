@@ -246,16 +246,7 @@ foam.CLASS({
     },
     {
       name: 'expiry',
-      javaSetter: `
-      expiryIsNull_ = ( val == null );
-      expiry_ = ( val == null ? 0L : val.getTime() );
-      expiryIsSet_ = true;
-      reset();
-      if ( ! expiryIsNull_ &&
-           ! getIsRenewable() ) {
-        setStatus(CapabilityJunctionStatus.EXPIRED);
-      }
-      `
+      javaPostSet: 'reset();'
     },
     {
       class: 'Boolean',
@@ -268,7 +259,7 @@ foam.CLASS({
       name: 'requestingReset',
       documentation: `
         Used for checks in UCJDAO rule stack, required since it is used to prevent UCJ from being automatically granted if the capability.of is null
-        NOTE: The permission to write this property is also used as a check on the resetUCJ action. Calling the action on the client 
+        NOTE: The permission to write this property is also used as a check on the resetUCJ action. Calling the action on the client
         with the correct permission will set this property on the crunchService so this property can be network transient.
       `,
       writePermissionRequired: true,

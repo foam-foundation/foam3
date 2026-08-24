@@ -206,41 +206,10 @@ foam.CLASS({
       }
     },
     {
-      class: 'String',
       name: 'javaFieldType',
-      documentation: `Storage type of the generated backing field when it
-        differs from javaType. Getter/setter signatures still use javaType;
-        javaWrapField/javaUnwrapValue convert at the boundary.`
-    },
-    {
-      class: 'Boolean',
-      name: 'javaFieldNullFlag',
-      documentation: `Generate a companion boolean field recording whether the
-        value is null, for backing types that have no spare value to reserve as
-        a sentinel. Templates reach it as %NULL%.`
-    },
-    {
-      class: 'String',
-      name: 'javaFieldInitializer',
-      documentation: 'Initializer for the backing field when javaFieldType is set.'
-    },
-    {
-      class: 'String',
-      name: 'javaObjToJSON',
-      documentation: `Body of the PropertyInfo's objToJSON override, for property
-        classes whose backing field can be written to JSON without materializing
-        the exposed type. %MODEL% is the declaring class, %FIELD% the backing
-        field name.`
-    },
-    {
-      class: 'String',
-      name: 'javaWrapField',
-      documentation: 'Expression template converting the backing field (%FIELD%) to a javaType value.'
-    },
-    {
-      class: 'String',
-      name: 'javaUnwrapValue',
-      documentation: 'Expression template converting a javaType value (%VALUE%) to the backing field type.'
+      factory: function() {
+        return this.javaType
+      }
     },
     {
       class: 'String',
@@ -385,6 +354,30 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       class: 'String',
       name: 'javaFormatJSON',
       value: null
+    },
+    {
+      class: 'Boolean',
+      name: 'javaFieldNullFlag',
+      documentation: `Emit a companion boolean field recording whether the value
+        is null. Needed when javaFieldType covers its whole value range and so
+        has no value to spare as a null sentinel.`
+    },
+    {
+      class: 'String',
+      name: 'javaObjToJSON',
+      documentation: `Body of the PropertyInfo's objToJSON override, for property
+        classes that can write their value without materializing the exposed
+        type. %MODEL% is the declaring class, %FIELD% the property name.`
+    },
+    {
+      class: 'String',
+      name: 'javaInnerGetter',
+      factory: function() { return `return ${this.name}_;`; }
+    },
+    {
+      class: 'String',
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = val;`; }
     }
   ],
 
@@ -444,18 +437,6 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       return info;
     },
 
-    function javaFieldTemplate_(tpl, valExpr) {
-      return tpl.
-        replace(/%VALUE%/g, valExpr || '').
-        replace(/%FIELD%/g, this.name + '_').
-        replace(/%NULL%/g,  this.name + 'IsNull_');
-    },
-
-    function javaWrapField_(fieldExpr) {
-      return this.javaWrapField ?
-        this.javaFieldTemplate_(this.javaWrapField) : fieldExpr;
-    },
-
     function generateSetter_() {
       // return user defined setter
       if ( this.javaSetter ) {
@@ -483,13 +464,9 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       // set value
       // Don't include oldVal if not used
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
-        setter += `${this.javaType} oldVal = ` + this.javaWrapField_(`${this.name}_`) + `;\n`;
+        setter += `${this.javaType} oldVal = ${this.name}_;\n`;
       }
-      if ( this.javaUnwrapValue ) {
-        setter += this.javaFieldTemplate_(this.javaUnwrapValue, 'val') + `\n`;
-      } else {
-        setter += `${this.name}_ = val;\n`;
-      }
+      setter += this.javaInnerSetter + '\n';
       setter += `${this.name}IsSet_ = true;\n`;
 
       // add post-set function
@@ -516,7 +493,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var isSet       = this.name + 'IsSet_';
       var factoryName = capitalized + 'Factory_';
 
-      if ( this.javaFieldType && this.javaFieldNullFlag ) {
+      if ( this.javaFieldNullFlag ) {
         cls.field({
           name: this.name + 'IsNull_',
           type: 'boolean',
@@ -528,9 +505,8 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       cls.
         field({
           name: privateName,
-          type: this.javaFieldType || this.javaType,
-          visibility: 'protected',
-          initializer: this.javaFieldType ? this.javaFieldInitializer : undefined
+          type: this.javaFieldType,
+          visibility: 'protected'
         }).
         field({
           name: isSet,
@@ -547,9 +523,8 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           body: this.javaGetter || ('if ( ! ' + isSet + ' ) {\n' +
             ( this.javaFactory ?
                 '  set' + capitalized + '(' + factoryName + '());\n' :
-                ' return ' + this.javaValue + ';\n' ) +
-            '}\n' +
-            'return ' + this.javaWrapField_(privateName) + ';')
+                ' return ' + this.javaValue + ';\n' ) + '}\n' + this.javaInnerGetter )
+
         }).
         method({
           name: 'set' + capitalized,
@@ -1769,6 +1744,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1778,6 +1754,7 @@ foam.CLASS({
   methods: [
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
+
       var m = info.getMethod('cast');
       m.body = `
         try {
@@ -1790,7 +1767,8 @@ foam.CLASS({
           return (java.util.Date) o;
         } catch ( Throwable t ) {
           throw new RuntimeException(t);
-        }`;
+        }
+      `;
 
       return info;
     }
@@ -1806,33 +1784,8 @@ foam.CLASS({
   mixins: [ 'foam.java.JavaCompareImplementor' ],
 
   properties: [
-    ['javaType',             'java.util.Date' ],
-    ['javaFieldType',        'long'],
-    ['javaFieldNullFlag',    true],
-    ['javaFieldInitializer', '0L;'],
-    ['javaWrapField',        '(%NULL% ? null : new java.util.Date(%FIELD%))'],
-    ['javaFormatJSON',       `
-      if ( ((%MODEL%) obj).%FIELD%IsSet_ && ! ((%MODEL%) obj).%NULLFIELD% ) {
-        formatter.output(((%MODEL%) obj).%FIELD%_);
-        return;
-      }
-      formatter.output(get_(obj))
-    `],
-    ['javaObjToJSON',        `
-      if ( ! ((%MODEL%) obj).%FIELD%IsSet_ ) {
-        toJSON(outputter, get(obj));
-        return;
-      }
-      if ( ((%MODEL%) obj).%NULLFIELD% ) {
-        outputter.output(null);
-        return;
-      }
-      outputter.outputDateValue(((%MODEL%) obj).%FIELD%_);
-    `],
-    ['javaUnwrapValue',      `
-      %NULL% = ( %VALUE% == null );
-      %FIELD% = ( %VALUE% == null ? 0L : %VALUE%.getTime() );
-    `],
+    ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
@@ -1851,7 +1804,39 @@ foam.CLASS({
         }
       }
      `
-    ]
+    ],
+    ['javaFieldNullFlag', true],
+    {
+      name: 'javaInnerGetter',
+      factory: function() {
+        return `return ${this.name}IsNull_ ? null : new java.util.Date(${this.name}_);`;
+      }
+    },
+    {
+      name: 'javaInnerSetter',
+      factory: function() {
+        return `${this.name}IsNull_ = ( val == null );\n` +
+               `${this.name}_ = ( val == null ? 0L : val.getTime() );`;
+      }
+    },
+    ['javaFormatJSON', `
+      if ( ((%MODEL%) obj).%FIELD%IsSet_ && ! ((%MODEL%) obj).%NULLFIELD% ) {
+        formatter.output(((%MODEL%) obj).%FIELD%_);
+        return;
+      }
+      formatter.output(get_(obj))
+    `],
+    ['javaObjToJSON', `
+      if ( ! ((%MODEL%) obj).%FIELD%IsSet_ ) {
+        toJSON(outputter, get(obj));
+        return;
+      }
+      if ( ((%MODEL%) obj).%NULLFIELD% ) {
+        outputter.output(null);
+        return;
+      }
+      outputter.outputDateValue(((%MODEL%) obj).%FIELD%_);
+    `]
   ],
 
   methods: [

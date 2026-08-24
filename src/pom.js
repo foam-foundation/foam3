@@ -1513,6 +1513,7 @@ foam.POM({
     { name: "foam/lang/test/services",                                flags: "test" },
     { name: "foam/parse/test/tests",                                  flags: "test" },
     { name: "foam/u2/qa/tests",                                       flags: "test" },
+    { name: "foam/core/column/test/tests",                            flags: "test" },
     { name: "foam/dao/tests",                                         flags: "test" },
     { name: "foam/dao/test/tests",                                    flags: "test" },
     { name: "foam/dao/history/test/tests",                            flags: "test" },

@@ -230,7 +230,7 @@ public class Outputter
     writer_.append(getPropertyName(p));
     writer_.append(afterKey_());
     writer_.append(":");
-    p.toJSON(this, p.get(o));
+    p.objToJSON(this, o);
   }
 
   public void outputMap(Object... values) {
@@ -309,6 +309,14 @@ public class Outputter
 
   protected boolean isArray(Object value) {
     return value != null && ( value.getClass() != null ) && value.getClass().isArray();
+  }
+
+  public void outputDateValue(long millis) {
+    if ( outputReadableDates_ ) {
+      outputString(sdf.format(java.time.Instant.ofEpochMilli(millis)));
+    } else {
+      outputNumber(millis);
+    }
   }
 
   public void outputDateValue(java.util.Date date) {

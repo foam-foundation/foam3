@@ -357,6 +357,14 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
     },
     {
       class: 'String',
+      name: 'javaObjToJSON',
+      documentation: `Body of PropertyInfo.objToJSON, the Outputter counterpart
+        of javaFormatJSON. Both are handed the object rather than a value, so a
+        property can serialize itself without the caller materializing it.`,
+      value: null
+    },
+    {
+      class: 'String',
       name: 'javaInnerGetter',
       factory: function() { return `return ${this.name}_;`; }
     },
@@ -1766,6 +1774,25 @@ foam.CLASS({
       }
      `
     ],
+    ['javaFormatJSON', `
+      if ( isSet(obj) && ! foam.util.DateUtil.isNullDateLong(get__(obj)) ) {
+        formatter.output(get__(obj));
+        return;
+      }
+      formatter.output(get_(obj))
+    `],
+    ['javaObjToJSON', `
+      if ( ! isSet(obj) ) {
+        toJSON(outputter, get(obj));
+        return;
+      }
+      long millis = get__(obj);
+      if ( foam.util.DateUtil.isNullDateLong(millis) ) {
+        outputter.output(null);
+        return;
+      }
+      outputter.outputDateValue(millis)
+    `],
     {
       name: 'javaInnerGetter',
       factory: function() { return `return foam.util.DateUtil.longToNullableDate(${this.name}_);`; }
@@ -1773,7 +1800,7 @@ foam.CLASS({
     {
       name: 'javaInnerSetter',
       factory: function() { return `${this.name}_ = foam.util.DateUtil.nullableDateToLong(val);`; }
-    }
+    },
   ],
 
   methods: [
@@ -1793,6 +1820,7 @@ foam.CLASS({
       m.body = `
         return foam.util.DateUtil.adapt(o);
       `;
+
 
       return info;
     }

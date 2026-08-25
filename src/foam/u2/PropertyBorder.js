@@ -285,12 +285,35 @@ foam.CLASS({
     ^copy-button {
       flex-shrink: 0;
     }
-    /* Only hide the copy button behind hover on devices that can hover;
-       on touch devices it stays visible. Override ^copy-button { opacity: 1 }
-       to make it always visible. */
+    /* Pill treatment on approach: bordered, filled, clearly a click target.
+       The transparent resting border reserves the space so nothing shifts.
+       The two-class selector outranks CopyButton's own border reset. */
+    ^propHolder ^copy-button {
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+    ^propHolder ^copy-button:hover, ^propHolder ^copy-button:focus-visible {
+      background: $grey100;
+      border-color: $grey300;
+    }
+    /* A copyable read-only row keeps the button next to the value instead of
+       pushed to the row's far edge by the inner span's full width. */
+    ^propHolder-copyable {
+      justify-content: flex-start;
+      gap: 0.6rem;
+    }
+    ^propHolder-copyable > :first-child {
+      width: auto;
+      min-width: 0;
+      max-width: 100%;
+    }
+    /* Resting state stays faintly visible so the affordance is discoverable;
+       hover/focus brings it to full strength. Touch devices always show it
+       at full strength. Override ^copy-button { opacity: 1 } for always-on. */
     @media (hover: hover) {
-      ^copy-button { opacity: 0; }
-      ^propHolder:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+      ^copy-button { opacity: 0.4; }
+      ^propHolder:hover ^copy-button, ^copy-button:hover, ^copy-button:focus-visible { opacity: 1; }
     }
   `,
 
@@ -316,6 +339,10 @@ foam.CLASS({
         end().
         start().
           addClass(this.myClass('propHolder')).
+          // Shrink-to-content layout only while the copy button is shown:
+          // editable modes keep the full-width input layout.
+          enableClass(this.myClass('propHolder-copyable'),
+            prop.copyable ? modeSlot.map(m => m == foam.u2.DisplayMode.RO) : false).
           call(function() {
             var inner = this.start('span').
               addClass(self.myClass('propHolderInner')).

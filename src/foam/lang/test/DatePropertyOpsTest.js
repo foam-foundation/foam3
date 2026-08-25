@@ -20,6 +20,7 @@ foam.CLASS({
     explicitly set to null.`,
 
   javaImports: [
+    'foam.lang.PropertyInfo',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.MDAO',
@@ -199,6 +200,35 @@ foam.CLASS({
         empty.clearRegularDate();
         test(empty.getRegularDate() == null && ! empty.regularDateIsSet_,
           "clear() returned the date property to unset");
+
+        // ---- comparePropertyToObject ----
+        // Compares a key against the object holding the value, without
+        // materializing that value. Two things it has to get right: a null key
+        // must not throw, and an unset property must compare as null rather
+        // than as the long field's zero default.
+        PropertyInfo prop  = DateTimeTestModel.REGULAR_DATE;
+        DateTimeTestModel unset = new DateTimeTestModel();
+        DateTimeTestModel set   = model(1, JAN_15);
+
+        test(prop.comparePropertyToObject(null, unset) == 0,
+          "A null key equals an unset date property");
+        test(prop.comparePropertyToObject(new Date(JAN_15), set) == 0,
+          "A key equals the same date on the object");
+        test(prop.comparePropertyToObject(null, set) < 0,
+          "A null key sorts before a set date");
+        test(prop.comparePropertyToObject(new Date(JAN_15), unset) > 0,
+          "A set key sorts after an unset date property");
+
+        // Explicitly null is the same as never set, as it is through the getter.
+        DateTimeTestModel nulled = new DateTimeTestModel();
+        nulled.setRegularDate(null);
+        test(prop.comparePropertyToObject(null, nulled) == 0,
+          "A null key equals a date property explicitly set to null");
+
+        // Ordering agrees with the value-to-value comparison it stands in for.
+        test(prop.comparePropertyToObject(new Date(JAN_15), set)
+             == prop.comparePropertyToValue(new Date(JAN_15), prop.f(set)),
+          "comparePropertyToObject agrees with comparePropertyToValue");
       `
     }
   ]

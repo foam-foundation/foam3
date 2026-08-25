@@ -126,19 +126,14 @@ foam.CLASS({
         require('../logError').logLspError('getViewSpecUsers for ' + classId, e);
       }
 
-      // Dedup by position: a file defining several classes is scanned once
-      // per class, so identical rows repeat without this. Order-preserving.
-      var locations = [];
-      var seenLoc   = {};
+      // All collectors below feed one deduping sink: a file defining several
+      // classes is scanned once per class, so identical rows repeat without
+      // this — and a future collector pushed through the sink can't
+      // reintroduce them. Order-preserving.
+      var sink = this.locationSink_();
       for ( var i = 0 ; i < refs.length ; i++ ) {
         var locs = this.buildLocations_(refs[i], classId);
-        for ( var j = 0 ; j < locs.length ; j++ ) {
-          var loc = locs[j];
-          var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
-          if ( seenLoc[key] ) continue;
-          seenLoc[key] = true;
-          locations.push(loc);
-        }
+        for ( var j = 0 ; j < locs.length ; j++ ) sink.push(locs[j]);
       }
 
       // Journal references (#5264): jrl positions come straight from the
@@ -147,13 +142,9 @@ foam.CLASS({
       try {
         var jrlUses = this.index.getJrlUsages(classId);
         for ( var i = 0 ; i < jrlUses.length ; i++ ) {
-          var ju   = jrlUses[i];
-          var jUri = 'file://' + ju.file;
-          var jKey = jUri + ':' + ju.line + ':' + ju.character;
-          if ( seenLoc[jKey] ) continue;
-          seenLoc[jKey] = true;
-          locations.push({
-            uri: jUri,
+          var ju = jrlUses[i];
+          sink.push({
+            uri: 'file://' + ju.file,
             range: {
               start: { line: ju.line, character: ju.character },
               end:   { line: ju.line, character: ju.character + ju.length }
@@ -163,7 +154,32 @@ foam.CLASS({
       } catch (e) {
         require('../logError').logLspError('getJrlUsages for ' + classId, e);
       }
-      return locations;
+      return sink.locations;
+    },
+
+    function locationSink_() {
+      /**
+       * Order-preserving Location collector that dedups by position. Every
+       * collector feeding one result set pushes through the same sink, so a
+       * new collector can't silently reintroduce duplicate rows — the guard
+       * lives in the sink, not at each call site. `push` returns whether the
+       * location was kept.
+       */
+      var seen = {};
+      var locations = [];
+      return {
+        locations: locations,
+        // Kept-row count, so collectors with a result cap (scanPropertyRefs_)
+        // can treat the sink like the array they used to receive.
+        get length() { return locations.length; },
+        push: function(loc) {
+          var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
+          if ( seen[key] ) return false;
+          seen[key] = true;
+          locations.push(loc);
+          return true;
+        }
+      };
     },
 
     function propertyReferences_(text, position, word, opt_uri) {
@@ -226,22 +242,14 @@ foam.CLASS({
       for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
       for ( var i = 0 ; i < ofs.length ; i++ )   addFile(ofs[i]);
 
-      var locations = [];
+      // Ids are deduped above, but several ids can map to ONE file, which
+      // then gets scanned once per id and would repeat every row — the sink
+      // dedups by position as the scans push into it.
+      var sink = this.locationSink_();
       for ( var i = 0 ; i < filesToScan.length ; i++ ) {
-        this.scanPropertyRefs_(filesToScan[i], word, locations);
+        this.scanPropertyRefs_(filesToScan[i], word, sink);
       }
-      // Dedup by position: ids are deduped above, but several ids can map to
-      // ONE file, which then gets scanned once per id and repeats every row.
-      var out = [];
-      var seenLoc = {};
-      for ( var i = 0 ; i < locations.length ; i++ ) {
-        var loc = locations[i];
-        var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
-        if ( seenLoc[key] ) continue;
-        seenLoc[key] = true;
-        out.push(loc);
-      }
-      return out;
+      return sink.locations;
     },
 
     function axiomReferences_(text, position, word, opt_uri) {

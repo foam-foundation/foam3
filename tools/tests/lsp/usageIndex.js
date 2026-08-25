@@ -534,3 +534,25 @@ section('logLspError helper');
   test(leCaptured.length === 1 && leCaptured[0] === '[foam-lsp] test op for X: boom',
     'logLspError formats [foam-lsp] context: message');
 })();
+
+// === locationSink_ — the dedup guard lives in the sink, not the call sites ===
+// Every collector feeding one references result pushes through this sink, so
+// a future collector can't silently reintroduce duplicate rows.
+section('ReferencesHandler.locationSink_ — gated dedup');
+
+try {
+  var sinkHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, analyzer: analyzer, cache: cache
+  });
+  var sk = sinkHandler.locationSink_();
+  var mkLoc = function(line) {
+    return { uri: 'file:///x.js', range: { start: { line: line, character: 2 }, end: { line: line, character: 5 } } };
+  };
+  test(sk.push(mkLoc(1)) === true,  'first push of a location is kept (returns true)');
+  test(sk.push(mkLoc(1)) === false, 'second push of the same position is dropped (returns false)');
+  test(sk.push(mkLoc(2)) === true,  'different position is kept');
+  test(sk.locations.length === 2 && sk.length === 2,
+    'sink.locations holds kept rows and sink.length mirrors it (for capped collectors)');
+} catch (err) {
+  test(false, 'locationSink_ section threw: ' + err.message);
+}

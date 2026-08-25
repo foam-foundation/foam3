@@ -101,7 +101,26 @@ public abstract class AbstractDatePropertyInfo
   }
 
   public int comparePropertyToObject(Object key, Object o) {
-    return foam.util.SafetyUtil.compare(cast(key).getTime(), get__(o));
+    // Two things this has to get right, and neither is obvious:
+    //
+    // cast() returns null for a null key, so getTime() would NPE. A null key is
+    // normal here - an Indexer over an unset date property produces one.
+    //
+    // An unset property reads as 0 through get__, because that is the long
+    // field's default, but as null through the getter. Comparing the raw field
+    // would leave a null key never equal to an unset date, so the isSet gate
+    // decides, the same way the generated serializers pair the two.
+    return foam.util.SafetyUtil.compare(
+      foam.util.DateUtil.nullableDateToLong(cast(key)),
+      isSet(o) ? get__(o) : Long.MIN_VALUE);
+  }
+
+  public boolean hasLongKey() {
+    return true;
+  }
+
+  public long keyAsLong(Object key) {
+    return foam.util.DateUtil.nullableDateToLong(cast(key));
   }
 
   public int comparePropertyToValue(Object key, Object value) {

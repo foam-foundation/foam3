@@ -245,7 +245,7 @@ foam.CLASS({
         // RHS of var-decl: scan forward until ; or newline, but limited
         // so we don't swallow whole method bodies.
         varDeclRhs: seq(
-          repeat(notChars(';\n\r'), null, 1),
+          repeat(notChars(';\n\r"/'), null, 1),
           optional(literal(';'))
         ),
 

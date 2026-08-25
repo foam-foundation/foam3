@@ -906,3 +906,60 @@ for ( var ai3 = 0 ; ai3 < genLines.length ; ai3++ ) {
 
 // === MESSAGE AXIOM: hover + go-to-definition ===
 
+
+// === PR #5193 round 2: grammar arms that swallowed comments/strings ===
+// varDeclRhs scanned raw chars up to ;/newline, so a comment or string
+// inside a var-decl RHS was consumed before the blockComment/stringLit
+// arms ever ran — the span never reached comments[]/strings[] and the
+// interior was repainted with code tokens. RHS now also stops at " and /
+// so those arms take over. Known deliberate gap: generics and annotation
+// args (`Map<String, /* c */ Integer>`, `@Anno(/* c */)`) still consume
+// comments — their arms scan raw chars too, left as-is (near-zero
+// real-world occurrences).
+section('JavaParser: varDeclRhs comment/string recovery');
+
+var rhsC = jParser.parseFile('var q = foo(/* keep */ 1);');
+test(rhsC.comments.length === 1,
+  'comment inside a var-decl RHS reaches comments[] (was swallowed)');
+
+var rhsS = jParser.parseFile('var s = "if while return";');
+test(rhsS.strings.length === 1,
+  'string literal as var-decl RHS reaches strings[] (was swallowed)');
+
+var rhsD = jParser.parseFile('var half = total / 2;\nvar dao = new MDAO(x);');
+test(rhsD.locals.some(function(l) { return l.varName === 'dao' && l.typeName === 'MDAO'; }),
+  'division in an earlier RHS does not break later var-decl inference');
+
+// Semantic-token level: the comment inside the RHS suppresses code tokens.
+var rcSrc = [
+  'foam.CLASS({',
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STRhsCommentDemo' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ,
+  'var q = foo(/* keep while */ 1);',            // line 7; comment cols 12-28
+  BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var rcTokens = semanticHandler.handle(rcSrc);
+var rcData = (rcTokens && rcTokens.data) || [];
+var rcCommentTok = 0, rcBadInComment = 0;
+var rcLine = 0, rcCol = 0;
+for ( var rci = 0 ; rci < rcData.length ; rci += 5 ) {
+  if ( rcData[rci] > 0 ) { rcLine += rcData[rci]; rcCol = rcData[rci+1]; }
+  else { rcCol += rcData[rci+1]; }
+  if ( rcLine !== 7 ) continue;
+  var rcType = rcData[rci+3];
+  var inCmt = rcCol >= 12 && rcCol < 28;
+  if ( rcType === 5 && inCmt ) rcCommentTok++;
+  if ( rcType !== 5 && inCmt ) rcBadInComment++;
+}
+test(rcCommentTok >= 1,
+  'comment inside a var-decl RHS emits a comment token');
+test(rcBadInComment === 0,
+  'no code tokens (e.g. `while` keyword) inside a var-decl RHS comment');

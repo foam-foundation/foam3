@@ -67,6 +67,13 @@ foam.CLASS({
         en: 'Client',
         fr: 'Client'
       }
+    },
+    {
+      name: 'LICENSE_MSG',
+      messageMap: {
+        en: 'License name',
+        fr: 'Nom de la licence'
+      }
     }
   ],
 
@@ -100,6 +107,11 @@ foam.CLASS({
           .addClass(this.myClass('container'))
             .start().addClass('p-bold').add(this.CLIENT_MSG).end()
             .start().add(this.data.clientName).end()
+        .end()
+        .start(this.Rows)
+          .addClass(this.myClass('container'))
+            .start().addClass('p-bold').add(this.CLIENT_MSG).end()
+            .start().add(this.data.licenseName).end()
         .end()
         .start(this.Rows)
           .addClass(this.myClass('container'))

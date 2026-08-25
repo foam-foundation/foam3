@@ -41,7 +41,6 @@ foam.CLASS({
       name: 'applyAction',
       javaCode: `
         Logger logger = (Logger) x.get("logger");
-        logger.log("BEHOLD! RULE WAS RUN!");
 
         // Get the targetDAO
         DAO targetDAO = (DAO) x.get(rule.getDaoKey());
@@ -68,7 +67,6 @@ foam.CLASS({
           } else {
             // Save the old state of the license
             LicenseStatus oldStatus = license.getStatus();
-            long oldCount = license.getCount();
 
             // Count the number of "things" on the targetDAO
             long currentCount;
@@ -89,8 +87,6 @@ foam.CLASS({
 
             // Check if the count has exceeded what the License allows
             if ( currentCount > license.getQuota() ) {
-              licenseClone.setStatus(LicenseStatus.VIOLATED); // !-- Or handle this as a post-set of license.count? --!
-              
               // Block the operation OR send a warning message
               if ( licenseClone.getBlocking() ) {
                 // no-op (for now)
@@ -104,22 +100,35 @@ foam.CLASS({
               // Update the License when we're Compliant, too
               licenseClone.setStatus(LicenseStatus.COMPLIANT);
               licenseClone.setCount(currentCount);
-              logger.log("License was compliant!");
             }
 
             // Put the clone to the DAO...
             licenseDAO.put(licenseClone);
             
             // ...and notify whoever needs to know (actor for now) if the status changed
-            if ( oldStatus != licenseClone.getStatus() ) {
+            if ( oldStatus != licenseClone.getStatus() && oldStatus != LicenseStatus.INITIATED ) {
+              String actorName = actor != null ? actor.getLegalName() : "system";
+
+              // Find the client using the spid
+              String clientName = "Unknown";
+              DAO capabilityDAO = (DAO) x.get("capabilityDAO");
+              if ( capabilityDAO == null ) {
+                logger.warning("LicenseRuleAction could not find capabilityDAO");
+              } else {
+                clientName = ((ServiceProvider) capabilityDAO.find(license.getSpid())).getName();
+              }
+
+              // Build the notification...
               LicenseAlert notif = new LicenseAlert();
               notif.setUserId(actor != null ? actor.getId() : 1L);
-              // notif.setClientName(???);
-              notif.setSpid(license.getSpid());
-              notif.setDaoKey(license.getDaoKey());
-              notif.setBody(license.getName() + " restricts the number of active objects on the " + license.getDaoKey() + " to " + license.getQuota() + ". Current count is: " + license.getCount() + ".");
-              notif.setToastMessage(licenseClone.getStatus() == LicenseStatus.VIOLATED ? actor.getLegalName() + " violated " + license.getName() : actor.getLegalName() + " restored compliance with " + license.getName());
+              notif.setClientName(clientName);
+              notif.setLicenseName(licenseClone.getName());
+              notif.setSpid(licenseClone.getSpid());
+              notif.setDaoKey(licenseClone.getDaoKey());
+              notif.setBody(licenseClone.getName() + " restricts the number of active objects on the " + licenseClone.getDaoKey() + " to " + licenseClone.getQuota() + ". Current count is: " + licenseClone.getCount() + ".");
+              notif.setToastMessage(licenseClone.getStatus() == LicenseStatus.VIOLATED ? actorName + " violated " + licenseClone.getName() : actorName + " restored compliance with " + licenseClone.getName());
 
+              // ...and send it
               agency.submit(x, new ContextAgent() {
                 public void execute(X x) {
                   DAO notificationDAO = (DAO) x.get("notificationDAO");

@@ -27,6 +27,11 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'licenseName'
+    },
+    {
+  		class: 'Reference',
+  		of: 'foam.core.auth.ServiceProvider',
       name: 'spid'
     },
     {

@@ -78,6 +78,14 @@ public abstract class AbstractLongPropertyInfo
     return foam.util.SafetyUtil.compare(cast(key), get_(o));
   }
 
+  public boolean hasLongKey() {
+    return true;
+  }
+
+  public long keyAsLong(Object key) {
+    return key == null ? Long.MIN_VALUE : cast(key);
+  }
+
   public int comparePropertyToValue(Object key, Object value) {
     return foam.util.SafetyUtil.compare(cast(key), cast(value));
   }

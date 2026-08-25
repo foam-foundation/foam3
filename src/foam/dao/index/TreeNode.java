@@ -18,22 +18,21 @@ import static foam.dao.AbstractDAO.decorateSink;
 
 /** AATree implementation. See: https://en.wikipedia.org/wiki/AA_tree **/
 public class TreeNode {
-  protected Object   key;   // IDEA: switch to T-Tree would eliminate overhead for Longs but not Strings
   protected Object   value; // IDEA: Could be an 'int' pointer into an Array
   protected long     size;  // IDEA: changing to 'int' would restrict to 2B records
   protected byte     level;
   protected TreeNode left;  // IDEA: Could be int pointers into a TreeNode[]
   protected TreeNode right;
 
-  protected final static TreeNode NULL_NODE = new TreeNode(null, null, 0, (byte) 0, null, null);
+  protected final static TreeNode NULL_NODE       = new TreeNode(null, 0, (byte) 0, null, null);
+  protected final static TreeNode KEYED_NULL_NODE = new Keyed(null, null, 0, (byte) 0, null, null);
+  protected final static TreeNode LONG_NULL_NODE  = new LongKeyed(0, null, 0, (byte) 0, null, null);
 
-  public TreeNode(Object key, Object value) {
-    this.key   = key;
-    this.value = value;
-  }
+  // MEASUREMENT ONLY - selects which memory strategy to measure. Removed before
+  // this lands; the winning strategy becomes unconditional.
+  protected final static String SHAPE = System.getProperty("foam.treenode.shape", "keyless");
 
-  public TreeNode(Object key, Object value, long size, byte level, TreeNode left, TreeNode right) {
-    this.key   = key;
+  public TreeNode(Object value, long size, byte level, TreeNode left, TreeNode right) {
     this.value = value;
     this.size  = size;
     this.level = level;
@@ -42,21 +41,99 @@ public class TreeNode {
   }
 
   public TreeNode cloneNode() {
-    return new TreeNode(
-      key,
-      value,
-      size,
-      level,
-      left,
-      right);
+    return copyWith(value, size, level, left, right);
   }
 
   TreeNode maybeClone(TreeNode s) {
     return s == null ? null : s.cloneNode();
   }
 
-  public static TreeNode getNullNode() {
-    return NULL_NODE;
+  /**
+   * The empty-tree marker for a level with the given tail, and the prototype
+   * whose shape every node that level allocates will share.
+   *
+   * A level whose tail can hand the stored FObject back does not need to keep a
+   * copy of each object's key: it can ask the Indexer to compare against the
+   * object itself. A level whose tail wraps its state does need one, so it gets
+   * the shape that carries a key field.
+   */
+  public static TreeNode getNullNode(Index tail, Indexer indexer) {
+    if ( "longkey".equals(SHAPE) ) {
+      return indexer != null && indexer.hasLongKey() ? LONG_NULL_NODE : KEYED_NULL_NODE;
+    }
+    return tail != null && tail.reachesObject() ? NULL_NODE : KEYED_NULL_NODE;
+  }
+
+  /**
+   * The key an Indexer derives from a stored value, or null when it cannot
+   * derive one. Both failures are expected: the Indexer may be a PropertyInfo
+   * for a sub-class the value is not an instance of, or a Dot whose
+   * intermediate is unset.
+   */
+  static Object keyOf(Indexer indexer, Object value) {
+    try {
+      return indexer.f(value);
+    } catch ( ClassCastException e ) {
+      // Indexer is a PropertyInfo for a sub-class.
+    } catch ( NullPointerException e ) {
+      // Indexer is Dot(x, y) and x is null.
+    }
+    return null;
+  }
+
+  /** True for the empty-tree marker, the only node that holds no value. */
+  protected boolean isNullNode() {
+    return value == null;
+  }
+
+  /**
+   * The FObject stored at or under this node. A node's value is a state of the
+   * level's tail, so with a TreeIndex tail it is the root of the next level's
+   * sub-tree and the object is found by descending. Every object in that
+   * sub-tree shares this node's key, so any of them answers for it.
+   */
+  protected FObject object() {
+    return value instanceof TreeNode ? ((TreeNode) value).object() : (FObject) value;
+  }
+
+  /**
+   * Compare a search key against this node's key. lkey is the same key already
+   * converted to a primitive, computed once per operation by the caller so a
+   * shape holding a primitive key does not re-convert it at every node of a
+   * descent. Shapes holding an Object key ignore it.
+   */
+  protected int compareKey(Object key, long lkey, Indexer indexer) {
+    try {
+      return indexer.comparePropertyToObject(key, object());
+    } catch ( ClassCastException e ) {
+      // Same case keyOf() swallows: this node's key is not derivable, so it was
+      // stored under null and compares as null.
+      return indexer.comparePropertyToValue(key, null);
+    }
+  }
+
+  /** This node's key, materialized. Only wanted where a key must be handed out. */
+  protected Object nodeKey(Indexer indexer) {
+    return keyOf(indexer, object());
+  }
+
+  /** This node's key as a primitive, for handing back into a descent. */
+  protected long nodeKeyLong(Indexer indexer) {
+    return indexer.hasLongKey() ? indexer.keyAsLong(nodeKey(indexer)) : 0;
+  }
+
+  /**
+   * A copy of this node with new contents and the same shape and key. Every
+   * allocation on the write and read paths goes through here, so a node's shape
+   * propagates without any caller knowing which shape it holds.
+   */
+  protected TreeNode copyWith(Object value, long size, byte level, TreeNode left, TreeNode right) {
+    return new TreeNode(value, size, level, left, right);
+  }
+
+  /** A new single-entry node. The only place a key enters the tree. */
+  protected TreeNode newLeaf(Object key, Object value, Indexer indexer) {
+    return new TreeNode(value, 1, (byte) 1, null, null);
   }
 
   // A Tree is Singular if contains only one node.
@@ -69,7 +146,9 @@ public class TreeNode {
     if ( end < start ) return null;
 
     int m = start + (int) Math.floor((end-start+1)/2);
-    TreeNode tree = this.putKeyValue(this, indexer, indexer.f(a[m]), a[m], tail);
+    Object bk = indexer.f(a[m]);
+    TreeNode tree = this.putKeyValue(this, indexer, bk,
+      indexer.hasLongKey() ? indexer.keyAsLong(bk) : 0, a[m], tail);
     tree.left  = (TreeNode) this.bulkLoad(tail, indexer, start, m-1, a);
     tree.right = (TreeNode) this.bulkLoad(tail, indexer, m+1, end, a);
     tree.size  = this.size(tree.left) + this.size(tree.right);
@@ -77,12 +156,12 @@ public class TreeNode {
     return tree;
   }
 
-  public TreeNode putKeyValue(TreeNode state, Indexer indexer, Object key, FObject value, Index tail) {
-    if ( state == null || state.equals(TreeNode.getNullNode()) ) {
-      return new TreeNode(key, tail.put(null, value), 1, (byte) 1, null, null);
+  public TreeNode putKeyValue(TreeNode state, Indexer indexer, Object key, long lkey, FObject value, Index tail) {
+    if ( state == null || state.isNullNode() ) {
+      return newLeaf(key, tail.put(null, value), indexer);
     }
     state = maybeClone(state);
-    int r = indexer.comparePropertyToValue(key, state.key);
+    int r = state.compareKey(key, lkey, indexer);
 
     if ( r == 0 ) {
       state.size -= tail.size(state.value);
@@ -93,13 +172,13 @@ public class TreeNode {
         if ( state.left != null ) {
           state.size -= state.left.size;
         }
-        state.left = this.putKeyValue(state.left, indexer, key, value, tail);
+        state.left = this.putKeyValue(state.left, indexer, key, lkey, value, tail);
         state.size += state.left.size;
       } else {
         if ( state.right != null ) {
           state.size -= state.right.size;
         }
-        state.right = this.putKeyValue(state.right, indexer, key, value, tail);
+        state.right = this.putKeyValue(state.right, indexer, key, lkey, value, tail);
         state.size += state.right.size;
       }
     }
@@ -141,12 +220,12 @@ public class TreeNode {
     return node;
   }
 
-  public TreeNode removeKeyValue(TreeNode state, Indexer indexer, Object key,
+  public TreeNode removeKeyValue(TreeNode state, Indexer indexer, Object key, long lkey,
     FObject value, Index tail) {
     if ( state == null ) return state;
 
     state = maybeClone(state);
-    long compareValue = indexer.comparePropertyToValue(key, state.key);
+    long compareValue = state.compareKey(key, lkey, indexer);
 
     if ( compareValue == 0 ) {
       state.size -= tail.size(state.value);
@@ -161,22 +240,27 @@ public class TreeNode {
 
       boolean  isLeft = ( state.left != null );
       TreeNode subs   = isLeft ? predecessor(state) : successor(state);
-      state.key   = subs.key;
-      state.value = subs.value;
+
+      // Take over the substitute's contents while keeping this node's place in
+      // the tree. copyWith comes off subs so a keyed node carries subs' key
+      // across; for a keyless node the value alone already carries it.
+      Object subsKey  = subs.nodeKey(indexer);
+      long   subsLKey = subs.nodeKeyLong(indexer);
+      state = subs.copyWith(subs.value, state.size, state.level, state.left, state.right);
 
       if ( isLeft ) {
-        state.left = removeNode(state.left, subs.key, indexer);
+        state.left = removeNode(state.left, subsKey, subsLKey, indexer);
       } else {
-        state.right = removeNode(state.right, subs.key, indexer);
+        state.right = removeNode(state.right, subsKey, subsLKey, indexer);
       }
     } else {
       if ( compareValue < 0 ) {
         state.size -= size(state.left);
-        state.left  = removeKeyValue(state.left, indexer, key, value, tail);
+        state.left  = removeKeyValue(state.left, indexer, key, lkey, value, tail);
         state.size += size(state.left);
       } else {
         state.size -= size(state.right);
-        state.right = removeKeyValue(state.right, indexer, key, value, tail);
+        state.right = removeKeyValue(state.right, indexer, key, lkey, value, tail);
         state.size += size(state.right);
       }
     }
@@ -195,21 +279,24 @@ public class TreeNode {
     return state;
   }
 
-  private TreeNode removeNode(TreeNode state, Object key, Indexer indexer) {
+  private TreeNode removeNode(TreeNode state, Object key, long lkey, Indexer indexer) {
     if ( state == null ) return state;
 
     state  = maybeClone(state);
-    long compareValue = indexer.comparePropertyToValue(state.key, key);
+    // Note the sense: compareKey is (searchKey, thisNode), where the call it
+    // replaced was (thisNode, searchKey). The branches below are flipped to
+    // match, so a negative result still means descend left.
+    long compareValue = state.compareKey(key, lkey, indexer);
 
     if ( compareValue == 0 ) return state.left != null ? state.left : state.right;
 
-    if ( compareValue > 0 ) {
+    if ( compareValue < 0 ) {
       state.size -= size(state.left);
-      state.left  = removeNode(state.left, key, indexer);
+      state.left  = removeNode(state.left, key, lkey, indexer);
       state.size += size(state.left);
     } else {
       state.size -= size(state.right);
-      state.right = removeNode(state.right, key, indexer);
+      state.right = removeNode(state.right, key, lkey, indexer);
       state.size += size(state.right);
     }
 
@@ -262,15 +349,15 @@ public class TreeNode {
   }
 
   /** extracts the value with the given key from the index */
-  public TreeNode get(TreeNode s, Object key, Indexer indexer) {
+  public TreeNode get(TreeNode s, Object key, long lkey, Indexer indexer) {
     if ( s == null ) return s;
 
-    int r = indexer.comparePropertyToValue(key, s.key);
+    int r = s.compareKey(key, lkey, indexer);
     if ( r == 0 ) {
       long size = s.value instanceof TreeNode ? ( (TreeNode) s.value ).size : 1;
-      return new TreeNode(s.key, s.value, size, (byte) 0, null, null);
+      return s.copyWith(s.value, size, (byte) 0, null, null);
     }
-    return r > 0 ? get(s.right, key, indexer) : get(s.left, key, indexer);
+    return r > 0 ? get(s.right, key, lkey, indexer) : get(s.left, key, lkey, indexer);
   }
 
   protected TreeNode getLeft() {
@@ -289,66 +376,64 @@ public class TreeNode {
 //    return removeNode(s, key, indexer);
 //  }
 
-  public TreeNode gt(TreeNode s, Object key, Indexer indexer) {
+  public TreeNode gt(TreeNode s, Object key, long lkey, Indexer indexer) {
     if ( s == null ) return s;
 
-    int r = indexer.comparePropertyToValue(key, s.key);
+    int r = s.compareKey(key, lkey, indexer);
     if ( r < 0 ) {
-      TreeNode l = gt(s.left, key, indexer);
+      TreeNode l = gt(s.left, key, lkey, indexer);
       long newSize = size(s) - size(s.left) + size(l);
-      return new TreeNode(s.key, s.value, newSize, s.level, l, s.right);
+      return s.copyWith(s.value, newSize, s.level, l, s.right);
     }
 
-    if ( r > 0 ) return gt(s.right, key, indexer);
+    if ( r > 0 ) return gt(s.right, key, lkey, indexer);
 
     return s.right;
   }
 
-  public TreeNode gte(TreeNode s, Object key, Indexer indexer) {
+  public TreeNode gte(TreeNode s, Object key, long lkey, Indexer indexer) {
     if ( s == null ) return s;
 
-    int r = indexer.comparePropertyToValue(key, s.key);
+    int r = s.compareKey(key, lkey, indexer);
     if ( r < 0 ) {
-      TreeNode l = gte(s.left, key, indexer);
+      TreeNode l = gte(s.left, key, lkey, indexer);
       long newSize = size(s) - size(s.left) + size(l);
-      return new TreeNode(s.key, s.value, newSize, s.level, l, s.right);
+      return s.copyWith(s.value, newSize, s.level, l, s.right);
     }
 
-    if ( r > 0 ) return gte(s.right, key, indexer);
+    if ( r > 0 ) return gte(s.right, key, lkey, indexer);
 
-    return new TreeNode(s.key, s.value, size(s) - size(s.left),
-      s.level, null, s.right);
+    return s.copyWith(s.value, size(s) - size(s.left), s.level, null, s.right);
   }
 
-  public TreeNode lt(TreeNode s, Object key, Indexer indexer) {
+  public TreeNode lt(TreeNode s, Object key, long lkey, Indexer indexer) {
     if ( s == null ) return s;
 
-    int r = indexer.comparePropertyToValue(key, s.key);
+    int r = s.compareKey(key, lkey, indexer);
     if ( r > 0 ) {
-      TreeNode right = lt(s.right, key, indexer);
+      TreeNode right = lt(s.right, key, lkey, indexer);
       long newSize = size(s) - size(s.right) + size(right);
-      return new TreeNode(s.key, s.value, newSize, s.level, s.left, right);
+      return s.copyWith(s.value, newSize, s.level, s.left, right);
     }
 
-    if ( r < 0 ) return lt(s.left, key, indexer);
+    if ( r < 0 ) return lt(s.left, key, lkey, indexer);
 
     return s.left;
   }
 
-  public TreeNode lte(TreeNode s, Object key, Indexer indexer) {
+  public TreeNode lte(TreeNode s, Object key, long lkey, Indexer indexer) {
     if ( s == null ) return s;
 
-    int r = indexer.comparePropertyToValue(key, s.key);
+    int r = s.compareKey(key, lkey, indexer);
     if ( r > 0 ) {
-      TreeNode right = lte(s.right, key, indexer);
+      TreeNode right = lte(s.right, key, lkey, indexer);
       long newSize = size(s) - size(s.right) + size(right);
-      return new TreeNode(s.key, s.value, newSize,
-        s.level, s.left, right);
+      return s.copyWith(s.value, newSize, s.level, s.left, right);
     }
 
-    if ( r < 0 ) return lte(s.left, key, indexer);
+    if ( r < 0 ) return lte(s.left, key, lkey, indexer);
 
-    return new TreeNode(s.key, s.value, size(s) - size(s.right), s.level, s.left, null);
+    return s.copyWith(s.value, size(s) - size(s.right), s.level, s.left, null);
   }
 
   /**
@@ -374,10 +459,10 @@ public class TreeNode {
   /**
    * This function only used for GroupByPlan. To out each data if the tree to groupBy sink.
    */
-  protected void groupBy(TreeNode node, Sink sink, Index tail) {
+  protected void groupBy(TreeNode node, Sink sink, Index tail, Indexer indexer) {
     while ( node != null ) {
       TreeNode left = node.getLeft();
-      if ( left != null ) groupBy(left, sink, tail);
+      if ( left != null ) groupBy(left, sink, tail, indexer);
 
       Object value = node.getValue();
       if ( value != null ) {
@@ -390,7 +475,7 @@ public class TreeNode {
         tail.select(value, temp, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
 
         // After operate every node in each group, just put the sink into groupBy's HashMap.
-        (((GroupBy) sink).getGroups()).put(node.key, temp);
+        (((GroupBy) sink).getGroups()).put(node.nodeKey(indexer), temp);
       }
 
       node = node.getRight();
@@ -459,6 +544,88 @@ public class TreeNode {
   }
 
   public String toString() {
-    return "TreeNode(" + key + ", " + value + ", " + size + ")";
+    return "TreeNode(" + value + ", " + size + ")";
+  }
+
+  /**
+   * A node that stores its key as a primitive, for an indexer whose keys are
+   * integral. This keeps a comparison a field read on the node - no dereference
+   * into the record - while still not retaining a boxed copy of the key.
+   *
+   * Note the gap this spike leaves: a null key maps onto Long.MIN_VALUE, so a
+   * genuine MIN_VALUE key would collide with it. Closing that needs the same
+   * isSet treatment the date property uses, and it is not done here.
+   */
+  private static class LongKeyed
+    extends TreeNode
+  {
+    protected final long key;
+
+    LongKeyed(long key, Object value, long size, byte level, TreeNode left, TreeNode right) {
+      super(value, size, level, left, right);
+      this.key = key;
+    }
+
+    protected int compareKey(Object key, long lkey, Indexer indexer) {
+      // Both sides primitive: no conversion, no interface call.
+      return foam.util.SafetyUtil.compare(lkey, this.key);
+    }
+
+    protected long nodeKeyLong(Indexer indexer) {
+      return key;
+    }
+
+    protected Object nodeKey(Indexer indexer) {
+      return key;
+    }
+
+    protected TreeNode copyWith(Object value, long size, byte level, TreeNode left, TreeNode right) {
+      return new LongKeyed(key, value, size, level, left, right);
+    }
+
+    protected TreeNode newLeaf(Object key, Object value, Indexer indexer) {
+      return new LongKeyed(indexer.keyAsLong(key), value, 1, (byte) 1, null, null);
+    }
+
+    public String toString() {
+      return "TreeNode(" + key + ", " + value + ", " + size + ")";
+    }
+  }
+
+  /**
+   * A node that stores its key, for a level whose tail cannot hand the stored
+   * FObject back. Private because the choice between the two shapes is made
+   * entirely by getNullNode() and propagated by copyWith(): no caller outside
+   * this class needs to know there is more than one shape.
+   */
+  private static class Keyed
+    extends TreeNode
+  {
+    protected final Object key;
+
+    Keyed(Object key, Object value, long size, byte level, TreeNode left, TreeNode right) {
+      super(value, size, level, left, right);
+      this.key = key;
+    }
+
+    protected int compareKey(Object key, long lkey, Indexer indexer) {
+      return indexer.comparePropertyToValue(key, this.key);
+    }
+
+    protected Object nodeKey(Indexer indexer) {
+      return key;
+    }
+
+    protected TreeNode copyWith(Object value, long size, byte level, TreeNode left, TreeNode right) {
+      return new Keyed(key, value, size, level, left, right);
+    }
+
+    protected TreeNode newLeaf(Object key, Object value, Indexer indexer) {
+      return new Keyed(key, value, 1, (byte) 1, null, null);
+    }
+
+    public String toString() {
+      return "TreeNode(" + key + ", " + value + ", " + size + ")";
+    }
   }
 }

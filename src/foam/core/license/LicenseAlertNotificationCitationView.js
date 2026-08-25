@@ -110,7 +110,7 @@ foam.CLASS({
         .end()
         .start(this.Rows)
           .addClass(this.myClass('container'))
-            .start().addClass('p-bold').add(this.CLIENT_MSG).end()
+            .start().addClass('p-bold').add(this.LICENSE_MSG).end()
             .start().add(this.data.licenseName).end()
         .end()
         .start(this.Rows)

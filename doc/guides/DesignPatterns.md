@@ -84,6 +84,10 @@ DAOs are also Observable via `listen()` and `pipe()`, which deliver ongoing `put
 
 FOAM's topic system extends the classic Observer pattern with a hierarchical topic namespace: a subscriber on `'propertyChange'` receives all property changes; a subscriber on `['propertyChange', 'amount']` receives only `amount` changes.
 
+Observer is one of the most frequently needed patterns in application development — responding to property changes, updating views, reacting to DAO events. In FOAM it is elevated from a manually applied recipe to a first-class language construct: the `listeners` axiom. A Listener is a pre-bound method — `this` is always correct even when the method is passed as a callback, closing the impedance mismatch between GUI event callbacks and OO methods. Listeners also support `isMerged` (collapses rapid-fire calls into one, fired after a delay) and `isFramed` (fires at most once per animation frame), which are the two event-frequency problems that arise constantly in UI code and require boilerplate to solve without them.
+
+Most developers encounter Observer daily. Elevating it to a language construct means the common case — subscribe to a property, update something — is a one-liner, and the friction cases (binding, coalescing, cleanup) are handled unconditionally by the framework rather than left to the developer to remember.
+
 ## Composite
 
 DAOs, Views, and Parsers all implement the Composite pattern — a uniform interface that works identically whether the instance is a leaf or a composition of other instances.
@@ -122,6 +126,10 @@ actions: [
 ```
 
 Views render Actions as buttons automatically, and the availability and enabled state track the model reactively without any wiring code.
+
+Command is another pattern that arises in almost every application with a user interface — any operation a user can trigger needs a label, enable/disable logic, visibility logic, and some form of invocation. In FOAM it is elevated from a manually applied recipe to a first-class language construct: the `actions` axiom. The declaration replaces a button element, an `onClick` handler, manual state toggling, a confirmation dialog, a running guard that prevents duplicate submissions while an async operation is in progress, permission checks, keyboard shortcuts, icons, tooltips, and accessibility labels — all of which the pattern requires but which developers routinely implement incompletely or inconsistently when working without framework support.
+
+Most other design patterns — Flyweight, Interpreter, Chain of Responsibility, Memento — are genuinely useful but situational. A developer might go years without needing them. Observer and Command arise every day in any application that has a UI. Elevating precisely those two to language constructs, while leaving the rest as patterns to apply manually when needed, reflects an accurate judgement about where framework investment pays the highest return.
 
 ## Factory
 

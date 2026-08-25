@@ -7,6 +7,6 @@ foam.POM({
     { name: 'LicenseRuleAction',                        flags: 'js|java' },
     { name: 'LicenseAlert',                             flags: 'js|java' },
     { name: 'LicenseAlertNotificationCitationView',     flags: 'js'      },
-    { name: 'LicenseRefreshRuleAction',                 flags: 'js|java' }
+    { name: 'LicenseRefreshRuleAction',                  flags: 'js|java' }
   ]
 });

@@ -30,6 +30,10 @@ public class ValueIndex
     return value;
   }
 
+  public boolean reachesObject() {
+    return true;
+  }
+
   public Object remove(Object state, FObject value) {
     return null;
   }

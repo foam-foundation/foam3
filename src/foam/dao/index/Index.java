@@ -55,6 +55,24 @@ public interface Index {
     return false;
   }
 
+  /**
+   * True when the FObject stored through this Index can be read straight back
+   * out of one of its states, so a structure holding that state need not keep
+   * its own copy of the object's index key.
+   *
+   * ValueIndex answers true: its state is the object. TreeIndex answers whatever
+   * its tail answers, because a node's value is a state of the tail. Everything
+   * else answers false, ProxyIndex and its subclasses included - their state is
+   * whatever wrap() produced, and getting the object back needs unwrap(), which
+   * needs the Index.
+   *
+   * Answering false is always safe; it only means a caller keeps a key it could
+   * have derived. Answering true wrongly hands out a wrapper as an FObject.
+   */
+  default boolean reachesObject() {
+    return false;
+  }
+
   // Return number of objects stored in this Index
   public long size(Object state);
 

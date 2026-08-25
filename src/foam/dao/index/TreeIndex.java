@@ -20,6 +20,11 @@ public class TreeIndex
 {
   protected Index    tail_;
   protected Indexer  indexer_;
+  // Empty-tree marker for this level, and the prototype whose shape every node
+  // this level allocates shares. Which shape depends only on the tail.
+  protected TreeNode nullNode_;
+  // Cached so a per-operation key conversion costs no interface call to ask.
+  protected boolean  hasLongKey_;
   protected long     selectCount_;
   // Non primary indices shouldn't provide plans unless they can contribute
   // because they might be partial indices on properties from sub-classes
@@ -43,9 +48,24 @@ public class TreeIndex
     selectCount_ = 0;
     tail_        = tail;
     isPrimary_   = isPrimary;
+    nullNode_    = TreeNode.getNullNode(tail, indexer);
+    hasLongKey_  = indexer != null && indexer.hasLongKey();
   }
 
   public Indexer getIndexer() { return indexer_; }
+
+  /**
+   * This key as a primitive, converted once per operation rather than at every
+   * node of a descent. Zero when the indexer has no primitive form, in which
+   * case nothing reads it.
+   */
+  protected long lkey(Object key) {
+    return hasLongKey_ ? indexer_.keyAsLong(key) : 0;
+  }
+
+  public boolean reachesObject() {
+    return tail_ != null && tail_.reachesObject();
+  }
 
   public Index getTail() { return tail_; }
 
@@ -97,7 +117,7 @@ public class TreeIndex
 
   public Object bulkLoad(FObject[] a) {
     Arrays.parallelSort(a);
-    return TreeNode.getNullNode().bulkLoad(tail_, indexer_, 0, a.length-1, a);
+    return nullNode_.bulkLoad(tail_, indexer_, 0, a.length-1, a);
   }
 
   /**
@@ -116,7 +136,9 @@ public class TreeIndex
       Binary expr = (Binary) predicate;
 
       if ( predicate.getClass().equals(Eq.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
-        state = ((TreeNode) state).get((TreeNode) state, expr.getArg2().f(expr), indexer_);
+
+        Object ekey = expr.getArg2().f(expr);
+        state = ((TreeNode) state).get((TreeNode) state, ekey, lkey(ekey), indexer_);
         return new Object[] {state, null};
       }
 
@@ -127,22 +149,30 @@ public class TreeIndex
 //      }
 
       if ( predicate.getClass().equals(Gt.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
-        state = ((TreeNode) state).gt((TreeNode) state, expr.getArg2().f(expr), indexer_);
+
+        Object ekey = expr.getArg2().f(expr);
+        state = ((TreeNode) state).gt((TreeNode) state, ekey, lkey(ekey), indexer_);
         return new Object[] {state, null};
       }
 
       if ( predicate.getClass().equals(Gte.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
-        state = ((TreeNode) state).gte((TreeNode) state, expr.getArg2().f(expr), indexer_);
+
+        Object ekey = expr.getArg2().f(expr);
+        state = ((TreeNode) state).gte((TreeNode) state, ekey, lkey(ekey), indexer_);
         return new Object[] {state, null};
       }
 
       if ( predicate.getClass().equals(Lt.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
-        state = ((TreeNode) state).lt((TreeNode) state, expr.getArg2().f(expr), indexer_);
+
+        Object ekey = expr.getArg2().f(expr);
+        state = ((TreeNode) state).lt((TreeNode) state, ekey, lkey(ekey), indexer_);
         return new Object[] {state, null};
       }
 
       if ( predicate.getClass().equals(Lte.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
-        state = ( (TreeNode) state ).lte((TreeNode) state, expr.getArg2().f(expr), indexer_);
+
+        Object ekey = expr.getArg2().f(expr);
+        state = ( (TreeNode) state ).lte((TreeNode) state, ekey, lkey(ekey), indexer_);
         return new Object[] {state, null};
       }
     } else if ( predicate instanceof And ) {
@@ -174,40 +204,29 @@ public class TreeIndex
   }
 
   public Object put(Object state, FObject value) {
-    if ( state == null ) state = TreeNode.getNullNode();
     Object key = returnKeyForValue(value);
     // key could be null for values like Date fields, but that works
-    return ((TreeNode) state).putKeyValue((TreeNode) state, indexer_, key, value, tail_);
+    return nullNode_.putKeyValue((TreeNode) state, indexer_, key, lkey(key), value, tail_);
   }
 
   public Object remove(Object state, FObject value) {
     Object key = returnKeyForValue(value);
     // key could be null for values like Date fields, but that works
-    return ((TreeNode) state).removeKeyValue((TreeNode) state, indexer_, key, value, tail_);
+    return nullNode_.removeKeyValue((TreeNode) state, indexer_, key, lkey(key), value, tail_);
   }
 
   public Object returnKeyForValue(FObject value) {
-    try {
-      return indexer_.f(value);
-    } catch (ClassCastException e) {
-// System.err.println("*** ClassCastException " + this);
-      // Can happen when the Indexer is a PropertyInfo for a sub-class
-    } catch (NullPointerException e) {
-// System.err.println("*** NullPointerException " + this);
-      // Can happen when the Indexer is Dot(x, y) when x is nullf
-    }
-
-    return null;
+    return TreeNode.keyOf(indexer_, value);
   }
 
   public Object removeAll() {
-    return TreeNode.getNullNode();
+    return nullNode_;
   }
 
   public FObject find(Object state, Object key) {
     if ( state instanceof TreeNode ) {
       TreeNode stateNode = (TreeNode) state;
-      TreeNode valueNode = stateNode.get(stateNode, key, indexer_);
+      TreeNode valueNode = stateNode.get(stateNode, key, lkey(key), indexer_);
 
       // If the object being searched for isn't in the tree, then valueNode will
       // be null.
@@ -284,7 +303,6 @@ public class TreeIndex
     }
 
     TreeNode tn = (TreeNode) state;
-    // if ( tn.isSingular() ) System.err.println("***** SUBSCAN " + tn.size + " " + tn.key);
 
     // If the resulting tree contains only one node, then create a sub-plan
     // on the sub-tree, allowing for use of multi-part indices.

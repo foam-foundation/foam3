@@ -11,7 +11,40 @@ foam.INTERFACE({
   javaExtends: [ 'foam.mlang.F' ],
 
   methods: [
-    'int comparePropertyToValue(Object key, Object value)'
+    'int comparePropertyToValue(Object key, Object value)',
+    {
+      signature: 'int comparePropertyToObject(Object key, Object o)',
+      documentation: `
+        Compare a key against the object holding the indexed value, rather than
+        against a value already extracted from it.
+
+        The default extracts the value and delegates, which is always correct.
+        Implementations backed by a primitive field should override to read that
+        field directly: doing so lets a caller compare without materializing the
+        value at all, which matters when the caller would otherwise have to keep
+        a boxed copy alive for as long as it keeps the object.
+      `,
+      javaCode: 'return comparePropertyToValue(key, f(o));'
+    },
+    {
+      signature: 'boolean hasLongKey()',
+      documentation: `
+        Whether this indexer's keys can be held as a primitive long without loss,
+        so a structure keying on it can store the value inline instead of holding
+        a boxed copy. False is always safe: the caller keeps the Object it would
+        have kept anyway.
+      `,
+      javaCode: 'return false;'
+    },
+    {
+      signature: 'long keyAsLong(Object key)',
+      documentation: `
+        This key as a primitive. Only defined when hasLongKey() is true; the
+        default refuses rather than inventing a value, so a caller that skipped
+        the check fails where the mistake is instead of comparing wrongly.
+      `,
+      javaCode: 'throw new UnsupportedOperationException("' + "keyAsLong on an indexer without a long key" + '");'
+    }
   ]
 });
 

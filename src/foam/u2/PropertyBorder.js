@@ -318,6 +318,26 @@ foam.CLASS({
   `,
 
   methods: [
+    function addCopyButton_(holder, inner, prop, modeSlot) {
+      // Copy button for copyable properties, read-only display only:
+      // editable inputs keep their value in .value, not innerText, and
+      // a copy affordance next to an input reads as a form control.
+      var self = this;
+      holder.start(this.CopyButton, {
+        label: prop.label || prop.name,
+        textProvider: function() {
+          if ( foam.Function.isInstance(prop.copyable) ) {
+            return prop.copyable.call(self.data, prop.f ? prop.f(self.data) : null, self.data);
+          }
+          var node = inner.el_();
+          return node ? node.innerText.trim() : '';
+        }
+      }).
+        addClass(this.myClass('copy-button')).
+        show(modeSlot.map(m => m == foam.u2.DisplayMode.RO)).
+      end();
+    },
+
     function layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot) {
       var self = this;
 
@@ -344,27 +364,13 @@ foam.CLASS({
           enableClass(this.myClass('propHolder-copyable'),
             prop.copyable ? modeSlot.map(m => m == foam.u2.DisplayMode.RO) : false).
           call(function() {
+            // inner is kept as a variable so the copy button's click handler
+            // can read its rendered text later.
             var inner = this.start('span').
               addClass(self.myClass('propHolderInner')).
               call(self.layoutView, [self, prop, viewSlot]);
             inner.end();
-            if ( ! prop.copyable ) return;
-            // Copy button for copyable properties, read-only display only:
-            // editable inputs keep their value in .value, not innerText, and
-            // a copy affordance next to an input reads as a form control.
-            this.start(self.CopyButton, {
-              label: prop.label || prop.name,
-              textProvider: function() {
-                if ( foam.Function.isInstance(prop.copyable) ) {
-                  return prop.copyable.call(self.data, prop.f ? prop.f(self.data) : null, self.data);
-                }
-                var node = inner.el_();
-                return node ? node.innerText.trim() : '';
-              }
-            }).
-              addClass(self.myClass('copy-button')).
-              show(modeSlot.map(m => m == foam.u2.DisplayMode.RO)).
-            end();
+            if ( prop.copyable ) self.addCopyButton_(this, inner, prop, modeSlot);
           }).
           callIf(prop.help, function() {
             this.start().addClass(self.myClass('helper-icon'))

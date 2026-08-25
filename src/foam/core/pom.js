@@ -387,6 +387,7 @@ foam.POM({
     { name: "ticket/Ticket",                                                              flags: "js|java" },
     { name: "ticket/TicketComment",                                                       flags: "js|java" },
     { name: "ticket/TicketCompactionSink",                                                flags: "js|java" },
+    { name: "ticket/TicketCitationView",                                                  flags: "js" },
     { name: "ticket/TicketStatus",                                                        flags: "js|java" },
     { name: "ticket/Relationships",                                                       flags: "js" },
     { name: "ticket/TicketAddCommentDAO",                                                 flags: "js|java" },

@@ -105,12 +105,13 @@ foam.INTERFACE({
       javaCode: `
     if ( ! foam.util.SafetyUtil.isEmpty(getVault()) ) {
       var vault = (KeyStoreManager) x.get(getVault());
-      if ( vault != null ) {
-        try {
-          return vault.getSecret(x, secretId);
-        } catch ( Throwable e ) {
-          throw new RuntimeException(e);
-        }
+      if ( vault == null ) {
+        throw new RuntimeException("Vault service not found: " + getVault());
+      }
+      try {
+        return vault.getSecret(x, secretId);
+      } catch ( Throwable e ) {
+        throw new RuntimeException(e);
       }
     }
     return secretId;

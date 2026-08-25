@@ -18,7 +18,9 @@ foam.CLASS({
   ],
 
   imports: [
-    'AuthenticatedCSpecDAO as cSpecDAO'
+    'AuthenticatedCSpecDAO as cSpecDAO',
+    'flowChildren?',
+    'selected?'
   ],
 
   properties: [ { name: 'alt', factory: function() { return this.Alternate.create(); } } ],
@@ -28,10 +30,35 @@ foam.CLASS({
       // The names this grammar offers, as { id, category }. Subclasses override
       // to widen the set; aInit owns the sorting, so overrides only supply
       // entries.
-      return (await this.cSpecDAO.where(this.CSpec.SERVED_DAOS).select()).array.map(c => ({
+      const names = (await this.cSpecDAO.where(this.CSpec.SERVED_DAOS).select()).array.map(c => ({
         id:       c.id,
         category: c.keywords.indexOf('custom') == -1 ? 'standard' : 'custom'
       }));
+
+      this.inFlowNames().forEach(id => names.push({ id: id, category: 'in-flow' }));
+
+      return names;
+    },
+
+    function inFlowNames() {
+      // What the other blocks of this flow publish, as "<block>.<daoProperty>".
+      // Empty outside a flow: nothing exports flowChildren there. The selected
+      // block is skipped - reading its own output is a cycle.
+      //
+      // Unfiltered: no flag marks a DAO property as a result rather than a
+      // stage of the block's own stack - DAOPrompt hides its plain dao and not
+      // its filteredDAO - so narrowing would drop names already in use.
+      const ids = [];
+
+      ( this.flowChildren || [] ).forEach(child => {
+        if ( ! child.value || ! child.value.cls_ ) return;
+        if ( child.flowName === this.selected?.flowName ) return;
+
+        child.value.cls_.getAxiomsByClass(foam.dao.DAOProperty).
+          forEach(p => ids.push(child.flowName + '.' + p.name));
+      });
+
+      return ids;
     },
 
     async function aInit() {

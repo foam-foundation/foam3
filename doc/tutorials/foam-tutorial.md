@@ -127,8 +127,7 @@ This tutorial will guide you through creating of a new project using FOAM. FOAM 
 The tutorial will cover the initial setup and an application creation by creating a cooking recipe database. The tutorial assumes that you 
 already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> installed in your environment. If you need to install these, helpful tips can be found in the [FOAM installation instructions][foam-install]. This tutorial also assumes that if you are using a Windows device, you are using WSL.
 
-> [!IMPORTANT]
-> Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
+> **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
 By following this tutorial you will learn to:
 1. Initialize a new FOAM application 
@@ -451,7 +450,7 @@ So: **`imports` = "services/values I expect to be handed to me via context."** I
 
 A quick mental model: `requires` is like importing a *type* so you can instantiate it; `imports` is like receiving a *dependency* someone else already built and placed in your context.
 
-<details>
+<details markdown="1">
 <summary><b>Coming from Node.js / React?</b> A quick bridge for these three sections.</summary>
 
 <br>
@@ -488,8 +487,7 @@ style. (And the class-registry half has no React equivalent at all — that part
 
 </details>
 
-> [!NOTE]
-> **The theory behind context.** What FOAM calls *context* is a first-class form of
+> **Note:** **The theory behind context.** What FOAM calls *context* is a first-class form of
 > **dynamic scoping**: a name like `recipeDAO` is resolved by walking the runtime chain of
 > *who created whom*, not by where the code is written (that latter, textual rule is
 > *lexical* scoping — what `let`/`const`/closures use). This is a sixty-year-old idea that
@@ -585,8 +583,7 @@ interface DAO {
 }
 ```
 
-> [!IMPORTANT]
-> DAO methods are asynchronous. In JavaScript, this is expressed by wrapping return values in Promises. For example, `put()` returns `Promise<FObject>`, `find()` returns `Promise<FObject>`, and `select()` returns `Promise<Sink>`. Use `.then()` or `await` to access the results.
+> **Important:** DAO methods are asynchronous. In JavaScript, this is expressed by wrapping return values in Promises. For example, `put()` returns `Promise<FObject>`, `find()` returns `Promise<FObject>`, and `select()` returns `Promise<Sink>`. Use `.then()` or `await` to access the results.
 
 A Sink is a destination object that receives and processes query results from `select()`. Here is the Sink interface:
 
@@ -720,8 +717,7 @@ available if you run the application with the option <code>-Jdemo</code>. The `-
 You can create your own journals that you can use this way, by going to the runtime journals directory under /opt and lifting the entries into
 a different file, then including it at startup with the <code>-J</code> option. For more info see the chapter on [Journal Merging](#Journal-Merging).
 
-> [!IMPORTANT]
-> To stop the FOAM server, type in <code>CTRL</code>+C twice.
+> **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
 
 # Testing
 
@@ -1473,8 +1469,7 @@ this.add(someViewInstance);             // Adds a view
 - **Action constants** (e.g., `this.SOME_ACTION`) render as buttons with the action's label, and automatically handle enablement and availability based on the action's `isEnabled` and `isAvailable` declarations.
 - **View instances** and **ViewSpecs** are added as child components, fully integrated into the FOAM lifecycle.
 
-> [!NOTE]
-> **Two terms worth pinning down**, since they show up throughout U2/U3:
+> **Note:** **Two terms worth pinning down**, since they show up throughout U2/U3:
 >
 > - **View** — a FOAM component that displays or edits data; any class extending `foam.u2.View`, such as `foam.u2.TextField`.
 > - **View instance** — a view you have already created, e.g. `foam.u2.TextField.create({ data$: this.name$ })`.
@@ -1597,8 +1592,7 @@ When you subscribe to a slot manually, wrap it with `onDetach()` so it's cancell
 this.onDetach(this.name$.sub(this.onNameChange));
 ```
 
-> [!NOTE]
-> This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
+> **Note:** This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
 
 ## Creating a Recipe Detail View
 

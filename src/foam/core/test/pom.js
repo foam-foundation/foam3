@@ -14,6 +14,7 @@ foam.POM({
     { name: "JavaTest",                             flags: "js|java" },
     { name: "JrlCheckTest",                         flags: "js|java" },
     { name: "JSTest",                               flags: "js|java" },
+    { name: "PhaseBench",                           flags: "js|java" },
     { name: "SerializationTestEchoService",         flags: "js|java" },
     { name: "StockSnapshot",                        flags: "js|java" },
     { name: "Test",                                 flags: "js|java" },

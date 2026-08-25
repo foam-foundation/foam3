@@ -1,2 +1,4 @@
 p({"class":"foam.dao.index.PersistedIndexTest","id":"PersistedIndex test","description":"tests the persisted index feature"})
 p({"class":"foam.dao.index.MDAOAndOrderTest","id":"MDAOAndOrderTest","description":"where(A).where(B) must equal where(AND(A,B)) for MDAO tree-index counts"})
+p({"class":"foam.dao.index.MDAOIndexKeyTest","id":"MDAOIndexKeyTest","description":"a tree index must answer counts, ordering, grouping and deletes exactly as an un-indexed DAO does, for every index key type"})
+p({"class":"foam.dao.index.TreeNodeBench","id":"TreeNodeBench","description":"per-operation heap and CPU benchmark for the MDAO tree index","enabled":false})

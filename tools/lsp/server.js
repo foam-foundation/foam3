@@ -509,7 +509,14 @@ function start() {
         }
         // Boot probe — fire-and-forget. Never await: an unreachable/slow
         // translation endpoint must not delay the initialize response.
-        i18nHandler.refreshAvailability().catch(function() {});
+        // Skipped when no target languages are configured (no initOpts
+        // languages and no journals/locales.jrl): the translate feature can
+        // never fire there, and the probe would just cost two loopback
+        // fetches plus a "no translation model reachable" console line on
+        // every boot. foam/i18nStatus still probes on demand.
+        if ( ( i18nHandler.targetLanguages || [] ).length ) {
+          i18nHandler.refreshAvailability().catch(function() {});
+        }
 
         respond(id, {
           capabilities: {

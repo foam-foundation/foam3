@@ -798,17 +798,22 @@ async function callTool(lsp, projectRoot, name, args) {
       const res = await lsp.request('foam/i18nTranslate', {
         uri: uri, messageName: args.messageName, languages: args.languages
       });
-      applyWorkspaceEdit(res.edit);
       // Count EDITS actually produced, not Object.keys(res.translated) — a
-      // message whose requested languages were all already present gets
-      // translated (a provider call happened) but no edit (buildMessageMapEdit
-      // returns null for it), and "N messages translated" should mean N
-      // messages whose file content changed.
+      // message whose requested languages were all already present gets no
+      // edit (buildMessageMapEdit returns null for it), and "N messages
+      // translated" should mean N messages whose file content changed.
+      // Zero edits also skips the disk write entirely — same contract as
+      // foam_i18n_apply below — instead of rewriting identical bytes and
+      // bumping the file's mtime.
       const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
-      const count = edits.length;
       const langs = ( args.languages && args.languages.length ) ? args.languages : ( status.targetLanguages || [] );
       const warn  = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
-      return relPath(uri, projectRoot) + ': ' + count + ' messages translated to ' +
+      if ( edits.length === 0 ) {
+        return relPath(uri, projectRoot) + ': nothing to write — requested languages already ' +
+          'present or dropped by validation. Warnings: ' + warn;
+      }
+      applyWorkspaceEdit(res.edit);
+      return relPath(uri, projectRoot) + ': ' + edits.length + ' messages translated to ' +
         langs.join(', ') + ' via ' + status.model + '. Warnings: ' + warn;
     }
     case 'foam_i18n_apply': {

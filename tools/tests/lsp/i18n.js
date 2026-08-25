@@ -1199,10 +1199,10 @@ var mcpDone = (async function() {
       var beforeNoEdit = h.fs.readFileSync(tmpFile, 'utf8');
       var outNoEdit = await mcp.callTool(lspUpNoEdit, os2.tmpdir(), 'foam_i18n_translate',
         { file: tmpFile, messageName: 'SAVED' });
-      test(outNoEdit.indexOf('0 messages translated') !== -1,
-        'provider up: a translated-but-uneditable response reports 0 messages, not a false 1');
+      test(outNoEdit.indexOf('nothing to write') !== -1,
+        'provider up: a translated-but-uneditable response says nothing-to-write, not a false 1');
       test(h.fs.readFileSync(tmpFile, 'utf8') === beforeNoEdit,
-        'provider up: a zero-edit response leaves the file byte-identical');
+        'provider up: a zero-edit response leaves the file byte-identical (write skipped, mtime untouched)');
     } finally {
       h.fs.unlinkSync(tmpFile);
     }
@@ -1363,5 +1363,90 @@ var laneDone = (async function() {
   }
 })();
 
+
+// === PR #5318 round-1 review: per-entry missing languages + placeholder gate ===
+// Own async block, same isolation reasoning as srvDone.
+var reviewDone = (async function() {
+  try {
+    section('I18nHandler — review round 1: wasted provider calls + placeholder-losing translations');
+
+    // Fix: translateMessages asks the provider ONLY for the languages the
+    // entry is actually missing. SAVED already carries fr — requesting
+    // [fr, de] must cost exactly one provider call (de) and edit in de only.
+    var langCalls = [];
+    var recordingProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        langCalls.push(lang);
+        return texts.map(function(t) { return { input: t, translation: '[' + lang + ']' + t, warnings: [] }; });
+      }
+    };
+    var i18nRev = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr', 'de'], translationReady: true, activeModel: 'stub' });
+    i18nRev.provider = recordingProvider;
+
+    var revSaved = await i18nRev.translateMessages('file:///t/HasMsgs.js', MSGS, 'SAVED', ['fr', 'de']);
+    test(langCalls.length === 1 && langCalls[0] === 'de',
+      'translateMessages: entry already carrying fr pays ONLY the de provider call (got: ' + langCalls.join(',') + ')');
+    test(revSaved.translated.SAVED && revSaved.translated.SAVED.de === '[de]Saved' &&
+      revSaved.translated.SAVED.fr === undefined,
+      'translateMessages: result carries de only — fr was never requested from the provider');
+
+    // Failure isolation: a provider that dies on fr can no longer block a
+    // de translation the entry actually needs, because fr is never asked for.
+    var failFrProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        if ( lang === 'fr' ) throw new Error('model exploded on fr');
+        return texts.map(function(t) { return { input: t, translation: '[' + lang + ']' + t, warnings: [] }; });
+      }
+    };
+    var i18nFailFr = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr', 'de'], translationReady: true, activeModel: 'stub' });
+    i18nFailFr.provider = failFrProvider;
+    var revFailFr = await i18nFailFr.translateMessages('file:///t/HasMsgs.js', MSGS, 'SAVED', ['fr', 'de']);
+    test(revFailFr.translated.SAVED && revFailFr.translated.SAVED.de === '[de]Saved',
+      'translateMessages: fr-only provider failure cannot block the needed de translation (fr never called)');
+
+    // Fix: a model translation that LOST a placeholder is dropped (that
+    // language only) instead of written — same placeholder rule
+    // applyTranslations enforces on agent payloads, but per-language
+    // because the model lane is best-effort.
+    var PMSGS = "foam.CLASS({\n  package: 'test',\n  name: 'HasPlaceholder',\n  messages: [\n" +
+      "    { name: 'HELLO', message: 'Hi ${name}' }\n  ]\n});\n";
+    var dropFrProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        return texts.map(function(t) {
+          // fr loses the placeholder; de preserves it.
+          var out = lang === 'fr' ? 'Bonjour name' : 'Hallo ${name}';
+          return { input: t, translation: out, warnings: [] };
+        });
+      }
+    };
+    var i18nDrop = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr', 'de'], translationReady: true, activeModel: 'stub' });
+    i18nDrop.provider = dropFrProvider;
+    var revDrop = await i18nDrop.translateMessages('file:///t/HasPlaceholder.js', PMSGS, 'HELLO', ['fr', 'de']);
+    test(revDrop.translated.HELLO && revDrop.translated.HELLO.de === 'Hallo ${name}' &&
+      revDrop.translated.HELLO.fr === undefined,
+      'translateMessages: fr translation that lost ${name} is dropped; de (placeholder intact) still lands');
+    var dropEdits = revDrop.edit.changes['file:///t/HasPlaceholder.js'] || [];
+    test(dropEdits.length === 1 && dropEdits[0].newText.indexOf('Bonjour') === -1 &&
+      dropEdits[0].newText.indexOf('Hallo ${name}') !== -1,
+      'translateMessages: the built edit writes the de string and never the corrupt fr string');
+    test(revDrop.warnings.some(function(w) { return w.indexOf('dropped placeholder') !== -1 && w.indexOf('fr') !== -1; }),
+      'translateMessages: dropping a language surfaces a warning naming the language and placeholder');
+
+    // Retry loop stays available: the dropped fr never reaches the map, so
+    // the entry still reports fr as missing and a re-run targets it again.
+    var stillMissing = i18nDrop.missingLanguagesFor_('file:///t/HasPlaceholder.js', PMSGS, 'HELLO', ['fr', 'de']);
+    test(stillMissing.indexOf('fr') !== -1,
+      'a dropped language stays missing — the next foam/i18nTranslate call retries exactly it');
+  } catch (e) {
+    test(false, 'review-round-1 section threw: ' + (e && e.message));
+  }
+})();
+
 // All async blocks are independent; the entrypoint awaits this one promise.
-module.exports = { done: Promise.all([ done, cmdDone, srvDone, mcpDone, laneDone ]) };
+module.exports = { done: Promise.all([ done, cmdDone, srvDone, mcpDone, laneDone, reviewDone ]) };

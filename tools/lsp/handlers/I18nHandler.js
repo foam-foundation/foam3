@@ -136,6 +136,13 @@ foam.CLASS({
       if ( ! text )          throw new Error('There is no source text to translate.');
       if ( ! languages.length ) throw new Error('No target languages are configured.');
 
+      // Same placeholder rule applyTranslations enforces on agent payloads:
+      // a translation that lost a `${...}`/`{0}`/tag sentinel must never be
+      // written — the rendered UI silently drops the interpolated value.
+      // Model output is best-effort, so the offending LANGUAGE is dropped
+      // (with a warning) instead of failing the whole batch.
+      var required = this.extractPlaceholders_(text);
+
       var translations = {}, warnings = [];
       for ( var i = 0 ; i < languages.length ; i++ ) {
         var lang = languages[i];
@@ -145,6 +152,14 @@ foam.CLASS({
         var result  = results && results[0];
         if ( ! result || ! result.translation ) {
           throw new Error('The translation model returned no ' + lang + ' translation.');
+        }
+        var lost = required.filter(function(t) {
+          return String(result.translation).indexOf(t) === -1;
+        });
+        if ( lost.length ) {
+          warnings.push(lang + ': translation dropped placeholder ' + lost.join(', ') +
+            ' — not written');
+          continue;
         }
         translations[lang] = result.translation;
         var langWarnings = result.warnings || [];
@@ -266,7 +281,12 @@ foam.CLASS({
         var name = names[i];
         var source = this.findMessageText_(uri, text, name);
         if ( source === null ) continue;
-        var result = await this.translateInto_(source, langs);
+        // Only the languages THIS entry is missing — an entry that already
+        // carries fr pays no fr provider call, and an fr model failure can't
+        // block the de translation that was actually needed.
+        var wantLangs = this.missingLanguagesFor_(uri, text, name, langs);
+        if ( ! wantLangs.length ) continue;
+        var result = await this.translateInto_(source, wantLangs);
         translated[name] = result.translations;
         for ( var w = 0 ; w < result.warnings.length ; w++ ) warnings.push(name + ': ' + result.warnings[w]);
         var mapEdit = this.buildMessageMapEdit(text, name, result.translations, uri);

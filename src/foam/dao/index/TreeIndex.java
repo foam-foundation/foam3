@@ -174,30 +174,19 @@ public class TreeIndex
   }
 
   public Object put(Object state, FObject value) {
-    if ( state == null ) state = TreeNode.getNullNode();
     Object key = returnKeyForValue(value);
     // key could be null for values like Date fields, but that works
-    return ((TreeNode) state).putKeyValue((TreeNode) state, indexer_, key, value, tail_);
+    return TreeNode.getNullNode().putKeyValue((TreeNode) state, indexer_, key, value, tail_);
   }
 
   public Object remove(Object state, FObject value) {
     Object key = returnKeyForValue(value);
     // key could be null for values like Date fields, but that works
-    return ((TreeNode) state).removeKeyValue((TreeNode) state, indexer_, key, value, tail_);
+    return TreeNode.getNullNode().removeKeyValue((TreeNode) state, indexer_, key, value, tail_);
   }
 
   public Object returnKeyForValue(FObject value) {
-    try {
-      return indexer_.f(value);
-    } catch (ClassCastException e) {
-// System.err.println("*** ClassCastException " + this);
-      // Can happen when the Indexer is a PropertyInfo for a sub-class
-    } catch (NullPointerException e) {
-// System.err.println("*** NullPointerException " + this);
-      // Can happen when the Indexer is Dot(x, y) when x is nullf
-    }
-
-    return null;
+    return TreeNode.keyOf(indexer_, value);
   }
 
   public Object removeAll() {

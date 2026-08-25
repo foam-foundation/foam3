@@ -11,7 +11,20 @@ foam.INTERFACE({
   javaExtends: [ 'foam.mlang.F' ],
 
   methods: [
-    'int comparePropertyToValue(Object key, Object value)'
+    'int comparePropertyToValue(Object key, Object value)',
+    {
+      signature: 'int comparePropertyToObject(Object key, Object o)',
+      documentation: `
+        Compare a key against the object holding the indexed value, rather than
+        against a value already extracted from it.
+
+        The default extracts and delegates, which is always correct. An
+        implementation backed by a primitive field should override to read that
+        field directly, so a caller can compare without materializing the value
+        at all.
+      `,
+      javaCode: 'return comparePropertyToValue(key, f(o));'
+    }
   ]
 });
 

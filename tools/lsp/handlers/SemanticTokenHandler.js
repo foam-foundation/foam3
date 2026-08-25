@@ -559,29 +559,38 @@ foam.CLASS({
           return false;
         }
 
+        // Single gate for every code-token emitter below: a token whose
+        // offset lands in a string or comment span is dropped. Emitters
+        // must call this, never addToken directly, so a future emitter
+        // can't silently reopen the repaint bug. Returns whether the
+        // token was emitted so declaration emitters can gate their
+        // declaredVars side effect on it.
+        function addCodeToken(absOffset, length, type) {
+          if ( inNonCode(absOffset - baseOffset) ) return false;
+          addToken(absOffset, length, type);
+          return true;
+        }
+
         // Java keywords
         JAVA_KEYWORDS.lastIndex = 0;
         var kw;
         while ( ( kw = JAVA_KEYWORDS.exec(javaStr) ) !== null ) {
-          if ( inNonCode(kw.index) ) continue;
-          addToken(baseOffset + kw.index, kw[1].length, 3);
+          addCodeToken(baseOffset + kw.index, kw[1].length, 3);
         }
 
         // Numbers
         var numRegex = /\b\d+[lLfFdD]?\b/g;
         var nm;
         while ( ( nm = numRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(nm.index) ) continue;
-          addToken(baseOffset + nm.index, nm[0].length, 6);
+          addCodeToken(baseOffset + nm.index, nm[0].length, 6);
         }
 
         // Type names — resolved via CursorAnalyzer.resolveJavaTypeName (same as hover)
         var typeRegex = /\b([A-Z][a-zA-Z0-9_]*)\b/g;
         var tm;
         while ( ( tm = typeRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(tm.index) ) continue;
           if ( resolveType(tm[1]) ) {
-            addToken(baseOffset + tm.index, tm[1].length, 0);
+            addCodeToken(baseOffset + tm.index, tm[1].length, 0);
           }
         }
 
@@ -600,8 +609,7 @@ foam.CLASS({
             var call = blockResult.calls[ci];
             if ( call.line >= blockLineOffsets.length ) continue;
             var methodOffsetInBlock = blockLineOffsets[call.line] + call.col;
-            if ( inNonCode(methodOffsetInBlock) ) continue;
-            addToken(baseOffset + methodOffsetInBlock,
+            addCodeToken(baseOffset + methodOffsetInBlock,
               call.methodName.length, 8);
           }
         }
@@ -613,45 +621,36 @@ foam.CLASS({
         var varDeclRegex = /\b(\w+)\s+([a-z]\w*)\s*[=;]/g;
         var vd;
         while ( ( vd = varDeclRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(vd.index) ) continue;
           var declType = vd[1];
           if ( /^(if|for|while|try|catch|throw|return|new|else|var|int|long|float|double|boolean|byte|short|char|void)$/.test(declType) ) {
             if ( declType === 'var' || /^(int|long|float|double|boolean|byte|short|char)$/.test(declType) ) {
               var vOffset = vd.index + vd[0].indexOf(vd[2]);
-              addToken(baseOffset + vOffset, vd[2].length, 2);
-              declaredVars[vd[2]] = true;
+              if ( addCodeToken(baseOffset + vOffset, vd[2].length, 2) ) declaredVars[vd[2]] = true;
             }
             continue;
           }
           if ( resolveType(declType) ) {
             var vOffset = vd.index + vd[0].indexOf(vd[2]);
-            addToken(baseOffset + vOffset, vd[2].length, 2);
-            declaredVars[vd[2]] = true;
+            if ( addCodeToken(baseOffset + vOffset, vd[2].length, 2) ) declaredVars[vd[2]] = true;
           }
         }
         var genericDeclRegex = /(\w+)\s*<[^>]*>\s+([a-z]\w*)\s*[=;]/g;
         var gd;
         while ( ( gd = genericDeclRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(gd.index) ) continue;
           var vOffset = gd.index + gd[0].indexOf(gd[2]);
-          addToken(baseOffset + vOffset, gd[2].length, 2);
-          declaredVars[gd[2]] = true;
+          if ( addCodeToken(baseOffset + vOffset, gd[2].length, 2) ) declaredVars[gd[2]] = true;
         }
         var forEachRegex = /\bfor\s*\(\s*(\w+)\s+([a-z]\w*)\s*:/g;
         var fe;
         while ( ( fe = forEachRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(fe.index) ) continue;
           var vOffset = fe.index + fe[0].indexOf(fe[2]);
-          addToken(baseOffset + vOffset, fe[2].length, 2);
-          declaredVars[fe[2]] = true;
+          if ( addCodeToken(baseOffset + vOffset, fe[2].length, 2) ) declaredVars[fe[2]] = true;
         }
         var catchRegex = /\bcatch\s*\(\s*(\w+)\s+([a-z]\w*)\s*\)/g;
         var ce;
         while ( ( ce = catchRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(ce.index) ) continue;
           var vOffset = ce.index + ce[0].indexOf(ce[2]);
-          addToken(baseOffset + vOffset, ce[2].length, 2);
-          declaredVars[ce[2]] = true;
+          if ( addCodeToken(baseOffset + vOffset, ce[2].length, 2) ) declaredVars[ce[2]] = true;
         }
 
         // Variable usage — highlight each declared variable throughout the block
@@ -660,8 +659,7 @@ foam.CLASS({
           var vuRegex = new RegExp('\\b' + varName + '\\b', 'g');
           var vu;
           while ( ( vu = vuRegex.exec(javaStr) ) !== null ) {
-            if ( inNonCode(vu.index) ) continue;
-            addToken(baseOffset + vu.index, varName.length, 2);
+            addCodeToken(baseOffset + vu.index, varName.length, 2);
           }
         }
 
@@ -669,13 +667,12 @@ foam.CLASS({
         var enumRegex = /\b([A-Z]\w*)\.([A-Z][A-Z0-9_]+)\b/g;
         var em;
         while ( ( em = enumRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(em.index) ) continue;
           var enumFullId = resolveType(em[1]);
           if ( enumFullId ) {
             var enumVals = self.index.getEnumValues(enumFullId);
             for ( var i = 0 ; i < enumVals.length ; i++ ) {
               if ( enumVals[i].name === em[2] ) {
-                addToken(baseOffset + em.index + em[1].length + 1, em[2].length, 2);
+                addCodeToken(baseOffset + em.index + em[1].length + 1, em[2].length, 2);
                 break;
               }
             }
@@ -687,7 +684,7 @@ foam.CLASS({
         var getSetRegex = /(get|set)([A-Z][a-zA-Z0-9_]*)\s*\(/g;
         var gs;
         while ( ( gs = getSetRegex.exec(javaStr) ) !== null ) {
-          if ( inNonCode(gs.index) ) continue;
+          if ( inNonCode(gs.index) ) continue;   // early: also skips the cast-resolution work below
           var propName = gs[2].charAt(0).toLowerCase() + gs[2].substring(1);
           var known = propNames[propName.toLowerCase()];
 
@@ -707,7 +704,7 @@ foam.CLASS({
           }
 
           if ( known ) {
-            addToken(baseOffset + gs.index, gs[1].length + gs[2].length, 8);
+            addCodeToken(baseOffset + gs.index, gs[1].length + gs[2].length, 8);
           }
         }
       }

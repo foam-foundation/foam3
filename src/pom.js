@@ -477,6 +477,7 @@ foam.POM({
     { name: "foam/blob/BlobServiceDecorator",                         flags: "js|java" },
     { name: "foam/blob/TestBlobService",                              flags: "js&test|java&test" },
     { name: "foam/blob/BlobStore",                                    flags: "java|node" },
+    { name: "foam/blob/BlobStoreTest",                                flags: "js&test|java&test" },
     { name: "foam/blob/FdBlob",                                       flags: "java|node" },
     { name: "lib/node/json_dao",                                      flags: "node" },
     { name: "foam/encodings/UTF8",                                    flags: "js" },
@@ -1507,6 +1508,7 @@ foam.POM({
 
   journalFiles: [
     { name: "tests",                                                  flags: "test" },
+    { name: "foam/blob/tests",                                        flags: "test" },
     { name: "foam/crypto/hash/tests",                                 flags: "test" },
     { name: "foam/crypto/sign/tests",                                 flags: "test" },
     { name: "foam/net/test/tests",                                    flags: "test" },

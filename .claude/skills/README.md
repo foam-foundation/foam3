@@ -38,9 +38,11 @@ The symlink target is **relative** (`../../foam3/...`) so it resolves the same i
   git submodule update --init
   ```
 
-## Windows / no-symlink fallback
+## Platform notes / no-symlink fallback
 
-Symlinks require `git config core.symlinks true` and, on Windows, Developer Mode or admin. If a teammate's checkout can't use symlinks, run Claude Code with the submodule added as an extra directory instead of symlinking:
+FOAM builds on Linux and macOS, and on Windows **only under [WSL](https://learn.microsoft.com/windows/wsl/)** — a Linux environment. On all of these, symlinks work natively, so the setup above is the norm everywhere FOAM runs; there are no native-Windows `core.symlinks` / Developer-Mode caveats to worry about (you're in Linux under WSL).
+
+The only time you'd need a fallback is the rare case where a checkout genuinely can't create or follow the symlink (e.g. the repo was cloned onto a native-Windows filesystem, outside WSL, with symlink support off). There, add the submodule as an extra directory instead of symlinking:
 
 ```bash
 claude --add-dir ./foam3

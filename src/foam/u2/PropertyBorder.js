@@ -294,8 +294,8 @@ foam.CLASS({
       padding: 2px 4px;
     }
     ^propHolder ^copy-button:hover, ^propHolder ^copy-button:focus-visible {
-      background: $grey100;
-      border-color: $grey300;
+      background: $backgroundTertiary;
+      border-color: $borderLight;
     }
     /* A copyable read-only row keeps the button next to the value instead of
        pushed to the row's far edge by the inner span's full width. */

@@ -163,7 +163,10 @@ foam.CLASS({
         // Not using foam locale as foam locale can be reset to a different value mid-session based on translation available
         // using browser default formatting when available
         if ( navigator.language ) {
-          amount = Number(amount);
+          // format takes MINOR units (cents) on every path — the declared arg
+          // type, the javaCode, and the legacy branch below all already do;
+          // this branch previously expected major units, which is issue #5298
+          amount = this.floatAmount(Number(amount));
           let opts = {
             minimumFractionDigits: this.precision,
             maximumFractionDigits: this.precision,

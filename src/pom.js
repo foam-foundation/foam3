@@ -64,6 +64,7 @@ foam.POM({
     { name: "foam/lang/test/DateTimeTestModel",                       flags: "js&test|java&test" },
     { name: "foam/lang/test/DatePropertyBench",                       flags: "js&test|java&test" },
     { name: "foam/lang/test/DatePropertyOpsTest",                     flags: "js&test|java&test" },
+    { name: "foam/lang/test/CurrencyFormatJSTest",                    flags: "js&test|java&test" },
     { name: "foam/lang/test/DateTimeUTCTest",                         flags: "js&test|java&test" },
     { name: "foam/lang/test/JSONEscapeTest",                          flags: "js&test|java&test" },
     { name: "foam/lang/test/SlotlessValidationTest",                  flags: "js&test|java&test" },

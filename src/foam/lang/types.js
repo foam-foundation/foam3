@@ -911,8 +911,9 @@ foam.CLASS({
         const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
+          // stored value is already minor units — format's contract
           if ( unitProp )
-            return unitProp.format(unitProp.floatAmount(val), excludeUnit, false);
+            return unitProp.format(val, excludeUnit, false);
         }
         return val;
       }
@@ -965,8 +966,10 @@ foam.CLASS({
         const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
+          // DoubleUnitValue stores major units; format takes minor —
+          // convert at this edge (round kills float-multiply drift)
           if ( unitProp )
-            return unitProp.format(val, excludeUnit, false);
+            return unitProp.format(Math.round(val * Math.pow(10, unitProp.precision)), excludeUnit, false);
         }
         return val;
       }

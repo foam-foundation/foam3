@@ -13,6 +13,17 @@ foam.INTERFACE({
   methods: [
     'int comparePropertyToValue(Object key, Object value)',
     {
+      signature: 'int compare(Object o1, Object o2)',
+      documentation: `
+        Order two objects by the indexed value each holds, without extracting
+        either value.
+
+        This is the comparison a write does: it arrives holding an object, not a
+        key, so nothing needs to be materialized to place it in an index.
+        PropertyInfo already answers this through Comparator.
+      `
+    },
+    {
       signature: 'int comparePropertyToObject(Object key, Object o)',
       documentation: `
         Compare a key against the object holding the indexed value, rather than

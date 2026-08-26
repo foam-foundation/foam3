@@ -134,9 +134,10 @@ foam.CLASS({
     {
       name: 'checkDot',
       args: 'X x',
-      documentation: `Dot is the only Indexer that is not a PropertyInfo. Every
-        row leaves ref unset, so the key is underivable and the index must still
-        answer exactly as no index would.`,
+      documentation: `Dot is the only Indexer that is not a PropertyInfo. The
+        twelve seeded rows all leave ref unset, so the key is underivable; the
+        rows added here set it, so the nested name is what orders them. Both
+        have to answer exactly as no index would.`,
       javaCode: `
         MDAO plain = build(x, null);
         MDAO idx   = build(x, null);
@@ -145,6 +146,51 @@ foam.CLASS({
         expect(x, plain, idx, TRUE, IndexKeyRecord.ID, "Dot(ref,name) / all");
         expect(x, plain, idx, EQ(IndexKeyRecord.NAME, "alpha"), IndexKeyRecord.ID,
           "Dot(ref,name) / EQ on another property");
+
+        dotSeed(x, plain);
+        dotSeed(x, idx);
+
+        expect(x, plain, idx, TRUE, IndexKeyRecord.ID,
+          "Dot(ref,name) / refs set and unset together");
+        expect(x, plain, idx, EQ(IndexKeyRecord.NAME, "zulu"), IndexKeyRecord.ID,
+          "Dot(ref,name) / EQ with refs set");
+
+        // Remove reaches the tree through the same comparison, and a promotion
+        // has to locate the node it took the value from.
+        plain.remove_(x, mk(22, 20, "yankee", null, AndOrderStatus.INIT));
+        idx.remove_(x, mk(22, 20, "yankee", null, AndOrderStatus.INIT));
+        expect(x, plain, idx, TRUE, IndexKeyRecord.ID,
+          "Dot(ref,name) / after removing a row with ref set");
+      `
+    },
+
+    {
+      name: 'dotSeed',
+      args: 'X x, foam.dao.MDAO dao',
+      documentation: `Four rows with ref set, three of them sharing a nested
+        name so the Dot index nests sub-trees, and one pointing at a target
+        whose own name is unset.`,
+      javaCode: `
+        dao.put_(x, ref(21, "zulu",   "delta"));
+        dao.put_(x, ref(22, "yankee", "alpha"));
+        dao.put_(x, ref(23, "xray",   "alpha"));
+        dao.put_(x, ref(24, "whisky", null));
+      `
+    },
+
+    {
+      name: 'ref',
+      args: 'long id, String name, String refName',
+      type: 'foam.dao.index.IndexKeyRecord',
+      documentation: 'A null refName leaves the target\'s own name unset.',
+      javaCode: `
+        IndexKeyRecord target = new IndexKeyRecord();
+        target.setId(id + 1000);
+        if ( refName != null ) target.setName(refName);
+
+        IndexKeyRecord r = mk(id, 20, name, null, AndOrderStatus.INIT);
+        r.setRef(target);
+        return r;
       `
     },
 

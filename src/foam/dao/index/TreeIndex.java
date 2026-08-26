@@ -174,19 +174,11 @@ public class TreeIndex
   }
 
   public Object put(Object state, FObject value) {
-    Object key = returnKeyForValue(value);
-    // key could be null for values like Date fields, but that works
-    return TreeNode.getNullNode().putKeyValue((TreeNode) state, indexer_, key, value, tail_);
+    return TreeNode.getNullNode().putKeyValue((TreeNode) state, indexer_, value, tail_);
   }
 
   public Object remove(Object state, FObject value) {
-    Object key = returnKeyForValue(value);
-    // key could be null for values like Date fields, but that works
-    return TreeNode.getNullNode().removeKeyValue((TreeNode) state, indexer_, key, value, tail_);
-  }
-
-  public Object returnKeyForValue(FObject value) {
-    return TreeNode.keyOf(indexer_, value);
+    return TreeNode.getNullNode().removeKeyValue((TreeNode) state, indexer_, value, tail_);
   }
 
   public Object removeAll() {

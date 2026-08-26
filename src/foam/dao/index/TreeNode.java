@@ -48,8 +48,12 @@ public class TreeNode {
    * derive one. Both failures are expected: the Indexer may be a PropertyInfo
    * for a sub-class the value is not an instance of, or a Dot whose
    * intermediate is unset.
+   *
+   * Deriving a key allocates, so nothing on the descent paths calls this. It is
+   * left for the two places that have to hand a key out - a GroupBy bucket, and
+   * the comparison of two values the Indexer could not read.
    */
-  static Object keyOf(Indexer indexer, Object value) {
+  private static Object keyOf(Indexer indexer, Object value) {
     try {
       return indexer.f(value);
     } catch ( ClassCastException e ) {
@@ -80,6 +84,25 @@ public class TreeNode {
     return indexer.comparePropertyToObject(key, object());
   }
 
+  /**
+   * Compare a stored value against this node's, by the key an Indexer would
+   * derive from each. A write arrives holding the object, so it never needs a
+   * key of its own.
+   *
+   * The Indexer may not be able to read one of the two - a PropertyInfo for a
+   * sub-class the value is not an instance of, or a Dot whose intermediate is
+   * unset. Such a value has no key, and comparing the keys that do exist is
+   * what deriving them would have produced.
+   */
+  protected int compareValue(Object value, Indexer indexer) {
+    Object mine = object();
+    try {
+      return indexer.compare(value, mine);
+    } catch ( ClassCastException | NullPointerException e ) {
+      return indexer.comparePropertyToValue(keyOf(indexer, value), keyOf(indexer, mine));
+    }
+  }
+
   /** This node's key, materialized. Only where a key has to be handed out. */
   protected Object nodeKey(Indexer indexer) {
     return keyOf(indexer, object());
@@ -103,7 +126,7 @@ public class TreeNode {
     if ( end < start ) return null;
 
     int m = start + (int) Math.floor((end-start+1)/2);
-    TreeNode tree = this.putKeyValue(this, indexer, keyOf(indexer, a[m]), a[m], tail);
+    TreeNode tree = this.putKeyValue(this, indexer, a[m], tail);
     tree.left  = (TreeNode) this.bulkLoad(tail, indexer, start, m-1, a);
     tree.right = (TreeNode) this.bulkLoad(tail, indexer, m+1, end, a);
     tree.size  = this.size(tree.left) + this.size(tree.right);
@@ -111,12 +134,12 @@ public class TreeNode {
     return tree;
   }
 
-  public TreeNode putKeyValue(TreeNode state, Indexer indexer, Object key, FObject value, Index tail) {
+  public TreeNode putKeyValue(TreeNode state, Indexer indexer, FObject value, Index tail) {
     if ( state == null || state.isNullNode() ) {
       return new TreeNode(tail.put(null, value), 1, (byte) 1, null, null);
     }
     state = maybeClone(state);
-    int r = state.compareKey(key, indexer);
+    int r = state.compareValue(value, indexer);
 
     if ( r == 0 ) {
       state.size -= tail.size(state.value);
@@ -127,13 +150,13 @@ public class TreeNode {
         if ( state.left != null ) {
           state.size -= state.left.size;
         }
-        state.left = this.putKeyValue(state.left, indexer, key, value, tail);
+        state.left = this.putKeyValue(state.left, indexer, value, tail);
         state.size += state.left.size;
       } else {
         if ( state.right != null ) {
           state.size -= state.right.size;
         }
-        state.right = this.putKeyValue(state.right, indexer, key, value, tail);
+        state.right = this.putKeyValue(state.right, indexer, value, tail);
         state.size += state.right.size;
       }
     }
@@ -175,12 +198,12 @@ public class TreeNode {
     return node;
   }
 
-  public TreeNode removeKeyValue(TreeNode state, Indexer indexer, Object key,
-    FObject value, Index tail) {
+  public TreeNode removeKeyValue(TreeNode state, Indexer indexer, FObject value,
+    Index tail) {
     if ( state == null ) return state;
 
     state = maybeClone(state);
-    long compareValue = state.compareKey(key, indexer);
+    long compareValue = state.compareValue(value, indexer);
 
     if ( compareValue == 0 ) {
       state.size -= tail.size(state.value);
@@ -195,23 +218,24 @@ public class TreeNode {
 
       boolean  isLeft = ( state.left != null );
       TreeNode subs   = isLeft ? predecessor(state) : successor(state);
-      // The value carries the key now, so taking it over is the whole promotion.
-      Object   subsKey = subs.nodeKey(indexer);
+      // The value carries the key now, so taking it over is the whole
+      // promotion. Its object is what locates the node it came from.
+      FObject  subsObject = subs.object();
       state.value = subs.value;
 
       if ( isLeft ) {
-        state.left = removeNode(state.left, subsKey, indexer);
+        state.left = removeNode(state.left, subsObject, indexer);
       } else {
-        state.right = removeNode(state.right, subsKey, indexer);
+        state.right = removeNode(state.right, subsObject, indexer);
       }
     } else {
       if ( compareValue < 0 ) {
         state.size -= size(state.left);
-        state.left  = removeKeyValue(state.left, indexer, key, value, tail);
+        state.left  = removeKeyValue(state.left, indexer, value, tail);
         state.size += size(state.left);
       } else {
         state.size -= size(state.right);
-        state.right = removeKeyValue(state.right, indexer, key, value, tail);
+        state.right = removeKeyValue(state.right, indexer, value, tail);
         state.size += size(state.right);
       }
     }
@@ -230,23 +254,23 @@ public class TreeNode {
     return state;
   }
 
-  private TreeNode removeNode(TreeNode state, Object key, Indexer indexer) {
+  private TreeNode removeNode(TreeNode state, FObject value, Indexer indexer) {
     if ( state == null ) return state;
 
     state  = maybeClone(state);
-    // Note the sense: compareKey is (searchKey, thisNode), where the call it
-    // replaced was (thisNode, searchKey), so the branches below are flipped.
-    long compareValue = state.compareKey(key, indexer);
+    // Note the sense: compareValue is (searched, thisNode), where the call it
+    // replaced was (thisNode, searched), so the branches below are flipped.
+    long compareValue = state.compareValue(value, indexer);
 
     if ( compareValue == 0 ) return state.left != null ? state.left : state.right;
 
     if ( compareValue < 0 ) {
       state.size -= size(state.left);
-      state.left  = removeNode(state.left, key, indexer);
+      state.left  = removeNode(state.left, value, indexer);
       state.size += size(state.left);
     } else {
       state.size -= size(state.right);
-      state.right = removeNode(state.right, key, indexer);
+      state.right = removeNode(state.right, value, indexer);
       state.size += size(state.right);
     }
 

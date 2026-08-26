@@ -746,6 +746,19 @@ foam.CLASS({
       this.cache_ = {};
     },
 
+    function invalidateJrlUsageIndex(savedPath) {
+      /** A journal save changes journal references but re-registers no
+          classes, so reindexFile calls this instead of the full
+          invalidateSymbolIndex_ drop — the class-keyed indexes stay warm.
+          A services.jrl additionally feeds the string-usage index (its
+          CSpec entries are read through JrlLoader in
+          buildStringUsageIndex_), so that index drops with it. */
+      this.jrlUsageIndex_ = null;
+      if ( savedPath && /(^|[\/\\])services\.jrl$/.test(savedPath) ) {
+        this.stringUsageIndex_ = null;
+      }
+    },
+
     function buildFileIndex() {
       /**
        * Build class ID → { path, flags } mapping by walking ALL POMs
@@ -2128,6 +2141,13 @@ foam.CLASS({
       var path_ = require('path');
       var SKIP  = { node_modules: true, build: true };
       var out   = [];
+      // Dedupe by resolved path rather than skipping symlinks outright:
+      // foam3's root `foam3 -> .` cycle resolves to an already-visited
+      // directory and stops, while journals reachable only through a
+      // symlinked tree are still indexed (once). Only directories and
+      // journals are resolved — realpath on every plain file nearly
+      // doubles the cold walk and bloats seenReal for no dedupe value.
+      var seenReal = {};
       function walk(dir) {
         var names;
         try { names = fs_.readdirSync(dir); } catch (e) { return; }
@@ -2136,14 +2156,26 @@ foam.CLASS({
           if ( SKIP[name] || name.charAt(0) === '.' ) continue;
           var p = path_.join(dir, name);
           var st;
-          try { st = fs_.lstatSync(p); } catch (e) { continue; }
-          // Never follow directory symlinks — foam3's root has `foam3 -> .`,
-          // which would recurse forever and double-index every journal.
-          if ( st.isSymbolicLink() ) continue;
-          if ( st.isDirectory() )                                      walk(p);
-          else if ( name.length > 4 && name.lastIndexOf('.jrl') === name.length - 4 ) out.push(p);
+          try { st = fs_.statSync(p); } catch (e) { continue; }   // broken symlink
+          if ( st.isDirectory() ) {
+            var real;
+            try { real = fs_.realpathSync(p); } catch (e) { continue; }
+            if ( seenReal[real] ) continue;
+            seenReal[real] = true;
+            walk(p);
+          } else if ( name.length > 4 && name.lastIndexOf('.jrl') === name.length - 4 ) {
+            // Push the resolved path so a journal reachable both directly
+            // and through a symlink reports one canonical row, independent
+            // of readdir order.
+            var jrlReal;
+            try { jrlReal = fs_.realpathSync(p); } catch (e) { continue; }
+            if ( seenReal[jrlReal] ) continue;
+            seenReal[jrlReal] = true;
+            out.push(jrlReal);
+          }
         }
       }
+      try { seenReal[fs_.realpathSync(process.cwd())] = true; } catch (e) {}
       walk(process.cwd());
       return out;
     },

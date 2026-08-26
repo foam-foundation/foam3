@@ -938,6 +938,33 @@ var cmdDone = (async function() {
     test(rw.warnings.length === 1 && rw.warnings[0].indexOf('placeholder ${n} lost') !== -1,
       'provider warnings are returned alongside the edit');
 
+    // When the placeholder gate drops EVERY requested language,
+    // buildMessageMapEdit legally returns null — the thrown error must carry
+    // the gate's warnings, not the "file changed" relocation message.
+    var PH_MSGS = "foam.CLASS({\n  package: 'test',\n  name: 'HasPh',\n  messages: [\n" +
+      "    { name: 'HI', message: 'Hello ${name}' }\n  ]\n});\n";
+    var dropAllProvider = {
+      detect: async function() { return { available: true, model: 'stub' }; },
+      translate: async function(texts, lang) {
+        // The placeholder is mangled in every language.
+        return texts.map(function(t) { return { input: t, translation: '[' + lang + '] hello', warnings: [] }; });
+      }
+    };
+    var i18nDrop = foam.parse.lsp.handlers.I18nHandler.create({
+      index: index, cache: cache, targetLanguages: ['fr', 'de'], translationReady: true, activeModel: 'stub' });
+    i18nDrop.provider = dropAllProvider;
+    var dropErr = null, dropResult = null;
+    try {
+      dropResult = await i18nDrop.executeCommand('foam.i18n.translateMessage',
+        { uri: 'file:///t/HasPh.js', text: PH_MSGS, messageName: 'HI', languages: ['fr', 'de'] });
+    } catch (e) { dropErr = e; }
+    test(dropErr !== null && dropResult === null &&
+      dropErr.message.indexOf('dropped placeholder ${name}') !== -1 &&
+      dropErr.message.indexOf('re-located') === -1,
+      'every language dropped by the placeholder gate → error carries the gate warnings, not "file changed"');
+    test(dropErr !== null && dropErr.message.indexOf('fr:') !== -1 && dropErr.message.indexOf('de:') !== -1,
+      'the all-dropped error names each dropped language');
+
     var unknownErr = null;
     try {
       await i18nCmd.executeCommand('foam.i18n.nope', { uri: 'file:///t/E.js', text: SRC, languages: ['fr'] });

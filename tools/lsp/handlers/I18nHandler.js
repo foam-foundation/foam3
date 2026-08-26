@@ -78,9 +78,13 @@ foam.CLASS({
        * was offered, because the user may have typed in between. A builder
        * returning null means the anchor is gone or ambiguous → error, no edit.
        *
-       * All-or-nothing: every requested language is translated BEFORE any
-       * edit is built, so a provider failure on the second language throws
-       * and leaves the file untouched instead of committing the first.
+       * Every requested language is translated BEFORE any edit is built, so
+       * a provider failure on the second language throws and leaves the file
+       * untouched instead of committing the first. Placeholder validation is
+       * softer: a translation that lost a sentinel is dropped per-language
+       * (see translateInto_), the edit carries the survivors, and a batch
+       * where EVERY language dropped throws with the validation warnings —
+       * that null edit is not a lost anchor.
        */
       var a         = args || {};
       var langs     = a.languages || [];
@@ -113,7 +117,15 @@ foam.CLASS({
         }
         var translated = await this.translateInto_(source, langs);
         var mapEdit    = this.buildMessageMapEdit(a.text, a.messageName, translated.translations, a.uri);
-        if ( ! mapEdit ) throw new Error(relocated);
+        if ( ! mapEdit ) {
+          // No surviving translations means the placeholder gate dropped
+          // every requested language — the real reason is in the warnings,
+          // not a lost anchor.
+          if ( ! Object.keys(translated.translations).length ) {
+            throw new Error(translated.warnings.join('; '));
+          }
+          throw new Error(relocated);
+        }
         return { edit: mapEdit, warnings: translated.warnings };
       }
 

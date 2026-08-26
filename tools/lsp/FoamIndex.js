@@ -742,6 +742,13 @@ foam.CLASS({
       this.cache_ = {};
     },
 
+    function invalidateJrlUsageIndex() {
+      /** A journal save changes journal references but re-registers no
+          classes, so reindexFile calls this instead of the full
+          invalidateSymbolIndex_ drop — the class-keyed indexes stay warm. */
+      this.jrlUsageIndex_ = null;
+    },
+
     function buildFileIndex() {
       /**
        * Build class ID → { path, flags } mapping by walking ALL POMs

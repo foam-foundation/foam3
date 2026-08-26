@@ -1089,6 +1089,17 @@ try {
   test(index.getJrlUsages('no.such.Klass').length === 0,
     'fixture: unregistered class id not indexed');
 
+  // Targeted invalidation: a .jrl save drops ONLY the jrl usage index —
+  // no class was re-registered, so the class-keyed indexes stay warm.
+  var jPrevUsage = index.usageIndex_;
+  index.usageIndex_ = { sentinel: true };
+  index.invalidateJrlUsageIndex();
+  test(index.jrlUsageIndex_ === null,
+    'invalidateJrlUsageIndex: jrl usage index dropped (rebuilds on next query)');
+  test(index.usageIndex_ && index.usageIndex_.sentinel === true,
+    'invalidateJrlUsageIndex: class-keyed usage index untouched');
+  index.usageIndex_ = jPrevUsage;
+
   fs.unlinkSync(jTmpJrl);
   index.invalidateSymbolIndex_();
 } catch (err) {

@@ -341,6 +341,13 @@ function start() {
       }
     }
 
+    // A journal save re-registers no classes (the branch above never runs),
+    // but it does change journal references — drop the jrl usage index so
+    // find-references sees the edit without an LSP restart.
+    if ( isJrlFile(uri) && typeof index.invalidateJrlUsageIndex === 'function' ) {
+      index.invalidateJrlUsageIndex();
+    }
+
     // Compute the dependency closure — files whose diagnostics could be
     // impacted by this change. Empty list for non-FOAM saves; JRLs only
     // affect the open-file loop below.

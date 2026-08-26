@@ -450,7 +450,7 @@ So: **`imports` = "services/values I expect to be handed to me via context."** I
 
 A quick mental model: `requires` is like importing a *type* so you can instantiate it; `imports` is like receiving a *dependency* someone else already built and placed in your context.
 
-<details>
+<details markdown="1">
 <summary><b>Coming from Node.js / React?</b> A quick bridge for these three sections.</summary>
 
 <br>

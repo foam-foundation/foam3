@@ -188,6 +188,7 @@ foam.CLASS({
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
+        .addClass(this.table.myClass('td-' + prop.name))
         .addClass()
         .style({ flex: this.slot(function(colWidth) {
             return colWidth ? `1 0 ${colWidth}px` : `1 0 ${this.table.MIN_COLUMN_WIDTH_FALLBACK}px`;

@@ -89,6 +89,9 @@ foam.CLASS({
           startContext({ data: self }).
             start(self.ON_CLICK_FUNCTIONS, {
               buttonStyle: 'UNSTYLED',
+              // Same as TreeViewRow: menu id, not the shared action name, so
+              // each heading has a stable, unique DOM name for recorders/tests.
+              name: self.data.id,
               label: { class: 'foam.u2.view.TreeViewHeading.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL'

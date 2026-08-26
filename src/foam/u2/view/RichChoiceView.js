@@ -630,6 +630,14 @@ foam.CLASS({
                           .addClass(self.myClass('selectable-item'))
                           .attr('disabled', section.disabled)
                           .attr('role', 'option')
+                          // Mirror the root's data-value (set in render above) so
+                          // each option is addressable by id, not list position.
+                          // name too: test recorders configured to key on the
+                          // name attribute can then anchor option clicks by id.
+                          .attrs({
+                            'data-value': foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id,
+                            name: foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id
+                          })
                           .enableClass('disabled', section.disabled)
                           .enableClass('highlighted', self.highlightedIndex_$.map(v => v === itemIndex))
                           .callIf(! section.disabled, function() {

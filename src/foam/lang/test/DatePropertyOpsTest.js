@@ -203,9 +203,8 @@ foam.CLASS({
 
         // ---- comparePropertyToObject ----
         // Compares a key against the object holding the value, without
-        // materializing that value. Two things it has to get right: a null key
-        // must not throw, and an unset property must compare as null rather
-        // than as the long field's zero default.
+        // materializing that value. A null key must not throw, and it has to
+        // equal an unset property.
         PropertyInfo prop  = DateTimeTestModel.REGULAR_DATE;
         DateTimeTestModel unset = new DateTimeTestModel();
         DateTimeTestModel set   = model(1, JAN_15);
@@ -229,6 +228,21 @@ foam.CLASS({
         test(prop.comparePropertyToObject(new Date(JAN_15), set)
              == prop.comparePropertyToValue(new Date(JAN_15), prop.f(set)),
           "comparePropertyToObject agrees with comparePropertyToValue");
+
+        // ---- the unset backing field ----
+        // The long behind a date property starts at the value reserved for
+        // absence, so the readers that go straight to the field agree with the
+        // getter about an unset property instead of reading it as the epoch.
+        // An index built through one comparison and searched through the other
+        // would otherwise put unset rows where the search never looks.
+        test(prop.isDefaultValue(unset),
+          "An unset date property is its default value");
+        test(prop.compare(unset, set) < 0,
+          "An unset date property sorts before a set one");
+        test(prop.compare(unset, nulled) == 0,
+          "compare treats unset and explicitly null as the same date");
+        test(prop.compare(unset, set) == prop.comparePropertyToObject(null, set),
+          "compare and comparePropertyToObject order an unset date the same way");
       `
     }
   ]

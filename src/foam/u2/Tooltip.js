@@ -102,7 +102,6 @@ foam.CLASS({
       this.target.on('mouseleave', this.close);
       this.target.on('mouseout',   this.close);
       this.target.on('touchstart', this.close, {passive: true});
-      this.target.on('unload',     this.close);
       this.onMouseOver(evt);
     }
   ]

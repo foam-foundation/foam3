@@ -165,6 +165,16 @@ foam.CLASS({
       name: 'changedObjDesc',
       label: 'Object',
       storageTransient: true,
+      documentation: `
+        Previously, the changedObjName field displayed both the changedObjName
+        and the changedObjPrefix values. However, because the tablecellformatter
+        uses a projection, not the actual model, the changedObjPrefix displayed
+        as an empty string when a default value was not provided.
+
+        To fix this, we use changedObjDesc which properly displays both changedObj
+        fields even when default values are not provided. This is the same fix used
+        by changeDesc, above.
+      `
       expression: function(changedObjPrefix, changedObjName) {
         return changedObjPrefix + ' · ' + changedObjName;
       },

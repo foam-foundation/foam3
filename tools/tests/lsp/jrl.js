@@ -1096,6 +1096,50 @@ try {
 }
 
 
+// === jrl file walk — symlink handling ===
+//
+// The walk dedupes by realpath: a `self -> .` cycle terminates, while a
+// journal reachable ONLY through a directory symlink is still indexed.
+
+section('jrl file walk — symlink handling');
+
+try {
+  var wOs   = require('os');
+  var wRoot = fs.mkdtempSync(path.join(wOs.tmpdir(), 'foam-lsp-walk-'));
+  fs.mkdirSync(path.join(wRoot, 'plain'));
+  fs.writeFileSync(path.join(wRoot, 'plain', 'a.jrl'), 'p({"class":"x"})\n');
+  // A journal reachable only via symlink: dot-dirs are skipped by the walk,
+  // so `.store` is invisible except through the `linked` symlink.
+  fs.mkdirSync(path.join(wRoot, '.store'));
+  fs.writeFileSync(path.join(wRoot, '.store', 'b.jrl'), 'p({"class":"y"})\n');
+  fs.symlinkSync(path.join(wRoot, '.store'), path.join(wRoot, 'linked'), 'dir');
+  // foam3-style self-cycle.
+  fs.symlinkSync('.', path.join(wRoot, 'self'), 'dir');
+  // A broken symlink is skipped, not a crash.
+  fs.symlinkSync(path.join(wRoot, 'gone'), path.join(wRoot, 'broken'), 'dir');
+
+  var wPrev = process.cwd();
+  var wFiles;
+  try {
+    process.chdir(wRoot);
+    wFiles = index.findWorkspaceJrlFiles_();
+  } finally {
+    process.chdir(wPrev);
+  }
+
+  test(wFiles.filter(function(f) { return f.indexOf('a.jrl') !== -1; }).length === 1,
+    'walk: plain journal indexed exactly once despite the self -> . cycle');
+  test(wFiles.some(function(f) { return f.indexOf('b.jrl') !== -1; }),
+    'walk: journal reachable only through a directory symlink is indexed');
+  test(wFiles.length === 2,
+    'walk: cycle + broken symlink add nothing (2 journals total)');
+
+  fs.rmSync(wRoot, { recursive: true, force: true });
+} catch (err) {
+  test(false, 'jrl walk symlink test threw: ' + err.message);
+}
+
+
 // === jrl references — real workspace acceptance (issue #5264, Tier 2) ===
 
 section('jrl references — real workspace acceptance (issue #5264)');

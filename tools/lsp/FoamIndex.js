@@ -2106,6 +2106,11 @@ foam.CLASS({
       var path_ = require('path');
       var SKIP  = { node_modules: true, build: true };
       var out   = [];
+      // Dedupe by resolved path rather than skipping symlinks outright:
+      // foam3's root `foam3 -> .` cycle resolves to an already-visited
+      // directory and stops, while journals reachable only through a
+      // symlinked tree are still indexed (once).
+      var seenReal = {};
       function walk(dir) {
         var names;
         try { names = fs_.readdirSync(dir); } catch (e) { return; }
@@ -2113,15 +2118,17 @@ foam.CLASS({
           var name = names[i];
           if ( SKIP[name] || name.charAt(0) === '.' ) continue;
           var p = path_.join(dir, name);
+          var real;
+          try { real = fs_.realpathSync(p); } catch (e) { continue; }   // broken symlink
+          if ( seenReal[real] ) continue;
+          seenReal[real] = true;
           var st;
-          try { st = fs_.lstatSync(p); } catch (e) { continue; }
-          // Never follow directory symlinks — foam3's root has `foam3 -> .`,
-          // which would recurse forever and double-index every journal.
-          if ( st.isSymbolicLink() ) continue;
+          try { st = fs_.statSync(p); } catch (e) { continue; }
           if ( st.isDirectory() )                                      walk(p);
           else if ( name.length > 4 && name.lastIndexOf('.jrl') === name.length - 4 ) out.push(p);
         }
       }
+      try { seenReal[fs_.realpathSync(process.cwd())] = true; } catch (e) {}
       walk(process.cwd());
       return out;
     },

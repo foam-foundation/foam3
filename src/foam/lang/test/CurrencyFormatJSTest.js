@@ -45,6 +45,16 @@ foam.CLASS({
         x.test(s === '(£123.45)',
           'negative cents format as accounting parens: ' + s);
 
+        // --- minorAmount: the major->minor edge for callers holding majors ---
+        var m = gbp.minorAmount(123.45);
+        x.test(m === 12345,
+          'minorAmount converts major to minor with rounding, got: ' + m);
+        x.test(gbp.floatAmount(gbp.minorAmount(123.45)) === 123.45,
+          'minorAmount is the inverse of floatAmount');
+        s = gbp.format(gbp.minorAmount(123.45), false, false);
+        x.test(s === '£123.45',
+          'format(minorAmount(major)) is the caller idiom for major units: ' + s);
+
         // --- property-level formatting through the contract ---
         foam.CLASS({
           package: 'foam.lang.test',

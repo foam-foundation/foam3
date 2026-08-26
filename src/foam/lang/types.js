@@ -967,9 +967,9 @@ foam.CLASS({
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
           // DoubleUnitValue stores major units; format takes minor —
-          // convert at this edge (round kills float-multiply drift)
+          // convert at this edge
           if ( unitProp )
-            return unitProp.format(Math.round(val * Math.pow(10, unitProp.precision)), excludeUnit, false);
+            return unitProp.format(unitProp.minorAmount(val), excludeUnit, false);
         }
         return val;
       }

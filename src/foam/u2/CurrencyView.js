@@ -82,7 +82,7 @@ foam.CLASS({
     function formatNumber(val) {
       if ( ! this.curr_ ) return val.toFixed(2);
       // Currency.format takes minor units; mirror textToData's useMinorUnits
-      var minor = this.useMinorUnits ? val : Math.round(val * Math.pow(10, this.precision));
+      var minor = this.useMinorUnits ? val : this.curr_.minorAmount(val);
       return this.curr_.format(minor, true, this.hideSymbol);
     },
 

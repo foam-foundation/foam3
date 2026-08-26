@@ -65,7 +65,7 @@ foam.CLASS({
       value: 'INITIATED',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO',
-      documentation: 'Current status of the License (COMPLIANT, VIOLATED, or INITIATED)'
+      documentation: 'Current status of the License (COMPLIANT, EXCEEDED, or INITIATED)'
     },
     {
       class: 'Long',

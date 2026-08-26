@@ -63,10 +63,7 @@ foam.CLASS({
   messages: [
     {
       name: 'CLIENT_MSG',
-      messageMap: {
-        en: 'Client',
-        fr: 'Client'
-      }
+      message: 'Client'
     },
     {
       name: 'LICENSE_MSG',

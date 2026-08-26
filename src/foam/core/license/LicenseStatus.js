@@ -10,28 +10,25 @@ foam.ENUM({
 
   values: [
     {
+      name: 'INITIATED',
+      label: { en: 'Initiated', fr: 'Initié' },
+      documentation: 'License has been newly created (count is unknown)',
+      color: '$grey700',
+      background: '$grey100'
+    },
+    {
       name: 'COMPLIANT',
       label: { en: 'Compliant', fr: 'Conforme' },
-      ordinal: 0,
-      documentation: 'License has not been violated (count is within quota)',
+      documentation: 'License has not been exceeded (count is within quota)',
       color: '$success700',
       background: '$success50'
     },
     {
-      name: 'VIOLATED',
-      label: { en: 'Violated', fr: 'Enfreindre' },
-      ordinal: 1,
-      documentation: 'License has been violated (count exceeds quota)',
+      name: 'EXCEEDED',
+      label: { en: 'Exceeded', fr: 'Dépassé' },
+      documentation: 'License has been exceeded (count exceeds quota)',
       color: '$destructive500',
       background: '$destructive50'
-    },
-    {
-      name: 'INITIATED',
-      label: { en: 'Initiated', fr: 'Initié' },
-      ordinal: 2,
-      documentation: 'License has been newly created (count is unknown)',
-      color: '$grey700',
-      background: '$grey100'
     }
   ]
 });

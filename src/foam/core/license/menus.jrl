@@ -7,7 +7,7 @@ p({
     config: {
       class: "foam.comics.v2.DAOControllerConfig",
       daoKey: "licenseDAO",
-      browseTitle: "License",
+      browseTitle: "Licenses",
       exportPredicate: {"class":"foam.mlang.predicate.False"},
       importPredicate: {"class":"foam.mlang.predicate.False"},
       detailView: {"class":"foam.u2.detail.TabbedDetailView"}

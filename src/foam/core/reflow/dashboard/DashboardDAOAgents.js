@@ -1270,8 +1270,8 @@ foam.CLASS({
         // Only show for non-date/time properties on X-axis
         return ( ! isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
-      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale) {
-        if ( toggleCustomXScale && ! isDateXProp_ ) {
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isDateXProp_) {
+        if ( toggleCustomXScale && ! isDateXProp_ && self.hasOwnProperty(xAxisMinScale) ) {
           if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
           if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
         }
@@ -1285,8 +1285,8 @@ foam.CLASS({
         // Only show for non-date/time properties on X-axis
         return ( ! isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
-      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale) {
-        if ( toggleCustomXScale && ! isDateXProp_ ) {
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isDateXProp_) {
+        if ( toggleCustomXScale && ! isDateXProp_ && self.hasOwnProperty(xAxisMaxScale) ) {
           if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
           if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
         }
@@ -1300,7 +1300,7 @@ foam.CLASS({
         return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
       validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
-        if ( toggleCustomYScale ) {
+        if ( toggleCustomYScale && self.hasOwnProperty(yAxisMinScale) ) {
           if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
           if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
         }
@@ -1314,7 +1314,7 @@ foam.CLASS({
         return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
       validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
-        if ( toggleCustomYScale ) {
+        if ( toggleCustomYScale && self.hasOwnProperty(yAxisMaxScale) ) {
           if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
           if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
         }

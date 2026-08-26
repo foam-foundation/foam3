@@ -174,7 +174,7 @@ foam.CLASS({
         To fix this, we use changedObjDesc which properly displays both changedObj
         fields even when default values are not provided. This is the same fix used
         by changeDesc, above.
-      `
+      `,
       expression: function(changedObjPrefix, changedObjName) {
         return changedObjPrefix + ' · ' + changedObjName;
       },

@@ -1130,6 +1130,12 @@ foam.CLASS({
     }
   ],
 
+  messages: [
+    { name: 'MIN_EQ_MAX', message: 'Min and max values cannot be equal' },
+    { name: 'MIN_GT_MAX', message: 'Min cannot be greater than max' },
+    { name: 'INVALID_DATE',  message: 'Invalid date' }
+  ],
+
   properties: [
     {
       name: 'xProp',
@@ -1264,6 +1270,12 @@ foam.CLASS({
         // Only show for non-date/time properties on X-axis
         return ( ! isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isDateXProp_) {
+        if ( toggleCustomXScale && ! isDateXProp_ && this.hasOwnProperty('xAxisMinScale') ) {
+          if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
     },
     {
       class: 'Double',
@@ -1273,6 +1285,12 @@ foam.CLASS({
         // Only show for non-date/time properties on X-axis
         return ( ! isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isDateXProp_) {
+        if ( toggleCustomXScale && ! isDateXProp_ && this.hasOwnProperty('xAxisMaxScale') ) {
+          if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
     },
     {
       class: 'Double',
@@ -1281,6 +1299,12 @@ foam.CLASS({
       visibility: function(toggleCustomYScale) {
         return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
+      validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
+        if ( toggleCustomYScale && this.hasOwnProperty('yAxisMinScale') ) {
+          if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
     },
     {
       class: 'Double',
@@ -1289,6 +1313,12 @@ foam.CLASS({
       visibility: function(toggleCustomYScale) {
         return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       },
+      validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
+        if ( toggleCustomYScale && this.hasOwnProperty('yAxisMaxScale') ) {
+          if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
     },
     {
       class: 'Boolean',
@@ -1301,8 +1331,10 @@ foam.CLASS({
       name: 'xDateAxisMinScale',
       label: 'X Axis Min',
       visibility: function(toggleCustomXScale, isDateXProp_) {
-        // Only show for date/time properties on X-axis
         return ( isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, isDateXProp_, xDateAxisMinScale, xDateAxisMaxScale) {
+        return this.validateDateRange_(toggleCustomXScale && isDateXProp_, xDateAxisMinScale, xDateAxisMaxScale);
       }
     },
     {
@@ -1310,8 +1342,10 @@ foam.CLASS({
       name: 'xDateAxisMaxScale',
       label: 'X Axis Max',
       visibility: function(toggleCustomXScale, isDateXProp_) {
-        // Only show for date/time properties on X-axis
         return ( isDateXProp_ && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, isDateXProp_, xDateAxisMinScale, xDateAxisMaxScale) {
+        return this.validateDateRange_(toggleCustomXScale && isDateXProp_, xDateAxisMinScale, xDateAxisMaxScale);
       }
     },
     // Taken from Claude
@@ -1557,6 +1591,19 @@ foam.CLASS({
       clone.xDateAxisMinScale$ = this.xDateAxisMinScale$;
       clone.xDateAxisMaxScale$ = this.xDateAxisMaxScale$;
       return clone;
+    },
+
+    function validateDateRange_(enabled, minDate, maxDate) {
+      if ( ! enabled ) return;
+      // Either end unset means the range isn't fully specified yet — nothing to compare.
+      if ( ! minDate || ! maxDate ) return;
+
+      var min = minDate.getTime ? minDate.getTime() : new Date(minDate).getTime();
+      var max = maxDate.getTime ? maxDate.getTime() : new Date(maxDate).getTime();
+
+      if ( isNaN(min) || isNaN(max) ) return this.INVALID_DATE;
+      if ( min === max ) return this.MIN_EQ_MAX;
+      if ( min > max )   return this.MIN_GT_MAX;
     }
   ],
 

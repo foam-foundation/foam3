@@ -440,7 +440,7 @@ foam.CLASS({
 
         setShapeError_("");
         List keys = new ArrayList();
-        long rows = walk((TreeNode) ((Object[]) state)[1], keys);
+        long rows = walk((TreeNode) ((Object[]) state)[1], indexer, keys);
 
         // One node per distinct key: a repeated key has to share a node holding
         // a sub-index, not sit in a second node the searches never reach.
@@ -461,10 +461,11 @@ foam.CLASS({
 
     {
       name: 'walk',
-      args: 'foam.dao.index.TreeNode n, java.util.List keys',
+      args: 'foam.dao.index.TreeNode n, foam.lang.Indexer indexer, java.util.List keys',
       type: 'Long',
       documentation: `Rows stored under n, checking the AA invariants and n's
-        recorded size on the way and collecting the keys in order.`,
+        recorded size on the way and collecting the keys in order. A node holds
+        no key of its own, so each one is read back off the rows under it.`,
       javaCode: `
         if ( n == null ) return 0;
 
@@ -485,12 +486,12 @@ foam.CLASS({
         // has had rows removed already breaks it, on the row-by-row path as much
         // as the bulk one. Levels 1 to 4 are what bound the search depth.
 
-        long under = walk(l, keys);
-        keys.add(n.key);
+        long under = walk(l, indexer, keys);
+        keys.add(n.nodeKey(indexer));
 
         Object v = n.getValue();
         under += v instanceof TreeNode ? ((TreeNode) v).size : ( v == null ? 0 : 1 );
-        under += walk(r, keys);
+        under += walk(r, indexer, keys);
 
         if ( n.size != under )
           note("a node recording size " + n.size + " with " + under + " rows under it");

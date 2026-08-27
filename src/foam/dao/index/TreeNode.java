@@ -53,7 +53,7 @@ public class TreeNode {
    * left for the two places that have to hand a key out - a GroupBy bucket, and
    * the comparison of two values the Indexer could not read.
    */
-  private static Object keyOf(Indexer indexer, Object value) {
+  static Object keyOf(Indexer indexer, Object value) {
     try {
       return indexer.f(value);
     } catch ( ClassCastException e ) {
@@ -122,16 +122,54 @@ public class TreeNode {
     return left == null && right == null;
   }
 
-  public Object bulkLoad(Index tail, Indexer indexer, int start, int end, FObject[] a) {
-    if ( end < start ) return null;
+  /**
+   * Build a balanced sub-tree over the groups [lo..hi], one node per group.
+   *
+   * 'starts' holds where each group of equal keys begins in 'a', with one extra
+   * entry closing the last group. A group becomes a single node whose value is
+   * whatever the tail makes of that group's rows, so a repeated key costs one
+   * node rather than one node per row, and a compound index needs no special
+   * case - the tail builds its own level the same way. The key itself is not
+   * stored; it is read back off the rows under the node when one is needed.
+   *
+   * The left sub-tree is the largest perfect tree that fits rather than half the
+   * range, which is what makes the levels valid AA with no rebalancing pass.
+   * The midpoint cannot do this: sorted [a,b] has to be 'a' with a horizontal
+   * right link to 'b', and the midpoint picks 'b' with 'a' below it on the left,
+   * which breaks the rule that a left child sits exactly one level down.
+   *
+   * With n groups, level = floor(log2(n+1)) and the left sub-tree takes
+   * 2^(level-1) - 1 of them:
+   *
+   *   left.level  == level - 1        left is perfect of that height
+   *   right.level is level-1 or level a right count of n - 2^(level-1) lands in
+   *                                   [2^(level-1)-1, 3*2^(level-1)-2]
+   *   right.right.level < level       a horizontal right link needs 2^level - 1
+   *                                   groups and leaves at most one fewer than a
+   *                                   second link would need, so two in a row
+   *                                   cannot occur
+   *   level > 1 has two children      level >= 2 needs n >= 3, which leaves both
+   *                                   sides non-empty
+   *
+   * decreaseLevel stays quiet on these nodes too: it expects
+   * 1 + min(left.level, right.level), which is level for every node built here.
+   */
+  static TreeNode bulkLoad(Index tail, FObject[] a, int[] starts, int lo, int hi) {
+    if ( hi < lo ) return null;
 
-    int m = start + (int) Math.floor((end-start+1)/2);
-    TreeNode tree = this.putKeyValue(this, indexer, a[m], tail);
-    tree.left  = (TreeNode) this.bulkLoad(tail, indexer, start, m-1, a);
-    tree.right = (TreeNode) this.bulkLoad(tail, indexer, m+1, end, a);
-    tree.size  = this.size(tree.left) + this.size(tree.right);
+    int    level = 31 - Integer.numberOfLeadingZeros(hi - lo + 2);
+    int    mid   = lo + ( 1 << ( level - 1 ) ) - 1;
+    Object value = tail.bulkLoad(a, starts[mid], starts[mid+1] - 1);
 
-    return tree;
+    TreeNode left  = bulkLoad(tail, a, starts, lo, mid-1);
+    TreeNode right = bulkLoad(tail, a, starts, mid+1, hi);
+
+    return new TreeNode(
+      value,
+      size(left) + size(right) + tail.size(value),
+      (byte) level,
+      left,
+      right);
   }
 
   public TreeNode putKeyValue(TreeNode state, Indexer indexer, FObject value, Index tail) {
@@ -318,7 +356,7 @@ public class TreeNode {
     return node;
   }
 
-  private long size(TreeNode node) {
+  private static long size(TreeNode node) {
     return node == null ? 0 : node.size;
   }
 

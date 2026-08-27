@@ -6,11 +6,12 @@
 package foam.dao.index;
 
 import foam.lang.FObject;
-import foam.dao.AbstractSink;
+import foam.dao.ArraySink;
 import foam.dao.Sink;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.Predicate;
 import java.util.ArrayList;
+import java.util.List;
 
 /** Note this class is not thread safe because ArrayList isn't thread-safe. Needs to be made safe by containment. **/
 public class AltIndex
@@ -57,22 +58,19 @@ public class AltIndex
     // No state means no data to copy
     if ( state == null ) return state;
 
-    // Copy all data from first index into new index, updating state
+    // Copy all data from the first index into the new one. Reading the rows out
+    // to an array first lets the new index build itself from them in one pass,
+    // rather than being descended into - and cloning the path it descends - once
+    // per row. The keys an index cannot derive are already tolerated where they
+    // are derived, so this needs no per-row catch of its own.
     final Object[] sa = cloneState(state);
-    Sink sink = new AbstractSink() {
-      public void put(Object obj, foam.lang.Detachable sub) {
-        try {
-          sa[sa.length-1] = i.put(sa[sa.length-1], (FObject) obj);
-        } catch (ClassCastException e) {
-          // Expected for Indices of subclasses
-        } catch (NullPointerException e) {
-          // Expected for Dot() Indexes when FObject is null
-        }
-      }
-    };
 
     try {
+      ArraySink sink = new ArraySink();
       delegates_.get(0).planSelect(sa[0], sink, 0, Long.MAX_VALUE, null, null).select(sa[0], sink, 0, Long.MAX_VALUE, null, null);
+
+      List rows = sink.getArray();
+      sa[sa.length-1] = i.bulkLoad((FObject[]) rows.toArray(new FObject[rows.size()]), 0, rows.size()-1);
     } catch (Throwable t) {
       t.printStackTrace();
     }

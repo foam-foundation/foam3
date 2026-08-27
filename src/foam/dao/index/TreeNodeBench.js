@@ -114,6 +114,39 @@ foam.CLASS({
         System.out.println("BENCH phase=heapSecondaryIndex heapMB=" + ( ( h3 - h2 ) / 1048576 ));
         classHistogram("secondaryIndex", histoMatch);
 
+        // ---- adding an index to a DAO that already holds the rows -------
+        // What an EasyDAO actually does: the journal replays into the MDAO and
+        // the secondary indexes go on afterwards, against every row at once.
+        // Only the addIndex is timed; the load before it is not.
+        for ( int i = 0 ; i <= repeats ; i++ ) {
+          MDAO m = new MDAO(IndexKeyRecord.getOwnClassInfo());
+          for ( int j = 0 ; j < n ; j++ ) m.put_(x, rows.get(j));
+          startPhase();
+          m.addIndex(IndexKeyRecord.GROUP_ID);
+          endPhase("addIndexOnLoadedDAO", "iter=" + i + " records=" + n);
+        }
+
+        // Once more with nothing between the allocation and the reading, so the
+        // heap figure is the index and not the load that preceded it.
+        MDAO loaded = new MDAO(IndexKeyRecord.getOwnClassInfo());
+        for ( int j = 0 ; j < n ; j++ ) loaded.put_(x, rows.get(j));
+        long hb = settleHeap();
+        startPhase();
+        loaded.addIndex(IndexKeyRecord.GROUP_ID);
+        endPhase("addIndexOnLoadedDAOMeasuredHeap", "records=" + n);
+        long ha = settleHeap();
+        System.out.println("BENCH phase=heapAddIndexOnLoadedDAO heapMB=" + ( ( ha - hb ) / 1048576 )
+          + " bytesPerRow=" + ( ( ha - hb ) / n ));
+        classHistogram("addIndexOnLoadedDAO", histoMatch);
+
+        // An index built in one pass has to answer as one filled row by row.
+        test(((Count) loaded.inX(x).where(EQ(IndexKeyRecord.GROUP_ID, 7L)).select(new Count())).getValue()
+             == ((Count) secondary.inX(x).where(EQ(IndexKeyRecord.GROUP_ID, 7L)).select(new Count())).getValue(),
+          "the bulk-built index agrees with the incrementally built one");
+
+        // Keep the span heapAfterRemove reports the same as it was.
+        h3 = settleHeap();
+
         // ---- reads, repeated: first pass is compilation noise ------------
         for ( int i = 0 ; i < repeats ; i++ ) {
           startPhase();

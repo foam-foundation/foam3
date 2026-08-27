@@ -95,9 +95,52 @@ public class TreeIndex
     return a.equals(b);
   }
 
-  public Object bulkLoad(FObject[] a) {
-    Arrays.parallelSort(a);
-    return TreeNode.getNullNode().bulkLoad(tail_, indexer_, 0, a.length-1, a);
+  /**
+   * Build the whole tree from a[lo..hi] in one pass instead of descending into
+   * it once per row.
+   *
+   * The sort orders the rows the same way every descent compares them, so the
+   * layout cannot disagree with the search. Sorting by anything else - a
+   * PropertyInfo's own compare over a derived key, say - is a second notion of
+   * order, and a key that normalizes on write is enough to make the two differ.
+   *
+   * Rows sharing a key become one node, and the tail builds that node's value
+   * the same way, so a chained index needs no check of what the tail is.
+   */
+  public Object bulkLoad(FObject[] a, int lo, int hi) {
+    if ( hi < lo ) return null;
+
+    Arrays.sort(a, lo, hi+1, (o1, o2) -> compareValues(o1, o2));
+
+    // Where each run of equal keys begins, with one extra entry closing the
+    // last run. The keys themselves are not kept: a node reads its own back off
+    // the rows stored under it.
+    int[] starts = new int[hi - lo + 2];
+    int   groups = 0;
+
+    for ( int i = lo ; i <= hi ; i++ ) {
+      if ( groups == 0 || compareValues(a[starts[groups-1]], a[i]) != 0 ) {
+        starts[groups++] = i;
+      }
+    }
+    starts[groups] = hi + 1;
+
+    return TreeNode.bulkLoad(tail_, a, starts, 0, groups-1);
+  }
+
+  /**
+   * Order two stored values by the key this level indexes on, without deriving
+   * one. Falls back to comparing the keys for the values the Indexer cannot
+   * read - a PropertyInfo for a sub-class, or a Dot over an unset intermediate -
+   * which is what deriving them would have produced.
+   */
+  protected int compareValues(FObject o1, FObject o2) {
+    try {
+      return indexer_.compare(o1, o2);
+    } catch ( ClassCastException | NullPointerException e ) {
+      return indexer_.comparePropertyToValue(
+        TreeNode.keyOf(indexer_, o1), TreeNode.keyOf(indexer_, o2));
+    }
   }
 
   /**

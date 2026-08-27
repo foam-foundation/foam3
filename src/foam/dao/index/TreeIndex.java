@@ -99,10 +99,9 @@ public class TreeIndex
    * Build the whole tree from a[lo..hi] in one pass instead of descending into
    * it once per row.
    *
-   * The sort orders the rows the same way every descent compares them, so the
-   * layout cannot disagree with the search. Sorting by anything else - a
-   * PropertyInfo's own compare over a derived key, say - is a second notion of
-   * order, and a key that normalizes on write is enough to make the two differ.
+   * The sort compares two stored objects through the Indexer, which is what
+   * every descent does, so the layout cannot disagree with the search and no
+   * key is derived to build with.
    *
    * Rows sharing a key become one node, and the tail builds that node's value
    * the same way, so a chained index needs no check of what the tail is.
@@ -110,7 +109,7 @@ public class TreeIndex
   public Object bulkLoad(FObject[] a, int lo, int hi) {
     if ( hi < lo ) return null;
 
-    Arrays.sort(a, lo, hi+1, (o1, o2) -> compareValues(o1, o2));
+    Arrays.sort(a, lo, hi+1, indexer_::compare);
 
     // Where each run of equal keys begins, with one extra entry closing the
     // last run. The keys themselves are not kept: a node reads its own back off
@@ -119,28 +118,13 @@ public class TreeIndex
     int   groups = 0;
 
     for ( int i = lo ; i <= hi ; i++ ) {
-      if ( groups == 0 || compareValues(a[starts[groups-1]], a[i]) != 0 ) {
+      if ( groups == 0 || indexer_.compare(a[starts[groups-1]], a[i]) != 0 ) {
         starts[groups++] = i;
       }
     }
     starts[groups] = hi + 1;
 
     return TreeNode.bulkLoad(tail_, a, starts, 0, groups-1);
-  }
-
-  /**
-   * Order two stored values by the key this level indexes on, without deriving
-   * one. Falls back to comparing the keys for the values the Indexer cannot
-   * read - a PropertyInfo for a sub-class, or a Dot over an unset intermediate -
-   * which is what deriving them would have produced.
-   */
-  protected int compareValues(FObject o1, FObject o2) {
-    try {
-      return indexer_.compare(o1, o2);
-    } catch ( ClassCastException | NullPointerException e ) {
-      return indexer_.comparePropertyToValue(
-        TreeNode.keyOf(indexer_, o1), TreeNode.keyOf(indexer_, o2));
-    }
   }
 
   /**

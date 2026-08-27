@@ -53,7 +53,7 @@ public class TreeNode {
    * left for the two places that have to hand a key out - a GroupBy bucket, and
    * the comparison of two values the Indexer could not read.
    */
-  static Object keyOf(Indexer indexer, Object value) {
+  private static Object keyOf(Indexer indexer, Object value) {
     try {
       return indexer.f(value);
     } catch ( ClassCastException e ) {

@@ -180,11 +180,17 @@ public class MDAO
 
       if ( state_ != null ) {
         // A bulk load that quietly did nothing would look exactly like one that
-        // worked, and the difference only shows up as a slow startup.
-        foam.lang.X x = foam.lang.XLocator.get();
-        Logger logger = x == null ? null : (Logger) x.get("logger");
-        if ( logger != null )
-          logger.info("Bulk load skipped, the DAO already holds rows", getOf().getId());
+        // worked, and the difference only shows up as a slow startup. This runs
+        // while a DAO is still being built, so the context may not reach a
+        // logger yet; having nowhere to say it is not a reason to fail.
+        try {
+          foam.lang.X x = foam.lang.XLocator.get();
+          Logger logger = x == null ? null : (Logger) x.get("logger");
+          if ( logger != null )
+            logger.info("Bulk load skipped, the DAO already holds rows", getOf().getId());
+        } catch ( Throwable t ) {
+          // No logger reachable yet.
+        }
         return;
       }
 
@@ -199,6 +205,10 @@ public class MDAO
 
       LinkedHashMap<Object, FObject> staged = staged_;
       staged_ = null;
+
+      // A journal with nothing in it leaves the DAO exactly as it was, rather
+      // than replacing a null state with an array of empty index states.
+      if ( staged.isEmpty() ) return;
 
       FObject[] a = staged.values().toArray(new FObject[staged.size()]);
       setState(index_.bulkLoad(a, 0, a.length-1));

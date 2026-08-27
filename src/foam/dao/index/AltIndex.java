@@ -42,11 +42,7 @@ public class AltIndex
     // maintains it, and there is no removeIndex to undo either cost. Callers
     // that cannot know what already exists rely on this being a no-op.
     if ( covers(i) ) {
-      // Say so - a silently dropped index looks the same as one that was never
-      // requested, and the difference matters when a query turns out slow.
-      foam.lang.X x = foam.lang.XLocator.get();
-      foam.core.logger.Logger logger = x == null ? null : (foam.core.logger.Logger) x.get("logger");
-      if ( logger != null ) logger.info("Index already covered, not added", i.toString());
+      logCovered(i);
       return state;
     }
 
@@ -76,6 +72,25 @@ public class AltIndex
     }
 
     return sa;
+  }
+
+  /**
+   * Say that an index was not added. A silently dropped index looks the same as
+   * one that was never requested, and the difference matters when a query turns
+   * out slow.
+   *
+   * Indexes are added while a DAO is still being built, so the thread's context
+   * can be half assembled and reach a null delegate on the way to the logger.
+   * Having nowhere to say it is not a reason to fail the skip.
+   */
+  protected void logCovered(Index i) {
+    try {
+      foam.lang.X x = foam.lang.XLocator.get();
+      foam.core.logger.Logger logger = x == null ? null : (foam.core.logger.Logger) x.get("logger");
+      if ( logger != null ) logger.info("Index already covered, not added", i.toString());
+    } catch ( Throwable t ) {
+      // No logger reachable yet.
+    }
   }
 
   // Add Index which skips bulkload

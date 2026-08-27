@@ -904,7 +904,7 @@ When clicking a row in a DAOController table should show a **custom detail view*
 
 #### How the facet resolves
 
-`foam.pattern.Faceted` (`foam/pattern/Faceted.js`) overrides `create()`: when a faceted class is created with `of: <model>` (or with `data` whose class it can read), it computes the id `<model.package>.<ModelName><FacetedClassName>` and, if that class is registered, substitutes it. `DetailView`'s short name is `DetailView`, so `DetailView.create({of: com.example.Foo})` → `com.example.FooDetailView`. No `config.detailView`, no menu wiring — just the naming convention plus the class being in the build.
+`foam.pattern.Faceted` (`src/foam/pattern/Faceted.js`) overrides `create()`: when a faceted class is created with `of: <model>` (or with `data` whose class it can read), it computes the id `<model.package>.<ModelName><FacetedClassName>` and, if that class is registered, substitutes it. `DetailView`'s short name is `DetailView`, so `DetailView.create({of: com.example.Foo})` → `com.example.FooDetailView`. No `config.detailView`, no menu wiring — just the naming convention plus the class being in the build.
 
 #### CRITICAL: view and create facet INDEPENDENTLY
 

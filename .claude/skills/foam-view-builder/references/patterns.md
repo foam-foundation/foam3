@@ -211,6 +211,45 @@ this.start().addClass('p-semiBold').add(this.label).end()
 
 ### 3.3 Reactive Patterns
 
+#### dynamic() — When Structure Changes
+
+`slot()` re-renders a value; `dynamic()` re-runs a block when any watched property changes, so
+reach for it when the DOM *shape* depends on the value, not just its text.
+
+```javascript
+// all deps on `data`
+this.data.dynamic(function(kind, count) { ... })
+
+// deps across more than one object
+this.dynamic(function(mapping$isDynamic, fileHeaders) { ... })
+```
+
+- Inside the callback use `this.start()`, never `this.E()`, and `self.myClass()` rather than
+  `this.myClass()` — capture `var self = this` outside first.
+- Build by side effect; do not return elements.
+- Do not append a dependency list — the argument names ARE the dependency list.
+
+#### Deep slot watching — the `$` chain
+
+Watching an object does not re-fire when a nested property changes: the outer reference is
+unchanged. Name the whole path so each hop is subscribed.
+
+```javascript
+// WRONG — never re-fires when .currency changes
+function(block) { return block?.flowParent?.value?.currency; }
+
+// CORRECT — every hop is watched
+function(block$flowParent$value$currency) { return block$flowParent$value$currency; }
+```
+
+A `$` suffix on a parameter passes the slot itself rather than its value; read the current value
+off the object (`this.mapping.isDynamic`) when you need it.
+
+#### Event handlers
+
+`this` inside a handler is the event, not the view. Capture `self` in the enclosing scope and
+call `self.method()`.
+
 #### Slots — When Only Values Change (Preferred over dynamic())
 ```javascript
 // Attribute binding via slot
@@ -432,7 +471,6 @@ tableCellFormatter: function(value, obj, axiom) {
 
 > Drive it from an `on:` declarative listener rather than a manual `.sub()` — no `isInitialized_` flag and no `pushMenu` refresh hack needed.
 
-
 ### 3.10 Confirmation Modal from postSet
 
 > Build it from `postSet` plus a `ConfirmationModal`: `preSet` is synchronous and cannot show one. Use a transient `changeReady_` flag to skip the first `postSet` during initial load, and clear it before reverting so the revert does not re-trigger.
@@ -492,8 +530,6 @@ view: function(_, X) {
 
 **What it replaces**: Custom DetailView classes that manually list properties. Instead of 80-line custom view files, use 10-line propertyWhitelist configs.
 
-
-
 ### 3.12 ExpressionSlot for Cross-Context Visibility
 
 When a **child** object's property visibility depends on the **parent** object's property, use `ExpressionSlot.create` inside `propertyWhitelist` overrides. This is the key pattern for controlling visibility across context boundaries.
@@ -552,8 +588,6 @@ view: function(_, X) {
 - `restrictDisplayMode('RW')` = returns RW if mode allows editing, RO if VIEW mode, HIDDEN if already hidden
 - **ALWAYS pass controllerMode$ and use restrictDisplayMode** to respect VIEW/EDIT mode correctly
 
-
-
 ### 3.13 visibility: function() — Sibling Property Visibility
 
 For showing/hiding a property based on sibling properties on the **same** model, use the `visibility` function:
@@ -592,8 +626,6 @@ For showing/hiding a property based on sibling properties on the **same** model,
   }
 }
 ```
-
-
 
 ### 3.14 Version Counter for Nested FObjectArray Reactivity
 
@@ -669,8 +701,6 @@ When a property (like a DAO filter) depends on changes **inside** an FObjectArra
 }
 ```
 
-
-
 ### 3.15 supportingLabel as Reactive Function
 
 `supportingLabel` can be a function using `data.dynamic()` for reactive help text:
@@ -702,8 +732,6 @@ When a property (like a DAO filter) depends on changes **inside** an FObjectArra
 - `supportingLabel: function(data)` — `this` = Element, `data` = model instance
 - Use `data.dynamic()` to watch multiple properties reactively
 - Inside dynamic(), `this.add()` builds DOM content
-
-
 
 ### 3.16 Refinement Pattern — Replacing Custom Views with Model Config
 
@@ -767,8 +795,6 @@ foam.CLASS({
 - No custom view class needed (framework's DAOMenu2 / SectionedDetailView handles rendering)
 - Property overrides are inline in the section definition
 - Can add validation, reactions, and listeners
-
-
 
 ### 3.17 Reactive labelFormatter with Parent Context (X.data)
 
@@ -1079,8 +1105,6 @@ DetailView renders in VIEW mode by default. To render editable controls (e.g., C
 .endContext()
 ```
 
-
-
 ---
 
 ### 3.23 Controller View Pattern — Shared Search + Selection + Rendering
@@ -1097,8 +1121,6 @@ DetailView renders in VIEW mode by default. To render editable controls (e.g., C
 - Extract only when 2+ hosts actually need it, not speculatively
 - Name the controller for its role (picker, browser) not its specific feature — it should be reusable across features with the same shape
 - Domain helpers like `isSettled` live on the controller once and get exported — never duplicated into the citation or the host
-
-
 
 ---
 
@@ -1125,10 +1147,8 @@ DetailView renders in VIEW mode by default. To render editable controls (e.g., C
 
 **Rules**:
 - `rowView_` = the wrapper ViewSpec; `rowView` = the inner body ViewSpec. Easy to confuse
-- Writing to an imported property propagates up through the exporter's slot (see Phase 6 "Imports are writable") — the child driving parent state needs no manual slot plumbing
+- Writing to an imported property propagates up through the exporter's slot (see `SKILL.md` Phase 6, "Imports are writable") — the child driving parent state needs no manual slot plumbing
 - Keep host-specific row policy (what "disabled" means, what a blocked click does) in callbacks the host supplies, not hardcoded in the wrapper
-
-
 
 ---
 

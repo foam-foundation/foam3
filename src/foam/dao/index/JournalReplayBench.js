@@ -136,27 +136,27 @@ foam.CLASS({
         test(perRowPrint.equals(bulkPrint),
           "both replays hold the same rows; row-by-row " + perRowPrint + " and staged " + bulkPrint);
 
-        // ---- timed, retaining nothing --------------------------------------
-        // Each round starts from a collected heap and drops its DAO at the end,
-        // so the rounds are comparable with each other and across the two lanes.
+        // ---- timed, interleaved, retaining nothing --------------------------
+        // The two lanes alternate within a round rather than running one after
+        // the other, so whatever the machine is doing over the run - warming up,
+        // throttling, another process - lands on both of them equally. Each
+        // round starts from a collected heap and drops its DAO at the end.
         for ( int i = 0 ; i <= repeats ; i++ ) {
-          MDAO m = fresh();
+          MDAO perRowRound = fresh();
           settleHeap();
           startPhase();
-          replay(jx, name, m);
+          replay(jx, name, perRowRound);
           endPhase("replayPerRow", "iter=" + i + " records=" + n);
-        }
 
-        for ( int i = 0 ; i <= repeats ; i++ ) {
-          MDAO m = fresh();
+          MDAO bulkRound = fresh();
           settleHeap();
           startPhase();
-          m.beginBulkLoad();
-          replay(jx, name, m);
+          bulkRound.beginBulkLoad();
+          replay(jx, name, bulkRound);
           endPhase("replayBulkStage", "iter=" + i + " records=" + n);
 
           startPhase();
-          m.endBulkLoad();
+          bulkRound.endBulkLoad();
           endPhase("replayBulkBuild", "iter=" + i + " records=" + n);
         }
       `

@@ -259,6 +259,17 @@ try {
     {
       class: 'Long',
       name: 'lastTimestamp'
+    },
+    {
+      class: 'Long',
+      name: 'commentWindowMs',
+      documentation: `How close two writes by one user have to be for the second
+        to reuse the first one's attribution comment.
+
+        Zero compares exact milliseconds, so only a same-instant burst shares a
+        comment. A larger window trades attribution lines for a smaller journal,
+        which is worth setting where the comment is written for every operation
+        rather than only for records that carry no lastModifiedBy of their own.`
     }
   ],
 
@@ -453,11 +464,8 @@ try {
         if ( user == null || user.getId() <= 1 ) return;
         if ( obj instanceof LastModifiedByAware && ((LastModifiedByAware) obj).getLastModifiedBy() != 0L ) return;
 
-        long now    = System.currentTimeMillis();
         long userId = user.getId();
-        if ( now == getLastTimestamp() && userId == getLastUser() ) return;
-        setLastTimestamp(now);
-        setLastUser(userId);
+        if ( ! shouldComment_(userId) ) return;
 
         write_(sb.get()
           .append("// Modified by ")
@@ -467,6 +475,27 @@ try {
           .append(") at ")
           .append(getTimeStamper().createTimestamp()));
         getWriter().newLine();
+      `
+    },
+    {
+      name: 'shouldComment_',
+      args: 'long userId',
+      type: 'Boolean',
+      documentation: `Whether this write needs an attribution comment of its own,
+        recording it as the last one when it does.
+
+        Kept apart from writeComment_ so that changing what a comment says does
+        not mean restating when one gets written.`,
+      javaCode: `
+        long window = getCommentWindowMs();
+        long now    = System.currentTimeMillis();
+        long at     = window > 1 ? ( now / window ) * window : now;
+
+        if ( at == getLastTimestamp() && userId == getLastUser() ) return false;
+
+        setLastTimestamp(at);
+        setLastUser(userId);
+        return true;
       `
     },
     {

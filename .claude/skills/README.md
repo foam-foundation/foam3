@@ -2,8 +2,8 @@
 
 This directory holds [Claude Code Agent Skills](https://code.claude.com/docs/en/skills) authored
 **once here in `foam3`** and available to every application that uses `foam3` as a git submodule.
-Applications do not copy the files and do not symlink them — Claude Code discovers them where
-they are.
+Applications do not copy the files, and normally do not symlink them either — Claude Code
+discovers them where they are. (One case still wants a symlink; see "Why not symlink" below.)
 
 Each skill is a directory containing a `SKILL.md` (YAML frontmatter + instructions), e.g.:
 

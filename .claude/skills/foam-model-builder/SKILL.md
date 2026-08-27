@@ -1,12 +1,13 @@
 ---
 name: foam-model-builder
 description: >-
-  Author a FOAM model and wire it into the build — the `foam.CLASS` skeleton, choosing property classes, `id` and sequence numbers, the `services.jrl` DAO config, and the `pom.js` entry that makes it compile. Use when creating a model, adding properties to an existing one, setting up a DAO for it, or working out why a new model does not appear at runtime. Views are in `foam-view-builder`; framework-level design decisions are in the FOAM design guides.
+  Author a FOAM model and wire it into the build — the `foam.CLASS` skeleton, choosing property classes, `id` and sequence numbers, the `services.jrl` DAO config, and the `pom.js` entry that makes it compile. Use when creating a model, adding properties to an existing one, setting up a DAO for it, or working out why a new model does not appear at runtime. Views are in `foam-view-builder`; framework-level design decisions are in `doc/guides/DesignPatterns.md`.
 ---
 
 # Authoring a FOAM Model
 
-Four steps: write the model, choose property classes, register a DAO, wire it into the POM.
+Five steps: write the model, choose property classes, settle the id, register a DAO, wire it
+into the POM.
 Skipping the last one is the usual reason a new model "does not exist" at runtime.
 
 ## 1. Model skeleton
@@ -27,6 +28,8 @@ foam.CLASS({
   journals, `services.jrl`, and every `of:` reference — it is the model's identity on disk.
 - `aliases` lets journal or upload data arrive under a different key (`account_id` →
   `accountId`) without a transform in between.
+- A new `.js` file starts with the Apache `@license` header every other file in the tree carries
+  — copy it from a neighbouring model rather than retyping it.
 
 **Renaming a class breaks every existing journal.** FOAM3 has no class-alias mechanism:
 `context.lookup("com.old.ClassName")` asserts if the class is not registered, and there is no

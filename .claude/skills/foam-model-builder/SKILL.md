@@ -35,7 +35,7 @@ new properties, hide old ones, migrate values via `javaPostSet` on the deprecate
 
 ## 2. Property types
 
-**Verify the exact class name in `foam3/src/foam/lang/types.js` before use.** The names are
+**Verify the exact class name in `src/foam/lang/types.js` before use.** The names are
 case-sensitive and several near-misses do not exist.
 
 Common: `String`, `Int`, `Long`, `Float`, `Double`, `Boolean`, `Date`, `DateTime`, `DateTimeUTC`.
@@ -60,6 +60,9 @@ properties where "unset" is meaningful, defeats the `propertyNameIsSet_` check.
 
 - When the source data carries its own preserved identifiers, keep them and declare a
   multi-part key instead: `ids: ['seq']`.
+- `seqNo`, `guid`, and `fuid` are **mutually exclusive** — pick one (`src/foam/dao/EasyDAO.js:417-435`).
+- The sequence lands on the property named by `seqPropertyName`, which defaults to `id`
+  (`src/foam/dao/EasyDAO.js:440-441`). Set it explicitly if your identifier is named anything else.
 
 ## 4. Register the DAO in `services.jrl`
 
@@ -100,12 +103,12 @@ A `.jrl` in the same directory as the `pom.js` auto-loads — do **not** add it 
 
 ## Further reading
 
-- `foam3/doc/guides/POM.md` — the POM format in full
-- `foam3/doc/guides/EasyDao.md`, `foam3/doc/guides/Services.md` — DAO configuration
-- `foam3/doc/guides/PropertyGotchas.md` — when `postSet` never fires, expressions going cold,
+- `doc/guides/POM.md` — the POM format in full
+- `doc/guides/EasyDao.md`, `doc/guides/Services.md` — DAO configuration
+- `doc/guides/PropertyGotchas.md` — when `postSet` never fires, expressions going cold,
   the `isSet` gate, what `transient` cascades into
-- `foam3/doc/guides/DaoGotchas.md` — decorator ordering, frozen results, context scoping
-- `foam3/doc/guides/Journals.md` — journal format and replay
+- `doc/guides/DaoGotchas.md` — decorator ordering, frozen results, context scoping
+- `doc/guides/Journals.md` — journal format and replay
 
 ## Project-specific rules
 

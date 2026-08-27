@@ -98,6 +98,24 @@ public class AltIndex
     return s2;
   }
 
+  /**
+   * Build every alternative from the same rows. Each one sorts the range into
+   * its own key order as it goes, so they run one after another rather than
+   * over copies.
+   */
+  public Object bulkLoad(FObject[] a, int lo, int hi) {
+    Object[] s = cloneState(null);
+
+    for ( int i = 0 ; i < delegates_.size() ; i++ )
+      try {
+        s[i] = delegates_.get(i).bulkLoad(a, lo, hi);
+      } catch (Throwable t) {
+        t.printStackTrace();
+      }
+
+    return s;
+  }
+
   public Object put(Object state, FObject value) {
     Object[] s = cloneState(state);
 

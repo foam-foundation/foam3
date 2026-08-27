@@ -96,6 +96,7 @@ foam.CLASS({
         // row shares, are where an off-by-one in the split lands.
         setBulk_(true);
         checkSmall(x);
+        checkStaged(x);
       `
     },
 
@@ -294,6 +295,71 @@ foam.CLASS({
         expect(x, plain, idx, TRUE, IndexKeyRecord.GROUP_ID, "update / all");
         expect(x, plain, idx, EQ(IndexKeyRecord.GROUP_ID, 77L), IndexKeyRecord.ID, "update / new key");
         expect(x, plain, idx, EQ(IndexKeyRecord.GROUP_ID, 10L), IndexKeyRecord.ID, "update / old key");
+      `
+    },
+
+    {
+      name: 'checkStaged',
+      args: 'X x',
+      documentation: `An MDAO told to hold its rows back has to behave as one
+        that indexed them as they arrived. Reads during the load matter as much
+        as the result: a journal replay looks each entry up before writing it, so
+        that the entry can be merged onto the row already there, and a select
+        arriving mid-load has to see a finished index rather than a partial one.`,
+      javaCode: `
+        MDAO plain = build(x, new Indexer[] { IndexKeyRecord.GROUP_ID });
+
+        MDAO staged = new MDAO(IndexKeyRecord.getOwnClassInfo());
+        staged.addIndex(IndexKeyRecord.GROUP_ID);
+        staged.beginBulkLoad();
+
+        long day = 86400000L;
+        long t0  = 1700000000000L;
+        staged.put_(x, mk(1,  10, "alpha",   d(t0),           AndOrderStatus.INIT));
+        staged.put_(x, mk(2,  10, "bravo",   d(t0 + day),     AndOrderStatus.INIT));
+        staged.put_(x, mk(3,  10, "alpha",   d(t0 + 2 * day), AndOrderStatus.WITHDRAWN));
+        staged.put_(x, mk(4,  20, "charlie", d(t0 + 3 * day), AndOrderStatus.WITHDRAWN));
+
+        // Read back what was just written, the way a replay does before merging.
+        FObject back = staged.inX(x).find(2L);
+        test(back != null && ((IndexKeyRecord) back).getName().equals("bravo"),
+          "staged / a row put during the load is found during the load");
+        test(staged.inX(x).find(99L) == null,
+          "staged / a row that was never put is not found during the load");
+
+        // A row written twice keeps the later value, and one removed goes away.
+        staged.put_(x, mk(4,  20, "charlie", d(t0 + 3 * day), AndOrderStatus.EXCLUDED));
+        staged.put_(x, mk(5,  20, "bravo",   null,            AndOrderStatus.EXCLUDED));
+        staged.remove_(x, mk(5, 20, "bravo", null, AndOrderStatus.EXCLUDED));
+
+        staged.put_(x, mk(5,  20, "bravo",   null,            AndOrderStatus.EXCLUDED));
+        staged.put_(x, mk(6,  20, "",        d(t0 + day),     AndOrderStatus.INIT));
+        staged.put_(x, mk(7,  30, "delta",   d(t0 + 4 * day), AndOrderStatus.EXCLUDED));
+        staged.put_(x, mk(8,  30, "alpha",   null,            AndOrderStatus.INIT));
+        staged.put_(x, mk(9,  30, "echo",    d(t0 + 2 * day), AndOrderStatus.WITHDRAWN));
+        staged.put_(x, mk(10, 40, "bravo",   d(t0 + 5 * day), AndOrderStatus.INIT));
+        staged.put_(x, mk(11, 40, "foxtrot", d(t0),           AndOrderStatus.EXCLUDED));
+        staged.put_(x, mk(12, 50, "golf",    d(t0 + 6 * day), AndOrderStatus.WITHDRAWN));
+
+        // No endBulkLoad: the select has to finish the load itself.
+        expect(x, plain, staged, TRUE, IndexKeyRecord.GROUP_ID, "staged / all");
+        checkShape(x, staged, IndexKeyRecord.GROUP_ID, "staged");
+
+        // Ending it again changes nothing, and writes carry on normally.
+        staged.endBulkLoad();
+        expect(x, plain, staged, TRUE, IndexKeyRecord.GROUP_ID, "staged / after ending twice");
+
+        IndexKeyRecord moved = mk(3, 77, "alpha", null, AndOrderStatus.INIT);
+        plain.inX(x).put(moved);
+        staged.inX(x).put(moved);
+        expect(x, plain, staged, EQ(IndexKeyRecord.GROUP_ID, 77L), IndexKeyRecord.ID, "staged / put after the load");
+        checkShape(x, staged, IndexKeyRecord.GROUP_ID, "staged / after a put");
+
+        // A DAO that already holds rows declines, rather than dropping them.
+        staged.beginBulkLoad();
+        staged.put_(x, mk(13, 60, "hotel", d(t0), AndOrderStatus.INIT));
+        plain.put_(x, mk(13, 60, "hotel", d(t0), AndOrderStatus.INIT));
+        expect(x, plain, staged, TRUE, IndexKeyRecord.GROUP_ID, "staged / a second load is declined");
       `
     },
 

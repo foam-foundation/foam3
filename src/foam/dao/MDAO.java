@@ -15,6 +15,7 @@ import foam.mlang.sink.GroupBy;
 import foam.core.logger.Logger;
 import foam.core.pm.PM;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
@@ -77,6 +78,14 @@ public class MDAO
   protected Object   state_     = null;
   protected Object   writeLock_ = new Object();
   protected Set      unindexed_ = new HashSet();
+
+  // Rows held back by a bulk load, keyed by primary key and in arrival order,
+  // so the whole load can be built into the index in one pass at the end. Null
+  // except between beginBulkLoad() and endBulkLoad(). Volatile so that a reader
+  // on another thread sees the map appear and disappear; its contents are only
+  // written by whoever is doing the loading, which is the one caller a bulk load
+  // is safe for anyway.
+  protected volatile LinkedHashMap<Object, FObject> staged_ = null;
 
   /**
    * DAO Command to retrieve current MDAO state. Intented
@@ -153,6 +162,49 @@ public class MDAO
     addIndex(idx);
   }
 
+  /**
+   * Hold puts back rather than indexing them, so the whole load can be built
+   * into the index in one pass when endBulkLoad() is called.
+   *
+   * While held, find() reads the staged rows, so a caller that reads back what
+   * it just wrote - a journal replay merging an entry onto the row it already
+   * has - sees the same thing it would have. A select ends the bulk load first,
+   * because there is no way to read an index that has not been built yet.
+   *
+   * The index is built from scratch, so this only applies to a DAO that is still
+   * empty, and it is only safe where nothing else is writing for the duration.
+   */
+  public void beginBulkLoad() {
+    synchronized ( writeLock_ ) {
+      if ( staged_ != null ) return;
+
+      if ( state_ != null ) {
+        // A bulk load that quietly did nothing would look exactly like one that
+        // worked, and the difference only shows up as a slow startup.
+        foam.lang.X x = foam.lang.XLocator.get();
+        Logger logger = x == null ? null : (Logger) x.get("logger");
+        if ( logger != null )
+          logger.info("Bulk load skipped, the DAO already holds rows", getOf().getId());
+        return;
+      }
+
+      staged_ = new LinkedHashMap<Object, FObject>();
+    }
+  }
+
+  /** Build the staged rows into the index. A no-op if no bulk load is open. **/
+  public void endBulkLoad() {
+    synchronized ( writeLock_ ) {
+      if ( staged_ == null ) return;
+
+      LinkedHashMap<Object, FObject> staged = staged_;
+      staged_ = null;
+
+      FObject[] a = staged.values().toArray(new FObject[staged.size()]);
+      setState(index_.bulkLoad(a, 0, a.length-1));
+    }
+  }
+
   synchronized Object getState() {
     return state_;
   }
@@ -174,13 +226,17 @@ public class MDAO
     obj = objIn(obj);
 
     synchronized ( writeLock_ ) {
-      FObject oldValue = find_(x, obj);
-      Object  state    = getState();
-
-      if ( oldValue == null ) {
-        setState(index_.put(state, obj));
+      if ( staged_ != null ) {
+        staged_.put(getPrimaryKey().get(obj), obj);
       } else {
-        setState(index_.update(state, oldValue, obj));
+        FObject oldValue = find_(x, obj);
+        Object  state    = getState();
+
+        if ( oldValue == null ) {
+          setState(index_.put(state, obj));
+        } else {
+          setState(index_.update(state, oldValue, obj));
+        }
       }
     }
 
@@ -197,7 +253,11 @@ public class MDAO
       found = find_(x, obj);
 
       if ( found != null ) {
-        setState(index_.remove(getState(), found));
+        if ( staged_ != null ) {
+          staged_.remove(getPrimaryKey().get(found));
+        } else {
+          setState(index_.remove(getState(), found));
+        }
       }
     }
 
@@ -209,10 +269,6 @@ public class MDAO
   }
 
   public FObject find_(X x, Object o) {
-    Object state;
-
-    state = getState();
-
     if ( o == null ) return null;
 
     // Convert full FObjects to just the primary key
@@ -220,11 +276,18 @@ public class MDAO
       o = getPrimaryKey().get(o);
     }
 
-    return objOut((FObject) index_.find(state, o));
+    LinkedHashMap<Object, FObject> staged = staged_;
+    if ( staged != null ) return objOut(staged.get(o));
+
+    return objOut((FObject) index_.find(getState(), o));
 //    return objOut((FObject) index_.planFind(state, o).find(state, o));
   }
 
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+    // Nothing can read an index that has not been built yet. The field read is
+    // free on the path that matters, which is every select once loading is done.
+    if ( staged_ != null ) endBulkLoad();
+
     SelectPlan plan;
     Predicate  simplePredicate = null;
     PM         pm = null;
@@ -278,6 +341,7 @@ public class MDAO
   public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
     if ( predicate == null && skip == 0 && limit == MAX_SAFE_INTEGER ) {
       synchronized ( writeLock_ ) {
+        staged_ = null;
         setState(null);
       }
     } else {
@@ -286,6 +350,10 @@ public class MDAO
   }
 
   public Object cmd_(X x, Object cmd) {
+    // Every command below either reads the state or changes the index shape, and
+    // neither is meaningful while rows are still staged.
+    if ( staged_ != null ) endBulkLoad();
+
     if ( DAO.LAST_CMD.equals(cmd) ) {
       return this;
     }

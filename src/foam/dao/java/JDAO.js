@@ -177,6 +177,13 @@ In this current implementation setDelegate must be called last.`,
               // Speedup replay to MDAOs by disabling safe mode which clones
               // the incoming object for safety, but isn't needed here.
               try { ((MDAO) delegate).setSafeMode(false); } catch (Throwable t) {}
+              // And hold the rows back rather than indexing them one at a time,
+              // so the index is built from all of them at once. Only on this
+              // branch: it runs before the DAO is published, so nothing else can
+              // read or write it while the rows are held. The MDAO declines if it
+              // already holds rows, which is what the runtime journal finds after
+              // the repo journal ahead of it has been built in.
+              try { ((MDAO) delegate).beginBulkLoad(); } catch (Throwable t) {}
               try {
                 F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
                 jnl.replay(getX(), delegate);
@@ -187,6 +194,7 @@ In this current implementation setDelegate must be called last.`,
                   }
                 }
               } finally {
+                try { ((MDAO) delegate).endBulkLoad(); } catch (Throwable t) {}
                 try { ((MDAO) delegate).setSafeMode(true); } catch (Throwable t) {}
               }
             } else {

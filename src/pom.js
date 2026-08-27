@@ -370,6 +370,7 @@ foam.POM({
     { name: "foam/dao/index/MDAOIndexKeyTest",                        flags: "js&test|java&test" },
     { name: "foam/dao/index/TreeNodeBench",                            flags: "js&test|java&test" },
     { name: "foam/dao/index/JournalReplayBench",                      flags: "js&test|java&test" },
+    { name: "foam/dao/index/MDAOBulkLoadTest",                        flags: "js&test|java&test" },
     { name: "foam/dao/MDAO",                                          flags: "js" },
     { name: "foam/dao/ArrayDAO",                                      flags: "js|java" },
     { name: "foam/dao/CopyOnWriteDAO",                                flags: "js|java" },

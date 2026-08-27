@@ -3,3 +3,4 @@ p({"class":"foam.dao.index.MDAOAndOrderTest","id":"MDAOAndOrderTest","descriptio
 p({"class":"foam.dao.index.MDAOIndexKeyTest","id":"MDAOIndexKeyTest","description":"a tree index must answer counts, ordering, grouping and deletes exactly as an un-indexed DAO does, for every index key type"})
 p({"class":"foam.dao.index.TreeNodeBench","id":"TreeNodeBench","description":"per-operation heap and CPU benchmark for the MDAO tree index","enabled":false})
 p({"class":"foam.dao.index.JournalReplayBench","id":"JournalReplayBench","description":"replay the same journal row by row and staged, to compare the cost of filling an index either way","enabled":false})
+p({"class":"foam.dao.index.MDAOBulkLoadTest","id":"MDAOBulkLoadTest","description":"an index built from all the rows at once must answer as one filled a row at a time, and survive being written to afterwards","language":0})

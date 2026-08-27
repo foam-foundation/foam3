@@ -211,8 +211,6 @@ this.start().addClass('p-semiBold').add(this.label).end()
 
 ### 3.3 Reactive Patterns
 
-> **dynamic(), deep slot watching ($), event handlers**: See CLAUDE.md "Dynamic UI Rendering" and "Reactive Patterns" sections.
-
 #### Slots — When Only Values Change (Preferred over dynamic())
 ```javascript
 // Attribute binding via slot
@@ -368,7 +366,7 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.6 labelFormatter Patterns (Reactive Labels)
 
-> See CLAUDE.md "labelFormatter (Reactive Labels)" for full details. Key point: labelFormatter is a ONE-TIME render function — use `data.prop$` slots for reactivity.
+> `labelFormatter` is a ONE-TIME render function — it does not re-fire when the data changes. For a reactive label, map a slot: `data.propName$.map(...)`.
 
 ### 3.7 Property view: Configuration
 
@@ -428,16 +426,16 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.8 DoubleUnitValue (Currency Display)
 
-> See CLAUDE.md "Rendering DoubleUnitValue Properties in Custom Views" for the `startContext({controllerMode: VIEW, objData: this.data})` pattern.
+> For read-only display in a custom view, wrap in `startContext({ controllerMode: VIEW, objData: this.data })`. Both keys are required: `controllerMode` picks the read-only `ValueView` over the editable input, and `objData` is how that view resolves the unit property.
 
 ### 3.9 ViewCustomizer (Dynamic View by Context)
 
-> See CLAUDE.md "Customizing Views by Scheme" for the `on:` declarative listener pattern. Key: use `on:` binding instead of manual `.sub()`, no `isInitialized_` flag, no `pushMenu` hack.
+> Drive it from an `on:` declarative listener rather than a manual `.sub()` — no `isInitialized_` flag and no `pushMenu` refresh hack needed.
 
 
 ### 3.10 Confirmation Modal from postSet
 
-> See CLAUDE.md "Confirmation Modals from Model Code" for the full `postSet` + `ConfirmationModal` + `changeReady_` pattern.
+> Build it from `postSet` plus a `ConfirmationModal`: `preSet` is synchronous and cannot show one. Use a transient `changeReady_` flag to skip the first `postSet` during initial load, and clear it before reverting so the revert does not re-trigger.
 
 ### 3.11 propertyWhitelist — Replacing Custom DetailViews
 

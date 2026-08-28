@@ -34,7 +34,12 @@ foam.CLASS({
       name: 'block',
       documentation: 'The underlying Flowable this card represents, if any.'
     },
-    { class: 'String', name: 'name' },
+    {
+      class: 'String',
+      name: 'id',
+      documentation: 'Positional node id from DependencyScanner (unique even when name is duplicated); the FlowGraphView identity key.'
+    },
+    { class: 'String', name: 'name', documentation: 'The block\'s flowName, for display only.' },
     {
       class: 'String',
       name: 'kind',

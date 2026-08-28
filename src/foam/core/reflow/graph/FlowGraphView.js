@@ -78,7 +78,6 @@ foam.CLASS({
     { name: 'DELETE_LOCKED_BODY', message: 'The following blocks are referenced elsewhere in the flow. Deleting them may break those blocks: ' },
     { name: 'UNLINKED_LABEL', message: 'Not linked to other blocks' },
     { name: 'FOCUS_PREFIX', message: 'Focused on ' },
-    { name: 'DUPLICATES_PREFIX', message: 'Duplicate block names (only the first is drawn): ' },
     { name: 'PREVIEW_LABEL', message: 'Preview' },
     { name: 'DELETE_CONFIRM', message: 'Delete' },
     { name: 'DELETE_CANCEL', message: 'Cancel' }
@@ -96,7 +95,6 @@ foam.CLASS({
       user-select: none;
     }
     ^:focus-visible { outline: 2px solid $primary400; outline-offset: -2px; }
-    ^warning { color: $destructive400; }
     ^toolbar {
       display: flex;
       align-items: center;
@@ -120,7 +118,7 @@ foam.CLASS({
   properties: [
     {
       name: 'graph',
-      documentation: 'DependencyScanner output: { nodes: [{name,cmd,cls,parent,depth,block}], edges: [{source,target,kind,field}] }.'
+      documentation: 'DependencyScanner output: { nodes: [{id,name,cmd,cls,parent,depth,block}], edges: [{source,target,kind,field}] } -- id/parent/source/target are node ids (positional; see DependencyScanner), name is the display flowName.'
     },
     { name: 'selected' },
     { name: 'softSelected' },
@@ -144,31 +142,27 @@ foam.CLASS({
     },
     {
       name: 'selection_',
-      documentation: 'flowName -> block, for the current multi-selection. Always replaced wholesale (never mutated) so slots derived from it fire.',
+      documentation: 'node id -> block, for the current multi-selection. Always replaced wholesale (never mutated) so slots derived from it fire.',
       factory: function() { return {}; }
     },
     { name: 'scene_', hidden: true, transient: true, documentation: 'The GraphScene root CView.' },
     { name: 'theme_', hidden: true, transient: true, factory: function() { return this.GraphTheme.create({}, this.__subContext__); } },
     { name: 'canvasEl_', hidden: true, transient: true, documentation: 'The foam.graphics.Canvas u2 Element hosting scene_.' },
-    { name: 'nodeViews_', hidden: true, transient: true, documentation: 'flowName -> GraphNodeCView|GraphContainerCView, for every currently displayed node.', factory: function() { return {}; } },
-    { name: 'edgeViews_', hidden: true, transient: true, documentation: 'Array of { source, target, view: GraphEdgeCView } for every currently drawn edge.', factory: function() { return []; } },
+    { name: 'nodeViews_', hidden: true, transient: true, documentation: 'node id -> GraphNodeCView|GraphContainerCView, for every currently displayed node.', factory: function() { return {}; } },
+    { name: 'edgeViews_', hidden: true, transient: true, documentation: 'Array of { source, target, view: GraphEdgeCView } (source/target are node ids) for every currently drawn edge.', factory: function() { return []; } },
     { name: 'tooltip_', hidden: true, transient: true, documentation: 'The single GraphTooltipCView reused for hover tooltips.' },
     { name: 'marquee_', hidden: true, transient: true, documentation: 'The foam.graphics.Box marquee CView while shift-drag-selecting, else null.' },
     { name: 'drag_', hidden: true, transient: true, documentation: 'Pointer interaction state while a button is held: { kind: node|pan|marquee, ... }, else null.' },
     { name: 'stateSubs_', hidden: true, transient: true, documentation: 'Detachables for the per-block shown$/error$/locked$ subscriptions set up in rebuild(); dropped and replaced on every rebuild.', factory: function() { return []; } },
     { name: 'sizes_', hidden: true, transient: true, factory: function() { return {}; } },
-    {
-      class: 'StringArray',
-      name: 'duplicateNames_',
-      hidden: true,
-      transient: true,
-      documentation: 'flowNames that appear more than once in the flow. Everything (scope, dependencies, this view) resolves a name to one block, so only the first occurrence is drawn; the rest are listed in the toolbar.'
-    },
     { class: 'String', name: 'signature_', hidden: true, transient: true },
     {
       class: 'String',
       name: 'focusRoot_',
-      documentation: 'flowName of the block the canvas is focused on: only its dependency chain (upstream and downstream) is laid out. Empty shows the whole flow.'
+      documentation: `flowName of the block the canvas is focused on: only its dependency chain
+        (upstream and downstream) is laid out. Empty shows the whole flow. Kept as a name
+        (Console.graphFocus is a flowName, also consumed by the Block action) -- rebuild()
+        resolves it to the id of the LAST node with that name before using it.`
     },
     {
       name: 'nodes_',
@@ -201,7 +195,7 @@ foam.CLASS({
       name: 'expanded_',
       hidden: true,
       transient: true,
-      documentation: 'Container flowName -> true for layouts the user expanded. Containers start collapsed: one card, children hidden, their edges lifted onto it.',
+      documentation: 'Container id -> true for layouts the user expanded. Containers start collapsed: one card, children hidden, their edges lifted onto it.',
       factory: function() { return {}; }
     },
     {
@@ -209,7 +203,7 @@ foam.CLASS({
       name: 'reveal_',
       hidden: true,
       transient: true,
-      documentation: 'flowName to select and centre on once it is laid out; set when `selected` changes from outside the canvas (e.g. Block "Show in Graph").'
+      documentation: 'node id to select and centre on once it is laid out; set when `selected` changes from outside the canvas (e.g. Block "Show in Graph").'
     },
     {
       class: 'Boolean',
@@ -240,9 +234,6 @@ foam.CLASS({
         .startContext({ data: this }).tag(this.FOCUS_SELECTION).tag(this.UNFOCUS).tag(this.EXPAND_ALL).tag(this.COLLAPSE_ALL).endContext()
         .start(foam.u2.CheckBox, { data$: this.preview$, label: this.PREVIEW_LABEL }).addClass(this.myClass('preview-toggle')).end()
         .start('span').add(this.focusRoot_$.map(function(r) { return r ? self.FOCUS_PREFIX + r : ''; })).end()
-        .start('span').addClass(this.myClass('warning'))
-          .add(this.duplicateNames_$.map(function(d) { return d && d.length ? self.DUPLICATES_PREFIX + d.join(', ') : ''; }))
-        .end()
       .end();
 
       this.scene_ = this.GraphScene.create({ theme: this.theme_ });
@@ -297,22 +288,22 @@ foam.CLASS({
       if ( hit && hit.role === 'toggle' ) {
         var c = hit.parent;
         while ( c && ! this.GraphContainerCView.isInstance(c) ) c = c.parent;
-        if ( c ) this.toggleExpanded_(c.name, c.collapsed);
+        if ( c ) this.toggleExpanded_(c.id, c.collapsed);
         return;
       }
 
       if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
         this.lastModifier_ = evt.shiftKey || evt.ctrlKey || evt.metaKey;
-        if ( ! this.selection_[hit.name] && ! this.lastModifier_ ) {
+        if ( ! this.selection_[hit.id] && ! this.lastModifier_ ) {
           var sel = {};
-          if ( hit.block ) sel[hit.name] = hit.block;
+          if ( hit.block ) sel[hit.id] = hit.block;
           this.selection_ = sel;
         }
         this.drag_ = {
           kind: 'node',
           target: hit,
           start: this.scene_.toScene(evt.clientX, evt.clientY),
-          origins: this.snapshotOrigins_(hit.name),
+          origins: this.snapshotOrigins_(hit.id),
           moved: false
         };
         return;
@@ -400,18 +391,18 @@ foam.CLASS({
 
       if ( drag.kind === 'node' ) {
         if ( ! drag.moved ) {
-          var name = drag.target.name;
+          var id = drag.target.id;
           if ( this.lastModifier_ ) {
             var sel = Object.assign({}, this.selection_);
-            if ( sel[name] ) {
-              delete sel[name];
+            if ( sel[id] ) {
+              delete sel[id];
             } else if ( drag.target.block ) {
-              sel[name] = drag.target.block;
+              sel[id] = drag.target.block;
             }
             this.selection_ = sel;
           } else {
             var sel2 = {};
-            if ( drag.target.block ) sel2[name] = drag.target.block;
+            if ( drag.target.block ) sel2[id] = drag.target.block;
             this.selection_ = sel2;
           }
         }
@@ -476,9 +467,9 @@ foam.CLASS({
       return cv.globalToLocalCoordinates(p);
     },
 
-    function toggleExpanded_(name, collapsed) {
+    function toggleExpanded_(id, collapsed) {
       var next = Object.assign({}, this.expanded_);
-      if ( collapsed ) next[name] = true; else delete next[name];
+      if ( collapsed ) next[id] = true; else delete next[id];
       this.expanded_ = next;
     },
 
@@ -488,11 +479,12 @@ foam.CLASS({
       var soft = this.softSelected;
       var focusSet = this.focusSet_;
 
-      Object.keys(this.nodeViews_).forEach(function(name) {
-        var cv = self.nodeViews_[name];
-        cv.isSelected = !! sel[name];
-        cv.isDependent = !! soft && soft !== cv.block && ( soft.dependencies || [] ).indexOf(name) !== -1;
-        cv.dimmed = !! focusSet && ! focusSet[name];
+      Object.keys(this.nodeViews_).forEach(function(id) {
+        var cv = self.nodeViews_[id];
+        cv.isSelected = !! sel[id];
+        // soft.dependencies is name-based (Flowable.dependencies), so match by name here.
+        cv.isDependent = !! soft && soft !== cv.block && ( soft.dependencies || [] ).indexOf(cv.name) !== -1;
+        cv.dimmed = !! focusSet && ! focusSet[id];
       });
 
       this.edgeViews_.forEach(function(e) {
@@ -504,44 +496,44 @@ foam.CLASS({
       });
     },
 
-    function withDescendants_(names) {
-      /** names plus every block nested (at any depth) inside those that are containers. */
+    function withDescendants_(ids) {
+      /** ids plus every node nested (at any depth) inside those that are containers. */
       var nodes = this.nodes_ || [];
       var out = {};
-      var queue = names.slice();
+      var queue = ids.slice();
       while ( queue.length ) {
         var n = queue.shift();
         if ( out[n] ) continue;
         out[n] = true;
-        nodes.forEach(function(x) { if ( x.parent === n ) queue.push(x.name); });
+        nodes.forEach(function(x) { if ( x.parent === n ) queue.push(x.id); });
       }
       return Object.keys(out);
     },
 
-    function withAncestors_(names) {
-      /** names plus the containers holding them, up to the root. */
-      var byName = {};
-      ( this.nodes_ || [] ).forEach(function(n) { byName[n.name] = n; });
+    function withAncestors_(ids) {
+      /** ids plus the containers holding them, up to the root. */
+      var byId = {};
+      ( this.nodes_ || [] ).forEach(function(n) { byId[n.id] = n; });
       var out = {};
-      names.forEach(function(n) {
-        for ( var cur = n ; cur && ! out[cur] ; cur = byName[cur] && byName[cur].parent ) out[cur] = true;
+      ids.forEach(function(n) {
+        for ( var cur = n ; cur && ! out[cur] ; cur = byId[cur] && byId[cur].parent ) out[cur] = true;
       });
       return Object.keys(out);
     },
 
     function containerNames_() {
-      /** Every layout container in the flow, whether or not it is currently shown expanded. */
+      /** Every layout container's id in the flow, whether or not it is currently shown expanded. */
       var out = {};
       ( this.graph && this.graph.nodes || [] ).forEach(function(n) { if ( n.parent ) out[n.parent] = true; });
       return Object.keys(out);
     },
 
-    function isContainer_(name) {
-      return ( this.nodes_ || [] ).some(function(n) { return n.parent === name; });
+    function isContainer_(id) {
+      return ( this.nodes_ || [] ).some(function(n) { return n.parent === id; });
     },
 
-    function connectedSet_(names, edges) {
-      /** names plus their dependency chain: everything upstream (followed
+    function connectedSet_(ids, edges) {
+      /** ids plus their dependency chain: everything upstream (followed
           against edge direction) and everything downstream (along it).
           Siblings that merely share a source are not included. */
       var down = {}, up = {};
@@ -550,9 +542,9 @@ foam.CLASS({
         ( up[e.target]   = up[e.target]   || [] ).push(e.source);
       });
       var seen = {};
-      names.forEach(function(n) { seen[n] = true; });
+      ids.forEach(function(n) { seen[n] = true; });
       [ down, up ].forEach(function(adj) {
-        var queue = names.slice();
+        var queue = ids.slice();
         var visited = {};
         while ( queue.length ) {
           var n = queue.shift();
@@ -564,60 +556,83 @@ foam.CLASS({
       return seen;
     },
 
-    function blockOf_(name) {
-      var n = ( this.nodes_ || [] ).find(function(x) { return x.name === name; });
+    function blockOf_(id) {
+      var n = ( this.nodes_ || [] ).find(function(x) { return x.id === id; });
       return n ? n.block : null;
+    },
+
+    function idOfBlock_(block) {
+      /** The id of the currently laid-out node whose block is this exact
+          instance (identity match, so duplicate flowNames resolve to the
+          right occurrence); falls back to idForName_(block.flowName) when
+          the block isn't laid out yet. */
+      var nodes = this.nodes_ || [];
+      for ( var i = 0 ; i < nodes.length ; i++ ) {
+        if ( nodes[i].block === block ) return nodes[i].id;
+      }
+      return this.idForName_(block.flowName);
+    },
+
+    function idForName_(name) {
+      /** The id of the last currently laid-out node with this flowName --
+          matching the flow scope's last-wins binding -- falling back to the
+          name itself when no node has it yet: a name introduced by paste is
+          guaranteed fresh/unique (Console.pasteBlocks renames on any
+          collision), so its eventual id will be its own first occurrence. */
+      var lastId = null;
+      ( this.nodes_ || [] ).forEach(function(n) { if ( n.name === name ) lastId = n.id; });
+      return lastId || name;
     },
 
     function selectedRoots_() {
       /** Selected nodes, minus any whose ancestor is also selected. */
       var self = this;
-      var byName = {};
-      ( this.nodes_ || [] ).forEach(function(n) { byName[n.name] = n; });
+      var byId = {};
+      ( this.nodes_ || [] ).forEach(function(n) { byId[n.id] = n; });
 
-      function hasSelectedAncestor(name) {
-        var n = byName[name];
+      function hasSelectedAncestor(id) {
+        var n = byId[id];
         while ( n && n.parent ) {
           if ( self.selection_[n.parent] ) return true;
-          n = byName[n.parent];
+          n = byId[n.parent];
         }
         return false;
       }
 
       return Object.keys(this.selection_ || {})
-        .filter(function(name) { return ! hasSelectedAncestor(name); })
-        .map(function(name) { return byName[name]; })
+        .filter(function(id) { return ! hasSelectedAncestor(id); })
+        .map(function(id) { return byId[id]; })
         .filter(function(n) { return !! n; });
     },
 
-    function snapshotOrigins_(fallbackName) {
-      /** flowName -> {x,y} for every currently-selected node, plus every descendant of a selected container. */
+    function snapshotOrigins_(fallbackId) {
+      /** node id -> {x,y} for every currently-selected node, plus every descendant of a selected container. */
       var self = this;
-      var names = Object.keys(this.selection_ || {});
-      if ( ! names.length && fallbackName ) names = [ fallbackName ];
+      var ids = Object.keys(this.selection_ || {});
+      if ( ! ids.length && fallbackId ) ids = [ fallbackId ];
 
       var result = {};
-      function addWithDescendants(name) {
-        var cv = self.nodeViews_[name];
-        if ( cv && ! result[name] ) result[name] = { x: cv.x, y: cv.y };
+      function addWithDescendants(id) {
+        var cv = self.nodeViews_[id];
+        if ( cv && ! result[id] ) result[id] = { x: cv.x, y: cv.y };
         ( self.nodes_ || [] ).forEach(function(n) {
-          if ( n.parent === name ) addWithDescendants(n.name);
+          if ( n.parent === id ) addWithDescendants(n.id);
         });
       }
-      names.forEach(addWithDescendants);
+      ids.forEach(addWithDescendants);
       return result;
     },
 
     function revealPending_() {
-      var name = this.reveal_;
-      if ( ! name ) return;
-      var block = this.blockOf_(name);
-      var cv = this.nodeViews_[name];
-      var s = this.sizes_[name];
+      var id = this.reveal_;
+      if ( ! id ) return;
+      var block = this.blockOf_(id);
+      var cv = this.nodeViews_[id];
+      var s = this.sizes_[id];
       if ( ! block || ! cv || ! s ) return;
       this.reveal_ = '';
       var sel = {};
-      sel[name] = block;
+      sel[id] = block;
       this.selection_ = sel;
       // Focused: the rebuild already framed the chain. Otherwise bring the block to the middle.
       if ( ! this.focusRoot_ ) this.scene_.centerOn(cv.x + s[0] / 2, cv.y + s[1] / 2, 1);
@@ -727,8 +742,8 @@ foam.CLASS({
       var bounds = null;
       ( this.nodes_ || [] ).forEach(function(n) {
         if ( n.parent ) return;
-        var cv = self.nodeViews_[n.name];
-        var s = self.sizes_[n.name];
+        var cv = self.nodeViews_[n.id];
+        var s = self.sizes_[n.id];
         if ( ! cv || ! s ) return;
         var x0 = cv.x, y0 = cv.y, x1 = x0 + s[0], y1 = y0 + s[1];
         if ( ! bounds ) {
@@ -895,13 +910,17 @@ foam.CLASS({
 
       // Focus mode: only the focused block's dependency chain, laid out flat
       // (layout containers are structure, not data, so their shells are
-      // left out). Drop the focus if the block is gone.
-      if ( this.focusRoot_ && ! nodes.some(function(n) { return n.name === self.focusRoot_; }) ) {
-        this.focusRoot_ = '';
-      }
+      // left out). focusRoot_ is a flowName (see its documentation); resolve
+      // it to the id of the LAST node with that name -- the flow scope's
+      // own binding rule -- before using it. Drop the focus if the name is gone.
+      var focusId = null;
       if ( this.focusRoot_ ) {
-        var keep = this.connectedSet_([ this.focusRoot_ ], edges);
-        nodes = nodes.filter(function(n) { return keep[n.name]; })
+        nodes.forEach(function(n) { if ( n.name === self.focusRoot_ ) focusId = n.id; });
+        if ( ! focusId ) this.focusRoot_ = '';
+      }
+      if ( focusId ) {
+        var keep = this.connectedSet_([ focusId ], edges);
+        nodes = nodes.filter(function(n) { return keep[n.id]; })
           .map(function(n) { return Object.assign({}, n, { parent: null, depth: 0 }); });
         edges = edges.filter(function(e) { return keep[e.source] && keep[e.target]; });
       }
@@ -913,40 +932,33 @@ foam.CLASS({
       // hidden and edges touching them attach to the highest collapsed ancestor.
       if ( ! this.focusRoot_ ) {
         var parentOfAll = {};
-        nodes.forEach(function(n) { if ( n.parent ) parentOfAll[n.name] = n.parent; });
-        var rep = function(name) {
-          var top = name;
-          for ( var p = parentOfAll[name] ; p ; p = parentOfAll[p] ) {
+        nodes.forEach(function(n) { if ( n.parent ) parentOfAll[n.id] = n.parent; });
+        var rep = function(id) {
+          var top = id;
+          for ( var p = parentOfAll[id] ; p ; p = parentOfAll[p] ) {
             if ( ! self.expanded_[p] ) top = p;
           }
           return top;
         };
-        nodes = nodes.filter(function(n) { return rep(n.name) === n.name; });
+        nodes = nodes.filter(function(n) { return rep(n.id) === n.id; });
         edges = edges
           .map(function(e) { return Object.assign({}, e, { source: rep(e.source), target: rep(e.target) }); })
           .filter(function(e) { return e.source !== e.target; });
       }
-      // Names are the identity everywhere (flow scope, dependencies, these
-      // maps), so a repeated flowName can only be drawn once.
-      var seen = {}, dupes = [];
-      nodes = nodes.filter(function(n) {
-        if ( seen[n.name] ) { dupes.push(n.name); return false; }
-        seen[n.name] = true;
-        return true;
-      });
-      this.duplicateNames_ = dupes;
+      // Node ids are the identity here (see DependencyScanner); a duplicate
+      // flowName is drawn as its own node rather than collapsed away.
       this.nodes_ = nodes;
 
       var sig = JSON.stringify({
         f: this.focusRoot_,
         x: Object.keys(this.expanded_).sort(),
-        n: nodes.map(function(n) { return [ n.name, n.parent, n.cls ]; }),
+        n: nodes.map(function(n) { return [ n.id, n.parent, n.cls ]; }),
         e: edges.map(function(e) { return [ e.source, e.target, e.kind ]; })
       });
 
       if ( sig === this.signature_ ) {
         nodes.forEach(function(n) {
-          var nv = self.nodeViews_[n.name];
+          var nv = self.nodeViews_[n.id];
           if ( nv && self.GraphNodeCView.isInstance(nv) ) nv.summary = self.summaryOf(n);
         });
         return;
@@ -968,9 +980,9 @@ foam.CLASS({
       var containerNames = {};
       var data = {};
       nodes.forEach(function(n) {
-        data[n.name] = self.GraphNode.create({ id: n.name, data: n });
+        data[n.id] = self.GraphNode.create({ id: n.id, data: n });
         if ( n.parent ) {
-          parentOf[n.name] = n.parent;
+          parentOf[n.id] = n.parent;
           containerNames[n.parent] = true;
         }
       });
@@ -1002,12 +1014,13 @@ foam.CLASS({
 
       // Create a CView for every node.
       nodes.forEach(function(n) {
-        var isContainer = !! containerNames[n.name];
-        var hasIn  = graphModel.data[n.name].inverseLinks.length > 0;
-        var hasOut = graphModel.data[n.name].forwardLinks.length > 0;
+        var isContainer = !! containerNames[n.id];
+        var hasIn  = graphModel.data[n.id].inverseLinks.length > 0;
+        var hasOut = graphModel.data[n.id].forwardLinks.length > 0;
 
         if ( isContainer ) {
           var ccv = self.GraphContainerCView.create({
+            id: n.id,
             block: n.block,
             name: n.name,
             collapsed: false,
@@ -1016,12 +1029,13 @@ foam.CLASS({
             hasIn: hasIn,
             hasOut: hasOut
           });
-          self.nodeViews_[n.name] = ccv;
+          self.nodeViews_[n.id] = ccv;
           self.scene_.containers.add(ccv);
           // Its width/height are set once placeScope_ has measured its children.
-        } else if ( hasChildren[n.name] ) {
+        } else if ( hasChildren[n.id] ) {
           // A collapsed layout: its own card shape at card size, children hidden.
           var col = self.GraphContainerCView.create({
+            id: n.id,
             block: n.block,
             name: n.name,
             collapsed: true,
@@ -1032,12 +1046,13 @@ foam.CLASS({
             hasIn: hasIn,
             hasOut: hasOut
           });
-          self.nodeViews_[n.name] = col;
+          self.nodeViews_[n.id] = col;
           self.scene_.nodes.add(col);
-          self.sizes_[n.name] = [ self.NODE_W, self.COLLAPSED_H ];
+          self.sizes_[n.id] = [ self.NODE_W, self.COLLAPSED_H ];
         } else {
           var summary = self.summaryOf(n);
           var ncv = self.GraphNodeCView.create({
+            id: n.id,
             block: n.block,
             name: n.name,
             kind: self.kindOf(n),
@@ -1050,9 +1065,9 @@ foam.CLASS({
             hasIn: hasIn,
             hasOut: hasOut
           });
-          self.nodeViews_[n.name] = ncv;
+          self.nodeViews_[n.id] = ncv;
           self.scene_.nodes.add(ncv);
-          self.sizes_[n.name] = [ self.NODE_W, self.GraphNodeCView.heightFor(summary.length) ];
+          self.sizes_[n.id] = [ self.NODE_W, self.GraphNodeCView.heightFor(summary.length) ];
 
           if ( n.block ) {
             var block = n.block;
@@ -1080,7 +1095,7 @@ foam.CLASS({
       var childrenByParent = {};
       nodes.forEach(function(n) {
         var p = n.parent || null;
-        ( childrenByParent[p] = childrenByParent[p] || [] ).push(n.name);
+        ( childrenByParent[p] = childrenByParent[p] || [] ).push(n.id);
       });
 
       this.placeScope_(null, plan, childrenByParent, containerNames, { x: 0, y: 0 });
@@ -1116,13 +1131,15 @@ foam.CLASS({
         if ( this.selectingFromGraph_ ) return;
         var b = this.selected;
         if ( ! b || b === this.data || ! b.flowName ) return;
-        this.reveal_ = b.flowName;
+        var id = this.idOfBlock_(b);
+        if ( ! id ) return;
+        this.reveal_ = id;
         // A block outside the focused chain cannot be shown while focused.
-        if ( this.focusRoot_ && ! this.blockOf_(b.flowName) ) {
+        if ( this.focusRoot_ && ! this.blockOf_(id) ) {
           this.focusRoot_ = '';
           return;
         }
-        if ( this.visible && this.nodeViews_[b.flowName] ) this.revealPending_();
+        if ( this.visible && this.nodeViews_[id] ) this.revealPending_();
       }
     },
     {
@@ -1176,7 +1193,7 @@ foam.CLASS({
           var sel = {};
           names.forEach(function(n) {
             var b = self.findFlowChildByName(n);
-            if ( b ) sel[n] = b;
+            if ( b ) sel[self.idForName_(n)] = b;
           });
           this.selection_ = sel;
         } catch (e) {
@@ -1201,7 +1218,7 @@ foam.CLASS({
           var sel = {};
           names.forEach(function(n) {
             var b = self.findFlowChildByName(n);
-            if ( b ) sel[n] = b;
+            if ( b ) sel[self.idForName_(n)] = b;
           });
           this.selection_ = sel;
         } catch (e) {
@@ -1254,7 +1271,7 @@ foam.CLASS({
       code: function() {
         var sel = {};
         ( this.nodes_ || [] ).forEach(function(n) {
-          if ( n.block ) sel[n.name] = n.block;
+          if ( n.block ) sel[n.id] = n.block;
         });
         this.selection_ = sel;
         return true;
@@ -1268,13 +1285,17 @@ foam.CLASS({
       size: 'SMALL',
       isAvailable: function(focusRoot_) { return ! focusRoot_; },
       isEnabled: function(selection_, nodes_) {
-        var names = Object.keys(selection_ || {});
-        return names.length === 1 && ! this.isContainer_(names[0]);
+        var ids = Object.keys(selection_ || {});
+        return ids.length === 1 && ! this.isContainer_(ids[0]);
       },
       code: function() {
-        var names = Object.keys(this.selection_ || {});
-        if ( names.length !== 1 || this.isContainer_(names[0]) ) return false;
-        this.focusRoot_ = names[0];
+        var ids = Object.keys(this.selection_ || {});
+        if ( ids.length !== 1 || this.isContainer_(ids[0]) ) return false;
+        // Console.graphFocus (focusRoot_) is a flowName, not a node id --
+        // rebuild() resolves it back to the last matching id.
+        var n = ( this.nodes_ || [] ).find(function(x) { return x.id === ids[0]; });
+        if ( ! n ) return false;
+        this.focusRoot_ = n.name;
         return true;
       }
     },

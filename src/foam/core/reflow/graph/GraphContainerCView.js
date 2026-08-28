@@ -54,7 +54,12 @@ foam.CLASS({
       name: 'block',
       documentation: 'The underlying Flowable layout block this outline represents, if any.'
     },
-    { class: 'String', name: 'name' },
+    {
+      class: 'String',
+      name: 'id',
+      documentation: 'Positional node id from DependencyScanner (unique even when name is duplicated); the FlowGraphView identity key.'
+    },
+    { class: 'String', name: 'name', documentation: 'The block\'s flowName, for display only.' },
     { class: 'Int', name: 'childCount' },
     { class: 'Boolean', name: 'collapsed' },
     { name: 'theme', documentation: 'A foam.core.reflow.graph.GraphTheme.' },

@@ -2061,18 +2061,41 @@ foam.CLASS({
 
     function updateDependencies(blocks) {
       /** blocks: the parsed script JSON. Edges point from a referenced block to the
-          block referencing it, so a block's `dependencies` lists its dependents. */
-      var graph  = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
-      var byName = {};
-      var index  = fs => fs.forEach(f => { byName[f.flowName] = f; index(f.flowChildren); });
-      index(this.flowChildren);
+          block referencing it, so a block's `dependencies` lists its dependents
+          (flowNames, since Flowable.dependencies is name-based -- see its
+          treeRowRenderer tooltip/highlight use).
+
+          Node identity is positional (see DependencyScanner): flowChildren is
+          flattened here in the same document order the scanner walks the JSON,
+          then zipped index-for-index against graph.nodes so a duplicate
+          flowName binds each node to its own block instance instead of
+          collapsing them onto one. */
+      var graph = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
+
+      var flat    = [];
+      var flatten = fs => fs.forEach(f => { flat.push(f); flatten(f.flowChildren); });
+      flatten(this.flowChildren);
+
+      var firstByName = {};
+      flat.forEach(f => { if ( ! (f.flowName in firstByName) ) firstByName[f.flowName] = f; });
+
+      var idToName = {};
+      graph.nodes.forEach(n => { idToName[n.id] = n.name; });
 
       var dependents = {};
-      graph.edges.forEach(e => (dependents[e.source] || (dependents[e.source] = [])).push(e.target));
+      graph.edges.forEach(e => {
+        var sourceName = idToName[e.source];
+        var targetName = idToName[e.target];
+        (dependents[sourceName] || (dependents[sourceName] = [])).push(targetName);
+      });
 
-      graph.nodes.forEach(n => {
-        n.block = byName[n.name];
-        if ( n.block ) n.block.dependencies = [...new Set(dependents[n.name] || [])];
+      flat.forEach(block => {
+        block.dependencies = [...new Set(dependents[block.flowName] || [])];
+      });
+
+      graph.nodes.forEach((n, i) => {
+        var block = flat[i];
+        n.block = ( block && block.flowName === n.name ) ? block : firstByName[n.name];
       });
 
       this.flowGraph_ = graph;

@@ -114,8 +114,31 @@
       margin-left: 8px;
     }
 
-    ^th:hover {
+    /* Sort affordance. The sorted column keeps its arrow on screen; an
+       unsorted column reveals the resting arrow on hover or keyboard focus.
+       Opacity rather than display so the header never reflows, and the
+       hiding is confined to hover-capable pointers - a touch device has no
+       hover, so there the arrow stays visible. */
+    ^sortable {
       cursor: pointer;
+    }
+
+    ^sortIcon {
+      align-items: center;
+      display: flex;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      ^sortIcon {
+        opacity: 0;
+        transition: opacity 0.1s ease;
+      }
+
+      ^sortable:hover ^sortIcon,
+      ^sortable:focus-within ^sortIcon,
+      ^sortIconActive {
+        opacity: 1;
+      }
     }
 
     /**

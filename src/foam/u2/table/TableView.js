@@ -114,6 +114,14 @@
       margin-left: 8px;
     }
 
+    /* Anchor for the resize grip, which is taken out of flow below. The
+       right padding is the grip's own width, kept clear so the strip never
+       covers the tail of the label and steals its clicks. */
+    ^th {
+      padding-right: 8px;
+      position: relative;
+    }
+
     ^th:hover {
       cursor: pointer;
     }
@@ -166,11 +174,35 @@
       transform: rotate(0deg);
     }
 
-    ^resizeButton {
-      padding: 4px;
-      position: sticky;
-      right: 4px;
+    /* An in-flow handle keeps its box even at opacity 0, so every column
+       spent ~22px on a control that is invisible almost all of the time -
+       and ^th clips with an ellipsis, so that width came straight out of
+       the label. Absolute costs the column nothing and puts the grip on the
+       boundary it actually drags, rather than sticking it to the right of
+       the viewport. Qualified with ^th so it outranks Button's own
+       ^iconOnly^small padding whichever stylesheet installs first. */
+    ^th ^resizeButton.foam-u2-ActionView {
+      border: 0;
+      bottom: 0;
+      padding: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
       touch-action: none;
+      width: 8px;
+    }
+
+    /* The strip is 8px wide because a 2px pointer target is not reliably
+       hittable; the line drawn inside it is 2px so it reads as a column
+       divider. The col-resize cursor is the affordance, so no icon. */
+    ^resizeButton.foam-u2-ActionView::after {
+      background: $borderDefault;
+      bottom: 25%;
+      content: '';
+      position: absolute;
+      right: 3px;
+      top: 25%;
+      width: 2px;
     }
 
     ^resizeButton.foam-u2-ActionView:hover:not(:disabled), ^resizeCursor {
@@ -192,11 +224,6 @@
        order and can be revealed by keyboard focus. */
     ^resizeHidden {
       opacity: 0;
-    }
-
-    ^resizeButton.foam-u2-ActionView svg{
-      width: 0.8em;
-      height: 0.8em;
     }
 
     /* PAGINATION */

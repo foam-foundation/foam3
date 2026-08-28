@@ -154,7 +154,9 @@ foam.CLASS({
             })
         .end()
         .startContext({data: this})
-          .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY', themeIcon: 'drag', size: 'SMALL' })
+          // No icon: the grip is a bare strip on the column boundary and the
+          // col-resize cursor is what advertises it.
+          .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY' })
             .addClass(this.data.myClass('resizeButton'))
             .enableClass(this.data.myClass('resizeCursor'), this.showResize$)
             .on('pointerdown', self.pointerDown)

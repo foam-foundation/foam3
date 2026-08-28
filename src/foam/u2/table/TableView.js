@@ -182,7 +182,7 @@
        the viewport. Qualified with ^th so it outranks Button's own
        ^iconOnly^small padding whichever stylesheet installs first. */
     ^th ^resizeButton.foam-u2-ActionView {
-      border: 0;
+      border: none;
       bottom: 0;
       padding: 0;
       position: absolute;

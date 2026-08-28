@@ -268,6 +268,37 @@ foam.CLASS({
       );
 
       // ============================================
+      // 9. Duplicate flowNames -- positional ids
+      // ============================================
+      var blocks9 = [
+        { flowName: 'a', cmd: 'x' },
+        {
+          flowName: 'L',
+          cmd: 'layout()',
+          flowChildren: [
+            { flowName: 'a', cmd: 'y' }
+          ]
+        },
+        { flowName: 'b', cmd: 'dao(a.filteredDAO)' }
+      ];
+      var r9 = scanner.scan(blocks9);
+      x.test(
+        JSON.stringify(r9.nodes.map(function(n) { return n.id; })) === JSON.stringify([ 'a', 'L', 'a#2', 'b' ]),
+        'Duplicates: node ids are [a, L, a#2, b]'
+      );
+      var aNode9 = r9.nodes.filter(function(n) { return n.id === 'a#2'; })[0];
+      x.test(!! aNode9 && aNode9.parent === 'L', 'Duplicates: a#2 has parent L');
+      x.test(
+        r9.edges.length === 1 && r9.edges[0].source === 'a#2' && r9.edges[0].target === 'b',
+        'Duplicates: edge from b resolves to the last occurrence a#2, not the first a'
+      );
+      var names9 = scanner.names(blocks9);
+      x.test(
+        JSON.stringify(names9) === JSON.stringify([ 'a', 'L', 'a', 'b' ]),
+        'Duplicates: names() still returns every flowName with repeats: [a, L, a, b]'
+      );
+
+      // ============================================
       // Empty input
       // ============================================
       var rEmpty = scanner.scan([]);

@@ -121,6 +121,16 @@
        hover, so there the arrow stays visible. */
     ^sortable {
       cursor: pointer;
+      border-radius: 4px;
+      padding: 0.2em;
+    }
+
+    /* The header is focusable, so it needs a visible focus state. Inset the
+       outline: ^th clips its overflow, so a ring drawn outside the box would
+       be cut off. :focus-visible so a mouse click leaves no ring behind. */
+    ^sortable:focus-visible {
+      outline: 2px solid $borderBrand;
+      outline-offset: -2px;
     }
 
     ^sortIcon {

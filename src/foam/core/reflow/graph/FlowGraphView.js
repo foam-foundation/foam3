@@ -78,6 +78,7 @@ foam.CLASS({
     { name: 'DELETE_LOCKED_BODY', message: 'The following blocks are referenced elsewhere in the flow. Deleting them may break those blocks: ' },
     { name: 'UNLINKED_LABEL', message: 'Not linked to other blocks' },
     { name: 'FOCUS_PREFIX', message: 'Focused on ' },
+    { name: 'DUPLICATES_PREFIX', message: 'Duplicate block names (only the first is drawn): ' },
     { name: 'PREVIEW_LABEL', message: 'Preview' },
     { name: 'DELETE_CONFIRM', message: 'Delete' },
     { name: 'DELETE_CANCEL', message: 'Cancel' }
@@ -95,6 +96,7 @@ foam.CLASS({
       user-select: none;
     }
     ^:focus-visible { outline: 2px solid $primary400; outline-offset: -2px; }
+    ^warning { color: $destructive400; }
     ^toolbar {
       display: flex;
       align-items: center;
@@ -155,6 +157,13 @@ foam.CLASS({
     { name: 'drag_', hidden: true, transient: true, documentation: 'Pointer interaction state while a button is held: { kind: node|pan|marquee, ... }, else null.' },
     { name: 'stateSubs_', hidden: true, transient: true, documentation: 'Detachables for the per-block shown$/error$/locked$ subscriptions set up in rebuild(); dropped and replaced on every rebuild.', factory: function() { return []; } },
     { name: 'sizes_', hidden: true, transient: true, factory: function() { return {}; } },
+    {
+      class: 'StringArray',
+      name: 'duplicateNames_',
+      hidden: true,
+      transient: true,
+      documentation: 'flowNames that appear more than once in the flow. Everything (scope, dependencies, this view) resolves a name to one block, so only the first occurrence is drawn; the rest are listed in the toolbar.'
+    },
     { class: 'String', name: 'signature_', hidden: true, transient: true },
     {
       class: 'String',
@@ -231,6 +240,9 @@ foam.CLASS({
         .startContext({ data: this }).tag(this.FOCUS_SELECTION).tag(this.UNFOCUS).tag(this.EXPAND_ALL).tag(this.COLLAPSE_ALL).endContext()
         .start(foam.u2.CheckBox, { data$: this.preview$, label: this.PREVIEW_LABEL }).addClass(this.myClass('preview-toggle')).end()
         .start('span').add(this.focusRoot_$.map(function(r) { return r ? self.FOCUS_PREFIX + r : ''; })).end()
+        .start('span').addClass(this.myClass('warning'))
+          .add(this.duplicateNames_$.map(function(d) { return d && d.length ? self.DUPLICATES_PREFIX + d.join(', ') : ''; }))
+        .end()
       .end();
 
       this.scene_ = this.GraphScene.create({ theme: this.theme_ });
@@ -914,6 +926,15 @@ foam.CLASS({
           .map(function(e) { return Object.assign({}, e, { source: rep(e.source), target: rep(e.target) }); })
           .filter(function(e) { return e.source !== e.target; });
       }
+      // Names are the identity everywhere (flow scope, dependencies, these
+      // maps), so a repeated flowName can only be drawn once.
+      var seen = {}, dupes = [];
+      nodes = nodes.filter(function(n) {
+        if ( seen[n.name] ) { dupes.push(n.name); return false; }
+        seen[n.name] = true;
+        return true;
+      });
+      this.duplicateNames_ = dupes;
       this.nodes_ = nodes;
 
       var sig = JSON.stringify({

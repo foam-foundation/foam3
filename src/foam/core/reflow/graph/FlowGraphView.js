@@ -17,6 +17,13 @@ foam.CLASS({
     Console.flowGraph_$ (the DependencyScanner output, refreshed whenever
     the flow's script regenerates).
 
+    Rendering is a single HTML canvas: GraphScene owns pan/zoom and four
+    paint-order layers (containers, edges, nodes, overlay), and this view
+    is responsible for building/positioning the GraphNodeCView /
+    GraphContainerCView / GraphEdgeCView instances that populate them, plus
+    all pointer interaction (hit-testing is done against the scene, since
+    there is no DOM element per node any more).
+
     Not a Controller: Controller exports 'as data', which would shadow the
     Console's own 'data' import used elsewhere in the Reflow Blocks.
   `,
@@ -25,14 +32,13 @@ foam.CLASS({
     'foam.graph.Graph',
     'foam.graph.GraphNode',
     'foam.graph.map2d.LayeredGridPlacementStrategy',
-    'foam.u2.svg.Position',
-    'foam.u2.svg.RelativePosition',
-    'foam.u2.svg.arrow.BezierArrowLine',
-    'foam.u2.svg.interactive.Draggable',
-    'foam.u2.svg.interactive.PanZoomViewport',
-    'foam.core.reflow.graph.GraphNodeView',
-    'foam.core.reflow.graph.GraphContainerView',
-    'foam.u2.dialog.ConfirmationModal'
+    'foam.u2.dialog.ConfirmationModal',
+    'foam.core.reflow.graph.GraphScene',
+    'foam.core.reflow.graph.GraphTheme',
+    'foam.core.reflow.graph.GraphNodeCView',
+    'foam.core.reflow.graph.GraphContainerCView',
+    'foam.core.reflow.graph.GraphEdgeCView',
+    'foam.core.reflow.graph.GraphTooltipCView'
   ],
 
   imports: [
@@ -79,50 +85,34 @@ foam.CLASS({
 
   css: `
     ^ {
-      --fg-canvas: $backgroundSecondary;
-      --fg-grid-dot: $grey300;
-      --fg-node-bg: $backgroundDefault;
-      --fg-node-border: $borderDefault;
-      --fg-text: $textDefault;
-      --fg-text-muted: $textSecondary;
-      --fg-edge: $grey500;
-      --fg-edge-active: $primary500;
-      --fg-selected: $primary400;
-      --fg-dependent: $orange400;
-      --fg-error: $destructive400;
       display: flex;
       flex-direction: column;
       height: 100%;
       width: 100%;
       min-height: 0;
-      background: var(--fg-canvas);
+      background: $backgroundSecondary;
       outline: none;
       user-select: none;
     }
-    ^:focus-visible { outline: 2px solid var(--fg-selected); outline-offset: -2px; }
+    ^:focus-visible { outline: 2px solid $primary400; outline-offset: -2px; }
     ^toolbar {
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 6px 12px;
-      color: var(--fg-text-muted);
+      color: $textSecondary;
     }
     ^preview-toggle { margin-left: auto; }
-    ^viewport { flex: 1; min-height: 0; }
-    ^grid-dot { fill: var(--fg-grid-dot); }
-    ^edge path, ^edge line { stroke: var(--fg-edge); stroke-width: 2; }
-    ^edge.foam-u2-svg-arrow-BezierArrowLine-reaction path { stroke-dasharray: 6 4; }
-    ^edge.foam-u2-svg-arrow-BezierArrowLine-script path { stroke-dasharray: 2 3; }
-    ^edge-active path, ^edge-active line { stroke: var(--fg-edge-active); stroke-width: 3; }
-    ^edge-selected path, ^edge-selected line { stroke: var(--fg-selected); stroke-width: 3; }
-    ^port { fill: var(--fg-node-border); }
-    ^port-active { fill: var(--fg-edge); }
-    ^marquee { fill: $primary400; fill-opacity: 0.15; stroke: $primary400; }
-    ^node, ^edge { transition: opacity 150ms; }
-    ^dimmed { opacity: 0.2; }
-    ^edge-dimmed { opacity: 0.15; }
-    ^band-line { stroke: var(--fg-node-border); stroke-dasharray: 6 6; }
-    ^band-label { fill: var(--fg-text-muted); }
+    ^viewport {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    ^viewport canvas { display: block; }
+    ^grab { cursor: grab; }
+    ^grabbing { cursor: grabbing; }
+    ^pointer { cursor: pointer; }
   `,
 
   properties: [
@@ -155,24 +145,17 @@ foam.CLASS({
       documentation: 'flowName -> block, for the current multi-selection. Always replaced wholesale (never mutated) so slots derived from it fire.',
       factory: function() { return {}; }
     },
-    { name: 'viewport_', hidden: true, transient: true },
-    { name: 'containersLayer_', hidden: true, transient: true },
-    { name: 'edgesLayer_', hidden: true, transient: true },
-    { name: 'nodesLayer_', hidden: true, transient: true },
-    { name: 'marqueeLayer_', hidden: true, transient: true },
-    { name: 'draggables_', hidden: true, transient: true, factory: function() { return {}; } },
-    { name: 'nodeViews_', hidden: true, transient: true, factory: function() { return {}; } },
-    { name: 'containerViews_', hidden: true, transient: true, factory: function() { return {}; } },
+    { name: 'scene_', hidden: true, transient: true, documentation: 'The GraphScene root CView.' },
+    { name: 'theme_', hidden: true, transient: true, factory: function() { return this.GraphTheme.create({}, this.__subContext__); } },
+    { name: 'canvasEl_', hidden: true, transient: true, documentation: 'The foam.graphics.Canvas u2 Element hosting scene_.' },
+    { name: 'nodeViews_', hidden: true, transient: true, documentation: 'flowName -> GraphNodeCView|GraphContainerCView, for every currently displayed node.', factory: function() { return {}; } },
+    { name: 'edgeViews_', hidden: true, transient: true, documentation: 'Array of { source, target, view: GraphEdgeCView } for every currently drawn edge.', factory: function() { return []; } },
+    { name: 'tooltip_', hidden: true, transient: true, documentation: 'The single GraphTooltipCView reused for hover tooltips.' },
+    { name: 'marquee_', hidden: true, transient: true, documentation: 'The foam.graphics.Box marquee CView while shift-drag-selecting, else null.' },
+    { name: 'drag_', hidden: true, transient: true, documentation: 'Pointer interaction state while a button is held: { kind: node|pan|marquee, ... }, else null.' },
+    { name: 'stateSubs_', hidden: true, transient: true, documentation: 'Detachables for the per-block shown$/error$/locked$ subscriptions set up in rebuild(); dropped and replaced on every rebuild.', factory: function() { return []; } },
     { name: 'sizes_', hidden: true, transient: true, factory: function() { return {}; } },
     { class: 'String', name: 'signature_', hidden: true, transient: true },
-    { name: 'marquee_', hidden: true, transient: true },
-    { name: 'dragOrigins_', hidden: true, transient: true, factory: function() { return {}; } },
-    {
-      name: 'gridPatternId_',
-      hidden: true,
-      transient: true,
-      factory: function() { return 'fg-dots-' + foam.next$UID(); }
-    },
     {
       class: 'String',
       name: 'focusRoot_',
@@ -241,8 +224,8 @@ foam.CLASS({
 
       this.start().addClass(this.myClass('toolbar'))
         .startContext({ data: this }).tag(this.FIT).endContext()
-        .start('span').add(this.slot(function(viewport_$zoom) {
-          return Math.round(( viewport_$zoom || 1 ) * 100) + '%';
+        .start('span').add(this.slot(function(scene_$zoom) {
+          return Math.round(( scene_$zoom || 1 ) * 100) + '%';
         })).end()
         .start('span').add(this.ZOOM_HINT).end()
         .startContext({ data: this }).tag(this.FOCUS_SELECTION).tag(this.UNFOCUS).tag(this.EXPAND_ALL).tag(this.COLLAPSE_ALL).endContext()
@@ -250,100 +233,263 @@ foam.CLASS({
         .start('span').add(this.focusRoot_$.map(function(r) { return r ? self.FOCUS_PREFIX + r : ''; })).end()
       .end();
 
-      this.viewport_ = this.start(this.PanZoomViewport).addClass(this.myClass('viewport'));
+      this.scene_ = this.GraphScene.create({ theme: this.theme_ });
+      this.tooltip_ = this.GraphTooltipCView.create({ theme: this.theme_ });
+      this.scene_.overlay.add(this.tooltip_);
+      this.canvasEl_ = this.scene_.toE(null, this.__subSubContext__);
 
-      var defs = this.viewport_.start('defs');
-      var pattern = defs.start('pattern').attrs({
-        id: this.gridPatternId_,
-        patternUnits: 'userSpaceOnUse',
-        width: 24,
-        height: 24
+      var host = this.start().addClass(this.myClass('viewport'), this.myClass('grab'));
+      host.add(this.canvasEl_);
+      host.resizeObserver(function(entries) {
+        var box = entries[0].contentRect;
+        var w = Math.round(box.width), h = Math.round(box.height);
+        if ( ! w || ! h ) return;
+        var firstSize = ! self.scene_.viewWidth && ! self.scene_.viewHeight;
+        self.scene_.viewWidth = w;
+        self.scene_.viewHeight = h;
+        if ( firstSize ) self.fitToNodes_();
       });
-      pattern.start('circle').addClass(this.myClass('grid-dot')).attrs({ cx: 12, cy: 12, r: 1 }).end();
 
-      this.viewport_.start('rect')
-        .addClass(this.myClass('grid'))
-        .attrs({ x: -1e5, y: -1e5, width: 2e5, height: 2e5, fill: 'url(#' + this.gridPatternId_ + ')' })
-        .attr('pointer-events', 'none')
-      .end();
+      this.canvasEl_.on('pointerdown', function(evt) { self.onCanvasPointerDown_(evt); });
+      this.canvasEl_.on('pointermove', function(evt) { self.onCanvasPointerMove_(evt); });
+      this.canvasEl_.on('pointerup', function(evt) { self.onCanvasPointerUp_(evt); });
+      this.canvasEl_.on('pointercancel', function(evt) { self.onCanvasPointerUp_(evt); });
+      this.canvasEl_.on('pointerleave', function(evt) { self.onCanvasPointerLeave_(evt); });
+      this.canvasEl_.on('dblclick', function(evt) { self.onCanvasDblClick_(evt); });
+      this.canvasEl_.on('wheel', function(evt) { self.onCanvasWheel_(evt); }, { passive: false });
+      // Plain DOM listeners via .on(): these die with canvasEl_ itself (a
+      // child of this view), same as the framework's own un-wrapped .on()
+      // calls elsewhere -- no onDetach needed for them.
 
-      this.containersLayer_ = this.viewport_.start('g');
-      this.edgesLayer_      = this.viewport_.start('g');
-      this.nodesLayer_      = this.viewport_.start('g');
-      this.marqueeLayer_    = this.viewport_.start('g');
+      // A theme/variant change re-resolves the palette; the scene has to repaint to show it.
+      this.onDetach(this.theme_.colors$.sub(function() { self.scene_.invalidate(); }));
 
-      this.setupMarquee_();
+      this.onDetach(function() {
+        self.stateSubs_.forEach(function(s) { s.detach(); });
+      });
 
       if ( this.graph ) this.rebuild();
     },
 
-    function setupMarquee_() {
-      // Plain DOM listeners via .on(): these die with the viewport element
-      // itself (a child of this view), same as PanZoomViewport's and
-      // Draggable's own un-wrapped .on() calls in their render() -- no
-      // onDetach needed here. onDetach is reserved below for the actual
-      // FOAM Slot .sub() topic subscriptions (dragStart/drag/dragEnd),
-      // which do not have any DOM lifecycle of their own.
-      var self = this;
-      var vp = this.viewport_;
-      var marqueeEl = null;
-      var start = null;
+    function onCanvasPointerDown_(evt) {
+      if ( evt.button !== 0 && evt.button !== 1 ) return;
+      this.canvasEl_.el_().setPointerCapture(evt.pointerId);
 
-      vp.on('pointerdown', function(evt) {
-        if ( ! evt.shiftKey || evt.button !== 0 ) return;
-        if ( evt.target !== vp.background_.el_() ) return;
-        evt.preventDefault();
-        vp.el_().setPointerCapture(evt.pointerId);
-        start = vp.clientToUser(evt.clientX, evt.clientY);
-        self.marquee_ = { x: start.x, y: start.y, width: 0, height: 0 };
-        marqueeEl = self.marqueeLayer_.start('rect')
-          .addClass(self.myClass('marquee'))
-          .attrs({ x: start.x, y: start.y, width: 0, height: 0 });
-      });
+      if ( evt.button === 1 ) {
+        this.drag_ = { kind: 'pan', last: { clientX: evt.clientX, clientY: evt.clientY } };
+        return;
+      }
 
-      vp.on('pointermove', function(evt) {
-        if ( ! marqueeEl || ! start ) return;
-        var p = vp.clientToUser(evt.clientX, evt.clientY);
-        var box = {
-          x: Math.min(start.x, p.x),
-          y: Math.min(start.y, p.y),
-          width: Math.abs(p.x - start.x),
-          height: Math.abs(p.y - start.y)
+      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
+
+      if ( hit && hit.role === 'toggle' ) {
+        var c = hit.parent;
+        while ( c && ! this.GraphContainerCView.isInstance(c) ) c = c.parent;
+        if ( c ) this.toggleExpanded_(c.name, c.collapsed);
+        return;
+      }
+
+      if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
+        this.lastModifier_ = evt.shiftKey || evt.ctrlKey || evt.metaKey;
+        if ( ! this.selection_[hit.name] && ! this.lastModifier_ ) {
+          var sel = {};
+          if ( hit.block ) sel[hit.name] = hit.block;
+          this.selection_ = sel;
+        }
+        this.drag_ = {
+          kind: 'node',
+          target: hit,
+          start: this.scene_.toScene(evt.clientX, evt.clientY),
+          origins: this.snapshotOrigins_(hit.name),
+          moved: false
         };
-        self.marquee_ = box;
-        marqueeEl.attrs({ x: box.x, y: box.y, width: box.width, height: box.height });
-      });
+        return;
+      }
 
-      vp.on('pointerup', function(evt) {
-        if ( ! marqueeEl ) return;
-        var box = self.marquee_;
-        marqueeEl.remove();
-        marqueeEl = null;
-        start = null;
-        self.marquee_ = null;
-        if ( ! box || ( box.width < 2 && box.height < 2 ) ) return;
-
-        var hits = {};
-        Object.keys(self.draggables_).forEach(function(name) {
-          var d = self.draggables_[name];
-          var s = self.sizes_[name] || [ self.NODE_W, 40 ];
-          var nx0 = d.pos.x, ny0 = d.pos.y, nx1 = nx0 + s[0], ny1 = ny0 + s[1];
-          var intersects = nx0 < box.x + box.width && nx1 > box.x &&
-                           ny0 < box.y + box.height && ny1 > box.y;
-          if ( ! intersects ) return;
-          var b = self.blockOf_(name);
-          if ( b ) hits[name] = b;
+      if ( evt.shiftKey ) {
+        var start = this.scene_.toScene(evt.clientX, evt.clientY);
+        this.marquee_ = foam.graphics.Box.create({
+          x: start.x, y: start.y, width: 0, height: 0,
+          color: this.theme_.colors.marqueeFill,
+          border: this.theme_.colors.marqueeStroke,
+          alpha: 0.15
         });
+        this.scene_.overlay.add(this.marquee_);
+        this.drag_ = { kind: 'marquee', start: start };
+        return;
+      }
 
-        self.selection_ = ( evt.ctrlKey || evt.metaKey ) ?
-          Object.assign({}, self.selection_, hits) :
-          hits;
-      });
+      this.drag_ = { kind: 'pan', last: { clientX: evt.clientX, clientY: evt.clientY } };
     },
 
-    function decorateNode_(dragEl, name) {
-      dragEl.addClass(this.myClass('node'));
-      dragEl.enableClass(this.myClass('dimmed'), this.focusSet_$.map(function(f) { return !! f && ! f[name]; }));
+    function onCanvasPointerMove_(evt) {
+      var self = this;
+      var drag = this.drag_;
+
+      if ( drag && drag.kind === 'node' ) {
+        var p = this.scene_.toScene(evt.clientX, evt.clientY);
+        var dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+        if ( Math.abs(dx) > 2 || Math.abs(dy) > 2 ) drag.moved = true;
+        Object.keys(drag.origins).forEach(function(name) {
+          var cv = self.nodeViews_[name];
+          if ( ! cv ) return;
+          var o = drag.origins[name];
+          cv.x = o.x + dx;
+          cv.y = o.y + dy;
+        });
+        return;
+      }
+
+      if ( drag && drag.kind === 'pan' ) {
+        this.scene_.panBy(evt.clientX - drag.last.clientX, evt.clientY - drag.last.clientY);
+        drag.last = { clientX: evt.clientX, clientY: evt.clientY };
+        return;
+      }
+
+      if ( drag && drag.kind === 'marquee' ) {
+        var p2 = this.scene_.toScene(evt.clientX, evt.clientY);
+        this.marquee_.x = Math.min(drag.start.x, p2.x);
+        this.marquee_.y = Math.min(drag.start.y, p2.y);
+        this.marquee_.width = Math.abs(p2.x - drag.start.x);
+        this.marquee_.height = Math.abs(p2.y - drag.start.y);
+        return;
+      }
+
+      // No drag in progress: hover.
+      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
+      var tip = '';
+      if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
+        this.softSelected = hit.block;
+        tip = hit.tooltipAt(this.localPoint_(evt, hit)) || '';
+      } else if ( this.GraphEdgeCView.isInstance(hit) ) {
+        this.softSelected = null;
+        tip = hit.tooltipAt() || '';
+      } else {
+        this.softSelected = null;
+      }
+
+      this.tooltip_.text = tip;
+      if ( tip ) {
+        var scenePt = this.scene_.toScene(evt.clientX, evt.clientY);
+        this.tooltip_.anchorX = scenePt.x;
+        this.tooltip_.anchorY = scenePt.y;
+      }
+
+      var host = this.canvasEl_.parentNode;
+      host.enableClass(this.myClass('grab'), ! hit);
+      host.enableClass(this.myClass('pointer'), !! hit);
+    },
+
+    function onCanvasPointerUp_(evt) {
+      var self = this;
+      var drag = this.drag_;
+      this.drag_ = null;
+      if ( ! drag ) return;
+
+      if ( drag.kind === 'node' ) {
+        if ( ! drag.moved ) {
+          var name = drag.target.name;
+          if ( this.lastModifier_ ) {
+            var sel = Object.assign({}, this.selection_);
+            if ( sel[name] ) {
+              delete sel[name];
+            } else if ( drag.target.block ) {
+              sel[name] = drag.target.block;
+            }
+            this.selection_ = sel;
+          } else {
+            var sel2 = {};
+            if ( drag.target.block ) sel2[name] = drag.target.block;
+            this.selection_ = sel2;
+          }
+        }
+        this.selectingFromGraph_ = true;
+        this.selected = drag.target.block;
+        this.selectingFromGraph_ = false;
+        return;
+      }
+
+      if ( drag.kind === 'marquee' ) {
+        var box = this.marquee_;
+        this.scene_.overlay.remove(this.marquee_);
+        this.marquee_ = null;
+        if ( box.width < 2 && box.height < 2 ) return;
+
+        var hits = {};
+        Object.keys(this.nodeViews_).forEach(function(nm) {
+          var cv = self.nodeViews_[nm];
+          var intersects = cv.x < box.x + box.width && cv.x + cv.width > box.x &&
+                           cv.y < box.y + box.height && cv.y + cv.height > box.y;
+          if ( ! intersects ) return;
+          var b = self.blockOf_(nm);
+          if ( b ) hits[nm] = b;
+        });
+
+        this.selection_ = ( evt.ctrlKey || evt.metaKey ) ?
+          Object.assign({}, this.selection_, hits) :
+          hits;
+      }
+      // pan: nothing further to do.
+    },
+
+    function onCanvasPointerLeave_(evt) {
+      this.softSelected = null;
+      this.tooltip_.text = '';
+    },
+
+    function onCanvasDblClick_(evt) {
+      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
+      if ( ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) && hit.block ) {
+        this.data.graphMode = false;
+        this.selectFromTree(hit.block);
+      }
+    },
+
+    function onCanvasWheel_(evt) {
+      evt.preventDefault();
+      var rect = this.canvasEl_.el_().getBoundingClientRect();
+      var vx = evt.clientX - rect.left, vy = evt.clientY - rect.top;
+      var deltaY = evt.deltaMode === 1 ? evt.deltaY * 16 : evt.deltaY;
+      this.scene_.zoomAt(vx, vy, Math.exp(-deltaY * 0.0015));
+    },
+
+    function localPoint_(evt, cv) {
+      /** Pointer-event client coordinates -> cv's own local coordinates. */
+      var rect = this.canvasEl_.el_().getBoundingClientRect();
+      var p = foam.graphics.Point.create({
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top,
+        w: 1
+      });
+      return cv.globalToLocalCoordinates(p);
+    },
+
+    function toggleExpanded_(name, collapsed) {
+      var next = Object.assign({}, this.expanded_);
+      if ( collapsed ) next[name] = true; else delete next[name];
+      this.expanded_ = next;
+    },
+
+    function applyState_() {
+      var self = this;
+      var sel = this.selection_ || {};
+      var soft = this.softSelected;
+      var focusSet = this.focusSet_;
+
+      Object.keys(this.nodeViews_).forEach(function(name) {
+        var cv = self.nodeViews_[name];
+        cv.isSelected = !! sel[name];
+        cv.isDependent = !! soft && soft !== cv.block && ( soft.dependencies || [] ).indexOf(name) !== -1;
+        cv.dimmed = !! focusSet && ! focusSet[name];
+      });
+
+      this.edgeViews_.forEach(function(e) {
+        var srcBlock = self.blockOf_(e.source);
+        var dstBlock = self.blockOf_(e.target);
+        e.view.active = !! soft && ( soft === srcBlock || soft === dstBlock );
+        e.view.selectedEdge = !! ( sel[e.source] || sel[e.target] );
+        e.view.dimmed = !! focusSet && ! ( focusSet[e.source] && focusSet[e.target] );
+      });
     },
 
     function withDescendants_(names) {
@@ -440,8 +586,8 @@ foam.CLASS({
 
       var result = {};
       function addWithDescendants(name) {
-        var d = self.draggables_[name];
-        if ( d && ! result[name] ) result[name] = { x: d.pos.x, y: d.pos.y };
+        var cv = self.nodeViews_[name];
+        if ( cv && ! result[name] ) result[name] = { x: cv.x, y: cv.y };
         ( self.nodes_ || [] ).forEach(function(n) {
           if ( n.parent === name ) addWithDescendants(n.name);
         });
@@ -450,73 +596,19 @@ foam.CLASS({
       return result;
     },
 
-    function wireDrag_(dragEl, node) {
-      var self = this;
-
-      dragEl.on('pointerenter', function() { self.softSelected = node.block; });
-      dragEl.on('pointerleave', function() { self.softSelected = null; });
-      dragEl.on('dblclick', function() {
-        self.data.graphMode = false;
-        self.selectFromTree(node.block);
-      });
-      dragEl.on('pointerdown', function(evt) {
-        self.lastModifier_ = evt.shiftKey || evt.ctrlKey || evt.metaKey;
-      });
-
-      dragEl.onDetach(dragEl.dragStart.sub(function() {
-        if ( ! self.selection_[node.name] && ! self.lastModifier_ ) {
-          var sel = {};
-          if ( node.block ) sel[node.name] = node.block;
-          self.selection_ = sel;
-        }
-        self.dragOrigins_ = self.snapshotOrigins_(node.name);
-      }));
-
-      dragEl.onDetach(dragEl.drag.sub(function(_, __, dx, dy) {
-        var origins = self.dragOrigins_;
-        Object.keys(origins).forEach(function(name) {
-          var d = self.draggables_[name];
-          if ( ! d ) return;
-          d.pos.x = origins[name].x + dx;
-          d.pos.y = origins[name].y + dy;
-        });
-      }));
-
-      dragEl.onDetach(dragEl.dragEnd.sub(function(_, __, moved) {
-        if ( ! moved ) {
-          if ( self.lastModifier_ ) {
-            var sel = Object.assign({}, self.selection_);
-            if ( sel[node.name] ) {
-              delete sel[node.name];
-            } else if ( node.block ) {
-              sel[node.name] = node.block;
-            }
-            self.selection_ = sel;
-          } else {
-            var sel2 = {};
-            if ( node.block ) sel2[node.name] = node.block;
-            self.selection_ = sel2;
-          }
-        }
-        self.selectingFromGraph_ = true;
-        self.selected = node.block;
-        self.selectingFromGraph_ = false;
-      }));
-    },
-
     function revealPending_() {
       var name = this.reveal_;
       if ( ! name ) return;
       var block = this.blockOf_(name);
-      var d = this.draggables_[name];
+      var cv = this.nodeViews_[name];
       var s = this.sizes_[name];
-      if ( ! block || ! d || ! s ) return;
+      if ( ! block || ! cv || ! s ) return;
       this.reveal_ = '';
       var sel = {};
       sel[name] = block;
       this.selection_ = sel;
       // Focused: the rebuild already framed the chain. Otherwise bring the block to the middle.
-      if ( ! this.focusRoot_ ) this.viewport_.centerOn(d.pos.x + s[0] / 2, d.pos.y + s[1] / 2, 1);
+      if ( ! this.focusRoot_ ) this.scene_.centerOn(cv.x + s[0] / 2, cv.y + s[1] / 2, 1);
     },
 
     function kindOf(node) {
@@ -623,10 +715,10 @@ foam.CLASS({
       var bounds = null;
       ( this.nodes_ || [] ).forEach(function(n) {
         if ( n.parent ) return;
-        var d = self.draggables_[n.name];
+        var cv = self.nodeViews_[n.name];
         var s = self.sizes_[n.name];
-        if ( ! d || ! s ) return;
-        var x0 = d.pos.x, y0 = d.pos.y, x1 = x0 + s[0], y1 = y0 + s[1];
+        if ( ! cv || ! s ) return;
+        var x0 = cv.x, y0 = cv.y, x1 = x0 + s[0], y1 = y0 + s[1];
         if ( ! bounds ) {
           bounds = { x0: x0, y0: y0, x1: x1, y1: y1 };
         } else {
@@ -637,14 +729,11 @@ foam.CLASS({
         }
       });
       if ( ! bounds ) return;
-      this.viewport_.fit({
+      // GraphScene.fit() itself caps at zoom 1, so a small graph is never blown up.
+      this.scene_.fit({
         x: bounds.x0, y: bounds.y0,
         width: bounds.x1 - bounds.x0, height: bounds.y1 - bounds.y0
       });
-      // Fitting a small graph must not blow the cards up past their natural size.
-      if ( this.viewport_.zoom > 1 ) {
-        this.viewport_.centerOn(( bounds.x0 + bounds.x1 ) / 2, ( bounds.y0 + bounds.y1 ) / 2, 1);
-      }
     },
 
     function placeScope_(scopeId, plan, childrenByParent, containerNames, origin) {
@@ -675,10 +764,10 @@ foam.CLASS({
         var innerBbox = self.placeScope_(name, plan, childrenByParent, containerNames, { x: 0, y: 0 });
         var size = [
           innerBbox.width + 2 * self.CONTAINER_PAD,
-          innerBbox.height + 2 * self.CONTAINER_PAD + self.GraphContainerView.HEADER_HEIGHT
+          innerBbox.height + 2 * self.CONTAINER_PAD + self.GraphContainerCView.HEADER_H
         ];
         self.sizes_[name] = size;
-        var cv = self.containerViews_[name];
+        var cv = self.nodeViews_[name];
         if ( cv ) { cv.width = size[0]; cv.height = size[1]; }
       });
 
@@ -713,13 +802,13 @@ foam.CLASS({
         var list3 = byLayer[L3];
         var y = origin.y + ( maxHeight - colHeight[L3] ) / 2;
         list3.forEach(function(m) {
-          var drag = self.draggables_[m.name];
-          drag.pos.x = colX[L3];
-          drag.pos.y = y;
+          var cv = self.nodeViews_[m.name];
+          cv.x = colX[L3];
+          cv.y = y;
           if ( containerNames[m.name] ) {
             self.placeScope_(m.name, plan, childrenByParent, containerNames, {
               x: colX[L3] + self.CONTAINER_PAD,
-              y: y + self.CONTAINER_PAD + self.GraphContainerView.HEADER_HEIGHT
+              y: y + self.CONTAINER_PAD + self.GraphContainerCView.HEADER_H
             });
           }
           y += sizeOf(m.name)[1] + self.GAP_Y;
@@ -744,13 +833,13 @@ foam.CLASS({
           by += rowH + self.GAP_Y;
           rowH = 0;
         }
-        var drag = self.draggables_[name];
-        drag.pos.x = bx;
-        drag.pos.y = by;
+        var cv = self.nodeViews_[name];
+        cv.x = bx;
+        cv.y = by;
         if ( containerNames[name] ) {
           self.placeScope_(name, plan, childrenByParent, containerNames, {
             x: bx + self.CONTAINER_PAD,
-            y: by + self.CONTAINER_PAD + self.GraphContainerView.HEADER_HEIGHT
+            y: by + self.CONTAINER_PAD + self.GraphContainerCView.HEADER_H
           });
         }
         bx += size[0] + self.GAP_X;
@@ -761,21 +850,27 @@ foam.CLASS({
 
       if ( scopeId === null && members.length ) {
         var lineY = bandTop - self.BAND_GAP / 2;
-        self.containersLayer_.start('g')
-          .start('line').addClass(self.myClass('band-line'))
-            .attrs({ x1: origin.x, y1: lineY, x2: origin.x + width, y2: lineY })
-          .end()
-          .start('text').addClass(self.myClass('band-label'), 'p-xs')
-            .attrs({ x: origin.x, y: lineY - 8 })
-            .add(self.UNLINKED_LABEL)
-          .end()
-        .end();
+        self.scene_.containers.add(
+          foam.graphics.Line.create({
+            startX: origin.x, startY: lineY,
+            endX: origin.x + width, endY: lineY,
+            color: self.theme_.colors.nodeBorder,
+            lineDash: [ 6, 6 ]
+          }),
+          foam.graphics.Label.create({
+            x: origin.x, y: lineY - 20,
+            width: 300, height: 16,
+            text: self.UNLINKED_LABEL,
+            font: self.theme_.fonts.badge,
+            color: self.theme_.colors.textMuted
+          })
+        );
       }
 
       return { x: origin.x, y: origin.y, width: width, height: by + rowH - origin.y };
     },
 
-    async function rebuild() {
+    function rebuild() {
       if ( ! this.graph ) return;
       if ( ! this.visible ) {
         this.signature_ = '';
@@ -831,18 +926,20 @@ foam.CLASS({
       if ( sig === this.signature_ ) {
         nodes.forEach(function(n) {
           var nv = self.nodeViews_[n.name];
-          if ( nv ) nv.summary_ = self.summaryOf(n);
+          if ( nv && self.GraphNodeCView.isInstance(nv) ) nv.summary = self.summaryOf(n);
         });
         return;
       }
       this.signature_ = sig;
 
-      this.containersLayer_.removeAllChildren();
-      this.edgesLayer_.removeAllChildren();
-      this.nodesLayer_.removeAllChildren();
-      this.draggables_ = {};
+      if ( this.marquee_ ) { this.scene_.overlay.remove(this.marquee_); this.marquee_ = null; }
+      this.scene_.containers.removeAllChildren();
+      this.scene_.edges.removeAllChildren();
+      this.scene_.nodes.removeAllChildren();
+      this.stateSubs_.forEach(function(s) { s.detach(); });
+      this.stateSubs_ = [];
       this.nodeViews_ = {};
-      this.containerViews_ = {};
+      this.edgeViews_ = [];
       this.sizes_ = {};
 
       // Build the foam.graph.Graph model and the parent map.
@@ -882,87 +979,74 @@ foam.CLASS({
 
       var graphModel = this.Graph.create({ data: data });
 
-      // Create a Draggable + view for every node.
+      // Create a CView for every node.
       nodes.forEach(function(n) {
         var isContainer = !! containerNames[n.name];
+        var hasIn  = graphModel.data[n.name].inverseLinks.length > 0;
+        var hasOut = graphModel.data[n.name].forwardLinks.length > 0;
+
         if ( isContainer ) {
-          var cdrag = self.containersLayer_.start(self.Draggable, { pos: self.Position.create() });
-          self.decorateNode_(cdrag, n.name);
-          self.draggables_[n.name] = cdrag;
-          self.containerViews_[n.name] = cdrag.start(self.GraphContainerView, {
-            data: n.block,
+          var ccv = self.GraphContainerCView.create({
+            block: n.block,
+            name: n.name,
+            collapsed: false,
             childCount: ( n.block && n.block.flowChildren || [] ).length,
-            isSelected$: self.selection_$.map(function(m) { return !! m[n.name]; }),
-            isDependent$: self.softSelected$.map(function(s) {
-              return !! s && s !== n.block && ( s.dependencies || [] ).indexOf(n.name) !== -1;
-            })
+            theme: self.theme_,
+            hasIn: hasIn,
+            hasOut: hasOut
           });
-          self.wireDrag_(cdrag, n);
-          var cv = self.containerViews_[n.name];
-          cv.onDetach(cv.toggle.sub(function() {
-            var next = Object.assign({}, self.expanded_);
-            delete next[n.name];
-            self.expanded_ = next;
-          }));
+          self.nodeViews_[n.name] = ccv;
+          self.scene_.containers.add(ccv);
+          // Its width/height are set once placeScope_ has measured its children.
+        } else if ( hasChildren[n.name] ) {
+          // A collapsed layout: its own card shape at card size, children hidden.
+          var col = self.GraphContainerCView.create({
+            block: n.block,
+            name: n.name,
+            collapsed: true,
+            width: self.NODE_W,
+            height: self.COLLAPSED_H,
+            childCount: ( n.block && n.block.flowChildren || [] ).length,
+            theme: self.theme_,
+            hasIn: hasIn,
+            hasOut: hasOut
+          });
+          self.nodeViews_[n.name] = col;
+          self.scene_.nodes.add(col);
+          self.sizes_[n.name] = [ self.NODE_W, self.COLLAPSED_H ];
         } else {
-          var drag = self.nodesLayer_.start(self.Draggable, { pos: self.Position.create() });
-          self.decorateNode_(drag, n.name);
-          self.draggables_[n.name] = drag;
-          var isSelected$ = self.selection_$.map(function(m) { return !! m[n.name]; });
-          var isDependent$ = self.softSelected$.map(function(s) {
-            return !! s && s !== n.block && ( s.dependencies || [] ).indexOf(n.name) !== -1;
+          var summary = self.summaryOf(n);
+          var ncv = self.GraphNodeCView.create({
+            block: n.block,
+            name: n.name,
+            kind: self.kindOf(n),
+            summary: summary,
+            theme: self.theme_,
+            renders: !! ( n.block && n.block.rendersOutput ),
+            hidden: n.block ? ! n.block.shown : false,
+            locked: !! ( n.block && n.block.locked ),
+            error: n.block ? n.block.error : '',
+            hasIn: hasIn,
+            hasOut: hasOut
           });
-          if ( hasChildren[n.name] ) {
-            // A collapsed layout: its own box shape at card size, children hidden.
-            self.containerViews_[n.name] = drag.start(self.GraphContainerView, {
-              data: n.block,
-              collapsed: true,
-              width: self.NODE_W,
-              height: self.COLLAPSED_H,
-              childCount: ( n.block && n.block.flowChildren || [] ).length,
-              isSelected$: isSelected$,
-              isDependent$: isDependent$
-            });
-            self.sizes_[n.name] = [ self.NODE_W, self.COLLAPSED_H ];
-          } else {
-            self.nodeViews_[n.name] = drag.start(self.GraphNodeView, {
-              data: n.block,
-              summary_: self.summaryOf(n),
-              kind: self.kindOf(n),
-              isSelected$: isSelected$,
-              isDependent$: isDependent$
-            });
-          }
-          drag.start('circle')
-            .addClass(self.myClass('port'))
-            .enableClass(self.myClass('port-active'), graphModel.data[n.name].inverseLinks.length > 0)
-            .attrs({ cx: 0, cy: self.PORT_Y, r: 5 })
-          .end();
-          drag.start('circle')
-            .addClass(self.myClass('port'))
-            .enableClass(self.myClass('port-active'), graphModel.data[n.name].forwardLinks.length > 0)
-            .attrs({ cx: self.NODE_W, cy: self.PORT_Y, r: 5 })
-          .end();
-          self.wireDrag_(drag, n);
-          if ( hasChildren[n.name] ) {
-            var ccv = self.containerViews_[n.name];
-            ccv.onDetach(ccv.toggle.sub(function() {
-              self.expanded_ = Object.assign({}, self.expanded_, { [n.name]: true });
+          self.nodeViews_[n.name] = ncv;
+          self.scene_.nodes.add(ncv);
+          self.sizes_[n.name] = [ self.NODE_W, self.GraphNodeCView.heightFor(summary.length) ];
+
+          if ( n.block ) {
+            var block = n.block;
+            self.stateSubs_.push(block.shown$.sub(function() {
+              ncv.hidden = ! block.shown;
+              ncv.renders = !! block.rendersOutput;
+            }));
+            self.stateSubs_.push(block.error$.sub(function() {
+              ncv.error = block.error || '';
+            }));
+            self.stateSubs_.push(block.locked$.sub(function() {
+              ncv.locked = !! block.locked;
             }));
           }
         }
-      });
-
-      // Measure leaf node heights once the DOM has painted.
-      await new Promise(function(r) { requestAnimationFrame(r); });
-      nodes.forEach(function(n) {
-        if ( containerNames[n.name] ) return;
-        var nv = self.nodeViews_[n.name];
-        if ( ! nv ) return;
-        var el = nv.bodyEl_();
-        var h = el ? el.offsetHeight : 40;
-        self.sizes_[n.name] = [ self.NODE_W, h ];
-        nv.el_().setAttribute('height', h);
       });
 
       // Layout.
@@ -980,38 +1064,24 @@ foam.CLASS({
 
       this.placeScope_(null, plan, childrenByParent, containerNames, { x: 0, y: 0 });
 
-      // Edges, following the drags automatically via RelativePosition.
+      // Edges, positioned off the nodeViews_ CViews GraphEdgeCView holds.
       edgeList.forEach(function(e) {
-        if ( ! self.draggables_[e.source] || ! self.draggables_[e.target] ) return;
-        var srcSize = self.sizes_[e.source] || [ self.NODE_W, 0 ];
-        var srcBlock = self.blockOf_(e.source);
-        var dstBlock = self.blockOf_(e.target);
-
-        var edgeEl = self.edgesLayer_.start(self.BezierArrowLine, {
+        var srcCv = self.nodeViews_[e.source], dstCv = self.nodeViews_[e.target];
+        if ( ! srcCv || ! dstCv ) return;
+        var edgeCv = self.GraphEdgeCView.create({
+          from: srcCv,
+          to: dstCv,
+          fromPortY: self.GraphContainerCView.isInstance(srcCv) ? self.GraphContainerCView.PORT_Y : self.GraphNodeCView.PORT_Y,
+          toPortY:   self.GraphContainerCView.isInstance(dstCv) ? self.GraphContainerCView.PORT_Y : self.GraphNodeCView.PORT_Y,
           kind: e.kind,
-          arrowHead: true,
-          startPos: self.RelativePosition.create({
-            reference: self.draggables_[e.source].pos,
-            amount: self.Position.create({ x: srcSize[0], y: self.PORT_Y })
-          }),
-          endPos: self.RelativePosition.create({
-            reference: self.draggables_[e.target].pos,
-            amount: self.Position.create({ x: 0, y: self.PORT_Y })
-          })
+          fields: e.fields,
+          theme: self.theme_
         });
-        edgeEl.addClass(self.myClass('edge'));
-        edgeEl.enableClass(self.myClass('edge-selected'), self.selection_$.map(function(m) {
-          return !! ( m && ( m[e.source] || m[e.target] ) );
-        }));
-        edgeEl.enableClass(self.myClass('edge-dimmed'), self.focusSet_$.map(function(f) {
-          return !! f && ! ( f[e.source] && f[e.target] );
-        }));
-        edgeEl.enableClass(self.myClass('edge-active'), self.softSelected$.map(function(s) {
-          return !! s && ( s === srcBlock || s === dstBlock );
-        }));
-        if ( e.fields.length ) edgeEl.start('title').add(e.fields.join(', ')).end();
+        self.scene_.edges.add(edgeCv);
+        self.edgeViews_.push({ source: e.source, target: e.target, view: edgeCv });
       });
 
+      this.applyState_();
       this.fitToNodes_();
       this.revealPending_();
     }
@@ -1031,7 +1101,14 @@ foam.CLASS({
           this.focusRoot_ = '';
           return;
         }
-        if ( this.visible && this.draggables_[b.flowName] ) this.revealPending_();
+        if ( this.visible && this.nodeViews_[b.flowName] ) this.revealPending_();
+      }
+    },
+    {
+      name: 'onSelectionState',
+      on: [ 'this.propertyChange.selection_', 'this.propertyChange.softSelected', 'this.propertyChange.focusSet_' ],
+      code: function() {
+        if ( this.scene_ ) this.applyState_();
       }
     },
     {

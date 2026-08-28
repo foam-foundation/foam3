@@ -7,8 +7,12 @@
 foam.POM({
   name: 'graph',
   files: [
-    { name: 'GraphNodeView',      flags: 'web' },
-    { name: 'GraphContainerView', flags: 'web' },
-    { name: 'FlowGraphView',      flags: 'web' }
+    { name: 'GraphTheme',          flags: 'web' },
+    { name: 'GraphNodeCView',      flags: 'web' },
+    { name: 'GraphContainerCView', flags: 'web' },
+    { name: 'GraphEdgeCView',      flags: 'web' },
+    { name: 'GraphTooltipCView',   flags: 'web' },
+    { name: 'GraphScene',          flags: 'web' },
+    { name: 'FlowGraphView',       flags: 'web' }
   ]
 });

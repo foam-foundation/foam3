@@ -12,6 +12,10 @@ foam.CLASS({
     A draggable element that positions itself using an SVG transform.
   `,
 
+  imports: [
+    'svg'
+  ],
+
   properties: [
     ['nodeName', 'g'],
     {
@@ -22,57 +26,42 @@ foam.CLASS({
     'dragState_'
   ],
 
-  topics: [
-    'dragStart',
-    'drag',
-    'dragEnd'
-  ],
-
   methods: [
     function render () {
-      this
-        .on('pointerdown', this.onPointerDown)
-        .on('pointermove', this.onPointerMove)
-        .on('pointerup', this.onPointerUp)
-        .on('pointercancel', this.onPointerUp);
+      this.addEventListener('mousedown', this.onMouseDown);
+      this.addEventListener('mousemove', this.onMouseMove);
+      this.addEventListener('mouseup', this.onMouseUp);
+      this.addEventListener('mouseleave', this.onMouseUp);
       this.pos.bind(this);
     },
-    function toUser_ (evt) {
-      /* Converts a pointer event's client coordinates into the coordinate
-         space of this element's parent, accounting for every transform
-         (pan/zoom viewport, viewBox scale, ...) between the parent and the
-         screen. */
-      const ctm = this.el_().parentNode.getScreenCTM();
-      return new DOMPoint(evt.clientX, evt.clientY).matrixTransform(ctm.inverse());
+    async function transformMouseEvent (evt) {
+      const svg = await this.svg.el();
+      const ctm = svg.getScreenCTM();
+      return {
+        x: (evt.clientX - ctm.e) / ctm.a,
+        y: (evt.clientY - ctm.f) / ctm.d
+      }
     }
   ],
 
   listeners: [
-    function onPointerDown (evt) {
-      if ( evt.button !== 0 ) return;
-      this.el_().setPointerCapture(evt.pointerId);
-      this.dragState_ = {
-        origin: this.toUser_(evt),
-        self: { x: this.pos.x, y: this.pos.y },
-        moved: false
+    async function onMouseDown (evt) {
+      this.dragState = {
+        dragOrigin: await this.transformMouseEvent(evt),
+        selfOrigin: { x: this.pos.x, y: this.pos.y }
       };
-      this.dragStart.pub();
     },
-    function onPointerMove (evt) {
-      if ( ! this.dragState_ ) return;
-      const p = this.toUser_(evt);
-      const dx = p.x - this.dragState_.origin.x;
-      const dy = p.y - this.dragState_.origin.y;
-      this.pos.x = this.dragState_.self.x + dx;
-      this.pos.y = this.dragState_.self.y + dy;
-      this.dragState_.moved = true;
-      this.drag.pub(dx, dy);
+    async function onMouseMove (evt) {
+      if ( ! this.dragState ) return;
+      const current = await this.transformMouseEvent(evt);
+      console.log(this.dragState, current)
+      const diffX = current.x - this.dragState.dragOrigin.x;
+      const diffY = current.y - this.dragState.dragOrigin.y;
+      this.pos.x = this.dragState.selfOrigin.x + diffX;
+      this.pos.y = this.dragState.selfOrigin.y + diffY;
     },
-    function onPointerUp (evt) {
-      if ( ! this.dragState_ ) return;
-      const moved = this.dragState_.moved;
-      this.dragState_ = undefined;
-      this.dragEnd.pub(moved);
+    function onMouseUp (evt) {
+      this.dragState = undefined;
     }
   ]
 });

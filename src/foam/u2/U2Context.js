@@ -31,14 +31,14 @@ foam.CLASS({
       class: 'foam.lang.ContextMethod',
       name: 'E',
       code: function E(ctx, opt_nodeName, opt_args) {
-        var nodeName = opt_nodeName || 'div';
+        var nodeName = opt_nodeName ? opt_nodeName.toLowerCase() : 'div';
         var args     = opt_args || {};
 
         // Check if a class has been registered for the specified nodeName
-        var cls = ctx.elementForName(nodeName.toLowerCase());
+        var cls = ctx.elementForName(nodeName);
 
         if ( ! cls ) {
-          args.nodeName = nodeName; // Element.nodeName decides the casing
+          args.nodeName = nodeName;
           cls = foam.u2.Element;
         }
 

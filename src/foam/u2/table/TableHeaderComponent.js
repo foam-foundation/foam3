@@ -19,7 +19,8 @@ foam.CLASS({
     { name: 'TOOLTIP', message: 'Drag to Resize' },
     { name: 'SORT_BY', message: 'Sort by' },
     { name: 'SORTED_ASCENDING', message: 'sorted ascending' },
-    { name: 'SORTED_DESCENDING', message: 'sorted descending' }
+    { name: 'SORTED_DESCENDING', message: 'sorted descending' },
+    { name: 'ACTIVATE_TO_CLEAR', message: 'activate to clear sorting' }
   ],
 
   constants: [
@@ -182,10 +183,14 @@ foam.CLASS({
         // only be sorted with a mouse, and a screen reader is never told the
         // header does anything or which way the table is sorted.
         .attrs({ role: 'button', tabindex: 0 })
+        // The third state is only discoverable by trying it, so a reader
+        // that can't see the arrow is told the next activation clears it.
         .attr('aria-label', sortState$.map(function(s) {
-          return self.SORT_BY + ' ' + colHeader +
-            ( s === 'asc'  ? ', ' + self.SORTED_ASCENDING  :
-              s === 'desc' ? ', ' + self.SORTED_DESCENDING : '' );
+          if ( s === 'asc' ) return self.SORT_BY + ' ' + colHeader + ', ' + self.SORTED_ASCENDING;
+          if ( s === 'desc' )
+            return self.SORT_BY + ' ' + colHeader + ', ' + self.SORTED_DESCENDING +
+              ( view.allowSortReset ? ', ' + self.ACTIVATE_TO_CLEAR : '' );
+          return self.SORT_BY + ' ' + colHeader;
         }))
         .on('click', function(e) {
           view.sortBy(prop);

@@ -113,6 +113,15 @@ foam.CLASS({
       name: 'order'
     },
     {
+      class: 'Boolean',
+      name: 'allowSortReset',
+      value: true,
+      documentation: `Whether a third activation of a sorted column clears the
+        sort instead of flipping the direction again. Unsorted is the state
+        every table loads in, so without this a user can only return to it by
+        reloading. Set false for a strict ascending/descending toggle.`
+    },
+    {
       name: 'columns_',
       documentation: `Internal prop used by the table view to render the columns,
         should always have the current table columns`,
@@ -325,9 +334,15 @@ foam.CLASS({
   methods: [
     function sortBy(column) {
       var isNewOrderDesc = this.order === column;
-      this.order = isNewOrderDesc ?
-        this.DESC(column) :
-        column;
+      // ascending -> descending -> unsorted (when allowed) -> ascending.
+      if ( isNewOrderDesc ) {
+        this.order = this.DESC(column);
+      } else if ( this.allowSortReset && this.Desc.isInstance(this.order) &&
+                  this.order.arg1 === column ) {
+        this.clearProperty('order');
+      } else {
+        this.order = column;
+      }
 
       if ( ! this.memento || this.memento.head.length == 0 )
         return;

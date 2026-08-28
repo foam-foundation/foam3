@@ -247,6 +247,7 @@ foam.CLASS({
       themeIcon: 'flow',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
+      availablePermissions: [ 'reflow.graph' ],
       isAvailable: function(showPrompts, graphMode) { return !! showPrompts && ! graphMode; },
       code: function() {
         this.selected = this;
@@ -261,6 +262,7 @@ foam.CLASS({
       themeIcon: 'flow',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
+      availablePermissions: [ 'reflow.graph' ],
       isAvailable: function(showPrompts, graphMode) { return !! showPrompts && !! graphMode; },
       code: function() {
         this.graphMode = false;

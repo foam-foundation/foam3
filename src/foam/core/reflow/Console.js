@@ -493,6 +493,7 @@ foam.CLASS({
       label: '',
       themeIcon: 'flow',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      availablePermissions: [ 'reflow.graph' ],
       isAvailable: function(showPrompts) {
         return !! showPrompts;
       },
@@ -996,6 +997,7 @@ foam.CLASS({
   ],
 
   imports: [
+    'auth?',
     'commandDAO',
     'flowDAO',
     'params',
@@ -1219,12 +1221,19 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'graphAllowed_',
+      documentation: 'reflow.graph permission check result; gates the graph even when graphMode arrives from the URL.',
+      transient: true,
+      hidden: true
+    },
+    {
+      class: 'Boolean',
       name: 'graphVisible_',
       documentation: 'The graph only replaces the document while editing; presentation modes always show the document.',
       transient: true,
       hidden: true,
-      expression: function(showPrompts, graphMode) {
-        return !! showPrompts && graphMode;
+      expression: function(showPrompts, graphMode, graphAllowed_) {
+        return !! showPrompts && graphMode && graphAllowed_;
       }
     },
     {
@@ -1575,6 +1584,12 @@ foam.CLASS({
       this.value$.sub(() => this.refreshFlowScope());
 
       this.flowErrors_$.follow(this.value.errors_$);
+
+      if ( this.auth ) {
+        this.auth.check(null, 'reflow.graph').then(ok => this.graphAllowed_ = ok);
+      } else {
+        this.graphAllowed_ = true;
+      }
 
       globalThis.shell = this; // for debugging
 

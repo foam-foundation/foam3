@@ -32,12 +32,22 @@ foam.CLASS({
     { class: 'Int', name: 'width' },
     { class: 'Int', name: 'height' },
     { class: 'Int', name: 'childCount' },
+    {
+      class: 'Boolean',
+      name: 'collapsed',
+      documentation: 'Children hidden: the box is card-sized and shows the block count in the middle.'
+    },
     { class: 'Boolean', name: 'isSelected' },
     { class: 'Boolean', name: 'isDependent' }
   ],
 
+  topics: [ 'toggle' ],
+
   messages: [
-    { name: 'LAYOUT_BADGE', message: 'Layout' }
+    { name: 'LAYOUT_BADGE', message: 'Layout' },
+    { name: 'COLLAPSE_TIP', message: 'Collapse layout' },
+    { name: 'EXPAND_TIP',   message: 'Expand layout' },
+    { name: 'EXPAND_LABEL', message: 'Expand' }
   ],
 
   css: `
@@ -66,6 +76,33 @@ foam.CLASS({
       color: var(--fg-text-muted);
       text-transform: uppercase;
     }
+    ^toggle {
+      flex: none;
+      cursor: pointer;
+      padding: 0 4px;
+      color: var(--fg-text-muted);
+    }
+    ^toggle:hover { color: var(--fg-text); }
+    ^collapsed ^container { fill-opacity: 0.9; }
+    ^body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 100%;
+      color: var(--fg-text-muted);
+    }
+    ^count { color: var(--fg-text); }
+    ^chip {
+      cursor: pointer;
+      padding: 1px 8px;
+      border: 1px solid var(--fg-node-border);
+      border-radius: 4px;
+      background: var(--fg-node-bg);
+      color: var(--fg-text-muted);
+    }
+    ^chip:hover { color: var(--fg-text); border-color: var(--fg-text-muted); }
   `,
 
   methods: [
@@ -77,8 +114,11 @@ foam.CLASS({
     function render() {
       var self = this;
       this.addClass(this.myClass());
+      this.enableClass(this.myClass('collapsed'), this.collapsed$);
       this.enableClass(this.myClass('selected'),  this.isSelected$);
       this.enableClass(this.myClass('dependent'), this.isDependent$);
+      var stop = function(evt) { evt.stopPropagation(); };
+      var fire = function(evt) { evt.stopPropagation(); self.toggle.pub(); };
 
       this.start('rect')
         .addClass(this.myClass('container'))
@@ -92,9 +132,37 @@ foam.CLASS({
           .start().addClass(this.myClass('title'), 'p-bold')
             .add(this.data ? this.data.flowName$ : '')
           .end()
+          .start('span').addClass(this.myClass('toggle'))
+            .add(this.collapsed$.map(function(c) { return c ? '\u25B8' : '\u25BE'; }))
+            .attrs({ title: this.collapsed$.map(function(c) { return c ? self.EXPAND_TIP : self.COLLAPSE_TIP; }) })
+            .on('pointerdown', stop)
+            .on('click', fire)
+          .end()
           .start().addClass(this.myClass('badge'), 'p-xxs').add(this.LAYOUT_BADGE).end()
           .start().addClass(this.myClass('badge'), 'p-xxs')
             .add(this.childCount$.map(function(n) { return self.childCountLabel_(n); }))
+            .hide(this.collapsed$)
+          .end()
+        .end()
+      .end();
+
+      // Collapsed: the block count fills the box, with the expand control under it.
+      this.start('foreignObject')
+        .attrs({
+          x: 0,
+          y: this.HEADER_HEIGHT,
+          width: this.width$,
+          height: this.height$.map(function(h) { return Math.max(0, h - self.HEADER_HEIGHT); })
+        })
+        .show(this.collapsed$)
+        .start('div', { namespace: 'http://www.w3.org/1999/xhtml' })
+          .addClass(this.myClass('body'), 'safari-svg-pos-support')
+          .start().addClass(this.myClass('count'), 'p-bold')
+            .add(this.childCount$.map(function(n) { return self.childCountLabel_(n); }))
+          .end()
+          .start('span').addClass(this.myClass('chip'), 'p-xxs').add('\u25B8 ' + this.EXPAND_LABEL)
+            .on('pointerdown', stop)
+            .on('click', fire)
           .end()
         .end()
       .end();

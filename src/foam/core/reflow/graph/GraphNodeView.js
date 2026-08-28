@@ -26,7 +26,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'kind',
-      documentation: 'One of dao|transform|script|input|doc|layout|other, from FlowGraphView.kindOf().'
+      documentation: 'One of dao|transform|script|input|doc|other, from FlowGraphView.kindOf().'
     },
     { class: 'StringArray', name: 'summary_' },
     {
@@ -46,7 +46,6 @@ foam.CLASS({
     { name: 'KIND_SCRIPT',    message: 'Script' },
     { name: 'KIND_INPUT',     message: 'Input' },
     { name: 'KIND_DOC',       message: 'Doc' },
-    { name: 'KIND_LAYOUT',    message: 'Layout' },
     { name: 'KIND_OTHER',     message: 'Block' },
     { name: 'HIDDEN_BADGE',   message: 'Hidden' },
     { name: 'SILENT_BADGE',   message: 'No output' },
@@ -89,7 +88,7 @@ foam.CLASS({
     ^kind-transform ^bar { background: $purple400; }
     ^kind-script ^bar { background: $orange400; }
     ^kind-input ^bar { background: $success400; }
-    ^kind-doc ^bar, ^kind-other ^bar, ^kind-layout ^bar { background: $grey500; }
+    ^kind-doc ^bar, ^kind-other ^bar { background: $grey500; }
     ^title {
       flex: 1;
       overflow: hidden;
@@ -133,7 +132,6 @@ foam.CLASS({
         case 'script':    return this.KIND_SCRIPT;
         case 'input':     return this.KIND_INPUT;
         case 'doc':       return this.KIND_DOC;
-        case 'layout':    return this.KIND_LAYOUT;
         default:          return this.KIND_OTHER;
       }
     },

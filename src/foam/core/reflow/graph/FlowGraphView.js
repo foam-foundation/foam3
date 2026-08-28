@@ -51,6 +51,7 @@ foam.CLASS({
     { type: 'Int', name: 'GAP_Y',            value: 24 },
     { type: 'Int', name: 'PORT_Y',           value: 18 },
     { type: 'Int', name: 'CONTAINER_PAD',    value: 16 },
+    { type: 'Int', name: 'COLLAPSED_H',      value: 96, documentation: 'Height of a collapsed layout box.' },
     {
       type: 'Int',
       name: 'BAND_GAP',
@@ -96,6 +97,7 @@ foam.CLASS({
       min-height: 0;
       background: var(--fg-canvas);
       outline: none;
+      user-select: none;
     }
     ^:focus-visible { outline: 2px solid var(--fg-selected); outline-offset: -2px; }
     ^toolbar {
@@ -204,6 +206,13 @@ foam.CLASS({
       }
     },
     {
+      name: 'expanded_',
+      hidden: true,
+      transient: true,
+      documentation: 'Container flowName -> true for layouts the user expanded. Containers start collapsed: one card, children hidden, their edges lifted onto it.',
+      factory: function() { return {}; }
+    },
+    {
       class: 'String',
       name: 'reveal_',
       hidden: true,
@@ -236,7 +245,7 @@ foam.CLASS({
           return Math.round(( viewport_$zoom || 1 ) * 100) + '%';
         })).end()
         .start('span').add(this.ZOOM_HINT).end()
-        .startContext({ data: this }).tag(this.FOCUS_SELECTION).tag(this.UNFOCUS).endContext()
+        .startContext({ data: this }).tag(this.FOCUS_SELECTION).tag(this.UNFOCUS).tag(this.EXPAND_ALL).tag(this.COLLAPSE_ALL).endContext()
         .start(foam.u2.CheckBox, { data$: this.preview$, label: this.PREVIEW_LABEL }).addClass(this.myClass('preview-toggle')).end()
         .start('span').add(this.focusRoot_$.map(function(r) { return r ? self.FOCUS_PREFIX + r : ''; })).end()
       .end();
@@ -359,6 +368,13 @@ foam.CLASS({
       names.forEach(function(n) {
         for ( var cur = n ; cur && ! out[cur] ; cur = byName[cur] && byName[cur].parent ) out[cur] = true;
       });
+      return Object.keys(out);
+    },
+
+    function containerNames_() {
+      /** Every layout container in the flow, whether or not it is currently shown expanded. */
+      var out = {};
+      ( this.graph && this.graph.nodes || [] ).forEach(function(n) { if ( n.parent ) out[n.parent] = true; });
       return Object.keys(out);
     },
 
@@ -503,9 +519,7 @@ foam.CLASS({
       if ( ! this.focusRoot_ ) this.viewport_.centerOn(d.pos.x + s[0] / 2, d.pos.y + s[1] / 2, 1);
     },
 
-    function kindOf(node, isContainer) {
-      if ( isContainer ) return 'layout';
-
+    function kindOf(node) {
       var cls = node.cls || '';
       var DAO = [
         'foam.core.reflow.DAOPrompt', 'foam.core.reflow.DAOFilterPrompt',
@@ -784,10 +798,32 @@ foam.CLASS({
           .map(function(n) { return Object.assign({}, n, { parent: null, depth: 0 }); });
         edges = edges.filter(function(e) { return keep[e.source] && keep[e.target]; });
       }
+      // Every container in the flow (before collapsing), for card kind/summary.
+      var hasChildren = {};
+      nodes.forEach(function(n) { if ( n.parent ) hasChildren[n.parent] = true; });
+
+      // Collapsed containers (the default) show as one card: descendants are
+      // hidden and edges touching them attach to the highest collapsed ancestor.
+      if ( ! this.focusRoot_ ) {
+        var parentOfAll = {};
+        nodes.forEach(function(n) { if ( n.parent ) parentOfAll[n.name] = n.parent; });
+        var rep = function(name) {
+          var top = name;
+          for ( var p = parentOfAll[name] ; p ; p = parentOfAll[p] ) {
+            if ( ! self.expanded_[p] ) top = p;
+          }
+          return top;
+        };
+        nodes = nodes.filter(function(n) { return rep(n.name) === n.name; });
+        edges = edges
+          .map(function(e) { return Object.assign({}, e, { source: rep(e.source), target: rep(e.target) }); })
+          .filter(function(e) { return e.source !== e.target; });
+      }
       this.nodes_ = nodes;
 
       var sig = JSON.stringify({
         f: this.focusRoot_,
+        x: Object.keys(this.expanded_).sort(),
         n: nodes.map(function(n) { return [ n.name, n.parent, n.cls ]; }),
         e: edges.map(function(e) { return [ e.source, e.target, e.kind ]; })
       });
@@ -862,19 +898,41 @@ foam.CLASS({
             })
           });
           self.wireDrag_(cdrag, n);
+          var cv = self.containerViews_[n.name];
+          cv.onDetach(cv.toggle.sub(function() {
+            var next = Object.assign({}, self.expanded_);
+            delete next[n.name];
+            self.expanded_ = next;
+          }));
         } else {
           var drag = self.nodesLayer_.start(self.Draggable, { pos: self.Position.create() });
           self.decorateNode_(drag, n.name);
           self.draggables_[n.name] = drag;
-          self.nodeViews_[n.name] = drag.start(self.GraphNodeView, {
-            data: n.block,
-            summary_: self.summaryOf(n),
-            kind: self.kindOf(n, false),
-            isSelected$: self.selection_$.map(function(m) { return !! m[n.name]; }),
-            isDependent$: self.softSelected$.map(function(s) {
-              return !! s && s !== n.block && ( s.dependencies || [] ).indexOf(n.name) !== -1;
-            })
+          var isSelected$ = self.selection_$.map(function(m) { return !! m[n.name]; });
+          var isDependent$ = self.softSelected$.map(function(s) {
+            return !! s && s !== n.block && ( s.dependencies || [] ).indexOf(n.name) !== -1;
           });
+          if ( hasChildren[n.name] ) {
+            // A collapsed layout: its own box shape at card size, children hidden.
+            self.containerViews_[n.name] = drag.start(self.GraphContainerView, {
+              data: n.block,
+              collapsed: true,
+              width: self.NODE_W,
+              height: self.COLLAPSED_H,
+              childCount: ( n.block && n.block.flowChildren || [] ).length,
+              isSelected$: isSelected$,
+              isDependent$: isDependent$
+            });
+            self.sizes_[n.name] = [ self.NODE_W, self.COLLAPSED_H ];
+          } else {
+            self.nodeViews_[n.name] = drag.start(self.GraphNodeView, {
+              data: n.block,
+              summary_: self.summaryOf(n),
+              kind: self.kindOf(n),
+              isSelected$: isSelected$,
+              isDependent$: isDependent$
+            });
+          }
           drag.start('circle')
             .addClass(self.myClass('port'))
             .enableClass(self.myClass('port-active'), graphModel.data[n.name].inverseLinks.length > 0)
@@ -886,6 +944,12 @@ foam.CLASS({
             .attrs({ cx: self.NODE_W, cy: self.PORT_Y, r: 5 })
           .end();
           self.wireDrag_(drag, n);
+          if ( hasChildren[n.name] ) {
+            var ccv = self.containerViews_[n.name];
+            ccv.onDetach(ccv.toggle.sub(function() {
+              self.expanded_ = Object.assign({}, self.expanded_, { [n.name]: true });
+            }));
+          }
         }
       });
 
@@ -972,7 +1036,7 @@ foam.CLASS({
     },
     {
       name: 'onGraph',
-      on: [ 'this.propertyChange.graph', 'this.propertyChange.visible', 'this.propertyChange.focusRoot_' ],
+      on: [ 'this.propertyChange.graph', 'this.propertyChange.visible', 'this.propertyChange.focusRoot_', 'this.propertyChange.expanded_' ],
       isMerged: true,
       delay: 250,
       code: function() { this.rebuild(); }
@@ -1134,6 +1198,37 @@ foam.CLASS({
       keyboardShortcuts: [ 'p' ],
       code: function() {
         this.preview = ! this.preview;
+        return true;
+      }
+    },
+    {
+      name: 'expandAll',
+      label: 'Expand all',
+      toolTip: 'Open every layout container',
+      buttonStyle: 'SECONDARY',
+      size: 'SMALL',
+      isAvailable: function(graph, expanded_, focusRoot_) {
+        return ! focusRoot_ && this.containerNames_().some(function(c) { return ! expanded_[c]; });
+      },
+      code: function() {
+        var next = {};
+        this.containerNames_().forEach(function(c) { next[c] = true; });
+        this.expanded_ = next;
+        return true;
+      }
+    },
+    {
+      name: 'collapseAll',
+      label: 'Collapse all',
+      toolTip: 'Close every layout container',
+      buttonStyle: 'SECONDARY',
+      size: 'SMALL',
+      isAvailable: function(graph, expanded_, focusRoot_) {
+        var names = this.containerNames_();
+        return ! focusRoot_ && names.length > 0 && names.every(function(c) { return !! expanded_[c]; });
+      },
+      code: function() {
+        this.expanded_ = {};
         return true;
       }
     },

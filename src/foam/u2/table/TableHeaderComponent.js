@@ -129,29 +129,7 @@ foam.CLASS({
               })
               .add(colHeader)
             .end()
-            .callIf(isFirstLevelProperty && prop.sortable, function() {
-              var currArrow = view.restingIcon;
-              this.on('click', function(e) {
-                view.sortBy(prop);
-              }).
-              callIf(prop.label !== '', function() {
-                this.start()
-                  .start('img')
-                    .style({ 'max-width': 'initial' })
-                    .attr('src', this.slot(function(view$order) {
-                      var order = view$order;
-                      if ( prop === order ) {
-                        currArrow = view.ascIcon;
-                      } else {
-                        if ( view.Desc.isInstance(order) && order.arg1 === prop )
-                        currArrow = view.descIcon;
-                      }
-                      return currArrow;
-                    }, view.order$))
-                  .end()
-                .end();
-              });
-            })
+            .callIf(isFirstLevelProperty && prop.sortable, this.addSortAffordance_, [self, prop])
         .end()
         .startContext({data: this})
           .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY', themeIcon: 'drag', size: 'SMALL' })
@@ -177,6 +155,36 @@ foam.CLASS({
       // A header can be torn down mid-drag (columns_ rebuild); release
       // everything the drag holds.
       this.onDetach(function() { self.endDrag_(); });
+    },
+
+    // Called with `this` bound to the element it builds into
+    // (foam.lang.Fluent.call/callIf), so the header component arrives as
+    // the `self` argument.
+    function addSortAffordance_(self, prop) {
+      // `this`: the header's inner flex row - label and arrow together are
+      // the click target.
+      var view = self.data;
+      var currArrow = view.restingIcon;
+      this.on('click', function(e) {
+        view.sortBy(prop);
+      }).
+      callIf(prop.label !== '', function() {
+        this.start()
+          .start('img')
+            .style({ 'max-width': 'initial' })
+            .attr('src', this.slot(function(view$order) {
+              var order = view$order;
+              if ( prop === order ) {
+                currArrow = view.ascIcon;
+              } else {
+                if ( view.Desc.isInstance(order) && order.arg1 === prop )
+                currArrow = view.descIcon;
+              }
+              return currArrow;
+            }, view.order$))
+          .end()
+        .end();
+      });
     },
 
     function updateDragWidth() {

@@ -115,11 +115,17 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'allowSortReset',
-      value: true,
+      value: false,
       documentation: `Whether a third activation of a sorted column clears the
         sort instead of flipping the direction again. Unsorted is the state
         every table loads in, so without this a user can only return to it by
-        reloading. Set false for a strict ascending/descending toggle.`
+        reloading.
+
+        Off by default: with a single sort column, clearing mostly costs the
+        user an extra activation on the way from descending back to
+        ascending. It earns its keep once a table can sort on several columns
+        at once, where dropping one column from the sort is a real operation
+        and not just a stop on the way round. Set true to opt in.`
     },
     {
       name: 'columns_',

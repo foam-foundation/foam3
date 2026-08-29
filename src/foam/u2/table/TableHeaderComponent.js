@@ -170,11 +170,19 @@ foam.CLASS({
       // '' whenever another column (or nothing) holds the sort, so a column
       // that loses the sort falls back to the resting arrow instead of
       // keeping the direction it was last sorted by.
-      var sortState$ = view.order$.map(function(order) {
+      //
+      // Built with slot() rather than view.order$.map(): both make an
+      // ExpressionSlot subscribed to order$, but slot() also registers it
+      // for detach. order$ belongs to the table, which outlives this header,
+      // so an unregistered subscription would keep the header and its
+      // closures alive for as long as the table lives. The slots derived
+      // from this one below need no such registration - they subscribe to
+      // sortState$, not to anything the table holds.
+      var sortState$ = this.slot(function(order) {
         if ( prop === order ) return 'asc';
         if ( view.Desc.isInstance(order) && order.arg1 === prop ) return 'desc';
         return '';
-      });
+      }, view.order$);
 
       this
         .addClass(view.myClass('sortable'))
@@ -193,7 +201,12 @@ foam.CLASS({
         .on('keydown', function(e) {
           if ( e.key !== 'Enter' && e.key !== ' ' ) return;
           // Space would scroll the table; Enter would re-fire as a click.
+          // Kept ahead of the repeat check so a held Space still cannot
+          // scroll on the repeats it is about to be ignored for.
           e.preventDefault();
+          // A held key auto-repeats keydown and preventDefault does not stop
+          // the repeat, so without this, holding Space re-sorts continuously.
+          if ( e.repeat ) return;
           view.sortBy(prop);
         })
         .callIf(prop.label !== '', function() {

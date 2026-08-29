@@ -122,6 +122,10 @@
     ^sortable {
       cursor: pointer;
       border-radius: 4px;
+      /* Padding keeps the focus ring off the glyphs. The negative side
+         margin gives it back, so a sortable label starts at the same x as a
+         non-sortable one instead of sitting 0.2em further into the column. */
+      margin: 0 -0.2em;
       padding: 0.2em;
     }
 

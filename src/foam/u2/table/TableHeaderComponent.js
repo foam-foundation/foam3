@@ -107,6 +107,10 @@ foam.CLASS({
       var colTooltip = colData.colPath.join( '/' );
       this
         .addClass(view.myClass('th'))
+        // Marks the header cells that host a resize grip. 'th' is shared
+        // with the multi-select and edit-columns cells, which have no grip,
+        // so the grip's own layout must not hang off it.
+        .addClass(view.myClass('resizableTh'))
         .on('mouseenter', this.onMouseEnter)
         .on('mouseleave', this.onMouseLeave)
         .addClass(view.myClass('th-' + prop.name))

@@ -116,8 +116,12 @@
 
     /* Anchor for the resize grip, which is taken out of flow below. The
        right padding is the grip's own width, kept clear so the strip never
-       covers the tail of the label and steals its clicks. */
-    ^th {
+       covers the tail of the label and steals its clicks. Scoped to
+       ^resizableTh rather than ^th: the multi-select and edit-columns cells
+       are ^th too, and reserving grip width in a cell that has no grip just
+       narrows it - those two are sized in fixed px, so the 8px comes out of
+       a 42px and a 60px box. */
+    ^resizableTh {
       padding-right: 8px;
       position: relative;
     }
@@ -179,9 +183,9 @@
        and ^th clips with an ellipsis, so that width came straight out of
        the label. Absolute costs the column nothing and puts the grip on the
        boundary it actually drags, rather than sticking it to the right of
-       the viewport. Qualified with ^th so it outranks Button's own
+       the viewport. Qualified with ^resizableTh so it outranks Button's own
        ^iconOnly^small padding whichever stylesheet installs first. */
-    ^th ^resizeButton.foam-u2-ActionView {
+    ^resizableTh ^resizeButton.foam-u2-ActionView {
       border: none;
       bottom: 0;
       padding: 0;
@@ -194,7 +198,9 @@
 
     /* The strip is 8px wide because a 2px pointer target is not reliably
        hittable; the line drawn inside it is 2px so it reads as a column
-       divider. The col-resize cursor is the affordance, so no icon. */
+       divider once revealed - it inherits the button's opacity, so like the
+       rest of the grip it only shows on hover or keyboard focus. The
+       col-resize cursor is the affordance, so no icon. */
     ^resizeButton.foam-u2-ActionView::after {
       background: $borderDefault;
       bottom: 25%;

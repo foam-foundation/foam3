@@ -13,9 +13,10 @@ foam.CLASS({
     A fast JSON parser for journal replay that uses Jackson to tokenize
     the JSON and FOAM PropertyInfo.set()/cast() to populate FObjects.
 
-    Handles all property types: simple scalars, Enum (ordinal), Reference (id),
-    nested FObjects (recursive), FObjectArrays, and arrays. The JSON form in
-    journals is standard enough for Jackson with ALLOW_UNQUOTED_FIELD_NAMES.
+    Handles scalars, Enum (ordinal), Reference (id), class references, arrays,
+    and nested FObjects with a Java class. Returns null (never a partial object)
+    for anything else: triple-quoted or backtick strings, JS-only classes,
+    values a setter rejects. Every null carries its reason in lastError.
 
     Benchmark reference only: gives the replay benchmark a ceiling to compare
     the FOAM combinator parser against. Not wired into any replay path.
@@ -42,6 +43,7 @@ foam.CLASS({
     static {
       MAPPER.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
       MAPPER.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+      MAPPER.configure(JsonParser.Feature.ALLOW_TRAILING_COMMA, true);
     }
 
     /**
@@ -67,6 +69,9 @@ foam.CLASS({
      * Resolves the class from the "class" key in the map, or uses defaultCI.
      * Nested FObjects and arrays are handled recursively.
      */
+    /** Thread-local reason for the last null from mapToFObject; surfaced through lastError. */
+    private static final ThreadLocal<String> WHY = new ThreadLocal<>();
+
     public static FObject mapToFObject(Map<String, Object> map, ClassInfo defaultCI) {
       try {
         // Resolve class — check for explicit "class" key first
@@ -76,13 +81,17 @@ foam.CLASS({
           try {
             ci = (ClassInfo) Class.forName((String) className).getMethod("getOwnClassInfo").invoke(null);
           } catch (Exception e) {
-            // Class not found — return null so caller falls back to FOAM parser
+            WHY.set("no Java class for " + className + ": " + e.getClass().getSimpleName());
             return null;
           }
         }
-        if ( ci == null ) return null;
+        if ( ci == null ) { WHY.set("nested object without class key"); return null; }
 
         FObject obj = (FObject) ci.newInstance();
+        // FOAM's FObjectParser creates every object in the parser context
+        // (FObjectParser.java:124-125); factories that read getX() need the same.
+        foam.lang.X x = foam.lang.XLocator.get();
+        if ( x != null ) obj.setX(x);
         HashMap<String, PropertyInfo> propMap = buildPropertyMap(ci);
 
         for ( Map.Entry<String, Object> entry : map.entrySet() ) {
@@ -94,6 +103,15 @@ foam.CLASS({
 
           Object val = entry.getValue();
           if ( val == null ) continue;
+
+          // A class reference is written as a plain string ("of":"foam.core.ticket.Ticket");
+          // FOAM's ClassReferenceParser resolves it to a ClassInfo, so do the same.
+          if ( val instanceof String && pi.getValueClass() == ClassInfo.class ) {
+            ClassInfo ref = foam.lang.XLocator.get().getClassInfo((String) val);
+            if ( ref == null ) { WHY.set("unresolved class reference " + val + " for " + key); return null; }
+            pi.set(obj, ref);
+            continue;
+          }
 
           try {
             if ( val instanceof Map ) {
@@ -134,17 +152,33 @@ foam.CLASS({
               }
             }
           } catch (Exception e) {
-            // Skip properties that fail — matches FOAM parser behavior
+            // A value the setter rejects means this parser does not understand the
+            // entry. Fail closed so the caller falls back, never return a partial object.
+            WHY.set("setter rejected " + ci.getId() + "." + key + "=" + val + ": " + e);
+            return null;
           }
         }
         return obj;
       } catch (Exception e) {
+        WHY.set("mapToFObject: " + e);
         return null;
       }
     }
   `,
 
   properties: [
+    {
+      class: 'String',
+      name: 'lastError',
+      transient: true,
+      documentation: 'Why the last parseString returned null (nested bail, unresolved class, rejected value, Jackson syntax error).'
+    },
+    {
+      class: 'Boolean',
+      name: 'bailOnNested',
+      value: true,
+      documentation: 'Return null for any entry with a nested object or object array, leaving it to the FOAM parser. Off lets mapToFObject resolve nested classes itself.'
+    },
     {
       class: 'Object',
       name: 'targetClassInfo',
@@ -160,89 +194,40 @@ foam.CLASS({
 
   methods: [
     {
-      name: 'normalizeString',
-      documentation: 'Normalize FOAM-specific string delimiters to standard JSON. Handles triple-quoted strings and backtick template literals.',
-      type: 'String',
-      args: 'String data',
-      javaCode: `
-        // Fast path: most entries have no special delimiters
-        if ( data.indexOf('\\u0060') < 0 && data.indexOf("\\"\\"\\"\\"") < 0 ) return data;
-
-        StringBuilder sb = new StringBuilder(data.length());
-        int i = 0;
-        int len = data.length();
-        while ( i < len ) {
-          // Check for triple-quoted string: """..."""
-          if ( i + 2 < len && data.charAt(i) == '"' && data.charAt(i+1) == '"' && data.charAt(i+2) == '"' ) {
-            int end = data.indexOf("\\"\\"\\"\\"", i + 3);
-            if ( end < 0 ) { sb.append(data, i, len); break; }
-            String content = data.substring(i + 3, end);
-            // Escape for JSON: replace newlines, tabs, backslashes, internal quotes
-            sb.append('"');
-            for ( int j = 0 ; j < content.length() ; j++ ) {
-              char c = content.charAt(j);
-              switch ( c ) {
-                case '\\n': sb.append("\\\\n"); break;
-                case '\\r': sb.append("\\\\r"); break;
-                case '\\t': sb.append("\\\\t"); break;
-                case '"':  sb.append("\\\\\\"\\""); break;
-                case '\\\\': sb.append("\\\\\\\\"); break;
-                default:   sb.append(c);
-              }
-            }
-            sb.append('"');
-            i = end + 3;
-            continue;
-          }
-          // Check for backtick template literal
-          if ( data.charAt(i) == '\\u0060' ) {
-            int end = data.indexOf('\\u0060', i + 1);
-            if ( end < 0 ) { sb.append(data, i, len); break; }
-            String content = data.substring(i + 1, end);
-            sb.append('"');
-            for ( int j = 0 ; j < content.length() ; j++ ) {
-              char c = content.charAt(j);
-              switch ( c ) {
-                case '\\n': sb.append("\\\\n"); break;
-                case '\\r': sb.append("\\\\r"); break;
-                case '\\t': sb.append("\\\\t"); break;
-                case '"':  sb.append("\\\\\\"\\""); break;
-                case '\\\\': sb.append("\\\\\\\\"); break;
-                default:   sb.append(c);
-              }
-            }
-            sb.append('"');
-            i = end + 1;
-            continue;
-          }
-          sb.append(data.charAt(i));
-          i++;
-        }
-        return sb.toString();
-      `
-    },
-    {
       name: 'parseString',
       type: 'FObject',
       args: 'String data',
       javaCode: `
+        setLastError("");
+        WHY.remove();
+        // Triple-quoted and backtick strings are FOAM string grammar with their own
+        // escape rules (foam.lib.json.StringParser); translating them to JSON is not
+        // equivalent, so refuse the entry and let the FOAM parser handle it.
+        if ( data.indexOf('\u0060') >= 0 || data.indexOf("\\"\\"\\"") >= 0 ) {
+          setLastError("FOAM string grammar (triple-quote or backtick)");
+          return null;
+        }
         try {
-          data = normalizeString(data);
           Map<String, Object> map = MAPPER.readValue(data, Map.class);
 
           // If any value is a nested Map or List-of-Maps, bail out —
           // FOAM's class resolution + context injection is needed for
           // nested FObjects and FObjectArrays.
-          for ( Object val : map.values() ) {
-            if ( val instanceof Map ) return null;
-            if ( val instanceof List ) {
-              List l = (List) val;
-              if ( ! l.isEmpty() && l.get(0) instanceof Map ) return null;
+          if ( getBailOnNested() ) {
+            for ( Object val : map.values() ) {
+              if ( val instanceof Map ) { setLastError("nested object (bailOnNested)"); return null; }
+              if ( val instanceof List ) {
+                List l = (List) val;
+                if ( ! l.isEmpty() && l.get(0) instanceof Map ) { setLastError("nested object array (bailOnNested)"); return null; }
+              }
             }
           }
 
-          return mapToFObject(map, getTargetClassInfo());
+          FObject result = mapToFObject(map, getTargetClassInfo());
+          if ( result == null ) setLastError(WHY.get() == null ? "mapToFObject returned null" : WHY.get());
+          return result;
         } catch (Exception e) {
+          setLastError("Jackson: " + e.getMessage());
           return null;
         }
       `

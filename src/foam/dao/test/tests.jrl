@@ -46,3 +46,7 @@ p({
   id:"ReplayShapeBenchmark",
   description:"Model-shape matrix for journal-entry parse cost: per property type and per value shape"
 })
+p({
+  class:"foam.dao.test.JacksonFallbackSurveyTest",
+  id:"JacksonFallbackSurveyTest"
+})

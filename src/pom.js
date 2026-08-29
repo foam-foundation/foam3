@@ -1188,6 +1188,7 @@ foam.POM({
     { name: "foam/dao/test/ReplayNestedModel",                        flags: "js&test|java&test" },
     { name: "foam/dao/test/ReplayJournalGenerator",                   flags: "js&test|java&test" },
     { name: "foam/dao/test/ReplayShapeBenchmark",                     flags: "js&test|java&test" },
+    { name: "foam/dao/test/JacksonFallbackSurveyTest",               flags: "js&test|java&test" },
     { name: "foam/dao/test/MDAOIndexDedupTest",                       flags: "js&test|java&test" },
     { name: "foam/lib/ExternalPropertyPredicate",                     flags: "js|java" },
     { name: "foam/lib/StorageTransientPropertyPredicate",             flags: "js|java" },

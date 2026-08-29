@@ -54,6 +54,12 @@ public class StringParser
     new Seq1(1, Literal.create(Character.toString(ESCAPE)), AnyChar.instance())
   );
 
+  /**
+   * Benchmark knob: intern parsed string values (default on, the production
+   * behaviour). Off via -Dfoam.json.noIntern=true or by flipping the field.
+   */
+  public static volatile boolean INTERN = ! Boolean.getBoolean("foam.json.noIntern");
+
   public StringParser() {
   }
 
@@ -74,7 +80,8 @@ public class StringParser
     if ( escIdx >= 0 && escIdx < closeIdx ) return null;
 
     // No escapes — bulk extract the string
-    String value = str.substring(pos, closeIdx).intern();
+    String value = str.substring(pos, closeIdx);
+    if ( INTERN ) value = value.intern();
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -131,6 +138,7 @@ public class StringParser
       ps = ps.tail();
     }
 
-    return ps.setValue(sb.toString().intern());
+    String value = sb.toString();
+    return ps.setValue(INTERN ? value.intern() : value);
   }
 }

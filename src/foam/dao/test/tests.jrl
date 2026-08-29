@@ -32,3 +32,17 @@ p({
   id:"MDAOIndexDedupTest",
   description:"An index covered by an existing one must not be added"
 })
+p({
+  class:"foam.dao.test.JournalReplayBenchmark",
+  id:"JournalReplayBenchmark",
+  description:"Journal replay re-baseline: FOAM parser vs Jackson ceiling vs production F3FileJournal.replay"
+})
+p({
+  class:"foam.dao.test.JacksonParserCorrectnessTest",
+  id:"JacksonParserCorrectnessTest"
+})
+p({
+  class:"foam.dao.test.ReplayShapeBenchmark",
+  id:"ReplayShapeBenchmark",
+  description:"Model-shape matrix for journal-entry parse cost: per property type and per value shape"
+})

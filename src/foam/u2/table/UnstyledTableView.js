@@ -334,12 +334,14 @@ foam.CLASS({
   methods: [
     function sortBy(column) {
       var isNewOrderDesc = this.order === column;
+      var cleared        = false;
       // ascending -> descending -> unsorted (when allowed) -> ascending.
       if ( isNewOrderDesc ) {
         this.order = this.DESC(column);
       } else if ( this.allowSortReset && this.Desc.isInstance(this.order) &&
                   this.order.arg1 === column ) {
         this.clearProperty('order');
+        cleared = true;
       } else {
         this.order = column;
       }
@@ -349,7 +351,13 @@ foam.CLASS({
 
       var columns = this.memento.head.split(',');
       var mementoColumn = columns.find(c => this.returnMementoColumnNameDisregardSorting(c) === column.name)
-      var orderChar = isNewOrderDesc ? this.DESCENDING_ORDER_CHAR : this.ASCENDING_ORDER_CHAR;
+      // No marker at all when the sort was cleared: the two chars are the
+      // only thing shouldColumnBeSorted() looks at, so a bare column name is
+      // how the memento says 'present, not sorted'. Without the `cleared`
+      // check the third activation would fall through to the ascending
+      // marker, and the URL would claim a sort the table no longer has.
+      var orderChar = cleared ? '' :
+        isNewOrderDesc ? this.DESCENDING_ORDER_CHAR : this.ASCENDING_ORDER_CHAR;
       if ( ! mementoColumn ) {
         columns.push(column.name + orderChar);
       } else {

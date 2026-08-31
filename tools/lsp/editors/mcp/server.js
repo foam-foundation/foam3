@@ -748,10 +748,11 @@ function main() {
           instructions:
             'foam_* tools answer FOAM structure questions from the live registry: ' +
             'hierarchy (subclasses/implementors), definitions (even when filename != ' +
-            'class name), substring symbol search, hover docs/types. Blind spots — ' +
-            'grep instead for: .jrl string references, javaImports/javaCode usages, ' +
-            'property-usage sweeps, refined property types, exact member call-site ' +
-            'lines. Name-addressable: symbol: "DetailView", a class id, or ' +
+            'class name), substring symbol search, hover docs/types, javaCode usages, ' +
+            'member call-site lines. Blind spots — ' +
+            'grep instead for: .jrl string references, ' +
+            'property-usage sweeps, refined property types. ' +
+            'Name-addressable: symbol: "DetailView", a class id, or ' +
             '"Class.member". First call boots the LSP (~10-15s). Index reflects the ' +
             'checkout, not uncommitted edits — read changed files directly.'
         });

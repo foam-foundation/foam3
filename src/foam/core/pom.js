@@ -38,7 +38,8 @@ foam.POM({
     { name: "bench/pom",                               flags: "test" },
     { name: "test/pom",                                flags: "test" },
     { name: "theme/pom" },
-    { name: "partition/pom" }
+    { name: "partition/pom" },
+    { name: "license/pom" }
   ],
   files: [
     { name: "client/ClientBuilder",                                                       flags: "js" },

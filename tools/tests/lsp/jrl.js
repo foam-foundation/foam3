@@ -1053,5 +1053,162 @@ if ( require('fs').existsSync(realJrlPath) ) {
   }
 }
 
+// === jrl usage index — fixture files (issue #5264, Tier 1) ===
+//
+// buildJrlUsageIndex_ takes an explicit file list here so fixtures carry
+// no workspace assumptions; invalidate afterwards so later tests see the
+// real workspace index, not the fixture one.
+
+section('jrl usage index — fixture files (issue #5264)');
+
+try {
+  var jOs     = require('os');
+  var jTmpJrl = path.join(jOs.tmpdir(), 'foam-lsp-jrl-fixture-' + process.pid + '.jrl');
+  fs.writeFileSync(jTmpJrl,
+    'p({"class":"foam.core.boot.CSpec","id":"fixtureSvc",\n' +      // line 0
+    '  "serviceScript":"""\n' +                                      // line 1
+    '    return new foam.dao.ArraySink();\n' +                       // line 2
+    '  """})\n' +                                                    // line 3
+    '// p({"class":"foam.core.boot.CSpec","id":"commented"})\n' +    // line 4
+    'p({"class":"no.such.Klass","id":"junk"})\n');                   // line 5
+
+  index.buildJrlUsageIndex_([ jTmpJrl ]);
+
+  var jCspec = index.getJrlUsages('foam.core.boot.CSpec');
+  // T1a: "class":"…" value indexed with exact position.
+  test(jCspec.some(function(r) { return r.file === jTmpJrl && r.line === 0 && r.kind === 'usage-jrl'; }),
+    'fixture: "class":"foam.core.boot.CSpec" indexed at line 0');
+  test(! jCspec.some(function(r) { return r.file === jTmpJrl && r.line === 4; }),
+    'fixture: // comment line not indexed');
+
+  // T1b: class id inside a serviceScript body indexed (embedded-block path).
+  test(index.getJrlUsages('foam.dao.ArraySink').some(function(r) { return r.file === jTmpJrl && r.line === 2; }),
+    'fixture: serviceScript-embedded foam.dao.ArraySink indexed at its line');
+
+  // T1c: unregistered id never indexed (registry-verified).
+  test(index.getJrlUsages('no.such.Klass').length === 0,
+    'fixture: unregistered class id not indexed');
+
+  // Targeted invalidation: a .jrl save drops ONLY the jrl usage index —
+  // no class was re-registered, so the class-keyed indexes stay warm.
+  var jPrevUsage = index.usageIndex_;
+  index.usageIndex_ = { sentinel: true };
+  index.invalidateJrlUsageIndex();
+  test(index.jrlUsageIndex_ === null,
+    'invalidateJrlUsageIndex: jrl usage index dropped (rebuilds on next query)');
+  test(index.usageIndex_ && index.usageIndex_.sentinel === true,
+    'invalidateJrlUsageIndex: class-keyed usage index untouched');
+
+  // A services.jrl save additionally drops the string-usage index (its
+  // CSpec entries are read from services.jrl); any other journal keeps it.
+  var jPrevString = index.stringUsageIndex_;
+  index.stringUsageIndex_ = { sentinel: true };
+  index.invalidateJrlUsageIndex('/ws/journals/other.jrl');
+  test(index.stringUsageIndex_ && index.stringUsageIndex_.sentinel === true,
+    'invalidateJrlUsageIndex: non-services journal keeps string-usage index');
+  index.invalidateJrlUsageIndex('file:///ws/src/services.jrl');
+  test(index.stringUsageIndex_ === null,
+    'invalidateJrlUsageIndex: services.jrl save drops string-usage index');
+  index.stringUsageIndex_ = jPrevString;
+  index.usageIndex_ = jPrevUsage;
+
+  fs.unlinkSync(jTmpJrl);
+  index.invalidateSymbolIndex_();
+} catch (err) {
+  test(false, 'jrl fixture index threw: ' + err.message);
+}
+
+
+// === jrl file walk — symlink handling ===
+//
+// The walk dedupes by realpath: a `self -> .` cycle terminates, while a
+// journal reachable ONLY through a directory symlink is still indexed.
+
+section('jrl file walk — symlink handling');
+
+try {
+  var wOs   = require('os');
+  var wRoot = fs.mkdtempSync(path.join(wOs.tmpdir(), 'foam-lsp-walk-'));
+  fs.mkdirSync(path.join(wRoot, 'plain'));
+  fs.writeFileSync(path.join(wRoot, 'plain', 'a.jrl'), 'p({"class":"x"})\n');
+  // A journal reachable only via symlink: dot-dirs are skipped by the walk,
+  // so `.store` is invisible except through the `linked` symlink.
+  fs.mkdirSync(path.join(wRoot, '.store'));
+  fs.writeFileSync(path.join(wRoot, '.store', 'b.jrl'), 'p({"class":"y"})\n');
+  fs.symlinkSync(path.join(wRoot, '.store'), path.join(wRoot, 'linked'), 'dir');
+  // foam3-style self-cycle.
+  fs.symlinkSync('.', path.join(wRoot, 'self'), 'dir');
+  // A broken symlink is skipped, not a crash.
+  fs.symlinkSync(path.join(wRoot, 'gone'), path.join(wRoot, 'broken'), 'dir');
+  // A journal reachable both directly and through a directory symlink —
+  // must report one row at the canonical (resolved) path regardless of
+  // readdir order.
+  fs.mkdirSync(path.join(wRoot, 'intree'));
+  fs.writeFileSync(path.join(wRoot, 'intree', 'c.jrl'), 'p({"class":"z"})\n');
+  fs.symlinkSync(path.join(wRoot, 'intree'), path.join(wRoot, 'dup_link'), 'dir');
+
+  var wPrev = process.cwd();
+  var wFiles;
+  try {
+    process.chdir(wRoot);
+    wFiles = index.findWorkspaceJrlFiles_();
+  } finally {
+    process.chdir(wPrev);
+  }
+
+  // The walk returns resolved paths; the fixture root itself may sit
+  // behind a symlink (macOS /tmp), so compare against its realpath.
+  var wRealRoot = fs.realpathSync(wRoot);
+
+  test(wFiles.filter(function(f) { return f.indexOf('a.jrl') !== -1; }).length === 1,
+    'walk: plain journal indexed exactly once despite the self -> . cycle');
+  test(wFiles.some(function(f) { return f.indexOf('b.jrl') !== -1; }),
+    'walk: journal reachable only through a directory symlink is indexed');
+  var wDup = wFiles.filter(function(f) { return f.indexOf('c.jrl') !== -1; });
+  test(wDup.length === 1 && wDup[0] === path.join(wRealRoot, 'intree', 'c.jrl'),
+    'walk: dual-reachable journal reported once, at the canonical path');
+  test(wFiles.length === 3,
+    'walk: cycle + broken symlink add nothing (3 journals total)');
+
+  fs.rmSync(wRoot, { recursive: true, force: true });
+} catch (err) {
+  test(false, 'jrl walk symlink test threw: ' + err.message);
+}
+
+
+// === jrl references — real workspace acceptance (issue #5264, Tier 2) ===
+
+section('jrl references — real workspace acceptance (issue #5264)');
+
+try {
+  // T2a: index level — CSpec rows include services.jrl (issue names
+  // foam3/src/services.jrl; assert file, not a pinned line — the file churns).
+  var realCspec = index.getJrlUsages('foam.core.boot.CSpec');
+  test(realCspec.some(function(r) { return r.file.indexOf('services.jrl') !== -1; }),
+    'issue #5264 repro: CSpec jrl rows include a services.jrl');
+
+  // T2b: handler level — .jrl locations in the references output.
+  var jrlRefHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var cspecLocs = jrlRefHandler.referencesForClassId('foam.core.boot.CSpec');
+  test(cspecLocs.some(function(l) { return l.uri.indexOf('services.jrl') !== -1; }),
+    'referencesForClassId(CSpec): includes services.jrl locations');
+
+  // T2c: a serviceScript-only class stops reading as dead.
+  // PROVENANCE: foam.core.geocode.GoogleMapsAddressParser chosen because its
+  // only occurrence outside its own definition is src/services.jrl:284
+  // (`return new foam.core.geocode.GoogleMapsAddressParser.Builder(x).build();`).
+  // Grep evidence 2026-08-23:
+  //   grep -rln "GoogleMapsAddressParser" src/foam --include="*.js"
+  //     → src/foam/core/pom.js (registration) + its own model file, nothing else
+  //   grep -n "GoogleMapsAddressParser" src/services.jrl → line 284 only.
+  var deadLocs = jrlRefHandler.referencesForClassId('foam.core.geocode.GoogleMapsAddressParser');
+  test(deadLocs.some(function(l) { return l.uri.indexOf('.jrl') !== -1; }),
+    'serviceScript-only class has journal references (was: No results)');
+} catch (err) {
+  test(false, 'jrl references acceptance threw: ' + err.message);
+}
+
 // === SAVE → TARGETED REANALYZE ===
 

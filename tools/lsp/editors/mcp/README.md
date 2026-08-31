@@ -44,7 +44,7 @@ positions 0-based) rather than raw LSP JSON.
 |---|---|---|
 | `foam_hover` | `symbol` \| `uri`+`line`+`character` | Class docs, property types, method signatures, short-name resolution |
 | `foam_definition` | `symbol` \| `uri`+`line`+`character` | Source location for classes in `extends:`, `requires:`, `of:`, property types |
-| `foam_references` | `symbol` \| `uri`+`line`+`character` | Subclasses, interface implementors, and JS/Java/string usages |
+| `foam_references` | `symbol` \| `uri`+`line`+`character` | Subclasses, interface implementors, and JS/Java/string/journal (.jrl) usages |
 | `foam_implementation` | `symbol` \| `uri`+`line`+`character` | Concrete implementors of an interface (or direct subclasses) |
 | `foam_type_definition` | `symbol` \| `uri`+`line`+`character` | For a property usage, the property's type class |
 | `foam_type_hierarchy` | `symbol` \| position, `direction` (`subtypes`/`supertypes`/`both`) | Supertypes (extends chain) and/or subtypes (subclasses + implementors) |

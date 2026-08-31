@@ -1186,6 +1186,7 @@ foam.POM({
     { name: "foam/lib/json/UnknownFObjectArray",                      flags: "js|java" },
     { name: "foam/lib/json/test/FObjectParserJavaTest",               flags: "js&test|java&test" },
     { name: "foam/lib/json/test/ParserOptimizationTest",              flags: "js&test|java&test" },
+    { name: "foam/lib/json/test/JSONDateParserTest",                 flags: "js&test|java&test" },
     { name: "foam/lib/xml/OutputXML",                                 flags: "js|java" },
     { name: "foam/lib/query/TestModel",                               flags: "js&test|java&test" },
     { name: "foam/dao/FreezingDAO",                                   flags: "js|java" },

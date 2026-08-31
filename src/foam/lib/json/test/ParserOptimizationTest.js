@@ -28,8 +28,7 @@ foam.CLASS({
     'foam.lib.parse.Parser',
     'foam.lib.parse.ParserContext',
     'foam.lib.parse.ParserContextImpl',
-    'foam.lib.parse.StringPStream',
-    'foam.lib.json.DateParser'
+    'foam.lib.parse.StringPStream'
   ],
 
   methods: [
@@ -38,7 +37,6 @@ foam.CLASS({
       javaCode: `
         testDoubleParser(x);
         testStringParser(x);
-        testDateFractions(x);
         testJsonRoundtrip(x);
       `
     },
@@ -160,42 +158,6 @@ foam.CLASS({
       `
     },
     {
-      name: 'testDateFractions',
-      args: 'foam.lang.X x',
-      javaCode: `
-        // ISO 8601 allows any number of fraction-of-a-second digits and journals
-        // in the wild carry one ("...T23:12:00.0Z"). DateParser accepts 1-9
-        // digits scaled to milliseconds, truncating past the third
-        // (java.util.Date has no sub-millisecond precision). Exactly three
-        // digits parse bit-for-bit as before.
-        long base = java.time.Instant.parse("1982-07-07T23:12:00Z").toEpochMilli();
-
-        java.util.Date d = parseDate(x, "\\"1982-07-07T23:12:00.0Z\\"");
-        test(d != null && d.getTime() == base, "DateParser: '.0' is zero milliseconds");
-        d = parseDate(x, "\\"1982-07-07T23:12:00.5Z\\"");
-        test(d != null && d.getTime() == base + 500, "DateParser: '.5' is 500 ms, not 5");
-        d = parseDate(x, "\\"1982-07-07T23:12:00.05Z\\"");
-        test(d != null && d.getTime() == base + 50, "DateParser: '.05' is 50 ms");
-        d = parseDate(x, "\\"1982-07-07T23:12:00.123Z\\"");
-        test(d != null && d.getTime() == base + 123, "DateParser: '.123' is 123 ms as before");
-        d = parseDate(x, "\\"1982-07-07T23:12:00.012Z\\"");
-        test(d != null && d.getTime() == base + 12, "DateParser: '.012' is 12 ms as before");
-        d = parseDate(x, "\\"1982-07-07T23:12:00.123456Z\\"");
-        test(d != null && d.getTime() == base + 123, "DateParser: '.123456' truncates to 123 ms");
-        d = parseDate(x, "\\"1982-07-07T23:12:00.999999999Z\\"");
-        test(d != null && d.getTime() == base + 999, "DateParser: nine digits truncate to 999 ms");
-        d = parseDate(x, "\\"1982-07-07T23:12:00Z\\"");
-        test(d != null && d.getTime() == base, "DateParser: no fraction still parses");
-
-        test(parseDate(x, "\\"1982-07-07T23:12:00.Z\\"") == null, "DateParser: a bare '.' with no digits does not parse");
-        test(parseDate(x, "\\"1982-07-07T23:12:00.0123456789Z\\"") == null, "DateParser: ten fraction digits do not parse");
-
-        long base2 = java.time.Instant.parse("2024-01-01T10:00:00Z").toEpochMilli();
-        d = parseDate(x, "2024-01-01 10:00:00.5");
-        test(d != null && d.getTime() == base2 + 500, "DateParser: space-separated datetime '.5' is 500 ms");
-      `
-    },
-    {
       name: 'testJsonRoundtrip',
       args: 'foam.lang.X x',
       javaCode: `
@@ -265,18 +227,6 @@ foam.CLASS({
         FObject c2 = p.parseString("{class:\\""+klass+"\\",id: // after colon\\n\\"cn\\",source:\\"S2\\"}");
         test(c2 != null && "cn".equals(((foam.core.test.Test) c2).getId()) && "S2".equals(((foam.core.test.Test) c2).getSource()),
           "JSON roundtrip: // comment between ':' and the value");
-      `
-    },
-    {
-      name: 'parseDate',
-      type: 'java.util.Date',
-      args: 'foam.lang.X x, String input',
-      javaCode: `
-        StringPStream ps = new StringPStream(input);
-        ParserContext ctx = new ParserContextImpl();
-        ctx.set("X", x);
-        PStream out = DateParser.instance().parse(ps, ctx);
-        return out == null ? null : (java.util.Date) out.value();
       `
     },
     {

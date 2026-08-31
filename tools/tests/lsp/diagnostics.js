@@ -185,6 +185,26 @@ test(unusedWarns.some(function(d) { return d.message.indexOf("'^bar'") !== -1; }
 test(! unusedWarns.some(function(d) { return d.message.indexOf("'^foo'") !== -1; }),
   'Unused ^classname: ^foo (applied via myClass) is NOT flagged');
 
+// === issue #5092: pseudo-selector occurrences of an unused class ===
+// Every occurrence of an unused ^name gets its own diagnostic — including
+// ^name:hover / ^name p — not just the first selector it appears in.
+var pseudoSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'PseudoCss',\n" +
+  "  css: `\n    ^used { color: red; }\n    ^used:hover { color: pink; }\n" +
+  "    ^dead { padding: 4px; }\n    ^dead:hover { background: blue; }\n    ^dead p { margin: 0; }\n  `,\n" +
+  "  methods: [\n" +
+  "    function render() { this.addClass(this.myClass('used')); }\n" +
+  "  ]\n})";
+var pseudoDiags = diagWithTokens.handle(pseudoSrc);
+var pseudoWarns = pseudoDiags.filter(function(d) { return /Unused CSS class '\^dead'/.test(d.message); });
+test(pseudoWarns.length === 3,
+  'Unused ^classname #5092: all 3 occurrences of ^dead flagged (base, :hover, descendant)');
+var pseudoLines = pseudoWarns.map(function(d) { return d.range.start.line; }).sort();
+test(pseudoLines.length === 3 && pseudoLines[0] !== pseudoLines[1] && pseudoLines[1] !== pseudoLines[2],
+  'Unused ^classname #5092: diagnostics land on 3 distinct selector lines');
+test(! pseudoDiags.some(function(d) { return /Unused CSS class '\^used'/.test(d.message); }),
+  'Unused ^classname #5092: ^used and ^used:hover NOT flagged (class is applied)');
+
 // Dynamic myClass(var) → suppress unused-class diagnostics entirely
 var dynamicSrc =
   "foam.CLASS({\n  package: 'test',\n  name: 'DynamicMyClass',\n" +

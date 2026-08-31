@@ -866,15 +866,17 @@ foam.CLASS({
       if ( baseOffset === -1 ) return;
 
       // Collect ^name tokens that look like class selectors (letter-start).
+      // Keep EVERY occurrence per name: an unused class is flagged at each
+      // selector it appears in — ^foo, ^foo:hover, ^foo p — not just the
+      // first (issue #5092: pseudo-selector occurrences escaped the warning).
       var defs = {};
       var order = [];
       var declPattern = /\^([a-zA-Z][a-zA-Z0-9_\-]*)/g;
       var dm;
       while ( ( dm = declPattern.exec(cssStr) ) !== null ) {
         var n = dm[1];
-        if ( defs[n] ) continue;
-        defs[n] = { offset: baseOffset + dm.index, len: dm[0].length };
-        order.push(n);
+        if ( ! defs[n] ) { defs[n] = []; order.push(n); }
+        defs[n].push({ offset: baseOffset + dm.index, len: dm[0].length });
       }
       if ( order.length === 0 ) return;
 
@@ -904,8 +906,10 @@ foam.CLASS({
         var name = order[i];
         var re = new RegExp("myClass\\s*\\(\\s*['\"`]" + this.escapeRegex_(name) + "['\"`]\\s*\\)");
         if ( re.test(hay) ) continue;
-        this.addDiag_(diagnostics, text, defs[name].offset, defs[name].len, 2,
-          "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+        for ( var j = 0 ; j < defs[name].length ; j++ ) {
+          this.addDiag_(diagnostics, text, defs[name][j].offset, defs[name][j].len, 2,
+            "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+        }
       }
     },
 

@@ -2418,6 +2418,17 @@ foam.CLASS({
       // Template method, to be implemented in sub-models
     },
 
+    // Hands the view the property it belongs to. A view spec does not know
+    // which property it was declared on, so this is where the view picks up
+    // the property's name, placeholder and width. Called once, right after the
+    // view is built and before render().
+    //
+    // An input applies it to itself. A view that only wraps an input passes it
+    // down to that input instead - see foam.u2.ClearableSearchField.
+    //
+    // When overriding, copy only what the view does not already have, so
+    // anything set in the view spec still wins. foam.u2.TextField is the
+    // example.
     function fromProperty(p) {
       this.attr('name', p.name);
     }

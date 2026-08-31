@@ -115,12 +115,8 @@ foam.CLASS({
 
     private static String dedupLabel(int mode) {
       switch ( mode ) {
-        case 5:  return ", weak interner";
-        case 6:  return ", weak + second-sight";
         case 0:  return ", no dedup";
-        case 2:  return ", StringInterner";
-        case 3:  return ", StringInterner 2-way";
-        case 4:  return ", StringInterner shared";
+        case 1:  return ", String.intern";
         default: return "";
       }
     }
@@ -180,12 +176,12 @@ foam.CLASS({
           if ( only >= 0 ) {
             replayWithF3FileJournal(x, ci, only);
           } else {
-            for ( int mode : new int[] { 1, 0, 5 } ) {
-              foam.util.StringInterner.reset();
+            for ( int mode : new int[] { 2, 1, 0 } ) {
+              foam.util.StringInterner.MAP.clear();
               StringParser.DEDUP = mode;
               replayWithJackson(x, ci, jrlPath);
               replayJacksonAsyncLine(x, ci, jrlPath);
-              StringParser.DEDUP = 1;
+              StringParser.DEDUP = 2;
               replayWithFoam(x, ci, jrlPath, mode);
               replayWithSimpleAsyncLine(x, ci, jrlPath, mode);
               replayWithF3FileJournal(x, ci, mode);
@@ -353,7 +349,7 @@ foam.CLASS({
           }
         }
         log("Warmup done (" + warmed + " entries).");
-        StringParser.DEDUP = 1;
+        StringParser.DEDUP = 2;
       `
     },
     {
@@ -361,7 +357,7 @@ foam.CLASS({
       args: 'Context x, ClassInfo ci, String jrlPath, int dedup',
       javaCode: `
         String label = "FOAM parser, single thread" + dedupLabel(dedup);
-        foam.util.StringInterner.reset();
+        foam.util.StringInterner.MAP.clear();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -440,9 +436,9 @@ foam.CLASS({
         retain_ = null;
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:   %6.0f MB (MDAO + parsed values)", retainedMB));
-        StringParser.DEDUP = 1;
+        StringParser.DEDUP = 2;
 
-        if ( dedup == 1 ) baselineWallSec_ = wallSec;
+        if ( dedup == 2 ) baselineWallSec_ = wallSec;
         record(label, wallSec, retainedMB, peakMB);
         test(count == NUM_ENTRIES, "FOAM replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
@@ -544,7 +540,7 @@ foam.CLASS({
       `,
       javaCode: `
         String label = "FOAM + SimpleAsyncAssemblyLine" + dedupLabel(dedup);
-        foam.util.StringInterner.reset();
+        foam.util.StringInterner.MAP.clear();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -641,7 +637,7 @@ foam.CLASS({
         retain_ = null;
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:         %6.0f MB (MDAO + parsed values)", retainedMB));
-        StringParser.DEDUP = 1;
+        StringParser.DEDUP = 2;
 
         record(label, wallSec, retainedMB, peakMB);
         test(processed == NUM_ENTRIES, "SimpleAsyncAssemblyLine replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");
@@ -764,7 +760,7 @@ foam.CLASS({
       `,
       javaCode: `
         String label = "F3FileJournal.replay (production path)" + dedupLabel(dedup);
-        foam.util.StringInterner.reset();
+        foam.util.StringInterner.MAP.clear();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -801,7 +797,7 @@ foam.CLASS({
         retain_ = null;
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:   %6.0f MB (MDAO + parsed values)", retainedMB));
-        StringParser.DEDUP = 1;
+        StringParser.DEDUP = 2;
 
         record(label, wallSec, retainedMB, peakMB);
         test(processed == NUM_ENTRIES, "F3FileJournal.replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");

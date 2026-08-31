@@ -113,6 +113,17 @@ foam.CLASS({
       }
     }
 
+    /** Drops interner state between variants so each measures from empty. */
+    private static void clearInterner() {
+      try {
+        java.lang.reflect.Field f = foam.util.StringInterner.class.getDeclaredField("MAP");
+        f.setAccessible(true);
+        ((java.util.Map) f.get(null)).clear();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     private static String dedupLabel(int mode) {
       switch ( mode ) {
         case 0:  return ", no dedup";
@@ -177,7 +188,7 @@ foam.CLASS({
             replayWithF3FileJournal(x, ci, only);
           } else {
             for ( int mode : new int[] { 2, 1, 0 } ) {
-              foam.util.StringInterner.MAP.clear();
+              clearInterner();
               StringParser.DEDUP = mode;
               replayWithJackson(x, ci, jrlPath);
               replayJacksonAsyncLine(x, ci, jrlPath);
@@ -357,7 +368,7 @@ foam.CLASS({
       args: 'Context x, ClassInfo ci, String jrlPath, int dedup',
       javaCode: `
         String label = "FOAM parser, single thread" + dedupLabel(dedup);
-        foam.util.StringInterner.MAP.clear();
+        clearInterner();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -540,7 +551,7 @@ foam.CLASS({
       `,
       javaCode: `
         String label = "FOAM + SimpleAsyncAssemblyLine" + dedupLabel(dedup);
-        foam.util.StringInterner.MAP.clear();
+        clearInterner();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -760,7 +771,7 @@ foam.CLASS({
       `,
       javaCode: `
         String label = "F3FileJournal.replay (production path)" + dedupLabel(dedup);
-        foam.util.StringInterner.MAP.clear();
+        clearInterner();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();

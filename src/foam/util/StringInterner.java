@@ -21,8 +21,7 @@ import com.google.common.collect.Interners;
  * A weak interner gives full deduplication — every equal string maps to one
  * canonical instance — while each entry dies with the last reference to its
  * string, so values belonging to an unloaded DAO are released instead of
- * pinned. The length gate skips very long values: they are almost always
- * unique, and hashing them costs O(length) per occurrence.
+ * pinned. Same coverage as intern(): every String value, any length.
  *
  * Unlike intern(), equal strings from different sources are canonical only
  * while an instance stays reachable — never compare strings with ==. For lock
@@ -30,14 +29,11 @@ import com.google.common.collect.Interners;
  */
 public final class StringInterner {
 
-  protected static final int MAX_LENGTH = 128;
-
   protected static final Interner<String> INTERNER = Interners.newWeakInterner();
 
   private StringInterner() {}
 
   public static String intern(String s) {
-    if ( s == null || s.length() > MAX_LENGTH ) return s;
-    return INTERNER.intern(s);
+    return s == null ? null : INTERNER.intern(s);
   }
 }

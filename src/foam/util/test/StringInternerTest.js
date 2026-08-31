@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'StringInternerTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'foam.util.StringInterner: dedup behavior, length gate, collision replacement, and the parser integration that replaced String.intern().',
+  documentation: 'foam.util.StringInterner: dedup behavior at every length, and the parser integration that replaced String.intern().',
 
   javaImports: [
     'foam.util.StringInterner',
@@ -41,11 +41,12 @@ foam.CLASS({
         String v2 = StringInterner.intern(new String("GBP"));
         test(StringInterner.intern(new String("EUR")) == v1 && StringInterner.intern(new String("GBP")) == v2, "values stay canonical, nothing evicted");
 
-        // strings past the length gate pass through untouched
+        // no length gate: a repeated 182-char value dedups like any other
         StringBuilder gb = new StringBuilder();
-        for ( int i = 0 ; i < 13 ; i++ ) gb.append("past-the-gate-");
-        String longStr = gb.toString();
-        test(StringInterner.intern(longStr) == longStr, "strings past the 128-char gate pass through as the same instance");
+        for ( int i = 0 ; i < 13 ; i++ ) gb.append("past-any-gate-");
+        String g1 = StringInterner.intern(new String(gb.toString()));
+        String g2 = StringInterner.intern(new String(gb.toString()));
+        test(g1 == g2, "long strings dedup too — same coverage as String.intern");
 
         // null passes through
         test(StringInterner.intern(null) == null, "null passes through");

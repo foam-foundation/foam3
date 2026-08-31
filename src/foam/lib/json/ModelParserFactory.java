@@ -47,6 +47,94 @@ public class ModelParserFactory {
     }
   };
 
+  /**
+   * Resolves a property key to its value parser.
+   *
+   * On a StringPStream the key's exact span is scanned once (quote-aware,
+   * identifier chars, String-compatible hashing, no allocation) and resolved
+   * with one open-addressed probe — a profile put the previous per-character
+   * PrefixAlt tree walk at ~18% of journal-replay CPU. Other PStreams (error
+   * reporting) keep the PrefixAlt tree, built from the same entries.
+   *
+   * A miss returns null and the caller falls back to UnknownPropertyParser,
+   * so an unknown key behaves exactly as before.
+   */
+  static final class PropertyKeyParser implements Parser {
+    private PrefixAlt tree_    = EmptyPrefixAlt.instance();
+    private String[]  keys_    = new String[8];
+    private Parser[]  parsers_ = new Parser[8];
+    private int       count_, mask_ = 7;
+
+    void add(String name, Parser valueParser) {
+      tree_ = tree_.add(name, valueParser);
+      tree_ = tree_.add('"' + name + '"', valueParser);
+
+      // keep the table at most quarter full so probe chains stay short
+      if ( ( count_ + 1 ) * 4 > keys_.length ) grow();
+      insert(name, valueParser);
+      count_++;
+    }
+
+    void seal() {
+      tree_ = tree_.rebalance();
+    }
+
+    private void grow() {
+      String[] oldKeys    = keys_;
+      Parser[] oldParsers = parsers_;
+      keys_    = new String[oldKeys.length * 2];
+      parsers_ = new Parser[oldKeys.length * 2];
+      mask_    = keys_.length - 1;
+      for ( int i = 0 ; i < oldKeys.length ; i++ ) {
+        if ( oldKeys[i] != null ) insert(oldKeys[i], oldParsers[i]);
+      }
+    }
+
+    private void insert(String name, Parser valueParser) {
+      int slot = name.hashCode() & mask_;
+      while ( keys_[slot] != null ) slot = ( slot + 1 ) & mask_;
+      keys_[slot]    = name;
+      parsers_[slot] = valueParser;
+    }
+
+    public PStream parse(PStream ps, ParserContext x) {
+      if ( ! ( ps instanceof StringPStream ) ) return tree_.parse(ps, x);
+
+      StringPStream sps = (StringPStream) ps;
+      CharSequence  str = sps.getString();
+      int len = str.length();
+      int p0  = sps.pos();
+      if ( p0 >= len ) return null;
+
+      boolean quoted = str.charAt(p0) == '"';
+      int start = quoted ? p0 + 1 : p0;
+
+      // scan the key's span, hashing with String's own formula so the stored
+      // keys' cached hashCode() values compare directly
+      int i = start, h = 0;
+      for ( ; i < len ; i++ ) {
+        char c = str.charAt(i);
+        if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
+        h = h * 31 + c;
+      }
+      int keyLen = i - start;
+      if ( keyLen == 0 ) return null;
+      if ( quoted ) {
+        if ( i >= len || str.charAt(i) != '"' ) return null;
+        i++;
+      }
+
+      for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
+        String k = keys_[slot];
+        if ( k.length() != keyLen || k.hashCode() != h ) continue;
+        int j = 0;
+        while ( j < keyLen && k.charAt(j) == str.charAt(start + j) ) j++;
+        if ( j == keyLen ) return parsers_[slot].parse(sps.createAt(i), x);
+      }
+      return null;
+    }
+  }
+
   public static Parser getInstance(ClassInfo ci) {
     if ( parsers_.containsKey(ci) ) return parsers_.get(ci);
     // Sync is required to avoid building one parser per AssemblyLine thread.
@@ -62,8 +150,7 @@ public class ModelParserFactory {
   public static Parser buildInstance_(ClassInfo info) {
     List      properties = info.getAxiomsByClass(PropertyInfo.class);
     Iterator  iter       = properties.iterator();
-    PrefixAlt alt        = EmptyPrefixAlt.instance();
-    java.util.HashMap<String, Parser> valueParsers = new java.util.HashMap<>();
+    PropertyKeyParser keys = new PropertyKeyParser();
 
     while ( iter.hasNext() ) {
       final PropertyInfo pi = (PropertyInfo) iter.next();
@@ -91,101 +178,25 @@ public class ModelParserFactory {
         }
       };
 
-      valueParsers.put(pi.getName(), valueParser);
-      alt = alt.add(pi.getName(),             valueParser);
-      alt = alt.add('"' + pi.getName() + '"', valueParser);
-
-      if ( pi.getShortName() != null ) {
-        alt = alt.add(pi.getShortName(),             valueParser);
-        alt = alt.add('"' + pi.getShortName() + '"', valueParser);
-      }
+      keys.add(pi.getName(), valueParser);
+      if ( pi.getShortName() != null ) keys.add(pi.getShortName(), valueParser);
     }
 
-    alt = alt.rebalance();
-
-    // Hashed key table: property names (and shortNames) resolve with one hash
-    // probe over the key's exact span instead of a char-by-char walk of the
-    // ternary PrefixAlt tree, which profiled at ~18% of replay CPU. Open
-    // addressing, String-compatible hashing, built once per ClassInfo. The
-    // PrefixAlt stays as the fallback for non-StringPStream inputs (error
-    // reporting) — behavior there is unchanged.
-    int keyCount = 0;
-    iter = properties.iterator();
-    while ( iter.hasNext() ) {
-      PropertyInfo pi = (PropertyInfo) iter.next();
-      if ( pi.jsonParser() == null ) continue;
-      keyCount += pi.getShortName() != null ? 2 : 1;
-    }
-    int tableSize = Integer.highestOneBit(Math.max(4, keyCount) * 4 - 1) << 1;
-    final String[] keys_       = new String[tableSize];
-    final Parser[] keyParsers_ = new Parser[tableSize];
-    final int      mask_       = tableSize - 1;
-
-    iter = properties.iterator();
-    while ( iter.hasNext() ) {
-      PropertyInfo pi = (PropertyInfo) iter.next();
-      Parser vp = valueParsers.get(pi.getName());
-      if ( vp == null ) continue;
-      String[] names = pi.getShortName() != null
-        ? new String[] { pi.getName(), pi.getShortName() }
-        : new String[] { pi.getName() };
-      for ( String name : names ) {
-        int slot = name.hashCode() & mask_;
-        while ( keys_[slot] != null ) slot = ( slot + 1 ) & mask_;
-        keys_[slot]       = name;
-        keyParsers_[slot] = vp;
-      }
-    }
+    keys.seal();
 
     // Inlined property loop: replaces Repeat0(Seq0(SKIP, Alt, SKIP), Literal(','))
     // to eliminate Repeat0 + Seq0 + Literal combinator overhead per property.
-    final PrefixAlt finalAlt = alt;
+    final PropertyKeyParser finalKeys = keys;
     return new Parser() {
       final Parser unknownProperty = UNKNOWN_PROPERTY;
-
-      /** Resolve the key at ps via the hash table; parses key + value or returns null. */
-      private PStream parseKeyed(StringPStream sps, ParserContext x) {
-        CharSequence str = sps.getString();
-        int len   = str.length();
-        int p0    = sps.pos();
-        if ( p0 >= len ) return null;
-
-        boolean quoted = str.charAt(p0) == '"';
-        int start = quoted ? p0 + 1 : p0;
-
-        int i = start, h = 0;
-        for ( ; i < len ; i++ ) {
-          char c = str.charAt(i);
-          if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
-          h = h * 31 + c;
-        }
-        int keyLen = i - start;
-        if ( keyLen == 0 ) return null;
-        if ( quoted ) {
-          if ( i >= len || str.charAt(i) != '"' ) return null;
-          i++;
-        }
-
-        for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
-          String k = keys_[slot];
-          if ( k.length() != keyLen || k.hashCode() != h ) continue;
-          int j = 0;
-          while ( j < keyLen && k.charAt(j) == str.charAt(start + j) ) j++;
-          if ( j == keyLen ) return keyParsers_[slot].parse(sps.createAt(i), x);
-        }
-        return null;
-      }
 
       public PStream parse(PStream ps, ParserContext x) {
         while ( true ) {
           // Skip whitespace and // comments before the property name
           ps = SKIP.parse(ps, x);
 
-          // Resolve the property name: hashed exact-span match on the fast
-          // path, PrefixAlt on other PStreams, then unknown-property fallback
-          PStream result = ps instanceof StringPStream
-            ? parseKeyed((StringPStream) ps, x)
-            : finalAlt.parse(ps, x);
+          // Resolve the property key, then unknown property fallback
+          PStream result = finalKeys.parse(ps, x);
           if ( result == null ) {
             result = unknownProperty.parse(ps, x);
           }

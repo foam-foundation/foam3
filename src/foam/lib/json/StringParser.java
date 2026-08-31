@@ -15,6 +15,7 @@ import foam.lib.parse.Literal;
 import foam.lib.parse.AnyChar;
 import foam.lib.parse.Seq1;
 import java.util.Map;
+import foam.util.StringInterner;
 
 public class StringParser
   implements Parser
@@ -74,7 +75,7 @@ public class StringParser
     if ( escIdx >= 0 && escIdx < closeIdx ) return null;
 
     // No escapes — bulk extract the string
-    String value = str.substring(pos, closeIdx).intern();
+    String value = StringInterner.intern(str.substring(pos, closeIdx));
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -131,6 +132,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    return ps.setValue(sb.toString().intern());
+    return ps.setValue(StringInterner.intern(sb.toString()));
   }
 }

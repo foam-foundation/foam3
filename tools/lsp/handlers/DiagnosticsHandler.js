@@ -173,18 +173,25 @@ foam.CLASS({
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 3,
               "Unknown property type: '" + matched + "'");
           }
-        } else if ( r.msg && r.msg.type === 'columnName' ) {
-          // Cross-reference with the enclosing model's property set.
+        } else if ( r.msg && ( r.msg.type === 'tableColumnName' ||
+                               r.msg.type === 'searchColumnName' ) ) {
+          // Cross-reference with the enclosing model's axioms. tableColumns
+          // entries may also name actions — rendered as row buttons
+          // (foam.u2.table.UnstyledTableView filters getAxiomsByClass(Action)
+          // against tableColumns). searchColumns filters properties only.
           var pos = this.analyzer.offsetToPosition(text, r.startPos);
           var model = this.cache.getModelAt('', text, pos.line);
           if ( ! model ) continue;
           var propSet = this.collectPropNames_(model);
           // Column names can be dot paths ('owner.name') — check first segment
           var baseName = matched.split('.')[0];
-          if ( ! propSet[baseName] ) {
+          var isTable = r.msg.type === 'tableColumnName';
+          if ( ! propSet[baseName] &&
+               ! ( isTable && this.collectActionNames_(model)[baseName] ) ) {
             var classId = this.cache.getClassId(model);
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
-              "Property '" + matched + "' does not exist on " + classId);
+              ( isTable ? "Property or action '" : "Property '" ) + matched +
+                "' does not exist on " + classId);
           }
         }
       }
@@ -261,6 +268,27 @@ foam.CLASS({
       return propNames;
     },
 
+    function collectActionNames_(model) {
+      /** Action-name set for a model: registry actions + own raw actions.
+       *  Mirrors collectPropNames_ — parent fallback covers mid-edit models
+       *  not yet in the registry. */
+      var actionNames = {};
+      var classId = this.cache.getClassId(model);
+      var actions = this.index.getActions(classId);
+      for ( var i = 0 ; i < actions.length ; i++ ) actionNames[actions[i].name] = true;
+      if ( actions.length === 0 && model.extends ) {
+        var parentActions = this.index.getActions(model.extends);
+        for ( var i = 0 ; i < parentActions.length ; i++ ) actionNames[parentActions[i].name] = true;
+      }
+      var ownActions = model.actions || [];
+      for ( var i = 0 ; i < ownActions.length ; i++ ) {
+        var a = ownActions[i];
+        var name = typeof a === 'function' ? a.name : a && a.name;
+        if ( name ) actionNames[name] = true;
+      }
+      return actionNames;
+    },
+
     function toLSPDiagnostics_(diagnostics) {
       /** Flatten Diagnostic instances to LSP protocol shape; pass raws through. */
       if ( ! diagnostics ) return diagnostics;
@@ -317,27 +345,65 @@ foam.CLASS({
        * comments are skipped so commented-out .add() calls aren't flagged.
        *
        * Intentionally NOT matched: .start('tag') (structural, not display text)
-       * and .translate('...') (already on the translation-service path).
+       * and .translate('...') (already on the translation-service path — its
+       * literals sit one nesting level down, so the top-level scan skips them).
        */
       if ( this.isI18nExemptUri_(this.uri_) ) return;       // test/demo/mock files exempt
 
       var skip = this.nonCodeRanges_(text);
-      var re = /\.add\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+      var re = /\.add\(/g;
       var match;
       while ( ( match = re.exec(text) ) !== null ) {
-        var quote = match[1];
-        var content = match[2];
-        if ( quote === '`' && /\$\{/.test(content) ) continue;     // interpolated → dynamic
-        if ( ! this.isUserFacingText_(content) ) continue;
         if ( this.offsetInRanges_(skip, match.index) ) continue;   // comment / Java / string block → skip
         if ( this.isCollectionAddReceiver_(text, match.index) ) continue; // Set/Map .add(), not u2 display
-        var inner = match.index + match[0].indexOf(quote) + 1;       // past the opening quote
-        if ( this.lineHasI18nIgnore_(text, inner) ) continue;        // per-line suppression
-        this.addDiag_(diagnostics, text, inner, content.length, this.Diagnostic.WARNING,
-          'Hardcoded display string "' + content + '" — define it as a messages: entry ' +
-            '(in-body .add() text is not auto-extracted for i18n).',
-          'i18n-hardcoded-display-string');
+        // Every literal at the TOP nesting level of the argument list —
+        // direct (.add('x')), ternary arms, and '+' concatenation pieces all
+        // sit at that level (issue #5135: conditional args escaped the old
+        // literal-must-follow-the-paren regex). Literals inside nested
+        // calls/objects (.create({label:'x'}), .translate('k','v')) don't.
+        var lits = this.addArgLiterals_(text, skip, match.index + match[0].length);
+        for ( var li = 0 ; li < lits.length ; li++ ) {
+          var quote = text[lits[li][0]];
+          var inner = lits[li][0] + 1;                               // past the opening quote
+          var content = text.substring(inner, lits[li][1] - 1);
+          if ( quote === '`' && /\$\{/.test(content) ) continue;     // interpolated → dynamic
+          if ( ! this.isUserFacingText_(content) ) continue;
+          if ( this.lineHasI18nIgnore_(text, inner) ) continue;      // per-line suppression
+          this.addDiag_(diagnostics, text, inner, content.length, this.Diagnostic.WARNING,
+            'Hardcoded display string "' + content + '" — define it as a messages: entry ' +
+              '(in-body .add() text is not auto-extracted for i18n).',
+            'i18n-hardcoded-display-string');
+        }
       }
+    },
+
+    function addArgLiterals_(text, ranges, argStart) {
+      /**
+       * Collect [start,end) spans of the string literals sitting at the top
+       * nesting level of an argument list whose opening '(' immediately
+       * precedes argStart. `ranges` is nonCodeRanges_ output (sorted): its
+       * string entries at depth 1 ARE the literals; comment entries are
+       * jumped over so brackets inside comments don't skew the depth. Stops
+       * at the matching ')' or end of text (unterminated — mid-edit).
+       */
+      var out = [];
+      var depth = 1;
+      var i = argStart, n = text.length, ri = 0;
+      while ( i < n && depth > 0 ) {
+        while ( ri < ranges.length && ranges[ri][1] <= i ) ri++;
+        if ( ri < ranges.length && ranges[ri][0] === i ) {
+          var r = ranges[ri];
+          var q = text[r[0]];
+          if ( depth === 1 && ( q === "'" || q === '"' || q === '`' ) ) out.push(r);
+          i = r[1];
+          continue;
+        }
+        var c = text[i];
+        if ( c === '(' || c === '{' || c === '[' ) depth++;
+        else if ( c === ')' || c === '}' || c === ']' ) depth--;
+        i++;
+      }
+      return out;
     },
 
     function isCollectionAddReceiver_(text, dotOffset) {
@@ -599,15 +665,17 @@ foam.CLASS({
       if ( baseOffset === -1 ) return;
 
       // Collect ^name tokens that look like class selectors (letter-start).
+      // Keep EVERY occurrence per name: an unused class is flagged at each
+      // selector it appears in — ^foo, ^foo:hover, ^foo p — not just the
+      // first (issue #5092: pseudo-selector occurrences escaped the warning).
       var defs = {};
       var order = [];
       var declPattern = /\^([a-zA-Z][a-zA-Z0-9_\-]*)/g;
       var dm;
       while ( ( dm = declPattern.exec(cssStr) ) !== null ) {
         var n = dm[1];
-        if ( defs[n] ) continue;
-        defs[n] = { offset: baseOffset + dm.index, len: dm[0].length };
-        order.push(n);
+        if ( ! defs[n] ) { defs[n] = []; order.push(n); }
+        defs[n].push({ offset: baseOffset + dm.index, len: dm[0].length });
       }
       if ( order.length === 0 ) return;
 
@@ -637,8 +705,10 @@ foam.CLASS({
         var name = order[i];
         var re = new RegExp("myClass\\s*\\(\\s*['\"`]" + this.escapeRegex_(name) + "['\"`]\\s*\\)");
         if ( re.test(hay) ) continue;
-        this.addDiag_(diagnostics, text, defs[name].offset, defs[name].len, 2,
-          "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+        for ( var j = 0 ; j < defs[name].length ; j++ ) {
+          this.addDiag_(diagnostics, text, defs[name][j].offset, defs[name][j].len, 2,
+            "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+        }
       }
     },
 

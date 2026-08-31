@@ -8,10 +8,13 @@ foam.CLASS({
   package: 'foam.core.u2.navigation',
   name: 'Stack',
   extends: 'foam.u2.View',
+
   documentation: `
     A simple stack view for use with nested dao controllers and detailViews
   `,
+
   exports: ['as controlBorder'],
+
   requires: [
     'foam.u2.layout.Cols',
     'foam.u2.WrapperNode'
@@ -109,7 +112,7 @@ foam.CLASS({
     {
       name: 'current',
       expression: function(stack_, pos) {
-        return stack_[pos];
+        return stack_[pos] || null;
       }
     },
     'trailingContainer',

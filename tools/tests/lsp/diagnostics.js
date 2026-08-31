@@ -188,6 +188,26 @@ test(unusedWarns.some(function(d) { return d.message.indexOf("'^bar'") !== -1; }
 test(! unusedWarns.some(function(d) { return d.message.indexOf("'^foo'") !== -1; }),
   'Unused ^classname: ^foo (applied via myClass) is NOT flagged');
 
+// === issue #5092: pseudo-selector occurrences of an unused class ===
+// Every occurrence of an unused ^name gets its own diagnostic — including
+// ^name:hover / ^name p — not just the first selector it appears in.
+var pseudoSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'PseudoCss',\n" +
+  "  css: `\n    ^used { color: red; }\n    ^used:hover { color: pink; }\n" +
+  "    ^dead { padding: 4px; }\n    ^dead:hover { background: blue; }\n    ^dead p { margin: 0; }\n  `,\n" +
+  "  methods: [\n" +
+  "    function render() { this.addClass(this.myClass('used')); }\n" +
+  "  ]\n})";
+var pseudoDiags = diagWithTokens.handle(pseudoSrc);
+var pseudoWarns = pseudoDiags.filter(function(d) { return /Unused CSS class '\^dead'/.test(d.message); });
+test(pseudoWarns.length === 3,
+  'Unused ^classname #5092: all 3 occurrences of ^dead flagged (base, :hover, descendant)');
+var pseudoLines = pseudoWarns.map(function(d) { return d.range.start.line; }).sort();
+test(pseudoLines.length === 3 && pseudoLines[0] !== pseudoLines[1] && pseudoLines[1] !== pseudoLines[2],
+  'Unused ^classname #5092: diagnostics land on 3 distinct selector lines');
+test(! pseudoDiags.some(function(d) { return /Unused CSS class '\^used'/.test(d.message); }),
+  'Unused ^classname #5092: ^used and ^used:hover NOT flagged (class is applied)');
+
 // Dynamic myClass(var) → suppress unused-class diagnostics entirely
 var dynamicSrc =
   "foam.CLASS({\n  package: 'test',\n  name: 'DynamicMyClass',\n" +
@@ -445,6 +465,54 @@ if ( fs.existsSync(supPath) ) {
 } else {
   test(true, 'SmartUploadView.js not present — real-file smoke skipped');
 }
+
+// === issue #5135: literals inside conditional/concatenated .add() args ===
+section('DiagnosticsHandler i18n add() conditional args (issue #5135)');
+
+// Single-line ternary — both arms flagged
+var ternSrc = "foam.CLASS({\n  package:'test', name:'TN',\n  methods:[ function render(items){\n" +
+  "    this.add(items.length === 0 ? 'No matching items found.' : 'Refundable items found (' + items.length + ')');\n" +
+  "  } ]\n})";
+var ternDiags = addStrDiags(ternSrc);
+test(ternDiags.length === 2, '#5135: both ternary arm literals flagged (got ' + ternDiags.length + ')');
+test(ternDiags.some(function(d){ return d.message.indexOf('No matching items found.') !== -1; }) &&
+     ternDiags.some(function(d){ return d.message.indexOf('Refundable items found (') !== -1; }),
+  '#5135: diagnostics name both arm strings');
+
+// Multi-line ternary — same result
+var ternMultiSrc = "foam.CLASS({\n  package:'test', name:'TM',\n  methods:[ function render(items){\n" +
+  "    this.add(items.length === 0\n" +
+  "      ? 'No matching items found.'\n" +
+  "      : 'Refundable items found (' + items.length + ')');\n" +
+  "  } ]\n})";
+test(addStrDiags(ternMultiSrc).length === 2, '#5135: multi-line ternary arms flagged');
+
+// Concatenation — prose pieces flagged
+var concatSrc = "foam.CLASS({\n  package:'test', name:'CC',\n  methods:[ function render(n){\n" +
+  "    this.add('Found ' + n + ' items');\n  } ]\n})";
+test(addStrDiags(concatSrc).length === 2, '#5135: both prose pieces of a concatenation flagged');
+
+// Literals in NESTED calls/objects stay exempt — .create({label}) and .translate()
+var nestedSrc = "foam.CLASS({\n  package:'test', name:'NS',\n  methods:[ function render(){\n" +
+  "    this.add(this.Foo.create({ label: 'Nested Label Text' }));\n" +
+  "    this.add(this.translate('some.key', 'Default Prose Text'));\n  } ]\n})";
+test(addStrDiags(nestedSrc).length === 0, '#5135: literals nested in create()/translate() args NOT flagged');
+
+// Interpolated template arm stays exempt; plain arm still flagged
+var ternInterpSrc = "foam.CLASS({\n  package:'test', name:'TI',\n  methods:[ function render(n){\n" +
+  "    this.add(n === 0 ? 'Nothing here' : `Total ${n}`);\n  } ]\n})";
+var tiDiags = addStrDiags(ternInterpSrc);
+test(tiDiags.length === 1 && tiDiags[0].message.indexOf('Nothing here') !== -1,
+  '#5135: interpolated arm skipped, plain arm flagged');
+
+// i18n-ignore still works per line inside a multi-line ternary
+var ternIgnoreSrc = "foam.CLASS({\n  package:'test', name:'TG',\n  methods:[ function render(items){\n" +
+  "    this.add(items.length === 0\n" +
+  "      ? 'No matching items found.' // i18n-ignore\n" +
+  "      : 'Refundable items found');\n  } ]\n})";
+var tgDiags = addStrDiags(ternIgnoreSrc);
+test(tgDiags.length === 1 && tgDiags[0].message.indexOf('Refundable items found') !== -1,
+  '#5135: per-line i18n-ignore suppresses only its own arm');
 
 // === Step 3: noise control ===
 section('DiagnosticsHandler i18n noise control');
@@ -758,3 +826,27 @@ test(addStrDiags("foam.CLASS({ package:'t', name:'DQ2', methods:[ function rende
 test(addStrDiags("foam.CLASS({ package:'t', name:'AP2', methods:[ function render(){ this.add('Don\\'t save'); } ] })").length === 1, "escaped quote: this.add('Don\\'t save') flagged once");
 
 
+
+// === tableColumns accepts actions (#5169) ===
+// foam.u2.table.UnstyledTableView renders actions listed in tableColumns as
+// row buttons, so an action name there is valid. searchColumns filters on
+// properties only, so an action name there is still flagged.
+section('DiagnosticsHandler tableColumns actions (#5169)');
+
+var colActSrc = "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'ColActDemo',\n" +
+  "  tableColumns: [ 'name', 'reflow', 'bogusCol' ],\n" +
+  "  searchColumns: [ 'name', 'reflow' ],\n" +
+  "  properties: [ { class: 'String', name: 'name' } ],\n" +
+  "  actions: [ { name: 'reflow', code: function() {} } ]\n" +
+  "})";
+var colActDiags = diagHandler.handle(colActSrc);
+test(!colActDiags.some(function(d) { return d.message.indexOf("action 'reflow'") !== -1; }),
+  'tableColumns: own action name NOT flagged');
+test(colActDiags.some(function(d) { return d.message.indexOf("Property or action 'bogusCol'") !== -1; }),
+  'tableColumns: unknown name still flagged (mentions actions)');
+test(colActDiags.some(function(d) { return d.message.indexOf("Property 'reflow'") !== -1; }),
+  'searchColumns: action name IS flagged (properties only)');
+test(!colActDiags.some(function(d) { return d.message.indexOf("'name'") !== -1; }),
+  'both arrays: property name not flagged');

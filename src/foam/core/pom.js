@@ -38,7 +38,8 @@ foam.POM({
     { name: "bench/pom",                               flags: "test" },
     { name: "test/pom",                                flags: "test" },
     { name: "theme/pom" },
-    { name: "partition/pom" }
+    { name: "partition/pom" },
+    { name: "license/pom" }
   ],
   files: [
     { name: "client/ClientBuilder",                                                       flags: "js" },
@@ -48,6 +49,7 @@ foam.POM({
     { name: "column/CSVTableOutputter",                                                   flags: "js" },
     { name: "column/NestedPropertiesExpression",                                          flags: "js|java" },
     { name: "column/TableColumnOutputter",                                                flags: "js|java" },
+    { name: "column/test/TableColumnOutputterJSTest",                                     flags: "js&test|java&test" },
     { name: "controller/AppStyles",                                                       flags: "web" },
     { name: "controller/Fonts",                                                           flags: "web" },
     { name: "logger/DAOLogger",                                                           flags: "js|java" },
@@ -385,6 +387,7 @@ foam.POM({
     { name: "ticket/Ticket",                                                              flags: "js|java" },
     { name: "ticket/TicketComment",                                                       flags: "js|java" },
     { name: "ticket/TicketCompactionSink",                                                flags: "js|java" },
+    { name: "ticket/TicketCitationView",                                                  flags: "js" },
     { name: "ticket/TicketStatus",                                                        flags: "js|java" },
     { name: "ticket/Relationships",                                                       flags: "js" },
     { name: "ticket/TicketAddCommentDAO",                                                 flags: "js|java" },

@@ -55,7 +55,7 @@ foam.CLASS({
       var propToColumnMapping  = this.columnConfigToPropertyConverter.returnPropertyColumnMappings(obj.cls_, propNames);
       var propertyNamesToQuery = this.columnHandler.returnPropNamesToQuery(propToColumnMapping);
 
-      return await this.outputter.objectToTable(X, obj.cls_, propertyNamesToQuery, obj, propNames.length);
+      return await this.outputter.objectToTable(X, obj.cls_, propertyNamesToQuery, obj, propNames.length, this.addUnits);
     },
 
     async function exportDAOAndReturnTable(X, dao, propNames) {

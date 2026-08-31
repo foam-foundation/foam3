@@ -100,7 +100,7 @@ foam.INTERFACE({
       documentation: `
         Resolves a secret value from the configured vault.
         Throws RuntimeException if secretId is not found in the vault.
-        If the vault is not being configured returns the secretId back as-is.
+        If the vault is not configured returns the secretId back as-is.
       `,
       javaCode: `
     if ( ! foam.util.SafetyUtil.isEmpty(getVault()) ) {
@@ -111,6 +111,8 @@ foam.INTERFACE({
         } catch ( Throwable e ) {
           throw new RuntimeException(e);
         }
+      } else {
+        foam.core.logger.Loggers.logger(x, this).warning("Vault not found", getVault(), new Exception("Vault not found"));
       }
     }
     return secretId;

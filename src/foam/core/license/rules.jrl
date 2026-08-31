@@ -1,0 +1,16 @@
+p({
+  "class":"foam.core.ruler.Rule",
+  "id":"license-refresh-rule",
+  "priority":100,
+  "daoKey":"licenseDAO",
+  "ruleGroup":"auth",
+  "operation":3,
+  "after":true,
+  "async":true,
+  "action":{
+    "class":"foam.core.license.LicenseRefreshRuleAction"
+  },
+  "enabled":true,
+  "saveHistory":false,
+  "lifecycleState":1
+})

@@ -40,7 +40,11 @@ function start() {
   var referencesHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
   var documentHighlightHandler = foam.parse.lsp.handlers.DocumentHighlightHandler.create();
   var renameHandler = foam.parse.lsp.handlers.RenameHandler.create({ index: index });
-  var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+  var journalEntryIndex = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({
+    index: index,
+    journalEntryIndex: journalEntryIndex
+  });
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
 
@@ -238,8 +242,16 @@ function start() {
         }
         return hoverHandler.buildClassHover(classId);
       }
-      case 'references':
+      case 'references': {
+        // Class.member: return the member's call-site lines when the member
+        // scan recognizes it (own property/message/constant); null falls
+        // back to class references (methods go through callHierarchy).
+        if ( info.memberName ) {
+          var mLocs = referencesHandler.memberReferencesForClassId(classId, info.memberName);
+          if ( mLocs ) return mLocs;
+        }
         return referencesHandler.referencesForClassId(classId);
+      }
       case 'implementation': {
         var targets = index.isInterface(classId) ?
           index.getImplementors(classId) : index.getSubclasses(classId);
@@ -598,6 +610,9 @@ function start() {
 
       case 'textDocument/didSave':
         reindexFile(params.textDocument.uri);
+        if ( params.textDocument.uri && params.textDocument.uri.endsWith('.jrl') ) {
+          journalEntryIndex.invalidate();
+        }
         break;
 
       case 'textDocument/didClose':

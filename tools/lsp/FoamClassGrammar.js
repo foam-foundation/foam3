@@ -959,28 +959,40 @@ foam.CLASS({
         // Real suggestions come from the model (this class's properties).
         tableColumnsEntry: P.seq(topKey('tableColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('tableColumnName'),
             P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
         searchColumnsEntry: P.seq(topKey('searchColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('searchColumnName'),
             P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // Context marker: the sug here always fails (matches \u0002 which
         // doesn't appear in source) so it fires during suggestion collection.
         // The id-shaped fallback is msg-wrapped so validation can flag
-        // unknown column names (property names not on the class).
-        columnName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
-          })),
+        // unknown column names. tableColumns and searchColumns emit distinct
+        // msg types because tableColumns also accepts action names (rendered
+        // as row buttons — see foam.u2.table.UnstyledTableView) while
+        // searchColumns filters on properties only.
+        columnNameMarker: P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+          text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
+        })),
+        tableColumnName: P.alt(
+          P.sym('columnNameMarker'),
           P.msg(
-            P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
-            { type: 'columnName' }
+            P.sym('columnNameIdent'),
+            { type: 'tableColumnName' }
           )
         ),
+        searchColumnName: P.alt(
+          P.sym('columnNameMarker'),
+          P.msg(
+            P.sym('columnNameIdent'),
+            { type: 'searchColumnName' }
+          )
+        ),
+        columnNameIdent: P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
 
         importsEntry: P.seq(key('imports', topHint('imports')), wsc, P.literal(':'), wsc, P.sym('array')),
 

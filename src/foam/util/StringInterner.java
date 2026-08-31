@@ -98,4 +98,55 @@ public final class StringInterner {
     SHARED[base]     = s;
     return s;
   }
+
+  /**
+   * Weak interner (Guava Interners.newWeakInterner): full deduplication —
+   * every equal string maps to one canonical instance — and the entry dies
+   * with the last reference, so strings belonging to an unloaded DAO are
+   * released instead of pinned.
+   */
+  protected static com.google.common.collect.Interner<String> WEAK =
+    com.google.common.collect.Interners.newWeakInterner();
+
+  /** Benchmark hook: drop dedup state so variants measure independently. */
+  public static void reset() {
+    WEAK = com.google.common.collect.Interners.newWeakInterner();
+    java.util.Arrays.fill(SHARED, null);
+    java.util.Arrays.fill(BLOOM, 0);
+  }
+
+  public static String internWeak(String s) {
+    if ( s == null || s.length() > 128 ) return s;
+    return WEAK.intern(s);
+  }
+
+  /**
+   * Weak interner behind a seen-once filter: the first occurrence of a value
+   * only marks a fixed 512 KB bloom filter and passes through — no map entry,
+   * no allocation. Only values seen at least twice are interned, so the weak
+   * map holds the repeat vocabulary (thousands) instead of every distinct
+   * string (millions).
+   */
+  protected static final int[] BLOOM = new int[1 << 21]; // 64M bits (8 MB), racy on purpose
+
+  protected static boolean seenBefore(String s) {
+    int h  = s.hashCode();
+    int h2 = h * 0x9E3779B9;
+    int b1 = h  & ((1 << 26) - 1);
+    int b2 = (h2 >>> 5) & ((1 << 26) - 1);
+    int w1 = BLOOM[b1 >>> 5], m1 = 1 << (b1 & 31);
+    int w2 = BLOOM[b2 >>> 5], m2 = 1 << (b2 & 31);
+    boolean seen = ( w1 & m1 ) != 0 && ( w2 & m2 ) != 0;
+    if ( ! seen ) {
+      BLOOM[b1 >>> 5] = w1 | m1;
+      BLOOM[b2 >>> 5] = w2 | m2;
+    }
+    return seen;
+  }
+
+  public static String internSecondSight(String s) {
+    if ( s == null || s.length() > 128 ) return s;
+    if ( ! seenBefore(s) ) return s;
+    return WEAK.intern(s);
+  }
 }

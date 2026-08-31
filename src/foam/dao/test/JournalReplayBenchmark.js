@@ -85,8 +85,38 @@ foam.CLASS({
       rows_.add(new Object[] { label, wallSec, retainedMB, peakMB });
     }
 
+    /** Counts String references, identity-distinct instances, and value-distinct strings reachable from the loaded rows. */
+    private void stringGraphStats(String label, MDAO mdao, ClassInfo ci) {
+      try {
+        java.util.IdentityHashMap<String, Boolean> instances = new java.util.IdentityHashMap<>();
+        java.util.HashSet<String> values = new java.util.HashSet<>();
+        long refs = 0;
+        List props = ci.getAxiomsByClass(PropertyInfo.class);
+        foam.dao.ArraySink sink = (foam.dao.ArraySink) mdao.select(new foam.dao.ArraySink());
+        for ( Object o : sink.getArray() ) {
+          FObject fo = (FObject) o;
+          for ( Object pobj : props ) {
+            PropertyInfo pi = (PropertyInfo) pobj;
+            Object v = pi.get(fo);
+            if ( v instanceof String ) { refs++; instances.put((String) v, Boolean.TRUE); values.add((String) v); }
+            else if ( v instanceof String[] ) {
+              for ( String e : (String[]) v ) { refs++; instances.put(e, Boolean.TRUE); values.add(e); }
+            }
+          }
+        }
+        long instBytes = 0;
+        for ( String k : instances.keySet() ) instBytes += 44 + k.length();
+        log(String.format("STRGRAPH %-46s refs=%d instances=%d distinctValues=%d approxInstanceMB=%d",
+          label, refs, instances.size(), values.size(), instBytes / 1_000_000));
+      } catch (Throwable t) {
+        log("STRGRAPH failed: " + t);
+      }
+    }
+
     private static String dedupLabel(int mode) {
       switch ( mode ) {
+        case 5:  return ", weak interner";
+        case 6:  return ", weak + second-sight";
         case 0:  return ", no dedup";
         case 2:  return ", StringInterner";
         case 3:  return ", StringInterner 2-way";
@@ -104,9 +134,20 @@ foam.CLASS({
       public void run() {
         Runtime rt = Runtime.getRuntime();
         while ( ! stop_ ) {
-          samples.add(new long[] { (System.nanoTime() - t0) / 1_000_000, (rt.totalMemory() - rt.freeMemory()) / 1_000_000 });
-          try { Thread.sleep(100); } catch (InterruptedException e) { return; }
+          samples.add(new long[] { (System.nanoTime() - t0) / 1_000_000, (rt.totalMemory() - rt.freeMemory()) / 1_000_000, rssMB() });
+          try { Thread.sleep(200); } catch (InterruptedException e) { return; }
         }
+      }
+
+      /** Resident set size of this JVM in MB, via ps (macOS/Linux). */
+      static long rssMB() {
+        try {
+          Process p = new ProcessBuilder("ps", "-o", "rss=", "-p", String.valueOf(ProcessHandle.current().pid())).start();
+          try ( java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream())) ) {
+            String line = r.readLine();
+            return line == null ? -1 : Long.parseLong(line.trim()) / 1024;
+          }
+        } catch (Exception e) { return -1; }
       }
       long stopAndGetPeakMB() {
         stop_ = true;
@@ -132,15 +173,20 @@ foam.CLASS({
         try {
           warmupParsers(x, ci, jrlPath);
 
-          replayWithJackson(x, ci, jrlPath);
-          replayJacksonAsyncLine(x, ci, jrlPath);
-
-          // 1 = String.intern (production), 0 = none, 2 = per-thread interner,
-          // 3 = per-thread 2-way, 4 = shared racy 2-way with a 128-char gate
-          for ( int mode : new int[] { 1, 0, 2, 3, 4 } ) {
-            replayWithFoam(x, ci, jrlPath, mode);
-            replayWithSimpleAsyncLine(x, ci, jrlPath, mode);
-            replayWithF3FileJournal(x, ci, mode);
+          // -Dbenchmark.mode=N runs a single dedup mode in its own JVM so
+          // process-level RSS is attributable — production variant only, so a
+          // tight -Xmx measures the replay, not the rest of the suite.
+          int only = Integer.getInteger("benchmark.mode", -1);
+          if ( only >= 0 ) {
+            replayWithF3FileJournal(x, ci, only);
+          } else {
+            replayWithJackson(x, ci, jrlPath);
+            replayJacksonAsyncLine(x, ci, jrlPath);
+            for ( int mode : new int[] { 1, 5, 6 } ) {
+              replayWithFoam(x, ci, jrlPath, mode);
+              replayWithSimpleAsyncLine(x, ci, jrlPath, mode);
+              replayWithF3FileJournal(x, ci, mode);
+            }
           }
 
           printSummary();
@@ -283,6 +329,7 @@ foam.CLASS({
       args: 'Context x, ClassInfo ci, String jrlPath',
       javaCode: `
         log("Warming up parsers with 10K entries...");
+        StringParser.DEDUP = 0;
         JSONParser foamParser = new JSONParser();
         foamParser.setX(x);
         Class cls = ci.getObjClass();
@@ -303,6 +350,7 @@ foam.CLASS({
           }
         }
         log("Warmup done (" + warmed + " entries).");
+        StringParser.DEDUP = 1;
       `
     },
     {
@@ -310,6 +358,7 @@ foam.CLASS({
       args: 'Context x, ClassInfo ci, String jrlPath, int dedup',
       javaCode: `
         String label = "FOAM parser, single thread" + dedupLabel(dedup);
+        foam.util.StringInterner.reset();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -375,9 +424,13 @@ foam.CLASS({
         log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
-        log(String.format("  Peak heap:  %6d MB during run", peakMB));
+        long rssNow = HeapSampler.rssMB();
+        long rssPeak = 0;
+        for ( long[] smp : sampler_.samples ) if ( smp.length > 2 ) rssPeak = Math.max(rssPeak, smp[2]);
+        log(String.format("  Peak heap:  %6d MB during run; RSS %d MB peak, %d MB after GC", peakMB, rssPeak, rssNow));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
@@ -458,9 +511,13 @@ foam.CLASS({
         log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
-        log(String.format("  Peak heap:  %6d MB during run", peakMB));
+        long rssNow = HeapSampler.rssMB();
+        long rssPeak = 0;
+        for ( long[] smp : sampler_.samples ) if ( smp.length > 2 ) rssPeak = Math.max(rssPeak, smp[2]);
+        log(String.format("  Peak heap:  %6d MB during run; RSS %d MB peak, %d MB after GC", peakMB, rssPeak, rssNow));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
@@ -484,6 +541,7 @@ foam.CLASS({
       `,
       javaCode: `
         String label = "FOAM + SimpleAsyncAssemblyLine" + dedupLabel(dedup);
+        foam.util.StringInterner.reset();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -567,9 +625,13 @@ foam.CLASS({
         log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
         log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
-        log(String.format("  Peak heap:  %6d MB during run", peakMB));
+        long rssNow = HeapSampler.rssMB();
+        long rssPeak = 0;
+        for ( long[] smp : sampler_.samples ) if ( smp.length > 2 ) rssPeak = Math.max(rssPeak, smp[2]);
+        log(String.format("  Peak heap:  %6d MB during run; RSS %d MB peak, %d MB after GC", peakMB, rssPeak, rssNow));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
@@ -669,9 +731,13 @@ foam.CLASS({
         log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
         log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
-        log(String.format("  Peak heap:  %6d MB during run", peakMB));
+        long rssNow = HeapSampler.rssMB();
+        long rssPeak = 0;
+        for ( long[] smp : sampler_.samples ) if ( smp.length > 2 ) rssPeak = Math.max(rssPeak, smp[2]);
+        log(String.format("  Peak heap:  %6d MB during run; RSS %d MB peak, %d MB after GC", peakMB, rssPeak, rssNow));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
@@ -695,6 +761,7 @@ foam.CLASS({
       `,
       javaCode: `
         String label = "F3FileJournal.replay (production path)" + dedupLabel(dedup);
+        foam.util.StringInterner.reset();
         StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
@@ -718,9 +785,13 @@ foam.CLASS({
         log(String.format("  Wall time:  %6.2f sec", wallSec));
         log(String.format("  Throughput: %.0f entries/sec", processed/wallSec));
         log("  Failed entries: " + journal.getFailCount());
+        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
-        log(String.format("  Peak heap:  %6d MB during run", peakMB));
+        long rssNow = HeapSampler.rssMB();
+        long rssPeak = 0;
+        for ( long[] smp : sampler_.samples ) if ( smp.length > 2 ) rssPeak = Math.max(rssPeak, smp[2]);
+        log(String.format("  Peak heap:  %6d MB during run; RSS %d MB peak, %d MB after GC", peakMB, rssPeak, rssNow));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;

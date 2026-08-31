@@ -67,6 +67,8 @@ public class StringParser
       case 2:  return foam.util.StringInterner.intern(s);
       case 3:  return foam.util.StringInterner.intern2(s);
       case 4:  return foam.util.StringInterner.internShared(s);
+      case 5:  return foam.util.StringInterner.internWeak(s);
+      case 6:  return foam.util.StringInterner.internSecondSight(s);
       default: return s;
     }
   }

@@ -110,7 +110,7 @@ foam.CLASS({
       args: 'Context x, String model, String cell, ClassInfo ci, String[] bodies, long totalBytes, boolean internOn',
       javaCode: `
         java.lang.Class cls = ci.getObjClass();
-        StringParser.INTERN = internOn;
+        StringParser.DEDUP = internOn ? 1 : 0;
 
         JSONParser p = new JSONParser();
         p.setX(x);
@@ -127,7 +127,7 @@ foam.CLASS({
         }
         long elapsed = System.nanoTime() - start;
 
-        StringParser.INTERN = true;
+        StringParser.DEDUP = 1;
 
         double wallSec       = elapsed / 1e9;
         double entriesPerSec = count / wallSec;

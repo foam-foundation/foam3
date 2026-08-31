@@ -1240,6 +1240,7 @@ foam.POM({
     { name: "foam/test/AddressUtilTests",                             flags: "test" },
     { name: "foam/util/QuickSortTest",                                flags: "test" },
     { name: "foam/util/LRULinkedHashMap" },
+    { name: "foam/util/StringInterner" },
     { name: "foam/util/AddressUtil" },
     { name: "foam/util/SyncFastTimestamper" },
     { name: "foam/util/SecurityUtil" },

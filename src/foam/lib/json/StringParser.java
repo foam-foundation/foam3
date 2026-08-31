@@ -55,10 +55,21 @@ public class StringParser
   );
 
   /**
-   * Benchmark knob: intern parsed string values (default on, the production
-   * behaviour). Off via -Dfoam.json.noIntern=true or by flipping the field.
+   * Benchmark knob: how parsed string values are deduplicated.
+   * 0 = none, 1 = String.intern (the production behaviour, default),
+   * 2 = foam.util.StringInterner, 3 = StringInterner 2-way.
    */
-  public static volatile boolean INTERN = ! Boolean.getBoolean("foam.json.noIntern");
+  public static volatile int DEDUP = Integer.getInteger("foam.json.dedup", 1);
+
+  static String dedup(String s) {
+    switch ( DEDUP ) {
+      case 1:  return s.intern();
+      case 2:  return foam.util.StringInterner.intern(s);
+      case 3:  return foam.util.StringInterner.intern2(s);
+      case 4:  return foam.util.StringInterner.internShared(s);
+      default: return s;
+    }
+  }
 
   public StringParser() {
   }
@@ -80,8 +91,7 @@ public class StringParser
     if ( escIdx >= 0 && escIdx < closeIdx ) return null;
 
     // No escapes — bulk extract the string
-    String value = str.substring(pos, closeIdx);
-    if ( INTERN ) value = value.intern();
+    String value = dedup(str.substring(pos, closeIdx));
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -138,7 +148,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    String value = sb.toString();
-    return ps.setValue(INTERN ? value.intern() : value);
+    return ps.setValue(dedup(sb.toString()));
   }
 }

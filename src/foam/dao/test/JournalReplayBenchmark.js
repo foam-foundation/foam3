@@ -81,12 +81,40 @@ foam.CLASS({
       return (rt.totalMemory() - rt.freeMemory()) / 1e6;
     }
 
-    private void record(String label, double wallSec, double retainedMB) {
-      rows_.add(new Object[] { label, wallSec, retainedMB });
+    private void record(String label, double wallSec, double retainedMB, long peakMB) {
+      rows_.add(new Object[] { label, wallSec, retainedMB, peakMB });
     }
 
-    private static String internLabel(boolean internOn) {
-      return internOn ? "" : ", no intern";
+    private static String dedupLabel(int mode) {
+      switch ( mode ) {
+        case 0:  return ", no dedup";
+        case 2:  return ", StringInterner";
+        case 3:  return ", StringInterner 2-way";
+        case 4:  return ", StringInterner shared";
+        default: return "";
+      }
+    }
+
+    /** Samples used heap every 100 ms so each variant reports its PEAK, not just what survives GC. */
+    static class HeapSampler extends Thread {
+      final java.util.List<long[]> samples = new java.util.ArrayList<>();
+      volatile boolean stop_;
+      final long t0 = System.nanoTime();
+      HeapSampler() { setDaemon(true); }
+      public void run() {
+        Runtime rt = Runtime.getRuntime();
+        while ( ! stop_ ) {
+          samples.add(new long[] { (System.nanoTime() - t0) / 1_000_000, (rt.totalMemory() - rt.freeMemory()) / 1_000_000 });
+          try { Thread.sleep(100); } catch (InterruptedException e) { return; }
+        }
+      }
+      long stopAndGetPeakMB() {
+        stop_ = true;
+        try { join(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        long m = 0;
+        for ( long[] smp : samples ) m = Math.max(m, smp[1]);
+        return m;
+      }
     }
   `,
 
@@ -104,17 +132,16 @@ foam.CLASS({
         try {
           warmupParsers(x, ci, jrlPath);
 
-          replayWithFoam(x, ci, jrlPath, true);
           replayWithJackson(x, ci, jrlPath);
-          replayWithSimpleAsyncLine(x, ci, jrlPath, true);
           replayJacksonAsyncLine(x, ci, jrlPath);
-          replayWithF3FileJournal(x, ci, true);
 
-          // Same three FOAM variants with String.intern() off, to price the intern
-          // call on its own: throughput and retained heap side by side.
-          replayWithFoam(x, ci, jrlPath, false);
-          replayWithSimpleAsyncLine(x, ci, jrlPath, false);
-          replayWithF3FileJournal(x, ci, false);
+          // 1 = String.intern (production), 0 = none, 2 = per-thread interner,
+          // 3 = per-thread 2-way, 4 = shared racy 2-way with a 128-char gate
+          for ( int mode : new int[] { 1, 0, 2, 3, 4 } ) {
+            replayWithFoam(x, ci, jrlPath, mode);
+            replayWithSimpleAsyncLine(x, ci, jrlPath, mode);
+            replayWithF3FileJournal(x, ci, mode);
+          }
 
           printSummary();
         } finally {
@@ -280,11 +307,13 @@ foam.CLASS({
     },
     {
       name: 'replayWithFoam',
-      args: 'Context x, ClassInfo ci, String jrlPath, boolean internOn',
+      args: 'Context x, ClassInfo ci, String jrlPath, int dedup',
       javaCode: `
-        String label = "FOAM parser, single thread" + internLabel(internOn);
-        StringParser.INTERN = internOn;
+        String label = "FOAM parser, single thread" + dedupLabel(dedup);
+        StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
+        HeapSampler sampler_ = new HeapSampler();
+        sampler_.start();
         JSONParser parser = new JSONParser();
         parser.setX(x);
         Class cls = ci.getObjClass();
@@ -346,16 +375,19 @@ foam.CLASS({
         log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        long peakMB = sampler_.stopAndGetPeakMB();
+        for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
+        log(String.format("  Peak heap:  %6d MB during run", peakMB));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
         retain_ = null;
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:   %6.0f MB (MDAO + parsed values)", retainedMB));
-        StringParser.INTERN = true;
+        StringParser.DEDUP = 1;
 
-        if ( internOn ) baselineWallSec_ = wallSec;
-        record(label, wallSec, retainedMB);
+        if ( dedup == 1 ) baselineWallSec_ = wallSec;
+        record(label, wallSec, retainedMB, peakMB);
         test(count == NUM_ENTRIES, "FOAM replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
@@ -365,6 +397,9 @@ foam.CLASS({
       args: 'Context x, ClassInfo ci, String jrlPath',
       javaCode: `
         double heapBefore = usedHeapMB();
+        HeapSampler sampler_ = new HeapSampler();
+        sampler_.start();
+        String label = "Jackson, single thread (ceiling)";
         JacksonJournalParser jacksonParser = new JacksonJournalParser();
         jacksonParser.setTargetClassInfo(ci);
         MDAO mdao = new MDAO(ci);
@@ -423,6 +458,9 @@ foam.CLASS({
         log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        long peakMB = sampler_.stopAndGetPeakMB();
+        for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
+        log(String.format("  Peak heap:  %6d MB during run", peakMB));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
@@ -430,14 +468,14 @@ foam.CLASS({
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:   %6.0f MB (MDAO + parsed values, Jackson never interns)", retainedMB));
 
-        record("Jackson, single thread (ceiling)", wallSec, retainedMB);
+        record(label, wallSec, retainedMB, peakMB);
         test(count == NUM_ENTRIES, "Jackson replay should process all " + NUM_ENTRIES + " entries (got " + count + ")");
       `
     },
     {
       name: 'replayWithSimpleAsyncLine',
       javaThrows: ['Exception'],
-      args: 'Context x, ClassInfo ci, String jrlPath, boolean internOn',
+      args: 'Context x, ClassInfo ci, String jrlPath, int dedup',
       documentation: `
         Same pattern as SyncAssemblyLine benchmark, but uses SimpleAsyncAssemblyLine.
         executeJob runs in parallel on a worker pool, endJob runs serially on a
@@ -445,9 +483,11 @@ foam.CLASS({
         JSONParser is not thread-safe.
       `,
       javaCode: `
-        String label = "FOAM + SimpleAsyncAssemblyLine" + internLabel(internOn);
-        StringParser.INTERN = internOn;
+        String label = "FOAM + SimpleAsyncAssemblyLine" + dedupLabel(dedup);
+        StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
+        HeapSampler sampler_ = new HeapSampler();
+        sampler_.start();
         final Class cls = ci.getObjClass();
         final MDAO mdao = new MDAO(ci);
         mdao.setSafeMode(false);
@@ -527,15 +567,18 @@ foam.CLASS({
         log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
         log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        long peakMB = sampler_.stopAndGetPeakMB();
+        for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
+        log(String.format("  Peak heap:  %6d MB during run", peakMB));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
         retain_ = null;
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:         %6.0f MB (MDAO + parsed values)", retainedMB));
-        StringParser.INTERN = true;
+        StringParser.DEDUP = 1;
 
-        record(label, wallSec, retainedMB);
+        record(label, wallSec, retainedMB, peakMB);
         test(processed == NUM_ENTRIES, "SimpleAsyncAssemblyLine replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");
       `
     },
@@ -551,6 +594,8 @@ foam.CLASS({
       javaCode: `
         String label = "Jackson + SimpleAsyncAssemblyLine (ceiling)";
         double heapBefore = usedHeapMB();
+        HeapSampler sampler_ = new HeapSampler();
+        sampler_.start();
         final MDAO mdao = new MDAO(ci);
         mdao.setSafeMode(false);
         final AssemblyLine line = new SimpleAsyncAssemblyLine(x, "bench-jackson");
@@ -624,6 +669,9 @@ foam.CLASS({
         log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
         log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
         log("  Comments skipped: " + comments);
+        long peakMB = sampler_.stopAndGetPeakMB();
+        for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
+        log(String.format("  Peak heap:  %6d MB during run", peakMB));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
@@ -631,14 +679,14 @@ foam.CLASS({
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:         %6.0f MB (MDAO + parsed values, Jackson never interns)", retainedMB));
 
-        record(label, wallSec, retainedMB);
+        record(label, wallSec, retainedMB, peakMB);
         test(processed == NUM_ENTRIES, "Jackson async replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");
       `
     },
     {
       name: 'replayWithF3FileJournal',
       javaThrows: ['Exception'],
-      args: 'Context x, ClassInfo ci, boolean internOn',
+      args: 'Context x, ClassInfo ci, int dedup',
       documentation: `
         The production path: F3FileJournal.replay over the same file, so the
         BatchingAssemblyLine + SimpleAsyncAssemblyLine + find/merge/put endJob
@@ -646,9 +694,11 @@ foam.CLASS({
         JDAO does it.
       `,
       javaCode: `
-        String label = "F3FileJournal.replay (production path)" + internLabel(internOn);
-        StringParser.INTERN = internOn;
+        String label = "F3FileJournal.replay (production path)" + dedupLabel(dedup);
+        StringParser.DEDUP = dedup;
         double heapBefore = usedHeapMB();
+        HeapSampler sampler_ = new HeapSampler();
+        sampler_.start();
         foam.lang.X fsX = x.put(FileSystemStorage.class, storage_).put(Storage.class, storage_);
         MDAO mdao = new MDAO(ci);
         mdao.setSafeMode(false);
@@ -668,24 +718,27 @@ foam.CLASS({
         log(String.format("  Wall time:  %6.2f sec", wallSec));
         log(String.format("  Throughput: %.0f entries/sec", processed/wallSec));
         log("  Failed entries: " + journal.getFailCount());
+        long peakMB = sampler_.stopAndGetPeakMB();
+        for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
+        log(String.format("  Peak heap:  %6d MB during run", peakMB));
         retain_ = mdao;
         double heapAfter  = usedHeapMB();
         double retainedMB = heapAfter - heapBefore;
         retain_ = null;
         log(String.format("  Heap:       %6.0f MB before, %6.0f MB after (used, post-GC)", heapBefore, heapAfter));
         log(String.format("  Retained:   %6.0f MB (MDAO + parsed values)", retainedMB));
-        StringParser.INTERN = true;
+        StringParser.DEDUP = 1;
 
-        record(label, wallSec, retainedMB);
+        record(label, wallSec, retainedMB, peakMB);
         test(processed == NUM_ENTRIES, "F3FileJournal.replay should process all " + NUM_ENTRIES + " entries (got " + processed + ")");
       `
     },
     {
       name: 'printRow',
-      args: 'String label, double wallSec, double retainedMB',
+      args: 'String label, double wallSec, double retainedMB, long peakMB',
       javaCode: `
         double speedup = baselineWallSec_ / wallSec;
-        log(String.format("%-52s %8.2f %10.0f %7.1fx %10.0f", label, wallSec, NUM_ENTRIES / wallSec, speedup, retainedMB));
+        log(String.format("%-52s %8.2f %10.0f %7.1fx %10.0f %8d", label, wallSec, NUM_ENTRIES / wallSec, speedup, retainedMB, peakMB));
       `
     },
     {
@@ -693,10 +746,10 @@ foam.CLASS({
       javaCode: `
         log("");
         log("=== COMPARISON TABLE ===");
-        log(String.format("%-52s %8s %10s %8s %10s", "Variant", "Wall(s)", "Entries/s", "vs FOAM", "Retained MB"));
-        log(String.format("%-52s %8s %10s %8s %10s", "-------", "------", "--------", "-------", "-----------"));
+        log(String.format("%-52s %8s %10s %8s %10s %8s", "Variant", "Wall(s)", "Entries/s", "vs FOAM", "Retained MB", "Peak MB"));
+        log(String.format("%-52s %8s %10s %8s %10s %8s", "-------", "------", "--------", "-------", "-----------", "-------"));
         for ( Object[] row : rows_ ) {
-          printRow((String) row[0], (Double) row[1], (Double) row[2]);
+          printRow((String) row[0], (Double) row[1], (Double) row[2], (Long) row[3]);
         }
       `
     },

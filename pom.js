@@ -24,6 +24,8 @@ foam.POM({
     { source: 'webroot', targetDir: 'webroot' }
   ],
   javaDependencies: [
+    // explicit: StringInterner (foam/util) uses Guava's weak interner; previously only a transitive dependency
+    'com.google.guava:guava:31.1-android',
     'com.authy:authy-java:1.1.0 -org.json:json',
     'org.json:json:20231013',
     'com.google.api-client:google-api-client:1.22.0',

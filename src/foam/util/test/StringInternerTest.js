@@ -36,6 +36,11 @@ foam.CLASS({
         String l2 = StringInterner.intern(new String(lb.toString()));
         test(l1 == l2, "repeated 100-char strings dedup to one instance");
 
+        // full dedup: no eviction — three distinct values, all stay canonical
+        String v1 = StringInterner.intern(new String("EUR"));
+        String v2 = StringInterner.intern(new String("GBP"));
+        test(StringInterner.intern(new String("EUR")) == v1 && StringInterner.intern(new String("GBP")) == v2, "values stay canonical, nothing evicted");
+
         // strings past the length gate pass through untouched
         StringBuilder gb = new StringBuilder();
         for ( int i = 0 ; i < 13 ; i++ ) gb.append("past-the-gate-");
@@ -44,13 +49,6 @@ foam.CLASS({
 
         // null passes through
         test(StringInterner.intern(null) == null, "null passes through");
-
-        // "Aa" and "BB" share a hashCode: the second replaces the first's slot,
-        // values stay correct either way
-        String aa1 = StringInterner.intern(new String("Aa"));
-        String bb  = StringInterner.intern(new String("BB"));
-        String aa2 = StringInterner.intern(new String("Aa"));
-        test("Aa".equals(aa1) && "BB".equals(bb) && "Aa".equals(aa2), "colliding slots always return the right value");
 
         // the parser dedups repeated short values across entries
         JSONParser p = new JSONParser();

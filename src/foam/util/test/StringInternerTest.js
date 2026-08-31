@@ -26,12 +26,21 @@ foam.CLASS({
         test(a != b, "setup: two distinct instances");
         String ia = StringInterner.intern(a);
         String ib = StringInterner.intern(b);
-        test(ia == ib, "equal short strings return the same instance");
+        test(ia == ib, "equal short strings return the same instance, across any thread");
         test("USD".equals(ia), "deduplicated value is equal to the input");
 
+        // a repeated long string dedups too — one 100-char duplicate saves more than a short one
+        StringBuilder lb = new StringBuilder();
+        for ( int i = 0 ; i < 10 ; i++ ) lb.append("longvalue-");
+        String l1 = StringInterner.intern(new String(lb.toString()));
+        String l2 = StringInterner.intern(new String(lb.toString()));
+        test(l1 == l2, "repeated 100-char strings dedup to one instance");
+
         // strings past the length gate pass through untouched
-        String longStr = "a-string-well-past-the-32-character-length-gate";
-        test(StringInterner.intern(longStr) == longStr, "long strings pass through as the same instance");
+        StringBuilder gb = new StringBuilder();
+        for ( int i = 0 ; i < 13 ; i++ ) gb.append("past-the-gate-");
+        String longStr = gb.toString();
+        test(StringInterner.intern(longStr) == longStr, "strings past the 128-char gate pass through as the same instance");
 
         // null passes through
         test(StringInterner.intern(null) == null, "null passes through");

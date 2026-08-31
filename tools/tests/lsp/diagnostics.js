@@ -443,6 +443,54 @@ if ( fs.existsSync(supPath) ) {
   test(true, 'SmartUploadView.js not present — real-file smoke skipped');
 }
 
+// === issue #5135: literals inside conditional/concatenated .add() args ===
+section('DiagnosticsHandler i18n add() conditional args (issue #5135)');
+
+// Single-line ternary — both arms flagged
+var ternSrc = "foam.CLASS({\n  package:'test', name:'TN',\n  methods:[ function render(items){\n" +
+  "    this.add(items.length === 0 ? 'No matching items found.' : 'Refundable items found (' + items.length + ')');\n" +
+  "  } ]\n})";
+var ternDiags = addStrDiags(ternSrc);
+test(ternDiags.length === 2, '#5135: both ternary arm literals flagged (got ' + ternDiags.length + ')');
+test(ternDiags.some(function(d){ return d.message.indexOf('No matching items found.') !== -1; }) &&
+     ternDiags.some(function(d){ return d.message.indexOf('Refundable items found (') !== -1; }),
+  '#5135: diagnostics name both arm strings');
+
+// Multi-line ternary — same result
+var ternMultiSrc = "foam.CLASS({\n  package:'test', name:'TM',\n  methods:[ function render(items){\n" +
+  "    this.add(items.length === 0\n" +
+  "      ? 'No matching items found.'\n" +
+  "      : 'Refundable items found (' + items.length + ')');\n" +
+  "  } ]\n})";
+test(addStrDiags(ternMultiSrc).length === 2, '#5135: multi-line ternary arms flagged');
+
+// Concatenation — prose pieces flagged
+var concatSrc = "foam.CLASS({\n  package:'test', name:'CC',\n  methods:[ function render(n){\n" +
+  "    this.add('Found ' + n + ' items');\n  } ]\n})";
+test(addStrDiags(concatSrc).length === 2, '#5135: both prose pieces of a concatenation flagged');
+
+// Literals in NESTED calls/objects stay exempt — .create({label}) and .translate()
+var nestedSrc = "foam.CLASS({\n  package:'test', name:'NS',\n  methods:[ function render(){\n" +
+  "    this.add(this.Foo.create({ label: 'Nested Label Text' }));\n" +
+  "    this.add(this.translate('some.key', 'Default Prose Text'));\n  } ]\n})";
+test(addStrDiags(nestedSrc).length === 0, '#5135: literals nested in create()/translate() args NOT flagged');
+
+// Interpolated template arm stays exempt; plain arm still flagged
+var ternInterpSrc = "foam.CLASS({\n  package:'test', name:'TI',\n  methods:[ function render(n){\n" +
+  "    this.add(n === 0 ? 'Nothing here' : `Total ${n}`);\n  } ]\n})";
+var tiDiags = addStrDiags(ternInterpSrc);
+test(tiDiags.length === 1 && tiDiags[0].message.indexOf('Nothing here') !== -1,
+  '#5135: interpolated arm skipped, plain arm flagged');
+
+// i18n-ignore still works per line inside a multi-line ternary
+var ternIgnoreSrc = "foam.CLASS({\n  package:'test', name:'TG',\n  methods:[ function render(items){\n" +
+  "    this.add(items.length === 0\n" +
+  "      ? 'No matching items found.' // i18n-ignore\n" +
+  "      : 'Refundable items found');\n  } ]\n})";
+var tgDiags = addStrDiags(ternIgnoreSrc);
+test(tgDiags.length === 1 && tgDiags[0].message.indexOf('Refundable items found') !== -1,
+  '#5135: per-line i18n-ignore suppresses only its own arm');
+
 // === Step 3: noise control ===
 section('DiagnosticsHandler i18n noise control');
 

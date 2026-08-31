@@ -323,27 +323,65 @@ foam.CLASS({
        * comments are skipped so commented-out .add() calls aren't flagged.
        *
        * Intentionally NOT matched: .start('tag') (structural, not display text)
-       * and .translate('...') (already on the translation-service path).
+       * and .translate('...') (already on the translation-service path — its
+       * literals sit one nesting level down, so the top-level scan skips them).
        */
       if ( this.isI18nExemptUri_(this.uri_) ) return;       // test/demo/mock files exempt
 
       var skip = this.nonCodeRanges_(text);
-      var re = /\.add\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+      var re = /\.add\(/g;
       var match;
       while ( ( match = re.exec(text) ) !== null ) {
-        var quote = match[1];
-        var content = match[2];
-        if ( quote === '`' && /\$\{/.test(content) ) continue;     // interpolated → dynamic
-        if ( ! this.isUserFacingText_(content) ) continue;
         if ( this.offsetInRanges_(skip, match.index) ) continue;   // comment / Java / string block → skip
         if ( this.isCollectionAddReceiver_(text, match.index) ) continue; // Set/Map .add(), not u2 display
-        var inner = match.index + match[0].indexOf(quote) + 1;       // past the opening quote
-        if ( this.lineHasI18nIgnore_(text, inner) ) continue;        // per-line suppression
-        this.addDiag_(diagnostics, text, inner, content.length, this.Diagnostic.WARNING,
-          'Hardcoded display string "' + content + '" — define it as a messages: entry ' +
-            '(in-body .add() text is not auto-extracted for i18n).',
-          'i18n-hardcoded-display-string');
+        // Every literal at the TOP nesting level of the argument list —
+        // direct (.add('x')), ternary arms, and '+' concatenation pieces all
+        // sit at that level (issue #5135: conditional args escaped the old
+        // literal-must-follow-the-paren regex). Literals inside nested
+        // calls/objects (.create({label:'x'}), .translate('k','v')) don't.
+        var lits = this.addArgLiterals_(text, skip, match.index + match[0].length);
+        for ( var li = 0 ; li < lits.length ; li++ ) {
+          var quote = text[lits[li][0]];
+          var inner = lits[li][0] + 1;                               // past the opening quote
+          var content = text.substring(inner, lits[li][1] - 1);
+          if ( quote === '`' && /\$\{/.test(content) ) continue;     // interpolated → dynamic
+          if ( ! this.isUserFacingText_(content) ) continue;
+          if ( this.lineHasI18nIgnore_(text, inner) ) continue;      // per-line suppression
+          this.addDiag_(diagnostics, text, inner, content.length, this.Diagnostic.WARNING,
+            'Hardcoded display string "' + content + '" — define it as a messages: entry ' +
+              '(in-body .add() text is not auto-extracted for i18n).',
+            'i18n-hardcoded-display-string');
+        }
       }
+    },
+
+    function addArgLiterals_(text, ranges, argStart) {
+      /**
+       * Collect [start,end) spans of the string literals sitting at the top
+       * nesting level of an argument list whose opening '(' immediately
+       * precedes argStart. `ranges` is nonCodeRanges_ output (sorted): its
+       * string entries at depth 1 ARE the literals; comment entries are
+       * jumped over so brackets inside comments don't skew the depth. Stops
+       * at the matching ')' or end of text (unterminated — mid-edit).
+       */
+      var out = [];
+      var depth = 1;
+      var i = argStart, n = text.length, ri = 0;
+      while ( i < n && depth > 0 ) {
+        while ( ri < ranges.length && ranges[ri][1] <= i ) ri++;
+        if ( ri < ranges.length && ranges[ri][0] === i ) {
+          var r = ranges[ri];
+          var q = text[r[0]];
+          if ( depth === 1 && ( q === "'" || q === '"' || q === '`' ) ) out.push(r);
+          i = r[1];
+          continue;
+        }
+        var c = text[i];
+        if ( c === '(' || c === '{' || c === '[' ) depth++;
+        else if ( c === ')' || c === '}' || c === ']' ) depth--;
+        i++;
+      }
+      return out;
     },
 
     function isCollectionAddReceiver_(text, dotOffset) {

@@ -36,6 +36,13 @@ public class DateParser
   public DateParser() {
     super(new Alt(
       NullParser.instance(),
+      // Bare epoch millis — how journals and the JSON formatter write Date
+      // values, so it goes first. The Not guard backtracks when the digits
+      // turn out to be a datetime's year ("1982-07-07..." or "1982/07/07..."),
+      // handing the input to the branches below.
+      new Seq1(0,
+        new LongParser(),
+        new Not(new Chars("-/"))),
       // YYYY-MM-DDTHH:MM:SS[.fff]Z — JSON canonical instant, optionally quoted.
       new Quoted(new Seq( // 0 year, 1 "-", 2 month, 3 "-", 4 day,
                           // 5 "T", 6 hr, 7 ":", 8 min, 9 ":", 10 sec,

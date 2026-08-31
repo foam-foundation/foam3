@@ -1210,5 +1210,40 @@ try {
   test(false, 'jrl references acceptance threw: ' + err.message);
 }
 
+// === referencesForClassId string-usage probe — full id + short name ===
+
+section('referencesForClassId — string-usage probe by full id');
+
+var refsHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+  index: index, cache: cache, analyzer: analyzer
+});
+
+// --- referencesForClassId probes string-usage index by FULL id too ---
+(function() {
+  // The cspec half of the string-usage index records ent.id — full dotted
+  // ids. A class whose SHORT name never appears as a context key is only
+  // reachable through the full-id probe.
+  //
+  // sourceClassId is a real, file-backed class (foam.core.boot.CSpec,
+  // already proven indexed above) rather than a synthetic one: buildLocations_
+  // needs a source file to resolve a location for, and a class registered
+  // only in-memory during this test has none — it would report 0 locations
+  // even once the probe correctly reaches it, masking the fix under test.
+  var stub = index.getStringUsages;
+  index.getStringUsages = function(key) {
+    if ( key === 'lsptest.probe.FullIdOnly' ) {
+      return [ { sourceClassId: 'foam.core.boot.CSpec', axiomName: 'imports.x', kind: 'usage-string' } ];
+    }
+    return [];
+  };
+  foam.CLASS({ package: 'lsptest.probe', name: 'FullIdOnly' });
+  try {
+    var locs = refsHandler.referencesForClassId('lsptest.probe.FullIdOnly');
+    test(locs.length >= 1, 'full-id string usage reached the result, got ' + locs.length);
+  } finally {
+    index.getStringUsages = stub;
+  }
+})();
+
 // === SAVE → TARGETED REANALYZE ===
 

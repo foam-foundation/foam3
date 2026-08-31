@@ -336,3 +336,223 @@ try {
   console.error = lcOrigErr;
   test(false, 'logged-catch section threw: ' + err.message);
 }
+
+
+// === FoamIndex Java usage — cross-package via javaImports (issue #5265) ===
+//
+// The fixture above puts Source and Target in the SAME package, so it
+// resolves through the package fallback and never exercises the javaImports
+// lookup. These classes are cross-package on purpose: only javaImports can
+// resolve the short name. Fixture provenance: at boot the java refinements
+// adapt each javaImports string into a foam.java.JavaImport object
+// ({ name: generated 'javaimport_'+import label, import: full path }) —
+// the form production hands buildJavaUsageIndex_, and the form these
+// runtime-declared classes carry too (probed 2026-08-23).
+
+section('FoamIndex Java usage — cross-package javaImports (issue #5265)');
+
+foam.CLASS({
+  package: 'foam.parse.lsp.javausagetest.pkga',
+  name:    'CrossPkgTarget'
+});
+
+foam.CLASS({
+  package: 'foam.parse.lsp.javausagetest.pkgb',
+  name:    'CrossPkgSource',
+  javaImports: [ 'foam.parse.lsp.javausagetest.pkga.CrossPkgTarget' ],
+  methods: [
+    {
+      name:     'doIt',
+      javaCode: 'CrossPkgTarget t = new CrossPkgTarget();\nreturn t.toString();'
+    }
+  ]
+});
+
+index.invalidateSymbolIndex_();
+
+try {
+  // Provenance guard: if FOAM ever stops adapting strings to JavaImport
+  // objects, this fixture no longer represents production — fail loudly.
+  var xSrc = foam.maybeLookup('foam.parse.lsp.javausagetest.pkgb.CrossPkgSource');
+  var xJi  = xSrc.model_.javaImports[0];
+  test(xJi && typeof xJi !== 'string' && typeof xJi.import === 'string',
+    'fixture provenance: javaImports adapted to JavaImport objects at boot');
+
+  // T1a: cross-package javaCode consumer recorded.
+  var xUses = index.getJavaUsages('foam.parse.lsp.javausagetest.pkga.CrossPkgTarget');
+  test(xUses.some(function(u) { return u.sourceClassId === 'foam.parse.lsp.javausagetest.pkgb.CrossPkgSource'; }),
+    'cross-package javaCode consumer recorded via JavaImport object (issue #5265)');
+
+  // T1b: the generated JavaImport.name label is never a usage key.
+  test(index.getJavaUsages('javaimport_foam.parse.lsp.javausagetest.pkga.CrossPkgTarget').length === 0,
+    'generated javaimport_ label is not a usage key');
+} catch (err) {
+  test(false, 'cross-package java usage threw: ' + err.message);
+}
+
+
+// === Spec acceptance (issue #5265 repro): real workspace consumer ===
+//
+// Pinned to real foam3 classes on purpose — this is the literal issue repro.
+// If upstream churn ever removes DisableOldReferralCodesRuleAction, replace
+// with a committed fixture file registered under a test pom (spec, Testing).
+
+section('getJavaUsages — real workspace acceptance (issue #5265)');
+
+try {
+  var arraySinkUses = index.getJavaUsages('foam.dao.ArraySink');
+  test(arraySinkUses.some(function(u) {
+    return u.sourceClassId === 'foam.core.referral.DisableOldReferralCodesRuleAction';
+  }), 'issue #5265 repro: DisableOldReferralCodesRuleAction recorded as javaCode consumer of ArraySink');
+
+  // Location level (T2a): the consumer's FILE appears at usage lines —
+  // depends on the index fix; the handler + dedup landed in the earlier
+  // stacked tasks (execution order: Task 2 -> Task 3 -> this task).
+  var asHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var drcLocs = asHandler.referencesForClassId('foam.dao.ArraySink').filter(function(l) {
+    return l.uri.indexOf('DisableOldReferralCodesRuleAction.js') !== -1;
+  });
+  test(drcLocs.length >= 2,
+    'referencesForClassId(ArraySink): javaCode-only consumer file present at usage lines (got ' + drcLocs.length + ')');
+} catch (err) {
+  test(false, 'ArraySink acceptance threw: ' + err.message);
+}
+
+
+// === memberReferencesForClassId — property call-site LINES (byName path) ===
+//
+// foam/byName `references` ignored memberName: Class.member returned class
+// references, never the member's call-site lines (#5265-adjacent blind spot,
+// verified 2026-08-23: byNameResult had no member branch). The by-id core of
+// propertyReferences_ now serves it. Truth is self-derived: the expected
+// line is found by scanning the real source file, so upstream churn moves
+// the expectation instead of breaking it.
+
+section('memberReferencesForClassId — property call-site lines (byName member path)');
+
+try {
+  var mrHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+
+  var mrLocs = mrHandler.memberReferencesForClassId('foam.dao.ArraySink', 'array');
+  test(Array.isArray(mrLocs) && mrLocs.length > 0,
+    'memberReferencesForClassId(ArraySink, array): returns locations');
+
+  var mrFs    = require('fs');
+  var mrPath  = index.getFilePath('foam.dao.ArraySink');
+  var mrLines = mrFs.readFileSync(mrPath, 'utf8').split('\n');
+  var mrPushLine = -1;
+  for ( var mi = 0 ; mi < mrLines.length ; mi++ ) {
+    if ( mrLines[mi].indexOf('this.array.push') !== -1 ) { mrPushLine = mi; break; }
+  }
+  test(mrPushLine !== -1, 'fixture: ArraySink.js still has a this.array.push call site');
+  test((mrLocs || []).some(function(l) {
+    return l.uri === 'file://' + mrPath && l.range.start.line === mrPushLine;
+  }), 'usage LINE matched: this.array.push call site at line ' + mrPushLine + ' (not the declaration)');
+
+  // Not an own property/message/constant: null so the caller falls back to
+  // class references (methods keep going through callHierarchy).
+  test(mrHandler.memberReferencesForClassId('foam.dao.ArraySink', 'noSuchMember') === null,
+    'unknown member returns null (falls back to class references)');
+} catch (err) {
+  test(false, 'member references section threw: ' + err.message);
+}
+
+
+// === memberScanLocations_ — dedup when multiple classes share a file ===
+//
+// Same dup shape as referencesForClassId's fix, but for the member scan:
+// filesToScan can list several class ids (the defining class + a subclass +
+// a requirer) that all resolve to the SAME source file, and each id is
+// scanned unconditionally — every real call-site row then repeats once per
+// class id that maps to that file.
+
+section('memberScanLocations_ — dedup when multiple classes share a file');
+
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'member-dedup-'));
+  var f = path.join(dir, 'Pair.js');
+  // TwoA extends lsptest.dedup.Base and TwoB requires it — BOTH ids resolve
+  // to this one file, which without dedup is scanned once per id, doubling
+  // every `.payload` row.
+  fs.writeFileSync(f, [
+    "foam.CLASS({ package: 'lsptest.dedup', name: 'TwoA', extends: 'lsptest.dedup.Base',",
+    "  methods: [ function m() { return this.payload; } ] });",
+    "foam.CLASS({ package: 'lsptest.dedup', name: 'TwoB',",
+    "  requires: [ 'lsptest.dedup.Base' ],",
+    "  methods: [ function n() { var b = this.Base.create(); return b.payload; } ] });"
+  ].join('\n'));
+
+  foam.CLASS({ package: 'lsptest.dedup', name: 'Base', properties: [ 'payload' ] });
+  foam.CLASS({ package: 'lsptest.dedup', name: 'TwoA', extends: 'lsptest.dedup.Base' });
+  foam.CLASS({ package: 'lsptest.dedup', name: 'TwoB', requires: [ 'lsptest.dedup.Base' ] });
+
+  // Point all three classes' fileIndex entries at the one fixture file:
+  index.fileIndex_ = index.fileIndex_ || {};
+  index.fileIndex_['lsptest.dedup.Base'] = { path: f, line: 0 };
+  index.fileIndex_['lsptest.dedup.TwoA'] = { path: f, line: 0 };
+  index.fileIndex_['lsptest.dedup.TwoB'] = { path: f, line: 2 };
+
+  var dedupMemberHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var locs = dedupMemberHandler.memberScanLocations_('lsptest.dedup.Base', 'payload');
+  var keys = {};
+  var dups = 0;
+  for ( var i = 0 ; i < locs.length ; i++ ) {
+    var k = locs[i].uri + ':' + locs[i].range.start.line + ':' + locs[i].range.start.character;
+    if ( keys[k] ) dups++;
+    keys[k] = true;
+  }
+  test(locs.length > 0, 'memberScanLocations_: member scan found rows in the fixture');
+  test(dups === 0, 'memberScanLocations_: no duplicate member rows for a shared file, found ' + dups + ' dups');
+})();
+
+
+// === logLspError helper ===
+//
+// Single logging idiom for degraded-but-not-fatal LSP failures — every
+// catch-and-fallback site routes through this so a broken feature is never
+// silently indistinguishable from an empty result.
+
+section('logLspError helper');
+
+(function() {
+  var leLogLspError = require('../../lsp/logError').logLspError;
+  var leOrigErr = console.error;
+  var leCaptured = [];
+  console.error = function(msg) { leCaptured.push(msg); };
+  try {
+    leLogLspError('test op for X', new Error('boom'));
+  } finally {
+    console.error = leOrigErr;
+  }
+  test(leCaptured.length === 1 && leCaptured[0] === '[foam-lsp] test op for X: boom',
+    'logLspError formats [foam-lsp] context: message');
+})();
+
+// === locationSink_ — the dedup guard lives in the sink, not the call sites ===
+// Every collector feeding one references result pushes through this sink, so
+// a future collector can't silently reintroduce duplicate rows.
+section('ReferencesHandler.locationSink_ — gated dedup');
+
+try {
+  var sinkHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, analyzer: analyzer, cache: cache
+  });
+  var sk = sinkHandler.locationSink_();
+  var mkLoc = function(line) {
+    return { uri: 'file:///x.js', range: { start: { line: line, character: 2 }, end: { line: line, character: 5 } } };
+  };
+  test(sk.push(mkLoc(1)) === true,  'first push of a location is kept (returns true)');
+  test(sk.push(mkLoc(1)) === false, 'second push of the same position is dropped (returns false)');
+  test(sk.push(mkLoc(2)) === true,  'different position is kept');
+  test(sk.locations.length === 2 && sk.length === 2,
+    'sink.locations holds kept rows and sink.length mirrors it (for capped collectors)');
+} catch (err) {
+  test(false, 'locationSink_ section threw: ' + err.message);
+}

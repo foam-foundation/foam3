@@ -674,6 +674,31 @@ foam.CLASS({
       }
     },
 
+    function cssTokenEntries_(tokens) {
+      /**
+       * Normalize a raw-file cssTokens declaration to [{name, value}].
+       * CSSTokenModelRefinement's adapt accepts three author forms — the
+       * LSP reads pre-adapt file models, so it must accept the same three:
+       *   1. [ { name, value } ]   (object array; also the registry form)
+       *   2. { name: value }       (plain map)
+       *   3. [ ['name', value] ]   (pair array)
+       */
+      if ( ! tokens ) return [];
+      var out = [];
+      if ( ! Array.isArray(tokens) ) {
+        if ( typeof tokens !== 'object' ) return [];
+        for ( var key in tokens ) out.push({ name: key, value: tokens[key] });
+        return out;
+      }
+      for ( var i = 0 ; i < tokens.length ; i++ ) {
+        var t = tokens[i];
+        if ( ! t ) continue;
+        if ( Array.isArray(t) )     out.push({ name: t[0], value: t[1] });
+        else if ( t.name )          out.push({ name: t.name, value: t.value });
+      }
+      return out;
+    },
+
     function collectLocalCssTokens_(model) {
       /**
        * Build a set of CSS token names declared on the model itself or
@@ -681,12 +706,10 @@ foam.CLASS({
        * unknown ancestors are silently skipped.
        */
       var set = Object.create(null);
+      var self = this;
       var addFrom = function(tokens) {
-        if ( ! tokens || ! tokens.length ) return;
-        for ( var i = 0 ; i < tokens.length ; i++ ) {
-          var t = tokens[i];
-          if ( t && t.name ) set[t.name] = true;
-        }
+        var entries = self.cssTokenEntries_(tokens);
+        for ( var i = 0 ; i < entries.length ; i++ ) set[entries[i].name] = true;
       };
       addFrom(model.cssTokens);
 
@@ -764,13 +787,12 @@ foam.CLASS({
         }
         return s;
       };
+      var self = this;
       var addFrom = function(tokens) {
-        if ( ! tokens || ! tokens.length ) return;
-        for ( var i = 0 ; i < tokens.length ; i++ ) {
-          var t = tokens[i];
-          if ( ! t || ! t.name ) continue;
-          var n = normalize(t.value);
-          if ( n && ! map[n] ) map[n] = t.name;
+        var entries = self.cssTokenEntries_(tokens);
+        for ( var i = 0 ; i < entries.length ; i++ ) {
+          var n = normalize(entries[i].value);
+          if ( n && ! map[n] ) map[n] = entries[i].name;
         }
       };
       addFrom(model.cssTokens);

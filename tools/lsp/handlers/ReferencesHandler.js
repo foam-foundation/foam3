@@ -90,13 +90,13 @@ foam.CLASS({
         var jsUses = this.index.getJsUsages(classId);
         for ( var i = 0 ; i < jsUses.length ; i++ ) add(jsUses[i].sourceClassId);
       } catch (e) {
-        console.error('[foam-lsp] getJsUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getJsUsages for ' + classId, e);
       }
       try {
         var javaUses = this.index.getJavaUsages(classId);
         for ( var i = 0 ; i < javaUses.length ; i++ ) add(javaUses[i].sourceClassId);
       } catch (e) {
-        console.error('[foam-lsp] getJavaUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getJavaUsages for ' + classId, e);
       }
       // Class-name strings ARE valid context keys too (e.g. CSpec id matches
       // the dotted class id of its result type) — pick those up via the
@@ -104,11 +104,16 @@ foam.CLASS({
       try {
         var shortName = classId.split('.').pop();
         var strUses   = this.index.getStringUsages(shortName);
+        // CSpec entries key by full dotted id — probe both, as the comment
+        // above always claimed.
+        if ( shortName !== classId ) {
+          strUses = strUses.concat(this.index.getStringUsages(classId));
+        }
         for ( var i = 0 ; i < strUses.length ; i++ ) {
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }
       } catch (e) {
-        console.error('[foam-lsp] getStringUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getStringUsages for ' + classId, e);
       }
       // Classes that reference the target ONLY inside a view spec
       // (`view: { class: 'X' }`, searchView, rowView, defaultNewItem, …)
@@ -118,22 +123,17 @@ foam.CLASS({
         var viewUses = this.index.getViewSpecUsers(classId);
         for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
       } catch (e) {
-        console.error('[foam-lsp] getViewSpecUsers failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getViewSpecUsers for ' + classId, e);
       }
 
-      // Dedup by position: a file defining several classes is scanned once
-      // per class, so identical rows repeat without this. Order-preserving.
-      var locations = [];
-      var seenLoc   = {};
+      // All collectors below feed one deduping sink: a file defining several
+      // classes is scanned once per class, so identical rows repeat without
+      // this — and a future collector pushed through the sink can't
+      // reintroduce them. Order-preserving.
+      var sink = this.locationSink_();
       for ( var i = 0 ; i < refs.length ; i++ ) {
         var locs = this.buildLocations_(refs[i], classId);
-        for ( var j = 0 ; j < locs.length ; j++ ) {
-          var loc = locs[j];
-          var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
-          if ( seenLoc[key] ) continue;
-          seenLoc[key] = true;
-          locations.push(loc);
-        }
+        for ( var j = 0 ; j < locs.length ; j++ ) sink.push(locs[j]);
       }
 
       // Journal references (#5264): jrl positions come straight from the
@@ -142,13 +142,9 @@ foam.CLASS({
       try {
         var jrlUses = this.index.getJrlUsages(classId);
         for ( var i = 0 ; i < jrlUses.length ; i++ ) {
-          var ju   = jrlUses[i];
-          var jUri = 'file://' + ju.file;
-          var jKey = jUri + ':' + ju.line + ':' + ju.character;
-          if ( seenLoc[jKey] ) continue;
-          seenLoc[jKey] = true;
-          locations.push({
-            uri: jUri,
+          var ju = jrlUses[i];
+          sink.push({
+            uri: 'file://' + ju.file,
             range: {
               start: { line: ju.line, character: ju.character },
               end:   { line: ju.line, character: ju.character + ju.length }
@@ -156,9 +152,34 @@ foam.CLASS({
           });
         }
       } catch (e) {
-        console.error('[foam-lsp] getJrlUsages failed for ' + classId + ': ' + e.message);
+        require('../logError').logLspError('getJrlUsages for ' + classId, e);
       }
-      return locations;
+      return sink.locations;
+    },
+
+    function locationSink_() {
+      /**
+       * Order-preserving Location collector that dedups by position. Every
+       * collector feeding one result set pushes through the same sink, so a
+       * new collector can't silently reintroduce duplicate rows — the guard
+       * lives in the sink, not at each call site. `push` returns whether the
+       * location was kept.
+       */
+      var seen = {};
+      var locations = [];
+      return {
+        locations: locations,
+        // Kept-row count, so collectors with a result cap (scanPropertyRefs_)
+        // can treat the sink like the array they used to receive.
+        get length() { return locations.length; },
+        push: function(loc) {
+          var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
+          if ( seen[key] ) return false;
+          seen[key] = true;
+          locations.push(loc);
+          return true;
+        }
+      };
     },
 
     function propertyReferences_(text, position, word, opt_uri) {
@@ -178,8 +199,34 @@ foam.CLASS({
       var classId = this.cache.getClassId(model);
       if ( ! classId ) return null;
 
-      // Collect files to scan: the defining class + every subclass (they
-      // inherit the property and commonly reference it).
+      return this.memberScanLocations_(classId, word);
+    },
+
+    function memberReferencesForClassId(classId, memberName) {
+      /**
+       * By-id member references — the name-addressed (foam/byName) twin of
+       * propertyReferences_/axiomReferences_. Returns call-site Locations
+       * when memberName is an own property, message, or constant of classId;
+       * null otherwise so the caller falls back to class references
+       * (methods stay on callHierarchy, which already has call sites).
+       */
+      var cls = typeof this.index.getClass === 'function' ?
+        this.index.getClass(classId) : null;
+      var model = cls && cls.model_;
+      if ( ! model ) return null;
+      if ( ! ( this.isOwnPropertyName_(model, memberName) ||
+               this.isOwnMessageName_(model, memberName)  ||
+               this.isOwnConstantName_(model, memberName) ) ) return null;
+      return this.memberScanLocations_(classId, memberName);
+    },
+
+    function memberScanLocations_(classId, word) {
+      /**
+       * Collect files to scan — the defining class + every subclass (they
+       * inherit the member and commonly reference it) + classes that REQUIRE
+       * or have `of: classId` (they access it through a typed variable) —
+       * then emit every call-site Location for `word` across that set.
+       */
       var seen = {};
       var filesToScan = [];
       function addFile(id) {
@@ -190,19 +237,19 @@ foam.CLASS({
       addFile(classId);
       var subs = this.transitiveSubclasses_(classId);
       for ( var i = 0 ; i < subs.length ; i++ ) addFile(subs[i]);
-
-      // Also include classes that REQUIRE or have `of: classId` — they likely
-      // access the property through a typed variable.
       var reqs = this.index.getRequirers(classId);
       var ofs  = this.index.getOfUsers(classId);
       for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
       for ( var i = 0 ; i < ofs.length ; i++ )   addFile(ofs[i]);
 
-      var locations = [];
+      // Ids are deduped above, but several ids can map to ONE file, which
+      // then gets scanned once per id and would repeat every row — the sink
+      // dedups by position as the scans push into it.
+      var sink = this.locationSink_();
       for ( var i = 0 ; i < filesToScan.length ; i++ ) {
-        this.scanPropertyRefs_(filesToScan[i], word, locations);
+        this.scanPropertyRefs_(filesToScan[i], word, sink);
       }
-      return locations;
+      return sink.locations;
     },
 
     function axiomReferences_(text, position, word, opt_uri) {
@@ -232,25 +279,7 @@ foam.CLASS({
 
       // Same scoping as property references — own class + transitive
       // subclasses + requirers + of-users.
-      var seen = {};
-      var files = [];
-      function addFile(id) {
-        if ( ! id || seen[id] ) return;
-        seen[id] = true; files.push(id);
-      }
-      addFile(classId);
-      var subs = this.transitiveSubclasses_(classId);
-      for ( var i = 0 ; i < subs.length ; i++ ) addFile(subs[i]);
-      var reqs = this.index.getRequirers(classId);
-      var ofs  = this.index.getOfUsers(classId);
-      for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
-      for ( var i = 0 ; i < ofs.length ; i++ )   addFile(ofs[i]);
-
-      var locations = [];
-      for ( var i = 0 ; i < files.length ; i++ ) {
-        this.scanPropertyRefs_(files[i], word, locations);
-      }
-      return locations;
+      return this.memberScanLocations_(classId, word);
     },
 
     function isOwnMessageName_(model, word) {
@@ -523,7 +552,9 @@ foam.CLASS({
             push(hits[i].startPos, targetClassId.length);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        require('../logError').logLspError('grammar classRef scan for ' + targetClassId, e);
+      }
 
       // === B. Word-bounded full-id text scan ===
       var escapedFull = targetClassId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -577,7 +608,9 @@ foam.CLASS({
             }
           });
         }
-      } catch (e) {}
+      } catch (e) {
+        require('../logError').logLspError('short-name axiom scan for ' + targetClassId, e);
+      }
 
       return out.length > 0 ? out : fallback;
     },
@@ -607,9 +640,11 @@ foam.CLASS({
         }
         if ( path === targetClassId && alias ) out[alias] = true;
       }
-      var ji = cls.model_.javaImports || [];
+      // Normalized by FoamIndex.javaImportPaths — never unwrap shapes here.
+      var ji = typeof this.index.javaImportPaths === 'function' ?
+        this.index.javaImportPaths(cls) : [];
       for ( var i = 0 ; i < ji.length ; i++ ) {
-        var imp = typeof ji[i] === 'string' ? ji[i] : ( ji[i] && ji[i].path );
+        var imp = ji[i];
         if ( imp === targetClassId ) {
           var sh = imp.split('.').pop();
           if ( sh ) out[sh] = true;

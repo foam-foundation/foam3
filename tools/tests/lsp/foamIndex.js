@@ -355,3 +355,78 @@ if ( index.classExists(JAVA_CLASS) && index.getFilePath(JAVA_CLASS) ) {
 } else {
   test(true, 'Java-only method tests skipped (FObject not in file index)');
 }
+
+// === SWALLOWED CATCH TRACES (Task 5) ===
+// indexFileClasses_/POM walk/cspec scan must leave a [foam-lsp] trace on
+// failure instead of silently dropping the file — same fallback, new trace.
+
+section('FoamIndex — swallowed catches leave a trace');
+
+// --- indexFileClasses_ logs instead of silently dropping a file ---
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'foamindex-catch-'));
+  var bad = path.join(dir, 'Broken.js');
+  // FileModelCache.parseFileModels swallows a plain syntax error internally
+  // (returns [] without throwing), so force the throw past that layer: the
+  // eval-intercept executes the object literal, so a throwing getter fires
+  // while indexFileClasses_'s own model-walk loop is still running.
+  fs.writeFileSync(bad, "foam.CLASS({ get name() { throw new Error('boom'); } });");
+
+  var captured = [];
+  var orig = console.error;
+  console.error = function(msg) { captured.push(msg); };
+  try {
+    index.indexFileClasses_(bad, [], 'pom.js', 'Broken', fs);
+  } finally {
+    console.error = orig;
+  }
+  test(captured.some(function(m) {
+    return typeof m === 'string' && m.indexOf('[foam-lsp]') === 0 && m.indexOf('Broken.js') !== -1;
+  }), 'indexFileClasses_ failure leaves a [foam-lsp] trace naming the file, got: ' + JSON.stringify(captured));
+})();
+
+section('FoamIndex — failed grammar parse must not be cached against mtime');
+
+// --- a transient parse fault is retried, not pinned to the file's mtime ---
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'foamindex-poscache-'));
+  var f = path.join(dir, 'X.js');
+  fs.writeFileSync(f, "foam.CLASS({ package: 'x', name: 'X', properties: [ 'a' ] });");
+
+  var grammar = index.getGrammar();
+  var origCollect = grammar.collectAxiomPositions;
+  var calls = 0;
+  grammar.collectAxiomPositions = function(content) {
+    calls++;
+    if ( calls === 1 ) throw new Error('transient parse fault');
+    return origCollect.call(grammar, content);
+  };
+  var origErr = console.error;
+  var first, second;
+  try {
+    console.error = function() {};
+    first  = index.getFilePosMap_(f);   // parse throws -> null, NOT cached
+    second = index.getFilePosMap_(f);   // must RETRY (mtime unchanged)
+  } finally {
+    console.error = origErr;
+    grammar.collectAxiomPositions = origCollect;
+  }
+  test(first === null, 'failed parse returns null');
+  test(calls === 2, 'failed parse retried on next request, calls=' + calls);
+  test(second && typeof second === 'object', 'retry succeeds and returns a posMap');
+})();
+
+// --- getOfUsers matches adapted (object-form) `of` values ---
+(function() {
+  foam.CLASS({ package: 'lsptest.of', name: 'Target' });
+  foam.CLASS({
+    package: 'lsptest.of', name: 'Holder',
+    properties: [ { class: 'FObjectProperty', of: 'lsptest.of.Target', name: 'target' } ]
+  });
+  delete index.cache_['of_lsptest.of.Target'];
+  var users = index.getOfUsers('lsptest.of.Target');
+  test(users.indexOf('lsptest.of.Holder') !== -1,
+    'of-user found regardless of adapted of shape, got ' + JSON.stringify(users));
+})();

@@ -216,8 +216,16 @@ function start() {
         }
         return hoverHandler.buildClassHover(classId);
       }
-      case 'references':
+      case 'references': {
+        // Class.member: return the member's call-site lines when the member
+        // scan recognizes it (own property/message/constant); null falls
+        // back to class references (methods go through callHierarchy).
+        if ( info.memberName ) {
+          var mLocs = referencesHandler.memberReferencesForClassId(classId, info.memberName);
+          if ( mLocs ) return mLocs;
+        }
         return referencesHandler.referencesForClassId(classId);
+      }
       case 'implementation': {
         var targets = index.isInterface(classId) ?
           index.getImplementors(classId) : index.getSubclasses(classId);

@@ -1,2 +1,4 @@
 p({"class":"foam.dao.index.PersistedIndexTest","id":"PersistedIndex test","description":"tests the persisted index feature"})
 p({"class":"foam.dao.index.MDAOAndOrderTest","id":"MDAOAndOrderTest","description":"where(A).where(B) must equal where(AND(A,B)) for MDAO tree-index counts"})
+p({"class":"foam.dao.index.TreeIndexInTest","id":"TreeIndexInTest","description":"IN over an indexed property is answered from the tree, not by a full scan"})
+p({"class":"foam.dao.index.TreeIndexInJsTest","id":"TreeIndexInJsTest","description":"client-side IN row sets over an MDAO", language: 0})

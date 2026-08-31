@@ -369,6 +369,8 @@ foam.POM({
     { name: "foam/dao/index/AndOrderStatus",                          flags: "js&test|java&test" },
     { name: "foam/dao/index/AndOrderRecord",                          flags: "js&test|java&test" },
     { name: "foam/dao/index/MDAOAndOrderTest",                        flags: "js&test|java&test" },
+    { name: "foam/dao/index/TreeIndexInTest",                         flags: "js&test|java&test" },
+    { name: "foam/dao/index/TreeIndexInJsTest",                       flags: "js&test|java&test" },
     { name: "foam/dao/MDAO",                                          flags: "js" },
     { name: "foam/dao/ArrayDAO",                                      flags: "js|java" },
     { name: "foam/dao/CopyOnWriteDAO",                                flags: "js|java" },

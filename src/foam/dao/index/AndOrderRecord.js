@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.dao.index',
   name: 'AndOrderRecord',
 
-  documentation: 'Test record for MDAOAndOrderTest.',
+  documentation: 'Test record for the MDAO index tests in this package.',
 
   properties: [
     { class: 'Long', name: 'id' },

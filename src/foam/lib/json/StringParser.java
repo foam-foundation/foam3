@@ -69,9 +69,19 @@ public class StringParser
     int closeIdx = str.indexOf(delim, pos);
     if ( closeIdx < 0 ) return null;
 
-    int escIdx = str.indexOf(ESCAPE, pos);
-    // If there's an escape before the closing delimiter, fall back to slow path
-    if ( escIdx >= 0 && escIdx < closeIdx ) return null;
+    // If there's an escape before the closing delimiter, fall back to the slow
+    // path. Bounded to the string's own span: the unbounded form scanned to the
+    // END of the input on every escape-free value, re-reading the entry once per
+    // string property. Short spans use a plain loop — the ranged indexOf's
+    // per-call overhead costs more than it saves under ~32 chars; longer spans
+    // get its vectorized scan.
+    if ( closeIdx - pos <= 32 ) {
+      for ( int i = pos ; i < closeIdx ; i++ ) {
+        if ( str.charAt(i) == ESCAPE ) return null;
+      }
+    } else if ( str.indexOf(ESCAPE, pos, closeIdx) >= 0 ) {
+      return null;
+    }
 
     // No escapes — bulk extract the string
     String value = str.substring(pos, closeIdx).intern();

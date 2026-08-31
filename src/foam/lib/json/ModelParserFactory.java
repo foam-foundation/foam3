@@ -53,30 +53,24 @@ public class ModelParserFactory {
    * On a StringPStream the key's exact span is scanned once (quote-aware,
    * identifier chars, String-compatible hashing, no allocation) and resolved
    * with one open-addressed probe — a profile put the previous per-character
-   * PrefixAlt tree walk at ~18% of journal-replay CPU. Other PStreams (error
-   * reporting) keep the PrefixAlt tree, built from the same entries.
+   * PrefixAlt tree walk at ~18% of journal-replay CPU. Other PStreams (the
+   * error-reporting streams) scan the same span through head()/tail() into a
+   * buffer and hit the same table; allocation there is irrelevant.
    *
    * A miss returns null and the caller falls back to UnknownPropertyParser,
    * so an unknown key behaves exactly as before.
    */
   static final class PropertyKeyParser implements Parser {
-    private PrefixAlt tree_    = EmptyPrefixAlt.instance();
     private String[]  keys_    = new String[8];
     private Parser[]  parsers_ = new Parser[8];
-    private int       count_, mask_ = 7;
+    private int       count_, mask_ = 7, maxKeyLen_;
 
     void add(String name, Parser valueParser) {
-      tree_ = tree_.add(name, valueParser);
-      tree_ = tree_.add('"' + name + '"', valueParser);
-
       // keep the table at most quarter full so probe chains stay short
       if ( ( count_ + 1 ) * 4 > keys_.length ) grow();
       insert(name, valueParser);
       count_++;
-    }
-
-    void seal() {
-      tree_ = tree_.rebalance();
+      if ( name.length() > maxKeyLen_ ) maxKeyLen_ = name.length();
     }
 
     private void grow() {
@@ -98,7 +92,7 @@ public class ModelParserFactory {
     }
 
     public PStream parse(PStream ps, ParserContext x) {
-      if ( ! ( ps instanceof StringPStream ) ) return tree_.parse(ps, x);
+      if ( ! ( ps instanceof StringPStream ) ) return parseGeneric(ps, x);
 
       StringPStream sps = (StringPStream) ps;
       CharSequence  str = sps.getString();
@@ -130,6 +124,39 @@ public class ModelParserFactory {
         int j = 0;
         while ( j < keyLen && k.charAt(j) == str.charAt(start + j) ) j++;
         if ( j == keyLen ) return parsers_[slot].parse(sps.createAt(i), x);
+      }
+      return null;
+    }
+
+    /** The same scan and lookup over any PStream — only the error-reporting streams take this path. */
+    private PStream parseGeneric(PStream ps, ParserContext x) {
+      if ( ! ps.valid() ) return null;
+
+      boolean quoted = ps.head() == '"';
+      if ( quoted ) ps = ps.tail();
+
+      char[] buf = new char[maxKeyLen_];
+      int n = 0, h = 0;
+      while ( ps.valid() ) {
+        char c = ps.head();
+        if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
+        if ( n == buf.length ) return null; // longer than any registered name
+        buf[n++] = c;
+        h = h * 31 + c;
+        ps = ps.tail();
+      }
+      if ( n == 0 ) return null;
+      if ( quoted ) {
+        if ( ! ps.valid() || ps.head() != '"' ) return null;
+        ps = ps.tail();
+      }
+
+      for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
+        String k = keys_[slot];
+        if ( k.length() != n || k.hashCode() != h ) continue;
+        int j = 0;
+        while ( j < n && k.charAt(j) == buf[j] ) j++;
+        if ( j == n ) return parsers_[slot].parse(ps, x);
       }
       return null;
     }
@@ -181,8 +208,6 @@ public class ModelParserFactory {
       keys.add(pi.getName(), valueParser);
       if ( pi.getShortName() != null ) keys.add(pi.getShortName(), valueParser);
     }
-
-    keys.seal();
 
     // Inlined property loop: replaces Repeat0(Seq0(SKIP, Alt, SKIP), Literal(','))
     // to eliminate Repeat0 + Seq0 + Literal combinator overhead per property.

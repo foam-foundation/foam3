@@ -584,6 +584,7 @@ foam.POM({
     { name: "foam/u2/util/ClipboardAccess",                           flags: "web" },
     { name: "foam/u2/TextField",                                      flags: "web" },
     { name: "foam/u2/SearchField",                                    flags: "web" },
+    { name: "foam/u2/ClearableSearchField",                           flags: "web" },
     { name: "foam/u2/TextInputCSS",                                   flags: "web" },
     { name: "foam/u2/IntView",                                        flags: "web" },
     { name: "foam/u2/FloatView",                                      flags: "web" },

@@ -51,6 +51,18 @@ foam.CLASS({
         // null passes through
         test(StringInterner.intern(null) == null, "null passes through");
 
+        // entries die with their string: intern uniques, drop them, force GC
+        int before = StringInterner.size();
+        for ( int i = 0 ; i < 10000 ; i++ ) StringInterner.intern("gc-probe-" + i + "-" + System.nanoTime());
+        int filled = StringInterner.size();
+        for ( int i = 0 ; i < 5 && StringInterner.size() > filled - 9000 ; i++ ) {
+          System.gc();
+          try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+          StringInterner.intern("drain-trigger");
+        }
+        test(filled >= before + 10000 && StringInterner.size() <= filled - 9000,
+          "collected strings leave the interner (was " + filled + ", now " + StringInterner.size() + ")");
+
         // the parser dedups repeated short values across entries
         JSONParser p = new JSONParser();
         p.setX(x);

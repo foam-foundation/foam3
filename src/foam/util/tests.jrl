@@ -6,3 +6,8 @@ p({"class":"foam.util.test.UIDGeneratorTest","id":"UIDGeneratorTest","descriptio
 p({"class":"foam.util.test.SafetyUtilTest","id":"SafetyUtilTest","description":"SafetyUtil tests"})
 p({"class":"foam.util.test.DateUtilTest","id":"DateUtilTest","description":"DateUtil Java tests"})
 p({"class":"foam.util.test.DateUtilJSTest","id":"DateUtilJSTest","description":"DateUtil JavaScript tests"})
+p({
+  class:"foam.util.test.StringInternerTest",
+  id:"StringInternerTest",
+  description:"StringInterner deduplicates short strings per thread without String.intern()"
+})

@@ -182,7 +182,7 @@ foam.CLASS({
           } else {
             replayWithJackson(x, ci, jrlPath);
             replayJacksonAsyncLine(x, ci, jrlPath);
-            for ( int mode : new int[] { 1, 5, 6 } ) {
+            for ( int mode : new int[] { 1, 0, 5 } ) {
               replayWithFoam(x, ci, jrlPath, mode);
               replayWithSimpleAsyncLine(x, ci, jrlPath, mode);
               replayWithF3FileJournal(x, ci, mode);
@@ -424,8 +424,8 @@ foam.CLASS({
         log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
-        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
+        stringGraphStats(label, mdao, ci);
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
         long rssNow = HeapSampler.rssMB();
         long rssPeak = 0;
@@ -511,8 +511,8 @@ foam.CLASS({
         log(String.format("  Overhead:   %6.2f sec  (%4.1f%%)", unacctSec, 100*unacctSec/wallSec));
         log(String.format("  Throughput: %.0f entries/sec, %.1f MB/sec", count/wallSec, mbSec));
         log("  Comments skipped: " + comments);
-        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
+        stringGraphStats(label, mdao, ci);
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
         long rssNow = HeapSampler.rssMB();
         long rssPeak = 0;
@@ -625,8 +625,8 @@ foam.CLASS({
         log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
         log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
         log("  Comments skipped: " + comments);
-        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
+        stringGraphStats(label, mdao, ci);
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
         long rssNow = HeapSampler.rssMB();
         long rssPeak = 0;
@@ -731,8 +731,8 @@ foam.CLASS({
         log(String.format("  MDAO put (serial):%6.2f sec  (%4.1f%%)", putSec, 100*putSec/wallSec));
         log(String.format("  Throughput:       %.0f entries/sec, %.1f MB/sec", processed/wallSec, mbSec));
         log("  Comments skipped: " + comments);
-        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
+        stringGraphStats(label, mdao, ci);
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
         long rssNow = HeapSampler.rssMB();
         long rssPeak = 0;
@@ -785,8 +785,8 @@ foam.CLASS({
         log(String.format("  Wall time:  %6.2f sec", wallSec));
         log(String.format("  Throughput: %.0f entries/sec", processed/wallSec));
         log("  Failed entries: " + journal.getFailCount());
-        stringGraphStats(label, mdao, ci);
         long peakMB = sampler_.stopAndGetPeakMB();
+        stringGraphStats(label, mdao, ci);
         for ( long[] smp : sampler_.samples ) log("HEAPTS," + label + "," + smp[0] + "," + smp[1]);
         long rssNow = HeapSampler.rssMB();
         long rssPeak = 0;

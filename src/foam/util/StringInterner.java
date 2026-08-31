@@ -116,8 +116,7 @@ public final class StringInterner {
   }
 
   public static String internWeak(String s) {
-    if ( s == null || s.length() > 128 ) return s;
-    return WEAK.intern(s);
+    return s == null ? null : WEAK.intern(s);
   }
 
   /**

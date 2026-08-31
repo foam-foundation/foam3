@@ -180,9 +180,12 @@ foam.CLASS({
           if ( only >= 0 ) {
             replayWithF3FileJournal(x, ci, only);
           } else {
-            replayWithJackson(x, ci, jrlPath);
-            replayJacksonAsyncLine(x, ci, jrlPath);
             for ( int mode : new int[] { 1, 0, 5 } ) {
+              foam.util.StringInterner.reset();
+              StringParser.DEDUP = mode;
+              replayWithJackson(x, ci, jrlPath);
+              replayJacksonAsyncLine(x, ci, jrlPath);
+              StringParser.DEDUP = 1;
               replayWithFoam(x, ci, jrlPath, mode);
               replayWithSimpleAsyncLine(x, ci, jrlPath, mode);
               replayWithF3FileJournal(x, ci, mode);
@@ -452,7 +455,7 @@ foam.CLASS({
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
         sampler_.start();
-        String label = "Jackson, single thread (ceiling)";
+        String label = "Jackson, single thread (ceiling)" + dedupLabel(StringParser.DEDUP);
         JacksonJournalParser jacksonParser = new JacksonJournalParser();
         jacksonParser.setTargetClassInfo(ci);
         MDAO mdao = new MDAO(ci);
@@ -654,7 +657,7 @@ foam.CLASS({
         per worker thread because the instance carries the property map.
       `,
       javaCode: `
-        String label = "Jackson + SimpleAsyncAssemblyLine (ceiling)";
+        String label = "Jackson + SimpleAsyncAssemblyLine (ceiling)" + dedupLabel(StringParser.DEDUP);
         double heapBefore = usedHeapMB();
         HeapSampler sampler_ = new HeapSampler();
         sampler_.start();

@@ -104,6 +104,13 @@ foam.CLASS({
           Object val = entry.getValue();
           if ( val == null ) continue;
 
+          // Plain string values take the same dedup path as the FOAM parser so
+          // the two parsers compare like with like on memory.
+          if ( val instanceof String && pi.getValueClass() != ClassInfo.class ) {
+            pi.set(obj, foam.lib.json.StringParser.dedup((String) val));
+            continue;
+          }
+
           // A class reference is written as a plain string ("of":"foam.core.ticket.Ticket");
           // FOAM's ClassReferenceParser resolves it to a ClassInfo, so do the same.
           if ( val instanceof String && pi.getValueClass() == ClassInfo.class ) {
@@ -138,7 +145,13 @@ foam.CLASS({
                 // so a raw List would fail the cast and leave the property empty.
                 boolean allStrings = true;
                 for ( Object o : list ) if ( ! (o instanceof String) ) { allStrings = false; break; }
-                pi.set(obj, allStrings ? list.toArray(new String[0]) : list.toArray());
+                if ( allStrings ) {
+                  String[] arr = new String[list.size()];
+                  for ( int i = 0 ; i < arr.length ; i++ ) arr[i] = foam.lib.json.StringParser.dedup((String) list.get(i));
+                  pi.set(obj, arr);
+                } else {
+                  pi.set(obj, list.toArray());
+                }
               }
             } else {
               // Jackson gives Integer for numbers <= MAX_INT, Long for larger.

@@ -61,7 +61,7 @@ public class StringParser
    */
   public static volatile int DEDUP = Integer.getInteger("foam.json.dedup", 1);
 
-  static String dedup(String s) {
+  public static String dedup(String s) {
     switch ( DEDUP ) {
       case 1:  return s.intern();
       case 2:  return foam.util.StringInterner.intern(s);

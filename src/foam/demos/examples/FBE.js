@@ -141,7 +141,7 @@ foam.CLASS({
         function render() {
           this.SUPER();
 
-          if ( this.params.id && this.params.id !== this.data.id ) return;
+          // if ( this.params.id && this.params.id !== this.data.id ) return;
 
           var self = this;
 

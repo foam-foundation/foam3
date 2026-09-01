@@ -168,7 +168,82 @@ tag(Example);
 tag(Example);
 tag(Example);
 
+## MinLength Validation Bugs
+--
+foam.CLASS({
+  name: 'Data',
 
+  properties: [
+    {
+      class: 'String',
+      name: 'firstName'
+    },
+    {
+      class: 'String',
+      name: 'lastName'
+    },
+    {
+      class: 'Int',
+      name: 'age'
+    }
+  ],
+
+  actions: [
+    function incr() { this.age++; }
+  ]
+});
+
+foam.CLASS({
+  name: 'Data2',
+extends: 'Data',
+
+  properties: [
+    {
+      name: 'firstName',
+minLength: 2
+    },
+    {
+      class: 'String',
+      name: 'lastName',
+minLength: 2
+    },
+    {
+      class: 'Int',
+      name: 'age'
+    }
+  ],
+
+  actions: [
+    function incr() { this.age++; }
+  ]
+});
+
+foam.CLASS({
+  name: 'Example',
+  extends: 'foam.u2.View',
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'Data2',
+      name: 'data',
+      factory: function() { return Data2.create(); }
+    }
+  ],
+
+  methods: [
+    function render() {
+      this.SUPER();
+      this.add(this.data.FIRST_NAME.__, this.data.LAST_NAME.__, this.data.AGE.__, this.data.INCR, this.MUL);
+    }
+  ],
+
+  actions: [
+    function mul() { this.data.age *= 10; }
+  ]
+});
+
+tag(Example);
 
 ##  Empty
 --

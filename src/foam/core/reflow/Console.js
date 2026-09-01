@@ -962,6 +962,7 @@ foam.CLASS({
     'foam.core.ai.ConversationalLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
+    'foam.core.reflow.DependencyScanner',
     'foam.core.reflow.Flow',
     'foam.core.reflow.FlowMode',
     'foam.core.reflow.Flowable',
@@ -1896,39 +1897,32 @@ foam.CLASS({
       }
     },
 
-    function updateDependencies() {
-      let fc = this.flowChildren;
+    function updateDependencies(blocks) {
+      /** blocks: the parsed script JSON. The scanner's edges run from a referenced
+          block to the block referencing it, so a block's `dependencies` holds its
+          dependents -- Flowable.treeRowRenderer reads them as "Dependents:".
 
-      function hasReactionDependency(c1, c2) {
-        if ( c2.value ) {
-          for ( let r in c2.value.reactions_ ) {
-            let str = Function.prototype.toString.call(c2.value.reactions_[r]);
-            if ( str.indexOf(c1.flowName) != -1 )
-              return true;
-          }
-        }
-        return false;
-      }
+          flowChildren is flattened in the same document order the scanner walks
+          the JSON, so the two sides line up by flowName. */
+      var graph = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
 
-      for ( let i = 0 ; i < fc.length ; i++ ) {
-        let c  = fc[i];
-        let ds = [];
+      var idToName = {};
+      graph.nodes.forEach(n => { idToName[n.id] = n.name; });
 
-        for ( let j = i+1 ; j < fc.length ; j++ ) {
-          let c2 = fc[j];
+      var dependents = {};
+      graph.edges.forEach(e => {
+        var source = idToName[e.source];
+        ( dependents[source] || ( dependents[source] = [] ) ).push(idToName[e.target]);
+      });
 
-          if ( c2.cmd.indexOf(c.flowName) != -1 || hasReactionDependency(c, c2) ) {
-            ds.push(c2.flowName);
-          }
-        }
+      var flat    = [];
+      var flatten = fs => fs.forEach(f => { flat.push(f); flatten(f.flowChildren); });
+      flatten(this.flowChildren);
 
-        c.dependencies = ds;
-      }
+      flat.forEach(f => { f.dependencies = [...new Set(dependents[f.flowName] || [])]; });
     },
 
     function generateScriptString() {
-      this.updateDependencies();
-
       var json = foam.json.Outputter.create({
         pretty: true,
         strict: true,
@@ -1938,7 +1932,15 @@ foam.CLASS({
         propertyPredicate: function(_, p) { return p.name === 'reactions_' || ( ! p.externalTransient && ! p.networkTransient ); }
       });
 
-      return json.stringify(this.flowChildren);
+      var script = json.stringify(this.flowChildren);
+
+      try {
+        this.updateDependencies(JSON.parse(script));
+      } catch (e) {
+        console.warn('Dependency scan skipped, script is not strict JSON', e);
+      }
+
+      return script;
     },
 
     function generateScript() {

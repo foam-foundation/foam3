@@ -45,6 +45,8 @@ foam.CLASS({
   sections: [
     {
       name: 'resetPasswordSection',
+      title: 'Reset Password',
+      view: { class: 'foam.u2.dialog.PopupSectionView' },
       help: 'Enter your account email and we will send you an email with a link to create a new one.'
     },
     {

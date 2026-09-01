@@ -750,6 +750,7 @@ foam.POM({
     { name: "foam/u2/Dialog",                                         flags: "web" },
     { name: "foam/u2/dialog/NotificationMessage",                     flags: "web" },
     { name: "foam/u2/dialog/InlineNotificationMessage",               flags: "web" },
+    { name: "foam/u2/dialog/PopupSectionView",                        flags: "web" },
     { name: "foam/u2/Autocompleter",                                  flags: "web" },
     { name: "foam/u2/filter/FilterRefinements",                       flags: "web" },
     { name: "foam/u2/filter/FilterView",                              flags: "web" },

@@ -71,8 +71,19 @@ foam.CLASS({
       return this.useMinorUnits ? Math.round(val * scale) : Math.round(val * scale) / scale;
     },
 
+    function dataToText(val) {
+      // FloatView's Intl path formats the raw stored value, but currency data
+      // may be in minor units — route through formatNumber, which converts.
+      // Without this override the field shows 12345 cents as 12,345.00 while
+      // textToData still multiplies on save (#5298 data-corruption pair).
+      return this.formatNumber(val);
+    },
+
     function formatNumber(val) {
-      return this.curr_ ? this.curr_.format(val, true, this.hideSymbol) : val.toFixed(2);
+      if ( ! this.curr_ ) return val.toFixed(2);
+      // Currency.format takes minor units; mirror textToData's useMinorUnits
+      var minor = this.useMinorUnits ? val : this.curr_.minorAmount(val);
+      return this.curr_.format(minor, true, this.hideSymbol);
     },
 
     function link() {

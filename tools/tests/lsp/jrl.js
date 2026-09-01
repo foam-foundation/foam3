@@ -547,6 +547,147 @@ if ( index.classExists('foam.dao.EasyDAO') ) {
   }), 'serviceScript completion: member-access on EasyDAO surfaces registry-derived setters');
 }
 
+// === JOURNAL ENTRY INDEX TESTS ===
+
+section('JournalEntryIndex');
+var jrlnavDir = path.join(__dirname, 'fixtures', 'jrlnav');
+var jei = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [
+    path.join(jrlnavDir, 'menus.jrl'),
+    path.join(jrlnavDir, 'services.jrl'),
+    path.join(jrlnavDir, 'overlay.jrl')
+  ]
+});
+
+var svcLocs = jei.getServiceLocations('recipeDAO');
+test(svcLocs && svcLocs.length === 1 && svcLocs[0].file.indexOf('services.jrl') !== -1,
+  'JEI: recipeDAO service found in services.jrl');
+test(svcLocs && svcLocs[0].line === 0, 'JEI: service location is entry start line: ' + (svcLocs && svcLocs[0].line));
+
+var dupLocs = jei.getEntryLocations('foam.core.menu.Menu', 'cookbook');
+test(dupLocs && dupLocs.length === 2, 'JEI: duplicate id "cookbook" in menus + overlay: ' + (dupLocs && dupLocs.length));
+
+var childLocs = jei.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
+test(childLocs && childLocs.length === 1 && childLocs[0].line === 5,
+  'JEI: cookbook.recipe at menus.jrl line 5: ' + (childLocs && childLocs[0].line));
+
+test(jei.getEntryLocations('foam.core.menu.Menu', 'no.such.menu') === null, 'JEI: unknown entry id → null');
+test(jei.getServiceLocations('noSuchDAO') === null, 'JEI: unknown service → null');
+
+// Invalidation: rewrite a temp journal, invalidate, see the new state.
+var jeiTmp = path.join(require('os').tmpdir(), 'lsp-jrlnav-inval.jrl');
+fs.writeFileSync(jeiTmp, 'p({"class":"foam.core.menu.Menu","id":"aaa"})\n');
+var jei2 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiTmp ] });
+test(jei2.getEntryLocations('foam.core.menu.Menu', 'aaa') !== null, 'JEI: temp journal indexed');
+fs.writeFileSync(jeiTmp, 'p({"class":"foam.core.menu.Menu","id":"bbb"})\n');
+jei2.invalidate();
+test(jei2.getEntryLocations('foam.core.menu.Menu', 'aaa') === null &&
+     jei2.getEntryLocations('foam.core.menu.Menu', 'bbb') !== null,
+  'JEI: invalidate() rebuilds from disk');
+
+// Per-entry eval: one malformed entry drops only itself, not the file
+// (PR #5296 review: a file-wide eval lost every entry in regions.jrl,
+// rules.jrl, etc. on a single syntax slip).
+var jeiBroken = path.join(require('os').tmpdir(), 'lsp-jrlnav-broken.jrl');
+fs.writeFileSync(jeiBroken, [
+  'p({"class":"foam.core.menu.Menu","id":"good1"})',
+  'p({"class":"foam.core.menu.Menu","id":"bad"',
+  'p({"class":"foam.core.menu.Menu","id":"good2"})',
+  ''
+].join('\n'));
+var jei3 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiBroken ] });
+var g1 = jei3.getEntryLocations('foam.core.menu.Menu', 'good1');
+var g2 = jei3.getEntryLocations('foam.core.menu.Menu', 'good2');
+test(g1 && g1.length === 1 && g1[0].line === 0,
+  'JEI: entry before malformed neighbour still indexed');
+test(g2 && g2.length === 1 && g2[0].line === 2,
+  'JEI: entry after malformed neighbour still indexed: line ' + (g2 && g2[0].line));
+test(jei3.getEntryLocations('foam.core.menu.Menu', 'bad') === null,
+  'JEI: malformed entry itself is dropped');
+
+// Pre-gate: a journal whose raw text cannot contain the key is never
+// parsed (PR #5296 review: parsing every journal froze large workspaces).
+// White-box: fileCache_ only gains an entry when a file is parsed.
+var jei4 = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [
+    path.join(jrlnavDir, 'menus.jrl'),
+    path.join(jrlnavDir, 'services.jrl')
+  ]
+});
+jei4.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
+test(!! jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')] &&
+     !  jei4.fileCache_[path.join(jrlnavDir, 'services.jrl')],
+  'JEI: pre-gate parses only journals containing the key');
+
+// Repeat query is served from the mtime/size-validated per-file cache.
+var cachedRecs = jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')].recs;
+jei4.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe');
+test(jei4.fileCache_[path.join(jrlnavDir, 'menus.jrl')].recs === cachedRecs,
+  'JEI: repeat query served from cache (no re-parse)');
+
+// Service lookups only touch services.jrl: menus.jrl contains the
+// string "recipeDAO" (as a daoKey value) but must not be parsed for a
+// service lookup (PR #5296 review round 2).
+var jei6 = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [
+    path.join(jrlnavDir, 'menus.jrl'),
+    path.join(jrlnavDir, 'services.jrl')
+  ]
+});
+var svcOnly = jei6.getServiceLocations('recipeDAO');
+test(svcOnly && svcOnly.length === 1 &&
+     !! jei6.fileCache_[path.join(jrlnavDir, 'services.jrl')] &&
+     !  jei6.fileCache_[path.join(jrlnavDir, 'menus.jrl')],
+  'JEI: service lookup never parses non-services journals');
+
+// Size cap: journals over maxFileSize are never read or parsed.
+var jeiBig = path.join(require('os').tmpdir(), 'lsp-jrlnav-big.jrl');
+fs.writeFileSync(jeiBig, 'p({"class":"foam.core.menu.Menu","id":"biggie"})\n');
+var jei7 = foam.parse.lsp.JournalEntryIndex.create({
+  index: index,
+  journalFiles: [ jeiBig ],
+  maxFileSize: 16
+});
+test(jei7.getEntryLocations('foam.core.menu.Menu', 'biggie') === null &&
+     ! jei7.fileCache_[jeiBig],
+  'JEI: oversized journal skipped without parsing');
+var jei8 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiBig ] });
+test(jei8.getEntryLocations('foam.core.menu.Menu', 'biggie') !== null,
+  'JEI: same journal indexed under the default size cap');
+
+// External change (no invalidate()): mtime/size revalidation re-reads.
+var jeiExt = path.join(require('os').tmpdir(), 'lsp-jrlnav-ext.jrl');
+fs.writeFileSync(jeiExt, 'p({"class":"foam.core.menu.Menu","id":"before"})\n');
+var jei5 = foam.parse.lsp.JournalEntryIndex.create({ index: index, journalFiles: [ jeiExt ] });
+test(jei5.getEntryLocations('foam.core.menu.Menu', 'before') !== null,
+  'JEI: external-change temp journal indexed');
+fs.writeFileSync(jeiExt, 'p({"class":"foam.core.menu.Menu","id":"afterwards"})\n');
+test(jei5.getEntryLocations('foam.core.menu.Menu', 'afterwards') !== null &&
+     jei5.getEntryLocations('foam.core.menu.Menu', 'before') === null,
+  'JEI: changed file re-read via mtime/size check without invalidate()');
+
+// Discovery interface exists (auto-discovery path)
+test(Array.isArray(index.getIndexedDirs()), 'FoamIndex.getIndexedDirs returns array');
+
+// Auto-discovery: foam.poms locations are journal dirs (fix for real-workspace bug
+// where journals/ contains no .js sources and was invisible to getIndexedDirs()).
+foam.poms = foam.poms || [];
+foam.poms.push({ location: jrlnavDir });
+try {
+  var jeiAuto = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  var autoFiles = jeiAuto.findJournalFiles_();
+  test(autoFiles.indexOf(path.join(jrlnavDir, 'menus.jrl')) !== -1 &&
+       autoFiles.indexOf(path.join(jrlnavDir, 'services.jrl')) !== -1,
+    'JEI: auto-discovery finds .jrl files in foam.poms locations');
+  test(jeiAuto.getServiceLocations('recipeDAO') !== null,
+    'JEI: auto-discovered recipeDAO service resolves');
+} finally {
+  foam.poms.pop();
+}
+
 // client completion — delegation to nested JRL completion. The inner
 // JSON gets treated as a JRL entry; `"class": "…"` should suggest classes.
 var clientSrc = [
@@ -558,6 +699,54 @@ var clientSrc = [
 var clientRes = jrlH.handleCompletion(clientSrc, { line: 1, character: 28 });
 test(Array.isArray(clientRes.items),
   'client completion: returns an items array (delegated to JRL completion)');
+
+// === JRL NAVIGATION: handler rules ===
+
+section('JrlNavigation');
+var navHandler = foam.parse.lsp.handlers.JrlHandler.create({
+  index: index,
+  journalEntryIndex: jei
+});
+var menusPath = path.join(jrlnavDir, 'menus.jrl');
+var menusText = fs.readFileSync(menusPath, 'utf8');
+var menusUri  = 'file://' + menusPath;
+
+// Cursor position INSIDE the value of a `"key":"value"` pair.
+function valuePos(text, kv) {
+  var off = text.indexOf(kv);
+  if ( off === -1 ) throw new Error('fixture drift: ' + kv);
+  var valOff = off + kv.indexOf(':') + 2; // first char inside the value quotes
+  var pre = text.slice(0, valOff);
+  return {
+    line: pre.split('\n').length - 1,
+    character: valOff - pre.lastIndexOf('\n') - 1
+  };
+}
+
+// (B) convention rule: daoKey -> services.jrl CSpec entry
+var dDao = navHandler.handleDefinition(menusText, valuePos(menusText, '"daoKey":"recipeDAO"'), menusUri);
+test(dDao && ! Array.isArray(dDao) && dDao.uri.indexOf('services.jrl') !== -1,
+  'nav: daoKey -> services.jrl (single location)');
+test(dDao && dDao.range.start.line === 0, 'nav: daoKey lands on CSpec entry line');
+
+// (A) schema rule: parent (relationship Reference) -> menu entries.
+// "cookbook" is defined twice (menus + overlay) -> array of 2.
+var dPar = navHandler.handleDefinition(menusText, valuePos(menusText, '"parent":"cookbook"'), menusUri);
+test(dPar && Array.isArray(dPar) && dPar.length === 2,
+  'nav: parent -> 2 locations for duplicated id: ' + (dPar && (dPar.length || 'single')));
+test(dPar && dPar.some(function(l) {
+  return l.uri.indexOf('menus.jrl') !== -1 && l.range.start.line === 0;
+}), 'nav: parent locations include menus.jrl entry at line 0');
+
+// Unknown daoKey -> null (quiet failure)
+var badLine = 'p({"class":"foam.comics.v2.DAOControllerConfig","daoKey":"noSuchDAO"})';
+test(navHandler.handleDefinition(badLine, valuePos(badLine, '"daoKey":"noSuchDAO"'), 'file:///tmp/x.jrl') === null,
+  'nav: unknown daoKey -> null');
+
+// Handler without a journalEntryIndex (old wiring) must not throw
+var bareHandler = foam.parse.lsp.handlers.JrlHandler.create({ index: index });
+test(bareHandler.handleDefinition(menusText, valuePos(menusText, '"daoKey":"recipeDAO"'), menusUri) === null,
+  'nav: no journalEntryIndex -> graceful null');
 
 // === JRL EMBEDDED BLOCK VARIANTS (triple + escaped) ===
 
@@ -1053,5 +1242,82 @@ if ( require('fs').existsSync(realJrlPath) ) {
   }
 }
 
+// === JRL GRAMMAR TESTS (jrl go-to-definition feature) ===
+
+section('JrlGrammar');
+var jrlGram = foam.parse.lsp.JrlGrammar.create();
+
+// Two entries; the p( inside the triple-quoted string must NOT count as an
+// entry; the dotted class inside the string MUST be harvested.
+var gsrc = 'p({"class":"foam.core.boot.CSpec","name":"aDAO","serviceScript":"""\n' +
+  'p(x);\n' +
+  'return new foam.dao.EasyDAO.Builder(x)\n' +
+  '  .setOf(foam.core.menu.Menu.getOwnClassInfo())\n' +
+  '  .build();\n' +
+  '"""})\n' +
+  '\n' +
+  'c({"class":"foam.core.menu.Menu","id":"m1"})\n';
+
+var gm = jrlGram.collectJrlPositions(gsrc);
+test(gm.entries.length === 2, 'JrlGrammar: 2 entries, p( inside string ignored: ' + gm.entries.length);
+test(gm.entries[0].line === 0, 'JrlGrammar: first entry line 0: ' + gm.entries[0].line);
+test(gm.entries[1].line === 7, 'JrlGrammar: second entry line 7: ' + gm.entries[1].line);
+test(gm.tripleStrings.length === 1, 'JrlGrammar: one triple-string span: ' + gm.tripleStrings.length);
+test(gsrc.substring(gm.tripleStrings[0].startPos, gm.tripleStrings[0].startPos + 3) === '"""',
+  'JrlGrammar: triple span starts at opening quotes');
+var gnames = gm.classRefs.map(function(r) { return r.name; });
+test(gnames.some(function(n) { return n.indexOf('foam.core.menu.Menu') === 0; }),
+  'JrlGrammar: dotted class ref harvested inside string: ' + gnames.join(','));
+test(gm.classRefs.every(function(r) {
+  return gsrc.substring(r.startPos, r.endPos) === r.name;
+}), 'JrlGrammar: classRef spans align with original text');
+
+// Unquoted-key single-line FOAM format still yields an entry
+var gm2 = jrlGram.collectJrlPositions('c({summaryType:"X",id:-1})\n');
+test(gm2.entries.length === 1, 'JrlGrammar: unquoted-key single-line entry counted');
+
 // === SAVE → TARGETED REANALYZE ===
 
+// === JRL NAVIGATION: embedded class refs in string values ===
+
+var servicesPath = path.join(jrlnavDir, 'services.jrl');
+var servicesText = fs.readFileSync(servicesPath, 'utf8');
+var servicesUri  = 'file://' + servicesPath;
+
+// Cursor at indexOf(needle)+plus.
+function posOfIdx(text, needle, plus) {
+  var off = text.indexOf(needle);
+  if ( off === -1 ) throw new Error('fixture drift: ' + needle);
+  off += ( plus || 0 );
+  var pre = text.slice(0, off);
+  return {
+    line: pre.split('\n').length - 1,
+    character: off - pre.lastIndexOf('\n') - 1
+  };
+}
+
+// serviceScript: cursor on `foam.core.menu.Menu` inside
+// `foam.core.menu.Menu.getOwnClassInfo()` — trailing `.getOwnClassInfo`
+// must be stripped during resolution.
+var dScript = navHandler.handleDefinition(
+  servicesText, posOfIdx(servicesText, 'foam.core.menu.Menu.getOwnClassInfo', 5), servicesUri);
+test(dScript && dScript.uri.indexOf('Menu.js') !== -1, 'nav: serviceScript class ref -> Menu.js');
+
+// client backtick-string: `{"of":"foam.core.menu.Menu"}`
+var dClient = navHandler.handleDefinition(
+  servicesText, posOfIdx(servicesText, 'foam.core.menu.Menu"}', 3), servicesUri);
+test(dClient && dClient.uri.indexOf('Menu.js') !== -1, 'nav: client string class ref -> Menu.js');
+
+// Cursor on the method-call tail (past the class id) must NOT navigate.
+var dTail = navHandler.handleDefinition(
+  servicesText,
+  posOfIdx(servicesText, 'getOwnClassInfo', 3), servicesUri);
+test(dTail === null, 'nav: cursor on .getOwnClassInfo tail -> null');
+
+// Dotted menu ids are not classes -> embedded rule stays silent and the
+// schema rule still resolves parent values (regression guard on rule order).
+var menusText2 = fs.readFileSync(path.join(jrlnavDir, 'menus.jrl'), 'utf8');
+var dId = navHandler.handleDefinition(
+  menusText2, valuePos(menusText2, '"id":"cookbook.recipe"'),
+  'file://' + path.join(jrlnavDir, 'menus.jrl'));
+test(dId === null, 'nav: dotted menu id is not a class ref -> null');

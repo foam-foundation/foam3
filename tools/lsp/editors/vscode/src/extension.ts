@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { ExtensionContext, workspace, window, commands } from 'vscode';
+import { ExtensionContext, workspace, window, commands, RelativePattern } from 'vscode';
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -169,6 +169,49 @@ function startServer(
   const status = window.createStatusBarItem();
   status.text = '$(loading~spin) FOAM: Indexing...';
   status.show();
+
+  // Restart plumbing: manual command + auto-restart when the server's own
+  // source changes on disk. The server runs from the workspace (tools/lsp/**),
+  // not from the VSIX, so a pulled or edited handler would otherwise keep
+  // serving stale behavior until the whole window reloads.
+  let restarting = false;
+  async function restartServer(reason: string) {
+    if ( !client || restarting ) return;
+    restarting = true;
+    status.text = '$(loading~spin) FOAM: Restarting...';
+    status.show();
+    outputChannel.appendLine('Restarting FOAM LSP (' + reason + ')');
+    try {
+      await client.restart();
+      outputChannel.appendLine('FOAM LSP restarted');
+      status.text = '$(check) FOAM: Ready';
+      setTimeout(() => status.hide(), 5000);
+    } catch (e: any) {
+      outputChannel.appendLine('FOAM LSP restart failed: ' + e.message);
+      status.text = '$(error) FOAM: Error';
+    } finally {
+      restarting = false;
+    }
+  }
+
+  context.subscriptions.push(
+    commands.registerCommand('foam.restartServer', () => restartServer('manual'))
+  );
+
+  const serverWatcher = workspace.createFileSystemWatcher(
+    new RelativePattern(path.join(path.dirname(lspScript), 'lsp'), '**/*.js')
+  );
+  // Debounce: a pull or multi-file save fires many events — restart once.
+  let restartTimer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleRestart = (uri: { fsPath: string }) => {
+    if ( restartTimer ) clearTimeout(restartTimer);
+    restartTimer = setTimeout(
+      () => restartServer('changed: ' + path.basename(uri.fsPath)), 1500);
+  };
+  serverWatcher.onDidChange(scheduleRestart);
+  serverWatcher.onDidCreate(scheduleRestart);
+  serverWatcher.onDidDelete(scheduleRestart);
+  context.subscriptions.push(serverWatcher);
 
   outputChannel.appendLine('Starting FOAM LSP server...');
 

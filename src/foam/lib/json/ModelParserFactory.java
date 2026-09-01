@@ -61,12 +61,18 @@ public class ModelParserFactory {
    * so an unknown key behaves exactly as before.
    */
   static final class PropertyKeyParser implements Parser {
+    // The table is two parallel arrays: position i holds a property name in
+    // keys_ and that property's value parser in parsers_. A name's position
+    // is derived, never stored: slot = name.hashCode() & mask_, stepping
+    // right past occupied slots on collision (open addressing). The arrays
+    // are always a power of two so '& mask_' is 'mod size' in one instruction.
     private String[]  keys_    = new String[8];
     private Parser[]  parsers_ = new Parser[8];
     private int       count_, mask_ = 7, maxKeyLen_;
 
     void add(String name, Parser valueParser) {
-      // keep the table at most quarter full so probe chains stay short
+      // Lookups stay one-probe only while most slots are empty, so the table
+      // is kept at most a quarter full; the cost is null slots (8 bytes each).
       if ( ( count_ + 1 ) * 4 > keys_.length ) grow();
       insert(name, valueParser);
       count_++;
@@ -74,6 +80,9 @@ public class ModelParserFactory {
     }
 
     private void grow() {
+      // Doubling changes mask_, and mask_ changes which slot each hash maps
+      // to — so every name must be RE-inserted under the new mask. Copying
+      // positions would leave names in slots lookups no longer compute.
       String[] oldKeys    = keys_;
       Parser[] oldParsers = parsers_;
       keys_    = new String[oldKeys.length * 2];
@@ -103,8 +112,13 @@ public class ModelParserFactory {
       boolean quoted = str.charAt(p0) == '"';
       int start = quoted ? p0 + 1 : p0;
 
-      // scan the key's span, hashing with String's own formula so the stored
-      // keys' cached hashCode() values compare directly
+      // One sequential pass finds where the key ends AND computes its hash —
+      // h*31+c is String.hashCode()'s own formula, so it compares directly
+      // against the stored keys' cached hashes. The key is never materialized
+      // as an object; it exists only as (start, keyLen, h). This is the whole
+      // win over a Map lookup, which would need a substring per key: the scan
+      // pipelines as a plain char read, and only the table probe below can
+      // miss cache.
       int i = start, h = 0;
       for ( ; i < len ; i++ ) {
         char c = str.charAt(i);
@@ -118,6 +132,10 @@ public class ModelParserFactory {
         i++;
       }
 
+      // Probe from the hashed slot, stepping right exactly as insert() did.
+      // An empty slot ends the search: the key is not a property. Two integer
+      // rejects (length, cached hashCode) skip non-matches before the
+      // char-by-char confirm — correctness never rests on the hash.
       for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
         String k = keys_[slot];
         if ( k.length() != keyLen || k.hashCode() != h ) continue;

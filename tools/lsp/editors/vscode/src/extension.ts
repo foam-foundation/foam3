@@ -287,6 +287,15 @@ function startServer(
   // doesn't cover it, since state stays non-Running for the whole gap either way).
   let restarting = false;
 
+  // A restart requested while one is already in flight (or the client is
+  // still Starting) parks its reason here; startClient()'s settle paths
+  // re-fire it so the request is deferred, never lost.
+  let pendingRestart: string | null = null;
+
+  // Handle of the auto-analysis timer below — cleared on restart so a
+  // superseded client's timer never runs against the replacement.
+  let analysisTimer: ReturnType<typeof setTimeout> | undefined;
+
   // Body of the status-bar quick-pick — offers the two actions that matter:
   // restart the server, or look at its log. Installed once here (startServer
   // runs exactly once, from activate's deferred setTimeout) so restarting the
@@ -370,6 +379,16 @@ function startServer(
         }
       }, () => { /* no provider — status stays plain "Ready" */ });
 
+      // A restart request arrived while this start was in flight: this
+      // server booted from source older than what triggered the request, so
+      // restart immediately instead of wiring up a runner about to die.
+      if ( pendingRestart ) {
+        const r = pendingRestart;
+        pendingRestart = null;
+        restartLsp(r);
+        return;
+      }
+
       // Set up analysis runner now that client is ready
       const runner = new FoamAnalysisRunner(c, treeProvider);
       onRunnerReady(runner);
@@ -380,7 +399,8 @@ function startServer(
       });
 
       // Auto-run workspace analysis on startup (after a short delay for boot to settle)
-      setTimeout(async () => {
+      analysisTimer = setTimeout(async () => {
+        if ( client !== c ) return;
         outputChannel.appendLine('Auto-running workspace analysis...');
         try {
           await runner.run();
@@ -391,6 +411,14 @@ function startServer(
       }, 2000);
     }).catch((err: Error) => {
       if ( client !== c ) return;
+      // Same re-fire as the success path — a failed start must not eat a
+      // parked restart, that's the one recovery path left.
+      if ( pendingRestart ) {
+        const r = pendingRestart;
+        pendingRestart = null;
+        restartLsp(r);
+        return;
+      }
       outputChannel.appendLine('FOAM LSP failed: ' + err.message);
       status.text = '$(error) FOAM: Error';
     });
@@ -403,12 +431,19 @@ function startServer(
   // restart is most wanted into a permanent dead end that only a window
   // reload could clear. Stopped (or no client at all) goes straight to
   // startClient(); the `client !== c` guards inside it make a superseded
-  // start harmless. A Starting client is skipped: its in-flight start()
-  // already delivers the fresh server the caller wants.
+  // start harmless. A request arriving while a start or restart is already
+  // in flight is NOT dropped: the in-flight server was loaded from whatever
+  // the disk held when it began (boot is 10-15s, the watcher debounce only
+  // 1.5s — a git pull outlives both), so the request is parked in
+  // pendingRestart and re-fired from startClient()'s settle paths.
   async function restartLsp(reason: string) {
-    if ( restarting || ( client && client.state === State.Starting ) ) return;
+    if ( restarting || ( client && client.state === State.Starting ) ) {
+      pendingRestart = reason;
+      return;
+    }
     restarting = true;
     try {
+      if ( analysisTimer ) clearTimeout(analysisTimer);
       outputChannel.appendLine('Restarting FOAM LSP (' + reason + ')');
       status.text = '$(loading~spin) FOAM: Indexing...';
       if ( client && client.state === State.Running ) {
@@ -461,10 +496,25 @@ function startServer(
   serverWatcher.onDidDelete(scheduleRestart);
   context.subscriptions.push(serverWatcher);
 
+  // The timers are not subscriptions of their own — clear them on extension
+  // disposal so a debounced restart can't spawn a fresh server AFTER
+  // deactivate() stopped the current one.
+  context.subscriptions.push({
+    dispose: () => {
+      if ( restartTimer ) clearTimeout(restartTimer);
+      if ( analysisTimer ) clearTimeout(analysisTimer);
+      pendingRestart = null;
+    }
+  });
+
   startClient();
 }
 
 export function deactivate(): Thenable<void> | undefined {
-  if ( !client ) return undefined;
-  return client.stop();
+  // Same StartFailed hazard as restartLsp's dispose branch: stop() on a
+  // never-started client throws, and here that rejection would surface as an
+  // extension-deactivation error on every window reload while the boot is
+  // broken. Only a Running client has anything to stop.
+  if ( !client || client.state !== State.Running ) return undefined;
+  return client.stop().then(undefined, () => { /* already down */ });
 }

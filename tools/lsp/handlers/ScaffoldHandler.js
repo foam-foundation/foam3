@@ -146,7 +146,12 @@ foam.CLASS({
         "  name: '" + a.name + "'\n" +
         '});\n';
 
-      var uri  = 'file://' + filePath;
+      // pathToFileURL, not 'file://' + concat: this uri drives a file CREATE,
+      // and a '#', '%', or space in the project path would otherwise be
+      // parsed as URI syntax by the client (a '#' truncates the path to its
+      // fragment). Both consumer lanes decode with decodeURIComponent, so the
+      // percent-encoded form round-trips.
+      var uri  = require('url').pathToFileURL(filePath).href;
       var zero = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
       var documentChanges = [
         { kind: 'create', uri: uri, options: { overwrite: false, ignoreIfExists: false } },
@@ -163,7 +168,7 @@ foam.CLASS({
         var pomEdit  = this.buildPomAppendEdit_(pomText, relative);
         if ( pomEdit ) {
           documentChanges.push({
-            textDocument: { uri: 'file://' + pomPath, version: null },
+            textDocument: { uri: require('url').pathToFileURL(pomPath).href, version: null },
             edits: [ pomEdit ]
           });
           pomUpdated = true;

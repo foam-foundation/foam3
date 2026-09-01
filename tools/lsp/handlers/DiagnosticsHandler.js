@@ -98,12 +98,17 @@ foam.CLASS({
     },
 
     function handle(text, opt_uri) {
-      // pom.js files carry no foam.CLASS, so they exit at the isFoamFile
-      // gate below — entry-level pom checks get their own early lane.
-      if ( text.indexOf('foam.POM(') !== -1 ) {
-        return this.pomDiagnostics_(text, opt_uri);
+      // pom.js files carry no foam.CLASS, so they fail the isFoamFile gate —
+      // the pom lane lives BEHIND it, or a foam.CLASS file merely MENTIONING
+      // foam.POM( in a comment would lose all of its normal diagnostics.
+      // Line-anchored so a "// foam.POM(" comment in a scratch file doesn't
+      // qualify either.
+      if ( ! this.analyzer.isFoamFile(text) ) {
+        if ( /^\s*foam\.POM\(/m.test(text) ) {
+          return this.pomDiagnostics_(text, opt_uri);
+        }
+        return [];
       }
-      if ( ! this.analyzer.isFoamFile(text) ) return [];
 
       var uri = opt_uri || '';
       this.uri_ = uri;

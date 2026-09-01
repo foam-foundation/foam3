@@ -167,6 +167,21 @@ test(!! diags[0] && diags[0].range && diags[0].range.start.line === 3 &&
   diags[0].range.end.line === 3 && diags[0].range.end.character > diags[0].range.start.character,
   'offsets map to the correct line/char range');
 
+// A foam.CLASS file that merely MENTIONS foam.POM( (comment, doc string)
+// must keep its normal diagnostics lane — the pom lane sits behind the
+// isFoamFile gate and requires a line-anchored foam.POM( call.
+var CLASS_MENTIONING_POM =
+  "// registered via foam.POM( in the parent pom.js\n" +
+  "foam.CLASS({\n  package: 'pomtest',\n  name: 'MentionsPom',\n" +
+  "  properties: [ 'a' ]\n});\n";
+test(dh.handle(CLASS_MENTIONING_POM, 'file:///pomtest/MentionsPom.js')
+    .every(function(d) { return d.code.indexOf('pom-') !== 0; }),
+  'foam.CLASS file mentioning foam.POM( in a comment stays on the class lane');
+
+test(dh.handle("// scratch notes about foam.POM( syntax\nvar x = 1;\n",
+    'file:///scratch.js').length === 0,
+  'non-FOAM file with a foam.POM( comment gets no pom diagnostics');
+
 var dhOff = diagHandlerFor({ 'diagnostics.pom': false });
 test(dhOff.handle(BAD_POM, BAD_POM_URI).length === 0,
   'diagnostics.pom: false suppresses the pom diagnostics');

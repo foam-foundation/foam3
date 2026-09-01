@@ -630,7 +630,11 @@ foam.CLASS({
     {
       name: 'nodeName',
       hidden: true,
-      adapt: function(_, v) { return foam.String.toLowerCase(v); },
+      // HTML tag names are case-insensitive; namespaced (SVG) ones are not:
+      // foreignObject, linearGradient, clipPath must keep their case.
+      adapt: function(_, v) {
+        return this.__context__ && this.__context__.namespace ? v : foam.String.toLowerCase(v);
+      },
       value: 'div'
     },
     {

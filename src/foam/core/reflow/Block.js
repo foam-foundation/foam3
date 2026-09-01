@@ -14,7 +14,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.WrapperNode' ],
 
-  imports: [ 'data', 'showPrompts', 'addToScope', 'selected' ],
+  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'graphFocus', 'graphMode', 'selectFromTree' ],
 
   exports: [ 'addValue', 'log', 'out', 'as block' ],
 
@@ -58,6 +58,9 @@ foam.CLASS({
     ^content:has(> .foam-u2-Element-hidden) {
       display: none;
     }
+    .foam-core-reflow-Console-previewing ^preview-ancestor > ^toolbar {
+      display: none;
+    }
     ^hidePrompts:has(> ^content > .foam-u2-Element-hidden) {
       display: none;
     }
@@ -98,6 +101,16 @@ foam.CLASS({
       class: 'Boolean',
       name: 'shown',
       hidden: false
+    },
+    {
+      class: 'Boolean',
+      name: 'rendersOutput',
+      documentation: `Whether this block puts something on screen: it is shown and
+        its command rendered into 'out'. Commands that only compute (script,
+        transform) call addValue(value, true) and leave 'out' empty.`,
+      transient: true,
+      hidden: true,
+      getter: function() { return !! this.shown && this.out.childNodes.length > 0; }
     },
     {
       class: 'Boolean',
@@ -173,12 +186,28 @@ foam.CLASS({
       this.on('click', this.onClick);
       this.addClass('block');
       this.enableClass(this.myClass('hidePrompts'), this.showPrompts$.not());
+      // On the path of the selected block: it, its containers, or its children.
+      this.enableClass('preview-path', this.selected$.map(s => this.isRelated_(s)));
+      // A container of the selected block: shown for its layout, header hidden in the preview.
+      this.enableClass(this.myClass('preview-ancestor'), this.selected$.map(s => !! s && s !== this && this.isRelated_(s) && ! this.isAncestorOf_(s, this)));
       this.title.add(this.flowName$);
+      this.rightSection.tag(this.SHOW_IN_GRAPH, { label: '' });
+      this.rightSection.tag(this.SHOW_IN_DOCUMENT, { label: '' });
       this.rightSection.tag(this.DEL, { label: ''});
       this.SUPER();
       this.initCSSProps(this.content);
       if ( ! this.padding_st )
         this.padding_st = '16px';
+    },
+
+    function isAncestorOf_(ancestor, block) {
+      for ( var x = block ; x ; x = x.flowParent ) if ( x === ancestor ) return true;
+      return false;
+    },
+
+    function isRelated_(other) {
+      /** True when other is this block, one of its ancestors, or one of its descendants. */
+      return !! other && ( this.isAncestorOf_(this, other) || this.isAncestorOf_(other, this) );
     },
 
     function addValue(o, skipOutput) {
@@ -211,6 +240,35 @@ foam.CLASS({
   ],
 
   actions: [
+    {
+      name: 'showInGraph',
+      label: 'Show in Graph',
+      toolTip: 'Open the graph view focused on this block and its links',
+      themeIcon: 'flow',
+      buttonStyle: 'TERTIARY',
+      size: 'SMALL',
+      availablePermissions: [ 'reflow.graph' ],
+      isAvailable: function(showPrompts, graphMode) { return !! showPrompts && ! graphMode; },
+      code: function() {
+        this.selected = this;
+        this.graphFocus = this.flowName;
+        this.graphMode = true;
+      }
+    },
+    {
+      name: 'showInDocument',
+      label: 'Show in Document',
+      toolTip: 'Back to the document, scrolled to this block',
+      themeIcon: 'flow',
+      buttonStyle: 'TERTIARY',
+      size: 'SMALL',
+      availablePermissions: [ 'reflow.graph' ],
+      isAvailable: function(showPrompts, graphMode) { return !! showPrompts && !! graphMode; },
+      code: function() {
+        this.graphMode = false;
+        this.selectFromTree(this);
+      }
+    },
     {
       name: 'del',
       label: 'Delete',

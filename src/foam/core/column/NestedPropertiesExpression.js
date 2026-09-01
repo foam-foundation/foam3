@@ -23,7 +23,7 @@ foam.CLASS({
     'foam.core.logger.Logger',
     'foam.util.StringUtil',
     'java.lang.reflect.Method',
-    'static foam.mlang.MLang.*',
+    'static foam.mlang.MLang.*'
   ],
 
   properties: [
@@ -85,7 +85,10 @@ foam.CLASS({
         if ( e == null )
           return null;
         FObject copy = ((FObject)obj).shallowClone();
-        copy.setX(foam.lang.XLocator.get());
+        var x = foam.lang.XLocator.get();
+        if ( ((FObject) obj).getX().get("projectionReferenceCache") != null )
+          x = x.put("projectionReferenceCache", ((FObject) obj).getX().get("projectionReferenceCache"));
+        copy.setX(x);
         return e.f(copy);
       `
     },

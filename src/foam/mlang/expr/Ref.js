@@ -17,7 +17,8 @@ foam.CLASS({
     'foam.lang.PropertyInfo',
     'foam.core.logger.Logger',
     'foam.core.logger.StdoutLogger',
-    'foam.util.StringUtil'
+    'foam.util.StringUtil',
+    'java.util.Map'
   ],
 
   properties: [
@@ -38,8 +39,17 @@ foam.CLASS({
         PropertyInfo p1 = (PropertyInfo) getArg1();
         FObject refObj = null;
         try {
+          Map<String, FObject> cache = (Map<String, FObject>) ((FObject) obj).getX().get("projectionReferenceCache");
+          var key = p1.getName() + "-" + ((FObject) obj).getProperty(p1.getName()).toString();
+          if ( cache != null ) {
+            refObj = cache.get(key);
+            if ( refObj != null ) return refObj;
+          }
           refObj = (FObject)obj.getClass().getMethod("find" + StringUtil.capitalize(p1.getName()), foam.lang.X.class)
             .invoke(obj, foam.lang.XLocator.get());
+          if ( cache != null ) {
+            cache.put(key, refObj);
+          }
         } catch ( Throwable t ) {
           Logger logger = (Logger) getX().get("logger");
           if ( logger == null ) {

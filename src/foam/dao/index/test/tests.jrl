@@ -1,0 +1,2 @@
+p({"class":"foam.dao.index.test.MDAOIndexKeyTest","id":"MDAOIndexKeyTest","description":"a tree index must answer counts, ordering, grouping and deletes exactly as an un-indexed DAO does, for every index key type"})
+p({"class":"foam.dao.index.test.TreeNodeBench","id":"TreeNodeBench","description":"per-operation heap and CPU benchmark for the MDAO tree index","enabled":false})

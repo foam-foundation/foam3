@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'IndexKeyRecord',
 
   documentation: `Test record for MDAOIndexKeyTest. Carries one property per
@@ -19,6 +19,6 @@ foam.CLASS({
     { class: 'String', name: 'name' },
     { class: 'Date', name: 'when' },
     { class: 'Enum', of: 'foam.dao.index.AndOrderStatus', name: 'status' },
-    { class: 'FObjectProperty', of: 'foam.dao.index.IndexKeyRecord', name: 'ref' }
+    { class: 'FObjectProperty', of: 'foam.dao.index.test.IndexKeyRecord', name: 'ref' }
   ]
 });

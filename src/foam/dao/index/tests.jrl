@@ -2,5 +2,3 @@ p({"class":"foam.dao.index.PersistedIndexTest","id":"PersistedIndex test","descr
 p({"class":"foam.dao.index.MDAOAndOrderTest","id":"MDAOAndOrderTest","description":"where(A).where(B) must equal where(AND(A,B)) for MDAO tree-index counts"})
 p({"class":"foam.dao.index.TreeIndexInTest","id":"TreeIndexInTest","description":"IN over an indexed property is answered from the tree, not by a full scan"})
 p({"class":"foam.dao.index.TreeIndexInJsTest","id":"TreeIndexInJsTest","description":"client-side IN row sets over an MDAO", language: 0})
-p({"class":"foam.dao.index.MDAOIndexKeyTest","id":"MDAOIndexKeyTest","description":"a tree index must answer counts, ordering, grouping and deletes exactly as an un-indexed DAO does, for every index key type"})
-p({"class":"foam.dao.index.TreeNodeBench","id":"TreeNodeBench","description":"per-operation heap and CPU benchmark for the MDAO tree index","enabled":false})

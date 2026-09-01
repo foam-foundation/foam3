@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'MDAOIndexKeyTest',
   extends: 'foam.core.test.Test',
 
@@ -26,6 +26,7 @@ foam.CLASS({
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.MDAO',
+    'foam.dao.index.AndOrderStatus',
     'foam.lang.FObject',
     'foam.lang.Indexer',
     'foam.lang.PropertyInfo',
@@ -181,7 +182,7 @@ foam.CLASS({
     {
       name: 'ref',
       args: 'long id, String name, String refName',
-      type: 'foam.dao.index.IndexKeyRecord',
+      type: 'foam.dao.index.test.IndexKeyRecord',
       documentation: 'A null refName leaves the target\'s own name unset.',
       javaCode: `
         IndexKeyRecord target = new IndexKeyRecord();
@@ -303,7 +304,7 @@ foam.CLASS({
     {
       name: 'mk',
       args: 'long id, long groupId, String name, java.util.Date when, foam.dao.index.AndOrderStatus status',
-      type: 'foam.dao.index.IndexKeyRecord',
+      type: 'foam.dao.index.test.IndexKeyRecord',
       documentation: 'A null when leaves the date property unset.',
       javaCode: `
         IndexKeyRecord r = new IndexKeyRecord();

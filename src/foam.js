@@ -89,7 +89,8 @@
 
       function and(fs) {
         if ( ! fs ) return true;
-        fs = fs.split('&');
+        // Trim: an inner "js& java" token survives adaptFlags' |-level trim.
+        fs = fs.split('&').map(function(s) { return s.trim(); });
         for ( var i = 0 ; i < fs.length ; i++ ) {
           if ( ! foam.flags[fs[i]] ) return false;
         }
@@ -135,15 +136,19 @@
       return false;
     },
     adaptFlags: function(flags) {
-      return typeof flags === 'string' ? flags.split('|') : flags;
+      // Trim each token: a hand-edited "js |java" otherwise silently
+      // matches nothing.
+      return typeof flags === 'string' ?
+        flags.split('|').map(function(s) { return s.trim(); }) :
+        flags;
     },
     checkForFlag: function (flags, desired) {
       if ( ! flags || ! desired ) return false;
       desired = this.adaptFlags(desired);
 
       function and(fs, ds) {
-        fs = fs.split('&');
-        ds = ds.split('&');
+        fs = fs.split('&').map(function(s) { return s.trim(); });
+        ds = ds.split('&').map(function(s) { return s.trim(); });
         for ( var i = 0 ; i < ds.length ; i++ )
           if ( ! fs.includes(ds[i]) )
             return false;

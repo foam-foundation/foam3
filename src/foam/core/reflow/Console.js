@@ -1017,6 +1017,7 @@ foam.CLASS({
     'moveFlowChildAfter',
     'out',
     'perfCapture_',
+    'refreshFlowScope',
     'save',
     'scope',
     'scrollToBottom',

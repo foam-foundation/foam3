@@ -74,7 +74,7 @@ foam.CLASS({
 
         String spid = user.getSpid();
         if ( SafetyUtil.isEmpty(spid) ) {
-          spid = (String) x.get("spid");
+          spid = (String) x.get("spid"); // Defaults to "paytic" (should be based on theme, instead)
         }
 
         Sink sink = new ArraySink();
@@ -82,7 +82,7 @@ foam.CLASS({
           MLang.AND(
             MLang.EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE),
             MLang.EQ(User.LOGIN_ENABLED, true),
-            MLang.EQ(User.SPID, spid),
+            MLang.CONTAINS(User.SPID, spid), // CONTAINS rather than EQ so that we can find sub-spids of "paytic"
             MLang.EQ(User.EMAIL, user.getEmail())
           ))
           .limit(1).select(sink);
@@ -92,8 +92,8 @@ foam.CLASS({
           throw new UserNotFoundException();
         }
 
-        var found = (User) list.get(0);
-        if ( found == null || found.getId() != user.getId() ) {
+        var found = (User) list.get(0);                     // When we create the "pretend" user we give them an ID of 0...
+        if ( found == null || found.getId() != user.getId() && user.getId() != 0L ) { // ...which will never match with the found user
           throw new UserNotFoundException();
         }
 
@@ -114,6 +114,7 @@ foam.CLASS({
         notification.setEmailArgs(args);
         notification.setBody("Password reset requested.");
 
+        user.setId(found.getId()); // Need to set the "pretend" user's id to the real user's id or the email won't send
         user.doNotify(x, notification);
         return true;
       `

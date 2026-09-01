@@ -21,6 +21,25 @@ import java.util.Date;
 // can be used for login and for storing oauth credentials for users
 // can be subclassed to customize behaviour
 public class OAuthWebAgent implements WebAgent {
+    protected JsonObject parseIdTokenBody(String idToken) {
+        if ( SafetyUtil.isEmpty(idToken) ) return null;
+        try {
+            String parts[] = idToken.split("\\.");
+            if ( parts.length < 2 ) return null;
+            String bodyb64 = parts[1];
+
+            byte[] bodyBytes = java.util.Base64.getUrlDecoder().decode(bodyb64);
+            String body = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
+
+            jakarta.json.JsonReader reader = jakarta.json.Json.createReader(new java.io.StringReader(body));
+            jakarta.json.JsonObject bodyObject = reader.readObject();
+            reader.close();
+            return bodyObject;
+        } catch ( Exception e ) {
+            return null;
+        }
+    }
+
     @Override
     public void execute(X x) {
         Logger logger = (Logger) x.get("logger");
@@ -88,23 +107,44 @@ public class OAuthWebAgent implements WebAgent {
             String refreshToken = tokenResponse.getString("refresh_token", null);
             String idToken = tokenResponse.getString("id_token", null);
 
-            // if an idToken was returned, log the session into the new account
+            String flow = state.getString("flow", "login");
+
+            // if an idToken was returned, we can identify the remote account
             foam.core.auth.User user;
-            if ( idToken != null ) {
-                try {
-                    user = loginWithIdToken(x, state, provider, idToken);
-                } catch (AuthenticationException e) {
-                    sendErrorResponse(x, e.getMessage(), state, resp);
+            JsonObject idTokenBody = parseIdTokenBody(idToken);
+            String remoteSubject = idTokenBody != null && idTokenBody.containsKey("sub") ? idTokenBody.getString("sub") : null;
+            String remoteEmail   = idTokenBody != null && idTokenBody.containsKey("email") ? idTokenBody.getString("email") : null;
+
+            if ( "connect".equals(flow) ) {
+                // Connect external account to the currently logged-in user. Do NOT login/switch user.
+                if ( idTokenBody == null || SafetyUtil.isEmpty(remoteSubject) ) {
+                    sendErrorResponse(x, "Missing id_token/sub for connect flow", state, resp);
+                    return;
+                }
+                user = session.findUserId(x);
+                if ( user == null ) {
+                    sendErrorResponse(x, "Not logged in", state, resp);
                     return;
                 }
             } else {
-                user = session.findUserId(x);
+                // Login flow (default)
+                if ( idToken != null ) {
+                    try {
+                        user = loginWithIdToken(x, state, provider, idToken);
+                    } catch (AuthenticationException e) {
+                        sendErrorResponse(x, e.getMessage(), state, resp);
+                        return;
+                    }
+                } else {
+                    user = session.findUserId(x);
+                }
             }
 
             var userX = session.getContext();
 
             var oAuthCredentialsDAO = (foam.dao.DAO)x.get("oAuthCredentialDAO");
-            var existingCredential = oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId()));
+            if ( remoteSubject == null ) remoteSubject = "";
+            var existingCredential = oAuthCredentialsDAO.find(new foam.core.oauth.OAuthCredentialId(provider.getId(), user.getId(), remoteSubject));
             var credential = new foam.core.oauth.OAuthCredential();
             if (existingCredential != null) {
                 credential.copyFrom(existingCredential);
@@ -112,6 +152,8 @@ public class OAuthWebAgent implements WebAgent {
             credential.setSessionId(session.getId());
             credential.setUser(user.getId());
             credential.setProvider(provider.getId());
+            credential.setRemoteSubject(remoteSubject);
+            credential.setRemoteEmail(remoteEmail);
             credential.setAccessToken(accessToken);
             // calculate expiresAt from token, default to 15 minutes
             int expiresIn = tokenResponse.getInt("expires_in", 900);
@@ -120,7 +162,19 @@ public class OAuthWebAgent implements WebAgent {
             if (refreshToken != null) {
                 credential.setRefreshToken(refreshToken);
             }
-            credential.setScopes(scopes);
+            foam.core.oauth.OAuthCredential oldCred = existingCredential instanceof foam.core.oauth.OAuthCredential ? (foam.core.oauth.OAuthCredential) existingCredential : null;
+            if ( oldCred != null && oldCred.getScopes() != null && scopes != null ) {
+                java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
+                for ( String s : oldCred.getScopes() ) {
+                    if ( ! SafetyUtil.isEmpty(s) ) merged.add(s);
+                }
+                for ( String s : scopes ) {
+                    if ( ! SafetyUtil.isEmpty(s) ) merged.add(s);
+                }
+                credential.setScopes(merged.toArray(new String[0]));
+            } else {
+                credential.setScopes(scopes);
+            }
 
             oAuthCredentialsDAO.put(credential);
 
@@ -198,15 +252,10 @@ public class OAuthWebAgent implements WebAgent {
         }
 
         Logger logger = (Logger) x.get("logger");
-        String parts[] = idToken.split("\\.");
-        String bodyb64 = parts[1];
-
-        byte[] bodyBytes = java.util.Base64.getUrlDecoder().decode(bodyb64);
-        String body = new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8);
-
-        jakarta.json.JsonReader reader = jakarta.json.Json.createReader(new java.io.StringReader(body));
-        jakarta.json.JsonObject bodyObject = reader.readObject();
-        reader.close();
+        JsonObject bodyObject = parseIdTokenBody(idToken);
+        if ( bodyObject == null ) {
+            throw new AuthenticationException("Invalid id_token");
+        }
 
         // Some IdP eg. Microsoft Entra doesn't include "email_verified" claim in the payload,
         // after user successfully authenticated on the provider side their email is considered

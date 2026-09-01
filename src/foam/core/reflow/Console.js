@@ -2030,7 +2030,7 @@ foam.CLASS({
       var doomed = new Set([ start, ...order ].map(id => byId[id]));
 
       var modal = this.ConfirmationModal.create({
-        title: 'Delete "' + nameOf[start] + '"?',
+        title: 'Deleting "' + nameOf[start] + '"',
         modalStyle: 'DESTRUCTIVE',
         maxWidth: '35vw',
         closeable: false,
@@ -2052,9 +2052,10 @@ foam.CLASS({
         })
       });
 
-      modal.add(order.length + ( order.length == 1 ? ' block depends' : ' blocks depend' ) +
-        ' on it and will break: ' +
-        order.map(id => nameOf[id] + ( via[id] === start ? '' : ' (via ' + nameOf[via[id]] + ')' )).join(', '));
+      modal.add(order.length + ( order.length == 1 ? ' other block depends' : ' other blocks depend' ) +
+        ' on it: ' +
+        order.map(id => nameOf[id] + ( via[id] === start ? '' : ' (via ' + nameOf[via[id]] + ')' )).join(', ') +
+        '. Remove ' + ( order.length == 1 ? 'it' : 'them' ) + ' too?');
       this.add(modal);
     },
 

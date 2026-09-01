@@ -737,3 +737,33 @@ test(compRes.items.some(function(it) { return it.label === 'DOWN'; }), 'offers H
 // === SUMMARY ===
 
 
+
+// === tableColumns suggests actions (#5169) ===
+// Actions listed in tableColumns render as row buttons, so completion offers
+// them there; searchColumns filters on properties only.
+section('CompletionHandler tableColumns actions (#5169)');
+
+// Source must parse (eval-intercept has no prior-parse cache in tests), so
+// the array entry is a complete empty string and the cursor sits inside it.
+var colCompSrc = "foam.CLASS({\n" +
+  "  package: 'test',\n" +
+  "  name: 'ColCompDemo',\n" +
+  "  properties: [ { class: 'String', name: 'name' } ],\n" +
+  "  actions: [ { name: 'reflow', code: function() {} } ],\n" +
+  "  tableColumns: [ '' ]\n" +
+  "})";
+// Cursor just inside the opening quote on the tableColumns line (line 5)
+var colComp = completionHandler.handle(colCompSrc, { line: 5, character: 19 });
+var colItems = ( colComp && colComp.items ) || [];
+test(colItems.some(function(i) { return i.label === 'reflow' && i.detail === 'Action'; }),
+  'tableColumns completion includes own action');
+test(colItems.some(function(i) { return i.label === 'name'; }),
+  'tableColumns completion still includes properties');
+
+var searchCompSrc = colCompSrc.replace('tableColumns', 'searchColumns');
+var searchComp = completionHandler.handle(searchCompSrc, { line: 5, character: 20 });
+var searchItems = ( searchComp && searchComp.items ) || [];
+test(!searchItems.some(function(i) { return i.label === 'reflow'; }),
+  'searchColumns completion does NOT include actions');
+test(searchItems.some(function(i) { return i.label === 'name'; }),
+  'searchColumns completion includes properties');

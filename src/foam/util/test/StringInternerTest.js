@@ -51,17 +51,29 @@ foam.CLASS({
         // null passes through
         test(StringInterner.intern(null) == null, "null passes through");
 
-        // entries die with their string: intern uniques, drop them, force GC
-        int before = StringInterner.size();
+        // entries die with their string: intern uniques, drop them, force GC.
+        // System.gc() is a hint and the reference handler enqueues on its own
+        // thread, so wait for the outcome under a deadline rather than for a
+        // fixed number of rounds: a healthy run leaves on the first pass, and a
+        // loaded machine gets the time it needs instead of a failure.
+        // The map is measured against its own baseline, not against a full
+        // 10000: a GC during the fill loop already collects some probes, so
+        // requiring every one of them to still be present fails on a fast
+        // collector for the very reason the test is checking.
+        int  before   = StringInterner.size();
         for ( int i = 0 ; i < 10000 ; i++ ) StringInterner.intern("gc-probe-" + i + "-" + System.nanoTime());
-        int filled = StringInterner.size();
-        for ( int i = 0 ; i < 5 && StringInterner.size() > filled - 9000 ; i++ ) {
+        int  filled   = StringInterner.size();
+        int  target   = before + 1000;
+        long deadline = System.currentTimeMillis() + 30000;
+        while ( StringInterner.size() > target && System.currentTimeMillis() < deadline ) {
           System.gc();
-          try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+          try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+          // intern() drains the whole queue, so this call is what drops the entries
           StringInterner.intern("drain-trigger");
         }
-        test(filled >= before + 10000 && StringInterner.size() <= filled - 9000,
-          "collected strings leave the interner (was " + filled + ", now " + StringInterner.size() + ")");
+        test(filled > before + 1000 && StringInterner.size() <= target,
+          "collected strings leave the interner (baseline " + before + ", filled " + filled +
+          ", now " + StringInterner.size() + ")");
 
         // the parser dedups repeated short values across entries
         JSONParser p = new JSONParser();

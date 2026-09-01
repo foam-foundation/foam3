@@ -646,6 +646,98 @@ for ( var ti = 0 ; ti < streamData.length ; ti += 5 ) {
 test(hasMethodToken,
   'SemanticTokenHandler emits at least one method token (type 8) for `Loggers.logger(...)` inside javaCode');
 
+// === SemanticTokenHandler: comments suppress code tokens inside javaCode ===
+// Strings/keywords/etc. inside a Java /* */ block must NOT get code tokens —
+// semantic tokens override the grammar's comment coloring, so a stray
+// string token repaints commented-out code. Also: a // inside a string
+// literal is not a comment, and multi-line comment tokens are split per
+// line (clients without multilineTokenSupport drop line-crossing tokens).
+section('SemanticTokenHandler: comment suppression inside javaCode');
+
+var scSrc = [
+  'foam.CLASS({',                                  // line 0
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STCommentDemo' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ,
+  'String s = "http://example.com";',              // line 7: // inside string
+  '/*',                                            // lines 8-11: block comment
+  'String dead = "inside comment";',
+  'if ( true ) return;',
+  '*/',
+  'int n = 1;',                                    // line 12
+  BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var scTokens = semanticHandler.handle(scSrc);
+var scLines = scSrc.split('\n');
+var scData = (scTokens && scTokens.data) || [];
+var scBadInComment = 0, scCommentLines = {}, scLineCross = 0, scCommentOnStringLine = 0;
+var scLine = 0, scCol = 0;
+for ( var si = 0 ; si < scData.length ; si += 5 ) {
+  if ( scData[si] > 0 ) { scLine += scData[si]; scCol = scData[si+1]; }
+  else { scCol += scData[si+1]; }
+  var scLen = scData[si+2], scType = scData[si+3];
+  if ( scCol + scLen > scLines[scLine].length ) scLineCross++;
+  if ( scLine >= 8 && scLine <= 11 ) {
+    if ( scType === 5 ) scCommentLines[scLine] = true;
+    else scBadInComment++;
+  }
+  if ( scLine === 7 && scType === 5 ) scCommentOnStringLine++;
+}
+test(scBadInComment === 0,
+  'no code tokens (string/keyword/type/...) inside a Java /* */ block');
+test(scCommentLines[9] && scCommentLines[10],
+  'multi-line comment emits a comment token on each interior line');
+test(scLineCross === 0,
+  'no token crosses a line boundary (multiline tokens are dropped by clients)');
+test(scCommentOnStringLine === 0,
+  '// inside a string literal is not treated as a comment');
+
+// === SemanticTokenHandler: strings suppress code tokens inside javaCode ===
+// PR #5193 review: keywords inside a string literal were still emitted as
+// keyword tokens (type 3) painted over the string token (type 4) — e.g.
+// "if you return null while true" got 5 keyword tokens. String spans gate
+// the emitters the same way comment spans do.
+section('SemanticTokenHandler: string suppression inside javaCode');
+
+var ssSrc = [
+  'foam.CLASS({',                                       // line 0
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STStringDemo' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ,
+  'String s = "if you return null while true 42";',     // line 7
+  BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var ssTokens = semanticHandler.handle(ssSrc);
+var ssData = (ssTokens && ssTokens.data) || [];
+var ssBadInString = 0, ssStringTok = 0;
+var ssLine = 0, ssCol = 0;
+var ssStrStart = 'String s = '.length;                  // string literal starts at col 11
+for ( var ssi = 0 ; ssi < ssData.length ; ssi += 5 ) {
+  if ( ssData[ssi] > 0 ) { ssLine += ssData[ssi]; ssCol = ssData[ssi+1]; }
+  else { ssCol += ssData[ssi+1]; }
+  var ssType = ssData[ssi+3];
+  if ( ssLine !== 7 ) continue;
+  if ( ssType === 4 ) { ssStringTok++; continue; }
+  if ( ssCol >= ssStrStart ) ssBadInString++;
+}
+test(ssStringTok === 1, 'string literal itself emits one string token');
+test(ssBadInString === 0,
+  'no keyword/number/type tokens inside a string literal (review finding)');
+
 // === var-decl type inference (Java 10+ `var` keyword) ===
 // `var <name> = ...` is invisible to the upper-typed `localDecl` rule.
 // JavaParser infers the type from the RHS shape: `new T(...)`, `(T) ...`,
@@ -814,3 +906,60 @@ for ( var ai3 = 0 ; ai3 < genLines.length ; ai3++ ) {
 
 // === MESSAGE AXIOM: hover + go-to-definition ===
 
+
+// === PR #5193 round 2: grammar arms that swallowed comments/strings ===
+// varDeclRhs scanned raw chars up to ;/newline, so a comment or string
+// inside a var-decl RHS was consumed before the blockComment/stringLit
+// arms ever ran — the span never reached comments[]/strings[] and the
+// interior was repainted with code tokens. RHS now also stops at " and /
+// so those arms take over. Known deliberate gap: generics and annotation
+// args (`Map<String, /* c */ Integer>`, `@Anno(/* c */)`) still consume
+// comments — their arms scan raw chars too, left as-is (near-zero
+// real-world occurrences).
+section('JavaParser: varDeclRhs comment/string recovery');
+
+var rhsC = jParser.parseFile('var q = foo(/* keep */ 1);');
+test(rhsC.comments.length === 1,
+  'comment inside a var-decl RHS reaches comments[] (was swallowed)');
+
+var rhsS = jParser.parseFile('var s = "if while return";');
+test(rhsS.strings.length === 1,
+  'string literal as var-decl RHS reaches strings[] (was swallowed)');
+
+var rhsD = jParser.parseFile('var half = total / 2;\nvar dao = new MDAO(x);');
+test(rhsD.locals.some(function(l) { return l.varName === 'dao' && l.typeName === 'MDAO'; }),
+  'division in an earlier RHS does not break later var-decl inference');
+
+// Semantic-token level: the comment inside the RHS suppresses code tokens.
+var rcSrc = [
+  'foam.CLASS({',
+  '  package: ' + Q + 'com.example' + Q + ',',
+  '  name: ' + Q + 'STRhsCommentDemo' + Q + ',',
+  '  methods: [',
+  '    {',
+  '      name: ' + Q + 'doIt' + Q + ',',
+  '      javaCode: ' + BTQ,
+  'var q = foo(/* keep while */ 1);',            // line 7; comment cols 12-28
+  BTQ,
+  '    }',
+  '  ]',
+  '})'
+].join('\n');
+
+var rcTokens = semanticHandler.handle(rcSrc);
+var rcData = (rcTokens && rcTokens.data) || [];
+var rcCommentTok = 0, rcBadInComment = 0;
+var rcLine = 0, rcCol = 0;
+for ( var rci = 0 ; rci < rcData.length ; rci += 5 ) {
+  if ( rcData[rci] > 0 ) { rcLine += rcData[rci]; rcCol = rcData[rci+1]; }
+  else { rcCol += rcData[rci+1]; }
+  if ( rcLine !== 7 ) continue;
+  var rcType = rcData[rci+3];
+  var inCmt = rcCol >= 12 && rcCol < 28;
+  if ( rcType === 5 && inCmt ) rcCommentTok++;
+  if ( rcType !== 5 && inCmt ) rcBadInComment++;
+}
+test(rcCommentTok >= 1,
+  'comment inside a var-decl RHS emits a comment token');
+test(rcBadInComment === 0,
+  'no code tokens (e.g. `while` keyword) inside a var-decl RHS comment');

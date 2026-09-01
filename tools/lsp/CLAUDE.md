@@ -18,6 +18,9 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `FoamClassGrammar.js` | Grammar parser for completion `sug()` only | Skip-and-match pattern, dynamic `sug()` from registry |
 | `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
 | `TypeTracker.js` | Variable type resolution from `.create()` assignments | `getVariableTypes()` |
+| `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `filterByClass()` |
+| `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
+| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
 | `LSPMaker.js` | Build Maker for pmake | Sets flags, builds file index, starts server |
@@ -37,10 +40,11 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `ReferencesHandler.js` | `textDocument/references` | Subclasses, implementors, requires, of-users + JS/Java/string usages |
 | `SignatureHelpHandler.js` | `textDocument/signatureHelp` | Method parameter hints inside `(...)` |
 | `FoldingRangeHandler.js` | `textDocument/foldingRange` | Folds `properties:`/`methods:`/`requires:`/etc. arrays |
-| `CodeActionHandler.js` | `textDocument/codeAction` | Quick-fixes: "Did you mean X?", single-quote conversion, raw-color → $token, wrong-Java-package |
+| `CodeActionHandler.js` | `textDocument/codeAction` | Quick-fixes: "Did you mean X?", single-quote conversion, raw-color → $token, wrong-Java-package, i18n extract/translate |
+| `I18nHandler.js` | (called by Diagnostics/CodeAction/server.js custom methods) | i18n edit building (extract, messageMap), missing-language scan, translate-command execution |
 | `WorkspaceSymbolHandler.js` | `workspace/symbol` | Class + property + method search with ranking, cap 500 |
 | `RenameHandler.js` | `textDocument/{prepareRename,rename}` | Rename a class id + short-name occurrences |
-| `JrlHandler.js` | (custom hover + tokens for `.jrl`) | JRL class-ref resolution, embedded block tokens |
+| `JrlHandler.js` | (custom hover + tokens for `.jrl`) | JRL class-ref resolution, embedded block tokens, cross-reference go-to-definition (daoKey → services.jrl CSpec, Reference values → journal entry, class ids inside serviceScript/client strings) |
 | `DocumentHighlightHandler.js` | `textDocument/documentHighlight` | Highlight all occurrences of identifier under cursor |
 | `TypeHierarchyHandler.js` | `textDocument/prepareTypeHierarchy` + `typeHierarchy/{supertypes,subtypes}` | Inheritance tree for any class, interface implementors included |
 | `ImplementationHandler.js` | `textDocument/implementation` | Concrete implementors of a FOAM interface |
@@ -115,12 +119,22 @@ so the LSP's reindexFile on save keeps them coherent.
 
 ## Testing
 ```bash
-# Quick test (123 tests, ~30s):
+# Quick test (all categories):
 cd <project> && node foam3/tools/tests/testFoamLSP.js
+
+# One category (see tools/tests/testFoamLSP.js CATEGORIES for the full list —
+# foamIndex, grammar, utilities, completion, hover, diagnostics, i18n,
+# navigation, java, jrl, editorFeatures, typeHierarchy, usageIndex,
+# callHierarchy, pomValidation, pomNavigation, mcp):
+node foam3/tools/tests/testFoamLSP.js i18n
 
 # FOAM framework tests:
 ./build.sh -W9090 -Jlsp --flags:test client-tests:FoamIndexTest
 ```
+The `i18n` category is async (mock HTTP providers, timeouts, TTL waits) —
+`testFoamLSP.js` awaits its exported `done` promise before tallying, and the
+watchdog is 240s (up from a sync-only 80s baseline) to cover it
+(`tools/tests/testFoamLSP.js:16-31`).
 
 ## Common Patterns for Modifications
 
@@ -149,9 +163,114 @@ cd <project> && node foam3/tools/tests/testFoamLSP.js
 - `collectInstantiations(text)` → grouped `X.create({…})` / `.tag(this.X,{…})` calls with receiver class + key/value spans (`instCall`/`instCreateReceiver`/`instTagClass`/`instKey`/`instValue` kinds). The receiver chain uses `P.not` negative lookahead so only real create/tag calls match — generic `foo.bar(...)` emits nothing. Drives enum value completion (`MemberCompletionHandler`) and value diagnostics (`DiagnosticsHandler`).
 - `FoamIndex.getRelationships(classId)` (relationship hover, #5091) and `FoamIndex.getPropertyInfo(classId, prop)` (enum/primitive value resolution, #5093) back the index-side lookups.
 
+## i18n translation (#5283)
+
+Turns two existing i18n surfaces into translate-capable ones: the hardcoded-
+display-string extraction diagnostic (`i18n-hardcoded-display-string`,
+`DiagnosticsHandler.js:339`) gains a "translate while extracting" variant, and
+a new `i18n-missing-language` HINT (`DiagnosticsHandler.js:120-131`) flags
+`messages:` entries whose `messageMap` is missing a configured language and
+offers a fix. All translation logic lives in `I18nHandler.js`; the HTTP
+provider lives in `I18nProviders.js` (`foam.parse.lsp.HttpChatProvider`).
+
+**Config** — `server.js:477-509` reads `initializationOptions.foam.i18n`:
+- `languages` — target language codes. Falls back to every distinct `locale`
+  in `journals/locales.jrl` (`I18nHandler.deriveLanguagesFromJournals`,
+  `handlers/I18nHandler.js:930-958`) when unset or `[]`.
+- `sourceLanguage` — language the bare `message:` value is written in
+  (default `'en'`); seeds `messageMap[sourceLanguage]` when a map is created.
+- `endpoint` / `model` — provider config; `OLLAMA_HOST` / `OLLAMA_TRANSLATION_MODEL`
+  env vars are the fallback when initOpts don't set them (`server.js:500-509`).
+
+**Provider** — `HttpChatProvider` (`I18nProviders.js`) is OpenAI-compatible
+(`/v1/models` + `/v1/chat/completions`): Ollama, LM Studio, llama.cpp, vLLM
+all work. `detect()` caches a positive result until something disproves it and
+a negative one for `negativeCacheTtlMs` (60s default) so a down server isn't
+hammered (`I18nProviders.js:74-136`). What disproves a positive: a `translate()`
+whose `fetch` REJECTS (connection refused, DNS, timeout) — OR whose body read
+rejects right after a 2xx response (the connection drops mid-body, or the
+abort timeout fires while still reading) — clears the cache so the next
+`detect()` re-probes — a provider that dies mid-session would otherwise keep
+every lane on the "available" path until an LSP restart. A non-2xx answer
+does not clear it: that server is up, only the request failed.
+Whether a server *started* mid-session is noticed soon after depends on the
+lane: the MCP lane re-probes on every call
+(`foam/i18nStatus` → `refreshAvailability()`, `server.js:788-792`), so it's
+noticed within `negativeCacheTtlMs`. The editor lane probes exactly once, at
+boot (`server.js:512`) — a model that comes up mid-session is never noticed
+without a restart; see the README's Troubleshooting section for the same
+restart advice from the user's side.
+Placeholder sentinels (`${...}`, `{0}`, `%s`, HTML tags/entities —
+`PLACEHOLDER_PATTERN`, `I18nProviders.js:361`) are token-protected before the
+prompt and restored after, with a warning on any sentinel a model drops.
+
+**Gating** — `translationReady` (`I18nHandler.js:41-42`) is set by
+`refreshAvailability()` probing `provider.detect()`, fired at boot as
+fire-and-forget (`server.js:512`, never awaited by `initialize`). It gates:
+- `scanMissingLanguages()` (`I18nHandler.js:442-459`) — the public,
+  diagnostic/code-action-facing entry point; no confirmed provider means no
+  unsolicited HINT/action noise.
+- Code action C ("extract + translate") and D ("translate missing") in
+  `CodeActionHandler.js:111-112,140-141` — both also require non-empty
+  `targetLanguages`.
+
+The *internal* `scanMissingLanguages_()` (trailing underscore) is UNGATED —
+`foam/i18nTranslate`'s dry-run path calls it directly (via
+`resolveTranslateTargets_`, `I18nHandler.js:158-171`) because "what needs
+translating" from an explicit tool call isn't the noise the gate suppresses,
+and `translationReady === false` is exactly the situation dry-run exists for
+(no local model — hand the agent the strings instead). A pinned
+`messageName` skips the scan but not its missing-language filter
+(`missingLanguagesFor_`): an entry that already carries every requested
+language resolves to no targets at all, so the dry run reports an empty
+`strings` map and the real path makes no provider call.
+
+**Only entries an edit can follow are offered.** `scanMissingLanguages_`
+drops any entry `buildMessageMapEdit` could not write — today that means a
+`message:` written as a template literal (backticks), whose no-map branch
+matches `'`/`"` only. The model objects the scanner reads report a template
+literal as a plain string, so without the source-level check
+(`messageMapEditable_`) the HINT and action D were offered and then failed on
+click with "the file changed since the action was offered". An entry that
+already has a `messageMap` stays eligible whatever its quoting — that takes
+the append branch, which never reads the message literal.
+
+**Commands / custom methods**:
+- `workspace/executeCommand` — `foam.i18n.extractAndTranslate` (action C) and
+  `foam.i18n.translateMessage` (action D), both routed to
+  `I18nHandler.executeCommand()` (`server.js:879-915`); the built edit is sent
+  to the client via outbound `workspace/applyEdit` (`server.js:889`), never
+  applied server-side.
+- `foam/i18nStatus` — probe + report `{ available, model, endpoint, targetLanguages }`
+  (`server.js:788-804`).
+- `foam/i18nTranslate` — `{ uri, messageName?, languages?, dryRun? }`; real
+  branch calls `translateMessages()`, `dryRun:true` calls
+  `dryRunTranslateStrings()` (no network) — `server.js:806-823`.
+- `foam/i18nApply` — `{ uri, translations: { NAME: { lang: '...' } } }`, routes
+  to `applyTranslations()`, which validates every placeholder in the current
+  source survives in every offered translation before building any edit
+  (`server.js:825-840`, `handlers/I18nHandler.js:236-298`).
+
+**MCP two-phase dance** (`editors/mcp/server.js:757-819`) — `foam_i18n_translate`
+calls `foam/i18nStatus` first:
+- provider up → calls `foam/i18nTranslate` for real, writes the resulting edit
+  straight to disk (`applyWorkspaceEdit`, `editors/mcp/server.js:82-96` — no
+  editor client in a headless MCP host).
+- provider down → calls `foam/i18nTranslate` with `dryRun:true`, returns a
+  `needs-translations` payload (`{ strings, targetLanguages, instructions }`)
+  for the calling agent to translate itself, which it then hands back via
+  `foam_i18n_apply` → `foam/i18nApply` → same placeholder-validated edit,
+  applied to disk the same way.
+- Both tools report honestly when there's nothing to do, rather than a blanket
+  success: `foam_i18n_translate` returns `{ status: 'nothing-to-translate' }`
+  when the dry-run scan found no missing strings, and `foam_i18n_apply`
+  returns a "nothing to apply" message (no disk write) when every requested
+  language was already present — `applyTranslations` legally builds zero
+  edits in that case.
+
 ## Metrics
-- ~3800 lines of LSP code
-- 123 automated tests
+- ~19,800 lines of LSP code
+- ~1,200 assertions across the automated test suite
 - 4310 classes indexed
 - 76 property types
 - Boot time: ~10-15s

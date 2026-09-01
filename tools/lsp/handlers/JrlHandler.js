@@ -16,6 +16,7 @@ foam.CLASS({
   ],
 
   constants: {
+    SERVICE_KEY_NAMES: [ 'daoKey' ],
     JAVA_EMBED_KEYS_: {
       javaCode: true, javaFactory: true, javaGetter: true, javaSetter: true,
       javaPreSet: true, javaPostSet: true, javaAdapt: true, javaCompare: true,
@@ -46,6 +47,14 @@ foam.CLASS({
       name: 'journalClassMap_',
       documentation: 'Map of journal filename → FOAM class ID, built from services.jrl files.',
       factory: function() { return {}; }
+    },
+    {
+      name: 'journalEntryIndex',
+      documentation: 'foam.parse.lsp.JournalEntryIndex; optional — rules are skipped when absent.'
+    },
+    {
+      name: 'jrlGrammar',
+      factory: function() { return foam.parse.lsp.JrlGrammar.create(); }
     }
   ],
 
@@ -1361,6 +1370,13 @@ foam.CLASS({
        * Go-to-definition for JRL entries.
        * Resolves: class names → .js source, property keys → property in class file.
        */
+      // Embedded class-ref rule: dotted class ids inside string values
+      // (serviceScript, client, ...) navigate to the class source. Runs
+      // first because these cursors sit inside strings the entry parser
+      // cannot evaluate. Non-class dotted strings (menu ids) fall through.
+      var embedded = this.resolveEmbeddedClassAt_(text, position);
+      if ( embedded ) return embedded;
+
       var lines = text.split('\n');
       var line = lines[position.line] || '';
       var entry = this.parseJrlEntry_(line);
@@ -1430,6 +1446,86 @@ foam.CLASS({
         }
       }
 
+      // --- Journal cross-reference rules -------------------------------
+      // (spec: docs/superpowers/specs/2026-08-01-jrl-goto-definition-design.md)
+      if ( this.journalEntryIndex && segment.isValue &&
+           typeof segment.rawValue === 'string' && segment.key ) {
+        // (A) Schema rule: a Reference/relationship-typed property names a
+        // journal entry of its target model (e.g. Menu.parent).
+        if ( cls ) {
+          var refProp = this.resolveProperty_(cls, segment.key);
+          var refOf   = refProp && refProp.of;
+          var refOfId = typeof refOf === 'string' ? refOf : ( refOf && refOf.id );
+          if ( refOfId ) {
+            var entryLocs = this.journalEntryIndex.getEntryLocations(refOfId, segment.rawValue);
+            if ( entryLocs ) return this.toLocations_(entryLocs);
+          }
+        }
+
+        // (B) Convention rule: schema-blind service keys -> services.jrl.
+        if ( this.SERVICE_KEY_NAMES.indexOf(segment.key) !== -1 ) {
+          var svcLocs = this.journalEntryIndex.getServiceLocations(segment.rawValue);
+          if ( svcLocs ) return this.toLocations_(svcLocs);
+        }
+      }
+
+      return null;
+    },
+
+    function toLocations_(locs) {
+      /** JournalEntryIndex locations -> LSP Location | Location[]. */
+      var out = locs.map(function(l) {
+        return {
+          uri: 'file://' + l.file,
+          range: {
+            start: { line: l.line, character: 0 },
+            end:   { line: l.line, character: 0 }
+          }
+        };
+      });
+      return out.length === 1 ? out[0] : out;
+    },
+
+    function resolveEmbeddedClassAt_(text, position) {
+      /**
+       * If the cursor sits on a dotted identifier inside a string
+       * literal (per JrlGrammar's jrlClassRef records), resolve it to a
+       * registered class, stripping trailing segments as needed:
+       * `foam.core.menu.Menu.getOwnClassInfo` -> `foam.core.menu.Menu`.
+       * The cursor must lie within the surviving class-id prefix.
+       */
+      if ( ! this.index ) return null;
+
+      var lines = text.split('\n');
+      if ( position.line >= lines.length ) return null;
+      var offset = 0;
+      for ( var i = 0 ; i < position.line ; i++ ) offset += lines[i].length + 1;
+      offset += position.character;
+
+      var refs = this.jrlGrammar.collectJrlPositions(text).classRefs;
+      for ( var r = 0 ; r < refs.length ; r++ ) {
+        var rec = refs[r];
+        if ( offset < rec.startPos || offset > rec.endPos ) continue;
+
+        var candidate = rec.name;
+        while ( candidate.indexOf('.') !== -1 ) {
+          if ( this.index.classExists(candidate) &&
+               offset <= rec.startPos + candidate.length ) {
+            var filePath = this.index.getFilePath(candidate);
+            if ( filePath ) {
+              return {
+                uri: 'file://' + filePath,
+                range: {
+                  start: { line: 0, character: 0 },
+                  end:   { line: 0, character: 0 }
+                }
+              };
+            }
+          }
+          candidate = candidate.substring(0, candidate.lastIndexOf('.'));
+        }
+        return null; // dotted token under cursor, but not a known class
+      }
       return null;
     },
 

@@ -16,7 +16,10 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'TOOLTIP', message: 'Drag to Resize' }
+    { name: 'TOOLTIP', message: 'Drag to Resize' },
+    { name: 'SORT_BY', message: 'Sort by' },
+    { name: 'SORTED_ASCENDING', message: 'sorted ascending' },
+    { name: 'SORTED_DESCENDING', message: 'sorted descending' }
   ],
 
   constants: [
@@ -107,6 +110,10 @@ foam.CLASS({
       var colTooltip = colData.colPath.join( '/' );
       this
         .addClass(view.myClass('th'))
+        // Marks the header cells that host a resize grip. 'th' is shared
+        // with the multi-select and edit-columns cells, which have no grip,
+        // so the grip's own layout must not hang off it.
+        .addClass(view.myClass('resizableTh'))
         .on('mouseenter', this.onMouseEnter)
         .on('mouseleave', this.onMouseLeave)
         .addClass(view.myClass('th-' + prop.name))
@@ -129,32 +136,12 @@ foam.CLASS({
               })
               .add(colHeader)
             .end()
-            .callIf(isFirstLevelProperty && prop.sortable, function() {
-              var currArrow = view.restingIcon;
-              this.on('click', function(e) {
-                view.sortBy(prop);
-              }).
-              callIf(prop.label !== '', function() {
-                this.start()
-                  .start('img')
-                    .style({ 'max-width': 'initial' })
-                    .attr('src', this.slot(function(view$order) {
-                      var order = view$order;
-                      if ( prop === order ) {
-                        currArrow = view.ascIcon;
-                      } else {
-                        if ( view.Desc.isInstance(order) && order.arg1 === prop )
-                        currArrow = view.descIcon;
-                      }
-                      return currArrow;
-                    }, view.order$))
-                  .end()
-                .end();
-              });
-            })
+            .callIf(isFirstLevelProperty && prop.sortable, this.addSortAffordance_, [self, prop, colHeader])
         .end()
         .startContext({data: this})
-          .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY', themeIcon: 'drag', size: 'SMALL' })
+          // No icon: the grip is a bare strip on the column boundary and the
+          // col-resize cursor is what advertises it.
+          .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY' })
             .addClass(this.data.myClass('resizeButton'))
             .enableClass(this.data.myClass('resizeCursor'), this.showResize$)
             .on('pointerdown', self.pointerDown)
@@ -177,6 +164,71 @@ foam.CLASS({
       // A header can be torn down mid-drag (columns_ rebuild); release
       // everything the drag holds.
       this.onDetach(function() { self.endDrag_(); });
+    },
+
+    // Called with `this` bound to the element it builds into
+    // (foam.lang.Fluent.call/callIf), so the header component arrives as
+    // the `self` argument.
+    function addSortAffordance_(self, prop, colHeader) {
+      // `this`: the header's inner flex row - label and arrow together are
+      // the click target.
+      var view = self.data;
+      // '' whenever another column (or nothing) holds the sort, so a column
+      // that loses the sort falls back to the resting arrow instead of
+      // keeping the direction it was last sorted by.
+      //
+      // Built with slot() rather than view.order$.map(): both make an
+      // ExpressionSlot subscribed to order$, but slot() also registers it
+      // for detach. order$ belongs to the table, which outlives this header,
+      // so an unregistered subscription would keep the header and its
+      // closures alive for as long as the table lives. The slots derived
+      // from this one below need no such registration - they subscribe to
+      // sortState$, not to anything the table holds.
+      var sortState$ = this.slot(function(order) {
+        if ( prop === order ) return 'asc';
+        if ( view.Desc.isInstance(order) && order.arg1 === prop ) return 'desc';
+        return '';
+      }, view.order$);
+
+      this
+        .addClass(view.myClass('sortable'))
+        // A div carries no semantics of its own: without these the column can
+        // only be sorted with a mouse, and a screen reader is never told the
+        // header does anything or which way the table is sorted.
+        .attrs({ role: 'button', tabindex: 0 })
+        .attr('aria-label', sortState$.map(function(s) {
+          return self.SORT_BY + ' ' + colHeader +
+            ( s === 'asc'  ? ', ' + self.SORTED_ASCENDING  :
+              s === 'desc' ? ', ' + self.SORTED_DESCENDING : '' );
+        }))
+        .on('click', function(e) {
+          view.sortBy(prop);
+        })
+        .on('keydown', function(e) {
+          if ( e.key !== 'Enter' && e.key !== ' ' ) return;
+          // Space would scroll the table; Enter would re-fire as a click.
+          // Kept ahead of the repeat check so a held Space still cannot
+          // scroll on the repeats it is about to be ignored for.
+          e.preventDefault();
+          // A held key auto-repeats keydown and preventDefault does not stop
+          // the repeat, so without this, holding Space re-sorts continuously.
+          if ( e.repeat ) return;
+          view.sortBy(prop);
+        })
+        .callIf(prop.label !== '', function() {
+          this.start()
+            .addClass(view.myClass('sortIcon'))
+            .enableClass(view.myClass('sortIconActive'), sortState$.map(function(s) { return !! s; }))
+            .start('img')
+              .style({ 'max-width': 'initial' })
+              .attr('src', sortState$.map(function(s) {
+                if ( s === 'asc' )  return view.ascIcon;
+                if ( s === 'desc' ) return view.descIcon;
+                return view.restingIcon;
+              }))
+            .end()
+          .end();
+        });
     },
 
     function updateDragWidth() {

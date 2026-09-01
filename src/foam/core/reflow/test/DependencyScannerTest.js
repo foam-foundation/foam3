@@ -215,7 +215,44 @@ foam.CLASS({
       );
 
       // ============================================
-      // 9. Duplicate flowNames -- positional ids
+      // 7. rewrite
+      // ============================================
+      var blocks7 = [
+        {
+          flowName: 'dao1',
+          cmd: 'dao(dao1.filteredDAO)',
+          value: {
+            reactions_: { aql: 'dao1.count + dao10.count' },
+            daoKey: 'transaction.x',
+            code: 'this.dao1; transactionDAO$block'
+          },
+          border: { title: 'dao1 report' },
+          flowChildren: [
+            { flowName: 'dao1' }
+          ]
+        }
+      ];
+      scanner.rewrite(blocks7, { dao1: 'dao2', transactionDAO: 'transaction1DAO' });
+      var b7 = blocks7[0];
+      x.test(b7.cmd === 'dao(dao2.filteredDAO)', 'rewrite: cmd rewritten to dao(dao2.filteredDAO)');
+      x.test(
+        b7.value.reactions_.aql === 'dao2.count + dao10.count',
+        'rewrite: reactions_ expression rewritten to dao2.count + dao10.count'
+      );
+      x.test(b7.value.daoKey === 'transaction1.x', 'rewrite: daoKey rewritten to transaction1.x');
+      x.test(
+        b7.value.code === 'this.dao1; transaction1DAO$block',
+        'rewrite: code rewritten to "this.dao1; transaction1DAO$block" (this.dao1 untouched, preceded by dot)'
+      );
+      x.test(b7.border.title === 'dao1 report', 'rewrite: border.title left unchanged (not a scanned field)');
+      x.test(
+        b7.flowChildren[0].flowName === 'dao2',
+        'rewrite: nested flowChildren[0].flowName renamed to dao2'
+      );
+      x.test(b7.flowName === 'dao2', 'rewrite: top-level flowName renamed to dao2');
+
+      // ============================================
+      // 8. Duplicate flowNames -- positional ids
       // ============================================
       var blocks9 = [
         { flowName: 'a', cmd: 'x' },

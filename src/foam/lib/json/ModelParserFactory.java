@@ -48,24 +48,27 @@ public class ModelParserFactory {
   };
 
   /**
-   * Resolves a property key to its value parser.
+   * Resolves a property key to its value parser: hash the key's span, index
+   * into two parallel arrays, step right on collision.
    *
-   * On a StringPStream the key's exact span is scanned once (quote-aware,
-   * identifier chars, String-compatible hashing, no allocation) and resolved
-   * with one open-addressed probe — a profile put the previous per-character
-   * PrefixAlt tree walk at ~18% of journal-replay CPU. Other PStreams (the
-   * error-reporting streams) scan the same span through head()/tail() into a
-   * buffer and hit the same table; allocation there is irrelevant.
+   * The array index is the hash's LOW BITS: & mask_ keeps just enough bits to
+   * address the slots (a full-hash array would need 2^32 slots). Different
+   * hashes can share low bits — that is the only collision:
    *
-   * A miss returns null and the caller falls back to UnknownPropertyParser,
-   * so an unknown key behaves exactly as before.
+   *   "fee".hashCode()     = ...0000110   & 15 = slot 6   empty: placed
+   *   "country".hashCode() = ...0010110   & 15 = slot 6   taken: step right
+   *
+   *     slot:        6        7
+   *     keys_:    [ fee ][ country ]
+   *     parsers_: [ vp  ][   vp    ]
+   *
+   * Lookup replays the same moves without ever building a String for the key.
+   * Slots are derived from mask_, so grow() re-inserts names, never copies.
+   * A miss falls back to UnknownPropertyParser — unknown keys skip as before.
    */
   static final class PropertyKeyParser implements Parser {
-    // The table is two parallel arrays: position i holds a property name in
-    // keys_ and that property's value parser in parsers_. A name's position
-    // is derived, never stored: slot = name.hashCode() & mask_, stepping
-    // right past occupied slots on collision (open addressing). The arrays
-    // are always a power of two so '& mask_' is 'mod size' in one instruction.
+    // Parallel arrays: slot i pairs a name with its value parser. Power-of-two
+    // size makes '& mask_' equal 'mod size' in one instruction.
     private String[]  keys_    = new String[8];
     private Parser[]  parsers_ = new Parser[8];
     private int       count_, mask_ = 7, maxKeyLen_;
@@ -80,9 +83,7 @@ public class ModelParserFactory {
     }
 
     private void grow() {
-      // Doubling changes mask_, and mask_ changes which slot each hash maps
-      // to — so every name must be RE-inserted under the new mask. Copying
-      // positions would leave names in slots lookups no longer compute.
+      // re-insert, never copy: the new mask_ derives new slots (see javadoc)
       String[] oldKeys    = keys_;
       Parser[] oldParsers = parsers_;
       keys_    = new String[oldKeys.length * 2];
@@ -112,13 +113,7 @@ public class ModelParserFactory {
       boolean quoted = str.charAt(p0) == '"';
       int start = quoted ? p0 + 1 : p0;
 
-      // One sequential pass finds where the key ends AND computes its hash —
-      // h*31+c is String.hashCode()'s own formula, so it compares directly
-      // against the stored keys' cached hashes. The key is never materialized
-      // as an object; it exists only as (start, keyLen, h). This is the whole
-      // win over a Map lookup, which would need a substring per key: the scan
-      // pipelines as a plain char read, and only the table probe below can
-      // miss cache.
+      // one pass: find the key's end AND its String.hashCode-compatible hash
       int i = start, h = 0;
       for ( ; i < len ; i++ ) {
         char c = str.charAt(i);

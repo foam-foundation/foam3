@@ -724,6 +724,14 @@ function start() {
         break;
 
       case 'initialized':
+        // Config warnings (unknown flag names, unreadable foam-lsp.json)
+        // surface to the USER here — console.error alone leaves a mistyped
+        // flag invisible to whoever typed it. Deferred to initialized
+        // because the spec forbids server->client notifications earlier.
+        if ( featureConfig && featureConfig.warnings.length ) {
+          notify('window/showMessage', { type: 2 /* Warning */,
+            message: 'FOAM LSP config: ' + featureConfig.warnings.join('; ') });
+        }
         break;
 
       case 'shutdown':

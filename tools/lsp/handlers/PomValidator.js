@@ -175,7 +175,7 @@ foam.CLASS({
             if ( tok !== tok.trim() || /\s/.test(tok) ) {
               push(rec, 1, 'pom-flag-whitespace',
                 'whitespace in flag token ' + "'" + tok + "'" +
-                ' — foam.checkFlags matches tokens verbatim, so this flag never matches');
+                ' — foam.checkFlags matches tokens verbatim');
               return;
             }
             if ( ! KNOWN[tok] ) {

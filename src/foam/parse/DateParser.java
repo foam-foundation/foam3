@@ -29,20 +29,18 @@ import java.util.*;
  * - Timezone support: Z, +HH:MM, +HHMM, +HH
  *
  * Usage:
- *   DateParser parser = new DateParser();
- *   Date date = parser.parseString("2025-01-15");
- *   Date datetime = parser.parseString("2025-01-15T14:30:45");
+ *   Date date = DateParser.instance().parseString("2025-01-15");
+ *   Date datetime = DateParser.instance().parseString("2025-01-15T14:30:45");
  */
 public class DateParser {
 
   public enum DateParseMode { DATE, STRING, DATETIME, DATETIME_UTC }
 
-  private Grammar grammar_;
+  // Static grammar shared by all instances (expensive to build, so only build once)
+  private static Grammar grammar_ = null;
 
   /**
    * If true, throws errors for invalid dates. If false, logs warnings and returns MAX_DATE.
-   * Static because DateParser is used as a singleton pattern - each call creates a new instance
-   * but the strictValidation setting should be shared across all instances (like JavaScript Singleton).
    */
   private static boolean strictValidation_ = false;
 
@@ -89,10 +87,12 @@ public class DateParser {
   public static final Date INVALID_DATE = new Date(Long.MIN_VALUE);
 
   /**
-   * Constructor - initializes the grammar
+   * Constructor - initializes the grammar (lazily, shared across all instances)
    */
   public DateParser() {
-    grammar_ = getGrammar();
+    if ( grammar_ == null ) {
+      grammar_ = getGrammar();
+    }
   }
 
   // ========== Cache Helper Methods ==========

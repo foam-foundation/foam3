@@ -57,3 +57,77 @@ var dupMap = grammar.collectAxiomPositions(DUP_SRC);
 var dupFlags = dupMap.pomFlagValue && dupMap.pomFlagValue['js'];
 test(Array.isArray(dupFlags) && dupFlags.length === 2,
   'duplicate flag strings keep BOTH spans (dedupe by startPos happens downstream)');
+
+section('PomValidator.validateEntries — whitespace, unknown flags, missing files');
+
+var fs   = require('fs');
+var os   = require('os');
+var path = require('path');
+
+var validator = foam.parse.lsp.handlers.PomValidator.create({ index: h.index });
+
+function issuesFor(src, pomPath) {
+  return validator.validateEntries(src, pomPath || null);
+}
+function codes(issues) {
+  return issues.map(function(i) { return i.code; }).sort().join(',');
+}
+
+// (a) whitespace inside a flag token -> ERROR naming the exact token
+var fa = issuesFor("foam.POM({\n  files: [ { name: 'A', flags: 'js |java' } ]\n});\n");
+test(fa.length === 1 && fa[0].code === 'pom-flag-whitespace' && fa[0].severity === 1,
+  'flag token with whitespace -> one pom-flag-whitespace ERROR');
+test(fa.length === 1 && fa[0].message.indexOf("'js '") !== -1,
+  'the message quotes the exact offending token');
+
+// (b) whitespace in a file name -> ERROR
+var fb = issuesFor("foam.POM({\n  files: [ { name: 'foam/core/Bad ', flags: 'js' } ]\n});\n");
+test(fb.length === 1 && fb[0].code === 'pom-name-whitespace' && fb[0].severity === 1,
+  'trailing space in name -> pom-name-whitespace ERROR');
+
+// (c) unknown flag token -> WARNING naming it
+var fc = issuesFor("foam.POM({\n  files: [ { name: 'A', flags: 'js|java&tets' } ]\n});\n");
+test(fc.length === 1 && fc[0].code === 'pom-flag-unknown' && fc[0].severity === 2,
+  'misspelled flag -> pom-flag-unknown WARNING (vocabulary drifts, so never ERROR)');
+test(fc.length === 1 && fc[0].message.indexOf("'tets'") !== -1,
+  'the warning names the unknown token');
+
+// (c2) empty token from a double pipe -> whitespace-variant ERROR
+var fc2 = issuesFor("foam.POM({\n  files: [ { name: 'A', flags: 'js||java' } ]\n});\n");
+test(fc2.length === 1 && fc2[0].code === 'pom-flag-whitespace' &&
+  fc2[0].message.indexOf('empty flag token') !== -1,
+  'a double | yields an empty token -> pom-flag-whitespace variant message');
+
+// (d) file existence, only when a pomPath is given
+var tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pomv-'));
+fs.writeFileSync(path.join(tmp, 'Good.js'), '// exists\n');
+var DISK_SRC = "foam.POM({\n  files: [\n" +
+  "    { name: 'Good', flags: 'js' },\n" +
+  "    { name: 'Ghost', flags: 'js' }\n  ]\n});\n";
+var fd = issuesFor(DISK_SRC, path.join(tmp, 'pom.js'));
+test(codes(fd) === 'pom-file-missing',
+  'existing file passes, missing file -> exactly one pom-file-missing ERROR');
+test(fd[0] && fd[0].severity === 1 && fd[0].message.indexOf('Ghost') !== -1,
+  'pom-file-missing is an ERROR naming the entry');
+
+// (d2) javaFiles resolve against .java, not .js
+fs.writeFileSync(path.join(tmp, 'RealJava.java'), '// exists\n');
+var JD_SRC = "foam.POM({\n  javaFiles: [\n" +
+  "    { name: 'RealJava' },\n" +
+  "    { name: 'GhostJava' }\n  ]\n});\n";
+var fj = issuesFor(JD_SRC, path.join(tmp, 'pom.js'));
+test(codes(fj) === 'pom-file-missing' && fj[0].message.indexOf('GhostJava') !== -1,
+  'javaFiles entries resolve name + .java relative to the pom dir');
+
+// (d3) no pomPath -> existence checks skipped entirely
+var fd3 = issuesFor(DISK_SRC, null);
+test(fd3.length === 0, 'without a pomPath (unit fixture) no existence check runs');
+
+// (e) clean pom -> no issues
+var fe = issuesFor("foam.POM({\n  files: [ { name: 'A', flags: 'js|java&test' } ]\n});\n", null);
+test(fe.length === 0, 'clean fixture -> []');
+
+// offsets point into the text so the diagnostics layer can map to line/char
+test(fa[0] && typeof fa[0].start === 'number' && typeof fa[0].end === 'number' &&
+  fa[0].end > fa[0].start,
+  'issues carry start/end offsets into the source text');

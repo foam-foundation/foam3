@@ -129,6 +129,15 @@ foam.CLASS({
       return f;
     },
 
+    function flattenFlow(list) {
+      /** Every block in document order, parent before its children -- the order
+          DependencyScanner walks the same tree in its JSON form, so the two line
+          up index for index. */
+      var out = [];
+      ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(list);
+      return out;
+    },
+
     function findFlowChildByName(n) {
       let findEl = inputArr => {
         if ( ! inputArr?.length ) return;
@@ -1972,6 +1981,81 @@ foam.CLASS({
       }
     },
 
+    function deleteFlowChild(block) {
+      /** Deleting a block leaves every reference to it dangling, and the blocks that
+          break take their own dependents down with them. Name the whole group and
+          offer to remove it in one step. */
+      var blocks     = JSON.parse(this.generateScriptString());
+      var flatBlocks = this.flattenFlow(blocks);
+      var i          = this.flattenFlow(this.flowChildren).indexOf(block);
+
+      var removeOne = () => {
+        block.deleted_ = true;
+        block.flowParent.removeFlowChild(block);
+      };
+
+      if ( i < 0 || ! flatBlocks[i] ) { removeOne(); return; }
+
+      var graph  = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
+      var nameOf = {};
+      graph.nodes.forEach(n => { nameOf[n.id] = n.name; });
+
+      // Breadth-first along the edges, which run from a block to the blocks naming it.
+      // `via` keeps the one that first reached each, so the modal can say how it got there.
+      var start = graph.nodes[i].id;
+      var seen  = { [start]: true };
+      var queue = [ start ];
+      var order = [];
+      var via   = {};
+
+      while ( queue.length ) {
+        var id = queue.shift();
+        graph.edges.forEach(e => {
+          if ( e.source !== id || seen[e.target] ) return;
+          seen[e.target] = true;
+          via[e.target]  = id;
+          order.push(e.target);
+          queue.push(e.target);
+        });
+      }
+
+      if ( ! order.length ) { removeOne(); return; }
+
+      var byId = {};
+      graph.nodes.forEach((n, k) => { byId[n.id] = flatBlocks[k]; });
+
+      var self   = this;
+      var doomed = new Set([ start, ...order ].map(id => byId[id]));
+
+      var modal = this.ConfirmationModal.create({
+        title: 'Delete "' + nameOf[start] + '"?',
+        modalStyle: 'DESTRUCTIVE',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'deleteAll',
+          label: 'Delete all ' + ( order.length + 1 ),
+          code: function() {
+            // Dropping a block takes its children with it, so prune by identity and
+            // never recurse into one that is going.
+            var prune = list => list.filter(b => ! doomed.has(b)).
+              map(b => { if ( b.flowChildren ) b.flowChildren = prune(b.flowChildren); return b; });
+            self.value.script = JSON.stringify(prune(blocks));
+          }
+        }),
+        secondaryAction: foam.lang.Action.create({
+          name: 'cancel',
+          label: 'Cancel',
+          code: function() {}
+        })
+      });
+
+      modal.add(order.length + ( order.length == 1 ? ' block depends' : ' blocks depend' ) +
+        ' on it and will break: ' +
+        order.map(id => nameOf[id] + ( via[id] === start ? '' : ' (via ' + nameOf[via[id]] + ')' )).join(', '));
+      this.add(modal);
+    },
+
     function renameBack_(block, name) {
       /** Put a name back without the write re-entering onBlockRenamed. */
       this.renaming_ = true;
@@ -1984,15 +2068,9 @@ foam.CLASS({
           Name the blocks that reference it, and offer to rewrite them with it. */
       if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
 
-      var flatten = list => {
-        var out = [];
-        ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(list);
-        return out;
-      };
-
       var blocks     = JSON.parse(this.generateScriptString());
-      var flatBlocks = flatten(blocks);
-      var flatLive   = flatten(this.flowChildren);
+      var flatBlocks = this.flattenFlow(blocks);
+      var flatLive   = this.flattenFlow(this.flowChildren);
       var i          = flatLive.indexOf(block);
       if ( i < 0 || ! flatBlocks[i] ) return;
 

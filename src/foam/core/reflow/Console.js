@@ -2036,8 +2036,8 @@ foam.CLASS({
           }
         }),
         secondaryAction: foam.lang.Action.create({
-          name: 'revert',
-          label: 'Revert',
+          name: 'cancel',
+          label: 'Cancel',
           code: function() { self.renameBack_(block, oldName); }
         })
       });

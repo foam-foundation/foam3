@@ -25,7 +25,8 @@ foam.CLASS({
       codeLens.hierarchy  — one lens per class naming its direct-subclass
                             count, read straight from FoamIndex.getSubclasses.
                             Informational BY DESIGN, not a placeholder:
-                            command is '' because no client-side navigation
+                            command is the advertised no-op foam.lens.info
+                            (answered null) because no client-side navigation
                             command exists to jump to a subclass list yet.
                             Follow-up shape: gate an editor.action.showReferences
                             (or equivalent) command behind the client's
@@ -164,10 +165,10 @@ foam.CLASS({
        * on every save (those indexes invalidate on reindex), unacceptable
        * for something that runs on every codeLens request.
        *
-       * Informational BY DESIGN: `command` is '' because no client-side
-       * command exists yet to act on a subclass count. Follow-up shape: a
-       * client-capability-gated editor.action.showReferences (or
-       * equivalent) — see the class doc.
+       * Informational BY DESIGN: `command` is the no-op foam.lens.info
+       * because no client-side command exists yet to act on a subclass
+       * count. Follow-up shape: a client-capability-gated
+       * editor.action.showReferences (or equivalent) — see the class doc.
        */
       for ( var i = 0 ; i < models.length ; i++ ) {
         var model   = models[i];

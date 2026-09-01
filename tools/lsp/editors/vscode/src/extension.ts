@@ -198,19 +198,9 @@ export function activate(context: ExtensionContext) {
         return;
       }
 
-      const name = await window.showInputBox({
-        prompt: 'FOAM class name',
-        placeHolder: 'MyNewClass',
-        // Must match the server's own check (ScaffoldHandler.newClass) exactly
-        // — a name this box accepts but the server rejects turns a typo into a
-        // round trip and an error toast instead of inline validation.
-        validateInput: (v: string) =>
-          /^[A-Z][A-Za-z0-9_$]*$/.test(v) ?
-            null :
-            'Must start with an uppercase letter and use letters, digits, _ or $ only.'
-      });
-      if ( !name ) return;
-
+      // Resolve the target folder BEFORE prompting, and show it in the
+      // prompt — the file (and the package: line derived from its path)
+      // must never land somewhere the user was not shown.
       let dir: string | undefined;
       const activeUri = window.activeTextEditor?.document.uri;
       if ( activeUri && activeUri.scheme === 'file' ) {
@@ -229,6 +219,20 @@ export function activate(context: ExtensionContext) {
         }
         dir = wsFolders[0].uri.fsPath;
       }
+      const shownDir = workspace.asRelativePath(dir, true);
+
+      const name = await window.showInputBox({
+        prompt: `FOAM class name — creates in ${shownDir}`,
+        placeHolder: 'MyNewClass',
+        // Must match the server's own check (ScaffoldHandler.newClass) exactly
+        // — a name this box accepts but the server rejects turns a typo into a
+        // round trip and an error toast instead of inline validation.
+        validateInput: (v: string) =>
+          /^[A-Z][A-Za-z0-9_$]*$/.test(v) ?
+            null :
+            'Must start with an uppercase letter and use letters, digits, _ or $ only.'
+      });
+      if ( !name ) return;
 
       try {
         const response: any = await client.sendRequest('workspace/executeCommand', {

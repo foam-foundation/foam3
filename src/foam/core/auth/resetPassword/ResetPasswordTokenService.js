@@ -74,7 +74,7 @@ foam.CLASS({
 
         String spid = user.getSpid();
         if ( SafetyUtil.isEmpty(spid) ) {
-          spid = (String) x.get("spid"); // Defaults to "paytic" (should be based on theme, instead)
+          spid = (String) x.get("spid"); // Gets the default spid
         }
 
         Sink sink = new ArraySink();
@@ -82,7 +82,7 @@ foam.CLASS({
           MLang.AND(
             MLang.EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE),
             MLang.EQ(User.LOGIN_ENABLED, true),
-            MLang.CONTAINS(User.SPID, spid), // CONTAINS rather than EQ so that we can find sub-spids of "paytic"
+            MLang.CONTAINS(User.SPID, spid), // CONTAINS rather than EQ so that we can find sub-spids of the default
             MLang.EQ(User.EMAIL, user.getEmail())
           ))
           .limit(1).select(sink);

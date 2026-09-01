@@ -1979,8 +1979,13 @@ foam.CLASS({
 
       var blocks     = JSON.parse(this.generateScriptString());
       var flatBlocks = flatten(blocks);
-      var i          = flatten(this.flowChildren).indexOf(block);
+      var flatLive   = flatten(this.flowChildren);
+      var i          = flatLive.indexOf(block);
       if ( i < 0 || ! flatBlocks[i] ) return;
+
+      // A name already in use is reported by the flowName validation. Cascading onto
+      // it would aim every rewritten reference at whichever block the scope binds last.
+      if ( flatLive.filter(f => f.flowName === newName).length > 1 ) return;
 
       // The block already carries the new name. Put the old one back in the parsed
       // copy, since the scanner resolves a reference only against a name the flow

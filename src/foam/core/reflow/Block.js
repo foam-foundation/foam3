@@ -87,6 +87,15 @@ foam.CLASS({
         // A block still being built has no Console above it yet.
         var root = this.flowRoot();
         if ( root.onBlockRenamed ) root.onBlockRenamed(this, o, n);
+      },
+      validateObj: function(flowName) {
+        if ( ! flowName ) return;
+        var used = 0;
+        ( function walk(l) {
+          l.forEach(b => { if ( b.flowName === flowName ) used++; walk(b.flowChildren); });
+        } )(this.flowRoot().flowChildren);
+        if ( used > 1 )
+          return 'Already used by another block. The flow scope binds the last one, so the earlier block is unreachable.';
       }
     },
     {

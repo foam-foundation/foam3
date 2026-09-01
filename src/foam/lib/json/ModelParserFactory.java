@@ -10,6 +10,8 @@ import foam.lang.ClassInfo;
 import foam.lang.PropertyInfo;
 import foam.lib.parse.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -48,57 +50,67 @@ public class ModelParserFactory {
   };
 
   /**
-   * Resolves a property key to its value parser: hash the key's span, index
-   * into two parallel arrays, step right on collision.
+   * Resolves a property key to its value parser: walk a ternary search tree
+   * one character at a time. At each node, route left/right until the current
+   * character matches the node's, then step down (mid_) to the next character:
    *
-   * The array index is the hash's LOW BITS: & mask_ keeps just enough bits to
-   * address the slots (a full-hash array would need 2^32 slots). Different
-   * hashes can share low bits — that is the only collision:
+   *   keys "fee", "fen", "country":      [f]
+   *                                     /   \
+   *                                  [c]     (mid) [e]
+   *                                 country        (mid) [e] — right — [n]
+   *                                                     "fee"        "fen"
    *
-   *   "fee".hashCode()     = ...0000110   & 15 = slot 6   empty: placed
-   *   "country".hashCode() = ...0010110   & 15 = slot 6   taken: step right
-   *
-   *     slot:        6        7
-   *     keys_:    [ fee ][ country ]
-   *     parsers_: [ vp  ][   vp    ]
-   *
-   * Lookup replays the same moves without ever building a String for the key.
-   * Slots are derived from mask_, so grow() re-inserts names, never copies.
-   * A miss falls back to UnknownPropertyParser — unknown keys skip as before.
+   * seal() rebuilds the tree balanced (median-first insertion) once all names
+   * are added, so left/right sibling chains stay short. Lookup allocates
+   * nothing: it reads the key's characters in place and hops nodes; the
+   * stream advances once, after the key is confirmed. A miss falls back to
+   * UnknownPropertyParser — unknown keys skip as before.
    */
   static final class PropertyKeyParser implements Parser {
-    // Parallel arrays: slot i pairs a name with its value parser. Power-of-two
-    // size makes '& mask_' equal 'mod size' in one instruction.
-    private String[]  keys_    = new String[8];
-    private Parser[]  parsers_ = new Parser[8];
-    private int       count_, mask_ = 7, maxKeyLen_;
+    // Ternary-search-tree node: left_/right_ route on the current character,
+    // mid_ advances to the next one. parser_ != null marks a complete key.
+    private static final class Node {
+      final char c_;
+      Node   left_, mid_, right_;
+      Parser parser_;
+      Node(char c) { c_ = c; }
+    }
+
+    private final ArrayList<String> names_        = new ArrayList<String>();
+    private final ArrayList<Parser> valueParsers_ = new ArrayList<Parser>();
+    private Node root_;
+    private int  maxKeyLen_;
 
     void add(String name, Parser valueParser) {
-      // Lookups stay one-probe only while most slots are empty, so the table
-      // is kept at most a quarter full; the cost is null slots (8 bytes each).
-      if ( ( count_ + 1 ) * 4 > keys_.length ) grow();
-      insert(name, valueParser);
-      count_++;
+      names_.add(name);
+      valueParsers_.add(valueParser);
       if ( name.length() > maxKeyLen_ ) maxKeyLen_ = name.length();
     }
 
-    private void grow() {
-      // re-insert, never copy: the new mask_ derives new slots (see javadoc)
-      String[] oldKeys    = keys_;
-      Parser[] oldParsers = parsers_;
-      keys_    = new String[oldKeys.length * 2];
-      parsers_ = new Parser[oldKeys.length * 2];
-      mask_    = keys_.length - 1;
-      for ( int i = 0 ; i < oldKeys.length ; i++ ) {
-        if ( oldKeys[i] != null ) insert(oldKeys[i], oldParsers[i]);
-      }
+    /** Build the tree balanced: sort the names, insert medians first. */
+    void seal() {
+      Integer[] order = new Integer[names_.size()];
+      for ( int i = 0 ; i < order.length ; i++ ) order[i] = i;
+      Arrays.sort(order, (a, b) -> names_.get(a).compareTo(names_.get(b)));
+      insertBalanced(order, 0, order.length - 1);
     }
 
-    private void insert(String name, Parser valueParser) {
-      int slot = name.hashCode() & mask_;
-      while ( keys_[slot] != null ) slot = ( slot + 1 ) & mask_;
-      keys_[slot]    = name;
-      parsers_[slot] = valueParser;
+    private void insertBalanced(Integer[] order, int lo, int hi) {
+      if ( lo > hi ) return;
+      int m = ( lo + hi ) >>> 1;
+      root_ = insert(root_, names_.get(order[m]), 0, valueParsers_.get(order[m]));
+      insertBalanced(order, lo, m - 1);
+      insertBalanced(order, m + 1, hi);
+    }
+
+    private Node insert(Node n, String key, int d, Parser valueParser) {
+      char c = key.charAt(d);
+      if ( n == null ) n = new Node(c);
+      if      ( c < n.c_ ) n.left_  = insert(n.left_,  key, d, valueParser);
+      else if ( c > n.c_ ) n.right_ = insert(n.right_, key, d, valueParser);
+      else if ( d < key.length() - 1 ) n.mid_ = insert(n.mid_, key, d + 1, valueParser);
+      else n.parser_ = valueParser;
+      return n;
     }
 
     public PStream parse(PStream ps, ParserContext x) {
@@ -113,12 +125,11 @@ public class ModelParserFactory {
       boolean quoted = str.charAt(p0) == '"';
       int start = quoted ? p0 + 1 : p0;
 
-      // one pass: find the key's end AND its String.hashCode-compatible hash
-      int i = start, h = 0;
+      // find the key's end
+      int i = start;
       for ( ; i < len ; i++ ) {
         char c = str.charAt(i);
         if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
-        h = h * 31 + c;
       }
       int keyLen = i - start;
       if ( keyLen == 0 ) return null;
@@ -127,18 +138,23 @@ public class ModelParserFactory {
         i++;
       }
 
-      // Probe from the hashed slot, stepping right exactly as insert() did.
-      // An empty slot ends the search: the key is not a property. Two integer
-      // rejects (length, cached hashCode) skip non-matches before the
-      // char-by-char confirm — correctness never rests on the hash.
-      for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
-        String k = keys_[slot];
-        if ( k.length() != keyLen || k.hashCode() != h ) continue;
-        int j = 0;
-        while ( j < keyLen && k.charAt(j) == str.charAt(start + j) ) j++;
-        if ( j == keyLen ) return parsers_[slot].parse(sps.createAt(i), x);
+      // Walk the tree over the key's span. Reaching the end of the span on a
+      // matching node takes that node's parser (null if no key ends there);
+      // running out of nodes means the key is not a property.
+      Node n = root_;
+      int d = start, end = start + keyLen;
+      Parser found = null;
+      while ( n != null ) {
+        char c = str.charAt(d);
+        if      ( c < n.c_ ) n = n.left_;
+        else if ( c > n.c_ ) n = n.right_;
+        else {
+          d++;
+          if ( d == end ) { found = n.parser_; break; }
+          n = n.mid_;
+        }
       }
-      return null;
+      return found == null ? null : found.parse(sps.createAt(i), x);
     }
 
     /** The same scan and lookup over any PStream — only the error-reporting streams take this path. */
@@ -149,29 +165,34 @@ public class ModelParserFactory {
       if ( quoted ) ps = ps.tail();
 
       char[] buf = new char[maxKeyLen_];
-      int n = 0, h = 0;
+      int nChars = 0;
       while ( ps.valid() ) {
         char c = ps.head();
         if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
-        if ( n == buf.length ) return null; // longer than any registered name
-        buf[n++] = c;
-        h = h * 31 + c;
+        if ( nChars == buf.length ) return null; // longer than any registered name
+        buf[nChars++] = c;
         ps = ps.tail();
       }
-      if ( n == 0 ) return null;
+      if ( nChars == 0 ) return null;
       if ( quoted ) {
         if ( ! ps.valid() || ps.head() != '"' ) return null;
         ps = ps.tail();
       }
 
-      for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
-        String k = keys_[slot];
-        if ( k.length() != n || k.hashCode() != h ) continue;
-        int j = 0;
-        while ( j < n && k.charAt(j) == buf[j] ) j++;
-        if ( j == n ) return parsers_[slot].parse(ps, x);
+      Node n = root_;
+      int d = 0;
+      Parser found = null;
+      while ( n != null ) {
+        char c = buf[d];
+        if      ( c < n.c_ ) n = n.left_;
+        else if ( c > n.c_ ) n = n.right_;
+        else {
+          d++;
+          if ( d == nChars ) { found = n.parser_; break; }
+          n = n.mid_;
+        }
       }
-      return null;
+      return found == null ? null : found.parse(ps, x);
     }
   }
 
@@ -221,6 +242,8 @@ public class ModelParserFactory {
       keys.add(pi.getName(), valueParser);
       if ( pi.getShortName() != null ) keys.add(pi.getShortName(), valueParser);
     }
+
+    keys.seal();
 
     // Inlined property loop: replaces Repeat0(Seq0(SKIP, Alt, SKIP), Literal(','))
     // to eliminate Repeat0 + Seq0 + Literal combinator overhead per property.

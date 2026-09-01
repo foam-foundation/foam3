@@ -1276,7 +1276,14 @@ foam.CLASS({
         return value$label || 'Flow';
       }
     },
-    'flowErrors_'
+    'flowErrors_',
+    {
+      class: 'Boolean',
+      name: 'renaming_',
+      transient: true,
+      hidden: true,
+      documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    }
   ],
 
   methods: [
@@ -1965,11 +1972,17 @@ foam.CLASS({
       }
     },
 
+    function renameBack_(block, name) {
+      /** Put a name back without the write re-entering onBlockRenamed. */
+      this.renaming_ = true;
+      try { block.flowName = name; } finally { this.renaming_ = false; }
+    },
+
     function onBlockRenamed(block, oldName, newName) {
       /** A rename changes the block's own name and nothing else -- every reference to
           it elsewhere still spells the old one, so the flow breaks on the next load.
           Name the blocks that reference it, and offer to rewrite them with it. */
-      if ( this.isLoading_ || ! oldName || ! newName || oldName === newName ) return;
+      if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
 
       var flatten = list => {
         var out = [];
@@ -1983,9 +1996,13 @@ foam.CLASS({
       var i          = flatLive.indexOf(block);
       if ( i < 0 || ! flatBlocks[i] ) return;
 
-      // A name already in use is reported by the flowName validation. Cascading onto
-      // it would aim every rewritten reference at whichever block the scope binds last.
-      if ( flatLive.filter(f => f.flowName === newName).length > 1 ) return;
+      // Two blocks of one name collapse in the flow scope, which binds the last of
+      // them and leaves the other unreachable. Bounce the rename instead of landing it.
+      if ( flatLive.filter(f => f.flowName === newName).length > 1 ) {
+        this.notify('Block name "' + newName + '" is already used in this flow.', '', this.LogLevel.ERROR, true);
+        this.renameBack_(block, oldName);
+        return;
+      }
 
       // The block already carries the new name. Put the old one back in the parsed
       // copy, since the scanner resolves a reference only against a name the flow
@@ -2019,7 +2036,7 @@ foam.CLASS({
         secondaryAction: foam.lang.Action.create({
           name: 'revert',
           label: 'Revert',
-          code: function() { block.flowName = oldName; }
+          code: function() { self.renameBack_(block, oldName); }
         })
       });
 

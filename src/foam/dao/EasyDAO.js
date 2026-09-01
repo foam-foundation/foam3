@@ -773,6 +773,13 @@ dao loading, which improves overall startup time.`,
       units: 'ms'
     },
     {
+      class: 'Boolean',
+      name: 'refreshSessionTimer',
+      generateJava: false,
+      documentation: 'When false, requests from this client DAO are treated as background activity: they do not reset the client-side inactivity timer nor touch the server session TTL. Used by polling DAOs so an open tab does not keep an idle user logged in.',
+      value: true
+    },
+    {
       documentation: 'Destination address for server',
       name: 'serverBox',
       generateJava: false,
@@ -796,7 +803,7 @@ dao loading, which improves overall startup time.`,
           });
         }
 
-        return this.SessionClientBox.create({delegate: box});
+        return this.SessionClientBox.create({delegate: box, refreshSessionTimer: this.refreshSessionTimer});
       }
     },
     {

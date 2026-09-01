@@ -63,12 +63,14 @@ public class SessionServerBox
     DAO     sessionDAO = (DAO) x.get("localSessionDAO");
     Session session    = null;
     String  sessionID  = null;
+    boolean refreshSession = true;
     PM      pm         = PM.create(x, "SessionServerBox", spec.getName());
 
     try {
       if ( sessionID == null && message instanceof SessionedMessage sessionedMessage) {
         sessionID = sessionedMessage.getSessionId();
         message = sessionedMessage.getMessage();
+        refreshSession = sessionedMessage.getRefreshSession();
       }
 
       if ( sessionID == null && authenticate ) {
@@ -144,7 +146,9 @@ public class SessionServerBox
       // Make context available to thread-local XLocator
       XLocator.set(effectiveContext);
       session.setContext(effectiveContext);
-      session.touch();
+      // Background requests (e.g. notification polling) pass refreshSession=false
+      // so they don't reset the session's sliding TTL and keep an idle user logged in.
+      if ( refreshSession ) session.touch();
 
       try {
         spec.checkAuthorization(effectiveContext);

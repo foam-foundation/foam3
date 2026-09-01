@@ -15,7 +15,7 @@ foam.INTERFACE({
       args: [
         {
           name: 'envelope',
-          type: 'foam.box.Envelope',
+          type: 'foam.box.Envelope'
         }
       ],
       swiftThrows: true

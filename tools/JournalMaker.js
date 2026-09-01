@@ -12,10 +12,26 @@ const path_ = require('path');
 const journalFiles  = [];
 const journalOutput = {};
 const imageDirs     = [ 'images' ];
+const COPY_BUFFER_SIZE = 1024 * 1024; // MB -
 
 function addJournalOutput(j, o) {
   if ( ! journalOutput[j] ) journalOutput[j] = [];
   journalOutput[j].push(o);
+}
+
+function writeFileChunked(source, targetFd) {
+  const sourceFd = fs_.openSync(source, 'r');
+  const buffer = Buffer.allocUnsafe(COPY_BUFFER_SIZE);
+
+  try {
+    var bytesRead;
+    do {
+      bytesRead = fs_.readSync(sourceFd, buffer, 0, buffer.length, null);
+      if ( bytesRead > 0 ) fs_.writeSync(targetFd, buffer, 0, bytesRead);
+    } while ( bytesRead > 0 );
+  } finally {
+    fs_.closeSync(sourceFd);
+  }
 }
 
 exports.init = function() {
@@ -118,19 +134,23 @@ p({
     const writeStream = fs_.openSync(fn, 'w');
     const a           = journalOutput[f];
     this.verbose('[Journal] creating', fn);
-    for ( var j = 0 ; j < a.length ; j++ ) {
-      var o = a[j];
-      try {
-        if ( typeof o === 'string' ) {
-          fs_.writeSync(writeStream, o + '\n');
-        } else {
-          fs_.writeSync(writeStream, o.msg + '\n');
-          fs_.writeSync(writeStream, fs_.readFileSync(o.fn));
-          fs_.writeSync(writeStream, '\n');
+    try {
+      for ( var j = 0 ; j < a.length ; j++ ) {
+        var o = a[j];
+        try {
+          if ( typeof o === 'string' ) {
+            fs_.writeSync(writeStream, o + '\n');
+          } else {
+            fs_.writeSync(writeStream, o.msg + '\n');
+            writeFileChunked(o.fn, writeStream);
+            fs_.writeSync(writeStream, '\n');
+          }
+        } catch(e) {
+          this.error(e);
         }
-      } catch(e) {
-        this.error(e);
       }
+    } finally {
+      fs_.closeSync(writeStream);
     }
   }
 

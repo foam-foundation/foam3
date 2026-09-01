@@ -41,8 +41,14 @@ foam.CLASS({
     'foam.mlang.sink.Sequence',
     'java.util.Date',
     'java.util.List',
-    'java.util.Timer'
+    'java.util.Timer',
+    'java.util.concurrent.atomic.AtomicBoolean'
   ],
+
+  javaCode: `
+  AtomicBoolean running_ = new AtomicBoolean();
+  Object lock_           = new Object();
+  `,
 
   properties: [
     {
@@ -72,6 +78,11 @@ foam.CLASS({
       name: 'enabled',
       class: 'Boolean',
       value: true
+    },
+    {
+      name: 'timer',
+      class: 'Object',
+      visibility: 'HIDDEN'
     }
   ],
 
@@ -82,15 +93,35 @@ foam.CLASS({
       javaCode: `
       Loggers.logger(getX(), this).info("start");
       Timer timer = new Timer(this.getClass().getSimpleName());
+      setTimer(timer);
       timer.schedule(
         new AgencyTimerTask(getX(), this),
         getInitialTimerDelay());
       `
     },
     {
+      name: 'stop',
+      javaCode: `
+      synchronized ( lock_ ) {
+        running_.set(false);
+        Timer timer = (Timer) getTimer();
+        if ( timer != null )
+          timer.cancel();
+      }
+      `
+    },
+    {
       name: 'execute',
       javaCode: `
     final Logger logger = Loggers.logger(x, this);
+    synchronized ( lock_ ) {
+      if ( running_.get() ) {
+        logger.warning("already running");
+        return;
+      }
+      running_.set(true);
+    }
+
     try {
       logger.info("initialize", "cronjobs", "start");
       DAO cronJobDAO = (DAO) x.get(getCronJobDAO());
@@ -132,7 +163,7 @@ foam.CLASS({
 
       logger.info("initialize", "cronjobs", "complete");
 
-      while ( true ) {
+      while ( running_.get() ) {
         long delay = getCronDelay();
         if ( getEnabled() ) {
           Date now = new Date();
@@ -186,8 +217,7 @@ foam.CLASS({
           // or if their next scheduled execution time is > 5s away
           // Delay at least a little bit to avoid blocking in case of a script error.
           Date minDate = (Date) min.getValue();
-          if( minDate != null &&
-              getEnabled() ) {
+          if( minDate != null && getEnabled() ) {
             delay = Math.abs(minDate.getTime() - System.currentTimeMillis());
             delay = Math.min(getCronDelay(), delay);
             delay = Math.max(500, delay);
@@ -200,7 +230,11 @@ foam.CLASS({
         }
       }
     } catch (Throwable t) {
-      ((DAO) x.get("eventRecordDAO")).put(new EventRecord(x, this, "execute", null, LogLevel.ERROR, t));
+      try {
+        ((DAO) x.get("eventRecordDAO")).put(new EventRecord(x, this, "execute", null, LogLevel.ERROR, t));
+      } catch (Throwable t2) {
+        // The time must flow
+      }
     }
     `
     }

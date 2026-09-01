@@ -62,7 +62,7 @@ foam.CLASS({
       title: 'Script',
       collapsable: true,
       permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
-      properties: [ 'preLoadScript', 'script', 'postLoadScript' ]
+      properties: [ 'preLoadScript', 'script' ]
     },
     {
       name: 'historySection',
@@ -109,9 +109,9 @@ foam.CLASS({
       section: 'general',
       tableCellFormatter: function(value, obj) {
         if ( value.startsWith('PASSED') ) {
-          this.style({color: 'green'});
+          this.style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)});
         } else if ( value.startsWith('FAILED') ) {
-          this.style({color: 'red'});
+          this.style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)});
         }
         this.add(value);
       },
@@ -203,20 +203,18 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'postLoadScript',
-      section: 'scriptSection',
-      reactive: false,
-      preSet: function(o, n) { return n.trim(); },
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
-    },
-    {
-      class: 'String',
       name: 'script',
       section: 'scriptSection',
       reactive: false,
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
-      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 }
+      view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 },
+      toJSON: function (value, outputter) {
+        // Triple-quoted output does its own escaping, and pre-escaping here
+        // would hide the newlines it selects on.
+        if ( outputter.multiLineOutput ) return value;
+        return outputter.escape(value, true);
+      }
     },
     {
       class: 'foam.dao.DAOProperty',

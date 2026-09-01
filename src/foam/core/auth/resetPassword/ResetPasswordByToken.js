@@ -23,6 +23,12 @@
     'foam.core.auth.User'
   ],
 
+  messages: [
+    { name: 'INVALID_TOKEN', message: 'Invalid token' },
+    { name: 'TOKEN_ALREADY_USED', message: 'Token already used' },
+    { name: 'TOKEN_EXPIRED', message: 'Token expired' }
+  ],
+
   properties: [
     {
       class: 'String',
@@ -33,6 +39,15 @@
       },
       hidden: true
     }
+  ],
+
+  methods: [
+    function init() {
+      this.resetPasswordToken.validateToken(null, this.token)
+        .catch((err) => {
+          this.loadingError = this[err.message] || err.message;
+        });
+    },
   ],
 
   actions: [

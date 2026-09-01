@@ -102,7 +102,6 @@ foam.CLASS({
       this.target.on('mouseleave', this.close);
       this.target.on('mouseout',   this.close);
       this.target.on('touchstart', this.close, {passive: true});
-      this.target.on('unload',     this.close);
       this.onMouseOver(evt);
     }
   ]
@@ -116,9 +115,18 @@ foam.CLASS({
 
   documentation: 'Tooltip view to be used by the tooltip handler',
 
+  cssTokens: [
+    {
+      name: 'tooltipBackground',
+      value: function(e) {
+        return e.ADJUST_ALPHA(e.TOKEN('$backgroundInverse'), 0.8);
+      },
+    }
+  ],
+
   css: `
     ^ {
-      background: $backgroundInverseSecondary;
+      background: $tooltipBackground;
       border-radius: 5px;
       color: $white;
       padding: 5px 8px;

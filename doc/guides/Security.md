@@ -1,5 +1,56 @@
 # FOAM Application Security
 
+## Structural Security — Immunity by Design
+
+Most frameworks treat injection attacks as problems to be mitigated: sanitise inputs, escape outputs, document what not to do, and hope developers follow the rules consistently. FOAM takes a different approach — it eliminates the attack surface at the architectural level so that the normal API provides no path to injection in the first place.
+
+### XSS Immunity — U2 and Content Security Policy
+
+U2, FOAM's UI library, was designed in conjunction with Google's security team during the Chrome Apps era. Chrome Apps enforced a strict security model that prohibited three things:
+
+- **`eval()`** — no runtime code generation from strings
+- **`<script>` tags in `<body>`** — no inline script injection
+- **Inline event handler attributes** (`onclick="..."`) — no HTML-level callbacks
+
+These constraints forced a fully component-based, code-wired architecture. U2 was built to satisfy all three by construction:
+
+- The fluent builder API (`this.start().add().end()`) never concatenates strings into HTML. Content is always set as text nodes or DOM properties — never parsed as markup.
+- There are no templates, so there is no template language to escape and no escaping logic to get wrong.
+- Events are wired through FOAM's listener and slot system, never through HTML attributes.
+
+The result is that XSS is structurally impossible in a FOAM application. User input handled through the normal U2 API cannot become executable markup, because U2 never hands strings to the HTML parser.
+
+Chrome Apps no longer exist, but FOAM retains these constraints through a self-imposed Content Security Policy. The security properties remain, independent of the platform that originally motivated them.
+
+### SQL Injection Immunity — MLang
+
+The same principle — *build from objects, not strings* — applies one layer down at the query layer.
+
+SQL injection works because queries are built by string concatenation: user input lands inside the string, the database parser cannot distinguish data from syntax, and the injection succeeds. MLang makes this structurally impossible:
+
+```javascript
+M.AND(
+  M.EQ(Invoice.CUSTOMER_ID, customerId),  // a typed value, not a string fragment
+  M.GT(Invoice.AMOUNT, userInput)         // typed and bounds-checked, not interpolated
+)
+```
+
+There is no query string to inject into. The predicate tree is a graph of typed objects. When a `ClientDAO` sends a query over the network, it serialises the predicate tree to JSON and reconstructs it server-side — the server never receives a raw query string that user input could escape. When a `JDBCDAO` executes against a SQL database, it generates parameterised queries from the predicate tree, with data always kept separate from query structure.
+
+### The Common Principle
+
+Both protections follow from the same architectural decision made throughout FOAM: use typed object composition rather than string interpolation at every layer. There is no injection surface because there are no strings being parsed as code or markup anywhere in the normal execution path.
+
+| Layer | Conventional risk | FOAM's approach | Result |
+|---|---|---|---|
+| UI rendering | XSS via template injection | Builder API sets DOM properties, never innerHTML | XSS structurally impossible |
+| Query construction | SQL injection via string concatenation | MLang predicate objects, parameterised execution | SQL injection structurally impossible |
+| Runtime code | Code injection via eval | No eval, strict CSP | eval-based injection impossible |
+
+---
+
+## Application Security — Services and Permissions
+
 FOAM application security centers around **services** and **permissions** to those services.
 
 Services are known as CORE Services and their access configuration is modelled under the name **CSpec** (CORE Service Specification).  The CSpec controls how a service is exposed to the rest of the system.

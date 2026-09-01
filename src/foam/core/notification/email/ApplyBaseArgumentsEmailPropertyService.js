@@ -80,6 +80,7 @@ foam.CLASS({
         templateArgs.put("appLink", url);
         templateArgs.put("appName", theme.getAppName());
         templateArgs.put("locale", user.getLanguage().getCode().toString());
+        templateArgs.put("user_Name_", user.getLegalName());
         foam.core.auth.Address address = supportConfig.getSupportAddress();
         templateArgs.put("supportAddress", address == null ? "" : address.toSummary());
         templateArgs.put("supportPhone", supportConfig.getSupportPhone());

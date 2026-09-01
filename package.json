@@ -8,8 +8,7 @@
     "lint:check": "eslint src/ tools/ --ext .js --max-warnings 0"
   },
   "dependencies": {
-    "container-query-polyfill": "^1.0.2",
-    "xmldom": "^0.6.0"
+    "container-query-polyfill": "^1.0.2"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

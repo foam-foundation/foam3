@@ -33,13 +33,23 @@ if [ -z "`echo "${JAVA_OPTS}" | grep "user.timezone"`" ]; then
 fi
 
 # memory - heap
-if [ -z "`echo "${JAVA_OPTS}" | grep "Xms"`" ]; then
+# Only apply the fixed defaults when nothing else has sized the heap. Skip them
+# for absolute (-Xms/-Xmx) AND percentage-based (-XX:*RAMPercentage) settings.
+# Both guards check for either RAMPercentage flag so percentage sizing is treated
+# as a unit: setting one skips both fixed defaults, so a percentage ceiling is
+# never paired with a fixed -Xms2048m floor (keeps the initial == max intent).
+# Without this, a percentage-based shrc.custom is silently overridden here by
+# -Xmx4096m, since an explicit -Xmx beats -XX:MaxRAMPercentage.
+if [ -z "`echo "${JAVA_OPTS}" | grep -E "Xms|RAMPercentage"`" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Xms2048m"
 fi
 
-if [ -z "`echo "${JAVA_OPTS}" | grep "Xmx"`" ]; then
+if [ -z "`echo "${JAVA_OPTS}" | grep -E "Xmx|RAMPercentage"`" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Xmx4096m"
 fi
+
+# Calculate major java version, print $1$2 will append the minor version
+JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F '.' '{sub("^$", "0", $2); print $1}')
 
 # memory - stack
 #if [ -z "`echo "${JAVA_OPTS}" | grep "Xss"`" ]; then
@@ -95,7 +105,12 @@ fi
 ##### Garbage Collection
 # Java <21 The default G1 garbage collector, presently gives the best performance
 # Java 21 onward, Generational Z garbage collector is most performant
-JAVA_OPTS="${JAVA_OPTS} -XX:+UseZGC -XX:+ZGenerational"
+JAVA_OPTS="${JAVA_OPTS} -XX:+UseZGC"
+# Java 24 onward, Generational option is the default for ZGC and some
+# JDKs fail rather than warn if the flag is still present.
+if [ "${JAVA_VERSION}" -lt "24" ]; then
+    JAVA_OPTS="${JAVA_OPTS} -XX:+ZGenerational"
+fi
 
 JAVA_OPTS="${JAVA_OPTS} -XX:+UseStringDeduplication"
 # -XX:StringTableSize - explicit adjustment had negative impact.
@@ -107,7 +122,7 @@ if [ "${DEBUG}" = "1" -o "${DEBUG_DEV}" = "1" ]; then
         # https://www.linkedin.com/pulse/javajvm-logs-monday-jvm-introduction-safepoints-krzysztof-%C5%9Blusarski
         # https://docs.oracle.com/en/java/javase/14/docs/specs/man/java.html
         if [[ $OSTYPE =~ $LINUXOS ]]; then
-            JAVA_OPTS="${JAVA_OPTS} -Xlog:codecache+sweep*=trace,class+unload,class+load,os+thread,safepoint,gc*,gc+ergo=trace,gc+age=trace,gc+phases=trace,gc+humongous=trace,stringdedup*=debug:file=${LOG_HOME}/gc-%t.log:tags,time,uptime,level:filesize=10M,filecount=10"
+            JAVA_OPTS="${JAVA_OPTS} -Xlog:codecache=trace,class+unload,class+load,os+thread,safepoint,gc*,gc+ergo=trace,gc+age=trace,gc+phases=trace,gc+humongous=trace,stringdedup*=debug:file=${LOG_HOME}/gc-%t.log:tags,time,uptime,level:filesize=10M,filecount=10"
         fi
     fi
 fi

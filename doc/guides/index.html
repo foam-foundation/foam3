@@ -1,69 +1,412 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>FOAM3 Guides</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOAM3 Developer Guides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue:#4285F4;   --blue-btn:#1a73e8;  --blue-dark:#1967d2;
+    --red:#EA4335;    --yellow:#FBBC04;    --green:#34A853;
+    --ink:#202124;    --sub:#5f6368;       --faint:#80868b;
+    --line:#dadce0;   --line-soft:#e8eaed;
+    --bg:#ffffff;     --grey:#f8f9fa;      --grey-2:#f1f3f4;
+    --radius:16px;    --maxw:1120px;
+    --sans:"Roboto", system-ui, Arial, sans-serif;
+    --mono:"Roboto Mono", ui-monospace, monospace;
+    --display:"Poppins", var(--sans);
+    --shadow:0 1px 3px rgba(60,64,67,.14),0 4px 16px rgba(60,64,67,.08);
+    --shadow-lg:0 2px 6px rgba(60,64,67,.16),0 12px 40px rgba(60,64,67,.14);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:16px;line-height:1.55;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  ::selection{background:#c6dafc}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--blue-btn);font-weight:500;
+  }
+
+  /* wordmark */
+  .brand{display:inline-flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:-.01em}
+  .wm{letter-spacing:-.02em}
+  .wm .b{color:var(--blue)} .wm .r{color:var(--red)} .wm .y{color:var(--yellow)} .wm .g{color:var(--green)}
+
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.9);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line-soft)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .nav-links{display:flex;align-items:center;gap:4px;font-size:14.5px;font-weight:500}
+  .nav-links a{padding:9px 14px;border-radius:20px;color:var(--sub);transition:color .15s,background .15s}
+  .nav-links a:hover{color:var(--ink);background:var(--grey-2)}
+  .nav-links a.gh{color:#fff;background:var(--blue-btn);margin-left:8px}
+  .nav-links a.gh:hover{background:var(--blue-dark);color:#fff}
+  .nav-links a .arw{display:inline-block;margin-right:4px;transition:transform .15s}
+  .nav-links a:hover .arw{transform:translateX(-2px)}
+
+  /* hero */
+  .guide-hero{padding:76px 0 60px}
+  .guide-hero h1{
+    font-family:var(--display);font-weight:700;
+    font-size:clamp(40px,5.8vw,72px);line-height:1.04;
+    letter-spacing:-.03em;margin:16px 0 0;color:var(--ink)
+  }
+  .guide-hero h1 .accent{color:var(--blue)}
+  .guide-hero .lede{
+    margin:22px 0 0;font-size:clamp(16px,1.4vw,18.5px);
+    color:var(--sub);max-width:52ch;line-height:1.55
+  }
+  .guide-meta{display:flex;gap:38px;margin-top:40px;flex-wrap:wrap}
+  .guide-meta .m{display:flex;flex-direction:column;gap:2px}
+  .guide-meta .m .n{font-family:var(--display);font-weight:600;font-size:24px;letter-spacing:-.02em}
+  .guide-meta .m .l{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--faint);text-transform:uppercase;margin-top:2px}
+
+  /* search */
+  .search-wrap{margin-top:36px}
+  .search-box{
+    display:flex;align-items:center;gap:12px;
+    background:var(--grey);border:1.5px solid var(--line);border-radius:30px;
+    padding:11px 22px;max-width:420px;
+    transition:border-color .15s,box-shadow .15s,background .15s
+  }
+  .search-box:focus-within{
+    border-color:var(--blue);background:#fff;
+    box-shadow:0 0 0 3px rgba(66,133,244,.14)
+  }
+  .search-box svg{color:var(--faint);flex-shrink:0;transition:color .15s}
+  .search-box:focus-within svg{color:var(--blue-btn)}
+  .search-box input{
+    border:none;background:none;font-family:var(--sans);
+    font-size:15px;color:var(--ink);outline:none;flex:1;min-width:0
+  }
+  .search-box input::placeholder{color:var(--faint)}
+
+  /* sections */
+  section{padding:70px 0;border-top:1px solid var(--line-soft)}
+
+  /* guides grid */
+  .guides-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px 28px}
+
+  .doc-col h4{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;margin:0 0 14px;padding-bottom:12px;border-bottom:2px solid;
+  }
+  /* category colours — 4 colours, 2 rows */
+  .doc-col:nth-child(1) h4,.doc-col:nth-child(5) h4{color:var(--blue);border-color:var(--blue)}
+  .doc-col:nth-child(2) h4,.doc-col:nth-child(6) h4{color:var(--red);border-color:var(--red)}
+  .doc-col:nth-child(3) h4,.doc-col:nth-child(7) h4{color:#c08b00;border-color:var(--yellow)}
+  .doc-col:nth-child(4) h4,.doc-col:nth-child(8) h4{color:var(--green);border-color:var(--green)}
+
+  .doc-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+  .doc-col li.hidden{display:none}
+  .doc-col.hidden{display:none}
+  .doc-col a{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:8px 10px;margin:0 -10px;border-radius:8px;
+    font-size:14.5px;color:var(--sub);transition:color .14s,background .14s
+  }
+  .doc-col a:hover{color:var(--ink);background:var(--grey-2)}
+  .doc-col a .ext{opacity:0;color:var(--blue-btn);transition:opacity .14s;font-family:var(--mono);font-size:12px}
+  .doc-col a:hover .ext{opacity:1}
+
+  /* no results */
+  .no-results{
+    display:none;grid-column:1/-1;text-align:center;
+    padding:56px 0 16px;color:var(--sub);font-size:16px
+  }
+  .no-results.visible{display:block}
+
+  /* footer */
+  footer{border-top:1px solid var(--line);padding:58px 0 40px;background:var(--grey)}
+  .foot-grid{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;align-items:flex-start}
+  .foot-brand{max-width:32ch}
+  .foot-brand .brand{margin-bottom:14px}
+  .foot-brand p{color:var(--sub);font-size:14px;margin:0}
+  .foot-links{display:flex;gap:54px;flex-wrap:wrap}
+  .foot-col h5{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:0 0 14px}
+  .foot-col a{display:block;color:var(--sub);font-size:14px;padding:5px 0;transition:color .14s}
+  .foot-col a:hover{color:var(--blue-btn)}
+  .foot-base{border-top:1px solid var(--line-soft);margin-top:40px;padding-top:22px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+
+  @media(max-width:960px){
+    .guides-grid{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:560px){
+    .wrap{padding:0 20px}
+    .guides-grid{grid-template-columns:1fr}
+    .guide-meta{gap:22px}
+    .guide-hero{padding:52px 0 44px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  }
+</style>
 </head>
 <body>
-  <h1>FOAM3 Guides</h1>
-  <ul>
-    <li><a href="agentsnotprotocols.html">Agents Not Protocols</a></li>
-    <li><a href="APITesting.html">API Testing</a></li>
-    <li><a href="Auth.html">Auth</a></li>
-    <li><a href="AutoQueryParser.html">Auto Query Parser</a></li>
-    <li><a href="Axioms.html">Axioms</a></li>
-    <li><a href="Build.html">Build</a></li>
-    <li><a href="Cells.html">Cells</a></li>
-    <li><a href="cheat-sheet.html">Cheat Sheet</a></li>
-    <li><a href="claude.html">Claude</a></li>
-    <li><a href="Compaction.html">Compaction</a></li>
-    <li><a href="Context.html">Context</a></li>
-    <li><a href="ControllerModeAndVisibility.html">Controller Mode and Visibility</a></li>
-    <li><a href="Dao.html">DAO</a></li>
-    <li><a href="DaoExamples.html">DAO Examples</a></li>
-    <li><a href="Dashboard.html">Dashboard</a></li>
-    <li><a href="DateTimeUTC.html">DateTime UTC</a></li>
-    <li><a href="Debugging.html">Debugging</a></li>
-    <li><a href="DebuggingCountAndUsed.html">Debugging Count and Used</a></li>
-    <li><a href="Deployment.html">Deployment</a></li>
-    <li><a href="DSL.html">DSL</a></li>
-    <li><a href="dynamic.html">Dynamic</a></li>
-    <li><a href="EasyDao.html">Easy DAO</a></li>
-    <li><a href="email-setup.html">Email Setup</a></li>
-    <li><a href="EmailSystemArchitecture.html">Email System Architecture</a></li>
-    <li><a href="Enum.html">Enum</a></li>
-    <li><a href="foam_parser_callback_system_explained.html">FOAM Parser Callback System Explained</a></li>
-    <li><a href="foam_parsers_doc.html">FOAM Parsers</a></li>
-    <li><a href="Intro.html">Intro</a></li>
-    <li><a href="Journals.html">Journals</a></li>
-    <li><a href="LLM.html">LLM</a></li>
-    <li><a href="LLM2.html">LLM2</a></li>
-    <li><a href="MixinsAndImplements.html">Mixins and Implements</a></li>
-    <li><a href="MLang.html">MLang</a></li>
-    <li><a href="Modals.html">Modals</a></li>
-    <li><a href="models.html">Models</a></li>
-    <li><a href="MultiPartKeys.html">Multi-Part Keys</a></li>
-    <li><a href="NanoServices.html">NanoServices</a></li>
-    <li><a href="NDiff.html">NDiff</a></li>
-    <li><a href="Notifications.html">Notifications</a></li>
-    <li><a href="Permissions.html">Permissions</a></li>
-    <li><a href="POM.html">POM</a></li>
-    <li><a href="Porting.html">Porting</a></li>
-    <li><a href="ReactivePatterns.html">Reactive Patterns</a></li>
-    <li><a href="ReactiveUI.html">Reactive UI</a></li>
-    <li><a href="Refinements.html">Refinements</a></li>
-    <li><a href="Reflow.html">Reflow</a></li>
-    <li><a href="Relationships.html">Relationships</a></li>
-    <li><a href="REQUIRES_VS_IMPORTS.html">Requires vs Imports</a></li>
-    <li><a href="Safari.html">Safari</a></li>
-    <li><a href="Security.html">Security</a></li>
-    <li><a href="Services.html">Services</a></li>
-    <li><a href="Sink.html">Sink</a></li>
-    <li><a href="SPID.html">SPID</a></li>
-    <li><a href="StyleGuide.html">Style Guide</a></li>
-    <li><a href="Testing.html">Testing</a></li>
-    <li><a href="VsReact.html">Vs React</a></li>
-    <li><a href="VsSpring.html">Vs Spring</a></li>
-  </ul>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../index.html" aria-label="FOAM3 home">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <path d="M7 2.5 12 5.4v5.8L7 14 2 11.2V5.4L7 2.5Z" stroke="#4285F4" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M19 2.5 24 5.4v5.8L19 14l-5-2.8V5.4L19 2.5Z" stroke="#EA4335" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M13 12 18 14.8v5.8L13 23.5 8 20.6v-5.8L13 12Z" stroke="#34A853" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+      <span class="wm"><span class="b">F</span><span class="r">O</span><span class="y">A</span><span class="g">M</span><span class="b">3</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site navigation">
+      <a href="../index.html"><span class="arw">←</span> Docs home</a>
+      <a href="https://github.com/kgrgreer/foam3" target="_blank" rel="noopener" class="gh">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <div class="guide-hero">
+    <div class="wrap">
+      <span class="eyebrow">Developer Documentation</span>
+      <h1>FOAM3 <span class="accent">Guides</span></h1>
+      <p class="lede">In-depth guides covering every layer of FOAM3 — from core modelling concepts and data access to reactive UI, AI agents, and production deployment.</p>
+      <div class="guide-meta">
+        <div class="m"><span class="n" style="color:var(--blue)">68</span><span class="l">Guides</span></div>
+        <div class="m"><span class="n" style="color:var(--red)">8</span><span class="l">Categories</span></div>
+        <div class="m"><span class="n"><span style="color:var(--yellow)">JS</span> · <span style="color:var(--green)">Java</span> · <span style="color:var(--blue)">Swift</span></span><span class="l">Platforms covered</span></div>
+      </div>
+      <div class="search-wrap">
+        <div class="search-box" role="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.9"/>
+            <path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+          </svg>
+          <input type="search" id="guide-search" placeholder="Filter guides…" autocomplete="off" spellcheck="false" aria-label="Filter guides">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GUIDE GRID -->
+  <section id="guides">
+    <div class="wrap">
+      <div class="guides-grid" id="guides-grid">
+
+        <!-- 1 · Getting Started (blue) -->
+        <div class="doc-col">
+          <h4>Getting Started</h4>
+          <ul>
+            <li><a href="Guides.html">Guide to Guides <span class="ext">→</span></a></li>
+            <li><a href="WhyFOAM.html">Why FOAM? <span class="ext">→</span></a></li>
+            <li><a href="Concepts.html">Key FOAM Concepts <span class="ext">→</span></a></li>
+            <li><a href="DesignPatterns.html">Design Patterns <span class="ext">→</span></a></li>
+            <li><a href="Intro.html">Introduction <span class="ext">→</span></a></li>
+            <li><a href="Build.html">Build <span class="ext">→</span></a></li>
+            <li><a href="POM.html">POM <span class="ext">→</span></a></li>
+            <li><a href="Context.html">Contexts <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 2 · Object Model (red) -->
+        <div class="doc-col">
+          <h4>Object Model</h4>
+          <ul>
+            <li><a href="models.html">Models <span class="ext">→</span></a></li>
+            <li><a href="Axioms.html">Axioms <span class="ext">→</span></a></li>
+            <li><a href="Enum.html">Enums <span class="ext">→</span></a></li>
+            <li><a href="Refinements.html">Refinements <span class="ext">→</span></a></li>
+            <li><a href="MixinsAndImplements.html">Mixins &amp; Implements <span class="ext">→</span></a></li>
+            <li><a href="Relationships.html">Relationships <span class="ext">→</span></a></li>
+            <li><a href="Listeners.html">Listeners <span class="ext">→</span></a></li>
+            <li><a href="Actions.html">Actions <span class="ext">→</span></a></li>
+            <li><a href="REQUIRES_VS_IMPORTS.html">Requires vs Imports <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 3 · Data &amp; DAOs (yellow) -->
+        <div class="doc-col">
+          <h4>Data &amp; DAOs</h4>
+          <ul>
+            <li><a href="Dao.html">DAO <span class="ext">→</span></a></li>
+            <li><a href="EasyDao.html">Easy DAO <span class="ext">→</span></a></li>
+            <li><a href="DaoExamples.html">DAO Examples <span class="ext">→</span></a></li>
+            <li><a href="DaoGotchas.html">DAO Gotchas <span class="ext">→</span></a></li>
+            <li><a href="Sink.html">Sinks <span class="ext">→</span></a></li>
+            <li><a href="Journals.html">Journals <span class="ext">→</span></a></li>
+            <li><a href="MultiPartKeys.html">Multi-Part Keys <span class="ext">→</span></a></li>
+            <li><a href="Updating%20Objects%20in%20DAOs.html">Updating Objects in DAOs <span class="ext">→</span></a></li>
+            <li><a href="Compaction.html">Compaction <span class="ext">→</span></a></li>
+            <li><a href="NDiff.html">NDiff <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 4 · Reactive UI (green) -->
+        <div class="doc-col">
+          <h4>Reactive UI</h4>
+          <ul>
+            <li><a href="ApplicationController.html">Application Controller <span class="ext">→</span></a></li>
+            <li><a href="Comics.html">COMICS CRUD Controller <span class="ext">→</span></a></li>
+            <li><a href="U3.html">U3 GUI Library <span class="ext">→</span></a></li>
+            <li><a href="ReactiveUI.html">Reactive UI <span class="ext">→</span></a></li>
+            <li><a href="ReactivePatterns.html">Reactive Patterns <span class="ext">→</span></a></li>
+            <li><a href="Slots.html">Slots <span class="ext">→</span></a></li>
+            <li><a href="Modals.html">Modals <span class="ext">→</span></a></li>
+            <li><a href="ControllerModeAndVisibility.html">Controller Mode &amp; Visibility <span class="ext">→</span></a></li>
+            <li><a href="Notifications.html">Notifications <span class="ext">→</span></a></li>
+            <li><a href="dynamic.html">Dynamic Properties <span class="ext">→</span></a></li>
+            <li><a href="Cells.html">Cells <span class="ext">→</span></a></li>
+            <li><a href="VsReact.html">FOAM vs React <span class="ext">→</span></a></li>
+            <li><a href="VsWebComponents.html">FOAM vs Web Components <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 5 · AI &amp; Agents (blue) -->
+        <div class="doc-col">
+          <h4>AI &amp; Agents</h4>
+          <ul>
+            <li><a href="LLM.html">FOAM &amp; LLMs <span class="ext">→</span></a></li>
+            <li><a href="agentsnotprotocols.html">Agents not Protocols <span class="ext">→</span></a></li>
+            <li><a href="Reflow.html">REFLOW Console <span class="ext">→</span></a></li>
+            <li><a href="ExportingFlows.html">Exporting Flows <span class="ext">→</span></a></li>
+            <li><a href="Dashboard.html">Dashboards <span class="ext">→</span></a></li>
+            <li><a href="claude.html">Claude Integration <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 6 · Backend &amp; Services (red) -->
+        <div class="doc-col">
+          <h4>Backend &amp; Services</h4>
+          <ul>
+            <li><a href="NanoServices.html">Nano Services <span class="ext">→</span></a></li>
+            <li><a href="Services.html">Services <span class="ext">→</span></a></li>
+            <li><a href="Auth.html">Authentication <span class="ext">→</span></a></li>
+            <li><a href="Security.html">Security <span class="ext">→</span></a></li>
+            <li><a href="Permissions.html">Permissions <span class="ext">→</span></a></li>
+            <li><a href="SPID.html">SPID <span class="ext">→</span></a></li>
+            <li><a href="Deployment.html">Deployment <span class="ext">→</span></a></li>
+            <li><a href="email-setup.html">Email Setup <span class="ext">→</span></a></li>
+            <li><a href="EmailSystemArchitecture.html">Email Architecture <span class="ext">→</span></a></li>
+            <li><a href="Safari.html">Safari Compatibility <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 7 · Language &amp; Parsers (yellow) -->
+        <div class="doc-col">
+          <h4>Language &amp; Parsers</h4>
+          <ul>
+            <li><a href="MLang.html">MLang <span class="ext">→</span></a></li>
+            <li><a href="DSL.html">DSL <span class="ext">→</span></a></li>
+            <li><a href="foam_parsers_doc.html">FOAM Parsers <span class="ext">→</span></a></li>
+            <li><a href="foam_parser_callback_system_explained.html">Parser Callbacks <span class="ext">→</span></a></li>
+            <li><a href="AutoQueryParser.html">Auto Query Parser <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <!-- 8 · Reference (green) -->
+        <div class="doc-col">
+          <h4>Reference</h4>
+          <ul>
+            <li><a href="RISCyAPIs.html">RISC-y APIs <span class="ext">→</span></a></li>
+            <li><a href="StyleGuide.html">Style Guide <span class="ext">→</span></a></li>
+            <li><a href="cheat-sheet.html">Cheat Sheet <span class="ext">→</span></a></li>
+            <li><a href="PropertyGotchas.html">Property Gotchas <span class="ext">→</span></a></li>
+            <li><a href="Debugging.html">Debugging <span class="ext">→</span></a></li>
+            <li><a href="DebuggingCountAndUsed.html">Debugging Count &amp; Used <span class="ext">→</span></a></li>
+            <li><a href="Testing.html">Testing <span class="ext">→</span></a></li>
+            <li><a href="APITesting.html">API Testing <span class="ext">→</span></a></li>
+            <li><a href="Porting.html">Porting <span class="ext">→</span></a></li>
+            <li><a href="DateTimeUTC.html">DateTime &amp; UTC <span class="ext">→</span></a></li>
+            <li><a href="i18n.html">Internationalization <span class="ext">→</span></a></li>
+            <li><a href="i18n-advanced.html">i18n Advanced <span class="ext">→</span></a></li>
+            <li><a href="VsSpring.html">FOAM vs Spring <span class="ext">→</span></a></li>
+          </ul>
+        </div>
+
+        <p class="no-results" id="no-results">No guides match your search. Try a shorter term.</p>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="../index.html" aria-label="FOAM3 home">
+          <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <path d="M7 2.5 12 5.4v5.8L7 14 2 11.2V5.4L7 2.5Z" stroke="#4285F4" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M19 2.5 24 5.4v5.8L19 14l-5-2.8V5.4L19 2.5Z" stroke="#EA4335" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M13 12 18 14.8v5.8L13 23.5 8 20.6v-5.8L13 12Z" stroke="#34A853" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          <span class="wm"><span class="b">F</span><span class="r">O</span><span class="y">A</span><span class="g">M</span><span class="b">3</span></span>
+        </a>
+        <p>Feature Oriented Active Modeller. Build fully featured, high-performance apps in less time.</p>
+      </div>
+      <div class="foot-links">
+        <div class="foot-col">
+          <h5>Start</h5>
+          <a href="Intro.html">Introduction</a>
+          <a href="Build.html">Build</a>
+          <a href="POM.html">POM</a>
+          <a href="Context.html">Contexts</a>
+        </div>
+        <div class="foot-col">
+          <h5>Core</h5>
+          <a href="Dao.html">DAO</a>
+          <a href="ReactiveUI.html">Reactive UI</a>
+          <a href="Reflow.html">REFLOW</a>
+          <a href="LLM.html">FOAM &amp; LLMs</a>
+        </div>
+        <div class="foot-col">
+          <h5>More</h5>
+          <a href="../index.html">Docs home</a>
+          <a href="https://github.com/kgrgreer/foam3" target="_blank" rel="noopener">GitHub ↗</a>
+          <a href="https://groups.google.com/g/foam-framework-discuss" target="_blank" rel="noopener">Discuss ↗</a>
+          <a href="https://deepwiki.com/kgrgreer/foam3" target="_blank" rel="noopener">DeepWiki ↗</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>FOAM3 — the active version of FOAM. Originally a Google project; portions © Google.</span>
+      <span>68 guides · 8 categories</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function() {
+  var input    = document.getElementById('guide-search');
+  var noResult = document.getElementById('no-results');
+
+  input.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    var total = 0;
+
+    document.querySelectorAll('.doc-col').forEach(function(col) {
+      var vis = 0;
+      col.querySelectorAll('li').forEach(function(li) {
+        var show = !q || li.textContent.toLowerCase().includes(q);
+        li.classList.toggle('hidden', !show);
+        if (show) vis++;
+      });
+      col.classList.toggle('hidden', vis === 0);
+      total += vis;
+    });
+
+    noResult.classList.toggle('visible', total === 0 && q.length > 0);
+  });
+})();
+</script>
+
 </body>
 </html>

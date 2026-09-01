@@ -1,4 +1,5 @@
 p({"class":"foam.lib.json.ClassReferenceParserTest","id":"ClassReferenceParserTest","description":"Tests the Class reference parser"})
+p({"class":"foam.lib.json.DateParserTest","id":"JSONDateParserTest","description":"Tests JSON DateParser across bare and quoted variants"})
 p({"class":"foam.lib.json.PropertyReferenceParserTest","id":"PropertyReferenceParserTest","description":"Tests the Property reference parser"})
 p({"class":"foam.lib.json.StringToStringArrayParserTest","id":"StringToStringArrayParserTest","description":"Tests string data to string array parser"})
 p({"class":"foam.lib.json.RawMapParserTest","id":"RawMapParserTest","description":"Tests raw map parser"})

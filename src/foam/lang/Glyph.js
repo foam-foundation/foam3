@@ -19,6 +19,7 @@ foam.CLASS({
       class: 'String',
       name: 'template',
       shortName: 't',
+      transient: true,
       expression: function(themeName) {
         if ( ! this.theme ) return '';
         return this.theme.glyphs[themeName] ? this.theme.glyphs[themeName].template : '';

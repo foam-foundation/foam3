@@ -40,6 +40,12 @@ foam.CLASS({
       documentation: 'If true, throws errors for invalid dates. If false, logs warnings and returns MAX_DATE.'
     },
     {
+      class: 'Boolean',
+      name: 'callStrict_',
+      transient: true,
+      documentation: 'Per-call strict override. Set at the start of each public parse method; OR-ed with strictValidation via isStrict(). Never leaks because every entry point sets it.'
+    },
+    {
       name: 'stringCache_',
       documentation: 'LRU cache for parseString results. Stores timestamps (Date.getTime()) instead of Date objects.',
       factory: function() { return new Map(); }
@@ -67,17 +73,21 @@ foam.CLASS({
   ],
 
   methods: [
+    function isStrict() {
+      // Effective strict = per-call override OR the legacy global flag.
+      return this.callStrict_ || this.strictValidation;
+    },
+
     // ========== Cache Helper Methods ==========
 
     /**
      * Build cache key: use str directly when opt_name is null (common case),
-     * otherwise concatenate opt_name:str (rare case).
+     * otherwise concatenate opt_name:str (rare case), and prefix with 'S:' when strict
+     * (strict and lenient results for the same input must never collide).
      */
-    function buildCacheKey_(str, opt_name) {
-      if ( ! opt_name ) {
-        return str;
-      }
-      return opt_name + ':' + str;
+    function buildCacheKey_(str, opt_name, strict) {
+      var key = opt_name ? opt_name + ':' + str : str;
+      return strict ? 'S:' + key : key;
     },
 
     function cacheGet_(cache, key) {
@@ -127,6 +137,15 @@ foam.CLASS({
     },
 
     function buildDate(mode, year, month, day, hour, minute, second, ms, tz) {
+      // Strict mode: reject out-of-range month/day instead of letting JS Date silently roll over.
+      // Raw pre-rollover month/day only exist here; check month first so daysInMonth is well-defined.
+      if ( this.isStrict() ) {
+        if ( month < 0 || month > 11 )
+          throw new Error('Date out of range: month ' + ( month + 1 ) + ' in "' + year + '-' + ( month + 1 ) + '-' + day + '"');
+        var daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+        if ( day < 1 || day > daysInMonth )
+          throw new Error('Date out of range: day ' + day + ' in "' + year + '-' + ( month + 1 ) + '-' + day + '"');
+      }
       var offset, utcTime;
       switch ( mode ) {
         case 'DATE':
@@ -236,6 +255,24 @@ foam.CLASS({
 
     // MMDDYYYY with separators: MM-DD-YYYY, MM/DD/YYYY with optional time
     // v = [MM, sep, DD, sep, YYYY] or [MM, sep, DD, sep, YYYY, space, HH, :, MM, :, SS, ., fractionalSecs, timezone]
+    // MMDDYYYY with 12-hour clock: "3/8/2026 12:00:00 AM"
+    // v = [MM, sep, DD, sep, YYYY, datetimesep, HH, ':', MM, ':', SS, optional(' '), meridiem]
+    function mmddyyyyampmAction(v) {
+      var hour = parseInt(v[6]);
+      var meridiem = v[12].toUpperCase();
+      if ( meridiem === 'PM' && hour < 12 ) hour += 12;
+      if ( meridiem === 'AM' && hour === 12 ) hour = 0;
+      return this.buildDate(this.dateParseMode,
+        parseInt(v[4]),
+        parseInt(v[0]) - 1,
+        parseInt(v[2]),
+        hour,
+        parseInt(v[8]),
+        parseInt(v[10]),
+        -1,
+        null);
+    },
+
     function mmddyyyysepAction(v) {
       var ms = -1;
       if ( v[12] !== undefined ) {
@@ -497,6 +534,16 @@ foam.CLASS({
         -1, -1, -1, -1, null);
     },
 
+    // DDMMMYY with separators: DD-MMM-YY, DD/MMM/YY (2-digit year)
+    // v = [DD, sep, MMM, sep, YY]
+    function ddmmmyysepAction(v) {
+      return this.buildDate(this.dateParseMode,
+        this.convertTwoDigitYear(parseInt(v[4])),
+        this.parseMonthName(v[2]),
+        parseInt(v[0]),
+        -1, -1, -1, -1, null);
+    },
+
     // DDMMMYYYY compact: DDMMMYYYY "31JAN2025"
     // v = [DD, MMM, YYYY]
     function ddmmmyyyycompactAction(v) {
@@ -515,6 +562,24 @@ foam.CLASS({
         this.parseMonthName(v[0]),
         parseInt(v[2]),
         -1, -1, -1, -1, null);
+    },
+
+    // MMM dd yyyy hh:mm:ss(AM|PM) with spaces: "Jun 30 2026 02:59:02AM"
+    // v = [MMM, ' ', DD, ' ', YYYY, ' ', HH, ':', MM, ':', SS, optional(' '), meridiem]
+    function mmmddyyyyspacetimeAction(v) {
+      var hour = parseInt(v[6]);
+      var meridiem = v[12].toUpperCase();
+      if ( meridiem === 'PM' && hour < 12 ) hour += 12;
+      if ( meridiem === 'AM' && hour === 12 ) hour = 0;
+      return this.buildDate(this.dateParseMode,
+        parseInt(v[4]),
+        this.parseMonthName(v[0]),
+        parseInt(v[2]),
+        hour,
+        parseInt(v[8]),
+        parseInt(v[10]),
+        -1,
+        null);
     },
 
     // DD MMM YYYY with spaces: "15 JAN 2025"
@@ -735,7 +800,7 @@ foam.CLASS({
     function validateDate(date, str) {
       // Check if date is NaN
       if ( isNaN(date.getTime()) ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Invalid date: "' + str + '"');
         }
         date = foam.Date.MAX_DATE;
@@ -748,7 +813,7 @@ foam.CLASS({
     function validateDateUTC(date, str) {
       // Check if date is NaN
       if ( isNaN(date.getTime()) ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Invalid date: "' + str + '"');
         }
         date = foam.Date.MAX_DATE;
@@ -777,7 +842,7 @@ foam.CLASS({
         'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
       };
       if ( months[month] === undefined ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Invalid month name: "' + monthName + '"');
         }
         console.warn('Invalid month name: "' + monthName + '"; assuming January.');
@@ -786,9 +851,11 @@ foam.CLASS({
       return months[month];
     },
 
-    function parseString(str, opt_name) {
+    function parseString(str, opt_name, strict) {
+      this.callStrict_ = !! strict;
+      try {
       if ( ! str || str.trim() === '' ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported Date format: empty or null string');
         }
         console.warn('Invalid date: empty or null string; assuming MAX_DATE.');
@@ -797,7 +864,7 @@ foam.CLASS({
       str = str.trim();
 
       // Check cache first - use str directly as key when opt_name is null (common case)
-      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cacheKey = this.buildCacheKey_(str, opt_name, this.isStrict());
       var cached = this.cacheGet_(this.stringCache_, cacheKey);
       if ( cached ) return cached;
 
@@ -807,7 +874,7 @@ foam.CLASS({
       var parseResult = this.parse(this.StringPStream.create({ str: str }), this, opt_name);
 
       if ( ! parseResult || ! parseResult.value ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported Date format: ' + str);
         }
         console.warn('Invalid date: "' + str + '"; assuming MAX_DATE.');
@@ -849,11 +916,16 @@ foam.CLASS({
       }
 
       return this.cacheSet_(this.stringCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_ / 10);
+      } finally {
+        this.callStrict_ = false;
+      }
     },
 
-    function parseDateString(str, opt_name) {
+    function parseDateString(str, opt_name, strict) {
+      this.callStrict_ = !! strict;
+      try {
       if ( ! str || str.trim() === '' ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported Date format: empty or null string');
         }
         console.warn('Invalid date: empty or null string; assuming MAX_DATE.');
@@ -862,7 +934,7 @@ foam.CLASS({
       str = str.trim();
 
       // Check cache first - use str directly as key when opt_name is null (common case)
-      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cacheKey = this.buildCacheKey_(str, opt_name, this.isStrict());
       var cached = this.cacheGet_(this.dateCache_, cacheKey);
       if ( cached ) return cached;
 
@@ -894,11 +966,16 @@ foam.CLASS({
       }
 
       return this.cacheSet_(this.dateCache_, cacheKey, parseResult.value, this.maxCacheSize_ / 10);
+      } finally {
+        this.callStrict_ = false;
+      }
     },
 
-    function parseDateTime(str, opt_name) {
+    function parseDateTime(str, opt_name, strict) {
+      this.callStrict_ = !! strict;
+      try {
       if ( ! str || str.trim() === '' ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported DateTime format: empty or null string');
         }
         console.warn('Invalid datetime: empty or null string; assuming MAX_DATE.');
@@ -907,7 +984,7 @@ foam.CLASS({
       str = str.trim();
 
       // Check cache first - use str directly as key when opt_name is null (common case)
-      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cacheKey = this.buildCacheKey_(str, opt_name, this.isStrict());
       var cached = this.cacheGet_(this.dateTimeCache_, cacheKey);
       if ( cached ) return cached;
 
@@ -917,7 +994,7 @@ foam.CLASS({
       var parseResult = this.parse(this.StringPStream.create({ str: str }), this, opt_name);
 
       if ( ! parseResult || ! parseResult.value ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported DateTime format: ' + str);
         }
         console.warn('Invalid datetime: "' + str + '"; assuming MAX_DATE.');
@@ -985,11 +1062,16 @@ foam.CLASS({
       }
 
       return this.cacheSet_(this.dateTimeCache_, cacheKey, this.validateDate(ret, str), this.maxCacheSize_);
+      } finally {
+        this.callStrict_ = false;
+      }
     },
 
-    function parseDateTimeUTC(str, opt_name) {
+    function parseDateTimeUTC(str, opt_name, strict) {
+      this.callStrict_ = !! strict;
+      try {
       if ( ! str || str.trim() === '' ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported DateTime format: empty or null string');
         }
         console.warn('Invalid datetime: empty or null string; assuming MAX_DATE.');
@@ -998,7 +1080,7 @@ foam.CLASS({
       str = str.trim();
 
       // Check cache first - use str directly as key when opt_name is null (common case)
-      var cacheKey = this.buildCacheKey_(str, opt_name);
+      var cacheKey = this.buildCacheKey_(str, opt_name, this.isStrict());
       var cached = this.cacheGet_(this.dateTimeUtcCache_, cacheKey);
       if ( cached ) return cached;
 
@@ -1008,7 +1090,7 @@ foam.CLASS({
       var parseResult = this.parse(this.StringPStream.create({ str: str }), this, opt_name);
 
       if ( ! parseResult || ! parseResult.value ) {
-        if ( this.strictValidation ) {
+        if ( this.isStrict() ) {
           throw new Error('Unsupported DateTime format: ' + str);
         }
         console.warn('Invalid datetime: "' + str + '"; assuming MAX_DATE.');
@@ -1041,6 +1123,9 @@ foam.CLASS({
       }
 
       return this.cacheSet_(this.dateTimeUtcCache_, cacheKey, parseResult.value, this.maxCacheSize_);
+      } finally {
+        this.callStrict_ = false;
+      }
     }
   ]
 });

@@ -10,7 +10,6 @@ import foam.lang.*;
 import foam.lib.json.OutputJSON;
 import foam.util.SafetyUtil;
 import java.lang.reflect.Array;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 /*
@@ -93,6 +92,10 @@ public class JSONFObjectFormatter
 
   protected boolean calculateDeltaForNestedFObjects_ = true;
 
+  // 2-space indentation per nested property depth
+  protected int          depth_                       = 0;
+  protected static final String INDENT                = "  ";
+
   public JSONFObjectFormatter(X x) {
     super(x);
   }
@@ -108,15 +111,9 @@ public class JSONFObjectFormatter
   }
 
   public void output(String s) {
-    if ( multiLineOutput_ && s.indexOf('\n') >= 0 ) {
-      append("\n\"\"\"");
-      escapeAppend(s);
-      append("\"\"\"");
-    } else {
-      append('"');
-      escapeAppend(s);
-      append('"');
-    }
+    append('"');
+    escapeAppend(s);
+    append('"');
   }
 
   public void escapeAppend(String s) {
@@ -133,16 +130,28 @@ public class JSONFObjectFormatter
   public void output(long val) { append(val); }
 
 
-  public void output(float val) { append(val); }
+  public void output(float val) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
-  public void output(double val) { append(val); }
+  public void output(double val) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
   public void output(boolean val) { append(val); }
 
 
-  protected void outputNumber(Number value) { append(value); }
+  protected void outputNumber(Number value) {
+    if ( value instanceof Double || value instanceof Float ) {
+      double d = value.doubleValue();
+      if ( Double.isNaN(d) || Double.isInfinite(d) ) { append("null"); return; }
+    }
+    append(value);
+  }
 
   public void output(String[] arr) { output((Object[]) arr); }
 
@@ -150,10 +159,16 @@ public class JSONFObjectFormatter
     if ( array == null ) return;
 
     append('[');
+    depth_++;
+    if ( array.length > 1 ) addInnerNewline();
+
     for ( int i = 0 ; i < array.length ; i++ ) {
       output(array[i]);
       if ( i < array.length - 1 ) append(COMMA);
     }
+
+    depth_--;
+    if ( array.length > 1 ) addInnerNewline();
     append(']');
   }
 
@@ -194,11 +209,17 @@ public class JSONFObjectFormatter
     if ( list == null ) return;
 
     append('[');
+    depth_++;
+    if ( list.size() > 1 ) addInnerNewline();
+
     Iterator iter = list.iterator();
     while ( iter.hasNext() ) {
       output(iter.next());
       if ( iter.hasNext() ) append(COMMA);
     }
+
+    depth_--;
+    if ( list.size() > 1 ) addInnerNewline();
     append(']');
   }
 
@@ -298,6 +319,14 @@ public class JSONFObjectFormatter
   }
 
   public void outputEnum(FEnum value) {
+    try {
+      String v = (String) value.getValue();
+      if ( v instanceof String && ((String) v).length() > 0 ) {
+        output(v);
+        return;
+      }
+    } catch (RuntimeException e) {
+    }
     output(value.getOrdinal());
   }
 
@@ -408,6 +437,21 @@ public class JSONFObjectFormatter
       return true;
     }
 
+    // A delta between two different classes is not computable: the loop below walks
+    // the new class's properties and compares each against the old object, so a
+    // property the old class does not have throws a ClassCastException, which the
+    // journal swallows and then writes nothing. Output the whole object instead, so
+    // re-putting a record under a subclass survives a replay.
+    if ( oldFObject != null && newFObject.getClassInfo() != oldFObject.getClassInfo() ) {
+      int mark = builder().length();
+      outputFObjectPropertyHeader(parentProp);
+      output(newFObject, defaultClass, parentProp);
+      // output() undoes itself when it wrote no properties, so roll the header back
+      // with it rather than leaving a dangling key.
+      if ( builder().length() == mark ) return false;
+      return true;
+    }
+
     ClassInfo newInfo     = newFObject.getClassInfo();
     String    of          = newInfo.getSimpleName().toLowerCase();
     List      axioms      = getProperties(parentProp, newInfo);
@@ -420,6 +464,7 @@ public class JSONFObjectFormatter
     outputFObjectPropertyHeader(parentProp);
 
     append('{');
+    depth_++;
     addInnerNewline();
 
     if ( outputClassNames_ && ( outputDefaultClassNames_ || newInfo != defaultClass ) ) {
@@ -461,6 +506,7 @@ public class JSONFObjectFormatter
       }
     }
 
+    depth_--;
     if ( delta > optional ) {
       addInnerNewline();
       append('}');
@@ -477,6 +523,9 @@ public class JSONFObjectFormatter
   protected void addInnerNewline() {
     if ( multiLineOutput_ ) {
       append('\n');
+      for ( int i = 0 ; i < depth_ ; i++ ) {
+        append(INDENT);
+      }
     }
   }
 
@@ -490,10 +539,16 @@ public class JSONFObjectFormatter
 
   public void output(FObject[] arr, ClassInfo defaultClass, PropertyInfo parentProp) {
     append('[');
+    depth_++;
+    if ( arr.length > 1 ) addInnerNewline();
+
     for ( int i = 0 ; i < arr.length ; i++ ) {
       output(arr[i], defaultClass, parentProp);
       if ( i < arr.length - 1 ) append(COMMA);
     }
+
+    depth_--;
+    if ( arr.length > 1 ) addInnerNewline();
     append(']');
   }
 
@@ -522,8 +577,10 @@ public class JSONFObjectFormatter
     boolean   outputClass = outputClassNames_ && ( outputDefaultClassNames_ || info != defaultClass );
 
     append('{');
-    addInnerNewline();
+    depth_++;
+
     if ( outputClass ) {
+      addInnerNewline();
       outputKey("class");
       append(':');
       output(info.getId());
@@ -537,6 +594,7 @@ public class JSONFObjectFormatter
       if ( outputProp ) props++;
     }
 
+    depth_--;
     if ( props > 0 || outputDefaultClassNames_ ) {
       addInnerNewline();
       append('}');
@@ -603,6 +661,12 @@ public class JSONFObjectFormatter
     return this;
   }
 
+  @Override
+  public void reset() {
+    super.reset();
+    depth_ = 0;
+  }
+
   public JSONFObjectFormatter setOutputShortNames(boolean outputShortNames) {
     outputShortNames_ = outputShortNames;
     return this;
@@ -644,11 +708,13 @@ public class JSONFObjectFormatter
   }
 
   public void output(float val, int precision) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }
 
   public void output(double val, int precision) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }

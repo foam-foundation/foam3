@@ -111,7 +111,7 @@
  * // Methods can be called on the enum values.
  * // outputs "Fixed is not considered open."
  * console.log(IssueStatus.FIXED.foo());
- * 
+ *
  * // The INVALID enum value overrides foo() with its own implementation
  * // outputs "Invalid issues require special handling!"
  * console.log(IssueStatus.INVALID.foo());
@@ -293,6 +293,9 @@ foam.CLASS({
   static: [
     function forOrdinal(i) {
       return this.VALUES.find((e) => e.ordinal == i);
+    },
+    function forValue(v) {
+      return this.VALUES.find(e => e.value === v);
     }
   ],
 
@@ -319,12 +322,19 @@ foam.CLASS({
       final: true
     },
     {
-      class: 'String',
+      class: 'I18NString',
       name: 'label',
       transient: true,
       factory: function() {
         return this.name.toUpperCase() == this.name ? this.name.split('_').map(l => foam.String.labelize(l.toLowerCase())).join(' ') : this.name;
       }
+    },
+    {
+      name: 'value',
+      class: 'String',
+      documentation: 'Stable external/serialized value for this enum constant.',
+      factory: function() { return '' + this.ordinal; },
+      javaFactory: `return String.valueOf(getOrdinal());`
     },
     {
       class: 'String',
@@ -454,7 +464,13 @@ foam.CLASS({
         var valueType = foam.typeOf(n), ret;
 
         if ( valueType === foam.String ) {
-          ret = type[foam.String.constantize(n)];
+          ret = type[foam.String.constantize(n)] ||
+            (type.forValue && type.forValue(n)) ||
+            (type.VALUES && type.VALUES.find(e => e.value === n));
+
+          // Optional: allow numeric strings to mean ordinals
+          if ( ! ret && /^[+-]?\d+$/.test(n) )
+            ret = type.create({ ordinal: parseInt(n, 10) }, foam.__context__);
         } else if ( valueType === foam.Number ) {
           ret = type.create({ordinal: n}, foam.__context__);
         } else if ( valueType === foam.Object ) {
@@ -468,7 +484,11 @@ foam.CLASS({
     ],
     {
       name: 'toJSON',
-      value: function(value) { return value.ordinal; }
+      value: function(value) {
+        if ( ! value ) return null;
+        var v = value.value;
+        return (v !== undefined && v !== null && v !== '') ? v : '' + value.ordinal;
+      }
     }
   ]
 });

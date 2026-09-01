@@ -51,8 +51,13 @@ foam.CLASS({
             return;
           }
           for ( String entry ; ( entry = getEntry(reader) ) != null ; ) {
-            if ( SafetyUtil.isEmpty(entry)        ) continue;
-            if ( COMMENT.matcher(entry).matches() ) continue;
+            if ( SafetyUtil.isEmpty(entry) ) continue;
+            // Fast comment check: every comment starts with '/', never the first
+            // char of a data entry ('p'/'r'). getEntry reads line-by-line so a
+            // multi-line block comment was never matched by the COMMENT regex
+            // either — this charAt check is a strict superset of the single-line
+            // cases the regex matched, at no per-entry Matcher allocation.
+            if ( entry.charAt(0) == '/' ) continue;
 
             try {
               char operation = entry.charAt(0);

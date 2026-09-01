@@ -99,7 +99,12 @@ foam.CLASS({
         prop.name = oldProp.name;
       }
 
-      this.addClass(this.myClass(prop.name));
+      // Prefixed: this class is named after the property, and PropertyBorder's
+      // own classes are named after its parts, so a property called label, view
+      // or select would otherwise take that part's styling for its whole cell -
+      // a `label` property inherits line-height:1 and sits short of its
+      // neighbour in the same row.
+      this.addClass(this.myClass('prop-' + prop.name));
 
       this.SUPER();
 
@@ -197,6 +202,8 @@ foam.CLASS({
   name: 'PropertyBorder',
   extends: 'foam.u2.AbstractPropertyBorder',
 
+  requires: ['foam.u2.util.CopyButton'],
+
   css: `
     ^ {
       display: flex;
@@ -275,17 +282,75 @@ foam.CLASS({
       flex-direction: column;
       gap: 0.2lh;
     }
+    ^copy-button {
+      flex-shrink: 0;
+    }
+    /* Pill treatment on approach: bordered, filled, clearly a click target.
+       The transparent resting border reserves the space so nothing shifts.
+       The two-class selector outranks CopyButton's own border reset. */
+    ^propHolder ^copy-button {
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+    ^propHolder ^copy-button:hover, ^propHolder ^copy-button:focus-visible {
+      background: $backgroundTertiary;
+      border-color: $borderLight;
+    }
+    /* A copyable read-only row keeps the button next to the value instead of
+       pushed to the row's far edge by the inner span's full width. */
+    ^propHolder-copyable {
+      justify-content: flex-start;
+      gap: 0.6rem;
+    }
+    ^propHolder-copyable > :first-child {
+      width: auto;
+      min-width: 0;
+      max-width: 100%;
+    }
+    /* Resting state stays faintly visible so the affordance is discoverable;
+       hover/focus brings it to full strength. Touch devices always show it
+       at full strength. Override ^copy-button { opacity: 1 } for always-on. */
+    @media (hover: hover) {
+      ^copy-button { opacity: 0.4; }
+      ^propHolder:hover ^copy-button, ^copy-button:hover, ^copy-button:focus-visible { opacity: 1; }
+    }
   `,
 
   methods: [
+    function addCopyButton_(holder, inner, prop, modeSlot) {
+      // Copy button for copyable properties, read-only display only:
+      // editable inputs keep their value in .value, not innerText, and
+      // a copy affordance next to an input reads as a form control.
+      var self = this;
+      holder.start(this.CopyButton, {
+        label: prop.label || prop.name,
+        textProvider: function() {
+          if ( foam.Function.isInstance(prop.copyable) ) {
+            return prop.copyable.call(self.data, prop.f ? prop.f(self.data) : null, self.data);
+          }
+          var node = inner.el_();
+          return node ? node.innerText.trim() : '';
+        }
+      }).
+        addClass(this.myClass('copy-button')).
+        show(modeSlot.map(m => m == foam.u2.DisplayMode.RO)).
+      end();
+    },
+
     function layout(prop, visibilitySlot, modeSlot, labelSlot, viewSlot, colorSlot, errorSlot, supportingLabelSlot) {
       var self = this;
+
+      var hasLabelContent = this.slot(function(prop$label, prop$supportingLabel, prop$reserveLabelSpace) {
+        return !! (prop$label || prop$supportingLabel || prop$reserveLabelSpace);
+      });
 
       this.
         addClass().
         show(visibilitySlot).
         start().
           addClass(this.myClass('labelHolder')).
+          show(hasLabelContent).
           start().
           addClass(this.myClass('labels')).
           add(labelSlot.map(v => v.addClass(this.myClass('label'), 'p-light'))).
@@ -294,10 +359,19 @@ foam.CLASS({
         end().
         start().
           addClass(this.myClass('propHolder')).
-          start('span').
-            addClass(this.myClass('propHolderInner')).
-            call(this.layoutView, [self, prop, viewSlot]).
-          end().
+          // Shrink-to-content layout only while the copy button is shown:
+          // editable modes keep the full-width input layout.
+          enableClass(this.myClass('propHolder-copyable'),
+            prop.copyable ? modeSlot.map(m => m == foam.u2.DisplayMode.RO) : false).
+          call(function() {
+            // inner is kept as a variable so the copy button's click handler
+            // can read its rendered text later.
+            var inner = this.start('span').
+              addClass(self.myClass('propHolderInner')).
+              call(self.layoutView, [self, prop, viewSlot]);
+            inner.end();
+            if ( prop.copyable ) self.addCopyButton_(this, inner, prop, modeSlot);
+          }).
           callIf(prop.help, function() {
             this.start().addClass(self.myClass('helper-icon'))
               .start('', { tooltip: prop.help.length < 60 ? prop.help : self.LEARN_MORE })

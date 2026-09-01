@@ -26,7 +26,8 @@ foam.CLASS({
       documentation: 'What this alarm config is for',
       class: 'String',
       name: 'name',
-      visibility: 'RO',
+      createVisibility: 'RW',
+      updateVisibility: 'RO'
     },
     {
       class: 'Boolean',
@@ -105,20 +106,20 @@ foam.CLASS({
       name: 'monitorType'
     },
     {
-      // deprecated - replaced by Notificaiton
+      // deprecated - replaced by Notification
       class: 'Reference',
       of: 'foam.core.auth.Group',
       name: 'alertGroup',
       menuKeys: ['admin.groups']
     },
     {
-      // deprecated - replaced by Notificaiton
+      // deprecated - replaced by Notification
       class: 'Reference',
       of: 'foam.core.auth.User',
       name: 'alertUser'
     },
     {
-      // deprecated - replaced by Notificaiton
+      // deprecated - replaced by Notification
       class: 'Boolean',
       name: 'sendEmail',
       label: 'Notify',

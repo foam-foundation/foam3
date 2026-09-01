@@ -210,7 +210,12 @@ foam.CLASS({
       class: 'Boolean',
       name: 'useTemplateLiterals',
       help: 'If true, multiline strings will be outputted using template literals (i.e. surrounded by backticks)',
-      value: false,
+      value: false
+    },
+    {
+      class: 'Boolean',
+      name: 'multiLineOutput',
+      help: 'If true, multiline strings will be outputted as triple-quoted blocks rather than a single escaped line. Matches foam.lib.json.Outputter.setMultiLineOutput().'
     },
     {
       class: 'Boolean',
@@ -252,7 +257,7 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'defaultPackage',
+      name: 'defaultPackage'
       //value: 'foam.lang.'
     },
     {
@@ -297,15 +302,69 @@ foam.CLASS({
       return this;
     },
 
-    function escape(str) {
-      return str
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/[\x00-\x1f]/g, function(c) {
-          return "\\u00" + ((c.charCodeAt(0) < 0x10) ?
-            '0' + c.charCodeAt(0).toString(16) :
-            c.charCodeAt(0).toString(16));
-        });
+    /**
+     * Escape a string for JSON output.
+     * Idempotent by default to prevent bloating escape characters on multiple calls.
+     *
+     * @param {string} str - The string to escape.
+     * @param {boolean} [force] - If truthy, skip idempotency and escape all escape characters.
+     * @returns {string} The escaped string.
+     *
+     * @description
+     * Default behavior (no force):
+     * - Preserves existing valid escape sequences: \", \\, \u00XX.
+     * - Escapes raw backslashes, double quotes, and control characters (\x00-\x1f).
+     *
+     * Force behavior (force=true):
+     * - Escapes all special characters regardless of existing escape sequences.
+     * - Useful when a property stores JSON string itself be later parse or eval e.g. foam.core.reflow.Flow.SCRIPT
+     */
+    function escape(str, force) {
+      let result = '';
+      for ( let i = 0 ; i < str.length ; i++ ) {
+        const ch = str[i];
+        // preserve existing escape sequences only if not forcing
+        if ( ! force ) {
+          // preserve existing escape sequences: \", \\, \u
+          if ( ch === '\\' && i + 1 < str.length ) {
+            const next = str[i+1];
+            if ( next === '"' || next === '\\' || next === 'u' ) {
+              result += ch + next;
+              i++;
+              continue;
+            }
+          }
+        }
+
+        // escape special characters
+        if ( ch === '\\' ) {
+          result += '\\\\';
+        } else if ( ch === '"' ) {
+          result += '\\"';
+        } else if ( ch.charCodeAt(0) <= 0x1f ) {
+          result += '\\u00' + ch.charCodeAt(0).toString(16).padStart(2, '0');
+        } else {
+          result += ch;
+        }
+      }
+      return result;
+    },
+
+    /**
+     * Escape a string for triple-quoted output.
+     *
+     * @param {string} str - The string to escape.
+     * @returns {string} The escaped string.
+     *
+     * @description
+     * Only backslashes are doubled; the delimiter does not terminate on a lone
+     * quote and control characters are legal inside the block. The reader
+     * (foam.lib.json.StringParser) halves them again, so a payload's own
+     * "\n" / "\uXXXX" / '\"' sequences survive verbatim.
+     * Mirrors foam.lib.json.Outputter.escapeMultiline().
+     */
+    function escapeMultiline(str) {
+      return str.replace(/\\/g, '\\\\');
     },
 
     function maybeEscapeKey(str) {
@@ -378,7 +437,12 @@ foam.CLASS({
     },
 
     function outputString(str) {
-      if ( this.useTemplateLiterals && str.indexOf('\n') != -1 ) {
+      if ( this.multiLineOutput && str.indexOf('\n') != -1 ) {
+        // Drop the postColonStr padding so the block starts as `"key":\n"""`,
+        // byte-identical to the Java journal writer's styled output.
+        this.buf_ = this.buf_.replace(/[ \t]+$/, '');
+        this.out('\n', '"""', this.escapeMultiline(str), '"""');
+      } else if ( this.useTemplateLiterals && str.indexOf('\n') != -1 ) {
         this.out('`', str.replace(/`/g, '\\`'), '`');
       } else {
         this.out('"', this.escape(str), '"');
@@ -487,7 +551,8 @@ foam.CLASS({
         Undefined: function(o) { this.out('null'); },
         Null:      function(o) { this.out('null'); },
         String:    function(o) { this.outputString(o); },
-        Number:    function(o) { this.out(o); },
+        // JSON has no NaN / Infinity literal; emit null for non-finite numbers.
+        Number:    function(o) { this.out(Number.isFinite(o) ? o : 'null'); },
         Boolean:   function(o) { this.out(o); },
         Date:      function(o) { this.outputDate(o); },
         Function:  function(o) { this.outputFunction(o); },

@@ -15,9 +15,9 @@ foam.CLASS({
 
   constants: [
     {
-      name: 'NSPEC_CTX_KEY',
+      name: 'CSPEC_CTX_KEY',
       type: 'String',
-      value: 'NSPEC_CTX_KEY',
+      value: 'CSPEC_CTX_KEY',
       documentation: 'Constant for addressing the CSpec through the context'
     }
   ],
@@ -35,15 +35,15 @@ foam.CLASS({
   ],
 
   javaImports: [
-    'java.io.IOException',
-    'java.io.PrintStream',
-
-    'foam.lang.X',
     'foam.core.auth.AuthService',
     'foam.core.auth.AuthorizationException',
     'foam.core.script.BeanShellExecutor',
     'foam.core.script.JShellExecutor',
-    'foam.core.script.Language'
+    'foam.core.script.Language',
+    'foam.lang.X',
+    'foam.util.SafetyUtil',
+    'java.io.IOException',
+    'java.io.PrintStream'
   ],
 
   axioms: [
@@ -95,7 +95,23 @@ foam.CLASS({
 
   ids: [ 'name' ],
 
-  tableColumns: [ 'name', 'lazy', 'serve', 'authenticate', /*'serviceClass',*/ 'configure' ],
+  tableColumns: [
+    'name',
+    'lazy',
+    'serve',
+    'authenticate',
+    /*'serviceClass',*/
+    'configure',
+    'status',
+    'message'
+  ],
+
+  searchColumns: [
+    'lazy',
+    'serve',
+    'authenticate',
+    'status'
+  ],
 
   properties: [
     {
@@ -128,6 +144,12 @@ foam.CLASS({
       name: 'lazyClient',
       tableWidth: 65,
       value: true
+    },
+    {
+      class: 'Int',
+      name: 'lazyOrder',
+      tableWidth: 65,
+      documentation: 'Order non-lazy DAO invocation from low (0) to high.  Essential DAOs such as users, grants, ... should be low order, 0, with larger DAOs which take minutes to load should be a higher order value'
     },
     {
       class: 'Boolean',
@@ -234,6 +256,36 @@ foam.CLASS({
       transient: true,
       javaGetter: 'return getName();',
       getter: function() { return this.name; }
+    },
+    {
+      class: 'Enum',
+      of: 'foam.core.boot.CSpecStatus',
+      name: 'status',
+      storageTransient: true
+    },
+    {
+      class: 'String',
+      name: 'message',
+      storageTransient: true,
+      view: {
+        class: 'foam.u2.view.ModeAltView',
+        writeView: { class: 'foam.u2.tag.TextArea', rows: 12, cols: 140 },
+        readView:  { class: 'foam.u2.view.PreView' }
+      },
+    },
+    {
+      class: 'foam.dao.DAOProperty',
+      name: 'cSpecDAO',
+      storageTransient: true,
+      hidden: true,
+      visibility: 'HIDDEN'
+    },
+    {
+      class: 'String',
+      name: 'threadName',
+      storageTransient: true,
+      hidden: true,
+      visibility: 'HIDDEN'
     }
     // TODO: permissions, parent
   ],
@@ -346,6 +398,78 @@ foam.CLASS({
           ((foam.core.logger.Logger) x.get("logger")).debug("AuthorizableAuthorizer", "Permission denied.", permission);
           throw new AuthorizationException("Permission denied: Cannot delete this CSpec.");
         }
+      `
+    },
+    {
+      name: 'updateStatus',
+      args: 'Object... vargs',
+      javaCode: `
+        foam.core.logger.Logger logger = foam.core.logger.StdoutLogger.instance();
+        Throwable t = null;
+        CSpecStatus status = null;
+        StringBuilder sb = new StringBuilder();
+        StringBuilder msgSb = new StringBuilder();
+        for ( Object o : vargs ) {
+          if ( o == null )
+            continue;
+          if ( o instanceof CSpecStatus )
+            status = (CSpecStatus) o;
+          else if ( o instanceof Throwable )
+            t = (Throwable) o;
+          else {
+            if ( sb.length() == 0 ) {
+              // Existing log output format
+              sb.append(o.toString());
+              sb.append(" Service,");
+              sb.append(getName());
+            } else {
+              sb.append(",");
+              sb.append(o.toString());
+              if ( msgSb.length() > 0 )
+                msgSb.append(",");
+              msgSb.append(o.toString());
+            }
+          }
+        }
+        if ( t != null ) {
+          if ( sb.length() > 0)
+            sb.append(",");
+          sb.append(t.getMessage());
+          if ( msgSb.length() > 0)
+            msgSb.append(",");
+          msgSb.append(t.getMessage());
+          status = CSpecStatus.ERROR;
+        }
+
+        if ( ! "cSpecDAO".equals(getId()) &&
+             ! "logger".equals(getId()) &&
+             ! "PM".equals(getId()) ) {
+          X x = getX();
+          foam.dao.DAO cSpecDAO = getCSpecDAO();
+          if ( cSpecDAO == null ) {
+            logger.debug("CSPec.updateStatus,cSpecDAO not found,cSpec", getId());
+          } else {
+            CSpec cs = (CSpec) cSpecDAO.find_(x, getId());
+            if ( cs == null ) {
+              logger.debug("CSPec.updateStatus,CSpec not found", getId());
+            } else {
+              cs = (CSpec) cs.fclone();
+              CSpecStatus oldStatus = cs.getStatus();
+              cs.setStatus(status);
+              if ( ! SafetyUtil.isEmpty(cs.getMessage()) )
+                cs.setMessage(cs.getMessage() + "\\n");
+              cs.setMessage(cs.getMessage() + msgSb.toString());
+              cs.setThreadName(Thread.currentThread().getName());
+              if ( cs.getStatus() == CSpecStatus.INITIAL )
+                cs.setStatus(CSpecStatus.INITIALIZING);
+              cs = (CSpec) cSpecDAO.put_(x, cs);
+            }
+          }
+        }
+        if ( t == null )
+          logger.info(sb.toString());
+        else
+          logger.error(sb.toString(), t);
       `
     }
   ],

@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'Test',
   extends: 'foam.core.script.Script',
 
+  requires: [
+    'foam.core.script.ScriptEvent'
+  ],
+
   imports: [
     'testDAO',
     'testEventDAO'
@@ -106,7 +110,10 @@ foam.CLASS({
       name: 'passed',
       visibility: 'RO',
       tableCellFormatter: function(value) {
-        if ( value ) this.start().style({ color: '#3a3', 'font-weight': 'bold' }).add(value).end();
+        if ( value ) this.start().style({
+          color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__),
+          'font-weight': 'bold'
+        }).add(value).end();
       },
       tableWidth: 85
     },
@@ -115,7 +122,10 @@ foam.CLASS({
       name: 'failed',
       visibility: 'RO',
       tableCellFormatter: function(value) {
-        if ( value ) this.start().style({ color: '#a33', 'font-weight': 'bold' }).add(value).end();
+        if ( value ) this.start().style({
+          color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__),
+          'font-weight': 'bold'
+        }).add(value).end();
       },
       tableWidth: 85
     },
@@ -311,7 +321,6 @@ foam.CLASS({
                 this.output += ( condition ? 'SUCCESS: ' : 'FAILURE: ' ) +
                   message + '\n';
               }
-
             };
             var expect = (value, expectedValue, message) => {
               if ( foam.util.equals(value, expectedValue) ) {
@@ -331,12 +340,29 @@ foam.CLASS({
               if ( err ) {
                 this.output += err + '\n';
               }
+              this.testEventDAO.put(this.ScriptEvent.create({
+                scriptType: this.cls_.id,
+                scriptId: this.id,
+                lastRun: this.lastRun,
+                lastDuration: this.lastDuration,
+                output: this.output
+              }));
             };
-
             with ( { log: log, print: log, x: this.__context__, expect: expect, test: test } ) {
+              var script = '';
+              if ( ! this.code && // see RunTest above.
+                   this.cls_.id === 'foam.core.test.JSTest' &&
+                   this.source && // eval source.runTest
+                   this.source !== 'foam.core.test.JSTest' ) {
+                script = '(async () => { ';
+                script += 'let t = ' + this.source + '.create(); ';
+                script += 'await t.runTest(this.__context__.createSubContext({ log: log, print: print, expect: expect, test: test })); ';
+                script += 'updateStats()';
+                script += '})()';
+              }
               Promise.resolve(
-                this.code ?
-                  eval('(async () => {' + this.code + '})()') :
+                script ?
+                  eval(script) :
                   this.runTest(this.__context__.createSubContext({
                     log: log, print: log, expect: expect, test: test
                   }))
@@ -344,14 +370,14 @@ foam.CLASS({
                 updateStats();
                 resolve();
               }, (err) => {
-                updateStats(err);
                 this.failed += 1;
+                updateStats(err);
                 reject(err);
               });
             }
           } catch (err) {
-            updateStats(err);
             this.failed += 1;
+            updateStats(err);
             reject(err);
           }
         });

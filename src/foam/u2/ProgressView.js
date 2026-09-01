@@ -22,10 +22,12 @@ foam.CLASS({
 
   cssTokens: [
     {
+      class: 'foam.u2.ColorToken',
       name: 'progressColor',
       value: '$backgroundBrand'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'trackColor',
       value: '$backgroundTertiary'
     }

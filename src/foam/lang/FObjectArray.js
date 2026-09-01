@@ -26,7 +26,7 @@ foam.CLASS({
     function installInProto(proto) {
       this.SUPER(proto);
       var self = this;
-      Object.defineProperty(proto, self.name + '$' + 'errors$', {
+      Object.defineProperty(proto, self.name + '$errors$', {
         get: function getArrayErrorSlot() {
           // errors_$ will be updated with an array member's error_$ slot
           var errors_$ = foam.lang.SimpleSlot.create({ value: [] });
@@ -44,7 +44,7 @@ foam.CLASS({
             setErrors(val.map(v => v.errors_));
 
             // Alternative to ArraySlot.create(...).map(...), which fails here
-            var l = () => {
+            let l = () => {
               val.forEach(v => { let _ = v.errors_ });
               setErrors(val.map(v => v.errors_));
             };
@@ -54,12 +54,14 @@ foam.CLASS({
           // Initialize slot listener
           var val = this[self.name];
           if ( Array.isArray(val) ) subToArray(val);
-          self.toSlot(this).sub(() => {
+          let l = () => {
             sub.detach();
             sub = foam.lang.FObject.create();
             var val = this[self.name];
             if ( Array.isArray(val) ) subToArray(val);
-          })
+            this.pub('propertyChange', 'value');
+          };
+          this.sub('propertyChange', self.name, l);
           return errors_$;
         },
         configurable: true

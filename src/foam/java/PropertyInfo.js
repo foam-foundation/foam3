@@ -161,6 +161,7 @@ foam.CLASS({
     { name: 'toCSVLabel',          factory: function() { return this.property.javaToCSVLabel; } },
     { name: 'fromCSVLabelMapping', factory: function() { return this.property.javaFromCSVLabelMapping; } },
     { name: 'formatJSON',          factory: function() { return this.property.javaFormatJSON; } },
+    { name: 'objToJSON',           factory: function() { return this.property.javaObjToJSON; } },
     {
       name: 'propClassName',
       expression: function (propType) {
@@ -174,6 +175,7 @@ foam.CLASS({
       factory: function() { return this.property.sheetsOutput; },
       documentation: 'The sheetsOutput specifies if property shoud be written to Google Sheet on import. eg on Transaction import in case there is Status column transaction\'s status will be written there'
     },
+    { name: 'propOrder',           factory: function() { return this.property.order; } },
     {
       name: 'methods',
       factory: function() {
@@ -556,6 +558,25 @@ foam.CLASS({
             body: 'return ' + this.sheetsOutput + ';'
           });
 
+        if ( this.objToJSON != null ) {
+          m.push({
+            name: 'objToJSON',
+            type: 'void',
+            visibility: 'public',
+            args: [
+              {
+                name: 'outputter',
+                type: 'foam.lib.json.Outputter'
+              },
+              {
+                name: 'obj',
+                type: 'foam.lang.FObject'
+              }
+            ],
+            body: this.objToJSON + ';'
+          });
+        }
+
         if ( this.formatJSON != null ) {
           m.push({
             name: 'formatJSON',
@@ -574,6 +595,12 @@ foam.CLASS({
             body: this.formatJSON + ';'
           });
         }
+        m.push({
+          name: 'getOrder',
+          visibility: 'public',
+          type: 'int',
+          body: 'return ' + ( this.propOrder || '0') + ';'
+        });
 
         return m;
       }

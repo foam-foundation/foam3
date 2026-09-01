@@ -32,6 +32,7 @@ foam.CLASS({
         DateParserTest_MMDDYYYY_Separated();
         DateParserTest_MMDDYYYY_Compact();
         DateParserTest_MMDDYYYY_WithTime();
+        DateParserTest_MMDDYYYY_AmPm();
 
         // YYMMDD Format Tests
         DateParserTest_YYMMDD_Separated();
@@ -50,6 +51,7 @@ foam.CLASS({
         // Month Name Format Tests
         DateParserTest_DDMMMYYYY_Separated();
         DateParserTest_DDMMMYYYY_Compact();
+        DateParserTest_DDMMMYY_Separated();
         DateParserTest_YYYYDDMMM_Separated();
         DateParserTest_YYYYDDMMM_Compact();
 
@@ -71,6 +73,8 @@ foam.CLASS({
 
         // Strict Validation Mode Tests
         DateParserTest_StrictValidation_ThrowsForInvalid();
+        DateParserTest_StrictValidation_OutOfRange();
+        DateParserTest_StrictValidation_PerCallParam();
         DateParserTest_StrictValidation_ValidDatesWork();
         DateParserTest_LenientValidation_ReturnsMaxDate();
         DateParserTest_LenientValidation_ValidDatesWork();
@@ -79,6 +83,7 @@ foam.CLASS({
         DateParserTest_Timestamps();
         DateParserTest_SingleDigitMonthDay();
         DateParserTest_SpaceSeparatedMonthNames();
+        DateParserTest_MMMDDYYYY_AmPm();
         DateParserTest_MMDDYY_Format();
         DateParserTest_FractionalSeconds();
 
@@ -269,6 +274,38 @@ foam.CLASS({
         test(cal1.get(Calendar.HOUR_OF_DAY) == 14, "MMDDYYYY with time: hour 14");
         test(cal1.get(Calendar.MINUTE) == 30, "MMDDYYYY with time: minute 30");
         test(cal1.get(Calendar.SECOND) == 45, "MMDDYYYY with time: second 45");
+      `
+    },
+
+    {
+      name: 'DateParserTest_MMDDYYYY_AmPm',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // MM/DD/YYYY with 12h time, space before meridiem (AFS March Transaction_Date)
+        Date d1 = parser.parseDateTimeUTC("3/8/2026 12:00:00 AM");
+        Calendar c1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c1.setTime(d1);
+        test(c1.get(Calendar.MONTH) == 2, "MMDDYYYY 12AM: month 2 (Mar)");
+        test(c1.get(Calendar.DAY_OF_MONTH) == 8, "MMDDYYYY 12AM: day 8");
+        test(c1.get(Calendar.HOUR_OF_DAY) == 0, "MMDDYYYY 12AM: hour 0 (midnight)");
+
+        Date d2 = parser.parseDateTimeUTC("3/8/2026 12:00:00 PM");
+        Calendar c2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c2.setTime(d2);
+        test(c2.get(Calendar.HOUR_OF_DAY) == 12, "MMDDYYYY 12PM: hour 12 (noon)");
+
+        Date d3 = parser.parseDateTimeUTC("3/8/2026 01:30:45 PM");
+        Calendar c3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c3.setTime(d3);
+        test(c3.get(Calendar.HOUR_OF_DAY) == 13, "MMDDYYYY PM: hour 13");
+        test(c3.get(Calendar.MINUTE) == 30, "MMDDYYYY PM: minute 30");
+
+        // No space before meridiem
+        Date d4 = parser.parseDateTimeUTC("3/8/2026 09:15:00AM");
+        Calendar c4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c4.setTime(d4);
+        test(c4.get(Calendar.HOUR_OF_DAY) == 9, "MMDDYYYY no-space AM: hour 9");
       `
     },
 
@@ -468,6 +505,47 @@ foam.CLASS({
         test(cal2.get(Calendar.YEAR) == 2024, "DDMMMYYYY-Sep: year 2024");
         test(cal2.get(Calendar.MONTH) == 11, "DDMMMYYYY-Sep: month 11 (DEC)");
         test(cal2.get(Calendar.DAY_OF_MONTH) == 31, "DDMMMYYYY-Sep: day 31");
+      `
+    },
+
+    {
+      name: 'DateParserTest_DDMMMYY_Separated',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // Test 14-MAY-26 (the real-world case that prompted this feature)
+        Date date1 = parser.parseString("14-MAY-26");
+        Calendar cal1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal1.setTime(date1);
+        test(cal1.get(Calendar.YEAR) == 2026, "DDMMMYY-Sep: 14-MAY-26 year 2026");
+        test(cal1.get(Calendar.MONTH) == 4,   "DDMMMYY-Sep: 14-MAY-26 month 4 (MAY)");
+        test(cal1.get(Calendar.DAY_OF_MONTH) == 14, "DDMMMYY-Sep: 14-MAY-26 day 14");
+
+        // Test 31/DEC/25
+        Date date2 = parser.parseString("31/DEC/25");
+        Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal2.setTime(date2);
+        test(cal2.get(Calendar.YEAR) == 2025, "DDMMMYY-Sep: 31/DEC/25 year 2025");
+        test(cal2.get(Calendar.MONTH) == 11,  "DDMMMYY-Sep: 31/DEC/25 month 11 (DEC)");
+        test(cal2.get(Calendar.DAY_OF_MONTH) == 31, "DDMMMYY-Sep: 31/DEC/25 day 31");
+
+        // Year pivot: < 50 → 20xx, >= 50 → 19xx
+        Date date3 = parser.parseString("01-JAN-49");
+        Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal3.setTime(date3);
+        test(cal3.get(Calendar.YEAR) == 2049, "DDMMMYY-Sep: 01-JAN-49 year 2049");
+
+        Date date4 = parser.parseString("01-JAN-50");
+        Calendar cal4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal4.setTime(date4);
+        test(cal4.get(Calendar.YEAR) == 1950, "DDMMMYY-Sep: 01-JAN-50 year 1950");
+
+        // Lowercase / mixed case months
+        Date date5 = parser.parseString("15-may-26");
+        Calendar cal5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal5.setTime(date5);
+        test(cal5.get(Calendar.YEAR) == 2026, "DDMMMYY-Sep: 15-may-26 (lowercase) year 2026");
+        test(cal5.get(Calendar.MONTH) == 4,   "DDMMMYY-Sep: 15-may-26 month 4 (MAY)");
       `
     },
 
@@ -758,6 +836,68 @@ foam.CLASS({
     },
 
     {
+      name: 'DateParserTest_StrictValidation_OutOfRange',
+      javaCode: `
+        DateParser parser = new DateParser();
+        parser.setStrictValidation(true);
+
+        String[] bad = { "2025-13-40", "2025-13-01", "2025-02-30", "2025-04-31" };
+        for ( int i = 0 ; i < bad.length ; i++ ) {
+          try {
+            parser.parseDateString(bad[i]);
+            test(false, "StrictRange: \\"" + bad[i] + "\\" should throw");
+          } catch (RuntimeException e) {
+            test(e.getMessage().toLowerCase().contains("out of range"), "StrictRange: \\"" + bad[i] + "\\" throws out-of-range");
+          }
+        }
+
+        // Wrong-format-hint landing month 13 must throw.
+        try {
+          parser.parseDateString("13/04/2026");
+          test(false, "StrictRange: 13/04/2026 as MM/DD should throw");
+        } catch (RuntimeException e) {
+          test(e.getMessage().toLowerCase().contains("out of range"), "StrictRange: 13/04/2026 throws (wrong-hint caught)");
+        }
+
+        // Valid in-range date still parses.
+        Date ok = parser.parseDateString("2025-02-28");
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.setTime(ok);
+        test(cal.get(Calendar.MONTH) == 1 && cal.get(Calendar.DAY_OF_MONTH) == 28, "StrictRange: valid 2025-02-28 parses");
+
+        // 12-hour AM/PM supported (ticket example stale) - must parse.
+        Date dt = parser.parseDateTime("Mar 07 2026 03:00:26AM");
+        Calendar cal2 = Calendar.getInstance();
+        cal2.setTime(dt);
+        test(cal2.get(Calendar.YEAR) == 2026 && cal2.get(Calendar.MONTH) == 2, "StrictRange: 12-hour AM/PM parses (supported)");
+
+        parser.setStrictValidation(false);
+      `
+    },
+    {
+      name: 'DateParserTest_StrictValidation_PerCallParam',
+      javaCode: `
+        DateParser parser = new DateParser();
+        test(parser.getStrictValidation() == false, "PerCall: static flag starts false");
+
+        // Per-call strict=true rejects out-of-range without setStrictValidation.
+        try {
+          parser.parseDateString("2025-13-40", null, true);
+          test(false, "PerCall strict=true: 2025-13-40 should throw");
+        } catch (RuntimeException e) {
+          test(e.getMessage().toLowerCase().contains("out of range"), "PerCall strict=true: 2025-13-40 throws");
+        }
+
+        // Static flag untouched by the per-call arg.
+        test(parser.getStrictValidation() == false, "PerCall: static flag still false after per-call strict");
+
+        // Lenient default rolls over, no throw.
+        Date rolled = parser.parseDateString("2025-13-40");
+        test(rolled != null, "PerCall lenient: 2025-13-40 rolls over (no throw)");
+      `
+    },
+
+    {
       name: 'DateParserTest_StrictValidation_ValidDatesWork',
       javaCode: `
         DateParser parser = new DateParser();
@@ -963,6 +1103,57 @@ foam.CLASS({
         test(cal5.get(Calendar.YEAR) == 2025, "mmm dd yyyy (lowercase): year 2025");
         test(cal5.get(Calendar.MONTH) == 11, "mmm dd yyyy (lowercase): month 11 (Dec)");
         test(cal5.get(Calendar.DAY_OF_MONTH) == 25, "mmm dd yyyy (lowercase): day 25");
+      `
+    },
+
+    {
+      name: 'DateParserTest_MMMDDYYYY_AmPm',
+      javaCode: `
+        DateParser parser = new DateParser();
+
+        // "Jun 30 2026 02:59:02AM" (AFS datetime_tran_local) - AM keeps hour
+        Date d1 = parser.parseDateTimeUTC("Jun 30 2026 02:59:02AM");
+        Calendar c1 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c1.setTime(d1);
+        test(c1.get(Calendar.YEAR) == 2026, "MMM dd yyyy AM: year 2026");
+        test(c1.get(Calendar.MONTH) == 5, "MMM dd yyyy AM: month 5 (Jun)");
+        test(c1.get(Calendar.DAY_OF_MONTH) == 30, "MMM dd yyyy AM: day 30");
+        test(c1.get(Calendar.HOUR_OF_DAY) == 2, "MMM dd yyyy AM: hour 2");
+        test(c1.get(Calendar.MINUTE) == 59, "MMM dd yyyy AM: minute 59");
+        test(c1.get(Calendar.SECOND) == 2, "MMM dd yyyy AM: second 2");
+
+        // Space before meridiem (optional): "Mar 07 2026 03:00:26 AM"
+        Date d1b = parser.parseDateTimeUTC("Mar 07 2026 03:00:26 AM");
+        Calendar c1b = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c1b.setTime(d1b);
+        test(c1b.get(Calendar.MONTH) == 2, "MMM dd yyyy space-AM: month 2 (Mar)");
+        test(c1b.get(Calendar.HOUR_OF_DAY) == 3, "MMM dd yyyy space-AM: hour 3");
+        test(c1b.get(Calendar.SECOND) == 26, "MMM dd yyyy space-AM: second 26");
+
+        // PM adds 12 to hours below noon
+        Date d2 = parser.parseDateTimeUTC("Jun 30 2026 02:59:02PM");
+        Calendar c2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c2.setTime(d2);
+        test(c2.get(Calendar.HOUR_OF_DAY) == 14, "MMM dd yyyy PM: hour 14");
+
+        // 12AM = midnight (hour 0)
+        Date d3 = parser.parseDateTimeUTC("Jan 01 2026 12:00:00AM");
+        Calendar c3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c3.setTime(d3);
+        test(c3.get(Calendar.HOUR_OF_DAY) == 0, "12AM: hour 0 (midnight)");
+
+        // 12PM = noon (hour 12)
+        Date d4 = parser.parseDateTimeUTC("Jan 01 2026 12:00:00PM");
+        Calendar c4 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c4.setTime(d4);
+        test(c4.get(Calendar.HOUR_OF_DAY) == 12, "12PM: hour 12 (noon)");
+
+        // Single-digit hour
+        Date d5 = parser.parseDateTimeUTC("Jan 01 2026 3:04:05PM");
+        Calendar c5 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        c5.setTime(d5);
+        test(c5.get(Calendar.HOUR_OF_DAY) == 15, "single-digit hour PM: hour 15");
+        test(c5.get(Calendar.MINUTE) == 4, "single-digit hour PM: minute 4");
       `
     },
 

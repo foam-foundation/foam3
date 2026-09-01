@@ -1041,7 +1041,7 @@ foam.CLASS({
             // Don't copy the value if the property default values are the same
             if ( o.hasDefaultValue(name) && props[i].value === otherProp.value && ! otherProp.expression ) continue;
 
-            if ( ! props[i].copyValueFrom || ! props[i].copyValueFrom(this, o) )
+            if ( ! props[i].copyValueFrom || props[i].copyValueFrom(this, o) )
               this[name] = o[name];
           }
         }

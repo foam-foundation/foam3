@@ -15,6 +15,12 @@ foam.CLASS({
 
   imports: ['theme?'],
 
+  css: `
+    ^lowerPadding {
+      padding-bottom: 0;
+    }
+  `,
+
   messages: [
     { name: 'CONFIRM_LABEL', message: 'Confirm' },
     { name: 'CANCEL_LABEL', message: 'Cancel' }

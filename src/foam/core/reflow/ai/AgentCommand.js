@@ -63,7 +63,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'description',
-      value: 'Ask an LLM agent to generate REFLOW commands from a natural language instruction.'
+      value: 'Agent runs FLOW commands from a request'
     },
     {
       class: 'String',
@@ -85,7 +85,7 @@ foam.CLASS({
 
       // ── 2. Call LLMService ──
       var request = foam.core.ai.CompletionRequest.create({
-        prompt: q,
+        prompt: foam.String.isInstance(q) ? q : JSON.stringify(q),
         options: foam.core.ai.LLMOptions.create({
           systemPrompt: systemPrompt,
           model:        this.model,
@@ -99,7 +99,8 @@ foam.CLASS({
         // Use when offline. TODO: make a mock llmService for when offline
         // result = { content: 'h1 done' };
       } catch (e) {
-        flow.insertError('LLM error: ' + e.message);
+        throw 'LLM error: ' + e;
+//        flow.insertError('LLM error: ' + e.message);
         return;
       }
 

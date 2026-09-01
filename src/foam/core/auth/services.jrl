@@ -70,6 +70,7 @@ p({
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName(\"agentJunctions\")
       .setOf(foam.core.auth.UserUserJunction.getOwnClassInfo())
@@ -87,6 +88,7 @@ p({
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("country"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("countries")
@@ -108,6 +110,7 @@ p({
   """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setOf(foam.core.auth.Country.getOwnClassInfo())
       .setName("countries")
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("country"))
@@ -141,6 +144,7 @@ p({
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setOf(foam.core.auth.Credential.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
@@ -158,6 +162,7 @@ p({
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setOf(foam.core.auth.Credential.getOwnClassInfo())
       .setInnerDAO(x.get("credentialDAO"))
       .build();
@@ -170,6 +175,7 @@ p({
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("groups")
       .setOf(foam.core.auth.Group.getOwnClassInfo())
@@ -186,6 +192,7 @@ p({
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setInnerDAO(x.get("localGroupDAO"))
       .setOf(foam.core.auth.Group.getOwnClassInfo())
       .build();
@@ -203,6 +210,7 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("groupPermissionJunctions")
       .setPm(true)
+      .setUnloadable(false)
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.GroupPermissionJunction.SOURCE_ID });
     return dao;
@@ -217,6 +225,7 @@ p({
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setOf(foam.core.auth.GroupPermissionJunction.getOwnClassInfo())
       .setAuthorize(false)
       .setInnerDAO((foam.dao.DAO) x.get("localGroupPermissionJunctionDAO"))
@@ -233,7 +242,7 @@ p({
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
-      .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("language"))
+      .setUnloadable(false)
       .setAuthorize(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("languages")
@@ -253,6 +262,7 @@ p({
   "serviceScript":`
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("commonpassword"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("commonPasswords")
@@ -293,6 +303,7 @@ p({
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setAuthorize(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("permissions")
@@ -308,6 +319,7 @@ p({
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setOf(foam.core.auth.Permission.getOwnClassInfo())
       .setInnerDAO((foam.dao.DAO) x.get("localPermissionDAO"))
       .build();
@@ -324,6 +336,7 @@ p({
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("region"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName(\"regions\")
@@ -356,6 +369,7 @@ p({
   """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setAuthorize(false)
       .setOf(foam.core.auth.ServiceProvider.getOwnClassInfo())
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
@@ -401,6 +415,7 @@ p({
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.auth.User.getOwnClassInfo())
       .setPm(true)
+      .setUnloadable(false)
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("users")
@@ -417,6 +432,7 @@ p({
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
+      .setUnloadable(false)
       .setInnerDAO(x.get("localUserDAO"))
       .setOf(foam.core.auth.User.getOwnClassInfo())
       .setPermissioned(true)
@@ -514,6 +530,7 @@ p({
       .setAuthorize(false)
       .setRuler(true)
       .setPm(true)
+      .setUnloadable(false)
       .setEnableInterfaceDecorators(false)
       .build();
   """,
@@ -530,11 +547,13 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "loginAttemptDAO",
   "serve": true,
+  "authenticate": true,
   "description": "Keep track of login attempts made by users.",
   "serviceScript":
   """
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
+      .setUnloadable(false)
       .setOf(foam.core.auth.LoginAttempt.getOwnClassInfo())
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)

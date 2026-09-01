@@ -72,89 +72,12 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'PropertyChoiceView_',
-  extends: 'foam.u2.view.RichChoiceView',
-
-  properties: [
-    {
-      name: 'forCls',
-      postSet: function(_, value) {
-        this.rebuildSections();
-      }
-    },
-    {
-      name: 'predicate',
-      class: 'foam.mlang.predicate.PredicateProperty',
-      factory: function() {
-        return foam.mlang.predicate.True.create();
-      }
-    },
-    {
-      name: 'search',
-      value: true
-    },
-    {
-      name: 'idProperty',
-      value: 'name'
-    },
-    {
-      name: 'choosePlaceholder',
-      value: 'Choose Property'
-    },
-    {
-      name: 'rowView',
-      factory: function() {
-        return { class: 'foam.core.reflow.PropertyCitationView' };
-      }
-    },
-    {
-      name: 'sections',
-      factory: function() {
-        if ( ! this.forCls ) return [
-          {
-            heading: 'Properties',
-            dao: foam.dao.ArrayDAO.create({ of: foam.lang.Property, array: [] }),
-            searchBy: [ foam.lang.Property.NAME ]
-          }
-        ];
-        let arr = this.forCls.getAxiomsByClass(foam.lang.Property)
-          .filter(p => p.showInPropertyChoice)
-          .filter(p => this.predicate.f(p))
-          .sort(foam.lang.Property.NAME.compare);
-
-        return [
-          {
-            heading: 'Properties',
-            dao: foam.dao.ArrayDAO.create({ of: foam.lang.Property, array: arr }),
-            searchBy: [ foam.lang.Property.NAME ]
-          }
-        ];
-      }
-    }
-  ],
-
-  methods: [
-    function rebuildSections() {
-      this.clearProperty('sections');
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'PropertyChoiceView',
   extends: 'foam.u2.View',
-
-  requires: [ 'foam.core.reflow.PropertyChoiceView_' ],
 
   properties: [
     'forCls',
     'propName',
-    {
-      name: 'placeholder',
-      value: 'Choose Property'
-    },
     {
       name: 'predicate',
       class: 'foam.mlang.predicate.PredicateProperty',
@@ -177,15 +100,15 @@ foam.CLASS({
       this.data$.relateTo(
         this.propName$,
         function propToName(p) { return p ? p.name : ''; },
-        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n) : null; }
+        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n.trim()) : null; }
       );
 
-      this.start(this.PropertyChoiceView_, {
-        forCls: this.forCls,
+      this.tag(foam.parse.auto.SmartView, {
         data$: this.propName$,
-        predicate: this.predicate,
-        choosePlaceholder: this.placeholder,
-        allowClearingSelection: this.allowClearingSelection
+        parser: foam.core.reflow.parser.PropertyParser.create({
+          of: this.forCls,
+          predicate: this.predicate
+        }, this)
       });
     }
   ]

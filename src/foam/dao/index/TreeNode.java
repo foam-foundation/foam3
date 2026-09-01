@@ -18,11 +18,11 @@ import static foam.dao.AbstractDAO.decorateSink;
 
 /** AATree implementation. See: https://en.wikipedia.org/wiki/AA_tree **/
 public class TreeNode {
-  protected Object   key;
-  protected Object   value;
-  protected long     size;
+  protected Object   key;   // IDEA: switch to T-Tree would eliminate overhead for Longs but not Strings
+  protected Object   value; // IDEA: Could be an 'int' pointer into an Array
+  protected long     size;  // IDEA: changing to 'int' would restrict to 2B records
   protected byte     level;
-  protected TreeNode left;
+  protected TreeNode left;  // IDEA: Could be int pointers into a TreeNode[]
   protected TreeNode right;
 
   protected final static TreeNode NULL_NODE = new TreeNode(null, null, 0, (byte) 0, null, null);
@@ -102,6 +102,38 @@ public class TreeNode {
         state.right = this.putKeyValue(state.right, indexer, key, value, tail);
         state.size += state.right.size;
       }
+    }
+
+    return split(skew(state, tail), tail);
+  }
+
+  /**
+   * Insert a key whose value is an already-built tail state, rather than an
+   * FObject to be put into the tail.
+   *
+   * Lets a caller assemble a tree out of nodes an existing tree handed back, so
+   * pulling k keys out of an index costs k pointer inserts instead of copying
+   * every row behind them. A key already present is left alone rather than
+   * merged: the caller is collecting distinct keys, and re-inserting one would
+   * add its tail size to the tree a second time.
+   */
+  public TreeNode putKeyTail(TreeNode state, Indexer indexer, Object key, Object tailValue, Index tail) {
+    if ( state == null || state.equals(TreeNode.getNullNode()) ) {
+      return new TreeNode(key, tailValue, tail.size(tailValue), (byte) 1, null, null);
+    }
+    state = maybeClone(state);
+    int r = indexer.comparePropertyToValue(key, state.key);
+
+    if ( r == 0 ) return state;
+
+    if ( r < 0 ) {
+      if ( state.left != null ) state.size -= state.left.size;
+      state.left  = this.putKeyTail(state.left, indexer, key, tailValue, tail);
+      state.size += state.left.size;
+    } else {
+      if ( state.right != null ) state.size -= state.right.size;
+      state.right = this.putKeyTail(state.right, indexer, key, tailValue, tail);
+      state.size += state.right.size;
     }
 
     return split(skew(state, tail), tail);

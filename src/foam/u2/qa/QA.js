@@ -88,6 +88,10 @@
  *
  *   var results = picker.getCandidates();  // -> [{ name: 'Thai Restaurant', ... }]
  *   picker.applyOutcome(results[0]);       // sets picker.name = 'Thai Restaurant'
+ *
+ * TODO:
+ *   Add paths to question choices so that they can be set by the translationService
+ *   ex.: com.acme.QA.QUESTION_NAME.CHOICE.label = 'Blah Blah in French'
  */
 
 
@@ -135,6 +139,7 @@ foam.CLASS({
       var properties = model.properties || [];
       var questions  = model.questions  || [];
       var outcomes   = model.outcomes   || [];
+      var predicates = {};
 
       questions = questions.map(this.normalizeQuestion_.bind(this));
 
@@ -149,8 +154,9 @@ foam.CLASS({
 
     /**
      * Default Yes/No choices map to string 'TRUE'/'FALSE' so that boolean
-     * questions use the same unanswered-detection as all other questions:
-     * value === '' means not yet answered.
+     * questions present as choices like any other question. Whether a
+     * question has been answered is decided by isAnswered_ (a value was
+     * stored), never by inspecting the value itself.
      */
     function normalizeQuestion_(q) {
       var normalized = Object.assign({}, q);
@@ -171,10 +177,10 @@ foam.CLASS({
     // =========================================================================
 
     function buildClass_(pkg, name, properties, questions, outcomes, model) {
-      let outputNames = [];
-      let inputNames = [];
-      var props = [];
-      var existingNames = {};
+      let outputNames   = [];
+      let inputNames    = [];
+      let props         = [];
+      let existingNames = {};
 
       // 1. Declared properties (inputs + outputs)
       properties.forEach(function(p) {
@@ -189,6 +195,11 @@ foam.CLASS({
         if ( ! existingNames[q.name] ) {
           existingNames[q.name] = true;
           inputNames.push(q.name);
+          if ( q.class && q.choices ) {
+            console.warn('[QACompiler] ' + pkg + '.' + name + ': question "' + q.name +
+              '" sets both class and choices — choices are ignored (the auto choice-view ' +
+              'is only attached when no class is set; supply an explicit view: instead).');
+          }
           props.push({
             ...q,
             class: q.class || 'String',
@@ -201,6 +212,10 @@ foam.CLASS({
               choices: q.choices
             } } : {} )
           });
+        } else {
+          console.warn('[QACompiler] ' + pkg + '.' + name + ': question "' + q.name +
+            '" collides with a declared property of the same name — its choices and ' +
+            'generated view are dropped (the declared property wins).');
         }
       });
 
@@ -230,18 +245,28 @@ foam.CLASS({
         requires: [
           'foam.parse.SimpleQueryParser',
           'foam.mlang.predicate.And',
+          'foam.u2.qa.RankedOutcome'
         ],
 
         constants: [
-          { name: 'QUESTIONS', value: questions, flags: ['js'] },
-          { name: 'OUTCOMES', value: outcomes, flags: ['js'] },
-          { name: 'INPUT_NAMES', value: inputNames, flags: ['js'] },
+          { name: 'QUESTIONS',    value: questions,   flags: ['js'] },
+          { name: 'OUTCOMES',     value: outcomes,    flags: ['js'] },
+          { name: 'INPUT_NAMES',  value: inputNames,  flags: ['js'] },
           { name: 'OUTPUT_NAMES', value: outputNames, flags: ['js'] }
         ],
 
-        properties: props,
+        properties: [
+          // Tracks the order questions were answered; maintained by QAWizardView.
+          { class: 'Array', name: 'answeredOrder' },
+          ...props
+        ],
 
         methods: [
+          {
+            name: 'outcomeFormatter',
+            code: function(outcome) { return outcome.name; }
+          },
+          // After so that the models can override it
           ...model.methods,
           /**
            * Lazily compile an outcome's predicate string into mlang terms.
@@ -250,12 +275,13 @@ foam.CLASS({
            * the property it references via .arg1.
            */
           function ensureCompiled(outcome) {
-            if ( outcome.terms ) return;
+            if ( outcome.terms || ! outcome.predicate ) return;
 
             var parser = this.SimpleQueryParser.create({ of: this.cls_ });
             var mlang  = parser.parseString(outcome.predicate || '');
             var args   = this.And.isInstance(mlang) ? mlang.args : [mlang];
 
+            outcome.mlang = mlang;
             outcome.terms = args.map(function(term) {
               return {
                 mlang:    term,
@@ -267,17 +293,69 @@ foam.CLASS({
           /**
            * Return all outcomes whose predicate terms are consistent with
            * current property and answer values. A term is consistent if:
-           *   - The property it references has not been answered yet (value === '')
-           *   - The term evaluates to true against the current value
+           *   - The property it references has not been answered yet
+           *     (isAnswered_ is false), or
+           *   - The term evaluates to true against the stored value
            */
           function getCandidates() {
-            var self = this;
-            return this.OUTCOMES.filter(function(outcome) {
-              self.ensureCompiled(outcome);
-              return outcome.terms.every(function(term) {
-                return self.isTermConsistent(term);
-              });
-            });
+            return this.OUTCOMES.filter(outcome => this.isConsistent(outcome));
+          },
+
+          /**
+           * outcome: a question or outcome
+           */
+          function isConsistent(outcome) {
+            if ( ! outcome.predicate ) return true;
+
+            this.ensureCompiled(outcome);
+            return outcome.terms.every(term => this.isTermConsistent(term))
+          },
+
+          /**
+           * True when `name` currently holds a real answer.
+           *
+           * "Answered" means a value was STORED, not that the value looks
+           * truthy. A Boolean answered false, an Int answered 0 and a choice
+           * whose value is '0' are all real answers; judging them by
+           * truthiness made them indistinguishable from "nobody has answered
+           * yet", so they never ruled an outcome out and their questions were
+           * re-asked forever.
+           *
+           * Three storage shapes need three different tests:
+           *
+           *  - factory-backed (Array, StringArray, ...): merely READING one
+           *    runs the factory and stores the result (Property.js
+           *    factoryGetter), so hasOwnProperty would call every multi-select
+           *    answered before it was touched. Judge those by content.
+           *  - expression-backed: the computed value lives in private_ and
+           *    never reaches instance_ (Property.js eFactoryGetter), so
+           *    hasOwnProperty always reports false. A derived value counts as
+           *    known unless it computes to a "cannot derive yet" sentinel.
+           *    Both null and '' are used for that, so accept either.
+           *    Model an expression that can be unknown as a String, not a
+           *    Boolean: the expression read path skips adapt, so a Boolean
+           *    expression CAN return null — but foam.lang.Boolean's adapt
+           *    (!!v) turns null into a stored false on any setter write
+           *    (clone, copyFrom, journal replay), silently converting
+           *    "unknown" into "answered false". '' survives storage.
+           *  - everything else: answered iff a value was explicitly stored.
+           */
+          function isAnswered_(name) {
+            var axiom = this.cls_.getAxiomByName(name);
+            if ( ! axiom ) return false;
+
+            if ( axiom.expression ) {
+              var computed = this[name];
+              return computed !== undefined && computed !== null && computed !== '';
+            }
+
+            if ( axiom.factory ) {
+              var v = this[name];
+              return Array.isArray(v) ? v.length > 0
+                                      : ( v !== undefined && v !== null );
+            }
+
+            return this.hasOwnProperty(name);
           },
 
           /**
@@ -285,44 +363,101 @@ foam.CLASS({
            * Returns true if the property is unanswered or the term matches.
            */
           function isTermConsistent(term) {
-            var val = this[term.property];
+            // Unanswered — the term could still go either way, so it rules
+            // nothing out yet.
+            if ( ! this.isAnswered_(term.property) ) return true;
 
-            // Unanswered question — term is still possible
-            if ( val === '' || val === undefined || val === null ) return true;
-
-            // Evaluate the mlang term against this object
+            // Answered — evaluate the mlang term against this object.
             return term.mlang.f(this);
           },
 
+          function isQuestionAnswered(q) {
+            return this.isAnswered_(q.name);
+          },
+
           /**
-           * Select the unanswered question with the highest information gain.
+           * Return an array of two elements [ # of remaining candidates, total number of candidates ] so that
+           * the progress can be determined.
+           */
+          function getProgress() {
+            return [ this.getCandidates().length, this.OUTCOMES.length ];
+          },
+
+          /**
+           * Select the unanswered question with the highest priority (lower number is higher) and then highest information gain.
            * Returns the question axiom, or null if no questions remain.
            */
           function selectNextQuestion() {
             var candidates = this.getCandidates();
+
             if ( candidates.length <= 1 ) return null;
 
-            var self      = this;
-            var questions = this.QUESTIONS;
-            var bestQ     = null;
-            var bestGain  = -1;
+            // console.log('************ CANDIDATES:', candidates.length);
+            // candidates.forEach(c => console.log(c.reasonCode_, ' / ', c.reasonText, ' / ', c.predicate));
 
-            for ( var i = 0 ; i < questions.length ; i++ ) {
-              var q = questions[i];
+            let self            = this;
+            let questions       = this.QUESTIONS;
+            let bestQ           = null;
+            let bestGain        = -1;
+            let highestPriority = Number.MAX_SAFE_INTEGER; // lower numbers are higher priority
+            let qMap            = {}; // Map of name -> question
+            let qs              = []; // Array of all consistent questions
 
-              // Skip answered questions
-              if ( self[q.name] !== '' && self[q.name] != undefined ) continue;
+            questions.filter(q => ! this.isQuestionAnswered(q)).map(q => {
+              self.ensureCompiled(q);
 
-              var gain = self.computeInfoGain(q, candidates);
+              // If it isn't consistent, then it can never become enabled, so we can exclude it
+              if ( ! this.isConsistent(q) ) return;
+
+              let e = {
+                name:       q.name,
+                priority:   q.priority || 100,
+                gain:       self.computeInfoGain(q, candidates),
+                q:          q,
+                enabled:    q.mlang ? q.mlang.f(this) : true
+              };
+              qs.push(e);
+              qMap[q.name] = e;
+            });
+
+            // Raise gain and lower priority of dependencies to each question
+            // TODO: a more ellegant and efficient method of updating chained dependencies
+            for ( let i = 0 ; i < 10 ; i++ ) qs.forEach(q => {
+              if ( ! q.enabled && q.gain ) {
+                q.q.terms.forEach(t => {
+                  let q2 = qMap[t.property];
+                  if ( ! q2 ) return;
+                  q2.gain = Math.max(q.gain, q2.gain);
+                  q2.priority = Math.min(q.priority-1, q2.priority);
+                });
+              }
+              });
+
+            qs = qs.filter(q => /*q.enabled &&*/ q.gain > 0);
+
+            for ( var i = 0 ; i < qs.length ; i++ ) {
+              let q        = qs[i].q;
+              let priority = qs[i].priority;
+              let gain     = qs[i].gain;
+
+              if ( priority > highestPriority ) continue;
+
+              if ( priority < highestPriority ) {
+                bestGain = -1;
+                bestQ = null;
+              }
+              // console.debug('GAIN FOR:', q, '| gain: ', gain);
 
               // Prefer higher gain, then fewer choices, then earlier declaration
-              if ( gain > bestGain ||
-                   ( gain === bestGain && bestQ &&
-                     q.choices?.length < bestQ.choices?.length ) ) {
-                bestGain = gain;
-                bestQ    = q;
+              if ( gain > bestGain || ( gain === bestGain && bestQ && q.choices?.length < bestQ.choices?.length )
+              ) {
+                bestGain        = gain;
+                bestQ           = q;
+                highestPriority = priority;
               }
             }
+
+            console.log('******* NEXT QUESTION:', bestQ?.name);
 
             // Don't ask questions with zero information gain
             return bestGain > 0 ? this.cls_.getAxiomByName(bestQ.name) : null;
@@ -342,6 +477,10 @@ foam.CLASS({
             var buckets       = {};
             var dontCareCount = 0;
 
+            // Add don't-care outcomes to every bucket
+            var total   = candidates.length;
+            var entropy = 0;
+
             // Initialize buckets for each choice
             question.choices?.forEach(function(c) {
               var value = foam.Array.isInstance(c) ? c[0] : c;
@@ -349,7 +488,7 @@ foam.CLASS({
             });
 
             // Count candidates per bucket
-            candidates.forEach((outcome) => {
+            candidates.forEach(outcome => {
               self.ensureCompiled(outcome);
 
               // Find if this outcome has a term referencing this question
@@ -360,6 +499,8 @@ foam.CLASS({
                   break;
                 }
               }
+
+              if ( term ) entropy += 0.001; // small bonus for each outcome that uses this question
 
               if ( ! term ) {
                 // Don't-care: outcome survives regardless of answer
@@ -373,23 +514,26 @@ foam.CLASS({
                 var self_ = this;
                 question.choices.forEach(function(c) {
                   var value = foam.Array.isInstance(c) ? c[0] : c;
-                  // Temporarily set the value to test the term
-                  var prev = self_[question.name];
+                  // Temporarily set the value to test the term, then leave NO
+                  // trace. Assigning the old value back is not enough: for an
+                  // unanswered question `prev` is the default ('') computed on
+                  // read, never stored, and assigning it back STORES it — so the
+                  // question would afterwards look answered-with-nothing to
+                  // isAnswered_. Clear it instead when it started unset.
+                  var wasSet = self_.hasOwnProperty(question.name);
+                  var prev   = self_[question.name];
                   self_[question.name] = value;
                   if ( term.mlang.f(self_) ) {
                     buckets[value]++;
                   }
-                  self_[question.name] = prev;
+                  if ( wasSet ) self_[question.name] = prev;
+                  else          self_.clearProperty(question.name);
                 });
               }
             });
 
-            // Add don't-care outcomes to every bucket
-            var total = candidates.length;
-            var entropy = 0;
-
             question.choices?.forEach(function(c) {
-              var value = foam.Array.isInstance(c) ? c[1] : c;
+              var value = foam.Array.isInstance(c) ? c[0] : c;
               var count = buckets[value] + dontCareCount;
               if ( count > 0 && count < total ) {
                 var p = count / total;
@@ -404,7 +548,6 @@ foam.CLASS({
                 entropy -= p * Math.log2(p);
               }
             }
-
 
             return entropy;
           },
@@ -437,8 +580,7 @@ foam.CLASS({
               var resolved = 0;
 
               outcome.terms.forEach(function(term) {
-                var val = self[term.property];
-                if ( val !== '' && val !== undefined && val !== null ) {
+                if ( self.isAnswered_(term.property) ) {
                   resolved++;
                   if ( term.mlang.f(self) ) matching++;
                 }
@@ -456,8 +598,15 @@ foam.CLASS({
               if ( b.matching !== a.matching ) return b.matching - a.matching;
               return b.specificity - a.specificity;
             });
-            // returns a list of [outcome, match percentage]
-            return scored.map(function(s) { return [s.outcome, (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0)]; });
+            return scored.map(function(s, idx) {
+              return self.RankedOutcome.create({
+                label: self.outcomeFormatter(s.outcome) || ('Option ' + (idx + 1)),
+                outcome: s.outcome,
+                score: (s.specificity > 0 ? (s.matching / s.specificity) * 100 : 0),
+                matching: s.matching,
+                specificity: s.specificity
+              });
+            });
           }
         ]
       };

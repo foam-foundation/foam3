@@ -70,5 +70,26 @@ foam.CLASS({
       name: 'failures',
       class: 'List'
     }
+  ],
+
+  methods: [
+    {
+      name: 'advancedFrom',
+      args: 'foam.core.test.TestRun prior',
+      type: 'Boolean',
+      documentation: `
+        Whether this run has reported more work than prior did. A null prior counts
+        as advanced so a watcher's first observation starts its idle clock instead of
+        expiring it. Lets the watcher separate a run that is still reporting results
+        from one that has stalled without knowing which counters mean progress.
+      `,
+      javaCode: `
+        if ( prior == null ) return true;
+        return getCases()  != prior.getCases()  ||
+               getTests()  != prior.getTests()  ||
+               getPassed() != prior.getPassed() ||
+               getFailed() != prior.getFailed();
+      `
+    }
   ]
 });

@@ -37,15 +37,57 @@ foam.CLASS({
 
         return m;
       }
+    },
+    {
+      class: 'Map',
+      name: 'reactionErrors_',
+      generateJava: false,
+      searchable: false,
+      hidden: true,
+      transient: true
+    },
+    {
+      class: 'String',
+      name: 'reactionError_',
+      generateJava: false,
+      searchable: false,
+      hidden: true,
+      transient: true
     }
   ],
 
   methods: [
+    function reportReactionError(name, error) {
+      if ( this.reactionErrors_[name] === error ) return;
+
+      this.reactionErrors_[name] = error;
+      this.pub('propertyChange', 'reactionErrors_', this.reactionErrors_);
+      this.pub('reactiveError', name, error);
+      this.reactionError_ = this.updateReactionError();
+    },
+
+    function clearReactionError(name) {
+      if ( ! this.reactionErrors_[name] ) return;
+
+      delete this.reactionErrors_[name];
+      this.pub('propertyChange', 'reactionErrors_', this.reactionErrors_);
+      this.pub('reactiveError', name, '');
+      this.reactionError_ = this.updateReactionError();
+    },
+
+    function updateReactionError() {
+      let a = Object.keys(this.reactionErrors_);
+      if ( a == 0 ) return '';
+      if ( 1 == 1 ) return `Formula error in '${a[0]}': ${this.reactionErrors_[a[0]]}`;
+      return 'Formula errors';
+    },
+
     function addReaction(name, formula) {
       // TODO: stop any previous reaction
       this.reactions_[name] = formula;
       this.startReaction_(name, formula);
     },
+
     function startReaction_(name, formula) {
       /**
        * Starts a reactive formula evaluation that re-runs whenever dependencies change.
@@ -65,7 +107,12 @@ foam.CLASS({
         with ( this.__context__.scope ) {
           // Create function - can be sync or return a Promise
           // The timer will handle both cases by checking if result is a Promise
-          f = eval('(function() { return ' + formula + '})');
+          try {
+            f = eval('(function() { return ' + formula + '})');
+            self.clearReactionError(name);
+          } catch (x) {
+            self.reportReactionError(name, x.message);
+          }
         }
         f.toString = function() { return formula; };
 
@@ -75,8 +122,20 @@ foam.CLASS({
           if ( detached ) return;
           if ( self.reactions_[name] !== f ) return;
           // Await handles both Promises and non-Promises
-          self[name] = await f.call(self);
-          self.__context__.requestAnimationFrame(timer);
+          try {
+            self[name] = await f.call(self);
+            self.clearReactionError(name);
+          } catch (x) {
+            self.reportReactionError(name, x.message);
+          }
+
+          /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+          /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+          ///                                                                                    TODO: Listen for changes, don't animate!!!!!
+          /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+          /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+          self.__context__.setTimeout(timer, 1000); // at least make less frequent for now
+//          self.__context__.requestAnimationFrame(timer);
         };
 
         this.reactions_[name] = f;
@@ -93,6 +152,8 @@ foam.CLASS({
   extends: 'foam.u2.PropertyBorder',
 
   imports: [ 'scope' ],
+
+  exports: [ 'error' ],
 
   css: `
     ^{
@@ -190,6 +251,10 @@ foam.CLASS({
       postSet: function(_, f) {
         if ( f ) this.setFormula(f);
       }
+    },
+    {
+      class: 'String',
+      name: 'error'
     }
   ],
 
@@ -298,12 +363,18 @@ foam.CLASS({
         add(
           self.dynamic(function(reactive) {
             if ( reactive ) {
+              let error = foam.lang.SimpleSlot.create({value: self.data.reactions_[self.prop.name]?.error || ''});
+              self.data.sub('reactiveError', self.prop.name, function(_, __, ___, err) { error.set(err); });
               this.start().
                 start(self.FORMULA, {data$: self.formula$}).
                   addClass(self.myClass('formulaInput')).
                   on('blur', function() { self.reactive = !! self.formula; }).
                   focus().
-                end().add(self.data.slot(self.prop.name)).
+                end().add(self.data.slot(self.prop.name), ' ').
+                start('span').
+                  style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+                  add(error).
+                end().
               end();
             } else {
               this.add(viewSlot);
@@ -401,9 +472,10 @@ foam.CLASS({
 
   css:`
     ^actionDiv {
-      display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
       gap: 8px;
+      justify-content: start;
+      display: flex;
     }
     ^ {
       padding: 8px 0;

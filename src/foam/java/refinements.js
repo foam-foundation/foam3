@@ -8,7 +8,7 @@
  * To debug in browser, load with ?java=true flag, then run something like:
  *   c = foam.java.Class.create();
  *   foam.core.auth.Region.buildJavaClass(c);
- *   c.toString();
+ *   c.toJavaSource();
  * from the console.
 **/
 
@@ -206,6 +206,12 @@ foam.CLASS({
       }
     },
     {
+      name: 'javaFieldType',
+      factory: function() {
+        return this.javaType
+      }
+    },
+    {
       class: 'String',
       name: 'javaJSONParser',
       // Set to the String literal 'null' if no JSONParser desired
@@ -348,6 +354,24 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       class: 'String',
       name: 'javaFormatJSON',
       value: null
+    },
+    {
+      class: 'String',
+      name: 'javaObjToJSON',
+      documentation: `Body of PropertyInfo.objToJSON, the Outputter counterpart
+        of javaFormatJSON. Both are handed the object rather than a value, so a
+        property can serialize itself without the caller materializing it.`,
+      value: null
+    },
+    {
+      class: 'String',
+      name: 'javaInnerGetter',
+      factory: function() { return `return ${this.name}_;`; }
+    },
+    {
+      class: 'String',
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = val;`; }
     }
   ],
 
@@ -420,7 +444,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
         setter += `${this.javaType} oldVal = ${this.name}_;\n`;
       }
-      setter += `${this.name}_ = val;\n`;
+      setter += this.javaInnerSetter + '\n';
       setter += `${this.name}IsSet_ = true;\n`;
 
       // add post-set function
@@ -450,7 +474,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       cls.
         field({
           name: privateName,
-          type: this.javaType,
+          type: this.javaFieldType,
           visibility: 'protected'
         }).
         field({
@@ -468,9 +492,8 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           body: this.javaGetter || ('if ( ! ' + isSet + ' ) {\n' +
             ( this.javaFactory ?
                 '  set' + capitalized + '(' + factoryName + '());\n' :
-                ' return ' + this.javaValue + ';\n' ) +
-            '}\n' +
-            'return ' + privateName + ';')
+                ' return ' + this.javaValue + ';\n' ) + '}\n' + this.javaInnerGetter )
+
         }).
         method({
           name: 'set' + capitalized,
@@ -531,7 +554,7 @@ ${isSet} = false;`
       }
 
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + constantize);
+      if ( info ) info.addAxiom(/*cls.name + '.' + */constantize);
     }
   ]
 });
@@ -1019,7 +1042,7 @@ public Object call(foam.lang.X x, Object receiver, Object[] args) {
       });
 
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + methodInfoName);
+      if ( info ) info.addAxiom(/*cls.name + '.' +*/ methodInfoName);
 
     },
     function isStatic() {
@@ -1433,6 +1456,19 @@ foam.CLASS({
         ],
         body: `return ${this.of.id}.forOrdinal(ordinal);`
       });
+      info.method({
+        name: 'forValue',
+        visibility: 'public',
+        type: this.of.id,
+        args: [
+          {
+            name: 'value',
+            type: 'String'
+          }
+        ],
+        body: `return ${this.of.id}.forValue(value);`
+      });
+
 
       info.method({
         name: 'forLabel',
@@ -1456,15 +1492,71 @@ foam.CLASS({
           { type: 'foam.lib.json.Outputter', name: 'outputter' },
           { type: 'Object',                  name: 'value' }
         ],
-        body: `outputter.output(getOrdinal(value));`
+        body: `
+        if ( value == null ) { outputter.output(null); return; }
+        ${this.of.id} e = (${this.of.id}) value;
+        String v = e.getValue();
+        if ( v != null && v.length() > 0 ) outputter.output(v);
+        else outputter.output(e.getOrdinal());
+        `
       });
 
       var cast = info.getMethod('cast');
       cast.body = `if ( o instanceof Integer ) return forOrdinal((int) o);
-  if ( o instanceof String ) return Enum.valueOf(${this.of.id}.class, (String) o);
+  if ( o instanceof String ) {
+    ${this.of.id} ret = forValue((String) o);
+    if ( ret == null ) ret = Enum.valueOf(${this.of.id}.class, (String) o);
+    return ret;
+  }
   return (${this.of.id})o;`;
 
       return info;
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'ChoiceValidatorJavaRefinement',
+  refines: 'foam.lang.ChoiceValidator',
+
+  properties: [
+    [ 'javaInfoType', 'foam.lang.AbstractObjectPropertyInfo' ],
+    {
+      class: 'String',
+      name: 'javaValidateObj',
+      expression: function(choiceProperties, minOccurs, maxOccurs) {
+        if ( ! choiceProperties || choiceProperties.length === 0 ) return '';
+
+        var propChecks = choiceProperties.map(function(propName) {
+          return '    if ( ((foam.lang.PropertyInfo) classInfo.getAxiomByName("' + propName + '")).isSet(obj) ) setCount++;';
+        }).join('\n');
+
+        var minCheck = '';
+        if ( minOccurs > 0 ) {
+          minCheck = `
+            if ( setCount < ${minOccurs} ) {
+              throw new IllegalStateException(
+                "Choice constraint violated: at least ${minOccurs} of [${choiceProperties.join(', ')}] must be set, but only " + setCount + " found.");
+            }`;
+        }
+
+        var maxCheck = '';
+        if ( maxOccurs !== -1 ) {
+          maxCheck = `
+            if ( setCount > ${maxOccurs} ) {
+              throw new IllegalStateException(
+                "Choice constraint violated: at most ${maxOccurs} of [${choiceProperties.join(', ')}] may be set, but " + setCount + " found.");
+            }`;
+        }
+
+        return `
+          foam.lang.ClassInfo classInfo = obj.getClassInfo();
+          int setCount = 0;
+          ${propChecks}
+          ${minCheck}${maxCheck}`;
+      }
     }
   ]
 });
@@ -1588,6 +1680,22 @@ ${this.VALUES.map(v => `\tcase ${nameLabel(v)} -> ${cls.name}.${v.name};`).join(
 };`
           });
 
+          cls.method({
+            name: 'forValue',
+            type: cls.name,
+            visibility: 'public',
+            static: true,
+            args: [{ name: 'value', type: 'String' }],
+            body: `
+              switch (value) {
+              ${this.VALUES
+                .filter(v => v.value !== undefined && v.value !== null && v.value !== '')
+                .map(v => `  case ${foam.java.asJavaValue(v.value)}: return ${cls.name}.${v.name};`)
+                .join('\n')}
+                default: return null;
+              }`
+          });
+
           return cls;
         };
       }
@@ -1605,6 +1713,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1614,6 +1723,7 @@ foam.CLASS({
   methods: [
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
+
       var m = info.getMethod('cast');
       m.body = `
         try {
@@ -1626,7 +1736,8 @@ foam.CLASS({
           return (java.util.Date) o;
         } catch ( Throwable t ) {
           throw new RuntimeException(t);
-        }`;
+        }
+      `;
 
       return info;
     }
@@ -1643,29 +1754,77 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
     ['javaAdapt',
      `
-      // convert the Date to be noon in GMT
-      val = val != null ? new java.util.Date(val.getTime() / 86400000l * 86400000l + 43200000l) : null;
+      if ( val != null ) {
+        // convert the Date to be noon in GMT
+        long time = val.getTime();
+        // floorDiv, not a truncating divide: dates before 1970 have a negative
+        // time and truncation would land them on the next day's noon
+        long noon = Math.floorDiv(time, 86400000l) * 86400000l + 43200000l;
+
+        // Convert to Noon if not already at Noon
+        if ( time != noon ) {
+          val = new java.util.Date(noon);
+        }
+      }
      `
-    ]
+    ],
+    ['javaFormatJSON', `
+      if ( isSet(obj) && ! foam.util.DateUtil.isNullDateLong(get__(obj)) ) {
+        formatter.output(get__(obj));
+        return;
+      }
+      formatter.output(get_(obj))
+    `],
+    ['javaObjToJSON', `
+      if ( ! isSet(obj) ) {
+        toJSON(outputter, get(obj));
+        return;
+      }
+      long millis = get__(obj);
+      if ( foam.util.DateUtil.isNullDateLong(millis) ) {
+        outputter.output(null);
+        return;
+      }
+      outputter.outputDateValue(millis)
+    `],
+    {
+      name: 'javaInnerGetter',
+      factory: function() { return `return foam.util.DateUtil.longToNullableDate(${this.name}_);`; }
+    },
+    {
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = foam.util.DateUtil.nullableDateToLong(val);`; }
+    },
   ],
 
-   methods: [
-     function createJavaPropertyInfo_(cls) {
-       var info = this.SUPER(cls);
-       // TODO: cast isn't called on setter
-       var m = info.getMethod('cast');
-       m.body = `
-         return foam.util.DateUtil.adapt(o);
-       `;
+  methods: [
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
 
-       return info;
-     }
-   ]
+      info.method({
+        name: 'get__',
+        type: 'long',
+        visibility: 'public',
+        args: [{ name: 'o', type: 'Object' }],
+        body: 'return ((' + cls.id + ') o).' + this.name + '_;'
+      });
+
+      // TODO: cast isn't called on setter
+      var m = info.getMethod('cast');
+      m.body = `
+        return foam.util.DateUtil.adapt(o);
+      `;
+
+
+      return info;
+    }
+  ]
 });
 
 
@@ -2296,6 +2455,18 @@ foam.CLASS({
         args: [ { name: 'x', type: 'foam.lang.X' } ],
         body: `return (${this.of.id})((foam.dao.DAO) x.get("${this.unauthorizedTargetDAOKey || this.targetDAOKey}")).find_(x, (Object) get${foam.String.capitalize(this.name)}());`
       });
+    },
+
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+      info.implements = (info.implements || []).concat('foam.lang.ReferencePropertyInfo');
+      info.method({
+        name: 'getTargetDAOKey',
+        visibility: 'public',
+        type: 'String',
+        body: `return "${this.targetDAOKey}";`
+      });
+      return info;
     }
   ]
 });
@@ -2316,14 +2487,14 @@ foam.CLASS({
       name: 'javaInfoName',
       expression: function(javaName) {
         return foam.String.constantize(this.javaName);
-      },
-    },
+      }
+    }
   ],
 
   methods: [
     function buildJavaClass(cls) {
       var info = cls.getField('classInfo_');
-      if ( info ) info.addAxiom(cls.name + '.' + this.javaInfoName);
+      if ( info ) info.addAxiom(/*cls.name + '.' +*/ this.javaInfoName);
 
       cls.field({
         name: this.javaInfoName,
@@ -2366,6 +2537,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.java',
@@ -2886,7 +3058,7 @@ foam.CLASS({
           var numericCode = Long.parseLong(val);
           foam.lang.X x = foam.lang.XLocator.get();
           var curr = (foam.lang.Currency) ((foam.dao.DAO) x.get("currencyDAO"))
-            .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, val));
+            .find(foam.mlang.MLang.EQ(foam.lang.Currency.NUMERIC_CODE, numericCode));
           if ( curr != null )
             val = curr.getId();
           else
@@ -2894,5 +3066,17 @@ foam.CLASS({
         } catch (NumberFormatException e) { /* assume string id */ }
       `
     }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'GlyphPropertyJavaRefinement',
+  refines: 'foam.lang.GlyphProperty',
+  flags: [ 'java' ],
+  javaImports: [ 'foam.lang.Glyph' ],
+
+  properties: [
+    [ 'javaJSONParser', 'foam.lib.json.GlyphPropertyParser.instance()' ],
   ]
 });

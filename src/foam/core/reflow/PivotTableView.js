@@ -34,7 +34,7 @@ foam.CLASS({
     }
     /* Base table styling */
     ^table {
-      // Needed as otherwise there is jitter during scrolling with sticky rows 
+      // Needed as otherwise there is jitter during scrolling with sticky rows
       border-collapse: separate;
       border-spacing: 0;
     }
@@ -58,13 +58,13 @@ foam.CLASS({
       font-weight: bold;
       text-wrap-mode: nowrap;
     }
-      
+
     ^td:hover {
       font-weight: $font-medium;
       background: $highlightCell;
       color: $highlightCell$foreground;
     }
-    
+
     ^highlighted-col {
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
@@ -87,7 +87,7 @@ foam.CLASS({
     }
 
     ^sticky-headers tr:first-child th:first-child {
-      z-index: 100; 
+      z-index: 100;
     }
   `,
 
@@ -96,8 +96,8 @@ foam.CLASS({
     { name: 'currentHoverRow' },
     { name: 'colIndexMap', documentation: 'flattened list of cols' },
     { class: 'Boolean', name: 'renderComplete' },
-    { class: 'Array', name: 'rowHeightCache' },
-    { class: 'Array', name: 'colWidthCache' },
+    { class: 'Array',   name: 'rowHeightCache' },
+    { class: 'Array',   name: 'colWidthCache' },
     'table'
   ],
 
@@ -106,10 +106,11 @@ foam.CLASS({
       this.colIndexMap = [];
       var rowDepth = this.data.yFunc.length;
       var colDepth = this.data.xFunc.length;
-      // get rows/cols as simple nested dictionary instead of groupbys
+      // get rows/cols as simple nested dictionaries (trees) instead of groupbys
       var rowsDict = this.makeDictionary(this.data.rows);
       // get cols from rows only returns the cols which actually have corresponding row data instead of using data cols
       var colsDict = colDepth > 0 ? this.getColsFromRows(this.data.rows, 0, {}, rowDepth, this.data.cols) : null;
+
       this
         .addClass(this.myClass('tableWrapper'))
         .enableClass(this.myClass('sticky-headers'), this.data$.dot('stickyHeaders'))
@@ -118,12 +119,15 @@ foam.CLASS({
           this.clearProperty('colWidthCache');
           this.applyOffsets();
         });
+
       var table = this.start('table', {}, this.table$).addClass(this.myClass('table'));
       this.renderColHeaders(table, colsDict, [], 0, rowDepth, colDepth);
-      if ( ! this.data.rows ) 
+
+      if ( ! this.data.rows )
         this.renderColVals(table, colsDict, colDepth);
       else
         this.renderRows(table, rowsDict, 0, rowDepth, colDepth);
+
       table.end();
       this.renderComplete = true;
       this.applyOffsets();
@@ -135,12 +139,13 @@ foam.CLASS({
      * @param {*} cols - nested map of column headers
      * @param {*} rows - array of table rows, initial value = []
      * @param {*} keyPrefix - used for cell highlighting
-     * @returns 
+     * @returns
      */
     function renderColHeaders(table, cols, rows, depth, rowDepth, colDepth, keyPrefix) {
       if ( ! cols ) return;
       if ( ! keyPrefix ) keyPrefix = '';
       var row;
+
       if ( rows.length < depth + 1 ) {
         row = table.start('tr').addClass(this.myClass('tr')).attrs({'data-type': 'header-row'});
         if ( depth == 0 && rowDepth && colDepth ) row
@@ -151,27 +156,33 @@ foam.CLASS({
           .end();
         rows.push(row);
       }
+
       row = rows[depth];
-      var keys = Object.keys(cols).sort();
+      var keys        = Object.keys(cols).sort();
       var hasChildren = keys.some(c => cols[c] instanceof Object && Object.keys(cols[c]).length);
-      var colSpans = [];
+      var colSpans    = [];
+
       if ( hasChildren ) {
         keys.forEach(c => {
-          var childKeysSpan = 
-            this.renderColHeaders(table, cols[c], rows, depth + 1, rowDepth, colDepth, keyPrefix + c);
+          var childKeysSpan =
+            this.renderColHeaders(table, cols[c], rows, depth + 1, rowDepth, colDepth, keyPrefix + '/' + c);
           colSpans.push(childKeysSpan);
         });
       }
+
       let vCol = rowDepth + 0;
-      for ( var i = 0; i < keys.length; i++ ) {
-        var colSpan = hasChildren ? colSpans[i] : 1;
-        const key = keyPrefix + keys[i];
+
+      for ( var i = 0 ; i < keys.length ; i++ ) {
+        const colSpan = hasChildren ? colSpans[i] : 1;
+        const key     = keyPrefix + '/' + keys[i];
         this.renderCell(rows[depth], 'th', { 'colspan' : colSpan, 'data-type': 'headers', 'data-vcol': vCol, 'data-vrow': depth }, keys[i], key, null);
         vCol = vCol + colSpan;
         if ( depth == colDepth - 1 ) this.colIndexMap.push(key);
       }
+
       if ( depth === 0 ) rows.forEach(r => r.end());
-      return hasChildren ? 
+
+      return hasChildren ?
         colSpans.reduce((x,y) => x + y, 0) :
         keys.length;
     },
@@ -185,15 +196,17 @@ foam.CLASS({
      */
     function renderRows(table, rows, currDepth, rowDepth, colDepth, prefix = '') {
       var rowKeys = Object.keys(rows);
-      if ( currDepth == rowDepth ) {
+
+      if ( currDepth == rowDepth )
         return 1;
-      }
-      var rowSpans = [];
-      var retData = { rowSpan: 1, row: null };
-      let vRow = rowDepth;
-      let vCol = currDepth;
-      for ( var i = 0; i < rowKeys.length; i++ ) {
-        const key = prefix + rowKeys[i];
+
+      let rowSpans = [];
+      let retData  = { rowSpan: 1, row: null };
+      let vRow     = rowDepth;
+      let vCol     = currDepth;
+
+      for ( var i = 0 ; i < rowKeys.length ; i++ ) {
+        const key = prefix + '/' + rowKeys[i];
         // rendering header cell with children
         if ( currDepth < rowDepth - 1 ) {
           var ret = this.renderRows(table, rows[rowKeys[i]], currDepth + 1, rowDepth, colDepth, key);
@@ -204,7 +217,9 @@ foam.CLASS({
               .add(rowKeys[i])
               .on('mouseover', () => this.onCellMouseOver(null, key))
               .on('mouseleave', () => this.onCellMouseLeave())
-              .enableClass(this.myClass('highlighted-row'), this.slot((currentHoverRow) => currentHoverRow === key || key.startsWith(currentHoverRow) || currentHoverRow?.startsWith(key) ));
+              .enableClass(this.myClass('highlighted-row'), this.slot(currentHoverRow => {
+                return this.isPrefix(key, currentHoverRow) || this.isPrefix(currentHoverRow, key);
+              } ));
             ret.row.insertBefore(el, ret.row.children[0]);
             if ( i == 0 ) retData.row = ret.row;
           }
@@ -216,7 +231,7 @@ foam.CLASS({
           this.renderCell(row, 'th', { 'data-vcol': vCol, 'data-vrow': vRow }, rowKeys[i], null, key);
           if ( this.colIndexMap?.length ) {
             // case: table has columns
-            // get flattened map of column keys and values 
+            // get flattened map of column keys and values
             var map = this.flattenMap(rows[rowKeys[i]], colDepth);
             row.forEach(this.colIndexMap, col => {
               const c = col;
@@ -230,7 +245,7 @@ foam.CLASS({
           if ( i == 0 ) retData.row = row;
           rowSpans.push(1);
           vRow++;
-        } 
+        }
       }
       retData.rowSpan = rowSpans.reduce((x, y) => x + y, 0);
       return retData;
@@ -250,6 +265,12 @@ foam.CLASS({
       row.end();
     },
 
+    function isPrefix(key, prefix) {
+      if ( ! prefix || ! key ) return false;
+      if ( prefix === key ) return true;
+      return key.startsWith(prefix + '/');
+    },
+
     // render cell helper method
     function renderCell(parentEl, cellType, attrs, val, mouseOverKeyCol, mouseOverKeyRow) {
       parentEl.start(cellType)
@@ -258,14 +279,12 @@ foam.CLASS({
         .on('mouseover', () => this.onCellMouseOver(mouseOverKeyCol, mouseOverKeyRow))
         .on('mouseleave', () => this.onCellMouseLeave())
         .enableClass(this.myClass('highlighted-col'),
-          this.slot((currentHoverCol, currentHoverRow) =>
-            currentHoverCol === mouseOverKeyCol || 
-            currentHoverCol?.startsWith(mouseOverKeyCol) || 
-            mouseOverKeyCol?.startsWith(currentHoverCol) ||
-            currentHoverRow === mouseOverKeyRow || 
-            currentHoverRow?.startsWith(mouseOverKeyRow) || 
-            mouseOverKeyRow?.startsWith(currentHoverRow)
-          ))
+          this.slot((currentHoverCol, currentHoverRow) => {
+            return              this.isPrefix(currentHoverCol, mouseOverKeyCol) ||
+              this.isPrefix(mouseOverKeyCol, currentHoverCol) ||
+              this.isPrefix(currentHoverRow, mouseOverKeyRow) ||
+              this.isPrefix(mouseOverKeyRow, currentHoverRow);
+          }))
         .add(val)
       .end();
     },
@@ -297,6 +316,7 @@ foam.CLASS({
       }
       return cols;
     },
+
     function addToColsHelper(ret, toMerge) {
       if ( ! this.GroupBy.isInstance(toMerge) ) return;
       var keys = toMerge.sortedKeys();
@@ -316,9 +336,9 @@ foam.CLASS({
       for (var key in obj) {
         var val = obj[key];
         if ( colDepth > 1 && typeof val === 'object' && val !== null ) {
-          Object.assign(map, this.flattenMap(val, colDepth - 1, prefix + key));
+          Object.assign(map, this.flattenMap(val, colDepth - 1, prefix + '/' + key));
         } else {
-          map[prefix + key] = val;
+          map[prefix + '/' + key] = val;
         }
       }
       return map;
@@ -329,11 +349,13 @@ foam.CLASS({
       if ( col ) this.currentHoverCol = col;
       if ( row ) this.currentHoverRow = row;
     },
+
     function onCellMouseLeave() {
       this.currentHoverCol = undefined;
       this.currentHoverRow = undefined;
     }
   ],
+
   listeners: [
     {
       name: 'applyOffsets',
@@ -358,9 +380,9 @@ foam.CLASS({
         const rows = table.rows;
         let firstNonHeaderRow = Array.from(rows).find(r => r.dataset.type !== 'header-row')
 
-        const rowHeights = this.rowHeightCache.length ? 
-                           this.rowHeightCache : 
-                           Array.from(rows).map(row => row.getBoundingClientRect().height);
+        const rowHeights = this.rowHeightCache.length ?
+              this.rowHeightCache :
+              Array.from(rows).map(row => row.getBoundingClientRect().height);
 
         // We only check the first row's cells to get the base widths
         const colWidths = this.colWidthCache || [];
@@ -381,7 +403,7 @@ foam.CLASS({
 
           // Summing offsets using slice/reduce (very fast for table scales)
           const leftOffset = colWidths.slice(0, vCol).reduce((a, b) => a + b, 0);
-          const topOffset = rowHeights.slice(0, vRow).reduce((a, b) => a + b, 0);
+          const topOffset  = rowHeights.slice(0, vRow).reduce((a, b) => a + b, 0);
 
           // Vertical Stickiness (Header)
           if (th.closest('tr[data-type="header-row"]')) {

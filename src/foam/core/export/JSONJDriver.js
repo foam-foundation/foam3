@@ -23,7 +23,7 @@ foam.CLASS({
           formatDatesAsNumbers: true,
           outputDefaultValues: false,
           useShortNames: false,
-          useTemplateLiterals: true,
+          multiLineOutput: true,
           propertyPredicate: function(o, p) { return ! p.storageTransient; }
         };
        },

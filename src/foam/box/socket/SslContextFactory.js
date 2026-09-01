@@ -9,6 +9,10 @@ foam.CLASS({
   name: 'SslContextFactory',
   documentation: 'create SSL context from resource',
 
+  implements: [
+    'foam.core.security.KeyStoreAware'
+  ],
+
   javaImports: [
     'foam.lang.X',
     'foam.core.logger.PrefixLogger',
@@ -34,6 +38,10 @@ foam.CLASS({
       class: 'String',
       name: 'protocol',
       value: 'SSL'
+    },
+    {
+      class: 'String',
+      name: 'keyStoreDir'
     },
     {
       class: 'String',
@@ -79,6 +87,10 @@ foam.CLASS({
       javaType: 'KeyManager[]',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'storePath',
           type: 'String'
         },
@@ -93,8 +105,8 @@ foam.CLASS({
         KeyStore keyStore = null;
 
         try {
-          keyStore = getKeystore(storePath, storePass);
-          factory = KeyManagerFactory.getInstance("SunX509");
+          keyStore = getKeystore(x, storePath, storePass);
+          factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
           factory.init(keyStore, storePass == null ? null : storePass.toCharArray());
         } catch ( UnrecoverableKeyException e ) {
           getLogger().error(e);
@@ -115,6 +127,10 @@ foam.CLASS({
       javaType: 'TrustManager[]',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'storePath',
           type: 'String'
         },
@@ -129,8 +145,8 @@ foam.CLASS({
         KeyStore keyStore = null;
 
         try {
-          keyStore = getKeystore(storePath, storePass);
-          factory = TrustManagerFactory.getInstance("SunX509");
+          keyStore = getKeystore(x, storePath, storePass);
+          factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
           factory.init(keyStore);
         } catch ( KeyStoreException e ) {
           getLogger().error(e);
@@ -148,6 +164,10 @@ foam.CLASS({
       javaType: 'KeyStore',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'storePath',
           type: 'String'
         },
@@ -159,14 +179,18 @@ foam.CLASS({
       javaCode: `
         KeyStore keyStore = null;
         try {
-          InputStream is = getX().get(foam.core.fs.Storage.class).getInputStream(storePath);
-          if ( is == null ) {
-            throw new IOException("Failed opening inputstream "+storePath);
-          }
+          if ( ! foam.util.SafetyUtil.isEmpty(getVault()) ) {
+            keyStore = resolveKeyStore(x, storePath, getStoreType(), storePass);
+          } else {
+            InputStream is = getStorage().getInputStream(storePath);
+            if ( is == null ) {
+              throw new IOException("Failed opening inputstream "+storePath);
+            }
 
-          keyStore = KeyStore.getInstance(getStoreType());
-          keyStore.load(is, storePass == null ? null : storePass.toCharArray());
-          is.close();
+            keyStore = KeyStore.getInstance(getStoreType());
+            keyStore.load(is, storePass == null ? null : storePass.toCharArray());
+            is.close();
+          }
         } catch ( KeyStoreException e ) {
           getLogger().error(e);
           throw new RuntimeException(e);
@@ -182,6 +206,9 @@ foam.CLASS({
         } catch ( IOException e ) {
           getLogger().error(e);
           throw new RuntimeException(e);
+        } catch ( Exception e ) {
+          getLogger().error(e);
+          throw new RuntimeException(e);
         }
         return keyStore;
       `
@@ -189,14 +216,20 @@ foam.CLASS({
     {
       name: 'getSSLContext',
       javaType: 'SSLContext',
+      args: [
+        {
+          name: 'x',
+          type: 'Context'
+        }
+      ],
       javaCode: `
         // getLogger().debug("getSSLContext");
         SSLContext sslContext = null;
         try {
           sslContext = SSLContext.getInstance(getProtocol());
           sslContext.init(
-            getKeyManagers(getKeyStorePath(), getKeyStorePass()),
-            getTrustManagers(getTrustStorePath(), getTrustStorePass()),
+            getKeyManagers(x, getKeyStorePath(), resolveSecret(x, getKeyStorePass())),
+            getTrustManagers(x, getTrustStorePath(), resolveSecret(x, getTrustStorePass())),
             null
           );
         } catch ( NoSuchAlgorithmException e ) {
@@ -214,6 +247,10 @@ foam.CLASS({
       javaType: 'SSLContext',
       args: [
         {
+          name: 'x',
+          type: 'Context'
+        },
+        {
           name: 'keyAlias',
           type: 'String'
         }
@@ -221,7 +258,7 @@ foam.CLASS({
       javaCode: `
         SSLContext sslContext = null;
         try {
-          KeyManager[] keyManagers = getKeyManagers(getKeyStorePath(), getKeyStorePass());
+          KeyManager[] keyManagers = getKeyManagers(x, getKeyStorePath(), resolveSecret(x, getKeyStorePass()));
           if ( keyManagers == null || keyManagers.length < 1 ) return sslContext;
 
           sslContext = SSLContext.getInstance(getProtocol());
@@ -263,7 +300,7 @@ foam.CLASS({
                 return k;
               }
             }).toArray(KeyManager[]::new),
-            getTrustManagers(getTrustStorePath(), getTrustStorePass()),
+            getTrustManagers(x, getTrustStorePath(), resolveSecret(x, getTrustStorePass())),
               null);
 
         } catch ( NoSuchAlgorithmException e ) {
@@ -275,6 +312,24 @@ foam.CLASS({
         }
         return sslContext;
       `
+    },
+    {
+      name: 'getStorage',
+      type: 'foam.core.fs.Storage',
+      javaCode: `
+        if ( storage_ == null ) {
+          if ( ! foam.util.SafetyUtil.isEmpty(getKeyStoreDir()) ) {
+            storage_ = new foam.core.fs.FileSystemStorage(getKeyStoreDir());
+          } else {
+            storage_ = getX().get(foam.core.fs.Storage.class);
+          }
+        }
+        return storage_;
+      `
     }
   ],
+
+  javaCode: `
+    protected foam.core.fs.Storage storage_;
+  `
 });

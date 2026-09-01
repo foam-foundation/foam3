@@ -170,7 +170,7 @@ foam.CLASS({
               this.start('h4').
                 add(plural + ' inherited from ').
                 tag(self.ClassLink, { data: id });
-            },
+            }
           }).
           end();
       });

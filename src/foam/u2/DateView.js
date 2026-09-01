@@ -58,7 +58,6 @@ foam.CLASS({
       var slot    = this.attrSlot(); //null, this.onKey ? 'input' : null);
 
       function updateSlot() {
-        if ( focused ) return;
         var date = self.data;
         if ( foam.Number.isInstance(date) ) date = new Date(date);
         if ( ! date ) {
@@ -69,6 +68,7 @@ foam.CLASS({
       }
 
       function updateData() {
+        if ( focused ) return;
         var value = slot.get();
 
         var date;
@@ -85,7 +85,7 @@ foam.CLASS({
       if ( this.onKey ) {
         var focused = false;
         this.on('focus', () => { focused = true; });
-        this.on('blur',  () => { focused = false; });
+        this.on('blur',  () => { focused = false; updateData(); });
         this.on('change', updateData);
       } else {
         this.on('blur', updateData);

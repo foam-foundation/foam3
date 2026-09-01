@@ -8,9 +8,11 @@ foam.CLASS({
   package: 'foam.swift.parse.json',
   name: 'StringParser',
   implements: ['foam.swift.parse.parser.Parser'],
+
   axioms: [
     foam.pattern.Singleton.create()
   ],
+
   methods: [
     {
       name: 'parse',

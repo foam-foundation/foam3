@@ -637,6 +637,12 @@ foam.LIB({
 
       return a.toUpperCase().startsWith(b.toUpperCase());
     },
+    function normalize(str) {
+      return str.
+        normalize("NFD").       // match Java behaviour
+        replace(/\p{C}/gu,"").  // remove non-printable
+        replace(/\p{M}/gu,"");  // remove accents/diacritics
+    },
     (function() {
       var map = {};
 
@@ -979,10 +985,10 @@ foam.LIB({
       if ( typeof date === 'number' ) date = new Date(date);
       if ( ! ( date instanceof Date ) ) return '';
 
-      var formattedDate = date.toLocaleDateString(foam.locale, { year: 'numeric', month: 'short', day: '2-digit' });
+      var formattedDate = date.toLocaleDateString(foam.util.getClientLocale(), { year: 'numeric', month: 'short', day: '2-digit' });
       if ( arguments.length == 1 ) return formattedDate;
 
-      var formattedTime = date.toLocaleTimeString(foam.locale, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      var formattedTime = date.toLocaleTimeString(foam.util.getClientLocale(), { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
       return ( timeFirst ? formattedTime + ' ' : '' )
             + formattedDate
             + ( ! timeFirst ? ' ' + formattedTime : '' );
@@ -1159,6 +1165,21 @@ foam.LIB({
       function diff(a, b)    {
         var t = typeOf(a);
         return t.diff ? t.diff(a, b) : undefined;
+      },
+      function getClientLocale() {
+        if ( typeof Intl !== 'undefined' && Intl.DateTimeFormat ) {
+          var locale = Intl.DateTimeFormat().resolvedOptions().locale;
+          if ( locale ) return locale;
+        }
+
+        if ( typeof navigator !== 'undefined' ) {
+          if ( navigator.languages && navigator.languages.length ) {
+            return navigator.languages;
+          }
+          if ( navigator.language ) return navigator.language;
+        }
+
+        return foam.locale || 'en';
       },
       function flagFilter(flags) {
         return function(a) {
@@ -1358,7 +1379,7 @@ foam.LIB({
       let tokensToFind = text.match(tokenPattern);
       if ( ! tokensToFind?.length ) return text;
       for ( var i = 0 ; i < tokensToFind.length ; i++ ) {
-        let sanitizedToken = opt_tokenPattern ? tokensToFind[i].match(/\$[^\*\s]*/)[0] : tokensToFind[i] //if using a non-standard token pattern
+        let sanitizedToken = tokensToFind[i].match(/\$[^\*\s]*/)[0] //"$token !important" matches with the space; keep just "$token" so the lookup works
         let replacement = foam.CSS.returnTokenValue(sanitizedToken, cls, ctx);
         foundTokens[tokensToFind[i]] = { sanitizedToken: sanitizedToken, value: replacement}
       }

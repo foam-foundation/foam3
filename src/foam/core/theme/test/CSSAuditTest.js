@@ -162,12 +162,30 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     try (BufferedReader br = new BufferedReader(new FileReader(path.toFile()))) {
       String line;
       int lineNum = 0;
+      boolean inBlockComment = false;
       while ( (line = br.readLine()) != null ) {
         lineNum += 1;
+        String trimmedLine = line.trim();
+        if ( inBlockComment ) {
+          if ( trimmedLine.contains("*/") ) inBlockComment = false;
+          continue;
+        }
+        if ( trimmedLine.startsWith("/*") ) {
+          if ( ! trimmedLine.contains("*/") ) inBlockComment = true;
+          continue;
+        }
+        int blockCommentStart = line.indexOf("/*");
+        if ( blockCommentStart != -1 && line.indexOf("*/", blockCommentStart + 2) == -1 ) {
+          inBlockComment = true;
+        }
         Matcher matcher = pattern.matcher(line);
         if ( matcher.find() ) {
           if ( line.contains("foam.CSS") ) {
             logger.info("ignoring", line);
+            continue;
+          }
+          if ( line.contains("%c") ) {
+            logger.info("ignoring console formatter", line);
             continue;
           }
           String property  = matcher.group(1);
@@ -193,8 +211,12 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
             }
           }
 
-          if ( SafetyUtil.isEmpty(value) ) {
+          if ( SafetyUtil.isEmpty(value) || SafetyUtil.isEmpty(value.trim()) ) {
             // no value content captured (e.g. empty string or interpolation) - skip
+            continue;
+          }
+          if ( "border".equals(property) && line.contains("attrs(") ) {
+            logger.info("ignoring HTML attribute", line);
             continue;
           }
           // FOAM theme tokens (e.g. '$primary', '$blue500') are valid - skip.
@@ -205,6 +227,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
           if ( "color".equals(property) ) {
             if ( value.contains("currentColor") ||
                  value.contains("inherit") ||
+                 value.contains("initial") ||
                  value.contains("none") ||
                  value.contains("transparent") ||
                  value.contains("unset") ||
@@ -255,6 +278,13 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
               continue;
             }
           } else if ( "border".equals(property) ) {
+            // A bare 0 is the standard border reset, not a hardcoded colour.
+            // Matched exactly rather than with contains(), so a hex value such
+            // as #000000 still fails.
+            if ( "0".equals(value.trim()) ) {
+              logger.info("ignoring", property, value);
+              continue;
+            }
             if ( value.contains("none") ||
                  value.contains("dashed") ||
                  value.contains("inherit") ||

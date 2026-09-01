@@ -78,13 +78,18 @@ foam.CLASS({
       includeInDigest: true
     },
     {
-      class: 'String',
+      class: 'Password',
       name: 'password',
       includeInDigest: true
     },
     {
       class: 'Boolean',
       name: 'useMock'
+    },
+    {
+      class: 'Boolean',
+      name: 'unsafe',
+      documentation: 'Trust unverified certificates and hostnames'
     }
   ],
 

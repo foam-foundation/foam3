@@ -50,11 +50,33 @@ foam.CLASS({
 
   static: [
     {
+      name: 'isNullDateLong',
+      documentation: `Whether a long-backed date holds no value. Callers that
+        must not allocate (serializers reading the backing field) need the test
+        without longToNullableDate's Date, so the reserved value is defined here
+        once and nowhere else.`,
+      args: 'long l',
+      type: 'Boolean',
+      javaCode: 'return l == Long.MIN_VALUE;'
+    },
+    {
+      name: 'nullableDateToLong',
+      args: 'Date d',
+      type: 'long',
+      javaCode: 'return d == null ? Long.MIN_VALUE : d.getTime();'
+    },
+    {
+      name: 'longToNullableDate',
+      args: 'long l',
+      type: 'Date',
+      javaCode: 'return isNullDateLong(l) ? null : new Date(l);'
+    },
+    {
       name: 'parseDateTime',
-      args: 'String d, String opt_name',
+      args: 'String d, String opt_name, Boolean strict',
       type: 'Date',
       documentation: 'Parses datetime strings using DateParser in local time. Optional opt_name to specify format.',
-      code: function(d, opt_name) {
+      code: function(d, opt_name, strict) {
         // Handle null/undefined
         if ( d === null || d === undefined ) return d;
 
@@ -64,20 +86,20 @@ foam.CLASS({
         }
 
         var parser = foam.parse.DateParser.create();
-        return parser.parseDateTime(d, opt_name);
+        return parser.parseDateTime(d, opt_name, strict);
       },
       javaCode: `
         // Parses datetime string in local timezone using grammar-based DateParser
         DateParser parser = new DateParser();
-        return parser.parseDateTime(d, opt_name);
+        return parser.parseDateTime(d, opt_name, strict);
       `
     },
     {
       name: 'parseDateTimeUTC',
-      args: 'String d, String opt_name',
+      args: 'String d, String opt_name, Boolean strict',
       type: 'Date',
       documentation: 'Parses datetime strings using DateParser in UTC time. Optional opt_name to specify format.',
-      code: function(d, opt_name) {
+      code: function(d, opt_name, strict) {
         // Handle null/undefined
         if ( d === null || d === undefined ) return d;
 
@@ -87,20 +109,20 @@ foam.CLASS({
         }
 
         var parser = foam.parse.DateParser.create();
-        return parser.parseDateTimeUTC(d, opt_name);
+        return parser.parseDateTimeUTC(d, opt_name, strict);
       },
       javaCode: `
         // Parses datetime string in UTC timezone using grammar-based DateParser
         DateParser parser = new DateParser();
-        return parser.parseDateTimeUTC(d, opt_name);
+        return parser.parseDateTimeUTC(d, opt_name, strict);
       `
     },
     {
       name: 'parseDateString',
-      args: 'String d, String opt_name',
+      args: 'String d, String opt_name, Boolean strict',
       type: 'Date',
       documentation: 'Parses date strings using DateParser. Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats. Optional opt_name to specify format (e.g., "ddmmyyyy").',
-      code: function(d, opt_name) {
+      code: function(d, opt_name, strict) {
         // Handle null/undefined
         if ( d === null || d === undefined ) return d;
 
@@ -110,14 +132,14 @@ foam.CLASS({
         }
 
         var parser = foam.parse.DateParser.create();
-        return parser.parseDateString(d, opt_name);
+        return parser.parseDateString(d, opt_name, strict);
       },
       javaCode: `
         // Parses date string using grammar-based DateParser
         // Supports YYYY/MM/DD, MM/DD/YYYY, YY/MM/DD and compact formats
         // Optional opt_name to specify format (e.g., "ddmmyyyy")
         DateParser parser = new DateParser();
-        return parser.parseDateString(d, opt_name);
+        return parser.parseDateString(d, opt_name, strict);
       `
     },
     {
@@ -156,6 +178,8 @@ foam.CLASS({
       type: 'Date',
       documentation: 'Adapts various input types to Date. Delegates to parseDateString for backward compatibility.',
       code: function(o) {
+        // ???: Is this called from anywhere? It isn't compatible with the javaCode because doesn't convert to Noon.
+        // TODO: convert to Noon
         if ( ! o ) return null;
         if ( o instanceof Date ) return o;
         if ( foam.String.isInstance(o) ) {
@@ -169,9 +193,22 @@ foam.CLASS({
         // Backward compatibility adapter method
         if ( o == null ) return null;
 
+        if ( o instanceof String ) {
+          o = parseDateString((String) o, null, false);
+        } else if ( o instanceof Number ) {
+          o = new Date(((Number) o).longValue());
+        }
+
+        if ( DateParser.MAX_DATE.equals(o) )
+          return DateParser.MAX_DATE;
+
         if ( o instanceof Date ) {
           // Normalize Date to noon GMT
           Date inputDate = (Date) o;
+
+          // Don't adapt if already at Noon
+          if ( inputDate.getTime() % 86400000l == 43200000l ) return inputDate;
+
           java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT"));
           cal.setTime(inputDate);
           cal.set(java.util.Calendar.HOUR_OF_DAY, 12);
@@ -181,11 +218,6 @@ foam.CLASS({
           return cal.getTime();
         }
 
-        if ( o instanceof String ) {
-          return parseDateString((String) o, null);
-        }
-
-        if ( o instanceof Number ) return new Date(((Number) o).longValue());
         return null;
       `
     },
@@ -312,7 +344,7 @@ foam.CLASS({
         try {
           // Use toLocaleString for natural locale formatting (includes both date and time)
           var options = { timeZone: tz };
-          var result = date.toLocaleString(foam.locale, options);
+          var result = date.toLocaleString(foam.util.getClientLocale(), options);
           return result;
         } catch (e) {
           // Invalid timezone or formatting error - return empty string
@@ -359,7 +391,7 @@ foam.CLASS({
             day: '2-digit',
             timeZone: tz
           };
-          var formattedDate = date.toLocaleDateString(foam.locale, dateOptions);
+          var formattedDate = date.toLocaleDateString(foam.util.getClientLocale(), dateOptions);
 
           if ( timeFirst === undefined || timeFirst === null ) {
             return formattedDate;
@@ -373,7 +405,7 @@ foam.CLASS({
             second: '2-digit',
             timeZone: tz
           };
-          var formattedTime = date.toLocaleTimeString(foam.locale, timeOptions);
+          var formattedTime = date.toLocaleTimeString(foam.util.getClientLocale(), timeOptions);
 
           var result = ( timeFirst ? formattedTime + ' ' : '' )
                + formattedDate
@@ -413,17 +445,65 @@ foam.CLASS({
 
         return showTimeFirst ? formattedTime + " " + formattedDate : formattedDate + " " + formattedTime;
       `
+    },
+    {
+      name: 'formatIsoDate',
+      args: 'java.util.Date date',
+      type: 'String',
+      documentation: `ISO-8601 calendar date in UTC (e.g. "2016-01-01"). Use
+        when emitting a date without a time component.`,
+      code: function(date) {
+        if ( date == null ) return null;
+        if ( typeof date === 'number' ) date = new Date(date);
+        return date.toISOString().slice(0, 10);
+      },
+      javaCode: `
+        return date == null ? null : ISO_DATE.get().format(date);
+      `
+    },
+    {
+      name: 'formatIsoDateTime',
+      args: 'java.util.Date date',
+      type: 'String',
+      documentation: `ISO-8601 instant in UTC with millisecond precision and
+        literal Z suffix (e.g. "2024-03-18T14:26:05.000Z"). Use when
+        emitting a full timestamp.`,
+      code: function(date) {
+        if ( date == null ) return null;
+        if ( typeof date === 'number' ) date = new Date(date);
+        return date.toISOString();
+      },
+      javaCode: `
+        return date == null ? null : ISO_DATE_TIME.get().format(date);
+      `
     }
   ],
 
   javaCode: `
+    // Thread-local ISO-8601 formatters in UTC. SimpleDateFormat is not
+    // thread-safe; reusing instances per thread keeps formatIsoDate /
+    // formatIsoDateTime cheap on hot paths.
+    private static final ThreadLocal<SimpleDateFormat> ISO_DATE =
+      ThreadLocal.withInitial(() -> {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return sdf;
+      });
+
+    private static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME =
+      ThreadLocal.withInitial(() -> {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return sdf;
+      });
+
     /*
      * Java method overloads
      *
      * FOAM's static array doesn't support method overloading - you cannot define
      * two methods with the same name but different parameters. JavaScript doesn't
-     * support method overloading either, so only the 1-parameter versions are needed
-     * in the static array above.
+     * support method overloading either, so only the 3-parameter (strict) versions
+     * are needed in the static array above.
      *
      * However, the original Java code had overloaded methods (1-param and 2-param versions)
      * for backward compatibility with existing code. These Java-only overloads are defined
@@ -431,19 +511,34 @@ foam.CLASS({
      * the FOAM static method definitions.
      */
 
+    // Java method overload for parseDateTime (2-parameter version for backward compatibility)
+    public static Date parseDateTime(String d, String opt_name) {
+      return parseDateTime(d, opt_name, false);
+    }
+
     // Java method overload for parseDateTime (1-parameter version for backward compatibility)
     public static Date parseDateTime(String d) {
-      return parseDateTime(d, null);
+      return parseDateTime(d, null, false);
+    }
+
+    // Java method overload for parseDateTimeUTC (2-parameter version for backward compatibility)
+    public static Date parseDateTimeUTC(String d, String opt_name) {
+      return parseDateTimeUTC(d, opt_name, false);
     }
 
     // Java method overload for parseDateTimeUTC (1-parameter version for backward compatibility)
     public static Date parseDateTimeUTC(String d) {
-      return parseDateTimeUTC(d, null);
+      return parseDateTimeUTC(d, null, false);
+    }
+
+    // Java method overload for parseDateString (2-parameter version for backward compatibility)
+    public static Date parseDateString(String d, String opt_name) {
+      return parseDateString(d, opt_name, false);
     }
 
     // Java method overload for parseDateString (1-parameter version for backward compatibility)
     public static Date parseDateString(String d) {
-      return parseDateString(d, null);
+      return parseDateString(d, null, false);
     }
 
     // Java method overload for format (1-parameter version for backward compatibility)

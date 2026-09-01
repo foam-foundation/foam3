@@ -276,6 +276,8 @@ foam.CLASS({
                foam.dao.OneToManyRelationshipProperty.isInstance(expr) ||
                foam.dao.ManyToManyRelationshipProperty.isInstance(expr) )
             continue
+          if ( foam.lang.Reference.isInstance(expr) )
+            expr = foam.mlang.expr.RefSummary.create({ arg1: expr }, this);
           if ( expr )
             exprArray.push(expr);
         }

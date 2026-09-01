@@ -9,30 +9,43 @@ foam.CLASS({
   name: 'Example',
   extends: 'foam.u2.Controller',
 
+  requires: [
+    'foam.core.u2.navigation.Stack',
+    'foam.u2.stack.BreadcrumbManager'
+  ],
+
   imports: [ 'scope as globalScope' ],
+
+  exports: ['stack_ as stack', 'breadcrumbs_ as breadcrumbs'],
 
   css: `
     ^ {
-      margin-bottom: 36px;
-      background: 'pink';
       width: 100%;
-      xxxborder: 2px solid black;
-      xxxborder-radius': 3px;
-      padding-bottom': 24px;
     }
     ^ .property-text { border: none; padding: 10 0; }
     ^ .property-code { margin-bottom: 12px; }
     ^ .property-title { float: left; }
     ^ .property-id { float: left; margin-right: 12px; }
+    ^output {
+      border: 2px solid $borderDefault;
+      padding: 1rem;
+      margin: 0;
+      border-radius: 4px;
+    }
   `,
 
   properties: [
     {
       name: 'innerText',
-      setter: function(o, n) { this.code = n; }
+      setter: function(n) { this.code = n; },
+      getter: function() { return this.code; },
+      onKey: false,
+      view: {class: 'foam.u2.view.CodeView', config: { width: '100%', mode: 'JAVASCRIPT', showGutter: false }}
     },
     {
       class: 'String',
+      // ONLY HIDE IN DETAIL VIEW
+      visibility: 'HIDDEN',
 //      class: 'Code',
       name: 'code',
       adapt: function(_, s) {
@@ -44,7 +57,24 @@ foam.CLASS({
       },
       view: 'foam.core.reflow.example.CodeView'
     },
-    'dom'
+    {
+      name: 'dom',
+      hidden: true,
+      // visibility: 'HIDDEN',
+      transient: true
+    },
+    {
+      name: 'stack_',
+      factory: function() {
+        return this.Stack.create();
+      }
+    },
+    {
+      name: 'breadcrumbs_',
+      factory: function() {
+        return this.BreadcrumbManager.create();
+      }
+    }
   ],
 
   methods: [
@@ -56,15 +86,13 @@ foam.CLASS({
       this.
         addClass(this.myClass()).
         add(this.CODE).
-        start().
-          br().
-          start('span').style({'font-weight': 500}).add('Output:').end().
-            start().
-              style({border: '1px solid black', padding: '8px'}).
-              tag('div', {}, this.dom$).
-            end().
-          end();
-
+        start('span').addClass('h500').add('Output:').end().
+        add(this.stack_).
+        end();
+      this.stack_.addClass(this.myClass('output'));
+      // Set the parentMemento_ instead of setting memento_ to null so that it doesn't install a new WindowMemento() and break navigation.
+      this.stack_.push(this.E().startContext({ stack: this.stack_, breadcrumbs: this.breadcrumbs_, parentMemento_: foam.u2.memento.Memento.create() }).
+        tag('div', {}, this.dom$)).endContext();
       this.runListener();
       this.onDetach(this.code$.sub(this.runListener));
     },
@@ -123,7 +151,7 @@ foam.CLASS({
             return self.dom.start.apply(self.dom, arguments);
           },
           tag: function() {
-            return self.dom.start.apply(self.dom, arguments);
+            return self.dom.tag.apply(self.dom, arguments);
           }
         };
 

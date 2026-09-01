@@ -30,6 +30,10 @@ foam.CLASS({
         return {
           class: 'foam.u2.view.FObjectArrayView',
           of: 'foam.core.cron.Schedule',
+          valueView: {
+            class: 'foam.u2.view.FObjectView',
+            of: 'foam.core.cron.Schedule'
+          },
           defaultNewItem: foam.core.cron.IntervalSchedule.create({
             start: "2019-10-14",
             duration: foam.core.cron.TimeHMS.create({

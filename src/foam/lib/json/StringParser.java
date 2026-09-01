@@ -9,12 +9,13 @@ package foam.lib.json;
 import foam.lib.parse.PStream;
 import foam.lib.parse.Parser;
 import foam.lib.parse.ParserContext;
+import foam.lib.parse.StringPStream;
 import foam.lib.parse.Alt;
 import foam.lib.parse.Literal;
 import foam.lib.parse.AnyChar;
 import foam.lib.parse.Seq1;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import foam.util.StringInterner;
 
 public class StringParser
   implements Parser
@@ -57,11 +58,56 @@ public class StringParser
   public StringParser() {
   }
 
+  /**
+   * Fast path for single-char delimited strings with no escape sequences.
+   * Uses String.indexOf() to find the closing delimiter in one call instead
+   * of per-character ps.apply(delimiter, x) checks.
+   * Returns null if escapes are present (falls back to slow path).
+   */
+  private PStream parseFast(StringPStream sps, char delim) {
+    String str = sps.getString().toString();
+    int    pos = sps.pos();
+    int closeIdx = str.indexOf(delim, pos);
+    if ( closeIdx < 0 ) return null;
+
+    // If there's an escape before the closing delimiter, fall back to the slow
+    // path. Bounded to the string's own span: the unbounded form scanned to the
+    // END of the input on every escape-free value, re-reading the entry once per
+    // string property. Short spans use a plain loop — the ranged indexOf's
+    // per-call overhead costs more than it saves under ~32 chars; longer spans
+    // get its vectorized scan.
+    if ( closeIdx - pos <= 32 ) {
+      for ( int i = pos ; i < closeIdx ; i++ ) {
+        if ( str.charAt(i) == ESCAPE ) return null;
+      }
+    } else if ( str.indexOf(ESCAPE, pos, closeIdx) >= 0 ) {
+      return null;
+    }
+
+    // No escapes — bulk extract the string
+    String value = StringInterner.intern(str.substring(pos, closeIdx));
+    return sps.createAt(closeIdx + 1).setValue(value);
+  }
+
   public PStream parse(PStream ps, ParserContext x) {
     ps = ps.apply(delimiterParser, x);
     if ( ps == null ) return null;
 
-    Parser        delimiter = (Parser) ps.value();
+    Parser delimiter = (Parser) ps.value();
+
+    // Fast path: single-char delimiter on StringPStream with no escapes.
+    // Uses indexOf() to find closing delimiter in one call — same pattern as
+    // UntilLiteral but with backslash pre-check for escape handling.
+    if ( ps instanceof StringPStream && delimiter instanceof foam.lib.parse.AbstractLiteral ) {
+      String ds = ((foam.lib.parse.AbstractLiteral) delimiter).getString();
+      if ( ds != null && ds.length() == 1 ) {
+        PStream fast = parseFast((StringPStream) ps, ds.charAt(0));
+        if ( fast != null ) return fast;
+      }
+      // Fall through to character-by-character for escaped strings,
+      // triple-quotes, or when indexOf can't find the delimiter
+    }
+
     StringBuilder sb        = builder__.get();
     PStream       result;
     boolean       escaping  = false;
@@ -96,7 +142,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    // inter()'ed objects are GC'ed, so safe to do here
-    return ps.setValue(sb.toString().intern());
+    return ps.setValue(StringInterner.intern(sb.toString()));
   }
 }

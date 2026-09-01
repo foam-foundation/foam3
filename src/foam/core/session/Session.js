@@ -175,6 +175,21 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
       clusterTransient: true
     },
     {
+      class: 'Object',
+      name: 'sessionContext',
+      javaType: 'foam.lang.X',
+      javaFactory: 'return foam.lang.EmptyX.instance();',
+      documentation: `Context entries the session owns rather than derives. applyTo
+        composes these underneath the entries it derives, so a service can keep
+        per-session state here and have it outlive a context rebuild, and nothing put
+        here can stand in for a derived entry.`,
+      visibility: 'HIDDEN',
+      javaCompare: 'return 0;',
+      transient: true,
+      networkTransient: true,
+      clusterTransient: true
+    },
+    {
       class: 'Boolean',
       name: 'twoFactorSuccess',
       visibility: 'HIDDEN',
@@ -287,7 +302,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
         HttpServletRequest req = x.get(HttpServletRequest.class);
         if ( req == null ) {
           // null during test runs
-          return rtn;
+          return withSessionContext(rtn);
         }
 
         Theme theme = ((Themes) x.get("themes")).findTheme(x);
@@ -306,7 +321,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
         rtn = rtn.put(foam.core.auth.LocaleSupport.CONTEXT_KEY, foam.core.auth.LocaleSupport.instance().findLanguageLocale(rtn));
         rtn = rtn.put("logger", foam.core.logger.Loggers.logger(new OrX(x, rtn), true));
 
-        return rtn;
+        return withSessionContext(rtn);
       }
 
       X rtn = getApplyContext();
@@ -369,6 +384,8 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
           .put(ServerCrunchService.CACHE_KEY, getContext().get(ServerCrunchService.CACHE_KEY))
           : rtn.put(ServerCrunchService.CACHE_KEY, null);
 
+        if ( wasAnonymous ) clearSessionContext();
+
         // We need to do this after the user and agent have been put since
         // 'getCurrentGroup' depends on them being in the context.
         Group group = auth.getCurrentGroup(rtn);
@@ -395,7 +412,11 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
 
         rtn = rtn.put(foam.core.auth.LocaleSupport.CONTEXT_KEY, foam.core.auth.LocaleSupport.instance().findLanguageLocale(rtn));
 
-        rtn = rtn.put("localLocalSettingDAO", new foam.dao.MDAO(foam.core.session.LocalSetting.getOwnClassInfo()));
+        // Owned by the session, not derived from x, so carry it across a rebuild
+        // rather than handing the user an empty set of local settings.
+        Object localSettings = wasAnonymous ? null : getContext().get("localLocalSettingDAO");
+        rtn = rtn.put("localLocalSettingDAO", localSettings != null ? localSettings :
+          new foam.dao.MDAO(foam.core.session.LocalSetting.getOwnClassInfo()));
 
         rtn = rtn.put("logger",
           new foam.core.logger.PrefixLogger(
@@ -410,13 +431,29 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
           rtn = rtn.put("userAgent", req.getHeader("User-Agent"));
         }
 
+        rtn = rtn.put("facetManager", x.get("facetManager"));
+
         // Cache the context changes of applyTo
         setApplyContext(((OrX) rtn).getX());
         pm.log(x);
       } else {
         rtn = new OrX(reset(x), rtn);
       }
-      return rtn;
+      return withSessionContext(rtn);
+      `
+    },
+    {
+      name: 'withSessionContext',
+      type: 'Context',
+      args: 'Context x',
+      documentation: `
+        Compose the session's own entries underneath the given context, so a service
+        can keep per-session state across a context rebuild without any of it being
+        able to stand in for an entry applyTo derived.
+      `,
+      javaCode: `
+      X own = getSessionContext();
+      return own == null || own instanceof foam.lang.EmptyX ? x : new OrX(own, x);
       `
     },
     {

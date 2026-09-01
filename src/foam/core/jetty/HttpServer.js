@@ -222,18 +222,7 @@ foam.CLASS({
         String root = System.getProperty("core.webroot");
         if ( ! SafetyUtil.isEmpty(root) ) return handler.newResource(root);
 
-        String resJar = System.getProperty("RES_JAR_HOME");
-        if ( SafetyUtil.isEmpty(resJar) ) {
-          resJar = System.getenv("RES_JAR_HOME");
-        }
-
-        if ( ! SafetyUtil.isEmpty(resJar) ) {
-          // In jar mode, prefer the explicit resources jar over classpath lookup so
-          // test resource jars do not shadow the app's timestamped foam-bin files.
-          String jarRoot = Paths.get(resJar).toUri().toString();
-          return handler.newResource(URI.create("jar:" + jarRoot + "!/webroot/"));
-        }
-
+        // Get webroot from the binary JAR
         URL webrootURL = this.getClass().getResource("/webroot/");
         if ( webrootURL != null ) return handler.newResource(webrootURL.toURI());
 
@@ -333,8 +322,8 @@ foam.CLASS({
           for ( Map.Entry<String, String> entry : params.entrySet() ) {
             holder.setInitParameter(entry.getKey().toString(), (String) entry.getValue().toString());
           }
-          
-          if ( foam.core.servlet.ImageServlet.class.getName().equals(mapping.getClassName()) && 
+
+          if ( foam.core.servlet.ImageServlet.class.getName().equals(mapping.getClassName()) &&
               getImageDirs().length() > 0 ) {
             holder.setInitParameter("paths", getImageDirs());
           }

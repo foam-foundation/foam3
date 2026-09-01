@@ -71,6 +71,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.demos.u2',
   name: 'AllViews',
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.dao.EasyDAO',
@@ -83,7 +84,18 @@ foam.CLASS({
 
   exports: [ 'sampleDataDAO', 'displayWidth' ],
 
+  messages: [
+    { name: 'TITLE', message: 'All Views' }
+  ],
+
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       class: 'String',
       name: 'markdownView',
@@ -841,19 +853,29 @@ foam.CLASS({
       }
     },
     {
-      class: 'String',
+      class: 'FObjectArray',
+      of: 'foam.time.DayOfWeek',
       name: 'dayOfWeekView',
       view: {
         class: 'foam.u2.view.DayOfWeekView'
       }
     },
     {
-      class: 'String',
+      class: 'FObjectArray',
+      of: 'foam.time.DayOfMonth',
       name: 'dayOfMonthView',
       view: {
-        class: 'foam.u2.view.DayOfMonthView'}
-      
-    },
+        class: 'foam.u2.view.DayOfMonthView'
+      }
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    }
   ],
 
   listeners: [

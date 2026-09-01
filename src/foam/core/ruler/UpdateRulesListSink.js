@@ -33,35 +33,38 @@ foam.CLASS({
     {
       name: 'put',
       javaCode: `
-        // REVIEW: When rule.daoKey changes, the listener will skip the update.
         Rule rule = (Rule) obj;
         if ( ! rule.getDaoKey().equals(dao_.getDaoKey()) ) {
           return;
         }
 
-        // REVIEW: When rule.ruleGroup/operation/after properties change, would
-        // also need to reload the rules list for the previous group.
         var rulesList = dao_.getRulesList();
         String ruleGroup = rule.getRuleGroup();
+
+        // Evict any pre-existing entry for this rule across every bucket
+        // and group. Bucket/group membership can change on a put
+        // (operation, after, async, or ruleGroup), so the rule may no
+        // longer belong where it currently sits.
+        for ( Object key : rulesList.keySet() ) {
+          var groupBy = rulesList.get(key);
+          for ( Object groupKey : groupBy.getGroupKeys() ) {
+            List<Rule> rules = ((ArraySink) groupBy.getGroups().get(groupKey)).getArray();
+            Rule existing = Rule.findById(rules, rule.getId());
+            if ( existing != null ) rules.remove(existing);
+          }
+        }
+
+        if ( ! rule.getEnabled() || rule.getLifecycleState() == foam.core.auth.LifecycleState.DELETED ) {
+          return;
+        }
+
         for ( Object key : rulesList.keySet() ) {
           if ( ((Predicate) key).f(obj) ) {
             rule.setX(getX());
             var groupBy = rulesList.get(key);
             if ( groupBy.getGroupKeys().contains(ruleGroup) ) {
               List<Rule> rules = ((ArraySink) groupBy.getGroups().get(ruleGroup)).getArray();
-              Rule foundRule = Rule.findById(rules, rule.getId());
-              if ( foundRule != null ) {
-              rules.remove(foundRule);
-                // Only re-add if enabled AND not deleted (lifecycleState check handles soft-delete via remove_)
-                if ( rule.getEnabled() && rule.getLifecycleState() != foam.core.auth.LifecycleState.DELETED ) {
-                  rules.add(foundRule.updateRule(rule));
-                }
-              } else {
-                // Only add new rule if enabled AND not deleted
-                if ( rule.getEnabled() && rule.getLifecycleState() != foam.core.auth.LifecycleState.DELETED ) {
-                  rules.add(rule);
-                }
-              }
+              rules.add(rule);
               Collections.sort(rules, new Desc(Rule.PRIORITY));
             } else {
               groupBy.putInGroup_(sub, ruleGroup, obj);

@@ -17,9 +17,12 @@ foam.CLASS({
   ],
 
   requires: [
-    'foam.log.LogLevel',
     'foam.box.RPCErrorMessage',
     'foam.comics.v2.userfeedback.UserFeedbackException',
+    'foam.comics.v2.userfeedback.UserFeedback',
+    'foam.comics.v2.userfeedback.UserFeedbackAlertType',
+    'foam.comics.v2.userfeedback.UserFeedbackStatus',
+    'foam.log.LogLevel',
     'foam.u2.ActionReference',
     'foam.u2.ControllerMode',
     'foam.u2.layout.Cols',
@@ -38,6 +41,7 @@ foam.CLASS({
     'notify',
     'setControllerMode?',
     'stack?',
+    'translationService',
     'controlBorder?',
     'daoController'
   ],
@@ -185,12 +189,16 @@ foam.CLASS({
     {
       name: 'currentData_',
       documentation: 'Active data property that stores current working data for the current view mode',
-      value: null
+      value: null,
+      postSet: function(o, n) {
+        if ( n ) this.populatePrimaryAction(true);
+      }
     },
     {
       class: 'Map',
       name: 'actionsOverrides'
-    }
+    },
+    'actionsToAdd_'
   ],
 
   methods: [
@@ -219,33 +227,37 @@ foam.CLASS({
       this.stack?.setTitle(this.viewTitle$, this);
       this.SUPER();
       let d;
-      this.onDetach(this.dynamic(function(currentData_, actionsOverrides){
+      this.onDetach(this.dynamic(function(currentData_, actionsOverrides, actionArray){
         d?.detach?.();
+        this.buttonGroup_?.remove();
+        this.buttonGroup_ = foam.u2.ButtonGroup.create({
+          overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
+        }, self);
         d = self.stack.setTrailingContainer(
-          this.E().style({ display: 'contents' }).start(foam.u2.ButtonGroup, {
-              // overrides: { size: 'SMALL' },
-              overlaySpec: { obj: self, icon: '/images/Icon_More_Resting.svg', showDropdownIcon: false  }
-            }, this.buttonGroup_$)
+          this.buttonGroup_
             .addClass(self.myClass('buttonGroup'))
-            .add(self.dynamic(function(primary) {
-              if ( ! primary ) return;
-              this
-                // .hide(self.controllerMode$.map(c => c == 'EDIT' ))
-                .startContext({ data: self.currentData_$ })
-                  .tag(primary, { buttonStyle: 'PRIMARY', size: 'SMALL' })
-                .endContext();
-            }))
             .startContext({ data: self })
               .tag(actionsOverrides.edit)
               .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
               .tag(self.CANCEL_EDIT)
             .endContext()
+            .call(function() {
+              let el = this;
+              let first = true;
+              actionArray.forEach(function(action) {
+                let actRef = foam.u2.ActionReference.create({ action: action, data$: self.currentData_$ });
+                el.startContext({ data: self.currentData_$ })
+                  .start(actRef, { buttonStyle: first ? 'PRIMARY' : 'SECONDARY', size: 'SMALL' })
+                  .show(self.controllerMode$.map(c => c != 'EDIT' ))
+                  .end()
+                .endContext();
+                first = false;
+              });
+            })
             .startOverlay()
               .tag(actionsOverrides.copy)
               .tag(actionsOverrides.delete)
             .endOverlay()
-            .callIf(currentData_, function() { self.populatePrimaryAction(true) })
-          .end()
         )
         self.onDetach(d);
       }))
@@ -319,29 +331,6 @@ foam.CLASS({
           this.actionArray = foam.Array.unique(this.actionArray.concat(allActions));
         } else {
           this.actionArray = allActions;
-        }
-        if ( acArray && acArray.length ) {
-          let res;
-          for ( let a of acArray ) {
-            var aSlot = a.createIsAvailable$(this.__subContext__, data);
-            let b = aSlot.get();
-            if ( aSlot.promise ) {
-              await aSlot.promise;
-              b = aSlot.get();
-            }
-            if (b) { res = a; break; }
-          }
-          this.primary = res;
-          this.actionArray = this.actionArray.filter(v => v !== res);
-        }
-        if ( this.buttonGroup_ ) {
-          let actionsToAdd = rebuildArray ? this.actionArray : foam.util.diff(oldActions ,this.actionArray).added || [];
-          this.buttonGroup_
-            .startOverlay()
-            .forEach(actionsToAdd, function(v) {
-              this.addActionReference(v, self.currentData_$)
-            })
-            .endOverlay()
         }
       }
     },
@@ -447,6 +436,7 @@ foam.CLASS({
         return controllerMode == 'EDIT';
       },
       code: function() {
+        var self = this;
         return this.config.dao.put(this.workingData).then(o => {
           if ( ! this.data.equals(o) ) {
             this.data = o;
@@ -455,7 +445,10 @@ foam.CLASS({
             if ( foam.comics.v2.userfeedback.UserFeedbackAware.isInstance(o) && o.userFeedback ) {
               var currentFeedback = o.userFeedback;
               while ( currentFeedback ) {
-                this.notify(currentFeedback.message, '', this.LogLevel.INFO, true);
+                var logLevel = currentFeedback.status == self.UserFeedbackStatus.ERROR ? self.LogLevel.ERROR : self.LogLevel.INFO;
+                var msg = self.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
+                var subMsg = currentFeedback.subMessage && self.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+currentFeedback.subMessage, currentFeedback.subMessage, currentFeedback.messageTemplateMap);
+                self.notify(msg, subMsg, logLevel, true);
                 currentFeedback = currentFeedback.next;
               }
             } else {
@@ -468,14 +461,14 @@ foam.CLASS({
           this.cancelEdit();
         }, e => {
           this.throwError.pub(e);
-          if ( foam.box.RPCErrorMessage.isInstance(e) ) {
+          if ( foam.box.RPCErrorMessage.isInstance(e) )
             e = e.data
-          }
-          if ( this.UserFeedbackException.isInstance(e.exception)  ) {
+          if ( this.UserFeedbackException.isInstance(e.exception) ) {
             e = e.exception;
             var currentFeedback = e.userFeedback;
             let fn = this.notify.bind(this);
-            if ( e.alertType.ordinal == 1 ) {
+            if ( e.alertType == this.UserFeedbackAlertType.ALERT ) {
+              var msg = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
               fn = () => {
                 this.ConfirmationModal.create({
                   title: this.ERROR_MSG,
@@ -484,12 +477,15 @@ foam.CLASS({
                   showCancel: false,
                   closeable: false
                 })
-                  .add(e.userFeedback.message)
+                  .add(msg)
                   .open();
               }
             }
             while ( currentFeedback ) {
-              fn(currentFeedback.message, '', this.LogLevel.ERROR, true);
+              var logLevel = currentFeedback.status == this.UserFeedbackStatus.ERROR ? this.LogLevel.ERROR : this.LogLevel.INFO;
+              var msg = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
+              var subMsg = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+currentFeedback.subMessage, currentFeedback.subMessage, currentFeedback.messageTemplateMap);
+              fn(msg, subMsg, logLevel, true);
 
               currentFeedback = currentFeedback.next;
             }

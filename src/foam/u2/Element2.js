@@ -103,7 +103,19 @@ foam.CLASS({
   documentation: 'U3 Text Node',
 
   properties: [
-    { class: 'String', name: 'text' },
+    {
+      class: 'String',
+      name: 'text',
+      adapt: function(o, v, prop) {
+        if ( foam.String.isInstance(v) ) return v;
+        // The String adapt reads an object as a locale map, which a Date has no
+        // key in, and treats a false Boolean as empty, so either one would
+        // leave this node blank.
+        if ( foam.Date.isInstance(v) )    return foam.util.DateUtil.format(v);
+        if ( foam.Boolean.isInstance(v) ) return String(v);
+        return foam.lang.String.ADAPT.value.call(this, o, v, prop);
+      }
+    },
     {
       name: 'element_',
       factory: function() { return this.document.createTextNode(this.text); }
@@ -165,7 +177,7 @@ foam.CLASS({
           if ( val === undefined || val === null ) {
             n = foam.u2.Text.create({}, this);
           } else if ( this.isLiteral(val) ) {
-            n = foam.u2.Text.create({text: '' + val}, this);
+            n = foam.u2.Text.create({text: val}, this);
           } else if ( foam.u2.Element.isInstance(val) ) {
             n = val;
           } else if ( foam.Array.isInstance(val) ) {
@@ -182,7 +194,6 @@ foam.CLASS({
             n = val.toE({}, this);
           } else {
             console.log('Unknown slot type: ', typeof val);
-            debugger;
           }
 
           this.element_.parentNode.replaceChild(n.element_, this.element_);
@@ -1643,9 +1654,9 @@ foam.CLASS({
   ],
 
   properties: [
-  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH', 
+  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH',
   // ensuring model and DOM attribute synchronization.
-  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in 
+  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in
   // subclasses
     ...[
       [
@@ -2059,7 +2070,7 @@ foam.CLASS({
       expression: function(label, checkboxLabelFormatter) {
         return {
           class: 'foam.u2.CheckBox',
-          label: this.help,
+          label: this.placeholder,
           labelFormatter: checkboxLabelFormatter
         };
       }
@@ -2114,7 +2125,7 @@ foam.CLASS({
   properties: [
     {
       name: 'view',
-      value: { class: 'foam.u2.view.FObjectPropertyView' },
+      value: { class: 'foam.u2.view.FObjectPropertyView' }
     },
     {
       name: 'validationTextVisible',
@@ -2407,6 +2418,17 @@ foam.CLASS({
       // Template method, to be implemented in sub-models
     },
 
+    // Hands the view the property it belongs to. A view spec does not know
+    // which property it was declared on, so this is where the view picks up
+    // the property's name, placeholder and width. Called once, right after the
+    // view is built and before render().
+    //
+    // An input applies it to itself. A view that only wraps an input passes it
+    // down to that input instead - see foam.u2.ClearableSearchField.
+    //
+    // When overriding, copy only what the view does not already have, so
+    // anything set in the view spec still wins. foam.u2.TextField is the
+    // example.
     function fromProperty(p) {
       this.attr('name', p.name);
     }

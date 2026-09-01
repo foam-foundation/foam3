@@ -131,3 +131,49 @@ test(fe.length === 0, 'clean fixture -> []');
 test(fa[0] && typeof fa[0].start === 'number' && typeof fa[0].end === 'number' &&
   fa[0].end > fa[0].start,
   'issues carry start/end offsets into the source text');
+
+section('DiagnosticsHandler — pom diagnostics, gated by diagnostics.pom');
+
+var FeatureConfig = require('../../lsp/FeatureConfig');
+
+function diagHandlerFor(features) {
+  return foam.parse.lsp.handlers.DiagnosticsHandler.create({
+    index:        h.index,
+    pomValidator: validator,
+    featureConfig: features ?
+      FeatureConfig.load({ initOptions: { features: features } }) : null
+  });
+}
+
+var BAD_POM = "foam.POM({\n  name: 'x',\n  files: [\n" +
+  "    { name: 'A', flags: 'js |java' }\n  ]\n});\n";
+
+// The uri must resolve to a real directory containing A.js, or the
+// existence check adds a second (pom-file-missing) diagnostic.
+var diagTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pomd-'));
+fs.writeFileSync(path.join(diagTmp, 'A.js'), '// exists\n');
+var BAD_POM_URI = 'file://' + path.join(diagTmp, 'pom.js');
+
+var dh    = diagHandlerFor(null);
+var diags = dh.handle(BAD_POM, BAD_POM_URI);
+test(Array.isArray(diags) && diags.length === 1,
+  'a pom.js text produces diagnostics through the normal handle() entry point');
+test(!! diags[0] && diags[0].code === 'pom-flag-whitespace' && diags[0].severity === 1,
+  'the pom-flag-whitespace ERROR comes through with its code and severity');
+test(!! diags[0] && diags[0].source === 'foam-lsp',
+  'diagnostic source is foam-lsp');
+// span check: 'js |java' starts on line 3 (0-based) after "    { name: 'A', flags: '"
+test(!! diags[0] && diags[0].range && diags[0].range.start.line === 3 &&
+  diags[0].range.end.line === 3 && diags[0].range.end.character > diags[0].range.start.character,
+  'offsets map to the correct line/char range');
+
+var dhOff = diagHandlerFor({ 'diagnostics.pom': false });
+test(dhOff.handle(BAD_POM, BAD_POM_URI).length === 0,
+  'diagnostics.pom: false suppresses the pom diagnostics');
+
+var dhOn = diagHandlerFor({ 'diagnostics.pom': true });
+test(dhOn.handle(BAD_POM, BAD_POM_URI).length === 1,
+  'explicit diagnostics.pom: true keeps them (and the flag name is known to FeatureConfig)');
+
+test(FeatureConfig.load({}).enabled('diagnostics.pom') === true,
+  'diagnostics.pom defaults ON');

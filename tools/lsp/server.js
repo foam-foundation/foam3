@@ -68,6 +68,7 @@ function start() {
   var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
   var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
   var pomValidator           = foam.parse.lsp.handlers.PomValidator.create({ index: index });
+  diagnosticsHandler.pomValidator = pomValidator;
   // No featureConfig: scaffolding has no toggle. It only ever runs because
   // the user explicitly invoked the command, so there is nothing to suppress
   // — unlike the lenses/diagnostics, which the server offers unasked.

@@ -60,6 +60,8 @@ foam.CLASS({
 
       // Code that returns nothing is a Function used as a Script.
       x.test(this.Function.create({ code: 'var x = 1;' }, ctx).errors_ != null, 'code with no return fails validation');
+      x.test(this.Function.create({ code: '// no return here\nvar x = 1;' }, ctx).errors_ != null, 'the word return inside a comment does not count as a return');
+      x.test(this.Function.create({ code: '/* returns nothing */\nreturn 1;' }, ctx).errors_ == null, 'a real return outside a comment validates');
       x.test(this.Script.create({ code: 'var x = 1;' }, ctx).errors_ == null, 'a Script with no return is still fine');
 
       // Code that runs but returns nothing says so, since a reader of this

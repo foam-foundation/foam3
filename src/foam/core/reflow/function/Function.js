@@ -41,7 +41,9 @@ return null;
       name: 'code',
       factory: function() { return this.TEMPLATE; },
       validateObj: function(code) {
-        if ( ! /\breturn\b/.test(code) )
+        // Comments come out first, so the word return inside one doesn't count.
+        var body = code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+        if ( ! /\breturn\b/.test(body) )
           return 'A function has to return something: the returned value is what other blocks read under this block\'s name. Use a script block for code that only has side effects.';
       }
     },

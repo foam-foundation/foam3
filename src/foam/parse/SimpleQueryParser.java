@@ -27,7 +27,7 @@ import static foam.mlang.MLang.*;
  * predicates based on the properties of the specified ClassInfo.
  *
  * Each property type gets its own set of operators:
- *   String:      =, !=, >=, >, <=, <, :, ~, CONTAINS, IN(), NOT IN(), IS EMPTY, IS NOT EMPTY
+ *   String:      =, !=, >=, >, <=, <, :, ~, CONTAINS, STARTSWITH, IN(), NOT IN(), IS EMPTY, IS NOT EMPTY
  *   StringArray: =, HAS, !=, IN(), NOT IN()
  *   Number/Long: =, !=, >=, >, <=, <, IN(), NOT IN()
  *   Float/Double:=, !=, >=, >, <=, <, IN RANGE(), NOT IN RANGE()
@@ -359,6 +359,7 @@ public class SimpleQueryParser
       new Seq(operatorNoSpace(g, ":"), g.sym("string")),
       new Seq(operatorNoSpace(g, "~"), g.sym("string")),
       new Seq(operator(g, "CONTAINS"), g.sym("string")),
+      new Seq(operator(g, "STARTSWITH"), g.sym("string")),
       new Seq(operatorIn(g, "IN"), g.sym("stringArray")),
       new Seq(operatorIn(g, "NOT IN"), g.sym("stringArray")),
       new Seq(operator(g, "IS EMPTY")),
@@ -837,6 +838,9 @@ public class SimpleQueryParser
       case ":":
       case "~":
         return CONTAINS_IC(prop, value);
+
+      case "STARTSWITH":
+        return STARTS_WITH_IC(prop, value);
 
       case "IS EMPTY":
         return NOT(HAS(prop));

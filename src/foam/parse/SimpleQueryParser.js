@@ -34,6 +34,7 @@ foam.CLASS({
     'foam.mlang.predicate.Lte',
     'foam.mlang.predicate.Not',
     'foam.mlang.predicate.Or',
+    'foam.mlang.predicate.StartsWithIC',
     'foam.mlang.predicate.True',
     'foam.parse.Alternate',
     'foam.parse.Grammar',
@@ -73,14 +74,20 @@ foam.CLASS({
         // helper to create an operator parser that ignores operators case and surrounding whitespace and provides a suggestion
         let operator = (str) => {
           return alt(
-            seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str, category: 'operator'})),
+            seq1(2, ' ', sym('ws'), sug(literalIC(str), {
+              text: str,
+              category: 'operator'
+            })),
             literalIC(str) // allow the option without leading spaces, it is still valid, even though it won't suggest
           );
         }
         this.operator = operator;
         let operatorIn = (str) => {
           return (
-            seq1(2, ' ', sym('ws'), sug(seq1(0, literalIC(str), sym('ws'), '('), {text: str + ' (', label: str, category: 'operator' }))
+            seq1(2, ' ', sym('ws'), sug(seq1(0, literalIC(str), sym('ws'), '('), {
+              text: str + ' (',
+              category: 'operator'
+            }))
           );
         }
         this.operatorIn = operatorIn;
@@ -95,12 +102,18 @@ foam.CLASS({
 
           or: repeat(
             sym('and'),
-            seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('OR'), literal('|')), {text: 'OR', category: 'operator'}))),
+            seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('OR'), literal('|')), {
+              text: 'OR',
+              category: 'operator'
+            }))),
             1),
 
           and: repeat(
             sym('expr'),
-            seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {text: 'AND', category: 'operator'}))),
+            seq(' ', seq1(1, sym('ws'), sug(alt(literalIC('AND'), literal('&')), {
+              text: 'AND',
+              category: 'operator'
+            }))),
             1),
 
           expr: alt(
@@ -114,7 +127,10 @@ foam.CLASS({
           paren: seq1(3, sym('ws'), '(', sym('ws'), sym('query'), sym('ws'), ')'),
 
           //negate: seq1(1, sym('ws'), sug(seq1(0, 'NOT', sym('ws'), '('), {text: 'NOT (', label: 'NOT'}), sym('query'), sym('ws'), ')'),
-          negate: seq1(3, sym('ws'), sug(literalIC('NOT'), {text: 'NOT', category: 'operator'}), sym('ws'), sym('expr')),
+          negate: seq1(3, sym('ws'), sug(literalIC('NOT'), {
+            text: 'NOT',
+            category: 'operator'
+          }), sym('ws'), sym('expr')),
 
           ws: repeat0(' '),
 
@@ -174,6 +190,7 @@ foam.CLASS({
             seq(operator(':'), sym('string')),
             seq(operator('~'), sym('string')),
             seq(operator('CONTAINS'), sym('string')),
+            seq(operator('STARTSWITH'), sym('string')),
             seq(operatorIn('IN'), sym('stringArray')),
             seq(operatorIn('NOT IN'), sym('stringArray')),
             seq(operator('IS EMPTY')),
@@ -211,8 +228,14 @@ foam.CLASS({
 
           number: seq1(1, sym('ws'), seq(optional('-'), sym('digits'))),
 
-          compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'),  {text: 'IS TRUE', category: 'operator'}))),
-                              seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {text: 'IS FALSE', category: 'operator'})))),
+          compareBoolean: alt(seq(' ', seq1(1, sym('ws'), sug(literalIC('IS TRUE'),  {
+                                text: 'IS TRUE',
+                                category: 'operator'
+                              }))),
+                              seq(' ', seq1(1, sym('ws'), sug(literalIC('IS FALSE'), {
+                                text: 'IS FALSE',
+                                category: 'operator'
+                              })))),
 
           date: seq1(1, sym('ws'),
             alt(
@@ -608,6 +631,8 @@ foam.CLASS({
               case ':':
               case '~':
                 return self.ContainsIC.create({ arg1: prop, arg2: value });
+              case 'STARTSWITH':
+                return self.StartsWithIC.create({ arg1: prop, arg2: value });
               case 'IS EMPTY':
                 return self.Not.create({arg1: self.Has.create({ arg1: prop })});
               case 'IS NOT EMPTY':

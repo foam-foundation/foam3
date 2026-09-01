@@ -299,50 +299,13 @@ function startServer(
     );
     if ( pick === 'Restart FOAM LSP' ) {
       if ( restarting ) return;
-      // Three cases, and only the middle one is a refusal. A client whose
-      // start() FAILED stays in Stopped forever, so the old
-      // `state !== Running → refuse` turned the one situation where a restart
-      // is most wanted into a permanent dead end that only a window reload
-      // could clear. Stopped (or no client at all) now goes straight to
-      // startClient(); the `client !== c` guards inside it make a superseded
-      // start harmless.
+      // A Starting client is refused with a message here (restartLsp also
+      // skips it silently — the message is menu-only UX).
       if ( client && client.state === State.Starting ) {
         window.showInformationMessage('FOAM LSP is still starting — try again once it\'s ready.');
         return;
       }
-      restarting = true;
-      try {
-        outputChannel.appendLine('Restarting FOAM LSP server...');
-        status.text = '$(loading~spin) FOAM: Indexing...';
-        if ( client && client.state === State.Running ) {
-          try {
-            await client.stop();
-          } catch (e: any) {
-            outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
-          }
-        } else if ( client ) {
-          // Public State.Stopped covers four internal states, and dispose()
-          // behaves differently across them (vscode-languageclient v9,
-          // client.js: dispose -> stop -> shutdown):
-          //   - internal Stopped/Initial: shutdown() returns immediately and
-          //     reclaims nothing, so this call is a cheap no-op.
-          //   - internal StartFailed (the failed-start case this branch exists
-          //     for): shutdown() falls through to `throw new Error('Client is
-          //     not running and can't be stopped')`.
-          // MUST be awaited. dispose() returns Promise<void>, so a bare call
-          // in a sync try/catch cannot catch that throw — it would surface as
-          // an unhandled rejection in the extension host, on the very path a
-          // user reaches by clicking Restart after a failed start.
-          try {
-            await client.dispose();
-          } catch (e: any) {
-            outputChannel.appendLine('Error disposing the stopped FOAM LSP client: ' + e.message);
-          }
-        }
-        startClient();
-      } finally {
-        restarting = false;
-      }
+      await restartLsp('menu');
     } else if ( pick === 'Show Output' ) {
       outputChannel.show();
     }
@@ -433,24 +396,54 @@ function startServer(
     });
   }
 
-  // Restart plumbing shared with the manual quick-pick above: auto-restart
-  // when the server's own source changes on disk. The server runs from the
-  // workspace (tools/lsp/**), not from the VSIX, so a pulled or edited
-  // handler would otherwise keep serving stale behavior until the whole
-  // window reloads.
-  async function autoRestartServer(reason: string) {
-    outputChannel.appendLine('Restarting FOAM LSP (' + reason + ')');
-    status.text = '$(loading~spin) FOAM: Indexing...';
+  // Shared restart machinery for the status menu, the foam.restartServer
+  // command, and the server-source watcher below. Three cases, and only one
+  // is a refusal. A client whose start() FAILED stays in Stopped forever, so
+  // a `state !== Running → refuse` would turn the one situation where a
+  // restart is most wanted into a permanent dead end that only a window
+  // reload could clear. Stopped (or no client at all) goes straight to
+  // startClient(); the `client !== c` guards inside it make a superseded
+  // start harmless. A Starting client is skipped: its in-flight start()
+  // already delivers the fresh server the caller wants.
+  async function restartLsp(reason: string) {
+    if ( restarting || ( client && client.state === State.Starting ) ) return;
+    restarting = true;
     try {
-      if ( client ) await client.stop();
-    } catch (e: any) {
-      outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
+      outputChannel.appendLine('Restarting FOAM LSP (' + reason + ')');
+      status.text = '$(loading~spin) FOAM: Indexing...';
+      if ( client && client.state === State.Running ) {
+        try {
+          await client.stop();
+        } catch (e: any) {
+          outputChannel.appendLine('Error stopping FOAM LSP: ' + e.message);
+        }
+      } else if ( client ) {
+        // Public State.Stopped covers four internal states, and dispose()
+        // behaves differently across them (vscode-languageclient v9,
+        // client.js: dispose -> stop -> shutdown):
+        //   - internal Stopped/Initial: shutdown() returns immediately and
+        //     reclaims nothing, so this call is a cheap no-op.
+        //   - internal StartFailed (the failed-start case this branch exists
+        //     for): shutdown() falls through to `throw new Error('Client is
+        //     not running and can't be stopped')`.
+        // MUST be awaited. dispose() returns Promise<void>, so a bare call
+        // in a sync try/catch cannot catch that throw — it would surface as
+        // an unhandled rejection in the extension host, on the very path a
+        // user reaches by clicking Restart after a failed start.
+        try {
+          await client.dispose();
+        } catch (e: any) {
+          outputChannel.appendLine('Error disposing the stopped FOAM LSP client: ' + e.message);
+        }
+      }
+      startClient();
+    } finally {
+      restarting = false;
     }
-    startClient();
   }
 
   context.subscriptions.push(
-    commands.registerCommand('foam.restartServer', () => autoRestartServer('manual'))
+    commands.registerCommand('foam.restartServer', () => restartLsp('manual'))
   );
 
   const serverWatcher = workspace.createFileSystemWatcher(
@@ -461,7 +454,7 @@ function startServer(
   const scheduleRestart = (uri: { fsPath: string }) => {
     if ( restartTimer ) clearTimeout(restartTimer);
     restartTimer = setTimeout(
-      () => autoRestartServer('changed: ' + path.basename(uri.fsPath)), 1500);
+      () => restartLsp('changed: ' + path.basename(uri.fsPath)), 1500);
   };
   serverWatcher.onDidChange(scheduleRestart);
   serverWatcher.onDidCreate(scheduleRestart);

@@ -89,8 +89,8 @@
 
       function and(fs) {
         if ( ! fs ) return true;
-        // Trim: an inner "js& java" token survives adaptFlags' |-level trim.
-        fs = fs.split('&').map(function(s) { return s.trim(); });
+        foam.assertFlags(fs);
+        fs = fs.split('&');
         for ( var i = 0 ; i < fs.length ; i++ ) {
           if ( ! foam.flags[fs[i]] ) return false;
         }
@@ -135,20 +135,29 @@
       foam.loaded[fn] = true;
       return false;
     },
+    assertFlags: function(flags) {
+      // A flags string/clause is WORD ( [|&] WORD )*. Whitespace or an empty
+      // token ("js |java", "js||java") used to match nothing silently,
+      // dropping the entry from every build with no trace. Fail the load
+      // loudly at the author instead.
+      if ( /\s/.test(flags) || /(^|[|&])([|&]|$)/.test(flags) ) {
+        throw new Error('foam: malformed flags ' + JSON.stringify(flags) +
+          " - whitespace or empty token; expected e.g. 'js|java&test'");
+      }
+    },
     adaptFlags: function(flags) {
-      // Trim each token: a hand-edited "js |java" otherwise silently
-      // matches nothing.
-      return typeof flags === 'string' ?
-        flags.split('|').map(function(s) { return s.trim(); }) :
-        flags;
+      if ( typeof flags !== 'string' ) return flags;
+      foam.assertFlags(flags);
+      return flags.split('|');
     },
     checkForFlag: function (flags, desired) {
       if ( ! flags || ! desired ) return false;
       desired = this.adaptFlags(desired);
 
       function and(fs, ds) {
-        fs = fs.split('&').map(function(s) { return s.trim(); });
-        ds = ds.split('&').map(function(s) { return s.trim(); });
+        foam.assertFlags(fs);
+        fs = fs.split('&');
+        ds = ds.split('&');
         for ( var i = 0 ; i < ds.length ; i++ )
           if ( ! fs.includes(ds[i]) )
             return false;

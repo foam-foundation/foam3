@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'TreeNodeBench',
   extends: 'foam.core.test.PhaseBench',
 

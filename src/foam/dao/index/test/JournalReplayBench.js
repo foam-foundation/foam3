@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'JournalReplayBench',
   extends: 'foam.core.test.PhaseBench',
 
@@ -215,7 +215,7 @@ foam.CLASS({
     {
       name: 'row',
       args: 'int i, long spread',
-      type: 'foam.dao.index.IndexKeyRecord',
+      type: 'foam.dao.index.test.IndexKeyRecord',
       javaCode: `
         IndexKeyRecord r = new IndexKeyRecord();
         r.setId(i + 1);

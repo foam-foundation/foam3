@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'MDAOBulkLoadTest',
   extends: 'foam.core.test.JSTest',
 
@@ -26,7 +26,7 @@ foam.CLASS({
 
   requires: [
     'foam.dao.MDAO',
-    'foam.dao.index.IndexKeyRecord',
+    'foam.dao.index.test.IndexKeyRecord',
     'foam.mlang.sink.Count'
   ],
 

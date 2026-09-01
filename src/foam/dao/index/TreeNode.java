@@ -112,7 +112,7 @@ public class TreeNode {
   }
 
   /** This node's key, materialized. Only where a key has to be handed out. */
-  protected Object nodeKey(Indexer indexer) {
+  public Object nodeKey(Indexer indexer) {
     return keyOf(indexer, object());
   }
 
@@ -414,16 +414,24 @@ public class TreeNode {
     return r > 0 ? get(s.right, key, indexer) : get(s.left, key, indexer);
   }
 
-  protected TreeNode getLeft() {
+  public TreeNode getLeft() {
     return left;
   }
 
-  protected TreeNode getRight() {
+  public TreeNode getRight() {
     return right;
   }
 
-  protected Object getValue() {
+  public Object getValue() {
     return value;
+  }
+
+  public byte getLevel() {
+    return level;
+  }
+
+  public long getSize() {
+    return size;
   }
 
 //  public TreeNode neq(TreeNode s, Object key, Indexer indexer) {

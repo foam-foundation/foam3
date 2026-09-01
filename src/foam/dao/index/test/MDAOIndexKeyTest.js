@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'MDAOIndexKeyTest',
   extends: 'foam.core.test.Test',
 
@@ -26,6 +26,7 @@ foam.CLASS({
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.MDAO',
+    'foam.dao.index.AndOrderStatus',
     'foam.lang.FObject',
     'foam.lang.Indexer',
     'foam.lang.PropertyInfo',
@@ -219,7 +220,7 @@ foam.CLASS({
     {
       name: 'ref',
       args: 'long id, String name, String refName',
-      type: 'foam.dao.index.IndexKeyRecord',
+      type: 'foam.dao.index.test.IndexKeyRecord',
       documentation: 'A null refName leaves the target\'s own name unset.',
       javaCode: `
         IndexKeyRecord target = new IndexKeyRecord();
@@ -471,14 +472,14 @@ foam.CLASS({
 
         TreeNode l = n.getLeft(), r = n.getRight();
 
-        if ( n.level < 1 )
-          note("level " + n.level + " is below 1");
-        if ( l != null && l.level != n.level - 1 )
-          note("a left child at level " + l.level + " under level " + n.level);
-        if ( r != null && r.level != n.level && r.level != n.level - 1 )
-          note("a right child at level " + r.level + " under level " + n.level);
-        if ( r != null && r.getRight() != null && r.getRight().level >= n.level )
-          note("two horizontal right links in a row at level " + n.level);
+        if ( n.getLevel() < 1 )
+          note("level " + n.getLevel() + " is below 1");
+        if ( l != null && l.getLevel() != n.getLevel() - 1 )
+          note("a left child at level " + l.getLevel() + " under level " + n.getLevel());
+        if ( r != null && r.getLevel() != n.getLevel() && r.getLevel() != n.getLevel() - 1 )
+          note("a right child at level " + r.getLevel() + " under level " + n.getLevel());
+        if ( r != null && r.getRight() != null && r.getRight().getLevel() >= n.getLevel() )
+          note("two horizontal right links in a row at level " + n.getLevel());
 
         // The fifth AA invariant - a node above level 1 has two children - is
         // deliberately not asserted. removeNode splices a node out without
@@ -490,11 +491,11 @@ foam.CLASS({
         keys.add(n.nodeKey(indexer));
 
         Object v = n.getValue();
-        under += v instanceof TreeNode ? ((TreeNode) v).size : ( v == null ? 0 : 1 );
+        under += v instanceof TreeNode ? ((TreeNode) v).getSize() : ( v == null ? 0 : 1 );
         under += walk(r, indexer, keys);
 
-        if ( n.size != under )
-          note("a node recording size " + n.size + " with " + under + " rows under it");
+        if ( n.getSize() != under )
+          note("a node recording size " + n.getSize() + " with " + under + " rows under it");
 
         return under;
       `
@@ -583,7 +584,7 @@ foam.CLASS({
     {
       name: 'mk',
       args: 'long id, long groupId, String name, java.util.Date when, foam.dao.index.AndOrderStatus status',
-      type: 'foam.dao.index.IndexKeyRecord',
+      type: 'foam.dao.index.test.IndexKeyRecord',
       documentation: 'A null when leaves the date property unset.',
       javaCode: `
         IndexKeyRecord r = new IndexKeyRecord();

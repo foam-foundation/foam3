@@ -114,8 +114,45 @@
       margin-left: 8px;
     }
 
-    ^th:hover {
+    /* Sort affordance. The sorted column keeps its arrow on screen; an
+       unsorted column reveals the resting arrow on hover or keyboard focus.
+       Opacity rather than display so the header never reflows, and the
+       hiding is confined to hover-capable pointers - a touch device has no
+       hover, so there the arrow stays visible. */
+    ^sortable {
       cursor: pointer;
+      border-radius: 4px;
+      /* Padding keeps the focus ring off the glyphs. The negative side
+         margin gives it back, so a sortable label starts at the same x as a
+         non-sortable one instead of sitting 0.2em further into the column. */
+      margin: 0 -0.2em;
+      padding: 0.2em;
+    }
+
+    /* The header is focusable, so it needs a visible focus state. Inset the
+       outline: ^th clips its overflow, so a ring drawn outside the box would
+       be cut off. :focus-visible so a mouse click leaves no ring behind. */
+    ^sortable:focus-visible {
+      outline: 2px solid $borderBrand;
+      outline-offset: -2px;
+    }
+
+    ^sortIcon {
+      align-items: center;
+      display: flex;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      ^sortIcon {
+        opacity: 0;
+        transition: opacity 0.1s ease;
+      }
+
+      ^sortable:hover ^sortIcon,
+      ^sortable:focus-within ^sortIcon,
+      ^sortIconActive {
+        opacity: 1;
+      }
     }
 
     /**

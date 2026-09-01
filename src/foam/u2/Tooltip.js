@@ -140,7 +140,15 @@ foam.CLASS({
       this.SUPER();
       this
         .show(this.data$)
-        .add(this.data)
+        .add(this.slot(function(data) {
+          // If data is a string, treat as HTML. If DOM node, add directly.
+          if ( typeof data === 'string' ) {
+            var span = this.E('span');
+            span.element_.innerHTML = data;
+            return span;
+          }
+          return data;
+        }))
         .addClass()
     }
   ]

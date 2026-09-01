@@ -86,6 +86,16 @@ foam.CLASS({
         }
         return enabled;
       },
+      toolTipFn: function(data$errors_) {
+        let hasErrors = !! data$errors_;
+        if ( hasErrors ) {
+          function printErrors(errors_) {
+            return errors_.map(e => `<li><b>${e[0].label}</b>: ${e[1]}</li>`).join('');
+          }
+          return 'Save is disabled due to the following validation errors:<br /><ul>' + printErrors(data$errors_) + '</ul>';
+        }
+        return '';
+      },
       code: function() {
         var cData = this.data;
 

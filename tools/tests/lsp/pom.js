@@ -177,3 +177,14 @@ test(dhOn.handle(BAD_POM, BAD_POM_URI).length === 1,
 
 test(FeatureConfig.load({}).enabled('diagnostics.pom') === true,
   'diagnostics.pom defaults ON');
+
+section('PomValidator.validate — entry issues aggregated across workspace poms');
+
+var full = validator.validate();
+test(Array.isArray(full.entryIssues),
+  'validate() result gains entryIssues: []');
+test(full.entryIssues.every(function(e) {
+    return typeof e.pomFile === 'string' && typeof e.code === 'string' &&
+           typeof e.message === 'string';
+  }),
+  'every entry issue names its pomFile, code and message');

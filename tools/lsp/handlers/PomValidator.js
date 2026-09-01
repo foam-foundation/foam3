@@ -54,16 +54,22 @@ foam.CLASS({
       // call but aren't in the POM index. We bound the walk to typical
       // FOAM source roots to keep this O(workspace) rather than O(fs).
       var orphans   = [];
+      var pomFiles  = [];
       var sourceRoots = this.detectSourceRoots_(indexedPaths);
       var FOAM_DECL = /foam\.(?:CLASS|ENUM|INTERFACE|RELATIONSHIP|LIB)\s*\(/;
 
       for ( var i = 0 ; i < sourceRoots.length ; i++ ) {
+        // The project's top-level pom.js sits one level ABOVE the src root
+        // the walk covers.
+        var rootPom = path.join(path.dirname(sourceRoots[i]), 'pom.js');
+        if ( fs.existsSync(rootPom) ) pomFiles.push(rootPom);
+
         this.walkSourceTree_(sourceRoots[i], function(filePath) {
           if ( ! filePath.endsWith('.js') )      return;
+          if ( filePath.endsWith('/pom.js') )     { pomFiles.push(filePath); return; }
           if ( indexedPaths[filePath] )           return;
-          // Skip test/, pom.js, generated/etc. — only flag plain-source orphans.
+          // Skip test/, generated/etc. — only flag plain-source orphans.
           if ( /\/test\//.test(filePath) )        return;
-          if ( filePath.endsWith('/pom.js') )     return;
           if ( filePath.endsWith('tests.jrl') )   return;
           try {
             var text = fs.readFileSync(filePath, 'utf8');
@@ -72,7 +78,22 @@ foam.CLASS({
         });
       }
 
-      return { orphans: orphans, missing: missing, duplicates: duplicates };
+      // Entry-level issues (whitespace, unknown flags, missing files) rolled
+      // up across every pom the walk found.
+      var entryIssues = [];
+      for ( var i = 0 ; i < pomFiles.length ; i++ ) {
+        try {
+          var pomText = fs.readFileSync(pomFiles[i], 'utf8');
+          var issues  = this.validateEntries(pomText, pomFiles[i]);
+          for ( var j = 0 ; j < issues.length ; j++ ) {
+            issues[j].pomFile = pomFiles[i];
+            entryIssues.push(issues[j]);
+          }
+        } catch (e) {}
+      }
+
+      return { orphans: orphans, missing: missing, duplicates: duplicates,
+        entryIssues: entryIssues };
     },
 
     function validateEntries(text, pomPath) {

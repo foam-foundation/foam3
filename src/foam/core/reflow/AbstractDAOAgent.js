@@ -1317,3 +1317,156 @@ foam.CLASS({
     }
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'SinkWithOperation',
+
+  documentation: 'Pairs a sink agent with a mathematical operation for CalculationDAOAgent. Pattern: Sink1 Op1 Sink2 Op2 Sink3 (last op hidden)',
+
+  properties: [
+    {
+      name: 'sink',
+      view: {
+        class: 'foam.core.reflow.SinkView',
+        sinksOnly: true,
+        disabledTypes: ['format', 'structure', 'chart']
+      }
+    },
+    {
+      class: 'Enum',
+      of: 'foam.mlang.sink.ArithmeticOperation',
+      name: 'operation',
+      value: 'ADD',
+      label: 'Op'
+    },
+    {
+      class: 'Boolean',
+      name: 'isLast_',
+      hidden: true,
+      transient: true,
+      value: false
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'SinkWithOperationView',
+  extends: 'foam.u2.View',
+
+  css: `
+    ^ {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+  `,
+
+  methods: [
+    function render() {
+      this.SUPER();
+      this.addClass()
+        .start().add(this.data.SINK).end();
+
+      // Only show operation if not last item
+      if ( ! this.data.isLast_ ) {
+        this.start().add(this.data.OPERATION).end();
+      }
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'CalculationDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.mlang.sink.CalculationSink',
+    'foam.mlang.sink.CalculationOperation',
+    'foam.core.reflow.SinkWithOperation'
+  ],
+
+  properties: [
+    {
+      class: 'Boolean',
+      name: 'evaluateAtRowLevel',
+      value: false,
+      label: 'Row Level',
+      help: 'When true, evaluates per row. When false, evaluates at total level (EOF).'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.core.reflow.SinkWithOperation',
+      name: 'sinks',
+      factory: function() {
+        return [
+          this.SinkWithOperation.create({ operation: 'SUBTRACT', isLast_: false }),
+          this.SinkWithOperation.create({ isLast_: true })
+        ];
+      },
+      postSet: function(o, n) {
+        // Mark last item
+        if ( n && n.length > 0 ) {
+          n.forEach((item, i) => {
+            if ( item ) item.isLast_ = (i === n.length - 1);
+          });
+        }
+      },
+      view: {
+        class: 'foam.u2.view.ArrayView',
+        valueView: 'foam.core.reflow.SinkWithOperationView',
+        minSize: 2
+      },
+      documentation: 'Array of SinkWithOperation objects, each containing a sink and its operation'
+    }
+  ],
+
+  methods: [
+    function value(s) {
+      if ( this.block.value && s.cls_ === this.block.value.cls_ ) {
+        this.block.value.copyFrom(s);
+        return this.block.value;
+      }
+      return s;
+    },
+    function createSink() {
+      if ( ! this.sinks || this.sinks.length === 0 ) {
+        return this.CalculationSink.create({ operations: [] });
+      }
+
+      // Build operations array from sinks
+      // Pattern: Sink1 Op1 Sink2 Op2 Sink3
+      // Result: value1 Op1 value2 Op2 value3
+      var ops = this.sinks.map(function(sinkWithOp, index) {
+        var operation = 'ADD'; // Default
+
+        if ( index < this.sinks.length - 1 ) {
+          // Use this item's operation (not last item's, which is ignored)
+          operation = sinkWithOp.operation || 'ADD';
+        }
+
+        return this.CalculationOperation.create({
+          operand: sinkWithOp.sink ? sinkWithOp.sink.createSink() : null,
+          operation: operation
+        });
+      }.bind(this));
+
+      return this.CalculationSink.create({
+        evaluateAtRowLevel: this.evaluateAtRowLevel,
+        operations: ops
+      });
+    },
+    function addToE(e) {
+      e.startContext({data: this}).
+        start().
+          style({display: 'flex', paddingLeft: '8px'}).
+          add(this.EVALUATE_AT_ROW_LEVEL.__).
+          add(this.SINKS);
+    }
+  ]
+});

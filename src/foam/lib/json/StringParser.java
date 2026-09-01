@@ -17,9 +17,23 @@ import foam.lib.parse.Seq1;
 import java.util.Map;
 import foam.util.StringInterner;
 
+// Benchmark knob (this branch only): 0 = no dedup, 1 = legacy String.intern,
+// 2 = foam.util.StringInterner (the production behaviour, default).
+
 public class StringParser
   implements Parser
 {
+
+  public static volatile int DEDUP = Integer.getInteger("foam.json.dedup", 2);
+
+  public static String dedup(String v) {
+    switch ( DEDUP ) {
+      case 1:  return v.intern();
+      case 2:  return StringInterner.intern(v);
+      default: return v;
+    }
+  }
+
   private final static Parser instance__ = new StringParser();
 
   public static Parser instance() { return instance__; }
@@ -85,7 +99,7 @@ public class StringParser
     }
 
     // No escapes — bulk extract the string
-    String value = StringInterner.intern(str.substring(pos, closeIdx));
+    String value = dedup(str.substring(pos, closeIdx));
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -142,6 +156,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    return ps.setValue(StringInterner.intern(sb.toString()));
+    return ps.setValue(dedup(sb.toString()));
   }
 }

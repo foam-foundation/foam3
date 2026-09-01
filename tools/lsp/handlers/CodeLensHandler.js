@@ -182,9 +182,15 @@ foam.CLASS({
             start: { line: line, character: 0 },
             end:   { line: line, character: 0 }
           },
+          // foam.lens.info is a real, advertised command that the server
+          // answers with null — NOT an empty string. The LSP spec has no
+          // "inert command": VS Code happens to render command:'' as plain
+          // text, but Neovim's vim.lsp.codelens.run() executes whatever
+          // command field is present, and '' would fall into another
+          // dispatch branch. A click on this lens is a deliberate no-op.
           command: {
             title:   subclasses.length + ' subclass' + ( subclasses.length === 1 ? '' : 'es' ),
-            command: ''
+            command: 'foam.lens.info'
           }
         });
       }

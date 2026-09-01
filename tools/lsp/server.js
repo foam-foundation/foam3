@@ -527,7 +527,18 @@ function start() {
         // would read a foam-lsp.json belonging to some unrelated folder. Null
         // simply means those root-relative layers contribute nothing, and
         // scaffolding refuses outright (see scaffoldHandler.wsRoot below).
-        var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : null;
+        // uriToPath_ decodeURIComponents the uri, and a client that sends a
+        // non-percent-encoded rootUri containing a stray '%' makes that
+        // throw. Degrade to no root (root-relative layers contribute
+        // nothing) instead of failing initialize.
+        var wsRoot = null;
+        if ( params && params.rootUri ) {
+          try {
+            wsRoot = uriToPath_(params.rootUri);
+          } catch (e) {
+            console.error('[LSP] initialize: unusable rootUri "' + params.rootUri + '": ' + e.message);
+          }
+        }
         featureConfig = FeatureConfig.load({
           rootPath:    wsRoot,
           initOptions: params && params.initializationOptions && params.initializationOptions.foam
@@ -611,7 +622,8 @@ function start() {
             commands: [
               'foam.i18n.extractAndTranslate',
               'foam.i18n.translateMessage',
-              'foam.scaffold.newClass'
+              'foam.scaffold.newClass',
+              'foam.lens.info'
             ]
           },
           documentHighlightProvider: true,
@@ -1047,6 +1059,24 @@ function start() {
       case 'workspace/executeCommand': {
         var cmdArgs = ( params.arguments && params.arguments[0] ) || {};
 
+        // The informational hierarchy lens anchors on this — a click is a
+        // deliberate no-op.
+        if ( params.command === 'foam.lens.info' ) {
+          respond(id, null);
+          break;
+        }
+
+        // Anything not in executeCommandProvider.commands is answered as an
+        // error HERE — without this, an unknown (or empty) command name
+        // falls through into the i18n branch below and dies on
+        // readFileSync(uriToPath_(undefined)).
+        if ( params.command !== 'foam.scaffold.newClass' &&
+             params.command !== 'foam.i18n.extractAndTranslate' &&
+             params.command !== 'foam.i18n.translateMessage' ) {
+          respondError(id, -32602, 'Unknown command: ' + params.command);
+          break;
+        }
+
         if ( params.command === 'foam.scaffold.newClass' ) {
           // Unlike the i18n commands this one carries no uri and reads no
           // open document: everything it needs is { dir, name } plus what it
@@ -1291,6 +1321,13 @@ function start() {
           respondError(id, -32601, 'Method not found: ' + method);
         }
     }
+    } catch (e) {
+      // A synchronous throw in any case above (a malformed uri hitting
+      // decodeURIComponent, an unexpected shape in params) would otherwise
+      // propagate through the stdin data handler and take the whole server
+      // process down. Answer the request when there is one and keep serving.
+      console.error('[LSP] ' + method + ' failed: ' + ( e && e.message ));
+      if ( id !== undefined ) respondError(id, -32603, ( e && e.message ) || 'internal error');
     } finally {
       var elapsedMs = Number(process.hrtime.bigint() - timerStart) / 1e6;
       if ( method && elapsedMs >= LSP_TIMING_MIN_MS ) {

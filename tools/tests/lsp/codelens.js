@@ -127,8 +127,8 @@ var hierLenses = onHandler.handle(HIER_SRC, hierUri);
 test(hierLenses.length === 1, 'one hierarchy lens for the single class');
 test(!! hierLenses[0] && hierLenses[0].command.title === '2 subclasses',
   'title is the literal, known subclass count (HierSubA + HierSubB) — no reference count');
-test(!! hierLenses[0] && hierLenses[0].command.command === '',
-  'hierarchy lens is informational by design — empty command, no navigation yet');
+test(!! hierLenses[0] && hierLenses[0].command.command === 'foam.lens.info',
+  'hierarchy lens is informational by design — anchored on the advertised no-op command foam.lens.info, never an empty command id (Neovim executes whatever command field is present)');
 // HIER_SRC's single foam.CLASS() call is the first (and only) call in the
 // text, so FileModelCache.findCallLine always resolves it to line 0 — see
 // FileModelCache.js:315 ("For single-class files sourceLine_ is always 0").

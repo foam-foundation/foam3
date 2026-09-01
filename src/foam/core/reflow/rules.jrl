@@ -1,0 +1,17 @@
+p({
+  "class": "foam.core.ruler.Rule",
+  "id": "foam_core_reflow_FlowHistory",
+  "name": "Record flow history",
+  "priority": 100,
+  "documentation": "Append a FlowHistoryRecord to flowHistoryDAO for every flow create or update.",
+  "ruleGroup": "Reflow",
+  "daoKey": "flowDAO",
+  "operation": 3,
+  "after": true,
+  "action": {
+    "class": "foam.core.reflow.FlowHistoryRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState": 1
+})

@@ -28,6 +28,8 @@ foam.CLASS({
   ],
 
 
+  requires: [ 'foam.core.reflow.FlowHistoryRecord' ],
+
   imports: [ 'flowDAO', 'flowHistoryDAO?' ],
 
   ids: [ 'name' ],
@@ -230,8 +232,8 @@ foam.CLASS({
         var dao = this.flowHistoryDAO;
         if ( ! dao || ! name ) return null;
         return dao.
-          where(this.EQ(foam.dao.history.HistoryRecord.OBJECT_ID, name)).
-          orderBy(this.DESC(foam.dao.history.HistoryRecord.SEQ_NO));
+          where(this.EQ(this.FlowHistoryRecord.OBJECT_ID, name)).
+          orderBy(this.DESC(this.FlowHistoryRecord.TIMESTAMP));
       },
       view: { class: 'foam.core.reflow.FlowHistoryView' }
     }

@@ -182,6 +182,18 @@ test(dh.handle("// scratch notes about foam.POM( syntax\nvar x = 1;\n",
     'file:///scratch.js').length === 0,
   'non-FOAM file with a foam.POM( comment gets no pom diagnostics');
 
+// The mirror direction: a pom whose COMMENT mentions a foam call that
+// isFoamFile sniffs on (a real downstream pom references foam.FSM()) must
+// still take the pom lane — the anchored foam.POM( test outranks the sniff.
+var POM_WITH_FOAM_COMMENT =
+  "// state machines here are driven by foam.CLASS( models via foam.FSM()\n" +
+  "foam.POM({\n  name: 'x',\n  files: [\n" +
+  "    { name: 'A', flags: 'js |java' }\n  ]\n});\n";
+test(dh.handle(POM_WITH_FOAM_COMMENT, BAD_POM_URI).some(function(d) {
+    return d.code === 'pom-flag-whitespace';
+  }),
+  'pom mentioning foam calls in a comment still gets pom validation');
+
 var dhOff = diagHandlerFor({ 'diagnostics.pom': false });
 test(dhOff.handle(BAD_POM, BAD_POM_URI).length === 0,
   'diagnostics.pom: false suppresses the pom diagnostics');

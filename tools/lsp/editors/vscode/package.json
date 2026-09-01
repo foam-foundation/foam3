@@ -37,7 +37,7 @@
         "foam.features.diagnostics.pom": {
           "type": "boolean",
           "default": true,
-          "description": "Diagnostics for malformed pom.js entries: whitespace in name/flags values, unknown flag tokens, entries pointing at missing files."
+          "description": "Diagnostics for malformed pom.js entries: whitespace in name/flags values, unknown flag tokens, entries pointing at missing files. Takes effect after a server restart."
         },
         "foam.features.diagnostics.i18n": {
           "type": "boolean",

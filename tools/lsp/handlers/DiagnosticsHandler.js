@@ -98,17 +98,17 @@ foam.CLASS({
     },
 
     function handle(text, opt_uri) {
-      // pom.js files carry no foam.CLASS, so they fail the isFoamFile gate —
-      // the pom lane lives BEHIND it, or a foam.CLASS file merely MENTIONING
-      // foam.POM( in a comment would lose all of its normal diagnostics.
-      // Line-anchored so a "// foam.POM(" comment in a scratch file doesn't
-      // qualify either.
-      if ( ! this.analyzer.isFoamFile(text) ) {
-        if ( /^\s*foam\.POM\(/m.test(text) ) {
-          return this.pomDiagnostics_(text, opt_uri);
-        }
-        return [];
+      // The line-anchored foam.POM( test routes to the pom lane FIRST.
+      // Both lanes' gates are text sniffs: isFoamFile trips on a pom whose
+      // comment merely mentions a foam call (a real downstream pom does,
+      // via foam.FSM(), and would sniff as a class file and get no pom
+      // validation), while the anchored test can't false-positive on a
+      // "// foam.POM(" comment — the anchored test is the reliable one,
+      // so it outranks.
+      if ( /^\s*foam\.POM\(/m.test(text) ) {
+        return this.pomDiagnostics_(text, opt_uri);
       }
+      if ( ! this.analyzer.isFoamFile(text) ) return [];
 
       var uri = opt_uri || '';
       this.uri_ = uri;

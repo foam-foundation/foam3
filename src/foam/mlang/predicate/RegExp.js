@@ -18,6 +18,7 @@ foam.CLASS({
       type: 'Regex',
       javaInfoType: 'foam.lang.AbstractObjectPropertyInfo',
       name: 'regExp',
+      javaJSONParser: 'foam.lib.json.RegexParser.instance()',
       gridColumns: 6
     }
   ],

@@ -1459,6 +1459,7 @@ foam.POM({
     { name: "foam/lib/json/FObjectArrayParser" },
     { name: "foam/lib/json/MapParser" },
     { name: "foam/lib/json/IntParser" },
+    { name: "foam/lib/json/RegexParser" },
     { name: "foam/lib/json/UnknownReferenceParser" },
     { name: "foam/lib/json/Whitespace" },
     { name: "foam/lib/json/StringDoubleArrayParser" },

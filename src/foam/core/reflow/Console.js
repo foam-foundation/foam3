@@ -983,6 +983,7 @@ foam.CLASS({
     'foam.core.reflow.ToolbarControl',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
+    'foam.log.LogLevel',
     'foam.u2.Link',
     'foam.u2.dialog.ConfirmationModal'
   ],
@@ -990,6 +991,7 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'notify',
     'params',
     'setTimeout',
     'toolbarControlDAO',

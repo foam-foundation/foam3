@@ -110,6 +110,10 @@ foam.CLASS({
       var colTooltip = colData.colPath.join( '/' );
       this
         .addClass(view.myClass('th'))
+        // Marks the header cells that host a resize grip. 'th' is shared
+        // with the multi-select and edit-columns cells, which have no grip,
+        // so the grip's own layout must not hang off it.
+        .addClass(view.myClass('resizableTh'))
         .on('mouseenter', this.onMouseEnter)
         .on('mouseleave', this.onMouseLeave)
         .addClass(view.myClass('th-' + prop.name))
@@ -135,7 +139,9 @@ foam.CLASS({
             .callIf(isFirstLevelProperty && prop.sortable, this.addSortAffordance_, [self, prop, colHeader])
         .end()
         .startContext({data: this})
-          .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY', themeIcon: 'drag', size: 'SMALL' })
+          // No icon: the grip is a bare strip on the column boundary and the
+          // col-resize cursor is what advertises it.
+          .start(this.DRAG_TO_RESIZE, { buttonStyle: 'TERTIARY' })
             .addClass(this.data.myClass('resizeButton'))
             .enableClass(this.data.myClass('resizeCursor'), this.showResize$)
             .on('pointerdown', self.pointerDown)

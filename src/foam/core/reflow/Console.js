@@ -122,6 +122,13 @@ foam.CLASS({
       }
     },
 
+    function flowRoot() {
+      /** The Console at the top of the flowParent chain. */
+      var f = this;
+      while ( f.flowParent ) f = f.flowParent;
+      return f;
+    },
+
     function findFlowChildByName(n) {
       let findEl = inputArr => {
         if ( ! inputArr?.length ) return;
@@ -1956,6 +1963,64 @@ foam.CLASS({
       } finally {
         this.feedback_ = prev;
       }
+    },
+
+    function onBlockRenamed(block, oldName, newName) {
+      /** A rename changes the block's own name and nothing else -- every reference to
+          it elsewhere still spells the old one, so the flow breaks on the next load.
+          Name the blocks that reference it, and offer to rewrite them with it. */
+      if ( this.isLoading_ || ! oldName || ! newName || oldName === newName ) return;
+
+      var flatten = list => {
+        var out = [];
+        ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(list);
+        return out;
+      };
+
+      var blocks     = JSON.parse(this.generateScriptString());
+      var flatBlocks = flatten(blocks);
+      var i          = flatten(this.flowChildren).indexOf(block);
+      if ( i < 0 || ! flatBlocks[i] ) return;
+
+      // The block already carries the new name. Put the old one back in the parsed
+      // copy, since the scanner resolves a reference only against a name the flow
+      // declares -- with the block renamed, nothing still points at it.
+      flatBlocks[i].flowName = oldName;
+
+      var scanner = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) });
+      var graph   = scanner.scan(blocks);
+
+      var nameOf = {};
+      graph.nodes.forEach(n => { nameOf[n.id] = n.name; });
+
+      var id         = graph.nodes[i].id;
+      var dependents = [...new Set(graph.edges.filter(e => e.source === id).map(e => nameOf[e.target]))];
+      if ( ! dependents.length ) return;
+
+      var self  = this;
+      var modal = this.ConfirmationModal.create({
+        title: 'Rename "' + oldName + '" to "' + newName + '"?',
+        modalStyle: 'WARN',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'renameAndUpdate',
+          label: 'Rename and Update References',
+          code: function() {
+            scanner.rewrite(blocks, { [oldName]: newName });
+            self.value.script = JSON.stringify(blocks);
+          }
+        }),
+        secondaryAction: foam.lang.Action.create({
+          name: 'revert',
+          label: 'Revert',
+          code: function() { block.flowName = oldName; }
+        })
+      });
+
+      modal.add(dependents.length + ( dependents.length == 1 ? ' block references' : ' blocks reference' ) +
+        ' this name and will break: ' + dependents.join(', '));
+      this.add(modal);
     },
 
     async function checkForAutosavedScript(scriptName) {

@@ -81,7 +81,13 @@ foam.CLASS({
       name: 'flowName',
       reactive: false,
       label: 'Block Name',
-      supportingLabel: 'Used to as the name for this block and as the variable name in the scope'
+      supportingLabel: 'Used to as the name for this block and as the variable name in the scope',
+      postSet: function(o, n) {
+        // reactive: false, so this fires once per committed edit, not per keystroke.
+        // A block still being built has no Console above it yet.
+        var root = this.flowRoot();
+        if ( root.onBlockRenamed ) root.onBlockRenamed(this, o, n);
+      }
     },
     {
       class: 'String',

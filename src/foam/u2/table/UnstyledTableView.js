@@ -113,6 +113,21 @@ foam.CLASS({
       name: 'order'
     },
     {
+      class: 'Boolean',
+      name: 'allowSortReset',
+      value: false,
+      documentation: `Whether a third activation of a sorted column clears the
+        sort instead of flipping the direction again. Unsorted is the state
+        every table loads in, so without this a user can only return to it by
+        reloading.
+
+        Off by default: with a single sort column, clearing mostly costs the
+        user an extra activation on the way from descending back to
+        ascending. It earns its keep once a table can sort on several columns
+        at once, where dropping one column from the sort is a real operation
+        and not just a stop on the way round. Set true to opt in.`
+    },
+    {
       name: 'columns_',
       documentation: `Internal prop used by the table view to render the columns,
         should always have the current table columns`,
@@ -325,16 +340,30 @@ foam.CLASS({
   methods: [
     function sortBy(column) {
       var isNewOrderDesc = this.order === column;
-      this.order = isNewOrderDesc ?
-        this.DESC(column) :
-        column;
+      var cleared        = false;
+      // ascending -> descending -> unsorted (when allowed) -> ascending.
+      if ( isNewOrderDesc ) {
+        this.order = this.DESC(column);
+      } else if ( this.allowSortReset && this.Desc.isInstance(this.order) &&
+                  this.order.arg1 === column ) {
+        this.clearProperty('order');
+        cleared = true;
+      } else {
+        this.order = column;
+      }
 
       if ( ! this.memento || this.memento.head.length == 0 )
         return;
 
       var columns = this.memento.head.split(',');
       var mementoColumn = columns.find(c => this.returnMementoColumnNameDisregardSorting(c) === column.name)
-      var orderChar = isNewOrderDesc ? this.DESCENDING_ORDER_CHAR : this.ASCENDING_ORDER_CHAR;
+      // No marker at all when the sort was cleared: the two chars are the
+      // only thing shouldColumnBeSorted() looks at, so a bare column name is
+      // how the memento says 'present, not sorted'. Without the `cleared`
+      // check the third activation would fall through to the ascending
+      // marker, and the URL would claim a sort the table no longer has.
+      var orderChar = cleared ? '' :
+        isNewOrderDesc ? this.DESCENDING_ORDER_CHAR : this.ASCENDING_ORDER_CHAR;
       if ( ! mementoColumn ) {
         columns.push(column.name + orderChar);
       } else {

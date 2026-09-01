@@ -17,6 +17,7 @@ foam.POM({
     { name: 'SignatureHelpHandler', flags: 'js' },
     { name: 'FoldingRangeHandler', flags: 'js' },
     { name: 'CodeActionHandler', flags: 'js' },
+    { name: 'I18nHandler', flags: 'js' },
     { name: 'WorkspaceSymbolHandler', flags: 'js' },
     { name: 'TypeHierarchyHandler', flags: 'js' },
     { name: 'ImplementationHandler', flags: 'js' },

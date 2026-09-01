@@ -26,6 +26,9 @@ var SFV = h.SFV;
 
 section('DiagnosticsHandler');
 var diagHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index });
+// buildAddExtractEdit and friends moved to I18nHandler (foam3#5283) — construction
+// mirrors diagHandler's above so behavior isn't affected by a different cache instance.
+var i18nHandler = foam.parse.lsp.handlers.I18nHandler.create({ index: index });
 
 // Valid file — no errors
 var validText = "foam.CLASS({\n  package: 'test',\n  name: 'Valid',\n  extends: 'foam.lang.FObject'\n})";
@@ -619,7 +622,7 @@ section('DiagnosticsHandler i18n extract edit');
 
 // New messages array path
 var noMsgSrc = "foam.CLASS({\n  package:'test', name:'EX1',\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
-var e1 = diagHandler.buildAddExtractEdit(noMsgSrc, 'Upload Complete', 'file:///x.js');
+var e1 = i18nHandler.buildAddExtractEdit(noMsgSrc, 'Upload Complete', 'file:///x.js');
 test(!! e1, 'buildAddExtractEdit returns an edit for a single-class file');
 var edits1 = e1 && e1.changes['file:///x.js'];
 test(!!edits1 && edits1.length === 2, 'edit has two text edits (insert message + rewrite usage)');
@@ -629,20 +632,20 @@ test(!!edits1 && edits1.some(function(t){ return t.newText.indexOf('messages: ['
 
 // Existing messages array path — entry inserted, no new messages: key
 var withMsgSrc = "foam.CLASS({\n  package:'test', name:'EX2',\n  messages:[ { name:'FOO', message:'Foo' } ],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
-var e2 = diagHandler.buildAddExtractEdit(withMsgSrc, 'Upload Complete', 'file:///y.js');
+var e2 = i18nHandler.buildAddExtractEdit(withMsgSrc, 'Upload Complete', 'file:///y.js');
 var edits2 = e2 && e2.changes['file:///y.js'];
 test(!!edits2 && edits2.length === 2, 'existing-array path also produces two edits');
 test(!!edits2 && edits2.every(function(t){ return t.newText.indexOf('messages:') === -1; }), 'does not inject a second messages: key when one exists');
 
 // Multi-class file → null (avoid inserting into the wrong class)
 var multiSrc = "foam.CLASS({ package:'test', name:'A' })\nfoam.CLASS({ package:'test', name:'B', methods:[ function render(){ this.add('Upload Complete'); } ] })";
-test(diagHandler.buildAddExtractEdit(multiSrc, 'Upload Complete', 'file:///z.js') === null, 'multi-class file returns null (no autofix)');
+test(i18nHandler.buildAddExtractEdit(multiSrc, 'Upload Complete', 'file:///z.js') === null, 'multi-class file returns null (no autofix)');
 
 // Nested/inner class → ambiguous insertion scope → null (no autofix)
 var nestedClassesSrc = "foam.CLASS({\n  package:'t', name:'Outer',\n  classes:[ { name:'Inner', messages:[ { name:'X', message:'x' } ], properties:[ { name:'y' } ] } ],\n  methods:[ function render(){ this.add('Outer Text'); } ]\n})";
-test(diagHandler.buildAddExtractEdit(nestedClassesSrc, 'Outer Text', 'file:///n.js') === null, 'inner classes: present → ambiguous → no autofix');
+test(i18nHandler.buildAddExtractEdit(nestedClassesSrc, 'Outer Text', 'file:///n.js') === null, 'inner classes: present → ambiguous → no autofix');
 var twoPropSrc = "foam.CLASS({\n  package:'t', name:'TwoProp',\n  properties:[ { name:'a' } ],\n  sections:[ { name:'s' } ],\n  methods:[ function render(){ this.add('Some Text'); var v = { properties:[ {name:'b'} ] }; } ]\n})";
-test(diagHandler.buildAddExtractEdit(twoPropSrc, 'Some Text', 'file:///2p.js') === null, 'multiple properties: blocks → ambiguous → no autofix');
+test(i18nHandler.buildAddExtractEdit(twoPropSrc, 'Some Text', 'file:///2p.js') === null, 'multiple properties: blocks → ambiguous → no autofix');
 
 // Insertion placement: messages lands right before properties:, after header keys
 function msgInsertOffset(edit, uri, src) {
@@ -650,14 +653,14 @@ function msgInsertOffset(edit, uri, src) {
   return analyzer.positionToOffset(src, t.range.start);
 }
 var srcHP = "foam.CLASS({\n  package:'p',\n  name:'HP',\n  requires:['a.B'],\n  properties:[ { name:'x' } ],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
-var eHP = diagHandler.buildAddExtractEdit(srcHP, 'Upload Complete', 'file:///hp.js');
+var eHP = i18nHandler.buildAddExtractEdit(srcHP, 'Upload Complete', 'file:///hp.js');
 var offHP = msgInsertOffset(eHP, 'file:///hp.js', srcHP);
 test(offHP > srcHP.indexOf("requires:"), 'new messages inserted AFTER header keys (requires)');
 test(offHP <= srcHP.indexOf('properties:'), 'new messages inserted right BEFORE properties:');
 
 // No properties: inserted after the last header key, before methods
 var srcNP = "foam.CLASS({\n  package:'p',\n  name:'NP',\n  requires:['a.B'],\n  methods:[ function render(){ this.add('Upload Complete'); } ]\n})";
-var eNP = diagHandler.buildAddExtractEdit(srcNP, 'Upload Complete', 'file:///np.js');
+var eNP = i18nHandler.buildAddExtractEdit(srcNP, 'Upload Complete', 'file:///np.js');
 var offNP = msgInsertOffset(eNP, 'file:///np.js', srcNP);
 test(offNP > srcNP.indexOf("requires:['a.B']") , 'no-properties: messages inserted after requires array');
 test(offNP < srcNP.indexOf('methods:'), 'no-properties: messages inserted before methods:');
@@ -671,7 +674,7 @@ var secondRange = {
   start: analyzer.offsetToPosition(twiceSrc, secondInner),
   end:   analyzer.offsetToPosition(twiceSrc, secondInner + 'Repeat Me'.length)
 };
-var eTwice = diagHandler.buildAddExtractEdit(twiceSrc, 'Repeat Me', 'file:///tw.js', secondRange);
+var eTwice = i18nHandler.buildAddExtractEdit(twiceSrc, 'Repeat Me', 'file:///tw.js', secondRange);
 var rwTwice = eTwice && eTwice.changes['file:///tw.js'].filter(function(t){ return t.newText === 'this.REPEAT_ME_MSG'; })[0];
 var rwOff = rwTwice ? analyzer.positionToOffset(twiceSrc, rwTwice.range.start) : -1;
 test(rwOff === secondInner - 1, 'P3: extract rewrites the occurrence at the diagnostic range (the 2nd), not the 1st');
@@ -682,14 +685,14 @@ section('DiagnosticsHandler i18n message-name uniqueness');
 // A 'fileName' property installs a FILE_NAME constant; extracting the label
 // 'File Name' must NOT reuse FILE_NAME — the _MSG suffix keeps them apart.
 var collideSrc = "foam.CLASS({\n  package:'t', name:'TextSaveView',\n  properties:[ { name:'fileName' } ],\n  methods:[ function render(){ this.add('File Name'); } ]\n})";
-var eCollide = diagHandler.buildAddExtractEdit(collideSrc, 'File Name', 'file:///c.js');
+var eCollide = i18nHandler.buildAddExtractEdit(collideSrc, 'File Name', 'file:///c.js');
 var editsC = eCollide && eCollide.changes['file:///c.js'];
 test(!!editsC && editsC.some(function(t){ return t.newText === 'this.FILE_NAME_MSG'; }), 'property constant FILE_NAME does not block the _MSG name; usage -> this.FILE_NAME_MSG');
 test(!!editsC && editsC.every(function(t){ return t.newText.indexOf("name: 'FILE_NAME'") === -1 || t.newText.indexOf("name: 'FILE_NAME_MSG'") !== -1; }), 'extracted message is named FILE_NAME_MSG, not FILE_NAME');
 
 // An existing FOO_MSG message forces a numeric suffix on a second 'Foo'.
 var dupMsgSrc = "foam.CLASS({\n  package:'t', name:'DUP',\n  messages:[ { name:'FOO_MSG', message:'x' } ],\n  methods:[ function render(){ this.add('Foo'); } ]\n})";
-var eDup = diagHandler.buildAddExtractEdit(dupMsgSrc, 'Foo', 'file:///d.js');
+var eDup = i18nHandler.buildAddExtractEdit(dupMsgSrc, 'Foo', 'file:///d.js');
 var editsD = eDup && eDup.changes['file:///d.js'];
 test(!!editsD && editsD.some(function(t){ return t.newText === 'this.FOO_MSG2'; }), 'taken FOO_MSG -> numeric suffix FOO_MSG2');
 
@@ -713,14 +716,14 @@ section('DiagnosticsHandler i18n extract edit — robustness');
 // F1: no properties:, but a method body has a line-start `name:` object literal.
 // The messages: block must NOT be inserted inside the method/object.
 var bodyObjSrc = "foam.CLASS({\n  package:'p',\n  name:'BodyObj',\n  methods:[\n    function render(){\n      var cfg = {\n        name: 'inner'\n      };\n      this.add('Body Object Text');\n    }\n  ]\n})";
-var eBO = diagHandler.buildAddExtractEdit(bodyObjSrc, 'Body Object Text', 'file:///bo.js');
+var eBO = i18nHandler.buildAddExtractEdit(bodyObjSrc, 'Body Object Text', 'file:///bo.js');
 var msgEditBO = eBO && eBO.changes['file:///bo.js'].filter(function(t){ return t.newText.indexOf("name: 'BODY_OBJECT_TEXT_MSG'") !== -1; })[0];
 var insBO = msgEditBO ? analyzer.positionToOffset(bodyObjSrc, msgEditBO.range.start) : -1;
 test(insBO !== -1 && insBO < bodyObjSrc.indexOf('methods:'), 'F1: messages inserted before methods:, not inside the body object');
 
 // F2: an escaped apostrophe must produce a valid message: literal (no double-escaping).
 var aposSrc = "foam.CLASS({\n  package:'p', name:'Apos',\n  methods:[ function render(){ this.add('Don\\'t save'); } ]\n})";
-var eA = diagHandler.buildAddExtractEdit(aposSrc, "Don\\'t save", 'file:///a.js');
+var eA = i18nHandler.buildAddExtractEdit(aposSrc, "Don\\'t save", 'file:///a.js');
 var msgEditA = eA && eA.changes['file:///a.js'].filter(function(t){ return t.newText.indexOf("name: 'DON_T_SAVE_MSG'") !== -1; })[0];
 test(!!msgEditA, 'F2: message entry generated for a string with an escaped apostrophe');
 test(!!msgEditA && msgEditA.newText.indexOf("message: 'Don\\'t save'") !== -1, 'F2: message: literal preserves the original valid escaping');
@@ -746,7 +749,7 @@ var dqSrc = "foam.CLASS({\n  package:'t', name:'DQ',\n  methods:[ function rende
 var dqDiags = diagHandler.handle(dqSrc).filter(function(d){ return d.code === 'i18n-hardcoded-display-string'; });
 test(dqDiags.length === 1, 'double-quote-containing display string flagged once');
 // Simulate the server passing a message-truncated text ('Say ') BUT the real diag range.
-var eDQ = dqDiags.length === 1 ? diagHandler.buildAddExtractEdit(dqSrc, 'Say ', 'file:///dq.js', dqDiags[0].range) : null;
+var eDQ = dqDiags.length === 1 ? i18nHandler.buildAddExtractEdit(dqSrc, 'Say ', 'file:///dq.js', dqDiags[0].range) : null;
 var rwDQ = eDQ && eDQ.changes['file:///dq.js'].filter(function(t){ return t.newText.indexOf('this.') === 0; })[0];
 var rwStr = rwDQ ? dqSrc.substring(analyzer.positionToOffset(dqSrc, rwDQ.range.start), analyzer.positionToOffset(dqSrc, rwDQ.range.end)) : '';
 test(rwStr === "'Say \"Hi\"'", 'Medium: rewrite span covers the full literal incl. embedded double quotes');

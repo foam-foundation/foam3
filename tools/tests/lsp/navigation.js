@@ -15,6 +15,7 @@ var index = h.index, grammar = h.grammar;
 var cache = h.cache, typeTracker = h.typeTracker, analyzer = h.analyzer;
 var completionHandler = h.completionHandler, memberHandler = h.memberHandler;
 var hoverHandler = h.hoverHandler, diagHandler = h.diagHandler;
+var i18nHandler = h.i18nHandler;
 var defHandler = h.defHandler, semanticHandler = h.semanticHandler;
 var cssTokenResolver = h.cssTokenResolver;
 var path = h.path, fs = h.fs, Q = h.Q;
@@ -26,7 +27,7 @@ var SFV = h.SFV;
 // code-action / similar-class) — tested directly, not re-implemented inline.
 var foldingRangeHandler_  = foam.parse.lsp.handlers.FoldingRangeHandler.create();
 var signatureHelpHandler_ = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: cache });
-var codeActionHandler_    = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, diagnosticsHandler: diagHandler });
+var codeActionHandler_    = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
 
 // === LSP #4993 Fix 1: go-to-definition follows FObjectProperty of: ===
 section('DefinitionHandler — property-chain navigation (issue #4993)');

@@ -2001,7 +2001,7 @@ foam.CLASS({
       // Two blocks of one name collapse in the flow scope, which binds the last of
       // them and leaves the other unreachable. Bounce the rename instead of landing it.
       if ( flatLive.filter(f => f.flowName === newName).length > 1 ) {
-        this.notify('Block name "' + newName + '" is already used in this flow.', '', this.LogLevel.ERROR, true);
+        this.notify('"' + newName + '" is already used by another block.', '', this.LogLevel.ERROR, true);
         this.renameBack_(block, oldName);
         return;
       }
@@ -2023,7 +2023,7 @@ foam.CLASS({
 
       var self  = this;
       var modal = this.ConfirmationModal.create({
-        title: 'Rename "' + oldName + '" to "' + newName + '"?',
+        title: 'Renaming "' + oldName + '" to "' + newName + '"',
         modalStyle: 'WARN',
         maxWidth: '35vw',
         closeable: false,
@@ -2042,8 +2042,8 @@ foam.CLASS({
         })
       });
 
-      modal.add(dependents.length + ( dependents.length == 1 ? ' block references' : ' blocks reference' ) +
-        ' this name and will break: ' + dependents.join(', '));
+      modal.add(dependents.length + ( dependents.length == 1 ? ' other block refers' : ' other blocks refer' ) +
+        ' to this name: ' + dependents.join(', ') + '. Update ' + ( dependents.length == 1 ? 'it' : 'them' ) + ' too?');
       this.add(modal);
     },
 

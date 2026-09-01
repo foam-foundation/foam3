@@ -178,7 +178,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'query',
-      view: { class: 'foam.u2.SearchField', onKey: true }
+      view: { class: 'foam.u2.ClearableSearchField', onKey: true }
     },
     {
       class: 'String',

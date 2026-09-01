@@ -28,23 +28,17 @@ Many model-driven frameworks have been attempted. Most collapse under their own 
 
 ---
 
-## 2. The Core Mental Model
-
-
+## 2. Defining a Class
 
 FOAM replaces the conventional "write implementation code" approach with "declare what things are." The framework generates getters, setters, validation, serialization, UI, storage, and reactive bindings from declarations.
 
 **Key principle:** When you see a FOAM class, read it as a *specification* of intent, not an implementation. The framework handles the "how."
 
----
-
-## 2. Defining a Class
-
 ```javascript
 foam.CLASS({
   package: 'com.example',
   name:    'Invoice',
-  extends: 'foam.nanos.fo.FObject',   // optional; FObject is the default root
+  // extends: omit to inherit from foam.lang.FObject (the default root)
 
   documentation: 'Represents a customer invoice.',
 
@@ -184,8 +178,7 @@ properties: [
     ]
   },
 
-  // Cross-property validation lives on a separate property (or in validateObj of any property)
-  // Use validateObj that references other properties via the argument list:
+  // Cross-property validation — reference other properties via argument list
   {
     class: 'Date',
     name: 'endDate',
@@ -401,28 +394,22 @@ interface DAO {
 
 ```java
 public interface DAO {
-  // Single-object operations
   FObject put(FObject obj);
   FObject find(Object id);
   FObject remove(FObject obj);
 
-  // Collection operations
   Sink select(Sink sink);
   void removeAll();
   void listen(Sink sink, Predicate predicate);
   void pipe(Sink sink);
 
-  // Filtering (returns a new DAO)
   DAO where(Predicate predicate);
   DAO orderBy(Comparator comparator);
   DAO skip(long count);
   DAO limit(long count);
   DAO inX(X x);
 
-  // Escape hatch
   Object cmd(Object obj);
-
-  // Introspection
   ClassInfo getOf();
 }
 ```
@@ -622,7 +609,7 @@ when a result is frozen or cached, and how sinks and predicates evaluate. Those 
 foam.CLASS({
   name: 'PremiumInvoice',
   extends: 'com.example.Invoice',   // single inheritance
-  mixins:  ['foam.nanos.auth.Authorizable'], // copies axioms directly
+  mixins:  ['foam.lang.auth.Authorizable'], // copies axioms directly
 
   properties: [
     { class: 'Float', name: 'discountRate', value: 0.1 }
@@ -747,8 +734,6 @@ When you call `this.SomeClass.create()`, the actual class may have been replaced
 
 ---
 
----
-
 ## 15. Why FOAM Maps Naturally to Natural Language
 
 FOAM's declarative structure has an unusually small gap between how humans describe systems and how they're encoded. This is especially important when working with LLMs.
@@ -793,7 +778,7 @@ Things the LLM does *not* need to generate: getters, setters, change notificatio
 
 ---
 
-## 16. POM — Project Object Model
+## 17. POM — Project Object Model
 
 A POM file (`pom.js`) is the build and project configuration for a FOAM application. It declares what source files to include, which platforms to target, sub-projects to pull in, Java dependencies, and JS libraries — for both web/Node.js JavaScript builds and server-side Java compilation.
 
@@ -887,7 +872,7 @@ axioms: [
 
 ---
 
-## 17. U2/U3 — The View Layer
+## 18. U2/U3 — The View Layer
 
 ### Mental Model
 
@@ -1051,7 +1036,7 @@ This single line produces search, filter, table with sort/pagination, detail vie
 
 ---
 
-## 18. What to Unlearn — Thinking in FOAM
+## 19. What to Unlearn — Thinking in FOAM
 
 These are the instincts that produce plausible-looking but un-FOAM-like code.
 
@@ -1065,598 +1050,7 @@ These are the instincts that produce plausible-looking but un-FOAM-like code.
 
 **Don't put async work in `init()`.** `init()` is synchronous. Use `expression:` for derived async data, or trigger async work from a listener. In U3 views, rendering belongs in `render()`, not `init()`.
 
-**Don't write validation imperatively.** `if (!email.includes('@')) showError(...)` in an event handler is wrong. Declare `validateObj` or `validationPredicates` on the property. FOAM surfaces validation in the UI automatically, runs it on the model, and exposes it through `obj.errors_# FOAM for LLMs
-
-> FOAM (Feature-Oriented Active Modeller) is a model-driven, cross-platform application framework for JavaScript, Java, and Swift. Everything is a model. Everything is composable. Code is a liability; declarations are assets.
-
----
-
-## 1. The Core Mental Model
-
-FOAM replaces the conventional "write implementation code" approach with "declare what things are." The framework generates getters, setters, validation, serialization, UI, storage, and reactive bindings from declarations.
-
-**Key principle:** When you see a FOAM class, read it as a *specification* of intent, not an implementation. The framework handles the "how."
-
----
-
-## 2. Defining a Class
-
-```javascript
-foam.CLASS({
-  package: 'com.example',
-  name:    'Invoice',
-  extends: 'foam.nanos.fo.FObject',   // optional; FObject is the default root
-
-  documentation: 'Represents a customer invoice.',
-
-  requires: [
-    'com.example.LineItem',           // makes this.LineItem available; provides creation context
-    'com.example.Status as InvStatus' // aliased with `as`
-  ],
-
-  imports: [
-    'invoiceDAO',                     // pulled from the context (X) into this.invoiceDAO
-    'currentUser?'                    // optional import; no warning if absent
-  ],
-
-  exports: [
-    'invoiceId as activeInvoiceId'    // publishes to sub-context so children can import it
-  ],
-
-  constants: {
-    MAX_LINE_ITEMS: 100
-  },
-
-  properties: [ /* see Section 3 */ ],
-  methods:    [ /* see Section 4 */ ],
-  listeners:  [ /* see Section 5 */ ],
-  actions:    [ /* see Section 6 */ ],
-  topics:     [ 'submitted', 'cancelled' ]  // pub/sub event declarations
-});
-```
-
-**Lookup / creation:**
-```javascript
-// By fully-qualified name
-var cls = foam.lookup('com.example.Invoice');
-
-// Creation (args are initial property values)
-var inv = com.example.Invoice.create({ amount: 100 });
-
-// Creation in a context Y
-var inv = com.example.Invoice.create({ amount: 100 }, Y);
-
-// JSON notation — equivalent to the above
-var inv = foam.json.parse({ class: 'com.example.Invoice', amount: 100 });
-```
-
----
-
-## 3. Properties
-
-Properties are the primary unit of data. They are declarative axioms with rich metadata.
-
-```javascript
-properties: [
-  // Short-form (class defaults to 'FObject' slot, no type coercion)
-  'name',
-
-  // Typed short-form
-  { class: 'String',  name: 'email' },
-  { class: 'Int',     name: 'quantity', value: 1 },       // value = default
-  { class: 'Float',   name: 'price' },
-  { class: 'Boolean', name: 'paid', value: false },
-  { class: 'Date',    name: 'dueDate' },
-  { class: 'Array',   name: 'tags' },
-  { class: 'Map',     name: 'metadata' },
-  { class: 'EMail',   name: 'contactEmail' },
-  { class: 'URL',     name: 'documentUrl' },
-  { class: 'Long',    name: 'externalId' },
-
-  // FObject reference
-  { class: 'FObjectProperty', of: 'com.example.Address', name: 'billingAddress' },
-
-  // Array of FObjects
-  { class: 'FObjectArray', of: 'com.example.LineItem', name: 'lineItems' },
-
-  // Reference to another model by ID (foreign key)
-  { class: 'Reference', of: 'com.example.Customer', name: 'customerId' },
-
-  // Computed / derived (recalculates when dependencies change)
-  {
-    class: 'Float',
-    name: 'total',
-    expression: function(lineItems) {    // arg names ARE the dependency names
-      return lineItems.reduce((s, li) => s + li.price * li.qty, 0);
-    }
-  },
-
-  // Lazy-initialized
-  {
-    name: 'helper',
-    factory: function() { return this.SomeHelper.create(); }
-  },
-
-  // More specific types with built-in format validation
-  { class: 'EMail',       name: 'email' },
-  { class: 'Password',    name: 'password' },
-  { class: 'PhoneNumber', name: 'phone' },
-  { class: 'URL',         name: 'documentUrl' },
-  { class: 'Website',     name: 'homepage' },
-  { class: 'Currency',    name: 'amount', units: 'USD' },
-  { class: 'StringArray', name: 'tags' },
-
-  // Built-in constraints (automatically validated and shown in GUI)
-  {
-    class: 'String',
-    name: 'code',
-    required: true,
-    minLength: 3,
-    maxLength: 10
-  },
-  {
-    class: 'Int',
-    name: 'quantity',
-    min: 1,
-    max: 999
-  },
-
-  // JS-only inline validation (returns error string or nothing)
-  {
-    class: 'String',
-    name: 'invoiceNumber',
-    documentation: 'Must match format INV-XXXXXX.',
-    required: true,
-    validateObj: function(invoiceNumber) {
-      if ( !/^INV-\d{6}$/.test(invoiceNumber) )
-        return 'Invoice number must match format INV-XXXXXX';
-    }
-  },
-
-  // Cross-platform validation using FScript predicates
-  {
-    class: 'Int',
-    name: 'age',
-    validationPredicates: [
-      {
-        query: 'age>=18&&age<=120',
-        errorString: 'Age must be between 18 and 120.'
-      }
-    ]
-  },
-
-  // Cross-property validation lives on a separate property (or in validateObj of any property)
-  // Use validateObj that references other properties via the argument list:
-  {
-    class: 'Date',
-    name: 'endDate',
-    validateObj: function(endDate, startDate) {
-      if ( foam.Date.compare(endDate, startDate) < 0 )
-        return 'End date cannot be before start date.';
-    }
-  },
-
-  // With visibility and documentation
-  {
-    class: 'String',
-    name: 'notes',
-    label: 'Internal Notes',
-    documentation: 'Visible only to staff.',
-    visibility: 'HIDDEN'              // or 'RO', 'RW', 'FINAL'
-  },
-
-  // Java-specific
-  {
-    class: 'String',
-    name: 'token',
-    javaFactory: 'return java.util.UUID.randomUUID().toString();',
-    javaTransient: true
-  }
-]
-```
-
-**Key validation rules:**
-- `required: true` — property must be non-empty; enforced in GUI and on `validate()`
-- `min` / `max` — numeric bounds
-- `minLength` / `maxLength` — string length bounds
-- `validateObj` — JS-only; argument names are dependencies (same as `expression`); return an error string or nothing
-- `validationPredicates` — cross-platform FScript predicates; use `thisValue` or property name in `query`; requires `errorString` or `errorMessage` (i18n key)
-- All constraints surface automatically in FOAM's detail views as inline error messages
-- `obj.errors_` is a reactive property containing the current array of `[property, errorString]` pairs
-
-**Accessing properties at runtime:**
-```javascript
-inv.amount          // getter
-inv.amount = 200    // setter (fires property change event)
-inv.amount$.sub(function(e, _, __, newVal) { ... })  // subscribe to changes
-inv.slot('amount')  // returns a Slot (reactive reference)
-```
-
-**Property constants** are copied onto both class and instance:
-```javascript
-Invoice.AMOUNT      // the Property axiom object
-inv.AMOUNT.name     // 'amount'
-```
-
-For the parts that surprise people — when `postSet` does not fire, why an `expression` can go
-cold, what `transient` cascades into, and why a `javaGetter`-derived value never reaches the
-client — see [PropertyGotchas.md](PropertyGotchas.md).
-
----
-
-## 4. Methods
-
-```javascript
-methods: [
-  function init() {
-    // Called on create(). Call this.SUPER() to chain.
-    this.SUPER();
-    this.validate();
-  },
-
-  function validate() {
-    if ( this.amount < 0 ) throw new Error('Amount must be non-negative');
-  },
-
-  {
-    name: 'toCSV',
-    documentation: 'Returns a CSV row for this invoice.',
-    code: function() {
-      return `${this.id},${this.amount},${this.dueDate}`;
-    }
-  },
-
-  // Java implementation alongside JS
-  {
-    name: 'generateToken',
-    type: 'String',
-    javaCode: `return java.util.UUID.randomUUID().toString();`
-  }
-]
-```
-
-Use `this.SUPER()` for inheritance calls. Methods are normal prototype methods — call them as `obj.methodName()`.
-
----
-
-## 5. Listeners
-
-Listeners are **pre-bound** methods. Unlike regular methods, they always keep their `this` even when passed as callbacks. Use them wherever you would pass a function reference (DOM events, DAO subscriptions, timers, etc.).
-
-```javascript
-listeners: [
-  function onAmountChange(e, source, prop, newVal) {
-    console.log('New amount:', newVal);
-  },
-
-  // Merged: multiple rapid calls collapse into one, fired after `mergeDelay` ms
-  {
-    name: 'onResize',
-    isMerged: true,
-    mergeDelay: 100,  // ms; default 16
-    code: function() { this.relayout(); }
-  },
-
-  // Framed: fires at most once per animation frame
-  {
-    name: 'onDataChange',
-    isFramed: true,
-    code: function() { this.repaint(); }
-  }
-]
-```
-
-**Subscribing a listener to a property change:**
-```javascript
-this.amount$.sub(this.onAmountChange);
-```
-
----
-
-## 6. Actions
-
-Actions are methods with GUI metadata — label, availability, enablement. Views automatically render them as buttons.
-
-```javascript
-actions: [
-  {
-    name: 'submit',
-    label: 'Submit Invoice',
-    isAvailable: function(paid) { return !paid; },   // hides when paid
-    isEnabled:   function(amount) { return amount > 0; },
-    code: function(X) {
-      this.pub('submitted');
-      X.invoiceDAO.put(this);
-    }
-  }
-]
-```
-
----
-
-## 7. Context (X)
-
-The context (`X`) is FOAM's dependency-injection container — an immutable (but sub-contextable) key-value map.
-
-```javascript
-// Create a context
-var Y = foam.createSubContext({
-  invoiceDAO: myDAO,
-  currentUser: user
-});
-
-// Create an object within that context
-var inv = Invoice.create({}, Y);
-// inv.invoiceDAO === myDAO  (via import)
-
-// Objects can create sub-contexts for their children
-var subY = Y.createSubContext({ theme: 'dark' });
-```
-
-The standard top-level context is `foam.__context__`. Each object's context is at `obj.__context__` (or `obj.x` if it imports `'x'`). Children created via `requires` automatically receive the parent's context.
-
----
-
-## 8. DAOs (Data Access Objects)
-
-A DAO is FOAM's universal storage interface. The same query API works against in-memory, REST, JDBC, IndexedDB, or any custom backend.
-
-### Core interface
-
-```javascript
-// Put (create or update)
-await dao.put(obj);
-
-// Find by id
-var obj = await dao.find(id);
-
-// Remove by id or object
-await dao.remove(obj);
-
-// Select with optional predicate/order/skip/limit
-var sink = await dao.select();            // returns ArraySink
-var sink = await dao.select(M.COUNT());   // returns Count sink
-var sink = await dao.where(M.EQ(Invoice.PAID, false))
-                    .orderBy(M.DESC(Invoice.DUE_DATE))
-                    .limit(20)
-                    .select();
-
-var results = sink.array;    // ArraySink
-
-// Listen for changes
-dao.on.put.sub(function(e, _, __, obj) { console.log('put:', obj); });
-dao.on.remove.sub(function(e, _, __, obj) { });
-```
-
-### MLang — the query language
-
-```javascript
-var M = foam.mlang.ExpressionsSingleton.create();
-
-M.EQ(Invoice.AMOUNT, 100)
-M.GT(Invoice.AMOUNT, 50)
-M.LT(Invoice.DUE_DATE, new Date())
-M.IN(Invoice.STATUS, ['OPEN','OVERDUE'])
-M.AND(M.EQ(Invoice.PAID, false), M.GT(Invoice.AMOUNT, 0))
-M.OR( ... )
-M.NOT(M.EQ( ... ))
-M.CONTAINS(Invoice.NOTES, 'urgent')
-M.STARTS_WITH(Invoice.EMAIL, 'admin')
-
-// Aggregates as sinks
-M.COUNT()
-M.SUM(Invoice.AMOUNT)
-M.MAX(Invoice.AMOUNT)
-M.MIN(Invoice.DUE_DATE)
-M.GROUP_BY(Invoice.STATUS, M.COUNT())
-M.MAP(Invoice.AMOUNT, M.SUM(Invoice.AMOUNT))
-
-// Ordering
-M.DESC(Invoice.DUE_DATE)
-M.THEN_BY(M.DESC(Invoice.DUE_DATE), Invoice.ID)
-```
-
-Predicates can be serialized to JSON and sent over the wire — this is how ClientDAO works.
-
-### Common DAO types
-
-| Class | Purpose |
-|---|---|
-| `foam.dao.MDAO` | In-memory, with pluggable indexes |
-| `foam.dao.EasyDAO` | Configures journal, cache, sequence, etc. with one declaration |
-| `foam.dao.JDAO` | Journal (file-based persistence) wrapping another DAO |
-| `foam.dao.CachingDAO` | Read cache over a slower delegate |
-| `foam.dao.ClientDAO` | Proxies over the network to a server-side DAO |
-| `foam.dao.LRUCachingDAO` | Bounded cache with LRU eviction |
-| `foam.dao.ProxyDAO` | Base class for decorating DAOs |
-
-**Decorator chain (typical):**
-```
-ClientDAO → CachingDAO → MDAO
-                      ↓ (server-side)
-               EasyDAO(journal=true, cache=true, of=Invoice)
-```
-
----
-
-## 9. Inheritance and Mixins
-
-```javascript
-foam.CLASS({
-  name: 'PremiumInvoice',
-  extends: 'com.example.Invoice',   // single inheritance
-  mixins:  ['foam.nanos.auth.Authorizable'], // copies axioms directly
-
-  properties: [
-    { class: 'Float', name: 'discountRate', value: 0.1 }
-  ]
-});
-```
-
-`implements` is like `mixins` but with proper method override semantics (override handling via `SUPER`). `mixins` does a direct axiom copy.
-
----
-
-## 10. Pub/Sub
-
-Every FObject has built-in pub/sub through a topic hierarchy.
-
-```javascript
-// Publish
-obj.pub('myTopic', 'subTopic', data);
-
-// Subscribe
-var sub = obj.sub('myTopic', function(sub, topic, ...args) {
-  console.log(args);
-});
-
-// Property changes are published automatically:
-// obj.pub('propertyChange', 'amount', slot)
-obj.sub('propertyChange', 'amount', handler);
-
-// Unsubscribe
-sub.detach();
-```
-
----
-
-## 11. Relationships
-
-```javascript
-foam.RELATIONSHIP({
-  sourceModel: 'com.example.Customer',
-  targetModel: 'com.example.Invoice',
-  forwardName: 'invoices',    // Customer gets: customer.invoices → DAO
-  inverseName: 'customer',    // Invoice gets: invoice.customerId (FK)
-  cardinality: '1:*'
-});
-```
-
-After declaration, `customer.invoices` is a DAO pre-filtered to that customer's invoices.
-
----
-
-## 12. Enums
-
-```javascript
-foam.ENUM({
-  package: 'com.example',
-  name: 'InvoiceStatus',
-  values: [
-    { name: 'DRAFT',    label: 'Draft',    ordinal: 0 },
-    { name: 'OPEN',     label: 'Open',     ordinal: 1 },
-    { name: 'PAID',     label: 'Paid',     ordinal: 2 },
-    { name: 'OVERDUE',  label: 'Overdue',  ordinal: 3 }
-  ]
-});
-
-// Usage
-invoice.status = com.example.InvoiceStatus.OPEN;
-invoice.status.label    // 'Open'
-invoice.status.ordinal  // 1
-```
-
----
-
-## 13. Interfaces
-
-```javascript
-foam.INTERFACE({
-  package: 'com.example',
-  name: 'Exportable',
-  methods: [
-    { name: 'toCSV',  type: 'String' },
-    { name: 'toPDF',  type: 'String' }
-  ]
-});
-
-foam.CLASS({
-  name: 'Invoice',
-  implements: ['com.example.Exportable'],
-  methods: [
-    function toCSV() { ... },
-    function toPDF() { ... }
-  ]
-});
-```
-
----
-
-## 14. Important Patterns
-
-### Check before accessing sub-context values
-Use optional imports (`'myService?'`) when a service might not always be present.
-
-### Prefer `expression` over `factory` for computed values
-`expression` declares dependencies and auto-invalidates. `factory` only runs once.
-
-One caveat: an `expression` is lazy and its dependency subscriptions are one-shot. With no active
-subscriber at the moment a dependency changes, it clears its cache, detaches, publishes nothing,
-and stays cold until the property is read again. Behind a view that re-reads on every change this
-is invisible; behind a passive consumer it shows a stale value. See
-[PropertyGotchas.md](PropertyGotchas.md).
-
-### Use `requires` instead of direct class references
-`this.Invoice.create()` uses the context; `com.example.Invoice.create()` bypasses it. Replacements, singletons, and multitons only work through `requires`.
-
-### DAOs are composable pipelines
-Chain `.where()`, `.orderBy()`, `.skip()`, `.limit()` before `.select()` — each returns a new decorated DAO, nothing executes until `select()`/`find()`/`put()`.
-
-### `detach()` for cleanup
-Subscriptions and child objects implement `Detachable`. Call `.detach()` to unsubscribe and free resources. Objects call `detach()` on all their sub-subscriptions when they are themselves detached.
-
-### Late binding via context
-When you call `this.SomeClass.create()`, the actual class may have been replaced in the context. This is intentional — it enables mocking, decoration, and platform-specific implementations transparently.
-
----
-
----
-
-## 15. Why FOAM Maps Naturally to Natural Language
-
-FOAM's declarative structure has an unusually small gap between how humans describe systems and how they're encoded. This is especially important when working with LLMs.
-
-**Human:** "I need a User with email, password, and a way to check if they're an admin."
-
-**FOAM:**
-```javascript
-foam.CLASS({
-  name: 'User',
-  properties: [
-    { class: 'EMail',    name: 'email',    required: true },
-    { class: 'Password', name: 'password', required: true },
-    { class: 'Enum',     name: 'role',     of: 'UserRole' }
-  ],
-  methods: [
-    function isAdmin() { return this.role === UserRole.ADMIN; }
-  ]
-});
-```
-
-Things the LLM does *not* need to generate: getters, setters, change notification, validation wiring, serialization, GUI components, or storage adapters. The framework provides all of them from the declaration above. This makes FOAM unusually well-suited to LLM-driven development — describe intent, receive a working specification.
-
----
-
-## 16. Quick Reference: Common Mistakes to Avoid
-
-| Wrong | Right |
-|---|---|
-| `new Invoice()` | `Invoice.create()` |
-| `invoice.amount()` | `invoice.amount` (properties are not methods) |
-| Direct class reference in `requires` | Use `this.ClassName.create()` after requiring |
-| Mutating array property directly | Replace: `this.items = [...this.items, newItem]` |
-| `async init()` | FOAM `init()` is synchronous; do async work in an `expression` or separate method |
-| Forgetting to `detach()` listeners | Causes memory leaks; attach subs to `this.onDetach(sub)` |
-| `getDelegate().find(id)` inside a decorator | `getDelegate().find_(x, id)` — the argless form re-enters with the DAO's own context, so the stack runs as system ([DaoGotchas](DaoGotchas.md)) |
-| `getDelegate().select(sink)` in a `select_` override | `select_(x, sink, skip, limit, order, predicate)` — the arity-1 form drops every query argument |
-| Mutating an object returned by `put()`/`find()` | `fclone()` first; the returned instance is frozen |
-| `where(LTE(dateProp, now))` for a deadline sweep | `where(AND(HAS(dateProp), LTE(dateProp, now)))` — an unset Date satisfies `LTE` |
-| `LimitedSink` nested under `GROUP_BY` | `UNIQUE(key, LimitedSink(N))` — the nested form detaches the outer scan and truncates it silently |
-| `.add(prop)` for a permission-gated field | `.add(prop.__)` — the permission check lives in `PropertyBorder`, not the bare view ([PropertyGotchas](PropertyGotchas.md)) |
-
----
-
-.
+**Don't write validation imperatively.** `if (!email.includes('@')) showError(...)` in an event handler is wrong. Declare `validateObj` or `validationPredicates` on the property. FOAM surfaces validation in the UI automatically, runs it on the model, and exposes it through `obj.errors_`.
 
 **Don't think in REST.** When connecting to a server, don't reach for `fetch()`. Import a DAO or service from context and call it as an object. The network is an implementation detail you should never see.
 
@@ -1670,7 +1064,7 @@ Things the LLM does *not* need to generate: getters, setters, change notificatio
 
 ---
 
-## 19. Grammars and Parsers
+## 20. Grammars and Parsers
 
 FOAM includes a parser combinator library and a Grammar system for building complex, readable parsers without a separate compiler step. Grammars are regular FOAM classes — they use the same modelling system as everything else.
 
@@ -1733,8 +1127,6 @@ foam.CLASS({
 
         letter:    alt(range('a','z'), range('A','Z')),
         digit:     range('0','9'),
-
-        // Recursive rule — separator calls itself to consume runs of separators
         separator: str(seq(chars(' ,-'), optional(sym('separator')))),
 
         areaCode:  str(seq(
@@ -1774,8 +1166,8 @@ var result = g.parseString('Clark Kent, 6205550145, KRYP70N');
 
 // Access and test a named sub-rule directly
 var phoneParser = g.getSymParser('phoneNumber');
-phoneParser.match('(620) - 555 - 0145');     // first match
-phoneParser.matchAll('call (620)-555-0145 or (201)-530-7972');  // all matches
+phoneParser.match('(620) - 555 - 0145');
+phoneParser.matchAll('call (620)-555-0145 or (201)-530-7972');
 ```
 
 ### Semantic Actions
@@ -1806,7 +1198,7 @@ Follow the Single Responsibility Principle: each named rule handles one precise 
 
 ---
 
-## 20. Multi-Tenancy: Service Providers and SPID
+## 21. Multi-Tenancy: Service Providers and SPID
 
 FOAM's multi-tenancy model is built around **Service Providers** (the FOAM term for tenants). Every tenant has a **SPID** (Service Provider ID).
 
@@ -1878,7 +1270,7 @@ The Theme is resolved on login based on the user's SPID and the request domain, 
 
 ---
 
-## 20. Infrastructure Patterns
+## 22. Infrastructure Patterns
 
 ### Authentication and Sessions
 
@@ -1910,8 +1302,6 @@ session = (Session) ((DAO) x.get("sessionDAO")).put(session);
 // The returned session.getId() is the token to pass as sessionId
 ```
 
----
-
 ### Schema Migration and JDAO Journals
 
 FOAM's primary persistence mechanism is **JDAO** (Journalled DAO): an append-only text log that decorates an in-memory MDAO. On startup, the journal is replayed to reconstruct in-memory state.
@@ -1919,38 +1309,35 @@ FOAM's primary persistence mechanism is **JDAO** (Journalled DAO): an append-onl
 **Journal format:**
 ```
 p({"class":"com.example.Invoice","id":"INV-001","amount":100,"status":"OPEN"})
-p({"class":"com.example.Invoice","id":"INV-001","amount":150})   // partial update — only changed fields
+p({"class":"com.example.Invoice","id":"INV-001","amount":150})   // partial update
 r({"class":"com.example.Invoice","id":"INV-001"})                // remove
-// comment lines are allowed
 ```
 
 Each `p()` entry is a **partial object** — only the fields present are merged onto the existing in-memory object by id. This has direct consequences for schema evolution:
 
 - **Adding a property** — safe with no action required. Missing fields during replay use the property's `value` or `factory` default.
 - **Removing a property** — safe with no action required. Unknown fields in journal entries are silently ignored during deserialization.
-- **Renaming a property** — leave the old property in the model but mark it `hidden` and use its `postSet` (or `setter`) to write the new property. On journal replay the old field sets the new one automatically, migrating all data on load. Remove the shim after the journal has been compacted.
-- **Changing a property's type** — use the same shim pattern: keep the old property with its original type, and in its `postSet` convert and assign to the new property. This handles format conversion (e.g. String → Date) transparently during replay.
+- **Renaming a property** — leave the old property in the model but mark it `hidden` and use its `postSet` to write the new property. On journal replay the old field sets the new one automatically, migrating all data on load. Remove the shim after the journal has been compacted.
+- **Changing a property's type** — use the same shim pattern: keep the old property with its original type, and in its `postSet` convert and assign to the new property.
 
 ```javascript
 // Migration shim: rename 'dueDate' (String) → 'dueDateObj' (Date)
 {
   class: 'String',
-  name: 'dueDate',         // old name, old type
-  hidden: true,            // invisible in UI
-  transient: true,         // don't write back to new journals
+  name: 'dueDate',
+  hidden: true,
+  transient: true,
   postSet: function(_, v) {
-    this.dueDateObj = new Date(v);   // migrate on read
+    this.dueDateObj = new Date(v);
   }
 },
 {
   class: 'Date',
-  name: 'dueDateObj'       // new canonical property
+  name: 'dueDateObj'
 }
 ```
 
-**Journal compaction:** periodically the live state is snapshotted as fresh `p()` entries and the old log archived. After compaction the migration shims can be removed. For SQL backends, **JDBCDAO** provides the same DAO interface; schema changes there follow standard SQL migration tooling (Liquibase, Flyway, or manual `ALTER TABLE`).
-
----
+**Journal compaction:** periodically the live state is snapshotted as fresh `p()` entries and the old log archived. After compaction the migration shims can be removed.
 
 ### Client↔Server DAO and Service Wiring
 
@@ -1962,8 +1349,6 @@ CORE (Context-Oriented Runtime Environment) is FOAM's application server. It is 
 
 A `CSpec` (CORE Service Specification) is a descriptor for a service — it defines how to create the service and, optionally, its client-side counterpart. On boot, CORE loads the `cSpecDAO` and registers a **lazy factory** in the context for every service it finds. The service is not created until something first accesses it by name. Services marked `lazy: false` are touched immediately on startup, which causes them to initialise.
 
-That's the entire boot sequence. Everything else — the embedded HTTP server, the logger, the auth service, all the application DAOs, the session service — is just a service defined in the `cSpecDAO`. None of it is hardwired. Remove a CSpec entry and the service doesn't exist. Replace it and a different implementation loads transparently. With a different set of CSpec entries you have a completely different server.
-
 ```
 Boot sequence:
 1. Load cSpecDAO (the one built-in DAO)
@@ -1974,31 +1359,13 @@ Boot sequence:
 
 **The client side is symmetric.**
 
-A `ClientBuilder` runs on the client. It has one built-in client-side DAO that connects to the server's `cSpecDAO`. It downloads all the CSpec entries, reads each one's `client:` property, and registers lazy factories in the client context — exactly mirroring the server. When client code accesses a service by name, the factory builds the client agent (a network stub, a full local implementation, or anything in between) on demand.
+A `ClientBuilder` runs on the client. It has one built-in client-side DAO that connects to the server's `cSpecDAO`. It downloads all the CSpec entries, reads each one's `client:` property, and registers lazy factories in the client context — exactly mirroring the server. When client code accesses a service by name, the factory builds the client agent on demand.
 
 The result is that both server and client boot from the same set of specifications. Adding a service means adding one CSpec entry. The server gets the implementation; the client gets the agent. Neither side requires any other configuration change.
 
-**200+ services out of the box.**
-
-The standard CORE distribution ships with more than 200 pre-defined CSpec entries covering authentication, authorisation, session management, logging, HTTP serving, DAOs, email, notifications, scheduled jobs, audit logging, and much more. The minimal kernel architecture means any of these can be removed, replaced, or supplemented — but in practice a standard FOAM application starts with a fully capable server without writing a single service definition.
-
-**Why this matters for code generation:**
-
-When writing FOAM server or client code, you never instantiate services directly. You access them by name through context (`x.get("myService")` in Java, or `imports: ['myService']` in JavaScript). The CSpec system is what puts them there. Writing code that bypasses context — hardcoding a `new MyServiceImpl()` or calling a constructor directly — breaks the entire substitutability model.
-
----
-
 **On REST and endpoints — a design philosophy note:**
 
-FOAM considers explicit REST endpoint management a devolution in software design. REST forces the programmer to think about transport — URL structure, HTTP verbs, serialization format, status codes — none of which is their actual problem. It also hardwires the protocol into the calling code, making it impossible to change the transport, add caching, or insert authorization without modifying clients.
-
-FOAM's position: services and data stores should be **objects**, not endpoints. The transport is a configuration detail, not an API contract. This is what makes decorator composition — caching DAOs, authorization DAOs, throttling DAOs, logging DAOs — possible without any client code awareness.
-
-**Boxes — the transport abstraction layer:**
-
-A Box is a low-level FOAM abstraction — a simple "message box" interface with a single `send(envelope)` method. Different Box implementations handle different transports: HTTP, HTTPS, WebSockets, raw sockets, in-process, etc. Switching transport is a matter of swapping the Box in the service registration; no application code changes. Average FOAM developers never work with Boxes directly — they use DAOs and services, and the Box layer is wired up automatically by the framework beneath them.
-
-**The key abstraction: programmers never deal with endpoints.**
+FOAM considers explicit REST endpoint management a devolution in software design. REST forces the programmer to think about transport — URL structure, HTTP verbs, serialization format, status codes — none of which is their actual problem. FOAM's position: services and data stores should be **objects**, not endpoints. The transport is a configuration detail, not an API contract.
 
 Application code — whether JavaScript on the client or Java on the server — simply imports a DAO by name from context and uses it identically:
 
@@ -2023,28 +1390,7 @@ List results = ((ArraySink) invoiceDAO
   .select(new ArraySink())).getArray();
 ```
 
-The programmer has no idea — and does not need to know — whether `invoiceDAO` is a local JDAO, a JDBCDAO, a remote DAO on another server, or a decorated pipeline of all three. The DAO interface is the contract; the wiring is configuration.
-
-**How the wiring is configured (CSpec / services journal):**
-
-Services and DAOs are registered via `CSpec` entries in a `.jrl` journal. For a DAO, the `client` block specifies what the client-side gets; the server side is whatever is registered under that name in the server context:
-
-```javascript
-// services.jrl — server registration
-p({
-  "class":       "foam.dao.EasyDAO",
-  "of":          "com.example.Invoice",
-  "name":        "invoiceDAO",
-  "seqNo":       true,
-  "journal":     true,
-  "cache":       true,
-  "authorize":   true
-});
-```
-
-The client automatically gets a `ClientDAO` proxying to the server over HTTP or WebSocket — no additional client configuration is needed for standard DAOs.
-
-For custom RPC services, a `CSpec` wires a `Skeleton` (server) to a `Stub`-based client proxy, but the calling code still just does `this.myService.doSomething(x, arg)` — indistinguishable from a local call.
+The programmer has no idea — and does not need to know — whether `invoiceDAO` is a local JDAO, a JDBCDAO, a remote DAO on another server, or a decorated pipeline of all three.
 
 **`EasyDAO` properties:**
 
@@ -2068,7 +1414,7 @@ Client code (imports invoiceDAO)
 
 ---
 
-## 21. Generating FOAM Code
+## 23. Generating FOAM Code
 
 When asked to write FOAM code, follow these conventions:
 
@@ -2082,3 +1428,4 @@ When asked to write FOAM code, follow these conventions:
 8. Import DAOs from context; never instantiate DAOs inline unless in a factory or test.
 9. For Java, always provide `javaCode:` on methods where needed alongside JS `code:`.
 10. Favor short, composable classes over large monolithic ones — FOAM's power comes from composition.
+11. Java imports use `foam.lang.*` and `foam.core.*` — never `foam.nanos.*` (that package does not exist).

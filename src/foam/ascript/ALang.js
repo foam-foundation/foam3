@@ -35,6 +35,10 @@ foam.ALANG = function(ms) {
       a => `${a.javaType} ${a.name} = ${getValue(a)};\n`
     ).join('') + l.javaCode);
 
+    if ( l.outputType ) {
+      properties.push({class: 'String', name: 'outputType', value: l.outputType});
+    }
+
     // TODO: Generate Model
     let m = {
       package: 'foam.mlang.expr',
@@ -487,6 +491,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
+    outputType: 'String',
     code: function(text) { return foam.ascript.Lib.UPPER(text); },
     javaCode: 'return foam.ascript.Lib.UPPER(text);'
   },
@@ -496,6 +501,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
+    outputType: 'String',
     code: function(text) { return foam.ascript.Lib.LOWER(text); },
     javaCode: 'return foam.ascript.Lib.LOWER(text);'
   },
@@ -505,6 +511,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
+    outputType: 'String',
     code: function(text) {
       return foam.ascript.Lib.PROPER(text);
     },
@@ -516,6 +523,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
+    outputType: 'String',
     code: function(text) { return foam.ascript.Lib.TRIM(text); },
     javaCode: 'return foam.ascript.Lib.TRIM(text);'
   },
@@ -525,6 +533,7 @@ foam.ALANG([
     args: [
       { class: 'String', name: 'text' }
     ],
+    outputType: 'Int',
     code: function(text) { return foam.ascript.Lib.LEN(text); },
     javaCode: 'return foam.ascript.Lib.LEN(text);'
   },
@@ -535,6 +544,7 @@ foam.ALANG([
       { class: 'String', name: 'text' },
       { class: 'Int',    name: 'numChars', value: 1 }
     ],
+    outputType: 'String',
     code: function(text, numChars) { return foam.ascript.Lib.LEFT(text, numChars); },
     javaCode: 'return foam.ascript.Lib.LEFT(text, numChars);'
   },
@@ -545,6 +555,7 @@ foam.ALANG([
       { class: 'String', name: 'text' },
       { class: 'Int',    name: 'numChars', value: 1 }
     ],
+    outputType: 'String',
     code: function(text, numChars) { return foam.ascript.Lib.RIGHT(text, numChars); },
     javaCode: 'return foam.ascript.Lib.RIGHT(text, numChars);'
   },
@@ -601,6 +612,7 @@ foam.ALANG([
       { class: 'String', name: 'withinText' },
       { class: 'Int',    name: 'startNum', value: 1 }
     ],
+    outputType: 'Int',
     code: function(findText, withinText, startNum) {
       return foam.ascript.Lib.FIND(findText, withinText, startNum);
     },
@@ -615,6 +627,7 @@ foam.ALANG([
       { class: 'String', name: 'newText' },
       { class: 'Int',    name: 'instanceNum', value: -1 }
     ],
+    outputType: 'String',
     code: function(text, oldText, newText, instanceNum) {
       return foam.ascript.Lib.SUBSTITUTE(text, oldText, newText, instanceNum);
     },
@@ -651,6 +664,7 @@ foam.ALANG([
     args: [
       { class: 'Object', name: 'value' }
     ],
+    outputType: 'Boolean',
     code: function(value) { return foam.ascript.Lib.ISNUMBER(value); },
     javaCode: 'return value instanceof Number && !(Double.isNaN((Double) value));'
   },
@@ -660,6 +674,7 @@ foam.ALANG([
     args: [
       { class: 'Object', name: 'value' }
     ],
+    outputType: 'Boolean',
     code: function(value) { return foam.ascript.Lib.ISTEXT(value); },
     javaCode: 'return value instanceof String;'
   },
@@ -669,6 +684,7 @@ foam.ALANG([
     args: [
       { class: 'Object', name: 'value' }
     ],
+    outputType: 'Boolean',
     code: function(value) { return foam.ascript.Lib.ISBLANK(value); },
     javaCode: 'return value == null || (value instanceof String && ((String) value).isEmpty());'
   },
@@ -684,6 +700,7 @@ foam.ALANG([
       { class: 'Int', name: 'month' },
       { class: 'Int', name: 'day' }
     ],
+    outputType: 'Date',
     code: function(year, month, day) { return foam.ascript.Lib.DATE(year, month, day); },
     javaCode: 'return foam.ascript.Lib.DATE(year, month, day);'
   },
@@ -691,6 +708,7 @@ foam.ALANG([
     name: 'YEAR',
     documentation: 'Returns the calendar year of a date.',
     args: [ { class: 'Date', name: 'date' } ],
+    outputType: 'Int',
     code: function(date) { return foam.ascript.Lib.YEAR(date); },
     javaCode: 'return foam.ascript.Lib.YEAR(date);'
   },
@@ -698,6 +716,7 @@ foam.ALANG([
     name: 'MONTH',
     documentation: 'Returns the calendar month (1-12) of a date.',
     args: [ { class: 'Date', name: 'date' } ],
+    outputType: 'Int',
     code: function(date) { return foam.ascript.Lib.MONTH(date); },
     javaCode: 'return foam.ascript.Lib.MONTH(date);'
   },
@@ -705,6 +724,7 @@ foam.ALANG([
     name: 'DAY',
     documentation: 'Returns the day of month of a date.',
     args: [ { class: 'Date', name: 'date' } ],
+    outputType: 'Int',
     code: function(date) { return foam.ascript.Lib.DAY(date); },
     javaCode: 'return foam.ascript.Lib.DAY(date);'
   },
@@ -712,6 +732,7 @@ foam.ALANG([
     name: 'HOUR',
     documentation: 'Returns the hour (0-23) of a date.',
     args: [ { class: 'Date', name: 'date' } ],
+    outputType: 'Int',
     code: function(date) { return foam.ascript.Lib.HOUR(date); },
     javaCode: 'return foam.ascript.Lib.HOUR(date);'
   },
@@ -719,6 +740,7 @@ foam.ALANG([
     name: 'MINUTE',
     documentation: 'Returns the minute (0-59) of a date.',
     args: [ { class: 'Date', name: 'date' } ],
+    outputType: 'Int',
     code: function(date) { return foam.ascript.Lib.MINUTE(date); },
     javaCode: 'return foam.ascript.Lib.MINUTE(date);'
   },
@@ -726,18 +748,20 @@ foam.ALANG([
     name: 'SECOND',
     documentation: 'Returns the second (0-59) of a date.',
     args: [ { class: 'Date', name: 'date' } ],
+    outputType: 'Int',
     code: function(date) { return foam.ascript.Lib.SECOND(date); },
     javaCode: 'return foam.ascript.Lib.SECOND(date);'
   },
   {
     name: 'WEEKDAY',
-    documentation: 'Returns the day of week; returnType 1 (default) gives Mon=1..Sun=7, 3 gives Mon=0..Sun=6.',
+    documentation: 'Returns the day of week; outputFormat 1 (default) gives Mon=1..Sun=7, 3 gives Mon=0..Sun=6.',
     args: [
       { class: 'Date', name: 'date' },
-      { class: 'Int',  name: 'returnType', value: 1 }
+      { class: 'Int',  name: 'outputFormat', value: 1 }
     ],
-    code: function(date, returnType) { return foam.ascript.Lib.WEEKDAY(date, returnType); },
-    javaCode: 'return foam.ascript.Lib.WEEKDAY(date, returnType);'
+    outputType: 'Int',
+    code: function(date, outputFormat) { return foam.ascript.Lib.WEEKDAY(date, outputFormat); },
+    javaCode: 'return foam.ascript.Lib.WEEKDAY(date, outputFormat);'
   },
   {
     name: 'EDATE',
@@ -746,6 +770,7 @@ foam.ALANG([
       { class: 'Date', name: 'startDate' },
       { class: 'Int',  name: 'months' }
     ],
+    outputType: 'Date',
     code: function(startDate, months) { return foam.ascript.Lib.EDATE(startDate, months); },
     javaCode: 'return foam.ascript.Lib.EDATE(startDate, months);'
   },
@@ -756,6 +781,7 @@ foam.ALANG([
       { class: 'Date', name: 'startDate' },
       { class: 'Int',  name: 'months' }
     ],
+    outputType: 'Date',
     code: function(startDate, months) { return foam.ascript.Lib.EOMONTH(startDate, months); },
     javaCode: 'return foam.ascript.Lib.EOMONTH(startDate, months);'
   },
@@ -767,6 +793,7 @@ foam.ALANG([
       { class: 'Date',   name: 'endDate' },
       { class: 'String', name: 'unit' }
     ],
+    outputType: 'Int',
     code: function(startDate, endDate, unit) { return foam.ascript.Lib.DATEDIF(startDate, endDate, unit); },
     javaCode: 'return foam.ascript.Lib.DATEDIF(startDate, endDate, unit);'
   }

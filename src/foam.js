@@ -147,6 +147,10 @@
     },
     adaptFlags: function(flags) {
       if ( typeof flags !== 'string' ) return flags;
+      // '' means "no flags" — e.g. a flagless pom entry's [] joined back
+      // into a string (LSP FoamIndex.matchesActiveFlags). Always matches
+      // (checkFlags([]) is true), never malformed.
+      if ( flags === '' ) return [];
       foam.assertFlags(flags);
       return flags.split('|');
     },

@@ -23,6 +23,7 @@ var path = require('path');
 var DEFAULTS = Object.freeze({
   'diagnostics.java': true,
   'diagnostics.i18n': true,
+  'diagnostics.pom': true,
   'hints.i18nMissingLanguage': true,
   'completion': true,
   'hover': true,

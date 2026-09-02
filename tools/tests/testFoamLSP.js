@@ -41,7 +41,7 @@ if ( require.main === module ) {
 var CATEGORIES = [
   'config',
   'foamIndex', 'grammar', 'utilities', 'completion', 'hover', 'diagnostics',
-  'i18n', 'codelens', 'scaffold',
+  'i18n', 'codelens', 'scaffold', 'pom',
   'navigation', 'java', 'jrl', 'editorFeatures', 'typeHierarchy', 'usageIndex',
   'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp'
 ];

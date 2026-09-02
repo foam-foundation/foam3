@@ -421,7 +421,7 @@ function start() {
       if ( ouri === uri ) {
         fileModelCache.invalidate(ouri);
         if ( isJrlFile(ouri) ) pushJrlDiagnostics(ouri, otext);
-        else if ( isFoamFile(otext) ) pushDiagnostics(ouri, otext);
+        else if ( isFoamFile(otext) || isPomFile(ouri) ) pushDiagnostics(ouri, otext);
         continue;
       }
       if ( isJrlFile(ouri) ) {
@@ -746,7 +746,7 @@ function start() {
         var tdoc = params.textDocument;
         console.error('[LSP] didOpen: ' + tdoc.uri + ' lang=' + tdoc.languageId);
         documents[tdoc.uri] = { text: tdoc.text, version: tdoc.version || 0 };
-        if ( isFoamFile(tdoc.text) ) pushDiagnostics(tdoc.uri, tdoc.text);
+        if ( isFoamFile(tdoc.text) || isPomFile(tdoc.uri) ) pushDiagnostics(tdoc.uri, tdoc.text);
         if ( isJrlFile(tdoc.uri) ) pushJrlDiagnostics(tdoc.uri, tdoc.text);
         break;
 
@@ -755,7 +755,7 @@ function start() {
         if ( params.contentChanges.length > 0 ) {
           documents[uri] = { text: params.contentChanges[0].text, version: params.textDocument.version || 0 };
           fileModelCache.invalidate(uri);
-          if ( isFoamFile(documents[uri].text) ) pushDiagnostics(uri, documents[uri].text);
+          if ( isFoamFile(documents[uri].text) || isPomFile(uri) ) pushDiagnostics(uri, documents[uri].text);
           if ( isJrlFile(uri) ) pushJrlDiagnostics(uri, documents[uri].text);
         }
         break;

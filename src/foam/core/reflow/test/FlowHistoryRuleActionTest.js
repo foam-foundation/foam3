@@ -27,6 +27,7 @@ foam.CLASS({
     'foam.lang.DirectAgency',
     'foam.lang.X',
     'java.io.File',
+    'java.util.Date',
     'static foam.mlang.MLang.EQ'
   ],
 
@@ -54,16 +55,26 @@ foam.CLASS({
         // Unchanged put: no record.
         action.applyAction(ax, a2, a2, null, null, agency);
 
+        // A Date left unset and one set to null read the same; not a change.
+        Flow a3 = (Flow) a2.fclone();
+        a3.setCreated(null);
+        action.applyAction(ax, a3, a2, null, null, agency);
+
         Flow b = new Flow();
         b.setName("Recon B");
         b.setScript("v1");
         action.applyAction(ax, b, null, null, null, agency);
 
+        // A Date value survives the journal round trip as a Date.
+        Flow b2 = (Flow) b.fclone();
+        b2.setCreated(new Date(1760020037371L));
+        action.applyAction(ax, b2, b, null, null, agency);
+
         ArraySink a = (ArraySink) history
           .where(EQ(FlowHistoryRecord.OBJECT_ID, "Recon A"))
           .orderBy(FlowHistoryRecord.ID)
           .select(new ArraySink());
-        test(a.getArray().size() == 2, "Recon A has create + one edit, got " + a.getArray().size());
+        test(a.getArray().size() == 2, "Recon A has create + one edit; unchanged and unset-vs-null puts add nothing, got " + a.getArray().size());
 
         FlowHistoryRecord create = (FlowHistoryRecord) a.getArray().get(0);
         FlowHistoryRecord edit   = (FlowHistoryRecord) a.getArray().get(1);
@@ -84,6 +95,13 @@ foam.CLASS({
           .select(new ArraySink());
         test(again.getArray().size() == 2, "replayed partition holds both Recon A records, got " + again.getArray().size());
         test(fresh.isLoaded("Recon A") && ! fresh.isLoaded("Recon B"), "only the queried flow's partition is loaded");
+
+        FlowHistoryRecord dated = (FlowHistoryRecord) fresh.find("Recon B~2");
+        test(dated != null && dated.getUpdates().length == 1 && "created".equals(dated.getUpdates()[0].getName()),
+          "date edit recorded as one update");
+        test(dated != null && dated.getUpdates()[0].getNewValue() instanceof Date
+          && ((Date) dated.getUpdates()[0].getNewValue()).getTime() == 1760020037371L,
+          "replayed date value is a Date, got " + (dated == null ? null : dated.getUpdates()[0].getNewValue()));
 
         // A record is readable exactly when its flow is findable through flowDAO in the caller's context.
         MDAO flows = new MDAO(Flow.getOwnClassInfo());

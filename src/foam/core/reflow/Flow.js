@@ -235,7 +235,9 @@ foam.CLASS({
           where(this.EQ(this.FlowHistoryRecord.OBJECT_ID, name)).
           orderBy(this.DESC(this.FlowHistoryRecord.TIMESTAMP));
       },
-      view: { class: 'foam.core.reflow.FlowHistoryView' }
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.FlowHistoryView', flowName: X.data.name };
+      }
     }
   ],
 

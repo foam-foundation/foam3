@@ -111,7 +111,7 @@
  * // Methods can be called on the enum values.
  * // outputs "Fixed is not considered open."
  * console.log(IssueStatus.FIXED.foo());
- * 
+ *
  * // The INVALID enum value overrides foo() with its own implementation
  * // outputs "Invalid issues require special handling!"
  * console.log(IssueStatus.INVALID.foo());
@@ -322,7 +322,7 @@ foam.CLASS({
       final: true
     },
     {
-      class: 'String',
+      class: 'I18NString',
       name: 'label',
       transient: true,
       factory: function() {

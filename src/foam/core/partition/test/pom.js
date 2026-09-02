@@ -12,7 +12,8 @@ foam.POM({
     { name: 'PartitionLoadReplayTest',            flags: 'js&test|java&test' },
     { name: 'PartitionLoadStatusIntegrationTest', flags: 'js&test|java&test' },
     { name: 'PartitionLoadProgressDAOTest',       flags: 'js&test|java&test' },
-    { name: 'UnloadableDecoratedDAOTest',         flags: 'js&test|java&test' }
+    { name: 'UnloadableDecoratedDAOTest',         flags: 'js&test|java&test' },
+    { name: 'PartitionedDAOListenTest',           flags: 'js&test|java&test' }
   ],
 
   javaFiles: [

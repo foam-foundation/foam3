@@ -13,7 +13,8 @@ foam.CLASS({
   javaImports: [
     'foam.dao.DAO',
     'foam.core.auth.Subject',
-    'foam.core.session.Session'
+    'foam.core.session.Session',
+    'foam.util.SafetyUtil'
   ],
 
   methods: [
@@ -38,6 +39,7 @@ foam.CLASS({
         DAO localGroupDAO = ((DAO) x.get("localGroupDAO")).inX(x);
         while ( group != null ) {
           if ( ! group.getEnabled() ) return false;
+          if ( SafetyUtil.isEmpty(group.getParent()) ) break;
           group = (Group) localGroupDAO.find(group.getParent());
         }
 

@@ -2042,33 +2042,19 @@ foam.CLASS({
           Name the blocks that reference it, and offer to rewrite them with it. */
       if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
 
-      var blocks     = JSON.parse(this.generateScriptString());
-      var flatBlocks = this.flattenFlow(blocks);
-      var flatLive   = this.flattenFlow(this.flowChildren);
-      var i          = flatLive.indexOf(block);
-      if ( i < 0 || ! flatBlocks[i] ) return;
+      var live = this.flattenFlow(this.flowChildren);
 
       // Two blocks of one name collapse in the flow scope, which binds the last of
       // them and leaves the other unreachable. Bounce the rename instead of landing it.
-      if ( flatLive.filter(f => f.flowName === newName).length > 1 ) {
+      if ( live.filter(f => f.flowName === newName).length > 1 ) {
         this.notify('"' + newName + '" is already used by another block.', '', this.LogLevel.ERROR, true);
         this.renameBack_(block, oldName);
         return;
       }
 
-      // The block already carries the new name. Put the old one back in the parsed
-      // copy, since the scanner resolves a reference only against a name the flow
-      // declares -- with the block renamed, nothing still points at it.
-      flatBlocks[i].flowName = oldName;
-
-      var scanner = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) });
-      var graph   = scanner.scan(blocks);
-
-      var nameOf = {};
-      graph.nodes.forEach(n => { nameOf[n.id] = n.name; });
-
-      var id         = graph.nodes[i].id;
-      var dependents = [...new Set(graph.edges.filter(e => e.source === id).map(e => nameOf[e.target]))];
+      // `dependencies` was last refreshed while the block still carried its old
+      // name, so it still lists the blocks that spell it.
+      var dependents = block.dependencies;
       if ( ! dependents.length ) return;
 
       var self  = this;
@@ -2081,7 +2067,8 @@ foam.CLASS({
           name: 'renameAndUpdate',
           label: 'Rename and Update References',
           code: function() {
-            scanner.rewrite(blocks, { [oldName]: newName });
+            var blocks = JSON.parse(self.generateScriptString());
+            self.DependencyScanner.create({ ignore: Object.keys(self.localScope) }).rewrite(blocks, { [oldName]: newName });
             self.value.script = JSON.stringify(blocks);
           }
         }),

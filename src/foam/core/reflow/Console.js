@@ -1984,66 +1984,37 @@ foam.CLASS({
     },
 
     function deleteFlowChild(block) {
-      /** Deleting a block leaves every reference to it dangling, and the blocks that
-          break take their own dependents down with them. Name the whole group and
-          offer to remove it in one step. */
-      var blocks     = JSON.parse(this.generateScriptString());
-      var flatBlocks = this.flattenFlow(blocks);
-      var i          = this.flattenFlow(this.flowChildren).indexOf(block);
-
-      var removeOne = () => {
-        block.deleted_ = true;
-        block.flowParent.removeFlowChild(block);
-      };
-
-      if ( i < 0 || ! flatBlocks[i] ) { removeOne(); return; }
-
-      var graph  = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
-      var nameOf = {};
-      graph.nodes.forEach(n => { nameOf[n.id] = n.name; });
-
-      // Breadth-first along the edges, which run from a block to the blocks naming it.
-      // `via` keeps the one that first reached each, so the modal can say how it got there.
-      var start = graph.nodes[i].id;
-      var seen  = { [start]: true };
-      var queue = [ start ];
-      var order = [];
-      var via   = {};
-
-      while ( queue.length ) {
-        var id = queue.shift();
-        graph.edges.forEach(e => {
-          if ( e.source !== id || seen[e.target] ) return;
-          seen[e.target] = true;
-          via[e.target]  = id;
-          order.push(e.target);
-          queue.push(e.target);
+      /** A block's `dependencies` names the blocks that read it. Walk them
+          breadth-first to the whole group that breaks with it, and offer to
+          remove the group in one step. Each block goes out through its parent;
+          the merged onFlowChildrenChange then writes the script once, so undo
+          brings the whole group back together. */
+      var doomed = [ block ];
+      var via    = {};
+      for ( var i = 0 ; i < doomed.length ; i++ ) {
+        doomed[i].dependencies.forEach(name => {
+          var d = this.findFlowChildByName(name);
+          if ( d && doomed.indexOf(d) == -1 ) { via[name] = doomed[i].flowName; doomed.push(d); }
         });
       }
 
-      if ( ! order.length ) { removeOne(); return; }
+      var remove = () => doomed.forEach(b => {
+        b.deleted_ = true;
+        b.flowParent.removeFlowChild(b);
+      });
 
-      var byId = {};
-      graph.nodes.forEach((n, k) => { byId[n.id] = flatBlocks[k]; });
+      if ( doomed.length == 1 ) { remove(); return; }
 
-      var self   = this;
-      var doomed = new Set([ start, ...order ].map(id => byId[id]));
-
-      var modal = this.ConfirmationModal.create({
-        title: 'Deleting "' + nameOf[start] + '"',
+      var others = doomed.slice(1);
+      var modal  = this.ConfirmationModal.create({
+        title: 'Deleting "' + block.flowName + '"',
         modalStyle: 'DESTRUCTIVE',
         maxWidth: '35vw',
         closeable: false,
         primaryAction: foam.lang.Action.create({
           name: 'deleteAll',
-          label: 'Delete all ' + ( order.length + 1 ),
-          code: function() {
-            // Dropping a block takes its children with it, so prune by identity and
-            // never recurse into one that is going.
-            var prune = list => list.filter(b => ! doomed.has(b)).
-              map(b => { if ( b.flowChildren ) b.flowChildren = prune(b.flowChildren); return b; });
-            self.value.script = JSON.stringify(prune(blocks));
-          }
+          label: 'Delete all ' + doomed.length,
+          code: remove
         }),
         secondaryAction: foam.lang.Action.create({
           name: 'cancel',
@@ -2052,10 +2023,10 @@ foam.CLASS({
         })
       });
 
-      modal.add(order.length + ( order.length == 1 ? ' other block depends' : ' other blocks depend' ) +
+      modal.add(others.length + ( others.length == 1 ? ' other block depends' : ' other blocks depend' ) +
         ' on it: ' +
-        order.map(id => nameOf[id] + ( via[id] === start ? '' : ' (via ' + nameOf[via[id]] + ')' )).join(', ') +
-        '. Remove ' + ( order.length == 1 ? 'it' : 'them' ) + ' too?');
+        others.map(b => b.flowName + ( via[b.flowName] === block.flowName ? '' : ' (via ' + via[b.flowName] + ')' )).join(', ') +
+        '. Remove ' + ( others.length == 1 ? 'it' : 'them' ) + ' too?');
       this.add(modal);
     },
 
